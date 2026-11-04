@@ -167,7 +167,8 @@ bool Fsr3::State::build_shaders(std::string& error) {
                "temporal object motion",
                scene ? scene->deformation_vertex(shaders::motion_vert)
                      : std::string(shaders::motion_vert),
-               shaders::motion_frag,
+               scene ? scene->motion_fragment(shaders::motion_frag)
+                     : std::string(shaders::motion_frag),
                error
            )
            && reactive_mask.build(

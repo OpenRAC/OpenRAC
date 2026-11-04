@@ -28,6 +28,7 @@ struct AtmosphereSettings {
     float distance = 750;
     float sun_strength = .15f;
     float anisotropy = .3f;
+    float jitter_size = 1.0f;  // Fraction of the froxel used for sun-shadow jitter.
     std::array<AtmosphereVolume, 8> volumes{};
 };
 

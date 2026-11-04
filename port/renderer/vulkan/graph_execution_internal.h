@@ -28,7 +28,10 @@ struct GraphExecution::Recording {
     bool recording = false;
     bool executed = false;  // A compiled entry state can be consumed only once.
     // Canonicalises a borrowed allocation after pending attachment work has finished.
-    Result<graph::ImageHandle> import_image(std::string name, detail::ImagePtr image, bool defined);
+    // `written`: the open pass drew into it, so it holds that even while it is marked let go.
+    Result<graph::ImageHandle> import_image(
+        std::string name, detail::ImagePtr image, bool defined, bool written = false
+    );
     // Imports an allocation, preserving exact offsets for ring-backed read-only regions.
     Result<renderer::graph::BufferHandle> import_buffer(
         std::string name, detail::BufferRef region, bool defined

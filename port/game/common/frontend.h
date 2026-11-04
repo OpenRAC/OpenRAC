@@ -14,11 +14,18 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <string>
 
+#include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
+
+namespace openrac::enhanced {
+struct FoliageControls;
+struct MaterialEditor;
+}  // namespace openrac::enhanced
 
 namespace openrac::controls {
 class Store;
@@ -76,6 +83,11 @@ int hud_side();
 // How many times wider than 4:3 the picture is, at least 1 (openrac_game_picture_wider): what the
 // frame's horizontal tangent is the game's times (render's projection, picture_scale).
 float picture_wider();
+
+// How many times the Field of View setting opened the last frame's gameplay camera, at least 1
+// (openrac_game_view_opened); set by the frame that applies it (frontend/scene_frame.cpp).
+float view_opened();
+void set_view_opened(float opened);
 
 // A sky sprite the game drew this frame (openrac_game_sky_sprite).
 void sky_sprite(const std::uint8_t* record, std::uint64_t tex0);
@@ -240,6 +252,32 @@ bool keep_picture();
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
+
+// Shares immutable material inspector data only while the render worker is idle.
+std::shared_ptr<const enhanced::MaterialEditor> material_editor();
+// Applies one validated sparse property edit with exclusive scene ownership.
+bool patch_material(
+    std::size_t binding, std::string key, materials::Value value, std::string& error
+);
+// Applies one shared preset field with the same scene ownership and validation as object edits.
+bool patch_material_preset(
+    const std::string& preset, std::string key, materials::Value value, std::string& error
+);
+// Removes one unsaved object field so it inherits the last loaded/saved value.
+bool undo_material(std::size_t binding, const std::string& key, std::string& error);
+// Removes one unsaved shared preset field while retaining other edits.
+bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error);
+// Saves the local JSON overlay, preserving the old file on failure.
+bool save_materials(std::string& error);
+// Discards session edits and restores the loaded/saved catalog.
+void reset_materials();
+
+// Copies live foliage controls on the window thread, with exclusive scene ownership; empty while rendering.
+enhanced::FoliageControls foliage_controls();
+// Applies an entire validated session edit; false with error if the catalog changed or values are invalid.
+bool set_foliage_controls(const enhanced::FoliageControls& controls, std::string& error);
+// Restores loaded profile values on the window thread, without writing asset files.
+void reset_foliage_controls();
 
 void close();
 

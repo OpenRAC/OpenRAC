@@ -269,6 +269,17 @@ void test_frame_counter_modes(const std::filesystem::path& file) {
     }
 }
 
+void test_gpu_breadcrumbs_setting(const std::filesystem::path& file) {
+    namespace settings = openrac::settings;
+    std::ofstream(file) << "show_fps = 0\n";
+    settings::load(file);
+    CHECK(settings::get().gpu_breadcrumbs);
+    settings::get().gpu_breadcrumbs = false;
+    settings::save();
+    settings::load(file);
+    CHECK(!settings::get().gpu_breadcrumbs);
+}
+
 // Returns the whole of `file` as text.
 std::string read_file(const std::filesystem::path& file) {
     std::ifstream in(file);
@@ -348,7 +359,8 @@ void test_first_start_display(const std::filesystem::path& file) {
     CHECK(mode_after("enhanced_rendering = 1\n", false) == DisplayMode::Borderless);
     // A player's own choice stays, whatever it is.
     CHECK(mode_after("display_mode = windowed\n", false) == DisplayMode::Windowed);
-    CHECK(mode_after("display_mode = fullscreen\n", false) == DisplayMode::Fullscreen);
+    // The old exclusive full screen is borderless now.
+    CHECK(mode_after("display_mode = fullscreen\n", false) == DisplayMode::Borderless);
     CHECK(mode_after("display_mode = something\n", false) == DisplayMode::Windowed);
     // The older key: false is a choice of the window too.
     CHECK(mode_after("fullscreen = false\n", false) == DisplayMode::Windowed);
@@ -426,6 +438,7 @@ int main() {
     test_volumetric_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);
+    test_gpu_breadcrumbs_setting(file);
     test_game_options_load_from_the_file(file);
     test_game_options_are_saved_when_they_change(file);
     test_bindings_survive_a_save(file);

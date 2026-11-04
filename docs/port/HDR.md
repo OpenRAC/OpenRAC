@@ -67,8 +67,9 @@ on every display, so `on` on a non-HDR screen just gets squeezed back into SDR.
   clamp as before, so the game reads back the same values.
 - `renderer/vulkan/surface_format.h` picks the swapchain format. SDR picks the same format as
   before. HDR picks HDR10 or scRGB if the device can write it, else falls back to SDR.
-- `hdr_output.cpp` and `shaders/hdr_encode.comp`: one compute pass writes the frame into the
-  swapchain image, instead of the SDR copy. It also sends HDR metadata (peak, MaxCLL = peak,
+- The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
+  the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
+  `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
   MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
   its own image and copies it.
 

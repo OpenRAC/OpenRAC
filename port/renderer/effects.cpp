@@ -3,6 +3,7 @@
 
 #include "renderer/effects.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <set>
@@ -161,23 +162,71 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
 
     glGenVertexArrays(1, &m_vao);
     glGenBuffers(1, &m_vbo);
-    glBindVertexArray(m_vao);
+    bind_vertex_stream(m_vao, 0);
+    if (gl::is_vulkan()) {
+        glGenVertexArrays(1, &m_quad_vao);
+        glGenBuffers(1, &m_quad_indices);
+    }
+    glBindVertexArray(0);
+    return true;
+}
+
+void EffectRenderer::bind_vertex_stream(unsigned vao, std::size_t first) {
+    glBindVertexArray(vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     constexpr auto stride = static_cast<GLsizei>(sizeof(Vertex));
+    const auto offset = first * sizeof(Vertex);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(
-        0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, x))
+        0,
+        3,
+        GL_FLOAT,
+        GL_FALSE,
+        stride,
+        reinterpret_cast<const void*>(offset + offsetof(Vertex, x))
     );
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(
-        1, 2, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<const void*>(offsetof(Vertex, s))
+        1,
+        2,
+        GL_FLOAT,
+        GL_FALSE,
+        stride,
+        reinterpret_cast<const void*>(offset + offsetof(Vertex, s))
     );
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(
-        2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, reinterpret_cast<const void*>(offsetof(Vertex, r))
+        2,
+        4,
+        GL_UNSIGNED_BYTE,
+        GL_TRUE,
+        stride,
+        reinterpret_cast<const void*>(offset + offsetof(Vertex, r))
     );
-    glBindVertexArray(0);
-    return true;
+}
+
+void EffectRenderer::reserve_quad_indices(std::size_t quads) {
+    if (quads <= m_quad_capacity) {
+        return;
+    }
+    const auto capacity = std::max(quads, m_quad_capacity * 2);
+    std::vector<std::uint32_t> indices;
+    indices.reserve(capacity * 6);
+    for (std::size_t quad = 0; quad < capacity; ++quad) {
+        const auto first = static_cast<std::uint32_t>(quad * 4);
+        for (unsigned corner : {0u, 1u, 2u, 1u, 2u, 3u}) {
+            indices.push_back(first + corner);
+        }
+    }
+    glBindVertexArray(m_quad_vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_quad_indices);
+    glBufferData(
+        GL_ELEMENT_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(indices.size() * sizeof(indices[0])),
+        indices.data(),
+        GL_STATIC_DRAW
+    );
+    m_quad_capacity = capacity;
 }
 
 void EffectRenderer::use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view) {
@@ -306,6 +355,16 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         m_shader.use();
     }
     const std::size_t quads_from = m_vertices.size();
+    if (quads) {
+        stats::gauge(
+            "effect quad vertex bytes",
+            double(input.effects.size() * (m_quad_indices ? 4 : 6) * sizeof(Vertex))
+        );
+    }
+    constexpr std::array corners{0, 1, 2, 1, 2, 3};
+    constexpr std::array indexed_corners{0, 1, 2, 3};
+    const std::span<const int> order =
+        m_quad_indices ? std::span<const int>(indexed_corners) : std::span<const int>(corners);
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's, which spans
@@ -318,7 +377,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
             t_from = 1.0f;
         }
         // The strip's two triangles, 0-1-2 and 1-2-3 (the faces are not culled).
-        for (const int k : {0, 1, 2, 1, 2, 3}) {
+        for (const int k : order) {
             m_vertices.push_back(
                 {q.corner[k][0],
                  q.corner[k][1],
@@ -341,6 +400,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
         m_vertices.data(),
         GL_STREAM_DRAW
     );
+    if (quads && m_quad_indices) {
+        reserve_quad_indices(input.effects.size());
+    }
 
     geometry.reset();
 
@@ -484,6 +546,12 @@ void EffectRenderer::release() {
     m_shader.release();
     m_quad_shader.release();
     m_active_shader = nullptr;
+    if (m_quad_indices) {
+        glDeleteVertexArrays(1, &m_quad_vao);
+        glDeleteBuffers(1, &m_quad_indices);
+        m_quad_indices = m_quad_vao = 0;
+        m_quad_capacity = 0;
+    }
     if (m_vbo != 0) {
         glDeleteBuffers(1, &m_vbo);
         m_vbo = 0;

@@ -268,6 +268,22 @@ void PlayingSound::set_pitch_bend(s32 bend) {
     update_pitch();
 }
 
+void PlayingSound::set_parameters(u32 which, s32 volume, s32 pan, s32 modifier, s32 bend) {
+    set_volume_pan(
+        which & 1 ? volume : SoundStart::kKeepVolume, which & 6 ? pan : SoundStart::kKeepPan
+    );
+
+    // The pitch modifier was named.
+    if (which & 8) {
+        set_pitch_modifier(modifier);
+    }
+
+    // The pitch bend was named.
+    if (which & 0x10) {
+        set_pitch_bend(bend);
+    }
+}
+
 void PlayingSound::run_next_grain() {
     Grain& grain = sfx_->grains[static_cast<std::size_t>(next_grain_)];
     s32 extra = run_grain(grain);

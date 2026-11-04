@@ -36,6 +36,11 @@ struct FurMaterialSettings {
     float directionality = .88f;
     float scattering = .33f;
     float environment_strength = 1.85f;
+    bool shells_enabled = false;  // Optional geometry prototype, separate from surface shading.
+    int shell_layers = 10;        // Bounded extra copies of the verified body surface.
+    float shell_length = .02f;    // Fraction of the verified bind-pose body's largest extent.
+    float shell_density = 128;    // Stable strand cells across the UV atlas.
+    float shell_distance = 24;    // Geometry fades out before the surface material does.
 };
 
 [[nodiscard]] FurMaterialSettings fur_material_settings();
@@ -106,11 +111,21 @@ public:
         const scene::LevelData& level, const FurProfile& profile
     );  // Unknown layouts opt out.
     void prepare(
-        const std::optional<scene::Instance>& hero
+        const std::optional<scene::Instance>& hero, const renderer::Vec3& eye = {}
     );  // Selects the current body's palette.
     void bind(
         const renderer::Shader& shader
-    ) const;         // Supplies maps to production colour variants.
+    ) const;  // Supplies maps to production colour variants.
+    // Binds cached per-material controls; coverage resources and eligibility remain unchanged.
+    void bind(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
+    // Updates optical uniforms without rebinding coverage maps or eligibility buffers.
+    void bind_material(const renderer::Shader& shader, const FurMaterialSettings& settings) const;
+    // Only the current verified hero model can submit extra surface layers.
+    [[nodiscard]] int shell_layers(
+        std::uint32_t model, std::uint32_t first, std::uint32_t count
+    ) const;
+    // Zero restores the original surface; positive indices select successive coat slices.
+    void bind_shell(const renderer::Shader& shader, int layer) const;
     void release();  // Called with the owning render context current.
 
 private:
@@ -119,5 +134,8 @@ private:
     unsigned m_detail = 0;
     unsigned m_vertices = 0;
     int m_palette = -1;
+    std::uint32_t m_first_index = 0, m_index_count = 0;  // Verified material's index range.
+    float m_eye_distance = 0;  // Shared fade for colour and current/previous velocity poses.
+    float m_body_extent = 0;   // Coat length converted to the model's own vertex units.
 };
 }  // namespace openrac::enhanced

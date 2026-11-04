@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "common/profiler.h"
 #include "enhanced/fsr3/sdk_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -159,6 +160,7 @@ struct SdkContext::State {
         description.cameraFar = frame.near_plane;
         description.cameraFovAngleVertical = frame.vertical_fov;
         description.viewSpaceToMetersFactor = 1;
+        const profiling::Zone timing("FidelityFX SDK dispatch");
         return ffxFsr3UpscalerContextDispatch(&context, &description);
     }
 };

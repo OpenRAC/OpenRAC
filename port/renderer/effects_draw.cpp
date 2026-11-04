@@ -4,6 +4,7 @@
 // EffectRenderer's fused strip/quad recorder, preserving shared batch state and material order.
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <source_location>
 #include <stdexcept>
@@ -16,6 +17,24 @@
 
 namespace openrac::renderer {
 using namespace gl;
+
+namespace {
+
+// Key only the sampler and blend controls that EffectRenderer::apply reads.
+void normalize_quad_state(std::uint64_t& tex1, std::uint64_t& clamp, std::uint64_t& alpha) {
+    const auto filter = gs::Tex1::decode(tex1);
+    const bool linear_min = filter.mmin == 1 || filter.mmin == 4 || filter.mmin == 5;
+    tex1 = (std::uint64_t(filter.mmag) << 5) | (std::uint64_t(linear_min) << 6);
+
+    const auto wrap = gs::Clamp::decode(clamp);
+    clamp = std::uint64_t(wrap.wms != gs::Wrap::Repeat)
+            | (std::uint64_t(wrap.wmt != gs::Wrap::Repeat) << 2);
+
+    // FIX only participates in the blend when C selects it.
+    alpha &= gs::Alpha::decode(alpha).c == 2 ? 0xFF000000FFull : 0xFFull;
+}
+
+}  // namespace
 
 // ---- Ordered effect draws ----
 
@@ -99,8 +118,16 @@ void EffectRenderer::draw_prepared(
     };
 
     std::optional<State> set;
+    bool quad_indices = false;
     const auto draw_batch = [&] {
-        glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
+        if (quad_indices) {
+            const auto offset = static_cast<std::uintptr_t>(batch.first) * sizeof(std::uint32_t);
+            glDrawElements(
+                GL_TRIANGLES, batch.count, GL_UNSIGNED_INT, reinterpret_cast<const void*>(offset)
+            );
+        } else {
+            glDrawArrays(GL_TRIANGLES, batch.first, batch.count);
+        }
         state.stats.draw_calls++;
         state.stats.triangles += static_cast<std::uint64_t>(batch.count / 3);
     };
@@ -329,13 +356,21 @@ void EffectRenderer::draw_prepared(
     }
 
     set.reset();
-    at = static_cast<GLint>(quads_from);
+    quad_indices = quads && m_quad_indices != 0;
+    if (quad_indices) {
+        bind_vertex_stream(m_quad_vao, quads_from);
+    }
+    at = quad_indices ? 0 : static_cast<GLint>(quads_from);
     Shader* const quad_shader = m_active_shader;
     unsigned tested_quads = 0;
+    unsigned texture_splits = 0, sampler_splits = 0, blend_splits = 0;
 
     // Captured quad order preserves back-to-front blending across shader switches.
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
         State wanted{q.tex0, q.tex1, q.clamp, q.alpha, q.tbp, q.cbp, 0};
+        if (quad_indices) {
+            normalize_quad_state(wanted.tex1, wanted.clamp, wanted.alpha);
+        }
         Shader* shader = quad_shader;
 
         // Captured list registers override quad alpha testing and depth writes.
@@ -366,12 +401,23 @@ void EffectRenderer::draw_prepared(
             set.reset();
         }
 
+        if (batch.count > 0 && set) {
+            texture_splits +=
+                wanted.tex0 != set->tex0 || wanted.tbp != set->tbp || wanted.cbp != set->cbp;
+            sampler_splits += wanted.tex1 != set->tex1 || wanted.clamp != set->clamp;
+            blend_splits += wanted.alpha != set->alpha;
+        }
         add(wanted, at, 6, true);
         at += 6;
     }
 
     flush();
     stats::gauge("effect quads alpha tested", tested_quads);
+    if (quads && gl::is_vulkan()) {
+        stats::gauge("effect quad texture splits", texture_splits);
+        stats::gauge("effect quad sampler splits", sampler_splits);
+        stats::gauge("effect quad blend splits", blend_splits);
+    }
     stats::gauge("effects uploads reused", double(reused_uploads));
 
     // The material publishes counters after its final draw.

@@ -28,6 +28,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/breadcrumbs.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
@@ -471,6 +472,7 @@ void draw_overlay(const FramePresentation& output) {
 
 // Composites debug UI and presents on the window thread, after exclusive graphics ownership returns.
 void present_frame(FramePresentation& output) {
+    const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     // A between-tick job keeps draw logging suppressed through its later presentation too.
     struct RestoreDrawDump {
         bool previous = renderer::g_dump_draws;
@@ -563,10 +565,12 @@ bool finish_render() try {
 } catch (const std::exception& failure) {
     g->render_failed = true;
     log::error("cannot finish render: {}", failure.what());
+    crash::report(failure.what(), crash::Kind::Exception);
     return false;
 } catch (...) {
     g->render_failed = true;
     log::error("cannot finish render: unknown exception");
+    crash::report("cannot finish render: unknown exception", crash::Kind::Exception);
     return false;
 }
 
@@ -622,10 +626,12 @@ void draw_kept(bool first) try {
     g->pending_frame.reset();
     g->render_failed = true;
     log::error("cannot prepare render snapshot: {}", failure.what());
+    crash::report(failure.what(), crash::Kind::Exception);
 } catch (...) {
     g->pending_frame.reset();
     g->render_failed = true;
     log::error("cannot prepare render snapshot: unknown exception");
+    crash::report("cannot prepare render snapshot: unknown exception", crash::Kind::Exception);
 }
 
 // ---- Between ticks ----

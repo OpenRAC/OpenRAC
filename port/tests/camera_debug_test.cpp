@@ -189,6 +189,44 @@ void test_slow_movement() {
     CHECK(std::abs(camera.position[0] - .25f) < 1e-5f);
 }
 
+// A gamepad's analog push flies as far as it is pushed; a full diagonal is no faster than one axis.
+void test_analog_movement() {
+    scene::FlyCamera camera;
+    scene::FlyControls controls;
+    controls.normalise_movement = true;
+    controls.ahead = .5f;
+    camera.update(controls, .05f);
+    CHECK(std::abs(camera.position[0] - .5f) < 1e-5f);
+    camera.position = {};
+    controls.ahead = 1;
+    controls.sideways = 1;
+    controls.vertical = 1;
+    camera.update(controls, .05f);
+    CHECK(std::abs(renderer::dot(camera.position, camera.position) - 1) < 1e-5f);
+    // A key and a stick in the same direction are not faster than either.
+    camera.position = {};
+    controls = {};
+    controls.normalise_movement = controls.forward = true;
+    controls.ahead = 1;
+    camera.update(controls, .05f);
+    CHECK(std::abs(camera.position[0] - 1) < 1e-5f);
+}
+
+// A stick's dead zone is round, and the push rises from it to the rim with its direction kept.
+void test_stick_dead_zone() {
+    float x = .1f;
+    float y = -.1f;
+    scene::stick_past_dead_zone(x, y, .2f);
+    CHECK(x == 0 && y == 0);
+    x = .6f;
+    y = 0;
+    scene::stick_past_dead_zone(x, y, .2f);
+    CHECK(std::abs(x - .5f) < 1e-5f && y == 0);
+    x = y = 1;
+    scene::stick_past_dead_zone(x, y, .2f);
+    CHECK(std::abs(x - y) < 1e-6f && std::abs(x * x + y * y - 1) < 1e-5f);
+}
+
 // Every finite endpoint projects onto a true clip-space corner, including asymmetric lenses.
 void check_clip(const renderer::Mat4& clip) {
     std::vector<renderer::DebugLineVertex> lines;
@@ -226,6 +264,8 @@ int main() {
     test_default_free_look();
     test_normalise_movement();
     test_slow_movement();
+    test_analog_movement();
+    test_stick_dead_zone();
     test_clip_geometry();
     return openrac::test::result();
 }

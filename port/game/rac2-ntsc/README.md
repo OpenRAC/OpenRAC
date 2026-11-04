@@ -51,8 +51,8 @@ port`) when their stamp, `levels-<format>.json` with the format of
 `editor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
 the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
-`tools/build_port.py rac2-ntsc --disc {disc}`. Both are `"developer": true`, so a player's
-launcher does not show them.
+`tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first; Build
+the game is `"developer": true`, so a player's launcher does not show it.
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader

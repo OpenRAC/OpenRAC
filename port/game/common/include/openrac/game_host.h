@@ -834,6 +834,11 @@ int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
 float openrac_game_picture_wider(void);
 
+/* How many times the player's Field of View opens the gameplay camera's tangents (both of them),
+ * at least 1: the frame's view tests open by as much, so that what the wider view shows is not
+ * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
+float openrac_game_view_opened(void);
+
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The
  * pointer stays good for the program's life and follows the player's setting, so the code a fix
@@ -932,6 +937,7 @@ void openrac_game_option_step(int row, int by);
 void openrac_game_option_word(const char* english, char* out, int size);
 
 /* Nonzero only while the enhanced Novalis water replacement is ready and enabled. */
+/* 0 for original water, 1 for enhanced local water, 2 for a full ocean replacement. */
 int openrac_game_enhanced_water(void);
 
 /* ---- Developer tools ---- */

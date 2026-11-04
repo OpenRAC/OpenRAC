@@ -265,7 +265,9 @@
         <button class="ghost small grow" disabled={working} onclick={() => void undo()}>{T.undo}</button>
         {#if review?.party}
           <button class="ghost" disabled={working} onclick={closeCode}>{T.close}</button>
-          <button class="primary" disabled={working} onclick={() => void playAndJoin()}>{T.playAndJoin(review.party)}</button>
+          <button class="primary" disabled={working} onclick={() => void playAndJoin()}
+            >{T.playAndJoin(review.party)}</button
+          >
         {:else}
           <button class="primary" disabled={working} onclick={closeCode}>{T.close}</button>
         {/if}

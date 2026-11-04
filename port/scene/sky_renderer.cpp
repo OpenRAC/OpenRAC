@@ -132,6 +132,7 @@ void LevelScene::draw_sky(const renderer::FrameInput& input, renderer::RenderSta
     glBlendEquation(GL_FUNC_ADD);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
     glActiveTexture(GL_TEXTURE0);
+    const int tint_uniform = m_sky.uniform("sky_tint");
     // Shell models retain their exported instance and blend order.
     for (const Group& group : m_groups[static_cast<std::size_t>(Layer::Sky)]) {
         glBindVertexArray(group.vao);
@@ -145,6 +146,10 @@ void LevelScene::draw_sky(const renderer::FrameInput& input, renderer::RenderSta
             state.textures.bind_upscaled_texture_colours(
                 texture, m_sky, input.texture_filter, !material.clamp_s, !material.clamp_t
             );
+            // Material tint changes only the RGB of this shell, preserving its alpha.
+            const auto tint = m_lighting ? m_lighting->sky_tint(group.model, primitive.material)
+                                         : std::array<float, 3>{1, 1, 1};
+            glUniform3f(tint_uniform, tint[0], tint[1], tint[2]);
             const auto shell = sky_shell_matrix(input, primitive.shell);
             glUniformMatrix4fv(m_sky.uniform("shell"), 1, GL_FALSE, shell.data());
             glDrawElementsInstanced(

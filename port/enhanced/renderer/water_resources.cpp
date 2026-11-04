@@ -7,10 +7,14 @@
 #include <string>
 #include <vector>
 
+#include "common/stats.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/world/gl_world.h"
+#ifdef OPENRAC_VULKAN
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::enhanced::water_detail {
 using namespace gl;
@@ -146,10 +150,131 @@ bool Water::init(std::string& error) {
             GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, map == m_maps[0] ? GL_REPEAT : GL_CLAMP_TO_EDGE
         );
     }
+    // Ocean variants share one texture between the FFT row and the coastal coefficients.
+    if (!m_ocean_pixels.empty()) {
+        const int side = int(m_ocean_grid[3]);
+        glGenTextures(1, &m_ocean_texture);
+        glBindTexture(GL_TEXTURE_2D, m_ocean_texture);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            wgl::GL_RGBA32F,
+            side,
+            side + 1,
+            0,
+            GL_RGBA,
+            GL_FLOAT,
+            m_ocean_pixels.data()
+        );
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    if (m_ocean_spectra[0]) {
+        if (!m_ocean_fft
+                 .build_compute("ocean inverse FFT", lighting::shaders::ocean_fft_comp, error)) {
+            return false;
+        }
+        glGenBuffers(int(m_ocean_fft_buffers.size()), m_ocean_fft_buffers.data());
+        std::vector<Texel> seed(kOceanCells);
+        for (std::size_t i = 0; i < m_ocean_spectra.size(); ++i) {
+            const auto& spectrum = *m_ocean_spectra[i];
+            for (int j = 0; j < kOceanCells; ++j) {
+                seed[j] =
+                    {float(spectrum.seed[j].real()),
+                     float(spectrum.seed[j].imag()),
+                     float(spectrum.frequency[j]),
+                     0};
+            }
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ocean_fft_buffers[i]);
+            glBufferData(
+                GL_SHADER_STORAGE_BUFFER,
+                GLsizeiptr(seed.size() * sizeof(Texel)),
+                seed.data(),
+                GL_STATIC_DRAW
+            );
+        }
+        // Scratch holds both transform stages. Each output is one RGBA grid.
+        for (std::size_t i = 2; i < m_ocean_fft_buffers.size(); ++i) {
+            glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_ocean_fft_buffers[i]);
+            glBufferData(
+                GL_SHADER_STORAGE_BUFFER,
+                GLsizeiptr(kOceanCells * sizeof(Texel) * (i == 2 ? 2 : 1)),
+                nullptr,
+                GL_DYNAMIC_DRAW
+            );
+        }
+        glGenTextures(int(m_ocean_detail_textures.size()), m_ocean_detail_textures.data());
+        for (const unsigned texture : m_ocean_detail_textures) {
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(
+                GL_TEXTURE_2D,
+                0,
+                wgl::GL_RGBA32F,
+                kOceanSide,
+                kOceanSide,
+                0,
+                GL_RGBA,
+                GL_FLOAT,
+                nullptr
+            );
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        }
+    }
     glActiveTexture(GL_TEXTURE0);
     contact_source = this;
+    if (m_ocean_spectra[0]) {
+        begin_ocean_material(m_ocean_material);
+    }
+    ocean_ready.store(bool(m_ocean_spectra[0]));
     water_ready.store(!water_disabled());
     return true;
+}
+
+void Water::update_ocean() {
+#ifdef OPENRAC_VULKAN
+    if (!m_ocean_detail_textures[0] || m_ocean_fft_time == m_time) {
+        return;
+    }
+    m_ocean_fft.use();
+    glUniform1f(m_ocean_fft.uniform("ocean_clock"), float(m_time));
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_ocean_fft_buffers[2]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_ocean_fft_buffers[3]);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_ocean_fft_buffers[4]);
+    for (std::size_t i = 0; i < m_ocean_spectra.size(); ++i) {
+        // Include the texture uploads that make this cascade available to shading.
+        const stats::Scope timing(i == 0 ? "Ocean FFT swell" : "Ocean FFT detail", stats::kGpu);
+        const auto& spectrum = *m_ocean_spectra[i];
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_ocean_fft_buffers[i]);
+        glUniform1i(m_ocean_fft.uniform("ocean_choppy"), i == 0 ? 1 : 0);
+        glUniform2f(
+            m_ocean_fft.uniform("ocean_scale"),
+            float(spectrum.gain),
+            float(kOceanSide / (2 * spectrum.tile))
+        );
+        for (int pass = 0; pass < 3; ++pass) {
+            glUniform1i(m_ocean_fft.uniform("ocean_pass"), pass);
+            glDispatchCompute(kOceanSide, 1, 1);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        }
+        if (!vkgl::copy_buffer_to_texture(
+                m_ocean_fft_buffers[3], m_ocean_detail_textures[i], kOceanSide, kOceanSide
+            )) {
+            return;
+        }
+        if (i == 0
+            && !vkgl::copy_buffer_to_texture(
+                m_ocean_fft_buffers[4], m_ocean_detail_textures[2], kOceanSide, kOceanSide
+            )) {
+            return;
+        }
+    }
+    m_ocean_fft_time = m_time;
+#endif
 }
 
 // Release all GPU-owned water resources, including the transmission snapshot.
@@ -158,8 +283,9 @@ void Water::release() {
         contact_source = nullptr;
     }
     water_ready.store(false);
+    ocean_ready.store(false);
     m_background.release();
-    m_background_ready = false;
+    m_background_textures = {};
     m_step.release();
     m_window_prepare.release();
     m_light.release();
@@ -172,6 +298,20 @@ void Water::release() {
     if (m_maps[0]) {
         glDeleteTextures(2, m_maps.data());
     }
+    if (m_ocean_texture) {
+        glDeleteTextures(1, &m_ocean_texture);
+        m_ocean_texture = 0;
+    }
+    if (m_ocean_detail_textures[0]) {
+        glDeleteTextures(int(m_ocean_detail_textures.size()), m_ocean_detail_textures.data());
+        m_ocean_detail_textures = {};
+    }
+    m_ocean_fft.release();
+    if (m_ocean_fft_buffers[0]) {
+        glDeleteBuffers(int(m_ocean_fft_buffers.size()), m_ocean_fft_buffers.data());
+        m_ocean_fft_buffers = {};
+    }
+    m_ocean_fft_time = -1;
     m_mesh->release();
     m_maps = {};
     m_buffers = {};

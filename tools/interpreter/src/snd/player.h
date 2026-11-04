@@ -222,8 +222,9 @@ private:
     bool make_room(const Sfx* sfx, s32 volume);
 
     std::map<u32, std::unique_ptr<Bank>> banks_;           // Loaded banks, by their numbers.
-    std::map<u32, std::unique_ptr<PlayingSound>> sounds_;  // Playing sounds, by their numbers.
+    // Before the sounds: a sound stops its voices when it is destroyed, so they must outlive it.
     std::deque<Slot> slots_;                               // Voices; a free one is used again.
+    std::map<u32, std::unique_ptr<PlayingSound>> sounds_;  // Playing sounds, by their numbers.
     std::array<s32, kGroups> group_volume_;                // Each group's volume, 1,024 for full.
     std::array<s8, 32> shared_registers_ = {};             // The registers all sounds share.
     s8 spare_register_ = 0;                                // Stands in for one out of range.

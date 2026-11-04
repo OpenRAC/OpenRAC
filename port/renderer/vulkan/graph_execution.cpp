@@ -9,33 +9,13 @@
 #include <exception>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "renderer/vulkan/graph_barriers.h"
 #include "renderer/vulkan/graph_execution_internal.h"
 #include "renderer/vulkan/surface_batch.h"
 
 namespace openrac::vkgl {
 namespace graph = renderer::graph;
-
-namespace {
-// Orders one exact buffer range; texel-buffer sampling and SSBO reads share shader-read access.
-void record_buffer_barrier(
-    VkCommandBuffer command, const graph::Barrier& transition, const detail::BufferRef& buffer
-) {
-    const auto& range = std::get<graph::BufferRange>(transition.range);
-    VkBufferMemoryBarrier barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    barrier.srcAccessMask = detail::access_of(transition.before);
-    barrier.dstAccessMask = detail::access_of(transition.after);
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.buffer = buffer.buffer;
-    barrier.offset = buffer.offset + range.offset;
-    barrier.size = range.size;
-    const VkPipelineStageFlags source = detail::stages_of(transition.before.stages);
-    const VkPipelineStageFlags destination = detail::stages_of(transition.after.stages);
-    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-    detail::count_barrier(source, destination);
-}
-}  // namespace
 
 GraphExecution::GraphExecution() : m_recording(std::make_unique<Recording>()) {}
 
@@ -53,8 +33,10 @@ Result<graph::ImageHandle> GraphExecution::import_image(
         return unexpected(Error{"graph image import requires Vulkan"});
     }
 
-    end_rendering();
     const auto* found = g->textures.find(texture);
+    if (found && found->image) {
+        end_rendering_for(found->image.get());
+    }
 
     // The legacy tracker cannot represent independently transitioned mip levels yet.
     if (!found || !found->image || found->image->levels != 1) {
@@ -66,7 +48,7 @@ Result<graph::ImageHandle> GraphExecution::import_image(
 }
 
 Result<graph::ImageHandle> GraphExecution::Recording::import_image(
-    std::string name, detail::ImagePtr image, bool defined
+    std::string name, detail::ImagePtr image, bool defined, bool written
 ) {
     using namespace detail;
     const graph::Aspect aspect =
@@ -75,7 +57,9 @@ Result<graph::ImageHandle> GraphExecution::Recording::import_image(
                                            ? VK_IMAGE_ASPECT_DEPTH_BIT
                                            : VK_IMAGE_ASPECT_COLOR_BIT;
     const bool contents =
-        defined && image->layout != VK_IMAGE_LAYOUT_UNDEFINED && !(image->discarded & sampled);
+        defined
+        && (written
+            || (image->layout != VK_IMAGE_LAYOUT_UNDEFINED && !(image->discarded & sampled)));
     const auto state = imported_state(image->layout);
 
     // Unsupported legacy layouts report an import error before reaching frame recording.
@@ -113,7 +97,6 @@ Result<graph::ImageHandle> GraphExecution::import_attachment(
         return unexpected(Error{"graph framebuffer import requires colour or depth aspect"});
     }
 
-    end_rendering();
     // Preserved default colour may still be a deferred window copy; materialize it only when
     // contents are needed.
     if (framebuffer == 0 && aspect == graph::Aspect::Colour
@@ -144,8 +127,20 @@ Result<graph::ImageHandle> GraphExecution::import_attachment(
         return unexpected(Error{"invalid graph framebuffer attachment"});
     }
 
-    return m_recording
-        ->import_image(std::move(name), std::move(owner), contents == InitialContents::Preserve);
+    // An attachment the open pass has drawn into already: the graph draws on in that pass (its
+    // layout is the attachment's), rather than storing and loading the whole frame for the next.
+    const bool open =
+        g->rendering && g->pass.deferred
+        && owner.get() == (depth ? g->rendering_target.depth : g->rendering_target.colour);
+    const bool written = open
+                         && (depth ? g->pass.used_depth || g->pass.clear_depth
+                                   : g->pass.used_colour || g->pass.clear_colour);
+    if (!written) {
+        end_rendering_for(owner.get());
+    }
+    return m_recording->import_image(
+        std::move(name), std::move(owner), contents == InitialContents::Preserve, written
+    );
 }
 
 Result<graph::BufferHandle> GraphExecution::import_buffer(
@@ -250,15 +245,27 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
         // Legacy attachment recording may remain active between declared graphics passes.
         for (unsigned index = 0; index < compiled->passes.size(); ++index) {
             const auto& pass = compiled->passes[index];
+            if (pass.kind == graph::PassKind::Work) {
+                crash::breadcrumb(pass.name);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(frame().main, pass.name, false);
+                }
+            }
             const auto event = capture_graph_pass(*compiled, index, index == 0);
             m_recording->enter(pass);
 
             // Exports make graph writes visible to subsequent legacy consumers without GPU work.
             if (pass.kind == graph::PassKind::Work) {
                 m_recording->record_work(index, record);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(frame().main, pass.name, true);
+                }
             }
             complete_graph_pass(*compiled, index, event);
         }
+    } catch (const RecordingFailure& failure) {
+        abort_frame_capture(failure.what());
+        throw;
     } catch (const std::exception& failure) {
         abort_frame_capture(failure.what());
         return unexpected(Error{failure.what()});
@@ -310,6 +317,20 @@ void GraphExecution::Recording::record_work(
 
 void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
     using namespace detail;
+    // A pass that only draws on into the open pass's own attachments, in the layout they are in,
+    // goes on in that pass, as before the graph: draws in one pass are kept in order already, and
+    // each new pass stores and loads the whole frame (MSAA too), which a tiled phone GPU pays dearly.
+    const auto continues = [&](const graph::Barrier& barrier) {
+        const auto& image = bindings.at(barrier.resource).image;
+        const bool attachment = barrier.after.layout == graph::Layout::ColourAttachment
+                                || barrier.after.layout == graph::Layout::DepthAttachment;
+        return g->rendering && image && attachment && barrier.before.layout == barrier.after.layout
+               && (image.get() == g->rendering_target.colour
+                   || image.get() == g->rendering_target.depth);
+    };
+    if (std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
+        return;
+    }
     end_rendering();
     const auto command = frame().main;
 
@@ -321,7 +342,7 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
         if (binding.image) {
             record_graph_image_barrier(command, transition, *binding.image);
         } else {
-            record_buffer_barrier(command, transition, binding.buffer);
+            detail::record_graph_buffer_barrier(command, transition, binding.buffer);
         }
     }
 }

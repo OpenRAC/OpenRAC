@@ -140,9 +140,7 @@ bool parse(int argc, char** argv, Options& o) {
                 return false;
             }
             o.camera_given = true;
-        } else if (arg == "--fullscreen") {
-            o.mode = platform::DisplayMode::Fullscreen;
-        } else if (arg == "--borderless") {
+        } else if (arg == "--fullscreen" || arg == "--borderless") {
             o.mode = platform::DisplayMode::Borderless;
         } else if (arg == "--no-vsync") {
             o.vsync = false;

@@ -51,9 +51,15 @@ are retired. Only the enhanced texture library depends on the Vulkan copy helper
 
 Enhanced graphics > Diagnostics > Ratchet fur view shows the authored coverage mask or
 UV growth directions with arrows. Detail normals shows the shaded surface orientation.
-Enhanced graphics > Materials & water > Ratchet fur controls directional detail, strength,
-strand contrast and fade distance. Its Lighting controls adjust highlight strength, softness,
-directionality, scattering and Environment response separately. Controls apply live and are session-only.
+Graphics > Enhanced Settings > Materials & water > Material inspector controls fur appearance
+through the shared `ratchet-fur` preset or a selected object material. Save writes the local JSON
+overlay; coverage and groom assets remain separate. See [Materials](../materials/README.md).
+
+The optional Geometry (prototype) controls add a short shell coat to the verified player fur
+surface. It is off by default. Coat length is a fraction of the bind-pose body's largest extent;
+layer count, strand density and distance fade apply live. Shells follow the existing joint palette,
+flatten when wet and use the same cutout coverage in colour and motion rendering. They retain the
+body's shadows; individual hairs do not cast additional shadows. Silhouette fins are not included.
 
 Short strands are generated deterministically along the groom into a mipmapped 512-square
 RGBA8 data texture. RG stores signed UV slopes around byte 128; B stores low-contrast strand
@@ -64,7 +70,7 @@ frames and normal reconstruction remain FP32.
 
 Fine normals affect direct material lighting and the existing wet coat. Shadow comparisons,
 probe bias, cached GI and prepass normals retain the smooth surface. Subtle colour grain keeps
-some texture under flat indirect lighting. No geometry or rendering pass is added. This runs on
+some texture under flat indirect lighting. This material path runs on
 enhanced Vulkan; original rendering and OpenGL retain their existing material path.
 
 The fur lighting adds a broad anisotropic dielectric highlight along the groom and a restrained,
@@ -79,8 +85,8 @@ the existing reflection atlas on fur. Wetness reduces the dry-fur response.
 The implementation uses the [anisotropic GGX equations](https://google.github.io/filament/Filament.html#materialsystem/anisotropicmodel),
 with FP32 frames, distributions, visibility denominators and HDR accumulation; bounded Fresnel,
 scattering and tint calculations use FP16 where supported. Static world shader variants exclude
-the fur declarations and functions entirely. This is a short-coat material approximation, without
-strand geometry or transport through the body.
+the fur declarations and functions entirely. The surface material approximates a short coat;
+the optional shells add strand geometry without modelling transport through the body.
 
 [`lighting/profiles/rac1/fur.json`](lighting/profiles/rac1/fur.json) labels fur triangles in the
 verified body material, grouped by UV island. Groom directions use +U right and +V down. Small
@@ -97,6 +103,34 @@ selection excludes non-fur islands; two texels of map padding prevent bare UV se
 spilling onto equipment. Shared vertices between fur and excluded islands are refused. The range
 and live-palette checks exclude attachments, other materials and UI copies. Diagnostics are
 session-only and default off.
+
+## Foliage
+
+Enhanced Vulkan supports reviewed thin-leaf materials through `material-overrides.json`. Texture-content hashes select materials; ordinary cutouts,
+trunks, metal and blended effects retain their existing response. The initial shared rac1
+profile covers nine Novalis leaf/fern textures. Fresh PAL and NTSC exports copy that profile;
+existing exports need the metadata copied in or a fresh export. Replacement artwork opts out
+unless explicitly reviewed.
+
+Thin-sheet diffuse transmission shares energy with surface diffuse reflection. The original
+paint supplies transmitted hue; Beer-Lambert absorption uses an authored optical thickness.
+Rough GGX supplies dielectric highlights (F0 0.04, 25% wax coverage to preserve painted colour). Directional and Forward+ point/spot lights
+use the existing light bank. Backlit leaves use light-facing primary-shadow bias while keeping
+external blockers. Local lights retain their existing unshadowed policy. Alpha, depth, mesh
+positions and the original texture are unchanged. No extra render target or texture is added;
+four bounded controls occupy the last two spare words of the 96-byte GPU material record.
+
+Rules match `texture_rgba_sha256` and original cutout eligibility. Optical properties are
+`foliage.transmission` (0-1), `foliage.thickness` (0-4), `foliage.normal_bend` (0-1) and
+`surface.roughness` (0.35-1). The hash covers little-endian dimensions then top-row-first RGBA8,
+independently of PNG compression. Fern/clump selections use zero bend. The unified material
+inspector previews, saves and resets these values; runtime-only changes preserve probe bakes.
+Legacy `foliage-materials.json` exports remain readable during migration.
+
+Front-side indirect light keeps the existing GI/AO path. Backside indirect transmission,
+coloured transmitting shadows and diffusion through thick tissue are not modeled. This is
+surface shading, not a screen-space blur or a change to baked transport. Run the synthetic
+`foliage` and `foliage_gpu` CTests for identity, parameter, optical and shadow checks.
 
 ## Normals
 

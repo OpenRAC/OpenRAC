@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "emission-probe_gaspar_lava",
+      "match": {
+        "texture_path": "textures/probe_gaspar_lava.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "vertex_colour": true
+        },
+        "surface": {
+          "diffuse_scale": 0
+        }
+      }
+    }
+  ]
+}

@@ -153,13 +153,13 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kDisplayMode);
         case Id::Monitor:
             return row_choice(kMonitor);
-        case Id::Resolution:
-            return row_choice(kResolution);
         case Id::Picture:
             it = row_choice(kAspect);
             if (where == menu::kTouch && set.aspect == settings::Aspect::Window) {
                 it.value = "Fill screen";  // a window's shape, said as a phone's
             }
+            return it;
+        case Id::GameplayFov:
             return it;
         case Id::Hud:
             it = row_choice(kHud);
@@ -207,6 +207,10 @@ Item item(Id id, std::uint8_t where) {
             return it;
         case Id::ResponsiveControls:
             it.on = set.responsive_controls;
+            return it;
+        case Id::GpuBreadcrumbs:
+            it.shown = gl::is_vulkan();
+            it.on = set.gpu_breadcrumbs;
             return it;
 
         // ---- Enhanced ----
@@ -484,11 +488,10 @@ bool act(Id id, int by) {
         case Id::Monitor:
             change_setting(kMonitor, by);
             return false;
-        case Id::Resolution:
-            change_setting(kResolution, by);
-            return false;
         case Id::Picture:
             change_setting(kAspect, by);
+            return false;
+        case Id::GameplayFov:
             return false;
         case Id::Hud:
             change_setting(kHud, by);
@@ -537,6 +540,10 @@ bool act(Id id, int by) {
             return false;
         case Id::ResponsiveControls:
             change_setting(kResponsiveControls, 1);
+            return false;
+        case Id::GpuBreadcrumbs:
+            set.gpu_breadcrumbs = !set.gpu_breadcrumbs;
+            settings::save();
             return false;
 
         // ---- Enhanced ----
@@ -853,6 +860,26 @@ void draw_entry(Id id, std::uint8_t where) {
                 close = act(id, by);
             }
             break;
+        case menu::Kind::Slider: {
+            int& value = settings::get().gameplay_fov;
+            const int next = menu_percent_slider(
+                label.c_str(),
+                value,
+                settings::kMinGameplayFov,
+                settings::kMaxGameplayFov,
+                settings::kGameplayFovStep
+            );
+            // Apply live and save once the mouse drag ends, or immediately for a discrete step.
+            const bool edited = next != value;
+            if (edited) {
+                value = next;
+                s.settings_changed = true;
+            }
+            if (ImGui::IsItemDeactivated() || (edited && !ImGui::IsMouseDown(0))) {
+                settings::save();
+            }
+            break;
+        }
         case menu::Kind::Action:
             if (menu_row(label.c_str(), id == Id::Quit ? ui().err : ui().text)) {
                 close = act(id, 1);

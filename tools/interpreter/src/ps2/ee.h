@@ -173,6 +173,13 @@ public:
      * [cover_base, cover_base + cover_bytes). The gate's coverage report reads it.
      */
     u8* cover = nullptr;
+
+    /**
+     * Test-only: when pc reaches `watch_pc`, `on_watch` runs. One address at a time, for finding a
+     * function's return (openrac-boot's `--returns`).
+     */
+    u32 watch_pc = ~0u;
+    std::function<void()> on_watch;
     u32 cover_base = 0, cover_bytes = 0;
 
     /** The shift amount register SA, used by QFSRV and set by MTSA, MTSAB, MTSAH (documented). */

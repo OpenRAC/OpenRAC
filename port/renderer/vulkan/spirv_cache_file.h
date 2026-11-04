@@ -28,7 +28,7 @@
 namespace openrac::vkgl {
 
 // The SPIR-V cache file's format: read only when the file's is this one.
-inline constexpr std::uint32_t kSpirvCacheFormat = 1;
+inline constexpr std::uint32_t kSpirvCacheFormat = 2;
 
 // The entries a SPIR-V cache holds at most; past it a new result is not kept (assumed far above
 // the port's few hundred programs and stages).

@@ -93,6 +93,7 @@ if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
     renderer/vulkan/graph_presentation.cpp
     renderer/vulkan/frame_capture.cpp
+    renderer/vulkan/gpu_breadcrumbs.cpp
     renderer/vulkan/surface_batch.cpp renderer/vulkan/surface_batch_import.cpp
     renderer/vulkan/surface_copy.cpp renderer/vulkan/attachment_copy.cpp
     renderer/vulkan/prepared_raster.cpp
@@ -327,10 +328,28 @@ endif()
 # ---- the scene (scene/README.md) ----
 # A level from the editor's export, the live mobys' poses and shadows read from game memory, and the
 # frames written to PNG: CPU work only, so the probe tools link it without a graphics context.
+# Material authoring is CPU-only and shared by scene loading, bake preparation and the inspector.
+add_library(openrac_materials STATIC
+  materials/identity.cpp
+  materials/schema.cpp
+  materials/catalog_json.cpp
+  materials/catalog_text.cpp
+  materials/resolve.cpp)
+target_link_libraries(openrac_materials PUBLIC openrac_common openrac_assets_disc)
+openrac_warnings(openrac_materials)
+# Metadata conversion must respect scoped rounding changes even in optimized gameplay builds.
+target_compile_options(openrac_materials PRIVATE
+  $<$<CXX_COMPILER_ID:Clang,AppleClang,GNU>:-frounding-math>
+  $<$<CXX_COMPILER_ID:MSVC>:/fp:strict>)
+openrac_add_test(material_catalog SOURCES tests/material_catalog_test.cpp LIBS openrac_materials)
+
 add_library(openrac_scene STATIC
   scene/hero_shadow.cpp
   scene/level.cpp
   scene/tie_relight.cpp
+  scene/material_overrides.cpp
+  scene/material_resolve.cpp
+  scene/legacy_materials.cpp
   scene/object_picker.cpp
   scene/object_preview_mesh.cpp
   scene/moby_pose.cpp
@@ -342,9 +361,10 @@ add_library(openrac_scene STATIC
   scene/shadow_scroll.cpp
 )
 target_include_directories(openrac_scene PRIVATE runtime/include)
-target_link_libraries(openrac_scene PUBLIC openrac_renderer openrac_viewer_third_party
+target_link_libraries(openrac_scene PUBLIC openrac_materials openrac_renderer openrac_viewer_third_party
   openrac_assets_geometry)
 openrac_warnings(openrac_scene)
+openrac_add_test(material_bindings SOURCES tests/material_bindings_test.cpp LIBS openrac_scene)
 
 # Scene conversion/fingerprinting is shared by activation checks and the
 # offline tool. It contains no Embree calls and is available in normal builds.
@@ -358,6 +378,7 @@ add_library(openrac_probe_scene STATIC
 )
 target_link_libraries(openrac_probe_scene PUBLIC openrac_lighting openrac_scene openrac_assets_disc)
 openrac_warnings(openrac_probe_scene)
+openrac_add_test(material_transport SOURCES enhanced/tests/material_transport_test.cpp LIBS openrac_probe_scene)
 
 # The level renderer: the scene's GPU half, with the scene's embedded shaders (scene_shaders.h). It
 # calls the lighting a program registers through scene/level_lighting.h, so it links nothing of
@@ -416,6 +437,9 @@ add_library(openrac_enhanced_viewer STATIC
   enhanced/renderer/water_graph.cpp
   enhanced/renderer/water_simulation_graph.cpp
   enhanced/renderer/wetness.cpp
+    enhanced/renderer/material_runtime.cpp
+    enhanced/renderer/material_response.cpp
+    enhanced/renderer/foliage.cpp
   enhanced/renderer/fur.cpp
   enhanced/renderer/fur_profile.cpp
   enhanced/renderer/fur_map.cpp
@@ -450,8 +474,10 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/chrome.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/wetness.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/foliage.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_shell.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_detail.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_lighting.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_environment.glsl"
@@ -475,6 +501,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_mesh.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_swell.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/ocean_fft.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
@@ -537,12 +564,31 @@ if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
     set_property(TEST local_lights APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
   endif()
 endif()
+  openrac_add_test(material_runtime SOURCES enhanced/tests/material_runtime_test.cpp LIBS openrac_enhanced_viewer)
+  openrac_add_test(foliage SOURCES enhanced/tests/foliage_test.cpp LIBS openrac_enhanced_viewer)
+if(OPENRAC_VULKAN)
+  openrac_add_test(foliage_gpu SOURCES enhanced/tests/foliage_gpu_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_compile_definitions(foliage_gpu_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(foliage_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(WIN32)
+    set_property(TEST foliage_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+  endif()
+endif()
 openrac_add_test(fur SOURCES enhanced/tests/fur_test.cpp
   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
 openrac_add_test(fur_detail SOURCES enhanced/tests/fur_detail_test.cpp
   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
 if(OPENRAC_VULKAN)
   add_test(NAME fur_detail_gpu COMMAND fur_detail_test --gpu)
+  openrac_add_test(fur_shell SOURCES enhanced/tests/fur_shell_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_compile_definitions(fur_shell_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(fur_shell PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   openrac_add_test(fur_lighting SOURCES enhanced/tests/fur_lighting_test.cpp
     INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
   target_compile_definitions(fur_lighting_test PRIVATE OPENRAC_VULKAN=1)
@@ -556,6 +602,7 @@ if(OPENRAC_VULKAN)
   set_tests_properties(fur_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(WIN32)
+    set_property(TEST fur_shell APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_detail_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_lighting APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
@@ -980,6 +1027,14 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu e
     target_link_libraries(${water_test}_test PRIVATE openrac_renderer_vulkan)
   endif()
 endforeach()
+add_test(NAME effect_material_ocean COMMAND effect_material_test --ocean-only)
+add_test(NAME effect_material_ocean_spectrum COMMAND effect_material_test --ocean-spectrum)
+set_tests_properties(effect_material_ocean effect_material_ocean_spectrum PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+if(WIN32)
+  set_property(TEST effect_material_ocean effect_material_ocean_spectrum APPEND PROPERTY
+    ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+endif()
 target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_optics_gpu.cpp
   enhanced/tests/water_foam_gpu.cpp

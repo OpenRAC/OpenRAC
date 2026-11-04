@@ -385,6 +385,10 @@ bool ProbeLighting::upload_regions(
             append_spheres(m_regions[i], static_cast<int>(i));
         }
         return true;
+#if defined(OPENRAC_VULKAN)
+    } catch (const vkgl::RecordingFailure&) {
+        throw;
+#endif
     } catch (const std::exception& why) {
         error = why.what();
         release();
@@ -662,6 +666,10 @@ void ProbeLighting::load(const scene::LevelData& level) {
         try {
             const std::atomic<bool> never{false};
             finish_load(read_bake(level, path, never));
+#if defined(OPENRAC_VULKAN)
+        } catch (const vkgl::RecordingFailure&) {
+            throw;
+#endif
         } catch (const std::exception& why) {
             fail_load(why.what());
         }
@@ -700,6 +708,10 @@ void ProbeLighting::poll_load() {
     }
     try {
         finish_load(std::move(read));
+#if defined(OPENRAC_VULKAN)
+    } catch (const vkgl::RecordingFailure&) {
+        throw;
+#endif
     } catch (const std::exception& why) {
         fail_load(why.what());
     }
@@ -728,19 +740,33 @@ void ProbeLighting::finish_load(ProbeBakeRead read) {
     const auto& expected = read.expected;
     const auto& volume = read.volume;
     const auto& path = read.path;
-    std::string error;
-    if (!upload_regions(volume, std::move(read.regions), error)) {
-        log::warn("probe region allocation failed: {}; using level grid", error);
-        if (!upload(volume, error)) {
-            throw std::runtime_error(error);
+    {
+#if defined(OPENRAC_VULKAN)
+        const auto bytes = std::accumulate(
+            read.regions.begin(),
+            read.regions.end(),
+            volume.gpu_bytes.size(),
+            [](std::size_t sum, const auto& region) { return sum + region.gpu_bytes.size(); }
+        );
+        vkgl::BulkTextureUpload staging(bytes);
+#endif
+        std::string error;
+        if (!upload_regions(volume, std::move(read.regions), error)) {
+            log::warn("probe region allocation failed: {}; using level grid", error);
+            if (!upload(volume, error)) {
+                throw std::runtime_error(error);
+            }
         }
+        m_environment.load(std::filesystem::path(path).parent_path(), volume.grid);
+#if defined(OPENRAC_VULKAN)
+        staging.finish();
+#endif
     }
     log::info(
         "probe GI: {} dense regions registered; at most three dense samples per fragment",
         m_regions.size()
     );
     m_sunlight_scale = expected.bake.sunlight_scale;
-    m_environment.load(std::filesystem::path(path).parent_path(), volume.grid);
     // Optional markers are loaded only after the corresponding probe bake passed validation.
     const auto medial =
         m_medial_axis.load(std::filesystem::path(path).parent_path() / "medial-axis.json");

@@ -107,7 +107,10 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!fix) {
         fix = openrac_game_fix("fix_wide_moby_effects");
     }
-    tx *= *fix ? openrac_game_picture_wider() : 1.0f;
+    /* Both tangents opened as the player's Field of View opens them too. */
+    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
+    tx *= *fix ? openrac_game_picture_wider() * opened : 1.0f;
+    ty *= opened;
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));

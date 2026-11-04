@@ -34,6 +34,37 @@ agreed result here. A persistent personal issue comment is no longer required fo
 
 ## Recent verified updates
 
+### `func_002B60B0` returns nothing
+
+**4 November 2026, local match (pending PR).** `func_002B60B0` (the motion-parameter
+setter) is `void`. Its definition matches all 23 USA v1.01 places as `void` with the
+stores grouped by parameter (`x` at 0x20/0x24, `y` 0x28, `z` 0x14/0x18, `w` 0x1C); the
+compiled `.text` is byte-identical to the old `void *` form, whose only evidence was the
+pointer left in `$v0` at return. A scan of all 505 retail calls in the 26 USA programs
+that carry it finds no path that reads `$v0` before overwriting it. Every `void *`
+caller declaration in `src/` (35 files, all releases) now says `void`; each file's
+compiled object is unchanged. As with `func_002AE730`
+([prototypes](COMPILER-NOTES.md#prototypes-lifetimes-and-varargs)), definition and
+callers were corrected together.
+
+With the true contract `func_L11_00420C88` matches (1/1, 15,832 bytes) in
+`src/levels/11_joba/L11_00420C88-state-g8.c`. Its last 18 rows (cases 14, 15, 22) came
+from the false return: sched1 puts the index `lw` (priority 8, load latency 2) before
+the table `lui` (7) after the call, and with a value-returning call local-alloc's
+`fake_birth` for the index meets the call's `REG_UNUSED` `$v0`, so index and base swap
+`$v0`/`$v1`. Earlier, 24 matched callers in 11 levels (Joba's `func_L11_00424A60`
+among them) matched only when they declared the helper `void`.
+
+History, 3-4 November, kept as measured constraints: each of the three blocks has two
+local quantities (the three-quantity sort below is not involved); disabling fake
+lifetimes gives 15,824 bytes, `-Os` 15,872, `-fno-schedule-insns` 15,820 (with the three
+sites correct); a private cc1 ignoring every unused call `$v0` breaks 19 other rows and
+`func_00339F28`. Path/index/object/table locals, `*(index + table)`, inline helpers,
+comma expressions and FP/pointer parameter interleavings all tied at 18 or regressed.
+Retail has no branch into the three call sequences. The scheduler dumps (`-dS`/`-dR`)
+abort under `_FORTIFY_SOURCE`; a private `haifa-sched.o` built with `-U_FORTIFY_SOURCE`
+gives identical output and readable `-fsched-verbose-5` priorities.
+
 ### Three-quantity local allocation
 
 **1 November 2026, retained near miss.** `block_alloc` sorts two or three quantities by hand:
@@ -1094,6 +1125,16 @@ remain beside the retained C in `nonmatching/`.
 
 ## 11. MMI and undecodable words
 
+`func_00278CE0` is a separately reviewed 408-byte VU0 ray/vector primitive,
+now marked `ASM_FUNC`. All 28 placements in each release contain the complete
+body and return, with COP2 loads/stores, vector arithmetic, Q/ACC operations,
+`vdiv`, `qmfc2` and trapping `addi`. These are body-local original-assembly
+indicators, not an inference from a failed C trial. Its functional port remains
+separate; this classification adds no reconstructed C bytes. Other unresolved
+MMI routines retain their existing markers pending their own evidence/review.
+The [marker and linked checks](https://github.com/OpenRAC/rac2-decomp/commit/96a2e817a258351edbd25db3583ab416e8fdcbcf)
+preserve all 84 complete retail program images.
+
 **3 November 2026, current RAC1 identity qualification (locally validated; review pending):**
 37 remaining routines, each longer than 16 bytes, match routines that current
 [RAC1 at `1d8228cc`](https://github.com/OpenRAC/rac1-decomp/tree/1d8228cc0c81da7bc2bdc3e77479ee050e0ef434/src)
@@ -1323,7 +1364,7 @@ pass. These repairs add no decompiled-byte credit.
 
 Eight further existing interfaces pass 104 carrying placements without
 new byte credit. The two `func_002B60B0` callers retain the object plus four
-float inputs and the real pointer return; `func_L00_00323F28` explicitly
+float inputs (their pointer return was withdrawn on 4 November: the helper is `void`); `func_L00_00323F28` explicitly
 forwards three floats. `func_L03_00419BD8` and `func_L03_00419B10` propagate
 the query result, point pointers, optional output pointers and floating
 inputs. The Aranos emitter preserves its caller-provided unused F12 slot,
@@ -2327,6 +2368,24 @@ particular label spelling does not unblock the loop layout.
   `func_L00_002A3B88` forwards `func_0028E640`'s complete 64-bit texture descriptor
   to `func_0028F410`. The callee builds it with a shift and OR; truncating to
   32 bits would be a false interface even if a later allocation looked closer.
+- **Do not generalize a font-style width to every drawing helper.** The matched
+  `func_L05_00303000` wrapper returns `void` and forwards seven 32-bit integer
+  arguments, including a packed color and stored text address. The retained
+  `func_L10_004227A0` had declared a return and widened that color to influence
+  allocation. Restoring the true interface on all eight calls and removing
+  three unwitnessed volatile globals gives 3,260/3,420 bytes, 0/1 USA v1.01;
+  USA v2.00 and PAL have no canonical row. The older 3,312-byte cleanup still
+  contained those diagnostics and is historical, not an admissible baseline.
+- **A measured field model must cover the actual accesses.** The Maktar actor
+  routine `func_L02_003D0408` uses a single volatile byte view at actor `+0x60`
+  for all six retail reads, including the two snapshots before distance tests.
+  It retains the real flag writer, complete vector storage and all argument
+  banks, rather than selecting volatile casts solely to move instructions.
+  Its 3,304-byte local comparison passes once in each USA release; PAL has no
+  canonical identity for this body. Both intended C placements also pass the
+  [strict linked qualification](https://github.com/OpenRAC/rac2-decomp/commit/96a2e817a258351edbd25db3583ab416e8fdcbcf).
+  See the source-method explanation in
+  [COMPILER-NOTES.md](COMPILER-NOTES.md#source-methods-shared-with-rac1).
 - **The dialect is C89:** `long` and `long long` are 64-bit, `int` and pointers are 32-bit, and
   there is no declaration after a statement.
 - **The patched gas expands `move $rd,$zero` into `daddu $rd,$zero,$zero` and `li $v0,1` into
@@ -2518,6 +2577,16 @@ native `func_00117CA0` (`log`, 1,556 bytes) and `func_001182B8` (`log10`, 424 by
 with their actual 96/32-byte scalar pools. The initially matching `log10` text
 with a wrong overlapping pool was rejected. See
 [the mechanism and controls](COMPILER-NOTES.md#positive-32-bit-masks-in-64-bit-registers).
+
+The same existing profile closes the caption pair `func_L00_002E3340` (476
+bytes) and `func_L00_002E3520` (468 bytes). Their shared unit keeps the actual
+64-bit font-style interface, 40-byte caption records and fully initialized
+twelve-halfword layout. Each local comparison passes 27/27 in all three
+releases. This is a new user of the qualified macro rule, not another compiler
+patch or a license to alter other instruction values.
+Their [linked qualification](https://github.com/OpenRAC/rac2-decomp/commit/96a2e817a258351edbd25db3583ab416e8fdcbcf)
+passes all 84 strict programs, including the shared unit's existing C and every
+intended caption placement.
 
 The related native `floor` and `fmod` sources remain nonmatching: 472/500 and
 1,052/1,108 bytes, respectively, in all three releases. Both output words of
@@ -3150,8 +3219,8 @@ loop gives eight, a single-case member dispatch ties at six, and capturing the
 offset during its real zeroing gives 93. The retained four-slot candidate is still
 best. For `func_L11_00420C88`, grouping configuration/path setup in an inline
 helper, representing each table entry as a pointer field, and using unsigned
-path indices all reproduce the existing 15,832-byte, 18-slot result. Both real
-callee return contracts were preserved. No new C match or native qualification;
+path indices all reproduce the existing 15,832-byte, 18-slot result. (Superseded
+4 November: `func_002B60B0` returns nothing, and the function now matches.) No new C match or native qualification;
 reopen with a measured scheduler/allocator input beyond these tied forms.
 
 | Spill-slot order, `func_L00_003E5BD8` | **Open, 1 November** | 1108/1108, only 19 stack offsets differ. A private cc1 overriding `expr_hash_table_size` shows the slots follow gcse's bucket order: 133 buckets gives 7 rows, no odd size from 101 to 501 gives 0, and declaration order has no effect. Three pseudos remain rotated, so retail differs in more than the table size. |
@@ -3243,13 +3312,17 @@ remain in the retained C even though neither body matches. The latter's normaliz
 call precedes initialization of its packet input in retail; the source preserves
 that ordering and does not invent a zero vector.
 
-The same review issue prevents integrating PR #361's `func_00333048` draft.
-In USA v1.01, the call at +0x36C normalizes the hit packet at stack +0x40;
-its first identified initialization follows at +0x3CC. This reads meaningful
-XYZ components before their producer. The draft remains in `nonmatching`
-with corrected allocator return declarations; the source marker stays assembly.
-Resolve the packet's producer/lifetime before claiming defined C or adding
-initialization that the retail body does not perform.
+PR #361's `func_00333048` draft was held back by the same review issue.
+**Resolved 4 November 2026; now matched** (28/28 USA v1.01 places, in
+`src/game/00333048-g8.c`). Its hit-packet question has an answer:
+- At +0x36C, retail normalizes the packet's vector at stack +0x40. Nothing
+  writes stack +0x40..0x4F before that: no store to it, and its address is not
+  taken. The slot is not shared with another local.
+- `func_002A8C00` (matched in `src/game/002A7750.c`) then overwrites the whole
+  vector from its `q` argument without reading it. So the normalize result is
+  dead in every iteration.
+- The C keeps the call in place and adds no initialization.
+- The USA v2.00 identity hash is the same.
 
 The 320-record state machine `func_L00_003F0680` reaches 796 bytes with O2/G0
 and its SDA declaration, reproducing the initial absolute and later GP table load;
@@ -3680,6 +3753,8 @@ discard, the truthful all-four-FP-first argument view, an explicit SDATA alias a
 `-fno-force-mem` tie; `-fno-schedule-insns` worsens the result. Its marker is
 restored. Reopen with evidence for the post-call halfword value lifetime; a false
 helper return type is not an acceptable match.
+(Superseded 4 November: `func_002B60B0` is `void`; see
+[its entry](#func_002b60b0-returns-nothing). The `void` declaration is its real contract.)
 
 **Update, 29 October 2026 (pending review):** matched by the tiered-wave series; `func_L11_00456938` is C in `src/levels/11_joba/L11_00453358-retreat-g8.c` (`-O2 -G8 -ffunction-sections -frac2-zero-ti-por -g`), placed at 1 US, 1 PAL, 1 US2 places; `func_L18_00428138` is C in `src/levels/shared/L18_00428138-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 3 US, 3 US2 places (PAL catalogue has no function of this name). The measurements above are kept as history.
 
@@ -3920,7 +3995,7 @@ the implementations remain in `nonmatching/levels/` with their production marker
 | Function | Current / retail bytes | Coverage and remaining obstruction |
 | --- | ---: | --- |
 | `func_L22_0039D708` | 15,528 / 16,068 | USA v1.01, 0/2. Reconstructed conversions, canonical collision/animation calls and shared scratch storage; branch tails and allocation remain, with further semantic review needed. |
-| `func_L11_00420C88` | 15,772 / 15,832 | USA v1.01, 0/1. Projectile paths and selector ordering are closer; shared tails, early-return position and allocation remain. |
+| `func_L11_00420C88` | 15,832 / 15,832 | Matched 4 November (USA v1.01, 1/1) once `func_002B60B0` was declared `void`; see [its entry](#func_002b60b0-returns-nothing). |
 | `func_L00_00300618` | 11,280 / 11,348 | USA v1.01, 0/27. Section-8 copy loop resolved locally; absolute macro stores, spills and group loops remain. |
 | `func_L00_003AE900` | 8,432 / 8,440 | USA v1.01 and v2.00, 0/27 each. Template loops resolved locally; saved FPR count, held-pose matrix pointers and spray-colour constants remain. |
 | `func_L08_003CDF98` | 6,632 / 6,736 | USA v1.01, 0/3. Voice-field widths and diagnostic argument corrected; per-case bases, float expression order and allocation remain. |
@@ -4046,6 +4121,25 @@ problems. The fourteen named entry repairs described in [LEVELS.md](LEVELS.md)
 were subsequently verified in every carrying release and added to the existing
 generator mechanism. The other split/residue proposals remain open.
 
+**4 November 2026, further boundary witnesses:** all 33 carrying extents in
+US/US2/PAL were read for `func_L19_0041C328`, `func_L14_004321C0`,
+`func_L13_0043E8C0`, `func_L06_0047C1D0` and `func_L10_00419188`.
+The first has a closed 168-byte body and a separately referenced 8-byte stub
+(15 structured vtable references per release); the second has two independently
+entered 8-byte stubs. The two camera families each have three distinct camvtbl
+entry pointers, including all seven copies of the L06 family. They belong to
+different camera classes even in the same level: identical bytes must not
+collapse their identities. A guarded generator repair and all-release linked
+qualification remain to do. Hrugis instead has an 88-byte closed body plus
+an unreachable 8-byte return pair with no independent scanned entry witness;
+do not invent a second function or discard those bytes on that evidence alone.
+
+The retained `func_L00_00309DB0` residue hypothesis also has a PAL exception:
+all 27 PAL copies begin in the preceding return's delay slot, and an aligned
+loaded word in PAL level 20 equals that address with unproven pointer meaning.
+Resolve its predecessor extent and that word's provenance before a shared
+deletion. Direct or nearby address-pair absence alone is not proof of no entry.
+
 - Remove diagnostic source controls before comparing meaningful C. The eight
   overwritten initializers in `func_L02_00412D50`, ten dead initializers in
   `func_L01_003A6638`, always-true regeneration guard in `func_L06_004587E8`,
@@ -4057,10 +4151,16 @@ generator mechanism. The other split/residue proposals remain open.
   reproduces the retail copy loop and prologue: 972/972 bytes, still 0/1 USA.
   Flag/zero setup and later lifetimes remain different; this is a new useful
   constraint, not a reason to repeat every unchanged near miss.
-- `func_00131D98` is already an 80-byte main loop in the USA catalogue. Its
-  faithful retained C passes that local check with independently evidenced
-  file-scope alignment, but PAL/USA v2.00 still describe a 656-byte main-plus-sound
-  extent. Those release catalogues need a verified split before promotion.
+- `func_00131D98`'s former secondary-release boundary blocker is resolved by
+  the guarded main/sound split in `tools/carry.py --entries` (see
+  [LEVELS.md](LEVELS.md)). Both complete bodies, their named callees and their
+  EE section bounds are checked before writing either table. Its faithful
+  80-byte loop uses the actual indirect entry returned by ParseBin, cache
+  synchronization modes 0/2, a release-scoped initial entry and independently
+  evidenced file-scope alignment. Local checks pass in all three releases;
+  all three boot C placements also pass the
+  [strict linked build](https://github.com/OpenRAC/rac2-decomp/commit/96a2e817a258351edbd25db3583ab416e8fdcbcf).
+  The 576-byte sound initializer is a separate existing function, not C credit.
 - The menu-initializer relatives include real entry witnesses at `+0x10` for
   `func_L08_00363320`, `func_L11_00369700`, `func_L17_003583F8`,
   `func_L22_00358778` and `func_L24_0034C450`. The skipped `+0x20` stack restore

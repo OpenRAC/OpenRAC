@@ -103,8 +103,8 @@ struct MotionFixture {
             || !motion.create(64, 64, 0x881A, 0, error) || !output.create(64, 64, error)
             || !shader.build(
                 "motion fixture",
-                enhanced::shaders::motion_vert,
-                enhanced::shaders::motion_frag,
+                scene.deformation_vertex(enhanced::shaders::motion_vert),
+                scene.motion_fragment(enhanced::shaders::motion_frag),
                 error
             )
             || !read.build(
@@ -226,7 +226,11 @@ void test_skinned_motion() {
         return;
     }
 
-    fixture.scene.set_palette({renderer::translation({0, .25f, 0})});
+    constexpr std::size_t kSecondRow = 256;
+    std::vector palette(kSecondRow + 1, renderer::identity());
+    fixture.scene.set_palette(palette);
+    palette[0] = renderer::translation({0, .25f, 0});
+    fixture.scene.set_palette(palette);
     scene::MotionInstance instance;
     instance.current = renderer::identity();
     instance.previous = renderer::identity();
@@ -234,6 +238,9 @@ void test_skinned_motion() {
     const auto velocity = fixture.sample(instance);
     CHECK(std::abs(velocity[0] - 128) <= 1);
     CHECK(velocity[1] <= 2);
+    instance.palettes[0] = static_cast<int>(kSecondRow);
+    const auto unchanged_row = fixture.sample(instance);
+    CHECK(std::abs(unchanged_row[0] - 128) <= 1 && std::abs(unchanged_row[1] - 128) <= 1);
 }
 
 // Creates overlapping rigid/skinned objects, model boundaries and distinct coverage/history flags.

@@ -36,6 +36,13 @@ public:
         const std::optional<scene::Instance>& hero
     );
     void bind(const renderer::Shader& shader) const;
+    // Binds cached material response without changing the GPU wetness history.
+    void bind(const renderer::Shader& shader, const WetnessMaterialSettings& settings) const;
+
+    // Updates optical uniforms without changing wetness history or rebinding its storage.
+    void bind_material(
+        const renderer::Shader& shader, const WetnessMaterialSettings& settings
+    ) const;
 
 private:
     renderer::Shader m_update;

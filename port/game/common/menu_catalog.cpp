@@ -27,14 +27,13 @@ constexpr Entry kEntries[] = {
     {Id::FullScreen, Tab::Graphics, "Display", kSwitch, D, "Full screen",
      "Fills the screen with the game's window, or gives the window back. F11 does the same."},
     {Id::DisplayMode, Tab::Graphics, "Display", kChoice, D, "Display mode",
-     "Windowed, borderless full screen, or exclusive full screen, which can change the display's "
-     "own resolution."},
+     "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
      "The display the game goes full screen on: the window's own, or a display by its number."},
-    {Id::Resolution, Tab::Graphics, "Display", kChoice, D, "Resolution",
-     "The display's resolution in exclusive full screen. Desktop keeps the one it has."},
     {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
+    {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",
+     "Adjusts how much of the world you see during gameplay. 100% is the original camera view."},
     {Id::Hud, Tab::Graphics, "Picture", kChoice, A, "HUD",
      "Where the HUD sits on a wide picture: in the 4:3 middle, as on a console, or out at the "
      "screen's edges."},
@@ -73,6 +72,9 @@ constexpr Entry kEntries[] = {
     {Id::ResponsiveControls, Tab::Graphics, "Latency", kSwitch, A, "Responsive controls",
      "Reads the controller again just before each tick, and turns the camera between ticks "
      "with the right stick as it is now. Off keeps the timing players have learnt."},
+
+    {Id::GpuBreadcrumbs, Tab::Graphics, "Diagnostics", kSwitch, A, "GPU breadcrumbs (restart)",
+     "Records GPU progress to help diagnose graphics crashes. Restart the game to apply changes."},
 
     // ---- Enhanced ----
     {Id::EnhancedStatus, Tab::Enhanced, "Enhanced graphics", kNote, A, "Enhanced graphics",
@@ -213,22 +215,24 @@ constexpr Entry kEntries[] = {
     {Id::SlowCpu, Tab::Developer, "Performance", kChoice, A, "Simulate slow CPU",
      "Makes each frame's work take longer, as on a weaker device's processor, to test how the "
      "game copes."},
-    {Id::Freecam, Tab::Developer, "Freecam", kSwitch, D, "Freecam",
-     "A camera of your own, flown with the keyboard and mouse while the game goes on."},
-    {Id::FreecamMode, Tab::Developer, "Freecam", kChoice, D, "Mode",
+    {Id::Freecam, Tab::Developer, "Freecam", kSwitch, A, "Freecam",
+     "A camera of your own, flown with the keyboard and mouse or a gamepad while the game goes "
+     "on."},
+    {Id::FreecamMode, Tab::Developer, "Freecam", kChoice, A, "Mode",
      "Free look flies anywhere; Culling inspection shows what the game's camera would draw."},
-    {Id::FreecamInspect, Tab::Developer, "Freecam", kChoice, D, "Inspect",
+    {Id::FreecamInspect, Tab::Developer, "Freecam", kChoice, A, "Inspect",
      "Whose culling is shown: the main camera's, or one of the shadow cascades' (with modern "
      "shadows on)."},
-    {Id::FreecamSpeed, Tab::Developer, "Freecam", kChoice, D, "Fly speed",
+    {Id::FreecamSpeed, Tab::Developer, "Freecam", kChoice, A, "Fly speed",
      "How fast the freecam flies, in the game's units a second."},
-    {Id::FreecamReset, Tab::Developer, "Freecam", kAction, D, "Reset to game camera",
+    {Id::FreecamReset, Tab::Developer, "Freecam", kAction, A, "Reset to game camera",
      "Puts the freecam where the game's camera is."},
-    {Id::FreecamExit, Tab::Developer, "Freecam", kAction, D, "Exit freecam",
+    {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
-    {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, D, "Freecam keys",
+    {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
      "W/S follow the view, A/D strafe, E up, Q down, Shift faster, Ctrl slower. Hold Alt or "
-     "right-click to look."},
+     "right-click to look. Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 "
+     "faster, L1 slower; L3+R3 turns freecam off (and on, in developer mode)."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",

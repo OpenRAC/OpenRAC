@@ -16,8 +16,19 @@ VkImageLayout layout_of(renderer::graph::Layout layout);
 [[nodiscard]] renderer::graph::State attachment_copy_state(
     bool depth_resolve, renderer::graph::Access access
 );
+// Translates a buffer range for callers that batch transitions in one command.
+[[nodiscard]] VkBufferMemoryBarrier graph_buffer_barrier(
+    const renderer::graph::Barrier& transition, const BufferRef& buffer
+);
+// Records an exact buffer transition on the command buffer that owns its producer.
+void record_graph_buffer_barrier(
+    VkCommandBuffer command, const renderer::graph::Barrier& transition, const BufferRef& buffer
+);
 // Records one whole-image transition, preserving the shared depth/stencil layout tracker.
 void record_graph_image_barrier(
-    VkCommandBuffer command, const renderer::graph::Barrier& transition, Image& image
+    VkCommandBuffer command,
+    const renderer::graph::Barrier& transition,
+    Image& image,
+    VkPipelineStageFlags external_source = 0
 );
 }  // namespace openrac::vkgl::detail

@@ -59,6 +59,16 @@ void Water::prepare_window(const SimulationUpdate& update) {
     glUniform1f(m_window_prepare.uniform("water_current_scale"), m_debug.current_scale);
     glUniform1i(m_window_prepare.uniform("water_body_count"), int(m_bodies.size() / 5));
     glUniform1f(m_window_prepare.uniform("water_sim_height"), m_sim_height);
+    glUniform1f(m_window_prepare.uniform("ocean_depth"), m_ocean_spectra[0] ? m_ocean_depth : 0.f);
+    glUniform1i(m_window_prepare.uniform("ocean_dry_count"), m_ocean_dry_count);
+    // The open ocean accepts optional exclusion rectangles from the level profile.
+    if (m_ocean_dry_count) {
+        glUniform4fv(
+            m_window_prepare.uniform("ocean_dry[0]"),
+            m_ocean_dry_count,
+            m_ocean_dry_regions[0].data()
+        );
+    }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_buffers[kCoast]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_buffers[kBodies]);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kHydraulics]);

@@ -4,6 +4,7 @@
 #pragma once
 #include <array>
 #include <atomic>
+#include <complex>
 #include <limits>
 #include <mutex>
 #include <optional>
@@ -18,6 +19,27 @@ namespace openrac::enhanced::water_detail {
 using Texel = std::array<float, 4>;
 constexpr unsigned kWindowSize = 128, kWindowCells = kWindowSize * kWindowSize;
 constexpr float kWindowSpacing = .25f;
+constexpr int kOceanSide = 64;
+constexpr int kOceanCells = kOceanSide * kOceanSide;
+
+// A periodic 32-unit field of heights and slopes, sampled by both water shaders.
+struct OceanSpectrum {
+    explicit OceanSpectrum(
+        double depth,
+        bool fine = false,
+        double tile_override = 0.,
+        double rms_override = -1.,
+        double heading = 163.739795
+    );
+    void evaluate(double time);
+    std::array<std::complex<double>, kOceanCells> seed{}, field{};
+    std::array<double, kOceanCells> frequency{};
+    std::array<Texel, kOceanCells> pixels{};
+    double gain = 0;
+    double slope_variance = 0;
+    double tile = 32;
+    double time = -1;
+};
 
 enum BufferIndex : unsigned {
     kStateA,
@@ -41,6 +63,9 @@ enum TextureIndex : unsigned {
 
 class Water;
 extern std::atomic<bool> water_ready;
+extern std::atomic<bool> ocean_ready;
+// Publish the profile when the level's GPU resources become available.
+void begin_ocean_material(const OceanMaterial& material);
 extern std::mutex water_debug_mutex;
 extern WaterDebugSettings water_debug;
 extern std::atomic<std::uint64_t> water_reset_epoch;
@@ -117,15 +142,42 @@ private:
     bool simulate(const SimulationUpdate& update);
     // Geometry consumers need waves before depth; liquid lighting waits for current shadows.
     void prepare_frame(const renderer::FrameInput& input, bool lighting);
+    // Loads the opt-in ocean response and constructs the local water atlas.
+    void load_ocean(const std::filesystem::path& path);
+    // Binds the immutable FFT basis and coastal response for ocean effect shaders.
+    void bind_ocean(const renderer::Shader& shader) const;
+    void update_ocean();
     bool m_lighting_pending = false;
     void remember_tick(
         const renderer::FrameInput& input, const renderer::Vec3& hero, std::uint64_t epoch
     );
     std::unique_ptr<WaterMesh> m_mesh;
     renderer::FrameBuffer m_background;
-    bool m_background_ready = false;
+    std::array<unsigned, 2> m_background_textures{};
+    std::array<int, 2> m_background_extent{};
     scene::LevelScene& m_scene;
     std::vector<Texel> m_bodies, m_coast, m_hydraulics;
+    std::vector<Texel> m_ocean_pixels;  // Coastal response followed by the inverse FFT basis row.
+    std::array<std::unique_ptr<OceanSpectrum>, 2> m_ocean_spectra;
+    Texel m_ocean_grid{};                  // Patch origin, cell size, and side length.
+    std::array<Texel, 8> m_ocean_modes{};  // Direction, wavenumber, and angular frequency.
+    std::array<Texel, 2> m_ocean_amplitudes{};
+    int m_ocean_mode_count = 0;
+    unsigned m_ocean_texture = 0;  // Owned ocean texture, only allocated on Pokitaru.
+    std::array<unsigned, 3>
+        m_ocean_detail_textures{};                  // Chop, fine slopes, horizontal displacement.
+    std::array<unsigned, 5> m_ocean_fft_buffers{};  // Two seeds, scratch, and two outputs.
+    renderer::Shader m_ocean_fft;
+    double m_ocean_fft_time = -1;
+    renderer::Vec3 m_ocean_eye{};
+    float m_ocean_horizon = 4096;
+    float m_ocean_near = 32;
+    float m_ocean_depth = 12;
+    float m_ocean_choppiness = .85f;
+    OceanMaterial m_ocean_material;  // Defaults parsed from this level's profile.
+    std::array<Texel, 8> m_ocean_dry_regions{};
+    int m_ocean_dry_count = 0;
+    bool m_ocean_drawn = false;
     renderer::Shader m_step, m_light, m_window_prepare;
     std::array<unsigned, kBufferCount> m_buffers{};
     std::array<unsigned, kTextureCount> m_textures{};

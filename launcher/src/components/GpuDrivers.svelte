@@ -70,6 +70,7 @@
   }
 
   const adreno = $derived(info?.device.gpu === "adreno");
+  const mali = $derived(info?.device.gpu === "mali");
 </script>
 
 <!-- One panel: what the game draws with, and on Vulkan the driver it loads. The drivers show only
@@ -81,7 +82,11 @@
     <span class="text">
       <strong>Renderer</strong>
       <small>
-        {rendererPick === "vulkan" ? "Vulkan 1.3, the default; without it OpenGL ES." : "OpenGL ES 3.2."}
+        {#if rendererPick === "vulkan"}
+          Vulkan 1.3{mali ? "" : ", the default"}; without it OpenGL ES.
+        {:else}
+          OpenGL ES 3.2{mali ? ", the default on Mali GPUs" : ""}.
+        {/if}
         From the game's next start.
       </small>
     </span>

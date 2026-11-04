@@ -166,3 +166,8 @@ bucket. Without active atmosphere, late shadows join the surface-lighting plan.
 `shadow_graph` compares fresh, partial, cache-hit and recreated allocations against
 the reference path. Enhanced scene tests compare both scheduling modes with
 atmosphere, hero motion, changing resolutions, deformation and scrolling caches.
+
+`material_overrides.h` prepares immutable model/material identities, layered catalogs and resolved
+surface records. Original materials remain available for classic rendering and coverage passes;
+enhanced colour and probe geometry use the resolved records. Live edits reuse decoded texture
+identities. See [Materials](../materials/README.md) for precedence and authoring.

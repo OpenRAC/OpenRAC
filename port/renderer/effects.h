@@ -148,6 +148,8 @@ private:
     // installed.
     void prepare_colour_reads();
     void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
+    void bind_vertex_stream(unsigned vao, std::size_t first);
+    void reserve_quad_indices(std::size_t quads);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(
@@ -205,6 +207,8 @@ private:
     int m_view = -1, m_fog_colour = -1, m_fog_line = -1;
     int m_source_scale = -1, m_source_fix = -1;
     unsigned m_vao = 0, m_vbo = 0;
+    unsigned m_quad_vao = 0, m_quad_indices = 0;
+    std::size_t m_quad_capacity = 0;
     std::vector<Vertex> m_vertices;  // the frame's triangles, kept for their storage
 };
 

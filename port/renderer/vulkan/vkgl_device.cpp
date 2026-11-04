@@ -22,7 +22,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "common/breadcrumbs.h"
 #include "common/cache_folder.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/profiler.h"
@@ -54,8 +56,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL on_message(
         if (g) {
             ++g->validation_errors;
         }
-        log::error("vulkan: {}", data->pMessage);
+        const auto* id = data->pMessageIdName ? data->pMessageIdName : "validation error";
+        crash::failure_breadcrumb(id);
+        const auto message = std::format("Vulkan validation [{}]: {}", id, data->pMessage);
+        crash::note_vulkan(message);
+        log::error("{}", message);
     } else if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        crash::note_vulkan(data->pMessage);
         log::warn("vulkan: {}", data->pMessage);
     }
     return VK_FALSE;
@@ -279,6 +286,9 @@ bool layer_available(const char* name) {
 
 bool make_instance(const Config& config, bool validation, std::string& error) {
     g->allow_present_id = config.present_id;
+    g->allow_gpu_breadcrumbs = env::value(env::Var::GpuBreadcrumbs)
+                                   ? env::flag(env::Var::GpuBreadcrumbs)
+                                   : config.gpu_breadcrumbs;
     g->allow_present_wait = config.present_wait;
     g->allow_latest_ready = config.fifo_latest_ready;
     std::vector<const char*> extensions;
@@ -328,6 +338,16 @@ bool make_instance(const Config& config, bool validation, std::string& error) {
                 && std::strcmp(e.extensionName, VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME) == 0) {
                 extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
                 g->hdr.colour_spaces = true;
+            }
+            // What VK_EXT_full_screen_exclusive needs (vkgl_device below, vkgl_present).
+            if (config.window != nullptr
+                && std::strcmp(e.extensionName, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) == 0) {
+                if (std::none_of(extensions.begin(), extensions.end(), [](const char* name) {
+                        return std::strcmp(name, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) == 0;
+                    })) {
+                    extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+                }
+                g->surface_capabilities2 = true;
             }
         }
     }
@@ -641,6 +661,7 @@ bool make_device(std::string& error) {
     if (g->surface != VK_NULL_HANDLE) {
         extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     }
+    VkPhysicalDeviceFaultFeaturesEXT fault{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT};
     // A driver that offers it (MoltenVK) must be told the application knows it carries out only
     // part of Vulkan. What it leaves out (point polygons, wide lines, cull distances, logic ops)
     // the renderer does not use; triangle fans it has.
@@ -651,14 +672,47 @@ bool make_device(std::string& error) {
         std::vector<VkExtensionProperties> offered(n);
         vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, offered.data());
         for (const VkExtensionProperties& e : offered) {
+#ifdef OPENRAC_TRACY
+            if (std::strcmp(e.extensionName, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+            }
+#endif
             if (std::strcmp(e.extensionName, kPortabilitySubset) == 0) {
                 extensions.push_back(kPortabilitySubset);
+            }
+            if (std::strcmp(e.extensionName, VK_EXT_DEVICE_FAULT_EXTENSION_NAME) == 0) {
+                VkPhysicalDeviceFeatures2 query{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+                query.pNext = &fault;
+                vkGetPhysicalDeviceFeatures2(g->physical, &query);
+                if (fault.deviceFault) {
+                    extensions.push_back(VK_EXT_DEVICE_FAULT_EXTENSION_NAME);
+                    fault.deviceFaultVendorBinary = VK_FALSE;
+                    fault.pNext = f12.pNext;
+                    f12.pNext = &fault;
+                    g->device_fault_enabled = true;
+                }
+            }
+            if (g->allow_gpu_breadcrumbs) {
+                for (const char* name :
+                     {VK_AMD_BUFFER_MARKER_EXTENSION_NAME,
+                      VK_NV_DEVICE_DIAGNOSTIC_CHECKPOINTS_EXTENSION_NAME}) {
+                    if (std::strcmp(e.extensionName, name) == 0) {
+                        extensions.push_back(name);
+                    }
+                }
             }
             // The HDR screen's metadata (hdr_output.cpp), with HDR's colour spaces only.
             if (g->hdr.colour_spaces
                 && std::strcmp(e.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0) {
                 extensions.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME);
                 g->hdr.metadata = true;
+            }
+            // Windows only (vulkan_win32.h): a driver may otherwise make a window covering the
+            // display exclusive full screen; the swapchain says it must not (vkgl_present.cpp).
+            constexpr const char* kFullScreenExclusive = "VK_EXT_full_screen_exclusive";
+            if (g->surface_capabilities2 && std::strcmp(e.extensionName, kFullScreenExclusive) == 0) {
+                extensions.push_back(kFullScreenExclusive);
+                g->no_exclusive_full_screen = true;
             }
         }
 
@@ -777,6 +831,7 @@ bool make_device(std::string& error) {
         error = "no memory allocator";
         return false;
     }
+    setup_gpu_breadcrumbs();
     g->float_depth_format = g->depth_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
     for (const VkFormat f : {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT}) {
         VkFormatProperties p{};
@@ -798,6 +853,9 @@ bool make_device(std::string& error) {
 
 bool make_frames() {
     for (Frame& f : g->frames) {
+        if (!reserve_upload_ring(f)) {
+            return false;
+        }
         if (g->timestamp_bits) {
             VkQueryPoolCreateInfo queries{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
             queries.queryType = VK_QUERY_TYPE_TIMESTAMP;
@@ -995,6 +1053,7 @@ void destroy_all() {
         }
 
         for (Frame& f : g->frames) {
+            release_bulk_texture_staging(f);
             for (const Chunk& c : f.chunks) {
                 vmaDestroyBuffer(g->allocator, c.buffer, c.allocation);
             }
@@ -1017,6 +1076,11 @@ void destroy_all() {
             g->pipeline_cache = VK_NULL_HANDLE;
         }
         if (g->allocator != nullptr) {
+            if (g->gpu_breadcrumbs && g->gpu_breadcrumbs->buffer) {
+                vmaDestroyBuffer(
+                    g->allocator, g->gpu_breadcrumbs->buffer, g->gpu_breadcrumbs->allocation
+                );
+            }
             vmaDestroyAllocator(g->allocator);
         }
         vkDestroyDevice(g->device, nullptr);

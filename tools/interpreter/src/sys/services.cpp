@@ -137,22 +137,13 @@ u32 change_effect(Machine& m, u32 data) {
         return 0;
     }
 
-    // Bit 0 of `which` is the volume, bits 1 and 2 the pan, bit 3 the modifier, bit 4 the bend: the
-    // game's masks are 1, 7, 0xF with a modifier and 0x1F with a bend (measured).
-    s32 volume = which & 1 ? static_cast<s32>(m.ee.read32(data + 8)) : snd::SoundStart::kKeepVolume;
-    s32 pan = which & 6 ? static_cast<s32>(m.ee.read32(data + 12)) : snd::SoundStart::kKeepPan;
-
-    playing->set_volume_pan(volume, pan);
-
-    // The pitch modifier was named.
-    if (which & 8) {
-        playing->set_pitch_modifier(static_cast<s32>(m.ee.read32(data + 16)));
-    }
-
-    // The pitch bend was named.
-    if (which & 0x10) {
-        playing->set_pitch_bend(static_cast<s32>(m.ee.read32(data + 20)));
-    }
+    playing->set_parameters(
+        which,
+        static_cast<s32>(m.ee.read32(data + 8)),
+        static_cast<s32>(m.ee.read32(data + 12)),
+        static_cast<s32>(m.ee.read32(data + 16)),
+        static_cast<s32>(m.ee.read32(data + 20))
+    );
 
     return handle;
 }

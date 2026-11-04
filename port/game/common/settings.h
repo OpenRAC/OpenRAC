@@ -32,12 +32,11 @@ namespace openrac::settings {
 // The F2 cycle: hidden, the existing frame counter, or separate CPU/GPU measurements.
 using FrameCounter = renderer::ui::fps_counter::Mode;
 
-// The window. Borderless covers the desktop at the desktop's mode; Fullscreen takes the display
-// for itself, at `Settings::fullscreen_width` x `fullscreen_height` (0 x 0: the desktop's mode).
+// The window. Borderless covers the desktop at the desktop's mode (no exclusive full screen; an
+// old file's `fullscreen` reads as borderless).
 enum class DisplayMode {
     Windowed,
     Borderless,
-    Fullscreen,
     Count,
 };
 
@@ -79,17 +78,23 @@ enum class FrameRate {
     Count,
 };
 
+// Gameplay field of view bounds and native value, in percent.
+inline constexpr int kMinGameplayFov = 80;
+inline constexpr int kDefaultGameplayFov = 100;
+inline constexpr int kMaxGameplayFov = 120;
+inline constexpr int kGameplayFovStep = 5;
+
 struct Settings {
     DisplayMode display_mode = DisplayMode::Windowed;
     int monitor = 0;  // 0: the display the window is on; n: the nth display, counted from 1
-    int fullscreen_width = 0;  // DisplayMode::Fullscreen's mode; 0 x 0 is the desktop's
-    int fullscreen_height = 0;
     int window_width = 0;  // the window's size when last windowed; 0 x 0: the port's default
     int window_height = 0;
     Aspect aspect = Aspect::Standard;
     int aspect_custom_x = 16;
     int aspect_custom_y = 9;
     Hud hud = Hud::Centre;
+    int gameplay_fov =
+        kDefaultGameplayFov;  // Vertical field of view as a percentage of the gameplay camera.
     int render_scale = 100;  // the frame's resolution, as a percentage of the window's picture
     int msaa = 1;            // samples a pixel: 1 (off), 2, 4, 8, 16
     renderer::GtaoSettings gtao_settings;
@@ -164,6 +169,7 @@ struct Settings {
     FrameRate frame_rate = FrameRate::Display;
     int frame_cap = 60;                         // FrameRate::Capped's frames a second
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
+    bool gpu_breadcrumbs = true;
     // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";

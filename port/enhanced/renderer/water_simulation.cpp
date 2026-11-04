@@ -17,7 +17,7 @@ namespace openrac::enhanced::water_detail {
 
 // Each pass needs a fresh scene snapshot, even when the simulation tick is already prepared.
 void Water::prepare(const renderer::FrameInput& input) {
-    m_background_ready = false;
+    m_background_textures = {};
     prepare_frame(input, true);
 }
 
@@ -26,6 +26,8 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     const profiling::Zone trace("Prepare enhanced water");
 
     m_mesh->begin_pass();
+    m_ocean_drawn = false;
+    m_ocean_eye = input.camera.position;
     m_bound = false;
     m_effect_setups = 0;
     const auto options = water_debug_settings();
@@ -65,6 +67,7 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
         }
         m_clock_frame = input.frame;
     }
+    update_ocean();
     std::array<Texel, renderer::kWaterImpulseLimit> impulse_starts{}, impulse_ends{};
     unsigned impulse_count = 0;
     if (m_impulse_frame != input.frame && !m_debug.paused) {
@@ -101,6 +104,7 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     m_impulse_frame = input.frame;
     auto hero = input.water_interactor.value_or(renderer::Vec3{0, 0, 100000});
     unsigned visible_surfaces = 0;
+    float ocean_height = std::abs(m_coast.front()[0]) - 512.f;
     const auto view_projection = renderer::multiply(input.camera.projection, input.camera.view);
     for (const auto& strip : input.strips) {
         if (strip.surface == 0 || strip.surface > 7 || strip.count < 3
@@ -114,6 +118,9 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 low[axis] = std::min(low[axis], p[axis]);
                 high[axis] = std::max(high[axis], p[axis]);
             }
+        }
+        if (m_ocean_spectra[0] && strip.surface == 1) {
+            ocean_height = input.strip_vertices[strip.first].z;
         }
         if (water_window_visible(view_projection, low, high)) {
             visible_surfaces |= 1u << strip.surface;
@@ -161,6 +168,25 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
             }
         }
     }
+    const auto open_ocean = [&](const renderer::Vec3& point) {
+        const bool outside = point[0] < m_ocean_grid[0] || point[1] < m_ocean_grid[1]
+                             || point[0] >= m_ocean_grid[0] + kOceanSide * .5f
+                             || point[1] >= m_ocean_grid[1] + kOceanSide * .5f;
+        const auto end = m_ocean_dry_regions.begin() + m_ocean_dry_count;
+        const bool dry = std::any_of(m_ocean_dry_regions.begin(), end, [&](const Texel& rect) {
+            return point[0] >= rect[0] && point[1] >= rect[1] && point[0] < rect[2]
+                   && point[1] < rect[3];
+        });
+        return m_ocean_spectra[0] && outside && !dry;
+    };
+    if (!contact_water && open_ocean(hero)) {
+        const float dz = hero[2] - ocean_height;
+        if (dz > -1.8f && dz < .5f) {
+            selected = 0;
+            selected_height = ocean_height;
+            contact_water = true;
+        }
+    }
     // Hits wake water even when Ratchet is on the bank or above the pond. Keep an active
     // swimming window in preference to remote hits; one bounded local grid remains in use.
     bool effect_contact = false;
@@ -177,6 +203,22 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 selected_height = hero[2];
                 contact_water = effect_contact = true;
                 break;
+            }
+            if (m_ocean_spectra[0]) {
+                const float dz = b[2] - a[2];
+                const float t =
+                    std::abs(dz) > 1e-5f ? std::clamp((ocean_height - a[2]) / dz, 0.f, 1.f) : 0.f;
+                const renderer::Vec3 point{
+                    std::lerp(a[0], b[0], t), std::lerp(a[1], b[1], t), ocean_height
+                };
+                if (std::abs(std::lerp(a[2], b[2], t) - ocean_height) <= b[3]
+                    && open_ocean(point)) {
+                    hero = point;
+                    selected = 0;
+                    selected_height = ocean_height;
+                    contact_water = effect_contact = true;
+                    break;
+                }
             }
         }
     }

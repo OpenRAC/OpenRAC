@@ -550,6 +550,14 @@ int main() {
         std::filesystem::remove(root / "pvs.json");
         std::filesystem::remove(root / "pvs.bin");
     }
+    {
+        const auto profile = root / "ocean-profile.json";
+        std::ofstream(profile) << R"({"wind_heading":90})";
+        CHECK(
+            export_probe_scene(level, 0, expected.environment).scene_hash == volume.grid.scene_hash
+        );
+        std::filesystem::remove(profile);
+    }
     const auto bytes = encode_probes(volume);
     {
         std::ofstream output(asset, std::ios::binary);

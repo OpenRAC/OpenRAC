@@ -213,6 +213,23 @@ Only `same` counts as done. `differs` is a bug to fix. The rest are open: say
 so when you hand the function on, and never call it verified. A backfill row with no
 verdict has not been through the gate.
 
+**`same-run`: C the gate cannot run.** fcheck delivers no interrupts, frames or disc, so a function
+that waits on them is `unchecked`. Such a function can get a weaker verdict, `same-run`, kept apart in
+`port/game/rac2-ntsc/fcheck_run.tsv`: a whole headless run with the function's calls sent to the C
+(`openrac-boot --swap`), whose main memory at a field (`--dump-ram`) equals a plain run's under the same
+script and `OPENRAC_CLOCK`, leaving out the C's code and the stack. It says less than `same`: it compares
+memory once, at that field, not the result, kept registers or device order of each call, and covers only
+what that route ran. A difference overwritten before the field goes unseen. **`same-run` is not `same`:
+it does not make a row done.** Compare memory, not the random state and the hero's place: a loader with
+its `resume` test inverted passed those, and memory caught it.
+
+A verdict needs its controls: two plain runs agree on `--digest` (a hash of memory each field), and the
+function's own retail bytes through `--swap` give no differing field. `--cover` says what the route ran;
+the note gives it. `--returns` compares each return, for a difference a later field overwrites. A difference on some fields needs reading, not waving away: code that takes other
+instruction counts moves counters and load progress (retail's bytes padded with 400 `nop`s differed on
+more fields than any candidate here), but the difference can also be a bug. Columns: `name`, `status`, `date`,
+`decomp` (the commit), `csum`, `route`, `field`, `calls`, `note`.
+
 The gate uses the test-only interpreter in `tools/interpreter/` (built on its own with `cmake -S tools/interpreter -B build/interpreter`); it is never part of the port, the launcher or any release, and is never used to play.
 
 Run it (the interpreter built so that `build/interpreter/openrac-fcheck` and

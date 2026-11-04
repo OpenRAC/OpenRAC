@@ -9,8 +9,8 @@
 
 /* Novalis draw callbacks append to the level VIF chain, not the resident HUD chain.
  * The harmless GS NOP travels with that chain, including the one-tick display delay. */
-static void water_marker(unsigned surface) {
-    const gaddr cursor = OPENRAC_LDATA(1, 0x001611C0u);
+static void water_level_marker(unsigned level, unsigned surface) {
+    const gaddr cursor = OPENRAC_LDATA(level, 0x001611C0u);
     const gaddr at = GREF(gaddr, cursor);
     GREF(uint32_t, at) = 0x10000002u;
     GREF(uint32_t, at + 4) = 0;
@@ -21,6 +21,30 @@ static void water_marker(unsigned surface) {
     GREF(uint64_t, at + 32) = (0x5754ull << 48) | surface;
     GREF(uint64_t, at + 40) = 0x7F;
     GREF(gaddr, cursor) = at + 48;
+}
+
+static void water_marker(unsigned surface) {
+    water_level_marker(1, surface);
+}
+
+void openrac_skip_ocean_quad(int skip);
+
+void game_FUN_L11_0030a908(gaddr moby) {
+    /* Preserve the original draw packets and keep the tag local to the ocean callback. */
+    const int enhanced = openrac_game_enhanced_water();
+    if (enhanced) {
+        water_level_marker(11, 1);
+    }
+    if (enhanced == 2) {
+        openrac_skip_ocean_quad(1);
+    }
+    game_FUN_L11_0030a908__game(moby);
+    if (enhanced == 2) {
+        openrac_skip_ocean_quad(0);
+    }
+    if (enhanced) {
+        water_level_marker(11, 0);
+    }
 }
 
 /* Snapshot shader UV parameters into harmless NOPs beside this layer's draw packets.

@@ -367,7 +367,11 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
 flat out float height;
 void main(){
     vec2 q=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));
-    height=effect_position(vec3(2.75,2.75,0)).z;
+    vec3 position=vec3(2.75,2.75,0);
+    vec2 uv=vec2(0);
+    vec4 colour=vec4(1);
+    effect_vertex(position,uv,colour);
+    height=position.z;
     gl_Position=vec4(q*2.-1.,0,1);
 })";
     constexpr const char* displacement_fragment = R"(#version 410 core
@@ -393,6 +397,7 @@ result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;})";
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     displaced.use();
+    glUniform1i(displaced.uniform("water_mesh"), 0);
     glUniform1i(displaced.uniform("water_coast_map"), 2);
     glUniform1i(displaced.uniform("water_bodies"), 1);
     glUniform1i(displaced.uniform("water_wave_map"), 0);

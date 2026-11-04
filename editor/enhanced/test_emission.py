@@ -27,6 +27,11 @@ class EmissionTests(unittest.TestCase):
     def write_catalog(self):
         self.catalog.write_text(json.dumps(dict(version=1, materials=[self.material])))
 
+    def test_explicit_legacy_catalog_is_not_replaced_by_neighboring_defaults(self):
+        (self.root/'material-overrides.json').write_text('{"version":1,"overrides":[]}')
+        self.assertEqual(resolve_materials(self.level, self.catalog),
+                         {'textures/renamed.png': self.definition})
+
     def test_content_match_ignores_filename_without_classifying_ordinary_textures(self):
         self.assertEqual(resolve_materials(self.level, self.catalog),
                          {'textures/renamed.png': self.definition})

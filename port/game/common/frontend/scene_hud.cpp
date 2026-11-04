@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "common/log.h"
 #include "frontend.h"
 #include "game/common/frontend/effects_dump.h"
 #include "game/common/frontend/geometry.h"
@@ -410,7 +411,10 @@ void retain_background(SceneFrame& frame) {
             // Size changes invalidate the retained world attachment.
             if (owner.last_world.width() != width || owner.last_world.height() != height) {
                 std::string error;
-                owner.last_world.create(width, height, error);
+                if (!owner.last_world.create_colour(width, height, error)) {
+                    log::warn("world snapshot unavailable: {}", error);
+                    return;
+                }
             }
 
             owner.frame.blit_to(owner.last_world.id(), width, height);
