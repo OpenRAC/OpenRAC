@@ -908,22 +908,20 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     gpu_record();
     tracy_gpu_end_commands();
     const bool tight = render_opt::enabled(render_opt::Opt::VkTightSync);
-    // What `upload` did is seen by all that `main` does: its copies and uploads (transfer writes)
-    // and the culling's dispatches (shader writes), read as indirect arguments, vertices and
-    // indices, uniforms, shader reads and the copies of `main` (the R-08 table's row).
+    // Order the upload copies before main. GPU culling exports its own indirect and vertex ranges.
     VkMemoryBarrier m{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
     VkPipelineStageFlags source = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     VkPipelineStageFlags destination = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     m.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
     m.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 
-    // The narrow form of the same order.
+    // The tight path only needs transfer writes after the culling graph exports its outputs.
     if (tight) {
-        source = VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        source = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destination = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
                       | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
                       | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
-        m.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        m.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         m.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT
                           | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT
                           | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT

@@ -16,27 +16,6 @@
 namespace openrac::vkgl {
 namespace graph = renderer::graph;
 
-namespace {
-// Orders one exact buffer range; texel-buffer sampling and SSBO reads share shader-read access.
-void record_buffer_barrier(
-    VkCommandBuffer command, const graph::Barrier& transition, const detail::BufferRef& buffer
-) {
-    const auto& range = std::get<graph::BufferRange>(transition.range);
-    VkBufferMemoryBarrier barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-    barrier.srcAccessMask = detail::access_of(transition.before);
-    barrier.dstAccessMask = detail::access_of(transition.after);
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.buffer = buffer.buffer;
-    barrier.offset = buffer.offset + range.offset;
-    barrier.size = range.size;
-    const VkPipelineStageFlags source = detail::stages_of(transition.before.stages);
-    const VkPipelineStageFlags destination = detail::stages_of(transition.after.stages);
-    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 1, &barrier, 0, nullptr);
-    detail::count_barrier(source, destination);
-}
-}  // namespace
-
 GraphExecution::GraphExecution() : m_recording(std::make_unique<Recording>()) {}
 
 GraphExecution::~GraphExecution() = default;
@@ -321,7 +300,7 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
         if (binding.image) {
             record_graph_image_barrier(command, transition, *binding.image);
         } else {
-            record_buffer_barrier(command, transition, binding.buffer);
+            detail::record_graph_buffer_barrier(command, transition, binding.buffer);
         }
     }
 }

@@ -116,12 +116,25 @@ Result<void> record_presentation(
                             && transition.before.layout == graph::Layout::Undefined
                         ? VkPipelineStageFlags{VK_PIPELINE_STAGE_TRANSFER_BIT}
                         : 0;
-                record_graph_image_barrier(command, transition, image, acquire);
+                if (screen && &image == &destination) {
+                    const TracyPresentZone timing(
+                        command,
+                        acquire ? "Swapchain acquire transition" : "Swapchain present transition"
+                    );
+                    record_graph_image_barrier(command, transition, image, acquire);
+                } else {
+                    record_graph_image_barrier(command, transition, image);
+                }
             }
 
             // Export phases change visibility only and must not repeat the native screen copy.
             if (pass.kind == graph::PassKind::Work) {
-                record();
+                if (screen) {
+                    const TracyPresentZone timing(command, "Swapchain copy");
+                    record();
+                } else {
+                    record();
+                }
             }
             complete_graph_pass(*plan, index, event);
         }

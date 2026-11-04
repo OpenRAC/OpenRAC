@@ -661,6 +661,11 @@ bool make_device(std::string& error) {
         std::vector<VkExtensionProperties> offered(n);
         vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, offered.data());
         for (const VkExtensionProperties& e : offered) {
+#ifdef OPENRAC_TRACY
+            if (std::strcmp(e.extensionName, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+            }
+#endif
             if (std::strcmp(e.extensionName, kPortabilitySubset) == 0) {
                 extensions.push_back(kPortabilitySubset);
             }

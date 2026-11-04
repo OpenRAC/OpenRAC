@@ -385,6 +385,11 @@ int main(int argc, char** argv) {
             q.clamp = i % 2 ? 5 : 0;
             q.alpha = i % 3 == 0 ? 0x44 : i % 3 == 1 ? 0x48 : 0x42;
         }
+        // Consecutive quads can share a draw when the renderer ignores their register differences.
+        quads[8].tex0 = quads[7].tex0;
+        quads[8].tex1 = quads[7].tex1 | (1ull << 32);
+        quads[8].clamp = quads[7].clamp | (1ull << 16);
+        quads[8].alpha = quads[7].alpha | (0x70ull << 32);
         const auto strip_tex0 = 1000ull | (2ull << 26) | (2ull << 30) | (1ull << 34);
         std::array<renderer::EffectVertex, 6> vertices{
             {{0, 0, 1, 0, 0, 0x80808080},
@@ -720,12 +725,13 @@ int main(int argc, char** argv) {
         CHECK(target.create(79, 53, error));
         state.target = {target.id(), 79, 53};
         glClearDepth(0);
-        for (const bool fail : {false, true}) {
+        for (const int path : {0, 1, 2}) {
+            const bool classic = path == 2;
             renderer::EffectRenderer fallback(
                 "effect fallback",
                 renderer::EffectPart::Rest,
                 renderer::Bucket::Particles,
-                std::make_unique<FallbackMaterial>(fail, variants)
+                classic ? nullptr : std::make_unique<FallbackMaterial>(path == 1, variants)
             );
             CHECK(fallback.init(state, error) && error.empty());
             input.strips = {};
@@ -738,12 +744,19 @@ int main(int argc, char** argv) {
                 glDepthMask(GL_TRUE);
                 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
                 const auto cleared = target.read_rgba();
+                const auto before_draws = state.stats.draw_calls;
 #ifdef OPENRAC_VULKAN
                 const auto before_fallback = vkgl::submission_counters().surface_chains;
 #endif
                 fallback.render(input, state);
+                CHECK(
+                    state.stats.draw_calls - before_draws
+                    == quads.size() - (gl::is_vulkan() ? 1 : 0)
+                );
 #ifdef OPENRAC_VULKAN
-                CHECK(vkgl::submission_counters().surface_chains == before_fallback);
+                if (!classic) {
+                    CHECK(vkgl::submission_counters().surface_chains == before_fallback);
+                }
 #endif
                 const auto pixels = target.read_rgba();
                 CHECK(pixels != cleared);

@@ -194,6 +194,7 @@ enum class Var : std::uint16_t {
     UiSkip,
     Uncapped,
     VkEffectUploadReuseOff,
+    VkPalettePartialOff,
     VkParticleTextureReuseOff,
     VkUniformReuseOff,
     VulkanLibrary,

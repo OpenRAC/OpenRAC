@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "common/profiler.h"
 #include "renderer/vulkan/graph_execution.h"
 #include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/temporal_graph.h"
@@ -130,12 +131,14 @@ bool temporal_compute(
     // SDK exceptions and incomplete output recordings must not publish a successful temporal frame.
     try {
         // Transactional validation must not end drawing or change any earlier image state.
-        if (!valid_compute_images(inputs)) {
-            return false;
-        }
-
         GraphExecution execution;
-        auto imports = compute_images(execution, name, inputs);
+        auto imports = [&]() -> Result<Imports> {
+            const profiling::Zone timing("Temporal compute imports");
+            if (!valid_compute_images(inputs)) {
+                return unexpected(Error{"invalid temporal compute images"});
+            }
+            return compute_images(execution, name, inputs);
+        }();
 
         // Import validation completes before any native command is recorded.
         if (!imports) {
@@ -147,17 +150,24 @@ bool temporal_compute(
         bool provider_ok = false;
         // The provider owns internal barriers and restores external input/output layouts before
         // returning.
-        const auto result = execution.run_prepared([&](unsigned) {
-            started = true;
-            // Native rejection selects the existing fallback; it does not invalidate the graph structure.
-            try {
-                provider_ok = record(detail::frame().main, imports->images);
-            } catch (...) {
-                provider_ok = false;
-            }
-        });
+        const auto result = [&] {
+            const profiling::Zone timing("Temporal compute execution");
+            return execution.run_prepared([&](unsigned) {
+                const profiling::Zone provider("Temporal compute provider");
+                started = true;
+                // Native rejection selects the existing fallback.
+                try {
+                    provider_ok = record(detail::frame().main, imports->images);
+                } catch (...) {
+                    provider_ok = false;
+                }
+            });
+        }();
         // SDK return values and stack-owned dispatch descriptions must be consumed before this call returns.
-        const auto completed = detail::flush_surface_chain();
+        const auto completed = [] {
+            const profiling::Zone timing("Temporal compute flush");
+            return detail::flush_surface_chain();
+        }();
         const bool success = bool(result) && bool(completed) && provider_ok;
 
         // Validation rejection leaves previous contents alone; a started writer either completes or
