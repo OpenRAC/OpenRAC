@@ -3,7 +3,8 @@
 Probe GI requires Vulkan, enhanced rendering enabled at startup and a verified level bake.
 Otherwise original lighting applies and Enhanced controls are disabled, retaining saved settings.
 Core Vulkan optimisations work in either mode. Interiors can still be too dark.
-See the [probe baking tools](../tools/probes/README.md) for pipeline details.
+Enhanced scenes also share [atmosphere and fog transport](../docs/atmosphere.md).
+See the [probe baking tools](../tools/baker/README.md) for pipeline details.
 
 ## Build
 
@@ -12,7 +13,7 @@ in a separate folder. Enable it through Mods > **Enhanced graphics**, `enhanced_
 `OPENRAC_ENHANCED=1` or `OPENRAC_PROBE_GI`. It is off at runtime by default; OpenGL uses original lighting.
 
 `python3 tools/build_port.py --probe-baker` statically links pinned Embree 4 into
-`openrac-probe-bake`, as shipped by the launcher, without separate Embree/TBB libraries.
+`openrac-enhanced-baker`, as shipped by the launcher, without separate Embree/TBB libraries.
 Alternatively use `-DOPENRAC_PROBE_BAKER=ON` with an installed Embree 4; Windows needs its DLLs
 on PATH. Python needs no extra packages; the game does not use Embree.
 
@@ -22,11 +23,13 @@ Mods > **Enhanced graphics** selects Vulkan for the current disc and runs `probe
 on first use and after re-exporting levels:
 
 ```sh
-python port/enhanced/tools/probes/bake_all.py --levels-dir <levels> \
-  --output-dir <data>/probes/<version> --baker <openrac-probe-bake> --disc <disc> --jobs 0 --update
+openrac-enhanced-baker --bake-all --levels-dir <levels> \
+  --output-dir <data>/probes/<version> --jobs 0 --update
 ```
 
-`--jobs 0` runs one level per four available bake threads, capped by half the machine's memory.
+`--jobs 0` admits up to one level per four available bake threads. One native process shares its
+tracing workers across admitted levels; estimated scene reservations are capped by half physical
+RAM, or `--memory-mib`. This controls admission rather than enforcing a hard resident-memory cap.
 `--update` compares exports, level format, baker and options against `openrac-bake.json`, replacing
 stale data only after verification. The game uses `--probes <data>/probes/<version>` to load
 `level_NN/sparse.orpg`; missing/currently invalid bakes retain original lighting.
@@ -36,18 +39,21 @@ stale data only after verification. The game uses `--probes <data>/probes/<versi
 After extracting your own disc, run from the repository root:
 
 ```sh
-python port/enhanced/tools/probes/bake_level.py \
-  --level-dir build/native-ntsc-data/port/ntsc/level_01 \
-  --output-dir build/probe-gi/novalis-new-batch
+openrac-enhanced-baker --bake-all \
+  --levels-dir build/native-ntsc-data/port/ntsc \
+  --output-dir build/probe-gi/new-batch --jobs 1
 ```
 
 Use a fresh output directory outside the source level. Settings, emission and planning feed one
-native process, which shares its converted scene/Embree data across all grids. Registration waits
+native process, which expands enclosed coverage with two-sided collision rays and shares its
+converted scene/Embree data across all grids. Registration waits
 for every file's readback, runtime-rounding and sparse-grid comparison checks. Source changes
 before loading, after planning or after baking abort the batch.
 
 Failures retain logs without registering partial results; existing batches stay intact. Restart
 running games to load new data. `batch.log` contains diagnostics; each probe file has a `.txt` report.
+Automatic bakes record the launcher version and compiled baker version/commit in `probe-bake.log`
+and each level's `batch.log`. CLI runs without a launcher report its version as unknown.
 
 Outputs include `sparse.orpg`, `region-NNN.orpg`, `sparse.orpg.regions.json`,
 planning reports, logs and `bake-result.json` with format/bake versions.
@@ -60,20 +66,30 @@ source assignments or coverage checks.
 To bake every exported level in one version, use a fresh output root:
 
 ```sh
-python port/enhanced/tools/probes/bake_all.py \
+openrac-enhanced-baker --bake-all \
   --levels-dir build/native-ntsc-data/port/ntsc \
-  --output-dir build/probe-gi/all-levels
+  --output-dir build/probe-gi/all-levels --jobs 0
 ```
 
-Each `level_XX` uses its own settings. Runs are sequential by default; failures retain logs and
+Each `level_XX` uses its own settings. Automatic admission shares the worker pool; failures retain logs and
 allow remaining levels to continue. `bake-all-result.json` records results; any failure returns
-nonzero. `--dry-run` lists levels without writing. Options include `--baker`, `--disc`, `--rays`,
-`--bounces` and `--threads`.
+nonzero. `--dry-run` lists levels without writing. Options include `--rays`, `--bounces`, `--compression`, `--memory-mib` and `--threads`.
 
-`--threads N` limits `bake_level.py`, `seed_regions.py` and `openrac-probe-bake`: 1 is serial,
-0 automatic. Workers share acceleration data and preserve bytes/identity.
+`--threads N` sets the native compute-worker budget: 1 serialises pool work, 0 selects automatically.
+Workers share acceleration data and preserve bytes/identity.
+Whole-field GI validation uses the same workers, with ordered error reduction and bounded comparison buffers.
 `probe_bake_parallel_test --benchmark` checks equality and timing with one, two, four and automatic
 threads on synthetic data, without launching the game.
+
+The default is 256 primary rays and 256 independent emitter samples per probe. A level profile
+(`rays`) or `--rays` can raise the sample count.
+
+Finite emissive surfaces and ceiling rectangles use multiple importance sampling: explicit light
+samples share power-heuristic weights with primary sphere rays and cosine-weighted bounce rays.
+Point lights retain their full discrete contribution. A separate Embree tree finds transparent
+ceiling emitters without changing occlusion, relocation or distance moments. Mesh emission uses
+geometric normals and the same texture and room gains as explicit sampling. Older bake revisions
+require regeneration.
 
 Embree separates opaque/cutout geometry. Unit-alpha opaque textures skip callbacks at cutoffs
 up to 0.5; other cutouts filter bilinear alpha during traversal. Zero-alpha textured triangles
@@ -94,7 +110,7 @@ and untracked; PAL and NTSC need their own exports.
 ## Level settings
 
 `probe-bake.json` overrides defaults; only `"version": 1` and changed values are needed.
-The [example](../tools/probes/probe-bake.example.json) lists defaults. Delete it and any mod profile
+The [example](../tools/baker/probe-bake.example.json) lists defaults. Delete it and any mod profile
 to reset. CLI/runtime overrides win; `--print-profile` shows resolved settings. Baking never edits
 the profile: retain it as an input record and rebake sparse/dense together after input changes.
 
@@ -105,12 +121,25 @@ airborne shadows retain their directions. Rebake after changes.
 
 The [Novalis NTSC profile](profiles/rac1-ntsc/level_01/probe-bake.json) sets sky intensity 0.5,
 sky weight 0.3, sunlight direction and 8/3-unit dense spacing, two-thirds of the standard 4 units.
+The PAL profiles (`profiles/rac1-pal/`) start as copies of NTSC-U's: the levels' classes, textures
+and coordinates are expected to match; check a PAL bake before tuning them apart.
+Going Commando (NTSC-U) bakes with the same defaults; its level profiles set the scene strategy
+where there are no floor anchors and `light_set` where the scenery takes another directional set
+than 0. Its exports carry
+their gameplay copy from format 17 (`bake-inputs/gameplay.bin`, tag `rac2-v1`): the planner and
+interior inference read its environment transitions (header word 0x84, records as RAC1's) and light
+bank (0x04) through `assets/world/gameplay.cpp`, and seed local grids from the placements of the
+classes in [`profiles/rac2/moby-seeds.json`](profiles/rac2/moby-seeds.json). Its emission catalog
+(`profiles/rac2-ntsc/emission-materials.json`) and fur profile (`profiles/rac2/fur.json`) are its
+own; it has no water profile, and its liquids (lava) have no bake input. Its flights (levels 95 to 98) have no collision and bake
+one coarse grid over the scene.
 Export copies `profiles/<game>-<version>/level_NN/probe-bake.json`; launcher bundles include these
 profiles. Baker/runtime read the exported copy without a checkout. Missing profiles use defaults.
 Re-export and rebake after tracked settings change. Profiles contain no extracted meshes/bakes.
 
 | Setting | Default |
 | --- | --- |
+| Placement strategy | `gameplay` |
 | Sparse / dense spacing | 256 / 4 units |
 | Probe map | 6x6 texels, 8x8 with border |
 | Rays / bounces | 1,024 / 3 |
@@ -126,7 +155,15 @@ bounces; each channel accepts 0 to 4. Equal channels change strength without
 changing colour. `terrain_vertex_albedo` keeps authored terrain lighting as a
 material tint. Both settings require a rebake.
 
-The optional `regions` section in `probe-bake.json` controls local probe placement:
+`"strategy": "scene"` selects one coarse GI volume around all baked geometry and initial moby
+receivers, padded by one cell. It uses `sparse_spacing` and the normal lighting, emission,
+relocation and visibility settings. It skips gameplay seeds, local volumes, ceiling-light
+generation and floor-based reflection capture placement, even if those features are enabled
+in other profile fields. Background scenes use this strategy. Sky-only scenes without static
+geometry produce a verified empty result because they have no surfaces to light.
+
+The default `"strategy": "gameplay"` uses floor-seeded placement. The optional `regions`
+section in `probe-bake.json` controls its local probe placement:
 
 ```json
 {
@@ -177,7 +214,7 @@ layouts even when the native baker executable has not changed.
 
 ## Formats and compatibility
 
-Only **file format 5, bake revision 4** is supported. Rebake older data.
+Only **file format 5, bake revision 5** is supported. Rebake older data.
 Each texel integrates a regular 2x2 angular footprint, including emission.
 Irradiance and distance moments combine the four directions before normalising.
 The footprint softens visibility boundaries; thin walls can still leak.
@@ -189,20 +226,56 @@ Exponent 32 uses repeated squaring, others `pow`; no SIMD library or fast-math f
 Upright grid frames rotate XY cell coordinates while rays and irradiance directions stay in world space.
 Relocation is stored in the grid frame for direct GPU upload; CPU reference offsets are world-space.
 
-Headers contain game/level identity, scene/settings hashes and grid/atlas
+Format 8 headers contain game/level identity, scene/settings hashes, colour/depth encoding and grid/atlas
 layout. Values are little-endian; texture planes upload without repacking:
 
 | Plane | Format | Contents |
 | --- | --- | --- |
-| Irradiance | R11G11B10F | E^(1/5), including map borders |
-| Distance | RG32F | Mean distance and mean squared distance |
+| Irradiance | BC6H, ASTC HDR 8x8 or R11G11B10F | E^(1/5), including map borders |
+| Mean / spread | RG16 UNORM | 16-bit normalized mean and spread channels, including exact map borders |
 | Metadata | RGBA16F | Total offset XYZ, validity and individual-relocation status |
+| Depth ranges | RGBA32F per probe | Mean minimum, mean range, spread scale and ray-distance cap |
 
-Volumes use rows of 64 probe tiles, with unused tiles zeroed. Runtime keeps
+Volumes use rows of 64 probe tiles, with unused packed tiles zeroed. Runtime keeps
 file bytes for upload/streaming; Vulkan still needs a staging copy. Inspection reports
 count these padded GPU planes separately from the file header. CPU tools
 can expand maps. Sampling blends sqrt(E), squares back to E and divides by pi
 once for diffuse shading. Distances and biases use game units; Z is height.
+
+The baker selects BC6H on supporting desktop Vulkan devices, or ASTC HDR 8x8 when
+available. Irradiance needs ASTC HDR; devices with neither colour format keep R11G11B10F.
+`--compression auto|none|bc6h|astc` overrides selection for validation. Device encoding is part
+of cache identity; unsupported colour assets require a local rebake.
+
+Each 6x6 irradiance map and its gutter occupies one 8x8 tile. BC6H shares endpoints and
+paired indices across its four blocks. ASTC constrains decoded border pairs to at most 0.5%
+linear RGB difference relative to source luminance (floor 0.0001). RGBA16F metadata is unchanged.
+Reflection faces and roughness levels start on block boundaries; the 64x64 BRDF lookup remains a separate uncompressed plane.
+Canonical 6x6 depth maps use an 8x8 RG16 UNORM tile with exact octahedral gutters: 256 bytes
+plus 16 bytes of FP32 ranges per probe, compared with 512 bytes for raw RG32F moments.
+A symmetric square-root mean curve and square-root spread curve preserve endpoint and small-variance
+precision within each probe's fitted ranges. The shader inverts them with quadratic arithmetic.
+Two hardware gathers supply the four mean/spread samples without bit unpacking.
+The sampler applies the law of total variance in FP32 and bounds each tap's variance by
+mean * (ray cap - mean). Version 6 raw moments and version 7 RG8/ASTC depth files remain
+readable; noncanonical maps keep raw moments.
+
+Reflection BC6H uses a bounded 0.2-quality endpoint search; ASTC uses the medium preset.
+ASTC 8x8 can lose more directional colour detail than BC6H, especially near strong emitters.
+
+Automatic emission matching hashes texture files on the shared bake workers with a 64 KiB read
+buffer per worker. Floor matching uses sorted spatial queries, preserving the original nearest
+floor tie-breaking and region height bounds.
+
+GI and reflection colour compression shares the bake worker pool. Workers encode independent
+8x8 tiles into fixed output offsets, keeping paired GI borders together. ASTC workers claim
+one tile at a time to balance expensive searches, reusing their codec context across images.
+Scheduling leaves encoded bytes and bake settings unchanged. Adaptive-density reference and
+candidate compression uses the same shared workers.
+
+New GI and reflection files use a streaming SHA-256 readback check before publication,
+with file size checked first. Format and value validation uses the encoded bytes already in
+memory. This avoids a second complete file buffer; it does not measure lighting quality.
 
 ## Bake lighting
 
@@ -346,7 +419,7 @@ with an extra footprint cue in shade. See the
 ## Checks and references
 
 ```sh
-python -m unittest discover -s port/enhanced/tools/probes
+python -m unittest discover -s port/enhanced/tools/baker
 ```
 
 Native fixtures cover formats, baking, CPU/GPU sampling, regions, shadows,
@@ -393,7 +466,7 @@ Captures sit near floor-space centres, normally 3 units above their actual suppo
 Low ceilings can lower them to 2.55 units. The shared playable-floor analysis keeps walls,
 separate storeys, authored lighting boundaries and above/below swimming-water domains separate.
 It connects supported walking and jumping routes; shallow wading water shares dry-floor spaces.
-See [placement and adaptive density](../tools/probes/README.md#environment-captures).
+See [placement and adaptive density](../tools/baker/README.md#environment-captures).
 
 Placement and pruning retain coverage at floor, body and head height. Close visible captures
 must merge or relocate until at least `minimum_capture_spacing` (6 units) apart. Walls, separate
@@ -403,7 +476,7 @@ GI signatures: Rec.709 luminance within 2:1 plus 0.02, and Oklab distance at mos
 Every accepted replacement preserves every receiver; unresolved coverage or spacing fails baking.
 
 `maximum_probes` defaults to 512 as a safety limit. Captures use 128x128 source faces and 128 GGX
-samples. `environment.orpe` version 5 stores a GPU-ready R11G11B10F atlas, oriented influence and
+samples. `environment.orpe` version 6 stores a GPU-ready compressed HDR atlas, oriented influence and
 parallax bounds, and a split-sum BRDF lookup. Seven saved GGX levels span 64x64 to 1x1; the source
 128x128 level is filtered but omitted from storage. Roughness is clamped to the first retained
 level's 1/7 value. Runtime validates scene/settings and every GI payload before upload.
@@ -454,6 +527,25 @@ loaded objects with chrome packets and can force any chrome profile for that cla
 its glass packets. Automatic restores the authored selection; clearing overrides resets every class.
 Stylised exceptions are explicit, never inferred from texture colour. Controls do not change bakes.
 
+
+## Retail anchoring
+
+Going Commando's probe lighting is anchored on the game's own lighting (`probe_retail_anchor`, set
+when the verified bake is a `rac2-*` one; Ratchet & Clank keeps its tuned look). Its skies are two
+to three times dimmer than Ratchet & Clank's and its terrain vertex colours carry the original
+lighting, sunlight included, so the unanchored path left Endako's shade far darker than the
+original and sunlit Barlow sand brighter, from taking the sun twice.
+
+- A live moby's original ambient colour (+0x3C, 0x80 = 1.0) is the floor of its diffuse GI: the
+  ambient multiplies gamma-encoded texels, so its linear equivalent (its 2.2 power) is compared with
+  `indirect / pi` and only the missing luminance is added, in the ambient's hue. Brighter GI (sky,
+  bounces, emitters, lava) stays as baked.
+- Terrain with `terrain_vertex_albedo` takes the enhanced lighting as a ratio to the same point in
+  unshadowed sunlight with unoccluded GI: sunlit ground keeps its original brightness, and shade,
+  GI and occlusion work from there. Cast shade keeps about a third of the sun (`0.1 + 0.9 x 0.28`)
+  instead of a tenth, as the original lighting had no cast shadows.
+
+Both apply to the combined view only; the diagnostic views (`OPENRAC_PROBE_VIEW`) are unchanged.
 
 ## Colour correction
 

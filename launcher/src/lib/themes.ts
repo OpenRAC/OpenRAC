@@ -63,9 +63,11 @@ export const THEMES: Record<string, Theme> = {
   },
   rac5: {
     box: "#1b2936",
-    border: "#eab308",
+    // Blue, not the site's yellow (#eab308, #facc15): the frame and the year follow the game's
+    // accent (palettes.json), as every other game's do.
+    border: "#3f78f0",
     text: "#f8fafc",
-    text2: "#facc15",
+    text2: "#7aa8ff",
     from: "#223342",
     to: "#131d26",
     font: "head",
@@ -115,8 +117,8 @@ export function themeStyle(game: string): string {
   ].join("; ");
 }
 
-/** The launcher's accent while a game is the one picked (Android), from palettes.json: its bar
- *  gradient and the ink on it, its amber (headings, the focus ring, what is on) and gold, in that
+/** The launcher's accent while a game is the one picked, from palettes.json: its bar gradient,
+ *  the desktop bar's two stripes and the ink on them, its amber (headings, the focus ring, what is on) and gold, in that
  *  game's colour, as the games' own menus have it: Going Commando's pale blue, Up Your Arsenal's
  *  yellow, Deadlocked's red, Size Matters' blue. Ratchet & Clank keeps the launcher's own orange
  *  (app.css). The warning colour is not an accent's (app.css), so a warning still reads as one. */
@@ -131,3 +133,40 @@ export function accentProperties(game: string | null): [string, string][] {
 
 /** The custom properties accentProperties may set, to take them all off again. */
 export const ACCENT_PROPERTIES = [...new Set(Object.values(ACCENTS).flatMap((a) => Object.keys(a)))];
+
+/** Game `game`'s accent as an element's own style, whichever game the page wears: a Play button on
+ *  each game's tile in that game's colour. Ratchet & Clank's is the launcher's own (palettes.json
+ *  base), set too, so another game's accent on the page does not show through. */
+export function accentStyle(game: string): string {
+  const own = ACCENTS[game] ?? {};
+  const base: Record<string, string> = palettes.base;
+  return ACCENT_PROPERTIES.flatMap((name) => {
+    const value = own[name] ?? base[name];
+    return value ? [`${name}: ${value}`] : [];
+  }).join("; ");
+}
+
+/** Where the accent's game is kept for the first paint, before the settings have loaded. */
+const STORED_ACCENT = "openrac-accent";
+
+/** Puts game `game`'s accent on the page and keeps it for the next start, so the launcher opens in
+ *  it rather than easing into it from the launcher's own (app.css). */
+export function applyAccent(game: string | null, root: HTMLElement = document.documentElement) {
+  for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
+  for (const [name, value] of accentProperties(game)) root.style.setProperty(name, value);
+  try {
+    if (game) localStorage.setItem(STORED_ACCENT, game);
+    else localStorage.removeItem(STORED_ACCENT);
+  } catch {
+    // Storage refused (a private window): the accent then comes with the settings.
+  }
+}
+
+/** The game whose accent the last start showed, if any. */
+export function storedAccent(): string | null {
+  try {
+    return localStorage.getItem(STORED_ACCENT);
+  } catch {
+    return null;
+  }
+}

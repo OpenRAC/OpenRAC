@@ -79,6 +79,9 @@ struct Manifest {
     std::map<std::string, std::string> plugin;               // platform -> path inside the mod
     bool script = false;                                     // "type": "script" (MODS.md, section 11)
     std::vector<std::string> scripts;                        // a script mod's .luau files, run in order
+    // "assets": a folder inside the mod (MODS.md, section 3): its level_NN folders are searched
+    // before the extracted levels' files, and their classes.json adds render classes.
+    std::string assets;
     std::vector<std::string> hooks;
     std::vector<Setting> settings;
     std::vector<Requirement> requirements;  // the manifest's "requires"
@@ -97,6 +100,9 @@ bool valid_id(std::string_view id);
 
 // A path inside a mod to one of its .luau files: relative, with /, no empty, "." or ".." part.
 bool script_path(std::string_view path);
+
+// A path inside a mod to a folder: relative, with /, no empty, "." or ".." part.
+bool folder_path(std::string_view path);
 
 // One mod of the launcher's list, in its order. `settings` keeps the values as written (JSON
 // values of the object), checked against the manifest by resolve_settings.

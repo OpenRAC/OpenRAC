@@ -7,9 +7,8 @@ The modules, the layers, the edges allowed within a layer and today's known
 violations are data, in [rules.tsv](rules.tsv). It is standard-library Python
 and needs no build.
 
-It is not wired into CMake or CI yet: run it yourself before you commit a
-change to the port's includes. A later package adds it to CI beside the
-conventions check.
+CI runs it on every push ("Port layering" in `.github/workflows/checks.yml`).
+Run it yourself before you commit a change to the port's includes.
 
 ```sh
 # From the top of OpenRAC.
@@ -45,7 +44,7 @@ checker:
   not another version.
 
 `enhanced/tests/` is read as `tests` (they are test programs);
-`enhanced/tools/probes` (the probe baker) is read as `enhanced`, whose code it
+`enhanced/tools/baker` (the probe baker) is read as `enhanced`, whose code it
 drives. `viewer/` is a program's directory, so its includes of `enhanced/`
 are allowed today; the library files P2-02 moves out of it to `scene/` bring
 those includes with them, and that package lists them as exceptions until

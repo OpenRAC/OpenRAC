@@ -1,0 +1,39 @@
+# ccache-action saves even after cancellation. Let actions/cache publish only successful jobs,
+# and keep setup/statistics in ccache-action with its own archive handling disabled.
+name: Compiler cache
+description: Restore compiler objects and publish shared snapshots only after successful jobs
+inputs:
+  key:
+    description: Unique job and platform namespace, without the ccache prefix
+    required: true
+  max-size:
+    description: Maximum local compiler cache size
+    default: 1G
+runs:
+  using: composite
+  steps:
+    - name: Restore and refresh successful branch cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: github.event_name != 'pull_request'
+      with:
+        path: ${{ env.CCACHE_DIR || format(runner.os == 'Windows' && '{0}\.ccache' || '{0}/.ccache', github.workspace) }}
+        key: ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ccache-${{ inputs.key }}-success-
+          ccache-${{ inputs.key }}-
+    - name: Restore shared cache for a pull request
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: github.event_name == 'pull_request'
+      with:
+        path: ${{ env.CCACHE_DIR || format(runner.os == 'Windows' && '{0}\.ccache' || '{0}/.ccache', github.workspace) }}
+        key: ccache-${{ inputs.key }}-success-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ccache-${{ inputs.key }}-success-
+          ccache-${{ inputs.key }}-
+    # Configure after restoring so old cache settings cannot override this job's limits.
+    - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      with:
+        key: ${{ inputs.key }}
+        max-size: ${{ inputs.max-size }}
+        restore: "false"
+        save: "false"

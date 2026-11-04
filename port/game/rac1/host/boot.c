@@ -110,9 +110,10 @@ void func_001F4630(int arg0) {
 
 /* NewGameInit: a new game's state is a fresh save restored from the disc, with the level set to 0
  * (Veldin); the level's files are read right after. With --level N the new game starts in level N
- * instead, the way the behaviour checker reaches a level with its level write. */
+ * instead, the way the behaviour checker reaches a level with its level write. The mods' hook point
+ * (rac1.save.new_game) sits under this, as func_00209DC0__hooked. */
 void func_00209DC0(void) {
-    func_00209DC0__game();
+    func_00209DC0__hooked();
     if (openrac_game_start_level >= 0 && openrac_game_start_level < LEVELS) {
         GREF(int, CURRENT_LEVEL) = openrac_game_start_level;
     }
@@ -240,7 +241,10 @@ static int hero(float position[3], float rotation[3], int32_t *state) {
 /* The flight's update (func_00230A90), once a frame of the transition's flight loop (space.c). */
 void func_00230A90(void) {
     flight_frames = 2;
+    /* Hide missing scene actors so the update does not use a null moby (scene_actors.c). */
+    rac1_scene_actors_pack();
     func_00230A90__game();
+    rac1_scene_actors_unpack();
 }
 
 /*

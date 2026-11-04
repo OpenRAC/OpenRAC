@@ -22,6 +22,7 @@ runs:
         package-manager-cache: false
     - shell: bash
       run: corepack enable
+    - uses: ./.github/actions/yarn-cache
     - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
       with:
         toolchain: stable
@@ -36,3 +37,5 @@ runs:
         workspaces: launcher -> target
         shared-key: ${{ inputs.cache-key }}
         cache-on-failure: false
+        # PR-private snapshots cannot warm other branches and evict the shared caches.
+        save-if: ${{ github.event_name != 'pull_request' }}

@@ -11,8 +11,8 @@ Placing files: links, tree copies and atomic moves that tolerate brief Windows l
 
 link_or_copy is written from the copies tools/extractor.py and tools/openrac.py (place_link,
 whose checks of an existing DEST stay with it) had, and copy_tree from
-tools/bundle_standalone.py's; those three use these since P1-05.
-port/tools/hostgen/prep.py:759 has a copy_tree of the same name that rewrites C as it copies;
+tools/bundle_standalone.py's; those three use these now.
+port/tools/hostgen/prep.py has a copy_tree of the same name that rewrites C as it copies;
 it is a different function and stays where it is.
 """
 import os

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Raw byte-offset hero accesses -> struct Hero fields (include/hero.h).
+"""Raw byte-offset hero accesses -> struct Hero fields (include/structs/hero.h).
 
   python3 tools/tidy/rawhero.py [--dry] [--func=NAME] [--skip=NAME] [--list] FILE...
 
@@ -11,7 +11,7 @@ When every use of the local became a field access, the local turns into a
 `struct Hero *`; otherwise the accesses read `((struct Hero *)p)->field`.
 `*(T *)(hero_globals_base + 0xE1D + OFF)` is rewritten in place too.
 Offsets with no field starting there (or only padding) stay raw.
-The layout comes from clang's record dump of include/hero.h (EE n32 sizes).
+The layout comes from clang's record dump of include/structs/hero.h (EE n32 sizes).
 --func=NAME limits it to functions, --skip=NAME leaves them out, --noinline=NAME keeps
 the in-place `hero_globals_base + 0xE1D + OFF` reads of a function raw, --list prints
 the functions it changes. The bytes must not change: check each file
@@ -49,7 +49,7 @@ class N:
 
 def dump():
     with tempfile.TemporaryDirectory() as d:
-        c = Path(d) / 'p.c'; c.write_text('#include "hero.h"\nint sz[sizeof(struct Hero)];\n')
+        c = Path(d) / 'p.c'; c.write_text('#include "structs/hero.h"\nint sz[sizeof(struct Hero)];\n')
         r = subprocess.run(['clang', '--target=mips64el-linux-gnuabin32', '-std=gnu89', '-fsyntax-only',
                             '-I', str(ROOT / 'include'), '-Xclang', '-fdump-record-layouts-complete',
                             '-Xclang', '-fdump-record-layouts', str(c)], capture_output=True, text=True)
@@ -65,7 +65,8 @@ def dump():
             if lvl == 0:
                 root = N(0, '', body); stack = [root]; continue
             tm = re.match(r'(.*?)\s*(\w+)$', body)
-            n = N(int(m.group(1)), tm.group(2), tm.group(1))
+            # An unnamed member (`union (anonymous)`) has a type and no name.
+            n = N(int(m.group(1)), tm.group(2), tm.group(1)) if tm else N(int(m.group(1)), '', body)
             del stack[lvl:]; stack[-1].kids.append(n); stack.append(n)
         if stack:
             name = stack[0].typ
@@ -337,10 +338,10 @@ for p in files:
     out = t
     for s_, e_, nb in reversed(res): out = out[:s_] + nb + out[e_:]
     if n:
-        if '#include "hero.h"' not in out:
+        if '#include "structs/hero.h"' not in out:
             incs = list(re.finditer(r'^#include .*\n', out, re.M))
             at = incs[-1].end() if incs else 0
-            out = out[:at] + '#include "hero.h"\n' + out[at:]
+            out = out[:at] + '#include "structs/hero.h"\n' + out[at:]
         tot += n; print(f'{n}\t{p}')
         if not dry: open(p, 'w').write(out)
 print('total', tot, file=sys.stderr)

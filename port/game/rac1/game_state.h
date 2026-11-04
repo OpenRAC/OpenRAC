@@ -5,8 +5,9 @@
 // live mobys, as host::GameState (game/common/profile.h). rac1's profile (profile.cpp) answers the
 // host program with these reads; the viewer and its tests call them directly.
 //
-// The memory is the game's 32 MB of main memory as the native port holds it (or a picture of it
-// saved to a file, for working on the renderers without running the game). The addresses are the
+// The memory is the game's active main memory as the native port holds it (32 MB normally, or
+// 256 MB with expanded level streams; it can also be a picture saved to a file for working on the
+// renderers without running the game). The addresses are the
 // game's own, documented beside each field in game_state.cpp; they differ by version, so each
 // version has a table. Nothing here draws.
 
@@ -57,7 +58,7 @@ const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram);
 /**
  * Reads the state from main memory.
  *
- * @param ram The 32 MB of main memory.
+ * @param ram The active main memory (32 MB or up to 256 MB).
  * @param a The version's addresses.
  * @return The state; empty moby list when the table pointers are not inside memory.
  */
@@ -67,21 +68,20 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
 std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, std::uint32_t m);
 
 /**
- * Whether MobyProc leaves a moby out by its distance, as ReRAC's moby_lod.rs replays it: the
- * bounding sphere (+0x00: x y z r in 1/1024 units) has its centre deeper along the view than the
- * draw distance (+0x32, s16 units), or lies wholly behind the eye. The side planes are left out:
- * the window's picture can be wider than the game's.
- *
- * @param moby The moby's 0x100 bytes.
- * @param eye The camera's position, game units.
- * @param forward The camera's view direction (unit).
+ * MobyProc's distance test and fade for the moby `moby` (its 0x100 bytes), seen from `state`'s
+ * camera: none when it leaves the moby undrawn (past its draw distance, wholly nearer than the
+ * near plane, or, as the port tests it, wholly outside the view's sides by far), else the fade of
+ * its vertex alpha in the GS's units, 0x80 nearer than 16 units inside its draw distance, falling
+ * to 0 at it. Bit for bit the game's when `state` has the view block MobyProc reads (moby_view).
  */
-bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward);
+std::optional<std::uint8_t> moby_distance_fade(
+    const std::uint8_t* moby, const host::GameState& state
+);
 
 /** The display list of the frame being shown (the buffer VU1_swapChain retired last). */
 std::uint32_t shown_chain(std::span<const std::uint8_t> ram, const GameAddresses& a);
 
-/** Reads a 32 MB memory picture from a file. */
+/** Reads a 32 MB vanilla or up to 256 MB expanded memory picture from a file. */
 bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error);
 
 }  // namespace openrac::game::rac1

@@ -1,0 +1,132 @@
+/* Weapons: draws a moby's oscillating textured quads, and calls an optional moby callback. */
+#include "types.h"
+#include "asm.h"
+
+#include "eetypes.h"
+#include "qcopy.h"
+#include "rnc/overlay/level_globals.h"
+#include "rnc/overlay/level_labels.h"
+#include "rnc/math/fast_math.h"
+#include "rnc/math/asm_helpers.h"
+
+typedef union {
+    u128 q_002acbf0;
+    f32  f[4];
+} V_2acbf0_002acbf0;
+
+typedef struct {
+    V_2acbf0_002acbf0 corner[4];
+    u32               color[4];
+    f32               uv[8];
+    s64               unk70;
+    s64               tex;
+    s64               unk80;
+    s64               unk88;
+} Q_2acbf0_002acbf0;
+
+typedef struct {
+    u8                pad0[0x20];
+    V_2acbf0_002acbf0 pos;
+    f32               f20, f24, f28;
+} PV_2acbf0_002acbf0;
+
+typedef struct {
+    u8                  pad0[0x78];
+    PV_2acbf0_002acbf0 *pv;
+} M_2acbf0_002acbf0;
+
+extern f32  scale_time(f32) __asm__("FUN_001f96b0");
+extern s64  get_effect_texture(s32) __asm__("FUN_001f44b8");
+extern void draw_geometry_quad(void *, void *, s32) __asm__("FUN_001f7d30");
+void draw_moby_oscillating_textured_quads(M_2acbf0_002acbf0 *moby) __asm__("FUN_L00_002c31c0");
+
+void draw_moby_oscillating_textured_quads(M_2acbf0_002acbf0 *moby) {
+    Q_2acbf0_002acbf0   quad;
+    V_2acbf0_002acbf0   quad_transform[4];
+    V_2acbf0_002acbf0   mz[4];
+    V_2acbf0_002acbf0   quad_orientation_angles;
+    V_2acbf0_002acbf0   rz;
+    PV_2acbf0_002acbf0 *pv = moby->pv;
+    s32                 i;
+    s32                 odd;
+    f32                 polar_angle, phase_numerator;
+    if (D_L00_0015F5C4 == 2) {
+        return;
+    }
+    for (i = 0; i < 2; i++) {
+        odd = i & 1;
+        polar_angle = fast_arc_tan(square_root(pv->f20 * pv->f20 + pv->f28 * pv->f28), pv->f24);
+        quad_orientation_angles.f[0] = fast_add_rotations(-polar_angle, 1.57079637f);
+        quad_orientation_angles.f[1] = fast_arc_tan(pv->f28, pv->f20);
+        quad_orientation_angles.f[2] = 0.0f;
+        quad_orientation_angles.f[3] = 0.0f;
+        rz.f[0] = 0.0f;
+        phase_numerator = convert_integer_to_float(D_L00_0015F5CC % scale_game_frames(180));
+        {
+            f32 phase_divisor = scale_time(180.0f);
+            f32 signed_phase_sine;
+            phase_numerator *= 6.28318548f;
+            signed_phase_sine = fast_normalize_angle(phase_numerator / phase_divisor);
+            if (odd) {
+                signed_phase_sine = -signed_phase_sine;
+            }
+            rz.f[1] = signed_phase_sine;
+        }
+        rz.f[2] = 0.0f;
+        rz.f[3] = 0.0f;
+        euler_rotation_matrix(mz, &rz);
+        euler_rotation_matrix(quad_transform, &quad_orientation_angles);
+        multiply_matrix(quad_transform, quad_transform, mz);
+        qcopy(&quad_transform[3], &pv->pos);
+        quad.color[0] = 0x80808080;
+        quad.color[1] = 0x80808080;
+        quad.color[2] = 0x80808080;
+        quad.color[3] = 0x80808080;
+        quad.tex = get_effect_texture(odd ? 0x12 : 0x11);
+        quad.unk80 = 0xFF9000000260L;
+        quad.unk88 = 0x8000000048L;
+        quad.unk70 = 0;
+        quad.corner[0].f[0] = -1.0f;
+        quad.corner[0].f[1] = 0.0f;
+        quad.corner[0].f[2] = 1.0f;
+        quad.corner[0].f[3] = 1.0f;
+        quad.corner[1].f[0] = 1.0f;
+        quad.corner[1].f[1] = 0.0f;
+        quad.corner[1].f[2] = 1.0f;
+        quad.corner[1].f[3] = 1.0f;
+        quad.corner[2].f[0] = -1.0f;
+        quad.corner[2].f[1] = 0.0f;
+        quad.corner[2].f[2] = -1.0f;
+        quad.corner[2].f[3] = 1.0f;
+        quad.corner[3].f[0] = 1.0f;
+        quad.corner[3].f[1] = 0.0f;
+        quad.corner[3].f[2] = -1.0f;
+        quad.corner[3].f[3] = 1.0f;
+        quad.uv[0] = 0.0f;
+        quad.uv[1] = 1.0f;
+        quad.uv[2] = 1.0f;
+        quad.uv[3] = 1.0f;
+        quad.uv[4] = 0.0f;
+        quad.uv[5] = 0.0f;
+        quad.uv[6] = 1.0f;
+        quad.uv[7] = 0.0f;
+        draw_geometry_quad(&quad, quad_transform, 1);
+    }
+}
+
+#include "sda.h"
+#include "rnc/mobys/moby.h"
+
+#include "rnc/math/vector.h"
+
+/* Calls the optional function reached through the moby pointer at +0x24; 1 when it is null.
+   The function places the moby at b (the retail code leaves the caller's a1 in place for it). */
+int invoke_optional_moby_callback_or_return_one(char *moby, void *b) __asm__("FUN_L00_002da218");
+
+int invoke_optional_moby_callback_or_return_one(char *moby, void *b) {
+    int (*fn)(char *, void *) = *(int (**)(char *, void *))(*(char **)(((char *)MOBY(moby)->pclass) + 0x2C) + 0x4);
+    if (fn != 0) {
+        return fn(moby, b);
+    }
+    return 1;
+}

@@ -7,6 +7,7 @@
 #include <iterator>
 #include <stdexcept>
 
+#include "assets/geometry/shrub_lighting.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
@@ -156,9 +157,9 @@ bool LevelScene::same_palette(
 // Returns the key build_groups groups `instance` by: its class model, its blend and whether it
 // is a gameplay subject and casts the hero's shadow.
 std::uint32_t LevelScene::group_key(const Instance& instance) {
-    return instance.model << 5 | (instance.floats_on_water ? 16u : 0u)
-           | (instance.gameplay_essential ? 8u : 0u)
-           | (static_cast<std::uint32_t>(instance.blend & 3) << 1)
+    return instance.model << 6 | (instance.floats_on_water ? 32u : 0u)
+           | (instance.gameplay_essential ? 16u : 0u)
+           | (static_cast<std::uint32_t>(instance.blend & 7) << 1)
            | (instance.hero_shadow_caster ? 1u : 0u);
 }
 
@@ -260,6 +261,7 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
     // are kept between calls (a live layer is grouped again every frame).
     for (auto& group : m_grouping) {
         group.instances.clear();
+        group.floating_ids.clear();
         group.spheres.clear();
         group.occlusion.clear();
     }
@@ -282,13 +284,16 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         }
 
         m_grouping[at].instances.push_back(instance_data(instance));
+        if (instance.floats_on_water) {
+            m_grouping[at].floating_ids.push_back(instance.temporal_id);
+        }
         m_grouping[at].spheres.push_back(instance.world_sphere);
         m_grouping[at].occlusion.push_back(instance.occlusion);
     }
     auto& groups = m_groups[static_cast<std::size_t>(layer)];
     auto& idle = m_idle[static_cast<std::size_t>(layer)];
     for (std::size_t i = 0; i < used; ++i) {
-        const std::uint32_t model = m_grouping[i].key >> 5;
+        const std::uint32_t model = m_grouping[i].key >> 6;
         // A live layer draws the same classes frame after frame: each keeps its vertex array and
         // buffer, and only the instances are sent again.
         auto kept = std::find_if(idle.begin(), idle.end(), [&](const Group& g) {
@@ -304,12 +309,13 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         } else {
             g = make_group(model);
         }
-        g.blend = static_cast<int>((m_grouping[i].key >> 1) & 3);
+        g.blend = static_cast<int>((m_grouping[i].key >> 1) & 7);
         g.hero_shadow_caster = (m_grouping[i].key & 1) != 0;
-        g.gameplay_essential = (m_grouping[i].key & 8) != 0;
-        g.floats_on_water = (m_grouping[i].key & 16) != 0;
+        g.gameplay_essential = (m_grouping[i].key & 16) != 0;
+        g.floats_on_water = (m_grouping[i].key & 32) != 0;
         fill_group(g, m_grouping[i].instances, live ? GL_STREAM_DRAW : GL_STATIC_DRAW);
         g.cpu_instances = m_grouping[i].instances;
+        g.floating_ids = m_grouping[i].floating_ids;
         g.shadow_solid_instances = solid_shadow_instances(g.cpu_instances);
         g.camera_valid = false;
         g.pvs_valid = false;
@@ -337,9 +343,22 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
                 g.gpu_bounds.push_back(gpu_cull_bounds(bounds, g.cpu_instances[n], g.occlusion[n]));
             }
         }
-        // Aggregate the same conservative bounds used by per-instance tests.
+        g.shadow_geometry_bounds.clear();
+        if (layer != Layer::Mobys && g.cpu_instances.size() == 1 && !g.floats_on_water) {
+            for (const auto& chunk : m_shadow_geometry[m_opaque[g.model]]) {
+                Model shape;
+                shape.min = chunk.low;
+                shape.max = chunk.high;
+                auto bound = instance_bounds(shape, g.cpu_instances[0], {}, true, false);
+                bound.valid &= chunk.bounded;
+                g.shadow_geometry_bounds.push_back(bound);
+            }
+        }
+
+        // Aggregate the same conservative bounds used by per-instance tests. Animated scenery
+        // rebuilds these each frame, so it can use the normal group-level camera rejection too.
         g.bounded = false;
-        if (!live
+        if ((!live || layer == Layer::Animated)
             && std::all_of(
                 g.caster_bounds.begin(), g.caster_bounds.end(), [](const CasterBounds& b) {
                     return b.valid;
@@ -407,9 +426,35 @@ void LevelScene::submit_instances(
     );
 }
 
-void LevelScene::set_instances(Layer layer, const std::vector<Instance>& instances) {
+void LevelScene::set_variant(int number) {
+    if (m_variant_image < 0 || number < 0
+        || static_cast<std::size_t>(number) >= m_variants.size()) {
+        return;
+    }
+    m_textures[static_cast<std::size_t>(m_variant_image)] =
+        m_variants[static_cast<std::size_t>(number)];
+}
+
+void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source) {
+#ifdef OPENRAC_LIGHT_AUTHORING
+    if (m_lighting) {
+        m_lighting->prepare_instances(layer, source);
+    }
+    std::vector<Instance> drawable;
+    const bool has_emitters =
+        std::any_of(source.begin(), source.end(), [](const auto& i) { return i.lighting_only; });
+    if (has_emitters) {
+        std::copy_if(source.begin(), source.end(), std::back_inserter(drawable), [](const auto& i) {
+            return !i.lighting_only;
+        });
+    }
+    const auto& instances = has_emitters ? drawable : source;
+#else
+    const auto& instances = source;
+#endif
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
+    m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;
     if (layer == Layer::Mobys) {
         m_wetness_hero.reset();
         for (const auto& instance : instances) {
@@ -478,21 +523,29 @@ void LevelScene::choose_scenery(
     for (std::size_t k = 0; k < m_scenery.size(); ++k) {
         Scenery& scenery = m_scenery[k];
         const Layer layer = kSceneryLayers[k];
-        if (scenery.source.empty()) {
+        if (scenery.source.empty() || scenery.distances.empty()) {
             continue;
         }
         // Off again after being on: the instances as loaded, once.
         if (!original) {
             if (!scenery.drawn.empty()) {
                 scenery.drawn.clear();
-                set_instances(layer, scenery.source);
+                set_instances(layer, resident_scenery(k));
             }
             continue;
         }
         const bool first = scenery.drawn.empty();
         scenery.drawn.resize(scenery.source.size(), 1);
         bool changed = first;
-        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+        // The shrubs ShrubProc draws whole this tick, when it was replayed: the others fade or are
+        // billboards (add_shrub_effects), or are not drawn.
+        const bool replayed = layer == Layer::Shrubs && shrub_draws_usable();
+        for (std::size_t i = 0; replayed && i < scenery.source.size(); ++i) {
+            const std::uint8_t drawn = m_shrub_draws[i].mesh == 0x80 ? 1 : 0;
+            changed = changed || scenery.drawn[i] != drawn;
+            scenery.drawn[i] = drawn;
+        }
+        for (std::size_t i = 0; !replayed && i < scenery.source.size(); ++i) {
             const Vec3& centre = scenery.centres[i];
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
             const bool was = !first && scenery.drawn[i] != 0;
@@ -509,20 +562,351 @@ void LevelScene::choose_scenery(
         if (!changed) {
             continue;
         }
-        std::vector<Instance> chosen;
-        chosen.reserve(scenery.source.size());
-        for (std::size_t i = 0; i < scenery.source.size(); ++i) {
-            if (scenery.drawn[i] == 0) {
-                continue;
-            }
-            chosen.push_back(scenery.source[i]);
-        }
-        set_instances(layer, chosen);
+        set_instances(layer, resident_scenery(k));
         rebuilt = true;
     }
     // How often the layers are grouped again (a frame's average: the share of frames).
     if (stats::enabled()) {
         stats::gauge("scenery regroups", rebuilt ? 1 : 0);
+    }
+}
+
+std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
+    const Scenery& scenery = m_scenery[k];
+    const MovedScenery& moved = m_moved[k];
+    std::vector<Instance> resident;
+    resident.reserve(scenery.source.size());
+    for (std::size_t i = 0; i < scenery.source.size(); ++i) {
+        if ((!scenery.drawn.empty() && scenery.drawn[i] == 0)
+            || (i < moved.state.size() && moved.state[i] != 0)) {
+            continue;
+        }
+        resident.push_back(scenery.source[i]);
+    }
+    return resident;
+}
+
+void LevelScene::move_scenery(const GameScenery& game) {
+    // How far a matrix entry may be from the loaded one and still be taken for it: the export
+    // writes the game's floats, so only a move changes them.
+    constexpr float kSame = 1.0e-3f;
+    m_moved_count = 0;
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        const Scenery& scenery = m_scenery[k];
+        MovedScenery& moved = m_moved[k];
+        const auto& now = game.matrices[k];
+        const std::size_t count = scenery.source.size();
+        if (count == 0 || now.size() != count) {
+            continue;
+        }
+        // The first time: the game's matrices must be the loaded instances', or the layer is
+        // drawn as loaded (an edited level, another export's order).
+        if (moved.checked < 0) {
+            std::size_t same = 0;
+            for (std::size_t i = 0; i < count; ++i) {
+                const Mat4& m = scenery.source[i].matrix;
+                same += std::abs(now[i][9] - m[12]) < 0.01f && std::abs(now[i][10] - m[13]) < 0.01f
+                        && std::abs(now[i][11] - m[14]) < 0.01f;
+            }
+            moved.checked = same * 10 >= count * 9 ? 1 : 0;
+            if (moved.checked == 0) {
+                log::warn(
+                    "{}: {} of {} game matrices are the loaded instances'; drawn as loaded",
+                    layer_name(kSceneryLayers[k]),
+                    same,
+                    count
+                );
+            }
+            moved.state.assign(count, 0);
+            moved.matrix.assign(count, renderer::identity());
+            moved.lit.assign(count, renderer::identity());
+            moved.lit_set.assign(count, 0xFF);
+            moved.lit_points.assign(count, {});
+        }
+        if (moved.checked == 0) {
+            continue;
+        }
+        const bool ties = kSceneryLayers[k] == Layer::Ties;
+        const bool listed =
+            ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
+        bool changed = false;
+        for (std::size_t i = 0; i < count; ++i) {
+            const Mat4& m = scenery.source[i].matrix;
+            const auto& g = now[i];
+            bool zero = true, same = true;
+            for (std::size_t c = 0; c < 4; ++c) {
+                for (std::size_t r = 0; r < 3; ++r) {
+                    const float v = g[c * 3 + r];
+                    zero = zero && (c == 3 || v == 0.0f);
+                    same = same && std::abs(v - m[c * 4 + r]) < kSame;
+                }
+            }
+            const std::uint8_t state = zero ? 2 : same ? 0 : 1;
+            m_moved_count += state == 1;
+            changed = changed || state != moved.state[i];
+            moved.state[i] = state;
+            Mat4& w = moved.matrix[i];
+            if (state == 1) {
+                for (std::size_t c = 0; c < 4; ++c) {
+                    for (std::size_t r = 0; r < 3; ++r) {
+                        w[c * 4 + r] = g[c * 3 + r];
+                    }
+                    w[c * 4 + 3] = c == 3 ? 1.0f : 0.0f;
+                }
+            }
+            // A shrub a point light reaches (its record's list) or the game moved is lit again by
+            // LightShrubs' pass with its merged third light; one neither, as loaded.
+            if (!ties && i < m_shrub_relight.size() && state != 2) {
+                const bool shrub_listed =
+                    game.shrub_lights.size() == count && game.shrub_spheres.size() == count;
+                const std::uint16_t list = shrub_listed ? game.shrub_lights[i] : 0xFFFF;
+                std::array<float, 32> key{};
+                for (std::uint16_t l = list, n = 0; (l & 0xF) != 0xF && n < 4; l >>= 4, ++n) {
+                    std::copy_n(m_point_lights.data() + 8 * (l & 7), 8, key.data() + 8 * n);
+                }
+                const std::uint8_t set = state == 1 || list != 0xFFFF ? 0 : 0xFF;
+                const Mat4& where = state == 1 ? w : m;
+                const std::array<float, 4> centre =
+                    shrub_listed ? game.shrub_spheres[i] : std::array<float, 4>{};
+                key[31] = static_cast<float>(list);
+                if (moved.lit_set[i] == set
+                    && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
+                    continue;
+                }
+                relight_shrub(i, set == 0xFF ? nullptr : &where, list, centre);
+                moved.lit[i] = where;
+                moved.lit_set[i] = set;
+                moved.lit_points[i] = key;
+                continue;
+            }
+            if (!ties || i >= m_tie_relight.size() || state == 2) {
+                continue;
+            }
+            // A tie the game moved is lit again by where it is now, one a point light reaches
+            // with it too; one neither moved nor reached, as loaded.
+            std::array<TiePointLight, 4> points{};
+            std::array<float, 32> key{};
+            std::size_t lights = 0;
+            for (std::uint16_t list = listed ? game.tie_lights[i] : 0xFFFF; lights < 4;
+                 list >>= 4) {
+                const std::size_t slot = list & 0xF;
+                if (slot == 0xF) {
+                    break;
+                }
+                TiePointLight& p = points[lights];
+                const float* bank = m_point_lights.data() + 8 * (slot & 7);
+                p.colour = {bank[0], bank[1], bank[2]};
+                p.falloff = bank[3];
+                p.position = {bank[4], bank[5], bank[6]};
+                p.reach = bank[7];
+                std::copy_n(bank, 8, key.data() + 8 * lights);
+                ++lights;
+            }
+            const std::uint8_t set = state == 1 || lights > 0 ? m_tie_relight[i].light_set : 0xFF;
+            const Mat4& where = state == 1 ? w : m;
+            if (moved.lit_set[i] == set
+                && (set == 0xFF || (moved.lit[i] == where && moved.lit_points[i] == key))) {
+                continue;
+            }
+            if (set == 0xFF) {
+                relight_moved_tie(i, nullptr);
+            } else {
+                relight_moved_tie(
+                    i,
+                    &where,
+                    std::span<const TiePointLight>(points.data(), lights),
+                    listed ? game.tie_spheres[i] : std::array<float, 4>{}
+                );
+            }
+            moved.lit[i] = where;
+            moved.lit_set[i] = set;
+            moved.lit_points[i] = key;
+        }
+        if (changed) {
+            set_instances(kSceneryLayers[k], resident_scenery(k));
+        }
+    }
+}
+
+void LevelScene::relight_moved_tie(
+    std::size_t i,
+    const Mat4* matrix,
+    std::span<const TiePointLight> points,
+    const std::array<float, 4>& sphere
+) {
+    const Instance& instance = m_scenery[0].source[i];
+    const TieRelight& relight = m_tie_relight[i];
+    if (m_lights == 0 || instance.lights < 0 || relight.cls < 0
+        || static_cast<std::size_t>(relight.cls) >= m_tie_relight_classes.size()
+        || static_cast<std::size_t>(relight.first) + relight.count > m_tie_slots.size()) {
+        return;
+    }
+    const TieRelightClass& cls = m_tie_relight_classes[static_cast<std::size_t>(relight.cls)];
+    const std::size_t first = static_cast<std::size_t>(instance.lights);
+    const std::size_t count = cls.vertices.size() / 5;
+    if (first + count > m_light_colours.size()) {
+        return;
+    }
+    std::vector<std::uint32_t> colours;
+    if (matrix != nullptr && m_light_sets.size() == std::size_t{16} * 16) {
+        relight_tie(
+            cls,
+            std::span(m_tie_slots).subspan(relight.first, relight.count),
+            *matrix,
+            std::span<const float, 16>(m_light_sets.data() + 16 * relight.light_set, 16),
+            colours,
+            points,
+            sphere
+        );
+    } else {
+        colours.assign(m_light_colours.begin() + first, m_light_colours.begin() + first + count);
+    }
+    upload_light_colours(first, colours);
+}
+
+void LevelScene::upload_light_colours(std::size_t first, std::span<const std::uint32_t> colours) {
+    // The texture's rows of 1024 colours that the instance's run crosses.
+    constexpr std::size_t width = kLightWidth;
+    glBindTexture(GL_TEXTURE_2D, m_lights);
+    for (std::size_t at = 0; at < colours.size();) {
+        const std::size_t texel = first + at;
+        const std::size_t run = std::min(colours.size() - at, width - texel % width);
+        glTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            static_cast<GLint>(texel % width),
+            static_cast<GLint>(texel / width),
+            static_cast<GLsizei>(run),
+            1,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            colours.data() + at
+        );
+        at += run;
+    }
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void LevelScene::relight_shrub(
+    std::size_t i, const Mat4* matrix, std::uint16_t list, const std::array<float, 4>& centre
+) {
+    const Instance& instance = m_scenery[1].source[i];
+    const LevelData::ShrubRelight& relight = m_shrub_relight[i];
+    if (m_lights == 0 || instance.lights < 0 || relight.cls < 0
+        || static_cast<std::size_t>(relight.cls) >= m_shrub_relight_classes.size()) {
+        return;
+    }
+    const std::size_t first = static_cast<std::size_t>(instance.lights);
+    if (first + 24 > m_light_colours.size()) {
+        return;
+    }
+    std::array<std::uint32_t, 24> colours{};
+    if (matrix != nullptr && m_light_sets.size() == std::size_t{16} * 16) {
+        // Ratchet & Clank's LightShrubs, which Going Commando's (0x2E2C38) is instruction for
+        // instruction, point lights merged from the run-time record's centre and list.
+        namespace geo = openrac::assets::rac1;
+        geo::ShrubClass cls;
+        cls.normals.assign(
+            m_shrub_relight_classes[static_cast<std::size_t>(relight.cls)].begin(),
+            m_shrub_relight_classes[static_cast<std::size_t>(relight.cls)].end()
+        );
+        geo::ShrubInstance inst;
+        for (std::size_t c = 0; c < 4; ++c) {
+            for (std::size_t r = 0; r < 4; ++r) {
+                inst.matrix[c][r] = (*matrix)[c * 4 + r];
+            }
+        }
+        inst.matrix[3][3] = 0.01f;
+        inst.colour = relight.colour;
+        inst.dir_lights = relight.select;
+        geo::LightBank bank;
+        for (std::size_t s = 0; s < 16 && s < bank.sets.size(); ++s) {
+            std::memcpy(&bank.sets[s], m_light_sets.data() + 16 * s, sizeof(geo::DirLightSet));
+        }
+        bank.count = 16;
+        geo::PointLightBank points{};
+        std::memcpy(points.data(), m_point_lights.data(), sizeof(points));
+        const geo::ShrubPalette palette = geo::light_shrub_instance(
+            cls, inst, bank, geo::ShrubPointLights{&points, list, &centre}
+        );
+        for (std::size_t j = 0; j < 24; ++j) {
+            colours[j] = static_cast<std::uint32_t>(palette[j][0])
+                         | static_cast<std::uint32_t>(palette[j][1]) << 8
+                         | static_cast<std::uint32_t>(palette[j][2]) << 16
+                         | static_cast<std::uint32_t>(palette[j][3]) << 24;
+        }
+    } else {
+        std::copy_n(
+            m_light_colours.begin() + static_cast<std::ptrdiff_t>(first), 24, colours.begin()
+        );
+    }
+    upload_light_colours(first, colours);
+}
+
+void LevelScene::add_moved_scenery(
+    std::vector<Instance>& live,
+    const std::array<bool, 2>& layers,
+    const std::function<Mat4(std::size_t, std::size_t, const Mat4&)>& at
+) const {
+    for (std::size_t k = 0; k < m_scenery.size(); ++k) {
+        // A layer whose pass the game did not run this tick (the vendor's frozen world) has none.
+        if (k >= layers.size() || !layers[k]) {
+            continue;
+        }
+        const Scenery& scenery = m_scenery[k];
+        const MovedScenery& moved = m_moved[k];
+        for (std::size_t i = 0; i < moved.state.size() && i < scenery.source.size(); ++i) {
+            if (moved.state[i] != 1 || (!scenery.drawn.empty() && scenery.drawn[i] == 0)) {
+                continue;
+            }
+            Instance instance = scenery.source[i];
+            instance.matrix = at ? at(k, i, moved.matrix[i]) : moved.matrix[i];
+            instance.occlusion = Pvs::always;
+            // A stable identity for the motion history: layer and place, apart from the mobys'
+            // addresses (below 0x2000000).
+            instance.temporal_id = (std::uint64_t{k + 1} << 40) | i;
+            live.push_back(instance);
+        }
+    }
+}
+
+bool LevelScene::shrub_draws_usable() const {
+    const Scenery& shrubs = m_scenery[1];
+    return !shrubs.source.empty() && !shrubs.distances.empty()
+           && m_shrub_draws.size() == shrubs.source.size()
+           && m_shrub_billboards.size() == shrubs.source.size();
+}
+
+void LevelScene::set_shrub_draws(std::vector<ShrubDraw> draws) {
+    m_shrub_draws = std::move(draws);
+}
+
+void LevelScene::add_shrub_effects(std::vector<Instance>& live) const {
+    if (!shrub_draws_usable()) {
+        return;
+    }
+    const auto& source = m_scenery[1].source;
+    for (std::size_t i = 0; i < source.size(); ++i) {
+        const ShrubDraw& draw = m_shrub_draws[i];
+        // The fading list: the mesh at its vertex alpha, its texels at 0x0C and over writing depth.
+        if (draw.mesh != 0 && draw.mesh < 0x80) {
+            Instance mesh = source[i];
+            mesh.tint[3] = static_cast<float>(draw.mesh) / 128.0f;
+            mesh.blend = 4;
+            live.push_back(mesh);
+        }
+        // The billboard: its first pass (0x80, TEST 0x5360b) as a moby's face, its second (TEST
+        // 0x53001) blended without depth; coloured with the instance's average lit colour.
+        if (draw.billboard != 0 && m_shrub_billboards[i] >= 0) {
+            Instance billboard;
+            billboard.model = static_cast<std::uint32_t>(m_shrub_billboards[i]);
+            billboard.matrix = draw.billboard_matrix;
+            billboard.tint = m_shrub_colours[i];
+            billboard.tint[3] = static_cast<float>(draw.billboard) / 128.0f;
+            billboard.blend = draw.billboard == 0x80 ? 1 : 5;
+            billboard.occlusion = source[i].occlusion;
+            live.push_back(billboard);
+        }
     }
 }
 
@@ -582,6 +966,9 @@ bool LevelScene::rewrite_mobys(const std::vector<Instance>& instances) {
             std::memcmp(&g.cpu_instances[slot], &data, sizeof(data)) != 0
             || std::memcmp(layout.spheres[n].data(), sphere.data(), sizeof(sphere)) != 0;
         g.cpu_instances[slot] = data;
+        if (g.floats_on_water) {
+            g.floating_ids[slot] = instances[n].temporal_id;
+        }
         g.occlusion[slot] = instances[n].occlusion;
 
         // The same pose and sphere give the same bounds as before.
@@ -627,14 +1014,79 @@ void LevelScene::set_palette(const std::vector<JointColumns>& matrices) {
     // Whole rows: the matrices, then zeros to the end of the last row.
     constexpr std::size_t kPerRow = kPaletteWidth / 4;
     const std::size_t rows = (matrices.size() + kPerRow - 1) / kPerRow;
+    stats::gauge("moby palette rows", double(rows));
 
     // The texture holds these joints already, bit for bit (a still palette): nothing is sent.
     if (renderer::render_opt::enabled(renderer::render_opt::Opt::MobyPoseInPlace)
         && rows <= m_palette_rows && same_palette(matrices, m_palette_data, rows * kPerRow)) {
+        stats::gauge("moby palette changed rows", 0);
+        stats::gauge("moby palette uploaded rows", 0);
+        stats::gauge("moby palette upload calls", 0);
         glBindTexture(GL_TEXTURE_2D, 0);
         return;
     }
 
+    static const bool& full_upload =
+        stats::probe("OPENRAC_VK_PALETTE_PARTIAL_OFF", "Upload complete Vulkan joint palettes");
+    if (gl::is_vulkan() && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyPoseInPlace)
+        && rows <= m_palette_rows && m_palette_data.size() == rows * kPerRow) {
+        std::array<JointColumns, kPerRow> last{};
+        const auto tail = matrices.size() - (rows - 1) * kPerRow;
+        std::copy_n(matrices.data() + (rows - 1) * kPerRow, tail, last.data());
+        std::array<std::pair<std::size_t, std::size_t>, 8> runs{};
+        std::size_t run_count = 0;
+        std::size_t changed_rows = 0;
+        for (std::size_t row = 0; row < rows; ++row) {
+            const auto* source = row + 1 == rows ? last.data() : matrices.data() + row * kPerRow;
+            auto* previous = m_palette_data.data() + row * kPerRow;
+            if (std::memcmp(source, previous, sizeof(last)) == 0) {
+                continue;
+            }
+            std::copy_n(source, kPerRow, previous);
+            ++changed_rows;
+            if (run_count <= runs.size()) {
+                if (run_count != 0 && runs[run_count - 1].second == row) {
+                    runs[run_count - 1].second = row + 1;
+                } else if (run_count < runs.size()) {
+                    runs[run_count++] = {row, row + 1};
+                } else {
+                    ++run_count;
+                }
+            }
+        }
+        stats::gauge("moby palette changed rows", double(changed_rows));
+        // Limit transfer calls when dirty rows are scattered or cover most of the palette.
+        const bool sparse = !full_upload && run_count <= runs.size() && changed_rows <= rows / 2;
+        glBindTexture(GL_TEXTURE_2D, m_palette);
+        const auto upload_rows = [&](std::size_t first, std::size_t end) {
+            glTexSubImage2D(
+                GL_TEXTURE_2D,
+                0,
+                0,
+                static_cast<GLint>(first),
+                kPaletteWidth,
+                static_cast<GLsizei>(end - first),
+                GL_RGBA,
+                GL_FLOAT,
+                m_palette_data.data() + first * kPerRow
+            );
+        };
+        if (sparse) {
+            for (const auto& [first, end] : std::span(runs).first(run_count)) {
+                upload_rows(first, end);
+            }
+        } else {
+            upload_rows(0, rows);
+        }
+        stats::gauge("moby palette uploaded rows", double(sparse ? changed_rows : rows));
+        stats::gauge("moby palette upload calls", double(sparse ? run_count : 1));
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return;
+    }
+
+    stats::gauge("moby palette changed rows", double(rows));
+    stats::gauge("moby palette uploaded rows", double(rows));
+    stats::gauge("moby palette upload calls", 1);
     m_palette_data.assign(rows * kPerRow, JointColumns{});
     std::copy(matrices.begin(), matrices.end(), m_palette_data.begin());
     glBindTexture(GL_TEXTURE_2D, m_palette);

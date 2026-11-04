@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "emission-moby_0172",
+      "match": {
+        "texture_path": "textures/moby_0172.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-moby_0173",
+      "match": {
+        "texture_path": "textures/moby_0173.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-moby_0174",
+      "match": {
+        "texture_path": "textures/moby_0174.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-moby_0175",
+      "match": {
+        "texture_path": "textures/moby_0175.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-moby_0178",
+      "match": {
+        "texture_path": "textures/moby_0178.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-moby_0179",
+      "match": {
+        "texture_path": "textures/moby_0179.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0055",
+      "match": {
+        "texture_path": "textures/shrub_0055.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0056",
+      "match": {
+        "texture_path": "textures/shrub_0056.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0057",
+      "match": {
+        "texture_path": "textures/shrub_0057.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0058",
+      "match": {
+        "texture_path": "textures/shrub_0058.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    },
+    {
+      "id": "emission-shrub_0059",
+      "match": {
+        "texture_path": "textures/shrub_0059.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 4,
+          "contrast": 1.5
+        }
+      }
+    }
+  ]
+}

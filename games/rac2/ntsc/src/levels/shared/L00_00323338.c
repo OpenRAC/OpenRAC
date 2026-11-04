@@ -1,0 +1,40 @@
+#include "common.h"
+
+extern float func_00282E48(void *, void *);
+
+extern void func_00283698(void *, void *);
+
+extern void func_00283678(void *, void *);
+
+typedef int V4TI_F36d8a248 __attribute__((mode(TI)));
+
+int func_L00_00323338(void *a0, void *records, int count, void *src0, void *src1,
+                      void *dst, void *ctx)
+{
+    struct {
+        V4TI_F36d8a248 v0;
+        V4TI_F36d8a248 v1;
+        V4TI_F36d8a248 matrix[4];
+    } local;
+    void *lp = &local.v0;
+    void *matrix = (char *)lp + 0x20;
+    char *p;
+    int i;
+    int best = 0;
+    float bestf = 9999.0f;
+
+    local.v0 = *(V4TI_F36d8a248 *)src0;
+    local.v1 = *(V4TI_F36d8a248 *)src1;
+    for (i = 0; i < count; i++) {
+        float f = func_00282E48(lp, (char *)records + i * 0x40 + 0x30);
+        if (f < bestf) {
+            bestf = f;
+            best = i;
+        }
+    }
+    p = (char *)records + (best << 6);
+    func_00283698(matrix, p);
+    func_00283678(ctx, matrix);
+    qcopy(dst, p + 0x30);
+    return best;
+}

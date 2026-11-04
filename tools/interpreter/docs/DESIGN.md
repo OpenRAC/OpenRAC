@@ -2,8 +2,8 @@
 
 How OpenRAC gets from decompiled games to games that run on a PC, starting
 with a renderer on macOS. This page records what is decided, what is proposed
-and why. The evidence is in [RAC1_PAL_SURVEY.md](RAC1_PAL_SURVEY.md) (what
-the game does) and [OPENGOAL_NOTES.md](OPENGOAL_NOTES.md) (how a comparable
+and why. The evidence is in [RAC1_PAL_SURVEY.md](../../../docs/port/RAC1_PAL_SURVEY.md) (what
+the game does) and [OPENGOAL_NOTES.md](../../../docs/port/OPENGOAL_NOTES.md) (how a comparable
 port did it).
 
 Status words used below: **decided** (by the maintainer), **proposed** (the
@@ -16,11 +16,11 @@ current plan, open to change), **open** (needs a decision or a measurement).
    PlayStation 2 emulator or BIOS.
 2. One runtime and one renderer for all four games (**decided**: the work
    lives in OpenRAC, not in one game's tree).
-3. A path from there to the long-term goal in [AGENTS.md](../../AGENTS.md): C
+3. A path from there to the long-term goal in [CONTRIBUTING.md](../../../CONTRIBUTING.md): C
    that compiles and runs on a PC, with the matching decompilation as the
    proof that the C is the game.
 4. Everything written here is GPL-3.0-or-later (**decided**,
-   [LICENSE.md](../../LICENSE.md)). No game data, microcode or disc content
+   [LICENSE.md](../../../LICENSE.md)). No game data, microcode or disc content
    is ever in the repository; the runtime reads the user's disc image.
 
 ## 2. What the studies settle
@@ -209,7 +209,7 @@ timers, VIF0 for VU0 programs).
 
 ## 7. Layout, build and dependencies
 
-`runtime/` is a top-level component like `editor/` ([LAYOUT.md](../../docs/LAYOUT.md)).
+`runtime/` is a top-level component like `editor/` ([LAYOUT.md](../../../docs/LAYOUT.md)).
 
 ```
 runtime/
@@ -226,9 +226,9 @@ C++20, CMake and Ninja, SDL3 for the window and input (zlib licence, taken
 from the system). No other dependency yet. The code is written from public
 hardware documentation and from what the games' own code shows; where a
 permissively licensed project's code is adapted, the file says so and
-[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md) carries the notice.
+[THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md) carries the notice.
 Sony's SDK source, samples and headers are never used
-([SOURCING.md](../../docs/policy/SOURCING.md)).
+([SOURCING.md](../../../docs/policy/SOURCING.md)).
 
 ## 8. Milestones
 

@@ -40,22 +40,48 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 
 The game uses Z up. Surface type **31 / 0x1f** is ordinary ground; type **0** is
 water. The editor's surface selector documents these meanings.
+Keep the extracted **Game** node transform unchanged: it converts Godot's
+coordinate frame to the game's, while Pack reads the child placements in that
+fixed frame.
+Godot's visibility toggle is only an editor preview setting for ties, shrubs,
+mobys, and imported props; it is not packed. Delete a supported object to remove
+it from the game. Pack reports hidden supported objects instead of silently
+keeping them visible at runtime.
 
-### Import static scenery from another level
+### Import static scenery from another level or your own model
 
-Start with **ties and shrubs** from an extracted donor level's Godot project.
-These are static models, not moby classes or enemy behaviors. Choose the native
-Z-up `.glb` under the donor's `ties/` or `shrubs/` folder, then import it into
-your own project:
+Use a static `.glb` or `.gltf` from an extracted donor level or make your own in
+Blender or another modeling tool and import it into the Godot project. Static imports add
+geometry to the map; they do not add a moby class or enemy behavior. Adding a class
+from another level is not supported because its core data and native update code are
+level-specific. The packer rejects a class absent from the target level's core. It also
+rejects a class with no existing instance to copy initialized per-object data from.
+Use a class already placed in the target level or add its model as static scenery.
+Do not change an existing moby's class in place: its class-specific pvars would still
+belong to the old class. Delete the old instance and add a target-level class instance
+instead; Pack copies that class's initialized pvars from an existing instance.
+Models must use triangle meshes, PNG or JPEG textures, and supported glTF materials.
+Texture and buffer files must be inside the donor level or creator project; `.gltf`
+buffer files are flattened into the project-local import. Unsupported animation,
+skinning and behavior are refused.
+
+For a model already in the Godot project, open the extracted level scene and
+choose **Add static glTF model to map** in the Collision dock. The editor instances it
+under **Game/StaticAssets**, where you can position, rotate and scale it. This
+is undoable and keeps the model linked to its project asset. For a donor model
+outside the project, use the import command below to copy it and its textures
+into the project first.
 
 ```sh
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project YOUR_PROJECT --level 2 --name MyDecor --at X Y Z --collision mesh
+python editor/static_assets.py --source YOUR_PROJECT/models/my-building.gltf --project YOUR_PROJECT --level 2 --name MyBuilding --at X Y Z --collision mesh
 ```
 
-The tool copies the mesh and its referenced PNG textures, adds an instance under
+The tool copies the mesh data and its referenced PNG/JPEG textures, adds an instance under
 **Game/StaticAssets**, and backs up the level scene in `.openrac-backups/`.
 Texture names are based on content, so two levels' `tie_0001.png` files cannot
-silently overwrite each other. The donor level is never changed.
+silently overwrite each other. Source files are copied into the project; the
+donor and original model files are never changed.
 
 Reopen the scene in Godot. Move, rotate, scale or duplicate the imported instance;
 groups beneath Game/StaticAssets can be transformed too. Keep the instances under
@@ -72,9 +98,26 @@ transparent foliage and detailed models may need simpler authored collision.
 Packing combines the static instances into the map's terrain and copies their
 texture dependencies. No new runtime object class or donor-level code is required.
 Vertex colours are preserved; models without them get neutral vertex colours,
-so the donor's per-instance lighting is not transplanted. Skeletons, animations
-and behaviors are deliberately refused in this first importer. Generated meshes,
+so donor per-instance lighting is not transplanted. The imported result is
+static: skeletons, animations and behaviors are refused. Generated meshes,
 textures and packed collision remain private like the rest of the map.
+
+For visual motion without a native moby class, use **Add spinning glTF prop to
+map** in the Collision dock. The prop appears under **Game/AnimatedAssets** and
+rotates around its configured world-space axis through its origin at runtime. In the Inspector, adjust its metadata:
+`rc1_spin_x`, `rc1_spin_y`, `rc1_spin_z` define the axis, `rc1_spin_speed` is
+radians per second (positive or negative, up to 100), and `rc1_spin_phase` is
+the starting angle in radians. The default is one radian per second around Z.
+For back-and-forth movement, set `rc1_move_x/y/z` to the axis,
+`rc1_move_distance` to the maximum offset in game units,
+`rc1_move_speed` to the angular speed in radians per second, and
+`rc1_move_phase` to the starting phase. The default distance is zero, so the
+prop stays in place. Both motion types use the game's Z-up world coordinates.
+These are visual objects with no game collision or native moby behavior. Packing
+places their model bundles and `animated.json` in the mod output; it does not
+change the disc data or vanilla path. There is no arbitrary 4,096-prop ceiling;
+the packer and runtime enforce the renderer's signed instance-count boundary.
+In practice, memory and frame time become the useful limits well before that.
 
 ## 3. Pack and export an added destination
 
@@ -160,6 +203,21 @@ standalone map; creators should use format 4 and normal launcher preparation.
 
 - Destination sessions are **card-free**, including while visiting original
   planets. Separate saved progression for added worlds is not implemented.
+- There is no Godot project byte budget. When edited gameplay or level-data
+  streams exceed their original disc allocation, the packer stores the larger
+  stream in the mod's virtual sector container. The disc image and no-mod path
+  remain unchanged. The expanded runtime arena is currently 256 MiB, so very
+  large streams can still exceed available guest memory.
+- RAC1's object tables use signed 16-bit runtime indices. A level's source
+  moby table is therefore limited to 32,768 records including the objects
+  already present. The 2,048 native killed-state IDs are a separate limit:
+  added objects use remaining IDs, and overflow objects are packed with ID
+  `-1` and spawn flags `0`, so the game can use them but does not remember their
+  killed state after a level reload. The packer's `changes.txt` reports this.
+- Collision has separate runtime bounds: expanded mod collision covers the
+  positive 131,072-unit world, and each cell and the total 256 MiB arena must
+  hold its data. **Check the limits** in the Godot Collision dock estimates
+  affected cells and world bounds before packing.
 - Templates supply their own code, object classes and unedited resources. The
   framework does not automatically import behavior from another level or game.
 - Galaxy previews still use template artwork/location; the added world has its

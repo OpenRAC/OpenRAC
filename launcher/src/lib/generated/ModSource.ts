@@ -15,4 +15,21 @@ kind: string,
 /**
  * Kept at this version: no update is offered.
  */
-pin: boolean, };
+pin: boolean, 
+/**
+ * Installed as another mod's dependency, not asked for (index_apply.rs).
+ */
+auto?: boolean, 
+/**
+ * Why it is kept at its version: `shared` (installed from a shared setup's exact versions) or
+ * `rollback` (rolled back after a crash, until a version newer than `skip` comes out).
+ */
+pinReason?: "shared" | "rollback", 
+/**
+ * A rolled-back version: not updated to again.
+ */
+skip?: string, 
+/**
+ * A mod pack's mods (index `type: pack`): removing the pack removes the ones it brought.
+ */
+members?: Array<string>, };

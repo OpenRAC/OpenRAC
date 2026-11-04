@@ -53,6 +53,9 @@ def records(g: bytes) -> list[bytes]:
 
 def write_records(g: bytes, items: list[bytes]) -> bytes:
     """The table with these records; the rest of its header (the spare mobys) as G has it."""
+    if len(items) > 0x8000:
+        raise FormatError(f"RAC1 gameplay has {len(items)} moby records; its runtime index remap supports "
+                          "at most 32768")
     start = offset(g, MOBYS)
     return struct.pack("<i", len(items)) + bytes(g[start + 4:start + 0x10]) + b"".join(items)
 
@@ -146,7 +149,12 @@ def replace(g: bytes, sections: dict[int, bytes]) -> bytes:
     for pointer, data in sections.items():
         start, end = extent(g, pointer)
         if start <= 0:
-            raise FormatError(f"the gameplay file has no section at +{pointer:#x} to write")
+            # A newly authored table can introduce an optional section. Append it
+            # just like an expanded section and publish its pointer in the header.
+            out += bytes(-len(out) % 16)
+            struct.pack_into("<i", out, pointer, len(out))
+            out += data
+            continue
         if len(data) <= end - start:
             out[start:end] = data + bytes(end - start - len(data))
             continue

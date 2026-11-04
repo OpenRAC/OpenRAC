@@ -193,11 +193,11 @@
   }
 
   @media (hover: hover) {
-    .cap:hover {
+    :global(html:where(:not([data-input="pad"]))) .cap:hover {
       border-color: var(--amber);
     }
 
-    .clear:hover {
+    :global(html:where(:not([data-input="pad"]))) .clear:hover {
       color: var(--err);
     }
   }

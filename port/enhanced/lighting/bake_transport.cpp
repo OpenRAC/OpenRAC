@@ -20,134 +20,6 @@ Float3 hemisphere(Float3 n, Random& random) {
     );
 }
 
-// A power-weighted emitter choice with its discrete selection probability.
-struct SelectedEmitter {
-    const Scene::Emitter& emitter;  // Borrowed from the immutable acceleration scene.
-    double probability;             // Probability before point/area conversion.
-};
-
-// Samples a finite one-sided rectangle with an area PDF and ordinary shadow visibility.
-EmissionSample sample_rectangle(
-    const Scene& scene, const SelectedEmitter& selected, Float3 origin, float bias, Random& random
-) {
-    const auto index = selected.emitter.triangle - scene.input.triangles.size()
-                       - scene.input.point_emitters.size();
-    const auto& light = scene.input.area_emitters.at(index);
-    const float u = 2 * random.next() - 1;
-    const float v = 2 * random.next() - 1;
-    const auto position = add(light.position, add(mul(light.axis_u, u), mul(light.axis_v, v)));
-    const auto delta = add(position, mul(origin, -1));
-    const float squared = dot(delta, delta);
-    const float distance = std::sqrt(squared);
-
-    // Coincident endpoints cannot form a visibility interval.
-    if (distance <= 4 * bias) {
-        return {};
-    }
-
-    const auto direction = mul(delta, 1 / distance);
-    const float cosine = std::max(0.0f, -dot(selected.emitter.normal, direction));
-
-    // Only the emitting side contributes, and real geometry still blocks it.
-    if (cosine <= 0 || scene.occluded(origin, direction, bias, distance - 2 * bias)) {
-        return {};
-    }
-
-    const double weight = cosine * selected.emitter.area / (squared * selected.probability);
-    return {direction, mul(light.radiance, static_cast<float>(weight))};
-}
-
-// Samples inverse-square point lighting over a finite visibility segment.
-EmissionSample sample_point_emitter(
-    const Scene& scene, const SelectedEmitter& selected, Float3 origin, float bias
-) {
-    const auto& light =
-        scene.input.point_emitters.at(selected.emitter.triangle - scene.input.triangles.size());
-    const auto delta = add(light.position, mul(origin, -1));
-    const float squared = dot(delta, delta), distance = std::sqrt(squared);
-
-    // Near-coincident endpoints cannot form a stable visibility interval.
-    if (distance <= 4 * bias) {
-        return {};
-    }
-
-    const auto direction = mul(delta, 1 / distance);
-
-    // Stop at any accepted blocker before the sampled light.
-    if (scene.occluded(origin, direction, bias, distance - 2 * bias)) {
-        return {};
-    }
-
-    return {
-        direction, mul(light.intensity, static_cast<float>(1 / (squared * selected.probability)))
-    };
-}
-
-// Samples a two-sided triangle with uniform area barycentrics.
-EmissionSample sample_area_emitter(
-    const Scene& scene, const SelectedEmitter& selected, Float3 origin, float bias, Random& random
-) {
-    const double pdf_area = selected.probability / selected.emitter.area;
-    const auto& triangle = scene.input.triangles[selected.emitter.triangle];
-    const float root = std::sqrt(random.next());
-    const float u = root * (1 - random.next()), v = root - u;
-    Float3 position{};
-
-    // Barycentric sampling is uniform over the selected triangle area.
-    for (unsigned c = 0; c < 3; ++c) {
-        position[c] = triangle.vertices[0][c] * (1 - u - v) + triangle.vertices[1][c] * u
-                      + triangle.vertices[2][c] * v;
-    }
-
-    const auto delta = add(position, mul(origin, -1));
-    const float squared = dot(delta, delta), distance = std::sqrt(squared);
-
-    // Reject near-coincident or transparent emitter samples.
-    if (distance <= 4 * bias
-        || material_opacity(scene.input, triangle, u, v) < triangle.alpha_cutoff) {
-        return {};
-    }
-
-    const auto direction = mul(delta, 1 / distance);
-    const float cosine = std::abs(dot(selected.emitter.normal, direction));
-
-    // Two-sided emitters use the absolute geometric receiving angle.
-    if (cosine <= 0 || scene.occluded(origin, direction, bias, distance - 2 * bias)) {
-        return {};
-    }
-
-    return {
-        direction,
-        mul(bake_emission(scene.input, triangle, u, v),
-            static_cast<float>(double(cosine) / (double(squared) * pdf_area)))
-    };
-}
-
-// Requires complete source containment so reused materials outside a room retain their original gain.
-bool contains_source(const SurfaceEmissionRegion& region, const BakeTriangle& triangle) {
-    for (const auto& position : triangle.vertices) {
-        for (unsigned axis = 0; axis < 3; ++axis) {
-            // A triangle crossing a room boundary retains the global gain.
-            if (position[axis] < region.minimum[axis] || position[axis] > region.maximum[axis]) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-// Resolves absolute surface gain without modifying authored material brightness.
-float surface_emission_scale(const BakeTriangle& triangle, const BakeSettings& settings) {
-    float scale = settings.surface_emission_scale;
-    for (const auto& region : settings.surface_emission_regions) {
-        // Later entries explicitly override earlier rooms.
-        if (contains_source(region, triangle)) {
-            scale = region.scale;
-        }
-    }
-    return scale;
-}
-
 // Counts accepted crossings and retains the nearest relocation exit, independent of winding.
 bool crossing_parity(
     const Scene& scene, Float3 position, Float3 ray, float bias, Placement& result
@@ -234,14 +106,14 @@ struct BounceLighting {
         }
     }
 
-    // Adds visible emitters without counting emission hit by continuation rays a second time.
+    // Combines explicit light samples with cosine-weighted continuation using the same angular PDFs.
     void add_emitters(const BounceSurface& surface, Random& random) {
         // An empty emitter list consumes no transport random samples.
         if (acceleration.emitters.empty()) {
             return;
         }
 
-        const auto light = sample_emitter(
+        auto light = sample_emitter(
             acceleration,
             add(surface.position, mul(surface.normal, settings.ray_bias)),
             settings.ray_bias,
@@ -249,6 +121,7 @@ struct BounceLighting {
             settings
         );
         const float cosine = std::max(0.0f, dot(surface.normal, light.direction));
+        weight_emitter(light, cosine / kPi);
 
         // Convert the visible emitter estimate to diffuse reflected radiance.
         for (unsigned c = 0; c < 3; ++c) {
@@ -302,50 +175,6 @@ struct BounceLighting {
 
 }  // namespace
 
-// Area/power selection and uniform triangle barycentrics. The returned value
-// is Le / pdf(solid angle); multiply by the receiving cosine and average.
-// Two-sided emission deliberately does not depend on authored normals/winding.
-EmissionSample sample_emitter(
-    const Scene& scene, Float3 origin, float bias, Random& random, const BakeSettings& settings
-) {
-    // A scene without emitters consumes no emitter random samples.
-    if (scene.emitters.empty()) {
-        return {};
-    }
-
-    const double choice = random.next() * scene.emission_weight;
-    auto it = std::upper_bound(
-        scene.emitters.begin(),
-        scene.emitters.end(),
-        choice,
-        [](double value, const Scene::Emitter& emitter) { return value < emitter.cumulative; }
-    );
-
-    // Rounding at the cumulative upper bound selects the final emitter.
-    if (it == scene.emitters.end()) {
-        it = scene.emitters.end() - 1;
-    }
-
-    const double previous = it == scene.emitters.begin() ? 0 : (it - 1)->cumulative;
-    const SelectedEmitter selected{*it, (it->cumulative - previous) / scene.emission_weight};
-
-    // Non-geometric rectangles occupy indices after the original surface and point sources.
-    if (it->triangle >= scene.input.triangles.size() + scene.input.point_emitters.size()) {
-        return sample_rectangle(scene, selected, origin, bias, random);
-    }
-
-    // Point lights use inverse-square falloff instead of an area PDF.
-    if (it->area == 0) {
-        return sample_point_emitter(scene, selected, origin, bias);
-    }
-
-    auto sample = sample_area_emitter(scene, selected, origin, bias, random);
-    const float scale =
-        surface_emission_scale(scene.input.triangles[selected.emitter.triangle], settings);
-    sample.radiance_weight = mul(sample.radiance_weight, scale);
-    return sample;
-}
-
 Placement classify(
     const Scene& scene,
     Float3 position,
@@ -379,9 +208,17 @@ Float3 radiance(
     constexpr float kFar = std::numeric_limits<float>::infinity();
     Float3 direction{hit.ray.dir_x, hit.ray.dir_y, hit.ray.dir_z};
     BounceLighting lighting{acceleration, settings};
+    double direction_pdf = 1 / (4.0 * kPi);
 
     // The final depth can escape to the sky without adding another surface bounce.
     for (std::uint32_t bounce = 0; bounce <= settings.bounces; ++bounce) {
+        const auto emission = segment_emission(acceleration, settings, hit, direction_pdf);
+
+        // Emission is accepted at the terminal depth without another diffuse bounce.
+        for (unsigned c = 0; c < 3; ++c) {
+            lighting.result[c] += lighting.throughput[c] * emission[c];
+        }
+
         // Unblocked rays collect directional environment radiance.
         if (hit.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
             lighting.add_environment(direction);
@@ -399,6 +236,7 @@ Float3 radiance(
         lighting.reflect(surface);
         const auto origin = add(surface.position, mul(surface.normal, settings.ray_bias));
         direction = hemisphere(surface.normal, random);
+        direction_pdf = std::max(0.0f, dot(surface.normal, direction)) / kPi;
         hit = acceleration.trace(origin, direction, settings.ray_bias, kFar);
     }
 

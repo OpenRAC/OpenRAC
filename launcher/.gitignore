@@ -2,6 +2,7 @@
 node_modules/
 # Yarn's record of the last install on this machine
 .yarn/install-state.gz
+.yarn/cache/
 dist/
 target/
 .svelte-check/

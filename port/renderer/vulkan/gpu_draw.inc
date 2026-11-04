@@ -226,7 +226,11 @@ bool gpu_make_engine() {
                        : pass == 1 ? &engine.arguments
                                    : &engine.compact;
         const bool ok = check(
-            vkCreateComputePipelines(g->device, g->pipeline_cache, 1, &pipeline, nullptr, result),
+            timed_pipeline_creation([&] {
+                return vkCreateComputePipelines(
+                    g->device, g->pipeline_cache, 1, &pipeline, nullptr, result
+                );
+            }),
             "GPU instance pipeline"
         );
         count_pipeline();
@@ -614,6 +618,145 @@ bool gpu_submit_draw(renderer::GpuInstanceBatch batch, unsigned first, unsigned 
     return true;
 }
 
+bool gpu_submit_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+) {
+    prepare_frame();
+    if (!batch || batch.recording != g->recording || batch.page >= frame().gpu.used
+        || ranges.empty()) {
+        return false;
+    }
+    auto& page = frame().gpu.pages[batch.page];
+    if (batch.group >= page.groups.size()
+        || std::any_of(ranges.begin(), ranges.end(), [](auto range) { return range.count == 0; })) {
+        return false;
+    }
+    if (!g->features.multiDrawIndirect
+        || ranges.size() > g->properties.limits.maxDrawIndirectCount) {
+        for (const auto range : ranges) {
+            if (!gpu_submit_draw(batch, range.first, range.count)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (page.commands.size() + ranges.size() > kGpuPageDraws) {
+        throw std::runtime_error("GPU indirect page command capacity exceeded");
+    }
+    const auto first = static_cast<unsigned>(page.commands.size());
+    for (const auto range : ranges) {
+        page.commands.push_back({range.count, range.first, batch.group, 0});
+        stats::count(stats::Counter::DrawCalls);
+        stats::count(
+            stats::Counter::Triangles, std::uint64_t(range.count / 3) * page.groups[batch.group][2]
+        );
+    }
+    draw(
+        GL_TRIANGLES,
+        static_cast<GLsizei>(ranges.front().count),
+        1,
+        true,
+        GL_UNSIGNED_INT,
+        std::uintptr_t(ranges.front().first) * 4,
+        0,
+        &page,
+        first,
+        0,
+        static_cast<unsigned>(ranges.size())
+    );
+    g->gpu.indirect += ranges.size();
+    return true;
+}
+
+namespace {
+
+// The upload command buffer produces these ranges before the main command buffer draws them.
+Result<renderer::graph::Plan> gpu_page_plan(const GpuPage& page, bool counters) {
+    namespace graph = renderer::graph;
+    graph::Graph builder;
+    const auto instances = builder.import_buffer(
+        "visible instances",
+        {{std::bit_cast<std::uint64_t>(page.output.buffer), 1}, page.output.size}
+    );
+    const auto arguments = builder.import_buffer(
+        "indirect arguments",
+        {{std::bit_cast<std::uint64_t>(page.arguments.buffer), 1}, page.arguments.size}
+    );
+
+    // Both frame-slot allocations must exist before the visibility dispatch.
+    if (!instances || !arguments) {
+        return unexpected(!instances ? instances.error() : arguments.error());
+    }
+
+    constexpr auto compute = graph::Stage::ComputeShader;
+    constexpr auto layout = graph::Layout::Buffer;
+    constexpr auto read = graph::Access::Read;
+    constexpr auto write = graph::Access::Write;
+    const graph::BufferRange counts{0, page.groups.size() * sizeof(std::uint32_t)};
+    // The native vertex format reserves 120 bytes per candidate. Only the prefix published
+    // by each group's indirect instance count is defined and can be fetched by its draws.
+    const graph::BufferRange visible{0, VkDeviceSize(page.instances) * 120};
+    const graph::BufferRange draws{
+        kGpuPageGroups * sizeof(std::uint32_t),
+        page.commands.size() * sizeof(VkDrawIndexedIndirectCommand)
+    };
+    builder.add_pass(
+        {"compact visible instances",
+         {},
+         {{*instances, visible, {compute, write, layout}},
+          {*arguments, counts, {compute, write, layout}}}}
+    );
+    builder.add_pass(
+        {"generate indirect draws",
+         {},
+         {{*arguments, counts, {compute, read, layout}},
+          {*arguments, draws, {compute, write, layout}}}}
+    );
+    // Include the optional summary reader in the writer's visibility dependency.
+    const auto draw_stages =
+        counters ? graph::Stage::DrawIndirect | compute : graph::Stage::DrawIndirect;
+    builder.add_pass(
+        {"consume indirect draws",
+         {},
+         {{*instances, visible, {graph::Stage::VertexInput, read, layout}},
+          {*arguments, draws, {draw_stages, read, layout}}},
+         graph::PassKind::Export}
+    );
+    return builder.compile();
+}
+
+// Emits the page plan's barriers on upload, before the already recorded main draws execute.
+void gpu_page_barriers(VkCommandBuffer command, const renderer::graph::Plan& plan, unsigned pass) {
+    namespace graph = renderer::graph;
+    // Each page phase touches at most two contiguous output ranges.
+    std::array<VkBufferMemoryBarrier, 2> barriers{};
+    const auto& transitions = plan.passes[pass].barriers;
+    if (transitions.size() > barriers.size()) {
+        throw std::runtime_error("GPU page has too many buffer transitions");
+    }
+
+    VkPipelineStageFlags source = 0;
+    VkPipelineStageFlags destination = 0;
+    unsigned count = 0;
+    for (const auto& transition : transitions) {
+        const auto& resource =
+            std::get<graph::BufferDesc>(plan.resources[transition.resource].description);
+        barriers[count++] = graph_buffer_barrier(
+            transition, {std::bit_cast<VkBuffer>(resource.key.identity), 0, resource.size}
+        );
+        source |= stages_of(transition.before.stages);
+        destination |= stages_of(transition.after.stages);
+    }
+    // A page phase needs one barrier command even when it exports both output buffers.
+    if (count != 0) {
+        vkCmdPipelineBarrier(
+            command, source, destination, 0, 0, nullptr, count, barriers.data(), 0, nullptr
+        );
+        count_barrier(source, destination);
+    }
+}
+}  // namespace
+
 void gpu_record() {
     auto& work = frame().gpu;
     // Empty recordings publish zero totals too, rather than retaining a stale scene.
@@ -695,51 +838,26 @@ void gpu_record() {
                 nullptr
             );
             count_command(Command::BindDescriptors);
+            const auto plan = gpu_page_plan(page, work.counters);
+            // Reject invalid ranges before either compute kernel writes the page.
+            if (!plan) {
+                throw std::runtime_error(plan.error().message);
+            }
+
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, g->gpu.compact);
             count_command(Command::BindPipeline);
             vkCmdDispatch(cmd, groups, 1, 1);
             count_command(Command::Dispatch);
-            VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-            vkCmdPipelineBarrier(
-                cmd,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                0,
-                1,
-                &barrier,
-                0,
-                nullptr,
-                0,
-                nullptr
-            );
-            count_barrier(
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-            );
+            gpu_page_barriers(cmd, *plan, 1);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, g->gpu.arguments);
             count_command(Command::BindPipeline);
             vkCmdDispatch(cmd, (commands + 63) / 64, 1, 1);
             count_command(Command::Dispatch);
+            gpu_page_barriers(cmd, *plan, 2);
             if (work.counters) {
                 if (!page.readback.buffer) {
                     page.readback = gpu_counter_readback();
                 }
-                vkCmdPipelineBarrier(
-                    cmd,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                    0,
-                    1,
-                    &barrier,
-                    0,
-                    nullptr,
-                    0,
-                    nullptr
-                );
-                count_barrier(
-                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-                );
                 vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, g->gpu.summary);
                 count_command(Command::BindPipeline);
                 vkCmdDispatch(cmd, 1, 1, 1);
@@ -788,26 +906,6 @@ void gpu_record() {
                 ++g->submission.gpu_counter_copies;
             }
         }
-        VkMemoryBarrier visible{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
-        visible.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-        visible.dstAccessMask =
-            VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-        vkCmdPipelineBarrier(
-            cmd,
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
-            0,
-            1,
-            &visible,
-            0,
-            nullptr,
-            0,
-            nullptr
-        );
-        count_barrier(
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
-        );
     }
     g->gpu.timing_upload = false;
 }

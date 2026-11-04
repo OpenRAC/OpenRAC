@@ -11,7 +11,21 @@
    Meaning of the body (for a future pass): buf = a - b (0x00282CF0), t = |buf|
    (0x00282E20) / arg4, `out` receives t, and the result is
    -((a[2]-b[2]) + arg5 * (t*t) * 0.5f) / t for t != 0, 0.0f otherwise. Four spellings
-   measured (grouped/ungrouped t*t, V4 struct buffer, `if (out)`): all 176. */
+   measured (grouped/ungrouped t*t, V4 struct buffer, `if (out)`): all 176.
+
+   Wave 8 (agent w8-08) reached the same 176 bytes with the same body (the call is
+   func_2EE138(out, vec, mat) into the stack buffer, func_2EE268 for its length) and
+   measured WHY the two nops cannot appear here. The SDK 3.01 division padding
+   (tools/compiler/transformers/pad_div_erratum_nops.py and ..._branch.py) only fires
+   when a CODE LABEL sits within two slots of the division, and the rule is dropped again
+   when the previous instruction was emitted in a `.set noreorder` region. Here the
+   `div.s` follows the `jal`'s delay slot, which is exactly such a noreorder region, so
+   the padding is cleared: a label on the `div.s` alone changes nothing (measured: 176
+   bytes with the label added by hand to the .s). The branch floor of
+   pad_div_erratum_branch.py does not apply either - a `jal` is a jump and starts no
+   padding distance. A division right after a call therefore cannot carry retail's two
+   nops in this assembler; only a reorder-region instruction before the division (and a
+   label at its foot) would. */
 
 typedef float f32;
 

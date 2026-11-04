@@ -62,6 +62,7 @@ decompilation) stay as **aliases**: a mod written with one keeps loading.
 | `rac1.player.set_planar_velocity` | `Hero_SetPlanarVelocity` | sets his ground velocity along an angle |
 | `rac1.camera.follow.apply_overrides` | `FollowCamera_ApplyOverrides` | the follow camera's per-tick requests from the hero's state |
 | `rac1.player.advance_animation` | `Hero_AdvanceAnimation` | moves his animation on, once a tick |
+| `rac1.player.update` | `Hero_Update` | the hero's whole update, once a tick (interface 1.12) |
 
 The [reference](reference/hooks-rac1.md) lists every hook point with its
 signature and parameters, generated from OpenRAC's table.
@@ -75,6 +76,32 @@ is a hook point with the id `rac1.moby.<class>.update` (alias
 one update function: check the moby's class in your hook. This part names the
 game's internals and is **experimental**: names, fields and signatures may
 change as the decompilation goes on.
+
+## Moving the hero yourself (interface 1.12)
+
+A mod that replaces how the hero moves (a hoverboard) takes `rac1.player.update`,
+his whole update each tick (one hook point over the level loop's three copies of
+it), and does not call the original: it runs its own physics on
+`collision_triangles(lo, hi, ...)` (the level's and the mobys' collision around
+him) and puts him where it worked out with `hero_set_pose`, which also starts
+his animation's sequences through the game's own and does what the update does
+to show him (his moby, what he holds, his drawing); `hero_set_joints` turns his
+joints on top of that animation (a riding stance). Only the mod holding the
+hook point may set his pose. Props (`prop_create` with a `.glb` of the mod's)
+and the mod's own sounds (`sound_load` with a `.wav` or `.ogg`) go with it:
+
+```cpp
+mod.hook<openrac::rac1::Hero_Update>([&](auto /*original*/) {
+    const float lo[3] = {x - 4, y - 4, z - 4}, hi[3] = {x + 4, y + 4, z + 4};
+    const auto tris = mod.collision_triangles(lo, hi);
+    // ... the board's physics on tris ...
+    mod.hero_set_pose(pose);
+    mod.prop_pose(board, pose.position, rotation);
+});
+```
+
+Keep calling the original when the mod is off (the board put away): the game
+moves him again from where the pose left him.
 
 ## What a hook cannot do
 

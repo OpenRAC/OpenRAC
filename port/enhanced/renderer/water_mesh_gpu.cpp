@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
-// GPU ownership and draws for the baked water templates; no dense CPU stream is constructed.
+// GPU ownership and draws for the water strip meshes.
 #include <cstddef>
+#include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/renderer/water_graph.h"
 #include "enhanced/renderer/water_mesh.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
@@ -27,18 +29,6 @@ bool WaterMesh::init(std::string& error) {
         return false;
     }
     glGenVertexArrays(1, &m_vao);
-    glGenBuffers(1, &m_vertices);
-    glBindVertexArray(m_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, m_vertices);
-    glBufferData(
-        GL_ARRAY_BUFFER,
-        GLsizeiptr(m_weights.size() * sizeof(m_weights[0])),
-        m_weights.data(),
-        GL_STATIC_DRAW
-    );
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(m_weights[0]), nullptr);
-    glBindVertexArray(0);
     glGenBuffers(1, &m_source_buffer);
     glBindBuffer(renderer::world::gl::GL_TEXTURE_BUFFER, m_source_buffer);
     const Source empty{};
@@ -54,7 +44,25 @@ bool WaterMesh::init(std::string& error) {
 }
 
 void WaterMesh::upload() {
-    const profiling::Zone trace("Upload water coarse instances");
+    const profiling::Zone trace("Upload water mesh");
+    using namespace gl;
+    for (auto& plan : std::span(m_plans).first(m_used)) {
+        if (!plan.upload_needed || plan.vertices.empty()) {
+            continue;
+        }
+        const profiling::Zone upload_geometry("Upload rebuilt water strip");
+        if (!plan.buffer) {
+            glGenBuffers(1, &plan.buffer);
+        }
+        glBindBuffer(GL_ARRAY_BUFFER, plan.buffer);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            GLsizeiptr(plan.vertices.size() * sizeof(Vertex)),
+            plan.vertices.data(),
+            GL_STATIC_DRAW
+        );
+        plan.upload_needed = false;
+    }
     // Keep the valid dummy allocation when this pass contains no water.
     if (m_sources.empty()) {
         return;
@@ -69,8 +77,16 @@ void WaterMesh::upload() {
     m_animation.use();
     gl::glUniform1i(m_animation.uniform("triangle_count"), static_cast<int>(m_sources.size()));
     gl::glBindBufferBase(gl::GL_SHADER_STORAGE_BUFFER, 0, m_source_buffer);
-    gl::glDispatchCompute(static_cast<unsigned>((m_sources.size() + 63) / 64), 1, 1);
-    gl::glMemoryBarrier(gl::GL_SHADER_STORAGE_BARRIER_BIT | gl::GL_TEXTURE_FETCH_BARRIER_BIT);
+    const std::array uses{WaterBufferUse{
+        m_source_buffer, m_sources.size() * sizeof(Source), renderer::graph::Access::ReadWrite
+    }};
+    // Authored UV animation updates selected components while preserving positions, colours and source records.
+    const auto result = water_compute_pass("water authored UVs", uses, [&] {
+        gl::glDispatchCompute(static_cast<unsigned>((m_sources.size() + 63) / 64), 1, 1);
+    });
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
 }
 
 void WaterMesh::bind(const renderer::Shader& shader) const {
@@ -84,12 +100,25 @@ void WaterMesh::bind(const renderer::Shader& shader) const {
 void WaterMesh::draw(const renderer::Shader& shader, const renderer::EffectMesh& mesh) const {
     const profiling::Zone trace("Draw baked water mesh");
     using namespace gl;
-    glBindVertexArray(m_vao);
-    glUniform1i(shader.uniform("water_mesh"), 1);
-    for (const auto& batch : m_plans.at(mesh.handle).batches) {
-        glUniform1i(shader.uniform("water_first_triangle"), batch.first);
-        glDrawArraysInstanced(GL_TRIANGLES, batch.shape.first, batch.shape.count, batch.count);
+    const auto& plan = m_plans.at(mesh.handle);
+    if (plan.vertices.empty()) {
+        return;
     }
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, plan.buffer);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), nullptr);
+    glEnableVertexAttribArray(3);
+    glVertexAttribIPointer(
+        3,
+        1,
+        GL_UNSIGNED_INT,
+        sizeof(Vertex),
+        reinterpret_cast<const void*>(offsetof(Vertex, triangle))
+    );
+    glUniform1i(shader.uniform("water_mesh"), 1);
+    glUniform1i(shader.uniform("water_first_triangle"), plan.first_triangle);
+    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plan.vertices.size()));
     glUniform1i(shader.uniform("water_mesh"), 0);
 }
 
@@ -99,11 +128,17 @@ void WaterMesh::release() {
     // A CPU-only load or a repeated release has no context-owned objects to destroy.
     if (m_vao) {
         glDeleteVertexArrays(1, &m_vao);
-        glDeleteBuffers(1, &m_vertices);
         glDeleteBuffers(1, &m_source_buffer);
         glDeleteTextures(1, &m_source_texture);
     }
-    m_vao = m_vertices = m_source_buffer = m_source_texture = 0;
+    for (auto& plan : m_plans) {
+        if (plan.buffer) {
+            glDeleteBuffers(1, &plan.buffer);
+        }
+        plan.buffer = 0;
+        plan.upload_needed = true;
+    }
+    m_vao = m_source_buffer = m_source_texture = 0;
     begin_pass();
 }
 }  // namespace openrac::enhanced

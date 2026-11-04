@@ -9,8 +9,7 @@ directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
   libgcc and soft-float, newlib, David Gay's dtoa, code ported from rac1-decomp,
   the patched EE-GCC.
 - rac2 and rac3 credit their sources in their docs
-  ([games/rac2/ntsc/docs/SECOND-C-LOT.md](games/rac2/ntsc/docs/SECOND-C-LOT.md),
-  [games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
+  ([games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
   [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
 
 `port/audio/sound_player.h` follows the behaviour of OpenGOAL's 989snd
@@ -27,7 +26,7 @@ OpenRAC. The launcher lists its own notices in
 
 ## Embree
 
-The offline probe baker (`openrac-probe-bake`: `port/enhanced/lighting/bake.cpp`,
+The offline probe baker (`openrac-enhanced-baker`: `port/enhanced/lighting/bake.cpp`,
 built with `OPENRAC_PROBE_BAKER`) uses [Embree](https://github.com/RenderKit/embree)
 4.4.1, Apache License 2.0, Copyright Intel Corporation. It is never linked into a
 game. `tools/build_port.py --probe-baker` downloads that release's source
@@ -177,7 +176,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 
 | Library | Version | License | Used by |
 |---|---|---|---|
-| [SDL](https://github.com/libsdl-org/SDL) | 3.2.24 | zlib | the platform layer: window, OpenGL context, input, audio |
+| [SDL](https://github.com/libsdl-org/SDL) | 3.4.18 (Android: 3.2.24) | zlib | the platform layer: window, OpenGL context, input, audio |
 | [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |
@@ -187,6 +186,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator) | 3.3.0 | MIT | the Vulkan renderer: its memory |
 | [glslang](https://github.com/KhronosGroup/glslang) | vulkan-sdk-1.4.350.1 | BSD-3-Clause and others (its LICENSE.txt) | the Vulkan renderer: compiling its shaders |
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/tree/c6efa6bf7f2027b3ec94f28578bb5965eabb9e55) | 1.1.4, FSR 3.1.4 | MIT | enhanced Vulkan temporal upscaling; original GLSL, upscaler host code and Vulkan backend, prepared by `port/enhanced/fsr3/prepare_sdk.py` |
+| [Arm Accuracy Super Resolution](https://github.com/arm/accuracy-super-resolution-generic-library/tree/0501f490bd9946a2e1806b5363d7ab8a9a6a5e0a) | 25.06 | MIT | enhanced Vulkan temporal upscaling on tile-based GPUs; its host code, Vulkan backend and prebuilt SPIR-V shaders, built by `port/cmake/ArmAsr.cmake` (off with `OPENRAC_ARM_ASR=OFF`) |
 | [MoltenVK](https://github.com/KhronosGroup/MoltenVK) | 1.4.2 (Homebrew's `molten-vk`, or the Vulkan SDK's) | Apache-2.0 | the Vulkan renderer on macOS: Vulkan on Metal. Not fetched: its library is taken from the build machine and carried in each game's application bundle (`Contents/Frameworks/libMoltenVK.dylib`, its license in `Contents/Resources/MoltenVK-LICENSE.txt`; [port/cmake/MacApp.cmake](port/cmake/MacApp.cmake)) |
 
 ### AMD FidelityFX SDK licence
@@ -210,6 +210,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+### Arm Accuracy Super Resolution licence
+
+Copyright © 2023 Advanced Micro Devices, Inc.
+Copyright © 2024-2025 Arm Limited.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 The renderer's conventions (colour 0x80 as 1.0, reversed depth, the double
 draw for alpha-test fail modes, textures identified by the game's base
@@ -269,3 +292,18 @@ SOFTWARE.
 pinned at `be858f42ab95cf0ba6e224ac2dc3950bdb172080`. Copyright (C) 2021 The Android Open Source
 Project, licensed under Apache-2.0. The shader retains that notice; distributions must include
 [`agx-LICENSE.txt`](port/enhanced/renderer/agx-LICENSE.txt).
+
+## Probe texture codecs
+
+The enhanced baker uses Arm astc-encoder 5.4.0 at
+`3ee54d103ca66a5b1f751ad49a4b8064235e2cf9` (Apache-2.0) and AMD Compressonator
+at `9da0bc2be8d095adfab04ba9262e94842b48dac2` (MIT).
+Only their portable HDR codec sources are built. The ASTC border fitter uses the pinned
+symbolic block interface; codec sources are fetched by `port/cmake/ProbeCompression.cmake`.
+Compressonator's checksum-verified source archive is extracted only for the BC6H kernel,
+seven supporting headers and its core licence; its Git history and other tools are omitted.
+See [Arm's license](port/enhanced/lighting/astc-LICENSE.txt) and
+[AMD's license](port/enhanced/lighting/compressonator-LICENSE.txt).
+
+The Compressonator build copy retains the high blue-Y endpoint bit when decoding BC6H mode 5.
+The upstream source and licence remain intact; a Vulkan comparison covers the corrected mode.

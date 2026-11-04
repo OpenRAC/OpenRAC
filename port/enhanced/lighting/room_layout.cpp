@@ -8,6 +8,7 @@
 #include <queue>
 #include <stdexcept>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
 #include "enhanced/lighting/room_distance_field.h"
@@ -31,6 +32,8 @@ RoomLayout prepare_room_layout(
     const BakeSettings& settings,
     unsigned threads
 ) {
+    const profiling::Zone timing("Prepare room layout");
+
     Scene scene(source, settings.sunlight_direction, threads);
     floors = connected_room_floors(scene, floors, settings);
     return room_layout(scene, floors, settings);

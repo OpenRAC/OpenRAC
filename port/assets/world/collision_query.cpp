@@ -36,6 +36,7 @@ namespace cf = ps2;
 
 constexpr u32 kOneBits = 0x3f80'0000;
 constexpr u32 k1024Bits = 0x4480'0000;     // world -> x1024
+constexpr u32 k131072Bits = 0x4800'0000;   // expanded mod world bound
 constexpr u32 kInv1024Bits = 0x3a80'0000;  // x1024 -> world
 constexpr u32 k2048Bits = 0x4500'0000;     // half a cell, x1024
 constexpr u32 k4096Bits = 0x4580'0000;     // a cell, x1024
@@ -305,16 +306,17 @@ struct Kernels {
 
     // A triangle to test: three vertex indices and the face's type byte.
     struct Triangle {
-        std::array<u8, 3> v;
+        std::array<u32, 3> v;
         u8 type;
     };
 
     // The triangles the kernels test, in order: every face record as (v0, v1,
-    // v2) (the face count read as a byte, lbu), then the first quad_count
-    // records again as (v0, v2, v3).
+    // v2) (a retail leaf's face count read as a byte, lbu, as the console does; an
+    // expanded leaf's whole count), then the first quad_count records again as (v0, v2, v3).
     static std::vector<Triangle> cell_triangles(const CollisionCell& cell) {
-        const std::size_t faces =
-            std::min<std::size_t>(cell.header.face_count & 0xff, cell.faces.size());
+        const std::size_t count =
+            cell.header.extended ? cell.header.face_count : (cell.header.face_count & 0xff);
+        const std::size_t faces = std::min<std::size_t>(count, cell.faces.size());
         const std::size_t quads =
             std::min({std::size_t{cell.header.quad_count}, cell.faces.size(), cell.quad_v3.size()});
         std::vector<Triangle> out;
@@ -400,7 +402,7 @@ struct Kernels {
     // The segment kernel is CollLine_Fix (0x211870).
     // vmini / vmax of the ends, then the [0, 1024)^3 test the kernel reads
     // from the MAC sign flags.
-    static bool in_world(const V3& a, const V3& b) {
+    static bool in_world(const V3& a, const V3& b, bool expanded) {
         // Each axis of both ends must lie inside the grid, or the game's query returns no hit.
         for (std::size_t k = 0; k < 3; ++k) {
             // The smaller end is below 0, so the segment leaves the grid.
@@ -409,7 +411,8 @@ struct Kernels {
             }
 
             // The larger end is not below 1024, so the segment leaves the grid.
-            if (!M::neg(M::sub(M::max(a[k], b[k]), M::lit(k1024Bits)))) {
+            const F limit = M::lit(expanded ? k131072Bits : k1024Bits);
+            if (!M::neg(M::sub(M::max(a[k], b[k]), limit))) {
                 return false;
             }
         }
@@ -516,7 +519,7 @@ struct Kernels {
         const V3 b = in3(p1);
 
         // A segment outside the grid has no cells.
-        if (!in_world(a, b)) {
+        if (!in_world(a, b, false)) {
             return std::nullopt;
         }
 
@@ -612,7 +615,8 @@ struct Kernels {
         const V3 b = in3(p1);
 
         // A segment outside the grid hits nothing.
-        if (!in_world(a, b)) {
+        const bool expanded = mesh.has_extended_leaf_index || mesh.has_extended_slab_index;
+        if (!in_world(a, b, expanded)) {
             return std::nullopt;
         }
 
@@ -726,7 +730,10 @@ struct Kernels {
     // The bounds checks: c - r >= 0 and hi - 1024 < 0 on every axis (MAC
     // sign flags), r > +0 (and h > +0 for the capsule) on the bits.
     static std::optional<Volume> volume(
-        const std::array<float, 3>& centre, float radius, std::optional<float> height
+        const std::array<float, 3>& centre,
+        float radius,
+        std::optional<float> height,
+        bool expanded = false
     ) {
         const V3 c = in3(centre);
         const F r = M::in(radius);
@@ -761,7 +768,8 @@ struct Kernels {
         // The box must stay below 1024 on every axis.
         for (std::size_t k = 0; k < 3; ++k) {
             // The high corner reaches 1024, so the volume leaves the grid.
-            if (!M::neg(M::sub(v.hi[k], M::lit(k1024Bits)))) {
+            const F limit = M::lit(expanded ? k131072Bits : k1024Bits);
+            if (!M::neg(M::sub(v.hi[k], limit))) {
                 return std::nullopt;
             }
         }
@@ -1257,7 +1265,12 @@ struct SphereOp {
     static std::optional<CollisionHit> run(
         const CollisionMesh& mesh, const std::array<float, 3>& centre, float radius, u32 flags
     ) {
-        const auto v = Kernels<M>::volume(centre, radius, std::nullopt);
+        const auto v = Kernels<M>::volume(
+            centre,
+            radius,
+            std::nullopt,
+            mesh.has_extended_leaf_index || mesh.has_extended_slab_index
+        );
         return v ? Kernels<M>::volume_query(mesh, *v, false, flags) : std::nullopt;
     }
 };
@@ -1271,7 +1284,9 @@ struct CapsuleOp {
         float radius,
         u32 flags
     ) {
-        const auto v = Kernels<M>::volume(base, radius, height);
+        const auto v = Kernels<M>::volume(
+            base, radius, height, mesh.has_extended_leaf_index || mesh.has_extended_slab_index
+        );
         return v ? Kernels<M>::volume_query(mesh, *v, true, flags) : std::nullopt;
     }
 };

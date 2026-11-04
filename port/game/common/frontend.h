@@ -14,13 +14,32 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <span>
 #include <string>
 
+#include "materials/catalog.h"
 #include "openrac/game_host.h"
 #include "openrac/openrac_mod.h"
 
+namespace openrac::enhanced {
+struct FoliageControls;
+struct MaterialEditor;
+}  // namespace openrac::enhanced
+
+namespace openrac::controls {
+class Store;
+}
+
+namespace openrac::platform {
+class Input;
+}
+
 namespace openrac::frontend {
+
+// HDR output's state for the settings (docs/port/HDR.md): what the screen is sent, and what the
+// display said of HDR, in a line.
+std::string hdr_status();
 
 // Opens the window. `levels` holds the extracted levels (level_00, level_01, ...).
 bool open(const std::string& game_id, const std::filesystem::path& levels, std::string& error);
@@ -39,8 +58,17 @@ void moby_colour(std::uint32_t object, unsigned colour, int level);
 // objects, drawn with the menu's camera): they are drawn as that camera saw them.
 void mobys_drawn(std::span<const std::uint8_t> ram, std::uint32_t first, int count);
 
+// The block of the buffer the game draws its frame in, when its profile names one (0 otherwise).
+std::uint32_t draw_buffer_block();
+
+// One-shot world explosion, captured on the game thread for enhanced water.
+void water_explosion(const float* position, float radius, float strength);
+
 // A world effect quad the game drew this frame (openrac_game_effect_quad).
 void effect_quad(std::span<const std::uint8_t> ram, const openrac_game_quad& quad);
+// The marker of the quad effect_quad took last (openrac_game_effect_quad_marker): the tick's
+// generation in its top 12 bits, the quad's index in the tick in the low 20; 0 for none.
+std::uint32_t effect_quad_marker();
 // A sky shell the game drew this frame, with its matrix (openrac_game_sky_shell).
 void sky_shell(int shell, const float* matrix);
 
@@ -60,8 +88,14 @@ float picture_wider();
 void sky_sprite(const std::uint8_t* record, std::uint64_t tex0);
 
 // A live particle the game drew this frame (openrac_game_particle).
-void particle(std::span<const std::uint8_t> ram, const std::uint8_t* record, std::uint32_t pixels,
-              std::uint32_t clut, int log2_side);
+void particle(
+    std::span<const std::uint8_t> ram,
+    const std::uint8_t* record,
+    std::uint32_t pixels,
+    std::uint32_t clut,
+    int log2_side,
+    std::uint32_t id
+);
 
 // `draws`: the layers the game's renderers drew this frame (bit n = renderer::Bucket n; all bits
 // when the game does not report them).
@@ -88,9 +122,14 @@ void savestate_restored(std::uint64_t tick);
 // reads the window's events: 1 drawn or queued, 0 none due, -1 the window was closed or rendering failed.
 // An owned Vulkan job may remain in flight when the next game tick starts.
 // `late`: how long after its time the tick came (a machine that draws slower than the game ticks):
-// frame() leaves the frames of ticks that come more than a tick late undrawn.
-void set_tick(std::chrono::steady_clock::time_point tick, std::chrono::duration<double> period,
-              std::chrono::duration<double> late = std::chrono::duration<double>(0.0));
+// frame() leaves the frames of ticks that come more than a tick late undrawn. `work`: how long
+// the game's own work for it took, from the end of the wait before it.
+void set_tick(
+    std::chrono::steady_clock::time_point tick,
+    std::chrono::duration<double> period,
+    std::chrono::duration<double> late = std::chrono::duration<double>(0.0),
+    std::chrono::duration<double> work = std::chrono::duration<double>(0.0)
+);
 bool interpolating();
 
 // The game's text lookup, asked for an id of the port's own (the rows it adds to the game's
@@ -98,6 +137,10 @@ bool interpolating();
 std::uint32_t text(int id);
 bool wants_between();
 int between(std::chrono::steady_clock::time_point next_tick);
+// The time the window spent writing OPENRAC_SHOT pictures since the last call, which the tick's
+// clock leaves out: a shot that takes longer than a tick would otherwise leave no frame between that
+// tick and the next (OPENRAC_SHOT_BETWEEN) and make the game catch up.
+std::chrono::steady_clock::duration take_shot_time();
 
 // An image the game sent to the GS outside the display list (its library's image transfer): kept
 // for every renderer the window makes, as the chip keeps it in its memory. `base` in 256-byte
@@ -129,15 +172,18 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black);
 // c entries), -1 before.
 std::int64_t since_control();
 
+// How far OPENRAC_WALK has come, as a JSON value (null with no walk): for OPENRAC_STATE_DUMP.
+std::string walk_state();
+
 // The pad of a port as the game's pad library reads it: buttons active low, then the right and
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
-// With the player's fresh_input setting, reads the pads again just before the game's next tick
-// runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as they
-// are when it starts, not as they were when the last tick ended. Nothing else of the input changes
-// (the window's events stay queued for the next frame), and the tick still reads one state of the
-// pad. Off (the default), the tick reads the pad as the last tick's end left it.
+// With the player's responsive_controls setting, reads the pads again just before the game's next
+// tick runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as
+// they are when it starts, not as they were when the last tick ended. Nothing else of the input
+// changes (the window's events stay queued for the next frame), and the tick still reads one state
+// of the pad. Off (the default), the tick reads the pad as the last tick's end left it.
 void refresh_pads();
 
 // Start skipping what plays (the skip_cutscenes setting): what Start also presses for the game's
@@ -166,6 +212,17 @@ KeyboardMouseView keyboard_mouse();
 // A mod took the keyboard: the port's own keyboard table stops pressing pad 0's buttons.
 void take_keyboard();
 
+// Reads the player's controls of `game` ("rac1") from `dir` (controls_store.h) and presses the pads
+// from them, from the next read on; the controller mappings in `dir`'s gamecontrollerdb.txt, if
+// there is one, are added to SDL's. Bindings the version's settings file held (bind_* keys, before
+// the controls had files of their own) move into the game's controls file once.
+void open_controls(const std::filesystem::path& dir, const std::string& game);
+
+// The player's controls and the input they press, for the menu's Controls tab
+// (debug/menu_controls.cpp); null while no window is open.
+controls::Store* controls_store();
+platform::Input* input();
+
 // A mod asks for the cursor captured (relative mouse mode) or let go. Applied each frame, and let
 // go anyway while the window is not focused or the overlay or the debug menu is open.
 void capture_mouse(bool capture);
@@ -183,9 +240,39 @@ void set_view_source(const openrac_view_source* source);
 // window's events until the overlay lets a tick through. False once the window was closed.
 bool hold();
 
+// A tick on which the game sent nothing to draw (program/vsync.cpp): the last tick drawn again
+// and the window's events read. False once the window was closed.
+bool keep_picture();
+
 // Current level has validated, uploaded probes and a supported renderer.
 bool enhanced_graphics_available();
 std::string enhanced_graphics_error();
+
+// Shares immutable material inspector data only while the render worker is idle.
+std::shared_ptr<const enhanced::MaterialEditor> material_editor();
+// Applies one validated sparse property edit with exclusive scene ownership.
+bool patch_material(
+    std::size_t binding, std::string key, materials::Value value, std::string& error
+);
+// Applies one shared preset field with the same scene ownership and validation as object edits.
+bool patch_material_preset(
+    const std::string& preset, std::string key, materials::Value value, std::string& error
+);
+// Removes one unsaved object field so it inherits the last loaded/saved value.
+bool undo_material(std::size_t binding, const std::string& key, std::string& error);
+// Removes one unsaved shared preset field while retaining other edits.
+bool undo_material_preset(const std::string& preset, const std::string& key, std::string& error);
+// Saves the local JSON overlay, preserving the old file on failure.
+bool save_materials(std::string& error);
+// Discards session edits and restores the loaded/saved catalog.
+void reset_materials();
+
+// Copies live foliage controls on the window thread, with exclusive scene ownership; empty while rendering.
+enhanced::FoliageControls foliage_controls();
+// Applies an entire validated session edit; false with error if the catalog changed or values are invalid.
+bool set_foliage_controls(const enhanced::FoliageControls& controls, std::string& error);
+// Restores loaded profile values on the window thread, without writing asset files.
+void reset_foliage_controls();
 
 void close();
 

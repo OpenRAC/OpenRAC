@@ -1,0 +1,50 @@
+#include "include_asm.h"
+#include "common.h"
+
+typedef struct {
+    u8 pad00[8];
+    char *kinds[2];
+} Vars4359A8;
+
+typedef struct {
+    u8 pad00[0x68];
+    Vars4359A8 *vars;
+} Moby4359A8;
+
+extern f32 D_L18_001B1640 __attribute__((sda));
+extern f32 D_L18_001B1644 __attribute__((sda));
+extern f32 D_L18_001B1648 __attribute__((sda));
+extern f32 D_L18_001B164C __attribute__((sda));
+extern f32 D_L18_001B1650 __attribute__((sda));
+extern f32 D_L18_001B1654 __attribute__((sda));
+extern s32 D_L18_001B165C __attribute__((sda));
+extern s32 D_L18_001B1660 __attribute__((sda));
+extern s32 D_L18_001B1664 __attribute__((sda));
+extern f32 D_L18_001B1678[2] __attribute__((sda));
+extern f32 D_L18_001B1680[2] __attribute__((sda));
+extern f32 D_L18_001B1688[2] __attribute__((sda));
+extern char *D_L18_001B1690[2] __attribute__((sda));
+extern char D_L18_001B3720[] __attribute__((sda));
+
+extern int func_002A77E0(int);
+extern float func_002A7878(float, float);
+extern char *func_L18_0035B6B8(char *p0, float f0, float f1, float f2, float f3, float f4, s16 p1, char *p2, s32 p3, char *p4);
+
+void func_L18_004359A8(Moby4359A8 *self) {
+    Vars4359A8 *vars = self->vars;
+    s32 i;
+    s32 k;
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 w;
+
+    for (i = 0; i < D_L18_001B165C; i++) {
+        k = func_002A77E0(2);
+        x = D_L18_001B1648 + func_002A7878(-D_L18_001B164C, D_L18_001B164C);
+        y = D_L18_001B1650 + func_002A7878(-D_L18_001B1654, D_L18_001B1654);
+        z = -((D_L18_001B1640 + func_002A7878(-D_L18_001B1644, D_L18_001B1644)) * 0.00029088825f);
+        w = D_L18_001B1678[k] + func_002A7878(-D_L18_001B1688[k], D_L18_001B1688[k]);
+        func_L18_0035B6B8(D_L18_001B3720, x, y, z, w, D_L18_001B1680[k], D_L18_001B1660 + func_002A77E0(D_L18_001B1664 - D_L18_001B1660), vars->kinds[k], k, D_L18_001B1690[k]);
+    }
+}

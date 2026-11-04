@@ -1,6 +1,6 @@
 //! Mods from a git repository's address (docs/port/MODS.md, section 10): what the address holds,
 //! shown before anything is installed; a native mod's built archive for this computer from the
-//! repository's release, checked against its `SHA256SUMS`; a script mod's or a data pack's files (the
+//! repository's release, checked against GitHub's digest or its `SHA256SUMS`; a script mod's or a data pack's files (the
 //! release's joined archive, checked, else the repository's own files: MODS.md, section 11); where each mod came
 //! from (`<data>/plugins/sources.json`), and newer releases to update to.
 //!
@@ -25,6 +25,8 @@ pub const SOURCES: &str = "sources.json";
 pub const INDEX: &str = "openrac-mods.json";
 /// A release's checksums, in `sha256sum`'s format.
 pub const SUMS: &str = "SHA256SUMS";
+/// The tag of the release a mods repository publishes its index in (index.rs).
+pub const INDEX_TAG: &str = "index";
 /// The largest file fetched (a mod's archive, a repository's).
 pub const MAX_BYTES: u64 = 256 * 1024 * 1024;
 
@@ -197,6 +199,16 @@ pub fn parse_url(text: &str) -> Result<Source, String> {
 struct Asset {
     name: String,
     browser_download_url: String,
+    #[serde(default)]
+    digest: Option<String>,
+}
+
+impl Asset {
+    /// GitHub's SHA-256 of the uploaded file, lower case. Older uploads have none.
+    fn sha256(&self) -> Option<String> {
+        let hex = self.digest.as_deref()?.strip_prefix("sha256:")?;
+        (hex.len() == 64 && hex.chars().all(|c| c.is_ascii_hexdigit())).then(|| hex.to_ascii_lowercase())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -213,6 +225,11 @@ struct Release {
 impl Release {
     fn asset(&self, name: &str) -> Option<&Asset> {
         self.assets.iter().find(|a| a.name == name)
+    }
+
+    /// Whether asset `name` can be checked: by GitHub's digest or the release's SHA256SUMS.
+    fn checkable(&self, name: &str) -> bool {
+        self.asset(SUMS).is_some() || self.asset(name).is_some_and(|a| a.sha256().is_some())
     }
 }
 
@@ -332,15 +349,20 @@ pub fn parse_sums(text: &str) -> BTreeMap<String, String> {
     out
 }
 
-/// Whether `bytes` are the file `name` that `sums` lists: why not.
-pub fn verify(bytes: &[u8], name: &str, sums: Option<&str>) -> Result<(), String> {
-    let sums =
-        sums.ok_or_else(|| format!("The release has no {SUMS}: {name} cannot be checked, so it is not installed."))?;
-    let want = parse_sums(sums).remove(name).ok_or_else(|| {
-        format!("The release's {SUMS} does not list {name}: it cannot be checked, so it is not installed.")
-    })?;
+/// Whether `bytes` are the file `name`, by GitHub's `digest` and what `sums` lists: why not. One
+/// of the two is needed; when both are there, both must match.
+pub fn verify(bytes: &[u8], name: &str, digest: Option<&str>, sums: Option<&str>) -> Result<(), String> {
+    let listed = sums.and_then(|s| parse_sums(s).remove(name));
+    if digest.is_none() && listed.is_none() {
+        return Err(match sums {
+            None => format!("The release has no {SUMS}: {name} cannot be checked, so it is not installed."),
+            Some(_) => {
+                format!("The release's {SUMS} does not list {name}: it cannot be checked, so it is not installed.")
+            }
+        });
+    }
     let got = format!("{:x}", Sha256::digest(bytes));
-    if got != want {
+    if [digest, listed.as_deref()].into_iter().flatten().any(|want| want != got) {
         return Err(format!(
             "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
         ));
@@ -497,7 +519,8 @@ fn read_github(
                 .ok_or_else(|| format!("github.com/{owner}/{repo} has no release {t}"))?;
             vec![r.clone()]
         }
-        None => releases.iter().filter(|r| !r.draft && !r.prerelease).cloned().collect(),
+        // The mod index's own release (openrac-mods' `index` tag) holds no mod: never a mod's release.
+        None => releases.iter().filter(|r| !r.draft && !r.prerelease && r.tag_name != INDEX_TAG).cloned().collect(),
     };
     // What the manifests are read at: the release named, a branch or commit named, the newest
     // release, or the default branch.
@@ -571,15 +594,21 @@ fn read_github(
                         Some(r) => {
                             m.asset = Some(name);
                             m.tag = Some(r.tag_name.clone());
-                            if r.asset(SUMS).is_none() && m.compatible {
+                            if !r.checkable(m.asset.as_deref().unwrap_or_default()) && m.compatible {
                                 m.compatible = false;
-                                m.why = Some(format!("Its release has no {SUMS}, so its download cannot be checked."));
+                                m.why = Some(format!(
+                                    "Its release has no {SUMS} and no digest from GitHub, so its download cannot be checked."
+                                ));
                             }
                         }
                         None if m.compatible => {
                             m.compatible = false;
+                            // The usual slip: the tag's "v" in the file's name.
+                            let with_v = asset_name(&m.id, &format!("v{}", m.version), p);
                             m.why = Some(if eligible.is_empty() {
                                 "No release yet: a native mod is installed built, from a release.".to_string()
+                            } else if eligible.iter().any(|r| r.asset(&with_v).is_some()) {
+                                format!("Its release has {with_v}, which must be named {name}: no \"v\" before the version.")
                             } else {
                                 format!("No release has it built for this computer ({name}).")
                             });
@@ -590,9 +619,9 @@ fn read_github(
             }
         } else {
             // A script mod or a data pack: its joined archive from a release when there is one
-            // (checked against SHA256SUMS), else the repository's own files.
+            // (checked against GitHub's digest or SHA256SUMS), else the repository's own files.
             let name = format!("{}-{}.zip", m.id, m.version);
-            if let Some(r) = eligible.iter().find(|r| r.asset(&name).is_some() && r.asset(SUMS).is_some()) {
+            if let Some(r) = eligible.iter().find(|r| r.asset(&name).is_some() && r.checkable(&name)) {
                 m.asset = Some(name);
                 m.tag = Some(r.tag_name.clone());
             }
@@ -740,6 +769,23 @@ pub struct ModSource {
     /// Kept at this version: no update is offered.
     #[serde(default)]
     pub pin: bool,
+    /// Installed as another mod's dependency, not asked for (index_apply.rs).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(as = "Option<bool>", optional)]
+    pub auto: bool,
+    /// Why it is kept at its version: `shared` (installed from a shared setup's exact versions) or
+    /// `rollback` (rolled back after a crash, until a version newer than `skip` comes out).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "\"shared\" | \"rollback\"")]
+    pub pin_reason: Option<String>,
+    /// A rolled-back version: not updated to again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub skip: Option<String>,
+    /// A mod pack's mods (index `type: pack`): removing the pack removes the ones it brought.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub members: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ts_rs::TS)]
@@ -787,6 +833,10 @@ pub fn set_pin(dir: &Path, id: &str, pin: bool) -> Result<Sources, String> {
     let mut s = read_sources(dir);
     let entry = s.mods.get_mut(id).ok_or_else(|| format!("{id} was not installed from a repository"))?;
     entry.pin = pin;
+    if !pin {
+        entry.pin_reason = None;
+        entry.skip = None;
+    }
     write_sources(dir, &s)?;
     Ok(s)
 }
@@ -836,6 +886,31 @@ pub enum RemoteInstalled {
 /// the overrides, each from its release's joined archive (checked) or the repository's files. Remembers the
 /// source, keeping its pin.
 pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, String> {
+    install_checked(ctx, url, id, None)
+}
+
+/// The archive the signed mod index names, which must be the one downloaded: a second hash beside
+/// the release's own SHA256SUMS, so an archive swapped on a release after it was indexed is refused.
+fn check_expected(bytes: &[u8], name: &str, expected: Option<&crate::index::Asset>) -> Result<(), String> {
+    let Some(want) = expected else { return Ok(()) };
+    if want.asset != name {
+        return Err(format!("{name} is not the archive the mod list names ({}): it is not installed.", want.asset));
+    }
+    if format!("{:x}", Sha256::digest(bytes)) != want.sha256.to_ascii_lowercase() {
+        return Err(format!(
+            "{name} is not the file the mod list lists (its SHA-256 differs): it was changed after it was listed, and is not installed."
+        ));
+    }
+    Ok(())
+}
+
+/// [`install`], with the archive the mod index names for it (`expected`) checked as well.
+pub fn install_checked(
+    ctx: &Context,
+    url: &str,
+    id: &str,
+    expected: Option<&crate::index::Asset>,
+) -> Result<RemoteInstalled, String> {
     let source = parse_url(url)?;
     std::fs::create_dir_all(ctx.dir).map_err(|e| format!("{}: {e}", ctx.dir.display()))?;
     let (preview, releases, clone) = match &source {
@@ -863,8 +938,10 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
     let result = if m.kind == "native" {
         let r = release(&m.tag).ok_or("the release went away while it was read")?;
         let name = m.asset.clone().ok_or("no asset")?;
-        let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
-        verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+        let asset = r.asset(&name).ok_or("no asset")?;
+        let bytes = ctx.fetch.get(&asset.browser_download_url, false)?;
+        verify(&bytes, &name, asset.sha256().as_deref(), sums_of(&r)?.as_deref())?;
+        check_expected(&bytes, &name, expected)?;
         let inside = manifest_in_zip(&bytes)?;
         let (got_id, got_version) = (
             inside.get("id").and_then(Value::as_str).unwrap_or_default(),
@@ -892,14 +969,18 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
         let _ = std::fs::remove_dir_all(&target);
         let staging = plugins::Scratch::new(ctx.dir, "pack")?;
         let folder = if let (Some(name), Some(r)) = (m.asset.clone(), release(&m.tag)) {
-            let bytes = ctx.fetch.get(&r.asset(&name).ok_or("no asset")?.browser_download_url, false)?;
-            verify(&bytes, &name, sums_of(&r)?.as_deref())?;
+            let asset = r.asset(&name).ok_or("no asset")?;
+            let bytes = ctx.fetch.get(&asset.browser_download_url, false)?;
+            verify(&bytes, &name, asset.sha256().as_deref(), sums_of(&r)?.as_deref())?;
+            check_expected(&bytes, &name, expected)?;
             let zip = staging.0.join(&name);
             std::fs::write(&zip, &bytes).map_err(|e| e.to_string())?;
             let out = staging.0.join("unpacked");
             plugins::unzip(&zip, &out)?;
             // package_mod.py's archives hold one top folder, <id>-<version>/.
             plugins::manifest_root(&out)?
+        } else if let Some(want) = expected {
+            return Err(format!("The release has no {}, which the mod list names: it is not installed.", want.asset));
         } else if let Some(scratch) = &clone {
             scratch.0.join("repo").join(&m.path)
         } else {
@@ -952,6 +1033,9 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
     };
     let mut sources = read_sources(ctx.dir);
     let pin = sources.mods.get(&m.id).is_some_and(|s| s.pin);
+    let auto = sources.mods.get(&m.id).is_some_and(|s| s.auto);
+    let (pin_reason, skip) =
+        sources.mods.get(&m.id).filter(|s| s.pin).map_or((None, None), |s| (s.pin_reason.clone(), s.skip.clone()));
     sources.mods.insert(
         m.id.clone(),
         ModSource {
@@ -962,6 +1046,10 @@ pub fn install(ctx: &Context, url: &str, id: &str) -> Result<RemoteInstalled, St
             commit: preview.commit.clone(),
             kind: m.kind.clone(),
             pin,
+            auto,
+            pin_reason,
+            skip,
+            members: Vec::new(),
         },
     );
     write_sources(ctx.dir, &sources)?;
@@ -1135,6 +1223,24 @@ mod tests {
     }
 
     #[test]
+    fn the_index_release_is_never_a_mods_release() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // `index` comes first and is not marked pre-release here: skipped by its name all the same.
+        let mut index = release(&mut fx, "index", "m", "9.9.9", Some(String::new()), false);
+        index["assets"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({"name": "index.json", "browser_download_url": "x"}));
+        let real = release(&mut fx, "v1.0.0", "m", "1.0.0", Some(String::new()), false);
+        let files = [("openrac-mod.json", manifest("m", "1.0.0"))];
+        repo(&mut fx, &files, serde_json::json!([index, real]), "c1");
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "v1.0.0");
+        assert_eq!(p.mods[0].tag.as_deref(), Some("v1.0.0"));
+    }
+
+    #[test]
     fn addresses() {
         let gh = |o: &str, r: &str, reference: Option<&str>, tag: Option<&str>| Source::GitHub {
             owner: o.into(),
@@ -1142,8 +1248,14 @@ mod tests {
             reference: reference.map(Into::into),
             tag: tag.map(Into::into),
         };
-        assert_eq!(parse_url("https://github.com/OpenRAC/rac1-mods").unwrap(), gh("OpenRAC", "rac1-mods", None, None));
-        assert_eq!(parse_url("github.com/OpenRAC/rac1-mods.git/").unwrap(), gh("OpenRAC", "rac1-mods", None, None));
+        assert_eq!(
+            parse_url("https://github.com/OpenRAC/openrac-mods").unwrap(),
+            gh("OpenRAC", "openrac-mods", None, None)
+        );
+        assert_eq!(
+            parse_url("github.com/OpenRAC/openrac-mods.git/").unwrap(),
+            gh("OpenRAC", "openrac-mods", None, None)
+        );
         assert_eq!(parse_url("https://www.github.com/a/b/tree/dev/x").unwrap(), gh("a", "b", Some("dev/x"), None));
         assert_eq!(
             parse_url("https://github.com/a/b/releases/tag/v1.2.0").unwrap(),
@@ -1167,35 +1279,35 @@ mod tests {
 
     #[test]
     fn every_common_link_form() {
-        let plain = Source::GitHub { owner: "OpenRAC".into(), repo: "rac1-mods".into(), reference: None, tag: None };
+        let plain = Source::GitHub { owner: "OpenRAC".into(), repo: "openrac-mods".into(), reference: None, tag: None };
         for text in [
-            "https://github.com/OpenRAC/rac1-mods",
-            "http://github.com/OpenRAC/rac1-mods",
-            "github.com/OpenRAC/rac1-mods",
-            "  https://github.com/OpenRAC/rac1-mods/  ",
-            "https://github.com/OpenRAC/rac1-mods.git",
-            "https://github.com/OpenRAC/rac1-mods?tab=readme",
-            "git@github.com:OpenRAC/rac1-mods.git",
-            "git@github.com:OpenRAC/rac1-mods",
-            "ssh://git@github.com/OpenRAC/rac1-mods.git",
-            "OpenRAC/rac1-mods",
+            "https://github.com/OpenRAC/openrac-mods",
+            "http://github.com/OpenRAC/openrac-mods",
+            "github.com/OpenRAC/openrac-mods",
+            "  https://github.com/OpenRAC/openrac-mods/  ",
+            "https://github.com/OpenRAC/openrac-mods.git",
+            "https://github.com/OpenRAC/openrac-mods?tab=readme",
+            "git@github.com:OpenRAC/openrac-mods.git",
+            "git@github.com:OpenRAC/openrac-mods",
+            "ssh://git@github.com/OpenRAC/openrac-mods.git",
+            "OpenRAC/openrac-mods",
         ] {
             assert_eq!(parse_url(text).unwrap(), plain, "{text}");
         }
         assert_eq!(
-            parse_url("https://github.com/OpenRAC/rac1-mods/tree/master/lock-strafe").unwrap(),
+            parse_url("https://github.com/OpenRAC/openrac-mods/tree/master/lock-strafe").unwrap(),
             Source::GitHub {
                 owner: "OpenRAC".into(),
-                repo: "rac1-mods".into(),
+                repo: "openrac-mods".into(),
                 reference: Some("master/lock-strafe".into()),
                 tag: None
             }
         );
         assert_eq!(
-            parse_url("https://github.com/OpenRAC/rac1-mods/releases/tag/v1.0.0").unwrap(),
+            parse_url("https://github.com/OpenRAC/openrac-mods/releases/tag/v1.0.0").unwrap(),
             Source::GitHub {
                 owner: "OpenRAC".into(),
-                repo: "rac1-mods".into(),
+                repo: "openrac-mods".into(),
                 reference: None,
                 tag: Some("v1.0.0".into())
             }
@@ -1318,6 +1430,22 @@ mod tests {
     }
 
     #[test]
+    fn a_v_in_the_archives_name_is_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let with_v = asset_name("m", "v1.0.0", PLATFORM);
+        let rel = serde_json::json!({"tag_name": "v1.0.0", "draft": false, "prerelease": false,
+            "assets": [{"name": with_v, "browser_download_url": format!("{DL}/v1.0.0/{with_v}")}]});
+        repo(&mut fx, &[("openrac-mod.json", manifest("m", "1.0.0"))], serde_json::json!([rel]), "c1");
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        let why = p.mods[0].why.as_deref().unwrap();
+        assert!(why.contains(&with_v), "{why}");
+        assert!(why.contains(&asset_name("m", "1.0.0", PLATFORM)), "{why}");
+        assert!(why.contains("no \"v\" before the version"), "{why}");
+        assert!(!p.mods[0].compatible);
+    }
+
+    #[test]
     fn installs_and_remembers_the_source() {
         let dir = tempfile::tempdir().unwrap();
         let mut fx = Fixture::default();
@@ -1348,6 +1476,37 @@ mod tests {
         forget(dir.path(), "lock-strafe").unwrap();
         assert!(read_sources(dir.path()).mods.is_empty());
         assert!(set_pin(dir.path(), "lock-strafe", true).is_err());
+    }
+
+    #[test]
+    fn github_digest_checks_the_download() {
+        let (id, zero) = ("m", "0".repeat(64));
+        let name = asset_name(id, "1.0.0", PLATFORM);
+        let bytes = mod_zip(id, "1.0.0");
+        let good = sha(&bytes);
+        let other_line = format!("{zero}  other.zip\n");
+        let wrong_line = format!("{zero}  {name}\n");
+        for (digest, sums, want) in [
+            (good.as_str(), None, None),                                // no SHA256SUMS needed
+            (good.as_str(), Some(other_line), None),                    // not listed: the digest is enough
+            (zero.as_str(), None, Some("SHA-256 differs")),             // the digest is checked
+            (good.as_str(), Some(wrong_line), Some("SHA-256 differs")), // both must match
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut fx = Fixture::default();
+            let mut rel = release(&mut fx, "v1.0.0", id, "1.0.0", sums, false);
+            fx.put(&format!("{DL}/v1.0.0/{name}"), bytes.clone());
+            rel["assets"][0]["digest"] = format!("sha256:{}", digest.to_ascii_uppercase()).into();
+            repo(&mut fx, &[("openrac-mod.json", manifest(id, "1.0.0"))], serde_json::json!([rel]), "c1");
+            let c = ctx(dir.path(), &fx);
+            let got = install(&c, "https://github.com/o/r", id);
+            match want {
+                None => {
+                    got.unwrap();
+                }
+                Some(want) => assert!(got.unwrap_err().contains(want)),
+            }
+        }
     }
 
     #[test]
@@ -1496,12 +1655,12 @@ mod tests {
         let mut fx3 = Fixture::default();
         repo(
             &mut fx3,
-            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.11\""))],
+            &[("openrac-mod.json", script_manifest("swap", "1.0.0").replace("\"1.1\"", "\"1.99\""))],
             serde_json::json!([]),
             "c1",
         );
         let p = preview(&ctx(dir.path(), &fx3), "https://github.com/o/r").unwrap();
-        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.11"));
+        assert!(!p.mods[0].compatible && p.mods[0].why.as_deref().unwrap().contains("interface 1.99"));
     }
 
     #[test]
@@ -1656,10 +1815,10 @@ mod tests {
         let e = preview(&c, "https://github.com/OpenRAC/OpenRAC").unwrap_err();
         eprintln!("OpenRAC/OpenRAC: {e}");
         assert!(e.starts_with("No OpenRAC mod"), "{e}");
-        // rac1-mods, once it is public, holds the lock-strafe.
-        match preview(&c, "https://github.com/OpenRAC/rac1-mods") {
+        // openrac-mods, once it is public, holds the lock-strafe.
+        match preview(&c, "https://github.com/OpenRAC/openrac-mods") {
             Ok(p) => assert!(p.mods.iter().any(|m| m.id == "lock-strafe"), "{p:#?}"),
-            Err(e) => eprintln!("OpenRAC/rac1-mods: {e}"),
+            Err(e) => eprintln!("OpenRAC/openrac-mods: {e}"),
         }
     }
 }

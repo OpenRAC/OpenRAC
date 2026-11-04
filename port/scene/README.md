@@ -14,8 +14,8 @@ Libraries `openrac_scene` (the CPU side: the level's loading, the poses, the sha
 the PNG; the probe tools link it without a graphics context) and `openrac_scene_renderer` (the
 level renderer and its embedded shaders, `scene_shaders.h`), in the namespace `openrac::scene`. The
 files came from `viewer/` (restructure packages P2-02 and P2-37); the viewer program's own code
-(`viewer/camera.h`) keeps `openrac::viewer`. The enhanced renderer's probe and early lighting is
-not the scene's: it registers with the scene's lighting hook (`level_lighting.h`, restructure
+(`viewer/camera.h`) forwards the shared fly camera through compatibility names. The enhanced
+renderer's probe and early lighting is not the scene's: it registers with the scene's lighting hook (`level_lighting.h`, restructure
 package P2-39b).
 
 ## Interface
@@ -23,6 +23,7 @@ package P2-39b).
 | Header | Declares |
 |---|---|
 | [`level.h`](level.h) | `LevelData`, one level of the editor's export loaded whole on the CPU (one vertex and one index array, every texture as an RGBA8 image, the placements of each `Layer`); `load_level`, the sky's textures, `kManifestFormat`, the export format this port reads |
+| [`fly_camera.h`](fly_camera.h) | Shared Z-up free-flight camera and controls for the viewer and in-game inspection |
 | [`pvs.h`](pvs.h) | `Pvs`, rac1's baked camera visibility (`pvs.json`, `pvs.bin`): the grid's lookup of which instances a camera position can see |
 | [`level_renderer.h`](level_renderer.h) | `LevelScene`, a loaded level on the GPU (shared buffers, instanced draws per class and material, skinned live mobys, culling, the enhanced lighting and shadows when they are on), and `LayerRenderer`, one of its layers as a bucket of `renderer::Renderer` |
 | [`level_lighting.h`](level_lighting.h) | `LevelLighting`, the level renderer's lighting hook: what a `LevelScene` asks of the probe and early lighting registered with `set_level_lighting` (the shaders' lighting GLSL, the bake's load, the uniforms, the early pass); the enhanced renderer's `lighting::SceneLighting` implements it |
@@ -125,3 +126,48 @@ checked by the maintainers' regression comparison of the game programs
   visibility, which `pvs.h` reads.
 - [viewer/README.md](../viewer/README.md): the export the level comes from and how the viewer draws
   it.
+
+## Developer Object Viewer
+
+**Developer > Object Viewer** uses the click picker to isolate an object without changing the
+live level. Its camera follows Unity Scene-view controls: Alt+LMB orbit, MMB pan, Alt+RMB dolly,
+RMB look with WASD/QE fly (Shift speeds up), wheel zoom and F to frame. RMB+wheel changes fly speed.
+See the [Unity navigation reference](https://docs.unity3d.com/Manual/SceneViewNavigation.html).
+
+Freeze the displayed pose, follow gameplay, or use **Default / bind pose** to restore the model's
+original rest mesh and bone frames. The rest pose is not necessarily a T-pose. Existing animation
+sequences are not exported into preview models yet, so independent sequence playback is unavailable.
+Bone overlays work with classic graphics; optional enhanced light authoring stays in a separate
+foldout (see [enhanced](../enhanced/README.md#object-light-authoring)).
+
+### Shadow graph phases
+
+`shadow_graph.h` records the existing shadow draws and depth copies between explicit
+Vulkan graph dependencies. Fresh caches and complete maps clear their depth; partial
+static and scrolling updates preserve all previously valid depth outside dirty regions.
+The static-cache copy feeds depth-attachment writes in the dynamic atlas, followed by
+sampled exports for combination and lighting. Separate sun/hero maps use the same contract.
+
+These phases share renderer-owned images with the native depth-combination graph and
+early-lighting graph through their actual allocation state. They do not change caster
+selection, batching, cache keys or submissions. Graph ranges cover whole depth images;
+scissors still define the dirty pixel rectangles inside a recording callback. Existing
+mesh, animation and deformation input synchronisation remains with the draw path.
+
+On Vulkan, shadow preparation retains allocations and copied
+callback captures until their shared plan executes. Cache keys and scrolling-grid
+validity advance after their writers record. Completion publishes culling counters
+and discards unused atlas attachments after composition.
+
+`sky_renderer.cpp` prepares current shadows and transport, then queues authored sky
+and its fog overlay in one shared scope. The registered lighting provider explicitly
+opts into preparation. Terrain still prepares transport when a level has no sky
+bucket. Without active atmosphere, late shadows join the surface-lighting plan.
+`shadow_graph` compares fresh, partial, cache-hit and recreated allocations against
+the reference path. Enhanced scene tests compare both scheduling modes with
+atmosphere, hero motion, changing resolutions, deformation and scrolling caches.
+
+`material_overrides.h` prepares immutable model/material identities, layered catalogs and resolved
+surface records. Original materials remain available for classic rendering and coverage passes;
+enhanced colour and probe geometry use the resolved records. Live edits reuse decoded texture
+identities. See [Materials](../materials/README.md) for precedence and authoring.

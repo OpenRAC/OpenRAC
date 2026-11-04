@@ -299,25 +299,22 @@ mod tests {
         assert_the_editor_is_offered(&library, &editable_versions());
     }
 
-    /// Going Commando's Play is a developer's: a player's library does not have it (the game says
-    /// "Not playable yet"), a developer's has it, with the warning shown before it starts.
+    /// A player's library has Going Commando's Play, with the warning shown before it starts, and
+    /// its enhanced lighting bake.
     #[test]
-    fn going_commandos_play_is_for_developers() {
-        let play_of = |config: &Config| {
+    fn going_commandos_play_and_bake_are_for_players() {
+        let action_of = |config: &Config, id: &str| {
             let library = library(config).unwrap();
             let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == "rac2/ntsc");
-            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == "play").cloned()
+            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == id).cloned()
         };
         let player = Config { root: Some(checkout()), ..Config::default() };
-        assert!(play_of(&player).is_none(), "a player is offered Going Commando's Play");
-        let refused = plan(&player, &Scope::Version("rac2/ntsc".into()), "play", &Inputs::default()).unwrap_err();
-        assert!(refused.contains("for developers only"), "{refused}");
-
-        let developer = Config { developer: true, ..player };
-        let play = play_of(&developer).expect("a developer has Going Commando's Play");
-        assert!(play.developer);
+        let bake = action_of(&player, "probe-bake").expect("a player has Going Commando's bake");
+        assert!(!bake.developer);
+        let play = action_of(&player, "play").expect("a player has Going Commando's Play");
+        assert!(!play.developer);
         assert_ne!(play.state, actions::State::Planned);
-        assert!(play.warning.as_deref().is_some_and(|w| w.contains("development only")), "{:?}", play.warning);
+        assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
     }
 
     #[test]
@@ -453,6 +450,24 @@ mod tests {
             let dir = action.args[at + 1].trim_start_matches("{root}/");
             assert!(made.starts_with(dir) && stamp.starts_with(dir), "{id} draws from {dir}");
         }
+    }
+
+    /// Going Commando's Play draws from the levels its `port-levels` writes too. It has no level
+    /// check yet, so it waits for the export's own stamp, named after the format: a format bump
+    /// reads its levels again before it starts. (It once named no levels, so a checkout's Play
+    /// looked in the data folder, where nothing was read, and drew no world.)
+    #[test]
+    fn going_commandos_play_waits_for_the_levels_it_draws() {
+        let file = actions::load(&checkout()).unwrap();
+        let scope = Scope::Version("rac2/ntsc".into());
+        let made = file.find(&scope, "port-levels").and_then(|a| a.artifact.clone()).expect("port-levels makes a file");
+        assert!(made.ends_with(".json") && made.contains("/levels-"), "{made}");
+        assert!(file.find(&scope, "port-levels-check").is_none(), "a check now: Play should wait for its stamp");
+        let play = file.find(&scope, "play").unwrap();
+        assert!(play.needs.iter().any(|n| n.path == made), "play does not wait for {made}");
+        let at = play.args.iter().position(|a| a == "--levels").expect("play has no --levels");
+        let dir = play.args[at + 1].trim_start_matches("{root}/");
+        assert!(made.starts_with(&format!("{dir}/")), "play draws from {dir}, the levels are {made}");
     }
 
     /// NTSC-U's levels are read from its own disc into a folder of their own, checked by its own

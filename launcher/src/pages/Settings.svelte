@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { SETTINGS_TEXT } from "$lib/modsText";
   // Three groups: where things are (folders), the programs the launcher uses,
   // and how the launcher itself behaves. Edits stay local until saved; the bar
   // that saves them stays in view at the bottom of the window. With `setup`,
   // the first-run screen: one question (the games folder), and what was found by itself, folded.
+  import AddToSteam from "$components/AddToSteam.svelte";
   import GpuDrivers from "$components/GpuDrivers.svelte";
   import Logo from "$components/Logo.svelte";
   import PathField from "$components/PathField.svelte";
@@ -10,6 +12,7 @@
     api,
     errorText,
     onAndroid,
+    relaunchApp,
     updateBranchOf,
     updateChannelOf,
     updateSourceOf,
@@ -22,7 +25,7 @@
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
-  import { devBranches } from "$lib/updates";
+  import { channelName, devBranches } from "$lib/updates";
   import { tablist } from "$lib/tabs";
 
   let { setup = false }: { setup?: boolean } = $props();
@@ -50,6 +53,8 @@
     "updateBranch",
     "detailedGameLog",
     "renderer",
+    "hdr",
+    "safeRendering",
     "saveEditorAdvanced",
     "developer",
     "discordClientId",
@@ -79,7 +84,12 @@
   );
   /** Advanced opens by itself when something in it is on. */
   let advancedOpen = $state(
-    saved().detailedGameLog || saved().developer || saved().saveEditorAdvanced || saved().renderer === "vulkan",
+    saved().detailedGameLog ||
+      saved().developer ||
+      saved().saveEditorAdvanced ||
+      saved().renderer === "vulkan" ||
+      saved().hdr !== "" ||
+      saved().safeRendering,
   );
 
   /** The update channel as this page has it, saved or not. */
@@ -184,6 +194,7 @@
     let customId: string | null = draft.discordClientId?.trim() ?? null;
     if (customId === "") customId = null;
     const before = app.info ? updateSourceOf(app.info, app.config).manifest : null;
+    const restart = draft.safeRendering !== saved().safeRendering;
     const written = await saveConfig({
       ...saved(),
       ...edited(draft),
@@ -205,6 +216,8 @@
       if (app.config?.checkUpdates) lookForUpdate().catch(() => undefined);
     }
     saving = false;
+    // The window's renderer is set before it opens.
+    if (restart) await relaunchApp();
     if (finish) app.page = "library";
   }
 </script>
@@ -406,6 +419,7 @@
       <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
            desktop's rich presence. -->
       {#if !onAndroid}
+        <AddToSteam />
         <label class="setting">
           <span class="text">
             <strong>Compact layout</strong>
@@ -456,6 +470,27 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkUpdates} />
       </label>
+      <label class="setting">
+        <span class="text">
+          <strong>Look for mod updates at start</strong>
+          <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkModUpdates} />
+      </label>
+      <label class="setting">
+        <span class="text">
+          <strong>{SETTINGS_TEXT.autoUpdate}</strong>
+          <small>{SETTINGS_TEXT.autoUpdateLine}</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.autoUpdateMods} />
+      </label>
+      <label class="setting">
+        <span class="text">
+          <strong>{SETTINGS_TEXT.cleanUp}</strong>
+          <small>{SETTINGS_TEXT.cleanUpLine}</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.cleanupUnusedDeps} />
+      </label>
       {#if app.info?.updateChannels}
         <div class="setting">
           <span class="text">
@@ -504,8 +539,10 @@
       {/if}
       <p class="dim note status">
         <button class="link" disabled={looked === "looking"} onclick={() => void checkNow()}>Check now</button>
-        {#if looked === "looking"}· Looking…{:else if looked === "found" || app.update}· {app.update?.name ??
-            "A new version"} is out.
+        {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
+          {app.update.version} can replace this build.
+          <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
+          >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button>{:else if looked === "none"}·
           You have the latest ({app.info?.version ?? ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
         {#if source}
@@ -515,9 +552,6 @@
           {/if}
         {/if}
       </p>
-      {#if channel === "stable" && app.info?.updates.channel}
-        <p class="dim note">This development build stays until the next release replaces it.</p>
-      {/if}
     </section>
 
     {#if !app.info?.standalone && !onAndroid}
@@ -563,24 +597,61 @@
               <strong>Renderer</strong>
               <small>
                 {draft.renderer === "vulkan"
-                  ? "Experimental: needs Vulkan 1.3, else the game draws with OpenGL."
-                  : "OpenGL 4.1, the default."}
+                  ? "Vulkan 1.3, the default; without it the game draws with OpenGL."
+                  : "OpenGL 4.1."}
                 From the game's next start: a running game keeps its renderer.
               </small>
             </span>
             <div class="segmented" role="radiogroup" aria-label="Renderer">
               <button
                 role="radio"
-                aria-checked={draft.renderer !== "vulkan"}
-                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
-              >
-              <button
-                role="radio"
                 aria-checked={draft.renderer === "vulkan"}
                 onclick={() => (draft.renderer = "vulkan")}>Vulkan</button
               >
+              <button
+                role="radio"
+                aria-checked={draft.renderer !== "vulkan"}
+                onclick={() => (draft.renderer = "opengl")}>OpenGL</button
+              >
             </div>
           </div>
+        {/if}
+        <!-- HDR output (OPENRAC_HDR, core/src/actions.rs; port docs/port/HDR.md): left to the
+             game's own setting, or the launcher's word for every start. -->
+        <div class="setting">
+          <span class="text">
+            <strong>HDR</strong>
+            <small>
+              {draft.hdr === ""
+                ? "As each game has it (its options drawer)."
+                : draft.hdr === "auto"
+                  ? "On when your screen is in HDR mode (Windows, macOS, Wayland)."
+                  : draft.hdr === "on"
+                    ? "Always, where the screen offers it."
+                    : "Off: the picture as always."}
+              Shows the game on an HDR screen as it looks in SDR. Needs the Vulkan renderer.
+            </small>
+          </span>
+          <div class="segmented" role="radiogroup" aria-label="HDR">
+            {#each [["", "Game"], ["off", "Off"], ["auto", "Auto"], ["on", "On"]] as [value, label] (value)}
+              <button
+                role="radio"
+                aria-checked={draft.hdr === value}
+                onclick={() => (draft.hdr = value as Config["hdr"])}>{label}</button
+              >
+            {/each}
+          </div>
+        </div>
+        {#if app.info?.platform === "linux"}
+          <!-- The launcher's own window without WebKitGTK's accelerated compositing
+               (core/src/webkit.rs); on by itself after a start that crashed. -->
+          <label class="setting">
+            <span class="text">
+              <strong>Safe rendering</strong>
+              <small>For a launcher that crashes or stays blank. No page slides. The launcher restarts.</small>
+            </span>
+            <input type="checkbox" role="switch" class="switch" bind:checked={draft.safeRendering} />
+          </label>
         {/if}
         <label class="setting">
           <span class="text">
@@ -783,10 +854,6 @@
   .status {
     padding-top: 10px;
     border-top: 1px solid var(--line);
-  }
-
-  .status + .note {
-    margin-top: 4px;
   }
 
   .dev {

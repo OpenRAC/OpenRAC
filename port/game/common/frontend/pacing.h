@@ -34,6 +34,21 @@ std::chrono::steady_clock::time_point shown_at(
 // stood still for half a tick and then jumped).
 constexpr double kLowLatencyLagTicks = 0.0;
 
+// The time from which between() draws no more frames for the kept tick. `next_tick`: when the next
+// tick is due; `lag`: how many ticks of `period` the scene runs behind; `cost`, `interval` and
+// `last_swap` as for shown_at. With a lag: the next tick plus the lag. Without one (low-latency
+// frames): the refresh the next tick's own frame is shown at, so the refresh before it still gets
+// a frame (else a 120 Hz display showed one frame a tick); the next tick itself when the refreshes
+// are not known.
+std::chrono::steady_clock::time_point between_limit(
+    std::chrono::steady_clock::time_point next_tick,
+    std::chrono::duration<double> period,
+    double lag,
+    double cost,
+    double interval,
+    std::chrono::steady_clock::time_point last_swap
+);
+
 // How far the scene is from the last tick's to the kept one's at the refresh `display`, from 0 to
 // 1: `tick` is when the kept tick came, `period` the game's tick length, and the scene runs `lag`
 // ticks behind.
@@ -49,6 +64,36 @@ float tick_alpha(
 // next frame start (frame_pacing::next_due), the clock's epoch before the first capped frame.
 bool frame_may_start(
     double cap, std::chrono::steady_clock::time_point due, std::chrono::steady_clock::time_point now
+);
+
+// What the frame cap times: when a frame starts, or when it is shown.
+enum class CapEdge {
+    // The frame starts at its time and is shown as soon as it is drawn, so its frame time varies
+    // with how long it takes to draw.
+    Start,
+    // The frame has a fixed time on the screen, one cap frame after the last (next_due from each
+    // swap). It is drawn a little early, waits for that time before the swap, and is drawn for
+    // that moment: even frame times and motion, for about 1-2 ms of latency. Only when there are
+    // more frames than ticks: with one frame a tick the frame cannot start before the tick ends,
+    // so a fixed time would be missed or drift later.
+    Present,
+};
+
+// How long before its time a frame held by its showing starts: what a frame costs (`cost`), three
+// times how much that moves from frame to frame (`spread`) and a margin, in seconds, and no more
+// than the cap's frame (`step`).
+double present_lead(double cost, double spread, double step);
+
+// How long a tick may start late to let a Present frame out first, in seconds. This keeps the
+// frames even however they fall between the ticks. At most one cap frame (`step`), the lag
+// (`lag` ticks of `period`), and what still lets the tick's own work (`tick_work`) end within
+// half a tick of its time; 0 if nothing is left. The tick's logic and alpha do not change.
+double tick_slip(double step, double period, double lag, double tick_work);
+
+// When a frame held to `due` (by `edge`) may start: `due` itself, or `lead` seconds before it when
+// it is held by its showing. The clock's epoch (no frame held yet) stays the epoch.
+std::chrono::steady_clock::time_point cap_start(
+    CapEdge edge, std::chrono::steady_clock::time_point due, double lead
 );
 
 }  // namespace openrac::frontend

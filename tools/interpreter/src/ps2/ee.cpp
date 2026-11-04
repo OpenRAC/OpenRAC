@@ -14,13 +14,23 @@
 
 #include "ee.h"
 
+#include <cstdlib>
+
 #include "fp.h"
 
 namespace ps2 {
 namespace {
 
-/** Cycles the interpreter charges for every instruction, whatever it is. */
-constexpr u64 kCyclesPerInstruction = 2;
+/**
+ * Cycles the interpreter charges for every instruction, whatever it is: 2, or
+ * OPENRAC_BOOT_CPI (1 to 8) for a test that wants the program to finish its frame in fewer
+ * fields.
+ */
+const u64 kCyclesPerInstruction = [] {
+    const char* value = std::getenv("OPENRAC_BOOT_CPI");
+    long cpi = value ? std::strtol(value, nullptr, 10) : 2;
+    return static_cast<u64>(cpi >= 1 && cpi <= 8 ? cpi : 2);
+}();
 
 /**
  * Extracts the rs field, the first register operand, of an instruction word (documented).
@@ -180,10 +190,20 @@ u64 Ee::read64(u32 address) {
     return on_read ? on_read(address & 0x1FFFFFFFu, 8) : 0;
 }
 
+void Ee::watch(u32 address, u64 value, unsigned bytes) {
+    // Only main memory is watched, by physical address.
+    u32 physical = address & 0x1FFFFFFFu;
+
+    if (physical < watch_end && physical + bytes > watch_first && on_watched_store) {
+        on_watched_store(physical, value, bytes);
+    }
+}
+
 void Ee::write8(u32 address, u8 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         *p = value;
+        watch(address, value, 1);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 1);
@@ -194,6 +214,7 @@ void Ee::write16(u32 address, u16 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u16>(p, value);
+        watch(address, value, 2);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 2);
@@ -204,6 +225,7 @@ void Ee::write32(u32 address, u32 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u32>(p, value);
+        watch(address, value, 4);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 4);
@@ -214,6 +236,7 @@ void Ee::write64(u32 address, u64 value) {
     // Memory takes the store directly.
     if (u8* p = pointer(address)) {
         store<u64>(p, value);
+        watch(address, value, 8);
     } else if (on_write) {
         // Anything else is hardware: its callback gets the physical address and the size in bytes.
         on_write(address & 0x1FFFFFFFu, value, 8);
@@ -365,6 +388,8 @@ bool Ee::run_call(u64 instructions) {
 
         step();
         instructions--;
+        const u32 sp = static_cast<u32>(gpr[29].lo);
+        lowest_sp = sp < lowest_sp ? sp : lowest_sp;
     }
 
     return returned_ || lost;
@@ -409,6 +434,15 @@ void Ee::branch(bool taken, u32 at, s32 offset, bool likely) {
 
 void Ee::step() {
     u32 at = pc;
+    instruction = at;
+
+    if (at == watch_pc && on_watch) {
+        on_watch();
+    }
+
+    if (cover && at - cover_base < cover_bytes) {
+        cover[(at - cover_base) >> 2] = 1;
+    }
 
     // The call's return address is not code: reaching it ends the call.
     if (at == kReturnAddress) {

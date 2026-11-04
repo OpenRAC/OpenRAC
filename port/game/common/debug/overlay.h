@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <format>
 #include <imgui.h>
 #include <set>
@@ -33,13 +34,14 @@
 
 #include <SDL3/SDL.h>
 
+#include "debug/object_viewer.h"
 #include "debug_overlay.h"
+#include "openrac/guest.h"
+#include "platform/bindings.h"
 
 namespace openrac::frontend::debug_overlay {
 
-// The game's main memory, 32 MB, and one moby's bytes in it (the size of
-// the game's moby struct).
-constexpr std::uint32_t kRamSize = 32u * 1024 * 1024;
+// One moby's bytes in main memory (the size of the game's moby struct).
 constexpr std::uint32_t kMobySize = 0x100;
 
 // The sections of the panel, as OPENRAC_OVERLAY names them.
@@ -55,6 +57,9 @@ enum Section : std::size_t {
 
 constexpr std::array<const char*, kSectionCount> kSectionNames =
     {"frame", "renderer", "memory", "mobys", "game", "shaders"};
+
+// Developer menu and renderer-panel controls share the same opt-in camera settings.
+void camera_tools_controls();
 
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
@@ -77,7 +82,6 @@ constexpr std::array<const char*, 16> kButtonNames =
 
 // The main memory map: one cell per 128 KB.
 constexpr std::uint32_t kCellBytes = 128 * 1024;
-constexpr std::size_t kCells = kRamSize / kCellBytes;
 
 // One cell of the memory map (scan_ram): how much of it holds data, and whether it changed.
 struct RamCell {
@@ -87,10 +91,23 @@ struct RamCell {
 };
 
 // A scripted key or click (OPENRAC_KEYS).
+// Explicit held actions let native diagnostics exercise scene-camera and gizmo drags safely.
+enum class ScriptedAction {
+    Stroke,
+    Click,
+    Move,
+    ButtonDown,
+    ButtonUp,
+    Wheel,
+    KeyDown,
+    KeyUp
+};
 struct ScriptedInput {
     std::uint64_t frame = 0;  // the window frame it happens at
     int held = 0;             // and that many held pictures later, while paused there
-    SDL_Keycode key = 0;      // 0: a click
+    ScriptedAction action = ScriptedAction::Stroke;
+    std::uint8_t button = SDL_BUTTON_LEFT;
+    SDL_Keycode key = 0;      // 0: a pointer or wheel action
     float x = 0.0f;           // a click's place in the window, in ImGui's coordinates
     float y = 0.0f;
     bool done = false;  // put in the event queue already
@@ -110,10 +127,66 @@ struct Scroll {
     float velocity = 0.0f;
 };
 
+// How the desktop's menu window moves (debug/menu_window.cpp): its rows' scroll easing to where
+// the wheel or the focus sends it, the open tab's page coming in from the side it was picked on, and
+// the help fading in when it changes.
+struct MenuMotion {
+    float scroll_target = 0.0f;  // where the rows are going, in pixels
+    float scroll_shown = 0.0f;   // where they are now
+    unsigned rows_window = 0;    // the rows' child window (ImGuiID), whose scroll this eases
+    float page = 1.0f;           // the open tab's page, 0 just picked, 1 in place
+    float page_from = 0.0f;      // -1 it comes from the left, 1 from the right
+    int page_tab = -1;           // the tab the page is of
+    float help = 1.0f;           // the help's text, 0 just changed, 1 shown
+    int help_of = -2;            // the entry it is of (s.menu_hover)
+    bool pad = false;            // the last input was a controller's: its buttons are named
+    float quit_hold = 0.0f;      // seconds the controller's quit button has been held
+    int last_tab = 0;            // the last of the bar's tabs open (not a button's page)
+};
+
+// The menu's Controls tab (debug/menu_controls.cpp): which file it changes, what is being captured,
+// and what it last said.
+struct ControlsMenu {
+    bool global = false;      // the global file; else the running game's own
+    int player = -1;          // the player whose own controls are changed (0, 1); -1 every player's
+    int open_target = -1;     // the control whose own rows (change, add, remove) are open; -1 none
+    int capture_target = -1;  // the target a press is being captured for; -1 none
+    double capture_since = 0.0;  // when the capture began (ImGui's clock); it times out
+    // What the captured press does: replaces the target's pad inputs, adds one, or is the first
+    // or the second of a chord.
+    enum class Mode {
+        Replace,
+        Add,
+        ChordFirst,
+        ChordSecond,
+    } mode = Mode::Replace;
+    platform::Binding chord_with;  // a chord's first press, once captured
+    std::string message;           // what the last change said
+    // A press just bound that another control also has alone: offered to be taken from it.
+    int clash_target = -1;
+    int clash_from = -1;  // the control just changed, under which the choice is shown
+    platform::Binding clash_input;
+    bool confirm_reset = false;  // "Reset" asked once; asked again, it resets
+};
+
 // Everything the overlay keeps between frames: what the environment asked for, what the last
 // tick gave it, and what its panels, windows, menus and drawer were set to. One exists (s).
 struct State {
-    std::vector<ScriptedInput> script;  // OPENRAC_KEYS, in order
+    CameraDebugSettings
+        camera_tools;           // Window-thread developer settings, never shared with worker.
+    bool camera_reset = false;  // Pending reseed from the game camera.
+    unsigned camera_alt = 0;    // Left/right Alt bits; releasing one must not release the other.
+    bool camera_right_mouse = false;  // Right-click is an alternative mouse-look hold.
+    float camera_look_x = 0,
+          camera_look_y = 0;        // Mouse deltas consumed once per displayed snapshot.
+    std::uint64_t camera_time = 0;  // SDL nanoseconds of the last input snapshot.
+    bool camera_pad_chord = false;  // L3+R3 held on a gamepad: toggles freecam once per press.
+    std::vector<ScriptedInput> script;
+    std::optional<ImVec2> script_pointer;  // App-local pointer held by explicit input scripts.
+    SDL_Keymod script_modifiers = SDL_KMOD_NONE;
+    std::filesystem::path script_file;
+    std::filesystem::file_time_type script_file_time{};
+    std::uint64_t script_poll_at = 0;   // OPENRAC_KEYS, in order
     SDL_Window* window = nullptr;       // as last drawn into
     int held_pictures = 0;              // pictures of the tick held now
     bool wanted = false;                // shown from the start
@@ -151,7 +224,15 @@ struct State {
     // Mobys.
     std::uint32_t selected = 0;  // address; 0 none
     bool follow_hero = false;    // "inspect": the hero is selected, whichever moby he is now
+    bool material_settings = false;  // Unified authoring window, independent of Enhanced Settings.
+    bool material_preset_edit = false;   // Shared preset editing instead of one object slot.
+    std::string material_preset;         // Stable preset id, revalidated after level changes.
+    std::size_t material_selection = 0;  // Current immutable binding row, revalidated on each draw.
+    std::uint32_t material_model = ~0u;  // Pending click-picker model, or none.
+    int material_slot = -1;              // Pending click-picker material.
+    std::string material_error;          // Persistent edit/save diagnostics.
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
+    ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
     bool near_hero = true;       // the list holds only the mobys within `radius` of the hero
@@ -164,7 +245,7 @@ struct State {
     bool memory_viewer = false;               // the memory viewer window is open
     std::uint32_t view_address = 0x00100000;  // the first address it shows
     bool view_words = false;                  // it shows words and floats, not bytes
-    std::array<RamCell, kCells> cells{};      // the memory map, as scan_ram last measured it
+    std::vector<RamCell> cells;               // the memory map, as scan_ram last measured it
     std::uint64_t scanned_at = ~0ull;         // the tick of that scan, divided by 25; ~0 never
     std::uint32_t used_pages = 0;             // the 4 KB pages holding data, in all the cells
 
@@ -176,22 +257,40 @@ struct State {
     int shots = 0;                 // written so far (at most 10,000)
 
     std::string message;       // what the last action said (a reload, a file written)
-    std::string notice;        // kept in the picture until cleared (debug_overlay::notice)
-    std::string toast;         // the same for an action taken with the panel hidden, shown a moment
-    double toast_until = 0.0;  // the ImGui time the toast goes at
-    bool alt_alone = false;  // Alt went down and no other key since: its release toggles the menus
+    bool alt_alone = false;    // Alt went down and no other key since: its release toggles the menu
+    bool menu_key_capture = false;     // the next key pressed becomes the menu's (Controls tab)
+    bool menu_button_capture = false;  // the next pad button becomes the menu's
+    std::uint64_t focus_ns = 0;  // when the window last gained or lost the focus (SDL's clock)
+    ObjectViewerState object_viewer;  // Session-only developer object studio.
     bool developer = false;  // the launcher's developer tools (OPENRAC_DEVELOPER): the level select
     std::string dump_path = "openrac_frames.jsonl";  // where the frames' measurements are written
 
-    // The drawer (drawer_available()).
-    bool drawer_open = false;      // open, or opening
-    float drawer_at = 0.0f;        // how far out: 0 shut, 1 open
-    bool keep_paused = false;      // the pause the game is left in when it shuts
-    bool drawer_focus = false;     // given the keyboard and gamepad when it opens
-    Scroll drawer_scroll;          // the finger's drag over the rows
+    // The menu (menu_window() on a desktop, drawer() on a touch screen; debug/menu_ui.h).
+    bool menu_open = false;         // open, or opening
+    float menu_at = 0.0f;           // how far out: 0 shut, 1 open
+    bool keep_paused = false;       // the pause the game is left in when it shuts
+    bool menu_focus = false;        // given the keyboard and gamepad when it opens or changes tab
+    bool menu_focus_first = false;  // the next row drawn takes the focus (debug/menu_ui.cpp)
+    MenuMotion menu_motion;         // the desktop's window's scroll and transitions
+    int menu_want_tab = -1;         // a menu::Tab to open the window at (F13: Controls); -1 none
+    bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
+    bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
+    Scroll menu_scroll;             // the finger's drag over the drawer's rows
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
-    bool drawer_developer = false;  // its developer tools unfolded
+    bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
+    bool quit_asked = false;          // Quit pressed in the drawer: its confirmation is shown
+    bool quit_focus = false;          // the confirmation's first row takes the focus once
+    int menu_tab = 0;                 // the desktop's open tab, by its place on the bar
+    long long menu_open_at = -1;      // OPENRAC_MENU: the tick to open the menu at; -1 none
+    int menu_hover = -1;              // the entry under the pointer or the focus (menu::Id), or -1
+    float menu_row_height = 48.0f;    // a row's height in dp: a thumb's on a touch screen
+    bool drawer_developer = false;    // the drawer's developer tools unfolded
+    bool drawer_fixes = false;        // the drawer's game fixes unfolded
+    bool drawer_controller = false;   // the controller's settings out beside the drawer
+    float drawer_controller_at = 0.0f;     // how far out they are: 0 in, 1 out
+    bool drawer_controller_focus = false;  // the gamepad's focus goes to them, or back, next frame
+    Scroll drawer_controller_scroll;       // the finger's drag over their rows
     // The on-screen pad's layout being edited (touch_editing()): Reset asked for, the box of the
     // bar in the middle of the screen as last drawn, whose fingers are ImGui's, not the pad's, and
     // the lines a dragged group snapped to (set_touch_guides()).
@@ -248,8 +347,8 @@ extern const ImVec4 kGreen;
 extern const ImVec4 kDim;
 extern const ImVec4 kYellow;
 
-// Returns `v`, a length in the overlay's units, in pixels: `v` on a desktop's screen, more on a
-// dense one (s.ui_scale).
+// Returns `v`, a length in the overlay's units, in pixels: `v` on a 1080p screen, more on a
+// dense or large one (s.ui_scale).
 float dp(float v);
 
 // Says whether the `size` bytes at `address` (a game address, its segment bits ignored) are all in
@@ -355,12 +454,7 @@ bool drawer_possible();
 // Defined in debug/touch.cpp.
 void drag_scroll(Scroll& scroll);
 
-// Opens or shuts the drawer. Opening it pauses the game, as an emulator's menu does; shutting it
-// leaves the game as its "Keep paused" row says (paused as before it opened, unless changed there).
-// Defined in debug/touch.cpp.
-void set_drawer(bool open);
-
-// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the drawer shuts,
+// Starts or ends the editing of the on-screen pad's layout (touch_editing()): the menu shuts,
 // and the game stays paused until it ends. Defined in debug/touch.cpp.
 void edit_touch(bool on);
 
@@ -369,44 +463,54 @@ void edit_touch(bool on);
 // the drawer's, which the game then does not see. Defined in debug/touch.cpp.
 bool drawer_event(const SDL_Event& e);
 
-// Slides the drawer towards s.drawer_open with the launcher's easing, and draws it as far out as
-// it is (s.drawer_at), in the launcher's colours (ui_colors.h): the port's settings, the enhanced
-// graphics, the touch controls, the fixes and, unfolded, the developer tools. A touch beside it or
-// the gamepad's B shuts it; once shut, it asks for the screenshot taken in it (s.shot_when_shut).
-// Defined in debug/drawer.cpp.
+// Slides the drawer towards s.menu_open with the launcher's easing, and draws it as far out as it
+// is (s.menu_at): the menu's entries (menu_catalog.h) on cards, the developer tools folded away. A
+// touch beside it or the gamepad's B shuts it. Defined in debug/drawer.cpp.
 void drawer(const Shown& shown);
+
+// Slides the desktop's menu towards s.menu_open: the bar of tabs from the window's top and the
+// window with the open tab's entries and their help. Defined in debug/menu_window.cpp.
+void menu_window(const Shown& shown);
 
 // Draws the bar in the middle of the screen while the on-screen pad's layout is edited, to make
 // the controls smaller or larger, put them back and finish, with the lines a dragged group snapped
 // to. Defined in debug/drawer.cpp.
 void touch_edit_bar();
 
-// Says whether the menu bar can be shown: on Windows and Linux (macOS has its own menu bar, with
-// the same menus), or with OPENRAC_MENU_BAR=1, and never with the drawer. Defined in
-// debug/menu_bar.cpp.
-bool menu_bar_possible();
-
-// Says whether the menu bar is shown: it can be, and the player has not hidden it (settings.h's
-// menu_bar). Defined in debug/menu_bar.cpp.
-bool menu_bar_shown();
+// Says whether the desktop's menu (menu_window) is the menu: everywhere the drawer is not.
+// Defined in debug/menu_bar.cpp.
+bool menu_window_possible();
 
 // Presses and releases `key` through SDL's queue, as the macOS menus do: a menu item does what the
 // port's key for it does. Defined in debug/menu_bar.cpp.
 void press(SDL_Keycode key);
 
-// Draws the menu bar: View, Graphics, Sound and Developer.
+// The key that opens and closes the menu, as the player reads it ("`", "Alt", "F4"), and its
+// place on the keyboard (SDL_SCANCODE_UNKNOWN for Alt, which counts only pressed by itself).
 // Defined in debug/menu_bar.cpp.
-void menu_bar();
+std::string menu_bar_key_label();
+SDL_Scancode menu_bar_scancode();
+
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
+// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+SDL_GamepadButton menu_bar_button();
+std::string menu_bar_button_label();
+
+// Opens or closes the menu. Defined in debug/menu_bar.cpp.
+void toggle_menu();
 
 // Moves setting `row` (options_menu.h) on by `by`, saves the settings and marks them changed for
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings
 // file's, so moving the aspect skips it. Defined in debug/controls.cpp.
 void change_setting(int row, int by);
 
+// Puts the Enhanced graphics settings and the session's material, water and fog tuning back to
+// their defaults, for the Enhanced Settings window and the drawer. Defined in debug/controls.cpp.
+void reset_enhanced();
+
 // Draws the independent Enhanced Settings window with launcher-ordered main choices and advanced
-// tuning, diagnostics and water sections; disabled
-// where the level has no compatible probe data. A change is saved and marked for the window to
-// apply. Defined in debug/controls.cpp.
+// tuning, diagnostics and water sections; disabled where the level has no compatible probe data. A
+// change is saved and marked for the window to apply. Defined in debug/controls.cpp.
 void enhanced_settings_window();
 
 // ---- The performance capture (common/perf_capture.h) ----
@@ -415,6 +519,12 @@ void enhanced_settings_window();
 // start. `after_drawer`: it starts three seconds after the drawer has gone. Defined in
 // debug/capture.cpp.
 void toggle_capture(bool after_drawer);
+
+// A settings sweep: a capture that changes the graphics settings every few seconds (VSync off) and
+// gives them back at its end, its report listing each step's frame time. Started like
+// toggle_capture(true). Defined in debug/capture.cpp.
+void toggle_settings_sweep();
+double settings_sweep_seconds();
 
 // The capture's length as the drawer shows it ("30 s", "Until stopped"), and moved on by `by`.
 const char* capture_length_name();
@@ -425,12 +535,16 @@ void step_capture_length(int by);
 std::string slow_cpu_name();
 void step_slow_cpu(int by);
 
+// Opens the folder the recordings are saved in (capture.cpp's capture_dir) in the system's file
+// manager.
+void open_capture_folder();
+
 // Says whether a capture runs or is about to start (or one is due by script), so that the
 // overlay is drawn for its badge; and whether one is counting down to its start.
 bool capture_busy();
 bool capture_pending();
 
-// The status badge's line for the capture ("REC 12 / 30 s"); empty when none runs.
+// The notification of the capture ("REC 12 / 30 s"); empty when none runs.
 std::string capture_badge();
 
 // Once a picture, before the overlay is drawn: starts a capture whose time has come, ends one when
@@ -443,12 +557,38 @@ void capture_frame(const Shown& shown);
 // mobys' labels (s.labels, within s.radius of the hero). The click picker and bottom
 // details are separate in debug/picker.cpp.
 void picture_marks(const Shown& shown);
+// Draws unified material authoring controls after the window-thread handoff.
+void material_settings_window();
 void picker_overlay(const Shown& shown);
+// Reads one native input action; the returned comma begins the next frame/action pair.
+Result<const char*> read_scripted_action(const char*, ScriptedInput&);
+// Delivers due held/drag actions only inside the game, without moving the operating system cursor.
+void refresh_scripted_pointer();
+void run_script(std::uint64_t frame, int held);
+// Initial inline actions, or an explicit @file whose append-only actions are polled only in diagnostics.
+void configure_scripted_input(std::string_view text);
+// Inspect the click selection without borrowing game graphics objects or moving its camera.
+void select_object_viewer(const Shown& shown);
+// Draw the developer-only studio after the picker has updated its selection.
+void object_viewer_window(const Shown& shown);
+// Release private studio resources while the graphics context and ImGui are still alive.
+void release_object_viewer();
 
-// Draws the status badge at the top of the picture, whether the panel is shown or not: the pause
-// and the speed the keys have set, the toast while it lasts and the notice. Hidden while the
-// drawer is out, which says it. Defined in debug/picture.cpp.
-void status_badge();
+// Keeps the notifications of what stands (debug_overlay.h, Notification) up to date, whether the
+// panel is shown or not: the pause and the speed the keys have set, a recording, a mod's line.
+// Defined in debug/picture.cpp.
+void status_notifications();
+
+// Draws the notifications, over everything else (debug/notifications.cpp); says whether any is
+// shown or going.
+void draw_notifications();
+// A press (click or tap) at `at`, in ImGui's coordinates: true when a card took it.
+bool press_notification(ImVec2 at);
+bool notifications_pending();
+
+// The hint at the start: what opens the menu. Defined in
+// debug/notifications.cpp.
+void notify_menu_hint();
 
 // Draws one line of text, formatted as std::format does.
 template <typename... Args>
@@ -469,7 +609,7 @@ void text_coloured(const ImVec4& colour, std::format_string<Args...> fmt, Args&&
 template <typename T>
 T read(std::uint32_t address) {
     T value{};
-    address &= 0x01FFFFFF;
+    address = openrac_guest_ram_address_for_size(address, static_cast<std::uint32_t>(s.ram.size()));
 
     if (static_cast<std::size_t>(address) + sizeof(T) <= s.ram.size()) {
         std::memcpy(&value, s.ram.data() + address, sizeof(T));

@@ -18,6 +18,8 @@
 extern unsigned char exe_grid[] __asm__("D_001B76E0");
 extern unsigned int exe_grid_used[] __asm__("D_001C76E0");
 extern void exe_grid_trap(void) __asm__("func_001F97B0");
+extern int rac1_expanded_ram(void);
+extern void rac1_update_expanded_moby_grid(unsigned int moby, unsigned int next);
 
 /* FUN_0020db40 and its level copies (0x00250A40 in level 0, ...): the only C at that address, as
  * func_0020DBA0 is FUN_0020dba0's. The grid updater below calls it; its globals go through the
@@ -91,11 +93,15 @@ static int exe_grid_valid(unsigned int rect) {
         && ((rect >> 16) & 255) <= 64 && (rect >> 24) * 64 + ((rect >> 16) & 255) < 4096);
 }
 
-void FUN_0020dc20(unsigned char* moby, unsigned int next) {
+void update_moby_grids(unsigned char* moby, unsigned int next) {
     unsigned int old = *(unsigned int*)(moby + 0xA0);
     unsigned int id = *(unsigned int*)(moby + 0xAC);
     unsigned short* pool = (unsigned short*)(exe_grid + 0x4000);
     int x, y, i, first, capacity, fresh;
+    if (rac1_expanded_ram()) {
+        rac1_update_expanded_moby_grid((unsigned int)moby, next);
+        return;
+    }
     if (!exe_grid_valid(old) || !exe_grid_valid(next)) {
         exe_grid_trap();
         return;
@@ -152,4 +158,15 @@ void FUN_0020dc20(unsigned char* moby, unsigned int next) {
             ++cell[2];
         }
     }
+}
+
+/* The decomp gives this CPU routine two names at the same address. hostgen also sees that
+ * address as the embedded VU0 microprogram, so export both spellings explicitly to keep calls
+ * from mark_moby_for_removal and the per-level moby pass on the native updater above. */
+void FUN_0020dc20(unsigned char* moby, unsigned int next) {
+    update_moby_grids(moby, next);
+}
+
+void func_0020DC20(unsigned char* moby, unsigned int next) {
+    update_moby_grids(moby, next);
 }

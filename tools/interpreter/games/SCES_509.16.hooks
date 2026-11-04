@@ -1,6 +1,6 @@
 # Ratchet & Clank, SCES_509.16 (PAL): the functions of the program that the
 # runtime answers itself, by address. The names are the public names of the
-# library functions at those addresses (runtime/docs/RAC1_PAL_SURVEY.md,
+# library functions at those addresses (docs/port/RAC1_PAL_SURVEY.md,
 # Appendix B) and of the services in src/sys/services.cpp.
 #
 # address  service            what is there

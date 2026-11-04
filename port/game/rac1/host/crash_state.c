@@ -24,13 +24,14 @@
  * The camera: the camera block's position (D_00187040 + 0x140, gCamera; the level's copy while a
  * level is loaded: OPENRAC_DATA), sampled once a frame with the hero.
  */
-#include "rac1.h"
-
 #include <stdint.h>
+
+#include "rac1.h"
+#include "water_bomb.h"
 
 /* The moby list's head as the loop keeps it (D_00160024). */
 #define MOBY_HEAD RAC1_ADDR(0x00160024u)
-/* The camera block (camera.h, CameraSystem; viewer/game_state.cpp: +0x140 its position). */
+/* The camera block (camera.h, CameraSystem; game/rac1/game_state.cpp: +0x140 its position). */
 #define CAMERA RAC1_ADDR(0x00187040u)
 #define CAMERA_POSITION 0x140u
 
@@ -67,7 +68,9 @@ void func_00213C78(void) {
             /* The mods' gate (world.c, interface 1.9): an update a mod skips (a moby it drives
              * from another game), or runs with the hero standing in elsewhere, undone after. */
             if (update != 0 && !rac1_moby_gate(m, 0)) {
+                const int water_bomb = rac1_water_bomb_pending(m);
                 GFN(void (*)(gaddr), update)(m);
+                rac1_water_bomb_after(m, water_bomb);
                 rac1_moby_gate(m, 1);
                 rac1_stand_in_end();
             }
@@ -93,7 +96,7 @@ gaddr rac1_updating_moby(void) {
 
 static int updating_moby(openrac_game_moby *out) {
     const gaddr m = g_updating;
-    if (m == 0 || m > GUEST_RAM + GUEST_RAM_SIZE - MOBY_SIZE) {
+    if (m == 0 || m > GUEST_RAM + openrac_guest_ram_size - MOBY_SIZE) {
         return 0;
     }
     out->address = m;

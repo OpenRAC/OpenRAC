@@ -144,3 +144,40 @@ s32 func_L08_00422A88(s32 a0)
     }
     return 1;
 }
+
+
+extern volatile s32 D_001A7344[] __attribute__((sda));
+extern void ref_L08_003F76C0_00(void *dest, s32 *position, void *table);
+extern float ref_L08_003F76C0_01(void *work, void *table);
+extern void ref_L08_003F76C0_02(s32 *position, s32 *x, s32 *y);
+extern s32 ref_L08_003F76C0_03(s32 sentinel, u16 x, u16 y, s32 width, s32 rowBytes, s32 flags, float *out);
+extern s32 D_001A7340;
+extern float ref_L08_003F76C0_04 __attribute__((sda));
+extern signed char ref_L08_003F76C0_05[];
+
+typedef struct {
+    s32 pad[4];
+    s32 x;
+    s32 y;
+    s32 tail[2];
+} QueryWork;
+
+float func_L08_003F76C0(void *arg0) {
+    QueryWork work;
+    float temp_f20;
+    s32 temp_s1;
+
+    temp_s1 = *(s32 *)((signed char *)arg0 + 0x68) + 0x10;
+    ref_L08_003F76C0_00(&work, (s32 *)temp_s1, ref_L08_003F76C0_05);
+    temp_f20 = ref_L08_003F76C0_01(&work, ref_L08_003F76C0_05 + 0x230);
+    ref_L08_003F76C0_02((s32 *)temp_s1, &work.x, &work.y);
+    if (work.x < 0 ||
+        work.x >= D_001A7340 - 0x10 ||
+        work.y < 0 ||
+        work.y >= D_001A7344[0] - 8 ||
+        !(temp_f20 > 0.0f) ||
+        ref_L08_003F76C0_03(-1, (u16)work.x, (u16)work.y, 0x10, 8, 0, &ref_L08_003F76C0_04) == -1) {
+        ref_L08_003F76C0_04 = -1.0f;
+    }
+    return ref_L08_003F76C0_04;
+}

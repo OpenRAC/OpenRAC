@@ -3,7 +3,7 @@
 import struct
 import unittest
 
-from collision import SCALE, colour, collision_mesh, decode, signed, vertex
+from collision import SCALE, colour, collision_mesh, decode, parse, signed, validate, vertex, write
 from formats import FormatError
 from gltf import Gltf
 from test_godot import attribute, read_glb
@@ -82,6 +82,15 @@ class DecodeTests(unittest.TestCase):
         corners = {p for t in result.triangles for p in t[:3]}
         self.assertIn((low, low, 2 * SCALE), corners)
 
+    def test_cell_with_more_than_255_faces_round_trips(self):
+        faces = [(0, 1, 2, 0x1f)] * 300
+        original = block({(0, 0, 0): leaf([(0, 0, 0), (16, 0, 0), (0, 16, 0)], faces)})
+        model = parse(original)
+        validate(model)
+        rewritten = write(model)
+        result = decode(rewritten)
+        self.assertEqual(result.faces, 300)
+
     def test_faces_shared_by_cells_are_merged(self):
         # The same world triangle, seen from the cells (0, 0, 0) and (1, 0, 0).
         a = leaf([(0, 0, 0), (16, 0, 0), (0, 16, 0)], [(0, 1, 2, 8)])
@@ -104,6 +113,22 @@ class DecodeTests(unittest.TestCase):
         (p0, p1, p2, _), = decode(block({(0, 0, 0): a})).triangles
         u, v = [[q[i] - p0[i] for i in range(3)] for q in (p1, p2)]
         self.assertGreater(u[0] * v[1] - u[1] * v[0], 0)
+
+
+class HeaderTests(unittest.TestCase):
+    def test_a_third_part_after_the_hero_part_is_read(self):
+        """Six of Going Commando's levels store one more offset at +8."""
+        plain = bytearray(block({(0, 0, 0): leaf([(0, 0, 0), (8, 0, 0), (0, 8, 0)], [(0, 1, 2, 0)])}, hero=2))
+        hero_at, = struct.unpack_from("<I", plain, 4)
+        third = bytes(plain)
+        third = third[:8] + struct.pack("<I", hero_at) + third[12:]
+        self.assertEqual(decode(third).triangles, decode(bytes(plain)).triangles)
+
+    def test_other_header_words_are_refused(self):
+        plain = bytearray(block({(0, 0, 0): leaf([(0, 0, 0), (8, 0, 0), (0, 8, 0)], [(0, 1, 2, 0)])}, hero=2))
+        plain[12] = 1
+        with self.assertRaises(FormatError):
+            decode(bytes(plain))
 
 
 class OutputTests(unittest.TestCase):

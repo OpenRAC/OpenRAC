@@ -33,7 +33,10 @@ typedef int64_t openrac_s64;
 typedef float openrac_f32;
 
 #define OPENRAC_EE_INLINE static inline
+/* Where game address a is (a translation can reach memory through its own, asmc.py's shadows). */
+#ifndef OPENRAC_EE_PTR
 #define OPENRAC_EE_PTR(a) G(a)
+#endif
 
 /* div.s: no infinities (guest.h). sqrt.s takes the root of the magnitude (the EE gives no NaN);
  * rsqrt.s is a over the root of |b|, saturating like the divide. */

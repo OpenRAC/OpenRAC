@@ -72,4 +72,3 @@ void func_00130E88(void) {
 
 /* func_001310C0 (e_sqrt) is transcribed in src/core/001310C0.c */
 
-INCLUDE_ASM("asm/core", func_001313C4);

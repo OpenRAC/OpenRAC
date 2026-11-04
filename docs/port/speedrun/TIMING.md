@@ -110,7 +110,7 @@ picture of the same game.
 ## 4. What the game itself thinks the time is
 
 The game keeps its own time base in memory. The `live-splits` mod reads it
-(`rac1-mods/live-splits/src/live_splits.cpp:42-45`, `:59-68`):
+(`openrac-mods/live-splits/src/live_splits.cpp:42-45`, `:59-68`):
 
 | Disc | Address | Value in the port |
 |---|---|---|

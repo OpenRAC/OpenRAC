@@ -17,6 +17,33 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// One mod a save was played with, as the mark beside it names it (`save0.mods`).
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveMod {
+    pub id: String,
+    #[serde(default)]
+    pub version: Option<String>,
+}
+
+/// The mark the game writes beside a save it wrote with mods loaded (port/game/common/lib/mc.c).
+/// The save file itself is never changed: its header has no room and every section carries a CRC,
+/// and a real memory card must still take the file.
+#[derive(Debug, Clone, Deserialize)]
+struct SaveMark {
+    #[serde(default)]
+    mods: Vec<SaveMod>,
+}
+
+/// The mods a save was played with, from `<save>.mods` beside it; `None` when there is no mark
+/// (played without mods, or saved by a build from before the mark) and when it cannot be read.
+fn save_mods(save_path: &Path) -> Option<Vec<SaveMod>> {
+    let mark = PathBuf::from(format!("{}.mods", save_path.to_string_lossy()));
+    let text = fs::read_to_string(mark).ok()?;
+    let read: SaveMark = serde_json::from_str(&text).ok()?;
+    (!read.mods.is_empty()).then_some(read.mods)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveSlotInfo {
@@ -37,6 +64,9 @@ pub struct SaveSlotInfo {
     pub modified_millis: Option<u64>,
     /// The save editor can open it (a game in it, and a game whose saves it knows).
     pub editable: bool,
+    /// The mods this save was last written with, from the mark beside it; `None` for a save
+    /// played without mods. Editing a save here neither adds nor clears the mark.
+    pub mods: Option<Vec<SaveMod>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
@@ -240,13 +270,70 @@ pub const RAC1_LOCATIONS: &[&str] = &[
     "Kyzil Plateau",    // 18
 ];
 
+/// Going Commando (NTSC-U) planet names by level number, as its level headers number them (the
+/// launcher's labels.ts and editor/games.py name them the same).
+pub const RAC2_PLANETS: &[(u32, &str)] = &[
+    (0, "Aranos Tutorial"),
+    (1, "Oozla"),
+    (2, "Maktar Nebula"),
+    (3, "Endako"),
+    (4, "Barlow"),
+    (5, "Feltzin System"),
+    (6, "Notak"),
+    (7, "Siberius"),
+    (8, "Tabora"),
+    (9, "Dobbo"),
+    (10, "Hrugis Cloud"),
+    (11, "Joba"),
+    (12, "Todano"),
+    (13, "Boldan"),
+    (14, "Aranos Prison"),
+    (15, "Gorn"),
+    (16, "Snivelak"),
+    (17, "Smolg"),
+    (18, "Damosel"),
+    (19, "Grelbin"),
+    (20, "Yeedil"),
+    (22, "Dobbo Orbit"),
+    (23, "Damosel Orbit"),
+    (24, "Ship Shack"),
+    (25, "Wupash Nebula"),
+    (26, "Jamming Array"),
+    (30, "Insomniac Museum"),
+];
+
+/// Going Commando's planet for level `level`, if it is one of its levels.
+pub fn rac2_planet(level: u32) -> Option<&'static str> {
+    RAC2_PLANETS.iter().find(|(id, _)| *id == level).map(|(_, name)| *name)
+}
+
+/// Whether `serial` is Going Commando's NTSC-U disc, whose save records the launcher reads.
+fn is_rac2_ntsc(serial: &str) -> bool {
+    serial.contains("972.68")
+}
+
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
     if serial.contains("509.16") || serial.contains("971.99") {
         if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
             return Some(name.to_string());
         }
     }
+    if is_rac2_ntsc(serial) {
+        if let Some((_, name)) = RAC2_PLANETS.iter().find(|(id, _)| *id == planet_id) {
+            return Some(name.to_string());
+        }
+    }
     Some(format!("Planet #{planet_id}"))
+}
+
+/// The save record whose first word is the bolt count: Ratchet & Clank's 1 (gBolts); Going
+/// Commando's 39 (its global save table at 0x00256138 puts g_boltCount, 0x001A79F8, there).
+fn bolts_record(serial: &str) -> i32 {
+    if is_rac2_ntsc(serial) {
+        39
+    } else {
+        1
+    }
 }
 
 #[derive(Debug, Default)]
@@ -259,10 +346,10 @@ struct SaveGameplayInfo {
 }
 
 /// Parses internal records from serialized Ratchet & Clank save data:
-/// - Record 0: Current planet ID (D_0015EE84)
-/// - Record 1: Current bolt count (gBolts, D_0015EE98)
-/// - Record 4: the clock when saved (parse_save_clock)
-fn parse_save_gameplay_info(bytes: &[u8]) -> SaveGameplayInfo {
+/// - Record 0: Current planet ID (D_0015EE84; Going Commando's level index, 0x001A79F0)
+/// - Record `bolts` (bolts_record): Current bolt count (gBolts, D_0015EE98)
+/// - Record 4: the clock when saved (parse_save_clock; Going Commando's g_saveClock too)
+fn parse_save_gameplay_info(bytes: &[u8], bolts: i32) -> SaveGameplayInfo {
     if bytes.len() < 24 {
         return SaveGameplayInfo::default();
     }
@@ -292,7 +379,7 @@ fn parse_save_gameplay_info(bytes: &[u8]) -> SaveGameplayInfo {
             if pid < 50 {
                 info.planet_id = Some(pid);
             }
-        } else if rec_id == 1 && sz >= 4 {
+        } else if rec_id == bolts && sz >= 4 {
             let b = u32::from_le_bytes(bytes[data_start..data_start + 4].try_into().unwrap());
             info.bolts = Some(b);
         } else if rec_id == 4 {
@@ -379,7 +466,7 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                         .map(|d| d.as_millis() as u64);
 
                     let data = fs::read(&save_path).unwrap_or_default();
-                    let g = parse_save_gameplay_info(&data);
+                    let g = parse_save_gameplay_info(&data, bolts_record(serial));
                     let empty = g.empty || g.timestamp.is_none();
                     let ts = if empty { None } else { g.timestamp.clone() };
 
@@ -407,7 +494,10 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
                     planet_name,
                     timestamp,
                     modified_millis: mtime,
-                    editable: exists && !is_empty && crate::save_edit::edits_serial(serial),
+                    editable: exists
+                        && !is_empty
+                        && (crate::save_edit::edits_serial(serial) || crate::save_edit_rac2::edits_serial(serial)),
+                    mods: if exists && !is_empty { save_mods(&save_path) } else { None },
                 });
             }
         }
@@ -637,6 +727,39 @@ fn decode_shift_jis_or_ascii(bytes: &[u8]) -> Option<String> {
     }
 }
 
+/// What one save file holds, for a list of slots away from the card (an exported file's).
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SaveSummary {
+    /// A slot never saved to, or one whose clock cannot be read.
+    pub empty: bool,
+    pub bolts: Option<u32>,
+    pub planet_id: Option<u32>,
+    pub planet_name: Option<String>,
+    pub timestamp: Option<String>,
+}
+
+/// Reads a save file's planet, bolts and clock as the Saves page's slots do (`inspect_card`).
+pub fn describe_save(serial: &str, bytes: &[u8]) -> SaveSummary {
+    let g = parse_save_gameplay_info(bytes, bolts_record(serial));
+    if g.empty || g.timestamp.is_none() {
+        return SaveSummary { empty: true, ..SaveSummary::default() };
+    }
+    SaveSummary {
+        empty: false,
+        bolts: g.bolts,
+        planet_name: g.planet_id.and_then(|p| get_planet_name(serial, p)),
+        planet_id: g.planet_id,
+        timestamp: g.timestamp,
+    }
+}
+
+/// The game's name from a save folder's `icon.sys` (its Shift-JIS title), as `inspect_card` reads it.
+pub fn icon_title(icon_sys: &[u8]) -> Option<String> {
+    let raw = icon_sys.get(0xc0..icon_sys.len().min(0x100))?;
+    let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
+    decode_shift_jis_or_ascii(&raw[..end])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -707,7 +830,7 @@ mod tests {
     fn reads_planet_bolts_and_clock() {
         let clock = [0x00, 0x14, 0x14, 0x23, 0x00, 0x10, 0x10, 0x26];
         let data = save(&[(0, &3u32.to_le_bytes()), (1, &1234u32.to_le_bytes()), (4, &clock)]);
-        let g = parse_save_gameplay_info(&data);
+        let g = parse_save_gameplay_info(&data, 1);
         assert!(!g.empty);
         assert_eq!(g.planet_id, Some(3));
         assert_eq!(g.bolts, Some(1234));
@@ -715,12 +838,63 @@ mod tests {
         assert_eq!(get_planet_name("SCES_509.16", 3).as_deref(), Some("Kerwan"));
     }
 
+    /// Going Commando's saves keep the level in record 0 as Ratchet & Clank's do, but the bolts
+    /// in record 39 (its save table), with more after them; record 1 is not written.
+    #[test]
+    fn reads_going_commandos_planet_and_bolts() {
+        let mut bolts = [0u8; 64];
+        bolts[..4].copy_from_slice(&2165u32.to_le_bytes());
+        let clock = [0x00, 0x16, 0x08, 0x00, 0x00, 0x02, 0x11, 0x26];
+        let data = save(&[(0, &1u32.to_le_bytes()), (39, &bolts), (3, &27789u32.to_le_bytes()), (4, &clock)]);
+        let g = parse_save_gameplay_info(&data, bolts_record("SCUS_972.68"));
+        assert!(!g.empty);
+        assert_eq!(g.planet_id, Some(1));
+        assert_eq!(g.bolts, Some(2165));
+        assert!(g.timestamp.is_some());
+        assert_eq!(get_planet_name("SCUS_972.68", 1).as_deref(), Some("Oozla"));
+        assert_eq!(get_planet_name("SCUS_972.68", 30).as_deref(), Some("Insomniac Museum"));
+        assert_eq!(get_planet_name("SCUS_972.68", 21).as_deref(), Some("Planet #21"));
+        // Ratchet & Clank reads its own record 1, never Going Commando's 39.
+        assert_eq!(parse_save_gameplay_info(&data, bolts_record("SCES_509.16")).bolts, None);
+    }
+
     #[test]
     fn an_unused_slot_is_empty() {
         let data = save(&[(0, &u32::MAX.to_le_bytes()), (4, &[0u8; 8])]);
-        let g = parse_save_gameplay_info(&data);
+        let g = parse_save_gameplay_info(&data, 1);
         assert!(g.empty);
         assert_eq!(g.timestamp, None);
+    }
+
+    /// The mark beside a save (port/game/common/lib/mc.c) names the mods it was played with.
+    #[test]
+    fn a_save_says_which_mods_it_was_played_with() {
+        let card = tempfile::tempdir().unwrap();
+        let save = card.path().join("save0.bin");
+        fs::write(&save, b"not read here").unwrap();
+        assert!(save_mods(&save).is_none(), "no mark: played without mods");
+
+        fs::write(
+            card.path().join("save0.bin.mods"),
+            r#"{"format": 1, "saved": "2026-10-29T14:02:11", "mods": [{"id": "lock-strafe", "version": "1.0.0"}]}"#,
+        )
+        .unwrap();
+        let mods = save_mods(&save).expect("the mark is read");
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].id, "lock-strafe");
+        assert_eq!(mods[0].version.as_deref(), Some("1.0.0"));
+    }
+
+    /// A mark with no mods in it, or one that is not the file we write, is the same as no mark.
+    #[test]
+    fn an_empty_or_broken_mark_leaves_the_save_plain() {
+        let card = tempfile::tempdir().unwrap();
+        let save = card.path().join("save1.bin");
+        fs::write(&save, b"not read here").unwrap();
+        fs::write(card.path().join("save1.bin.mods"), r#"{"format": 1, "mods": []}"#).unwrap();
+        assert!(save_mods(&save).is_none());
+        fs::write(card.path().join("save1.bin.mods"), "{ not json").unwrap();
+        assert!(save_mods(&save).is_none());
     }
 
     #[test]

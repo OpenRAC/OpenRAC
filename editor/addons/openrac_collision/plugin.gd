@@ -63,6 +63,12 @@ var is_committing: bool = false
 ## Waits a moment after other edits before reading the collision again.
 var reload_timer: Timer
 
+## The project-local static model picker.
+var static_model_dialog: EditorFileDialog
+
+## Whether the shared model picker should create a spinning prop instead of static scenery.
+var animated_model_pick: bool = false
+
 # =============================================================================
 # CONSTANTS
 # =============================================================================
@@ -88,6 +94,9 @@ const OVERLAY_NAME: String = "OpenRACCollisionOverlay"
 ## The most lines a report shows.
 const REPORT_LINES: int = 12
 
+## Must match editor/static_assets.py and port/scene/level.cpp.
+const MAX_RENDERED_INSTANCES: int = 2147483647
+
 # =============================================================================
 # METHODS
 # =============================================================================
@@ -103,6 +112,12 @@ func _enter_tree() -> void:
 	reload_timer.wait_time = 0.4
 	reload_timer.timeout.connect(handle_reload_timeout)
 	add_child(reload_timer)
+	static_model_dialog = EditorFileDialog.new()
+	static_model_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	static_model_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	static_model_dialog.add_filter("*.glb,*.gltf ; glTF model")
+	static_model_dialog.file_selected.connect(handle_static_model_selected)
+	add_child(static_model_dialog)
 	scene_changed.connect(handle_scene_changed)
 	EditorInterface.get_selection().selection_changed.connect(handle_selection_changed)
 	get_undo_redo().version_changed.connect(handle_version_changed)
@@ -127,6 +142,94 @@ func open_scene(root: Node) -> void:
 	refresh_selection()
 	handle_selection_changed()
 	redraw()
+
+
+## Opens the editor's picker at the project's assets.
+func add_static_model() -> void:
+	if scene_root == null or faces == null:
+		dock.show_report("Open an extracted level scene before adding static geometry.")
+		return
+	animated_model_pick = false
+	static_model_dialog.current_dir = "res://"
+	static_model_dialog.popup_file_dialog()
+
+
+## Opens the project asset picker for a mod-only spinning visual prop.
+func add_animated_model() -> void:
+	if scene_root == null or faces == null:
+		dock.show_report("Open an extracted level scene before adding an animated prop.")
+		return
+	animated_model_pick = true
+	static_model_dialog.current_dir = "res://"
+	static_model_dialog.popup_file_dialog()
+
+
+## Instances a project GLB/glTF below Game/StaticAssets as an undoable scene edit.
+func handle_static_model_selected(path: String) -> void:
+	if not path.begins_with("res://") or path.get_extension().to_lower() not in ["glb", "gltf"]:
+		dock.show_report("Choose a project-local .glb or .gltf model.")
+		return
+	var packed_scene := ResourceLoader.load(path) as PackedScene
+	if packed_scene == null:
+		dock.show_report("Godot could not import this glTF model as a scene.")
+		return
+	var instance := packed_scene.instantiate()
+	if not instance is Node3D:
+		instance.queue_free()
+		dock.show_report("The GLB root must be a 3D node.")
+		return
+	var game := scene_root.get_node_or_null("Game") as Node3D
+	if game == null:
+		instance.queue_free()
+		dock.show_report("This scene has no Game node.")
+		return
+	var group_name := "AnimatedAssets" if animated_model_pick else "StaticAssets"
+	var group := game.get_node_or_null(group_name) as Node3D
+	var make_group := group == null
+	if make_group:
+		group = Node3D.new()
+		group.name = group_name
+	var base_name := path.get_file().get_basename().validate_node_name()
+	if base_name.is_empty():
+		base_name = "StaticModel"
+	var node_name := base_name
+	var suffix := 2
+	while group.has_node(NodePath(node_name)):
+		node_name = "%s_%d" % [base_name, suffix]
+		suffix += 1
+	instance.name = node_name
+	var undo_redo := get_undo_redo()
+	var action := "Add spinning glTF prop to map" if animated_model_pick else "Add static glTF model to map"
+	undo_redo.create_action(action, UndoRedo.MERGE_DISABLE, scene_root)
+	if make_group:
+		undo_redo.add_do_method(game, "add_child", group)
+		undo_redo.add_do_property(group, "owner", scene_root)
+		undo_redo.add_do_reference(group)
+	undo_redo.add_do_method(group, "add_child", instance)
+	undo_redo.add_do_property(instance, "owner", scene_root)
+	if animated_model_pick:
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_x", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_y", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_z", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_speed", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_spin_phase", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_x", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_y", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_z", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_distance", 0.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_speed", 1.0)
+		undo_redo.add_do_method(instance, "set_meta", "rc1_move_phase", 0.0)
+	else:
+		undo_redo.add_do_method(instance, "set_meta", "rc1_static_collision", false)
+	undo_redo.add_undo_method(group, "remove_child", instance)
+	undo_redo.add_do_reference(instance)
+	if make_group:
+		undo_redo.add_undo_method(game, "remove_child", group)
+	undo_redo.commit_action()
+	EditorInterface.get_selection().clear()
+	EditorInterface.get_selection().add_node(instance)
+	var kind := "spinning prop" if animated_model_pick else "static model"
+	dock.show_report("Added %s %s. Move and scale it in the 3D view, then Pack the level." % [kind, node_name])
 
 
 ## Removes the overlay from the scene it was in.
@@ -440,7 +543,7 @@ func add_box(size: Vector3, kind: int) -> void:
 	commit("Add a collision box", before)
 
 
-## Adds collision made from the selected mesh (custom level geometry), simplified to fit the cells.
+## Adds collision made from the selected mesh (custom level geometry), snapped to the game's grid.
 func make_from_mesh(kind: int) -> void:
 	var triangles: PackedVector3Array = faces.node_triangles(selected_node)
 
@@ -452,18 +555,25 @@ func make_from_mesh(kind: int) -> void:
 	var made: Dictionary = faces.simplify(triangles)
 	var before: Dictionary = faces.stored_edits()
 	var count: int = faces.add_triangles(made.triangles, kind)
-	var merged: String = (" Corners merged on a %.3f-unit grid to fit the cells." % (made.step / 64.0)
-		if int(made.step) > 4 else "")
-	var over: String = (" Some cells still look full (about %d corners, 255 at most): simplify the mesh "
-		+ "there." % made.most) if int(made.most) > LevelFaces.CELL_LIMIT else ""
-	dock.show_report("%d faces added from %s (%d triangles).%s%s" % [count, selected_node.name,
-		int(triangles.size() / 3.0), merged, over])
+	var over := ""
+	if not bool(made.estimate_complete):
+		over = " The cell estimate was skipped for very broad face bounds; use Check Limits before packing."
+	elif int(made.most) > LevelFaces.CELL_LIMIT:
+		over = " A cell estimate is %d corners; the expanded query index limit is %d." % [made.most, LevelFaces.CELL_LIMIT]
+	dock.show_report("%d faces added from %s (%d triangles), snapped to the game's collision grid.%s" %
+		[count, selected_node.name, int(triangles.size() / 3.0), over])
 	commit("Make collision from a mesh", before)
 
 
 ## Estimates what the packer would refuse.
 func check_limits() -> void:
 	var lines: PackedStringArray = faces.check_limits()
+	var animated_group := scene_root.get_node_or_null("Game/AnimatedAssets") if scene_root != null else null
+	if animated_group != null:
+		var animated_count := count_animated_instances(animated_group)
+		if animated_count > MAX_RENDERED_INSTANCES:
+			lines.insert(0, "Game/AnimatedAssets has %d props; the renderer limit is %d." %
+				[animated_count, MAX_RENDERED_INSTANCES])
 
 	# Nothing over a limit, as far as the estimate goes.
 	if lines.is_empty():
@@ -477,6 +587,17 @@ func check_limits() -> void:
 		shown.append("... and %d more" % (lines.size() - REPORT_LINES))
 
 	dock.show_report("\n".join(shown))
+
+
+## Counts GLB/glTF instance roots under transform groups without counting their packed children.
+func count_animated_instances(node: Node) -> int:
+	var path := node.scene_file_path.to_lower()
+	if path.ends_with(".glb") or path.ends_with(".gltf"):
+		return 1
+	var count := 0
+	for child in node.get_children():
+		count += count_animated_instances(child)
+	return count
 
 
 # --- Object (class) collision ---
@@ -797,6 +918,10 @@ func _forward_3d_force_draw_over_viewport(viewport_control: Control) -> void:
 func _exit_tree() -> void:
 	EditorInterface.get_selection().selection_changed.disconnect(handle_selection_changed)
 	get_undo_redo().version_changed.disconnect(handle_version_changed)
+	if is_instance_valid(static_model_dialog):
+		static_model_dialog.file_selected.disconnect(handle_static_model_selected)
+		static_model_dialog.queue_free()
+		static_model_dialog = null
 	remove_overlay()
 	remove_dock(dock)
 	dock.queue_free()

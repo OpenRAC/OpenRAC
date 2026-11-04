@@ -31,7 +31,83 @@ void func_0011DDC8(void) {
 
 ASM_FUNC("asm/core", func_0011DDD8);
 
-INCLUDE_ASM("asm/core", func_0011DE08);
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern int r1_func_0011D960(void);           /* DI */
+extern void r1_func_0011D9A8(void);          /* EI */
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern int r1_func_00118CB0(int);      /* WaitSema */
+typedef signed int s32_1B4C8;
+extern s32_1B4C8 r1_func_00118CB0();
+extern int r1_D_0012FDA0;
+extern char r1_D_00157E80[];
+extern s32 r1_D_0012FD98[];
+extern u8 r1_D_00157600[];
+struct RpcCb { void (*cb)(void *); void *data; };
+extern struct RpcCb r1_D_00158100;
+extern char r1_D_001580C0[];
+extern char r1_D_00158080[];
+extern char r1_D_001575C0[];
+extern char *r1_D_00156940[];
+extern char r1_D_001580A8[];
+extern int r1_D_0012FD94;
+extern void r1_func_0011B868();
+extern void r1_func_0011BC80();
+struct W4 { char b[4]; };
+extern s32 r1_func_00118C90(s32);
+extern void r1_func_0011AA38(int arg0, int arg1, int arg2);
+extern void r1_func_0011AE20(int);
+extern int r1_func_0011B2F8(void *, int, int);
+extern s32 r1_func_0011B4C8(void *, s32, s32, void *, s32, void *, s32, void *, void *);
+extern void r1_func_0011B710(void);
+
+/* rac1-decomp src/core/00119D88.c: func_0011DE08 */
+s32 func_0011DE08(void) {
+    s32 r, i;
+    char *p;
+    struct W4 w;
+    s32 *q;
+
+    struct RpcCb *rq = &r1_D_00158100;
+    r1_func_0011AE20(0);
+    r1_D_00158100.cb = 0;
+    rq->data = 0;
+    r = r1_func_0011D960();
+    r1_func_0011AA38(0x80000011, (int)r1_func_0011B868, (int)r1_D_001580C0);
+    r1_func_0011AA38(0x80000013, (int)r1_func_0011BC80, (int)rq);
+    if (r != 0) {
+        r1_func_0011D9A8();
+    }
+    for (;;) {
+        r = r1_func_0011B2F8(r1_D_00158080, 0x80000001, 0);
+        if (r < 0) {
+            return -1;
+        }
+        if (*(s32 *)(r1_D_00158080 + 0x24) != 0) {
+            break;
+        }
+        for (i = 0x100000; i != -1; i--) {
+        }
+    }
+    r1_func_0011B710();
+    r1_func_00118CB0(r1_D_0012FDA0);
+    for (p = r1_D_00157E80; p < r1_D_00157E80 + 0x200; p += 0x10) {
+        *(s32 *)(p + 4) = 0;
+    }
+    r1_func_00118C90(r1_D_0012FDA0);
+    r1_D_00156940[0] = r1_D_00157600;
+    r1_D_00156940[1] = r1_D_00157600 + 0x440;
+    r = r1_func_0011B4C8(r1_D_00158080, 0xFF, 0, r1_D_00156940, 8, r1_D_001575C0, 8, 0, 0);
+    if (r < 0) {
+        return (s32)0xFFFEFFFF;
+    }
+    *(struct W4 *)r1_D_001580A8 = *(struct W4 *)((u32)r1_D_001575C0 | 0x20000000);
+    w = *(struct W4 *)((u32)(r1_D_001575C0 + 4) | 0x20000000);
+    r1_D_0012FD98[0] = (*(s32 *)&w == 2);
+    r1_D_0012FD94 = 1;
+    return 0;
+}
 
 /* rac1-decomp src/core/00119D88.c: func_0011BEB8 */
 /* Three-way compare-and-confirm: the slot r1_D_001580A8 has to agree with

@@ -3,12 +3,12 @@
 //
 // The frontend's pacing arithmetic (game/common/frontend/pacing.h): the refresh a frame is shown
 // at, how far between ticks the scene is at a refresh for the PAL and NTSC tick rates, and when the
-// frame cap lets a frame start. Characterisation tests: they pin what the functions returned when
-// they were moved out of frontend.cpp, so that the frontend's restructure can show it changed none
-// of it. Each expected value is written as the arithmetic that gives it. The clock is never read:
-// every time is an offset from a fixed point.
+// frame cap lets a frame start. Characterisation tests: they pin what the functions return, so a
+// change to them cannot move a value unseen. Each expected value is written as the arithmetic that
+// gives it. The clock is never read: every time is an offset from a fixed point.
 
 #include <chrono>
+#include <cmath>
 
 #include "check.h"
 #include "game/common/frame_pacing.h"
@@ -16,11 +16,16 @@
 
 namespace {
 
+using openrac::frontend::between_limit;
+using openrac::frontend::cap_start;
+using openrac::frontend::CapEdge;
 using openrac::frontend::frame_may_start;
 using openrac::frontend::kLagTicks;
 using openrac::frontend::kLowLatencyLagTicks;
+using openrac::frontend::present_lead;
 using openrac::frontend::shown_at;
 using openrac::frontend::tick_alpha;
+using openrac::frontend::tick_slip;
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
@@ -159,6 +164,70 @@ void test_a_cap_holds_a_frame_until_it_is_due() {
     }
 }
 
+// With the lag, frames between ticks stop at the refresh the next tick is shown at that much later.
+void test_frames_between_ticks_stop_a_lag_after_the_next_tick() {
+    for (const int rate : kTickRates) {
+        const duration<double> period(1.0 / rate);
+        const auto next_tick = start() + span(period.count());
+        const auto lagged = next_tick + duration_cast<steady_clock::duration>(period * kLagTicks);
+        CHECK(between_limit(next_tick, period, kLagTicks, kCost, kRefresh, start()) == lagged);
+        CHECK(between_limit(next_tick, period, kLagTicks, kCost, 0.0, {}) == lagged);
+    }
+}
+
+// Low-latency frames on a 120 Hz display with NTSC's 60 ticks a second, the swap counting the
+// refreshes: the tick's own frame is swapped 9 ms after the tick (its game logic and drawing), and
+// the next frame, due a refresh after the tick and costing 4 ms, is for the refresh 17.3 ms after
+// it, past the next tick but before the next tick's own frame (at 25.6 ms). It is drawn: left out,
+// the display showed one frame a tick (60 frames a second), the regression this pins.
+void test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame() {
+    constexpr double kFast = 1.0 / 120.0;
+    const duration<double> period(1.0 / 60.0);
+    const auto tick = start();
+    const auto next_tick = tick + span(period.count());
+    const auto swap = tick + span(0.009);
+    const auto display = shown_at(tick + span(kFast), kCost, kFast, swap);
+    CHECK(display == swap + span(kFast));
+    CHECK(display > next_tick);
+    const auto limit = between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kFast, swap);
+    CHECK(display < limit);
+    // The next tick's own frame's refresh is the limit: a frame for it would be shown with it.
+    CHECK(limit == shown_at(next_tick, kCost, kFast, swap));
+    CHECK(!(shown_at(next_tick - span(0.001), kCost, kFast, swap) < limit));
+}
+
+// Low-latency frames without a refresh to count from stop at the next tick, as before.
+void test_low_latency_frames_without_refreshes_stop_at_the_next_tick() {
+    const duration<double> period(1.0 / 60.0);
+    const auto next_tick = start() + span(period.count());
+    CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, 0.0, start()) == next_tick);
+    CHECK(between_limit(next_tick, period, kLowLatencyLagTicks, kCost, kRefresh, {}) == next_tick);
+}
+
+// Held by its start, a frame starts at its time; held by its showing, its lead before it, the lead
+// being its cost, three times its spread and half a millisecond, no more than the cap's frame.
+void test_a_frame_held_by_its_showing_starts_its_lead_early() {
+    const auto due = start();
+    CHECK(cap_start(CapEdge::Start, due, 0.003) == due);
+    CHECK(cap_start(CapEdge::Present, due, 0.003) == due - span(0.003));
+    CHECK(cap_start(CapEdge::Present, {}, 0.003) == steady_clock::time_point{});
+    CHECK(std::abs(present_lead(0.002, 0.0005, 1.0 / 144.0) - 0.004) < 1e-12);
+    CHECK(present_lead(0.010, 0.001, 1.0 / 144.0) == 1.0 / 144.0);
+}
+
+// How long the next tick may wait for a frame shown after its time: a cap's frame, the lag's half
+// tick, or what leaves the tick's work done by half a tick after its time, the least of them.
+void test_the_tick_waits_for_a_frame_no_longer_than_its_work_allows() {
+    const double period = 1.0 / 60.0;
+    CHECK(tick_slip(1.0 / 144.0, period, kLagTicks, 0.001) == 1.0 / 144.0);
+    CHECK(tick_slip(1.0 / 60.0, period, kLagTicks, 0.0) == 0.5 * period);
+    CHECK(
+        std::abs(tick_slip(1.0 / 144.0, period, kLagTicks, 0.004) - (0.5 * period - 0.004)) < 1e-12
+    );
+    CHECK(tick_slip(1.0 / 144.0, period, kLagTicks, 0.010) == 0.0);
+    CHECK(tick_slip(1.0 / 144.0, period, kLowLatencyLagTicks, 0.001) == 0.0);
+}
+
 }  // namespace
 
 int main() {
@@ -170,5 +239,10 @@ int main() {
     test_the_alpha_without_a_lag_reaches_the_kept_tick();
     test_no_cap_lets_a_frame_start();
     test_a_cap_holds_a_frame_until_it_is_due();
+    test_frames_between_ticks_stop_a_lag_after_the_next_tick();
+    test_low_latency_frames_reach_the_refresh_before_the_next_tick_frame();
+    test_low_latency_frames_without_refreshes_stop_at_the_next_tick();
+    test_a_frame_held_by_its_showing_starts_its_lead_early();
+    test_the_tick_waits_for_a_frame_no_longer_than_its_work_allows();
     return openrac::test::result();
 }

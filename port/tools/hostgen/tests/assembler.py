@@ -157,6 +157,8 @@ def encode(op: str, args: list[str], addr: int, labels: dict[str, int], symbols:
         else:
             ft, funct = args[2], VU_3[base]
         return 0x12 << 26 | 1 << 25 | d << 21 | reg(ft) << 16 | reg(args[1]) << 11 | reg(args[0]) << 6 | funct
+    if op == "bc0f":
+        return 0x41000000 | rel(args[0]) & 0xFFFF
     raise ValueError(f"the test assembler has no {op}")
 
 

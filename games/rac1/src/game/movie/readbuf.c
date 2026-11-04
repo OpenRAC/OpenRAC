@@ -1,5 +1,5 @@
 #include "common.h"
-#include "structs.h"
+#include "structs/misc.h"
 
 /* Three metadata words following the 0x50000-byte data ring. */
 typedef struct ReadBufState {
@@ -22,7 +22,8 @@ void readBufDelete(void *rb) {
 int readBufBeginPut(char *buffer, char **out) {
     ReadBufState *state = (ReadBufState *)(buffer + 0x50000);
     int free = state->capacity - state->fill;
-    if (free) *out = buffer + state->wr;
+    if (free)
+        *out = buffer + state->wr;
     return free;
 }
 /* Maintains the data ring and its three trailing metadata words. */
@@ -32,7 +33,8 @@ int readBufEndPut(char *buffer, int count) {
     int fill = state->fill;
     int write = state->wr;
     int used = capacity - fill;
-    if (count < used) used = count;
+    if (count < used)
+        used = count;
     state->wr = (write + used) % capacity;
     state->fill = fill + used;
     return used;
@@ -40,7 +42,8 @@ int readBufEndPut(char *buffer, int count) {
 /* Maintains the data ring and its three trailing metadata words. */
 int readBufBeginGet(char *buffer, char **out) {
     ReadBufState *state = (ReadBufState *)(buffer + 0x50000);
-    if (state->fill) *out = buffer + ((state->wr - state->fill + state->capacity) % state->capacity);
+    if (state->fill)
+        *out = buffer + ((state->wr - state->fill + state->capacity) % state->capacity);
     return state->fill;
 }
 /* Consumes at most the available bytes from the data ring. */
@@ -48,7 +51,8 @@ int readBufEndGet(char *buffer, int count) {
     ReadBufState *state = (ReadBufState *)(buffer + 0x50000);
     int used = state->fill;
     int fill = used;
-    if (used > count) used = count;
+    if (used > count)
+        used = count;
     state->fill = fill - used;
     return used;
 }

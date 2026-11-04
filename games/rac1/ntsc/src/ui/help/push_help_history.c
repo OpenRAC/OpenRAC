@@ -1,8 +1,9 @@
 #include "types.h"
 #include "rnc/data_labels.h"
 #include "rnc/ui/help/message_state.h"
+
 extern s32 find_help_entry(s16, s32, u16 *) __asm__("func_001FECC8");
-void push_help_history(s32 id) __asm__("FUN_001fed30");
+void       push_help_history(s32 id) __asm__("FUN_001fed30");
 
 void push_help_history(s32 id) {
     s32 slot;
@@ -26,3 +27,5 @@ void push_help_history(s32 id) {
 }
 
 extern __typeof__(push_help_history) func_001FED30 __attribute__((alias("FUN_001fed30")));
+
+u8 active_message_records[HELP_ENTRY_COUNT] = {0};

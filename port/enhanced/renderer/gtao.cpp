@@ -3,44 +3,79 @@
 #include "enhanced/renderer/gtao.h"
 
 #include <algorithm>
+#include <stdexcept>
+#include <utility>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
 #include "renderer/renderer.h"
+#include "renderer/surface_chain.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
 namespace openrac::renderer {
 using namespace openrac::gl;
 
-bool Gtao::prepare(int width, int height, int scale, bool visibility, bool copy_depth) {
-    if (!enhanced_rendering_available()) {
-        return false;
-    }
-    if (m_failed || !glDispatchCompute || !glMemoryBarrier) {
-        return false;
-    }
+bool Gtao::prepare_program(int scale, bool normals, bool performance, bool hi_z) {
     std::string error;
-    if (m_vao == 0) {
+    m_program = render_opt::enabled(render_opt::Opt::ShaderVariants)
+                    ? unsigned(scale - 1) + (normals ? 2u : 0u)
+                    : 4u;
+    // Hi-Z is specialised independently, so the no-Hi-Z shader retains its original sampling cost.
+    const unsigned evaluation = m_program + (hi_z ? kProgramVariants : 0u);
+    Shader& kernel = performance ? m_evaluate_performance[evaluation] : m_evaluate[evaluation];
+    if (!kernel.id() || !m_composite[m_program].id()) {
         std::string evaluate(shaders::gtao_evaluate_comp);
+        evaluate.insert(
+            evaluate.find('\n') + 1,
+            std::string("#define OPENRAC_GTAO_HIZ ") + (hi_z ? "1\n" : "0\n")
+        );
         std::string composite(shaders::gtao_composite_frag);
         evaluate.insert(evaluate.find('\n') + 1, shaders::surface_normal_glsl);
         composite.insert(composite.find('\n') + 1, shaders::surface_normal_glsl);
         evaluate.insert(evaluate.find('\n') + 1, shaders::gtao_common_glsl);
         composite.insert(composite.find('\n') + 1, shaders::gtao_common_glsl);
-        std::string performance = evaluate;
-        performance.insert(performance.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
-        if (!m_evaluate_performance.build_compute("GTAO performance horizons", performance, error)
-            || !m_evaluate.build_compute("GTAO horizons", evaluate, error)
-            || !m_composite.build("GTAO filter", shaders::gtao_vert, composite, error)) {
+        if (m_program != 4) {
+            const auto definitions = "#define OPENRAC_GTAO_SCALE " + std::to_string(scale)
+                                     + "\n#define OPENRAC_SURFACE_NORMALS "
+                                     + (normals ? "1\n" : "0\n");
+            evaluate.insert(evaluate.find('\n') + 1, definitions);
+            composite.insert(composite.find('\n') + 1, definitions);
+            const auto constants =
+                {ShaderIntConstant{"evaluation_scale", scale},
+                 ShaderIntConstant{"surface_normals_enabled", normals ? 1 : 0}};
+            evaluate = shader_constants(std::move(evaluate), constants);
+            composite = shader_constants(std::move(composite), constants);
+        }
+        if (performance) {
+            evaluate.insert(evaluate.find('\n') + 1, "#define GTAO_REFINEMENT_STEPS 3\n");
+        }
+        if ((!kernel.id()
+             && !kernel.build_compute(
+                 performance ? "GTAO performance horizons" : "GTAO horizons", evaluate, error
+             ))
+            || (!m_composite[m_program].id()
+                && !m_composite[m_program]
+                        .build("GTAO filter", shaders::gtao_vert, composite, error))) {
             log::error("GTAO: {}", error);
             m_failed = true;
             return false;
         }
-        glGenVertexArrays(1, &m_vao);
+        if (!m_vao) {
+            glGenVertexArrays(1, &m_vao);
+        }
     }
+    return true;
+}
+
+bool Gtao::prepare(int width, int height, int scale, bool visibility, bool copy_depth) {
+    if (!enhanced_rendering_available() || m_failed || !glDispatchCompute || !glMemoryBarrier) {
+        return false;
+    }
+    std::string error;
     if (copy_depth && (m_depth.width() != width || m_depth.height() != height)
         && !m_depth.create(width, height, error, 1, true)) {
         log::error("GTAO: {}", error);
@@ -96,11 +131,18 @@ bool Gtao::render(
     // Sampling an attachment while drawing back into it would be framebuffer
     // feedback. target.depth_texture is the prepass's own depth, never the colour
     // target's attachment, so the colour composite may sample it too (gtao-direct-depth).
+    crash::breadcrumb("GTAO");
     const bool direct_depth =
         target.depth_texture != 0
         && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
     if (!prepare(
             target.width, target.height, scale, !apply_to_colour && !evaluate_only, !direct_depth
+        )
+        || !prepare_program(
+            scale,
+            target.normal_texture != 0,
+            options.quality == GtaoQuality::Performance,
+            options.hi_z
         )) {
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         glViewport(0, 0, target.width, target.height);
@@ -115,18 +157,31 @@ bool Gtao::render(
         glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth.id());
         const stats::Scope depth("GTAO depth copy", stats::kGpu);
-        glBlitFramebuffer(
-            0,
-            0,
-            target.width,
-            target.height,
-            0,
-            0,
-            target.width,
-            target.height,
-            GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
-            GL_NEAREST
+        const auto queued = queue_surface_copy(
+            target.framebuffer,
+            m_depth.id(),
+            {target.width, target.height},
+            SurfaceCopy::DepthStencil
         );
+        // A failed resolve must reject the chain before horizon or lighting consumers execute.
+        if (!queued) {
+            throw std::runtime_error(queued.error().message);
+        }
+        // Immediate recording retains the exact original copy or sample-zero resolve.
+        if (!*queued) {
+            glBlitFramebuffer(
+                0,
+                0,
+                target.width,
+                target.height,
+                0,
+                0,
+                target.width,
+                target.height,
+                GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+                GL_NEAREST
+            );
+        }
     }
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -139,50 +194,8 @@ bool Gtao::render(
     glBindTexture(GL_TEXTURE_2D, target.normal_texture);
     glActiveTexture(GL_TEXTURE0);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 11, m_ao_buffer);
-    {
-        const stats::Scope horizons("GTAO horizons", stats::kGpu);
-        Shader& evaluate = options.quality == GtaoQuality::Performance
-                               ? m_evaluate_performance : m_evaluate;
-        evaluate.use();
-        glUniform1i(evaluate.uniform("surface_normals"), 2);
-        glUniform1i(
-            evaluate.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0
-        );
-        glUniform1i(evaluate.uniform("tex_T0"), 0);
-        glUniformMatrix4fv(evaluate.uniform("projection"), 1, GL_FALSE, p.data());
-        glUniform1f(evaluate.uniform("radius"), std::clamp(options.radius, 0.05f, 8.0f));
-        glUniform1i(evaluate.uniform("evaluation_scale"), scale);
-        glUniform1i(evaluate.uniform("slice_count"), std::clamp(options.slices, 1, 12));
-        glUniform1i(evaluate.uniform("step_count"), std::clamp(options.steps, 4, 24));
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        glDispatchCompute(unsigned((m_ao_width + 7) / 8), unsigned((m_ao_height + 7) / 8), 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-    }
-
-    if (!evaluate_only) {
-        glActiveTexture(GL_TEXTURE0 + 1);
-        glBindTexture(world::gl::GL_TEXTURE_BUFFER, m_ao_texture);
-        glBindFramebuffer(GL_FRAMEBUFFER, apply_to_colour ? target.framebuffer : m_visibility.id());
-        glViewport(0, 0, target.width, target.height);
-        {
-            const stats::Scope filter("GTAO filter", stats::kGpu);
-            m_composite.use();
-            glUniform1i(m_composite.uniform("surface_normals"), 2);
-            glUniform1i(
-                m_composite.uniform("surface_normals_enabled"), target.normal_texture != 0 ? 1 : 0
-            );
-            glUniformMatrix4fv(m_composite.uniform("projection"), 1, GL_FALSE, p.data());
-            glUniform1i(m_composite.uniform("evaluation_scale"), scale);
-            glUniform1f(m_composite.uniform("strength"), std::clamp(options.strength, 0.0f, 3.0f));
-            if (apply_to_colour) {
-                glEnable(GL_BLEND);
-                // Legacy prelit paths do not expose separate indirect illumination.
-                glBlendEquation(GL_FUNC_ADD);
-                glBlendFuncSeparate(GL_ZERO, GL_SRC_COLOR, GL_ZERO, GL_ONE);
-            }
-            glDrawArrays(GL_TRIANGLES, 0, 3);
-        }
-    }
+    // Restore shared render state even when graph validation or optional pass recording fails.
+    const bool rendered = execute(input, target, apply_to_colour, evaluate_only);
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);
@@ -194,11 +207,12 @@ bool Gtao::render(
     glViewport(0, 0, target.width, target.height);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    return true;
+    return rendered;
 }
 
 void Gtao::release() {
     m_sampled_depth = 0;
+    m_hi_z.release();
     m_depth.release();
     if (m_ao_texture) {
         glDeleteTextures(1, &m_ao_texture);
@@ -209,9 +223,15 @@ void Gtao::release() {
     m_ao_texture = m_ao_buffer = 0;
     m_ao_width = m_ao_height = 0;
     m_visibility.release();
-    m_evaluate.release();
-    m_evaluate_performance.release();
-    m_composite.release();
+    for (auto* programs : {&m_evaluate, &m_evaluate_performance}) {
+        for (auto& program : *programs) {
+            program.release();
+        }
+    }
+    // The filter is shared by both Hi-Z variants and keeps only the scale/normal variants.
+    for (auto& program : m_composite) {
+        program.release();
+    }
     if (m_vao != 0) {
         glDeleteVertexArrays(1, &m_vao);
     }

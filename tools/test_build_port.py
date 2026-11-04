@@ -179,7 +179,7 @@ class Commands(unittest.TestCase):
                                     more=[build_port.BAKER])
         self.assertIn("-DOPENRAC_PROBE_BAKER=ON", steps[0])
         self.assertIn("-Dembree_DIR=/b/embree/install/lib/cmake/embree-4.4.1", steps[0])
-        self.assertEqual(steps[-1][-1], "openrac-probe-bake")
+        self.assertEqual(steps[-1][-1], "openrac-enhanced-baker")
 
     def test_embree_is_pinned_and_built_static_without_tbb(self):
         self.assertEqual(len(build_port.EMBREE_SHA256), 64)

@@ -44,7 +44,7 @@ import derived  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -192,8 +192,10 @@ def read_aliases(source: Path, cfg: dict) -> dict[str, str]:
         path = source / header
         if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8", errors="surrogateescape")
-        out.update(prep.read_carried_aliases(text) if path.suffix == ".json" else prep.read_aliases(text))
+        if path.suffix == ".json":
+            out.update(prep.read_carried_aliases(path.read_text(encoding="utf-8", errors="surrogateescape")))
+        else:
+            out.update(prep.read_aliases(prep.read_alias_header(path)))
     return out
 
 
@@ -214,8 +216,10 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
     "name<TAB>file" line each, the file relative to the decompilation; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
-    function does without matching its bytes; the matching build never sees it."""
+    function does without matching its bytes; the matching build never sees it.
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet."""
     table = cfg.get("candidates")
+    left_out = cfg.get("candidates_left_out", {})
     if not table or not (source / table).is_file():
         return {}
     out: dict[str, str] = {}
@@ -225,7 +229,7 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
             continue
         name, _, rel = line.partition("\t")
         path = source / rel.strip()
-        if path.is_file():
+        if path.is_file() and name.strip() not in left_out:
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
@@ -281,20 +285,20 @@ def wrapped_by_host(config_dir: Path, cfg: dict) -> set[str]:
 
 def hooked(config_dir: Path, cfg: dict) -> dict[str, str]:
     """The hook points mods may take (docs/port/MODS.md): libraries.tsv rows with port = hook,
-    symbol -> the hook point's name (the third column), the same for every disc of a game."""
+    symbol -> the hook point's name (the third column), the same for every disc of a game. Several
+    rows may give one name: the level copies of one function (each level's own C, the same job),
+    which are one hook point (write_hooks)."""
     out: dict[str, str] = {}
     table = cfg.get("libraries")
     if not table:
         return out
-    names: dict[str, str] = {}
     for row in tables.read_tsv(config_dir / table, strip=True, required=True):
         if len(row) >= 4 and row[3] == "hook":
             sym, name = row[0], row[2]
             if not re.fullmatch(r"[A-Za-z_]\w*", name):
                 raise ValueError(f"{table}: hook point {sym} has no name a mod can ask for ({name!r})")
-            if name in names:
-                raise ValueError(f"{table}: hook point {name} is both {names[name]} and {sym}")
-            names[name] = sym
+            if sym in out and out[sym] != name:
+                raise ValueError(f"{table}: {sym} is both hook point {out[sym]} and {name}")
             out[sym] = name
     return out
 
@@ -330,6 +334,52 @@ def hook_signature(f: Function, typedefs: dict) -> tuple[str, list[str], str] | 
     return text, params, ret
 
 
+def write_hook_copies(program: Program, name: str, syms: list[str], lines: list[str],
+                      rows: list[str]) -> list[str]:
+    """One hook point over several functions, the level copies of one job (the hero's update in
+    each family of levels): one slot, whichever copy the game calls. The mod's replacement is told
+    nothing of the copy; its original runs the copy that called it (the host's <name>__original,
+    through the copy noted for the call, restored after it, so a nested call sees its own). One row
+    in the table, under the first copy's symbol. Returns the copies with no hook signature, or that
+    a wrap of the port's covers (none is then written); the signature must be the same for all."""
+    shapes = []
+    for sym in syms:
+        f = program.functions.get(sym)
+        shape = hook_signature(f, program.typedefs) if f is not None else None
+        if shape is None or f.inherits or sym in program.wrap_host:
+            return list(syms)
+        shapes.append(shape)
+    if any(sh[0] != shapes[0][0] for sh in shapes):
+        raise ValueError(f"hook point {name}: its copies have other signatures "
+                         f"({', '.join(f'{s} {sh[0]}' for s, sh in zip(syms, shapes))})")
+    text, params, ret = shapes[0]
+    slot, game = f"hook_{name}", f"hook_{name}__copy"
+    decl = ", ".join(f"{t} a{i}" for i, t in enumerate(params)) or "void"
+    args = ", ".join(f"a{i}" for i in range(len(params)))
+    fptr = f"{ret} (*)({', '.join(params) or 'void'})"
+    give = "" if ret == "void" else "return "
+    lines += [f"static void* {slot};",
+              f"static void* {game};",
+              f"static {ret} {name}__original({decl}) {{ {give}(({fptr}){game})({args}); }}"]
+    for sym in syms:
+        c = cname(sym)
+        lines += [f"{ret} {c}({decl}) {{",
+                  f"    if ({slot} != 0) {{",
+                  f"        void* was = {game};",
+                  f"        {game} = (void*){c}__game;"]
+        if ret == "void":
+            lines += [f"        (({fptr}){slot})({args});",
+                      f"        {game} = was;",
+                      "        return;"]
+        else:
+            lines += [f"        {ret} r = (({fptr}){slot})({args});",
+                      f"        {game} = was;",
+                      "        return r;"]
+        lines += ["    }", f"    {give}{c}__game({args});", "}", ""]
+    rows.append(f"    {{\"{name}\", \"{syms[0]}\", \"{text}\", &{slot}, (void*){name}__original}},")
+    return []
+
+
 def write_hooks(program: Program, out: Path, game: str) -> list[str]:
     """hooks.c: for each hook point, the host function of its name, which calls the replacement a
     mod hooked there (a slot the mod loader fills, port/game/common/mods.cpp) or else the game's C
@@ -347,7 +397,15 @@ def write_hooks(program: Program, out: Path, game: str) -> list[str]:
              "    void* original;        /* the game's C */",
              "} openrac_hook_point;", ""]
     rows, skipped = [], []
+    copies: dict[str, list[str]] = {}
+    for sym in sorted(program.hook, key=lambda s: (program.hook[s], s)):
+        copies.setdefault(program.hook[sym], []).append(sym)
+    for name, syms in copies.items():
+        if len(syms) > 1:
+            skipped += write_hook_copies(program, name, syms, lines, rows)
     for sym in sorted(program.hook, key=lambda s: program.hook[s]):
+        if len(copies[program.hook[sym]]) > 1:
+            continue
         f = program.functions.get(sym)
         shape = hook_signature(f, program.typedefs) if f is not None else None
         if shape is None:
@@ -444,6 +502,10 @@ def write_program_files(program: Program, out: Path, game: str) -> dict:
                 f"    openrac_guest_reach(&site_);")
         if ret != "void":
             body += "\n    return 0;"
+        # A wrapped function's own name is the host's: with no C (a build that reads no disc for its
+        # assembly), its stub stands in for <name>__game, which the host calls.
+        if f.symbol in program.wrap:
+            p = p.replace(f" {cname(f.symbol)}(", f" {cname(f.symbol)}__game(", 1)
         stubs.append(f"{p} {{\n{body}\n}}\n")
         stub_count += 1
     _write(out / "stubs.c", "\n".join(stubs))
@@ -648,6 +710,7 @@ def write_report(out: Path, reports: list[UnitReport], program: Program, extra: 
         "assembly_unsupported": dict(sorted(stage.unsupported.items())),
         "assembly_unsupported_reasons": dict(sorted(asm_reasons.items(), key=lambda kv: -kv[1])),
         "without_c_or_assembly": sorted(stage.without_asm),
+        "shadows": {**{k: "translated" for k in stage.shadows}, **stage.shadow_why},
         # Each function with no C or with C from its assembly: where it sits, and the spelling with
         # C its calls go to instead (no_c.py classifies them from this).
         "without_c_places": {
@@ -789,9 +852,9 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
     cache, a second configure) skips the translation."""
     paths = [source / d for d in sorted(set(cfg["sources"] + cfg["includes"]))]
     paths += [source / t for t in cfg["symbols"]]
-    # An alias table outside the include directories (a build's derived values) counts too.
-    paths += [source / t for t in cfg.get("aliases", []) if Path(t).suffix == ".json"]
-    for key in ("places", "candidates"):
+    # Aliases and catalogues outside the include directories count too.
+    paths += [source / t for t in cfg.get("aliases", []) + cfg.get("catalogues", [])]
+    for key in ("places", "candidates", "executable_functions"):
         if cfg.get(key):
             paths.append(source / cfg[key])
     # The table that names the units of another compiler (long_long_128) decides how their C reads.
@@ -802,9 +865,27 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         for line in table.read_text().splitlines():
             if line.strip() and not line.startswith("#"):
                 paths.append(source / line.partition("\t")[2].strip())
-    # The game's own folder and the tables every game shares (port/game/<id>, port/game/common).
-    paths += [config.parent, config.parent.parent / "common", HERE / "include"]
-    paths += sorted(HERE.glob("*.py"))
+    # Frontend C++ does not affect translation. Keep the configuration's tables, hand C and
+    # headers, plus the shared host wrappers whose signatures the assembly stage reads.
+    paths += [config]
+    paths += sorted(p for p in config.parent.rglob("*")
+                    if p.is_file() and p.suffix in (".json", ".tsv", ".c", ".h", ".txt", ".inc"))
+    paths += [config.parent / cfg.get("library_api", "../common/libraries.tsv"), HERE / "include"]
+    paths += sorted((config.parent.parent / str(cfg.get("game", "")) / "host").glob("*.c"))
+    for key in ("libraries", "hand", "overrides", "split_places", "call_copies", "data_copies", "level_twins"):
+        if cfg.get(key):
+            paths.append(config.parent / cfg[key])
+    if cfg.get("drafts"):
+        paths.append(config.parent / cfg["drafts"]["units"])
+    # Hand/override tables may name C outside the configuration's own directory.
+    for key in ("hand", "overrides"):
+        if cfg.get(key):
+            table = config.parent / cfg[key]
+            if table.is_file():
+                for line in table.read_text().splitlines():
+                    if line.strip() and not line.startswith("#"):
+                        paths.append(table.parent / line.partition("\t")[2].strip())
+    paths += sorted(p for p in HERE.glob("*.py") if not p.name.startswith("test_"))
     # The shared helpers it reads its tables through (tools/openrac_common) are its code as well.
     paths += sorted(Path(tables.__file__).parent.glob("*.py"))
     h = hashlib.sha256()
@@ -821,7 +902,10 @@ def inputs_digest(source: Path, config: Path, cfg: dict, options: list[str]) -> 
         h.update(json.dumps(a, sort_keys=True, default=str).encode())
         base = Path(a["source"]) if a.get("source") else source
         stat_roots = [base / d for d in a.get("dirs", [])]
-        stat_roots += [Path(v) for v in (a.get("retail") or {}).values() if v]
+        # The disc's files are named relative to the decompilation (rac2's "baserom/SCUS_972.68"),
+        # as asmc.retail_source reads them; relative to the build's own folder they were never
+        # found, so a disc set up after the first build left the stub-only C in place.
+        stat_roots += [base / v for v in (a.get("retail") or {}).values() if v]
         for root in stat_roots:
             for f in sorted(_files(root)):
                 st = f.stat()
@@ -992,6 +1076,9 @@ def new_program(cfg: dict, source: Path) -> Program:
     program = Program()
     program.set_names(cfg["names"].get("code"), cfg["names"].get("data"))
     program.groups = cfg["groups"]
+    program.expanded_target_table_addresses = {
+        int(str(address), 0) for address in cfg.get("expanded_target_table_addresses", [])
+    }
     for table in cfg["symbols"]:
         read_symbols(source / table, program)
     return program
@@ -1005,6 +1092,20 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
         read_places(source / cfg["places"], program)
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
+    if cfg.get("call_copies"):
+        read_call_copies(args.game.parent / cfg["call_copies"], program)
+    if cfg.get("data_copies"):
+        program.data_copies = {(row[0], int(row[1], 16)) for row in (
+            line.split("\t") for line in (args.game.parent / cfg["data_copies"]).read_text().splitlines()
+            if line and not line.startswith("#"))}
+    # Copies the catalogue has under another name, starting early (hostgen.json "more_places":
+    # function -> "level:address,..."): rac2's Galactic Map list is matched at its level 0 place and
+    # 16 bytes into a row of its own in every other level, so those rows hold no function.
+    for sym, text in cfg.get("more_places", {}).items():
+        program.places.setdefault(sym, []).extend(
+            (int(level), int(address, 16)) for level, address in (item.split(":") for item in text.split(",")))
+    program.splits_keep_names = bool(cfg.get("splits_keep_names"))
+    program.calls_as = cfg.get("calls_as", {})
     host_rows = host_table(args.game.parent, cfg)
     program.host = set(cfg.get("host_functions", [])) | set(host_rows)
     program.wrap = wrapped(args.game.parent, cfg)
@@ -1013,7 +1114,24 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     # The executable's data that level programs carry at other addresses (guest.h, per-level
     # relocation): [low, high), or none.
     program.relocate = cfg.get("relocate")
+    program.bare_names_in_level_0 = cfg.get("bare_names_in_level_0", False)
+    program.small_copies_own_data = cfg.get("small_copies_own_data", 0)
+    # hostgen.json "unit_aliases": a name in one file that is another function there (a twin written
+    # from another level's copy, with that level's names): unit -> {name: the function}.
+    program.aliases.update({(unit, name): symbol for unit, names in cfg.get("unit_aliases", {}).items()
+                            for name, symbol in names.items()})
+    program.global_views = bool(cfg.get("global_views", False))
+    program.formed_as = {name: int(address, 16) for name, address in cfg.get("formed_as", {}).items()}
     program.returns_64 = set(cfg.get("returns_64", []))
+    program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
+    if cfg.get("executable_functions"):
+        program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
+                                                                                strip=True) if len(row) >= 2}
+    if cfg.get("level_twins"):
+        read_level_twins(args.game.parent / cfg["level_twins"], program)
+    short_names = cfg.get("level_short_names")
+    program.level_short_names = re.compile(short_names) if short_names else None
+    program.vu0_programs = {int(k, 0): v for k, v in cfg.get("asm", {}).get("vu0_programs", {}).items()}
     # Locals that receive a "returns_64" call's result but which the original keeps in a stack slot across calls,
     # where its 32-bit store and load leave the low half sign-extended (hostgen.json "spilled_locals": function ->
     # local names): lower.py keeps them 32-bit.
@@ -1021,9 +1139,13 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.entries = {sym: int(str(off), 0) for sym, off in cfg.get("entries", {}).items()}
     # Stubs of the executable that every level program fills with a function of its own.
     program.level_hooks = set(cfg.get("level_hooks", []))
+    program.level_hooks_by_registers = cfg.get("level_hooks_by_registers", False)
     # Functions whose float arithmetic is the EE's, computed in software (hostgen.json "ps2_float";
     # openrac/ps2float.h): lower.py.
     program.ps2_float = set(cfg.get("ps2_float", []))
+    # The game's host C answers the scratchpad DMA channels' word stores (asm.dma_stores,
+    # openrac_ee_sw_dma): C's volatile word stores, the channel registers, go there too (lower.py).
+    program.dma_stores = bool((cfg.get("asm") or {}).get("dma_stores"))
     return host_rows
 
 
@@ -1062,7 +1184,8 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
             program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
     # A "ps2_float" name with no C hostgen translates (none, or the port's host C) changes nothing.
     problems = [f"ps2_float: {sym} has no C here to translate" for sym in sorted(program.ps2_float)
-                if getattr(program.functions.get(sym), "unit", None) is None or sym in program.host]
+                if (getattr(program.functions.get(sym), "unit", None) is None
+                    and not getattr(program.functions.get(sym), "asm", False)) or sym in program.host]
     for table in cfg.get("catalogues", []):
         read_catalogue(source / table, program)
     # A verified indirect entry can be absent even from the catalogue.
@@ -1100,8 +1223,8 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                         for p in sorted(d.glob("*.c")))
     # The results C wrappers pass on from their tail calls, before the assembly stage: a translated
     # caller reads such a wrapper's result in $v0 as the EE's did (Going Commando's menu read its
-    # selection through a `void` wrapper and lost it). Only C callees count, so the assembly stage
-    # changes nothing of this.
+    # selection through a `void` wrapper and lost it). Only callees with C count, a function whose C
+    # is left out for its assembly among them, so the assembly stage changes nothing of this.
     inherited_early = inherit_results(program)
     asm_stage, asm_results = asmc.run(program, cfg, source, host_text)
     if args.asm_console:
@@ -1111,7 +1234,7 @@ def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dic
                      if l.strip() and not l.startswith("#")]
         for name, why in sorted(asmc.write_console(asm_stage, args.asm_console.resolve(), names).items()):
             print(f"hostgen: {name}: no console form: {why}", file=sys.stderr)
-    inherited = inherited_early + inherit_results(program)
+    inherited = inherited_early + asm_stage.inherited + inherit_results(program)
     return asm_stage, asm_results, inherited
 
 
@@ -1142,7 +1265,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     for p in problems:
         if p.startswith("overrides:"):
             print(f"hostgen: warning: {p}", file=sys.stderr)
-    asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")))
+    asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")), asm_stage)
     extra["asm"] = asm_stage
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))

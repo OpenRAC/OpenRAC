@@ -1,0 +1,64 @@
+#version 430 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer OceanSeed { vec4 seed[]; };
+layout(std430,binding=1) buffer OceanScratch { vec4 scratch[]; };
+layout(std430,binding=2) writeonly buffer OceanPixels { vec4 pixels[]; };
+layout(std430,binding=3) writeonly buffer OceanDisplacement { vec4 displacement[]; };
+uniform int ocean_pass;
+uniform int ocean_choppy;
+uniform float ocean_clock;
+uniform vec2 ocean_scale; // Height normalization and inverse slope baseline.
+shared vec4 line_values[64];
+
+vec2 multiply_complex(vec2 a, vec2 b) {
+    return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);
+}
+
+vec3 surface_at(uint x,uint y) {
+    return scratch[4096u+(y&63u)*64u+(x&63u)].xzw*ocean_scale.x;
+}
+
+void main() {
+    uint lane=gl_LocalInvocationID.x, line=gl_WorkGroupID.x;
+    if(ocean_pass==2) {
+        vec3 centre=surface_at(lane,line);
+        vec3 dx=(surface_at(lane+1u,line)-surface_at(lane-1u,line))*ocean_scale.y;
+        vec3 dy=(surface_at(lane,line+1u)-surface_at(lane,line-1u))*ocean_scale.y;
+        pixels[line*64u+lane]=vec4(centre.x,dx.x,dy.x,.5*(dx.z+dy.y));
+        if(ocean_choppy!=0) {
+            displacement[line*64u+lane]=vec4(centre.yz,dx.y,dy.z);
+        }
+        return;
+    }
+    uint reverse=bitfieldReverse(lane)>>26u;
+    if(ocean_pass==0) {
+        vec4 a=seed[line*64u+reverse];
+        vec4 b=seed[((64u-line)&63u)*64u+((64u-reverse)&63u)];
+        float phase=-a.z*ocean_clock;
+        vec2 rotation=vec2(cos(phase),sin(phase));
+        vec2 h=multiply_complex(a.xy,rotation)+multiply_complex(b.xy,rotation)*vec2(1.,-1.);
+        ivec2 k=ivec2(reverse,line);
+        k=(k+32)%64-32;
+        vec2 direction=vec2(k)/max(length(vec2(k)),1.);
+        // Pack the two real displacement fields into one complex inverse transform.
+        vec2 horizontal=ocean_choppy!=0?multiply_complex(h,vec2(-direction.y,direction.x)):vec2(0.);
+        line_values[lane]=vec4(h,horizontal);
+    } else {
+        line_values[lane]=scratch[reverse*64u+line];
+    }
+    barrier();
+    for(uint half_span=1u;half_span<64u;half_span*=2u) {
+        uint low=lane&~half_span;
+        float phase=3.14159265359*float(lane&(half_span-1u))/float(half_span);
+        vec2 rotation=vec2(cos(phase),sin(phase));
+        vec4 pair=line_values[low|half_span];
+        vec4 odd=vec4(multiply_complex(pair.xy,rotation),multiply_complex(pair.zw,rotation));
+        vec4 result=line_values[low]+((lane&half_span)==0u?odd:-odd);
+        barrier();
+        line_values[lane]=result;
+        barrier();
+    }
+    uint index=ocean_pass==0?line*64u+lane:4096u+lane*64u+line;
+    scratch[index]=line_values[lane];
+}

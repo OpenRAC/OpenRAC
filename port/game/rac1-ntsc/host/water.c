@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "game_protos.h"
@@ -7,8 +9,8 @@
 
 /* Novalis draw callbacks append to the level VIF chain, not the resident HUD chain.
  * The harmless GS NOP travels with that chain, including the one-tick display delay. */
-static void water_marker(unsigned surface) {
-    const gaddr cursor = OPENRAC_LDATA(1, 0x001611C0u);
+static void water_level_marker(unsigned level, unsigned surface) {
+    const gaddr cursor = OPENRAC_LDATA(level, 0x001611C0u);
     const gaddr at = GREF(gaddr, cursor);
     GREF(uint32_t, at) = 0x10000002u;
     GREF(uint32_t, at + 4) = 0;
@@ -19,6 +21,30 @@ static void water_marker(unsigned surface) {
     GREF(uint64_t, at + 32) = (0x5754ull << 48) | surface;
     GREF(uint64_t, at + 40) = 0x7F;
     GREF(gaddr, cursor) = at + 48;
+}
+
+static void water_marker(unsigned surface) {
+    water_level_marker(1, surface);
+}
+
+void openrac_skip_ocean_quad(int skip);
+
+void game_FUN_L11_0030a908(gaddr moby) {
+    /* Preserve the original draw packets and keep the tag local to the ocean callback. */
+    const int enhanced = openrac_game_enhanced_water();
+    if (enhanced) {
+        water_level_marker(11, 1);
+    }
+    if (enhanced == 2) {
+        openrac_skip_ocean_quad(1);
+    }
+    game_FUN_L11_0030a908__game(moby);
+    if (enhanced == 2) {
+        openrac_skip_ocean_quad(0);
+    }
+    if (enhanced) {
+        water_level_marker(11, 0);
+    }
 }
 
 /* Snapshot shader UV parameters into harmless NOPs beside this layer's draw packets.
@@ -121,6 +147,25 @@ static int water_layer(gaddr layer) {
     return 0;
 }
 
+/* Packet construction is synchronous, so reusable host scratch can hold the authored vertex count. */
+static float* water_vertex_snapshot(unsigned count) {
+    static float* saved;
+    static size_t capacity;
+    if ((size_t)count > SIZE_MAX / (2 * sizeof(*saved))) {
+        return NULL;
+    }
+    const size_t needed = (size_t)count * 2;
+    if (needed > capacity) {
+        float* grown = realloc(saved, needed * sizeof(*saved));
+        if (grown == NULL) {
+            return NULL;
+        }
+        saved = grown;
+        capacity = needed;
+    }
+    return saved;
+}
+
 void game_FUN_L01_00262618(gaddr layer) {
     const int surface = water_layer(layer);
     if (surface >= 5) {
@@ -132,12 +177,17 @@ void game_FUN_L01_00262618(gaddr layer) {
     }
     const gaddr vertices = GREF(gaddr, layer);
     const unsigned count = GREF(unsigned, layer + 0xCu);
-    if (count < 3 || count > 4096) {
+    if (count < 3 || vertices == 0 || vertices > openrac_guest_ram_size
+        || count > (openrac_guest_ram_size - vertices) / 16u) {
         game_FUN_L01_00262618__game(layer);
         return;
     }
     /* Packet building runs synchronously on the game thread; no recursive call uses this scratch. */
-    static float saved[4096 * 2];
+    float* saved = water_vertex_snapshot(count);
+    if (saved == NULL) {
+        game_FUN_L01_00262618__game(layer);
+        return;
+    }
     const float amplitude = GREF(float, layer + 0x18);
     float offsets[4];
     memcpy(offsets, G(layer + 0x40), sizeof(offsets));

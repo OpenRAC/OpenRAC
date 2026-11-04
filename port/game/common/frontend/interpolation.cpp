@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
@@ -26,8 +27,10 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "common/sampler.h"
 #include "common/slow_cpu.h"
 #include "common/stats.h"
@@ -35,6 +38,7 @@
 #include "debug_overlay.h"
 #include "frame_pacing.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
@@ -96,6 +100,10 @@ struct FrameCost {
 // window touches it.
 bool g_held = false;
 
+// What between() slept for the low-latency frames before the frame it draws, for draw_kept to
+// pass on as the frame begins (Window::latency_begin); 0 for the others.
+double g_latency_slept = 0.0;
+
 // Vulkan jobs own their snapshots; mod views share the window thread and graphics queue.
 bool threaded_rendering() {
     static const bool requested = env::flag(env::Var::RenderThread);
@@ -126,9 +134,34 @@ double frame_cap() {
     );
 }
 
-// The refresh a frame started now is shown at: the first after the frame is drawn.
+// Which edge of a frame the cap holds to its time (pacing.h): its showing, the evenest frame times,
+// when nothing else paces the frames shown (no swap waits for a refresh, no render thread's jobs
+// shown after the next tick starts, a swap shown at once rather than at the next refresh), the
+// player has not asked for low-latency frames, which begin each frame as late as they can, and
+// the cap draws more frames than the game ticks; else its start.
+CapEdge cap_edge() {
+    return g->swap == platform::SwapInterval::Immediate && g->window->swap_shows_at_once()
+                   && !threaded_rendering() && !settings::get().low_latency_frames
+                   && frame_cap() * pacing.period.count() > 1.001
+               ? CapEdge::Present
+               : CapEdge::Start;
+}
+
+// When the frame cap lets the next frame start: the clock's epoch when it holds none back.
+std::chrono::steady_clock::time_point cap_start_time() {
+    const double cap = frame_cap();
+    const double step = cap > 0.0 ? 1.0 / cap : 0.0;
+    return cap_start(cap_edge(), pacing.due, present_lead(pacing.cost, pacing.cost_spread, step));
+}
+
+// The refresh a frame started now is shown at: the first after the frame is drawn, and no sooner
+// than its time when the cap holds it to its showing.
 std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::time_point now) {
-    return shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
+    const auto shown = shown_at(now, pacing.cost, pacing.interval, pacing.last_swap);
+    if (cap_edge() == CapEdge::Present && pacing.due.time_since_epoch().count() != 0) {
+        return std::max(shown, pacing.due);
+    }
+    return shown;
 }
 
 // How far behind the kept tick the scene runs: none with the player's low-latency frames (not
@@ -136,6 +169,20 @@ std::chrono::steady_clock::time_point next_display(std::chrono::steady_clock::ti
 double lag_ticks() {
     return settings::get().low_latency_frames && !threaded_rendering() ? kLowLatencyLagTicks
                                                                        : kLagTicks;
+}
+
+// How long after the next tick is due a frame held by its showing may still be shown (pacing.h,
+// tick_slip): none for a frame held by its start.
+std::chrono::steady_clock::duration slip() {
+    const double cap = frame_cap();
+    if (cap_edge() != CapEdge::Present || cap <= 0.0) {
+        return {};
+    }
+    return std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+        std::chrono::duration<double>(
+            tick_slip(1.0 / cap, pacing.period.count(), lag_ticks(), pacing.tick_work)
+        )
+    );
 }
 
 // How far the scene is from the last tick's to the kept one's at that refresh.
@@ -150,12 +197,23 @@ void swapped(std::chrono::steady_clock::time_point started) {
     using namespace std::chrono;
     const auto before = steady_clock::now();
     platform::frame_work_done();
+    const double cost = duration<double>(before - started).count();
+    pacing.cost_spread = 0.8 * pacing.cost_spread + 0.2 * std::abs(cost - pacing.cost);
+    pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
+    // Held by its showing, the frame waits here for its time (never longer than the next tick may
+    // wait for it, tick_slip): drawn early, it is shown on time all the same.
+    const bool held_to_show = cap_edge() == CapEdge::Present;
+    if (held_to_show && pacing.due > before) {
+        const stats::Scope wait("frame cap wait");
+        const auto next_tick =
+            pacing.tick + duration_cast<steady_clock::duration>(pacing.period) + slip();
+        precise_wait::until(std::min(pacing.due, next_tick));
+        platform::work_waited(duration<double>(steady_clock::now() - before).count());
+    }
     const auto swap_started = steady_clock::now();
     g->window->swap();
     profiling::frame();
     const auto after = steady_clock::now();
-    const double cost = duration<double>(before - started).count();
-    pacing.cost = 0.8 * pacing.cost + 0.2 * cost;
     renderer::ui::fps_counter::frame_drawn(
         after, duration<double>(after - swap_started).count(), settings::get().show_fps
     );
@@ -164,10 +222,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
         pacing.interval = rate > 20.0f ? 1.0 / rate : 0.0;
         pacing.interval_stale = false;
     }
-    // What a frame may take, for the system's CPU clocks (performance_hint.h): a refresh, or the
-    // player's frame cap when it is lower.
+    // What a frame may take, for the system's CPU clocks (performance_hint.h), as the diagnostics
+    // recording sets its target: with frames between ticks a refresh, or the player's frame cap
+    // when it is lower; with a frame a tick (or a refresh not known), the game's tick.
     const double cap = frame_cap();
-    platform::set_frame_target(cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval);
+    const double display = cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval;
+    platform::set_frame_target(interpolating() && display > 0.0 ? display : pacing.period.count());
     if (g->swap == platform::SwapInterval::Immediate || gl::is_vulkan()
         || duration<double>(after - before).count() < 0.0005) {
         // Vulkan's return is not a vblank timestamp, and an immediate GL return
@@ -182,10 +242,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
     // next ones; one more than a frame late starts the count again. It holds beside the swap's
     // wait: 60 frames a second on a 120 Hz display are every other refresh. Nothing sleeps here:
     // the game's tick may be due before the next frame is (frame_due).
+    // Held by its showing, the next frame's time counts from this one's swap.
     if (cap > 0.0) {
         const auto step = duration_cast<steady_clock::duration>(duration<double>(1.0 / cap));
         const auto now = steady_clock::now();
-        pacing.due = frame_pacing::next_due(pacing.due, started, now, step);
+        pacing.due =
+            frame_pacing::next_due(pacing.due, held_to_show ? swap_started : started, now, step);
     } else {
         pacing.due = {};
     }
@@ -206,7 +268,7 @@ void slow_frame() {
 
 // Whether the frame cap lets a frame start now (within a millisecond: a sleep wakes that coarsely).
 bool frame_due(std::chrono::steady_clock::time_point now) {
-    return frame_may_start(frame_cap(), pacing.due, now);
+    return frame_may_start(frame_cap(), cap_start_time(), now);
 }
 
 // ---- The kept tick ----
@@ -222,6 +284,9 @@ bool enhanced_graphics_available() {
 
 namespace {
 
+// The time spent writing shots, until take_shot_time asks (both on the window's thread).
+std::chrono::steady_clock::duration shot_time{};
+
 // Writes a requested capture only after the submitted frame is complete.
 void capture_frame(const FramePresentation& output) {
     const bool first = output.first;
@@ -234,14 +299,33 @@ void capture_frame(const FramePresentation& output) {
         stats::probe("OPENRAC_SHOT_BETWEEN", "OPENRAC_SHOT also writes the frames between ticks");
     static int between_index = 0;
     between_index = first ? 0 : between_index + 1;
+    // With one frame a tick (OPENRAC_UNCAPPED, OPENRAC_NO_BLEND, which scripted runs often set) no
+    // frame is drawn between ticks, so there is none to write: said once, not left to guess.
+    static bool told_none_between = false;
+    if (shot_between && !told_none_between && one_frame_a_tick()) {
+        told_none_between = true;
+        log::warn(
+            "OPENRAC_SHOT_BETWEEN: no frames between ticks to write while OPENRAC_UNCAPPED or "
+            "OPENRAC_NO_BLEND is set (one frame a tick); run in real time with a frame rate above "
+            "Original"
+        );
+    }
     // OPENRAC_SHOT_FROM=FRAME: no shots before that frame.
     static const std::uint64_t shot_from = env_frame(env::Var::ShotFrom).value_or(0);
     if ((first || shot_between) && shots().due(output.tick) && output.tick >= shot_from) {
+        const auto writing = std::chrono::steady_clock::now();
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
                                  + ".png";
-        scene::write_png(path, width, height, renderer::read_rgba(shown, width, height));
+        // As the screen shows it: the frame's alpha is what the GS blends wrote, not a picture's
+        // coverage, and a viewer that shows it draws the sky full of the effects' blotches.
+        std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
+        for (std::size_t i = 3; i < pixels.size(); i += 4) {
+            pixels[i] = 0xFF;
+        }
+        scene::write_png(path, width, height, pixels);
         log::info("frame {} written to {}", output.tick, path);
+        shot_time += std::chrono::steady_clock::now() - writing;
     }
 }
 
@@ -321,14 +405,25 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     State& owner = *g;
     const bool queued = g->render_worker->submit(
         [&owner, snapshot = std::move(snapshot)] {
+            // The render thread's share of the frame, for the system's CPU clocks
+            // (performance_hint.h).
+            const auto job_started = std::chrono::steady_clock::now();
+            platform::add_this_thread();
             renderer::g_dump_draws = snapshot->presentation->dump_draws;
             render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
             sampler::note_thread("render");  // [debug tools] sampled while a capture runs
             // [debug tools] The render thread's share of a simulated slow processor.
-            const stats::Scope slow("simulated slow cpu");
-            slow_cpu::pad();
+            {
+                const stats::Scope slow("simulated slow cpu");
+                slow_cpu::pad();
+            }
+            platform::render_work_done(
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - job_started)
+                    .count()
+            );
         },
-        error
+        error,
+        output->source_frame
     );
     // Job rejection means a previous failure, never an unbounded queue.
     if (!queued) {
@@ -411,6 +506,7 @@ void present_frame(FramePresentation& output) {
         capture_frame(output);
         slow_frame();
     }
+    crash::breadcrumb(crash::BreadcrumbThread::Main, "presenting frame", output.source_frame);
     present(shown, width, height, window_width, window_height, false, aspect);
     {
         const stats::Scope touch("touch pad");
@@ -457,11 +553,9 @@ bool finish_render() try {
         g->render_failed = true;
         return false;
     }
-    stats::gauge(
-        "render thread wait ms",
-        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started)
-            .count()
-    );
+    const std::chrono::duration<double> waited = std::chrono::steady_clock::now() - started;
+    stats::gauge("render thread wait ms", waited.count() * 1000.0);
+    platform::work_waited(waited.count());  // the render thread's work, reported as its own
     present_frame(*output);
     return true;
 } catch (const std::exception& failure) {
@@ -481,11 +575,25 @@ void draw_kept(bool first) try {
     if (!finish_render()) {
         return;
     }
+    // The frame's beginning, for the low-latency frames' sleep: a tick's frame, drawn as soon as
+    // the tick's time and input are read, is not slept (between() sleeps the others). With the
+    // render thread too: the window thread holds the graphics here (finish_render), and the job it
+    // hands over is queued by its present_frame, after the next finish_render.
+    if (settings::get().low_latency_frames) {
+        g->window->latency_begin(std::exchange(g_latency_slept, 0.0));
+    }
     auto output = std::make_shared<FramePresentation>();
+    output->source_frame = static_cast<std::int64_t>(g->kept->frame);
     output->started = std::chrono::steady_clock::now();
     output->first = first;
+    output->camera_debug = debug_overlay::camera_debug_frame();
     output->dump_draws = renderer::g_dump_draws;
-    output->alpha = interpolating() ? alpha_at(next_display(output->started)) : 1.0f;
+    const auto display = next_display(output->started);
+    output->alpha = interpolating() ? alpha_at(display) : 1.0f;
+    // Not while the debug overlay holds the game: no tick comes to correct the guess.
+    const CameraTurn turn = g_held ? CameraTurn{} : latch_camera(*g->kept, output->alpha, display);
+    output->latch_yaw = turn.yaw;
+    output->latch_pivot = turn.pivot;
     g->window->drawable_size(output->window_width, output->window_height);
     output->aspect = picture_aspect(output->window_width, output->window_height);
     output->box = frame_box(output->window_width, output->window_height, output->aspect);
@@ -496,7 +604,13 @@ void draw_kept(bool first) try {
     log_pacing(*output);
     // OpenGL contexts retain the original window-thread path.
     if (!threaded_rendering()) {
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render started", output->source_frame
+        );
         render_scene(*g, *g->kept, settings::get(), *output);
+        crash::breadcrumb(
+            crash::BreadcrumbThread::Main, "synchronous render finished", output->source_frame
+        );
         present_frame(*output);
         return;
     }
@@ -517,16 +631,22 @@ void draw_kept(bool first) try {
 void set_tick(
     std::chrono::steady_clock::time_point tick,
     std::chrono::duration<double> period,
-    std::chrono::duration<double> late
+    std::chrono::duration<double> late,
+    std::chrono::duration<double> work
 ) {
     pacing.tick = tick;
     pacing.period = period;
     pacing.late = late;
+    pacing.tick_work = std::max(work.count(), 0.9 * pacing.tick_work);
 }
 
 bool interpolating() {
     return !one_frame_a_tick() && settings::get().frame_rate != settings::FrameRate::Original && g
            && g->window;
+}
+
+std::chrono::steady_clock::duration take_shot_time() {
+    return std::exchange(shot_time, std::chrono::steady_clock::duration{});
 }
 
 bool wants_between() {
@@ -549,36 +669,53 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             return -1;
         }
     }
-    // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag).
-    const auto lag = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-        pacing.period * lag_ticks()
-    );
     auto now = std::chrono::steady_clock::now();
     // The frame cap: a frame not due before the next tick is left to after it; one due sooner is
-    // waited for here.
-    if (!frame_due(now)) {
-        if (pacing.due >= next_tick) {
+    // waited for here, to its time.
+    if (const auto start = cap_start_time(); now < start) {
+        if (start >= next_tick) {
             return 0;
         }
-        std::this_thread::sleep_until(pacing.due);
+        precise_wait::until(start);
         platform::work_resumed();
+        now = std::chrono::steady_clock::now();
+    }
+    // Low-latency frames: the frame begins as late as lets it be queued just as the graphics card
+    // is free for it, so that what it draws for and the input it reads are as fresh as they can
+    // be, and never after the next tick is due (Window::latency_sleep). With the render thread as
+    // well: the job before it is finished (above), and the window thread reads the time and the
+    // input for the next one below. The sleep is a wait, not work, for the system's CPU clocks.
+    double slept = 0.0;
+    if (settings::get().low_latency_frames) {
+        slept = g->window->latency_sleep(next_tick);
+        platform::work_waited(slept);
         now = std::chrono::steady_clock::now();
     }
     // Do not queue another interpolation job once simulation is due to resume.
     if (asynchronous && now >= next_tick) {
         return 0;
     }
+    // A frame only for a refresh the kept tick is still shown at (the next tick's, with the lag;
+    // without it, any before the next tick's own frame).
     const auto display = next_display(now);
-    if (display >= next_tick + lag) {
+    if (display >= between_limit(
+            next_tick, pacing.period, lag_ticks(), pacing.cost, pacing.interval, pacing.last_swap
+        )) {
         return 0;
     }
-    // Synchronous rendering must finish before the tick. Owned Vulkan jobs may overlap its simulation.
-    if (!asynchronous && g->swap == platform::SwapInterval::Immediate
-        && now
-                   + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                       std::chrono::duration<double>(pacing.cost)
-                   )
-               >= next_tick) {
+    // Synchronous rendering must finish before the tick (without a swap that waits, or with the
+    // low-latency frames, whose next tick starts on time); a frame held by its showing must be
+    // shown before it, or no later than it may wait for one (tick_slip). Owned Vulkan jobs may
+    // overlap its simulation.
+    const auto ready = cap_edge() == CapEdge::Present
+                           ? display
+                           : now
+                                 + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                     std::chrono::duration<double>(pacing.cost)
+                                 );
+    if (!asynchronous
+        && (g->swap == platform::SwapInterval::Immediate || lag_ticks() == kLowLatencyLagTicks)
+        && ready >= next_tick + slip()) {
         return 0;
     }
     // The scene has arrived at the kept tick's: another frame would be the same picture again.
@@ -592,12 +729,15 @@ int between(std::chrono::steady_clock::time_point next_tick) {
             if (event.type == SDL_EVENT_QUIT) {
                 return -1;
             }
-            if (window_key(event) || debug_overlay::event(event)
-                || debug_menu::event(event, openrac_game_loaded_overlay())) {
+            const bool consumed = window_key(event) || debug_overlay::event(event)
+                                  || debug_menu::event(event, openrac_game_loaded_overlay());
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();
     }
     const bool dump = renderer::g_dump_draws;
     renderer::g_dump_draws = false;
@@ -605,6 +745,7 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     pacing.first_pending = false;
     {
         const profiling::Zone trace("Queue interpolated frame");
+        g_latency_slept = slept;
         draw_kept(first);
     }
     renderer::g_dump_draws = dump;
@@ -625,11 +766,14 @@ bool hold() {
             if (event.type == SDL_EVENT_QUIT) {
                 return false;
             }
-            if (window_key(event) || debug_overlay::event(event)) {
+            const bool consumed = window_key(event) || debug_overlay::event(event);
+            debug_overlay::camera_debug_event(event);
+            if (consumed) {
                 continue;
             }
             g->input.handle_event(event);
         }
+        apply_mouse_capture();  // the pointer as the menu, now open or shut, wants it
         if (debug_overlay::take_settings_changed()) {
             apply_settings();  // the drawer is open over the paused game
         }

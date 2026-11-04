@@ -33,6 +33,8 @@ using openrac::runtime::Memory;
 void memory_map() {
     Memory& m = Memory::get();
     CHECK(openrac_guest_base == m.base());
+    CHECK(m.ram_size() == GUEST_RAM_SIZE);
+    CHECK(openrac_guest_ram_size == GUEST_RAM_SIZE);
     CHECK(m.mapped(0, GUEST_RAM_SIZE));
     CHECK(!m.mapped(GUEST_RAM_SIZE, 4));
     CHECK(m.mapped(GUEST_SCRATCHPAD, GUEST_SCRATCHPAD_SIZE));
@@ -167,6 +169,75 @@ void functions() {
     CHECK(openrac_guest_function_name(0x00200000u) == nullptr);
 }
 
+gaddr copied_call_object;
+float copied_call_float;
+
+void copied_mixed(gaddr, int, float, int, int, float random, float, int, gaddr object) {
+    copied_call_object = object;
+    copied_call_float = random;
+}
+
+void copied_six(int, int, int, int, int, gaddr object) {
+    copied_call_object = object;
+    GREF(std::uint8_t, object + 0x68u) = 7;
+}
+
+std::uint64_t copied_mixed_thunk(const std::uint64_t* i, const float* f, float*) {
+    copied_mixed(
+        static_cast<gaddr>(i[0]),
+        static_cast<int>(i[1]),
+        f[0],
+        static_cast<int>(i[2]),
+        static_cast<int>(i[3]),
+        f[1],
+        f[2],
+        static_cast<int>(i[4]),
+        static_cast<gaddr>(i[5])
+    );
+    return 0;
+}
+
+std::uint64_t copied_six_thunk(const std::uint64_t* i, const float*, float*) {
+    copied_six(
+        static_cast<int>(i[0]),
+        static_cast<int>(i[1]),
+        static_cast<int>(i[2]),
+        static_cast<int>(i[3]),
+        static_cast<int>(i[4]),
+        static_cast<gaddr>(i[5])
+    );
+    return 0;
+}
+
+// A shared call may reach a mixed prototype in one level and six integers in another.
+// Both must receive the object from integer register 5, irrespective of float positions.
+void copied_calls_keep_register_banks() {
+    constexpr gaddr object = 0x00A01000u, target = 0x00C01000u;
+    const openrac_fn_entry home[] = {
+        {target, reinterpret_cast<openrac_host_fn>(copied_mixed), "copied_mixed"}
+    };
+    const openrac_fn_entry museum[] = {
+        {target, reinterpret_cast<openrac_host_fn>(copied_six), "copied_six"}
+    };
+    const openrac_thunk_entry thunks[] =
+        {{reinterpret_cast<openrac_host_fn>(copied_mixed), copied_mixed_thunk},
+         {reinterpret_cast<openrac_host_fn>(copied_six), copied_six_thunk}};
+    openrac_guest_register(13, home, 1);
+    openrac_guest_register(30, museum, 1);
+    openrac_guest_register_thunks(thunks, 2);
+    const std::uint64_t integers[8] = {object + 16u, 5, 95, 3, 2, object, 0, 0};
+    const float floats[8] = {1.0f, -0.067f, 1.0f};
+    float result;
+    openrac_guest_set_overlay(13);
+    CHECK(openrac_guest_call_regs(target, integers, floats, &result, 0) == 0);
+    CHECK(copied_call_object == object && copied_call_float == floats[1]);
+    copied_call_object = 0;
+    openrac_guest_set_overlay(30);
+    CHECK(openrac_guest_call_regs(target, integers, floats, &result, 0) == 0);
+    CHECK(copied_call_object == object && GREF(std::uint8_t, object + 0x68u) == 7);
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+}
+
 // A copy of a function that calls another through a pointer the compiler turned into a jal: the
 // address it takes is the one the copy at self calls at the same instruction.
 void code_in_copy_jal() {
@@ -253,6 +324,58 @@ void relocation_with_folded_copies() {
     CHECK(OPENRAC_DATA(0x00150004u) == 0x00160004u);  // a field of it, from the same pair
     CHECK(OPENRAC_CODE(0x00104100u) == 0x00180100u);
     CHECK(OPENRAC_CODE(0x00104000u) == 0x00180000u);  // a folded one: its lowest copy
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+    openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
+}
+
+int particle_loop(int a) {
+    return a;
+}
+
+int debris_spawn(int a) {
+    return a;
+}
+
+// A loop's end pointer (base + the block's size) is the next block's address in the executable, but
+// a level can put other data between the two (Going Commando: the particle records' end, 0x00232760,
+// is the debris slots in the executable and the fade list in Oozla, whose debris slots come 0xA00
+// later). The function that names the next block by its own lui and low half decides where it went,
+// though the loop comes first (openrac_guest_set_level_range: Going Commando's rules).
+void relocation_end_pointer_gives_way() {
+    const auto words = [](gaddr at, std::initializer_list<std::uint32_t> w) {
+        std::memcpy(G(at), w.begin(), w.size() * 4);
+    };
+    // Executable: the loop at 0x108000 (lui $s0; addiu $s0; addiu $s1, $s0, 0x100: the end) and the
+    // spawner at 0x108100, naming 0x150100 itself.
+    std::vector<std::uint8_t> exe(0x200, 0);
+    const std::uint32_t loop[] = {0x3C100015u, 0x26100000u, 0x26110100u, 0x03E00008u, 0};
+    const std::uint32_t spawn[] = {0x3C040015u, 0x24840100u, 0x03E00008u, 0};
+    std::memcpy(exe.data(), loop, sizeof loop);
+    std::memcpy(exe.data() + 0x100, spawn, sizeof spawn);
+    // The level: the records at 0x160000 to 0x160100, another block, the debris at 0x160200.
+    words(0x00190000u, {0x3C100016u, 0x26100000u, 0x26110100u, 0x03E00008u, 0});
+    words(0x00190100u, {0x3C040016u, 0x24840200u, 0x03E00008u, 0});
+    const auto fn = [](auto f) {
+        return reinterpret_cast<openrac_host_fn>(f);
+    };
+    static const openrac_fn_entry exe_fns[] = {
+        {0x00108000u, fn(particle_loop), "loop"},
+        {0x00108100u, fn(debris_spawn), "spawn"},
+    };
+    static const openrac_fn_entry level_fns[] = {
+        {0x00190000u, fn(particle_loop), "loop"},
+        {0x00190100u, fn(debris_spawn), "spawn"},
+    };
+    openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 2);
+    openrac_guest_register(8, level_fns, 2);
+    openrac_guest_set_relocation(
+        0x00140000u, 0x00170000u, 0, exe.data(), 0x00108000u, static_cast<std::uint32_t>(exe.size())
+    );
+    openrac_guest_set_level_range(0x00140000u, 0x00170000u);
+    openrac_guest_set_overlay(8);
+    CHECK(OPENRAC_DATA(0x00150000u) == 0x00160000u);
+    CHECK(OPENRAC_DATA(0x00150100u) == 0x00160200u);  // not the loop's end, 0x00160100
+    CHECK(OPENRAC_DATA(0x00150104u) == 0x00160204u);  // a field of it, from the same pair
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
     openrac_guest_set_relocation(0, 0, 0, exe.data(), 0, 0);
 }
@@ -420,11 +543,13 @@ int main() {
     snapshots_keep_new_guest_allocations();
     cold_snapshot_rebinds_generated_static_sites();
     functions();
+    copied_calls_keep_register_banks();
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
     elf();
     reach_report_updates();
     host_stack();
+    relocation_end_pointer_gives_way();  // last: it turns on Going Commando's pairing rules
     return openrac::test::result();
 }

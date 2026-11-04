@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "surface_emission_regions": [
+    {"minimum": [135, 83, 30], "maximum": [158, 105, 42], "scale": 8}
+  ]
+}

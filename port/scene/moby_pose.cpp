@@ -4,6 +4,7 @@
 #include "scene/moby_pose.h"
 
 #include <cstring>
+#include <mutex>
 #include <optional>
 
 namespace openrac::scene {
@@ -12,14 +13,33 @@ namespace rac1 = assets::rac1;
 
 namespace {
 
-constexpr std::uint32_t kAddressMask = 0x01FFFFFF;
 // More joints than the scratchpad holds (0x6f) is not a class.
 constexpr std::size_t kMaxJoints = 0x70;
+
+// set_extra_joint_modifiers: the moby and its modifiers.
+std::mutex g_extra_lock;
+std::uint32_t g_extra_moby = 0;
+std::vector<rac1::JointModifier> g_extra_mods;
+
+std::uint32_t ram_address(std::uint32_t address, std::size_t size) {
+    constexpr std::uint32_t uncached = 0x20000000u;
+    constexpr std::uint32_t uncached_accel = 0x30000000u;
+    if (address < size) {
+        return address;
+    }
+    if (address >= uncached && address - uncached < size) {
+        return address - uncached;
+    }
+    if (address >= uncached_accel && address - uncached_accel < size) {
+        return address - uncached_accel;
+    }
+    return address & 0x01FFFFFFu;
+}
 
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
     T value{};
-    address &= kAddressMask;
+    address = ram_address(address, ram.size());
     if (address + sizeof(T) <= ram.size()) {
         std::memcpy(&value, ram.data() + address, sizeof(T));
     }
@@ -27,7 +47,7 @@ T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
 }
 
 bool inside(std::span<const std::uint8_t> ram, std::uint32_t address, std::size_t bytes) {
-    address &= kAddressMask;
+    address = ram_address(address, ram.size());
     return address != 0 && address + bytes <= ram.size();
 }
 
@@ -40,7 +60,8 @@ std::optional<rac1::MobyFrame> key_at(
         return std::nullopt;
     }
     try {
-        rac1::MobyFrame f = rac1::parse_frame(assets::ByteView(ram), address & kAddressMask);
+        rac1::MobyFrame f =
+            rac1::parse_frame(assets::ByteView(ram), ram_address(address, ram.size()));
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints || joints == 0) {
             return std::nullopt;
         }
@@ -50,6 +71,11 @@ std::optional<rac1::MobyFrame> key_at(
     }
 }
 
+// Where a moby's animation fields start (set_moby_anim_fields).
+std::uint32_t g_anim_fields = 0x50;
+// Whether the pose layers keep records (set_moby_layer_records).
+bool g_layer_records = false;
+
 }  // namespace
 
 namespace {
@@ -57,6 +83,14 @@ namespace {
 std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, std::uint32_t moby, bool bind);
 
 }  // namespace
+
+void set_moby_anim_fields(std::uint32_t first) {
+    g_anim_fields = first;
+}
+
+void set_moby_layer_records(bool records) {
+    g_layer_records = records;
+}
 
 std::vector<rac1::JointMatrix> moby_palette(std::span<const std::uint8_t> ram, std::uint32_t moby) {
     return evaluate_moby(ram, moby, true);
@@ -81,14 +115,15 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         return {};
     }
 
-    // The keys and the blend (moby +0x50..+0x6c).
-    const auto frame_a = at<std::uint8_t>(ram, moby + 0x50);
-    const auto frame_b = at<std::uint8_t>(ram, moby + 0x51);
-    const auto seq_a = at<std::uint8_t>(ram, moby + 0x52);
-    const auto seq_b = at<std::uint8_t>(ram, moby + 0x53);
-    float t = at<float>(ram, moby + 0x54);
-    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, moby + 0x68), joints);
-    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, moby + 0x6c), joints);
+    // The keys and the blend (moby +0x50..+0x6c, as Ratchet & Clank keeps them).
+    const std::uint32_t fields = moby + g_anim_fields;
+    const auto frame_a = at<std::uint8_t>(ram, fields);
+    const auto frame_b = at<std::uint8_t>(ram, fields + 1);
+    const auto seq_a = at<std::uint8_t>(ram, fields + 2);
+    const auto seq_b = at<std::uint8_t>(ram, fields + 3);
+    float t = at<float>(ram, fields + 4);
+    std::optional<rac1::MobyFrame> a = key_at(ram, at<std::uint32_t>(ram, fields + 0x18), joints);
+    std::optional<rac1::MobyFrame> b = key_at(ram, at<std::uint32_t>(ram, fields + 0x1C), joints);
     bool plain = seq_a == seq_b && frame_b == frame_a + 1;
     if (!a && b) {
         // Key A missing (a snapshot the port has not written): the target key alone.
@@ -127,7 +162,8 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     // The joint-modifier list (moby +0x64, each node's next at +8): what spins a vendor's
     // hologram and its logo's text, turns an NPC's head. Its order is the game's, head first.
     std::vector<rac1::JointModifier> mods;
-    for (std::uint32_t node = at<std::uint32_t>(ram, moby + 0x64); inside(ram, node, 0x40) && mods.size() < 32;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x14);
+         inside(ram, node, 0x40) && mods.size() < 32;
          node = at<std::uint32_t>(ram, node + 8)) {
         const std::uint32_t record = at<std::uint32_t>(ram, node + 4);
         if (record < 0x70000000u || ((record - 0x70000000u) & 0x3F) != 0) {
@@ -152,7 +188,8 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
     std::vector<rac1::MobyFrame> layer_keys;
     layer_keys.reserve(16);
     std::vector<rac1::PoseLayer> layers;
-    for (std::uint32_t node = at<std::uint32_t>(ram, moby + 0x60); inside(ram, node, 0x40) && layers.size() < 6;
+    for (std::uint32_t node = at<std::uint32_t>(ram, fields + 0x10);
+         inside(ram, node, 0x40) && layers.size() < 6;
          node = at<std::uint32_t>(ram, node + 0x1C)) {
         const auto count = at<std::uint16_t>(ram, node + 2);
         const auto list = at<std::uint32_t>(ram, node + 0x0C);
@@ -162,6 +199,25 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         rac1::PoseLayer l;
         l.joints.assign(ram.begin() + list, ram.begin() + list + count);
         l.weight = at<float>(ram, node + 0x08);
+        if (g_layer_records) {
+            const auto buffer = at<std::uint32_t>(ram, node + 0x10);
+            if (!inside(ram, buffer, 0x30u * count)) {
+                continue;
+            }
+            l.records.resize(count);
+            for (std::uint32_t i = 0; i < count; ++i) {
+                rac1::PoseRecord& r = l.records[i];
+                const std::uint32_t record = buffer + 0x30 * i;
+                for (std::uint32_t k = 0; k < 4; ++k) {
+                    r.quat[k] = at<std::uint32_t>(ram, record + 4 * k);
+                    r.scale[k] = at<std::uint32_t>(ram, record + 0x10 + 4 * k);
+                    r.trans[k] = at<std::uint32_t>(ram, record + 0x20 + 4 * k);
+                }
+                r.joint = l.joints[i];
+            }
+            layers.push_back(std::move(l));
+            continue;
+        }
         l.t = at<float>(ram, node + 0x24);
         if (!(l.t > 0.0f && l.t <= 1.0f)) {
             l.t = 0.0f;
@@ -181,9 +237,29 @@ std::vector<rac1::JointMatrix> evaluate_moby(std::span<const std::uint8_t> ram, 
         }
         layers.push_back(std::move(l));
     }
+    {
+        const std::lock_guard<std::mutex> lock(g_extra_lock);
+        if (g_extra_moby != 0 && g_extra_moby == moby) {
+            mods.insert(mods.end(), g_extra_mods.begin(), g_extra_mods.end());
+        }
+    }
     return rac1::evaluate_keys(anim, &*a, b ? &*b : nullptr, t, plain, mods, layers);
 }
 
 }  // namespace
+
+void set_extra_joint_modifiers(std::uint32_t moby, std::vector<rac1::JointModifier> mods) {
+    const std::lock_guard<std::mutex> lock(g_extra_lock);
+    g_extra_moby = mods.empty() ? 0 : moby;
+    g_extra_mods = std::move(mods);
+}
+
+std::vector<rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby) {
+    const std::lock_guard<std::mutex> lock(g_extra_lock);
+    if (moby == 0 || g_extra_moby != moby) {
+        return {};
+    }
+    return g_extra_mods;
+}
 
 }  // namespace openrac::scene

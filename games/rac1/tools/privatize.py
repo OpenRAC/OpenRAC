@@ -2,7 +2,7 @@
 """
 Make a candidate's declarations private to its function, so it can land in a
 file that defines the same type names or declares the same globals another
-way (docs/LEVERS.md, "Overlay functions"). No statement of the function is
+way (docs/agents/LEVERS.md, "Overlay functions"). No statement of the function is
 changed; check the result with tools/try_func.py and tools/overlay_file_check.py
 like any candidate.
 

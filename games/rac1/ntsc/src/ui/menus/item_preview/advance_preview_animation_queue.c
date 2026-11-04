@@ -1,11 +1,11 @@
 #include "rnc/ui/menus/item_preview/preview_animation.h"
 #include "sda.h"
+#include "rnc/ui/menus/menu_globals.h"
 
 /* Retail forms the queue head from the address one request before it. */
 extern PreviewAnimationRequest preview_request_address_base[] __asm__("D_001D5E88");
-extern s32 preview_request_count __asm__("D_00160350");
-extern s32 preview_request_count_macro __asm__("D_00160350") MACRO_ADDR;
-s32 advance_preview_animation_queue(void) __asm__("FUN_00226670");
+extern s32                     preview_request_count_macro __asm__("D_00160350") MACRO_ADDR;
+s32                            advance_preview_animation_queue(void) __asm__("FUN_00226670");
 
 s32 advance_preview_animation_queue(void) {
     s32 request_address;
@@ -26,3 +26,6 @@ s32 advance_preview_animation_queue(void) {
 
 extern __typeof__(advance_preview_animation_queue) func_00226670
     __attribute__((alias("FUN_00226670")));
+
+/* The queue: advance_preview_animation_queue shifts entries 1..7 down to 0..6. */
+PreviewAnimationRequest preview_animation_requests[8] = {0};

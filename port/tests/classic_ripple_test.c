@@ -5,7 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-float D_L01_001CAD00[9];
+/* The kernel names the table by its assembly name (__asm__), as the game's data defines it: a plain
+ * C definition is _D_L01_001CAD00 in a Mach-O object, which the Mac's link did not find. */
+float D_L01_001CAD00[9] __asm__("D_L01_001CAD00");
 void FUN_L01_00262038(char*, int, int, char*);
 #define CHECK(c)                                                                                   \
     do {                                                                                           \

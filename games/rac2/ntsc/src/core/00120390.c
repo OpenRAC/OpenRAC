@@ -5,7 +5,6 @@ extern int func_00115544(const char *, const char *);
 void *func_00120390(const char *first, const char *second, void *value) {
     return func_00115544(first, second) ? 0 : value;
 }
-
 void func_001203C0(void) {
 }
 
@@ -55,8 +54,6 @@ char *func_00120500(void) {
     return D_00135D38() + 4;
 }
 
-INCLUDE_ASM("asm/core", func_00120528);
-
 int func_00120800(short *record) {
     return record[3];
 }
@@ -65,9 +62,7 @@ int func_00120808(short *record) {
     return record[2];
 }
 
-INCLUDE_ASM("asm/core", func_001208E8);
 
-INCLUDE_ASM("asm/core", func_00120A30);
 
 extern void *func_00120A30(int, void *, int);
 extern void *func_001153D4(void *, const void *, unsigned int);
@@ -287,8 +282,7 @@ void *func_00120BD0(struct eh_context *eh, void *pc, frame_state *my_udata,
   return handler;
 }
 
-INCLUDE_ASM("asm/core", func_00120F00);
+/* func_00120F00 lives in 00120F00-unwind.c. */
 
-INCLUDE_ASM("asm/core", func_001210E0);
+/* func_001210E0 lives in 001210E0-unwind.c. */
 
-INCLUDE_ASM("asm/core", func_001212C4);

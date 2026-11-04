@@ -9,8 +9,8 @@ helper was written from runs on the same synthetic input as the helper, and both
 same result, so a caller moved onto the package later behaves as it did. Those copies are
 imported from where they live today (sdk/tools, and what tools/ keeps: openrac.checksums,
 fcheck_gate.fcheck_commit); once their callers have moved and a copy is gone, its comparison
-goes with it, as tools/' copies went in P1-05, port/tools' and the probe tools' in P2-10 and the
-editor's disc reader in P2-32 (hostgen's readers keep their characterisation in
+goes with it, as the copies in tools/, port/tools, the probe tools and the editor's disc reader
+already went (hostgen's readers keep their characterisation in
 port/tools/hostgen/test_tables.py; the editor's reader, now on iso9660, keeps its stricter
 checks' tests in editor/test_disc.py).
 """
@@ -177,8 +177,7 @@ class PathsTests(TempDir):
         self.assertEqual(paths.repo_root(ROOT), ROOT)
 
     def test_matches_the_hand_written_roots(self):
-        # tools/*.py take theirs from repo_root since P1-05, port/tools since P2-10; this one is
-        # still written by hand.
+        # tools/*.py and port/tools take theirs from repo_root; this one is still written by hand.
         self.assertEqual(paths.repo_root(gen_binding.__file__), gen_binding.ROOT)
 
     def test_a_checkout_needs_games_and_contributing_md(self):
@@ -207,8 +206,8 @@ class PathsTests(TempDir):
 # the editor imports nothing of tools/ but the package, and its port.py keeps its name beside
 # tools/port.py because a script's own folder comes before tools/ on the path
 # (test_the_editor_runs_from_the_launchers_bundled_copy).
-BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/probes", "editor")
-NAMES_CHECKED = ("port/tools", "port/enhanced/tools/probes")
+BOOTSTRAPPED = ("port/tools", "port/enhanced/tools/baker", "editor")
+NAMES_CHECKED = ("port/tools", "port/enhanced/tools/baker")
 
 
 class BootstrapTests(TempDir):
@@ -223,7 +222,7 @@ class BootstrapTests(TempDir):
         (top / marker).write_text("")
         shutil.copytree(ROOT / paths.PACKAGE_DIR, top / paths.PACKAGE_DIR,
                         ignore=shutil.ignore_patterns("__pycache__"))
-        script = top / "port/enhanced/tools/probes/probe.py"
+        script = top / "port/enhanced/tools/baker/probe.py"
         script.parent.mkdir(parents=True)
         script.write_text("import sys\nfrom pathlib import Path\n" + paths.BOOTSTRAP + "\n"
                           "from openrac_common import paths\n"
@@ -231,7 +230,7 @@ class BootstrapTests(TempDir):
         return top
 
     def run_script(self, top: Path) -> list[Path]:
-        done = subprocess.run([sys.executable, "-E", str(top / "port/enhanced/tools/probes/probe.py")],
+        done = subprocess.run([sys.executable, "-E", str(top / "port/enhanced/tools/baker/probe.py")],
                               cwd=self.dir, capture_output=True, text=True)
         self.assertEqual(done.returncode, 0, done.stderr)
         return [Path(line) for line in done.stdout.splitlines()]
@@ -278,7 +277,7 @@ class BootstrapTests(TempDir):
     def test_no_module_there_is_named_as_one_of_tools(self):
         # A module of tools/ beside one of the same name elsewhere is imported by whichever folder
         # comes first on the path: hostgen's test assembler, named mips.py like tools/mips.py that
-        # versionmap imports, was one (renamed tests/assembler.py in P2-10).
+        # versionmap imports, was one (now tests/assembler.py).
         ours = {script.stem for script in (ROOT / "tools").glob("*.py")}
         for folder in NAMES_CHECKED:
             for script in sorted((ROOT / folder).rglob("*.py")):
@@ -442,7 +441,11 @@ class TablesTests(TempDir):
         path = ROOT / "port" / "game" / "rac8-pal" / "libraries.tsv"
         expected = gen_binding.hook_rows("rac8", ["pal"], {path: LIBRARIES})
         rows = tables.read_tsv(self.libraries, ["symbol", "library", "name", "port"], strip=True)
-        self.assertEqual({"pal": {r["name"]: r["symbol"] for r in rows if r["port"] == "hook"}}, expected)
+        have: dict[str, set[str]] = {}
+        for r in rows:
+            if r["port"] == "hook":
+                have.setdefault(r["name"], set()).add(r["symbol"])
+        self.assertEqual({"pal": have}, expected)
 
     def test_reads_the_headers_of_this_checkouts_libraries(self):
         for path in sorted((ROOT / "port" / "game").glob("*/libraries.tsv")):
@@ -501,7 +504,7 @@ class FilesTests(TempDir):
             self.write(f"src/{name}", name)
         keep = lambda rel: not rel.name.startswith("test_") and rel.suffix in (".py", ".pyc", ".tsv")  # noqa: E731
         files.copy_tree(self.dir / "src", self.dir / "ours", keep)
-        copied = sorted((str(p.relative_to(self.dir / "ours")), p.read_bytes())
+        copied = sorted((p.relative_to(self.dir / "ours").as_posix(), p.read_bytes())
                         for p in (self.dir / "ours").rglob("*") if p.is_file())
         self.assertEqual(copied, [(name, name.encode()) for name in ("a.py", "deep/er/d.py", "sub/b.py", "sub/c.tsv")])
 
@@ -608,7 +611,7 @@ class ProcTests(TempDir):
 
     def test_run_captures_text_and_replaces_bad_bytes(self):
         done = proc.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xff')"], capture=True)
-        self.assertEqual(done.stdout, "ok �")
+        self.assertEqual(done.stdout, "ok \ufffd")
 
     @unittest.skipUnless(shutil.which("git"), "git is not installed")
     def test_git_reads_and_fcheck_gates_commit(self):
@@ -620,7 +623,7 @@ class ProcTests(TempDir):
                    GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@example.com")
         subprocess.run(["git", "init", "-q", str(repo)], check=True, env=env)
         (repo / "tools").mkdir()
-        (repo / "tools/fcheck.py").write_text("x = 1\n")
+        (repo / "tools/fcheck.py").write_bytes(b"x = 1\n")
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, env=env)
         subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "one"], check=True, env=env)
 
@@ -630,7 +633,7 @@ class ProcTests(TempDir):
             proc.git(repo, "rev-parse", "no-such-ref")
 
         # fcheck_gate's own git does not check, and an unknown ref gives nothing.
-        (repo / "tools/fcheck.py").write_text("x = 2\n")
+        (repo / "tools/fcheck.py").write_bytes(b"x = 2\n")
         dirty = proc.git(repo, "status", "--porcelain", "--", "tools/fcheck.py", check=False)
         ours = proc.git(repo, "rev-parse", "--short=8", "HEAD", check=False) + ("+dirty" if dirty else "")
         self.assertEqual(ours, fcheck_gate.fcheck_commit(repo))

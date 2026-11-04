@@ -12,6 +12,8 @@
 #include <cstring>
 #include <format>
 #include <functional>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 #include <volk.h>
 
@@ -20,11 +22,20 @@
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl::detail {
 
 using namespace openrac::gl;
+
+// Reports a terminal recording failure at the renderer's existing exception boundary.
+void require_success(VkResult result, const char* operation) {
+    // Continuing could submit invalid handles or wait for work that was never queued.
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error(std::format("vulkan: {} failed ({})", operation, int(result)));
+    }
+}
 
 namespace {
 
@@ -317,6 +328,14 @@ bool begin_deferred(const Target& t, const Clear& clear) {
     std::memcpy(pass.colour_value.float32, s.clear_colour, sizeof s.clear_colour);
     pass.depth_value = {s.clear_depth, static_cast<std::uint32_t>(s.clear_stencil)};
     pass.commands_at_begin = commands_recorded(g->submission);
+
+    // A clear the pass begins with clears all of the target: its render area is all of it.
+    if (clear.colour || clear.depth || clear.stencil) {
+        touch_area(
+            t, {{0, 0}, {static_cast<std::uint32_t>(t.width), static_cast<std::uint32_t>(t.height)}}
+        );
+    }
+
     f.main = secondary;
     return true;
 }
@@ -344,17 +363,58 @@ void end_deferred(const Target& t) {
     info.renderArea =
         {{0, 0}, {static_cast<std::uint32_t>(t.width), static_cast<std::uint32_t>(t.height)}};
     info.layerCount = 1;
+    bool clear_colour = pass.clear_colour;
+    bool clear_depth = pass.clear_depth;
+    bool clear_stencil = pass.clear_stencil;
+
+    // Only the rectangle the draws and clears touched is loaded and stored (pass-render-area); a
+    // clear that came first and covers all of it makes the pass begin cleared instead of loading.
+    // That clear is still in the pass's buffer, so the value the pass begins with is not seen.
+    if (pass.touched && render_opt::enabled(render_opt::Opt::PassRenderArea)) {
+        info.renderArea =
+            {{pass.x0, pass.y0},
+             {static_cast<std::uint32_t>(pass.x1 - pass.x0),
+              static_cast<std::uint32_t>(pass.y1 - pass.y0)}};
+        const VkRect2D& r = pass.first_rect;
+        const bool covers = pass.first_clear && r.offset.x == pass.x0 && r.offset.y == pass.y0
+                            && r.extent.width == info.renderArea.extent.width
+                            && r.extent.height == info.renderArea.extent.height;
+
+        // The aspects that first clear cleared.
+        if (covers) {
+            clear_colour = clear_colour || pass.first_colour_cleared;
+            clear_depth = clear_depth || pass.first_depth_cleared;
+            clear_stencil = clear_stencil || pass.first_stencil_cleared;
+        }
+    }
+
     const VkExtent2D area = info.renderArea.extent;
 
+    // An attachment no draw or clear of the pass touched keeps what it held, unread and unwritten
+    // (attachment-untouched; it stays as let go as it was).
+    const bool untouched_ops =
+        g->load_store_none && render_opt::enabled(render_opt::Opt::AttachmentUntouched);
+    const bool colour_untouched =
+        untouched_ops && !clear_colour && !pass.used_colour && pass.resolve_colour == nullptr;
+    const bool depth_untouched =
+        untouched_ops && !clear_depth && !clear_stencil && !pass.used_depth;
+
     // The colour attachment: cleared, not loaded or loaded; stored unless let go.
-    if (t.colour != nullptr) {
+    if (t.colour != nullptr && colour_untouched) {
         colour.imageView = attachment_view(*t.colour);
         colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colour.loadOp = load_op(*t.colour, VK_IMAGE_ASPECT_COLOR_BIT, pass.clear_colour);
+        colour.loadOp = VK_ATTACHMENT_LOAD_OP_NONE_EXT;
+        colour.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+        info.colorAttachmentCount = 1;
+        info.pColorAttachments = &colour;
+    } else if (t.colour != nullptr) {
+        colour.imageView = attachment_view(*t.colour);
+        colour.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colour.loadOp = load_op(*t.colour, VK_IMAGE_ASPECT_COLOR_BIT, clear_colour);
         colour.storeOp = store_op(pass.drop_colour, VK_IMAGE_ASPECT_COLOR_BIT);
         // A pass's own clear keeps its value; a load of let-go data under test is the poison.
         colour.clearValue.color =
-            pass.clear_colour || !g->poison_discards ? pass.colour_value : kPoisonColour;
+            clear_colour || !g->poison_discards ? pass.colour_value : kPoisonColour;
         info.colorAttachmentCount = 1;
         info.pColorAttachments = &colour;
         count_attachment(
@@ -363,18 +423,41 @@ void end_deferred(const Target& t) {
             colour.loadOp == VK_ATTACHMENT_LOAD_OP_LOAD,
             colour.storeOp == VK_ATTACHMENT_STORE_OP_STORE
         );
+
+        // The samples averaged into the image a blit asked for, as each tile is written out.
+        if (Image* resolved = pass.resolve_colour; resolved != nullptr) {
+            barrier(f.main, *resolved, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+            colour.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+            colour.resolveImageView = attachment_view(*resolved);
+            colour.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            count_attachment(*resolved, area, false, true);
+            resolved->discarded = 0;
+            resolved->touched = g->recording;
+        }
     }
 
     // The depth and stencil image: each aspect's operations of its own, counted once.
-    if (t.depth != nullptr) {
+    if (t.depth != nullptr && depth_untouched) {
         depth.imageView = attachment_view(*t.depth);
         depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depth.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_DEPTH_BIT, pass.clear_depth);
+        depth.loadOp = VK_ATTACHMENT_LOAD_OP_NONE_EXT;
+        depth.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
+        info.pDepthAttachment = &depth;
+
+        // The stencil aspect of the same image, alike.
+        if (has_stencil(t.depth->format)) {
+            stencil = depth;
+            info.pStencilAttachment = &stencil;
+        }
+    } else if (t.depth != nullptr) {
+        depth.imageView = attachment_view(*t.depth);
+        depth.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depth.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_DEPTH_BIT, clear_depth);
         depth.storeOp = store_op(pass.drop_depth, VK_IMAGE_ASPECT_DEPTH_BIT);
         depth.clearValue.depthStencil = pass.depth_value;
 
         // A load of let-go depth under test is cleared to the poison rather than to the value.
-        if (g->poison_discards && !pass.clear_depth) {
+        if (g->poison_discards && !clear_depth) {
             depth.clearValue.depthStencil.depth = kPoisonDepth.depth;
         }
 
@@ -385,11 +468,11 @@ void end_deferred(const Target& t) {
         // The stencil aspect of the same image.
         if (has_stencil(t.depth->format)) {
             stencil = depth;
-            stencil.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_STENCIL_BIT, pass.clear_stencil);
+            stencil.loadOp = load_op(*t.depth, VK_IMAGE_ASPECT_STENCIL_BIT, clear_stencil);
             stencil.storeOp = store_op(pass.drop_depth, VK_IMAGE_ASPECT_STENCIL_BIT);
 
             // The same for let-go stencil.
-            if (g->poison_discards && !pass.clear_stencil) {
+            if (g->poison_discards && !clear_stencil) {
                 stencil.clearValue.depthStencil.stencil = kPoisonDepth.stencil;
             }
 
@@ -412,13 +495,13 @@ void end_deferred(const Target& t) {
     pass = OpenPass{};
 
     // What the pass wrote is whole again; what it let go holds nothing (or the poison).
-    if (t.colour != nullptr) {
+    if (t.colour != nullptr && !colour_untouched) {
         t.colour->discarded = 0;
         mark_discarded(*t.colour, ended.drop_colour);
     }
 
     // The same for the depth and stencil image.
-    if (t.depth != nullptr) {
+    if (t.depth != nullptr && !depth_untouched) {
         t.depth->discarded = 0;
         mark_discarded(*t.depth, ended.drop_depth);
     }
@@ -502,12 +585,16 @@ void retire(ImagePtr image) {
 Slice ring(VkDeviceSize size) {
     Frame& f = frame();
     const VkDeviceSize align = ring_alignment();
+    // Leave room for alignment without wrapping either the request or its end offset.
+    if (size > std::numeric_limits<VkDeviceSize>::max() - align) {
+        throw std::length_error("Vulkan upload request exceeds addressable size");
+    }
     size = std::max<VkDeviceSize>(size, 4);
     while (true) {
         if (f.chunk_at < f.chunks.size()) {
             Chunk& c = f.chunks[f.chunk_at];
             const VkDeviceSize at = (f.chunk_used + align - 1) / align * align;
-            if (at + size <= c.size) {
+            if (at <= c.size && size <= c.size - at) {
                 f.chunk_used = at + size;
                 g->measures.ring_bytes += size;
                 g->submission.ring_bytes += size;
@@ -518,7 +605,7 @@ Slice ring(VkDeviceSize size) {
             continue;
         }
         if (!new_chunk(f, size)) {
-            return {};
+            throw std::runtime_error("cannot allocate Vulkan upload ring");
         }
     }
 }
@@ -548,7 +635,7 @@ void end_rendering(PassEnd why) {
     gpu_flush_draws();
     if (g->rendering) {
         if (stats::enabled()) {
-            constexpr std::array<std::string_view, 8> kWhy = {
+            constexpr std::array<std::string_view, 9> kWhy = {
                 "vk_pass_end target",
                 "vk_pass_end copy",
                 "vk_pass_end sample",
@@ -556,6 +643,7 @@ void end_rendering(PassEnd why) {
                 "vk_pass_end barrier",
                 "vk_pass_end submit",
                 "vk_pass_end present",
+                "vk_pass_end timing",
                 "vk_pass_end other",
             };
             count_where(kWhy[static_cast<std::size_t>(why)]);
@@ -574,6 +662,13 @@ void end_rendering(PassEnd why) {
             vkCmdEndRendering(frame().main);
             count_command(Command::RenderPass);
         }
+    }
+}
+
+void end_rendering_for(const Image* image) {
+    if (g->rendering
+        && (g->rendering_target.colour == image || g->rendering_target.depth == image)) {
+        end_rendering();
     }
 }
 
@@ -630,8 +725,8 @@ void begin_buffers() {
     material_reset(f);
     VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(f.upload, &begin);
-    vkBeginCommandBuffer(f.main, &begin);
+    require_success(vkBeginCommandBuffer(f.upload, &begin), "begin upload commands");
+    require_success(vkBeginCommandBuffer(f.main, &begin), "begin frame commands");
     tracy_gpu_collect();
     const bool reset = f.timestamps != VK_NULL_HANDLE && f.timestamp_used == 0;
     if (reset) {
@@ -639,10 +734,11 @@ void begin_buffers() {
         count_command(Command::Query);
         f.frame_timing = Frame::FrameTiming::None;  // a start the pool held is gone with it
     }
-    // The whole frame's GPU time from here to the end of `main` (stats::gpu_frame_begin). Only
+    // The whole frame's GPU time from here to the end of `main` (stats::gpu_frame_begin, and the
+    // low-latency frames' sleep, which measures it with or without the debug tools). Only
     // into a pool reset just now: buffers begun again after a submit within the frame (its
     // sections' queries still in use) would write the frame's queries a second time unreset.
-    if (reset && g->timestamp_bits != 0 && stats::enabled()) {
+    if (reset && g->timestamp_bits != 0 && (stats::enabled() || g->low_latency)) {
         vkCmdWriteTimestamp(
             f.upload, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, f.timestamps, kFrameTimestamp
         );
@@ -657,7 +753,28 @@ void begin_buffers() {
     g->recorded.forget();
 }
 
+// Whether that frame's timed sections end their render pass: always while split timing is set,
+// else one frame with timed sections in stats::pass_sampling(), decided at its first.
+bool split_for(std::uint64_t serial) {
+    if (g->split_pass_timing) {
+        return true;
+    }
+    const int every = stats::pass_sampling();
+    if (every <= 0) {
+        return false;
+    }
+    if (serial != g->split_serial) {
+        g->split_serial = serial;
+        g->split_now = ++g->timed_frames % static_cast<std::uint64_t>(every) == 0;
+    }
+    return g->split_now;
+}
+
 bool timing_begin(std::uint64_t serial, int section) {
+    // Deferred passes receive GPU timestamps when the shared plan executes.
+    if (collecting_surface_chain()) {
+        return false;
+    }
     if (!g || !g->timestamp_bits) {
         return false;
     }
@@ -666,8 +783,14 @@ bool timing_begin(std::uint64_t serial, int section) {
     if (f.active_timing >= 0 || f.timestamp_used + 2 > kFrameTimestamp) {
         return false;
     }
+    // Split, the section's first draw begins a pass of its own (which loads what the last one
+    // stored): the timestamp lies between passes, where a tile-based GPU measures it.
+    const bool split = split_for(serial);
+    if (split) {
+        end_rendering(PassEnd::Timing);
+    }
     f.active_timing = static_cast<int>(f.timings.size());
-    f.timings.push_back({serial, section, f.timestamp_used});
+    f.timings.push_back({serial, section, f.timestamp_used, split});
 #if defined(OPENRAC_GPU_MARKERS)
     if (env::flag(env::Var::GpuMarkers) && vkCmdBeginDebugUtilsLabelEXT) {
         const auto name = stats::gpu_section_name(serial, section);
@@ -706,6 +829,9 @@ void timing_end() {
         return;
     }
     auto& timing = f.timings[static_cast<std::size_t>(f.active_timing)];
+    if (timing.split) {
+        end_rendering(PassEnd::Timing);
+    }
     vkCmdWriteTimestamp(
         g->gpu.timing_upload ? f.upload : f.main,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -729,21 +855,26 @@ void timing_results(Frame& f) {
         g->timestamp_bits == 64 ? UINT64_MAX : (std::uint64_t{1} << g->timestamp_bits) - 1;
     if (f.frame_timing == Frame::FrameTiming::Ended) {
         std::uint64_t values[2]{};
-        if (f.frame_serial != stats::kNoFrame
-            && vkGetQueryPoolResults(
-                   g->device,
-                   f.timestamps,
-                   kFrameTimestamp,
-                   2,
-                   sizeof(values),
-                   values,
-                   sizeof(std::uint64_t),
-                   VK_QUERY_RESULT_64_BIT
-               ) == VK_SUCCESS) {
+        if (vkGetQueryPoolResults(
+                g->device,
+                f.timestamps,
+                kFrameTimestamp,
+                2,
+                sizeof(values),
+                values,
+                sizeof(std::uint64_t),
+                VK_QUERY_RESULT_64_BIT
+            )
+            == VK_SUCCESS) {
             const double ticks = static_cast<double>((values[1] - values[0]) & mask);
-            stats::gpu_frame_result(
-                f.frame_serial, ticks * g->properties.limits.timestampPeriod / 1e6
-            );
+            const double ms = ticks * g->properties.limits.timestampPeriod / 1e6;
+            if (f.frame_serial != stats::kNoFrame) {
+                stats::gpu_frame_result(f.frame_serial, ms);
+            }
+            // The low-latency frames' sleep is worked out from it (latency_sleep.h).
+            if (g->low_latency) {
+                g->latency.sleep.gpu_frame(ms / 1000.0);
+            }
         }
     }
     f.frame_timing = Frame::FrameTiming::None;
@@ -764,6 +895,9 @@ void timing_results(Frame& f) {
             )
             == VK_SUCCESS) {
             const double ticks = static_cast<double>((values[1] - values[0]) & mask);
+            if (timing.split) {
+                stats::gpu_passes_split(timing.serial);
+            }
             stats::gpu_result(
                 timing.serial, timing.section, ticks * g->properties.limits.timestampPeriod / 1e6
             );
@@ -773,6 +907,7 @@ void timing_results(Frame& f) {
 }
 
 void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present) {
+    require_surface_execution();
     const profiling::Zone trace("Vulkan submit");
 
     end_rendering(PassEnd::Submit);
@@ -780,22 +915,20 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     gpu_record();
     tracy_gpu_end_commands();
     const bool tight = render_opt::enabled(render_opt::Opt::VkTightSync);
-    // What `upload` did is seen by all that `main` does: its copies and uploads (transfer writes)
-    // and the culling's dispatches (shader writes), read as indirect arguments, vertices and
-    // indices, uniforms, shader reads and the copies of `main` (the R-08 table's row).
+    // Order the upload copies before main. GPU culling exports its own indirect and vertex ranges.
     VkMemoryBarrier m{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
     VkPipelineStageFlags source = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     VkPipelineStageFlags destination = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
     m.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
     m.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
 
-    // The narrow form of the same order.
+    // The tight path only needs transfer writes after the culling graph exports its outputs.
     if (tight) {
-        source = VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        source = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destination = VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT
                       | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
                       | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
-        m.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        m.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
         m.dstAccessMask = VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_INDEX_READ_BIT
                           | VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT
                           | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT
@@ -813,8 +946,8 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
         f.frame_timing = Frame::FrameTiming::Ended;
         f.frame_serial = stats::gpu_frame_begin();
     }
-    vkEndCommandBuffer(f.upload);
-    vkEndCommandBuffer(f.main);
+    require_success(vkEndCommandBuffer(f.upload), "end upload commands");
+    require_success(vkEndCommandBuffer(f.main), "end frame commands");
     const VkCommandBuffer buffers[] = {f.upload, f.main};
     // Two batches in one submit when the copy to the screen has a buffer of its own: only that
     // one waits for the screen's image, at the transfer stage where it first touches it.
@@ -829,7 +962,7 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
 
     // The present's own buffer, ended and run after the frame's.
     if (present != VK_NULL_HANDLE) {
-        vkEndCommandBuffer(present);
+        require_success(vkEndCommandBuffer(present), "end present commands");
         batches[1].commandBufferCount = 1;
         batches[1].pCommandBuffers = &present;
     }
@@ -848,17 +981,21 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     }
 
     const std::uint32_t count = present != VK_NULL_HANDLE ? 2 : 1;
-    vkResetFences(g->device, 1, &f.fence);
+    require_success(vkResetFences(g->device, 1, &f.fence), "reset frame fence");
     {
         const profiling::Zone queue_trace("Queue submit");
-        check(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "a submit");
+        require_success(vkQueueSubmit(g->queue, count, batches.data(), f.fence), "submit frame");
     }
     ++g->submission.submits;
     f.submitted = true;
     if (wait) {
-        vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX);
+        require_success(
+            vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "wait for submitted frame"
+        );
+        // Counter collection still needs the completed submission's marker and signalled fence.
         timing_results(f);
-        vkResetCommandPool(g->device, f.pool, 0);
+        f.submitted = false;
+        require_success(vkResetCommandPool(g->device, f.pool, 0), "reset completed frame pool");
         begin_buffers();
     }
 }
@@ -882,7 +1019,7 @@ VkCommandBuffer present_cmd() {
 
     VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(f.present, &begin);
+    require_success(vkBeginCommandBuffer(f.present, &begin), "begin present commands");
     return f.present;
 }
 
@@ -910,14 +1047,63 @@ Target target_of(GLuint name) {
     return t;
 }
 
-void ensure_rendering(const Target& t) {
+void touch_area(const Target& t, const VkRect2D& rect) {
+    const int x0 = std::clamp(rect.offset.x, 0, t.width);
+    const int y0 = std::clamp(rect.offset.y, 0, t.height);
+    const int x1 = std::clamp(rect.offset.x + static_cast<int>(rect.extent.width), x0, t.width);
+    const int y1 = std::clamp(rect.offset.y + static_cast<int>(rect.extent.height), y0, t.height);
+
+    // An empty rectangle touches nothing.
+    if (x0 == x1 || y0 == y1) {
+        return;
+    }
+
+    OpenPass& pass = g->pass;
+
+    // The first rectangle, or the one that holds it and the rest.
+    if (!pass.touched) {
+        pass.touched = true;
+        pass.x0 = x0;
+        pass.y0 = y0;
+        pass.x1 = x1;
+        pass.y1 = y1;
+    } else {
+        pass.x0 = std::min(pass.x0, x0);
+        pass.y0 = std::min(pass.y0, y0);
+        pass.x1 = std::max(pass.x1, x1);
+        pass.y1 = std::max(pass.y1, y1);
+    }
+}
+
+void ensure_rendering(const Target& t, bool draw) {
     if (!g->rendering || !(g->rendering_target == t)) {
         begin_rendering(t, Clear{});
+    }
+
+    // Where a draw may write: each indexed viewport, its own scissor, or else the scissor. A
+    // clear names its own rectangle.
+    if (draw && g->indexed_viewports.empty()) {
+        touch_area(t, scissor_rect(t));
+    } else if (draw) {
+        for (const auto& r : g->indexed_viewports) {
+            touch_area(
+                t,
+                {{r[0], r[1]},
+                 {static_cast<std::uint32_t>(std::max(r[2], 0)),
+                  static_cast<std::uint32_t>(std::max(r[3], 0))}}
+            );
+        }
     }
 
     // A draw or a clear after glInvalidateFramebuffer: what it writes is kept.
     g->pass.drop_colour = 0;
     g->pass.drop_depth = 0;
+
+    // What the draw (or clear) about to be recorded may touch, by the state it is recorded with.
+    const State& s = g->state;
+    g->pass.used_colour = g->pass.used_colour || s.colour_mask[0] || s.colour_mask[1]
+                          || s.colour_mask[2] || s.colour_mask[3];
+    g->pass.used_depth = g->pass.used_depth || s.depth_test || s.stencil_test;
 }
 
 bool drop_clear_pass(VkClearColorValue& clear) {
@@ -981,6 +1167,7 @@ VkRect2D scissor_rect(const Target& t) {
 }
 
 void clear(GLbitfield mask) {
+    require_surface_execution();
     gpu_flush_draws();
     const Target t = target_of(g->state.draw_framebuffer);
     const State& s = g->state;
@@ -1004,7 +1191,23 @@ void clear(GLbitfield mask) {
         begin_rendering(t, c);  // cleared as the drawing begins: no work of its own on a tiler
         return;
     }
-    ensure_rendering(t);
+    // Nothing drawn or cleared in the pass yet: this clear may stand for loading the area.
+    const bool first = !g->rendering || !(g->rendering_target == t) || !g->pass.touched;
+    ensure_rendering(t, false);
+
+    // Kept for end_deferred, which knows the pass's area only at its end.
+    if (first && g->pass.deferred) {
+        OpenPass& pass = g->pass;
+        pass.first_clear = true;
+        pass.first_colour_cleared = c.colour;
+        pass.first_depth_cleared = c.depth;
+        pass.first_stencil_cleared = c.stencil;
+        pass.first_rect = rect;
+    }
+
+    touch_area(t, rect);
+    g->pass.used_colour = g->pass.used_colour || c.colour;
+    g->pass.used_depth = g->pass.used_depth || c.depth || c.stencil;
     VkClearAttachment attachments[2]{};
     std::uint32_t n = 0;
     if (c.colour) {

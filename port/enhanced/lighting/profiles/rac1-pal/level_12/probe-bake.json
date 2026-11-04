@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "regions": {
+    "adaptive_density": true
+  },
+  "environment_probes": {
+    "enabled": true
+  },
+  "playable_space": {
+    "minimum_swim_depth": 0.85
+  }
+}

@@ -19,8 +19,9 @@ This reads what hostgen wrote: the functions at each code address (functions.c),
 definitions (game_protos.h), and every GFN in the generated C whose address is known when it is
 written (OPENRAC_LCODE, OPENRAC_CODE, a literal, openrac_folded_call's places,
 openrac_call_in_copy's callee). For each, the call's parameter at every position both have must
-be of the definition's kind (integer or pointer, float, double), and a result the call reads
-must be of the kind the definition returns. It exits 1 when one is not. Calls through an address
+be of the definition's kind (integer or pointer, float, double), an integer the definition takes
+in 64 bits must be passed in 64 (the host leaves a 32-bit argument's upper half unset), and a
+result the call reads must be of the kind the definition returns. It exits 1 when one is not. Calls through an address
 the program computes (tables of update functions) are not known here and are not checked; the
 assembly's translation calls those through each function's thunk where position decides
 (guest.h, OPENRAC_REGS_THUNKS).
@@ -63,6 +64,17 @@ def kind(t: str) -> str:
     if all(w in INT_WORDS for w in t.split()):
         return "i"
     return "?"
+
+
+WIDE_INTS = {"long long", "long long int", "unsigned long long", "unsigned long long int", "signed long long",
+             "long", "unsigned long", "long int", "unsigned long int", "s64", "u64", "openrac_u64", "openrac_s64",
+             "uint64_t", "int64_t"}
+
+
+def wide(t: str) -> bool:
+    """An integer of 64 bits as hostgen writes it (the EE's long and long long)."""
+    t = " ".join(re.sub(r"\b(const|volatile|restrict|__restrict)\b", " ", t).split())
+    return t in WIDE_INTS
 
 
 def split_params(text: str) -> list[str]:
@@ -200,10 +212,17 @@ def compare(call_ret: str, call_params: list[str], def_ret: str, def_params: lis
     what = []
     cp = [kind(p) for p in call_params if p != "..."]
     dp = [kind(p) for p in def_params if p != "..."]
+    cw = [p for p in call_params if p != "..."]
+    dw = [p for p in def_params if p != "..."]
     for k in range(min(len(cp), len(dp))):
         if cp[k] != dp[k] and "?" not in (cp[k], dp[k]):
             what.append(f"argument {k + 1} is {'an integer' if cp[k] == 'i' else cp[k]} for "
                         f"{'an integer' if dp[k] == 'i' else dp[k]}")
+            break
+        if cp[k] == dp[k] == "i" and wide(dw[k]) and not wide(cw[k]) and "*" not in cw[k]:
+            # 32 bits passed where the callee reads 64: the upper half is whatever the host's
+            # register held (the EE's register carried all 64).
+            what.append(f"argument {k + 1} is {cw[k]} for {dw[k]}")
             break
     rc, dc = kind(call_ret), kind(def_ret)
     # A result the callee does not return is whatever the register held, on the EE as on any host
@@ -299,11 +318,51 @@ def check(gen: Path, include_all: bool = False) -> tuple[list[str], dict]:
     return problems, stats
 
 
+HOST_DECL = re.compile(r"^(?!return\b|typedef\b|static\s+inline\b)(?P<ret>[A-Za-z_][\w\s\*]*?)\s*\b"
+                       r"(?P<name>func_\w+)\s*\((?P<params>[^;{}()]*)\)\s*[;{]", re.M)
+
+
+def check_host(host: Path, protos: dict[str, tuple[str, list[str]]]) -> list[str]:
+    """The game's hand-written host C (port/game/<id>/host) declaring or defining a game function
+    with its own parameter list, not through game_protos.h: the host compiler cannot compare them,
+    and on Windows x64 a kind at another position reads the wrong register (host/font.c called
+    func_0027F640 as (float, float, float, int, ...) for (float, float, u64, gaddr, int, float, ...):
+    the title's menus read their text through the colour, 0.10.1)."""
+    problems = []
+    for path in sorted(host.glob("*.c")):
+        text = re.sub(r"/\*.*?\*/|//[^\n]*", lambda c: "\n" * c.group(0).count("\n"),
+                      path.read_text(errors="replace"), flags=re.S)
+        for m in HOST_DECL.finditer(text):
+            name = m.group("name")
+            if name not in protos or not protos[name][1]:
+                continue  # the port's own function, or one game_protos.h leaves unprototyped
+            params = split_params(m.group("params"))
+            if any(kind(p) == "?" for p in params):
+                continue
+            def_ret, def_params = protos[name]
+            ret = m.group("ret").strip()
+            if m.group(0).endswith("{"):
+                # The port's own definition in the game function's place: the game's C calls it
+                # as game_protos.h has it.
+                what = compare(def_ret, def_params, ret, params, True)
+            else:
+                what = compare(ret, params, def_ret, def_params, True)
+            if len(params) != len([p for p in def_params if p != "..."]) and "..." not in def_params:
+                what.append(f"{len(params)} parameters for {len(def_params)}")
+            if what:
+                line = text.count("\n", 0, m.start()) + 1
+                problems.append(f"{path.name}:{line}: {name}: {'; '.join(what)} "
+                                f"(game_protos.h: {def_ret} ({', '.join(def_params)}))")
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("gen", type=Path, help="a game's generated directory (port/build/<preset>/games/<id>/gen)")
     ap.add_argument("--all", action="store_true",
                     help="check every place a folded call can reach, not only the first")
+    ap.add_argument("--host", type=Path,
+                    help="the game's host C (port/game/<id>/host): its own declarations of game functions too")
     args = ap.parse_args(argv)
     if not (args.gen / "functions.c").exists():
         # A game this build does not make (CI builds some games only): skipped, not failed.
@@ -314,7 +373,14 @@ def main(argv: list[str] | None = None) -> int:
         print(p)
     print(f"abicheck: {stats['calls']} calls through a code address, {stats['known']} to a known one, "
           f"{len(problems)} whose type is not the definition's", file=sys.stderr)
-    return 1 if problems else 0
+    host_problems = []
+    if args.host is not None and args.host.is_dir():
+        host_problems = check_host(args.host, read_protos(args.gen / "game_protos.h"))
+        for p in host_problems:
+            print(p)
+        print(f"abicheck: {len(host_problems)} host declarations whose type is not the definition's",
+              file=sys.stderr)
+    return 1 if problems or host_problems else 0
 
 
 if __name__ == "__main__":

@@ -43,6 +43,7 @@ module	media/	media
 module	renderer/vulkan/	renderer/vulkan
 module	renderer/world/	renderer/world
 module	renderer/	renderer
+module	materials/	materials
 module	scene/	scene
 module	enhanced/tests/	tests
 module	enhanced/	enhanced
@@ -60,7 +61,7 @@ module	tests/	tests
 layer	0	sdk common
 layer	1	runtime
 layer	2	platform assets audio media
-layer	3	renderer renderer/vulkan renderer/world
+layer	3	renderer renderer/vulkan renderer/world materials
 layer	4	scene
 layer	5	enhanced
 layer	6	game/common
@@ -79,4 +80,4 @@ allow	tests	viewer extract
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.
-except	platform/window.cpp:26	renderer/vulkan/vkgl.h	no package yet: the renderer should open its backend on the platform's window
+except	platform/window.cpp:27	renderer/vulkan/vkgl.h	no package yet: the renderer should open its backend on the platform's window

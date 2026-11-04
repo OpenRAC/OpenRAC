@@ -11,10 +11,19 @@
 
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
+#ifdef OPENRAC_LIGHT_AUTHORING
+#include "enhanced/lighting/object_lights.h"
+#endif
 #include "enhanced/lighting/probes.h"
+#include "enhanced/renderer/atmosphere.h"
+#include "enhanced/renderer/foliage.h"
+#include "enhanced/renderer/fur.h"
+#include "enhanced/renderer/local_lights.h"
+#include "enhanced/renderer/material_runtime.h"
 #include "enhanced/renderer/water_float.h"
 #include "enhanced/renderer/wetness.h"
 #include "enhanced/viewer/early_lighting.h"
@@ -30,20 +39,79 @@ namespace openrac::lighting {
 // The probe and early lighting of one LevelScene. The scene owns it once registered.
 class SceneLighting final : public scene::LevelLighting {
 public:
+    // Access requires exclusive scene ownership after the render worker has completed.
+    enhanced::MaterialRuntime& materials() { return m_materials; }
+
+    // UI editing is permitted only after the frontend has joined the render worker.
+    enhanced::FoliageMaterials& foliage_materials() { return m_foliage; }
+
+    // Thread-safe authoring input; replaces the level's unshadowed point/spot lights atomically.
+    Result<void> set_local_lights(std::span<const enhanced::LocalLight> lights) {
+        return m_local_lights.set_lights(lights);
+    }
+
+    // Session-only all-lights reference for validation and profiling.
+    void set_local_light_reference(bool reference) { m_local_lights.reference = reference; }
+
     std::string mesh_fragment(std::string source) const override;
     std::string mesh_vertex(std::string source) const override;
+
+    std::optional<std::string> rigid_depth_vertex(std::string source) const override {
+        return source;
+    }
+
+    // Water attachments are the only position deformation supplied by this provider.
+    std::string dry_shadow_vertex(std::string source) const override { return source; }
+
     void prepare_wetness(
         const renderer::FrameInput& input,
         unsigned palette,
         const std::optional<scene::Instance>& hero
     ) override;
     void bind_wetness(const renderer::Shader& shader) const override;
-    void prepare_deformation(const renderer::FrameInput& input) override;
+    int surface_layers(
+        std::uint32_t model, std::uint32_t first, std::uint32_t count
+    ) const override;
+    void bind_surface_layer(const renderer::Shader& shader, int layer) const override;
+    std::string motion_fragment(std::string source) const override;
+
+#ifdef OPENRAC_LIGHT_AUTHORING
+    void prepare_instances(
+        scene::Layer layer, std::span<const scene::Instance> instances
+    ) override {
+        m_object_lights.instances(layer, instances);
+    }
+#endif
+
+    void prepare_deformation(
+        const renderer::FrameInput& input, const scene::LevelScene& scene
+    ) override;
     void bind_deformation(const renderer::Shader& shader, bool enabled) const override;
     bool deformation_active() const override;
+
+    bool prepares_atmosphere_chain() const override { return true; }
+    bool atmosphere_wanted(const renderer::FrameInput&) const override;
+    void prepare_atmosphere(
+        const scene::LevelScene&,
+        const renderer::FrameInput&,
+        const renderer::RenderTarget&,
+        const std::array<float, 4>&,
+        const std::array<float, 4>&
+    ) override;
+    void draw_atmosphere_sky(const renderer::RenderTarget&) override;
+    std::string atmosphere_source() const override;
+    void bind_atmosphere(const renderer::Shader&) const override;
     void bind_material(
-        const renderer::Shader& shader, std::uint32_t model, const scene::Material& material
+        const renderer::Shader& shader,
+        std::uint32_t model,
+        int slot,
+        const scene::Material& material
     ) const override;
+    const scene::Material& resolve_material(
+        std::uint32_t model, int slot, const scene::Material& original
+    ) const override;
+    std::uint64_t material_variant(std::uint32_t model, int slot) const override;
+    std::array<float, 3> sky_tint(std::uint32_t model, int slot) const override;
     std::string early_fragment(std::string source) const override;
     // Resolves the primary sunlight override for direct lighting and shadows.
     renderer::Vec3 sunlight_direction(renderer::Vec3 authored) const override;
@@ -59,6 +127,7 @@ public:
     int mode() const override;
     void set_mode(int mode) override;
     void set_lighting(bool enabled, float multiplier) override;
+    void set_material_overrides(bool enabled) override;
     void set_bias(float normal, float view) override;
     void set_sunlight_direction(std::optional<renderer::Vec3> direction) override;
     void set_spheres(bool shown) override;
@@ -98,6 +167,9 @@ public:
     bool early_matches(
         const renderer::FrameInput& input, const renderer::RenderState& state
     ) const override;
+    std::span<const unsigned> early_buffers(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const override;
 
     // Uploads a probe volume an in-memory provider made (and its dense volume); the provider has
     // checked the scene's and the bake's identity. False with `error` when it cannot be uploaded.
@@ -111,10 +183,28 @@ public:
     );
 
 private:
+    // Binds cached leaf/fur/wetness response independently of reflective packet uniforms.
+    void bind_surface_material(
+        const renderer::Shader& shader, std::uint32_t model, int slot, const scene::Material& source
+    ) const;
     std::map<std::uint32_t, int>
         m_reflection_classes;  // Authored object identity for chrome overrides.
+#ifdef OPENRAC_LIGHT_AUTHORING
+    std::string m_attachment_error;  // Deduplicates malformed-profile/capacity diagnostics.
+    enhanced::ObjectLights m_object_lights;
+#endif
+    enhanced::LocalLights m_local_lights;  // Render-thread table and complete tile masks.
+    enhanced::FurMaterialSettings
+        m_default_fur;  // Render-thread session defaults, snapped once per frame.
+    enhanced::WetnessMaterialSettings
+        m_default_wetness;  // Render-thread defaults for unoverridden slots.
     enhanced::HeroWetness m_wetness;
+    bool m_material_overrides = true;       // The viewer enables appearance by default.
+    enhanced::MaterialRuntime m_materials;  // Unified typed bindings and sparse authoring state.
+    enhanced::FoliageMaterials m_foliage;   // Reviewed per-material thin-sheet response.
+    enhanced::HeroFur m_fur;
     enhanced::WaterFloat m_water_float;
+    enhanced::Atmosphere m_atmosphere;
     ProbeLighting m_probes;          // The level's probe bake on the GPU.
     EarlyLighting m_early_lighting;  // The early-lit world's per-pixel lighting.
 };

@@ -13,6 +13,7 @@
  * (openrac_game_mc_state). The structures and codes are the
  * library's public interface as the game uses them
  * (docs/port/RAC1_PAL_SURVEY.md, section 7). */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,8 +112,17 @@ static int card_path(int port, const char* name, char* out, size_t size) {
     while (*name == '/') {
         name++;
     }
-    return snprintf(out, size, "%s%s%s%s%s%s", root, port == 0 ? "" : ".slot2", *dir ? "/" : "", dir,
-                    *name ? "/" : "", name)
+    return snprintf(
+               out,
+               size,
+               "%s%s%s%s%s%s",
+               root,
+               port == 0 ? "" : ".slot2",
+               *dir ? "/" : "",
+               dir,
+               *name ? "/" : "",
+               name
+           )
            < (int)size;
 }
 
@@ -158,6 +168,133 @@ int openrac_lib_sceMcGetInfo(int port, int slot, gaddr type, gaddr free_clusters
 
 #define MAX_FILES 8
 static FILE* files[MAX_FILES];
+/* Each open file's path and whether the game wrote to it, for the save mark below. */
+static char file_paths[MAX_FILES][1024];
+static int file_written[MAX_FILES];
+/* The bytes the game read from each open file: a save read whole is a save loaded. */
+static long file_read[MAX_FILES];
+
+/* The save the game in progress came from or last went to (game_host.h). */
+int openrac_game_save_in_use = -1;
+int32_t openrac_game_save_in_use_seconds;
+
+/* ---- The save mark ---- */
+
+/* A save the game wrote keeps a small file of its own beside it, `<save>.mods`, saying which
+ * mods were loaded while it was played (openrac_game_loaded_mods). The save file itself is never
+ * touched: its 8-byte header has no room and every section carries a CRC (assets/disc/save_game.h),
+ * and a real memory card must still take the file. Playing without mods deletes the mark, so an
+ * overwritten save never keeps the one before it. The launcher reads it (core/src/saves.rs) and
+ * so does the game's own memory card page. */
+
+/* Whether `name` (a file name without its folder) is one of the game's save files. The host says
+ * what they are called (openrac_game_play_host->save_file, "save%d.bin"). */
+static int save_slot_of(const char* name) {
+    if (openrac_game_play_host == NULL || openrac_game_play_host->save_file == NULL) {
+        return -1;
+    }
+    for (int slot = 0; slot < openrac_game_play_host->save_slots; slot++) {
+        char expected[64];
+        if (snprintf(expected, sizeof expected, openrac_game_play_host->save_file, slot)
+                < (int)sizeof expected
+            && strcmp(expected, name) == 0) {
+            return slot;
+        }
+    }
+    return -1;
+}
+
+static int is_save_file(const char* name) {
+    return save_slot_of(name) >= 0;
+}
+
+/* The mark's own name for a save's path, "" when it does not fit. */
+static void mark_path(const char* save_path, char* out, size_t size) {
+    if (snprintf(out, size, "%s.mods", save_path) >= (int)size) {
+        *out = '\0';
+    }
+}
+
+/* Whether the file at `path` holds a game the player saved, rather than one of the blank slots the
+ * game writes when it makes its folder on a fresh card. The host answers it: save_info reads the
+ * save and says whether it is one the game would load (game_host.h, rac1/host/play.c). Without a
+ * host answer nothing is marked, which leaves a save plain rather than marking every slot. */
+static int players_save(const char* path, long* size_out, int32_t* seconds_out) {
+    if (openrac_game_play_host == NULL || openrac_game_play_host->save_info == NULL) {
+        return 0;
+    }
+    FILE* f = fopen(path, "rb");
+    if (f == NULL) {
+        return 0;
+    }
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return 0;
+    }
+    const long size = ftell(f);
+    if (size <= 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return 0;
+    }
+    uint8_t* bytes = (uint8_t*)malloc((size_t)size);
+    if (bytes == NULL) {
+        fclose(f);
+        return 0;
+    }
+    const size_t read = fread(bytes, 1, (size_t)size, f);
+    fclose(f);
+    int32_t level = 0, bolts = 0, gold_bolts = 0, seconds = 0;
+    const int real = read == (size_t)size
+                     && openrac_game_play_host->save_info(
+                            bytes, (uint32_t)size, &level, &bolts, &gold_bolts, &seconds
+                        ) != 0;
+    free(bytes);
+    if (size_out != NULL) {
+        *size_out = size;
+    }
+    if (seconds_out != NULL) {
+        *seconds_out = seconds;
+    }
+    return real;
+}
+
+static int is_a_players_save(const char* path) {
+    return players_save(path, NULL, NULL);
+}
+
+/* Writes or removes the mark beside the save at `path`, which the game has just written. An empty
+ * slot never keeps one: the game writes all five files when it makes its folder on a fresh card,
+ * and only the ones the player saved into are marked. */
+static void mark_save(const char* path) {
+    const char* mods = openrac_game_loaded_mods != NULL ? openrac_game_loaded_mods : "[]";
+    char mark[1100];
+    mark_path(path, mark, sizeof mark);
+    if (*mark == '\0') {
+        return;
+    }
+    if (strcmp(mods, "[]") == 0 || !is_a_players_save(path)) {
+        /* Played without mods, or a slot with no game in it: the save is plain. */
+        remove(mark);
+        return;
+    }
+    char when[32];
+    const time_t now = time(NULL);
+    struct tm parts;
+#if defined(_WIN32)
+    const int ok = localtime_s(&parts, &now) == 0;
+#else
+    const int ok = localtime_r(&now, &parts) != NULL;
+#endif
+    if (!ok || strftime(when, sizeof when, "%Y-%m-%dT%H:%M:%S", &parts) == 0) {
+        snprintf(when, sizeof when, "%s", "");
+    }
+    FILE* f = fopen(mark, "wb");
+    if (f == NULL) {
+        return;
+    }
+    fprintf(f, "{\"format\": 1, \"saved\": \"%s\", \"mods\": %s}\n", when, mods);
+    fclose(f);
+}
 
 /* sceMcOpen(port, slot, name, mode): mode 1 read, 2 write, 3 both, 0x200 create. */
 int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
@@ -194,6 +331,9 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
         return finish(MC_OPEN, MC_NOT_FOUND);
     }
     files[fd] = f;
+    snprintf(file_paths[fd], sizeof file_paths[fd], "%s", path);
+    file_written[fd] = 0;
+    file_read[fd] = 0;
     return finish(MC_OPEN, fd);
 }
 
@@ -204,6 +344,25 @@ int openrac_lib_sceMcClose(int fd) {
     }
     fclose(files[fd]);
     files[fd] = NULL;
+    const char* slash = strrchr(file_paths[fd], '/');
+    const int slot = save_slot_of(slash != NULL ? slash + 1 : file_paths[fd]);
+    /* A save just written: its mark is set or removed now, never half way through the write. */
+    if (file_written[fd] && slot >= 0) {
+        mark_save(file_paths[fd]);
+    }
+    /* A game saved, or a save read whole (Load Game: the slot list reads only each save's head):
+     * the game in progress is that slot's. */
+    if (slot >= 0 && (file_written[fd] || file_read[fd] > 0)) {
+        long size = 0;
+        int32_t seconds = 0;
+        if (players_save(file_paths[fd], &size, &seconds)
+            && (file_written[fd] || file_read[fd] >= size)) {
+            openrac_game_save_in_use = slot;
+            openrac_game_save_in_use_seconds = seconds;
+        }
+    }
+    file_written[fd] = 0;
+    file_read[fd] = 0;
     return finish(MC_CLOSE, MC_OK);
 }
 
@@ -220,7 +379,9 @@ int openrac_lib_sceMcRead(int fd, gaddr buffer, int size) {
     if (fd < 0 || fd >= MAX_FILES || files[fd] == NULL) {
         return finish(MC_READ, MC_FAILED);
     }
-    return finish(MC_READ, (int)fread(G(buffer), 1, (size_t)size, files[fd]));
+    const size_t n = fread(G(buffer), 1, (size_t)size, files[fd]);
+    file_read[fd] += (long)n;
+    return finish(MC_READ, (int)n);
 }
 
 /* sceMcWrite(fd, buffer, size) */
@@ -230,6 +391,7 @@ int openrac_lib_sceMcWrite(int fd, gaddr buffer, int size) {
     }
     const size_t n = fwrite(G(buffer), 1, (size_t)size, files[fd]);
     fflush(files[fd]);
+    file_written[fd] = 1;
     return finish(MC_WRITE, (int)n);
 }
 
@@ -334,7 +496,40 @@ static void add_entry(const char* dir, const char* name) {
     snprintf(e->name, sizeof e->name, "%s", name);
 }
 
+/* Whether `name` is a file the computer keeps in a card's folders rather than one of the card's:
+ * the port's save marks (`.mods`), and what file browsers and other tools leave behind, all hidden
+ * files (Finder's .DS_Store, the launcher's .backup_ folders) and Explorer's Thumbs.db and
+ * desktop.ini. A real card holds none of them, and the games count the entries of their save
+ * folder: Going Commando takes its folder for no save at all unless it lists exactly its own nine
+ * (func_00298F00, state 8), and then offers to create a new one, which writes every slot empty. */
+static int host_only(const char* name) {
+    const size_t length = strlen(name);
+    if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
+        return 1;
+    }
+    if (name[0] == '.') {
+        return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
+    }
+    static const char* const clutter[] = {"Thumbs.db", "desktop.ini"};
+    for (size_t i = 0; i < sizeof clutter / sizeof clutter[0]; i++) {
+        const char* a = name;
+        const char* b = clutter[i];
+        while (*a && *b && (*a | 0x20) == (*b | 0x20)) {
+            a++;
+            b++;
+        }
+        if (*a == 0 && *b == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int matches(const char* pattern, const char* name) {
+    /* Files of the computer's, not the card's: the game never sees them. */
+    if (host_only(name)) {
+        return 0;
+    }
     if (strcmp(pattern, "*") == 0) {
         return 1;
     }

@@ -504,7 +504,7 @@ def source_files() -> dict:
     """name -> the src/overlays/ file that stubs or defines it (its first
     mention at the start of a line there)."""
     out = {}
-    for path in sorted((ROOT / "src/overlays").glob("*/*.c")):
+    for path in sorted((ROOT / "src/overlays").glob("*/**/*.c")):
         for line in path.read_text(errors="replace").splitlines():
             if line.startswith("INCLUDE_ASM") or (line[:1].isalpha() and not line.startswith("extern")):
                 m = _STUB_OR_DEF_RE.search(line)

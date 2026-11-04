@@ -14,6 +14,9 @@
 #include <iterator>
 #include <string_view>
 
+#include "common/ps2_float.h"
+#include "openrac/guest.h"
+
 namespace openrac::game::rac1 {
 
 /*
@@ -61,7 +64,7 @@ namespace {
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
     T value{};
-    address &= 0x01FFFFFF;
+    address = openrac_guest_ram_address_for_size(address, static_cast<std::uint32_t>(ram.size()));
     if (address + sizeof(T) <= ram.size()) {
         std::memcpy(&value, ram.data() + address, sizeof(T));
     }
@@ -146,22 +149,113 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     return live;
 }
 
-bool moby_beyond_draw_distance(const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward) {
+namespace {
+
+// MobyProc's distance tests and fade, instruction for instruction (NTSC-U boot 0x211B60..0x211D20;
+// each level's copy, level 1's at 0x26AAF8, is the same code), on the VU's own arithmetic
+// (common/ps2_float.h: every result cut toward zero). Its inputs, as it loads them: the camera's
+// position (camera block +0x140) times 1024, the view matrix's rows (block +0x00..+0x20), of which
+// the depth takes the third column, the near plane (view context +0xA0) and the global cap on
+// the draw distance. Per moby, with the sphere (x y z r) at +0x00 and the draw distance at +0x32:
+//
+//   v      = sphere.xyz - eye * 1024                      vsub vf2, vf1, vf24
+//   z      = (a.x * v.x + a.y * v.y) + a.z * v.z          vmula / vmadda / vmadd (a: the column)
+//   near   = n - (r + z)                                  vf11 = (1, -1); vaddbc; vsub
+//   far    = (itof(min(dd, cap) << 10) - r) - (-r + z)    pminw; dsll32; vitof0; vsubbc; vsub
+//   culled when far's sign bit is set or near's is clear  qmfc2; bltz / bgez on the lanes
+//   fade   = min(ftoi0(far) >> 7, 0x80)                   vftoi0; dsrl32 7; pminw 0x80
+//
+// So the fade runs over the last 16 units of the draw distance (0x80 << 7 = 16384 = 16 << 10).
+// The moby's vertex alpha is fade * alpha (+0x23) >> 7, and below 0x80 it is drawn with the fading
+// TEST_1 (slti 0x80; sll 3 into the mode bits).
+std::optional<std::uint8_t> moby_proc_distance(
+    const std::uint8_t* moby, const renderer::Vec3& eye, const host::GameState::MobyView& view
+) {
+    using namespace openrac::ps2;
+    u32 sphere[4];
+    std::memcpy(sphere, moby, sizeof(sphere));
+    std::int16_t distance;
+    std::memcpy(&distance, moby + 0x32, sizeof(distance));
+    const u32 units = bits(1024.0f);
+    u32 v[3];
+    for (int i = 0; i < 3; ++i) {
+        v[i] = sub(sphere[i], mul(bits(eye[i]), units));
+    }
+    const auto& a = view.depth_axis;
+    const u32 z = add(add(mul(bits(a[0]), v[0]), mul(bits(a[1]), v[1])), mul(bits(a[2]), v[2]));
+    const u32 r = sphere[3];
+    const u32 near_side = add(mul(kOne, r), z);
+    const u32 far_side = add(mul(kNegOne, r), z);
+    const s32 capped = std::min<s32>(distance, view.draw_cap);
+    const u32 reach = sub(itof0(static_cast<s32>(static_cast<u32>(capped) << 10)), r);
+    const u32 near_test = sub(bits(view.near_plane), near_side);
+    const u32 far_test = sub(reach, far_side);
+    if ((far_test & kSign) != 0 || (near_test & kSign) == 0) {
+        return std::nullopt;
+    }
+    const auto fade = static_cast<u32>(ftoi(far_test, 0)) >> 7;
+    return static_cast<std::uint8_t>(std::min<u32>(fade, 0x80));
+}
+
+// Wholly outside the view's sides, by far: the game's sphere test culls it (the view block's
+// clip constants), and the depth alone does not. Pokitaru's two class 1161 mobys turned by -5 pi
+// have spheres thousands of units to the side; seen at a right angle to them (the camera at 507
+// 411 232 looking -0.474 0.877, a player's report) their depth came within the draw distance and
+// the window drew them: rows thousands long, a cyan cover over the sky and the ground. The bound
+// is a tangent of 8, wider than any picture's field of view, so only such spheres are culled here
+// and every moby the wider pictures show is still drawn.
+bool beyond_the_sides(
+    const float* sphere, const renderer::Vec3& eye, const renderer::Vec3& forward
+) {
+    const float to[3] =
+        {sphere[0] / 1024.0f - eye[0], sphere[1] / 1024.0f - eye[1], sphere[2] / 1024.0f - eye[2]};
+    const float depth = to[0] * forward[0] + to[1] * forward[1] + to[2] * forward[2];
+    const float radius = std::fabs(sphere[3]) / 1024.0f;
+    constexpr float kWidestTangent = 8.0f;
+    const float side2 = to[0] * to[0] + to[1] * to[1] + to[2] * to[2] - depth * depth;
+    const float reach = (depth + radius) * kWidestTangent + radius;
+    return side2 > reach * reach;
+}
+
+}  // namespace
+
+std::optional<std::uint8_t> moby_distance_fade(
+    const std::uint8_t* moby, const host::GameState& state
+) {
     float sphere[4];
     std::memcpy(sphere, moby, sizeof(sphere));
     std::int16_t distance;
     std::memcpy(&distance, moby + 0x32, sizeof(distance));
     if (!std::isfinite(sphere[0]) || !std::isfinite(sphere[1]) || !std::isfinite(sphere[2])
         || !std::isfinite(sphere[3])) {
-        return true;
+        return std::nullopt;
     }
     // No sphere yet (a moby not built since it was made): nothing to go by.
     if (sphere[0] == 0.0f && sphere[1] == 0.0f && sphere[2] == 0.0f && sphere[3] == 0.0f) {
-        return false;
+        return std::uint8_t{0x80};
     }
-    const float depth = (sphere[0] / 1024.0f - eye[0]) * forward[0] + (sphere[1] / 1024.0f - eye[1]) * forward[1]
-                      + (sphere[2] / 1024.0f - eye[2]) * forward[2];
-    return depth > static_cast<float>(distance) || depth + std::fabs(sphere[3]) / 1024.0f <= 32.0f / 1024.0f;
+    const auto& eye = state.camera_position;
+    if (state.moby_view) {
+        const auto pass = moby_proc_distance(moby, eye, *state.moby_view);
+        if (!pass) {
+            return std::nullopt;
+        }
+        if (beyond_the_sides(sphere, eye, state.forward)) {
+            return std::nullopt;
+        }
+        return pass;
+    }
+    // A program whose view block is not known: the same tests in the host's floats.
+    const float to[3] =
+        {sphere[0] / 1024.0f - eye[0], sphere[1] / 1024.0f - eye[1], sphere[2] / 1024.0f - eye[2]};
+    const auto& forward = state.forward;
+    const float depth = to[0] * forward[0] + to[1] * forward[1] + to[2] * forward[2];
+    const float radius = std::fabs(sphere[3]) / 1024.0f;
+    if (depth > static_cast<float>(distance) || depth + radius <= 32.0f / 1024.0f
+        || beyond_the_sides(sphere, eye, forward)) {
+        return std::nullopt;
+    }
+    return std::uint8_t{0x80};
 }
 
 host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAddresses& a) {
@@ -185,6 +279,18 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
         }
     }
     s.forward = vec3(ram, a.camera_rows);
+    // What MobyProc loads (moby_proc_distance): the view matrix at the camera block (the eye's
+    // +0x140 back), whose third column the depth takes, the near plane at the view context's
+    // +0xA0, and the cap on the draw distance 0x10 past the moby table's end pointer (D_0015FF30
+    // in the boot program, gp-0x6CD0; each level's copy reads its own as far past its table's).
+    host::GameState::MobyView moby_view;
+    const std::uint32_t view = a.camera_position - 0x140;
+    for (int i = 0; i < 3; ++i) {
+        moby_view.depth_axis[static_cast<std::size_t>(i)] = at<float>(ram, view + 0x08 + 0x10 * i);
+    }
+    moby_view.near_plane = at<float>(ram, a.view_context + 0xA0);
+    moby_view.draw_cap = at<std::int32_t>(ram, a.moby_end + 0x10);
+    s.moby_view = moby_view;
     s.left = vec3(ram, a.camera_rows + 0x10);
     s.up = vec3(ram, a.camera_rows + 0x20);
 
@@ -224,9 +330,15 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
 
     // The table starts at the word before moby_first (the mobys the level places, the hero first);
     // moby_first itself is where the spawned ones begin.
-    auto first = at<std::uint32_t>(ram, a.moby_first) & 0x01FFFFFF;
-    const auto end = at<std::uint32_t>(ram, a.moby_end) & 0x01FFFFFF;
-    const auto start = at<std::uint32_t>(ram, a.moby_first - 4) & 0x01FFFFFF;
+    auto first = openrac_guest_ram_address_for_size(
+        at<std::uint32_t>(ram, a.moby_first), static_cast<std::uint32_t>(ram.size())
+    );
+    const auto end = openrac_guest_ram_address_for_size(
+        at<std::uint32_t>(ram, a.moby_end), static_cast<std::uint32_t>(ram.size())
+    );
+    const auto start = openrac_guest_ram_address_for_size(
+        at<std::uint32_t>(ram, a.moby_first - 4), static_cast<std::uint32_t>(ram.size())
+    );
     if (start != 0 && start < first && (first - start) % 0x100 == 0) {
         first = start;
     }
@@ -302,8 +414,14 @@ const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram) {
 bool load_memory(const std::filesystem::path& path, std::vector<std::uint8_t>& out, std::string& error) {
     std::ifstream f(path, std::ios::binary);
     out.assign(std::istreambuf_iterator<char>(f), {});
-    if (out.size() != 32u * 1024 * 1024) {
-        error = std::format("{}: not a 32 MB memory picture ({} bytes)", path.string(), out.size());
+    if (out.size() != GUEST_RAM_SIZE && out.size() != GUEST_RAM_EXPANDED_SIZE) {
+        error = std::format(
+            "{}: memory picture is {} bytes; expected a 16 MiB multiple from {} through {}",
+            path.string(),
+            out.size(),
+            GUEST_RAM_SIZE,
+            GUEST_RAM_EXPANDED_SIZE
+        );
         return false;
     }
     return true;

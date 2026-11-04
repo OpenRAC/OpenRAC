@@ -65,11 +65,12 @@ struct PackedCollisionVertex {
     static PackedCollisionVertex pack(s32 x, s32 y, s32 z);
 };
 
-// One face record: three indices into its cell's vertices and the collision
+// One face record: three 32-bit indices (extended leaves need more than 255)
+// into its cell's vertices and the collision
 // type byte. Bits 0-4 of the type are the surface id (0x1f: none), bits 5-6 the
 // footstep sound class, and bit 7 marks faces queries with flag 0x80 skip.
 struct CollisionFace {
-    std::array<u8, 3> v{};
+    std::array<u32, 3> v{};
     u8 type = 0;
 
     // The game's surface-id getter (NTSC-U level01 0x2151d8): type & 0x1f, -1
@@ -83,15 +84,15 @@ struct CollisionFace {
     bool high_bit() const { return (type & 0x80) != 0; }
 };
 
-// A leaf's header. The leaf goes on with vertex_count packed vertices,
-// face_count faces (quads first), quad_count fourth indices, and zero padding
-// to 16 bytes.
+// Counts for either a retail leaf or an OpenRAC expanded leaf. In retail data
+// the on-disk widths are u16/u8/u8; expanded leaves store three u32 counts.
 struct CollisionLeafHeader {
-    u16 face_count = 0;
-    u8 vertex_count = 0;
-    u8 quad_count = 0;  // the first quad_count faces are quads
+    u32 face_count = 0;
+    u32 vertex_count = 0;
+    u32 quad_count = 0;  // the first quad_count faces are quads
+    bool extended = false;
 
-    // 4 + 4V + 4F + Q.
+    // Retail: 4 + 4V + 4F + Q. Expanded: 16 + 4V + 16F.
     std::size_t payload_size() const;
 
     // The leaf's size in 16-byte units, which the tree word's low byte holds.
@@ -103,15 +104,16 @@ struct CollisionCell {
     s16 x = 0;
     s16 y = 0;
     s16 z = 0;
-    // The tree entry: leaf offset from the mesh << 8 | leaf size in quadwords.
+    // Raw tree entry: leaf offset (or expanded-directory index) << 8 | size in quadwords.
     u32 leaf_word = 0;
+    u32 resolved_leaf_offset = 0;  // Directory-resolved mesh offset, or the retail leaf offset.
     CollisionLeafHeader header;
     std::vector<PackedCollisionVertex> packed;
     std::vector<std::array<float, 3>> vertices;  // world positions of `packed`
     std::vector<CollisionFace> faces;            // quads first, then triangles
-    std::vector<u8> quad_v3;                     // the fourth index of each quad
+    std::vector<u32> quad_v3;                    // the fourth index of each quad
 
-    u32 leaf_offset() const { return leaf_word >> 8; }
+    u32 leaf_offset() const { return resolved_leaf_offset ? resolved_leaf_offset : leaf_word >> 8; }
 
     u32 leaf_qwords() const { return leaf_word & 0xff; }
 
@@ -126,7 +128,7 @@ struct CollisionCell {
     bool is_quad(std::size_t face) const { return face < header.quad_count; }
 
     // The face's four indices; a triangle repeats v0 as the fourth.
-    std::array<u8, 4> face_indices(std::size_t face) const;
+    std::array<u32, 4> face_indices(std::size_t face) const;
 };
 
 // Hero collision: a flat list of groups with bounding spheres.
@@ -163,8 +165,12 @@ struct CollisionRow {
 struct CollisionMesh {
     s32 mesh_offset = 0;  // from the block; 0x40 on every retail level
     s32 hero_offset = 0;  // from the block, 0 for none
+    bool has_extended_leaf_index = false;
+    std::vector<u32> extended_leaf_offsets;  // mesh-relative offsets indexed by RLCI cell words
+    bool has_extended_slab_index = false;
+    std::vector<u32> extended_slab_offsets;  // mesh-relative offsets indexed by root Z entry
     CollisionNode root;
-    std::vector<u16> root_entries;  // slab offset / 4 per Z, 0 for none
+    std::vector<u16> root_entries;  // retail slab offset / 4 or RLCT directory index per Z
     std::vector<CollisionSlab> slabs;
     std::vector<CollisionRow> rows;
     std::vector<CollisionCell> cells;
@@ -184,7 +190,9 @@ CollisionMesh read_collision(Game game, ByteView block);
 // The game's cell lookup (NTSC-U level01 0x2117d0) on the raw tree: the
 // non-zero leaf word of cell (x, y, z), or nothing when the cell is outside the
 // grid or empty. `mesh` is the bytes from the root node on.
-std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z);
+std::optional<u32> lookup_collision_leaf(
+    ByteView mesh, s32 x, s32 y, s32 z, const std::vector<u32>* extended_slab_offsets = nullptr
+);
 
 // The cell holding world position p, or nothing outside [0, 1024)^3. The game
 // computes trunc(p * 1024) >> 12 for lines and trunc(p) >> 2 for volumes; both

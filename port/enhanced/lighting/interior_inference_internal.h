@@ -99,7 +99,7 @@ struct Scene {
     }
 
     // Finds the nearest two-sided collision hit along a finite or unbounded ray.
-    RTCRayHit hit(Point p, Point d, float far) const {
+    RTCRayHit hit(Point p, Point d, float far, float near = 0.015f) const {
         RTCRayHit h{};
         h.ray.org_x = p[0];
         h.ray.org_y = p[1];
@@ -107,7 +107,7 @@ struct Scene {
         h.ray.dir_x = d[0];
         h.ray.dir_y = d[1];
         h.ray.dir_z = d[2];
-        h.ray.tnear = 0.015f;
+        h.ray.tnear = near;
         h.ray.tfar = far;
         h.ray.mask = ~0u;
         h.hit.geomID = RTC_INVALID_GEOMETRY_ID;

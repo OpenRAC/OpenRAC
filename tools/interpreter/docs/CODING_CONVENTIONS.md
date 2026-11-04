@@ -6,7 +6,7 @@ check it against the hardware documentation. So the code is written to be read l
 someone who knows the PlayStation 2 and has never seen this file.
 
 Anyone who touches the runtime follows this page: people, Claude, Codex, any agent. It builds on
-[CONTRIBUTING.md](../../CONTRIBUTING.md), [AGENTS.md](../../AGENTS.md) and the
+[CONTRIBUTING.md](../../../CONTRIBUTING.md), [CONTRIBUTING.md](../../../CONTRIBUTING.md) and the
 [runtime README](../README.md), and none of them is loosened here. After a context compaction, read
 this page again from the top instead of working from a summary of it.
 
@@ -724,7 +724,7 @@ place. A label on a decode line (`// FLG`) needs no tag if the group comment abo
 
 The file comment lists what the file is based on (4.1). A tag points at that list. Facts taken from
 another project say so at the code and in
-[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
+[THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md).
 
 ### 3.7 Length
 
@@ -1761,14 +1761,14 @@ test of this directory; it is a tool (`openrac-vuscan`).
 
 ## 15. The project's constraints
 
-These come from [AGENTS.md](../../AGENTS.md), [SOURCING.md](../../docs/policy/SOURCING.md) and the
+These come from [CONTRIBUTING.md](../../../CONTRIBUTING.md), [SOURCING.md](../../../docs/policy/SOURCING.md) and the
 [runtime README](../README.md). They are here so that a review of a diff can check them in one place.
 
 1. **Licence lines.** The first line of every source file is
    `// SPDX-License-Identifier: GPL-3.0-or-later`, the second is
    `// Copyright (c) 2026 the OpenRAC contributors`. A new file gets both. Code adapted from a
    permissively licensed project says so in the file comment and in
-   [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
+   [THIRD_PARTY_NOTICES.md](../../../THIRD_PARTY_NOTICES.md).
 2. **No game content.** No game code, microcode, data or bytes in a source or in a test. An expected
    value comes from documentation and arithmetic (14.4). A tool that reads a game file prints counts
    and never the content.

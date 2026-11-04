@@ -102,26 +102,11 @@ unsigned int func_L00_002D6878(void)
     return 0;
 }
 
-/* returns 1 when a global state word is 49 and a global mode word is 4 or 11, otherwise 0; a callee returning nonzero short-circuits the result to 0 */
-int func_L00_002D6880(void)
-{
-    int result = 0;
-    int mode;
-    if (func_L00_002D6788() != 0) goto out;
-    if (D_0018C0B4_1 != 49) goto out;
-    mode = *(int *)0x001A79F0;
-    if (mode != 4 && mode != 11) goto out;
-    result = 1;
-out:
-    return result;
-}
-
 /* returns the resident 32-bit field at core address 0x0018c0b4 */
 u32 func_L00_002D68E8(void) {
     return D_0018C0B4;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D68F8);
 
 extern struct Rac2Native_5f824a0e369ccf7b_src_record *D_L00_0025E120[];
 
@@ -204,4 +189,4 @@ void func_L00_002D6B70(void) {
     } while (remaining >= 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D6BA8);
+/* func_L00_002D6BA8 is in L00_002D67A8-envelope.c (jump table). */

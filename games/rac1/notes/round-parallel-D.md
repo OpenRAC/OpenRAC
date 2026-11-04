@@ -1,7 +1,7 @@
 # Parallel round, agent D (range 0x220000-0x23E730 in src/text.c)
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - The first-round headline (`text` functions stuck 2 bytes off on
 >   `sq`/`sd`) was moot once `text` was compiled with v1.14, as the second
@@ -17,7 +17,7 @@
 >   split into `src/core/` (one file per retail object) and `src/game/`
 >   (one file per original source file).
 
-Notes for the coordinator to merge into `docs/DECOMP_PROGRESS.md`.
+Notes for the coordinator to merge into `docs/reference/DECOMP_PROGRESS.md`.
 
 ## HEADLINE: the `sq`/`lq` open question is mischaracterised, and it's segment-correlated
 

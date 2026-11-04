@@ -42,7 +42,43 @@ void func_00288D88(void)
 {
 }
 
-INCLUDE_ASM("asm/game", func_00288D90);
+typedef struct {
+    int active;
+    int timer;
+    char pad08[0x18];
+    int entryIndex;
+    int unk24;
+} SubtitleState;
+
+extern SubtitleState D_00254E78;
+
+void func_00288D90(void)
+{
+    switch (D_00254E78.active) {
+    case 0:
+        D_00254E78.unk24 = -1;
+        return;
+    case 1:
+    case 2:
+        D_00254E78.active = 7;
+        D_00254E78.timer = 0;
+        return;
+    case 3:
+        D_00254E78.active = 7;
+        D_00254E78.timer = 0;
+        return;
+    case 4:
+        D_00254E78.active = 6;
+        D_00254E78.timer = 4 - D_00254E78.timer;
+        return;
+    case 5:
+        D_00254E78.active = 6;
+        D_00254E78.timer = 0;
+        return;
+    case 7:
+        return;
+    }
+}
 
 typedef struct { int active; char reserved04[0x20]; int key; int selection; char reserved2C[0x14]; int value40; int value44; } SelectorState;
 typedef struct { char reserved00[0x24]; int key; char reserved28[0x40]; int active;
@@ -65,21 +101,11 @@ int func_00288E18(int key, int selection)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_00288E98);
-
-typedef struct {
-    int active;
-    int timer;
-    char pad08[0x18];
-    int entryIndex;
-    int unk24;
-} SubtitleState;
 
 typedef struct { int unk00; int unk04; int id; int unk0C; } TextEntry;
 
 typedef struct { char pad00[0x2A20]; int unk2A20[1]; } DiscToc;
 
-extern SubtitleState D_00254E78;
 extern TextEntry *D_001B1840 __attribute__((sda));
 extern DiscToc D_0014B540;
 
@@ -103,20 +129,17 @@ void func_00288EA0(void)
     D_00254E78.timer = 0;
 }
 
-INCLUDE_ASM("asm/game", func_00288F48);
 
 
-INCLUDE_ASM("asm/game", func_00289018);
 
-INCLUDE_ASM("asm/game", func_00289020);
 
-INCLUDE_ASM("asm/game", func_00289178);
+/* func_00289178 is in 00289178.c. */
 
 void func_00289AA0(void)
 {
 }
 
-INCLUDE_ASM("asm/game", func_00289AA8);
+/* func_00289AA8 is in 00288D88-render.c. */
 
 extern short D_00254EC8[][2];
 
@@ -134,7 +157,28 @@ int func_00289FC8(short key, int field, unsigned short *out)
     return -1;
 }
 
-INCLUDE_ASM("asm/game", func_0028A030);
+extern unsigned char D_0018D0E8[];
+extern int D_001A7C04_sda __attribute__((sda));
+extern int D_001A7C04[] __attribute__((sda));
+
+void func_0028A030(short id)
+{
+    int val = func_00289FC8(id, 1, 0);
+    int i;
+
+    if (val == -1)
+        return;
+    for (i = 0; D_0018D0E8[i] != val && i < D_001A7C04_sda; i++) {
+    }
+    if (i < D_001A7C04_sda) {
+        for (; i < D_001A7C04_sda - 1; i++)
+            D_0018D0E8[i] = D_0018D0E8[i + 1];
+        D_0018D0E8[i] = 0;
+        D_001A7C04[0]--;
+    }
+    D_0018D0E8[D_001A7C04[0]] = val;
+    D_001A7C04[0]++;
+}
 
 void
 func_0028A130(int param_1)
@@ -146,27 +190,259 @@ func_0028A130(int param_1)
   return;
 }
 
-INCLUDE_ASM("asm/game", func_0028A180);
+/* A seven-entry ring of key/value pairs: D_001B1866 counts the entries, D_001B1867 is the
+ * first one's slot. The incomplete sda arrays give retail's absolute macro forms (`la`,
+ * `lui $at` stores) at -G0. */
+extern unsigned char D_001B1866[] __attribute__((sda));
+extern unsigned char D_001B1867[] __attribute__((sda));
+extern short D_001B1848[] __attribute__((sda));
+extern short D_001B1858[] __attribute__((sda));
 
-INCLUDE_ASM("asm/game", func_0028A270);
+/* Appends key with its value unless the ring is full or already holds key. Every access
+ * reads the globals directly: local copies of the count and first slot lose the register
+ * copies retail makes around the loop. */
+void func_0028A180(int key, int value)
+{
+    int i;
 
-INCLUDE_ASM("asm/game", func_0028A278);
+    if (D_001B1866[0] < 7) {
+        for (i = D_001B1866[0] - 1; i >= 0; i--) {
+            if (D_001B1848[(D_001B1867[0] + i) % 7] == key)
+                return;
+        }
+        D_001B1848[(D_001B1867[0] + D_001B1866[0]) % 7] = key;
+        D_001B1858[(D_001B1867[0] + D_001B1866[0]) % 7] = value;
+        D_001B1866[0]++;
+    }
+}
 
-INCLUDE_ASM("asm/game", func_0028A2F8);
+
+/* func_0028A278 is defined in 0028A278.c with its qualified address profile. */
+
+typedef struct {
+    int value;
+    int timer;
+    int age;
+    short reserved;
+    short state;
+} CounterRow;
+typedef struct {
+    CounterRow rows[2];
+    int shown;
+    int base;
+    int pending;
+    int active;
+    int falling;
+} CounterState;
+extern CounterState D_001B1928 __attribute__((sda));
+extern int D_001A8BB0[] __attribute__((sda));
+extern int D_001A79F8[] __attribute__((sda));
+extern int func_0029B780(void);
+extern void func_0029CBA8(int);
+extern void func_0028A278(void);
+extern void func_0029B698(int);
+
+/* Moves the shown bolt count (D_001A79F8 is the real one) to the real count: a change opens a
+ * transition row, 60 frames without a further change commit it, and the pending amount is then
+ * applied over 15 frames. */
+void func_0028A2F8(void)
+{
+    CounterRow *row;
+    int index;
+    int falling;
+    int previous;
+    int delta;
+
+    if (func_0029B780())
+        return;
+    func_0029CBA8((int)&D_001B1928.shown);
+    if (D_001A8BB0[0] == 5 && D_001A79F8[0] < D_001B1928.shown) {
+        func_0028A278();
+    } else {
+        falling = D_001B1928.falling;
+        if (!falling && D_001B1928.active == -1 && D_001A79F8[0] < D_001B1928.shown) {
+            index = D_001B1928.rows[0].state != 0;
+            row = &D_001B1928.rows[index];
+            falling = 1;
+            row->state = falling;
+            row->timer = 0;
+            row->age = 0;
+            row->value = D_001B1928.shown - D_001A79F8[0];
+            D_001B1928.active = index;
+            D_001B1928.falling = falling;
+        } else if (!falling && D_001B1928.active == -1 && D_001B1928.shown + D_001B1928.pending < D_001A79F8[0]) {
+            index = D_001B1928.rows[0].state != 0;
+            row = &D_001B1928.rows[index];
+            row->state = 1;
+            row->timer = 0;
+            row->age = 0;
+            row->value = 0;
+            D_001B1928.active = index;
+            D_001B1928.falling = 0;
+        }
+    }
+    index = D_001B1928.active;
+    if (index != -1) {
+        row = &D_001B1928.rows[index];
+        if (row->state != 3) {
+            previous = row->value;
+            if (previous >= 0) {
+                row->value = D_001A79F8[0] - D_001B1928.shown + D_001B1928.pending;
+                if (row->value != previous)
+                    row->timer = 0;
+            }
+            row->timer++;
+            row->age++;
+            if (row->timer > 60) {
+                D_001B1928.pending = row->value;
+                D_001B1928.base = D_001B1928.shown;
+                row->timer = -1;
+                row->state = 3;
+            }
+        }
+    }
+    if (index != -1 || D_001B1928.rows[0].state == 3 || D_001B1928.rows[1].state == 3)
+        func_0029B698(180);
+    for (index = 0; index < 2; index++) {
+        row = &D_001B1928.rows[index];
+        switch (row->state) {
+        case 1:
+            if (row->age >= 15)
+                row->state = 2;
+            break;
+        case 3:
+            row->timer++;
+            delta = (int)((float)D_001B1928.pending * 0.0714285746f);
+            D_001B1928.shown += delta;
+            row->value -= delta;
+            if (D_001B1928.falling ? row->value > 0 : row->value < 0)
+                row->value = 0;
+            if (row->timer >= 15) {
+                if (D_001B1928.shown != D_001B1928.base + D_001B1928.pending)
+                    D_001B1928.shown = D_001B1928.base + D_001B1928.pending;
+                D_001B1928.pending = 0;
+                D_001B1928.active = -1;
+                row->state = 0;
+                D_001B1928.falling = 0;
+            }
+            break;
+        }
+    }
+}
 
 INCLUDE_ASM("asm/game", func_0028A670);
 
-INCLUDE_ASM("asm/game", func_0028AB18);
 
-INCLUDE_ASM("asm/game", func_0028AB20);
 
-INCLUDE_ASM("asm/game", func_0028AB70);
+/* func_0028AB70 is in 00288D88-init-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0028ACB0);
 
-INCLUDE_ASM("asm/game", func_0028AE88);
+/* The HUD arena at D_001B1870, RAC1's HudState at D_0019A4E8 (src/game/hud.c): heap_cur and
+ * heap_end are D_001B1880/D_001B1884, the texture tables follow. Its fields are read at an
+ * offset from the arena's name: such a macro load has length 2, so reorg leaves it out of slots. */
+struct HudTexCounts {
+    unsigned char pad0[0x14];
+    int mid_ends[8];
+    int ends[16];
+    int loaded[16];
+};
+struct HudBank {
+    int unk0;
+    int off4;
+    int off8;
+    int offC;
+    int off10;
+    unsigned char pad14[0x40];
+    int has54;
+    int size58;
+    int has5C;
+    int has60;
+    int has64;
+    unsigned char pad68[0x2C];
+    int unk94;
+    int unk98;
+    int unk9C;
+    int unkA0;
+    int unkA4;
+};
+struct HudTexPage {
+    unsigned int source_address;
+    unsigned short gs_block_offset;
+    unsigned char width_log2;
+    unsigned char height_log2;
+};
+struct HudState {
+    int serial;
+    int unk4;
+    int unk8;
+    int z;
+    int heap_cur;
+    int heap_end;
+    union {
+        struct HudTexCounts *counts;
+        struct HudBank *bank;
+    } header;
+    void *anim_defs;
+    void *frame_refs;
+    struct HudTexPage *image_pages;
+    struct HudTexPage *palette_pages;
+};
+extern struct HudState D_001B1870 __attribute__((sda));
+extern void func_0028AE88(int, int);
+typedef struct { char pad[0x20]; int dest; char gap[0xf0]; int offset; } LoadGroupRoot;
+extern LoadGroupRoot D_001F2840;
+extern int D_001B18B0;
+extern int D_001B18B8;
+extern int D_001B18BC;
+extern int D_001B18C0;
+extern int func_002EEED0(int, int, int, int, int);
+extern void func_0029D4D0(int, int);
+/* Fetches the bank's stashed texture groups (handles at +0x94 on, sizes at +0x54 on) to dest at
+ * a running offset and links each one. Groups 3 and 4 depend on mode: 0 takes 3, 1 takes 4, 2
+ * takes both. */
+void func_0028ACB0(int mode)
+{
+    int dest, offset;
+    {
+        int size;
+        dest = D_001F2840.dest;
+        size = D_001B1870.header.bank->has54;
+        offset = D_001F2840.offset;
+        if (size) {
+            func_002EEED0(dest, D_001B1870.header.bank->unk94, 0, D_001B18B0/16, 0);
+            func_0029D4D0(dest, offset);
+            func_0028AE88(0, offset);
+            offset += size;
+        }
+    }
+    {
+        int size = D_001B1870.header.bank->has5C;
+        if (size) {
+            func_002EEED0(dest, D_001B1870.header.bank->unk9C, 0, D_001B18B8/16, 0);
+            func_0029D4D0(dest, offset);
+            func_0028AE88(2, offset);
+            offset += size;
+        }
+    }
+    if (mode == 0 || mode == 2) {
+        int size = D_001B1870.header.bank->has60;
+        if (size) {
+            func_002EEED0(dest, D_001B1870.header.bank->unkA0, 0, D_001B18BC/16, 0);
+            func_0029D4D0(dest, offset);
+            func_0028AE88(3, offset);
+            offset += size;
+        }
+    }
+    if (mode == 1 || mode == 2) {
+        if (D_001B1870.header.bank->has64) {
+            func_002EEED0(dest, D_001B1870.header.bank->unkA4, 0, D_001B18C0/16, 0);
+            func_0029D4D0(dest, offset);
+            func_0028AE88(4, offset);
+        }
+    }
+}
 
-INCLUDE_ASM("asm/game", func_0028AFE8);
+
 
 INCLUDE_ASM("asm/game", func_0028B160);
 
@@ -199,7 +475,7 @@ char *func_0028B2B8(int size)
 
 /* func_0028B338 is in 00288D88-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0028B3D0);
+/* func_0028B3D0 is in the -G8 sibling. */
 
 /* Calls a callee with (this, word at +32), copies six words from +36..+56 down to +4..+24, calls the function pointer at +48 with this when non-zero, then clears +104. */
 void func_0028B4D8(char *p)
@@ -254,7 +530,6 @@ int func_0028B5D0(int key)
 }
 
 
-INCLUDE_ASM("asm/game", func_0028B6C0);
 
 /* findfirstmatchingkey among13records and writefield24 plusfield04 whenword68clear */
 void func_0028B6C8(int key, unsigned int value)
@@ -290,7 +565,46 @@ int func_0028B740(HudElem *rec, int *x, int *y) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_0028B7A8);
+extern float ref_L00_002F6FB8_00[];
+extern float ref_L00_002F6FB8_01[];
+extern float func_00283CE0(int);
+extern int func_00283CF0(float);
+
+void func_0028B7A8(HudElem *t1, int *x, int *y, int index, int delta)
+{
+    float scale;
+    int flags;
+    int dx = 0;
+    int dy = 0;
+
+    if (t1->unk7C != 0)
+        index -= delta;
+    else
+        index += delta;
+
+    if (index < 0)
+        index = 0;
+    if (index > 23)
+        index = 23;
+
+    if (t1->unk7C != 0)
+        scale = ref_L00_002F6FB8_00[index];
+    else
+        scale = ref_L00_002F6FB8_01[index];
+
+    flags = t1->flags;
+    if (flags & 1)
+        dy = -func_00283CF0(scale * (func_00283CE0(t1->h) + 52.0f) + 0.5f);
+    else if (flags & 2)
+        dy = func_00283CF0(scale * (func_00283CE0(t1->h) + 52.0f) + 0.5f);
+    else if (flags & 4)
+        dx = -func_00283CF0(scale * (func_00283CE0(t1->w) + 20.0f) + 0.5f);
+    else if (flags & 8)
+        dx = func_00283CF0(scale * (func_00283CE0(t1->w) + 20.0f) + 0.5f);
+
+    *x += dx;
+    *y += dy;
+}
 
 void func_0028B950(u8 *a0) {
     s32 *value=*(s32 **)(a0+0xc);
@@ -319,9 +633,55 @@ void func_0028B950(u8 *a0) {
 
 void func_0028BA50(HudElem *a0) { a0->unk7C = 0xD2; a0->unk48 = 0; a0->unk4A = 0; func_0028B950((u8 *)a0); }
 
-INCLUDE_ASM("asm/game", func_0028BA88);
+extern float func_00282C10(float);
+extern void func_0028DF80(void *);
 
-INCLUDE_ASM("asm/game", func_0028BC58);
+void func_0028BA88(HudElem *p)
+{
+    unsigned char *c = p->cnt;
+    int delta, limit, step;
+    if (p->unk0C) {
+        int value = *p->unk0C;
+        if (value < 0) value = 0;
+        p->unk78 = value;
+        if (p->unk08 < value) p->unk78 = p->unk08;
+    }
+    if (p->unk74 != p->unk78) {
+        p->unk7C = 180;
+        if (p->unk6C >= 24) {
+            delta = __builtin_abs(p->unk74 - p->unk78);
+            if (delta) {
+                step = func_00283CF0(func_00282C10(func_00283CE0(delta) * 0.04f) * 5.0f);
+                limit = delta / 5;
+                if (step < limit) step = limit;
+                if (step > 121) step = 121;
+                else if (step < 1) step = 1;
+                c[3] += step;
+                if (c[3] >= 3) {
+                    step = c[3] / 2;
+                    if (p->unk78 < p->unk74) p->unk74 -= step;
+                    else p->unk74 += step;
+                    c[3] -= step * 2;
+                }
+            }
+        }
+    }
+    if (p->unk7C >= 5) {
+        if (c[0] < 8) c[0]++;
+        else if (c[1] < 8) c[1]++;
+    } else {
+        if (c[1] != 0 || c[0] != 0) p->unk6C = 1;
+        {
+            int fade = c[1];
+            if (fade) c[1] = fade - 1;
+            else {
+                if (c[0]) c[0]--;
+            }
+        }
+    }
+    func_0028DF80((char *)p + 0x40);
+}
+
 
 extern void func_0029CCD8(int, int);
 extern void func_002B0CE0(int, int, int);
@@ -331,6 +691,4 @@ void func_0028BCA0(int arg) {
     func_002B0CE0(13, 0, 1);
 }
 
-INCLUDE_ASM("asm/game", func_0028BCD0);
 
-INCLUDE_ASM("asm/game", func_0028BCE8);

@@ -15,11 +15,11 @@ vec3 chrome_direct(vec3 p,vec3 n,vec3 eye,vec4 selector,float visibility) {
         result+=radiance*mix(.1,1.,visibility)*ggx_specular(n,eye,-travel,
                     object_reflection_material.x,object_reflection_material.y);
     }
-    for(int i=0;i<8;++i) {
-        vec3 delta=probe_point_position[i].xyz-p;
-        float radius=probe_point_position[i].w,distance=length(delta);
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta=LOCAL_POSITION(i).xyz-p;
+        float radius=LOCAL_POSITION(i).w,distance=length(delta);
         if(radius<=0. || distance>=radius || distance<1e-6) continue;
-        vec3 radiance=max(probe_point_colour[i].rgb,vec3(0))*(1.-distance/radius);
+        vec3 radiance=max(LOCAL_COLOUR(i).rgb,vec3(0))*LOCAL_ATTENUATION(distance,radius)*LOCAL_CONE(i,delta/distance);
         result+=radiance*ggx_specular(n,eye,delta/distance,
                     object_reflection_material.x,object_reflection_material.y);
     }
@@ -27,8 +27,9 @@ vec3 chrome_direct(vec3 p,vec3 n,vec3 eye,vec4 selector,float visibility) {
 }
 
 vec4 chrome_surface(vec3 original) {
-    if(object_reflection_enabled==0 || probe_mode!=1
-        || probe_receiver!=2 || v_probe_selector.w>=1.5) return vec4(original,1);
+    bool authored_fallback = probe_mode == 0 && object_reflection_enabled == 2;
+    if (object_reflection_enabled == 0 || (probe_mode != 1 && !authored_fallback)
+        || probe_receiver != 2 || v_probe_selector.w >= 1.5) return vec4(original, 1);
     vec3 eye_position=(view*vec4(v_world_position,1)).xyz;
     vec3 geometric=cross(dFdx(eye_position),dFdy(eye_position));
     vec3 normal_view=orient_shading_normal(mat3(view)*v_normal,geometric,-eye_position);
@@ -36,6 +37,8 @@ vec4 chrome_surface(vec3 original) {
     vec3 eye=probe_unit(transpose(mat3(view))*(-eye_position));
     float sun_visibility=1.,hero_visibility=1.;
     vec3 indirect=vec3(0);bool covered=false;
+    // An authored fallback uses the retail reflection and reads no probe resources.
+    if (!authored_fallback) {
 #ifdef OPENRAC_EARLY_LIGHTING
     vec4 cached;
     // Match diffuse meshes: reuse the early pass's resolved shadows rather than filtering again.
@@ -47,11 +50,12 @@ vec4 chrome_surface(vec3 original) {
     hero_visibility=hero_shadow_visibility(v_world_position,n);
     covered=sample_probe_irradiance(v_world_position,n,probe_surface_bias(n,eye),indirect);
 #endif
+    }
     if(!hero_shadow_applies(n)) hero_visibility=1.;
     float visibility=min(sun_visibility,hero_visibility);
     // Reuse early GI, including its directional normal response and local occlusion.
     // Original chrome is reserved for receivers without either source of indirect lighting.
-    if(environment_count==0 && !covered) return vec4(original,1);
+    if (environment_count == 0 && !covered && !authored_fallback) return vec4(original, 1);
     vec3 fallback=covered ? gi_specular_fallback(indirect*probe_gi_multiplier,
                             dot(n,eye),object_reflection_material.y) : probe_linear(original);
     vec3 reflection=environment_specular(v_world_position,n,eye,object_reflection_material.x,

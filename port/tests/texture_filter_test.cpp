@@ -14,6 +14,7 @@
 #include "enhanced/renderer/texture_upscale.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "renderer/framebuffer.h"
+#include "renderer/render_opt.h"
 #include "renderer/shader.h"
 #include "renderer/texture_pool.h"
 #include "renderer_gl_context.h"
@@ -54,14 +55,15 @@ flat out vec4 v_probe_selector;
 flat out int v_lit;
 flat out int v_glow;
 out vec3 v_script_emission;
+flat out vec3 v_probe_ambient;
 out vec3 v_emission_colour;
-noperspective out float v_fog;
+out vec2 v_fog_w;
 void main(){
  vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);
  gl_Position=vec4(p*2-1,0,1);v_uv=p;v_stq=vec3(p,1);
  v_colour=vec4(1);v_normal=vec3(0,0,1);v_world_position=vec3(0);
  v_probe_multiplier=vec4(1);v_probe_selector=vec4(0);v_lit=1;v_glow=0;
- v_script_emission=vec3(0);v_emission_colour=vec3(0);v_fog=0;
+ v_script_emission=vec3(0);v_probe_ambient=vec3(0);v_emission_colour=vec3(0);v_fog_w=vec2(0,1);
 })";
 
 struct PathCase {
@@ -234,6 +236,30 @@ public:
         }
     }
 
+    void test_variant_wrapping() {
+        if (!m_upscaler) {
+            return;
+        }
+        for (unsigned wrap = 0; wrap < 4; ++wrap) {
+            m_repeat_s = (wrap & 1) != 0;
+            m_repeat_t = (wrap & 2) != 0;
+            std::vector<unsigned char> reference;
+            for (const bool variants : {false, true}) {
+                renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, variants);
+                m_upscaler->forget(m_texture);
+                draw(1, 64, 64);
+                const auto pixels = m_frame.read_rgba();
+                if (!variants) {
+                    reference = pixels;
+                } else {
+                    CHECK(pixels == reference);
+                }
+            }
+        }
+        renderer::render_opt::reset();
+        m_repeat_s = m_repeat_t = true;
+    }
+
     // Checks independently reconstructed repeat/clamp border neighbourhoods.
     void test_wrapping() {
         // Repeat/clamp variants must reconstruct their own border neighbourhoods.
@@ -345,6 +371,8 @@ private:
         m_pool.bind_upscaled_texture_colours(
             m_source, material, static_cast<renderer::TextureFilter>(mode)
         );
+        // The sky pass supplies an identity tint when no override is authored.
+        glUniform3f(material.uniform("sky_tint"), 1, 1, 1);
         glUniform4f(material.uniform("material_colour"), 1, 1, 1, 1);
         glUniform1f(material.uniform("material_diffuse_scale"), 1);
         glUniform1i(material.uniform("cutout"), path.cutout);
@@ -368,7 +396,10 @@ private:
         if (path.kind == 2) {
             fs = renderer::shaders::direct_frag;
             fs.insert(fs.find('\n') + 1, "#define OPENRAC_UPSCALED_TEXTURE_COLOURS 1\n");
-            vs.replace(vs.find("noperspective "), std::string("noperspective ").size(), "");
+            // direct.frag takes F itself, not mesh.frag's F and w.
+            const std::string fog_out = "out vec2 v_fog_w;", fog_set = "v_fog_w=vec2(0,1);";
+            vs.replace(vs.find(fog_out), fog_out.size(), "out float v_fog;");
+            vs.replace(vs.find(fog_set), fog_set.size(), "v_fog=0;");
             vs.replace(
                 vs.find("v_colour=vec4(1)"),
                 std::string("v_colour=vec4(1)").size(),
@@ -499,6 +530,7 @@ int main(int argc, char** argv) try {
     if (enhanced_rendering_available()) {
         fixture.test_debanding(argc == 2 ? argv[1] : "");
     }
+    fixture.test_variant_wrapping();
     return test::result();
 } catch (const std::exception& failure) {
     std::fprintf(stderr, "%s\n", failure.what());

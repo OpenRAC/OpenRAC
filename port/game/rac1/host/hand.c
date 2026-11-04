@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "game/common/lib/guest_format.h"
 #include "openrac/game_lib.h"
 #include "openrac/host_env.h"
 #include "openrac/sound_engine.h"
@@ -65,7 +66,7 @@ uint32_t openrac_lib_wad_decompress(const uint8_t *src, uint8_t *dst, uint32_t c
  * memory. Its output may run to the end of main memory. The level loader's gameplay header gets its
  * bigger moby pool here (moby_pool.c). */
 int func_0020C468(int src, int dst) {
-    const uint32_t end_of_ram = 0x02000000u;
+    const uint32_t end_of_ram = openrac_guest_ram_size;
     const gaddr to = (gaddr)dst;
     const uint32_t made = openrac_lib_wad_decompress((const uint8_t *)G(src), (uint8_t *)G(to),
                                                      to < end_of_ram ? end_of_ram - to : 0);
@@ -334,82 +335,8 @@ void game_D_0023B578(gaddr moby) {
 #endif
 
 /*
- * The conversions the game's formats use (d i u x X o c s f e g %, with flags, width and
- * precision), from host arguments: a string argument is a game address. At most `size` - 1
- * characters go to `out`, which is terminated; the count written is returned. sprintf below and
- * the kernel library's prints (rac1-pal/host/kprintf.c) format with it.
- */
-int rac1_vformat(char *out, size_t size, const char *f, va_list args) {
-    size_t n = 0;
-
-    if (size == 0) {
-        return 0;
-    }
-    while (*f != '\0' && n + 1 < size) {
-        char spec[32];
-        size_t k = 0;
-        char piece[512];
-        int made = 0;
-
-        if (*f != '%') {
-            out[n++] = *f++;
-            continue;
-        }
-        spec[k++] = *f++;
-        while (*f != '\0' && strchr("-+ #0123456789.", *f) != NULL && k + 2 < sizeof(spec)) {
-            spec[k++] = *f++;
-        }
-        while (*f == 'l' || *f == 'h') {
-            f++;  /* the game's int and long are passed as host ints here */
-        }
-        if (*f == '\0') {
-            break;
-        }
-        spec[k++] = *f;
-        spec[k] = '\0';
-        switch (*f++) {
-            case 'd':
-            case 'i':
-            case 'u':
-            case 'x':
-            case 'X':
-            case 'o':
-            case 'c':
-                made = snprintf(piece, sizeof(piece), spec, va_arg(args, int));
-                break;
-            case 's': {
-                const gaddr s = (gaddr)va_arg(args, int);
-                made = snprintf(piece, sizeof(piece), spec, s != 0 ? (const char *)G(s) : "(null)");
-                break;
-            }
-            case 'f':
-            case 'e':
-            case 'g':
-                made = snprintf(piece, sizeof(piece), spec, va_arg(args, double));
-                break;
-            case '%':
-                made = snprintf(piece, sizeof(piece), "%%");
-                break;
-            default:
-                made = 0;
-                break;
-        }
-        if (made > 0) {
-            size_t take = (size_t)made < sizeof(piece) ? (size_t)made : sizeof(piece) - 1;
-            if (n + take >= size) {
-                take = size - 1 - n;
-            }
-            memcpy(out + n, piece, take);
-            n += take;
-        }
-    }
-    out[n] = '\0';
-    return (int)n;
-}
-
-/*
  * sprintf (newlib, in the executable). The translated formatter passes a va_list into game
- * memory, which hostgen cannot carry, so the port formats here (rac1_vformat). The result is
+ * memory, which hostgen cannot carry, so the port formats here (openrac_guest_vformat). The result is
  * written into game memory at `buffer`.
  */
 int func_00116248(gaddr buffer, gaddr format, ...) {
@@ -418,7 +345,7 @@ int func_00116248(gaddr buffer, gaddr format, ...) {
     va_list args;
 
     va_start(args, format);
-    n = rac1_vformat(out, sizeof(out), (const char *)G(format), args);
+    n = openrac_guest_vformat(out, sizeof(out), (const char*)G(format), args);
     va_end(args);
     memcpy(G(buffer), out, (size_t)n + 1);
     return n;

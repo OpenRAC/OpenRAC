@@ -67,16 +67,21 @@ renderer::Camera view_camera(const renderer::Camera& game, const openrac_view& v
         renderer::eye_view(game.view, {v.position[0], v.position[1], v.position[2]}, turn);
     camera.position = eye_position(camera.view);
     const float aspect = static_cast<float>(v.width) / static_cast<float>(v.height);
+    // The game camera's near plane when a profile moved it out (GameProfile::depth_near;
+    // perspective_reversed: [14] / ([10] + 1)), so that a view's depth is the window's; else 0.05.
+    const float p10 = game.projection[10], p14 = game.projection[14];
+    const float game_near = p14 > 0.0f && p10 > 1.0f ? p14 / (p10 + 1.0f) : kNear;
+    const float near_z = game_near > kNear * 1.01f ? game_near : kNear;
 
     // No field of view given: the game's vertical one, opened to the view's shape.
     if (v.angle_left == 0.0f && v.angle_right == 0.0f && v.angle_up == 0.0f
         && v.angle_down == 0.0f) {
         const float focal = game.projection[5] > 0.0f ? game.projection[5] : 1.0f;
         camera.projection =
-            renderer::perspective_reversed(2.0f * std::atan(1.0f / focal), aspect, kNear, kFar);
+            renderer::perspective_reversed(2.0f * std::atan(1.0f / focal), aspect, near_z, kFar);
     } else {
         camera.projection = renderer::perspective_off_centre_reversed(
-            v.angle_left, v.angle_right, v.angle_up, v.angle_down, kNear, kFar
+            v.angle_left, v.angle_right, v.angle_up, v.angle_down, near_z, kFar
         );
     }
 

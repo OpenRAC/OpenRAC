@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 the OpenRAC contributors
-"""Import static ties/shrubs from another extracted level, then bake placed copies at Pack.
+"""Import GLB/glTF scenery and bake static copies or export spinning props at Pack.
 
 python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project PROJECT \
     --level 2 --name MyDecor --at X Y Z [--collision mesh]
 Place, duplicate or transform the imported nodes below Game/StaticAssets in Godot.
-Inputs and generated game assets stay private. Animated/skinned objects are refused.
+Spinning props go below Game/AnimatedAssets. Inputs and generated game assets stay private.
+Skeletal animation and behaviors are refused.
 """
 
 import argparse
@@ -18,15 +19,19 @@ import re
 import shutil
 import uuid
 
-from overrides import file_ops, glb_parts
+from overrides import file_ops
 import gamedata
 import gltf_read
 from gltf import Gltf
 from scenery import matrix_of
 
 GROUP = 'Game/StaticAssets'
+ANIMATED_GROUP = 'Game/AnimatedAssets'
+MAX_RENDERED_INSTANCES = (1 << 31) - 1  # LevelScene::Group::count is a signed int.
 STAMP = 'static-assets.json'
 PNG = b'\x89PNG\r\n\x1a\n'
+JPEG = b'\xff\xd8\xff'
+IMAGE_TYPES = ((PNG, '.png'), (JPEG, '.jpg'))
 
 
 def digest(data):
@@ -34,16 +39,36 @@ def digest(data):
 
 
 def read_model(path: Path, root: Path):
-    """Extractor GLBs embed geometry; their texture dependencies must stay in the source root."""
-    doc, binary = glb_parts(path.read_bytes())
-    buffers = doc.get('buffers', [])
-    if len(buffers) != 1 or buffers[0].get('uri'):
-        raise ValueError('Use a single-buffer GLB with embedded geometry')
-    document = gltf_read.Document(doc, [binary], path)
+    """Read a GLB or glTF; flatten its buffers and keep dependencies inside the source root."""
+    document = gltf_read.read(path)
+    root = root.resolve()
+    for buffer in document.list('buffers'):
+        uri = buffer.get('uri')
+        if uri and not uri.startswith('data:'):
+            referenced = gltf_read.resolve(path.parent, uri, path.name)
+            if not referenced.is_relative_to(root):
+                raise ValueError('A buffer refers outside the source level or authoring project')
     for image in document.list('images'):
         referenced = document.image_path(image)
-        if referenced is not None and not referenced.is_relative_to(root.resolve()):
+        if referenced is not None and not referenced.is_relative_to(root):
             raise ValueError('A texture refers outside the source level or authoring project')
+
+    # GLB output has one embedded buffer. Merge .gltf's external/data buffers and rewrite each
+    # buffer view so the copied model no longer depends on files outside its content-addressed
+    # bundle.
+    offsets = []
+    total = 0
+    for data in document.buffers:
+        offsets.append(total)
+        total += len(data)
+    for view in document.list('bufferViews'):
+        index = view.get('buffer', 0)
+        if not 0 <= index < len(offsets):
+            raise ValueError(f'{path.name}: buffer view names a missing buffer')
+        view['byteOffset'] = offsets[index] + view.get('byteOffset', 0)
+        view['buffer'] = 0
+    document.doc['buffers'] = [{'byteLength': total}]
+    document.buffers = [b''.join(document.buffers)]
     return document
 
 
@@ -66,13 +91,14 @@ def validate(document):
 
 
 def images(document):
-    """Copy only referenced PNGs, naming by content so donor texture numbers cannot collide."""
+    """Copy referenced PNG/JPEG textures, naming by content to avoid donor-name collisions."""
     result = {}
     for image in document.list('images'):
         data = document.image_bytes(image)
-        if not data.startswith(PNG):
-            raise ValueError('Static imports currently require the extractor\'s PNG textures')
-        name = f'static_{digest(data)[:24]}.png'
+        suffix = next((ext for signature, ext in IMAGE_TYPES if data.startswith(signature)), None)
+        if suffix is None:
+            raise ValueError('Static imports currently require PNG or JPEG textures')
+        name = f'static_{digest(data)[:24]}{suffix}'
         if name in result and result[name] != data:
             raise ValueError('Imported texture identifiers collide; no image was overwritten')
         result[name] = data
@@ -95,10 +121,10 @@ def placements(project: Path, text: str):
         instance = gamedata.parse_value(node['instance'])
         uri = ext.get(instance.args[0]) if isinstance(instance, gamedata.Call) and instance.args else None
         if not uri or not uri.startswith('res://'):
-            raise ValueError(f'{path}: use an imported GLB instance, not an external scene')
+            raise ValueError(f'{path}: use an imported GLB/glTF model, not an external scene')
         source = (project / uri[6:]).resolve()
-        if not source.is_relative_to(project.resolve()) or source.suffix.lower() != '.glb':
-            raise ValueError(f'{path}: static assets must be GLB files inside the project')
+        if not source.is_relative_to(project.resolve()) or source.suffix.lower() not in ('.glb', '.gltf'):
+            raise ValueError(f'{path}: static assets must be GLB/glTF files inside the project')
         matrix = matrix_of(gamedata.placed(nodes, node))
         if not all(math.isfinite(v) for v in matrix):
             raise ValueError(f'{path}: its transform is not finite')
@@ -110,11 +136,69 @@ def placements(project: Path, text: str):
     return result
 
 
+def animated_placements(project: Path, text: str):
+    """Resolve spinning GLB/glTF props in the Godot scene, including grouping transforms."""
+    if ANIMATED_GROUP not in text:
+        return []
+    import collision_scene
+    ext, _, _ = collision_scene.read_scene(text)
+    nodes, _ = gamedata.parse_scene(text)
+    result = []
+    for path, node in nodes.items():
+        if not path.startswith(ANIMATED_GROUP + '/') or not node['instance']:
+            continue
+        instance = gamedata.parse_value(node['instance'])
+        uri = ext.get(instance.args[0]) if isinstance(instance, gamedata.Call) and instance.args else None
+        if not uri or not uri.startswith('res://'):
+            raise ValueError(f'{path}: use a project-local GLB/glTF model')
+        source = (project / uri[6:]).resolve()
+        if not source.is_relative_to(project.resolve()) or source.suffix.lower() not in ('.glb', '.gltf'):
+            raise ValueError(f'{path}: animated props must use project-local GLB/glTF files')
+        matrix = matrix_of(gamedata.placed(nodes, node))
+        if len(matrix) != 16 or not all(math.isfinite(v) for v in matrix):
+            raise ValueError(f'{path}: its transform is not finite')
+        gltf_read.invert(matrix)  # refuse a zero scale before generating partial output
+        meta = gamedata.meta_of(node)
+        try:
+            axis = [float(meta.get(f'spin_{axis}', default)) for axis, default in
+                    (('x', 0), ('y', 0), ('z', 1))]
+            speed = float(meta.get('spin_speed', 1.0))
+            phase = float(meta.get('spin_phase', 0.0))
+            move_axis = [float(meta.get(f'move_{axis}', 0.0)) for axis in ('x', 'y', 'z')]
+            move_distance = float(meta.get('move_distance', 0.0))
+            move_speed = float(meta.get('move_speed', 1.0))
+            move_phase = float(meta.get('move_phase', 0.0))
+        except (TypeError, ValueError):
+            raise ValueError(f'{path}: animation axes, distances, speeds and phases must be numbers') from None
+        length = math.sqrt(sum(component * component for component in axis))
+        move_length = math.sqrt(sum(component * component for component in move_axis))
+        if not all(math.isfinite(v) for v in (*axis, speed, phase, *move_axis,
+                                               move_distance, move_speed, move_phase)) \
+                or not math.isfinite(length) or length <= 1e-8 \
+                or not math.isfinite(move_length):
+            raise ValueError(f'{path}: spin axis must be non-zero and spin values finite')
+        if abs(speed) > 100 or abs(phase) > 1_000_000 or abs(move_speed) > 100 \
+                or abs(move_phase) > 1_000_000 or abs(move_distance) > 1_000_000:
+            raise ValueError(f'{path}: animation speeds must be within ±100 and distances/phases within ±1,000,000')
+        if move_length <= 1e-8:
+            if move_distance != 0:
+                raise ValueError(f'{path}: a non-zero movement distance needs a non-zero movement axis')
+            move_axis = [0.0, 0.0, 0.0]
+        else:
+            move_axis = [v / move_length for v in move_axis]
+        result.append((path, source, matrix, [v / length for v in axis], speed, phase,
+                       move_axis, move_distance, move_speed, move_phase))
+        if len(result) > MAX_RENDERED_INSTANCES:
+            raise ValueError(f'{ANIMATED_GROUP} exceeds the renderer\'s signed instance-count limit '
+                             f'of {MAX_RENDERED_INSTANCES}')
+    return result
+
+
 def import_asset(source: Path, project: Path, level: int, name: str, at, collision=False):
     """Copy a static model and dependencies, then add one editable scene instance with a backup."""
     source, project = Path(source).resolve(), Path(project).resolve()
-    if source.parent.name not in ('ties', 'shrubs') or source.suffix.lower() != '.glb':
-        raise ValueError('Choose an extracted ties/*.glb or shrubs/*.glb; behavior imports come later')
+    if not source.is_file() or source.suffix.lower() not in ('.glb', '.gltf'):
+        raise ValueError('Choose an existing .glb or .gltf file; behavior imports come later')
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name):
         raise ValueError('Use a node name containing letters, digits and underscores')
     if len(at) != 3 or not all(math.isfinite(v) for v in at):
@@ -130,13 +214,17 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
         raise ValueError('The project must contain Game and the new node name must be unused')
     if collision and ('Game/Collision' not in nodes or not (directory / 'collision/collision.json').is_file()):
         raise ValueError('Re-extract this project with collision metadata before importing solid geometry')
-    document = read_model(source, source.parent.parent)
+    # Extracted level assets share textures at the level root. Creator GLBs may keep
+    # dependencies in their own folder or anywhere inside their Godot project.
+    source_root = next((p for p in (source.parent, *source.parents)
+                        if (p / 'project.godot').is_file()), None)
+    if source_root is None:
+        source_root = source.parent.parent if source.parent.name in ('ties', 'shrubs', 'mobys') else source.parent
+    document = read_model(source, source_root)
     validate(document)
     if not any(order for _, order, _ in triangles(document, gltf_read.trs())):
         raise ValueError('The selected static model contains no triangles')
     textures = images(document)
-    if len(document.buffers) != 1:
-        raise ValueError('Choose a single-buffer GLB exported by the level extractor')
     model = Gltf()
     model.doc = document.doc
     model.buffer = bytearray(document.buffers[0])
@@ -153,8 +241,9 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
         (bundle / 'textures').mkdir()
         for filename, image in textures.items():
             (bundle / 'textures' / filename).write_bytes(image)
-        provenance = {'format': 1, 'source_level': source.parent.parent.name,
-                      'kind': source.parent.name, 'source_model': source.name,
+        extracted = source.parent.name in ('ties', 'shrubs', 'mobys')
+        provenance = {'format': 1, 'source_level': source.parent.parent.name if extracted else None,
+                      'kind': source.parent.name if extracted else 'creator-glb', 'source_model': source.name,
                       'source_sha256': digest(source.read_bytes()), 'textures': sorted(textures)}
         (bundle / 'source.json').write_text(json.dumps(provenance, indent=2) + '\n')
     resource = 'static_' + uuid.uuid4().hex[:12]
@@ -249,8 +338,6 @@ def remap_material(value, texture_offset, key=''):
 def bake(project: Path, level_dir: Path, text: str):
     """Combine authored terrain and static instances without needing new runtime object classes."""
     base = read_model(level_dir / 'terrain.glb', project)
-    if len(base.buffers) != 1:
-        raise ValueError('Terrain must be a single-buffer GLB')
     textures = images(base)
     target = Gltf()
     target.doc = copy.deepcopy(base.doc)
@@ -310,9 +397,48 @@ def write_packed(project: Path, level_dir: Path, text: str, out: Path):
     return stamp
 
 
+def write_animated(project: Path, text: str, out: Path):
+    """Bundle spinning visual props and their transforms into the mod's animated.json."""
+    placed = animated_placements(project, text)
+    if not placed:
+        return 0
+    objects = []
+    for node, source, matrix, axis, speed, phase, move_axis, move_distance, move_speed, move_phase in placed:
+        document = read_model(source, project)
+        validate(document)
+        if not any(order for _, order, _ in triangles(document, gltf_read.trs())):
+            raise ValueError(f'{node}: the selected animated model contains no triangles')
+        textures = images(document)
+        model = Gltf()
+        model.doc = document.doc
+        model.buffer = bytearray(document.buffers[0])
+        payload = model.glb()
+        asset_id = digest(payload)[:24]
+        bundle = out / 'animated' / asset_id
+        bundle.mkdir(parents=True, exist_ok=True)
+        model_path = bundle / 'model.glb'
+        if model_path.exists() and model_path.read_bytes() != payload:
+            raise ValueError(f'{node}: animated asset identifier collision; no file was overwritten')
+        model_path.write_bytes(payload)
+        (bundle / 'textures').mkdir(exist_ok=True)
+        for filename, data in textures.items():
+            texture_path = bundle / 'textures' / filename
+            if texture_path.exists() and texture_path.read_bytes() != data:
+                raise ValueError(f'{node}: animated texture identifier collision; no file was overwritten')
+            texture_path.write_bytes(data)
+        objects.append({'model': f'animated/{asset_id}/model.glb', 'matrix': matrix,
+                        'spin_axis': axis, 'spin_speed': speed, 'phase': phase,
+                        'move_axis': move_axis, 'move_distance': move_distance,
+                        'move_speed': move_speed, 'move_phase': move_phase})
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'animated.json').write_text(json.dumps({'format': 1, 'objects': objects}, indent=2) + '\n')
+    return len(objects)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--source', type=Path, required=True,
+                        help='static GLB/glTF from a donor level or your own project')
     parser.add_argument('--project', type=Path, required=True)
     parser.add_argument('--level', type=int, required=True)
     parser.add_argument('--name', required=True)
@@ -323,7 +449,8 @@ def main():
         result = import_asset(args.source, args.project, args.level, args.name, args.at, args.collision == 'mesh')
     except (OSError, ValueError, KeyError) as error:
         parser.exit(1, f'static import: {error}\n')
-    print(f"Imported {result['node']} with {result['textures']} texture(s). Reopen the scene, place it and Pack again.")
+    print(f"Imported {result['node']} with {result['textures']} texture(s). It is static scenery, not game behavior.")
+    print("Reopen the scene, place it and Pack again.")
     print(f"Scene backup: {result['backup']}")
 
 

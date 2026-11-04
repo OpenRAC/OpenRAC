@@ -19,6 +19,7 @@
 
 #include "common/env.h"
 #include "common/log.h"
+#include "platform/display_hdr.h"
 #include "platform/gpu_driver.h"
 #if defined(OPENRAC_VULKAN)
 #include <SDL3/SDL_vulkan.h>
@@ -234,27 +235,6 @@ std::vector<DisplayInfo> displays() {
     return list;
 }
 
-std::vector<DisplaySize> fullscreen_sizes(int display) {
-    std::vector<DisplaySize> sizes;
-    SDL_DisplayID id = display_id(display);
-    if (id == 0) {
-        id = SDL_GetPrimaryDisplay();
-    }
-    int count = 0;
-    SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(id, &count);
-    for (int i = 0; modes != nullptr && i < count; ++i) {
-        const DisplaySize size{modes[i]->w, modes[i]->h};
-        if (std::find(sizes.begin(), sizes.end(), size) == sizes.end()) {
-            sizes.push_back(size);
-        }
-    }
-    SDL_free(modes);
-    std::sort(sizes.begin(), sizes.end(), [](const DisplaySize& a, const DisplaySize& b) {
-        return a.width != b.width ? a.width > b.width : a.height > b.height;
-    });
-    return sizes;
-}
-
 #if defined(__APPLE__)
 void macos_set_app_name(const char* name);  // macos_app.mm
 #else
@@ -293,6 +273,11 @@ Platform::Platform(unsigned subsystems) {
         // ...and the controller still plays it. The keyboard counts only while the window has the
         // focus (Input::update), so typing elsewhere never moves Ratchet.
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+#if !defined(__ANDROID__)
+        // A Steam Controller (2015 or 2026) is read by SDL's own driver, so it plays a game started
+        // outside Steam as a gamepad. An SDL_JOYSTICK_HIDAPI_STEAM=0 in the environment still wins.
+        SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
+#endif
     }
     if ((subsystems & kAudio) != 0) {
         flags |= SDL_INIT_AUDIO;
@@ -476,6 +461,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.physical_device,
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
+    vk.hdr_colour_spaces = config.hdr;
     if (!vkgl::open(vk, error)) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
@@ -500,7 +486,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
         }
     }
     if (config.mode != DisplayMode::Windowed) {
-        set_display_mode(config.mode, config.fullscreen_width, config.fullscreen_height, config.display);
+        set_display_mode(config.mode, config.display);
     }
     return true;
 #else
@@ -697,7 +683,7 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
         }
     }
     if (config.mode != DisplayMode::Windowed) {
-        window->set_display_mode(config.mode, config.fullscreen_width, config.fullscreen_height, config.display);
+        window->set_display_mode(config.mode, config.display);
     }
     return window;
 }
@@ -721,7 +707,7 @@ Window::~Window() {
 #endif
 }
 
-bool Window::set_display_mode(DisplayMode mode, int width, int height, int display) {
+bool Window::set_display_mode(DisplayMode mode, int display) {
     bool ok = true;
 #if defined(__ANDROID__)
     // No windows on Android: the game always covers the screen, without the system's bars.
@@ -743,32 +729,11 @@ bool Window::set_display_mode(DisplayMode mode, int width, int height, int displ
             ok = SDL_SetWindowFullscreen(m_window, false);
             break;
         case DisplayMode::Borderless:
-            // A null mode is SDL's "fullscreen desktop": no mode change.
+            // A null mode is SDL's "fullscreen desktop": a borderless window over the display at
+            // its own mode, never an exclusive one.
             ok = SDL_SetWindowFullscreenMode(m_window, nullptr)
                  && SDL_SetWindowFullscreen(m_window, true);
             break;
-        case DisplayMode::Fullscreen: {
-            SDL_DisplayID display = SDL_GetDisplayForWindow(m_window);
-            SDL_DisplayMode chosen{};
-            const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(display);
-            if (width <= 0 || height <= 0) {
-                if (desktop != nullptr) {
-                    chosen = *desktop;
-                }
-            } else if (!SDL_GetClosestFullscreenDisplayMode(
-                           display, width, height, 0.0f, true, &chosen
-                       )) {
-                log::warn(
-                    "no {}x{} display mode ({}); using the desktop's", width, height, SDL_GetError()
-                );
-                if (desktop != nullptr) {
-                    chosen = *desktop;
-                }
-            }
-            ok = SDL_SetWindowFullscreenMode(m_window, chosen.w > 0 ? &chosen : nullptr)
-                 && SDL_SetWindowFullscreen(m_window, true);
-            break;
-        }
     }
     SDL_SyncWindow(m_window);
     if (!ok) {
@@ -816,6 +781,97 @@ SwapInterval Window::set_swap_interval(SwapInterval interval) {
     return SwapInterval::Immediate;
 }
 
+bool Window::swap_shows_at_once() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::swap_shows_at_once();
+    }
+#endif
+#if defined(__ANDROID__)
+    return false;  // SurfaceFlinger shows a buffer at the next refresh, whatever the interval
+#else
+    return true;
+#endif
+}
+
+hdr::Display Window::hdr_display() const {
+    hdr::Display display;
+    if (m_window == nullptr) {
+        return display;
+    }
+    // SDL says it on Windows, macOS and Wayland; Android is asked through its activity; X11 has
+    // nothing to say.
+#if defined(_WIN32) || defined(__APPLE__)
+    display.known = true;
+#elif defined(__ANDROID__)
+    // Asked of the activity instead (platform/display_hdr.h).
+    android_display_hdr(display);
+    return display;
+#else
+    const char* driver = SDL_GetCurrentVideoDriver();
+    display.known = driver != nullptr && std::strcmp(driver, "wayland") == 0;
+#endif
+    if (!display.known) {
+        return display;
+    }
+    const SDL_PropertiesID props = SDL_GetWindowProperties(m_window);
+    display.hdr_enabled = SDL_GetBooleanProperty(props, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
+    const float headroom = SDL_GetFloatProperty(props, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 1.0f);
+    // The white level is in scRGB's units (80 nits) on Windows; macOS's EDR puts the system's
+    // white at 1.0, which scRGB's 80 nits then is; Wayland's headroom is over BT.2408's 203 nits.
+    display.headroom = headroom;
+#if defined(__APPLE__)
+    // EDR: white is the system's, as on Android (common/hdr.h, Display::relative).
+    display.relative = true;
+#endif
+#if defined(_WIN32) || defined(__APPLE__)
+    const float white = SDL_GetFloatProperty(props, SDL_PROP_WINDOW_SDR_WHITE_LEVEL_FLOAT, 1.0f);
+    display.sdr_white_nits = white * hdr::kScRgbUnitNits;
+    display.peak_nits = display.sdr_white_nits * headroom;
+#else
+    display.peak_nits = hdr::kReferenceWhiteNits * headroom;
+#endif
+    return display;
+}
+
+void Window::set_hdr(
+    [[maybe_unused]] hdr::Output wanted, [[maybe_unused]] const hdr::Levels& levels
+) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::set_hdr({wanted, levels});
+#if defined(__ANDROID__)
+        // The window's colour mode follows what is asked, once a change.
+        const bool hdr = wanted != hdr::Output::Sdr;
+        const float headroom = hdr ? levels.peak / levels.paper_white : 0.0f;
+        if (hdr != m_hdr_window || headroom != m_hdr_headroom) {
+            m_hdr_window = hdr;
+            m_hdr_headroom = headroom;
+            android_window_hdr(hdr, headroom);
+        }
+#endif
+    }
+#endif
+}
+
+hdr::Output Window::hdr_output() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::hdr_output();
+    }
+#endif
+    return hdr::Output::Sdr;
+}
+
+bool Window::hdr_offered() const {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::hdr_offered();
+    }
+#endif
+    return false;
+}
+
 void Window::set_low_latency(bool on) {
 #if defined(OPENRAC_VULKAN)
     if (m_vulkan) {
@@ -827,6 +883,23 @@ void Window::set_low_latency(bool on) {
     if (on && m_gl_finish == nullptr) {
         m_gl_finish = reinterpret_cast<void (*)()>(SDL_GL_GetProcAddress("glFinish"));
     }
+}
+
+double Window::latency_sleep([[maybe_unused]] std::chrono::steady_clock::time_point limit) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        return vkgl::latency_sleep(limit);
+    }
+#endif
+    return 0.0;
+}
+
+void Window::latency_begin([[maybe_unused]] double slept) {
+#if defined(OPENRAC_VULKAN)
+    if (m_vulkan) {
+        vkgl::latency_begin(slept);
+    }
+#endif
 }
 
 float Window::refresh_rate() const {

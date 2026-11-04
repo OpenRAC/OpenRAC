@@ -47,6 +47,14 @@ class TableTests(unittest.TestCase):
         self.assertEqual((RAC4.ties, RAC4.shrubs, RAC4.mobys), (0x08, 0x14, 0x30))
         self.assertTrue(RAC4.swizzled_textures and RAC4.skeleton_3x4 and not RAC4.ratchet_sequences)
 
+    def test_going_commando_lights_its_terrain_and_shrubs(self):
+        # Its terrain and shrubs are lit at level load as Ratchet & Clank's (checked byte for byte
+        # against the console's memory in levels 0, 3, 4 and 22), by its own (cos, sin) table.
+        self.assertTrue(RAC2.world_lighting and not RAC2.lighting)
+        self.assertFalse(RAC1.world_lighting or RAC3.world_lighting or RAC4.world_lighting)
+        self.assertEqual(wads.RAC2_NTSC.normal_table, 0x238F00)
+        self.assertEqual((wads.RAC3_NTSC.normal_table, wads.RAC4_NTSC.normal_table), (0, 0))
+
     def test_records_lay_out_their_fields(self):
         for record in (games.RAC1_MOBY, games.GC_MOBY, games.UYA_MOBY, games.DL_MOBY):
             with self.subTest(size=record.size):
@@ -72,7 +80,10 @@ class TableTests(unittest.TestCase):
     def test_game_json_agrees(self):
         for game, versions in games.VERSIONS.items():
             catalogue = json.loads((ROOT / "games" / game / "game.json").read_text())
-            self.assertEqual(sorted(catalogue["versions"]), sorted(versions), game)
+            # Every version but those only recognised for extraction (no source, no port).
+            mapped = [name for name, entry in catalogue["versions"].items()
+                      if entry.get("source") or "port" in entry]
+            self.assertEqual(sorted(mapped), sorted(versions), game)
         for version in wads.VERSIONS:
             catalogue = json.loads((ROOT / "games" / version.game / "game.json").read_text())
             entry = catalogue["versions"][version.key]
@@ -112,6 +123,14 @@ def gc_tie(winding: int = 0, game=RAC2) -> bytearray:
     data[0x0c], data[0x0f] = count, textures
     struct.pack_into("<I", data, 0x1c, gifs)
     data[0xaf] = winding  # The first strip's last byte.
+    # Packet byte 10 is the packet's vertex (colour) count from Going Commando on.
+    table, = struct.unpack_from("<I", data, 0)
+    for p in range(count):
+        entry = table + 16 * p
+        start = table + struct.unpack_from("<I", data, entry)[0]
+        dinky = data[start + 0x28]
+        fat = (data[entry + 9] * 16 - (dinky - 4) * 8) // 24
+        data[entry + 10] = (dinky - 4) // 2 + fat
     return data
 
 
@@ -120,7 +139,10 @@ class ReaderTests(unittest.TestCase):
         rac1 = tie_mesh(test_ties.fixture(), test_ties.REMAP, "tie")
         rac2 = tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC2)
         self.assertEqual((rac2.positions, rac2.faces), (rac1.positions, rac1.faces))
-        self.assertEqual(set(rac2.light_slots), {0})  # Not read for the later games.
+        # Going Commando: a vertex's place in its class's colour run, each packet's vertices in
+        # their own order after the packets before (a vertex written twice keeps its one place).
+        self.assertEqual(sorted(set(rac2.light_slots)), list(range(len(set(rac2.light_slots)))))
+        self.assertEqual(set(tie_mesh(gc_tie(), test_ties.REMAP, "tie", RAC3).light_slots), {0})
         with self.assertRaises(Exception):
             tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC2)  # Going Commando: 0 or 1 only.
         turned = tie_mesh(gc_tie(winding=32), test_ties.REMAP, "tie", RAC3)

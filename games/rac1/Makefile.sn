@@ -1,5 +1,5 @@
 # Build against the era-accurate SN Systems ProDG GCC 2.95.3 toolchain
-# (see docs/TOOLCHAIN.md). Local-only, gitignored -- get it yourself:
+# (see docs/reference/TOOLCHAIN.md). Local-only, gitignored -- get it yourself:
 #   git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 \
 #       toolchain/sn-prodg-3.01
 #   git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
@@ -17,7 +17,7 @@ WINE ?=
 
 # COMPILERS. Retail's two code segments were built by two different SN
 # sub-builds of GCC 2.95.3, which is why no single compiler ever matched
-# both (see docs/DECOMP_PROGRESS.md, the sq/lq section). Measured across
+# both (see docs/reference/DECOMP_PROGRESS.md, the sq/lq section). Measured across
 # all of retail's disassembly:
 #
 #   core_text: 234 s-reg spills via sd,  14 via sq  -> v1.36-like
@@ -69,7 +69,10 @@ TEXT_OBJS := $(shell grep -v -e "^\#" -e "^$$" config/text.objects | cut -d" " -
 GCC323_TEXT_OBJS := $(shell awk '!/^\#/ && $$3 == "gcc323" {print $$1}' config/text.objects)
 CC_GAME = $(CC_TEXT)
 
-OBJS := $(CORE_TEXT_OBJS) $(TEXT_OBJS)
+# Data files: the values are generated locally, never committed (tools/data_in_c.py).
+DATA_OBJS := $(shell python tools/data_in_c.py objects)
+
+OBJS := $(CORE_TEXT_OBJS) $(TEXT_OBJS) $(DATA_OBJS)
 
 .PHONY: all clean regnames
 all: regnames $(OBJS)
@@ -80,18 +83,22 @@ regnames:
 
 # core_text objects not built with 2.9-ee (src/core/<ADDR>.c): the game's
 # compiler, v1.14. The compiler's output is assembled as it is; the only
-# steps between are the assembler behaviours of docs/BUILD_FIDELITY.md.
+# steps between are the assembler behaviours of docs/reference/BUILD_FIDELITY.md.
+$(DATA_OBJS): build-sn/data/%.o: src/data/%.c config/data_in_c.tsv
+	@mkdir -p $(dir $@)
+	$(CC_TEXT) $(CFLAGS) -Ibuild-sn -c -o $@ $<
+
 build-sn/core/%.o: src/core/%.c config/file_cflags.txt tools/file_cflags.py tools/fix_macro_load_delay.py tools/check_macro_slots.py tools/ps2eeas_nops.py
-	@mkdir -p build-sn/core
+	@mkdir -p $(dir $@)
 	$(CC_CORE) $(CFLAGS) $$(python tools/file_cflags.py $<) -S -o build-sn/core/$*.s $<
 	cp build-sn/core/$*.s build-sn/core/$*_fixed.s
-	if [ "$*" = 989snd ] || [ "$*" = wad ]; then python tools/fix_macro_load_delay.py build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s; fi
+	if [ "$*" = sound/989snd ] || [ "$*" = storage/wad ]; then python tools/fix_macro_load_delay.py build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s; fi
 	python tools/check_macro_slots.py build-sn/core/$*_fixed.s
-	if [ "$*" = 989snd ] || [ "$*" = wad ]; then \
+	if [ "$*" = sound/989snd ] || [ "$*" = storage/wad ]; then \
 	  $(CC_CORE) $(CFLAGS) -c build-sn/core/$*_fixed.s -o build-sn/core/$*_first.o && \
 	  python tools/ps2eeas_nops.py build-sn/core/$*_fixed.s build-sn/core/$*_first.o build-sn/core/$*_fixed.s; fi
 	$(CC_CORE) $(CFLAGS) -c build-sn/core/$*_fixed.s -o $@
-	if [ "$*" = 989snd ] || [ "$*" = wad ]; then \
+	if [ "$*" = sound/989snd ] || [ "$*" = storage/wad ]; then \
 	  python tools/ps2eeas_nops.py build-sn/core/$*_fixed.s $@ build-sn/core/$*_again.s && \
 	  if ! cmp -s build-sn/core/$*_fixed.s build-sn/core/$*_again.s; then \
 	    cp build-sn/core/$*_again.s build-sn/core/$*_fixed.s && \
@@ -100,7 +107,7 @@ build-sn/core/%.o: src/core/%.c config/file_cflags.txt tools/file_cflags.py tool
 # Whole SN source objects proven against the original assembler, including retail remnants.
 PS2EEAS_REAL_CORE := $(shell awk '!/^\#/ && $$5 == "ps2eeas-real" {print $$1}' config/core_text.objects)
 $(PS2EEAS_REAL_CORE): build-sn/core/%.o: src/core/%.c config/core_text.objects config/file_cflags.txt tools/file_cflags.py tools/check_macro_slots.py tools/ps2eeas.py
-	@mkdir -p build-sn/core
+	@mkdir -p $(dir $@)
 	$(CC_CORE) $(CFLAGS) $$(python tools/file_cflags.py $<) -S -o build-sn/core/$*.s $<
 	cp build-sn/core/$*.s build-sn/core/$*_fixed.s
 	python tools/check_macro_slots.py build-sn/core/$*_fixed.s
@@ -116,7 +123,7 @@ $(PS2EEAS_REAL_CORE): build-sn/core/%.o: src/core/%.c config/core_text.objects c
 # scheduling ties, gcse (2.95.3's PRE leaves extra %hi copies) and the
 # varargs register save (2.95.3 also saves $f12-$f18). fix_volatile_slot
 # puts a volatile store in the next jal's slot as retail's assembler did
-# (docs/BUILD_FIDELITY.md). Its own
+# (docs/reference/BUILD_FIDELITY.md). Its own
 # headers (stdarg.h) are passed explicitly: under Wine the driver does
 # not find its built-in include directory.
 EE29_CORE := $(shell awk '!/^\#/ && $$3 == "ee29" {print $$1}' config/core_text.objects)
@@ -137,7 +144,7 @@ CC_EE29_01 := toolchain/ee-gcc-2.9-991111-01/bin/ee-gcc
 INC_EE29_01 :=
 endif
 $(EE29_CORE): build-sn/core/%.o: src/core/%.c config/file_cflags.txt tools/file_cflags.py tools/fix_volatile_slot.py tools/check_macro_slots.py tools/fix_jump_tables.py tools/jump_tables.py tools/gas210.py tools/dtls29_as.py config/core_rodata.txt config/core_text.objects
-	@mkdir -p build-sn/core
+	@mkdir -p $(dir $@)
 	$(if $(filter $@,$(EE29_01_CORE)),$(CC_EE29_01) $(CFLAGS) $$(python tools/file_cflags.py $<) $(INC_EE29_01),$(WINE) $(SN_114)/bin/ee-gcc.exe $(CFLAGS) $$(python tools/file_cflags.py $<) $(EE29_INC)) -S -o build-sn/core/$*.s $<
 	cp build-sn/core/$*.s build-sn/core/$*_fixed.s
 	python tools/fix_jump_tables.py --core build-sn/core/$*_fixed.s build-sn/core/$*_fixed.s

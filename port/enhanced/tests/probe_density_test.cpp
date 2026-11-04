@@ -4,6 +4,7 @@
 
 #include "enhanced/lighting/environment_gi.h"
 #include "enhanced/lighting/probe_density.h"
+#include "enhanced/lighting/probe_texture_encode.h"
 #include "tests/check.h"
 
 using namespace openrac::lighting;
@@ -40,12 +41,26 @@ std::vector<ProbeDensityReceiver> receivers() {
     return result;
 }
 
+// Keeps geometric assertions focused on the chosen raw grid while also checking retained payloads.
+ProbeVolume reduce_field(
+    ProbeVolume fine,
+    const ProbeDensityInput& input,
+    const ProbeDensitySettings& settings,
+    ProbeDensityReport& report
+) {
+    auto result = simplify_probe_density(std::move(fine), input, settings);
+    report = result.report;
+    CHECK(result.bytes == encode_baked_probes(result.volume, settings.texture_format));
+    return std::move(result.volume);
+}
+
+// Preserves uniform lighting, endpoints and per-probe metadata under reduction.
 void uniform_field() {
     auto fine = field();
     const auto original = fine.grid;
     const auto coarse = field(true);
     ProbeDensityReport report;
-    const auto reduced = simplify_probe_density(fine, coarse, receivers(), {true}, report);
+    const auto reduced = reduce_field(fine, {coarse, receivers()}, {true}, report);
     CHECK((reduced.grid.dimensions == std::array<unsigned, 3>({5, 5, 5})));
     CHECK(reduced.grid.spacing == Float3({2, 2, 2}));
     CHECK(report.original_probes == 729 && report.final_probes == 125);
@@ -59,13 +74,14 @@ void uniform_field() {
     // Kept probes retain their own offsets and unmodified directional maps/moments.
     fine.probes[2].offset = {.1f, 0, 0};
     fine.probes[2].relocated = true;
-    const auto copy = simplify_probe_density(fine, coarse, receivers(), {true}, report);
+    const auto copy = reduce_field(fine, {coarse, receivers()}, {true}, report);
     CHECK(copy.probes[1].offset == fine.probes[2].offset);
     CHECK(copy.probes[1].relocated);
     CHECK(copy.distance_moments[0] == fine.distance_moments[0]);
     CHECK(copy.irradiance[0] == fine.irradiance[0]);
 }
 
+// Rejects density changes that lose directional light or visibility boundaries.
 void retain_lighting_and_visibility_changes() {
     for (bool visibility : {false, true}) {
         auto fine = field();
@@ -87,21 +103,50 @@ void retain_lighting_and_visibility_changes() {
         }
 
         ProbeDensityReport report;
-        const auto reduced = simplify_probe_density(fine, field(true), receivers(), {true}, report);
+        const auto reduced = reduce_field(fine, {field(true), receivers()}, {true}, report);
         CHECK(reduced.grid.spacing[0] == 1);
         CHECK(report.rejected_axes >= 1);
     }
 }
 
+// Keeps unsupported or incompatible lattices at their original density.
 void retain_missing_evidence_and_odd_endpoints() {
     auto fine = field();
     ProbeDensityReport report;
-    CHECK(simplify_probe_density(fine, field(true), {}, {true}, report).probes.size() == 729);
-    CHECK(simplify_probe_density(fine, field(true), receivers(), {}, report).probes.size() == 729);
+    CHECK(reduce_field(fine, {field(true), {}}, {true}, report).probes.size() == 729);
+    CHECK(reduce_field(fine, {field(true), receivers()}, {}, report).probes.size() == 729);
     fine.grid.dimensions = {4, 4, 4};
     fine = ProbeVolume::allocate(fine.grid);
     const std::array<ProbeDensityReceiver, 1> points{{{{1, 1, 1}, {0, 0, 1}}}};
-    CHECK(simplify_probe_density(fine, field(true), points, {true}, report).probes.size() == 64);
+    CHECK(reduce_field(fine, {field(true), points}, {true}, report).probes.size() == 64);
+}
+
+// Density checks must use the shared compression workers without changing any reduction decisions.
+void compressed_density_workers() {
+    auto fine = field();
+    const auto coarse = field(true);
+    const auto points = receivers();
+    BakeThreadPool workers(3);  // Exercise a borrowed pool across multiple encoded candidates.
+    // A nonzero shape-dependent hash catches stale accepted-candidate headers without production helpers.
+    const auto identity = [](const ProbeGrid& grid) {
+        return std::uint64_t{1000} + grid.probe_count();
+    };
+    fine.grid.settings_hash = identity(fine.grid);
+
+    for (auto format : {ProbeTextureFormat::Bc6h, ProbeTextureFormat::Astc8x8}) {
+        ProbeDensitySettings settings{true};
+        settings.texture_format = format;
+        const auto serial = simplify_probe_density(fine, {coarse, points, {1}, identity}, settings);
+        const auto parallel =
+            simplify_probe_density(fine, {coarse, points, {0, &workers}, identity}, settings);
+        CHECK(serial.bytes == parallel.bytes);
+        CHECK(serial.bytes == encode_baked_probes(serial.volume, format));
+        CHECK(serial.reference_bytes == encode_baked_probes(fine, format));
+        CHECK(serial.volume.grid.settings_hash == identity(serial.volume.grid));
+        CHECK(serial.report.accepted_axes == parallel.report.accepted_axes);
+        CHECK(serial.report.rejected_axes == parallel.report.rejected_axes);
+        CHECK(serial.report.maximum_error == parallel.report.maximum_error);
+    }
 }
 
 void oriented_field_bins() {
@@ -125,6 +170,7 @@ int main() {
     uniform_field();
     retain_lighting_and_visibility_changes();
     retain_missing_evidence_and_odd_endpoints();
+    compressed_density_workers();
     oriented_field_bins();
     return openrac::test::result();
 }

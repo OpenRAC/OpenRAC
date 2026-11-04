@@ -506,7 +506,7 @@ def render(s: dict, keys: list[str]) -> str:
                 out.append(f"| `{a}` | `{b}` | " + " | ".join(
                     f"{p[c][1]:,} ({pct(p[c][1], f[c][1])})" for c in CLASSES) + f" | {total(p)[1]:,} |")
     out += ["", "### Changed a little\n",
-            f"Functions of the row version's resident programs (boot executable, frontend) that sit between the",
+            "Functions of the row version's resident programs (boot executable, frontend) that sit between the",
             f"same two unchanged functions in the column version and are at least {int(ALIKE * 100)}% alike there: count and",
             "bytes, on top of the tables above. Level code is not paired this way.\n",
             "| | " + " | ".join(f"`{k}`" for k in keys) + " |", "|---|" + "---:|" * len(keys)]

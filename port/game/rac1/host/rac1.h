@@ -31,12 +31,6 @@
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
 
-/* hand.c: the game's printf conversions from host arguments into `out` (at most size - 1
- * characters, terminated); the count written. */
-#include <stdarg.h>
-#include <stddef.h>
-int rac1_vformat(char *out, size_t size, const char *format, va_list args);
-
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
 
@@ -46,6 +40,11 @@ void rac1_options_frame(void);
 /* moby_pool.c: a WAD decompressed to `to` (hand.c's WadDecompress, after it wrote it): the gameplay
  * header's spare moby count raised while the level loader runs. */
 void rac1_wad_decompressed(gaddr to);
+
+/* scene_actors.c: hide the scene's missing actors during the flight update (pack), then
+ * restore the list (unpack). */
+void rac1_scene_actors_pack(void);
+void rac1_scene_actors_unpack(void);
 
 /* boot.c: the level programs ParseBin loaded since the start. */
 uint32_t rac1_program_loads(void);
@@ -65,6 +64,15 @@ extern const char* const rac1_level_names[];
 extern const openrac_game_play rac1_play;
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
+/* collision.c: the collision triangles in a box for the mods (interface 1.12, game_host.h's
+ * collision_triangles: openrac_collision_triangle records), read from the game's memory only. */
+int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, int max);
+/* A mod's camera (camera_override.c, openrac_api.camera_set): its eye and rows (forward, left, up),
+ * or NULL to let it go; and the camera the game made itself before the last view build. 1, or 0
+ * outside a level. */
+int rac1_camera_set(const float eye[3], const float rows[9]);
+int rac1_camera_view(float eye[3], float rows[9]);
+
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
  * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's
  * stand-in ended after the update, and the points besides the camera that keep mobys near them
@@ -73,6 +81,11 @@ int32_t rac1_moby_slot(gaddr moby);
 int rac1_moby_gate(gaddr moby, int phase);
 void rac1_stand_in_end(void);
 int rac1_moby_eyes(const float** xyz);
+int game_rac1_expanded_ram(void);
+void game_rac1_warn_moby_grid_full(void);
+gaddr rac1_expanded_grid_base(void);
+gaddr rac1_expanded_grid_cell(unsigned x, unsigned y, int* count);
+void game_rac1_update_expanded_moby_grid(gaddr moby, uint32_t next);
 /* world.c's calls of play.c's table (game_host.h, openrac_game_play: the same names without
  * rac1_world_). */
 int rac1_world_mobys(openrac_game_moby_state* out, int max);

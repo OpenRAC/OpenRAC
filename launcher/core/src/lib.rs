@@ -16,6 +16,7 @@
 //! - [`desktop`]: the Linux desktop's menu entries and icons for the launcher and the games.
 //! - [`install`]: setting a game up from the player's disc, OpenGOAL's way.
 //! - [`disc_choice`]: for developers with two discs of a game, which one is played.
+//! - [`controls`]: the player's controls files, global and per game, as the port reads them.
 //! - [`differences`]: what the port does otherwise than the PS2 game, and the fixes a player switches back.
 //! - [`jobs`]: running an action as a child process and streaming its output.
 //! - [`appimage`]: the environment an AppImage hands over, and what the launcher takes back.
@@ -23,6 +24,9 @@
 //! - [`window`]: the window's size on a screen too small for it.
 //! - [`overrides`]: a game's overrides packs (replacement textures and models): list, order, on/off.
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
+//! - [`index`]: the signed mod index (openrac-mods), fetched, checked and cached; [`resolver`]: what
+//!   installing mods from it takes; [`index_apply`]: doing it; [`deeplink`]: `openrac://` links;
+//!   [`mod_error`]: their errors, with the fix the page offers.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
 //! - [`editor_state`]: where a player is with the level editor: outdated projects, edits not packed, the last update's notes.
 //! - [`library`]: all of the above, put together for the UI.
@@ -38,6 +42,8 @@ pub mod appimage;
 pub mod catalog;
 pub mod chd;
 pub mod config;
+pub mod controls;
+pub mod deeplink;
 pub mod desktop;
 pub mod detect;
 pub mod differences;
@@ -47,23 +53,34 @@ pub mod discs;
 pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;
+pub mod index;
+pub mod index_apply;
 pub mod install;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;
+pub mod mod_error;
 pub mod mod_summary;
+pub mod mod_updates;
 pub mod multiplayer;
 pub mod overrides;
 pub mod pcsx2_card;
 pub mod plugins;
 pub mod port_build;
 pub mod progress_sync;
+pub mod rac2_flags;
 pub mod remote;
 pub mod reports;
 pub mod reset;
+pub mod resolver;
 pub mod save_edit;
+pub mod save_edit_rac2;
+pub mod save_edit_rac2_extra;
+pub mod save_transfer;
 pub mod saves;
 pub mod status;
+pub mod steam;
+pub mod texture_packs;
 pub mod theme;
 pub mod update;
 pub mod webkit;

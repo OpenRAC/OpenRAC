@@ -5,6 +5,7 @@
 #pragma once
 #include <functional>
 #include <span>
+#include <string_view>
 #include <volk.h>
 
 namespace openrac::vkgl {
@@ -16,6 +17,8 @@ struct NativeDevice {
     bool float16 = false;          // Enabled shaderFloat16 arithmetic; no implied 16-bit storage.
     bool int16 = false;            // Enabled shaderInt16 arithmetic (independent of float16).
     bool storage_formats = false;  // Extended storage formats and formatless writes are enabled.
+    bool subgroup_extended_types = false;  // Subgroup operations on 16-bit values are enabled.
+    bool fragment_stores = false;          // Fragment shaders may write storage images.
 };
 
 // An image's native identity, borrowed only for a synchronous compute callback.
@@ -45,10 +48,9 @@ struct NativeImageUse {
     unsigned texture, unsigned format, int width, int height
 );
 
-// Ends drawing, transitions the textures, then records the callback on the current graphics queue.
-// The callback restores each image to its requested layout before returning and retains no handles.
-[[nodiscard]] bool record_native_compute(
-    std::span<const NativeImageUse> textures,
-    const std::function<bool(VkCommandBuffer, std::span<const NativeImage>)>& record
-);
+// Applies one immutable per-context compute colour transform in place to single-level RGBA8 storage.
+// Bindings zero/one sample/store the same image; push constants hold one float, workgroups are 8x8.
+// Different shader source or unsupported targets return false without modifying their pixels.
+[[nodiscard]] bool transform_colour(unsigned texture, std::string_view source, float parameter);
+
 }  // namespace openrac::vkgl

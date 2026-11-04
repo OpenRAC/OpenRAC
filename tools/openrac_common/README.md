@@ -1,30 +1,26 @@
 # openrac_common
 
-The helpers OpenRAC's Python tools share: finding the repository, reading a game's manifest and the
-tab-separated tables, hashing a file, placing files, running a program and reading a disc image.
-Before it, each of these was written several times over in `tools/`, `port/tools/`, `sdk/tools/`
-and `editor/` (five readers of `game.json`, nine of `libraries.tsv`, four of a disc image), each
-copy with its own small differences. Each helper here is written from the best existing copy, keeps
-the quirks every caller relies on, and names its sources in its module docstring.
+The helpers OpenRAC's Python tools share: finding the repository, reading a game's manifest and
+the `.tsv` tables, hashing a file, placing files, running a program and reading a disc image. Each
+used to be written several times over, with small differences; each helper here keeps the quirks
+its callers rely on and names its sources in its docstring.
 
-It is not a framework and not a place for one tool's logic: a helper belongs here when at least two
-tools need it. It holds no game knowledge beyond the layout of `games/<game>/game.json` and the
-format of a PS2 disc, and no game data.
+A helper belongs here when at least two tools need it. No game knowledge beyond the layout of
+`games/<game>/game.json` and the PS2 disc format, and no game data.
 
-The tools in `tools/` use it since P1-05, `port/tools` (hostgen, versionmap, regress) and the probe
-tools since P2-10; `editor/` and `sdk/tools/` move onto it in their own packages
-([PROGRESS.md](../../docs/restructure/PROGRESS.md)). Who uses what today:
+Used by `tools/`, `port/tools` (hostgen, versionmap, regress), the probe tools, `editor/` and
+`sdk/tools/`:
 
 | Module | Used by |
 |---|---|
-| `paths` | every tool in `tools/` that knows the repository: `openrac`, `extractor`, `sources`, `shared`, `xmap`, `versions`, `port`, `permuter`, `build_port`, `build_android`, `bundle_standalone`, `fcheck_gate`; `port/tools`: hostgen's `retail` and `priority`, versionmap's `versionmap`, `carry_functions` and `hostnames`, regress's `runner`; the probe tools' `seed_regions` and `moby_seeds` |
-| `games` | `openrac`, `extractor`, `sources`, `xmap`, `permuter` (`source_checkout`); `fcheck_gate` (`source_checkout`); `versionmap` |
+| `paths` | every tool in `tools/` that knows the repository: `openrac`, `extractor`, `sources`, `shared`, `xmap`, `versions`, `port`, `permuter`, `build_port`, `build_android`, `bundle_standalone`, `fcheck_gate`; hostgen's `retail` and `priority`, versionmap's `versionmap`, `carry_functions` and `hostnames`, regress's `runner`; the probe tools' `seed_regions` and `moby_seeds`; `sdk/tools/catalogue.py` |
+| `games` | `openrac`, `extractor`, `sources`, `xmap`, `permuter` (`source_checkout`); `fcheck_gate` (`source_checkout`); `versionmap`; the editor's `games` and `util` |
 | `tables` | `fcheck_gate`, `port`, `xmap`, `versions`, `permuter`; hostgen's `hostgen` and `no_c`, versionmap's `carry_functions` |
-| `digest` | `openrac`, `extractor`, `shared`, `build_port`, `build_android`, `fcheck_gate`; the probe tools' `bake_all` and `seed_regions` |
-| `files` | `openrac` (`place_link`), `extractor`, `bundle_standalone`; the editor's asset exports, mod packs and level publication; probe planning and bake publication |
+| `digest` | `openrac`, `extractor`, `shared`, `build_port`, `build_android`, `fcheck_gate`; the probe tools' `bake_all` and `seed_regions`; the editor's `assets` and `overrides` |
+| `files` | `openrac` (`place_link`), `extractor`, `bundle_standalone`; the editor's asset exports, audio, mod packs and level publication; probe planning and bake publication |
 | `proc` | every `git` call in `tools/` (`permuter` fetching decomp-permuter included); `build_android`'s and `bundle_standalone`'s commands |
-| `iso9660` | `openrac`, `extractor` |
-| `background` | `build_port` (below-normal priority, Ninja's job count); the probe tools' `bake_all` (priority, the threads its levels share) |
+| `iso9660` | `openrac`, `extractor`; the editor's `disc` and `wads` (which keep their own stricter checks) |
+| `background` | `build_port` (below-normal priority, Ninja's job count); the probe tools' `bake_all`; the editor's `extract` |
 
 Two places in `tools/` keep their own code on purpose. `fcheck_level_build.py` runs copied alone
 inside rac1-decomp's container, from rac1-decomp's root, where neither OpenRAC nor this package is.
@@ -108,8 +104,8 @@ The rule, decided in P2-10:
   before the installed packages, so a module of `tools/` (`tools/mips.py`, which
   `port/tools/versionmap` imports) is not shadowed by an installed one.
 
-`port/tools/hostgen`, `versionmap`, `regress` and `port/enhanced/tools/probes` use it (P2-10); `editor/` and `sdk/tools/` move onto it with their own
-packages.
+`port/tools/hostgen`, `versionmap`, `regress`, `port/enhanced/tools/baker`, `editor/` and
+`sdk/tools/` use it this way.
 
 ## Depends on
 
@@ -146,14 +142,12 @@ Synthetic data only: the disc images are built by the test (a small ISO 9660 wit
 directories and a root directory longer than one sector), never read from a disc. Two kinds of test:
 
 - each helper's own behaviour, with expected values from the format (ECMA-119) or from `hashlib`;
-- characterisation: the existing copy each helper was written from runs on the same input, and both
-  must agree. The copies in `tools/` are gone (P1-05), and those in `port/tools` and the probe
-  tools (P2-10), and their comparisons with them; those left are `tools/openrac.py`'s `checksums`
-  and `fcheck_gate.py`'s `fcheck_commit` (which use the package's results),
-  `sdk/tools/gen_binding.py` and `editor/disc.py`. hostgen's readers keep their characterisation
-  in `port/tools/hostgen/test_tables.py`, with the values the old readers gave written out. This
-  checkout's own `port/game/*/libraries.tsv` are read too, for their headers. When a copy is
-  removed by the package that moves its callers, its comparison goes with it.
+- characterisation: where an older copy of a helper is left, both must agree on the same input.
+  Those left are `tools/openrac.py`'s `checksums`, `fcheck_gate.py`'s `fcheck_commit` and
+  `sdk/tools/gen_binding.py`. hostgen's readers keep theirs in `port/tools/hostgen/test_tables.py`,
+  and the editor's stricter disc checks are tested in `editor/test_disc.py`. This checkout's own
+  `port/game/*/libraries.tsv` are read too, for their headers. When a copy goes, its comparison
+  goes with it.
 - the bootstrap: `paths.BOOTSTRAP` run from a script in a synthetic checkout and in a synthetic
   bundled copy (no `CONTRIBUTING.md`), and every script outside `tools/` that imports the package
   checked for the line.
@@ -165,5 +159,4 @@ The tools that use the package have their own tests beside it (`test_openrac.py`
 ## Further reading
 
 - [docs/LAYOUT.md](../../docs/LAYOUT.md): where a tool goes.
-- [docs/restructure/PROGRESS.md](../../docs/restructure/PROGRESS.md): which tools have moved onto it.
 - ECMA-119 (ISO 9660), the format `iso9660` reads.

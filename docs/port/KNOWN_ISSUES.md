@@ -33,6 +33,16 @@ because the pool is full, it skips that actor and logs "scene actor
 skipped". The scene plays without that copy. This is a documented divergence
 from the console.
 
+**The ship's landing (2026-10-31):** a player crash on 0.10.0 (NTSC,
+Windows) on Blarg Station (level 6), game mode 6, "read at game address
+0xC04851D7". The difficulty mod's extra enemies filled the 255 slots, so the
+landing's actors (classes 0, 10, 531) were skipped as above. The flight
+update (FlightUpdate, PAL `func_00230A90`, US `FUN_0022f778`) moves every
+actor each frame without a null check, so it read garbage and crashed. Now
+the empty slots are hidden while that update runs and restored after it
+(rac1/host/scene_actors.c, the wrap in boot.c). The landing plays without the
+missing actors.
+
 **The bigger pool (2026-10-22):** `port/game/rac1/host/moby_pool.c`, on both
 discs. The pool size is data, not a fixed array:
 
@@ -63,20 +73,28 @@ discs. The pool size is data, not a fixed array:
     287 KiB, Gemlik 278 KiB, Veldin (final) 357 KiB and the other levels more,
     but Rilgar (5), Blarg Station (6) and Quartu (15) end within 0 to 65 KiB
     of the top. **Those three keep the disc's 255.**
-  - **The moby grid** (1536 blocks of 16 ids, game_moby_grid.c): only mobys
-    with collision enter it, and lava sparks (class 417) have none. Retail
-    levels use about 31 to 276 blocks, and blocks are per occupied cell, so
-    spawned colliders near the player cost little. Not raised. The per-cell
-    count is the tighter limit: a signed byte to the collision queries, so a
-    cell with 128 or more colliding mobys drops out of collision, and it wraps
-    at 256 (Kalebo III's densest cell holds about 117). Open, in docs/TODO.md.
-  - **The target list** (0x70000800, 512 entries, copied to the pointer
+  - **The moby grid.** Vanilla retains the retail grid (1,536 blocks and a
+    signed-byte per-cell count). Expanded mode uses a separate 64×64 grid with
+    32-bit counts and a 16 MiB pool of 32-byte blocks. If an insertion cannot
+    allocate room, the moby retains its previous rectangle and OpenRAC warns.
+    Both PAL and NTSC-U builds contain the expanded path; dense-cell gameplay
+    and allocator-exhaustion runtime proof remain outstanding (docs/TODO.md).
+  - **The target list** (0x70000800, 512 entries in the retail table, copied to the pointer
     table D_001C7C80, 512 words with its NULL): build_resident_visibility_list
     (`func_0020E6B8`) bounds neither; past 511 it writes into the next table
     and the scratchpad's group flags. Sparks don't count (no mode 0x1000), but
     placed mobys with it reach 803 on Rilgar and spawned enemies add to them.
-    **The port's copy of the builder (moby_pool.c) stops the list at 511** and
-    logs "moby target list full" once; the rest still run.
+    In expanded mode the port uses a separate 32,768-entry pointer table;
+    vanilla uses its original 511-target table. The remaining 15-bit moby
+    index range bounds expanded entries.
+  - **Static collision cells.** Godot can now write an `RLCX` extended leaf for a cell that
+    outgrows the retail 255-vertex / 4,080-byte form. The packer forces the level-data stream
+    through virtual sectors so the game selects expanded RAM. The PAL/NTSC-U code builds, but
+    a dense-cell or large-world level has not yet been run in the game. Query scratch grows
+    dynamically within signed 32-bit indices and available memory. RLCI carries 32-bit leaf
+    offsets for up to 0xFFFFFF leaves, RLCT extends root-to-slab offsets, and marked static
+    collision queries reach positive coordinates below 131,072 units. Vanilla remains on its
+    1,024-unit bounds and direct offsets.
   - **The renderer** draws from vectors; the only fixed cap is the port's
     4096-moby guard in render_native.c's mark_drawn_mobys. The game's own VU1
     packet buffers belong to the console renderer, which the port stubs.

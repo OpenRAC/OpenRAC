@@ -1,12 +1,16 @@
 /* Starts at 0x00303430 (was vendor_00303430.c). */
-/* Level 14 code: func_L14_00303430 in a file of its own, built with -fno-sched-spec
+/* Level 14 code: draw_vendor_beam in a file of its own, built with -fno-sched-spec
  * (config/file_cflags.txt). The functions of vendor_002B2A28.c do not build
- * with it (func_L14_00300130 changes), so it was another object in retail
- * (docs/BUILD_FIDELITY.md, rule 2). */
+ * with it (emit_moby_offset_particles changes), so it was another object in retail
+ * (docs/reference/BUILD_FIDELITY.md, rule 2). */
 #include "common.h"
-#include "moby.h"
+#include "structs/moby.h"
+#include "data/level_14.h"
+#include "asm_functions/executable.h"
+#include "game/math/fastfunc.h"
+#include "asm_functions/shared_levels.h"
 
-typedef struct Pkt_03430 {
+typedef struct Pkt {
     float corner[4][4];
     unsigned int color[4];
     float uv[4][2];
@@ -14,28 +18,21 @@ typedef struct Pkt_03430 {
     long tex;
     long state;
     long flags;
-} Pkt_03430;
+} Pkt;
 
-extern void euler_to_matrix(void *, void *);
-extern void matrix_from_basis_rows(void *, void *);
-extern void FastVecSub(void *, void *, void *);
-extern void FastVecAdd(void *, void *, void *);
-extern void matrix_mul_vec3(void *, void *, void *);
-extern void FastVecCross(void *, void *, void *);
-extern void clear_u64_value(void *);
-extern void vec_scale_to_length(void *, void *, float);
-extern float IntToFloat(int);
-u64 GetEffectTex(s32);
-extern void draw_world_quad(void *, void *, int);
-typedef struct { float v[8][4]; } Frame_03430;
+u64 GetEffectTex_v(s32) __asm__("func_001F4868");
+
+typedef struct {
+    float v[8][4];
+} Frame;
 extern char *oltanis_clip_volumes MACRO_ADDR;
-extern char oltanis_camera_pos[];
+
 extern float oltanis_vendor_beam_quad_uvs[][2];
-extern short oltanis_vendor_beam_tex_index;
-extern short vendor_beam_blend_minuend_selector_gp;
-extern short vendor_beam_blend_subtrahend_selector_gp;
-extern short vendor_beam_blend_alpha_factor_selector_gp;
-extern short vendor_beam_blend_addend_selector_gp;
+extern int oltanis_vendor_beam_tex_index SDATA(oltanis_vendor_beam_tex_index);
+extern int vendor_beam_blend_minuend_selector_gp SDATA(vendor_beam_blend_minuend_selector_gp);
+extern int vendor_beam_blend_subtrahend_selector_gp SDATA(vendor_beam_blend_subtrahend_selector_gp);
+extern int vendor_beam_blend_alpha_factor_selector_gp SDATA(vendor_beam_blend_alpha_factor_selector_gp);
+extern int vendor_beam_blend_addend_selector_gp SDATA(vendor_beam_blend_addend_selector_gp);
 
 typedef struct {
     int idx;
@@ -50,7 +47,7 @@ typedef struct {
 /* Draws the vendor's beam effect. */
 void draw_vendor_beam(char *m) {
     D_03430 *d = ((D_03430 *)((Moby *)m)->pvars);
-    Pkt_03430 P[3];
+    Pkt P[3];
     float M1[16] __attribute__((aligned(16)));
     float M2[16] __attribute__((aligned(16)));
     float v230[4] __attribute__((aligned(16)));
@@ -64,14 +61,15 @@ void draw_vendor_beam(char *m) {
     int c;
     int t;
 
-    euler_to_matrix(M1, ((Frame_03430 *)oltanis_clip_volumes)[d->idx].v[7]);
+    euler_to_matrix(M1, ((Frame *)oltanis_clip_volumes)[d->idx].v[7]);
     matrix_from_basis_rows(M2, M1);
-    qcopy_nc(&M1[12], ((Frame_03430 *)oltanis_clip_volumes)[d->idx].v[3]);
-    FastVecSub(v230, oltanis_camera_pos, ((Frame_03430 *)oltanis_clip_volumes)[d->idx].v[3]);
+    qcopy_nc(&M1[12], ((Frame *)oltanis_clip_volumes)[d->idx].v[3]);
+    FastVecSub(v230, oltanis_camera_pos, ((Frame *)oltanis_clip_volumes)[d->idx].v[3]);
     matrix_mul_vec3(v230, v230, M2);
-    tex = GetEffectTex(*(int *)&oltanis_vendor_beam_tex_index);
-    flags = (long)*(int *)&vendor_beam_blend_minuend_selector_gp | ((long)*(int *)&vendor_beam_blend_subtrahend_selector_gp << 2) | ((long)*(int *)&vendor_beam_blend_alpha_factor_selector_gp << 4)
-            | ((long)*(int *)&vendor_beam_blend_addend_selector_gp << 6) | (0x8000L << 24);
+    tex = GetEffectTex_v(oltanis_vendor_beam_tex_index);
+    flags = (long)vendor_beam_blend_minuend_selector_gp | ((long)vendor_beam_blend_subtrahend_selector_gp << 2) |
+            ((long)vendor_beam_blend_alpha_factor_selector_gp << 4) |
+            ((long)vendor_beam_blend_addend_selector_gp << 6) | (0x8000L << 24);
     P[2].state = 0xFF9000000260L;
     P[1].state = 0xFF9000000260L;
     P[0].state = 0xFF9000000260L;
@@ -111,12 +109,16 @@ void draw_vendor_beam(char *m) {
             for (k = 0; k < 4; k++) {
                 if (k < 2) {
                     qcopy(P[0].corner[k], d->pts[i]);
-                    if (k & 1) FastVecAdd(P[0].corner[k], P[0].corner[k], v240);
-                    else FastVecSub(P[0].corner[k], P[0].corner[k], v240);
+                    if (k & 1)
+                        FastVecAdd(P[0].corner[k], P[0].corner[k], v240);
+                    else
+                        FastVecSub(P[0].corner[k], P[0].corner[k], v240);
                 } else {
                     qcopy(P[0].corner[k], d->pts[i + 1]);
-                    if (k & 1) FastVecAdd(P[0].corner[k], P[0].corner[k], v250);
-                    else FastVecSub(P[0].corner[k], P[0].corner[k], v250);
+                    if (k & 1)
+                        FastVecAdd(P[0].corner[k], P[0].corner[k], v250);
+                    else
+                        FastVecSub(P[0].corner[k], P[0].corner[k], v250);
                 }
                 P[0].uv[k][0] = oltanis_vendor_beam_quad_uvs[k][0] + IntToFloat(i - i / 4 * 4) * 0.25f;
             }
@@ -126,8 +128,10 @@ void draw_vendor_beam(char *m) {
     for (j = 0; j < 4; j++) {
         clear_u64_value(v250);
         c = d->cnt[j];
-        if (c >= 0x1F) continue;
-        if (c <= -1) continue;
+        if (c >= 0x1F)
+            continue;
+        if (c <= -1)
+            continue;
         for (n = 0; n < 3; n++) {
             qcopy(v240, v250);
             if (n < 2) {
@@ -138,16 +142,21 @@ void draw_vendor_beam(char *m) {
             } else {
                 clear_u64_value(v250);
             }
-            if (n == 0) qcopy(v240, v250);
+            if (n == 0)
+                qcopy(v240, v250);
             for (k = 0; k < 4; k++) {
                 if (k < 2) {
                     qcopy(P[0].corner[k], d->seg[n][j]);
-                    if (k & 1) FastVecAdd(P[0].corner[k], P[0].corner[k], v240);
-                    else FastVecSub(P[0].corner[k], P[0].corner[k], v240);
+                    if (k & 1)
+                        FastVecAdd(P[0].corner[k], P[0].corner[k], v240);
+                    else
+                        FastVecSub(P[0].corner[k], P[0].corner[k], v240);
                 } else {
                     qcopy(P[0].corner[k], d->seg[n + 1][j]);
-                    if (k & 1) FastVecAdd(P[0].corner[k], P[0].corner[k], v250);
-                    else FastVecSub(P[0].corner[k], P[0].corner[k], v250);
+                    if (k & 1)
+                        FastVecAdd(P[0].corner[k], P[0].corner[k], v250);
+                    else
+                        FastVecSub(P[0].corner[k], P[0].corner[k], v250);
                 }
                 P[0].uv[k][0] = oltanis_vendor_beam_quad_uvs[k][0] + IntToFloat(n - n / 4 * 4) * 0.25f;
             }

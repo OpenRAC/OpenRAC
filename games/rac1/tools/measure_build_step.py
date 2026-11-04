@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-How many matches depend on a build step (docs/BUILD_FIDELITY.md, rule 4).
+How many matches depend on a build step (docs/reference/BUILD_FIDELITY.md, rule 4).
 
   bash tools/docker/run.sh python tools/measure_build_step.py STEP [STEP ...]
 
@@ -44,9 +44,11 @@ from pathlib import Path
 sys.path.insert(0, "tools")
 import gen_progress_report as gpr
 import try_func
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import names_header  # noqa: E402
 
 ALIAS = {m.group(1): m.group(2) for m in re.finditer(r"^#define\s+(\w+)\s+(func_[0-9A-F]{8})\b",
-         Path("include/names.h").read_text(), re.M)}
+         names_header.read("include/names.h"), re.M)}
 DEF_ANY = re.compile(r"^(?!extern\b|static\b|typedef\b|#)[A-Za-z_][\w \t\*]*?\b(\w+)\s*\([^;]*$", re.M)
 
 def exe_file(job):

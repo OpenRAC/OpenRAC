@@ -33,6 +33,18 @@
 namespace openrac::scene {
 
 /**
+ * Where a moby's animation fields start: the frames here, the keys at +0x18, as above. The game's
+ * profile says it once, before any pose is asked for; 0x50 until then, Ratchet & Clank's.
+ */
+void set_moby_anim_fields(std::uint32_t first);
+
+/**
+ * Whether the game's pose layers keep records instead of keys (rac1::PoseRecord); Going Commando's
+ * do. Said once, as above.
+ */
+void set_moby_layer_records(bool records);
+
+/**
  * The joint palette of the moby at `moby` (a game address): one matrix per joint of the class's
  * high LOD, F_j = P_j S_j in packed model units (rows: the images of the axes, then the
  * translation). Empty when the moby has no class, no joints or no readable key: draw it as stored.
@@ -49,5 +61,18 @@ std::vector<assets::rac1::JointMatrix> moby_palette(
 std::vector<assets::rac1::JointMatrix> moby_pose_matrices(
     std::span<const std::uint8_t> ram, std::uint32_t moby
 );
+
+/**
+ * Joint modifiers of the port's own for one moby (a mod's, openrac_api.hero_set_joints), applied
+ * after the moby's own list wherever its pose is evaluated (drawing, shadows, attachments).
+ * Replaces the last set; an empty list or moby 0 clears it. Safe from any thread.
+ */
+void set_extra_joint_modifiers(std::uint32_t moby, std::vector<assets::rac1::JointModifier> mods);
+
+/**
+ * The port's own joint modifiers of the moby at `moby` (set_extra_joint_modifiers): empty for any
+ * other moby or when none are set. Safe from any thread.
+ */
+std::vector<assets::rac1::JointModifier> extra_joint_modifiers(std::uint32_t moby);
 
 }  // namespace openrac::scene

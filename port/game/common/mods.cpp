@@ -27,10 +27,14 @@
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mod_scripts.h"
+#include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
 #include "openrac/openrac_mod.h"
 namespace fs = std::filesystem;
+
+/* The mods loaded for this run, for lib/mc.c's save mark (game_host.h): set by load() below. */
+extern "C" const char* openrac_game_loaded_mods = "[]";
 using namespace openrac;
 
 // One loaded mod: the handle openrac_mod.h's functions are given.
@@ -47,6 +51,8 @@ struct openrac_mod {
     bool hook_refused = false;
     std::vector<std::pair<void**, void*>> taken;  // each slot it filled, and what was there before
     std::vector<std::string> hooks;               // the hook points it took
+    std::string data_dir;                         // data_dir's answer, once made (1.11)
+    fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
     openrac_mod_unload_fn unload = nullptr;
 };
 
@@ -141,6 +147,7 @@ const char* hook_id(const Host& host, const char* name) {
 }
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
 std::vector<std::unique_ptr<openrac_mod>> g_loaded;
+std::vector<fs::path> g_asset_roots;  // the loaded mods' assets folders, the last loaded first
 std::vector<FrameCallback> g_frames;
 std::vector<PadCallback> g_pads;
 std::vector<MenuCallback> g_menus;
@@ -465,8 +472,8 @@ int api_developer_menu(
     if (title == nullptr || title[0] == '\0' || (count != 0 && items == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    constexpr std::array<const char*, 4> built_in_titles =
-        {"View", "Graphics", "Sound", "Developer"};
+    constexpr std::array<const char*, 5> built_in_titles =
+        {"Game", "View", "Graphics", "Sound", "Developer"};
     if (std::find(built_in_titles.begin(), built_in_titles.end(), std::string_view(title))
         != built_in_titles.end()) {
         return OPENRAC_HOOK_TAKEN;
@@ -531,6 +538,27 @@ std::uint32_t api_take_developer_menu_action(openrac_mod* mod) {
     const std::uint32_t action = menu->actions.front();
     menu->actions.pop_front();
     return action;
+}
+
+// The mod's own folder (1.11): <mod data>/<its id>, made on the first ask. An id that is not a plain
+// name (a separator, "." or "..") has none.
+const char* api_data_dir(openrac_mod* mod) {
+    if (mod == nullptr || g_host == nullptr || g_host->mod_data.empty() || mod->id.empty()
+        || mod->id == "." || mod->id == ".."
+        || mod->id.find_first_of("/\\:") != std::string::npos) {
+        return nullptr;
+    }
+    if (mod->data_dir.empty()) {
+        const std::filesystem::path dir = g_host->mod_data / mod->id;
+        std::error_code e;
+        std::filesystem::create_directories(dir, e);
+        if (e || !std::filesystem::is_directory(dir, e)) {
+            return nullptr;
+        }
+        const std::u8string path = dir.u8string();
+        mod->data_dir.assign(path.begin(), path.end());
+    }
+    return mod->data_dir.c_str();
 }
 
 int api_developer_menu_set_label(openrac_mod* mod, std::uint32_t action, const char* label) {
@@ -951,6 +979,7 @@ void fill_api(const Host& host) {
     g_api.developer_menu = api_developer_menu;
     g_api.take_developer_menu_action = api_take_developer_menu_action;
     g_api.developer_menu_set_label = api_developer_menu_set_label;
+    g_api.data_dir = api_data_dir;
     g_api.savestate_size = snapshot_size;
     g_api.savestate_save = snapshot_save;
     g_api.savestate_load = snapshot_load;
@@ -963,6 +992,7 @@ void fill_api(const Host& host) {
     g_api.ui_sound = api_ui_sound;
     g_api.ui_pause_item = api_ui_pause_item;
     fill_play_api(g_api, host.play, host.cards);
+    fill_motion_api(g_api, host);
 }
 
 // ---- status.json ----
@@ -1001,6 +1031,23 @@ struct Outcome {
     std::string reason;
     std::vector<std::string> hooks;
 };
+
+/* The loaded mods as the JSON array lib/mc.c writes beside each save, so a save says what it was
+ * played with (openrac_game_loaded_mods, game_host.h). Built once, after loading, and kept for the
+ * run: the save path reads the pointer and never builds anything. */
+std::string g_loaded_mods_json = "[]";
+
+void set_loaded_mods_json() {
+    std::ostringstream o;
+    o << "[";
+    for (std::size_t i = 0; i < g_loaded.size(); ++i) {
+        o << (i == 0 ? "" : ", ") << "{\"id\": " << quoted(g_loaded[i]->id)
+          << ", \"version\": " << quoted(g_loaded[i]->version) << "}";
+    }
+    o << "]";
+    g_loaded_mods_json = o.str();
+    openrac_game_loaded_mods = g_loaded_mods_json.c_str();
+}
 
 void write_status(const Host& host, const std::vector<Outcome>& outcomes) {
     const fs::path folder = host.list.parent_path();
@@ -1123,6 +1170,7 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
               std::string& reason) {
     auto mod = std::make_unique<openrac_mod>();
     mod->id = c.manifest.id;
+    mod->dir = folder / c.manifest.id;
     mod->version = c.manifest.version_text;
     mod->manifest = c.manifest;
     std::vector<std::string> notes;
@@ -1213,6 +1261,10 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
 
 }  // namespace
 
+const std::vector<fs::path>& asset_roots() {
+    return g_asset_roots;
+}
+
 std::string load(const Host& host) {
     if (host.purist) {
         log::info("mods: purist mode (--no-mods), none loaded");
@@ -1294,6 +1346,17 @@ std::string load(const Host& host) {
                                   return s;
                               }());
                     g_loaded.push_back(std::move(mod));
+                    // Its assets (MODS.md, section 3): searched before the levels' own files.
+                    if (!c.manifest.assets.empty()) {
+                        std::error_code e;
+                        const fs::path assets = folder / c.manifest.id / fs::path(c.manifest.assets);
+                        if (fs::is_directory(assets, e)) {
+                            g_asset_roots.insert(g_asset_roots.begin(), assets);
+                        } else {
+                            log::warn("mod {}: its assets folder {} is missing", c.manifest.id,
+                                      c.manifest.assets);
+                        }
+                    }
                 }
             }
         }
@@ -1322,6 +1385,7 @@ std::string load(const Host& host) {
         g_images.push_back({m->id.c_str(), m->version.c_str(), m->file.c_str(), m->base});
     }
     crash::set_mods(g_images.data(), static_cast<int>(g_images.size()));
+    set_loaded_mods_json();
     std::string line;
     for (const auto& m : g_loaded) {
         line += (line.empty() ? "" : ", ") + m->id + " " + m->version;
@@ -1528,6 +1592,25 @@ const char* mod_id(const openrac_mod* mod) {
     return mod != nullptr ? mod->id.c_str() : "a mod";
 }
 
+bool holds_hook(const openrac_mod* mod, const char* name) {
+    if (mod == nullptr || name == nullptr) {
+        return false;
+    }
+    const char* id = g_host != nullptr ? hook_id(*g_host, name) : name;
+    return std::any_of(mod->hooks.begin(), mod->hooks.end(), [&](const std::string& h) {
+        return h == id;
+    });
+}
+
+fs::path mod_file(const openrac_mod* mod, const char* path) {
+    if (mod == nullptr || path == nullptr || mod->dir.empty() || !folder_path(path)) {
+        return {};
+    }
+    const fs::path file = mod->dir / fs::path(std::u8string(path, path + std::strlen(path)));
+    std::error_code e;
+    return fs::is_regular_file(file, e) ? file : fs::path();
+}
+
 void reset() {
     unload();
     for (auto it = g_loaded.rbegin(); it != g_loaded.rend(); ++it) {
@@ -1539,6 +1622,7 @@ void reset() {
     scripts::reset();
     g_outcomes.clear();
     g_loaded.clear();
+    g_asset_roots.clear();
     g_frames.clear();
     g_pads.clear();
     g_menus.clear();

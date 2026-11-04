@@ -4,12 +4,12 @@
   // note. File names, sizes and the card's folder name are a contributor's details: a chip and
   // tooltips with developer tools on.
   import Icon from "$components/Icon.svelte";
-  import { api, ask, type GameSaveStatus, type SaveBackupInfo, type VersionView } from "$lib/api";
+  import { api, ask, pickSavesFile, type GameSaveStatus, type SaveBackupInfo, type VersionView } from "$lib/api";
   import { app, toast } from "$lib/app.svelte";
   import { grouped, size } from "$lib/format";
   import { when } from "$lib/reports";
   import { isPlaying } from "$lib/player.svelte";
-  import { backupLabel, emptySlots, stampSeconds } from "$lib/saves";
+  import { backupLabel, emptySlots, savedWithMods, stampSeconds } from "$lib/saves";
   import { fold } from "$lib/motion";
   import { tick } from "svelte";
   import { slide } from "svelte/transition";
@@ -31,6 +31,8 @@
   /** "Back up now" asks for an optional name first, in the backups' own space. */
   let naming = $state(false);
   let noteInput = $state<HTMLInputElement | null>(null);
+  /** Export or Import (SaveTransfer.svelte), while its dialog is open. */
+  let transfer = $state<{ mode: "export" | "import"; source: string | null } | null>(null);
 
   const used = $derived(status?.slots.filter((s) => !s.isEmpty) ?? []);
   const empty = $derived(emptySlots(status?.slots.filter((s) => s.isEmpty).map((s) => s.slotIndex + 1) ?? []));
@@ -97,6 +99,15 @@
     }
   }
 
+  /** Import: the file first, then the dialog reads it and shows what is in it. */
+  async function startImport() {
+    const source = await pickSavesFile("Choose an OpenRAC saves file").catch((e: unknown) => {
+      toast(`Could not open the file: ${String(e)}`, "error");
+      return null;
+    });
+    if (source) transfer = { mode: "import", source };
+  }
+
   async function openFolder() {
     try {
       await api.openSavesFolder(version.serial);
@@ -106,14 +117,14 @@
   }
 
   $effect(() => {
-    // Again whenever saves were brought onto the card from elsewhere (app.savesChanged: an import).
+    // Again whenever the card changed elsewhere (app.savesChanged: an import, the game ending).
     if (app.savesChanged >= 0) void loadStatus();
   });
 </script>
 
 {#if editing !== null}
   <!-- The save editor loads the first time a slot is edited. -->
-  {#await import("$components/SaveEditor.svelte") then { default: SaveEditor }}
+  {#await version.serial === "SCUS_972.68" ? import("$components/SaveEditorRac2.svelte") : import("$components/SaveEditor.svelte") then { default: SaveEditor }}
     <SaveEditor
       serial={version.serial}
       slot={editing}
@@ -126,16 +137,41 @@
   {/await}
 {/if}
 
+{#if transfer}
+  {#await import("$components/SaveTransfer.svelte") then { default: SaveTransfer }}
+    <SaveTransfer
+      serial={version.serial}
+      mode={transfer.mode}
+      source={transfer.source}
+      {used}
+      onclose={(changedCard) => {
+        transfer = null;
+        if (changedCard) void loadStatus();
+      }}
+    />
+  {/await}
+{/if}
+
 <section class="panel saves" aria-label="Saves">
   <div class="row top">
-    <h2 class="grow">Saves</h2>
+    <h2>Saves</h2>
     {#if developer && status?.exists}
-      <span class="chip mono" title="The memory card's folder">{status.gameFolderName ?? version.serial}</span>
-      <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
-        {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
-      </button>
+      <span class="chip mono folder" title="The memory card's folder">{status.gameFolderName ?? version.serial}</span>
     {/if}
-    <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+    <div class="actions">
+      {#if developer && status?.exists}
+        <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
+          {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
+        </button>
+      {/if}
+      {#if used.length}
+        <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
+          ><Icon name="upload" size={14} />Export</button
+        >
+      {/if}
+      <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
+      <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+    </div>
   </div>
 
   {#if loading && !status}
@@ -155,6 +191,13 @@
             <span class="when" title={developer ? (slot.timestamp ?? undefined) : undefined}
               >{saved(slot.timestamp)}</span
             >
+            {#if slot.mods?.length}
+              <!-- Written while mods were loaded (the mark beside the save: port/game/common/lib/mc.c).
+                   The names are in the tooltip; the row stays one line. -->
+              <span class="modded" title={savedWithMods(slot.mods)}>Mods</span>
+            {:else}
+              <span></span>
+            {/if}
             {#if slot.editable}
               <button class="small edit" onclick={() => (editing = slot.slotIndex)}
                 ><Icon name="edit" size={14} />Edit</button
@@ -247,8 +290,73 @@
     gap: 12px;
   }
 
+  .saves {
+    container-type: inline-size;
+  }
+
+  /* The title keeps its width; the card's folder shortens; the buttons wrap under it when the
+     panel is narrow. */
   .top {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+  }
+
+  .top h2 {
+    flex: none;
+    margin: 0;
+  }
+
+  .folder {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .actions {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 6px;
+  }
+
+  /* A narrow panel: a slot's planet and Edit on the first line, its bolts, time and mods under. */
+  @container (max-width: 520px) {
+    .slots li {
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      grid-template-areas:
+        "slot planet edit"
+        ". bolts bolts"
+        ". when mods";
+      row-gap: 4px;
+    }
+
+    .slots li > :nth-child(1) {
+      grid-area: slot;
+    }
+
+    .slots li > :nth-child(2) {
+      grid-area: planet;
+    }
+
+    .slots li > :nth-child(3) {
+      grid-area: bolts;
+    }
+
+    .slots li > :nth-child(4) {
+      grid-area: when;
+    }
+
+    .slots li > :nth-child(5) {
+      grid-area: mods;
+      justify-self: end;
+    }
+
+    .slots li > :nth-child(6) {
+      grid-area: edit;
+    }
   }
 
   ul {
@@ -260,7 +368,7 @@
   /* One used slot per row, the columns aligned down the list. */
   .slots li {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto;
+    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto auto;
     align-items: center;
     gap: 14px;
     padding: 9px 2px;
@@ -278,6 +386,20 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* A save written while mods were loaded; the mods themselves are in the tooltip. */
+  .modded {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--amber);
+    background: color-mix(in srgb, var(--amber) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+    border-radius: 6px;
+    padding: 2px 7px;
+    cursor: help;
   }
 
   .bolts {
@@ -389,9 +511,14 @@
       row-gap: 6px;
     }
 
-    /* The date on a line of its own under the planet, Edit at its end. */
+    /* The date on a line of its own under the planet, the mods badge beside it, Edit at its end. */
     .slots .when {
       grid-column: 2;
+    }
+
+    .slots .modded {
+      grid-column: 3;
+      justify-self: end;
     }
 
     .slots li > :last-child {

@@ -7,6 +7,8 @@
 extern unsigned char exe_grid[] __asm__("D_001B7A60");
 extern unsigned int exe_grid_used[] __asm__("D_001C7A60");
 extern void exe_grid_trap(void) __asm__("func_001F9978");
+extern int rac1_expanded_ram(void);
+extern void rac1_update_expanded_moby_grid(unsigned int moby, unsigned int next);
 
 void func_0020E990(int first, int blocks) {
     int i;
@@ -85,6 +87,10 @@ void func_0020EA70(unsigned char* moby, unsigned int next) {
     unsigned int id = *(unsigned int*)(moby + 0xAC);
     unsigned short* pool = (unsigned short*)(exe_grid + 0x4000);
     int x, y, i, first, capacity, fresh;
+    if (rac1_expanded_ram()) {
+        rac1_update_expanded_moby_grid((unsigned int)moby, next);
+        return;
+    }
     if (!exe_grid_valid(old) || !exe_grid_valid(next)) {
         exe_grid_trap();
         return;

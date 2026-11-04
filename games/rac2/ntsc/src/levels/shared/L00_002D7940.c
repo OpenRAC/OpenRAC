@@ -110,9 +110,9 @@ int func_L00_002D9D48(int key) {
     return i;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D9D98);
 
-INCLUDE_ASM("asm/levels", func_L00_002D9E80);
+
+/* func_L00_002D9E80 is in L00_002D7940-setup-g8.c. */
 
 /* Builds a 3-component vector from a spherical radius/elevation/azimuth triple using two unary float helpers, clears the 4th component, then forwards the destination twice plus a third argument to a final helper. */
 void func_L00_002DA0B8(float *out, float *p, void *q)
@@ -128,13 +128,12 @@ void func_L00_002DA0B8(float *out, float *p, void *q)
     func_00282CC0_42(out, out, q);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002DA1E0);
+/* func_L00_002DA1E0 is in L00_002D7940-motion.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002DA390);
 
-INCLUDE_ASM("asm/levels", func_L00_002DB350);
+/* func_L00_002DB350 is in L00_002D7940-grid.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002DB4B8);
+/* func_L00_002DB4B8 is in L00_002D7940-shape.c. */
 
 /* Return the constant signed integer one. */
 /* Returns the constant integer 1. Matches FUN_0012F940 disassembly and decompilation. */
@@ -180,7 +179,7 @@ void func_L00_002DC4C0(Obj_F4778f810 *obj)
     func_00282CF0_4((char *)obj + 0x10, (char *)obj + 0x10, (char *)&tmp[2]);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002E0200);
+ASM_FUNC("asm/levels", func_L00_002E0200);
 
 /* func_L00_002E2048 (packed status field) is a near miss:
    nonmatching/levels/func_L00_002E2048.c */
@@ -189,13 +188,86 @@ INCLUDE_ASM("asm/levels", func_L00_002E2048);
 
 INCLUDE_ASM("asm/levels", func_L00_002E2958);
 
-INCLUDE_ASM("asm/levels", func_L00_002E2C30);
+/* func_L00_002E2C30 is in L00_002D7940-fade.c. */
 
+/* func_L00_002E30B8 is a near miss: nonmatching/levels/func_L00_002E30B8.c */
 INCLUDE_ASM("asm/levels", func_L00_002E30B8);
 
-INCLUDE_ASM("asm/levels", func_L00_002E3340);
+#ifndef MACRO_ADDR
+#define MACRO_ADDR __attribute__((section(".sdata")))
+#endif
 
-INCLUDE_ASM("asm/levels", func_L00_002E3520);
+typedef struct {
+    int key, firstKey;
+    int reserved08, reserved0C, width;
+    int origin;
+    int reserved18, reserved1C, step, reserved24;
+} TextGroup;
+typedef struct {
+    char reserved00[0x20];
+    short group;
+    char reserved22[0x384 - 0x22];
+    int anchor;
+} TextContextPrefix;
+
+extern TextGroup D_L00_001BC588[];
+extern char D_L00_001BC200[];
+extern int D_001A7340 MACRO_ADDR;
+extern int func_002798A0(int, int *, int *);
+extern int func_L00_002E36F8(int);
+extern void func_0027DE50(int, int, int, int, unsigned long long);
+extern void func_002802E0(unsigned short *, int, int, int, int, int, int, int, int);
+extern void func_00280190(unsigned short *, unsigned long, unsigned char *, int);
+
+/* The layout constructor initializes all twelve halfwords consumed by FontPrint. */
+void func_L00_002E3340(int row, float alpha)
+{
+    unsigned short layout[12];
+    int group, index;
+    unsigned char *text;
+    TextContextPrefix *context;
+    int origin;
+    if (!func_002798A0(row, &group, &index)) return;
+    text = (unsigned char *)func_L00_002E36F8(D_L00_001BC588[group].firstKey + index);
+    if (!text) return;
+    context = (TextContextPrefix *)D_L00_001BC200;
+    origin = D_L00_001BC588[context->group].origin + row * D_L00_001BC588[context->group].step;
+    func_0027DE50(origin + 2, origin + D_L00_001BC588[context->group].step - 2,
+        0, D_001A7340, (unsigned long long)((int)(alpha * 96.0f) << 24));
+    func_002802E0(layout, origin, origin + D_L00_001BC588[context->group].step, 0,
+        D_001A7340, D_001A7340 / 2 + 2,
+        origin + D_L00_001BC588[context->group].step / 2 + 1, context->anchor, 3);
+    func_00280190(layout, 0x80000000UL, text, -1);
+    func_002802E0(layout, origin, origin + D_L00_001BC588[context->group].step, 0,
+        D_001A7340, D_001A7340 / 2,
+        origin + D_L00_001BC588[context->group].step / 2, context->anchor, 3);
+    func_00280190(layout, 0xFFFFFFFFUL, text, -1);
+}
+
+/* Draw the current caption over six successively shaded bars. */
+void func_L00_002E3520(void)
+{
+    int text = func_L00_002E36F8(D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].key);
+    unsigned short layout[12];
+    int i, y, bottom;
+
+    if (text) {
+        func_002802E0(layout, 0, D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].origin, 0,
+            D_001A7340, D_001A7340 / 2,
+            D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].width, 18, 1);
+        func_00280190(layout, 0xFFFFFFFFUL, (unsigned char *)text, -1);
+        bottom = D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].origin - 2;
+        y = D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].origin - 4;
+        for (i = 0; i < 6; i++) {
+            func_0027DE50(bottom - y, bottom, -D_001A7340, D_001A7340 * 2, 0x18000000);
+            y = y * 5 / 6;
+        }
+        func_002802E0(layout, 0, D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].origin, 0,
+            D_001A7340, D_001A7340 / 2,
+            D_L00_001BC588[((TextContextPrefix *)D_L00_001BC200)->group].width, 18, 1);
+        func_00280190(layout, 0xFFFFFFFFUL, (unsigned char *)text, -1);
+    }
+}
 
 #ifndef RAC2_T_REC_2E36F8
 #define RAC2_T_REC_2E36F8
@@ -248,4 +320,32 @@ s32 func_L00_002E3A68(f32 a,f32 b,f32 t) {
  return (s32)a;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002E3A90);
+/* A .sdata flag the compiler addresses through the assembler macro (lui + lbu in one register). */
+extern unsigned char D_L00_001A7A0A __attribute__((section(".sdata")));
+typedef struct {
+    u8 row;
+    u8 col;
+    short weight;
+} WeightTap;
+
+extern WeightTap D_L00_0025EDE0[][16][10];
+extern int D_L00_001A24A8[][16];
+
+int func_L00_002E3A90(int a, int b)
+{
+    WeightTap *tap;
+    int sum;
+    int n;
+
+    if (D_L00_001A7A0A != 0 || a >= 21)
+        return 0;
+    if (b >= 16)
+        return 0;
+    tap = D_L00_0025EDE0[a][b];
+    sum = 0;
+    for (n = 9; n >= 0; n--) {
+        sum += tap->weight * D_L00_001A24A8[tap->row][tap->col];
+        tap++;
+    }
+    return sum;
+}

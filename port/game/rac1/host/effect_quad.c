@@ -1,55 +1,29 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
+#include "../../common/lib/effect_texture.h"
 #include "openrac/game_host.h"
 /* Not rac1.h: the test (port/tests/effect_quad_test.c) builds this file without a translation. */
 #include "rac1_version.h"
 #include <string.h>
 
-/*
- * Where an effect texture's pixels and CLUT are, for the TEX0 GetEffectTex (func_001F4868) gave it:
- * its upload records this frame (D_0018D140, D_0015F558 of them; +0 the CLUT's address, +6 its
- * block, +8 the pixels' address, +0xE their block), which the game's texture paging turns into GS
- * uploads; a TEX0 seen before keeps the sources it had then (the game caches the word and records
- * the upload only when it pages the texture in). 1 when found in the records, 2 when remembered, 0
- * when neither.
- */
+/* The id of the next quad, counting up, for a draw whose quads must follow their moby between
+ * ticks (openrac_game_quad::id); 0 for none. */
+uint32_t rac1_effect_quad_id;
+
+static int skip_ocean_quad;
+
+void openrac_skip_ocean_quad(int skip) {
+    skip_ocean_quad = skip;
+}
+
 static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t* clut) {
-    static struct {
-        uint64_t tex0;
-        uint32_t pixels, clut;
-    } known[256];
-    static int next = 0;
-    const uint32_t tbp = (uint32_t)(tex0 & 0x3FFF);
-    const uint32_t cbp = (uint32_t)((tex0 >> 37) & 0x3FFF);
-    const int count = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F558u)));
-    const gaddr records = OPENRAC_DATA(RAC1_ADDR(0x0018D140u));
-    for (int i = 0; i < count && i < 64; ++i) {
-        const uint8_t* r = G(records + (gaddr)i * 16);
-        if (*(const uint16_t*)(r + 0xE) == tbp && *(const uint16_t*)(r + 6) == cbp) {
-            *clut = *(const uint32_t*)(r + 0);
-            *pixels = *(const uint32_t*)(r + 8);
-            for (int k = 0; k < 256; ++k) {
-                if (known[k].tex0 == tex0) {
-                    known[k].pixels = *pixels;
-                    known[k].clut = *clut;
-                    return 1;
-                }
-            }
-            known[next].tex0 = tex0;
-            known[next].pixels = *pixels;
-            known[next].clut = *clut;
-            next = (next + 1) & 255;
-            return 1;
-        }
-    }
-    for (int k = 0; k < 256; ++k) {
-        if (known[k].tex0 == tex0 && tex0 != 0) {
-            *pixels = known[k].pixels;
-            *clut = known[k].clut;
-            return 2;
-        }
-    }
-    return 0;
+    return openrac_effect_texture(
+        tex0,
+        GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F558u))),
+        OPENRAC_DATA(RAC1_ADDR(0x0018D140u)),
+        pixels,
+        clut
+    );
 }
 
 /*
@@ -61,6 +35,9 @@ static uint32_t effect_texture_source(uint64_t tex0, uint32_t* pixels, uint32_t*
  * window draws it in the world (openrac_game_effect_quad).
  */
 void func_001F7EF8(gaddr a0, int a1, int a2) {
+    if (skip_ocean_quad) {
+        return;
+    }
     (void)a2;
     const uint8_t* r = G(a0);
     openrac_game_quad q;
@@ -83,6 +60,8 @@ void func_001F7EF8(gaddr a0, int a1, int a2) {
     memcpy(&q.alpha, r + 0x88, 8);
     q.pixels = 0;
     q.clut = 0;
+    q.id = rac1_effect_quad_id != 0 ? rac1_effect_quad_id++ : 0;
+    q.parent = 0;
     q.source = effect_texture_source(q.tex0, &q.pixels, &q.clut);
     openrac_game_effect_quad(&q);
 }

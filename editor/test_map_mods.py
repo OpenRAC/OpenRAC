@@ -27,7 +27,12 @@ class MapMods(unittest.TestCase):
             (packed / "level_01").mkdir()
             (packed / "level_00/core_pal.bin").write_bytes(bytes(2048))
             (packed / "level_01/core_pal.bin").write_bytes(bytes(2048))
-            (packed / "patches.tsv").write_text("100\t1\tlevel_00/core_pal.bin\n200\t1\tlevel_01/core_pal.bin\n")
+            (packed / "level_00/header_pal.bin").write_bytes(bytes(5 * 2048))
+            (packed / "level_00/data_pal.bin").write_bytes(bytes(2048))
+            (packed / "patches.tsv").write_text("100\t1\tlevel_00/core_pal.bin\n"
+                                                  "200\t1\tlevel_01/core_pal.bin\n"
+                                                  "10\t5\tlevel_00/header_pal.bin\n")
+            (packed / "virtual.tsv").write_text(f"{0x10000000}\t1\tlevel_00/data_pal.bin\t0\t0\t300\t1\n")
             level = project / "levels/level_00"
             level.mkdir(parents=True)
             doc, binary = overrides.glb_parts(glb())
@@ -44,6 +49,9 @@ class MapMods(unittest.TestCase):
             self.assertEqual(manifest["map"]["spawn"], [1, 2, 3])
             self.assertEqual((out / "level_00/terrain.glb").read_bytes(), source_terrain)
             self.assertIn("100\t1", (out / "patches.tsv").read_text())
+            self.assertIn("10\t5\tlevel_00/header_pal.bin", (out / "patches.tsv").read_text())
+            self.assertEqual((out / "virtual.tsv").read_text().splitlines()[1],
+                             f"{0x10000000}\t1\tlevel_00/data_pal.bin\t0\t0\t300\t1")
             self.assertNotIn("200\t1", (out / "patches.tsv").read_text())
             self.assertFalse((out / "level_01").exists())
             self.assertEqual((level / "terrain.glb").read_bytes(), source_terrain)

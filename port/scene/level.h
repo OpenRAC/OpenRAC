@@ -20,23 +20,40 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "renderer/math.h"
 #include "renderer/texture.h"
+#include "renderer/texture_pack.h"
 #include "scene/pvs.h"
+#include "scene/tie_relight.h"
 
 namespace openrac::scene {
 
 using renderer::Mat4;
 using renderer::Vec3;
 
-// The extracted levels' format (editor/port.py FORMAT); --check-levels writes verified-<format>.json,
-// which the launcher waits for, so older exports are read from the disc again before Play. 4: the
-// textures the game clamps carry clamping samplers.
+// The extracted levels' format (editor/port.py FORMAT). editor/extract.py writes levels-<format>.json,
+// and the launcher's level actions look for that name, so older exports are read from the disc
+// again. Only rac1 has --check-levels: its Play also needs that check's verified-<format>.json
+// (launcher/actions.json). 4: the textures the game clamps carry clamping samplers.
 inline constexpr int kManifestFormat = 4;
+// The newest format of a game whose export moved on alone (editor/port.py GAME_FORMATS): the same
+// layout, so the reader takes all from kManifestFormat up; which levels are read again is the
+// stamps' doing. Going Commando's: 5 with Ratchet's mesh, 6 with its flights, 7 with what he holds,
+// his other looks and his ship's picture; 11 with each moby class's bangles as classes of their own;
+// 12 with the terrain's and the shrubs' colours as the game lights them at level load; 13 with his
+// ship's hulls in every level; 14 with the chrome and glass maps the game binds; 15 with every paint
+// job of his ship; 16 with what a tie is lit again from when the game moves it or a point light
+// reaches it (its slots before lighting, its class's "relight"); 17 with each shrub class's normals,
+// for the shrubs a point light reaches; 18 with the gameplay copy
+// the probe baker reads (bake-inputs/gameplay.bin); 19 with the emission catalog's textures
+// (probe-emission.json) and the levels' sky and sun profiles (probe-bake.json); 20 with the liquid
+// surfaces the baker lights from (bake-inputs/liquids.json).
+inline constexpr int kManifestFormatNewest = 20;
 
 struct Vertex {
     float position[3];
@@ -63,8 +80,11 @@ struct Material {
     bool clamp_t = false;
     std::array<float, 4> colour{1.0f, 1.0f, 1.0f, 1.0f};
     Vec3 emission{};  // shared linear emitted radiance, independent of diffuse lighting
+    // Original glTF emissiveFactor evidence, retained after profile overrides for offline auditing.
+    bool authored_emission = false;
     // Optional absolute texture multiplier for baking; absent uses runtime emission.
     std::optional<float> bake_intensity;
+    std::optional<int> source_slot;  // Original glTF slot, or -1 for its implicit material.
     int emission_image = -1;
     bool emission_vertex_colour = false;
     float emission_contrast = 1;  // Luminance power curve around linear middle grey (0.18).
@@ -89,11 +109,19 @@ struct Primitive {
     std::uint32_t glow_count = 0;
 };
 
+// Original joint identity and bind frame, retained for bone attachments and viewer diagnostics.
+struct ModelJoint {
+    std::string name;
+    Mat4 bind = renderer::identity();
+    int parent = -1;
+};
+
 struct Model {
     std::string name;
     std::vector<Primitive> primitives;
     Vec3 min{};
     Vec3 max{};
+    std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
     int joints = 0;  // a skinned mesh: one past the highest joint its vertices use
 };
 
@@ -104,7 +132,8 @@ struct Instance {
     // A live moby's joint palette: the first of its matrices in the scene's palette
     // (LevelScene::set_palette); -1 draws the mesh as stored (its bind pose).
     int palette = -1;
-    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours; -1 none.
+    // A lit tie or shrub: the first of its 64 (24) colours in LevelData::light_colours (a Going
+    // Commando tie: one per vertex of its class); -1 none.
     int lights = -1;
     // A live moby lit as the game lights it: its light word (set 0, set 1, the cross-fade
     // 0..1; w = 1 to light it) and its ambient colour (RGB bytes / 128).
@@ -112,7 +141,10 @@ struct Instance {
     std::array<float, 4> moby_light{0.0f, 0.0f, 0.0f, 0.0f};
     std::array<float, 4> moby_ambient{0.5f, 0.5f, 0.5f, 1.0f};
     // How a live moby is blended, as MobyProc picks it (the explosions' flashes and fireballs,
-    // a pickup fading in): 0 drawn as it is, 1 blended at its alpha (tint's w), 2 added.
+    // a pickup fading in): 0 drawn as it is, 1 blended at its alpha (tint's w), 2 added, 3 blended
+    // at its alpha with the fading alpha test (fading out towards its draw distance). A shrub
+    // drawn as ShrubProc draws it (LevelScene::add_shrub_effects): 4 its mesh fading (TEST AREF
+    // 0x0C), 5 its billboard blended without depth.
     int blend = 0;
     bool hero_shadow_caster = false;  // live hero and attached equipment; excluded from sun casters
     // Explicit initial-state bake selection, never inferred from lack of a skeleton.
@@ -125,7 +157,19 @@ struct Instance {
     std::uint64_t temporal_id = 0;    // Stable live-object identity; zero has no temporal history.
     bool hero_shadow_anchor = false;  // Body transform centres the shared map, never an attachment.
     bool floats_on_water = false;     // Visual rigid attachment to the local water height.
+    bool lighting_only = false;       // An offscreen emitter captured for lighting, never geometry.
     bool gameplay_essential = false;  // Eligible for enhanced lighting's subtle GI-coloured rim.
+};
+
+struct SpinAnimation {
+    std::size_t instance = 0;  // Index in Layer::Animated.
+    Vec3 axis{0.0f, 0.0f, 1.0f};
+    float radians_per_second = 0.0f;
+    float phase = 0.0f;
+    Vec3 move_axis{0.0f, 0.0f, 0.0f};
+    float move_distance = 0.0f;
+    float move_radians_per_second = 0.0f;
+    float move_phase = 0.0f;
 };
 
 // What the viewer draws, in the game's order.
@@ -135,6 +179,7 @@ enum class Layer : std::uint8_t {
     Ties,
     Shrubs,
     Mobys,
+    Animated,  // last: the layers before it keep their numbers (the picker's ids, saved data)
     Count
 };
 
@@ -142,15 +187,29 @@ inline constexpr std::size_t kLayerCount = static_cast<std::size_t>(Layer::Count
 
 const char* layer_name(Layer layer);
 
+struct MaterialAssets;
+struct MaterialBindings;
+
 struct LevelData {
+    std::shared_ptr<const MaterialAssets>
+        material_assets;  // Immutable identities, hashed once at load.
+    std::shared_ptr<const MaterialBindings>
+        material_bindings;       // Shared runtime/baker resolved values.
+    std::string material_error;  // Optional override failure; original surfaces remain available.
+
     Pvs pvs;
     std::filesystem::path dir;
     // A mod's folder for this level (the --mods folder's level_NN, editor/overrides.py): a mesh or
     // texture there is read in place of the level's own of the same path (an upscaled texture, a
     // replacement moby model). Empty without mods.
     std::filesystem::path overrides;
+    // The loaded native mods' folders for this level (their "assets" folder's level_NN, MODS.md
+    // section 3), the first searched first and all before `overrides`; their classes.json adds
+    // render classes.
+    std::vector<std::filesystem::path> mod_roots;
     int overridden_models = 0;
     int overridden_images = 0;
+    std::string game;  // Manifest game identity for optional authored material profiles.
     int level = -1;
     // Authored animated surfaces exported for static transport, never drawn twice.
     std::vector<Instance> bake_surfaces;
@@ -159,11 +218,15 @@ struct LevelData {
     std::vector<Model> models;
     std::vector<Material> materials;
     std::vector<renderer::Rgba8Image> images;
+    // Parallel to images (or shorter): a texture pack's animated replacement of each, or null.
+    std::vector<std::shared_ptr<const renderer::texture_pack::Animation>> image_animations;
     std::vector<std::string> image_paths;
     // Parallel to images: whether some texel is below full alpha (under the chip's 0x80), which
     // the GS blends however the export's alpha mode reads (material_index).
     std::vector<bool> translucent_images;
     std::array<std::vector<Instance>, kLayerCount> instances;
+    // Mod-only rigid prop animation. Empty for retail levels and mods without animated.json.
+    std::vector<SpinAnimation> spins;
     // Moby classes: model and whether it is the stand-in box, for placing live mobys.
     std::map<int, std::pair<std::uint32_t, bool>> moby_classes;
 
@@ -174,9 +237,31 @@ struct LevelData {
     // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Drawn by only
     // "Scenery detail: Original" (LevelScene::choose_scenery).
     std::array<std::vector<float>, kLayerCount> draw_distances;
+    // Each shrub's class's billboard sprite (the model of the quad ShrubProc draws in place of a
+    // far one; -1 none), parallel to the shrubs; empty when the shrubs are not the level's own
+    // (a mod's placements), whose order is not the game's.
+    std::vector<int> shrub_billboards;
     // The ties' and shrubs' lit colours, 64 or 24 per instance, RGBA bytes (0x80 = 1.0), from
     // placements.json.
     std::vector<std::uint32_t> light_colours;
+    // Going Commando's ties, lit again when the game moves one (scene/tie_relight.h, format 15):
+    // the classes' relighting data, each tie's (parallel to the ties; empty without), and the
+    // ties' slots before lighting that those index.
+    std::vector<TieRelightClass> tie_relight_classes;
+    std::vector<TieRelight> tie_relight;
+    std::vector<std::uint32_t> tie_slots;
+
+    // Going Commando's shrubs, lit again when a point light reaches one or the game moves it
+    // (format 17): the classes' 24 normals (s16 x, y, z, w), and per shrub its class's entry there
+    // (-1 none), its base colour and its light set select (parallel to the shrubs; empty without).
+    struct ShrubRelight {
+        int cls = -1;
+        std::array<std::int32_t, 3> colour{};
+        std::int32_t select = 0;
+    };
+
+    std::vector<std::array<std::array<std::int16_t, 4>, 24>> shrub_relight_classes;
+    std::vector<ShrubRelight> shrub_relight;
     // The level's 16 directional light sets (manifest "lights"): per set colour A (w = back
     // factor), direction A, colour B, direction B; empty when the export has none.
     std::vector<float> light_sets;
@@ -186,6 +271,11 @@ struct LevelData {
     Vec3 bounds_min{};
     Vec3 bounds_max{};
     int missing_images = 0;
+    // A texture the game swaps in place (manifest "ship_paints": Going Commando's ship paint jobs,
+    // which the game loads over one texture): the image the faces use (-1 none) and each one it can
+    // be, by the game's number (-1 where one is missing).
+    int variant_image = -1;
+    std::vector<int> variant_images;
 };
 
 // The world centre of `model`'s bounds drawn at `matrix`.
@@ -202,7 +292,8 @@ bool load_level(
     const std::filesystem::path& dir,
     LevelData& out,
     std::string& error,
-    const std::filesystem::path& edited = {}
+    const std::filesystem::path& edited = {},
+    const std::vector<std::filesystem::path>& mod_roots = {}
 );
 
 // The level's sky textures (textures/sky_NNNN.png, by the sky's own texture numbers), including the

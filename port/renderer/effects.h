@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -24,6 +25,7 @@
 #include <string_view>
 #include <vector>
 
+#include "renderer/gs.h"
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 
@@ -36,8 +38,9 @@ enum class EffectPart : std::uint8_t {
     Rest,     // the strips that are not, then every quad
 };
 
-// A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60.
-bool liquid_strip(std::uint64_t alpha);
+// A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60, under a
+// TEST that writes Z.
+bool liquid_strip(std::uint64_t alpha, std::uint64_t test);
 
 // A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
 struct EffectMesh {
@@ -54,6 +57,17 @@ public:
 
     virtual std::string vertex_source() const { return {}; }
 
+    // Optional exact specialisation for surface-zero quads using the unextended effect vertex.
+    // Providers opt in only when that vertex and this fragment preserve their full quad behaviour.
+    virtual std::optional<std::string> quad_fragment_source() const { return std::nullopt; }
+
+    // The same specialisation is exact for surface-zero strips with UV animation disabled.
+    virtual bool plain_strips_supported() const { return false; }
+
+    virtual void bind_quads(const Shader& shader, const FrameInput& input) {
+        bind(shader, 0, input, {});
+    }
+
     // Return a mesh handle when the material replaces this strip's triangle stream.
     virtual std::optional<EffectMesh> mesh(const EffectStrip&, std::span<const EffectVertex>) {
         return std::nullopt;
@@ -61,6 +75,18 @@ public:
 
     // Upload the small per-pass instance stream after collecting strips, before any draws.
     virtual void upload_meshes() {}
+
+    // Snapshot the scene before any effects draw, only when a replacement mesh is visible.
+    virtual void prepare_scene(const FrameInput&, const RenderTarget&) {}
+
+    // Opts into deferred snapshot/draw recording after material simulation and geometry preparation.
+    virtual bool prepares_colour_chain() const { return false; }
+
+    // Returns current colour/depth snapshot textures, or zeros when this pass has no snapshot.
+    virtual std::array<unsigned, 2> scene_textures() const { return {}; }
+
+    // Publish per-pass counters after drawing, avoiding work on every material bind.
+    virtual void finish_pass() {}
 
     // Draw an earlier mesh handle using the material's resident geometry.
     virtual void draw_mesh(const Shader&, const EffectMesh&) {}
@@ -90,9 +116,40 @@ public:
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+
+    bool prepares_colour_chain() const override {
+        return !m_material || m_material->prepares_colour_chain();
+    }
+
+    // Prepares geometry before declaring snapshots and retaining owned draw metadata.
+    [[nodiscard]] Result<void> record_colour(const FrameInput& input, RenderState& state) override;
     void release() override;
 
 private:
+    // Draw metadata is shared by preparation and deferred recording within the enclosing chain.
+    struct PreparedEffects {
+        std::vector<int> strip_counts;  // Expanded stream counts, in accepted strip order.
+        std::vector<std::optional<EffectMesh>> meshes;  // Matching resident-material mesh handles.
+        std::size_t quads_from = 0;                     // First quad vertex after expanded strips.
+    };
+
+    // Queues scene snapshots and their colour consumers, or retains immediate unknown materials.
+    void record_colour(
+        const FrameInput& input,
+        RenderState& state,
+        const std::shared_ptr<const PreparedEffects>& prepared
+    );
+    // Records the existing fused GS batching loop with prepared, frame-owned geometry.
+    // Hot path: retains the existing size/nesting of effect batching to preserve draw and upload order.
+    void draw_prepared(
+        const FrameInput& input, RenderState& state, const PreparedEffects& prepared
+    );
+    // Orders shared material inputs once per selected effect shader, after provider bindings are
+    // installed.
+    void prepare_colour_reads();
+    void use_shader(Shader& shader, const Mat4& view_projection, const Mat4& view);
+    void bind_vertex_stream(unsigned vao, std::size_t first);
+    void reserve_quad_indices(std::size_t quads);
     // Binds TEX0's texture with TEX1's filtering and CLAMP's wrapping, and sets ALPHA's blend.
     // False when the pool has nothing at TEX0's block (the draw is left out, not the placeholder).
     bool apply(
@@ -104,6 +161,10 @@ private:
         std::uint32_t tbp = 0,
         std::uint32_t cbp = 0
     );
+
+    // The rest of apply, once the texture is bound: TEX0's TCC and TFX, the texture's alpha scale
+    // (0.5 for a texture whose alpha is 0..255 with 0x80 as 1), ALPHA's blend.
+    void apply_colour_state(const gs::Tex0& tex0, float scale, std::uint64_t alpha_bits);
 
     struct Vertex {
         float x, y, z;
@@ -122,16 +183,32 @@ private:
         int tcc = -1;
         int tfx = -1;
         float alpha_scale = -1.0f;
+        unsigned offscreen = 0;  // the off-screen target's GL texture bound (kOffscreenHandle)
     } m_applied;
+
+    // m_applied.texture while an off-screen target's texture is bound (no pool handle is ~0).
+    static constexpr TextureHandle kOffscreenHandle = ~TextureHandle{0};
 
     EffectPart m_part = EffectPart::All;
     Shader m_shader;
+    Shader m_quad_shader;
+    // The quads drawn with the list's TEST (EffectQuad::registers) that test alpha: the quads'
+    // shader with the alpha test kept (the others compile it out, EffectStaticControls).
+    // m_test_plain: built from the material's plain quad source, bound as m_quad_shader is.
+    Shader m_test_shader;
+    bool m_test_plain = false;
+    Shader* m_active_shader = nullptr;
+    bool m_colour_reads_ready = false;  // Reset whenever the effect pass changes its shader.
     std::unique_ptr<EffectMaterial> m_material;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;
     int m_textured = -1, m_tcc = -1, m_tfx = -1, m_tex_alpha_scale = -1;
-    int m_fog_enable = -1, m_alpha_test = -1;
+    int m_fog_enable = -1, m_alpha_test = -1, m_alpha_ref = -1, m_alpha_keep_failing = -1;
+    int m_view = -1, m_fog_colour = -1, m_fog_line = -1;
+    int m_source_scale = -1, m_source_fix = -1;
     unsigned m_vao = 0, m_vbo = 0;
+    unsigned m_quad_vao = 0, m_quad_indices = 0;
+    std::size_t m_quad_capacity = 0;
     std::vector<Vertex> m_vertices;  // the frame's triangles, kept for their storage
 };
 

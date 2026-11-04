@@ -11,14 +11,18 @@
 #include <mutex>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 
 #include "common/log.h"
 #include "common/stats.h"
+#include "enhanced/renderer/local_lights.h"
 #include "enhanced/renderer/reflection_material.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced_viewer_shaders.h"
+#include "renderer/colour_graph.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -26,9 +30,19 @@ namespace openrac::enhanced::water_detail {
 using namespace gl;
 namespace wgl = renderer::world::gl;
 std::atomic<bool> water_ready{false};
+std::atomic<bool> ocean_ready{false};
 std::mutex water_debug_mutex;
 WaterDebugSettings water_debug;
+// Profile and live values share the existing water controls mutex.
+OceanMaterial ocean_profile_material;
+OceanMaterial ocean_live_material;
 std::atomic<std::uint64_t> water_reset_epoch{0};
+
+void begin_ocean_material(const OceanMaterial& material) {
+    const std::lock_guard lock(water_debug_mutex);
+    ocean_profile_material = material;
+    ocean_live_material = material;
+}
 
 bool water_disabled() {
     static const bool& off = stats::probe("OPENRAC_WATER_OFF", "Original Novalis water reference");
@@ -37,22 +51,48 @@ bool water_disabled() {
 
 Water* contact_source = nullptr;
 
+// Compose water optics with shared lighting, reflection and scene-transmission helpers.
 std::string Water::fragment_source() const {
-    return std::string(lighting::shaders::water_window_glsl) + "\n"
-           + std::string(lighting::shaders::water_swell_glsl) + "\n"
-           + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
-           + std::string(lighting::shaders::probes_glsl) + "\n"
-           + std::string(lighting::shaders::environment_glsl) + "\n"
-           + std::string(lighting::shaders::water_glsl);
+    std::string source = std::string(lighting::shaders::water_window_glsl) + "\n"
+                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
+                         + std::string(lighting::shaders::shading_brdf_glsl) + "\n"
+                         + local_light_shader_source() + "\n"
+                         + std::string(lighting::shaders::environment_glsl) + "\n"
+                         + std::string(lighting::shaders::water_transmission_glsl) + "\n"
+                         + std::string(lighting::shaders::water_glsl);
+    if (!m_ocean_pixels.empty()) {
+        source.insert(0, "#define OPENRAC_OCEAN 1\n");
+    }
+    if (m_ocean_spectra[0]) {
+        source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n#define OPENRAC_OCEAN_FINE 1\n");
+    }
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
+        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
+    }
+    return source;
 }
 
 std::string Water::vertex_source() const {
-    return std::string(lighting::shaders::water_uv_glsl) + "\n"
-           + std::string(lighting::shaders::water_mesh_glsl) + "\n"
-           + std::string(lighting::shaders::water_window_glsl) + "\n"
-           + std::string(lighting::shaders::water_swell_glsl) + "\n"
-           + std::string(lighting::shaders::water_displacement_glsl) + "\n"
-           + std::string(lighting::shaders::water_vertex_glsl);
+    std::string source = std::string(lighting::shaders::water_uv_glsl) + "\n"
+                         + std::string(lighting::shaders::water_mesh_glsl) + "\n"
+                         + std::string(lighting::shaders::water_window_glsl) + "\n"
+                         + std::string(lighting::shaders::water_swell_glsl) + "\n"
+                         + std::string(lighting::shaders::water_displacement_glsl) + "\n"
+                         + std::string(lighting::shaders::water_vertex_glsl);
+    if (!m_ocean_pixels.empty()) {
+        source.insert(0, "#define OPENRAC_OCEAN 1\n");
+    }
+    if (m_ocean_spectra[0]) {
+        source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n");
+    }
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+        source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
+        return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
+    }
+    return source;
 }
 
 std::optional<renderer::EffectMesh> Water::mesh(
@@ -61,6 +101,33 @@ std::optional<renderer::EffectMesh> Water::mesh(
     if (!m_enabled || strip.surface == 0 || strip.surface > 7 || vertices.size() < 3) {
         return std::nullopt;
     }
+    if (m_ocean_spectra[0] && strip.surface == 1) {
+        if (m_ocean_drawn) {
+            return renderer::EffectMesh{};
+        }
+        m_ocean_drawn = true;
+        return m_mesh->prepare_ocean(
+            m_ocean_eye,
+            vertices.front().z,
+            m_ocean_near * m_debug.ocean_near_scale,
+            m_ocean_horizon * m_debug.ocean_horizon_scale
+        );
+    }
+    // The original horizon strip and distant quad retain their GS compositing.
+    if (!m_ocean_pixels.empty()) {
+        const auto height = std::abs(m_coast.front()[0]) - 512.f;
+        const auto& first = vertices.front();
+        constexpr float kOceanTile = 50.f;  // The NTSC-U ocean pvar's near-grid spacing.
+        if (std::any_of(vertices.begin(), vertices.end(), [&](const auto& p) {
+                const float x = (p.x - first.x) / kOceanTile;
+                const float y = (p.y - first.y) / kOceanTile;
+                return std::abs(p.z - height) > .5f || std::abs(x) > 4.01f || std::abs(y) > 4.01f
+                       || std::abs(x - std::round(x)) > .002f
+                       || std::abs(y - std::round(y)) > .002f;
+            })) {
+            return std::nullopt;
+        }
+    }
     return m_mesh->prepare(strip, vertices);
 }
 
@@ -68,17 +135,75 @@ void Water::upload_meshes() {
     m_mesh->upload();
 }
 
-void Water::draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) {
-    m_mesh->draw(shader, mesh);
+// Copy once per visible water pass; source and sampled images never alias.
+void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTarget& target) {
+    if (!m_enabled || target.width <= 0 || target.height <= 0) {
+        return;
+    }
+    if (m_background.width() != target.width || m_background.height() != target.height) {
+        std::string error;
+        if (!m_background.create(target.width, target.height, error, 1, true)) {
+            log::warn("Water scene transmission unavailable: {}", error);
+            glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+            return;
+        }
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    GLint samples = 1;
+    glGetIntegerv(GL_SAMPLES, &samples);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_background.id());
+    // Copy dimensions survive preparation until the enclosing colour scope executes both native blits.
+    const int width = target.width;
+    const int height = target.height;
+    const auto copied = renderer::colour_snapshot(
+        target, m_background.id(), std::max(1, samples), [width, height](bool depth) {
+            glBlitFramebuffer(
+                0,
+                0,
+                width,
+                height,
+                0,
+                0,
+                width,
+                height,
+                depth ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT,
+                GL_NEAREST
+            );
+        }
+    );
+    if (!copied) {
+        throw std::runtime_error(copied.error().message);
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+    m_background_ready = true;
 }
 
+std::array<unsigned, 2> Water::scene_textures() const {
+    // Passes without replacement meshes must not advertise stale refraction inputs.
+    if (!m_background_ready) {
+        return {};
+    }
+    return {m_background.colour_texture(), m_background.depth_texture()};
+}
+
+// Enhanced water already includes its background; legacy GS blending would add it twice.
+void Water::draw_mesh(const renderer::Shader& shader, const renderer::EffectMesh& mesh) {
+    if (mesh.draws == 0) {
+        return;
+    }
+    glDisable(GL_BLEND);
+    m_mesh->draw(shader, mesh);
+    glEnable(GL_BLEND);
+}
+
+// Bind per-surface animation and per-pass lighting, including the pre-water scene snapshot.
 void Water::bind(
     const renderer::Shader& shader,
     std::uint32_t surface,
     const renderer::FrameInput& input,
     const renderer::EffectUvMotion& motion
 ) {
-    m_mesh->bind(shader);
     glUniform1i(shader.uniform("water_mesh"), 0);
     glUniform1i(shader.uniform("water_uv_animate"), motion.enabled ? 1 : 0);
     glUniform4f(
@@ -88,28 +213,72 @@ void Water::bind(
         motion.amplitude,
         float(motion.phase & 511u)
     );
-    glUniform1i(shader.uniform("water_debug_view"), m_debug.view);
-    glUniform1f(shader.uniform("water_debug_height_limit"), m_debug.displacement_limit);
-    glUniform1f(shader.uniform("water_fine_strength"), m_debug.fine_normal_strength);
     glUniform1i(shader.uniform("water_surface"), m_enabled ? int(surface) : 0);
-    glUniform1i(shader.uniform("water_sim_local"), 1);
-    glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
-    glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
-    glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
-    glUniform4f(
-        shader.uniform("water_sim_window"),
-        float(m_window_origin[0]) * .25f,
-        float(m_window_origin[1]) * .25f,
-        .25f,
-        float(kWindowSize)
-    );
+    if (!m_bound && m_ocean_texture) {
+        bind_ocean(shader);
+    }
+    if (!m_bound || !renderer::render_opt::enabled(renderer::render_opt::Opt::EffectSetupReuse)) {
+        m_mesh->bind(shader);
+        glUniform1i(shader.uniform("water_debug_view"), m_debug.view);
+        glUniform1f(shader.uniform("water_debug_height_limit"), m_debug.displacement_limit);
+        glUniform1f(shader.uniform("water_fine_strength"), m_debug.fine_normal_strength);
+        glUniform1i(shader.uniform("water_sim_local"), 1);
+        glUniform1i(shader.uniform("water_sim_body"), m_sim_body);
+        glUniform1f(shader.uniform("water_sim_height"), m_sim_height);
+        glUniform1f(shader.uniform("water_sim_weight"), m_sim_weight);
+        glUniform4f(
+            shader.uniform("water_sim_window"),
+            float(m_window_origin[0]) * .25f,
+            float(m_window_origin[1]) * .25f,
+            .25f,
+            float(kWindowSize)
+        );
+        ++m_effect_setups;
+    }
     // All statically referenced Vulkan descriptors must be valid even on the original-
     // material branch. Bind once per effects pass, then only change the semantic surface.
     if (m_bound) {
         return;
     }
     m_bound = true;
-    const auto material = reflection_material_settings(ReflectionSurface::Water);
+    glUniform1i(shader.uniform("water_scene_ready"), m_background_ready ? 1 : 0);
+    glUniform2f(
+        shader.uniform("water_scene_extent"),
+        float(std::max(1, m_background.width())),
+        float(std::max(1, m_background.height()))
+    );
+    glUniformMatrix4fv(shader.uniform("water_scene_view"), 1, GL_FALSE, input.camera.view.data());
+    const auto& projection = input.camera.projection;
+    glUniform4f(
+        shader.uniform("water_scene_projection"),
+        projection[10],
+        projection[14],
+        projection[11],
+        projection[15]
+    );
+    glUniform1i(shader.uniform("water_scene_colour"), 26);
+    glUniform1i(shader.uniform("water_scene_depth"), 27);
+    // Valid descriptors are required even when no replacement mesh needed a snapshot.
+    glActiveTexture(GL_TEXTURE0 + 26);
+    glBindTexture(GL_TEXTURE_2D, m_background_ready ? m_background.colour_texture() : m_maps[1]);
+    glActiveTexture(GL_TEXTURE0 + 27);
+    glBindTexture(GL_TEXTURE_2D, m_background_ready ? m_background.depth_texture() : m_maps[1]);
+    auto material = reflection_material_settings(ReflectionSurface::Water);
+    if (m_ocean_spectra[0]) {
+        const auto ocean = ocean_material();
+        material.roughness = ocean.roughness;
+        material.reflectivity = ocean.reflectivity;
+        material.strength = ocean.reflection_strength;
+        glUniform3f(
+            shader.uniform("water_ocean_colour"), ocean.colour[0], ocean.colour[1], ocean.colour[2]
+        );
+        glUniform3f(
+            shader.uniform("water_ocean_absorption"),
+            ocean.absorption[0],
+            ocean.absorption[1],
+            ocean.absorption[2]
+        );
+    }
     glUniform3f(
         shader.uniform("water_material"),
         material.roughness,
@@ -140,6 +309,75 @@ void Water::bind(
     glBindTexture(GL_TEXTURE_2D, m_maps[1]);
     glActiveTexture(GL_TEXTURE0 + 14);
     glBindTexture(GL_TEXTURE_2D, m_maps[0]);
+    glActiveTexture(GL_TEXTURE0);
+}
+
+void Water::finish_pass() {
+    stats::gauge("effect water setups", m_effect_setups);
+    m_mesh->finish_pass();
+}
+
+void Water::bind_ocean(const renderer::Shader& shader) const {
+    // Attachment poses use this slot in the mesh pass. Probe depth uses units 30 and 31.
+    constexpr int kOceanUnit = 25;
+    glActiveTexture(GL_TEXTURE0 + kOceanUnit);
+    glBindTexture(GL_TEXTURE_2D, m_ocean_texture);
+    glUniform1i(shader.uniform("water_ocean_field"), kOceanUnit);
+    glUniform4fv(shader.uniform("water_ocean_grid"), 1, m_ocean_grid.data());
+    glUniform4fv(
+        shader.uniform("water_ocean_modes[0]"), m_ocean_mode_count, m_ocean_modes[0].data()
+    );
+    glUniform4fv(shader.uniform("water_ocean_amplitudes[0]"), 2, m_ocean_amplitudes[0].data());
+    glUniform1i(shader.uniform("water_ocean_mode_count"), m_ocean_mode_count);
+    glUniform1i(shader.uniform("water_ocean_coastal"), m_debug.coastal_correction ? 1 : 0);
+    if (m_ocean_detail_textures[0]) {
+        // Early lighting uses these units in its compute pass.
+        constexpr int kDetailUnit = 17, kFineUnit = 16;
+        glActiveTexture(GL_TEXTURE0 + kDetailUnit);
+        glBindTexture(GL_TEXTURE_2D, m_ocean_detail_textures[0]);
+        glUniform1i(shader.uniform("water_ocean_detail"), kDetailUnit);
+        glActiveTexture(GL_TEXTURE0 + kFineUnit);
+        glBindTexture(GL_TEXTURE_2D, m_ocean_detail_textures[1]);
+        glUniform1i(shader.uniform("water_ocean_fine"), kFineUnit);
+        constexpr int kDisplacementUnit = 20;
+        glActiveTexture(GL_TEXTURE0 + kDisplacementUnit);
+        glBindTexture(GL_TEXTURE_2D, m_ocean_detail_textures[2]);
+        glUniform1i(shader.uniform("water_ocean_displacement"), kDisplacementUnit);
+        glUniform3f(
+            shader.uniform("water_ocean_shape"),
+            m_ocean_choppiness,
+            float(m_ocean_spectra[0]->slope_variance),
+            float(m_ocean_spectra[1]->slope_variance)
+        );
+        glUniform2f(
+            shader.uniform("water_ocean_tiles"),
+            float(m_ocean_spectra[0]->tile),
+            float(m_ocean_spectra[1]->tile)
+        );
+        glUniform4f(
+            shader.uniform("water_ocean_view"),
+            m_ocean_eye[0],
+            m_ocean_eye[1],
+            m_ocean_near * m_debug.ocean_near_scale,
+            m_ocean_horizon * m_debug.ocean_horizon_scale
+        );
+        const float angle = m_debug.ocean_wind_offset * .01745329252f;
+        glUniform4f(
+            shader.uniform("water_ocean_tuning"),
+            m_debug.ocean_chop,
+            m_debug.ocean_ripples,
+            std::cos(angle),
+            std::sin(angle)
+        );
+        glUniform1i(shader.uniform("water_ocean_dry_count"), m_ocean_dry_count);
+        if (m_ocean_dry_count) {
+            glUniform4fv(
+                shader.uniform("water_ocean_dry[0]"),
+                m_ocean_dry_count,
+                m_ocean_dry_regions[0].data()
+            );
+        }
+    }
     glActiveTexture(GL_TEXTURE0);
 }
 
@@ -202,11 +440,40 @@ void Water::bind_contact(const renderer::Shader& shader) const {
 namespace openrac::enhanced {
 using namespace water_detail;
 
+OceanMaterial ocean_material() {
+    const std::lock_guard lock(water_debug_mutex);
+    return ocean_live_material;
+}
+
+void set_ocean_material(OceanMaterial material) {
+    const std::lock_guard lock(water_debug_mutex);
+    const auto bounded = [](float value, float low, float high, float fallback) {
+        return std::isfinite(value) ? std::clamp(value, low, high) : fallback;
+    };
+    for (std::size_t i = 0; i < material.colour.size(); ++i) {
+        material.colour[i] = bounded(material.colour[i], 0, 1, ocean_profile_material.colour[i]);
+        material.absorption[i] =
+            bounded(material.absorption[i], 0, 4, ocean_profile_material.absorption[i]);
+    }
+    material.roughness = bounded(material.roughness, .04f, 1, ocean_profile_material.roughness);
+    material.reflectivity =
+        bounded(material.reflectivity, 0, 1, ocean_profile_material.reflectivity);
+    material.reflection_strength =
+        bounded(material.reflection_strength, 0, 4, ocean_profile_material.reflection_strength);
+    ocean_live_material = material;
+}
+
+void reset_ocean_material() {
+    const std::lock_guard lock(water_debug_mutex);
+    ocean_live_material = ocean_profile_material;
+}
+
 WaterDebugSettings water_debug_settings() {
     std::lock_guard lock(water_debug_mutex);
     return water_debug;
 }
 
+// Keep live simulation and optical diagnostic controls within their supported ranges.
 void set_water_debug_settings(WaterDebugSettings settings) {
     const auto bounded = [](float value, float low, float high, float fallback) {
         return std::isfinite(value) ? std::clamp(value, low, high) : fallback;
@@ -216,9 +483,19 @@ void set_water_debug_settings(WaterDebugSettings settings) {
     settings.outlet_damping = bounded(settings.outlet_damping, 0, 30, 12);
     settings.interaction_strength = bounded(settings.interaction_strength, 0, 4, 1.4f);
     settings.interaction_radius = bounded(settings.interaction_radius, .1f, 2, .54772256f);
+    settings.projectile_strength = bounded(settings.projectile_strength, 0, 4, 1);
+    settings.projectile_radius = bounded(settings.projectile_radius, .1f, 4, 1);
+    settings.explosion_strength = bounded(settings.explosion_strength, 0, 4, 1);
+    settings.explosion_radius = bounded(settings.explosion_radius, .1f, 4, 1);
     settings.displacement_limit = bounded(settings.displacement_limit, 0, .5f, .25f);
     settings.fine_normal_strength = bounded(settings.fine_normal_strength, 0, 2, 1);
-    settings.view = std::clamp(settings.view, 0, 4);
+    settings.ocean_chop = bounded(settings.ocean_chop, 0, 4, WaterDebugSettings{}.ocean_chop);
+    settings.ocean_ripples =
+        bounded(settings.ocean_ripples, 0, 4, WaterDebugSettings{}.ocean_ripples);
+    settings.ocean_wind_offset = bounded(settings.ocean_wind_offset, -180, 180, 0);
+    settings.ocean_near_scale = bounded(settings.ocean_near_scale, .5f, 2, 1);
+    settings.ocean_horizon_scale = bounded(settings.ocean_horizon_scale, .5f, 2, 1);
+    settings.view = std::clamp(settings.view, 0, 17);
     std::lock_guard lock(water_debug_mutex);
     water_debug = settings;
 }
@@ -229,6 +506,10 @@ void reset_water_simulation() {
 
 bool water_available() {
     return water_ready.load();
+}
+
+bool ocean_replaces_horizon() {
+    return water_ready.load() && ocean_ready.load();
 }
 
 bool bind_water_contact(const renderer::Shader& shader) {
@@ -259,7 +540,8 @@ std::unique_ptr<renderer::EffectMaterial> make_water(
     if (!gl::enhanced_rendering_available() || !gl::is_vulkan()) {
         return {};
     }
-    const auto path = directory / "water.bin";
+    const auto ocean = directory / "ocean.wave";
+    const auto path = std::filesystem::exists(ocean) ? ocean : directory / "water.bin";
     if (!std::filesystem::exists(path)) {
         log::info("Novalis enhanced water needs a local water.bin bake beside manifest.json");
         return {};

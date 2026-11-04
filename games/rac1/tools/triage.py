@@ -9,7 +9,7 @@ Sorts every function that is not exact yet into one work queue each:
   blocked  a blocker tools/rank_candidates.py has confirmed: it needs new
            tooling, not another attempt
 
-The routes follow what batches cost on 2026-09-24 (docs/DECOMP_PROGRESS.md):
+The routes follow what batches cost on 2026-09-24 (docs/reference/DECOMP_PROGRESS.md):
 Sonnet matched library code with a reference source for 60-100K tokens a
 function but 0 of 15 game functions, while Opus matched game code for
 37-79K. Sonnet is half Opus's price per token, so it only pays off where it

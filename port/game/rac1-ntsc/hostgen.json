@@ -11,18 +11,23 @@
   ],
   "skip": [
     "src/libgcc",
-    "src/sdk/library/__divdi3.c",
-    "src/sdk/library/__muldi3.c",
-    "src/sdk/library/moddi3.c",
-    "src/sdk/library/udivdi3.c",
-    "src/sdk/library/umoddi3.c",
-    "src/sdk/library/malloc_extend_top.c"
+    "src/sdk/soft_float/__divdi3.c",
+    "src/sdk/soft_float/__muldi3.c",
+    "src/sdk/soft_float/moddi3.c",
+    "src/sdk/soft_float/udivdi3.c",
+    "src/sdk/soft_float/umoddi3.c",
+    "src/sdk/libc/malloc/malloc_extend_top.c"
   ],
   "includes": [
     "include",
     "src"
   ],
-  "defines": ["LOMBYTE_QZERO_H"],
+  "defines": [
+    "OPENRAC_HAS_DISC=1",
+    "LOMBYTE_QZERO_H",
+    "LOMBYTE_MOBY_UPDATE_H",
+    "MOBY_CALL_UPDATE(update,moby)=do { if (update) (update)(moby); } while (0)"
+  ],
   "aliases": ["config/us/port_aliases.h"],
   "symbols": [
     "config/us/symbol_addrs.txt",
@@ -52,6 +57,7 @@
     1437440,
     2424832
   ],
+  "expanded_target_table_addresses": ["0x001ABA00"],
   "returns_64": [
     "FUN_001f44b8"
   ],
@@ -76,6 +82,9 @@
     "func_001E9478"
   ],
   "host_functions": [
+    "rac1_expanded_ram",
+    "rac1_check_level_heap",
+    "rac1_update_expanded_moby_grid",
     "FUN_00212d68",
     "openrac_game_moby_colour",
     "FUN_001f7580",
@@ -164,6 +173,8 @@
     "dirs": ["config/us/overlays/asm", "config/us/expected/asm", "config/us/asm",
              "build/baseline/config/us/expected/asm", "build/baseline/config/us/asm"],
     "retail": {"exe": "config/us/SCUS_971.99", "dump": "config/us/overlays"},
-    "gp": "0x00166C00"
+    "gp": "0x00166C00",
+    "in_place": ["FUN_001ef9c8"],
+    "shadows": {"coll_line": "func_L00_001EFC70", "coll_line_boot": "FUN_001efa68", "coll_sphere": "FUN_L00_001f0d60", "coll_capsule": "FUN_L00_001f19a0", "coll_sphere_mobys": "FUN_L00_001f2868", "coll_hero_groups": "FUN_L00_001f3170"}
   }
 }

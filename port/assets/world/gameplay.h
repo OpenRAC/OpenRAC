@@ -12,8 +12,10 @@
 // ("InitLevelRenderGlobals"), cited per field.
 //
 // The file starts with 37 s32 section offsets, 0 for an absent section. rac1's
-// order is its own (no tie or shrub groups, a point light grid at 0x78); the
-// sequels' are not known here. Sections read elsewhere: tie and shrub
+// order is its own (no tie or shrub groups, a point light grid at 0x78). Of
+// Going Commando's 40-word header only the light bank (0x04) and the
+// environment transitions (0x84) are placed (gameplay.cpp); its other sections
+// read as absent. The other sequels' are not known here. Sections read elsewhere: tie and shrub
 // instances (the geometry readers), the directional lights (lighting), sound
 // instances and environment sample points (sound), help messages (text).
 // The shapes and grind paths are volumes.h; the cameras cameras.h; the

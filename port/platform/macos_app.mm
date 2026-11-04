@@ -96,6 +96,10 @@ void install_app_menus(bool developer) {
             {"Frame Counter", SDLK_F2, "F2"},
         };
         add_menu(@"View", view, 2);
+        const Item controls[] = {
+            {"Controller Bindings", SDLK_F13, "F13"},
+        };
+        add_menu(@"Controls", controls, 1);
         const Item sound[] = {
             {"Volume Up", SDLK_F10, "F10"},
             {"Volume Down", SDLK_F9, "F9"},

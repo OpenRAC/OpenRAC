@@ -6,8 +6,12 @@ It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
 `SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
-Godot is the map editor: open a level, move, add or delete objects, and save. Tools to pack edited scenes back into game
-data come later; the scenes already keep what they will need.
+Godot is the map editor: open a level, move, add or delete objects, and save.
+For RAC1 PAL and NTSC-U, `extract.py pack` turns supported scene edits back
+into mod files without writing to the disc. The launcher's Mods page can
+extract, open, pack, and run those edits. Later games are still early access:
+their levels can be exported for inspection, but packing edits back into those
+games is not supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
 Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's, Up
@@ -80,11 +84,15 @@ earlier versions of this page): the other levels are then in the FileSystem
 dock under `levels/`, and Godot's first import takes about a minute and a
 half.
 
-All 19 levels take about 20 seconds and 800 MB to extract, one level per
-CPU core at a time. Options:
+All 19 levels take about 20 seconds and 800 MB to extract, several levels
+at a time, below normal priority so the computer stays usable. Options:
 
 - `--level N` (repeatable) exports only some levels.
-- `--jobs N` limits how many levels are exported at once.
+- `--jobs N` limits how many levels are exported at once: by default all but
+  an eighth of the CPU's threads (at least two kept free), or
+  `OPENRAC_EXTRACT_JOBS` when it is set (a number, or `all`). The launcher's
+  **Get the levels ready** reads the variable too: set it to `2` or `3` on a
+  computer that struggles while the levels are read.
 - `--terrain-lod 2` uses the coarsest terrain.
 
 ## Regenerate
@@ -210,11 +218,13 @@ and the list of disc sectors it replaces:
 
 ```
 assets/packed/rac1/pal/
-  level_NN/gameplay_<version>.wad   one per level whose mobys were edited, the size of its place on the disc
+  level_NN/gameplay_<version>.wad   one per level whose gameplay data changed; padded to its disc slot or virtual range
   level_NN/placements.json    one per level whose ties or shrubs were edited, for the native port
   level_NN/core_<version>.bin  one per level whose collision (the level's or a moby class's) was edited: the level data's sectors of its core data
   level_NN/index_<version>.bin with it, when the core data grew (a collision moved to its end): the core index's sector
+  level_NN/data_<version>.bin   expanded level-data container when the compressed core outgrows its disc slot
   patches.tsv                 first sector, sector count, file
+  virtual.tsv                 expanded streams: virtual first sector, sector count, file, level range and original range
   changes.txt                 what changed, in words
   packed.json                 the disc it was packed from
 ```
@@ -226,6 +236,15 @@ this does not make PAL and NTSC-U packs interchangeable. A packed folder serves
 the disc it was packed from only; the
 Mods page stacks it for that disc and leaves it out for the other
 ([overrides.py](overrides.py)).
+
+When an edited gameplay stream or level-data core no longer fits its original
+sector range, the packer writes a padded file under `level_NN/`, gives it a
+virtual sector range in `virtual.tsv`, and patches that level's header to point
+there. OpenRAC serves those sectors only while this mod stack is active. The
+disc image and no-mod read path stay unchanged. A stack with virtual streams
+uses a 256 MiB guest RAM arena; without virtual streams, the original 32 MiB
+arena remains. Larger streams can still meet RAC1's own object-table, level
+format and collision limits.
 
 A PAL project made before this read the 50 Hz copy. The launcher says so
 ("Your levels need an update") and its **Update project** runs **Extract the
@@ -281,22 +300,36 @@ scenes dropped under `Game/Mobys`. It takes after the moby it copies (or the
 level's first moby of its class): the same values, a spawn number of its own,
 a copy of that moby's pvars, and a place in its group. A deleted moby leaves
 the table, and the groups and pvar links that name mobys by their place in
-it follow ([gameplay.py](gameplay.py)). A level the game gives more mobys
-than it has room for is not caught yet: the room is what the level's own
-"spare" count and memory allow.
+it follow ([gameplay.py](gameplay.py)). With an expanded stream, OpenRAC can
+raise the runtime spawn pool up to the remaining 32,768 moby-index slots; each
+spare slot reserves 0x180 bytes for a moby and its pvars. The packer cannot
+predict a level's maximum simultaneous scripted spawns or remaining runtime
+heap, so spawn-heavy edits still need in-game stress testing. A full pool can
+make `CreateMoby` fail, and some original game callers do not handle that
+failure safely.
 
 How it stays exact ([pack.py](pack.py), [wadpack.py](wadpack.py)):
 
 - A moby the scene has as the extractor wrote it keeps its bytes from the
-  disc. A project nobody edited packs to nothing, and an edited level's file
-  differs from the disc's only in the records that were edited. Godot's own
-  way of saving a scene (other float rounding, `unique_id`, `rc1_class` on
-  every instance) is not an edit.
+  disc. A project nobody edited packs to nothing. Edits preserve untouched
+  moby records and change the tables, links, and data blocks needed to express
+  the saved scene. Godot's own way of saving a scene (other float rounding,
+  `unique_id`, `rc1_class` on every instance) is not an edit.
 - The compressor writes streams the way the retail ones are laid out,
   measured on all 19 gameplay files: 0x2000-byte blocks that no packet
   crosses, each ending with a skip and unused room after it, and no literal
-  run after a literal run. Its output is smaller than retail's for every
-  level, so a packed level always fits where the original is.
+  run after a literal run. Re-encoding the original files is smaller than
+  retail's for every level. Edits can make a stream larger than its disc slot;
+  the packer then stores it in a virtual sector range in the mod. It also uses
+  virtual sectors when decoded gameplay or core data grows beyond 32 MiB even
+  if compression still fits the disc slot, so the launcher selects the expanded
+  arena the stream requires. The disc and vanilla read path stay untouched (see
+  [Pack](#pack-your-edits)). Expanded
+  streams use a bounded 256 MiB guest RAM arena and remain subject to RAC1's
+  game-owned table, address, and heap limits. The packer rejects edited gameplay
+  or core data whose decoded stream alone exceeds 256 MiB; a level's other
+  allocations can leave less room, so this is an absolute ceiling, not a promise
+  that every stream below it will fit.
 
 Checked on 2026-10-12: all 19 gameplay files round-trip through the
 compressor; a scene re-saved by Godot 4.7.2 with one moby moved packs to a
@@ -463,10 +496,10 @@ and packed back like the mobys ([gamedata.py](gamedata.py); the formats are in
 | `Game/LevelSettings` | `rc1_background`, `rc1_fog_colour` (r, g, b), `rc1_fog_near`, `rc1_fog_far` and their `_intensity`, `rc1_death_height`, `rc1_ship_path`, `rc1_ship_camera_cuboids` (first, last) | values |
 | `Game/LevelSettings/Ship` | where the player's ship lands; turn it about Z only | moved |
 | `Game/MobyGroups` | `rc1_group_<n>`: each group's members, by node name | members |
-| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, pvars | edited in place |
+| `Game/Cameras/Camera_NNNN` | position and rotation (the game's Euler angles), `rc1_class`, the common camera header and known class-specific pvars | edited in place; cameras may be added by copying a same-class record and pvars, up to 48 |
 | `Game/Sounds/Sound_NNNN` | the record's matrix, `rc1_class`, `rc1_m_class`, `rc1_range`, pvars (hidden) | edited in place |
 | `Game/Volumes/Cuboids/Cuboid_NNNN`, `Spheres`, `Cylinders`, `Pills` | the unit shape through the record's matrix, translucent (hidden until you show `Volumes`) | moved, turned, scaled, added |
-| `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added |
+| `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added; records cannot be deleted |
 | `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` | the same |
 
 `rc1_background` is the colour the game clears the frame to before it draws the sky (SetBackgroundColor). It is not a sky tint: it shows only where the sky's shells leave gaps or are see-through. In 15 of the 19 levels the sky's first shell is an opaque dome coloured per vertex (Novalis, Kerwan, Pokitaru and most others), which hides the background completely; there the sky's colour is that dome's, part of the sky model. The background shows in Rilgar and Umbris, and below the horizon in Orxon and Quartu. `rc1_background` and `rc1_fog_colour` take red, green and blue from 0 to 255. The editor's sky panorama is baked over the background when the level is extracted, so an edit shows in the game, not in the editor's sky until the next extraction.
@@ -482,8 +515,11 @@ variables, `rc1_pvar_index`):
   [moby_pvars.h](../games/rac1/include/moby_pvars.h), 19 classes, and the
   header every camera block starts with: `rc1_pv_sphere`, `_cuboid`,
   `_cylinder`, `_path` name the volumes and path the camera's region test
-  uses, `rc1_pv_activation` when it switches on). A field and the word under
-  it are the same bytes: edit either; when both change, the field wins.
+  uses, `rc1_pv_activation` when it switches on). Camera classes 3, 14, 17,
+  18 and 23 also expose their named fields from `port/assets/world/cameras.h`;
+  runtime-owned fields are shown for inspection but Pack refuses edits to them.
+  A field and the word under it are the same bytes: edit either; when both
+  change, the field wins, except runtime-owned words which cannot be changed.
 - `rc1_link_<offset>`: a moby link in the block (the gameplay file's +0x50
   list), as the name of the moby node it names, or `"-1"` for none. Name
   another moby node to point it there; a link follows its moby when mobys
@@ -512,12 +548,23 @@ group then lists the mobys whose `rc1_group` names it, so setting a moby's
 
 Volumes, paths and grind paths are named by their place in their table by
 other data (camera blocks, moby pvars, the camera collision grid, the level
-settings), so they are never deleted or renumbered: a node deleted in Godot
-is packed as it was, with a note in `changes.txt`. A new one (a copy, or
+settings), so they are never deleted or renumbered: Pack refuses a project
+with one of these nodes deleted and explains which index it kept. A new one (a copy, or
 `gameplay/<kind>.tscn` dropped under its group, or a new `Path3D` under
 `Game/Paths`) goes after the table's own; when the section no longer fits
 where it was it moves to the end of the file. Cameras and sound instances
-are edited in place only. An edited volume's inverse matrix and Euler angles
+are not deleted or renumbered. Duplicate a camera node in Godot to add one. A
+copied camera gets its own pvar block, including
+the loader's pointer, shared-data and moby-link fixups. A camera can use the
+level's existing collision volumes, and camera-region volumes can be moved or
+added: Pack rebuilds the 64-by-64 camera collision grid. On a volume, edit
+`rc1_camera_collision_enabled` to include it in that grid; its copied
+`rc1_camera_collision_flags`, `rc1_camera_collision_i_value` and
+`rc1_camera_collision_f_value` metadata preserve or set the game's collision
+parameters. The game has 48 camera slots. New sound instances are not
+supported yet.
+Changing a camera class while it has a pvar block is refused, since the block
+has the original class's layout. An edited volume's inverse matrix and Euler angles
 are computed again; an edited grind path keeps its bounding sphere when it
 still holds every point, and grows it just enough otherwise (the disc's own
 rule is not known). Curve handles and tilts are not the game's: paths are
@@ -538,6 +585,9 @@ an untouched project packs to nothing, and Godot's own saving is not an
 edit. Values that cannot be packed (not a number, out of the field's range,
 a link to no moby, an index past its table) are listed as `not packed:` in
 `changes.txt` and leave the bytes as they were.
+The pack command fails instead of publishing a partial result when any edit is
+listed as `not packed:`; an earlier packed folder is kept intact so you can fix
+the scene and pack again.
 
 Checked on 2026-10-21 on the PAL disc: every section above, read and written
 again unchanged, gives its bytes back in all 19 levels; each level exported
@@ -586,8 +636,8 @@ the level with a legend of its surfaces; Pick faces selects faces in the 3D
 view (click, Shift-click, a box, connected faces of one type byte, the faces
 baked inside a selected tie or shrub); the selection is repainted (surface id,
 sound class, exclusion bit), deleted, moved by an offset, or faces are added
-(a quad, a box, the triangles of a selected mesh, simplified to fit the
-cells). Each edit is undoable and saved with the scene. The dock leaves the
+(a quad, a box, or the triangles of a selected mesh snapped to the game's
+collision grid). Each edit is undoable and saved with the scene. The dock leaves the
 tiles alone and keeps its edits as metadata of `Game/Collision`, which
 `collision_scene.scene_collision` applies on top of the nodes' triangles:
 
@@ -616,7 +666,7 @@ hexadecimal: `rc1_surface_1f`, `rc1_surface_0c`). What you can do:
 | Edit a tile's `.glb` in Blender and export it to the same file (keep the materials; give a face another `rc1_surface_XX` material to change its type) | the triangles that differ are taken out and put in |
 | Set `rc1_surface` (an integer, the type byte) on a tile | every face of it takes that byte |
 | Add a node under `Game/Collision`: a `MeshInstance3D` with a `BoxMesh`, `PlaneMesh` or `QuadMesh`, or an instance of any `.glb`/`.gltf`, with `rc1_surface` metadata (0x1f, 31, without it; a material named `rc1_surface_XX` in a glTF wins) | its triangles are added, in the node's place |
-| The same under `Game/HeroWalls` | a new hero wall (255 triangles each; more become several) |
+| The same under `Game/HeroWalls` | a new hero wall (each game group has at most 255 triangles and 255 unique vertices; larger meshes become several groups) |
 
 How it is packed ([collision_scene.py](collision_scene.py), [collision.py](collision.py)):
 
@@ -634,18 +684,56 @@ How it is packed ([collision_scene.py](collision_scene.py), [collision.py](colli
   that becomes a line on it is left out (`changes.txt` counts them). A large
   triangle is halved until each cell it touches can hold its corners (a
   vertex is at most 32 units from its cell's centre).
-- Checked before anything is written, or the level's collision is left as
-  the disc has it and `changes.txt` says why: at most 255 vertices and 255
-  quads in a cell (simplify the mesh there), a cell's size, everything inside
-  0-1024 units on each axis (the game answers no query outside), hero walls
-  of at most 255 triangles.
+- Checked against the collision format before anything is written, or the
+  level's collision is left as the disc has it and `changes.txt` says why: at
+  most 2,147,483,647 unique vertices in an expanded cell (the editor writes a
+  mod-only extended leaf and selects expanded RAM when a retail cell no longer
+  fits), an aligned leaf length that fits its 32-bit header, at most 0xFFFFFF indexed
+  leaves (their 32-bit directory removes the retail 24-bit leaf-start bound),
+  everything inside 0-131,072 units on each positive axis in expanded mod
+  collision (vanilla stays at 0-1024 units), and hero walls split into groups of at
+  most 255 triangles and 255 unique vertices. Retail leaves remain byte-for-byte
+  when they fit; their 4,080-byte size and 16-bit face count remain unchanged.
 - The block goes back into the level's core data, in its own place when it
   fits; a larger one moves to the end of the core data (the core index says
   where), and the level's memory after the core moves up by the block's size.
-  **That has not been tried in the running game yet**: keep growth small, and
-  tell us how it goes.
-- The core data is compressed again (about ten seconds a level) into the room
-  it has on the disc, and its sectors go in the packed folder.
+- If the recompressed core still fits its original slot, the packer writes the
+  changed sectors there. If it outgrows that slot, the packer appends the core
+  stream to an expanded level-data container and redirects the level header
+  through `virtual.tsv`; the original disc image is not changed. The expanded
+  gameplay and level-data loading paths have run in the real game on PAL and
+  NTSC-U. A 9,500-moby gameplay stream and a Godot collision edit adding 95,000
+  triangles both loaded for 1,200 frames on both versions. That collision edit
+  grew the compressed core beyond its original slot, so the packer moved the
+  collision block to the core tail and expanded the level-data container.
+- The expanded stream path uses a bounded 256 MiB guest RAM arena. RAC1 still
+  has format and game-owned limits: vanilla collision is queryable only inside
+  the 0-1024-unit world, marked mod collision reaches 131,072 units, each cell
+  has bounded vertex/face storage, and
+  gameplay objects still depend on their per-level tables and heap. The
+  NTSC-U's old moby-index remap held only 64 entries; when the expanded 256 MiB
+  arena is active, both PAL and NTSC-U now allocate remap storage from level
+  memory for tables above 64 records. The vanilla 32 MiB path keeps its
+  original allocation. Signed-short remap values still limit a source gameplay
+  table to 32,768 mobys. RAC1's killed-state bitsets hold 2,048 spawn IDs;
+  additions use unused IDs in that range, then become non-persistent (spawn ID
+  `-1`, spawn flags `0`) with a note in `changes.txt`. Expanded streams remove
+  the original disc-slot ceiling. With the expanded 256 MiB arena, the larger
+  pool can use the remaining 15-bit moby indices for spawned objects; the
+  vanilla 32 MiB pool size and its three crowded levels are unchanged. Expanded
+  mode now uses a sparse moby grid across the positive 131,072-unit collision
+  world, with 16-unit cells, 262,144 hash slots, and a 14.5 MiB pool of 32-byte
+  blocks; vanilla retains the original 1,536-block grid. A single moby's grid
+  bounds must fit the expanded grid's cell capacity; empty expanded cells release
+  their hash slots for later reuse. If grid allocation fails,
+  that moby keeps its previous collision coverage and OpenRAC warns. The
+  expanded target pointer table can hold 32,768 entries; vanilla keeps the
+  original 511-target limit. Host moby bookkeeping and HUD markers now cover
+  all 32,768 signed-index slots. Remaining game-format bounds include 32,768
+  source mobys, the 2,048 persistent spawn IDs, collision's positive 131,072-unit
+  world, and per-cell vertex/face storage. Large-world moby collision and
+  levels using the upper moby-index range still need live-game validation.
+  These are game-structure limits, not disc-slot limits.
 
 What the decoded collision misses: the cells' quads are split into triangles
 here, and a face shared by cells appears once, so the tiles show the level's
@@ -716,7 +804,14 @@ How it is packed ([moby_collision_scene.py](moby_collision_scene.py),
 - Checked first, or that class is left as the disc has it and `changes.txt`
   says why: kinds, radii and heights above 0, joints within the class's
   skeleton, vertices within 32 model units of the class's origin (16 bits in
-  1/1024), faces reaching only the first 256 vertices (byte indices).
+  1/1024), and at most 65,536 vertices per class collision mesh. Retail blobs
+  keep their byte-indexed faces; when an edit references vertex index 256 or
+  higher, OpenRAC marks that blob and stores 16-bit face indices. Vanilla blobs
+  keep their original layout and bytes.
+- Class collision is local to a moby and uses signed 16-bit vertex coordinates.
+  For large environment structures or map-scale collision, add the geometry to
+  the level's `Game/Collision` instead; that path uses the level collision
+  format and its mod-only extended coordinates, independently of moby classes.
 - The blob goes back where the class has it when it fits (its place is padded
   to 16 bytes), else to the end of the core data: the class header's
   collision offset is relative to the class and the loader adds the class's
@@ -736,7 +831,7 @@ python3 editor/moby_collision.py generate my_crate.glb --mode box --surface 0x7f
 ```
 
 `--mode mesh` (the default) takes the triangles themselves, merged until at
-most 256 vertices are left; `box` the box around them; `sphere` and
+most 65,536 vertices are left; `box` the box around them; `sphere` and
 `cylinder` one primitive around them. The model is read as `assets.py`
 exports models (glTF's Y up, at the drawn size: the class scale is taken
 from the class scene); `--axes game` reads one in the game's axes, `--scale`
@@ -809,8 +904,8 @@ Approximations:
   inferred rather than traced in the game's code. Sprites the game adds
   to the sky at run time are not included.
 
-Not yet extracted: low-detail moby meshes, audio, video
-and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
+Not yet extracted: low-detail moby meshes, audio (the Mods page's Audio tab exports
+it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
 the formats and the evidence for them.
 
 ## The later games (early access)
@@ -907,6 +1002,7 @@ The editor's files carry no licence lines, as the maintainers decided: the edito
 | `collision_scene.py` | The collision as tiles and hero walls in the scene, read back and packed into the level's core data |
 | `moby_collision.py` | Moby class collision: read, checked and written back byte-exact; generated from a mesh (also a command) |
 | `moby_collision_scene.py` | A class's collision in its class scene, read back and packed into the level's core data |
+| `audio.py` | The game's sounds as WAV files, and the edits back as a pack ([AUDIO_MODDING.md](AUDIO_MODDING.md)) |
 | `gamedata.py` | The gameplay data (pvars, links, groups, volumes, paths, cameras, sounds, level settings) in the scene and packed back |
 | `pack.py`, `gameplay.py`, `scenery.py`, `wadpack.py` | Packing edited scenes back into the game's level data |
 | `addons/openrac_collision/` | The Collision dock (GDScript, editor only): `plugin.gd` the plugin, `dock.gd` and `help.gd` its panel, `level_faces.gd` the level's faces and their edits, `class_collision.gd` a class scene's collision, `surfaces.gd` the type bytes |

@@ -35,9 +35,12 @@ bool clear_segment(
     unsigned room,
     const BakeSettings& settings
 ) {
-    return field.connects(a, b, room)
-           && (field.swimming_rooms[room] ? room_body_path_clear(scene, a, b, settings, true)
-                                          : room_path_clear(scene, a, b, settings));
+    // The ray checks differ by direction, and a path may walk a segment either way: both must pass.
+    auto clear = [&](Float3 from, Float3 to) {
+        return field.swimming_rooms[room] ? room_body_path_clear(scene, from, to, settings, true)
+                                          : room_path_clear(scene, from, to, settings);
+    };
+    return field.connects(a, b, room) && clear(a, b) && clear(b, a);
 }
 
 // Split a chain where a straight segment no longer follows it, and at a bounded length.

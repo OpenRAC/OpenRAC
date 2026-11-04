@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -33,6 +34,7 @@
 #include "renderer/gs.h"
 #include "renderer/texture.h"
 #include "renderer/texture_filter.h"
+#include "renderer/texture_pack.h"
 
 namespace openrac::renderer {
 
@@ -87,6 +89,31 @@ public:
     TextureHandle add(Rgba8Image image, AlphaScale scale, std::string name, bool mipmaps = false,
                       bool linear = false);
 
+    // Gives `texture` the frames of a texture pack's animated replacement (texture_pack.h): its
+    // image stays the first frame, and gl_texture() gives the frame of the game's tick. Null:
+    // none. Each frame's GL texture is made at its first use and freed with the texture.
+    void animate(TextureHandle texture, std::shared_ptr<const texture_pack::Animation> animation);
+
+    // What texture_pack::replace() found for `texture`, a texture added by its owner (an effect's,
+    // a particle's): its pack hash, for watch(), and its frames when animated (animate()); with
+    // hashes of the texels and the palette it was made from, so that the dump can tell a palette
+    // cycle (0: not known).
+    void set_replacement(
+        TextureHandle texture,
+        texture_pack::Replacement replacement,
+        std::uint64_t texels_hash = 0,
+        std::uint64_t palette_hash = 0
+    );
+
+    // For a pack maker's dump (texture_pack::CycleWatch): `texture` drawn this tick in `slot`, a
+    // place its owner names in at most 33 bits (an effect's quad). Nothing unless textures are
+    // dumped.
+    void watch(std::uint64_t slot, TextureHandle texture);
+
+    // The game's tick the frame shows (FrameInput::frame): the clock of animated replacements, so
+    // that they pause with the game and run alike at any frame rate.
+    void set_tick(std::uint64_t tick) { m_tick = tick; }
+
     // The anisotropic filter of every texture with a mipmap chain (the world's): 1 is none, up to
     // what the driver offers (max_anisotropy(); 1 when it has no such filter). The textures on the
     // GPU now are set again; later ones get it as they are uploaded. The context must be current.
@@ -97,6 +124,12 @@ public:
     // The game has put `texture` at base pointer `tbp`; draws that sample
     // there get it, whatever their TEX0 says about format and CLUT.
     void place(std::uint32_t tbp, TextureHandle texture);
+
+    // The texture placed at `tbp`, if any.
+    std::optional<TextureHandle> placed(std::uint32_t tbp) const {
+        const auto found = m_placed.find(tbp);
+        return found != m_placed.end() ? std::optional<TextureHandle>(found->second) : std::nullopt;
+    }
     void clear_placements();
 
     // A TEX0 with CLD set has loaded the CLUT at its CBP into the chip's CLUT buffer: the draws
@@ -128,13 +161,18 @@ public:
     static constexpr std::size_t kRestingFields = 4;
 
     const Rgba8Image& image(TextureHandle texture) const;
+
+    // Whether `texture` has an animated replacement's frames (animate()).
+    bool animated(TextureHandle texture) const {
+        return m_entries[texture - 1].animation != nullptr;
+    }
     AlphaScale alpha_scale(TextureHandle texture) const;
     const std::string& name(TextureHandle texture) const;
 
     // ---- The GPU side; the GL context must be current ----
 
     // The GL texture, created on first use. Filtering and wrapping are set
-    // by whoever binds it.
+    // by whoever binds it. An animated texture's is its frame at the tick (set_tick).
     unsigned gl_texture(TextureHandle texture);
 
     // Creates the GL textures of `textures` that have none yet, as gl_texture() would at their
@@ -226,12 +264,29 @@ private:
         unsigned gl = 0;
         std::uint64_t last_used = 0;
         Key key{};
+        std::uint64_t pack_hash = 0;  // its texture pack hash (texture_pack::Replacement), or 0
+        // An animated replacement's frames (animate()): GL textures of frames past the first
+        // (frame_gl[i - 1] is frame i; 0 until drawn) and the tick its clock started at.
+        std::shared_ptr<const texture_pack::Animation> animation;
+        std::vector<unsigned> frame_gl;
+        std::uint64_t animation_start = 0;
+        bool animation_started = false;
     };
 
     TextureHandle new_entry();
     // Creates entry `e`'s GL texture and uploads its texels: the one place a texture is made,
     // for gl_texture() at a first use and for prepare() at a level's load.
     void create_gl(Entry& e);
+    // A GL texture of `image` as entry `e`'s would be made (its mip chain and filters).
+    unsigned upload_gl(const Entry& e, const Rgba8Image& image);
+    // The GL textures entry `e` holds (its own and its frames'), deleted.
+    void delete_gl(Entry& e);
+    // For the dump (texture_pack::CycleWatch): `texture` drawn from the upload at `tex0`.
+    void watch_cycle(const gs::Tex0& tex0, TextureHandle texture);
+    // The draw's turn at `place` this frame: how many other textures were drawn there before it.
+    unsigned turn_at(std::uint64_t place, std::uint64_t hash);
+    // `hash` seen in `slot`: a cycle found there is logged (`where` says where) and dumped.
+    void see_cycle(std::uint64_t slot, std::uint64_t hash, const std::string& where);
     void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
     TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
     std::vector<std::uint8_t> texture_raster(const Stored& stored, const gs::Tex0& tex0) const;
@@ -260,6 +315,11 @@ private:
     std::unordered_map<Key, TextureHandle, KeyHash> m_converted;
     TextureHandle m_placeholder = 0;
     std::uint64_t m_frame = 0;
+    std::uint64_t m_tick = 0;  // set_tick
+    // Textures drawn at each base pointer this frame, in order, and the cycles found among them:
+    // only while textures are dumped (texture_pack::dumping).
+    std::unordered_map<std::uint64_t, std::pair<std::uint64_t, unsigned>> m_slot_turns;
+    texture_pack::CycleWatch m_cycles;
     std::unordered_map<std::uint64_t, TextureHandle> m_distance_fields;  // by the source's content
     // The field last given for a handle, with a sample of its texels (distance_field).
     std::unordered_map<TextureHandle, std::pair<std::uint64_t, TextureHandle>> m_field_of_handle;

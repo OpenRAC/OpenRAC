@@ -28,6 +28,7 @@ void mobys_section() {
     ImGui::Checkbox("labels in the picture", &s.labels);
     ImGui::SameLine();
     bool click_picks = picker_enabled();
+
     if (ImGui::Checkbox("click picks (mobys, ties, terrain)", &click_picks)) {
         set_picker_enabled(click_picks);
     }
@@ -217,7 +218,7 @@ void inspector_window() {
                 row("+78 pvars", std::format("{:#x}", read<std::uint32_t>(a + 0x78)));
                 row("+90 glow colour",
                     std::format("{:#08x}", read<std::uint32_t>(a + 0x90) & 0xFFFFFFu));
-                row("+A6 class", std::format("{}", read<std::int16_t>(a + 0xA6)));
+                row("class", std::format("{}", m->class_id));
 
                 if (const host::LiveMoby* h = hero()) {
                     row("distance to the hero", std::format("{:.2f}", distance(*m, *h)));

@@ -5,10 +5,12 @@
 #include "enhanced/renderer/texture_upscale.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "common/log.h"
 #include "enhanced_texture_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/texture_pool.h"
 #if defined(OPENRAC_VULKAN) && OPENRAC_VULKAN
 #include "renderer/vulkan/vkgl.h"
@@ -120,12 +122,21 @@ unsigned TextureUpscaler::create(
         return 0;
     }
 
-    if (!m_shader.id()) {
-        if (!m_shader.build_compute("texture upscale", shaders::texture_upscale_comp, error)) {
+    auto& shader = m_shaders
+        [renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants) ? wrap : 4u];
+    if (!shader.id()) {
+        std::string source_code(shaders::texture_upscale_comp);
+        if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)) {
+            source_code =
+                renderer::shader_constants(std::move(source_code), {{"wrap_mode", int(wrap)}});
+        }
+        if (!shader.build_compute("texture upscale", source_code, error)) {
             return 0;
         }
 
-        glGenBuffers(1, &m_buffer);
+        if (!m_buffer) {
+            glGenBuffers(1, &m_buffer);
+        }
     }
 
     unsigned result = 0;
@@ -140,9 +151,9 @@ unsigned TextureUpscaler::create(
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, (wrap & 1) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, (wrap & 2) ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-    m_shader.use();
-    glUniform1i(m_shader.uniform("tex_T0"), 0);
-    glUniform1i(m_shader.uniform("wrap_mode"), static_cast<int>(wrap));
+    shader.use();
+    glUniform1i(shader.uniform("tex_T0"), 0);
+    glUniform1i(shader.uniform("wrap_mode"), static_cast<int>(wrap));
     glBindTexture(GL_TEXTURE_2D, source);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_buffer);
     glBufferData(
@@ -181,7 +192,9 @@ void TextureUpscaler::release() {
     }
 
     m_cache.clear();
-    m_shader.release();
+    for (auto& shader : m_shaders) {
+        shader.release();
+    }
 
     if (m_buffer) {
         glDeleteBuffers(1, &m_buffer);

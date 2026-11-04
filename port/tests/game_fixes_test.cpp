@@ -46,13 +46,14 @@ void write(const fs::path& path, const std::string& text) {
 }  // namespace
 
 int main() {
-    // The table: rac1's four wide-screen fixes, all on by default (on is the port's fix).
-    CHECK(fixes::count() >= 4);
+    // The table: rac1's wide-screen fixes, all on by default (on is the port's fix).
+    CHECK(fixes::count() >= 5);
     for (const char* key :
          {"fix_wide_moby_effects",
           "fix_wide_nanotech_orbs",
           "fix_wide_liquids",
-          "fix_wide_air_traffic"}) {
+          "fix_wide_air_traffic",
+          "fix_wide_fires"}) {
         const int i = fixes::find(key);
         CHECK(i >= 0);
         CHECK(fixes::fix(i).on);
@@ -82,6 +83,7 @@ int main() {
     CHECK(asked.count("fix_wide_liquids") == 1);
     CHECK(asked.count("fix_wide_nanotech_orbs") == 1);
     CHECK(asked.count("fix_wide_air_traffic") == 1);
+    CHECK(asked.count("fix_wide_fires") == 1);
     for (const std::string& key : asked) {
         if (fixes::find(key.c_str()) < 0) {
             std::fprintf(

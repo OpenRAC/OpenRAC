@@ -13,7 +13,7 @@ Start with the [lighting guide](lighting/README.md) for builds, bakes and contro
 | `fsr3/` | Temporal world reconstruction, motion and reactive masks |
 | `viewer/` | Probe lighting, probe selection and early lighting of a level, library `openrac_enhanced_viewer`, namespace `openrac::lighting`; `scene_lighting.h` registers them with the scene's lighting hook ([scene/README.md](../scene/README.md)) |
 | `game/` | Authored brightness tracking |
-| `tools/probes/` | Offline baker and bake tools |
+| `tools/baker/` | Offline baker and bake tools |
 | `tests/`, `docs/` | Tests and feature documentation |
 
 ## Integration
@@ -21,6 +21,17 @@ Start with the [lighting guide](lighting/README.md) for builds, bakes and contro
 GTAO (`renderer/gtao.h`) implements `port/renderer/ambient_occlusion.h`, registered in
 `game/common/frontend/world.cpp`. It uses `port/renderer/gtao_settings.h` and builds with its
 shaders in `openrac_renderer`.
+
+The Enhanced menu's hierarchical-depth checkbox enables up to four min/max depth levels
+for distant GTAO samples. They use one RG32F texture buffer with separate graph ranges.
+Near contacts, silhouette refinement and depth discontinuities keep full-resolution samples.
+`gtao_hi_z` is saved independently and defaults off. The hierarchy is built only when enabled;
+changing it needs no restart or rebake.
+Separate shader variants remove hierarchy sampling code when the option is off.
+
+On Vulkan, the provider declares the single-sample depth/normal prepass boundary and the
+hierarchy, horizon and filter passes through the frame planner. MSAA resolves keep their
+graph and feed resolved inputs into GTAO.
 
 `viewer/scene_lighting.h` implements `port/scene/level_lighting.h`; register a `LevelScene`
 through `lighting::use_scene_lighting`. Loader and baker share explicit emission definitions
@@ -35,6 +46,91 @@ debanding during cache creation.
 The normal texture pool accepts an optional `UpscaledTextureColours` provider; it
 keeps original alpha/mip sampling and notifies the provider when source textures
 are retired. Only the enhanced texture library depends on the Vulkan copy helper.
+
+## Ratchet fur
+
+Enhanced graphics > Diagnostics > Ratchet fur view shows the authored coverage mask or
+UV growth directions with arrows. Detail normals shows the shaded surface orientation.
+Graphics > Enhanced Settings > Materials & water > Material inspector controls fur appearance
+through the shared `ratchet-fur` preset or a selected object material. Save writes the local JSON
+overlay; coverage and groom assets remain separate. See [Materials](../materials/README.md).
+
+The optional Geometry (prototype) controls add a short shell coat to the verified player fur
+surface. It is off by default. Coat length is a fraction of the bind-pose body's largest extent;
+layer count, strand density and distance fade apply live. Shells follow the existing joint palette,
+flatten when wet and use the same cutout coverage in colour and motion rendering. They retain the
+body's shadows; individual hairs do not cast additional shadows. Silhouette fins are not included.
+
+Short strands are generated deterministically along the groom into a mipmapped 512-square
+RGBA8 data texture. RG stores signed UV slopes around byte 128; B stores low-contrast strand
+variation around the same neutral value. World-position/UV derivatives carry those slopes through
+skinning, mirrored UVs and scale. Minification, distance and grazing-angle fades suppress unresolved
+detail. Wetness reduces the surface detail. FP16 handles bounded amplitudes and grain; derivative
+frames and normal reconstruction remain FP32.
+
+Fine normals affect direct material lighting and the existing wet coat. Shadow comparisons,
+probe bias, cached GI and prepass normals retain the smooth surface. Subtle colour grain keeps
+some texture under flat indirect lighting. This material path runs on
+enhanced Vulkan; original rendering and OpenGL retain their existing material path.
+
+The fur lighting adds a broad anisotropic dielectric highlight along the groom and a restrained,
+warm forward/wrap scattering response. It uses the existing directional sets and eight point lights,
+with the same light blending, sunlight override and point falloff. Added directional lighting uses
+the full shadow visibility without the legacy diffuse floor. Local prefiltered reflection captures
+supply indirect highlights through a groom-dependent lookup normal; the BRDF retains the original
+shading cosine. Cached GI supplies warm scattering across the coat and a dielectric reflection
+fallback where captures are absent. This remains light-driven in shade and interiors, without an
+unshadowed sun contribution or a constant ambient glow. It adds no GI or shadow lookup, but samples
+the existing reflection atlas on fur. Wetness reduces the dry-fur response.
+The implementation uses the [anisotropic GGX equations](https://google.github.io/filament/Filament.html#materialsystem/anisotropicmodel),
+with FP32 frames, distributions, visibility denominators and HDR accumulation; bounded Fresnel,
+scattering and tint calculations use FP16 where supported. Static world shader variants exclude
+the fur declarations and functions entirely. The surface material approximates a short coat;
+the optional shells add strand geometry without modelling transport through the body.
+
+[`lighting/profiles/rac1/fur.json`](lighting/profiles/rac1/fur.json) labels fur triangles in the
+verified body material, grouped by UV island. Groom directions use +U right and +V down. Small
+UV polygons refine the groom and exclude the nose and claws in original atlas pixels. The profile
+covers fur on the head, ears, arms, torso, feet and tail, excluding eyes, nose, mouth, teeth,
+claws and equipment. Directions are an initial atlas-space groom; shared and mirrored UVs still
+can be refined independently of the strand texture.
+
+At load, `renderer/fur_map.cpp` generates an RGBA8 map: R is coverage, GB is a signed unit UV
+direction multiplied by coverage and encoded as `0.5 + 0.5 * direction`, A is 255. No game pixels
+are stored in the profile. Game identity, body class, material, atlas dimensions, vertex/index
+counts and a UV signature must match. Overrides and unknown layouts opt out. A static vertex
+selection excludes non-fur islands; two texels of map padding prevent bare UV seams without
+spilling onto equipment. Shared vertices between fur and excluded islands are refused. The range
+and live-palette checks exclude attachments, other materials and UI copies. Diagnostics are
+session-only and default off.
+
+## Foliage
+
+Enhanced Vulkan supports reviewed thin-leaf materials through `material-overrides.json`. Texture-content hashes select materials; ordinary cutouts,
+trunks, metal and blended effects retain their existing response. The initial shared rac1
+profile covers nine Novalis leaf/fern textures. Fresh PAL and NTSC exports copy that profile;
+existing exports need the metadata copied in or a fresh export. Replacement artwork opts out
+unless explicitly reviewed.
+
+Thin-sheet diffuse transmission shares energy with surface diffuse reflection. The original
+paint supplies transmitted hue; Beer-Lambert absorption uses an authored optical thickness.
+Rough GGX supplies dielectric highlights (F0 0.04, 25% wax coverage to preserve painted colour). Directional and Forward+ point/spot lights
+use the existing light bank. Backlit leaves use light-facing primary-shadow bias while keeping
+external blockers. Local lights retain their existing unshadowed policy. Alpha, depth, mesh
+positions and the original texture are unchanged. No extra render target or texture is added;
+four bounded controls occupy the last two spare words of the 96-byte GPU material record.
+
+Rules match `texture_rgba_sha256` and original cutout eligibility. Optical properties are
+`foliage.transmission` (0-1), `foliage.thickness` (0-4), `foliage.normal_bend` (0-1) and
+`surface.roughness` (0.35-1). The hash covers little-endian dimensions then top-row-first RGBA8,
+independently of PNG compression. Fern/clump selections use zero bend. The unified material
+inspector previews, saves and resets these values; runtime-only changes preserve probe bakes.
+Legacy `foliage-materials.json` exports remain readable during migration.
+
+Front-side indirect light keeps the existing GI/AO path. Backside indirect transmission,
+coloured transmitting shadows and diffusion through thick tissue are not modeled. This is
+surface shading, not a screen-space blur or a change to baked transport. Run the synthetic
+`foliage` and `foliage_gpu` CTests for identity, parameter, optical and shadow checks.
 
 ## Normals
 
@@ -55,7 +151,9 @@ are unchanged.
 Gameplay rim lighting uses cached GI colour and smooth normals, fading toward front-facing
 surfaces within a brightness cap. It needs valid probe coverage, adds no samples/targets, and
 leaves emission, diagnostics, UI and blended effects unchanged. Ratchet, attachments, pickups,
-crates, enemies, NPCs and tool targets use the class list in `port/game/rac1/gameplay_lighting.h`.
+crates, enemies, NPCs and tool targets use the class list in `port/game/rac1/gameplay_lighting.h`;
+Going Commando's identified ones (Ratchet, the vendor, crates, the ammo pickup) are its profile's
+(`port/game/rac2-ntsc/profile.cpp`).
 Enhanced Settings toggles it; Advanced saves live strength/falloff controls. Higher falloff
 narrows the edge. Reflections stay separate from diffuse texture/vertex tint, including chrome
 overlays such as Clank's, keeping dark materials readable.
@@ -71,6 +169,85 @@ Changed mesh files require a matching probe bake under the existing source-finge
 
 ## Water
 
-Novalis NTSC [enhanced water](docs/water.md) needs local `water.bin` and `water.mesh` files beside
-the manifest. Its separate bake stores banks, rest heights, dense mesh and outlets. Compute adds
-Ratchet's ripples and bank reflections; cached lighting preserves the painted blue textures.
+Novalis (NTSC-U and PAL) [enhanced water](docs/water.md) prepares `water.bin` and `water.mesh`
+beside the manifest during lighting preparation. The bake stores banks, rest heights,
+dense mesh and outlets. Compute adds Ratchet's ripples and bank reflections; cached
+lighting preserves the painted blue textures.
+
+## Unshadowed local lights
+
+Enhanced Vulkan uses Forward+ for point and spot lights. The original eight game slots and up to
+4096 authored lights share a table; each 16x16 tile stores complete bitmasks without truncation.
+Opaque receivers use the prepass depth range. Transparent and MSAA receivers use
+depth-independent masks; secondary cameras and offscreen compute receivers evaluate all lights
+when masks do not match. Light tables below 16 entries bypass compute culling. Directional and
+Ratchet shadows are unchanged; local lights do not cast shadows or contribute to baked GI.
+Native point lights remain available to enhanced material fallbacks without probe data.
+Volumetric lighting still uses the original point-light bank.
+
+The authoring entry point is
+`lighting::SceneLighting::set_local_lights(span<enhanced::LocalLight>)`. It copies a complete
+level-local snapshot safely from the authoring thread, applied at a frame boundary. Positions
+and ranges use game world units, RGB is nonnegative linear radiance, intensity multiplies RGB,
+and spot angles are inner/outer half-angles in radians (`0 <= inner <= outer < pi/2`). Direction
+points outward from the spotlight and is normalized on upload. Built-in and authored surface
+lights share a soft inverse-square-shaped attenuation with a fourth-power range window. It
+retains the original brightness at half range and fades to zero with zero slope at the original
+radius. Spots add a smooth cosine transition between their cones; equal angles select a hard
+cone. Invalid snapshots return a descriptive error and preserve the previous lights. Level
+release clears authored lights.
+
+FP16 remains enabled for bounded shading weights and material responses. Do not narrow authored
+HDR radiance to FP16: values above 65504 overflow, and an infinite colour multiplied by a zero
+lighting weight can produce NaNs. Authored radiance, accumulation, positions and culling stay
+FP32; the GPU regression includes an extreme HDR light and a back-facing receiver to guard this
+boundary. Very bright lights may still expose FP16 weight quantisation or loss of tiny
+contributions. If banding appears, investigate those bounded weights before widening the whole
+renderer to FP32.
+
+`set_local_light_reference(true)` selects the all-light reference for tests and profiling; it
+defaults off.
+
+`local_lights` checks CPU/GPU attenuation, full masks, overlap, transparent receivers and view
+changes. Run `local_lights_test --benchmark` for warmed all-light versus tiled GPU timings at
+several counts. These synthetic scenes measure culling/shading cost, not a full gameplay frame.
+
+### Object light authoring
+
+This work-in-progress feature is compiled out by default. Configure with
+`-DOPENRAC_LIGHT_AUTHORING=ON` for the **Enhanced graphics** foldout in
+**Developer > Object Viewer** and runtime attached-light profiles. The general viewer and
+existing Forward+ lighting remain available without it.
+
+Add point/spot lights and edit colour, intensity, range, cones and move/rotate/range gizmos.
+Lights can attach to the object root or a named bone. Reparenting preserves placement;
+**Move to bone origin** clears the local offset. Attachments follow the displayed bone pose.
+The preview uses production Forward+ with neutral fill, original textures, alpha and emission;
+it omits level GI, reflections and per-light shadows. Unsaved edits affect only the preview.
+
+**Save profile** applies additive lights to every instance of that object type, including
+emitters outside the camera. Shared definitions live in
+`lighting/profiles/<game>/object-lights.json`, copied into every level export and standalone
+bundle. Export-root and traditional level overrides can supply the same file; active mod roots
+have highest priority. The viewer displays its save destination. Drafts are per destination and
+object type; Reload discards only the selected object's draft. Save merges other definitions
+and atomically replaces the file; failure retains the previous file.
+
+Version-1 JSON contains an `objects` map keyed by scene layer and model name, such as
+`mobys/<model>.glb`; terrain keys also include the level. Each light has `name`, `type`
+(`point`/`spot`), `bone` (empty for root), `enabled`, `position`, `direction`, `colour`, `intensity`,
+`range`, `inner_angle` and `outer_angle`. Position/direction are object/bone local, range is in
+game world units, and cone angles are radians. Only authored metadata is saved.
+
+`object-viewer.json` in the working folder exposes the selection, pose, camera, visible controls
+and optional lights to diagnostic tools. `OPENRAC_OVERLAY=object-viewer` opens it in developer mode.
+
+### Lighting graph
+
+Vulkan early lighting, Forward+ light masks, reflection-probe masks and diffuse-probe
+shortlist/tile selection declare their inputs and output ranges to the frame graph.
+The existing kernels and selection rules are unchanged, including secondary-camera
+shortlists and translucent masks. The graph orders producer writes and later reads
+on the existing command buffer.
+
+Hi-Z remains optional and off by default. OpenGL keeps its compatibility path.

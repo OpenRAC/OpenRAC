@@ -28,7 +28,7 @@ import tempfile
 import time
 
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
-from openrac_common import files as file_ops  # noqa: E402
+from openrac_common import background, files as file_ops  # noqa: E402
 
 from disc import LEVEL_COUNT, Disc
 from formats import FormatError
@@ -36,12 +36,12 @@ import errors
 import progress_line
 from godot import SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, write_project
 from spaceships import add_spaceships
-from level import load_flight, load_level, load_title
+from level import load_flight, load_level, load_title, load_wad_flight
 from level import decoded, load_wad_level
 from occlusion import write_stamp as write_pvs_stamp
 from lighting import normal_table
 from pack import pack
-from port import FORMAT as PORT_FORMAT, PortLevelWriter
+from port import PortLevelWriter, levels_format
 from util import sha256
 import wads
 
@@ -82,6 +82,23 @@ def ours(path: Path, kind: str) -> None:
                 "other": "files that are not an export"}[found]
         raise FormatError(f"{path} holds {what}, not what this command writes; choose another folder",
                           code="folder-not-ours")
+
+
+def ours_packed(path: Path, version: str) -> None:
+    """Refuses to replace a non-empty directory unless it is this version's RAC1 pack."""
+    if not path.exists():
+        return
+    if not path.is_dir():
+        raise FormatError(f"{path} is not a packed-level folder; choose another folder", code="pack-folder-not-ours")
+    if not any(path.iterdir()):
+        return
+    try:
+        manifest = json.loads((path / "packed.json").read_text())
+    except (OSError, ValueError):
+        manifest = None
+    if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
+        raise FormatError(f"{path} holds files that are not a RAC1 {version.upper()} packed-level export; "
+                          "choose another folder", code="pack-folder-not-ours")
 
 
 def level_schema(level_dir: Path) -> int | None:
@@ -191,7 +208,7 @@ def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, expo
         return f"Godot project{'s, one per level' if split else ''}: {dest}"
     report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry, again)
     for done in report["carried"]:
-        # One line per level for the launcher (launcher/src/lib/editorFlow.ts, CARRY_LINE).
+        # One line per level for the launcher (the launcher hides these lines: launcher/src/lib/toolErrors.ts, MARKERS).
         print(f"openrac-carry: {json.dumps(done, separators=(',', ':'))}", flush=True)
     said = [f"Godot project{'s' if split else ''} in {dest}:"]
     if report["kept"]:
@@ -248,19 +265,45 @@ def publish(path: Path, build, anywhere: bool = False, replace: bool = False) ->
     dest = output_path(path, anywhere, replace)
     dest.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
+    old = None
     try:
         build(temporary)
         if dest.exists():
             old = Path(tempfile.mkdtemp(prefix=f".{dest.name}-old-", dir=dest.parent))
-            file_ops.rename(dest, old / dest.name)
-            file_ops.rename(temporary, dest)
+            backup = old / dest.name
+            file_ops.rename(dest, backup)
+            try:
+                file_ops.rename(temporary, dest)
+            except BaseException:
+                # The completed build is not published. Put the previous directory back;
+                # if the filesystem also refuses that rename, leave the backup recoverable.
+                try:
+                    if not dest.exists() and backup.exists():
+                        file_ops.rename(backup, dest)
+                except OSError:
+                    pass
+                raise
             shutil.rmtree(old)
         else:
             file_ops.rename(temporary, dest)
     finally:
         if temporary.exists():
             shutil.rmtree(temporary)
+        if old is not None and old.exists() and not (old / dest.name).exists():
+            shutil.rmtree(old)
     return dest
+
+
+def default_jobs() -> int:
+    """How many levels are written at once: all but a few of the CPU's threads
+    (background.cpu_budget), so the computer stays usable, unless OPENRAC_EXTRACT_JOBS says
+    otherwise: a number, or "all" for every thread."""
+    wanted = os.environ.get("OPENRAC_EXTRACT_JOBS", "").strip().lower()
+    if wanted == "all":
+        return os.cpu_count() or 1
+    if wanted.isdigit() and int(wanted) > 0:
+        return int(wanted)
+    return background.cpu_budget()
 
 
 def worker_pool(jobs: int) -> Executor:
@@ -273,9 +316,10 @@ def worker_pool(jobs: int) -> Executor:
         return SubprocessPool(jobs)
 
 
-# What SubprocessPool may run: the level exports below.
+# What SubprocessPool may run: the level exports below. Every function given to worker_pool's
+# submit must be here (test_extract checks it), or Android fails where a desktop works.
 WORKER_FUNCTIONS = ("export_level", "export_port_level", "export_port_title", "export_port_flight",
-                    "export_wad_level", "export_port_wad_level")
+                    "export_wad_level", "export_port_wad_level", "export_port_wad_flight")
 # A phone's memory, not its cores, limits how many levels are written at once.
 SUBPROCESS_JOBS = 4
 
@@ -339,14 +383,21 @@ def export_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     own process."""
     disc, source = open_later(iso)
     with disc:
-        return LevelWriter(out, load_wad_level(source, source.level(number))).write(lod)
+        return LevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
 
 
 def export_port_wad_level(iso: Path, number: int, out: Path, lod: int) -> dict:
     """One later game's level in the port's layout (for the overrides packs and the viewer)."""
     disc, source = open_later(iso)
     with disc:
-        return PortLevelWriter(out, load_wad_level(source, source.level(number))).write(lod)
+        return PortLevelWriter(out, load_wad_level(source, source.level(number)), source.normals()).write(lod)
+
+
+def export_port_wad_flight(iso: Path, number: int, out: Path, lod: int) -> dict:
+    """A Going Commando flight to a planet as a level of its own (level.load_wad_flight)."""
+    disc, source = open_later(iso)
+    with disc:
+        return PortLevelWriter(out, load_wad_flight(source, number), source.normals()).write(lod)
 
 
 def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, split: bool = False,
@@ -403,13 +454,13 @@ def export_port_flight(iso: Path, survey: dict, out: Path, lod: int) -> dict:
         return PortLevelWriter(out, load_flight(disc, survey), normals(disc)).write(lod)
 
 
-def levels_stamp_name() -> str:
-    return f"levels-{PORT_FORMAT}.json"
+def levels_stamp_name(game: str = "rac1") -> str:
+    return f"levels-{levels_format(game)}.json"
 
 
 def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: Path, game: str = "rac1") -> None:
     """OUT/level_NN/ per level (port.py), written in parallel like godot(). A later game's levels
-    have no title world or flight to add."""
+    have no title world to add; Going Commando's flights are its own."""
     out.mkdir(parents=True, exist_ok=True)
     with worker_pool(min(jobs, len(levels))) as pool:
         if game == "rac1":
@@ -418,6 +469,9 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
             running.append(pool.submit(export_port_flight, iso, survey, out, lod))
         else:
             running = [pool.submit(export_port_wad_level, iso, i, out, lod) for i in levels]
+            if game == "rac2":
+                running += [pool.submit(export_port_wad_flight, iso, i, out, lod)
+                            for i in range(wads.RAC2_NTSC.flight_count)]
         progress_line.say("read", 0, len(running))
         try:
             for count, done in enumerate(as_completed(running), 1):
@@ -433,7 +487,7 @@ def port(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: P
         write_pvs_stamp(out)
     # Last: every level is whole. The launcher counts the levels as ready by this stamp, named
     # after the export format, so a format bump reads them again before they are checked.
-    (out / levels_stamp_name()).write_text(json.dumps({"format": PORT_FORMAT}) + "\n")
+    (out / levels_stamp_name(game)).write_text(json.dumps({"format": levels_format(game)}) + "\n")
 
 
 def raw_later(source: wads.WadDisc, level_id: int, out: Path) -> None:
@@ -480,7 +534,9 @@ def later_main(args, parser, disc: Disc, version: wads.Version) -> None:
         ours(output_path(args.out, args.anywhere, replace=True), "port")
         dest = publish(args.out, lambda out: port(args.iso, survey, wanted, args.terrain_lod, max(1, args.jobs), out,
                                                   version.game), args.anywhere, replace=True)
-        print(f"Levels in the port's layout (early access, not playable yet): {dest}")
+        # Going Commando's port draws them (its Play, developer tools on); the other later games' do not yet.
+        state = "early access" if version.game == "rac2" else "early access, not playable yet"
+        print(f"Levels in the port's layout ({state}): {dest}")
         say_output(dest)
     else:
         dest = publish(args.out, lambda out: raw_later(source, args.level[0], out))
@@ -509,8 +565,8 @@ def main() -> None:
     export.add_argument("out", type=Path)
     export.add_argument("--level", type=int, action="append",
                         help="a level to export (repeatable; default: all)")
-    export.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
-                        help="levels to export at once (default: one per CPU)")
+    export.add_argument("--jobs", type=int, default=default_jobs(),
+                        help="levels to export at once (default: all but a few CPU threads, or OPENRAC_EXTRACT_JOBS)")
     export.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
     export.add_argument("--split", action="store_true",
@@ -525,8 +581,8 @@ def main() -> None:
     native.add_argument("out", type=Path)
     native.add_argument("--level", type=int, action="append",
                         help="a level to export (repeatable; default: all)")
-    native.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
-                        help="levels to export at once (default: one per CPU)")
+    native.add_argument("--jobs", type=int, default=default_jobs(),
+                        help="levels to export at once (default: all but a few CPU threads, or OPENRAC_EXTRACT_JOBS)")
     native.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
     native.add_argument("--replace", action="store_true",
@@ -546,6 +602,9 @@ def main() -> None:
     dump.add_argument("out", type=Path)
     dump.add_argument("--level", type=int, required=True, action="append")
     args = parser.parse_args()
+    if args.command in ("godot", "port"):
+        # Whatever the player does comes first; the levels' processes have the rest of the CPU.
+        background.lower_priority()
     try:
         with Disc(args.iso) as disc:
             later = wads.identify(disc)
@@ -603,9 +662,26 @@ def main() -> None:
                     if game != "rac1":
                         raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
                                           code="game-not-packable")
-                levels, mobys = pack(disc, survey, args.project, dest)
-                print((dest / "changes.txt").read_text(), end="")
-                print(f"Packed {levels} level(s), {mobys} moby edit(s): {dest}")
+                ours_packed(dest, disc.version.key)
+                # Build beside the published pack. An unsupported Godot edit must not leave a
+                # half pack behind or replace the last good one: pack.py records such edits in
+                # changes.txt so authors can see exactly what needs attention.
+                result = {}
+
+                def build_pack(directory: Path) -> None:
+                    levels, mobys = pack(disc, survey, args.project, directory)
+                    report = (directory / "changes.txt").read_text()
+                    incomplete = [line.strip() for line in report.splitlines()
+                                  if line.lstrip().startswith("not packed:")]
+                    if incomplete:
+                        details = "\n".join(f"  {line}" for line in incomplete)
+                        raise FormatError("Some Godot edits could not be packed:\n" + details,
+                                          code="pack-incomplete")
+                    result.update(levels=levels, mobys=mobys, report=report)
+
+                dest = publish(dest, build_pack, args.anywhere, replace=True)
+                print(result["report"], end="")
+                print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
                 say_output(dest)
             else:
                 dest = publish(args.out, lambda out: raw(disc, survey, args.level[0], out))

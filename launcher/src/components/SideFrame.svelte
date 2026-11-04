@@ -13,22 +13,24 @@
 </div>
 
 <style>
+  /* As tall as <main>, never taller: the list and the page each scroll in their own column, and
+     <main> stays still. A sticky list in a scrolling <main> looks the same, but WebKitGTK stops
+     drawing it for the rest of a slide (app.css) if the page grows past the window during it, as
+     a page does when what it loads arrives. */
   .frame {
     display: grid;
     grid-template-columns: 248px minmax(0, 1fr);
-    min-height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+    height: 100%;
   }
 
   aside {
-    position: sticky;
-    top: 0;
-    align-self: start;
-    height: calc(100vh - var(--nav-top));
     overflow-y: auto;
   }
 
   .content {
     min-width: 0;
+    overflow: hidden auto;
   }
 
   /* The list stays put while the page beside it slides (app.css). */
@@ -42,15 +44,22 @@
     }
   }
 
+  /* One column, and <main> scrolls the two together. */
   :global(html[data-platform="android"]) .frame {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    height: auto;
+    min-height: 100%;
+  }
+
+  :global(html[data-platform="android"]) .content {
+    overflow: visible;
   }
 
   /* It scrolls sideways when the entries are wider than the page, by dragging (no bar on Android:
      app.css), and goes up with the page. */
   :global(html[data-platform="android"]) aside {
-    position: static;
-    height: auto;
+    align-self: start;
     overflow: auto hidden;
   }
 </style>

@@ -208,6 +208,22 @@ void compact(RoomDistanceField& field, const Scene& scene, const BakeSettings& s
         });
     }
 
+    // The checks above run from each end, and the body check is not symmetric: keep an edge
+    // only when it passed from both ends, so a path may walk it either way.
+    std::vector<std::vector<unsigned>> kept(nodes.size());
+
+    for (unsigned a = 0; a < nodes.size(); ++a) {
+        for (auto b : nodes[a].neighbours) {
+            if (std::binary_search(nodes[b].neighbours.begin(), nodes[b].neighbours.end(), a)) {
+                kept[a].push_back(b);
+            }
+        }
+    }
+
+    for (unsigned a = 0; a < nodes.size(); ++a) {
+        nodes[a].neighbours = std::move(kept[a]);
+    }
+
     field.nodes = std::move(nodes);
 }
 
@@ -322,12 +338,14 @@ bool room_path_clear(const Scene& scene, Float3 a, Float3 b, const BakeSettings&
     return true;
 }
 
+// Tests both endpoint margins because the room graph stores undirected connections.
 bool room_body_path_clear(
     const Scene& scene, Float3 a, Float3 b, const BakeSettings& settings, bool swimming
 ) {
-    return floor_step_clear(
-        scene, a, b, settings, settings.traversal.player_height * (swimming ? .5f : 1.f)
-    );
+    // Swimming uses half-height clearance at the water surface.
+    const float height = settings.traversal.player_height * (swimming ? .5f : 1.f);
+    return floor_step_clear(scene, a, b, settings, height)
+           && floor_step_clear(scene, b, a, settings, height);
 }
 
 std::vector<Float3> room_floor_path(

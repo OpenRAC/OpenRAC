@@ -57,8 +57,7 @@ band is |x − 2048| ≤ 1024 and |y − 2048| ≤ 832 pixels.
 
 The sky uses a variant with w = z / n and no translation
 ([SHRUB_SKY.md](../formats/SHRUB_SKY.md#7-how-the-sky-is-drawn)); the terrain
-constant block the VU1 program reads is in [TFRAG.md](../formats/TFRAG.md#8-the-vu1-program-in-short)
-and [VU1.md](VU1.md#terrain-55907-and-903379).
+constant block the VU1 program reads is in [TFRAG.md](../formats/TFRAG.md#8-the-vu1-program-in-short).
 
 ## 4. Fog
 

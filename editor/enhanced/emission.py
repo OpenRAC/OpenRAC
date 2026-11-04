@@ -8,9 +8,13 @@ import tempfile
 
 def resolve_materials(directory, catalog_path):
     """Match explicit texture identities across levels and return ordinary emission overrides."""
-    if not catalog_path.is_file():
+    unified = catalog_path.with_name('material-overrides.json')
+    if catalog_path.name in ('emission-materials.json', 'material-overrides.json') and unified.is_file():
+        catalog = projected_catalog(unified)
+    elif catalog_path.is_file():
+        catalog = json.loads(catalog_path.read_text())
+    else:
         return {}
-    catalog = json.loads(catalog_path.read_text())
     if not isinstance(catalog, dict) or catalog.get('version') != 1 or not isinstance(catalog.get('materials'), list):
         raise ValueError('emission material catalog requires version 1 and a material list')
     definitions = {}
@@ -86,3 +90,44 @@ def apply_materials(directory, catalog_path, level_defaults=None):
             temporary = Path(staged)/path.name
             temporary.write_text(text)
             temporary.replace(path)
+
+
+def projected_settings(rule, catalog):
+    """Project tracked unscoped emission rules for legacy generated sidecars only."""
+    setting = dict(catalog.get('presets', {}).get(rule.get('preset'), {}))
+    for group, values in rule.get('set', {}).items():
+        setting[group] = ({**setting.get(group, {}), **values}
+                          if isinstance(values, dict) else values)
+    emission = dict(setting.get('emission', {}))
+    if 'diffuse_scale' in setting.get('surface', {}):
+        emission['diffuse_scale'] = setting['surface']['diffuse_scale']
+    return emission
+
+
+def projected_catalog(path):
+    """Adapt version catalog defaults; class/slot matching remains in the native material resolver."""
+    catalog = json.loads(path.read_text())
+    if catalog.get('version') != 1 or not isinstance(catalog.get('overrides'), list):
+        raise ValueError('material catalog requires version 1 and overrides')
+    entries = []
+    for rule in catalog['overrides']:
+        match = rule.get('match', {})
+        if not rule.get('enabled', True) or set(match) != {'texture_file_sha256'}:
+            continue
+        emission = projected_settings(rule, catalog)
+        entries.append({'name':rule.get('name',rule['id']),
+                        'texture_sha256':match['texture_file_sha256'], 'emission':emission})
+    return {'version':1, 'materials':entries}
+
+
+def level_material_defaults(path, defaults):
+    """Retain non-material bake inputs while projecting tracked texture-path emission defaults."""
+    if not path.is_file():
+        return defaults
+    catalog = json.loads(path.read_text())
+    result = dict(defaults)
+    for rule in catalog.get('overrides', []):
+        match = rule.get('match', {})
+        if rule.get('enabled', True) and set(match) == {'texture_path'}:
+            result[match['texture_path']] = projected_settings(rule, catalog)
+    return result

@@ -136,6 +136,10 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `overrides_list`                                                                                   | `{game}`                                                                           | the game's overrides packs (`core/src/overrides.rs`), in order                                                                                                              |
 | `overrides_set_enabled` / `overrides_move` / `overrides_remove`                                    | `{game, id, enabled}` / `{game, id, up}` / `{game, id}`                            | the packs again, changed                                                                                                                                                    |
 | `plugins_list` / `plugins_set_enabled` / `plugins_move` / `plugins_set_setting` / `plugins_remove` | `{game, version}`, then `{id, enabled}` / `{id, up}` / `{id, key, value}` / `{id}` | the game's gameplay mods (native and script) in load order, as they stand for that disc (`core/src/plugins.rs`, `PluginView`), changed                                      |
+| `texture_packs_view` / `texture_packs_set`                                                         | `{game, version}`, then `{enabled, dumping}` (either may be null)                  | the game page's Texture packs section (`core/src/texture_packs.rs`, `TexturePackView`): the pack's and the saved textures' counts by folder, the two switches; changed      |
+| `texture_packs_open`                                                                               | `{game, version, dump, folder}`                                                    | opens the pack's or the saved textures' folder, or one of their folders, made if missing                                                                                    |
+| `texture_packs_preview` / `texture_packs_import`                                                   | `{game, version, source}`, then `{mode}` (`merge`, `replace`)                      | what a pack's `.zip` holds, refused for another game's, unsafe names or pictures not named by a texture; imported                                                           |
+| `texture_packs_export`                                                                             | `{game, version}`                                                                  | the pack saved as a `.zip` with its folders and manifest where the player chooses (Android: its save screen); `saved` empty when they backed out                            |
 | `enhanced_view` / `enhanced_set_enabled` / `enhanced_set_setting`                                  | `{game, version}`, then `{enabled}` / `{key, value}`                               | the Mods tab's Enhanced graphics entry for that version (`core/src/enhanced.rs`), or null; changed                                                                          |
 | `plugins_install`                                                                                  | `{game, version, path}`                                                            | a .zip or folder added: `{kind: "plugin", id, name, version, replaced, enabled}`, or `{kind: "pack"}` for the page to add as an overrides pack                              |
 | `plugins_status`                                                                                   | `{game}`                                                                           | what the port did with the mods at its last start (`status.json`), or null                                                                                                  |
@@ -144,9 +148,20 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `plugins_check_updates`                                                                            | `{game, version}`                                                                  | `{updates, errors}`: newer releases (or a pack's newer commit) of the mods added from a link, but those kept at their version                                               |
 | `plugins_update`                                                                                   | `{game, version, id}`                                                              | installs the newest, keeping its place, switch and settings                                                                                                                 |
 | `plugins_sources` / `plugins_set_pin`                                                              | `{game}` / `{game, id, pin}`                                                       | where the mods added from a link came from (`sources.json`); keeps one at its version or lets it update                                                                     |
+| `deeplink_parse`                                                                                   | `{url}`                                                                            | the mods an `openrac://install/…` link asks for (`core/src/deeplink.rs`, `DeepLinkInstall`), or a `ModError`                                                                |
+| `index_fetch`                                                                                      | `{game, version}`                                                                  | the signed mod index, checked and merged (`core/src/index.rs`, `IndexView`); the cache offline; with a game, its revoked mods turned off                                    |
+| `index_resolve`                                                                                    | `{game, version, wanted, turnOff}`                                                 | the change set (`core/src/resolver.rs`, `InstallPlan`)                                                                                                                      |
+| `index_apply`                                                                                      | `{game, version, wanted, turnOff, serial, shared}`                                 | resolves again and installs in order (`core/src/index_apply.rs`, `ApplyResult`; `index-apply` events)                                                                       |
+| `mods_updates`                                                                                     | `{game, version}`                                                                  | the index's updates for the game's mods: `silent`, `waiting`, `held` (`core/src/mod_updates.rs`, `UpdatePlan`)                                                              |
+| `mods_auto_update`                                                                                 | `{game, version, ids, running}`                                                    | from a fresh fetch, the silent updates (or `ids`) as one all-or-nothing set; refused while the game runs (`UpdateRun`)                                                      |
+| `mods_last_update` / `mods_crash_rollback`                                                         | `{game}` / `{game, version, id}`                                                   | the last update run; after a crash, the mod back at its earlier version and pinned                                                                                          |
+| `plugins_turn_on` / `plugins_dependents`                                                           | `{game, version, id}` / `{game, id}`                                               | on with its dependencies (`{views, alsoOn}`); the mods that are on and need it                                                                                              |
+| `plugins_orphans` / `plugins_remove_with`                                                          | `{game, id}` / `{game, version, id, also}`                                         | the dependencies only it needed (`Orphan`, `auto`); removes it (or a mod pack) and those                                                                                    |
 | `open_game_folder`                                                                                 | `{game, path}`                                                                     | opens a folder inside the game's set-up folder (an export); refuses anything else                                                                                           |
 | `inspect_saves` / `backup_saves` / `restore_backup`                                                | `{serial}` / `{serial, note}` / `{serial, backupName}`                             | the card's slots and backups; a backup; a restore (refused while the game uses the card)                                                                                    |
 | `open_saves_folder`                                                                                | `{serial}`                                                                         | opens the game's memory card folder, made if it is not there                                                                                                                |
+| `export_saves`                                                                                     | `{serial, slot}` (null: all)                                                       | an OpenRAC saves file (`core/src/save_transfer.rs`) where the player chooses; `{saved, slots}`                                                                              |
+| `preview_save_import` / `import_saves`                                                             | `{serial, source}` / `{serial, source, choice}`                                    | what a saves file holds (`SaveImportPreview`); imports it after a backup, replacing or merging slots                                                                        |
 | `read_save`                                                                                        | `{serial, slot}`                                                                   | one slot for the save editor (`core/src/save_edit.rs`, `SaveView`)                                                                                                          |
 | `write_save`                                                                                       | `{serial, slot, fingerprint, change}`                                              | writes the editor's fields or raw chunks, safely (below); the backup and the slot as it now is                                                                              |
 | `reports_list`                                                                                     | `{game}`                                                                           | the game's session logs and crash reports, newest first (`core/src/reports.rs`)                                                                                             |
@@ -170,11 +185,12 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `update_check` / `update_install` (Android)                                                        | `{channel}` / `{url, signature}`                                                   | a newer launcher on the releases (`core/src/update.rs`), or null; downloads its APK, checks the signature and hands it to Android's installer                               |
 | `game_status` / `game_window` (Android)                                                            | - / `{stop}`                                                                       | `{running, library}`: whether the game runs; brings it back in front, or ends it                                                                                            |
 
-| Event        | Payload                                                    |
-| ------------ | ---------------------------------------------------------- |
-| `job-output` | `{type: "output", id, stream: "stdout" \| "stderr", line}` |
-| `job-exit`   | `{type: "exit", id, code, cancelled}`                      |
-| `disc-copy`  | `{name, copied, total}` (Android: a picked disc's copy)    |
+| Event         | Payload                                                           |
+| ------------- | ----------------------------------------------------------------- |
+| `job-output`  | `{type: "output", id, stream: "stdout" \| "stderr", line}`        |
+| `job-exit`    | `{type: "exit", id, code, cancelled}`                             |
+| `disc-copy`   | `{name, copied, total}` (Android: a picked disc's copy)           |
+| `index-apply` | `{id, step, at, total}`: each mod of a change set being installed |
 
 ### Adding a command
 
@@ -408,6 +424,47 @@ Ratchet at the start
 ([docs/port/RAC1_PAL_TESTING.md](../../docs/port/RAC1_PAL_TESTING.md) for
 scripted presses and pictures). Never point a test at the player's own card.
 
+## Saves between devices
+
+**Export** and **Import** on the Saves panel (`components/SaveTransfer.svelte`,
+words in `lib/saveTransfer.ts`) carry one game's saves to another computer or
+phone in one file, `core/src/save_transfer.rs`. The file is a `.zip`, so any
+system opens it:
+
+```text
+openrac-saves.json              the manifest
+BESCES-50916RATCHET/icon.sys    the card's save folders, as they sit on the card
+BESCES-50916RATCHET/save1.bin
+BESCES-50916RATCHET/save1.bin.mods
+```
+
+The manifest (`SaveArchiveManifest`): `format` (`openrac-saves`),
+`formatVersion` (1), the disc's `serial`, the game's `title` from `icon.sys`,
+`launcherVersion`, `created` (UTC), the `slots` with their folder, number,
+planet, bolts, save time and mods, and every file's `path`, `size` and
+`sha256`. Entry names use `/` and keep their case, whatever the system.
+Export takes every save folder on the card, or one slot with its folder's
+other files (icon, settings), so a single slot imports onto an empty card too;
+hidden files (`.DS_Store`) and the backups stay behind. The desktop asks where
+with the system's save dialog, from the Rust side (no dialog permission for
+the page); Android makes the file in the launcher's cache and saves it through
+its "save as" screen (`android::save_as`), and picks a file to import with
+`pick_zip`, which copies it into the cache as for a mod.
+
+An import reads the whole file first and writes nothing when: its serial is
+not the game's (PAL's file on NTSC's card is another disc), its manifest is
+missing or from a newer launcher, a file is not the size or SHA-256 the
+manifest gives, or a path is not `folder/file` with plain names (no `..`,
+separator, drive, or a name Windows refuses). It is refused while the game
+runs with the card, as a restore is. Then it backs the card up
+(`.backup_<time>_before_import`), and either **replaces** (each of the file's
+save folders becomes the file's) or **merges**: only the ticked slots are
+written, with their `.mods` mark (a slot without one loses the card's old
+mark), and the folder's other files only where the card has none. A folder on
+the card in another case takes the file's name. Each file is written beside
+its place and renamed into it. The dialog ticks at first only the slots that
+land in an empty one, and says what each ticked slot replaces.
+
 ## Security
 
 - The page gets `core:default` and the open-file dialog only
@@ -434,6 +491,13 @@ Android has no shell, Python, Godot or compiler: there an action that names no
 platform runs only if it is a `play` action (`runs_on`), and the others are not
 listed.
 
+**Steam.** Settings' Add to Steam (Linux, macOS, Windows) adds the launcher as one
+non-Steam game with its pictures (`core/src/steam.rs`). Steam reads
+`shortcuts.vdf` when it starts and may write over it, so nothing is written
+while Steam runs: the player closes it and clicks again. Other entries stay
+byte for byte, and the first write keeps `shortcuts.vdf.openrac-bak`. Flathub's
+Steam is refused: its sandbox has no way to start a program outside it.
+
 ### What Linux gets
 
 **The AppImage's environment.** Every AppImage carries AppImageKit's `AppRun`,
@@ -453,9 +517,12 @@ else.
 **The webview.** Two of WebKitGTK's settings draw nothing on some systems, and
 are turned off there, before GTK starts (`core/src/webkit.rs`): its DMA-BUF
 renderer under Wayland with NVIDIA's own driver, and its accelerated
-compositing mode on a Steam Deck, where the window opens empty unless the
+compositing mode there and on a Steam Deck, where the window opens empty unless the
 launcher is started with `WEBKIT_DISABLE_COMPOSITING_MODE=1`. A value the
 player set is left as it is.
+Elsewhere Settings' Safe rendering turns the same mode off. The launcher turns
+it on by itself when the last start crashed before its window drew a click: a
+`webview-check` file beside `launcher.json` holds the process id until then.
 
 Android (`Platform::Android`) is an APK built by `tools/build_android.py`
 (docs/port/ANDROID.md): the same UI and Rust, a project of its own in

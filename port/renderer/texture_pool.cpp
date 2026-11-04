@@ -11,6 +11,7 @@
 #include <cstring>
 #include <format>
 #include <functional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -21,6 +22,7 @@
 #include "common/stats.h"
 #include "renderer/gl.h"
 #include "renderer/shader.h"
+#include "renderer/texture_pack.h"
 
 namespace openrac::renderer {
 
@@ -411,9 +413,16 @@ TextureHandle TexturePool::convert_upload(const gs::Tex0& tex0, const gs::Texa& 
         if (rgb != nullptr) std::fclose(rgb);
         if (a != nullptr) std::fclose(a);
     }
+    // A texture pack's picture of it (docs/port/TEXTURE_PACKS.md), at any size: the 2D layer's
+    // texture coordinates are fractions of the chip's size, not of the picture's.
+    // An animated one gives its frames as well.
+    texture_pack::Replacement replaced;
+    texture_pack::replace(image, {.interface = true}, &replaced);
     const TextureHandle h = add(std::move(image), AlphaScale::Gs, "upload");
     m_entries[h - 1].from_upload = true;
     m_entries[h - 1].key = key;
+    m_entries[h - 1].pack_hash = replaced.hash;
+    animate(h, std::move(replaced.animation));
     m_converted.emplace(key, h);
     return h;
 }
@@ -424,6 +433,10 @@ TextureHandle TexturePool::resolve(const gs::Tex0& tex0, const gs::Texa& texa) {
         h = placed->second;
     } else {
         h = convert_upload(tex0, texa);
+        // A pack maker's dump groups the textures the game cycles in one place.
+        if (h != 0 && texture_pack::dumping()) {
+            watch_cycle(tex0, h);
+        }
     }
     if (h == 0) {
         h = m_placeholder;
@@ -444,6 +457,130 @@ const std::string& TexturePool::name(TextureHandle texture) const {
     return m_entries[texture - 1].name;
 }
 
+void TexturePool::animate(
+    TextureHandle texture, std::shared_ptr<const texture_pack::Animation> animation
+) {
+    Entry& e = m_entries[texture - 1];
+    // Frames made for an earlier animation are not this one's.
+    for (unsigned& frame : e.frame_gl) {
+        // Only frames that were drawn have a texture.
+        if (frame != 0 && gl::loaded()) {
+            glDeleteTextures(1, &frame);
+        }
+    }
+    e.frame_gl.clear();
+    e.animation_started = false;
+    // One frame is a still picture: the image is all of it.
+    e.animation =
+        animation != nullptr && animation->frames.size() > 1 ? std::move(animation) : nullptr;
+}
+
+void TexturePool::watch_cycle(const gs::Tex0& tex0, TextureHandle texture) {
+    const std::uint64_t hash = m_entries[texture - 1].pack_hash;
+    // A texture the pack code never saw has no name to write it under.
+    if (hash == 0) {
+        return;
+    }
+    // The base pointer's turn this frame: the HUD sends many pictures through one base pointer a
+    // frame, in the same order each frame, so the nth picture there is one place on the screen.
+    const unsigned turn = turn_at(tex0.tbp0, hash);
+    constexpr int kSizeShift = 20;  // above the base pointer's 14 bits
+    constexpr int kPsmShift = 28;   // above the two sides' 4 bits each
+    constexpr int kTurnShift = 36;  // above the format's 6 bits
+    const std::uint64_t slot = std::uint64_t{tex0.tbp0} | (std::uint64_t{tex0.tw} << kSizeShift)
+                               | (std::uint64_t{tex0.th} << (kSizeShift + 4))
+                               | (std::uint64_t{tex0.psm} << kPsmShift)
+                               | (std::uint64_t{turn} << kTurnShift);
+    see_cycle(
+        slot,
+        hash,
+        std::format(
+            "base pointer {:#x} ({}x{}, format {:#x})",
+            tex0.tbp0,
+            tex0.width(),
+            tex0.height(),
+            tex0.psm
+        )
+    );
+}
+
+void TexturePool::set_replacement(
+    TextureHandle texture,
+    texture_pack::Replacement replacement,
+    std::uint64_t texels_hash,
+    std::uint64_t palette_hash
+) {
+    Entry& e = m_entries[texture - 1];
+    e.pack_hash = replacement.hash;
+    // Only an upload's conversion is found by its key; the owner's texture keeps the two hashes.
+    if (!e.from_upload) {
+        e.key.pixels_hash = texels_hash;
+        e.key.clut_hash = palette_hash;
+    }
+    animate(texture, std::move(replacement.animation));
+}
+
+void TexturePool::watch(std::uint64_t slot, TextureHandle texture) {
+    const std::uint64_t hash = m_entries[texture - 1].pack_hash;
+    // Only while dumping, and only a texture the pack code saw (it has a name to write).
+    if (hash == 0 || !texture_pack::dumping()) {
+        return;
+    }
+    // The frames of one animation are one size: a slot shared by textures of other sizes (a
+    // block several effects page through) is told apart by size, and by turn as watch_cycle does.
+    const Rgba8Image& image = m_entries[texture - 1].image;
+    constexpr int kWidthShift = 34;   // above the owner's 33 bits
+    constexpr int kHeightShift = 46;  // 12 bits of width below
+    constexpr int kTurnShift = 58;    // 12 bits of height below
+    constexpr std::uint64_t kSideMask = 0xFFF;
+    const std::uint64_t place = slot | (std::uint64_t(image.width) & kSideMask) << kWidthShift
+                                | (std::uint64_t(image.height) & kSideMask) << kHeightShift;
+    // Apart from the base pointers' slots (watch_cycle), which never reach the top bit.
+    constexpr std::uint64_t kOwnerSlots = std::uint64_t{1} << 63;
+    constexpr std::uint64_t kTurnMask = 0x1F;
+    const std::uint64_t turn = turn_at(place | kOwnerSlots, hash) & kTurnMask;
+    see_cycle(place | turn << kTurnShift | kOwnerSlots, hash, m_entries[texture - 1].name);
+}
+
+unsigned TexturePool::turn_at(std::uint64_t place, std::uint64_t hash) {
+    auto [turn, fresh] = m_slot_turns.try_emplace(place, hash, 0u);
+    // A different texture there than the draw before: the next turn.
+    if (!fresh && turn->second.first != hash) {
+        turn->second = {hash, turn->second.second + 1};
+    }
+    return turn->second.second;
+}
+
+void TexturePool::see_cycle(std::uint64_t slot, std::uint64_t hash, const std::string& where) {
+    const auto cycle = m_cycles.see(slot, hash, m_tick);
+    // Found cycling: its frames' pictures, from the textures converted from them.
+    if (!cycle) {
+        return;
+    }
+    std::vector<const Rgba8Image*> images;
+    std::set<std::uint64_t> texels;
+    std::set<std::uint64_t> palettes;
+    for (const std::uint64_t frame : *cycle) {
+        const auto found = std::find_if(m_entries.begin(), m_entries.end(), [&](const Entry& e) {
+            return e.live && e.pack_hash == frame;
+        });
+        images.push_back(found != m_entries.end() ? &found->image : nullptr);
+        // What changed between the frames: the texels the game sent, or only their palette.
+        if (found != m_entries.end()) {
+            texels.insert(found->key.pixels_hash);
+            palettes.insert(found->key.clut_hash);
+        }
+    }
+    log::info(
+        "textures: {} cycles through {} frames: {}",
+        where,
+        cycle->size(),
+        texels.size() == 1 && palettes.size() > 1 ? "the same texels with new palettes"
+                                                  : "texels of their own"
+    );
+    texture_pack::dump_animated(*cycle, images);
+}
+
 // ---- GPU textures ----
 
 unsigned TexturePool::gl_texture(TextureHandle texture) {
@@ -455,7 +592,30 @@ unsigned TexturePool::gl_texture(TextureHandle texture) {
         create_gl(e);
     }
 
-    return e.gl;
+    // A still texture is its one GL texture.
+    if (e.animation == nullptr) {
+        return e.gl;
+    }
+
+    // An animation's clock starts at its first draw.
+    if (!e.animation_started) {
+        e.animation_start = m_tick;
+        e.animation_started = true;
+    }
+    const std::size_t frame = texture_pack::frame_at(
+        *e.animation, m_tick >= e.animation_start ? m_tick - e.animation_start : 0
+    );
+    // The first frame is the entry's own image.
+    if (frame == 0) {
+        return e.gl;
+    }
+    e.frame_gl.resize(e.animation->frames.size() - 1, 0);
+    unsigned& made = e.frame_gl[frame - 1];
+    // A frame's texture is made at its first draw, as the first frame's is.
+    if (made == 0) {
+        made = upload_gl(e, e.animation->frames[frame]);
+    }
+    return made;
 }
 
 PreparedTextures TexturePool::prepare(std::span<const TextureHandle> textures) {
@@ -502,20 +662,25 @@ PreparedTextures TexturePool::prepare(std::span<const TextureHandle> textures) {
 }
 
 void TexturePool::create_gl(Entry& e) {
-    glGenTextures(1, &e.gl);
+    e.gl = upload_gl(e, e.image);
     e.wrap = 0;  // a new texture repeats (set_wrap)
-    glBindTexture(GL_TEXTURE_2D, e.gl);
+}
+
+unsigned TexturePool::upload_gl(const Entry& e, const Rgba8Image& image) {
+    unsigned gl = 0;
+    glGenTextures(1, &gl);
+    glBindTexture(GL_TEXTURE_2D, gl);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // rows of whole RGBA8 texels, four bytes each
     glTexImage2D(
         GL_TEXTURE_2D,
         0,
         static_cast<GLint>(GL_RGBA8),
-        e.image.width,
-        e.image.height,
+        image.width,
+        image.height,
         0,
         GL_RGBA,
         GL_UNSIGNED_BYTE,
-        e.image.pixels.data()
+        image.pixels.data()
     );
 
     // 3D geometry's: a mip chain, sampled trilinear and repeated (add()).
@@ -539,13 +704,33 @@ void TexturePool::create_gl(Entry& e) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     }
+    return gl;
+}
+
+void TexturePool::delete_gl(Entry& e) {
+    if (m_upscaled_texture_colours) {
+        m_upscaled_texture_colours->forget(e.gl);
+    }
+    glDeleteTextures(1, &e.gl);
+    e.gl = 0;
+    for (unsigned& frame : e.frame_gl) {
+        // Only frames that were drawn have a texture.
+        if (frame != 0) {
+            if (m_upscaled_texture_colours) {
+                m_upscaled_texture_colours->forget(frame);
+            }
+            glDeleteTextures(1, &frame);
+            frame = 0;
+        }
+    }
 }
 
 // The bound texture `e`'s wrap, set only when it changes: a material clamps or repeats its
 // texture as the game's GS setup does, and materials share textures.
 void TexturePool::set_wrap(Entry& e, bool repeat_s, bool repeat_t) {
     const std::uint8_t wrap = (repeat_s ? 0 : 1) | (repeat_t ? 0 : 2);
-    if (e.wrap == wrap) {
+    // An animation's frames are GL textures of their own, each with its wrap: set every time.
+    if (e.wrap == wrap && e.animation == nullptr) {
         return;
     }
     const auto mode = [](bool repeat) {
@@ -631,6 +816,14 @@ void TexturePool::release_gl() {
             glDeleteTextures(1, &e.gl);
             e.gl = 0;
         }
+        // An animation's frames, those that were drawn.
+        for (unsigned& frame : e.frame_gl) {
+            // Only frames that were drawn have a texture.
+            if (frame != 0) {
+                glDeleteTextures(1, &frame);
+                frame = 0;
+            }
+        }
     }
 }
 
@@ -638,16 +831,14 @@ void TexturePool::release_gl() {
 
 void TexturePool::end_frame() {
     ++m_frame;
+    m_slot_turns.clear();
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
         Entry& e = m_entries[i];
         if (!e.live || !(e.from_upload || e.field) || m_frame - e.last_used < kKeepFrames) {
             continue;
         }
         if (e.gl != 0 && gl::loaded()) {
-            if (m_upscaled_texture_colours) {
-                m_upscaled_texture_colours->forget(e.gl);
-            }
-            glDeleteTextures(1, &e.gl);
+            delete_gl(e);
         }
         const auto handle = static_cast<TextureHandle>(i + 1);
         if (e.from_upload) {

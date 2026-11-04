@@ -32,6 +32,19 @@ add_library(openrac_render_opt STATIC renderer/render_opt.cpp)
 target_link_libraries(openrac_render_opt PUBLIC openrac_common)
 openrac_warnings(openrac_render_opt)
 
+# The graph planner has no graphics API dependency; its validation tests also run headlessly.
+add_library(openrac_renderer_graph STATIC
+  renderer/graph/frame_graph.cpp renderer/graph/ranges.cpp
+  renderer/graph/compile.cpp renderer/graph/describe.cpp renderer/graph/frame_context.cpp)
+target_link_libraries(openrac_renderer_graph PUBLIC openrac_common)
+openrac_warnings(openrac_renderer_graph)
+openrac_add_test(frame_graph LIBS openrac_renderer_graph)
+openrac_add_test(frame_context LIBS openrac_renderer_graph)
+
+if(TARGET openrac_renderer_vulkan)
+  target_link_libraries(openrac_renderer_vulkan PRIVATE openrac_renderer_graph)
+endif()
+
 # The envelope of the Vulkan backend's cache files (renderer/vulkan/cache_file.h), which the
 # pipeline cache and its manifest share (R-10), and the SPIR-V cache in it (R-12). Added here so that cmake/Window.cmake, which makes
 # the target, is left to its own lane.
@@ -65,12 +78,15 @@ add_test(NAME render_opt_environment COMMAND render_opt_test --environment)
 set_tests_properties(render_opt_environment PROPERTIES ENVIRONMENT
   "OPENRAC_RENDER_OPT_OFF=registry-selftest,no-such-optimisation")
 
+openrac_add_test(render_test_shards INCLUDES .)
+openrac_add_test(render_baseline_file INCLUDES .)
+
 # ---- The benchmark and the equivalence harness (tests/render_fixture.h's synthetic scene) ----
 #
 #   openrac_render_bench       draws the scene and prints its frames and counters as JSON lines
 #                              (port/tools/perf/render_bench.py runs it over a matrix)
-#   render_bench_smoke         ten frames of it at 640x360, to keep it working
-#   render_equivalence_vulkan  every registry entry on against off, frame by frame
+#   render_bench_smoke         ten frames of it at 160x90, to keep it working
+#   render_equivalence_vulkan* two registry halves on against off, frame by frame
 #
 # Both draw on the Vulkan renderer through the scene's renderer, so they exist where both do; both
 # exit 77 (skipped) where Vulkan cannot open. The equivalence test is written out rather than
@@ -87,8 +103,14 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
   add_custom_target(render_bench_test)
   add_dependencies(render_bench_test openrac_render_bench)
   add_test(NAME render_bench_smoke
-           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 640x360)
+           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 160x90)
   set_tests_properties(render_bench_smoke PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+
+  openrac_add_test(render_equivalence_support
+    DEFINITIONS OPENRAC_VULKAN=1 LIBS openrac_renderer openrac_renderer_vulkan openrac_platform)
+  set_tests_properties(render_equivalence_support PROPERTIES SKIP_RETURN_CODE 77
+    LABELS render-equivalence-focused FIXTURES_SETUP render_equivalence_features ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 
   add_executable(render_equivalence_test tests/render_equivalence_test.cpp)
@@ -96,17 +118,49 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     openrac_viewer_lib openrac_platform)
   target_compile_definitions(render_equivalence_test PRIVATE OPENRAC_VULKAN=1)
   openrac_warnings(render_equivalence_test)
-  # No pipeline cache: its frames do not depend on what the user's cache holds, and its many
-  # pipelines do not go into the cache the other tests read while they run beside it.
-  add_test(NAME render_equivalence_vulkan COMMAND render_equivalence_test)
-  set_tests_properties(render_equivalence_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
-    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off")
+  # GpuTests gives this process a private, initially empty shader/pipeline cache.
+  set(equivalence_baselines "${CMAKE_CURRENT_BINARY_DIR}/test-cache/equivalence-baselines.bin")
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test-cache")
+  add_test(NAME render_equivalence_prepare_vulkan
+    COMMAND render_equivalence_test --prepare "${equivalence_baselines}")
+  set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES
+    FIXTURES_SETUP render_equivalence_baselines PROCESSORS 2
+    LABELS render-equivalence SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME render_equivalence_vulkan
+    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 0 2)
+  add_test(NAME render_equivalence_vulkan_remaining
+    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 1 2)
+  set(openrac_parallel_gpu_tests render_equivalence_vulkan render_equivalence_vulkan_remaining)
+  set_tests_properties(${openrac_parallel_gpu_tests} PROPERTIES SKIP_RETURN_CODE 77
+    LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
-             COMMAND render_equivalence_test --opt shadow-scroll-reuse)
-    set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
-      "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_VULKAN_PIPELINE_CACHE=off;OPENRAC_SCROLLING_SHADOWS=1")
+             COMMAND render_equivalence_test --compatibility-baseline
+                     "${equivalence_baselines}.compatibility" --opt shadow-scroll-reuse)
+    set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
+      "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
   endif()
+endif()
+
+# These deterministic image tests can overlap on software Vulkan. Keep cache and
+# presentation tests on the shared lock; CTest --parallel still caps total processes.
+foreach(test sun_shadow_vulkan sun_shadow_filter_reference_vulkan)
+  if(TEST "${test}")
+    list(APPEND openrac_parallel_gpu_tests "${test}")
+  endif()
+endforeach()
+foreach(test probe_gpu_vulkan gtao_vulkan gtao_horizon_vulkan shadow_scroll_vulkan)
+  if(TEST "${test}")
+    # These matrices need memory or CPU throughput; occupy both CI worker slots.
+    set_tests_properties("${test}" PROPERTIES PROCESSORS 2)
+  endif()
+endforeach()
+if(TEST probe_gpu_vulkan)
+  # This material matrix benefits from fewer Mesa workers even while running alone.
+  set_property(TEST probe_gpu_vulkan APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=2")
 endif()
 
 # ---- The backend's own behaviour, pinned for the render packages ----
@@ -127,6 +181,9 @@ if(TARGET openrac_renderer_vulkan)
     LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   set_tests_properties(vulkan_present PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  add_test(NAME vulkan_present_swapchain COMMAND vulkan_present_test --swapchain)
+  set_tests_properties(vulkan_present_swapchain PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;VK_LAYER_ENABLES=VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT")
   # vulkan_prewarm  a run's pipelines made again on the pre-warm worker in the next run, a damaged
   #                 manifest and one of a program no longer built ignored
   #                 (tests/vulkan_prewarm_test.cpp); its pipeline cache and manifest are its own
@@ -138,9 +195,32 @@ if(TARGET openrac_renderer_vulkan)
     LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
   set_tests_properties(vulkan_present_timing PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  # vulkan_hdr       HDR output's encode pass against renderer/hdr.h's arithmetic, on stand-ins of
+  #                  the screen (tests/vulkan_hdr_test.cpp)
+  # surface_format   the swapchain's format and colour space, SDR as before and HDR's fallbacks
+  #                  (tests/surface_format_test.cpp); no GPU
+  openrac_add_test(vulkan_hdr
+    LIBS openrac_renderer openrac_platform openrac_renderer_vulkan)
+  set_tests_properties(vulkan_hdr PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  openrac_add_test(surface_format LIBS openrac_renderer_vulkan)
   # spirv_cache  the SPIR-V cache: programs from it the same words as compiled afresh, its file
   #              read back, and a damaged, stale or colliding entry compiled afresh
   #              (tests/spirv_cache_test.cpp); it needs no GPU
   openrac_add_test(spirv_cache LIBS openrac_renderer_vulkan)
   openrac_add_test(shader_precision LIBS openrac_renderer_vulkan)
+endif()
+
+# Required feature owners replace generic scene runs that cannot exercise those paths.
+set(equivalence_feature_tests fsr3_motion fsr3_frame fsr3_sdk motion_blur water_runtime
+  effect_material vulkan_uniform vulkan_present vulkan_present_timing shadow_scroll_vulkan)
+foreach(test IN LISTS equivalence_feature_tests)
+  if(TEST "${test}" AND TEST render_equivalence_vulkan)
+    set_property(TEST "${test}" APPEND PROPERTY FIXTURES_SETUP render_equivalence_features)
+    set_property(TEST "${test}" APPEND PROPERTY LABELS render-equivalence-focused)
+  endif()
+endforeach()
+if(TEST render_equivalence_vulkan)
+  set_property(TEST render_equivalence_vulkan render_equivalence_vulkan_remaining APPEND PROPERTY
+    FIXTURES_REQUIRED render_equivalence_features)
 endif()

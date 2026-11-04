@@ -21,10 +21,16 @@ vec3 position_at(ivec2 pixel, float depth) {
 }
 
 ivec2 source_pixel(ivec2 cell, out int selected) {
+#if defined(OPENRAC_GTAO_SCALE) && OPENRAC_GTAO_SCALE == 1
+    selected = 0;
+    return cell;
+#else
+#ifndef OPENRAC_GTAO_SCALE
     if (evaluation_scale == 1) {
         selected = 0;
         return cell;
     }
+#endif
     ivec2 extent = textureSize(tex_T0, 0);
     ivec2 result = min(cell * 2, extent - 1);
     float nearest = -1.0;
@@ -42,6 +48,7 @@ ivec2 source_pixel(ivec2 cell, out int selected) {
         }
     }
     return result;
+#endif
 }
 
 vec2 encode_normal(vec3 value) {

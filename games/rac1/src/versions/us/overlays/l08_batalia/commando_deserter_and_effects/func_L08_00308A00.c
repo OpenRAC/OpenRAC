@@ -5,19 +5,20 @@ void update_batalia_item_triggers_and_help(char *m) {
     float volume[4];
 
     switch (data->state) {
-    case 0:
-        if (is_point_inside_clip_volume(&hero_p.motion.pos, data->third) && hero_p.state.control_mode == 15)
-            data->state = 1;
-        break;
-    case 1:
-        if (hero_p.state.current == 0x42) {
-            data->state = 0;
-        } else if (is_point_inside_clip_volume(&hero_p.motion.pos, data->fourth) && unl_p[0xB] == 0) {
-            unl_p[0xB] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
-        }
-        break;
+        case 0:
+            if (is_point_inside_clip_volume(&hero_p.motion.pos, data->third) &&
+                hero_p.state.control_mode == HERO_MODE_GRIND)
+                data->state = 1;
+            break;
+        case 1:
+            if (hero_p.state.current == HERO_STATE_GRIND_COLLISION_RECOVERY) {
+                data->state = 0;
+            } else if (is_point_inside_clip_volume(&hero_p.motion.pos, data->fourth) && unl_p[0xB] == 0) {
+                unl_p[0xB] = 1;
+                PlayBankSound(1, 0, 0);
+                ShowBanner(0x53D6, -1);
+            }
+            break;
     }
     if (ia_p[29] == 0) {
         if (is_point_inside_clip_volume(&hero_p.motion.pos, data->first)) {
@@ -89,6 +90,6 @@ sample_volume:
     volume[2] = -1.0f;
     if (FastVecDot((char *)&hero_p + 0x290, volume) < 0.1f)
         HR[112].count = -1;
-    if (alt_p[0x2F] == 0 && hero_p.state.control_mode == 15)
+    if (alt_p[0x2F] == 0 && hero_p.state.control_mode == HERO_MODE_GRIND)
         alt_p[0x2F] = 1;
 }

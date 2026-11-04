@@ -4,12 +4,14 @@ python3 -m unittest discover -s tools"""
 import json
 import os
 import struct
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import openrac
+import sources
 from openrac_common import games, iso9660
 
 SECTOR = iso9660.SECTOR
@@ -107,6 +109,16 @@ class ManifestTests(unittest.TestCase):
         for game, name, version in games.versions():
             for key in ("region", "serial", "disc", "boot", "target"):
                 self.assertIn(key, version, f"{game['id']}/{name}")
+            self.assertNotIn(version["serial"], serials)
+            serials.add(version["serial"])
+            # A version only extracted (no decompilation built from it, no port: rac2's PAL disc)
+            # is pinned by what the extractor checks: the boot's SHA-1, the disc's files and
+            # their contents hash, recorded from a player's disc.
+            if not version.get("source") and "port" not in version:
+                self.assertIn("sha1", version["boot"], f"{game['id']}/{name}")
+                for key in ("files", "contents"):
+                    self.assertIn(key, version["disc"], f"{game['id']}/{name}")
+                continue
             # Size and SHA-256 pin a build; the other checksums follow once someone with the disc
             # records them (rac5's project pins its boot by SHA-256 alone).
             for key in ("size", "sha256"):
@@ -117,8 +129,6 @@ class ManifestTests(unittest.TestCase):
                 for key in ("crc32", "md5", "sha1"):
                     self.assertIn(key, version["disc"], f"{game['id']}/{name}")
                     self.assertIn(key, version["boot"], f"{game['id']}/{name}")
-            self.assertNotIn(version["serial"], serials)
-            serials.add(version["serial"])
             if version.get("source"):
                 self.assertTrue((openrac.ROOT / games.version_dir(game, name)).is_dir(), f"{game['id']}/{name}")
                 self.assertRegex(version["source"]["commit"], r"^[0-9a-f]{40}$")
@@ -187,6 +197,40 @@ class ProgressTests(unittest.TestCase):
         self.assertIn('<td><a href="https://github.com/OpenRAC/rac2-gc-decomp">rac2-decomp</a></td>', box)
         self.assertIn("color=ffb443", box)
         self.assertEqual(box.count("<img "), 2)
+
+class SourceMirrorTest(unittest.TestCase):
+    def test_mirror_takes_the_whole_tree_and_redoes_the_rewrites(self):
+        with tempfile.TemporaryDirectory() as temp:
+            top = Path(temp)
+            repo, root = top / "repo", top / "root"
+            for tree in (repo, root):
+                tree.mkdir()
+                subprocess.run(["git", "init", "-q", tree], check=True)
+                subprocess.run(["git", "-C", tree, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
+                                "--allow-empty", "-m", "start"], check=True)
+            (repo / "kept.c").write_text("/* Old (MIT) */\n")
+            (repo / "left").mkdir()
+            (repo / "left" / "out.txt").write_text("not here\n")
+            subprocess.run(["git", "-C", repo, "add", "-A"], check=True)
+            subprocess.run(["git", "-C", repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q",
+                            "-m", "one"], check=True)
+            commit = sources.proc.git(repo, "rev-parse", "HEAD")
+            dest = root / "games" / "g" / "v"
+            dest.mkdir(parents=True)
+            (dest / "gone.c").write_text("stale\n")
+            (dest / "local.bin").write_text("untracked\n")
+            subprocess.run(["git", "-C", root, "add", "games/g/v/gone.c"], check=True)
+            game = {"id": "g", "versions": {"v": {"source": {
+                "exclude": ["left"], "rewrites": [["Old (MIT)", "Old (GPL-3.0)"]], "commit": "0" * 40}}}}
+            manifest = root / "game.json"
+            with mock.patch.object(sources, "ROOT", root):
+                sources.do_mirror("g/v", manifest, game, "v", repo, dest, commit)
+            self.assertEqual((dest / "kept.c").read_text(), "/* Old (GPL-3.0) */\n")
+            self.assertFalse((dest / "gone.c").exists())
+            self.assertFalse((dest / "left").exists())
+            self.assertTrue((dest / "local.bin").exists())
+            self.assertEqual(json.loads(manifest.read_text())["versions"]["v"]["source"]["commit"], commit)
+
 
 if __name__ == "__main__":
     unittest.main()

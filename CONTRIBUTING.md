@@ -73,6 +73,7 @@ it, for now ([open question 2](docs/policy/OPEN_QUESTIONS.md#2-credit-lines-for-
 
 ## Pull requests
 
+- Open pull requests against `develop`. `master` holds releases.
 - One topic per pull request, titled like a commit summary.
 - Say what you verified and how: the commands and their results.
 - Never include generated or disc-derived files.

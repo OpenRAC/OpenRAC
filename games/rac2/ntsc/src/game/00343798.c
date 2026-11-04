@@ -55,7 +55,6 @@ void func_00343798(char *self, int arg)
     *(int *)(self + 416) = func_00342978(sub, arg);
 }
 
-INCLUDE_ASM("asm/game", func_003438E0);
 
 extern void func_00336320(void *a0);
 extern void func_00336A78(void *a0);

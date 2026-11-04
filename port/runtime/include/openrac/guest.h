@@ -47,6 +47,7 @@ __extension__ typedef unsigned __int128 openrac_u128;
  * reservation is inaccessible, so a stray access stops with its address. */
 #define GUEST_RAM 0x00000000u
 #define GUEST_RAM_SIZE 0x02000000u /* 32 MB */
+#define GUEST_RAM_EXPANDED_SIZE 0x10000000u /* modded arena for virtual streams */
 #define GUEST_RAM_UNCACHED 0x20000000u
 #define GUEST_RAM_UNCACHED_ACCEL 0x30000000u
 #define GUEST_EE_REGS 0x10000000u
@@ -81,6 +82,43 @@ __extension__ typedef unsigned __int128 openrac_u128;
 /* Where game memory starts in the host's address space. Set once by the
  * runtime before any game code runs. */
 extern OPENRAC_GUEST_GLOBAL uint8_t* openrac_guest_base;
+/* Active guest RAM size: 32 MiB normally, larger only for an expanded-level mount. */
+extern OPENRAC_GUEST_GLOBAL uint32_t openrac_guest_ram_size;
+
+/* The expanded RAC1 target table lives at the top of guest RAM. Keep a small
+ * gap after it and below the heap; 32,768 moby pointers plus NULL take 0x20004. */
+#define OPENRAC_EXPANDED_TARGET_TABLE_RESERVE 0x00021000u
+#define OPENRAC_EXPANDED_MOBY_GRID_RESERVE 0x01320000u
+#define OPENRAC_EXPANDED_RAC1_RESERVE                                                              \
+    (OPENRAC_EXPANDED_TARGET_TABLE_RESERVE + OPENRAC_EXPANDED_MOBY_GRID_RESERVE)
+
+static inline gaddr openrac_guest_target_table(gaddr original) {
+    if (openrac_guest_ram_size <= GUEST_RAM_SIZE) {
+        return original;
+    }
+    return GUEST_RAM + openrac_guest_ram_size - OPENRAC_EXPANDED_TARGET_TABLE_RESERVE;
+}
+
+#define OPENRAC_TARGET_TABLE(a) openrac_guest_target_table((gaddr)(a))
+
+/* Normalize a direct or aliased RAM pointer to the direct RAM view. Other bus addresses retain
+ * the console's 25-bit physical-address behavior. */
+static inline gaddr openrac_guest_ram_address_for_size(gaddr address, uint32_t ram_size) {
+    if (address < ram_size) {
+        return address;
+    }
+    if (address >= GUEST_RAM_UNCACHED && address - GUEST_RAM_UNCACHED < ram_size) {
+        return address - GUEST_RAM_UNCACHED;
+    }
+    if (address >= GUEST_RAM_UNCACHED_ACCEL && address - GUEST_RAM_UNCACHED_ACCEL < ram_size) {
+        return address - GUEST_RAM_UNCACHED_ACCEL;
+    }
+    return address & 0x01FFFFFFu;
+}
+
+static inline gaddr openrac_guest_ram_address(gaddr address) {
+    return openrac_guest_ram_address_for_size(address, openrac_guest_ram_size);
+}
 
 /* The host pointer for a game address, and an lvalue of type T there. */
 #define G(a) ((void*)(openrac_guest_base + (gaddr)(a)))
@@ -290,6 +328,11 @@ gaddr openrac_folded_address(const uint32_t* places, int count, gaddr caller, ui
  * program is (openrac_guest_set_level_programs: called with a level, it hands each piece of the
  * program over with openrac_guest_add_level_program, at the address the piece is loaded to). */
 void openrac_guest_set_level_programs(void (*load)(int level));
+/* The addresses level programs use, for the level-to-level pairs: rac1's unless a game says. Going
+ * Commando's programs run past 0x400000. A game that sets it also has functions the catalogue left out
+ * paired through their neighbours, and a global paired from its own lui and low half wins over a
+ * pair formed by an offset from another address (a loop's end pointer) when the two disagree. */
+void openrac_guest_set_level_range(gaddr low, gaddr high);
 void openrac_guest_add_level_program(int level, gaddr base, const uint8_t* bytes, uint32_t size);
 int openrac_guest_prepare_level_program(int level);
 int openrac_guest_restore_level_program(int level);

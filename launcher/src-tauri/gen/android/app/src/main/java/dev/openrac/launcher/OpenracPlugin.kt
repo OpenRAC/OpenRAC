@@ -92,7 +92,7 @@ class RendererArgs {
 class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
   private val drivers: File get() = File(activity.filesDir, "gpu_drivers")
   private val selectedFile: File get() = File(drivers, "selected")
-  // "vulkan" when the game draws with its Vulkan renderer; absent: OpenGL ES.
+  // The player's renderer: "gles" or "vulkan". Absent: the device's default (renderer()).
   private val rendererFile: File get() = File(activity.filesDir, "renderer")
   // The library of the game started last, while it runs.
   @Volatile private var playing: String? = null
@@ -346,12 +346,12 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
     val environment = OpenracSetup.environment(activity).toMutableMap()
     // A package loads only on Adreno's kernel driver; elsewhere the system's driver, whatever is
     // chosen (the choice cannot be changed on such a device).
-    selectedDriver()?.takeIf { device().getString("gpu") == "adreno" }?.let { (dir, meta) ->
+    selectedDriver()?.takeIf { gpu() == "adreno" }?.let { (dir, meta) ->
       environment["OPENRAC_GPU_DRIVER_DIR"] = dir.path
       environment["OPENRAC_GPU_DRIVER_LIBRARY"] = meta.getString("libraryName")
     }
-    // The renderer: Vulkan's falls back to OpenGL ES by itself where the device has no Vulkan 1.3
-    // (port/platform/window.cpp).
+    // The renderer (renderer()): Vulkan's falls back to OpenGL ES by itself where the device has
+    // no Vulkan 1.3 (port/platform/window.cpp).
     if (renderer() == "vulkan") environment["OPENRAC_GL_API"] = "vulkan"
     // What the launcher's action adds; Enhanced graphics' OPENRAC_GL_API=vulkan among them, as
     // only the Vulkan renderer has it.
@@ -481,7 +481,7 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
   fun selectRenderer(invoke: Invoke) {
     when (invoke.parseArgs(RendererArgs::class.java).renderer) {
       "vulkan" -> rendererFile.writeText("vulkan")
-      "gles" -> rendererFile.delete()
+      "gles" -> rendererFile.writeText("gles")
       else -> return invoke.reject("no such renderer")
     }
     invoke.resolve()
@@ -532,8 +532,14 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
-  private fun renderer(): String =
-    if (rendererFile.isFile && rendererFile.readText().trim() == "vulkan") "vulkan" else "gles"
+  // The player's choice, else OpenGL ES on Mali and Vulkan elsewhere: Vulkan on Mali is not yet
+  // played on a device (its compiler crashed on clip distances; vertex_clip_distance in
+  // port/renderer/vulkan/shader_compiler.cpp), and its OpenGL ES runs the game.
+  private fun renderer(): String {
+    val chosen = if (rendererFile.isFile) rendererFile.readText().trim() else ""
+    if (chosen == "gles" || chosen == "vulkan") return chosen
+    return if (gpu() == "mali") "gles" else "vulkan"
+  }
 
   private fun selectedDriver(): Pair<File, JSONObject>? {
     if (!selectedFile.isFile) return null
@@ -560,13 +566,15 @@ class OpenracPlugin(private val activity: Activity) : Plugin(activity) {
     out.put("model", "${Build.MANUFACTURER} ${Build.MODEL}")
     out.put("api", Build.VERSION.SDK_INT)
     out.put("soc", if (Build.VERSION.SDK_INT >= 31) "${Build.SOC_MANUFACTURER} ${Build.SOC_MODEL}" else "")
-    // Which kernel GPU driver the device has: packages load only on Adreno's (kgsl).
-    out.put("gpu", when {
-      File("/dev/kgsl-3d0").exists() -> "adreno"
-      File("/dev/mali0").exists() -> "mali"
-      else -> "other"
-    })
+    out.put("gpu", gpu())
     return out
+  }
+
+  // Which kernel GPU driver the device has: packages load only on Adreno's (kgsl).
+  private fun gpu(): String = when {
+    File("/dev/kgsl-3d0").exists() -> "adreno"
+    File("/dev/mali0").exists() -> "mali"
+    else -> "other"
   }
 
   /** Checks the package (a meta.json naming a library that is in it), then unpacks it whole. */

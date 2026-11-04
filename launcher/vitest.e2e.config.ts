@@ -1,5 +1,5 @@
-// The Android launcher's pages in a browser (e2e/): `yarn test:android`. Apart from `yarn test`,
-// which needs no browser.
+// The launcher's pages in a browser (e2e/): Android's, and the desktop's tabs with a list:
+// `yarn test:android`. Apart from `yarn test`, which needs no browser.
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({

@@ -10,6 +10,9 @@
 // it is named for a C contract (CODING_CONVENTIONS.md, section 14).
 
 #include <cmath>
+#include <format>
+#include <string>
+#include <utility>
 
 #include <SDL3/SDL.h>
 
@@ -45,6 +48,9 @@ void window_event(const SDL_Event& event) {
         case SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
         case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
             pacing.interval_stale = true;
+            if (event.type == SDL_EVENT_WINDOW_DISPLAY_CHANGED) {
+                apply_hdr();
+            }
             break;
         case SDL_EVENT_WINDOW_RESIZED:
             // Remembered in memory; written with the next setting saved and when the window closes.
@@ -57,6 +63,10 @@ void window_event(const SDL_Event& event) {
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
             g->muted = event.type == SDL_EVENT_WINDOW_FOCUS_LOST;
             break;
+        // The display's HDR turned on or off, or another display: HDR output follows (auto).
+        case SDL_EVENT_WINDOW_HDR_STATE_CHANGED:
+            apply_hdr();
+            break;
         default:
             break;
     }
@@ -66,23 +76,16 @@ void window_event(const SDL_Event& event) {
 
 }  // namespace
 
-// The window as the player's settings want it: its display mode, display and fullscreen size, its
+// The window as the player's settings want it: its display mode and display, its
 // shape, and each swap waiting for a refresh or not. Called when they may have changed; all of
 // them take effect at once (the frame's size, its samples and the textures' filter follow the
 // settings by themselves, in draw_kept).
 void apply_settings() {
     const settings::Settings& s = settings::get();
-    if (s.display_mode != g->display_mode || s.monitor != g->monitor
-        || (s.display_mode == settings::DisplayMode::Fullscreen
-            && (s.fullscreen_width != g->fullscreen_width
-                || s.fullscreen_height != g->fullscreen_height))) {
-        g->window->set_display_mode(
-            window_mode(s.display_mode), s.fullscreen_width, s.fullscreen_height, s.monitor
-        );
+    if (s.display_mode != g->display_mode || s.monitor != g->monitor) {
+        g->window->set_display_mode(window_mode(s.display_mode), s.monitor);
         g->display_mode = s.display_mode;
         g->monitor = s.monitor;
-        g->fullscreen_width = s.fullscreen_width;
-        g->fullscreen_height = s.fullscreen_height;
         pacing.interval_stale = true;
         // A change of mode may leave the driver's swap interval at its default: asked again below.
         g->swap_asked = wanted_swap() == platform::SwapInterval::Immediate
@@ -112,6 +115,68 @@ void apply_settings() {
         pacing.last_swap = {};
     }
     g->window->set_low_latency(s.low_latency_frames);
+    apply_hdr();
+}
+
+void apply_hdr() {
+    const settings::Settings& s = settings::get();
+    const hdr::Display display = g->window->hdr_display();
+    g->hdr_display = display;
+    // macOS's EDR is linear (scRGB); HDR10 elsewhere, where it costs half the bandwidth.
+#if defined(__APPLE__)
+    constexpr bool prefer_scrgb = true;
+#else
+    constexpr bool prefer_scrgb = false;
+#endif
+    const hdr::Output wanted = hdr::wanted_output(s.hdr, display, prefer_scrgb);
+    const hdr::Levels levels = hdr::resolve_levels(s.hdr_paper_white, s.hdr_peak, display);
+    // Said once: HDR asked for where it cannot be had.
+    static bool said = false;
+    if (s.hdr != hdr::Mode::Off && !said) {
+        if (g->window->gl_api() != platform::GlApi::Vulkan) {
+            log::info("HDR output needs the Vulkan renderer; the picture stays SDR");
+            said = true;
+        } else if (!g->hdr_at_start) {
+            log::info("HDR output was off at start; it takes effect at the next start");
+            said = true;
+        }
+    }
+    g->window->set_hdr(wanted, levels);
+    // In the log when it changes (settings are put into effect again on every change).
+    static std::string last;
+    if (std::string status = hdr_status(); s.hdr != hdr::Mode::Off && status != last) {
+        log::info("HDR: {}", status);
+        last = std::move(status);
+    }
+}
+
+std::string hdr_status() {
+    const hdr::Display& d = g->hdr_display;
+    std::string screen;
+    if (!d.known) {
+        screen = "the system does not say whether the display shows HDR";
+    } else if (d.relative) {
+        screen = std::format("the display gives {:.1f}x SDR white for HDR", d.headroom);
+    } else if (d.hdr_enabled) {
+        screen = d.peak_nits > 0.0f
+                     ? std::format("the display shows HDR10, peak {:.0f} nits", d.peak_nits)
+                     : std::string("the display shows HDR10");
+    } else {
+        screen = "the display shows no HDR";
+    }
+    const hdr::Output shown = g->window->hdr_output();
+    std::string sent = shown == hdr::Output::Sdr ? std::string("Sending SDR")
+                                                 : std::format("Sending {}", hdr::name(shown));
+    if (settings::get().hdr != hdr::Mode::Off) {
+        if (g->window->gl_api() != platform::GlApi::Vulkan) {
+            sent += " (HDR needs the Vulkan renderer)";
+        } else if (!g->hdr_at_start) {
+            sent += " (HDR from the next start)";
+        } else if (shown == hdr::Output::Sdr && !g->window->hdr_offered()) {
+            sent += " (the screen offers no HDR format)";
+        }
+    }
+    return sent + "; " + screen + ".";
 }
 
 // The window's own keys: F11 and Alt+Return change between fullscreen and the window, F9 and F10
@@ -129,9 +194,13 @@ bool window_key(const SDL_Event& event) {
     }
     if (event.key.key == SDLK_F4 && gl::enhanced_rendering_available()) {
         if (!enhanced_graphics_available()) {
-            debug_overlay::notice(
-                "Enhanced lighting requires compatible probe data for this level."
-            );
+            debug_overlay::notify({
+                .id = "enhanced",
+                .title = "Enhanced lighting is not available here",
+                .text = "This level has no compatible probe data.",
+                .tone = debug_overlay::Tone::Warning,
+                .seconds = 6.0,
+            });
             return true;
         }
         auto& graphics = settings::get();
@@ -151,15 +220,10 @@ bool window_key(const SDL_Event& event) {
     if (event.key.key != SDLK_F11 && !alt_return) {
         return false;
     }
-    // Between the window and the fullscreen kind last chosen (borderless until one was).
-    static settings::DisplayMode full = settings::DisplayMode::Borderless;
+    // Between the window and borderless full screen.
     settings::Settings& s = settings::get();
-    if (s.display_mode == settings::DisplayMode::Windowed) {
-        s.display_mode = full;
-    } else {
-        full = s.display_mode;
-        s.display_mode = settings::DisplayMode::Windowed;
-    }
+    s.display_mode = s.display_mode == settings::DisplayMode::Windowed ? settings::DisplayMode::Borderless
+                                                                       : settings::DisplayMode::Windowed;
     settings::save();
     apply_settings();
     return true;

@@ -7,11 +7,11 @@
 #include <numbers>
 
 #include "common/json.h"
-#include "enhanced/tools/probes/activation.h"
-#include "enhanced/tools/probes/level_scene.h"
-#include "enhanced/tools/probes/probe_fingerprint.h"
-#include "enhanced/tools/probes/probe_grid.h"
-#include "enhanced/tools/probes/report.h"
+#include "enhanced/tools/baker/output/report.h"
+#include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/level_scene.h"
+#include "enhanced/tools/baker/sources/probe_fingerprint.h"
+#include "enhanced/tools/baker/sources/probe_grid.h"
 #include "tests/check.h"
 
 using namespace openrac;
@@ -539,6 +539,8 @@ int main() {
     };
     geometry_source("first geometry fixture");
     volume.grid.scene_hash = export_probe_scene(level, 0, expected.environment).scene_hash;
+    // Activation fingerprints the same files without building the transport scene.
+    CHECK(probe_activation_hash(level, 0, expected.environment) == volume.grid.scene_hash);
     {
         std::ofstream(root / "pvs.json") << "camera-only visibility metadata";
         std::ofstream(root / "pvs.bin", std::ios::binary) << "camera grid fixture";
@@ -547,6 +549,14 @@ int main() {
         );
         std::filesystem::remove(root / "pvs.json");
         std::filesystem::remove(root / "pvs.bin");
+    }
+    {
+        const auto profile = root / "ocean-profile.json";
+        std::ofstream(profile) << R"({"wind_heading":90})";
+        CHECK(
+            export_probe_scene(level, 0, expected.environment).scene_hash == volume.grid.scene_hash
+        );
+        std::filesystem::remove(profile);
     }
     const auto bytes = encode_probes(volume);
     {

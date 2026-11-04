@@ -41,11 +41,14 @@ then X. All offsets are from the mesh start.
 | slab | s16 y base, u16 y count, then u32 offsets of rows, 0 empty |
 | row | s16 x base, u16 x count, then u32 cell words, 0 empty |
 
-**Cell word**: bits 8–31 the leaf's offset, bits 0–7 its size in quadwords
-(the DMA count the game uses to copy the leaf to the scratchpad; it equals
-⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells, so a leaf is under
-0x1000 bytes). The game reads the bases unsigned and only answers queries
-inside [0, 1024)³; all retail coordinates are ≥ 0 (up to cell 200, 220, 111).
+**Cell word**: bits 8–31 the leaf's offset. In retail leaves, bits 0–7 are
+the size in quadwords (the DMA count the game uses to copy the leaf to the
+scratchpad; it equals ⌈(4 + 4V + 4F + Q) / 16⌉ on all 429,484 NTSC-U cells,
+so a leaf is under 0x1000 bytes). OpenRAC's expanded format reserves a zero
+size byte as a marker for the tagged leaf below; the game reads that form only
+in expanded-RAM sessions. Retail collision answers queries inside [0, 1024)³.
+Marked mod collision supports positive coordinates inside [0, 131,072)³; the
+existing 16-bit node counts and signed node bases bound that expanded grid.
 
 **Layout in memory** (all 19 PAL levels): the root, then every slab table,
 then every row table (each 4-byte aligned), then every leaf (16-byte aligned,
@@ -68,6 +71,44 @@ edits only the cells an edit touches. Leaves with no faces occur (level 15).
 | u8 × Q | the fourth index of each quad |
 
 Padded to 16 bytes.
+
+### OpenRAC expanded leaf
+
+Only an expanded-RAM mod session may use this encoding. The cell word keeps
+the size byte set to zero. If the collision block header has `RLCI` at +8,
+the upper 24 bits for **every nonempty cell** are a 1-based index into a
+directory; otherwise, older OpenRAC leaves and vanilla leaves use a direct
+24-bit mesh offset. The directory has a u32 count followed by that many u32
+mesh-relative leaf offsets; its absolute block offset is stored at header +12.
+The low byte remains the retail size in quadwords, or zero for `RLCX`. At the
+resolved leaf offset:
+
+| Field | Content |
+|---|---|
+| 4 bytes | ASCII `RLCX` marker |
+| u32 | total byte size, padded to 16 |
+| u32 | vertex count |
+| u32 | triangle count |
+| u32 × V | packed vertices, as above |
+| 16 bytes × F | u32 vertex indices a, b, c; type byte; 3 zero bytes |
+
+Every record is a triangle; quads from an edited cell are emitted as their
+two game triangles. The runtime checks the marker, length and counts against
+guest RAM before reading it. Expanded query scratch grows dynamically and the
+signed query-index bound permits up to 2,147,483,647 vertices per cell, subject
+to available host memory. The directory supports up to 0xFFFFFF indexed leaves
+and 32-bit mesh-relative leaf offsets, removing the cell word's 16 MiB start
+limit. Existing tree tables still have their retail widths: root-to-slab
+offsets are u16 quadword offsets and slab/row pointers are u32 byte offsets.
+The directory raises the cell-to-leaf offset range; it does not remove the
+tree table count limits. When a slab starts beyond the root's 16-bit
+quadword-offset range, the header also has `RLCT` at +16 and a block-absolute
+offset to a u32 count and that many u32 mesh-relative slab offsets at +20.
+Root entries then hold 1-based indices into that table. The packer makes a
+virtual level-data stream for any block using these markers, which selects
+expanded RAM. Vanilla sessions ignore them, and retail leaves retain their
+original encoding. Hero-only groups keep their separate 0–1024 coordinate
+encoding.
 
 **Vertex**: X in bits 0–9 and Y in 10–19 (signed, 1/16 unit), Z in bits 20–31
 (signed, 1/64), from the cell centre (4 × cell + 2). The range ±32 units lets a
@@ -92,8 +133,11 @@ two builds' levels differ slightly.
 **Editing.** A face must be in every cell it touches, with all its vertices
 inside the ±32-unit range of each of those cells' centres; OpenRAC's packer
 puts an added triangle into every cell its box test hits (exact, on the
-integer grid) and halves triangles too large for that range. A cell holds at
-most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080 bytes).
+integer grid) and halves triangles too large for that range. A retail cell
+holds at most 255 vertices and 255 quads, and at most 0xFF quadwords (4,080
+bytes). OpenRAC's expanded leaf lifts those bounds for edited cells while
+keeping unedited retail leaves byte-for-byte. The face count in a retail leaf
+is 16-bit; OpenRAC's game and asset query paths read all of it.
 
 ## 4. Hero groups
 

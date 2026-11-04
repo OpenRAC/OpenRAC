@@ -47,7 +47,7 @@ Levels are numbered as the discs number them. The ones named here: 0 Veldin,
   have and answers with a null handle. A host that indexes the bank with it
   reads outside the table.
 - **Where.** The request travels through the game's command batch, which
-  `game_FUN_0012dc80` (`port/game/rac1-ntsc/host/hand.c`, the replacement of
+  `game_FUN_0012dc80` (`func_0012DDC0` in `port/game/rac1/host/hand.c`, the replacement of
   snd_FlushSoundCommands) hands to `openrac_sound_command` and then to
   `openrac_sound_play` (`port/game/common/lib/sound_engine.cpp`). Set
   `OPENRAC_SOUND_LOG=1` to see each command and its reply.
@@ -213,7 +213,7 @@ See 4.3.
   takes the magnitude, a division by zero gives the largest number,
   0 times infinity is 0. The host's give NaN, which then compares false with
   everything.
-- **Where.** `fsqrt` in `port/game/rac1-ntsc/host/collision.c` already takes
+- **Where.** `fsqrt` in `port/game/rac1/host/collision.c` already takes
   `fabsf`; the same file drops a moby whose bounding sphere is not finite
   from the queries. `port/common/ps2_float.h` has the model of the console's
   float rules for the tools. A `div` by zero in carried C is the other place.

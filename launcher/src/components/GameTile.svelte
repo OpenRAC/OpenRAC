@@ -7,7 +7,7 @@
   import { regionLabel } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
-  import { themeStyle } from "$lib/themes";
+  import { accentStyle, themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). */
@@ -28,6 +28,28 @@
       ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
       : "",
   );
+
+  /** With a controller the tile is one control (pad.ts): A takes its next step (Play, Set up,
+   *  Rebuild), or opens the game's page when it offers none; Y opens the page. A finger or the
+   *  mouse keeps the two apart: the tile opens the page, its button plays. */
+  function padTile(node: HTMLElement) {
+    const press = (e: Event) => {
+      if (!v || !next || !offers) return;
+      e.preventDefault();
+      void playerAct(v, next);
+    };
+    const more = () => {
+      if (v) openVersion(v.key);
+    };
+    node.addEventListener("padpress", press);
+    node.addEventListener("padmore", more);
+    return {
+      destroy() {
+        node.removeEventListener("padpress", press);
+        node.removeEventListener("padmore", more);
+      },
+    };
+  }
 </script>
 
 {#if v && next}
@@ -39,6 +61,8 @@
 
     <button
       class="open"
+      use:padTile
+      aria-current={selected || undefined}
       onclick={() => {
         openVersion(v.key);
       }}
@@ -54,13 +78,14 @@
         {#if matched}<p class="matched">{matched} matched</p>{/if}
         {#if playWarning}
           <!-- A game far from finished (actions.json `warning`): its page and Play say the whole of it. -->
-          <p class="crashed" title={playWarning}><Icon name="warn" size={13} />For development only</p>
+          <p class="crashed" title={playWarning}><Icon name="warn" size={13} />Early and unstable</p>
         {/if}
         {#if (app.crashes[game.id]?.recent ?? 0) > 0}
           <p class="crashed">
             <Icon name="warn" size={13} />Crashed recently<span class="where">: a report is on its page</span>
             <button
               class="x"
+              data-pad-skip
               onclick={() => void dismissCrashes(game.id)}
               aria-label="Dismiss: hide this until the game crashes again"
               title="Dismiss: hide this until the game crashes again"
@@ -71,7 +96,13 @@
         {/if}
       </div>
       {#if offers}
-        <button class="act" class:primary={next.primary} onclick={() => void playerAct(v, next)}>
+        <button
+          class="act"
+          class:primary={next.primary}
+          data-pad-skip
+          style={accentStyle(game.id)}
+          onclick={() => void playerAct(v, next)}
+        >
           <Icon name={next.icon} size={18} />{next.kind === "set-up" ? "Set up" : next.label}
         </button>
       {/if}
@@ -92,6 +123,11 @@
     box-shadow: var(--shadow-sm);
     /* Its foot follows the tile's own width (below). */
     container-type: inline-size;
+    /* Its own layer all along, its round corners clipping the picture there: promoted only while
+       the picture zoomed, the tile showed a bar along its foot until the zoom ended (Android's
+       WebView). */
+    isolation: isolate;
+    will-change: transform;
     transition:
       transform var(--medium) var(--ease),
       box-shadow var(--medium);
@@ -100,16 +136,16 @@
   /* Raised under the pointer, or with the focus of a keyboard or a controller; a touch only
      presses it in while the finger is down, and leaves nothing behind. */
   @media (hover: hover) {
-    .tile:hover {
+    :global(html:where(:not([data-input="pad"]))) .tile:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow);
     }
 
-    .tile:hover .art {
+    :global(html:where(:not([data-input="pad"]))) .tile:hover .art {
       transform: scale(1.06);
     }
 
-    .crashed .x:hover {
+    :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
       opacity: 1;
       background: rgb(255 255 255 / 0.12);
     }
@@ -121,7 +157,8 @@
     box-shadow: var(--shadow);
   }
 
-  .tile:has(.open:active) {
+  .tile:has(.open:active),
+  .tile:has(:global(.open.pad-press)) {
     transform: scale(0.98);
     transition-duration: var(--fast);
   }
@@ -168,12 +205,16 @@
     opacity: 1;
   }
 
+  /* A pixel past the tile's edges, the picture and its shade, so that a zoom drawn a fraction of a
+     pixel short leaves no line of the tile's own colours. */
   .art {
     position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
+    inset: -1px;
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
     object-fit: cover;
+    will-change: transform;
+    backface-visibility: hidden;
     transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
@@ -203,7 +244,7 @@
 
   .shade {
     position: absolute;
-    inset: 0;
+    inset: -1px;
     background: linear-gradient(
       to top,
       color-mix(in srgb, var(--ink-deep) 94%, transparent) 0%,
@@ -222,8 +263,17 @@
     padding: 0;
   }
 
-  .open:focus-visible {
-    outline-offset: -4px;
+  /* The focus rings the whole tile from outside (the tile cuts what is inside it), apart from the
+     picked game's ring inside it. */
+  .open:focus-visible,
+  :global(html[data-input="pad"]) .open:focus {
+    outline: none;
+  }
+
+  .tile:has(.open:focus-visible),
+  :global(html[data-input="pad"]) .tile:has(.open:focus) {
+    outline: 3px solid var(--amber);
+    outline-offset: 3px;
   }
 
   .foot {

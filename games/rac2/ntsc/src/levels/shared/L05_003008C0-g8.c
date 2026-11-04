@@ -43,4 +43,19 @@ void func_L05_00379E60(int a0, int a1, int a2, int a3) {
 }
 
 /* Walk the live object list and return the first one whose id matches. */
-INCLUDE_ASM("asm/levels", func_L05_00379ED0);
+/* Standalone declarations recovered from src/levels/shared/L05_003008C0-g8.c. */
+extern int D_L05_001AC4D8 __attribute__((sda));
+
+extern int D_L05_00225DD0[];
+
+int func_L05_00379ED0(int arg) {
+    int i;
+
+    for (i = 0; i < D_L05_001AC4D8; i++) {
+        char *o = (char *)D_L05_00225DD0[i];
+
+        if (*(short *)(o + 0xAA) == arg)
+            return (int)o;
+    }
+    return 0;
+}

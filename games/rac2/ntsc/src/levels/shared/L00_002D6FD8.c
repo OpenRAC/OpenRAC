@@ -34,7 +34,6 @@ void func_L00_002D6FD8(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D7060);
 
 /* Clears one byte of each of the 32 64-byte records that end at the level pool root plus
    0x7DD, walking down one record at a time; the stored -1 is the function's return value. */
@@ -113,4 +112,3 @@ PoolRecord64 *func_L00_002D70A0(int a)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002D7138);

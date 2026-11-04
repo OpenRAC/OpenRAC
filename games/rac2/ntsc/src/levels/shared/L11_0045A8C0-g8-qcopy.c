@@ -1,0 +1,92 @@
+#include "include_asm.h"
+#include "common.h"
+
+typedef int Quadword __attribute__((mode(TI)));
+typedef union { Quadword bits; float f[4]; } Vector4;
+typedef struct {
+    Vector4 point[4];
+    unsigned int color[4];
+    float uv[8];
+    unsigned long tag, tex, alpha, test;
+} Beam;
+
+extern void func_00282CF0(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282DD8(void *, void *, void *);
+extern void func_002830C0(void *, void *, void *);
+extern float func_002A7878(float, float);
+extern int func_001163B0(void);
+extern unsigned long func_0027C878(int);
+extern void func_00280B90(void *, void *, int);
+extern void func_L11_00459EA0(void *);
+extern Vector4 D_L11_001BA8C0;
+extern unsigned int D_L11_001B2018 __attribute__((sda));
+extern unsigned int D_L11_001B201C __attribute__((sda));
+
+/* The func_L09_003AF9E8 spark with its colours from two level words (the second one's
+   edge masked to RGB) and the owner's scale at +0x60. */
+void func_L11_0045A8C0(char *object, Vector4 *start)
+{
+    Beam first, second;
+    Vector4 basis[4], end, nearSize, farSize;
+    char *work = *(char **)(object + 0x68);
+    float width;
+    unsigned long test;
+
+    end.f[0] = func_002A7878(-1, 1);
+    end.f[1] = func_002A7878(-1, 1);
+    end.f[2] = func_002A7878(-1, 1);
+    func_00282F20(&end, &end, func_002A7878(0.25f, 0.65f));
+    func_00282CC0(&end, start, &end);
+    first.tex = func_0027C878(23);
+    first.alpha = 0xFF9000000260UL;
+    first.tag = 0;
+    test = ((unsigned long)(func_001163B0() % 2 + 1) << 2) | 0x8000000040UL;
+    first.color[0] = first.color[1] = D_L11_001B2018;
+    first.color[2] = first.color[3] = D_L11_001B2018;
+    first.test = test;
+    second.tex = func_0027C878(23);
+    nearSize.bits = 0;
+    farSize.bits = 0;
+    second.alpha = 0xFF9000000260UL;
+    second.test = 0x8000000048UL;
+    second.tag = 0;
+    second.color[0] = second.color[1] = D_L11_001B201C;
+    second.color[2] = second.color[3] = D_L11_001B201C & 0xFFFFFF;
+    nearSize.f[3] = 1;
+    farSize.f[3] = 1;
+    width = func_002A7878(0.1f, 0.2f);
+    nearSize.f[2] = width;
+    farSize.f[2] = width + width;
+    nearSize.f[2] *= *(float *)(work + 0x60);
+    farSize.f[2] *= *(float *)(work + 0x60);
+    func_L11_00459EA0(&first);
+    func_L11_00459EA0(&second);
+    if (func_001163B0() & 1) {
+        first.uv[0] = 0; first.uv[1] = 0; first.uv[2] = 0; first.uv[3] = 1;
+        first.uv[4] = 1; first.uv[5] = 0; first.uv[6] = 1; first.uv[7] = 1;
+        second.uv[0] = 0; second.uv[1] = 0; second.uv[2] = 0; second.uv[3] = 1;
+        second.uv[4] = 1; second.uv[5] = 0; second.uv[6] = 1; second.uv[7] = 1;
+    } else {
+        first.uv[0] = 0; first.uv[1] = 1; first.uv[2] = 0; first.uv[3] = 0;
+        first.uv[4] = 1; first.uv[5] = 1; first.uv[6] = 1; first.uv[7] = 0;
+        second.uv[0] = 0; second.uv[1] = 1; second.uv[2] = 0; second.uv[3] = 0;
+        second.uv[4] = 1; second.uv[5] = 1; second.uv[6] = 1; second.uv[7] = 0;
+    }
+    func_00282CF0(&basis[0], &end, start); func_00282F20(&basis[0], &basis[0], 1);
+    func_00282CF0(&basis[1], &D_L11_001BA8C0, start); func_00282DD8(&basis[2], &basis[1], &basis[0]);
+    func_00282F20(&basis[2], &basis[2], 1); func_00282DD8(&basis[1], &basis[0], &basis[2]);
+    basis[3].bits = start->bits;
+    first.point[0].bits = nearSize.bits; second.point[0].bits = farSize.bits;
+    func_00282D30(&first.point[1], &first, -1); func_00282D30(&second.point[1], &second, -1);
+    func_002830C0(&first, &first, basis); func_002830C0(&first.point[1], &first.point[1], basis);
+    func_002830C0(&second, &second, basis); func_002830C0(&second.point[1], &second.point[1], basis);
+    basis[3].bits = end.bits; nearSize.f[2] *= 0.15f; farSize.f[2] = nearSize.f[2] + nearSize.f[2];
+    first.point[2].bits = nearSize.bits; second.point[2].bits = farSize.bits;
+    func_00282D30(&first.point[3], &first.point[2], -1); func_00282D30(&second.point[3], &second.point[2], -1);
+    func_002830C0(&first.point[2], &first.point[2], basis); func_002830C0(&first.point[3], &first.point[3], basis);
+    func_002830C0(&second.point[2], &second.point[2], basis); func_002830C0(&second.point[3], &second.point[3], basis);
+    func_00280B90(&first, 0, 0); func_00280B90(&second, 0, 0);
+}

@@ -380,8 +380,9 @@ export async function prepare(v: VersionView): Promise<boolean> {
     await refresh();
   }
   const now = freshVersion(v);
-  // Levels only when Play waits for them: a game that reads none yet (Going Commando's) starts as
-  // it is, and is not held up by minutes of reading levels it does not draw.
+  // Levels only when Play waits for them: a game that reads none starts as it is, and is not held
+  // up by minutes of reading levels it does not draw. A game with no level check (Going
+  // Commando's) waits for the export alone, so prepareLevels reads it and no more.
   const waits = !action(now, "play")?.runnable;
   if (
     waits &&
@@ -502,6 +503,11 @@ async function play(v: VersionView): Promise<void> {
   const fresh = freshVersion(v);
   const start = action(fresh, "play");
   if (!start?.runnable) return;
+  // Mods load: they are brought up to date first (lib/modAutoUpdate), never holding Play long.
+  if (app.config?.playWithMods) {
+    const { beforePlay } = await import("./modAutoUpdate.svelte");
+    await beforePlay(v.key);
+  }
   showLaunch(v.game, v.title);
   const modded = app.config?.playWithMods ? action(fresh, "play-edited") : undefined;
   if (modded?.runnable) {

@@ -41,13 +41,13 @@ import re
 import struct
 from pathlib import Path
 
-from disc import SECTOR
+from disc import LEVEL_HEADER_SIZE, LEVEL_RANGES, SECTOR
 from formats import FormatError, unpack
 from level import decoded, load_level
 import gamedata
 import progress_line
 import gameplay as gp
-from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, matrix, moby_class_names,
+from mobys import (ALWAYS, FIELDS, POINTER, RECORD, SIZE, USUAL, moby_class_names,
                    moby_instances, node_name)
 from wadpack import compress
 
@@ -57,7 +57,20 @@ INSTANCE = re.compile(r'instance=ExtResource\("([^"]+)"\)')
 RESOURCE = re.compile(r'^\[ext_resource [^\]]*path="([^"]+)"[^\]]*id="([^"]+)"')
 CLASS_SCENE = re.compile(r"/(moby|tie|shrub)_(\d+)\.(?:tscn|glb)$")
 PROPERTY = re.compile(r"^([A-Za-z_/0-9]+) = (.*)$")
+RAC1_SPAWN_ID_COUNT = 0x800  # RAC1's 64-word per-level killed-state bitset.
+VANILLA_RAM_BYTES = 32 * 1024 * 1024
+EXPANDED_RAM_BYTES = 256 * 1024 * 1024  # The largest guest arena selected for virtual level streams.
 IDENTITY = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+# The Godot `Game` node turns the editor's Y-up coordinates into RAC1's Z-up game space. Packers
+# convert child transforms with scene_transform and therefore require this extracted frame intact.
+GAME_FRAME = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0)
+PACKED_VISIBILITY_GROUPS = (
+    "Game/Ties",
+    "Game/Shrubs",
+    "Game/Mobys",
+    "Game/StaticAssets",
+    "Game/AnimatedAssets",
+)
 
 
 def f32(x: float) -> bytes:
@@ -148,6 +161,20 @@ def same_fields(a: dict, b: dict) -> bool:
     return a.keys() == b.keys() and all(same_value(a[k], b[k]) for k in a)
 
 
+def validate_packed_visibility(nodes: dict, level_id: int) -> None:
+    """Godot visibility is only an editor preview property; the game pack has no such flag."""
+    for path, node in nodes.items():
+        if not any(path.startswith(group + "/") or path == group for group in PACKED_VISIBILITY_GROUPS):
+            continue
+        value = node["props"].get("visible")
+        if value is not None and gamedata.parse_value(value) is False:
+            raise FormatError(
+                f"level {level_id:02}: {path} is hidden in Godot, but visibility changes are not "
+                "packed. Delete the object to remove it from the game.",
+                code="pack-incomplete"
+            )
+
+
 def placement(t: tuple) -> tuple[tuple, tuple, float]:
     """Position, Euler angles (radians, R = Rz * Ry * Rx) and scale of a scene transform."""
     rows = [t[0:3], t[3:6], t[6:9]]
@@ -163,6 +190,25 @@ def placement(t: tuple) -> tuple[tuple, tuple, float]:
     else:                                   # looking straight up or down: x and z turn about one axis
         rx, rz = math.atan2(-r[1][2], r[1][1]), 0.0
     return tuple(t[9:12]), (rx, ry, rz), scale
+
+
+def set_expanded_range(disc, info: dict, headers: dict[int, bytearray], slot: int,
+                       first: int, count: int) -> None:
+    """Set one range in a level header, preserving other expanded ranges."""
+    level = info["id"]
+    if level not in headers:
+        headers[level] = bytearray(disc.read(info["header_lba"] * SECTOR, LEVEL_HEADER_SIZE))
+    struct.pack_into("<II", headers[level], 8 + slot * 8, first, count)
+
+
+def virtual_range(next_sector: list[int], count: int) -> int:
+    """Reserve non-overlapping sectors in the game-visible virtual LBA space."""
+    first = next_sector[0]
+    end = first + count
+    if count <= 0 or end > 0xffffffff:
+        raise FormatError("expanded level data exceeds the game's 32-bit sector address space")
+    next_sector[0] = end
+    return first
 
 
 def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str]) -> list[str]:
@@ -199,7 +245,8 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     return edits
 
 
-def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[str], list[str]]:
+def pack_level(level_id: int, gameplay: bytes, scene: str,
+               available_classes: set[int] | None = None) -> tuple[bytes, list[str], list[str]]:
     """The gameplay file with the scene's edits, what changed, and what could not be packed.
 
     A moby the scene has once keeps its place in the table. A node with the index of another
@@ -231,11 +278,35 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     kept: dict[int, bytes] = {}
     added: list[tuple[dict, int | None]] = []          # the new moby's fields, the moby it takes after
     added_names: list[str] = []                         # their nodes' names
+    reclassed: dict[int, dict] = {}                     # kept mobys whose class changed: their fields
     for node in nodes:
         index = index_of(node)
         try:
             if index is not None and owner[index] is node:
                 record = dict(zip(FIELDS, RECORD.unpack(raw[index])))
+                target_class = node["class_id"]
+                if target_class is not None and target_class != record["class_id"]:
+                    # Its pvars are its old class's: it takes a copy of a moby of the new class's
+                    # initialized block (below), keeping its place in the table.
+                    donor = next((m for m in originals
+                                  if m["class_id"] == target_class and m["index"] != index), None)
+                    if donor is None and record["pvar_index"] >= 0:
+                        problems.append(
+                            f"{node['name']}: the level has no moby of class {target_class} to take "
+                            "initialized pvars from, and its own are its old class's; its class is not changed. "
+                            "Use a class already placed in this level, or import the model as static scenery."
+                        )
+                        kept[index] = raw[index]
+                        continue
+                    if donor is None:
+                        problems.append(f"{node['name']}: the level has no moby of class {target_class} to "
+                                        "take after; its class changed with no pvars")
+                    edits = apply(node, record, originals[index], True, problems)
+                    record["pvar_index"] = donor["fields"]["pvar_index"] if donor is not None else -1
+                    reclassed[index] = record
+                    kept[index] = RECORD.pack(*(record[f] for f in FIELDS))
+                    changes.append(f"{node['name']}: {', '.join(edits)}")
+                    continue
                 edits = apply(node, record, originals[index], True, problems)
                 kept[index] = RECORD.pack(*(record[f] for f in FIELDS)) if edits else raw[index]
                 if edits:
@@ -251,8 +322,21 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
                 record = dict.fromkeys(FIELDS, 0)
                 record.update(USUAL, size=SIZE, class_id=node["class_id"], scale=1.0, group=-1, pvar_index=-1,
                               r=128, g=128, b=128)
-                problems.append(f"{node['name']}: the level has no moby of class {node['class_id']} to take "
-                                "after; added with the usual values and no pvars")
+                if available_classes is not None and node["class_id"] not in available_classes:
+                    problems.append(
+                        f"{node['name']}: class {node['class_id']} is not in this level's core class table; "
+                        "native classes from another level are not supported yet. Use a class available in "
+                        "this level or import the model as static scenery."
+                    )
+                elif available_classes is not None:
+                    problems.append(
+                        f"{node['name']}: class {node['class_id']} exists in this level's core, but there is "
+                        "no placed instance to copy initialized pvars from; this class cannot be added safely. "
+                        "Use a class with an existing instance or import the model as static scenery."
+                    )
+                else:
+                    problems.append(f"{node['name']}: the level has no moby of class {node['class_id']} to take "
+                                    "after; added with the usual values and no pvars")
             else:
                 record = dict(zip(FIELDS, RECORD.unpack(raw[model])))
             source_pvar = record["pvar_index"] if model is not None else -1
@@ -271,7 +355,13 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     for index in deleted:
         changes.append(f"{node_name(originals[index]['class_id'], index, names)}: deleted")
 
-    if not added and not deleted:
+    if not added and not deleted and not reclassed:
+        if kept and len(originals) > 0x8000:
+            raise FormatError(
+                f"level {level_id:02}: the edited gameplay table has {len(originals)} mobys; "
+                "RAC1's signed 16-bit runtime indices support at most 32768. Remove mobys or "
+                "split the map across levels before packing."
+            )
         out = bytearray(gameplay)
         start, = unpack("<I", gameplay, POINTER)
         for index, record in kept.items():
@@ -280,6 +370,12 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         return gamedata.pack_level(gameplay, bytes(out), scene, {owner[i]["name"]: i for i in kept}, changes, problems)
 
     # The table again: the mobys that stay, in their order, then the new ones.
+    if len(kept) + len(added) > 0x8000:
+        raise FormatError(
+            f"level {level_id:02}: the packed gameplay table would have {len(kept) + len(added)} "
+            "mobys; RAC1's signed 16-bit runtime indices support at most 32768. Remove mobys or "
+            "split the map across levels before packing."
+        )
     place = {old: new for new, old in enumerate(sorted(kept))}
     table = [kept[old] for old in sorted(kept)]
     group_lists = gp.groups(gameplay)
@@ -290,10 +386,36 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     pvars = gp.pvar_table(gameplay, gp.pvar_count(gameplay, used))
     data_start, data_end = gp.extent(gameplay, gp.DATA)
     data = bytearray(gameplay[data_start:data_end]) if data_start > 0 else bytearray()
-    spawn = max((m["fields"]["spawn_id"] for m in originals), default=-1)
+    used_spawn_ids = {m["fields"]["spawn_id"] for m in originals
+                      if 0 <= m["fields"]["spawn_id"] < RAC1_SPAWN_ID_COUNT}
+    free_spawn_ids = [i for i in range(RAC1_SPAWN_ID_COUNT) if i not in used_spawn_ids]
+    # A moby whose class changed: its own copy of the new class's pvar block, its links with it.
+    for old, record in reclassed.items():
+        source = record["pvar_index"]
+        if 0 <= source < len(pvars):
+            at, size = pvars[source]
+            block = bytes(data[at:at + size])
+            data += bytes(-len(data) % 16)
+            new = len(pvars)
+            pvars.append((len(data), size))
+            data += block
+            links += [(new, where) for pvar, where in links if pvar == source]
+            pointers += [(new, where) for pvar, where in pointers if pvar == source]
+            shared_records += [(new, where, into) for pvar, where, into in shared_records if pvar == source]
+            record["pvar_index"] = new
+        else:
+            record["pvar_index"] = -1
+        table[place[old]] = RECORD.pack(*(record[f] for f in FIELDS))
+    without_save_id = 0
     for record, model in added:
-        spawn += 1
-        record["spawn_id"] = spawn
+        if free_spawn_ids:
+            record["spawn_id"] = free_spawn_ids.pop(0)
+        else:
+            # The game's per-level and session killed-state bitsets hold 2,048 IDs. Keep
+            # excess additions usable as non-persistent mobys instead of indexing past them.
+            record["spawn_id"] = -1
+            record["spawn_flags"] = 0
+            without_save_id += 1
         source = record["pvar_index"]
         if 0 <= source < len(pvars):
             at, size = pvars[source]
@@ -312,6 +434,9 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
         if 0 <= group < len(group_lists):
             group_lists[group] = (group_lists[group] or []) + [len(table)]
         table.append(RECORD.pack(*(record[f] for f in FIELDS)))
+    if without_save_id:
+        changes.append(f"{without_save_id} added mobys have no free RAC1 spawn ID; made non-persistent "
+                       "(spawn ID -1, spawn flags 0)")
     # A link is a moby's place in the table, inside a pvar block: it follows the moby.
     for pvar, where in links:
         at = pvars[pvar][0] + where
@@ -336,7 +461,9 @@ def pack_level(level_id: int, gameplay: bytes, scene: str) -> tuple[bytes, list[
     return gamedata.pack_level(gameplay, gp.replace(gameplay, sections), scene, numbering, changes, problems)
 
 
-def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches: list[str]) -> tuple[list[str], list[str]]:
+def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches: list[str],
+                   virtual: list[str], headers: dict[int, bytearray], next_virtual: list[int]
+                   ) -> tuple[list[str], list[str], bool]:
     """The level's collision and its moby classes' collision as the scene and the class scenes
     have them: when they differ from the disc's, the level data's sectors that change (the core
     data stream, and the core index when a block moved or the core grew) go to
@@ -353,10 +480,12 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         problems.append(f"collision: {e}")
     level = None
     new = None
+    force_expanded_ram = False
     if found is not None:
         level = load_level(disc, info)
         try:
             new, changes, more = collision_scene.pack_block(level.block(unpack("<I", level.index, 0x14)[0]), found)
+            force_expanded_ram = new is not None and collision_scene.requires_expanded_collision(new)
             problems += more
         except FormatError as e:
             problems += found["problems"] + [f"{e}; the collision is left as the disc has it"]
@@ -373,9 +502,30 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
         at, = unpack("<I", level.index, 0x14)
         core, index, more = collision_scene.core_with(core, index, at, len(level.block(at)), new)
         notes += more
+    if len(core) > EXPANDED_RAM_BYTES:
+        raise FormatError(f"level {info['id']:02}: decoded core data is {len(core)} bytes; it cannot fit in "
+                          "the 256 MiB expanded guest RAM arena", code="level-too-big")
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
-    runs = collision_scene.level_data_patches(data, core, index, level.index, compress)
+    expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
+                                                   force=force_expanded_ram or len(core) > VANILLA_RAM_BYTES)
+    core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
+    changes.append(
+        f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
+        f"original core stream slot {struct.unpack_from('<i', data, 10 * 8 + 4)[0]} bytes"
+    )
     name = f"level_{info['id']:02}"
+    if expanded is not None:
+        changes.append(f"expanded level-data container: {len(expanded)} bytes before sector padding")
+        count = -(-len(expanded) // SECTOR)
+        first = virtual_range(next_virtual, count)
+        file = f"{name}/data_{disc.version.key}.bin"
+        (out / file).parent.mkdir(parents=True, exist_ok=True)
+        (out / file).write_bytes(expanded + bytes(count * SECTOR - len(expanded)))
+        virtual.append(f"{first}\t{count}\t{file}\t{info['id']}\t0\t{info['ranges']['data']['lba']}\t"
+                       f"{info['ranges']['data']['sectors']}")
+        set_expanded_range(disc, info, headers, LEVEL_RANGES.index("data"), first, count)
+        return changes + notes + [f"level data expanded to {len(expanded)} bytes in virtual sectors"], problems, True
+    runs = collision_scene.level_data_patches(data, core, index, level.index, compress)
     for (offset, payload), kind in zip(runs, ["index", "core"] if len(runs) == 2 else ["core"]):
         file = f"{name}/{kind}_{disc.version.key}.bin"
         (out / name).mkdir(parents=True, exist_ok=True)
@@ -387,7 +537,9 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
 def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed)."""
     import scenery          # it reads the scene with this module's reader
-    patches, report, packed, total = [], [], 0, 0
+    patches, virtual, report, packed, total = [], [], [], 0, 0
+    headers: dict[int, bytearray] = {}
+    next_virtual = [0x10000000]
 
     def scene_of(info: dict) -> Path | None:
         """The level's scene: one project with every level, or a project per level (`godot --split`)."""
@@ -412,12 +564,33 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
         text = scene.read_text()
+        scene_nodes, _ = gamedata.parse_scene(text)
+        game_frame = scene_nodes.get("Game")
+        # A scene without the node (an older project, or one written by hand) has nothing to keep.
+        if game_frame is not None and not same(gamedata.transform_of(game_frame), GAME_FRAME):
+            raise FormatError(
+                f"level {info['id']:02}: keep the Game node's extracted transform; it converts Godot's "
+                "coordinates to the game's and cannot be packed as a level edit",
+                code="pack-incomplete"
+            )
+        validate_packed_visibility(scene_nodes, info["id"])
         import static_assets
         try:
             static_instances = static_assets.placements(scene.parents[2], text)
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import placement: {error}', code="static-import") from None
-        edited, changes, problems = pack_level(info["id"], gameplay, text)
+        authored_classes = {n["class_id"] for n in scene_mobys(text) if n["class_id"] is not None}
+        # The level's own classes only when the scene has any to check against them.
+        original_classes = {m["class_id"] for m in moby_instances(gameplay)} if authored_classes else set()
+        available_classes = None
+        if authored_classes - original_classes:
+            target_level = load_level(disc, info)
+            available_classes = {struct.unpack_from("<i", entry, 4)[0]
+                                 for entry in target_level.table(0x18, 32)}
+        edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes)
+        if edited != gameplay and len(edited) > EXPANDED_RAM_BYTES:
+            raise FormatError(f"level {info['id']:02}: decoded gameplay data is {len(edited)} bytes; it cannot "
+                              "fit in the 256 MiB expanded guest RAM arena", code="level-too-big")
         # Ties and shrubs: the port draws them from the extractor's files, so they are packed as
         # those are (scenery.py), beside the gameplay file.
         placements, scenery_changes, scenery_problems = None, [], []
@@ -425,7 +598,8 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             placements, scenery_changes, scenery_problems = scenery.pack_scenery(load_level(disc, info), text)
         # Collision, the level's and its moby classes': the level data's core (collision_scene.py,
         # moby_collision_scene.py), only when the scenes' differ.
-        collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out, patches)
+        collision_changes, collision_problems, wrote = pack_collision(disc, info, scene, text, out,
+                                                                      patches, virtual, headers, next_virtual)
         if any(solid for _, _, _, solid in static_instances) and collision_problems:
             raise FormatError('Static import collision could not be packed: ' + '; '.join(collision_problems),
                               code="static-import")
@@ -433,13 +607,22 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             static_bake = static_assets.write_packed(scene.parents[2], scene.parent, text, out / name)
         except (ValueError, KeyError, IndexError) as error:
             raise FormatError(f'Static import geometry: {error}', code="static-import") from None
+        try:
+            animated_count = static_assets.write_animated(scene.parents[2], text, out / name)
+        except (OSError, ValueError, KeyError, IndexError) as error:
+            raise FormatError(f'Animated prop export: {error}', code="static-import") from None
         scenery_changes += collision_changes
         scenery_problems += collision_problems
         if static_bake is not None:
             scenery_changes.append(f"static imports: {static_bake['instances']} instance(s) baked into terrain")
-            if not changes and placements is None and not wrote:
+            if not changes and placements is None and not wrote and not animated_count:
                 packed += 1
                 total += static_bake['instances']
+        if animated_count:
+            scenery_changes.append(f"animated props: {animated_count} spinning visual instance(s)")
+            total += animated_count
+            if not changes and placements is None and not wrote and static_bake is None:
+                packed += 1
         if wrote:
             packed += 0 if changes or placements is not None else 1
             total += len(collision_changes)
@@ -459,16 +642,44 @@ def pack(disc, survey: dict, project: Path, out: Path) -> tuple[int, int]:
             raise FormatError(f"level {info['id']}: the packed file does not read back", code="pack-internal")
         room = place["sectors"] * SECTOR
         if len(stream) > room:
-            raise FormatError(f"level {info['id']}: the packed gameplay file is {len(stream)} bytes, "
-                              f"{len(stream) - room} more than its place on the disc", code="level-too-big")
-        name = f"{name}/gameplay_{disc.version.key}.wad"
-        (out / name).parent.mkdir(parents=True, exist_ok=True)
-        (out / name).write_bytes(stream + bytes(room - len(stream)))
-        patches.append(f"{place['lba']}\t{place['sectors']}\t{name}")
+            storage = "stored in expanded virtual sectors"
+        elif len(edited) > VANILLA_RAM_BYTES:
+            storage = "stored in virtual sectors to select the expanded RAM arena"
+        else:
+            storage = "fits disc slot"
+        report.append(
+            f"  gameplay size: {len(edited)} bytes decoded; {len(stream)} compressed, "
+            f"disc slot {room} bytes ({storage})"
+        )
+        if len(stream) <= room and len(edited) <= VANILLA_RAM_BYTES:
+            file = f"{name}/gameplay_{disc.version.key}.wad"
+            (out / file).parent.mkdir(parents=True, exist_ok=True)
+            (out / file).write_bytes(stream + bytes(room - len(stream)))
+            patches.append(f"{place['lba']}\t{place['sectors']}\t{file}")
+        else:
+            # Store expanded content in the mod's virtual disc and redirect
+            # only this level's header. The user's disc is never rewritten.
+            count = -(-len(stream) // SECTOR)
+            first = virtual_range(next_virtual, count)
+            file = f"{name}/gameplay_{disc.version.key}.wad"
+            (out / file).parent.mkdir(parents=True, exist_ok=True)
+            (out / file).write_bytes(stream + bytes(count * SECTOR - len(stream)))
+            range_index = LEVEL_RANGES.index(disc.version.gameplay)
+            virtual.append(f"{first}\t{count}\t{file}\t{info['id']}\t{range_index}\t"
+                           f"{place['lba']}\t{place['sectors']}")
+            set_expanded_range(disc, info, headers, range_index, first, count)
+            report.append(f"  gameplay stream expanded to {len(stream)} bytes in virtual sectors")
         packed += 1
         total += len(changes)
     out.mkdir(parents=True, exist_ok=True)
+    for level, header in sorted(headers.items()):
+        info = survey["levels"][level]
+        file = f"level_{level:02}/header_{disc.version.key}.bin"
+        (out / file).parent.mkdir(parents=True, exist_ok=True)
+        (out / file).write_bytes(header + bytes(-len(header) % SECTOR))
+        patches.append(f"{info['header_lba']}\t{-(-LEVEL_HEADER_SIZE // SECTOR)}\t{file}")
     (out / "patches.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in patches))
+    (out / "virtual.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in virtual))
     (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n")
     (out / "packed.json").write_text(json.dumps({"format": 1, "game": "rac1", "version": disc.version.key}) + "\n")
     return packed, total

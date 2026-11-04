@@ -1,10 +1,12 @@
 #include "common.h"
-#include "structs.h"
+#include "structs/misc.h"
+#include "core/cdvd/callbacks.h"
+#include "core/cdvd/read.h"
 
 /*
  * movie/strfile.cpp in the original source; text 0x23CE18-0x23CEC8.
  * Name and boundary from the NTSC split of this game, mapped to PAL by matching function
- * sizes -- see docs/DECOMP_PROGRESS.md. Compiled as C for now.
+ * sizes -- see docs/reference/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
 /* StrFile: only the fields these functions touch are known. */
@@ -24,12 +26,12 @@ int set_state_fields(StrFile *f, int first, int second) {
 int get_state_callback_result(StrFile *f) {
     return 1;
 }
-extern void sce_cd_read(int, int, int, void *);
-extern void sce_cd_sync_s(int);
 
 /* Reads movie sectors and advances the cursor after a synchronous read. */
 int read_cd_stream_sectors(void *arg0, int arg1, int arg2, int arg3) {
-    struct { unsigned char retries, speed, pattern, padding; } mode;
+    struct {
+        unsigned char retries, speed, pattern, padding;
+    } mode;
     int r = 0;
     int n = arg2 >> 11;
 

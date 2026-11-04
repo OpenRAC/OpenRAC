@@ -18,8 +18,6 @@ extern void func_00282C88(void *);
 
 extern void func_00335438(char *, char *, int, int, int);
 
-INCLUDE_ASM("asm/levels", func_L01_0042A6F0);
-
 void func_L02_003F56C0(void) {
     int v0 = D_L02_001AD410;
     float *p = (float *)((char *)v0 + 0x74);
@@ -29,6 +27,70 @@ void func_L02_003F56C0(void) {
     p[0] = f;
     if (f > 1.0f)
         p[0] = f - 1.0f;
+}
+
+extern int D_001A8FF0;
+
+/* Four bytes: cc1 then emits the address as a single `la`, which gas expands to an adjacent
+   lui/addiu pair (an array of unknown size is split by cc1 itself). */
+extern char D_L02_001B3210[4];
+
+extern void func_L02_002ED7B0(int, float);
+
+extern float func_00282E48(void *, void *);
+
+extern void func_L01_00323310(int, int);
+
+typedef struct {
+    char pad0[0x80];
+    char pos[8];
+    float f88;
+    char pad1[0x2236];
+    unsigned char b22C2;
+    char pad2[0x22D];
+    unsigned char b24F0;
+} L02_003F5710_Hero;
+
+extern L02_003F5710_Hero D_00189E20;
+
+/* Watches the hero block's height (+0x88) against 420.0 and the copy of it the actor kept at
+   +0x98. Crossing it downwards clears the byte at +0x24F0 and the global flag; crossing it upwards
+   sets both when the flag is clear and the hero is within 150.0 of D_L02_001B3210, and clears
+   both when the flag is set and the hero is farther away. While the flag is set the hero's byte
+   at +0x22C2 is raised, and the first time the actor's word at +0xDC is set and handed its two
+   words at +0x1C and +0x20. The height is then kept at +0x98.
+
+   The flag is a plain extern int: the assembler decides each access at its use, a gp-relative one
+   inside a delay slot and the absolute lui/lw pair elsewhere, as retail has them. */
+void func_L02_003F5710(char *arg0) {
+    char *state = *(char **)(arg0 + 0x68);
+    float d;
+
+    if (D_00189E20.f88 < 420.0f && *(float *)(state + 0x98) >= 420.0f) {
+        func_L02_002ED7B0(0, 420.0f);
+        D_00189E20.b24F0 = 0;
+        D_001A8FF0 = 0;
+    } else if (D_00189E20.f88 > 420.0f && *(float *)(state + 0x98) <= 420.0f) {
+        func_L02_002ED7B0(1, 420.0f);
+        d = func_00282E48(D_00189E20.pos, D_L02_001B3210);
+        if (D_001A8FF0 == 0 && d < 150.0f) {
+            int on = 1;
+
+            D_00189E20.b24F0 = on;
+            D_001A8FF0 = on;
+        } else if (D_001A8FF0 != 0 && d > 150.0f) {
+            D_00189E20.b24F0 = 0;
+            D_001A8FF0 = 0;
+        }
+    }
+    if (D_001A8FF0 != 0) {
+        D_00189E20.b22C2 = 1;
+        if (*(int *)(state + 0xDC) == 0) {
+            *(int *)(state + 0xDC) = 1;
+            func_L01_00323310(*(int *)(state + 0x1C), *(int *)(state + 0x20));
+        }
+    }
+    *(float *)(state + 0x98) = D_00189E20.f88;
 }
 
 void func_L02_003FD770(char *a0) {
@@ -42,28 +104,574 @@ void func_L02_003FD770(char *a0) {
 
 extern char D_L02_001BA500[];
 extern int D_L02_001B32E8;
-extern float func_00282E48(void *, void *);
 extern void func_002A7750(char *, int, int);
-
-/* Raises the flag at 0x1B32E8. When the point at D_L02_001BA500 is within 0.0001 of the one at
-   D_L02_001B11D0 the actor changes state by its kind (4 to 7, 5 to 6) and the two widgets are
-   updated; otherwise func_L02_003FD770 runs unless the object's state half-word is 5. */
-void func_L02_003FD7C8(char *a0) {
-    D_L02_001B32E8 = 1;
-    if (func_00282E48(D_L02_001BA500, D_L02_001B11D0) < 0.0001f) {
-        if (*(unsigned char *)(a0 + 0x20) == 4)
-            func_002A7750(a0, 7, -1);
-        else if (*(unsigned char *)(a0 + 0x20) == 5)
-            func_002A7750(a0, 6, -1);
-        func_L01_0042A6F0(1, 0);
-        func_00335370(D_L02_001B11D0);
-        func_003353C8(D_L02_001B11E0);
-    } else if (*(short *)(*(char **)(D_L02_001BA500 + 0x50) + 0x86) != 5) {
-        func_L02_003FD770(a0);
-    }
-}
 
 extern char *D_L02_001B1190[] __attribute__((sda));
 
 /* Whether the pair of table entries the object names still agree with its own four words. */
-INCLUDE_ASM("asm/levels", func_L02_003FCBF0);
+/* func_L02_003FCBF0 is defined in L02_003FCBF0-g8.c. */
+
+typedef unsigned char u8;
+typedef unsigned short u16;
+typedef unsigned int u32;
+typedef short s16;
+typedef int s32;
+typedef float f32;
+
+extern char *D_L02_001B1190[2] __attribute__((sda));
+extern unsigned char *D_L02_001B359C[3] __attribute__((sda));
+extern s32 D_L02_001B35B8[] __attribute__((sda));
+extern u32 D_L02_001FC060[];
+extern f32 D_L02_001B1258 __attribute__((sda));
+extern f32 D_L02_001B125C __attribute__((sda));
+extern s32 func_00312B58(char *);
+extern s32 func_L02_00416800(char *);
+extern s32 func_002A77E0(s32);
+extern void func_L02_00416720(char *, char *, f32, f32);
+
+#define GROUP(off) (*(s32 *)(state + (off)))
+/* Leaves the function when the group is 0xFF or empty; the braces it opens close in END_IDS. */
+#define FOR_EACH_ID(p, off) \
+    if (GROUP(off) == 0xFF) \
+        return; \
+    { u16 *q = (u16 *)D_L02_001FC060[GROUP(off)]; \
+    if (q == 0) \
+        return; \
+    for (p = q; (GROUP(off) & 0xFF) != 0xFF && GROUP(off) <= D_L02_001B35B8[0] && p != 0 && \
+         ((p != 0 && (s16)p[-1] >= 0) || p == (u16 *)D_L02_001FC060[GROUP(off)]); \
+         p++)
+#define END_IDS }
+/* One half: collect the entities of group OFF for which func_00312B58 holds (counting the
+   others in m), then, up to 1000 passes over group 0xCC while m is below the record's limit,
+   hand one collected entity at a time to func_L02_00416720 with an entity of 0xCC. */
+#define HALF(limit, off) \
+    { \
+        s32 n, m, i, k; \
+        if (*(s16 *)(rec + (limit)) != 0) { \
+            m = 0; \
+            n = 0; \
+            for (k = 15; k >= 0; k--) \
+                buf[k] = 0; \
+            FOR_EACH_ID(p, off) { \
+                e = (char *)D_L02_001B359C[0] + ((*p & 0x7FFF) << 8); \
+                if (e == 0) \
+                    break; \
+                if (func_00312B58(e) == 0) { \
+                    m++; \
+                } else { \
+                    buf[n] = e; \
+                    n++; \
+                } \
+            } END_IDS \
+            if (n != 0) { \
+                for (i = 0; i < 1000 && m < *(s16 *)(rec + (limit)); i++) { \
+                    FOR_EACH_ID(p, 0xCC) { \
+                        e = (char *)D_L02_001B359C[0] + ((*p & 0x7FFF) << 8); \
+                        if (e == 0) \
+                            break; \
+                        if (n <= 0) \
+                            break; \
+                        if (func_L02_00416800(e) != 0 && func_002A77E0(6) == 0) { \
+                            n--; \
+                            func_L02_00416720(e, buf[n], D_L02_001B1258 * 0.016666668f, \
+                                              D_L02_001B125C * 2.908882452175021e-4f); \
+                            m++; \
+                            break; \
+                        } \
+                    } END_IDS \
+                } \
+            } \
+        } \
+    }
+
+void func_L02_003FD228(char *a0) {
+    char *state = *(char **)(a0 + 0x68);
+    char *rec = *(char **)(D_L02_001B1190[*(s16 *)(state + 0x120)] + 4)
+                + *(s16 *)(state + 0x122) * 0x14;
+    char *buf[16];
+    u16 *p;
+    char *e;
+
+    HALF(0xC, 0xC8)
+    HALF(0xE, 0xC4)
+}
+
+extern s32 func_L02_003D77B8(char *);
+
+extern s32 func_L02_003FD000(char *);
+
+extern f32 func_00282E80(char *, char *);
+
+extern char D_00189EA0[];
+
+/* Fills the slot of the list at +0xA8 that the counter at +0xD8 names. It goes on when that slot is
+   empty, or when func_L02_003D77B8 returns 0 for the entity in it and the counter is below the
+   table record's limit (byte +0x12 less one: the counter is then stepped). The entity group the
+   object names (+0x44) is walked: the first entity for which func_L02_003FD000 and
+   func_L02_003D77B8 both return non-zero goes into the slot; if the slot is still empty, the
+   first one with func_L02_003D77B8 non-zero that is more than 30.0 away from D_00189EA0. */
+void func_L02_003FB7E0(char *a0) {
+    char *state = *(char **)(a0 + 0x68);
+    char *rec = *(char **)(D_L02_001B1190[*(s16 *)(state + 0x120)] + 4) + *(s16 *)(state + 0x122) * 0x14;
+    char *at = state + GROUP(0xD8) * 4;
+    char *slot = *(char **)(at + 0xA8);
+    s32 go = 0;
+    u16 *p;
+    u16 *q;
+    char *e;
+
+    if (slot != 0) {
+        if (func_L02_003D77B8(slot) == 0) {
+            if (GROUP(0xD8) < *(u8 *)(rec + 0x12) - 1) {
+                go = 1;
+                GROUP(0xD8) += 1;
+            }
+        }
+    } else {
+        go = 1;
+    }
+    if (go == 0)
+        return;
+    if (GROUP(0x44) == 0xFF)
+        return;
+    q = (u16 *)D_L02_001FC060[GROUP(0x44)];
+    if (q == 0)
+        return;
+    for (p = q; (GROUP(0x44) & 0xFF) != 0xFF && GROUP(0x44) <= D_L02_001B35B8[0] && p != 0 &&
+                ((p != 0 && (s16)p[-1] >= 0) || p == (u16 *)D_L02_001FC060[GROUP(0x44)]);
+         p++) {
+        e = (char *)D_L02_001B359C[0] + ((*p & 0x7FFF) << 8);
+        if (e == 0)
+            break;
+        if (func_L02_003FD000(e) != 0 && func_L02_003D77B8(e) != 0) {
+            char **list = (char **)(state + 0xA8);
+            char **cur = list + GROUP(0xD8);
+
+            *cur = e;
+            break;
+        }
+    }
+    {
+        char **list = (char **)(state + 0xA8);
+        char **cur = list + GROUP(0xD8);
+
+        if (*cur != 0)
+            return;
+    }
+    for (p = (u16 *)D_L02_001FC060[GROUP(0x44)];
+         (GROUP(0x44) & 0xFF) != 0xFF && GROUP(0x44) <= D_L02_001B35B8[0] && p != 0 &&
+         ((p != 0 && (s16)p[-1] >= 0) || p == (u16 *)D_L02_001FC060[GROUP(0x44)]);
+         p++) {
+        e = (char *)D_L02_001B359C[0] + ((*p & 0x7FFF) << 8);
+        if (e == 0)
+            break;
+        if (func_L02_003D77B8(e) != 0 && func_00282E80(e + 0x10, D_00189EA0) > 30.0f) {
+            char **list = (char **)(state + 0xA8);
+            char **cur = list + GROUP(0xD8);
+
+            *cur = e;
+            break;
+        }
+    }
+}
+
+extern unsigned char D_001395B8[0x100];
+
+/* D_001A7A0C, written as the second word of an 8-byte object: cc1 then counts the store as two
+   instructions and keeps it out of func_L02_003FCDF8's delay slot, and the assembler gives the
+   absolute `lui $at ; sw`. */
+extern int D_001A7A08[2];
+
+extern int D_001A79F8;
+
+extern int func_L02_003F9B70(int);
+
+extern int func_L02_00400650(char *, int);
+
+extern void func_00288308(int);
+
+extern void func_002AD860(int);
+
+extern int func_L02_003FCF08(int);
+
+extern int func_L02_003FCDF8(int);
+
+extern void func_L00_0030C7F8(int);
+
+extern void func_0029B3E0(int, int);
+
+/* With a1 == 0 and no count yet for func_L02_003F9B70(0), plays the hero's scene 7 with its
+   word at +0x22C8 kept; otherwise picks the scene from a1 (6, 0xB or a random one), adds the
+   two scores and starts func_L00_0030C7F8(0x168). Then counts the entry. The unit is built with
+   -frac2-gcse-unsplit-edges and -frac2-keep-block-order (config/cflags.txt): the high half of
+   D_001395B8 is computed in the entry block, and the switch keeps its `b default` with the
+   default body last, as in retail. `+= 1` keeps the counter's address out of the call. */
+void func_L02_003FCCA0(char *a0, int a1) {
+    char *state = *(char **)(a0 + 0x68);
+    int saved;
+    char *hero;
+    int v;
+
+    if (a1 == 0 && D_001395B8[func_L02_003F9B70(0)] == 0) {
+        hero = (char *)&D_00189E20;
+        saved = *(int *)(hero + 0x22C8);
+        func_L02_00400650(a0, 7);
+        func_00288308(0x26);
+        func_002AD860(0x26);
+        *(int *)(hero + 0x22C8) = saved;
+    } else {
+        switch (a1) {
+        case 6:
+            func_L02_00400650(a0, 8);
+            break;
+        case 0xB:
+            func_L02_00400650(a0, 9);
+            break;
+        default:
+            func_L02_00400650(a0, func_002A77E0(5) + 2);
+            break;
+        }
+        D_001A7A08[1] = D_001A7A08[1] + func_L02_003FCF08(a1);
+        v = func_L02_003FCDF8(a1);
+        *(int *)(state + 0x110) = v;
+        D_001A79F8 = D_001A79F8 + v;
+        func_L00_0030C7F8(0x168);
+    }
+    D_001395B8[func_L02_003F9B70(a1)] += 1;
+    func_0029B3E0(0, -1);
+}
+
+typedef int TI128 __attribute__((mode(TI)));
+
+extern char D_L02_001B1730[8] __attribute__((sda));
+extern float D_L02_001B1750 __attribute__((sda));
+extern float D_L02_001B1754;
+extern u32 D_L02_001B1758 __attribute__((sda));
+extern u32 D_L02_001B175C;
+extern u32 D_L02_001B1760;
+extern u32 D_L02_001B1764;
+extern u32 D_L02_001B1768;
+extern u32 D_L02_001B176C;
+extern u32 D_L02_001B1770 __attribute__((sda));
+extern u32 D_L02_001B1774;
+extern u32 D_L02_001B1778;
+extern s32 D_L02_001B30C8;
+
+extern void func_00283098(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern float func_002A7878(float, float);
+extern s32 func_002A7820(s32, s32);
+extern void func_002BAE50(void *, void *, u32, s32, s32, s32, s32, s32);
+
+/* Two passes, over the two 16-byte vectors at D_L02_001B1730 in turn.  Each combines the vector
+   with the object's vectors at +0xC0 and +0x10 (func_00283098, func_00282CC0) into v0, builds v1
+   as a vector whose z is -func_002A7878(D_L02_001B1750, D_L02_001B1754) / 60, combines it with
+   A1, and hands v0 and v1 twice to func_002BAE50 with colour words and a pick of func_002A7820:
+   first with one of two sets chosen by bit 0 of D_L02_001B30C8, then with a third set. */
+void func_L02_00401D38(char *a0, char *a1) {
+    float v0[4];
+    float v1[4];
+    float v2[4];
+    float *w = v1;
+    char *p = D_L02_001B1730;
+    s32 i;
+    float f;
+
+    for (i = 1; i >= 0; i--) {
+        func_00283098(v0, p, a0 + 0xC0);
+        p += 0x10;
+        func_00282CC0(v0, v0, a0 + 0x10);
+        *(TI128 *)v2 = 0;
+        f = func_002A7878(D_L02_001B1750, D_L02_001B1754);
+        v2[2] = -(f * 0.016666668f);
+        *(TI128 *)v1 = *(TI128 *)v2;
+        func_00282CC0(v1, v1, a1);
+        if (D_L02_001B30C8 & 1) {
+            func_002BAE50(v0, w, D_L02_001B1758, D_L02_001B175C, func_002A7820(0x12, 0x16), D_L02_001B1770, -10, 1);
+        } else {
+            func_002BAE50(v0, w, D_L02_001B1760, D_L02_001B1764, func_002A7820(0x14, 0x18), D_L02_001B1774, -10, 1);
+        }
+        func_002BAE50(v0, w, D_L02_001B1768, D_L02_001B176C, func_002A7820(0xA, 0xF), D_L02_001B1778, -10, 1);
+    }
+}
+
+extern s32 D_0018C2EC __attribute__((nosda));
+extern float D_L02_001B1534 __attribute__((sda));
+extern s32 func_L02_00400650(char *, s32);
+
+/* Picks the message to ask for after the entity the object is attending to (state word 0xD0),
+   for its kinds 0x9F8 and 0xA44: while D_0018C2EC is not positive, one of two at random (0x10 or
+   0x11, 0x16 or 0x17), dropped when the state's flag for it is set; then 0x12 (0x18) when the
+   entity's float at +0x20 is below its half-word at +0x24 scaled by D_L02_001B1534, unless the
+   state's half-word at 0x1F4 (0x200) is set, and 0x13 (0x19) when that float is not above zero,
+   unless the half-word at 0x1F6 (0x202) is set.  A positive pick is handed to func_L02_00400650. */
+void func_L02_00400948(char *a0) {
+    char *state = *(char **)(a0 + 0x68);
+    char *e = *(char **)(state + 0xD0);
+    char *es;
+    char *eb;
+    char *q;
+    s32 msg;
+
+    if (e == 0)
+        return;
+    msg = -1;
+    switch (*(s16 *)(e + 0xAA)) {
+    case 0x9F8:
+        es = *(char **)(e + 0x68);
+        if ((float)D_0018C2EC <= 0.0f) {
+            msg = func_002A77E0(2) + 0x10;
+            q = state + msg * 2;
+            if (*(s16 *)(q + 0x1D0) != 0)
+                msg = -1;
+        }
+        if (*(s16 *)(state + 0x1F4) == 0) {
+            if (*(float *)(es + 0x20) < (float)*(s16 *)(es + 0x24) * D_L02_001B1534)
+                msg = 0x12;
+        }
+        if (*(s16 *)(state + 0x1F6) == 0) {
+            if (*(float *)(es + 0x20) <= 0.0f)
+                msg = 0x13;
+        }
+        break;
+    case 0xA44:
+        eb = *(char **)(e + 0x68);
+        if ((float)D_0018C2EC <= 0.0f) {
+            msg = func_002A77E0(2) + 0x16;
+            q = state + msg * 2;
+            if (*(s16 *)(q + 0x1D0) != 0)
+                msg = -1;
+        }
+        if (*(s16 *)(state + 0x200) == 0) {
+            if (*(float *)(eb + 0x20) < (float)*(s16 *)(eb + 0x24) * D_L02_001B1534)
+                msg = 0x18;
+        }
+        if (*(s16 *)(state + 0x202) == 0) {
+            if (*(float *)(eb + 0x20) <= 0.0f)
+                msg = 0x19;
+        }
+        break;
+    }
+    if (msg > 0)
+        func_L02_00400650(a0, msg);
+}
+
+extern s32 D_0018C0B4 __attribute__((nosda));
+extern u8 D_001395B8[];
+extern u8 D_00139568[];
+
+typedef struct {
+    char pad0[4];
+    u8 f4;
+    char pad1[0xDB];
+} L02_003FF9A0_Rec;
+
+extern L02_003FF9A0_Rec D_L02_00264A70[];
+
+extern void func_L00_002C42E0(s32, s32);
+extern s32 func_L00_0032EF10(s32, s32, s32 *);
+extern s32 func_L02_003F9B70(s32);
+extern s32 func_00288D58(void);
+extern void func_L02_003FCA80(char *);
+extern void func_L02_003FF6E8(char *);
+extern void func_L00_002E6CF0(void *, void *);
+
+/* Calls func_L00_002C42E0(0x6F, 1) unless D_0018C0B4 already is 0x6F.  When the input test
+   func_L00_0032EF10(0x40, 0x3C, 0) holds, the object changes state to 7 and its selection (state
+   half-word 0x118) moves to the next entry of the table at D_L02_001B1190 that is usable: the flag
+   of D_001395B8 at the index func_L02_003F9B70 gives for the entry's word at +8 is set, entries from
+   12 on also pass func_00288D58, and entries 7 and 8 need the byte at +4 of the record of
+   D_L02_00264A70 that D_00139568[0x1E] (0x2A) names.  The pick is kept in the state and in
+   D_001395B8[0x3C].  Otherwise, when func_L00_0032EF10(0x10, 0x3C, 0) holds, func_L02_003FCA80
+   runs; if neither test holds the callback func_L02_003FF6E8 is registered for the object. */
+void func_L02_003FF9A0(char *a0) {
+    char *state = *(char **)(a0 + 0x68);
+    s32 i;
+    L02_003FF9A0_Rec *r;
+
+    if (D_0018C0B4 != 0x6F)
+        func_L00_002C42E0(0x6F, 1);
+    if (func_L00_0032EF10(0x40, 0x3C, 0) != 0) {
+        func_002A7750(a0, 7, -1);
+        for (i = *(s16 *)(state + 0x118) + 1; i < 0xE; i++) {
+            if (D_001395B8[func_L02_003F9B70(*(s32 *)(D_L02_001B1190[i] + 8))] == 0)
+                continue;
+            if (i >= 0xC && func_00288D58() == 0)
+                continue;
+            if (i == 7) {
+                r = &D_L02_00264A70[D_00139568[0x1E]];
+                if (r->f4 == 0)
+                    continue;
+            }
+            if (i == 8) {
+                r = &D_L02_00264A70[D_00139568[0x2A]];
+                if (r->f4 == 0)
+                    continue;
+            }
+            *(s16 *)(state + 0x118) = i;
+            D_001395B8[0x3C] = *(u8 *)(state + 0x118);
+            return;
+        }
+    } else if (func_L00_0032EF10(0x10, 0x3C, 0) != 0) {
+        func_L02_003FCA80(a0);
+    } else {
+        func_L00_002E6CF0(func_L02_003FF6E8, a0);
+    }
+}
+
+extern const float D_L02_001B1520 __attribute__((sda));
+extern const s32 D_L02_001B1524 __attribute__((sda));
+extern float D_L02_001B1528 __attribute__((sda));
+extern float D_L02_001B152C __attribute__((sda));
+extern s32 D_L02_001B1530 __attribute__((sda));
+extern s32 D_001A7A00;
+extern char D_001A63A8[];
+extern s32 func_00282948(void *);
+
+/* Picks an idle message for the object. Nothing happens while the message system at D_001A63A8
+   is busy (+0x68 set, +0x24 not -1) or while the countdown at +0xE4 of the state runs. A float
+   (+0xE8, plus a2) and a count (+0xEC, plus a1) accumulate; when the float passes D_L02_001B1520
+   or the count D_L02_001B1524, the messages 0x1D..0x22 not played yet (the half-words at
+   +0x1D0 + id * 2; 0x1D only while +0xD0 is zero) become candidates and both restart. When
+   func_00282948 reports the timer at +0x100 idle, both restart and the timer is set to 300. The
+   messages 0x1A..0x1C join when a3 is above D_L02_001B1528, 0x23 when the hero block's int at
+   +0x24CC is under D_001A7A00 * D_L02_001B152C and 0x24 when it is not positive. One candidate,
+   picked at random, is started through func_L02_00400650 and the countdown is set to
+   D_L02_001B1530 plus a random share of it.
+
+   Each loop points lp at the list before it fills it. Set in two places, lp has no base the
+   alias analysis knows (alias.c's record_set), so the stores of the second loop may reach the
+   globals and the loads of D_001A7A00 and D_L02_001B152C stay below that loop, as in retail;
+   with one lp, or with list[n++] in the loops, gcse's PRE hoists them above it. The thresholds
+   are const (retail reads them ahead of the stores to the state); the hero block's address and
+   the ids 0x23/0x24 each have a variable of their own, as retail rebuilds the address from its
+   high half and loads each id next to its store. */
+void func_L02_00400720(char *a0, s32 a1, float a2, float a3) {
+    char *state = *(char **)(a0 + 0x68);
+    char *g = D_001A63A8;
+    char *hero;
+    char *hero2;
+    s32 id23;
+    s32 id24;
+    s32 list[12];
+    s32 *lp;
+    s32 n;
+    s32 j;
+    s32 k;
+    s32 count;
+    float acc;
+
+    if (*(s32 *)(g + 0x68) != 0)
+        return;
+    if (*(s32 *)(g + 0x24) != -1)
+        return;
+    if (*(s32 *)(state + 0xE4) != 0)
+        return;
+    n = 0;
+    acc = *(float *)(state + 0xE8) + a2;
+    count = *(s32 *)(state + 0xEC) + a1;
+    *(s32 *)(state + 0xEC) = count;
+    *(float *)(state + 0xE8) = acc;
+    if (D_L02_001B1520 < acc || D_L02_001B1524 < count) {
+        lp = list;
+        for (j = 0; j < 6; j++) {
+            s32 id;
+
+            if (j == 0 && *(s32 *)(state + 0xD0) != 0)
+                continue;
+            id = j + 0x1D;
+            if (*(s16 *)(state + 0x1D0 + id * 2) == 0)
+                lp[n++] = id;
+        }
+        *(s32 *)(state + 0xEC) = 0;
+        *(s32 *)(state + 0xE8) = 0;
+    }
+    if (func_00282948(state + 0x100) != 0) {
+        *(s32 *)(state + 0xEC) = 0;
+        *(s32 *)(state + 0x100) = 300;
+        *(s32 *)(state + 0xE8) = 0;
+    }
+    if (D_L02_001B1528 < a3) {
+        lp = list;
+        for (k = 0; k < 3; k++) {
+            s32 id = k + 0x1A;
+
+            if (*(s16 *)(state + 0x1D0 + id * 2) == 0)
+                lp[n++] = id;
+        }
+    }
+    hero = (char *)&D_00189E20;
+    if ((float)*(s32 *)(hero + 0x24CC) < (float)D_001A7A00 * D_L02_001B152C) {
+        id23 = 0x23;
+        if (*(s16 *)(state + 0x216) == 0)
+            list[n++] = id23;
+    }
+    hero2 = (char *)&D_00189E20;
+    if (*(s32 *)(hero2 + 0x24CC) <= 0) {
+        id24 = 0x24;
+        if (*(s16 *)(state + 0x218) == 0)
+            list[n++] = id24;
+    }
+    if (n != 0) {
+        func_L02_00400650(a0, list[func_002A77E0(n)]);
+        *(s32 *)(state + 0xE4) = D_L02_001B1530 + func_002A77E0(D_L02_001B1530);
+    }
+}
+
+extern void *func_L00_002D70A0(s32);
+extern void func_L00_002D7140(void *);
+extern f32 D_L02_001B1234 __attribute__((sda));
+extern f32 D_L02_001B1238 __attribute__((sda));
+extern f32 D_L02_001B123C __attribute__((sda));
+extern f32 D_L02_001B1240 __attribute__((sda));
+extern f32 D_L02_001B1244 __attribute__((sda));
+extern f32 D_L02_001B1248 __attribute__((sda));
+extern f32 D_L02_001B124C __attribute__((sda));
+extern f32 D_L02_001B1250 __attribute__((sda));
+extern f32 D_L02_001B1254 __attribute__((sda));
+
+typedef struct {
+    f32 x;
+    f32 y;
+    f32 z;
+} L02_003FC9C0_Vec3;
+
+/* In state 8 the actor's 0xC0 object is created through func_L00_002D70A0(5) when missing,
+   otherwise it gets one of three float triples: by the class (+0xAA, 0x9F8 or 0xA44) of the
+   0xD0 object, or the default one when there is none. In any other state the object is
+   released through func_L00_002D7140 and the slot cleared.
+   Each branch writes its own triple; the y and z stores (re-reading 0xC0) come out as one tail
+   through cross-jumping after reload, which is why z keeps its own register ($f2). The stores
+   are struct fields so the sda loads are not ordered behind them. */
+void func_L02_003FC9C0(u8 *a0) {
+    u8 *s0 = *(u8 **)(a0 + 0x68);
+
+    if (*(u8 *)(a0 + 0x20) == 8) {
+        L02_003FC9C0_Vec3 *obj = *(L02_003FC9C0_Vec3 **)(s0 + 0xC0);
+
+        if (obj == 0) {
+            *(L02_003FC9C0_Vec3 **)(s0 + 0xC0) = func_L00_002D70A0(5);
+        } else {
+            u8 *src = *(u8 **)(s0 + 0xD0);
+
+            if (src != 0) {
+                if (*(s16 *)(src + 0xAA) == 0x9F8) {
+                    obj->x = D_L02_001B1240;
+                    (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->y = D_L02_001B1244;
+                    (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->z = D_L02_001B1248;
+                } else if (*(s16 *)(src + 0xAA) == 0xA44) {
+                    obj->x = D_L02_001B124C;
+                    (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->y = D_L02_001B1250;
+                    (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->z = D_L02_001B1254;
+                }
+            } else {
+                obj->x = D_L02_001B1234;
+                (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->y = D_L02_001B1238;
+                (*(L02_003FC9C0_Vec3 **)(s0 + 0xC0))->z = D_L02_001B123C;
+            }
+        }
+    } else {
+        func_L00_002D7140(*(L02_003FC9C0_Vec3 **)(s0 + 0xC0));
+        *(L02_003FC9C0_Vec3 **)(s0 + 0xC0) = 0;
+    }
+}

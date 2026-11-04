@@ -22,7 +22,6 @@ void func_L00_002F4400(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002F4510);
 
 void func_L00_002F45B8(void) {
     char *base = D_0018C958;
@@ -36,7 +35,6 @@ void func_L00_002F45B8(void) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002F46C8);
 
 void func_L00_002F4720(void) {
     D_L00_0027D880[0] = 0;
@@ -52,17 +50,36 @@ void func_L00_002F5890(int a0) {
         func_2F4490(0xA01, 0x58);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_002F59A8);
+/* func_L00_002F59A8 is matched in its own unit, src/levels/shared/L00_002F59A8.c (default flags). */
 
-INCLUDE_ASM("asm/levels", func_L00_002F62D8);
 
-INCLUDE_ASM("asm/levels", func_L00_002F6B90);
+/* func_L00_002F6B90 is matched in L00_002F6B90.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_002F6ED0);
 
-INCLUDE_ASM("asm/levels", func_L00_002F7298);
+typedef struct { unsigned int fields[25]; int key; unsigned int busy; int tail[9]; } UpdateRecord_2F7298;
+extern UpdateRecord_2F7298 D_L00_0027DD00[13];
 
-INCLUDE_ASM("asm/levels", func_L00_002F74F0);
+/* The func_0028B6C8 table search: raises a free record's peak to VALUE; 1 when the key is
+   missing or the record busy. */
+int func_L00_002F7298(int key, int value)
+{
+    int i;
+    for (i = 0; i < 13; i++) {
+        if (D_L00_0027DD00[i].key == key) break;
+    }
+    if (i < 13) {
+        if (D_L00_0027DD00[i].busy == 0) {
+            UpdateRecord_2F7298 *r = &D_L00_0027DD00[i];
+            int peak = r->tail[4];
+            if (value >= peak)
+                peak = value;
+            r->tail[4] = peak;
+            return 0;
+        }
+    }
+    return 1;
+}
+
 
 /* rac1-decomp src/core/00119D88.c: func_0011CCB0 */
 /* Returns its callee's value: retail keeps the frame and calls, and
@@ -78,9 +95,3 @@ int func_L00_002F7588(void) {
 int func_L00_002F9858(void) {
     return 0;
 }
-
-INCLUDE_ASM("asm/levels", func_L00_002FACF8);
-
-INCLUDE_ASM("asm/levels", func_L00_002FB8F8);
-
-INCLUDE_ASM("asm/levels", func_L00_002FBF58);

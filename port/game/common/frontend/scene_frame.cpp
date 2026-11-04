@@ -16,16 +16,23 @@
 #include <utility>
 #include <vector>
 
+#include "common/breadcrumbs.h"
+#include "common/env.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/pacing.h"
 #include "game/common/frontend/scene_frame_internal.h"
 #include "openrac/game_host.h"
 #include "renderer/direct.h"
 #include "renderer/gl.h"
+#include "renderer/precise_depth.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 #include "scene/moby_pose.h"
 
 namespace openrac::frontend {
@@ -63,10 +70,24 @@ bool prepare_temporal(SceneFrame& frame) {
 
 // ---- Frame configuration ----
 
-// Recreates the target when its dimensions, samples or depth-sampling requirement changes.
+// Whether the frame is drawn in half floats: while HDR is shown (docs/port/HDR.md), so that the
+// game's blending may add up above white. Each draw's own colour is still clamped to 0..1 as the
+// 8-bit frame clamps it (vkgl::clamp_colour_writes); in SDR the frame is 8-bit, as always.
+bool hdr_frame() {
+#if defined(OPENRAC_VULKAN)
+    // OPENRAC_HDR_FRAME: also without an HDR screen, shown clamped, to compare with the 8-bit one.
+    return gl::is_vulkan() && (vkgl::hdr_frame() || env::flag(env::Var::HdrFrame));
+#else
+    return false;
+#endif
+}
+
+// Recreates the target when its dimensions, samples, depth-sampling requirement or colour
+// format changes.
 void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
+    const bool float_colour = hdr_frame();
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
@@ -75,12 +96,14 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
 
     // Stable settings reuse the existing attachments.
     if (target.width() == output.width && target.height() == output.height
-        && target.samples() == samples && (target.depth_texture() != 0) == sampleable_depth) {
+        && target.samples() == samples && (target.depth_texture() != 0) == sampleable_depth
+        && target.float_colour() == float_colour) {
         return;
     }
 
     std::string error;
-    bool created = target.create(output.width, output.height, error, samples, sampleable_depth);
+    bool created =
+        target.create(output.width, output.height, error, samples, sampleable_depth, float_colour);
 
     // Some drivers advertise sample counts they cannot attach; retry without multisampling.
     if (!created && samples > 1) {
@@ -90,7 +113,8 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
             output.height,
             error,
             1,
-            enhanced_graphics_available() && frame.graphics.enhanced_graphics
+            enhanced_graphics_available() && frame.graphics.enhanced_graphics,
+            float_colour
         );
     }
 
@@ -99,13 +123,27 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
         throw std::runtime_error(error);
     }
 
+    // A transition tick can retain its picture before any world draws into the new target.
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, target.id());
+    gl::glDisable(gl::GL_SCISSOR_TEST);
+    gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
+    gl::glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    gl::glClear(gl::GL_COLOR_BUFFER_BIT);
+
+#if defined(OPENRAC_VULKAN)
+    if (float_colour) {
+        vkgl::clamp_colour_writes(target.id());
+    }
+#endif
+
     log::info(
-        "frame {}x{} for a picture of {}x{} pixels, {} sample(s) a pixel",
+        "frame {}x{} for a picture of {}x{} pixels, {} sample(s) a pixel{}",
         target.width(),
         target.height(),
         output.box.width,
         output.box.height,
-        target.samples()
+        target.samples(),
+        float_colour ? ", in half floats (HDR)" : ""
     );
 }
 
@@ -153,7 +191,17 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
-    owner.scene.set_probe_lighting(enhanced, graphics.probe_gi_multiplier);
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_material_overrides(enhanced);
+    }
+    owner.scene.set_probe_lighting(
+        enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
+    );
+    owner.scene.set_sweep_translucent(
+        graphics.sweep_translucent_off,
+        graphics.sweep_translucent_unlit,
+        graphics.sweep_translucent_full
+    );
     owner.scene.set_gameplay_rim(
         enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
     );
@@ -169,6 +217,7 @@ void set_lighting(SceneFrame& frame) {
     owner.scene.set_medial_axis_debug(graphics.medial_axis_debug);
     owner.scene.set_environment_probe_debug(graphics.environment_probe_debug);
     input.shadow_quality = graphics.shadow_quality;
+    input.volumetric_quality = graphics.volumetric_quality;
     input.sun_pixel_shadow = enhanced && graphics.enhanced_shadows
                              && owner.scene.sun_shadow_enabled() && scene.has_camera
                              && openrac_game_has_level(scene.level);
@@ -258,13 +307,23 @@ void set_camera(SceneFrame& frame) {
     const Kept& scene = frame.scene;
     auto& input = frame.input;
     const float picture_scale = frame.picture_scale;
-    const auto state = scene.has_prev_state && frame.output.alpha < 1.0f
-                           ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
-                           : scene.state;
+    // Turned by the late camera latch (frontend/camera_latch.h) when it is on.
+    const auto state = turned_camera(
+        scene.has_prev_state && frame.output.alpha < 1.0f
+            ? blend_camera(scene.prev_state, scene.state, frame.output.alpha)
+            : scene.state,
+        {frame.output.latch_yaw, frame.output.latch_pivot}
+    );
     renderer::Camera camera;
     camera.view = state.view();
     camera.target = state.camera_target;
     camera.target_id = state.camera_target_id;
+    // The world's depth starts at the profile's near (GameProfile::depth_near: finer depth far
+    // away), clamped so that nothing nearer is cut away; with precise depth at the window's 0.05.
+    const float profile_near =
+        owner.profile != nullptr && !renderer::precise_depth() ? owner.profile->depth_near() : 0.0f;
+    const float near_z = std::max(0.05f, profile_near);
+    input.depth_clamp = profile_near > 0.05f;
     // The game's frustum: its horizontal and vertical tangents as the game set them (the frame is
     // the TV's 4:3, which they were made for), not the window's shape. A wider picture keeps the
     // vertical one and opens the horizontal one by as much as the picture is wider: the game's
@@ -272,7 +331,7 @@ void set_camera(SceneFrame& frame) {
     camera.projection = state.projection(
         (state.tan_half_fov_y > 0.0f ? state.tan_half_fov_x / state.tan_half_fov_y : 4.0f / 3.0f)
             / picture_scale,
-        0.05f,
+        near_z,
         2000.0f
     );
     camera.position = state.camera_position;
@@ -280,21 +339,45 @@ void set_camera(SceneFrame& frame) {
     // Nor one the guard refuses with no good one to draw instead, nor a tick that draws no world
     // (a loading screen's or a new game's captions, whose view context holds the levels' colours
     // as they come and go). With a world, the colour the game clears to (the level settings'
-    // background, which a mod can change), else the extracted level's.
+    // background, which a mod can change), else the extracted level's. Mobys alone are no level:
+    // the game cleared to black under them (frontend/tick_picture.h, kLevelLayers).
     const std::optional<renderer::Camera> drawn =
         scene.has_camera ? guard_camera(owner, state, camera, scene.frame) : std::nullopt;
     const bool has_camera = drawn.has_value();
     frame.has_camera = has_camera;
     const auto background = scene.state.background_or(owner.level.background);
-    input.clear_colour = has_camera && (scene.draws & kWorldLayers) != 0
+    input.clear_colour = has_camera && (scene.draws & kLevelLayers) != 0
                              ? std::array<float, 4>{background[0], background[1], background[2], 1}
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
+    // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
+    if (has_camera && scene.gameplay_camera && !scene.world_under_menu
+        && !frame.output.camera_debug.settings.enabled
+        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
+        const float scale = original / std::tan(std::atan(original) * percent);
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+    }
+    if (has_camera) {
+        owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
+    }
+    const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
-        frame.graphics.original_lod, input.camera.position, input.camera.projection
+        frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
+    const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);
+
+    // Background bakes can become usable here, after initial level setup skipped modern shadows.
+    if (!had_probes && owner.scene.probe_data_available()) {
+        configure_level_shadows(owner, scene.level);
+    }
+    // This hook only prepares declared probe/light selection kernels and stable uploads.
+    input.prepares_world_depth = true;
     input.after_world_depth =
         owner.scene.compute_probe_selection()
             ? std::function<void(unsigned, int, int)>(
@@ -323,13 +406,26 @@ bool draw_world(SceneFrame& frame) {
     // picture draws its 2D once, on its first frame (drawn again, a fade's darkening would add up).
     if (owner.renderer && !owner.repeat_frame && !(owner.overdraw && !frame.output.first)) {
         // [debug tools] The passes hidden in the overlay; the render timed (common/stats.h).
-        debug_overlay::before_render(owner.renderer.get());
+        debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
         target.depth_texture = owner.frame.depth_texture();
         target.resolve_framebuffer = owner.frame.resolve_target();
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
+
+        const bool grade_colour = graphics.agx_preview && graphics.enhanced_graphics
+                                  && enhanced_graphics_available() && scene.has_camera
+                                  && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        std::function<void()> finish_colour;
+        // Temporal resolve can compose this known colour-only operation before late world and HUD work.
+        if (grade_colour) {
+            finish_colour = [&owner, exposure = graphics.adjusted_agx_exposure()] {
+                crash::breadcrumb("tone mapping");
+                owner.agx.apply(owner.frame, exposure);
+            };
+        }
+        bool graded_by_temporal = false;
 
         // Loading/menu snapshots bypass history; active world frames resolve before the final HUD bucket.
         if (temporal_wanted && !input.keep_colour) {
@@ -344,11 +440,13 @@ bool draw_world(SceneFrame& frame) {
                 graphics.motion_blur,
                 graphics.motion_blur_strength,
                 scene.cutscene,
-                graphics.motion_blur_settings
+                graphics.motion_blur_settings,
+                finish_colour
             };
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
             );
+            graded_by_temporal = active && grade_colour;
 
             // The temporal module reports recoverable setup failures without throwing.
             if (!active && !temporal_error.empty()) {
@@ -356,13 +454,31 @@ bool draw_world(SceneFrame& frame) {
             }
         }
 
-        if (graphics.agx_preview && graphics.enhanced_graphics && enhanced_graphics_available()
-            && scene.has_camera && !input.keep_colour && (scene.draws & 0x1Fu) != 0) {
+        // The mods' heat haze (interface 1.12), over the world and under the HUD.
+        if (!scene.haze.empty() && scene.has_camera && !input.keep_colour && !scene.world_under_menu
+            && (scene.draws & 0x1Fu) != 0) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [&owner,
-                                exposure = graphics.adjusted_agx_exposure(),
+                                &scene,
+                                view_projection =
+                                    renderer::multiply(input.camera.projection, input.camera.view),
                                 before_hud = std::move(before_hud)] {
-                owner.agx.apply(owner.frame, exposure);
+                owner.haze.apply(
+                    owner.frame,
+                    view_projection,
+                    scene.haze,
+                    static_cast<float>(scene.frame) / 60.0f
+                );
+                if (before_hud) {
+                    before_hud();
+                }
+            };
+        }
+        if (grade_colour && !graded_by_temporal) {
+            auto before_hud = std::move(input.before_hud);
+            input.before_hud = [finish_colour = std::move(finish_colour),
+                                before_hud = std::move(before_hud)] {
+                finish_colour();
                 if (before_hud) {
                     before_hud();
                 }
@@ -382,13 +498,17 @@ void render_scene(
     const settings::Settings& graphics,
     FramePresentation& output
 ) {
-    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, false, 1};
+    const crash::BreadcrumbScope breadcrumbs(output.source_frame);
+    crash::breadcrumb("scene setup");
+    SceneFrame frame{owner, snapshot, graphics, output, {}, {}, {}, false, 1};
     frame.temporal = prepare_temporal(frame);
     {
         const profiling::Zone trace("Upload scene");
+        crash::breadcrumb("scene upload");
         upload_instances(frame);
     }
     const auto scene_done = std::chrono::steady_clock::now();
+    crash::breadcrumb("render target setup");
     frame.picture_scale = prepare_target(frame);
     set_lighting(frame);
     blend_shadows(frame);
@@ -407,7 +527,7 @@ void render_scene(
 
     // Frame-cost diagnostics deliberately stall the GPU, matching their synchronous reference behaviour.
     if (output.measure_cost) {
-        const profiling::Zone trace("Diagnostic GPU wait");
+        const profiling::Zone trace("Diagnostic GPU wait", profiling::ZoneColour::Idle);
 
         gl::glFinish();
     }

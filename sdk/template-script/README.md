@@ -4,7 +4,7 @@ A script mod for OpenRAC's port of Ratchet & Clank: Luau files the game runs in
 a sandbox. No compiler is needed, and it runs on every system the game does.
 This folder is a repository template: copy it into a repository of its own (or
 a folder of a repository of several mods, as
-[rac1-mods](https://github.com/OpenRAC/rac1-mods)), then set the id, name,
+[openrac-mods](https://github.com/OpenRAC/openrac-mods)), then set the id, name,
 author and version in `openrac-mod.json`, and write `main.luau`.
 
 **Writing it.** `openrac` is all a script sees of the game: the log, its

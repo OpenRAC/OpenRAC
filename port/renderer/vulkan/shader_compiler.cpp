@@ -116,7 +116,9 @@ private:
 };
 
 // The vertex stage's depth from OpenGL's clip space (-w..w) to Vulkan's (0..w), after the
-// shader's own main(), which may set its points' size over the default.
+// shader's own main(), which may set its points' size over the default; left as it is where the
+// pipeline says its z is Vulkan's already (glClipControl GL_ZERO_TO_ONE: the specialisation
+// constant kClipZeroToOneConstant, vkgl_pipelines.cpp).
 std::string vertex_source(std::string_view source) {
     static const std::regex main_decl(R"(\bvoid\s+main\s*\(\s*(void)?\s*\))");
     std::string out = std::regex_replace(
@@ -126,8 +128,32 @@ std::string vertex_source(std::string_view source) {
         std::regex_constants::format_first_only
     );
     // A point's size is the shader's to say in Vulkan; OpenGL's is 1 unless the shader says.
-    out += "\nvoid main() {\n    gl_PointSize = 1.0;\n    openrac_vk_main();\n"
-           "    gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n}\n";
+    out += "\nlayout(constant_id = " + std::to_string(detail::kClipZeroToOneConstant)
+           + ") const bool openrac_vk_clip_zero_to_one = false;\n"
+             "void main() {\n    gl_PointSize = 1.0;\n    openrac_vk_main();\n"
+             "    if (!openrac_vk_clip_zero_to_one) {\n"
+             "        gl_Position.z = (gl_Position.z + gl_Position.w) * 0.5;\n    }\n}\n";
+    return out;
+}
+
+// A vertex stage for Arm Mali or a device without shaderClipDistance: its clip distances go to a
+// variable nobody reads, as on an ES driver without GL_EXT_clip_cull_distance (renderer/shader.cpp,
+// es_source), and nothing is clipped. Mali's compiler crashes on any gl_ClipDistance write.
+std::string vertex_clip_distance(std::string_view source) {
+    std::string out(source);
+    constexpr std::uint32_t kArm = 0x13B5;
+    if (out.find("gl_ClipDistance") == std::string::npos || !detail::g
+        || (detail::g->features.shaderClipDistance && detail::g->properties.vendorID != kArm)) {
+        return out;
+    }
+    static const std::regex clip(R"(\bgl_ClipDistance\b)");
+    static const std::regex main_decl(R"(\bvoid\s+main\s*\()");
+    out = std::regex_replace(out, clip, "openrac_clip_distance");
+    std::smatch at;
+    // Declared before main, the one place the port's shaders write it.
+    if (std::regex_search(out, at, main_decl)) {
+        out.insert(static_cast<std::size_t>(at.position(0)), "float openrac_clip_distance[8];\n");
+    }
     return out;
 }
 
@@ -446,7 +472,8 @@ bool check_stage(bool vertex, std::string_view source, std::string& log) {
         detail::g && detail::g->shader_float16
             && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16)
     );
-    source = precise_source;
+    const auto clipped_source = vertex ? vertex_clip_distance(precise_source) : precise_source;
+    source = clipped_source;
     const std::string_view kind = vertex ? "vertex stage" : "fragment stage";
 
     // Compiled before: it compiles.
@@ -497,7 +524,8 @@ bool compile_program(
 ) {
     const bool half = detail::g && detail::g->shader_float16
                       && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
-    const auto precise_vertex = renderer::shader_precision_source(vertex, half);
+    const auto precise_vertex =
+        vertex_clip_distance(renderer::shader_precision_source(vertex, half));
     const auto precise_fragment = renderer::shader_precision_source(fragment, half);
     const auto precise_compute = renderer::shader_precision_source(compute, half);
     vertex = precise_vertex;

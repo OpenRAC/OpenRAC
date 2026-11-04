@@ -17,10 +17,176 @@
   "sky_intensity": 0.5,
   "sky_weight": 0.3,
   "terrain_vertex_albedo": true,
-  "dense_spacing": [2.6666666666666665, 2.6666666666666665, 2.6666666666666665],
+  "dense_spacing": [
+    2.6666666666666665,
+    2.6666666666666665,
+    2.6666666666666665
+  ],
   "sunlight_direction": [
     0.7774236798286438,
     -0.3195972144603729,
     -0.5417287349700928
-  ]
+  ],
+  "water_sources": {
+    "version": 1,
+    "format": "sectioned_le32",
+    "image_bytes": 33554432,
+    "pool_spacing": [
+      1,
+      1
+    ],
+    "tables": [
+      {
+        "kind": "masked_tiles",
+        "source": 1,
+        "address": 1979584,
+        "count": 21,
+        "record_stride": 4496,
+        "mask_address": 2074000,
+        "mask_stride": 4,
+        "columns": 4,
+        "rows": 4,
+        "offset": [
+          -8,
+          -8
+        ],
+        "step": [
+          4,
+          4
+        ]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 2,
+        "flowing": true,
+        "flow": [
+          0,
+          0,
+          -1
+        ],
+        "address": 1978304,
+        "count": 8,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "second_height_offset": 12
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 3,
+        "flowing": true,
+        "flow": [
+          0,
+          0,
+          -1
+        ],
+        "address": 1979264,
+        "count": 2,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "second_height_offset": 12
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 4,
+        "flowing": true,
+        "flow": [
+          0,
+          0,
+          -1
+        ],
+        "address": 2079872,
+        "count": 4,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "height_offset": -0.45
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 5,
+        "flowing": false,
+        "flow": [
+          0,
+          0,
+          0
+        ],
+        "address": 2108800,
+        "count": 1,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "second_height_offset": 12
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 6,
+        "flowing": false,
+        "flow": [
+          0,
+          0,
+          0
+        ],
+        "address": 2108896,
+        "count": 1,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "second_height_offset": 12
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 7,
+        "flowing": false,
+        "flow": [
+          0,
+          0,
+          0
+        ],
+        "address": 2108992,
+        "count": 1,
+        "record_stride": 96,
+        "pointer_offset": 0,
+        "count_offset": 12,
+        "vertex_stride": 16,
+        "position_offsets": [
+          0,
+          4,
+          8
+        ],
+        "second_height_offset": 12
+      }
+    ]
+  }
 }

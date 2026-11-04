@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 The SN Systems ProDG GCC 2.95.3 EE assembler (the era-accurate compiler for
-this game -- see docs/TOOLCHAIN.md) does not recognize symbolic GPR names
+this game -- see docs/reference/TOOLCHAIN.md) does not recognize symbolic GPR names
 ($ra, $sp, $t6, ...) at all ("illegal operands"), only numeric ($31, $29,
 $14). It DOES recognize VU0 macro-mode COP2 vector instructions and their
 symbolic float-register names ($vf0-$vf31, $vi0-$vi15, Q, ACC, I, R)
@@ -11,7 +11,7 @@ This rewrites only the integer GPR names splat/spimdisasm emit into their
 numeric equivalents, leaving everything else (mnemonics, VU float regs,
 labels, comments) untouched. Verified byte-for-byte round-trip against a
 real disassembled function from the retail binary before relying on this
-for anything -- see docs/TOOLCHAIN.md.
+for anything -- see docs/reference/TOOLCHAIN.md.
 """
 import re
 import sys

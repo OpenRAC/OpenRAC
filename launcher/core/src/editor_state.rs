@@ -20,6 +20,7 @@
 //! What a project should be is the editor's `project_format.json` (`schema`, and the gameplay copy
 //! per version), the file `editor/godot.py` reads too; without it no project is called outdated.
 
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -112,6 +113,8 @@ pub struct EditorState {
     pub packed_at: Option<u64>,
     /// How many levels the last pack changed.
     pub packed_levels: u32,
+    /// Levels whose gameplay or level-data streams exceed their original disc slots.
+    pub packed_expanded_levels: Vec<u32>,
     /// The packed levels are another version's (packed.json).
     pub packed_other_version: bool,
     /// The last update's notes, while they are newer than the last pack.
@@ -183,6 +186,21 @@ pub fn inspect(layout: &Layout, format: Option<&ProjectFormat>) -> EditorState {
     state.packed_at = modified(&packed.join("changes.txt"));
     if state.packed_at.is_some() {
         state.packed_levels = level_folders(&packed).len() as u32;
+        state.packed_expanded_levels = std::fs::read_to_string(packed.join("virtual.tsv"))
+            .ok()
+            .into_iter()
+            .flat_map(|text| {
+                text.lines()
+                    .filter_map(|line| {
+                        let fields: Vec<&str> = line.split('\t').collect();
+                        (fields.len() == 7).then(|| fields[3].parse::<u32>().ok()).flatten()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .filter(|level| *level < 19)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
         if let Some(made) = json(&packed.join("packed.json")) {
             state.packed_other_version =
                 made.get("version").and_then(|v| v.as_str()).is_some_and(|v| v != layout.version());
@@ -312,6 +330,10 @@ mod tests {
             );
             self.write("packed/rac1/pal/level_00/gameplay_pal.wad", "x", ms);
         }
+
+        fn expanded_streams(&self, text: &str) {
+            self.write("packed/rac1/pal/virtual.tsv", text, 1_200_000);
+        }
     }
 
     fn current() -> serde_json::Value {
@@ -389,6 +411,18 @@ mod tests {
         let w = World::new();
         w.pack(1_000_000, "ntsc");
         assert!(inspect(&w.layout(), Some(&format())).packed_other_version);
+    }
+
+    #[test]
+    fn reports_distinct_levels_with_expanded_streams() {
+        let w = World::new();
+        w.pack(1_200_000, "pal");
+        w.expanded_streams(concat!(
+            "268435456\t1\tlevel_00/gameplay_pal.wad\t0\t1\t100\t1\n",
+            "268435457\t1\tlevel_00/data_pal.bin\t0\t0\t200\t1\n",
+            "268435458\t1\tlevel_03/gameplay_pal.wad\t3\t1\t300\t1\n",
+        ));
+        assert_eq!(inspect(&w.layout(), Some(&format())).packed_expanded_levels, vec![0, 3]);
     }
 
     #[test]

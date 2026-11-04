@@ -24,4 +24,17 @@ int factor();
 // or while off).
 void pad();
 
+// Leaves this thread's processor time while it lives out of what pad() pads: a wait that spins to
+// its deadline (common/precise_wait.h) is no work a slower processor would take longer at.
+class Unpadded {
+public:
+    Unpadded();
+    ~Unpadded();
+    Unpadded(const Unpadded&) = delete;
+    Unpadded& operator=(const Unpadded&) = delete;
+
+private:
+    double m_from;
+};
+
 }  // namespace openrac::slow_cpu

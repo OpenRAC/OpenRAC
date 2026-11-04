@@ -5,8 +5,9 @@
 #include <filesystem>
 #include <fstream>
 
-#include "enhanced/tools/probes/level_scene.h"
-#include "enhanced/tools/probes/liquids.h"
+#include "common/json.h"
+#include "enhanced/tools/baker/sources/level_scene.h"
+#include "enhanced/tools/baker/sources/liquids.h"
 #include "tests/check.h"
 
 using namespace openrac;
@@ -32,7 +33,44 @@ void section(Bytes& overlay, unsigned address, const Bytes& data) {
 }
 }  // namespace
 
+// Going Commando's liquid surfaces: an emissive one becomes 98 bilinear grid triangles at its
+// height emitting its colour; a surface the export left unlit adds none.
+void rac2_surfaces() {
+    json::Value root;
+    std::string error;
+    CHECK(
+        json::parse(
+            R"({"version":1,"surfaces":[
+          {"corners":[[0,0],[7,0],[14,7],[0,7]],"height":5,"emissive":true,"emission":[0.6,0.4,0]},
+          {"corners":[[0,0],[1,0],[1,1],[0,1]],"height":1,"emissive":false}]})",
+            root,
+            error
+        )
+    );
+    const auto triangles = lighting::rac2_liquid_triangles(root);
+    CHECK(triangles.size() == 98);
+    float max_x = 0;
+    for (const auto& triangle : triangles) {
+        CHECK((triangle.diffuse == lighting::Float3{}) && triangle.emission_vertex_colour);
+        for (unsigned i = 0; i < 3; ++i) {
+            CHECK(triangle.vertices[i][2] == 5);
+            CHECK((triangle.emission_colours[i] == lighting::Float3{0.6f, 0.4f, 0}));
+            max_x = std::max(max_x, triangle.vertices[i][0]);
+        }
+    }
+    CHECK(max_x == 14);  // corner 2, the far row's end
+    CHECK(json::parse(R"({"version":2,"surfaces":[]})", root, error));
+    bool refused = false;
+    try {
+        (void)lighting::rac2_liquid_triangles(root);
+    } catch (const std::exception&) {
+        refused = true;
+    }
+    CHECK(refused);
+}
+
 int main() {
+    rac2_surfaces();
     // Synthetic authored record, separate colour and strip sections. No retail data.
     Bytes record(64), colours(512), order, overlay, index(2048), core(5120);
     put(record, 0, 10.0f);
@@ -93,6 +131,14 @@ int main() {
         }
     }
     CHECK(max_x == 24 && max_y == 41);
+    // The PAL overlay keeps the same record at its own address.
+    Bytes pal_overlay;
+    section(pal_overlay, lighting::kGasparLiquidPal, record);
+    section(pal_overlay, 0x200000, colours);
+    section(pal_overlay, 0x210000, order);
+    const auto pal =
+        lighting::gaspar_liquid_triangles(pal_overlay, index, core, lighting::kGasparLiquidPal);
+    CHECK(pal.size() == 98);
     auto animated_core = core;
     animated_core.resize(9216);  // second texture is black
     auto animated_index = index;

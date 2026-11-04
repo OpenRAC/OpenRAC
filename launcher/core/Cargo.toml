@@ -19,4 +19,5 @@ ts-rs = { version = "12", features = ["no-serde-warnings"] }
 zip = { version = "7.2", default-features = false, features = ["deflate-flate2"] }
 
 [dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
 tempfile = "3"

@@ -23,7 +23,7 @@ def read(path: Path) -> dict:
     sections = []
     for h in headers:
         raw = data[names + h[0]:]
-        sections.append({"name": raw[:raw.index(b"\0")].decode(), "type": h[1], "address": h[3],
+        sections.append({"name": raw[:raw.index(b"\0")].decode(), "type": h[1], "flags": h[2], "address": h[3],
                          "offset": h[4], "size": h[5]})
     return {"type": struct.unpack_from("<H", data, 0x10)[0], "entry": entry,
             "segments": segments, "sections": sections, "data": data}
@@ -100,7 +100,8 @@ def read_object(path: Path) -> dict:
     def string(table: int, at: int) -> str:
         raw = data[headers[table][4] + at:]
         return raw[:raw.index(b"\0")].decode()
-    sections = [{"name": string(shstrndx, h[0]), "type": h[1], "size": h[5], "link": h[6], "info": h[7],
+    sections = [{"name": string(shstrndx, h[0]), "type": h[1], "flags": h[2], "align": h[8],
+                 "size": h[5], "link": h[6], "info": h[7],
                  "data": data[h[4]:h[4] + h[5]] if h[1] != SHT_NOBITS else b""} for h in headers]
     symbols, relocations = [], {}
     for s in sections:

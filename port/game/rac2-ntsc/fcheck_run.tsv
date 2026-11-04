@@ -1,0 +1,16 @@
+# Whole-run verdicts for C fcheck cannot run: openrac-boot --swap, against a plain run with the same script and clock (docs/port/BACKFILL.md, "same-run"). Not `same`: a row here is not done.
+# name	status	date	decomp	csum	route	field	calls	note
+func_0026EDE8	same-run	2026-11-04	0c8ce745	b4df3987724d	level05	3300	1	0 words at the field; 603 of 3,400 fields differ, the sampled ones by a counter or load data; ran 524 of 585
+func_0026EDE8	same-run	2026-11-04	0c8ce745	b4df3987724d	menu-idle	3795	1	menu presses to field 1300, then idle: 0 words at the field; 10 of 3,800 fields differ, last 641; idle timeout ran; ran 530 of 585 across all routes; forced memory reached 570; holding state 3 by --write crashes the C at field 2720 but not retail, unexplained
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	level05	3300	2	0 words at the field; 0 of 3,400 fields differ; ran 228 of 343
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	level11	3799	2	0 of 3,800 fields differ; at returns only v1, and it is void; ran all 343 across level11, newgame and level14
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	level14	3799	2	0 of 3,800 fields differ; at returns only v1, and it is void
+func_002CA070	same-run	2026-11-04	0c8ce745	dcd9baa836e7	newgame	3799	2	0 of 3,800 fields differ; at returns only v1, and it is void
+func_002EAB18	same-run	2026-11-04	0c8ce745	507621f235c6	level05	3300	1	0 words at the field; 0 of 3,400 fields differ; ran all 397
+func_002F5FB8	same-run	2026-11-04	0c8ce745	f59e5f30b95d	level05	3300	4	0 words at the field; 0 of 3,400 fields differ; ran all 296
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	all-levels	3799	1	26 level routes; no field differs on 25; level22 field 3506 only, the frame timer read 808 for 800; never returned; ran all 858 across levels
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level05	3300	1	0 words at the field; 0 of 3,400 fields differ; ran 428 of 858
+func_L00_002A3B88	same-run	2026-11-04	0c8ce745	831f33c51ab3	level14	3700	1	0 words at the field; 0 of 3,800 fields differ; ran 559 of 858
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	all-levels	3799	4	26 level routes, 1 to 4 calls; no return differs; 2 to 20 fields differ, all in 1625 to 1696, and every later field matches; level14 146 of 149 words are the plain next field; level17 76 of 124 fit neither, padded retail 86 of 723; ran all 847 across levels
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	level00	3300	1	0 words at the field; 7 of 3,400 fields differ, during the load; ran 781 of 847; no resume
+func_L00_00303990	same-run	2026-11-04	0c8ce745	30f3ef944a07	level14	3700	2	0 words at the field; 7 of 3,800 fields differ, during the load; ran 785 of 847; resume ran; built with D_L14_001B2B20 for D_L00_001B2420

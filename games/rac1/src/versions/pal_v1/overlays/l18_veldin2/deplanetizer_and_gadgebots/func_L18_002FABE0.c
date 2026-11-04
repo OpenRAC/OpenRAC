@@ -2,7 +2,7 @@ extern float D_E1_L18_001624DC MACRO_ADDR;
 void draw_three_scaled_camera_facing_quads(void) {
     extern ML_9780 veldin2_cutscene_state;
     extern int scale_ticks(int);
-    extern unsigned long GetEffectTex(int);
+    extern unsigned long GetEffectTex_v(int) __asm__("func_001F4868");
     extern void VU1_addGSregister(int, long);
     extern void matrix_mul_vec3(void *, void *, void *);
     extern void FastVecAdd(void *, void *, void *);
@@ -36,7 +36,7 @@ void draw_three_scaled_camera_facing_quads(void) {
         deplanetizer_flare_cam_offset_z = tilt;
         D_E1_L18_001624DC = 1.0f;
     }
-    pk.b = GetEffectTex(0xB);
+    pk.b = GetEffectTex_v(0xB);
     pk.c = 0x0000FF9000000260ULL;
     pk.d = 0x8000000048ULL;
     pk.a = 0;

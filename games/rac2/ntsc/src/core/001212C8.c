@@ -52,4 +52,3 @@ UDItype func_001212C8(DFtype a) {
     return v;
 }
 
-INCLUDE_ASM("asm/core", func_001213B4);

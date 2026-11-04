@@ -10,6 +10,66 @@ constexpr std::array<std::string_view, 3> kMaterialSamplers =
 // Texture indices occupy resources.xy and texture_indices.x in the GLSL material record.
 constexpr std::array<unsigned, 3> kMaterialTextureWords = {12, 13, 20};
 
+// Whether `c` is whitespace as std::regex's \s reads it.
+bool glsl_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+
+// Removes every declaration `uniform <type> <name>;` of `name` from `source`, with one of `types`
+// and any whitespace between (at least one space after `uniform` and the type, any before the
+// semicolon): what regex_replace with uniform\s+(type|...)\s+name\s*; made of it, the same text,
+// so the SPIR-V cache keys stay. The regex took most of a level's load with the enhanced mesh
+// shaders, whose sources are large (about 50 ms a program).
+std::string remove_uniform(
+    const std::string& source, std::span<const std::string_view> types, std::string_view name
+) {
+    constexpr std::string_view keyword = "uniform";
+    std::string out;
+    out.reserve(source.size());
+    std::size_t copied = 0;
+    std::size_t at = source.find(keyword);
+    while (at != std::string::npos) {
+        // Matches the declaration at `at`; its end (past the semicolon), or npos.
+        const auto end = [&]() -> std::size_t {
+            std::size_t i = at + keyword.size();
+            const auto spaces = [&](bool required) {
+                const std::size_t from = i;
+                while (i < source.size() && glsl_space(source[i])) {
+                    ++i;
+                }
+                return !required || i > from;
+            };
+            if (!spaces(true)) {
+                return std::string::npos;
+            }
+            const auto type = std::find_if(types.begin(), types.end(), [&](std::string_view t) {
+                return source.compare(i, t.size(), t) == 0 && i + t.size() < source.size()
+                       && glsl_space(source[i + t.size()]);
+            });
+            if (type == types.end()) {
+                return std::string::npos;
+            }
+            i += type->size();
+            spaces(true);
+            if (source.compare(i, name.size(), name) != 0) {
+                return std::string::npos;
+            }
+            i += name.size();
+            spaces(false);
+            return i < source.size() && source[i] == ';' ? i + 1 : std::string::npos;
+        }();
+        if (end == std::string::npos) {
+            at = source.find(keyword, at + 1);
+            continue;
+        }
+        out.append(source, copied, at - copied);
+        copied = end;
+        at = source.find(keyword, end);
+    }
+    out.append(source, copied, std::string::npos);
+    return out;
+}
+
 // Returns whether the sampler is selected through the per-draw material record.
 bool material_sampler(std::string_view name) {
     return std::find(kMaterialSamplers.begin(), kMaterialSamplers.end(), name)
@@ -88,12 +148,13 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
          {"material_diffuse_scale", "O_MATERIAL.emission_diffuse.w", 28},
          // Spare material word: preserves batching and the existing 96-byte layout.
          {"material_emission_contrast", "uintBitsToFloat(O_MATERIAL.texture_indices.y)", 84},
+         // Two bounded half pairs occupy the last spare words without changing material stride.
+         {"foliage_parameters0", "int(O_MATERIAL.texture_indices.z)", 88},
+         {"foliage_parameters1", "int(O_MATERIAL.texture_indices.w)", 92},
          {"cutout", "int(O_MATERIAL.flags.x)", 32},
          {"emission_mask", "int(O_MATERIAL.flags.y)", 36},
          {"emission_vertex_colour", "int(O_MATERIAL.flags.z)", 40},
          {"probe_effect", "int(O_MATERIAL.flags.w)", 44},
-         // Opaque-only programs fix probe_effect to zero and reuse its word.
-         {"opaque_solid", "int(O_MATERIAL.flags.w)", 44},
          {"hero_shadow_receiver", "int(O_MATERIAL.resources.z)", 56},
          // Depth programs use the spare resource word for their atlas view;
          // colour programs use it for terrain albedo. They never coexist.
@@ -109,7 +170,8 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
     // remains per draw so terrain and lit static layers can still batch.
     const bool specialised = vertex.find("#define OPENRAC_COLOUR_SPECIALISED") != std::string::npos;
     const auto per_draw = [&](std::string_view name) {
-        return !specialised || (name != "probe_mode" && name != "probe_receiver" && name != "skinning");
+        return !specialised
+               || (name != "probe_mode" && name != "probe_receiver" && name != "skinning");
     };
     std::string vs(vertex), fs(fragment), macros;
     for (const auto& field : fields) {
@@ -121,19 +183,15 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
             })) {
             continue;
         }
-        const std::regex declaration(
-            std::string(R"(uniform\s+(vec4|vec3|float|int)\s+)") + field.name + R"(\s*;)"
-        );
-        vs = std::regex_replace(vs, declaration, "");
-        fs = std::regex_replace(fs, declaration, "");
+        constexpr std::array<std::string_view, 4> types = {"vec4", "vec3", "float", "int"};
+        vs = remove_uniform(vs, types, field.name);
+        fs = remove_uniform(fs, types, field.name);
         macros += std::string("#define ") + field.name + " (" + field.value + ")\n";
     }
     // Upscaled colour sampling must not split otherwise compatible mesh draws.
     for (const auto name : kMaterialSamplers) {
-        const std::regex declaration(
-            std::string(R"(uniform\s+sampler2D\s+)") + std::string(name) + R"(\s*;)"
-        );
-        fs = std::regex_replace(fs, declaration, "");
+        constexpr std::array<std::string_view, 1> samplers = {"sampler2D"};
+        fs = remove_uniform(fs, samplers, name);
     }
     const std::string vertex_header = R"(#extension GL_ARB_shader_draw_parameters : require
 
@@ -175,8 +233,8 @@ layout(set=1,binding=0) uniform sampler2D openrac_textures[
     // Shadow view selection and colour-layer flags are read per draw in the
     // vertex stage as well as by fragment material/lighting evaluation.
     if (std::any_of(original.uniforms.begin(), original.uniforms.end(), [](const auto& u) {
-            return u.name == "shadow_view" || u.name == "skinning"
-                   || u.name == "probe_receiver" || u.name == "probe_mode";
+            return u.name == "shadow_view" || u.name == "skinning" || u.name == "probe_receiver"
+                   || u.name == "probe_mode";
         })) {
         const auto begin = fragment_header.find("struct OpenracMaterial");
         const auto end = fragment_header.find("layout(set=1,binding=0)");

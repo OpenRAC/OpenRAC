@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use openrac_launcher_core::actions::Plan;
 use openrac_launcher_core::android::game_library;
 #[cfg(target_os = "android")]
-use openrac_launcher_core::android::{copy_disc, disc_file_name, iso_file_name, unpack_chd};
+use openrac_launcher_core::android::{copy_disc, disc_file_name, iso_file_name, unpack_chd, zip_file_name};
 #[cfg(target_os = "android")]
 use openrac_launcher_core::chd;
 use openrac_launcher_core::jobs::Started;
@@ -183,17 +183,26 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
         // The descriptor Kotlin detached is this process's to close: File owns it from here.
         let file = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(fd) };
         let dir = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("mod-imports");
-        // The add copies the mod out at once, so the last pick's copy is no longer needed.
-        let dest = dir.join(disc_file_name(&name));
+        // The add copies the mod out at once, so the last pick's copy is no longer needed. A name
+        // the picker gave without its extension gets `.zip` back: the install knows a mod's file by it.
+        let name = zip_file_name(&name);
+        let dest = dir.join(&name);
         let total = picked.size.unwrap_or(-1).max(0) as u64;
         let copied = dest.clone();
+        // `mod-copy` events, shaped as a disc's, the first at once: the Mods tab says the file is
+        // being read from the moment the picker closes, not only once a large pack is copied.
+        let emitter = app.clone();
+        let emit = move |copied| {
+            let _ = emitter.emit("mod-copy", DiscCopy { name: name.clone(), copied, total });
+        };
+        emit(0);
         tauri::async_runtime::spawn_blocking(move || {
             match std::fs::remove_dir_all(&dir) {
                 Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
                 _ => {}
             }
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            copy_disc(file, total, &copied, |_| {}).map_err(|e| e.to_string())
+            copy_disc(file, total, &copied, emit).map_err(|e| e.to_string())
         })
         .await
         .map_err(|e| e.to_string())?
@@ -399,7 +408,9 @@ pub async fn update_check<R: Runtime>(
     #[cfg(target_os = "android")]
     {
         // CHANNEL and BRANCH or the player's (Settings), the one it was built from by default.
-        let endpoint = crate::chosen_update_source(&app, channel, branch).manifest;
+        let source = crate::chosen_update_source(&app, channel, branch);
+        let switching = crate::switching_channel(&app, &source);
+        let endpoint = source.manifest;
         let manifest = updates_dir(&app)?.join("latest.json");
         let _: serde_json::Value =
             kotlin(&app, "download", serde_json::json!({ "url": endpoint, "path": manifest })).await.map_err(|e| {
@@ -411,7 +422,7 @@ pub async fn update_check<R: Runtime>(
             })?;
         let text = std::fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
         let _ = std::fs::remove_file(&manifest);
-        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app))
+        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), switching)
     }
     #[cfg(not(target_os = "android"))]
     {

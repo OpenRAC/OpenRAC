@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -95,6 +96,7 @@ struct Result {
     bool returned = false;
     u64 instructions = 0, misaligned = 0;
     u32 lowest_jump = ~0u;
+    u32 lowest_sp = ~0u;
     std::array<Ee::Reg, 32> gpr{};
     std::array<u32, 32> fpr{};
     std::vector<u8> ram, scratchpad;
@@ -127,7 +129,8 @@ int main(int argc, char** argv) {
     std::string returns = "void";
     bool have_entry = false;
     int ulps = 0;
-    std::string hooks, disc;
+    std::string hooks, disc, coverage;
+    u32 cover_size = 0;
 
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
@@ -172,6 +175,12 @@ int main(int argc, char** argv) {
             disc = argv[++i];
         } else if (arg == "--returns" && i + 1 < argc) {
             returns = argv[++i];
+        } else if (arg == "--coverage" && i + 1 < argc) {
+            // Retail only, no candidate: FILE gets, per entry address, which of its instructions
+            // the states run ("ADDRESS WORDS STATES RETURNED HEX", one byte a word).
+            coverage = argv[++i];
+        } else if (arg == "--cover-size" && i + 1 < argc) {
+            cover_size = static_cast<u32>(std::stoul(argv[++i], nullptr, 0));
         } else if (!arg.empty() && arg[0] != '-') {
             states.push_back(arg);
         } else {
@@ -182,7 +191,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (!have_entry || code.empty() || states.empty()) {
+    if (!have_entry || (code.empty() && coverage.empty()) || states.empty()) {
         std::fprintf(stderr, "openrac-fcheck needs --code, --entry and at least one state\n");
         return 2;
     }
@@ -266,6 +275,9 @@ int main(int argc, char** argv) {
         return true;
     };
 
+    std::map<u32, std::vector<u8>> covered;
+    std::map<u32, std::pair<int, int>> cover_runs;
+
     // Runs one call from a state, the retail function or the candidate.
     auto run = [&](const sys::CallState& state, u32 start, bool candidate, u64 limit) {
         Result r;
@@ -284,24 +296,36 @@ int main(int argc, char** argv) {
             }
         }
 
+        ee.cover = nullptr;
+        if (!candidate && !coverage.empty()) {
+            std::vector<u8>& map = covered[start];
+            map.resize(cover_size / 4);
+            ee.cover = map.data();
+            ee.cover_base = start;
+            ee.cover_bytes = cover_size;
+        }
+
         ee.event_at = ~u64{0};
         ee.pc = start;
         ee.next_pc = start + 4;
         log = &r.outside;
 
         ee.lowest_jump = ~0u;
+        ee.lowest_sp = ~0u;
         Ee::Call call = ee.begin_call(start);
         while (!r.returned && r.instructions < limit) {
             r.returned = ee.run_call(1'000'000);
             r.instructions += 1'000'000;
         }
         ee.end_call(call);
+        ee.cover = nullptr;
 
         log = nullptr;
         r.gpr = ee.gpr;
         r.fpr = ee.fpr;
         r.misaligned = ee.misaligned;
         r.lowest_jump = ee.lowest_jump;
+        r.lowest_sp = ee.lowest_sp;
         r.ram.assign(machine->memory.ram(0), machine->memory.ram(0) + GuestMemory::kRamBytes);
         r.scratchpad.assign(machine->memory.scratchpad(0),
                             machine->memory.scratchpad(0) + GuestMemory::kScratchpadBytes);
@@ -329,6 +353,12 @@ int main(int argc, char** argv) {
             continue;
         }
         Result retail = run(state, state.address, false, kLimit);
+        if (!coverage.empty()) {
+            cover_runs[state.address].first++;
+            cover_runs[state.address].second += retail.returned ? 1 : 0;
+            skipped_in_a_row = retail.returned ? 0 : skipped_in_a_row + 1;
+            continue;
+        }
         Result ours = run(state, entry, true, std::min(kLimit, std::max<u64>(20'000'000, retail.instructions * 8)));
         std::vector<std::string> notes;
         char text[256];
@@ -395,10 +425,19 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Memory, but for the dead stack and the candidate's own code.
+        /*
+         * Memory, but for the dead stack and the candidate's own code. The dead stack is what the
+         * two calls' frames used below the caller's $sp: down to the lowest $sp either reached
+         * (frames differ in size between retail and the candidate). A fixed window below $sp hid
+         * real stores into heap data placed under the stack (func_003486A8's colour words).
+         */
         u32 sp = static_cast<u32>(state.gpr[29].lo) & (GuestMemory::kRamBytes - 1);
+        u32 low = std::min(ours.lowest_sp, retail.lowest_sp) & (GuestMemory::kRamBytes - 1);
+        if (low > sp) {
+            low = sp;
+        }
         auto skipped = [&](u32 at) {
-            if (at < sp && sp - at <= 0x100000) {
+            if (at < sp && at >= low) {
                 return true;
             }
             for (const Code& c : code) {
@@ -428,7 +467,18 @@ int main(int argc, char** argv) {
                     own_code = wa - entry == wb - state.address;
                 }
             }
-            if (own_code || near_float(wa, wb, ulps)) {
+            /*
+             * An address in the dead stack (a pointer to a local that the call left in memory)
+             * is the compiler's choice of frame, as for the device accesses below: two such
+             * addresses compare as "a stack address", whatever their offsets.
+             */
+            auto in_dead_stack = [&](u32 v) {
+                u32 a = v & 0x01FFFFFF;
+                u32 seg = v & ~u32{0x01FFFFFF};
+                return (seg == 0 || seg == 0x20000000 || seg == 0x30000000 || seg == 0x80000000) && a < sp &&
+                       a >= low;
+            };
+            if (own_code || near_float(wa, wb, ulps) || (in_dead_stack(wa) && in_dead_stack(wb))) {
                 continue;
             }
             words++;
@@ -491,7 +541,7 @@ int main(int argc, char** argv) {
             u64 seg = v & ~u64{0x01FFFFFF};
             u32 a = static_cast<u32>(v & 0x01FFFFFF);
             bool mirror = seg == 0 || seg == 0x20000000 || seg == 0x30000000 || seg == 0x80000000;
-            return mirror && a < sp && sp - a <= 0x100000 ? 0x57AC0000'00000000ull : v;
+            return mirror && a < sp && a >= low ? 0x57AC0000'00000000ull : v;
         };
         for (std::vector<Outside>* v : {&ours.outside, &retail.outside}) {
             for (Outside& o : *v) {
@@ -555,6 +605,30 @@ int main(int argc, char** argv) {
                 std::printf("    %s\n", n.c_str());
             }
         }
+    }
+
+    if (!coverage.empty()) {
+        FILE* out = std::fopen(coverage.c_str(), "w");
+        if (!out) {
+            std::fprintf(stderr, "cannot write %s\n", coverage.c_str());
+            return 2;
+        }
+        for (const auto& [address, map] : covered) {
+            std::fprintf(
+                out,
+                "%08x %zu %d %d ",
+                address,
+                map.size(),
+                cover_runs[address].first,
+                cover_runs[address].second
+            );
+            for (u8 hit : map) {
+                std::fputc(hit ? '1' : '0', out);
+            }
+            std::fputc('\n', out);
+        }
+        std::fclose(out);
+        return 0;
     }
 
     // How many states were compared: none (every one skipped) is not a verdict (exit 4).

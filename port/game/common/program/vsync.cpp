@@ -21,11 +21,12 @@
 #include <span>
 #include <string>
 #include <string_view>
-#include <thread>
 
+#include "common/breadcrumbs.h"
 #include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "common/stats.h"
 #include "mods.h"
 #include "openrac/game_host.h"
@@ -120,14 +121,52 @@ void crash_test() {
     }
 }
 
+// A game that sends no picture for this many ticks (20 seconds) is stuck in a wait of its own that
+// never ends; a load sends none for a second or two at most.
+constexpr long kStallTicks = 1200;
+
+// The window keeps the last picture while the game sends none, so a game stuck in a wait looks
+// frozen and leaves nothing in the log (rac1: a flight between planets that never ended). Once a
+// stall, the log says so and names the host functions the wait is in, for a bug report to show
+// which wait it was (on Windows as the module and its offset, for the build's PDB).
+void report_stall(bool sent) {
+    static long undrawn = 0;
+    undrawn = sent ? 0 : undrawn + 1;
+
+    if (undrawn != kStallTicks) {
+        return;
+    }
+
+    const int level = openrac_game_loaded_overlay();
+    std::uint32_t mode = 0;
+    const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
+    log::warn(
+        "the game has sent no picture for {} ticks (level {}, game mode {}): it waits in",
+        kStallTicks,
+        level == OPENRAC_OVERLAY_EXE ? -1 : level,
+        has_mode ? std::to_string(mode) : "-"
+    );
+
+    for (int depth = 0; depth < 14; ++depth) {
+        // A C string: openrac_host_caller leaves "?" past the stack's end.
+        char who[256] = "";
+        openrac_host_caller(depth, who, sizeof(who));
+
+        if (std::strcmp(who, "?") != 0 && who[0] != '\0') {
+            log::warn("  {}", static_cast<const char*>(who));
+        }
+    }
+}
+
 // OPENRAC_REACH=FILE: the functions without C (and the zero-filled calls) this run reached, with
 // their calls (guest.h, openrac_reach_site; port/tools/regress reach). Written at exit and every
 // 600 frames, so a run that crashes still leaves most of it.
 void write_reach() {
-    static const std::optional<std::string> path = env_string(env::Var::Reach);
+    // A view of env.h's values, which outlive the exit handlers (finish() calls this at exit).
+    const std::optional<std::string_view> path = env::value(env::Var::Reach);
 
     if (path && !path->empty()
-        && openrac_guest_write_reach(path->c_str(), openrac_game.id, g_frame) == 0) {
+        && openrac_guest_write_reach(path->data(), openrac_game.id, g_frame) == 0) {
         log::warn("OPENRAC_REACH: cannot write {}", *path);
     }
 }
@@ -168,6 +207,10 @@ void apply_writes() {
     }
 }
 
+// When the game's work for the next tick began: the end of the wait before it (the clock's epoch
+// before the first).
+std::chrono::steady_clock::time_point g_tick_resumed{};
+
 // [debug tools] The game's tick length, stretched by the overlay's slow motion (debug_overlay.h).
 std::chrono::microseconds tick_period() {
     auto period = std::chrono::microseconds(1000000 / tick_rate());
@@ -193,6 +236,7 @@ int tick_rate() {
 
 void finish() {
     write_reach();
+    write_state_dump();
     openrac_guest_report_missing();
     log::info("{} frames", g_frame);
 }
@@ -224,6 +268,9 @@ void finish() {
 // ---- The vertical blank ----
 
 int vsync() {
+    crash::breadcrumb(
+        crash::BreadcrumbThread::Main, "game tick yielded", g_frame, crash::BreadcrumbValue::Tick
+    );
     // [debug tools] The game's own code stops here and goes on when this returns: its time is the
     // tick's (common/stats.h). The tick's frame of measurements begins.
     stats::game_yielded();
@@ -233,7 +280,7 @@ int vsync() {
     // Prepare owned CPU data before waiting; graphics and profiling storage still transfer at completion.
     if (g_window) {
         const auto* ram = runtime::Memory::get().base();
-        const std::span<const std::uint8_t> memory(ram, GUEST_RAM_SIZE);
+        const std::span<const std::uint8_t> memory(ram, runtime::Memory::get().ram_size());
 
         // Only a completed handoff may present or begin the next graphics measurement frame.
         if (!frontend::prepare_frame(memory) || !frontend::finish_render()) {
@@ -247,7 +294,17 @@ int vsync() {
     } resume;
 
     stats::begin_frame(stats::FrameKind::Tick, static_cast<std::uint64_t>(g_frame));
+    // A blank with no display list sent since the last one: the game drew nothing new into the
+    // chip, and the console's screen shows the picture it showed. Waiting on a load the game sends
+    // nothing (rac1: DoSpaceTransition's waits after the flight, the whole load once Start skipped
+    // it), and the list buffers the window would read again are the old program's, which the load
+    // writes over: drawn, they came out as flat red planes and lines over the stars. Before the
+    // game's first list there is no picture to keep.
+    static bool sent_once = false;
+    const bool sent = !g_vsync_since_kick;
+    sent_once = sent_once || sent;
     g_vsync_since_kick = true;
+    report_stall(sent || !sent_once);
     // With a window, the renderer draws the frame from the game's memory; without one, a frame is
     // only paced, at the game's frame rate.
 #ifdef OPENRAC_FRONTEND
@@ -266,7 +323,10 @@ int vsync() {
                 : g_next_frame,
             period,
             counted && now > g_next_frame ? std::chrono::duration<double>(now - g_next_frame)
-                                          : std::chrono::duration<double>(0.0)
+                                          : std::chrono::duration<double>(0.0),
+            counted && g_tick_resumed.time_since_epoch().count() != 0
+                ? std::chrono::duration<double>(now - g_tick_resumed)
+                : std::chrono::duration<double>(0.0)
         );
         const auto* ram = runtime::Memory::get().base();
         const std::uint32_t draws = g_reports_draws ? g_draws : ~0u;
@@ -278,14 +338,22 @@ int vsync() {
         const bool keep = undrawn.keep(g_reports_draws, draws, in_level);
         g_draws = 0;
 
-        if (!keep
-            && !frontend::frame(
-                std::span<const std::uint8_t>(ram, GUEST_RAM_SIZE), g_chain, draws
-            )) {
+        // Before the frame's measurements go to the render thread: the sound's health is a gauge of
+        // this frame.
+        watch_sound();
+
+        if (!sent && sent_once) {
+            if (!frontend::keep_picture()) {
+                leave();
+            }
+        } else if (!keep
+                   && !frontend::frame(
+                       std::span<const std::uint8_t>(ram, runtime::Memory::get().ram_size()),
+                       g_chain,
+                       draws
+                   )) {
             leave();
         }
-
-        watch_sound();
     }
 #endif
     g_frame++;
@@ -321,8 +389,11 @@ int vsync() {
         openrac_game_on_frame(static_cast<unsigned>(g_frame));
     }
 
+    run_tools();
+
     if (g_frame % 600 == 0) {
         write_reach();
+        write_state_dump();
     }
 
     if (g_options.frames >= 0 && g_frame >= g_options.frames) {
@@ -344,8 +415,10 @@ int vsync() {
         stats::probe("OPENRAC_FPS", "the ticks per second over each 300 ticks, in the log");
     static const bool uncapped = env::flag(env::Var::Uncapped);
     static steady_clock::time_point fps_from = now;
-    // OPENRAC_WATCH=ADDRESS:COUNT[:i],...: COUNT floats (or words, with i) from each ADDRESS, each
-    // frame, in the log.
+    // OPENRAC_WATCH=ADDRESS:COUNT[:i|d|l|h],...: COUNT floats (or words, with i) from each ADDRESS,
+    // each frame, in the log. d: words of an executable's global, at the loaded level's copy of it.
+    // l: words of a level 0 global (D_L00_), at the loaded level's copy of it (OPENRAC_LDATA).
+    // h: one hash of COUNT words (any count) from ADDRESS.
     static const std::optional<std::string> watch = env_string(env::Var::Watch);
 
     if (watch) {
@@ -356,12 +429,40 @@ int vsync() {
             char kind = 'f';
             std::sscanf(at, "%lx:%lu:%c", &address, &count, &kind);
 
+            if (kind == 'h') {
+                // h: a hash of COUNT words (no limit) from ADDRESS, to see where two runs'
+                // memory first differs without logging it: 64-bit lanes, xor and multiply.
+                std::uint64_t hash = 0xcbf29ce484222325ull;
+                const auto* lane = static_cast<const std::uint8_t*>(G(static_cast<gaddr>(address)));
+                unsigned long n = count;
+
+                for (; n >= 2; n -= 2, lane += 8) {
+                    std::uint64_t v;
+                    std::memcpy(&v, lane, 8);
+                    hash = (hash ^ v) * 0x100000001b3ull;
+                    hash ^= hash >> 29;
+                }
+
+                if (n != 0) {
+                    std::uint32_t v;
+                    std::memcpy(&v, lane, 4);
+                    hash = (hash ^ v) * 0x100000001b3ull;
+                }
+
+                line += std::format(" {:016x}", hash);
+                count = 0;
+            }
+
             for (unsigned long i = 0; i < count && i < 32; ++i) {
                 std::uint32_t w;
-                std::memcpy(&w, G(static_cast<gaddr>(address + 4 * i)), 4);
+                const gaddr at_word = static_cast<gaddr>(address + 4 * i);
+                const gaddr from = kind == 'd'   ? OPENRAC_DATA(at_word)
+                                   : kind == 'l' ? OPENRAC_LDATA(0, at_word)
+                                                 : at_word;
+                std::memcpy(&w, G(from), 4);
                 float f;
                 std::memcpy(&f, &w, 4);
-                line += kind == 'i' ? std::format(" {}", static_cast<std::int32_t>(w))
+                line += kind != 'f' ? std::format(" {}", static_cast<std::int32_t>(w))
                                     : std::format(" {:.4f}", f);
             }
 
@@ -432,10 +533,12 @@ int vsync() {
     // Until the next tick is due, frames at the display's rate (each swap waits for a refresh),
     // the scene moved on from the last tick's to this one's by when each is shown.
     if (g_window && frontend::wants_between()) {
+        g_next_frame += frontend::take_shot_time();
         for (int drawn; (drawn = frontend::between(g_next_frame)) != 0;) {
             if (drawn < 0) {
                 leave();
             }
+            g_next_frame += frontend::take_shot_time();
         }
     }
 #endif
@@ -447,9 +550,9 @@ int vsync() {
 #endif
         // The render job owns the profiler's section stack while the game can sleep or simulate.
         if (!render_pending) {
-            wait.emplace("wait");
+            wait.emplace("wait", profiling::ZoneColour::Idle);
         }
-        std::this_thread::sleep_until(g_next_frame);
+        precise_wait::until(g_next_frame);
     }
 #ifdef OPENRAC_FRONTEND
     openrac::platform::
@@ -459,12 +562,16 @@ int vsync() {
     if (g_window && !frontend::hold()) {
         leave();
     }
-    // With fresh_input, the tick about to run reads the pad as it is now: read at the last tick's
-    // end, it was the wait (and the frames drawn between ticks) old, up to a tick.
+    // With responsive_controls, the tick about to run reads the pad as it is now: read at the last
+    // tick's end, it was the wait (and the frames drawn between ticks) old, up to a tick.
     if (g_window) {
         frontend::refresh_pads();
     }
 #endif
+    g_tick_resumed = steady_clock::now();
+    crash::breadcrumb(
+        crash::BreadcrumbThread::Main, "game tick resumed", g_frame, crash::BreadcrumbValue::Tick
+    );
     return static_cast<int>(g_frame & 1);
 }
 

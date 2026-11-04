@@ -101,7 +101,7 @@ what to do instead.
 | The C-boundary wrapper that catches everything (13.4) | landed with P2-08: `c_boundary::call` in `common/c_boundary.h` | use it |
 | `common/env.h`, the table of `OPENRAC_*` variables (16) | landed with P1-03; its C entry point, `openrac/host_env.h`, with P2-19 | use it |
 | `host::GameProfile`, one per game version (15) | P2-03 (rac1), P3-02 (all) | per-game knowledge in `port/game/<id>/`; nothing new in shared code |
-| The `scene` module and `renderer/ui` (9.1) | `scene/` landed with P2-02: `openrac_scene`, and `openrac_scene_renderer` as its one exception to 9.1 ([scene/README.md](../scene/README.md)), in the namespace `openrac::viewer` and with forwarding headers left in `viewer/` until P2-37; `renderer/ui` arrives with P2-06 | new scene code in `scene/`; for `renderer/ui`, `viewer/` and `game/common` |
+| The `scene` module and `renderer/ui` (9.1) | `scene/` landed with P2-02: `openrac_scene`, and `openrac_scene_renderer` as its one exception to 9.1 ([scene/README.md](../scene/README.md)), in the namespace `openrac::scene`; `renderer/ui` landed with P2-06 | new scene code in `scene/`, overlay drawing in `renderer/ui` |
 
 ---
 
@@ -114,7 +114,7 @@ what to do instead.
 | [`tools/conventions/check_conventions.py`](../tools/conventions/README.md) | licence lines, tabs, dashes, and `getenv` of an `OPENRAC_*` variable outside `common/env.cpp` and `runtime/host_env.cpp` (16), everywhere; on new C++ files: `static` at namespace scope, raw `new`/`delete`/`malloc`/`free`, `using namespace` in headers, `extern "C"` outside contract files, console output outside tests and `main` | CI ("Port conventions"), and you before you commit | yes |
 | clang-tidy, [`port/.clang-tidy`](../.clang-tidy) | naming, ownership, function size, `else` after `return`, missing `override`, nested ternaries, `goto` | you, on the C++ files you touch (it needs a configured build) | not in CI; new code has zero findings |
 | The compiler, `openrac_warnings` (`port/cmake/Warnings.cmake`) | `-Wall -Wextra -Wshadow`, and for C++ `-Wpedantic -Wconversion` | every build | no new warning is accepted in review |
-| [`tools/layering/layering.py`](../tools/layering/README.md) | includes against the layers and allowed edges of section 18; today's violations are listed exceptions | you before you commit (not in CI yet) | it exits 1 on a new violation; CI does not run it yet |
+| [`tools/layering/layering.py`](../tools/layering/README.md) | includes against the layers and allowed edges of section 18; today's violations are listed exceptions | CI ("Port layering"), and you before you commit | yes: it exits 1 on a new violation |
 | ctest, the Python tests | behaviour | every build, CI | yes |
 
 clang-format is version 21. CI installs 21.1.8 from PyPI (`pip install clang-format==21.1.8`); on
@@ -180,7 +180,7 @@ you say the work is done.
 13. **Shared code knows no game.** No game id comparison, no game address, no per-game branch
     outside the per-game tables (section 15).
 14. **The log and the environment have one door each.** Diagnostics go through `common/log.h`;
-    `OPENRAC_*` variables through `common/env.h` once it lands (sections 16 and 17).
+    `OPENRAC_*` variables through `common/env.h` (sections 16 and 17).
 15. **A lower layer never includes a higher one** (section 18).
 16. **A refactor or formatting pass changes no behaviour, and you say how you checked**
     (section 24).
@@ -753,9 +753,9 @@ They share a name.
 | `platform/` | `openrac::platform` | `openrac_platform` | exists |
 | `assets/` | `openrac::assets` (`::disc`, `::rac1` for subdirectories) | `openrac_assets` | exists |
 | `audio/`, `media/` | `openrac::audio`, `openrac::media` | `openrac_audio`, `openrac_media` | exist |
-| `renderer/` | `openrac::renderer` (`::world` for `world/`) | `openrac_renderer` | exists; `renderer/ui/` arriving with P2-06 |
+| `renderer/` | `openrac::renderer` (`::world` for `world/`) | `openrac_renderer` | exists, with `renderer/ui/` |
 | `renderer/vulkan/` | `openrac::vkgl` | `openrac_renderer_vulkan` | exists |
-| `scene/` | `openrac::scene` | `openrac_scene` | arriving with P2-02 (from `viewer/`) |
+| `scene/` | `openrac::scene` | `openrac_scene` | exists (with `openrac_scene_renderer`, its GPU library) |
 | `enhanced/` | `openrac::lighting` | `openrac_enhanced` | exists |
 | `game/common/` | `openrac::host` for new code (`openrac::frontend`, `openrac::mods` today) | `openrac_host` | arriving with P3-02 |
 | `game/<game>/` | `openrac::game::<game>` (`openrac::game::rac1`) | `openrac_game_<id>` | C today; C++ with the profiles (P2-03) |
@@ -1120,20 +1120,20 @@ A module's public function that can fail says so in its return type, and is `[[n
 
 | Form | When |
 |---|---|
-| `openrac::Result<T>` (`common/result.h`, arriving with P2-08) | the default for new interfaces |
+| `openrac::Result<T>` (`common/result.h`) | the default for new interfaces |
 | `bool` and a `std::string& error` | the existing style; stays valid, and new code beside it may match it |
 | `std::optional<T>` | when absence is the only failure and needs no message |
 
 `Result<T>` holds either a `T` or an `openrac::Error`, a struct whose `message` follows 17.3. Its
 members are named as `std::expected`'s are (`has_value()`, `explicit operator bool`, `value()`,
 `operator*`, `operator->`, `error()`), and `Result<void>` holds no value, so moving to
-`std::expected` when the floor allows it is a rename. Until it lands, write the `bool` form.
+`std::expected` when the floor allows it is a rename.
 
 ```cpp
 // Reads the sound bank at `path`. On failure, `error` says what was wrong and where.
 [[nodiscard]] bool load_bank(const std::filesystem::path& path, Bank& bank, std::string& error);
 
-// The same, in the form new interfaces use once common/result.h exists.
+// The same, in the form new interfaces use.
 [[nodiscard]] Result<Bank> load_bank(const std::filesystem::path& path);
 ```
 
@@ -1141,18 +1141,11 @@ members are named as `std::expected`'s are (`has_value()`, `explicit operator bo
 
 Every `extern "C"` function implemented in C++ catches everything and reports it: on the game side
 through `openrac_game_crash` (`game_host.h`), on the host side through the log and the function's
-failure value. Until P2-08 brings the wrapper, write it out:
+failure value. Run the body through `c_boundary::call` (`common/c_boundary.h`), which does both:
 
 ```cpp
 extern "C" int openrac_sound_play(int voice, int sound) {
-    try {
-        return engine().play(voice, sound) ? 1 : 0;
-    } catch (const std::exception& failure) {
-        openrac_game_crash(failure.what());
-    } catch (...) {
-        openrac_game_crash("sound: unknown exception");
-    }
-    return 0;
+    return c_boundary::call("sound", 0, [&] { return engine().play(voice, sound) ? 1 : 0; });
 }
 ```
 
@@ -1210,8 +1203,8 @@ them, the rest of the page does.
 
 - C++ implements a contract in the file named for it: `guest.cpp` for `guest.h`, `ee.cpp` for
   `ee.h`, `host_env.cpp` for `host_env.h` (the C entry point to the table of section 16),
-  `sound_engine.cpp` for `sound_engine.h`, and `game_host.cpp` for `game_host.h` (P2-08
-  gathers the host's side of it there from `main.cpp`, which defines `openrac_game_crash` today).
+  `sound_engine.cpp` for `sound_engine.h`, and `game/common/program/game_host.cpp` for
+  `game_host.h`.
   The library replacements of `game_lib.h` are one file per library in `game/common/lib/`.
   `extern "C"` definitions appear only in those files and in tests. The check in CI holds new files
   to it; the sites elsewhere today (`frontend.cpp`, `main.cpp`, `fixes.cpp`, `mods.cpp`,
@@ -1234,10 +1227,9 @@ game:
 
 What differs per game lives in that game's tables: for C, `openrac_front_end` (`game_host.h`),
 `libraries.tsv`, `hostgen.json` and per-disc headers such as `rac1_version.h`; for C++, one
-`host::GameProfile` per game version (arriving with P2-03 for rac1 and P3-02 for the rest). A shared
-function that needs a game fact takes it from the table or the profile. The branches on game ids in
-`frontend.cpp` and the addresses in `viewer/game_state.cpp` move into the profiles with P2-03; new
-code adds none.
+`host::GameProfile` per game version (`game/common/profile.h`; rac1's in `game/rac1/profile.cpp`, the
+other games' with P3-02). A shared function that needs a game fact takes it from the table or the
+profile; new code adds no game branch or address to shared code.
 
 ---
 
@@ -1310,7 +1302,7 @@ common  <  runtime  <  platform, assets, audio, media  <  renderer (gl, vulkan)
 - Lower never includes higher.
 - Modules on one layer do not include each other unless the checker's allow-list names the edge.
 - `enhanced` plugs into `renderer` and `scene` through interfaces those modules own and it
-  registers with; `renderer` never includes `enhanced/` (P2-07 removes today's include).
+  registers with; `renderer` never includes `enhanced/`.
 - Apps depend on libraries, never the other way round.
 - A third-party library belongs to one module (4.5): SDL3 to `platform` (and the program), the
   graphics APIs to `renderer`, Luau to the host's script mods.
@@ -1446,7 +1438,7 @@ over the tree (the restructure plan forbids mass renames and reformatting).
 |---|---|---|
 | `static` at namespace scope | anonymous namespace | when a file is restructured, in a `refactor(port)` commit |
 | file-global `g` state | a state object (11.4) | one module per package: `renderer/vulkan` with P3-03, the rest as each module is restructured |
-| `getenv` | `common/env.h` | P1-03 (runtime, platform, renderer), P2-09 (game/common, vulkan) |
+| `getenv` | `common/env.h` | done (P1-03 to P2-38); only a test reads one directly (`GETENV_EXCEPTIONS`) |
 | `extern "C"` outside contract files, no catch-all | the contract's file, the wrapper | P2-08 |
 | game-id branches and addresses in shared code | `GameProfile` | P2-03, P3-02 |
 | test stanzas written out in `cmake/*.cmake` | `openrac_add_test`, `openrac_add_c_test` | when the file is restructured |

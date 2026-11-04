@@ -29,6 +29,23 @@ steady_clock::time_point shown_at(
     return last_swap + duration_cast<steady_clock::duration>(duration<double>(n * interval));
 }
 
+steady_clock::time_point between_limit(
+    steady_clock::time_point next_tick,
+    duration<double> period,
+    double lag,
+    double cost,
+    double interval,
+    steady_clock::time_point last_swap
+) {
+    if (lag > 0.0) {
+        return next_tick + duration_cast<steady_clock::duration>(period * lag);
+    }
+    if (interval <= 0.0 || last_swap.time_since_epoch().count() == 0) {
+        return next_tick;
+    }
+    return std::max(next_tick, shown_at(next_tick, cost, interval, last_swap));
+}
+
 float tick_alpha(
     steady_clock::time_point display,
     steady_clock::time_point tick,
@@ -42,6 +59,23 @@ float tick_alpha(
 bool frame_may_start(double cap, steady_clock::time_point due, steady_clock::time_point now) {
     return cap <= 0.0 || due.time_since_epoch().count() == 0
            || now + std::chrono::milliseconds(1) >= due;
+}
+
+double present_lead(double cost, double spread, double step) {
+    // What a frame begun this much early still covers: the wake of a wait and the swap's own call.
+    constexpr double kMargin = 0.0005;
+    return std::clamp(cost + 3.0 * spread + kMargin, 0.0, std::max(step, 0.0));
+}
+
+double tick_slip(double step, double period, double lag, double tick_work) {
+    return std::max(0.0, std::min({step, lag * period, 0.5 * period - tick_work}));
+}
+
+steady_clock::time_point cap_start(CapEdge edge, steady_clock::time_point due, double lead) {
+    if (edge == CapEdge::Start || due.time_since_epoch().count() == 0) {
+        return due;
+    }
+    return due - duration_cast<steady_clock::duration>(duration<double>(lead));
 }
 
 }  // namespace openrac::frontend

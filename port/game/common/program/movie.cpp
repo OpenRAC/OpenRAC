@@ -14,10 +14,10 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "common/log.h"
+#include "common/precise_wait.h"
 #include "openrac/game_host.h"
 #include "program/program.h"
 
@@ -117,7 +117,7 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         }
 
         g_next_frame += microseconds(1000000 / rate);
-        std::this_thread::sleep_until(g_next_frame);
+        precise_wait::until(g_next_frame);
         g_frame++;
     };
 

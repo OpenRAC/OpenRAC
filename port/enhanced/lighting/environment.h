@@ -58,7 +58,7 @@ std::uint64_t environment_capture_hash(
     std::span<const EnvironmentProbe> probes, std::uint64_t gi_hash = 0
 );
 
-// Every face/level has a one-texel gutter in a single R11G11B10F texture.
+// Each HDR face/level has a gutter and compression-block padding; the BRDF lookup stays separate.
 struct EnvironmentAsset {
     // Source capture face size; stored faces start one mip below this resolution.
     unsigned resolution = 128;
@@ -66,9 +66,16 @@ struct EnvironmentAsset {
     std::uint64_t scene_hash = 0, settings_hash = 0, gi_hash = 0;
     std::vector<EnvironmentProbe> probes;
     std::vector<std::uint32_t> pixels;
+    ProbeTextureFormat colour_format =
+        ProbeTextureFormat::R11G11B10;    // Radiance encoding on disk/GPU.
+    std::vector<std::uint8_t> gpu_bytes;  // Complete directly uploadable radiance plane.
+    std::vector<std::uint32_t>
+        brdf;  // Uncompressed material-response lookup, independent of radiance.
     unsigned levels() const;
     // Returns the stored face size at `mip`, starting with the first retained GGX level.
     unsigned face_resolution(unsigned mip = 0) const;
+    // Block-aligned face pitch keeps independent faces and GGX levels out of shared compression blocks.
+    unsigned face_pitch(unsigned mip = 0) const;
     unsigned stack_height() const;
     unsigned columns() const;
     unsigned probe_x(unsigned probe) const;
@@ -94,4 +101,6 @@ std::uint64_t environment_gi_hash(const std::filesystem::path& directory);
 // Portable versioned files; malformed or stale data is never uploaded.
 std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset);
 EnvironmentAsset decode_environment(std::span<const std::uint8_t> bytes);
+// Retains compressed blocks for runtime upload, expanding only the small capture metadata.
+EnvironmentAsset decode_gpu_environment(std::span<const std::uint8_t> bytes);
 }  // namespace openrac::lighting

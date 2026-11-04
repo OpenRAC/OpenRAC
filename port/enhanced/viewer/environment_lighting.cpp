@@ -9,6 +9,7 @@
 
 #include "common/log.h"
 #include "enhanced/viewer/environment_overlay.h"
+#include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
@@ -19,22 +20,43 @@ using namespace gl;
 namespace {
 // Water deformation uses units 18-20; selection masks and metadata use 21-22.
 constexpr unsigned kEnvironmentUnit = 23;
+// The small BRDF lookup retains its original packed precision.
+constexpr unsigned kEnvironmentBrdfUnit = 24;
 
 // Shared packed format for real captures and the descriptor-safe black fallback.
-void upload(unsigned texture, unsigned width, unsigned height, const void* pixels) {
+void upload(
+    unsigned texture,
+    unsigned width,
+    unsigned height,
+    const void* pixels,
+    ProbeTextureFormat format = ProbeTextureFormat::R11G11B10
+) {
     glActiveTexture(GL_TEXTURE0 + kEnvironmentUnit);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_R11F_G11F_B10F,
-        static_cast<GLsizei>(width),
-        static_cast<GLsizei>(height),
-        0,
-        GL_RGB,
-        GL_UNSIGNED_INT_10F_11F_11F_REV,
-        pixels
-    );
+    if (format != ProbeTextureFormat::R11G11B10) {
+        glCompressedTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            probe_texture_internal(format),
+            static_cast<GLsizei>(width),
+            static_cast<GLsizei>(height),
+            0,
+            static_cast<GLsizei>(probe_texture_bytes(format, width, height)),
+            pixels
+        );
+    } else {
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_R11F_G11F_B10F,
+            static_cast<GLsizei>(width),
+            static_cast<GLsizei>(height),
+            0,
+            GL_RGB,
+            GL_UNSIGNED_INT_10F_11F_11F_REV,
+            pixels
+        );
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -68,7 +90,7 @@ void EnvironmentLighting::load(const std::filesystem::path& directory, const Pro
             throw std::runtime_error("cannot read environment file");
         }
 
-        auto asset = decode_environment(bytes);
+        auto asset = decode_gpu_environment(bytes);
 
         if (asset.level != gi.level || asset.scene_hash != gi.scene_hash
             || asset.settings_hash != gi.settings_hash
@@ -82,18 +104,23 @@ void EnvironmentLighting::load(const std::filesystem::path& directory, const Pro
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &limit);
 
         if (asset.width() > static_cast<unsigned>(limit)
-            || asset.height() > static_cast<unsigned>(limit)) {
+            || asset.brdf_row() > static_cast<unsigned>(limit)) {
             throw std::runtime_error("environment atlas exceeds device dimensions");
         }
 
         glGenTextures(1, &m_texture);
-        upload(m_texture, asset.width(), asset.height(), asset.pixels.data());
+        upload(
+            m_texture, asset.width(), asset.brdf_row(), asset.gpu_bytes.data(), asset.colour_format
+        );
+        glGenTextures(1, &m_brdf_texture);
+        upload(m_brdf_texture, kEnvironmentBrdfSize, kEnvironmentBrdfSize, asset.brdf.data());
 
         if (glGetError() != GL_NO_ERROR) {
             throw std::runtime_error("environment atlas upload failed");
         }
 
         m_resolution = asset.resolution;
+        m_alignment = probe_texture_block(asset.colour_format);
         m_columns = asset.columns();
         m_debug.set_vertices(environment_probe_debug_vertices(asset.probes));
 
@@ -107,7 +134,7 @@ void EnvironmentLighting::load(const std::filesystem::path& directory, const Pro
             "environment probes: {} captures, {} GGX levels, {} bytes",
             asset.probes.size(),
             asset.levels(),
-            asset.pixels.size() * 4
+            asset.gpu_bytes.size() + asset.brdf.size() * 4
         );
     } catch (const std::exception& error) {
         release();
@@ -121,7 +148,7 @@ void EnvironmentLighting::bind(
     const auto count = shader.uniform("environment_count");
 
     if (count < 0) {
-        return;  // Ordinary mesh and early-lit shaders do not consume reflection data.
+        return;  // Programs without an environment material need no reflection descriptors.
     }
 
     if (!m_texture && !m_fallback) {
@@ -133,12 +160,16 @@ void EnvironmentLighting::bind(
     m_selection.bind(shader, enabled ? camera : nullptr);
     glUniform1i(count, enabled ? static_cast<int>(m_metadata.size() / 5) : 0);
     glUniform1i(shader.uniform("environment_map"), kEnvironmentUnit);
+    glUniform1i(shader.uniform("environment_brdf"), kEnvironmentBrdfUnit);
     glUniform1i(shader.uniform("environment_resolution"), static_cast<int>(m_resolution));
+    glUniform1i(shader.uniform("environment_alignment"), static_cast<int>(m_alignment));
 
     glUniform1i(shader.uniform("environment_columns"), static_cast<int>(m_columns));
 
     glActiveTexture(GL_TEXTURE0 + kEnvironmentUnit);
     glBindTexture(GL_TEXTURE_2D, m_texture ? m_texture : m_fallback);
+    glActiveTexture(GL_TEXTURE0 + kEnvironmentBrdfUnit);
+    glBindTexture(GL_TEXTURE_2D, m_brdf_texture ? m_brdf_texture : m_fallback);
     glActiveTexture(GL_TEXTURE0);
 }
 
@@ -220,6 +251,10 @@ void EnvironmentLighting::release() {
         glDeleteTextures(1, &m_fallback);
     }
 
+    if (m_brdf_texture) {
+        glDeleteTextures(1, &m_brdf_texture);
+        m_brdf_texture = 0;
+    }
     m_texture = m_fallback = 0;
     m_metadata.clear();
 }

@@ -5,9 +5,12 @@
 // The GS draws every moby face with TEST 0x5360b (renderer/world/gs_pass.h): a fragment whose alpha
 // reaches 0x60 writes Z, the others colour only. The port draws the solid faces first, then the
 // glow faces (MobyProc's glow list, mode bit 0x10) in two draws split at that reference, so that a
-// near glow face hides the far ones behind it, then the translucent texels, the blended mobys and
-// the metal packets, which write no depth. Drawn in one blended draw without depth, the parked
-// ship's front thrusters' glow showed through its rear thrusters' light bars on Pokitaru.
+// near glow face hides the far ones behind it. The blended mobys are split the same way at their
+// own reference (0x60, or 0x08 for one fading at its draw distance; an added one writes no
+// depth). Every draw that writes depth comes first; then the rest of the glow, the translucent
+// texels, the rest of the blended mobys and the metal packets, which write no depth. Drawn in one
+// blended draw without depth, the parked ship's front thrusters' glow showed through its rear
+// thrusters' light bars on Pokitaru.
 
 #pragma once
 
@@ -27,18 +30,20 @@ enum MobyPass : int {
 // One draw of the mobys' colour passes.
 struct MobyPassStep {
     int pass = kMobySolid;  // the MobyPass drawn
-    int glow_split =
-        0;  // mesh.frag's glow_split: 1 the glow texels at or above the reference, 2 the rest
+    // mesh.frag's glow_split, for the glow and the blended mobys' passes: 1 the texels at or above
+    // the reference, 2 the rest; 0 all.
+    int glow_split = 0;
     bool depth_write = false;
 };
 
 // The draws in order.
-inline constexpr std::array<MobyPassStep, 6> kMobyPassSteps{{
+inline constexpr std::array<MobyPassStep, 7> kMobyPassSteps{{
     {kMobySolid, 0, true},
     {kMobyGlow, 1, true},
+    {kMobyEffects, 1, true},
     {kMobyGlow, 2, false},
     {kMobyTranslucent, 0, false},
-    {kMobyEffects, 0, false},
+    {kMobyEffects, 2, false},
     {kMobyMetal, 0, false},
 }};
 

@@ -64,6 +64,9 @@ int CollisionFace::sound_class() const {
 
 // Header word, 4 bytes per vertex, 4 per face, 1 per quad's fourth index.
 std::size_t CollisionLeafHeader::payload_size() const {
+    if (extended) {
+        return 16 + 4 * std::size_t{vertex_count} + 16 * std::size_t{face_count};
+    }
     return 4 + 4 * std::size_t{vertex_count} + 4 * std::size_t{face_count} + quad_count;
 }
 
@@ -86,7 +89,7 @@ std::array<float, 3> CollisionCell::low_corner() const {
 }
 
 // Throws (via at()) for a face index past the cell's faces.
-std::array<u8, 4> CollisionCell::face_indices(std::size_t face) const {
+std::array<u32, 4> CollisionCell::face_indices(std::size_t face) const {
     const CollisionFace& f = faces.at(face);
     // Only quads have a fourth index stored; a triangle repeats its first.
     return {f.v[0], f.v[1], f.v[2], is_quad(face) ? quad_v3.at(face) : f.v[0]};
@@ -149,7 +152,7 @@ std::map<u8, std::size_t> CollisionMesh::type_counts() const {
 namespace {
 
 // The most entries a node may claim; the real levels stay well below it (assumed).
-constexpr std::size_t kMaxNodeEntries = 4096;
+constexpr std::size_t kMaxNodeEntries = 32768;
 
 // The most hero groups accepted before the count is called damaged (assumed).
 constexpr s32 kMaxHeroGroups = 100'000;
@@ -181,14 +184,54 @@ CollisionNode checked_node(
 // Decodes one leaf: header, packed vertices, faces, then the quads' fourth indices. `word` is the
 // tree entry (leaf offset << 8 | size in quadwords). Every face index is checked against the
 // vertex count.
-CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word) {
-    const std::size_t leaf = word >> 8;
+CollisionCell read_leaf(
+    ByteView mesh,
+    s16 x,
+    s16 y,
+    s16 z,
+    u32 word,
+    bool indexed,
+    const std::vector<u32>& extended_leaf_offsets
+) {
+    u32 leaf_offset = word >> 8;
+    if (indexed) {
+        const u32 index = word >> 8;
+        if (index == 0 || index > extended_leaf_offsets.size()) {
+            fail("collision: expanded leaf directory index is out of range");
+        }
+        leaf_offset = extended_leaf_offsets[index - 1];
+    }
+    const std::size_t leaf = leaf_offset;
     CollisionCell cell;
     cell.x = x;
     cell.y = y;
     cell.z = z;
     cell.leaf_word = word;
-    cell.header = {mesh.u16_at(leaf), mesh.u8_at(leaf + 2), mesh.u8_at(leaf + 3)};
+    cell.resolved_leaf_offset = leaf_offset;
+    const bool extended = (word & 0xff) == 0;
+    std::size_t vertex_at = leaf + 4;
+    std::size_t face_at = 0;
+    std::size_t leaf_bytes = 0;
+    if (extended) {
+        if (mesh.u32_at(leaf) != 0x58434C52u) {
+            fail("collision: cell ({}, {}, {}) has an unknown extended-leaf marker", x, y, z);
+        }
+        leaf_bytes = mesh.u32_at(leaf + 4);
+        cell.header.face_count = mesh.u32_at(leaf + 12);
+        cell.header.vertex_count = mesh.u32_at(leaf + 8);
+        cell.header.quad_count = 0;
+        cell.header.extended = true;
+        vertex_at = leaf + 16;
+        face_at = vertex_at + 4 * std::size_t{cell.header.vertex_count};
+        const std::size_t needed = face_at - leaf + 16 * std::size_t{cell.header.face_count};
+        if (leaf_bytes < 16 || (leaf_bytes & 15) != 0 || needed > leaf_bytes) {
+            fail("collision: cell ({}, {}, {}) has an invalid extended-leaf size", x, y, z);
+        }
+        mesh.check(leaf, leaf_bytes, "extended collision leaf");
+    } else {
+        cell.header = {mesh.u16_at(leaf), mesh.u8_at(leaf + 2), mesh.u8_at(leaf + 3), false};
+        face_at = leaf + 4 + 4 * std::size_t{cell.header.vertex_count};
+    }
     const std::size_t faces = cell.header.face_count;
     const std::size_t vertices = cell.header.vertex_count;
     const std::size_t quads = cell.header.quad_count;
@@ -199,34 +242,46 @@ CollisionCell read_leaf(ByteView mesh, s16 x, s16 y, s16 z, u32 word) {
     }
 
     // The tree word carries the leaf's size in its low byte; a mismatch means a wrong leaf.
-    if (cell.header.size_qwords() != (word & 0xff)) {
+    if (!extended && cell.header.size_qwords() != (word & 0xff)) {
         fail(
             "collision: cell ({}, {}, {}): the leaf size byte does not match its contents", x, y, z
         );
     }
 
-    mesh.check(leaf, cell.header.size_qwords() * kLeafUnitBytes, "collision leaf");
+    if (!extended) {
+        leaf_bytes = cell.header.size_qwords() * kLeafUnitBytes;
+        mesh.check(leaf, leaf_bytes, "collision leaf");
+    }
     const std::array<float, 3> centre = cell.centre();
 
     // Vertices come first, one packed word each, and are also kept as world positions.
     for (std::size_t i = 0; i < vertices; ++i) {
-        const PackedCollisionVertex p{mesh.u32_at(leaf + 4 + 4 * i)};
+        const PackedCollisionVertex p{mesh.u32_at(vertex_at + 4 * i)};
         cell.packed.push_back(p);
         cell.vertices.push_back(p.world(centre));
     }
 
-    const std::size_t face_at = leaf + 4 + 4 * vertices;
-
     // Faces follow: three vertex indices and the type byte each.
     for (std::size_t i = 0; i < faces; ++i) {
-        const std::size_t at = face_at + 4 * i;
-        cell.faces.push_back(
-            {{mesh.u8_at(at), mesh.u8_at(at + 1), mesh.u8_at(at + 2)}, mesh.u8_at(at + 3)}
-        );
+        const std::size_t at = face_at + (extended ? 16 : 4) * i;
+        if (extended) {
+            cell.faces.push_back(
+                {{mesh.u32_at(at), mesh.u32_at(at + 4), mesh.u32_at(at + 8)}, mesh.u8_at(at + 12)}
+            );
+        } else {
+            cell.faces.push_back(
+                {{mesh.u8_at(at), mesh.u8_at(at + 1), mesh.u8_at(at + 2)}, mesh.u8_at(at + 3)}
+            );
+        }
     }
 
-    const ByteView fourth = mesh.sub(face_at + 4 * faces, quads, "collision quad indices");
-    cell.quad_v3 = fourth.to_vector();
+    if (!extended) {
+        const ByteView fourth = mesh.sub(face_at + 4 * faces, quads, "collision quad indices");
+        cell.quad_v3.reserve(quads);
+        for (u8 index : fourth.to_vector()) {
+            cell.quad_v3.push_back(index);
+        }
+    }
 
     // Check every index a face uses, so later reads of `vertices` cannot go out of range.
     for (std::size_t i = 0; i < faces; ++i) {
@@ -333,6 +388,54 @@ CollisionMesh read_collision(Game game, ByteView block) {
     CollisionMesh mesh;
     mesh.mesh_offset = block.s32_at(0);
     mesh.hero_offset = block.s32_at(4);
+    if (block.u32_at(8) == 0x49434C52u) {  // "RLCI": 32-bit leaf offset table.
+        mesh.has_extended_leaf_index = true;
+        const std::size_t table_at = block.u32_at(12);
+        block.check(table_at, 4, "expanded leaf offset table count");
+        if (table_at < static_cast<std::size_t>(
+                mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset
+            )) {
+            fail("collision: expanded leaf offset table overlaps the mesh or hero data");
+        }
+        const u32 count = block.u32_at(table_at);
+        if (count > 0xffffff) {
+            fail("collision: expanded leaf offset table count is too large");
+        }
+        block.check(table_at + 4, 4 * std::size_t{count}, "expanded leaf offset table");
+        const ByteView offsets =
+            block.sub(table_at + 4, 4 * std::size_t{count}, "expanded leaf offsets");
+        for (u32 i = 0; i < count; ++i) {
+            const u32 offset = offsets.u32_at(4 * std::size_t{i});
+            if ((offset & 15) != 0) {
+                fail("collision: expanded leaf offset is not 16-byte aligned");
+            }
+            mesh.extended_leaf_offsets.push_back(offset);
+        }
+    }
+    if (block.u32_at(16) == 0x54434C52u) {  // "RLCT": root entries index 32-bit slab offsets.
+        mesh.has_extended_slab_index = true;
+        const std::size_t table_at = block.u32_at(20);
+        block.check(table_at, 4, "expanded slab offset table count");
+        if (table_at < static_cast<std::size_t>(
+                mesh.hero_offset > 0 ? mesh.hero_offset : mesh.mesh_offset
+            )) {
+            fail("collision: expanded slab offset table overlaps the mesh or hero data");
+        }
+        const u32 count = block.u32_at(table_at);
+        if (count != block.u16_at(static_cast<std::size_t>(mesh.mesh_offset) + 2)) {
+            fail("collision: expanded slab offset table does not match the root count");
+        }
+        block.check(table_at + 4, 4 * std::size_t{count}, "expanded slab offset table");
+        const ByteView offsets =
+            block.sub(table_at + 4, 4 * std::size_t{count}, "expanded slab offsets");
+        for (u32 i = 0; i < count; ++i) {
+            const u32 offset = offsets.u32_at(4 * std::size_t{i});
+            if (offset != 0 && (offset & 3) != 0) {
+                fail("collision: expanded slab offset is not quadword aligned");
+            }
+            mesh.extended_slab_offsets.push_back(offset);
+        }
+    }
 
     // The mesh follows the block's two offsets, so its offset must be positive.
     if (mesh.mesh_offset <= 0) {
@@ -360,13 +463,15 @@ CollisionMesh read_collision(Game game, ByteView block) {
     // One slab per Z that has any geometry.
     for (std::size_t zi = 0; zi < mesh.root_entries.size(); ++zi) {
         // A zero entry is a Z with no geometry.
-        if (mesh.root_entries[zi] == 0) {
+        const u32 slab_offset = mesh.has_extended_slab_index ? mesh.extended_slab_offsets[zi]
+                                                             : u32{mesh.root_entries[zi]} * 4;
+        if (slab_offset == 0) {
             continue;
         }
 
         const auto z = static_cast<s16>(mesh.root.base + static_cast<s16>(zi));
         CollisionSlab slab;
-        slab.offset = u32{mesh.root_entries[zi]} * 4;
+        slab.offset = slab_offset;
         slab.z = z;
         slab.node = checked_node(m, slab.offset, 4, "collision y");
 
@@ -398,7 +503,15 @@ CollisionMesh read_collision(Game game, ByteView block) {
                 // A zero word is an empty cell.
                 if (row.leaves[xi] != 0) {
                     const auto x = static_cast<s16>(row.node.base + static_cast<s16>(xi));
-                    mesh.cells.push_back(read_leaf(m, x, row.y, z, row.leaves[xi]));
+                    mesh.cells.push_back(read_leaf(
+                        m,
+                        x,
+                        row.y,
+                        z,
+                        row.leaves[xi],
+                        mesh.has_extended_leaf_index,
+                        mesh.extended_leaf_offsets
+                    ));
                 }
             }
 
@@ -419,7 +532,9 @@ CollisionMesh read_collision(Game game, ByteView block) {
 }
 
 // Mirrors the game's walk: each level returns nothing for an out-of-range or zero entry.
-std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z) {
+std::optional<u32> lookup_collision_leaf(
+    ByteView mesh, s32 x, s32 y, s32 z, const std::vector<u32>* extended_slab_offsets
+) {
     const auto zi = entry_index(read_node(mesh, 0), z);
 
     // The Z index is outside the root's range, so the cell is empty.
@@ -427,7 +542,12 @@ std::optional<u32> lookup_collision_leaf(ByteView mesh, s32 x, s32 y, s32 z) {
         return std::nullopt;
     }
 
-    const std::size_t slab = std::size_t{mesh.u16_at(4 + 2 * *zi)} * 4;
+    const u16 root_entry = mesh.u16_at(4 + 2 * *zi);
+    if (extended_slab_offsets != nullptr && *zi >= extended_slab_offsets->size()) {
+        fail("collision: expanded slab directory index is out of range");
+    }
+    const std::size_t slab = extended_slab_offsets != nullptr ? (*extended_slab_offsets)[*zi]
+                                                              : std::size_t{root_entry} * 4;
 
     // A zero slab offset is a Z with no geometry.
     if (slab == 0) {

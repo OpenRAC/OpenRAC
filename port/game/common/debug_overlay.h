@@ -20,9 +20,12 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
+#include "game/common/debug_camera.h"
 #include "game/common/profile.h"
 #include "renderer/math.h"
 #include "renderer/renderer.h"
@@ -30,15 +33,31 @@
 
 namespace openrac::frontend::debug_overlay {
 
+// Samples window-thread controls into an owned render job; tools remain active while paused.
+CameraDebugFrame camera_debug_frame();
+// Observes pointer input after UI routing, including releases and focus loss.
+void camera_debug_event(const SDL_Event& event);
+// Freecam takes gameplay input but leaves developer shortcuts available.
+bool free_camera_enabled();
+// Alt or right-click requests hidden-cursor freecam look while the window is focused.
+bool camera_debug_capturing();
+
 // Shown from the start (--debug-overlay), as OPENRAC_OVERLAY does.
 void request();
 
 // Capturing picker geometry is opt-in; pose capture reads this on the render worker.
 bool picker_enabled();
+// The isolated studio may still need displayed poses after click picking is turned off.
+bool picker_snapshot_needed();
 void set_picker_enabled(bool enabled);
 
 // Any desktop overlay window holding the mouse, including Enhanced Settings.
 bool visible();
+
+// Whether the mouse's pointer is shown: only while one of the overlay's windows or menus that
+// a pointer uses is out (the menu, the debug panel, Enhanced Settings, the object viewer, the
+// picker, the on-screen buttons' editor). Hidden over the game otherwise.
+bool wants_cursor();
 
 // A window event: true if the overlay took it (its keys, or the mouse and keyboard while they are
 // over one of its windows), so the game does not see it.
@@ -62,7 +81,7 @@ void tick(const Tick& tick);
 void begin(bool first, bool held, float alpha, std::uint64_t tick);
 
 // Before the renderer draws: the passes hidden in the overlay are turned off, wireframe is set.
-void before_render(renderer::Renderer* renderer);
+void before_render(renderer::Renderer* renderer, std::uint64_t frame);
 
 // After the frame was put in the window and before the swap: draws the overlay, if shown.
 struct Shown {
@@ -122,12 +141,38 @@ bool take_touch_reset();
 // the screen while editing: 0..1 of the width and of the height, below 0 for none.
 void set_touch_guides(float x, float y);
 // True once after the drawer or the menus changed one of the port's settings (saved already): the
-// window applies it (frontend.cpp, apply_settings).
+// window applies it (frontend/window.cpp, apply_settings).
 bool take_settings_changed();
 
-// A line kept in the picture until it is cleared (an empty text): something the player has to
-// know and can do something about, such as a level whose scenery could not be read.
-void notice(const std::string& text);
+// ---- Notifications ----
+
+// A card's icon and colour.
+enum class Tone : std::uint8_t {
+    Info,     // the accent: a hint, a mod's line
+    Done,     // green: a file written, a report ready
+    Warning,  // amber: something the player can do something about
+    Error,    // red: what failed
+    Live,     // a red dot that beats: a recording running
+};
+
+// A card at the top of the screen (debug/notifications.cpp). Every message the port shows over
+// the game is one. Cards stack, newest at the bottom, and wait while the menu is open.
+struct Notification {
+    std::string id{};     // a later notify with the same id updates this card; empty: never
+    std::string title{};  // first line
+    std::string text{};   // second line, quieter; may hold several lines
+    // Keys shown as caps before the text, "or" between entries; "+" joins keys pressed together.
+    std::vector<std::string> keys{};
+    std::string folder{};  // a press on the card opens it (or the folder holding this file)
+    Tone tone = Tone::Info;
+    double seconds = 5.0;  // time on screen (paused while hidden); 0: until dismiss()
+};
+
+// Shows `n`, or updates the card with its id.
+void notify(Notification n);
+
+// Hides the card with this id, if there is one.
+void dismiss(std::string_view id);
 
 // GL objects and the ImGui context, before the window's context goes.
 void release();

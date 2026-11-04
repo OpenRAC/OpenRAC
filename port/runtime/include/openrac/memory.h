@@ -20,13 +20,15 @@ public:
     // platform can alias pages), the scratchpad, the register pages and the
     // port's region, and sets openrac_guest_base. Ends the program if the
     // reservation fails.
-    static Memory& create();
+    static Memory& create(std::uint32_t ram_size = GUEST_RAM_SIZE);
     static Memory& get();
 
     Memory(const Memory&) = delete;
     Memory& operator=(const Memory&) = delete;
 
     std::uint8_t* base() const { return base_; }
+
+    std::uint32_t ram_size() const { return ram_size_; }
 
     // True when main RAM is visible at its uncached addresses as well
     // (Linux and macOS; Windows 10 1803 and later).
@@ -61,6 +63,7 @@ private:
 
     std::uint8_t* base_ = nullptr;
     bool aliases_ = false;
+    std::uint32_t ram_size_ = GUEST_RAM_SIZE;
 };
 
 // Installs a handler that reports an access to an unmapped game address
@@ -72,5 +75,22 @@ void install_crash_handler();
 // of game memory is reported with the host's stack and ends the program. Other writes to the same pages pass and
 // disarm it until it is called again (once a frame). POSIX only.
 void guard_writes(gaddr address, std::uint32_t bytes, std::uint32_t skip = 0);
+
+// OPENRAC_SOFT_FAULTS: an access to a game address that is not mapped does not end the program. The
+// page is mapped, zero at first, for the rest of the tick, and the access counted against it and the
+// game function that made it. POSIX only.
+struct SoftFault {
+    gaddr page = 0;
+    bool write = false;
+    const char* function =
+        nullptr;             // the innermost translated function, or null when none is named
+    unsigned long hits = 0;  // ticks in which that function touched that page
+};
+
+// Closes the pages opened since the last call, so the next tick's accesses count too: once a tick.
+void rearm_soft_faults();
+
+// The pair at `index` (a pair is a page and the function), or null past the last.
+const SoftFault* soft_fault_at(unsigned index);
 
 }  // namespace openrac::runtime

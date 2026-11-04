@@ -19,6 +19,8 @@
   } from "$lib/api";
   import { addMods, type Added } from "$lib/addMods";
   import { app, guardShown } from "$lib/app.svelte";
+  import { openLink } from "$lib/deepLink.svelte";
+  import { hubLink, isSiteLink } from "$lib/modBrowse";
   import { modHint, modKind } from "$lib/plugins";
   import * as T from "$lib/modsText";
   import Icon from "./Icon.svelte";
@@ -42,24 +44,75 @@
   const developer = $derived(app.config?.developer ?? false);
 
   let link = $state("");
+  /** The links this game's mods were already added from (sources.json): each a button that fills
+   *  the field, so a player checks a repository again without finding the address once more. */
+  let saved = $state<string[]>([]);
   let reading = $state(false);
   let preview = $state<RemotePreview | null>(null);
   let previewError = $state<string | null>(null);
   let installing = $state<string | null>(null);
   let adding = $state(false);
   let dropping = $state(false);
+  /** What a file or folder being added is at: copied in (Android, with its share when known), then
+   *  installed. Shown under the buttons from the moment the picker closes until the add says. */
+  let busy = $state<{ text: string; share: number | null } | null>(null);
   /** What the last add said, in a sentence. */
   let said = $state<{ text: string; failed: boolean } | null>(null);
 
   const message = (e: unknown) => (typeof e === "string" ? e : String(e));
+  const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
 
-  async function readLink(e: SubmitEvent) {
-    e.preventDefault();
-    if (!link.trim()) return;
+  /** A link as it reads on the page: the host dropped, so only the repository shows. */
+  const sourceLabel = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "").replace(/\.git$/, "");
+
+  $effect(() => {
+    if (!links || !v.game) {
+      saved = [];
+      return;
+    }
+    const game = v.game;
+    void api
+      .pluginsSources(game)
+      .then((sources) => {
+        if (v.game !== game) return;
+        saved = [...new Set(Object.values(sources.mods).map((s) => s.url))];
+      })
+      .catch(() => (saved = []));
+  });
+
+  /** A saved link, picked: the field is filled and the repository read, as typing it would. */
+  async function readSaved(url: string) {
+    link = url;
     reading = true;
     preview = null;
     previewError = null;
     said = null;
+    try {
+      preview = await api.pluginsPreview(v.game, v.name, url);
+    } catch (err) {
+      previewError = message(err);
+    }
+    reading = false;
+  }
+
+  async function readLink(e: SubmitEvent) {
+    e.preventDefault();
+    if (!link.trim()) return;
+    preview = null;
+    previewError = null;
+    said = null;
+    // A mod's page on the website goes to the same change set as its Install button.
+    const hub = hubLink(link);
+    if (hub) {
+      link = "";
+      void openLink(hub);
+      return;
+    }
+    if (isSiteLink(link)) {
+      previewError = T.ADD.notModPage;
+      return;
+    }
+    reading = true;
     try {
       preview = await api.pluginsPreview(v.game, v.name, link.trim());
     } catch (err) {
@@ -90,7 +143,7 @@
         onadded({ plugin: true, pack: false });
       }
       if (preview.mods.length > 1) {
-        // A repository of several mods (rac1-mods): the preview stays for the others, this one
+        // A repository of several mods (openrac-mods): the preview stays for the others, this one
         // now installed.
         preview = { ...preview, mods: preview.mods.map((x) => (x.id === m.id ? { ...x, installed: m.version } : x)) };
       } else {
@@ -103,23 +156,57 @@
     installing = null;
   }
 
-  async function add(paths: string[]) {
+  /** Adds to `target`, the game the player was on when they picked or dropped (not the one shown
+   *  once a long copy ends). */
+  async function add(paths: string[], target: VersionView = v) {
     adding = true;
     said = null;
-    const added = await addMods(v, paths);
-    said = { text: added.text, failed: added.failed };
-    onadded({ plugin: added.plugin, pack: added.pack });
+    busy = {
+      text: paths.length === 1 ? T.ADD.adding(nameOf(paths[0] ?? "")) : T.ADD.addingSeveral(paths.length),
+      share: null,
+    };
+    try {
+      const added = await addMods(target, paths);
+      said = { text: added.text, failed: added.failed };
+      onadded({ plugin: added.plugin, pack: added.pack });
+    } catch (err) {
+      said = { text: message(err), failed: true };
+    }
+    busy = null;
     adding = false;
   }
 
-  async function addZip() {
-    const zip = await pickZip(T.ADD.pickZip);
-    if (zip) await add([zip]);
+  /** A picker's answer, or what stopped it said under the buttons (a copy that failed on Android,
+   *  a picker that could not open): never a click that seems to do nothing. */
+  async function picked(pick: () => Promise<string | null>) {
+    const target = v;
+    said = null;
+    let path: string | null;
+    try {
+      path = await pick();
+    } catch (err) {
+      path = null;
+      said = { text: message(err), failed: true };
+    }
+    if (path) await add([path], target);
+    else {
+      busy = null;
+      adding = false;
+    }
   }
 
-  async function addFolder() {
-    const folder = inTauri ? await pickFolder(T.ADD.pickFolder) : "/home/you/Downloads/lock-strafe";
-    if (folder) await add([folder]);
+  function addZip() {
+    // Android copies the file into the app first: said from its first event, as the picker closes.
+    return picked(() =>
+      pickZip(T.ADD.pickZip, (copy) => {
+        adding = true;
+        busy = { text: T.ADD.copying(copy.name), share: copy.total > 0 ? Math.min(1, copy.copied / copy.total) : null };
+      }),
+    );
+  }
+
+  function addFolder() {
+    return picked(async () => (inTauri ? await pickFolder(T.ADD.pickFolder) : "/home/you/Downloads/lock-strafe"));
   }
 
   onMount(() => {
@@ -132,7 +219,8 @@
     void onDrop(
       (paths) => {
         dropping = false;
-        void add(paths);
+        // One add at a time: a drop while one runs is let go, as the buttons are greyed then.
+        if (!adding) void add(paths);
       },
       (over) => (dropping = over),
     ).then((off) => {
@@ -152,6 +240,9 @@
     {#if v.game === "rac1"}
       <button class="small ghost" onclick={() => void guardShown(api.openUrl(T.ADD.modsUrl))}
         ><Icon name="external" size={14} />{T.ADD.browse}</button
+      >
+      <button class="small ghost" onclick={() => void guardShown(api.openUrl(T.ADD.publishUrl))}
+        ><Icon name="external" size={14} />{T.ADD.publish}</button
       >
     {/if}
   </div>
@@ -174,6 +265,19 @@
           >{#if reading}<span class="spinner"></span>{/if}{T.ADD.go}</button
         >
       </form>
+      {#if saved.length}
+        <div class="saved">
+          <span class="dim">{T.SAVED_SOURCES.label}</span>
+          {#each saved as url (url)}
+            <button
+              class="small ghost"
+              disabled={reading}
+              title={T.SAVED_SOURCES.hint(sourceLabel(url))}
+              onclick={() => void readSaved(url)}>{sourceLabel(url)}</button
+            >
+          {/each}
+        </div>
+      {/if}
     {/if}
     {#if files}
       <div class="files">
@@ -191,6 +295,18 @@
   </div>
   {#if files && inTauri && !onAndroid}<p class="dim hint">{dropping ? T.ADD.dropHere : T.ADD.drop}</p>{/if}
 
+  {#if busy}
+    <div class="busy" role="status">
+      <p>
+        <span class="spinner"></span><span class="grow">{busy.text}</span>{#if busy.share !== null}<span
+            class="mono dim">{Math.round(busy.share * 100)}%</span
+          >{/if}
+      </p>
+      <div class="track" aria-hidden="true">
+        {#if busy.share !== null}<i style:width={`${busy.share * 100}%`}></i>{:else}<i class="moving"></i>{/if}
+      </div>
+    </div>
+  {/if}
   {#if previewError}<Reason text={previewError} tone="err" role="status" />{/if}
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 
@@ -307,8 +423,47 @@
     gap: 8px;
   }
 
+  /* The links already used, on their own line under the field: a repository checked again without
+     finding its address a second time. */
+  .saved {
+    flex: 1 0 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+  }
+
+  .adds .saved button {
+    padding: 3px 10px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    border-color: var(--line);
+  }
+
   .adds button {
     padding: 8px 16px;
+  }
+
+  /* A file being added: what it is at and a bar, as a job's progress reads elsewhere. */
+  .busy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: rise var(--medium) var(--ease) both;
+  }
+
+  .busy p {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--body);
+  }
+
+  .busy .spinner {
+    color: var(--amber);
   }
 
   .hint {

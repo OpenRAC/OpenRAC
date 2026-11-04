@@ -23,8 +23,8 @@ and device tests are in [port/android/README.md](../../port/android/README.md).
 - A controller works everywhere; touch controls appear when you touch the
   screen.
 - The launcher updates itself from GitHub releases.
-- The game draws with OpenGL ES by default. A Vulkan renderer can use a
-  custom Adreno driver (Turnip).
+- The game draws with its Vulkan renderer by default, else OpenGL ES. The
+  Vulkan renderer can use a custom Adreno driver (Turnip).
 
 ## One APK, two parts
 
@@ -144,7 +144,7 @@ library folder, so the APK carries them as libraries:
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
 | `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
-| `libopenrac-probe-bake.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
+| `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
 The copy of OpenRAC (`tools/bundle_standalone.py --android`) is
 `assets/openrac.zip`. When the APK changes, `OpenracSetup.kt` unpacks it into
@@ -159,9 +159,9 @@ so if it takes more than a second.
   (`--boot-only`), though it still checks every file;
 - Android's Python has no process pools (no `sem_open`), so `editor/extract.py`
   runs up to four levels in separate processes (`SubprocessPool`);
-- the enhanced lighting bake lets each baker use every thread and starts the
-  largest levels first, so the last one does not bake alone on one core
-  (`bake_all.py`). The result is the same at any thread count.
+- `openrac-enhanced-baker` schedules the largest lighting levels first and shares a bounded
+  tracing pool across them. Water decoding runs in the same native
+  process, configured by the exported per-level profile. Results are identical at any thread count.
 
 You can leave the app during setup: a foreground service (`SetupService.kt`)
 keeps it going and shows the step in a notification (`backgroundStatus` in
@@ -202,7 +202,10 @@ The pages are arranged for a handheld, with a navigation rail:
 
 The desktop's menus (View, Graphics, Sound, Developer) are a drawer on
 Android, as in an emulator. It slides in from the left over the paused game
-with the pad's options button, Back, or a controller's Guide button.
+with the pad's options button, Back, a controller's Guide button, or the
+controller's menu button (L3 by default, `menu_bar_button`). Its Controller settings row
+opens the controller's settings (buttons, sticks, players) in a panel over the
+rest of the screen; B or its close button puts it away.
 
 Its rows sit on cards like the launcher's settings, big enough for a thumb,
 and a controller moves through them (left and right change a value, B
@@ -213,6 +216,7 @@ easing. The cards:
 - **Graphics:** picture shape (4:3 to 32:9, or the whole screen), HUD
   position, render scale, anti-aliasing, texture filtering, frame rate, VSync
   and the FPS counter.
+- **Latency:** Low-latency frames and Responsive controls.
 - **Enhanced graphics** (when on in the launcher's Mods): its switch, modern
   shadows, bounced light and its strength, ambient occlusion and its quality.
   When this run cannot have it, the card says why.
@@ -255,7 +259,7 @@ Citron, Winlator Bionic) use, and what they mean here:
 
 | Driver | GPUs | How you get it | In OpenRAC |
 |---|---|---|---|
-| The system's OpenGL ES driver | Mali, Adreno | every app has it | the default |
+| The system's OpenGL ES driver | Mali, Adreno | every app has it | with OpenGL ES |
 | An updated system driver | the vendor's | Android's updatable graphics drivers | works as is |
 | ANGLE (OpenGL ES on Vulkan) | both | Developer options, "ANGLE preferences" | works as is; helps where the GLES driver is broken |
 | A custom Vulkan driver (Mesa Turnip, newer Qualcomm drivers) | Adreno | a zip with a `meta.json` (`name`, `author`, `vendor`, `driverVersion`, `minApi`, `libraryName`: Eden's format), loaded by [libadrenotools](https://github.com/bylaws/libadrenotools) (BSD-2-Clause) | needs the Vulkan renderer |
@@ -281,8 +285,12 @@ path has three parts:
    set of OpenGL calls the renderers use (`renderer/gl.h`,
    `renderer/world/gl_world.h`) on Vulkan 1.3: shaders through glslang,
    pipelines cached by state, buffers streamed through a per-frame ring.
-   "Renderer" in Settings selects it (`OPENRAC_GL_API=vulkan`); if Vulkan 1.3
-   cannot start, the game falls back to OpenGL ES.
+   It is the default except on Mali GPUs, where OpenGL ES is until Vulkan
+   is played on one: Mali's shader compiler crashes on any clip distance
+   write, which the vertex stages leave out there (`shader_compiler.cpp`,
+   `vertex_clip_distance`). "Renderer" in Settings picks either (the
+   launcher sets `OPENRAC_GL_API=vulkan` for Vulkan); if Vulkan 1.3 cannot
+   start, the game falls back to OpenGL ES.
 
 **Decided:** the Vulkan renderer stays a translation layer, measured before
 any part becomes native Vulkan. `--debug-dump` writes its numbers per frame

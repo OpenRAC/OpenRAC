@@ -178,8 +178,8 @@ void check_block() {
     CHECK(c.cells[1].x == 12 && c.cells[1].y == 4 && c.cells[1].z == 6);
     const CollisionCell& c0 = c.cells[0];
     CHECK(c0.leaf_offset() == 0x40 && c0.leaf_qwords() == 2);
-    CHECK((c0.face_indices(0) == std::array<u8, 4>{0, 1, 2, 3}));
-    CHECK((c0.face_indices(1) == std::array<u8, 4>{3, 2, 0, 3}));
+    CHECK((c0.face_indices(0) == std::array<u32, 4>{0, 1, 2, 3}));
+    CHECK((c0.face_indices(1) == std::array<u32, 4>{3, 2, 0, 3}));
     CHECK((c0.vertices[3] == P3{41.0f, 19.0f, 27.0f}));
     // The raw tree walk agrees with the parsed cells and misses outside and on
     // empty entries.
@@ -533,6 +533,22 @@ void check_volumes(FloatModel model) {
     CHECK(h && close(h->point, {9, 9, 12.5f}, 1e-5f));
 }
 
+void check_extended_face_count(FloatModel model) {
+    std::vector<Face> faces(299, Face{{0, 1, 2, 0}, 31});
+    faces.push_back(Face{{3, 4, 5, 0}, 31});
+    CollisionMesh mesh = make_mesh({make_cell(
+        {2, 2, 2},
+        {{11, 11, 10}, {11, 12, 10}, {12, 11, 10}, {8, 8, 10}, {8, 12, 10}, {12, 8, 10}},
+        faces
+    )});
+    CHECK(mesh.cells[0].header.face_count == 300);
+    // The only face under the ray is record 299. A retail leaf is walked as the console walks it,
+    // by the count's low byte (44 faces), so the ray misses; an expanded leaf walks all 300.
+    CHECK(!collide_line(mesh, {9, 9, 11}, {9, 9, 9}, kNone, model).has_value());
+    mesh.cells[0].header.extended = true;
+    CHECK(collide_line(mesh, {9, 9, 11}, {9, 9, 9}, kNone, model).has_value());
+}
+
 void check_hero_groups(FloatModel model) {
     const float k = std::bit_cast<float>(kCollisionBestShrinkBits);
     auto v = [](float x, float y, float z) {
@@ -569,6 +585,7 @@ int main() {
     check_block();
     for (FloatModel model : {FloatModel::Console, FloatModel::Native}) {
         check_line(model);
+        check_extended_face_count(model);
         check_volumes(model);
         check_hero_groups(model);
     }

@@ -6,13 +6,16 @@
 // framebuffer through the Renderer, then pixels read back. Skipped (exit 77)
 // where no OpenGL 4.1 context can be made.
 
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "check.h"
+#include "common/breadcrumbs.h"
 #include "renderer/direct.h"
 #include "renderer/framebuffer.h"
 #include "renderer/renderer.h"
@@ -195,6 +198,20 @@ std::vector<std::uint8_t> packets() {
              {gs::kRgbaq, rgbaq(0, 0, 0xFF, 0x80)},
              {gs::kXyz2, xyz2(20, 300, 0)}},
             true);
+
+    // 9. Weights above 1, which GL's factors would clamp: Cs * As + Cd at As 0xFF and Cs * FIX + Cd
+    // at FIX 0xC0, over black (Oltanis's ice adds its layers so).
+    p.ad(
+        {{gs::kAlpha1, openrac::test::alpha_reg(0, 2, 0, 1)},
+         {gs::kPrim, prim(gs::PrimKind::Sprite, false, false, true)},
+         {gs::kRgbaq, rgbaq(0x40, 0x20, 0, 0xFF)},
+         {gs::kXyz2, xyz2(360, 400, 0)},
+         {gs::kXyz2, xyz2(400, 440, 0)},
+         {gs::kAlpha1, openrac::test::alpha_reg(0, 2, 2, 1, 0xC0)},
+         {gs::kRgbaq, rgbaq(0x40, 0x20, 0, 0x80)},
+         {gs::kXyz2, xyz2(420, 400, 0)},
+         {gs::kXyz2, xyz2(460, 440, 0)}}
+    );
     return p.bytes;
 }
 
@@ -253,6 +270,32 @@ void skipped_tick_uploads() {
     CHECK(close(pixels.at(35, 35), 0, 255, 0, 35, 35));
 }
 
+// Actual renderer passes inherit either trail's frame and leave the rendered pixels unchanged.
+void test_pass_breadcrumbs(Renderer& renderer, const FrameInput& input, FrameBuffer& frame) {
+    using namespace openrac::crash;
+    const auto baseline = frame.read_rgba();
+    for (const auto thread : {BreadcrumbThread::Main, BreadcrumbThread::Render}) {
+        const std::int64_t frame_id = thread == BreadcrumbThread::Main ? 9001 : 9002;
+        {
+            const BreadcrumbScope context(thread, frame_id);
+            renderer.render(input, {frame.id(), kWidth, kHeight});
+        }
+        Breadcrumbs::Snapshot entries{};
+        const auto count = breadcrumbs().snapshot(entries);
+        bool clear = false, hud = false, correct_thread = true;
+        for (std::size_t i = 0; i < count; ++i) {
+            // Ignore earlier history; both passes here use unique captured frames.
+            if (entries[i].value == frame_id) {
+                correct_thread &= entries[i].thread == thread;
+                clear |= std::string_view(entries[i].message) == "frame clear";
+                hud |= std::string_view(entries[i].message) == "hud";
+            }
+        }
+        CHECK(clear && hud && correct_thread);
+        CHECK(frame.read_rgba() == baseline);
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -303,6 +346,8 @@ int main() {
     CHECK(close(px.at(330, 330), 0, 0, 0, 330, 330));
     CHECK(close(px.at(420, 30), 0, 0, 0, 420, 30));        // failed, KEEP
     CHECK(close(px.at(470, 30), 0xFF, 0xFF, 0, 470, 30));  // failed, FB_ONLY: colour written
+    CHECK(close(px.at(380, 420), 0x7F, 0x3F, 0, 380, 420));  // As 0xFF: twice Cs, nearly
+    CHECK(close(px.at(440, 420), 0x60, 0x30, 0, 440, 420));  // FIX 0xC0: Cs and a half
     const std::uint32_t mixed = px.at(50, 370);
     CHECK((mixed & 0xFF) > 0x20 && ((mixed >> 8) & 0xFF) > 0x20 && ((mixed >> 16) & 0xFF) > 0x20);
 
@@ -351,6 +396,7 @@ int main() {
         big.release();
     }
 
+    test_pass_breadcrumbs(renderer, input, frame);
     frame.release();
     renderer.release();
     return openrac::test::result();

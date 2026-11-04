@@ -1,5 +1,5 @@
 #include "types.h"
-#include "rnc/gameplay/hero.h"
+#include "rnc/hero/hero.h"
 #include "asm.h"
 
 #include "eetypes.h"
@@ -7,33 +7,35 @@
 #include "qzero.h"
 
 #include "rnc/audio/voice_pool.h"
+#include "rnc/math/random.h"
+#include "rnc/audio/sound/calculate_voice_volume.h"
+
 typedef struct {
     VoiceVector value;
-    u8 pad10[0x60];
+    u8          pad10[0x60];
 } VoicePositionRecord;
-extern VoicePositionRecord voice_positions[] __asm__("D_0013E5E0");
-extern u8 voice_volume_records[] __asm__("D_0013E5C0");
-extern void clear_voice_position(VoiceVector *) __asm__("func_001F99F8");
-extern s32 game_random_remainder(s32) __asm__("func_00213260");
-extern s32 calculate_voice_volume(VoiceSlot *, VoiceVector *) __asm__("FUN_0022c7e8");
 
-s32 allocate_voice_slot(VoiceDefinition *, u32, VoiceMoby *, VoiceVector *,
-                        s32) __asm__("FUN_0022d7f0");
+extern VoicePositionRecord voice_positions[] __asm__("D_0013E5E0");
+extern u8                  voice_volume_records[] __asm__("D_0013E5C0");
+extern void                clear_u64_value(VoiceVector *) __asm__("func_001F99F8");
+
+s32 allocate_voice_slot(VoiceDefinition *, u32, VoiceMoby *, VoiceVector *, s32) __asm__("FUN_0022d7f0");
 
 /* Reserve a game-side slot and queue its start for sound_update.
  * Ordinary owners search 26 slots; the hero, its first item, and class 0x472
  * may use all 30. A rejected definition, full pool, or low volume returns -1.
  * Retain the goto structure and address windows for retail code generation. */
-s32 allocate_voice_slot(VoiceDefinition *definition, u32 flags, VoiceMoby *moby,
-                        VoiceVector *position, s32 volume) {
-    s32 volume_offset;
-    s32 pitch_bend_max;
-    s32 pitch_bend_min;
-    s32 slot_index;
-    s32 result;
-    s32 slot_limit;
-    s32 pitch_bend;
-    s32 source_inactive;
+s32 allocate_voice_slot(
+
+    VoiceDefinition *definition, u32 flags, VoiceMoby *moby, VoiceVector *position, s32 volume) {
+    s32              volume_offset;
+    s32              pitch_bend_max;
+    s32              pitch_bend_min;
+    s32              slot_index;
+    s32              volume_or_slot_index;
+    s32              slot_limit;
+    s32              pitch_bend;
+    s32              source_inactive;
     VoicePoolWindow *committed_slot;
     VoicePoolWindow *slot;
     VoicePoolWindow *pitch_slot;
@@ -42,14 +44,14 @@ s32 allocate_voice_slot(VoiceDefinition *definition, u32 flags, VoiceMoby *moby,
     source_inactive = definition->source_state == 0;
     if ((flags & 4) == 0) {
         if ((source_inactive ^ 1) != 0) {
-            result = -1;
+            volume_or_slot_index = -1;
             goto return_result;
         }
         slot_limit = 0x1A;
         goto check_moby;
     } else {
         if (source_inactive) {
-            result = -1;
+            volume_or_slot_index = -1;
             goto return_result;
         }
         slot_limit = 0x1A;
@@ -105,31 +107,32 @@ copy_explicit_position:
     goto calculate_volume;
 clear_position:
     flags |= 0x11;
-    clear_voice_position(&voice_positions[slot_index].value);
+    clear_u64_value(&voice_positions[slot_index].value);
 calculate_volume:
     if (flags & 0x10) {
         goto commit_if_audible;
     }
     volume_offset = slot_index * 0x70;
-    result = calculate_voice_volume((VoiceSlot *)(voice_volume_records + volume_offset),
-                                    (VoiceVector *)(voice_volume_records + volume_offset + 0x20));
+    volume_or_slot_index =
+        calculate_voice_volume((VoiceSlot *)(voice_volume_records + volume_offset),
+                               (VoiceVector *)(voice_volume_records + volume_offset + 0x20));
     goto check_calculated_volume;
 commit_if_audible:
-    result = volume;
+    volume_or_slot_index = volume;
 check_calculated_volume:
-    if (result < 0x20) {
-        result = -1;
+    if (volume_or_slot_index < 0x20) {
+        volume_or_slot_index = -1;
         goto return_result;
     }
     committed_slot = (VoicePoolWindow *)((u8 *)&voice_pool + slot_index * 0x70);
     committed_slot->voice.flags = flags;
     committed_slot->voice.state = VOICE_SLOT_START_QUEUED;
-    committed_slot->voice.history_position = 0;
+    committed_slot->voice.occlusion_history_position = 0;
     pitch_bend_max = definition->pitch_bend_max;
     pitch_bend_min = definition->pitch_bend_min;
     if (pitch_bend_max != pitch_bend_min) {
         pitch_bend =
-            game_random_remainder(pitch_bend_max - pitch_bend_min) + definition->pitch_bend_min;
+            random_integer_below(pitch_bend_max - pitch_bend_min) + definition->pitch_bend_min;
     } else {
         pitch_bend = pitch_bend_max;
     }
@@ -140,8 +143,9 @@ check_calculated_volume:
 allocation_failed:
     slot_index = -1;
 return_index:
-    result = slot_index;
+    volume_or_slot_index = slot_index;
 return_result:
-    return result;
+    return volume_or_slot_index;
 }
+
 extern __typeof__(allocate_voice_slot) func_0022D7F0 __attribute__((alias("FUN_0022d7f0")));

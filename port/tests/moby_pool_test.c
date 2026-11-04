@@ -2,9 +2,9 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 /* The bigger moby pool (rac1/host/moby_pool.c, PAL's table): while the level loader runs, the
  * gameplay header it named gets at least 768 spare slots as its decompression ends (but on the
- * three levels whose heap has no room); nothing else
- * that is decompressed changes, nor the header outside a run, and the loader's argument and result
- * pass through. And the tick's run list keeps its target list to 511 mobys, the rest still run.
+ * three levels whose heap has no room); nothing else that is decompressed changes, nor the header
+ * outside a run, and the loader's argument and result pass through. And the tick's run list keeps
+ * its target list to 511 mobys, the rest still run.
  * With fix_bigger_moby_pool off, the disc's count stays and the list runs on as on a console. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +29,7 @@ enum {
 };
 
 uint8_t* openrac_guest_base;
+uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
 const struct openrac_map_config* openrac_game_map;
 
 static void map_guest(void) {
@@ -228,8 +229,10 @@ int main(void) {
 
     /* A tick with 100 mobys: the 90 with 0x1000 in the target table, in array order, NULL after;
      * the run list links all 100, class slot by class slot. */
+    GREF(gaddr, 0x70000700u) = 0xA5A5A5A5u; /* past retail's 224 class slots */
     gaddr first = run(100);
     CHECK(run_length(first) == 100 && first == ARRAY);
+    CHECK(GREF(gaddr, 0x70000700u) == 0xA5A5A5A5u); /* the console's arena leaves it alone */
     CHECK(GREF(gaddr, 0x001C7C80u) == ARRAY && GREF(gaddr, 0x001C7C80u + 4) == ARRAY + 0x100);
     CHECK(GREF(gaddr, 0x001C7C80u + 9 * 4) == ARRAY + 10 * 0x100); /* the tenth has no 0x1000 */
     CHECK(GREF(gaddr, 0x001C7C80u + 90 * 4) == 0 && warnings == 0);

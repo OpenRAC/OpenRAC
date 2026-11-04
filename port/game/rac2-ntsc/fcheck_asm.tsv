@@ -1,0 +1,94 @@
+# hostgen's translations through fcheck (docs/port/BACKFILL.md, "A translation through the gate"). Console form, not the host build. Only same counts.
+name	status	level	calls	note
+func_001291A0	same	00	2	
+func_00131D98	no-states	00	0	
+func_002761F8	same	00,01,02	32	CollLine; level 00 24, 01 4, 02 4 calls; -O1; func_00276158 and func_002A3110 run in place
+func_00277258	same	00,01,02	32	CollSphere; level 00 24, 01 4, 02 4 calls; -O1; same helpers in place
+func_00277F48	same	00	6	-O1; func_00276158 and func_002A3110 in place
+func_00278E78	same	00	4	
+func_00281154	differs	00	0	a piece with register inputs; no caller in the port; the console form cannot enter it
+func_002811D4	same	00	4	
+func_00282A18	same	00	4	
+func_00282A38	same	00	4	
+func_00282C10	same	00	6	
+func_00282C30	no-states	00	0	
+func_00282C78	same	00	6	
+func_00282C98	no-states	00	0	
+func_00282CA8	same	00	6	
+func_00282CC0	same	00	6	
+func_00282CF0	same	00	6	
+func_00282D08	same	00	6	
+func_00282D30	same	00	6	
+func_00282D60	same	00	6	
+func_00282DB0	same	00	6	
+func_00282DD8	same	00	6	
+func_00282E20	same	00	8	
+func_00283098	same	00	8	
+func_00283130	same	00	2	
+func_00283150	same	00	6	
+func_00283430	same	00	6	
+func_00283658	same	00	8	
+func_00283788	same	00	8	
+func_00283B98	same	00	8	
+func_00283DB8	same	00	4	
+func_002A04E8	same	00	4	
+func_002A0B88	same	00	2	
+func_002A0C68	same	00	6	
+func_002A1738	differs	00	0	behind host func_002A4D88; register inputs in places
+func_002A3F10	same	00	8	
+func_002A6640	same	00	4	
+func_002B9390	differs	00	0	saves ra in memory: the translation's ra starts at 0 (dead word); the rest equal
+func_002BA048	differs	00	0	a piece with register inputs (s2, t0); no caller in the port; the console form cannot enter it
+func_002CA070	unchecked	00	0	SAME on 0 real calls
+func_002DFD88	differs	00	0	saves t8, t9 to the scratchpad: the translation's start at 0; the rest equal
+func_002E1228	differs	00	0	draw kernel behind the host renderers; packet words differ
+func_002E2988	same	00	4	
+func_002E3360	same	00	2	
+func_002EF480	differs	00	0	draw kernel behind the host renderers; packet words differ
+func_002F1010	differs	00	0	draw kernel behind the host renderers; did not return
+func_002F1E88	differs	00	0	draw kernel behind the host renderers; did not return
+func_002F2A38	differs	00	0	draw kernel behind the host renderers; saved registers in the scratchpad differ
+func_002F35B0	same	00	8	
+func_002F3D20	differs	00	0	draw kernel behind the host renderers; did not return
+func_002F3E40	same	00	8	
+func_002F4FA0	no-states	00	0	
+func_003216E8	same	00	2	
+func_003478F0	differs	00	0	level data read by hi/lo in a load, which the level patch leaves at the boot's: no verdict on the translation
+func_003486A8	same	00	1	
+func_0034AA30	same	00	8	
+func_L00_002A3B88	unchecked	00	0	SAME on 0 real calls
+func_L00_002A4928	same	00	1	
+func_L00_002B30E8	no-states	00	0	
+func_L00_002D4E58	same	00	2	
+func_L00_002D5940	same	00	2	
+func_L00_002D5EB8	same	00	8	
+func_L00_002E0200	unchecked	00	0	virtual memory exhausted at -O2
+func_L00_002EDCF0	no-states	00	0	
+func_L00_002EE290	same	00	2	
+func_L00_002EE340	same	00	8	
+func_L00_002EE4D8	no-states	00	0	
+func_L00_002EE660	same	00	8	
+func_L00_002FE268	same	00	1	
+func_L00_00300618	differs	00	0	stack addresses saved to the scratchpad differ with the frame; the rest equal
+func_L00_00303990	unchecked	00	0	SAME on 0 real calls
+func_L00_00316F60	differs	00	0	one scratchpad word, -0 against the denormal -1.3e-44: not traced to its instruction
+func_L00_0032D208	no-states	00	0	
+func_L00_00341FA8	no-states	00	0	
+func_L00_0036EF68	same	00	8	
+func_L00_003C27A0	same	00	8	
+func_L00_003FA858	no-states	00	0	
+func_L00_00424BB8	no-states	00	0	
+func_L00_00424F98	same	00	8	
+func_L00_0042A4E8	no-states	00	0	
+func_L01_003209F8	same	01	4	
+func_L01_003801B8	same	01	4	
+func_L01_00394148	same	01	4	
+func_L01_00394240	same	01	4	
+func_L02_002EFB60	same	02	4	
+func_L02_002F1FB8	no-states	02	0	
+func_L02_002F21C0	no-states	02	0	
+func_L02_002F2B88	same	02	4	
+func_L02_00333480	no-states	02	0	
+func_L02_00389F70	no-states	02	0	
+func_L02_003CC7B0	same	02	4	
+func_L02_00439CD8	same	02	4	

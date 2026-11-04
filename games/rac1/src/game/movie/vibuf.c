@@ -1,10 +1,11 @@
 #include "common.h"
-#include "structs.h"
+#include "structs/misc.h"
+#include "asm_functions/executable.h"
 
 /*
  * movie/vibuf.cpp in the original source; text 0x23CEC8-0x23DE98.
  * Name and boundary from the NTSC split of this game, mapped to PAL by matching function
- * sizes -- see docs/DECOMP_PROGRESS.md. Compiled as C for now.
+ * sizes -- see docs/reference/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
 typedef struct TimeStamp {
@@ -40,8 +41,6 @@ int getFIFOindex(ViBuf *vb, unsigned int addr) {
     }
     return (addr - vb->base) >> 11;
 }
-extern void disable_interrupts(void);
-extern void enable_interrupts(void);
 
 /* setD3_CHCR(unsigned int) */
 void setD3_CHCR(unsigned int chcr) {
@@ -87,7 +86,6 @@ typedef struct SemaParam {
     int f14;
 } SemaParam;
 
-extern int create_semaphore(SemaParam *);
 extern int viBufReset();
 
 /* viBufCreate: fill the header, make a semaphore (1/1), reset, clear 0x48 */
@@ -278,7 +276,6 @@ int viBufStopDMA(ViBuf *vb) {
 }
 extern int getFIFOindex(ViBuf *, unsigned int);
 
-
 /* (i - start) taken modulo count lies in [0, len) */
 #define VB_IN_RANGE(i, start, len, count) \
     ((((i) + (count) - (start)) % (count)) >= 0 && (((i) + (count) - (start)) % (count)) < (len))
@@ -318,8 +315,8 @@ int viBufRestartDMA(ViBuf *vb) {
             int size = vb->count << 11;
             qwc = (vb->base + (a << 11) - madr) >> 4;
             tadr = ((a << 4) + (unsigned int)vb->tags) & 0x0FFFFFFF;
-            id = (vb->base + (s->d4_madr - vb->base) % size
-                  == vb->base + (((vb->fC + vb->f10) % vb->count) << 11)) ? 0 : 3;
+            id = (vb->base + (s->d4_madr - vb->base) % size == vb->base + (((vb->fC + vb->f10) % vb->count) << 11)) ? 0
+                                                                                                                    : 3;
             chcr = (s->d4_chcr & 0x0FFFFFFF) | (id << 28) | 0x100;
             if (!VB_IN_RANGE(b, vb->fC, vb->f10, vb->count)) {
                 vb->fC = b;
@@ -357,7 +354,6 @@ int viBufRestartDMA(ViBuf *vb) {
     signal_semaphore(vb->sema);
     return 1;
 }
-extern void delete_semaphore(int);     /* DeleteSema */
 
 /* viBufDelete(ViBuf *) -- stops DMA channel 4 (setD4_CHCR(5)), zeroes its MADR/QWC/TADR
  * and deletes the buffer's semaphore. Returns 1. */
@@ -369,8 +365,6 @@ int viBufDelete(ViBuf *vb) {
     delete_semaphore(vb->sema);
     return 1;
 }
-extern int wait_semaphore(int);
-extern int signal_semaphore(int);
 
 /* viBufCount(ViBuf *) */
 int viBufCount(ViBuf *vb) {
@@ -387,7 +381,9 @@ void viBufFlush(ViBuf *vb) {
     signal_semaphore(vb->sema);
 }
 /* a % b as a helper: once inlined, its zero-divisor check is tested against $0 */
-static inline int ring_mod(int a, int b) { return a % b; }
+static inline int ring_mod(int a, int b) {
+    return a % b;
+}
 
 /* viBufModifyPts(ViBuf *, TimeStamp *): walks the 0x18-byte entries of the table at
  * 0x50 from the oldest one (index (f5C - f58) mod ntbl) while they lie within ts's
@@ -400,28 +396,28 @@ int viBufModifyPts(ViBuf *vb, TimeStamp *ts) {
     TimeStamp *e;
 
     if (vb->f58 > 0) {
-    while (go && (e = &((TimeStamp *)vb->tbl)[i])->len != 0 && ts->len != 0) {
-        if (ring_mod(e->pos + size - ts->pos, size) < ts->len) {
-            int n = ts->pos + ts->len - e->pos;
-            if (e->len < n) {
-                n = e->len;
-            }
-            e->pos = (e->pos + n) % size;
-            e->len -= n;
-            if (e->len == 0) {
-                if (e->pts >= 0) {
-                    e->pts = -1;
-                    e->dts = -1;
-                    e->pos = 0;
-                    e->len = 0;
+        while (go && (e = &((TimeStamp *)vb->tbl)[i])->len != 0 && ts->len != 0) {
+            if (ring_mod(e->pos + size - ts->pos, size) < ts->len) {
+                int n = ts->pos + ts->len - e->pos;
+                if (e->len < n) {
+                    n = e->len;
                 }
-                vb->f58 = (vb->f58 - 1 < 0) ? 0 : vb->f58 - 1;
+                e->pos = (e->pos + n) % size;
+                e->len -= n;
+                if (e->len == 0) {
+                    if (e->pts >= 0) {
+                        e->pts = -1;
+                        e->dts = -1;
+                        e->pos = 0;
+                        e->len = 0;
+                    }
+                    vb->f58 = (vb->f58 - 1 < 0) ? 0 : vb->f58 - 1;
+                }
+            } else {
+                go = 0;
             }
-        } else {
-            go = 0;
+            i = (i + 1) % vb->ntbl;
         }
-        i = (i + 1) % vb->ntbl;
-    }
     }
     return 0;
 }

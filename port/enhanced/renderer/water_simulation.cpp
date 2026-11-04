@@ -6,57 +6,44 @@
 #include <cstdint>
 #include <limits>
 
+#include "common/env.h"
 #include "common/profiler.h"
 #include "common/stats.h"
+#include "enhanced/renderer/water_impulse_contact.h"
 #include "enhanced/renderer/water_internal.h"
 #include "enhanced/renderer/water_window.h"
-#include "renderer/gl.h"
-#include "renderer/world/gl_world.h"
-#ifdef OPENRAC_VULKAN
-#include "renderer/vulkan/vkgl.h"
-#endif
-#include "scene/level_renderer.h"
 
 namespace openrac::enhanced::water_detail {
-using namespace gl;
-namespace wgl = renderer::world::gl;
 
-void Water::update_lighting(const renderer::FrameInput& input) {
-    m_light.use();
-    glUniform1i(m_light.uniform("probe_region_masks"), 15);
-    m_scene.bind_surface_lighting(m_light, input.camera);
-    glUniform1i(m_light.uniform("water_coast"), 12);
-    glUniform1i(m_light.uniform("water_bodies"), 11);
-    glUniform1i(m_light.uniform("water_body_count"), int(m_bodies.size() / 5));
-    glUniform1i(m_light.uniform("water_light_count"), int(m_light_count));
-    glActiveTexture(GL_TEXTURE0 + 12);
-    glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[kCoastTexture]);
-    glActiveTexture(GL_TEXTURE0 + 11);
-    glBindTexture(wgl::GL_TEXTURE_BUFFER, m_textures[kBodyTexture]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, m_buffers[kLighting]);
-    glDispatchCompute((m_light_count + 63) / 64, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-    glActiveTexture(GL_TEXTURE0);
-}
-
+// Each pass needs a fresh scene snapshot, even when the simulation tick is already prepared.
 void Water::prepare(const renderer::FrameInput& input) {
+    m_background_ready = false;
     prepare_frame(input, true);
 }
 
+// Prepare the simulation once per tick and apply session or scripted diagnostic views.
 void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
     const profiling::Zone trace("Prepare enhanced water");
 
     m_mesh->begin_pass();
+    m_ocean_drawn = false;
+    m_ocean_eye = input.camera.position;
     m_bound = false;
+    m_effect_setups = 0;
     const auto options = water_debug_settings();
     const auto epoch = water_reset_epoch.load();
     const bool debug_reset =
         epoch != m_reset_epoch || options.current_scale != m_debug.current_scale;
     m_debug = options;
+    const auto scripted_view = env::integer(env::Var::WaterView, -1);
+    if (scripted_view >= 0) {
+        m_debug.view = int(std::clamp<std::int64_t>(scripted_view, 0, 17));
+    }
     m_enabled = input.enhanced_water && !water_disabled();
     water_ready.store(m_enabled);
     if (!m_enabled) {
         m_lighting_pending = false;
+        m_impulse_frame = input.frame;
         m_last_frame = m_prepared_frame = m_clock_frame = std::numeric_limits<std::uint64_t>::max();
         m_sim_body = -1;
         m_exit_time = -1;
@@ -80,8 +67,44 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
         }
         m_clock_frame = input.frame;
     }
+    update_ocean();
+    std::array<Texel, renderer::kWaterImpulseLimit> impulse_starts{}, impulse_ends{};
+    unsigned impulse_count = 0;
+    if (m_impulse_frame != input.frame && !m_debug.paused) {
+        for (auto impulse : input.water_impulses) {
+            if (impulse_count == renderer::kWaterImpulseLimit) {
+                break;
+            }
+            if (!renderer::valid_water_impulse(impulse)) {
+                continue;
+            }
+            // Capture supplies zero-length explosions and nonzero swept projectiles.
+            // Tune before both activation/contact queries and GPU kicks, so the slider's
+            // radius and zero-strength opt-out agree even for an idle pond.
+            const bool explosion = impulse.from == impulse.to;
+            impulse.strength = std::min(
+                4.f,
+                impulse.strength
+                    * (explosion ? m_debug.explosion_strength : m_debug.projectile_strength)
+            );
+            impulse.radius = std::clamp(
+                impulse.radius * (explosion ? m_debug.explosion_radius : m_debug.projectile_radius),
+                .05f,
+                4.f
+            );
+            if (impulse.strength == 0) {
+                continue;
+            }
+            impulse_starts[impulse_count] =
+                {impulse.from[0], impulse.from[1], impulse.from[2], impulse.radius};
+            impulse_ends[impulse_count++] =
+                {impulse.to[0], impulse.to[1], impulse.to[2], impulse.strength};
+        }
+    }
+    m_impulse_frame = input.frame;
     auto hero = input.water_interactor.value_or(renderer::Vec3{0, 0, 100000});
     unsigned visible_surfaces = 0;
+    float ocean_height = std::abs(m_coast.front()[0]) - 512.f;
     const auto view_projection = renderer::multiply(input.camera.projection, input.camera.view);
     for (const auto& strip : input.strips) {
         if (strip.surface == 0 || strip.surface > 7 || strip.count < 3
@@ -95,6 +118,9 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 low[axis] = std::min(low[axis], p[axis]);
                 high[axis] = std::max(high[axis], p[axis]);
             }
+        }
+        if (m_ocean_spectra[0] && strip.surface == 1) {
+            ocean_height = input.strip_vertices[strip.first].z;
         }
         if (water_window_visible(view_projection, low, high)) {
             visible_surfaces |= 1u << strip.surface;
@@ -138,6 +164,60 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                     best = score;
                     selected = int(b);
                     selected_height = cell[0] - 512.f;
+                }
+            }
+        }
+    }
+    const auto open_ocean = [&](const renderer::Vec3& point) {
+        const bool outside = point[0] < m_ocean_grid[0] || point[1] < m_ocean_grid[1]
+                             || point[0] >= m_ocean_grid[0] + kOceanSide * .5f
+                             || point[1] >= m_ocean_grid[1] + kOceanSide * .5f;
+        const auto end = m_ocean_dry_regions.begin() + m_ocean_dry_count;
+        const bool dry = std::any_of(m_ocean_dry_regions.begin(), end, [&](const Texel& rect) {
+            return point[0] >= rect[0] && point[1] >= rect[1] && point[0] < rect[2]
+                   && point[1] < rect[3];
+        });
+        return m_ocean_spectra[0] && outside && !dry;
+    };
+    if (!contact_water && open_ocean(hero)) {
+        const float dz = hero[2] - ocean_height;
+        if (dz > -1.8f && dz < .5f) {
+            selected = 0;
+            selected_height = ocean_height;
+            contact_water = true;
+        }
+    }
+    // Hits wake water even when Ratchet is on the bank or above the pond. Keep an active
+    // swimming window in preference to remote hits; one bounded local grid remains in use.
+    bool effect_contact = false;
+    if (!contact_water && impulse_count) {
+        for (unsigned i = 0; i < impulse_count; ++i) {
+            const auto& a = impulse_starts[i];
+            const auto& b = impulse_ends[i];
+            const renderer::WaterImpulse impulse{
+                {a[0], a[1], a[2]}, {b[0], b[1], b[2]}, a[3], b[3]
+            };
+            if (const auto hit = water_impulse_contact(m_bodies, m_coast, impulse)) {
+                hero = hit->point;
+                selected = hit->body;
+                selected_height = hero[2];
+                contact_water = effect_contact = true;
+                break;
+            }
+            if (m_ocean_spectra[0]) {
+                const float dz = b[2] - a[2];
+                const float t =
+                    std::abs(dz) > 1e-5f ? std::clamp((ocean_height - a[2]) / dz, 0.f, 1.f) : 0.f;
+                const renderer::Vec3 point{
+                    std::lerp(a[0], b[0], t), std::lerp(a[1], b[1], t), ocean_height
+                };
+                if (std::abs(std::lerp(a[2], b[2], t) - ocean_height) <= b[3]
+                    && open_ocean(point)) {
+                    hero = point;
+                    selected = 0;
+                    selected_height = ocean_height;
+                    contact_water = effect_contact = true;
+                    break;
                 }
             }
         }
@@ -204,12 +284,12 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
         return;
     }
     const float impulse =
-        input.water_interactor && !reset && !retiring
+        input.water_interactor && !reset && !retiring && !effect_contact
             ? std::min(1.0f, std::sqrt(distance) * 2.5f) * m_debug.interaction_strength
             : 0.f;
     std::array<float, 2> hand_impulses{};
     for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-        if (reset || retiring || !input.water_hands[hand] || !m_hands[hand]) {
+        if (reset || retiring || effect_contact || !input.water_hands[hand] || !m_hands[hand]) {
             continue;
         }
         float moved = 0;
@@ -223,118 +303,27 @@ void Water::prepare_frame(const renderer::FrameInput& input, bool lighting) {
                 std::min(1.f, std::sqrt(moved) * 5.f) * m_debug.interaction_strength * .5f;
         }
     }
-    stats::Scope timer("water simulation", stats::kGpu);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, m_buffers[kWindowCoast]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, m_buffers[kWindowHydraulics]);
-    if (m_cached_body != selected || m_cached_origin != window || m_cached_height != m_sim_height) {
-        m_window_prepare.use();
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[kStateA]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[kStateB]);
-        glUniform1i(m_window_prepare.uniform("initialize_history"), reset ? 1 : 0);
-        glUniform2f(
-            m_window_prepare.uniform("previous_window"),
-            float(m_cached_origin[0]),
-            float(m_cached_origin[1])
-        );
-        glUniform1f(m_window_prepare.uniform("water_current_scale"), m_debug.current_scale);
-        glUniform1i(m_window_prepare.uniform("water_body_count"), int(m_bodies.size() / 5));
-        glUniform1f(m_window_prepare.uniform("water_sim_height"), m_sim_height);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_buffers[kCoast]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_buffers[kBodies]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kHydraulics]);
-        glUniform4f(
-            m_window_prepare.uniform("window_config"),
-            float(window[0]),
-            float(window[1]),
-            float(kWindowSize),
-            float(selected)
-        );
-        glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        m_cached_body = selected;
-        m_cached_height = m_sim_height;
-        m_cached_origin = window;
-    }
-
-    m_step.use();
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_buffers[kCoast]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, m_buffers[kBodies]);
-    glUniform4f(
-        m_step.uniform("water_physics"),
-        m_debug.current_scale,
-        m_debug.friction,
-        m_debug.outlet_damping,
-        m_debug.interaction_radius * m_debug.interaction_radius
-    );
-    glUniform1f(m_step.uniform("displacement_limit"), m_debug.displacement_limit);
-    glUniform1i(m_step.uniform("transport_reference"), 0);
-    glUniform1f(m_step.uniform("wake_strength"), .9f);
-    glUniform1i(m_step.uniform("cell_count"), int(kWindowCells));
-    glUniform1i(m_step.uniform("local_window"), 1);
-    glUniform1f(m_step.uniform("water_dt"), 1.f / 240.f);
-    glUniform4f(
-        m_step.uniform("window_config"),
-        float(window[0]),
-        float(window[1]),
-        float(kWindowSize),
-        float(selected)
-    );
-    glUniform2f(
-        m_step.uniform("previous_window"), float(m_window_origin[0]), float(m_window_origin[1])
-    );
-    glUniform1i(m_step.uniform("atlas_width"), int(m_atlas_width));
-    glUniform4fv(m_step.uniform("water_atlas[0]"), 64, m_atlas[0].data());
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, m_buffers[kRenderPixels]);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, m_buffers[kHydraulics]);
-    glUniform3f(m_step.uniform("previous_hero"), m_hero[0], m_hero[1], m_hero[2]);
-    for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-        const auto point = m_hands[hand].value_or(renderer::Vec3{});
-        glUniform3f(
-            m_step.uniform(hand == 0 ? "previous_hands[0]" : "previous_hands[1]"),
-            point[0],
-            point[1],
-            point[2]
-        );
-    }
-    for (unsigned step = 0; step < steps * 4; ++step) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffers[m_current]);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_buffers[1 - m_current]);
-        glUniform1i(m_step.uniform("reset_waves"), reset && step == 0 ? 1 : 0);
-        glUniform4f(m_step.uniform("hero"), hero[0], hero[1], hero[2], step == 0 ? impulse : 0.f);
-        glUniform1i(
-            m_step.uniform("hand_count"),
-            step == 0 && (hand_impulses[0] > 0 || hand_impulses[1] > 0) ? 2 : 0
-        );
-        for (unsigned hand = 0; hand < hand_impulses.size(); ++hand) {
-            const auto point = input.water_hands[hand].value_or(renderer::Vec3{});
-            glUniform4f(
-                m_step.uniform(hand == 0 ? "hands[0]" : "hands[1]"),
-                point[0],
-                point[1],
-                point[2],
-                hand_impulses[hand]
-            );
-        }
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        glDispatchCompute((kWindowCells + 63) / 64, 1, 1);
-        glUniform2f(m_step.uniform("previous_window"), float(window[0]), float(window[1]));
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-        m_current = 1 - m_current;
-    }
-#ifdef OPENRAC_VULKAN
-    if (steps > 0
-        && !vkgl::copy_buffer_to_texture(
-            m_buffers[kRenderPixels], m_maps[0], int(kWindowSize), int(kWindowSize)
-        )) {
+    const SimulationUpdate update{
+        input,
+        hero,
+        window,
+        hand_impulses,
+        std::span<const Texel>(impulse_starts).first(impulse_count),
+        std::span<const Texel>(impulse_ends).first(impulse_count),
+        impulse,
+        steps,
+        reset
+    };
+    if (!simulate(update)) {
         m_enabled = false;
         water_ready.store(false);
         return;
     }
     water_ready.store(true);
-#endif
     m_window_origin = window;
     remember_tick(input, hero, epoch);
     stats::gauge("water simulation state bytes", double(kWindowCells * sizeof(Texel) * 2));
+    stats::gauge("water projectile and blast impulses", double(impulse_count));
     stats::gauge("water impulse", double(impulse));
     stats::gauge("water hand impulse", double(hand_impulses[0] + hand_impulses[1]));
 }

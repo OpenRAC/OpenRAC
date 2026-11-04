@@ -1,5 +1,37 @@
 #include "include_asm.h"
 
+typedef int V1306TI __attribute__((mode(TI)));
+typedef union { V1306TI q; float f[4]; } V1306Vec;
+typedef struct { int entry[6]; } V1306Table;
+typedef struct { V1306TI q[5]; } __attribute__((aligned(16))) V1306Packet;
+typedef struct { char pad[4]; unsigned char flag; char mid[107]; float f70; char tail[108]; } V1306Material;
+extern unsigned char D_00139568[];
+extern V1306Material D_L00_00262570[];
+extern V1306Packet D_L00_002A26A0;
+extern V1306Table D_L00_001AEFE0, D_L00_001AEFF8;
+extern char D_L00_001B8DC0[], D_L00_001C3280[];
+typedef struct { char pad[0x160]; float amount; int unused, duration, state; } V1439Camera;
+extern V1439Camera D_L00_001B8C80;
+extern float func_00283CE0(int);
+extern void func_00282D30(char *, char *, float);
+extern void func_00282CF0(char *, char *, char *);
+extern void func_00282CC0(char *, char *, char *);
+extern float func_00282DB0(char *, char *);
+extern void func_00282FB8(char *, char *, float);
+extern int func_00277F48(char *, int, char *, int, float);
+extern void func_002A9850(char *, char *, char *, int, int, int, int, int, float, float, float);
+extern int func_002A7820(int, int);
+extern char *func_00308600(char *, char *, int, int, int);
+extern int func_00283CF0(float);
+extern int func_002AAFA0(int, int);
+extern char *func_002BBCB0(char *, char *, int, int, float, int, int, float, int, int);
+extern char *func_L00_003A0DA0(char *, char *, char *, int, int, int, int, int, float);
+extern void func_002AAF40(int *, int *, int *, int);
+extern int func_002E5CF8(int, int, char *);
+extern char *func_00312B70(void *, char *, int, void *);
+static inline V1306Material *V1306Current(void) { return (V1306Material *)(D_00139568[12] * 224 + (int)D_L00_00262570); }
+#define V1306_FLAG (V1306Current()->flag != 0)
+
 extern int func_002A77E0(int mode);
 
 extern float func_002A90F8(char *object, char *local);
@@ -200,7 +232,7 @@ void func_L00_0037F7E8(void)
     func_002F52B8();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0037FA90);
+/* func_L00_0037FA90 is defined in L00_0037FA90-qcopy.c. */
 
 typedef struct {
     char *entry[64][4];
@@ -234,7 +266,6 @@ void func_L00_0037FE08(void)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0037FF98);
 
 extern int func_00303E20(int object, char *name, int first, int second);
 
@@ -269,7 +300,7 @@ void func_L00_00381F78(void)
 {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003825C8);
+/* func_L00_003825C8 is defined in L00_003825C8.c. */
 
 extern void ref_L00_003827C0_00(void);
 
@@ -278,19 +309,14 @@ void func_L00_003827C0(void)
     ref_L00_003827C0_00();
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00382910);
+/* func_L00_00382910 is defined in L00_00382910.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00382AE8);
 
-INCLUDE_ASM("asm/levels", func_L00_00382BF0);
-
-INCLUDE_ASM("asm/levels", func_L00_00382CE8);
 
 INCLUDE_ASM("asm/levels", func_L00_00382F28);
 
 INCLUDE_ASM("asm/levels", func_L00_00383B90);
 
-INCLUDE_ASM("asm/levels", func_L00_00384070);
 
 INCLUDE_ASM("asm/levels", func_L00_00384248);
 
@@ -298,23 +324,12 @@ INCLUDE_ASM("asm/levels", func_L00_00384678);
 
 /* func_L00_00384C20 is matched in L00_00384C20.c (built with -fno-strength-reduce). */
 
-INCLUDE_ASM("asm/levels", func_L00_00384CA8);
+/* func_L00_00384CA8 is defined in L00_00384CA8-qcopy.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00384D40);
 
-INCLUDE_ASM("asm/levels", func_L00_00384E08);
 
-INCLUDE_ASM("asm/levels", func_L00_00384F28);
 
-INCLUDE_ASM("asm/levels", func_L00_00385040);
-
-INCLUDE_ASM("asm/levels", func_L00_003851A0);
-
-INCLUDE_ASM("asm/levels", func_L00_003852A0);
-
-INCLUDE_ASM("asm/levels", func_L00_00385370);
-
-INCLUDE_ASM("asm/levels", func_L00_00387370);
+/* func_L00_00387370 is defined in L00_00387370-g8-qcopy.c. */
 
 /* Family 6eb4f363e5305bed: seed body at func_L00_00387408. */
 void func_L00_00387408(char *object)
@@ -386,10 +401,6 @@ void func_L00_00387AC8(Owner_F9e2cd219 *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00387BB0);
-
-INCLUDE_ASM("asm/levels", func_L00_00387CA8);
-
 /* Clear the selected word in 100 records, reset 136 state words, and set the three trailing state words. */
 void func_L00_00387EF0(void)
 {
@@ -445,11 +456,9 @@ void func_L00_003883B8(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00388490);
+/* func_L00_00388490 is defined in L00_00388490.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00388790);
-
-INCLUDE_ASM("asm/levels", func_L00_00389E18);
+/* func_L00_00388790 is defined in L00_00388790-qcopy.c. */
 
 /* Family 6eb4f363e5305bed: seed body at func_L00_00387408. */
 void func_L00_00389EB0(char *object)
@@ -521,10 +530,6 @@ void func_L00_0038A568(Owner_F9e2cd219 *self)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038A650);
-
-INCLUDE_ASM("asm/levels", func_L00_0038A748);
-
 /* Reset two 64-word banks, eight trailing words, and three state words. The original game role is unknown. */
 void func_L00_0038A968(void)
 {
@@ -578,13 +583,10 @@ void func_L00_0038AA40(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038AAD0);
+/* func_L00_0038AAD0 is defined in L00_0038AAD0.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0038ADD0);
 
 INCLUDE_ASM("asm/levels", func_L00_0038B208);
-
-INCLUDE_ASM("asm/levels", func_L00_0038B6F8);
 
 extern void *D_L00_001BF218;
 
@@ -618,9 +620,7 @@ int func_L00_0038B848(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038B888);
 
-INCLUDE_ASM("asm/levels", func_L00_0038BA80);
 
 extern unsigned char D_001A7B2A __attribute__((sda));
 
@@ -739,9 +739,6 @@ void func_L00_0038BE70(char *object)
         angle * ((limit - scaled) * 0.1637022197246551513671875f + 0.699999988079071044921875f));
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038BF18);
-
-INCLUDE_ASM("asm/levels", func_L00_0038D368);
 
 /* Dispatches on a byte mode at object+32: mode 0 updates two float angles from a linked node and runs a follow-up call; mode 1 refreshes a 16-byte block and a node copy then calls a final update. */
 void func_L00_0038D468(char *object)
@@ -772,12 +769,115 @@ void func_L00_0038D468(char *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0038D530);
 
-INCLUDE_ASM("asm/levels", func_L00_0038D650);
-
-INCLUDE_ASM("asm/levels", func_L00_0038DE70);
+void func_L00_0038DE70(char *object, char *direction, char *axis)
+{
+    V1306Packet packet;
+    V1306Vec delta, temp, vector, random;
+    V1306Table first, second;
+    int red, green, blue, red2, green2, blue2;
+    int *child;
+    int i, n, counter, asset1, asset2, life1, life2;
+    float scale, length, twice, speed, force;
+    packet = D_L00_002A26A0;
+    child = *(int **)(object + 0x68);
+    scale = func_00283CE0(V1306_FLAG) + 1.0f;
+    func_00282D30(direction, direction, scale);
+    func_00282CF0((char *)&delta, D_L00_001B8DC0, object + 0x10);
+    length = func_00282DF0((char *)&delta);
+    i = func_00277F48(object + 0x10, 16, object, 0, scale * 0.5f);
+    vector.q = *(V1306TI *)(object + 0x10);
+    func_002A9850(object, (char *)&vector, D_L00_001C3280, i, 0, 0x830000, 2, 1,
+        V1306Current()->f70, 1.0f, 1.0f);
+    object[0x20] = 1;
+    for (counter = 0; counter < 10; counter++) {
+        random.q = 0;
+        random.f[0] = func_002A7878_1(-1.0f, 1.0f);
+        random.f[1] = func_002A7878_1(-1.0f, 1.0f);
+        vector.q = random.q;
+        func_00282F20((char *)&temp, axis, func_00282DB0((char *)&vector, axis));
+        func_00282CF0((char *)&vector, (char *)&vector, (char *)&temp);
+        func_00282F20((char *)&temp, axis, func_002A7878_1(0.0f, 1.0f));
+        func_00282CC0((char *)&vector, (char *)&vector, (char *)&temp);
+        func_00282F20((char *)&vector, (char *)&vector, scale * func_002A7878_1(3.5f, 6.5f) * (1.0f/60.0f));
+        func_00282CC0((char *)&vector, (char *)&vector, direction);
+        life1 = func_002A7820(60,120);
+        func_00308600(object+0x10, (char *)&vector, life1, 0, V1306_FLAG);
+    }
+    twice = length + length;
+    for (n = 0; n < 4; n++) {
+        random.q = 0;
+        random.f[0] = func_002A7878_1(-1.0f, 1.0f);
+        random.f[1] = func_002A7878_1(-1.0f, 1.0f);
+        vector.q = random.q;
+        func_00282F20((char *)&temp, axis, func_00282DB0((char *)&vector, axis));
+        func_00282CF0((char *)&vector, (char *)&vector, (char *)&temp);
+        func_00282F20((char *)&temp, axis, func_002A7878_1(0.0f, 1.0f));
+        func_00282CC0((char *)&vector, (char *)&vector, (char *)&temp);
+        func_00282F20((char *)&vector, (char *)&vector, scale * func_002A7878_1(6.5f, 10.0f) * (1.0f/60.0f));
+        func_00282CC0((char *)&vector, (char *)&vector, direction);
+        life1 = func_002A7820(60,90);
+        func_00308600(object+0x10, (char *)&vector, life1, 1, V1306_FLAG);
+    }
+    random.q = 0;
+    random.f[0] = func_002A7878_1(-1.0f, 1.0f);
+    random.f[1] = func_002A7878_1(-1.0f, 1.0f);
+    random.f[2] = func_002A7878_1(-1.0f, 1.0f);
+    vector.q = random.q;
+    delta.f[2] += length * 0.5f;
+    func_00282F20((char *)&vector, (char *)&vector, length * 0.0033333336468786f);
+    func_00282F20((char *)&delta, (char *)&delta, twice * (1.0f/60.0f));
+    func_00282CC0((char *)&vector, (char *)&vector, (char *)&delta);
+    func_00282FB8((char *)&vector, (char *)&vector, 1.0f/6.0f);
+    life1 = func_002A7820(60,90);
+    func_00308600(object+0x10, (char *)&vector, life1, 1, V1306_FLAG);
+    if (length < 6.0f) i = func_00283CF0(length) + 1;
+    else i = 4;
+    twice = 0.0f;
+    if (length < 7.0f) twice = 7.0f - length;
+    for (n = 0; n < i; n++) {
+        float step = 1.0f/60.0f;
+        float limit = 400000.0f;
+        force = scale;
+        speed = scale * func_002A7878_1(8.0f, 10.0f);
+        force *= limit;
+        first = D_L00_001AEFE0;
+        second = D_L00_001AEFF8;
+        speed *= step;
+        speed -= twice * step;
+        asset1 = func_002AAFA0(first.entry[func_002A77E0(6)], V1306_FLAG);
+        asset2 = func_002AAFA0(second.entry[func_002A77E0(6)], V1306_FLAG);
+        life1 = func_002A7820(15,20);
+        life2 = func_002A7820(25,30);
+        func_002BBCB0(object+0x10, direction, asset1, asset2, force, life1, life2, speed, 0, 0);
+    }
+    if (length > 9.0f) {
+        float size = scale * 4.0f;
+        func_L00_003A0DA0(object,object+0x10,direction,15,127,127,127,32,size);
+        red=127; green=32; blue=0;
+        func_002AAF40(&red,&green,&blue,V1306_FLAG);
+        func_L00_003A0DA0(object,object+0x10,direction,24,(unsigned char)red,(unsigned char)green,(unsigned char)blue,32,size);
+    }
+    red2=127; green2=63; blue2=0;
+    func_002AAF40(&red2,&green2,&blue2,V1306_FLAG);
+    func_L00_003A0DA0(object,object+0x10,direction,20,(unsigned char)red2,(unsigned char)green2,(unsigned char)blue2,48,scale*4.0f);
+    red2=96; green2=16; blue2=0;
+    func_002AAF40(&red2,&green2,&blue2,V1306_FLAG);
+    func_L00_003A0DA0(object,object+0x10,direction,27,(unsigned char)red2,(unsigned char)green2,(unsigned char)blue2,64,scale*3.5f);
+    red2=32; green2=0; blue2=0;
+    func_002AAF40(&red2,&green2,&blue2,V1306_FLAG);
+    func_L00_003A0DA0(object,object+0x10,direction,29,(unsigned char)red2,(unsigned char)green2,(unsigned char)blue2,32,scale*3.0f);
+    *child = 0;
+    object[0xBC] = 0;
+    if (V1306_FLAG) func_002E5CF8(0,0,object);
+    else func_002E5CF8(0,0,object);
+    { V1439Camera *camera = &D_L00_001B8C80;
+    if (length < 20.0f) camera->amount = 0.4f - length * 0.0175f;
+    else camera->amount = 0.050000011920928955f;
+    }
+    D_L00_001B8C80.duration=25;
+    D_L00_001B8C80.state=0;
+    func_00312B70(&packet,object+0x10,0,0);
+}
 
 INCLUDE_ASM("asm/levels", func_L00_0038E880);
-
-INCLUDE_ASM("asm/levels", func_L00_0038F020);

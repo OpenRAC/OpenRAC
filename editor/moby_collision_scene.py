@@ -290,7 +290,7 @@ def node_primitive(node: dict, sub: dict, joints: list) -> mc.Primitive:
     kind = KINDS.get(named) if named is not None else SHAPES.get(shape)
     if kind is None:
         raise FormatError(f"{node['name']}: rc1_collision_kind {named!r} is none of "
-                          f"{', '.join(KIND_NAMES)} or mesh")
+                          f"{', '.join(KINDS)} or mesh")
     if kind == mc.SPHERE and named is None and meta(node, "joint") is not None:
         kind = mc.JOINT_SPHERE
     wanted = {mc.SPHERE: "SphereMesh", mc.JOINT_SPHERE: "SphereMesh", mc.CYLINDER: "CylinderMesh",
@@ -429,7 +429,8 @@ def scene_blob(project: Path, text: str, disc: mc.Blob | None, joints: list) -> 
     if not ordered and not tris:
         return True, None, []
     import copy
-    blob = mc.Blob(disc.posed if disc is not None else (0, 0), [copy.copy(p) for p in ordered])
+    blob = mc.Blob(disc.posed if disc is not None else (0, 0), [copy.copy(p) for p in ordered],
+                   extended=disc.extended if disc is not None else False)
     if disc is not None and old_tris == new_tris:
         blob.vertices, blob.faces = list(disc.vertices), list(disc.faces)
     else:

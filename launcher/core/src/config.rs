@@ -40,6 +40,10 @@ pub struct Config {
     /// Look for a new launcher when it starts (default true). Off, it looks only when asked
     /// (Settings, "Check now"); an update is never installed without the player's click.
     pub check_updates: bool,
+    /// Look for newer versions of the installed mods when the launcher starts, once a day, and
+    /// offer them (default true). Off, mods are checked only on the Mods tab's "Check now"; a mod
+    /// is never updated without the player's click.
+    pub check_mod_updates: bool,
     /// Which builds the launcher updates to (update::Channel): the releases, or the newest
     /// development build. Unset: the one it was built from (a release's build, the releases).
     pub update_channel: Option<crate::update::Channel>,
@@ -52,18 +56,27 @@ pub struct Config {
     #[ts(type = "\"compact\" | \"classic\"")]
     pub layout: String,
     /// The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
-    /// or "mocha". The accent is not a theme's: on Android it is the picked game's.
+    /// or "mocha". The accent is not a theme's: it is the picked game's.
     pub theme: String,
     /// The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
-    /// What the game draws with on Windows, Linux and macOS: "opengl" (OpenGL 4.1, the default)
-    /// or "vulkan", the port's experimental Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the
-    /// MoltenVK its bundle carries). Where Vulkan cannot start, the game draws with OpenGL
+    /// What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
+    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
+    /// "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
     /// (port/platform/window.cpp). Not used on Android, which keeps its own choice
     /// (src-tauri/src/android.rs).
     #[ts(type = "\"opengl\" | \"vulkan\"")]
     pub renderer: String,
+    /// HDR output (port docs/port/HDR.md): "" (default) leaves it to the game's own setting (its
+    /// drawer, the settings file's `hdr`); "off", "auto" or "on" is given to each game's start
+    /// (OPENRAC_HDR), over that. On every system; it needs the Vulkan renderer.
+    #[ts(type = "\"\" | \"off\" | \"auto\" | \"on\"")]
+    pub hdr: String,
+    /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
+    /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
+    /// a start whose window crashed before it drew a click; the player may turn it off again.
+    pub safe_rendering: bool,
     /// The Mods switch under Play on the game's page: the game loads the mods the Mods tab switched on (the
     /// gameplay mods, the packs and the packed levels). Off by default: Play starts the game with no
     /// mods at all (`--no-mods`, docs/port/MODS.md). It took the place of Settings' Purist mode.
@@ -85,6 +98,19 @@ pub struct Config {
     /// Not saved with the settings: the app sets it at every start.
     #[serde(skip)]
     pub progress_cache: Option<PathBuf>,
+    /// The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
+    pub mod_indexes: Vec<String>,
+    /// Offer pre-release versions of mods. Unset: on for the dev channel, off for releases.
+    pub prerelease_mods: Option<bool>,
+    /// An install link kept across "Switch to the dev build": its change set opens after the
+    /// restart (src/lib/deepLink.svelte.ts), then it is cleared.
+    pub pending_deep_link: Option<String>,
+    /// Update mods from the index by themselves (mod_updates.rs): patch and minor versions at
+    /// start, every 6 hours and before each game start; majors wait for a click (default true).
+    pub auto_update_mods: bool,
+    /// Removing a mod removes the dependencies the launcher installed for it that nothing else
+    /// needs (default true); the player's own are asked about.
+    pub cleanup_unused_deps: bool,
 }
 
 impl Default for Config {
@@ -102,18 +128,26 @@ impl Default for Config {
             last_version: None,
             discord_rpc: true,
             check_updates: true,
+            check_mod_updates: true,
             update_channel: None,
             update_branch: None,
             discord_client_id: None,
             layout: "compact".into(),
             theme: "openrac".into(),
             detailed_game_log: false,
-            renderer: "opengl".into(),
+            renderer: "vulkan".into(),
+            hdr: String::new(),
+            safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),
             multiplayer_name: String::new(),
             progress_cache: None,
+            mod_indexes: Vec::new(),
+            prerelease_mods: None,
+            pending_deep_link: None,
+            auto_update_mods: true,
+            cleanup_unused_deps: true,
         }
     }
 }
@@ -184,14 +218,36 @@ mod tests {
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkUpdates\": false"));
     }
 
-    /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.
+    /// A settings file from before the mod check offers mod updates; turning it off is kept.
     #[test]
-    fn renderer_defaults_to_opengl() {
+    fn checks_for_mod_updates_unless_turned_off() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("launcher.json");
         std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
-        assert_eq!(load(&path).renderer, "opengl");
-        save(&path, &Config { renderer: "vulkan".into(), ..Config::default() }).unwrap();
+        assert!(load(&path).check_mod_updates);
+        save(&path, &Config { check_mod_updates: false, ..Config::default() }).unwrap();
+        assert!(!load(&path).check_mod_updates);
+        assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkModUpdates\": false"));
+    }
+
+    /// A settings file from before the mod hub updates mods and cleans up after them.
+    #[test]
+    fn mods_update_and_clean_up_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        let c = load(&path);
+        assert!(c.auto_update_mods && c.cleanup_unused_deps);
+    }
+
+    /// A settings file from before the renderer choice draws with OpenGL; Vulkan, chosen, is kept.
+    #[test]
+    fn renderer_defaults_to_vulkan() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
         assert_eq!(load(&path).renderer, "vulkan");
+        save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
+        assert_eq!(load(&path).renderer, "opengl");
     }
 }

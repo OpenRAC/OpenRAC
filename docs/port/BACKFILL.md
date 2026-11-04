@@ -213,6 +213,23 @@ Only `same` counts as done. `differs` is a bug to fix. The rest are open: say
 so when you hand the function on, and never call it verified. A backfill row with no
 verdict has not been through the gate.
 
+**`same-run`: C the gate cannot run.** fcheck delivers no interrupts, frames or disc, so a function
+that waits on them is `unchecked`. Such a function can get a weaker verdict, `same-run`, kept apart in
+`port/game/rac2-ntsc/fcheck_run.tsv`: a whole headless run with the function's calls sent to the C
+(`openrac-boot --swap`), whose main memory at a field (`--dump-ram`) equals a plain run's under the same
+script and `OPENRAC_CLOCK`, leaving out the C's code and the stack. It says less than `same`: it compares
+memory once, at that field, not the result, kept registers or device order of each call, and covers only
+what that route ran. A difference overwritten before the field goes unseen. **`same-run` is not `same`:
+it does not make a row done.** Compare memory, not the random state and the hero's place: a loader with
+its `resume` test inverted passed those, and memory caught it.
+
+A verdict needs its controls: two plain runs agree on `--digest` (a hash of memory each field), and the
+function's own retail bytes through `--swap` give no differing field. `--cover` says what the route ran;
+the note gives it. `--returns` compares each return, for a difference a later field overwrites. A difference on some fields needs reading, not waving away: code that takes other
+instruction counts moves counters and load progress (retail's bytes padded with 400 `nop`s differed on
+more fields than any candidate here), but the difference can also be a bug. Columns: `name`, `status`, `date`,
+`decomp` (the commit), `csum`, `route`, `field`, `calls`, `note`.
+
 The gate uses the test-only interpreter in `tools/interpreter/` (built on its own with `cmake -S tools/interpreter -B build/interpreter`); it is never part of the port, the launcher or any release, and is never used to play.
 
 Run it (the interpreter built so that `build/interpreter/openrac-fcheck` and
@@ -228,9 +245,10 @@ python3 tools/fcheck_gate.py us                        # the US table: unchecked
 python3 -m unittest tools/test_fcheck_gate.py
 ```
 
-`OPENRAC_ROOT` names the OpenRAC checkout with the runtime build and
-`OPENRAC_DECOMP` the rac1-decomp checkout (defaults: `~/Projects/RAC/OpenRAC`
-and `~/Projects/RAC/rac1-decomp`). Each log is kept in rac1-decomp's
+`OPENRAC_ROOT` names the OpenRAC checkout with the interpreter build
+(default: the checkout holding the script). `OPENRAC_DECOMP` names the
+rac1-decomp checkout; without it the gate uses `OPENRAC_SOURCE_RAC1_PAL`, else
+the `checkout` that `games/rac1/game.json` names for pal. Each log is kept in rac1-decomp's
 `build-sn/fcheck/gate/logs/`. The gate copies each C file into
 `build-sn/fcheck/gate/`, which is ignored; it edits nothing else there.
 
@@ -263,35 +281,34 @@ candidate that makes more of them than retail differs. Retail gets 40 million
 instructions per state; a call that needs more waits for an interrupt, a
 frame or the disc, which no fcheck run delivers, and its state is skipped.
 
-What it covers today: **the boot executable and level 00** (Aranos, the
-tutorial), from three headless capture runs of the US disc: the boot, title
-and main menu with its Load, Options and New Game pages backed out of
-(`menu`), New Game up to the first level's load, stopped before the level
-runs (`newgame`), and New Game into level 00, played to frame 7000
-(`level00`: Cross through the intro, then running with the left stick
-(`openrac-boot --stick`), jumping, the wrench, the pause menu, weapons and the
-map). Each run is cut into phases and takes two calls in each
+What it covers: **the boot executable and every level but 30**, from headless
+capture runs of the US disc: the boot, title and main menu with its Load,
+Options and New Game pages backed out of (`menu`), New Game up to the first
+level's load, stopped before the level runs (`newgame`), and New Game into each
+level, played to frame 7000 (`level00`, `level01`, ...: Cross through the intro,
+then running with the left stick (`openrac-boot --stick`), jumping, the wrench,
+the pause menu, weapons and the map). A level past 00 is reached by keeping the
+boot's next-level word (0x1B1680, RequestLevelExit's destination) at its number
+through New Game (`openrac-boot --write 900:1b1680:N:740`): no save and no
+play-through. Level 30 crashes on that load, so its functions stay `no-states`.
+Each run is cut into phases and takes two calls in each (one past level 00)
 (`openrac-boot --capture-phases`, `--capture-spread`), so a function called
-every frame has states from each part. A capture line holds the function's
-first bytes and their CRC-32, so a level function's place is taken only once
-level 00's program is loaded there. A function with a place in level 00's
-program (a `func_L00_` row, or a boot or shared function with a `00:` place in
-`config/levels/functions.tsv`) is checked there: its symbols resolve at level
-00's addresses (its function places, the values `tools/build.py level 00`
-derived, the boot's below 0x1A7C80, which stays resident, and boot data the
-level moved, read from the level's copies of boot functions, which are the
-same code), against level 00's bytes. A boot function below 0x1A7C80 called in
-the level is checked as the boot's. A function with states from both the boot
-runs and level 00 is built once for each and must be SAME in both. Level
-states are about 16 MB each (the boot's about 5). **Other levels are not
-covered yet**: a `func_LNN_` row of another level is written `not-executable`,
-and a function only they call is `no-states`. Each further level needs a way
-there in the interpreter (playing through is long: a level-select write or a
-saved game), its play script (a `level` entry in the driver's `SCRIPTS`) and
-its build (`tools/build.py level NN`); the placement is the same.
+every frame has states from each part of the run. A capture line holds the
+function's first bytes and their CRC-32, so a level function's place is taken
+only once that level's program is loaded there. A function is captured in its
+own level and its lowest other places, three levels at most. A function with
+a place in a level's program (a `func_LNN_` row, or a boot or shared function
+with an `NN:` place in `config/levels/functions.tsv`) is checked there: its
+symbols resolve at that level's addresses (its function places, the values
+`tools/build.py level NN` derived, the boot's below 0x1A7C80, which stays
+resident, and boot data the level moved, read from the level's copies of boot
+functions, which are the same code), against that level's bytes. A boot
+function below 0x1A7C80 called in a level is checked as the boot's. A function
+with states from several programs is built once for each and must be SAME in
+all. Level states are about 16 MB each (the boot's about 5).
 
 ```sh
-# rac2-decomp built (python3 tools/build.py boot; tools/build.py level 00), its compiler reachable through
+# rac2-decomp built (python3 tools/build.py all), its compiler reachable through
 # RAC2_LINUX (on a Mac: a container of rac2-build:latest mounting your home at the same path)
 docker run -d --name rac2-gate --platform linux/386 -v $HOME:$HOME rac2-build:latest sleep infinity
 export RAC2_LINUX="docker exec rac2-gate" OPENRAC_SOURCE_RAC2_NTSC=~/Projects/RAC/rac2-decomp
@@ -340,6 +357,20 @@ branch whose two sides do the same in those calls. A function's own retail
 bytes, moved to 0x000A0000, can stand in for the C (`tools/fcheck.py check
 NAME --retail`): a DIFFERS on them is the harness's or the states', never the
 C's.
+
+**A translation through the gate.** A function hostgen translates from assembly has no row, but
+the same check answers for it: `hostgen.py --asm-console DIR --asm-console-names FILE` writes each
+named function in the console's form, and `tools/fcheck.py check NAME DIR/NAME.c` runs that
+against retail. `port/game/rac2-ntsc/fcheck_asm.tsv` keeps those verdicts (columns: name, status,
+level, calls, note). It proves the console form: the host build is the same text with hostgen's
+host macros, which only play proves. Three things to know: a whole kernel needs
+`RAC2_FCHECK_OPT=-O1`, since cc1 runs out of address space at -O2, and the driver sends a branch
+out of the assembler's range through a jump of its own; the console form holds the addresses of
+the copy it was written from, so a boot function checked on a level's states needs that level's
+data and call addresses put in (rac2's level copies differ from the boot's in those words); and
+the translation's registers start at 0, so a word that only saves a caller's register (`sd ra`,
+`sq t8` into memory the callee reads back) differs at the gate and nowhere else. Such a
+difference is noted in the file, never counted as `same`.
 
 **How a worker reports.** A backfill worker hands a function on as one of:
 
@@ -434,7 +465,7 @@ no tier left, or the port needs it now              -> functional C, with its co
 | | Ratchet & Clank (PAL) | Going Commando |
 |---|---|---|
 | Near misses | `nonmatching/<area>/` | `nonmatching/<area>/` |
-| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` (boot functions and level 00; other levels pending) |
+| Functional C | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac1-pal/fcheck.tsv` | `nonmatching/functional/`, `functional.tsv`; verdicts in OpenRAC's `port/game/rac2-ntsc/fcheck.tsv` |
 | Pieces of one function | `config/overlays/joined.tsv` | the catalogue, `tools/levels.py` |
 | Handwritten | `ASM_FUNC`, counted as finished | `ASM_FUNC`, counted as finished |
 | Worker bound and protocol | `docs/QUEUE.md`, `docs/AGENT_WORKFLOW.md` | `docs/AGENT_WORKFLOW.md` |

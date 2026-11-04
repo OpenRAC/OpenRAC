@@ -207,7 +207,7 @@ A `play` action also gets the environment Settings asks for
 (`core/src/actions.rs`, `Action::plan`): `OPENRAC_DEVELOPER=1` with developer
 tools on, `OPENRAC_LOG=verbose` with Detailed game logs, and, on Windows,
 Linux and macOS with Renderer set to Vulkan (Advanced, `Config.renderer`),
-`OPENRAC_GL_API=vulkan`: the port's experimental Vulkan renderer
+`OPENRAC_GL_API=vulkan`: the port's Vulkan renderer (the default)
 (`port/renderer/vulkan`) in place of OpenGL 4.1. Where Vulkan 1.3 cannot
 start, or the build has no Vulkan renderer, the game logs why and draws with
 OpenGL (`port/platform/window.cpp`). It applies from the game's next start.

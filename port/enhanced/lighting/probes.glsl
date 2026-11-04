@@ -4,6 +4,10 @@
 // is full irradiance, not E/pi. Sampling returns linear E.
 uniform sampler2D probe_irradiance;
 uniform sampler2D probe_moments;
+uniform sampler2D probe_spread;
+uniform sampler2D probe_depth_ranges;
+// Zero reads moments, one local ASTC, two linear RG8 and three curved RG16 UNORM.
+uniform int probe_depth_mode;
 uniform sampler2D probe_metadata;
 uniform vec3 probe_origin;
 uniform vec3 probe_spacing;
@@ -16,6 +20,10 @@ uniform vec3 probe_sunlight_scale;
 // XYZ is a world-space travel direction; W enables the primary-light override.
 uniform vec4 probe_sunlight_direction;
 uniform int probe_terrain_albedo;
+// 1: lighting anchored on the game's own (Going Commando): the original moby ambient is the floor of
+// a moby's diffuse GI, and terrain whose vertex colours carry the original lighting takes the
+// enhanced lighting relative to unshadowed sunlight (README, Retail anchoring).
+uniform int probe_retail_anchor;
 uniform float probe_normal_bias;
 uniform float probe_view_bias;
 uniform vec3 probe_dense_origin[3];
@@ -59,6 +67,14 @@ uniform vec4 shadow_atlas_rects[5];
 uniform vec4 light_sets[64];
 uniform vec4 probe_point_position[8];
 uniform vec4 probe_point_colour[8];
+// Default local lights retain the standalone shader's original eight-light interface.
+#ifndef OPENRAC_FORWARD_PLUS
+#define LOCAL_LIGHT_LOOP(i) for(int i=0;i<8;++i)
+#define LOCAL_POSITION(i) probe_point_position[i]
+#define LOCAL_COLOUR(i) probe_point_colour[i]
+#define LOCAL_CONE(i,d) 1.
+#define LOCAL_ATTENUATION(d,r) (1.0-(d)/(r))
+#endif
 
 vec2 probe_oct(vec3 n) {
     n /= abs(n.x) + abs(n.y) + abs(n.z);
@@ -75,6 +91,82 @@ vec2 probe_map_uv(ivec2 tile, vec3 direction) {
     return pixel / vec2(textureSize(probe_irradiance, 0));
 }
 
+
+// Map seam taps to their interior copy before reading independently compressed blocks.
+ivec2 probe_depth_wrap(ivec2 p) {
+    bool x = p.x == 0 || p.x == 7;
+    bool y = p.y == 0 || p.y == 7;
+    if (x && y) return ivec2(p.x == 0 ? 6 : 1, p.y == 0 ? 6 : 1);
+    if (x) return ivec2(p.x == 0 ? 1 : 6, 7 - p.y);
+    if (y) return ivec2(7 - p.x, p.y == 0 ? 1 : 6);
+    return p;
+}
+
+// Retain FP32: local mean differences and the total-variance identity avoid moment cancellation.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance, vec2 atlas_extent) {
+    vec2 oct = probe_oct(direction);
+    if (probe_depth_mode == 0) {
+        // Raw maps share the irradiance atlas extent cached by receiver setup.
+        vec2 pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0 + oct * probe_resolution;
+        vec2 m = texture(probe_moments, pixel / atlas_extent).rg;
+        return vec2(m.x, max(0.0, m.y - m.x * m.x));
+    }
+    vec2 p = .5 + oct * 6.;
+    ivec2 base = ivec2(floor(p));
+    vec2 f = fract(p);
+    vec4 w = vec4((1.-f.x)*(1.-f.y), f.x*(1.-f.y), (1.-f.x)*f.y, f.x*f.y);
+    vec4 mean, spread;
+    vec2 gather_uv = vec2(0);
+    if (probe_depth_mode >= 2) {
+        // RG8 stores exact gutter copies. Center the gather footprint so atlas-coordinate rounding
+        // cannot select different neighbours; retain the original local interpolation fractions.
+        gather_uv = (vec2(tile * 8 + base) + 1.) / atlas_extent;
+        mean = textureGather(probe_moments, gather_uv, 0).wzxy;
+    } else {
+        // Legacy ASTC gutters were fitted independently, so read their interior copies explicitly.
+        for (int i = 0; i < 4; ++i) {
+            ivec2 at = tile * 8 + probe_depth_wrap(base + ivec2(i & 1, i >> 1));
+            mean[i] = texelFetch(probe_moments, at, 0).r;
+            spread[i] = texelFetch(probe_spread, at, 0).r;
+        }
+    }
+    // Native RG16 gathers retain endpoint precision without bit unpacking or extra texture reads.
+    if (probe_depth_mode == 3) {
+        mean = mix(1. - 2. * (1. - mean) * (1. - mean),
+                   2. * mean * mean, lessThanEqual(mean, vec4(.5)));
+    }
+    vec4 ranges = texelFetch(probe_depth_ranges, tile, 0);
+    float average = dot(w, mean);
+    float world_average = ranges.x + ranges.y * average;
+    // The caller applies variance only behind the mean blocker; front receivers need no spread read.
+    if (receiver_distance <= world_average) {
+        return vec2(world_average, 0);
+    }
+    if (probe_depth_mode >= 2) {
+        spread = textureGather(probe_moments, gather_uv, 1).wzxy;
+    }
+    // Decode each spread before applying the law of total variance.
+    if (probe_depth_mode == 3) {
+        spread *= spread;
+    }
+    vec4 delta = mean - vec4(average);
+    vec4 world_mean = vec4(ranges.x) + ranges.y * mean;
+    // Independent scalar quantization must not create impossible variance beyond the ray cap.
+    vec4 within = min(ranges.z * ranges.z * spread * spread,
+                      max(vec4(0), world_mean * (vec4(ranges.w) - world_mean)));
+    float variance = ranges.y * ranges.y * dot(w, delta * delta) + dot(w, within);
+    return vec2(world_average, variance);
+}
+
+// Standalone callers have no receiver setup from which to reuse the atlas extent.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction, float receiver_distance) {
+    return probe_depth_sample(tile, direction, receiver_distance, vec2(textureSize(probe_irradiance, 0)));
+}
+
+// Diagnostic callers can request the complete distribution independently of receiver visibility.
+vec2 probe_depth_sample(ivec2 tile, vec3 direction) {
+    return probe_depth_sample(tile, direction, 1e30);
+}
 
 vec2 probe_axis(vec2 axis) { return dot(axis,axis)>.5 ? axis : vec2(1,0); }
 vec3 probe_local(vec3 p,vec2 axis) { axis=probe_axis(axis);return vec3(dot(p.xy,axis),dot(p.xy,vec2(-axis.y,axis.x)),p.z); }
@@ -112,6 +204,12 @@ bool sample_probe_grid(
     float support = 0.0;
     float valid_support = 0.0;
     float facing_support = 0.0;
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+    // These operands are identical for every corner. Preserve the original
+    // tile-origin + 1 + offset, then divide ordering at each atlas lookup.
+    vec2 irradiance_offset = probe_oct(n) * probe_resolution;
+    vec2 atlas_extent = vec2(textureSize(probe_irradiance, 0));
+#endif
     for (int corner = 0; corner < 8; ++corner) {
         ivec3 high = ivec3(corner & 1, (corner >> 1) & 1, (corner >> 2) & 1);
         mp_vec3 f = mix(mp_vec3(1) - fraction, fraction, mp_vec3(high));
@@ -154,11 +252,16 @@ bool sample_probe_grid(
             continue;
         }
 #endif
+#ifndef OPENRAC_PROBE_FAST
         if (distance > 1e-6) {
-            vec2 moments = texture(probe_moments, probe_map_uv(tile, delta / distance)).xy;
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+            vec2 moments = probe_depth_sample(tile, delta / distance, distance, atlas_extent);
+#else
+            vec2 moments = probe_depth_sample(tile, delta / distance, distance);
+#endif
             if (distance > moments.x) {
                 // Preserve open-direction fill; reduce sparse uncertainty only behind the mean blocker.
-                float variance = max(0.0, moments.y - moments.x * moments.x)
+                float variance = moments.y
                                  * (index_offset == 0 ? 0.5 : 1.0);
                 float difference = distance - moments.x;
                 float denominator = variance + difference * difference;
@@ -166,13 +269,19 @@ bool sample_probe_grid(
                 weight *= visibility * visibility * visibility;
             }
         }
+#endif
 #ifndef OPENRAC_PROBE_ZERO_WEIGHT_REFERENCE
         if (weight <= 0.0) {
             continue;
         }
 #endif
         // Partially decode to sqrt(E) for interpolation between probes.
+#ifdef OPENRAC_PROBE_RECEIVER_SETUP
+        vec2 irradiance_pixel = vec2(tile) * (probe_resolution + 2.0) + 1.0 + irradiance_offset;
+        vec3 encoded = texture(probe_irradiance, irradiance_pixel / atlas_extent).rgb;
+#else
         vec3 encoded = texture(probe_irradiance, probe_map_uv(tile, n)).rgb;
+#endif
 #ifdef OPENRAC_USE_FP16
         vec3 contribution=pow(max(encoded,vec3(0)),vec3(2.5))*weight;
         // Eight bounded taps fit FP16; preserve exceptional imported HDR in a wide side sum.
@@ -211,9 +320,11 @@ uint probe_candidate_word(ivec2 pixel, int word) {
     }
     ivec2 tile = pixel / 16;
     int tiles_x = (int(probe_tile_extent.x) + 15) / 16;
+    int broad_offset = probe_gpu_selection == 3
+        ? tiles_x * ((int(probe_tile_extent.y) + 15) / 16) * 4 : 0;
     return texelFetch(
                probe_region_masks,
-               129 + (tile.y * tiles_x + tile.x) * 4 + word
+               129 + broad_offset + (tile.y * tiles_x + tile.x) * 4 + word
     )
         .r;
 }
@@ -269,7 +380,13 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
     if (probe_gpu_selection != 0) {
         chosen = probe_choose_regions(p);
     }
-    for (int slot = 0; slot < 3; ++slot) {
+#ifdef OPENRAC_PROBE_FAST
+    // Blended surfaces read only the best volume (Enhanced, lossy).
+    const int slots = 1;
+#else
+    const int slots = 3;
+#endif
+    for (int slot = 0; slot < slots; ++slot) {
         int id = chosen[slot];
         if (probe_gpu_selection != 0 && id < 0) {
             continue;
@@ -441,7 +558,10 @@ float shadow_pcf_unique_rect(sampler2D map, ivec4 rect, vec3 position, float bia
 }
 
 float shadow_pcf_kernel_rect(sampler2D map, ivec4 rect, vec3 position, float bias, vec2 slope, bool tent) {
-#ifdef OPENRAC_SHADOW_FILTER_REFERENCE
+#if defined(OPENRAC_PROBE_FAST)
+    // Blended surfaces: four taps instead of the wide kernel (Enhanced, lossy).
+    return shadow_bilinear_rect(map, rect, position, bias, slope);
+#elif defined(OPENRAC_SHADOW_FILTER_REFERENCE)
     return shadow_pcf_reference_rect(map, rect, position, bias, slope, tent);
 #else
     return shadow_pcf_unique_rect(map, rect, position, bias, slope, tent);
@@ -554,6 +674,9 @@ float sun_shadow_visibility(vec3 p, vec3 n, vec3 plane_normal) {
     float start = cascade == 0 ? sun_shadow_near : sun_shadow_ends[cascade - 1];
     float blend =
         smoothstep(mix(start, sun_shadow_ends[cascade], 0.9), sun_shadow_ends[cascade], distance);
+#ifdef OPENRAC_PROBE_FAST
+    blend = 0.0;
+#endif
     float next =
         blend > 0.0 && cascade < 3 ? sun_cascade_visibility(cascade + 1, p, n, plane_normal) : 1.0;
     return mix(visibility, next, blend);
@@ -583,18 +706,27 @@ vec3 probe_direct(vec3 p, vec3 n, vec4 selector, float visibility) {
             * mp_float(response) * mp_float(mix(0.1, 1.0, visibility));
         direct += vec3(contribution);
     }
-    for (int i = 0; i < 8; ++i) {
-        vec3 delta = probe_point_position[i].xyz - p;
-        float radius = probe_point_position[i].w;
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta = LOCAL_POSITION(i).xyz - p;
+        float radius = LOCAL_POSITION(i).w;
         float distance = length(delta);
         if (radius <= 0.0 || distance >= radius || distance <= 1e-6) {
             continue;
         }
         float d = float(dot(mp_vec3(delta / distance), mp_vec3(n)));
         float response =
-            probe_backlight != 0 ? max(d, -abs(probe_point_colour[i].w) * d) : max(d, 0.0);
-        mp_vec3 contribution = max(mp_vec3(probe_point_colour[i].rgb), mp_vec3(0))
-            * mp_float(response) * mp_float(1.0 - distance / radius);
+            probe_backlight != 0 ? max(d, -abs(LOCAL_COLOUR(i).w) * d) : max(d, 0.0);
+#ifdef OPENRAC_FORWARD_PLUS
+        // Authored radiance can exceed FP16; narrow only the bounded angular/range weights.
+        if(i>=8) {
+            mp_float weight=mp_float(response)*mp_float(LOCAL_ATTENUATION(distance,radius))
+                            *mp_float(LOCAL_CONE(i,delta/distance));
+            direct+=max(LOCAL_COLOUR(i).rgb,vec3(0))*float(weight);
+            continue;
+        }
+#endif
+        mp_vec3 contribution = max(mp_vec3(LOCAL_COLOUR(i).rgb), mp_vec3(0))
+            * mp_float(response) * mp_float(LOCAL_ATTENUATION(distance,radius)) * mp_float(LOCAL_CONE(i,delta/distance));
         direct += vec3(contribution);
     }
     return direct;

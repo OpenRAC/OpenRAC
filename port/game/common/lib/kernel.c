@@ -274,6 +274,16 @@ unsigned int openrac_lib_sceSifSetDma(gaddr transfers, int count) { /* sceSifSet
     return 1;
 }
 
+/* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
+ * past its end. */
+const uint8_t* openrac_iop_bytes(uint32_t address, size_t* available) {
+    if (address >= IOP_BYTES) {
+        return NULL;
+    }
+    *available = IOP_BYTES - address;
+    return iop_memory + address;
+}
+
 /* Which RPC server each bound client is for, by client address. */
 #define RPC_CLIENTS 16
 static gaddr rpc_client[RPC_CLIENTS];
@@ -632,10 +642,15 @@ int openrac_lib_SuspendThread(int id) {
 } /* SuspendThread */
 
 /* EndOfHeap (0x3E): the top of the area sbrk may grow into. The game's stack
- * is outside its RAM in the port (GUEST_STACK_TOP), so the heap may reach
- * the end of the 32 MB. */
+ * is outside its RAM in the port (GUEST_STACK_TOP), so the heap reaches the
+ * RAM boundary, except for RAC1's expanded target-table and collision-grid reservations. */
 gaddr openrac_lib_EndOfHeap(void) {
-    return GUEST_RAM + GUEST_RAM_SIZE;
+    uint32_t reserve = 0;
+    if (openrac_guest_ram_size > GUEST_RAM_SIZE && openrac_game.game != NULL
+        && strcmp(openrac_game.game, "rac1") == 0) {
+        reserve = OPENRAC_EXPANDED_RAC1_RESERVE;
+    }
+    return GUEST_RAM + openrac_guest_ram_size - reserve;
 } /* EndOfHeap */
 
 /* PollSema (0x45, and iPollSema): WaitSema without the wait: the semaphore's
@@ -691,7 +706,7 @@ void openrac_lib_GetOsdConfigParam2(gaddr config, int size, int offset) { /* Get
  * the start-up code sizes RAM and maps the TLB from it. The port's guest
  * memory is 32 MB and has no TLB. */
 int openrac_lib_GetMemorySize(void) {
-    return (int)GUEST_RAM_SIZE;
+    return (int)openrac_guest_ram_size;
 } /* GetMemorySize */
 
 int openrac_lib__InitTLB(void) {
@@ -726,8 +741,8 @@ gaddr openrac_lib_GetEntryAddress(int number) { /* GetEntryAddress */
 }
 
 int openrac_lib_Copy(gaddr dest, gaddr src, int size) { /* Copy */
-    if (size > 0 && dest < GUEST_RAM_SIZE && (uint32_t)size <= GUEST_RAM_SIZE - dest &&
-        src < GUEST_RAM_SIZE && (uint32_t)size <= GUEST_RAM_SIZE - src) {
+    if (size > 0 && dest < openrac_guest_ram_size && (uint32_t)size <= openrac_guest_ram_size - dest
+        && src < openrac_guest_ram_size && (uint32_t)size <= openrac_guest_ram_size - src) {
         memmove(G(dest), G(src), (size_t)size);
     }
     return 0;

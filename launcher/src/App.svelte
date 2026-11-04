@@ -3,20 +3,25 @@
   import Header from "$components/Header.svelte";
   import LaunchScreen from "$components/LaunchScreen.svelte";
   import Toasts from "$components/Toasts.svelte";
+  import ModUpdateModal from "$components/ModUpdateModal.svelte";
+  import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
+  import { startDeepLinks } from "$lib/deepLink.svelte";
+  import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import { errorText, onAndroid } from "$lib/api";
   import { app, openDevelop, refresh, showLaunch, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
+  import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
   import { slide, slides } from "$lib/motion";
   import { applyPalette } from "$lib/palettes";
-  import { ACCENT_PROPERTIES, accentProperties } from "$lib/themes";
+  import { applyAccent } from "$lib/themes";
   import Game from "./pages/Game.svelte";
   import Library from "./pages/Library.svelte";
   import Settings from "./pages/Settings.svelte";
 
   // Mods, Activity and Develop load the first time they are opened, so starting the launcher reads
   // only what the game page needs; they are fetched while the launcher idles after it starts, so
-  // opening them later is instant.
+  // opening them later is instant. Opened before that, the page's slide waits for them.
   const once = <T,>(load: () => Promise<T>) => {
     let loaded: Promise<T> | null = null;
     return () => (loaded ??= load());
@@ -24,6 +29,11 @@
   const modsPage = once(() => import("./pages/Mods.svelte"));
   const tasksPage = once(() => import("./pages/Tasks.svelte"));
   const developPage = once(() => import("./pages/Develop.svelte"));
+  const lazyPages: Partial<Record<Page, () => Promise<unknown>>> = {
+    mods: modsPage,
+    tasks: tasksPage,
+    develop: developPage,
+  };
   $effect(() => {
     const later = setTimeout(() => {
       void modsPage();
@@ -39,12 +49,15 @@
   if (onAndroid) preloadArt();
 
   $effect(() => {
-    // Android: the launcher's accent is the picked game's own (themes.ts), the colour easing from
-    // one to the next (app.css).
-    if (!onAndroid) return;
-    const style = document.documentElement.style;
-    for (const name of ACCENT_PROPERTIES) style.removeProperty(name);
-    for (const [name, value] of accentProperties(app.version?.split("/")[0] ?? null)) style.setProperty(name, value);
+    // The launcher's accent is the picked game's own (themes.ts), the colour easing from one to the
+    // next (app.css). main.ts put the last one on; it stays until the settings say which game shows,
+    // and that first one goes on at once too (a first start, or another game than the kept one).
+    const game = app.version?.split("/")[0] ?? null;
+    if (!app.config && !game) return;
+    applyAccent(game);
+    const root = document.documentElement;
+    if ("starting" in root.dataset)
+      requestAnimationFrame(() => requestAnimationFrame(() => delete root.dataset.starting));
   });
 
   $effect(() => {
@@ -71,9 +84,11 @@
     else
       slide(
         () => {
-          page = next;
+          // Another tab pressed while this page's code was on its way: that tab's change is the one.
+          if (app.page === next) page = next;
         },
         ORDER[next] >= ORDER[page] ? "forward" : "back",
+        lazyPages[next]?.(),
       );
   });
   $effect(() => {
@@ -116,6 +131,13 @@
         else if (page) app.page = page;
         // ?update&modal=update: the update window open on the preview's update (mock.ts).
         if (params.get("modal") === "update") app.showUpdateModal = true;
+        // The installed mods are looked at once a day, where they came from a link: what is found
+        // is offered in one window and read by the Mods tab, so GitHub is not asked twice.
+        if (app.config?.checkModUpdates) void lookForModUpdates().catch(() => undefined);
+        // openrac:// links (the website's Install buttons): the start's own, then each one sent.
+        void startDeepLinks().catch(() => undefined);
+        // Mods from the index kept current: now, then every 6 hours (lib/modAutoUpdate).
+        stopAutoUpdates = startAutoUpdates();
         // ?launch: the version's start (Android's spinning disc), as Play shows it.
         if (params.has("launch") && version) {
           const game = app.library?.games.find((g) => g.id === version.split("/")[0]);
@@ -129,7 +151,9 @@
     // Pick up what changed outside the launcher (a build in a terminal, a new disc).
     const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
+    let stopAutoUpdates: () => void = () => undefined;
     return () => {
+      stopAutoUpdates();
       window.removeEventListener("focus", onFocus);
     };
   });
@@ -165,6 +189,8 @@
 <GameRunning />
 <Toasts />
 <UpdateModal />
+<ModUpdateModal />
+<DeepLinkInstall />
 
 <style>
   .loading {

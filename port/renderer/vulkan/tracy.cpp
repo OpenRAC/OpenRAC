@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "common/profiler.h"
+#include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 #include <tracy/TracyVulkan.hpp>
@@ -30,7 +31,7 @@ struct GpuZone {
 // Query contexts and borrowed handles belong to the graphics owner.
 struct GpuState {
     // Uploads execute before main commands, even when their CPU scopes were nested the other way.
-    std::array<TracyVkCtx, 2> contexts{};
+    std::array<TracyVkCtx, 3> contexts{};
     std::vector<GpuZone*> live;
     bool recording = false;
 };
@@ -62,6 +63,10 @@ void timestamp_boundary() {
 
 // Called only by GPU scopes on the graphics owner; deferred batches precede their timestamps.
 void* begin_zone(std::string_view name, std::source_location location) {
+    // Prepared packets receive GPU scopes only when the compiled chain actually executes.
+    if (collecting_surface_chain()) {
+        return nullptr;
+    }
     if (!g || !g->tracy_state) {
         return nullptr;
     }
@@ -96,6 +101,32 @@ void end_zone(void* handle) {
 constexpr profiling::GpuHooks kGpuHooks{begin_zone, end_zone};
 }  // namespace
 
+TracyPresentZone::TracyPresentZone(
+    VkCommandBuffer command, std::string_view name, std::source_location location
+) {
+    if (!g->tracy_state || !tracy::GetProfiler().IsConnected()) {
+        return;
+    }
+    auto& state = *static_cast<GpuState*>(g->tracy_state);
+    // Present can be recorded before the last uploads, but executes after the main buffer.
+    m_scope = new tracy::VkCtxScope(
+        state.contexts[2],
+        location.line(),
+        location.file_name(),
+        std::strlen(location.file_name()),
+        location.function_name(),
+        std::strlen(location.function_name()),
+        name.data(),
+        name.size(),
+        command,
+        true
+    );
+}
+
+TracyPresentZone::~TracyPresentZone() {
+    delete static_cast<tracy::VkCtxScope*>(m_scope);
+}
+
 // Creates separate upload and graphics timelines for the same hardware queue.
 void tracy_gpu_open() {
     if (!g->timestamp_bits) {
@@ -120,14 +151,22 @@ void tracy_gpu_open() {
         return;
     }
     auto state = std::make_unique<GpuState>();
+    // When the driver exposes both queries, Tracy can keep the CPU and GPU clocks aligned.
+    const auto domains = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
+        vkGetInstanceProcAddr(g->instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT")
+    );
+    const auto timestamps = reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
+        vkGetDeviceProcAddr(g->device, "vkGetCalibratedTimestampsEXT")
+    );
     for (auto& context : state->contexts) {
         // Initial clock calibration waits only at startup, never during frame collection.
         context =
-            tracy::CreateVkContext(g->physical, g->device, g->queue, command, nullptr, nullptr);
+            tracy::CreateVkContext(g->physical, g->device, g->queue, command, domains, timestamps);
     }
     vkDestroyCommandPool(g->device, pool, nullptr);
     state->contexts[0]->Name("Vulkan uploads", 14);
     state->contexts[1]->Name("Vulkan graphics", 15);
+    state->contexts[2]->Name("Vulkan presentation", 19);
     g->tracy_state = state.release();
     profiling::set_gpu_hooks(&kGpuHooks);
 }

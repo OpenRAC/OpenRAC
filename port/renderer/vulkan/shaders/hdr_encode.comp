@@ -1,0 +1,69 @@
+#version 450
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// HDR output's one pass (common/hdr.h, the same arithmetic on the CPU): the default framebuffer's
+// picture, scaled to the screen as the SDR blit scales it and turned the right way up, written
+// into the swapchain's image as PQ in BT.2020 (OPENRAC_HDR_PQ) or as scRGB. The game's white lands
+// at the player's paper white; only what the HDR frame's blending added up above white goes
+// beyond it, rolled off towards the peak.
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(binding = 0) uniform sampler2D picture;  // row 0 at the bottom, as in GL
+#ifdef OPENRAC_HDR_PQ
+layout(binding = 1, rgb10_a2) writeonly uniform image2D screen;
+#else
+layout(binding = 1, rgba16f) writeonly uniform image2D screen;
+#endif
+
+layout(push_constant) uniform Encode {
+    float paper_white;  // nits of the game's white
+    float sdr_gamma;    // the picture's bytes to linear light (common/hdr.h, kSdrGamma)
+    int same_size;      // 1: one texel a pixel, read as it is (the blit's NEAREST)
+    float headroom;     // peak / paper white - 1: how far light above white rolls off to
+} encode;
+
+vec3 pq(vec3 nits) {
+    const float m1 = 2610.0 / 16384.0;
+    const float m2 = 2523.0 / 4096.0 * 128.0;
+    const float c1 = 3424.0 / 4096.0;
+    const float c2 = 2413.0 / 4096.0 * 32.0;
+    const float c3 = 2392.0 / 4096.0 * 32.0;
+    vec3 y = pow(clamp(nits / 10000.0, 0.0, 1.0), vec3(m1));
+    return pow((c1 + c2 * y) / (1.0 + c3 * y), vec3(m2));
+}
+
+void main() {
+    ivec2 size = imageSize(screen);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(pixel, size))) {
+        return;
+    }
+    // The screen's row 0 is its top; the picture's is its bottom.
+    vec3 sdr;
+    if (encode.same_size != 0) {
+        sdr = texelFetch(picture, ivec2(pixel.x, size.y - 1 - pixel.y), 0).rgb;
+    } else {
+        vec2 uv = (vec2(pixel) + 0.5) / vec2(size);
+        sdr = textureLod(picture, vec2(uv.x, 1.0 - uv.y), 0.0).rgb;
+    }
+    // Above 1 where the HDR frame's blending added up past white (common/hdr.h, sdr_to_linear).
+    vec3 linear = pow(max(sdr, vec3(0.0)), vec3(encode.sdr_gamma));
+    // Rolled off towards the peak (roll_off_above_white); the SDR range is left as it is.
+    float m = max(linear.r, max(linear.g, linear.b));
+    if (m > 1.0) {
+        float h = encode.headroom;
+        float to = h > 0.0 ? 1.0 + h * (1.0 - exp(-(m - 1.0) / h)) : 1.0;
+        linear *= to / m;
+    }
+#ifdef OPENRAC_HDR_PQ
+    // Linear BT.709 to BT.2020 (GLSL's mat3 takes columns: these are common/hdr.h's rows).
+    const mat3 to2020 = transpose(mat3(
+        0.627403896, 0.329283038, 0.043313066,
+        0.069097289, 0.919540395, 0.011362316,
+        0.016391439, 0.088013308, 0.895595253));
+    imageStore(screen, pixel, vec4(pq(to2020 * linear * encode.paper_white), 1.0));
+#else
+    imageStore(screen, pixel, vec4(linear * (encode.paper_white / 80.0), 1.0));
+#endif
+}

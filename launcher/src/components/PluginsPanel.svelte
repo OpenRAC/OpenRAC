@@ -6,7 +6,7 @@
   // and Escape return here). Up, down and Remove are in its menu. Adding is AddMod's. The Mods switch under Play
   // on the game's page starts the game with them or with none; off, a notice here says so. Every change is written at once to the
   // list the game reads at its next start (plugins.json). A mod installed from a link keeps its
-  // source, offers its updates (checked once a day here) and can be kept at its version. No folder
+  // source, offers its updates (looked for once a day, at start: lib/modUpdates) and can be kept at its version. No folder
   // shows here: a mod's is in its page's folded About. Above the mods, for a version that has it,
   // the built-in Enhanced graphics entry (core/src/enhanced.rs): a row and a page as a mod's, its
   // values in the game's own settings file, and the lighting bake it needs (the probe-bake action),
@@ -31,6 +31,10 @@
   import ModPage from "./ModPage.svelte";
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
+  import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
+  import { copyText } from "$lib/clipboard";
+  import { openChangeSet } from "$lib/deepLink.svelte";
+  import { shareLink } from "$lib/shareSetup";
 
   let {
     version: v,
@@ -161,28 +165,12 @@
     }
   }
 
-  /** The last update check, per game, in this browser's storage: once a day by itself. */
-  const checkedKey = () => `openrac.mods.checked.${v.game}`;
-  const DAY = 24 * 60 * 60 * 1000;
-
-  function lastChecked(): number {
-    try {
-      return Number(localStorage.getItem(checkedKey()) ?? 0) || 0;
-    } catch {
-      return 0;
-    }
-  }
-
   async function checkUpdates(quiet = false) {
     checking = true;
     try {
       const found = await api.pluginsCheckUpdates(v.game, v.name);
       updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
-      try {
-        localStorage.setItem(checkedKey(), String(Date.now()));
-      } catch {
-        // Private windows: checked again next time.
-      }
+      markChecked(v.game);
       if (!quiet) {
         const n = found.updates.length;
         said = { text: T.updatesFound(n, found.errors), failed: found.errors.length > 0 && n === 0 };
@@ -239,8 +227,14 @@
   const hasSources = $derived(Object.keys(sources).length > 0);
 
   $effect(() => {
-    // Once a day by itself, when a mod came from a link.
-    if (hasSources && !checking && Date.now() - lastChecked() > DAY) void checkUpdates(true);
+    // The launcher's own look at start (lib/modUpdates) already found these: shown without asking
+    // GitHub again. Else, once a day by itself, when a mod came from a link.
+    const found = modUpdates.found[v.game];
+    if (found && Object.keys(updates).length === 0) {
+      updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
+      return;
+    }
+    if (hasSources && !checking && checkDue(v.game)) void checkUpdates(true);
   });
 
   $effect(() => {
@@ -259,10 +253,65 @@
     }
   }
 
+  /** On: with the dependencies it needs, said in a line. Off: the mods that need it are asked
+   *  about first, and turned off with it. */
+  async function setOn(mod: PluginView, on: boolean) {
+    if (on) {
+      try {
+        const turned = await api.pluginsTurnOn(v.game, v.name, mod.id);
+        mods = turned.views;
+        said = turned.alsoOn.length > 0 ? { text: T.alsoTurnedOn(turned.alsoOn), failed: false } : null;
+      } catch (e) {
+        said = { text: typeof e === "string" ? e : String(e), failed: true };
+        await load();
+      }
+      return;
+    }
+    const needers = await api.pluginsDependents(v.game, mod.id).catch(() => []);
+    if (needers.length > 0) {
+      if (
+        !(await ask(
+          T.turnOffAsk(
+            needers.map(([, name]) => name),
+            mod.name,
+          ),
+          T.DEPS.turnOffYes,
+        ))
+      ) {
+        await load();
+        return;
+      }
+      for (const [id] of needers) await api.pluginsSetEnabled(v.game, v.name, id, false).catch(() => undefined);
+    }
+    await change(api.pluginsSetEnabled(v.game, v.name, mod.id, false));
+  }
+
   async function remove(mod: PluginView) {
     if (!(await ask(T.removeConfirm(mod.name), T.PANEL.remove))) return;
     if (modNav.mod === mod.id) closeMod();
-    void change(api.pluginsRemove(v.game, v.name, mod.id));
+    // What only it needed: the launcher's own installs go (Clean up unused dependencies), the
+    // player's own are asked about.
+    const orphans = app.config?.cleanupUnusedDeps ? await api.pluginsOrphans(v.game, mod.id).catch(() => []) : [];
+    const also = orphans.filter((o) => o.auto).map((o) => o.id);
+    const mine = orphans.filter((o) => !o.auto);
+    if (mine.length > 0 && (await ask(T.removeDepsAsk(mine.map((o) => o.name)), T.DEPS.removeYes))) {
+      also.push(...mine.map((o) => o.id));
+    }
+    await change(api.pluginsRemoveWith(v.game, v.name, mod.id, also));
+    if (also.length > 0 && !said?.failed) said = { text: T.removedDeps(also.length), failed: false };
+  }
+
+  /** The mods that are on and in the index, as a link a friend installs the same set from. */
+  async function share() {
+    const index = await api.indexFetch().catch(() => null);
+    const ids = new Set(index?.index.mods.map((m) => m.id) ?? []);
+    const link = shareLink(mods, (id) => ids.has(id), v.game, v.name);
+    if (!link) {
+      said = { text: T.DEPS.shareNone, failed: true };
+      return;
+    }
+    const ok = await copyText(link, T.DEPS.shareRefused);
+    said = ok ? { text: T.DEPS.shareCopied, failed: false } : { text: T.DEPS.shareRefused, failed: true };
   }
 
   /** Saves one setting from the mod's page; the list as the core now has it. */
@@ -293,8 +342,7 @@
     {developer}
     updating={updating === mod.id}
     onsave={(key, value) => saveSetting(mod, key, value)}
-    onenable={(on) =>
-      void (isEnhanced(mod.id) ? setEnhanced(on) : change(api.pluginsSetEnabled(v.game, v.name, mod.id, on)))}
+    onenable={(on) => void (isEnhanced(mod.id) ? setEnhanced(on) : setOn(mod, on))}
     builtIn={isEnhanced(mod.id) && enhanced
       ? { bake: enhanced.bake, job: bakeJob, onbake: bake, ondelete: deleteBakes }
       : null}
@@ -311,6 +359,11 @@
   <section class="panel plugins" aria-label={T.PANEL.title}>
     <div class="head">
       <h2>{T.PANEL.title}</h2>
+      {#if mods.some((m) => m.enabled && !isEnhanced(m.id))}
+        <button class="small ghost" onclick={() => void share()}
+          ><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button
+        >
+      {/if}
       {#if hasSources}
         {#if pending > 1}
           <button class="small" disabled={checking || updating !== null} onclick={() => void updateAll()}
@@ -324,7 +377,7 @@
       {/if}
     </div>
 
-    {#if purist && mods.length}
+    {#if purist && (mods.length || enhanced?.mod.enabled)}
       <div class="notice" role="status">
         <Icon name="info" size={16} /><span class="grow">{T.WITH_MODS.offNotice}</span>
         <button class="small" onclick={() => void playWithMods()}>{T.WITH_MODS.turnOn}</button>
@@ -335,7 +388,7 @@
 
     {#if enhanced}
       {@const entry = enhanced.mod}
-      {@const badge = modBadge(entry, null, false)}
+      {@const badge = modBadge(entry, null, purist)}
       <ul class="built-in">
         <li class="mod" class:off={!entry.enabled}>
           <input
@@ -383,7 +436,7 @@
               checked={mod.enabled}
               disabled={!mod.enabled && mod.blocked !== ""}
               title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
-              onchange={(e) => void change(api.pluginsSetEnabled(v.game, v.name, mod.id, e.currentTarget.checked))}
+              onchange={(e) => void setOn(mod, e.currentTarget.checked)}
             />
             <button
               class="open"
@@ -404,6 +457,17 @@
                 >{hasSettings(mod) ? T.PANEL.settings : T.PANEL.details}<Icon name="next" size={16} /></span
               >
             </button>
+            {#if mod.missing?.length}
+              {@const missing = mod.missing}
+              <button
+                class="small"
+                onclick={() =>
+                  void openChangeSet(
+                    missing.map((id) => ({ id, version: null })),
+                    v.game,
+                  )}>{T.fixInstall(missing.join(", "))}</button
+              >
+            {/if}
             {#if update}
               <button
                 class="small update"
@@ -559,11 +623,11 @@
   }
 
   @media (hover: hover) {
-    .open:hover:not(:disabled) {
+    :global(html:where(:not([data-input="pad"]))) .open:hover:not(:disabled) {
       background: var(--panel-hi);
     }
 
-    .open:hover .go {
+    :global(html:where(:not([data-input="pad"]))) .open:hover .go {
       color: var(--amber);
     }
   }

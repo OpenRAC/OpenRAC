@@ -137,21 +137,13 @@ u32 change_effect(Machine& m, u32 data) {
         return 0;
     }
 
-    // Bit 0 of `which` is the volume, bit 1 the pan, bit 2 the modifier, bit 3 the bend (assumed).
-    s32 volume = which & 1 ? static_cast<s32>(m.ee.read32(data + 8)) : snd::SoundStart::kKeepVolume;
-    s32 pan = which & 2 ? static_cast<s32>(m.ee.read32(data + 12)) : snd::SoundStart::kKeepPan;
-
-    playing->set_volume_pan(volume, pan);
-
-    // The pitch modifier was named.
-    if (which & 4) {
-        playing->set_pitch_modifier(static_cast<s32>(m.ee.read32(data + 16)));
-    }
-
-    // The pitch bend was named.
-    if (which & 8) {
-        playing->set_pitch_bend(static_cast<s32>(m.ee.read32(data + 20)));
-    }
+    playing->set_parameters(
+        which,
+        static_cast<s32>(m.ee.read32(data + 8)),
+        static_cast<s32>(m.ee.read32(data + 12)),
+        static_cast<s32>(m.ee.read32(data + 16)),
+        static_cast<s32>(m.ee.read32(data + 20))
+    );
 
     return handle;
 }
@@ -193,6 +185,16 @@ void add_library_services(Machine& machine) {
         std::time_t now = std::time(nullptr);
         std::tm t{};
         localtime_r(&now, &t);
+
+        // OPENRAC_CLOCK (YYYY-MM-DD hh:mm:ss), as the port reads it: the same time every run, so
+        // two runs of the same presses hold the same memory.
+        if (const char* fixed = std::getenv("OPENRAC_CLOCK")) {
+            t = std::tm{};
+            if (std::sscanf(fixed, "%d-%d-%d %d:%d:%d", &t.tm_year, &t.tm_mon, &t.tm_mday, &t.tm_hour, &t.tm_min, &t.tm_sec) == 6) {
+                t.tm_year -= 1900;
+                t.tm_mon -= 1;
+            }
+        }
 
         /*
          * Byte 0 is a status, 0 here; then seconds, minutes, hours, a spare byte, day, month, and

@@ -1,13 +1,13 @@
 # $gp / small-data-area (SDA) investigation
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - Beyond the SOLVED banner below: the "blocked clusters" near the end
 >   (one variable reached both via `$gp` and via `lui`/`$at` in the same
 >   function) were the assembler macro form, solved by `MACRO_ADDR` (see
 >   "SOLVED: the one-instruction macro form" in
->   `docs/DECOMP_PROGRESS.md`). `func_002094A8`, `func_002095E8`,
+>   `docs/reference/DECOMP_PROGRESS.md`). `func_002094A8`, `func_002095E8`,
 >   `func_00209358` and all five DMA packet writers (`func_00234C50`,
 >   `func_00234E80`, `func_00234EE0`, `func_00234F40`, `func_00234FA8`)
 >   are now exact.

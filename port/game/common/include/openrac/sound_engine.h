@@ -52,6 +52,16 @@ uint32_t openrac_sound_command(uint32_t command, const void* data, uint32_t size
 #define OPENRAC_STREAM_TAG 0x40000000u
 uint32_t openrac_stream_play(uint32_t sector, int32_t volume, int32_t group, uint32_t queue_on,
                              uint32_t flags);
+/* The same in stereo from two mono VAG files of one length, the right channel's and the left's;
+ * a left sector of 0 is openrac_stream_play. */
+uint32_t openrac_stream_play_stereo(
+    uint32_t sector,
+    uint32_t left_sector,
+    int32_t volume,
+    int32_t group,
+    uint32_t queue_on,
+    uint32_t flags
+);
 int openrac_stream_live(uint32_t stream);
 int openrac_stream_buffered(uint32_t stream);
 /* Milliseconds left in the part playing (a loop: in this pass), 0 once ended; while the part is
@@ -63,6 +73,24 @@ void openrac_stream_set_volume(uint32_t stream, int32_t volume);
 
 /* Interleaved stereo, 48 kHz: the sounds and the streams. */
 void openrac_sound_render(int16_t* interleaved, size_t frames);
+
+/* An output that mixes ahead of its device (platform/audio.h) says how many of the frames rendered
+ * the device has not taken yet. The game then reads the sound back as it is heard, as it does from
+ * an output that plays each frame as it is rendered: a sound or stream that ended in frames not
+ * heard yet still plays, and a stream's time left counts them. NULL (the default): every frame is
+ * heard as it is rendered. Called from the game's thread; `unheard` may be called from any. */
+void openrac_sound_set_unheard(size_t (*unheard)(void* user), void* user);
+
+/* The mods' own sounds (openrac_mod.h, interface 1.12), mixed after the streams at the sound
+ * effects' master volume (group 0, which follows the Options page's Sound volume): a sound's
+ * samples (interleaved, `channels` 1 or 2, at `rate`) kept, its id returned (-1: refused); a voice
+ * of it played at `volume` (1 its own) and `pitch` (1 its own speed), looped or once, its handle
+ * returned (0: none free); a voice's volume and pitch changed (a volume below 0 changes nothing),
+ * 1 while it plays, 0 once it has ended; a voice stopped. */
+int openrac_sound_mod_add(const int16_t* samples, size_t frames, int channels, uint32_t rate);
+uint32_t openrac_sound_mod_play(int sound, float volume, float pitch, int loop);
+int openrac_sound_mod_set(uint32_t voice, float volume, float pitch);
+void openrac_sound_mod_stop(uint32_t voice);
 
 /* Nonzero: a stream's file is read before openrac_stream_play returns, not on a thread of its own,
  * so it is ready at the same tick on every run (OPENRAC_AUDIO_TICKED, main.cpp). */

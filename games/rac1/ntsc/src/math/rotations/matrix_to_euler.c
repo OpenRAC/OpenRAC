@@ -4,14 +4,14 @@
 
 typedef union {
     float m[4][4];
-    u128 q[4];
+    u128  q[4];
 } Mtx44;
 
-extern void clear_u64_value(float *) __asm__("func_001F99F8");
+extern void  clear_u64_value(float *) __asm__("func_001F99F8");
 extern float fast_arc_tan(float, float) __asm__("FUN_001f9e90");
-extern void euler_rotation_matrix(float *, float *) __asm__("FUN_001fa050");
-extern void euler_to_matrix_ee(float *, float *) __asm__("FUN_001fa070");
-extern void multiply_matrix(Mtx44 *, float *, Mtx44 *) __asm__("FUN_001fa378");
+extern void  euler_rotation_matrix(float *, float *) __asm__("FUN_001fa050");
+extern void  euler_to_matrix_ee(float *, float *) __asm__("FUN_001fa070");
+extern void  multiply_matrix(Mtx44 *, float *, Mtx44 *) __asm__("FUN_001fa378");
 
 /* Matrix to Euler angles: on a copy of src with the translation cleared,
    read the Z angle from row 0, undo it (euler_rotation_matrix builds the Z
@@ -21,7 +21,7 @@ extern void multiply_matrix(Mtx44 *, float *, Mtx44 *) __asm__("FUN_001fa378");
    interleaved lq/sq (a whole-struct copy becomes ld/sd here). */
 void matrix_to_euler(Mtx44 *src, float *out) __asm__("FUN_00214598");
 
-void matrix_to_euler(Mtx44 *input_matrix, float *out) {
+void matrix_to_euler(Mtx44 *input_matrix, float *euler_angles) {
     float cancellation_matrix[16];
     Mtx44 m;
     float cancellation_angles[4];
@@ -51,9 +51,9 @@ void matrix_to_euler(Mtx44 *input_matrix, float *out) {
     cancellation_angles[1] = 0.0f;
     cancellation_angles[0] = -x;
     cancellation_angles[2] = 0.0f;
-    out[2] = z;
-    out[1] = y;
-    out[0] = x;
+    euler_angles[2] = z;
+    euler_angles[1] = y;
+    euler_angles[0] = x;
 }
 
 extern __typeof__(matrix_to_euler) func_00214598 __attribute__((alias("FUN_00214598")));

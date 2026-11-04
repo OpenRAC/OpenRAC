@@ -41,10 +41,10 @@ def main() -> None:
     _seg, src, first, last = find_stub(a.name)
     sample = provenance.sony_sample(Path(a.candidate).read_text())
     if sample:
-        sys.exit(f"{a.candidate}: mentions '{sample}', a name from Sony's sample source (docs/MOVIE.md)")
+        sys.exit(f"{a.candidate}: mentions '{sample}', a name from Sony's sample source (docs/reference/MOVIE.md)")
     if provenance.is_movie_file(src) and not provenance.movie_provenance(a.name):
         sys.exit(f"{a.name} lands in {src}: movie code needs a row in "
-                 f"config/movie_provenance.tsv (docs/MOVIE.md)")
+                 f"config/movie_provenance.tsv (docs/reference/MOVIE.md)")
     lines = src.read_text().splitlines()
     is_stub = STUB.match(lines[first]) is not None
     m = TRAILING.search(lines[first]) if is_stub else None

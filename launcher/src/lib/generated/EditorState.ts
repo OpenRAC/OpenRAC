@@ -32,6 +32,10 @@ packedAt: number | null,
  */
 packedLevels: number, 
 /**
+ * Levels whose gameplay or level-data streams exceed their original disc slots.
+ */
+packedExpandedLevels: Array<number>, 
+/**
  * The packed levels are another version's (packed.json).
  */
 packedOtherVersion: boolean, 

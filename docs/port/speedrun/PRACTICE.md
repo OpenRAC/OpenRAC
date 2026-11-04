@@ -187,7 +187,7 @@ it is documented in [CONTROLLERS.md](../CONTROLLERS.md):
 
 ## 6. The existing practice mods
 
-From [OpenRAC/rac1-mods](https://github.com/OpenRAC/rac1-mods), all of which
+From [OpenRAC/openrac-mods](https://github.com/OpenRAC/openrac-mods), all of which
 work on both discs:
 
 | Mod | What it does for practice |

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Provenance guard for the movie code (docs/MOVIE.md, CONTRIBUTING.md "Sources").
+Provenance guard for the movie code (docs/reference/MOVIE.md, CONTRIBUTING.md "Sources").
 
 The movie code in retail is Sony's ezmpeg sample. On 2026-09-30 it was reverted
 to assembly because it had been compiled from that sample's leaked source. It

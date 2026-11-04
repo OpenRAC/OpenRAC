@@ -22,7 +22,8 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
            | static_cast<Color>(a) << 24;
 }
 
-// app.css's tokens the drawer draws with, under their names there.
+// app.css's tokens the menu (the drawer, the desktop's bar and window) draws with, under their
+// names there. A game's accent (the launcher's palettes.json) sets the bar's and the accent's.
 struct Colors {
     Color ink_deep = rgba(0x12, 0x12, 0x1a);      // --ink-deep: under everything; a switch's track
     Color panel = rgba(0x1d, 0x1d, 0x28);         // --panel: the drawer
@@ -31,6 +32,9 @@ struct Colors {
     Color bar_top = rgba(0xe5, 0xa0, 0x13);       // --bar-top, --bar-bottom: a main button's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);    //   gradient
     Color bar_ink = rgba(0x1b, 0x12, 0x06);       // --bar-ink-deep: the text on it
+    Color bar_label = rgba(0x2a, 0x18, 0x00);     // --bar-ink: the menu bar's tabs
+    Color bar_stripe = rgba(0xc9, 0x92, 0x22);    // --bar-stripe, --bar-stripe-alt: the menu
+    Color bar_stripe_alt = rgba(0xbd, 0x86, 0x19);  //   bar's two golds (debug/menu_window.cpp)
     Color amber = rgba(0xff, 0xb4, 0x43);         // --amber: the focus, the arrows, the logo's mark
     Color gold = rgba(0xff, 0xd0, 0x8a);          // --gold: values, headings
     Color text = rgba(0xe8, 0xf0, 0xff);          // --text

@@ -67,7 +67,7 @@ Gamepad buttons are mapped **by position**, so the bottom face button is
 Cross on a DualSense and A on an Xbox pad
 (`port/platform/input.cpp:46-62`).
 
-With the `fresh_input` setting (off by default, docs/port/SETTINGS.md) the pads are read twice a tick: with the window's events at the end of a tick
+With the `responsive_controls` setting (off by default, docs/port/SETTINGS.md) the pads are read twice a tick: with the window's events at the end of a tick
 (`Input::update`, which also gathers the mods' keyboard and mouse and plays the
 motors), and again just before the next tick runs, after the wait for its time
 and the frames drawn between ticks (`Input::refresh_pads`, called at the end of
@@ -266,11 +266,11 @@ For the other games this is a real gap:
 
 ### 5.1 What SDL3 exposes
 
-The port builds against **SDL 3.2.24** when the system has none
-(`port/cmake/Dependencies.cmake:59`, `GIT_TAG release-3.2.24`). Every gamepad
-and HID API below is present in that version — checked against
-`include/SDL3/SDL_gamepad.h` and `include/SDL3/SDL_hidapi.h` at tag
-`release-3.2.24`.
+The port builds against **SDL 3.4.18** on a desktop and **SDL 3.2.24** on
+Android when the system has none (`port/cmake/Dependencies.cmake`,
+`openrac_sdl_tag`). Every gamepad and HID API below is present in 3.2.24, and
+so in both — checked against `include/SDL3/SDL_gamepad.h` and
+`include/SDL3/SDL_hidapi.h` at tag `release-3.2.24`.
 
 | DualSense feature | SDL3 API | In 3.2.24? | What it does on a DualSense |
 |---|---|---|---|
@@ -432,7 +432,33 @@ The community's advice for a game that wants the advanced features is to
 **disable Steam Input for that title**. On Linux, a native game also needs the
 hidraw path visible.
 
-### 6.6 Linux permissions
+### 6.6 Steam Controller without Steam
+
+SDL reads a Steam Controller itself through its HIDAPI drivers: the 2015 one
+(`SDL_hidapi_steam.c`, wired, its dongle or Bluetooth) and, from SDL 3.4, the
+2026 one, "Triton" (`SDL_hidapi_steam_triton.c`: wired `28de:1302`, the puck
+`28de:1304`). The driver turns off the controller's own mouse-and-keyboard
+mode while the game has it, and the controller plays as any gamepad: face
+buttons, bumpers, analogue triggers, both sticks, the d-pad, View and Menu, and
+its grip buttons as paddles (bindable in the controls). So a game started from
+the launcher or a shortcut needs no "non-Steam game" entry in Steam. The port
+asks for the driver on every desktop (`SDL_JOYSTICK_HIDAPI_STEAM=1`,
+`platform/window.cpp`); `SDL_JOYSTICK_HIDAPI_STEAM=0` in the environment turns
+it off. Android keeps SDL's default (off: it would ask for Bluetooth rights).
+Any controller's L3 opens and closes the menu by default, as its key does,
+while the game's window has the focus (`menu_bar_button`, changed in the
+menu's Controls tab, Menu; the Steam Controller's R4 is `paddle1`). Not
+Select + Start, whose first button reached the game, nor "...": the port cannot keep a
+running Steam client from reading the same controller, and Steam opens its own
+panel on "..." whatever window has the focus.
+
+With the Steam client open, Steam's desktop layout may still move the mouse
+from the controller while the game plays; Steam's "desktop configuration"
+decides that, not the game. On Linux the controller's hidraw nodes need
+Valve's udev rules (`steam-devices`, 6.7). A Linux build against a system SDL
+older than 3.4 knows only the 2015 controller.
+
+### 6.7 Linux permissions
 
 SDL talks to a DualSense over **hidraw** through its bundled HIDAPI driver,
 not over `/dev/input/event*`. That needs a udev rule:
@@ -448,7 +474,7 @@ KERNEL=="hidraw*", KERNELS=="*054C:0CE6*", MODE="0660", TAG+="uaccess"
 `pydualsense`, `dualsensectl` and `hhd`. SDL itself ships only a sample rule
 with a placeholder VID/PID.
 
-### 6.7 Bluetooth is harder
+### 6.8 Bluetooth is harder
 
 - The output report is **78 bytes** with a **CRC32** trailer, against USB's
   48 bytes with none.
@@ -500,7 +526,7 @@ Ordered by value per unit of work, for *this* game.
 | 1 | **Honest analog pressure** — thread `platform::Pad::pressure` through `openrac_game_pad` into `scePad2Read`, instead of re-deriving 0/0xFF from the button bits | **Small** | The port already measures the triggers' real values (`input.cpp:245-254`) and throws them away. With this, a DualSense's L2/R2 report their true travel to the game. It also stops the game believing every held button is pressed at maximum |
 | 2 | **Report the pad's type** — expose the DualSense's identity so the port can say what it is | **Small** | `SDL_GetGamepadType()`, `SDL_GetGamepadVendor()`/`Product()`. The port currently maps by position and never asks what the pad is |
 | 3 | **The light bar** — `SDL_SetGamepadLED()` | **Small** | Nothing in the game drives it, so this is a **port-level** nicety: a player indicator, or a colour that reflects the game state. It needs a player-index mapping first (the port assigns ports by connection order) |
-| 4 | **The touchpad click and the Edge paddles as extra buttons** | **Small** | Two spare inputs the DS2 never had. The paddles are a genuine speedrun aid: weapon and quick-select switching without leaving the thumbstick. They need the port's rebinding work (`SETTINGS.md:305-306`) to be useful |
+| 4 | **The touchpad click and the Edge paddles as extra buttons** | **Small** | Two spare inputs the DS2 never had. The paddles are a genuine speedrun aid: weapon and quick-select switching without leaving the thumbstick. They can be bound now ([CONTROLS.md](CONTROLS.md): `PadLeftPaddle1`, `PadTouchpad`) |
 | 5 | **The gyroscope** — `SDL_SetGamepadSensorEnabled()` / `SDL_GetGamepadSensorData()` | **Medium** | The `keyboard-mouse` mod already turns the mouse into the camera; a gyro could be an alternative for players who prefer it. The game has no use for it, so this is a port-level extra |
 | 6 | **Adaptive triggers** — `SDL_SendGamepadEffect()` with a filled trigger array | **Medium** | **No fidelity payoff**: nothing in R&C1 reads a trigger's travel. It could be a *mod* — a resistance cue on the Swingshot, the Bomb Glove, the Suck Cannon — which is the honest way to offer it, since it changes how the game plays |
 | 7 | **HD haptics** | **Large** | A separate USB audio path SDL cannot do. Only worth it if the port grows a rumble feature the game does not have |
@@ -517,11 +543,11 @@ adaptive triggers.
 
 | | |
 |---|---|
-| **The stick dead zone is the game's own** | The game applies its own: `d >= 0x30` with a `/0x4C` scale (`games/rac1/src/game/pad.c:346-362`). SDL3 applies **no** software dead zone to a DualSense, so the game's own is what you get. A `render_scale`/`msaa` tweak will not change it; a **rebinding and sensitivity page** would |
-| **Rebinding** | `SETTINGS.md:305-306` lists it as *later*: the port's table is hard-coded in `input.cpp:20-62`. The `keyboard-mouse` mod is the workaround today, and it is the comfortable option on a PC |
+| **The stick dead zone is the game's own** | The game applies its own: `d >= 0x30` with a `/0x4C` scale (`games/rac1/src/game/pad.c:346-362`). SDL3 applies **no** software dead zone to a DualSense, so the game's own is what you get. A `render_scale`/`msaa` tweak will not change it; the port's own dead zone, outer edge and sensitivity per stick can ([CONTROLS.md](CONTROLS.md), section 4) |
+| **Rebinding** | The controller's buttons and sticks, chords too, every game's and each game's own ([CONTROLS.md](CONTROLS.md)); the keyboard's buttons by `bind_*` keys. The `keyboard-mouse` mod is still the way to play with the mouse |
 | **Sticks are read as 8-bit** | `stick_byte()` converts SDL's ±32767 to the console's byte (`port/platform/pad.cpp:75-79`), so the resolution the game sees is the console's, not the pad's |
 | **The touchpad and the Edge paddles are free buttons** | Two inputs the DS2 did not have. Mapped to weapon switching, they would remove a thumbstick movement from a run |
-| **Extra buttons the game has no use for** | The DS5's mic button (`SDL_GAMEPAD_BUTTON_MISC1`) and the touchpad are both spare. The port's rebinding work is what makes them usable |
+| **Extra buttons the game has no use for** | The DS5's mic button (`SDL_GAMEPAD_BUTTON_MISC1`) and the touchpad are both spare. They can be bound now (`PadMisc1`, `PadTouchpad`; [CONTROLS.md](CONTROLS.md)) |
 | **Input latency** | The port polls SDL once per tick (`input.cpp:195`), and the tick is on the wall clock (`main.cpp:781-800`). The pad's own latency is the USB or Bluetooth report interval — 250 Hz or 1000 Hz per SDL's driver |
 | **The mouse is not a game control** | The game does not use it; only mods do (`docs/port/DEBUGGING.md:52`). The `keyboard-mouse` mod is how a runner uses it |
 

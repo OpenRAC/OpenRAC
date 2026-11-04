@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Small layer parameters travel with the captured frame; geometry templates remain resident.
+// The strip mesh carries barycentric weights and a local coarse triangle index.
 uniform usamplerBuffer water_coarse;
 uniform int water_mesh;
+layout(location = 3) in uint water_triangle;
+// Vulkan may carry this draw integer separately; OpenGL keeps the ordinary uniform.
+#define OPENRAC_DRAW_INT water_first_triangle
 uniform int water_first_triangle;
 uniform int water_uv_animate;
 uniform vec4 water_uv_motion; // scroll U/V, signed distortion amplitude, original animation phase.
 
 void water_mesh_vertex(inout vec3 p, inout vec2 uv, inout vec4 rgba) {
     if (water_mesh != 0) {
-        int at = (water_first_triangle + gl_InstanceID) * 7;
+        int at = (water_first_triangle + int(water_triangle)) * 7;
         vec3 weights = vec3(1.0 - uv.x - uv.y, uv.x, uv.y);
         p = vec3(0);
         uv = vec2(0);

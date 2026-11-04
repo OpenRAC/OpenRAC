@@ -1,5 +1,6 @@
 """Synthetic moby class blobs, their GLB and class scene; no disc data."""
 
+from dataclasses import replace
 from pathlib import Path
 import struct
 import tempfile
@@ -10,7 +11,7 @@ import games
 from gltf import Gltf
 from godot import write_marker
 from mesh import Mesh
-from moby_class import UNTEXTURED, moby_class
+from moby_class import BANGLE_CLASSES, UNTEXTURED, bangle_classes, bangles, moby_class
 from test_godot import attribute, read_glb
 
 REMAP = bytes((5, 9)) + bytes((255,)) * 14
@@ -180,6 +181,23 @@ class LaterGameTests(unittest.TestCase):
         self.assertIsNone(moby.skeleton)
         self.assertIsNone(moby.mesh.skins)
 
+    def test_bangles_are_classes_of_their_own(self):
+        # Going Commando: the bangle table at header byte 0x2c (in qwords), a word, then per bangle
+        # the high LOD's first packet and count and the low LOD's. Bangle 0 has none; bangle 1 is
+        # packet 0, the class's high LOD here, drawn on its own.
+        data = fixture(compact=True)
+        data[0x2c] = 0x30
+        data[0x300:0x30c] = bytes((0, 1, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0))
+        self.assertEqual(bangles(bytes(data)), [(0, 0), (0, 1)])
+        self.assertEqual(bangles(bytes(fixture(compact=True))), [])
+        fmt = replace(games.RAC2, moby_animations=False)
+        problems = []
+        parts = bangle_classes(bytes(data), REMAP, 42, fmt, problems)
+        self.assertEqual((list(parts), problems), ([BANGLE_CLASSES + 42 * 16 + 1], []))
+        whole = moby_class(bytes(data), REMAP, "moby_42", fmt=fmt)
+        self.assertEqual(parts[BANGLE_CLASSES + 42 * 16 + 1].mesh.positions[:4], whole.mesh.positions[:4])
+        self.assertIsNone(parts[BANGLE_CLASSES + 42 * 16 + 1].metal)
+
 
 class MobySceneTests(unittest.TestCase):
     def test_vertex_normals_make_an_indexed_glb(self):
@@ -198,6 +216,20 @@ class MobySceneTests(unittest.TestCase):
         view = doc["bufferViews"][accessor["bufferView"]]
         self.assertEqual((accessor["componentType"], accessor["type"], view["target"]), (5125, "SCALAR", 34963))
         self.assertEqual(struct.unpack_from("<6I", binary, view["byteOffset"]), (0, 1, 2, 1, 2, 0))
+
+    def test_packets_in_a_file_of_their_own(self):
+        # Going Commando's Ratchet: the class's blob names no packets, a hero pack holds them, with
+        # the counts and the packet table's offset at its start.
+        data = fixture(compact=True)
+        pack = bytearray(data)
+        struct.pack_into("<4BI", pack, 0, 2, 0, 0, 0, 0x50)
+        struct.pack_into("<i4B", data, 0, 0, 0, 0, 0, 0)
+        data[0x50:0x70] = bytes(0x20)
+        data[0x80:] = bytes(len(data) - 0x80)
+        fmt = replace(games.RAC2, moby_animations=False)
+        hero = moby_class(data, [1000 + i for i in range(16)], "moby_0", fmt=fmt, mesh_file=bytes(pack))
+        self.assertEqual(moby_class(data, REMAP, "moby_0", fmt=fmt).mesh, None)
+        self.assertEqual(set(hero.mesh.faces), {("moby", 1001)})
 
     def test_class_scene_with_model(self):
         with tempfile.TemporaryDirectory() as tmp:

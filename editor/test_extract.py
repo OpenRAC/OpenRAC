@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 from pathlib import Path
 import pickle
 import sys
@@ -47,6 +48,24 @@ class OutputTests(unittest.TestCase):
 
 
 class PoolTests(unittest.TestCase):
+    def test_jobs_leave_threads_free_unless_told(self):
+        with mock.patch.dict(os.environ, {}, clear=False), mock.patch("os.cpu_count", return_value=8):
+            os.environ.pop("OPENRAC_EXTRACT_JOBS", None)
+            self.assertEqual(extract.default_jobs(), 6)
+            for given, jobs in (("all", 8), ("3", 3), ("0", 6), ("many", 6)):
+                os.environ["OPENRAC_EXTRACT_JOBS"] = given
+                self.assertEqual(extract.default_jobs(), jobs, given)
+
+    def test_level_exports_lower_their_priority(self):
+        for command, lowered in (("port", True), ("godot", True), ("survey", False)):
+            args = [command, "missing.iso"] + (["build/out"] if command != "survey" else [])
+            with mock.patch.object(sys, "argv", ["extract.py", *args]), \
+                    mock.patch.object(extract.background, "lower_priority") as lower, \
+                    mock.patch.object(extract, "Disc", side_effect=FileNotFoundError("missing.iso")), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
+                extract.main()
+            self.assertEqual(lower.called, lowered, command)
+
     def test_processes_where_python_has_them(self):
         with worker_pool(2) as pool:
             self.assertIsInstance(pool, ProcessPoolExecutor)
@@ -60,6 +79,17 @@ class PoolTests(unittest.TestCase):
                 # Only the level exports run there.
                 with self.assertRaises(RuntimeError):
                     pool.submit(sum, [1, 2]).result()
+
+    def test_every_submitted_export_may_run_in_its_own_process(self):
+        # Android uses SubprocessPool, which runs only WORKER_FUNCTIONS.
+        import ast
+        tree = ast.parse(Path(extract.__file__).read_text())
+        submitted = {call.args[0].id for call in ast.walk(tree)
+                     if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                     and call.func.attr == "submit" and isinstance(call.func.value, ast.Name)
+                     and call.func.value.id == "pool"}
+        self.assertIn("export_port_wad_flight", submitted)
+        self.assertEqual(submitted - set(extract.WORKER_FUNCTIONS), set())
 
     def test_a_worker_runs_one_export_and_pickles_its_result(self):
         stdin = io.TextIOWrapper(io.BytesIO(pickle.dumps(("export_port_title", ("disc.iso",), {"lod": 1}))))
@@ -231,3 +261,15 @@ class SecondExportTests(unittest.TestCase):
         extract.export_godot(godot, [0], True, True, fake_godot(extract.GODOT_SCHEMA))
         with self.assertRaisesRegex(FormatError, "Godot projects"):
             extract.ours(godot, "port")
+
+
+class LauncherStampTests(unittest.TestCase):
+    def test_the_launcher_looks_for_the_stamp_each_game_writes(self):
+        import re
+        from port import levels_format
+        actions = (ROOT / "launcher" / "actions.json").read_text(encoding="utf-8")
+        stamps = set(re.findall(r"assets/port/(rac\d)/\w+/levels-(\d+)\.json", actions))
+        self.assertTrue(stamps)
+        for game, written in stamps:
+            with self.subTest(game):
+                self.assertEqual(int(written), levels_format(game))

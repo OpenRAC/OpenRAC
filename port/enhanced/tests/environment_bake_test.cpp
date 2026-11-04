@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Captures consume the completed GI field and visible emission, with deterministic parallel output.
+#include <cfenv>
 #include <cmath>
 #include <numbers>
 
@@ -320,8 +321,8 @@ int main() {
     options.maximum_probes = 2;
     options.spacing = 2;
     options.filter_samples = 16;
-    const auto first = bake_environment(scene, {}, std::span(&volume, 1), seeds, options, 1);
-    const auto parallel = bake_environment(scene, {}, std::span(&volume, 1), seeds, options, 2);
+    const auto first = bake_environment(scene, {}, std::span(&volume, 1), seeds, options, {1});
+    const auto parallel = bake_environment(scene, {}, std::span(&volume, 1), seeds, options, {2});
     // Open floor fragments three units apart share one capture under the six-unit spacing rule.
     CHECK(first.probes.size() == 1);
 
@@ -330,6 +331,12 @@ int main() {
     }
 
     CHECK(encode_environment(first) == encode_environment(parallel));
+    BakeThreadPool pool(2);
+    // Reused GI workers may retain directed rounding; captures must restore the caller's mode.
+    CHECK(pool.run(2, [] { std::fesetround(FE_DOWNWARD); }).has_value());
+    const auto reused =
+        bake_environment(scene, {}, std::span(&volume, 1), seeds, options, {2, &pool});
+    CHECK(encode_environment(first) == encode_environment(reused));
     const unsigned side = first.face_resolution() + 2;
     const unsigned centre = first.face_resolution() / 2 + 1;
     const auto value = unpack_environment_colour(
@@ -377,9 +384,9 @@ int main() {
 
         CHECK(report.uncovered.empty() && report.ownership_conflicts == 0);
         const auto serial =
-            bake_environment(scene, {}, std::span(&wide, 1), hall, prune_options, 1);
+            bake_environment(scene, {}, std::span(&wide, 1), hall, prune_options, {1});
         const auto threaded =
-            bake_environment(scene, {}, std::span(&wide, 1), hall, prune_options, 2);
+            bake_environment(scene, {}, std::span(&wide, 1), hall, prune_options, {2});
         CHECK(encode_environment(serial) == encode_environment(threaded));
         prune_options.box_distance = 6;
         const auto limited = bake_detail::place_environment_probes(

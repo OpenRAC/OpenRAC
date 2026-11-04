@@ -11,11 +11,11 @@
 namespace openrac::enhanced {
 // Session-only material tuning, shared safely between the UI and render worker.
 struct WetnessMaterialSettings {
-    float diffuse_scale = .32f;
-    float specular_strength = 4;
-    float dry_roughness = .52f;
-    float wet_roughness = .30f;
-    float reflectivity = .02037f;
+    float diffuse_scale = .28f;
+    float specular_strength = 1;
+    float dry_roughness = .50f;
+    float wet_roughness = .34f;
+    float reflectivity = .0632f;
 };
 
 WetnessMaterialSettings wetness_material_settings();
@@ -36,6 +36,13 @@ public:
         const std::optional<scene::Instance>& hero
     );
     void bind(const renderer::Shader& shader) const;
+    // Binds cached material response without changing the GPU wetness history.
+    void bind(const renderer::Shader& shader, const WetnessMaterialSettings& settings) const;
+
+    // Updates optical uniforms without changing wetness history or rebinding its storage.
+    void bind_material(
+        const renderer::Shader& shader, const WetnessMaterialSettings& settings
+    ) const;
 
 private:
     renderer::Shader m_update;

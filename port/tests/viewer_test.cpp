@@ -77,6 +77,13 @@ void pvs_lookup() {
     CHECK(pvs.select({400, 0, 0}) == scene::Pvs::all_visible());
     CHECK(pvs.select({NAN, 0, 0}) == scene::Pvs::all_visible());
     CHECK(pvs.select({INFINITY, 0, 0}) == scene::Pvs::all_visible());
+    // Retail keeps the last mask outside the grid; before any cell, everything shows.
+    auto follow = pvs_fixture();
+    CHECK(follow.follow({400, 0, 0}) == scene::Pvs::all_visible());
+    CHECK(follow.follow({4, 0, 0}) == b);
+    CHECK(follow.follow({400, 0, 0}) == b);
+    CHECK(follow.follow({NAN, 0, 0}) == b);
+    CHECK(follow.follow({0, 0, 0}) == a);
     for (const unsigned size : {0u, 7u, 31u, 33u}) {
         auto broken = pvs;
         broken.grid.resize(size);
@@ -576,13 +583,9 @@ int draw(scene::LevelData& level) {
     input.camera.view = camera.view();
     input.camera.position = camera.position;
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));
+    CHECK(renderer.last_stats().draw_calls == 2);
     auto pvs_pixels = frame.read_rgba();
-    if (gl::is_vulkan()) {
-        CHECK(pvs_pixels[(64 * 128 + 64) * 4] > 150);  // hidden blue tie exposes red terrain
-    } else {
-        CHECK(pvs_pixels[(64 * 128 + 64) * 4 + 2] > 150);  // GL/ES keep drawing the blue tie
-    }
+    CHECK(pvs_pixels[(64 * 128 + 64) * 4] > 150);  // hidden blue tie exposes red terrain
     camera.position[0] = 4;
     input.camera.position = camera.position;
     input.camera.view = camera.view();
@@ -592,7 +595,36 @@ int draw(scene::LevelData& level) {
     input.camera.position = camera.position;
     input.camera.view = camera.view();
     renderer.render(input, {frame.id(), 128, 128});
-    CHECK(renderer.last_stats().draw_calls == (gl::is_vulkan() ? 2 : 3));  // camera cache refresh
+    CHECK(renderer.last_stats().draw_calls == 2);  // camera cache refresh
+
+    // Inspect the x=4 view while preserving x=0 visibility, then restore ordinary camera selection.
+    input.culling_camera = input.camera;
+    camera.position[0] = 4;
+    input.camera.position = camera.position;
+    input.camera.view = camera.view();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 2);
+    // The same frozen clip volume is drawable from the observer, on both backends.
+    input.culling_inspection = 0;
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 4);
+    CHECK(gl::glGetError() == gl::GL_NO_ERROR);
+    // A distant inspected camera rejects the scene, leaving only the two debug-line passes.
+    const auto inspected = *input.culling_camera;
+    auto distant = camera;
+    distant.position[2] += 100000;
+    input.culling_camera->position = distant.position;
+    input.culling_camera->view = distant.view();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 2);
+    input.culling_camera = inspected;
+    input.culling_inspection.reset();
+    input.culling_camera.reset();
+    renderer.render(input, {frame.id(), 128, 128});
+    CHECK(renderer.last_stats().draw_calls == 3);
+    camera.position[0] = 0;
+    input.camera.position = camera.position;
+    input.camera.view = camera.view();
 
     if (gl::is_vulkan()) {
         stats::set_enabled(stats::Client::Overlay, true);
@@ -637,6 +669,33 @@ int draw(scene::LevelData& level) {
             CHECK(completed.triangles == cpu_triangles);
 #endif
         }
+        // An independently inspected frustum must reject the same blended instances on CPU and GPU.
+        input.culling_inspection = 0;
+        for (float x : {0.f, 50000.f}) {
+            auto inspected_camera = camera;
+            inspected_camera.position[0] = x;
+            input.culling_camera = input.camera;
+            input.culling_camera->position = inspected_camera.position;
+            input.culling_camera->view = inspected_camera.view();
+            test::gpu_draw_reference(true);
+            renderer.render(input, {frame.id(), 128, 128});
+            const auto expected = frame.read_rgba();
+            const auto expected_draws = renderer.last_stats().draw_calls;
+            const auto expected_triangles = renderer.last_stats().triangles;
+            test::gpu_draw_reference(false);
+            CHECK(test::gpu_draw_active());
+            renderer.render(input, {frame.id(), 128, 128});
+            CHECK(frame.read_rgba() == expected);
+#if defined(OPENRAC_VULKAN)
+            // Mesh counters exclude the two direct line-overlay draws.
+            CHECK(
+                vkgl::gpu_completed_draws().draws == static_cast<std::uint64_t>(expected_draws - 2)
+            );
+            CHECK(vkgl::gpu_completed_draws().triangles == expected_triangles);
+#endif
+        }
+        input.culling_inspection.reset();
+        input.culling_camera.reset();
 #if defined(OPENRAC_VULKAN)
         // Counters arrive when a slot is reused, now deferred until its first GPU
         // operation. Match recording IDs rather than assuming collection at present.
@@ -1028,6 +1087,52 @@ void write_grid(
     write_text(path, gltf);
 }
 
+// Native mods' assets (MODS.md, section 3): each mod's level_03 is searched before the data pack's
+// and the level's own, the first mod first; a mod's classes.json adds a moby class with its own mesh.
+void mod_assets(const fs::path& dir) {
+    const fs::path base = dir.parent_path() / (dir.filename().string() + "_assets");
+    const fs::path first = base / "first" / "level_03";
+    const fs::path second = base / "second" / "level_03";
+    const fs::path pack = base / "pack" / "level_03";
+    fs::remove_all(base);
+    fs::create_directories(first / "textures");
+    fs::create_directories(second / "textures");
+    fs::create_directories(pack / "textures");
+    const auto solid = [](const fs::path& path, int size, std::uint8_t red) {
+        std::vector<std::uint8_t> pixels(static_cast<std::size_t>(size * size * 4), 255);
+        for (std::size_t i = 0; i < pixels.size(); i += 4) {
+            pixels[i] = red;
+        }
+        stbi_write_png(path.string().c_str(), size, size, 4, pixels.data(), size * 4);
+    };
+    solid(first / "textures" / "terrain_0000.png", 4, 11);
+    solid(second / "textures" / "terrain_0000.png", 8, 22);
+    solid(pack / "textures" / "terrain_0000.png", 16, 33);
+    write_square(second / "mobys" / "added.gltf", 4.0f, 0.0f, "../textures/tie_0001.png");
+    write_text(second / "classes.json", R"({"moby": {"1234": {"mesh": "mobys/added.gltf"}}})");
+
+    scene::LevelData level;
+    std::string error;
+    CHECK(scene::load_level(dir, level, error, pack / "placements.json", {first, second}));
+    // The first mod's terrain texture wins over the second's and the data pack's.
+    CHECK(level.images[0].width == 4 && (level.images[0].texel(0, 0) & 0xFF) == 11);
+    // The second mod's class is there, its mesh 4 units across; the level's own class 7 too.
+    CHECK(level.moby_classes.contains(1234) && level.moby_classes.contains(7));
+    if (level.moby_classes.contains(1234)) {
+        const auto& added = level.models[level.moby_classes.at(1234).first];
+        CHECK(std::fabs(added.max[0] - 2.0f) < 1e-6f);
+    }
+    // Without the first mod, the second's texture.
+    scene::LevelData one;
+    CHECK(scene::load_level(dir, one, error, {}, {second}));
+    CHECK(one.images[0].width == 8 && (one.images[0].texel(0, 0) & 0xFF) == 22);
+    // A broken classes.json is an error, not a silent skip.
+    write_text(second / "classes.json", R"({"moby": {"5": {"scale": 2}}})");
+    scene::LevelData broken;
+    CHECK(!scene::load_level(dir, broken, error, {}, {second}) && error.find("no mesh") != std::string::npos);
+    fs::remove_all(base);
+}
+
 // A mod's terrain (editor/overrides.py: level_NN/terrain.glb, as the manifest names it), denser than
 // the level's: drawn in its place whatever its vertex count, lit by its vertex colours, naming the
 // level's terrain texture it does not carry.
@@ -1087,34 +1192,6 @@ void translucent_texels(const fs::path& dir) {
     CHECK(!material_of(scene::Layer::Terrain).cutout);
     CHECK(material_of(scene::Layer::Ties).cutout);
     fs::remove_all(glass);
-}
-
-// MobyProc's distance cull as the port replays it: a moby whose sphere is past its draw distance
-// along the view, or wholly behind the eye, is not drawn; one with no sphere yet is.
-void moby_draw_distance() {
-    std::uint8_t moby[0x100] = {};
-    const auto place = [&](float x, float y, float z, float r, std::int16_t distance) {
-        const float sphere[4] = {x * 1024.0f, y * 1024.0f, z * 1024.0f, r * 1024.0f};
-        std::memcpy(moby, sphere, sizeof(sphere));
-        std::memcpy(moby + 0x32, &distance, sizeof(distance));
-    };
-    const renderer::Vec3 eye{100.0f, 0.0f, 0.0f};
-    const renderer::Vec3 forward{1.0f, 0.0f, 0.0f};
-    place(150.0f, 30.0f, 0.0f, 1.0f, 64);  // 50 deep, off to the side: drawn
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(170.0f, 0.0f, 0.0f, 1.0f, 64);  // 70 deep, past 64
-    CHECK(game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(90.0f, 0.0f, 0.0f, 1.0f, 64);  // behind the eye
-    CHECK(game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    place(99.5f, 0.0f, 0.0f, 1.0f, 64);  // the eye inside its sphere
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
-    // Pokitaru's class 1161 placed with a turn of -5 pi: its sphere thousands of units away.
-    place(9286.5f, 5217.6f, 235.1f, 1.08f, 64);
-    CHECK(
-        game::rac1::moby_beyond_draw_distance(moby, {550.0f, 530.0f, 230.0f}, {0.7f, 0.7f, 0.0f})
-    );
-    place(0.0f, 0.0f, 0.0f, 0.0f, 64);  // no sphere yet
-    CHECK(!game::rac1::moby_beyond_draw_distance(moby, eye, forward));
 }
 
 // The frame's clear colour is the game's: the level settings' background the gameplay loader put in
@@ -1185,13 +1262,13 @@ int main(int argc, char** argv) {
         argc > 1 ? fs::path(argv[1]) : fs::temp_directory_path() / "openrac_viewer_test";
     json_reader();
     pvs_lookup();
-    moby_draw_distance();
     background_colour();
     moby_world_sphere();
     write_level(dir);
     scene::LevelData level;
     loader(dir, level);
     overrides(dir);
+    mod_assets(dir);
     denser_terrain(dir);
     translucent_texels(dir);
     pvs_loader(dir);

@@ -17,6 +17,7 @@ only a contributor reads under developer tools (the last section).
 | The game list on the left                                | `pages/Mods.svelte` (`modState`) on `GamesFrame.svelte` | always                                                                    |
 | The head: the game's name, a lead line, Play with mods   | `pages/Mods.svelte`                                     | a game is picked; Play with mods when the level editor can open the game  |
 | The tabs: My mods, Level editor, Models and textures     | `pages/Mods.svelte`                                     | the level editor can open the game                                        |
+| The tab Audio, after them                                | `pages/Mods.svelte`                                     | the version has the `audio-export` action (Ratchet & Clank's two discs)   |
 | My mods → Add a mod (a link, a file, a folder, a drop)   | `components/AddMod.svelte`                              | My mods; the link field when the game has a port that plays               |
 | My mods → Gameplay mods (native and script mods, Purist) | `components/PluginsPanel.svelte`                        | the game has a port that plays (its `play` action is not `planned`)       |
 | A gameplay mod's own page (its settings)                 | `components/ModPage.svelte`, `ModSetting.svelte`        | its row opened (`lib/modNav.svelte.ts`), in place of My mods' lists       |
@@ -24,6 +25,7 @@ only a contributor reads under developer tools (the last section).
 | My mods → "Want to make your own?" (to the Level editor) | `pages/Mods.svelte`                                     | under the lists                                                           |
 | Level editor: Open a level in Godot, Pack your changes   | `pages/Mods.svelte` (tab `editor`)                      | the level editor can open the game                                        |
 | Models and textures: Export, Import your edits           | `components/AssetsPanel.svelte` (tab `assets`)          | the level editor can open the game                                        |
+| Audio: Export, Import your edits                         | `components/AudioPanel.svelte` (tab `audio`)            | as the tab                                                                |
 | For developers                                           | `pages/Mods.svelte`                                     | developer tools on, under My mods and Level editor                        |
 | The crash notice's mods line                             | `components/CrashNotice.svelte`                         | on a game's page, after a crash, when the last start loaded gameplay mods |
 | Purist mode in Settings                                  | `pages/Settings.svelte` (General)                       | desktop only                                                              |
@@ -43,7 +45,7 @@ only a contributor reads under developer tools (the last section).
 
 | Kind of game                                                           | What shows                                                                                                                                                |
 | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Playable, editor available (Ratchet & Clank in a checkout)             | the head with Play with mods, the three tabs; My mods has Add a mod (link, file, folder), Gameplay mods and the packs                                     |
+| Playable, editor available (Ratchet & Clank in a checkout)             | the head with Play with mods, the four tabs; My mods has Add a mod (link, file, folder), Gameplay mods and the packs                                      |
 | Playable, no editor (an installed launcher without the editor's tools) | the head without Play with mods (the game page plays with the gameplay mods), Add a mod and Gameplay mods; no tabs                                        |
 | Early access (Going Commando, Up Your Arsenal, Deadlocked)             | the head (Play with mods off, `T.PAGE.playEarly`), a dashed line `T.PAGE.earlyTitle` / `earlyLine`, the tabs; My mods adds by file only, no Gameplay mods |
 | Neither                                                                | `T.PAGE.noneTitle`, `noneLine` and a link to openrac.dev                                                                                                  |
@@ -58,13 +60,14 @@ One panel for every kind: the player never says which kind a mod is.
 `lib/addMods.ts` sends a native or script mod to the gameplay mods and a
 texture and model pack to the packs.
 
-| Element      | Words                                                                                                 | Notes                                                                                                               |
-| ------------ | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Title        | `T.ADD.title`                                                                                         | Browse mods (`T.ADD.browse`, opens `T.ADD.modsUrl`) beside it for Ratchet & Clank                                   |
-| Link field   | placeholder `T.ADD.linkPlaceholder`, label `T.ADD.linkLabel`, button `T.ADD.go`                       | accepts https, http, no scheme, `.git`, `/tree/<branch>/<folder>`, `/releases/tag/<v>`, `git@github.com:o/r`, `o/r` |
-| File, Folder | `T.ADD.file`, `T.ADD.folder`; pickers `T.ADD.pickZip`, `T.ADD.pickFolder`                             | a format-1 pack chosen here goes to the packs                                                                       |
-| Drop hint    | `T.ADD.drop`, while a file is held over the window `T.ADD.dropHere` (the panel's border dashes amber) | in the app only                                                                                                     |
-| Result       | a line under the bar                                                                                  | `T.added.*`, `T.installedFrom.*`, or the error in `--err`                                                           |
+| Element           | Words                                                                                                 | Notes                                                                                                                                                                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Title             | `T.ADD.title`                                                                                         | Browse mods (`T.ADD.browse`, opens `T.ADD.modsUrl`) and Publish your mod (`T.ADD.publish`, opens `T.ADD.publishUrl`) beside it for Ratchet & Clank                                                                                            |
+| Link field        | placeholder `T.ADD.linkPlaceholder`, label `T.ADD.linkLabel`, button `T.ADD.go`                       | accepts https, http, no scheme, `.git`, `/tree/<branch>/<folder>`, `/releases/tag/<v>`, `git@github.com:o/r`, `o/r`; an `openrac.dev/mods/<id>` or `openrac://` link opens the change set; any other openrac.dev page says `T.ADD.notModPage` |
+| Added from before | `T.SAVED_SOURCES.label`, one button per link in `sources.json`                                        | only with a link already saved; a click fills the field and reads the repository, as typing it would                                                                                                                                          |
+| File, Folder      | `T.ADD.file`, `T.ADD.folder`; pickers `T.ADD.pickZip`, `T.ADD.pickFolder`                             | a format-1 pack chosen here goes to the packs                                                                                                                                                                                                 |
+| Drop hint         | `T.ADD.drop`, while a file is held over the window `T.ADD.dropHere` (the panel's border dashes amber) | in the app only                                                                                                                                                                                                                               |
+| Result            | a line under the bar                                                                                  | `T.added.*`, `T.installedFrom.*`, or the error in `--err`                                                                                                                                                                                     |
 
 ### A link's preview
 
@@ -87,12 +90,12 @@ switch it on, open it, play (Play with mods, in the page's head).
 
 ### The panel's head
 
-| Element           | Words                                  | Notes                                                                               |
-| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------- |
-| Title             | `T.PANEL.title`                        |                                                                                     |
-| Check for updates | `T.PANEL.checkUpdates`                 | only when a mod came from a link; also runs by itself once a day, silently          |
-| Load order        | `T.PANEL.orderTitle`                   | a small line under the list, with two or more mods                                  |
-| Purist mode       | `T.PURIST.title`, `T.PURIST.panelLine` | the panel's last row; the launcher-wide setting (Settings: `T.PURIST.settingsLine`) |
+| Element           | Words                                  | Notes                                                                                                                         |
+| ----------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Title             | `T.PANEL.title`                        |                                                                                                                               |
+| Check for updates | `T.PANEL.checkUpdates`                 | only when a mod came from a link; the launcher looks once a day at start (`lib/modUpdates`) and the panel shows what it found |
+| Load order        | `T.PANEL.orderTitle`                   | a small line under the list, with two or more mods                                                                            |
+| Purist mode       | `T.PURIST.title`, `T.PURIST.panelLine` | the panel's last row; the launcher-wide setting (Settings: `T.PURIST.settingsLine`)                                           |
 
 ### States of the panel
 
@@ -203,12 +206,69 @@ level, what, Export; Read the levels first for a game in early access; Open
 folder for the last export, `api.openOutput`) and Import your edits
 (`T.ASSETS.importLine`; the result `imported`, `importedRefused`, or the error).
 
+## Audio (AudioPanel.svelte)
+
+As Models and textures, for sound ([editor/AUDIO_MODDING.md](../../editor/AUDIO_MODDING.md)). A lead
+line with How it works (`T.AUDIO.lead`, `howItWorks`), then Export (a level or `T.AUDIO.allLevels`, what,
+Export; `T.AUDIO.large` beside the line for a large whole-game choice; `T.AUDIO.readyFirst` with no disc;
+the job's progress while it writes; Open folder for the last export) and Import your edits
+(`T.AUDIO.importLine`; the result `imported`, `importedRefused`, `importRefused`, `nothing`, or the error).
+A partial import confirms the pack was made, in `--warn`; a refusal leaving nothing to import is in
+`--err`. Open activity log beside the result selects that import and opens its output in Activity
+(Develop's console with developer tools on). The pack it
+makes is listed with the others under Textures, models, levels and sound (`T.PACKS.title`).
+
+## The mod hub: Browse and the change set
+
+Mods from the signed index (`core/src/index.rs`; openrac-mods `INDEX_FORMAT.md`), installed from
+the Browse tab or an `openrac://` link from openrac.dev. Words: `T.CHANGE_SET`, `T.BROWSE`,
+`T.PRESET_LABEL`, `T.DETAIL_TAB` and the functions after them in modsText.ts.
+
+| Part                                                      | Component                                                      | What shows                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browse (tab `browse`; Android: under Add a mod, as cards) | `components/ModBrowse.svelte`                                  | search (`lib/modSearch.ts`, `/` focuses it, Esc clears), presets (`lib/modBrowse.ts`), a table and a details pane with Metadata, Relationships, Versions, Files and `T.BROWSE.viewOnSite`; a video is its picture and `T.BROWSE.watch`, opened in the browser |
+| The change set                                            | `components/DeepLinkInstall.svelte` (`lib/deepLink.svelte.ts`) | `T.CHANGE_SET.picked`, `alsoInstalls`, recommended (ticked) and suggested (not), one `nativeWarning`, `noteText` per note, blocking `conflictText` with `replaceWith`, `missingText`, `whyText`; the button `installCount(n)` or `T.CHANGE_SET.switchToDev`   |
+| Installing                                                | the same                                                       | each mod's `T.STEP_LABEL`; then `appliedText`, `T.CHANGE_SET.backedUp` when saves were backed up, `play` and `backToMods`                                                                                                                                     |
+
+| State                      | Words                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| Loading the list           | `T.CHANGE_SET.loading`                                                             |
+| The list could not be used | `modErrorText(kind)`, its detail folded, the error's action (`retry`, `useCached`) |
+| From the cache             | `offlineText(fetchedAt)`                                                           |
+| Past its expiry            | `T.INDEX_STATE.stale`                                                              |
+| A newer index format       | `T.INDEX_STATE.newerFormat`                                                        |
+| A revoked mod turned off   | `revokedOffText`                                                                   |
+| Nothing matches            | `noMatch(q)`, `didYouMean(name)`, `T.BROWSE.clearFilters`                          |
+
+### Kept current and tidy (Phase 5)
+
+| What                                                                                                           | Where                                                    | Words                                                                                                                                                         |
+| -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Updates in by themselves (patch, minor): at start, every 6 h, before Play with mods; never while the game runs | `lib/modAutoUpdate.svelte.ts`, `core/src/mod_updates.rs` | toast `updatedMods(n)`; "Just updated" with each changelog (`T.UPDATES.recentTitle`)                                                                          |
+| A major, or a native version with new hooks                                                                    | `components/ModUpdatesPanel.svelte`                      | `T.UPDATES.waitingTitle`, `holdText`, the changelog folded, `T.UPDATES.update`                                                                                |
+| Held back (another mod's `requires`, a newer launcher)                                                         | the same                                                 | `T.UPDATES.heldTitle`, `holdText` ("Held back: A needs B 1.2.0")                                                                                              |
+| Turning a mod on turns its dependencies on                                                                     | `PluginsPanel.svelte` (`plugins_turn_on`)                | `alsoTurnedOn(names)`                                                                                                                                         |
+| Turning off a mod others need                                                                                  | the same                                                 | asks `turnOffAsk(names, name)`                                                                                                                                |
+| Removing a mod                                                                                                 | the same (`plugins_orphans`, `plugins_remove_with`)      | the launcher's own unused dependencies go (Settings: `T.SETTINGS_TEXT.cleanUp`); the player's own are asked about with `removeDepsAsk`; then `removedDeps(n)` |
+| A mod from a link missing a dependency                                                                         | its row                                                  | `fixInstall(id)`, opening the change set                                                                                                                      |
+| Share my setup                                                                                                 | the panel's head                                         | `T.DEPS.shareSetup`; `T.DEPS.shareCopied` / `shareNone`                                                                                                       |
+| Kept at a version                                                                                              | `ModPage.svelte`'s source line                           | `pinnedShared` (installed from a shared setup's exact versions), `pinnedRollback`, else `keptAt`                                                              |
+| A crash after an update                                                                                        | `CrashNotice.svelte`                                     | `crashAfterUpdate(names)`, one `rollBackTo(name, version)` per mod, then `rolledBack`                                                                         |
+
+Updates are staged in `plugins/.staging/<id>/` and swapped in; the version replaced waits in
+`plugins/.previous/<id>/` (one kept). An update set is all or nothing.
+
+One link is shown at a time and one more waits; any others are dropped. A link never installs
+anything by itself. "Switch to the dev build" saves the dev channel and the link
+(`Config.pendingDeepLink`), which opens again after the update.
+
 ## Android
 
 On Android the tab is one page with no tabs (Mods.svelte, `mine`): Gameplay
 mods, with Enhanced graphics and its switch first; Add a mod; then the
 texture and model packs. The level editor, Models and textures, and the game
-page's "Edit its levels" need Godot and a desktop, so they are left out.
+page's "Edit its levels" need Godot and a desktop, so they are left out; Audio is
+too, though a pack of sound added from a link or a .zip plays there as anywhere.
 
 - **Enhanced graphics** bakes the lighting on the device, with the probe
   baker `tools/build_android.py` puts in the APK.

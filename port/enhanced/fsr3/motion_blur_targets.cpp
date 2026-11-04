@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 // Motion blur shader preparation and render-target ownership.
+#include "common/log.h"
 #include "common/stats.h"
 #include "enhanced/fsr3/motion_blur.h"
+#include "enhanced/fsr3/temporal_pass.h"
 #include "fsr3_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/vulkan/native_compute.h"
@@ -20,6 +22,8 @@ bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& err
         std::string fast_jump(shaders::blur_jump_frag);
         fast_jump.insert(fast_jump.find('\n') + 1, "#define FAST_FLOOD 1\n");
         std::string fast_first(fast_jump);
+        std::string unique_jump(fast_jump);
+        unique_jump.insert(unique_jump.find('\n') + 1, "#define UNIQUE_SEEDS 1\n");
         fast_first.insert(fast_first.find('\n') + 1, "#define INITIALIZE_SEEDS 1\n");
         std::string first_jump(shaders::blur_jump_frag);
         first_jump.insert(first_jump.find('\n') + 1, "#define INITIALIZE_SEEDS 1\n");
@@ -44,6 +48,28 @@ bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& err
                 "blur and copy resolve", shaders::fullscreen_vert, copy_resolve, error
             )) {
             return false;
+        }
+        for (unsigned mode = 0; mode < m_extract_variants.size(); ++mode) {
+            auto velocity_source = renderer::shader_constants(
+                shaders::blur_velocity_frag, {{"camera_relative", int(mode)}}
+            );
+            velocity_source.insert(
+                velocity_source.find('\n') + 1,
+                mode ? "#define OPENRAC_BLUR_CAMERA 1\n" : "#define OPENRAC_BLUR_GAMEPLAY 1\n"
+            );
+            if (!m_extract_variants[mode].build(
+                    mode ? "camera blur velocity" : "target blur velocity",
+                    shaders::fullscreen_vert,
+                    velocity_source,
+                    error
+                )) {
+                return false;
+            }
+        }
+        if (!m_unique_jump
+                 .build("blur unique flood", shaders::fullscreen_vert, unique_jump, error)) {
+            log::warn("Original motion-blur flood retained: {}", error);
+            error.clear();
         }
     }
     if (m_size != std::array{width, height, rw, rh}) {
@@ -91,17 +117,17 @@ unsigned MotionBlur::reconstruction_output(int width, int height) {
 void MotionBlur::present_reconstruction(const renderer::RenderTarget& display) {
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_colour.framebuffer());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, display.framebuffer);
-    glBlitFramebuffer(
-        0,
-        0,
-        display.width,
-        display.height,
-        0,
-        0,
-        display.width,
-        display.height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST
+    // The native complete-image blit retains its existing filtering and extent.
+    blit_pass(
+        "blur reconstruction presentation",
+        m_colour.framebuffer(),
+        display.framebuffer,
+        vkgl::TemporalConsumer::Attachment,
+        [width = display.width, height = display.height] {
+            glBlitFramebuffer(
+                0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+            );
+        }
     );
     glBindFramebuffer(GL_FRAMEBUFFER, display.framebuffer);
     glViewport(0, 0, display.width, display.height);
@@ -111,17 +137,17 @@ void MotionBlur::copy_colour(const renderer::RenderTarget& display) {
     const stats::Scope copy("Motion blur colour copy", stats::kGpu);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, display.framebuffer);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_colour.framebuffer());
-    glBlitFramebuffer(
-        0,
-        0,
-        display.width,
-        display.height,
-        0,
-        0,
-        display.width,
-        display.height,
-        GL_COLOR_BUFFER_BIT,
-        GL_NEAREST
+    // The native complete-image blit retains its existing filtering and extent.
+    blit_pass(
+        "blur display snapshot",
+        display.framebuffer,
+        m_colour.framebuffer(),
+        vkgl::TemporalConsumer::Shader,
+        [width = display.width, height = display.height] {
+            glBlitFramebuffer(
+                0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST
+            );
+        }
     );
 }
 
@@ -132,16 +158,23 @@ void MotionBlur::release() {
     }
     m_colour.release();
     m_extract.release();
+    for (auto& shader : m_extract_variants) {
+        shader.release();
+    }
     m_fast_first_jump.release();
     m_fast_jump.release();
+    m_unique_jump.release();
     m_first_jump.release();
     m_jump.release();
     m_resolve.release();
     m_copy_resolve.release();
     m_colour_size = {};
-    glDeleteVertexArrays(1, &m_vao);
+    if (m_vao) {
+        glDeleteVertexArrays(1, &m_vao);
+    }
     m_vao = 0;
     m_size = {};
+    m_flood_setup.reset();
     m_failed = false;
 }
 }  // namespace openrac::enhanced::fsr3_detail

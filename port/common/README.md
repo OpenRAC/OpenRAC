@@ -15,11 +15,13 @@ Library `openrac_common`. Each header has a namespace of its own under `openrac`
 | [`log.h`](log.h) | `openrac::log`: the port's log, its levels, the session file and the fatal error |
 | [`line_ring.h`](line_ring.h) | `openrac::log::LineRing`: the log's last lines, kept in memory for a crash report |
 | [`crash.h`](crash.h) | `openrac::crash`: the crash report, written from a signal handler, and the game's state it names |
+| [`breadcrumbs.h`](breadcrumbs.h) | `openrac::crash`: bounded main/game and render activity merged by monotonic time in crash reports |
 | [`env.h`](env.h) | `openrac::env`: the table of every `OPENRAC_*` variable the port reads (its kind, what holds when it is unset, what it does) and their typed reads |
 | [`stats.h`](stats.h) | `openrac::stats`: counters, timed sections and frames for the debug overlay, and the environment probes |
 | [`profiler.h`](profiler.h) | `openrac::profiling`: optional Tracy zones, thread names and frame markers, independent of the debug overlay ([guide](../../docs/port/PROFILING.md)) |
 | [`system_info.h`](system_info.h) | `openrac::system_info`: the system, processor and memory a report names |
 | [`build_info.h`](build_info.h) | `openrac::build_info`: OpenRAC's version and the checkout's commit, written at each build |
+| [`staged_file.h`](staged_file.h) | `openrac::StagedFile`: exclusive staging and atomic publication for authored metadata |
 | [`json.h`](json.h) | `openrac::json`: a JSON reader (a tree of values, parsed whole) for the editor's exports, mod manifests and the tools' files |
 | [`ps2_float.h`](ps2_float.h) | `openrac::ps2`: the PS2's FPU and vector-unit float arithmetic on raw bit patterns, for the asset readers, the world renderers and the runtime's C entry points (`openrac/ps2float.h`) |
 | [`float_encoding.h`](float_encoding.h) | `openrac::float_encoding`: IEEE floats packed to the small float formats of half-float metadata and irradiance channels |
@@ -37,12 +39,27 @@ system's own interfaces (`dladdr` and the backtrace on Unix, `dbghelp` on Window
 compatibility library for the backtrace below API 33).
 `OPENRAC_TRACY=ON` links the pinned Tracy client; ordinary builds omit it.
 
+On Windows, startup checks the executable's local PDB by resolving a known function and source
+line. Keep the matching build's `.pdb` beside its `.exe`, including after moving the build. The
+working directory does not need to be the build folder. A short `Windows symbols` log entry and
+`Symbols` crash-report line say whether lookup succeeded; reports contain names and source lines,
+never the PDB itself. Missing or mismatched symbols leave module offsets as the fallback.
+
 ## State and threads
 
 - The log is one per process, guarded by its own lock: any thread may write to it.
 - The crash report's buffers are set up once by `crash::configure()`; `crash::report()` then runs in
-  a signal handler without allocating or locking. Each thread that runs game code calls
-  `crash::prepare_thread()` once.
+  a signal handler using fixed formatting buffers. Windows DbgHelp symbol lookup is best-effort,
+  not async-signal-safe; its session and executable symbols are prepared at startup. Each thread
+  that runs game code calls `crash::prepare_thread()` once.
+- Breadcrumbs retain 32 entries per trail, each with at most 63 message bytes and an optional
+  numeric ID. Game-tick events use `tick=`; render snapshots use `frame=`; level loads use `level=`.
+  Tick/handoff/presentation, level program/data loading and upload, and major render
+  passes appear chronologically in the crash file and session log. Passes include scene upload,
+  depth, shadows, lighting, GTAO, world/liquids/effects/HUD, temporal resolve, motion blur and tone
+  mapping. The section adds under 8 KiB. Recording and snapshotting allocate nothing and never
+  wait: an occupied slot is skipped. These describe CPU activity, not GPU completion. Scoped
+  context keeps synchronous rendering on Main and worker passes on Render, using captured frames.
 - Statistics have one frame/section owner at a time. The frontend can transfer that ownership to
   its render worker, then drains it before closing or reading the frame. Game timing fields stay
   on the game thread; lazy probe registration is locked.

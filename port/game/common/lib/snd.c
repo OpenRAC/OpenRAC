@@ -53,8 +53,10 @@ unsigned int openrac_lib_snd_BankLoadByLoc(int sector, int offset) { /* snd_Bank
 /* snd_BankLoadFromEE_CB(bank, callback, argument): a bank in EE memory, loaded at once; the
  * callback is told, as the IOP's answer would: callback(handle, argument). */
 void openrac_lib_snd_BankLoadFromEE_CB(int bank, int callback, long long argument) {
-    const unsigned int handle =
-        bank != 0 ? openrac_sound_load_bank(G((gaddr)bank), 0x02000000u - ((gaddr)bank & 0x01FFFFFFu)) : 0;
+    const gaddr at = openrac_guest_ram_address((gaddr)bank);
+    const unsigned int handle = bank != 0 && at < openrac_guest_ram_size
+                                    ? openrac_sound_load_bank(G(at), openrac_guest_ram_size - at)
+                                    : 0;
     if (callback != 0) {
         GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
     }
@@ -67,6 +69,9 @@ void openrac_lib_snd_UnloadBank(int bank) {
 } /* snd_UnloadBank */
 
 void openrac_lib_snd_SetMasterVolume(int which, int volume) {
+    if (sound_log()) {
+        fprintf(stderr, "[debug] sound master %d = %#x\n", which, (unsigned)volume);
+    }
     openrac_sound_set_master_volume(which, volume);
 } /* snd_SetMasterVolume */
 
@@ -142,10 +147,54 @@ void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     (void)d;
     (void)f;
     const uint32_t handle = openrac_stream_play((uint32_t)a, e, g, (uint32_t)h, (uint32_t)i);
+    if (sound_log()) {
+        fprintf(
+            stderr,
+            "[debug] sound stream %#x: sector %#x volume %#x group %d after %#x flags %#x\n",
+            handle,
+            (unsigned)a,
+            (unsigned)e,
+            g,
+            (unsigned)h,
+            (unsigned)i
+        );
+    }
     if (j != 0) {
         GFN(void (*)(int, long long), (gaddr)j)((int)handle, k);
     }
 } /* snd_PlayVAGStreamByLocEx_CB */
+
+/* A stream of two mono files: the right channel's and the left's (Going Commando's music). */
+void openrac_lib_snd_PlayVAGStreamStereo_CB(
+    int right,
+    int left,
+    int volume,
+    int group,
+    int queue_on,
+    int flags,
+    int callback,
+    long long argument
+) {
+    const uint32_t handle = openrac_stream_play_stereo(
+        (uint32_t)right, (uint32_t)left, volume, group, (uint32_t)queue_on, (uint32_t)flags
+    );
+    if (sound_log()) {
+        fprintf(
+            stderr,
+            "[debug] sound stream %#x: sectors %#x %#x volume %#x group %d after %#x flags %#x\n",
+            handle,
+            (unsigned)right,
+            (unsigned)left,
+            (unsigned)volume,
+            group,
+            (unsigned)queue_on,
+            (unsigned)flags
+        );
+    }
+    if (callback != 0) {
+        GFN(void (*)(int, long long), (gaddr)callback)((int)handle, argument);
+    }
+}
 
 void openrac_lib_snd_PauseVAGStream(int stream) {
     openrac_stream_pause((uint32_t)stream, 1);

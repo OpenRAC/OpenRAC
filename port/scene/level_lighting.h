@@ -3,8 +3,7 @@
 //
 // The level renderer's lighting hook: what a LevelScene asks of the lighting that is not its own,
 // the enhanced renderer's probe lighting and early lighting (enhanced/viewer/scene_lighting.h).
-// The scene owns the interface and calls it at the points its passes did before restructure
-// package P2-39b; whoever makes a LevelScene registers one (LevelScene::set_level_lighting), so the
+// The scene owns the interface and calls it from its passes; whoever makes a LevelScene registers one (LevelScene::set_level_lighting), so the
 // scene never includes enhanced/ (CODING_CONVENTIONS.md, section 18).
 //
 // A scene with none registered lights as the game does: its shaders are built without the probe
@@ -15,14 +14,17 @@
 
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
 #include "scene/level.h"
 
 namespace openrac::scene {
+class LevelScene;
 
 // The probe and early lighting of a level, as the level renderer calls it. Created, used and
 // released on the thread that holds the graphics context.
@@ -41,14 +43,37 @@ public:
     // Enhanced surface history uses the already submitted hero pose and joint palette.
     virtual std::string mesh_vertex(std::string source) const { return source; }
 
+    // Optional prepass specialisation for static, dry groups. Unknown providers retain their
+    // complete vertex shader; approving this source promises identical positions and normals.
+    virtual std::optional<std::string> rigid_depth_vertex(std::string) const {
+        return std::nullopt;
+    }
+
+    // Optional dry-caster specialisation. Providers keep their complete transform by default.
+    virtual std::string dry_shadow_vertex(std::string source) const {
+        return mesh_vertex(std::move(source));
+    }
+
     virtual void prepare_wetness(
         const renderer::FrameInput&, unsigned, const std::optional<Instance>&
     ) {}
 
     virtual void bind_wetness(const renderer::Shader&) const {}
 
+    // Optional extra material surfaces reuse only a provider-approved geometry range.
+    virtual int surface_layers(std::uint32_t, std::uint32_t, std::uint32_t) const { return 0; }
+
+    // Zero restores the original surface and supplies complete resources for temporal draws.
+    virtual void bind_surface_layer(const renderer::Shader&, int) const {}
+
+    // Temporal coverage must use the same optional surface mask as colour rendering.
+    virtual std::string motion_fragment(std::string source) const { return source; }
+
+    // Optional class-bound effects receive complete instances, including offscreen light-only captures.
+    virtual void prepare_instances(Layer, std::span<const Instance>) {}
+
     // Update optional surface deformation before any depth, shadow or colour consumers.
-    virtual void prepare_deformation(const renderer::FrameInput&) {}
+    virtual void prepare_deformation(const renderer::FrameInput&, const LevelScene&) {}
 
     // Bind per-group deformation resources; false retains original mesh positions.
     virtual void bind_deformation(const renderer::Shader&, bool) const {}
@@ -56,8 +81,40 @@ public:
     // Temporal history is retained when the optional deformation is inactive.
     virtual bool deformation_active() const { return false; }
 
+    // Opts into scoped transport preparation; unknown providers keep immediate sky recording.
+    virtual bool prepares_atmosphere_chain() const { return false; }
+
+    // Optional shared camera-medium transport, prepared once after the current shadows.
+    virtual bool atmosphere_wanted(const renderer::FrameInput&) const { return false; }
+
+    virtual void prepare_atmosphere(
+        const LevelScene&,
+        const renderer::FrameInput&,
+        const renderer::RenderTarget&,
+        const std::array<float, 4>&,
+        const std::array<float, 4>&
+    ) {}
+
+    virtual void draw_atmosphere_sky(const renderer::RenderTarget&) {}
+
+    virtual std::string atmosphere_source() const { return {}; }
+
+    virtual void bind_atmosphere(const renderer::Shader&) const {}
+
     // Optional shading of the authored material on the current model.
-    virtual void bind_material(const renderer::Shader&, std::uint32_t, const Material&) const {}
+    virtual void bind_material(const renderer::Shader&, std::uint32_t, int, const Material&) const {
+    }
+
+    // Returns enhanced surface values; the original remains authoritative for classic and depth passes.
+    virtual const Material& resolve_material(std::uint32_t, int, const Material& original) const {
+        return original;
+    }
+
+    // Separates cached state when different object types share the same original texture material.
+    virtual std::uint64_t material_variant(std::uint32_t, int) const { return 0; }
+
+    // Returns the authored RGB multiplier for a sky shell, white for original rendering.
+    virtual std::array<float, 3> sky_tint(std::uint32_t, int) const { return {1, 1, 1}; }
 
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
@@ -96,6 +153,9 @@ public:
 
     // Turns probe lighting on or off and sets its multiplier.
     virtual void set_lighting(bool enabled, float multiplier) = 0;
+
+    // Switches authored appearance independently of probe availability.
+    virtual void set_material_overrides(bool enabled) = 0;
 
     // Sets the normal and view biases of the probe lookups, in scene units.
     virtual void set_bias(float normal, float view) = 0;
@@ -164,6 +224,13 @@ public:
     virtual bool early_matches(
         const renderer::FrameInput& input, const renderer::RenderState& state
     ) const = 0;
+
+    // Borrows current early cache allocations through this frame; empty keeps colour separate.
+    virtual std::span<const unsigned> early_buffers(
+        const renderer::FrameInput&, const renderer::RenderState&
+    ) const {
+        return {};
+    }
 };
 
 }  // namespace openrac::scene

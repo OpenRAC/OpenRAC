@@ -29,6 +29,7 @@ in the zip's one top folder) and files laid out as the extracted levels are:
   level_NN/terrain.glb              the level's terrain, as the port reads it (any vertex count)
   level_NN/placements.json         ties and shrubs placed again (the level packer's)
   level_NN/gameplay_<version>.wad, patches.tsv   a packed level (the level packer's)
+  audio/<key>.wav                   a sound of the game, replaced (audio.py)
   README*, LICENSE*, *.txt, *.md    read by people only
 
 The files are named as the levels of the disc the pack was made from
@@ -59,8 +60,12 @@ the level's has the same vertices (both discs' levels have the same
 terrain), their textures named as LEVELS name them; what belongs to one disc's data (a packed gameplay
 file, patches.tsv, placements.json) or has no match is left out and listed. The port draws each level's
 files from MODS/level_NN/ where they are there, and from the extracted
-levels otherwise (port/viewer/level.cpp), and reads the disc sectors
+levels otherwise (port/scene/level.cpp), and reads the disc sectors
 patches.tsv lists from the files beside it (port/game/common/lib/cdvd.c).
+
+The sound is not by level or by disc: a pack names a sound by its key, a hash of what it is
+(audio.py), so its WAV files go in as they are for either disc. One for a sound the disc played does
+not have does nothing.
 """
 
 import argparse
@@ -79,6 +84,7 @@ import zipfile
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
 from openrac_common import digest, files as file_ops  # noqa: E402
 
+import audio  # noqa: E402
 import disc  # noqa: E402
 import games  # noqa: E402
 from port import FORMAT  # noqa: E402
@@ -98,16 +104,17 @@ LEVELS_FORMAT = FORMAT
 # metal packets and chrome and glass maps; 3 only added classes, 4 the clamped textures' samplers (a
 # pack's older models still draw, repeating them) (port.py FORMAT).
 MODELS_SINCE = 2
-FILES = re.compile(r"^(?:patches\.tsv|level_\d{2}/(?:textures/[A-Za-z0-9_.-]+\.png|(?:mobys|ties|shrubs)/"
+FILES = re.compile(r"^(?:patches\.tsv|virtual\.tsv|audio/[0-9a-f]{16}\.wav|level_\d{2}/(?:textures/[A-Za-z0-9_.-]+\.png|(?:mobys|ties|shrubs)/"
                    r"[A-Za-z0-9_.-]+\.glb|terrain\.glb|placements\.json|gameplay_(?:" + "|".join(VERSIONS) + r")\.wad"
-                   r"|(?:core|index)_(?:" + "|".join(VERSIONS) + r")\.bin))$")
+                   r"|(?:core|index|data)_(?:" + "|".join(VERSIONS) + r")\.bin"
+                   r"|header_(?:" + "|".join(VERSIONS) + r")\.bin))$")
 TEXTURE = re.compile(r"^level_(\d{2})/textures/([A-Za-z0-9_.-]+)\.png$")
 MODEL = re.compile(r"^level_(\d{2})/(moby|tie|shrub)s/\2_(\d+)\.glb$")
 TERRAIN = re.compile(r"^level_(\d{2})/terrain\.glb$")
 IMAGE = re.compile(r"((?:\.\./)?textures/)([A-Za-z0-9_.-]+)\.png")  # a port GLB's image: a level texture
+AUDIO = re.compile(r"^audio/")
 PACKED = "packed.json"  # the level packer's note of the disc it packed (pack.py)
 PEOPLE = re.compile(r"^(?:[^/]+\.(?:txt|md)|(?:README|LICENSE|CREDITS)[^/]*)$", re.IGNORECASE)
-MAX_TOTAL = 4 << 30
 MAX_FILES = 200_000
 
 
@@ -233,8 +240,6 @@ class Source:
                 if name.startswith(("/", "\\")) or "\\" in name or ".." in PurePosixPath(name).parts \
                         or re.match(r"^[A-Za-z]:", name):
                     raise PackError(f"{self.path.name} has a file outside its folder ({name}); not opened")
-            if sum(i.file_size for i in names) > MAX_TOTAL:
-                raise PackError(f"{self.path.name} unpacks to more than 4 GB; not opened")
             prefix = ""
             top = {n.filename for n in names}
             if MANIFEST not in top:
@@ -272,6 +277,11 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                 if not PEOPLE.match(rel):
                     ignored.append(rel)
                 continue
+            if manifest["game"] != GAME and AUDIO.match(rel):
+                # The sound's keys are worked out for Ratchet & Clank's banks only.
+                ignored.append(rel)
+                problems.append(f"{rel}: {games.title(manifest['game'])}'s sound cannot be changed yet")
+                continue
             if manifest["game"] != GAME and not (TEXTURE.match(rel) or MODEL.match(rel) or TERRAIN.match(rel)):
                 # Early access: the later games' levels are not packed back, so only textures and
                 # models of theirs are used.
@@ -301,12 +311,45 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                                 name = document.list("nodes")[j].get("name", "")
                                 if not re.match(r"^joint_\d{3}(?:_post)?$", name):
                                     raise ValueError(f"a joint named {name!r}; the port numbers joints joint_NNN")
+                elif rel.endswith(".wav"):
+                    audio.check_wav(data)
                 elif rel.endswith(".json"):
                     json.loads(data.decode("utf-8"))
                 elif rel == "patches.tsv":
                     for line in data.decode("utf-8").splitlines():
                         if line and not line.startswith("#") and len(line.split("\t")) != 3:
                             raise ValueError(f"the line {line!r} is not sector, count, file")
+                elif rel == "virtual.tsv":
+                    ranges = []
+                    for line in data.decode("utf-8").splitlines():
+                        if not line or line.startswith("#"):
+                            continue
+                        fields = line.split("\t")
+                        if len(fields) not in (3, 7):
+                            raise ValueError(f"the line {line!r} is not sector, count, file")
+                        first, count = int(fields[0]), int(fields[1])
+                        target = fields[2]
+                        if first < 0 or count <= 0 or first + count > 0xffffffff:
+                            raise ValueError(f"the line {line!r} has an invalid virtual sector range")
+                        if not FILES.fullmatch(target) or target not in source.files:
+                            raise ValueError(f"the line {line!r} names a missing or invalid file")
+                        if len(source.read(target)) < count * 2048:
+                            raise ValueError(f"{target} is shorter than its declared virtual sector range")
+                        if len(fields) == 7:
+                            level, slot, original_first, original_count = map(int, fields[3:])
+                            if not 0 <= level < 19 or not 0 <= slot < 4 or original_first < 0 or original_count <= 0:
+                                raise ValueError(f"the line {line!r} has invalid header-range metadata")
+                            if not target.startswith(f"level_{level:02}/"):
+                                raise ValueError(f"the line {line!r} maps a file from another level")
+                            header_rel = f"level_{level:02}/header_{manifest['version']}.bin"
+                            patch_source = source.read("patches.tsv").decode("utf-8") if "patches.tsv" in source.files else ""
+                            if not any(row.split("\t")[-1] == header_rel for row in patch_source.splitlines()
+                                       if row and not row.startswith("#")):
+                                raise ValueError(f"the line {line!r} has no matching level-header patch")
+                        ranges.append((first, first + count))
+                    ranges.sort()
+                    if any(ranges[i][0] < ranges[i - 1][1] for i in range(1, len(ranges))):
+                        raise ValueError("virtual sector ranges overlap")
             except (ValueError, pngio.PngError, gltf_read.GltfError, UnicodeDecodeError, struct.error) as exc:
                 problems.append(f"{rel}: {exc}")
                 continue
@@ -317,7 +360,7 @@ def check(path: Path) -> tuple[dict, list[str], list[str], list[str]]:
                             "they may not fit; ask its author for a new version")
         if not used:
             raise PackError(f"{source.path.name} replaces nothing: it has no file laid out as the levels are "
-                            "(level_NN/textures/*.png, level_NN/mobys/*.glb...)")
+                            "(level_NN/textures/*.png, level_NN/mobys/*.glb, audio/*.wav...)")
         return manifest, used, ignored, problems
     finally:
         source.close()
@@ -363,6 +406,19 @@ def pack_id(name: str, taken) -> str:
     return candidate
 
 
+def export_pack(folder: Path, export: str) -> str | None:
+    """The pack in FOLDER made from this export, if there is one."""
+    existing = None
+    for entry in load_state(folder)["packs"]:
+        try:
+            other = json.loads((Path(folder) / "packs" / entry["id"] / MANIFEST).read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if other.get("export") == export:
+            existing = entry["id"]
+    return existing
+
+
 def install(staged: Path, folder: Path, replace_export: str | None = None) -> str:
     """Move a checked pack folder (STAGED) into FOLDER's packs and list it, enabled, last. A pack
     made from the same export (REPLACE_EXPORT) takes the place of the older one, keeping its
@@ -371,15 +427,7 @@ def install(staged: Path, folder: Path, replace_export: str | None = None) -> st
     manifest = json.loads((staged / MANIFEST).read_text())
     state = load_state(folder)
     taken = {p.name for p in (folder / "packs").iterdir()}
-    existing = None
-    if replace_export:
-        for entry in state["packs"]:
-            try:
-                other = json.loads((folder / "packs" / entry["id"] / MANIFEST).read_text())
-            except (OSError, json.JSONDecodeError):
-                continue
-            if other.get("export") == replace_export:
-                existing = entry["id"]
+    existing = export_pack(folder, replace_export) if replace_export else None
     if existing:
         old = folder / "packs" / f".{existing}-old"
         file_ops.rename(folder / "packs" / existing, old)
@@ -758,8 +806,10 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
             out[f"level_{level:02}/{mesh}"] = glb_join(doc, binary)
         else:
             out[f"level_{level:02}/{mesh}"] = path
-    for rel in files:
-        if not TEXTURE.match(rel) and not MODEL.match(rel) and not TERRAIN.match(rel):
+    for rel, path in files.items():
+        if AUDIO.match(rel):
+            out[rel] = path                   # known by what it is, on either disc
+        elif not TEXTURE.match(rel) and not MODEL.match(rel) and not TERRAIN.match(rel):
             skipped.append(f"{rel} (it belongs to the other disc's level data)")
     return out, skipped
 
@@ -767,7 +817,65 @@ def cross_disc(root: Path, manifest: dict, target: Target) -> tuple[dict, list[s
 def write_layers(layers, target, temporary: Path) -> dict:
     """Compose one isolated world from ordered layers; no destination shares an output folder."""
     temporary.mkdir(parents=True, exist_ok=True)
-    owners, patches, notes, skipped = {}, {}, [], {}
+    owners, patches, virtuals, notes, skipped = {}, {}, {}, [], {}
+    next_virtual = 0x10000000
+
+    def allocate_virtual(count: int) -> int:
+        nonlocal next_virtual
+        first = next_virtual
+        while True:
+            end = first + count
+            if count <= 0 or end > 0xffffffff:
+                raise PackError("stacked virtual sectors exceed the game's 32-bit sector address space")
+            overlaps = [(row[0], row[1]) for row in virtuals.values()
+                        if first < row[0] + row[1] and row[0] < end]
+            if not overlaps:
+                break
+            first = max(old_first + old_count for old_first, old_count in overlaps)
+        next_virtual = first + count
+        return first
+
+    def supersede_expanded_stream(rel: str, version: str) -> None:
+        found = re.fullmatch(r"level_(\d{2})/(?:gameplay_(?:pal|ntsc)\.wad|(?:core|index)_(?:pal|ntsc)\.bin)", rel)
+        if not found:
+            return
+        level = int(found.group(1))
+        slot = 1 if "/gameplay_" in rel else 0
+        previous = virtuals.pop((level, slot), None)
+        if previous is None:
+            return
+        first, count, file, owner, logical_level, logical_slot, original_first, original_count = previous
+        header_rel = f"level_{level:02}/header_{version}.bin"
+        header_path = temporary / header_rel
+        if header_path.is_file():
+            header = bytearray(header_path.read_bytes())
+            struct.pack_into("<II", header, 8 + slot * 8, original_first, original_count)
+            header_path.write_bytes(header)
+        if not any(k[0] == level for k in virtuals if isinstance(k, tuple) and len(k) == 2):
+            for patch_key, (patch_rel, _) in list(patches.items()):
+                if patch_rel == header_rel:
+                    del patches[patch_key]
+            header_path.unlink(missing_ok=True)
+            owners.pop(header_rel, None)
+
+    def reconcile_headers() -> None:
+        """Reapply every active virtual range after a layer replaces a level header."""
+        for _, (header_rel, _) in list(patches.items()):
+            found = re.fullmatch(r"level_(\d{2})/header_(?:pal|ntsc)\.bin", header_rel)
+            if not found:
+                continue
+            level = int(found.group(1))
+            path = temporary / header_rel
+            if not path.is_file():
+                continue
+            header = bytearray(path.read_bytes())
+            changed = False
+            for first, count, _, _, logical_level, slot, _, _ in virtuals.values():
+                if logical_level == level and slot is not None:
+                    struct.pack_into("<II", header, 8 + slot * 8, first, count)
+                    changed = True
+            if changed:
+                path.write_bytes(header)
     for name, ident, root, manifest in layers:
         made = manifest if isinstance(manifest, str) else manifest.get("version", "pal")
         game = GAME if isinstance(manifest, str) else manifest.get("game", GAME)
@@ -797,9 +905,52 @@ def write_layers(layers, target, temporary: Path) -> dict:
                     if line.startswith("#") or len(fields) != 3:
                         continue
                     key = (int(fields[0]), int(fields[1]))
+                    supersede_expanded_stream(fields[2], made)
                     if key in patches and patches[key][1] != ident:
                         notes.append(f"{name} replaces the level file {patches[key][1]} put at sector {key[0]}")
                     patches[key] = (fields[2], ident)
+                continue
+            if rel == "virtual.tsv":
+                for line in source.read_text().splitlines():
+                    fields = line.split("\t")
+                    if line.startswith("#") or len(fields) not in (3, 7):
+                        continue
+                    first, count = int(fields[0]), int(fields[1])
+                    if first < 0 or count <= 0 or first + count > 0xffffffff:
+                        raise PackError(f"{name}: invalid virtual sector range {fields[:2]}")
+                    if not FILES.fullmatch(fields[2]) or fields[2] not in files:
+                        raise PackError(f"{name}: virtual sector file {fields[2]!r} is missing or invalid")
+                    if len(fields) == 7:
+                        level, slot, original_first, original_count = map(int, fields[3:])
+                        if not (0 <= level < 19 and 0 <= slot < 4 and original_first >= 0
+                                and original_count > 0):
+                            raise PackError(f"{name}: invalid logical range metadata in virtual.tsv")
+                        key = (level, slot)
+                        if key in virtuals:
+                            previous = virtuals.pop(key)
+                            if previous[3] != ident:
+                                notes.append(f"{name} replaces the expanded level {level:02} range from {previous[3]}")
+                        first = allocate_virtual(count)
+                        header_rel = f"level_{level:02}/header_{made}.bin"
+                        header_path = temporary / header_rel
+                        if not header_path.is_file():
+                            raise PackError(f"{name}: virtual range has no {header_rel} header patch")
+                        header = bytearray(header_path.read_bytes())
+                        struct.pack_into("<II", header, 8 + slot * 8, first, count)
+                        header_path.write_bytes(header)
+                    else:
+                        level = slot = original_first = original_count = None
+                        key = ("range", first, count)
+                    end = first + count
+                    for old, previous in list(virtuals.items()):
+                        old_first, old_count = previous[0], previous[1]
+                        if first < old_first + old_count and old_first < end:
+                            if level is not None or previous[4] is not None:
+                                raise PackError(f"{name}: virtual sector ranges overlap without a safe header remap")
+                            if previous[3] != ident:
+                                notes.append(f"{name} replaces overlapping virtual sectors from {previous[3]}")
+                            del virtuals[old]
+                    virtuals[key] = (first, count, fields[2], ident, level, slot, original_first, original_count)
                 continue
             if rel in owners and owners[rel] != ident:
                 notes.append(f"{rel}: {name} wins over {owners[rel]}")
@@ -811,9 +962,16 @@ def write_layers(layers, target, temporary: Path) -> dict:
             else:
                 place(source, temporary / rel)
             owners[rel] = ident
+        reconcile_headers()
     (temporary / "patches.tsv").write_text(
         "# first sector\tsectors\tfile (beside this list)\n"
         + "".join(f"{first}\t{count}\t{file}\n" for (first, count), (file, _) in sorted(patches.items())))
+    (temporary / "virtual.tsv").write_text(
+        "# first sector\tsectors\tfile (beside this list)\n"
+        + "".join(f"{first}\t{count}\t{file}"
+                 + (f"\t{level}\t{slot}\t{original_first}\t{original_count}" if level is not None else "") + "\n"
+                 for first, count, file, _, level, slot, original_first, original_count in
+                 sorted(virtuals.values(), key=lambda row: row[0])))
     summary = {"format": 1, "version": target.version if target else None,
                "layers": [{"id": ident, "name": name} for name, ident, _, _ in layers],
                "files": dict(sorted(owners.items())), "notes": notes,

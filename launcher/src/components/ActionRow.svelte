@@ -111,7 +111,7 @@
   }
 
   @media (hover: hover) {
-    .what:hover .name {
+    :global(html:where(:not([data-input="pad"]))) .what:hover .name {
       color: var(--gold);
     }
   }

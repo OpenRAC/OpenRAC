@@ -11,7 +11,7 @@
 //!
 //! The file is read from the checkout when there is one, else from the copy built into the
 //! launcher. The fixes' values are in the port's own settings file,
-//! `<data home>/settings/<game>-<version>.ini` (port/game/common/main.cpp, `default_settings`),
+//! `<data home>/settings/<game>-<version>.ini` (port/game/common/program/options.cpp, `default_settings`),
 //! which the launcher edits a line at a time: everything else in it stays as the game wrote it.
 //! The game reads the file when it starts, and writes it whole when a setting changes in its own
 //! menus, so a change here while the game runs is overwritten by the next change made there.
@@ -20,7 +20,10 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// The lists built into the launcher, by game: what a launcher without a checkout shows.
-const BUILT_IN: &[(&str, &str)] = &[("rac1", include_str!("../../../port/game/rac1/differences.json"))];
+const BUILT_IN: &[(&str, &str)] = &[
+    ("rac1", include_str!("../../../port/game/rac1/differences.json")),
+    ("rac2", include_str!("../../../port/game/rac2/differences.json")),
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 #[ts(rename = "DifferenceKind")]
@@ -327,6 +330,19 @@ mod tests {
             list.differences.iter().filter_map(|d| d.setting.as_ref()).map(|s| s.key.as_str()).collect();
         assert!(keys.contains(&"fix_wide_moby_effects"), "{keys:?}");
         assert!(keys.contains(&"fix_wide_nanotech_orbs"), "{keys:?}");
+        assert!(keys.contains(&"fix_wide_liquids"), "{keys:?}");
+    }
+
+    #[test]
+    fn rac2s_list_parses_and_the_launcher_carries_the_same() {
+        let path = checkout().join("port/game/rac2/differences.json");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let list = parse(&text).unwrap();
+        assert_eq!(list.game, "rac2");
+        assert_eq!(source(None, "rac2").unwrap(), text, "the built-in copy is the checkout's");
+        let keys: Vec<&str> =
+            list.differences.iter().filter_map(|d| d.setting.as_ref()).map(|s| s.key.as_str()).collect();
+        assert!(keys.contains(&"fix_wide_moby_effects"), "{keys:?}");
         assert!(keys.contains(&"fix_wide_liquids"), "{keys:?}");
     }
 

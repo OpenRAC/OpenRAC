@@ -44,6 +44,31 @@ cd port && cmake --preset release && cmake --build --preset release && ctest --p
 - [port/docs/CODING_CONVENTIONS.md](../port/docs/CODING_CONVENTIONS.md): how
   the port's code is written.
 
+## CI build caches
+
+The checks run on pull requests and on pushes to `develop` and `master`. A
+newer run cancels an older one on a pull request or `develop`; release
+checks on `master` always finish.
+
+- Each native build has three caches: compiler objects (ccache), CMake
+  preparation (dependency sources and configure results) and hostgen's
+  generated C. Each key covers what can change the result: tools, packages,
+  runner image, CPU features, build type. A missing or mismatched cache just
+  means a normal build. Ninja files and test results are never cached, and a
+  cache hit never skips a build or test step.
+- The hostgen cache does not depend on CMake, Ninja or the CPU, so it
+  survives a runner CPU change. Its key covers every game's sources and the
+  shared Python helpers. hostgen still checks its own input fingerprint
+  before it reuses output. That fingerprint leaves out the native frontend
+  C++ (edits there still rebuild objects) but keeps configuration tables,
+  hand C, library signatures and host wrappers.
+- Compiler identity is the executable's contents, not its install time.
+- Only successful branch builds save caches, after the whole job passes.
+  Pull requests restore caches but never save their own, so they cannot
+  evict the shared ones. Older keys stay as a fallback until new ones exist.
+- Launcher jobs also cache Yarn archives and still run
+  `yarn install --immutable`.
+
 ## The level editor
 
 The launcher's **Mods** tab does all of this for you. By hand, for

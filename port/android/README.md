@@ -122,10 +122,10 @@ game's log.
     Games: Gameplay mods with Enhanced graphics first, Add a mod (a link or a
     .zip), then the packs.
     - Switch Enhanced graphics on: "Prepare the enhanced lighting" runs for a
-      few minutes (the log names `libopenrac-probe-bake.so`).
+      few minutes (the log names `libopenrac-enhanced-baker.so`).
     - Play: the drawer's footer says Vulkan, its Enhanced graphics card has
       its switches, and the log says the probe bake loaded.
-    - Add lock-strafe from its link (OpenRAC/rac1-mods): it installs and loads.
+    - Add lock-strafe from its link (OpenRAC/openrac-mods): it installs and loads.
     - Settings has no Discord, Compact layout or Godot, and saves a switch
       without a Save bar.
 13. **The launcher with a controller.** Without touching the screen: the d-pad
@@ -144,3 +144,17 @@ game's log.
     data, reinstall the same build: games, saves and settings are back with no
     set-up. A build that kept its games in shared storage's OpenRAC folder has
     them moved into the app at the first start.
+16. **The game covers the screen, in landscape.** With auto-rotate on, on a
+    phone with a camera notch and one without: start a play from the launcher,
+    from Recents and after pulling the notification shade down. No status bar
+    or black band stays at the top (the drawer's frame counter shows in full),
+    a swipe from the edge shows the bars only briefly, and the touch pad stays
+    clear of the notch. Turning the phone upright keeps landscape; turning it
+    over flips to the other landscape.
+17. **The performance hint (Android 13 and later).** Start a level: the log
+    says `performance hints: a session for 1 thread(s), ...` and, once the
+    render thread draws the world (Vulkan), `the session covers 2 threads`. A
+    diagnostics recording's header has `performance hint: active, 2 thread(s),
+    target 14.17 ms` (85% of a 16.67 ms frame, to keep time in hand). Record the same scene with `OPENRAC_ADPF_OFF` set (the
+    game's `dev.openrac.game.ENVIRONMENT` extra): the header says `off`. Compare
+    the two recordings' frame times, CPU clocks and thermal lines.

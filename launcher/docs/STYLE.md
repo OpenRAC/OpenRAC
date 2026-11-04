@@ -124,7 +124,8 @@ game's full picture; Android's game tiles show `<name>-tile.webp`, the picture
 1280 wide, for the same reason. `python3 scripts/media.py thumbs` makes both
 again after a picture is added or replaced. `python3 scripts/media.py still RECORDING GAME
 --at S` writes a picture and its thumbnail from a frame of a recording of
-your own play.
+your own play. `node scripts/steam_art.mjs` makes Steam's pictures of the launcher
+(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes.
 
 The band shows no moving clip: one was planned (an animated WebP under the
 picture), and taken out on 2026-10-20 with the old `*-gameplay.gif` files,
@@ -152,7 +153,7 @@ release, and a new file adds its line there when it is added.
   `app.css`: the Mods tab's level editor, models and textures): each step a
   row, its name and one line on the left, its controls on the right.
 - A page with several jobs gives each a tab of its own (the Mods tab: My
-  mods, Level editor, Models and textures), so every one can be seen from the
+  mods, Level editor, Models and textures, Audio), so every one can be seen from the
   top; the main action stays in the page's head, above the tabs.
 - A setting is a row: its name and at most one short line on the left, its
   control on the right (`.setting` in `app.css`). On/off is a switch
@@ -185,14 +186,28 @@ release, and a new file adds its line there when it is added.
   `--slow` for transitions; `--page-x`, `--page-top`, `--page-bottom` and
   `--page-gap` for every page's margins. A page's sections rise in turn as
   it opens (`.page > section` in `app.css`).
+- What a slide keeps apart from the page (`view-transition-name`) is not
+  sticky inside a scroller whose overflow can change during the slide:
+  WebKitGTK stops drawing it until the slide ends, where Chromium does not.
+  So a tab with a list scrolls in columns (`SideFrame.svelte`), not in `<main>`.
 - Hover styles go inside `@media (hover: hover)`: on a touch screen a tapped
-  control would otherwise keep them until the next tap elsewhere. A press
-  shows with `:active`, a keyboard's or controller's focus with
-  `:focus-visible` or `html[data-input="pad"]`.
+  control would otherwise keep them until the next tap elsewhere. Each hover
+  selector also starts with `html:where(:not([data-input="pad"]))`
+  (`:global(...)` in a component), so a mouse resting over one control does
+  not light it beside a controller's focus on another. A press shows with
+  `:active` (and `.pad-press` for a controller's A), a keyboard's or
+  controller's focus with `:focus-visible` or `html[data-input="pad"]`.
+- With a controller (`src/lib/pad.ts`) the focus always stays on something
+  A presses: when the control with it goes away (a page changed, a dialog
+  opened or closed, a row removed) it moves to the one in its place. A
+  control the pad must reach that is out of Tab's order (a roving tab, radio
+  or menu item) uses its role inside `tablist`, `radiogroup` or `menu`. What
+  floats over the page and should be reached only past its end (the toasts)
+  carries `data-pad-aside`.
 - `src/lib/stylesheets.test.ts` holds `app.css` and every component's
-  `<style>` to two of these rules: no hex colour outside `:root`, no hover
-  style outside `@media (hover: hover)`. It names the file and line of what
-  breaks one.
+  `<style>` to three of these rules: no hex colour outside `:root`, no hover
+  style outside `@media (hover: hover)` or without the controller's guard. It
+  names the file and line of what breaks one.
 - Android follows Android's own patterns, not the desktop's: a navigation rail
   on the left (a bar at the bottom below 600 px wide) in place of the orange
   bar, Material's 24/16 px margins, a ripple under the finger

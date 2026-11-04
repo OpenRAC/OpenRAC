@@ -79,6 +79,12 @@ void cpu() {
     ram[0x100 + 0x30e] = 0;
     CHECK(scene::hero_airborne(ram, 0x100) == false);  // landing
     CHECK(!scene::hero_airborne(std::span(ram).first(0x40f), 0x100));
+    // Going Commando's counter is at +0x34E of its record.
+    ram[0x100 + 0x34e] = 3;
+    CHECK(scene::hero_airborne(ram, 0x100, 0x34e) == true);
+    CHECK(scene::hero_airborne(ram, 0x100) == false);
+    ram[0x100 + 0x34e] = 0;
+    CHECK(scene::hero_airborne(ram, 0x100, 0x34e) == false);
     const auto ground = scene::hero_shadow_projection({0, 0, 2}, {1, 0, -1}, false);
     const auto air = scene::hero_shadow_projection({0, 0, 2}, {1, 0, -1}, true);
     CHECK(ground.direction[0] > 0.7f && ground.direction[2] < -0.7f);

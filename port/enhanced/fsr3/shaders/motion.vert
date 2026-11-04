@@ -4,6 +4,7 @@
 // Current and previous displayed poses use the same skinning operation as the world mesh.
 invariant gl_Position;
 layout(location=0) in vec3 position;
+layout(location=1) in vec3 normal;
 layout(location=2) in vec2 uv;
 layout(location=3) in vec4 colour;
 layout(location=10) in uvec4 joints;
@@ -30,6 +31,11 @@ out vec4 v_previous;
 flat out int v_glow;
 flat out float v_instance_alpha;
 flat out float v_reactive;
+#ifdef OPENRAC_HERO_FUR
+flat out int v_hero_fur;
+layout(std430,binding=9) readonly buffer HeroWetness { float hero_wetness[]; };
+uniform int hero_wetness_enabled, hero_wetness_first, hero_wetness_count, hero_wetness_palette;
+#endif
 // Palettes store four columns per joint, packed into rows of 1024 texels.
 mat4 joint_matrix(sampler2D source, int index) {
     int texel = index * 4;
@@ -38,8 +44,8 @@ mat4 joint_matrix(sampler2D source, int index) {
                 texelFetch(source, at + ivec2(2,0), 0), texelFetch(source, at + ivec2(3,0), 0));
 }
 // Rigid instances keep their bind pose; animated ones use the displayed joint palette.
-vec4 posed(sampler2D source, int base) {
-    vec4 p = vec4(position, 1);
+vec4 posed(sampler2D source, int base, vec3 bind_position) {
+    vec4 p = vec4(bind_position, 1);
     float total = weights.x + weights.y + weights.z + weights.w;
     if (base >= 0 && total > 0) {
         mat4 skin = weights.x * joint_matrix(source, base + int(joints.x))
@@ -75,7 +81,22 @@ void main() {
         glow = int((parameters.w >> 1u) & 1u);
     }
     v_reactive = reject_history;
-    vec4 world = current * posed(tex_T1, int(joints_at.x));
+    vec3 bind_position = position;
+#ifdef OPENRAC_HERO_FUR
+    v_hero_fur = hero_fur_receiver(gl_VertexID, joints_at.x, 0.);
+    if (hero_fur_shell > 0.) {
+        float shell_wetness = 0.;
+        int wet_index = gl_VertexID - hero_wetness_first;
+        if (hero_wetness_enabled != 0 && int(joints_at.x + .5) == hero_wetness_palette
+            && wet_index >= 0 && wet_index < hero_wetness_count) shell_wetness = hero_wetness[wet_index];
+        if (v_hero_fur != 0 && dot(normal, normal) > 1e-12) {
+            bind_position += normalize(normal) * fur_shell_extent(shell_wetness);
+        }
+        // Thin cutout hairs and live coat-length changes must not borrow opaque-body history.
+        v_reactive = 1.;
+    }
+#endif
+    vec4 world = current * posed(tex_T1, int(joints_at.x), bind_position);
 #ifdef OPENRAC_WATER_FLOAT
     mat4 water_pose = water_float_pose(current[3].xyz);
     world = water_pose * world;
@@ -84,7 +105,7 @@ void main() {
     v_current = current_view * world;
     // Newly visible objects have no previous joint range and must never fetch from it.
     vec4 previous_world = reject_history > 0.5 ? world
-        : previous * posed(tex_T2, int(joints_at.y));
+        : previous * posed(tex_T2, int(joints_at.y), bind_position);
     v_previous = previous_view * previous_world;
     v_uv = uv;
     v_alpha = colour.a;

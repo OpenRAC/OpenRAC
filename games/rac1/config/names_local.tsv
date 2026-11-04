@@ -3318,7 +3318,7 @@ func_001EDE08	Camera_UpdateFade	body: takes gCamera.follow.fade_rate (+0x258) of
 func_L00_001ED2C0	Camera_PickCollisionMasksLvl	body: level copy of Camera_PickCollisionMasks (func_001EDCE8); Lvl = level copy of the executable function	
 func_L00_001EBDA0	UpdateAllCamerasLvl	body: level copy of UpdateAllCameras (func_001EC7C8) over the level's 48 slots; Lvl = level copy of the executable function	
 func_L00_001EB7C8	Camera_ReleaseCurrent	body: sets the current camera's transition_state to 1 and handoff_state to 0, so any eligible camera may take over (Camera_ActivationCheckPriority)	
-D_00187040	gCamera	camera block, 0x3A0 bytes (transition.c clears it): CameraSystem in include/camera.h; draw.c reads its view matrix and eye position	
+D_00187040	gCamera	camera block, 0x3A0 bytes (transition.c clears it): CameraSystem in include/structs/camera.h; draw.c reads its view matrix and eye position	
 D_00187510	gCameraSlots	48 0xA0-byte Camera records UpdateAllCameras scans (camera.c)	
 D_00189C50	gCameraSlotUsed	48 words, nonzero = slot in use (UpdateAllCameras, Camera_InitSlots)	
 D_00189310	gCameraBackup	BackupCurrentCam copies the current camera (0xA0 bytes) here	
@@ -3333,7 +3333,7 @@ D_0015F09C	gCamSphereMask	collision mask of the camera's sphere probes (level co
 D_0015F0A0	gCamSphereMaskBase	gCamSphereMask before bit 0x80 is added (Camera_PickCollisionMasks)	
 D_0015F098	gCamLineMask	collision mask of the camera's line probes (level copy passed to func_L00_001EFFF0 in vendor_002E1660.c); Camera_PickCollisionMasks sets it	
 D_0015F53C	gFade	fade level: 1.0 on a level load (transition.c), cut by Camera_UpdateFade, a cutscene steps it down by 0.34 (tieproc_00299108.c level copy)	
-D_L00_00166D80	gCameraLvl	level copy of gCamera (CameraSystem, include/camera.h); Lvl = the level build's copy of the executable symbol	
+D_L00_00166D80	gCameraLvl	level copy of gCamera (CameraSystem, include/structs/camera.h); Lvl = the level build's copy of the executable symbol	
 D_L00_00167250	gCameraSlotsLvl	level copy of gCameraSlots (Camera_InitSlots, FindCameraById)	
 D_L00_00169990	gCameraSlotUsedLvl	level copy of gCameraSlotUsed (Camera_InitSlots)	
 D_L00_00169210	gCamCurStateLvl	state buffer of the current camera, level build (CameraResetBehindHero); 0x280 bytes before gCamPrevStateLvl	
@@ -3508,7 +3508,7 @@ D_L00_001C43B0	item_price_table	src/overlays/shared/vendor_menu.c: 24-byte per-i
 D_L16_0017AB60	kalebo3_hero_bones	src/overlays/l16_kalebo3/hero_movement.c: Bone array whose f60 rotations get clamped head/torso angles from the hero yaw.	
 D_L05_0015F660	rilgar_zero_vec	src/overlays/l05_rilgar/sharkigator_and_faucet.c: passed as the default zero velocity/rotation vector to SpawnBreakFragment and spawn_splash.	
 D_L00_001BDB70	sky_shell_matrix	src/overlays/shared/sky_particles.c: set to identity or a rotation before each SkyDrawShell call.	
-D_001414DC	hero_control_mode	include/hero.h: g_hero + 0x208C is HeroState.control_mode; map filters compare it to 15/16.	
+D_001414DC	hero_control_mode	include/structs/hero.h: g_hero + 0x208C is HeroState.control_mode; map filters compare it to 15/16.	
 D_L00_00173F58	g_coll_hit_moby	the NTSC decomp's name is a struct field, local or alias in src/, so names.h would leave it out	clash
 D_L07_001B0830	umbris_paths	src/overlays/l07_umbris/snagglebeast.c: pointer table of paths indexed by path id, used with select_point_index_by_distance.	
 D_L04_001B0930	eudora_paths	src/overlays/l04_eudora/big_axebot.c: pointer table of count-prefixed point lists used as paths and IsPointInPolygon areas.	
@@ -3530,7 +3530,7 @@ D_L00_0017BEB8	hero_speed_bands	src/overlays/shared/hero_vehicle_and_collision.c
 D_L18_00160058	veldin2_moby_table	src/overlays/l18_veldin2/rockets_and_platforms.c: base of the 0x100-byte moby array, indexed by (id & 0x7FFF) << 8.	
 D_L10_001B0C30	orxon_paths	src/overlays/l10_orxon/toxic_crabs_and_gates.c: pointer table of count-prefixed paths indexed by path id.	
 D_L18_001D9FD0	electric_bolt_points	src/overlays/l18_veldin2/rockets_and_platforms.c: two rows of 20 points rebuilt each frame for the arc bolt and its mirror.	
-D_001414F4	hero_vehicle_mode	include/hero.h: g_hero + 0x20A4 is vehicle_mode; enemies check it for 1/2.	
+D_001414F4	hero_vehicle_mode	include/structs/hero.h: g_hero + 0x20A4 is vehicle_mode; enemies check it for 1/2.	
 D_L03_00173FC0	kerwan_coll_hit	src/overlays/shared/helicopter_gunship_and_spawners.c: collision result with hit point, normal and moby.	
 D_L03_0017A800	kerwan_hero_bones	src/overlays/l03_kerwan/hero_movement.c: Bone array of hero bone rotations clamped from lean and roll.	
 D_L00_0016009C	level_mobys_end	src/overlays/shared/level_gameplay_loading.c: set to moby_table + count after placing level mobys, marked 0xFF; spawned ones follow.	
@@ -3551,7 +3551,7 @@ D_L00_00173F40	coll_hit_result	hero_vehicle_and_collision.c:54 reads it as Colli
 D_L03_0015F660	kerwan_zero_vec	train_locomotive.c: passed for the vector args of SpawnBreakFragment, which uses defaults when the vector length is 0.	
 D_L00_001BA070	level_menu_system	pause_menu.c:993 menu_system_p view (current/next page, state, queued); level copy of menu_system (D_001D5F70).	
 D_L00_001842F0	map_menu_state	level_runtime_and_menus.c:431-436 loads/decodes the map chunk and mask; map_menu_filters.c:178 uses it as the map row cache.	
-D_001414D0	g_hero_moby	g_hero (0x13F450) + 0x2080 = Hero.moby (hero.h:737); used as ignore-moby in coll_sphere and pos at +0x10.	
+D_001414D0	g_hero_moby	g_hero (0x13F450) + 0x2080 = Hero.moby (structs/hero.h:737); used as ignore-moby in coll_sphere and pos at +0x10.	
 D_L18_0017B100	veldin2_hero_bones	hero_ground_movement.c:594 writes Bone[1].f60 rotations from hero roll/lean.	
 D_0015EE8C	quick_swap_item	hero_item_input_and_hud.c:210 double-tap triangle sets pending_item to it when not already equipped.	
 D_L00_00173F00	lvl_resource_buffers	scratch_buffer_offset.c:16 words 1/2 plus D_L00_0016128C, same as help.c with level_resource_buffers; level copy.	
@@ -3573,7 +3573,7 @@ D_L14_00160098	oltanis_mobys	plasmabot.c:981 moby = base + (index << 8): level m
 D_001CDAE0	pad_socket_param	stream.c:668 init_pads uses it as PadSocketParam {port, slot} for pad open.	
 D_L15_0015F6B0	quartu_frame_count	sentrybot.c/electric_water.c use it modulo periods for pulses and as a frame stamp.	
 D_L08_00167640	batalia_hero_pos	the NTSC decomp's name is a struct field, local or alias in src/, so names.h would leave it out	clash
-D_0013F6E0	hero_gravity_dir	g_hero + 0x290 = Hero.gravity_dir (hero.h:268); camera.c:781 crosses with it as up axis.	
+D_0013F6E0	hero_gravity_dir	g_hero + 0x290 = Hero.gravity_dir (structs/hero.h:268); camera.c:781 crosses with it as up axis.	
 D_L17_0015F6B0	fleet_frame_count	robot_dog_and_shuttle.c:286 frame counter modulo pulse period; hero_ground_movement.c:517 timestamps.	
 D_L01_001B0C30	novalis_paths	the NTSC decomp's name is a struct field, local or alias in src/, so names.h would leave it out	clash
 D_L15_0015F660	quartu_zero_vec	gates_helicopters_ultramechs.c:1007 passed for SpawnBreakFragment default (zero) vectors.	
@@ -3699,7 +3699,7 @@ D_L11_001AC540	pokitaru_moby_groups	resort_owner_and_water.c: indexed by moby gr
 D_L15_00167300	quartu_player_camera	hero_movement.c: .f350 matrix and .f158 yaw read for hero move direction; +0x140 is quartu_camera_pos.	
 D_L06_0017C4A8	blarg_attack_records	hero_movement.c: indexed by g_hero.attack_record and compared with anim_frame (.f18/.f20) like attack_records.	
 D_L14_0017C428	oltanis_attack_records	hero_movement.c: indexed by g_hero.attack_record, .f18/.f20 compared with anim_frame like attack_records.	
-D_001414D4	hero_current_state	include/hero.h: g_hero + 0x2084 is state.current; code compares it to state ids 0x32/0x72/0x78.	
+D_001414D4	hero_current_state	include/structs/hero.h: g_hero + 0x2084 is state.current; code compares it to state ids 0x32/0x72/0x78.	
 D_L00_0015F7EC	level_rails	hero_animation_slots.c: nearest_rail_point loops over its sphere/owner/kind entries; level_gameplay_loading.c fills it (count D_L00_0015F7F0).	
 D_L02_00167440	aridia_camera_pos	sand_shark.c: camera block at D_L02_00167300 + 0x140; used as the camera position in vector subtracts.	
 D_0015EF24	game_clock_ticks	pause.c: SpaceTransition_Tick adds 1 per frame (+10 per 50 on PAL); stored in the memory card save slot.	
@@ -9756,7 +9756,7 @@ D_0013A5E0	pad_globals_base	fake base: +0x2460 is g_controller_state, +0x2604 pa
 D_0013D355	special_items_base	fake base: +0x13B is gSpecialItems, +0x3B memory_card_state	
 D_0013E15A	screen_globals_base	fake base: +0x4A6 is g_screen_extent, +0x4C6 gold_weapon_purchased, +0x4AA frame_size	
 D_0013D605	race_gates_base	fake base: +0xB3 is race_gates	
-D_0013F590	g_hero_platform_carry	g_hero+0x140 is platform_carry (hero.h)	
+D_0013F590	g_hero_platform_carry	g_hero+0x140 is platform_carry (structs/hero.h)	
 D_0015F430	screen_tint_quad_enabled	L15 sets 1 with rgba 0xFFFF00 at +4 and GS ALPHA at +8; ResetDrawGlobals clears	
 D_0015F434	screen_tint_quad_rgba	L15/L00 write 0xFFFF00/0xFFFFFF, alpha byte +3 faded	
 D_0015F460	draw_unused_reset_flag	write-only, only zeroed by ResetDrawGlobals	
@@ -9775,7 +9775,7 @@ func_001F91B8	prepare_font_quads	handwritten: bsphere-culls and projects each fo
 func_001F8B6C	draw_font_quad_packets	handwritten: runs after prepare_font_quads and font_queue_vu_state in draw_debug_font	
 D_0013D440	memory_card_request	memory_card_state+0xB0 is card[0].request (memcard.c McCard)	
 D_001D60C0	freeze_prompt_override_flag	never written; nonzero switches freeze prompts 3/4/12/19 to message 0x4FA7	
-D_00187198	gCamera_yaw	gCamera+0x158 is rot.z, the yaw (camera.h)	
+D_00187198	gCamera_yaw	gCamera+0x158 is rot.z, the yaw (structs/camera.h)	
 D_0019A500	hud_bank_table_ptr	LoadCompressedHudBank clears word idx at +0x74 of the block it points to	
 D_001B6500	resident_class_original_field_2c	per class slot, keeps the class resource's +0x2C word (register_moby_class)	
 D_0013D315	memcard_icon_path_a_filename	memcard_icon_path_a+0x15, compared with directory file names	
@@ -9822,9 +9822,9 @@ D_001CEAC8	pause_menu_screen_b	PauseAllSounds links its +0x3C to pause_menu_scre
 D_001CEB18	pause_menu_screen_optional	linked between screens a and b only when menu flag 0xD8 is set	
 D_001D0718	pause_entry_cleared_word	write-only; PauseAllSounds zeroes it	
 D_001D53A0	menu_preview_slot_enabled	per preview slot; draw_menu_preview_objects skips slots where it is 0	
-D_001D6044	menu_system_save_prompt_kind	menu_system+0xD4 (menu.h unkD4: 0 saving_data_menu, 1/2 saving_data_menu2)	
-D_001D6078	menu_system_help_text_buffer	menu_system+0x108 is help_text_buffer (menu.h)	
-D_001D6094	menu_system_close_locked	menu_system+0x124 is close_locked (menu.h)	
+D_001D6044	menu_system_save_prompt_kind	menu_system+0xD4 (structs/menu.h unkD4: 0 saving_data_menu, 1/2 saving_data_menu2)	
+D_001D6078	menu_system_help_text_buffer	menu_system+0x108 is help_text_buffer (structs/menu.h)	
+D_001D6094	menu_system_close_locked	menu_system+0x124 is close_locked (structs/menu.h)	
 D_001D641C	current_preview_animation_request_field_c	current_preview_animation_request+0xC, cleared with the request count	
 D_001D6508	pause_weapon_menu_item_field40	per pause weapon item: item_info +0x40, or +0x42 when the gold weapon is bought	
 D_001D65D8	gadget_menu_item_field40	per gadget menu item: item_info +0x40 (build_pause_item_list)	
@@ -9892,7 +9892,7 @@ D_00141A40	usage_stats_entry31_count	usage_stats+0xF8, count of 8-byte record 31
 D_L04_00174068	eudora_coll_hit_z	eudora_coll_hit_point+8; returned as the ground offset when the probe ray hits; like aridia_coll_hit_z	
 D_L04_001CABB8	eudora_leg_rig_anim_b7_values	13x4 byte table; [anim index][0] goes to the leg rig's unkB7 for the matching animation	
 D_0013D56C	weapon_ammo_counts_15	weapon_ammo_counts+0x3C, element 15; help fires when it is >= 20	
-D_0013F74C	g_hero_ground_moby	g_hero+0x2FC, the ground_moby field (hero.h)	
+D_0013F74C	g_hero_ground_moby	g_hero+0x2FC, the ground_moby field (structs/hero.h)	
 D_0014172A	active_marker_id	short written with vars->marker by the rilgar lift camera and the blarg boss (data+0x108)	
 D_00141820	item_usage_entry20_base	item_usage+0xA0 (record 20); the L05 field view adds US offsets to it	
 D_L05_00174358	rilgar_coll_hit_moby	rilgar_coll_hit+0x18, the hit moby (class 0x1F6/0x59F checked); like novalis_coll_hit_moby	
@@ -10139,8 +10139,8 @@ D_L15_001BB334	quartu_current_level_state_moby_flags	current level state + 0x454
 D_L15_001BBF94	quartu_checkpoint_level_state_moby_flags	checkpoint level state + 0x454, 0xC60 after the current copy as in L00	
 D_L15_001D3A10	electric_water_bolt_points_base	+0x10 is electric_water_bolt_points; indexed [i] for point i-1	
 D_L15_001D3E70	electric_water_side_arc_points_base	+0x10 is electric_water_side_arc_points; read as [k].p[j-1]	
-D_001404E0	g_hero_item_slot0_moby	g_hero + 0x1090 is items[0].moby (hero.h); mode 5 of get_hero_easing_moby_by_kind	
-D_001405D4	g_hero_item_slot3_moby2	g_hero + 0x1184 is items[3].moby2 (hero.h); mode 1 of get_hero_easing_moby_by_kind	
+D_001404E0	g_hero_item_slot0_moby	g_hero + 0x1090 is items[0].moby (structs/hero.h); mode 5 of get_hero_easing_moby_by_kind	
+D_001405D4	g_hero_item_slot3_moby2	g_hero + 0x1184 is items[3].moby2 (structs/hero.h); mode 1 of get_hero_easing_moby_by_kind	
 D_001419F0	usage_stats_entry21_count	usage_stats + 0xA8 is entry 21 .count (8-byte UStat entries); gates the item help hint	
 D_0015EF18	sound_volume_10	sound_volume + 0x28, read as sound_volume_r[10]	
 D_L00_00160600	ship_level_entry_active	initialize_moby_state_record sets it 1; when set the hero spawn pose is not recorded	
@@ -10148,8 +10148,8 @@ D_L00_0017B95C	lean_state_25_scale	lean_state + 25*0xB0 + 0xAC is entry 25 .scal
 D_L00_0017BB6C	lean_state_28_scale	lean_state + 28*0xB0 + 0xAC is entry 28 .scale; big-head cheat sets it	
 D_L00_0017BCCC	lean_state_30_scale	lean_state + 30*0xB0 + 0xAC is entry 30 .scale; cheat 1 sets 1.9	
 D_L00_001802D0	level_moby_lights_field_310	level_moby_lights + 0x310 (entry 12 + 0x10); code backs up 0x310 to the entry	
-D_0013CB40	g_controller_state_analog	g_controller_state + 0x100 is analog[] (pad.h); read as [0] and [1]	
-D_00141510	g_hero_pending_item_2	g_hero + 0x20C0 is pending_item[2] (hero.h); helmet pickup sets 7	
+D_0013CB40	g_controller_state_analog	g_controller_state + 0x100 is analog[] (structs/pad.h); read as [0] and [1]	
+D_00141510	g_hero_pending_item_2	g_hero + 0x20C0 is pending_item[2] (structs/hero.h); helmet pickup sets 7	
 D_00141C08	help_records_52_count	help_records + 0x1A0 is entry 52 .count; gates Help_Request(0x2328, 0x34)	
 D_L00_00166F30	camera_view_up_axis	camera_view + 0x20, the camera up axis projected off the forward row	
 D_L00_00166F40	camera_view_vertical_axis	camera_view + 0x30, the axis the ground probe scales by -30	
@@ -10165,9 +10165,9 @@ D_L11_001B2D80	pokitaru_particle_textures_ptr_base	+0x5C holds the particle text
 D_L11_0021ABF0	pokitaru_raritanium_acquired_text	string printed into the pickup message buffer when raritanium is taken	
 D_L01_0015F674	novalis_help_message_selector	same slot as kerwan/batalia_help_message_selector; ==0 gates item select, ==4 holds the teleporter pad	
 D_L00_0015F678	current_moby_mission_complete	set from mission_state[moby mission] == 0xFF; gates play-time frames and bolt totals	
-D_0013CC14	g_controller_state_no_direction	g_controller_state + 0x1D4 is no_direction (pad.h)	
-D_0013F580	g_hero_resolved_velocity_xy	g_hero + 0x130 is motion.resolved_velocity_xy (hero.h); -0x50 is velocity	
-D_00140C00	g_hero_transform_history	g_hero + 0x17B0 is the unk17B0 buffer (hero.h) passed to the transform history calls	
+D_0013CC14	g_controller_state_no_direction	g_controller_state + 0x1D4 is no_direction (structs/pad.h)	
+D_0013F580	g_hero_resolved_velocity_xy	g_hero + 0x130 is motion.resolved_velocity_xy (structs/hero.h); -0x50 is velocity	
+D_00140C00	g_hero_transform_history	g_hero + 0x17B0 is the unk17B0 buffer (structs/hero.h) passed to the transform history calls	
 D_L00_00167114	hero_control_mode_11_flag	1 when hero control_mode is 0x11, else 0; leaving water clears it	
 D_L00_0017B48C	lean_state_18_scale	lean_state + 18*0xB0 + 0xAC is entry 18 .scale; big-head cheat sets it	
 D_L00_0017BED0	hero_speed_bands_field_18	hero_speed_bands + 0x18, read elsewhere as hero_speed_bands.f18 (5.7)	
@@ -10182,12 +10182,12 @@ D_L06_001746E0	blarg_collision_hit_point	blarg_coll_hit + 0x20, same slot as L00
 D_L06_0017A170	blarg_idle_fidgets_field_60	blarg_idle_fidgets + 0x60; five 0x70-byte entries whose timer word is counted down each frame	
 D_L06_0017C0DC	blarg_hero_bones_25_scale	blarg_hero_bones + 25*0xB0 + 0xAC, entry 25 .scale as L00 lean_state	
 D_L06_0017C44C	blarg_hero_bones_30_scale	blarg_hero_bones + 30*0xB0 + 0xAC, entry 30 .scale; cheat 1 sets 1.9	
-D_0013F670	g_hero_capsule_top	g_hero + 0x220 is capsule_top (hero.h); eased toward +0x228	
+D_0013F670	g_hero_capsule_top	g_hero + 0x220 is capsule_top (structs/hero.h); eased toward +0x228	
 D_L15_00179F70	quartu_idle_fidgets_field_60	quartu_idle_fidgets + 0x60; five 0x70-byte entries whose timer word is counted down each frame	
 D_L15_0017AD40	quartu_hero_bones_0_rot	quartu_hero_bones + 0x40 is entry 0 .rot (HeroEase); fed to euler_to_matrix	
 D_L15_0017C0EC	quartu_hero_bones_28_scale	quartu_hero_bones + 28*0xB0 + 0xAC, entry 28 .scale; big-head cheat sets it	
 D_L15_0017C24C	quartu_hero_bones_30_scale	quartu_hero_bones + 30*0xB0 + 0xAC, entry 30 .scale; cheat 1 sets 1.9	
-D_0013FD1E	g_hero_race_ammo	g_hero + 0x8CE is race_ammo (hero.h); picks hoverboard anim 0x55 or 0x7F	
+D_0013FD1E	g_hero_race_ammo	g_hero + 0x8CE is race_ammo (structs/hero.h); picks hoverboard anim 0x55 or 0x7F	
 D_00141A20	usage_stats_entry27_count	usage_stats + 0xD8 is entry 27 .count; gates the hoverboard race help hint	
 D_00141E80	help_records_131_count	help_records + 0x418 is entry 131 .count; Help_Request(0x3E81, 0x83) uses entry 0x83	
 D_L05_0017C168	rilgar_hoverboard_link_table	{anim id, value} short pairs stored in hero +0x227C while control mode is 0x15/0x16	
@@ -10210,7 +10210,7 @@ D_L00_00184494	map_menu_state_circle_mask	map_menu_state + 0x1A4: 32x32 bit mask
 D_L00_00184568	map_menu_state_key_slots	map_menu_state + 0x278: five slots then five keys Map_FindUnsetKeySlot scans	
 D_0013E634	gold_weapon_purchased_20	gold_weapon_purchased + 0x14; +1 scales the morphed chicken	
 D_L00_00161910	morphoray_chicken_ai_params	params block whose address goes in the chicken state block +0x70	
-D_0013FAB0	hero_basis_2	hero_basis + 0x20 is g_hero.basis[2] (hero.h 0x640 rows)	
+D_0013FAB0	hero_basis_2	hero_basis + 0x20 is g_hero.basis[2] (structs/hero.h 0x640 rows)	
 D_L00_00160830	bomb_hit_skip_update_fn	bomb_update skips a hit moby whose update pointer (+0x74) equals it, unless class 0x336	
 D_L00_001614A0	mine_force_detonate	nonzero makes mine_update explode and delete every thrown mine	
 D_L00_0015F688	memcard_menu_alt_route	when set, clearing flag 0x20 moves mode_freeze_state to 0x17/24 instead of 12	
@@ -10256,12 +10256,12 @@ D_L00_001B6BA0	pause_menu_no_toggle_page_2	one of the pages whose reopen keeps t
 D_L00_001B7C70	pause_menu_no_toggle_page_3	one of the pages whose reopen keeps the preview-anim flag untoggled	
 D_L00_001B8150	pause_menu_no_toggle_page_4	one of the pages whose reopen keeps the preview-anim flag untoggled	
 D_L00_001B8460	pause_menu_no_toggle_page_5	one of the pages whose reopen keeps the preview-anim flag untoggled	
-D_L10_001673D8	orxon_player_camera_fade_rate	orxon_player_camera + 0x258 = follow.fade_rate (camera.h), set 0.05 when the path camera ends	
-D_L10_001674D0	orxon_player_camera_matrix	orxon_player_camera + 0x350 = view rotation rows (camera.h)	
+D_L10_001673D8	orxon_player_camera_fade_rate	orxon_player_camera + 0x258 = follow.fade_rate (structs/camera.h), set 0.05 when the path camera ends	
+D_L10_001674D0	orxon_player_camera_matrix	orxon_player_camera + 0x350 = view rotation rows (structs/camera.h)	
 D_L10_0016CFF0	orxon_view_params_fov_tan	orxon_view_params + 0xB0, set to tan(fov/2) before UpdateViewContext	
 D_L08_0015F6B8	batalia_draw_frame_load	compared with 0.8-0.9 beside batalia_frame_cpu_load, like L00 level_draw_frame_load	
 D_L08_00161918	scoutbot_pvar_d0_data	short data whose address scoutbot init stores in pvars +0xD0, next to scoutbot_beam_colors	
-D_L08_00167680	batalia_player_camera_current	batalia_player_camera + 0x180 = CameraSystem.current (camera.h); its byte 0x88 is set	
+D_L08_00167680	batalia_player_camera_current	batalia_player_camera + 0x180 = CameraSystem.current (structs/camera.h); its byte 0x88 is set	
 D_L08_001746E0	batalia_coll_hit_point	batalia_coll_hit + 0x20, the hit point (as kerwan_coll_hit_point)	
 D_L08_001746F0	batalia_coll_resolved_pos	batalia_coll_hit + 0x30, same slot as L00 coll_resolved_pos	
 func_L00_00203970	get_vu_chain_tail_buffers	sets two pointers to resource buffers 1/2 + chain size - off, -1 past 0x20000	
@@ -10278,7 +10278,7 @@ D_0013DE6E	level_render_state_base	fake base: +0x2C2 is level_render_state, +0x2
 D_0013E62A	gGoldBombGlove	gold_weapon_purchased + 10 (bomb glove id, after gGoldSuckCannon at +9); raises the throw speed	
 D_L02_0015F720	aridia_banner_display_ticks	cleared after granting item 0x16; same slot as L00 banner_display_ticks	
 D_L02_00161C38	trespasser_arrow_unused_color	color word among the trespasser ring/beam colors, passed as the arrow draw's unused second arg	
-D_L02_00167490	aridia_player_camera_follow	aridia_player_camera + 0x190 = CameraFollow block (camera.h); its +0x30 up_target is read	
+D_L02_00167490	aridia_player_camera_follow	aridia_player_camera + 0x190 = CameraFollow block (structs/camera.h); its +0x30 up_target is read	
 D_L02_0016755C	aridia_camera_follow_override_moby	aridia_player_camera + 0x25C (follow +0xCC); camera control activates when it equals the descriptor target	
 D_00141D60	hoverboard_race_help_shown_count	help_records + 0x5F*8 = help_records[0x5F].count; Help_Request(0x138F, 0x5F) only while zero	
 D_L05_001619E8	rilgar_hoverboard_trail_velocity_w	int converted into the w of the hoverboard trail particle velocity, next to the trail colors	
@@ -10320,17 +10320,17 @@ D_L00_001DC208	walloper_arc_state_b	10 shorts after walloper_arc_state_a, set to
 D_L00_001DC250	tesla_chain_points_base	tesla_chain_points - 0x10: [k] is tesla_chain_points[k-1]	
 D_L00_001DC360	tesla_ring_vertices_base	tesla_ring_vertices - 0x140: [i] is ring i-1 of tesla_ring_vertices	
 D_0013D5CD	item_available_5	item_available + 5; sandmouse_house_update turns only while it is set	
-D_0013F520	g_hero_body_center	g_hero + 0xD0 = body_center (hero.h); tested against the clip volume	
-D_001405A8	g_hero_items_2_item_id	g_hero + 0x1158 = items[2].item_id (hero.h, 0x1090 + 2*0x50 + 0x28); sandmouse house checks == 5	
+D_0013F520	g_hero_body_center	g_hero + 0xD0 = body_center (structs/hero.h); tested against the clip volume	
+D_001405A8	g_hero_items_2_item_id	g_hero + 0x1158 = items[2].item_id (structs/hero.h, 0x1090 + 2*0x50 + 0x28); sandmouse house checks == 5	
 D_L01_00161AD0	amoeboid_pvar130_data	address put in amoeboid pvars +0x130 for every class but 0x362, after the amoeboid_spark values	
 D_L01_00161AE0	small_amoeboid_pvar130_data	address put in amoeboid pvars +0x130 for class 0x362 (the smaller, 0.49-scale one)	
-D_L01_001672D8	novalis_player_camera_yaw	novalis_player_camera + 0x158 = rot.z, the yaw (camera.h); copied to move_yaw	
+D_L01_001672D8	novalis_player_camera_yaw	novalis_player_camera + 0x158 = rot.z, the yaw (structs/camera.h); copied to move_yaw	
 D_L01_00174360	novalis_coll_hit_point	novalis_coll_hit + 0x20, the hit point (as kerwan_coll_hit_point)	
 D_L01_00174368	novalis_coll_hit_point_z	novalis_coll_hit + 0x28, z of the hit point used as ground height	
 D_L01_001BB9C0	novalis_checkpoint_level_state	novalis_current_level_state + 0xC60, .collected checked at spawn; like kerwan_checkpoint_level_state	
 D_L01_001DEE10	sand_mouse_move_ctl_probe_height	sand_mouse_move_ctl + 8, passed as the up offset of probe_vertical_ground_collision	
 D_L01_001DEE1C	sand_mouse_move_ctl_turn_vel	sand_mouse_move_ctl + 0x14, the velocity pointer given to MobySpringTurn	
-D_00140A86	g_hero_vehicle_triangle_cooldown	g_hero + 0x1636 = vehicle_triangle_cooldown (hero.h); gauge icon shows while nonzero	
+D_00140A86	g_hero_vehicle_triangle_cooldown	g_hero + 0x1636 = vehicle_triangle_cooldown (structs/hero.h); gauge icon shows while nonzero	
 D_L00_0015F728	race_record_panel_end_y	set to the HUD text panel y + 100 when the race best time panel shows	
 D_L00_0019AD00	moby_class_slot_records	0xE00 bytes set -1 at level init after g_class_slot: 16 bytes for each of 0xE0 slots	
 D_L00_0019A600	moby_class_slot_flags	0xE0 bytes zeroed at level init, one per moby class slot	
@@ -11180,3 +11180,67 @@ D_L18_00162164	electric_bolt_branch_peak_ticks_2_r	init writes 4; same array as 
 D_L18_00162166	electric_bolt_branch_peak_ticks_3_r	init writes 2; same array as branch_peak_ticks_r	
 D_L00_001E4E90	suck_beam_ring_unit_offsets	20 vectors scaled by ring radius and rotated into the beam frame for ring vertices	
 D_L00_001E6330	suck_beam_segment_turn_angles	per-segment smoothed turn angle via Camera_SmoothAngle, 10 entries	
+func_L01_00300C38	pipe_778_update	class name from tools/extract/moby_classes.tsv, was Moby778Update	clash
+func_L08_002E95E8	rocket_458_update	class name from tools/extract/moby_classes.tsv, was Moby458Update	clash
+func_L09_0030BF88	spawner_1885_update	class name from tools/extract/moby_classes.tsv, was Moby1885Update	clash
+func_L10_002DA678	button_1031_update	class name from tools/extract/moby_classes.tsv, was Moby1031Update	clash
+func_L11_002F3888	teleporter_318_update	class name from tools/extract/moby_classes.tsv, was Moby318Update	clash
+func_L11_0030A8C8	rocket_1034_update	class name from tools/extract/moby_classes.tsv, was Moby1034Update	clash
+func_L13_0030E280	blarg_ship_1805_update	class name from tools/extract/moby_classes.tsv, was Moby1805Update	clash
+func_L14_002EFD38	elevator_685_update	class name from tools/extract/moby_classes.tsv, was Moby685Update	clash
+func_L16_002A1F78	spawn_rocket_50_moby	class name from tools/extract/moby_classes.tsv, was spawn_class_32_moby	clash
+func_L16_002CAC40	conveyor_belt_471_update	class name from tools/extract/moby_classes.tsv, was Moby471Update	clash
+func_L16_002D6DA8	door_647_update	class name from tools/extract/moby_classes.tsv, was Moby647Update	clash
+func_L17_002F3450	shuttle_1448_update	class name from tools/extract/moby_classes.tsv, was Moby1448Update	clash
+func_L17_002F5C18	blarg_ship_1843_update	class name from tools/extract/moby_classes.tsv, was Moby1843Update	clash
+func_L18_002FD058	gadgebot_1906_update	class name from tools/extract/moby_classes.tsv, was Moby1906Update	clash
+func_L18_002FDCA0	count_group_gadgebot_1906_mobys_not_in_state_8	class name from tools/extract/moby_classes.tsv, was count_group_class_0772_mobys_not_in_state_8	clash
+func_L01_002F0850	find_nearest_extermibot_moby_in_list	class name from tools/extract/moby_classes.tsv, was find_nearest_class_26f_moby_in_list	clash
+func_L02_00240A00	set_level02_sonic_summoner_moby_flag_0800	class name from tools/extract/moby_classes.tsv, was set_level02_class_1b1_moby_flag_0800	clash
+func_L02_002D6A90	select_group_sand_shark_nest_moby	class name from tools/extract/moby_classes.tsv, was select_group_class_29c_moby	clash
+func_L03_002C5AE0	bomb_545_update	class name from tools/extract/moby_classes.tsv, was Moby545Update	clash
+func_L03_002C6F40	is_robot_dog_573_in_state_5	class name from tools/extract/moby_classes.tsv, was is_moby_class_23d_in_state_5	clash
+func_L03_002C6F80	robot_dog_573_update	class name from tools/extract/moby_classes.tsv, was Moby573Update	clash
+func_L05_002D53B0	create_rocket_1475_moby	class name from tools/extract/moby_classes.tsv, was create_class_5c3_moby	clash
+func_L05_0031E670	spawn_lamp_destroyed_from_source	class name from tools/extract/moby_classes.tsv, was spawn_moby_class_5ea_from_source	clash
+func_L06_002EB2D0	check_all_listed_frog_states_fe_fd_or_10	class name from tools/extract/moby_classes.tsv, was check_all_listed_class_33b_states_fe_fd_or_10	clash
+func_L08_002DF758	spawn_rocket_435_projectile	class name from tools/extract/moby_classes.tsv, was spawn_class_1b3_projectile	clash
+func_L08_00307FF0	the_plumber_batalia_set_mode	class name from tools/extract/moby_classes.tsv, was Moby1283SetMode	clash
+func_L09_002F9A50	platform_664_update	class name from tools/extract/moby_classes.tsv, was Moby664Update	clash
+func_L09_0030AFB8	shuttle_1766_update	class name from tools/extract/moby_classes.tsv, was Moby1766Update	clash
+func_L10_002CD6A8	rocket_819_update	class name from tools/extract/moby_classes.tsv, was Moby819Update	clash
+func_L10_002D9988	bomb_938_update	class name from tools/extract/moby_classes.tsv, was Moby938Update	clash
+func_L11_00317500	count_group_puffoid_mobys_in_states_13_to_17	class name from tools/extract/moby_classes.tsv, was count_group_class_4de_mobys_in_states_13_to_17	clash
+func_L11_00319510	distribute_group_blarg_ship_1319_mobys_along_path	class name from tools/extract/moby_classes.tsv, was distribute_group_class_527_mobys_along_path	clash
+func_L11_00319FA0	energy_sphere_1297_update	class name from tools/extract/moby_classes.tsv, was Moby1297Update	clash
+func_L12_002E8640	blarg_trooper_294_update	class name from tools/extract/moby_classes.tsv, was Moby294Update	clash
+func_L12_002EB2E8	blarg_helicopter_326_update	class name from tools/extract/moby_classes.tsv, was Moby326Update	clash
+func_L12_002ED228	helicopter_336_update	class name from tools/extract/moby_classes.tsv, was Moby336Update	clash
+func_L12_00309A50	create_blarg_commander_moby_from_source	class name from tools/extract/moby_classes.tsv, was create_class_55b_moby_from_source	clash
+func_L13_002C31B0	spawn_mine_83_projectile	class name from tools/extract/moby_classes.tsv, was spawn_class_53_projectile	clash
+func_L13_002C32D0	update_level_13_mine_83_projectile	class name from tools/extract/moby_classes.tsv, was update_level_13_class_53_projectile	clash
+func_L13_002EBAF0	fire_mine_83_projectile	class name from tools/extract/moby_classes.tsv, was fire_class_53_projectile	clash
+func_L13_00308FA8	poison_vessel_1261_update	class name from tools/extract/moby_classes.tsv, was Moby1261Update	clash
+func_L14_002D84A8	plasmabot_211_advance_on_path	class name from tools/extract/moby_classes.tsv, was Moby211_AdvanceOnPath	clash
+func_L16_002D6E98	set_door_647_group_activation_and_find_nearest	class name from tools/extract/moby_classes.tsv, was set_class_0287_group_activation_and_find_nearest	clash
+func_L16_002D6F90	activate_door_647_group_and_find_nearest	class name from tools/extract/moby_classes.tsv, was activate_class_0287_group_and_find_nearest	clash
+func_L16_002E9F80	find_group_morphoray_chicken_moby_in_state_6	class name from tools/extract/moby_classes.tsv, was find_group_class_010e_moby_in_state_6	clash
+func_L17_002F0678	robot_dog_1382_update	class name from tools/extract/moby_classes.tsv, was Moby1382Update	clash
+func_L18_002D6D08	update_mine_568_moby	class name from tools/extract/moby_classes.tsv, was update_class_238_moby	clash
+func_L18_002D70E8	launch_mine_568_moby_from_list	class name from tools/extract/moby_classes.tsv, was launch_class_238_moby_from_list	clash
+func_L18_002D7310	update_mine_568_detonation	class name from tools/extract/moby_classes.tsv, was update_class_238_detonation	clash
+func_L18_002D7F48	find_thruster_pack_lock_green_moby_with_largest_xy_angle_in_list	class name from tools/extract/moby_classes.tsv, was find_class_247_moby_with_largest_xy_angle_in_list	clash
+func_L18_002D8070	find_nearest_thruster_pack_lock_green_moby_in_list	class name from tools/extract/moby_classes.tsv, was find_nearest_class_247_moby_in_list	clash
+func_L18_002D8140	set_thruster_pack_lock_green_list_data_fields	class name from tools/extract/moby_classes.tsv, was set_class_247_list_data_fields	clash
+func_L18_002FDB28	launch_first_idle_group_gadgebot_1906_moby	class name from tools/extract/moby_classes.tsv, was launch_first_idle_group_class_0772_moby	clash
+func_L18_002FDF58	draw_group_gadgebot_1906_joint_glows	class name from tools/extract/moby_classes.tsv, was draw_group_class_0772_joint_glows	clash
+func_L18_002FE070	gadgebot_1906_hit_check	class name from tools/extract/moby_classes.tsv, was Moby1906HitCheck	clash
+func_L00_0025F450	is_bomb_glove_ammo_cc_de_3ee_d6_e1_d5_or_df	class name from tools/extract/moby_classes.tsv, was is_moby_class_e2_cc_de_3ee_d6_e1_d5_or_df	clash
+func_L04_002D48B8	spawn_axe_moby	class name from tools/extract/moby_classes.tsv, was spawn_class_23a_moby	clash
+func_L18_002FDCC4	count_listed_gadgebot_1906_mobys_in_state_8	class name from tools/extract/moby_classes.tsv, was count_listed_class_0772_mobys_in_state_8	clash
+D_L16_00161B40	door_647_group_activation_value	class name from tools/extract/moby_classes.tsv, was class_0287_group_activation_value	clash
+D_L16_001614A8	rocket_50_spawn_max_yaw_deg	class name from tools/extract/moby_classes.tsv, was class_32_spawn_max_yaw_deg	clash
+D_L16_001614AC	rocket_50_spawn_max_pitch_deg	class name from tools/extract/moby_classes.tsv, was class_32_spawn_max_pitch_deg	clash
+D_L00_0017C4C0	cheat_scale_manipulator_giant_clank	class name from tools/extract/moby_classes.tsv, was cheat_scale_manipulator_class_1a3	clash
+func_L11_00317518	count_group_puffoid_mobys_in_states_13_to_17_loop_tail	class name from tools/extract/moby_classes.tsv, was count_group_class_4de_mobys_in_states_13_to_17_loop_tail	clash
+D_L00_0015F684	level_15_mine_77_respawn_flag	class name from tools/extract/moby_classes.tsv, was level_15_class_4d_respawn_flag	clash

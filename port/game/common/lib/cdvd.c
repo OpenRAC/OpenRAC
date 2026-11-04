@@ -7,7 +7,10 @@
  * (iso_data/<game>/disc.iso). A read completes before the call returns, so the
  * game's polling (sceCdSync) finds it done. */
 #define _FILE_OFFSET_BITS 64
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #include "openrac/game_host.h"
@@ -15,7 +18,80 @@
 #include "openrac/host_env.h"
 
 #define SECTOR 2048
-#define MAX_PATCHES 64
+
+typedef struct {
+    unsigned first, count;
+    char* path;
+} sector_file;
+
+static int seek_file(FILE* file, uint64_t offset) {
+#if defined(_WIN32)
+    return _fseeki64(file, (long long)offset, SEEK_SET);
+#else
+    return fseeko(file, (off_t)offset, SEEK_SET);
+#endif
+}
+
+static int append_sector_file(
+    sector_file** entries,
+    size_t* count,
+    size_t* capacity,
+    unsigned first,
+    unsigned sectors,
+    const char* path
+) {
+    size_t path_size = strlen(path) + 1;
+    char* copy = (char*)malloc(path_size);
+    if (copy == NULL) {
+        return -1;
+    }
+    memcpy(copy, path, path_size);
+    if (*count == *capacity) {
+        size_t next = *capacity == 0 ? 16 : *capacity * 2;
+        sector_file* grown;
+        if (next < *capacity || next > SIZE_MAX / sizeof(**entries)) {
+            free(copy);
+            return -1;
+        }
+        grown = (sector_file*)realloc(*entries, next * sizeof(**entries));
+        if (grown == NULL) {
+            free(copy);
+            return -1;
+        }
+        *entries = grown;
+        *capacity = next;
+    }
+    (*entries)[*count].first = first;
+    (*entries)[*count].count = sectors;
+    (*entries)[*count].path = copy;
+    ++*count;
+    return 0;
+}
+
+static void clear_sector_files(sector_file** entries, size_t* count, size_t* capacity) {
+    size_t i;
+    for (i = 0; i < *count; ++i) {
+        free((*entries)[i].path);
+    }
+    free(*entries);
+    *entries = NULL;
+    *count = 0;
+    *capacity = 0;
+}
+
+static FILE* select_sector_file(
+    sector_file* entries, size_t index, FILE** active, size_t* active_index, int* active_valid
+) {
+    if (!*active_valid || *active_index != index) {
+        if (*active != NULL) {
+            fclose(*active);
+        }
+        *active = fopen(entries[index].path, "rb");
+        *active_index = index;
+        *active_valid = 1;
+    }
+    return *active;
+}
 
 static FILE* disc;
 static int last_error;
@@ -23,17 +99,94 @@ static int last_error;
 /* Edited levels (--mods): runs of sectors read from a file instead of the
  * disc. patches.tsv has one per line, "first sector<TAB>sectors<TAB>file",
  * the file beside the list; lines starting with # are skipped. */
-static struct {
-    unsigned first, count;
-    FILE* file;
-} patches[MAX_PATCHES];
-static int patch_count = -1; /* -1: the list has not been read yet */
+static sector_file* patches;
+static size_t patch_count, patch_capacity;
+static int patches_loaded;
 static unsigned patch_generation;
+static FILE* active_patch_file;
+static size_t active_patch_index;
+static int active_patch_valid;
+
+/* Expanded mod-owned streams, outside the disc's LBA space. virtual.tsv has
+ * first sector, sector count, file. With no such rows reads retain the direct
+ * disc path. */
+static sector_file* virtuals;
+static size_t virtual_count, virtual_capacity;
+static int virtuals_loaded;
+static unsigned virtual_generation;
+static FILE* active_virtual_file;
+static size_t active_virtual_index;
+static int active_virtual_valid;
+
+static void load_virtuals(void) {
+    char path[4096], line[4096], name[2048];
+    FILE* list;
+    virtual_count = 0;
+    virtuals_loaded = 1;
+    if (openrac_game_mods_dir == NULL) {
+        return;
+    }
+    snprintf(path, sizeof path, "%s/virtual.tsv", openrac_game_mods_dir);
+    list = fopen(path, "r");
+    if (list == NULL) {
+        return;
+    }
+    while (fgets(line, sizeof line, list) != NULL) {
+        unsigned first, count;
+        if (line[0] == '#' || sscanf(line, "%u\t%u\t%2047[^\t\r\n]", &first, &count, name) != 3
+            || count == 0) {
+            continue;
+        }
+        snprintf(path, sizeof path, "%s/%s", openrac_game_mods_dir, name);
+        if (append_sector_file(&virtuals, &virtual_count, &virtual_capacity, first, count, path)
+            != 0) {
+            fprintf(stderr, "[error] cannot allocate virtual sector mapping\n");
+            break;
+        }
+    }
+    fclose(list);
+}
+
+static void refresh_virtuals(void) {
+    if (virtual_generation != openrac_game_mods_generation) {
+        if (active_virtual_file != NULL) {
+            fclose(active_virtual_file);
+        }
+        active_virtual_file = NULL;
+        active_virtual_valid = 0;
+        clear_sector_files(&virtuals, &virtual_count, &virtual_capacity);
+        virtuals_loaded = 0;
+        virtual_generation = openrac_game_mods_generation;
+    }
+    if (!virtuals_loaded) {
+        load_virtuals();
+    }
+}
+
+static int virtual_sector(unsigned sector, unsigned char* out) {
+    size_t i;
+    refresh_virtuals();
+    for (i = 0; i < virtual_count; ++i) {
+        if (sector >= virtuals[i].first && sector - virtuals[i].first < virtuals[i].count) {
+            const unsigned offset = sector - virtuals[i].first;
+            FILE* file = select_sector_file(
+                virtuals, i, &active_virtual_file, &active_virtual_index, &active_virtual_valid
+            );
+            if (file == NULL || seek_file(file, (uint64_t)offset * SECTOR) != 0
+                || fread(out, 1, SECTOR, file) != SECTOR) {
+                return -1;
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static void load_patches(void) {
     char path[4096], line[4096], name[2048];
     FILE* list;
     patch_count = 0;
+    patches_loaded = 1;
     if (openrac_game_mods_dir == NULL) {
         return;
     }
@@ -43,47 +196,49 @@ static void load_patches(void) {
         fprintf(stderr, "[error] no list of edited levels at %s\n", path);
         return;
     }
-    while (fgets(line, sizeof line, list) != NULL && patch_count < MAX_PATCHES) {
+    while (fgets(line, sizeof line, list) != NULL) {
         unsigned first, count;
         if (line[0] == '#' || sscanf(line, "%u\t%u\t%2047[^\r\n]", &first, &count, name) != 3) {
             continue;
         }
         snprintf(path, sizeof path, "%s/%s", openrac_game_mods_dir, name);
-        patches[patch_count].file = fopen(path, "rb");
-        if (patches[patch_count].file == NULL) {
-            fprintf(stderr, "[error] cannot open the edited level %s\n", path);
-            continue;
+        if (append_sector_file(&patches, &patch_count, &patch_capacity, first, count, path) != 0) {
+            fprintf(stderr, "[error] cannot allocate edited-level mapping\n");
+            break;
         }
-        patches[patch_count].first = first;
-        patches[patch_count].count = count;
         fprintf(stderr, "[info] sectors %u to %u come from %s\n", first, first + count - 1, path);
-        patch_count++;
     }
     fclose(list);
 }
 
 /* Overwrites the sectors of a finished disc read that an edited level replaces. */
 static void apply_patches(unsigned sector, unsigned count, unsigned char* out) {
-    int p;
+    size_t p;
     unsigned i;
     if (patch_generation != openrac_game_mods_generation) {
-        for (p = 0; p < patch_count; ++p) {
-            fclose(patches[p].file);
+        if (active_patch_file != NULL) {
+            fclose(active_patch_file);
         }
-        patch_count = -1;
+        active_patch_file = NULL;
+        active_patch_valid = 0;
+        clear_sector_files(&patches, &patch_count, &patch_capacity);
+        patches_loaded = 0;
         patch_generation = openrac_game_mods_generation;
     }
-    if (patch_count < 0) {
+    if (!patches_loaded) {
         load_patches();
     }
     for (p = 0; p < patch_count; p++) {
         for (i = 0; i < count; i++) {
             unsigned s = sector + i;
-            if (s < patches[p].first || s >= patches[p].first + patches[p].count) {
+            if (s < patches[p].first || s - patches[p].first >= patches[p].count) {
                 continue;
             }
-            if (fseek(patches[p].file, (long)(s - patches[p].first) * SECTOR, SEEK_SET) != 0
-                || fread(out + (size_t)i * SECTOR, 1, SECTOR, patches[p].file) != SECTOR) {
+            FILE* file = select_sector_file(
+                patches, p, &active_patch_file, &active_patch_index, &active_patch_valid
+            );
+            if (file == NULL || seek_file(file, (uint64_t)(s - patches[p].first) * SECTOR) != 0
+                || fread(out + (size_t)i * SECTOR, 1, SECTOR, file) != SECTOR) {
                 fprintf(stderr, "[error] the edited level is too short for sector %u\n", s);
             }
         }
@@ -130,16 +285,45 @@ int openrac_lib_sceCdRead(unsigned int sector, unsigned int count, gaddr buffer,
         last_error = 0x01; /* any non-zero error: the game retries */
         return 0;
     }
+    refresh_virtuals();
+    if (virtual_count == 0) {
+#if defined(_WIN32)
+        if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
+#else
+        if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
+#endif
+            || fread(G(buffer), SECTOR, count, f) != count) {
+            fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
+            last_error = 0x32;
+            return 0;
+        }
+        apply_patches(sector, count, (unsigned char*)G(buffer));
+        last_error = 0;
+        return 1;
+    }
+    /* Reads may cross from the physical image into mod-owned virtual sectors.
+     * Resolve sector by sector so mixed reads preserve the disc bytes too. */
+    for (unsigned i = 0; i < count; ++i) {
+        unsigned char* dst = (unsigned char*)G(buffer) + (size_t)i * SECTOR;
+        int mapped = virtual_sector(sector + i, dst);
+        if (mapped < 0) {
+            last_error = 0x32;
+            return 0;
+        }
+        if (mapped > 0) {
+            continue;
+        }
 #if defined(_WIN32)
     /* Windows' C library has no fseeko; _fseeki64 is its 64-bit seek. */
-    if (_fseeki64(f, (long long)sector * SECTOR, SEEK_SET) != 0
+    if (_fseeki64(f, (long long)(sector + i) * SECTOR, SEEK_SET) != 0
 #else
-    if (fseeko(f, (off_t)sector * SECTOR, SEEK_SET) != 0
+        if (fseeko(f, (off_t)(sector + i) * SECTOR, SEEK_SET) != 0
 #endif
-        || fread(G(buffer), SECTOR, count, f) != count) {
-        fprintf(stderr, "[error] disc read of %u sectors at %u failed\n", count, sector);
+        || fread(dst, SECTOR, 1, f) != 1) {
+        fprintf(stderr, "[error] disc read of sector %u failed\n", sector + i);
         last_error = 0x32;
         return 0;
+    }
     }
     apply_patches(sector, count, (unsigned char*)G(buffer));
     last_error = 0;
@@ -166,16 +350,57 @@ static uint8_t bcd(int v) {
     return (uint8_t)(((v / 10) << 4) | (v % 10));
 }
 
+/* The time the clock reads, pinned: OPENRAC_CLOCK's "YYYY-MM-DD hh:mm:ss" (a T between the date
+ * and the time also reads), or 2000-01-01 00:00:00 in a run that records or replays its pad; zero
+ * when the host's own time is read. The game stamps saves and its progress records in RAM
+ * (rac2's g_saveClock, 0x1A7360, at every level load) with it, so a host clock made two runs of
+ * the same inputs differ in memory from the first load on. */
+static int pinned_clock(struct tm* out) {
+    const char* text = openrac_env_string("OPENRAC_CLOCK");
+    int year = 2000, month = 1, day = 1, hour = 0, minute = 0, second = 0;
+    if (text != NULL && *text != '\0') {
+        char between = 0;
+        if (sscanf(
+                text, "%d-%d-%d%c%d:%d:%d", &year, &month, &day, &between, &hour, &minute, &second
+            ) != 7
+            || (between != ' ' && between != 'T')) {
+            static int warned = 0;
+            if (!warned) {
+                warned = 1;
+                fprintf(
+                    stderr,
+                    "OPENRAC_CLOCK: \"%s\" is not YYYY-MM-DD hh:mm:ss; the host's time is used\n",
+                    text
+                );
+            }
+            return 0;
+        }
+    } else if (openrac_env_string("OPENRAC_RECORD") == NULL
+               && openrac_env_string("OPENRAC_REPLAY") == NULL) {
+        return 0;
+    }
+    memset(out, 0, sizeof *out);
+    out->tm_year = year - 1900;
+    out->tm_mon = month - 1;
+    out->tm_mday = day;
+    out->tm_hour = hour;
+    out->tm_min = minute;
+    out->tm_sec = second;
+    return 1;
+}
+
 /* sceCdReadClock: the console's clock, in BCD: status, second, minute, hour,
- * a pad byte, day, month, year (two digits). */
+ * a pad byte, day, month, year (two digits). The host's local time, unless pinned_clock pins it. */
 int openrac_lib_sceCdReadClock(gaddr clock) {
-    time_t now = time(NULL);
     struct tm local;
+    if (!pinned_clock(&local)) {
+        time_t now = time(NULL);
 #if defined(_WIN32)
-    localtime_s(&local, &now);
+        localtime_s(&local, &now);
 #else
-    localtime_r(&now, &local);
+        localtime_r(&now, &local);
 #endif
+    }
     uint8_t* c = (uint8_t*)G(clock);
     c[0] = 0;
     c[1] = bcd(local.tm_sec);

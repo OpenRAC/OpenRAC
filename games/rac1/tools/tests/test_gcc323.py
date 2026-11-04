@@ -89,9 +89,9 @@ class FrontendTests(unittest.TestCase):
         config = self.root / "config"
         config.mkdir()
         (config / "text.objects").write_text("build-sn/game/first.o 0x1000\n"
-                                            "build-sn/game/fastfunc.o 0x2000 gcc323\n")
+                                            "build-sn/game/math/fastfunc.o 0x2000 gcc323\n")
         with patch.object(libgcc_units, "ROOT", self.root):
-            self.assertEqual(libgcc_units.gcc323_sources(), {"src/game/fastfunc.c"})
+            self.assertEqual(libgcc_units.gcc323_sources(), {"src/game/math/fastfunc.c"})
 
 
 if __name__ == "__main__":

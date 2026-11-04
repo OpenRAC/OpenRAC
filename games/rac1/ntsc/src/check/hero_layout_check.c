@@ -1,19 +1,17 @@
 /*
- * Compile-time layout checks for struct Hero (include/rnc/gameplay/hero.h).
+ * Compile-time layout checks for struct Hero (include/rnc/hero/hero.h).
  * Built by `make check` with the EE compiler; a wrong offset makes an array
  * size negative and the compile fails. Nothing here is linked.
  */
-#include "rnc/gameplay/hero.h"
+#include "rnc/hero/hero.h"
 
-#define CHECK_CAT2(a, b) a##b
-#define CHECK_CAT(a, b) CHECK_CAT2(a, b)
-#define CHECK(cond) typedef char CHECK_CAT(layout_check_, __LINE__)[(cond) ? 1 : -1]
-#define HERO_OFFSET_CHECK(field, off) \
-    CHECK((unsigned long)&((struct Hero *)0)->field == (off))
+#define CHECK_CAT2(a, b)              a##b
+#define CHECK_CAT(a, b)               CHECK_CAT2(a, b)
+#define CHECK(cond)                   typedef char CHECK_CAT(layout_check_, __LINE__)[(cond) ? 1 : -1]
+#define HERO_OFFSET_CHECK(field, off) CHECK((unsigned long)&((struct Hero *)0)->field == (off))
 #define SLOT_OFFSET_CHECK(field, off) \
     CHECK((unsigned long)&((struct HeroItemSlot *)0)->field == (off))
-#define EASE_OFFSET_CHECK(field, off) \
-    CHECK((unsigned long)&((struct HeroEase *)0)->field == (off))
+#define EASE_OFFSET_CHECK(field, off) CHECK((unsigned long)&((struct HeroEase *)0)->field == (off))
 
 CHECK(sizeof(struct MobyTrail) == 0x140);
 CHECK((unsigned long)&((struct MobyTrail *)0)->copy_fade == 0x100);
@@ -383,8 +381,7 @@ HERO_OFFSET_CHECK(anim_frame_delta, 0xAAC);
 HERO_OFFSET_CHECK(queued_anim_frame, 0xAB4);
 HERO_OFFSET_CHECK(anim_loop_frame, 0xAB0);
 HERO_OFFSET_CHECK(queued_frame_request, 0xAB8);
-HERO_OFFSET_CHECK(unkD00, 0xD00);
-HERO_OFFSET_CHECK(unkD04, 0xD04);
+HERO_OFFSET_CHECK(item_slot_blends, 0xD00);
 HERO_OFFSET_CHECK(held_item_anim_blend, 0xD08);
 HERO_OFFSET_CHECK(held_item_anim_blend[1], 0xD0C);
 HERO_OFFSET_CHECK(unkD10, 0xD10);
@@ -467,7 +464,7 @@ HERO_OFFSET_CHECK(item_select_blocked, 0x20A7);
 HERO_OFFSET_CHECK(item_anim_active, 0x20A8);
 HERO_OFFSET_CHECK(wading, 0x20A9);
 HERO_OFFSET_CHECK(unk20AA, 0x20AA);
-HERO_OFFSET_CHECK(unk20AB, 0x20AB);
+HERO_OFFSET_CHECK(item_slot_anim_count, 0x20AB);
 HERO_OFFSET_CHECK(item_use_locked, 0x20AC);
 HERO_OFFSET_CHECK(tilt_disabled, 0x20AD);
 HERO_OFFSET_CHECK(unk20AE, 0x20AE);

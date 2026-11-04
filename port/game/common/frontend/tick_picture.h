@@ -18,6 +18,10 @@ namespace openrac::frontend {
 
 // The world layers a tick can draw (sky, terrain, ties, shrubs, mobys: Kept::draws' bits 0 to 4).
 inline constexpr std::uint32_t kWorldLayers = 0x1Fu;
+// Of those, the level's own (sky, terrain, ties, shrubs). A tick that draws mobys alone drew only
+// those with cameras of their own (Going Commando's weapon upgrade: the weapon turning in a burst,
+// on the black the 2D path's sprites cleared the frame to), not the level.
+inline constexpr std::uint32_t kLevelLayers = 0x0Fu;
 // A 2D list at least this long holds a page menu's read-back picture of the frame.
 inline constexpr std::size_t kMenuSnapshotBytes = 0x40000;
 // The ticks in a row after a page menu closes whose last picture stands (frontend/state.h).

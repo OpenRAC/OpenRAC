@@ -49,17 +49,23 @@ if (slides) {
   );
 }
 
+/** How long a slide waits for the code of the page coming in, with the window standing still. */
+const CODE_WAIT_MS = 1000;
+
 /** Makes CHANGE (a page or a game opened) as one slide, going WAY; at once where slides are off.
  *  A change while a slide is still under way goes into that slide's page as it is: a second slide
  *  would cut the first short and start again from a picture of the page it was leaving, which
- *  showed as the page jumping back and forth. */
-export function slide(change: () => void, way: Way) {
+ *  showed as the page jumping back and forth. CODE is the page's code, if it is still being
+ *  fetched: the browser takes its picture of the next page when the change is done, and a list not
+ *  there yet (SideFrame) would arrive with the page rather than stay put or fade in place. */
+export function slide(change: () => void, way: Way, code?: Promise<unknown>) {
   if (!slides || sliding) {
     change();
     return;
   }
   document.documentElement.dataset.nav = way;
   const transition = document.startViewTransition(async () => {
+    if (code) await Promise.race([code.catch(() => undefined), new Promise((done) => setTimeout(done, CODE_WAIT_MS))]);
     change();
     await tick();
     await pictures();

@@ -32,7 +32,7 @@ on:
   push:
     branches: [master, develop]
     tags: ["launcher-v*"]
-    paths: &paths
+    paths:
       - "launcher/**"
       - "port/**"
       - "editor/**"
@@ -48,8 +48,8 @@ on:
       - "games/*/game.json"
       - ".github/workflows/launcher.yml"
       - ".github/actions/**"
-  pull_request:
-    paths: *paths
+  # Pull requests build nothing here: the push that lands one builds it (develop: the dev release),
+  # and a branch can still be built by hand (workflow_dispatch).
   workflow_dispatch:
 
 permissions:
@@ -164,7 +164,7 @@ jobs:
             clang llvm cmake ninja-build ccache python3 python-unversioned-command binutils \
             webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel openssl-devel \
             mesa-libGL-devel mesa-libEGL-devel libX11-devel libXext-devel libXrandr-devel libXcursor-devel \
-            libXi-devel libXScrnSaver-devel libXfixes-devel wayland-devel wayland-protocols-devel \
+            libXi-devel libXScrnSaver-devel libXfixes-devel libXtst-devel wayland-devel wayland-protocols-devel \
             libxkbcommon-devel libdecor-devel alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
             dbus-devel systemd-devel libdrm-devel mesa-libgbm-devel
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -176,7 +176,7 @@ jobs:
           python-version: "3.12"
       # Each key's prefix is no other job's: "linux-" was the start of "linux-arm64-" too, and the
       # x86 build restored the ARM one's configuration (its Python) and objects.
-      - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      - uses: ./.github/actions/compiler-cache
         with:
           key: ${{ matrix.name }}-game
           max-size: 1G
@@ -199,6 +199,8 @@ jobs:
             port/build/*/thinlto-cache
             port/build/embree/install
             port/build/embree/openrac-embree.json
+            !port/build/*/_deps/openrac_compressonator-src
+            !port/build/*/_deps/openrac_compressonator-subbuild
             !port/build/**/*.o
             !port/build/**/*.obj
             !port/build/**/*.pdb
@@ -236,7 +238,7 @@ jobs:
             -o Dir::Cache::Archives="$HOME/apt-archives")
           packages=(clang-19 lld-19 llvm-19 libc++-19-dev libc++abi-19-dev
             ninja-build pkg-config
-            libgl1-mesa-dev libegl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev
+            libgl1-mesa-dev libegl1-mesa-dev libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxtst-dev
             libxss-dev libxfixes-dev libwayland-dev wayland-protocols libxkbcommon-dev libdecor-0-dev
             libasound2-dev libpulse-dev libpipewire-0.3-dev libdbus-1-dev libudev-dev libdrm-dev libgbm-dev
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libsoup-3.0-dev patchelf rpm file)
@@ -342,14 +344,12 @@ jobs:
           us=$(program "$COPY/port/build/release/openrac-rac1-ntsc")
           [ -f "$us" ] || { echo "the copy carries no openrac-rac1-ntsc"; exit 1; }
           "$us" --help || true
-          # The enhanced lighting's baker (Embree built in) and its Python half: the Mods tab's
-          # Enhanced graphics bakes the player's own levels with them.
-          baker=$COPY/port/build/release/openrac-probe-bake; [ -f "$baker" ] || baker=$baker.exe
-          [ -f "$baker" ] || { echo "the copy carries no openrac-probe-bake"; exit 1; }
-          "$baker" --help > /dev/null || { echo "openrac-probe-bake does not start"; exit 1; }
-          infer="$(dirname "$baker")/openrac-interior-infer"; [ -f "$infer" ] || infer=$infer.exe
-          [ -f "$infer" ] || { echo "the copy carries no openrac-interior-infer"; exit 1; }
-          "$py" "$COPY/port/enhanced/tools/probes/bake_all.py" --help > /dev/null
+          # The unified native baker carries all enhanced preparation stages.
+          baker=$COPY/port/build/release/openrac-enhanced-baker; [ -f "$baker" ] || baker=$baker.exe
+          [ -f "$baker" ] || { echo "the copy carries no openrac-enhanced-baker"; exit 1; }
+          "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
+          "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
+          "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
           # On macOS each game carries MoltenVK, for the Vulkan renderer (port/cmake/MacApp.cmake).
           if [ "$NAME" = macos ]; then
             for program in "$game" "$us"; do
@@ -419,15 +419,15 @@ jobs:
             create_updater=true
           fi
           # The launcher looks for its updates where it was built: this repository's releases, a
-          # fork's in a fork. A tag's build (and a pull request's) reads the latest release; a build
-          # of a branch is X.Y.Z-dev.<run> and reads that branch's rolling release
-          # (launcher-dev-<branch>, the dev-release job), so each build of a branch updates the
-          # last. The desktop packages keep X.Y.Z (an MSI takes no "-dev", RPM no "-"): the run
-          # goes into the program instead (OPENRAC_LAUNCHER_BUILD), which its updater compares with.
+          # fork's in a fork. A tag's build reads the latest release; a build of a branch is
+          # X.Y.Z-dev.<run> and reads that branch's rolling release (launcher-dev-<branch>, the
+          # dev-release job), so each build of a branch updates the last. The desktop packages keep
+          # X.Y.Z (an MSI takes no "-dev", RPM no "-"): the run goes into the program instead
+          # (OPENRAC_LAUNCHER_BUILD), which its updater compares with.
           base=$(node -p "require('./src-tauri/tauri.conf.json').version")
           version=$base
           endpoint="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
-          if [[ "$GITHUB_REF" != refs/tags/launcher-v* ]] && [ "$GITHUB_EVENT_NAME" != pull_request ]; then
+          if [[ "$GITHUB_REF" != refs/tags/launcher-v* ]]; then
             # Newer than any release, also when master was not raised after one (scripts/dev_version.sh).
             base=$(scripts/dev_version.sh src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")
             version=$base
@@ -441,7 +441,9 @@ jobs:
           echo "LAUNCHER_VERSION=$version" >> "$GITHUB_ENV"
           config=$(VERSION="$version" ENDPOINT="$endpoint" CREATE="$create_updater" node -e '
             const c = { version: process.env.VERSION,
-                        bundle: { createUpdaterArtifacts: process.env.CREATE === "true" },
+                        // The RPM release is the run: rpm -U refuses the same X.Y.Z-1 again.
+                        bundle: { createUpdaterArtifacts: process.env.CREATE === "true",
+                                  linux: { rpm: { release: process.env.GITHUB_RUN_NUMBER } } },
                         plugins: { updater: { endpoints: [process.env.ENDPOINT] } } };
             // A fork that signs with a key of its own names its public half here (a variable).
             if (process.env.UPDATER_PUBKEY) c.plugins.updater.pubkey = process.env.UPDATER_PUBKEY;
@@ -497,7 +499,7 @@ jobs:
             [ -f "$f" ] || continue
             mv "$f" "${f%.x86_64.rpm}.fc44.x86_64.rpm"
           done
-          # A build without the updater key (a pull request from a fork) has no signature.
+          # A build without the updater key (a fork without the secret) has no signature.
           for f in target/release/bundle/rpm/*.x86_64.rpm.sig; do
             [ -f "$f" ] || continue
             mv "$f" "${f%.x86_64.rpm.sig}.fc44.x86_64.rpm.sig"
@@ -562,7 +564,7 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
 
-  # Any other build of a branch here or in a fork (not a pull request's): its launchers on the
+  # Any other build of a branch here or in a fork: its launchers on the
   # branch's rolling pre-release `launcher-dev-<branch>`, made again each time, where the
   # launchers built from that branch look for their updates (Build the installers, above). Only
   # with the update key: a launcher installs no update without its signature.
@@ -570,7 +572,7 @@ jobs:
   # still get their update, and latest.json leaves out the one that did not. Not when the run was
   # cancelled (a newer one of the branch took its place).
   dev-release:
-    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') && github.event_name != 'pull_request' }}
+    if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
     needs: build
     runs-on: ubuntu-26.04
     timeout-minutes: 15

@@ -22,10 +22,10 @@ inline constexpr int kSkip = 77;
 
 class GlContext {
 public:
-    bool open(std::string& why, int width = 64, int height = 64) {
+    bool open(std::string& why, int width = 64, int height = 64, bool visible = false) {
         // The offscreen driver unless the caller chose one.
         const char* driver = std::getenv("SDL_VIDEO_DRIVER");
-        if (driver == nullptr || driver[0] == '\0') {
+        if (!visible && (driver == nullptr || driver[0] == '\0')) {
             platform::Platform::use_offscreen_video();
         }
         m_sdl = std::make_unique<platform::Platform>(platform::kVideo);
@@ -37,7 +37,7 @@ public:
         config.title = "OpenRAC test";
         config.width = width;
         config.height = height;
-        config.hidden = true;
+        config.hidden = !visible;
         config.vsync = false;
         config.resizable = false;
         m_window = platform::Window::open(config, why);

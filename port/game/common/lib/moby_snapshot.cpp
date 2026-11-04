@@ -23,17 +23,19 @@ constexpr std::uint32_t kMaxJoints = 0x70;  // the scratchpad's records
 template <typename T>
 T at(gaddr address) {
     T value{};
-    std::memcpy(&value, G(address & 0x01FFFFFFu), sizeof(T));
+    std::memcpy(&value, G(openrac_guest_ram_address(address)), sizeof(T));
     return value;
 }
 
 std::optional<rac1::MobyFrame> key_at(gaddr address) {
-    address &= 0x01FFFFFFu;
-    if (address == 0 || address + 0x10 > GUEST_RAM_SIZE) {
+    address = openrac_guest_ram_address(address);
+    if (address == 0 || address + 0x10 > openrac_guest_ram_size) {
         return std::nullopt;
     }
     try {
-        const openrac::assets::ByteView ram(static_cast<const std::uint8_t*>(G(0)), GUEST_RAM_SIZE);
+        const openrac::assets::ByteView ram(
+            static_cast<const std::uint8_t*>(G(0)), openrac_guest_ram_size
+        );
         rac1::MobyFrame f = rac1::parse_frame(ram, address);
         if (f.header.quat_bytes == 0 || f.header.quat_bytes > 8 * kMaxJoints) {
             return std::nullopt;
@@ -78,6 +80,6 @@ extern "C" int openrac_game_moby_snapshot(gaddr moby, gaddr dst) {
     if (frame.empty() || frame.size() > 0x800) {
         return 0;
     }
-    std::memcpy(G(dst & 0x01FFFFFFu), frame.data(), frame.size());
+    std::memcpy(G(openrac_guest_ram_address(dst)), frame.data(), frame.size());
     return 1;
 }

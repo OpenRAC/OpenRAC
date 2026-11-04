@@ -127,9 +127,12 @@ git push origin launcher-vX.Y.Z
    Development (`launcher-dev-develop`, the builds of `develop`, for OpenRAC's own launcher
    whatever branch it was built from; `update.rs`, `DEV_BRANCH`). A fork's launcher follows the
    branch it was built from (`develop` for a release's build) and can pick another branch of the
-   fork (Settings, Branch). A switch takes effect with the first build on that channel newer than the
-   one installed, since neither version numbers nor Android go back: from Development to Stable,
-   the next release. So that Development stays ahead of the latest release, raise the version in
+   fork (Settings, Branch). On its own channel a launcher only takes a newer build; on the other
+   channel it is offered that channel's build whatever its version (`update.rs`, `offered`), so a
+   development build switches back to the older latest release ("Switch to Stable X.Y.Z"). A
+   desktop installs it in place; Android installs no lower version code over a higher one, so its
+   launcher sends the player to the release's APK on GitHub, to install once the launcher is
+   uninstalled (keeping its data). So that Development stays ahead of the latest release, raise the version in
    `tauri.conf.json` on `develop` once a release is tagged. Until then a branch's builds take the
    next patch by themselves (`scripts/dev_version.sh` skips a version that has a `launcher-v`
    tag). The APK carries `X.Y.Z-dev.<run>` as its version; the

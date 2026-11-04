@@ -4,7 +4,7 @@
   // switch games. By default it is the Games tab's: each game's state for playing, a click opens
   // the game's page. Another page passes its own SELECTED game, ONSELECT and STATE (Mods: what can
   // be modded).
-  import type { GameView } from "$lib/api";
+  import { onAndroid, type GameView } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
   import { gameThumb } from "$lib/media";
   import { slide } from "$lib/motion";
@@ -58,12 +58,18 @@
     if (v) openVersion(v.key);
   }
 
-  /** The page slides to the game picked: up from below for one further down the list. */
+  /** The page slides to the game picked on Android: up from below for one further down the list.
+   *  On desktop it changes in place, only the accent easing to the game's (app.css): a slide there
+   *  faded the page out and scaled its buttons on every pick. */
   function pick(key: string) {
     const to = games.findIndex((g) => g.id === key);
     const game = games[to];
     if (!game) return;
     if (key === opened) {
+      open(game);
+      return;
+    }
+    if (!onAndroid) {
       open(game);
       return;
     }

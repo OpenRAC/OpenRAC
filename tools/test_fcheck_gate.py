@@ -16,6 +16,17 @@ import fcheck_gate as g  # noqa: E402
 
 
 class GateTests(unittest.TestCase):
+    def test_same_run_verdicts_stay_apart_from_same(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp) / "fcheck_run.tsv"
+            self.assertEqual(g.same_run_rows(t), [])
+            self.assertEqual(g.same_run_summary([]), "")
+            t.write_text("# a comment\nfunc_1\tsame-run\t2026-11-04\tabc\tdef\tlevel05\t3300\t1\t0 words\n")
+            rows = g.same_run_rows(t)
+            self.assertEqual((rows[0]["name"], rows[0]["status"], rows[0]["route"]), ("func_1", "same-run", "level05"))
+            self.assertIn("not counted as same", g.same_run_summary(rows))
+        self.assertNotIn("same-run", g.STATUSES)
+
     def test_classify(self):
         self.assertEqual(g.classify(0, "x\nfunc_1: SAME on 3 real calls\n"), ("same", "3 calls"))
         self.assertEqual(g.classify(3, "")[0], "no-states")
@@ -122,7 +133,12 @@ class Rac2ProfileTests(unittest.TestCase):
         self.assertFalse(g.RAC2.level_fn.fullmatch("func_002BA7D8"))
         # level 00 has a capture script (the driver's level00); other levels are not checked yet
         self.assertIn("level00", g.RAC2.scripts)
-        self.assertEqual(g.RAC2.levels_checked, {0})
+        self.assertEqual(len(g.RAC2.levels_checked), 27)
+        self.assertNotIn(21, g.RAC2.levels_checked)
+        places = {"func_L05_00400000": [1, 2, 3, 4, 5], "func_00200000": [0, 7, 8, 9], "func_00100000": []}
+        self.assertEqual(g.rac2_level_lists(list(places), places),
+                         {1: ["func_L05_00400000"], 2: ["func_L05_00400000"], 5: ["func_L05_00400000"],
+                          7: ["func_00200000"], 8: ["func_00200000"]})
 
     def test_two_load_segments(self):
         import struct

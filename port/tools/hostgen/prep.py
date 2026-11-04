@@ -262,7 +262,7 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     arguments do not close on this line, or are not as many as the parameters, stays."""
     out, pos = [], 0
     for m in re.finditer(r'"(?:\\.|[^"\\\n])*"|\b' + re.escape(name) + r"\b", line):
-        if m.group(0).startswith('"'):
+        if m.group(0).startswith('"') or m.start() < pos:  # a use inside a use just written out
             continue
         if params is None:
             out.append(line[pos:m.start()] + body)
@@ -297,6 +297,25 @@ def _expand_line(line: str, name: str, params: list[str] | None, body: str) -> s
     return "".join(out) + line[pos:]
 
 
+_MACRO_NESTING = 8
+
+
+def _join_cast_macros(lines: list[str]) -> list[str]:
+    """A macro continued over several lines, whose body defines a record inside a cast, on its first
+    line (clang-format splits them), its other lines left blank: every line stays where it was."""
+    for i, line in enumerate(lines):
+        if not line.endswith("\\") or not _DEFINE.match(line):
+            continue
+        end = i
+        while lines[end].endswith("\\") and end + 1 < len(lines):
+            end += 1
+        joined = " ".join(part.rstrip("\\").strip() for part in lines[i:end + 1])
+        m = _DEFINE.match(joined)
+        if m and _CAST_RECORD.search(m.group(3)):
+            lines[i:end + 1] = [joined] + [""] * (end - i)
+    return lines
+
+
 def expand_cast_macros(text: str) -> str:
     """A one-line macro of the unit whose body defines a record inside a cast is written out where
     it is used, so name_cast_records finds the record in each function (Clang's JSON leaves a
@@ -305,7 +324,7 @@ def expand_cast_macros(text: str) -> str:
     stays where it was."""
     if not _CAST_RECORD.search(text) or "define" not in text:
         return text
-    lines = text.split("\n")
+    lines = _join_cast_macros(text.split("\n"))
     for i, line in enumerate(lines):
         m = _DEFINE.match(line)
         if not m or line.endswith("\\") or not _CAST_RECORD.search(m.group(3)) or "#" in m.group(3):
@@ -320,7 +339,12 @@ def expand_cast_macros(text: str) -> str:
                 break
             if lines[j].lstrip().startswith("#") or name not in lines[j]:
                 continue
-            lines[j] = _expand_line(lines[j], name, params, body)
+            # Again for a use in another's arguments: FLD(FLD(p, char *, 8), int, 4).
+            for _ in range(_MACRO_NESTING):
+                written = _expand_line(lines[j], name, params, body)
+                if written == lines[j]:
+                    break
+                lines[j] = written
     return "\n".join(lines)
 
 
@@ -338,6 +362,23 @@ def name_wide_casts(text: str) -> str:
     return _WIDE_CAST.sub(lambda m: "openrac_uti" if m.group(1) == "unsigned" else "openrac_ti", text)
 
 
+# GCC's cast as an lvalue, written at a statement's start: "((u8 *)q->p[9]) = 0;".
+_LVALUE_CAST = re.compile(r"^(\s*)\(\(([\w ]+\*+)\)(.+)\) = (.*;)\s*$", re.M)
+
+
+def name_lvalue_casts(text: str) -> str:
+    """Clang refuses GCC's lvalue cast. It stores in the operand as the cast's type, which C says
+    with a pointer to that type."""
+    def write(m: re.Match) -> str:
+        operand, depth = m.group(3), 0
+        for c in operand:
+            depth += (c == "(") - (c == ")")
+            if depth < 0:
+                return m.group(0)  # the closing parenthesis was not the cast's
+        return f"{m.group(1)}*({m.group(2)} *)&({operand}) = {m.group(4)}"
+    return _LVALUE_CAST.sub(write, text)
+
+
 _VA_BUILTINS = ("vfprintf", "vprintf", "vsprintf", "vsnprintf", "vfscanf", "vscanf", "vsscanf")
 _LABELLED_VA_BUILTIN = re.compile(
     r"\b(" + "|".join(_VA_BUILTINS) + r")\s*\([^;{}]*\)\s*__asm__\(\s*\"(?:FUN|func)_")
@@ -348,11 +389,13 @@ def rename_va_builtins(text: str) -> str:
     decompilation's `vfprintf(FILE *, const char *, void *) __asm__("FUN_00116da8")`) is renamed
     NAME_game in its file. Clang otherwise takes it for the library's own, gives its definition the
     host's va_list while its body uses the game's pointer, and the translation casts one to the other
-    (a struct on Linux on ARM, where it does not compile). The assembler label keeps the symbol."""
+    (a struct on Linux on ARM, where it does not compile). The assembler label keeps the symbol. A
+    `__typeof__(NAME)` (the file's alias) is renamed too: Clang declares the library's own only where
+    the file has a FILE type of that name, so elsewhere the plain name is undeclared."""
     names = set(_LABELLED_VA_BUILTIN.findall(text))
     if not names:
         return text
-    word = re.compile(r"\b(" + "|".join(sorted(names)) + r")\b(?=\s*\()")
+    word = re.compile(r"\b(" + "|".join(sorted(names)) + r")\b(?=\s*[()])")
     out, pos = [], 0
     for m in _SKIP.finditer(text):
         out.append(word.sub(r"\1_game", text[pos:m.start()]))
@@ -395,6 +438,14 @@ _ALIAS_TOKEN = re.compile(
     re.S | re.M,
 )
 _ALIAS_DEFINE = re.compile(r'^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)[ \t]+((?:D|func)_\w+)[ \t]*$', re.M)
+_LOCAL_INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]+"([^"]+)"', re.M)
+
+
+def read_alias_header(path) -> str:
+    """A names header's text and that of the parts it includes (rac1's include/names/*.h)."""
+    text = path.read_text(encoding="utf-8", errors="surrogateescape")
+    parts = [path.parent / part for part in _LOCAL_INCLUDE.findall(text)]
+    return "\n".join([text] + [read_alias_header(part) for part in parts if part.is_file()])
 
 
 def read_aliases(text: str) -> dict[str, str]:
@@ -436,7 +487,7 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
 
 
 def prepare(text: str) -> str:
-    return rename_va_builtins(own_va_list(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text))))))))
+    return rename_va_builtins(own_va_list(name_lvalue_casts(name_wide_casts(name_cast_records(expand_cast_macros(widen_long(split_multiline_strings(blank_file_scope_asm(text)))))))))
 
 
 # The path may be several adjacent strings over as many lines (the NTSC decomp's long paths).
@@ -497,7 +548,16 @@ def own_declarations(text: str, tag: str) -> str:
     declared name becomes NAME<tag> with the assembler name NAME: the same
     symbol for hostgen, a separate declaration for Clang. Names the candidate
     defines keep theirs."""
-    text = split_declarators(text)
+    # An assembler name after the symbol's first use is an error, and a host has no small data.
+    # `T x SDATA(D_...)` under a name of its own keeps the global through the assembler name
+    # (func_L06_00403130's `baselineGP SDATA(D_L06_001B3284)`).
+    text = split_declarators(re.sub(r"^(?![ \t]*#).*\bSDATA\(\w+\).*$",
+                                    lambda m: re.sub(r"(?<=\b)(?P<n>\w+)(?P<d>(?:\[[^\]]*\])*)[ \t]+SDATA\((\w+)\)",
+                                                     lambda k: k.group("n") + k.group("d") + (
+                                                         "" if k.group("n") == k.group(3)
+                                                         else f' __asm__("{k.group(3)}")'),
+                                                     m.group(0)),
+                                    text, flags=re.M))
     defined = set(_DEFINED.findall(text))
     names = []
     for m in _GAME_DECL.finditer(text):
@@ -511,8 +571,38 @@ def own_declarations(text: str, tag: str) -> str:
                       lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
         # The assembler name goes after the declarator, before attribute macros (MACRO_ADDR).
         text = re.sub(r'(?:^|(?<=; /\*hc\*/ ))((?:extern[ \t]+)?[A-Za-z_][\w \t\*]*?[ \t\*]' + name + tag
-                      + r'\b[^;{}=]*?)((?:[ \t]+[A-Z][A-Z0-9_]*(?:\([^;()]*\))?)*)[ \t]*;',
+                      + r'\b[^;{}=]*?)((?:[ \t]+(?:[A-Z][A-Z0-9_]*(?:\([^;()]*\))?|__attribute__\(\([^;]*?\)\)))*)[ \t]*;',
                       lambda m: f'{m.group(1)} __asm__("{name}"){m.group(2)};', text, flags=re.M)
+    return text
+
+
+_TYPEDEF_RECORD = re.compile(r"\btypedef\s+(?:struct|union)\b[^{;]*\{")
+_RECORD_TAG = re.compile(r"^(?:struct|union)[ \t]+(\w+)[ \t]*\{", re.M)
+_TYPEDEF_MODE = re.compile(r"(?<![\w ]\n)^typedef\b[^;{(\n]*?\b(\w+)[ \t]+__attribute__\b[^;\n]*;", re.M)
+
+
+def own_records(text: str, tag: str) -> str:
+    """The candidate's typedefs of records, under names of its own.
+
+    Two definitions of one record are two types to C however alike they read, so a candidate
+    that defines what its file also defines (`typedef struct { ... } V4;`) cannot sit beside it.
+    The same for a record's tag (`struct Slot { ... };`) and a typedef of a mode (`typedef int
+    Quad __attribute__((mode(TI)));`). One under a `#define` is its own guard, shared with the file."""
+    names = []
+    for m in _TYPEDEF_RECORD.finditer(text):
+        depth, at = 1, m.end()
+        while at < len(text) and depth:
+            depth += (text[at] == "{") - (text[at] == "}")
+            at += 1
+        name = re.match(r"\s*(\w+)\s*;", text[at:])
+        if name:
+            names.append(name.group(1))
+    names += [m.group(1) for m in _RECORD_TAG.finditer(text)]
+    names += [m.group(1) for m in _TYPEDEF_MODE.finditer(text)]
+    names = list(dict.fromkeys(names))
+    for name in names:
+        text = re.sub(r'"(?:\\.|[^"\\\n])*"|(?<!mode\()\b' + name + r'\b',
+                      lambda m: m.group(0) if m.group(0).startswith('"') else name + tag, text)
     return text
 
 
@@ -665,7 +755,7 @@ def use_candidates(text: str, candidates: dict[str, str], used: set[str]) -> str
             added.add(id(text))
             suffix = f'_hc{len(added)}'
             tail.append(f"\n/* hostgen: {name} from a candidate, not the matched C */\n"
-                        f"{own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix)}")
+                        f"{own_records(own_statics(own_declarations(without_definitions(prepare(text), matched), suffix), suffix), suffix)}")
         return "\n" * m.group(0).count("\n")   # a stub over several lines: the lines stay
 
     text = _INCLUDE_ASM.sub(blank, text)
@@ -688,7 +778,13 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     This is a temporary workaround so that the native port builds cleanly without
     modifying the decompilation repository. Once fixed upstream, this function should be removed.
     """
-    if rel.endswith("src/overlays/l13_gemlik/vendor_002EBD00.c"):
+    if rel.endswith("include/asm_functions/executable.h"):
+        # A candidate defines func_0020E3D0 with a Moby *: its prototype replaces this header's line
+        # (clangast._supersede), so the type must be known here. Same line, so no line moves.
+        text = text.replace("/* Functions with no C definition: executable. */",
+                            "typedef struct Moby Moby; /* Functions with no C definition: executable. */", 1)
+
+    elif rel.endswith("src/overlays/l13_gemlik/vendor_002EBD00.c"):
         # func_L00_001F2BE8 has conflicting prototypes in local block vs file scope
         idx = text.find("void func_L13_002EE590(")
         end_idx = text.find("extern void func_L00_00251328(", idx) if idx != -1 else -1
@@ -800,7 +896,8 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
             text = apply_decomp_workarounds(rel, text)
             if not out.exists() or out.read_text(encoding="utf-8", errors="surrogateescape") != text:
                 out.parent.mkdir(parents=True, exist_ok=True)
-                out.write_text(text, encoding="utf-8", errors="surrogateescape")
+                # LF on every system: Clang's byte offsets must match the text hostgen reads back.
+                out.write_text(text, encoding="utf-8", errors="surrogateescape", newline="\n")
             count += 1
     # A file the decompilation moved or removed leaves its old copy behind, which would define
     # its functions a second time.

@@ -23,15 +23,17 @@
 namespace openrac::frontend::debug_overlay {
 
 void scan_ram() {
-    if (s.ram.size() < kRamSize || s.scanned_at == s.tick / 25) {
+    if (s.ram.size() < kCellBytes || s.scanned_at == s.tick / 25) {
         return;
     }
 
     const bool first = s.scanned_at == ~0ull;
     s.scanned_at = s.tick / 25;
     s.used_pages = 0;
+    const std::size_t cells = s.ram.size() / kCellBytes;
+    s.cells.resize(cells);
 
-    for (std::size_t cell = 0; cell < kCells; ++cell) {
+    for (std::size_t cell = 0; cell < cells; ++cell) {
         std::uint16_t used = 0;
         std::uint64_t sum = 0;
         const std::uint8_t* base = s.ram.data() + cell * kCellBytes;
@@ -69,9 +71,11 @@ void memory_section() {
     text("GL textures: {} in {} textures", megabytes(textures.bytes), textures.count);
     scan_ram();
     text(
-        "game memory: 32 MB, {} holding data ({} of 8192 pages)",
+        "game memory: {} MB, {} holding data ({} of {} pages)",
+        static_cast<unsigned>(s.ram.size() >> 20),
         megabytes(static_cast<std::uint64_t>(s.used_pages) * 4096),
-        s.used_pages
+        s.used_pages,
+        static_cast<unsigned>(s.ram.size() / 4096)
     );
     text_coloured(kDim, "the game's own heaps are not read yet: their headers are not identified");
     text(
@@ -84,7 +88,9 @@ void memory_section() {
     const float cw = dp(5.0f), ch = dp(9.0f);
     ImDrawList* draw = ImGui::GetWindowDrawList();
 
-    for (std::size_t cell = 0; cell < kCells; ++cell) {
+    const std::size_t cells = s.cells.size();
+    const std::size_t rows = (cells + 63) / 64;
+    for (std::size_t cell = 0; cell < cells; ++cell) {
         const float x = origin.x + static_cast<float>(cell % 64) * cw;
         const float y = origin.y + static_cast<float>(cell / 64) * ch;
         const RamCell& c = s.cells[cell];
@@ -95,14 +101,14 @@ void memory_section() {
         draw->AddRectFilled(ImVec2(x, y), ImVec2(x + cw - 1.0f, y + ch - 1.0f), colour);
     }
 
-    ImGui::InvisibleButton("ram map", ImVec2(64.0f * cw, static_cast<float>(kCells / 64) * ch));
+    ImGui::InvisibleButton("ram map", ImVec2(64.0f * cw, static_cast<float>(rows) * ch));
 
-    if (ImGui::IsItemHovered()) {
+    if (cells != 0 && ImGui::IsItemHovered()) {
         const ImVec2 mouse = ImGui::GetMousePos();
         const std::size_t column =
             static_cast<std::size_t>(std::clamp((mouse.x - origin.x) / cw, 0.0f, 63.0f));
         const std::size_t line = static_cast<std::size_t>(
-            std::clamp((mouse.y - origin.y) / ch, 0.0f, static_cast<float>(kCells / 64 - 1))
+            std::clamp((mouse.y - origin.y) / ch, 0.0f, static_cast<float>(rows - 1))
         );
         const std::size_t cell = line * 64 + column;
         ImGui::SetTooltip(

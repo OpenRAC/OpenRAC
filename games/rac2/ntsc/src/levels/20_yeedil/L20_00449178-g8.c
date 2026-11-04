@@ -69,7 +69,7 @@ extern void func_002833F0(void *, void *);
 
 extern float func_002A7878(float a, float b);
 
-extern int func_00277F48(char *a, int b, char *c, int d, float f);
+extern int func_00277F48(float f, char *a, int b, char *c, int d);
 
 extern void func_L20_00444C18(char *arg0, char *arg1);
 
@@ -106,22 +106,63 @@ void func_L20_00449AE8(char *arg0) {
     func_002A7750(arg0, 1, -1);
 }
 
-INCLUDE_ASM("asm/levels", func_L20_0044A838);
+/* func_L20_0044A838 is defined in L20_0044A838-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L20_00449BB0);
+/* func_L20_00449BB0 is defined in L20_00449BB0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L20_00449FD0);
+static __inline__ void qcopy(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2", "memory");
+}
 
-INCLUDE_ASM("asm/levels", func_L20_0044B100);
+/* The moby fields func_L20_00449FD0 sets.  Written as casts of byte offsets, these four
+   accesses let the scheduler put the $gp scale load after the pVars load; as struct
+   members they give retail's order.  The float/int/float parameter order follows the
+   0x14/0x18/0x1C fields it fills (a0-a3 and $f12/$f13 are assigned as before). */
+typedef struct {
+    u8 pad00[0x20];
+    u8 state;        /* 0x20 */
+    u8 pad21[3];
+    char *pClass;    /* 0x24 */
+    u8 pad28[4];
+    float scale;     /* 0x2C */
+    u8 pad30[4];
+    u16 flags;       /* 0x34 */
+    u8 pad36[0x68 - 0x36];
+    char *pVars;     /* 0x68 */
+} Moby449FD0;
 
-/* func_L20_0044A658 is a near miss: nonmatching/levels/func_L20_0044A658.c */
+char *func_L20_00449FD0(char *arg0, char *arg1, char *arg2, float arg3, int arg4,
+                        float arg5) {
+    char *obj;
+    char *state;
 
-INCLUDE_ASM("asm/levels", func_L20_0044A658);
+    obj = func_0029EFD0(0x12EE);
+    if (obj != 0) {
+        func_002B37E8((u8 *)obj, (u8 *)arg0);
+        qcopy(obj + 0x10, arg1);
+        *(float *)(obj + 0xF0) = func_002A7940();
+        *(float *)(obj + 0xF4) = func_002A7940();
+        func_002833F0(obj + 0xC0, obj + 0xF0);
+        ((Moby449FD0 *)obj)->state = 1;
+        ((Moby449FD0 *)obj)->flags |= 0x100;
+        ((Moby449FD0 *)obj)->scale =
+            *(float *)(((Moby449FD0 *)obj)->pClass + 0x24) * D_L20_001B23F8;
+        state = ((Moby449FD0 *)obj)->pVars;
+        qcopy(state, arg2);
+        *(float *)(state + 0x14) = arg3 * 0.016666668f;
+        *(int *)(state + 0x18) = arg4;
+        *(float *)(state + 0x1C) = arg5;
+        *(int *)(state + 0x20) = 0x3C;
+        *(float *)(state + 0x10) = func_002A7878(10.0f, 20.0f) * 0.00027777778f;
+    }
+    return obj;
+}
 
-/* func_L20_0044A8F0 is a near miss: nonmatching/levels/func_L20_0044A8F0.c */
+/* func_L20_0044B100 is defined in L20_0044B100-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L20_0044A8F0);
+/* func_L20_0044A658 is defined in L20_0044A658-g8.c. */
 
-/* func_L20_00449338 is a near miss: nonmatching/levels/func_L20_00449338.c */
+/* func_L20_0044A8F0 is defined in L20_0044A8F0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L20_00449338);
+/* func_L20_00449338 is defined in L20_00449338-g8.c. */

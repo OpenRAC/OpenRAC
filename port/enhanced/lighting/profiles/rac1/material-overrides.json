@@ -1,0 +1,383 @@
+{
+  "version": 1,
+  "presets": {
+    "water": {
+      "shading": "water",
+      "surface": {
+        "roughness": 0.22,
+        "reflectivity": 0.02037
+      },
+      "reflection": {
+        "strength": 1
+      }
+    },
+    "clank": {
+      "shading": "chrome",
+      "surface": {
+        "roughness": 0.26,
+        "reflectivity": 0.65
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      }
+    },
+    "wrench": {
+      "shading": "chrome",
+      "surface": {
+        "roughness": 0.18,
+        "reflectivity": 0.75
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      }
+    },
+    "chrome": {
+      "shading": "chrome",
+      "surface": {
+        "roughness": 0.25,
+        "reflectivity": 0.65
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      }
+    },
+    "glass": {
+      "shading": "glass",
+      "surface": {
+        "roughness": 0.08,
+        "reflectivity": 0.04
+      },
+      "reflection": {
+        "strength": 1,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      }
+    },
+    "stylised": {
+      "shading": "stylised",
+      "surface": {
+        "roughness": 0.35,
+        "reflectivity": 0.12
+      },
+      "reflection": {
+        "strength": 0.65,
+        "tint": [
+          1,
+          1,
+          1
+        ],
+        "opacity": 1
+      }
+    },
+    "ratchet-fur": {
+      "fur": {
+        "profile": "ratchet-original",
+        "enabled": true,
+        "strength": 0.21,
+        "contrast": 0.036,
+        "fade_distance": 103,
+        "lighting_enabled": true,
+        "highlight": 0.52,
+        "softness": 0.53,
+        "directionality": 0.88,
+        "scattering": 0.33,
+        "environment_strength": 1.85
+      }
+    },
+    "ratchet-wetness": {
+      "wetness": {
+        "diffuse_scale": 0.28,
+        "specular_strength": 1,
+        "dry_roughness": 0.5,
+        "wet_roughness": 0.34,
+        "reflectivity": 0.0632
+      }
+    }
+  },
+  "overrides": [
+    {
+      "id": "water",
+      "match": {
+        "material_name": "@water"
+      },
+      "preset": "water"
+    },
+    {
+      "id": "chrome",
+      "match": {
+        "pass": "metal"
+      },
+      "preset": "chrome"
+    },
+    {
+      "id": "clank",
+      "match": {
+        "layer": "moby",
+        "class_id": 87,
+        "pass": "metal"
+      },
+      "preset": "clank"
+    },
+    {
+      "id": "wrench",
+      "match": {
+        "layer": "moby",
+        "class_id": 71,
+        "pass": "metal"
+      },
+      "preset": "wrench"
+    },
+    {
+      "id": "glass",
+      "match": {
+        "material_name": "metal_glass",
+        "pass": "metal"
+      },
+      "preset": "glass"
+    },
+    {
+      "id": "stylised",
+      "match": {
+        "material_name": "metal_stylised",
+        "pass": "metal"
+      },
+      "preset": "stylised"
+    },
+    {
+      "id": "stylized",
+      "match": {
+        "material_name": "metal_stylized",
+        "pass": "metal"
+      },
+      "preset": "stylised"
+    },
+    {
+      "id": "ratchet-fur",
+      "match": {
+        "layer": "moby",
+        "class_id": 0,
+        "material_name": "moby_0000"
+      },
+      "preset": "ratchet-fur"
+    },
+    {
+      "id": "ratchet-wetness",
+      "match": {
+        "layer": "moby",
+        "class_id": 0
+      },
+      "preset": "ratchet-wetness"
+    },
+    {
+      "id": "foliage-00",
+      "name": "Fern frond",
+      "match": {
+        "texture_rgba_sha256": "47edcfa60686f8f2fc72c6663d4d67eccf40fc833a7111363c778f63a91b3d61",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.85,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.8,
+          "normal_bend": 0.0
+        }
+      }
+    },
+    {
+      "id": "foliage-01",
+      "name": "Fern branch",
+      "match": {
+        "texture_rgba_sha256": "f1b3d2717d73d5db555c69548dea3b164d57e333b2f24315d1774565eafd8332",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.85,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.8,
+          "normal_bend": 0.0
+        }
+      }
+    },
+    {
+      "id": "foliage-02",
+      "name": "Green broad leaf",
+      "match": {
+        "texture_rgba_sha256": "e3f2b1f26eb04fbbcdf87928be1943d30b07582335fe37d5d6a92212ff4fd5d3",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.65,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.35,
+          "thickness": 0.7,
+          "normal_bend": 0.2
+        }
+      }
+    },
+    {
+      "id": "foliage-03",
+      "name": "Blue broad leaf",
+      "match": {
+        "texture_rgba_sha256": "3bf1ce7e1461a8634b19c160cdbe6d5c68b68451a906f611b64db0b08ed934ce",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.65,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.35,
+          "thickness": 0.7,
+          "normal_bend": 0.2
+        }
+      }
+    },
+    {
+      "id": "foliage-04",
+      "name": "Small green leaf",
+      "match": {
+        "texture_rgba_sha256": "c0e0507152aa8394cae52102cebfae9fe77dc3fb90ceb1c5fbb7e0ddbef1b3dc",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.7,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.8,
+          "normal_bend": 0.16
+        }
+      }
+    },
+    {
+      "id": "foliage-05",
+      "name": "Red leaf",
+      "match": {
+        "texture_rgba_sha256": "e6729ee4023a05fec9253c9e2a7620e12a6bd718cd0d036fb9c198b2601b15e2",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.7,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.9,
+          "normal_bend": 0.18
+        }
+      }
+    },
+    {
+      "id": "foliage-06",
+      "name": "Purple leaf",
+      "match": {
+        "texture_rgba_sha256": "37c8327bf8f76583673024b113da8ab2e2aa8ef78aa0976112aebcacff1fcb39",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.7,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.9,
+          "normal_bend": 0.18
+        }
+      }
+    },
+    {
+      "id": "foliage-07",
+      "name": "Fern frond variant",
+      "match": {
+        "texture_rgba_sha256": "f4e270d4afd9abe9bf9cf6529eb92b4f4c03b2fa5985ce08bb1be0fd02eed934",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.85,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.8,
+          "normal_bend": 0.0
+        }
+      }
+    },
+    {
+      "id": "foliage-08",
+      "name": "Purple leaf variant",
+      "match": {
+        "texture_rgba_sha256": "ab489899a27701555266ef6ce0041255ed508ccb805dd1fe0da6e60d5f398586",
+        "cutout_only": true,
+        "pass": "colour"
+      },
+      "set": {
+        "shading": "foliage",
+        "surface": {
+          "roughness": 0.7,
+          "reflectivity": 0.04
+        },
+        "foliage": {
+          "transmission": 0.3,
+          "thickness": 0.9,
+          "normal_bend": 0.18
+        }
+      }
+    }
+  ]
+}

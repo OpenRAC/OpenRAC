@@ -133,9 +133,9 @@ int func_002CDAB0(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CDB30);
+/* func_002CDB30 is built from 002CDB30-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002CDD88);
+/* func_002CDD88 is built from 002CDD88-g8.c. */
 
 int func_002CE5B8(void) {
     D_001AB9B0 = 1;
@@ -146,9 +146,9 @@ int func_002CE5C8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CE5D0);
+/* func_002CE5D0 is built from 002CE5D0-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002CEBD0);
+/* func_002CEBD0 is built from 002CEBD0-g8.c. */
 
 void func_002CF0A0(int a0, char *a1)
 {
@@ -171,57 +171,85 @@ int func_002CF188(char *object) {
 
 INCLUDE_ASM("asm/game", func_002CF2B8);
 
-INCLUDE_ASM("asm/game", func_002CF340);
+/* func_002CF340 is built from 002CF340-g8.c. */
 
 INCLUDE_ASM("asm/game", func_002CF5B0);
 
-INCLUDE_ASM("asm/game", func_002CF7F0);
+/* func_002CF7F0 is built from 002CF7F0-g8.c. */
 
 int func_002CFBE0(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002CFBE8);
 
-INCLUDE_ASM("asm/game", func_002CFDA8);
+/* func_002CFDA8 is built from 002CFDA8-g8.c. */
 
 int func_002D01C8(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D01D0);
 
-INCLUDE_ASM("asm/game", func_002D0568);
+/* func_002D0568 is built from 002D0568-rc2.c. */
 
-INCLUDE_ASM("asm/game", func_002D08C8);
 
-INCLUDE_ASM("asm/game", func_002D0930);
 
-INCLUDE_ASM("asm/game", func_002D0B98);
 
-INCLUDE_ASM("asm/game", func_002D0F00);
+/* func_002D0B98 is built from 002D0B98-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002D0FA0);
 
-INCLUDE_ASM("asm/game", func_002D1228);
+/* func_002D0FA0 is built from 002CD8C0-g8.c for small-data accesses. */
 
-INCLUDE_ASM("asm/game", func_002D1590);
+/* func_002D1228 is built from 002D1228-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002D16C8);
+extern int D_001A7A00[] __attribute__((sda));
+extern unsigned char D_001A7BB0[] __attribute__((sda));
+extern unsigned char D_001395E9;
+extern unsigned char D_001395B8[];
+extern int D_001AA438 __asm__("D_001AA438__gp") __attribute__((section(".sdata")));
+extern unsigned char D_001ABA30 __asm__("D_001ABA30__gp") __attribute__((section(".sdata")));
+extern unsigned char D_001ABA31[] __attribute__((sda));
+extern unsigned char D_001ABA32[] __attribute__((sda));
+extern unsigned char D_001ABA33[] __attribute__((sda));
+extern unsigned char D_001ABA34[] __attribute__((sda));
+extern unsigned char D_001ABA35[] __attribute__((sda));
+extern unsigned char D_001ABA36[] __attribute__((sda));
+extern unsigned char D_001ABA37[] __attribute__((sda));
 
-INCLUDE_ASM("asm/game", func_002D1970);
+int func_002D1590(void)
+{
+    if (D_001A8CFC[0] != 0 && ((unsigned char *)D_001A7A00)[0xA] != 0) {
+        if (D_001A7BB0[0x3A] != 0 && D_001395E9 != 0)
+            D_001ABA30 = 1;
+        if (D_001A7BB0[0x3C] != 0 && (D_001395B8[0x4D] != 0 || D_001395B8[0x52] != 0))
+            D_001ABA31[0] = 1;
+        if (D_001A7BB0[0x43] != 0 && (D_001395B8[0x57] != 0 || D_001395B8[0x5C] != 0))
+            D_001ABA32[0] = 1;
+        if (D_001A7BB0[0x43] != 0 && D_001395B8[0x3D] != 0)
+            D_001ABA33[0] = 1;
+        if (D_001A7BB0[0x52] != 0)
+            D_001ABA34[0] = 1;
+        if (D_001A7BB0[0x4E] != 0)
+            D_001ABA35[0] = 1;
+        if (D_001A7BB0[0x4F] != 0)
+            D_001ABA36[0] = 1;
+        if (D_001AA438 != 0)
+            D_001ABA37[0] = 1;
+    }
+    return 0;
+}
+
+/* func_002D16C8 is built from 002D16C8-g32.c. */
+
+/* func_002D1970 is built from 002D1970-g8.c. */
 
 /* func_002D1CB0 is built from 002CD8C0-g8.c for small-data accesses. */
 
-INCLUDE_ASM("asm/game", func_002D1D20);
 
-INCLUDE_ASM("asm/game", func_002D1E70);
 
 int func_002D2010(void) {
     return 0;
 }
 
-INCLUDE_ASM("asm/game", func_002D2018);
 
 INCLUDE_ASM("asm/game", func_002D2188);
 
@@ -272,7 +300,7 @@ return_value:
     return result;
 }
 
-INCLUDE_ASM("asm/game", func_002D2918);
+/* func_002D2918 is built from 002D2918-g8.c. */
 
 int func_002D2BD8(void) {
     func_0029C640(D_00138344);

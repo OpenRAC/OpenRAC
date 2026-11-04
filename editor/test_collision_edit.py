@@ -1,7 +1,6 @@
 """Collision editing: the block model's exact round trip, edits, limits, and the scene's way back.
 Hand-built blocks; no disc data."""
 
-import hashlib
 import json
 import struct
 import tempfile
@@ -121,11 +120,14 @@ class BlockTests(unittest.TestCase):
         model = sample()
         a = (10, 20, 5)
         model.cells[a].vertices += [cell_point(a, i % 20, i // 20, 0) for i in range(260)]
-        with self.assertRaisesRegex(FormatError, "vertices, 255 at most"):
-            col.validate(model)
+        model.cells[a].faces.append(((256, 257, 258), 0x1f))
+        col.validate(model)
+        expanded = col.parse(col.write(model))
+        self.assertTrue(expanded.cells[a].extended)
+        self.assertIn(((256, 257, 258), 0x1f), expanded.cells[a].faces)
         model = sample()
-        model.z = (250, 10)
-        with self.assertRaisesRegex(FormatError, "outside 0-255"):
+        model.z = (32766, 10)
+        with self.assertRaisesRegex(FormatError, "outside the expanded 32768-cell"):
             col.validate(model)
         model = sample()
         model.heroes[0].triangles *= 300
@@ -362,6 +364,31 @@ class LevelDataTests(unittest.TestCase):
         self.assertEqual(runs[0][1][100 + 0x14], 1)
         with self.assertRaisesRegex(FormatError, "more than its place"):
             cs.level_data_patches(bytes(data), b"x", index, index, lambda core, head: bytes(4000))
+
+    def test_expanded_level_data_appends_an_oversized_core_and_redirects_its_range(self):
+        data = bytearray(16 * 2048)
+        index_at, index_size = 2048 + 100, 0x90
+        core_at, core_size = 5 * 2048 + 10, 3000
+        struct.pack_into("<ii", data, 2 * 8, index_at, index_size)
+        struct.pack_into("<ii", data, 10 * 8, core_at, core_size)
+        index = bytes([0xA5]) * index_size
+        replacement = b"WAD" + b"x" * (core_size + 501)
+        out = cs.expanded_level_data(bytes(data), b"core", index, bytes(index_size),
+                                     lambda core, head: replacement)
+        self.assertIsNotNone(out)
+        new_core_at, new_core_size = struct.unpack_from("<ii", out, 10 * 8)
+        self.assertEqual(new_core_at % 0x40, 0)
+        self.assertEqual((new_core_size, out[new_core_at:new_core_at + new_core_size]),
+                         (len(replacement), replacement))
+        self.assertEqual(out[index_at:index_at + index_size], index)
+        self.assertEqual(out[core_at:core_at + core_size], bytes(core_size))
+
+    def test_expanded_level_data_keeps_the_fixed_slot_when_it_fits(self):
+        data = bytearray(16 * 2048)
+        struct.pack_into("<ii", data, 2 * 8, 2048, 0x90)
+        struct.pack_into("<ii", data, 10 * 8, 5 * 2048, 3000)
+        self.assertIsNone(cs.expanded_level_data(bytes(data), b"core", bytes(0x90), bytes(0x90),
+                                                 lambda core, head: b"fits"))
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 // Floor-relative reflection captures centred in connected playable spaces.
 #include "enhanced/lighting/environment_placement.h"
 
+#include <optional>
 #include <algorithm>
 #include <limits>
 
@@ -248,6 +249,146 @@ bool covers_floor(
     return true;
 }
 
+// Grow a capture's box, in its own frame, over floor id's receivers. The grown box is clipped
+// against foreign spaces again and returned only if it covers the floor and every floor the
+// capture covered before.
+std::optional<EnvironmentProbe> grow_capture(
+    std::span<const EnvironmentFloor> floors,
+    unsigned id,
+    const EnvironmentBakeSettings& options,
+    const EnvironmentProbe& probe,
+    const EnvironmentFloor& source
+) {
+    const auto& floor = floors[id];
+
+    if (!environment_spaces_compatible(source, floor)) {
+        return {};
+    }
+
+    auto grown = probe;
+    const auto capture = grown.frame.to_local(grown.position);
+
+    for (unsigned h = 0; h < kEnvironmentReceiverHeights.size(); ++h) {
+        const auto p = grown.frame.to_local(environment_receiver_position(floor, h));
+
+        for (unsigned a = 0; a < 3; ++a) {
+            // A full blend border (.75) and a little more around each receiver.
+            grown.minimum[a] =
+                std::max(std::min(grown.minimum[a], p[a] - .8f), capture[a] - options.box_distance);
+            grown.maximum[a] =
+                std::min(std::max(grown.maximum[a], p[a] + .8f), capture[a] + options.box_distance);
+        }
+    }
+
+    clip_foreign_spaces(grown, source, floors);
+
+    if (!covers_floor(grown, source, floor)) {
+        return {};
+    }
+
+    for (unsigned f = 0; f < floors.size(); ++f) {
+        if (covers_floor(probe, source, floors[f]) && !covers_floor(grown, source, floors[f])) {
+            return {};
+        }
+    }
+
+    return grown;
+}
+
+// Grow the nearest compatible capture within spacing over floor id.
+void extend_nearest_capture(
+    std::span<const EnvironmentFloor> floors,
+    unsigned id,
+    const EnvironmentBakeSettings& options,
+    std::vector<EnvironmentProbe>& probes,
+    std::span<const unsigned> origins
+) {
+    std::vector<std::pair<float, unsigned>> nearest;
+
+    for (unsigned i = 0; i < probes.size(); ++i) {
+        const auto d = add(floors[id].capture, mul(probes[i].position, -1));
+
+        if (environment_spaces_compatible(floors[origins[i]], floors[id])
+            && dot(d, d) <= options.spacing * options.spacing) {
+            nearest.emplace_back(dot(d, d), i);
+        }
+    }
+
+    std::sort(nearest.begin(), nearest.end());
+
+    for (auto [distance, i] : nearest) {
+        if (const auto grown = grow_capture(floors, id, options, probes[i], floors[origins[i]])) {
+            probes[i] = *grown;
+            return;
+        }
+    }
+}
+
+// A close pair the merge could not replace (one side was grown over a floor no ordinary box
+// reaches): drop one capture if every floor only it covered can be taken by another nearby
+// compatible capture, grown over it.
+bool drop_close_capture(
+    std::span<const EnvironmentFloor> floors,
+    const EnvironmentBakeSettings& options,
+    std::vector<EnvironmentProbe>& probes,
+    std::vector<unsigned>& origins,
+    std::vector<unsigned>& owners,
+    unsigned drop
+) {
+    auto next = probes;
+
+    for (unsigned f = 0; f < floors.size(); ++f) {
+        if (!covers_floor(probes[drop], floors[origins[drop]], floors[f])) {
+            continue;
+        }
+
+        std::vector<std::pair<float, unsigned>> nearest;
+        bool covered = false;
+
+        for (unsigned j = 0; j < next.size() && !covered; ++j) {
+            if (j == drop) {
+                continue;
+            }
+
+            covered = covers_floor(next[j], floors[origins[j]], floors[f]);
+            const auto d = add(floors[f].capture, mul(next[j].position, -1));
+
+            if (environment_spaces_compatible(floors[origins[j]], floors[f])
+                && dot(d, d) <= options.spacing * options.spacing) {
+                nearest.emplace_back(dot(d, d), j);
+            }
+        }
+
+        if (covered) {
+            continue;
+        }
+
+        std::sort(nearest.begin(), nearest.end());
+
+        for (auto [distance, j] : nearest) {
+            if (const auto grown = grow_capture(floors, f, options, next[j], floors[origins[j]])) {
+                next[j] = *grown;
+                covered = true;
+                break;
+            }
+        }
+
+        if (!covered) {
+            return false;
+        }
+    }
+
+    next.erase(next.begin() + drop);
+    probes = std::move(next);
+    origins.erase(origins.begin() + drop);
+
+    if (drop < owners.size()) {
+        owners.erase(owners.begin() + drop);
+    }
+
+    return true;
+}
+
 unsigned centre_floor(std::span<const unsigned> room, std::span<const EnvironmentFloor> floors) {
     Float3 centre{};
 
@@ -306,7 +447,12 @@ void cover_room(
         const auto selected = centre_floor(remaining, floors);
 
         if (selected == ~0u) {
-            return;  // Final validation requires a nearby compatible capture to cover this passage.
+            // No floor here can hold a capture (water under a low roof): grow the nearest
+            // compatible capture over each floor left. No capture is added, so no new close pair.
+            for (auto id : remaining) {
+                extend_nearest_capture(floors, id, options, probes, origins);
+            }
+            return;  // Final validation reports any floor still uncovered.
         }
 
         const auto probe =
@@ -496,6 +642,33 @@ std::vector<EnvironmentProbe> place_environment_probes(
 
     prune_probes(playable, result, origins, report);
     merge_environment_probes({scene, playable, spaces, settings, options}, result, origins, report);
+
+    // Same test as the final spacing check below.
+    auto close = [&](unsigned a, unsigned b) {
+        if (playable[origins[a]].underwater != playable[origins[b]].underwater
+            || std::abs(playable[origins[a]].position[2] - playable[origins[b]].position[2]) > 2) {
+            return false;
+        }
+
+        const auto delta = add(result[a].position, mul(result[b].position, -1));
+        return dot(delta, delta) < options.minimum_capture_spacing * options.minimum_capture_spacing
+               && environment_capture_context_clear(
+                   scene, playable[origins[a]], result[a].position, playable[origins[b]],
+                   result[b].position, settings
+               );
+    };
+
+    for (bool dropped = true; dropped;) {
+        dropped = false;
+
+        for (unsigned a = 0; a < result.size() && !dropped; ++a) {
+            for (unsigned b = a + 1; b < result.size() && !dropped; ++b) {
+                dropped = close(a, b)
+                          && (drop_close_capture(playable, options, result, origins, report.owners, b)
+                              || drop_close_capture(playable, options, result, origins, report.owners, a));
+            }
+        }
+    }
 
     for (unsigned a = 0; a < result.size(); ++a) {
         for (unsigned b = a + 1; b < result.size(); ++b) {

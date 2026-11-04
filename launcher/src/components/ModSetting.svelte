@@ -508,21 +508,24 @@
   }
 
   @media (hover: hover) {
-    .slider input:hover::-webkit-slider-thumb {
+    :global(html:where(:not([data-input="pad"]))) .slider input:hover::-webkit-slider-thumb {
       transform: scale(1.08);
     }
 
-    .more-about:hover,
-    .reset:hover {
+    :global(html:where(:not([data-input="pad"]))) .more-about:hover,
+    :global(html:where(:not([data-input="pad"]))) .reset:hover {
       color: var(--text);
     }
   }
 
-  .slider input:focus-visible {
+  /* The focus rings the thumb, a controller's too (pad.ts), whose left and right move it. */
+  .slider input:focus-visible,
+  :global(html[data-input="pad"]) .slider input:focus {
     outline: none;
   }
 
-  .slider input:focus-visible::-webkit-slider-thumb {
+  .slider input:focus-visible::-webkit-slider-thumb,
+  :global(html[data-input="pad"]) .slider input:focus::-webkit-slider-thumb {
     outline: 2px solid var(--amber);
     outline-offset: 2px;
   }

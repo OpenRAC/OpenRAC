@@ -56,6 +56,12 @@ discordRpc: boolean,
  */
 checkUpdates: boolean, 
 /**
+ * Look for newer versions of the installed mods when the launcher starts, once a day, and
+ * offer them (default true). Off, mods are checked only on the Mods tab's "Check now"; a mod
+ * is never updated without the player's click.
+ */
+checkModUpdates: boolean, 
+/**
  * Which builds the launcher updates to (update::Channel): the releases, or the newest
  * development build. Unset: the one it was built from (a release's build, the releases).
  */
@@ -75,7 +81,7 @@ discordClientId: string | null,
 layout: "compact" | "classic", 
 /**
  * The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
- * or "mocha". The accent is not a theme's: on Android it is the picked game's.
+ * or "mocha". The accent is not a theme's: it is the picked game's.
  */
 theme: string, 
 /**
@@ -84,13 +90,25 @@ theme: string,
  */
 detailedGameLog: boolean, 
 /**
- * What the game draws with on Windows, Linux and macOS: "opengl" (OpenGL 4.1, the default)
- * or "vulkan", the port's experimental Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the
- * MoltenVK its bundle carries). Where Vulkan cannot start, the game draws with OpenGL
+ * What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
+ * Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
+ * "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
  * (port/platform/window.cpp). Not used on Android, which keeps its own choice
  * (src-tauri/src/android.rs).
  */
 renderer: "opengl" | "vulkan", 
+/**
+ * HDR output (port docs/port/HDR.md): "" (default) leaves it to the game's own setting (its
+ * drawer, the settings file's `hdr`); "off", "auto" or "on" is given to each game's start
+ * (OPENRAC_HDR), over that. On every system; it needs the Vulkan renderer.
+ */
+hdr: "" | "off" | "auto" | "on", 
+/**
+ * Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
+ * (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
+ * a start whose window crashed before it drew a click; the player may turn it off again.
+ */
+safeRendering: boolean, 
 /**
  * The Mods switch under Play on the game's page: the game loads the mods the Mods tab switched on (the
  * gameplay mods, the packs and the packed levels). Off by default: Play starts the game with no
@@ -113,4 +131,27 @@ discChoice: { [key in string]: string },
  * underscores, made up at the first start and changed in Settings. Given to the game as
  * `OPENRAC_PLAYER_NAME`.
  */
-multiplayerName: string, };
+multiplayerName: string, 
+/**
+ * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
+ */
+modIndexes: Array<string>, 
+/**
+ * Offer pre-release versions of mods. Unset: on for the dev channel, off for releases.
+ */
+prereleaseMods: boolean | null, 
+/**
+ * An install link kept across "Switch to the dev build": its change set opens after the
+ * restart (src/lib/deepLink.svelte.ts), then it is cleared.
+ */
+pendingDeepLink: string | null, 
+/**
+ * Update mods from the index by themselves (mod_updates.rs): patch and minor versions at
+ * start, every 6 hours and before each game start; majors wait for a click (default true).
+ */
+autoUpdateMods: boolean, 
+/**
+ * Removing a mod removes the dependencies the launcher installed for it that nothing else
+ * needs (default true); the player's own are asked about.
+ */
+cleanupUnusedDeps: boolean, };

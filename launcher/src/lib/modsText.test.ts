@@ -70,8 +70,8 @@ describe("the sentences", () => {
   });
 
   it("say what an install came to", () => {
-    expect(installedFrom.on("Lock-strafe", "OpenRAC/rac1-mods")).toBe(
-      "Installed Lock-strafe from OpenRAC/rac1-mods. It is on from the game's next start.",
+    expect(installedFrom.on("Lock-strafe", "OpenRAC/openrac-mods")).toBe(
+      "Installed Lock-strafe from OpenRAC/openrac-mods. It is on from the game's next start.",
     );
     expect(added.replaced("Lock-strafe", "1.1.0")).toBe("Updated Lock-strafe to 1.1.0; its settings are kept.");
     expect(added.packFailed("pack.zip", "")).toBe("pack.zip: it could not be added");

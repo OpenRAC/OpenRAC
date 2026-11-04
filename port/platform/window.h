@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // SDL3 and the game's window: an OpenGL 4.1 core context (the version macOS
-// stops at, and all OpenGOAL's renderer needs; OpenGL ES 3.2 on Android, GlApi), windowed, fullscreen at a
-// chosen resolution, or borderless at the desktop's, on a chosen display, with
+// stops at, and all OpenGOAL's renderer needs; OpenGL ES 3.2 on Android, GlApi), windowed or
+// borderless full screen at the desktop's resolution, on a chosen display, with
 // vsync on, off or adaptive. The context is asked for on the graphics card:
 // a software rasteriser is named in the log, and refused when the program
 // says so (SoftwareRenderer).
@@ -13,10 +13,13 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
+
+#include "common/hdr.h"
 
 struct SDL_Window;
 struct SDL_GLContextState;
@@ -57,9 +60,10 @@ private:
     std::string m_error;
 };
 
+// No exclusive full screen: like a DX12 game's borderless mode, the display keeps its own mode,
+// so switching away is instant and other windows can sit on top.
 enum class DisplayMode {
     Windowed,
-    Fullscreen,  // exclusive, at WindowConfig's fullscreen resolution
     Borderless,  // a window covering the desktop, at its resolution
 };
 
@@ -96,17 +100,6 @@ struct DisplayInfo {
 // The displays connected now, in SDL's order (the first is the primary one). Needs a Platform.
 std::vector<DisplayInfo> displays();
 
-// A size a display can be switched to for DisplayMode::Fullscreen.
-struct DisplaySize {
-    int width = 0;
-    int height = 0;
-    bool operator==(const DisplaySize&) const = default;
-};
-
-// The sizes of a display's fullscreen modes, largest first, each once (`display` counts from 1,
-// as displays() lists them; 0 or one that is gone: the primary display).
-std::vector<DisplaySize> fullscreen_sizes(int display);
-
 // The program's name and id for the desktop, before the Platform starts SDL: on Wayland the id is
 // the window's app id, by which the desktop finds the program's icon and groups its windows.
 void set_app_metadata(const char* name, const char* id);
@@ -138,9 +131,6 @@ struct WindowConfig {
     int width = 1280;
     int height = 960;
     DisplayMode mode = DisplayMode::Windowed;
-    // For DisplayMode::Fullscreen; 0 x 0 uses the desktop's mode.
-    int fullscreen_width = 0;
-    int fullscreen_height = 0;
     bool vsync = true;
     // The display the window opens on, counted from 1 as displays() lists them; 0: SDL's choice.
     int display = 0;
@@ -150,6 +140,8 @@ struct WindowConfig {
     bool debug_context = false;
     int msaa_samples = 0;
     GlApi gl_api = default_gl_api();
+    // HDR output may be asked for later (set_hdr); off, a Vulkan window is made as it always was.
+    bool hdr = false;
 };
 
 // The context's function loader, in SDL_GL_GetProcAddress's shape: what
@@ -171,7 +163,7 @@ public:
 
     // `display`: the display to cover (counted from 1, as displays() lists them), the window
     // moving there first; 0 is the one the window is on.
-    bool set_display_mode(DisplayMode mode, int width = 0, int height = 0, int display = 0);
+    bool set_display_mode(DisplayMode mode, int display = 0);
 
     DisplayMode display_mode() const { return m_mode; }
 
@@ -183,9 +175,30 @@ public:
     // anything as Immediate when the driver refuses to wait.
     SwapInterval set_swap_interval(SwapInterval interval);
 
+    // Whether a swap that does not wait for a refresh is shown at once (it may tear), rather than
+    // at the next refresh as the latest frame: Vulkan's mailbox, and Android's compositor with
+    // OpenGL. A frame held to the moment it is shown needs the former (frontend's CapEdge).
+    bool swap_shows_at_once() const;
+
     // Low-latency frames (the player's setting): fewer finished frames wait to be shown. Vulkan:
     // vkgl::set_low_latency. OpenGL: each swap waits for the graphics card to finish (glFinish).
     void set_low_latency(bool on);
+
+    // HDR output (common/hdr.h): what the system says of the window's display (SDL; on Android
+    // the activity, platform/display_hdr.h; unknown on X11), and the screen asked to show `wanted`
+    // at `levels`. Vulkan only (and WindowConfig::hdr); OpenGL always shows SDR. hdr_output: what
+    // it shows; hdr_offered: the screen offers an HDR format at all.
+    hdr::Display hdr_display() const;
+    void set_hdr(hdr::Output wanted, const hdr::Levels& levels);
+    hdr::Output hdr_output() const;
+    bool hdr_offered() const;
+
+    // Low-latency frames, before a frame begins and reads its time and the input: Vulkan sleeps
+    // until the frame would be queued just as the GPU is free for it, never past `limit`, and
+    // returns the seconds slept (vkgl::latency_sleep); latency_begin, as it begins, is told them.
+    // OpenGL: nothing (its swap's glFinish stays).
+    double latency_sleep(std::chrono::steady_clock::time_point limit);
+    void latency_begin(double slept);
 
     // The refresh rate of the display the window is on now, in hertz; 0 when it does not say.
     float refresh_rate() const;
@@ -228,6 +241,8 @@ private:
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
     bool m_low_latency = false;
+    bool m_hdr_window = false;        // Android: the window's colour mode asked for HDR
+    float m_hdr_headroom = 0.0f;      // Android: the headroom the window asked for
     void (*m_gl_finish)() = nullptr;  // OpenGL's glFinish, for m_low_latency
     bool m_vulkan_library = false;  // macOS: the Vulkan library this window had SDL load
     DisplayMode m_mode = DisplayMode::Windowed;

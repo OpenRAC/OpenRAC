@@ -78,7 +78,7 @@ static void panel_animation(int slot, int seq, int last, float speed) {
 /* HeroAttachState is resident and uses the same slot layout in PAL and NTSC (level_hero_attach.c). */
 static unsigned hero_shadow_casters(gaddr* addresses, unsigned capacity) {
     return openrac_rac1_hero_attachments(
-        openrac_guest_base, GUEST_RAM_SIZE, RAC1_ADDR(0x0013F450u), addresses, capacity
+        openrac_guest_base, openrac_guest_ram_size, RAC1_ADDR(0x0013F450u), addresses, capacity
     );
 }
 
