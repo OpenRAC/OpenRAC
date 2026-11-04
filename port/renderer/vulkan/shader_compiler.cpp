@@ -136,6 +136,27 @@ std::string vertex_source(std::string_view source) {
     return out;
 }
 
+// A vertex stage for Arm Mali or a device without shaderClipDistance: its clip distances go to a
+// variable nobody reads, as on an ES driver without GL_EXT_clip_cull_distance (renderer/shader.cpp,
+// es_source), and nothing is clipped. Mali's compiler crashes on any gl_ClipDistance write.
+std::string vertex_clip_distance(std::string_view source) {
+    std::string out(source);
+    constexpr std::uint32_t kArm = 0x13B5;
+    if (out.find("gl_ClipDistance") == std::string::npos || !detail::g
+        || (detail::g->features.shaderClipDistance && detail::g->properties.vendorID != kArm)) {
+        return out;
+    }
+    static const std::regex clip(R"(\bgl_ClipDistance\b)");
+    static const std::regex main_decl(R"(\bvoid\s+main\s*\()");
+    out = std::regex_replace(out, clip, "openrac_clip_distance");
+    std::smatch at;
+    // Declared before main, the one place the port's shaders write it.
+    if (std::regex_search(out, at, main_decl)) {
+        out.insert(static_cast<std::size_t>(at.position(0)), "float openrac_clip_distance[8];\n");
+    }
+    return out;
+}
+
 // A stage and its source: glslang keeps pointers to the text and to the array of its strings, not
 // copies, until it is parsed; they live beside the shader, where moving the Stage does not move them.
 struct Stage {
@@ -451,7 +472,8 @@ bool check_stage(bool vertex, std::string_view source, std::string& log) {
         detail::g && detail::g->shader_float16
             && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16)
     );
-    source = precise_source;
+    const auto clipped_source = vertex ? vertex_clip_distance(precise_source) : precise_source;
+    source = clipped_source;
     const std::string_view kind = vertex ? "vertex stage" : "fragment stage";
 
     // Compiled before: it compiles.
@@ -502,7 +524,8 @@ bool compile_program(
 ) {
     const bool half = detail::g && detail::g->shader_float16
                       && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
-    const auto precise_vertex = renderer::shader_precision_source(vertex, half);
+    const auto precise_vertex =
+        vertex_clip_distance(renderer::shader_precision_source(vertex, half));
     const auto precise_fragment = renderer::shader_precision_source(fragment, half);
     const auto precise_compute = renderer::shader_precision_source(compute, half);
     vertex = precise_vertex;

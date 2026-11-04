@@ -1065,7 +1065,9 @@ void LevelScene::draw_layer(
     }
     // On a target wider than the game's picture, the 2D layer's mobys are cut at the picture's sides
     // (mesh.vert).
-    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h, es_source).
+    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h,
+    // es_source), nor has Vulkan on Mali (renderer/vulkan/shader_compiler.cpp,
+    // vertex_clip_distance).
     const bool cut = layer == Layer::Mobys && state.target.picture_scale_x < 1.0f
                      && (!gl::is_es() || gl::has_extension("GL_EXT_clip_cull_distance"));
     if (cut) {
