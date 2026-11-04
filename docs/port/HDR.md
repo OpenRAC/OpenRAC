@@ -20,9 +20,17 @@ byte for byte.
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
 
-You can set it in the Video options page, the options drawer, the settings file, or the
+The ranges follow the brightest screens on sale in 2026. Mini-LED TVs (TCL X11L) and some phones
+(Honor X80 Pro Max, Samsung Display's M16 panel) are sold at 10000 nits in a small window, which is
+also the top of PQ (HDR10), so the peak stops there. Paper white is the whole picture's
+brightness (203 by BT.2408); above 1000 the game's white reaches the peak and the highlights stop
+standing out, so it stops at 1000. The display's own number (Windows' EDID peak,
+Android's desired max luminance or HDR/SDR headroom) stays the default.
+
+You can set the mode in the Video options page, the options drawer, the settings file, or the
 launcher's Settings > HDR. The launcher's "Game" leaves it to the game. Its Off, Auto and On
-override the game for every start (`OPENRAC_HDR`).
+override the game for every start (`OPENRAC_HDR`). Paper white and peak are in the options drawer
+and the settings file.
 
 Turning HDR on from `off` needs a restart. Other changes apply at once.
 
