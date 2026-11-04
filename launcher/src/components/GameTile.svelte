@@ -78,7 +78,7 @@
         {#if matched}<p class="matched">{matched} matched</p>{/if}
         {#if playWarning}
           <!-- A game far from finished (actions.json `warning`): its page and Play say the whole of it. -->
-          <p class="crashed" title={playWarning}><Icon name="warn" size={13} />For development only</p>
+          <p class="crashed" title={playWarning}><Icon name="warn" size={13} />Early and unstable</p>
         {/if}
         {#if (app.crashes[game.id]?.recent ?? 0) > 0}
           <p class="crashed">
