@@ -1941,7 +1941,7 @@ def write_files(out: Path, cfg: dict, results: dict[str, Result], game: str,
         program = stage.program
         lead = ["void *openrac_asm_external(void *fn, const char *name);", ""]
         for k, sym in enumerate(stage.external):
-            chunks[k % spread].append(asmext.trampoline(program.functions[sym]))
+            chunks[k % spread].append(asmext.trampoline(program.functions[sym], wrapped=sym in program.wrap))
         for chunk in chunks:
             chunk[:0] = lead
     head = file_head(game)

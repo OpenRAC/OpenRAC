@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     names = sorted(results)
     chunks: list[list[str]] = [[] for _ in range(FILES)]
     for k, sym in enumerate(names):
-        chunks[k % FILES].append(asmext.renamed(sym, results[sym].text))
+        chunks[k % FILES].append(asmext.renamed(sym, results[sym].text, asmext.defined_name(program, sym)))
     head = asmc.file_head(saved.get("title", ""))
     for k, chunk in enumerate(chunks):
         lead = asmc.PS2_LEAD if any("openrac_ps2" in t for t in chunk) else []

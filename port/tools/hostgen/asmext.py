@@ -127,7 +127,13 @@ def own_name(sym: str) -> str:
     return f"openrac_asmd_{cname(sym)}"
 
 
-def trampoline(f: Function, typedefs=None) -> str:
+def defined_name(program: Program, sym: str) -> str:
+    """The C name a translation is defined under: NAME__game for a function the port wraps
+    (a "wrap" row: its host C is NAME and calls NAME__game)."""
+    return f"{cname(sym)}__game" if sym in program.wrap else cname(sym)
+
+
+def trampoline(f: Function, typedefs=None, wrapped: bool = False) -> str:
     """The port's build's body for an EXTERNAL function: a call through its slot, which the part
     built from the disc fills (register_text)."""
     proto = prototype(f, typedefs)
@@ -141,17 +147,19 @@ def trampoline(f: Function, typedefs=None) -> str:
     names = [] if params == "void" else [p.rsplit(" ", 1)[1] for p in params.split(", ")]
     types = "void" if params == "void" else ", ".join(p.rsplit(" ", 1)[0] for p in params.split(", "))
     ret = head[: -len(cname(f.symbol))].strip()
+    if wrapped:
+        proto = proto.replace(f" {cname(f.symbol)}(", f" {cname(f.symbol)}__game(", 1)
     call = f"(({ret} (*)({types}))openrac_asm_external({slot(f.symbol)}, \"{f.symbol}\"))({', '.join(names)})"
     body = f"{call};" if ret == "void" else f"return {call};"
     return f"void *{slot(f.symbol)};\n{proto} {{\n    {body}\n}}\n"
 
 
-def renamed(sym: str, text: str) -> str:
+def renamed(sym: str, text: str, defined: str | None = None) -> str:
     """A translation's C with its definition under the part's own name, so it does not stand in
     for the port's trampoline: calls to it still go through the slot."""
     lines = text.splitlines()
     head = next(k for k, l in enumerate(lines) if l.rstrip().endswith("{") and "(" in l)
-    lines[head] = re.sub(r"\b" + re.escape(cname(sym)) + r"\(", own_name(sym) + "(", lines[head], count=1)
+    lines[head] = re.sub(r"\b" + re.escape(defined or cname(sym)) + r"\(", own_name(sym) + "(", lines[head], count=1)
     return "\n".join(lines) + "\n"
 
 
