@@ -64,6 +64,10 @@ constexpr Entry kEntries[] = {
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
+    {Id::HdrPeak, Tab::Graphics, "HDR", kChoice, A, "HDR peak",
+     "The brightest that glows and explosions may go in HDR, also told to the display. Display "
+     "takes what the display reports. Where the system sets the brightness (Android, macOS), "
+     "it can only go lower."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",
