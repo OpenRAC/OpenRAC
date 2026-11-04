@@ -39,6 +39,7 @@
 #ifdef OPENRAC_FRONTEND
 #include "debug_overlay.h"
 #include "frontend.h"
+#include "platform/performance_hint.h"
 #endif
 
 namespace openrac::program {
@@ -554,6 +555,9 @@ int vsync() {
         precise_wait::until(g_next_frame);
     }
 #ifdef OPENRAC_FRONTEND
+    openrac::platform::
+        work_resumed();  // the next tick's work counts from here (performance_hint.h)
+
     // [debug tools] A paused game stays here, its last tick drawn again (frontend.h, hold).
     if (g_window && !frontend::hold()) {
         leave();
