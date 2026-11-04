@@ -518,6 +518,7 @@ int main(int argc, char** argv) {
     timeBeginPeriod(1);
 #endif
     g_options = parse(argc, argv);
+    load_asm_part(g_options);
     static struct openrac_map_config map_config{};
 
     if (g_options.custom_map) {

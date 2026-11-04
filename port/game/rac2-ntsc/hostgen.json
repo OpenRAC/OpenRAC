@@ -609,6 +609,7 @@
     "results_before_calls": true,
     "vu0_programs": {"0xC80": "rac2_vu0_cosine", "0xC90": "rac2_vu0_sine", "0xD18": "rac2_vu0_rotation_rows"},
     "enabled": true,
+    "interface": "asm_interface.json",
     "discover_entries": true,
     "dma_stores": true, "follow_saved_registers": true, "gp_addresses": true,
     "fit_declarations": true,
