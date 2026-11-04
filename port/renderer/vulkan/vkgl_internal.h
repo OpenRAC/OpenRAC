@@ -1880,12 +1880,35 @@ void describe_device();
 void destroy_all();
 
 // Optional profiling resources, owned by the Vulkan context and accessed on the graphics owner.
+class TracyPresentZone {
+public:
+    TracyPresentZone(
+        VkCommandBuffer command,
+        std::string_view name,
+        std::source_location location = std::source_location::current()
+    );
+    ~TracyPresentZone();
+    TracyPresentZone(const TracyPresentZone&) = delete;
+    TracyPresentZone& operator=(const TracyPresentZone&) = delete;
+
+private:
+#ifdef OPENRAC_TRACY
+    void* m_scope = nullptr;
+#endif
+};
+
 #ifdef OPENRAC_TRACY
 void tracy_gpu_open();
 void tracy_gpu_collect();
 void tracy_gpu_end_commands();
 void tracy_gpu_close();
 #else
+inline TracyPresentZone::TracyPresentZone(
+    VkCommandBuffer, std::string_view, std::source_location
+) {}
+
+inline TracyPresentZone::~TracyPresentZone() = default;
+
 inline void tracy_gpu_open() {}
 
 inline void tracy_gpu_collect() {}

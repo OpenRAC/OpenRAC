@@ -244,6 +244,30 @@ void record_graph_image_barrier(
     image.layout = barrier.newLayout;
 }
 
+VkBufferMemoryBarrier graph_buffer_barrier(
+    const graph::Barrier& transition, const BufferRef& buffer
+) {
+    const auto& range = std::get<graph::BufferRange>(transition.range);
+    VkBufferMemoryBarrier barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    barrier.srcAccessMask = access_of(transition.before);
+    barrier.dstAccessMask = access_of(transition.after);
+    barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = buffer.buffer;
+    barrier.offset = buffer.offset + range.offset;
+    barrier.size = range.size;
+    return barrier;
+}
+
+void record_graph_buffer_barrier(
+    VkCommandBuffer command, const graph::Barrier& transition, const BufferRef& buffer
+) {
+    const auto barrier = graph_buffer_barrier(transition, buffer);
+    const VkPipelineStageFlags source = stages_of(transition.before.stages);
+    const VkPipelineStageFlags destination = stages_of(transition.after.stages);
+    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    count_barrier(source, destination);
+}
+
 graph::State attachment_copy_state(bool depth_resolve, graph::Access access) {
     // Dynamic-rendering depth/stencil resolves execute in attachment stages.
     if (depth_resolve) {
