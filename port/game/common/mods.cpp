@@ -15,8 +15,8 @@
 #include <fstream>
 #include <limits>
 #include <memory>
-#include <sstream>
 #include <optional>
+#include <sstream>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -58,12 +58,14 @@ struct openrac_mod {
     std::string data_dir;                         // data_dir's answer, once made (1.11)
     fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
     openrac_mod_unload_fn unload = nullptr;
+
     // What a party needs of it (interface 1.12): its settings as text, made when first asked and
     // kept for the life of the mod (the table hands out their strings), the rules it published
     // (none yet: not published), how often, and who takes the host's rules.
     struct PartySetting {
         std::string value, shown;
     };
+
     std::vector<PartySetting> party_settings;
     bool has_party_rules = false;
     std::vector<std::uint8_t> party_rules;
@@ -162,12 +164,14 @@ const Host* g_host = nullptr;
 const char* hook_id(const Host& host, const char* name) {
     return openrac_script_hook_id(host.scripts, name);
 }
+
 // Who draws over the game (on_overlay), in load order.
 struct OverlayCallback {
     openrac_mod* mod;
     openrac_overlay_fn fn;
     void* user;
 };
+
 std::vector<OverlayCallback> g_overlays;
 
 openrac_mod* g_loading = nullptr;  // the mod whose openrac_mod_load runs: hooks are taken then only
@@ -1071,7 +1075,9 @@ int api_party_rules_read(int index, void* out, uint32_t size, uint32_t* version)
         return -1;
     }
     if (out != nullptr && !mod->party_rules.empty()) {
-        std::memcpy(out, mod->party_rules.data(), std::min<std::size_t>(size, mod->party_rules.size()));
+        std::memcpy(
+            out, mod->party_rules.data(), std::min<std::size_t>(size, mod->party_rules.size())
+        );
     }
     if (version != nullptr) {
         *version = mod->party_version;
@@ -1152,7 +1158,11 @@ const std::vector<PackEntry>& stacked_packs() {
         return packs;
     }
     if (!json::parse_file(read.string(), stack, error) || !stack["layers"].is_array()) {
-        log::warn("mods: {} cannot be read ({}): no data packs for a party to compare", log::tidy(read.string()), error);
+        log::warn(
+            "mods: {} cannot be read ({}): no data packs for a party to compare",
+            log::tidy(read.string()),
+            error
+        );
         return packs;
     }
     for (const json::Value& layer : stack["layers"].items()) {
@@ -1165,7 +1175,9 @@ const std::vector<PackEntry>& stacked_packs() {
         pack.version = layer["version"].is_string() ? layer["version"].string() : "";
         // The hash's first bytes: what a party compares of it. A stack from before them has none.
         if (layer["digest"].is_string() && layer["digest"].string().size() >= 8) {
-            pack.digest = static_cast<std::uint32_t>(std::strtoul(layer["digest"].string().substr(0, 8).c_str(), nullptr, 16));
+            pack.digest = static_cast<std::uint32_t>(
+                std::strtoul(layer["digest"].string().substr(0, 8).c_str(), nullptr, 16)
+            );
         }
         packs.push_back(std::move(pack));
     }
@@ -1197,7 +1209,8 @@ int api_packs_info(openrac_packs_info* out) {
 int api_packs_entry(int index, openrac_pack_entry* out) {
     const std::vector<PackEntry>& packs = stacked_packs();
     constexpr std::size_t kWithoutName = offsetof(openrac_pack_entry, name);
-    if (out == nullptr || out->size < kWithoutName || index < 0 || static_cast<std::size_t>(index) >= packs.size()) {
+    if (out == nullptr || out->size < kWithoutName || index < 0
+        || static_cast<std::size_t>(index) >= packs.size()) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const PackEntry& pack = packs[static_cast<std::size_t>(index)];
@@ -1218,7 +1231,8 @@ int api_clipboard_set(const char* text) {
 }
 
 int api_open_link(const char* url) {
-    if (url == nullptr || !is_mod_code_link(url) || g_host == nullptr || g_host->open_url == nullptr) {
+    if (url == nullptr || !is_mod_code_link(url) || g_host == nullptr
+        || g_host->open_url == nullptr) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     return g_host->open_url(url) ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;

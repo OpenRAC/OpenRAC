@@ -465,8 +465,9 @@ export const api = {
   modsetSharePreview: (game: string) => call<SharePreview>("modset_share_preview", { game }),
   modsetShare: (game: string, version: string, extras: string[]) =>
     call<Shared>("modset_share", { game, version, extras }),
+  /** Names the party the game joins on starting (a mod code's link, after Apply). */
+  modsetJoin: (game: string, party: string) => call<null>("modset_join", { game, party }),
   /** What a code would change, with nothing changed. `text`: a code, short or long, or its link. */
-  modsetJoin: (game: string, party: string) => call<void>("modset_join", { game, party }),
   modsetReview: (game: string, version: string, text: string) => call<Review>("modset_review", { game, version, text }),
   modsetApply: (game: string, version: string, set: string, code: string | null, choices: Choices) =>
     call<Applied>("modset_apply", { game, version, set, code, choices }),

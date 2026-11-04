@@ -246,8 +246,9 @@ std::vector<std::uint8_t> read_save(const std::string& folder, int slot) {
 }
 
 std::vector<std::uint8_t> read_save(int slot) {
-    return g_play != nullptr && g_play->save_folder != nullptr ? read_save(g_play->save_folder, slot)
-                                                               : std::vector<std::uint8_t>{};
+    return g_play != nullptr && g_play->save_folder != nullptr
+               ? read_save(g_play->save_folder, slot)
+               : std::vector<std::uint8_t>{};
 }
 
 // The note beside a save in a mod's folder (card_note_write).
@@ -841,8 +842,9 @@ std::uint32_t api_card_saves() {
 }
 
 int api_card_note_write(openrac_mod* mod, int slot, const char* text) {
-    const std::filesystem::path path =
-        mod != nullptr && mod == g_card_mod ? note_path(g_card_folder, slot) : std::filesystem::path{};
+    const std::filesystem::path path = mod != nullptr && mod == g_card_mod
+                                           ? note_path(g_card_folder, slot)
+                                           : std::filesystem::path{};
     if (path.empty() || text == nullptr || std::strlen(text) >= kCardNoteMost) {
         return OPENRAC_HOOK_UNKNOWN;
     }
@@ -1037,6 +1039,7 @@ struct CameraScriptWatch {
     openrac_camera_script_fn fn = nullptr;
     void* user = nullptr;
 };
+
 CameraScriptWatch g_camera_scripts;
 const openrac_mod* g_camera_shower = nullptr;
 
@@ -1061,8 +1064,7 @@ int api_on_camera_script(openrac_mod* mod, openrac_camera_script_fn fn, void* us
 }
 
 int api_camera_script_play(openrac_mod* mod, int id) {
-    if (mod == nullptr || !has_camera_scripts()
-        || id < OPENRAC_CAMERA_SCRIPT_CUT
+    if (mod == nullptr || !has_camera_scripts() || id < OPENRAC_CAMERA_SCRIPT_CUT
         || (g_camera_shower != nullptr && g_camera_shower != mod)) {
         return OPENRAC_HOOK_UNKNOWN;
     }

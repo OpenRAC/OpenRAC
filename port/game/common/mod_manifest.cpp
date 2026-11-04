@@ -210,7 +210,9 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
                 return false;
             }
             s.choices.push_back(c["value"].string());
-            s.choice_names.push_back(c["name"].is_string() ? c["name"].string() : c["value"].string());
+            s.choice_names.push_back(
+                c["name"].is_string() ? c["name"].string() : c["value"].string()
+            );
         }
     }
     if (const json::Value& m = v["max_length"]; !m.is_null()) {
