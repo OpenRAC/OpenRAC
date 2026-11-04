@@ -331,6 +331,13 @@ Sections, gauges and the frame history are kept only while the overlay is
 shown or a dump is open; otherwise each costs the test of one bool. The
 section tree follows OpenGOAL's frame profiler.
 
+## Vulkan crash diagnostics
+
+Crash reports retain recent Vulkan diagnostics even when Detailed logs is off. They include
+device and swapchain details, failed Vulkan operations, validation messages when the layer is
+enabled, and frame and graph breadcrumbs. A render failure that stops gameplay also writes a
+crash report. Detailed logs or `OPENRAC_LOG=verbose` shows the extra context in the session log.
+
 ## Environment variables: the debugging tools
 
 Every variable on this page has a row in the port's table of them,
@@ -473,6 +480,10 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_STRIP_FOG_OFF` | any (set) | Reference: draws the effect strips (the seas, Oltanis's ice) without their GS fog. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF` | any (set) | Reference (Vulkan): the texture of every visible particle is hashed, and none is reused. | `port/game/common/frontend/world.cpp` |
 | `OPENRAC_VK_PALETTE_PARTIAL_OFF` | any (set) | Uploads the full Vulkan joint palette whenever any row changes. | `port/scene/level_instances.cpp` |
+| `OPENRAC_VK_BULK_TEXTURE_UPLOAD_OFF` | any (set) | Stages baked lighting textures in the frame upload ring for comparison. | `port/renderer/vulkan/vkgl.cpp` |
+| `OPENRAC_VK_RING_TRIM_OFF` | any (set) | Keeps Vulkan upload ring chunks until device shutdown for comparison. | `port/renderer/vulkan/vkgl_commands.cpp` |
+| `OPENRAC_VK_SURFACE_SCRATCH_OFF` | any (set) | Uses owned GTAO depth and water refraction targets for comparison. | `port/renderer/vulkan/surface_copy.cpp` |
+| `OPENRAC_VK_SURFACE_SCRATCH_STATS` | any (set) | Adds scratch lease counts and device-local allocator bytes to frame statistics. | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/render_opt.cpp` |
 | `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |

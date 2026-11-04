@@ -23,6 +23,7 @@ public:
         unsigned source, int width, int height, unsigned wrap, std::uint64_t frame
     ) = 0;
     virtual void forget(unsigned source) = 0;
+    virtual void clear_cache() = 0;
     virtual void release() = 0;
 };
 }  // namespace openrac::renderer

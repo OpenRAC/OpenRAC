@@ -85,6 +85,7 @@ inline constexpr int kUnits = 32;
 inline constexpr int kAttributes = 16;
 inline constexpr int kUniformBindings = 16;
 inline constexpr VkDeviceSize kChunk = 8u << 20;
+inline constexpr VkDeviceSize kBulkTextureBatchBytes = 16u << 20;
 // A frame slot's timestamp queries; the last two time the whole frame (Frame::frame_timing).
 inline constexpr std::uint32_t kTimestamps = 512;
 inline constexpr std::uint32_t kFrameTimestamp = kTimestamps - 2;
@@ -298,7 +299,13 @@ struct Frame {
     VkSemaphore acquired = VK_NULL_HANDLE;
     std::vector<VkDescriptorPool> pools;
     std::size_t pool_at = 0;
-    std::vector<Chunk> chunks;
+    struct UploadChunk : Chunk {
+        VkDeviceSize high_water = 0;
+        unsigned idle_reuses = 0;
+    };
+    std::vector<UploadChunk> chunks;
+    Chunk bulk_texture_staging;
+    VkDeviceSize bulk_texture_used = 0;
     std::size_t chunk_at = 0;
     VkDeviceSize chunk_used = 0;
     std::vector<std::function<void()>> deferred;
@@ -773,6 +780,10 @@ struct Measures {
     std::uint64_t pipelines = 0;   // made this frame (each a compile on the driver)
     std::uint64_t ring_bytes = 0;  // uploaded through the frame's ring
     std::uint64_t flushes = 0;     // waits for the GPU inside the frame (glReadPixels)
+    unsigned scratch_depth_leases = 0, scratch_refraction_leases = 0;
+    unsigned scratch_cross_reuses = 0, scratch_overlaps = 0, scratch_allocations = 0;
+    unsigned ring_allocations = 0, ring_retirements = 0;
+    VkDeviceSize ring_retired_bytes = 0;
     double draw_s = 0.0;           // in draw(): state to pipeline, descriptors, uploads, recording
     double wait_s = 0.0;           // for the frame two back to finish
     double present_s = 0.0;        // acquiring, copying to the screen, submitting
@@ -1198,6 +1209,7 @@ struct Context {
     std::uint64_t frame_count = 1;  // frames selected
     std::uint64_t recording = 1;    // command buffers begun (a flush begins new ones)
     bool upload_used = false;
+    bool bulk_texture_upload = false;
 
     ImagePtr default_colour, default_depth;
     int default_width = 0, default_height = 0;
@@ -1218,6 +1230,10 @@ struct Context {
     GLuint multisample_blit_program = 0;
     GLuint multisample_blit_texture = 0;
     Names<Framebuffer> framebuffers;
+    GLuint surface_depth_framebuffer = 0, surface_depth_texture = 0;
+    GLuint surface_refraction_colour = 0;
+    bool surface_depth_last_refraction = false;
+    SurfaceBatch* surface_depth_owner = nullptr;
     Names<Renderbuffer> renderbuffers;
     Names<SamplerParams> samplers;
     Names<Shader> shaders;
@@ -1308,13 +1324,8 @@ inline void fail(GLenum error) {
 }
 
 // True when `result` is VK_SUCCESS; otherwise logs that `what` failed and returns false.
-inline bool check(VkResult result, const char* what) {
-    if (result == VK_SUCCESS) {
-        return true;
-    }
-    log::error("vulkan: {} failed ({})", what, static_cast<int>(result));
-    return false;
-}
+bool check(VkResult result, const char* what);
+void diagnostic(std::string_view message);
 
 // Stops recording on a failed Vulkan operation; the owning frame boundary reports the exception.
 void require_success(VkResult result, const char* operation);
@@ -1439,6 +1450,9 @@ void retire(ImagePtr image);
 // Takes `size` bytes (at least 4) of this frame's ring, aligned for any use, adding a chunk
 // when the ones there are full. An empty Slice when no chunk can be made.
 Slice ring(VkDeviceSize size);
+Slice texture_staging(VkDeviceSize size);
+Slice stage_compressed_pixels(const void* pixels, VkDeviceSize size);
+void release_bulk_texture_staging(Frame& frame);
 
 // Takes `size` bytes of the ring (ring) and copies `data` into them, when `data` is not null.
 Slice ring_copy(const void* data, VkDeviceSize size);
@@ -1481,6 +1495,9 @@ void barrier(VkCommandBuffer cmd, Image& image, VkImageLayout to);
 
 // Begins this frame's two command buffers afresh, empties its GPU-driven and material pages,
 // resets its timestamp queries when unused, and counts a new recording.
+bool ring_trim_enabled();
+bool reserve_upload_ring(Frame& frame);
+void reset_upload_ring(Frame& frame);
 void begin_buffers();
 
 // Native timestamp pairs back the existing non-nesting stats::Scope API.

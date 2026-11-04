@@ -2069,7 +2069,7 @@ VkDescriptorSet descriptors_reference(Program& p, std::span<const Sampled> sampl
 
 // ---- Descriptor sets kept across frames (R-14) ----
 
-// Returns whether `buffer` lives as long as the backend: a frame's ring chunk, the dummy buffer,
+// Returns whether `buffer` lives as long as the backend: a pinned ring chunk, the dummy buffer,
 // or none. A set naming only such buffers can be kept; a GL buffer's may be deleted and its
 // handle given out again.
 bool long_lived_buffer(VkBuffer buffer) {
@@ -2078,9 +2078,15 @@ bool long_lived_buffer(VkBuffer buffer) {
         return true;
     }
 
-    // Each frame's ring chunks, which go only when the backend closes.
+    // Only a slot's normal first chunk is pinned when trimming is active.
     for (const Frame& f : g->frames) {
-        // A chunk of this frame's ring.
+        if (ring_trim_enabled()) {
+            if (!f.chunks.empty() && f.chunks.front().size == kChunk
+                && f.chunks.front().buffer == buffer) {
+                return true;
+            }
+            continue;
+        }
         for (const Chunk& c : f.chunks) {
             // This one.
             if (c.buffer == buffer) {

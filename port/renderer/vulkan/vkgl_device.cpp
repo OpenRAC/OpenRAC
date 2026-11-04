@@ -22,7 +22,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "common/breadcrumbs.h"
 #include "common/cache_folder.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/profiler.h"
@@ -54,8 +56,13 @@ VKAPI_ATTR VkBool32 VKAPI_CALL on_message(
         if (g) {
             ++g->validation_errors;
         }
-        log::error("vulkan: {}", data->pMessage);
+        const auto* id = data->pMessageIdName ? data->pMessageIdName : "validation error";
+        crash::failure_breadcrumb(id);
+        const auto message = std::format("Vulkan validation [{}]: {}", id, data->pMessage);
+        crash::note_vulkan(message);
+        log::error("{}", message);
     } else if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+        crash::note_vulkan(data->pMessage);
         log::warn("vulkan: {}", data->pMessage);
     }
     return VK_FALSE;
@@ -820,6 +827,9 @@ bool make_device(std::string& error) {
 
 bool make_frames() {
     for (Frame& f : g->frames) {
+        if (!reserve_upload_ring(f)) {
+            return false;
+        }
         if (g->timestamp_bits) {
             VkQueryPoolCreateInfo queries{VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
             queries.queryType = VK_QUERY_TYPE_TIMESTAMP;
@@ -1017,6 +1027,7 @@ void destroy_all() {
         }
 
         for (Frame& f : g->frames) {
+            release_bulk_texture_staging(f);
             for (const Chunk& c : f.chunks) {
                 vmaDestroyBuffer(g->allocator, c.buffer, c.allocation);
             }

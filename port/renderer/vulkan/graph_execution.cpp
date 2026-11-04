@@ -9,6 +9,7 @@
 #include <exception>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "renderer/vulkan/graph_barriers.h"
 #include "renderer/vulkan/graph_execution_internal.h"
 #include "renderer/vulkan/surface_batch.h"
@@ -244,6 +245,9 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
         // Legacy attachment recording may remain active between declared graphics passes.
         for (unsigned index = 0; index < compiled->passes.size(); ++index) {
             const auto& pass = compiled->passes[index];
+            if (pass.kind == graph::PassKind::Work) {
+                crash::breadcrumb(pass.name);
+            }
             const auto event = capture_graph_pass(*compiled, index, index == 0);
             m_recording->enter(pass);
 
@@ -253,6 +257,9 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
             }
             complete_graph_pass(*compiled, index, event);
         }
+    } catch (const RecordingFailure& failure) {
+        abort_frame_capture(failure.what());
+        throw;
     } catch (const std::exception& failure) {
         abort_frame_capture(failure.what());
         return unexpected(Error{failure.what()});

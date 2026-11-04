@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -311,18 +312,25 @@ void test_descriptor_failure_is_not_retried() {
 
 // A failed queue submit leaves the slot unsubmitted and does not enter its fence wait.
 void test_failed_submit_never_waits() {
+    const openrac::crash::BreadcrumbScope trail(42);
     g_waits = 0;
     const FunctionOverride submit(vkQueueSubmit, fail_submit);
     const FunctionOverride wait(vkWaitForFences, count_waits);
     bool rejected = false;
     try {
         detail::flush_and_wait();
-    } catch (const std::runtime_error& failure) {
+    } catch (const vkgl::RecordingFailure& failure) {
         rejected = std::string(failure.what()).find("submit frame") != std::string::npos;
     }
     CHECK(rejected);
     CHECK(g_waits == 0);
     CHECK(!detail::frame().submitted);
+    openrac::crash::Breadcrumbs::Snapshot breadcrumbs;
+    const auto count = openrac::crash::breadcrumbs().snapshot(breadcrumbs);
+    CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
+        return entry.value == 42
+               && std::string_view(entry.message).starts_with("Vulkan submit frame:");
+    }));
 }
 
 // Unsupported external layouts return an import error without throwing across the graph interface.

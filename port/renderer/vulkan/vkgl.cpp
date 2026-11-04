@@ -17,6 +17,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <format>
 #include <limits>
 #include <span>
 #include <stdexcept>
@@ -26,6 +27,8 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
@@ -41,9 +44,73 @@ using namespace openrac::gl;
 
 Context* g = nullptr;
 
+void diagnostic(std::string_view message) {
+    crash::note_vulkan(message);
+    log::verbose("{}", message);
+}
+
+bool check(VkResult result, const char* what) {
+    if (result == VK_SUCCESS) {
+        return true;
+    }
+    const char* name = "VkResult";
+    switch (result) {
+        case VK_ERROR_DEVICE_LOST:
+            name = "VK_ERROR_DEVICE_LOST";
+            break;
+        case VK_ERROR_OUT_OF_HOST_MEMORY:
+            name = "VK_ERROR_OUT_OF_HOST_MEMORY";
+            break;
+        case VK_ERROR_OUT_OF_DEVICE_MEMORY:
+            name = "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+            break;
+        case VK_ERROR_INITIALIZATION_FAILED:
+            name = "VK_ERROR_INITIALIZATION_FAILED";
+            break;
+        case VK_ERROR_SURFACE_LOST_KHR:
+            name = "VK_ERROR_SURFACE_LOST_KHR";
+            break;
+        case VK_ERROR_OUT_OF_DATE_KHR:
+            name = "VK_ERROR_OUT_OF_DATE_KHR";
+            break;
+        case VK_ERROR_FORMAT_NOT_SUPPORTED:
+            name = "VK_ERROR_FORMAT_NOT_SUPPORTED";
+            break;
+        default:
+            break;
+    }
+    const auto message = std::format("Vulkan {}: {} ({})", what, name, int(result));
+    crash::failure_breadcrumb(message);
+    crash::note_vulkan(message);
+    log::error("{}", message);
+    return false;
+}
+
 }  // namespace detail
 
 using namespace detail;
+
+BulkTextureUpload::BulkTextureUpload(std::size_t estimated_bytes) {
+    static const bool disabled = env::flag(env::Var::VkBulkTextureUploadOff);
+    m_enabled =
+        g && !disabled && estimated_bytes > kBulkTextureBatchBytes && !g->bulk_texture_upload;
+    if (m_enabled) {
+        g->bulk_texture_upload = true;
+    }
+}
+
+BulkTextureUpload::~BulkTextureUpload() {
+    if (m_enabled) {
+        g->bulk_texture_upload = false;
+    }
+}
+
+void BulkTextureUpload::finish() {
+    if (m_enabled && frame().bulk_texture_used != 0) {
+        flush_and_wait();
+        frame().bulk_texture_used = 0;
+    }
+}
 
 // ---- The device, the screen and the frames ----
 
@@ -101,6 +168,8 @@ bool open(const Config& config, std::string& error) {
         error = "a Vulkan context is open already";
         return false;
     }
+    const crash::BreadcrumbScope breadcrumbs(-1);
+    crash::breadcrumb("Vulkan loader");
     const VkResult loaded =
         config.get_instance_proc_addr != nullptr
             ? (volkInitializeCustom(
@@ -108,7 +177,7 @@ bool open(const Config& config, std::string& error) {
                ),
                VK_SUCCESS)
             : volkInitialize();
-    if (loaded != VK_SUCCESS) {
+    if (!check(loaded, "initialize loader")) {
         error = "no Vulkan loader on this system";
         return false;
     }
@@ -117,10 +186,12 @@ bool open(const Config& config, std::string& error) {
     g->interval = config.vsync ? 1 : 0;
     const bool validation = (config.validation || env::flag(env::Var::VulkanValidation))
                             && layer_available("VK_LAYER_KHRONOS_validation");
+    crash::breadcrumb("Vulkan instance");
     bool ok = make_instance(config, validation, error);
     if (ok && config.window != nullptr) {
         ok = make_surface(config.window, error);
     }
+    crash::breadcrumb("Vulkan device and frame slots");
     ok = ok && pick_device(error) && make_device(error) && make_frames();
     if (ok) {
         ok = begin_initial_frame(config, error);
@@ -157,6 +228,20 @@ bool open(const Config& config, std::string& error) {
         g->driver_version,
         g->api_version,
         validation ? ", with the validation layer" : ""
+    );
+    diagnostic(
+        std::format(
+            "Vulkan device: {} ({}), API {}, vendor {:#x}, device {:#x}, queue family {}, target "
+            "{}x{}",
+            g->device_name,
+            g->driver_version,
+            g->api_version,
+            g->properties.vendorID,
+            g->properties.deviceID,
+            g->family,
+            g->default_width,
+            g->default_height
+        )
     );
     return true;
 }
@@ -361,6 +446,43 @@ void report_measures() {
     );
     stats::gauge("vk_present_ms", m.present_s * 1000.0);
     stats::gauge("vk_wait_ms", m.wait_s * 1000.0);
+    static const bool scratch_stats = env::flag(env::Var::VkSurfaceScratchStats);
+    if (scratch_stats) {
+        const VkPhysicalDeviceMemoryProperties* memory = nullptr;
+        vmaGetMemoryProperties(g->allocator, &memory);
+        std::array<VmaBudget, VK_MAX_MEMORY_HEAPS> budgets{};
+        vmaGetHeapBudgets(g->allocator, budgets.data());
+        VkDeviceSize allocated = 0;
+        for (unsigned heap = 0; heap < memory->memoryHeapCount; ++heap) {
+            if (memory->memoryHeaps[heap].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                allocated += budgets[heap].statistics.allocationBytes;
+            }
+        }
+        stats::gauge("vk device local allocation bytes", double(allocated));
+        VkDeviceSize ring = 0;
+        VkDeviceSize bulk_staging = 0;
+        for (const auto& slot : g->frames) {
+            bulk_staging += slot.bulk_texture_staging.size;
+            for (const auto& chunk : slot.chunks) {
+                VmaAllocationInfo allocation{};
+                vmaGetAllocationInfo(g->allocator, chunk.allocation, &allocation);
+                const auto heap = memory->memoryTypes[allocation.memoryType].heapIndex;
+                if (memory->memoryHeaps[heap].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+                    ring += allocation.size;
+                }
+            }
+        }
+        stats::gauge("vk device local upload ring bytes", double(ring));
+        stats::gauge("vk bulk texture staging bytes", double(bulk_staging));
+        stats::gauge("vk upload ring allocations", m.ring_allocations);
+        stats::gauge("vk upload ring retirements", m.ring_retirements);
+        stats::gauge("vk upload ring retired bytes", double(m.ring_retired_bytes));
+        stats::gauge("surface scratch depth leases", m.scratch_depth_leases);
+        stats::gauge("surface scratch refraction leases", m.scratch_refraction_leases);
+        stats::gauge("surface scratch cross reuses", m.scratch_cross_reuses);
+        stats::gauge("surface scratch overlap fallbacks", m.scratch_overlaps);
+        stats::gauge("surface scratch allocations", m.scratch_allocations);
+    }
     m = Measures{};
 }
 

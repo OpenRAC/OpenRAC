@@ -291,7 +291,7 @@ Slice stage_pixels(
         (static_cast<std::size_t>(row_pixels) * static_cast<std::size_t>(from_bytes) + align - 1)
         / static_cast<std::size_t>(align) * static_cast<std::size_t>(align);
     const std::size_t row = static_cast<std::size_t>(width) * static_cast<std::size_t>(to.bytes);
-    Slice s = ring(static_cast<VkDeviceSize>(row * static_cast<std::size_t>(height)));
+    Slice s = texture_staging(static_cast<VkDeviceSize>(row * static_cast<std::size_t>(height)));
     if (s.data == nullptr) {
         return s;
     }
@@ -1002,7 +1002,9 @@ bool device_only_memory() {
 }
 
 // Make compute output visible to subsequent sampled texture reads.
-bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int height) {
+bool copy_buffer_to_texture(
+    unsigned buffer, unsigned texture, int width, int height, bool reuse_source
+) {
     if (!g || width <= 0 || height <= 0) {
         return false;
     }
@@ -1044,6 +1046,22 @@ bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int he
     Image& image = *t->image;
     barrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     record_buffer_image_copy(src, image);
+    // A later dispatch can overwrite the scratch buffer once this copy has read it.
+    if (reuse_source) {
+        vkCmdPipelineBarrier(
+            cmd,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            0,
+            nullptr
+        );
+        count_barrier(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    }
     barrier(cmd, image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     image.touched = g->recording;
     return true;

@@ -17,7 +17,7 @@ namespace openrac::enhanced::water_detail {
 
 // Each pass needs a fresh scene snapshot, even when the simulation tick is already prepared.
 void Water::prepare(const renderer::FrameInput& input) {
-    m_background_ready = false;
+    m_background_textures = {};
     prepare_frame(input, true);
 }
 
