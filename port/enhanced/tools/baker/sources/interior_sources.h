@@ -17,6 +17,9 @@ struct LevelData;
 namespace openrac::lighting {
 struct BakeScene;
 
+// Number of original light sets in a level light bank.
+inline constexpr unsigned kInteriorLightSetCount = 16;
+
 // Applies probe-interiors.json when present and returns a JSON diagnostic report, or an empty string.
 // Invalid sidecars return an error. The adapter never changes runtime lighting or source files.
 [[nodiscard]] Result<std::string> apply_interior_sources(

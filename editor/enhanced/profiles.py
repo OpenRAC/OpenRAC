@@ -1,5 +1,6 @@
 """Copy authored enhanced graphics settings into a native level export, shared by bake and runtime."""
 
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -14,12 +15,16 @@ PROFILE_ROOT = Path(__file__).resolve().parents[2] / "port/enhanced/lighting/pro
 def write_bake_profile(level, directory: Path) -> None:
     """Copy only this game's, disc version's and level's profile into the new export."""
     for root, filename in ((PROFILE_ROOT, "probe-bake.json"),
+                           (PROFILE_ROOT, "lighting-environments.json"),
                            (WATER_PROFILE_ROOT, "water-boundaries.json"),
                            (WATER_PROFILE_ROOT, "ocean-profile.json")):
         source = root / f"{level.game}-{level.version}" / f"level_{level.id:02}" / filename
         # Unconfigured levels use the baker and runtime's built-in defaults.
         if source.is_file():
             shutil.copyfile(source, directory / source.name)
+            if filename == "lighting-environments.json":
+                digest = hashlib.sha256((directory / filename).read_bytes()).hexdigest()
+                (directory / ".lighting-environments.sha256").write_text(digest, encoding="ascii")
     for filename in ("object-lights.json", "foliage-materials.json"):
         shared = PROFILE_ROOT / level.game / filename
         if shared.is_file():

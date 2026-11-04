@@ -374,6 +374,11 @@ std::uint64_t probe_bake_settings_hash(const ProbeGrid& grid, const BakeSettings
     }
 
     hash.u32(settings.terrain_vertex_albedo ? 1u : 0u);
+    // Existing bakes keep their identity at full strength.
+    if (settings.terrain_vertex_albedo && settings.terrain_vertex_albedo_strength != 1) {
+        hash.u32(0x54494E54u);  // TINT marks the optional vertex-colour blend.
+        hash.f32(settings.terrain_vertex_albedo_strength);
+    }
     hash.floats(grid.origin);
     hash.floats(grid.frame.axis);
     hash.floats(grid.spacing);

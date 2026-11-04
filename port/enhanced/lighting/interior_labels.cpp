@@ -14,6 +14,7 @@
 #include <set>
 #include <span>
 #include <stdexcept>
+#include <tuple>
 #include <type_traits>
 
 #include "enhanced/lighting/interior_inference_internal.h"
@@ -45,6 +46,7 @@ bool crosses_boundary(std::span<const Transition> transitions, Point from, Point
 // Borrows the collision scene and inference output while attaching authored endpoint evidence.
 struct SeedContext {
     const Scene& scene;  // Collision acceleration remains alive throughout inference.
+    const Scene* barriers;                    // Optional lighting-only polygons.
     std::span<const Transition> transitions;  // All authored boundaries, borrowed from the caller.
     const Settings& settings;  // Clearance and body-height settings used by the floor sampler.
     Result& result;            // Owns sampled components and receives their lighting labels.
@@ -79,6 +81,7 @@ void attach_endpoint(const SeedContext& context, const Transition& transition, S
 
         // Real walls and other authored boundaries separate evidence even when samples are nearby.
         if (distance > kSeedReach || !context.scene.clear(seed.target, body)
+            || crosses_lighting_barrier(context.barriers, seed.target, body)
             || crosses_boundary(context.transitions, seed.target, body)) {
             continue;
         }
@@ -146,6 +149,49 @@ public:
             }
         }
 
+        finish();
+    }
+
+    // Explicit sources override transition evidence in enclosed space they reach.
+    void propagate_sources() {
+        auto& labels = m_context.result.source_labels;
+        for (std::size_t index = 0; index < labels.size(); ++index) {
+            auto& value = labels[index];
+            const auto point = m_context.settings.lighting_sources[index].position;
+            const auto voxel = key(point);
+
+            // Both the authored position and the snapped voxel must be inside the enclosure.
+            if (!enclosed(point) || !clear(point, position(voxel)) || !cell(voxel).enclosed) {
+                value = ~0u;
+                continue;
+            }
+
+            label(voxel, value, 0);
+        }
+
+        flood();
+        const auto& cells = m_context.result.cells;
+        auto& overrides = m_context.result.source_cell_labels;
+        overrides.resize(cells.size(), kUnreachedSourceCell);
+
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            const auto body = add(cells[i].position, {0, 0, m_context.settings.height * .5f});
+            const auto voxel = key(body);
+            const auto found = m_cells.find(voxel);
+
+            // Only connected, enclosed air may override the individual floor sample.
+            if (found == m_cells.end() || found->second.labels.empty()
+                || !clear(body, position(voxel)) || !enclosed(body)) {
+                continue;
+            }
+            const auto& reached = found->second.labels;
+            overrides[i] = reached.size() == 1 ? reached.front() : kConflictingSourceCell;
+        }
+    }
+
+private:
+    // Resolves the floor components reached by the current air-grid pass.
+    void finish() {
         flood();
         std::vector<bool> authored(m_context.result.regions.size());
 
@@ -165,7 +211,6 @@ public:
         }
     }
 
-private:
     // Integer coordinates on the inference grid; positions are reconstructed without accumulated steps.
     using Key = std::array<int, 3>;
 
@@ -246,7 +291,8 @@ private:
 
     // Keeps every air edge collision-free and on the same side of authored lighting boundaries.
     bool clear(Point from, Point to) const {
-        return !crosses_air_boundary(m_context.transitions, from, to)
+        return !crosses_lighting_barrier(m_context.barriers, from, to)
+               && !crosses_air_boundary(m_context.transitions, from, to)
                && m_context.scene.clear(from, to);
     }
 
@@ -356,6 +402,9 @@ private:
 // Fills enclosed air so lighting can travel around corners without requiring continuous floor samples.
 void propagate_lighting_labels(const SeedContext& context) {
     LightingAirGrid(context).propagate();
+    if (!context.result.source_labels.empty()) {
+        LightingAirGrid(context).propagate_sources();
+    }
 }
 
 // ---- Transition labels ----
@@ -367,15 +416,16 @@ void assign_transition_labels(
     const Scene& scene,
     std::span<const Transition> transitions,
     const Settings& settings,
+    const Scene* barriers,
     Result& result
 ) {
-    std::vector<std::pair<int, std::array<unsigned, 3>>> labels;
-    const SeedContext context{scene, transitions, settings, result};
+    std::vector<std::tuple<int, std::array<unsigned, 3>, unsigned>> labels;
+    const SeedContext context{scene, barriers, transitions, settings, result};
 
     // Each endpoint has separate authored evidence; agreeing entrances reuse the same label.
     for (const auto& transition : transitions) {
         for (unsigned side = 0; side < 2; ++side) {
-            const auto key = std::pair{transition.light[side], transition.ambient[side]};
+            const auto key = std::tuple{transition.light[side], transition.ambient[side], 0u};
             const auto found = std::find(labels.begin(), labels.end(), key);
             const auto label = static_cast<unsigned>(found - labels.begin());
 
@@ -388,6 +438,17 @@ void assign_transition_labels(
             Seed seed{transition.id, side, -1, label, world(transition, {sign * 1.15f, 0, 0})};
             attach_endpoint(context, transition, seed);
             result.seeds.push_back(seed);
+        }
+    }
+
+    for (const auto& source : settings.lighting_sources) {
+        const auto mood = std::tuple{source.light, source.ambient, source.frame};
+        const auto found = std::find(labels.begin(), labels.end(), mood);
+        result.source_labels.push_back(static_cast<unsigned>(found - labels.begin()));
+
+        // Agreeing sources and transition endpoints must share a label.
+        if (found == labels.end()) {
+            labels.push_back(mood);
         }
     }
 
