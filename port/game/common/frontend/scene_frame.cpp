@@ -353,7 +353,11 @@ void set_camera(SceneFrame& frame) {
     input.camera = drawn.value_or(camera);
     // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
     // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
-    if (has_camera && scene.gameplay_camera && !scene.world_under_menu
+    // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
+    // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
+    // gameplay view: they are placed for the native lens.
+    float opened = 1.0f;
+    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
         && !frame.output.camera_debug.settings.enabled
         && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
@@ -361,7 +365,10 @@ void set_camera(SceneFrame& frame) {
         const float scale = original / std::tan(std::atan(original) * percent);
         input.camera.projection[0] *= scale;
         input.camera.projection[5] *= scale;
+        opened = 1.0f / scale;
     }
+    // The game's view tests of the next ticks open by as much (openrac_game_view_opened).
+    set_view_opened(opened);
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
     }

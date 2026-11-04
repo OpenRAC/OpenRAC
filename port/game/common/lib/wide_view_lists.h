@@ -97,13 +97,14 @@ static int g_lists;
 static float g_wider = 1.0f;
 static wide_opened g_list_matrix, g_list_clip;
 
-/* How much wider than 4:3 the picture is for the game fix `key`: 1 (the game's own view) while
- * the player has it off. `*flag` is its flag, asked for the first time. */
+/* How much wider than 4:3 the picture is for the game fix `key`, with the player's Field of View
+ * (openrac_game_view_opened): 1 (the game's own view) while the player has it off. `*flag` is its
+ * flag, asked for the first time. */
 static float wide_wider_for(const unsigned char** flag, const char* key) {
     if (!*flag) {
         *flag = openrac_game_fix(key);
     }
-    return **flag ? openrac_game_picture_wider() : 1.0f;
+    return **flag ? openrac_game_picture_wider() * openrac_game_view_opened() : 1.0f;
 }
 
 /* A list's run, with the view opened by `wider` for the callbacks' tests. */
