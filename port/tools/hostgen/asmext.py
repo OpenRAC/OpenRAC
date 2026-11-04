@@ -19,7 +19,7 @@ from pathlib import Path
 import ctype
 from program import Function, Program, Signature, cname, prototype
 
-FORMAT = 1
+FORMAT = 2
 # The unit of a function whose body the part built from the disc has (asmext.trampoline).
 EXTERNAL = "<asm-ext>"
 
@@ -56,8 +56,8 @@ def sig_of(j) -> Signature:
 
 def snapshot(program: Program) -> dict:
     """What the assembly stage may change, before it runs."""
-    return {"functions": {k: (f.sig, f.unit) for k, f in program.functions.items()},
-            "statics": {k: f.sig for k, f in program.statics.items()}}
+    return {"functions": {k: (f.sig, f.unit, f.inherits) for k, f in program.functions.items()},
+            "statics": {k: (f.sig, f.inherits) for k, f in program.statics.items()}}
 
 
 def interface(program: Program, before: dict) -> dict:
@@ -66,10 +66,10 @@ def interface(program: Program, before: dict) -> dict:
     for k, f in sorted(program.functions.items()):
         was = before["functions"].get(k)
         translated = f.unit == "<asm>"
-        if was is None or was[0] != f.sig or translated:
-            functions[k] = {"sig": sig_json(f.sig), "asm": translated, "new": was is None}
-    statics = [[unit, name, sig_json(f.sig)] for (unit, name), f in sorted(program.statics.items())
-               if before["statics"].get((unit, name)) != f.sig]
+        if was is None or was[0] != f.sig or was[2] != f.inherits or translated:
+            functions[k] = {"sig": sig_json(f.sig), "asm": translated, "new": was is None, "inherits": f.inherits}
+    statics = [[unit, name, sig_json(f.sig), f.inherits] for (unit, name), f in sorted(program.statics.items())
+               if before["statics"].get((unit, name)) != (f.sig, f.inherits)]
     return {"format": FORMAT, "functions": functions, "statics": statics}
 
 
@@ -95,13 +95,15 @@ def apply(program: Program, data: dict) -> list[str]:
         if f is None:
             f = program.functions[k] = Function(k, sig_of(e["sig"]), None, asm=True)
         f.sig = sig_of(e["sig"])
+        f.inherits = e["inherits"]
         if e["asm"]:
             f.unit = EXTERNAL
             external.append(k)
-    for unit, name, s in data["statics"]:
+    for unit, name, s, inherits in data["statics"]:
         f = program.statics.get((unit, name))
         if f is not None:
             f.sig = sig_of(s)
+            f.inherits = inherits
     program.index_places()
     return sorted(external)
 
@@ -129,8 +131,11 @@ def trampoline(f: Function, typedefs=None) -> str:
     """The port's build's body for an EXTERNAL function: a call through its slot, which the part
     built from the disc fills (register_text)."""
     proto = prototype(f, typedefs)
-    if proto is None or not f.sig.prototyped or f.sig.variadic:
+    if proto is None or f.sig.variadic:
         raise ValueError(f"{f.symbol}: no call through a pointer for its signature")
+    if not f.sig.prototyped:
+        # Declared with no parameter list; its translation takes none (asmc writes it "(void)").
+        proto = proto[:-2] + "(void)"
     head, params = proto.split("(", 1)
     params = params[:-1]
     names = [] if params == "void" else [p.rsplit(" ", 1)[1] for p in params.split(", ")]

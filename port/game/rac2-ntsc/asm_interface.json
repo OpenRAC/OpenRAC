@@ -1,8 +1,9 @@
 {
- "format": 1,
+ "format": 2,
  "functions": {
   "D_00115E38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -35,6 +36,7 @@
   },
   "D_00115E38_1": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -67,6 +69,7 @@
   },
   "F213135aa_FUN_00282DD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -102,6 +105,7 @@
   },
   "F391de845_FUN_002E45C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -135,6 +139,7 @@
   },
   "F6eb4f363_FUN_002BF728": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -171,6 +176,7 @@
   },
   "Fdb046c5d_FUN_00282DD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -206,6 +212,7 @@
   },
   "func_00115228": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -222,6 +229,7 @@
   },
   "func_00115250": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -256,6 +264,7 @@
   },
   "func_00115CF0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -278,6 +287,7 @@
   },
   "func_00115E28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -291,6 +301,7 @@
   },
   "func_00115E38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -323,6 +334,7 @@
   },
   "func_00117650": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -341,6 +353,7 @@
   },
   "func_00117848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -363,6 +376,7 @@
   },
   "func_00117CA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -381,6 +395,7 @@
   },
   "func_00118000": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -394,6 +409,7 @@
   },
   "func_001182B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -412,6 +428,7 @@
   },
   "func_001185E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -445,6 +462,7 @@
   },
   "func_0011B0B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -458,6 +476,7 @@
   },
   "func_0011B9C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -480,6 +499,7 @@
   },
   "func_0011B9F8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -498,6 +518,7 @@
   },
   "func_0011BA20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -524,6 +545,7 @@
   },
   "func_0011BA58": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -550,6 +572,7 @@
   },
   "func_0011BAA0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -568,6 +591,7 @@
   },
   "func_0011C8D8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -581,6 +605,7 @@
   },
   "func_0011CDA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -594,6 +619,7 @@
   },
   "func_0011CEC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -619,6 +645,7 @@
   },
   "func_0011D2F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -647,6 +674,7 @@
   },
   "func_0011D3A0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -675,6 +703,7 @@
   },
   "func_0011D9C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -696,6 +725,7 @@
   },
   "func_0011DDC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -709,6 +739,7 @@
   },
   "func_0011DDD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -731,6 +762,7 @@
   },
   "func_0011F480": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -744,6 +776,7 @@
   },
   "func_0011F828": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -757,6 +790,7 @@
   },
   "func_0011FA18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -770,6 +804,7 @@
   },
   "func_0011FB98": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -783,6 +818,7 @@
   },
   "func_0011FC68": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -813,6 +849,7 @@
   },
   "func_00120528": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -826,6 +863,7 @@
   },
   "func_001205E0": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -839,6 +877,7 @@
   },
   "func_00120748": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -852,6 +891,7 @@
   },
   "func_00120FA4": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -865,6 +905,7 @@
   },
   "func_00121070": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -878,6 +919,7 @@
   },
   "func_0012118C": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -891,6 +933,7 @@
   },
   "func_00121258": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -904,6 +947,7 @@
   },
   "func_00121450": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -934,6 +978,7 @@
   },
   "func_001232F0": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -960,6 +1005,7 @@
   },
   "func_00123400": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -982,6 +1028,7 @@
   },
   "func_001234C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1012,6 +1059,7 @@
   },
   "func_00123530": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1034,6 +1082,7 @@
   },
   "func_00123578": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1056,6 +1105,7 @@
   },
   "func_00123978": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1095,6 +1145,7 @@
   },
   "func_00123B40": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -1113,6 +1164,7 @@
   },
   "func_00123D30": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -1143,6 +1195,7 @@
   },
   "func_001240C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1168,6 +1221,7 @@
   },
   "func_00124540": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -1194,6 +1248,7 @@
   },
   "func_00124568": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -1212,6 +1267,7 @@
   },
   "func_001246E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1230,6 +1286,7 @@
   },
   "func_001248B8": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -1243,6 +1300,7 @@
   },
   "func_00127B18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1272,6 +1330,7 @@
   },
   "func_00127B40": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -1290,6 +1349,7 @@
   },
   "func_001290E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1318,6 +1378,7 @@
   },
   "func_00129120": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1368,6 +1429,7 @@
   },
   "func_00129148": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1400,6 +1462,7 @@
   },
   "func_00129160": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1438,6 +1501,7 @@
   },
   "func_00129178": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1459,6 +1523,7 @@
   },
   "func_001291A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1489,6 +1554,7 @@
   },
   "func_0012A3E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1507,6 +1573,7 @@
   },
   "func_0012A460": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1525,6 +1592,7 @@
   },
   "func_0012A4F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1543,6 +1611,7 @@
   },
   "func_0012A5B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1561,6 +1630,7 @@
   },
   "func_0012A680": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1579,6 +1649,7 @@
   },
   "func_0012A730": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1597,6 +1668,7 @@
   },
   "func_0012A7E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1615,6 +1687,7 @@
   },
   "func_0012A8E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1633,6 +1706,7 @@
   },
   "func_0012A9E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1651,6 +1725,7 @@
   },
   "func_0012AA80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1669,6 +1744,7 @@
   },
   "func_0012AB30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1687,6 +1763,7 @@
   },
   "func_0012AC10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1705,6 +1782,7 @@
   },
   "func_0012ACF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1723,6 +1801,7 @@
   },
   "func_0012ADD0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1741,6 +1820,7 @@
   },
   "func_0012AEA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1759,6 +1839,7 @@
   },
   "func_0012AFC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1777,6 +1858,7 @@
   },
   "func_0012B0D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1803,6 +1885,7 @@
   },
   "func_0012B138": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1825,6 +1908,7 @@
   },
   "func_0012B180": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -1838,6 +1922,7 @@
   },
   "func_0012D2C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -1859,6 +1944,7 @@
   },
   "func_0012DC50": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -1887,6 +1973,7 @@
   },
   "func_0012DF18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1908,6 +1995,7 @@
   },
   "func_0012E238": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1930,6 +2018,7 @@
   },
   "func_0012E378": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -1959,6 +2048,7 @@
   },
   "func_0012E538": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -1981,6 +2071,7 @@
   },
   "func_0012E608": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2012,6 +2103,7 @@
   },
   "func_0012E890": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2045,6 +2137,7 @@
   },
   "func_0012EA18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2070,6 +2163,7 @@
   },
   "func_0012EB30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2110,6 +2204,7 @@
   },
   "func_0012F950": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2142,6 +2237,7 @@
   },
   "func_0012FAE8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2163,6 +2259,7 @@
   },
   "func_00130004": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -2176,6 +2273,7 @@
   },
   "func_00130178": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2197,6 +2295,7 @@
   },
   "func_00130240": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2218,6 +2317,7 @@
   },
   "func_00130250": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2250,6 +2350,7 @@
   },
   "func_001307B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2282,6 +2383,7 @@
   },
   "func_00130A90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2300,6 +2402,7 @@
   },
   "func_00130AB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2318,6 +2421,7 @@
   },
   "func_00130B18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2336,6 +2440,7 @@
   },
   "func_00130E20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2354,6 +2459,7 @@
   },
   "func_001310C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2372,6 +2478,7 @@
   },
   "func_00131430": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2390,6 +2497,7 @@
   },
   "func_00131628": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2403,6 +2511,7 @@
   },
   "func_00131DE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2421,6 +2530,7 @@
   },
   "func_00132978": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2443,6 +2553,7 @@
   },
   "func_00132A10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2489,6 +2600,7 @@
   },
   "func_00132BC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2552,6 +2664,7 @@
   },
   "func_001330D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2565,6 +2678,7 @@
   },
   "func_00133230": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2578,6 +2692,7 @@
   },
   "func_00133710": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2612,6 +2727,7 @@
   },
   "func_001337C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2625,6 +2741,7 @@
   },
   "func_001337F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2638,6 +2755,7 @@
   },
   "func_00133818": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2651,6 +2769,7 @@
   },
   "func_00133820": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2664,6 +2783,7 @@
   },
   "func_00133848": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2702,6 +2822,7 @@
   },
   "func_00133850": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2740,6 +2861,7 @@
   },
   "func_001338C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2753,6 +2875,7 @@
   },
   "func_00133A28": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2782,6 +2905,7 @@
   },
   "func_00133A78": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2795,6 +2919,7 @@
   },
   "func_0026EDE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2808,6 +2933,7 @@
   },
   "func_00272540": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2834,6 +2960,7 @@
   },
   "func_00272550": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2869,6 +2996,7 @@
   },
   "func_00273B70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2890,6 +3018,7 @@
   },
   "func_00278FC0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2903,6 +3032,7 @@
   },
   "func_0027D4B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -2916,6 +3046,7 @@
   },
   "func_00281154": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2929,6 +3060,7 @@
   },
   "func_002811D4": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -2947,6 +3079,7 @@
   },
   "func_0028134C": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -2960,6 +3093,7 @@
   },
   "func_00281388": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -2973,6 +3107,7 @@
   },
   "func_002813F0": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -2986,6 +3121,7 @@
   },
   "func_00281428": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -2999,6 +3135,7 @@
   },
   "func_00281490": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -3012,6 +3149,7 @@
   },
   "func_00282848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3030,6 +3168,7 @@
   },
   "func_00282890": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3048,6 +3187,7 @@
   },
   "func_002828B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3066,6 +3206,7 @@
   },
   "func_002828C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3084,6 +3225,7 @@
   },
   "func_002828F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3102,6 +3244,7 @@
   },
   "func_00282900": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3120,6 +3263,7 @@
   },
   "func_00282928": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3138,6 +3282,7 @@
   },
   "func_00282938": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3156,6 +3301,7 @@
   },
   "func_00282A28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3169,6 +3315,7 @@
   },
   "func_00282C58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3195,6 +3342,7 @@
   },
   "func_00282C68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3221,6 +3369,7 @@
   },
   "func_00282D78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3256,6 +3405,7 @@
   },
   "func_00282DD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3291,6 +3441,7 @@
   },
   "func_00282DD8_2": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3326,6 +3477,7 @@
   },
   "func_00282DD8_7": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3361,6 +3513,7 @@
   },
   "func_00283B98_10": {
    "asm": false,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3383,6 +3536,7 @@
   },
   "func_00285708": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3420,6 +3574,7 @@
   },
   "func_00288D40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3433,6 +3588,7 @@
   },
   "func_0028B950": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3454,6 +3610,7 @@
   },
   "func_0028BA50": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3475,6 +3632,7 @@
   },
   "func_0028BA88": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3496,6 +3654,7 @@
   },
   "func_0028BCA0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3514,6 +3673,7 @@
   },
   "func_0028DE18": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -3532,6 +3692,7 @@
   },
   "func_0028DF38": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3553,6 +3714,7 @@
   },
   "func_0028EA58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3594,6 +3756,7 @@
   },
   "func_0028FF58": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -3612,6 +3775,7 @@
   },
   "func_00290C60": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3625,6 +3789,7 @@
   },
   "func_00292078": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3643,6 +3808,7 @@
   },
   "func_00292408": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3661,6 +3827,7 @@
   },
   "func_00293CA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3679,6 +3846,7 @@
   },
   "func_00294398": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3701,6 +3869,7 @@
   },
   "func_00294420": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3719,6 +3888,7 @@
   },
   "func_002945E8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3747,6 +3917,7 @@
   },
   "func_00295C50": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3765,6 +3936,7 @@
   },
   "func_00298BB8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3789,6 +3961,7 @@
   },
   "func_0029B0B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -3821,6 +3994,7 @@
   },
   "func_0029B658": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3859,6 +4033,7 @@
   },
   "func_0029B848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3872,6 +4047,7 @@
   },
   "func_0029CB58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3885,6 +4061,7 @@
   },
   "func_0029CB80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3898,6 +4075,7 @@
   },
   "func_0029CEC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3916,6 +4094,7 @@
   },
   "func_0029CFB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3948,6 +4127,7 @@
   },
   "func_0029D9D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -3970,6 +4150,7 @@
   },
   "func_0029FD48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4009,6 +4190,7 @@
   },
   "func_002A0048": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4022,6 +4204,7 @@
   },
   "func_002A03C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4035,6 +4218,7 @@
   },
   "func_002A1738": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4057,6 +4241,7 @@
   },
   "func_002A7A00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4086,6 +4271,7 @@
   },
   "func_002A8240": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4130,6 +4316,7 @@
   },
   "func_002A8A20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4151,6 +4338,7 @@
   },
   "func_002A90C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4191,6 +4379,7 @@
   },
   "func_002AA738": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4217,6 +4406,7 @@
   },
   "func_002AA800": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4250,6 +4440,7 @@
   },
   "func_002ACE78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4282,6 +4473,7 @@
   },
   "func_002B0910": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4312,6 +4504,7 @@
   },
   "func_002B0A08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4334,6 +4527,7 @@
   },
   "func_002B4068": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4368,6 +4562,7 @@
   },
   "func_002B4C18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4381,6 +4576,7 @@
   },
   "func_002B5258": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4402,6 +4598,7 @@
   },
   "func_002B5278": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4427,6 +4624,7 @@
   },
   "func_002B66F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4440,6 +4638,7 @@
   },
   "func_002B68C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4453,6 +4652,7 @@
   },
   "func_002B6938": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4466,6 +4666,7 @@
   },
   "func_002B6958": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4499,6 +4700,7 @@
   },
   "func_002B6D80": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4525,6 +4727,7 @@
   },
   "func_002B6E78": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -4551,6 +4754,7 @@
   },
   "func_002B80B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4577,6 +4781,7 @@
   },
   "func_002B8530": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4603,6 +4808,7 @@
   },
   "func_002BA048": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4641,6 +4847,7 @@
   },
   "func_002BB100": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4659,6 +4866,7 @@
   },
   "func_002BC510": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4677,6 +4885,7 @@
   },
   "func_002BCA10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4695,6 +4904,7 @@
   },
   "func_002BE278": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4731,6 +4941,7 @@
   },
   "func_002BF520": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4749,6 +4960,7 @@
   },
   "func_002BF728": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4779,6 +4991,7 @@
   },
   "func_002C0200": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4797,6 +5010,7 @@
   },
   "func_002C02F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4847,6 +5061,7 @@
   },
   "func_002C0C78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4865,6 +5080,7 @@
   },
   "func_002C0CC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4904,6 +5120,7 @@
   },
   "func_002C14E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4922,6 +5139,7 @@
   },
   "func_002C1DB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4940,6 +5158,7 @@
   },
   "func_002C1E58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4958,6 +5177,7 @@
   },
   "func_002C29A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -4976,6 +5196,7 @@
   },
   "func_002C2A88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5032,6 +5253,7 @@
   },
   "func_002C3150": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5083,6 +5305,7 @@
   },
   "func_002C3B10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5101,6 +5324,7 @@
   },
   "func_002C3D80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5134,6 +5358,7 @@
   },
   "func_002C3F88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5189,6 +5414,7 @@
   },
   "func_002C5070": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5207,6 +5433,7 @@
   },
   "func_002C5408": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5225,6 +5452,7 @@
   },
   "func_002C56B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5281,6 +5509,7 @@
   },
   "func_002C5B70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5320,6 +5549,7 @@
   },
   "func_002C64E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5338,6 +5568,7 @@
   },
   "func_002C7628": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5356,6 +5587,7 @@
   },
   "func_002C8350": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5374,6 +5606,7 @@
   },
   "func_002CADB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5387,6 +5620,7 @@
   },
   "func_002CAF18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5400,6 +5634,7 @@
   },
   "func_002CB8A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5418,6 +5653,7 @@
   },
   "func_002CB950": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5436,6 +5672,7 @@
   },
   "func_002D0FA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5449,6 +5686,7 @@
   },
   "func_002D2188": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5462,6 +5700,7 @@
   },
   "func_002D3FA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5475,6 +5714,7 @@
   },
   "func_002D4948": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5488,6 +5728,7 @@
   },
   "func_002D5B38": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5510,6 +5751,7 @@
   },
   "func_002D5B58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5539,6 +5781,7 @@
   },
   "func_002D5E70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5567,6 +5810,7 @@
   },
   "func_002D6230": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5585,6 +5829,7 @@
   },
   "func_002D6F38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5603,6 +5848,7 @@
   },
   "func_002D9008": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5621,6 +5867,7 @@
   },
   "func_002DC3C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5639,6 +5886,7 @@
   },
   "func_002DF630": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5661,6 +5909,7 @@
   },
   "func_002E1228": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5674,6 +5923,7 @@
   },
   "func_002E182C": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -5704,6 +5954,7 @@
   },
   "func_002E25C0": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -5717,6 +5968,7 @@
   },
   "func_002E45C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5750,6 +6002,7 @@
   },
   "func_002E46C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5778,6 +6031,7 @@
   },
   "func_002E4708": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5806,6 +6060,7 @@
   },
   "func_002E6D88": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5824,6 +6079,7 @@
   },
   "func_002E7338": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5842,6 +6098,7 @@
   },
   "func_002EBC70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5860,6 +6117,7 @@
   },
   "func_002EEBB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5873,6 +6131,7 @@
   },
   "func_002EF480": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5886,6 +6145,7 @@
   },
   "func_002F0E08": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -5899,6 +6159,7 @@
   },
   "func_002F1010": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5912,6 +6173,7 @@
   },
   "func_002F1E60": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5930,6 +6192,7 @@
   },
   "func_002F1E88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5943,6 +6206,7 @@
   },
   "func_002F29E4": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5961,6 +6225,7 @@
   },
   "func_002F2A0C": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5979,6 +6244,7 @@
   },
   "func_002F2A38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -5992,6 +6258,7 @@
   },
   "func_002F32AC": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6010,6 +6277,7 @@
   },
   "func_002F32D4": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6028,6 +6296,7 @@
   },
   "func_002F3C40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6056,6 +6325,7 @@
   },
   "func_002F3D20": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6074,6 +6344,7 @@
   },
   "func_002F3E40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6087,6 +6358,7 @@
   },
   "func_002F4F78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6105,6 +6377,7 @@
   },
   "func_002F8768": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6118,6 +6391,7 @@
   },
   "func_002FA270": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6131,6 +6405,7 @@
   },
   "func_002FAE68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6144,6 +6419,7 @@
   },
   "func_002FC748": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6157,6 +6433,7 @@
   },
   "func_002FCD18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6170,6 +6447,7 @@
   },
   "func_002FF0D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6183,6 +6461,7 @@
   },
   "func_00300AA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6224,6 +6503,7 @@
   },
   "func_00301D10": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6248,6 +6528,7 @@
   },
   "func_00302470": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6295,6 +6576,7 @@
   },
   "func_00308768": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6313,6 +6595,7 @@
   },
   "func_00308778": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -6331,6 +6614,7 @@
   },
   "func_0030CCD0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6355,6 +6639,7 @@
   },
   "func_0030E8A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6376,6 +6661,7 @@
   },
   "func_0030F410": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -6394,6 +6680,7 @@
   },
   "func_00310010": {
    "asm": true,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -6407,6 +6694,7 @@
   },
   "func_00310A40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6428,6 +6716,7 @@
   },
   "func_003130F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6452,6 +6741,7 @@
   },
   "func_00316E08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6488,6 +6778,7 @@
   },
   "func_0031A098": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6509,6 +6800,7 @@
   },
   "func_0031BCC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6530,6 +6822,7 @@
   },
   "func_0031D350": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6592,6 +6885,7 @@
   },
   "func_0031E6D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6610,6 +6904,7 @@
   },
   "func_003258C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -6642,6 +6937,7 @@
   },
   "func_00326A10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6655,6 +6951,7 @@
   },
   "func_00326CA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6677,6 +6974,7 @@
   },
   "func_00327038": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6698,6 +6996,7 @@
   },
   "func_0032A130": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6711,6 +7010,7 @@
   },
   "func_0032A138": {
    "asm": false,
+   "inherits": false,
    "new": true,
    "sig": {
     "f": {
@@ -6724,6 +7024,7 @@
   },
   "func_0032A140": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6742,6 +7043,7 @@
   },
   "func_0032C2E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6763,6 +7065,7 @@
   },
   "func_0032F3D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6784,6 +7087,7 @@
   },
   "func_0032F598": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6805,6 +7109,7 @@
   },
   "func_0032FDC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6827,6 +7132,7 @@
   },
   "func_00330150": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6848,6 +7154,7 @@
   },
   "func_003334B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6866,6 +7173,7 @@
   },
   "func_003351B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6905,6 +7213,7 @@
   },
   "func_00335870": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6930,6 +7239,7 @@
   },
   "func_00335918": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6955,6 +7265,7 @@
   },
   "func_00335D80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -6980,6 +7291,7 @@
   },
   "func_00335DA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7005,6 +7317,7 @@
   },
   "func_003360F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7030,6 +7343,7 @@
   },
   "func_003361E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7065,6 +7379,7 @@
   },
   "func_00336468": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7090,6 +7405,7 @@
   },
   "func_00336828": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7111,6 +7427,7 @@
   },
   "func_003369A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7149,6 +7466,7 @@
   },
   "func_00336A08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7174,6 +7492,7 @@
   },
   "func_00336A40": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7195,6 +7514,7 @@
   },
   "func_00338040": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7224,6 +7544,7 @@
   },
   "func_00338040_1": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7250,6 +7571,7 @@
   },
   "func_003387A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7279,6 +7601,7 @@
   },
   "func_003387A0_1": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7305,6 +7628,7 @@
   },
   "func_00338A60": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7323,6 +7647,7 @@
   },
   "func_00338F58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7344,6 +7669,7 @@
   },
   "func_00339078": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7372,6 +7698,7 @@
   },
   "func_00339AD0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7400,6 +7727,7 @@
   },
   "func_0033AF48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7421,6 +7749,7 @@
   },
   "func_0033AF48_1": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7442,6 +7771,7 @@
   },
   "func_0033AF48_2": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7460,6 +7790,7 @@
   },
   "func_0033B170": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7488,6 +7819,7 @@
   },
   "func_0033B538": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -7506,6 +7838,7 @@
   },
   "func_0033BD70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7528,6 +7861,7 @@
   },
   "func_0033C1B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7556,6 +7890,7 @@
   },
   "func_0033C468": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7584,6 +7919,7 @@
   },
   "func_0033C9F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7612,6 +7948,7 @@
   },
   "func_0033CC20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7633,6 +7970,7 @@
   },
   "func_0033CDC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7661,6 +7999,7 @@
   },
   "func_0033D2C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7682,6 +8021,7 @@
   },
   "func_0033D478": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7710,6 +8050,7 @@
   },
   "func_0033D638": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7731,6 +8072,7 @@
   },
   "func_0033D740": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7759,6 +8101,7 @@
   },
   "func_0033D970": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7780,6 +8123,7 @@
   },
   "func_0033DB08": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7808,6 +8152,7 @@
   },
   "func_0033DCC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7829,6 +8174,7 @@
   },
   "func_0033DDB8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7857,6 +8203,7 @@
   },
   "func_0033DFB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7885,6 +8232,7 @@
   },
   "func_0033E1B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7913,6 +8261,7 @@
   },
   "func_0033E4C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7941,6 +8290,7 @@
   },
   "func_0033E620": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7959,6 +8309,7 @@
   },
   "func_0033E6D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -7987,6 +8338,7 @@
   },
   "func_0033F218": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8015,6 +8367,7 @@
   },
   "func_00340D68": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8043,6 +8396,7 @@
   },
   "func_00341CE0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8071,6 +8425,7 @@
   },
   "func_00342BE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8092,6 +8447,7 @@
   },
   "func_00342F70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8120,6 +8476,7 @@
   },
   "func_00343260": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8148,6 +8505,7 @@
   },
   "func_00343538": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8178,6 +8536,7 @@
   },
   "func_00343798": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8203,6 +8562,7 @@
   },
   "func_00343A30": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8231,6 +8591,7 @@
   },
   "func_00345490": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8259,6 +8620,7 @@
   },
   "func_00346710": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8281,6 +8643,7 @@
   },
   "func_003486A8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8309,6 +8672,7 @@
   },
   "func_003489E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8334,6 +8698,7 @@
   },
   "func_0034E4B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8352,6 +8717,7 @@
   },
   "func_0034F3B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8365,6 +8731,7 @@
   },
   "func_0034FB20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8398,6 +8765,7 @@
   },
   "func_00350798": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8416,6 +8784,7 @@
   },
   "func_00350808": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8434,6 +8803,7 @@
   },
   "func_00350A78": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8483,6 +8853,7 @@
   },
   "func_00350B70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8508,6 +8879,7 @@
   },
   "func_003512B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8529,6 +8901,7 @@
   },
   "func_00351828": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8572,6 +8945,7 @@
   },
   "func_00351848": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8621,6 +8995,7 @@
   },
   "func_00351868": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8646,6 +9021,7 @@
   },
   "func_00351A80": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8667,6 +9043,7 @@
   },
   "func_00351E70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8688,6 +9065,7 @@
   },
   "func_32C2E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8709,6 +9087,7 @@
   },
   "func_L00_002A3B80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8722,6 +9101,7 @@
   },
   "func_L00_002A5480": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8735,6 +9115,7 @@
   },
   "func_L00_002A61C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8768,6 +9149,7 @@
   },
   "func_L00_002A7958": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8781,6 +9163,7 @@
   },
   "func_L00_002A7E60": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8794,6 +9177,7 @@
   },
   "func_L00_002ACA08": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8807,6 +9191,7 @@
   },
   "func_L00_002ADFE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8832,6 +9217,7 @@
   },
   "func_L00_002B0528": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8864,6 +9250,7 @@
   },
   "func_L00_002B1308": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8882,6 +9269,7 @@
   },
   "func_L00_002B5590": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8903,6 +9291,7 @@
   },
   "func_L00_002B7718": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8916,6 +9305,7 @@
   },
   "func_L00_002BA7D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8929,6 +9319,7 @@
   },
   "func_L00_002D4A38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8942,6 +9333,7 @@
   },
   "func_L00_002D5000": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -8970,6 +9362,7 @@
   },
   "func_L00_002D6768": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8983,6 +9376,7 @@
   },
   "func_L00_002D6788": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -8996,6 +9390,7 @@
   },
   "func_L00_002D6FD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9009,6 +9404,7 @@
   },
   "func_L00_002D7938": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9027,6 +9423,7 @@
   },
   "func_L00_002D9D48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9045,6 +9442,7 @@
   },
   "func_L00_002E2958": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9058,6 +9456,7 @@
   },
   "func_L00_002E30B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9099,6 +9498,7 @@
   },
   "func_L00_002E36F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9117,6 +9517,7 @@
   },
   "func_L00_002E3898": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9130,6 +9531,7 @@
   },
   "func_L00_002E3BA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9148,6 +9550,7 @@
   },
   "func_L00_002E54E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9166,6 +9569,7 @@
   },
   "func_L00_002E9210": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9195,6 +9599,7 @@
   },
   "func_L00_002EDC90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9213,6 +9618,7 @@
   },
   "func_L00_002EDCB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9231,6 +9637,7 @@
   },
   "func_L00_002EDCC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9249,6 +9656,7 @@
   },
   "func_L00_002EDD00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9267,6 +9675,7 @@
   },
   "func_L00_002EDD28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9285,6 +9694,7 @@
   },
   "func_L00_002EDD38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9303,6 +9713,7 @@
   },
   "func_L00_002EE058": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9338,6 +9749,7 @@
   },
   "func_L00_002EE078": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9373,6 +9785,7 @@
   },
   "func_L00_002EE0C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9394,6 +9807,7 @@
   },
   "func_L00_002EE220": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9429,6 +9843,7 @@
   },
   "func_L00_002EF548": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -9455,6 +9870,7 @@
   },
   "func_L00_002F08D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9468,6 +9884,7 @@
   },
   "func_L00_002F0930": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9481,6 +9898,7 @@
   },
   "func_L00_002F0DA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9494,6 +9912,7 @@
   },
   "func_L00_002F3488": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9507,6 +9926,7 @@
   },
   "func_L00_002F3490": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9520,6 +9940,7 @@
   },
   "func_L00_002F34A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9533,6 +9954,7 @@
   },
   "func_L00_002F43E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9546,6 +9968,7 @@
   },
   "func_L00_002F43E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9559,6 +9982,7 @@
   },
   "func_L00_002F43F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9572,6 +9996,7 @@
   },
   "func_L00_002F46C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9585,6 +10010,7 @@
   },
   "func_L00_002F7568": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9603,6 +10029,7 @@
   },
   "func_L00_002FBF60": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9616,6 +10043,7 @@
   },
   "func_L00_002FC008": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9629,6 +10057,7 @@
   },
   "func_L00_002FC018": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9642,6 +10071,7 @@
   },
   "func_L00_002FC020": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9655,6 +10085,7 @@
   },
   "func_L00_002FC028": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9668,6 +10099,7 @@
   },
   "func_L00_002FC058": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9681,6 +10113,7 @@
   },
   "func_L00_003046D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9699,6 +10132,7 @@
   },
   "func_L00_00304AE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9724,6 +10158,7 @@
   },
   "func_L00_00305600": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9746,6 +10181,7 @@
   },
   "func_L00_00308408": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9776,6 +10212,7 @@
   },
   "func_L00_00309140": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9801,6 +10238,7 @@
   },
   "func_L00_0031C978": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9819,6 +10257,7 @@
   },
   "func_L00_00321878": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9864,6 +10303,7 @@
   },
   "func_L00_00325300": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9889,6 +10329,7 @@
   },
   "func_L00_00326200": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9915,6 +10356,7 @@
   },
   "func_L00_003266D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9928,6 +10370,7 @@
   },
   "func_L00_003296C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -9957,6 +10400,7 @@
   },
   "func_L00_0032A258": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10027,6 +10471,7 @@
   },
   "func_L00_0032B270": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10040,6 +10485,7 @@
   },
   "func_L00_0032B288": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10053,6 +10499,7 @@
   },
   "func_L00_0032B2A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10071,6 +10518,7 @@
   },
   "func_L00_00338AE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10117,6 +10565,7 @@
   },
   "func_L00_00338D28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10143,6 +10592,7 @@
   },
   "func_L00_0033AA40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10202,6 +10652,7 @@
   },
   "func_L00_0033BA68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10234,6 +10685,7 @@
   },
   "func_L00_0033C0D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10283,6 +10735,7 @@
   },
   "func_L00_0033E220": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10346,6 +10799,7 @@
   },
   "func_L00_00364EE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10364,6 +10818,7 @@
   },
   "func_L00_00367720": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10377,6 +10832,7 @@
   },
   "func_L00_0036FA68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10390,6 +10846,7 @@
   },
   "func_L00_00373F48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10418,6 +10875,7 @@
   },
   "func_L00_00374C18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10431,6 +10889,7 @@
   },
   "func_L00_003769C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10444,6 +10903,7 @@
   },
   "func_L00_00377580": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10457,6 +10917,7 @@
   },
   "func_L00_003778F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10470,6 +10931,7 @@
   },
   "func_L00_00378578": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10483,6 +10945,7 @@
   },
   "func_L00_0037B6F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10496,6 +10959,7 @@
   },
   "func_L00_0037B750": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10509,6 +10973,7 @@
   },
   "func_L00_0037B7B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10522,6 +10987,7 @@
   },
   "func_L00_0037E5F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10540,6 +11006,7 @@
   },
   "func_L00_0037E640": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10553,6 +11020,7 @@
   },
   "func_L00_0037E668": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10566,6 +11034,7 @@
   },
   "func_L00_0037E670": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10584,6 +11053,7 @@
   },
   "func_L00_0037E698": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10597,6 +11067,7 @@
   },
   "func_L00_0037E6A8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10619,6 +11090,7 @@
   },
   "func_L00_0037F7E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10632,6 +11104,7 @@
   },
   "func_L00_003827C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10650,6 +11123,7 @@
   },
   "func_L00_00382BF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10671,6 +11145,7 @@
   },
   "func_L00_00383B90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10692,6 +11167,7 @@
   },
   "func_L00_00384248": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10710,6 +11186,7 @@
   },
   "func_L00_00384678": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10728,6 +11205,7 @@
   },
   "func_L00_00387408": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10752,6 +11230,7 @@
   },
   "func_L00_00388790": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10773,6 +11252,7 @@
   },
   "func_L00_00389E18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10794,6 +11274,7 @@
   },
   "func_L00_00389EB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10818,6 +11299,7 @@
   },
   "func_L00_0038DE70": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10856,6 +11338,7 @@
   },
   "func_L00_0038E880": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10891,6 +11374,7 @@
   },
   "func_L00_0038F3D8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10915,6 +11399,7 @@
   },
   "func_L00_00390FF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -10954,6 +11439,7 @@
   },
   "func_L00_003914E0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -10982,6 +11468,7 @@
   },
   "func_L00_00398810": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11013,6 +11500,7 @@
   },
   "func_L00_003A1580": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11034,6 +11522,7 @@
   },
   "func_L00_003A3B58": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -11058,6 +11547,7 @@
   },
   "func_L00_003A8940": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11076,6 +11566,7 @@
   },
   "func_L00_003A91A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11094,6 +11585,7 @@
   },
   "func_L00_003A98E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11148,6 +11640,7 @@
   },
   "func_L00_003AB388": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11183,6 +11676,7 @@
   },
   "func_L00_003AB8B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -11214,6 +11708,7 @@
   },
   "func_L00_003AB9C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11266,6 +11761,7 @@
   },
   "func_L00_003ABEC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11284,6 +11780,7 @@
   },
   "func_L00_003ACCF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11305,6 +11802,7 @@
   },
   "func_L00_003ADA30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11326,6 +11824,7 @@
   },
   "func_L00_003ADCD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11354,6 +11853,7 @@
   },
   "func_L00_003ADEA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11367,6 +11867,7 @@
   },
   "func_L00_003AE900": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11385,6 +11886,7 @@
   },
   "func_L00_003B0DA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11409,6 +11911,7 @@
   },
   "func_L00_003B14D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -11438,6 +11941,7 @@
   },
   "func_L00_003B3090": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -11473,6 +11977,7 @@
   },
   "func_L00_003B39D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11494,6 +11999,7 @@
   },
   "func_L00_003B4560": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11519,6 +12025,7 @@
   },
   "func_L00_003B7190": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11547,6 +12054,7 @@
   },
   "func_L00_003B74A8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -11578,6 +12086,7 @@
   },
   "func_L00_003B9310": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11606,6 +12115,7 @@
   },
   "func_L00_003BCDC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11627,6 +12137,7 @@
   },
   "func_L00_003C3D90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11645,6 +12156,7 @@
   },
   "func_L00_003C48D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11666,6 +12178,7 @@
   },
   "func_L00_003C4F78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11687,6 +12200,7 @@
   },
   "func_L00_003C5310": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11745,6 +12259,7 @@
   },
   "func_L00_003C94D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11766,6 +12281,7 @@
   },
   "func_L00_003C9978": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11784,6 +12300,7 @@
   },
   "func_L00_003D1B50": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11805,6 +12322,7 @@
   },
   "func_L00_003D1D28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11823,6 +12341,7 @@
   },
   "func_L00_003D3388": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11841,6 +12360,7 @@
   },
   "func_L00_003D5320": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11854,6 +12374,7 @@
   },
   "func_L00_003DBF50": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11896,6 +12417,7 @@
   },
   "func_L00_003DC1C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11926,6 +12448,7 @@
   },
   "func_L00_003DC2D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11947,6 +12470,7 @@
   },
   "func_L00_003DC3E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -11990,6 +12514,7 @@
   },
   "func_L00_003DD2B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12008,6 +12533,7 @@
   },
   "func_L00_003DD6A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12029,6 +12555,7 @@
   },
   "func_L00_003DDEC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12042,6 +12569,7 @@
   },
   "func_L00_003E2180": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12081,6 +12609,7 @@
   },
   "func_L00_003E4508": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -12105,6 +12634,7 @@
   },
   "func_L00_003E4948": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12126,6 +12656,7 @@
   },
   "func_L00_003E5BD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12147,6 +12678,7 @@
   },
   "func_L00_003E6030": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12168,6 +12700,7 @@
   },
   "func_L00_003E6F48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12189,6 +12722,7 @@
   },
   "func_L00_003EC078": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12217,6 +12751,7 @@
   },
   "func_L00_003ECB38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12264,6 +12799,7 @@
   },
   "func_L00_003ECC90": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -12289,6 +12825,7 @@
   },
   "func_L00_003F3A88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12310,6 +12847,7 @@
   },
   "func_L00_003F6308": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12331,6 +12869,7 @@
   },
   "func_L00_003F71E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12352,6 +12891,7 @@
   },
   "func_L00_003F9368": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -12376,6 +12916,7 @@
   },
   "func_L00_003FA858": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12394,6 +12935,7 @@
   },
   "func_L00_003FCA40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12436,6 +12978,7 @@
   },
   "func_L00_003FE310": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12471,6 +13014,7 @@
   },
   "func_L00_003FE8D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12492,6 +13036,7 @@
   },
   "func_L00_003FF890": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12513,6 +13058,7 @@
   },
   "func_L00_004003F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12534,6 +13080,7 @@
   },
   "func_L00_00401668": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12555,6 +13102,7 @@
   },
   "func_L00_004096B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12573,6 +13121,7 @@
   },
   "func_L00_0040B2C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12601,6 +13150,7 @@
   },
   "func_L00_0040B330": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12622,6 +13172,7 @@
   },
   "func_L00_0040B398": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12643,6 +13194,7 @@
   },
   "func_L00_00410430": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12675,6 +13227,7 @@
   },
   "func_L00_00410D20": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12696,6 +13249,7 @@
   },
   "func_L00_004117B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12717,6 +13271,7 @@
   },
   "func_L00_00411F48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12738,6 +13293,7 @@
   },
   "func_L00_00413358": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12759,6 +13315,7 @@
   },
   "func_L00_00414350": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12780,6 +13337,7 @@
   },
   "func_L00_00415A38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12801,6 +13359,7 @@
   },
   "func_L00_004173B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -12825,6 +13384,7 @@
   },
   "func_L00_00418230": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12855,6 +13415,7 @@
   },
   "func_L00_004195C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12876,6 +13437,7 @@
   },
   "func_L00_00419C98": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12897,6 +13459,7 @@
   },
   "func_L00_0041A5C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12918,6 +13481,7 @@
   },
   "func_L00_0041EE58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -12936,6 +13500,7 @@
   },
   "func_L00_0041FC20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -12971,6 +13536,7 @@
   },
   "func_L00_00421A98": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13010,6 +13576,7 @@
   },
   "func_L00_00424070": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13046,6 +13613,7 @@
   },
   "func_L00_00424BB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13068,6 +13636,7 @@
   },
   "func_L00_00424EB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13100,6 +13669,7 @@
   },
   "func_L00_00427290": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13113,6 +13683,7 @@
   },
   "func_L00_00428CE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13131,6 +13702,7 @@
   },
   "func_L00_00429020": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13149,6 +13721,7 @@
   },
   "func_L00_004290C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13170,6 +13743,7 @@
   },
   "func_L00_0042B6A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13195,6 +13769,7 @@
   },
   "func_L00_0042B6C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13220,6 +13795,7 @@
   },
   "func_L00_0042C818": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13233,6 +13809,7 @@
   },
   "func_L00_00433070": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13258,6 +13835,7 @@
   },
   "func_L00_004336E8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13286,6 +13864,7 @@
   },
   "func_L00_004338E0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13314,6 +13893,7 @@
   },
   "func_L00_00438E68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13339,6 +13919,7 @@
   },
   "func_L00_00447188": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13376,6 +13957,7 @@
   },
   "func_L00_004471A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13401,6 +13983,7 @@
   },
   "func_L01_002A8C48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13414,6 +13997,7 @@
   },
   "func_L01_002ADDC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13427,6 +14011,7 @@
   },
   "func_L01_002B3458": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13453,6 +14038,7 @@
   },
   "func_L01_002C2CF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13466,6 +14052,7 @@
   },
   "func_L01_002F1588": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13479,6 +14066,7 @@
   },
   "func_L01_002F1F70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13492,6 +14080,7 @@
   },
   "func_L01_003042AC": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13549,6 +14138,7 @@
   },
   "func_L01_0031B300": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13591,6 +14181,7 @@
   },
   "func_L01_00324550": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13617,6 +14208,7 @@
   },
   "func_L01_003377C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13638,6 +14230,7 @@
   },
   "func_L01_00367F78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13651,6 +14244,7 @@
   },
   "func_L01_00397A28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13672,6 +14266,7 @@
   },
   "func_L01_00397EB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13693,6 +14288,7 @@
   },
   "func_L01_00398938": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13714,6 +14310,7 @@
   },
   "func_L01_00398A90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13735,6 +14332,7 @@
   },
   "func_L01_00398B50": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13756,6 +14354,7 @@
   },
   "func_L01_003A6638": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13774,6 +14373,7 @@
   },
   "func_L01_003B5878": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13795,6 +14395,7 @@
   },
   "func_L01_003C9D00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13816,6 +14417,7 @@
   },
   "func_L01_003CC210": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13837,6 +14439,7 @@
   },
   "func_L01_003CC930": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13858,6 +14461,7 @@
   },
   "func_L01_003CDE58": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13879,6 +14483,7 @@
   },
   "func_L01_003CE228": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -13900,6 +14505,7 @@
   },
   "func_L01_003CEB00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13921,6 +14527,7 @@
   },
   "func_L01_003D6B00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13962,6 +14569,7 @@
   },
   "func_L01_003D9830": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -13983,6 +14591,7 @@
   },
   "func_L01_003E9CF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14028,6 +14637,7 @@
   },
   "func_L01_003FFFE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14049,6 +14659,7 @@
   },
   "func_L01_00412E00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14070,6 +14681,7 @@
   },
   "func_L01_00416C08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14091,6 +14703,7 @@
   },
   "func_L01_0041C890": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14112,6 +14725,7 @@
   },
   "func_L01_0042A568": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14125,6 +14739,7 @@
   },
   "func_L01_004480C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14146,6 +14761,7 @@
   },
   "func_L02_002DCEA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14168,6 +14784,7 @@
   },
   "func_L02_00329410": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14205,6 +14822,7 @@
   },
   "func_L02_0032E390": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14234,6 +14852,7 @@
   },
   "func_L02_00332900": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14247,6 +14866,7 @@
   },
   "func_L02_00333438": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14275,6 +14895,7 @@
   },
   "func_L02_003C0890": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14296,6 +14917,7 @@
   },
   "func_L02_003C43F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14317,6 +14939,7 @@
   },
   "func_L02_003C4ED8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14338,6 +14961,7 @@
   },
   "func_L02_003CB090": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14359,6 +14983,7 @@
   },
   "func_L02_003CD668": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14387,6 +15012,7 @@
   },
   "func_L02_003CE8B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14419,6 +15045,7 @@
   },
   "func_L02_003CE9A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14440,6 +15067,7 @@
   },
   "func_L02_003D0238": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14461,6 +15089,7 @@
   },
   "func_L02_003D0408": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14482,6 +15111,7 @@
   },
   "func_L02_003D1430": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14503,6 +15133,7 @@
   },
   "func_L02_003D5118": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14528,6 +15159,7 @@
   },
   "func_L02_003D7040": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14552,6 +15184,7 @@
   },
   "func_L02_003DB200": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14576,6 +15209,7 @@
   },
   "func_L02_003DED08": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14589,6 +15223,7 @@
   },
   "func_L02_003E2150": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14610,6 +15245,7 @@
   },
   "func_L02_003E77E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14631,6 +15267,7 @@
   },
   "func_L02_003E91F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14652,6 +15289,7 @@
   },
   "func_L02_003EB8F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14673,6 +15311,7 @@
   },
   "func_L02_003F0798": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14694,6 +15333,7 @@
   },
   "func_L02_003F1578": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14715,6 +15355,7 @@
   },
   "func_L02_003F9AF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14733,6 +15374,7 @@
   },
   "func_L02_003F9B70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14751,6 +15393,7 @@
   },
   "func_L02_003F9C10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14772,6 +15415,7 @@
   },
   "func_L02_003FB000": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14793,6 +15437,7 @@
   },
   "func_L02_003FCCA0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -14818,6 +15463,7 @@
   },
   "func_L02_003FDDE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14840,6 +15486,7 @@
   },
   "func_L02_003FE1B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14858,6 +15505,7 @@
   },
   "func_L02_003FE250": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14879,6 +15527,7 @@
   },
   "func_L02_003FE768": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14897,6 +15546,7 @@
   },
   "func_L02_003FE8B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14918,6 +15568,7 @@
   },
   "func_L02_003FF6E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14939,6 +15590,7 @@
   },
   "func_L02_004012A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14960,6 +15612,7 @@
   },
   "func_L02_00401480": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -14981,6 +15634,7 @@
   },
   "func_L02_00402300": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15005,6 +15659,7 @@
   },
   "func_L02_0040B420": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15026,6 +15681,7 @@
   },
   "func_L02_00410F68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15047,6 +15703,7 @@
   },
   "func_L02_004114A0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15068,6 +15725,7 @@
   },
   "func_L02_00411D18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15089,6 +15747,7 @@
   },
   "func_L02_00412808": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15113,6 +15772,7 @@
   },
   "func_L02_00422270": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15141,6 +15801,7 @@
   },
   "func_L02_00422720": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15162,6 +15823,7 @@
   },
   "func_L02_0042E988": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15183,6 +15845,7 @@
   },
   "func_L02_0042ED48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15204,6 +15867,7 @@
   },
   "func_L02_0043F4C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15225,6 +15889,7 @@
   },
   "func_L02_0043FA98": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15246,6 +15911,7 @@
   },
   "func_L02_00456AC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15268,6 +15934,7 @@
   },
   "func_L03_002D84F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15289,6 +15956,7 @@
   },
   "func_L03_002ECF08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15346,6 +16014,7 @@
   },
   "func_L03_00384340": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15367,6 +16036,7 @@
   },
   "func_L03_0038A6D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15388,6 +16058,7 @@
   },
   "func_L03_0038AA20": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15409,6 +16080,7 @@
   },
   "func_L03_0038AB30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15471,6 +16143,7 @@
   },
   "func_L03_003C4240": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15492,6 +16165,7 @@
   },
   "func_L03_003C4578": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15513,6 +16187,7 @@
   },
   "func_L03_003C5668": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15551,6 +16226,7 @@
   },
   "func_L03_003C7018": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15564,6 +16240,7 @@
   },
   "func_L03_003CA4B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15582,6 +16259,7 @@
   },
   "func_L03_003D0FC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15614,6 +16292,7 @@
   },
   "func_L03_003D20F8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15635,6 +16314,7 @@
   },
   "func_L03_003E3A00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15656,6 +16336,7 @@
   },
   "func_L03_003F1470": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15677,6 +16358,7 @@
   },
   "func_L03_003F6BA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15698,6 +16380,7 @@
   },
   "func_L03_003F6E88": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15719,6 +16402,7 @@
   },
   "func_L03_00408068": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15740,6 +16424,7 @@
   },
   "func_L03_00419850": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15764,6 +16449,7 @@
   },
   "func_L03_00419B90": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15796,6 +16482,7 @@
   },
   "func_L03_0041B848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15809,6 +16496,7 @@
   },
   "func_L03_0041DAD0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -15830,6 +16518,7 @@
   },
   "func_L03_00421930": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15848,6 +16537,7 @@
   },
   "func_L03_00425108": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15869,6 +16559,7 @@
   },
   "func_L03_0043AC40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15890,6 +16581,7 @@
   },
   "func_L04_0030C948": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15928,6 +16620,7 @@
   },
   "func_L04_0030EDE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15963,6 +16656,7 @@
   },
   "func_L04_0031D630": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -15976,6 +16670,7 @@
   },
   "func_L04_0033C420": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16016,6 +16711,7 @@
   },
   "func_L04_0033CB08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16060,6 +16756,7 @@
   },
   "func_L04_0033D0C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -16088,6 +16785,7 @@
   },
   "func_L04_00343498": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -16110,6 +16808,7 @@
   },
   "func_L04_00358868": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16150,6 +16849,7 @@
   },
   "func_L04_00362768": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16189,6 +16889,7 @@
   },
   "func_L04_00362940": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16228,6 +16929,7 @@
   },
   "func_L04_00363CA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16260,6 +16962,7 @@
   },
   "func_L04_0039FC28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16288,6 +16991,7 @@
   },
   "func_L04_0039FEF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16313,6 +17017,7 @@
   },
   "func_L04_003A0008": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16338,6 +17043,7 @@
   },
   "func_L04_003A02A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16376,6 +17082,7 @@
   },
   "func_L04_003A0C40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16397,6 +17104,7 @@
   },
   "func_L04_003A1868": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16426,6 +17134,7 @@
   },
   "func_L04_003B3168": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16447,6 +17156,7 @@
   },
   "func_L04_003C6FE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16468,6 +17178,7 @@
   },
   "func_L04_003E5298": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16489,6 +17200,7 @@
   },
   "func_L04_003EDD40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16520,6 +17232,7 @@
   },
   "func_L04_003F6008": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16541,6 +17254,7 @@
   },
   "func_L04_003F9078": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16562,6 +17276,7 @@
   },
   "func_L04_003FB990": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16590,6 +17305,7 @@
   },
   "func_L04_003FBEF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16608,6 +17324,7 @@
   },
   "func_L04_00400AB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16640,6 +17357,7 @@
   },
   "func_L04_00400D48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16672,6 +17390,7 @@
   },
   "func_L04_00400EE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16700,6 +17419,7 @@
   },
   "func_L04_00402D90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16721,6 +17441,7 @@
   },
   "func_L04_00407F80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16742,6 +17463,7 @@
   },
   "func_L04_0040A5C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16763,6 +17485,7 @@
   },
   "func_L04_0040ACC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16776,6 +17499,7 @@
   },
   "func_L04_0040AD28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16789,6 +17513,7 @@
   },
   "func_L04_0040BA68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16817,6 +17542,7 @@
   },
   "func_L04_0040C368": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16838,6 +17564,7 @@
   },
   "func_L04_0040C880": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16856,6 +17583,7 @@
   },
   "func_L04_0040D148": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16878,6 +17606,7 @@
   },
   "func_L04_0040DF90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16900,6 +17629,7 @@
   },
   "func_L04_00410788": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16950,6 +17680,7 @@
   },
   "func_L04_00411298": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16963,6 +17694,7 @@
   },
   "func_L04_00412EC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -16984,6 +17716,7 @@
   },
   "func_L04_00414698": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17006,6 +17739,7 @@
   },
   "func_L04_00415EA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17024,6 +17758,7 @@
   },
   "func_L04_00416E38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17037,6 +17772,7 @@
   },
   "func_L04_00417028": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17050,6 +17786,7 @@
   },
   "func_L04_00417308": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17063,6 +17800,7 @@
   },
   "func_L04_00418A58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17091,6 +17829,7 @@
   },
   "func_L04_00422A00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17112,6 +17851,7 @@
   },
   "func_L04_00432258": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17133,6 +17873,7 @@
   },
   "func_L04_00441100": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17154,6 +17895,7 @@
   },
   "func_L04_0044D0C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17175,6 +17917,7 @@
   },
   "func_L04_00456748": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17196,6 +17939,7 @@
   },
   "func_L04_00459408": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17245,6 +17989,7 @@
   },
   "func_L04_0046CD68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17270,6 +18015,7 @@
   },
   "func_L04_0046CFB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17291,6 +18037,7 @@
   },
   "func_L05_00303000": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17333,6 +18080,7 @@
   },
   "func_L05_0033CD40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17355,6 +18103,7 @@
   },
   "func_L05_0037AA88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17373,6 +18122,7 @@
   },
   "func_L05_0037AC00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17386,6 +18136,7 @@
   },
   "func_L05_0037CE08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17411,6 +18162,7 @@
   },
   "func_L05_0037CEE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17443,6 +18195,7 @@
   },
   "func_L05_00397F48": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17475,6 +18228,7 @@
   },
   "func_L05_003CD598": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17496,6 +18250,7 @@
   },
   "func_L05_003D0538": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17520,6 +18275,7 @@
   },
   "func_L05_003D1AB8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17544,6 +18300,7 @@
   },
   "func_L05_00415958": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17568,6 +18325,7 @@
   },
   "func_L05_00415FD0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17592,6 +18350,7 @@
   },
   "func_L05_00416918": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17613,6 +18372,7 @@
   },
   "func_L05_00417550": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17637,6 +18397,7 @@
   },
   "func_L05_0041C4E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17658,6 +18419,7 @@
   },
   "func_L05_0041CE00": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17682,6 +18444,7 @@
   },
   "func_L05_0041D800": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17703,6 +18466,7 @@
   },
   "func_L05_0041ED18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17716,6 +18480,7 @@
   },
   "func_L05_00420360": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17729,6 +18494,7 @@
   },
   "func_L05_00424780": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17750,6 +18516,7 @@
   },
   "func_L05_004247C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17771,6 +18538,7 @@
   },
   "func_L05_00424C88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17792,6 +18560,7 @@
   },
   "func_L05_00426348": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17813,6 +18582,7 @@
   },
   "func_L05_004268E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17834,6 +18604,7 @@
   },
   "func_L05_00426E70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17855,6 +18626,7 @@
   },
   "func_L05_00427238": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17873,6 +18645,7 @@
   },
   "func_L05_00427E10": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -17894,6 +18667,7 @@
   },
   "func_L05_0042AFE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17915,6 +18689,7 @@
   },
   "func_L05_0042B2C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17969,6 +18744,7 @@
   },
   "func_L05_0042E4E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -17990,6 +18766,7 @@
   },
   "func_L05_0042F4E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18039,6 +18816,7 @@
   },
   "func_L05_00446E28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18052,6 +18830,7 @@
   },
   "func_L05_00447F10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18065,6 +18844,7 @@
   },
   "func_L06_003E4F08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18086,6 +18866,7 @@
   },
   "func_L06_003E4FA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18107,6 +18888,7 @@
   },
   "func_L06_003FDA08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18128,6 +18910,7 @@
   },
   "func_L06_004294A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18157,6 +18940,7 @@
   },
   "func_L06_0042B868": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18178,6 +18962,7 @@
   },
   "func_L06_00443DE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18210,6 +18995,7 @@
   },
   "func_L06_00444D00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18231,6 +19017,7 @@
   },
   "func_L06_004576C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18252,6 +19039,7 @@
   },
   "func_L06_00457920": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18273,6 +19061,7 @@
   },
   "func_L06_0045BE30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18314,6 +19103,7 @@
   },
   "func_L06_0047AC68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18332,6 +19122,7 @@
   },
   "func_L06_0047C1D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18345,6 +19136,7 @@
   },
   "func_L07_002AC078": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -18358,6 +19150,7 @@
   },
   "func_L07_00338D20": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18402,6 +19195,7 @@
   },
   "func_L07_003791E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18420,6 +19214,7 @@
   },
   "func_L07_003E7380": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -18460,6 +19255,7 @@
   },
   "func_L07_003EBBE8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -18500,6 +19296,7 @@
   },
   "func_L07_003EE708": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18521,6 +19318,7 @@
   },
   "func_L07_003F3E80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18539,6 +19337,7 @@
   },
   "func_L07_003F4578": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18557,6 +19356,7 @@
   },
   "func_L07_003F4CC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18575,6 +19375,7 @@
   },
   "func_L07_003F68F0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18600,6 +19401,7 @@
   },
   "func_L07_003F8908": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18621,6 +19423,7 @@
   },
   "func_L07_003F8AB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -18645,6 +19448,7 @@
   },
   "func_L07_003F8BB0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -18669,6 +19473,7 @@
   },
   "func_L07_003F90E8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18699,6 +19504,7 @@
   },
   "func_L07_00409300": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18720,6 +19526,7 @@
   },
   "func_L07_0040EC08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18741,6 +19548,7 @@
   },
   "func_L07_00410B48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18762,6 +19570,7 @@
   },
   "func_L07_00416510": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18783,6 +19592,7 @@
   },
   "func_L08_002F2D10": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18811,6 +19621,7 @@
   },
   "func_L08_00339220": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18851,6 +19662,7 @@
   },
   "func_L08_00389B68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18885,6 +19697,7 @@
   },
   "func_L08_0039DBE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18906,6 +19719,7 @@
   },
   "func_L08_0039E000": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18927,6 +19741,7 @@
   },
   "func_L08_003C5940": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18945,6 +19760,7 @@
   },
   "func_L08_003C67B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -18995,6 +19811,7 @@
   },
   "func_L08_003C6AB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19013,6 +19830,7 @@
   },
   "func_L08_003CD708": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19045,6 +19863,7 @@
   },
   "func_L08_003CDB78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19073,6 +19892,7 @@
   },
   "func_L08_003CDF98": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19094,6 +19914,7 @@
   },
   "func_L08_003D0010": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19124,6 +19945,7 @@
   },
   "func_L08_003D9208": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19145,6 +19967,7 @@
   },
   "func_L08_003DB518": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19158,6 +19981,7 @@
   },
   "func_L08_003F76C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19179,6 +20003,7 @@
   },
   "func_L08_0041D808": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19192,6 +20017,7 @@
   },
   "func_L08_0041E4F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19213,6 +20039,7 @@
   },
   "func_L08_0041E790": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19269,6 +20096,7 @@
   },
   "func_L08_0041EBF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19290,6 +20118,7 @@
   },
   "func_L08_004207D0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19308,6 +20137,7 @@
   },
   "func_L08_00424FF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19364,6 +20194,7 @@
   },
   "func_L08_004262C0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19385,6 +20216,7 @@
   },
   "func_L08_00429560": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19407,6 +20239,7 @@
   },
   "func_L08_00435A78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19428,6 +20261,7 @@
   },
   "func_L09_002AFC90": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19441,6 +20275,7 @@
   },
   "func_L09_002F8FD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19454,6 +20289,7 @@
   },
   "func_L09_0033E658": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19472,6 +20308,7 @@
   },
   "func_L09_003AF508": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19493,6 +20330,7 @@
   },
   "func_L09_003EA9D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19514,6 +20352,7 @@
   },
   "func_L09_003EAA18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19535,6 +20374,7 @@
   },
   "func_L09_003EAB20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19556,6 +20396,7 @@
   },
   "func_L09_003F0330": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19577,6 +20418,7 @@
   },
   "func_L09_003F0378": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19598,6 +20440,7 @@
   },
   "func_L09_003F04D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19619,6 +20462,7 @@
   },
   "func_L09_003F65E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19640,6 +20484,7 @@
   },
   "func_L09_003F7370": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19668,6 +20513,7 @@
   },
   "func_L09_003F8960": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19689,6 +20535,7 @@
   },
   "func_L09_003F9040": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19710,6 +20557,7 @@
   },
   "func_L09_003FB780": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19728,6 +20576,7 @@
   },
   "func_L09_003FB9F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19753,6 +20602,7 @@
   },
   "func_L09_003FD460": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19774,6 +20624,7 @@
   },
   "func_L09_003FDD80": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19795,6 +20646,7 @@
   },
   "func_L09_003FDED8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19816,6 +20668,7 @@
   },
   "func_L09_003FE918": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19837,6 +20690,7 @@
   },
   "func_L09_003FEA48": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19858,6 +20712,7 @@
   },
   "func_L09_00403080": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19879,6 +20734,7 @@
   },
   "func_L09_00403100": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19904,6 +20760,7 @@
   },
   "func_L09_00403270": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -19925,6 +20782,7 @@
   },
   "func_L09_00404F90": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19957,6 +20815,7 @@
   },
   "func_L09_00405060": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -19978,6 +20837,7 @@
   },
   "func_L09_00406C68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20008,6 +20868,7 @@
   },
   "func_L09_00408250": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20044,6 +20905,7 @@
   },
   "func_L10_00317528": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20060,6 +20922,7 @@
   },
   "func_L10_0037CC20": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20073,6 +20936,7 @@
   },
   "func_L10_0039DA48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20126,6 +20990,7 @@
   },
   "func_L10_00418588": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20150,6 +21015,7 @@
   },
   "func_L10_00418BA0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20174,6 +21040,7 @@
   },
   "func_L10_00418D88": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20195,6 +21062,7 @@
   },
   "func_L10_00419188": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20216,6 +21084,7 @@
   },
   "func_L10_00419348": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20240,6 +21109,7 @@
   },
   "func_L10_00423780": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20253,6 +21123,7 @@
   },
   "func_L10_004239A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20266,6 +21137,7 @@
   },
   "func_L11_002C51D0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20279,6 +21151,7 @@
   },
   "func_L11_0030ED58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20300,6 +21173,7 @@
   },
   "func_L11_0030F060": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20313,6 +21187,7 @@
   },
   "func_L11_003404E0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20334,6 +21209,7 @@
   },
   "func_L11_003F2C28": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20355,6 +21231,7 @@
   },
   "func_L11_003F3CB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20376,6 +21253,7 @@
   },
   "func_L11_00435600": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20397,6 +21275,7 @@
   },
   "func_L11_00436768": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20418,6 +21297,7 @@
   },
   "func_L11_00437DC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20451,6 +21331,7 @@
   },
   "func_L11_00438320": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20491,6 +21372,7 @@
   },
   "func_L11_00439640": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20519,6 +21401,7 @@
   },
   "func_L11_00439D78": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20549,6 +21432,7 @@
   },
   "func_L11_00439DD0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20570,6 +21454,7 @@
   },
   "func_L11_0043A620": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20591,6 +21476,7 @@
   },
   "func_L11_0043A810": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20612,6 +21498,7 @@
   },
   "func_L11_004427B8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20637,6 +21524,7 @@
   },
   "func_L11_00443940": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20659,6 +21547,7 @@
   },
   "func_L11_00443CE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20677,6 +21566,7 @@
   },
   "func_L11_00443D78": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20698,6 +21588,7 @@
   },
   "func_L11_00444400": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20719,6 +21610,7 @@
   },
   "func_L11_004456A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20740,6 +21632,7 @@
   },
   "func_L11_00445990": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20761,6 +21654,7 @@
   },
   "func_L11_00445DF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20794,6 +21688,7 @@
   },
   "func_L11_00447360": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20815,6 +21710,7 @@
   },
   "func_L11_004475A0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20836,6 +21732,7 @@
   },
   "func_L11_00448848": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20857,6 +21754,7 @@
   },
   "func_L11_00448908": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20878,6 +21776,7 @@
   },
   "func_L11_00449330": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20906,6 +21805,7 @@
   },
   "func_L11_00449878": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -20927,6 +21827,7 @@
   },
   "func_L11_0044AFC8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20948,6 +21849,7 @@
   },
   "func_L11_0044C0F0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20969,6 +21871,7 @@
   },
   "func_L11_00452810": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -20990,6 +21893,7 @@
   },
   "func_L11_00454F18": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21011,6 +21915,7 @@
   },
   "func_L11_00456010": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21032,6 +21937,7 @@
   },
   "func_L11_00459F30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21053,6 +21959,7 @@
   },
   "func_L11_00474888": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21074,6 +21981,7 @@
   },
   "func_L11_004885A0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21087,6 +21995,7 @@
   },
   "func_L12_00388038": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21100,6 +22009,7 @@
   },
   "func_L12_00388090": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21121,6 +22031,7 @@
   },
   "func_L12_00389F80": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21142,6 +22053,7 @@
   },
   "func_L12_003A6EF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21163,6 +22075,7 @@
   },
   "func_L12_003B5240": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21184,6 +22097,7 @@
   },
   "func_L12_00408368": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21225,6 +22139,7 @@
   },
   "func_L12_00413EA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21250,6 +22165,7 @@
   },
   "func_L12_0041A578": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21275,6 +22191,7 @@
   },
   "func_L12_0041E8F8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21296,6 +22213,7 @@
   },
   "func_L12_00420838": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21317,6 +22235,7 @@
   },
   "func_L12_00427C58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21349,6 +22268,7 @@
   },
   "func_L13_00306F38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21362,6 +22282,7 @@
   },
   "func_L13_00389848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21383,6 +22304,7 @@
   },
   "func_L13_0040A480": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21404,6 +22326,7 @@
   },
   "func_L13_0040D930": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21425,6 +22348,7 @@
   },
   "func_L13_0040DFC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21481,6 +22405,7 @@
   },
   "func_L13_0041A550": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21502,6 +22427,7 @@
   },
   "func_L13_0041AD00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21523,6 +22449,7 @@
   },
   "func_L13_00422CB8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21544,6 +22471,7 @@
   },
   "func_L13_004267B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21565,6 +22493,7 @@
   },
   "func_L13_0043E8C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21578,6 +22507,7 @@
   },
   "func_L14_00304588": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21591,6 +22521,7 @@
   },
   "func_L14_003DE908": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21612,6 +22543,7 @@
   },
   "func_L14_003E2980": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21636,6 +22568,7 @@
   },
   "func_L14_003E4BA0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21657,6 +22590,7 @@
   },
   "func_L14_00423B30": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21678,6 +22612,7 @@
   },
   "func_L14_00430E08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21699,6 +22634,7 @@
   },
   "func_L14_004321C0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21712,6 +22648,7 @@
   },
   "func_L15_00430168": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21725,6 +22662,7 @@
   },
   "func_L15_00434100": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21746,6 +22684,7 @@
   },
   "func_L15_004363C8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21770,6 +22709,7 @@
   },
   "func_L16_002AD320": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21783,6 +22723,7 @@
   },
   "func_L16_003D6D00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21804,6 +22745,7 @@
   },
   "func_L16_004051A8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21825,6 +22767,7 @@
   },
   "func_L16_00405818": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21881,6 +22824,7 @@
   },
   "func_L16_00410618": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21902,6 +22846,7 @@
   },
   "func_L16_00410E40": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21931,6 +22876,7 @@
   },
   "func_L16_00411368": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -21952,6 +22898,7 @@
   },
   "func_L16_00411B40": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -21976,6 +22923,7 @@
   },
   "func_L16_00411D00": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22000,6 +22948,7 @@
   },
   "func_L16_00411ED0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22024,6 +22973,7 @@
   },
   "func_L16_00412560": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22045,6 +22995,7 @@
   },
   "func_L16_00412AF0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22066,6 +23017,7 @@
   },
   "func_L16_00413850": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22087,6 +23039,7 @@
   },
   "func_L16_00414038": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22143,6 +23096,7 @@
   },
   "func_L16_0041EBE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22164,6 +23118,7 @@
   },
   "func_L16_004364B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22182,6 +23137,7 @@
   },
   "func_L17_003C5B68": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22203,6 +23159,7 @@
   },
   "func_L17_003E4860": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22224,6 +23181,7 @@
   },
   "func_L18_002E42F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22237,6 +23195,7 @@
   },
   "func_L18_00303A58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22266,6 +23225,7 @@
   },
   "func_L18_003170F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22279,6 +23239,7 @@
   },
   "func_L18_003F5198": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22300,6 +23261,7 @@
   },
   "func_L18_003F9EF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22321,6 +23283,7 @@
   },
   "func_L18_00426AB0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22334,6 +23297,7 @@
   },
   "func_L18_00427B48": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22359,6 +23323,7 @@
   },
   "func_L18_00428100": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22377,6 +23342,7 @@
   },
   "func_L18_00428338": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22398,6 +23364,7 @@
   },
   "func_L18_00428428": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22426,6 +23393,7 @@
   },
   "func_L18_00428AE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22447,6 +23415,7 @@
   },
   "func_L18_00432598": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22475,6 +23444,7 @@
   },
   "func_L18_004325D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22503,6 +23473,7 @@
   },
   "func_L18_00437BA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22528,6 +23499,7 @@
   },
   "func_L18_0043FFF8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22574,6 +23546,7 @@
   },
   "func_L19_00412140": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22587,6 +23560,7 @@
   },
   "func_L19_0042B058": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22608,6 +23582,7 @@
   },
   "func_L20_00310E38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22621,6 +23596,7 @@
   },
   "func_L20_0036E720": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22634,6 +23610,7 @@
   },
   "func_L20_0039BEC8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22655,6 +23632,7 @@
   },
   "func_L20_0039DF18": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22680,6 +23658,7 @@
   },
   "func_L20_0039F268": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22701,6 +23680,7 @@
   },
   "func_L20_0039F968": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22722,6 +23702,7 @@
   },
   "func_L20_003E6728": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22780,6 +23761,7 @@
   },
   "func_L20_004421A8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22801,6 +23783,7 @@
   },
   "func_L20_00444018": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22825,6 +23808,7 @@
   },
   "func_L20_00444088": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -22849,6 +23833,7 @@
   },
   "func_L20_004441D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22870,6 +23855,7 @@
   },
   "func_L20_00444CA8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22891,6 +23877,7 @@
   },
   "func_L20_00445738": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22912,6 +23899,7 @@
   },
   "func_L20_00446E70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22933,6 +23921,7 @@
   },
   "func_L22_002B70F8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22962,6 +23951,7 @@
   },
   "func_L22_002BF1B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -22975,6 +23965,7 @@
   },
   "func_L22_0039CDC0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23021,6 +24012,7 @@
   },
   "func_L22_0039D198": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23042,6 +24034,7 @@
   },
   "func_L22_003A1E50": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23063,6 +24056,7 @@
   },
   "func_L22_003A2988": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23088,6 +24082,7 @@
   },
   "func_L22_003A3368": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23109,6 +24104,7 @@
   },
   "func_L22_003A3550": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23138,6 +24134,7 @@
   },
   "func_L22_003A39C8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23174,6 +24171,7 @@
   },
   "func_L22_003A3B50": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23199,6 +24197,7 @@
   },
   "func_L22_003A4490": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23220,6 +24219,7 @@
   },
   "func_L22_003A5BD8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23249,6 +24249,7 @@
   },
   "func_L22_003A6230": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23270,6 +24271,7 @@
   },
   "func_L22_003B8FE8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23301,6 +24303,7 @@
   },
   "func_L22_003B9128": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23335,6 +24338,7 @@
   },
   "func_L22_003B9358": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23356,6 +24360,7 @@
   },
   "func_L22_003F45D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23385,6 +24390,7 @@
   },
   "func_L22_003F5580": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23406,6 +24412,7 @@
   },
   "func_L22_003FB310": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23427,6 +24434,7 @@
   },
   "func_L22_003FB9B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23463,6 +24471,7 @@
   },
   "func_L22_003FBBF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23484,6 +24493,7 @@
   },
   "func_L22_003FBF00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23516,6 +24526,7 @@
   },
   "func_L22_003FC048": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23537,6 +24548,7 @@
   },
   "func_L22_003FC870": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23558,6 +24570,7 @@
   },
   "func_L22_003FD2D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23579,6 +24592,7 @@
   },
   "func_L22_003FD958": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23615,6 +24629,7 @@
   },
   "func_L22_0040DB20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23650,6 +24665,7 @@
   },
   "func_L22_0040DC40": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23680,6 +24696,7 @@
   },
   "func_L22_0040DD20": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23701,6 +24718,7 @@
   },
   "func_L22_0040E2B0": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23725,6 +24743,7 @@
   },
   "func_L23_002C38B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23738,6 +24757,7 @@
   },
   "func_L23_003BF9B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23759,6 +24779,7 @@
   },
   "func_L23_003BFE90": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23792,6 +24813,7 @@
   },
   "func_L23_003C1B58": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23813,6 +24835,7 @@
   },
   "func_L23_0041C7D8": {
    "asm": false,
+   "inherits": true,
    "new": false,
    "sig": {
     "f": {
@@ -23838,6 +24861,7 @@
   },
   "func_L23_0041D398": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23859,6 +24883,7 @@
   },
   "func_L24_003EFA38": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23880,6 +24905,7 @@
   },
   "func_L25_00373EE0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23898,6 +24924,7 @@
   },
   "func_L26_003DC048": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23919,6 +24946,7 @@
   },
   "func_L26_003DC128": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23940,6 +24968,7 @@
   },
   "func_L30_0032AAF0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23966,6 +24995,7 @@
   },
   "func_L30_003848B8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -23987,6 +25017,7 @@
   },
   "func_L30_0040B6B0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24043,6 +25074,7 @@
   },
   "func_L30_0040B9D8": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24061,6 +25093,7 @@
   },
   "func_L30_004185E0": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24082,6 +25115,7 @@
   },
   "func_L30_0041B848": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24131,6 +25165,7 @@
   },
   "r1_func_0011AD70": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24153,6 +25188,7 @@
   },
   "r1_func_0012A418": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24175,6 +25211,7 @@
   },
   "ref_00131D98_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24188,6 +25225,7 @@
   },
   "ref_0031A158_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24209,6 +25247,7 @@
   },
   "ref_L00_002D71A0_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24222,6 +25261,7 @@
   },
   "ref_L00_002D71A0_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24244,6 +25284,7 @@
   },
   "ref_L00_00300048_03": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24273,6 +25314,7 @@
   },
   "ref_L00_003D4548_06": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24317,6 +25359,7 @@
   },
   "ref_L00_003DBF50_12": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24345,6 +25388,7 @@
   },
   "ref_L00_003DC3E0_03": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24380,6 +25424,7 @@
   },
   "ref_L00_003DD2B8_17": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24415,6 +25460,7 @@
   },
   "ref_L00_003DD6A8_41": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24428,6 +25474,7 @@
   },
   "ref_L00_003E2E80_02": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24463,6 +25510,7 @@
   },
   "ref_L00_003E9930_07": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24498,6 +25546,7 @@
   },
   "ref_L00_003EBC68_02": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24545,6 +25594,7 @@
   },
   "ref_L00_003EBC68_06": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24589,6 +25639,7 @@
   },
   "ref_L00_003FEAC8_03": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24643,6 +25694,7 @@
   },
   "ref_L00_0040B330_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24671,6 +25723,7 @@
   },
   "ref_L00_00410430_02": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24726,6 +25779,7 @@
   },
   "ref_L00_00417868_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24762,6 +25816,7 @@
   },
   "ref_L00_00428EB0_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24783,6 +25838,7 @@
   },
   "ref_L00_0042B688_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24808,6 +25864,7 @@
   },
   "ref_L01_002E1680_02": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24837,6 +25894,7 @@
   },
   "ref_L03_0038A6D8_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24858,6 +25916,7 @@
   },
   "ref_L03_0038AA20_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24923,6 +25982,7 @@
   },
   "ref_L04_003A0008_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24945,6 +26005,7 @@
   },
   "ref_L04_003A19E8_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24967,6 +26028,7 @@
   },
   "ref_L04_00400D48_02": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -24999,6 +26061,7 @@
   },
   "ref_L04_0040BED0_08": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25040,6 +26103,7 @@
   },
   "ref_L04_00418A58_05": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25068,6 +26132,7 @@
   },
   "ref_L04_00418A58_09": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25096,6 +26161,7 @@
   },
   "ref_L04_00418A58_12": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25146,6 +26212,7 @@
   },
   "ref_L04_00432258_07": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25206,6 +26273,7 @@
   },
   "ref_L05_00430318_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25242,6 +26310,7 @@
   },
   "ref_L08_0039E000_05": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25277,6 +26346,7 @@
   },
   "ref_L08_0041EBF8_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25290,6 +26360,7 @@
   },
   "ref_L12_004081F8_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25346,6 +26417,7 @@
   },
   "ref_L13_0040DE50_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25402,6 +26474,7 @@
   },
   "ref_L19_003DD9D8_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25430,6 +26503,7 @@
   },
   "ref_L22_002AA678_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25462,6 +26536,7 @@
   },
   "ref_L22_002AA678_01": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25502,6 +26577,7 @@
   },
   "ref_L22_0039CDC0_5": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25527,6 +26603,7 @@
   },
   "ref_L22_0039D198_14": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25556,6 +26633,7 @@
   },
   "ref_L22_0039D198_3": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25591,6 +26669,7 @@
   },
   "ref_L22_003A3C70_00": {
    "asm": true,
+   "inherits": false,
    "new": false,
    "sig": {
     "f": {
@@ -25684,7 +26763,8 @@
      }
     ],
     "v": false
-   }
+   },
+   true
   ],
   [
    "src/levels/shared/L02_00422270-g8.c",
@@ -25746,7 +26826,8 @@
      }
     ],
     "v": false
-   }
+   },
+   true
   ]
  ]
 }

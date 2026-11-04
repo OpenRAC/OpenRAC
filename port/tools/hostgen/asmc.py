@@ -1849,6 +1849,9 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
         if a.get("interface_path") and Path(a["interface_path"]).is_file():
             stage.external = asmext.apply(program, asmext.read(Path(a["interface_path"])))
             stage.program = program
+            # As below: a C wrapper's result from one of them, known now.
+            if a.get("results_before_calls"):
+                stage.inherited = inherit_results(program)
             stage.retail = "the part built from the disc (asmext.py)"
         return stage, {}
     # Apply after entry discovery: a verified prototype can name an entry
