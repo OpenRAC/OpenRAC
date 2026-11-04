@@ -65,7 +65,7 @@ int main() {
     // as always on).
     std::set<std::string> asked;
     const std::regex call(R"re(openrac_game_fix\("([a-z0-9_]+)"\))re");
-    const std::regex helper(R"re(wider_for\([^,]+,\s*"([a-z0-9_]+)"\))re");
+    const std::regex helper(R"re(wider_for\([^,]+,\s*"([a-z0-9_]+)"\s*[,)])re");
     for (const auto& entry : fs::directory_iterator(fs::path(OPENRAC_RAC1_HOST))) {
         if (entry.path().extension() != ".c") {
             continue;
