@@ -43,7 +43,9 @@ bool valid_state(State state, bool image) {
         case Layout::ColourAttachment:
             return within(state.stages, Stage::ColourOutput);
         case Layout::DepthAttachment:
-            return within(state.stages, Stage::DepthTests | Stage::ColourOutput);
+            // Colour output can write a depth resolve, but depth reads require depth tests.
+            return within(state.stages, Stage::DepthTests | Stage::ColourOutput)
+                   && (!reads(state.access) || state.stages != Stage::ColourOutput);
         case Layout::DepthReadOnly:
             return !writes(state.access) && within(state.stages, kShaders | Stage::DepthTests);
         case Layout::TransferSource:
@@ -64,7 +66,8 @@ bool valid_aspects(Layout layout, Aspect aspects) {
     const bool depth = layout == Layout::DepthAttachment || layout == Layout::DepthReadOnly;
     const bool colour =
         (static_cast<unsigned>(aspects) & static_cast<unsigned>(Aspect::Colour)) != 0;
-    return !(depth && colour) && (layout != Layout::ColourAttachment || aspects == Aspect::Colour);
+    const bool colour_only = layout == Layout::ColourAttachment || layout == Layout::Present;
+    return !(depth && colour) && (!colour_only || aspects == Aspect::Colour);
 }
 
 namespace {

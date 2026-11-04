@@ -371,6 +371,14 @@ void test_invalid_imports() {
     description.defined = true;
     CHECK(!builder.import_image("contents in undefined layout", description));
     CHECK(!builder.import_buffer("image layout on buffer", {{2, 0}, 16, kSample, true}));
+
+    graph::ImageDesc depth{{3, 0}, 1, 1, graph::Aspect::Depth};
+    depth.initial = {Stage::ColourOutput, Access::Read, Layout::DepthAttachment};
+    CHECK(!builder.import_image("depth read without depth tests", depth));
+    depth.initial = {Stage::All, Access::Read, Layout::Present};
+    CHECK(!builder.import_image("present depth image", depth));
+    depth.initial = {Stage::ColourOutput, Access::Write, Layout::DepthAttachment};
+    CHECK(builder.import_image("depth resolve output", depth));
 }
 
 // Unused imports remain unused, and a compiled plan owns its labels independently of the builder.
