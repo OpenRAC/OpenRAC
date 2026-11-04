@@ -9,7 +9,7 @@
   import { onDestroy, onMount } from "svelte";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { inTauri, onAndroid, type PluginView } from "$lib/api";
-  import { launcherBackend, pageOrigin, pageUrl, PROTOCOL, reply, type ToolInfo } from "$lib/modTool";
+  import { launcherBackend, pageOrigin, pageUrl, PROTOCOL, reply, trackSaves, type ToolInfo } from "$lib/modTool";
   import { routePad } from "$lib/pad";
   import * as T from "$lib/modsText";
   import Icon from "./Icon.svelte";
@@ -49,6 +49,9 @@
     if (origin) frame?.contentWindow?.postMessage(message, origin, transfer);
   }
 
+  // The files the page is saving in parts, dropped if it closes before it finishes them.
+  const backend = trackSaves(launcherBackend);
+
   function onMessage(e: MessageEvent) {
     void handle(e);
   }
@@ -61,7 +64,7 @@
       onclose();
       return;
     }
-    const answer = await reply(data, info, launcherBackend);
+    const answer = await reply(data, info, backend);
     if (!answer) return;
     if (answer.message.ok === false) failure = T.MOD_TOOL.failed(String(answer.message.error));
     post(answer.message, answer.transfer);
@@ -85,6 +88,7 @@
   });
 
   onDestroy(() => {
+    backend.dropUnfinished();
     window.removeEventListener("message", onMessage);
     routePad(null);
   });

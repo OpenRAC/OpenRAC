@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageOrigin, pageUrl, readRequest, reply, type ToolBackend, type ToolInfo } from "./modTool";
+import { pageOrigin, pageUrl, readRequest, reply, trackSaves, type ToolBackend, type ToolInfo } from "./modTool";
 
 const info: ToolInfo = {
   game: "rac1",
@@ -23,6 +23,9 @@ function backend(): ToolBackend & { asked: unknown[][] } {
       Promise.resolve("~/Nanotech.zip")
     ),
     open: () => Promise.resolve(new ArrayBuffer(0)),
+    saveStart: (...a) => (asked.push(["saveStart", ...a]), Promise.resolve(7)),
+    saveWrite: (token, bytes) => (asked.push(["saveWrite", token, bytes.byteLength]), Promise.resolve(null)),
+    saveEnd: (...a) => (asked.push(["saveEnd", ...a]), Promise.resolve(a[1] ? "~/Pack.zip" : "")),
   };
 }
 
@@ -101,6 +104,29 @@ describe("a mod page's messages", () => {
       ["storeSet", "nanotech-upscaler", "presets", [1]],
       ["save", "nanotech-upscaler", "Nanotech", "zip", 4],
     ]);
+  });
+
+  it("saves a large file in parts, and drops it when the page closes first", async () => {
+    const b = backend();
+    const tracked = trackSaves(b);
+    const call = (id: number, call: string, args: Record<string, unknown>) =>
+      reply({ openrac: 1, id, call, args }, info, tracked).then((r) => r?.message);
+    expect((await call(1, "saveStart", { name: "Pack", extension: "zip" }))?.value).toBe(7);
+    expect((await call(2, "saveWrite", { token: 7, bytes: new ArrayBuffer(3) }))?.ok).toBe(true);
+    expect((await call(3, "saveEnd", { token: 7, keep: true }))?.value).toBe("~/Pack.zip");
+    await call(4, "saveStart", { name: "Other", extension: "zip" });
+    tracked.dropUnfinished();
+    expect(b.asked).toEqual([
+      ["saveStart", "nanotech-upscaler", "Pack", "zip"],
+      ["saveWrite", 7, 3],
+      ["saveEnd", 7, true],
+      ["saveStart", "nanotech-upscaler", "Other", "zip"],
+      ["saveEnd", 7, false],
+    ]);
+    expect(
+      readRequest({ openrac: 1, id: 5, call: "saveWrite", args: { token: 0, bytes: new ArrayBuffer(1) } }),
+    ).toHaveProperty("error");
+    expect(readRequest({ openrac: 1, id: 6, call: "saveWrite", args: { token: 7 } })).toHaveProperty("error");
   });
 
   it("says why a call failed", async () => {

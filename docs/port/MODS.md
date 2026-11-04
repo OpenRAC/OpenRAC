@@ -737,6 +737,9 @@ is kept apart from the launcher
 | `read` | `root`, `path` | the file's bytes (an `ArrayBuffer`, at most 64 MB) |
 | `storeGet`, `storeSet` | `key` (`[a-z0-9_-]`, at most 64), `value` (null removes it) | a JSON value of the mod's own, at most 1 MB, in `<data home>/mod-tools/<id>/<key>.json`, kept across updates |
 | `save` | `name`, `extension` (`zip` or `json`), `bytes` | asks the player where to save the file (Android: its "save as" screen): the name it was saved under, `""` when they backed out |
+| `saveStart` | `name`, `extension` | starts a file too large to hand over at once (a texture pack): asks where to save it (Android: at the end), answers a number for its parts, `0` when they backed out |
+| `saveWrite` | `token`, `bytes` | the next part, in order |
+| `saveEnd` | `token`, `keep` | kept: the name it was saved under; or dropped. A page closed before it ends a file leaves nothing of it |
 | `open` | `extension` (`json`) | a small file the player picks (at most 1 MB): its bytes, null when they backed out |
 | `close` | | back to the mod's page |
 

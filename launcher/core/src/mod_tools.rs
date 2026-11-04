@@ -242,6 +242,57 @@ pub fn save_name(name: &str, extension: &str, allowed: &[&str]) -> Result<String
 /// The kinds of file a page may save through the dialog: a texture pack and its own settings.
 pub const SAVE_KINDS: &[&str] = &["zip", "json"];
 
+/// The most bytes a file saved in parts may hold (a texture pack of every texture at 6x is a few GB).
+pub const SAVE_MAX: u64 = 16 << 30;
+
+/// A file a page saves in parts (a texture pack too large to hold in memory at once): written to
+/// `<dest>.part`, renamed to `dest` when it is finished, removed when it is not.
+pub struct PartSave {
+    part: PathBuf,
+    dest: PathBuf,
+    file: std::fs::File,
+    written: u64,
+}
+
+impl PartSave {
+    pub fn create(dest: &Path) -> Result<Self, String> {
+        let mut part = dest.as_os_str().to_owned();
+        part.push(".part");
+        let part = PathBuf::from(part);
+        let file = std::fs::File::create(&part).map_err(|e| format!("{}: {e}", part.display()))?;
+        Ok(Self { part, dest: dest.to_path_buf(), file, written: 0 })
+    }
+
+    /// Adds `bytes` to the end; refused past SAVE_MAX.
+    pub fn write(&mut self, bytes: &[u8]) -> Result<(), String> {
+        use std::io::Write;
+        if self.written + bytes.len() as u64 > SAVE_MAX {
+            return Err(format!("the file is larger than {} GB", SAVE_MAX >> 30));
+        }
+        self.file.write_all(bytes).map_err(|e| format!("{}: {e}", self.part.display()))?;
+        self.written += bytes.len() as u64;
+        Ok(())
+    }
+
+    /// The file in its place: its path. An empty file is not kept.
+    pub fn finish(self) -> Result<PathBuf, String> {
+        if self.written == 0 {
+            self.abort();
+            return Err("nothing was written".into());
+        }
+        self.file.sync_all().map_err(|e| format!("{}: {e}", self.part.display()))?;
+        drop(self.file);
+        std::fs::rename(&self.part, &self.dest).map_err(|e| format!("{}: {e}", self.dest.display()))?;
+        Ok(self.dest)
+    }
+
+    /// Nothing kept.
+    pub fn abort(self) {
+        drop(self.file);
+        let _ = std::fs::remove_file(&self.part);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -310,6 +361,25 @@ mod tests {
         assert_eq!(save_name("../../a/b", "json", SAVE_KINDS).unwrap(), "_.._a_b.json");
         assert_eq!(save_name("", "zip", SAVE_KINDS).unwrap(), "file.zip");
         assert!(save_name("x", "exe", SAVE_KINDS).is_err());
+    }
+
+    #[test]
+    fn saved_in_parts() {
+        let dir = temp("parts");
+        let dest = dir.join("pack.zip");
+        let mut save = PartSave::create(&dest).unwrap();
+        save.write(b"PK").unwrap();
+        save.write(b"rest").unwrap();
+        assert!(!dest.exists(), "not in its place until it is finished");
+        assert_eq!(save.finish().unwrap(), dest);
+        assert_eq!(std::fs::read(&dest).unwrap(), b"PKrest");
+        assert!(!dir.join("pack.zip.part").exists());
+        let mut dropped = PartSave::create(&dir.join("other.zip")).unwrap();
+        dropped.write(b"x").unwrap();
+        dropped.abort();
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "an aborted save leaves nothing");
+        assert!(PartSave::create(&dir.join("empty.zip")).unwrap().finish().is_err());
+        assert!(!dir.join("empty.zip").exists() && !dir.join("empty.zip.part").exists());
     }
 
     #[test]

@@ -2,7 +2,9 @@
 //! the commands its messages are answered with (src/lib/modTool.ts). The page itself never calls
 //! these: the launcher's own window does, for it, after checking what it asked.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex};
 
 use openrac_launcher_core::mod_tools::{self, ToolFile, ToolRoot};
 use openrac_launcher_core::{launcher_log, plugins, saves, texture_packs};
@@ -170,6 +172,106 @@ pub(crate) async fn mod_tool_save(app: AppHandle, request: tauri::ipc::Request<'
             .await
             .map_err(|e| e.to_string())?
             .map_err(|e| format!("{}: {e}", dest.display()))?;
+        launcher_log::line(&format!("{id}: saved {}", dest.display()));
+        Ok(openrac_launcher_core::reports::tidy(
+            &dest.to_string_lossy(),
+            openrac_launcher_core::reports::home().as_deref(),
+        ))
+    }
+}
+
+/// A file a mod's page is saving in parts (mod_tool_save_start, _write, _end): where it goes.
+struct Saving {
+    file: mod_tools::PartSave,
+    id: String,
+    /// Android: the name the player is offered in its "save as" screen at the end, and its type.
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+    name: String,
+    #[cfg_attr(not(target_os = "android"), allow(dead_code))]
+    mime: &'static str,
+}
+
+static SAVING: LazyLock<Mutex<(u64, HashMap<u64, Saving>)>> = LazyLock::new(|| Mutex::new((0, HashMap::new())));
+
+/// Starts saving a large file a mod's page makes in parts (its texture pack): asks the player where
+/// on a desktop (on Android at the end), and answers the number its parts are sent with; 0 when
+/// they backed out.
+#[tauri::command]
+pub(crate) async fn mod_tool_save_start(
+    app: AppHandle,
+    id: String,
+    name: String,
+    extension: String,
+) -> Result<u64, String> {
+    let name = mod_tools::save_name(&name, &extension, mod_tools::SAVE_KINDS)?;
+    let mime = if extension == "zip" { "application/zip" } else { "application/json" };
+    #[cfg(target_os = "android")]
+    let dest: PathBuf = {
+        let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("mod-tool-saves");
+        std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        cache.join(&name)
+    };
+    #[cfg(not(target_os = "android"))]
+    let dest: PathBuf = {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app.dialog().file().set_file_name(&name).add_filter(&name, &[extension.as_str()]);
+        if let Some(dir) = openrac_launcher_core::reports::save_folder() {
+            dialog = dialog.set_directory(dir);
+        }
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        let Some(picked) = picked else { return Ok(0) };
+        picked.into_path().map_err(|e| e.to_string())?
+    };
+    let file = mod_tools::PartSave::create(&dest)?;
+    let mut saving = SAVING.lock().unwrap();
+    saving.0 += 1;
+    let token = saving.0;
+    saving.1.insert(token, Saving { file, id, name, mime });
+    Ok(token)
+}
+
+/// The next part of a file being saved: the request's body, its `x-token` header.
+#[tauri::command]
+pub(crate) fn mod_tool_save_write(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("no bytes to save".into()) };
+    let token: u64 = header_text(&request, "x-token")?.parse().map_err(|_| "a broken x-token")?;
+    let mut saving = SAVING.lock().unwrap();
+    let save = saving.1.get_mut(&token).ok_or("no such file being saved")?;
+    let written = save.file.write(bytes);
+    if written.is_err() {
+        if let Some(save) = saving.1.remove(&token) {
+            save.file.abort();
+        }
+    }
+    written
+}
+
+/// Ends a file being saved: kept (`keep`), the name it was saved under (Android: "" when the player
+/// backed out of its "save as" screen); or dropped, nothing left of it.
+#[tauri::command]
+pub(crate) async fn mod_tool_save_end(app: AppHandle, token: u64, keep: bool) -> Result<String, String> {
+    let save = SAVING.lock().unwrap().1.remove(&token).ok_or("no such file being saved")?;
+    if !keep {
+        save.file.abort();
+        return Ok(String::new());
+    }
+    let id = save.id;
+    let dest = tauri::async_runtime::spawn_blocking(move || save.file.finish()).await.map_err(|e| e.to_string())??;
+    #[cfg(target_os = "android")]
+    {
+        let saved = crate::android::save_as_type(&app, &dest, &save.name, save.mime).await;
+        let _ = std::fs::remove_file(&dest);
+        let saved = saved?.unwrap_or_default();
+        if !saved.is_empty() {
+            launcher_log::line(&format!("{id}: saved {saved}"));
+        }
+        Ok(saved)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = &app;
         launcher_log::line(&format!("{id}: saved {}", dest.display()));
         Ok(openrac_launcher_core::reports::tidy(
             &dest.to_string_lossy(),

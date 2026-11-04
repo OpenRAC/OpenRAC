@@ -450,6 +450,13 @@ export const api = {
       "x-name": encodeURIComponent(name),
       "x-extension": encodeURIComponent(extension),
     }),
+  /** Starts saving a large file in parts: its number, 0 when the player backed out. */
+  modToolSaveStart: (id: string, name: string, extension: string) =>
+    call<number>("mod_tool_save_start", { id, name, extension }),
+  modToolSaveWrite: (token: number, bytes: Uint8Array) =>
+    callRaw<null>("mod_tool_save_write", bytes, { "x-token": String(token) }),
+  /** Ends it: kept (the name it was saved under) or dropped (""). */
+  modToolSaveEnd: (token: number, keep: boolean) => call<string>("mod_tool_save_end", { token, keep }),
   /** A small file the player picks: its bytes, empty when they backed out. */
   modToolOpen: (extension: string) => call<ArrayBuffer>("mod_tool_open", { extension }),
   enhancedView: (game: string, version: string) => call<EnhancedView | null>("enhanced_view", { game, version }),

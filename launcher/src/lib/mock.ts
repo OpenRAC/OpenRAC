@@ -2585,6 +2585,12 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay(null);
     case "mod_tool_save":
       return delay("~/Downloads/Nanotech 4x.zip");
+    case "mod_tool_save_start":
+      return delay(1);
+    case "mod_tool_save_write":
+      return delay(null);
+    case "mod_tool_save_end":
+      return delay(args.keep ? "~/Downloads/Nanotech Upscaler rac1-pal.zip" : "");
     case "texture_packs_export":
       return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
     case "enhanced_view":

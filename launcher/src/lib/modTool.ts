@@ -13,6 +13,9 @@
 // | storeGet  | key                                    | what the mod stored under key, or null        |
 // | storeSet  | key, value (null removes it)           | null                                          |
 // | save      | name, extension ("zip", "json"), bytes | the name it was saved under, "" if backed out |
+// | saveStart | name, extension                        | a number for the parts, 0 if backed out       |
+// | saveWrite | token, bytes                           | null (the parts in order)                     |
+// | saveEnd   | token, keep                            | the name it was saved under, "" if dropped    |
 // | open      | extension ("json")                     | the bytes the player picked, null if backed out |
 import { api, type ToolFile, type ToolRoot } from "./api";
 
@@ -36,12 +39,16 @@ export type ToolRequest =
   | { id: number; call: "storeGet"; key: string }
   | { id: number; call: "storeSet"; key: string; value: unknown }
   | { id: number; call: "save"; name: string; extension: "zip" | "json"; bytes: ArrayBuffer }
+  | { id: number; call: "saveStart"; name: string; extension: "zip" | "json" }
+  | { id: number; call: "saveWrite"; token: number; bytes: ArrayBuffer }
+  | { id: number; call: "saveEnd"; token: number; keep: boolean }
   | { id: number; call: "open"; extension: "json" };
 
 const ROOTS: readonly string[] = ["levels", "dump"];
 const KEY = /^[a-z0-9_-]{1,64}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const isToken = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;
 const text = (v: unknown, most = 512): v is string => typeof v === "string" && v.length > 0 && v.length <= most;
 
 /** A message from the page as one of the calls, or why it is not one (null: not a message of ours). */
@@ -75,6 +82,18 @@ export function readRequest(data: unknown): ToolRequest | { id: number; error: s
       return text(args.name, 200)
         ? { id, call: "save", name: args.name, extension: args.extension, bytes: args.bytes }
         : refuse("no name");
+    case "saveStart":
+      if (args.extension !== "zip" && args.extension !== "json") return refuse("extension is zip or json");
+      return text(args.name, 200)
+        ? { id, call: "saveStart", name: args.name, extension: args.extension }
+        : refuse("no name");
+    case "saveWrite":
+      if (!isToken(args.token)) return refuse("a bad token");
+      if (!(args.bytes instanceof ArrayBuffer) || args.bytes.byteLength === 0) return refuse("no bytes to save");
+      return { id, call: "saveWrite", token: args.token, bytes: args.bytes };
+    case "saveEnd":
+      if (!isToken(args.token)) return refuse("a bad token");
+      return { id, call: "saveEnd", token: args.token, keep: args.keep === true };
     case "open":
       return args.extension === "json" ? { id, call: "open", extension: "json" } : refuse("extension is json");
     default:
@@ -89,6 +108,9 @@ export interface ToolBackend {
   storeGet(id: string, key: string): Promise<unknown>;
   storeSet(id: string, key: string, value: unknown): Promise<unknown>;
   save(id: string, name: string, extension: string, bytes: Uint8Array): Promise<string>;
+  saveStart(id: string, name: string, extension: string): Promise<number>;
+  saveWrite(token: number, bytes: Uint8Array): Promise<unknown>;
+  saveEnd(token: number, keep: boolean): Promise<string>;
   open(extension: string): Promise<ArrayBuffer>;
 }
 
@@ -98,8 +120,33 @@ export const launcherBackend: ToolBackend = {
   storeGet: api.modToolStoreGet,
   storeSet: api.modToolStoreSet,
   save: api.modToolSave,
+  saveStart: api.modToolSaveStart,
+  saveWrite: api.modToolSaveWrite,
+  saveEnd: api.modToolSaveEnd,
   open: api.modToolOpen,
 };
+
+/** A backend that remembers the files a page has not finished saving, so that closing the page
+ *  drops them (nothing half-written is left). */
+export function trackSaves(backend: ToolBackend): ToolBackend & { dropUnfinished(): void } {
+  const open = new Set<number>();
+  return {
+    ...backend,
+    async saveStart(id, name, extension) {
+      const token = await backend.saveStart(id, name, extension);
+      if (token) open.add(token);
+      return token;
+    },
+    saveEnd(token, keep) {
+      open.delete(token);
+      return backend.saveEnd(token, keep);
+    },
+    dropUnfinished() {
+      for (const token of open) void backend.saveEnd(token, false).catch(() => undefined);
+      open.clear();
+    },
+  };
+}
 
 /** The value a call answers with. */
 export async function answer(request: ToolRequest, info: ToolInfo, backend: ToolBackend): Promise<unknown> {
@@ -118,6 +165,13 @@ export async function answer(request: ToolRequest, info: ToolInfo, backend: Tool
       return null;
     case "save":
       return backend.save(info.mod.id, request.name, request.extension, new Uint8Array(request.bytes));
+    case "saveStart":
+      return backend.saveStart(info.mod.id, request.name, request.extension);
+    case "saveWrite":
+      await backend.saveWrite(request.token, new Uint8Array(request.bytes));
+      return null;
+    case "saveEnd":
+      return backend.saveEnd(request.token, request.keep);
     case "open": {
       const bytes = await backend.open(request.extension);
       return bytes.byteLength ? bytes : null;
