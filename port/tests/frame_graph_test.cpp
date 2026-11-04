@@ -209,6 +209,24 @@ void test_all_readers_after_writer() {
     CHECK(edge(*plan, 0, 2, buffer->index));
 }
 
+void test_writer_scope_excludes_disjoint_reader() {
+    graph::Graph builder;
+    const auto buffer = builder.import_buffer("buffer", {{1, 0}, 32});
+    CHECK(buffer);
+    const graph::State fragment{Stage::FragmentShader, Access::Read, Layout::Buffer};
+    builder.add_pass({"initialise", {}, {{*buffer, {0, 32}, kBufferWrite}}});
+    builder.add_pass({"read prefix", {}, {{*buffer, {0, 16}, kBufferRead}}});
+    builder.add_pass({"overwrite prefix", {}, {{*buffer, {0, 16}, kBufferWrite}}});
+    builder.add_pass({"read suffix", {}, {{*buffer, {16, 16}, fragment}}});
+    const auto plan = builder.compile();
+    CHECK(plan);
+    CHECK(
+        plan->passes[1].barriers[0].after.stages == (Stage::ComputeShader | Stage::FragmentShader)
+    );
+    CHECK(plan->passes[2].barriers[0].before == kBufferRead);
+    CHECK(plan->passes[3].barriers[0].before == kBufferWrite);
+}
+
 // Allocation aliases canonicalise, while recycled generations remain independent resources.
 void test_alias_identity() {
     graph::Graph builder;
@@ -239,6 +257,23 @@ void test_pass_feedback() {
     CHECK(builder.compile().has_value());
     builder.add_pass({"two writes", {{texture, {}, kWrite}, {texture, {}, kWrite}}});
     CHECK(!builder.compile());
+}
+
+// A shorter compatible read must not hide a conflict with an earlier enclosing range.
+void test_nested_range_conflict() {
+    graph::Graph builder;
+    const auto buffer = builder.import_buffer("buffer", {{1, 0}, 64});
+    CHECK(buffer);
+    builder.add_pass(
+        {"nested read and conflicting write",
+         {},
+         {{*buffer, {32, 8}, kBufferWrite},
+          {*buffer, {8, 8}, kBufferRead},
+          {*buffer, {0, 64}, kBufferRead}}}
+    );
+    const auto plan = builder.compile();
+    CHECK(!plan);
+    CHECK(plan.error().message.find("overlapping writes") != std::string::npos);
 }
 
 // Overflowing ranges and handles of the wrong resource type fail before interval arithmetic.
@@ -460,8 +495,10 @@ int main(int argc, char** argv) {
         test_read_write_hazards();
         test_all_readers_before_writer();
         test_all_readers_after_writer();
+        test_writer_scope_excludes_disjoint_reader();
         test_alias_identity();
         test_pass_feedback();
+        test_nested_range_conflict();
         test_invalid_ranges();
         test_attachment_contents();
         test_depth_stencil_aspects();
