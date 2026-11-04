@@ -439,8 +439,8 @@ export const api = {
   // A mod's own page (core/src/mod_tools.rs, src-tauri/src/mod_tool.rs, lib/modTool.ts).
   modToolList: (game: string, version: string, root: ToolRoot) =>
     call<ToolFile[]>("mod_tool_list", { game, version, root }),
-  modToolRead: (game: string, version: string, root: ToolRoot, path: string) =>
-    call<ArrayBuffer>("mod_tool_read", { game, version, root, path }),
+  modToolRead: (game: string, version: string, root: ToolRoot, path: string, start?: number, length?: number) =>
+    call<ArrayBuffer>("mod_tool_read", { game, version, root, path, start: start ?? null, length: length ?? null }),
   modToolStoreGet: (id: string, key: string) => call<unknown>("mod_tool_store_get", { id, key }),
   modToolStoreSet: (id: string, key: string, value: unknown) => call<null>("mod_tool_store_set", { id, key, value }),
   /** Saves a file the page made where the player chooses: the name it was saved under, or "" (backed out). */

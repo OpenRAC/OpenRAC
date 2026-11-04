@@ -160,15 +160,27 @@ pub fn list(root: &Path) -> Result<Vec<ToolFile>, String> {
 
 /// The bytes of `rel` under `root`: a readable file inside it, at most READ_MAX bytes.
 pub fn read(root: &Path, rel: &str) -> Result<Vec<u8>, String> {
+    read_range(root, rel, 0, None)
+}
+
+/// Part of `rel`: `length` bytes (all to its end when None) from `start`, at most READ_MAX; fewer
+/// past its end. A model's header is read so, without its meshes.
+pub fn read_range(root: &Path, rel: &str, start: u64, length: Option<u64>) -> Result<Vec<u8>, String> {
+    use std::io::{Read, Seek, SeekFrom};
     let path = inside(root, rel)?;
     if !path.is_file() || !readable(&path) {
         return Err(format!("{rel} is not a file a mod's page may read"));
     }
     let size = path.metadata().map_err(|e| e.to_string())?.len();
-    if size > READ_MAX {
+    let wanted = length.unwrap_or(size.saturating_sub(start)).min(size.saturating_sub(start));
+    if wanted > READ_MAX {
         return Err(format!("{rel} is larger than {} MB", READ_MAX >> 20));
     }
-    std::fs::read(&path).map_err(|e| format!("{rel}: {e}"))
+    let mut file = std::fs::File::open(&path).map_err(|e| format!("{rel}: {e}"))?;
+    file.seek(SeekFrom::Start(start)).map_err(|e| format!("{rel}: {e}"))?;
+    let mut out = Vec::with_capacity(wanted as usize);
+    file.take(wanted).read_to_end(&mut out).map_err(|e| format!("{rel}: {e}"))?;
+    Ok(out)
 }
 
 fn valid_key(key: &str) -> bool {
@@ -361,6 +373,17 @@ mod tests {
         assert_eq!(save_name("../../a/b", "json", SAVE_KINDS).unwrap(), "_.._a_b.json");
         assert_eq!(save_name("", "zip", SAVE_KINDS).unwrap(), "file.zip");
         assert!(save_name("x", "exe", SAVE_KINDS).is_err());
+    }
+
+    #[test]
+    fn read_in_part() {
+        let dir = temp("range");
+        std::fs::write(dir.join("a.glb"), b"glTF0123456789").unwrap();
+        assert_eq!(read_range(&dir, "a.glb", 0, Some(4)).unwrap(), b"glTF");
+        assert_eq!(read_range(&dir, "a.glb", 10, None).unwrap(), b"6789");
+        assert_eq!(read_range(&dir, "a.glb", 12, Some(100)).unwrap(), b"89");
+        assert_eq!(read_range(&dir, "a.glb", 99, Some(4)).unwrap(), b"");
+        assert!(read_range(&dir, "../a.glb", 0, Some(4)).is_err());
     }
 
     #[test]

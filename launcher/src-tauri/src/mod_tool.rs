@@ -95,7 +95,7 @@ pub(crate) async fn mod_tool_list(
     tauri::async_runtime::spawn_blocking(move || mod_tools::list(&dir)).await.map_err(|e| e.to_string())?
 }
 
-/// One of those files, as bytes.
+/// One of those files, as bytes: all of it, or `length` bytes from `start`.
 #[tauri::command]
 pub(crate) async fn mod_tool_read(
     state: State<'_, AppState>,
@@ -103,11 +103,14 @@ pub(crate) async fn mod_tool_read(
     version: String,
     root: ToolRoot,
     path: String,
+    start: Option<u64>,
+    length: Option<u64>,
 ) -> Result<tauri::ipc::Response, String> {
     let dir = root_dir(&state, &game, &version, root)?;
-    let bytes = tauri::async_runtime::spawn_blocking(move || mod_tools::read(&dir, &path))
-        .await
-        .map_err(|e| e.to_string())??;
+    let bytes =
+        tauri::async_runtime::spawn_blocking(move || mod_tools::read_range(&dir, &path, start.unwrap_or(0), length))
+            .await
+            .map_err(|e| e.to_string())??;
     Ok(tauri::ipc::Response::new(bytes))
 }
 

@@ -9,7 +9,7 @@
 // |-----------|----------------------------------------|-----------------------------------------------|
 // | info      |                                        | the game, its disc, its texture pack's id, the mod, the system |
 // | list      | root ("levels" or "dump")              | the files there: [{ path, size }]             |
-// | read      | root, path                             | the file's bytes (an ArrayBuffer)             |
+// | read      | root, path, start?, length?            | the file's bytes, or that part (ArrayBuffer)  |
 // | storeGet  | key                                    | what the mod stored under key, or null        |
 // | storeSet  | key, value (null removes it)           | null                                          |
 // | save      | name, extension ("zip", "json"), bytes | the name it was saved under, "" if backed out |
@@ -35,7 +35,7 @@ export interface ToolInfo {
 export type ToolRequest =
   | { id: number; call: "info" }
   | { id: number; call: "list"; root: ToolRoot }
-  | { id: number; call: "read"; root: ToolRoot; path: string }
+  | { id: number; call: "read"; root: ToolRoot; path: string; start?: number; length?: number }
   | { id: number; call: "storeGet"; key: string }
   | { id: number; call: "storeSet"; key: string; value: unknown }
   | { id: number; call: "save"; name: string; extension: "zip" | "json"; bytes: ArrayBuffer }
@@ -48,6 +48,11 @@ const ROOTS: readonly string[] = ["levels", "dump"];
 const KEY = /^[a-z0-9_-]{1,64}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const count = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+/** A read's part, when it asks for one. */
+function range(args: Record<string, unknown>): { start?: number; length?: number } {
+  return { ...(count(args.start) && { start: args.start }), ...(count(args.length) && { length: args.length }) };
+}
 const isToken = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;
 const text = (v: unknown, most = 512): v is string => typeof v === "string" && v.length > 0 && v.length <= most;
 
@@ -68,7 +73,7 @@ export function readRequest(data: unknown): ToolRequest | { id: number; error: s
     case "read":
       if (!ROOTS.includes(args.root as string)) return refuse("root is levels or dump");
       return text(args.path, 1024)
-        ? { id, call: "read", root: args.root as ToolRoot, path: args.path }
+        ? { id, call: "read", root: args.root as ToolRoot, path: args.path, ...range(args) }
         : refuse("no path");
     case "storeGet":
       return text(args.key) && KEY.test(args.key) ? { id, call: "storeGet", key: args.key } : refuse("a bad key");
@@ -104,7 +109,14 @@ export function readRequest(data: unknown): ToolRequest | { id: number; error: s
 /** The calls' work, so a test can stand in for the launcher. */
 export interface ToolBackend {
   list(game: string, version: string, root: ToolRoot): Promise<ToolFile[]>;
-  read(game: string, version: string, root: ToolRoot, path: string): Promise<ArrayBuffer>;
+  read(
+    game: string,
+    version: string,
+    root: ToolRoot,
+    path: string,
+    start?: number,
+    length?: number,
+  ): Promise<ArrayBuffer>;
   storeGet(id: string, key: string): Promise<unknown>;
   storeSet(id: string, key: string, value: unknown): Promise<unknown>;
   save(id: string, name: string, extension: string, bytes: Uint8Array): Promise<string>;
@@ -157,7 +169,7 @@ export async function answer(request: ToolRequest, info: ToolInfo, backend: Tool
     case "list":
       return backend.list(game, version, request.root);
     case "read":
-      return backend.read(game, version, request.root, request.path);
+      return backend.read(game, version, request.root, request.path, request.start, request.length);
     case "storeGet":
       return (await backend.storeGet(info.mod.id, request.key)) ?? null;
     case "storeSet":

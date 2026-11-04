@@ -129,6 +129,24 @@ describe("a mod page's messages", () => {
     expect(readRequest({ openrac: 1, id: 6, call: "saveWrite", args: { token: 7 } })).toHaveProperty("error");
   });
 
+  it("reads part of a file", async () => {
+    const b = backend();
+    await reply(
+      { openrac: 1, id: 1, call: "read", args: { root: "levels", path: "a.glb", start: 0, length: 20 } },
+      info,
+      b,
+    );
+    await reply(
+      { openrac: 1, id: 2, call: "read", args: { root: "levels", path: "a.glb", start: -1, length: "x" } },
+      info,
+      b,
+    );
+    expect(b.asked).toEqual([
+      ["read", "rac1", "pal", "levels", "a.glb", 0, 20],
+      ["read", "rac1", "pal", "levels", "a.glb", undefined, undefined],
+    ]);
+  });
+
   it("says why a call failed", async () => {
     const b = backend();
     b.read = () => Promise.reject(new Error("level_00/x.png is not there"));

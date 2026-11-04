@@ -734,7 +734,7 @@ is kept apart from the launcher
 |---|---|---|
 | `info` | | `{game, version, packId, mod: {id, name, version}, system}`: the game and disc it was opened for, the id of their texture pack (`rac1-pal`), `android` or `desktop` |
 | `list` | `root`: `levels` or `dump` | `[{path, size}]`: the files of the game's levels as the launcher read them from the disc (`assets/port/<game>/<version>`), or of the textures the game saved while it was played (Texture packs, `texture_dumps/<id>`); pictures, models and what describes them (`.png .gif .glb .gltf .bin .json .txt`) |
-| `read` | `root`, `path` | the file's bytes (an `ArrayBuffer`, at most 64 MB) |
+| `read` | `root`, `path`, optional `start` and `length` | the file's bytes (an `ArrayBuffer`, at most 64 MB), or that part of it (a model's header without its meshes) |
 | `storeGet`, `storeSet` | `key` (`[a-z0-9_-]`, at most 64), `value` (null removes it) | a JSON value of the mod's own, at most 1 MB, in `<data home>/mod-tools/<id>/<key>.json`, kept across updates |
 | `save` | `name`, `extension` (`zip` or `json`), `bytes` | asks the player where to save the file (Android: its "save as" screen): the name it was saved under, `""` when they backed out |
 | `saveStart` | `name`, `extension` | starts a file too large to hand over at once (a texture pack): asks where to save it (Android: at the end), answers a number for its parts, `0` when they backed out |
