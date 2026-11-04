@@ -152,7 +152,11 @@ static void wide_run_list(void (*run)(void), float wider, float taller) {
 /* The sphere test `game`: against the opened view while a list runs, or `effects` updates that
  * stand for what the player sees (at `effect_wider` and `effect_taller`) do. */
 static int wide_sphere(
-    int (*game)(gaddr, float), gaddr sphere, float far, int effects, float effect_wider,
+    int (*game)(gaddr, float),
+    gaddr sphere,
+    float far,
+    int effects,
+    float effect_wider,
     float effect_taller
 ) {
     const float wider = wide_sphere_wider(g_lists, g_wider, effects, effect_wider);
