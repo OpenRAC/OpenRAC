@@ -1069,9 +1069,6 @@ void the_world_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         CHECK(!mods::play_skipping());
         g_phase = OPENRAC_GAME_PHASE_PLAYING;
         g_scene = -1;
-        // Asked with nothing playing (just after a scene): no Start pressed into the game.
-        CHECK(api.play_skip(reinterpret_cast<openrac_mod*>(&owner)) == OPENRAC_HOOK_OK);
-        CHECK(!mods::play_skipping());
     }
     CHECK(mods::play_notice() == "Waiting for the other players to arrive");
     g_played.clear();

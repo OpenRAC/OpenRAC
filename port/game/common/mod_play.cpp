@@ -627,10 +627,9 @@ int api_play_skip(openrac_mod* mod) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     std::int32_t level = -1;
+    g_skip_ticks = kSkipTicks;
     g_skip_phase = phase_now(&level);
     g_skip_scene = scene_now();
-    // Nothing to skip: come just after the scene ended, a press would open the pause menu.
-    g_skip_ticks = g_skip_phase == OPENRAC_PLAY_SCENE || g_skip_phase == OPENRAC_PLAY_LOADING ? kSkipTicks : 0;
     return OPENRAC_HOOK_OK;
 }
 

@@ -546,7 +546,6 @@ typedef struct openrac_game_play {
     int (*shared_give)(int tag, const void* data, uint32_t size);
     int (*mission_state_read)(int level, uint8_t* out);
     int (*mission_state_write)(int level, const uint8_t* in);
-    int (*mission_state_clear)(int level, const uint8_t* flags);
     /* A dead hero kept down, brought back or sent to his checkpoint (openrac_api.hero_revive and
      * its OPENRAC_REVIVE_* flags): 1 asked, 0 refused. NULL for a game without it. */
     int (*hero_revive)(const float position[3], uint32_t flags);
@@ -609,6 +608,9 @@ typedef struct openrac_game_play {
     /* Hit points taken from the hero as a hit does (openrac_api.hero_hurt): his health after, or
      * -1 with no hero. NULL for a game without it. */
     int (*hero_hurt)(int damage);
+    /* Clears the flags of a level's mission state that `flags` names: 1 done, 0 not. NULL for a game
+     * without it. */
+    int (*mission_state_clear)(int level, const uint8_t* flags);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
