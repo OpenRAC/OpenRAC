@@ -221,7 +221,13 @@ script and `OPENRAC_CLOCK`, leaving out the C's code and the stack. It says less
 memory once, at that field, not the result, kept registers or device order of each call, and covers only
 what that route ran. A difference overwritten before the field goes unseen. **`same-run` is not `same`:
 it does not make a row done.** Compare memory, not the random state and the hero's place: a loader with
-its `resume` test inverted passed those, and memory caught it. Columns: `name`, `status`, `date`,
+its `resume` test inverted passed those, and memory caught it.
+
+A verdict needs its controls: two plain runs agree on `--digest` (a hash of memory each field), and the
+function's own retail bytes through `--swap` give no differing field. `--cover` says what the route ran;
+the note gives it. A difference on some fields needs reading, not waving away: code that takes other
+instruction counts moves counters and load progress (retail's bytes padded with 400 `nop`s differed on
+more fields than any candidate here), but the difference can also be a bug. Columns: `name`, `status`, `date`,
 `decomp` (the commit), `csum`, `route`, `field`, `calls`, `note`.
 
 The gate uses the test-only interpreter in `tools/interpreter/` (built on its own with `cmake -S tools/interpreter -B build/interpreter`); it is never part of the port, the launcher or any release, and is never used to play.

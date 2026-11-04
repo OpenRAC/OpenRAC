@@ -234,6 +234,10 @@ int main(int argc, char** argv) {
 
     std::vector<Swap> swaps;
     std::set<long long> dump_fields;
+    std::FILE* digest_file = nullptr;
+    std::vector<u8> cover_map;
+    u32 cover_base = 0;
+    std::string cover_path;
     std::vector<Traced> traced;
     std::FILE* trace_file = nullptr;
     sys::Machine machine;
@@ -300,6 +304,20 @@ int main(int argc, char** argv) {
             while (std::getline(parts, part, ',')) {
                 dump_fields.insert(std::stoll(part));
             }
+        } else if (arg == "--digest" && i + 1 < argc) {
+            // FILE: a line per field with a hash of main memory, leaving out the swapped code
+            // (0xA0000 to 0x100000) and the stack (from 0x1F00000). Two runs part at the first line
+            // that differs.
+            digest_file = std::fopen(argv[++i], "w");
+        } else if (arg == "--cover" && i + 2 < argc) {
+            // ADDRESS:BYTES (hexadecimal) and FILE: which instructions of that code the run ran, a
+            // digit each, written at the end.
+            std::string range = argv[++i];
+            std::size_t colon = range.find(':');
+
+            cover_base = std::stoul(range.substr(0, colon), nullptr, 16);
+            cover_map.assign(std::stoul(range.substr(colon + 1), nullptr, 16) / 4, 0);
+            cover_path = argv[++i];
         } else if (arg == "--swap" && i + 1 < argc) {
             // ENTRY:FIRSTWORD:TARGET:FILE[:ADDRESS:FILE...] (hexadecimal addresses): a call of
             // ENTRY while FIRSTWORD is there goes to TARGET, with each FILE loaded at its address
@@ -806,6 +824,19 @@ int main(int argc, char** argv) {
             };
         }
 
+        // The field's memory as one number (FNV-1a over words).
+        if (digest_file) {
+            u64 hash = 0xCBF29CE484222325ull;
+            const u32* words = reinterpret_cast<const u32*>(machine.memory.ram(0x100000));
+
+            for (std::size_t n = 0; n < (0x1F00000 - 0x100000) / 4; n++) {
+                hash = (hash ^ words[n]) * 0x100000001B3ull;
+            }
+
+            std::fprintf(digest_file, "%lld %016llx\n", static_cast<long long>(machine.frames),
+                         static_cast<unsigned long long>(hash));
+        }
+
         // The fields whose memory `--dump-ram` keeps.
         if (dump_fields.count(static_cast<long long>(machine.frames))) {
             const std::string name = "ram_" + std::to_string(static_cast<long long>(machine.frames)) + ".bin";
@@ -1013,6 +1044,20 @@ int main(int argc, char** argv) {
 
     // When the run is over: the reports and the files asked for. Returns the exit code.
     auto finish = [&]() -> int {
+        if (!cover_path.empty()) {
+            if (std::FILE* file = std::fopen(cover_path.c_str(), "w")) {
+                for (u8 ran : cover_map) {
+                    std::fputc(ran ? '1' : '0', file);
+                }
+
+                std::fclose(file);
+            }
+        }
+
+        if (digest_file) {
+            std::fclose(digest_file);
+        }
+
         for (const Swap& swap : swaps) {
             std::fprintf(stderr, "swap %x: %llu calls\n", swap.entry, static_cast<unsigned long long>(swap.calls));
         }
@@ -1212,6 +1257,12 @@ int main(int argc, char** argv) {
     };
 
     before_field();
+
+    if (!cover_map.empty()) {
+        machine.ee.cover = cover_map.data();
+        machine.ee.cover_base = cover_base;
+        machine.ee.cover_bytes = static_cast<u32>(cover_map.size() * 4);
+    }
 
     if (!swaps.empty()) {
         machine.ee.on_call = [&machine, &swaps](u32 target) {
