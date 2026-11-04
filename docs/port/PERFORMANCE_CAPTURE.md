@@ -34,8 +34,8 @@ settings and record for 30 s. Record the same scene before and after a change.
 
 On Android 13 and later the game tells the system each frame's target time and how long
 the work took (ADPF). The system then keeps the CPU fast instead of lowering its clocks
-while the game waits for the display. The target asked for is 85% of the frame's time, so
-the clocks keep some in hand for a slower frame. To compare, record once as usual and once with
+while the game waits for the display. The target is the frame's whole time, and the work
+counts from one swap to the next, the wait for the game's tick included. To compare, record once as usual and once with
 `OPENRAC_ADPF_OFF` set. The header's **performance hint** line says which one you have.
 
 ### Simulating a slower device
