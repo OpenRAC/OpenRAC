@@ -109,6 +109,10 @@ std::string LevelScene::deformation_vertex(std::string source) const {
     return m_lighting ? m_lighting->mesh_vertex(std::move(source)) : source;
 }
 
+std::string LevelScene::motion_fragment(std::string source) const {
+    return m_lighting ? m_lighting->motion_fragment(std::move(source)) : source;
+}
+
 bool LevelScene::deformation_active() const {
     return m_lighting && m_lighting->deformation_active();
 }
@@ -1527,6 +1531,24 @@ void LevelScene::draw_layer(
                 ++state.stats.draw_calls;
                 state.stats.triangles += static_cast<std::uint64_t>(run_count / 3)
                                          * static_cast<std::uint64_t>(instances);
+                // Extra surfaces own their displaced depth; they cannot reuse the body's equal test.
+                const int layers = mobys && pass == 0 && !state.depth_prepass && m_lighting
+                                       ? m_lighting->surface_layers(g.model, run_first, run_count)
+                                       : 0;
+                if (layers > 0) {
+                    glDepthFunc(GL_GEQUAL);
+                    glDepthMask(GL_TRUE);
+                    for (int layer_index = 1; layer_index <= layers; ++layer_index) {
+                        m_lighting->bind_surface_layer(*program, layer_index);
+                        submit_instances(batch, run_first, run_count, instances);
+                        ++state.stats.draw_calls;
+                        state.stats.triangles += static_cast<std::uint64_t>(run_count / 3)
+                                                 * static_cast<std::uint64_t>(instances);
+                    }
+                    m_lighting->bind_surface_layer(*program, 0);
+                    glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+                    glDepthMask(reused ? GL_FALSE : GL_TRUE);
+                }
                 run_count = 0;
             };
             // The opaque pass of a static layer in material order (m_opaque).

@@ -355,7 +355,8 @@ void use_level(int number) {
                 renderer::Bucket::Particles,
                 enhanced::atmosphere_material(
                     g->scene,
-                    wanted == 1 && g->game.starts_with("rac1-")
+                    ((wanted == 1 && g->game.starts_with("rac1-"))
+                     || (wanted == 11 && g->game == "rac1-ntsc"))
                         ? enhanced::make_water(g->scene, dir)
                         : nullptr
                 )
@@ -1263,10 +1264,15 @@ void reset_foliage_controls() {
 extern "C" int openrac_game_enhanced_water(void) {
     using namespace openrac;
     return c_boundary::call("openrac_game_enhanced_water", 0, [] {
-        return int(
-            frontend::g && frontend::g->game.starts_with("rac1-") && frontend::g->loaded == 1
+        const bool available =
+            frontend::g && frontend::g->game.starts_with("rac1-")
+            && (frontend::g->loaded == 1
+                || (frontend::g->loaded == 11 && frontend::g->game == "rac1-ntsc"))
             && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
-            && enhanced::water_available()
-        );
+            && enhanced::water_available();
+        if (available && frontend::g->loaded == 11 && enhanced::ocean_replaces_horizon()) {
+            return 2;
+        }
+        return int(available);
     });
 }

@@ -294,6 +294,13 @@ class Bundle(unittest.TestCase):
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
+            ocean_profile = "port/enhanced/water/profiles/rac1-ntsc/level_11/ocean-profile.json"
+            ocean_export = Path(tmp) / "exported-ocean"
+            ocean_export.mkdir()
+            subprocess.run([sys.executable, "-I", "-c", script.replace("id=1)", "id=11)"),
+                            str(out / "editor"), str(ocean_export)], cwd=tmp, check=True)
+            self.assertEqual((ocean_export / "ocean-profile.json").read_bytes(),
+                             (bundle.ROOT / ocean_profile).read_bytes())
 
     def test_unified_baker_is_packaged_without_companion_executables(self):
         for suffix in ("", ".exe"):

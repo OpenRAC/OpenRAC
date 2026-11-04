@@ -474,6 +474,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/foliage.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_vertex.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_shell.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_detail.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_lighting.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/fur_environment.glsl"
@@ -497,6 +498,7 @@ openrac_embed_shaders(openrac_enhanced_viewer enhanced_viewer openrac::lighting
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_mesh.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_uv.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_swell.glsl"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/ocean_fft.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/water_window.comp"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/viewer/shaders/early_lighting.comp"
@@ -578,6 +580,12 @@ openrac_add_test(fur_detail SOURCES enhanced/tests/fur_detail_test.cpp
   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform)
 if(OPENRAC_VULKAN)
   add_test(NAME fur_detail_gpu COMMAND fur_detail_test --gpu)
+  openrac_add_test(fur_shell SOURCES enhanced/tests/fur_shell_test.cpp
+    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+    LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
+  target_compile_definitions(fur_shell_test PRIVATE OPENRAC_VULKAN=1)
+  set_tests_properties(fur_shell PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   openrac_add_test(fur_lighting SOURCES enhanced/tests/fur_lighting_test.cpp
     INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated" LIBS openrac_enhanced_viewer openrac_platform openrac_renderer_vulkan)
   target_compile_definitions(fur_lighting_test PRIVATE OPENRAC_VULKAN=1)
@@ -591,6 +599,7 @@ if(OPENRAC_VULKAN)
   set_tests_properties(fur_gpu PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(WIN32)
+    set_property(TEST fur_shell APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_detail_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_lighting APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
     set_property(TEST fur_gpu APPEND PROPERTY ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
@@ -1010,6 +1019,14 @@ foreach(water_test IN ITEMS water_gpu water_runtime water_mesh_gpu wetness_gpu e
     target_link_libraries(${water_test}_test PRIVATE openrac_renderer_vulkan)
   endif()
 endforeach()
+add_test(NAME effect_material_ocean COMMAND effect_material_test --ocean-only)
+add_test(NAME effect_material_ocean_spectrum COMMAND effect_material_test --ocean-spectrum)
+set_tests_properties(effect_material_ocean effect_material_ocean_spectrum PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_ENHANCED=1;OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+if(WIN32)
+  set_property(TEST effect_material_ocean effect_material_ocean_spectrum APPEND PROPERTY
+    ENVIRONMENT "SDL_VIDEO_DRIVER=windows")
+endif()
 target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_optics_gpu.cpp
   enhanced/tests/water_foam_gpu.cpp

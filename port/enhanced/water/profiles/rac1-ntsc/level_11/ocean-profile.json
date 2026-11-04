@@ -1,0 +1,23 @@
+{
+  "coast": {"origin": [608, 481], "offshore_depth": 12},
+  "horizon": 4096,
+  "near_radius": 32,
+  "wind_heading": 163.739795,
+  "chop": {
+    "tile": 96,
+    "rms": 0.085
+  },
+  "fine": {
+    "tile": 17,
+    "rms": 0.006
+  },
+  "material": {
+    "colour": [0, 0.18039216, 0.14509804],
+    "absorption": [0.291, 0.057, 0.174],
+    "roughness": 0.14,
+    "reflectivity": 0.020,
+    "reflection_strength": 1.01
+  },
+  "dry_rects": [],
+  "choppiness": 0.85
+}

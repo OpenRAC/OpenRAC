@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
+#include <limits>
 
 #include "common/log.h"
 #include "renderer/gl.h"
@@ -80,6 +82,21 @@ void HeroFur::load(const scene::LevelData& level, const FurProfile& profile) {
             m_surface->count,
             profile.game
         );
+        const auto& primitive = level.models[m_surface->model].primitives[m_surface->primitive];
+        m_first_index = primitive.first_index;
+        m_index_count = primitive.index_count;
+        // Authored meshes use different units; a coat fraction must follow the body's scale.
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            float low = std::numeric_limits<float>::max(), high = -low;
+            for (unsigned vertex = 0; vertex < m_surface->count; ++vertex) {
+                const float p = level.vertices[m_surface->first + vertex].position[axis];
+                low = std::min(low, p);
+                high = std::max(high, p);
+            }
+            if (std::isfinite(high - low)) {
+                m_body_extent = std::max(m_body_extent, high - low);
+            }
+        }
     }
     // A complete fallback descriptor also covers levels without the hero model.
     auto map =
@@ -110,8 +127,16 @@ void HeroFur::load(const scene::LevelData& level, const FurProfile& profile) {
     );
 }
 
-void HeroFur::prepare(const std::optional<scene::Instance>& hero) {
+void HeroFur::prepare(const std::optional<scene::Instance>& hero, const renderer::Vec3& eye) {
     m_palette = hero && m_surface && hero->model == m_surface->model ? hero->palette : -1;
+    m_eye_distance = 0;
+    if (hero) {
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            const float delta = hero->matrix[12 + axis] - eye[axis];
+            m_eye_distance += delta * delta;
+        }
+        m_eye_distance = std::sqrt(m_eye_distance);
+    }
 }
 
 void HeroFur::bind(const renderer::Shader& shader) const {
@@ -120,7 +145,8 @@ void HeroFur::bind(const renderer::Shader& shader) const {
 
 void HeroFur::bind(const renderer::Shader& shader, const FurMaterialSettings& settings) const {
     const auto location = shader.uniform("hero_fur_debug");
-    if (location < 0) {
+    // Velocity variants consume eligibility without the colour diagnostic uniform.
+    if (shader.uniform("hero_fur_palette") < 0) {
         return;
     }
     gl::glUniform1i(location, int(fur_debug_view()));
@@ -136,6 +162,7 @@ void HeroFur::bind(const renderer::Shader& shader, const FurMaterialSettings& se
     gl::glActiveTexture(gl::GL_TEXTURE0 + kDetailUnit);
     gl::glBindTexture(gl::GL_TEXTURE_2D, m_detail);
     gl::glActiveTexture(gl::GL_TEXTURE0);
+    bind_shell(shader, 0);
 }
 
 void HeroFur::bind_material(
@@ -166,6 +193,37 @@ void HeroFur::bind_material(
     );
 }
 
+int HeroFur::shell_layers(std::uint32_t model, std::uint32_t first, std::uint32_t count) const {
+    // Unknown layouts, non-player bodies and original rendering never grow a coat.
+    if (!gl::enhanced_rendering_available() || !m_surface || m_palette < 0
+        || model != m_surface->model || first != m_first_index || count != m_index_count
+        || m_body_extent <= 0) {
+        return 0;
+    }
+    const auto settings = fur_material_settings();
+    if (!settings.shells_enabled || settings.shell_length <= 0
+        || m_eye_distance >= settings.shell_distance) {
+        return 0;
+    }
+    return settings.shell_layers;
+}
+
+void HeroFur::bind_shell(const renderer::Shader& shader, int layer) const {
+    const auto settings = fur_material_settings();
+    gl::glUniform1i(shader.uniform("hero_fur_shell_enabled"), settings.shells_enabled ? 1 : 0);
+    gl::glUniform1f(
+        shader.uniform("hero_fur_shell"), float(layer) / float(settings.shell_layers + 1)
+    );
+    gl::glUniform1f(shader.uniform("hero_fur_shell_distance"), m_eye_distance);
+    gl::glUniform4f(
+        shader.uniform("hero_fur_shell_parameters"),
+        settings.shell_length * m_body_extent,
+        settings.shell_density,
+        settings.shell_distance * .5f,
+        settings.shell_distance
+    );
+}
+
 void HeroFur::release() {
     if (m_vertices) {
         gl::glDeleteBuffers(1, &m_vertices);
@@ -180,6 +238,9 @@ void HeroFur::release() {
     }
     m_detail = 0;
     m_palette = -1;
+    m_first_index = m_index_count = 0;
+    m_eye_distance = 0;
     m_surface.reset();
+    m_body_extent = 0;
 }
 }  // namespace openrac::enhanced

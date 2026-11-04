@@ -58,12 +58,13 @@ std::vector<std::filesystem::path> source_paths(const std::filesystem::path& roo
             continue;
         }
 
-        // PVS, offline reference selection and runtime-only foliage controls do not change transport.
+        // PVS, offline reference selection and runtime material controls do not change transport.
         // Their sidecars must not invalidate otherwise identical probe bakes.
         const auto name = entry.path().lexically_relative(root).generic_string();
 
         if (name == "pvs.json" || name == "sunlight-calibration.json"
-            || name == "foliage-materials.json"
+            || name == "foliage-materials.json" || name == "ocean-profile.json"
+            || name == "ocean.wave" || name == "ocean-bake.json"
             || entry.path().filename() == "material-overrides.json"
             || name.starts_with(".water-native-")) {
             continue;

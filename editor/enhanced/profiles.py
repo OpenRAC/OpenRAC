@@ -14,7 +14,8 @@ PROFILE_ROOT = Path(__file__).resolve().parents[2] / "port/enhanced/lighting/pro
 def write_bake_profile(level, directory: Path) -> None:
     """Copy only this game's, disc version's and level's profile into the new export."""
     for root, filename in ((PROFILE_ROOT, "probe-bake.json"),
-                           (WATER_PROFILE_ROOT, "water-boundaries.json")):
+                           (WATER_PROFILE_ROOT, "water-boundaries.json"),
+                           (WATER_PROFILE_ROOT, "ocean-profile.json")):
         source = root / f"{level.game}-{level.version}" / f"level_{level.id:02}" / filename
         # Unconfigured levels use the baker and runtime's built-in defaults.
         if source.is_file():

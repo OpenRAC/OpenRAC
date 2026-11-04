@@ -82,6 +82,9 @@ void usage() {
         << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
         << "  --threads N (optional emission hashing worker budget)\n"
         << "openrac-enhanced-baker --decode-water LEVEL_DIR\n"
+        << "openrac-enhanced-baker --bake-pokitaru-coast LEVEL_DIR X Y SIZE CELL\n"
+        << "openrac-enhanced-baker --bake-coastal-wave PATCH.json PERIOD HEADING OFFSHORE_DEPTH\n"
+        << "openrac-enhanced-baker --bake-ocean-spectrum PATCH.json OFFSHORE_DEPTH\n"
         << "openrac-enhanced-baker --bake-water INPUT.json OUTPUT.bin\n"
         << "  --print-interior-profile (interior stage cache identity, no scene load)\n"
         << "  --print-profile (resolved grid/quality defaults as JSON, no scene load)\n"
@@ -229,6 +232,48 @@ int main(int argc, char** argv) {
             }
 
             std::cout << bake_json::json_text(*decoded) << '\n';
+            return 0;
+        }
+
+        // The experimental patch is emitted separately from launcher water assets.
+        if (argc > 1 && std::string_view(argv[1]) == "--bake-pokitaru-coast") {
+            if (argc != 7) {
+                throw std::runtime_error("--bake-pokitaru-coast requires LEVEL_DIR X Y SIZE CELL");
+            }
+            const auto patch = water::pokitaru_coast(
+                argv[2], {real(argv[3]), real(argv[4])}, integer(argv[5]), real(argv[6])
+            );
+            if (!patch) {
+                throw std::runtime_error(patch.error().message);
+            }
+            std::cout << *patch << '\n';
+            return 0;
+        }
+
+        // The spectrum keeps its dominant coastal responses in one runtime sidecar.
+        if (argc > 1 && std::string_view(argv[1]) == "--bake-ocean-spectrum") {
+            if (argc != 4) {
+                throw std::runtime_error("--bake-ocean-spectrum requires PATCH OFFSHORE_DEPTH");
+            }
+            const auto spectrum = water::ocean_spectrum(argv[2], real(argv[3]));
+            if (!spectrum) {
+                throw std::runtime_error(spectrum.error().message);
+            }
+            std::cout << *spectrum << '\n';
+            return 0;
+        }
+
+        // Bake one steady incoming mode before integrating any wave response with rendering.
+        if (argc > 1 && std::string_view(argv[1]) == "--bake-coastal-wave") {
+            if (argc != 6) {
+                throw std::runtime_error("--bake-coastal-wave requires PATCH PERIOD HEADING DEPTH");
+            }
+            const auto wave =
+                water::coastal_wave(argv[2], real(argv[3]), real(argv[4]), real(argv[5]));
+            if (!wave) {
+                throw std::runtime_error(wave.error().message);
+            }
+            std::cout << *wave << '\n';
             return 0;
         }
 

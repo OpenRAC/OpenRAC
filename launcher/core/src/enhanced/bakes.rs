@@ -128,6 +128,41 @@ fn prepared_water(level: &Path, manifest: &Path) -> bool {
         .all(|(key, name)| stamp["inputs"][key].as_str() == sha256(&level.join(name)).as_deref())
 }
 
+/// An opted-in ocean needs a current native response even when its lighting can be reused.
+fn prepared_ocean(level: &Path) -> bool {
+    let profile = level.join("ocean-profile.json");
+    if !profile.exists() {
+        return true;
+    }
+    let read = |path: &Path| {
+        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok())
+    };
+    let Some(profile) = read(&profile) else {
+        return false;
+    };
+    if profile["coast"].is_null() {
+        return profile.is_object();
+    }
+    let Some(stamp) = read(&level.join("ocean-bake.json")) else {
+        return false;
+    };
+    stamp["version"] == 1
+        && stamp["inputs"]["coast"] == profile["coast"]
+        && sha256(&level.join("ocean.wave"))
+            .is_some_and(|digest| stamp["output"].as_str() == Some(digest.as_str()))
+        && [
+            ("manifest", "manifest.json"),
+            ("placements", "placements.json"),
+            ("collision", "collision.glb"),
+            ("gameplay", "bake-inputs/gameplay.bin"),
+        ]
+        .iter()
+        .all(|(key, name)| {
+            sha256(&level.join(name))
+                .is_some_and(|digest| stamp["inputs"][key].as_str() == Some(digest.as_str()))
+        })
+}
+
 /// The bake status of the levels in `levels` against the bakes in `probes`, made by `baker`.
 pub fn bake_status(levels: &Path, probes: &Path, baker: &Path) -> BakeStatus {
     bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level| baker_profile(baker, level))
@@ -176,6 +211,7 @@ fn bake_status_on(
                 && has_baker
                 && verified_bake(&baked, s["reflections"] == Value::Bool(true))
                 && prepared_water(&entry.path(), &manifest)
+                && prepared_ocean(&entry.path())
                 && profile(&entry.path()).is_some_and(|p| made_by(s, &p))
         });
         if current {
@@ -363,6 +399,44 @@ mod tests {
                 "baker_profile_sha256":format!("{:x}",Sha256::digest(profile.as_bytes()))});
             assert!(!made_by(&stamp, profile));
         }
+    }
+
+    #[test]
+    fn native_ocean_reuses_transport_after_material_edits() {
+        let root = temp("native-ocean");
+        std::fs::create_dir_all(root.join("bake-inputs")).unwrap();
+        let profile = root.join("ocean-profile.json");
+        assert!(prepared_ocean(&root));
+        let coast = serde_json::json!({"origin": [608, 481], "offshore_depth": 12});
+        std::fs::write(&profile, serde_json::json!({"coast": coast}).to_string()).unwrap();
+        assert!(!prepared_ocean(&root));
+        let mut inputs = serde_json::json!({"coast": coast});
+        for (key, name) in [
+            ("manifest", "manifest.json"),
+            ("placements", "placements.json"),
+            ("collision", "collision.glb"),
+            ("gameplay", "bake-inputs/gameplay.bin"),
+        ] {
+            std::fs::write(root.join(name), name).unwrap();
+            inputs[key] = sha256(&root.join(name)).unwrap().into();
+        }
+        let wave = root.join("ocean.wave");
+        std::fs::write(&wave, "baked response").unwrap();
+        let stamp = serde_json::json!({"version": 1, "inputs": inputs, "output": sha256(&wave)});
+        std::fs::write(root.join("ocean-bake.json"), stamp.to_string()).unwrap();
+        assert!(prepared_ocean(&root));
+        std::fs::write(
+            &profile,
+            serde_json::json!({"coast": coast, "material": {"roughness": 0.14}}).to_string(),
+        )
+        .unwrap();
+        assert!(prepared_ocean(&root));
+        std::fs::write(root.join("collision.glb"), "changed collision").unwrap();
+        assert!(!prepared_ocean(&root));
+        std::fs::write(root.join("collision.glb"), "collision.glb").unwrap();
+        std::fs::remove_file(&wave).unwrap();
+        assert!(!prepared_ocean(&root));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
