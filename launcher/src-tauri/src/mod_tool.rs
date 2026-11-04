@@ -1,0 +1,231 @@
+//! A mod's own page (core/src/mod_tools.rs): the `openrac-mod` scheme that serves its files, and
+//! the commands its messages are answered with (src/lib/modTool.ts). The page itself never calls
+//! these: the launcher's own window does, for it, after checking what it asked.
+
+use std::path::{Path, PathBuf};
+
+use openrac_launcher_core::mod_tools::{self, ToolFile, ToolRoot};
+use openrac_launcher_core::{launcher_log, plugins, saves, texture_packs};
+use tauri::http::{header, Request, Response, StatusCode};
+use tauri::{AppHandle, Manager, Runtime, State};
+
+use crate::AppState;
+
+/// The scheme a mod's page is served from: `openrac-mod://localhost/<game>/<mod id>/<path>`
+/// (`http://openrac-mod.localhost/...` on Windows and Android).
+pub const SCHEME: &str = "openrac-mod";
+
+/// `%XX` escapes of a path segment decoded; None when one is broken or the result is not UTF-8.
+fn decode(segment: &str) -> Option<String> {
+    let bytes = segment.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+/// The file a request of the scheme names, from the install folder's mods.
+fn requested<R: Runtime>(app: &AppHandle<R>, path: &str) -> Result<PathBuf, String> {
+    let parts: Option<Vec<String>> = path.trim_start_matches('/').split('/').map(decode).collect();
+    let parts = parts.ok_or("a broken address")?;
+    let [game, id, rest @ ..] = parts.as_slice() else { return Err("no mod in the address".into()) };
+    if rest.is_empty() || !game.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return Err("no file in the address".into());
+    }
+    let install = app.state::<AppState>().config.lock().unwrap().install_dir.clone().ok_or("no install folder")?;
+    mod_tools::page_file(&plugins::dir(&install, game), id, &rest.join("/"))
+}
+
+/// The answer to a request of the scheme: the file, with the content policy of a mod's page.
+pub(crate) fn serve<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+    let refuse = |status: StatusCode, why: String| {
+        Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+            .body(why.into_bytes())
+            .expect("a plain answer")
+    };
+    if request.method() != tauri::http::Method::GET {
+        return refuse(StatusCode::METHOD_NOT_ALLOWED, "a mod's page only reads its files".into());
+    }
+    let file = match requested(app, request.uri().path()) {
+        Ok(file) => file,
+        Err(why) => return refuse(StatusCode::NOT_FOUND, why),
+    };
+    match std::fs::read(&file) {
+        Ok(bytes) => Response::builder()
+            .header(header::CONTENT_TYPE, mod_tools::content_type(&file))
+            .header("Content-Security-Policy", mod_tools::PAGE_CSP)
+            .header("X-Content-Type-Options", "nosniff")
+            .header(header::CACHE_CONTROL, "no-store")
+            .body(bytes)
+            .expect("a file's answer"),
+        Err(e) => refuse(StatusCode::NOT_FOUND, e.to_string()),
+    }
+}
+
+/// The folder of the game's files `root` names, for disc `version` (`pal`) of `game`.
+fn root_dir(state: &State<'_, AppState>, game: &str, version: &str, root: ToolRoot) -> Result<PathBuf, String> {
+    match root {
+        ToolRoot::Levels => Ok(crate::reset_layout(state, &format!("{game}/{version}"))?.game_levels()),
+        ToolRoot::Dump => Ok(texture_packs::dump_dir(&saves::data_home(), &texture_packs::id(game, version)?)),
+    }
+}
+
+/// The files of one of the game's folders a mod's page may read.
+#[tauri::command]
+pub(crate) async fn mod_tool_list(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    root: ToolRoot,
+) -> Result<Vec<ToolFile>, String> {
+    let dir = root_dir(&state, &game, &version, root)?;
+    tauri::async_runtime::spawn_blocking(move || mod_tools::list(&dir)).await.map_err(|e| e.to_string())?
+}
+
+/// One of those files, as bytes.
+#[tauri::command]
+pub(crate) async fn mod_tool_read(
+    state: State<'_, AppState>,
+    game: String,
+    version: String,
+    root: ToolRoot,
+    path: String,
+) -> Result<tauri::ipc::Response, String> {
+    let dir = root_dir(&state, &game, &version, root)?;
+    let bytes = tauri::async_runtime::spawn_blocking(move || mod_tools::read(&dir, &path))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// What a mod stored under `key`, or null.
+#[tauri::command]
+pub(crate) fn mod_tool_store_get(id: String, key: String) -> Result<Option<serde_json::Value>, String> {
+    mod_tools::store_get(&saves::data_home(), &id, &key)
+}
+
+/// Stores `value` under `key` for a mod (null removes it).
+#[tauri::command]
+pub(crate) fn mod_tool_store_set(id: String, key: String, value: serde_json::Value) -> Result<(), String> {
+    mod_tools::store_set(&saves::data_home(), &id, &key, &value)
+}
+
+/// A header of a request with a raw body, as text.
+fn header_text(request: &tauri::ipc::Request<'_>, name: &str) -> Result<String, String> {
+    let value = request.headers().get(name).ok_or_else(|| format!("no {name}"))?;
+    let text = value.to_str().map_err(|e| e.to_string())?;
+    decode(text).ok_or_else(|| format!("a broken {name}"))
+}
+
+/// Saves the bytes a mod's page made (its texture pack's .zip, its preset's .json) where the player
+/// chooses: the request's body, its `x-mod`, `x-name` and `x-extension` headers. The name it was
+/// saved under, or empty when the player backed out.
+#[tauri::command]
+pub(crate) async fn mod_tool_save(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("no file to save".into()) };
+    let id = header_text(&request, "x-mod")?;
+    let extension = header_text(&request, "x-extension")?;
+    let name = mod_tools::save_name(&header_text(&request, "x-name")?, &extension, mod_tools::SAVE_KINDS)?;
+    let bytes = bytes.clone();
+    #[cfg(target_os = "android")]
+    {
+        let cache = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("mod-tool-saves");
+        std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
+        let dest = cache.join(&name);
+        std::fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
+        let mime = if extension == "zip" { "application/zip" } else { "application/json" };
+        let saved = crate::android::save_as_type(&app, &dest, &name, mime).await;
+        let _ = std::fs::remove_file(&dest);
+        let saved = saved?.unwrap_or_default();
+        if !saved.is_empty() {
+            launcher_log::line(&format!("{id}: saved {saved}"));
+        }
+        Ok(saved)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        use tauri_plugin_dialog::DialogExt;
+        let mut dialog = app.dialog().file().set_file_name(&name).add_filter(&name, &[extension.as_str()]);
+        if let Some(dir) = openrac_launcher_core::reports::save_folder() {
+            dialog = dialog.set_directory(dir);
+        }
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_save_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        let Some(picked) = picked else { return Ok(String::new()) };
+        let dest = picked.into_path().map_err(|e| e.to_string())?;
+        let out = dest.clone();
+        tauri::async_runtime::spawn_blocking(move || std::fs::write(&out, &bytes))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| format!("{}: {e}", dest.display()))?;
+        launcher_log::line(&format!("{id}: saved {}", dest.display()));
+        Ok(openrac_launcher_core::reports::tidy(
+            &dest.to_string_lossy(),
+            openrac_launcher_core::reports::home().as_deref(),
+        ))
+    }
+}
+
+/// A small file the player picks for a mod's page (a preset to import): its bytes, at most the
+/// store's limit; none when they backed out (an empty file is refused).
+#[tauri::command]
+pub(crate) async fn mod_tool_open(app: AppHandle, extension: String) -> Result<tauri::ipc::Response, String> {
+    if !mod_tools::SAVE_KINDS.contains(&extension.as_str()) {
+        return Err(format!("a mod's page cannot open .{extension} files"));
+    }
+    #[cfg(target_os = "android")]
+    let picked: Option<PathBuf> = crate::android::pick_zip(app).await?;
+    #[cfg(not(target_os = "android"))]
+    let picked: Option<PathBuf> = {
+        use tauri_plugin_dialog::DialogExt;
+        let dialog = app.dialog().file().add_filter(&extension, &[extension.as_str()]);
+        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+            .await
+            .map_err(|e| e.to_string())?;
+        match picked {
+            Some(p) => Some(p.into_path().map_err(|e| e.to_string())?),
+            None => None,
+        }
+    };
+    let Some(path) = picked else { return Ok(tauri::ipc::Response::new(Vec::new())) };
+    let bytes = read_small(&path)?;
+    if bytes.is_empty() {
+        return Err("the file is empty".into());
+    }
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
+fn read_small(path: &Path) -> Result<Vec<u8>, String> {
+    let size = path.metadata().map_err(|e| e.to_string())?.len();
+    if size > mod_tools::STORE_MAX as u64 {
+        return Err(format!("the file is larger than {} KB", mod_tools::STORE_MAX >> 10));
+    }
+    std::fs::read(path).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode;
+
+    #[test]
+    fn segments_decode() {
+        assert_eq!(decode("ui%2Findex.html").as_deref(), Some("ui/index.html"));
+        assert_eq!(decode("Nanotech%20Upscaler").as_deref(), Some("Nanotech Upscaler"));
+        assert_eq!(decode("plain").as_deref(), Some("plain"));
+        assert_eq!(decode("%zz"), None);
+        assert_eq!(decode("%2"), None);
+        assert_eq!(decode("%ff"), None);
+    }
+}

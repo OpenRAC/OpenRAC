@@ -263,16 +263,25 @@ pub async fn save_as<R: Runtime>(
     path: &std::path::Path,
     name: &str,
 ) -> Result<Option<String>, String> {
+    save_as_type(app, path, name, "application/zip").await
+}
+
+/// save_as for a file of another type (`mime`): a mod's page saves .json too (mod_tool.rs).
+pub async fn save_as_type<R: Runtime>(
+    app: &AppHandle<R>,
+    path: &std::path::Path,
+    name: &str,
+    mime: &str,
+) -> Result<Option<String>, String> {
     #[cfg(target_os = "android")]
     {
         let saved: serde_json::Value =
-            kotlin(app, "saveFileAs", serde_json::json!({ "path": path, "name": name, "mime": "application/zip" }))
-                .await?;
+            kotlin(app, "saveFileAs", serde_json::json!({ "path": path, "name": name, "mime": mime })).await?;
         Ok(saved["saved"].as_str().map(str::to_string))
     }
     #[cfg(not(target_os = "android"))]
     {
-        let _ = (app, path, name);
+        let _ = (app, path, name, mime);
         Err(ANDROID_ONLY.into())
     }
 }

@@ -1,0 +1,161 @@
+// A mod's own page (core/src/mod_tools.rs): what it may ask the launcher, through messages from its
+// frame (ModTool.svelte), and the answers. The page is the mod's code: every message is checked here
+// before anything is done for it, and only these calls exist.
+//
+// The page sends   { openrac: 1, id, call, args }
+// and gets back    { openrac: 1, id, ok: true, value }  or  { openrac: 1, id, ok: false, error }
+//
+// | call      | args                                   | value                                         |
+// |-----------|----------------------------------------|-----------------------------------------------|
+// | info      |                                        | the game, its disc, its texture pack's id, the mod, the system |
+// | list      | root ("levels" or "dump")              | the files there: [{ path, size }]             |
+// | read      | root, path                             | the file's bytes (an ArrayBuffer)             |
+// | storeGet  | key                                    | what the mod stored under key, or null        |
+// | storeSet  | key, value (null removes it)           | null                                          |
+// | save      | name, extension ("zip", "json"), bytes | the name it was saved under, "" if backed out |
+// | open      | extension ("json")                     | the bytes the player picked, null if backed out |
+import { api, type ToolFile, type ToolRoot } from "./api";
+
+export const PROTOCOL = 1;
+
+/** What the page is told it runs in. */
+export interface ToolInfo {
+  game: string;
+  version: string;
+  /** The texture pack's id the game knows the disc by (`rac1-pal`): a pack's manifest names it. */
+  packId: string;
+  mod: { id: string; name: string; version: string };
+  /** "android" or "desktop". */
+  system: string;
+}
+
+export type ToolRequest =
+  | { id: number; call: "info" }
+  | { id: number; call: "list"; root: ToolRoot }
+  | { id: number; call: "read"; root: ToolRoot; path: string }
+  | { id: number; call: "storeGet"; key: string }
+  | { id: number; call: "storeSet"; key: string; value: unknown }
+  | { id: number; call: "save"; name: string; extension: "zip" | "json"; bytes: ArrayBuffer }
+  | { id: number; call: "open"; extension: "json" };
+
+const ROOTS: readonly string[] = ["levels", "dump"];
+const KEY = /^[a-z0-9_-]{1,64}$/;
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+const text = (v: unknown, most = 512): v is string => typeof v === "string" && v.length > 0 && v.length <= most;
+
+/** A message from the page as one of the calls, or why it is not one (null: not a message of ours). */
+export function readRequest(data: unknown): ToolRequest | { id: number; error: string } | null {
+  if (!isObject(data) || data.openrac !== PROTOCOL || "ok" in data) return null;
+  const id = data.id;
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) return null;
+  const args = isObject(data.args) ? data.args : {};
+  const refuse = (error: string) => ({ id, error });
+  switch (data.call) {
+    case "info":
+      return { id, call: "info" };
+    case "list":
+      return ROOTS.includes(args.root as string)
+        ? { id, call: "list", root: args.root as ToolRoot }
+        : refuse("root is levels or dump");
+    case "read":
+      if (!ROOTS.includes(args.root as string)) return refuse("root is levels or dump");
+      return text(args.path, 1024)
+        ? { id, call: "read", root: args.root as ToolRoot, path: args.path }
+        : refuse("no path");
+    case "storeGet":
+      return text(args.key) && KEY.test(args.key) ? { id, call: "storeGet", key: args.key } : refuse("a bad key");
+    case "storeSet":
+      return text(args.key) && KEY.test(args.key)
+        ? { id, call: "storeSet", key: args.key, value: args.value ?? null }
+        : refuse("a bad key");
+    case "save":
+      if (args.extension !== "zip" && args.extension !== "json") return refuse("extension is zip or json");
+      if (!(args.bytes instanceof ArrayBuffer) || args.bytes.byteLength === 0) return refuse("no bytes to save");
+      return text(args.name, 200)
+        ? { id, call: "save", name: args.name, extension: args.extension, bytes: args.bytes }
+        : refuse("no name");
+    case "open":
+      return args.extension === "json" ? { id, call: "open", extension: "json" } : refuse("extension is json");
+    default:
+      return refuse(`no call ${JSON.stringify(data.call)}`);
+  }
+}
+
+/** The calls' work, so a test can stand in for the launcher. */
+export interface ToolBackend {
+  list(game: string, version: string, root: ToolRoot): Promise<ToolFile[]>;
+  read(game: string, version: string, root: ToolRoot, path: string): Promise<ArrayBuffer>;
+  storeGet(id: string, key: string): Promise<unknown>;
+  storeSet(id: string, key: string, value: unknown): Promise<unknown>;
+  save(id: string, name: string, extension: string, bytes: Uint8Array): Promise<string>;
+  open(extension: string): Promise<ArrayBuffer>;
+}
+
+export const launcherBackend: ToolBackend = {
+  list: api.modToolList,
+  read: api.modToolRead,
+  storeGet: api.modToolStoreGet,
+  storeSet: api.modToolStoreSet,
+  save: api.modToolSave,
+  open: api.modToolOpen,
+};
+
+/** The value a call answers with. */
+export async function answer(request: ToolRequest, info: ToolInfo, backend: ToolBackend): Promise<unknown> {
+  const { game, version } = info;
+  switch (request.call) {
+    case "info":
+      return info;
+    case "list":
+      return backend.list(game, version, request.root);
+    case "read":
+      return backend.read(game, version, request.root, request.path);
+    case "storeGet":
+      return (await backend.storeGet(info.mod.id, request.key)) ?? null;
+    case "storeSet":
+      await backend.storeSet(info.mod.id, request.key, request.value);
+      return null;
+    case "save":
+      return backend.save(info.mod.id, request.name, request.extension, new Uint8Array(request.bytes));
+    case "open": {
+      const bytes = await backend.open(request.extension);
+      return bytes.byteLength ? bytes : null;
+    }
+  }
+}
+
+/** The reply to a message: the answer, or the error; with the bytes to hand over, not copy. */
+export async function reply(
+  data: unknown,
+  info: ToolInfo,
+  backend: ToolBackend,
+): Promise<{ message: Record<string, unknown>; transfer: Transferable[] } | null> {
+  const request = readRequest(data);
+  if (!request) return null;
+  if ("error" in request) {
+    return { message: { openrac: PROTOCOL, id: request.id, ok: false, error: request.error }, transfer: [] };
+  }
+  try {
+    const value = await answer(request, info, backend);
+    const transfer = value instanceof ArrayBuffer ? [value] : [];
+    return { message: { openrac: PROTOCOL, id: request.id, ok: true, value }, transfer };
+  } catch (e) {
+    const error = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+    return { message: { openrac: PROTOCOL, id: request.id, ok: false, error }, transfer: [] };
+  }
+}
+
+/** The address a mod's page is served at (src-tauri/src/mod_tool.rs), each part escaped. On Windows
+ *  and Android the scheme is reached as http://openrac-mod.localhost/. */
+export function pageUrl(base: string, game: string, id: string, page: string): string {
+  const parts = [game, id, ...page.split("/")].map(encodeURIComponent);
+  return `${base.replace(/\/+$/, "")}/${parts.join("/")}`;
+}
+
+/** The site a page at `url` is: `http://openrac-mod.localhost`, or `openrac-mod://localhost` (the
+ *  URL API gives a custom scheme's address no origin, "null", which postMessage cannot target). */
+export function pageOrigin(url: string): string {
+  const u = new URL(url);
+  return u.protocol === "http:" || u.protocol === "https:" ? u.origin : `${u.protocol}//${u.host}`;
+}

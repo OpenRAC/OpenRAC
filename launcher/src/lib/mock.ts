@@ -1706,6 +1706,27 @@ let mockPlugins: PluginView[] = query.has("nomods")
         kind: "native",
         path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/difficulty",
       },
+      {
+        id: "nanotech-upscaler",
+        name: "Nanotech Upscaler",
+        version: "0.1.0",
+        author: "Mateusz Kłysz",
+        description:
+          "Upscales every texture of Ratchet & Clank on your own device into a texture pack, in the game's own style.",
+        homepage: "https://github.com/mateuszklysz/Nanotech-Upscaler",
+        license: "GPL-3.0-or-later",
+        enabled: true,
+        state: "ready",
+        reason: "",
+        blocked: "",
+        settings: [],
+        hooks: [],
+        sharedHooks: [],
+        native: false,
+        kind: "tool",
+        path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/nanotech-upscaler",
+        tool: "ui/index.html",
+      },
     ];
 
 /** What the preview's game says it did with the mods at its last start. */
@@ -2553,6 +2574,17 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         kept: args.mode === "replace" ? "rac2-ntsc (before import 2026-11-03-061500)" : null,
       });
     }
+    case "mod_tool_list":
+      return delay([{ path: "level_00/textures/moby_0001.png", size: 4096 }]);
+    case "mod_tool_read":
+    case "mod_tool_open":
+      return delay(new ArrayBuffer(0));
+    case "mod_tool_store_get":
+      return delay(null);
+    case "mod_tool_store_set":
+      return delay(null);
+    case "mod_tool_save":
+      return delay("~/Downloads/Nanotech 4x.zip");
     case "texture_packs_export":
       return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
     case "enhanced_view":

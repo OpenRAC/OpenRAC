@@ -37,6 +37,7 @@
     onfolder,
     onhomepage,
     onremove,
+    ontool = () => undefined,
     builtIn = null,
   }: {
     mod: PluginView;
@@ -53,6 +54,8 @@
     onfolder: () => void;
     onhomepage: () => void;
     onremove: () => void;
+    /** Shows the mod's own page (ModTool.svelte), for a mod that has one (`tool`). */
+    ontool?: () => void;
     /** A built-in entry's bake: its status, the job running it, and the way to start it. */
     builtIn?: { bake: BakeStatus; job: Job | null; onbake: () => void; ondelete: () => void } | null;
   } = $props();
@@ -205,6 +208,11 @@
       {#if mod.description}<p class="desc">{mod.description}</p>{/if}
     </div>
     <div class="actions">
+      {#if mod.tool}
+        <button class="primary" title={T.MOD_PAGE.openToolHint(mod.name)} onclick={ontool}
+          ><Icon name="external" size={16} />{T.MOD_PAGE.openTool}</button
+        >
+      {/if}
       {#if update && !source?.pin}
         <button disabled={updating} onclick={onupdate}
           >{#if updating}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}{T.MOD_PAGE.update(
@@ -229,7 +237,7 @@
       {#if menu.length}<Menu label={T.MOD_PAGE.more(mod.name)} items={menu} />{/if}
     </div>
 
-    {#if purist && mod.enabled}
+    {#if purist && mod.enabled && !mod.tool}
       <p class="notice"><Icon name="info" size={16} /><span>{T.WITH_MODS.offNotice}</span></p>
     {/if}
     {#if cannotLoad}
@@ -427,7 +435,7 @@
       {/if}
     {/each}
   {:else}
-    <p class="none">{T.MOD_PAGE.noSettings}</p>
+    <p class="none">{mod.tool ? T.MOD_PAGE.toolSettings : T.MOD_PAGE.noSettings}</p>
   {/if}
 </div>
 

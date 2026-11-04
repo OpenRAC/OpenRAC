@@ -186,6 +186,7 @@ files. Script mods and data packs work there as elsewhere.
 | `requires` | no | mods that must be on and load before it; `version` is `>=X.Y.Z`, `=X.Y.Z` or absent |
 | `conflicts` | no | mods it cannot run with; either side may list the other |
 | `load` | no | `after` and `before`: ids it should load after or before when both are on (an order hint the launcher applies when a mod is installed or switched on) |
+| `tool` | no | `{"page": "ui/index.html"}`: an HTML file inside the mod, its own page in the launcher (section 9, "A mod's page"). A mod with a page and no library is a launcher page (`tool` in the Mods tab): the game loads nothing of it |
 
 A setting is `{key, name, type, default, description?}` with `key` in
 `[a-z0-9_]+`, and by type:
@@ -706,6 +707,47 @@ Ratchet & Clank (PAL) shows the same badge on the game's own memory card page
 ([rac1/host/save_marks.c](../../port/game/rac1/host/save_marks.c), the
 `Pause_DrawSaveSlots` wrap); the NTSC-U disc shows it in the launcher only,
 until that page's draw is carried over.
+
+### A mod's page
+
+A mod whose manifest names a `tool` page gets an **Open** button on its page
+in the Mods tab: the launcher shows the page in a frame under the mod's name.
+It is for work done in the launcher rather than in the game, such as making a
+texture pack from the game's own textures. The page is the mod's code, so it
+is kept apart from the launcher
+([core/src/mod_tools.rs](../../launcher/core/src/mod_tools.rs),
+[src-tauri/src/mod_tool.rs](../../launcher/src-tauri/src/mod_tool.rs)):
+
+- it is served from the mod's folder under an address of its own,
+  `openrac-mod://localhost/<game>/<mod id>/<path>`
+  (`http://openrac-mod.localhost/...` on Windows and Android), another site
+  to the launcher's page, so it cannot reach that page or call the launcher's
+  commands;
+- its content policy lets it load only its own files (scripts, styles,
+  pictures, WebAssembly and workers made from them) and reach no network;
+- it asks the launcher for the few things it may have by messages to its
+  parent window ([lib/modTool.ts](../../launcher/src/lib/modTool.ts), which
+  checks each one):
+
+| Call | Arguments | Answer |
+|---|---|---|
+| `info` | | `{game, version, packId, mod: {id, name, version}, system}`: the game and disc it was opened for, the id of their texture pack (`rac1-pal`), `android` or `desktop` |
+| `list` | `root`: `levels` or `dump` | `[{path, size}]`: the files of the game's levels as the launcher read them from the disc (`assets/port/<game>/<version>`), or of the textures the game saved while it was played (Texture packs, `texture_dumps/<id>`); pictures, models and what describes them (`.png .gif .glb .gltf .bin .json .txt`) |
+| `read` | `root`, `path` | the file's bytes (an `ArrayBuffer`, at most 64 MB) |
+| `storeGet`, `storeSet` | `key` (`[a-z0-9_-]`, at most 64), `value` (null removes it) | a JSON value of the mod's own, at most 1 MB, in `<data home>/mod-tools/<id>/<key>.json`, kept across updates |
+| `save` | `name`, `extension` (`zip` or `json`), `bytes` | asks the player where to save the file (Android: its "save as" screen): the name it was saved under, `""` when they backed out |
+| `open` | `extension` (`json`) | a small file the player picks (at most 1 MB): its bytes, null when they backed out |
+| `close` | | back to the mod's page |
+
+A message is `{openrac: 1, id, call, args}`, posted to `window.parent`; its
+answer comes back as `{openrac: 1, id, ok: true, value}` or
+`{openrac: 1, id, ok: false, error}`. The page never names the game: the
+launcher answers for the one it was opened for. Nothing is written but the
+store and the files the player saves. While the page is shown, the
+controller's buttons go to it as `{openrac: 1, event: "pad", button, down}`
+(`up`, `down`, `left`, `right`, `accept`, `back`, `prev`, `next`, `more`) and
+the page moves its own focus; Escape outside the frame, the crumbs' Back, or
+its `close` call return to the mod's page.
 
 ## 10. Mods in a git repository
 

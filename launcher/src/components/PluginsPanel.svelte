@@ -29,6 +29,7 @@
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
   import ModPage from "./ModPage.svelte";
+  import ModTool from "./ModTool.svelte";
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
@@ -66,6 +67,9 @@
   /** The built-in Enhanced graphics entry, for a version that has it. */
   let enhanced = $state<EnhancedView | null>(null);
   const isEnhanced = (id: string | null) => id === T.ENHANCED.id;
+
+  /** The mod whose own page (ModTool.svelte) is shown over its page, if one is. */
+  let toolOpen = $state<string | null>(null);
 
   /** The mod whose page is open, when it is one of this game's. */
   const page = $derived(
@@ -332,7 +336,10 @@
   }
 </script>
 
-{#if page}
+{#if page?.tool && toolOpen === page.id}
+  {@const mod = page}
+  <ModTool mod={{ ...mod, tool: mod.tool ?? "" }} game={v.game} version={v.name} onclose={() => (toolOpen = null)} />
+{:else if page}
   {@const mod = page}
   <ModPage
     {mod}
@@ -353,6 +360,7 @@
     }}
     onhomepage={() => void guardShown(api.openUrl(mod.homepage))}
     onremove={() => void remove(mod)}
+    ontool={() => (toolOpen = mod.id)}
   />
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 {:else}
