@@ -24,10 +24,18 @@ struct FlyControls {
     bool fast = false;
     bool slow = false;  // Precision movement takes precedence over the fast modifier.
     bool normalise_movement =
-        false;            // Constant diagonal speed; forward follows pitch, up stays vertical.
-    float look_x = 0.0f;  // mouse movement, pixels
+        false;  // Diagonals no faster than one axis; forward follows pitch, up stays vertical.
+    // A gamepad's analog movement, -1..1, added to the keys above: forward, right and up positive.
+    float ahead = 0.0f;
+    float sideways = 0.0f;
+    float vertical = 0.0f;
+    float look_x = 0.0f;  // mouse movement, pixels (the right stick too, as pixels)
     float look_y = 0.0f;
 };
+
+// A gamepad stick's two axes (-1..1) past a round dead zone: 0 inside it, then rising from 0 at its
+// edge to 1 at the rim, the direction kept.
+void stick_past_dead_zone(float& x, float& y, float dead_zone);
 
 // Z-up fly pose and lens, owned and advanced by the thread drawing the scene.
 struct FlyCamera {

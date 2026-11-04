@@ -180,6 +180,7 @@ struct State {
     float camera_look_x = 0,
           camera_look_y = 0;        // Mouse deltas consumed once per displayed snapshot.
     std::uint64_t camera_time = 0;  // SDL nanoseconds of the last input snapshot.
+    bool camera_pad_chord = false;  // L3+R3 held on a gamepad: toggles freecam once per press.
     std::vector<ScriptedInput> script;
     std::optional<ImVec2> script_pointer;  // App-local pointer held by explicit input scripts.
     SDL_Keymod script_modifiers = SDL_KMOD_NONE;
