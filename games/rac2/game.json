@@ -62,9 +62,9 @@
             "extern void func_003182C0(char *);\n\n/* Calls the measured callee with the object it was given. OpenRAC: the decompilation's\n   (void) left a0 unset; the console's a0 still held the moby, the host's held anything. */\nvoid func_L00_003BAAD0(char *self)\n{\n    func_003182C0(self);\n}\n"
           ]
         ],
-        "commit": "d5d78af00cf9242b58f01a405a7cda3c4dc77108",
-        "date": "2026-11-03",
-        "imported": "2026-11-03"
+        "commit": "7bb800886d8b726b049e92c8d67a6917af97359d",
+        "date": "2026-11-04",
+        "imported": "2026-11-04"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
