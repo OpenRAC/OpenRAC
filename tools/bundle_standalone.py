@@ -65,7 +65,8 @@ STAMP = f"verified-{levels_format()}.json"
 LEVELS_STAMP = f"levels-{levels_format()}.json"
 
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
-# decompilation's builds and checks, building the port, the tools' tests) needs a checkout.
+# decompilation's builds and checks, building the port, the tools' tests) needs a checkout, except
+# PLAYER_BUILDS.
 PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
 # Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
@@ -74,6 +75,9 @@ MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "edi
         "assets-export", "assets-import", "audio-export", "audio-export-all", "audio-import", "overrides-add", "overrides-stack", "editor-show-packs",
         "editor-hide-packs", "play-edited")
 KEEP = PLAY + MODS
+# The versions whose program still needs code from the player's disc, so no installer can carry it:
+# the player builds it, with tools/build_game.py. Version -> port game.
+PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc"}
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
 MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("assets/levels/", "levels"),
@@ -83,7 +87,7 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
 # The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac2-ntsc")
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
@@ -117,6 +121,24 @@ def moved(value, key: str):
     return value
 
 
+def player_program_folder() -> str:
+    """Where a player's own build of a game goes. By version: a new launcher builds it again."""
+    config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    return f"{{data}}/program/{config['version']}"
+
+
+def player_build(action: dict, game: str) -> dict:
+    """The port-build ACTION as a player's copy runs it (PLAYER_BUILDS)."""
+    folder = player_program_folder()
+    action = {k: v for k, v in action.items() if k not in ("developer", "todo", "docs")}
+    action["description"] = ("Downloads OpenRAC's source and builds the game for this computer from your disc. "
+                             "About 100 MB and some minutes the first time. Needs a compiler: it says which if one is missing.")
+    action["args"] = ["tools/build_game.py", game, "--disc", "{disc}", "--out", folder]
+    action["requires"] = ["disc", "python"]
+    action["artifact"] = f"{folder}/openrac-{game}.exe"
+    return action
+
+
 def point_at(args: list[str], levels: str) -> list[str]:
     """ARGS with --levels naming LEVELS."""
     if "--levels" not in args:
@@ -125,7 +147,7 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions() -> dict:
+def player_actions(android: bool = False) -> dict:
     """launcher/actions.json cut down to what works from a carried copy."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
@@ -133,8 +155,12 @@ def player_actions() -> dict:
     out["versions"] = {}
     for key, actions in source["versions"].items():
         levels = levels_folder(key)
+        game = None if android else PLAYER_BUILDS.get(key)
         kept = []
         for action in actions:
+            if game and action["id"] == "port-build":
+                kept.append(player_build(action, game))
+                continue
             if action["id"] not in KEEP:
                 continue
             action = dict(action)
@@ -189,6 +215,8 @@ def player_actions() -> dict:
                     # screenshot) has a place there, and the copy has no folder for each version.
                     action["cwd"] = "{data}"
                 action.pop("todo", None)
+            if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
+                action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
         out["versions"][key] = kept
     return out
@@ -260,7 +288,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     # The tools, without their tests; the catalogue; the progress the library shows.
-    for name in ("openrac.py", "extractor.py"):
+    for name in ("openrac.py", "extractor.py") + (() if args.android else ("build_game.py",)):
         (out / "tools").mkdir(exist_ok=True)
         shutil.copy2(ROOT / "tools" / name, out / "tools" / name)
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
@@ -282,7 +310,7 @@ def main() -> int:
     (out / "progress").mkdir(exist_ok=True)
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
-    (out / "launcher/actions.json").write_text(json.dumps(player_actions(), indent=2) + "\n")
+    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)
