@@ -25,9 +25,12 @@ static const unsigned char* g_fix_orbs;
  * cluster's), and how much wider the picture is while they do. */
 static int g_effects;
 static float g_effect_wider = 1.0f;
+static float g_effect_taller = 1.0f;
 
 static void run_list(void (*run)(void)) {
-    wide_run_list(run, wide_wider_for(&g_fix_liquids, "fix_wide_liquids"));
+    float taller;
+    const float wider = wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &taller);
+    wide_run_list(run, wider, taller);
 }
 
 /* A draw callback list's run, as the game's runners (src/game/0027B948.c: the count read again before
@@ -85,7 +88,9 @@ void func_0027D0E8(void) {
 
 /* FastBSphereCheck: 1 in view, 0 in view but across the guard band's edge, -1 culled. */
 int func_00283DB8(gaddr sphere, float far) {
-    return wide_sphere(func_00283DB8__game, sphere, far, g_effects, g_effect_wider);
+    return wide_sphere(
+        func_00283DB8__game, sphere, far, g_effects, g_effect_wider, g_effect_taller
+    );
 }
 
 /* The nanotech cluster's update (the orb on a nanotech crate; Ratchet & Clank's
@@ -93,7 +98,7 @@ int func_00283DB8(gaddr sphere, float far) {
  * while its sphere test finds it in view, so it is run against the picture's sides. */
 void func_003136D0(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs");
+        g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs", &g_effect_taller);
     }
     func_003136D0__game(moby);
     g_effects--;
