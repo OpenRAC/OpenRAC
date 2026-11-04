@@ -134,9 +134,8 @@ fn prepared_ocean(level: &Path) -> bool {
     if !profile.exists() {
         return true;
     }
-    let read = |path: &Path| {
-        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok())
-    };
+    let read =
+        |path: &Path| std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok());
     let Some(profile) = read(&profile) else {
         return false;
     };
@@ -148,8 +147,7 @@ fn prepared_ocean(level: &Path) -> bool {
     };
     stamp["version"] == 1
         && stamp["inputs"]["coast"] == profile["coast"]
-        && sha256(&level.join("ocean.wave"))
-            .is_some_and(|digest| stamp["output"].as_str() == Some(digest.as_str()))
+        && sha256(&level.join("ocean.wave")).is_some_and(|digest| stamp["output"].as_str() == Some(digest.as_str()))
         && [
             ("manifest", "manifest.json"),
             ("placements", "placements.json"),
@@ -158,8 +156,7 @@ fn prepared_ocean(level: &Path) -> bool {
         ]
         .iter()
         .all(|(key, name)| {
-            sha256(&level.join(name))
-                .is_some_and(|digest| stamp["inputs"][key].as_str() == Some(digest.as_str()))
+            sha256(&level.join(name)).is_some_and(|digest| stamp["inputs"][key].as_str() == Some(digest.as_str()))
         })
 }
 
@@ -425,11 +422,8 @@ mod tests {
         let stamp = serde_json::json!({"version": 1, "inputs": inputs, "output": sha256(&wave)});
         std::fs::write(root.join("ocean-bake.json"), stamp.to_string()).unwrap();
         assert!(prepared_ocean(&root));
-        std::fs::write(
-            &profile,
-            serde_json::json!({"coast": coast, "material": {"roughness": 0.14}}).to_string(),
-        )
-        .unwrap();
+        std::fs::write(&profile, serde_json::json!({"coast": coast, "material": {"roughness": 0.14}}).to_string())
+            .unwrap();
         assert!(prepared_ocean(&root));
         std::fs::write(root.join("collision.glb"), "changed collision").unwrap();
         assert!(!prepared_ocean(&root));
