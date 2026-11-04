@@ -360,9 +360,9 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         g.bounded = false;
         if ((!live || layer == Layer::Animated)
             && std::all_of(
-                g.caster_bounds.begin(), g.caster_bounds.end(), [](const CasterBounds& b) {
-                    return b.valid;
-                }
+                g.caster_bounds.begin(),
+                g.caster_bounds.end(),
+                [](const CasterBounds& b) { return b.valid; }
             )) {
             constexpr float kHuge = 3.0e38f;
             g.low = {kHuge, kHuge, kHuge};
@@ -1014,14 +1014,79 @@ void LevelScene::set_palette(const std::vector<JointColumns>& matrices) {
     // Whole rows: the matrices, then zeros to the end of the last row.
     constexpr std::size_t kPerRow = kPaletteWidth / 4;
     const std::size_t rows = (matrices.size() + kPerRow - 1) / kPerRow;
+    stats::gauge("moby palette rows", double(rows));
 
     // The texture holds these joints already, bit for bit (a still palette): nothing is sent.
     if (renderer::render_opt::enabled(renderer::render_opt::Opt::MobyPoseInPlace)
         && rows <= m_palette_rows && same_palette(matrices, m_palette_data, rows * kPerRow)) {
+        stats::gauge("moby palette changed rows", 0);
+        stats::gauge("moby palette uploaded rows", 0);
+        stats::gauge("moby palette upload calls", 0);
         glBindTexture(GL_TEXTURE_2D, 0);
         return;
     }
 
+    static const bool& full_upload =
+        stats::probe("OPENRAC_VK_PALETTE_PARTIAL_OFF", "Upload complete Vulkan joint palettes");
+    if (gl::is_vulkan() && renderer::render_opt::enabled(renderer::render_opt::Opt::MobyPoseInPlace)
+        && rows <= m_palette_rows && m_palette_data.size() == rows * kPerRow) {
+        std::array<JointColumns, kPerRow> last{};
+        const auto tail = matrices.size() - (rows - 1) * kPerRow;
+        std::copy_n(matrices.data() + (rows - 1) * kPerRow, tail, last.data());
+        std::array<std::pair<std::size_t, std::size_t>, 8> runs{};
+        std::size_t run_count = 0;
+        std::size_t changed_rows = 0;
+        for (std::size_t row = 0; row < rows; ++row) {
+            const auto* source = row + 1 == rows ? last.data() : matrices.data() + row * kPerRow;
+            auto* previous = m_palette_data.data() + row * kPerRow;
+            if (std::memcmp(source, previous, sizeof(last)) == 0) {
+                continue;
+            }
+            std::copy_n(source, kPerRow, previous);
+            ++changed_rows;
+            if (run_count <= runs.size()) {
+                if (run_count != 0 && runs[run_count - 1].second == row) {
+                    runs[run_count - 1].second = row + 1;
+                } else if (run_count < runs.size()) {
+                    runs[run_count++] = {row, row + 1};
+                } else {
+                    ++run_count;
+                }
+            }
+        }
+        stats::gauge("moby palette changed rows", double(changed_rows));
+        // Limit transfer calls when dirty rows are scattered or cover most of the palette.
+        const bool sparse = !full_upload && run_count <= runs.size() && changed_rows <= rows / 2;
+        glBindTexture(GL_TEXTURE_2D, m_palette);
+        const auto upload_rows = [&](std::size_t first, std::size_t end) {
+            glTexSubImage2D(
+                GL_TEXTURE_2D,
+                0,
+                0,
+                static_cast<GLint>(first),
+                kPaletteWidth,
+                static_cast<GLsizei>(end - first),
+                GL_RGBA,
+                GL_FLOAT,
+                m_palette_data.data() + first * kPerRow
+            );
+        };
+        if (sparse) {
+            for (const auto& [first, end] : std::span(runs).first(run_count)) {
+                upload_rows(first, end);
+            }
+        } else {
+            upload_rows(0, rows);
+        }
+        stats::gauge("moby palette uploaded rows", double(sparse ? changed_rows : rows));
+        stats::gauge("moby palette upload calls", double(sparse ? run_count : 1));
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return;
+    }
+
+    stats::gauge("moby palette changed rows", double(rows));
+    stats::gauge("moby palette uploaded rows", double(rows));
+    stats::gauge("moby palette upload calls", 1);
     m_palette_data.assign(rows * kPerRow, JointColumns{});
     std::copy(matrices.begin(), matrices.end(), m_palette_data.begin());
     glBindTexture(GL_TEXTURE_2D, m_palette);

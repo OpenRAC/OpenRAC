@@ -195,6 +195,7 @@ enum class Var : std::uint16_t {
     Uncapped,
     VkEffectUploadReuseOff,
     VkParticleTextureReuseOff,
+    VkPalettePartialOff,
     VkUniformReuseOff,
     VulkanLibrary,
     VulkanPipelineCache,
