@@ -104,9 +104,7 @@ void LevelScene::draw_shadow_map(
     glActiveTexture(GL_TEXTURE0);
     const auto sides =
         frustum_sides(region ? shadow_region_clip(matrix, *region, resolution) : matrix);
-    static const bool& receiver_culling_off =
-        stats::probe("OPENRAC_SUN_RECEIVER_CULL_OFF", "Reference: square shadow-map caster bounds");
-    const auto* volume = gl::is_vulkan() && !hero && !receiver_culling_off && cascade < kSunCascades
+    const auto* volume = gl::is_vulkan() && !hero && cascade < kSunCascades
                                  && m_sun_cascades.casters[cascade].plane_count
                              ? &m_sun_cascades.casters[cascade]
                              : nullptr;
@@ -213,7 +211,9 @@ void LevelScene::draw_shadow_map(
             for (std::size_t at = 0; at < bucket.size();) {
                 const auto& command = bucket[at];
                 std::size_t end = at + 1;
-                if (i == 0 && command.batch
+                // Keep separate range submissions for the indexed-viewport atlas. Bulk
+                // submissions can drop caster ranges as the cascade visibility changes.
+                if (atlas_view < 0 && i == 0 && command.batch
                     && renderer::render_opt::enabled(
                         renderer::render_opt::Opt::ShadowGeometryCull
                     )) {
