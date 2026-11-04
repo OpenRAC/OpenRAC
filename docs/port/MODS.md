@@ -840,6 +840,9 @@ Friends match their mods in one step (`launcher/core/src/modset.rs`, `profile.rs
 **Share these mods** turns the mods that are on into a *set*: each at its exact version, with the
 settings a party compares. A friend enters the code in the Add a mod field, or pastes it on the
 page, or follows `openrac://modset/CODE`, sees what would change, and applies it.
+A link may name a party too, `openrac://modset/CODE?party=PARTY`, which stays out of the set: once the
+mods are applied, Play and join writes `<plugins>/modset-join.json`, which the Multiplayer mod reads
+and removes on its next start to join that party.
 
 | | Short code | Full code |
 |---|---|---|

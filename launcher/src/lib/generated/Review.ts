@@ -15,7 +15,11 @@ set: string,
 /**
  * `K7M2-9QXR`, or none for a long code.
  */
-code: string | null, name: string, created: string, 
+code: string | null, 
+/**
+ * The party the link says to join, once applied.
+ */
+party: string | null, name: string, created: string, 
 /**
  * The game it is for.
  */

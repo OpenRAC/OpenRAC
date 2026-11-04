@@ -477,6 +477,7 @@ export const MOD_CODES = {
       ? "1 mod is still missing, so the party may refuse you."
       : `${count} mods are still missing, so the party may refuse you.`,
   undo: "Put my old mods back",
+  playAndJoin: (party: string) => `Play and join ${party}`,
   undone: "Your old mods are back.",
   savedTitle: "Earlier mods",
   savedHint: "Saved each time a code was applied. The last ten are kept.",

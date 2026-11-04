@@ -1758,8 +1758,14 @@ async fn modset_review(
 ) -> Result<modset::Review, String> {
     let g = game.clone();
     on_plugins(state, &game, move |dir| {
-        let (set, code) = modset::resolve(&modset::HttpStore::default(), &text)?;
-        with_remote(&app, dir, &g, &version, |c| modset::review(c, &set, code, &modset::port_version(dir)))
+        let (entered, party) = modset::split_party(&text);
+        let (set, code) = modset::resolve(&modset::HttpStore::default(), &entered)?;
+        with_remote(&app, dir, &g, &version, |c| {
+            modset::review(c, &set, code, &modset::port_version(dir)).map(|mut r| {
+                r.party = party.clone();
+                r
+            })
+        })
     })
     .await
 }
@@ -1794,6 +1800,13 @@ async fn modset_restore(state: State<'_, AppState>, game: String, id: String) ->
 }
 
 /// The link that opened the launcher, once: the page asks when it is ready for it.
+/// The game joins this party when it next starts: the player asked, the mods applied.
+#[tauri::command]
+async fn modset_join(state: State<'_, AppState>, game: String, party: String) -> Result<(), String> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    on_plugins(state, &game, move |dir| modset::write_join_file(dir, &party, now)).await
+}
+
 #[tauri::command]
 fn modset_take_link(state: State<'_, AppState>) -> Option<String> {
     state.modset_link.lock().unwrap().take()
@@ -2579,6 +2592,7 @@ pub fn run() {
             modset_apply,
             modset_profiles,
             modset_restore,
+            modset_join,
             modset_take_link,
             plugins_preview,
             plugins_install_remote,
