@@ -533,7 +533,10 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
     }
     if (behaviour[0] == 'b') { /* bad_signature */
         void* original = NULL;
-        return api->hook(mod, "Test_Add", "void(i32)", (void*)add, &original) == OPENRAC_HOOK_SIGNATURE ? 2 : 0;
+        const int other = api->hook(mod, "Test_Add", "void(i32)", (void*)add, &original);
+        /* Differing only in sign is the same signature. */
+        const int sign = api->hook(mod, "Test_Add", "u32(u32)", (void*)add, &original);
+        return other == OPENRAC_HOOK_SIGNATURE && sign == OPENRAC_HOOK_OK ? 2 : 0;
     }
     if (behaviour[0] == 'i') { /* input */
         s_input = 1;

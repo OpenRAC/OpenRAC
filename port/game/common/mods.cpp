@@ -426,6 +426,16 @@ const char* api_setting_string(openrac_mod* mod, const char* key) {
     return v != nullptr ? v->s.c_str() : "";
 }
 
+// A hook point's signature as asked for: i32 and u32 are one, of the same width and passed the same
+// way, and the discs' prototypes differ in them (docs/port/MODS.md, section 4).
+std::string hook_signature_form(std::string signature) {
+    for (size_t at = signature.find("i32"); at != std::string::npos;
+         at = signature.find("i32", at)) {
+        signature[at] = 'u';
+    }
+    return signature;
+}
+
 int api_hook(openrac_mod* mod, const char* name, const char* signature, void* replacement, void** original) {
     if (mod == nullptr || mod != g_loading || g_host == nullptr) {
         return OPENRAC_HOOK_TOO_LATE;
@@ -440,7 +450,8 @@ int api_hook(openrac_mod* mod, const char* name, const char* signature, void* re
         if (p.name == nullptr || std::strcmp(hook_id(*g_host, p.name), id) != 0) {
             continue;
         }
-        if (signature == nullptr || std::strcmp(p.signature, signature) != 0) {
+        if (signature == nullptr
+            || hook_signature_form(p.signature) != hook_signature_form(signature)) {
             mod->hook_refused = true;
             mod->failure = std::format("hook point {} is {} here, not {}", name, p.signature,
                                        signature != nullptr ? signature : "(none)");
