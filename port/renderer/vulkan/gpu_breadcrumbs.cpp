@@ -64,11 +64,11 @@ void record_gpu_breadcrumb(VkCommandBuffer command, std::string_view pass, bool 
     auto& marker = state.markers[slot];
     marker.id = state.next;
     marker.end = end;
-    const auto length = std::min(pass.size(), marker.pass.size() - 1);
-    std::copy_n(pass.data(), length, marker.pass.data());
+    const auto length = pass.copy(marker.pass.data(), marker.pass.size() - 1);
     marker.pass[length] = '\0';
     if (state.nvidia) {
         // The driver uses this integer token as opaque data and never dereferences it.
+        // NOLINTNEXTLINE(performance-no-int-to-ptr)
         vkCmdSetCheckpointNV(command, reinterpret_cast<const void*>(std::uintptr_t(marker.id)));
     } else {
         vkCmdWriteBufferMarkerAMD(
