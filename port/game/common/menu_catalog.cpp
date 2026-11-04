@@ -73,6 +73,9 @@ constexpr Entry kEntries[] = {
      "Reads the controller again just before each tick, and turns the camera between ticks "
      "with the right stick as it is now. Off keeps the timing players have learnt."},
 
+    {Id::GpuBreadcrumbs, Tab::Graphics, "Diagnostics", kSwitch, A, "GPU breadcrumbs (restart)",
+     "Records GPU progress to help diagnose graphics crashes. Restart the game to apply changes."},
+
     // ---- Enhanced ----
     {Id::EnhancedStatus, Tab::Enhanced, "Enhanced graphics", kNote, A, "Enhanced graphics",
      "Why the enhanced graphics cannot be changed now, and what to do about it."},

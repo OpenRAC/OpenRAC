@@ -208,6 +208,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::ResponsiveControls:
             it.on = set.responsive_controls;
             return it;
+        case Id::GpuBreadcrumbs:
+            it.shown = gl::is_vulkan();
+            it.on = set.gpu_breadcrumbs;
+            return it;
 
         // ---- Enhanced ----
         case Id::EnhancedStatus: {
@@ -536,6 +540,10 @@ bool act(Id id, int by) {
             return false;
         case Id::ResponsiveControls:
             change_setting(kResponsiveControls, 1);
+            return false;
+        case Id::GpuBreadcrumbs:
+            set.gpu_breadcrumbs = !set.gpu_breadcrumbs;
+            settings::save();
             return false;
 
         // ---- Enhanced ----

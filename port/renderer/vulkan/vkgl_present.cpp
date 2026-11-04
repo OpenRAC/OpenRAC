@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <optional>
 #include <stdexcept>
@@ -21,6 +22,7 @@
 
 #include <SDL3/SDL.h>
 
+#include "common/breadcrumbs.h"
 #include "common/log.h"
 #include "common/profiler.h"
 #include "common/stats.h"
@@ -149,7 +151,8 @@ void swapchain_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, V
 // The surface and swapchain made again: back from the background on Android, the window is a new
 // one and the old surface draws nowhere (the screen stayed black while the game went on).
 bool renew_surface() {
-    vkDeviceWaitIdle(g->device);
+    crash::breadcrumb("Vulkan renew surface");
+    require_success(vkDeviceWaitIdle(g->device), "wait before surface renewal");
     release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
@@ -161,6 +164,7 @@ bool renew_surface() {
     }
     std::string error;
     if (!make_surface(g->window, error)) {
+        diagnostic(std::format("Vulkan surface renewal deferred: {}", error));
         return false;  // no window yet: tried again with the next frame
     }
     g->surface_lost = false;
@@ -206,9 +210,21 @@ bool make_default_framebuffer(int width, int height) {
 
 VkPresentModeKHR present_mode() {
     std::uint32_t n = 0;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(g->physical, g->surface, &n, nullptr);
+    if (!check(
+            vkGetPhysicalDeviceSurfacePresentModesKHR(g->physical, g->surface, &n, nullptr),
+            "count present modes"
+        )
+        || n == 0) {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
     std::vector<VkPresentModeKHR> modes(n);
-    vkGetPhysicalDeviceSurfacePresentModesKHR(g->physical, g->surface, &n, modes.data());
+    if (!check(
+            vkGetPhysicalDeviceSurfacePresentModesKHR(g->physical, g->surface, &n, modes.data()),
+            "read present modes"
+        )) {
+        return VK_PRESENT_MODE_FIFO_KHR;
+    }
+    modes.resize(n);
     auto has = [&](VkPresentModeKHR m) {
         return std::find(modes.begin(), modes.end(), m) != modes.end();
     };
@@ -239,13 +255,38 @@ bool make_swapchain() {
     if (g->surface == VK_NULL_HANDLE) {
         return true;
     }
-    vkDeviceWaitIdle(g->device);
+    crash::breadcrumb("Vulkan recreate swapchain");
+    const auto idle = vkDeviceWaitIdle(g->device);
+    if (g->open) {
+        require_success(idle, "wait before swapchain recreation");
+    } else if (!check(idle, "wait before initial swapchain")) {
+        return false;
+    }
     VkSurfaceCapabilitiesKHR caps{};
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g->physical, g->surface, &caps);
+    const auto capabilities =
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g->physical, g->surface, &caps);
+    if (capabilities == VK_ERROR_SURFACE_LOST_KHR) {
+        g->surface_lost = true;
+    }
+    if (!check(capabilities, "query surface capabilities")) {
+        return false;
+    }
     std::uint32_t n = 0;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g->physical, g->surface, &n, nullptr);
+    if (!check(
+            vkGetPhysicalDeviceSurfaceFormatsKHR(g->physical, g->surface, &n, nullptr),
+            "count surface formats"
+        )
+        || n == 0) {
+        return false;
+    }
     std::vector<VkSurfaceFormatKHR> formats(n);
-    vkGetPhysicalDeviceSurfaceFormatsKHR(g->physical, g->surface, &n, formats.data());
+    if (!check(
+            vkGetPhysicalDeviceSurfaceFormatsKHR(g->physical, g->surface, &n, formats.data()),
+            "read surface formats"
+        )) {
+        return false;
+    }
+    formats.resize(n);
     if (formats.empty()) {
         return false;
     }
@@ -306,6 +347,7 @@ bool make_swapchain() {
     g->shows_at_once = info.presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
     info.clipped = VK_TRUE;
     info.oldSwapchain = g->swapchain;
+
     // VkSurfaceFullScreenExclusiveInfoEXT (vulkan_win32.h, which needs windows.h), the same
     // layout: borderless full screen stays a window the desktop composes, as DXGI's flip model.
     struct {
@@ -313,19 +355,31 @@ bool make_swapchain() {
         void* pNext = nullptr;
         std::int32_t fullScreenExclusive = 2;  // VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT
     } no_exclusive;
+
     if (g->no_exclusive_full_screen) {
         info.pNext = &no_exclusive;
     }
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    if (!check(vkCreateSwapchainKHR(g->device, &info, nullptr, &swapchain), "the swapchain")) {
-        return false;
-    }
+    const auto created = vkCreateSwapchainKHR(g->device, &info, nullptr, &swapchain);
+    // Passing oldSwapchain retires it even if creation fails.
     release_hdr_views();
     if (g->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(g->device, g->swapchain, nullptr);
     }
+    g->swapchain = VK_NULL_HANDLE;
+    g->swapchain_images.clear();
     for (VkSemaphore s : g->rendered) {
         vkDestroySemaphore(g->device, s, nullptr);
+    }
+    g->rendered.clear();
+    if (created == VK_ERROR_SURFACE_LOST_KHR) {
+        g->surface_lost = true;
+    }
+    if (created == VK_ERROR_DEVICE_LOST && g->open) {
+        require_success(created, "create swapchain");
+    }
+    if (!check(created, "create swapchain")) {
+        return false;
     }
     g->swapchain = swapchain;
     g->swapchain_format = format.format;
@@ -333,16 +387,49 @@ bool make_swapchain() {
     // Present ids count per swapchain: the new one's start again.
     g->present_serial = 0;
     g->present_seen = PresentTiming{};
-    vkGetSwapchainImagesKHR(g->device, swapchain, &n, nullptr);
+    const auto abandon = [&] {
+        for (VkSemaphore semaphore : g->rendered) {
+            vkDestroySemaphore(g->device, semaphore, nullptr);
+        }
+        g->rendered.clear();
+        g->swapchain_images.clear();
+        vkDestroySwapchainKHR(g->device, swapchain, nullptr);
+        g->swapchain = VK_NULL_HANDLE;
+        return false;
+    };
+    if (!check(vkGetSwapchainImagesKHR(g->device, swapchain, &n, nullptr), "count swapchain images")
+        || n == 0) {
+        return abandon();
+    }
     g->swapchain_images.resize(n);
-    vkGetSwapchainImagesKHR(g->device, swapchain, &n, g->swapchain_images.data());
+    if (!check(
+            vkGetSwapchainImagesKHR(g->device, swapchain, &n, g->swapchain_images.data()),
+            "read swapchain images"
+        )
+        || n == 0) {
+        return abandon();
+    }
+    g->swapchain_images.resize(n);
     g->rendered.assign(n, VK_NULL_HANDLE);
     for (VkSemaphore& s : g->rendered) {
         VkSemaphoreCreateInfo si{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-        vkCreateSemaphore(g->device, &si, nullptr, &s);
+        if (!check(vkCreateSemaphore(g->device, &si, nullptr, &s), "create present semaphore")) {
+            return abandon();
+        }
     }
     hdr_swapchain_made(format);
     g->swapchain_stale = false;
+    diagnostic(
+        std::format(
+            "Vulkan swapchain: {}x{}, {} images, format {}, present mode {}, HDR {}",
+            extent.width,
+            extent.height,
+            n,
+            int(format.format),
+            int(info.presentMode),
+            hdr
+        )
+    );
     return true;
 }
 
@@ -449,11 +536,9 @@ void prepare_frame() {
     if (f.submitted) {
         const stats::Scope wait("vulkan frame wait", profiling::ZoneColour::Idle);
         const Clock::time_point start = Clock::now();
-        if (!check(
-                vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"
-            )) {
-            throw std::runtime_error("cannot reclaim Vulkan frame slot");
-        }
+        require_success(
+            vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "frame-slot fence"
+        );
         g->measures.wait_s += seconds_since(start);
         timing_results(f);
         f.submitted = false;
@@ -469,8 +554,7 @@ void prepare_frame() {
         require_success(vkResetDescriptorPool(g->device, pool, 0), "reset frame descriptors");
     }
     f.pool_at = 0;
-    f.chunk_at = 0;
-    f.chunk_used = 0;
+    reset_upload_ring(f);
     begin_buffers();
 
     // What the pre-warm workers made since, a whole pipeline in place of a linked one retired
@@ -634,6 +718,7 @@ bool present_to_screen() {
     VkResult r;
     {
         const profiling::Zone acquire_trace("Acquire swapchain image");
+        crash::breadcrumb("Vulkan acquire swapchain image");
         r = vkAcquireNextImageKHR(
             g->device, g->swapchain, UINT64_MAX, f.acquired, VK_NULL_HANDLE, &index
         );
@@ -641,6 +726,7 @@ bool present_to_screen() {
     g->acquire_wait_s = seconds_since(acquiring);
     step.reset();
     if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+        diagnostic("Vulkan acquire: swapchain out of date");
         if (!make_swapchain()) {
             return false;
         }
@@ -650,9 +736,16 @@ bool present_to_screen() {
     }
     if (r == VK_ERROR_SURFACE_LOST_KHR) {
         g->surface_lost = true;
-    }
-    if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) {
+        crash::breadcrumb("Vulkan acquire: surface lost");
+        diagnostic("Vulkan acquire: VK_ERROR_SURFACE_LOST_KHR");
         return false;
+    }
+    if (r == VK_ERROR_OUT_OF_DATE_KHR) {
+        g->swapchain_stale = true;
+        return false;
+    }
+    if (r != VK_SUBOPTIMAL_KHR) {
+        require_success(r, "acquire swapchain image");
     }
     end_rendering(PassEnd::Present);
     const VkImage screen = g->swapchain_images[index];
@@ -671,7 +764,7 @@ bool present_to_screen() {
     const VkCommandBuffer own =
         render_opt::enabled(render_opt::Opt::VkTightSync) && !hdr ? present_cmd() : VK_NULL_HANDLE;
     VkCommandBuffer cmd = own != VK_NULL_HANDLE ? own : f.main;
-    // HDR encoding and its fallback retain the upstream image transitions and compute-stage wait.
+    // HDR setup can fall back to the transfer graph before recording an encode.
     if (!hdr || !hdr_encode_into(cmd, index)) {
         // Native transfer callbacks retain composition's internal clear-to-blit ordering.
         const auto copy_screen = [&] {
@@ -681,22 +774,12 @@ bool present_to_screen() {
                 copy_default_into(cmd, screen, g->swapchain_extent);
             }
         };
-        // HDR fallback already owns a transfer-ready screen; the graph plans complete SDR copies.
-        if (!hdr) {
-            Image borrowed;
-            borrowed.image = screen;
-            const auto source = composed ? g->present_copy.source : g->default_colour;
-            const auto recorded = record_presentation(cmd, source, borrowed, true, copy_screen);
-            // An incomplete SDR presentation cannot be submitted to the screen.
-            if (!recorded) {
-                throw std::runtime_error(recorded.error().message);
-            }
-        } else {
-            // Failed HDR encoding already performed this transition for its SDR fallback.
-            copy_screen();
-            swapchain_barrier(
-                cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-            );
+        Image borrowed;
+        borrowed.image = screen;
+        const auto source = composed ? g->present_copy.source : g->default_colour;
+        const auto recorded = record_presentation(cmd, source, borrowed, true, copy_screen);
+        if (!recorded) {
+            throw std::runtime_error(recorded.error().message);
         }
     }
     // The frame's GPU-driven work recorded and everything handed to the queue; then the present,
@@ -723,19 +806,26 @@ bool present_to_screen() {
 
     {
         const profiling::Zone present_trace("Queue present");
+        crash::breadcrumb("Vulkan queue present");
         r = vkQueuePresentKHR(g->queue, &info);
+    }
+    if (r == VK_ERROR_SURFACE_LOST_KHR) {
+        g->surface_lost = true;
+        crash::breadcrumb("Vulkan present: surface lost");
+        diagnostic("Vulkan present: VK_ERROR_SURFACE_LOST_KHR");
+        return true;  // Rendering was already submitted.
     }
 #if defined(__ANDROID__)
     // Android says "suboptimal" for every frame of a turned screen that the system turns for us.
     const bool stale = r == VK_ERROR_OUT_OF_DATE_KHR;
-    if (r == VK_ERROR_SURFACE_LOST_KHR) {
-        g->surface_lost = true;
-    }
 #else
     const bool stale = r == VK_ERROR_OUT_OF_DATE_KHR || r == VK_SUBOPTIMAL_KHR;
 #endif
     if (stale) {
         g->swapchain_stale = true;
+        diagnostic(std::format("Vulkan present: swapchain needs recreation ({})", int(r)));
+    } else if (r != VK_SUBOPTIMAL_KHR) {
+        require_success(r, "queue present");
     }
     return true;
 }

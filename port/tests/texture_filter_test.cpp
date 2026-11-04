@@ -202,6 +202,39 @@ public:
         }
     }
 
+    // Record all copies before readback so a later dispatch can overwrite the same scratch buffer.
+    void test_shared_scratch() {
+        const std::array<int, 4> sizes{8, 8, 16, 8};
+        std::array<unsigned, sizes.size()> outputs{};
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+            const int side = sizes[i];
+            renderer::Rgba8Image image(side, side);
+            std::fill(image.pixels.begin(), image.pixels.end(), static_cast<unsigned char>(64 * i));
+            const auto source =
+                m_pool.add(std::move(image), renderer::AlphaScale::Full, "scratch", false, true);
+            outputs[i] = m_upscaler->prepare(m_pool.gl_texture(source), side, side, 0, 1);
+            CHECK(outputs[i] != 0);
+        }
+
+        unsigned framebuffer = 0;
+        glGenFramebuffers(1, &framebuffer);
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+            glFramebufferTexture2D(
+                GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputs[i], 0
+            );
+            const auto pixels = renderer::read_rgba(framebuffer, sizes[i] * 2, sizes[i] * 2);
+            CHECK(!pixels.empty());
+            for (std::size_t p = 0; p + 3 < pixels.size(); p += 4) {
+                CHECK(pixels[p] == 64 * i);
+                CHECK(pixels[p + 1] == 64 * i);
+                CHECK(pixels[p + 2] == 64 * i);
+                CHECK(pixels[p + 3] == 255);
+            }
+        }
+        glDeleteFramebuffers(1, &framebuffer);
+    }
+
     // Checks the unavailable-cache fallback and that minification keeps original sampling.
     void test_fallback_and_minification() {
         // A missing/full cache must fall back to original sampling, with no cubic path.
@@ -324,6 +357,15 @@ public:
                 m_pool.end_frame();
             }
 
+            CHECK(m_upscaler->cache_bytes() == persistent_bytes);
+
+            draw(1, 64, 64);
+            const auto expected = m_frame.read_rgba();
+            m_pool.clear_upscaled_texture_colours();
+            CHECK(m_upscaler->cache_bytes() == 0);
+            CHECK(m_pool.gl_texture(m_source) == m_texture);
+            draw(1, 64, 64);
+            CHECK(m_frame.read_rgba() == expected);
             CHECK(m_upscaler->cache_bytes() == persistent_bytes);
         }
 
@@ -531,6 +573,9 @@ int main(int argc, char** argv) try {
         fixture.test_debanding(argc == 2 ? argv[1] : "");
     }
     fixture.test_variant_wrapping();
+    if (enhanced_rendering_available()) {
+        fixture.test_shared_scratch();
+    }
     return test::result();
 } catch (const std::exception& failure) {
     std::fprintf(stderr, "%s\n", failure.what());

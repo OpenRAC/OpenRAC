@@ -78,26 +78,43 @@ bool Renderer::begin_surface_prepass(RenderState& state) {
     samples = std::max(1, samples);
     std::string error;
 
+    // The shared graph orders depth sampling before opaque rendering reattaches the image.
+    const bool share_depth =
+        samples == 1 && target.depth_texture != 0 && collecting_surface_chain();
+
     // Matching sample counts preserve the colour rounds' per-sample depth coverage.
     if ((!m_surface_prepass.id() || m_surface_prepass.width() != target.width
-         || m_surface_prepass.height() != target.height || m_surface_prepass.samples() != samples)
-        && !m_surface_prepass.create(target.width, target.height, error, samples, samples == 1)) {
+         || m_surface_prepass.height() != target.height || m_surface_prepass.samples() != samples
+         || m_surface_prepass_shared_depth != share_depth)
+        && !(
+            share_depth ? m_surface_prepass.create_colour(target.width, target.height, error)
+                        : m_surface_prepass
+                              .create(target.width, target.height, error, samples, samples == 1)
+        )) {
         log::warn("surface normals: {}", error);
         glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
         return false;
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, m_surface_prepass.id());
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    state.target.normal_texture = m_surface_prepass.colour_texture();
-    // Single-sample compute passes borrow depth directly instead of making another copy.
-    if (samples == 1) {
+    m_surface_prepass_shared_depth = share_depth;
+    if (share_depth) {
+        glFramebufferTexture2D(
+            GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, target.depth_texture, 0
+        );
+    } else if (samples == 1) {
         state.target.depth_texture = m_surface_prepass.depth_texture();
     }
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    state.target.normal_texture = m_surface_prepass.colour_texture();
     return true;
 }
 
 void Renderer::finish_surface_prepass(const RenderTarget& target) {
+    if (m_surface_prepass_shared_depth) {
+        glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
+        return;
+    }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, m_surface_prepass.id());
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, target.framebuffer);
     const auto queued = queue_surface_copy(
@@ -258,7 +275,8 @@ void Renderer::render(const FrameInput& input, const RenderTarget& source) {
         );
         state.reuse_prepass_depth = true;
         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-        unsigned resolved_depth = surface_prepass ? m_surface_prepass.depth_texture() : 0;
+        unsigned resolved_depth =
+            surface_prepass && m_surface_prepass.samples() == 1 ? state.target.depth_texture : 0;
         if (gtao && needs_indirect_ao
             && m_ambient_occlusion->render(input, state.target, false, early_lighting)) {
             if (early_lighting) {

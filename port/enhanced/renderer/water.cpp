@@ -23,6 +23,7 @@
 #include "renderer/colour_graph.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/surface_chain.h"
 #include "renderer/world/gl_world.h"
 #include "scene/level_renderer.h"
 
@@ -140,7 +141,10 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
     if (!m_enabled || target.width <= 0 || target.height <= 0) {
         return;
     }
-    if (m_background.width() != target.width || m_background.height() != target.height) {
+    const auto scratch =
+        renderer::lease_surface_refraction(target.framebuffer, {target.width, target.height});
+    if (!scratch
+        && (m_background.width() != target.width || m_background.height() != target.height)) {
         std::string error;
         if (!m_background.create(target.width, target.height, error, 1, true)) {
             log::warn("Water scene transmission unavailable: {}", error);
@@ -152,12 +156,13 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
     GLint samples = 1;
     glGetIntegerv(GL_SAMPLES, &samples);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_background.id());
+    const unsigned destination = scratch ? scratch.framebuffer : m_background.id();
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination);
     // Copy dimensions survive preparation until the enclosing colour scope executes both native blits.
     const int width = target.width;
     const int height = target.height;
     const auto copied = renderer::colour_snapshot(
-        target, m_background.id(), std::max(1, samples), [width, height](bool depth) {
+        target, destination, std::max(1, samples), [width, height](bool depth) {
             glBlitFramebuffer(
                 0,
                 0,
@@ -176,15 +181,14 @@ void Water::prepare_scene(const renderer::FrameInput&, const renderer::RenderTar
         throw std::runtime_error(copied.error().message);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, target.framebuffer);
-    m_background_ready = true;
+    m_background_textures =
+        scratch ? scratch.textures
+                : std::array{m_background.colour_texture(), m_background.depth_texture()};
+    m_background_extent = {width, height};
 }
 
 std::array<unsigned, 2> Water::scene_textures() const {
-    // Passes without replacement meshes must not advertise stale refraction inputs.
-    if (!m_background_ready) {
-        return {};
-    }
-    return {m_background.colour_texture(), m_background.depth_texture()};
+    return m_background_textures;
 }
 
 // Enhanced water already includes its background; legacy GS blending would add it twice.
@@ -241,11 +245,11 @@ void Water::bind(
         return;
     }
     m_bound = true;
-    glUniform1i(shader.uniform("water_scene_ready"), m_background_ready ? 1 : 0);
+    glUniform1i(shader.uniform("water_scene_ready"), m_background_textures[0] ? 1 : 0);
     glUniform2f(
         shader.uniform("water_scene_extent"),
-        float(std::max(1, m_background.width())),
-        float(std::max(1, m_background.height()))
+        float(std::max(1, m_background_extent[0])),
+        float(std::max(1, m_background_extent[1]))
     );
     glUniformMatrix4fv(shader.uniform("water_scene_view"), 1, GL_FALSE, input.camera.view.data());
     const auto& projection = input.camera.projection;
@@ -260,9 +264,9 @@ void Water::bind(
     glUniform1i(shader.uniform("water_scene_depth"), 27);
     // Valid descriptors are required even when no replacement mesh needed a snapshot.
     glActiveTexture(GL_TEXTURE0 + 26);
-    glBindTexture(GL_TEXTURE_2D, m_background_ready ? m_background.colour_texture() : m_maps[1]);
+    glBindTexture(GL_TEXTURE_2D, m_background_textures[0] ? m_background_textures[0] : m_maps[1]);
     glActiveTexture(GL_TEXTURE0 + 27);
-    glBindTexture(GL_TEXTURE_2D, m_background_ready ? m_background.depth_texture() : m_maps[1]);
+    glBindTexture(GL_TEXTURE_2D, m_background_textures[1] ? m_background_textures[1] : m_maps[1]);
     auto material = reflection_material_settings(ReflectionSurface::Water);
     if (m_ocean_spectra[0]) {
         const auto ocean = ocean_material();

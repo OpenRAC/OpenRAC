@@ -236,6 +236,7 @@ void use_level(int number) {
         }
     } else {
         g->renderer->clear_renderers();
+        g->renderer->textures().clear_upscaled_texture_colours();
     }
     crash::level_breadcrumb("level scene reset", wanted);
     g->scene.release();

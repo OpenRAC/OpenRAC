@@ -27,6 +27,30 @@ bool collecting_surface_chain() {
 #endif
 }
 
+SurfaceDepthScratch lease_surface_depth(unsigned source, std::array<int, 2> size) {
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        return backend::lease_surface_depth(source, size);
+    }
+#else
+    (void)source;
+    (void)size;
+#endif
+    return {};
+}
+
+SurfaceRefractionScratch lease_surface_refraction(unsigned source, std::array<int, 2> size) {
+#if defined(OPENRAC_VULKAN)
+    if (gl::is_vulkan()) {
+        return backend::lease_surface_refraction(source, size);
+    }
+#else
+    (void)source;
+    (void)size;
+#endif
+    return {};
+}
+
 Result<void> run_surface_chain(const std::function<void()>& prepare) {
     // An absent preparation callback cannot define the shared plan.
     if (!prepare) {
@@ -90,9 +114,9 @@ Result<void> run_surface_setup(const std::function<void()>& prepare) {
 }
 
 bool Renderer::can_prepare_surface_chain(const FrameInput& input, const RenderState& state) const {
-    // Optional Hi-Z and unknown hooks use separate scoped graphs.
+    // Unknown hooks use separate scoped graphs.
     if (!surface_chain_enabled() || !m_ambient_occlusion
-        || !m_ambient_occlusion->prepares_surface_chain() || input.gtao_settings.hi_z
+        || !m_ambient_occlusion->prepares_surface_chain()
         || (input.after_world_depth && !input.prepares_world_depth)) {
         return false;
     }

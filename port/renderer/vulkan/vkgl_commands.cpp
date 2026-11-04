@@ -17,6 +17,8 @@
 #include <utility>
 #include <volk.h>
 
+#include "common/breadcrumbs.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/profiler.h"
 #include "common/stats.h"
@@ -32,8 +34,24 @@ using namespace openrac::gl;
 // Reports a terminal recording failure at the renderer's existing exception boundary.
 void require_success(VkResult result, const char* operation) {
     // Continuing could submit invalid handles or wait for work that was never queued.
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error(std::format("vulkan: {} failed ({})", operation, int(result)));
+    if (!check(result, operation)) {
+        if (g) {
+            const auto state = std::format(
+                "Vulkan state: frame {}, slot {}, recording {}, queue family {}, swapchain {}x{}, "
+                "submissions {}, validation errors {}",
+                g->frame_count,
+                g->frame,
+                g->recording,
+                g->family,
+                g->swapchain_extent.width,
+                g->swapchain_extent.height,
+                g->submission.submits,
+                g->validation_errors.load()
+            );
+            crash::note_vulkan(state);
+            log::error("{}", state);
+        }
+        throw RecordingFailure(std::format("vulkan: {} failed ({})", operation, int(result)));
     }
 }
 
@@ -100,9 +118,8 @@ VkDeviceSize ring_alignment() {
     );
 }
 
-bool new_chunk(Frame& f, VkDeviceSize size) {
-    Chunk c;
-    c.size = std::max(size, kChunk);
+bool allocate_chunk(Chunk& c, VkDeviceSize size) {
+    c.size = size;
     VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     info.size = c.size;
     info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
@@ -122,7 +139,16 @@ bool new_chunk(Frame& f, VkDeviceSize size) {
         return false;
     }
     c.mapped = static_cast<std::uint8_t*>(got.pMappedData);
+    return true;
+}
+
+bool new_chunk(Frame& f, VkDeviceSize size) {
+    Frame::UploadChunk c;
+    if (!allocate_chunk(c, std::max(size, kChunk))) {
+        return false;
+    }
     f.chunks.push_back(c);
+    ++g->measures.ring_allocations;
     return true;
 }
 
@@ -592,10 +618,11 @@ Slice ring(VkDeviceSize size) {
     size = std::max<VkDeviceSize>(size, 4);
     while (true) {
         if (f.chunk_at < f.chunks.size()) {
-            Chunk& c = f.chunks[f.chunk_at];
+            auto& c = f.chunks[f.chunk_at];
             const VkDeviceSize at = (f.chunk_used + align - 1) / align * align;
             if (at <= c.size && size <= c.size - at) {
                 f.chunk_used = at + size;
+                c.high_water = f.chunk_used;
                 g->measures.ring_bytes += size;
                 g->submission.ring_bytes += size;
                 return {c.buffer, at, c.mapped + at};
@@ -608,6 +635,81 @@ Slice ring(VkDeviceSize size) {
             throw std::runtime_error("cannot allocate Vulkan upload ring");
         }
     }
+}
+
+// Bulk texture copies reuse a dedicated buffer only after their submission has completed.
+Slice texture_staging(VkDeviceSize size) {
+    if (!g->bulk_texture_upload || size > kBulkTextureBatchBytes) {
+        return ring(size);
+    }
+    prepare_frame();
+    Frame& f = frame();
+    Chunk& staging = f.bulk_texture_staging;
+    if (!staging.buffer && !allocate_chunk(staging, kBulkTextureBatchBytes)) {
+        staging = {};
+        throw std::runtime_error("cannot allocate Vulkan bulk texture staging");
+    }
+    const auto alignment = ring_alignment();
+    auto offset = (f.bulk_texture_used + alignment - 1) / alignment * alignment;
+    if (offset > staging.size || size > staging.size - offset) {
+        flush_and_wait();
+        offset = 0;
+    }
+    f.bulk_texture_used = offset + size;
+    return {staging.buffer, offset, staging.mapped + offset};
+}
+
+// Compressed texture blocks are already in the GPU's format.
+Slice stage_compressed_pixels(const void* pixels, VkDeviceSize size) {
+    const Slice staged = texture_staging(size);
+    std::memcpy(staged.data, pixels, static_cast<std::size_t>(size));
+    return staged;
+}
+
+// Called only after the frame fence or at device teardown.
+void release_bulk_texture_staging(Frame& f) {
+    Chunk& staging = f.bulk_texture_staging;
+    if (staging.buffer) {
+        vmaDestroyBuffer(g->allocator, staging.buffer, staging.allocation);
+        staging = {};
+        f.bulk_texture_used = 0;
+    }
+}
+
+bool ring_trim_enabled() {
+    static const bool off = env::flag(env::Var::VkRingTrimOff);
+    return !off;
+}
+
+bool reserve_upload_ring(Frame& f) {
+    // Keep normal frame uploads off the allocator, even after a load first needs overflow.
+    return new_chunk(f, kChunk);
+}
+
+void reset_upload_ring(Frame& f) {
+    release_bulk_texture_staging(f);
+    constexpr unsigned kIdleSlotReuses = 60;
+    const bool trim = ring_trim_enabled();
+    std::size_t retained = 0;
+    for (std::size_t index = 0; index < f.chunks.size(); ++index) {
+        auto chunk = f.chunks[index];
+        const bool pinned = index == 0 && chunk.size == kChunk;
+        const auto used = chunk.high_water;
+        // A large startup allocation can remain first in the ring and service tiny steady uploads.
+        const bool cold = used == 0 || (chunk.size > kChunk && used <= kChunk);
+        chunk.idle_reuses = cold ? std::min(chunk.idle_reuses + 1, kIdleSlotReuses) : 0;
+        if (trim && !pinned && chunk.idle_reuses == kIdleSlotReuses) {
+            vmaDestroyBuffer(g->allocator, chunk.buffer, chunk.allocation);
+            ++g->measures.ring_retirements;
+            g->measures.ring_retired_bytes += chunk.size;
+        } else {
+            chunk.high_water = 0;
+            f.chunks[retained++] = chunk;
+        }
+    }
+    f.chunks.resize(retained);
+    f.chunk_at = 0;
+    f.chunk_used = 0;
 }
 
 Slice ring_copy(const void* data, VkDeviceSize size) {
@@ -907,6 +1009,7 @@ void timing_results(Frame& f) {
 }
 
 void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommandBuffer present) {
+    crash::breadcrumb(wait ? "Vulkan submit and wait" : "Vulkan submit frame");
     require_surface_execution();
     const profiling::Zone trace("Vulkan submit");
 
@@ -989,6 +1092,7 @@ void submit(VkSemaphore wait_semaphore, VkSemaphore signal, bool wait, VkCommand
     ++g->submission.submits;
     f.submitted = true;
     if (wait) {
+        crash::breadcrumb("Vulkan wait for submitted frame");
         require_success(
             vkWaitForFences(g->device, 1, &f.fence, VK_TRUE, UINT64_MAX), "wait for submitted frame"
         );

@@ -45,12 +45,13 @@ uniform mat4 projection;out vec4 colour;
 void main(){float d=gl_FragCoord.x<11.?4.:8.;vec4 p=projection*vec4(0,0,-d,1);
 gl_FragDepth=p.z/p.w*.5+.5;colour=vec4(.5,.5,1,1);})";
 constexpr const char* kColour = R"(#version 430 core
-uniform samplerBuffer early_values;uniform usamplerBuffer early_guides;uniform sampler2D depth_source;uniform int cells_x;out vec4 colour;
+uniform samplerBuffer early_values;uniform usamplerBuffer early_guides;uniform mat4 projection;uniform int cells_x;out vec4 colour;
 void main(){ivec2 p=ivec2(gl_FragCoord.xy);ivec2 c=p/2;
 int i=c.y*cells_x+c.x;vec4 light=texelFetch(early_values,i);
 uint guide=texelFetch(early_guides,i*2+1).r;
 colour=vec4(light.rgb*(.25+.75*light.a),float((guide>>20u)&255u)/255.);
-gl_FragDepth=texelFetch(depth_source,p,0).r;})";
+float d=gl_FragCoord.x<11.?4.:8.;vec4 clip=projection*vec4(0,0,-d,1);
+gl_FragDepth=clip.z/clip.w*.5+.5;})";
 struct Fixture;
 
 // A minimal terrain provider exercises production eligibility, prepass and colour-depth reuse.
@@ -122,8 +123,6 @@ struct Fixture {
     renderer::Shader colour;       // Synthetic geometry and cache display.
     renderer::FrameBuffer target;  // Shared across warmed reference/prepared comparisons.
     renderer::FrameInput input;    // Lives through all callbacks and later colour draws.
-    unsigned depth_source =
-        0;             // Single-sample early-lighting depth, including the MSAA resolve fallback.
     unsigned vao = 0;  // Attribute-free fullscreen geometry.
     // Initializes shaders, constant probes and provider registration before graph construction.
     Fixture();
@@ -344,7 +343,7 @@ Fixture::~Fixture() {
 
 void Fixture::resize(int width, int height, bool half, int samples) {
     std::string error;
-    CHECK(target.create(width, height, error, samples));
+    CHECK(target.create(width, height, error, samples, samples == 1));
     input.camera.projection = renderer::perspective_reversed(
         std::numbers::pi_v<float> / 2,
         static_cast<float>(width) / static_cast<float>(height),
@@ -386,7 +385,6 @@ void Terrain::render_depth(const renderer::FrameInput& input, renderer::RenderSt
 void Terrain::render_early_lighting(
     unsigned source, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
-    m_fixture.depth_source = source;
     // Real shadow producers precede their reflected early-lighting consumers in the shared plan.
     if (m_fixture.shadow_inputs) {
         m_fixture.prepare_shadows();
@@ -447,10 +445,10 @@ void Terrain::draw_colour(const renderer::FrameInput& input, renderer::RenderSta
     glUniform1i(m_fixture.colour.uniform("edge_coverage"), m_fixture.edge_coverage);
     m_fixture.early.bind(m_fixture.colour, input, state);
     glUniform1i(m_fixture.colour.uniform("cells_x"), (state.target.width + 1) / 2);
-    glUniform1i(m_fixture.colour.uniform("depth_source"), 0);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, m_fixture.depth_source);
-    // Exact equality proves that depth reuse copied the prepass before world colour.
+    glUniformMatrix4fv(
+        m_fixture.colour.uniform("projection"), 1, GL_FALSE, input.camera.projection.data()
+    );
+    // Match the prepass depth without sampling the attachment bound for opaque rendering.
     glDepthFunc(GL_EQUAL);
     glBindVertexArray(m_fixture.vao);
     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -468,13 +466,17 @@ struct RecordedFrame {
 };
 
 // Runs one frame and reads its result after all declared work has executed.
-RecordedFrame render_frame(Fixture& fixture) {
+RecordedFrame render_frame(Fixture& fixture, bool expose_depth = true) {
     fixture.order.clear();
     const auto before = vkgl::submission_counters();
     ++fixture.input.frame;
-    fixture.renderer.render(
-        fixture.input, {fixture.target.id(), fixture.target.width(), fixture.target.height()}
-    );
+    renderer::RenderTarget target{
+        fixture.target.id(), fixture.target.width(), fixture.target.height()
+    };
+    if (expose_depth) {
+        target.depth_texture = fixture.target.depth_texture();
+    }
+    fixture.renderer.render(fixture.input, target);
     const auto after = vkgl::submission_counters();
     return {
         fixture.target.read_rgba(),
@@ -670,8 +672,10 @@ void test_chain() {
     compare(fixture, false);
     fixture.input.prepares_world_depth = true;
     fixture.input.gtao_settings.hi_z = true;
-    compare(fixture, false);
+    compare(fixture);
     fixture.resize(19, 17, true, surface_multisamples());
+    compare(fixture);
+    fixture.input.gtao_settings.hi_z = false;
     compare(fixture);
     test_failed_preparation(fixture);
 }
@@ -699,19 +703,17 @@ void test_multisample_chain() {
     compare(fixture);
 }
 
-// Multisample resolves must precede their sampled consumers in the same executable section.
-void test_multisample_order(test::GlContext& context) {
-    // Single-sample-only devices still run all other surface regressions.
-    const int samples = surface_multisamples();
-    if (samples == 1) {
-        return;
-    }
+// Shared depth skips the copy; multisample resolves still precede their sampled consumers.
+void test_depth_order(test::GlContext& context, int samples) {
     Fixture fixture;
     fixture.edge_coverage = true;
     fixture.resize(23, 17, true, samples);
+    render_frame(fixture, false);
+    const auto reference = render_frame(fixture, false);
     render_frame(fixture);
     CHECK(vkgl::capture_frame_graph());
-    render_frame(fixture);
+    const auto rendered = render_frame(fixture);
+    CHECK(rendered.pixels == reference.pixels);
     fixture.target.blit_to(0, 64, 64);
     context.window().swap();
     const auto description = vkgl::frame_graph_description();
@@ -727,6 +729,12 @@ void test_multisample_order(test::GlContext& context) {
     const auto ao = description->find(" work GTAO horizons\n");
     const auto early = description->find(" work early GI and cascades\n");
     const auto colour = description->find(" work world opaque colour\n");
+    if (samples == 1) {
+        CHECK(prepass != std::string::npos && colour != std::string::npos);
+        CHECK(reuse == std::string::npos && depth == std::string::npos);
+        CHECK(prepass < ao && ao < early && early < colour);
+        return;
+    }
     CHECK(prepass != std::string::npos && reuse != std::string::npos);
     CHECK(normals != std::string::npos && depth != std::string::npos);
     CHECK(ao != std::string::npos && early != std::string::npos && colour != std::string::npos);
@@ -773,6 +781,48 @@ void test_surface_copy_contracts() {
     source.release();
     resized.release();
     multisample.release();
+}
+
+void test_surface_depth_scratch() {
+    renderer::FrameBuffer source;
+    std::string error;
+    const auto lease = [&](std::array<int, 2> size) {
+        renderer::SurfaceDepthScratch scratch;
+        CHECK(!renderer::lease_surface_depth(source.id(), size));
+        CHECK(renderer::run_surface_chain([&] {
+            scratch = renderer::lease_surface_depth(source.id(), size);
+            CHECK(scratch && scratch.texture);
+            CHECK(!renderer::lease_surface_depth(source.id(), size));
+            CHECK(renderer::run_surface_setup([&] {
+                CHECK(renderer::run_surface_chain([&] {
+                    CHECK(!renderer::lease_surface_depth(source.id(), size));
+                }));
+            }));
+        }));
+        return scratch.texture;
+    };
+    CHECK(source.create(8, 6, error));
+    const auto first = lease({8, 6});
+    CHECK(lease({8, 6}) == first);
+    const auto refraction = [&](std::array<int, 2> size) {
+        renderer::SurfaceRefractionScratch scratch;
+        CHECK(renderer::run_surface_chain([&] {
+            scratch = renderer::lease_surface_refraction(source.id(), size);
+            CHECK(scratch && scratch.textures[0] != scratch.textures[1]);
+            CHECK(!renderer::lease_surface_depth(source.id(), size));
+        }));
+        return scratch.textures;
+    };
+    const auto first_snapshot = refraction({8, 6});
+    CHECK(first_snapshot[1] == first);
+    CHECK(refraction({8, 6}) == first_snapshot);
+    CHECK(source.create(9, 7, error));
+    const auto resized = lease({9, 7});
+    CHECK(resized != first);
+    CHECK(lease({9, 7}) == resized);
+    const auto resized_snapshot = refraction({9, 7});
+    CHECK(resized_snapshot[0] != first_snapshot[0] && resized_snapshot[1] == resized);
+    source.release();
 }
 
 // Cache exports follow the actual opaque consumer only when that consumer supplied matching reads.
@@ -925,8 +975,12 @@ int main() {
         }
         test_chain();
         test_multisample_chain();
-        test_multisample_order(context);
+        test_depth_order(context, 1);
+        if (const int samples = surface_multisamples(); samples > 1) {
+            test_depth_order(context, samples);
+        }
         test_surface_copy_contracts();
+        test_surface_depth_scratch();
         test_colour_order(context);
         test_blend_boundaries();
         test_world_colour();

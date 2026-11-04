@@ -156,17 +156,21 @@ unsigned TextureUpscaler::create(
     glUniform1i(shader.uniform("wrap_mode"), static_cast<int>(wrap));
     glBindTexture(GL_TEXTURE_2D, source);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_buffer);
-    glBufferData(
-        GL_SHADER_STORAGE_BUFFER,
-        static_cast<GLsizeiptr>(byte_size(width, height)),
-        nullptr,
-        GL_DYNAMIC_DRAW
-    );
+    const auto bytes = byte_size(width, height);
+    // The shader overwrites exactly the bytes copied to the result.
+    if (bytes > m_buffer_capacity) {
+        glBufferData(
+            GL_SHADER_STORAGE_BUFFER, static_cast<GLsizeiptr>(bytes), nullptr, GL_DYNAMIC_DRAW
+        );
+        m_buffer_capacity = bytes;
+    }
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffer);
     glDispatchCompute(
         static_cast<unsigned>((width * 2 + 7) / 8), static_cast<unsigned>((height * 2 + 7) / 8), 1
     );
-    const bool ok = vkgl::copy_buffer_to_texture(m_buffer, result, width * 2, height * 2);
+    const bool ok = vkgl::copy_buffer_to_texture(
+        m_buffer, result, width * 2, height * 2, /*reuse_source=*/true
+    );
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
 
     if (!ok) {
@@ -186,12 +190,16 @@ unsigned TextureUpscaler::create(
 #endif
 }
 
-void TextureUpscaler::release() {
+void TextureUpscaler::clear_cache() {
     for (auto& [source, entry] : m_cache) {
         release(entry);
     }
 
     m_cache.clear();
+}
+
+void TextureUpscaler::release() {
+    clear_cache();
     for (auto& shader : m_shaders) {
         shader.release();
     }
@@ -201,5 +209,6 @@ void TextureUpscaler::release() {
     }
 
     m_buffer = 0;
+    m_buffer_capacity = 0;
 }
 }  // namespace openrac::enhanced

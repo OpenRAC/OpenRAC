@@ -461,6 +461,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.physical_device,
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
+    vk.gpu_breadcrumbs = config.gpu_breadcrumbs;
     vk.hdr_colour_spaces = config.hdr;
     if (!vkgl::open(vk, error)) {
         SDL_DestroyWindow(m_window);
