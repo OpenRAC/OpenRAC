@@ -40,9 +40,8 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 
 | Row | Key | Values (default first) | What it does |
 |---|---|---|---|
-| Display mode | `display_mode` | `windowed`, `borderless`, `fullscreen` | A window; a window covering the desktop at the desktop's own mode; or the display taken for the game at `resolution`. F11 and Alt+Return go between the window and the fullscreen kind last used. A first start (a file with no `display_mode`, nor the older `fullscreen`) is `borderless`; a file that has either keeps what it says, and a hidden window or an offscreen video driver (checks, tools) keeps the window |
-| Monitor | `monitor` | `0`, `1`, `2`, ... | The display borderless and fullscreen cover, and the one the window opens on: `0` is wherever the window is, `1` the first display SDL lists (the primary one) |
-| Resolution | `resolution` | `desktop`, `WIDTHxHEIGHT` | The display's mode in `fullscreen`. The page offers the modes the chosen display lists; a size it does not have becomes the closest it has |
+| Display mode | `display_mode` | `windowed`, `borderless` | A window, or a window covering the desktop at the desktop's own mode (borderless full screen, as DX12 games do: the display never changes mode, Alt+Tab is instant; on Windows a Vulkan swapchain tells the driver not to take exclusive full screen either). There is no exclusive full screen: an older file's `fullscreen` is read as `borderless`. F11 and Alt+Return go between the window and borderless. A first start (a file with no `display_mode`, nor the older `fullscreen`) is `borderless`; a file that has either keeps what it says, and a hidden window or an offscreen video driver (checks, tools) keeps the window |
+| Monitor | `monitor` | `0`, `1`, `2`, ... | The display borderless covers, and the one the window opens on: `0` is wherever the window is, `1` the first display SDL lists (the primary one) |
 | (the window) | `window_size` | `WIDTHxHEIGHT` | The window's size when last sized, kept for the next start. Absent: 1280 x 960, or as wide as `aspect` makes it |
 | Picture | `aspect` | `4:3`, `16:10`, `16:9`, `21:9`, `32:9`, `window`, `custom` | The picture's shape. A wider one keeps the game's vertical field of view and shows more of the world to the sides; the seas, lava and sand the game's draw callbacks send are culled against the wider view too ([rac1/host/wide_view.c](../../port/game/rac1/host/wide_view.c)). `window`: whatever the window's shape is (never narrower than 4:3). `custom`: `aspect_custom` |
 | | `aspect_custom` | `16:9`, any `X:Y` | The shape `aspect = custom` uses, `64:27` for one; a shape narrower than 4:3 is held to 4:3 |
@@ -386,9 +385,9 @@ follows ReRAC's idea and says so in
 
 | Setting | OpenGOAL | ReRAC | OpenRAC | |
 |---|---|---|---|---|
-| Windowed / borderless / exclusive fullscreen | all three | borderless only | all three | **now** (had: borderless only) |
+| Windowed / borderless / exclusive fullscreen | all three | borderless only | windowed and borderless | exclusive dropped again: borderless as DX12 games do it |
 | Monitor | yes (not while windowed) | no | yes | **now**; with one display here, a second was not tried |
-| Fullscreen resolution | the display's modes at its refresh rate | no | the display's modes | **now** |
+| Fullscreen resolution | the display's modes at its refresh rate | no | the desktop's (render scale sets the game's) | dropped with exclusive fullscreen |
 | Game (internal) resolution | a resolution list in fullscreen | 416p to 2160p, or the window's | a scale of the window's, 50% to 200% | **now**, as a scale: one setting that stays right when the window or display changes |
 | Window size remembered | yes, and its position | no | size | **now**; position **later** (SDL's own placement is kept; it needs a check that the saved place is still on a display) |
 | VSync | on / off (off by itself when the display is slower than the frame rate) | always (Bevy's default) | off / on / adaptive | **now**, apart from the frame rate |

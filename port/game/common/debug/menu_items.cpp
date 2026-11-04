@@ -153,8 +153,6 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kDisplayMode);
         case Id::Monitor:
             return row_choice(kMonitor);
-        case Id::Resolution:
-            return row_choice(kResolution);
         case Id::Picture:
             it = row_choice(kAspect);
             if (where == menu::kTouch && set.aspect == settings::Aspect::Window) {
@@ -485,9 +483,6 @@ bool act(Id id, int by) {
             return false;
         case Id::Monitor:
             change_setting(kMonitor, by);
-            return false;
-        case Id::Resolution:
-            change_setting(kResolution, by);
             return false;
         case Id::Picture:
             change_setting(kAspect, by);

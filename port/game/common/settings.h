@@ -32,12 +32,11 @@ namespace openrac::settings {
 // The F2 cycle: hidden, the existing frame counter, or separate CPU/GPU measurements.
 using FrameCounter = renderer::ui::fps_counter::Mode;
 
-// The window. Borderless covers the desktop at the desktop's mode; Fullscreen takes the display
-// for itself, at `Settings::fullscreen_width` x `fullscreen_height` (0 x 0: the desktop's mode).
+// The window. Borderless covers the desktop at the desktop's mode (no exclusive full screen; an
+// old file's `fullscreen` reads as borderless).
 enum class DisplayMode {
     Windowed,
     Borderless,
-    Fullscreen,
     Count,
 };
 
@@ -88,8 +87,6 @@ inline constexpr int kGameplayFovStep = 5;
 struct Settings {
     DisplayMode display_mode = DisplayMode::Windowed;
     int monitor = 0;  // 0: the display the window is on; n: the nth display, counted from 1
-    int fullscreen_width = 0;  // DisplayMode::Fullscreen's mode; 0 x 0 is the desktop's
-    int fullscreen_height = 0;
     int window_width = 0;  // the window's size when last windowed; 0 x 0: the port's default
     int window_height = 0;
     Aspect aspect = Aspect::Standard;

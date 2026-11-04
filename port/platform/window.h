@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // SDL3 and the game's window: an OpenGL 4.1 core context (the version macOS
-// stops at, and all OpenGOAL's renderer needs; OpenGL ES 3.2 on Android, GlApi), windowed, fullscreen at a
-// chosen resolution, or borderless at the desktop's, on a chosen display, with
+// stops at, and all OpenGOAL's renderer needs; OpenGL ES 3.2 on Android, GlApi), windowed or
+// borderless full screen at the desktop's resolution, on a chosen display, with
 // vsync on, off or adaptive. The context is asked for on the graphics card:
 // a software rasteriser is named in the log, and refused when the program
 // says so (SoftwareRenderer).
@@ -60,9 +60,10 @@ private:
     std::string m_error;
 };
 
+// No exclusive full screen: like a DX12 game's borderless mode, the display keeps its own mode,
+// so switching away is instant and other windows can sit on top.
 enum class DisplayMode {
     Windowed,
-    Fullscreen,  // exclusive, at WindowConfig's fullscreen resolution
     Borderless,  // a window covering the desktop, at its resolution
 };
 
@@ -99,17 +100,6 @@ struct DisplayInfo {
 // The displays connected now, in SDL's order (the first is the primary one). Needs a Platform.
 std::vector<DisplayInfo> displays();
 
-// A size a display can be switched to for DisplayMode::Fullscreen.
-struct DisplaySize {
-    int width = 0;
-    int height = 0;
-    bool operator==(const DisplaySize&) const = default;
-};
-
-// The sizes of a display's fullscreen modes, largest first, each once (`display` counts from 1,
-// as displays() lists them; 0 or one that is gone: the primary display).
-std::vector<DisplaySize> fullscreen_sizes(int display);
-
 // The program's name and id for the desktop, before the Platform starts SDL: on Wayland the id is
 // the window's app id, by which the desktop finds the program's icon and groups its windows.
 void set_app_metadata(const char* name, const char* id);
@@ -141,9 +131,6 @@ struct WindowConfig {
     int width = 1280;
     int height = 960;
     DisplayMode mode = DisplayMode::Windowed;
-    // For DisplayMode::Fullscreen; 0 x 0 uses the desktop's mode.
-    int fullscreen_width = 0;
-    int fullscreen_height = 0;
     bool vsync = true;
     // The display the window opens on, counted from 1 as displays() lists them; 0: SDL's choice.
     int display = 0;
@@ -176,7 +163,7 @@ public:
 
     // `display`: the display to cover (counted from 1, as displays() lists them), the window
     // moving there first; 0 is the one the window is on.
-    bool set_display_mode(DisplayMode mode, int width = 0, int height = 0, int display = 0);
+    bool set_display_mode(DisplayMode mode, int display = 0);
 
     DisplayMode display_mode() const { return m_mode; }
 
