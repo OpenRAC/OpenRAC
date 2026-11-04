@@ -776,6 +776,7 @@ const openrac_game_play rac1_play = {
     .shared_give = rac1_shared_give,
     .mission_state_read = rac1_mission_state_read,
     .mission_state_write = rac1_mission_state_write,
+    .mission_state_clear = rac1_mission_state_clear,
     .moby_spawn = rac1_world_moby_spawn,
     .hero_slot = rac1_world_hero_slot,
     .stand_in = rac1_world_stand_in,

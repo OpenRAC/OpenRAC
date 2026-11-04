@@ -2042,6 +2042,10 @@ typedef struct openrac_api {
      * door among them. The game sees no query, so it may be asked at any time. Returns
      * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.12. */
     int (*level_line)(const float from[3], const float to[3], int* blocked);
+    /* Clears the flags of level `level`'s mission state that `flags` (OPENRAC_MISSION_STATE_SIZE
+     * bytes, nonzero for each) names; mission_state_write sets them again. Returns OPENRAC_HOOK_OK,
+     * or OPENRAC_HOOK_UNKNOWN outside a level or for a port without it. Since 1.12. */
+    int (*mission_state_clear)(int level, const uint8_t* flags);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

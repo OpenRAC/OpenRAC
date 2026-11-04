@@ -66,6 +66,16 @@ static void flags_are_the_games(void) {
     CHECK(at(0x0014C150u)[3 * 16 + 2] == 0xFF);
     CHECK(at(0x0014C150u)[2 * 16 + 2] == 0 && at(0x0014C150u)[4 * 16 + 2] == 0);
     CHECK(rac1_mission_state_read(3, out) == 1 && out[2] == 0xFF && out[1] == 0);
+    /* Cleared, only what it names, and set again. */
+    row[5] = 1;
+    CHECK(rac1_mission_state_write(3, row) == 1);
+    memset(row, 0, sizeof row);
+    row[2] = 1;
+    CHECK(rac1_mission_state_clear(3, row) == 1);
+    CHECK(rac1_mission_state_read(3, out) == 1 && out[2] == 0 && out[5] == 0xFF);
+    CHECK(rac1_mission_state_clear(20, row) == 0);
+    CHECK(rac1_mission_state_write(3, row) == 1);
+    CHECK(rac1_mission_state_read(3, out) == 1 && out[2] == 0xFF && out[5] == 0xFF);
     /* The copy the level took (mission_state) is not in here to be touched: only the row moved. */
     uint8_t rows[320] = {0};
     rows[19 * 16 + 15] = 0x80;

@@ -603,6 +603,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->shared_give(1, text, 1) != OPENRAC_HOOK_UNKNOWN
             || api->mission_state_read(0, missions) != OPENRAC_HOOK_UNKNOWN
             || api->mission_state_write(0, missions) != OPENRAC_HOOK_UNKNOWN
+            || api->mission_state_clear(0, missions) != OPENRAC_HOOK_UNKNOWN
             || api->hero_place(mod, where, 0.0f, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_grab(mod, 1, 0) != OPENRAC_HOOK_UNKNOWN
             || api->hero_release(mod) != OPENRAC_HOOK_UNKNOWN

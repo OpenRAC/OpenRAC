@@ -909,6 +909,14 @@ int api_mission_state_write(int level, const std::uint8_t* in) {
     return g_play->mission_state_write(level, in) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+int api_mission_state_clear(int level, const std::uint8_t* flags) {
+    if (g_play == nullptr || g_play->mission_state_clear == nullptr || flags == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+
+    return g_play->mission_state_clear(level, flags) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
+}
+
 int api_hero_place(openrac_mod* mod, const float position[3], float yaw, std::uint32_t flags) {
     if (mod == nullptr || position == nullptr || g_play == nullptr || g_play->hero_place == nullptr
         || !std::isfinite(position[0]) || !std::isfinite(position[1]) || !std::isfinite(position[2])
@@ -1734,6 +1742,7 @@ void fill_play_api(
     api.shared_give = api_shared_give;
     api.mission_state_read = api_mission_state_read;
     api.mission_state_write = api_mission_state_write;
+    api.mission_state_clear = api_mission_state_clear;
     api.hero_place = api_hero_place;
     api.hero_grab = api_hero_grab;
     api.hero_release = api_hero_release;

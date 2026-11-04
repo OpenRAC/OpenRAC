@@ -105,6 +105,7 @@ int rac1_shared_read(int tag, void* out, uint32_t size);
 int rac1_shared_give(int tag, const void* data, uint32_t size);
 int rac1_mission_state_read(int level, uint8_t* out);
 int rac1_mission_state_write(int level, const uint8_t* in);
+int rac1_mission_state_clear(int level, const uint8_t* flags);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* collision.c: the collision triangles in a box for the mods (interface 1.12, game_host.h's

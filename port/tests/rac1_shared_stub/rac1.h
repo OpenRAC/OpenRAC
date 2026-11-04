@@ -33,5 +33,6 @@ int rac1_shared_read(int tag, void* out, uint32_t size);
 int rac1_shared_give(int tag, const void* data, uint32_t size);
 int rac1_mission_state_read(int level, uint8_t* out);
 int rac1_mission_state_write(int level, const uint8_t* in);
+int rac1_mission_state_clear(int level, const uint8_t* flags);
 
 #endif

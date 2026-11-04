@@ -1769,6 +1769,13 @@ public:
         return has_shared_progress() && m_api->mission_state_write(level, in) == OPENRAC_HOOK_OK;
     }
 
+    // Since 1.12: clears the flags of the mission state of level `level` that `flags` names.
+    bool mission_state_clear(int level, const std::uint8_t (&flags)[OPENRAC_MISSION_STATE_SIZE]) const {
+        return has_slot12(offsetof(openrac_api, mission_state_clear))
+               && m_api->mission_state_clear != nullptr
+               && m_api->mission_state_clear(level, flags) == OPENRAC_HOOK_OK;
+    }
+
     // Since 1.12: whether this port places, holds and revives the hero.
     bool has_hero_place() const {
         return has_slot12(offsetof(openrac_api, hero_revive));

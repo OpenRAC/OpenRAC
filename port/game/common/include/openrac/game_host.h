@@ -546,6 +546,7 @@ typedef struct openrac_game_play {
     int (*shared_give)(int tag, const void* data, uint32_t size);
     int (*mission_state_read)(int level, uint8_t* out);
     int (*mission_state_write)(int level, const uint8_t* in);
+    int (*mission_state_clear)(int level, const uint8_t* flags);
     /* A dead hero kept down, brought back or sent to his checkpoint (openrac_api.hero_revive and
      * its OPENRAC_REVIVE_* flags): 1 asked, 0 refused. NULL for a game without it. */
     int (*hero_revive)(const float position[3], uint32_t flags);

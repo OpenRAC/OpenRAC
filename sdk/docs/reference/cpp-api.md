@@ -312,6 +312,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `bool shared_give(int tag, const std::vector<std::uint8_t>& data) const` | Since 1.12: merges other players' section `tag` into this game's, upward only. |
 | `bool mission_state_read(int level, std::uint8_t (&out)[OPENRAC_MISSION_STATE_SIZE]) const` | Since 1.12: the mission state of level `level` into `out`; false for a port without it. |
 | `bool mission_state_write(int level, const std::uint8_t (&in)[OPENRAC_MISSION_STATE_SIZE]) const` | Since 1.12: writes the mission state of level `level`. |
+| `bool mission_state_clear(int level, const std::uint8_t (&flags)[OPENRAC_MISSION_STATE_SIZE]) const` | Since 1.12: clears the flags of the mission state of level `level` that `flags` names. |
 | `bool has_hero_place() const` | Since 1.12: whether this port places, holds and revives the hero. |
 | `bool hero_place(const float (&position)[3], float yaw, std::uint32_t flags = 0) const` | Since 1.12: puts the hero at `position` facing `yaw` (OPENRAC_PLACE_* `flags`). |
 | `bool hero_grab(int animation, std::uint32_t flags = 0) const` | Since 1.12: holds the hero as a grab does, playing `animation`; hero_release lets go. |

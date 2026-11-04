@@ -111,3 +111,16 @@ int rac1_mission_state_write(int level, const uint8_t* in) {
     merge((uint8_t*)G(LEVEL_FLAGS) + level * LEVEL_FLAG_BYTES, in, LEVEL_FLAG_BYTES, DONE);
     return 1;
 }
+
+int rac1_mission_state_clear(int level, const uint8_t* flags) {
+    if (level < 0 || level >= LEVELS || !rac1_level_running()) {
+        return 0;
+    }
+    uint8_t* row = (uint8_t*)G(LEVEL_FLAGS) + level * LEVEL_FLAG_BYTES;
+    for (unsigned i = 0; i < LEVEL_FLAG_BYTES; ++i) {
+        if (flags[i] != 0) {
+            row[i] = 0;
+        }
+    }
+    return 1;
+}
