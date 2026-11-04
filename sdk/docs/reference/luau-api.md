@@ -139,7 +139,7 @@ type Planet_UnlockFn = (planet: number) -> ()
 
 ### `Help_RequestFn`
 
-rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it.
+rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
 
 ```lua
 type Help_RequestFn = (message: number, slot: number) -> number

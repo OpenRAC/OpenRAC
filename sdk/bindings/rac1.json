@@ -160,7 +160,7 @@
         "pal": "func_L00_00203F20",
         "ntsc": "FUN_L00_00203908"
       },
-      "about": "Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it."
+      "about": "Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1."
     },
     {
       "id": "rac1.ship.init_transition",

@@ -1420,7 +1420,7 @@ type Hero_UpdateFn = () -> ()
 type Item_GiveFn = (id: number, equip: number) -> ()
 -- rac1.planet.unlock (Planet_Unlock) void(i32): Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on.
 type Planet_UnlockFn = (planet: number) -> ()
--- rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it.
+-- rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
 type Help_RequestFn = (message: number, slot: number) -> number
 -- rac1.ship.init_transition (Ship_InitTransition) void(i32): Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
 type Ship_InitTransitionFn = (mode: number) -> ()

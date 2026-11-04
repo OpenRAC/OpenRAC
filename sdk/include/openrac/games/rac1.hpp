@@ -83,7 +83,7 @@ struct Planet_Unlock {
     using fn = void (*)(int32_t);
 };
 
-// Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it.
+// Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
 struct Help_Request {
     static constexpr const char* id = "rac1.help.request";
     static constexpr const char* name = "Help_Request";
