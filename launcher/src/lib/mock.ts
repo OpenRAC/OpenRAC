@@ -418,8 +418,11 @@ function status(key: string, v: RawVersion): VersionStatus {
   };
 }
 
-function view(action: RawAction, st: VersionStatus | null): ActionView {
+function view(action: RawAction, st: VersionStatus | null, version?: string): ActionView {
   const state = action.state ?? "planned";
+  // The Android APK carries both RAC1 programs. The disc's levels still need preparing.
+  const bundledPlay = platform === "android" && action.id === "play" && version?.startsWith("rac1/") === true;
+  const artifactMissing = !built && !bundledPlay && (action.requires ?? []).includes("artifact");
   // As core/src/actions.rs (runs_on): Android runs only a play action, unless one names it.
   const thisPlatform = action.platforms?.length
     ? action.platforms.includes(platform)
@@ -441,7 +444,7 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         python: !config.python,
         godot: !config.godot,
         docker: !config.docker,
-        artifact: !built,
+        artifact: artifactMissing,
       };
       const words: Record<string, string> = {
         disc: "your disc image (baserom/)",
@@ -454,6 +457,7 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
       };
       if (missing[need]) blockers.push(`needs ${words[need] ?? need}`);
     }
+    if (bundledPlay && !built) blockers.push("needs a check of the levels (Check the levels)");
   }
   return {
     id: action.id,
@@ -468,13 +472,10 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
     thisPlatform,
     runnable: blockers.length === 0,
     blockers,
-    // The mock has no files: nothing is built or made, except what ?built says is (the game
-    // built and its levels ready). Only the steps that made those are done; the rest are not,
-    // or a page would say an action that never ran is done.
-    done: built && BUILT_DONE.has(action.id),
-    // On Android the APK carries the program (OpenracSetup.kt links it), built or not.
-    missingArtifact:
-      platform !== "android" && state !== "planned" && !built && (action.requires ?? []).includes("artifact"),
+    // The mock tracks the bundled program and the files implied by ?built. Exports and editor
+    // projects still need their own steps.
+    done: bundledPlay || (built && BUILT_DONE.has(action.id)),
+    missingArtifact: state !== "planned" && artifactMissing,
     developer: action.developer ?? false,
     warning: action.warning ?? null,
   };
@@ -534,7 +535,7 @@ function library(): Library {
             : null,
           progress: progress(key),
           status: st,
-          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st)),
+          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
           portOutdated: false,
         };
       });

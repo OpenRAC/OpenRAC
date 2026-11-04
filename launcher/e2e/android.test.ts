@@ -107,9 +107,9 @@ describe("Android launcher", () => {
     expect(await page.locator(".hero-bg").evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
   });
 
-  it("offers Rebuild for a game that is not built, and in the menu for one that is", async () => {
+  it("offers to prepare missing levels and keeps Rebuild in the ready game's menu", async () => {
     await open("version=rac1/pal");
-    await expect(page.locator(".go .big").textContent()).resolves.toContain("Rebuild");
+    await expect(page.locator(".go .big").textContent()).resolves.toContain("Get levels and play");
     await open("built&version=rac1/pal");
     await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
     const more = page.locator(".go-row").getByRole("button", { name: "More actions" });
@@ -249,9 +249,9 @@ describe("A controller", () => {
     await press("back");
     await page.waitForTimeout(500);
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // A takes the tile's step (Rebuild here) where it is, without opening the page.
+    // A starts preparing the levels from the tile without opening the game page.
     await press("accept");
-    await page.waitForTimeout(300);
+    await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
     expect(await page.locator(".tile").count()).toBeGreaterThan(0);
   });
 
