@@ -820,6 +820,17 @@ static void note_menu_run(int32_t how) {
     menu_runs.last = how;
 }
 
+/* The frame's draw lists start empty (ResetDrawGlobals). Under a menu the game's own frame does
+ * not clear them, and retail runs no moby there: each update adds its callbacks again, every one
+ * of them is drawn again each frame, and the frame's packets run over the level's data. */
+static void draw_lists_start(void) {
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F564u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F568u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F56Cu))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F570u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F574u))) = 0;
+}
+
 static void run_world_under_menu(int pause_menu) {
     if (!keep_running || !in_level()) {
         note_menu_run(1); /* OPENRAC_RUN_MENU_HELD */
@@ -842,6 +853,7 @@ static void run_world_under_menu(int pause_menu) {
     const int entered = enter_level_context();
     const uint32_t coll_off = GREF(uint32_t, COLL_STAMP) & COLL_OFF;
     GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF;
+    draw_lists_start();
     func_00213C78();
     GREF(uint32_t, COLL_STAMP) |= coll_off;
     if (pause_menu && live_picture && (first || swapped)) {
