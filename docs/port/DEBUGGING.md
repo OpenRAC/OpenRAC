@@ -654,6 +654,15 @@ the cursor stays hidden while either is held.
 Alt does not open the menu while freecam is enabled. The game receives
 neutral controller input; F5 pauses gameplay while freecam still moves.
 
+A gamepad flies it too (any connected one, the built-in pad of a handheld
+included): the left stick moves along the view and strafes, the right stick
+looks, R2 rises and L2 sinks (both analog), R1 held is four times faster and L1
+held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3+R3
+pressed together turns freecam off; in developer mode (`OPENRAC_DEVELOPER=1`) it
+also turns it on, so a player's stray press never does. The gamepad moves the
+menu's rows instead while the menu or the Android drawer is open, where
+**Developer > Freecam** is offered too.
+
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades
 follow the live gameplay or cutscene camera while you fly aside to inspect the
 result. Choose **Inspect > Main camera** for the yellow camera frustum, or select

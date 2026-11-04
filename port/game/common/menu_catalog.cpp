@@ -212,22 +212,24 @@ constexpr Entry kEntries[] = {
     {Id::SlowCpu, Tab::Developer, "Performance", kChoice, A, "Simulate slow CPU",
      "Makes each frame's work take longer, as on a weaker device's processor, to test how the "
      "game copes."},
-    {Id::Freecam, Tab::Developer, "Freecam", kSwitch, D, "Freecam",
-     "A camera of your own, flown with the keyboard and mouse while the game goes on."},
-    {Id::FreecamMode, Tab::Developer, "Freecam", kChoice, D, "Mode",
+    {Id::Freecam, Tab::Developer, "Freecam", kSwitch, A, "Freecam",
+     "A camera of your own, flown with the keyboard and mouse or a gamepad while the game goes "
+     "on."},
+    {Id::FreecamMode, Tab::Developer, "Freecam", kChoice, A, "Mode",
      "Free look flies anywhere; Culling inspection shows what the game's camera would draw."},
-    {Id::FreecamInspect, Tab::Developer, "Freecam", kChoice, D, "Inspect",
+    {Id::FreecamInspect, Tab::Developer, "Freecam", kChoice, A, "Inspect",
      "Whose culling is shown: the main camera's, or one of the shadow cascades' (with modern "
      "shadows on)."},
-    {Id::FreecamSpeed, Tab::Developer, "Freecam", kChoice, D, "Fly speed",
+    {Id::FreecamSpeed, Tab::Developer, "Freecam", kChoice, A, "Fly speed",
      "How fast the freecam flies, in the game's units a second."},
-    {Id::FreecamReset, Tab::Developer, "Freecam", kAction, D, "Reset to game camera",
+    {Id::FreecamReset, Tab::Developer, "Freecam", kAction, A, "Reset to game camera",
      "Puts the freecam where the game's camera is."},
-    {Id::FreecamExit, Tab::Developer, "Freecam", kAction, D, "Exit freecam",
+    {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
-    {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, D, "Freecam keys",
+    {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
      "W/S follow the view, A/D strafe, E up, Q down, Shift faster, Ctrl slower. Hold Alt or "
-     "right-click to look."},
+     "right-click to look. Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 "
+     "faster, L1 slower; L3+R3 turns freecam off (and on, in developer mode)."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",

@@ -42,15 +42,21 @@ void FlyCamera::update(const FlyControls& c, float seconds) {
     const Vec3 f = forward();
     const Vec3 r = renderer::normalize(renderer::cross(f, kUp));
     Vec3 move{};
-    const float ahead = float(c.forward) - float(c.back);
-    const float sideways = float(c.right) - float(c.left);
-    const float vertical = float(c.up) - float(c.down);
+    const float ahead = std::clamp(float(c.forward) - float(c.back) + c.ahead, -1.0f, 1.0f);
+    const float sideways = std::clamp(float(c.right) - float(c.left) + c.sideways, -1.0f, 1.0f);
+    const float vertical = std::clamp(float(c.up) - float(c.down) + c.vertical, -1.0f, 1.0f);
     for (unsigned axis = 0; axis < 3; ++axis) {
         move[axis] = f[axis] * ahead + r[axis] * sideways + kUp[axis] * vertical;
     }
-    // The in-game freecam keeps combined movement at the selected speed.
+    // The in-game freecam keeps combined movement at the selected speed; a partly pushed stick
+    // flies slower, as far as it is pushed.
     if (c.normalise_movement && renderer::dot(move, move) > 0) {
+        const float pushed =
+            std::min(1.0f, std::sqrt(ahead * ahead + sideways * sideways + vertical * vertical));
         move = renderer::normalize(move);
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            move[axis] *= pushed;
+        }
     }
     // Precision movement wins when both speed modifiers are held.
     float factor = c.fast ? kFastFactor : 1.0f;
@@ -61,6 +67,17 @@ void FlyCamera::update(const FlyControls& c, float seconds) {
     for (int i = 0; i < 3; ++i) {
         position[i] += move[i] * step;
     }
+}
+
+void stick_past_dead_zone(float& x, float& y, float dead_zone) {
+    const float length = std::sqrt(x * x + y * y);
+    if (length <= dead_zone) {
+        x = y = 0.0f;
+        return;
+    }
+    const float scale = std::min(1.0f, (length - dead_zone) / (1.0f - dead_zone)) / length;
+    x *= scale;
+    y *= scale;
 }
 
 // Fits a complete exported level when the standalone viewer starts.
