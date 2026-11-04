@@ -665,6 +665,13 @@ void end_rendering(PassEnd why) {
     }
 }
 
+void end_rendering_for(const Image* image) {
+    if (g->rendering
+        && (g->rendering_target.colour == image || g->rendering_target.depth == image)) {
+        end_rendering();
+    }
+}
+
 VkCommandBuffer cmd_for(Image* image, bool force_main) {
     Frame& f = frame();
     if (!force_main && image != nullptr && image->touched != g->recording) {

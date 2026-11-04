@@ -18,7 +18,6 @@ Result<graph::ImageUse> GraphExecution::read_image(
     if (!found || !found->image) {
         return unexpected(Error{"graph image read requires a texture allocation"});
     }
-    detail::end_rendering();
     graph::Pass reads{name};
     const auto declared = m_recording->sampled_image(reads, name, found->image, stages);
     // Preserve the original allocation diagnostic before exposing the typed use.
@@ -99,6 +98,8 @@ Result<void> GraphExecution::Recording::sampled_image(
         return unexpected(Error{"graph compute input has multiple mip levels: " + name});
     }
 
+    // Only an attachment of the open pass waits for its end; the world's layers keep one pass.
+    detail::end_rendering_for(image.get());
     const auto handle = import_image(name, image, true);
 
     // Conflicting aliases or invalid allocation ranges cannot be sampled.
@@ -118,7 +119,6 @@ Result<void> GraphExecution::Recording::sampled_image(
 
 Result<void> GraphExecution::capture_sampled_reads(graph::Pass& pass, graph::Stage stages) {
     using namespace detail;
-    end_rendering();
     const auto& program = *g->programs.find(g->state.program);
 
     // Reflected samplers include only bindings used by the linked shader.

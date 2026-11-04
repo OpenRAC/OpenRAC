@@ -1467,6 +1467,10 @@ enum class PassEnd : std::uint8_t {
 // bound pipeline; `why` is counted when a pass was open.
 void end_rendering(PassEnd why = PassEnd::Other);
 
+// Ends the open pass only when `image` is one of its attachments, whose layout and contents are
+// settled as the pass ends. Any other image is untouched by it: the pass goes on.
+void end_rendering_for(const Image* image);
+
 // The command buffer for an operation on `image`, outside any drawing: `upload` while this
 // recording has not used it in `main` (it then runs before everything `main` does), else `main`.
 VkCommandBuffer cmd_for(Image* image, bool force_main = false);
