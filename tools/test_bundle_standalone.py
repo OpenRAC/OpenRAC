@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import bundle_standalone as bundle
 
@@ -179,6 +180,12 @@ class PlayerActions(unittest.TestCase):
         # What needs the player's disc is never carried, and only this version is built by the player.
         self.assertNotIn("openrac-rac2-ntsc", bundle.GAMES)
         self.assertNotIn("port-build", {a["id"] for a in self.actions["versions"]["rac1/pal"]})
+
+    def test_the_player_build_goes_by_commit(self):
+        with mock.patch.object(bundle.proc, "git", return_value="abc123def456"):
+            self.assertEqual(bundle.player_program_folder(), "{data}/program/abc123def456")
+        with mock.patch.object(bundle.proc, "git", return_value=""):
+            self.assertEqual(bundle.player_program_folder(), "{data}/program/source")
 
     def test_android_has_no_player_build(self):
         actions = {a["id"]: a for a in bundle.player_actions(android=True)["versions"]["rac2/ntsc"]}
