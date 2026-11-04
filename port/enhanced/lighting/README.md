@@ -147,6 +147,7 @@ Re-export and rebake after tracked settings change. Profiles contain no extracte
 | Sunlight RGB scale | `[1, 1, 1]` |
 | Sunlight direction | Authored light sets |
 | Terrain vertex albedo | `true` |
+| Terrain vertex albedo strength | `0.5` |
 | Distance exponent / inside fraction | 32 / 0.75 |
 | Relocation | 4 attempts within 45% of minimum spacing |
 

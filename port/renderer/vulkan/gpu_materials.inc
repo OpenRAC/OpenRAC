@@ -159,7 +159,7 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
          // Depth programs use the spare resource word for their atlas view;
          // colour programs use it for terrain albedo. They never coexist.
          {"shadow_view", "int(O_MATERIAL.resources.w)", 60},
-         {"probe_terrain_albedo", "int(O_MATERIAL.resources.w)", 60},
+         {"probe_terrain_albedo", "uintBitsToFloat(O_MATERIAL.resources.w)", 60},
          {"skinning", "int(O_MATERIAL.draw_flags.x)", 64},
          {"lighting", "int(O_MATERIAL.draw_flags.y)", 68},
          {"probe_receiver", "int(O_MATERIAL.draw_flags.z)", 72},

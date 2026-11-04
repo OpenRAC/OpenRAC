@@ -281,9 +281,10 @@ vec3 probe_surface(vec4 texel, vec3 original) {
         hero_cue = 1.0 - 0.45 * hero_shadow_air_blend * (1.0 - sun_visibility) * (1.0 - hero_visibility);
     }
     vec3 albedo = probe_linear(texel.rgb) * material_colour.rgb * v_probe_multiplier.rgb;
-    if (probe_terrain_albedo != 0) {
+    if (probe_terrain_albedo > 0.0) {
         // Preserve the GS modulation as an artistic material tint, then decode once.
-        albedo = probe_linear(clamp(texel.rgb * v_colour.rgb * material_colour.rgb, 0.0, 1.0));
+        vec3 tint = mix(vec3(1.0), v_colour.rgb, probe_terrain_albedo);
+        albedo = probe_linear(clamp(texel.rgb * tint * material_colour.rgb, 0.0, 1.0));
     }
     vec3 emitted = surface_emission(texel);
     vec3 fur_direct = vec3(0.);
@@ -378,7 +379,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     // darken or tint it from there. The original lighting has no cast shadows, so cast shade keeps
     // about a third of the sun (0.1 + 0.9 x 0.28) instead of a tenth: the shapes stay, the level's
     // brightness stays near the original's.
-    if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo != 0
+    if (probe_retail_anchor != 0 && probe_receiver == 1 && probe_terrain_albedo > 0.0
         && probe_mode == 1) {
         vec3 open = probe_direct(v_world_position, surface_n, selector, 1.0)
                     + open_indirect / 3.14159265359;

@@ -101,6 +101,41 @@ void test_ceiling_orientation_follows_geometry() {
     CHECK(reversed->lights.at(0).axis_v == light.axis_v);
 }
 
+// A tilted deck moves the ceiling search along its normal and preserves local source height.
+void test_ceiling_search_uses_local_up() {
+    auto scene = room();
+    constexpr float kSin = .8f;
+    constexpr float kCos = .6f;
+    const Float3 up{kSin, 0, kCos};
+
+    for (auto& triangle : scene.triangles) {
+        for (auto& vertex : triangle.vertices) {
+            const auto [x, y, z] = vertex;
+            vertex = {kCos * x + kSin * z, y, kCos * z - kSin * x};
+        }
+    }
+
+    constexpr float kLocalSpacing = 5.5f;
+    const std::array seeds{
+        InteriorLightSeed{{0, 0, 0}, {.1f, .05f, .025f}, 0, up},
+        InteriorLightSeed{
+            {kCos * kLocalSpacing, 0, -kSin * kLocalSpacing}, {.1f, .05f, .025f}, 0, up
+        }
+    };
+    auto second_only = scene;
+    const auto second = prepare_interior_lighting(second_only, std::span(seeds).last(1));
+    CHECK(second && second->lights.size() == 1);
+    const auto report = prepare_interior_lighting(scene, seeds);
+    CHECK(report && report->lights.size() == 1);
+
+    if (report && !report->lights.empty()) {
+        const auto& light = report->lights.front();
+        CHECK(std::abs(light.position[0] * kCos - light.position[2] * kSin) < 1e-5f);
+        CHECK(bake_detail::dot(bake_detail::cross(light.axis_u, light.axis_v), up) < 0);
+        CHECK(report->receivers.front() == up);
+    }
+}
+
 // A folded ceiling contributes both neighbouring face normals rather than selecting one triangle.
 void test_ceiling_orientation_averages_nearby_faces() {
     auto scene = room();
@@ -343,6 +378,7 @@ int main() {
         test_ceiling_source_bounds();
         test_ceiling_target_uses_irradiance_units();
         test_ceiling_orientation_follows_geometry();
+        test_ceiling_search_uses_local_up();
         test_ceiling_orientation_averages_nearby_faces();
         test_outdoor_rejection();
         test_low_walls_under_overhang_rejected();

@@ -231,6 +231,21 @@ std::string describe_report(
     write_regions(out, result);
     out << "],\"seeds\":[";
     write_seeds(out, result);
+    if (!result.source_cell_labels.empty()) {
+        out << "],\"authored_cell_labels\":[";
+        const char* separator = "";
+        for (const unsigned label : result.source_cell_labels) {
+            out << separator;
+            separator = ",";
+            if (label == in::kUnreachedSourceCell) {
+                out << "null";
+            } else if (label == in::kConflictingSourceCell) {
+                out << "[]";
+            } else {
+                out << '[' << label << ']';
+            }
+        }
+    }
     out << "]}\n";
     return out.str();
 }

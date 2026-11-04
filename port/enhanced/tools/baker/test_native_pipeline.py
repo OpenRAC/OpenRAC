@@ -92,6 +92,40 @@ class NativePipeline(unittest.TestCase):
         self.assertNotEqual(before[0],paths[0].stat().st_mtime_ns)
         self.assertEqual(before[1],paths[1].stat().st_mtime_ns)
 
+    def test_refreshes_shipped_lighting_profiles_without_replacing_local_edits(self):
+        profiles = self.root/'profiles'
+        tracked = profiles/'rac1-ntsc/level_02'
+        tracked.mkdir(parents=True)
+        name = 'lighting-environments.json'
+        profile = {'version': 1, 'barriers': [], 'sources': []}
+        (tracked/name).write_text(json.dumps(profile))
+        self.run_bake('--profiles-dir', profiles)
+        self.assertEqual((self.levels[0]/name).read_bytes(), (tracked/name).read_bytes())
+        self.assertIn('up to date', self.run_bake('--profiles-dir', profiles).stdout)
+
+        local_edit = json.dumps(profile, indent=3)
+        (self.levels[1]/name).write_text(local_edit)
+        (tracked/name).write_text(json.dumps(profile, indent=2))
+        result = self.run_bake('--profiles-dir', profiles)
+        self.assertIn('level_00: baked', result.stdout)
+        self.assertEqual((self.levels[0]/name).read_bytes(), (tracked/name).read_bytes())
+        self.assertEqual((self.levels[1]/name).read_text(), local_edit)
+        self.assertEqual(self.run_bake('--profiles-dir', profiles).stdout.count('up to date'), 2)
+
+    def test_interior_authoring_rejects_zero_area_barriers(self):
+        level = self.levels[0]
+        (level/'lighting-environments.json').write_text(json.dumps({
+            'version': 1, 'barriers': [[[0, 0, 0], [1, 1, 1], [2, 2, 2]]], 'sources': [],
+        }))
+        output = self.root/'inference'
+        output.mkdir()
+        result = subprocess.run([str(BAKER), '--prepare-level-interiors', str(level),
+            str(level/'bake-inputs/gameplay.bin'), str(output)], capture_output=True, text=True,
+            timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('barrier 0 has zero area', result.stderr)
+        self.assertFalse((level/'probe-interiors.json').exists())
+
     def test_parallel_emission_hashing_matches_serial_preparation(self):
         profiles = self.root/'profiles'
         shutil.copytree(ROOT/'port/enhanced/lighting/profiles', profiles)

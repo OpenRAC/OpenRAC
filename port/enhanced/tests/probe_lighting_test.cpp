@@ -101,11 +101,15 @@ void authored_terrain_albedo() {
     const auto decode = [](float x) {
         return std::pow((x + .055f) / 1.055f, 2.4f);
     };
-    const Float3 expected{decode(.2f), decode(.75f), decode(.25f)};
+    const Float3 expected{decode(.3f), decode(.625f), decode(.25f)};
 
     for (unsigned c = 0; c < 3; ++c) {
         CHECK(std::abs(sampled[c] - expected[c]) < 1e-6f);
     }
+
+    const auto zero = bake_material(scene, triangle, .25f, .25f, {{1, 1, 1}, true, 0});
+    const auto disabled = bake_material(scene, triangle, .25f, .25f, {{1, 1, 1}, false});
+    CHECK(zero == disabled);
 
     triangle.diffuse_scale = .25f;
     const auto reduced = bake_material(scene, triangle, .25f, .25f, {{1, 1, 1}, true});

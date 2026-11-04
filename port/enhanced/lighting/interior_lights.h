@@ -23,6 +23,7 @@ struct InteriorLightSeed {
     Float3 position{};    // Walkable floor position, with Z as height.
     Float3 colour{};      // Nonnegative linear brightness and colour reference.
     unsigned region = 0;  // Connected component, shared only by agreeing transition labels.
+    Float3 up{0, 0, 1};   // Unit deck normal used for local ceiling and enclosure queries.
 };
 
 // Conservative artistic controls; limits apply per source rather than per colour channel.
@@ -43,6 +44,7 @@ struct InteriorLightSettings {
 // Source diagnostics owned by the caller; no generated geometry is added to the scene.
 struct InteriorLightReport {
     std::vector<BakeAreaEmitter> lights;  // Accepted sources, in deterministic input order.
+    std::vector<Float3> receiver_up;      // Local floor normals for existing irradiance estimates.
     std::vector<Float3> receivers;        // Floor reference positions corresponding to each source.
     std::vector<Float3> targets;   // Approximate desired floor irradiance, before existing sources.
     std::vector<Float3> existing;  // Estimated direct irradiance after existing-emitter boosts.

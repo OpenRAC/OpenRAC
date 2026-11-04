@@ -68,7 +68,11 @@ Float3 capture(const Capture& context, Float3 origin, Float3 direction) {
     const auto p = add(origin, mul(direction, hit.ray.tfar));
     const auto& triangle = scene.triangle(hit.hit);
     const auto albedo = bake_material(
-        scene.input, triangle, hit.hit.u, hit.hit.v, {{1, 1, 1}, settings.terrain_vertex_albedo}
+        scene.input,
+        triangle,
+        hit.hit.u,
+        hit.hit.v,
+        {{1, 1, 1}, settings.terrain_vertex_albedo, settings.terrain_vertex_albedo_strength}
     );
     auto irradiance = gi.sample(p, n, mul(direction, -1), options);
     const auto receiver = add(p, mul(n, settings.ray_bias));
