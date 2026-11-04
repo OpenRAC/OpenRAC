@@ -67,7 +67,7 @@ LEVELS_STAMP = f"levels-{levels_format()}.json"
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
 # decompilation's builds and checks, building the port, the tools' tests) needs a checkout, except
 # PLAYER_BUILDS.
-PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
+PLAY = ("port-levels", "port-levels-check", "port-part", "probe-bake", "play")
 # Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
@@ -137,6 +137,31 @@ def player_build(action: dict, game: str) -> dict:
     action["requires"] = ["disc", "python"]
     action["artifact"] = f"{folder}/openrac-{game}.exe"
     return action
+
+
+def android_part(actions: list[dict]) -> list[dict]:
+    """An Android copy's port-part and Play (tools/asm_part.py): the part built into a folder of
+    the launcher's version, as a desktop's player build is (player_program_folder), since a new APK
+    carries another game it may not fit; Play waits for it and names it to the game."""
+    config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    folder = f"{{data}}/asm-part/{config['version']}"
+    part = next((a for a in actions if a["id"] == "port-part"), None)
+    if part is None:
+        return actions
+    made = f"{folder}/{part['makes'].rsplit('/', 1)[1]}"
+    out = []
+    for action in actions:
+        action = dict(action)
+        if action["id"] == "port-part":
+            at = action["args"].index("--out")
+            action["args"] = action["args"][:at + 1] + [folder] + action["args"][at + 2:]
+            action["makes"] = made
+        elif action["id"] == "play" and "android" in action.get("platforms", []):
+            action["args"] = action["args"] + ["--asm-part", made]
+            action["needs"] = action.get("needs", []) + [
+                {"path": made, "from": "the game built from your disc (Build the game from your disc)"}]
+        out.append(action)
+    return out
 
 
 def point_at(args: list[str], levels: str) -> list[str]:
@@ -224,7 +249,7 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
             if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
                 action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
-        out["versions"][key] = kept
+        out["versions"][key] = android_part(kept) if android else kept
     return out
 
 
@@ -280,6 +305,8 @@ def main() -> int:
     parser.add_argument("--game-build", type=Path, help="the build folder holding the game (port/build/release)")
     parser.add_argument("--python", type=Path, help="an unpacked standalone Python (its python/ folder)")
     parser.add_argument("--android", action="store_true", help="the Android launcher's copy (tools/build_android.py)")
+    parser.add_argument("--asm-part-kit", type=Path, action="append", default=[], metavar="KIT",
+                        help="with --android: a game's kit for the part built from the disc (tools/asm_part.py kit)")
     parser.add_argument("--android-games", metavar="ID,...",
                         help="with --android: the games the APK carries (rac1-pal,rac1-ntsc); Play is Android's for those only")
     args = parser.parse_args()
@@ -296,13 +323,21 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     # The tools, without their tests; the catalogue; the progress the library shows.
-    for name in ("openrac.py", "extractor.py") + (() if args.android else ("build_game.py",)):
+    for name in ("openrac.py", "extractor.py") + (("asm_part.py",) if args.android else ("build_game.py",)):
         (out / "tools").mkdir(exist_ok=True)
         shutil.copy2(ROOT / "tools" / name, out / "tools" / name)
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
     files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    if args.android:
+        # The part of a game built from the disc on the device (tools/asm_part.py): hostgen's
+        # translation from assembly, which needs no Clang, and each game's kit.
+        files.copy_tree(ROOT / "port/tools/hostgen", out / "port/tools/hostgen",
+                        lambda rel: rel.suffix == ".py" and len(rel.parts) == 1 and not rel.name.startswith("test_"))
+        for kit in args.asm_part_kit:
+            game = json.loads((kit / "kit.json").read_text())["game"]
+            shutil.copytree(kit, out / "port/asm-part" / game)
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",

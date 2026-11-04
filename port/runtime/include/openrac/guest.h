@@ -79,6 +79,23 @@ __extension__ typedef unsigned __int128 openrac_u128;
 #define OPENRAC_GUEST_GLOBAL
 #endif
 
+/* Those globals, which a game's part built on the device from the disc
+ * (tools/asm_part.py), another library, cannot see on Android: there it reaches
+ * them through pointers the game gives it (openrac_asm_global) on loading. */
+#define OPENRAC_PART_GLOBALS(X) \
+    X(uint8_t*, guest_base) X(uint32_t, guest_ram_size) X(gaddr, guest_sp) \
+    X(gaddr, relocate_low) X(gaddr, relocate_high) X(gaddr, guest_last_entry) \
+    X(openrac_host_fn, guest_last_fn)
+#if defined(__ANDROID__) && defined(OPENRAC_ASM_PART)
+#define openrac_guest_base (*openrac_part_guest_base)
+#define openrac_guest_ram_size (*openrac_part_guest_ram_size)
+#define openrac_guest_sp (*openrac_part_guest_sp)
+#define openrac_relocate_low (*openrac_part_relocate_low)
+#define openrac_relocate_high (*openrac_part_relocate_high)
+#define openrac_guest_last_entry (*openrac_part_guest_last_entry)
+#define openrac_guest_last_fn (*openrac_part_guest_last_fn)
+#endif
+
 /* Where game memory starts in the host's address space. Set once by the
  * runtime before any game code runs. */
 extern OPENRAC_GUEST_GLOBAL uint8_t* openrac_guest_base;

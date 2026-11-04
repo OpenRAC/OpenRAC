@@ -53,23 +53,33 @@ class BuildAndroidTests(unittest.TestCase):
                 for target in ("openrac-enhanced-baker",):
                     self.assertEqual(target in command, enabled)
 
-    def test_a_disc_is_passed_as_its_games_retail_image(self):
-        image = self.dir / "SCUS_972.68.iso"
-        image.write_bytes(b"")
-        discs = build_android.parse_discs([f"rac2-ntsc={image}"], ["rac1-ntsc", "rac2-ntsc"])
-        self.assertEqual(discs, {"rac2-ntsc": image})
+    def test_a_game_partly_in_assembly_has_a_part_and_is_built_without_its_disc(self):
+        self.assertTrue(build_android.has_part("rac2-ntsc"))
+        self.assertFalse(build_android.has_part("rac1-ntsc"))
         with mock.patch.object(build_android.proc, "run") as run:
-            build_android.build_port(["rac2-ntsc"], self.dir, self.dir, baker=False, discs=discs)
+            build_android.build_port(["rac2-ntsc"], self.dir, self.dir, baker=False)
         configure = run.call_args_list[0].args[0]
-        self.assertIn(f"-DOPENRAC_RAC2_NTSC_RETAIL_IMAGE={image.resolve().as_posix()}", configure)
+        self.assertFalse([a for a in configure if "RETAIL_IMAGE" in str(a)])
 
-    def test_a_disc_for_a_game_not_built_or_not_there_stops(self):
-        image = self.dir / "disc.iso"
-        image.write_bytes(b"")
-        for value, games in ((f"rac2-ntsc={image}", ["rac1-ntsc"]), ("rac2-ntsc=missing.iso", ["rac2-ntsc"]),
-                             ("rac2-ntsc", ["rac2-ntsc"])):
-            with self.subTest(value=value), self.assertRaises(SystemExit):
-                build_android.parse_discs([value], games)
+    def test_llvm_is_built_once_for_its_version_and_options(self):
+        ndk = self.make_ndk(self.dir / "ndk")
+        llvm = self.dir / "llvm"
+        (llvm / "llvm-project/llvm").mkdir(parents=True)
+        (llvm / "llvm-project/llvm/CMakeLists.txt").write_text("")
+
+        def fake(cmd, **kw):
+            if cmd[:2] == ["cmake", "--build"]:
+                for tool in build_android.PART_TOOLS:
+                    (llvm / "build/bin").mkdir(parents=True, exist_ok=True)
+                    (llvm / "build/bin" / tool).write_bytes(b"")
+        with mock.patch.object(build_android, "LLVM_ANDROID", llvm), \
+                mock.patch.object(build_android.proc, "run", side_effect=fake) as run:
+            self.assertEqual(build_android.build_llvm(ndk), llvm / "build")
+            self.assertEqual(run.call_count, 2)
+            configure = run.call_args_list[0].args[0]
+            self.assertIn("-DLLVM_TARGETS_TO_BUILD=AArch64", configure)
+            build_android.build_llvm(ndk)
+            self.assertEqual(run.call_count, 2)
 
     def native_tree(self):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
@@ -112,6 +122,19 @@ class BuildAndroidTests(unittest.TestCase):
                 mock.patch.object(build_android, "APP", app):
             names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, baker=False)
         self.assertNotIn("libopenrac-enhanced-baker.so", names)
+
+    def test_android_library_collection_carries_clang_and_lld_as_libraries(self):
+        build, app, ndk, python = self.native_tree()
+        llvm = self.dir / "llvm"
+        (llvm / "bin").mkdir(parents=True)
+        for tool in build_android.PART_TOOLS:
+            (llvm / "bin" / tool).write_bytes(tool.encode())
+        with mock.patch.object(build_android, "PORT_BUILD", build), \
+                mock.patch.object(build_android, "APP", app):
+            names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, llvm=llvm)
+        for tool, name in build_android.PART_TOOLS.items():
+            self.assertIn(name, names)
+            self.assertEqual((app / "src/main/jniLibs/arm64-v8a" / name).read_bytes(), tool.encode())
 
     def test_embree_for_android_is_the_ports_target_with_arms_choice(self):
         ndk = self.make_ndk(self.dir / "ndk")

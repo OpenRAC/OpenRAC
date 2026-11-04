@@ -167,4 +167,15 @@ def register_text(names: list[str]) -> str:
     """The part's entry: every slot filled with its translation (the game calls it on loading the part)."""
     decls = "".join(f"extern void *{slot(n)};\nvoid {own_name(n)}(void);\n" for n in names)
     sets = "".join(f"    {slot(n)} = (void *){own_name(n)};\n" for n in names)
-    return f"{decls}\nint openrac_asm_register(void) {{\n{sets}    return {len(names)};\n}}\n"
+    # On Android the game's runtime globals are its own (guest.h OPENRAC_PART_GLOBALS): the part
+    # asks the game where they are.
+    android = ("#if defined(__ANDROID__) && defined(OPENRAC_ASM_PART)\n#include \"openrac/guest.h\"\n"
+               "void *openrac_asm_global(const char *name);\n"
+               "#define OPENRAC_PART_DEFINE(type, name) type *openrac_part_##name;\n"
+               "OPENRAC_PART_GLOBALS(OPENRAC_PART_DEFINE)\n#endif\n")
+    find = ("#if defined(__ANDROID__) && defined(OPENRAC_ASM_PART)\n"
+            "#define OPENRAC_PART_FIND(type, name) \\\n"
+            "    if (!(openrac_part_##name = (type *)openrac_asm_global(\"openrac_\" #name))) return -1;\n"
+            "    OPENRAC_PART_GLOBALS(OPENRAC_PART_FIND)\n#endif\n")
+    return (f"{android}{decls}\nint openrac_asm_register(void) {{\n{find}{sets}"
+            f"    return {len(names)};\n}}\n")

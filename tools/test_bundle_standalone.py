@@ -56,14 +56,27 @@ class PlayerActions(unittest.TestCase):
         self.assertIn("android", platforms(with_rac2, "rac2/ntsc"))
         self.assertIn("android", platforms(bundle.player_actions(android=True), "rac2/ntsc"))
 
+    def test_an_apk_builds_going_commandos_part_for_its_own_version(self):
+        rac2 = {a["id"]: a for a in bundle.player_actions(android=True)["versions"]["rac2/ntsc"]}
+        part, play = rac2["port-part"], rac2["play"]
+        made = part["makes"]
+        self.assertRegex(made, r"^\{data\}/asm-part/[^/]+/libopenrac-rac2-ntsc-part\.so$")
+        self.assertEqual(part["args"][part["args"].index("--out") + 1], made.rsplit("/", 1)[0])
+        self.assertEqual(play["args"][-2:], ["--asm-part", made])
+        self.assertIn(made, [n["path"] for n in play["needs"]])
+        # A desktop's copy plays its own build: no part.
+        desktop = {a["id"]: a for a in bundle.player_actions()["versions"]["rac2/ntsc"]}
+        self.assertNotIn("--asm-part", desktop["play"]["args"])
+
     def test_only_what_a_player_does(self):
         self.assertEqual(self.actions["repository"], [])
         for key, actions in self.actions["versions"].items():
             self.assertLessEqual({a["id"] for a in actions if a["id"] != "port-build" or key not in bundle.PLAYER_BUILDS},
                              set(bundle.KEEP), key)
         # Playing, and modding: every player gets the Mods page, not only a checkout's.
-        self.assertEqual(set(self.pal), set(bundle.KEEP))
-        self.assertEqual(set(self.ntsc), set(bundle.KEEP))
+        # port-part is Going Commando's alone (its code still in assembly, built on an Android device).
+        self.assertEqual(set(self.pal), set(bundle.KEEP) - {"port-part"})
+        self.assertEqual(set(self.ntsc), set(bundle.KEEP) - {"port-part"})
 
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing

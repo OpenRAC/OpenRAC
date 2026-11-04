@@ -37,6 +37,8 @@ on:
       - "port/**"
       - "editor/**"
       - "games/rac1/**"
+      - "games/rac2/**"
+      - "tools/asm_part.py"
       - "tools/bundle_standalone.py"
       - "tools/build_android.py"
       - "tools/build_port.py"
@@ -65,7 +67,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Fedora's row runs in Fedora itself; the others on the runner.
     container: ${{ matrix.container }}
-    timeout-minutes: 60
+    # Android's first run of an LLVM version also builds Clang and lld for the device (cached after).
+    timeout-minutes: ${{ matrix.name == 'android' && 150 || 60 }}
     env:
       NAME: ${{ matrix.name }}
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -204,7 +207,7 @@ jobs:
             !port/build/**/*.o
             !port/build/**/*.obj
             !port/build/**/*.pdb
-          key: port-${{ matrix.name }}-h${{ hashFiles('games/rac1/src/**', 'games/rac1/include/**', 'games/rac1/config/**', 'games/rac1/ntsc/src/**', 'games/rac1/ntsc/include/**', 'games/rac1/ntsc/config/**', 'port/game/**', 'port/tools/hostgen/*.py', 'port/tools/hostgen/include/**', 'port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json') }}
+          key: port-${{ matrix.name }}-h${{ hashFiles('games/rac1/src/**', 'games/rac1/include/**', 'games/rac1/config/**', 'games/rac1/ntsc/src/**', 'games/rac1/ntsc/include/**', 'games/rac1/ntsc/config/**', 'games/rac2/**', 'port/game/**', 'port/tools/hostgen/*.py', 'port/tools/hostgen/include/**', 'port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json') }}
           restore-keys: |
             port-${{ matrix.name }}-h
 
@@ -369,6 +372,19 @@ jobs:
             case "$need" in GLIBC_2.3[6-9]|GLIBC_2.[4-9]*) echo "the game needs a newer glibc than 2.35"; exit 1;; esac
           fi
 
+      # Clang and lld built for Android (tools/build_android.py build_llvm), which the APK carries to
+      # build Going Commando's part from the player's disc: an hour to build, the same for every
+      # run of their version. Change the key with build_android.py's LLVM_VERSION or options.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: matrix.name == 'android'
+        with:
+          path: |
+            build/android/llvm/stamp.json
+            build/android/llvm/build/bin/clang*
+            build/android/llvm/build/bin/lld
+            build/android/llvm/build/lib/clang
+          key: llvm-android-19.1.7-r1
+
       # The libraries, SDL's Java and the carried copy, in the launcher's Android project.
       - name: Build the game, the libraries and the copy (Android)
         if: matrix.name == 'android'
@@ -380,7 +396,8 @@ jobs:
           }
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-python.so; do
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-python.so libopenrac-clang.so libopenrac-lld.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
 
@@ -522,7 +539,8 @@ jobs:
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libSDL3.so libc++_shared.so libopenrac-python.so \
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-clang.so libopenrac-lld.so libSDL3.so libc++_shared.so libopenrac-python.so \
                      libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
                      libgsl_alloc_hook.so libopenrac_launcher_lib.so; do
             unzip -l "$apk" "lib/arm64-v8a/$lib" > /dev/null || { echo "the APK has no $lib"; exit 1; }

@@ -1891,6 +1891,35 @@
         "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc in port/ built the program (2026-10-27)."
       },
       {
+        "id": "port-part",
+        "label": "Build the game from your disc",
+        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each launcher version; nothing is downloaded.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/asm_part.py",
+          "build",
+          "rac2-ntsc",
+          "--disc",
+          "{disc}",
+          "--out",
+          "{data}/asm-part"
+        ],
+        "makes": "{data}/asm-part/libopenrac-rac2-ntsc-part.so",
+        "cwd": ".",
+        "platforms": [
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder of the launcher's version and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld built for Android (tools/build_android.py)."
+      },
+      {
         "id": "probe-bake",
         "label": "Prepare the enhanced lighting",
         "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",

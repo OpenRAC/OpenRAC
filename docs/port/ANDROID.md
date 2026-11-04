@@ -136,7 +136,9 @@ reason, as is the extractor's when it refuses a disc.
 **The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
-game does not, as the APK carries it. Rebuild, in the game's menu, reads the
+game does not, as the APK carries it. Going Commando adds one: the part of its
+code still in assembly is compiled on the device from the disc by the Clang and
+lld the APK carries (`tools/asm_part.py`, port/game/rac2-ntsc/README.md). Rebuild, in the game's menu, reads the
 levels again and checks them. Android runs programs only from an app's native
 library folder, so the APK carries them as libraries:
 

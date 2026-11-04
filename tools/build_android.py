@@ -3,15 +3,15 @@
 Builds OpenRAC for Android: the launcher's APK with the games in it
 (docs/port/ANDROID.md).
 
-  python3 tools/build_android.py [GAME ...] [--disc GAME=IMAGE] [--release] [--keep-symbols] [--no-apk]
+  python3 tools/build_android.py [GAME ...] [--release] [--keep-symbols] [--no-apk]
 
-GAME is one of the port's games (port/game/<id>/hostgen.json), rac1-pal and
-rac1-ntsc when none is named. --disc GAME=IMAGE names the image of GAME's
-disc, as tools/build_port.py --disc does on a desktop: the functions its
-decompilation has no C for yet are translated from that disc's programs.
-Going Commando needs it (rac2-ntsc=SCUS_972.68.iso); without it its library
-has no retail code and exits at once. Such an APK carries code read from your
-disc: keep it to yourself. The steps:
+GAME is one of the port's games (port/game/<id>/hostgen.json), rac1-pal,
+rac1-ntsc and rac2-ntsc when none is named. A game whose code is still partly
+in assembly (Going Commando: hostgen.json "asm" "interface") is built without
+the disc, calling those functions through slots; the APK carries what the
+device needs to build them from the player's disc when it is set up
+(tools/asm_part.py): its kit, and Clang and lld built for Android
+(build/android/llvm, once for their version). The steps:
 
   1. a Python for the launcher's tools: CPython for Android as Chaquopy
      packages it (MIT), from Maven Central at a fixed version, each file
@@ -63,7 +63,15 @@ LAUNCHER = ROOT / "launcher"
 APP = LAUNCHER / "src-tauri/gen/android/app"
 BUILD = ROOT / "build/android"
 PORT_BUILD = PORT / "build/android-arm64"
-DEFAULT_GAMES = ("rac1-pal", "rac1-ntsc")
+DEFAULT_GAMES = ("rac1-pal", "rac1-ntsc", "rac2-ntsc")
+# Clang and lld for the device, to build a game's part from the player's disc (tools/asm_part.py):
+# LLVM's release, its source fetched with git at that tag, built with the NDK for AArch64 alone.
+LLVM_VERSION = "19.1.7"
+LLVM_REPO = "https://github.com/llvm/llvm-project.git"
+LLVM_ANDROID = BUILD / "llvm"
+# The libraries of the APK they are, as the launcher's tools find them (OPENRAC_NATIVE_LIBRARY_DIR).
+PART_TOOLS = {"clang": "libopenrac-clang.so", "lld": "libopenrac-lld.so"}
+ANDROID_API = 29
 
 # Chaquopy's CPython for Android (https://github.com/chaquo/chaquopy, MIT): the interpreter as a
 # library with its modules, and its standard library, published on Maven Central.
@@ -190,14 +198,10 @@ def baker_defines(ndk: Path) -> list[str]:
         return ["-DOPENRAC_PROBE_BAKER=OFF"]
 
 
-def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = True,
-               discs: dict[str, Path] | None = None) -> bool:
-    """The port's libraries for GAMES, each of DISCS' games translated from its disc image;
-    whether the probe baker is among them."""
+def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = True) -> bool:
+    """The port's libraries for GAMES; whether the probe baker is among them."""
     env = dict(os.environ, ANDROID_NDK_HOME=str(ndk))
     defines = baker_defines(ndk) if baker else ["-DOPENRAC_PROBE_BAKER=OFF"]
-    defines += [f"-D{desktop.retail_variable(g)}={Path(image).resolve().as_posix()}"
-                for g, image in (discs or {}).items()]
     proc.run(["cmake", "--preset", "android-arm64", f"-DOPENRAC_ANDROID_PYTHON={python_target}", *defines],
              cwd=PORT, env=env, echo=True)
     targets = [t for g in games for t in (f"openrac-{g}", f"openrac-{g}-cli")]
@@ -209,8 +213,80 @@ def build_port(games: list[str], ndk: Path, python_target: Path, baker: bool = T
     return with_baker
 
 
+def has_part(game: str) -> bool:
+    """Whether GAME's code is still partly in assembly, built on the device from the disc."""
+    cfg = json.loads((PORT / "game" / game / "hostgen.json").read_text())
+    return bool(cfg.get("asm", {}).get("interface"))
+
+
+def ndk_toolchain(ndk: Path) -> Path:
+    found = sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/clang"))
+    if not found:
+        sys.exit(f"{ndk} has no prebuilt Clang")
+    return found[0].parent.parent
+
+
+def llvm_options(ndk: Path) -> list[str]:
+    triple = f"aarch64-linux-android{ANDROID_API}"
+    return [f"-DCMAKE_TOOLCHAIN_FILE={ndk / 'build/cmake/android.toolchain.cmake'}", "-DANDROID_ABI=arm64-v8a",
+            f"-DANDROID_PLATFORM=android-{ANDROID_API}", "-DANDROID_STL=c++_static",
+            "-DCMAKE_BUILD_TYPE=MinSizeRel", "-DLLVM_ENABLE_PROJECTS=clang;lld", "-DLLVM_TARGETS_TO_BUILD=AArch64",
+            f"-DLLVM_HOST_TRIPLE={triple}", f"-DLLVM_DEFAULT_TARGET_TRIPLE={triple}",
+            *[f"-D{o}=OFF" for o in (
+                "LLVM_INCLUDE_TESTS", "LLVM_INCLUDE_EXAMPLES", "LLVM_INCLUDE_BENCHMARKS", "LLVM_INCLUDE_DOCS",
+                "LLVM_ENABLE_ZLIB", "LLVM_ENABLE_ZSTD", "LLVM_ENABLE_LIBXML2", "LLVM_ENABLE_TERMINFO",
+                "LLVM_ENABLE_LIBEDIT", "CLANG_ENABLE_ARCMT", "CLANG_ENABLE_STATIC_ANALYZER",
+                "CLANG_PLUGIN_SUPPORT", "LLVM_ENABLE_BINDINGS", "CLANG_BUILD_TOOLS", "LLVM_BUILD_TOOLS")]]
+
+
+def build_llvm(ndk: Path) -> Path:
+    """Clang and lld for the device (LLVM_ANDROID/build/bin), built once for their version and options."""
+    options = llvm_options(ndk)
+    stamp = LLVM_ANDROID / "stamp.json"
+    want = {"version": LLVM_VERSION, "options": options}
+    build = LLVM_ANDROID / "build"
+    if stamp.is_file() and json.loads(stamp.read_text()) == want and \
+            all((build / "bin" / t).is_file() for t in PART_TOOLS):
+        return build
+    src = LLVM_ANDROID / "llvm-project"
+    if not (src / "llvm/CMakeLists.txt").is_file():
+        shutil.rmtree(src, ignore_errors=True)
+        proc.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", "--branch",
+                  f"llvmorg-{LLVM_VERSION}", LLVM_REPO, src], cwd=ROOT, echo=True)
+        proc.run(["git", "sparse-checkout", "set", "llvm", "clang", "lld", "cmake", "third-party",
+                  "libunwind/include"],
+                 cwd=src, echo=True)
+    build.mkdir(parents=True, exist_ok=True)
+    # Not through the port's compiler cache (CI's): a few thousand objects that would push out the game's.
+    proc.run(["cmake", "-G", "Ninja", src / "llvm", *options, "-DCMAKE_C_COMPILER_LAUNCHER=",
+              "-DCMAKE_CXX_COMPILER_LAUNCHER="], cwd=build, echo=True)
+    proc.run(["cmake", "--build", ".", "--target", *PART_TOOLS], cwd=build, echo=True)
+    stamp.write_text(json.dumps(want, indent=1) + "\n")
+    return build
+
+
+def part_kit(game: str, ndk: Path, llvm: Path) -> Path:
+    """What the device needs besides the disc to build GAME's part (tools/asm_part.py kit)."""
+    toolchain = ndk_toolchain(ndk)
+    sysroot = toolchain / "sysroot"
+    libs = sysroot / "usr/lib/aarch64-linux-android" / str(ANDROID_API)
+    builtins = sorted(toolchain.glob("lib/clang/*/lib/linux/libclang_rt.builtins-aarch64-android.a"))
+    if not builtins:
+        sys.exit(f"{toolchain} has no libclang_rt.builtins for aarch64")
+    resource = sorted((llvm / "lib/clang").glob("*/include"))
+    if not resource:
+        sys.exit(f"{llvm} has no Clang resource headers")
+    out = BUILD / "asm-part" / game
+    env = dict(os.environ, CC=str(toolchain / "bin/clang"))
+    proc.run([sys.executable, ROOT / "tools/asm_part.py", "kit", game, "--build", PORT_BUILD, "--out", out,
+              "--sysroot", sysroot, "--resource-dir", resource[-1].parent,
+              "--libs", *[libs / n for n in ("crtbegin_so.o", "crtend_so.o", "libc.so", "libm.so")], builtins[-1]],
+             cwd=ROOT, env=env, echo=True)
+    return out
+
+
 def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_symbols: bool,
-                      baker: bool = False) -> list[str]:
+                      baker: bool = False, llvm: Path | None = None) -> list[str]:
     dest = APP / "src/main/jniLibs/arm64-v8a"
     dest.mkdir(parents=True, exist_ok=True)
     # What an earlier run put here; the launcher's own library is Tauri's to place.
@@ -231,6 +307,7 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     if not runtime:
         sys.exit(f"{ndk} has no libc++_shared.so for aarch64")
     wanted.append(runtime[0])
+    tools = [(llvm / "bin" / tool, PART_TOOLS[tool]) for tool in PART_TOOLS] if llvm else []
     wanted += sorted((python_target / "jniLibs/arm64-v8a").glob("*.so"))
     strip = sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/llvm-strip"))
     names = []
@@ -242,6 +319,14 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
         if strip and not keep_symbols:
             proc.run([strip[0], "--strip-debug", dest / path.name], cwd=ROOT, echo=True)
         names.append(path.name)
+    # Clang and lld under the names of libraries, so Android lets them run from the APK's folder.
+    for path, name in tools:
+        if not path.is_file():
+            sys.exit(f"{path} was not built")
+        shutil.copy2(path, dest / name, follow_symlinks=True)
+        if strip:
+            proc.run([strip[0], "--strip-all", dest / name], cwd=ROOT, echo=True)
+        names.append(name)
     # SDL's activity and its helpers, as the SDL the port was built with has them.
     sdl_java = sorted(PORT_BUILD.rglob("android-project/app/src/main/java/org/libsdl"))
     if not sdl_java:
@@ -252,10 +337,12 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     return names
 
 
-def bundle(python_home: Path, baker: bool = False, games: list[str] | None = None) -> Path:
+def bundle(python_home: Path, baker: bool = False, games: list[str] | None = None,
+           kits: list[Path] | None = None) -> Path:
     out = BUILD / "openrac"
     proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home,
-              "--android-games", ",".join(games or DEFAULT_GAMES)],
+              "--android-games", ",".join(games or DEFAULT_GAMES),
+              *[a for k in kits or [] for a in ("--asm-part-kit", k)]],
              cwd=ROOT, echo=True)
     # Runtime HDR decoders also need their notices when the baker is omitted.
     if (PORT_BUILD / "licenses").is_dir():
@@ -292,21 +379,6 @@ def build_apk(ndk: Path, release: bool, keep_symbols: bool) -> None:
         print(f"APK: {apk} ({apk.stat().st_size / 1e6:.0f} MB)")
 
 
-def parse_discs(values: list[str], games: list[str]) -> dict[str, Path]:
-    """--disc GAME=IMAGE values as {GAME: IMAGE}; each GAME one being built, each IMAGE there."""
-    discs = {}
-    for value in values:
-        game, sep, image = value.partition("=")
-        if not sep or not image:
-            sys.exit(f"--disc {value}: give it as GAME=IMAGE (rac2-ntsc=SCUS_972.68.iso)")
-        if game not in games:
-            sys.exit(f"--disc {value}: {game} is not one of the games being built ({', '.join(games)})")
-        if not Path(image).is_file():
-            sys.exit(f"--disc {value}: {image} is not there")
-        discs[game] = Path(image)
-    return discs
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("games", nargs="*", default=list(DEFAULT_GAMES))
@@ -315,19 +387,19 @@ def main() -> int:
     parser.add_argument("--no-apk", action="store_true", help="stop before Gradle (steps 1 to 4)")
     parser.add_argument("--no-probe-baker", action="store_true",
                         help="leave Enhanced graphics' probe baker (and Embree) out")
-    parser.add_argument("--disc", action="append", default=[], metavar="GAME=IMAGE",
-                        help="the image of GAME's disc, for the functions with no C (rac2-ntsc needs it)")
     args = parser.parse_args()
     for game in args.games:
         if not (PORT / "game" / game / "hostgen.json").is_file():
             sys.exit(f"{game} is not one of the port's games (port/game/<id>/hostgen.json)")
-    discs = parse_discs(args.disc, args.games)
     ndk = ndk_home()
     python_target, python_home = python()
-    baker = build_port(args.games, ndk, python_target, baker=not args.no_probe_baker, discs=discs)
-    names = collect_libraries(args.games, ndk, python_target, args.keep_symbols, baker)
+    baker = build_port(args.games, ndk, python_target, baker=not args.no_probe_baker)
+    parts = [g for g in args.games if has_part(g)]
+    llvm = build_llvm(ndk) if parts else None
+    names = collect_libraries(args.games, ndk, python_target, args.keep_symbols, baker, llvm)
     print("native libraries:", ", ".join(names))
-    bundle(python_home, baker, args.games)
+    kits = [part_kit(g, ndk, llvm) for g in parts]
+    bundle(python_home, baker, args.games, kits)
     if not args.no_apk:
         build_apk(ndk, args.release, args.keep_symbols)
     return 0

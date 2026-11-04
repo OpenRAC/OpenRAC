@@ -56,11 +56,17 @@ are Build the game and Rebuild: Play on a fresh checkout is Build and play. An i
 carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not): its Build and
 play runs `tools/build_game.py`, which fetches the source and builds it with the player's compiler.
 
-On Android the game is a library of the APK, built on a computer with your disc:
-`python3 tools/build_android.py rac1-pal rac1-ntsc rac2-ntsc --disc rac2-ntsc=<SCUS_972.68 image>`.
-That APK carries code read from your disc, so keep it to yourself. In it Going Commando sets up,
-reads its levels and plays as Ratchet & Clank does. An APK without it (CI's) has no Play for it
-and says why.
+On Android the APK (`tools/build_android.py`, CI's too) carries the game built without the disc:
+the functions still in assembly are called through slots (`asm_interface.json`, `asmext.py`). Once
+the game is set up from the disc, Build and play first runs `tools/asm_part.py build`: the APK's
+Python translates those functions from the disc (`asmdev.py`, from the pickled program the build
+wrote) and the Clang and lld it carries (`libopenrac-clang.so`, `libopenrac-lld.so`, LLVM built
+for Android) compile them into `<data>/asm-part/<launcher version>/libopenrac-rac2-ntsc-part.so`,
+which the game loads before it starts (`--asm-part`). It takes a few minutes, once per launcher
+version; nothing of the disc is in the APK. After a sync that changes the asm stage's view of the
+code, `asm_interface.json` is written again with the disc (`hostgen.py ... --retail-image <iso>
+--asm-interface-out port/game/rac2-ntsc/asm_interface.json`); a build without the disc then gives
+the same C as one with it.
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader

@@ -7,12 +7,14 @@
 // through a slot; the part's openrac_asm_register fills them. Loaded before the game runs, from
 // --asm-part, or <data>/asm-part/<program>.<so|dylib|dll> where the launcher builds it.
 
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <string>
 #include <system_error>
 
 #include "common/log.h"
+#include "openrac/guest.h"
 #include "mod_library.h"
 #include "program/options.h"
 #include "program/program.h"
@@ -61,6 +63,10 @@ void load_asm_part(const Options& o) {
                     path.string());
     }
     const int count = entry();
+    if (count < 0) {
+        log::fatalf("{} does not fit this game (it asks for what the game does not have): set the "
+                    "game up from your disc again in the launcher", path.string());
+    }
     g_loaded = true;
     log::header(std::format("disc part {} ({} functions)", path.filename().string(), count));
 }
@@ -77,4 +83,16 @@ extern "C" void* openrac_asm_external(void* fn, const char* name) {
             name, g_loaded ? "too old for this game" : "not there");
     }
     return fn;
+}
+
+// Where the runtime's globals are, for a part on Android, where they are the game's own
+// (guest.h OPENRAC_PART_GLOBALS).
+extern "C" void* openrac_asm_global(const char* name) {
+#define OPENRAC_PART_ADDRESS(type, field)              \
+    if (std::strcmp(name, "openrac_" #field) == 0) { \
+        return static_cast<void*>(&openrac_##field);   \
+    }
+    OPENRAC_PART_GLOBALS(OPENRAC_PART_ADDRESS)
+#undef OPENRAC_PART_ADDRESS
+    return nullptr;
 }
