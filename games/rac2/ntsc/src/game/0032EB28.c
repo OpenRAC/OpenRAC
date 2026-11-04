@@ -316,7 +316,6 @@ char *func_00332440(void *a0, void *a1, void *a2)
 
 
 
-INCLUDE_ASM("asm/game", func_00333048);
 
 INCLUDE_ASM("asm/game", func_003334B0);
 
@@ -371,7 +370,6 @@ s32 func_00334100(s32 a0)
     return r;
 }
 
-INCLUDE_ASM("asm/game", func_00334160);
 
 INCLUDE_ASM("asm/game", func_00334550);
 

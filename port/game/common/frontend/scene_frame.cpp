@@ -84,10 +84,14 @@ bool hdr_frame() {
 
 // Recreates the target when its dimensions, samples, depth-sampling requirement or colour
 // format changes.
-void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
+void resize_target(SceneFrame& frame, int samples) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
     const bool float_colour = hdr_frame();
+    // Reserve sampleable depth while the level's probe data is still loading.
+    const bool wants_sampleable_depth =
+        gl::enhanced_rendering_available() && frame.graphics.enhanced_graphics;
+    const bool sampleable_depth = samples == 1 && wants_sampleable_depth;
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
@@ -109,12 +113,7 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
     if (!created && samples > 1) {
         log::warn("{}; drawing without anti-aliasing", error);
         created = target.create(
-            output.width,
-            output.height,
-            error,
-            1,
-            enhanced_graphics_available() && frame.graphics.enhanced_graphics,
-            float_colour
+            output.width, output.height, error, 1, wants_sampleable_depth, float_colour
         );
     }
 
@@ -122,6 +121,13 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
     if (!created) {
         throw std::runtime_error(error);
     }
+
+    // A transition tick can retain its picture before any world draws into the new target.
+    gl::glBindFramebuffer(gl::GL_FRAMEBUFFER, target.id());
+    gl::glDisable(gl::GL_SCISSOR_TEST);
+    gl::glColorMask(gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE, gl::GL_TRUE);
+    gl::glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    gl::glClear(gl::GL_COLOR_BUFFER_BIT);
 
 #if defined(OPENRAC_VULKAN)
     if (float_colour) {
@@ -152,9 +158,7 @@ float prepare_target(SceneFrame& frame) {
     // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
     const int samples =
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
-    const bool sampleable_depth =
-        samples == 1 && enhanced_graphics_available() && graphics.enhanced_graphics;
-    resize_target(frame, samples, sampleable_depth);
+    resize_target(frame, samples);
 
     // A wider picture preserves the central television framing.
     if (output.aspect > kTvAspect && output.box.width > 0 && output.box.height > 0) {
@@ -184,6 +188,9 @@ void set_lighting(SceneFrame& frame) {
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
+    if (auto* lighting = owner.scene.level_lighting()) {
+        lighting->set_material_overrides(enhanced);
+    }
     owner.scene.set_probe_lighting(
         enhanced && !graphics.sweep_probe_lighting_off, graphics.probe_gi_multiplier
     );
@@ -341,6 +348,24 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
+    // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
+    // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
+    // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
+    // gameplay view: they are placed for the native lens.
+    float opened = 1.0f;
+    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
+        && !frame.output.camera_debug.settings.enabled
+        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
+        const float scale = original / std::tan(std::atan(original) * percent);
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+        opened = 1.0f / scale;
+    }
+    // The game's view tests of the next ticks open by as much (openrac_game_view_opened).
+    set_view_opened(opened);
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
     }
@@ -348,7 +373,13 @@ void set_camera(SceneFrame& frame) {
     owner.scene.choose_scenery(
         frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
+    const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);
+
+    // Background bakes can become usable here, after initial level setup skipped modern shadows.
+    if (!had_probes && owner.scene.probe_data_available()) {
+        configure_level_shadows(owner, scene.level);
+    }
     // This hook only prepares declared probe/light selection kernels and stable uploads.
     input.prepares_world_depth = true;
     input.after_world_depth =
@@ -382,7 +413,9 @@ bool draw_world(SceneFrame& frame) {
         debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
-        target.depth_texture = owner.frame.depth_texture();
+        if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+            target.depth_texture = owner.frame.depth_texture();
+        }
         target.resolve_framebuffer = owner.frame.resolve_target();
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;

@@ -20,6 +20,7 @@
 #include "common/log.h"
 #include "common/profiler.h"
 #include "renderer/texture_pack.h"
+#include "scene/material_overrides.h"
 
 namespace openrac::scene {
 
@@ -164,9 +165,14 @@ int image_index(const fs::path& requested, LevelData& level) {
     return pixels != nullptr ? static_cast<int>(level.images.size() - 1) : -1;
 }
 
-// Shares equivalent decoded materials while retaining original emission intent for offline review.
-int material_index(const cgltf_material* source, const fs::path& base, LevelData& level) {
+// Shares equivalent decoded materials only when their exported slot identities agree.
+int material_index(
+    const cgltf_primitive& primitive, const cgltf_data& data, const fs::path& base, LevelData& level
+) {
+    const auto* source = primitive.material;
     Material m;
+    // A missing glTF material is the model's implicit slot.
+    m.source_slot = source ? static_cast<int>(source - data.materials) : -1;
     if (source != nullptr) {
         m.name = source->name ? source->name : "";
         m.cutout = source->alpha_mode == cgltf_alpha_mode_mask;
@@ -219,7 +225,8 @@ int material_index(const cgltf_material* source, const fs::path& base, LevelData
         if (o.image == m.image && o.cutout == m.cutout && o.blend == m.blend && o.metal == m.metal
             && o.clamp_s == m.clamp_s && o.clamp_t == m.clamp_t && o.colour == m.colour
             && o.emission == m.emission && o.emission_image == m.emission_image
-            && o.authored_emission == m.authored_emission && (!m.metal || o.name == m.name)) {
+            && o.authored_emission == m.authored_emission && o.name == m.name
+            && o.source_slot == m.source_slot) {
             return static_cast<int>(i);
         }
     }
@@ -301,6 +308,19 @@ float game_draw_distance(Layer layer, const json::Value& stored, int fade) {
 }
 
 }  // namespace
+
+Result<int> load_material_image(LevelData& level, const std::string& path) {
+    try {
+        const int image =
+            image_index(level.dir / fs::path(std::u8string(path.begin(), path.end())), level);
+        if (image < 0) {
+            return unexpected(Error{"cannot load material emission texture: " + path});
+        }
+        return image;
+    } catch (const std::exception& error) {
+        return unexpected(Error{error.what()});
+    }
+}
 
 std::optional<std::uint32_t> load_model(
     const fs::path& path, LevelData& level, std::string& error
@@ -431,7 +451,7 @@ std::optional<std::uint32_t> load_model(
             }
             out.index_count = static_cast<std::uint32_t>(level.indices.size()) - out.first_index;
             try {
-                out.material = material_index(prim.material, base, level);
+                out.material = material_index(prim, *data, base, level);
             } catch (const std::runtime_error& failure) {
                 error = std::format("{}: {}", name, failure.what());
                 cgltf_free(data);
@@ -1304,6 +1324,7 @@ bool load_level(
         out.pvs.grid.empty() ? "unavailable" : "loaded",
         out.pvs.grid.size()
     );
+    prepare_material_overrides(out);
     return true;
 }
 

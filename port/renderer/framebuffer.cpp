@@ -50,14 +50,7 @@ int FrameBuffer::max_samples() {
     return most;
 }
 
-bool FrameBuffer::create(
-    int width, int height, std::string& error, int samples, bool texture_depth, bool float_colour
-) {
-    release();
-    m_width = width;
-    m_height = height;
-    m_samples = std::clamp(samples, 1, max_samples());
-    m_float = float_colour;
+void FrameBuffer::allocate_colour(bool float_colour) {
     const GLenum colour_format = float_colour ? GL_RGBA16F : GL_RGBA8;
     glGenTextures(1, &m_colour);
     glBindTexture(GL_TEXTURE_2D, m_colour);
@@ -65,8 +58,8 @@ bool FrameBuffer::create(
         GL_TEXTURE_2D,
         0,
         static_cast<GLint>(colour_format),
-        width,
-        height,
+        m_width,
+        m_height,
         0,
         GL_RGBA,
         float_colour ? GL_HALF_FLOAT : GL_UNSIGNED_BYTE,
@@ -76,7 +69,18 @@ bool FrameBuffer::create(
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(GL_LINEAR));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, static_cast<GLint>(GL_CLAMP_TO_EDGE));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, static_cast<GLint>(GL_CLAMP_TO_EDGE));
+}
 
+bool FrameBuffer::create(
+    int width, int height, std::string& error, int samples, bool texture_depth, bool float_colour
+) {
+    release();
+    m_width = width;
+    m_height = height;
+    m_samples = std::clamp(samples, 1, max_samples());
+    m_float = float_colour;
+    const GLenum colour_format = float_colour ? GL_RGBA16F : GL_RGBA8;
+    allocate_colour(float_colour);
     m_texture_depth = texture_depth;
     if (texture_depth && m_samples != 1) {
         error = "sampleable depth requires a single-sample target";
@@ -159,6 +163,25 @@ bool FrameBuffer::create(
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         error = std::format("framebuffer {}x{} with {} sample(s) incomplete ({:#x})", width, height, m_samples,
                             status);
+        release();
+        return false;
+    }
+    return true;
+}
+
+bool FrameBuffer::create_colour(int width, int height, std::string& error) {
+    release();
+    m_width = width;
+    m_height = height;
+    allocate_colour(false);
+    glGenFramebuffers(1, &m_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_colour, 0);
+    const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        error =
+            std::format("colour-only framebuffer {}x{} incomplete ({:#x})", width, height, status);
         release();
         return false;
     }

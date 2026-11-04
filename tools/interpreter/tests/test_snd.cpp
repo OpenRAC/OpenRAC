@@ -617,6 +617,31 @@ void test_unload_ends_the_banks_sounds() {
 }  // namespace
 
 /**
+ * A parameter mask sets what the game's masks name: 0xF a modifier, and it leaves the bend alone.
+ */
+void test_parameter_mask_names_the_modifier_and_bend() {
+    BankFile file;
+    Player player;
+
+    file.add_sound(127, 0, 0, 0);
+    file.add_tone(0, BankFile::Sample::Looping);
+    CHECK(load(player, file));
+    CHECK(start(player, kHandle, 0));
+
+    PlayingSound* sound = player.sound(kHandle);
+
+    CHECK(sound != nullptr);
+    sound->set_parameters(0x1F, 0x400, 0, 0, 0x100);
+    CHECK_EQ(sound->caller_pitch_bend(), 0x100);
+    sound->set_parameters(0xF, 0x400, 0, 0x41, 0);
+    CHECK_EQ(sound->caller_pitch_modifier(), 0x41);
+    CHECK_EQ(sound->caller_pitch_bend(), 0x100);
+    sound->set_parameters(0x7, 0x400, 0, 0x55, 0x55);
+    CHECK_EQ(sound->caller_pitch_modifier(), 0x41);
+    CHECK_EQ(sound->caller_pitch_bend(), 0x100);
+}
+
+/**
  * Runs every test in the order of the functions above.
  *
  * @return 1 when any check failed, else 0.
@@ -638,6 +663,8 @@ int main() {
         {"a register test skips a step", test_register_test_skips_a_step},
         {"an endless script is ended", test_endless_script_is_ended},
         {"unloading ends the bank's sounds", test_unload_ends_the_banks_sounds},
+        {"a parameter mask names the modifier and bend",
+         test_parameter_mask_names_the_modifier_and_bend},
     };
 
     return run_tests(tests);

@@ -62,6 +62,8 @@ class LevelScene {
 public:
     // Supplies optional visual deformation to external velocity passes without owning the provider.
     std::string deformation_vertex(std::string source) const;
+    // Optional surface-layer alpha coverage for the object's velocity pass.
+    std::string motion_fragment(std::string source) const;
     // Reports actual resource-backed deformation, not merely a model's eligibility.
     bool deformation_active() const;
     // Authored anchors of water attachments, shared by every deformation pass.

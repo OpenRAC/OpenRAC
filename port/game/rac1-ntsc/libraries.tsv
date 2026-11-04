@@ -1051,6 +1051,7 @@ FUN_L00_002997c8	mpeg	unpark_movie_memory	wrap	after a movie in a level: the par
 FUN_L01_002fd0c0	render	NovalisWater_002fd0c0	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
 FUN_L01_002f60f8	render	NovalisWater_002f60f8	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
 FUN_L01_002f6150	render	NovalisWater_002f6150	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
+FUN_L11_0030a908	render	PokitaruOceanDraw	wrap	Tag authored Pokitaru ocean strips for the optional ocean material	void(gaddr moby)
 FUN_L01_002feb28	render	NovalisWater_002feb28	wrap	Tag authored Novalis water for optional enhanced materials	void(void)
 FUN_L01_002b7fe0	render	NovalisPoolStep	wrap	Bypass original pool displacement when enhanced water is active	void(gaddr,int)
 FUN_L00_002a3ec8	render	NovalisPoolImpulse	wrap	Bypass original Novalis pool impulses when enhanced water is active	void(gaddr,int,int,float,float,float,float)

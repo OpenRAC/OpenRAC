@@ -331,6 +331,23 @@ Sections, gauges and the frame history are kept only while the overlay is
 shown or a dump is open; otherwise each costs the test of one bool. The
 section tree follows OpenGOAL's frame profiler.
 
+## Vulkan crash diagnostics
+
+Crash reports retain recent Vulkan diagnostics even when Detailed logs is off. They include
+device and swapchain details, failed Vulkan operations, validation messages when the layer is
+enabled, and frame and graph breadcrumbs. A render failure that stops gameplay also writes a
+crash report. Detailed logs or `OPENRAC_LOG=verbose` shows the extra context in the session log.
+
+After `VK_ERROR_DEVICE_LOST`, OpenRAC asks drivers that support `VK_EXT_device_fault` for a
+fault description, fault addresses and vendor codes. The crash report records whatever the driver
+returns, including whether the query was unavailable, failed or returned partial details.
+
+OpenRAC records GPU progress at render-graph pass boundaries on drivers with AMD buffer markers
+or NVIDIA diagnostic checkpoints. After device loss, the report lists the latest markers it could
+recover. Passes can overlap on the GPU. Change **Graphics → Diagnostics → GPU breadcrumbs**
+and restart the game to apply it. The `OPENRAC_GPU_BREADCRUMBS` environment variable overrides
+the saved setting when set.
+
 ## Environment variables: the debugging tools
 
 Every variable on this page has a row in the port's table of them,
@@ -462,10 +479,11 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_ENHANCED` | `1` | Enhanced rendering (probe GI, sun shadows, GTAO: `port/enhanced`), chosen at start for scripts and tests: `1` turns it on, any other value off. Unset or empty, it is on when `OPENRAC_PROBE_GI` is set to something other than `0`. The `enhanced_rendering` setting turns it on as well. | `port/renderer/gl.cpp` |
 | `OPENRAC_PROBE_GI` | path to a local `.orpg` bake (`0`: off; unset: the level's `sparse.orpg` in the `--probes` folder, when there is one) | Experimental terrain and moby fragment GI. Rejects a different region/level, changed scene or different bake settings; uncovered fragments retain original lighting. See [probe GI](../../port/enhanced/lighting/README.md). | `port/enhanced/viewer/probe_lighting.cpp`, `port/renderer/gl.cpp` |
 | `OPENRAC_PROBE_DENSE` | path to a local `.orpg` bake (`0` or unset: none) | Registers one finer local region. Camera-distance and one-cell spatial fades; sparse fallback on invalid local samples. Bad assets leave the level grid active. | `port/enhanced/viewer/probe_lighting.cpp` |
-| `OPENRAC_PROBE_REGIONS` | path to a local JSON manifest; `0` disables sidecar discovery | Registers finer regions via `{"regions":["relative.orpg",...]}`. When unset, discovers `<OPENRAC_PROBE_GI>.regions.json`. Compute builds complete 16×16 tile masks; each fragment chooses up to two containing volumes. Supported resident sets upload once. See [region residency](../../port/enhanced/lighting/README.md#dense-regions). | `port/enhanced/viewer/probe_lighting.cpp` |
+| `OPENRAC_PROBE_REGIONS` | path to a local JSON manifest; `0` disables sidecar discovery | Registers finer regions via `{"regions":["relative.orpg",...]}`. When unset, discovers `<OPENRAC_PROBE_GI>.regions.json`. Compute builds complete 16Ã—16 tile masks; each fragment chooses up to two containing volumes. Supported resident sets upload once. See [region residency](../../port/enhanced/lighting/README.md#dense-regions). | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_SKY` | `level` or `uniform` | The sky the probe bake must have been made with, in place of the bake profile's. Any other value leaves the GI off, with the reason in the log. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_SKY_INTENSITY` | a number, 0 or more | The sky intensity the probe bake must have been made with, in place of the bake profile's. A value that is not wholly a finite number of 0 or more leaves the GI off, with the reason in the log. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_VK_UNIFORM_REUSE_OFF` | any (set; unset for the optimised path) | Vulkan profiling reference: redundant uniform writes dirty the default block; ordinary uniform descriptors include each upload offset. Default uses byte comparisons, dynamic uniform offsets and bounded per-frame descriptor reuse. Set before startup. | `port/renderer/vulkan/vkgl_internal.h` |
+| `OPENRAC_GPU_BREADCRUMBS` | `0` disables | Record Vulkan render-graph progress on supported GPUs for device-loss reports. Default on. | `port/renderer/vulkan/gpu_breadcrumbs.cpp` |
 | `OPENRAC_GPU_MARKERS` | any (set; unset for off) | Names timed GPU passes in AMD RGP and other Vulkan profilers. Requires configuring with `-DOPENRAC_GPU_MARKERS=ON` (default OFF) and active stats collection, such as `--debug-dump`. Label lookup and Vulkan label calls are compiled out otherwise. | `port/renderer/vulkan/vkgl_commands.cpp`, `port/renderer/vulkan/vkgl_device.cpp` |
 | `OPENRAC_GPU_PASS_TIMING` | any (set; unset for off) | Vulkan: every section timed on the GPU ends the render pass it falls in, at its start and its end, so that a tile-based GPU (Mali, Adreno, Apple) times it; otherwise its timestamps lie inside one pass and read about zero. Each split stores and loads the attachments again, so the frame is slower while it is on. Without it, a recording splits one frame in ten on a tile-based GPU by itself (stats::set_pass_sampling). | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_GPU_DRIVEN_OFF` | any (set) | Reference (Vulkan): instance visibility on the CPU and direct mesh draws, in place of the GPU-driven path. See [GPU rendering](RAC1_GPU_DRIVEN.md). | `port/renderer/vulkan/vkgl.cpp` |
@@ -473,6 +491,11 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_VK_EFFECT_UPLOAD_REUSE_OFF` | any (set) | Reference (Vulkan): every effect texture upload is copied and hashed, and identical ones are not reused. | `port/renderer/effects_draw.cpp` |
 | `OPENRAC_STRIP_FOG_OFF` | any (set) | Reference: draws the effect strips (the seas, Oltanis's ice) without their GS fog. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_VK_PARTICLE_TEXTURE_REUSE_OFF` | any (set) | Reference (Vulkan): the texture of every visible particle is hashed, and none is reused. | `port/game/common/frontend/world.cpp` |
+| `OPENRAC_VK_PALETTE_PARTIAL_OFF` | any (set) | Uploads the full Vulkan joint palette whenever any row changes. | `port/scene/level_instances.cpp` |
+| `OPENRAC_VK_BULK_TEXTURE_UPLOAD_OFF` | any (set) | Stages baked lighting textures in the frame upload ring for comparison. | `port/renderer/vulkan/vkgl.cpp` |
+| `OPENRAC_VK_RING_TRIM_OFF` | any (set) | Keeps Vulkan upload ring chunks until device shutdown for comparison. | `port/renderer/vulkan/vkgl_commands.cpp` |
+| `OPENRAC_VK_SURFACE_SCRATCH_OFF` | any (set) | Uses owned GTAO depth and water refraction targets for comparison. | `port/renderer/vulkan/surface_copy.cpp` |
+| `OPENRAC_VK_SURFACE_SCRATCH_STATS` | any (set) | Adds scratch lease counts and device-local allocator bytes to frame statistics. | `port/renderer/vulkan/vkgl.cpp` |
 | `OPENRAC_RENDER_OPT_OFF` | `NAME,...` or `all` | Switches the listed render optimisations of the registry off (`all`: every one), so their reference paths draw; an unknown name is warned of and ignored. Read once, at the first question the draw code asks. The names, what each lowers and how its frames are compared are in [RENDER_PERF.md](RENDER_PERF.md). | `port/renderer/render_opt.cpp` |
 | `OPENRAC_PVS_OFF` | any (set) | Profiling reference: no baked camera visibility (rooms the game hides then show); the F3 overlay has the switch too. See [Baked camera PVS](#baked-camera-pvs). | `port/scene/level_renderer.cpp` |
 | `OPENRAC_DEPTH_REUSE_OFF` | any (set) | Profiling reference: the GTAO prepass's depth is discarded before the world's colour pass instead of being reused. | `port/renderer/renderer.cpp` |
@@ -654,6 +677,15 @@ precedence over Shift. Hold Alt or right-click to look with the mouse:
 the cursor stays hidden while either is held.
 Alt does not open the menu while freecam is enabled. The game receives
 neutral controller input; F5 pauses gameplay while freecam still moves.
+
+A gamepad flies it too (any connected one, the built-in pad of a handheld
+included): the left stick moves along the view and strafes, the right stick
+looks, R2 rises and L2 sinks (both analog), R1 held is four times faster and L1
+held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3+R3
+pressed together turns freecam off; in developer mode (`OPENRAC_DEVELOPER=1`) it
+also turns it on, so a player's stray press never does. The gamepad moves the
+menu's rows instead while the menu or the Android drawer is open, where
+**Developer > Freecam** is offered too.
 
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades
 follow the live gameplay or cutscene camera while you fly aside to inspect the

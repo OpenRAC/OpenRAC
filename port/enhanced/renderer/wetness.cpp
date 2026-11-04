@@ -191,12 +191,26 @@ void HeroWetness::prepare(
 }
 
 void HeroWetness::bind(const renderer::Shader& shader) const {
+    bind(shader, wetness_material_settings());
+}
+
+void HeroWetness::bind(
+    const renderer::Shader& shader, const WetnessMaterialSettings& settings
+) const {
     glUniform1i(shader.uniform("hero_wetness_enabled"), m_active ? 1 : 0);
     glUniform1i(shader.uniform("hero_wetness_first"), int(m_first));
     glUniform1i(shader.uniform("hero_wetness_count"), int(m_count));
     glUniform1i(shader.uniform("hero_wetness_palette"), m_palette);
     glUniform1i(shader.uniform("hero_wetness_debug"), debug.load() ? 1 : 0);
-    const auto settings = wetness_material_settings();
+    bind_material(shader, settings);
+    if (m_state) {
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, m_state);
+    }
+}
+
+void HeroWetness::bind_material(
+    const renderer::Shader& shader, const WetnessMaterialSettings& settings
+) const {
     glUniform4f(
         shader.uniform("hero_wetness_material"),
         settings.diffuse_scale,
@@ -205,9 +219,6 @@ void HeroWetness::bind(const renderer::Shader& shader) const {
         settings.wet_roughness
     );
     glUniform1f(shader.uniform("hero_wetness_f0"), settings.reflectivity);
-    if (m_state) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 9, m_state);
-    }
 }
 
 void HeroWetness::release() {

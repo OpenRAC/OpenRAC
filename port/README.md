@@ -58,6 +58,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [platform/](platform/README.md) | Window, pads, audio output, timing (SDL3) |
 | [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`) |
 | [scene/](scene/README.md) | A level and its live mobys, ready to draw |
+| [materials/](materials/README.md) | CPU-only material catalogs, override resolution and shared validation |
 | [viewer/](viewer/README.md) | `openrac-viewer`: one extracted level with a free camera |
 | [enhanced/](enhanced/README.md) | Enhanced rendering (above) |
 | [assets/](assets) | Readers for the disc and its level, picture and sound data |

@@ -292,7 +292,6 @@ Result<void> run_surface_chain(const std::function<void()>& prepare) {
     if (g->surface_batch) {
         return unexpected(Error{"nested surface chain"});
     }
-    end_rendering();
     SurfaceBatch batch;
     g->surface_batch = &batch;
     // Reset the borrowed scope on every error before any callbacks can escape the owning stack.

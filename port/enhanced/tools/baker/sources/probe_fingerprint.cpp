@@ -14,6 +14,7 @@
 #include "common/profiler.h"
 #include "enhanced/tools/baker/sources/level_scene.h"
 #include "scene/level.h"
+#include "scene/material_overrides.h"
 
 namespace openrac::lighting {
 namespace {
@@ -57,11 +58,14 @@ std::vector<std::filesystem::path> source_paths(const std::filesystem::path& roo
             continue;
         }
 
-        // PVS and offline reference selection do not change light transport.
+        // PVS, offline reference selection and runtime material controls do not change transport.
         // Their sidecars must not invalidate otherwise identical probe bakes.
         const auto name = entry.path().lexically_relative(root).generic_string();
 
         if (name == "pvs.json" || name == "sunlight-calibration.json"
+            || name == "foliage-materials.json" || name == "ocean-profile.json"
+            || name == "ocean.wave" || name == "ocean-bake.json"
+            || entry.path().filename() == "material-overrides.json"
             || name.starts_with(".water-native-")) {
             continue;
         }
@@ -257,6 +261,23 @@ std::uint64_t probe_input_hash(const std::filesystem::path& directory) {
     if (std::filesystem::exists(directory / "water.bin")) {
         source_file(hash, directory, directory / "water.bin");
     }
+    scene::LevelData source;
+    source.dir = directory;
+    const auto catalog = scene::load_material_catalog(source);
+    if (!catalog) {
+        throw std::runtime_error(catalog.error().message);
+    }
+    const auto transport = materials::transport_catalog_stamp(*catalog);
+    if (!transport) {
+        throw std::runtime_error(transport.error().message);
+    }
+    // Preserve old identities for runtime-only material profiles.
+    if (!transport->empty()) {
+        hash.u32(0x4D415401u);
+        for (const char byte : *transport) {
+            hash.byte(static_cast<std::uint8_t>(byte));
+        }
+    }
     return hash.value;
 }
 
@@ -302,6 +323,13 @@ std::uint64_t probe_scene_hash(
             source_files(hash, level.overrides, "override");
         }
 
+        // Resolved transport changes participate; catalog formatting and runtime fields do not.
+        if (level.material_bindings && !level.material_bindings->transport_stamp.empty()) {
+            hash.u32(0x4D415401u);
+            for (const char byte : level.material_bindings->transport_stamp) {
+                hash.byte(static_cast<std::uint8_t>(byte));
+            }
+        }
         return hash.value;
     }
 

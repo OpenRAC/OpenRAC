@@ -16,6 +16,105 @@
 #include "renderer/render_opt.h"
 
 namespace openrac::enhanced {
+WaterMesh::WaterMesh() {
+    constexpr int kSteps = 32;  // Subdivide the original 50-unit ocean grid.
+    const auto point = [](int x, int y) {
+        return std::array{float(x) / kSteps, float(y) / kSteps};
+    };
+    for (int y = 0; y < kSteps; ++y) {
+        for (int x = 0; x + y < kSteps; ++x) {
+            m_weights.insert(m_weights.end(), {point(x, y), point(x + 1, y), point(x, y + 1)});
+            // The last diagonal row has no second triangle.
+            if (x + y + 1 < kSteps) {
+                m_weights.insert(
+                    m_weights.end(), {point(x + 1, y), point(x + 1, y + 1), point(x, y + 1)}
+                );
+            }
+        }
+    }
+    m_ocean_shape = {0, static_cast<unsigned>(m_weights.size())};
+    m_ocean_linear = {static_cast<unsigned>(m_weights.size()), 3};
+    m_weights.insert(m_weights.end(), {{0, 0}, {1, 0}, {0, 1}});
+}
+
+renderer::EffectMesh WaterMesh::prepare_ocean(
+    const renderer::Vec3& eye, float height, float near_radius, float horizon
+) {
+    if (m_used == m_plans.size()) {
+        m_plans.emplace_back();
+    }
+    auto& plan = m_plans[m_used];
+    const auto first = static_cast<unsigned>(m_sources.size());
+    constexpr int kSegments = 32;
+    const float spacing = 2.f * near_radius / kSegments;
+    const float x = std::floor(eye[0] / spacing) * spacing;
+    const float y = std::floor(eye[1] / spacing) * spacing;
+    const auto triangle = [&](auto a, auto b, auto c) {
+        Source source{};
+        const std::array points{a, b, c};
+        for (unsigned i = 0; i < points.size(); ++i) {
+            source[2 * i] =
+                {std::bit_cast<std::uint32_t>(x + points[i][0]),
+                 std::bit_cast<std::uint32_t>(y + points[i][1]),
+                 std::bit_cast<std::uint32_t>(height),
+                 0x80808080u};
+        }
+        m_sources.push_back(source);
+    };
+    using Point = std::array<float, 2>;
+    const auto quad = [&](Point a, Point b, Point c, Point d) {
+        triangle(a, b, c);
+        triangle(b, d, c);
+    };
+    for (int row = 0; row < kSegments; ++row) {
+        for (int column = 0; column < kSegments; ++column) {
+            const float a = -near_radius + column * spacing;
+            const float b = -near_radius + row * spacing;
+            quad({a, b}, {a + spacing, b}, {a, b + spacing}, {a + spacing, b + spacing});
+        }
+    }
+    // Both sides of each ring boundary have the same vertices and wave samples.
+    for (float inner = near_radius; inner < horizon;) {
+        const float outer = std::min(2 * inner, horizon);
+        for (int segment = 0; segment < kSegments; ++segment) {
+            const float a = -1.f + 2.f * segment / kSegments;
+            const float b = -1.f + 2.f * (segment + 1) / kSegments;
+            quad(
+                {inner * a, -inner}, {inner * b, -inner}, {outer * a, -outer}, {outer * b, -outer}
+            );
+            quad({inner, inner * a}, {inner, inner * b}, {outer, outer * a}, {outer, outer * b});
+            quad(
+                {-inner * a, inner}, {-inner * b, inner}, {-outer * a, outer}, {-outer * b, outer}
+            );
+            quad(
+                {-inner, -inner * a},
+                {-inner, -inner * b},
+                {-outer, -outer * a},
+                {-outer, -outer * b}
+            );
+        }
+        inner = outer;
+    }
+    const auto count = static_cast<unsigned>(m_sources.size()) - first;
+    const auto weights = std::span(m_weights).subspan(m_ocean_linear.first, m_ocean_linear.count);
+    const auto vertex_count = std::size_t{count} * weights.size();
+    if (!plan.ocean || plan.vertices.size() != vertex_count) {
+        plan.vertices.clear();
+        plan.vertices.reserve(vertex_count);
+        for (unsigned index = 0; index < count; ++index) {
+            for (const auto& weight : weights) {
+                plan.vertices.push_back({weight, index});
+            }
+        }
+        plan.upload_needed = true;
+    }
+    plan.ocean = true;
+    plan.topology_valid = false;
+    plan.first_triangle = first;
+    plan.last_use = ++m_use_serial;
+    return {m_used++, vertex_count, 1};
+}
+
 WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 32>& fingerprint) {
     // Keep all authored layers: the simulation shares a field, not a rest elevation.
     std::ifstream mesh_file(path.parent_path() / "water.mesh", std::ios::binary);
@@ -145,34 +244,72 @@ void WaterMesh::finish_pass() const {
     stats::gauge("water topology cache hits", m_cache_counts[3]);
 }
 
-// Each instance references the original coarse triangle, never an expanded CPU vertex stream.
+// Dense geometry depends on ordered XY positions. Rest height still follows the live layer.
 renderer::EffectMesh WaterMesh::prepare(
     const renderer::EffectStrip& strip, std::span<const renderer::EffectVertex> vertices
 ) {
     const profiling::Zone trace("Water coarse instances");
-    if (m_used == m_plans.size()) {
+    const bool reuse = renderer::render_opt::enabled(renderer::render_opt::Opt::WaterMeshReuse);
+    const auto key = [surface = strip.surface](const renderer::EffectVertex& vertex) {
+        return std::array{
+            std::bit_cast<std::uint32_t>(vertex.x), std::bit_cast<std::uint32_t>(vertex.y), surface
+        };
+    };
+    const auto unused = m_plans.begin() + static_cast<std::ptrdiff_t>(m_used);
+    const auto match =
+        reuse ? std::find_if(
+                    unused,
+                    m_plans.end(),
+                    [&](const Plan& plan) {
+                        return plan.topology_valid
+                               && std::equal(
+                                   plan.rest.begin(),
+                                   plan.rest.end(),
+                                   vertices.begin(),
+                                   vertices.end(),
+                                   [&](const Plan::RestLookup& lookup,
+                                       const renderer::EffectVertex& vertex) {
+                                       return lookup.valid && lookup.key == key(vertex);
+                                   }
+                               );
+                    }
+                )
+              : m_plans.end();
+    const bool topology_hit = match != m_plans.end();
+    constexpr std::size_t kRetainedPlans = 256;
+    if (topology_hit) {
+        // Only unclaimed slots can move. Draw handles issued earlier in the pass remain valid.
+        if (unused != match) {
+            std::iter_swap(unused, match);
+        }
+    } else if (m_used == m_plans.size() || (reuse && m_plans.size() < kRetainedPlans)) {
         m_plans.emplace_back();
+        if (m_used + 1 != m_plans.size()) {
+            std::swap(m_plans[m_used], m_plans.back());
+        }
+    } else if (reuse) {
+        const auto oldest =
+            std::min_element(unused, m_plans.end(), [](const Plan& a, const Plan& b) {
+                return a.last_use < b.last_use;
+            });
+        std::iter_swap(unused, oldest);
     }
     auto& plan = m_plans[m_used];
-    plan.batches.clear();
-    plan.vertices = 0;
-    const bool reuse = renderer::render_opt::enabled(renderer::render_opt::Opt::WaterMeshReuse);
+    plan.first_triangle = static_cast<unsigned>(m_sources.size());
+    plan.last_use = ++m_use_serial;
     std::vector<renderer::EffectVertex> reference_rest;
     auto& rest = reuse ? m_rest_vertices : reference_rest;
     rest.assign(vertices.begin(), vertices.end());
     if (reuse) {
         plan.rest.resize(rest.size());
     }
-    m_position_bits.clear();
     for (std::size_t i = 0; i < rest.size(); ++i) {
         auto& p = rest[i];
         if (reuse && std::isfinite(p.x) && std::isfinite(p.y)) {
             auto& lookup = plan.rest[i];
-            const std::array key{
-                std::bit_cast<std::uint32_t>(p.x), std::bit_cast<std::uint32_t>(p.y), strip.surface
-            };
-            if (!lookup.valid || lookup.key != key) {
-                lookup.key = key;
+            const auto position = key(p);
+            if (!lookup.valid || lookup.key != position) {
+                lookup.key = position;
                 lookup.heights.clear();
                 p.z = rest_height(p, strip.surface, &lookup.heights);
                 lookup.valid = true;
@@ -189,23 +326,22 @@ renderer::EffectMesh WaterMesh::prepare(
                 ++m_cache_counts[1];
             }
         } else {
+            if (reuse) {
+                plan.rest[i].valid = false;
+            }
             p.z = rest_height(p, strip.surface);
             ++m_cache_counts[0];
-        }
-        if (reuse) {
-            m_position_bits.push_back(
-                {std::bit_cast<std::uint32_t>(p.x),
-                 std::bit_cast<std::uint32_t>(p.y),
-                 std::bit_cast<std::uint32_t>(p.z)}
-            );
         }
     }
     constexpr unsigned orders[6][3] =
         {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
-    const bool topology_hit = reuse && plan.topology_valid && plan.positions == m_position_bits;
     if (!topology_hit) {
+        const profiling::Zone rebuild("Rebuild water strip mesh");
         ++m_cache_counts[2];
         plan.topology.clear();
+        plan.vertices.clear();
+        plan.ocean = false;
+        plan.upload_needed = true;
         for (std::size_t k = 0; k + 2 < rest.size(); ++k) {
             const auto& p = rest[k];
             const auto& q = rest[k + 1];
@@ -214,7 +350,7 @@ renderer::EffectMesh WaterMesh::prepare(
             if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
                 continue;
             }
-            Shape shape{0, 3};  // The first resident template is a flat, untessellated fallback.
+            Shape shape = m_ocean_shape.count ? m_ocean_shape : Shape{0, 3};
             const unsigned* order = orders[0];
             bool matched = false;
             for (const auto& candidate : orders) {
@@ -238,27 +374,29 @@ renderer::EffectMesh WaterMesh::prepare(
                     break;
                 }
             }
-            if (!matched && !m_missing_template) {
+            if (!matched && !m_missing_template && !m_ocean_shape.count) {
                 log::warn(
                     "Water bake missing mesh shape for surface {}; using coarse triangle",
                     strip.surface
                 );
                 m_missing_template = true;
             }
-            plan.topology.push_back({k, {order[0], order[1], order[2]}, shape});
+            const auto triangle = static_cast<unsigned>(plan.topology.size());
+            if (plan.vertices.size() + shape.count > 4 * 1024 * 1024) {
+                throw std::runtime_error("water strip exceeds the vertex budget");
+            }
+            for (const auto& weights : std::span(m_weights).subspan(shape.first, shape.count)) {
+                plan.vertices.push_back({weights, triangle});
+            }
+            plan.topology.push_back({k, {order[0], order[1], order[2]}});
         }
         plan.topology_valid = reuse;
-        if (reuse) {
-            plan.positions = m_position_bits;
-        }
     } else {
         ++m_cache_counts[3];
     }
     for (const auto& triangle : plan.topology) {
         const auto k = triangle.first;
         const auto& order = triangle.order;
-        const auto shape = triangle.shape;
-        const auto first = static_cast<unsigned>(m_sources.size());
         Source source{};
         for (unsigned i = 0; i < 3; ++i) {
             const auto& a = rest[k + order[i]];
@@ -276,18 +414,11 @@ renderer::EffectMesh WaterMesh::prepare(
              std::bit_cast<std::uint32_t>(strip.uv_motion.amplitude),
              (strip.uv_motion.phase & 511u) | (strip.uv_motion.enabled ? 0x80000000u : 0u)};
         m_sources.push_back(source);
-        if (!plan.batches.empty() && plan.batches.back().shape == shape) {
-            ++plan.batches.back().count;
-        } else {
-            plan.batches.push_back({shape, first, 1});
-        }
-        plan.vertices += shape.count;
     }
     const renderer::EffectMesh result{
-        m_used++, plan.vertices, static_cast<std::uint32_t>(plan.batches.size())
+        m_used++, plan.vertices.size(), plan.vertices.empty() ? 0u : 1u
     };
     stats::gauge("water coarse triangles", double(m_sources.size()));
-    stats::gauge("water CPU expanded vertices", 0.);
     return result;
 }
 }  // namespace openrac::enhanced

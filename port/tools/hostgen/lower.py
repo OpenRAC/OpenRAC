@@ -2205,6 +2205,7 @@ class Unit:
             return self.builtin_call(_strip_parens(_inner(c)[0]), args)
         named = None  # the function a call by name reaches through a code address
         folded = False  # through a place of a name the catalogue folded (openrac_folded_call)
+        call_copy = None  # runtime-selected target of a shared caller's own call
         exe_call = None  # a call_copies row's executable target and the function there
         computed = False  # through an address the game computes (a vtable, a callback table)
         wide_ret = self._wide_cast_callee(c)
@@ -2378,6 +2379,15 @@ class Unit:
                             ft.variadic, ft.prototyped)
         if wide_ret is not None and self.cls(hostft.ret) == "int" and self.cls(wide_ret) == "int":
             hostft = ctype.Func(wide_ret, hostft.params, hostft.variadic, hostft.prototyped)
+        if call_copy is not None:
+            # The running copy can call another definition than the canonical one, with
+            # a different integer/float order. RAC2's Museum draw helper takes its object
+            # in the sixth integer register; Boldan's mixed prototype puts a float in
+            # Windows x64's sixth argument slot. Use the selected callee's existing
+            # register thunk, including when the executable has a target of its own.
+            by_kind = self._call_by_kind(call_copy_expr(call_copy), args, wide_ret or result_t)
+            if by_kind is not None:
+                return by_kind
         if exe_call is not None:
             exe_fp, exe_named = exe_call
             recast = self._recast_call(c, ft, args, result_t, call_copy_expr(call_copy))

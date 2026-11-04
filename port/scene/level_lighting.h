@@ -60,6 +60,15 @@ public:
 
     virtual void bind_wetness(const renderer::Shader&) const {}
 
+    // Optional extra material surfaces reuse only a provider-approved geometry range.
+    virtual int surface_layers(std::uint32_t, std::uint32_t, std::uint32_t) const { return 0; }
+
+    // Zero restores the original surface and supplies complete resources for temporal draws.
+    virtual void bind_surface_layer(const renderer::Shader&, int) const {}
+
+    // Temporal coverage must use the same optional surface mask as colour rendering.
+    virtual std::string motion_fragment(std::string source) const { return source; }
+
     // Optional class-bound effects receive complete instances, including offscreen light-only captures.
     virtual void prepare_instances(Layer, std::span<const Instance>) {}
 
@@ -93,7 +102,19 @@ public:
     virtual void bind_atmosphere(const renderer::Shader&) const {}
 
     // Optional shading of the authored material on the current model.
-    virtual void bind_material(const renderer::Shader&, std::uint32_t, const Material&) const {}
+    virtual void bind_material(const renderer::Shader&, std::uint32_t, int, const Material&) const {
+    }
+
+    // Returns enhanced surface values; the original remains authoritative for classic and depth passes.
+    virtual const Material& resolve_material(std::uint32_t, int, const Material& original) const {
+        return original;
+    }
+
+    // Separates cached state when different object types share the same original texture material.
+    virtual std::uint64_t material_variant(std::uint32_t, int) const { return 0; }
+
+    // Returns the authored RGB multiplier for a sky shell, white for original rendering.
+    virtual std::array<float, 3> sky_tint(std::uint32_t, int) const { return {1, 1, 1}; }
 
     // Returns the scene's mesh fragment shader `source` as the early-lit variant draws it.
     virtual std::string early_fragment(std::string source) const = 0;
@@ -132,6 +153,9 @@ public:
 
     // Turns probe lighting on or off and sets its multiplier.
     virtual void set_lighting(bool enabled, float multiplier) = 0;
+
+    // Switches authored appearance independently of probe availability.
+    virtual void set_material_overrides(bool enabled) = 0;
 
     // Sets the normal and view biases of the probe lookups, in scene units.
     virtual void set_bias(float normal, float view) = 0;

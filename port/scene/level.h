@@ -84,6 +84,7 @@ struct Material {
     bool authored_emission = false;
     // Optional absolute texture multiplier for baking; absent uses runtime emission.
     std::optional<float> bake_intensity;
+    std::optional<int> source_slot;  // Original glTF slot, or -1 for its implicit material.
     int emission_image = -1;
     bool emission_vertex_colour = false;
     float emission_contrast = 1;  // Luminance power curve around linear middle grey (0.18).
@@ -186,7 +187,16 @@ inline constexpr std::size_t kLayerCount = static_cast<std::size_t>(Layer::Count
 
 const char* layer_name(Layer layer);
 
+struct MaterialAssets;
+struct MaterialBindings;
+
 struct LevelData {
+    std::shared_ptr<const MaterialAssets>
+        material_assets;  // Immutable identities, hashed once at load.
+    std::shared_ptr<const MaterialBindings>
+        material_bindings;       // Shared runtime/baker resolved values.
+    std::string material_error;  // Optional override failure; original surfaces remain available.
+
     Pvs pvs;
     std::filesystem::path dir;
     // A mod's folder for this level (the --mods folder's level_NN, editor/overrides.py): a mesh or

@@ -299,25 +299,22 @@ mod tests {
         assert_the_editor_is_offered(&library, &editable_versions());
     }
 
-    /// Going Commando's Play is a developer's: a player's library does not have it (the game says
-    /// "Not playable yet"), a developer's has it, with the warning shown before it starts.
+    /// A player's library has Going Commando's Play, with the warning shown before it starts, and
+    /// its enhanced lighting bake.
     #[test]
-    fn going_commandos_play_is_for_developers() {
-        let play_of = |config: &Config| {
+    fn going_commandos_play_and_bake_are_for_players() {
+        let action_of = |config: &Config, id: &str| {
             let library = library(config).unwrap();
             let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == "rac2/ntsc");
-            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == "play").cloned()
+            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == id).cloned()
         };
         let player = Config { root: Some(checkout()), ..Config::default() };
-        assert!(play_of(&player).is_none(), "a player is offered Going Commando's Play");
-        let refused = plan(&player, &Scope::Version("rac2/ntsc".into()), "play", &Inputs::default()).unwrap_err();
-        assert!(refused.contains("for developers only"), "{refused}");
-
-        let developer = Config { developer: true, ..player };
-        let play = play_of(&developer).expect("a developer has Going Commando's Play");
-        assert!(play.developer);
+        let bake = action_of(&player, "probe-bake").expect("a player has Going Commando's bake");
+        assert!(!bake.developer);
+        let play = action_of(&player, "play").expect("a player has Going Commando's Play");
+        assert!(!play.developer);
         assert_ne!(play.state, actions::State::Planned);
-        assert!(play.warning.as_deref().is_some_and(|w| w.contains("development only")), "{:?}", play.warning);
+        assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
     }
 
     #[test]

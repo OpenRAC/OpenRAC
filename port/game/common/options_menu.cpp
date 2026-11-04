@@ -31,7 +31,6 @@ namespace {
 constexpr const char* kLabels[kRows] = {
     "Display mode",
     "Monitor",
-    "Resolution",
     "Picture",
     "HUD",
     "Render scale",
@@ -63,7 +62,6 @@ struct Words {
 constexpr Words kWords[] = {
     {{"Display mode", "Mode d'affichage", "Anzeigemodus", "Modo de pantalla", "Modalità schermo"}},
     {{"Monitor", "Écran", "Monitor", "Monitor", "Monitor"}},
-    {{"Resolution", "Résolution", "Auflösung", "Resolución", "Risoluzione"}},
     {{"Picture", "Format d'image", "Bildformat", "Formato de imagen", "Formato immagine"}},
     {{"HUD", "Interface", "HUD", "HUD", "HUD"}},
     {{"Render scale",
@@ -313,11 +311,6 @@ std::string value_of(int row) {
             const platform::DisplayInfo& d = all[static_cast<std::size_t>(s.monitor - 1)];
             return std::format("{}: {}x{} {:.0f} Hz", s.monitor, d.width, d.height, d.refresh_rate);
         }
-        case kResolution:
-            // Only the fullscreen display mode changes the display's own.
-            return s.fullscreen_width > 0 && s.fullscreen_height > 0
-                       ? std::format("{}x{}", s.fullscreen_width, s.fullscreen_height)
-                       : std::string("Desktop");
         case kAspect:
             return s.aspect == settings::Aspect::Custom
                        ? std::format("Custom {}:{}", s.aspect_custom_x, s.aspect_custom_y)
@@ -378,22 +371,6 @@ void step_value(int row, int by) {
             // 0 (the display the window is on), then each display connected.
             const int count = static_cast<int>(platform::displays().size()) + 1;
             s.monitor = ((s.monitor < count ? s.monitor : 0) + by + count) % count;
-            // Another display has other modes: back to its desktop's.
-            s.fullscreen_width = s.fullscreen_height = 0;
-            break;
-        }
-        case kResolution: {
-            // The desktop's own mode, then the display's sizes, largest first.
-            std::vector<platform::DisplaySize> sizes = platform::fullscreen_sizes(s.monitor);
-            sizes.insert(sizes.begin(), platform::DisplaySize{0, 0});
-            const platform::DisplaySize now{s.fullscreen_width, s.fullscreen_height};
-            const auto at = std::find(sizes.begin(), sizes.end(), now);
-            const std::size_t index = at == sizes.end() ? 0 : static_cast<std::size_t>(at - sizes.begin());
-            const platform::DisplaySize next =
-                sizes[(index + sizes.size() + static_cast<std::size_t>(by + static_cast<int>(sizes.size())))
-                      % sizes.size()];
-            s.fullscreen_width = next.width;
-            s.fullscreen_height = next.height;
             break;
         }
         case kAspect:

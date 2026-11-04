@@ -63,6 +63,7 @@ namespace openrac::frontend {
 // (between), and the last tick's camera and moby matrices to move them from.
 struct Kept {
     int level = -3;  // the level the mobys belong to: another one starts over
+    bool gameplay_camera = false;  // The level was in normal play when this camera was captured.
     bool cutscene = false;  // Captured game state, never queried by the render worker.
     host::GameState state, prev_state;
     bool has_state = false, has_prev_state = false;
@@ -261,6 +262,9 @@ struct State {
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
+    // The last world drawn outside a menu was seen with a gameplay camera (Kept::gameplay_camera):
+    // the world under the pause menu then keeps the player's Field of View.
+    bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
 
@@ -341,12 +345,10 @@ struct State {
     bool repeat_frame = false;
     bool overdraw = false;
     // What the window is in now of the player's settings (apply_settings): the display mode, the
-    // display and the fullscreen size; the picture's shape; the swap's wait as asked and as the
+    // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).
     settings::DisplayMode display_mode = settings::DisplayMode::Windowed;
     int monitor = 0;
-    int fullscreen_width = 0;
-    int fullscreen_height = 0;
     settings::Aspect aspect = settings::Aspect::Standard;
     int aspect_custom_x = 0;
     int aspect_custom_y = 0;
@@ -509,6 +511,9 @@ gaddr light_bank_address();
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets
 // where it was (frontend/world.cpp).
 void use_level(int number);
+
+// Configures the level shadow passes on the thread that owns the renderer.
+void configure_level_shadows(State& owner, int level);
 
 // Reads level `number`'s files on another thread for use_level to take when the level comes: the
 // flight between planets reads its destination's while it plays (frontend/world.cpp).

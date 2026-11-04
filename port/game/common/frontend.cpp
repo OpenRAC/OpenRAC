@@ -172,8 +172,6 @@ platform::DisplayMode window_mode(settings::DisplayMode mode) {
     switch (mode) {
         case settings::DisplayMode::Borderless:
             return platform::DisplayMode::Borderless;
-        case settings::DisplayMode::Fullscreen:
-            return platform::DisplayMode::Fullscreen;
         default:
             return platform::DisplayMode::Windowed;
     }
@@ -416,8 +414,6 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     }
     config.mode = window_mode(chosen.display_mode);
     config.display = chosen.monitor;
-    config.fullscreen_width = chosen.fullscreen_width;
-    config.fullscreen_height = chosen.fullscreen_height;
     // The game is drawn by a graphics card or not at all: a software rasteriser shows a level at a
     // few frames a second, which looks like a broken port (OPENRAC_SOFTWARE_GL=1: run it anyway).
     config.software = env::flag(env::Var::SoftwareGl) ? platform::SoftwareRenderer::Allow
@@ -427,6 +423,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.hidden = env::flag(env::Var::Hidden);
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
+    config.gpu_breadcrumbs = chosen.gpu_breadcrumbs;
     g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);
     if (!g->window) {
@@ -440,8 +437,6 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     apply_hdr();
     g->display_mode = chosen.display_mode;
     g->monitor = chosen.monitor;
-    g->fullscreen_width = chosen.fullscreen_width;
-    g->fullscreen_height = chosen.fullscreen_height;
     g->aspect = chosen.aspect;
     g->aspect_custom_x = chosen.aspect_custom_x;
     g->aspect_custom_y = chosen.aspect_custom_y;

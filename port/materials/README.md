@@ -1,0 +1,57 @@
+# Materials
+
+CPU-only material catalogs: strict JSON, source layering, selectors, provenance and transport projection.
+
+## Interface
+`catalog.h` declares property metadata, catalog parsing, merging, resolution, stable serialization and atomic saves.
+
+## Depends on
+`openrac_common` and `openrac_assets_disc` for streaming SHA-256; no renderer, game or GPU dependencies.
+
+## State and threads
+Callers own catalogs and resolved records. Publish immutable snapshots at the render handoff.
+
+## Errors
+Fallible APIs return `Result`; malformed or ambiguous authoring cannot partially replace live bindings.
+
+## Configuration
+Version 1 `material-overrides.json` contains named `presets` and an `overrides` array. Sources merge
+from shared game through disc, level and ordered mods. Preview applies edits at their save-file priority.
+Rules use stable ids and explicit layer, class, material-slot, packet-pass or content-hash selectors.
+Fields merge independently. More specific matching rules win within a source layer; equally ranked
+conflicting assignments are errors. Missing fields inherit. A disabled rule is an explicit tombstone.
+
+## Tests
+`material_catalog` checks strict syntax/types/ranges, selector isolation, ambiguity, sparse source
+priority, provenance, save/read stability and separation of runtime controls from transport inputs.
+
+## Further reading
+The enhanced module documents material consumers and its authoring UI.
+
+```json
+{
+  "version": 1,
+  "presets": {"leaf": {"shading": "foliage", "foliage": {"transmission": 0.35}}},
+  "overrides": [{"id": "plant-body", "match": {"layer": "shrub", "class_id": 7}, "preset": "leaf"}]
+}
+```
+
+The scene owns immutable original materials and resolved model/slot bindings. Enhanced colour draws
+use cached surface records and typed optical controls. Classic rendering, alpha, depth passes and
+simulation state retain their original inputs. Baking reads the same resolved surface records.
+Runtime-only fields are excluded from bake fingerprints; effective static emission or diffuse changes
+require a rebake. Visible emission can change independently when `emission.bake_intensity` is explicit.
+
+Tracked profiles live in `enhanced/lighting/profiles/<game[-version]>/[level_NN/]material-overrides.json`.
+Export/bake preparation writes separate `materials/shared`, `materials/version` and `materials/level`
+catalogs inside each level. User edits save to the highest-priority mod/override/level root catalog;
+export never overwrites that file. A parent-folder catalog supplies user defaults across levels.
+Legacy emission sidecars remain readable; unchanged generated defaults are not imported as local edits.
+Fur coverage, water boundaries/simulation, bake geometry and authored lights keep their own formats.
+
+Graphics > Enhanced Settings > Materials & water > Material inspector edits one object type and slot
+or a shared preset. The click picker's Edit material selects the exact binding. Saved slot selectors
+use the exported `model` name and zero-based `material_slot` (`-1` for implicit material). Hover a control to
+see its source; edits preview live, Save writes a sparse overlay atomically, and Discard restores the
+last loaded/saved values. Saving refuses external file changes. Importing new image references and
+changing verified fur coverage require editing the JSON and reloading the level.

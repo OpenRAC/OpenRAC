@@ -18,6 +18,10 @@ integration. The existing primary sun and its cascaded shadow maps light the med
 samples use no surface normal offset or receiver-plane slope. The existing eight point lights
 also illuminate fog, using their authored range falloff. Their visibility is not shadowed.
 
+**Jitter size** under **Enhanced Settings > Atmosphere** spreads the sun-shadow sample
+within each froxel to break up bands. The default of 1 uses all three axes, and 0
+uses the centre. The pattern is stable across frames and the setting is session-only.
+
 Quality changes sample density in all three dimensions, preserving medium coefficients.
 Off is the default while the feature is experimental. Medium retains the previous
 implementation's sample density when explicitly enabled. The launcher does not expose

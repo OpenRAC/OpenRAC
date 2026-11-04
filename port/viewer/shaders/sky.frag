@@ -9,6 +9,7 @@ in vec2 v_uv;
 in vec4 v_colour;
 
 uniform sampler2D tex_T0;
+uniform vec3 sky_tint;
 
 layout(location = 0) out vec4 out_colour;
 
@@ -16,5 +17,5 @@ layout(location = 0) out vec4 out_colour;
 
 void main() {
     vec4 texel = sample_upscaled_texture_colours(v_uv);
-    out_colour = vec4(vec3(mp_vec3(texel.rgb) * mp_vec3(v_colour.rgb)), texel.a * v_colour.a);
+    out_colour = vec4(vec3(mp_vec3(texel.rgb) * mp_vec3(v_colour.rgb)) * sky_tint, texel.a * v_colour.a);
 }

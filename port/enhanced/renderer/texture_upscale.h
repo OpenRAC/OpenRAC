@@ -24,6 +24,7 @@ public:
         unsigned source, int width, int height, unsigned wrap, std::uint64_t frame
     ) override;
     void forget(unsigned source) override;
+    void clear_cache() override;
     void release() override;
 
     std::size_t cache_bytes() const { return m_cache_bytes; }
@@ -49,6 +50,7 @@ private:
 
     std::array<renderer::Shader, 5> m_shaders;  // Four wrap combinations and a reference.
     unsigned m_buffer = 0;
+    std::size_t m_buffer_capacity = 0;
     std::unordered_map<unsigned, Entry> m_cache;
     std::size_t m_cache_bytes = 0;
     std::uint64_t m_cache_builds = 0;

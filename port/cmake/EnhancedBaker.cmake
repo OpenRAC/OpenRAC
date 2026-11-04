@@ -59,6 +59,8 @@ if(OPENRAC_PROBE_BAKER)
     enhanced/tools/water/water_mesh.cpp
     enhanced/tools/water/water_output.cpp
     enhanced/tools/water/water_raster.cpp
+    enhanced/tools/water/pokitaru_coast.cpp
+    enhanced/tools/water/coastal_wave.cpp
     enhanced/tools/water/water_source.cpp
     enhanced/tools/water/water_source_image.cpp
     enhanced/tools/water/water_source_strips.cpp

@@ -76,23 +76,16 @@ void window_event(const SDL_Event& event) {
 
 }  // namespace
 
-// The window as the player's settings want it: its display mode, display and fullscreen size, its
+// The window as the player's settings want it: its display mode and display, its
 // shape, and each swap waiting for a refresh or not. Called when they may have changed; all of
 // them take effect at once (the frame's size, its samples and the textures' filter follow the
 // settings by themselves, in draw_kept).
 void apply_settings() {
     const settings::Settings& s = settings::get();
-    if (s.display_mode != g->display_mode || s.monitor != g->monitor
-        || (s.display_mode == settings::DisplayMode::Fullscreen
-            && (s.fullscreen_width != g->fullscreen_width
-                || s.fullscreen_height != g->fullscreen_height))) {
-        g->window->set_display_mode(
-            window_mode(s.display_mode), s.fullscreen_width, s.fullscreen_height, s.monitor
-        );
+    if (s.display_mode != g->display_mode || s.monitor != g->monitor) {
+        g->window->set_display_mode(window_mode(s.display_mode), s.monitor);
         g->display_mode = s.display_mode;
         g->monitor = s.monitor;
-        g->fullscreen_width = s.fullscreen_width;
-        g->fullscreen_height = s.fullscreen_height;
         pacing.interval_stale = true;
         // A change of mode may leave the driver's swap interval at its default: asked again below.
         g->swap_asked = wanted_swap() == platform::SwapInterval::Immediate
@@ -227,15 +220,10 @@ bool window_key(const SDL_Event& event) {
     if (event.key.key != SDLK_F11 && !alt_return) {
         return false;
     }
-    // Between the window and the fullscreen kind last chosen (borderless until one was).
-    static settings::DisplayMode full = settings::DisplayMode::Borderless;
+    // Between the window and borderless full screen.
     settings::Settings& s = settings::get();
-    if (s.display_mode == settings::DisplayMode::Windowed) {
-        s.display_mode = full;
-    } else {
-        full = s.display_mode;
-        s.display_mode = settings::DisplayMode::Windowed;
-    }
+    s.display_mode = s.display_mode == settings::DisplayMode::Windowed ? settings::DisplayMode::Borderless
+                                                                       : settings::DisplayMode::Windowed;
     settings::save();
     apply_settings();
     return true;

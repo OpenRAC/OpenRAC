@@ -17,10 +17,16 @@ vec3 water_displaced_position(vec3 p,int surface,out bool matched) {
         vec4 normal=texelFetch(water_bodies,i*5+3);
         float dx=texelFetch(water_bodies,i*5+4).z;
         vec2 cell=vec2(dot(p-origin.xyz,u.xyz),dot(p-origin.xyz,v.xyz))/dx;
-        if (any(lessThan(cell,vec2(0))) || any(greaterThanEqual(cell,vec2(u.w,v.w)))) continue;
+        bool outside=any(lessThan(cell,vec2(0))) || any(greaterThanEqual(cell,vec2(u.w,v.w)));
+#ifndef OPENRAC_OCEAN
+        if (outside) continue;
+#endif
         // Clamp within this body, never filter into the next atlas rectangle.
         vec2 uv=(water_atlas[i].xy+clamp(cell,vec2(.5),vec2(u.w,v.w)-.5))/water_atlas_extent;
         vec4 coast=textureLod(water_coast_map,uv,0.);
+#ifdef OPENRAC_OCEAN
+        if (outside) coast=vec4(1.,2.,1.,p.z);
+#endif
         // Atlas alpha carries rest Z; the grid origin itself is always at Z=0.
         // Match the nearby water column rather than a different storey or a dry bank.
         if(surface==0 && (coast.x<.5 || abs(p.z-coast.w)>1.)) continue;

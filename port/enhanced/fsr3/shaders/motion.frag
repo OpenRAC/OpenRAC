@@ -14,6 +14,9 @@ uniform float material_alpha;
 uniform vec2 render_size;
 layout(location=0) out vec4 velocity;
 void main() {
+#ifdef OPENRAC_HERO_FUR
+    if (fur_shell_reject(hero_fur_map, v_uv, v_hero_fur)) discard;
+#endif
     if (v_glow != 0 || texture(tex_T0, v_uv).a * v_alpha * v_instance_alpha * material_alpha < 0.99) {
         discard;
     }

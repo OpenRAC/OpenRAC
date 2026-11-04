@@ -217,7 +217,10 @@ VkImageLayout layout_of(graph::Layout layout) {
 }
 
 void record_graph_image_barrier(
-    VkCommandBuffer command, const graph::Barrier& transition, Image& image
+    VkCommandBuffer command,
+    const graph::Barrier& transition,
+    Image& image,
+    VkPipelineStageFlags external_source
 ) {
     const auto& range = std::get<graph::ImageRange>(transition.range);
     VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -230,7 +233,8 @@ void record_graph_image_barrier(
     // Whole-image imports share the legacy layout, including stencil beside sampled depth.
     barrier.subresourceRange =
         {image.aspect, range.first_mip, range.mip_count, range.first_layer, range.layer_count};
-    const VkPipelineStageFlags source = stages_of(transition.before.stages);
+    const VkPipelineStageFlags source =
+        external_source != 0 ? external_source : stages_of(transition.before.stages);
     // The queue has no stage after handing an acquired image back to presentation.
     const VkPipelineStageFlags destination = transition.after.layout == graph::Layout::Present
                                                  ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT
@@ -238,6 +242,30 @@ void record_graph_image_barrier(
     vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     count_barrier(source, destination);
     image.layout = barrier.newLayout;
+}
+
+VkBufferMemoryBarrier graph_buffer_barrier(
+    const graph::Barrier& transition, const BufferRef& buffer
+) {
+    const auto& range = std::get<graph::BufferRange>(transition.range);
+    VkBufferMemoryBarrier barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+    barrier.srcAccessMask = access_of(transition.before);
+    barrier.dstAccessMask = access_of(transition.after);
+    barrier.srcQueueFamilyIndex = barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.buffer = buffer.buffer;
+    barrier.offset = buffer.offset + range.offset;
+    barrier.size = range.size;
+    return barrier;
+}
+
+void record_graph_buffer_barrier(
+    VkCommandBuffer command, const graph::Barrier& transition, const BufferRef& buffer
+) {
+    const auto barrier = graph_buffer_barrier(transition, buffer);
+    const VkPipelineStageFlags source = stages_of(transition.before.stages);
+    const VkPipelineStageFlags destination = stages_of(transition.after.stages);
+    vkCmdPipelineBarrier(command, source, destination, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+    count_barrier(source, destination);
 }
 
 graph::State attachment_copy_state(bool depth_resolve, graph::Access access) {

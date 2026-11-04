@@ -109,6 +109,10 @@ std::string LevelScene::deformation_vertex(std::string source) const {
     return m_lighting ? m_lighting->mesh_vertex(std::move(source)) : source;
 }
 
+std::string LevelScene::motion_fragment(std::string source) const {
+    return m_lighting ? m_lighting->motion_fragment(std::move(source)) : source;
+}
+
 bool LevelScene::deformation_active() const {
     return m_lighting && m_lighting->deformation_active();
 }
@@ -1061,7 +1065,9 @@ void LevelScene::draw_layer(
     }
     // On a target wider than the game's picture, the 2D layer's mobys are cut at the picture's sides
     // (mesh.vert).
-    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h, es_source).
+    // An ES driver without GL_EXT_clip_cull_distance has no clip planes (renderer/shader.h,
+    // es_source), nor has Vulkan on Mali (renderer/vulkan/shader_compiler.cpp,
+    // vertex_clip_distance).
     const bool cut = layer == Layer::Mobys && state.target.picture_scale_x < 1.0f
                      && (!gl::is_es() || gl::has_extension("GL_EXT_clip_cull_distance"));
     if (cut) {
@@ -1200,6 +1206,7 @@ void LevelScene::draw_layer(
         {"mobys opaque", "mobys glow", "mobys translucent", "mobys effects", "mobys metal"};
     // The material state the program holds now (flush): none yet.
     int set_material = -1;
+    std::uint64_t set_variant = 0;
     renderer::TextureHandle set_texture = 0;  // bound on unit 0 (and its colours) for `program`
     int set_wrap = -1;                        // and its clamp: bit 0 across, bit 1 down
     unsigned set_emission_texture = 0;
@@ -1451,17 +1458,25 @@ void LevelScene::draw_layer(
                 if (run_count == 0) {
                     return;
                 }
-                // Model-specific reflection overrides may change even when the material is shared.
-                if (m_lighting && metal && !state.depth_prepass) {
-                    m_lighting->bind_material(
-                        *program, g.model, m_materials[static_cast<std::size_t>(run_material)]
-                    );
+                const auto& original = m_materials[static_cast<std::size_t>(run_material)];
+                const bool enhanced_material = m_lighting && !state.depth_prepass;
+                const std::uint64_t variant =
+                    enhanced_material ? m_lighting->material_variant(g.model, run_material) : 0;
+                // Legacy reflection families can differ by model even without an authored catalog.
+                if (enhanced_material && metal) {
+                    m_lighting->bind_material(*program, g.model, run_material, original);
                 }
-                // The material's state is set only when it is not the last draw's: a model's parts
-                // mostly share a few, and each call into the driver costs more than the test.
-                if (!(state.depth_prepass && solid) && run_material != set_material) {
-                    const Material& m = m_materials[static_cast<std::size_t>(run_material)];
+                // Different object types may share an original material while selecting different authored properties.
+                if (!(state.depth_prepass && solid)
+                    && (run_material != set_material || variant != set_variant)) {
+                    const Material& m =
+                        enhanced_material
+                            ? m_lighting->resolve_material(g.model, run_material, original)
+                            : original;
                     if (enhanced_rendering_available()) {
+                        if (enhanced_material && !metal) {
+                            m_lighting->bind_material(*program, g.model, run_material, m);
+                        }
                         glUniform3f(
                             program->uniform("material_emission"),
                             m.emission[0],
@@ -1511,12 +1526,31 @@ void LevelScene::draw_layer(
                         colour_set = true;
                     }
                     set_material = run_material;
+                    set_variant = variant;
                 }
                 submit_instances(batch, run_first, run_count, instances);
                 rigid_prepass_draws += group_rigid ? 1u : 0u;
                 ++state.stats.draw_calls;
                 state.stats.triangles += static_cast<std::uint64_t>(run_count / 3)
                                          * static_cast<std::uint64_t>(instances);
+                // Extra surfaces own their displaced depth; they cannot reuse the body's equal test.
+                const int layers = mobys && pass == 0 && !state.depth_prepass && m_lighting
+                                       ? m_lighting->surface_layers(g.model, run_first, run_count)
+                                       : 0;
+                if (layers > 0) {
+                    glDepthFunc(GL_GEQUAL);
+                    glDepthMask(GL_TRUE);
+                    for (int layer_index = 1; layer_index <= layers; ++layer_index) {
+                        m_lighting->bind_surface_layer(*program, layer_index);
+                        submit_instances(batch, run_first, run_count, instances);
+                        ++state.stats.draw_calls;
+                        state.stats.triangles += static_cast<std::uint64_t>(run_count / 3)
+                                                 * static_cast<std::uint64_t>(instances);
+                    }
+                    m_lighting->bind_surface_layer(*program, 0);
+                    glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+                    glDepthMask(reused ? GL_FALSE : GL_TRUE);
+                }
                 run_count = 0;
             };
             // The opaque pass of a static layer in material order (m_opaque).

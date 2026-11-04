@@ -289,6 +289,10 @@ public:
     // one known.
     virtual std::optional<std::uint32_t> cutscene_mode() const { return std::nullopt; }
 
+    // The value of the game's mode word while the pause menu is open over a level (the Field of
+    // View keeps the world under it as it was paused); none for a game without one known.
+    virtual std::optional<std::uint32_t> pause_mode() const { return std::nullopt; }
+
     // Returns the executable's address of the particle updates, one per particle type byte
     // (relocated when read); 0 for a game without them.
     virtual std::uint32_t particle_updates() const { return 0; }

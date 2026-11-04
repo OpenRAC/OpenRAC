@@ -196,6 +196,10 @@ void read_metadata(Input& input, const json::Value& request) {
 }
 }  // namespace
 
+void load_collision(Input& input, const std::filesystem::path& path) {
+    collision(input, path);
+}
+
 Input read_input(const std::filesystem::path& path) {
     const auto request = bake_json::document(path);
 

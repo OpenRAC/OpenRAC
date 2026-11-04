@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -25,6 +26,7 @@
 #include "renderer/gl.h"
 #include "renderer/gpu_draw.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/graph_barriers.h"
 #include "renderer/vulkan/shader_compiler.h"
 #include "renderer/vulkan/surface_batch.h"
 #include "renderer/vulkan/vkgl_internal.h"

@@ -10,6 +10,7 @@
 #include <sstream>
 
 #include "common/json.h"
+#include "common/staged_file.h"
 #include "enhanced/lighting/object_lights.h"
 
 namespace openrac::enhanced {
@@ -341,28 +342,6 @@ Result<void> validate_catalog(const ObjectLightCatalog& catalog) {
     return {};
 }
 
-// An exclusively created staging directory has exactly one cleanup owner.
-class StagedProfile {
-public:
-    StagedProfile(std::filesystem::path file, std::filesystem::path dir)
-        : m_file(std::move(file)),
-          m_dir(std::move(dir)) {}
-
-    StagedProfile(const StagedProfile&) = delete;
-    StagedProfile& operator=(const StagedProfile&) = delete;
-    StagedProfile(StagedProfile&&) = delete;
-    StagedProfile& operator=(StagedProfile&&) = delete;
-
-    ~StagedProfile() {
-        std::error_code error;
-        std::filesystem::remove(m_file, error);
-        std::filesystem::remove(m_dir, error);
-    }
-
-private:
-    std::filesystem::path m_file, m_dir;
-};
-
 }  // namespace
 
 Result<ObjectLightCatalog> read_object_lights(const std::filesystem::path& path) {
@@ -402,27 +381,11 @@ Result<void> write_object_lights(
         return valid;
     }
 
-    std::error_code error;
-    std::filesystem::create_directories(path.parent_path(), error);
-
-    if (error) {
-        return unexpected(Error{object_light_path_text(path) + ": " + error.message()});
+    auto staging = StagedFile::create(path);
+    if (!staging) {
+        return unexpected(staging.error());
     }
-
-    // Exclusive staging directories prevent two editor windows sharing a temporary filename.
-    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
-    auto staging = path.parent_path() / (".object-lights-" + std::to_string(stamp));
-
-    if (!std::filesystem::create_directory(staging, error)) {
-        return unexpected(
-            Error{object_light_path_text(path) + ": cannot create private save staging"}
-        );
-    }
-
-    const auto fresh = staging / "profile.json";
-
-    StagedProfile cleanup(fresh, staging);
-    std::ofstream out(fresh, std::ios::binary | std::ios::trunc);
+    std::ofstream out(staging->path(), std::ios::binary | std::ios::trunc);
     out << catalog_text(catalog);
     out.flush();
     const bool written = bool(out);
@@ -437,17 +400,6 @@ Result<void> write_object_lights(
         );
     }
 
-    std::filesystem::rename(fresh, path, error);
-
-    if (error) {
-        return unexpected(
-            Error{
-                object_light_path_text(path)
-                + ": cannot replace profile; previous file retained: " + error.message()
-            }
-        );
-    }
-
-    return {};
+    return staging->publish();
 }
 }  // namespace openrac::enhanced

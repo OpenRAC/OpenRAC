@@ -16,4 +16,6 @@ bake_json::Object resolve_emission_catalog(
     const std::filesystem::path& catalog,
     const BakeExecution& execution = {1}
 );
+// Projects tracked texture-path material defaults while retaining independent static/surface bake controls.
+bake_json::Object resolve_emission_defaults(const std::filesystem::path& path);
 }  // namespace openrac::lighting

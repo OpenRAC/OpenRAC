@@ -130,6 +130,24 @@ public:
      */
     void set_pitch_bend(s32 bend);
 
+    /**
+     * Applies the library's call that sets several parameters at once.
+     *
+     * @param which Which to set: bit 0 the volume, bits 1 and 2 the pan, bit 3 the modifier, bit 4
+     *     the bend. The game's masks are 1, 7, 0xF with a modifier and 0x1F with a bend (measured).
+     * @param volume The volume.
+     * @param pan The pan.
+     * @param modifier The pitch modifier.
+     * @param bend The pitch bend.
+     */
+    void set_parameters(u32 which, s32 volume, s32 pan, s32 modifier, s32 bend);
+
+    /** The pitch modifier the caller last set. */
+    s32 caller_pitch_modifier() const { return caller_pitch_modifier_; }
+
+    /** The pitch bend the caller last set. */
+    s32 caller_pitch_bend() const { return caller_pitch_bend_; }
+
     /** The volume group of the sound it is playing now. */
     u32 group() const { return group_; }
 

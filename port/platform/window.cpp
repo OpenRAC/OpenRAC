@@ -235,27 +235,6 @@ std::vector<DisplayInfo> displays() {
     return list;
 }
 
-std::vector<DisplaySize> fullscreen_sizes(int display) {
-    std::vector<DisplaySize> sizes;
-    SDL_DisplayID id = display_id(display);
-    if (id == 0) {
-        id = SDL_GetPrimaryDisplay();
-    }
-    int count = 0;
-    SDL_DisplayMode** modes = SDL_GetFullscreenDisplayModes(id, &count);
-    for (int i = 0; modes != nullptr && i < count; ++i) {
-        const DisplaySize size{modes[i]->w, modes[i]->h};
-        if (std::find(sizes.begin(), sizes.end(), size) == sizes.end()) {
-            sizes.push_back(size);
-        }
-    }
-    SDL_free(modes);
-    std::sort(sizes.begin(), sizes.end(), [](const DisplaySize& a, const DisplaySize& b) {
-        return a.width != b.width ? a.width > b.width : a.height > b.height;
-    });
-    return sizes;
-}
-
 #if defined(__APPLE__)
 void macos_set_app_name(const char* name);  // macos_app.mm
 #else
@@ -482,6 +461,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
          g_vulkan_setup.physical_device,
          g_vulkan_setup.create_device};
     vk.validation = config.debug_context;
+    vk.gpu_breadcrumbs = config.gpu_breadcrumbs;
     vk.hdr_colour_spaces = config.hdr;
     if (!vkgl::open(vk, error)) {
         SDL_DestroyWindow(m_window);
@@ -507,7 +487,7 @@ bool Window::open_vulkan(const WindowConfig& config, std::string& error) {
         }
     }
     if (config.mode != DisplayMode::Windowed) {
-        set_display_mode(config.mode, config.fullscreen_width, config.fullscreen_height, config.display);
+        set_display_mode(config.mode, config.display);
     }
     return true;
 #else
@@ -704,7 +684,7 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
         }
     }
     if (config.mode != DisplayMode::Windowed) {
-        window->set_display_mode(config.mode, config.fullscreen_width, config.fullscreen_height, config.display);
+        window->set_display_mode(config.mode, config.display);
     }
     return window;
 }
@@ -728,7 +708,7 @@ Window::~Window() {
 #endif
 }
 
-bool Window::set_display_mode(DisplayMode mode, int width, int height, int display) {
+bool Window::set_display_mode(DisplayMode mode, int display) {
     bool ok = true;
 #if defined(__ANDROID__)
     // No windows on Android: the game always covers the screen, without the system's bars.
@@ -750,32 +730,11 @@ bool Window::set_display_mode(DisplayMode mode, int width, int height, int displ
             ok = SDL_SetWindowFullscreen(m_window, false);
             break;
         case DisplayMode::Borderless:
-            // A null mode is SDL's "fullscreen desktop": no mode change.
+            // A null mode is SDL's "fullscreen desktop": a borderless window over the display at
+            // its own mode, never an exclusive one.
             ok = SDL_SetWindowFullscreenMode(m_window, nullptr)
                  && SDL_SetWindowFullscreen(m_window, true);
             break;
-        case DisplayMode::Fullscreen: {
-            SDL_DisplayID display = SDL_GetDisplayForWindow(m_window);
-            SDL_DisplayMode chosen{};
-            const SDL_DisplayMode* desktop = SDL_GetDesktopDisplayMode(display);
-            if (width <= 0 || height <= 0) {
-                if (desktop != nullptr) {
-                    chosen = *desktop;
-                }
-            } else if (!SDL_GetClosestFullscreenDisplayMode(
-                           display, width, height, 0.0f, true, &chosen
-                       )) {
-                log::warn(
-                    "no {}x{} display mode ({}); using the desktop's", width, height, SDL_GetError()
-                );
-                if (desktop != nullptr) {
-                    chosen = *desktop;
-                }
-            }
-            ok = SDL_SetWindowFullscreenMode(m_window, chosen.w > 0 ? &chosen : nullptr)
-                 && SDL_SetWindowFullscreen(m_window, true);
-            break;
-        }
     }
     SDL_SyncWindow(m_window);
     if (!ok) {

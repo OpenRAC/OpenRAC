@@ -16,6 +16,17 @@ import fcheck_gate as g  # noqa: E402
 
 
 class GateTests(unittest.TestCase):
+    def test_same_run_verdicts_stay_apart_from_same(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp) / "fcheck_run.tsv"
+            self.assertEqual(g.same_run_rows(t), [])
+            self.assertEqual(g.same_run_summary([]), "")
+            t.write_text("# a comment\nfunc_1\tsame-run\t2026-11-04\tabc\tdef\tlevel05\t3300\t1\t0 words\n")
+            rows = g.same_run_rows(t)
+            self.assertEqual((rows[0]["name"], rows[0]["status"], rows[0]["route"]), ("func_1", "same-run", "level05"))
+            self.assertIn("not counted as same", g.same_run_summary(rows))
+        self.assertNotIn("same-run", g.STATUSES)
+
     def test_classify(self):
         self.assertEqual(g.classify(0, "x\nfunc_1: SAME on 3 real calls\n"), ("same", "3 calls"))
         self.assertEqual(g.classify(3, "")[0], "no-states")
