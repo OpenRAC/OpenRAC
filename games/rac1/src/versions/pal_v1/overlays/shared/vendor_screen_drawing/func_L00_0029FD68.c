@@ -9,7 +9,10 @@ void draw_vendor_purchase_text(void *m, int x, int y) {
     int total;
 
     draw_framebuffer_rect(0, 0, 0x200, 0x80, 0x200, 0x80, 0);
-    { int n = sizeof(box); libc_memset((void *)&box, 0, n); }
+    {
+        int n = sizeof(box);
+        libc_memset((void *)&box, 0, n);
+    }
     box.half_x = x / 2;
     box.half_y = y / 2;
     box.left = x - 8;
@@ -19,7 +22,8 @@ void draw_vendor_purchase_text(void *m, int x, int y) {
     box.y = (short)y;
     box.x = (short)x;
 
-    if (MENU.rows[MENU.f58].fD4 == 1 && weapon_ammo_counts[MENU.rows[MENU.f58].fD0] >= item_price_table[MENU.rows[MENU.f58].fD0].hE) {
+    if (MENU.rows[MENU.f58].fD4 == 1 &&
+        weapon_ammo_counts[MENU.rows[MENU.f58].fD0] >= item_price_table[MENU.rows[MENU.f58].fD0].hE) {
         message_id = 0x5236;
         goto message;
     }
@@ -64,7 +68,8 @@ message:
     font_print_window_small((void *)&box, 0x80f0f0f0L, msg_string(message_id), -1);
     return;
 purchase:
-    cost = discount_purchase_pricing ? item_price_table[MENU.rows[MENU.f58].fD0].i4 : item_price_table[MENU.rows[MENU.f58].fD0].i0;
+    cost = discount_purchase_pricing ? item_price_table[MENU.rows[MENU.f58].fD0].i4
+                                     : item_price_table[MENU.rows[MENU.f58].fD0].i0;
     if (gBolts >= cost) {
         FontPrintSmall(6, 6, 0x80f0f0f0L, msg_string(0x5239), -1);
         FontPrintSmall(2, 0x20, 0x80f0f0f0L, msg_string(0x524E), -1);

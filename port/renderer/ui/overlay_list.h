@@ -58,7 +58,9 @@ private:
 
 // Where `world` is on the picture with this camera, into `x` and `y`: true when it is in front of
 // the camera and on the picture.
-bool overlay_project(const Mat4& view, const Mat4& projection, const Vec3& world, float& x, float& y);
+bool overlay_project(
+    const Mat4& view, const Mat4& projection, const Vec3& world, float& x, float& y
+);
 
 // 1 up to `near_distance`, falling to 0 at `far_distance`.
 float overlay_fade(float distance, float near_distance, float far_distance);

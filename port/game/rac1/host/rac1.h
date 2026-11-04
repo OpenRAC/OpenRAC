@@ -31,12 +31,6 @@
 #define RAC1_NAME_(f) #f
 #define RAC1_NAME(f) RAC1_NAME_(f)
 
-/* hand.c: the game's printf conversions from host arguments into `out` (at most size - 1
- * characters, terminated); the count written. */
-#include <stdarg.h>
-#include <stddef.h>
-int rac1_vformat(char *out, size_t size, const char *format, va_list args);
-
 /* boot.c: a new game straight in `level` from the title, as --level N with OPENRAC_DIRECT. */
 void rac1_start_level(int level);
 
@@ -111,7 +105,17 @@ int rac1_shared_read(int tag, void* out, uint32_t size);
 int rac1_shared_give(int tag, const void* data, uint32_t size);
 int rac1_mission_state_read(int level, uint8_t* out);
 int rac1_mission_state_write(int level, const uint8_t* in);
+int rac1_mission_state_clear(int level, const uint8_t* flags);
 void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
+
+/* collision.c: the collision triangles in a box for the mods (interface 1.12, game_host.h's
+ * collision_triangles: openrac_collision_triangle records), read from the game's memory only. */
+int rac1_collision_triangles(const float lo[3], const float hi[3], void* out, int max);
+/* A mod's camera (camera_override.c, openrac_api.camera_set): its eye and rows (forward, left, up),
+ * or NULL to let it go; and the camera the game made itself before the last view build. 1, or 0
+ * outside a level. */
+int rac1_camera_set(const float eye[3], const float rows[9]);
+int rac1_camera_view(float eye[3], float rows[9]);
 
 /* world.c: the level's mobys for the mods (interface 1.9): a moby's slot in the array (-1 none),
  * the mods' gate around each update (UpdateMobys, crash_state.c: 1 before it skips it), the hero's
@@ -184,6 +188,8 @@ void rac1_figure_shots_remove(gaddr figure);
 void rac1_figure_items_tick(void);
 void rac1_figure_items_remove(gaddr figure);
 int rac1_figure_owned(gaddr moby);
+/* A moby the line query also passes through, 0 for none: while a figure's shot is made. */
+void rac1_coll_line_also_ignore(gaddr moby);
 void rac1_figure_hit_dropped(const char* what);
 gaddr rac1_updating_moby(void);
 

@@ -25,6 +25,7 @@ enum Row {
     kAnisotropy,
     kSceneryDetail,
     kVSync,
+    kHdr,
     kFrameRate,
     kFrameCap,
     kLowLatency,
@@ -81,6 +82,10 @@ int language();
 // UTF-8 as the game's text: ASCII as it is, the accented letters the game's font has at its own
 // codes, any other letter left out.
 std::string game_text(const std::string& utf8);
+
+// An English text of the port's (a row's name or value, a page's name) as the game shows it: in
+// its language (language() above), as the game's text (game_text above).
+std::string shown(const std::string& english);
 
 // The game's text lookup, asked for an id of the port's own: the string in game memory, or 0 for
 // an id that is the game's.

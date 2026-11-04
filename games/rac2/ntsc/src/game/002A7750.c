@@ -20,8 +20,6 @@ extern f32 func_002A7878_10(f32, f32);
 
 extern void func_002AF000_2(s32, f32, f32, f32);
 
-extern float Fc3394786_FUN_002A7878(void);
-
 extern float Fc3394786_FUN_002A7940(void);
 
 extern float Fc3394786_FUN_00283180(float);
@@ -136,8 +134,8 @@ extern void func_00282CC0_32(void *a0, void *a0b, float *local);
 
 extern float func_00282C48_9(float t);
 
-void func_002A7750(u8 *a0,u8 a1,s32 a2) {
- u8 old=a0[0x20];a0[0x20]=a1;a0[0x94]=old;*(short *)(a0+0x96)=0;
+void func_002A7750(u8 *a0,s32 a1,s32 a2) {
+ u8 old=a0[0x20];a0[0x20]=(u8)a1;a0[0x94]=old;*(short *)(a0+0x96)=0;
  a0[0xbe]&=~1;
  if(a2!=-1){a0[0x95]=(u8)a2;a0[0xbe]&=~2;}
 }
@@ -149,7 +147,6 @@ f32 func_002A7798(f32 a0) {
  return 1.0f-(1.0f-a0)*(1.0f-a0);
 }
 
-INCLUDE_ASM("asm/game", func_002A77C0);
 
 s32 func_002A77E0(s32 a0) {
     return (func_001163B0() >> 16 & 0x7fff) % a0;
@@ -183,9 +180,9 @@ void func_002A7988(s32 a0, f32 a1, f32 a2) {
     func_002AF000_2(a0, z, x, y);
 }
 
-void func_002A7A00(float *out)
+void func_002A7A00(float *out, float low, float high)
 {
-    float back = Fc3394786_FUN_002A7878();
+    float back = func_002A7878(low, high);
     float a = Fc3394786_FUN_002A7940();
     float b = Fc3394786_FUN_002A7940();
     float value;
@@ -207,7 +204,41 @@ float func_002A7AA8(float a, float b, float c, float d, float t) {
     return p * t3 + q * t2 + (c - a) * t + b;
 }
 
-INCLUDE_ASM("asm/game", func_002A7AE0);
+static __inline__ void qcopy(void *dst, const void *src) {
+    __asm__ __volatile__("lq $2,0x0(%1)\n\tsq $2,0x0(%0)"
+                         : : "r"(dst), "r"(src) : "$2", "memory");
+}
+
+void func_002A7AE0(f32 *out, f32 *a, f32 *b, f32 *c, f32 *d, float t)
+{
+    f32 t2;
+    f32 t3;
+    f32 k1, k2, k3;
+
+    if (t == 0.0f) {
+        qcopy(out, a);
+        return;
+    }
+    if (t == 1.0f) {
+        qcopy(out, b);
+        return;
+    }
+    t2 = t * t;
+    t3 = t2 * t;
+    k3 = (d[0] - b[0]) - (c[0] - a[0]);
+    k2 = (c[0] - a[0]) - k3;
+    k1 = b[0] - c[0];
+    out[0] = k3 * t3 + k2 * t2 + k1 * t + a[0];
+    k3 = (d[1] - b[1]) - (c[1] - a[1]);
+    k2 = (c[1] - a[1]) - k3;
+    k1 = b[1] - c[1];
+    out[1] = k3 * t3 + k2 * t2 + k1 * t + a[1];
+    k3 = (d[2] - b[2]) - (c[2] - a[2]);
+    k2 = (c[2] - a[2]) - k3;
+    k1 = b[2] - c[2];
+    out[2] = k3 * t3 + k2 * t2 + k1 * t + a[2];
+    out[3] = 0.0f;
+}
 
 /* Eased scalar interpolation between a and b: returns a for t==0.0, b for t==1.0, otherwise a + (b-a)*((1-cos(t*pi))*0.5). */
 f32 func_002A7C00 (f32 a, f32 b, f32 t)
@@ -221,7 +252,6 @@ f32 func_002A7C00 (f32 a, f32 b, f32 t)
   return a + (b - a) * u;
 }
 
-INCLUDE_ASM("asm/game", func_002A7C98);
 
 float func_002A7CA0(struct family_27f9_object *a0,
                                          float *a1,
@@ -273,15 +303,12 @@ float func_002A7E08(struct family_27f9_object *object, float *target, float *val
     return func_002A7CA0(object, value, angle, speed, damping, limit);
 }
 
-INCLUDE_ASM("asm/game", func_002A7E90);
 
-INCLUDE_ASM("asm/game", func_002A7EA0);
+/* func_002A7EA0 is in 002A7EA0.c. */
 
-INCLUDE_ASM("asm/game", func_002A8238);
 
-INCLUDE_ASM("asm/game", func_002A8240);
+/* func_002A8240 is defined in 002A8240.c. */
 
-INCLUDE_ASM("asm/game", func_002A84E0);
 
 extern unsigned short *D_001EE5A0[];
 extern char *D_001B1B5C __attribute__((sda));
@@ -332,13 +359,51 @@ void func_002A8598(int i, int v) {
     }
 }
 
-INCLUDE_ASM("asm/game", func_002A85F0);
 
-INCLUDE_ASM("asm/game", func_002A8600);
+extern unsigned char *D_001B1D40 MACRO_ADDR;
+extern unsigned short *D_001B1D38 MACRO_ADDR;
+extern short D_001B1D3C MACRO_ADDR;
+extern int D_001B1B78 MACRO_ADDR;
+extern int func_002A86E8(int *out, unsigned char *m, int includeInactive, int onlyInactive);
 
-INCLUDE_ASM("asm/game", func_002A86E8);
+/* rac1-decomp src/overlays/shared/moby_ground_collision.c: get_first_moby_in_group */
+// Starts the group cursor at the first moby of a group; when the state filter
+// rejects it, advances to the next accepted moby.
+int func_002A8600(int *out, int group, int includeInactive, int onlyInactive) {
+    unsigned short *entry;
+    unsigned char *m;
+    int index;
+    int inactive;
 
-INCLUDE_ASM("asm/game", func_002A8850);
+    if (group < 0 || D_001B1B78 < group) {
+        *out = 0;
+        return -1;
+    }
+    *out = 0;
+    D_001B1D40 = 0;
+    entry = D_001EE5A0[group];
+    D_001B1D38 = entry;
+    if (entry == 0) {
+        return -1;
+    }
+    index = *entry & 0x7FFF;
+    D_001B1D3C = index;
+    m = (unsigned char *)D_001B1B5C + (index << 8);
+    D_001B1D40 = m;
+    *out = (int)m;
+    inactive = (signed char)D_001B1D40[0x20] < 0;
+    if (!includeInactive) {
+        if (!onlyInactive && !inactive) goto found;
+    } else if (!onlyInactive || inactive) {
+        goto found;
+    }
+    return func_002A86E8(out, D_001B1D40, includeInactive, onlyInactive);
+found:
+    return 0;
+}
+
+
+
 
 int func_002A8860(int *p, int b) {
     int w = *p;
@@ -348,19 +413,15 @@ int func_002A8860(int *p, int b) {
     return v == 0;
 }
 
-INCLUDE_ASM("asm/game", func_002A8898);
 
-INCLUDE_ASM("asm/game", func_002A88A0);
 
-INCLUDE_ASM("asm/game", func_002A89A8);
 
-extern void func_002A89A8(void *, int, float);
+extern float func_002A89A8(void *, int, float);
 
 void func_002A8A20(void *object) {
     func_002A89A8(object, 32, 0.5f);
 }
 
-INCLUDE_ASM("asm/game", func_002A8A48);
 
 s32 func_002A8A50(const f32 *a0,const MmiPoint *a1,s32 a2) {
     s32 i;
@@ -388,7 +449,6 @@ int func_002A8AF0(float *p, float *v, int n) {
     return r;
 }
 
-INCLUDE_ASM("asm/game", func_002A8BC0);
 
 void func_002A8BD0(char *a0, int a1, int a2, float a3) { extern void func_00282C88(void *); *(int *)(a0 + 0x10) = a1; *(int *)(a0 + 0x14) = a2; *(float *)(a0 + 0x1C) = a3; *(int *)(a0 + 0x20) = 0; func_00282C88(a0); }
 
@@ -400,26 +460,86 @@ void func_002A8C00(char *a, int b, int c, float d, Quad16 *q) {
     *(volatile TI128 *)a = *(TI128 *)q;
 }
 
-INCLUDE_ASM("asm/game", func_002A8C28);
 
-extern void func_0029FCC0(void *, void *, float *);
+extern void func_0029FCC0(void *, int, float *);
 extern int func_002A8C28(void *, float, float *, int, float, float, int, int, int);
 
-int func_002A8D70(float x, float y, float z, void *object, void *source, int mode, int first, int second, int third)
+int func_002A8D70(float x, float y, float z, void *object, int bone, int mode, int first, int second, int third)
 {
     float vector[4];
-    func_0029FCC0(object, source, vector);
+    func_0029FCC0(object, bone, vector);
     return func_002A8C28(object, x, vector, mode, y, z, first, second, third);
 }
 
-INCLUDE_ASM("asm/game", func_002A8E18);
 
-INCLUDE_ASM("asm/game", func_002A8E20);
+typedef struct {
+    u8 pad0[0x10];
+    f32 pos[4];
+    s32 i20;
+    s32 flags;
+    u8 b28;
+    u8 b29;
+    unsigned short h2A;
+    f32 f2C;
+    s32 i30;
+    f32 f34;
+    u8 *owner;
+    s32 i3C;
+} L_A8E20Entry;
 
-INCLUDE_ASM("asm/game", func_002A8F70);
+typedef struct {
+    f32 pos[4];
+    s32 i10;
+    s32 flags;
+    u8 b18;
+    u8 b19;
+    unsigned short h1A;
+    f32 f1C;
+    s32 i20;
+    f32 f24;
+} L_A8E20Req;
+
+extern void func_00282C88(void *);
+extern s32 D_001BAF80[];
+extern L_A8E20Entry D_001BF200[];
+
+void func_002A8E20(u8 *m, L_A8E20Req *r)
+{
+    s32 idx = D_001BAF80[5];
+    s32 flags = 0;
+    L_A8E20Entry *e;
+
+    if (m[0xA8] != 0xFF) {
+        L_A8E20Entry *p = &D_001BF200[m[0xA8]];
+
+        if (p->owner == m) {
+            if (p->f2C > r->f1C) {
+                p->flags = p->flags | r->flags;
+                return;
+            }
+            flags = p->flags;
+        }
+    }
+    e = &D_001BF200[idx];
+    func_00282C88(e);
+    qcopy(D_001BF200[idx].pos, r->pos);
+    e->flags = r->flags | flags;
+    e->i20 = r->i10;
+    e->b28 = r->b18;
+    e->b29 = r->b19;
+    e->h2A = r->h1A;
+    e->f2C = r->f1C;
+    e->f34 = r->f24;
+    e->i30 = r->i20;
+    e->owner = m;
+    e->i3C = 0;
+    m[0xA8] = idx;
+    D_001BAF80[5] = (idx + 1) & 0x3F;
+}
+
+/* func_002A8F70 is in 002A7750-records.c. */
 
 
-INCLUDE_ASM("asm/game", func_002A90F0);
 
 extern int D_001B22D8 __attribute__((sda));
 extern int D_001B22DC __attribute__((sda));
@@ -463,11 +583,58 @@ void func_002A91F0(void *a0, float *a1) {
     func_002837D0(a0, a0, v2);
 }
 
-INCLUDE_ASM("asm/game", func_002A9288);
+/* func_002A9288 uses the quadword-copy profile in 002A9288-qcopy.c. */
 
-INCLUDE_ASM("asm/game", func_002A93B0);
+extern int D_001A8CA0[] __attribute__((sda));
+extern float D_001BAFA0[];
+extern float D_001BAFA8;
+extern void func_00282D60(void *, void *, float);
+extern void func_00282D30(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern float func_00282DB0(void *, void *);
+extern int func_002761F8(void *, void *, int, void *, void *);
 
-extern void func_002A93B0(void *);
+void func_002A93B0(char *o)
+{
+    float a[4] __attribute__((aligned(16)));
+    float b[4] __attribute__((aligned(16)));
+    float c[4] __attribute__((aligned(16)));
+
+    if (D_001A8CA0[0] == 0) {
+        if (*(float *)(o + 0xE8) < 0.9f) {
+            *(float *)(o + 0x70) = 0.0f;
+            *(float *)(o + 0x74) = 0.0f;
+            return;
+        }
+        qcopy(a, o + 0x10);
+        a[2] = a[2] - 16.0f;
+        if (a[2] < 0.5f)
+            a[2] = 0.5f;
+        qcopy(b, o + 0x10);
+        b[2] = b[2] + 0.5f;
+        if (func_002761F8(b, a, 0x22, 0, 0) != 0) {
+            *(float *)(o + 0x70) = D_001BAFA8 - *(float *)(o + 0x18);
+            *(float *)(o + 0x74) = *(float *)(o + 0xC) * 0.000244140625f;
+        } else {
+            *(float *)(o + 0x70) = 0.0f;
+            *(float *)(o + 0x74) = 0.0f;
+        }
+    } else {
+        func_00282D60(a, o, 0.0009765625f);
+        func_00282D30(b, o + 0xE0, -8.0f);
+        func_00282CC0(b, a, b);
+        if (func_002761F8(a, b, 0x22, 0, 0) != 0) {
+            func_00282CF0(c, D_001BAFA0, o + 0x10);
+            *(float *)(o + 0x70) = func_00282DB0(c, o + 0xE0);
+            *(float *)(o + 0x74) = 0.2f;
+            *(unsigned char *)(o + 0xBD) = 0xFF;
+        } else {
+            *(float *)(o + 0x70) = 0.0f;
+            *(float *)(o + 0x74) = 0.0f;
+        }
+    }
+}
 
 void func_002A9548(void *object) {
     func_002A93B0(object);
@@ -482,9 +649,85 @@ int func_002A9568(int first, int second, float amount) {
 
 
 
-INCLUDE_ASM("asm/game", func_002A9698);
 
-INCLUDE_ASM("asm/game", func_002A96A0);
+typedef struct Rec_002A96A0 {
+    char pad0[4];
+    short s4;
+    char pad6[0x11];
+    u8 b17;
+    u8 *p18;
+    short s1C;
+} Rec_002A96A0;
+
+typedef struct Src_002A96A0 {
+    char pad0[0x20];
+    u8 *p20;
+    int f24;
+    u8 b28;
+    float f2C;
+} Src_002A96A0;
+
+extern Rec_002A96A0 *func_002AB1F0(s32);
+extern u8 *func_002AB220(s32);
+extern u8 func_002AD980(u8 *);
+
+f32 func_002A96A0(s32 a0, Src_002A96A0 *a1) {
+    Rec_002A96A0 *p = func_002AB1F0(a0);
+    f32 f = 0.0f;
+    if (p != 0) {
+        u8 *q = p->p18;
+        if (q != 0) {
+            u8 c = q[0x20];
+            if (c != 0xFE) {
+                if (c == 0xFD) {
+                    p->s1C = 0;
+                    p->p18 = 0;
+                }
+            } else {
+                p->s1C = 0;
+                p->p18 = 0;
+            }
+        }
+        {
+            short t = p->s1C;
+            if (t != 0) {
+                p->s1C = (unsigned short)p->s1C + 1;
+                if (t >= 0x79) {
+                    p->p18 = 0;
+                    p->s1C = 0;
+                }
+            }
+        }
+        if (a1 != 0) {
+            u8 *x = a1->p20;
+            f = a1->f2C;
+            if (x != 0) {
+                if (p->p18 != x) {
+                    p->p18 = x;
+                    p->b17 = func_002AD980(a1->p20);
+                    p->s1C = 1;
+                } else {
+                    if (a1->b28 == 9) {
+                        if (p->s1C < 0x3C) f = 0.0f;
+                        else p->s1C = 1;
+                    } else {
+                        if (p->s1C < 10) f = 0.0f;
+                        p->s1C = 1;
+                    }
+                }
+            }
+            if ((f32)p->s4 <= 1.0f && f > 0.0f && f < 1.0f) f = 1.0f;
+            if (a1->f24 & 0x100000) {
+                u8 *o = func_002AB220(a0);
+                if (o != 0) o[0x18] = 1;
+            } else {
+                u8 *o = func_002AB220(a0);
+                if (o != 0) o[0x18] = 0;
+            }
+        }
+    }
+    return f;
+}
 
 void func_002A9850(void *a0, Vec16_F5621621c *src, int *p, int n,
                                         int t0, int t1, int t2, int t3,
@@ -518,9 +761,8 @@ void func_002A9850(void *a0, Vec16_F5621621c *src, int *p, int n,
     }
 }
 
-INCLUDE_ASM("asm/game", func_002A99A0);
+/* func_002A99A0 is in 002A99A0.c. */
 
-INCLUDE_ASM("asm/game", func_002AA130);
 
 f32 func_002AA140(f32 a, f32 b, f32 t) { return a + (b - a) * t; }
 
@@ -572,7 +814,6 @@ f32 func_002AA340(s32 *a0, s32 a1, s32 a2)
     return (f32)func_00282C30(a1 - value);
 }
 
-INCLUDE_ASM("asm/game", func_002AA3A0);
 
 float func_002AA3A8(float *a0, float *a1, float f1, float f2,
                                          float f3, float f4)
@@ -616,14 +857,14 @@ float func_002AA458(void *a0, void *a1, void *a2, float f1, float f2, float f3)
     return *(float *)a2;
 }
 
-INCLUDE_ASM("asm/game", func_002AA548);
+/* func_002AA548 is implemented in 002AA548.c. */
 
-extern float func_00283BE0(void);
+extern float func_00283BE0(float, float);
 extern float func_00282C48(float);
 
-f32 func_002AA738(s32 a0)
+f32 func_002AA738(float from, s32 a0, float to)
 {
-    f32 base = func_00283BE0();
+    f32 base = func_00283BE0(from, to);
 
     if (a0 == 0 || base * (f32)a0 > 0.0f)
         return base;

@@ -15,11 +15,11 @@ vec3 chrome_direct(vec3 p,vec3 n,vec3 eye,vec4 selector,float visibility) {
         result+=radiance*mix(.1,1.,visibility)*ggx_specular(n,eye,-travel,
                     object_reflection_material.x,object_reflection_material.y);
     }
-    for(int i=0;i<8;++i) {
-        vec3 delta=probe_point_position[i].xyz-p;
-        float radius=probe_point_position[i].w,distance=length(delta);
+    LOCAL_LIGHT_LOOP(i) {
+        vec3 delta=LOCAL_POSITION(i).xyz-p;
+        float radius=LOCAL_POSITION(i).w,distance=length(delta);
         if(radius<=0. || distance>=radius || distance<1e-6) continue;
-        vec3 radiance=max(probe_point_colour[i].rgb,vec3(0))*(1.-distance/radius);
+        vec3 radiance=max(LOCAL_COLOUR(i).rgb,vec3(0))*LOCAL_ATTENUATION(distance,radius)*LOCAL_CONE(i,delta/distance);
         result+=radiance*ggx_specular(n,eye,delta/distance,
                     object_reflection_material.x,object_reflection_material.y);
     }

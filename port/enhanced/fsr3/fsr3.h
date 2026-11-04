@@ -4,6 +4,7 @@
 // Enhanced Vulkan temporal reconstruction with displayed object poses and a full-resolution HUD.
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -37,6 +38,8 @@ struct TemporalFrame {
     float motion_blur_strength = 0.5f;
     bool camera_motion_blur = false;  // Real-time cutscenes use the original FSR motion.
     renderer::MotionBlurSettings blur_settings;
+    // Optional graph-compatible colour processing after reconstruction/blur, before native HUD work.
+    std::function<void()> finish_colour{};
 };
 
 // Owns SDK histories and intermediate targets; only the render thread calls it.
@@ -50,6 +53,8 @@ public:
     Fsr3& operator=(const Fsr3&) = delete;
     // Returns whether this build and backend can offer enhanced temporal reconstruction.
     static bool available();
+    // The upscaler the last successful setup chose ("Arm ASR" or "FSR 3.1"), "none" before one.
+    static const char* active_upscaler();
     // Captures the current displayed world poses; inactive callers do not copy any data.
     void set_scene(
         std::span<const scene::Instance> instances, std::span<const renderer::Mat4> palette

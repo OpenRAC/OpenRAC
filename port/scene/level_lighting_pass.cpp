@@ -34,6 +34,17 @@ bool LevelScene::needs_early_lighting(const renderer::FrameInput& input) const {
                || (m_hero_enabled && input.hero_pixel_shadow));
 }
 
+std::span<const unsigned> LevelScene::opaque_colour_buffers(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
+    // Scenes without a registered cache retain the standalone colour path.
+    if (!m_lighting) {
+        return {};
+    }
+
+    return m_lighting->early_buffers(input, state);
+}
+
 void LevelScene::bind_shadow_atlas(const renderer::Shader& shader) const {
     glUniform1i(shader.uniform("shadow_atlas_enabled"), m_shadow_atlas_active ? 1 : 0);
     if (m_shadow_atlas_active) {
@@ -67,6 +78,16 @@ void LevelScene::bind_hero_shadow(const renderer::Shader& shader) const {
             m_shadow_atlas_active ? m_shadow_atlas->depth_texture() : m_hero_map->depth_texture()
         );
         glActiveTexture(GL_TEXTURE0);
+    }
+}
+
+std::string LevelScene::atmosphere_source() const {
+    return m_lighting ? m_lighting->atmosphere_source() : std::string{};
+}
+
+void LevelScene::bind_atmosphere(const renderer::Shader& shader) const {
+    if (m_lighting) {
+        m_lighting->bind_atmosphere(shader);
     }
 }
 
@@ -106,7 +127,9 @@ void LevelScene::bind_sun_shadow(
     bind_shadow_atlas(shader);
     glUniform4fv(shader.uniform("sun_shadow_ends"), 1, m_sun_cascades.ends.data());
     glUniform1f(shader.uniform("sun_shadow_near"), m_sun_cascades.near_distance);
-    glUniformMatrix4fv(shader.uniform("sun_shadow_view"), 1, GL_FALSE, camera.view.data());
+    // Cascade selection follows the gameplay view during inspection, independently of the observer.
+    const auto& shadow_camera = m_sun_ready ? m_sun_camera : camera;
+    glUniformMatrix4fv(shader.uniform("sun_shadow_view"), 1, GL_FALSE, shadow_camera.view.data());
     const char* map_names[] =
         {"sun_shadow_map0", "sun_shadow_map1", "sun_shadow_map2", "sun_shadow_map3"};
     const char* matrix_names[] =
@@ -135,7 +158,12 @@ void LevelScene::bind_sun_shadow(
 void LevelScene::render_early_lighting(
     unsigned depth, const renderer::FrameInput& input, renderer::RenderState& state
 ) {
-    prepare_shadows(input, state);
+    // Atmosphere may already have drawn the current maps before the sky. No scene or
+    // camera update occurs between that preparation and this frame's early lighting.
+    if (!state.world_shadows_prepared
+        || !renderer::render_opt::enabled(renderer::render_opt::Opt::ShadowFrameReuse)) {
+        prepare_shadows(input, state);
+    }
     state.world_shadows_prepared = true;
     std::string error;
     // Drawn only where it is needed (needs_early_lighting), which takes registered lighting.

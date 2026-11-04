@@ -2,9 +2,11 @@
 #include "enhanced/viewer/early_lighting.h"
 
 #include "common/stats.h"
+#include "enhanced/renderer/compute_graph.h"
 #include "enhanced/viewer/probe_lighting.h"
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
+#include "renderer/render_opt.h"
 #include "renderer/world/gl_world.h"
 #include "renderer_shaders.h"
 
@@ -42,6 +44,9 @@ bool EarlyLighting::render(
     if (!m_compute.id()) {
         std::string source = shaders::early_lighting_comp;
         source = probe_shader_source(std::move(source));
+        if (renderer::render_opt::enabled(renderer::render_opt::Opt::EarlyProbeSetup)) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_PROBE_RECEIVER_SETUP 1\n");
+        }
         source.insert(source.find('\n') + 1, renderer::shaders::surface_normal_glsl);
         source.insert(
             source.find('\n') + 1, "#define OPENRAC_PROBE_PIXEL early_pixel\nivec2 early_pixel;\n"
@@ -79,12 +84,21 @@ bool EarlyLighting::render(
         m_compute.uniform("early_projection"), 1, GL_FALSE, input.camera.projection.data()
     );
     glUniformMatrix4fv(m_compute.uniform("early_view"), 1, GL_FALSE, input.camera.view.data());
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-    {
-        const stats::Scope pass("early GI and cascades", stats::kGpu);
-        glDispatchCompute(unsigned((width + 15) / 16), unsigned((height + 15) / 16), 1);
+    const std::array<enhanced::ComputeOutput, 2> outputs{
+        {{m_buffers[0], cells * 4}, {m_buffers[1], cells * 8}}
+    };
+    // Input capture follows lighting binding so probes, AO, tile masks and shadow maps match the dispatch.
+    if (!enhanced::run_compute_graph(
+            "early GI and cascades",
+            outputs,
+            [&] {
+                const stats::Scope pass("early GI and cascades", stats::kGpu);
+                glDispatchCompute(unsigned((width + 15) / 16), unsigned((height + 15) / 16), 1);
+            },
+            error
+        )) {
+        return false;
     }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
     m_width = width;
     m_height = height;
     m_clip = renderer::multiply(input.camera.projection, input.camera.view);
@@ -120,8 +134,9 @@ void EarlyLighting::bind(
     glActiveTexture(GL_TEXTURE0);
 }
 
-bool EarlyLighting::matches(const renderer::FrameInput& input, const renderer::RenderState& state)
-    const {
+bool EarlyLighting::matches(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
     GLint viewport[4]{};
     glGetIntegerv(GL_VIEWPORT, viewport);
     return state.early_lighting && m_ready && m_frame == input.frame
@@ -129,6 +144,17 @@ bool EarlyLighting::matches(const renderer::FrameInput& input, const renderer::R
            && viewport[2] == m_width && viewport[3] == m_height && m_width == state.target.width
            && m_height == state.target.height
            && m_clip == renderer::multiply(input.camera.projection, input.camera.view);
+}
+
+std::span<const unsigned> EarlyLighting::buffers(
+    const renderer::FrameInput& input, const renderer::RenderState& state
+) const {
+    // Stale caches cannot supply dependencies for another view or target.
+    if (!matches(input, state)) {
+        return {};
+    }
+
+    return m_buffers;
 }
 
 void EarlyLighting::release() {

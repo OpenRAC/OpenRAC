@@ -38,11 +38,26 @@ int func_L00_0032EFB0(int a0, int a1, int a2, int a3)
 	return r;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0032F030);
 
-INCLUDE_ASM("asm/levels", func_L00_0032F038);
+typedef struct {
+    char gap_L00_0032F038[0x18E];
+    short head;
+    int count;
+    char gap2_L00_0032F038[0xC4];
+    float v[30];
+} Table_L00_0032F038;
 
-INCLUDE_ASM("asm/levels", func_L00_0032F080);
+extern Table_L00_0032F038 D_00138180;
+
+/* Returns the float n entries back from the head of a 30-entry history ring (n capped at the
+   ring's count); RAC1's read_pad_float_history. */
+float func_L00_0032F038(int n)
+{
+    if (D_00138180.count < n)
+        n = D_00138180.count;
+    return D_00138180.v[(D_00138180.head - n + 30) % 30];
+}
+
 
 void func_L00_003318D8(void)
 {
@@ -51,7 +66,7 @@ void func_L00_003318D8(void)
 void func_L00_00333E20(void) {
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00333F90);
+/* func_L00_00333F90 is in L00_00333F90.c. */
 
 /* Calls a three-argument callee twice and a two-argument callee twice over fields of the first object, folds a float field through a float-to-int callee into an int field of the object, and calls a last callee when the updated field is negative. */
 void func_L00_003340A8(char *a)
@@ -72,7 +87,7 @@ void func_L00_003340A8(char *a)
         func_002B9180_2(a);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00335558);
+/* func_L00_00335558 is in L00_00335558.c. */
 
 /* Calls a routine on pointer-plus-10 and, when it returns non-zero, calls a second routine with the pointer itself. */
 void func_L00_00336548(char *p)
@@ -82,9 +97,8 @@ void func_L00_00336548(char *p)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00338AE0);
 
-INCLUDE_ASM("asm/levels", func_L00_00338D28);
+/* func_L00_00338D28 is matched in L00_00338D28.c (built with -frac2-qcopy). */
 
 /* Updates a record: calls two helpers on the sub-object at +0x20 (float argument 0.975f), advances the float at +0x0C by 14700.0f, adds the byte at +0x30 into the byte at +0x08, then adds 0xFE000000 to the word at +0x04 and calls a third helper when the result is negative. */
 void func_L00_00338DF8(char *a0)
@@ -104,26 +118,21 @@ void func_L00_00338DF8(char *a0)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0033AA40);
+/* func_L00_0033AA40 is in L00_0033AA40.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0033BA68);
+/* func_L00_0033BA68 is matched in L00_0033BA68.c (built with -frac2-qcopy). */
 
-INCLUDE_ASM("asm/levels", func_L00_0033C0D0);
+/* func_L00_0033C238 is matched in L00_0033C238.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0033C238);
 
-INCLUDE_ASM("asm/levels", func_L00_0033C638);
 
-INCLUDE_ASM("asm/levels", func_L00_0033E210);
 
-INCLUDE_ASM("asm/levels", func_L00_0033E220);
 
-INCLUDE_ASM("asm/levels", func_L00_0033E3B8);
+/* func_L00_0033E3B8 is in L00_0033E3B8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0033E888);
 
-INCLUDE_ASM("asm/levels", func_L00_0033EA00);
 
-INCLUDE_ASM("asm/levels", func_L00_0033EC48);
+/* func_L00_0033EA00 is matched in L00_0033EA00-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0033EE38);
+
+/* func_L00_0033EE38 is in L00_0033EE38.c (built with -g). */

@@ -1,6 +1,6 @@
 # OpenRAC mods: build, test and release (the OpenRAC mod SDK's workflow, sdk/template and
 # sdk/template-script). The same file serves a repository of one mod (its openrac-mod.json at the
-# top) and one of several (a folder per mod, as OpenRAC/rac1-mods), native mods, script mods or
+# top) and one of several (a folder per mod, as OpenRAC/openrac-mods), native mods, script mods or
 # both: native mods are built from the top CMakeLists.txt, which makes every one of them; script
 # mods ("type": "script", docs/port/MODS.md section 11) are packaged as they are, with no build.
 #

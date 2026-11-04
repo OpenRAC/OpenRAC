@@ -1,8 +1,9 @@
 #ifndef CALLEES_H
 #define CALLEES_H
 
-/* Prototypes of engine functions that three or more files called through
-   the same private declaration. */
+/* Functions defined in src/callees.c. */
+
+#include "common.h"
 
 extern int func_001151B4();
 extern void func_00118B20(int, void *, int);

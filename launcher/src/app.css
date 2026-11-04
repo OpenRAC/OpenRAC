@@ -71,8 +71,8 @@
   color-scheme: dark;
 }
 
-/* The accent's colours as colours, so that they ease from one game's to the next (Android, App.svelte)
-   rather than jump. */
+/* The accent's colours as colours, so that they ease from one game's to the next (App.svelte) rather
+   than jump. */
 @property --bar-top {
   syntax: "<color>";
   inherits: true;
@@ -83,6 +83,18 @@
   syntax: "<color>";
   inherits: true;
   initial-value: #cd8300;
+}
+
+@property --bar-stripe {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c99222;
+}
+
+@property --bar-stripe-alt {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #bd8619;
 }
 
 @property --amber {
@@ -97,12 +109,19 @@
   initial-value: #ffd08a;
 }
 
-html[data-platform="android"] {
+html {
   transition:
     --bar-top var(--slow) var(--ease),
     --bar-bottom var(--slow) var(--ease),
+    --bar-stripe var(--slow) var(--ease),
+    --bar-stripe-alt var(--slow) var(--ease),
     --amber var(--slow) var(--ease),
     --gold var(--slow) var(--ease);
+}
+
+/* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */
+html[data-starting] {
+  transition: none;
 }
 
 @media (max-width: 600px) {
@@ -293,8 +312,8 @@ button,
 }
 
 @media (hover: hover) {
-  button:hover:not(:disabled),
-  .button:hover {
+  html:where(:not([data-input="pad"])) button:hover:not(:disabled),
+  html:where(:not([data-input="pad"])) .button:hover {
     border-color: var(--soft);
   }
 }
@@ -325,16 +344,24 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-/* With a controller (src/lib/pad.ts) the focus is where A presses: always drawn. */
+/* With a controller (src/lib/pad.ts) the focus is where A presses: always drawn, a little bolder
+   than a picked control's own ring (a theme, a game) so the two are told apart, and scrolled to
+   with room around it, so that its ring is not cut by the edge of what scrolls. The pointer's
+   hover is not drawn meanwhile (each :hover rule is under html:not([data-input="pad"])): a
+   mouse standing still over one control lit it beside the focus on another. */
 html[data-input="pad"] :focus {
-  outline: 2px solid var(--amber);
-  outline-offset: 2px;
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+  scroll-margin: 20px;
+  scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
 }
 
-/* A press dims the button and pushes it in a little; on a touch screen that is all it shows, as
-   hover styles apply only where there is a pointer that hovers. */
+/* A press dims the button and pushes it in a little (a controller's A too, pad.ts); on a touch
+   screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
 button:active:not(:disabled),
-.button:active {
+.button:active,
+button.pad-press:not(:disabled),
+.button.pad-press {
   filter: brightness(0.88);
   transform: scale(0.97);
 }
@@ -347,7 +374,7 @@ button.primary {
 }
 
 @media (hover: hover) {
-  button.primary:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) button.primary:hover:not(:disabled) {
     filter: brightness(1.08);
     border-color: rgb(0 0 0 / 0.3);
   }
@@ -360,7 +387,7 @@ button.ghost {
 }
 
 @media (hover: hover) {
-  button.ghost:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) button.ghost:hover:not(:disabled) {
     background: var(--panel-hi);
     border-color: var(--line);
   }
@@ -371,7 +398,8 @@ button.small {
   padding: 4px 12px;
 }
 
-input[type="text"] {
+input[type="text"],
+input[type="search"] {
   font: inherit;
   font-size: 0.875rem;
   width: 100%;
@@ -380,6 +408,17 @@ input[type="text"] {
   border: 1px solid var(--line-field);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+}
+
+/* A search field is a text field: no system look (WebKit's rounded white box, Chromium's clear
+   button) beside the launcher's own fields. */
+input[type="search"] {
+  appearance: none;
+}
+
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
 }
 
 /* Settings (Settings.svelte, GpuDrivers.svelte): a row per setting, its name and at most a line
@@ -491,7 +530,7 @@ input.switch:disabled {
 }
 
 @media (hover: hover) {
-  .segmented button:hover:not(:disabled) {
+  html:where(:not([data-input="pad"])) .segmented button:hover:not(:disabled) {
     color: var(--text);
   }
 }
@@ -887,6 +926,36 @@ html[data-motion="slides"] :is(.page > :is(section, .panel, h1), .tile.rise) {
   border-right-color: transparent;
   animation: spin 0.8s linear infinite;
   flex: none;
+}
+
+/* A thin bar for work under way (ModPage's bake, AddMod's file): filled to its share, or a
+   slice sliding along it while the end is not known. JobProgress draws its own, larger one. */
+.track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.track i {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transition: width var(--fast) var(--ease);
+}
+
+.track i.moving {
+  width: 30%;
+  animation: track-slide 1.4s var(--ease) infinite;
+}
+
+@keyframes track-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
 }
 
 @keyframes spin {

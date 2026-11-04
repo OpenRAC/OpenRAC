@@ -1,0 +1,79 @@
+#include "common.h"
+
+typedef int Quadword __attribute__((mode(TI)));
+typedef union { Quadword q; float f[4]; } Vector;
+typedef struct { int count; int reserved[3]; Vector points[0]; } Path;
+extern void func_00282CF0(void *, const void *, const void *);
+extern void func_00282F20(void *, const void *, float);
+extern void func_00282CC0(void *, const void *, const void *);
+
+/* rac1-decomp src/overlays/shared/moby_ground_collision.c: Spline_AdvanceByDistance.
+ * Moves a distance along the path from segment *index at offset *offset, updates both and
+ * writes the point reached to out; returns 1 when an end was passed. */
+int func_L00_00341820(const Path *path, Vector *out, int *index, float *offset, int wrap, float step) {
+    Vector delta;
+    int reached = 0;
+    int direction = 1;
+    int i;
+    int j;
+
+    if (step < 0.0f) {
+        step = -step;
+        direction = -1;
+    }
+    while (step != 0.0f && (*index != path->count - 1 || wrap)) {
+        int crosses;
+
+        i = *index;
+        if (direction == 1) {
+            crosses = path->points[i].f[3] < *offset + step;
+        } else {
+            crosses = *offset < step;
+        }
+        if (crosses) {
+            i += direction;
+            if (i >= path->count || i < 0) {
+                i = (i + path->count) % path->count;
+            }
+            if (direction == 1) {
+                step -= path->points[*index].f[3] - *offset;
+                *offset = 0.0f;
+                if (step < 0.0f) {
+                    step = 0.0f;
+                }
+            } else {
+                step -= *offset;
+                *offset = path->points[i].f[3];
+            }
+            if ((direction == 1 && *index == path->count - 1) || (direction == -1 && *index == 0)) {
+                reached = 1;
+            }
+            *index = i;
+        } else {
+            if (direction == 1) {
+                *offset = *offset + step;
+            } else {
+                *offset = *offset - step;
+            }
+            step = 0.0f;
+        }
+    }
+    i = *index;
+    qcopy_nc(out, &path->points[i]);
+    if (i == path->count - 1 && !wrap) {
+        if (direction == -1) {
+            *index = 0;
+            qcopy_nc(out, &path->points[0]);
+            *offset = 0.0f;
+        }
+        return 1;
+    }
+    j = i + 1;
+    if (j >= path->count) {
+        j %= path->count;
+    }
+    func_00282CF0(&delta, &path->points[j], &path->points[i]);
+    func_00282F20(&delta, &delta, *offset);
+    func_00282CC0(out, out, &delta);
+    return reached;
+}

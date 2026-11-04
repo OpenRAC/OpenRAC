@@ -40,7 +40,7 @@ target_link_libraries(openrac_game_common PUBLIC openrac_runtime openrac_ps2floa
 # The asset readers the library replacements use (the WAD decompressor).
 if(TARGET openrac_assets_disc)
   target_link_libraries(openrac_game_common PUBLIC openrac_assets_disc)
-  # main.cpp reads a level's program from the player's image (load_level_program).
+  # program/levels.cpp reads a level's program from the player's image (load_level_program).
   target_compile_definitions(openrac_game_common PUBLIC OPENRAC_HAS_DISC=1)
 endif()
 # The sound engine the sound library's replacement drives (lib/sound_engine.cpp).
@@ -212,8 +212,10 @@ function(openrac_add_game config)
     VERBATIM)
   add_custom_target(openrac_${target_id}_hostgen DEPENDS "${gen}/hostgen.stamp")
   # Every call through a known code address passes its arguments as the function there takes them,
-  # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py).
-  add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}")
+  # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
+  # declares the game functions it calls or replaces as game_protos.h has them.
+  add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}"
+           --host "${config_dir}/host")
   set_tests_properties(${id}_call_abi PROPERTIES SKIP_RETURN_CODE 77)
 
   # The game: generated C, and the game's own host C if it has any.
@@ -281,15 +283,13 @@ function(openrac_add_game config)
   set(fixes_cpp "${CMAKE_BINARY_DIR}/generated/openrac_fixes_${target_id}.cpp")
   openrac_write_fixes("${game}" "${version}" "${fixes_cpp}")
   # The host program's source folders in game/common (port/game/README.md), globbed like the
-  # library replacements so that splitting main.cpp, frontend.cpp and debug_overlay.cpp into files
-  # there adds no line here. Each stays empty until its split lands.
-  # program/: what main.cpp is split into (main, its options, vsync, the host side of game_host.h),
-  # in every program, with a window or without.
+  # library replacements so that a new file there adds no line here.
+  # program/: the program itself (its options, vsync, levels, sound, movies, the host side of
+  # game_host.h), in every program, with a window or without.
   file(GLOB program_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/program/*.cpp")
-  # frontend/: what frontend.cpp is split into (the window, frame pacing, interpolation, world
-  # submission, input), with the window's sources.
+  # frontend/: the window, frame pacing, interpolation, world submission, input; with a window only.
   file(GLOB frontend_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/frontend/*.cpp")
-  # debug/: what debug_overlay.cpp is split into (the overlay's panels), with the window's sources.
+  # debug/: the debug overlay's panels and the menu; with a window only.
   file(GLOB debug_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/debug/*.cpp")
   foreach(target IN LISTS targets)
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)
@@ -306,6 +306,7 @@ function(openrac_add_game config)
                                        "${OPENRAC_GAME_DIR}/common/debug_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/debug_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/exit_menu.cpp"
+                                       "${OPENRAC_GAME_DIR}/common/menu_catalog.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_menu.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_overlay.cpp"
                                        "${OPENRAC_GAME_DIR}/common/mod_ui.cpp"
@@ -331,9 +332,17 @@ function(openrac_add_game config)
       openrac_moby_class_names(names_cpp)
       target_sources(${target} PRIVATE "${names_cpp}")
       target_compile_definitions(${target} PRIVATE OPENRAC_FRONTEND=1)
+      # The debug tools ask the Vulkan backend itself (vkgl.h) for its tile-based guess and split
+      # pass timing; openrac_fsr3 links it wherever Vulkan is built.
+      if(OPENRAC_VULKAN)
+        target_compile_definitions(${target} PRIVATE OPENRAC_VULKAN=1)
+      endif()
       # The window's icon: the game's own or the launcher's, embedded as PNG bytes.
       openrac_window_icon("${config_dir}" "${target_id}" icon_c)
       target_sources(${target} PRIVATE "${icon_c}")
+      # The in-game menu's typefaces (debug/menu_ui.cpp).
+      openrac_menu_fonts(fonts_c)
+      target_sources(${target} PRIVATE "${fonts_c}")
       # The game's name as players see it, in the window's title and on macOS its bundle's name
       # (cmake/MacApp.cmake): the title in its catalogue entry (games/<game>/game.json) and the
       # version's video standard, "Ratchet & Clank (PAL)", "Ratchet & Clank (NTSC)".
@@ -384,6 +393,29 @@ function(openrac_window_icon game_dir target_id out)
 const unsigned char openrac_icon_png[] = {${bytes}};
 const unsigned int openrac_icon_png_size = ${size}u;
 ")
+  set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The in-game menu's typefaces as C++ arrays (openrac_font_<name>, openrac_font_<name>_size), from
+# game/common/fonts/ (its README.md says where they come from).
+function(openrac_menu_fonts out)
+  set(c "${CMAKE_BINARY_DIR}/generated/openrac_menu_fonts.cpp")
+  set(dir "${OPENRAC_GAME_DIR}/common/fonts")
+  set(content "/* Generated from ${dir} by cmake/Games.cmake. */\n")
+  foreach(pair IN ITEMS "inter:Inter-Regular.ttf" "inter_semibold:Inter-SemiBold.ttf"
+                        "orbitron:Orbitron.ttf")
+    string(REPLACE ":" ";" pair "${pair}")
+    list(GET pair 0 name)
+    list(GET pair 1 file)
+    set_property(DIRECTORY "${PROJECT_SOURCE_DIR}" APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${dir}/${file}")
+    file(READ "${dir}/${file}" hex HEX)
+    string(LENGTH "${hex}" n)
+    math(EXPR size "${n} / 2")
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+    string(APPEND content "extern const unsigned char openrac_font_${name}[] = {${bytes}};\n"
+                          "extern const unsigned int openrac_font_${name}_size = ${size}u;\n")
+  endforeach()
+  file(CONFIGURE OUTPUT "${c}" CONTENT "${content}")
   set(${out} "${c}" PARENT_SCOPE)
 endfunction()
 

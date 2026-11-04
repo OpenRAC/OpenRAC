@@ -7,7 +7,7 @@
   import { api, errorText, type Applied, type Review, type VersionView } from "$lib/api";
   import { canApply, dateText, groupMods, matching, optionalMods, untrusted, valueText, versions } from "$lib/modCodes";
   import { closeCode, modCode, modsChanged, versionFor } from "$lib/modCodes.svelte";
-  import { gameRunning, toast } from "$lib/app.svelte";
+  import { app, gameRunning, run, saveConfig, toast } from "$lib/app.svelte";
   import { KIND_HINT, KIND_LABEL, MOD_CODES as T } from "$lib/modsText";
   import Icon from "./Icon.svelte";
   import ModSetDialog from "./ModSetDialog.svelte";
@@ -61,6 +61,27 @@
     try {
       applied = await api.modsetApply(version.game, version.name, review.set, review.code, { extras, trusted });
       modsChanged();
+    } catch (e) {
+      error = errorText(e);
+    }
+    working = false;
+  }
+
+  // The link named a party: the game joins it on starting, now the mods are as it plays with them.
+  async function playAndJoin() {
+    const party = review?.party;
+    if (!party || !version) return;
+    const v = version;
+    working = true;
+    error = null;
+    try {
+      await api.modsetJoin(v.game, party);
+      const action = v.actions.find((a) => a.id === "play" && a.thisPlatform);
+      if (app.config && !app.config.playWithMods) await saveConfig({ ...app.config, playWithMods: true });
+      closeCode();
+      app.version = v.key;
+      app.page = "game";
+      if (action?.runnable) await run({ kind: "version", key: v.key }, action);
     } catch (e) {
       error = errorText(e);
     }
@@ -242,7 +263,12 @@
     {#snippet actions()}
       {#if applied}
         <button class="ghost small grow" disabled={working} onclick={() => void undo()}>{T.undo}</button>
-        <button class="primary" disabled={working} onclick={closeCode}>{T.close}</button>
+        {#if review?.party}
+          <button class="ghost" disabled={working} onclick={closeCode}>{T.close}</button>
+          <button class="primary" disabled={working} onclick={() => void playAndJoin()}>{T.playAndJoin(review.party)}</button>
+        {:else}
+          <button class="primary" disabled={working} onclick={closeCode}>{T.close}</button>
+        {/if}
       {:else if review && !(review.nothing && !optional.length) && !review.wrongGame}
         <span class="saved grow">{T.saved}</span>
         <button class="ghost" disabled={working} onclick={closeCode}>{T.cancel}</button>

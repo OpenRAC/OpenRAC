@@ -163,3 +163,51 @@ foreground occlusion, thin opposing motion, radius/edge coverage and stale seeds
 `fsr3_frame` compares 13 world/HUD frames across quality changes, Native AA, output replacement
 and cinematic transitions. Both GPU suites use Vulkan validation. `settings` checks persistence
 and invalid values.
+
+## Frame graph
+
+Vulkan uses graph dependency planning. Camera motion and float depth overwrite
+complete intermediates. Object motion preserves the camera field and tests borrowed
+world depth without writing it. The opaque snapshot and reactive mask declare the
+images consumed by reconstruction.
+
+FSR and ASR dispatch as opaque native nodes. The graph orders renderer-owned sampled
+inputs and complete storage outputs; each SDK owns its private history images and
+internal barriers. SDK callbacks restore their requested external layouts. Allocation,
+preset, precision and provider changes retain the existing context recreation and
+history reset rules. Camera cuts, level changes and explicit resets reject old displayed
+poses. Palette uploads remain backend-managed and happen after their last motion read.
+
+Blur declares velocity extraction, alternating seed passes and the final gather.
+The first seed pass reads dimensions but no uninitialized seed pixels. Partial gathers
+preserve stationary display pixels; the direct reconstruction variant overwrites the
+complete display. Display colour/depth return to attachment use before native HUD work.
+
+AgX tone mapping uses the temporal graph. Its compute kernel declares
+one preserved read/write image in GENERAL; the raster fallback declares a resolved
+snapshot and a complete output attachment. Both retain the existing curve, exposure
+clamp, alpha and native HUD ordering.
+
+Presentation uses a separate graph over the already acquired swapchain image. It keeps
+the existing tight-sync command buffer, semaphores, composition rules and submissions.
+Native composition retains its internal clear-to-blit dependency. Window-directed
+blits keep native deferral; a later preserved default-colour import materializes
+that copy when a postprocess needs the pixels. Offscreen stand-ins
+exercise the same transfer path without a visible swapchain.
+
+Tests check complete graph frames and FSR histories at fixed precision, including
+resets, resized/recreated outputs, camera cuts, blur modes, late depth and native HUD
+pixels. `temporal_graph` checks invalid imports, aliases, undefined history and rejected
+or throwing providers before a frame can be published.
+
+Temporal composition joins compatible temporal work before compiling its barriers.
+Motion and reactive images feed a native reconstruction node. The section executes
+before the SDK returns its success/failure decision; rejection retains the existing
+complete-world fallback. Blur and optional colour grading form the next section.
+Pose, camera and palette history commits follow successful section recording.
+
+Raster nodes retain per-pass uniforms, sampler units and temporary framebuffer
+attachments, including borrowed world depth. Material alpha textures bind per object
+draw rather than inheriting the depth-conversion sampler. Colour grading stays before
+late world effects and the native HUD. HUD work and acquired-image presentation remain
+separate boundaries, with the same queue submissions and SDK-private barriers.

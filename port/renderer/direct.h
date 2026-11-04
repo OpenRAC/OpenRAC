@@ -55,10 +55,16 @@ namespace openrac::renderer {
 // added to or taken from, Cd not weighed: Cs C + Cd, Cd - Cs C, Cs C), the shader multiplies Cs by
 // C itself (source_scale) and GL takes it as it is; the chip's sum clamps at 255 either way, so the
 // source clamped first gives the same colour.
+//
+// Cd (C + 1) (A Cd, B 0, D Cd: Maktar's arena curtain brightens the frame under it with 0x49) is
+// beyond GL's factors too: the shader writes the weight C as the colour and GL adds Cd * that colour
+// (DST_COLOR) to Cd (ONE). GL clamps the written weight at 1, so C above 0x80 brightens at most 2x.
 enum class SourceScale : int {
     None = 0,
     Alpha = 1,
-    Fix = 2
+    Fix = 2,
+    WeightAlpha = 3,  // the colour written is As itself, for DST_COLOR
+    WeightFix = 4     // the colour written is FIX itself, for DST_COLOR
 };
 struct GlBlend {
     unsigned src = 0x0001;       // GL_ONE
@@ -126,6 +132,8 @@ struct DirectState {
     // (TexturePool::distance_field), its alpha the distance to the glyphs' edge.
     bool distance_field = false;
     TextureHandle field = 0;  // its distance field, beside the texture itself
+    // The whole target's on a target wider than the picture, as a fade is (kWholeMarker).
+    bool whole = false;
 
     bool operator==(const DirectState&) const = default;
 };
@@ -150,6 +158,21 @@ inline thread_local bool g_dump_draws = false;
 // use), drawn at kOffscreenScale times that resolution.
 inline constexpr int kOffscreenPixels = 512;
 inline constexpr int kOffscreenScale = 2;
+
+// The off-screen targets the 2D path has drawn (DirectRenderer), by GS block, with the GL texture
+// each is drawn in: a world quad that samples one (the cockpit screen's picture, Going Commando's
+// level 0 closing scene) is drawn from that texture (renderer/effects.cpp), as the chip reads the
+// block. The texture covers kOffscreenPixels chip pixels across and down, first row on top. Set at
+// the end of each 2D pass, so a quad drawn before it in a frame sees the last frame's picture.
+struct OffscreenTexture {
+    std::uint32_t block = 0;
+    unsigned texture = 0;
+};
+
+inline std::vector<OffscreenTexture> g_offscreen_textures;
+// Whether world quads sample them (GameProfile::own_mobys_into_narrow_buffers: Going Commando);
+// off, a world quad reads the block from the texture pool as before.
+inline bool g_quads_sample_targets = false;
 
 // The game reading its frame buffer back (sceGsExecStoreImage: the pause and vendor menus keep the
 // frame they open over, and send it back into the frame each frame as image transfers). The port
@@ -184,6 +207,9 @@ class GifInterpreter {
 public:
     GifInterpreter(TexturePool& textures, DirectConfig config = {});
 
+    // The off-screen targets drawn to and not since overwritten by a transfer (their GS block).
+    const std::vector<std::uint32_t>& offscreen_blocks() const { return m_offscreen; }
+
     // A GIF packet: tags and their data, as the game sends to the chip
     // (PATH3, or DIRECT through VIF1). Returns false if it is malformed;
     // error() says where. An unfinished payload continues in the next call;
@@ -198,6 +224,12 @@ public:
 
     // Whether the moby markers drawn into the main frame become draws (FrameInput::screen_mobys).
     void set_screen_mobys(bool on) { m_screen_mobys = on; }
+
+    // Whether what comes is the part of a split frame after its world (DirectBackground drew the
+    // part before it): a full-screen fill there goes over the finished world (a fade at full
+    // strength), not under it, so it is drawn rather than taken for the frame's clear.
+    void set_over_world(bool on) { m_over_world = on; }
+
     static constexpr std::uint64_t kUiQuadMarker = 0x4E55;
     // The target the frame is drawn into (RenderTarget): the picture's width as a part of it, and
     // whether a scissor of the screen's whole width is cut at the target's sides instead
@@ -215,6 +247,19 @@ public:
     // the game's terrain pass (rac1/host/render_native.c). The frontend splits the 2D path there
     // (FrameInput::direct_before_world); drawing passes over it.
     static constexpr std::uint64_t kWorldMarker = 0x574C;
+    // The frame the game read back, whole and at the frame's resolution, over everything so far: a
+    // marker of the same form, kFrameMarker in the top 16 bits, for a game whose own transfer back
+    // is not in its list (Going Commando's tiles, rac2-ntsc/host/picture.c).
+    static constexpr std::uint64_t kFrameMarker = 0x4653;
+    // Going Commando's HUD is one tree of widgets, without Ratchet & Clank's anchored slots: between
+    // two markers of the same form, kHudSideMarker in the top 16 bits, what lies left or right of
+    // the middle goes out that far (the low 32 bits, the chip's pixels; 0 ends it), with "HUD: Edges".
+    static constexpr std::uint64_t kHudSideMarker = 0x4853;
+    // What fills the sides of a target wider than the picture (a still picture's backdrop): from a
+    // marker of the same form, kWholeMarker in the top 16 bits and 1 in the low bit, to one with 0
+    // there, the draws stretch to the whole target, as a fade does, instead of keeping their shape
+    // in its middle. On a target of the picture's own shape it changes nothing.
+    static constexpr std::uint64_t kWholeMarker = 0x5754;
 
     // A VIF1 stream carrying GIF data in DIRECT and DIRECTHL commands, with
     // the bookkeeping codes around them (NOP, FLUSH, STCYCL...). A command
@@ -227,6 +272,10 @@ public:
 
     // Forget this frame's vertices and draws; the registers keep their values.
     void clear();
+
+    // After clear(): the draws (with their vertices) the next part of the frame starts with, drawn
+    // as if it had read them first (DirectRenderer::flush's held-back off-screen draws).
+    void carry(std::vector<DirectDraw> draws, std::vector<DirectVertex> vertices);
 
     const std::vector<DirectVertex>& vertices() const { return m_vertices; }
 
@@ -263,6 +312,7 @@ private:
     void native_quad(const UiQuad& quad);
     std::span<const UiQuad> m_ui_quads{};
     bool m_screen_mobys = false;  // set_screen_mobys
+    bool m_over_world = false;    // set_over_world
     bool m_glyph = false;  // native_quad: drawing a glyph
     bool m_in_native = false;  // native_quad: its own vertices
     void emit_triangle(
@@ -281,6 +331,13 @@ private:
     void emit_quad(const DirectVertex corners[4]);
     // An image transfer into the draw buffer: its pixels drawn where the chip would store them.
     void draw_frame_upload(const ImageUpload& upload);
+    // The frame snapshot over the whole target (kFrameMarker).
+    void draw_frame_snapshot();
+    // What was drawn since the last marker out to its side, and the next stretch's width.
+    void hud_side(int side);
+    int m_hud_side = 0;
+    std::uint32_t m_hud_side_first = 0;
+    bool m_whole = false;  // between kWholeMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
     void screen_position(const GsVertex& v, float& x, float& y) const;
     void ensure_draw();
@@ -390,8 +447,13 @@ public:
     // The frame being drawn, for its moby markers (FrameInput::target_mobys).
     void set_frame_input(const FrameInput* input) { m_frame = input; }
 
+    // The part before the world was drawn this frame (DirectBackground): the next render() draws
+    // the part over it.
+    void set_world_split() { m_world_split = true; }
+
 private:
     const FrameInput* m_frame = nullptr;
+    bool m_world_split = false;  // set_world_split, for the next render()
     void apply(const DirectState& state, RenderState& render_state);
     void draw(const DirectDraw& draw, RenderState& render_state);
     bool m_background = false;  // flush(): the part before the world
@@ -402,7 +464,12 @@ private:
     DirectConfig m_config;
     Input m_input;
     std::unique_ptr<GifInterpreter> m_interpreter;
+    // The 2D shader as it drops a pixel failing the alpha test: discarded, or on a multisampled
+    // frame its samples masked out (OPENRAC_SAMPLE_MASK). use_program picks one.
     Shader m_shader;
+    Shader m_shader_masked;
+    bool m_masked = false;
+    void use_program(bool masked);
     unsigned m_vao = 0;
     unsigned m_vbo = 0;
     // The render target as drawn so far, copied for a draw that reads the frame (frame_source).
@@ -417,6 +484,8 @@ private:
     };
     std::vector<std::pair<std::uint32_t, Offscreen>> m_offscreen_targets;
     const Offscreen& offscreen(std::uint32_t block);
+    // Puts the targets drawn to in g_offscreen_textures.
+    void publish_offscreen();
     std::size_t m_vbo_bytes = 0;
     std::string m_last_error;
     std::array<unsigned, 16> m_samplers{};
@@ -424,9 +493,10 @@ private:
 
     struct Uniforms {
         int textured, tcc, tfx, tex_alpha_scale, fog_enable, fog_colour, alpha_test, alpha_ref,
-            alpha_keep_failing, multisampled, distance_field, tex_T1, pixel_offset, source_scale,
-            source_fix;
-    } m_uniforms{};
+            alpha_keep_failing, distance_field, tex_T1, pixel_offset, source_scale, source_fix;
+    } m_uniforms{};  // those of the program in use
+
+    std::array<Uniforms, 2> m_program_uniforms{};
 };
 
 // The part of a DirectRenderer's frame that comes before the world (FrameInput::
@@ -442,9 +512,11 @@ public:
         if (!input.direct_before_world.empty()) {
             m_direct.interpreter().set_ui_quads(input.ui_quads);
             m_direct.interpreter().set_screen_mobys(static_cast<bool>(input.screen_mobys));
+            m_direct.interpreter().set_over_world(false);
             m_direct.set_frame_input(&input);
             m_direct.submit(input.direct_before_world);
             m_direct.flush(state, true);
+            m_direct.set_world_split();
         }
     }
 

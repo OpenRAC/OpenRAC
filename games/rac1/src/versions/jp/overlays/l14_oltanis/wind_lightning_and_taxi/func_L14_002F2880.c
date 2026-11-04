@@ -5,23 +5,23 @@ void request_taxi_stop_prompt(char *moby) {
         v = *(short *)(data + 0xB6);
     }
     switch (v) {
-    case 0:
-        try_set_help_message(4, 0x5444);
-        break;
-    case 1:
-        try_set_help_message(4, 0x5445);
-        break;
-    case 2:
-        try_set_help_message(4, 0x5445);
-        break;
-    case 3:
-        try_set_help_message(4, 0x5445);
-        break;
-    case 4:
-        try_set_help_message(4, 0x1399);
-        break;
-    default:
-        try_set_help_message(4, 0x139B);
-        break;
+        case 0:
+            try_set_help_message(4, 0x5444);
+            break;
+        case 1:
+            try_set_help_message(4, 0x5445);
+            break;
+        case 2:
+            try_set_help_message(4, 0x5445);
+            break;
+        case 3:
+            try_set_help_message(4, 0x5445);
+            break;
+        case 4:
+            try_set_help_message(4, 0x1399);
+            break;
+        default:
+            try_set_help_message(4, 0x139B);
+            break;
     }
 }

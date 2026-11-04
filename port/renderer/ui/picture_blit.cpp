@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The picture blit: the upload, the blit and the release of picture_blit.h, in the GL calls the
-// debug menu made itself before restructure package P2-06 moved them here.
+// The picture blit: the upload, the blit and the release of picture_blit.h, in GL calls.
 
 #include "renderer/ui/picture_blit.h"
 

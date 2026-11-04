@@ -2,7 +2,8 @@ void scan_hero_input_sequences(void) {
     char *g;
     int s;
     int i;
-    if (challenge_mode == 0 && D_0015EF20 == 0) return;
+    if (challenge_mode == 0 && D_0015EF20 == 0)
+        return;
     g = (char *)hero_globals_base + 0xE1D;
     s = 0;
     if (*(int *)(g + 0x198) == scale_ticks(0xF)) {
@@ -12,10 +13,12 @@ void scan_hero_input_sequences(void) {
                 int c = *(int *)(g + 0x450);
                 if (c == 0) {
                     s = 1;
-                    if (draw_map51[0]) s = 2;
+                    if (draw_map51[0])
+                        s = 2;
                 } else if (c == 1) {
                     s = 2;
-                    if (draw_map51[0]) s = 1;
+                    if (draw_map51[0])
+                        s = 1;
                 } else if (c == 3) {
                     s = 3;
                 }
@@ -45,41 +48,47 @@ void scan_hero_input_sequences(void) {
             s = 8;
         }
     }
-    if (s == 0) return;
+    if (s == 0)
+        return;
     {
-    char *q = (char *)hero_globals_base + 0xE1D;
-    unsigned char *b0 = (unsigned char *)q + 0x21C4;
-    b0[*(int *)(q + 0x21D4)] = s;
-    *(int *)(q + 0x21D4) += 1;
-    for (i = 0; i < 12; i++) {
-        char *g2 = (char *)hero_globals_base + 0xE1D;
-        unsigned char *b = (unsigned char *)g2 + 0x21C4;
-        int n = 0;
-        int j;
-        int k;
-        while (cheat_input_sequences[i][n] != 0) n++;
-        if (n == 0) continue;
-        k = *(int *)(g2 + 0x21D4) - n;
-        if (k < 0) k += 16;
-        for (j = 0; j < n; j++) {
-            if (*(unsigned char *)(k + (int)b) != cheat_input_sequences[i][j]) {
-                j = -1;
+        char *q = (char *)hero_globals_base + 0xE1D;
+        unsigned char *b0 = (unsigned char *)q + 0x21C4;
+        b0[*(int *)(q + 0x21D4)] = s;
+        *(int *)(q + 0x21D4) += 1;
+        for (i = 0; i < 12; i++) {
+            char *g2 = (char *)hero_globals_base + 0xE1D;
+            unsigned char *b = (unsigned char *)g2 + 0x21C4;
+            int n = 0;
+            int j;
+            int k;
+            while (cheat_input_sequences[i][n] != 0)
+                n++;
+            if (n == 0)
+                continue;
+            k = *(int *)(g2 + 0x21D4) - n;
+            if (k < 0)
+                k += 16;
+            for (j = 0; j < n; j++) {
+                if (*(unsigned char *)(k + (int)b) != cheat_input_sequences[i][j]) {
+                    j = -1;
+                    break;
+                }
+                k++;
+                if (k >= 16)
+                    k -= 16;
+            }
+            if (j == n) {
+                int t = gCheats[i] == 0;
+                selector_available[i] = 1;
+                gCheats[i] = t;
+                ShowBanner(t ? 0x4FBF : 0x4FC0, -1);
                 break;
             }
-            k++;
-            if (k >= 16) k -= 16;
         }
-        if (j == n) {
-            int t = gCheats[i] == 0;
-            selector_available[i] = 1;
-            gCheats[i] = t;
-            ShowBanner(t ? 0x4FBF : 0x4FC0, -1);
-            break;
-        }
-    }
     }
     {
         char *r = (char *)hero_globals_base + 0xE1D;
-        if (*(int *)(r + 0x21D4) >= 16) *(int *)(r + 0x21D4) = 0;
+        if (*(int *)(r + 0x21D4) >= 16)
+            *(int *)(r + 0x21D4) = 0;
     }
 }

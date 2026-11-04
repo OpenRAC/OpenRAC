@@ -104,6 +104,10 @@ OPENRAC_EE_INLINE void openrac_ee_sh(openrac_u32 a, openrac_u64 v) {
 OPENRAC_EE_INLINE void openrac_ee_sw(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u32 *)OPENRAC_EE_PTR(a & ~3u) = (openrac_u32)v;
 }
+
+/* A word store of a hand-written kernel that starts DMA by writing the channel's registers
+ * (hostgen.json's asm.dma_stores); the game's host C defines it. */
+void openrac_ee_sw_dma(openrac_u32 a, openrac_u64 v);
 OPENRAC_EE_INLINE void openrac_ee_sd(openrac_u32 a, openrac_u64 v) {
     *(OPENRAC_EE_MEM openrac_u64 *)OPENRAC_EE_PTR(a & ~7u) = v;
 }
@@ -248,6 +252,13 @@ OPENRAC_EE_INLINE openrac_f32 openrac_ee_fabs(openrac_f32 a) {
 }
 OPENRAC_EE_INLINE openrac_f32 openrac_ee_fneg(openrac_f32 a) {
     return openrac_ee_f(openrac_ee_bits(a) ^ 0x80000000u);
+}
+
+/* What a VU0 FMAC operation leaves: a result too small for the unit is zero, of its sign. The host keeps
+ * denormals (hostgen.json asm.vu_flush). */
+OPENRAC_EE_INLINE openrac_f32 openrac_ee_vu_flush(openrac_f32 a) {
+    const openrac_u32 bits = openrac_ee_bits(a);
+    return (bits & 0x7F800000u) ? a : openrac_ee_f(bits & 0x80000000u);
 }
 
 /* ---- Multimedia (MMI): 128-bit registers as lanes ---- */

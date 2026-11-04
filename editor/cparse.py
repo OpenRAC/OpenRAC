@@ -7,6 +7,11 @@ not a C compiler.
 import re
 from dataclasses import dataclass, field
 
+
+class ParseError(ValueError):
+    """A declaration this reader does not understand."""
+
+
 TOKEN = re.compile(r"""
     (?P<num>0[xX][0-9a-fA-F]+[uUlL]*|(?:\d+\.\d*|\.\d+)(?:[eE][-+]?\d+)?[fF]?|\d+[eE][-+]?\d+[fF]?|\d+[uUlL]*)
   | (?P<id>[A-Za-z_]\w*)

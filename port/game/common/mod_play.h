@@ -21,6 +21,11 @@ void fill_play_api(
     openrac_api& api, const openrac_game_play* play, const std::filesystem::path& cards
 );
 
+// Fills the members of interface 1.12 (the hero moved by a mod, the collision triangles, props and
+// sounds), on `play` and the host's sound calls (mods.h, Host).
+struct Host;
+void fill_motion_api(openrac_api& api, const Host& host);
+
 // The mod whose openrac_mod_load runs now (null: none): the gate and the hit watcher are taken
 // only then; and the game's calls into the world set (game_host.h).
 void play_loading(const openrac_mod* mod);

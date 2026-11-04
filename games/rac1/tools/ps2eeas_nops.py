@@ -58,14 +58,14 @@ with calls (func_0012E688, func_0012EC60). Four rules:
 4. FPU to GPR move, then a branch. A reorder-mode `mfc1 $x, $fN`
    followed by the compiler's own noreorder branch that reads $x: GNU as
    puts a nop between them and ps2eeas did not (measured on ps2eeas,
-   docs/DECOMP_PROGRESS.md; in retail's compiled text the pair occurs
+   docs/reference/DECOMP_PROGRESS.md; in retail's compiled text the pair occurs
    four times, in func_L00_00269BE8 and func_L00_002761C0, adjacent each
    time, and never with a nop). The `mfc1` is put in a noreorder block
    of its own, where GNU as leaves the pair as written. Only pairs GNU
    as padded in the assembled object are touched, and source and object
    must show the same pairs.
 
-ps2eeas itself is not the build's assembler yet (docs/BUILD_FIDELITY.md,
+ps2eeas itself is not the build's assembler yet (docs/reference/BUILD_FIDELITY.md,
 "Checked against the real ps2eeas"): it cannot read the GNU macros the
 retail-assembly stubs use, and in one pass it only uses $gp for symbols
 whose size it has seen. tools/check_ps2eeas.py runs it on the same compiler
@@ -89,7 +89,7 @@ from elftools.elf.elffile import ELFFile
 MIN_SPAN = 6
 # Objects whose retail code is hand-written noreorder assembly: rule 3
 # does not apply to their functions.
-NOREORDER_OBJECTS = {"build-sn/game/fastfunc.o"}
+NOREORDER_OBJECTS = {"build-sn/game/math/fastfunc.o"}
 
 
 def noreorder_ranges():

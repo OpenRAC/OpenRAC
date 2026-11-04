@@ -1,1 +1,3 @@
+# Preserve exact source bytes; save versioned text with LF (see AGENTS.md).
+# Disable automatic line-ending conversion, including Windows core.autocrlf.
 * -text

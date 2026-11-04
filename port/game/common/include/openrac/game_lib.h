@@ -151,6 +151,7 @@ int openrac_lib_sceGsExecStoreImage(gaddr, gaddr);
 // While set, sceGsExecLoadImage and sceGsExecStoreImage move nothing: a game's host C sets it around
 // what parks main RAM in the GS's memory for the console's movie decoder, which the port's has no use for.
 extern int openrac_lib_gs_images_parked;
+
 gaddr openrac_lib_sceGsSyncVCallback(gaddr);
 void openrac_lib__GetGsDxDyOffset(int, gaddr, gaddr, gaddr, gaddr);
 /* dma */
@@ -208,6 +209,7 @@ void openrac_lib_snd_StopAllStreams(void);
 void openrac_lib_snd_PlayVAGStreamByLocEx_CB(
     int, int, int, int, int, int, int, int, int, int, long long
 );
+void openrac_lib_snd_PlayVAGStreamStereo_CB(int, int, int, int, int, int, int, long long);
 void openrac_lib_snd_PauseVAGStream(int);
 void openrac_lib_snd_ContinueVAGStream(int);
 void openrac_lib_snd_GetVAGStreamTimeRemaining_CB(int, int, int);
@@ -225,6 +227,10 @@ void openrac_lib_snd_StartMovieSound(int, int, int, int, int);
 int openrac_lib_snd_UpdateMovieADPCM(int, int);
 int openrac_lib_snd_GetMovieNAX(void);
 int openrac_lib_snd_GetDopplerPitchMod(int);
+
+/* The IOP's memory from an address on, as sceSifSetDma left it, and how many bytes follow; NULL
+ * past its end. A host accessor, not a library function. */
+const uint8_t* openrac_iop_bytes(uint32_t address, size_t* available);
 
 #ifdef __cplusplus
 }

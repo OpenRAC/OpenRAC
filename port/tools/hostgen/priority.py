@@ -34,6 +34,8 @@ from pathlib import Path
 sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / "tools/openrac_common").is_dir()) / "tools"))
 from openrac_common import paths  # noqa: E402
 
+import retail  # noqa: E402
+
 # How weak each kind is: higher goes first among functions reached as widely.
 WEIGHT = {
     "no C": 6, "untranslatable": 6, "mislabelled declaration": 5.5, "unverifiable": 5, "functional: low": 4,
@@ -167,8 +169,10 @@ def skipped_names(source: Path, cfg: dict) -> set[str]:
 def read_readable(names_h: Path) -> dict[str, str]:
     out = {}
     if names_h.is_file():
-        for readable, sym in re.findall(r"#define\s+(\w+)\s+(func_\w+)", names_h.read_text()):
-            out[sym] = readable
+        parts = [names_h, *sorted((names_h.parent / "names").glob("*.h"))]
+        for path in parts:
+            for readable, sym in re.findall(r"#define\s+(\w+)\s+(func_\w+)", path.read_text()):
+                out[sym] = readable
     return out
 
 
@@ -196,7 +200,7 @@ class Code:
         if level_dir is not None and (level_dir / "manifest.json").is_file():
             man = read_json(level_dir / "manifest.json")
             self.entry = man.get("entry_point")
-            for r in man["records"]:
+            for r in retail.manifest_records(man):
                 f = level_dir / f"{r['name']}.bin"
                 if f.is_file():
                     self.records[r["name"]] = (r["address"], f.read_bytes())
@@ -388,7 +392,7 @@ def analyse(cfg: dict, gen: Path, source: Path, dump: Path | None, exe: Path | N
     for level in sorted(programs):
         prog = dict(programs[level]) if level < 0 else {
             **{a: n for a, n in programs[-1].items() if a < low}, **programs[level]}
-        level_dir = dump / f"level_{level:02d}" if dump is not None and level >= 0 else None
+        level_dir = retail.level_dump_dir(dump, level) if dump is not None and level >= 0 else None
         code = Code(exe, level_dir if level_dir and level_dir.is_dir() else None, low) \
             if (exe or level_dir) else None
         # The retail code's calls only where hostgen's C cannot say where the call goes: a call to

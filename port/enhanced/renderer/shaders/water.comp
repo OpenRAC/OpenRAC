@@ -20,6 +20,9 @@ uniform int hand_count;
 uniform vec4 hands[2];
 uniform vec3 previous_hands[2];
 uniform int reset_waves;
+uniform int impulse_count;
+uniform vec4 impulse_starts[16]; // world start, contact radius
+uniform vec4 impulse_ends[16];   // world end, pressure strength
 uniform vec4 water_physics; // current scale, friction, outlet damping, interaction radius squared
 uniform float displacement_limit;
 uniform int transport_reference; // Test-only first-order Rusanov comparison.
@@ -220,6 +223,27 @@ void main() {
         float submerged=exp(-contact*contact/.04);
         q.yz+=q.x*hands[hand].w*(weight*kick+wake_strength*.65*submerged*eddy);
         marker=clamp(marker+hands[hand].w*.12*weight,0.,1.);
+    }
+    // Swept projectiles and one-shot explosions impart horizontal momentum, never water mass.
+    // Coordinates, contact tests and conservative simulation arithmetic remain FP32.
+    for(int i=0;i<min(impulse_count,16);++i) {
+        vec4 start=impulse_starts[i],finish=impulse_ends[i];
+        vec3 movement=finish.xyz-start.xyz;
+        vec3 surface=p+normal.xyz*(q.x-bed.x);
+        float length2=dot(movement,movement);
+        float t=length2>1e-6?clamp(dot(surface-start.xyz,movement)/length2,0.,1.):0.;
+        vec3 delta=surface-mix(start.xyz,finish.xyz,t);
+        float radius=max(start.w,.05);
+        float vertical=dot(delta,normal.xyz);
+        if(abs(vertical)>radius) continue;
+        vec2 radial=vec2(dot(delta,u.xyz),dot(delta,v.xyz));
+        if(dot(radial,radial)>radius*radius*4.) continue;
+        float weight=exp(-2.*dot(radial,radial)/(radius*radius))
+            *max(0.,1.-vertical*vertical/(radius*radius));
+        vec2 drag=vec2(dot(movement,u.xyz),dot(movement,v.xyz));
+        drag/=max(length(movement),1e-5);
+        q.yz+=q.x*finish.w*weight*(radial/radius+drag*.2);
+        marker=clamp(marker+finish.w*weight*.08,0.,1.);
     }
     float damping=exp(-(water_physics.y+coast_at(at).z*water_physics.z)*dt);
     q.yz=q.x*bed.yz+(q.yz-q.x*bed.yz)*damping;

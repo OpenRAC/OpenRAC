@@ -11,12 +11,12 @@ was started from rac1-pal with them
 # The map: every function and data address of FROM with its place in TO.
 python3 port/tools/versionmap/versionmap.py build rac1/pal rac1/ntsc \
     --out build/versionmap/rac1-pal--rac1-ntsc.json \
-    --entries port/game/rac1-pal/libraries.tsv --entries port/game/rac1-pal/host/hand.c
+    --entries port/game/rac1-pal/libraries.tsv --entries port/game/rac1/host/hand.c
 python3 port/tools/versionmap/versionmap.py lookup build/versionmap/rac1-pal--rac1-ntsc.json 0012DB18
 
 # Carrying: a list of names, a libraries.tsv, C.
 python3 port/tools/versionmap/carry.py table MAP GEN port/game/rac1-pal/libraries.tsv
-python3 port/tools/versionmap/carry.py c MAP GEN port/game/rac1-pal/host/vector.c
+python3 port/tools/versionmap/carry.py c MAP GEN port/game/rac1/host/vector.c
 python3 port/tools/versionmap/carry.py c MAP GEN --keep-spelling --program level:00 FILE.c
 ```
 

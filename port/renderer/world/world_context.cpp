@@ -118,8 +118,10 @@ void WorldContext::bind_texture(
     const unsigned id = pool.gl_texture(handle);
     glActiveTexture(GL_TEXTURE0 + static_cast<GLenum>(unit));
     glBindTexture(GL_TEXTURE_2D, id);
+    // An animated replacement's frames are GL textures of their own: each is known by its own id.
+    const bool animated = pool.animated(handle);
     const auto known = std::find_if(m_uploaded.begin(), m_uploaded.end(), [&](const Uploaded& u) {
-        return u.handle == handle;
+        return animated ? u.gl == id : u.handle == handle;
     });
     const bool fresh = known == m_uploaded.end() || known->gl != id;
     if (fresh) {
@@ -128,7 +130,10 @@ void WorldContext::bind_texture(
         const Rgba8Image& base = pool.image(handle);
         int levels = 0;
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        for (std::size_t i = 0; handle == texture.texture && i < texture.mip_levels.size(); ++i) {
+        // The game's levels are of the original picture, not of a replacement's frames.
+        for (std::size_t i = 0;
+             handle == texture.texture && !animated && i < texture.mip_levels.size();
+             ++i) {
             const Rgba8Image& m = texture.mip_levels[i];
             const int level = static_cast<int>(i) + 1;
             if (m.width != std::max(1, base.width >> level)

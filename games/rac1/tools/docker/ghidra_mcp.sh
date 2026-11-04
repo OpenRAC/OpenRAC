@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start, stop or inspect the Ghidra MCP container (docs/CONTAINERS.md):
+# Start, stop or inspect the Ghidra MCP container (docs/reference/CONTAINERS.md):
 # headless Ghidra with PS2 EmotionEngine support and an MCP server, for
 # LLM agents. The retail executable is mounted read-only from baserom/.
 #

@@ -10,7 +10,7 @@ PAL column gives what OpenRAC measured on `SCES_509.16` where it has
 **Games.** Everything below is measured on RAC1. The comparison with the
 sequels in the last sections is Wrench's knowledge as ReRAC records it
 (**reference**); only the RAC2 points marked as such are measured in OpenRAC,
-on prerelease discs ([LEVEL-ARCHIVE-FORMAT.md](../../../games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md)).
+on prerelease discs (`LEVEL-ARCHIVE-FORMAT.md`).
 
 All integers are little-endian; sectors are 0x800 bytes; an LBA is a sector
 number from the start of a 2048-byte-per-sector image.
@@ -120,14 +120,14 @@ The structure is one flat record of absolute sector ranges:
 | 0x12C8 | 4 | SectorRange | spaceships | |
 | 0x12E8 | 20 | SectorRange | (unknown, animation-like) | |
 | 0x1388 | 6 | SectorRange | space_plates | WAD-compressed texture lists |
-| 0x13B8 | 1 | SectorRange | transition | WAD-compressed; see [CUTSCENES.md](../systems/CUTSCENES.md) |
+| 0x13B8 | 1 | SectorRange | transition | WAD-compressed |
 | 0x13C0 | 36 | SectorRange | space_audio | VAG |
 | 0x14E0 | 1 | SectorRange | sound_bank | the global 989snd bank |
 | 0x14E8 | 1 | SectorRange | (unknown) | Wrench's comments put this and the next field at 0x14E0 by mistake |
 | 0x14F0 | 1 | SectorRange | music | VAG |
 | 0x14F8 | 1 | SectorRange | hud_header | |
 | 0x1500 | 5 | SectorRange | hud_banks | not compressed here, unlike in level data |
-| 0x1528 | 1 | SectorRange | all_text | the localised interface text; see [HUD_TEXT.md](../systems/HUD_TEXT.md) |
+| 0x1528 | 1 | SectorRange | all_text | the localised interface text |
 | 0x1530 | 28 | SectorRange | things | unknown |
 | 0x1610 | 1 | SectorRange | post-credits sequence | WAD-compressed |
 | 0x1618 | 18 | SectorRange | post_credits_audio | VAG |
@@ -182,8 +182,7 @@ header; the size field is not used (Wrench writes 1). On PAL, `func_0012F4A8`
   | 0x134 | 71 | PAL chunk sectors, the same (PAL chunks are 80 ticks long) |
 
   A chunk's size is the difference to the next entry; ReRAC checked that
-  this equals the padded WAD size for all 4,081 chunks. The chunks and their
-  playback are in [CUTSCENES.md](../systems/CUTSCENES.md).
+  this equals the padded WAD size for all 4,081 chunks.
 - **No stored group sizes.** A level's sectors fall in three groups: level
   (data, gameplay, occlusion), audio (bindata, music) and scene. Their
   extents are inferred from the union of what each references; either of the

@@ -12,6 +12,12 @@ from pathlib import Path
 import bundle_standalone as bundle
 
 
+def going_commando_format() -> str:
+    """The format of Going Commando's export, which moves on alone (editor/port.py GAME_FORMATS)."""
+    text = (bundle.ROOT / "editor" / "port.py").read_text(encoding="utf-8")
+    return re.search(r'^GAME_FORMATS = \{"rac2": (\d+)\}$', text, re.MULTILINE).group(1)
+
+
 class LevelsStamp(unittest.TestCase):
     """The check's stamp names the export's format in every place that reads or writes it: an old
     name leaves Play waiting for a stamp the game never writes, the check run again and again."""
@@ -25,10 +31,12 @@ class LevelsStamp(unittest.TestCase):
         self.assertEqual(stamps, {str(expected)})
         # The levels are ready by a stamp of their own, named after the format too, so a bump
         # reads them again before the check runs.
-        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected)})
+        # Going Commando's export moved on alone, so its bump reads only its levels again.
+        self.assertEqual(set(re.findall(r"levels-(\d+)\.json", actions)), {str(expected), going_commando_format()})
+        self.assertEqual(set(re.findall(r"rac2/ntsc/levels-(\d+)\.json", actions)), {going_commando_format()})
         self.assertEqual(bundle.LEVELS_STAMP, f"levels-{expected}.json")
         extract = (bundle.ROOT / "editor" / "extract.py").read_text(encoding="utf-8")
-        self.assertIn('f"levels-{PORT_FORMAT}.json"', extract)
+        self.assertIn('f"levels-{levels_format(game)}.json"', extract)
         self.assertNotIn("level_99/manifest.json", actions)
 
 
@@ -49,15 +57,23 @@ class PlayerActions(unittest.TestCase):
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
         # back; their levels are read into the data folder for texture and model packs.
-        for key, first in (("rac2/ntsc", "00"), ("rac3/ntsc", "01"), ("rac4/ntsc", "00")):
+        for key, stamp in (("rac2/ntsc", going_commando_format()), ("rac3/ntsc", 4), ("rac4/ntsc", 4)):
             with self.subTest(key):
                 actions = {a["id"]: a for a in self.actions["versions"][key]}
                 self.assertNotIn("editor-pack", actions)
                 levels = actions["port-levels"]
                 self.assertEqual(levels["args"][-3:], ["{data}/port/ntsc", "--anywhere", "--replace"])
-                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-4.json")
+                self.assertEqual(levels["artifact"], f"{{data}}/port/ntsc/levels-{stamp}.json")
                 self.assertEqual(actions["editor-extract"]["args"][-3:], ["{data}/levels/ntsc", "--split", "--anywhere"])
                 self.assertEqual([n["path"] for n in actions["assets-export"]["needs"]], [levels["artifact"]])
+
+    def test_audio_exports_to_the_data_folder_on_each_disc(self):
+        for actions in (self.pal, self.ntsc):
+            self.assertEqual(actions["audio-export"]["args"][3], "{data}/exports/audio-level_{level}-{option}")
+            self.assertEqual(actions["audio-export-all"]["args"][3], "{data}/exports/audio-{option}")
+            self.assertIn("--timestamp", actions["audio-export"]["args"])
+            self.assertIn("--timestamp", actions["audio-export-all"]["args"])
+            self.assertEqual(actions["audio-import"]["args"][-1], "{data}/overrides")
 
     def test_mods_work_in_the_data_folder(self):
         extract, pack = self.pal["editor-extract"], self.pal["editor-pack"]
@@ -100,15 +116,26 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in play["needs"]], [check["makes"]])
         self.assertNotIn("python", play.get("requires", []))
 
+    def test_ci_smoke_checks_use_only_packaged_native_bake_entry_points(self):
+        workflow = (bundle.ROOT/'.github/workflows/launcher.yml').read_text()
+        self.assertNotIn('$COPY/port/enhanced/tools/baker/',workflow)
+        self.assertIn('"$baker" --print-water-profile',workflow)
+        self.assertIn('"$baker" --print-interior-profile',workflow)
+
     def test_the_probe_bake_reads_and_writes_the_data_folder(self):
         for version, actions in (("pal", self.pal), ("ntsc", self.ntsc)):
             bake = actions["probe-bake"]
             args = bake["args"]
+            self.assertEqual(bake["program"], "{artifact}")
+            self.assertIn("--bake-all", args)
+            self.assertNotIn("--source-decoder", args)
+            self.assertNotIn("python", bake.get("requires", []))
+            self.assertNotIn("--baker", args)
             self.assertEqual(args[args.index("--levels-dir") + 1], f"{{data}}/port/{version}")
             self.assertEqual(args[args.index("--output-dir") + 1], f"{{data}}/probes/{version}")
             self.assertIn("--update", args)
             self.assertEqual([need["path"] for need in bake["needs"]], [actions["port-levels-check"]["makes"]])
-            self.assertTrue(bake["artifact"].endswith("openrac-probe-bake.exe"))
+            self.assertTrue(bake["artifact"].endswith("openrac-enhanced-baker.exe"))
 
     def test_ntsc_levels_have_a_folder_of_their_own(self):
         # <data> is the game's, shared by PAL and NTSC-U: each version's levels are <data>/port/<version>.
@@ -123,14 +150,18 @@ class PlayerActions(unittest.TestCase):
 
     def test_going_commando_plays_for_developers(self):
         # Its Play is carried as it is (a developer's, with its warning), started in the data
-        # folder, waiting for the disc set up there; it reads no levels yet. Its build needs a checkout.
+        # folder, reading the data folder's levels. It has no level check yet, so it waits for the
+        # disc set up there and for the export's own stamp: a format bump reads the levels again
+        # before it starts. Its build needs a checkout.
         actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
         play = actions["play"]
         self.assertTrue(play["developer"])
         self.assertIn("development only", play["warning"])
-        self.assertEqual(play["args"], ["--data", "{data}", "--window"])
+        self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
-        self.assertEqual([n["path"] for n in play["needs"]], ["{data}/iso_data/rac2/buildinfo.json"])
+        self.assertEqual([n["path"] for n in play["needs"]],
+                         ["{data}/iso_data/rac2/buildinfo.json", actions["port-levels"]["artifact"]])
+        self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)
         self.assertNotIn("port-build", actions)
@@ -167,6 +198,8 @@ class Bundle(unittest.TestCase):
                     self.assertTrue(bundle.editor_file(path.relative_to(editor)), path)
         # godot.py reads it, and so does the launcher, to tell an outdated project.
         self.assertTrue(bundle.editor_file(Path("project_format.json")))
+        # The guide the Audio tab's "How it works" opens.
+        self.assertTrue(bundle.editor_file(Path("AUDIO_MODDING.md")))
 
     def test_a_copy_without_game_or_python(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -177,14 +210,21 @@ class Bundle(unittest.TestCase):
                 self.assertEqual(bundle.main(), 0)
             finally:
                 sys.argv = argv
+            self.assertIn("version: " + json.loads((bundle.ROOT/"launcher/src-tauri/tauri.conf.json").read_text())["version"],
+                          (out/"STANDALONE").read_text())
             for rel in ("STANDALONE", "tools/openrac.py", "tools/extractor.py", "editor/extract.py",
                         "editor/moby_classes.tsv", "games/rac1/game.json", "progress/summary.json",
-                        "launcher/actions.json", "port/enhanced/tools/probes/bake_all.py",
+                        "launcher/actions.json",
                         "port/enhanced/lighting/profiles/rac1/moby-seeds.json",
+                        "port/enhanced/lighting/profiles/rac1/object-lights.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/emission-materials.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
             self.assertFalse(list(out.rglob("test_*.py")))
+            for name in ('bake_all.py', 'bake_level.py', 'seed_regions.py', 'native_coordinator.py'):
+                self.assertFalse((out / "port/enhanced/tools/baker" / name).exists())
+            self.assertFalse((out / "port/enhanced/tools/water").exists())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertFalse((out / "games/rac1/include/moby_pvars.h").exists())
             layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
             self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
@@ -231,59 +271,39 @@ class Bundle(unittest.TestCase):
                             str(out / "editor"), str(exported)], cwd=tmp, check=True)
             profile = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"
             self.assertEqual((exported / "probe-bake.json").read_bytes(), (bundle.ROOT / profile).read_bytes())
+            lights = "port/enhanced/lighting/profiles/rac1/object-lights.json"
+            self.assertEqual((exported / "object-lights.json").read_bytes(),
+                             (out / lights).read_bytes())
             emission = "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-emission.json"
             authored = json.loads((bundle.ROOT / emission).read_text())
             authored['textures/lamp.png'] = definition
             copied = json.loads((exported / "probe-emission.json").read_text())
             self.assertEqual(copied.pop('_catalog_defaults'), authored)
             self.assertEqual(copied, authored)
-            self.assertFalse((out / "port/enhanced/tools/probes/moby_seed_whitelist.json").exists())
-            script = ("import sys\n"
-                      "from pathlib import Path\n"
-                      "sys.path.insert(0, sys.argv[1])\n"
-                      "import moby_seeds\n"
-                      "path = moby_seeds.default_whitelist_path('rac1')\n"
-                      "assert path == Path(sys.argv[2])\n"
-                      "assert moby_seeds.whitelist(path)[0]['name'] == 'ratchet'\n")
-            subprocess.run([sys.executable, "-I", "-c", script, str(out / bundle.PROBE_TOOLS),
-                            str(out / "port/enhanced/lighting/profiles/rac1/moby-seeds.json")],
-                           cwd=tmp, check=True)
+            self.assertFalse((out / "port/enhanced/tools/baker/moby_seed_whitelist.json").exists())
             water_profile = "port/enhanced/water/profiles/rac1-ntsc/level_01/water-boundaries.json"
             self.assertEqual((out / water_profile).read_bytes(), (bundle.ROOT / water_profile).read_bytes())
             self.assertEqual((exported / "water-boundaries.json").read_bytes(), (bundle.ROOT / water_profile).read_bytes())
 
-    def test_probe_baker_carries_its_interior_inference_companion(self):
+    def test_unified_baker_is_packaged_without_companion_executables(self):
         for suffix in ("", ".exe"):
             with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
-                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
+                build, dest = Path(tmp)/"build", Path(tmp)/"dest"
                 build.mkdir()
                 dest.mkdir()
-                baker = build / ("openrac-probe-bake" + suffix)
-                infer = build / ("openrac-interior-infer" + suffix)
-                baker.write_bytes(b"baker")
-                infer.write_bytes(b"interior inference")
-                infer.chmod(0o755)
-                (build / "openrac-interior-infer.pdb").write_bytes(b"debug")
+                baker = build/("openrac-enhanced-baker"+suffix)
+                baker.write_bytes(b"enhanced baker")
+                baker.chmod(0o755)
+                (build/"openrac-enhanced-baker.pdb").write_bytes(b"debug")
+                stamp = build/"openrac-build.json"
+                stamp.write_text('{"version":"0.10.1","commit":"built-commit","games":[]}', encoding="utf-8")
                 carried = bundle.copy_games(build, dest)
-                self.assertIn(baker.name, carried)
-                self.assertIn(infer.name, carried)
-                self.assertEqual((dest / infer.name).read_bytes(), infer.read_bytes())
-                self.assertFalse((dest / "openrac-interior-infer.pdb").exists())
+                self.assertEqual((dest/stamp.name).read_bytes(), stamp.read_bytes())
+                self.assertEqual(carried, [baker.name])
+                self.assertEqual((dest/baker.name).read_bytes(), baker.read_bytes())
+                self.assertFalse((dest/"openrac-enhanced-baker.pdb").exists())
                 if sys.platform != "win32":
-                    self.assertTrue((dest / infer.name).stat().st_mode & 0o111)
-
-    def test_probe_baker_without_matching_inference_companion_is_rejected(self):
-        for suffix in ("", ".exe"):
-            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as tmp:
-                build, dest = Path(tmp) / "build", Path(tmp) / "dest"
-                build.mkdir()
-                dest.mkdir()
-                (build / ("openrac-probe-bake" + suffix)).write_bytes(b"baker")
-                # A different platform's executable must not satisfy the requirement.
-                wrong_suffix = ".exe" if not suffix else ""
-                (build / ("openrac-interior-infer" + wrong_suffix)).write_bytes(b"wrong platform")
-                with self.assertRaisesRegex(ValueError, "openrac-interior-infer"):
-                    bundle.copy_games(build, dest)
+                    self.assertTrue((dest/baker.name).stat().st_mode & 0o111)
 
     def test_games_as_built(self):
         # On macOS a game is its bundle, carried whole; the build folder's link to it is not.
@@ -342,7 +362,7 @@ class Bundle(unittest.TestCase):
             # No game program (the APK's libraries); the probe baker's Python half for Enhanced
             # graphics, whose program is a library of the APK too.
             self.assertFalse((out / "port/build").exists())
-            self.assertTrue((out / "port/enhanced/tools/probes/bake_all.py").is_file())
+            self.assertFalse((out / "port/enhanced/tools/baker").exists())
             self.assertTrue((out / "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json").is_file())
             self.assertIn("Android", (out / "STANDALONE").read_text())
 

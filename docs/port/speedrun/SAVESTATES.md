@@ -17,7 +17,7 @@ easy to confuse.
 |---|---|---|
 | **The memory card** | The game's own save data: bolts, inventory, per-level flags, in the retail `save%d.bin` chunk format with a CRC-16. On the port a card is **a folder of ordinary files** on disk. | `port/game/common/lib/mc.c`; the format in `port/assets/disc/save_game.h` |
 | **The game's checkpoint** | The level's own checkpoint block, copied in and out within game memory. Entirely inside the guest RAM. | `port/game/rac1-pal/hand/level_checkpoint_restore.c` |
-| **A RAM dump** | The game's 32 MB of main memory written to a file. `OPENRAC_DUMP_RAM=FRAME` writes `ram_<frame>.bin`. The viewer can **read one back**. | `port/game/common/frontend.cpp:2320-2329`; `port/viewer/game_state.cpp` |
+| **A RAM dump** | The game's 32 MB of main memory written to a file. `OPENRAC_DUMP_RAM=FRAME` writes `ram_<frame>.bin`. The viewer can **read one back**. | `port/game/common/frontend.cpp:2320-2329`; `port/game/rac1/game_state.cpp` |
 | **Mod savestate** | A private snapshot restored at a post-vblank tick boundary. Project Save Clank persists opaque port bytes in slot files. | Separate `project-save-clank` project; generic primitives in `sdk/include/openrac/openrac_mod.h`, `port/runtime/` |
 
 The RAM dump remains a debugging aid, not the mod's state format. The snapshot

@@ -35,15 +35,23 @@ def entries() -> list[tuple[str, list[str]]]:
 
 
 def main() -> None:
+    import data_in_c  # it reads this file's table, so it comes in only here
+
     rows = sorted(((int(lab.rsplit("_", 1)[1], 16), lab, f"{obj}({section})" if i == 0 else None)
                    for obj, section, labs in sections() for i, lab in enumerate(labs)))
+    # Blocks in src/data/ fill the rest of core_rdata the same way.
+    rows = sorted(rows + [(data_in_c.address(label), label, f"{obj}({section})")
+                          for label, obj, section in data_in_c.provided("core_rdata")])
     if sys.argv[1:] == ["labels"]:
-        print(" ".join(lab for _, lab, _ in rows))
+        inside = [f"+{inner}" for inner in data_in_c.interior() if data_in_c.segment_of(inner) == "core_rdata"]
+        print(" ".join([lab for _, lab, _ in rows] + inside))
     elif sys.argv[1:] == ["ld"]:
         print("    build-sn/core_rdata_1.o(.rodata)")
-        for k, (_, _, obj) in enumerate(rows, 2):
+        for k, (_, lab, obj) in enumerate(rows, 2):
             if obj:
                 print(f"    {obj}")
+            for line in data_in_c.inner_symbols(lab):
+                print(line)
             print(f"    build-sn/core_rdata_{k}.o(.rodata)")
     else:
         sys.exit(__doc__)

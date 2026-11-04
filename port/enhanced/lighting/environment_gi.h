@@ -3,6 +3,7 @@
 #pragma once
 #include <map>
 
+#include "common/profiler.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/environment_bake.h"
 #include "enhanced/lighting/probe_regions.h"
@@ -11,7 +12,10 @@ namespace openrac::lighting::bake_detail {
 // Coarse bins restrict CPU region selection without changing its boundary score or stable ties.
 class CaptureGi {
 public:
+    // Builds the spatial lookup once for an immutable set of decoded GI volumes.
     explicit CaptureGi(std::span<const ProbeVolume> volumes) : m_volumes(volumes) {
+        const profiling::Zone timing("Index GI field");
+
         for (unsigned i = 1; i < volumes.size(); ++i) {
             index_volume(i);
         }

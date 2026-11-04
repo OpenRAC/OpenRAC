@@ -1,14 +1,49 @@
 """Keep private experiment directories out without rejecting retained C variants."""
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
+from contextlib import redirect_stdout
+from io import StringIO
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import check_repository
 
 
 class ScratchHygieneTests(unittest.TestCase):
+    def test_source_ownership_accepts_native_windows_and_posix_paths(self):
+        for relative in (PureWindowsPath("src/game/example.c"),
+                         PurePosixPath("src/game/example.c")):
+            with self.subTest(relative=relative):
+                source = MagicMock()
+                source.relative_to.return_value = relative
+                source.read_text.return_value = (
+                    "int func_00100000(void)\n{\n    return 0;\n}\n"
+                    'INCLUDE_ASM("asm/game", func_00100004);\n'
+                )
+                root = MagicMock()
+                (root / "src").rglob.return_value = [source]
+                errors = []
+                with patch.object(check_repository, "ROOT", root), redirect_stdout(StringIO()):
+                    check_repository.check_sources(
+                        {"us": {"func_00100000", "func_00100004"}}, errors
+                    )
+                self.assertEqual(errors, [])
+
+    def test_empty_source_barriers_are_rejected(self):
+        for text in ("do { } while (0);", "do { /* schedule */ ; }\nwhile (0U);"):
+            errors = []
+            check_repository.check_empty_barriers(text, "src/example.c", errors)
+            self.assertEqual(len(errors), 1)
+
+    def test_nonempty_macro_blocks_and_literal_mentions_are_allowed(self):
+        for text in ("do { high = value.hi; low = value.lo; } while (0);",
+                     '/* do { } while (0) */ const char *s = "do {} while (0)";',
+                     '// do {} while (0)\nreturn 0;'):
+            errors = []
+            check_repository.check_empty_barriers(text, "src/example.c", errors)
+            self.assertEqual(errors, [])
+
     def check_paths(self, paths):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

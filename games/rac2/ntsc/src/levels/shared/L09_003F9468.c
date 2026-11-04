@@ -81,9 +81,8 @@ void func_L09_003F9468(DobboPartsObject252 *object)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F9568);
 
-INCLUDE_ASM("asm/levels", func_L09_003F9708);
+/* func_L09_003F9708 lives in L09_003F9708-g8.c. */
 
 extern s32 func_33E658(s32 a0);
 
@@ -101,13 +100,12 @@ s32 func_L09_003F9928(char *a0)
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L09_003F9970);
+/* func_L09_003F9970 lives in L09_003F9970.c. */
 
-INCLUDE_ASM("asm/levels", func_L09_003F9A70);
+/* func_L09_003F9A70 is in the sibling -g8 unit. */
 
-INCLUDE_ASM("asm/levels", func_L09_003F9D08);
+/* func_L09_003F9D08 is in the sibling activation unit. */
 
-INCLUDE_ASM("asm/levels", func_L09_003FA080);
 
 /* computes a local target direction and stores bounded horizontal and vertical angles through the original math helpers */
 void func_L09_004051F8(NativeAngleOwner *owner) {
@@ -127,12 +125,14 @@ void func_L09_004051F8(NativeAngleOwner *owner) {
     else if (angle < -0.52359885f) state->field2E8 = -0.52359885f;
 }
 
-INCLUDE_ASM("asm/levels", func_L09_00410200);
+/* func_L09_00410200 is in L09_003F9468-dust-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L09_00410608);
+/* func_L09_00410608 lives in L09_00410608-g8.c. */
 
 /* func_L09_00410B40 lives in the sibling small-data unit (L09_003F9468-g8.c). */
 
-INCLUDE_ASM("asm/levels", func_L09_00410BC8);
+/* func_L09_00410BC8 lives in L09_00410BC8-sprites.c. */
 
 INCLUDE_ASM("asm/levels", func_L09_0041A700);
+
+INCLUDE_ASM("asm/levels", func_L09_003FB780);

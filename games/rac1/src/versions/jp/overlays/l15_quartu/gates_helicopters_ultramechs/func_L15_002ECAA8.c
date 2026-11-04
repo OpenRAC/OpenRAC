@@ -39,13 +39,17 @@ void draw_quartu_cutscene_messages(void) {
             }
         }
     }
-    if (flag == 0) return;
+    if (flag == 0)
+        return;
     n = libc_strlen(buf);
     if (val < n) {
         n = val;
     } else if (n < val) {
-        if ((n - val) & 4) n = n - 1;
+        if ((n - val) & 4)
+            n = n - 1;
     }
-    print_text_with_texture_3((void *)(*(int *)&quartu_cutscene_msg_x + 1), (void *)(*(int *)&quartu_cutscene_msg_y + 1), (void *)*(int *)&quartu_cutscene_msg_shadow_color, buf, (void *)n);
-    print_text_with_texture_3((void *)*(int *)&quartu_cutscene_msg_x, (void *)*(int *)&quartu_cutscene_msg_y, (void *)*(int *)&quartu_cutscene_msg_color, buf, (void *)n);
+    print_text_with_texture_3((void *)(quartu_cutscene_msg_x + 1), (void *)(quartu_cutscene_msg_y + 1),
+                              (void *)quartu_cutscene_msg_shadow_color, buf, (void *)n);
+    print_text_with_texture_3((void *)quartu_cutscene_msg_x, (void *)quartu_cutscene_msg_y,
+                              (void *)quartu_cutscene_msg_color, buf, (void *)n);
 }

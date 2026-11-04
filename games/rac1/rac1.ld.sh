@@ -7,7 +7,7 @@
 # counter correctly after a NOLOAD section (verified: an explicit
 # `. = X;` right after one is silently ignored, next section lands back
 # at the NOLOAD section's own start address instead). See
-# docs/TOOLCHAIN.md. build-sn/{core_bss_pad_1,core_bss_pad_2,bss_pad}.o must exist first --
+# docs/reference/TOOLCHAIN.md. build-sn/{core_bss_pad_1,core_bss_pad_2,bss_pad}.o must exist first --
 # tools/build_sn_data.sh generates them.
 cat > build-sn/rac1.ld <<'EOF'
 OUTPUT_FORMAT("elf32-littlemips")
@@ -75,7 +75,11 @@ cat >> build-sn/rac1.ld <<'EOF'
   __CTOR_LIST__ = 0x0015ED18;
 
   . = 0x12f580;
-  .core_data : { build-sn/core_data.data.o(.data) }
+  .core_data : {
+EOF
+python tools/data_in_c.py ld core >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x152300;
   /* Split around the read-only data compiled objects now bring themselves
@@ -103,10 +107,18 @@ cat >> build-sn/rac1.ld <<'EOF'
   /* main segment (vram 0x15ed80, rom 0x5fd00) */
 
   . = 0x15ed80;
-  .core_lit : { build-sn/core_lit.rodata.o(.rodata) }
+  .core_lit : {
+EOF
+python tools/data_in_c.py ld core_lit >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x15f000;
-  .lit : { build-sn/lit.rodata.o(.rodata) }
+  .lit : {
+EOF
+python tools/data_in_c.py ld lit >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x161380;
   .bss : { build-sn/bss_pad.o(.bss_pad) }
@@ -121,13 +133,25 @@ cat >> build-sn/rac1.ld <<'EOF'
   }
 
   . = 0x1e8f00;
-  .lvl_vtbl : { build-sn/lvl_vtbl.data.o(.data) }
+  .lvl_vtbl : {
+EOF
+python tools/data_in_c.py ld lvl_vtbl >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x1e8f80;
-  .lvl_camvtbl : { build-sn/lvl_camvtbl.data.o(.data) }
+  .lvl_camvtbl : {
+EOF
+python tools/data_in_c.py ld lvl_camvtbl >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x1e9000;
-  .lvl_sndvtbl : { build-sn/lvl_sndvtbl.data.o(.data) }
+  .lvl_sndvtbl : {
+EOF
+python tools/data_in_c.py ld lvl_sndvtbl >> build-sn/rac1.ld
+cat >> build-sn/rac1.ld <<'EOF'
+  }
 
   . = 0x1e9080;
   .text : {

@@ -3,6 +3,7 @@
 [![Website](https://img.shields.io/badge/Website-openrac.dev-ff8a00?logo=googlechrome&logoColor=white)](https://openrac.dev)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/Sfd2B54PDG)
 [![Progress report](https://github.com/OpenRAC/rac1-decomp/actions/workflows/progress.yml/badge.svg)](https://github.com/OpenRAC/rac1-decomp/actions/workflows/progress.yml)
+[![CI](https://github.com/OpenRAC/rac1-decomp/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenRAC/rac1-decomp/actions/workflows/ci.yml)
 [![Code](https://bytematch.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Code&measure=matched_code_percent)](https://bytematch.dev/OpenRAC/rac1-decomp)
 [![Functions](https://bytematch.dev/OpenRAC/rac1-decomp.svg?mode=shield&label=Functions&measure=matched_functions)](https://bytematch.dev/OpenRAC/rac1-decomp)
 
@@ -53,20 +54,27 @@ Every function links at its original retail address. Functions not yet decompile
    # Expected SHA-1: 79956931bd62fafd8d20fa2eae796dbaf2e15e83
    cp /path/to/SCES_509.16 baserom/SCES_509.16
    ```
+   For the level code, also copy your disc image to `baserom/SCES_509.16.iso`. To check every version, add `baserom/SCES_509.16_v1.00.iso`, `baserom/SCUS_971.99.iso` and `baserom/SCPS_150.37.iso` ([`docs/VERSIONS.md`](docs/VERSIONS.md)).
 
 3. **Install dependencies and fetch toolchains:**
    ```bash
    # Windows (native):
    pip install -r requirements.txt
+   python tools/overlays.py dump
+   python tools/versions.py dump --version us  # also pal_v1 and jp
    bash tools/setup_asm.sh
    git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
    git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+   bash tools/setup_compilers.sh
    python tools/gcc323.py --setup  # public C frontend; uses Docker/Podman on Windows
 
    # Linux & macOS (via container wrapper):
+   bash tools/docker/run.sh python3 tools/overlays.py dump
+   bash tools/docker/run.sh python3 tools/versions.py dump --version us  # also pal_v1 and jp
    bash tools/docker/run.sh bash tools/setup_asm.sh
    git clone https://github.com/AngheloAlf/SN-Systems-ProDG_for_PS2_3.01 toolchain/sn-prodg-3.01
    git clone https://github.com/AngheloAlf/sce_ps2_sdk_24 toolchain/sn-prodg-24
+   bash tools/setup_compilers.sh
    bash tools/docker/run.sh python tools/gcc323.py --setup
    ```
 
@@ -80,13 +88,15 @@ Every function links at its original retail address. Functions not yet decompile
    ```
 
 For detailed documentation on the toolchain and container setup:
-- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md) – Compiler and assembler configurations
-- [`docs/BUILD_FIDELITY.md`](docs/BUILD_FIDELITY.md) – What the build reproduces of retail's toolchain, what it models, and the rules that keep it honest
-- [`docs/CONTAINERS.md`](docs/CONTAINERS.md) – Docker/Podman container workflow
+- [`docs/reference/TOOLCHAIN.md`](docs/reference/TOOLCHAIN.md) – Compiler and assembler configurations
+- [`docs/reference/BUILD_FIDELITY.md`](docs/reference/BUILD_FIDELITY.md) – What the build reproduces of retail's toolchain, what it models, and the rules that keep it honest
+- [`docs/reference/CONTAINERS.md`](docs/reference/CONTAINERS.md) – Docker/Podman container workflow
 
 ---
 
 ## Contributing
+
+All docs are listed in [docs/README.md](docs/README.md). Code style is in [docs/STYLE.md](docs/STYLE.md).
 
 Contributions are warmly welcome! Whether you are interested in decompiling functions, researching engine quirks, or improving documentation:
 
@@ -100,8 +110,7 @@ Contributions are warmly welcome! Whether you are interested in decompiling func
 
 This project builds upon years of dedicated reverse-engineering research and tooling by the community:
 
-- **GFI (Game Fuckery Inc.)** – Special thanks to the GFI Discord community for years of reverse engineering, game research, and technical insights that made this decompilation possible.
-- **[Lombyte](https://github.com/mateuszklysz/Lombyte)** by mateuszklysz – Matching decompilation of the NTSC build of *Ratchet & Clank*. Invaluable reference for function pairing, struct definitions, and symbol names ([`docs/SIBLING_DECOMPS.md`](docs/SIBLING_DECOMPS.md)).
+- **[Lombyte](https://github.com/mateuszklysz/Lombyte)** by mateuszklysz – Matching decompilation of the NTSC build of *Ratchet & Clank*. Invaluable reference for function pairing, struct definitions, and symbol names ([`docs/agents/SIBLING_DECOMPS.md`](docs/agents/SIBLING_DECOMPS.md)).
 - **[ReRAC](https://github.com/re-rac/rerac)** by the ReRAC team – Native PC port of the US release. Essential documentation of formats (mobys, models, collision), symbol names ([`config/names.tsv`](config/names.tsv)), and overlay mechanics ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)).
 - **[rac3-uya-decomp](https://github.com/OpenRAC/rac3-uya-decomp)** by vetusmagnus – Matching decompilation of *Ratchet & Clank: Up Your Arsenal*. Foundation for SN Systems compiler flag discoveries and build setup.
 - **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd – Ratchet & Clank PS2 modding tools and asset format specifications ([OpenRAC's `editor/README.md`](../../../editor/README.md)).

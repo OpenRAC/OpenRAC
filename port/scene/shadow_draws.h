@@ -26,4 +26,18 @@ std::vector<ShadowDrawRange> prepare_shadow_draws(
     bool allow_solid
 );
 
+// Small consecutive opaque triangle ranges, with conservative local-space bounds.
+// Alpha ranges remain whole, with bounds too. Invalid bounds always survive culling.
+struct ShadowGeometryRange {
+    ShadowDrawRange draw;
+    renderer::Vec3 low{}, high{};
+    bool bounded = false;
+};
+
+std::vector<ShadowGeometryRange> prepare_shadow_geometry(
+    std::span<const ShadowDrawRange> draws,
+    std::span<const Vertex> vertices,
+    std::span<const std::uint32_t> indices
+);
+
 }  // namespace openrac::scene

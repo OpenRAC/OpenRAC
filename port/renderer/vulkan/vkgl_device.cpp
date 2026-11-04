@@ -22,8 +22,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include "common/cache_folder.h"
 #include "common/env.h"
 #include "common/log.h"
+#include "common/profiler.h"
 #include "renderer/render_opt.h"
 #include "renderer/vulkan/pipeline_cache_file.h"
 #include "renderer/vulkan/vkgl_internal.h"
@@ -72,25 +74,7 @@ std::filesystem::path pipeline_cache_file() {
             return std::filesystem::path(*chosen);
         }
     }
-    std::filesystem::path base;
-#if defined(__APPLE__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "Library/Caches/OpenRAC";
-#elif defined(__ANDROID__)
-    const std::string home = env::system_variable("HOME").value_or(".");
-    base = std::filesystem::path(home) / "cache";
-#else
-    if (const std::optional<std::string> xdg = env::system_variable("XDG_CACHE_HOME");
-        xdg.has_value() && !xdg->empty()) {
-        base = std::filesystem::path(*xdg) / "openrac";
-    } else {
-        std::optional<std::string> home = env::system_variable("USERPROFILE");
-        if (!home.has_value() || home->empty()) {
-            home = env::system_variable("HOME");
-        }
-        base = std::filesystem::path(home.value_or(".")) / ".cache/openrac";
-    }
-#endif
+    const std::filesystem::path base = cache_folder();
     return base
            / std::format(
                "vulkan_pipelines_{:04x}_{:04x}_{}.bin",
@@ -199,6 +183,31 @@ bool make_pipeline_cache() {
     return true;
 }
 
+// Saves the pipeline cache's data to `path`; quiet saves (the ones made while the game runs) log
+// only a failure. Any thread: the cache is internally synchronised. False when nothing was saved.
+bool write_cache_data(const std::filesystem::path& path, bool quiet) {
+    std::size_t size = 0;
+    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, nullptr) != VK_SUCCESS
+        || size <= sizeof(VkPipelineCacheHeaderVersionOne)) {
+        return false;
+    }
+    std::vector<char> buffer(size);
+    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, buffer.data()) != VK_SUCCESS) {
+        return false;
+    }
+    buffer.resize(size);
+    std::string error;
+    // Other programs may save the same file now: each saves whole, through a file of its own.
+    if (!write_pipeline_cache(path, buffer, error)) {
+        log::warn("vulkan: could not save the pipeline cache: {}", error);
+        return false;
+    }
+    if (!quiet) {
+        log::info("vulkan: saved {} bytes of pipeline cache to {}", size, path.string());
+    }
+    return true;
+}
+
 void save_pipeline_cache() {
     if (g == nullptr || g->device == VK_NULL_HANDLE || g->pipeline_cache == VK_NULL_HANDLE
         || !g->open) {
@@ -208,26 +217,50 @@ void save_pipeline_cache() {
     if (path.empty()) {
         return;
     }
-    std::size_t size = 0;
-    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, nullptr) != VK_SUCCESS
-        || size <= sizeof(VkPipelineCacheHeaderVersionOne)) {
-        return;
+    if (write_cache_data(path, false)) {
+        remove_other_pipeline_caches(path);
     }
-    std::vector<char> buffer(size);
-    if (vkGetPipelineCacheData(g->device, g->pipeline_cache, &size, buffer.data()) != VK_SUCCESS) {
-        return;
-    }
-    std::string error;
-    // Other programs may save the same file now: each saves whole, through a file of its own.
-    if (!write_pipeline_cache(path, buffer, error)) {
-        log::warn("vulkan: could not save the pipeline cache: {}", error);
-        return;
-    }
-    log::info("vulkan: saved {} bytes of pipeline cache to {}", size, path.string());
-    remove_other_pipeline_caches(path);
 }
 
 }  // namespace
+
+void save_pipeline_caches_soon(bool spirv) {
+    // Closed, no cache kept, or nothing new since the last save.
+    if (g == nullptr || !g->open || g->pipeline_cache == VK_NULL_HANDLE
+        || g->manifest.added == g->saved_keys) {
+        return;
+    }
+
+    const std::filesystem::path path = pipeline_cache_file();
+
+    // No cache file, or a save still writing: the next call saves.
+    if (path.empty() || g->cache_saving.load()) {
+        return;
+    }
+
+    g->saved_keys = g->manifest.added;
+    g->saved_at = Clock::now();
+
+    // What glslang made is saved on this thread, where it is compiled: only at a level's load,
+    // when the level's programs have just been compiled.
+    if (spirv) {
+        std::string error;
+        if (!g->spirv_cache.save(error)) {
+            log::warn("vulkan: could not save the SPIR-V cache: {}", error);
+        }
+    }
+
+    // The manifest as it is now, and the driver's cache as it is when the thread reads it.
+    g->cache_saver.join();
+    g->cache_saving = true;
+    g->cache_saver =
+        JoiningThread([path, entries = manifest_entries(), manifest = g->manifest.path] {
+            profiling::thread_name("Pipeline cache save");
+            write_manifest(manifest, entries);
+            write_cache_data(path, true);
+            g->cache_saving = false;
+        });
+}
 
 // ---- The device, the screen and the frames ----
 
@@ -288,6 +321,13 @@ bool make_instance(const Config& config, bool validation, std::string& error) {
             if (std::strcmp(e.extensionName, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) {
                 extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
                 flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+            }
+            // HDR output's colour spaces, only where the player may ask for it (Config): without
+            // it the surface offers what it always did.
+            if (config.hdr_colour_spaces && config.window != nullptr
+                && std::strcmp(e.extensionName, VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
+                g->hdr.colour_spaces = true;
             }
         }
     }
@@ -521,17 +561,22 @@ bool make_device(std::string& error) {
     VkPhysicalDeviceFeatures features{};
     features.fillModeNonSolid = g->features.fillModeNonSolid;
     features.samplerAnisotropy = g->features.samplerAnisotropy;
+    features.depthClamp = g->features.depthClamp;  // GL_DEPTH_CLAMP (FrameInput::depth_clamp)
     features.shaderClipDistance = g->features.shaderClipDistance;  // the world's clip planes
     features.shaderCullDistance = g->features.shaderCullDistance;
     features.drawIndirectFirstInstance = g->features.drawIndirectFirstInstance;
     features.multiDrawIndirect = g->features.multiDrawIndirect;
     features.multiViewport = g->features.multiViewport;
+    features.textureCompressionBC = g->features.textureCompressionBC;
+    features.textureCompressionASTC_LDR = g->features.textureCompressionASTC_LDR;
 #if OPENRAC_ENHANCED_RENDERING
     // Native enhanced compute providers need these optional storage-image operations.
     features.shaderStorageImageExtendedFormats = g->features.shaderStorageImageExtendedFormats;
     features.shaderStorageImageWriteWithoutFormat =
         g->features.shaderStorageImageWriteWithoutFormat;
     features.shaderStorageImageReadWithoutFormat = g->features.shaderStorageImageReadWithoutFormat;
+    // Arm ASR's fragment passes also write storage images.
+    features.fragmentStoresAndAtomics = g->features.fragmentStoresAndAtomics;
 #endif
     g->features = features;
     VkPhysicalDeviceVulkan13Features f13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
@@ -540,14 +585,22 @@ bool make_device(std::string& error) {
     VkPhysicalDeviceVulkan12Features f12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     VkPhysicalDeviceFeatures2 available{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     available.pNext = &f11;
+    VkPhysicalDeviceVulkan13Features supported13{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
+    };
     f11.pNext = &f12;
+    f12.pNext = &supported13;
     vkGetPhysicalDeviceFeatures2(g->physical, &available);
+    g->astc_hdr = supported13.textureCompressionASTC_HDR;
+    f13.textureCompressionASTC_HDR = supported13.textureCompressionASTC_HDR;
     // shaderFloat16 is core in Vulkan 1.2; storage16BitAccess is a separate feature and is not needed.
     g->shader_float16 = f12.shaderFloat16
                         && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
     // The vendor FSR half path also uses native 16-bit integer indexing. No 16-bit storage is enabled.
     features.shaderInt16 = g->shader_float16 && available.features.shaderInt16;
     g->features.shaderInt16 = features.shaderInt16;
+    // Arm ASR's prebuilt shaders also use subgroup operations on their 16-bit values.
+    g->subgroup_extended_types = g->shader_float16 && f12.shaderSubgroupExtendedTypes;
     g->viewport_index_supported = features.multiViewport && f12.shaderOutputViewportIndex;
     // Vulkan 1.3 made extended dynamic state core, with no feature to ask for (documented: the
     // Vulkan 1.3 promotion of VK_EXT_extended_dynamic_state); the device was chosen for 1.3.
@@ -572,6 +625,7 @@ bool make_device(std::string& error) {
     f11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
     f12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     f12.shaderFloat16 = g->shader_float16 ? VK_TRUE : VK_FALSE;
+    f12.shaderSubgroupExtendedTypes = g->subgroup_extended_types ? VK_TRUE : VK_FALSE;
     f12.shaderOutputViewportIndex = g->viewport_index_supported ? VK_TRUE : VK_FALSE;
     f13.pNext = &f11;
     f11.pNext = &f12;
@@ -600,8 +654,74 @@ bool make_device(std::string& error) {
             if (std::strcmp(e.extensionName, kPortabilitySubset) == 0) {
                 extensions.push_back(kPortabilitySubset);
             }
+            // The HDR screen's metadata (hdr_output.cpp), with HDR's colour spaces only.
+            if (g->hdr.colour_spaces
+                && std::strcmp(e.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0) {
+                extensions.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME);
+                g->hdr.metadata = true;
+            }
+        }
+
+        // The same operations under two names: the EXT one where offered, which more tools know.
+        for (const char* name :
+             {VK_EXT_LOAD_STORE_OP_NONE_EXTENSION_NAME, VK_KHR_LOAD_STORE_OP_NONE_EXTENSION_NAME}) {
+            const bool offers = std::any_of(offered.begin(), offered.end(), [&](const auto& e) {
+                return std::strcmp(e.extensionName, name) == 0;
+            });
+            if (offers && !g->load_store_none) {
+                extensions.push_back(name);
+                g->load_store_none = true;
+            }
         }
     }
+
+    // Pipelines linked from parts at a draw (vk-pipeline-library), where the device links them
+    // fast. Desktop drivers only for now: the phones' drivers carry the extension unevenly.
+    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT library{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT
+    };
+    g->libraries.enabled = false;
+#if !defined(__ANDROID__)
+    {
+        std::uint32_t n = 0;
+        vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, nullptr);
+        std::vector<VkExtensionProperties> offered(n);
+        vkEnumerateDeviceExtensionProperties(g->physical, nullptr, &n, offered.data());
+        const auto has = [&offered](const char* name) {
+            return std::ranges::any_of(offered, [name](const VkExtensionProperties& e) {
+                return std::strcmp(e.extensionName, name) == 0;
+            });
+        };
+        VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT fast{
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT
+        };
+        VkPhysicalDeviceProperties2 asked{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+        asked.pNext = &fast;
+        VkPhysicalDeviceFeatures2 offers{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+        offers.pNext = &library;
+        const bool named = has(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME)
+                           && has(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
+        if (named) {
+            vkGetPhysicalDeviceFeatures2(g->physical, &offers);
+            vkGetPhysicalDeviceProperties2(g->physical, &asked);
+        }
+
+        // Linking that is not fast would only move the compile, so it is not taken.
+        if (named && library.graphicsPipelineLibrary == VK_TRUE
+            && fast.graphicsPipelineLibraryFastLinking == VK_TRUE && g->extended_dynamic_state) {
+            extensions.push_back(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME);
+            extensions.push_back(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME);
+            library = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT};
+            library.graphicsPipelineLibrary = VK_TRUE;
+            library.pNext = f12.pNext;
+            f12.pNext = &library;
+            g->libraries.enabled = true;
+        }
+    }
+#endif
+    log::info(
+        "vulkan: pipelines linked from parts at a draw: {}", g->libraries.enabled ? "yes" : "no"
+    );
 
     VkPhysicalDevicePresentIdFeaturesKHR present_id{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR
@@ -657,13 +777,20 @@ bool make_device(std::string& error) {
         error = "no memory allocator";
         return false;
     }
-    g->depth_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+    g->float_depth_format = g->depth_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
     for (const VkFormat f : {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT_S8_UINT}) {
         VkFormatProperties p{};
         vkGetPhysicalDeviceFormatProperties(g->physical, f, &p);
         if ((p.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) != 0) {
             g->depth_format = f;
             break;
+        }
+    }
+    {
+        VkFormatProperties p{};
+        vkGetPhysicalDeviceFormatProperties(g->physical, VK_FORMAT_D32_SFLOAT_S8_UINT, &p);
+        if ((p.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0) {
+            g->float_depth_format = g->depth_format;
         }
     }
     return make_pipeline_cache();
@@ -800,12 +927,16 @@ void describe_device() {
 
 void destroy_all() {
     if (g->device != VK_NULL_HANDLE) {
-        // The pre-warm worker stops first: it uses the programs' modules and the cache.
+        // The pre-warm workers stop first: they use the programs' modules and the cache. A save
+        // on its own thread ends before the last one below.
         stop_pipeline_prewarm();
+        g->cache_saver.join();
         vkDeviceWaitIdle(g->device);
         // Teardown drains all slots directly; resource retirement must not begin another recording.
         g->frame_pending = false;
         release_depth_combine();
+        release_colour_transform();
+        release_hdr();
         tracy_gpu_close();
         gpu_release();
         material_release();
@@ -833,6 +964,7 @@ void destroy_all() {
         for (auto& [name, b] : g->buffers.objects) {
             destroy_buffer(b);
         }
+        clear_test_programs();
         for (auto& [name, p] : g->programs.objects) {
             if (p.serial != 0) {
                 release_program(p);
@@ -844,6 +976,7 @@ void destroy_all() {
         for (auto& [key, pipeline] : g->pipelines) {
             vkDestroyPipeline(g->device, pipeline, nullptr);
         }
+        destroy_pipeline_libraries();
         for (auto& [key, sampler] : g->vk_samplers) {
             vkDestroySampler(g->device, sampler, nullptr);
         }

@@ -32,6 +32,14 @@ struct Placement {
 EmissionSample sample_emitter(
     const Scene& scene, Float3 origin, float bias, Random& random, const BakeSettings& settings = {}
 );
+// Returns the power heuristic for equal sample counts, without squaring large densities.
+float emission_mis_weight(double sampled_pdf, double competing_pdf);
+// Weights a finite light sample against primary or cosine-weighted direction sampling.
+void weight_emitter(EmissionSample& sample, double direction_pdf);
+// Collects mesh and transparent rectangle emission before the nearest geometry hit.
+Float3 segment_emission(
+    const Scene& scene, const BakeSettings& settings, const RTCRayHit& hit, double direction_pdf
+);
 // Classify a probe with paired rays so winding cannot decide occupancy.
 Placement classify(
     const Scene& scene,

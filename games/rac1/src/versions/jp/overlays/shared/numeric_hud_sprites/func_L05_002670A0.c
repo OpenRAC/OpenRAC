@@ -21,7 +21,8 @@ int draw_hud_timer(HudElem_002670A0 *e) {
     hund = frames * 100 / per_sec;
 
     if (gSpecialItems_r[0]) {
-        draw_stretchable_ui_frame_r(D_L05_0015FACC_002670A0, y0, D_L05_0015FAD4_002670A0, D_L05_0015FAD8_002670A0, D_L05_0015FADC_002670A0);
+        draw_stretchable_ui_frame(D_L05_0015FACC_002670A0, y0, D_L05_0015FAD4_002670A0, D_L05_0015FAD8_002670A0,
+                                  D_L05_0015FADC_002670A0);
         x = D_L05_0015FAE8_002670A0;
         sprintf_r(buf, rilgar_fmt_race_score_width_r, msg_string_r(0x50A7), hero_002670A0.race_score);
         x -= measure_text_width_regular_r(buf, -1) >> 1;

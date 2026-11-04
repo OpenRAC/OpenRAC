@@ -3,7 +3,7 @@
 The port draws a level's ties and shrubs from the files the extractor wrote (port.py's
 placements.json and one model per class), not from the game's memory, so an edit to them is
 packed as those files are: `<out>/level_NN/placements.json` with the lists that changed, which
-the port's `--mods` reads in place of the level's own (port/viewer/level.cpp).
+the port's `--mods` reads in place of the level's own (port/scene/level.cpp).
 
 Packed: ties and shrubs that were moved, turned, scaled (each axis its own), given another class
 of the level or other values, added (a copy, or a class of the level dropped under Game/Ties or

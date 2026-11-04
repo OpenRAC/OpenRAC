@@ -130,8 +130,8 @@ Read with `std::getenv` throughout `port/`. The authoritative list is
 | `OPENRAC_SOFTWARE_GL` | `1` | Allow a software rasteriser. |
 | `OPENRAC_GPU` | `integrated` | Leave the graphics-card choice to the system (Linux). |
 | `OPENRAC_NO_PUMP_FIBER` | set | Windows: run the game and the window pump in one loop. |
-| `OPENRAC_MENU_BAR` | set | Show the in-window menu bar even on macOS. |
-| `OPENRAC_DRAWER` | set | Use the touch drawer instead of the menu bar. |
+| `OPENRAC_MENU` | tab | Open the menu on that tab from the start. |
+| `OPENRAC_DRAWER` | set | Use the touch drawer instead of the desktop menu. |
 | `OPENRAC_ROUND_NEAREST` | set | Keep the host's round-to-nearest instead of the EE's round-toward-zero. |
 | `OPENRAC_DENORMALS` | set | Keep host denormals instead of the EE's flush-to-zero. |
 
@@ -153,7 +153,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 
 | Key | Values | Default | Note |
 |---|---|---|---|
-| `display_mode` | `windowed`, `borderless`, `fullscreen` | `windowed` | |
+| `display_mode` | `windowed`, `borderless`, `fullscreen` | `windowed` | Absent on a first start: `borderless`. |
 | `fullscreen` | `0`/`1` | — | Legacy: `1` means `borderless`. |
 | `monitor` | `0`–`64` | `0` | |
 | `resolution` | `desktop` or `WIDTHxHEIGHT` | desktop | Fullscreen mode. |
@@ -167,7 +167,6 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | **`vsync`** | `off`, `on`, `adaptive` | `on` | |
 | **`frame_rate`** | `display`, `original`, `unlimited`, or 20–1000 | `display` | **`original` = one frame a tick.** See [TIMING.md](TIMING.md) §3. |
 | `show_fps` | `0`/`1` | `0` | The frame-rate counter (F2 toggles it). |
-| `menu_bar` | `0`/`1` | `1` | |
 | `mute_unfocused` | `0`/`1` | `0` | |
 | `skip_cutscenes` | `0`/`1` | `1` | Start also presses the game's own cutscene-skip buttons. |
 | `responsive_controls` | `0`/`1` | `0` | Reads the pad again just before each tick: presses reach the game about a tick sooner. The game's logic and its one pad read a tick are unchanged, but a trick timed by feel lands a frame earlier. Also turns the picture's camera between ticks with the right stick (the picture only). |
@@ -178,7 +177,7 @@ unknown *value* warns in the log and falls back to the default; an unknown
 | `fix_wide_nanotech_orbs` | `0`/`1` | `1` | |
 | `fix_wide_liquids` | `0`/`1` | `1` | |
 
-Every one of these except `volume`, `verbose_log`, `menu_bar` and the three
+Every one of these except `volume`, `verbose_log` and the three
 fixes is a row of the game's own **Options → Video** page, drawn by the game's
 widgets, and saved as it is changed
 (`port/game/common/options_menu.cpp`, the rows enum at `options_menu.h:17-33`).
@@ -200,7 +199,7 @@ A file with `frame_rate` but no `vsync` gets `vsync = on` when
 | **F9** / **F10** | Volume down / up |
 | **F11** | Full screen |
 | **F12** | Screenshot |
-| **Alt** | Hide and show the in-window menus (on its own) |
+| **`** (key under Escape) | Hide and show the in-window menus (`menu_bar_key`, pad: L3, `menu_bar_button`; Controller bindings, Menu bar tab) |
 | **Alt+Return** | Fullscreen |
 
 ## 5. The input map
@@ -283,7 +282,7 @@ The hero's fields are also exposed by name to script mods:
 | **Script binding** | rac1 only; the others use `script_binding_none.c` and refuse script mods |
 | **Script budget** | 2 ms per call, `OPENRAC_SCRIPT_BUDGET_MS` |
 | **Per-tick cost with no mods** | One test of a bool (`mods.h:67-71`) |
-| **The mod list** | <https://github.com/OpenRAC/rac1-mods> |
+| **The mod list** | <https://github.com/OpenRAC/openrac-mods> |
 
 The full hook table with signatures and parameters is generated into
 [`sdk/docs/reference/hooks-rac1.md`](../../../sdk/docs/reference/hooks-rac1.md),

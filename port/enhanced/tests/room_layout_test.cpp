@@ -283,6 +283,19 @@ void field_domain() {
     CHECK(field.connects({0, 0, 0}, {2, 0, 0}, 0));
 }
 
+// A wall within an endpoint margin must block both directions of a swimming connection.
+void test_swimming_endpoint_clearance() {
+    BakeScene source;
+    constexpr float kWallX = -.049f;  // Between the overlap margin and the forward ray's near clip.
+    quad(source, {kWallX, -1, 0}, {kWallX, 1, 0}, {kWallX, 1, 2}, {kWallX, -1, 2});
+    Scene scene(source);
+    const Float3 a{0, 0, 0}, b{1, 0, 0}, away{2, 0, 0};
+    CHECK(!room_body_path_clear(scene, a, b, {}, true));
+    CHECK(!room_body_path_clear(scene, b, a, {}, true));
+    CHECK(room_body_path_clear(scene, b, away, {}, true));
+    CHECK(room_body_path_clear(scene, away, b, {}, true));
+}
+
 void ceiling_enclosure() {
     auto scene = [](bool enclosed) {
         BakeScene source;
@@ -402,5 +415,6 @@ int main() {
     curved_distance_field();
     ceiling_enclosure();
     field_domain();
+    test_swimming_endpoint_clearance();
     return openrac::test::result();
 }

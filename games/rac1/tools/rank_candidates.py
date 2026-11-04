@@ -95,7 +95,7 @@ def already_attempted() -> set[str]:
     seen: set[str] = set()
     for d in (Path("docs"), Path("notes")):
         if d.is_dir():
-            for f in d.glob("*.md"):
+            for f in d.rglob("*.md"):
                 seen |= set(FUNCNAME.findall(f.read_text(errors="replace")))
 
     # Also: a stub in src/ with a block comment immediately above it is a
@@ -204,14 +204,14 @@ def classify(name: str, body: str, seg: str, size: int) -> tuple[str, str, str]:
     # core_text's sd/ld saves are Sony SDK code built with 2.9-ee (the `ee29`
     # objects), which emits them natively; the game compiler's core objects
     # save with sq like retail does there. No spill rewriting
-    # (docs/BUILD_FIDELITY.md).
+    # (docs/reference/BUILD_FIDELITY.md).
     if "Handwritten function" in body:
         return "blocked", "handwritten asm", "spimdisasm marker"
     # A bare tail jump (`j func_X`). Sony's 2.9-ee emits one for a void
     # function that ends in a call, so in its `ee29` objects it is ordinary
     # C. SN's 2.95.3 has no sibling-call optimisation (no flag turns one on),
     # and the build no longer rewrites its call-and-return into a jump
-    # (docs/BUILD_FIDELITY.md, "Removed"), so outside those objects a tail
+    # (docs/reference/BUILD_FIDELITY.md, "Removed"), so outside those objects a tail
     # jump means another compiler or handwritten assembly: a wall.
     tail = bool(re.search(r"(?m)^j\s+func_[0-9A-Fa-f]{8}", text))
     if tail and not ee29:

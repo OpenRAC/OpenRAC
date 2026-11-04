@@ -6,17 +6,20 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <vector>
 
 namespace openrac::scene {
 
 // RAC1's sparse baked camera grid; see docs/engine/formats/OCCLUSION.md.
-// No previous-cell state: unsupported camera positions conservatively show everything.
+// select() shows everything outside the grid; follow() keeps the last mask there, as retail does.
 struct Pvs {
     using Mask = std::array<std::uint8_t, 128>;
     static constexpr std::uint16_t always = 0x7f80;
     std::vector<std::uint8_t> grid;
+    Mask previous{};
+    bool has_previous = false;
 
     static Mask all_visible() {
         Mask mask;
@@ -31,13 +34,30 @@ struct Pvs {
     }
 
     Mask select(const std::array<float, 3>& camera) const {
+        const auto mask = find(camera);
+        return mask ? *mask : all_visible();
+    }
+
+    // Retail's per-frame mask (UpdateOcclusion): a camera outside the grid keeps the last mask
+    // found, so the game never draws what its cells hide there (Pokitaru's rooms under the sea
+    // floor, seen from the water). Before any cell is found, everything shows.
+    Mask follow(const std::array<float, 3>& camera) {
+        if (const auto mask = find(camera)) {
+            previous = *mask;
+            has_previous = true;
+            return *mask;
+        }
+        return has_previous ? previous : all_visible();
+    }
+
+    std::optional<Mask> find(const std::array<float, 3>& camera) const {
         Mask mask{};
         std::array<int, 3> cell;
         for (unsigned k = 0; k < 3; ++k) {
             const double c = double(camera[k]) * .25;
             if (!std::isfinite(c) || c < std::numeric_limits<int>::min() + 1.0
                 || c > std::numeric_limits<int>::max() - 1.0) {
-                return all_visible();
+                return std::nullopt;
             }
             cell[k] = static_cast<int>(c);  // retail truncates, including negative coordinates
         }
@@ -91,7 +111,7 @@ struct Pvs {
                 }
             }
             if (!found) {
-                return all_visible();
+                return std::nullopt;
             }
         }
         mask.back() |= 128;

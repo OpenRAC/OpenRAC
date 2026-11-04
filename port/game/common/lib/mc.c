@@ -752,10 +752,38 @@ static void add_entry(const char* dir, const char* name) {
     snprintf(e->name, sizeof e->name, "%s", name);
 }
 
-static int matches(const char* pattern, const char* name) {
-    /* The save marks are the port's own, not the card's: the game never sees them. */
+/* Whether `name` is a file the computer keeps in a card's folders rather than one of the card's:
+ * the port's save marks (`.mods`), and what file browsers and other tools leave behind, all hidden
+ * files (Finder's .DS_Store, the launcher's .backup_ folders) and Explorer's Thumbs.db and
+ * desktop.ini. A real card holds none of them, and the games count the entries of their save
+ * folder: Going Commando takes its folder for no save at all unless it lists exactly its own nine
+ * (func_00298F00, state 8), and then offers to create a new one, which writes every slot empty. */
+static int host_only(const char* name) {
     const size_t length = strlen(name);
     if (length > 5 && strcmp(name + length - 5, ".mods") == 0) {
+        return 1;
+    }
+    if (name[0] == '.') {
+        return strcmp(name, ".") != 0 && strcmp(name, "..") != 0;
+    }
+    static const char* const clutter[] = {"Thumbs.db", "desktop.ini"};
+    for (size_t i = 0; i < sizeof clutter / sizeof clutter[0]; i++) {
+        const char* a = name;
+        const char* b = clutter[i];
+        while (*a && *b && (*a | 0x20) == (*b | 0x20)) {
+            a++;
+            b++;
+        }
+        if (*a == 0 && *b == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int matches(const char* pattern, const char* name) {
+    /* Files of the computer's, not the card's: the game never sees them. */
+    if (host_only(name)) {
         return 0;
     }
     if (strcmp(pattern, "*") == 0) {

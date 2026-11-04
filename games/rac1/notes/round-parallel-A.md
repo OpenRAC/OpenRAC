@@ -1,7 +1,7 @@
 # Range A (`src/text.c`, vram 0x1E9080-0x1F9B00)
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - "`$gp`-relative addressing ... at `-G0` neither is reachable": the
 >   build uses `-G2` now, and `$gp` functions match.
@@ -33,7 +33,7 @@ instead of against retail's actual bytes.
 
 ## Corrected survey
 
-Produced mechanically by the new `tools/survey_range.py`, which reports
+Produced mechanically by the new `tools/old/survey_range.py`, which reports
 spill style as information and never as a blocking category:
 
 | Count | Category | Old count |
@@ -149,7 +149,7 @@ C, since the arguments are constants inside a single call expression.
   costs `func_00234350` and `func_0023DFC0` a byte each, and about 2 of
   `func_001E9E70`'s 20. Likely a converted stub that dropped
   post-`endlabel` padding.
-- **`tools/survey_range.py` is reusable** for any range/segment. Other
+- **`tools/old/survey_range.py` is reusable** for any range/segment. Other
   ranges whose "blocked" counts leaned on the `sq`/`lq` generalisation
   should be re-run through it - range B reported 69 `sq`/`lq` and range
   D reported 209, and both are `text`.

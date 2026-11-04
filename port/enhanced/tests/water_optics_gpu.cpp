@@ -47,11 +47,11 @@ void check_optics(Context& fixture) {
     // and finite differences, including a spatially varying shoreline taper.
     std::string swell_source = "#version 410 core\n";
     swell_source += lighting::shaders::water_swell_glsl;
-    const std::string water_source = lighting::shaders::water_glsl;
-    const auto curvature_start = water_source.find("float water_shore_curvature");
-    const auto curvature_end = water_source.find("float water_shore_weight", curvature_start);
+    const std::string window_source = lighting::shaders::water_window_glsl;
+    const auto curvature_start = window_source.find("float water_shore_curvature");
+    const auto curvature_end = window_source.find("int water_sim_shared_body", curvature_start);
     CHECK(curvature_start != std::string::npos && curvature_end > curvature_start);
-    swell_source += water_source.substr(curvature_start, curvature_end - curvature_start);
+    swell_source += window_source.substr(curvature_start, curvature_end - curvature_start);
     swell_source += R"(
 layout(location=0) out vec4 result;
 void main(){
@@ -231,6 +231,7 @@ void main() {
     CHECK(smooth_start != std::string::npos);
     std::string smooth =
         "#version 410 core\nuniform sampler2D water_wave_map;\nuniform vec2 water_atlas_extent;\n"
+        + window_source.substr(curvature_start, curvature_end - curvature_start)
         + material.substr(smooth_start, helper_start - smooth_start);
     smooth += R"(
 layout(location=0) out vec4 result;
@@ -243,7 +244,13 @@ void main() {
     result=vec4(bits&255u,(bits>>8)&255u,(bits>>16)&255u,bits>>24)/255.;
 })";
     renderer::Shader smooth_test;
-    CHECK(smooth_test.build("water smooth normals", vertex, smooth.c_str(), error));
+    const bool smooth_built =
+        smooth_test.build("water smooth normals", vertex, smooth.c_str(), error);
+    CHECK(smooth_built);
+    if (!smooth_built) {
+        std::fprintf(stderr, "%s\n", error.c_str());
+        return;
+    }
     smooth_test.use();
     glUniform1i(smooth_test.uniform("water_wave_map"), 0);
     glUniform2f(smooth_test.uniform("water_atlas_extent"), kWidth, kWidth);

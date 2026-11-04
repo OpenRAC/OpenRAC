@@ -16,7 +16,7 @@ from toolchain import sn
 
 
 def main():
-    source = Path('src/core/0012A2F0.c')
+    source = Path('src/core/mpeg/csc.c')
     text = source.read_text()
     work = Path('build-sn/verify-peek-assembler')
     obj = try_func.build('func_0012AAA8', 'core_text', source, 0,

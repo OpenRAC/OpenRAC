@@ -15,7 +15,7 @@ import try_func
 
 
 def main():
-    source = Path('src/core/00119D88.c')
+    source = Path('src/core/kernel/kprintf.c')
     text = source.read_text()
     work = Path('build-sn/verify-formatter-assembler')
     obj = try_func.build('func_00119EA8', 'core_text', source, 0,

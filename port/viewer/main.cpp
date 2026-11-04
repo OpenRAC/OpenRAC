@@ -384,6 +384,8 @@ int run(const Options& options) {
         }
         input.frame = index;
         scene.update_probe_regions(input.camera, seconds);
+        // This hook only prepares declared probe/light selection kernels and stable uploads.
+        input.prepares_world_depth = true;
         input.after_world_depth =
             scene.compute_probe_selection()
                 ? std::function<void(unsigned, int, int)>(

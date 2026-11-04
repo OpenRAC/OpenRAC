@@ -211,3 +211,86 @@ describe("Android launcher", () => {
     expect(amber).toBe("rgb(255, 210, 63)");
   });
 });
+
+describe("A controller", () => {
+  /** Presses BUTTONS on the controller as Android's activity hands them over (pad.ts), letting the
+   *  page settle after each. */
+  async function press(...buttons: string[]) {
+    for (const b of buttons) {
+      await page.evaluate((name) => {
+        const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
+        pad(`down:${name}`);
+        pad(`up:${name}`);
+      }, b);
+      await page.waitForTimeout(300);
+    }
+  }
+
+  /** What has the focus: its name as a screen reader says it, or its text. */
+  const focused = () =>
+    page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return "";
+      return (el.getAttribute("aria-label") ?? el.textContent).trim();
+    });
+
+  it("takes a game's tile as one control: A its next step, Y its page, B back to it", async () => {
+    await open("");
+    await press("down");
+    expect(await focused()).toMatch(/^Ratchet & Clank:/);
+    // Right goes to the next game, not to the tile's own button.
+    await press("right");
+    expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
+    await press("left", "more");
+    await page.waitForTimeout(500);
+    // The game's page has the focus on its first control: the next A presses it.
+    expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
+    expect(await page.locator(".tile").count()).toBe(0);
+    await press("back");
+    await page.waitForTimeout(500);
+    expect(await focused()).toMatch(/^Ratchet & Clank:/);
+    // A takes the tile's step (Rebuild here) where it is, without opening the page.
+    await press("accept");
+    await page.waitForTimeout(300);
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+  });
+
+  it("goes into the rail only sideways", async () => {
+    await open("page=settings");
+    for (let i = 0; i < 12; i++) {
+      await press("up");
+      expect(await page.evaluate(() => document.activeElement?.closest("header") === null)).toBe(true);
+    }
+    await press("left");
+    expect(await page.evaluate(() => document.activeElement?.closest("header") !== null)).toBe(true);
+  });
+
+  it("reaches every theme, not only the one on", async () => {
+    await open("page=settings");
+    await page.getByRole("radio", { name: "OpenRAC" }).focus();
+    await press("right");
+    expect(await focused()).toBe("Gruvbox");
+    await press("accept");
+    await expect(page.getByRole("radio", { name: "Gruvbox" }).getAttribute("aria-checked")).resolves.toBe("true");
+  });
+
+  it("moves through a menu's items", async () => {
+    await open("version=rac1/pal");
+    await page.getByRole("button", { name: "More actions" }).focus();
+    await press("accept");
+    const first = await focused();
+    await press("down");
+    expect(await focused()).not.toBe(first);
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("menuitem");
+  });
+
+  it("passes over what a closed fold holds", async () => {
+    await open("page=settings");
+    const advanced = page.locator("details:not([open]) > summary").first();
+    if ((await advanced.count()) === 0) return;
+    await advanced.focus();
+    await press("up");
+    // Moved on to a control that shows, rather than staying put on a hidden one.
+    expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("SUMMARY");
+  });
+});

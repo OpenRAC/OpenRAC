@@ -40,12 +40,9 @@ along than OpenRAC's), configure with `-DOPENRAC_RAC1_PAL_SOURCE=<its directory>
 4. The game's own `main` (`func_0012DB18`, matched C) runs: the boot stage,
    then each level's loop.
 
-**Where it stops today.** `main` calls the boot stage (`func_001E99D8`),
-which is still assembly in OpenRAC's decompilation, so the program stops
-there and says so. hostgen's report lists every function the program
-reaches without C, nearest first (its "frontier"): with OpenRAC's
-decompilation they are the boot stage, the title loop (`func_001EBB48`) and
-the level loop (`func_L00_002465F8`).
+**Where it is today.** The whole game plays. Functions that are still
+assembly in the decompilation run as the port's own C (hand or host C, or C
+written from their assembly); hostgen's report lists what is left.
 
 ## Files
 
@@ -59,17 +56,12 @@ the level loop (`func_L00_002465F8`).
 The replacements themselves are shared by every game, by library, in
 [common/lib](../common/lib): `cdvd.c` (the disc image), `mc.c` (memory
 cards as folders), `graph.c` (frames, display, texture uploads, the display
-list hand-off), `kernel.c` (interrupt handlers, no IOP), `pad.c`, `snd.c`
-(silent for now), `libc.c`, `vu0.c`; the program is
-[common/main.cpp](../common/main.cpp).
+list hand-off), `kernel.c` (interrupt handlers, no IOP), `pad.c`, `snd.c`,
+`libc.c`, `vu0.c`. The program is [common/main.cpp](../common/main.cpp) and
+[common/program](../common/program).
 
 ## What is not done
 
-| | |
-|---|---|
-| Window and renderer | the program paces frames at 60 Hz (the PAL game is kept in its own 60 Hz mode) and logs what the game hands the hardware; the window ([port/platform](../../platform)) and the renderer ([port/renderer](../../renderer)) are to be connected at `openrac_game_vsync`, `openrac_game_dma_send`, `openrac_game_set_display` and `openrac_game_load_image` ([common/main.cpp](../common/main.cpp)) |
-| Pads | what `scePad2Read` fills in is to be read from the game's own reader (`func_00217F68`) |
-| Sound | 989snd is replaced at its API but silent |
-| Movies | libmpeg is `todo`: the movie player is to be replaced above it |
-| Readback | `sceGsExecStoreImage` (reading GS memory back) needs the renderer |
-| `todo` rows | in [libraries.tsv](libraries.tsv) |
+Known bugs are in [docs/port/KNOWN_ISSUES.md](../../../docs/port/KNOWN_ISSUES.md);
+library calls the port does not replace yet are the `todo` rows of
+[libraries.tsv](libraries.tsv).

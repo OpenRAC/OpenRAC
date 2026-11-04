@@ -754,7 +754,11 @@ int rac1_figure_shot2(gaddr figure, const openrac_game_shot2* shot) {
             GREF(float, v + 0x10u + 4u * c) = c < 3 ? shot->velocity[c] : 0.0f;
         }
         firing_for_figure = 1;
+        /* The Blaster's spawn tests a line from its owner to the muzzle, and dies on what it hits.
+         * The shooter's game had no other hero on that line; this game's hero is not in the shot. */
+        rac1_coll_line_also_ignore(GREF(gaddr, HERO_MOBY));
         const gaddr moby = spawn_shot(figure, shot, v);
+        rac1_coll_line_also_ignore(0);
         firing_for_figure = 0;
         if (moby != 0) {
             note_live(moby);

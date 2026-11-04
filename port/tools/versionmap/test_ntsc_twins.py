@@ -31,6 +31,8 @@ NOT_ON_NTSC = {
     "func_L00_002A5158",
     "func_L01_002635C8",
     "func_L01_0030AFD0",
+    # The ship's glass given ids for frames between ticks: not carried yet.
+    "func_00233AB8",
 }
 
 

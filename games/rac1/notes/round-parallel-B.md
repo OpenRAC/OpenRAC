@@ -1,7 +1,7 @@
 # Parallel round, agent B — vram 0x1FB600–0x20CB00 (src/text.c)
 
 > **Historical round notes (September 2026), kept as a record.**
-> `docs/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
+> `docs/reference/DECOMP_PROGRESS.md` and `progress/report.json` hold the current
 > state. Superseded since this was written:
 > - "`$gp`-relative ... unreachable at `-G0`": solved by `-G2`.
 > - The two "unsteerable" register sub-cases (`%hi` reuse on a global
@@ -14,7 +14,7 @@
 >   split into `src/core/` (one file per retail object) and `src/game/`
 >   (one file per original source file).
 
-Findings for the coordinator to merge into `docs/DECOMP_PROGRESS.md`.
+Findings for the coordinator to merge into `docs/reference/DECOMP_PROGRESS.md`.
 
 ## ⚠ The survey immediately below is WRONG — see "Corrected survey" at the end
 

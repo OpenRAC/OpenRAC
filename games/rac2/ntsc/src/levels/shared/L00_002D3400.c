@@ -74,8 +74,6 @@ extern char D_00189E20_6[];
 /* Measured partial layouts; original type and game roles are unknown. */
 typedef float Rac2Native_5fc519c90e0e763a_f32;
 
-extern void func_L00_002D34C0_1(Rac2Native_5fc519c90e0e763a_f32);
-
 /* resident mode predicate: returns 0, 1 or 2 from the resident state words */
 s32 func_L00_002D3400(void) {
     s32 result = D_00189E20_8.field348;
@@ -153,7 +151,9 @@ void func_L00_002D36E0(float *p, int flag, float x, float y, float z)
         func_2EE108(p, p, D_00189E20_6 + 128);
 }
 
-/* calls the measured float callee with the negated input */
-void func_L00_002D3778(Rac2Native_5fc519c90e0e763a_f32 value) {
- func_L00_002D34C0_1(-value);
+/* Applies the shared destination/source transform with the opposite amount. */
+void func_L00_002D3778(FamilyC94396F4Vector_Fc94396f4 *destination,
+                      FamilyC94396F4Vector_Fc94396f4 *source,
+                      f32 amount) {
+    func_L00_002D34C0(destination, source, -amount);
 }

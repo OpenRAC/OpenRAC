@@ -55,6 +55,47 @@ bool SDLCALL on_event(void*, SDL_Event* event) {
     return true;
 }
 
+// Whether the vendor's GPUs draw in tiles (tile_based()): Arm, Qualcomm, Apple and Imagination.
+// OPENRAC_TILE_BASED decides instead when it is set: 1 for yes, anything else for no.
+bool guess_tile_based(std::uint32_t vendor) {
+    if (const auto chosen = env::value(env::Var::TileBased)) {
+        return *chosen == "1";
+    }
+    constexpr std::array<std::uint32_t, 4> kTiled = {0x13B5, 0x5143, 0x106B, 0x1010};
+    return std::find(kTiled.begin(), kTiled.end(), vendor) != kTiled.end();
+}
+
+namespace {
+
+// Startup reports recording/allocation failures through open()'s existing error return.
+bool begin_initial_frame(const Config& config, std::string& error) {
+    try {
+        int width = config.width;
+        int height = config.height;
+
+        // A window's actual pixel dimensions can differ from its requested dimensions.
+        if (config.window != nullptr) {
+            SDL_GetWindowSizeInPixels(config.window, &width, &height);
+        }
+
+        tracy_gpu_open();
+        begin_buffers();
+
+        // The initial attachments and dummy descriptors must exist before recording any draw.
+        if (!make_dummies() || !make_default_framebuffer(std::max(width, 1), std::max(height, 1))) {
+            error = "could not make the default framebuffer";
+            return false;
+        }
+
+        return true;
+    } catch (const std::exception& failure) {
+        error = failure.what();
+        return false;
+    }
+}
+
+}  // namespace
+
 bool open(const Config& config, std::string& error) {
     if (g != nullptr) {
         error = "a Vulkan context is open already";
@@ -82,16 +123,7 @@ bool open(const Config& config, std::string& error) {
     }
     ok = ok && pick_device(error) && make_device(error) && make_frames();
     if (ok) {
-        int w = config.width, h = config.height;
-        if (config.window != nullptr) {
-            SDL_GetWindowSizeInPixels(config.window, &w, &h);
-        }
-        tracy_gpu_open();
-        begin_buffers();
-        ok = make_dummies() && make_default_framebuffer(std::max(w, 1), std::max(h, 1));
-        if (!ok) {
-            error = "could not make the default framebuffer";
-        }
+        ok = begin_initial_frame(config, error);
     }
     if (ok && config.window != nullptr && !make_swapchain()) {
         // Minimised at the start: the swapchain comes with the first frame shown.
@@ -104,6 +136,8 @@ bool open(const Config& config, std::string& error) {
         return false;
     }
     describe_device();
+    g->tile_based = guess_tile_based(g->properties.vendorID);
+    g->split_pass_timing = env::flag(env::Var::GpuPassTiming);
     if (g->timestamp_bits) {
         stats::set_gpu_hooks({timing_begin, timing_end, nullptr});
     }
@@ -111,6 +145,7 @@ bool open(const Config& config, std::string& error) {
     g->state.viewport[2] = g->state.scissor[2] = g->default_width;
     g->state.viewport[3] = g->state.scissor[3] = g->default_height;
     g->open = true;
+    configure_frame_capture();
 #if defined(__ANDROID__)
     if (config.window != nullptr) {
         SDL_AddEventWatch(on_event, nullptr);
@@ -152,6 +187,17 @@ bool gpu_driven_active() {
     return !off && gpu_make_engine();
 }
 
+// Returns the identity a reusable visibility batch must belong to, opening a recording if needed.
+std::uint64_t gpu_instance_recording() {
+    // CPU rendering has no reusable GPU instance batches.
+    if (!gpu_driven_active()) {
+        return 0;
+    }
+
+    prepare_frame();
+    return g->recording;
+}
+
 bool indexed_viewports_supported(unsigned count) {
     return active() && g->viewport_index_supported && count > 0
            && count <= g->properties.limits.maxViewports && material_enabled();
@@ -184,6 +230,12 @@ renderer::GpuInstanceBatch gpu_instances(
 
 bool draw_gpu_instances(renderer::GpuInstanceBatch batch, unsigned first, unsigned count) {
     return active() && gpu_submit_draw(batch, first, count);
+}
+
+bool draw_gpu_instance_ranges(
+    renderer::GpuInstanceBatch batch, std::span<const renderer::GpuIndexRange> ranges
+) {
+    return active() && gpu_submit_ranges(batch, ranges);
 }
 
 bool draw_indexed_indirect(unsigned arguments, unsigned index_count) {
@@ -242,6 +294,14 @@ GpuMaterialCounters gpu_material_counters() {
 void report_measures() {
     const auto& current = g->submission;
     const auto& previous = g->reported_submission;
+    stats::gauge(
+        "vk_buffer_zero_fill_bytes",
+        double(current.buffer_zero_fill_bytes - previous.buffer_zero_fill_bytes)
+    );
+    stats::gauge(
+        "vk_buffer_mirror_restore_bytes",
+        double(current.buffer_mirror_restore_bytes - previous.buffer_mirror_restore_bytes)
+    );
     stats::gauge("vk_uniform_uploads", double(current.uniform_uploads - previous.uniform_uploads));
     stats::gauge(
         "vk_uniform_upload_kb",
@@ -310,6 +370,8 @@ SubmissionCounters submission_counters() {
     }
     auto counters = g->submission;
     counters.validation_errors = g->validation_errors.load();
+    counters.pipeline_compile_s = g->pipeline_compile_s.load(std::memory_order_relaxed);
+    counters.pipeline_creation_calls = g->pipeline_creation_calls.load(std::memory_order_relaxed);
     return counters;
 }
 
@@ -330,15 +392,21 @@ void present() {
     if (!shown) {
         submit(VK_NULL_HANDLE, VK_NULL_HANDLE, false);
     }
+    finish_frame_capture();
     g->measures.present_s += seconds_since(start);
     report_measures();
     publish_counters();
     advance();
-    // A window of another size: the default framebuffer follows, as a GL window's does.
+    // A window of another size: the default framebuffer follows, as a GL window's does; and
+    // in half floats from when HDR is shown, in 8 bits from when it no longer is.
     if (g->window != nullptr) {
         int w = 0, h = 0;
         SDL_GetWindowSizeInPixels(g->window, &w, &h);
-        if (w > 0 && h > 0 && (w != g->default_width || h != g->default_height)) {
+        const bool want_float = g->hdr.shown != hdr::Output::Sdr;
+        const bool is_float =
+            g->default_colour && g->default_colour->format == VK_FORMAT_R16G16B16A16_SFLOAT;
+        if (w > 0 && h > 0
+            && (w != g->default_width || h != g->default_height || want_float != is_float)) {
             retire(std::move(g->default_colour));
             retire(std::move(g->default_depth));
             make_default_framebuffer(w, h);
@@ -429,6 +497,18 @@ const std::string& api_version() {
 
 bool software() {
     return g != nullptr && g->software;
+}
+
+bool tile_based() {
+    return g != nullptr && g->tile_based;
+}
+
+std::uint32_t vendor_id() {
+    return g != nullptr ? g->properties.vendorID : 0;
+}
+
+bool split_pass_timing() {
+    return g != nullptr && g->split_pass_timing;
 }
 
 }  // namespace openrac::vkgl

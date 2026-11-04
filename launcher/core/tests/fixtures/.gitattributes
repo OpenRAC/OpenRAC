@@ -1,0 +1,3 @@
+# Signed test data: compared byte for byte with its minisign signature, so Git must never
+# change line endings here (a Windows checkout would turn LF into CRLF and break the check).
+* -text

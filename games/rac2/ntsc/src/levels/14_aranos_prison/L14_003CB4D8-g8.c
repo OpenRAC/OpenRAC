@@ -1,0 +1,31 @@
+#include "common.h"
+
+typedef int TI128 __attribute__((mode(TI)));
+typedef union { TI128 q; float f[4]; } Vector;
+
+extern float D_L14_001AFF0C __attribute__((sda));
+extern void func_002833F0(void *, void *);
+extern void func_00283098(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_00282CF0(void *, void *, void *);
+extern void func_002AD6F0(void *, void *, void *, void *);
+
+void func_L14_003CB4D8(char *object) {
+    Vector rotation, delta, world, initial;
+    char *matrix;
+    char *state = *(char **)(object + 0x68);
+    char *angles = object + 0xF0;
+    qcopy(&rotation, angles);
+    *(float *)(object + 0xF4) = *(float *)(state + 0x80);
+    matrix = object + 0xC0;
+    func_002833F0(matrix, angles);
+    object += 0x10;
+    initial.q = 0;
+    initial.f[2] = D_L14_001AFF0C;
+    world.q = initial.q;
+    func_00283098(&world, &world, matrix);
+    func_00282CC0(&world, &world, object);
+    func_00282CF0(&delta, state + 0x70, &world);
+    func_00282CC0(object, object, &delta);
+    func_002AD6F0(state + 0x20, &delta, &rotation, angles);
+}

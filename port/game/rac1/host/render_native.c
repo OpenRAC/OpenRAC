@@ -225,7 +225,7 @@ void func_00218B10(void) {
         }
         uint64_t entry;
         memcpy(&entry, G(table + (gaddr)r[2] * 8), 8);
-        openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5);
+        openrac_game_particle(r, (uint32_t)(entry >> 32) >> 4, (uint32_t)entry >> 4, 5, 0);
     }
 }
 
@@ -488,10 +488,18 @@ int func_L00_002963D8(void) {
 
 /* moby_anim_eval_chain (hand-written VU0, 2640 bytes): the pose matrices of the joints marked in
  * a1 for the moby a0, into the scratchpad (MobyGetBoneMatrix reads them: the menu panels' corners,
- * items in Ratchet's hands). The port's evaluator (viewer/moby_pose, after ReRAC's evaluate_chains;
+ * items in Ratchet's hands). The port's evaluator (scene/moby_pose, after ReRAC's evaluate_chains;
  * post-scale records are not skipped yet as the chain form does). */
 void func_00211808(gaddr a0, gaddr a1) {
     openrac_game_moby_chain(a0, a1);
+}
+
+/* MobyAnimDecodeLocalPose (the game's C): the moby's joint records in the scratchpad. A mod's
+ * joint offsets on the hero (openrac_api.hero_set_joints) go into them too, as the port's evaluator
+ * draws him: the items he wears (O2 mask, helmets) copy his head from these records. */
+void func_L00_00255B90(gaddr s) {
+    func_L00_00255B90__game(s);
+    openrac_game_moby_local_pose(s);
 }
 
 #if !RAC1_OMIT(func_L00_00254218)

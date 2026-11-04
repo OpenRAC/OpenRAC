@@ -60,7 +60,7 @@
   }
 
   @media (hover: hover) {
-    button:hover:not(:disabled) {
+    :global(html:where(:not([data-input="pad"]))) button:hover:not(:disabled) {
       color: var(--on-game);
     }
   }

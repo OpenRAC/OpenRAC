@@ -3,8 +3,7 @@
 //
 // The settings of the ambient occlusion pass (enhanced/renderer/gtao.h): the frame carries them
 // (FrameInput::gtao_settings), the player's settings keep them (game/common/settings.h). The
-// renderer owns the type so that neither it nor the settings include enhanced/; restructure package
-// P2-07 moved it from enhanced/renderer/.
+// renderer owns the type so that neither it nor the settings include enhanced/.
 
 #pragma once
 
@@ -23,6 +22,7 @@ struct GtaoSettings {
     int slices = 4;               // Horizon-search directions.
     int steps = 6;                // samples on each side of a slice
     bool half_resolution = true;  // Evaluated at half size and upsampled along edges.
+    bool hi_z = false;            // Optional hierarchical depth for distant horizon samples.
     float radius = 1.25f;         // Occlusion radius, in scene units.
     float strength = 1.0f;        // multiplier of occlusion; zero leaves the picture unchanged
 };

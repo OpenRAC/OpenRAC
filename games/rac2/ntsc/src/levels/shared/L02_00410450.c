@@ -4,6 +4,13 @@ typedef unsigned char u8;
 
 extern void func_0032B890(int, int, int);
 
+typedef struct { u8 *child; float speed,turn,height; } CaptureState;
+extern int func_00312B58(void *);
+extern int func_002B3868(void *);
+extern void func_002A7470(void *, int, int, int);
+extern void func_002A7750(void *, int, int);
+extern float func_00283B98(float,float);
+
 extern void func_0031E6A0(void *, int, int);
 extern int func_0031E770(int);
 extern void func_0031E3C0(void *, int, int, int);
@@ -16,21 +23,18 @@ extern void func_002F20A0(void *, void *, void *);
 extern void func_002F2270(void *, void *, float);
 extern float func_0031E8D0(void);
 
-INCLUDE_ASM("asm/levels", func_L02_00410450);
+/* func_L02_00410450 is defined in L02_00410450-controller-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00410D00);
+/* func_L02_00410D00 is defined in L02_00410D00-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00410E58);
+/* func_L02_00410E58 is defined in L02_00410E58.c. */
 
 INCLUDE_ASM("asm/levels", func_L02_00410F68);
 
 /* Plays one of nine resident messages, chosen by the sub-object's state word. */
-INCLUDE_ASM("asm/levels", func_L02_004114A0);
+/* func_L02_004114A0 is defined in L02_004114A0.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00411530);
-
-/* The float clamp at 00411530 stores through $gp; its best attempt is in
-   the draft notes (w40) and it stays an INCLUDE_ASM for now. */
+/* func_L02_00411530 is matched in L02_00411530.c (built with -frac2-hazard-labels). */
 
 /* True while the record's state byte still says 2. */
 int func_L02_004127F8(u8 *a0) {
@@ -43,18 +47,90 @@ void func_L02_00414D48(u8 *a0) {
     *(u8 *)(v1 + 0x25) = *(u8 *)(v1 + 0x40);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_004164A8);
+/* Advance the captured child's rising and settling states. */
+void func_L02_004164A8(u8 *object)
+{
+    CaptureState *state=*(CaptureState **)(object+0x68);
+    if (state->child && func_00312B58(state->child)) {
+        state->child=0;
+        state->speed=0;
+    }
+    switch (object[0x20]) {
+    case 0:
+        state->child=0;
+        state->speed=0;
+        func_002A7750(object,1,-1);
+        if(object[0x43]) func_002A7470(object,0,0,7);
+        return;
+    case 2:
+        if (func_002B3868(object)) {
+            if(object[0x43]!=1) func_002A7470(object,1,0,7);
+            *(float *)(object+0x48)=1;
+        }
+        if (!state->child) {
+            func_002A7750(object,4,-1);
+            return;
+        }
+        *(float *)(state->child+0x18)+=state->speed;
+        *(float *)(state->child+0xF8)=func_00283B98(*(float *)(state->child+0xF8),state->turn);
+        if (!(object[0x60]&2)) return;
+        func_002A7750(object,3,-1);
+        return;
+    case 3:
+        if (func_002B3868(object)) *(float *)(object+0x48)=0;
+        if (!state->child) {
+            func_002A7750(object,4,-1);
+            return;
+        }
+        {
+            u8 *data=*(u8 **)(state->child+0x68);
+            *(float *)(state->child+0x18)+=state->speed;
+            *(float *)(state->child+0xF8)=func_00283B98(*(float *)(state->child+0xF8),state->turn);
+            *(int *)(data+0xAC)=2;
+            if (!(*(float *)(state->child+0x18)>*(float *)(object+0x18)+0.2f)) return;
+            *(int *)(data+0xAC)=8;
+        }
+        func_002A7750(object,4,-1);
+        return;
+    case 4:
+        if (func_002B3868(object)) {
+            if(object[0x43]!=2) func_002A7470(object,2,0,7);
+            *(float *)(object+0x48)=1;
+        }
+        if (!(object[0x60]&2)) return;
+        if (state->child) state->height=*(float *)(state->child+0x18);
+        func_002A7750(object,1,-1);
+        if(object[0x43]) func_002A7470(object,0,0,7);
+        return;
+    case 1:
+        if (!state->child) return;
+        if (*(float *)(state->child+0x18)==state->height)
+            *(int *)(*(u8 **)(state->child+0x68)+0xAC)=2;
+        else
+            state->height=*(float *)(state->child+0x18);
+        return;
+    }
+}
 
-INCLUDE_ASM("asm/levels", func_L02_00416720);
+/* func_L02_00416720 is defined in L02_00410450-qcopy.c. */
 
 /* True when the record is in state 1 and its sub-object holds a cleared origin. */
-INCLUDE_ASM("asm/levels", func_L02_00416800);
+int func_L02_00416800(void *arg0) {
+    int var_a2;
+    void *temp_a1;
 
-INCLUDE_ASM("asm/levels", func_L02_00421860);
+    var_a2 = 0;
+    temp_a1 = *(void **)((unsigned char *)arg0 + 0x68);
+    if (((*(unsigned char *)((unsigned char *)arg0 + 0x20)) == 1) && ((*(int *)temp_a1) == 0) && ((*(float *)((unsigned char *)temp_a1 + 4)) == 0.0f)) {
+        var_a2 = 1;
+    }
+    return var_a2;
+}
 
-INCLUDE_ASM("asm/levels", func_L02_00421DA0);
+/* func_L02_00421860 is defined in L02_00421860-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00422270);
+
+/* func_L02_00422270 is defined in L02_00422270-g8.c. */
 
 /* Rebuilds the sub-object's frame from the record's own transform. */
 void func_L02_004224C8(u8 *a0) {
@@ -85,13 +161,12 @@ void func_L02_00422638(u8 *a0) {
     } while (--i >= 0);
 }
 
-INCLUDE_ASM("asm/levels", func_L02_00422720);
+/* func_L02_00422720 is defined in L02_00422720-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00422BB8);
+/* func_L02_00422BB8 is defined in L02_00422BB8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_00422D68);
+/* func_L02_00422D68 is defined in L02_00422D68-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L02_004230B0);
 
 /* Restarts the record's resident effect once it has settled, picking the
    variant by the resident query and the record's own byte 0x43. */
@@ -110,9 +185,8 @@ void func_L02_0042ED48(u8 *a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L02_0042EDD0);
+/* func_L02_0042EDD0 is matched in L02_0042EDD0-g8.c (built with -frac2-no-annulled-wide-stores -frac2-zero-ti-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L02_0043F4C8);
 
 /* Picks the evasive state the object should take while the resident timer runs. */
 void func_L02_0043FA98(u8 *a0) {
@@ -135,13 +209,3 @@ void func_L02_0043FA98(u8 *a0) {
     }
     *(short *)(s1 + 0x48) = func_002F3158(func_0031E808(135.0f, 225.0f));
 }
-
-INCLUDE_ASM("asm/levels", func_L02_004547D0);
-
-INCLUDE_ASM("asm/levels", func_L02_00457068);
-
-INCLUDE_ASM("asm/levels", func_L02_0045B280);
-
-INCLUDE_ASM("asm/levels", func_L02_004692D0);
-
-INCLUDE_ASM("asm/levels", func_L02_00469748);

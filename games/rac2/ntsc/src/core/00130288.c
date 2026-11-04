@@ -5,6 +5,12 @@ extern void func_00130288(void *, void *);
 
 extern void func_00130240(void *);
 
+extern void func_0012FB70(void *);
+extern unsigned int func_0012FB80(void *, void *, unsigned int, unsigned int);
+extern void func_001306D0(unsigned int *, unsigned int *, unsigned int *, unsigned int *,
+                          unsigned int *, unsigned int *, unsigned int *, unsigned int *,
+                          unsigned int *, int, int, int, int, int);
+
 /* rac1-decomp src/core/0012AC80.c: func_0012C468 */
 void func_00130288(void *arg0, void *arg1) {
     char *a = (char *)arg0;
@@ -121,8 +127,126 @@ void func_00130300(void *arg0) {
     r1_func_0012C608(*(void **)(s + 0x858));
 }
 
-INCLUDE_ASM("asm/core", func_00130428);
+/* rac1-decomp src/core/0012AC80.c: mpeg_init_seq (func_0012C608) */
+void func_00130428(void *arg0) {
+    int *a = (int *)arg0;
+    char *s = *(char **)((char *)arg0 + 0x40);
+    int f = *(int *)(s + 0x848);
+    int h, mbw, mbh;
+    unsigned int n, t;
+    unsigned int *q0, *q1, *q2, *q3, *q4, *q5, *q6, *q7, *q8;
 
-INCLUDE_ASM("asm/core", func_001306D0);
+    if (f == 0) {
+        *(int *)(s + 0x174) = 3;
+        *(int *)(s + 0x13C) = 1;
+        *(int *)(s + 0x140) = 1;
+        *(int *)(s + 0x188) = 1;
+        *(int *)(s + 0x17C) = 1;
+        *(int *)(s + 0x144) = 5;
+    }
+    *(int *)(s + 0x12C) = (*(int *)(s + 0x124) + 0xF) >> 4;
+    if (f != 0 && *(int *)(s + 0x13C) == 0)
+        h = ((*(int *)(s + 0x128) + 0x1F) >> 5) << 1;
+    else
+        h = (*(int *)(s + 0x128) + 0xF) >> 4;
+    *(int *)(s + 0x130) = h;
+    mbh = h << 4;
+    mbw = *(int *)(s + 0x12C) << 4;
+    {
+    unsigned int *p;
+    if (mbw != a[0]) {
+        p = (unsigned int *)(s + 0x528);
+    } else {
+        if (mbh == a[1])
+            return;
+        p = (unsigned int *)(s + 0x528);
+    }
+    a[0] = mbw;
+    a[1] = mbh;
+    if ((mbw & 0xF) && (mbw & 0xE))
+        p = q8;
+    q8 = p;
+    t = mbh * 0x180;
+    q0 = (unsigned int *)(s + 0x1E8);
+    q1 = (unsigned int *)(s + 0x250);
+    q2 = (unsigned int *)(s + 0x2B8);
+    q3 = (unsigned int *)(s + 0x320);
+    q4 = (unsigned int *)(s + 0x388);
+    q5 = (unsigned int *)(s + 0x3F0);
+    q6 = (unsigned int *)(s + 0x458);
+    q7 = (unsigned int *)(s + 0x4C0);
+    n = (mbw * t) >> 8;
+    func_0012FB70(s + 0x108);
+    *(unsigned int *)(s + 0xFC) = func_0012FB80(s, s + 0x108, n, 0x40);
+    *(unsigned int *)(s + 0x100) = func_0012FB80(s, s + 0x108, n, 0x40);
+    *(unsigned int *)(s + 0x104) = func_0012FB80(s, s + 0x108, n, 0x40);
+    func_001306D0(q0, q1, q2,
+                  q3, q4, q5,
+                  q6, q7, q8,
+                  *(int *)(s + 0xFC), *(int *)(s + 0x100), *(int *)(s + 0x104), mbw, mbh);
+    func_001302E0(q0, mbw, mbh);
+    func_001302E0(q1, mbw, mbh);
+    func_001302E0(q2, mbw, mbh);
+    func_001302E0(q3, mbw, mbh >> 1);
+    func_001302E0(q4, mbw, mbh >> 1);
+    func_001302E0(q5, mbw, mbh >> 1);
+    func_001302E0(q6, mbw, mbh >> 1);
+    func_001302E0(q7, mbw, mbh >> 1);
+    func_001302E0(q8, mbw, mbh >> 1);
+    }
+}
 
-INCLUDE_ASM("asm/core", func_001307B0);
+
+
+/* rac1-decomp src/core/0012AC80.c: func_001306D0 */
+void func_001306D0(unsigned int *o0, unsigned int *o1, unsigned int *o2, unsigned int *o3,
+                   unsigned int *o4, unsigned int *o5, unsigned int *o6, unsigned int *o7,
+                   unsigned int *o8, int a, int b, int c, int w, int h) {
+    unsigned int x = (a & 0xFFFFFFF) | 0x20000000;
+    unsigned int y = (b & 0xFFFFFFF) | 0x20000000;
+    unsigned int z = (c & 0xFFFFFFF) | 0x20000000;
+    int q = (w * h) / 512;
+    int s6, s7, s8;
+    s6 = q * 384; s6 += a;
+    s7 = q * 384; s7 += b;
+    s8 = q * 384; s8 += c;
+    *o0 = x; *o1 = y; *o2 = z; *o3 = x; *o4 = y; *o5 = z;
+    *o6 = (s6 & 0xFFFFFFF) | 0x20000000;
+    *o7 = (s7 & 0xFFFFFFF) | 0x20000000;
+    *o8 = (s8 & 0xFFFFFFF) | 0x20000000;
+}
+
+extern int r1_func_0011D960(void);
+extern void r1_func_0011D9A8(void);
+extern void r1_func_00128590(void *);
+extern void r1_func_00128560(void *, unsigned int);
+extern void func_001307B0(void *, int, int);
+
+/* rac1-decomp src/core/0012AC80.c: func_001307B0 */
+/* _setDefaultQM: tell the callback (type 2) that the default quantiser
+   matrix load starts, then with the IPU idle and reset, DMA the matrix
+   at addr to IPU_TO (tag 4 qwords, chcr 0x101) with interrupts held
+   off, send command cmd and wait, and report type 3. Adapted from
+   Lombyte's project (GPL-3.0) for PAL. */
+void func_001307B0(void *arg, int cmd, int addr) {
+    char *mp = arg;
+    int cb[8];
+    int intr;
+
+    cb[0] = 2;
+    r1_func_0012BC78(*(void **)(mp + 0x858), cb);
+    r1_func_00128590(mp);
+    *(volatile int *)0x10002000 = 0;
+    r1_func_00128590(mp);
+    intr = r1_func_0011D960();
+    *(volatile int *)0x1000B410 = addr & 0x0FFFFFFF;
+    *(volatile int *)0x1000B420 = 4;
+    *(volatile int *)0x1000B400 = 0x101;
+    if (intr != 0) {
+        r1_func_0011D9A8();
+    }
+    r1_func_00128560(mp, cmd);
+    r1_func_00128590(mp);
+    cb[0] = 3;
+    r1_func_0012BC78(*(void **)(mp + 0x858), cb);
+}

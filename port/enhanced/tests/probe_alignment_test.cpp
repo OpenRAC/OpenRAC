@@ -4,6 +4,7 @@
 // Analytic thin walls verify grid phase scores, fixed coverage and deterministic placement.
 
 #include <algorithm>
+#include <cfenv>
 #include <cstdio>
 #include <exception>
 
@@ -65,6 +66,56 @@ void test_alignment_improves_thin_wall() {
     const auto again = bake_detail::align_probe_grid(scene, settings, repeated);
     CHECK(result.offset == again.offset);
     CHECK(result.after.mean == again.after.mean);
+}
+
+// Compares every scoring decision and downstream relocation input without a tolerance.
+void check_alignment(
+    const bake_detail::GridAlignment& expected,
+    const bake_detail::GridAlignment& actual,
+    const ProbeVolume& serial,
+    const ProbeVolume& parallel,
+    int rounding
+) {
+    CHECK(std::fegetround() == rounding);
+    CHECK(actual.offset == expected.offset);
+    CHECK(actual.before.mean == expected.before.mean);
+    CHECK(actual.after.mean == expected.after.mean);
+    CHECK(actual.before.inside == expected.before.inside);
+    CHECK(actual.after.inside == expected.after.inside);
+    CHECK(actual.before.near == expected.before.near);
+    CHECK(actual.after.near == expected.after.near);
+
+    // Probe positions are the downstream relocation and transport inputs.
+    for (std::size_t index = 0; index < serial.probes.size(); ++index) {
+        CHECK(parallel.probes[index].offset == serial.probes[index].offset);
+    }
+}
+
+// Parallel ray queries retain serial phase scores, anchored offsets and directed-rounding results.
+void test_parallel_alignment_preserves_scores_and_offsets() {
+    BakeScene source;
+    source.triangles = bake_test::box({-.05f, -10, -10}, {.05f, 10, 10});
+    const bake_detail::Scene scene(source);
+    BakeSettings settings;
+    BakeThreadPool pool(4);
+    const int rounding = std::fegetround();
+
+    // Reused workers must inherit each new caller environment, not a preceding job's rounding mode.
+    for (const int mode : {FE_TONEAREST, FE_TOWARDZERO, FE_DOWNWARD, FE_TONEAREST}) {
+        CHECK(std::fesetround(mode) == 0);
+        auto serial = ProbeVolume::allocate(wall_grid());
+        const auto expected = bake_detail::align_probe_grid(scene, settings, serial);
+
+        // Different task budgets must not change the score reduction or phase tie-breaking order.
+        for (const unsigned threads : {1u, 2u, 4u}) {
+            auto parallel = ProbeVolume::allocate(wall_grid());
+            const auto actual =
+                bake_detail::align_probe_grid(scene, settings, parallel, {threads, &pool});
+            check_alignment(expected, actual, serial, parallel, mode);
+        }
+    }
+
+    CHECK(std::fesetround(rounding) == 0);
 }
 
 // An open sheet still discourages surface-coincident probes without inventing a solid interior.
@@ -157,6 +208,7 @@ int main() {
     // Unexpected traversal failures must report a failed fixture instead of escaping the process boundary.
     try {
         test_alignment_improves_thin_wall();
+        test_parallel_alignment_preserves_scores_and_offsets();
         test_alignment_open_sheet_and_winding();
         test_alignment_no_unnecessary_movement();
         test_alignment_preserves_recoverable_probes();

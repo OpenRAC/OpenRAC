@@ -1,0 +1,34 @@
+typedef unsigned char u8;
+typedef int Quad __attribute__((mode(TI)));
+extern float D_L02_001B1A48 __attribute__((sda));
+extern float D_L02_001B1A50 __attribute__((sda));
+extern void func_002833F0(void *, void *);
+extern void func_00282F20(void *, void *, float);
+extern void func_00282CC0(void *, void *, void *);
+
+/* Move the three children from the common orbit and tilt their frames. */
+void func_L02_00410D00(u8 *object)
+{
+    Quad displacement;
+    u8 *state=*(u8 **)(object+0x68);
+    u8 **slot=(u8 **)(state+0x14);
+    int left=2;
+    do {
+        float distance;
+        u8 *child=*slot;
+        float height;
+        float yaw;
+        *(Quad *)(child+0x10)=*(Quad *)(object+0x10);
+        height=*(float *)(child+0x18)+D_L02_001B1A48;
+        yaw=D_L02_001B1A50*0.017453294f;
+        *(float *)(child+0x18)=height;
+        *(float *)(*slot+0xF4)=yaw;
+        distance=*(float *)(state+0x20)*2.4f-1.2f;
+        func_002833F0(*slot+0xC0,*slot+0xF0);
+        func_00282F20(&displacement,*slot+0xC0,distance);
+        func_00282CC0(*slot+0x10,*slot+0x10,&displacement);
+        *(float *)(*slot+0xF4)=*(float *)(state+0x24)*-1.0471977f-0.3490659f;
+        func_002833F0(*slot+0xC0,*slot+0xF0);
+        slot++;
+    } while (--left>=0);
+}

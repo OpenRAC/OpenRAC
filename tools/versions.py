@@ -719,7 +719,6 @@ def compare(label: str, out_elf: Path, retail: list, pieces: dict, skipped: Coun
     loaded = [(name, addr, data) for name, addr, data, _size in retail if data is not None]
     same = [name for name, addr, data in loaded if out.get(addr) == data]
     left = sum(skipped.values())
-    code = sum(len(p[0]) for p in pieces.values())
     print(f"{label}: {len(pieces) - left} placed functions linked ({left} left as retail), "
           f"{len(same)} of {len(loaded)} sections identical to retail")
     compare.linked = compare.__dict__.get("linked", 0) + len(pieces) - left

@@ -110,7 +110,8 @@ void install(
                                   {"value": "hud", "name": "Hud"},
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
-                                  {"value": "world", "name": "World"}]},
+                                  {"value": "world", "name": "World"},
+                                  {"value": "hoverboard", "name": "Hoverboard"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -655,9 +656,9 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     mods::reset();
 }
 
-// The calls of interface 1.12 are in the table, and each answers "unknown" for now, to a mod that
-// loads against the real table (the test mod's "twelve" checks every one).
-void the_1_12_slots_answer_unknown(const fs::path& plugins) {
+// The calls of interface 1.12 are in the table, and with no game behind them each answers "unknown"
+// to a mod that loads against the real table (the test mod's "twelve" checks every one).
+void the_1_12_calls_answer_unknown_without_a_game(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "twelve"}},
         {"id": "test-b", "enabled": false}]})");
@@ -668,14 +669,6 @@ void the_1_12_slots_answer_unknown(const fs::path& plugins) {
 }
 
 std::vector<std::string> g_copied;
-
-void set_key(const char* key) {
-#ifdef _WIN32
-    _putenv_s("OPENRAC_IDENTITY_KEY", key);
-#else
-    setenv("OPENRAC_IDENTITY_KEY", key, 1);
-#endif
-}
 
 // A party's check of data packs (interface 1.12): only those stack.json says change the game, the
 // strings kept, one number for the same packs; a stack that is gone or broken lists none.
@@ -747,13 +740,10 @@ void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
     CHECK(g_copied.size() == 1 && g_copied[0] == "K7M2-9QXR");
 
     char key[33] = {};
-    set_key("");
-    CHECK(api.identity_key(key, sizeof key) == 0);
-    set_key("0123456789abcdef0123456789abcdef");
+    // From the test's environment (CMakeLists.txt): the port's variables are read once (common/env.h).
     CHECK(api.identity_key(key, sizeof key) == 32 && std::string(key) == "0123456789abcdef0123456789abcdef");
     // Cut short it would be another key.
     CHECK(api.identity_key(key, 8) == 0);
-    set_key("");
     mods::reset();
 }
 
@@ -798,7 +788,7 @@ void play_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "play"}}]})");
     write(dir / "cards" / "SAVES" / "save0.bin", std::string("S\x01xyz"));
     mods::Host h = host(plugins);
-    // The game saves into slot 3 (1.12), and the mods' folders go in mod-data.
+    // The game saves into slot 3 (1.11), and the mods' folders go in mod-data.
     static openrac_game_play play = kPlay;
     play.save_slot_current = [] {
         return 3;
@@ -1383,6 +1373,128 @@ void only_a_mod_codes_link_opens(const fs::path& plugins) {
     mods::reset();
 }
 
+// Interface 1.12 on the test's game: the hero's pose set only by the mod holding the hook point the
+// game names for his update, the collision triangles as the game gives them, a prop of a .glb in the
+// mod's folder (none outside it, none missing) drawn at its pose and gone with its level, and a
+// sound of the mod's through the host's sound calls.
+std::vector<std::string> g_motion;
+
+void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"behaviour": "hoverboard"}}]})");
+    write(plugins / "test-a" / "board.glb", "glTF");
+    write(plugins / "test-a" / "beep.wav", "RIFF");
+    write(plugins / "test-b" / "board.glb", "glTF");
+    mods::Host h = host(plugins);
+    static openrac_game_play play = kPlay;
+    play.hero_update_hook = "Test_Add";
+    play.hero_set_pose = [](const openrac_game_pose* pose) {
+        g_motion.push_back("hero " + std::to_string(static_cast<int>(pose->position[0])));
+        return 1;
+    };
+    play.collision_triangles = [](const float*, const float*, void* out, int max) {
+        auto* t = static_cast<openrac_collision_triangle*>(out);
+        for (int i = 0; i < max && i < 3; ++i) {
+            t[i] = {};
+            t[i].type = static_cast<std::uint32_t>(i);
+            t[i].moby = -1;
+        }
+        return 3;
+    };
+    h.play = &play;
+    h.cards = dir / "cards";
+    h.sound_load = [](const fs::path& file) {
+        g_motion.push_back("load " + file.filename().string());
+        return 4;
+    };
+    h.sound_play = [](int sound, float volume, float pitch, bool loop) {
+        g_motion.push_back(
+            "play " + std::to_string(sound) + " " + std::to_string(static_cast<int>(volume * 10))
+            + " " + std::to_string(static_cast<int>(pitch)) + " " + std::to_string(loop)
+        );
+        return std::uint32_t{7};
+    };
+    play.camera_set = [](const float eye[3], const float rows[9]) {
+        g_motion.push_back(
+            eye != nullptr ? "camera " + std::to_string(static_cast<int>(eye[0] + rows[0]))
+                           : std::string("camera off")
+        );
+        return 1;
+    };
+    play.camera_view = [](float eye[3], float rows[9]) {
+        std::fill(eye, eye + 3, 2.0f);
+        std::fill(rows, rows + 9, 0.0f);
+        return 1;
+    };
+    play.hero_sound_play = [](int sound, int loop) {
+        g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
+        return loop != 0 ? 5 : 3;
+    };
+    play.hero_sound_stop = [](int voice) {
+        g_motion.push_back("hero stop " + std::to_string(voice));
+    };
+    static bool playing = false;
+    playing = true;
+    h.sound_set = [](std::uint32_t voice, float, float) {
+        return voice == 7 && playing ? 1 : 0;
+    };
+    h.sound_stop = [](std::uint32_t voice) {
+        g_motion.push_back("stop " + std::to_string(voice));
+        playing = false;
+    };
+    g_phase = OPENRAC_GAME_PHASE_PLAYING;
+    g_loads = 1;
+    g_motion.clear();
+    CHECK(mods::load(h) == "test-a 1.0.0");
+    g_records.clear();
+    CHECK(mods::prop_meshes().empty());
+    const unsigned generation = mods::prop_meshes_generation();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{9500, 9513 + 10, 9540, 9541, 9541, 9550, 9551, 9560,
+                                         9561, 9577,      9581, 9580, 9581, 9591, 9590, 9591,
+                                         9591, 9590,      9602, 9611, 9610, 9623, 9635}));
+    CHECK(
+        (g_motion
+         == std::vector<std::string>{
+             "hero 5",
+             "load beep.wav",
+             "play 4 5 2 1",
+             "stop 7",
+             "camera 7",
+             "hero sound 26 0",
+             "hero sound 0 1"
+         })
+    );
+    // The prop: its mesh asked for once (the level read again with it), drawn where it was posed.
+    CHECK(mods::prop_meshes().size() == 1 && mods::prop_meshes()[0].filename() == "board.glb");
+    CHECK(mods::prop_meshes_generation() == generation + 1);
+    const std::vector<mods::PropDraw> drawn = mods::props_drawn();
+    CHECK(drawn.size() == 1);
+    CHECK(
+        drawn.size() == 1 && drawn[0].matrix[0] == 2.0f && drawn[0].matrix[5] == 2.0f
+        && drawn[0].matrix[12] == 1.0f && drawn[0].matrix[13] == 2.0f && drawn[0].matrix[14] == 3.0f
+    );
+    // The heat haze, drawn while its level is.
+    const std::vector<mods::HazeDraw> haze = mods::haze_drawn();
+    CHECK(haze.size() == 2 && haze[0].position[0] == 4.0f && haze[0].radius == 1.0f);
+    // The HUD's line, shown while its level is.
+    const std::vector<openrac_hud_text> hud = mods::hud_texts();
+    CHECK(hud.size() == 1 && std::string(hud[0].text) == "KICKFLIP" && hud[0].y == 0.8f);
+    // Another hook point is the hero's update now, and the level was loaded again.
+    play.hero_update_hook = "Test_Other";
+    g_loads = 2;
+    g_records.clear();
+    mods::frame();
+    CHECK((g_records == std::vector<int>{9501, 9551}));
+    CHECK(mods::props_drawn().empty());
+    CHECK(mods::haze_drawn().empty());
+    CHECK(mods::hud_texts().empty());
+    // The looping hero sound went with its level: nothing left to stop.
+    g_motion.clear();
+    mods::reset();
+    CHECK((g_motion == std::vector<std::string>{"camera off"}));
+}
+
 int main() {
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_loader_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
@@ -1405,7 +1517,7 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
-    the_1_12_slots_answer_unknown(plugins);
+    the_1_12_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
     a_mod_draws_over_the_level(plugins, dir);
@@ -1414,6 +1526,7 @@ int main() {
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);
     the_world_reaches_the_game(plugins, dir);
+    motion_reaches_the_game(plugins, dir);
     a_mod_for_1_5_still_loads(plugins);
     std::error_code e;
     fs::remove_all(dir, e);

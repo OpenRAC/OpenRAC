@@ -350,16 +350,57 @@ static uint8_t bcd(int v) {
     return (uint8_t)(((v / 10) << 4) | (v % 10));
 }
 
+/* The time the clock reads, pinned: OPENRAC_CLOCK's "YYYY-MM-DD hh:mm:ss" (a T between the date
+ * and the time also reads), or 2000-01-01 00:00:00 in a run that records or replays its pad; zero
+ * when the host's own time is read. The game stamps saves and its progress records in RAM
+ * (rac2's g_saveClock, 0x1A7360, at every level load) with it, so a host clock made two runs of
+ * the same inputs differ in memory from the first load on. */
+static int pinned_clock(struct tm* out) {
+    const char* text = openrac_env_string("OPENRAC_CLOCK");
+    int year = 2000, month = 1, day = 1, hour = 0, minute = 0, second = 0;
+    if (text != NULL && *text != '\0') {
+        char between = 0;
+        if (sscanf(
+                text, "%d-%d-%d%c%d:%d:%d", &year, &month, &day, &between, &hour, &minute, &second
+            ) != 7
+            || (between != ' ' && between != 'T')) {
+            static int warned = 0;
+            if (!warned) {
+                warned = 1;
+                fprintf(
+                    stderr,
+                    "OPENRAC_CLOCK: \"%s\" is not YYYY-MM-DD hh:mm:ss; the host's time is used\n",
+                    text
+                );
+            }
+            return 0;
+        }
+    } else if (openrac_env_string("OPENRAC_RECORD") == NULL
+               && openrac_env_string("OPENRAC_REPLAY") == NULL) {
+        return 0;
+    }
+    memset(out, 0, sizeof *out);
+    out->tm_year = year - 1900;
+    out->tm_mon = month - 1;
+    out->tm_mday = day;
+    out->tm_hour = hour;
+    out->tm_min = minute;
+    out->tm_sec = second;
+    return 1;
+}
+
 /* sceCdReadClock: the console's clock, in BCD: status, second, minute, hour,
- * a pad byte, day, month, year (two digits). */
+ * a pad byte, day, month, year (two digits). The host's local time, unless pinned_clock pins it. */
 int openrac_lib_sceCdReadClock(gaddr clock) {
-    time_t now = time(NULL);
     struct tm local;
+    if (!pinned_clock(&local)) {
+        time_t now = time(NULL);
 #if defined(_WIN32)
-    localtime_s(&local, &now);
+        localtime_s(&local, &now);
 #else
-    localtime_r(&now, &local);
+        localtime_r(&now, &local);
 #endif
+    }
     uint8_t* c = (uint8_t*)G(clock);
     c[0] = 0;
     c[1] = bcd(local.tm_sec);

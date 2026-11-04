@@ -11,6 +11,7 @@
 
 #include "game/common/profile.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -25,6 +26,7 @@
 #include "game/rac1/game_state.h"
 #include "game/rac1/gameplay_lighting.h"
 #include "game/rac1/host/collision_notes.h"
+#include "game/rac1/shrub_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
 
@@ -200,10 +202,16 @@ public:
         return read_live_moby(ram, moby);
     }
 
-    bool beyond_draw_distance(
-        const std::uint8_t* moby, const renderer::Vec3& eye, const renderer::Vec3& forward
+    std::optional<std::uint8_t> moby_distance_fade(
+        const std::uint8_t* moby, const host::GameState& state
     ) const override {
-        return moby_beyond_draw_distance(moby, eye, forward);
+        return rac1::moby_distance_fade(moby, state);
+    }
+
+    std::vector<host::ShrubDraw> shrub_draws(
+        std::span<const std::uint8_t> ram, int level
+    ) const override {
+        return shrub_proc(ram, addresses(level), shrub_class_table(&m_boot == &kRac1Ntsc, level));
     }
 
     std::uint32_t shown_chain(std::span<const std::uint8_t> ram, int level) const override {
@@ -216,9 +224,18 @@ public:
 
     bool has_levels() const override { return true; }
 
+    // Only quads with an id move (rac1_effect_quad_id: the ship's glass).
+    bool interpolates_effect_quads() const override { return true; }
+
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
 
+    // Level mode 2 is a real-time cutscene (rac1/host/front_end.c).
+    std::optional<std::uint32_t> cutscene_mode() const override { return 2; }
+
     std::uint32_t particle_updates() const override { return m_executable.particle_updates; }
+
+    // process_pad_input (games/rac1's func_002181F0): |byte - 0x7F| from 0x30, over 0x4C.
+    std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 
     std::string diagnostics(
         std::span<const std::uint8_t> ram,
@@ -238,6 +255,45 @@ public:
     void diagnostics_off(const host::DiagnosticsInput& input) const override {
         if (auto* watch = static_cast<OpenracCollWatch*>(input.game)) {
             watch->rr = 0.0f;
+        }
+    }
+
+    std::optional<std::array<float, 2>> water_projectile(int class_id) const override {
+        // Shared PAL/NTSC classes (editor/moby_classes.tsv); equipped weapons/ammo are excluded.
+        switch (class_id) {
+            case 305:
+                return std::array{.25f, .45f};  // Blaster's homing shot (CLASS_HOMING_SHOT).
+            case 121:
+            case 230:
+            case 248:
+            case 281:
+            case 425:
+            case 545:
+            case 882:
+            case 938:
+                return std::array{.45f, .7f};  // Thrown bombs.
+            case 41:
+            case 49:
+            case 50:
+            case 82:
+            case 153:
+            case 172:
+            case 295:
+            case 409:
+            case 435:
+            case 457:
+            case 458:
+            case 470:
+            case 564:
+            case 819:
+            case 922:
+            case 1034:
+            case 1233:
+            case 1355:
+            case 1475:
+                return std::array{.3f, .6f};  // Player and enemy missiles.
+            default:
+                return std::nullopt;
         }
     }
 

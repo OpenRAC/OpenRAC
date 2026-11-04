@@ -1,0 +1,58 @@
+/* func_002D1D20 in its own unit, a sibling of func_002D2018: the cursor goes through $gp, so the
+   file is compiled at -G32 (config/cflags.txt). The text table's address is built by one lui/addiu
+   pair in one register, the assembler's la macro, so it is declared MACRO_ADDR. */
+#include "common.h"
+
+typedef struct { char prefix[0x14]; char *source; int value; char gap[0x118]; int fallback; } SelectionCallback;
+typedef struct { char reserved[0x1C4]; int flags; } CallbackMenuState;
+
+extern SelectionCallback D_001F2840;
+extern CallbackMenuState D_00138180;
+extern int func_002E5E58(int, unsigned int, void *);
+extern int D_001ABA58 __attribute__((sda));
+extern int D_0025C960[];
+extern int D_0025C8E4[];
+extern short D_001ABD40[] MACRO_ADDR;
+
+int func_002D1D20(void)
+{
+    int result = 0;
+    int flags = D_00138180.flags;
+
+    if (flags & 0x10) {
+        int value;
+        int status;
+        D_001ABA58 = 0;
+        value = *(int *)(D_001F2840.source + 0xE0);
+        if (value != 0)
+            D_001F2840.value = value;
+        else if (D_001F2840.fallback == 0) {
+            status = -1;
+            goto finish;
+        }
+        status = 0;
+finish:
+        return status;
+    }
+    if (flags & 0x900) {
+        D_001ABA58 = 0;
+        result = 1;
+    } else if (flags & 0x8000) {
+        if (D_001ABA58 > 0)
+            func_002E5E58(3, 0, 0);
+        else
+            func_002E5E58(5, 0, 0);
+        if (--D_001ABA58 < 0)
+            D_001ABA58 = 0;
+    } else if (flags & 0x2000) {
+        if (D_001ABA58 < 17)
+            func_002E5E58(3, 0, 0);
+        else
+            func_002E5E58(5, 0, 0);
+        if (++D_001ABA58 > 17)
+            D_001ABA58 = 17;
+    }
+    D_0025C960[0] = D_001ABA58;
+    D_0025C8E4[0] = D_001ABD40[D_001ABA58];
+    return result;
+}

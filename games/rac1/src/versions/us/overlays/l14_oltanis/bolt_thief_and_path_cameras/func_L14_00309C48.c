@@ -12,19 +12,20 @@ void update_moby_list_clear_notification(unsigned char *moby) {
         }
     }
     switch (moby[0x20]) {
-    case 0:
-        moby[0x30] = 0xFF;
-        moby[0x20] = 1;
-        break;
-    case 1:
-        if (oltanis_game_mode == 2) {
-            v = oltanis_cutscene_state.state - 3;
-            if (v < 3) {
-                i = 0;
-                if (v <= oltanis_game_mode) i = moby[0x20];
-                cutscene_set_camera_target(oltanis_cutscene_state.v178[i]);
+        case 0:
+            moby[0x30] = 0xFF;
+            moby[0x20] = 1;
+            break;
+        case 1:
+            if (oltanis_game_mode == 2) {
+                v = oltanis_cutscene_state.state - 3;
+                if (v < 3) {
+                    i = 0;
+                    if (v <= oltanis_game_mode)
+                        i = moby[0x20];
+                    cutscene_set_camera_target(oltanis_cutscene_state.v178[i]);
+                }
             }
-        }
-        break;
+            break;
     }
 }

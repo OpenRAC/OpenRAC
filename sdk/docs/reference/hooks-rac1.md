@@ -16,6 +16,7 @@ game address.
 | `rac1.player.set_planar_velocity` | `Hero_SetPlanarVelocity` | `void(f32)` | angle | pal, ntsc | The hero's velocity at his ground speed along an angle; an angle above pi means his facing. |
 | `rac1.camera.follow.apply_overrides` | `FollowCamera_ApplyOverrides` | `void(u32)` | camera | pal, ntsc | The follow camera's per-tick requests from the hero's state; the camera moby's update calls it before it places the eye. |
 | `rac1.player.advance_animation` | `Hero_AdvanceAnimation` | `void()` |  | pal, ntsc | Ratchet's animation moved on by his animation speed, once a tick after his state's update. |
+| `rac1.player.update` | `Hero_Update` | `void()` |  | pal, ntsc | The hero's whole update, once a tick from the level loop (coordinate_hero_frame_update, and its copies update_hero_frame and HeroL03_FrameUpdate in the other families of levels: one hook point): his animation's advance, the stick, his state machine and movement (Hero_UpdateMotionInput), ledges and rails, his state's transitions, his body's easing, his moby and matrices, what he holds and his drawing; it fades out when he leaves the world's bounds. A replacement that does not call the original moves him by itself and shows him with openrac_api.hero_set_pose. |
 | `rac1.item.give` | `Item_Give` | `void(i32,i32)` | id, equip | pal, ntsc | Gives the player item id (GiveItem): sets its owned and obtained bytes, shows its banner, gives its starting ammo, marks it bought in the vendor's stock and adds it to the quick select; equip non-zero also puts it in hand. Every item the game gives goes through it but the Persuader's. |
 | `rac1.planet.unlock` | `Planet_Unlock` | `void(i32)` | planet | pal, ntsc | Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on. |
 | `rac1.help.request` | `Help_Request` | `i32(i32,i32)` | message, slot | pal, ntsc | Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. |
@@ -60,6 +61,7 @@ game address.
 | `rac1.save.new_game_plus` | `Save_NewGamePlus` | `void(i32)` | slot | pal, ntsc | Challenge mode's start (load_level_zero_preserving_progress): the game reset to level 0 with the progress it carries kept. |
 | `rac1.save.serialize` | `Save_Serialize` | `void(u32)` | out | pal, ntsc | Writes the whole save into out (memcard_MakeWholeSave), with no memory card access. |
 | `rac1.save.update_state` | `Save_UpdateState` | `void()` |  | pal, ntsc | The memory card's state machine, each tick (memcard_update_state): saves and loads go through it. |
+| `rac1.text.msg_string` | `msg_string` | `i32(i32)` | id | pal, ntsc | Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn. |
 
 ## Fields
 

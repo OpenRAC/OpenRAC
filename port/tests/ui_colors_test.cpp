@@ -25,6 +25,13 @@ void reads_the_launchers_colours() {
     CHECK(odd.panel == own.panel && odd.text == own.text && odd.soft == own.soft);
     CHECK(odd.dim == rgba(0x12, 0x34, 0x56, 0x78));
     CHECK(parse("").panel == own.panel);
+    // A game's accent: its bar's stripes and ink, apart from the deeper ink of the same prefix.
+    const Colors rac3 =
+        parse("bar-stripe=#efcc4d,bar-stripe-alt=#d7ac27,bar-ink=#2a2000,bar-ink-deep=#1c1500");
+    CHECK(
+        rac3.bar_stripe == rgba(0xef, 0xcc, 0x4d) && rac3.bar_stripe_alt == rgba(0xd7, 0xac, 0x27)
+    );
+    CHECK(rac3.bar_label == rgba(0x2a, 0x20, 0x00) && rac3.bar_ink == rgba(0x1c, 0x15, 0x00));
 }
 
 void mixes_and_fades() {

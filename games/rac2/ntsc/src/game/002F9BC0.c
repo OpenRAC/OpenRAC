@@ -35,13 +35,12 @@ void func_002F9BC0(char *dst, int value)
         func_00115DA8_1(dst, D_L00_001AD6C8, value);
 }
 
-INCLUDE_ASM("asm/game", func_002F9C80);
+/* func_002F9C80 is in 002F9C80.c. */
 
 INCLUDE_ASM("asm/game", func_002FA270);
 
-INCLUDE_ASM("asm/game", func_002FA880);
+/* func_002FA880 is matched in 002F9BC0-vendor-g8.c. */
 
-INCLUDE_ASM("asm/game", func_002FAD30);
 
 
 extern volatile int D_001A7A20[] __attribute__((sda));
@@ -57,7 +56,6 @@ void func_002FADB0(void)
     D_001A7A20[0] &= ~128;
 }
 
-INCLUDE_ASM("asm/game", func_002FAE68);
 
 extern void func_002B7AD0(void);
 extern int ref_L00_002FB170_00[];
@@ -83,7 +81,6 @@ int func_002FBFB8(int key)
     return -1;
 }
 
-INCLUDE_ASM("asm/game", func_002FC008);
 
 extern int func_002FBFB8(int);
 extern unsigned char D_001395B8[];
@@ -135,4 +132,4 @@ void func_002FC220(void)
     D_L06_001B2374 = a1 - 8192;
 }
 
-INCLUDE_ASM("asm/game", func_002FC280);
+/* func_002FC280 is matched in 002F9BC0-packet-g8.c. */

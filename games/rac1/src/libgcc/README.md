@@ -129,7 +129,7 @@ $sp,$sp,0x20` in the delay slot of its `jr $ra`, followed by the alignment
 linker dropped it, and dropped it one instruction short.
 `tools/strip_dead.py` does the same to the compiler's output, and names
 the surviving word `func_0011DF10` the way splat sees it. See
-docs/DECOMP_PROGRESS.md for the rest of the image.
+docs/reference/DECOMP_PROGRESS.md for the rest of the image.
 
 The module's statics follow retail: `__main`'s `initialized` is placed at
 retail's D_001597EC inside core_bss, and the stripped function's static

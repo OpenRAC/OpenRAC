@@ -194,7 +194,7 @@
   }
 
   @media (hover: hover) {
-    .list button:hover {
+    :global(html:where(:not([data-input="pad"]))) .list button:hover {
       background: rgb(255 255 255 / 0.08);
     }
   }

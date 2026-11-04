@@ -29,7 +29,7 @@ def command():
         for name, digest in FILES.items():
             path = base / name
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-                raise RuntimeError('Missing or unexpected DTL-S13010 assembler/runtime; see docs/TOOLCHAIN.md.')
+                raise RuntimeError('Missing or unexpected DTL-S13010 assembler/runtime; see docs/reference/TOOLCHAIN.md.')
             path.chmod(path.stat().st_mode | 0o100)
         if sys.platform != 'linux':
             raise RuntimeError('Use a Linux host or the build container, or EE_DTLS29_AS with a compatible runner for the same binary.')

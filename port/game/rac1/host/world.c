@@ -62,6 +62,7 @@
 
 enum {
     MOBY_POS = 0x10,
+    MOBY_PVARS = 0x78,
     MOBY_STATE = 0x20,
     MOBY_ALPHA = 0x23,
     MOBY_CLASS = 0x24,
@@ -497,15 +498,117 @@ int32_t rac1_world_bolts(int32_t add) {
     return GREF(int32_t, BOLTS);
 }
 
+/* update_moby_spatial_trigger (class 258, nine levels' copies of one function): it wakes and puts to
+ * sleep whole groups of mobys, the sharks of Umbris among them, by whether one place is in its zone:
+ * the hero, or the level's camera (use_alt_target). A party's world runs here, so the zone counts
+ * as entered when any player is in it: with this game's own place outside and an eye inside, that
+ * eye is the trigger's place for its update, and only for that. */
+enum {
+    TRIGGER_CLASS = 258,
+    TRIGGER_PATH = 0x0,
+    TRIGGER_RADIUS = 0x4,
+    TRIGGER_VOLUMES = 0x8,
+    TRIGGER_VOLUME_COUNT = 6,
+    TRIGGER_USE_CAMERA = 0x7E
+};
+#define TRIGGER_CAMERA OPENRAC_LDATA(5, RAC1_LADDR(05, 0x001672C0u))
+#define TRIGGER_PATHS OPENRAC_LDATA(5, RAC1_LADDR(05, 0x001B0CB0u))
+
+int func_00215570(gaddr point, int volume);
+int func_L00_0025A778(gaddr point, gaddr polygon, int count);
+
+static struct {
+    int moved;
+    uint32_t camera[4];
+} trigger;
+
+static int in_trigger_zone(gaddr moby, gaddr vars, const float place[3]) {
+    const float radius = GREF(float, vars + TRIGGER_RADIUS);
+    if (radius > 0.0f) {
+        float d2 = 0.0f;
+        for (unsigned c = 0; c < 3; ++c) {
+            const float d = GREF(float, moby + MOBY_POS + 4u * c) - place[c];
+            d2 += d * d;
+        }
+        if (d2 < radius * radius) {
+            return 1;
+        }
+    }
+    GFRAME(point, 16);
+    for (unsigned c = 0; c < 3; ++c) {
+        GREF(float, point + 4u * c) = place[c];
+    }
+    GREF(float, point + 12u) = 1.0f;
+    const int32_t path = GREF(int32_t, vars + TRIGGER_PATH);
+    if (path != -1) {
+        const gaddr polygon = GREF(gaddr, TRIGGER_PATHS + 4u * (uint32_t)path);
+        if (func_L00_0025A778(point, polygon + 0x10u, GREF(int32_t, polygon)) != 0) {
+            return 1;
+        }
+    }
+    for (unsigned i = 0; i < TRIGGER_VOLUME_COUNT; ++i) {
+        const int32_t volume = GREF(int32_t, vars + TRIGGER_VOLUMES + 4u * i);
+        if (volume != -1 && func_00215570(point, volume) != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void trigger_sees_the_party(gaddr moby) {
+    const gaddr vars = GREF(gaddr, moby + MOBY_PVARS);
+    if (eyes_count == 0 || vars == 0 || GREF(uint8_t, moby + MOBY_STATE) == 0) {
+        return;
+    }
+    const int use_camera = GREF(int8_t, vars + TRIGGER_USE_CAMERA) != 0;
+    const gaddr own = use_camera ? TRIGGER_CAMERA : HERO + 0x80u;
+    float place[3];
+    memcpy(place, G(own), sizeof place);
+    if (in_trigger_zone(moby, vars, place)) {
+        return;
+    }
+    for (int i = 0; i < eyes_count; ++i) {
+        const float* eye = eyes_xyz + 3 * i;
+        if (!in_trigger_zone(moby, vars, eye)) {
+            continue;
+        }
+        if (use_camera) {
+            memcpy(trigger.camera, G(TRIGGER_CAMERA), sizeof trigger.camera);
+            memcpy(G(TRIGGER_CAMERA), eye, 3 * sizeof(float));
+            trigger.moved = 1;
+        } else {
+            rac1_world_stand_in(eye, 0);
+        }
+        return;
+    }
+}
+
+static void trigger_done(void) {
+    if (trigger.moved) {
+        memcpy(G(TRIGGER_CAMERA), trigger.camera, sizeof trigger.camera);
+        trigger.moved = 0;
+    }
+}
+
 int rac1_moby_gate(gaddr moby, int phase) {
     /* The pause menu's own mobys are none of the mods'. */
     if (openrac_game_moby_update == NULL || !main_context()) {
         return 0;
     }
-    if (phase == 0) {
-        rac1_metal_detect(moby);
+    if (phase != 0) {
+        trigger_done();
+        return openrac_game_moby_update(rac1_moby_slot(moby), phase);
     }
-    return openrac_game_moby_update(rac1_moby_slot(moby), phase);
+    rac1_metal_detect(moby);
+    if (GREF(int16_t, moby + MOBY_OCLASS) == TRIGGER_CLASS) {
+        trigger_sees_the_party(moby);
+    }
+    const int skip = openrac_game_moby_update(rac1_moby_slot(moby), phase);
+    if (skip) {
+        trigger_done();
+        rac1_stand_in_end(moby);
+    }
+    return skip;
 }
 
 void rac1_world_eyes(const float* xyz, int count) {
@@ -717,6 +820,17 @@ static void note_menu_run(int32_t how) {
     menu_runs.last = how;
 }
 
+/* The frame's draw lists start empty (ResetDrawGlobals). Under a menu the game's own frame does
+ * not clear them, and retail runs no moby there: each update adds its callbacks again, every one
+ * of them is drawn again each frame, and the frame's packets run over the level's data. */
+static void draw_lists_start(void) {
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F564u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F568u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F56Cu))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F570u))) = 0;
+    GREF(int, OPENRAC_DATA(RAC1_ADDR(0x0015F574u))) = 0;
+}
+
 static void run_world_under_menu(int pause_menu) {
     if (!keep_running || !in_level()) {
         note_menu_run(1); /* OPENRAC_RUN_MENU_HELD */
@@ -739,6 +853,7 @@ static void run_world_under_menu(int pause_menu) {
     const int entered = enter_level_context();
     const uint32_t coll_off = GREF(uint32_t, COLL_STAMP) & COLL_OFF;
     GREF(uint32_t, COLL_STAMP) &= ~COLL_OFF;
+    draw_lists_start();
     func_00213C78();
     GREF(uint32_t, COLL_STAMP) |= coll_off;
     if (pause_menu && live_picture && (first || swapped)) {

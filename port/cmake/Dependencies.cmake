@@ -31,7 +31,15 @@ endif()
 if(SDL3_FOUND)
   message(STATUS "SDL3: system (${SDL3_VERSION})")
 else()
-  message(STATUS "SDL3: not installed; fetching release-3.2.24")
+  # Desktop: SDL 3.4, whose HIDAPI drivers read the Steam Controllers (the 2015 one and the 2026
+  # one, "Triton") themselves, without Steam Input. Android stays on 3.2: its Java side
+  # (GameActivity overrides SDLActivity) was made against that one.
+  if(ANDROID)
+    set(openrac_sdl_tag release-3.2.24)
+  else()
+    set(openrac_sdl_tag release-3.4.18)
+  endif()
+  message(STATUS "SDL3: not installed; fetching ${openrac_sdl_tag}")
   # Android: libSDL3.so, which SDL's activity loads before the game (SDLActivity.getLibraries) and
   # whose Java side (tools/build_android.py copies it from this checkout of SDL) calls into it.
   if(ANDROID)
@@ -45,6 +53,14 @@ else()
   set(SDL_TESTS OFF CACHE BOOL "" FORCE)
   set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+  # SDL 3.4 stops at a missing X11 extension; XTest is the one 3.2 did not ask for, so a machine
+  # without its headers (libxtst-dev) builds without it rather than not at all.
+  if(UNIX AND NOT APPLE AND NOT ANDROID)
+    find_file(OPENRAC_XTEST_HEADER NAMES X11/extensions/XTest.h)
+    if(NOT OPENRAC_XTEST_HEADER)
+      set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
+    endif()
+  endif()
   # SYSTEM keeps the port's warnings off SDL's headers (CMake 3.25 and
   # later); EXCLUDE_FROM_ALL builds only the parts the port links (3.28).
   set(openrac_sdl_options)
@@ -56,7 +72,7 @@ else()
   endif()
   FetchContent_Declare(SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG release-3.2.24
+    GIT_TAG ${openrac_sdl_tag}
     GIT_SHALLOW TRUE
     ${openrac_sdl_options}
   )

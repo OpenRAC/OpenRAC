@@ -138,8 +138,9 @@ struct PadTuning {
     // The face buttons by their labels, as an Xbox pad has them (A south), rather than by
     // position: on a pad labelled the other way about (Nintendo's), A is PadSouth.
     bool face_labels = false;
-    // The controllers count while another window has the keyboard, as they always have.
-    bool background = true;
+    // The controllers count while another window has the keyboard (the game alt-tabbed or
+    // minimised). Off by default: a pad used elsewhere does not play the game behind it.
+    bool background = false;
 
     bool operator==(const PadTuning&) const = default;
 };
@@ -278,9 +279,13 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad);
 // Presses `pad`'s buttons and sets its sticks from one gamepad. The gamepad's sticks are shaped as
 // the DualShock 2's are (pad.h) before anything reads them: `gates` is what its left and right
 // sticks have shown. A chord that presses takes its input from the bindings of that input alone, so
-// one press does not do both.
+// one press does not do both. The sticks reach the console past the game's `dead_zone` (pad.h).
 void apply_pad(
-    const Bindings& bindings, const PadInputs& inputs, std::array<StickGate, 2>& gates, Pad& pad
+    const Bindings& bindings,
+    const PadInputs& inputs,
+    std::array<StickGate, 2>& gates,
+    Pad& pad,
+    const StickDeadZone& dead_zone = {}
 );
 
 }  // namespace openrac::platform

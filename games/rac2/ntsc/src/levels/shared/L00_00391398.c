@@ -1,0 +1,34 @@
+/* A union keeps the vector field at a fixed stack offset without extending
+ * the lifetime of a cast-derived pointer across the matrix helper calls. */
+typedef int Quad __attribute__((mode(TI)));
+extern void func_00283410(void *, void *);
+extern void func_00283658(void *, void *);
+extern void func_00283788(void *, void *, void *);
+extern void func_00283678(void *, void *);
+extern void func_002830C0(void *, void *, void *);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_002A10E8(void *);
+void func_L00_00391398(char *parent, char *context)
+{
+    Quad matrices[12];
+    union { Quad quad; float f[4]; } offset;
+    Quad result;
+    char *child;
+    float *height;
+    if (*(char **)(context+0x20)==0) return;
+    offset.quad=0;
+    offset.f[1]=0.11f;
+    child=*(char **)(context+0x20);
+    height=(float *)(*(char **)(child+0x68)+0xC);
+    if (*height>0.45f) *height=*height-0.05f;
+    else if (*height<0.45f) *height=*height+0.05f;
+    child=*(char **)(context+0x20);
+    *(float *)(child+0xF8)=-1.5707963705062866f;
+    func_00283410(matrices+4, (*(char **)(context+0x20))+0xF0);
+    func_00283658(matrices+8,parent+0xC0);
+    func_00283788(matrices,matrices+8,matrices+4);
+    func_00283678((*(char **)(context+0x20))+0xC0,matrices);
+    func_002830C0(&result,&offset,matrices);
+    func_00282CC0((*(char **)(context+0x20))+0x10,&result,parent+0x10);
+    func_002A10E8(*(char **)(context+0x20));
+}

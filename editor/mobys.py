@@ -111,8 +111,11 @@ def update_roles(table: str) -> dict[str, dict[int, list[int]]]:
 
 
 def names_h_symbols(path: Path) -> dict[str, str]:
-    """include/names.h: readable name -> func_ symbol."""
-    return dict(re.findall(r"^#define\s+(\w+)\s+(func_\w+)\s*$", path.read_text(), re.M)) if path.is_file() else {}
+    """include/names.h and its parts (include/names/): readable name -> func_ symbol."""
+    if not path.is_file():
+        return {}
+    text = "\n".join(p.read_text() for p in [path, *sorted((path.parent / "names").glob("*.h"))])
+    return dict(re.findall(r"^#define\s+(\w+)\s+(func_\w+)\s*$", text, re.M))
 
 
 def c_definitions(sources, symbol_of: dict[str, str]) -> tuple[dict, dict]:

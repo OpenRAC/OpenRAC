@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Raw byte-offset moby accesses -> shared Moby fields (include/moby.h).
+"""Raw byte-offset moby accesses -> shared Moby fields (include/structs/moby.h).
 
   python3 tools/tidy/rawmoby.py [--dry] [--wide] [--func=NAME] [--list] FILE...
 

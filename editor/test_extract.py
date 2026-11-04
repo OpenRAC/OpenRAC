@@ -80,6 +80,17 @@ class PoolTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     pool.submit(sum, [1, 2]).result()
 
+    def test_every_submitted_export_may_run_in_its_own_process(self):
+        # Android uses SubprocessPool, which runs only WORKER_FUNCTIONS.
+        import ast
+        tree = ast.parse(Path(extract.__file__).read_text())
+        submitted = {call.args[0].id for call in ast.walk(tree)
+                     if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute)
+                     and call.func.attr == "submit" and isinstance(call.func.value, ast.Name)
+                     and call.func.value.id == "pool"}
+        self.assertIn("export_port_wad_flight", submitted)
+        self.assertEqual(submitted - set(extract.WORKER_FUNCTIONS), set())
+
     def test_a_worker_runs_one_export_and_pickles_its_result(self):
         stdin = io.TextIOWrapper(io.BytesIO(pickle.dumps(("export_port_title", ("disc.iso",), {"lod": 1}))))
         stdout = io.TextIOWrapper(io.BytesIO())
@@ -250,3 +261,15 @@ class SecondExportTests(unittest.TestCase):
         extract.export_godot(godot, [0], True, True, fake_godot(extract.GODOT_SCHEMA))
         with self.assertRaisesRegex(FormatError, "Godot projects"):
             extract.ours(godot, "port")
+
+
+class LauncherStampTests(unittest.TestCase):
+    def test_the_launcher_looks_for_the_stamp_each_game_writes(self):
+        import re
+        from port import levels_format
+        actions = (ROOT / "launcher" / "actions.json").read_text(encoding="utf-8")
+        stamps = set(re.findall(r"assets/port/(rac\d)/\w+/levels-(\d+)\.json", actions))
+        self.assertTrue(stamps)
+        for game, written in stamps:
+            with self.subTest(game):
+                self.assertEqual(int(written), levels_format(game))

@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     std::string iso, hooks, ppm, vif_file, card, wav, native, native_calls;
     bool card_wanted = true;
     int vif_frame = -1;
-    int frames = -1, report = 60, states_frame = -1;
+    int frames = -1, report = 60, states_frame = -1, ppm_from = -1;
 
     /*
      * Threads that draw: by default most of the fast cores, leaving one for the program itself.
@@ -139,13 +139,16 @@ int main(int argc, char** argv) {
 
     std::vector<Press> presses;
 
-    /** Scripted left stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
+    /** Scripted stick: hold it at X, Y (0x80 centred, 0 left/up, 0xFF right/down) for some fields. */
     struct Stick {
         /** The first field and how many fields it lasts. */
         int frame, length;
 
         /** The axes. */
         unsigned x, y;
+
+        /** The right stick (--rstick) rather than the left. */
+        bool right = false;
     };
 
     std::vector<Stick> sticks;
@@ -183,6 +186,9 @@ int main(int argc, char** argv) {
         int phase;
         unsigned long long seen;
         unsigned phase_taken;
+
+        /** With `--capture-key`: the calls seen and the states taken for each value of the key. */
+        std::map<unsigned long long, std::pair<unsigned long long, unsigned>> keyed;
     };
 
     std::vector<Capture> captures;
@@ -198,7 +204,34 @@ int main(int argc, char** argv) {
      */
     std::vector<long long> phases{0};
     bool capture_spread = false;
+
+    /*
+     * The words of `--capture-key`: with any, the calls taken are per value of those words, not
+     * per phase, so a function called every frame gets states from each hero state, weapon or
+     * game state the run goes through and not just the first ones met. `capture_limit` is the
+     * most states of one function in the run (0: no limit).
+     */
+    std::vector<unsigned> capture_keys;
+    unsigned capture_limit = 0;
+
+    /*
+     * `--trace FILE ADDRESS[:WORDS],...`: a line per field with those words of main memory in
+     * hexadecimal, to compare a move against the port's run field by field.
+     */
+    struct Traced {
+        unsigned address, words;
+    };
+
+    std::vector<Traced> traced;
+    std::FILE* trace_file = nullptr;
     sys::Machine machine;
+
+    /*
+     * `--watch-stores ADDRESS:BYTES` (hexadecimal): a line on stderr for each store of the
+     * program into those bytes of main memory, with the field, the store's instruction, the
+     * return address register and the value, to find what writes a word.
+     */
+    unsigned watch_first = 0, watch_bytes = 0;
 
     // One option per pass; a value-taking option reads the next argument as well.
     for (int i = 1; i < argc; i++) {
@@ -237,6 +270,35 @@ int main(int argc, char** argv) {
         } else if (arg == "--capture-spread") {
             // Take calls 1, 2, 4, 8, ... rather than the first ones.
             capture_spread = true;
+        } else if (arg == "--capture-key" && i + 1 < argc) {
+            // ADDRESS[,ADDRESS...] in hexadecimal: take states per value of these words.
+            for (const char* s = argv[++i]; *s;) {
+                char* end = nullptr;
+                capture_keys.push_back(static_cast<unsigned>(std::strtoul(s, &end, 16)));
+                s = *end == ',' ? end + 1 : end + std::strlen(end);
+            }
+        } else if (arg == "--capture-limit" && i + 1 < argc) {
+            // The most states of one function in this run.
+            capture_limit = static_cast<unsigned>(std::atoi(argv[++i]));
+        } else if (arg == "--trace" && i + 2 < argc) {
+            // FILE and ADDRESS[:WORDS],... in hexadecimal, words decimal.
+            trace_file = std::fopen(argv[++i], "w");
+            for (const char* s = argv[++i]; *s;) {
+                char* end = nullptr;
+                Traced t{static_cast<unsigned>(std::strtoul(s, &end, 16)), 1};
+                s = end;
+                if (*s == ':') {
+                    t.words = static_cast<unsigned>(std::strtoul(s + 1, &end, 10));
+                    s = end;
+                }
+                traced.push_back(t);
+                s += *s == ',' ? 1 : 0;
+            }
+        } else if (arg == "--watch-stores" && i + 1 < argc) {
+            // ADDRESS:BYTES in hexadecimal.
+            char* end = nullptr;
+            watch_first = static_cast<unsigned>(std::strtoul(argv[++i], &end, 16));
+            watch_bytes = *end == ':' ? static_cast<unsigned>(std::strtoul(end + 1, nullptr, 16)) : 4;
         } else if (arg == "--calls" && i + 1 < argc) {
             // At the end, write each listed function's call count and first and last field.
             calls_file = argv[++i];
@@ -266,6 +328,14 @@ int main(int argc, char** argv) {
             Stick s{0, 4, 0x80, 0x80};
             std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
             sticks.push_back(s);
+        } else if (arg == "--rstick" && i + 1 < argc) {
+            // FRAME:X:Y[:FRAMES], the right stick (the camera's) as --stick has the left.
+            Stick s{0, 4, 0x80, 0x80, true};
+            std::sscanf(argv[++i], "%d:%x:%x:%d", &s.frame, &s.x, &s.y, &s.length);
+            sticks.push_back(s);
+        } else if (arg == "--ppm-from" && i + 1 < argc) {
+            // FIELD: with --ppm FILE, also every field's picture from FIELD on, as FILE_<field>.ppm.
+            ppm_from = std::atoi(argv[++i]);
         } else if (arg == "--write" && i + 1 < argc) {
             // FRAME:ADDRESS:VALUE[:FRAMES], address and value in hexadecimal; one field by default.
             Write w{0, 1, 0, 0};
@@ -348,12 +418,17 @@ int main(int argc, char** argv) {
                 stderr,
                 "usage: openrac-boot DISC.iso [--hooks FILE] [--frames N] [--report N] [--verbose "
                 "N] "
-                "[--ntsc] [--window] [--ppm FILE] [--press FRAME:BUTTONS[:FRAMES]] [--stick FRAME:X:Y[:FRAMES]] [--gs-states "
+                "[--ntsc] [--window] [--ppm FILE] [--ppm-from FIELD] [--press "
+                "FRAME:BUTTONS[:FRAMES]] [--rstick FRAME:X:Y[:FRAMES]] [--stick "
+                "FRAME:X:Y[:FRAMES]] [--gs-states "
                 "FRAME] "
                 "[--gs-threads N] [--one-thread] [--dump-vif FRAME FILE] [--card DIRECTORY | "
                 "--no-card] [--wav FILE] [--native LIBRARY] [--native-check CALLS] [--native-range "
                 "FIRST:LAST] [--native-skip FILE] [--native-calls FILE] [--write "
-                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] [--capture-phases FIELD,...] [--capture-spread] [--calls FILE]\n"
+                "FRAME:ADDRESS:VALUE[:FRAMES]] [--vu-programs] [--capture LIST DIRECTORY] "
+                "[--capture-phases FIELD,...] [--capture-spread] [--capture-key ADDRESS,...] "
+                "[--capture-limit N] [--trace FILE ADDRESS[:WORDS],...] [--calls FILE] "
+                "[--watch-stores ADDRESS:BYTES]\n"
             );
             return 2;
         }
@@ -390,6 +465,41 @@ int main(int argc, char** argv) {
     if (!native.empty() && !machine.native.load(native, &error)) {
         std::fprintf(stderr, "%s: %s\n", native.c_str(), error.c_str());
         return 1;
+    }
+
+    // Stores into the watched bytes are logged with the field they happen in.
+    if (watch_bytes) {
+        machine.ee.watch_first = watch_first & 0x1FFFFFFFu;
+        machine.ee.watch_end = machine.ee.watch_first + watch_bytes;
+        // OPENRAC_BOOT_WATCH_STACK=WORDS: also the words of the stack above sp that look like
+        // return addresses (in 0x100000..0x600000, word aligned), nearest first: the callers that
+        // `ra` alone does not show.
+        const char* stack_env = std::getenv("OPENRAC_BOOT_WATCH_STACK");
+        const unsigned stack_words = stack_env ? static_cast<unsigned>(std::atoi(stack_env)) : 0;
+        machine.ee.on_watched_store = [&machine, stack_words](u32 address, u64 value, unsigned bytes) {
+            std::fprintf(
+                stderr, "store field %llu pc %08x ra %08x address %08x bytes %u value %llx",
+                static_cast<unsigned long long>(machine.frames), machine.ee.instruction,
+                static_cast<u32>(machine.ee.gpr[31].lo), address, bytes,
+                static_cast<unsigned long long>(value)
+            );
+            const u32 sp = machine.ee.sp32() & 0x1FFFFFFFu;
+            if (stack_words) {
+                std::fprintf(stderr, " sp %08x", sp);
+            }
+            for (unsigned k = 0; k < stack_words; k++) {
+                const u32 at = sp + 4 * k;
+                if (at + 4 > 0x2000000u) {
+                    break;
+                }
+                u32 word;
+                std::memcpy(&word, machine.memory.ram(at), 4);
+                if (word >= 0x100000u && word < 0x600000u && (word & 3) == 0) {
+                    std::fprintf(stderr, " %x:%08x", 4 * k, word);
+                }
+            }
+            std::fputc('\n', stderr);
+        };
     }
 
     std::vector<u8> capture_marks;
@@ -438,13 +548,33 @@ int main(int argc, char** argv) {
                     c.phase_taken = 0;
                 }
 
-                // Before the first phase, or enough taken in this one.
-                if (phase < 0 || c.phase_taken >= c.wanted) {
+                // Before the first phase, or the run's limit reached.
+                if (phase < 0 || (capture_limit && c.taken >= capture_limit)) {
                     continue;
                 }
 
-                // Spread: only calls whose number in the phase is a power of two.
-                unsigned long long n = ++c.seen;
+                // Per value of the key words, or per phase: enough taken there.
+                unsigned long long key = 0;
+                for (unsigned word : capture_keys) {
+                    u32 value;
+                    std::memcpy(&value, machine.memory.ram(word), 4);
+                    key = key * 0x100000001B3ULL + value;
+                }
+                auto& keyed = c.keyed[key];
+                unsigned long long n;
+                if (!capture_keys.empty()) {
+                    if (keyed.second >= c.wanted) {
+                        continue;
+                    }
+                    n = ++keyed.first;
+                } else {
+                    if (c.phase_taken >= c.wanted) {
+                        continue;
+                    }
+                    n = ++c.seen;
+                }
+
+                // Spread: only calls whose number is a power of two.
                 if (capture_spread && (n & (n - 1)) != 0) {
                     continue;
                 }
@@ -458,6 +588,21 @@ int main(int argc, char** argv) {
                 if (state.save(path)) {
                     c.taken++;
                     c.phase_taken++;
+                    keyed.second++;
+
+                    // Which field and key each state is of, to tell later what the game was doing.
+                    if (std::FILE* index = std::fopen((capture_dir + "/states.tsv").c_str(), "a")) {
+                        std::fprintf(
+                            index, "%s\t%u\t%lld\t%llx", c.name.c_str(), c.taken - 1, field, key
+                        );
+                        for (unsigned word : capture_keys) {
+                            u32 value;
+                            std::memcpy(&value, machine.memory.ram(word), 4);
+                            std::fprintf(index, "\t%x", value);
+                        }
+                        std::fputc('\n', index);
+                        std::fclose(index);
+                    }
                 }
             }
 
@@ -606,6 +751,19 @@ int main(int argc, char** argv) {
             };
         }
 
+        // The traced words of this field.
+        if (trace_file) {
+            std::fprintf(trace_file, "%lld", static_cast<long long>(machine.frames));
+            for (const Traced& t : traced) {
+                for (unsigned k = 0; k < t.words; k++) {
+                    u32 value;
+                    std::memcpy(&value, machine.memory.ram(t.address + 4 * k), 4);
+                    std::fprintf(trace_file, " %08x", value);
+                }
+            }
+            std::fputc('\n', trace_file);
+        }
+
         // The pad for this field: the scripted presses that cover it.
         machine.pad.buttons = 0;
         for (const Press& p : presses) {
@@ -615,12 +773,13 @@ int main(int argc, char** argv) {
             }
         }
 
-        // The left stick for this field: centred, or the last scripted position that covers it.
+        // The sticks for this field: centred, or the last scripted position that covers it.
         machine.pad.left_x = machine.pad.left_y = 0x80;
+        machine.pad.right_x = machine.pad.right_y = 0x80;
         for (const Stick& s : sticks) {
             if (frame >= s.frame && frame < s.frame + s.length) {
-                machine.pad.left_x = static_cast<u8>(s.x);
-                machine.pad.left_y = static_cast<u8>(s.y);
+                (s.right ? machine.pad.right_x : machine.pad.left_x) = static_cast<u8>(s.x);
+                (s.right ? machine.pad.right_y : machine.pad.left_y) = static_cast<u8>(s.y);
             }
         }
 
@@ -732,6 +891,11 @@ int main(int argc, char** argv) {
         }
 
         bool shown = machine.drawing.picture(image);
+
+        // Every field's picture from --ppm-from on.
+        if (shown && !ppm.empty() && ppm_from >= 0 && frame >= ppm_from) {
+            write_ppm(ppm + "_" + std::to_string(frame) + ".ppm", image);
+        }
 
 #ifndef OPENRAC_NO_WINDOW
         // The picture is shown at the games' 4:3 shape, if the display was on.

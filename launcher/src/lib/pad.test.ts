@@ -20,10 +20,10 @@ describe("distance", () => {
     expect(distance(from, box(250, 100), "down")).toBeNull();
   });
 
-  it("counts the gap, and twice what is off to the side", () => {
-    expect(distance(from, box(100, 160), "down")).toBe(20);
-    expect(distance(from, box(260, 160), "down")).toBe(20 + 2 * 60);
-    expect(distance(from, box(220, 100), "right")).toBe(20);
+  it("weighs the gap thirteen times what the centre is off to the side, squared", () => {
+    expect(distance(from, box(100, 160), "down")).toBe(13 * 20 * 20);
+    expect(distance(from, box(260, 160), "down")).toBe(13 * 20 * 20 + 160 * 160);
+    expect(distance(from, box(220, 100), "right")).toBe(13 * 20 * 20);
   });
 });
 
@@ -31,7 +31,7 @@ describe("nearest", () => {
   it("takes the control straight ahead over a nearer one diagonally", () => {
     const from = box(100, 100);
     const items = [
-      { item: "diagonal", box: box(230, 150) },
+      { item: "diagonal", box: box(230, 180) },
       { item: "below", box: box(100, 200) },
       { item: "above", box: box(100, 0) },
     ];
@@ -45,6 +45,23 @@ describe("nearest", () => {
     ];
     expect(nearest(from, row, "right")).toBe("beside");
     expect(nearest(from, items, "left")).toBeNull();
+  });
+
+  it("goes down to the row in between, though its control is off to the side", () => {
+    // A fold's title on the left, a switch further right in the next row, and a button under the
+    // title two rows down: the switch's row comes first, not skipped for the button in line.
+    const from = box(0, 0, 300, 24);
+    const items = [
+      { item: "switch", box: box(400, 100, 40, 24) },
+      { item: "under", box: box(100, 180, 80, 24) },
+    ];
+    expect(nearest(from, items, "down")).toBe("switch");
+    // In line and no further than it, the control under it wins.
+    const near = [
+      { item: "switch", box: box(400, 100, 40, 24) },
+      { item: "under", box: box(100, 90, 80, 24) },
+    ];
+    expect(nearest(from, near, "down")).toBe("under");
   });
 
   it("moves along a row of tiles", () => {

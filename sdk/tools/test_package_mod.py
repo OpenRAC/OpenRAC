@@ -22,7 +22,7 @@ GOOD = {
     "version": "1.0.0",
     "author": "OpenRAC contributors",
     "license": "GPL-3.0-or-later",
-    "homepage": "https://github.com/OpenRAC/rac1-mods",
+    "homepage": "https://github.com/OpenRAC/openrac-mods",
     "api": "1.0",
     "games": {"rac1": ["pal", "ntsc"]},
     "plugin": {"linux-x86_64": "lib/linux-x86_64/lock_strafe.so"},

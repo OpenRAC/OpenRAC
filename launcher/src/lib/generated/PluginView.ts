@@ -31,4 +31,8 @@ kind: "native" | "script" | "data" | "built-in",
 /**
  * The installed folder (developer tools show it).
  */
-path: string, };
+path: string, 
+/**
+ * The mods it requires that are not installed: the row offers "Fix: install" for them.
+ */
+missing?: Array<string>, };

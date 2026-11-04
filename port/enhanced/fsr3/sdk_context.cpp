@@ -4,6 +4,7 @@
 // AMD FSR 3.1.4 context creation and dispatch over renderer-owned Vulkan images.
 #include "enhanced/fsr3/sdk_context.h"
 
+#include <algorithm>
 #include <bit>
 #include <vector>
 
@@ -11,6 +12,7 @@
 #include "enhanced/fsr3/sdk_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
+#include "renderer/vulkan/temporal_graph.h"
 
 #include <FidelityFX/host/backends/vk/ffx_vk.h>
 #include <FidelityFX/host/ffx_fsr3upscaler.h>
@@ -250,10 +252,11 @@ bool SdkContext::dispatch(
     };
     FfxErrorCode result = FFX_OK;
     // The renderer lends the command buffer and images only for this synchronous dispatch.
-    const bool recorded = vkgl::record_native_compute(uses, [&](auto command, auto images) {
-        result = m_state->record(command, images, frame);
-        return result == FFX_OK;
-    });
+    const bool recorded =
+        vkgl::temporal_compute("FSR temporal reconstruction", uses, [&](auto command, auto images) {
+            result = m_state->record(command, images, frame);
+            return result == FFX_OK;
+        });
 
     // Preserve native import failures and SDK dispatch errors as separate diagnostics.
     if (!recorded) {
@@ -271,7 +274,11 @@ void SdkContext::release() {
         m_state->live = false;
     }
 
-    gl::glDeleteTextures(static_cast<int>(m_state->shared.size()), m_state->shared.data());
+    if (std::any_of(m_state->shared.begin(), m_state->shared.end(), [](auto name) {
+            return name != 0;
+        })) {
+        gl::glDeleteTextures(static_cast<int>(m_state->shared.size()), m_state->shared.data());
+    }
     m_state->shared = {};
 }
 }  // namespace openrac::enhanced::fsr3_detail

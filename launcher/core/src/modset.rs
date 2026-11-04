@@ -109,6 +109,36 @@ pub struct SetPack {
     pub digest: Option<String>,
 }
 
+/// What a mod code's link may say beside the code: the party to join once the mods are applied.
+/// It stays out of the set, which is the same for every party that plays with it.
+const PARTY_QUERY: &str = "?party=";
+/// A party code's length (the multiplayer mod's `kCodeLength`), of the mod codes' letters.
+const PARTY_LENGTH: usize = 6;
+/// The file the game reads, once, to join a party on starting (`<plugins>/modset-join.json`).
+pub const JOIN_FILE: &str = "modset-join.json";
+
+/// A code as entered, and the party beside it. A party that is no party code is left out: the mods
+/// can still be matched by hand.
+pub fn split_party(text: &str) -> (String, Option<String>) {
+    let text = text.trim();
+    match text.split_once(PARTY_QUERY) {
+        Some((code, party)) => {
+            let party = party.trim().trim_end_matches('/').to_ascii_uppercase();
+            let good = party.len() == PARTY_LENGTH && party.chars().all(|c| ALPHABET.contains(c));
+            (code.to_string(), good.then_some(party))
+        }
+        None => (text.to_string(), None),
+    }
+}
+
+/// Tells the game to join `party` when it next starts.
+pub fn write_join_file(dir: &Path, party: &str, now: u64) -> Result<(), String> {
+    let (_, checked) = split_party(&format!("{PARTY_QUERY}{party}"));
+    let party = checked.ok_or_else(|| "That party code doesn't look right.".to_string())?;
+    let text = serde_json::json!({ "format": 1, "party": party, "written": now }).to_string() + "\n";
+    std::fs::write(dir.join(JOIN_FILE), text).map_err(|e| e.to_string())
+}
+
 /// The set: what a code means.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -334,6 +364,7 @@ pub enum Entered {
 /// Reads what was typed, pasted or followed: a short code in any case, with or without its dash, a
 /// long code, or a deep link to either. A wrong character is said at once, without asking the server.
 pub fn parse_entry(text: &str) -> Result<Entered, String> {
+    let (text, _) = split_party(text);
     let text = text.trim();
     let text = text.strip_prefix(LINK_PREFIX).unwrap_or(text).trim_end_matches('/');
     if text.starts_with(LONG_PREFIX) {
@@ -778,6 +809,8 @@ pub struct Review {
     pub set: String,
     /// `K7M2-9QXR`, or none for a long code.
     pub code: Option<String>,
+    /// The party the link says to join, once applied.
+    pub party: Option<String>,
     pub name: String,
     pub created: String,
     /// The game it is for.
@@ -1057,6 +1090,7 @@ fn make_plan(ctx: &Context, set: &ModSet, code: Option<String>, openrac: &str) -
     let review = Review {
         set: serde_json::to_string(set).map_err(|e| e.to_string())?,
         code,
+        party: None,
         name: set.name.clone(),
         created: set.created.clone(),
         game: set.game.clone(),
@@ -1387,7 +1421,7 @@ mod tests {
         fn walk(at: &Path, root: &Path, out: &mut BTreeMap<String, Vec<u8>>) {
             for e in std::fs::read_dir(at).into_iter().flatten().flatten() {
                 let rel = e.path().strip_prefix(root).unwrap().to_string_lossy().into_owned();
-                if rel.starts_with(".cache") || rel.starts_with("profiles") {
+                if rel.starts_with(".cache") || rel.starts_with("profiles") || rel.starts_with(plugins::PREVIOUS) {
                     continue;
                 }
                 if e.path().is_dir() {
@@ -1400,6 +1434,28 @@ mod tests {
         let mut out = BTreeMap::new();
         walk(dir, dir, &mut out);
         out
+    }
+
+    #[test]
+    fn a_party_beside_a_code_stays_out_of_it() {
+        let link = "openrac://modset/K7M2-9QXR?party=abc234";
+        assert_eq!(split_party(link), ("openrac://modset/K7M2-9QXR".to_string(), Some("ABC234".to_string())));
+        assert_eq!(split_party("K7M2-9QXR"), ("K7M2-9QXR".to_string(), None));
+        // No party code, or one with letters a party code has none of: the mods can still match.
+        assert_eq!(split_party("K7M2-9QXR?party=ABC"), ("K7M2-9QXR".to_string(), None));
+        assert_eq!(split_party("K7M2-9QXR?party=ABC0O1"), ("K7M2-9QXR".to_string(), None));
+        assert_eq!(split_party("K7M2-9QXR?party=../../x"), ("K7M2-9QXR".to_string(), None));
+    }
+
+    #[test]
+    fn the_join_file_says_the_party_and_when() {
+        let dir = tempfile::tempdir().unwrap();
+        write_join_file(dir.path(), "ABC234", 1234).unwrap();
+        let text = std::fs::read_to_string(dir.path().join(JOIN_FILE)).unwrap();
+        let v: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(v["party"], "ABC234");
+        assert_eq!(v["written"], 1234);
+        assert!(write_join_file(dir.path(), "ABC", 1).is_err());
     }
 
     #[test]
@@ -1582,6 +1638,8 @@ mod tests {
             "  K7M2 9QXR ",
             "k7m2\u{2013}9qxr",
             "openrac://modset/K7M2-9QXR",
+            "openrac://modset/K7M2-9QXR?party=ABC234",
+            "K7M2-9QXR?party=abc234",
             "openrac://modset/K7M29QXR/",
         ] {
             assert_eq!(parse_entry(text).unwrap(), Entered::Short("K7M29QXR".into()), "{text}");

@@ -20,7 +20,7 @@ Evidence, all against Sony's prebuilt libgcc.a (tools/libgcc_ref.py):
   their last word, the five of size 0 mod 8 left nothing, in order.
 The "orphan epilogue fragments" at the head of many objects and the
 one-instruction "fallthrough fragments" across both segments have the same
-shape (docs/DECOMP_PROGRESS.md).
+shape (docs/reference/DECOMP_PROGRESS.md).
 
 usage: python tools/strip_dead.py IN.s IN.o OUT.s [--export SYM] FUNC[=NAME] ...
 

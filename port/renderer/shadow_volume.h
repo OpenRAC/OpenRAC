@@ -2,6 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 #pragma once
 
+#include <array>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
@@ -16,6 +18,15 @@ struct ShadowCapsule {
     Vec3 a{}, b{};
     float radius_a = 0, radius_b = 0;
     int segments_a = 0, segments_b = 0;
+};
+
+// One more caster with its own direction and slab, for a game in which any moby may cast one
+// (GameProfile::every_moby_casts_shadow); `moby` identifies it from one tick to the next.
+struct ShadowSet {
+    std::uint32_t moby = 0;
+    std::vector<ShadowCapsule> capsules;
+    Vec3 extrusion{};
+    std::optional<std::array<float, 2>> heights;
 };
 
 // Closed, consistently wound prisms of the proxies' silhouettes perpendicular

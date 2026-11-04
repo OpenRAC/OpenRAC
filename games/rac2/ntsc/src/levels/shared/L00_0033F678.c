@@ -39,9 +39,9 @@ typedef int V4_F61e33ad9 __attribute__((mode(TI)));
 
 extern float func_00282C48_4(float f);
 
-extern void func_00282E80(void *a, void *b);
+extern float func_00282E80(void *a, void *b);
 
-extern void func_00282E48_3(void *a, void *b);
+extern float func_00282E48(void *a, void *b);
 
 /*
  * Disassembled at 0x002cd220
@@ -192,7 +192,7 @@ void func_L00_0033F678(char *a0)
     *(float *)(s1 + 12) = *(float *)(s1 + 12) + *(float *)(s0 + 16);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0033FFB8);
+
 
 /* Calls a routine on pointer-plus-10 and, when it returns non-zero, calls a second routine with the pointer itself. */
 void func_L00_003402B8(char *p)
@@ -231,17 +231,15 @@ void func_L00_00340490(char *a0)
     *(float *)(s1 + 12) = *(float *)(s1 + 12) + *(float *)(s0 + 16);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00340560);
 
-INCLUDE_ASM("asm/levels", func_L00_003406E8);
 
-INCLUDE_ASM("asm/levels", func_L00_00340898);
+/* func_L00_003406E8 is defined in L00_003406E8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00340CF8);
 
-INCLUDE_ASM("asm/levels", func_L00_003411A0);
 
-INCLUDE_ASM("asm/levels", func_L00_00341410);
+
+
+
 
 /* divides one helper result by a second, multiplies a third by the quotient, quantises that product to a byte lane and the half quotient through two more helpers, bumps a byte counter, adds a scaled helper result to a float field, forwards two 16-byte sub-objects to three helpers, stores the merged byte lanes over a low halfword and calls a trailing helper when a probe on the parameter returns non-zero */
 void func_L00_00341658(char *p)
@@ -270,7 +268,6 @@ void func_L00_00341658(char *p)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00341798);
 
 /* advances an index with signed delta and either wraps by count or clamps the applicable endpoint */
 /* Advances a signed index, wrapping or clamping to the measured count. */
@@ -288,10 +285,10 @@ s32 func_L00_003417B8(const s32 *count, s32 index, s32 delta, s32 wrap) {
     return index;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00341820);
+/* func_L00_00341820 is defined in L00_0033F678-spline.c. */
 
 /* copies two 16-byte records into locals; when the float threshold is positive it passes the difference of their third components through a float leaf returning the absolute value and, if that is below the threshold, calls one leaf with both records, otherwise the shared alternative leaf */
-void func_L00_00341A88(void *a0, void *a1, float scale)
+float func_L00_00341A88(void *a0, void *a1, float scale)
 {
     V4_F61e33ad9 l0;
     V4_F61e33ad9 l1;
@@ -308,22 +305,20 @@ void func_L00_00341A88(void *a0, void *a1, float scale)
         t = p0[2];
         u = p1[2];
         if (func_00282C48_4(t - u) < scale) {
-            func_00282E80(p0, p1);
-            return;
+            return func_00282E80(p0, p1);
         }
     }
-    func_00282E48_3(p0, p1);
+    return func_00282E48(p0, p1);
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00341B18);
 
-INCLUDE_ASM("asm/levels", func_L00_00341D08);
+
+/* func_L00_00341D08 is defined in L00_0033F678-projection.c. */
 
 INCLUDE_ASM("asm/levels", func_L00_00341FA8);
 
-INCLUDE_ASM("asm/levels", func_L00_003425F8);
+/* func_L00_003425F8 is defined in L00_0033F678-pushout.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00342C80);
 
 #define NOT_SDA __attribute__((section(".data")))
 
@@ -934,7 +929,6 @@ int func_L00_0034EF68(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00350F20);
 
 extern int D_L00_001C95D4;
 
@@ -948,7 +942,6 @@ unsigned int func_L00_00351608(void)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00357CB0);
 
 /* A03-counter-mod50-80 freshly exact-verified under family reservation */
 void func_L00_003584B0(void)
@@ -970,9 +963,7 @@ int func_L00_00358668(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00358670);
 
-INCLUDE_ASM("asm/levels", func_L00_003586A0);
 
 extern void func_00282A60(unsigned int *dst, unsigned int val, int size);
 

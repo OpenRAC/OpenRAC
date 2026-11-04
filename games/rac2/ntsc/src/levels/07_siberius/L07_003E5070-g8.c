@@ -1,0 +1,40 @@
+#include "common.h"
+typedef unsigned int Quad5070 __attribute__((mode(TI)));
+typedef struct DrawPacket5070 {
+    Quad5070 position[4];
+    u32 rgba[4];
+    float uv[4][2];
+    u64 state[4];
+} DrawPacket5070;
+extern int D_L07_001B0A80[] __attribute__((sda));
+extern int D_L07_001B0A80_gp[] SDATA(D_L07_001B0A80);
+extern float D_L07_001B0A60[][2] SDATA(D_L07_001B0A60);
+extern float D_L07_0029F5B0[][4];
+extern void func_00283658(void *, void *);
+extern void func_002833F0(void *, void *);
+extern int func_L01_0031BC68(float, int, int);
+extern int func_00283D38(float, int, int);
+extern void func_L02_002EF968(DrawPacket5070 *, int, int, void *, void *, int);
+extern void func_L01_002E1510(DrawPacket5070 *, int, void *, int, void *);
+/* Build two packets and submit them. The frame has room for a third: retail reserves 0x1B0 bytes,
+   exactly 3 * sizeof(DrawPacket5070), contiguous from $sp + 0, and uses only the first two. */
+void func_L07_003E5070(char *actor)
+{
+    DrawPacket5070 packets[3];
+    float rotation[12] __attribute__((aligned(16)));
+    float world[16] __attribute__((aligned(16)));
+    float angle[4] __attribute__((aligned(16)));
+    char *state = *(char **)(actor + 0x68);
+    int colour;
+    func_00283658(world, actor + 0xc0);
+    qcopy(world + 12, actor + 0x10);
+    world[15] = 1.0f;
+    *(Quad5070 *)angle = 0;
+    angle[2] = 0.19634955f;
+    func_002833F0(rotation, angle);
+    colour = func_L01_0031BC68(*(float *)(state + 0x1c), D_L07_001B0A80_gp[0], D_L07_001B0A80[1]);
+    colour = func_00283D38(*(float *)(state + 0x18), colour & 0xffffff, colour);
+    func_L02_002EF968(&packets[0], 5, colour, D_L07_001B0A60, D_L07_0029F5B0[0], 1);
+    func_L02_002EF968(&packets[1], 5, colour, D_L07_001B0A60, D_L07_0029F5B0[4], 1);
+    func_L01_002E1510(packets, 2, rotation, 32, world);
+}

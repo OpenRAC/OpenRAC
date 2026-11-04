@@ -89,6 +89,20 @@ void func_L00_00235FF8(int context) {
 /* CreateMoby: the next slot of the current array; DeleteMoby: the state the game gives. */
 static gaddr created_in;
 
+/* The zone trigger's tests (world.c): no class 258 here. */
+int func_00215570(gaddr point, int volume) {
+    (void)point;
+    (void)volume;
+    return 0;
+}
+
+int func_L00_0025A778(gaddr point, gaddr polygon, int count) {
+    (void)point;
+    (void)polygon;
+    (void)count;
+    return 0;
+}
+
 gaddr func_0020D348(int oclass) {
     const gaddr base = GREF(gaddr, MOBY_ARRAY);
     created_in = base;
@@ -129,8 +143,11 @@ void func_001FD3E8__game(void) {}
  * off (a creature finding no ground). */
 static int level_updates, queries_off;
 
+static int draw_list_seen = -1;
+
 void func_00213C78(void) {
     ++level_updates;
+    draw_list_seen = GREF(int, OPENRAC_DATA(0x0015F564u));
     if ((int32_t)GREF(uint32_t, COLL_STAMP) < 0) {
         ++queries_off;
     } else {
@@ -370,6 +387,13 @@ int main(void) {
     GREF(int32_t, HERO_STATE) = 0x72;
     rac1_stand_in_end(0);
     CHECK(heroes_freed == 1);
+
+    /* Under the game's freeze the update adds its draw callbacks again: the lists start empty. */
+    rac1_world_keep_running(1);
+    GREF(int, OPENRAC_DATA(0x0015F564u)) = 5;
+    func_001FD3E8();
+    CHECK(draw_list_seen == 0);
+    rac1_world_keep_running(0);
 
     printf("world_menu ok\n");
     return 0;

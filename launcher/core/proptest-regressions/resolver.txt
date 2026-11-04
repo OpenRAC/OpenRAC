@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 02117fdc1259966e0005e4c419e7fa91bf92453a4943da9e99066eea9a89492b # shrinks to (mods, installed, wanted) = ([[GenVersion { major: 1, api_minor: 7, requires: [(2, 0, 3), (2, 2, 1)], conflicts: [] }, GenVersion { major: 1, api_minor: 10, requires: [], conflicts: [] }], [GenVersion { major: 3, api_minor: 4, requires: [(3, 1, 1), (5, 2, 1)], conflicts: [] }, GenVersion { major: 1, api_minor: 0, requires: [], conflicts: [4] }, GenVersion { major: 3, api_minor: 7, requires: [(4, 1, 1), (1, 1, 1)], conflicts: [1] }], [GenVersion { major: 3, api_minor: 0, requires: [(0, 2, 1)], conflicts: [] }]], [(0, 2, false)], [2])

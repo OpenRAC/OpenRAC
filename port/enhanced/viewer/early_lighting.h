@@ -2,6 +2,7 @@
 #pragma once
 
 #include <functional>
+#include <span>
 
 #include "renderer/renderer.h"
 #include "renderer/shader.h"
@@ -14,6 +15,8 @@ namespace openrac::lighting {
 class EarlyLighting {
 public:
     static bool supported();
+    // Writes cached GI and shadow visibility after binding the current view's lighting inputs.
+    // Returns false with `error` on graph/shader failure; callers retain full-resolution lighting.
     bool render(
         unsigned depth,
         const renderer::FrameInput& input,
@@ -27,6 +30,10 @@ public:
         const renderer::RenderState& state
     ) const;
     bool matches(const renderer::FrameInput& input, const renderer::RenderState& state) const;
+    // Borrows both cache buffers only for the matching view; allocations survive the frame's draws.
+    std::span<const unsigned> buffers(
+        const renderer::FrameInput& input, const renderer::RenderState& state
+    ) const;
     void release();
 
 private:

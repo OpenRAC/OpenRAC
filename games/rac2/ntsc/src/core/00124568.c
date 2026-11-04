@@ -170,9 +170,75 @@ void func_00124630(int *arg0) {
     r1_D_00131414_v = 0;
 }
 
-INCLUDE_ASM("asm/core", func_001246D0);
+typedef struct {
+    int n0;
+    int n1;
+    char *dst0;
+    char *dst1;
+    char buf0[0x40];
+    char buf1[0x40];
+} CdRecv;
+extern void r1_func_001209D8(int *arg0);
 
-INCLUDE_ASM("asm/core", func_00124780);
+/* rac1-decomp src/core/001208E8.c: func_001246D0 */
+void func_001246D0(int arg0) {
+    CdRecv *p = (CdRecv *)(arg0 | 0x20000000);
+    int i;
+
+    if (p->n0 > 0) {
+        char *d0 = p->dst0;
+        for (i = 0; i < p->n0; i++) d0[i] = p->buf0[i];
+    }
+    if (p->n1 > 0) {
+        char *d1 = p->dst1;
+        for (i = 0; i < p->n1; i++) d1[i] = p->buf1[i];
+    }
+    r1_func_001209D8((int *)&r1_D_00131414_v);
+}
+
+extern int r1_func_00118C70(void *);
+extern int r1_D_001313E0;
+extern int r1_D_001313E8;
+extern int r1_D_001313EC;
+extern int r1_D_001313F0;
+struct SemaParam_120B28 {
+    s32 currentCount;
+    s32 maxCount;
+    s32 initCount;
+    s32 numWaitThreads;
+    u32 attr;
+    u32 option;
+};
+extern volatile s32 r1_D_001313E0_120B28[] __asm__("r1_D_001313E0");
+extern s32 r1_D_001313E8_120B28[] __asm__("r1_D_001313E8");
+extern s32 r1_D_001313EC_120B28[] __asm__("r1_D_001313EC");
+extern volatile s32 r1_D_001313F0_120B28[] __asm__("r1_D_001313F0");
+extern s32 r1_func_00118C70_120B28(struct SemaParam_120B28 *) __asm__("r1_func_00118C70");
+
+
+/* rac1-decomp src/core/001208E8.c: func_00124780 */
+/* cmd_sem_init: unless both command semaphores already exist, create them
+   (count 1, max 1) and the completion semaphore (count 0) through
+   r1_func_00118C70 (CreateSema), then clear r1_D_001313F0.
+   Adapted from Lombyte's project (GPL-3.0): src/sdk/library/cmd_sem_init.c, cmd_sem_init. */
+void func_00124780(void) {
+    struct SemaParam_120B28 sema;
+
+    if ((r1_D_001313E8_120B28[0] != -1) && (r1_D_001313EC_120B28[0] != -1)) {
+        return;
+    }
+    sema.option = 0;
+    sema.initCount = 1;
+    sema.maxCount = 1;
+    /* Both results use the same record; storing the first handle inside
+       the second call's argument puts the store in that jal's delay slot,
+       as retail has it (the open residual of the old near-miss). */
+    r1_D_001313EC_120B28[0] = r1_func_00118C70_120B28(
+        (r1_D_001313E8_120B28[0] = r1_func_00118C70_120B28(&sema)) ? &sema : &sema);
+    sema.initCount = 0;
+    r1_D_001313E0_120B28[0] = r1_func_00118C70_120B28(&sema);
+    r1_D_001313F0_120B28[0] = 0;
+}
 
 /* rac1-decomp src/core/001208E8.c: func_00120BC0 */
 /*
@@ -206,7 +272,6 @@ void func_00124818(void) {
     }
 }
 
-INCLUDE_ASM("asm/core", func_001248B0);
 
 /* rac1-decomp src/core/001208E8.c: func_00120CA0 */
 int func_001248F8(void) {
@@ -223,7 +288,6 @@ int func_001248F8(void) {
     return 1;
 }
 
-INCLUDE_ASM("asm/core", func_00124970);
 
 /* rac1-decomp src/core/001208E8.c: func_00120D28 */
 /* _sceCd_scmd_prechk (libcdvd.a cdvd000.o) */

@@ -239,6 +239,48 @@ void test_buffer_data_again_replaces_it(openrac::test::GlContext& context, Scene
     delete_buffers(scene);
 }
 
+// A full subdata update must replace resident bytes without restoring their discarded mirror.
+void test_full_subdata_replaces_it(openrac::test::GlContext& context, Scene& scene, bool resident) {
+    namespace vkgl = openrac::vkgl;
+    namespace render_opt = openrac::renderer::render_opt;
+    make_buffers(scene);
+    CHECK(settle(context, scene.coloured, kColour));
+    const auto before = vkgl::submission_counters();
+    const auto rewritten = vertex_bytes(kRewritten);
+    glBindBuffer(GL_ARRAY_BUFFER, scene.vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, kBufferBytes, rewritten.data());
+    const auto after = vkgl::submission_counters();
+    const bool direct = render_opt::enabled(render_opt::Opt::VkBufferDirectFill);
+    CHECK(
+        after.buffer_mirror_restore_bytes - before.buffer_mirror_restore_bytes
+        == (resident && !direct ? kBufferBytes : 0)
+    );
+    std::printf(
+        "full replacement: resident=%d direct=%d restored=%llu bytes\n",
+        resident,
+        direct,
+        static_cast<unsigned long long>(
+            after.buffer_mirror_restore_bytes - before.buffer_mirror_restore_bytes
+        )
+    );
+    CHECK(settle(context, scene.coloured, kRewritten));
+    delete_buffers(scene);
+}
+
+// Null allocations retain the backend's deterministic initial contents in either mode.
+void test_null_buffer_initialisation(openrac::test::GlContext& context, Scene& scene) {
+    make_buffers(scene);
+    GLuint zero = 0;
+    glGenBuffers(1, &zero);
+    glBindBuffer(GL_UNIFORM_BUFFER, zero);
+    glBufferData(GL_UNIFORM_BUFFER, 4 * sizeof(float), nullptr, GL_STREAM_DRAW);
+    glBindBufferBase(GL_UNIFORM_BUFFER, kTintBinding, zero);
+    CHECK((draw_frame(context, scene.tinted, GL_UNSIGNED_INT) == std::array<std::uint8_t, 4>{}));
+    glBindBufferBase(GL_UNIFORM_BUFFER, kTintBinding, 0);
+    glDeleteBuffers(1, &zero);
+    delete_buffers(scene);
+}
+
 // Tests that 8-bit indices, which the backend widens on the CPU, are read from a static buffer
 // that has been drawn for a while.
 void test_byte_indices_are_read_later(openrac::test::GlContext& context, Scene& scene) {
@@ -311,6 +353,20 @@ void test_where_the_first_frame_keeps_them(
     make_buffers(scene);
     const vkgl::SubmissionCounters filled = vkgl::submission_counters();
     CHECK(filled.cpu_mirror_bytes - before.cpu_mirror_bytes == 2 * kBufferBytes);
+    const bool direct = openrac::renderer::render_opt::enabled(
+        openrac::renderer::render_opt::Opt::VkBufferDirectFill
+    );
+    CHECK(
+        filled.buffer_zero_fill_bytes - before.buffer_zero_fill_bytes
+        == (direct ? 0 : 2 * kBufferBytes)
+    );
+    std::printf(
+        "initial fill: direct=%d zeroed=%llu bytes\n",
+        direct,
+        static_cast<unsigned long long>(
+            filled.buffer_zero_fill_bytes - before.buffer_zero_fill_bytes
+        )
+    );
     CHECK(draw_frame(context, scene.coloured, GL_UNSIGNED_INT) == pixel_of(kColour));
     const vkgl::SubmissionCounters drawn = vkgl::submission_counters();
     const std::uint64_t ring = drawn.ring_bytes - filled.ring_bytes;
@@ -371,17 +427,22 @@ int main() {
     namespace render_opt = openrac::renderer::render_opt;
 
     // Every check under each setting, so that each path is drawn and compared with GL's result.
-    for (const Setting& setting : kSettings) {
-        std::printf("setting: %s\n", setting.name);
-        render_opt::set(render_opt::Opt::StaticBuffersDeviceLocal, setting.device_local);
-        render_opt::set(render_opt::Opt::StaticBuffersForceStaging, setting.staging);
-        test_where_the_first_frame_keeps_them(context, scene, setting);
-        test_a_static_buffer_draws_its_data(context, scene);
-        test_a_part_written_in_its_first_frame_is_drawn(context, scene);
-        test_a_part_written_later_is_drawn(context, scene);
-        test_buffer_data_again_replaces_it(context, scene);
-        test_byte_indices_are_read_later(context, scene);
-        test_a_static_buffer_is_a_uniform_block_later(context, scene);
+    for (bool direct : {false, true}) {
+        render_opt::set(render_opt::Opt::VkBufferDirectFill, direct);
+        for (const Setting& setting : kSettings) {
+            std::printf("setting: %s\n", setting.name);
+            render_opt::set(render_opt::Opt::StaticBuffersDeviceLocal, setting.device_local);
+            render_opt::set(render_opt::Opt::StaticBuffersForceStaging, setting.staging);
+            test_where_the_first_frame_keeps_them(context, scene, setting);
+            test_a_static_buffer_draws_its_data(context, scene);
+            test_a_part_written_in_its_first_frame_is_drawn(context, scene);
+            test_a_part_written_later_is_drawn(context, scene);
+            test_buffer_data_again_replaces_it(context, scene);
+            test_full_subdata_replaces_it(context, scene, setting.device_local);
+            test_null_buffer_initialisation(context, scene);
+            test_byte_indices_are_read_later(context, scene);
+            test_a_static_buffer_is_a_uniform_block_later(context, scene);
+        }
     }
 
     render_opt::reset();

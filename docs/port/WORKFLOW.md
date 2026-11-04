@@ -38,8 +38,8 @@ number, the commit message.
 
 Players describe what they see, not what broke. Before reproducing, know:
 
-- **The disc and version.** PAL (SCES-50916, v2.00) plays; NTSC-U
-  (SCUS-97199) is being brought up. The launcher's game page names the
+- **The disc and version.** PAL (SCES-50916, v2.00) and NTSC-U
+  (SCUS-97199) both play. The launcher's game page names the
   version it set up.
 - **The build.** The launcher's version is in its header. A launcher may run
   a bundled copy rather than your checkout's build: when a fix "did not go

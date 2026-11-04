@@ -648,7 +648,9 @@ def _write(path: Path, text: str) -> None:
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     for attempt in range(60):
         try:
-            tmp.write_text(text, encoding="utf-8", errors="surrogateescape")
+            # LF on every system (Windows would write CRLF): Clang's byte offsets, which
+            # name_vla_lengths and others use, must match the text read back here.
+            tmp.write_text(text, encoding="utf-8", errors="surrogateescape", newline="\n")
             os.replace(tmp, path)
             return
         except PermissionError:

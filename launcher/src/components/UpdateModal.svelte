@@ -258,7 +258,7 @@
   }
 
   @media (hover: hover) {
-    .close-btn:hover {
+    :global(html:where(:not([data-input="pad"]))) .close-btn:hover {
       color: var(--text);
       background: var(--line);
     }
@@ -435,7 +435,7 @@
   }
 
   @media (hover: hover) {
-    .btn-cancel:hover {
+    :global(html:where(:not([data-input="pad"]))) .btn-cancel:hover {
       background: var(--line);
       color: var(--text);
     }
@@ -457,7 +457,7 @@
   }
 
   @media (hover: hover) {
-    .btn-primary:hover {
+    :global(html:where(:not([data-input="pad"]))) .btn-primary:hover {
       filter: brightness(1.1);
     }
   }

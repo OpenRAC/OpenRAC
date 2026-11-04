@@ -18,12 +18,14 @@
 #include <string>
 #include <string_view>
 
+#include "common/hdr.h"
 #include "renderer/gtao_settings.h"
 #include "renderer/motion_blur_settings.h"
 #include "renderer/shadow_settings.h"
 #include "renderer/temporal_settings.h"
 #include "renderer/texture_filter.h"
 #include "renderer/ui/fps_counter.h"
+#include "renderer/volumetric_settings.h"
 
 namespace openrac::settings {
 
@@ -97,6 +99,7 @@ struct Settings {
     bool enhanced_graphics = true;  // F4 within it; retains individual feature preferences
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
+    renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
     bool rim_light = true;
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.
@@ -112,6 +115,11 @@ struct Settings {
     bool environment_probe_debug =
         false;  // Baked reflection capture positions and influence boxes.
     float probe_gi_multiplier = 1.0f;
+    // The settings sweep's experiments alone (debug/capture.cpp); never saved.
+    bool sweep_probe_lighting_off = false;
+    bool sweep_translucent_off = false;
+    bool sweep_translucent_unlit = false;
+    bool sweep_translucent_full = false;
     float probe_normal_bias = 0.5f;  // receiver offsets in world units
     float probe_view_bias = 0.5f;
     bool sun_direction_override = false;
@@ -130,6 +138,7 @@ struct Settings {
 
     bool motion_blur = true;  // Motion relative to the tracking focus.
     renderer::MotionBlurSettings motion_blur_settings;
+    float lily_momentum = .25f;  // Tilt response time in seconds; zero follows waves immediately.
     float motion_blur_strength = 0.5f;       // Exposure strength in [0, 1].
     float temporal_sharpness = 0.2f;         // AMD RCAS strength in [0, 1].
     renderer::TextureFilter texture_filter = renderer::TextureFilter::EdgeAware;
@@ -144,12 +153,23 @@ struct Settings {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
     }
 
+    // HDR output (common/hdr.h, docs/port/HDR.md), off by default: the picture goes to the screen
+    // as it always did. On or auto (with the Vulkan renderer), the same picture is shown on an HDR
+    // screen with the game's white at paper white. From off, it takes effect at the next start.
+    hdr::Mode hdr = hdr::Mode::Off;
+    int hdr_paper_white = 0;  // nits of the game's white; 0: the system's SDR white, else 203
+    int hdr_peak = 0;         // nits the screen is told it may show; 0: the display's, else 1000
+
     VSync vsync = VSync::On;
     FrameRate frame_rate = FrameRate::Display;
     int frame_cap = 60;                         // FrameRate::Capped's frames a second
     FrameCounter show_fps = FrameCounter::Off;  // Counter mode in the picture's corner.
-    bool menu_bar =
-        true;  // the menus along the window's top (not on macOS, whose menu bar has them); Alt hides and shows it
+    // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
+    // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
+    std::string menu_bar_key = "`";
+    // The controller button that does the same: an SDL gamepad button name ("leftstick", L3;
+    // "paddle1", the Steam Controller's R4; "misc1"), or "none".
+    std::string menu_bar_button = "leftstick";
     bool mute_unfocused = false;  // silence while another window has the keyboard
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
     // Lower input latency, off by default (the timing players know). Reads the pad again just
@@ -185,6 +205,12 @@ Settings& get();
 // Reads `file` (missing or unreadable: the defaults) and remembers it for save().
 void load(const std::filesystem::path& file);
 
+// A first start, the file load() read having no display_mode (nor the older fullscreen key): the
+// game covers the screen (borderless) instead of opening a window. A file with either key keeps
+// what it says, so a player's own setup never changes. `scripted` (a hidden window, an offscreen
+// video driver: checks and tools) keeps the window. Returns whether the mode changed.
+bool first_start_display(bool scripted);
+
 // The settings in one line, for the log and its header.
 std::string summary();
 
@@ -194,6 +220,10 @@ void save();
 // Sets the volume (held to 0..100). output_gain() is it as a factor, for the sound's own thread;
 // set_muted(true) holds the factor at 0 whatever the volume is (the window lost the keyboard).
 void set_volume(int volume);
+
+// HDR output's mode by its file name ("off", "auto", "on"), as the launcher's OPENRAC_HDR asks for
+// it over the file's: false, with nothing changed, for another word.
+bool set_hdr_mode(std::string_view name);
 void set_muted(bool muted);
 float output_gain();
 

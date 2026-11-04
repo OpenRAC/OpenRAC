@@ -106,7 +106,7 @@ class CrossTests(unittest.TestCase):
 
 
 class UnitTests(unittest.TestCase):
-    """moby_collision_scene.unit and sky.unit stay two (P2-32): one for both would have to give
+    """moby_collision_scene.unit and sky.unit stay two: one for both would have to give
     the same bits for every vector, and on Python 3.12 and newer sum() (compensated) and a plain
     x*x + y*y + z*z differ in the last bit for some."""
 

@@ -218,10 +218,11 @@ fn game_of(program: &str) -> Option<&str> {
     program.strip_prefix("openrac-").map(|rest| rest.split('-').next().unwrap_or(rest))
 }
 
-/// A level's planet, for the games whose planets the launcher knows (rac1).
+/// A level's planet, for the games whose planets the launcher knows (rac1 and rac2).
 pub fn planet(program: Option<&str>, level: u32) -> Option<String> {
     match program.and_then(game_of) {
         Some("rac1") => crate::saves::RAC1_PLANETS.get(level as usize).map(|p| p.to_string()),
+        Some("rac2") => crate::saves::rac2_planet(level).map(str::to_string),
         _ => None,
     }
 }

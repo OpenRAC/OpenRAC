@@ -26,6 +26,9 @@
 //! - [`plugins`]: a game's native mods (docs/port/MODS.md): install, list, order, on/off, settings.
 //! - [`modset`]: mod codes, a host's mods at exact versions as a short or long code: review, apply.
 //! - [`profile`]: the way back from a mod code: what the mods were, kept to restore.
+//! - [`index`]: the signed mod index (openrac-mods), fetched, checked and cached; [`resolver`]: what
+//!   installing mods from it takes; [`index_apply`]: doing it; [`deeplink`]: `openrac://` links;
+//!   [`mod_error`]: their errors, with the fix the page offers.
 //! - [`reset`]: starting the level editor over: what it removes, checked to stay in OpenRAC's folders.
 //! - [`editor_state`]: where a player is with the level editor: outdated projects, edits not packed, the last update's notes.
 //! - [`library`]: all of the above, put together for the UI.
@@ -42,6 +45,7 @@ pub mod catalog;
 pub mod chd;
 pub mod config;
 pub mod controls;
+pub mod deeplink;
 pub mod desktop;
 pub mod detect;
 pub mod differences;
@@ -51,11 +55,15 @@ pub mod discs;
 pub mod editor_state;
 pub mod enhanced;
 pub mod hook_ids;
+pub mod index;
+pub mod index_apply;
 pub mod install;
 pub mod jobs;
 pub mod launcher_log;
 pub mod library;
+pub mod mod_error;
 pub mod mod_summary;
+pub mod mod_updates;
 pub mod modset;
 pub mod multiplayer;
 pub mod overrides;
@@ -64,12 +72,19 @@ pub mod plugins;
 pub mod port_build;
 pub mod profile;
 pub mod progress_sync;
+pub mod rac2_flags;
 pub mod remote;
 pub mod reports;
 pub mod reset;
+pub mod resolver;
 pub mod save_edit;
+pub mod save_edit_rac2;
+pub mod save_edit_rac2_extra;
+pub mod save_transfer;
 pub mod saves;
 pub mod status;
+pub mod steam;
+pub mod texture_packs;
 pub mod theme;
 pub mod update;
 pub mod webkit;
