@@ -53,8 +53,8 @@ the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
 `tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first, and so
 are Build the game and Rebuild: Play on a fresh checkout is Build and play. An installed launcher
-carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not), so there the
-game says it is built from a checkout instead of offering steps that cannot make it.
+carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not): its Build and
+play runs `tools/build_game.py`, which fetches the source and builds it with the player's compiler.
 
 On Android the game is a library of the APK, built on a computer with your disc:
 `python3 tools/build_android.py rac1-pal rac1-ntsc rac2-ntsc --disc rac2-ntsc=<SCUS_972.68 image>`.

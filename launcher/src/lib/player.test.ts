@@ -126,7 +126,7 @@ describe("a game this launcher cannot build", () => {
     const state = playerState(gameOf(v), v);
     expect(state.kind).toBe("unavailable");
     expect(state.disabled).toBe(true);
-    expect(state.hint).toContain("installed launcher cannot");
+    expect(state.hint).toContain("no step that builds it");
   });
 
   it("builds and plays where the launcher has the build", () => {
