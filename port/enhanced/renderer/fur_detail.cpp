@@ -127,6 +127,10 @@ void set_fur_material_settings(FurMaterialSettings settings) {
     settings.scattering = bounded(settings.scattering, 0, .5f, defaults.scattering);
     settings.environment_strength =
         bounded(settings.environment_strength, 0, 4, defaults.environment_strength);
+    settings.shell_layers = std::clamp(settings.shell_layers, 4, 16);
+    settings.shell_length = bounded(settings.shell_length, 0, .08f, defaults.shell_length);
+    settings.shell_density = bounded(settings.shell_density, 32, 256, defaults.shell_density);
+    settings.shell_distance = bounded(settings.shell_distance, 4, 64, defaults.shell_distance);
     auto& state = detail_state();
     const std::lock_guard lock(state.mutex);
     state.settings = settings;

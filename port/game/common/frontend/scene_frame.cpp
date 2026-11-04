@@ -351,6 +351,17 @@ void set_camera(SceneFrame& frame) {
                              : std::array<float, 4>{0, 0, 0, 1};
     set_buckets(frame);
     input.camera = drawn.value_or(camera);
+    // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
+    // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
+    if (has_camera && scene.gameplay_camera && !scene.world_under_menu
+        && !frame.output.camera_debug.settings.enabled
+        && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
+        const float original = 1.0f / input.camera.projection[5];
+        const float percent = static_cast<float>(frame.graphics.gameplay_fov) / 100.0f;
+        const float scale = original / std::tan(std::atan(original) * percent);
+        input.camera.projection[0] *= scale;
+        input.camera.projection[5] *= scale;
+    }
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
     }
@@ -358,7 +369,13 @@ void set_camera(SceneFrame& frame) {
     owner.scene.choose_scenery(
         frame.graphics.original_lod, visibility_camera.position, visibility_camera.projection
     );
+    const bool had_probes = owner.scene.probe_data_available();
     owner.scene.update_probe_regions(input.camera);
+
+    // Background bakes can become usable here, after initial level setup skipped modern shadows.
+    if (!had_probes && owner.scene.probe_data_available()) {
+        configure_level_shadows(owner, scene.level);
+    }
     // This hook only prepares declared probe/light selection kernels and stable uploads.
     input.prepares_world_depth = true;
     input.after_world_depth =

@@ -3,6 +3,9 @@ uniform int water_surface;
 out vec3 v_water_rest;
 vec3 effect_position(vec3 p) {
     v_water_rest=p;
+#ifdef OPENRAC_OCEAN
+    if (water_mesh==0) return p;
+#endif
     return water_surface==0?p:water_displaced_position(p,water_surface);
 }
 

@@ -55,6 +55,12 @@ Graphics > Enhanced Settings > Materials & water > Material inspector controls f
 through the shared `ratchet-fur` preset or a selected object material. Save writes the local JSON
 overlay; coverage and groom assets remain separate. See [Materials](../materials/README.md).
 
+The optional Geometry (prototype) controls add a short shell coat to the verified player fur
+surface. It is off by default. Coat length is a fraction of the bind-pose body's largest extent;
+layer count, strand density and distance fade apply live. Shells follow the existing joint palette,
+flatten when wet and use the same cutout coverage in colour and motion rendering. They retain the
+body's shadows; individual hairs do not cast additional shadows. Silhouette fins are not included.
+
 Short strands are generated deterministically along the groom into a mipmapped 512-square
 RGBA8 data texture. RG stores signed UV slopes around byte 128; B stores low-contrast strand
 variation around the same neutral value. World-position/UV derivatives carry those slopes through
@@ -64,7 +70,7 @@ frames and normal reconstruction remain FP32.
 
 Fine normals affect direct material lighting and the existing wet coat. Shadow comparisons,
 probe bias, cached GI and prepass normals retain the smooth surface. Subtle colour grain keeps
-some texture under flat indirect lighting. No geometry or rendering pass is added. This runs on
+some texture under flat indirect lighting. This material path runs on
 enhanced Vulkan; original rendering and OpenGL retain their existing material path.
 
 The fur lighting adds a broad anisotropic dielectric highlight along the groom and a restrained,
@@ -79,8 +85,8 @@ the existing reflection atlas on fur. Wetness reduces the dry-fur response.
 The implementation uses the [anisotropic GGX equations](https://google.github.io/filament/Filament.html#materialsystem/anisotropicmodel),
 with FP32 frames, distributions, visibility denominators and HDR accumulation; bounded Fresnel,
 scattering and tint calculations use FP16 where supported. Static world shader variants exclude
-the fur declarations and functions entirely. This is a short-coat material approximation, without
-strand geometry or transport through the body.
+the fur declarations and functions entirely. The surface material approximates a short coat;
+the optional shells add strand geometry without modelling transport through the body.
 
 [`lighting/profiles/rac1/fur.json`](lighting/profiles/rac1/fur.json) labels fur triangles in the
 verified body material, grouped by UV island. Groom directions use +U right and +V down. Small

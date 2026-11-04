@@ -16,6 +16,91 @@
 #include "renderer/render_opt.h"
 
 namespace openrac::enhanced {
+WaterMesh::WaterMesh() {
+    constexpr int kSteps = 32;  // Subdivide the original 50-unit ocean grid.
+    const auto point = [](int x, int y) {
+        return std::array{float(x) / kSteps, float(y) / kSteps};
+    };
+    for (int y = 0; y < kSteps; ++y) {
+        for (int x = 0; x + y < kSteps; ++x) {
+            m_weights.insert(m_weights.end(), {point(x, y), point(x + 1, y), point(x, y + 1)});
+            // The last diagonal row has no second triangle.
+            if (x + y + 1 < kSteps) {
+                m_weights.insert(
+                    m_weights.end(), {point(x + 1, y), point(x + 1, y + 1), point(x, y + 1)}
+                );
+            }
+        }
+    }
+    m_ocean_shape = {0, static_cast<unsigned>(m_weights.size())};
+    m_ocean_linear = {static_cast<unsigned>(m_weights.size()), 3};
+    m_weights.insert(m_weights.end(), {{0, 0}, {1, 0}, {0, 1}});
+}
+
+renderer::EffectMesh WaterMesh::prepare_ocean(
+    const renderer::Vec3& eye, float height, float near_radius, float horizon
+) {
+    if (m_used == m_plans.size()) {
+        m_plans.emplace_back();
+    }
+    auto& plan = m_plans[m_used];
+    plan.batches.clear();
+    const auto first = static_cast<unsigned>(m_sources.size());
+    constexpr int kSegments = 32;
+    const float spacing = 2.f * near_radius / kSegments;
+    const float x = std::floor(eye[0] / spacing) * spacing;
+    const float y = std::floor(eye[1] / spacing) * spacing;
+    const auto triangle = [&](auto a, auto b, auto c) {
+        Source source{};
+        const std::array points{a, b, c};
+        for (unsigned i = 0; i < points.size(); ++i) {
+            source[2 * i] =
+                {std::bit_cast<std::uint32_t>(x + points[i][0]),
+                 std::bit_cast<std::uint32_t>(y + points[i][1]),
+                 std::bit_cast<std::uint32_t>(height),
+                 0x80808080u};
+        }
+        m_sources.push_back(source);
+    };
+    using Point = std::array<float, 2>;
+    const auto quad = [&](Point a, Point b, Point c, Point d) {
+        triangle(a, b, c);
+        triangle(b, d, c);
+    };
+    for (int row = 0; row < kSegments; ++row) {
+        for (int column = 0; column < kSegments; ++column) {
+            const float a = -near_radius + column * spacing;
+            const float b = -near_radius + row * spacing;
+            quad({a, b}, {a + spacing, b}, {a, b + spacing}, {a + spacing, b + spacing});
+        }
+    }
+    // Both sides of each ring boundary have the same vertices and wave samples.
+    for (float inner = near_radius; inner < horizon;) {
+        const float outer = std::min(2 * inner, horizon);
+        for (int segment = 0; segment < kSegments; ++segment) {
+            const float a = -1.f + 2.f * segment / kSegments;
+            const float b = -1.f + 2.f * (segment + 1) / kSegments;
+            quad(
+                {inner * a, -inner}, {inner * b, -inner}, {outer * a, -outer}, {outer * b, -outer}
+            );
+            quad({inner, inner * a}, {inner, inner * b}, {outer, outer * a}, {outer, outer * b});
+            quad(
+                {-inner * a, inner}, {-inner * b, inner}, {-outer * a, outer}, {-outer * b, outer}
+            );
+            quad(
+                {-inner, -inner * a},
+                {-inner, -inner * b},
+                {-outer, -outer * a},
+                {-outer, -outer * b}
+            );
+        }
+        inner = outer;
+    }
+    const auto count = static_cast<unsigned>(m_sources.size()) - first;
+    plan.batches.push_back({m_ocean_linear, first, count});
+    return {m_used++, std::uint64_t(count) * 3, 1};
+}
+
 WaterMesh::WaterMesh(const std::filesystem::path& path, const std::array<char, 32>& fingerprint) {
     // Keep all authored layers: the simulation shares a field, not a rest elevation.
     std::ifstream mesh_file(path.parent_path() / "water.mesh", std::ios::binary);
@@ -214,7 +299,7 @@ renderer::EffectMesh WaterMesh::prepare(
             if (std::abs((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)) < 1e-8f) {
                 continue;
             }
-            Shape shape{0, 3};  // The first resident template is a flat, untessellated fallback.
+            Shape shape = m_ocean_shape.count ? m_ocean_shape : Shape{0, 3};
             const unsigned* order = orders[0];
             bool matched = false;
             for (const auto& candidate : orders) {
@@ -238,7 +323,7 @@ renderer::EffectMesh WaterMesh::prepare(
                     break;
                 }
             }
-            if (!matched && !m_missing_template) {
+            if (!matched && !m_missing_template && !m_ocean_shape.count) {
                 log::warn(
                     "Water bake missing mesh shape for surface {}; using coarse triangle",
                     strip.surface

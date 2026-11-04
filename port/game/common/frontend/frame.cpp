@@ -1955,8 +1955,10 @@ void keep_tick(
     // The level's mode while a real-time cutscene plays (the profile's). Movies bypass world
     // reconstruction.
     const auto cutscene_mode = g->profile->cutscene_mode();
-    k.cutscene = cutscene_mode && openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0
-                 && mode == *cutscene_mode;
+    const bool has_mode = openrac_game_mode != nullptr && openrac_game_mode(&mode) != 0;
+    k.cutscene = has_mode && cutscene_mode && mode == *cutscene_mode;
+    // Both games report mode zero for normal play. Unknown modes retain the native lens.
+    k.gameplay_camera = has_mode && mode == 0;
     k.state = state;
     k.has_state = true;
     k.live = std::move(mobys.live);

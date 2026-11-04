@@ -255,6 +255,16 @@ vec3 probe_surface(vec4 texel, vec3 original) {
     bool cached_surface = early_surface(
         eye_position, mat3(view) * n, cached_lighting, cached_coverage, hero_visibility
     );
+#ifdef OPENRAC_HERO_FUR
+    // Coat slices lie above the body prepass and require lighting at their displaced position.
+    if (hero_fur_shell > 0.) {
+        cached_surface = false;
+        cached_coverage = sample_probe_irradiance(v_world_position, n,
+            probe_surface_bias(n, transpose(mat3(view)) * (-eye_position)), cached_lighting.rgb);
+        cached_lighting.a = sun_shadow_visibility(v_world_position, n, n);
+        hero_visibility = hero_shadow_visibility(v_world_position, n);
+    }
+#endif
     if (!hero_shadow_applies(n)) {
         hero_visibility = 1.0;
     }
@@ -412,6 +422,9 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 
 void main() {
+#ifdef OPENRAC_HERO_FUR
+    if (fur_shell_reject(hero_fur_map, v_uv, v_hero_fur)) discard;
+#endif
     v_fog = v_fog_w.x / v_fog_w.y;
 #ifdef OPENRAC_SOLID
     // The static solid variant contains no discard. The Vulkan colour batch draws its solid

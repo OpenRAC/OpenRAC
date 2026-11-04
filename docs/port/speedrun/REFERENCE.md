@@ -153,10 +153,9 @@ unknown *value* warns in the log and falls back to the default; an unknown
 
 | Key | Values | Default | Note |
 |---|---|---|---|
-| `display_mode` | `windowed`, `borderless`, `fullscreen` | `windowed` | Absent on a first start: `borderless`. |
+| `display_mode` | `windowed`, `borderless` | `windowed` | Absent on a first start: `borderless`. `fullscreen` (the old exclusive mode) reads as `borderless`. |
 | `fullscreen` | `0`/`1` | — | Legacy: `1` means `borderless`. |
 | `monitor` | `0`–`64` | `0` | |
-| `resolution` | `desktop` or `WIDTHxHEIGHT` | desktop | Fullscreen mode. |
 | `window_size` | `WIDTHxHEIGHT` | 1280×960 | |
 | `aspect` | `4:3`, `16:10`, `16:9`, `21:9`, `32:9`, `window`, `custom` | `4:3` | A wider picture shows more to the sides. |
 | `aspect_custom` | `X:Y` | `16:9` | Clamped to at least 4:3. |

@@ -275,7 +275,7 @@ def main() -> int:
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
                     lambda rel: rel.suffix == ".json")
     files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
-                    lambda rel: rel.name == "water-boundaries.json")
+                    lambda rel: rel.name in {"water-boundaries.json", "ocean-profile.json"})
     for manifest in sorted((ROOT / "games").glob("*/game.json")):
         dest = out / manifest.relative_to(ROOT)
         dest.parent.mkdir(parents=True, exist_ok=True)

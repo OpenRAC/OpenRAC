@@ -103,8 +103,8 @@ struct MotionFixture {
             || !motion.create(64, 64, 0x881A, 0, error) || !output.create(64, 64, error)
             || !shader.build(
                 "motion fixture",
-                enhanced::shaders::motion_vert,
-                enhanced::shaders::motion_frag,
+                scene.deformation_vertex(enhanced::shaders::motion_vert),
+                scene.motion_fragment(enhanced::shaders::motion_frag),
                 error
             )
             || !read.build(

@@ -306,6 +306,16 @@ bool make_swapchain() {
     g->shows_at_once = info.presentMode == VK_PRESENT_MODE_IMMEDIATE_KHR;
     info.clipped = VK_TRUE;
     info.oldSwapchain = g->swapchain;
+    // VkSurfaceFullScreenExclusiveInfoEXT (vulkan_win32.h, which needs windows.h), the same
+    // layout: borderless full screen stays a window the desktop composes, as DXGI's flip model.
+    struct {
+        VkStructureType sType = VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT;
+        void* pNext = nullptr;
+        std::int32_t fullScreenExclusive = 2;  // VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT
+    } no_exclusive;
+    if (g->no_exclusive_full_screen) {
+        info.pNext = &no_exclusive;
+    }
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     if (!check(vkCreateSwapchainKHR(g->device, &info, nullptr, &swapchain), "the swapchain")) {
         return false;

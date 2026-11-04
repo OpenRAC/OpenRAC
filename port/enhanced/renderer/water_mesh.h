@@ -16,6 +16,8 @@ namespace openrac::enhanced {
 class WaterMesh {
 public:
     WaterMesh(const std::filesystem::path& bake, const std::array<char, 32>& fingerprint);
+    // Builds a regular subdivision template for the camera-following ocean grid.
+    WaterMesh();
     ~WaterMesh();
     WaterMesh(const WaterMesh&) = delete;
     WaterMesh& operator=(const WaterMesh&) = delete;
@@ -64,6 +66,9 @@ public:
     renderer::EffectMesh prepare(
         const renderer::EffectStrip&, std::span<const renderer::EffectVertex>
     );
+    renderer::EffectMesh prepare_ocean(
+        const renderer::Vec3& eye, float height, float near_radius, float horizon
+    );
     // Uploads the baked template stream once and a valid dummy source view.
     bool init(std::string& error);
     // Uploads the collected coarse triangles once per pass.
@@ -95,6 +100,8 @@ private:
     std::array<unsigned, 4> m_cache_counts{};         // Height lookups/hits, topology builds/hits.
     std::map<std::array<int, 4>, Shape> m_templates;  // Immutable shape-to-resident-range lookup.
     std::vector<std::array<float, 2>> m_weights;      // Baked dense coordinates; never regenerated.
+    Shape m_ocean_shape{};                            // Optional shared ocean triangle template.
+    Shape m_ocean_linear{};
     std::vector<Source> m_sources;                    // Owned coarse instances for this pass.
     std::vector<Plan> m_plans;                        // Reused strip-plan storage.
     std::size_t m_used = 0;                           // Plans collected during the current pass.

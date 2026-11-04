@@ -64,6 +64,10 @@ void test_settings() {
     settings.directionality = 5;
     settings.scattering = -1;
     settings.environment_strength = std::numeric_limits<float>::quiet_NaN();
+    settings.shell_layers = 99;
+    settings.shell_length = std::numeric_limits<float>::quiet_NaN();
+    settings.shell_density = std::numeric_limits<float>::infinity();
+    settings.shell_distance = -1;
     enhanced::set_fur_material_settings(settings);
     const auto bounded = enhanced::fur_material_settings();
     CHECK(bounded.strength == 0 && bounded.contrast == .15f && bounded.fade_distance == 103);
@@ -72,6 +76,8 @@ void test_settings() {
         && bounded.scattering == 0
     );
     CHECK(bounded.environment_strength == 1.85f);
+    CHECK(!bounded.shells_enabled && bounded.shell_layers == 16 && bounded.shell_length == .02f);
+    CHECK(bounded.shell_density == 128 && bounded.shell_distance == 4);
     enhanced::set_fur_material_settings({});
 }
 

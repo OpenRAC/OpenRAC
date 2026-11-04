@@ -26,7 +26,7 @@ std::string hero_only_source(const char* source) {
     return std::string("#ifndef OPENRAC_STATIC_COLOUR\n") + source + "\n#endif\n";
 }
 
-std::string hero_shader(std::string source, const char* fur_source) {
+std::string hero_shader(std::string source, const char* fur_source, bool fragment = false) {
     if (gl::is_vulkan() && gl::enhanced_rendering_available()) {
         source.replace(0, source.find('\n'), "#version 430 core");
         source.insert(source.find('\n') + 1, "#define OPENRAC_HERO_WETNESS 1\n");
@@ -36,6 +36,10 @@ std::string hero_shader(std::string source, const char* fur_source) {
             "#ifndef OPENRAC_STATIC_COLOUR\n#define OPENRAC_HERO_FUR 1\n#endif\n"
         );
         source.insert(source.find('\n') + 1, hero_only_source(fur_source));
+        source.insert(source.find('\n') + 1, hero_only_source(shaders::fur_shell_glsl));
+        if (fragment) {
+            source.insert(source.find('\n') + 1, "#define OPENRAC_FUR_FRAGMENT 1\n");
+        }
     }
     return source;
 }
@@ -58,7 +62,7 @@ std::string hero_fragment(std::string source) {
         }
         source.insert(source.find('\n') + 1, hero_only_source(shaders::fur_detail_glsl));
     }
-    return hero_shader(std::move(source), shaders::fur_glsl);
+    return hero_shader(std::move(source), shaders::fur_glsl, true);
 }
 }  // namespace
 
@@ -81,12 +85,31 @@ void SceneLighting::prepare_wetness(
     m_default_fur = enhanced::fur_material_settings();
     m_default_wetness = enhanced::wetness_material_settings();
     m_wetness.prepare(input, palette, hero);
-    m_fur.prepare(hero);
+    m_fur.prepare(hero, input.camera.position);
 }
 
 void SceneLighting::bind_wetness(const renderer::Shader& shader) const {
     m_wetness.bind(shader, m_default_wetness);
     m_fur.bind(shader, m_default_fur);
+}
+
+int SceneLighting::surface_layers(
+    std::uint32_t model, std::uint32_t first, std::uint32_t count
+) const {
+    return m_fur.shell_layers(model, first, count);
+}
+
+void SceneLighting::bind_surface_layer(const renderer::Shader& shader, int layer) const {
+    // Temporal programs need the same verified palette, wetness and coverage maps as colour.
+    if (layer == 0) {
+        m_wetness.bind(shader);
+        m_fur.bind(shader);
+    }
+    m_fur.bind_shell(shader, layer);
+}
+
+std::string SceneLighting::motion_fragment(std::string source) const {
+    return hero_shader(std::move(source), shaders::fur_glsl, true);
 }
 
 void SceneLighting::prepare_deformation(

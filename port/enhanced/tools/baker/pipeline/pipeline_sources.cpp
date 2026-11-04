@@ -119,6 +119,60 @@ void prepare_water(const std::filesystem::path& level) {
         )
     );
 }
+
+// Bake ocean transport only for an exported profile with a surveyed coast.
+void prepare_ocean(const std::filesystem::path& level, const json::Value& coast) {
+    const profiling::Zone timing("Prepare ocean response");
+    const auto& origin = coast["origin"].items();
+    // The coastal solver validates finite coordinates and depth.
+    if (origin.size() != 2 || !origin[0].is_number() || !origin[1].is_number()) {
+        throw std::runtime_error("expected two coordinates for the ocean coast origin");
+    }
+    const auto sources = parsed(
+        "{\"coast\":" + bake_json::json_text(coast) + ",\"manifest\":"
+        + coordinator_string(bake_json::file_hash(level / "manifest.json")) + ",\"placements\":"
+        + coordinator_string(bake_json::file_hash(level / "placements.json")) + ",\"collision\":"
+        + coordinator_string(bake_json::file_hash(level / "collision.glb")) + ",\"gameplay\":"
+        + coordinator_string(bake_json::file_hash(level / "bake-inputs/gameplay.bin")) + '}'
+    );
+    // Reuse only a matching response whose bytes still match the published stamp.
+    try {
+        const auto stamp = bake_json::document(level / "ocean-bake.json");
+        if (stamp["version"].number() == 1 && bake_json::equivalent(stamp["inputs"], sources)
+            && stamp["output"].string() == bake_json::file_hash(level / "ocean.wave")) {
+            return;
+        }
+    } catch (const std::exception&) {
+        // A missing or damaged stamp or output needs a fresh response.
+    }
+    constexpr unsigned kSide = 64;  // Runtime FFT tile width.
+    constexpr double kCell = .5;    // Baked coastal cell spacing in world units.
+    const auto patch =
+        water::pokitaru_coast(level, {origin[0].number(), origin[1].number()}, kSide, kCell);
+    // Incomplete retained level inputs cannot replace a published response.
+    if (!patch) {
+        throw std::runtime_error(patch.error().message);
+    }
+    WaterStage stage(level);
+    save(stage.directory / "input.json", parsed(*patch));
+    const auto spectrum =
+        water::ocean_spectrum(stage.directory / "input.json", coast["offshore_depth"].number());
+    // A failed solve or write leaves the previous response intact.
+    if (!spectrum) {
+        throw std::runtime_error(spectrum.error().message);
+    }
+    const auto written = write_stage_file(level / "ocean.wave", *spectrum);
+    if (!written) {
+        throw std::runtime_error(written.error().message);
+    }
+    save(
+        level / "ocean-bake.json",
+        parsed(
+            "{\"version\":1,\"inputs\":" + bake_json::json_text(sources)
+            + ",\"output\":" + coordinator_string(bake_json::file_hash(level / "ocean.wave")) + '}'
+        )
+    );
+}
 }  // namespace
 
 void prepare_sources(
@@ -149,6 +203,12 @@ void prepare_sources(
     // Only exports declaring water tables need the native water stage.
     if (water) {
         prepare_water(level);
+    }
+
+    const auto ocean = bake_json::optional_object(level / "ocean-profile.json");
+    // Ocean optics alone do not opt a level into the coastal bake.
+    if (const auto coast = ocean.find("coast"); coast != ocean.end() && !coast->second.is_null()) {
+        prepare_ocean(level, coast->second);
     }
 
     const auto identity = manifest["game"].string() + '-' + manifest["version"].string();

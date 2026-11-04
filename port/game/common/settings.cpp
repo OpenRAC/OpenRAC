@@ -78,7 +78,7 @@ bool g_display_mode_in_file = false;  // the file load() read said display_mode 
 constexpr int kGameOptionLimit = 1'000'000;
 
 // The names in the file, by value.
-constexpr const char* kDisplayMode[] = {"windowed", "borderless", "fullscreen"};
+constexpr const char* kDisplayMode[] = {"windowed", "borderless"};
 constexpr const char* kAspect[] = {"4:3", "16:10", "16:9", "21:9", "32:9", "window", "custom"};
 constexpr const char* kHud[] = {"centre", "edges"};
 constexpr const char* kGtaoQuality[] = {"performance", "quality"};
@@ -257,6 +257,11 @@ void load(const std::filesystem::path& file) {
         }
         if (key == "display_mode") {
             known = parse(value, kDisplayMode, s.display_mode);
+            // The exclusive full screen the port had once: borderless now.
+            if (value == "fullscreen") {
+                s.display_mode = DisplayMode::Borderless;
+                known = true;
+            }
         } else if (key == "fullscreen") {
             // The key display_mode replaced: a window covering the desktop, or not. A file that
             // has both is the newer one's.
@@ -268,11 +273,7 @@ void load(const std::filesystem::path& file) {
         } else if (key == "monitor") {
             known = parse_int(value, 0, 64, s.monitor);
         } else if (key == "resolution") {
-            if (value == "desktop") {
-                s.fullscreen_width = s.fullscreen_height = 0;
-            } else {
-                known = parse_pair(value, 'x', s.fullscreen_width, s.fullscreen_height);
-            }
+            // Exclusive full screen's display mode, which the port no longer has: read, unused.
         } else if (key == "window_size") {
             known = parse_pair(value, 'x', s.window_width, s.window_height);
         } else if (key == "aspect") {
@@ -281,6 +282,11 @@ void load(const std::filesystem::path& file) {
             known = parse_pair(value, ':', s.aspect_custom_x, s.aspect_custom_y);
         } else if (key == "hud") {
             known = parse(value, kHud, s.hud);
+        } else if (key == "gameplay_fov") {
+            known = parse_int(value, kMinGameplayFov, kMaxGameplayFov, s.gameplay_fov);
+            // Snap preferences saved before the slider used five-point steps.
+            s.gameplay_fov =
+                (s.gameplay_fov + kGameplayFovStep / 2) / kGameplayFovStep * kGameplayFovStep;
         } else if (key == "render_scale") {
             known = parse_int(value, 25, 400, s.render_scale);
         } else if (key == "msaa") {
@@ -541,18 +547,14 @@ void save() {
            "them;\n"
         << "# docs/port/SETTINGS.md says what each is)\n"
         << "display_mode = " << kDisplayMode[static_cast<int>(s.display_mode)] << "\n"
-        << "monitor = " << s.monitor << "\n"
-        << "resolution = "
-        << (s.fullscreen_width > 0 && s.fullscreen_height > 0
-                ? std::format("{}x{}", s.fullscreen_width, s.fullscreen_height)
-                : std::string("desktop"))
-        << "\n";
+        << "monitor = " << s.monitor << "\n";
     if (s.window_width > 0 && s.window_height > 0) {
         out << "window_size = " << s.window_width << "x" << s.window_height << "\n";
     }
     out << "aspect = " << kAspect[static_cast<int>(s.aspect)] << "\n"
         << "aspect_custom = " << s.aspect_custom_x << ":" << s.aspect_custom_y << "\n"
         << "hud = " << kHud[static_cast<int>(s.hud)] << "\n"
+        << "gameplay_fov = " << s.gameplay_fov << "\n"
         << "render_scale = " << s.render_scale << "\n"
         << "msaa = " << s.msaa << "\n"
         << "enhanced_rendering = " << (s.enhanced_rendering ? 1 : 0) << "\n"
@@ -733,8 +735,8 @@ const char* name(FrameCounter mode) {
 }
 
 const char* name(DisplayMode mode) {
-    constexpr const char* names[] = {"Window", "Borderless", "Fullscreen"};
-    return names[std::min<int>(static_cast<int>(mode), 2)];
+    constexpr const char* names[] = {"Window", "Borderless"};
+    return names[std::min<int>(static_cast<int>(mode), 1)];
 }
 
 const char* name(Aspect aspect) {

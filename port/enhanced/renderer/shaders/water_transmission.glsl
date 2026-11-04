@@ -11,6 +11,7 @@ uniform vec4 water_scene_projection;
 bool water_composite_active=false;
 vec3 water_background=vec3(0),water_background_weight=vec3(0),water_radiance=vec3(0);
 float water_contact_coverage=1.;
+float water_contact_depth=0.;
 vec3 water_contact_background=vec3(0);
 
 // A narrow world-space contact band; optical detail must not move the shoreline.
@@ -32,6 +33,7 @@ bool water_scene_sample(vec2 uv,float surface_depth,vec3 view_position,vec2 norm
                         float contact_nv,bool contact_blend,out vec3 background,out float thickness) {
     background=vec3(0);thickness=0.;
     water_contact_coverage=1.;
+    water_contact_depth=0.;
     water_contact_background=vec3(0);
     if(water_scene_ready==0) return false;
     ivec2 extent=ivec2(water_scene_extent);
@@ -42,7 +44,8 @@ bool water_scene_sample(vec2 uv,float surface_depth,vec3 view_position,vec2 norm
     float ray_cosine=water_scene_projection.w!=0.?1.:abs(view_position.z)/max(length(view_position),1e-5);
     float path=max(0.,surface_z-water_scene_z(depth))/max(ray_cosine,1e-4);
     // Contact uses the unshifted depth and base surface normal, never the refracted floor.
-    if(contact_blend) water_contact_coverage=water_contact_blend(path*clamp(contact_nv,0.,1.));
+    water_contact_depth=path*clamp(contact_nv,0.,1.);
+    if(contact_blend) water_contact_coverage=water_contact_blend(water_contact_depth);
     // Six pixels maximum at the render resolution, fading smoothly to zero at contacts.
     vec2 offset=normal_offset*min(6.,path*2.);
     offset*=min(1.,6./max(length(offset),1e-5));

@@ -17,7 +17,6 @@ namespace openrac::frontend::options_menu {
 enum Row {
     kDisplayMode,
     kMonitor,
-    kResolution,
     kAspect,
     kHud,
     kRenderScale,

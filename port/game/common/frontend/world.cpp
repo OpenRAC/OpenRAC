@@ -144,6 +144,27 @@ void init_level_renderer(int level, std::string& error) {
 
 }  // namespace
 
+// Sets up modern shadow passes once the level has validated probe lighting.
+void configure_level_shadows(State& owner, int level) {
+    std::string error;
+    static const bool& hero_pixel_shadow = stats::probe(
+        "OPENRAC_HERO_SHADOW",
+        "Ratchet-only shadow map: sun direction grounded, downward platforming cue airborne"
+    );
+    const bool sun_shadow = enhanced_graphics_available() && openrac_game_has_level(level)
+                            && env::flag(env::Var::SunShadows);
+    if (!owner.scene.enable_sun_shadow(sun_shadow, error)) {
+        log::warn("Cascaded sun shadows unavailable: {}", error);
+    }
+    if (!owner.scene.enable_hero_shadow(
+            enhanced_graphics_available()
+                && (hero_pixel_shadow || owner.scene.sun_shadow_enabled()),
+            error
+        )) {
+        log::warn("Ratchet shadow map unavailable: {}", error);
+    }
+}
+
 // Starts reading level `number`'s files on another thread, for when the game goes there (the
 // flight between planets, whose few seconds would otherwise be followed by the whole read, the
 // game stopped and its sound running ahead). Nothing for a level drawn or read ahead already.
@@ -305,21 +326,7 @@ void use_level(int number) {
     );
     g->hud = hud.get();
     g->renderer->add(std::make_unique<renderer::DirectBackground>(*hud), error);
-    static const bool& hero_pixel_shadow = stats::probe(
-        "OPENRAC_HERO_SHADOW",
-        "Ratchet-only shadow map: sun direction grounded, downward platforming cue airborne"
-    );
-    const bool sun_shadow = enhanced_graphics_available() && openrac_game_has_level(wanted)
-                            && env::flag(env::Var::SunShadows);
-    if (!g->scene.enable_sun_shadow(sun_shadow, error)) {
-        log::warn("Cascaded sun shadows unavailable: {}", error);
-    }
-    if (!g->scene.enable_hero_shadow(
-            enhanced_graphics_available() && (hero_pixel_shadow || g->scene.sun_shadow_enabled()),
-            error
-        )) {
-        log::warn("Ratchet shadow map unavailable: {}", error);
-    }
+    configure_level_shadows(*g, wanted);
     for (std::size_t layer = 0; layer < scene::kLayerCount; ++layer) {
         // The caster is drawn after its shadow, so its proxy cannot darken
         // Ratchet himself. Opaque scenery has already filled the depth buffer.
@@ -355,7 +362,8 @@ void use_level(int number) {
                 renderer::Bucket::Particles,
                 enhanced::atmosphere_material(
                     g->scene,
-                    wanted == 1 && g->game.starts_with("rac1-")
+                    ((wanted == 1 && g->game.starts_with("rac1-"))
+                     || (wanted == 11 && g->game == "rac1-ntsc"))
                         ? enhanced::make_water(g->scene, dir)
                         : nullptr
                 )
@@ -1263,10 +1271,15 @@ void reset_foliage_controls() {
 extern "C" int openrac_game_enhanced_water(void) {
     using namespace openrac;
     return c_boundary::call("openrac_game_enhanced_water", 0, [] {
-        return int(
-            frontend::g && frontend::g->game.starts_with("rac1-") && frontend::g->loaded == 1
+        const bool available =
+            frontend::g && frontend::g->game.starts_with("rac1-")
+            && (frontend::g->loaded == 1
+                || (frontend::g->loaded == 11 && frontend::g->game == "rac1-ntsc"))
             && frontend::enhanced_graphics_available() && settings::get().enhanced_graphics
-            && enhanced::water_available()
-        );
+            && enhanced::water_available();
+        if (available && frontend::g->loaded == 11 && enhanced::ocean_replaces_horizon()) {
+            return 2;
+        }
+        return int(available);
     });
 }

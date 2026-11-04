@@ -17,9 +17,11 @@
 void game_FUN_L01_002b7fe0(gaddr, int);
 void game_FUN_L00_002a3ec8(gaddr, int, int, float, float, float, float);
 void game_FUN_L01_00262618(gaddr);
+void game_FUN_L11_0030a908(gaddr);
 uint8_t* openrac_guest_base;
 uint32_t openrac_guest_ram_size = GUEST_RAM_SIZE; /* the console's 32 MiB arena */
 static int enabled, steps, impulses, builds;
+static gaddr ocean_draw_cursor, ocean_draw_moby;
 static float captured_z, captured_w, captured_amplitude, captured_scroll;
 
 gaddr openrac_relocate_level_data(int from, gaddr at) {
@@ -31,11 +33,20 @@ int openrac_game_enhanced_water(void) {
     return enabled;
 }
 
+void openrac_skip_ocean_quad(int skip) {
+    (void)skip;
+}
+
 void game_FUN_L01_002fd0c0__game(void) {}
 
 void game_FUN_L01_002f60f8__game(void) {}
 
 void game_FUN_L01_002f6150__game(void) {}
+
+void game_FUN_L11_0030a908__game(gaddr moby) {
+    ocean_draw_cursor = GREF(gaddr, 0x001611C0u);
+    ocean_draw_moby = moby;
+}
 
 void game_FUN_L01_002feb28__game(void) {}
 
@@ -290,6 +301,15 @@ int main(void) {
     enabled = 0;
     game_FUN_L01_00262618(0x00202D80u);
     CHECK(captured_z == 2 && captured_w == 4);
+    GREF(gaddr, cursor) = packet;
+    game_FUN_L11_0030a908(layer);
+    CHECK(ocean_draw_cursor == packet && GREF(gaddr, cursor) == packet);
+    enabled = 1;
+    game_FUN_L11_0030a908(layer);
+    CHECK(ocean_draw_moby == layer && ocean_draw_cursor == packet + 48u);
+    CHECK(GREF(uint64_t, packet + 32u) == ((0x5754ull << 48) | 1u));
+    CHECK(GREF(uint64_t, packet + 80u) == (0x5754ull << 48));
+    CHECK(GREF(gaddr, cursor) == packet + 96u);
     check_explosion_capture();
     check_bomb_glove_capture();
     free(openrac_guest_base);
