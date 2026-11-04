@@ -60,6 +60,7 @@ struct Config {
     // the system's loader.
     void* get_instance_proc_addr = nullptr;
     bool validation = false;  // the Khronos validation layer, where it is installed
+    bool gpu_breadcrumbs = true;
     // For the tests: each presentation extension the backend asks of the device where it is
     // offered (VK_KHR_present_id, VK_KHR_present_wait, the FIFO latest-ready present mode), so a
     // test can open the device without it.

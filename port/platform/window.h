@@ -138,6 +138,7 @@ struct WindowConfig {
     bool resizable = true;
     bool hidden = false;  // never shown: headless checks
     bool debug_context = false;
+    bool gpu_breadcrumbs = true;
     int msaa_samples = 0;
     GlApi gl_api = default_gl_api();
     // HDR output may be asked for later (set_hdr); off, a Vulkan window is made as it always was.

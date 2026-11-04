@@ -403,6 +403,8 @@ void load(const std::filesystem::path& file) {
         } else if (key == "frame_rate") {
             known = parse_frame_rate(value, s);
             has_frame_rate = has_frame_rate || known;
+        } else if (key == "gpu_breadcrumbs") {
+            known = parse_bool(value, s.gpu_breadcrumbs);
         } else if (key == "show_fps") {
             bool enabled = false;
             // Existing files also accept boolean words for the original counter.
@@ -613,6 +615,7 @@ void save() {
         << "vsync = " << kVSync[static_cast<int>(s.vsync)] << "\n"
         << "frame_rate = " << frame_rate_value(s) << "\n"
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
+        << "gpu_breadcrumbs = " << (s.gpu_breadcrumbs ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
         << "menu_bar_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"

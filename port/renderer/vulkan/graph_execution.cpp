@@ -247,6 +247,9 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
             const auto& pass = compiled->passes[index];
             if (pass.kind == graph::PassKind::Work) {
                 crash::breadcrumb(pass.name);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(frame().main, pass.name, false);
+                }
             }
             const auto event = capture_graph_pass(*compiled, index, index == 0);
             m_recording->enter(pass);
@@ -254,6 +257,9 @@ Result<void> GraphExecution::run(const std::function<void(unsigned)>& record) {
             // Exports make graph writes visible to subsequent legacy consumers without GPU work.
             if (pass.kind == graph::PassKind::Work) {
                 m_recording->record_work(index, record);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(frame().main, pass.name, true);
+                }
             }
             complete_graph_pass(*compiled, index, event);
         }

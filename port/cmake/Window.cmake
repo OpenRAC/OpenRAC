@@ -93,6 +93,7 @@ if(OPENRAC_VULKAN)
   add_library(openrac_renderer_vulkan STATIC
     renderer/vulkan/graph_presentation.cpp
     renderer/vulkan/frame_capture.cpp
+    renderer/vulkan/gpu_breadcrumbs.cpp
     renderer/vulkan/surface_batch.cpp renderer/vulkan/surface_batch_import.cpp
     renderer/vulkan/surface_copy.cpp renderer/vulkan/attachment_copy.cpp
     renderer/vulkan/prepared_raster.cpp

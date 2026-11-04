@@ -49,6 +49,71 @@ void diagnostic(std::string_view message) {
     log::verbose("{}", message);
 }
 
+namespace {
+
+// Only query a lost device once. Fixed storage bounds the report even if the driver has more data.
+void report_device_fault() {
+    if (!g || g->device_fault_reported.test_and_set(std::memory_order_relaxed)) {
+        return;
+    }
+    report_gpu_breadcrumbs();
+    if (!g->device || !g->device_fault_enabled || !vkGetDeviceFaultInfoEXT) {
+        diagnostic("GPU fault: VK_EXT_device_fault unavailable");
+        return;
+    }
+    crash::failure_breadcrumb("Vulkan query device fault");
+    std::array<VkDeviceFaultAddressInfoEXT, 8> addresses{};
+    std::array<VkDeviceFaultVendorInfoEXT, 4> vendor{};
+    VkDeviceFaultCountsEXT counts{VK_STRUCTURE_TYPE_DEVICE_FAULT_COUNTS_EXT};
+    counts.addressInfoCount = addresses.size();
+    counts.vendorInfoCount = vendor.size();
+    VkDeviceFaultInfoEXT info{VK_STRUCTURE_TYPE_DEVICE_FAULT_INFO_EXT};
+    info.pAddressInfos = addresses.data();
+    info.pVendorInfos = vendor.data();
+    const auto result = vkGetDeviceFaultInfoEXT(g->device, &counts, &info);
+    if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
+        diagnostic(std::format("GPU fault: driver query failed ({})", int(result)));
+        return;
+    }
+    const auto description = [](const auto& field) {
+        const std::string_view bytes(field, sizeof(field));
+        return bytes.substr(0, bytes.find('\0'));
+    };
+    const auto summary = description(info.description);
+    diagnostic(
+        std::format(
+            "GPU fault: {}{}",
+            summary.empty() ? "driver supplied no description" : summary,
+            result == VK_INCOMPLETE ? " (partial details)" : ""
+        )
+    );
+    for (std::size_t i = 0; i < std::min<std::size_t>(counts.addressInfoCount, addresses.size());
+         ++i) {
+        const auto& address = addresses[i];
+        diagnostic(
+            std::format(
+                "GPU fault address: type {}, reported {:#x}, precision {:#x}",
+                int(address.addressType),
+                address.reportedAddress,
+                address.addressPrecision
+            )
+        );
+    }
+    for (std::size_t i = 0; i < std::min<std::size_t>(counts.vendorInfoCount, vendor.size()); ++i) {
+        const auto& entry = vendor[i];
+        diagnostic(
+            std::format(
+                "GPU fault vendor: {}, code {:#x}, data {:#x}",
+                description(entry.description),
+                entry.vendorFaultCode,
+                entry.vendorFaultData
+            )
+        );
+    }
+}
+
+}  // namespace
+
 bool check(VkResult result, const char* what) {
     if (result == VK_SUCCESS) {
         return true;
@@ -83,6 +148,9 @@ bool check(VkResult result, const char* what) {
     crash::failure_breadcrumb(message);
     crash::note_vulkan(message);
     log::error("{}", message);
+    if (result == VK_ERROR_DEVICE_LOST) {
+        report_device_fault();
+    }
     return false;
 }
 

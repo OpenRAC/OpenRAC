@@ -71,6 +71,7 @@ enum class Id : std::uint8_t {
     HdrStatus,
     LowLatency,
     ResponsiveControls,
+    GpuBreadcrumbs,
     // Enhanced
     EnhancedStatus,
     EnhancedGraphics,

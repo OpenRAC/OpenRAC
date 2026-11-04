@@ -299,10 +299,12 @@ struct Frame {
     VkSemaphore acquired = VK_NULL_HANDLE;
     std::vector<VkDescriptorPool> pools;
     std::size_t pool_at = 0;
+
     struct UploadChunk : Chunk {
         VkDeviceSize high_water = 0;
         unsigned idle_reuses = 0;
     };
+
     std::vector<UploadChunk> chunks;
     Chunk bulk_texture_staging;
     VkDeviceSize bulk_texture_used = 0;
@@ -1064,6 +1066,22 @@ struct RecordedState {
 };
 
 // All of the backend's state, one of it while the backend is open (`g`).
+struct GpuBreadcrumbs {
+    struct Marker {
+        std::uint32_t id = 0;
+        bool end = false;
+        std::array<char, 96> pass{};
+    };
+
+    std::mutex mutex;
+    std::array<Marker, 512> markers{};
+    std::uint32_t next = 0;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
+    const volatile std::uint32_t* mapped = nullptr;
+    bool nvidia = false;
+};
+
 struct Context {
     GpuEngine gpu;
     bool bindless_supported = false;
@@ -1144,6 +1162,9 @@ struct Context {
     bool test_program_reuse = false;     // Explicitly enabled only by rendering tests.
     std::vector<Program> test_programs;  // Retained immutable objects, without GL uniform state.
     std::atomic_uint64_t validation_errors = 0;
+    bool device_fault_enabled = false;
+    std::unique_ptr<GpuBreadcrumbs> gpu_breadcrumbs;
+    std::atomic_flag device_fault_reported = ATOMIC_FLAG_INIT;
     std::atomic<double> pipeline_compile_s = 0.0;      // Shared with the pipeline prewarm worker.
     std::atomic_uint64_t pipeline_creation_calls = 0;  // Every timed driver creation attempt.
     VmaAllocator allocator = nullptr;
@@ -1192,6 +1213,7 @@ struct Context {
     // The presentation extensions (R-09): what Config allowed, what the device was given, and
     // the presents counted and seen finished since the swapchain was made.
     bool allow_present_id = true;
+    bool allow_gpu_breadcrumbs = true;
     bool allow_present_wait = true;
     bool allow_latest_ready = true;
     // Config::setup: who makes the instance and the device (an outside owner shares them).
@@ -1326,6 +1348,9 @@ inline void fail(GLenum error) {
 // True when `result` is VK_SUCCESS; otherwise logs that `what` failed and returns false.
 bool check(VkResult result, const char* what);
 void diagnostic(std::string_view message);
+void setup_gpu_breadcrumbs();
+void record_gpu_breadcrumb(VkCommandBuffer command, std::string_view pass, bool end);
+void report_gpu_breadcrumbs();
 
 // Stops recording on a failed Vulkan operation; the owning frame boundary reports the exception.
 void require_success(VkResult result, const char* operation);

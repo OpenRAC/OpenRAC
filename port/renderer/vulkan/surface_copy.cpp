@@ -151,7 +151,8 @@ static SurfaceDepthScratch lease_depth(unsigned source, std::array<int, 2> size,
         return {};
     }
     const auto* depth = target_of(source).depth;
-    if (!depth || depth->width != size[0] || depth->height != size[1] || !has_stencil(depth->format)) {
+    if (!depth || depth->width != size[0] || depth->height != size[1]
+        || !has_stencil(depth->format)) {
         return {};
     }
     if (!g->surface_batch->claim_depth_scratch()) {

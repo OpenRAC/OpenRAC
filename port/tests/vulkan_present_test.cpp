@@ -37,16 +37,15 @@ namespace {
 using namespace openrac::gl;
 namespace render_opt = openrac::renderer::render_opt;
 
-VKAPI_ATTR VkResult VKAPI_CALL lose_device_on_acquire(
-    VkDevice, VkSwapchainKHR, std::uint64_t, VkSemaphore, VkFence, std::uint32_t*
-) {
-    return VK_ERROR_DEVICE_LOST;
+VKAPI_ATTR VkResult VKAPI_CALL
+fail_acquire(VkDevice, VkSwapchainKHR, std::uint64_t, VkSemaphore, VkFence, std::uint32_t*) {
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
 }
 
 // An acquire failure must reach the caller without submitting the frame offscreen.
 void test_fatal_acquire() {
     const auto acquire = vkAcquireNextImageKHR;
-    vkAcquireNextImageKHR = lose_device_on_acquire;
+    vkAcquireNextImageKHR = fail_acquire;
     const auto before = openrac::vkgl::submission_counters().submits;
     bool rejected = false;
     try {

@@ -18,12 +18,14 @@ enum class SurfaceCopy {
 struct SurfaceDepthScratch {
     unsigned framebuffer = 0;
     unsigned texture = 0;
+
     explicit operator bool() const { return framebuffer != 0; }
 };
 
 struct SurfaceRefractionScratch {
     unsigned framebuffer = 0;
     std::array<unsigned, 2> textures{};
+
     explicit operator bool() const { return framebuffer != 0; }
 };
 

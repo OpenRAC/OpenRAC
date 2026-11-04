@@ -176,6 +176,9 @@ Result<void> record_presentation(
             // Export phases change visibility only and must not repeat the native screen copy.
             if (pass.kind == graph::PassKind::Work) {
                 crash::breadcrumb(pass.name);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(command, pass.name, false);
+                }
                 if (encode.record && index == 0) {
                     const TracyPresentZone timing(command, "HDR encode");
                     encode.record();
@@ -184,6 +187,9 @@ Result<void> record_presentation(
                     copy();
                 } else {
                     copy();
+                }
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(command, pass.name, true);
                 }
             }
             complete_graph_pass(*plan, index, event);
