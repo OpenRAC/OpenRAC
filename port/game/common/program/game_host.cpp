@@ -472,6 +472,17 @@ uint32_t openrac_game_effect_quad_marker(void) {
     });
 }
 
+float openrac_game_view_opened(void) {
+    return c_boundary::call("openrac_game_view_opened", 1.0f, [&]() -> float {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return frontend::view_opened();
+        }
+#endif
+        return 1.0f;
+    });
+}
+
 float openrac_game_picture_wider(void) {
     return c_boundary::call("openrac_game_picture_wider", 1.0f, [&]() -> float {
 #ifdef OPENRAC_FRONTEND

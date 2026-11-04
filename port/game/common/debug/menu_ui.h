@@ -131,7 +131,8 @@ int menu_choice(
     const char* label, const std::string& value, bool can_lower = true, bool can_raise = true
 );
 
-// A percentage slider in a menu row. Returns the new value after pointer or arrow input.
+// A percentage slider in a menu row, between two arrows: the new value after a drag, a tap on the
+// track or an arrow, or left and right while it has the focus (the d-pad).
 int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step);
 
 // The launcher's primary button, across the space left.

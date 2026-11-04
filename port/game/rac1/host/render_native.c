@@ -134,13 +134,16 @@ static void mark_drawn_mobys(gaddr first, int count) {
     if (!(ty > 0.05f && ty < 10.0f)) {
         ty = tx * 0.756f;
     }
-    /* The picture's sides: the game's 4:3 tangent opened as the port's picture is (moby_view.h).
+    /* The picture's sides: the game's 4:3 tangent opened as the port's picture is (moby_view.h),
+     * and both tangents as the player's Field of View opens them (openrac_game_view_opened).
      * The game fix fix_wide_moby_effects (differences.json); off, the console's 4:3 test. */
     static const unsigned char* fix;
     if (!fix) {
         fix = openrac_game_fix("fix_wide_moby_effects");
     }
-    const float wider = *fix ? openrac_game_picture_wider() : 1.0f;
+    const float opened = *fix ? openrac_game_view_opened() : 1.0f;
+    const float wider = *fix ? openrac_game_picture_wider() * opened : 1.0f;
+    ty *= opened;
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));

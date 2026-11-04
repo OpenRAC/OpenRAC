@@ -261,6 +261,9 @@ struct State {
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
+    // The last world drawn outside a menu was seen with a gameplay camera (Kept::gameplay_camera):
+    // the world under the pause menu then keeps the player's Field of View.
+    bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
 
