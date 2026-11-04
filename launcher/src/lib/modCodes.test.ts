@@ -31,6 +31,7 @@ const mod = (id: string, action: ReviewMod["action"], more: Partial<ReviewMod> =
 
 const review = (more: Partial<Review> = {}): Review => ({
   set: "{}",
+  party: null,
   code: "K7M2-9QXR",
   name: "Ada's mods",
   created: "2026-10-31T12:00:00Z",

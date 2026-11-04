@@ -466,6 +466,7 @@ export const api = {
   modsetShare: (game: string, version: string, extras: string[]) =>
     call<Shared>("modset_share", { game, version, extras }),
   /** What a code would change, with nothing changed. `text`: a code, short or long, or its link. */
+  modsetJoin: (game: string, party: string) => call<void>("modset_join", { game, party }),
   modsetReview: (game: string, version: string, text: string) => call<Review>("modset_review", { game, version, text }),
   modsetApply: (game: string, version: string, set: string, code: string | null, choices: Choices) =>
     call<Applied>("modset_apply", { game, version, set, code, choices }),

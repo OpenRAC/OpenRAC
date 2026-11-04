@@ -616,6 +616,7 @@ function mockReview(text: string): Review {
   });
   const base: Review = {
     set: "{}",
+    party: null,
     code: text.startsWith("ORMS1.") ? null : "K7M2-9QXR",
     name: "SwiftLombax427's mods",
     created: "2026-10-31T12:00:00Z",
