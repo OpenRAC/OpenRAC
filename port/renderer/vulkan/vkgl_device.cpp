@@ -329,6 +329,16 @@ bool make_instance(const Config& config, bool validation, std::string& error) {
                 extensions.push_back(VK_EXT_SWAPCHAIN_COLOR_SPACE_EXTENSION_NAME);
                 g->hdr.colour_spaces = true;
             }
+            // What VK_EXT_full_screen_exclusive needs (vkgl_device below, vkgl_present).
+            if (config.window != nullptr
+                && std::strcmp(e.extensionName, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) == 0) {
+                if (std::none_of(extensions.begin(), extensions.end(), [](const char* name) {
+                        return std::strcmp(name, VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME) == 0;
+                    })) {
+                    extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
+                }
+                g->surface_capabilities2 = true;
+            }
         }
     }
     VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
@@ -659,6 +669,13 @@ bool make_device(std::string& error) {
                 && std::strcmp(e.extensionName, VK_EXT_HDR_METADATA_EXTENSION_NAME) == 0) {
                 extensions.push_back(VK_EXT_HDR_METADATA_EXTENSION_NAME);
                 g->hdr.metadata = true;
+            }
+            // Windows only (vulkan_win32.h): a driver may otherwise make a window covering the
+            // display exclusive full screen; the swapchain says it must not (vkgl_present.cpp).
+            constexpr const char* kFullScreenExclusive = "VK_EXT_full_screen_exclusive";
+            if (g->surface_capabilities2 && std::strcmp(e.extensionName, kFullScreenExclusive) == 0) {
+                extensions.push_back(kFullScreenExclusive);
+                g->no_exclusive_full_screen = true;
             }
         }
 

@@ -348,7 +348,8 @@ void test_first_start_display(const std::filesystem::path& file) {
     CHECK(mode_after("enhanced_rendering = 1\n", false) == DisplayMode::Borderless);
     // A player's own choice stays, whatever it is.
     CHECK(mode_after("display_mode = windowed\n", false) == DisplayMode::Windowed);
-    CHECK(mode_after("display_mode = fullscreen\n", false) == DisplayMode::Fullscreen);
+    // The old exclusive full screen is borderless now.
+    CHECK(mode_after("display_mode = fullscreen\n", false) == DisplayMode::Borderless);
     CHECK(mode_after("display_mode = something\n", false) == DisplayMode::Windowed);
     // The older key: false is a choice of the window too.
     CHECK(mode_after("fullscreen = false\n", false) == DisplayMode::Windowed);

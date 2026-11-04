@@ -27,12 +27,9 @@ constexpr Entry kEntries[] = {
     {Id::FullScreen, Tab::Graphics, "Display", kSwitch, D, "Full screen",
      "Fills the screen with the game's window, or gives the window back. F11 does the same."},
     {Id::DisplayMode, Tab::Graphics, "Display", kChoice, D, "Display mode",
-     "Windowed, borderless full screen, or exclusive full screen, which can change the display's "
-     "own resolution."},
+     "Windowed, or borderless full screen at the display's own resolution."},
     {Id::Monitor, Tab::Graphics, "Display", kChoice, D, "Monitor",
      "The display the game goes full screen on: the window's own, or a display by its number."},
-    {Id::Resolution, Tab::Graphics, "Display", kChoice, D, "Resolution",
-     "The display's resolution in exclusive full screen. Desktop keeps the one it has."},
     {Id::Picture, Tab::Graphics, "Picture", kChoice, A, "Picture",
      "The picture's shape: the console's 4:3, a wide screen, or the whole window."},
     {Id::GameplayFov, Tab::Graphics, "Picture", Kind::Slider, A, "Field of View",

@@ -55,7 +55,6 @@ enum class Id : std::uint8_t {
     FullScreen,
     DisplayMode,
     Monitor,
-    Resolution,
     Picture,
     GameplayFov,
     Hud,

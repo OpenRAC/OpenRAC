@@ -1140,6 +1140,11 @@ struct Context {
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkFormat swapchain_format = VK_FORMAT_UNDEFINED;
     VkExtent2D swapchain_extent{};
+    // Borderless only (Windows): VK_KHR_get_surface_capabilities2 on the instance and
+    // VK_EXT_full_screen_exclusive on the device, so the swapchain can tell the driver never to
+    // take the display for itself when the window covers it.
+    bool surface_capabilities2 = false;
+    bool no_exclusive_full_screen = false;
     std::vector<VkImage> swapchain_images;
     std::vector<VkSemaphore> rendered;  // per swapchain image
     bool swapchain_stale = false;

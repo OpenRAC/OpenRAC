@@ -341,12 +341,10 @@ struct State {
     bool repeat_frame = false;
     bool overdraw = false;
     // What the window is in now of the player's settings (apply_settings): the display mode, the
-    // display and the fullscreen size; the picture's shape; the swap's wait as asked and as the
+    // display; the picture's shape; the swap's wait as asked and as the
     // driver took it; whether the sound is held silent (the window lost the keyboard).
     settings::DisplayMode display_mode = settings::DisplayMode::Windowed;
     int monitor = 0;
-    int fullscreen_width = 0;
-    int fullscreen_height = 0;
     settings::Aspect aspect = settings::Aspect::Standard;
     int aspect_custom_x = 0;
     int aspect_custom_y = 0;
