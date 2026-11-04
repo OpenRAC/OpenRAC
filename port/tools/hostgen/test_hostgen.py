@@ -1917,6 +1917,33 @@ class VariantCalls(unittest.TestCase):
 
 
 class Places(unittest.TestCase):
+    def test_a_level_copys_mixed_call_uses_the_selected_callees_register_thunk(self):
+        # RAC2's shared sign-band callback reaches a nine-argument helper in Boldan,
+        # but a six-integer helper in the Museum. Windows x64's sixth positional
+        # argument is a float; the Museum wants the sixth integer, the object.
+        for executable in (0, 0x00200000):
+            with self.subTest(executable=executable), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / "calls.tsv").write_text(
+                    "func_L13_0040DE50\tfunc_L13_0040DFC0\t13\t0040DE50\t228\t0040DFC0\t"
+                    f"{executable:08X}\n")
+                out = self.generate(root,
+                    "void func_L13_0040DFC0(char *p, int t, float s, int c, int f, float r, float a, int m, char *o) {}\n"
+                    "void func_L30_00417120(int a, int b, int c, int d, int e, char *object) { object[0] = 7; }\n"
+                    "void func_L13_0040DE50(char *object) {\n"
+                    "  func_L13_0040DFC0(object + 16, 5, 1.0f, 95, 3, -0.067f, 1.0f, 2, object);\n}\n",
+                    "func_L13_0040DE50\tshared\t228\tcaller\t2\t13:0040DE50,30:00416FB0\n"
+                    "func_L13_0040DFC0\tlevel\t200\thelper\t1\t13:0040DFC0\n"
+                    "func_L30_00417120\tlevel\t200\tmuseum\t1\t30:00417120\n",
+                    {"call_copies": "calls.tsv"})
+                text = (out / "a.c").read_text()
+                self.assertIn("openrac_guest_call_regs(", text)
+                self.assertIn("openrac_call_in_copy(13, 0x0040DE50u, 228u, openrac_self_, 0x0040DFC0u)", text)
+                self.assertIn("(const uint64_t[8]){a0_, a1_, a3_, a4_, a7_, a8_,", text)
+                self.assertIn("(const float[8]){a2_, a5_, a6_,", text)
+                if executable:
+                    self.assertIn("openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x00200000u", text)
+
     def test_an_executable_function_the_levels_carry_keeps_its_address(self):
         import re
         from program import Program

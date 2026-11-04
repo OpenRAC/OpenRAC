@@ -169,6 +169,75 @@ void functions() {
     CHECK(openrac_guest_function_name(0x00200000u) == nullptr);
 }
 
+gaddr copied_call_object;
+float copied_call_float;
+
+void copied_mixed(gaddr, int, float, int, int, float random, float, int, gaddr object) {
+    copied_call_object = object;
+    copied_call_float = random;
+}
+
+void copied_six(int, int, int, int, int, gaddr object) {
+    copied_call_object = object;
+    GREF(std::uint8_t, object + 0x68u) = 7;
+}
+
+std::uint64_t copied_mixed_thunk(const std::uint64_t* i, const float* f, float*) {
+    copied_mixed(
+        static_cast<gaddr>(i[0]),
+        static_cast<int>(i[1]),
+        f[0],
+        static_cast<int>(i[2]),
+        static_cast<int>(i[3]),
+        f[1],
+        f[2],
+        static_cast<int>(i[4]),
+        static_cast<gaddr>(i[5])
+    );
+    return 0;
+}
+
+std::uint64_t copied_six_thunk(const std::uint64_t* i, const float*, float*) {
+    copied_six(
+        static_cast<int>(i[0]),
+        static_cast<int>(i[1]),
+        static_cast<int>(i[2]),
+        static_cast<int>(i[3]),
+        static_cast<int>(i[4]),
+        static_cast<gaddr>(i[5])
+    );
+    return 0;
+}
+
+// A shared call may reach a mixed prototype in one level and six integers in another.
+// Both must receive the object from integer register 5, irrespective of float positions.
+void copied_calls_keep_register_banks() {
+    constexpr gaddr object = 0x00A01000u, target = 0x00C01000u;
+    const openrac_fn_entry home[] = {
+        {target, reinterpret_cast<openrac_host_fn>(copied_mixed), "copied_mixed"}
+    };
+    const openrac_fn_entry museum[] = {
+        {target, reinterpret_cast<openrac_host_fn>(copied_six), "copied_six"}
+    };
+    const openrac_thunk_entry thunks[] =
+        {{reinterpret_cast<openrac_host_fn>(copied_mixed), copied_mixed_thunk},
+         {reinterpret_cast<openrac_host_fn>(copied_six), copied_six_thunk}};
+    openrac_guest_register(13, home, 1);
+    openrac_guest_register(30, museum, 1);
+    openrac_guest_register_thunks(thunks, 2);
+    const std::uint64_t integers[8] = {object + 16u, 5, 95, 3, 2, object, 0, 0};
+    const float floats[8] = {1.0f, -0.067f, 1.0f};
+    float result;
+    openrac_guest_set_overlay(13);
+    CHECK(openrac_guest_call_regs(target, integers, floats, &result, 0) == 0);
+    CHECK(copied_call_object == object && copied_call_float == floats[1]);
+    copied_call_object = 0;
+    openrac_guest_set_overlay(30);
+    CHECK(openrac_guest_call_regs(target, integers, floats, &result, 0) == 0);
+    CHECK(copied_call_object == object && GREF(std::uint8_t, object + 0x68u) == 7);
+    openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
+}
+
 // A copy of a function that calls another through a pointer the compiler turned into a jal: the
 // address it takes is the one the copy at self calls at the same instruction.
 void code_in_copy_jal() {
@@ -474,6 +543,7 @@ int main() {
     snapshots_keep_new_guest_allocations();
     cold_snapshot_rebinds_generated_static_sites();
     functions();
+    copied_calls_keep_register_banks();
     code_in_copy_jal();
     folded_address();
     relocation_with_folded_copies();
