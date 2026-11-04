@@ -65,9 +65,12 @@ public:
 
     void prepare(const renderer::FrameInput&) override {}
 
-    void
-    bind(const renderer::Shader&, std::uint32_t, const renderer::FrameInput&, const renderer::EffectUvMotion&)
-        override {}
+    void bind(
+        const renderer::Shader&,
+        std::uint32_t,
+        const renderer::FrameInput&,
+        const renderer::EffectUvMotion&
+    ) override {}
 
     void release() override {
         glDeleteBuffers(1, &m_buffer);
@@ -96,16 +99,18 @@ void draw_joined_effects(
     const auto recorded = renderer::run_surface_chain([&] {
         CHECK(effects.record_colour(input, state));
         const auto completed = vkgl::temporal_chain([&] {
-            CHECK(vkgl::temporal_blit(
-                "effect temporal consumer",
-                target.id(),
-                copied.id(),
-                vkgl::TemporalConsumer::Shader,
-                [&] {
-                    target.blit_to(copied.id(), state.target.width, state.target.height);
-                    copied_before_history = true;
-                }
-            ));
+            CHECK(
+                vkgl::temporal_blit(
+                    "effect temporal consumer",
+                    target.id(),
+                    copied.id(),
+                    vkgl::TemporalConsumer::Shader,
+                    [&] {
+                        target.blit_to(copied.id(), state.target.width, state.target.height);
+                        copied_before_history = true;
+                    }
+                )
+            );
         });
         CHECK(completed);
         CHECK(copied_before_history);
@@ -415,9 +420,9 @@ int main(int argc, char** argv) {
             const auto* measured = stats::history(0);
             if (measured) {
                 const auto at = std::find_if(
-                    measured->gauges.begin(),
-                    measured->gauges.end(),
-                    [&](const auto& item) { return item.first == name; }
+                    measured->gauges.begin(), measured->gauges.end(), [&](const auto& item) {
+                        return item.first == name;
+                    }
                 );
                 if (at != measured->gauges.end()) {
                     return at->second;

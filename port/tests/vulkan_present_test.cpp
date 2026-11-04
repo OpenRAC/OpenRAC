@@ -221,11 +221,7 @@ void test_temporal_read_after_deferred_copy(const Picture& picture) {
         // The synchronous callback reads the physical default image only after its pending copy is
         // complete.
         const auto copied = vkgl::temporal_blit(
-            "read deferred window",
-            0,
-            copy.id(),
-            vkgl::TemporalConsumer::Shader,
-            [&] {
+            "read deferred window", 0, copy.id(), vkgl::TemporalConsumer::Shader, [&] {
                 glBlitFramebuffer(
                     0,
                     0,

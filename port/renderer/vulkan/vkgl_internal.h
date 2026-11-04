@@ -1903,9 +1903,8 @@ void tracy_gpu_collect();
 void tracy_gpu_end_commands();
 void tracy_gpu_close();
 #else
-inline TracyPresentZone::TracyPresentZone(
-    VkCommandBuffer, std::string_view, std::source_location
-) {}
+inline TracyPresentZone::TracyPresentZone(VkCommandBuffer, std::string_view, std::source_location) {
+}
 
 inline TracyPresentZone::~TracyPresentZone() = default;
 

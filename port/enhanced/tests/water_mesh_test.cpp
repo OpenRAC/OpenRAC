@@ -77,12 +77,14 @@ void test_cache_equivalence() {
         cached.begin_pass();
         const auto actual = cached.prepare(strip, source);
         CHECK(actual.vertices == expected.vertices && actual.draws == expected.draws);
-        CHECK(std::equal(
-            reference.sources().begin(),
-            reference.sources().end(),
-            cached.sources().begin(),
-            cached.sources().end()
-        ));
+        CHECK(
+            std::equal(
+                reference.sources().begin(),
+                reference.sources().end(),
+                cached.sources().begin(),
+                cached.sources().end()
+            )
+        );
         const auto& a = reference.plan(expected.handle);
         const auto& b = cached.plan(actual.handle);
         CHECK(a.vertices == b.vertices && a.first_triangle == b.first_triangle);

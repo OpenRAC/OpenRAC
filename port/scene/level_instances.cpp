@@ -360,9 +360,9 @@ void LevelScene::build_groups(Layer layer, const std::vector<Instance>& instance
         g.bounded = false;
         if ((!live || layer == Layer::Animated)
             && std::all_of(
-                g.caster_bounds.begin(),
-                g.caster_bounds.end(),
-                [](const CasterBounds& b) { return b.valid; }
+                g.caster_bounds.begin(), g.caster_bounds.end(), [](const CasterBounds& b) {
+                    return b.valid;
+                }
             )) {
             constexpr float kHuge = 3.0e38f;
             g.low = {kHuge, kHuge, kHuge};
