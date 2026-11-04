@@ -509,9 +509,10 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
 // Draws a slider using the same focus and divider as the choice rows: its value between two arrows
 // (a tap on one moves it a step), and a track to drag between them.
 int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
-    const float column = std::min(s.card.width * 0.56f, dp(230.0f));
-    const float arrow_room = dp(20.0f);  // each arrow's part of the column, which a tap on it hits
-    const float text_room = dp(44.0f);   // the value's, "120%"
+    // The choice rows' column, so that the arrows line up with theirs.
+    const float column = std::min(s.card.width * 0.48f, dp(190.0f));
+    const float arrow_room = dp(16.0f);  // each arrow's part of the column, which a tap on it hits
+    const float text_room = dp(42.0f);   // the value's, "120%"
     const bool touch = drawer_possible();
     float left = 0.0f;
     float track_left = 0.0f;
