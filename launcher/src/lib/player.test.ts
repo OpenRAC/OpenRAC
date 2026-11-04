@@ -114,6 +114,27 @@ describe("rebuild", () => {
   });
 });
 
+describe("a game this launcher cannot build", () => {
+  beforeEach(() => {
+    jobs.list.length = 0;
+  });
+
+  const blockers = ["needs port/build/release/openrac-rac2-ntsc, which an earlier step makes"];
+
+  it("says so instead of offering levels or a rebuild that cannot help", () => {
+    const v = versionWith([step("play", { runnable: false, blockers }), step("port-levels")]);
+    const state = playerState(gameOf(v), v);
+    expect(state.kind).toBe("unavailable");
+    expect(state.disabled).toBe(true);
+    expect(state.hint).toContain("installed launcher cannot");
+  });
+
+  it("builds and plays where the launcher has the build", () => {
+    const v = versionWith([step("play", { runnable: false, blockers }), step("port-build")]);
+    expect(playerState(gameOf(v), v).kind).toBe("build");
+  });
+});
+
 describe("extractorError", () => {
   it("is the reason of the extractor's last error line", () => {
     const lines = [

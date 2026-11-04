@@ -177,6 +177,10 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   const other = setUp && setUp.version !== v.key ? (game.versions.find((o) => o.key === setUp.version) ?? null) : null;
   const installing = jobs.list.find((j) => j.actionId === `install:${v.game}` && live(j)) ?? null;
   const base = { primary: false, disabled: false, job: null as Job | null };
+  /** Play waits for a program this launcher cannot make: it carries none for the game, and has no
+   *  step that builds one (Going Commando's is built from the player's own disc, in a checkout). */
+  const unbuildable = !!play && !build && !play.done && play.blockers.some(missingProgram);
+  const noBuildHint = `${game.title} is built on your computer from your own disc, which an installed launcher cannot do yet. Run the launcher from a copy of OpenRAC's source to build and play it.`;
 
   if (installing) {
     return {
@@ -191,18 +195,20 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
     };
   }
   if (!setUp) {
-    const planned = !play || play.state === "planned";
+    const planned = !play || play.state === "planned" || unbuildable;
     const found = foundDisc(v.game);
     return {
       ...base,
       kind: "set-up",
       label: found ? "Set up" : "Set up from your disc",
       icon: "disc",
-      hint: planned
-        ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
-        : found
-          ? `Found in your games folder: ${fileName(found.path)}`
-          : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
+      hint: unbuildable
+        ? `${noBuildHint} You can set your disc up now.`
+        : planned
+          ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
+          : found
+            ? `Found in your games folder: ${fileName(found.path)}`
+            : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
       primary: !planned,
       status: planned ? "Not playable yet" : "Not set up",
       tone: planned ? "info" : "warn",
@@ -217,6 +223,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       hint: "Your disc is set up. This game's PC port is not ready yet.",
       disabled: true,
       status: "Not playable yet",
+      tone: "info",
+    };
+  }
+  if (unbuildable) {
+    return {
+      ...base,
+      kind: "unavailable",
+      label: "Not playable here yet",
+      icon: "play",
+      hint: noBuildHint,
+      disabled: true,
+      status: "Not playable here yet",
       tone: "info",
     };
   }
@@ -339,6 +357,9 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
     tone: "warn",
   };
 }
+
+/** Core's blocker for an action whose program is not there (actions.rs, Requirement::Artifact). */
+const missingProgram = (blocker: string) => blocker.endsWith(", which an earlier step makes");
 
 /** Something of the levels is still to do: reading them, or (where the version has it) the check. */
 function levelsNeeded(levels: ActionView | null, check: ActionView | null): boolean {

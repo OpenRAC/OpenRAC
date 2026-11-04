@@ -1865,11 +1865,10 @@
       {
         "id": "port-build",
         "label": "Build the game",
-        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc), for development. A few minutes the first time; later builds redo only what changed.",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
         "kind": "build",
         "area": "port",
         "state": "unverified",
-        "developer": true,
         "program": "{python}",
         "args": [
           "tools/build_port.py",
@@ -1885,6 +1884,7 @@
           "windows"
         ],
         "requires": [
+          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
@@ -1935,7 +1935,6 @@
         "kind": "build",
         "area": "port",
         "state": "unverified",
-        "developer": true,
         "program": "{python}",
         "args": [
           "tools/build_port.py",
@@ -1951,6 +1950,7 @@
           "windows"
         ],
         "requires": [
+          "disc",
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md"

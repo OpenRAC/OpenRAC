@@ -43,7 +43,7 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
   --no-card --skip-movies --stop-on-missing
 ```
 
-From the launcher, with Developer tools on (Settings): set the game up from
+From a checkout's launcher (no Developer tools needed): set the game up from
 your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
 `--data {data} --window --levels {root}/assets/port/rac2/ntsc`, after a warning
 to accept). Play first reads the levels (Get the levels ready, `editor/extract.py
@@ -51,8 +51,10 @@ port`) when their stamp, `levels-<format>.json` with the format of
 `editor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
 the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
-`tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first; Build
-the game is `"developer": true`, so a player's launcher does not show it.
+`tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first, and so
+are Build the game and Rebuild: Play on a fresh checkout is Build and play. An installed launcher
+carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not), so there the
+game says it is built from a checkout instead of offering steps that cannot make it.
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader
