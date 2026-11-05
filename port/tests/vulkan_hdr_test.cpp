@@ -79,6 +79,9 @@ void test_encode(
 ) {
     std::vector<std::uint8_t> screen;
     CHECK(openrac::vkgl::test_hdr_encode(output, levels, kWidth, kHeight, screen));
+    std::vector<std::uint8_t> staged;
+    CHECK(openrac::vkgl::test_hdr_encode(output, levels, kWidth, kHeight, staged, true));
+    CHECK(screen == staged);
     const std::size_t texel = output == hdr::Output::Hdr10 ? 4 : 8;
     CHECK(screen.size() == static_cast<std::size_t>(kWidth * kHeight) * texel);
     if (screen.size() != static_cast<std::size_t>(kWidth * kHeight) * texel) {

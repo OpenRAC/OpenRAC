@@ -86,6 +86,8 @@ void breadcrumb(
 void level_breadcrumb(std::string_view message, int level) noexcept;
 // Records a rendering pass only while a BreadcrumbScope is active on this thread.
 void breadcrumb(std::string_view message) noexcept;
+// Records failures even outside a captured frame, such as device initialization.
+void failure_breadcrumb(std::string_view message) noexcept;
 
 // Thread-local pass context, restored on exit (including exceptions). Never allocates.
 // The explicit trail constructor is used at the render handoff; the frame-only constructor

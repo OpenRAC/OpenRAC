@@ -173,6 +173,47 @@ void prepare_ocean(const std::filesystem::path& level, const json::Value& coast)
         )
     );
 }
+
+// Update only exported files still matching the last installed tracked profile.
+void refresh_lighting_environments(
+    const std::filesystem::path& level, const std::filesystem::path& shipped
+) {
+    const auto local = level / "lighting-environments.json";
+    const auto ownership = level / ".lighting-environments.sha256";
+    const bool has_local = std::filesystem::is_regular_file(local);
+    const bool has_shipped = std::filesystem::is_regular_file(shipped);
+    const bool has_ownership = std::filesystem::is_regular_file(ownership);
+    // A missing tracked file may mean a standalone invocation without the shipped profiles.
+    // A missing local file with an ownership record was removed by the user.
+    if (!has_shipped || (!has_local && has_ownership)) {
+        return;
+    }
+
+    const auto local_hash = has_local ? bake_json::file_hash(local) : std::string{};
+    const auto shipped_hash = bake_json::file_hash(shipped);
+    const auto recorded =
+        has_ownership ? bake_json::source_bytes(ownership) : std::vector<std::uint8_t>{};
+    const std::string last_installed(recorded.begin(), recorded.end());
+
+    // No ownership record or a different digest means the export is locally authored.
+    if (has_local && local_hash != shipped_hash && local_hash != last_installed) {
+        return;
+    }
+    if (local_hash == shipped_hash && last_installed == shipped_hash) {
+        return;
+    }
+    if (local_hash != shipped_hash) {
+        const auto bytes = bake_json::source_bytes(shipped);
+        const auto installed = write_stage_file(local, std::string(bytes.begin(), bytes.end()));
+        if (!installed) {
+            throw std::runtime_error(installed.error().message);
+        }
+    }
+    const auto stamped = write_stage_file(ownership, shipped_hash);
+    if (!stamped) {
+        throw std::runtime_error(stamped.error().message);
+    }
+}
 }  // namespace
 
 void prepare_sources(
@@ -213,11 +254,13 @@ void prepare_sources(
 
     const auto identity = manifest["game"].string() + '-' + manifest["version"].string();
     const auto directory = options.profiles / identity;
+    const auto tracked_level =
+        directory / std::format("level_{:02}", static_cast<int>(manifest["level"].number()));
+    refresh_lighting_environments(level, tracked_level / "lighting-environments.json");
     const auto result = prepare_level_emission(
         level,
         directory / "emission-materials.json",
-        directory / std::format("level_{:02}", static_cast<int>(manifest["level"].number()))
-            / "probe-emission.json",
+        tracked_level / "probe-emission.json",
         {options.threads, &pool}
     );
 

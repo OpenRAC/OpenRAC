@@ -135,8 +135,15 @@ bool Gtao::render(
     const bool direct_depth =
         target.depth_texture != 0
         && (!apply_to_colour || render_opt::enabled(render_opt::Opt::GtaoDirectDepth));
+    const auto scratch =
+        direct_depth ? SurfaceDepthScratch{}
+                     : lease_surface_depth(target.framebuffer, {target.width, target.height});
     if (!prepare(
-            target.width, target.height, scale, !apply_to_colour && !evaluate_only, !direct_depth
+            target.width,
+            target.height,
+            scale,
+            !apply_to_colour && !evaluate_only,
+            !direct_depth && !scratch
         )
         || !prepare_program(
             scale,
@@ -152,14 +159,17 @@ bool Gtao::render(
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_STENCIL_TEST);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    m_sampled_depth = direct_depth ? target.depth_texture : m_depth.depth_texture();
+    m_sampled_depth = direct_depth ? target.depth_texture
+                      : scratch    ? scratch.texture
+                                   : m_depth.depth_texture();
     if (!direct_depth) {
+        const unsigned destination = scratch ? scratch.framebuffer : m_depth.id();
         glBindFramebuffer(GL_READ_FRAMEBUFFER, target.framebuffer);
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_depth.id());
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination);
         const stats::Scope depth("GTAO depth copy", stats::kGpu);
         const auto queued = queue_surface_copy(
             target.framebuffer,
-            m_depth.id(),
+            destination,
             {target.width, target.height},
             SurfaceCopy::DepthStencil
         );

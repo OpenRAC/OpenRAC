@@ -67,6 +67,12 @@ json::Value stamp(
         + (std::filesystem::is_regular_file(level / "probe-bake.json")
                ? coordinator_string(bake_json::file_hash(level / "probe-bake.json"))
                : "null")
+        + (std::filesystem::is_regular_file(level / "lighting-environments.json")
+               ? ",\"lighting_environments_sha256\":"
+                     + coordinator_string(
+                         bake_json::file_hash(level / "lighting-environments.json")
+                     )
+               : "")
         + ",\"moby_whitelist_sha256\":" + moby_hash + ",\"profile\":" + description
         + ",\"regions\":" + bake_json::json_text(settings)
         + ",\"interior\":" + interior_stage_profile()

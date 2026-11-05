@@ -125,7 +125,7 @@ bool AgxPreview::prepare(const renderer::FrameBuffer& output, std::string& error
          && !m_shader
                  .build("AgX", renderer::shaders::gtao_vert, renderer::shaders::agx_frag, error))
         || ((m_copy.width() != output.width() || m_copy.height() != output.height())
-            && !m_copy.create(output.width(), output.height(), error))) {
+            && !m_copy.create_colour(output.width(), output.height(), error))) {
         return false;
     }
 

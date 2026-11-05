@@ -194,6 +194,17 @@ void report_has_every_section(const fs::path& dir) {
     }
 #endif
     CHECK(text.find("[info] line 249") != std::string::npos);
+    const auto level = log::level();
+    log::set_level(log::Level::Info);
+    const auto detail = std::string("test Vulkan failure ") + std::string(400, 'x') + " end";
+    crash::note_vulkan(detail);
+    const auto report = written_report("report_vulkan.txt");
+    const auto diagnostics = report.find("Vulkan diagnostics");
+    const auto recent = report.find("The log's last lines");
+    CHECK(diagnostics != std::string::npos && diagnostics < report.find(detail));
+    CHECK(report.find(detail) < recent);
+    CHECK(report.find(detail, recent) == std::string::npos);
+    log::set_level(level);
     // No moby being updated (or no uid), no camera: only what is known.
     crash::set_moby_source([](crash::Moby& m) {
         m.address = 0x00A1B300;

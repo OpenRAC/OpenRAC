@@ -10,6 +10,11 @@
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl::detail {
+struct PresentationEncode {
+    Image* staging = nullptr;
+    std::function<void()> record;
+};
+
 // Borrows the source owner through the callback and the acquired screen allocation; its semaphore
 // and swapchain lifetime remain context-owned.
 // `screen` selects PRESENT exit; offscreen regressions export a transfer-readable stand-in instead.
@@ -18,6 +23,7 @@ namespace openrac::vkgl::detail {
     const ImagePtr& source,
     Image& destination,
     bool screen,
-    const std::function<void()>& record
+    const std::function<void()>& copy,
+    const PresentationEncode& encode = {}
 );
 }  // namespace openrac::vkgl::detail

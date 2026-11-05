@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <volk.h>
 
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
@@ -35,6 +36,31 @@ namespace {
 
 using namespace openrac::gl;
 namespace render_opt = openrac::renderer::render_opt;
+
+VKAPI_ATTR VkResult VKAPI_CALL
+fail_acquire(VkDevice, VkSwapchainKHR, std::uint64_t, VkSemaphore, VkFence, std::uint32_t*) {
+    return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+}
+
+// An acquire failure must reach the caller without submitting the frame offscreen.
+void test_fatal_acquire() {
+    const auto acquire = vkAcquireNextImageKHR;
+    vkAcquireNextImageKHR = fail_acquire;
+    const auto before = openrac::vkgl::submission_counters().submits;
+    bool rejected = false;
+    try {
+        openrac::vkgl::present();
+    } catch (const openrac::vkgl::RecordingFailure& failure) {
+        rejected = std::string_view(failure.what()).find("acquire swapchain image")
+                   != std::string_view::npos;
+    } catch (...) {
+        vkAcquireNextImageKHR = acquire;
+        throw;
+    }
+    vkAcquireNextImageKHR = acquire;
+    CHECK(rejected);
+    CHECK(openrac::vkgl::submission_counters().submits == before);
+}
 
 // The window (the default framebuffer) and the picture, of other sizes so the blit scales.
 constexpr int kWindowWidth = 64;
@@ -283,6 +309,7 @@ int main(int argc, char** argv) {
             CHECK(openrac::vkgl::submission_counters().fullscreen_copies > before);
         }
         CHECK(openrac::vkgl::submission_counters().validation_errors == 0);
+        test_fatal_acquire();
         return openrac::test::result();
     }
     // Stand-in screen images exercise graph transfer boundaries without a visible swapchain.

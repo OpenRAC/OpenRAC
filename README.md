@@ -36,7 +36,7 @@
 OpenRAC brings the PlayStation 2 Ratchet & Clank games to PC as real native games. No emulator.
 
 - **Playable now:** Ratchet & Clank (PAL / NTSC).
-- **Playable, early and unstable:** Going Commando (NTSC).
+- **Playable, early and unstable:** Going Commando (NTSC). The launcher builds it from your disc, so you need a compiler.
 - **In progress:** Up Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank.
 - **How:** each game is decompiled into C that rebuilds the original exactly, then built for your PC.
 - **No game files included:** models, textures, sound and levels come from your own disc.

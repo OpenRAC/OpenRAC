@@ -15,6 +15,27 @@ enum class SurfaceCopy {
     Colour
 };
 
+struct SurfaceDepthScratch {
+    unsigned framebuffer = 0;
+    unsigned texture = 0;
+
+    explicit operator bool() const { return framebuffer != 0; }
+};
+
+struct SurfaceRefractionScratch {
+    unsigned framebuffer = 0;
+    std::array<unsigned, 2> textures{};
+
+    explicit operator bool() const { return framebuffer != 0; }
+};
+
+// Borrows a single-sample depth/stencil target through the current surface scope.
+// The caller must declare a complete write before sampling it.
+[[nodiscard]] SurfaceDepthScratch lease_surface_depth(unsigned source, std::array<int, 2> size);
+[[nodiscard]] SurfaceRefractionScratch lease_surface_refraction(
+    unsigned source, std::array<int, 2> size
+);
+
 // Returns whether Vulkan surface and lighting graphs can compose this frame's prepared work.
 [[nodiscard]] bool surface_chain_enabled();
 // Returns whether the graphics owner is collecting an enclosing shared plan.
@@ -32,6 +53,10 @@ enum class SurfaceCopy {
 );
 
 namespace backend {
+[[nodiscard]] SurfaceDepthScratch lease_surface_depth(unsigned source, std::array<int, 2> size);
+[[nodiscard]] SurfaceRefractionScratch lease_surface_refraction(
+    unsigned source, std::array<int, 2> size
+);
 // Queries the graphics owner's active collector without exposing native state.
 [[nodiscard]] bool collecting_surface_chain();
 // Implements scoped Vulkan collection without exposing native state in the core renderer.

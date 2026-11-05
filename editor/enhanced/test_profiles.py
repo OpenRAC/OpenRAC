@@ -81,6 +81,20 @@ class ProfileTests(unittest.TestCase):
                 profiles.write_bake_profile(SimpleNamespace(game='rac1', version='ntsc', id=1), directory)
             self.assertEqual((directory / 'probe-bake.json').read_text(), text)
 
+    def test_blarg_lighting_environments_are_exported_for_ntsc_only(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            name = "lighting-environments.json"
+            tracked = profiles.PROFILE_ROOT / "rac1-ntsc/level_06" / name
+            for version in ("ntsc", "pal"):
+                export = root / version
+                export.mkdir()
+                profiles.write_bake_profile(SimpleNamespace(game="rac1", version=version, id=6), export)
+                if version == "ntsc":
+                    self.assertEqual((export / name).read_bytes(), tracked.read_bytes())
+                else:
+                    self.assertFalse((export / name).exists())
+
     def test_only_the_exact_game_version_and_level_match(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

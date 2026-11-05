@@ -75,22 +75,35 @@ void validate_inputs(
 
     // Source positions and colour references come from untrusted sidecar data.
     for (const auto& seed : seeds) {
-        if (!finite(seed.position) || !finite(seed.colour)
+        if (!finite(seed.position) || !finite(seed.colour) || !finite(seed.up) || seed.up[2] <= 0
+            || std::abs(dot(seed.up, seed.up) - 1) > 1e-4f
             || *std::min_element(seed.colour.begin(), seed.colour.end()) < 0) {
             throw std::runtime_error("invalid interior light seed");
         }
     }
 }
 
+// Orthonormal frame for rays around the local deck normal.
+struct CeilingFrame {
+    Float3 right;    // First axis in the deck plane.
+    Float3 forward;  // Second axis in the deck plane.
+    Float3 up;       // Normal pointing toward the ceiling.
+};
+
 // Requires surrounding geometry at a given height, independent of authored normals or winding.
-bool surrounded(const bake_detail::Scene& acceleration, Float3 receiver) {
+bool surrounded(
+    const bake_detail::Scene& acceleration, Float3 receiver, const CeilingFrame& frame
+) {
     unsigned walls = 0;
 
     // Horizontal tests depend only on geometry, never authored normals or winding.
     for (unsigned n = 0; n < kWallDirections; ++n) {
         const float angle = 2 * bake_detail::kPi * static_cast<float>(n) / kWallDirections;
         walls += acceleration.occluded(
-            receiver, {std::cos(angle), std::sin(angle), 0}, kBias, kWallDistance
+            receiver,
+            add(mul(frame.right, std::cos(angle)), mul(frame.forward, std::sin(angle))),
+            kBias,
+            kWallDistance
         );
     }
 
@@ -98,10 +111,17 @@ bool surrounded(const bake_detail::Scene& acceleration, Float3 receiver) {
 }
 
 // A few blocked overhead directions alone cannot turn an outdoor overhang into a room.
-bool enclosed(const bake_detail::Scene& acceleration, Float3 receiver, float ceiling_height) {
+bool enclosed(
+    const bake_detail::Scene& acceleration,
+    Float3 receiver,
+    float ceiling_height,
+    const CeilingFrame& frame
+) {
     // Low walls must not count as room enclosure above the player's head.
-    if (!surrounded(acceleration, receiver)
-        || !surrounded(acceleration, add(receiver, {0, 0, ceiling_height * kUpperWallFraction}))) {
+    if (!surrounded(acceleration, receiver, frame)
+        || !surrounded(
+            acceleration, add(receiver, mul(frame.up, ceiling_height * kUpperWallFraction)), frame
+        )) {
         return false;
     }
 
@@ -118,7 +138,9 @@ bool enclosed(const bake_detail::Scene& acceleration, Float3 receiver, float cei
                                 / kWallDirections;
             escapes += !acceleration.occluded(
                 receiver,
-                {radius * std::cos(angle), radius * std::sin(angle), z},
+                add(add(mul(frame.right, radius * std::cos(angle)),
+                        mul(frame.forward, radius * std::sin(angle))),
+                    mul(frame.up, z)),
                 kBias,
                 kSkyDistance
             );
@@ -134,10 +156,10 @@ bool enclosed(const bake_detail::Scene& acceleration, Float3 receiver, float cei
 }
 
 // Returns a downward geometric normal for a ceiling hit, independent of mesh winding.
-Float3 ceiling_normal(const RTCRayHit& hit) {
+Float3 ceiling_normal(const RTCRayHit& hit, Float3 up) {
     const auto normal = unit({hit.hit.Ng_x, hit.hit.Ng_y, hit.hit.Ng_z});
     // Ceiling sources emit into the room below, even when triangle winding points upward.
-    return mul(normal, normal[2] > 0 ? -1.f : 1.f);
+    return mul(normal, dot(normal, up) > 0 ? -1.f : 1.f);
 }
 
 // Averages a local ceiling footprint, excluding steep faces and hits on unrelated storeys.
@@ -145,9 +167,10 @@ Float3 average_ceiling_normal(
     const bake_detail::Scene& acceleration,
     Float3 receiver,
     const RTCRayHit& centre,
+    const CeilingFrame& frame,
     const InteriorLightSettings& settings
 ) {
-    Float3 sum = ceiling_normal(centre);
+    Float3 sum = ceiling_normal(centre, frame.up);
 
     // A regular footprint approximates the ceiling surface covered by the source rectangle.
     for (unsigned y = 0; y < kCeilingSamplesPerAxis; ++y) {
@@ -157,13 +180,11 @@ Float3 average_ceiling_normal(
                 continue;
             }
 
-            const Float3 offset{
-                (static_cast<float>(x) - 1) * settings.half_extent,
-                (static_cast<float>(y) - 1) * settings.half_extent,
-                0
-            };
+            const auto offset =
+                add(mul(frame.right, (static_cast<float>(x) - 1) * settings.half_extent),
+                    mul(frame.forward, (static_cast<float>(y) - 1) * settings.half_extent));
             const auto hit =
-                acceleration.trace(add(receiver, offset), {0, 0, 1}, kBias, settings.max_height);
+                acceleration.trace(add(receiver, offset), frame.up, kBias, settings.max_height);
 
             // Nearby samples must describe the same approximate roof height as the central hit.
             if (hit.hit.geomID == RTC_INVALID_GEOMETRY_ID
@@ -171,10 +192,10 @@ Float3 average_ceiling_normal(
                 continue;
             }
 
-            const auto normal = ceiling_normal(hit);
+            const auto normal = ceiling_normal(hit, frame.up);
 
             // Walls or sharply inclined details must not pull the source sideways.
-            if (-normal[2] >= kHorizontalNormal) {
+            if (-dot(normal, frame.up) >= kHorizontalNormal) {
                 sum = add(sum, normal);
             }
         }
@@ -189,20 +210,24 @@ std::optional<BakeAreaEmitter> ceiling_light(
     const InteriorLightSeed& seed,
     const InteriorLightSettings& settings
 ) {
-    const auto receiver = add(seed.position, {0, 0, kFloorOffset});
-    const auto hit = acceleration.trace(receiver, {0, 0, 1}, kBias, settings.max_height);
+    // Choose a reference axis that cannot become parallel to the deck normal.
+    const Float3 axis = std::abs(seed.up[1]) < .9f ? Float3{0, 1, 0} : Float3{1, 0, 0};
+    const auto right = unit(cross(axis, seed.up));
+    const CeilingFrame frame{right, cross(seed.up, right), seed.up};
+    const auto receiver = add(seed.position, mul(frame.up, kFloorOffset));
+    const auto hit = acceleration.trace(receiver, frame.up, kBias, settings.max_height);
 
     // Low obstacles and steep surfaces are not plausible ceiling patches.
     if (hit.hit.geomID == RTC_INVALID_GEOMETRY_ID || hit.ray.tfar < kMinimumHeight
-        || std::abs(unit({hit.hit.Ng_x, hit.hit.Ng_y, hit.hit.Ng_z})[2]) < kHorizontalNormal
-        || !enclosed(acceleration, receiver, hit.ray.tfar)) {
+        || -dot(ceiling_normal(hit, frame.up), frame.up) < kHorizontalNormal
+        || !enclosed(acceleration, receiver, hit.ray.tfar, frame)) {
         return std::nullopt;
     }
 
-    const auto normal = average_ceiling_normal(acceleration, receiver, hit, settings);
-    const auto tangent = unit(cross(normal, {0, 1, 0}));
+    const auto normal = average_ceiling_normal(acceleration, receiver, hit, frame, settings);
+    const auto tangent = unit(cross(normal, frame.forward));
     BakeAreaEmitter light;
-    light.position = add(add(receiver, {0, 0, hit.ray.tfar}), mul(normal, kCeilingMargin));
+    light.position = add(add(receiver, mul(frame.up, hit.ray.tfar)), mul(normal, kCeilingMargin));
     light.axis_u = mul(tangent, settings.half_extent);
     light.axis_v = mul(cross(normal, tangent), settings.half_extent);
 
@@ -220,7 +245,7 @@ std::optional<BakeAreaEmitter> ceiling_light(
         }
     }
 
-    const float height = light.position[2] - receiver[2];
+    const float height = dot(add(light.position, mul(receiver, -1)), frame.up);
     const float area = 4 * settings.half_extent * settings.half_extent;
     // A white diffuse receiver reflects E/pi; convert the authored radiance target to irradiance.
     light.radiance =
@@ -230,15 +255,19 @@ std::optional<BakeAreaEmitter> ceiling_light(
 }
 
 // Tests spacing without merging lights across unrelated storeys.
-bool separated(Float3 position, const InteriorLightReport& report, float distance) {
-    return std::none_of(
-        report.lights.begin(), report.lights.end(), [&](const BakeAreaEmitter& light) {
-            const float x = position[0] - light.position[0];
-            const float y = position[1] - light.position[1];
-            return std::abs(position[2] - light.position[2]) < kFloorBand
-                   && x * x + y * y < distance * distance;
+bool separated(Float3 position, Float3 up, const InteriorLightReport& report, float distance) {
+    for (std::size_t i = 0; i < report.lights.size(); ++i) {
+        const auto delta = add(position, mul(report.lights[i].position, -1));
+        // Use a common deck axis when the sources agree. World up keeps comparisons
+        // between different decks symmetric.
+        const auto axis = up == report.receiver_up[i] ? up : Float3{0, 0, 1};
+        const float height = dot(delta, axis);
+        const auto planar = add(delta, mul(axis, -height));
+        if (std::abs(height) < kFloorBand && dot(planar, planar) < distance * distance) {
+            return false;
         }
-    );
+    }
+    return true;
 }
 
 // Applies one scalar bound, preserving RGB ratios even when one channel reaches the limit.
@@ -263,7 +292,7 @@ bool near_interior(
     std::span<const InteriorLightSeed> seeds
 ) {
     return std::any_of(seeds.begin(), seeds.end(), [&](const InteriorLightSeed& seed) {
-        const auto receiver = add(seed.position, {0, 0, kFloorOffset});
+        const auto receiver = add(seed.position, mul(seed.up, kFloorOffset));
         const auto delta = add(position, mul(receiver, -1));
         const float distance = std::sqrt(dot(delta, delta));
         // A finite segment avoids boosting emitters behind walls or on another storey.
@@ -332,13 +361,14 @@ InteriorLightReport generate_lights(
         }
 
         // Nearby samples support one broad light instead of accumulating overlapping fill.
-        if (!separated(light->position, report, settings.separation)) {
+        if (!separated(light->position, seed.up, report, settings.separation)) {
             continue;
         }
 
         accepted.push_back(seed);
         report.lights.push_back(*light);
-        report.receivers.push_back(add(seed.position, {0, 0, kFloorOffset}));
+        report.receivers.push_back(add(seed.position, mul(seed.up, kFloorOffset)));
+        report.receiver_up.push_back(seed.up);
         // Existing emitter estimates and generated targets must both use irradiance units.
         report.targets.push_back(
             mul(seed.colour, std::numbers::pi_v<float> * settings.ceiling_strength)
@@ -372,7 +402,8 @@ void reduce_existing_contribution(
             existing =
                 add(existing,
                     mul(light.radiance_weight,
-                        std::max(0.f, light.direction[2]) / kReferenceSamples));
+                        std::max(0.f, dot(light.direction, report.receiver_up[n]))
+                            / kReferenceSamples));
         }
 
         report.existing.push_back(existing);

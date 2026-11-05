@@ -78,6 +78,7 @@
  * is while they do. */
 static int g_effects;
 static float g_effect_wider = 1.0f;
+static float g_effect_taller = 1.0f;
 
 static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;
@@ -85,7 +86,9 @@ static const unsigned char* g_fix_traffic;
 static const unsigned char* g_fix_fires;
 
 static void run_list(void (*run)(void)) {
-    wide_run_list(run, wide_wider_for(&g_fix_liquids, "fix_wide_liquids"));
+    float taller;
+    const float wider = wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &taller);
+    wide_run_list(run, wider, taller);
 }
 
 /* ExecuteDrawCallbacks: list 1. */
@@ -110,20 +113,24 @@ void func_001F4AF0(void) {
 
 /* The liquid grid's cull: a flag per block into the scratchpad (0: not drawn). */
 void func_L02_00250720(gaddr grid) {
-    const float wider = g_lists > 0 ? g_wider : wide_wider_for(&g_fix_liquids, "fix_wide_liquids");
+    float taller = g_taller;
+    const float wider =
+        g_lists > 0 ? g_wider : wide_wider_for(&g_fix_liquids, "fix_wide_liquids", &taller);
     if (!(wider > 1.0f) || (g_lists > 0 && wide_still_open(&g_list_matrix))) {
         func_L02_00250720__game(grid);
         return;
     }
     wide_opened o;
-    wide_open_matrix(&o, wider);
+    wide_open_matrix(&o, wider, taller);
     func_L02_00250720__game(grid);
     wide_close_view(&o);
 }
 
 /* FastBSphereCheck: 1 in view, 0 in view but across the guard band's edge, -1 culled. */
 int func_L00_00200290(gaddr sphere, float far) {
-    return wide_sphere(func_L00_00200290__game, sphere, far, g_effects, g_effect_wider);
+    return wide_sphere(
+        func_L00_00200290__game, sphere, far, g_effects, g_effect_wider, g_effect_taller
+    );
 }
 
 /* NanotechBallUpdate: the nanotech cluster (the orb on a nanotech crate) draws only while its
@@ -132,7 +139,7 @@ int func_L00_00200290(gaddr sphere, float far) {
  * (hostgen's hooks.c: the mod's replacement, or the game's C), so the fix holds for a mod's too. */
 void func_L00_002D9EA0(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs");
+        g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs", &g_effect_taller);
     }
     func_L00_002D9EA0__hooked(moby);
     g_effects--;
@@ -143,7 +150,7 @@ void func_L00_002D9EA0(gaddr moby) {
  * under this as func_L03_0029ED60__hooked, so the fix holds for a mod's update as well. */
 void func_L03_0029ED60(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wide_wider_for(&g_fix_traffic, "fix_wide_air_traffic");
+        g_effect_wider = wide_wider_for(&g_fix_traffic, "fix_wide_air_traffic", &g_effect_taller);
     }
     func_L03_0029ED60__hooked(moby);
     g_effects--;
@@ -155,7 +162,7 @@ void func_L03_0029ED60(gaddr moby) {
  * a mod's update as well. */
 void func_L00_002D83D8(gaddr moby) {
     if (g_effects++ == 0) {
-        g_effect_wider = wide_wider_for(&g_fix_fires, "fix_wide_fires");
+        g_effect_wider = wide_wider_for(&g_fix_fires, "fix_wide_fires", &g_effect_taller);
     }
     func_L00_002D83D8__hooked(moby);
     g_effects--;

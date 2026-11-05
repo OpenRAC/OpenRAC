@@ -193,9 +193,9 @@ SunCascades sun_cascades(
             static_cast<float>(resolution) / (resolution - 6);  // snapping + filtered PCF margin
         auto light_centre = transform_point(basis, centre);
         const float texel = 2 * radius / resolution;
-        // PCF reaches at most two texel centres from the receiver. A third
-        // texel plus 0.05 world units covers snapping, normal bias and roundoff.
-        result.casters[i] = caster_volume(corners, basis, 3 * texel + 0.05f);
+        // PCF reaches two texels on each axis, or sqrt(8) diagonally. The normal
+        // offset adds up to one more texel (at least 0.025 world units).
+        result.casters[i] = caster_volume(corners, basis, 4 * texel + 0.05f);
         for (int k = 0; k < 2; ++k) {
             light_centre[k] = std::round(light_centre[k] / texel) * texel;
         }

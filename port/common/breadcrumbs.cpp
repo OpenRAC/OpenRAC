@@ -118,6 +118,11 @@ void breadcrumb(std::string_view message) noexcept {
     }
 }
 
+void failure_breadcrumb(std::string_view message) noexcept {
+    const auto& current = context();
+    breadcrumb(current.thread, message, current.active ? current.frame : -1);
+}
+
 BreadcrumbScope::BreadcrumbScope(BreadcrumbThread thread, std::int64_t frame) noexcept
     : m_thread(context().thread),
       m_frame(context().frame),

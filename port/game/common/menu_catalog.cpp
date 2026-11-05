@@ -64,6 +64,10 @@ constexpr Entry kEntries[] = {
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
+    {Id::HdrPeak, Tab::Graphics, "HDR", kChoice, A, "HDR peak",
+     "The brightest that glows and explosions may go in HDR, also told to the display. Display "
+     "takes what the display reports. Where the system sets the brightness (Android, macOS), "
+     "it can only go lower."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",
@@ -72,6 +76,9 @@ constexpr Entry kEntries[] = {
     {Id::ResponsiveControls, Tab::Graphics, "Latency", kSwitch, A, "Responsive controls",
      "Reads the controller again just before each tick, and turns the camera between ticks "
      "with the right stick as it is now. Off keeps the timing players have learnt."},
+
+    {Id::GpuBreadcrumbs, Tab::Graphics, "Diagnostics", kSwitch, A, "GPU breadcrumbs (restart)",
+     "Records GPU progress to help diagnose graphics crashes. Restart the game to apply changes."},
 
     // ---- Enhanced ----
     {Id::EnhancedStatus, Tab::Enhanced, "Enhanced graphics", kNote, A, "Enhanced graphics",

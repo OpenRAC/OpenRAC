@@ -91,15 +91,6 @@ bool LevelScene::enable_hero_shadow(bool enabled, std::string& error) {
     if (!make_dry_shadow_programs(false, dry_error)) {
         log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
-    if (!m_hero_map) {
-        m_hero_map = std::make_unique<renderer::FrameBuffer>();
-    }
-    if (!m_hero_map->id()
-        && !m_hero_map->create(
-            m_shadow_layout.rects[4][2], m_shadow_layout.rects[4][3], error, 1, true
-        )) {
-        return false;
-    }
     m_hero_enabled = true;
     return true;
 }
@@ -273,18 +264,6 @@ bool LevelScene::enable_sun_shadow(bool enabled, std::string& error) {
     if (!make_dry_shadow_programs(false, dry_error)) {
         log::warn("Dry shadow variants unavailable: {}", dry_error);
     }
-    for (unsigned i = 0; i < kSunCascades; ++i) {
-        auto& map = m_sun_maps[i];
-        if (!map) {
-            map = std::make_unique<renderer::FrameBuffer>();
-        }
-        if (!map->id()
-            && !map->create(
-                m_shadow_layout.rects[i][2], m_shadow_layout.rects[i][2], error, 1, true
-            )) {
-            return false;
-        }
-    }
     m_sun_enabled = true;
     return true;
 }
@@ -322,6 +301,13 @@ void LevelScene::prepare_sun_shadow(
         m_sun_camera = input.culling_camera ? *input.culling_camera : input.camera;
         m_sun_cascades =
             sun_cascades(m_sun_camera, direction, low, high, 256, input.shadow_quality);
+        static const bool& receiver_culling_off = stats::probe(
+            "OPENRAC_SUN_RECEIVER_CULL_OFF", "Reference: square shadow-map caster bounds"
+        );
+        if (receiver_culling_off) {
+            // Draw and cache the same caster footprint, including after a live toggle.
+            m_sun_cascades.casters = {};
+        }
 #if defined(OPENRAC_VULKAN)
         static const bool& scrolling = stats::probe(
             "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"

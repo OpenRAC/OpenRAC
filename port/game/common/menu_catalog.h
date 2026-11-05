@@ -68,9 +68,11 @@ enum class Id : std::uint8_t {
     FrameCounter,
     Hdr,
     HdrPaperWhite,
+    HdrPeak,
     HdrStatus,
     LowLatency,
     ResponsiveControls,
+    GpuBreadcrumbs,
     // Enhanced
     EnhancedStatus,
     EnhancedGraphics,

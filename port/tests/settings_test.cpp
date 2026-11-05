@@ -77,6 +77,10 @@ void test_hdr_settings(const std::filesystem::path& file) {
     // The launcher's word over the file's, and another word changes nothing.
     CHECK(settings::set_hdr_mode("auto") && settings::get().hdr == hdr::Mode::Auto);
     CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::Auto);
+    // The ranges' tops: the brightest screens on sale.
+    std::ofstream(file) << "hdr_paper_white = 1000\nhdr_peak = 10000\n";
+    settings::load(file);
+    CHECK(settings::get().hdr_paper_white == 1000 && settings::get().hdr_peak == 10000);
     std::ofstream(file) << "hdr = bright\nhdr_paper_white = 5000\nhdr_peak = -1\n";
     settings::load(file);
     CHECK(settings::get().hdr == hdr::Mode::Off);
@@ -269,6 +273,17 @@ void test_frame_counter_modes(const std::filesystem::path& file) {
     }
 }
 
+void test_gpu_breadcrumbs_setting(const std::filesystem::path& file) {
+    namespace settings = openrac::settings;
+    std::ofstream(file) << "show_fps = 0\n";
+    settings::load(file);
+    CHECK(settings::get().gpu_breadcrumbs);
+    settings::get().gpu_breadcrumbs = false;
+    settings::save();
+    settings::load(file);
+    CHECK(!settings::get().gpu_breadcrumbs);
+}
+
 // Returns the whole of `file` as text.
 std::string read_file(const std::filesystem::path& file) {
     std::ifstream in(file);
@@ -427,6 +442,7 @@ int main() {
     test_volumetric_quality(file);
     test_sunlight_settings(file);
     test_frame_counter_modes(file);
+    test_gpu_breadcrumbs_setting(file);
     test_game_options_load_from_the_file(file);
     test_game_options_are_saved_when_they_change(file);
     test_bindings_survive_a_save(file);

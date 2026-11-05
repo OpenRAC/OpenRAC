@@ -209,9 +209,12 @@ Going Commando, Up Your Arsenal and Deadlocked (NTSC-U) are early access.
 Their levels open in Godot and **Models and textures** works, but edits are
 not packed back. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
-Your Arsenal and Deadlocked are not playable yet; Going Commando's Play is
-there with developer tools on (it gets its levels ready first, as Ratchet &
-Clank's does, and reads them again when their format changes).
+Your Arsenal and Deadlocked are not playable yet. Going Commando's program
+still needs code from your disc, so no installer carries it: **Build and play**
+downloads OpenRAC's source and builds it from your disc, then gets its levels
+ready as Ratchet & Clank's does. It needs a compiler (on Windows: Visual Studio
+with C++, LLVM, CMake and Ninja) and says which is missing. On Linux it also
+needs SDL's X11, Wayland and audio development packages, such as `libxss-dev`.
 
 ## Develop
 

@@ -279,7 +279,7 @@ void main(){colour=tint+sample_colour;}
 }
 
 // Executes unchanged snapshot copies before a draw that explicitly reads both produced images.
-std::vector<std::uint8_t> snapshot_chain(Fixture& fixture) {
+std::vector<std::uint8_t> snapshot_chain(Fixture& fixture, bool pooled = false) {
     const int side = fixture.source.width();
     const renderer::RenderTarget source{fixture.source.id(), side, side};
     glBindFramebuffer(GL_FRAMEBUFFER, fixture.output.id());
@@ -293,15 +293,20 @@ std::vector<std::uint8_t> snapshot_chain(Fixture& fixture) {
     glClearDepth(.25);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     // The owning fixture and frame parameters outlive every callback in this render-thread scope.
-    const auto recorded = renderer::run_surface_chain([&fixture, source, side] {
+    const auto recorded = renderer::run_surface_chain([&fixture, source, side, pooled] {
+        const auto scratch =
+            pooled ? renderer::lease_surface_refraction(source.framebuffer, {side, side})
+                   : renderer::SurfaceRefractionScratch{};
+        CHECK(static_cast<bool>(scratch) == pooled);
+        const auto destination = scratch ? scratch.framebuffer : fixture.snapshot.id();
         CHECK(
             renderer::colour_snapshot(
                 source,
-                fixture.snapshot.id(),
+                destination,
                 fixture.source.samples(),
-                [&fixture, source, side](bool depth) {
+                [source, side, destination](bool depth) {
                     glBindFramebuffer(GL_READ_FRAMEBUFFER, source.framebuffer);
-                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fixture.snapshot.id());
+                    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, destination);
                     glBlitFramebuffer(
                         0,
                         0,
@@ -317,21 +322,22 @@ std::vector<std::uint8_t> snapshot_chain(Fixture& fixture) {
                 }
             )
         );
-        const std::array textures{
-            fixture.snapshot.colour_texture(), fixture.snapshot.depth_texture()
-        };
+        const auto textures =
+            scratch
+                ? scratch.textures
+                : std::array{fixture.snapshot.colour_texture(), fixture.snapshot.depth_texture()};
         CHECK(
             renderer::colour_pass(
                 "shared refraction colour",
                 {fixture.output.id(), side, side},
-                [&fixture, side] {
+                [&fixture, side, depth_texture = textures[1]] {
                     glBindFramebuffer(GL_FRAMEBUFFER, fixture.output.id());
                     glViewport(0, 0, side, side);
                     glDisable(GL_DEPTH_TEST);
                     glDisable(GL_BLEND);
                     fixture.depth.use();
                     glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, fixture.snapshot.depth_texture());
+                    glBindTexture(GL_TEXTURE_2D, depth_texture);
                     glUniform1i(fixture.depth.uniform("source_depth"), 0);
                     glBindVertexArray(fixture.vao);
                     glDrawArrays(GL_TRIANGLES, 0, 3);
@@ -353,7 +359,7 @@ void test_snapshot_chain(Fixture& fixture, test::GlContext& context) {
         const auto reference = snapshot_chain(fixture);
         CHECK(vkgl::capture_frame_graph());
         const auto before = vkgl::submission_counters();
-        CHECK(snapshot_chain(fixture) == reference);
+        CHECK(snapshot_chain(fixture, true) == reference);
         CHECK(vkgl::submission_counters().surface_chains == before.surface_chains + 1);
         fixture.output.blit_to(0, 64, 64);
         context.window().swap();
