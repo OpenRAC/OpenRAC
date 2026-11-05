@@ -13,11 +13,19 @@ import build_port
 
 LLVM = "LLVM.LLVM"
 VS = "Microsoft.VisualStudio.2022.BuildTools"
+# Request components, not the C++ workload and its recommended testing/ASan/vcpkg tools.
+# Microsoft installs these components' required dependencies automatically.
+VS_COMPONENTS = (
+    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+    "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+    "Microsoft.VisualStudio.Component.VC.CMake.Project",
+)
 PACKAGES = {
     LLVM: ("LLVM (Clang compiler)", "compiles the game's C and C++ code",
            "Windows Settings > Apps > Installed apps > LLVM > Uninstall"),
     VS: ("Microsoft Visual Studio 2022 Build Tools",
-         "MSVC C++ libraries, Windows SDK, CMake and Ninja (Desktop development with C++)",
+         "MSVC v143 x64/x86 build tools and libraries, Windows SDK 10.0.26100, CMake and Ninja "
+         "(plus their required Microsoft dependencies; no full C++ workload)",
          "Visual Studio Installer > Build Tools 2022 > More > Uninstall; use Modify to remove individual components"),
 }
 
@@ -68,9 +76,11 @@ def install(packages: list[str]) -> None:
             raise build_port.BuildError(f"unknown build prerequisite: {package}")
         command = [winget, "install", "--id", package, "--exact", "--source", "winget", "--disable-interactivity"]
         if package == VS:
-            # The bootstrapper adds the workload to an existing Build Tools installation too.
-            command += ["--force", "--override", "--passive --wait --norestart --add "
-                        "Microsoft.VisualStudio.Workload.VCTools --includeRecommended"]
+            # The bootstrapper adds the selected components to an existing installation too.
+            override = ["--passive", "--wait", "--norestart"]
+            for component in VS_COMPONENTS:
+                override += ["--add", component]
+            command += ["--force", "--override", " ".join(override)]
         print(f"Installing {PACKAGES[package][0]}", flush=True)
         result = subprocess.run(command, check=False)
         if result.returncode != 0:

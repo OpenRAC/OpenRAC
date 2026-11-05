@@ -75,9 +75,12 @@ If tools are missing, it names them, explains why they are needed and how
 to remove them later, and asks before installing anything:
 
 - **LLVM (Clang)**: remove LLVM from Windows Settings → Apps → Installed apps.
-- **Visual Studio 2022 Build Tools**, with the Desktop development with C++
-  workload (MSVC libraries, Windows SDK, CMake and Ninja): remove the workload
-  with Visual Studio Installer → Modify, or the product with More → Uninstall.
+- **Visual Studio 2022 Build Tools**, with three explicitly selected components:
+  MSVC v143 x64/x86 tools and libraries, Windows SDK 10.0.26100, and C++ CMake
+  tools for Windows (CMake and Ninja). Microsoft also installs their required
+  dependencies. The full C++ workload and its recommended extras are not requested.
+  Remove individual components with Visual Studio Installer → Modify, or the
+  product with More → Uninstall.
 
 Only missing prerequisites are requested through Windows App Installer
 (`winget`). The official installers may request administrator access. Once

@@ -75,17 +75,31 @@ class Prerequisites(unittest.TestCase):
                 tools.install([tools.VS, tools.LLVM])
         self.assertEqual(run.call_count, 1)
 
-    def test_cpp_package_requests_the_workload_without_rebooting(self):
+    def test_cpp_package_requests_only_explicit_components_without_rebooting(self):
         with patch.object(tools.shutil, "which", return_value="winget"), \
                 patch.object(tools.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)) as run:
             tools.install([tools.VS])
         command = run.call_args.args[0]
         self.assertIn(tools.VS, command)
         override = command[command.index("--override") + 1]
-        self.assertIn("Microsoft.VisualStudio.Workload.VCTools", override)
-        self.assertIn("--includeRecommended", override)
+        args = override.split()
+        components = [args[i + 1] for i, arg in enumerate(args) if arg == "--add"]
+        self.assertEqual(components, [
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "Microsoft.VisualStudio.Component.Windows11SDK.26100",
+            "Microsoft.VisualStudio.Component.VC.CMake.Project",
+        ])
+        self.assertNotIn("Workload", override)
+        self.assertNotIn("--includeRecommended", override)
+        self.assertNotIn("--includeOptional", override)
         self.assertIn("--norestart", override)
         self.assertIn("--disable-interactivity", command)
+
+    def test_cpp_description_names_components_and_their_required_dependencies(self):
+        text = tools.description([tools.VS])
+        for name in ("MSVC v143", "Windows SDK 10.0.26100", "CMake", "Ninja", "required Microsoft dependencies"):
+            self.assertIn(name, text)
+        self.assertIn("Modify to remove individual components", text)
 
     def test_successful_installer_is_not_enough_if_tools_are_still_missing(self):
         self.find_clang.side_effect = tools.build_port.BuildError("no clang")
