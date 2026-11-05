@@ -457,6 +457,8 @@ void load(const std::filesystem::path& file) {
             known = parse_within(value, kTouchScales, s.touch_scale);
         } else if (key == "touch_camera") {
             known = parse_within(value, kTouchCameraSpeeds, s.touch_camera);
+        } else if (key == "touch_style") {
+            known = parse_int(value, 0, 1, s.touch_style);
         } else if (key == "touch_layout") {
             s.touch_layout = value;  // TouchPad::set_layout leaves out what it does not know
         } else if (key == "verbose_log") {
@@ -633,7 +635,8 @@ void save() {
         << "skip_cutscenes = " << (s.skip_cutscenes ? 1 : 0) << "\n"
         << "volume = " << s.volume << "\n"
         << "touch_scale = " << s.touch_scale << "\n"
-        << "touch_camera = " << s.touch_camera << "\n";
+        << "touch_camera = " << s.touch_camera << "\n"
+        << "touch_style = " << s.touch_style << "\n";
     if (!s.touch_layout.empty()) {
         out << "touch_layout = " << s.touch_layout << "\n";
     }

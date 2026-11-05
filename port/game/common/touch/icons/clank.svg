@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "clank": white is drawn white, #ff8000 in the game's accent. -->
+  <path d="M0,-44 L0,-34" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="0" cy="-46" r="5" fill="#ff8000"/><rect x="-20" y="-34" width="40" height="26" rx="10" fill="#fff"/>
+  <circle cx="-8" cy="-21" r="5" fill="#222"/><circle cx="8" cy="-21" r="5" fill="#222"/><path d="M-10,-2 L10,-2 L14,26 L-14,26 Z" fill="#fff"/><g stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M-6,30 L-8,44 M6,30 L8,44"/></g>
+</svg>

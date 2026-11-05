@@ -26,6 +26,7 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/touch_controls.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -58,6 +59,9 @@ void draw_touch_pad(int window_width, int window_height) {
     settings::Settings& set = settings::get();
     static std::string applied_layout;
     static bool was_editing = false;
+    // What the game is doing picks the buttons (the Arc style), unless the player keeps the
+    // DualShock's (touch_controls.h).
+    touch_controls::update(touch, set.touch_style);
     touch.set_scale(static_cast<float>(set.touch_scale) / 100.0f);
     touch.set_look_speed(static_cast<float>(set.touch_camera) / 100.0f);
     const bool editing = debug_overlay::touch_editing();

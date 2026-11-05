@@ -113,6 +113,7 @@ enum class Id : std::uint8_t {
     PlayerOne,
     PlayerTwo,
     MenuOpen,
+    TouchActionButtons,
     TouchButtonSize,
     TouchCameraSpeed,
     TouchMoveControls,

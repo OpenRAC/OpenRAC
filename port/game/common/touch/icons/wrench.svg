@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "wrench": white is drawn white, #ff8000 in the game's accent. -->
+  <g transform="rotate(45)"><rect x="-6" y="-6" width="12" height="46" rx="5" fill="#fff"/>
+  <path d="M-16,-30 a18,18 0 1 0 32,0 l-8,-12 l0,14 l-16,0 l0,-14 z" fill="#fff"/></g>
+</svg>

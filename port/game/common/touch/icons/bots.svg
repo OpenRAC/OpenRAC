@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "bots": white is drawn white, #ff8000 in the game's accent. -->
+  <g fill="#fff"><rect x="-40" y="-2" width="20" height="16" rx="5"/><rect x="-10" y="-2" width="20" height="16" rx="5"/><rect x="20" y="-2" width="20" height="16" rx="5"/></g>
+  <g stroke="#ff8000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M-24,-14 Q0,-40 24,-14 M16,-20 L24,-14 L18,-6"/></g>
+</svg>

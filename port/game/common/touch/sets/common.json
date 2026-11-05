@@ -1,0 +1,108 @@
+{
+  "contexts": {
+    "base": {
+      "actions": [
+        { "id": "map", "icon": "map", "press": ["select"], "side": "top" },
+        { "id": "pause", "icon": "pause", "press": ["start"], "side": "top" }
+      ]
+    },
+    "default": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "wrench", "icon": "wrench", "press": ["square"] },
+        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
+        { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
+        { "id": "quick", "icon": "quick", "press": ["triangle"], "size": "small" },
+        { "id": "look", "icon": "eye", "press": ["l1"], "size": "small", "side": "left" }
+      ]
+    },
+    "foot": { "extends": "default", "actions": [] },
+    "grind": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "wrench", "icon": "wrench", "press": ["square"] }
+      ]
+    },
+    "swim": {
+      "extends": "base",
+      "actions": [
+        { "id": "up", "icon": "up", "press": ["cross"], "size": "large" },
+        { "id": "down", "icon": "down", "press": ["square"] },
+        { "id": "fire", "icon": "fire", "press": ["circle"] },
+        { "id": "quick", "icon": "quick", "press": ["triangle"], "size": "small" }
+      ]
+    },
+    "clank": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "punch", "icon": "punch", "press": ["square"], "size": "large" },
+        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" }
+      ]
+    },
+    "giant_clank": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "punch", "icon": "giant", "press": ["square"], "size": "large" },
+        { "id": "blast", "icon": "blast", "press": ["circle"] }
+      ]
+    },
+    "hoverboard": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" }
+      ]
+    },
+    "ship": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "crosshair", "press": ["square"], "size": "large" },
+        { "id": "boost", "icon": "boost", "press": ["cross"], "size": "large" },
+        { "id": "missile", "icon": "missile", "press": ["circle"] },
+        { "id": "target", "icon": "lock", "press": ["right"], "size": "small" },
+        { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
+        { "id": "steady", "icon": "eye", "press": ["l3"], "size": "small", "side": "left", "toggle": true }
+      ]
+    },
+    "turret": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "leave", "icon": "back", "press": ["triangle"], "size": "small" }
+      ]
+    },
+    "cutscene": {
+      "actions": [
+        { "id": "skip", "icon": "skip", "press": ["start"], "side": "top" }
+      ]
+    },
+    "menu": {
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] },
+        { "id": "prev", "icon": "tabs", "press": ["l1"], "size": "small", "side": "left" },
+        { "id": "next", "icon": "tabs", "press": ["r1"], "size": "small" },
+        { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" }
+      ]
+    },
+    "dialog": {
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] }
+      ]
+    },
+    "vendor": { "extends": "menu", "actions": [] },
+    "front_end": {
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] },
+        { "id": "start", "icon": "pause", "press": ["start"], "side": "top" }
+      ]
+    }
+  }
+}

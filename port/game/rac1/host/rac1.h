@@ -54,6 +54,8 @@ uint32_t rac1_program_loads(void);
  * flight between planets plays (DoSpaceTransition), with the space scene's mobys in place of the
  * level's: nothing of the level may be read or written then. */
 int rac1_level_running(void);
+/* The on-screen pad's context (touch.c; game_host.h, openrac_game_touch). */
+int rac1_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
 
 /* front_end.c: what the window's menus need of the game (game_host.h), and the levels' names. */
 extern const openrac_front_end rac1_front_end;

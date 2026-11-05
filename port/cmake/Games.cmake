@@ -360,6 +360,9 @@ function(openrac_add_game config)
       # The in-game menu's typefaces (debug/menu_ui.cpp).
       openrac_menu_fonts(fonts_c)
       target_sources(${target} PRIVATE "${fonts_c}")
+      # The on-screen pad's action sets and icons (frontend/touch_controls.cpp).
+      openrac_touch_files(touch_c)
+      target_sources(${target} PRIVATE "${touch_c}")
       # The game's name as players see it, in the window's title and on macOS its bundle's name
       # (cmake/MacApp.cmake): the title in its catalogue entry (games/<game>/game.json) and the
       # version's video standard, "Ratchet & Clank (PAL)", "Ratchet & Clank (NTSC)".
@@ -432,6 +435,32 @@ function(openrac_menu_fonts out)
     string(APPEND content "extern const unsigned char openrac_font_${name}[] = {${bytes}};\n"
                           "extern const unsigned int openrac_font_${name}_size = ${size}u;\n")
   endforeach()
+  file(CONFIGURE OUTPUT "${c}" CONTENT "${content}")
+  set(${out} "${c}" PARENT_SCOPE)
+endfunction()
+
+# The on-screen pad's action sets and icons (game/common/touch/: sets/*.json, icons/*.svg), each
+# file's bytes under its path in that folder, for game/common/frontend/touch_controls.cpp.
+function(openrac_touch_files out)
+  set(c "${CMAKE_BINARY_DIR}/generated/openrac_touch_files.cpp")
+  set(dir "${OPENRAC_GAME_DIR}/common/touch")
+  file(GLOB_RECURSE files RELATIVE "${dir}" CONFIGURE_DEPENDS "${dir}/sets/*.json" "${dir}/icons/*.svg")
+  list(SORT files)
+  set(content "// Generated from ${dir} by cmake/Games.cmake.\n"
+              "struct OpenracTouchFile { const char* path; const unsigned char* data; unsigned int size; };\n")
+  set(table "")
+  set(i 0)
+  foreach(file IN LISTS files)
+    file(READ "${dir}/${file}" hex HEX)
+    string(LENGTH "${hex}" n)
+    math(EXPR size "${n} / 2")
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," bytes "${hex}")
+    string(APPEND content "static const unsigned char touch_${i}[] = {${bytes}0};\n")
+    string(APPEND table "    {\"${file}\", touch_${i}, ${size}u},\n")
+    math(EXPR i "${i} + 1")
+  endforeach()
+  string(APPEND content "extern const OpenracTouchFile openrac_touch_files[] = {\n${table}    {nullptr, nullptr, 0u}};\n"
+                        "extern const unsigned int openrac_touch_file_count = ${i}u;\n")
   file(CONFIGURE OUTPUT "${c}" CONTENT "${content}")
   set(${out} "${c}" PARENT_SCOPE)
 endfunction()

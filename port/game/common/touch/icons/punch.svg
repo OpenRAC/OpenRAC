@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "punch": white is drawn white, #ff8000 in the game's accent. -->
+  <rect x="-26" y="-20" width="40" height="40" rx="10" fill="#fff"/><g stroke="#222" stroke-width="4"><path d="M-16,-20 L-16,4 M-6,-20 L-6,4 M4,-20 L4,4"/></g>
+  <g stroke="#ff8000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M22,-14 L40,-20 M24,0 L44,0 M22,14 L40,20"/></g>
+</svg>

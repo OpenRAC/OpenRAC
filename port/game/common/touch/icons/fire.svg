@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "fire": white is drawn white, #ff8000 in the game's accent. -->
+  <path d="M-34,-6 L14,-6 L14,-16 L24,-16 L24,4 L-6,4 L-14,22 L-28,22 L-22,4 L-34,4 Z" fill="#fff"/>
+  <path d="M30,-12 L44,-20 L38,-6 L48,0 L36,4 L40,16 L28,6" fill="#ff8000"/>
+</svg>
