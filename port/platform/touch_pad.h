@@ -21,6 +21,12 @@
 // it lands on); where each group was moved to is a line of text for the settings file (layout()).
 // Nothing here touches SDL or GL: input.cpp feeds it events and the frontend draws controls()
 // (renderer/ui/touch_overlay.h).
+//
+// That is the Classic style. In the Arc style the buttons are actions (touch_actions.h): an icon
+// each, sized by how often it is used, the largest in the corner under the right thumb and the
+// rest on an arc around it, and they change with what the game is doing (set_actions(), from the
+// game's touch context). A button under a finger stays until the finger lifts: the new set comes
+// in then, so a press is never lost to a change of context.
 
 #pragma once
 
@@ -32,6 +38,7 @@
 #include <vector>
 
 #include "platform/pad.h"
+#include "platform/touch_actions.h"
 
 namespace openrac::platform {
 
@@ -47,7 +54,30 @@ enum class TouchGroup {
     Select,
     Start,
     Menu,
+    // The Arc style's places: the arc under the right thumb (the first the corner), beside the
+    // stick, along the top, and where a button the game shows for a moment (a hint's) comes up.
+    Arc0,
+    Arc1,
+    Arc2,
+    Arc3,
+    Arc4,
+    Arc5,
+    Arc6,
+    Arc7,
+    Left0,
+    Left1,
+    Left2,
+    Top0,
+    Top1,
+    Hint0,
+    Hint1,
+    Hint2,
     Count
+};
+
+enum class TouchStyle {
+    Classic,  // the DualShock 2's buttons
+    Arc       // the game's actions, as icons
 };
 
 inline constexpr std::size_t kTouchGroups = static_cast<std::size_t>(TouchGroup::Count);
@@ -67,6 +97,13 @@ struct TouchControl {
     float radius = 0.0f;
     // Half the width over the radius: 1 a circle, more a pill (the shoulders, Select and Start).
     float stretch = 1.0f;
+    // The Arc style's: the buttons it holds (`button` is the first of them), those it adds a moment
+    // later, its action and icon (touch_actions.h); empty icon for the Classic style's controls.
+    std::uint16_t buttons = 0;
+    std::uint16_t then = 0;
+    bool toggle = false;
+    std::string action;
+    std::string icon;
 };
 
 class TouchPad {
@@ -77,6 +114,22 @@ public:
     void set_aspect(float aspect);
 
     float aspect() const { return m_aspect; }
+
+    // Classic (the default) or Arc; Arc shows the actions set_actions() gives, Classic ignores them.
+    void set_style(TouchStyle style);
+
+    TouchStyle style() const { return m_style; }
+
+    // The actions of the game's context now, and the hints up (an action with a `when` shows only
+    // while its hint is among them). Taken in at once when no finger is on a button, else when the
+    // last such finger lifts. The same list again changes nothing.
+    void set_actions(std::vector<TouchAction> actions, std::vector<std::string> hints = {});
+
+    // Whether set_actions() has a set waiting for a finger to lift.
+    bool actions_waiting() const { return m_waiting; }
+
+    // A combination's second press (TouchAction::then) comes this long after its first.
+    static constexpr std::uint64_t kThenDelayMs = 50;
 
     // Where the screen cannot be seen or touched at the left and right edges, in window heights.
     void set_safe_area(float left, float right);
@@ -137,7 +190,8 @@ public:
 
     void hide() { m_visible = m_editing; }
 
-    // Once a frame, with SDL's clock: puts the pad away when the screen has been left alone.
+    // Once a frame, with SDL's clock: puts the pad away when the screen has been left alone, and
+    // times the combinations' second presses.
     static constexpr std::uint64_t kIdleHideMs = 10000;
     void idle(std::uint64_t now_ms);
 
@@ -146,6 +200,8 @@ public:
     // Whether control `index` is held now, and where a stick's knob is (offset from its centre in
     // window heights).
     bool held(std::size_t index) const;
+    // Whether a toggle (TouchAction::toggle) is on: it holds its buttons with no finger on it.
+    bool toggled(std::size_t index) const;
     void knob(std::size_t index, float& dx, float& dy) const;
 
     // The camera as the fingers turn it: -1..1 across and down, 0 with no finger on it.
@@ -202,6 +258,14 @@ private:
     void snap(TouchGroup group);
     // Brings the left stick under a thumb at (x, y), kept on the screen.
     void bring_stick(std::size_t index, float x, float y);
+    // Makes the controls of the style and actions now (the stick's place kept while a thumb holds it).
+    void rebuild();
+    void classic_controls();
+    void arc_controls();
+    // Whether a finger holds a button (not the stick, the camera or a drag).
+    bool button_held() const;
+    // Takes in the waiting set when no finger holds a button.
+    void take_waiting();
 
     std::vector<TouchControl> m_controls;
 
@@ -233,6 +297,17 @@ private:
     std::uint64_t m_last_touch_ms = 0;
     bool m_menu_button = false;
     bool m_menu_pressed = false;
+    TouchStyle m_style = TouchStyle::Classic;
+    std::vector<TouchAction> m_actions;
+    std::vector<std::string> m_hints;
+    std::vector<TouchAction> m_next_actions;
+    std::vector<std::string> m_next_hints;
+    bool m_waiting = false;
+    // The actions a tap has turned on (TouchAction::toggle), by id.
+    std::vector<std::string> m_toggled;
+    // When each control started being held (SDL's clock; 0 not held), and the clock's last read.
+    std::vector<std::uint64_t> m_held_since;
+    std::uint64_t m_now_ms = 0;
 };
 
 }  // namespace openrac::platform

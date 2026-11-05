@@ -7,8 +7,11 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "check.h"
+#include "platform/touch_actions.h"
 #include "platform/touch_pad.h"
 
 namespace {
@@ -29,6 +32,141 @@ Pad read(const TouchPad& touch) {
     Pad pad;
     touch.apply(pad);
     return pad;
+}
+
+const TouchControl* action(const TouchPad& touch, std::string_view id) {
+    for (const TouchControl& c : touch.controls()) {
+        if (c.action == id) {
+            return &c;
+        }
+    }
+    return nullptr;
+}
+
+TouchAction act(std::string id, std::uint16_t press, TouchSize size = TouchSize::Medium) {
+    TouchAction a;
+    a.icon = id;
+    a.id = std::move(id);
+    a.press = press;
+    a.size = size;
+    return a;
+}
+
+constexpr auto bit = [](Button b) { return static_cast<std::uint16_t>(b); };
+
+// The Arc style: the game's actions as buttons, in the corner first, changing with its context.
+void arc_style() {
+    TouchPad touch;
+    touch.set_aspect(2.0f);
+    std::vector<TouchAction> foot = {
+        act("jump", bit(Button::Cross), TouchSize::Large),
+        act("fire", bit(Button::Circle)),
+        act("dash", bit(Button::R1), TouchSize::Small),
+    };
+    foot[2].then = bit(Button::Cross);
+    TouchAction swing = act("swing", bit(Button::Circle));
+    swing.when = "swing_target";
+    foot.push_back(swing);
+    touch.set_actions(foot);
+    CHECK(action(touch, "jump") == nullptr);  // the Classic style shows the DualShock's buttons
+    touch.set_style(TouchStyle::Arc);
+    const TouchControl* jump = action(touch, "jump");
+    const TouchControl* fire = action(touch, "fire");
+    CHECK(jump != nullptr && fire != nullptr && action(touch, "swing") == nullptr);
+    // The first and largest in the corner, at the lower right.
+    CHECK(jump->x > fire->x && jump->radius > fire->radius && jump->y > 0.6f);
+    CHECK(read(touch).buttons == Pad{}.buttons);
+    touch.finger_down(1, jump->x, jump->y);
+    CHECK(read(touch).held(Button::Cross) && !read(touch).held(Button::Circle));
+    touch.finger_up(1);
+
+    // A combination: its first button at once, the second a moment later, both while held.
+    const TouchControl* dash = action(touch, "dash");
+    CHECK(dash != nullptr);
+    touch.idle(1000);
+    touch.finger_down(2, dash->x, dash->y);
+    touch.idle(1016);
+    CHECK(read(touch).held(Button::R1) && !read(touch).held(Button::Cross));
+    touch.idle(1016 + TouchPad::kThenDelayMs);
+    CHECK(read(touch).held(Button::R1) && read(touch).held(Button::Cross));
+    touch.finger_up(2);
+    touch.idle(1100);
+    CHECK(!read(touch).held(Button::R1) && !read(touch).held(Button::Cross));
+
+    // A hint brings its button up; with no finger on a button the change is at once.
+    touch.set_actions(foot, {"swing_target"});
+    CHECK(!touch.actions_waiting() && action(touch, "swing") != nullptr);
+
+    // Another context while a finger holds a button: the old set stays until it lifts.
+    jump = action(touch, "jump");
+    touch.finger_down(3, jump->x, jump->y);
+    touch.set_actions({act("boost", bit(Button::Cross), TouchSize::Large)});
+    CHECK(touch.actions_waiting() && action(touch, "jump") != nullptr);
+    CHECK(read(touch).held(Button::Cross));
+    touch.finger_up(3);
+    CHECK(!touch.actions_waiting() && action(touch, "jump") == nullptr && action(touch, "boost") != nullptr);
+
+    // A thumb on the stick keeps it through a change, where it is.
+    TouchControl stick = touch.controls()[0];
+    CHECK(stick.kind == TouchControl::Kind::LeftStick);
+    touch.finger_down(4, stick.x, stick.y);
+    touch.finger_move(4, stick.x + 0.3f, stick.y);
+    touch.set_actions(foot);
+    CHECK(action(touch, "jump") != nullptr && read(touch).left_x == 0xFF);
+    touch.finger_up(4);
+
+    // A toggle: a tap holds it, another lets go.
+    TouchAction look = act("look", bit(Button::L1), TouchSize::Small);
+    look.side = TouchSide::Left;
+    look.toggle = true;
+    touch.set_actions({look});
+    const TouchControl* l = action(touch, "look");
+    CHECK(l != nullptr && l->x < 0.5f);
+    touch.finger_down(5, l->x, l->y);
+    touch.finger_up(5);
+    CHECK(read(touch).held(Button::L1) && touch.toggled(static_cast<std::size_t>(l - touch.controls().data())));
+    touch.finger_down(5, l->x, l->y);
+    touch.finger_up(5);
+    CHECK(!read(touch).held(Button::L1));
+
+    // Back to the Classic style: the DualShock's buttons again.
+    touch.set_style(TouchStyle::Classic);
+    CHECK(action(touch, "look") == nullptr && touch.controls().size() == 16);
+}
+
+// The sets, as the game's files and mods write them.
+void action_sets() {
+    TouchActionSets sets;
+    std::string error;
+    CHECK(sets.read(R"({"contexts": {
+        "base": {"actions": [{"id": "map", "icon": "map", "press": ["select"], "side": "top"}]},
+        "foot": {"extends": "base", "actions": [
+            {"id": "jump", "icon": "jump", "press": ["cross"], "size": "large"},
+            {"id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small"}]}}})",
+                    "game", error));
+    std::vector<TouchAction> foot = sets.actions("foot");
+    CHECK(foot.size() == 3 && foot[0].id == "map" && foot[0].side == TouchSide::Top);
+    CHECK(foot[1].press == bit(Button::Cross) && foot[1].size == TouchSize::Large);
+    CHECK(foot[2].press == bit(Button::R1) && foot[2].then == bit(Button::Cross));
+    // A mod adds a button and changes another; a bad set changes nothing.
+    CHECK(sets.read(R"({"contexts": {"foot": {"actions": [
+            {"id": "board", "icon": "board", "press": ["up"]},
+            {"id": "jump", "icon": "jump", "press": ["cross"], "size": "medium"}]}}})",
+                    "mod", error));
+    foot = sets.actions("foot");
+    CHECK(foot.size() == 4 && foot[1].size == TouchSize::Medium && foot[3].id == "board");
+    CHECK(!sets.read(R"({"contexts": {"foot": {"actions": [{"id": "x", "icon": "x", "press": ["z"]}]}}})",
+                     "bad", error));
+    CHECK(error.find("no button") != std::string::npos);
+    CHECK(sets.actions("foot").size() == 4);
+    // A context of its own, replacing.
+    CHECK(sets.read(R"({"contexts": {"foot": {"replace": true, "actions": [
+            {"id": "x", "icon": "x", "press": ["cross"]}]}}})", "mod2", error));
+    CHECK(sets.actions("foot").size() == 1 && sets.actions("nothing").empty());
+    // A loop of extends ends.
+    CHECK(sets.read(R"({"contexts": {"a": {"extends": "b", "actions": []}, "b": {"extends": "a", "actions": []}}})",
+                    "loop", error));
+    CHECK(sets.actions("a").empty());
 }
 
 }  // namespace
@@ -336,5 +474,8 @@ int main() {
     CHECK(std::abs(dpad.x - (dpad_x - 0.04f)) < 1e-5f && snapping.guide_x() < 0.0f);
     snapping.finger_up(1);
     CHECK(snapping.guide_x() < 0.0f && snapping.guide_y() < 0.0f);
+
+    arc_style();
+    action_sets();
     return openrac::test::result();
 }

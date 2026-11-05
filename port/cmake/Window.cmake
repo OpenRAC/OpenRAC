@@ -60,6 +60,7 @@ add_library(openrac_platform STATIC
   platform/performance_hint.cpp
   platform/pump.cpp
   platform/show_folder.cpp
+  platform/touch_actions.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
