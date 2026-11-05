@@ -26,32 +26,26 @@ has at the start.
 
 ## In the launcher
 
-Your pack is a mod: it is a row of the packs on **Mods → My mods**, first in
-**Graphics and sound packs**, with its switch (the `texture_pack` setting).
-Its menu has **Share my pack…**, which saves your pack as a `.zip` with its
-folders and a manifest, leaving out any picture that is still byte for byte
-the one the game saved (those are your disc's, not yours to share), and
-**Replace with a pack…**, which keeps the old one beside it as
-`<game id> (before import <date>)`. A shared pack's `.zip` is added like any
-mod, with **Add a mod** (a file or a drop): it is checked, another game's is
-refused, and its pictures are added to yours (a picture for the same texture
-replaces yours).
+Your pack is a mod. It is the first row of **Graphics and sound packs** on
+**Mods → My mods**, with a switch (the `texture_pack` setting) and a menu:
 
-**Make your own** on the row opens the steps, on **Models and textures**
-(on Android, and without the level editor, a fold under the packs):
+- **Share my pack…** saves it as a `.zip`. Pictures that are still exactly the
+  game's own are left out (they come from your disc).
+- **Replace with a pack…** puts in another pack and keeps the old one as
+  `<game id> (before import <date>)`.
 
-1. **Save the game's textures while you play.** Switch it on and play: every
-   picture the game shows is saved once into the textures folder (below).
-   The counts per folder open that folder. It stays on until you switch it
-   off; the launcher starts the game with `OPENRAC_DUMP_TEXTURES` for you.
-2. **Make your own pictures.** Open a saved picture in any image editor,
-   upscale or repaint it, keep its file name, and put it in your pack
-   (**Open your pack**), in any folder.
+To add a shared pack, use **Add a mod** (a file or a drop). It is checked,
+another game's pack is refused, and its pictures are added to yours.
 
-The textures folder is `texture_dumps/<game id>/` in the launcher's data folder
-(`%LOCALAPPDATA%\openrac`, `~/Library/Application Support/OpenRAC`,
-`~/.local/share/openrac`), not the pack's, so the game's own pictures never
-end up in a pack by themselves.
+**Make your own** opens the steps (Models and textures; on Android a fold):
+
+1. **Save the game's textures while you play.** Switch it on and play. Each
+   picture the game shows is saved once.
+2. **Make your own pictures.** Edit or upscale a saved picture, keep its file
+   name, and put it in your pack (**Open your pack**), in any folder.
+
+Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
+not into your pack.
 
 ## Making one by hand
 
