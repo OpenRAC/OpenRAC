@@ -12,6 +12,9 @@
 
 namespace openrac::renderer::graph {
 namespace {
+constexpr unsigned kLayoutCount = static_cast<unsigned>(Layout::Present) + 1;
+using ReaderScopes = std::vector<std::array<Stage, kLayoutCount>>;
+
 // One nonoverlapping byte/cell interval; readers retain every pass since its last writer.
 struct Span {
     std::uint64_t begin = 0;         // First included byte/cell.
@@ -24,17 +27,20 @@ struct Span {
 
 // Adds an ordering edge once, avoiding self-dependencies from duplicate read-only views.
 void dependency(Plan& plan, unsigned source, unsigned destination, unsigned resource) {
-    const Dependency edge{source, destination, resource};
-
-    // Multiple overlapping ranges can establish the same edge.
-    if (source != destination
-        && std::none_of(
-            plan.dependencies.begin(), plan.dependencies.end(), [edge](const Dependency& previous) {
-                return previous == edge;
-            }
-        )) {
-        plan.dependencies.push_back(edge);
+    if (source == destination) {
+        return;
     }
+
+    // Only edges emitted for this pass can be duplicates.
+    for (auto edge = plan.dependencies.rbegin();
+         edge != plan.dependencies.rend() && edge->destination == destination;
+         ++edge) {
+        if (edge->source == source && edge->resource == resource) {
+            return;
+        }
+    }
+
+    plan.dependencies.push_back({source, destination, resource});
 }
 
 // Orders all accesses that can conflict, including layout changes between read-only passes.
@@ -54,7 +60,9 @@ void order(Plan& plan, const Span& span, const detail::Use& use, unsigned pass) 
 }
 
 // Checks defined contents before emitting a barrier or changing the interval's history.
-Result<void> apply(Plan& plan, Span& span, const detail::Use& use, unsigned pass) {
+Result<void> apply(
+    Plan& plan, Span& span, const detail::Use& use, unsigned pass, Stage reader_scope
+) {
     // A clear supplies defined attachment contents before a read/write operation.
     if (detail::reads(use.state.access) && !span.defined && use.load != Load::Clear) {
         return unexpected(
@@ -69,11 +77,16 @@ Result<void> apply(Plan& plan, Span& span, const detail::Use& use, unsigned pass
 
     // Memory hazards require barriers even when the image layout stays unchanged.
     if (layout_change || hazard) {
+        State destination = use.state;
+        // Later readers can reuse this visibility. Track only actual accesses in span.state.
+        if (destination.access == Access::Read) {
+            destination.stages = reader_scope;
+        }
         plan.passes[pass].barriers.push_back(
             {use.resource,
              detail::public_range(plan.resources[use.resource], span.begin, span.end),
              span.state,
-             use.state}
+             destination}
         );
     }
 
@@ -89,7 +102,7 @@ Result<void> apply(Plan& plan, Span& span, const detail::Use& use, unsigned pass
         span.writer = pass;
         span.readers.clear();
         span.defined = use.store != Store::Discard;
-    } else if (std::find(span.readers.begin(), span.readers.end(), pass) == span.readers.end()) {
+    } else if (span.readers.empty() || span.readers.back() != pass) {
         span.readers.push_back(pass);
     }
 
@@ -97,48 +110,39 @@ Result<void> apply(Plan& plan, Span& span, const detail::Use& use, unsigned pass
     return {};
 }
 
-// Splits only touched intervals, so partial buffer and image writes never initialise their neighbours.
+// Splits a span at an interior boundary and returns the index of the right half.
+std::size_t split_span(std::vector<Span>& spans, std::size_t index, std::uint64_t boundary) {
+    Span right = spans[index];
+    right.begin = boundary;
+    spans[index].end = boundary;
+    spans.insert(spans.begin() + index + 1, std::move(right));
+    return index + 1;
+}
+
+// Updates touched intervals in place, copying history only when a boundary splits a span.
 Result<void> apply_range(
-    Plan& plan, std::vector<Span>& spans, const detail::Use& use, unsigned pass
+    Plan& plan, std::vector<Span>& spans, const detail::Use& use, unsigned pass, Stage reader_scope
 ) {
-    std::vector<Span> updated;
-    updated.reserve(spans.size() + 2);
-
-    // Preserve untouched intervals and split only at the requested boundaries.
-    for (const auto& original : spans) {
-        // Disjoint contents retain their earlier state and dependency history.
-        if (original.end <= use.begin || original.begin >= use.end) {
-            updated.push_back(original);
-            continue;
+    const auto first = std::upper_bound(
+        spans.begin(), spans.end(), use.begin, [](std::uint64_t begin, const Span& span) {
+            return begin < span.end;
         }
+    );
+    auto index = static_cast<std::size_t>(first - spans.begin());
 
-        Span middle = original;
-        middle.begin = std::max(original.begin, use.begin);
-        middle.end = std::min(original.end, use.end);
-
-        // The prefix lies outside this access and must not become initialised by it.
-        if (original.begin < middle.begin) {
-            Span prefix = original;
-            prefix.end = middle.begin;
-            updated.push_back(std::move(prefix));
-        }
-
-        // Failure abandons the local compiled plan before any GPU recording.
-        if (auto applied = apply(plan, middle, use, pass); !applied) {
-            return unexpected(applied.error());
-        }
-
-        updated.push_back(std::move(middle));
-
-        // A partial write must leave its trailing neighbour unchanged.
-        if (original.end > use.end) {
-            Span suffix = original;
-            suffix.begin = use.end;
-            updated.push_back(std::move(suffix));
-        }
+    // Validated uses are nonempty and wholly within the span partition.
+    if (spans[index].begin < use.begin) {
+        index = split_span(spans, index, use.begin);
     }
 
-    spans = std::move(updated);
+    for (; index < spans.size() && spans[index].begin < use.end; ++index) {
+        if (spans[index].end > use.end) {
+            split_span(spans, index, use.end);
+        }
+        if (auto applied = apply(plan, spans[index], use, pass, reader_scope); !applied) {
+            return unexpected(applied.error());
+        }
+    }
     return {};
 }
 
@@ -161,12 +165,12 @@ std::vector<std::vector<Span>> initial_spans(const Plan& plan) {
 
 // Collects compatible reader scopes before recording, so a producer is visible to every later consumer.
 Result<std::vector<std::vector<detail::Use>>> pass_uses(
-    const std::vector<Pass>& passes, const Plan& plan
+    const std::vector<Pass>& passes, const Plan& plan, ReaderScopes& readers
 ) {
-    constexpr unsigned kLayoutCount = static_cast<unsigned>(Layout::Present) + 1;
-    std::vector<std::array<Stage, kLayoutCount>> readers(plan.resources.size());
     std::vector<std::vector<detail::Use>> result;
-    // A visibility barrier can cover several shader stages even though the first consumer uses one.
+    result.reserve(passes.size());
+
+    // Union read visibility by resource and layout, conservatively across ranges and later writes.
     for (const auto& pass : passes) {
         auto uses = detail::normalise(pass, plan.resources);
         if (!uses) {
@@ -180,14 +184,6 @@ Result<std::vector<std::vector<detail::Use>>> pass_uses(
         }
         result.push_back(std::move(*uses));
     }
-    // Unioning across disjoint intervals or later writes is conservative and preserves declared ordering.
-    for (auto& uses : result) {
-        for (auto& use : uses) {
-            if (use.state.access == Access::Read) {
-                use.state.stages = readers[use.resource][static_cast<unsigned>(use.state.layout)];
-            }
-        }
-    }
     return result;
 }
 }  // namespace
@@ -200,11 +196,14 @@ Result<Plan> Graph::compile(DeclarationRetention retention) const {
 
     Plan plan;
     plan.resources = m_resources;
+    plan.passes.reserve(m_passes.size());
+
     // Normal recording avoids copying diagnostic declarations on every subgraph compilation.
     if (retention == DeclarationRetention::Retain) {
         plan.declarations = m_passes;
     }
-    const auto uses = pass_uses(m_passes, plan);
+    ReaderScopes readers(plan.resources.size());
+    const auto uses = pass_uses(m_passes, plan, readers);
     if (!uses) {
         return unexpected(uses.error());
     }
@@ -236,7 +235,9 @@ Result<Plan> Graph::compile(DeclarationRetention retention) const {
             resource.last = index;
 
             // No partial plan escapes when any range reads undefined contents.
-            if (auto applied = apply_range(plan, spans[use.resource], use, index); !applied) {
+            const auto scope = readers[use.resource][static_cast<unsigned>(use.state.layout)];
+            if (auto applied = apply_range(plan, spans[use.resource], use, index, scope);
+                !applied) {
                 return unexpected(Error{pass.name + ": " + applied.error().message});
             }
         }
