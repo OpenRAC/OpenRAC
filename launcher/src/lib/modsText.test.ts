@@ -16,6 +16,7 @@ import {
   added,
   crashModsLine,
   installedFrom,
+  nothingShown,
   rangeText,
   sharesWith,
   updatesFound,
@@ -60,6 +61,12 @@ describe("the page's words", () => {
 });
 
 describe("the sentences", () => {
+  it("say why Browse is empty without quoting an empty search", () => {
+    expect(nothingShown("", "compatible")).toBe("No mods in Compatible.");
+    expect(nothingShown("   ", "installed")).toBe("No mods in Installed.");
+    expect(nothingShown(" strafe ", "all")).toBe('No mods match "strafe".');
+  });
+
   it("count updates and name what was not checked", () => {
     expect(updatesFound(0, [])).toBe("Every mod from a link is up to date.");
     expect(updatedAll(2, 0)).toBe("Updated 2 mods; their settings are kept.");
