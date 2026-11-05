@@ -145,6 +145,7 @@ library folder, so the APK carries them as libraries:
 | Library | What it is |
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
+| `libopenrac-zig.so` | [Zig](https://ziglang.org)'s static AArch64 Linux release (MIT, pinned by SHA-256): Clang and lld (`zig clang`, `zig ld.lld`), which build Going Commando's part from the disc on the device (`tools/asm_part.py`) |
 | `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
 | `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 

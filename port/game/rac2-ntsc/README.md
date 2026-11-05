@@ -61,7 +61,7 @@ without the disc: the functions still in assembly are called through slots
 (`asm_interface.json`, `asmext.py`). Once the game is set up from the disc, Build
 and play first runs `tools/asm_part.py build`. The APK's Python translates those
 functions from the disc (`asmdev.py`, from the pickled program the build wrote),
-and the Clang and lld it carries (`libopenrac-clang.so`, `libopenrac-lld.so`)
+and the Clang and lld it carries (Zig's, `libopenrac-zig.so`)
 compile them into `<data>/asm-part/<tag>/libopenrac-rac2-ntsc-part.so`. The tag
 names the kit and tools it is built from, so another APK builds its own. The game
 loads it before it starts (`--asm-part`). It takes a few minutes, once for each

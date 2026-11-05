@@ -1917,7 +1917,7 @@
           "python"
         ],
         "docs": "port/game/rac2-ntsc/README.md",
-        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld built for Android (tools/build_android.py)."
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
       },
       {
         "id": "probe-bake",
