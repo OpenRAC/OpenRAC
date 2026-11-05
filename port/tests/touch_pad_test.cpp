@@ -94,6 +94,16 @@ void arc_style() {
     touch.finger_up(2);
     touch.idle(1100);
     CHECK(!read(touch).held(Button::R1) && !read(touch).held(Button::Cross));
+    // A tap quicker than the delay still plays the whole combination, then lets go.
+    touch.idle(2000);
+    touch.finger_down(4, dash->x, dash->y);
+    touch.finger_up(4);
+    touch.idle(2016);
+    CHECK(read(touch).held(Button::R1) && !read(touch).held(Button::Cross));
+    touch.idle(2000 + TouchPad::kThenDelayMs);
+    CHECK(read(touch).held(Button::R1) && read(touch).held(Button::Cross));
+    touch.idle(2000 + TouchPad::kThenDelayMs + TouchPad::kThenHoldMs);
+    CHECK(!read(touch).held(Button::R1) && !read(touch).held(Button::Cross));
 
     // A hint brings its button up; with no finger on a button the change is at once.
     touch.set_actions(foot, {"swing_target"});
@@ -191,6 +201,56 @@ void action_sets() {
         error
     ));
     CHECK(sets.actions("a").empty());
+    // A menu's d-pad and a steering action, taken by the contexts that extend them.
+    CHECK(sets.read(
+        R"({"contexts": {"menu": {"dpad": true, "actions": [
+            {"id": "quick", "icon": "quick", "press": ["triangle"], "stick": true}]},
+            "vendor": {"extends": "menu", "actions": []}}})",
+        "menus",
+        error
+    ));
+    CHECK(sets.dpad("menu") && sets.dpad("vendor") && !sets.dpad("a") && !sets.dpad("nothing"));
+    CHECK(sets.actions("vendor").size() == 1 && sets.actions("vendor")[0].stick);
+}
+
+// A finger held on a "stick" action pushes the left stick the way it slides, and keeps the action
+// held off its button; a menu's context shows the d-pad in the stick's place.
+void steer_and_dpad() {
+    TouchPad touch;
+    touch.set_aspect(2.0f);
+    touch.set_style(TouchStyle::Arc);
+    TouchAction quick = act("quick", bit(Button::Triangle));
+    quick.stick = true;
+    touch.set_actions({act("jump", bit(Button::Cross), TouchSize::Large), quick});
+    const TouchControl* q = action(touch, "quick");
+    CHECK(q != nullptr && q->stick);
+    touch.finger_down(1, q->x, q->y);
+    Pad pad = read(touch);
+    CHECK(pad.held(Button::Triangle) && pad.left_x == Pad{}.left_x && pad.left_y == Pad{}.left_y);
+    // Slid left, far off the button: still held, the stick all the way left.
+    touch.finger_move(1, q->x - 0.2f, q->y);
+    pad = read(touch);
+    CHECK(pad.held(Button::Triangle) && pad.left_x < 0x20 && pad.left_y == Pad{}.left_y);
+    // The set waits for it to lift, as for any finger on a button.
+    touch.set_actions({act("ok", bit(Button::Cross), TouchSize::Large)}, {}, true);
+    CHECK(touch.actions_waiting());
+    touch.finger_up(1);
+    CHECK(!touch.actions_waiting() && !read(touch).held(Button::Triangle));
+    // The d-pad: no stick, four arms where it was.
+    bool stick = false;
+    for (const TouchControl& c : touch.controls()) {
+        stick = stick || c.kind == TouchControl::Kind::LeftStick;
+    }
+    CHECK(!stick);
+    const TouchControl& up = control(touch, TouchControl::Kind::Button, Button::Up);
+    const TouchControl& down = control(touch, TouchControl::Kind::Button, Button::Down);
+    CHECK(up.group == TouchGroup::Stick && up.y < down.y && up.x < 0.5f);
+    touch.finger_down(2, up.x, up.y);
+    CHECK(read(touch).held(Button::Up) && !read(touch).held(Button::Down));
+    touch.finger_up(2);
+    // Back in play: the stick again.
+    touch.set_actions({act("jump", bit(Button::Cross), TouchSize::Large)});
+    CHECK(touch.controls()[0].kind == TouchControl::Kind::LeftStick);
 }
 
 }  // namespace
@@ -514,5 +574,6 @@ int main() {
 
     arc_style();
     action_sets();
+    steer_and_dpad();
     return openrac::test::result();
 }

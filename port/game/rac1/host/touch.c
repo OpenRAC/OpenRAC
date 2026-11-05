@@ -8,7 +8,8 @@
  * In the boot program, the title and its menus ("front_end"), or the flight between planets and a
  * load ("cutscene"). In a level its game mode (D_L00_0015F6A8, play.c): 0 play, 1 a movie, 2 a
  * cutscene, 6 the ship's landing or take-off and 7 a slideshow ("cutscene"), 3 the pause menu
- * ("menu"), 4 a dialog ("dialog"), 5 a vendor ("vendor"). In play the hero's vehicle mode (+0x20A4:
+ * ("menu"; its map page "map", menu_system.current, draw_map_screen), 4 a dialog ("dialog"), 5 a
+ * vendor ("vendor"). In play the hero's vehicle mode (+0x20A4:
  * 1 Clank, 2 Giant Clank; include/rnc/hero/hero.h) and his state (+0x2084, rnc/hero/hero_state.h):
  * swimming, grinding, the hoverboard. It only reads. Installed with the other tools (boot.c): nothing
  * else names this file, so a constructor here would be dropped at the link.
@@ -22,6 +23,10 @@
 #define BOOT_MODE RAC1_ADDR(0x0015F6E8u)
 #define TITLE_EXIT RAC1_ADDR(0x0015F690u)
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
+
+/* The pause menu's page now (current_menu_page) and its map page (map_menu_page). */
+#define MENU_PAGE RAC1_ADDR(0x001D5F74u)
+#define MAP_PAGE RAC1_ADDR(0x001CF798u)
 
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
@@ -77,7 +82,7 @@ int rac1_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
             *context = GREF(gaddr, HERO_MOBY) != 0 ? play_context() : "cutscene";
             return 0;
         case 3:
-            *context = "menu";
+            *context = GREF(gaddr, MENU_PAGE) == MAP_PAGE ? "map" : "menu";
             return 0;
         case 4:
             *context = "dialog";

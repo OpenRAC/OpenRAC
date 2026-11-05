@@ -248,7 +248,7 @@ and packs it whole (hidden files left out).
 On a touch screen the pad can show action buttons with icons (the drawer's
 "Action buttons" switch; off shows the DualShock's buttons). The buttons follow
 what the game is doing, its context: `foot`, `clank`, `giant_clank`, `swim`,
-`grind`, `hoverboard`, `ship`, `turret`, `cutscene`, `menu`, `dialog`,
+`grind`, `hoverboard`, `ship`, `turret`, `cutscene`, `menu`, `map`, `dialog`,
 `vendor`, `front_end`, `default`. The sets are JSON
 (`port/game/common/touch/sets/common.json`, then `<game>.json`). A mod adds its
 own on top:
@@ -276,12 +276,16 @@ An action has `id`, `icon` and `press` (pad buttons: `cross`, `circle`,
 `square`, `triangle`, `l1` .. `r3`, `start`, `select`, `up` .. `right`).
 Optional fields:
 
-- `then`: buttons pressed 50 ms later, for a combo.
+- `then`: buttons pressed 50 ms later, for a combo. A quick tap still plays it.
 - `size`: `large`, `medium` or `small`.
 - `side`: `arc` (under the right thumb), `left` (above the stick) or `top`.
 - `when`: a hint the button waits for.
 - `toggle`: stays down until tapped again.
 - `wide`: a wider pill, for a wide icon.
+- `stick`: while held, sliding the finger pushes the left stick that way (a
+  quick select ring). The button stays held until the finger lifts.
+
+A context with `"dpad": true` shows the d-pad instead of the stick (menus).
 
 An action with the same `id` replaces the old one. `"replace": true` removes
 the context's buttons first. An icon is an SVG drawn square from its viewBox:

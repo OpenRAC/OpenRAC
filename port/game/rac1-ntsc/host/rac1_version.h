@@ -192,6 +192,10 @@ static inline unsigned rac1_moby_vtbl_address(int level) {
 #define RAC1_ADDR_0x001D4B08u 0x001D4788u
 #define RAC1_ADDR_0x001D29D0u 0x001D2650u
 #define RAC1_ADDR_0x001D6120u 0x001D5D90u
+/* The touch pad's map page (touch.c): menu_system.current and the map's page, by hand from the US
+ * decomp (menu_system.h, menu_pages.h), 0x380 lower as the menu data around them. */
+#define RAC1_ADDR_0x001D5F74u 0x001D5BF4u
+#define RAC1_ADDR_0x001CF798u 0x001CF418u
 /* MobySetAnimation, which the US decomp's update_menu_system calls as FUN_00212ed8; the map pairs
  * PAL's with 0x212F58. */
 #define func_00213D28 game_FUN_00212ed8

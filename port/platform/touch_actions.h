@@ -20,10 +20,11 @@
 // replace those of the same id); "side" puts one beside the stick ("left") or along the top
 // ("top"); "when" shows one only while the game (or a mod) says the hint is up; "then" holds more
 // buttons a moment after "press" (a combination the game reads as two presses, such as crouch then
-// jump); "toggle" makes a tap hold it until the next tap; "wide" makes it a pill for a wide icon. A
-// set read later adds to one read before:
-// a context of the same name gets the later actions, replacing those of the same id (a mod adds a
-// button to the game's "foot"), unless it says "replace": true.
+// jump); "toggle" makes a tap hold it until the next tap; "wide" makes it a pill for a wide icon;
+// "stick": true makes a finger held on it push the left stick the way it slides (a quick select
+// ring). A context with "dpad": true shows the d-pad in the stick's place (menus). A set read later
+// adds to one read before: a context of the same name gets the later actions, replacing those of
+// the same id (a mod adds a button to the game's "foot"), unless it says "replace": true.
 
 #pragma once
 
@@ -56,7 +57,8 @@ struct TouchAction {
     TouchSide side = TouchSide::Arc;
     std::string when;  // a hint that must be up for it to show; empty: always
     bool toggle = false;
-    bool wide = false;  // a pill wider than high, for a wide icon
+    bool wide = false;   // a pill wider than high, for a wide icon
+    bool stick = false;  // while held, the finger's slide pushes the left stick
 
     bool operator==(const TouchAction&) const = default;
 };
@@ -70,6 +72,9 @@ public:
     // The actions of `context`, its "extends" chain first; empty for an unknown name.
     std::vector<TouchAction> actions(std::string_view context) const;
 
+    // Whether `context` (or one it extends) shows the d-pad in the stick's place.
+    bool dpad(std::string_view context) const;
+
     bool has(std::string_view context) const { return m_contexts.contains(context); }
 
     void clear() { m_contexts.clear(); }
@@ -78,7 +83,11 @@ private:
     struct Context {
         std::string extends;
         std::vector<TouchAction> actions;
+        bool dpad = false;
     };
+
+    // `context` and the contexts it extends, nearest first.
+    std::vector<const Context*> chain(std::string_view context) const;
 
     std::map<std::string, Context, std::less<>> m_contexts;
 };

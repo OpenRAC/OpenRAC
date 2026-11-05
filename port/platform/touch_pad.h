@@ -103,6 +103,7 @@ struct TouchControl {
     std::uint16_t buttons = 0;
     std::uint16_t then = 0;
     bool toggle = false;
+    bool stick = false;  // a finger held on it pushes the left stick the way it slides
     std::string action;
     std::string icon;
 };
@@ -123,14 +124,20 @@ public:
 
     // The actions of the game's context now, and the hints up (an action with a `when` shows only
     // while its hint is among them). Taken in at once when no finger is on a button, else when the
-    // last such finger lifts. The same list again changes nothing.
-    void set_actions(std::vector<TouchAction> actions, std::vector<std::string> hints = {});
+    // last such finger lifts. The same list again changes nothing. `dpad` puts the d-pad in the
+    // stick's place (a menu's).
+    void set_actions(
+        std::vector<TouchAction> actions, std::vector<std::string> hints = {}, bool dpad = false
+    );
 
     // Whether set_actions() has a set waiting for a finger to lift.
     bool actions_waiting() const { return m_waiting; }
 
-    // A combination's second press (TouchAction::then) comes this long after its first.
+    // A combination's second press (TouchAction::then) comes this long after its first. A tap
+    // shorter than that still plays the whole combination: both presses are held until
+    // kThenDelayMs + kThenHoldMs after the finger landed.
     static constexpr std::uint64_t kThenDelayMs = 50;
+    static constexpr std::uint64_t kThenHoldMs = 50;
 
     // Where the screen cannot be seen or touched at the left and right edges, in window heights.
     void set_safe_area(float left, float right);
@@ -225,7 +232,8 @@ private:
         None,
         Stick,
         Look,
-        Drag
+        Drag,
+        Steer  // holds a "stick" action wherever it slides (TouchControl::stick)
     };
 
     struct Finger {
@@ -233,9 +241,9 @@ private:
         float x = 0.0f;
         float y = 0.0f;
         Role role = Role::None;
-        int stick = -1;  // Role::Stick: the index of the stick control it holds
-        // Role::Look: the invisible stick's centre. Role::Drag: where it landed, and the group's
-        // offset then.
+        int stick = -1;  // Role::Stick, Role::Steer: the index of the control it holds
+        // Role::Look: the invisible stick's centre. Role::Drag, Role::Steer: where it landed (and
+        // the group's offset then).
         float from_x = 0.0f;
         float from_y = 0.0f;
         TouchGroup group = TouchGroup::Stick;
@@ -275,6 +283,8 @@ private:
     void rebuild();
     void classic_controls();
     void arc_controls();
+    // Whether combination `index`, tapped and let go, still plays its presses.
+    bool combo_running(std::size_t index) const;
     // Whether a finger holds a button (not the stick, the camera or a drag).
     bool button_held() const;
     // Takes in the waiting set when no finger holds a button.
@@ -323,6 +333,8 @@ private:
     std::vector<std::string> m_hints;
     std::vector<TouchAction> m_next_actions;
     std::vector<std::string> m_next_hints;
+    bool m_dpad = false;
+    bool m_next_dpad = false;
     bool m_waiting = false;
     // The actions a tap has turned on (TouchAction::toggle), by id.
     std::vector<std::string> m_toggled;

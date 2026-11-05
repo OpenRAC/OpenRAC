@@ -92,6 +92,7 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
     a.when = v["when"].string();
     a.toggle = v["toggle"].boolean();
     a.wide = v["wide"].boolean();
+    a.stick = v["stick"].boolean();
     return true;
 }
 
@@ -136,6 +137,7 @@ bool TouchActionSets::read(std::string_view text, std::string_view source, std::
     for (const auto& [name, v] : doc["contexts"].members()) {
         Context c;
         c.extends = v["extends"].string();
+        c.dpad = v["dpad"].boolean();
         for (const json::Value& item : v["actions"].items()) {
             TouchAction a;
             if (!read_action(item, a, error)) {
@@ -154,6 +156,7 @@ bool TouchActionSets::read(std::string_view text, std::string_view source, std::
             continue;
         }
         merge(old->second.actions, c.actions);
+        old->second.dpad = old->second.dpad || c.dpad;
         if (!c.extends.empty()) {
             old->second.extends = c.extends;
         }
@@ -161,8 +164,10 @@ bool TouchActionSets::read(std::string_view text, std::string_view source, std::
     return true;
 }
 
-std::vector<TouchAction> TouchActionSets::actions(std::string_view context) const {
-    // The chain from the farthest base to `context`, each once (a loop ends where it repeats).
+std::vector<const TouchActionSets::Context*> TouchActionSets::chain(
+    std::string_view context
+) const {
+    // From `context` to its farthest base, each once (a loop ends where it repeats).
     std::vector<const Context*> chain;
     std::set<std::string, std::less<>> seen;
     std::string_view name = context;
@@ -175,6 +180,16 @@ std::vector<TouchAction> TouchActionSets::actions(std::string_view context) cons
         chain.push_back(&it->second);
         name = it->second.extends;
     }
+    return chain;
+}
+
+bool TouchActionSets::dpad(std::string_view context) const {
+    const auto contexts = chain(context);
+    return std::any_of(contexts.begin(), contexts.end(), [](const Context* c) { return c->dpad; });
+}
+
+std::vector<TouchAction> TouchActionSets::actions(std::string_view context) const {
+    const std::vector<const Context*> chain = this->chain(context);
     std::vector<TouchAction> out;
     for (auto it = chain.rbegin(); it != chain.rend(); ++it) {
         merge(out, (*it)->actions);

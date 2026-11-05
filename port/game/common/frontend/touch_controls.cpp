@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -182,14 +183,17 @@ void update(platform::TouchPad& touch, int style) {
             up.push_back(h.name);
         }
     }
-    std::vector<platform::TouchAction> actions = s.sets.actions(s.shown);
+    std::string_view shown = s.shown;
+    std::vector<platform::TouchAction> actions = s.sets.actions(shown);
     if (actions.empty()) {
-        actions = s.sets.actions("default");
+        shown = "default";
+        actions = s.sets.actions(shown);
     }
+    const bool dpad = s.sets.dpad(shown);
     // No set for it (a game that reports none): the DualShock's buttons.
     const bool arc = style == 0 && !actions.empty();
     touch.set_style(arc ? platform::TouchStyle::Arc : platform::TouchStyle::Classic);
-    touch.set_actions(std::move(actions), std::move(up));
+    touch.set_actions(std::move(actions), std::move(up), dpad);
 }
 
 }  // namespace openrac::frontend::touch_controls
