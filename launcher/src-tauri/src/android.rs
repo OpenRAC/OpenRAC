@@ -218,6 +218,7 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
 
 /// A small file the player picks (a mod page's preset): its bytes, None when they backed out.
 /// Refused past `most` bytes, before more than that is read; an empty file is refused too.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub async fn pick_small<R: Runtime>(app: AppHandle<R>, most: u64) -> Result<Option<Vec<u8>>, String> {
     #[cfg(target_os = "android")]
     {
