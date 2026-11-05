@@ -2,6 +2,7 @@
 # Embree belongs to the offline tool only; never link it into the game.
 option(OPENRAC_PROBE_BAKER "Build the offline Embree 4 probe baker" OFF)
 if(OPENRAC_PROBE_BAKER)
+  get_property(tests_before_probe_bake DIRECTORY PROPERTY TESTS)
   find_package(embree 4 CONFIG REQUIRED)
   find_package(Threads REQUIRED)
   add_library(openrac_probe_bake STATIC
@@ -66,4 +67,7 @@ if(OPENRAC_PROBE_BAKER)
       probe_visibility probe_lighting probe_mis interior_inference interior_lights PROPERTIES
       ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:embree>")
   endif()
+  get_property(probe_bake_tests DIRECTORY PROPERTY TESTS)
+  list(REMOVE_ITEM probe_bake_tests ${tests_before_probe_bake})
+  set_property(TEST ${probe_bake_tests} APPEND PROPERTY LABELS baker)
 endif()
