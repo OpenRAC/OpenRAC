@@ -527,7 +527,17 @@
                     >
                   {/if}
                   {#if mod.kind === "tool"}
-                    <span class="no-switch" aria-hidden="true"></span>
+                    <!-- A tool can't be off: its switch shows on, greyed, with why. -->
+                    <span class="always" title={T.VIEW.toolAlwaysOn}
+                      ><input
+                        type="checkbox"
+                        role="switch"
+                        class="switch"
+                        aria-label={`${mod.name}: ${T.VIEW.toolAlwaysOn}`}
+                        checked
+                        disabled
+                      /></span
+                    >
                   {:else}
                     <input
                       type="checkbox"
@@ -747,10 +757,10 @@
     border-top: 0;
   }
 
-  /* A mod that is only a page in the launcher: nothing to switch on, its name where the others' are. */
-  .no-switch {
+  /* A mod that is only a page in the launcher: its switch on and greyed, with why on hover. */
+  .always {
     flex: none;
-    width: 42px;
+    display: inline-flex;
   }
 
   .mod > input.switch:focus-visible {
