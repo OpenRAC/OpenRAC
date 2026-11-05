@@ -583,10 +583,74 @@ std::vector<std::uint8_t> draw_cull_cases(
     return target.read_rgba();
 }
 
-// Tests that cull and front face toggled between draws in one pass draw the same pixels with the
-// fixed state as dynamic state as with it baked into each pipeline, and the pixels each case's
-// winding and culling give.
-void test_cull_and_front_face_toggled_in_one_pass() {
+std::vector<std::uint8_t> draw_depth_stencil_cases(
+    const renderer::FrameBuffer& target, const renderer::Shader& shader, unsigned vao
+) {
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    glBindVertexArray(vao);
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glStencilMask(0xff);
+    glClearDepth(1.0);
+    glClearStencil(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    shader.use();
+
+    glViewport(0, 0, 1, 1);
+    glDepthFunc(GL_ALWAYS);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glViewport(1, 0, 1, 1);
+    glDepthFunc(GL_NEVER);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDepthFunc(GL_ALWAYS);
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 1, 0xff);
+    glViewport(2, 0, 1, 1);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // Write stencil without colour, then require the written value to draw white.
+    glViewport(3, 0, 1, 1);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glStencilFunc(GL_ALWAYS, 1, 0xff);
+    glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_INCR_WRAP);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilFunc(GL_EQUAL, 1, 0xff);
+    glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // A masked depth write must leave the cleared depth, so equality fails.
+    glViewport(4, 0, 1, 1);
+    glDisable(GL_STENCIL_TEST);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDepthMask(GL_FALSE);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthFunc(GL_EQUAL);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+    glDisable(GL_DEPTH_TEST);
+    return target.read_rgba();
+}
+
+void check_fixed_state_pixels(
+    const std::vector<std::uint8_t>& dynamic,
+    const std::vector<std::uint8_t>& baked,
+    const std::array<bool, 5>& drawn
+) {
+    CHECK(dynamic == baked);
+    constexpr std::size_t kChannels = 4;
+    CHECK(dynamic.size() == drawn.size() * kChannels);
+    for (std::size_t n = 0; n < drawn.size() && dynamic.size() == drawn.size() * kChannels; ++n) {
+        CHECK((dynamic[n * kChannels] == 255) == drawn[n]);
+    }
+}
+
+// Compare baked and dynamic cull, depth and stencil state across draws in one pass.
+void test_fixed_state_toggled_in_one_pass() {
     renderer::Shader shader;
     std::string error;
     CHECK(shader.build(
@@ -611,19 +675,25 @@ void main() {
     glGenVertexArrays(1, &vao);
     namespace render_opt = renderer::render_opt;
     const bool began = render_opt::enabled(render_opt::Opt::VkExtendedDynamicState);
+    const bool libraries = render_opt::enabled(render_opt::Opt::VkPipelineLibrary);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, false);
+    const auto before = vkgl::submission_counters().pipelines_created;
     render_opt::set(render_opt::Opt::VkExtendedDynamicState, true);
     const std::vector<std::uint8_t> dynamic = draw_cull_cases(target, shader, vao);
+    const auto dynamic_depth = draw_depth_stencil_cases(target, shader, vao);
+    const auto middle = vkgl::submission_counters().pipelines_created;
     render_opt::set(render_opt::Opt::VkExtendedDynamicState, false);
     const std::vector<std::uint8_t> baked = draw_cull_cases(target, shader, vao);
+    const auto baked_depth = draw_depth_stencil_cases(target, shader, vao);
+    const auto after = vkgl::submission_counters().pipelines_created;
     render_opt::set(render_opt::Opt::VkExtendedDynamicState, began);
-    constexpr std::size_t kChannels = 4;
-    constexpr std::array<bool, 5> kDrawn = {true, true, false, false, true};
-    CHECK(dynamic == baked);
-    CHECK(dynamic.size() == kDrawn.size() * kChannels);
-
-    // Each pixel white where its case draws and black where it culls.
-    for (std::size_t n = 0; n < kDrawn.size() && dynamic.size() == kDrawn.size() * kChannels; ++n) {
-        CHECK((dynamic[n * kChannels] == 255) == kDrawn[n]);
+    render_opt::set(render_opt::Opt::VkPipelineLibrary, libraries);
+    check_fixed_state_pixels(dynamic, baked, {true, true, false, false, true});
+    check_fixed_state_pixels(dynamic_depth, baked_depth, {true, false, false, true, false});
+    CHECK(middle > before);
+    if (vkgl::extended_dynamic_state_supported()) {
+        // The baked path creates distinct pipelines for state that the dynamic draws share.
+        CHECK(after - middle > middle - before);
     }
 
     glDeleteVertexArrays(1, &vao);
@@ -1097,7 +1167,7 @@ void main() {
     glDeleteVertexArrays(1, &vao);
     texel_buffer_fallbacks();
     test_state_bounces();
-    test_cull_and_front_face_toggled_in_one_pass();
+    test_fixed_state_toggled_in_one_pass();
     test_a_deleted_texture_s_set_is_never_drawn_again();
     return test::result();
 }
