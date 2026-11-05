@@ -216,6 +216,37 @@ pub async fn pick_zip<R: Runtime>(app: AppHandle<R>) -> Result<Option<PathBuf>, 
     }
 }
 
+/// A small file the player picks (a mod page's preset): its bytes, None when they backed out.
+/// Refused past `most` bytes, before more than that is read; an empty file is refused too.
+pub async fn pick_small<R: Runtime>(app: AppHandle<R>, most: u64) -> Result<Option<Vec<u8>>, String> {
+    #[cfg(target_os = "android")]
+    {
+        use std::io::Read;
+        #[derive(Deserialize)]
+        struct Picked {
+            fd: Option<i32>,
+        }
+        let picked: Picked = kotlin(&app, "pickDisc", ()).await?;
+        let Some(fd) = picked.fd else { return Ok(None) };
+        // The descriptor Kotlin detached is this process's to close: File owns it from here.
+        let file = unsafe { <std::fs::File as std::os::fd::FromRawFd>::from_raw_fd(fd) };
+        let mut bytes = Vec::new();
+        file.take(most + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > most {
+            return Err(format!("the file is larger than {} KB", most >> 10));
+        }
+        if bytes.is_empty() {
+            return Err("the file is empty".into());
+        }
+        Ok(Some(bytes))
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, most);
+        Err(ANDROID_ONLY.into())
+    }
+}
+
 /// The player's GPU driver packages, the one chosen and what the device is (OpenracPlugin.kt).
 #[tauri::command]
 pub async fn gpu_drivers<R: Runtime>(app: AppHandle<R>) -> Result<serde_json::Value, String> {

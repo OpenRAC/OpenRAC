@@ -1,11 +1,7 @@
 <script lang="ts">
-  // A mod's own page (core/src/mod_tools.rs), opened with its Open button (ModPage.svelte): the way
-  // back, and the page in a frame of its own, served from the mod's folder (src-tauri/src/mod_tool.rs).
-  // The frame is another site to the launcher: it cannot reach the launcher's page or its commands,
-  // only send the messages lib/modTool.ts answers. While it is shown, the controller's buttons go to
-  // the page as messages ({ openrac: 1, event: "pad", button, down }), and the page moves its own
-  // focus; B is the page's too, and its "close" call (or Back here, or Escape outside the frame)
-  // returns to the mod's page.
+  // A mod's own page (core/src/mod_tools.rs) in a frame, with a way back. The frame is another
+  // site: it can only send the messages lib/modTool.ts answers. Controller buttons go to the page as
+  // { openrac: 1, event: "pad", button, down }. The page's "close" call, Back or Escape return here.
   import { onDestroy, onMount } from "svelte";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { inTauri, onAndroid, type PluginView } from "$lib/api";
@@ -66,11 +62,16 @@
     }
     const answer = await reply(data, info, backend);
     if (!answer) return;
-    if (answer.message.ok === false) failure = T.MOD_TOOL.failed(String(answer.message.error));
+    // The last call's failure, gone once a call works again.
+    failure = answer.message.ok === false ? T.MOD_TOOL.failed(String(answer.message.error)) : null;
     post(answer.message, answer.transfer);
   }
 
+  let root = $state<HTMLDivElement | null>(null);
+
   onMount(() => {
+    // A phone's screen is short: the page's title scrolls away, the crumbs and the frame fill it.
+    if (onAndroid) root?.scrollIntoView({ block: "start" });
     window.addEventListener("message", onMessage);
     routePad((button, down) => {
       post({ openrac: PROTOCOL, event: "pad", button, down });
@@ -94,7 +95,7 @@
   });
 </script>
 
-<div class="mod-tool">
+<div class="mod-tool" class:android={onAndroid} bind:this={root}>
   <nav class="crumbs" aria-label={T.MOD_PAGE.crumbsLabel}>
     <button class="back" aria-label={T.MOD_TOOL.backTo(mod.name)} title={T.MOD_TOOL.backTo(mod.name)} onclick={onclose}
       ><Icon name="arrow" size={18} /></button
@@ -187,10 +188,16 @@
   /* The page takes what the window has left under the crumbs. */
   .page {
     width: 100%;
-    height: calc(100vh - 180px);
+    height: calc(100dvh - 180px);
     min-height: 420px;
     border: 0;
     border-radius: 12px;
     background: var(--panel);
+  }
+
+  /* Android: the crumbs (40px) and the gap above the frame; the rest of the screen is the page's. */
+  .android .page {
+    height: calc(100dvh - 72px);
+    min-height: 240px;
   }
 </style>

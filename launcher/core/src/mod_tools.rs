@@ -1,19 +1,14 @@
-//! A mod's own page in the launcher (docs/port/MODS.md, section 9, "A mod's page"): a mod whose
-//! manifest names `"tool": {"page": "ui/index.html"}` gets an Open button on its page, which shows
-//! that HTML file in a frame of its own (src/components/ModTool.svelte). The page is the mod's
-//! code, so it is kept apart from the launcher: it is served from the mod's folder under its own
-//! address (the `openrac-mod` scheme, src-tauri), with a content policy that lets it load only its
-//! own files and reach no network, and it cannot call the launcher's commands. It asks the launcher
-//! for a few things through messages (src/lib/modTool.ts), each one answered here:
+//! A mod's own page in the launcher (docs/port/MODS.md, "A mod's page").
 //!
-//! - the game's files it may read: the levels the launcher read from the disc
-//!   (`assets/port/<game>/<version>`, or the install folder's copy) and the textures the game saved
-//!   (`texture_dumps/<id>`, texture_packs.rs), listed and read, never written;
-//! - a small store of its own (`<data home>/mod-tools/<id>/<key>.json`), for its settings and
-//!   presets;
-//! - files the player saves or opens through the system's dialogs (src-tauri).
+//! A mod with `"tool": {"page": "ui/index.html"}` in its manifest gets an Open button. The page runs
+//! in its own frame (src/components/ModTool.svelte), on its own address, so it cannot reach the
+//! launcher. It may only:
 //!
-//! Every path the page sends is relative, checked to stay inside its folder once links are resolved.
+//! - list and read the game's levels and dumped textures (never write them);
+//! - keep small JSON values in `<data home>/mod-tools/<id>/<key>.json`;
+//! - save or open files through the system's dialogs (src-tauri).
+//!
+//! Every path from the page must be relative and stay inside its folder, links included.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -172,7 +167,10 @@ pub fn read_range(root: &Path, rel: &str, start: u64, length: Option<u64>) -> Re
         return Err(format!("{rel} is not a file a mod's page may read"));
     }
     let size = path.metadata().map_err(|e| e.to_string())?.len();
-    let wanted = length.unwrap_or(size.saturating_sub(start)).min(size.saturating_sub(start));
+    let wanted = length.unwrap_or(u64::MAX).min(size.saturating_sub(start));
+    if wanted == 0 {
+        return Ok(Vec::new());
+    }
     if wanted > READ_MAX {
         return Err(format!("{rel} is larger than {} MB", READ_MAX >> 20));
     }
@@ -248,7 +246,14 @@ pub fn save_name(name: &str, extension: &str, allowed: &[&str]) -> Result<String
         .take(80)
         .collect();
     let stem = stem.trim_matches(|c: char| c == '.' || c == ' ');
-    Ok(format!("{}.{extension}", if stem.is_empty() { "file" } else { stem }))
+    let stem = if stem.is_empty() { "file".to_string() } else { stem.to_string() };
+    // Windows keeps these names for devices, with any extension (CON.zip cannot be made).
+    let device = stem.split('.').next().unwrap_or_default().trim_end().to_ascii_uppercase();
+    let reserved = matches!(device.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (device.len() == 4
+            && (device.starts_with("COM") || device.starts_with("LPT"))
+            && device.as_bytes()[3].is_ascii_digit());
+    Ok(format!("{}{stem}.{extension}", if reserved { "_" } else { "" }))
 }
 
 /// The kinds of file a page may save through the dialog: a texture pack and its own settings.
@@ -350,6 +355,40 @@ mod tests {
         assert_eq!(read(&root, "level_00/textures/moby_0001.png").unwrap(), b"png");
         assert!(read(&root, "level_00/notes.exe").is_err());
         assert!(list(&root.join("absent")).unwrap().is_empty());
+        // A folder is not read as a file, and a file is not listed as a folder.
+        assert!(read(&root, "level_00/textures").is_err());
+        assert!(list(&root.join("level_00/manifest.json")).unwrap().is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn listing_never_follows_links() {
+        let root = temp("list-links");
+        let outside = temp("list-links-outside");
+        std::fs::write(outside.join("secret.png"), b"s").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("dir")).unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.png"), root.join("file.png")).unwrap();
+        // A link inside that names a file that is not a picture is not read either.
+        std::fs::write(root.join("tool.exe"), b"x").unwrap();
+        std::os::unix::fs::symlink(root.join("tool.exe"), root.join("tool.png")).unwrap();
+        assert!(list(&root).unwrap().is_empty());
+        assert!(read(&root, "file.png").is_err());
+        assert!(read(&root, "tool.png").is_err());
+    }
+
+    #[test]
+    fn store_keys_and_broken_values() {
+        let home = temp("store-keys");
+        for bad in ["", "A", "a/b", "a.b", "..", &"a".repeat(65)] {
+            assert!(store_get(&home, "nanotech-upscaler", bad).is_err(), "{bad:?} was let through");
+        }
+        assert!(store_set(&home, "nanotech-upscaler", &"a".repeat(64), &Value::Bool(true)).is_ok());
+        // A value broken on disk is an error the page sees, not a crash or a silent default.
+        let dir = store_dir(&home, "nanotech-upscaler").unwrap();
+        std::fs::write(dir.join("broken.json"), b"{not json").unwrap();
+        assert!(store_get(&home, "nanotech-upscaler", "broken").is_err());
+        // Removing a value never stored is fine.
+        assert!(store_set(&home, "nanotech-upscaler", "never", &Value::Null).is_ok());
     }
 
     #[test]
@@ -373,6 +412,13 @@ mod tests {
         assert_eq!(save_name("../../a/b", "json", SAVE_KINDS).unwrap(), "_.._a_b.json");
         assert_eq!(save_name("", "zip", SAVE_KINDS).unwrap(), "file.zip");
         assert!(save_name("x", "exe", SAVE_KINDS).is_err());
+        assert_eq!(save_name("...", "zip", SAVE_KINDS).unwrap(), "file.zip");
+        assert_eq!(save_name("pack.zip.zip", "zip", SAVE_KINDS).unwrap(), "pack.zip");
+        assert_eq!(save_name("con", "json", SAVE_KINDS).unwrap(), "_con.json");
+        assert_eq!(save_name("LPT1.backup", "zip", SAVE_KINDS).unwrap(), "_LPT1.backup.zip");
+        assert_eq!(save_name("console", "zip", SAVE_KINDS).unwrap(), "console.zip");
+        assert_eq!(save_name("Paczka żółw", "zip", SAVE_KINDS).unwrap(), "Paczka żółw.zip");
+        assert_eq!(save_name(&"a".repeat(300), "zip", SAVE_KINDS).unwrap().len(), 84);
     }
 
     #[test]
@@ -384,6 +430,30 @@ mod tests {
         assert_eq!(read_range(&dir, "a.glb", 12, Some(100)).unwrap(), b"89");
         assert_eq!(read_range(&dir, "a.glb", 99, Some(4)).unwrap(), b"");
         assert!(read_range(&dir, "../a.glb", 0, Some(4)).is_err());
+        assert_eq!(read_range(&dir, "a.glb", 0, Some(0)).unwrap(), b"");
+        assert_eq!(read_range(&dir, "a.glb", u64::MAX, None).unwrap(), b"");
+        assert_eq!(read_range(&dir, "a.glb", 0, Some(u64::MAX)).unwrap(), b"glTF0123456789");
+    }
+
+    #[test]
+    fn page_files_only_of_mods_with_a_page() {
+        let dir = temp("page");
+        std::fs::create_dir_all(dir.join("upscaler/ui")).unwrap();
+        std::fs::write(dir.join("upscaler/ui/index.html"), b"<p>").unwrap();
+        let manifest = |extra: &str| {
+            format!(
+                r#"{{"format": 2, "id": "upscaler", "name": "Upscaler", "version": "1.0.0", "author": "a", "games": {{"rac1": ["pal"]}}{extra}}}"#
+            )
+        };
+        std::fs::write(dir.join("upscaler/openrac-mod.json"), manifest("")).unwrap();
+        assert!(page_file(&dir, "upscaler", "ui/index.html").is_err(), "a mod without a page serves nothing");
+        std::fs::write(dir.join("upscaler/openrac-mod.json"), manifest(r#", "tool": {"page": "ui/index.html"}"#))
+            .unwrap();
+        assert_eq!(page_file(&dir, "upscaler", "ui/index.html").map(|_| ()), Ok(()));
+        assert!(page_file(&dir, "upscaler", "ui").is_err(), "a folder is not served");
+        assert!(page_file(&dir, "upscaler", "../upscaler/ui/index.html").is_err());
+        assert!(page_file(&dir, "../upscaler", "ui/index.html").is_err());
+        assert!(page_file(&dir, "absent", "ui/index.html").is_err());
     }
 
     #[test]
@@ -403,6 +473,12 @@ mod tests {
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "an aborted save leaves nothing");
         assert!(PartSave::create(&dir.join("empty.zip")).unwrap().finish().is_err());
         assert!(!dir.join("empty.zip").exists() && !dir.join("empty.zip.part").exists());
+        // Saving over a file the player picked replaces it; a folder that is gone is an error.
+        let mut again = PartSave::create(&dest).unwrap();
+        again.write(b"new").unwrap();
+        again.finish().unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"new");
+        assert!(PartSave::create(&dir.join("gone/pack.zip")).is_err());
     }
 
     #[test]

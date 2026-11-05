@@ -136,15 +136,17 @@ describe("a mod page's messages", () => {
       info,
       b,
     );
-    await reply(
-      { openrac: 1, id: 2, call: "read", args: { root: "levels", path: "a.glb", start: -1, length: "x" } },
-      info,
-      b,
-    );
+    await reply({ openrac: 1, id: 2, call: "read", args: { root: "levels", path: "a.glb" } }, info, b);
     expect(b.asked).toEqual([
       ["read", "rac1", "pal", "levels", "a.glb", 0, 20],
       ["read", "rac1", "pal", "levels", "a.glb", undefined, undefined],
     ]);
+    // A part that is not whole numbers from 0 is refused, never read as the whole file.
+    for (const args of [{ start: -1 }, { length: "x" }, { start: 1.5 }, { length: Number.MAX_VALUE }]) {
+      expect(
+        readRequest({ openrac: 1, id: 3, call: "read", args: { root: "levels", path: "a.glb", ...args } }),
+      ).toHaveProperty("error");
+    }
   });
 
   it("says why a call failed", async () => {
@@ -152,6 +154,57 @@ describe("a mod page's messages", () => {
     b.read = () => Promise.reject(new Error("level_00/x.png is not there"));
     const failed = await reply({ openrac: 1, id: 12, call: "read", args: { root: "levels", path: "x" } }, info, b);
     expect(failed?.message).toEqual({ openrac: 1, id: 12, ok: false, error: "level_00/x.png is not there" });
+  });
+
+  it("stores only plain JSON, at most 1 MB", () => {
+    const set = (value: unknown) => readRequest({ openrac: 1, id: 1, call: "storeSet", args: { key: "a", value } });
+    expect(set({ when: new Date(0) })).toEqual({
+      id: 1,
+      call: "storeSet",
+      key: "a",
+      value: { when: "1970-01-01T00:00:00.000Z" },
+    });
+    expect(set(undefined)).toEqual({ id: 1, call: "storeSet", key: "a", value: null });
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    expect(set(cycle)).toHaveProperty("error");
+    expect(set(1n)).toHaveProperty("error");
+    expect(set("x".repeat(1 << 20))).toHaveProperty("error");
+    for (const key of ["", "A", "a.b", "x".repeat(65), 5]) {
+      expect(readRequest({ openrac: 1, id: 2, call: "storeGet", args: { key } })).toHaveProperty("error");
+    }
+  });
+
+  it("writes only to files the page started", async () => {
+    const b = backend();
+    const tracked = trackSaves(b);
+    const call = (id: number, call: string, args: Record<string, unknown>) =>
+      reply({ openrac: 1, id, call, args }, info, tracked).then((r) => r?.message);
+    expect(await call(1, "saveWrite", { token: 99, bytes: new ArrayBuffer(1) })).toMatchObject({ ok: false });
+    expect(await call(2, "saveEnd", { token: 99, keep: true })).toMatchObject({ ok: false });
+    await call(3, "saveStart", { name: "Pack", extension: "zip" });
+    // A part the launcher failed to write drops the file there: it is no longer the page's.
+    b.saveWrite = () => Promise.reject(new Error("the disk is full"));
+    expect(await call(4, "saveWrite", { token: 7, bytes: new ArrayBuffer(1) })).toMatchObject({
+      ok: false,
+      error: "the disk is full",
+    });
+    expect(await call(5, "saveEnd", { token: 7, keep: true })).toMatchObject({ ok: false });
+    expect(b.asked.filter((a) => a[0] === "saveEnd")).toEqual([]);
+  });
+
+  it("a player who backs out of saving gets no file to write", async () => {
+    const b = backend();
+    b.saveStart = () => Promise.resolve(0);
+    const tracked = trackSaves(b);
+    const started = await reply(
+      { openrac: 1, id: 1, call: "saveStart", args: { name: "P", extension: "zip" } },
+      info,
+      tracked,
+    );
+    expect(started?.message.value).toBe(0);
+    tracked.dropUnfinished();
+    expect(b.asked).toEqual([]);
   });
 
   it("an open the player backed out of is null", async () => {

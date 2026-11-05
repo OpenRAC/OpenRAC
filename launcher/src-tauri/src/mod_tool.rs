@@ -1,6 +1,6 @@
 //! A mod's own page (core/src/mod_tools.rs): the `openrac-mod` scheme that serves its files, and
-//! the commands its messages are answered with (src/lib/modTool.ts). The page itself never calls
-//! these: the launcher's own window does, for it, after checking what it asked.
+//! the commands behind its messages (src/lib/modTool.ts). Only the launcher's window calls these,
+//! after it has checked the page's message.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -35,16 +35,21 @@ fn decode(segment: &str) -> Option<String> {
     String::from_utf8(out).ok()
 }
 
+/// The game, the mod's id and the file's path a request of the scheme names
+/// (`/<game>/<mod id>/<path>`, each part escaped); None when it names no file.
+fn parts(path: &str) -> Option<(String, String, String)> {
+    let parts: Vec<String> = path.trim_start_matches('/').split('/').map(decode).collect::<Option<_>>()?;
+    let [game, id, rest @ ..] = parts.as_slice() else { return None };
+    let plain = !game.is_empty() && game.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    let file = rest.join("/");
+    (plain && !file.is_empty()).then(|| (game.clone(), id.clone(), file))
+}
+
 /// The file a request of the scheme names, from the install folder's mods.
 fn requested<R: Runtime>(app: &AppHandle<R>, path: &str) -> Result<PathBuf, String> {
-    let parts: Option<Vec<String>> = path.trim_start_matches('/').split('/').map(decode).collect();
-    let parts = parts.ok_or("a broken address")?;
-    let [game, id, rest @ ..] = parts.as_slice() else { return Err("no mod in the address".into()) };
-    if rest.is_empty() || !game.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-        return Err("no file in the address".into());
-    }
+    let (game, id, rest) = parts(path).ok_or("no mod's file in the address")?;
     let install = app.state::<AppState>().config.lock().unwrap().install_dir.clone().ok_or("no install folder")?;
-    mod_tools::page_file(&plugins::dir(&install, game), id, &rest.join("/"))
+    mod_tools::page_file(&plugins::dir(&install, &game), &id, &rest)
 }
 
 /// The answer to a request of the scheme: the file, with the content policy of a mod's page.
@@ -291,27 +296,33 @@ pub(crate) async fn mod_tool_open(app: AppHandle, extension: String) -> Result<t
         return Err(format!("a mod's page cannot open .{extension} files"));
     }
     #[cfg(target_os = "android")]
-    let picked: Option<PathBuf> = crate::android::pick_zip(app).await?;
-    #[cfg(not(target_os = "android"))]
-    let picked: Option<PathBuf> = {
-        use tauri_plugin_dialog::DialogExt;
-        let dialog = app.dialog().file().add_filter(&extension, &[extension.as_str()]);
-        let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
-            .await
-            .map_err(|e| e.to_string())?;
-        match picked {
-            Some(p) => Some(p.into_path().map_err(|e| e.to_string())?),
-            None => None,
-        }
-    };
-    let Some(path) = picked else { return Ok(tauri::ipc::Response::new(Vec::new())) };
-    let bytes = read_small(&path)?;
-    if bytes.is_empty() {
-        return Err("the file is empty".into());
+    {
+        let bytes = crate::android::pick_small(app, mod_tools::STORE_MAX as u64).await?.unwrap_or_default();
+        Ok(tauri::ipc::Response::new(bytes))
     }
-    Ok(tauri::ipc::Response::new(bytes))
+    #[cfg(not(target_os = "android"))]
+    {
+        let picked: Option<PathBuf> = {
+            use tauri_plugin_dialog::DialogExt;
+            let dialog = app.dialog().file().add_filter(&extension, &[extension.as_str()]);
+            let picked = tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+                .await
+                .map_err(|e| e.to_string())?;
+            match picked {
+                Some(p) => Some(p.into_path().map_err(|e| e.to_string())?),
+                None => None,
+            }
+        };
+        let Some(path) = picked else { return Ok(tauri::ipc::Response::new(Vec::new())) };
+        let bytes = read_small(&path)?;
+        if bytes.is_empty() {
+            return Err("the file is empty".into());
+        }
+        Ok(tauri::ipc::Response::new(bytes))
+    }
 }
 
+#[cfg_attr(target_os = "android", allow(dead_code))]
 fn read_small(path: &Path) -> Result<Vec<u8>, String> {
     let size = path.metadata().map_err(|e| e.to_string())?.len();
     if size > mod_tools::STORE_MAX as u64 {
@@ -322,7 +333,27 @@ fn read_small(path: &Path) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::decode;
+    use super::{decode, parts};
+
+    #[test]
+    fn addresses_name_a_file() {
+        let got = parts("/rac1/nanotech-upscaler/ui/index.html");
+        assert_eq!(got, Some(("rac1".into(), "nanotech-upscaler".into(), "ui/index.html".into())));
+        assert_eq!(parts("/rac1/upscaler/ui%2Fmain.js").map(|p| p.2), Some("ui/main.js".into()));
+        for bad in [
+            "/",
+            "/rac1",
+            "/rac1/upscaler",
+            "/rac1/upscaler/",
+            "//upscaler/a.html",
+            "/ra%20c1/upscaler/a.html",
+            "/rac1/up/%zz",
+        ] {
+            assert_eq!(parts(bad), None, "{bad:?} was let through");
+        }
+        // `..` passes here as a name; mod_tools::page_file refuses it.
+        assert_eq!(parts("/rac1/upscaler/%2E%2E/x").map(|p| p.2), Some("../x".into()));
+    }
 
     #[test]
     fn segments_decode() {

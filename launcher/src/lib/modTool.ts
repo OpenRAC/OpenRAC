@@ -1,6 +1,5 @@
-// A mod's own page (core/src/mod_tools.rs): what it may ask the launcher, through messages from its
-// frame (ModTool.svelte), and the answers. The page is the mod's code: every message is checked here
-// before anything is done for it, and only these calls exist.
+// What a mod's page (core/src/mod_tools.rs) may ask the launcher, by messages from its frame
+// (ModTool.svelte). The page is the mod's code, so every message is checked here first.
 //
 // The page sends   { openrac: 1, id, call, args }
 // and gets back    { openrac: 1, id, ok: true, value }  or  { openrac: 1, id, ok: false, error }
@@ -17,6 +16,7 @@
 // | saveWrite | token, bytes                           | null (the parts in order)                     |
 // | saveEnd   | token, keep                            | the name it was saved under, "" if dropped    |
 // | open      | extension ("json")                     | the bytes the player picked, null if backed out |
+// | close     |                                        | (none: the launcher goes back to the mod)     |
 import { api, type ToolFile, type ToolRoot } from "./api";
 
 export const PROTOCOL = 1;
@@ -49,9 +49,24 @@ const KEY = /^[a-z0-9_-]{1,64}$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
 const count = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
-/** A read's part, when it asks for one. */
-function range(args: Record<string, unknown>): { start?: number; length?: number } {
+/** A read's part, when it asks for one; null when start or length is there but not a count. */
+function range(args: Record<string, unknown>): { start?: number; length?: number } | null {
+  const bad = (v: unknown) => v !== undefined && v !== null && !count(v);
+  if (bad(args.start) || bad(args.length)) return null;
   return { ...(count(args.start) && { start: args.start }), ...(count(args.length) && { length: args.length }) };
+}
+
+/** The most a stored value takes, as JSON (core/src/mod_tools.rs, STORE_MAX). */
+const STORE_MAX = 1 << 20;
+
+/** `value` as plain JSON (what the store keeps), or undefined when it is not JSON or too large. */
+function plainJson(value: unknown): unknown {
+  try {
+    const text = JSON.stringify(value ?? null) as string | undefined; // undefined for a function
+    return text !== undefined && text.length <= STORE_MAX ? JSON.parse(text) : undefined;
+  } catch {
+    return undefined; // a cycle, or a BigInt
+  }
 }
 const isToken = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0;
 const text = (v: unknown, most = 512): v is string => typeof v === "string" && v.length > 0 && v.length <= most;
@@ -70,17 +85,21 @@ export function readRequest(data: unknown): ToolRequest | { id: number; error: s
       return ROOTS.includes(args.root as string)
         ? { id, call: "list", root: args.root as ToolRoot }
         : refuse("root is levels or dump");
-    case "read":
+    case "read": {
       if (!ROOTS.includes(args.root as string)) return refuse("root is levels or dump");
-      return text(args.path, 1024)
-        ? { id, call: "read", root: args.root as ToolRoot, path: args.path, ...range(args) }
-        : refuse("no path");
+      if (!text(args.path, 1024)) return refuse("no path");
+      const part = range(args);
+      if (!part) return refuse("start and length are whole numbers from 0");
+      return { id, call: "read", root: args.root as ToolRoot, path: args.path, ...part };
+    }
     case "storeGet":
       return text(args.key) && KEY.test(args.key) ? { id, call: "storeGet", key: args.key } : refuse("a bad key");
-    case "storeSet":
-      return text(args.key) && KEY.test(args.key)
-        ? { id, call: "storeSet", key: args.key, value: args.value ?? null }
-        : refuse("a bad key");
+    case "storeSet": {
+      if (!text(args.key) || !KEY.test(args.key)) return refuse("a bad key");
+      const value = plainJson(args.value);
+      if (value === undefined) return refuse("the value is not JSON, or larger than 1 MB");
+      return { id, call: "storeSet", key: args.key, value };
+    }
     case "save":
       if (args.extension !== "zip" && args.extension !== "json") return refuse("extension is zip or json");
       if (!(args.bytes instanceof ArrayBuffer) || args.bytes.byteLength === 0) return refuse("no bytes to save");
@@ -139,9 +158,12 @@ export const launcherBackend: ToolBackend = {
 };
 
 /** A backend that remembers the files a page has not finished saving, so that closing the page
- *  drops them (nothing half-written is left). */
+ *  drops them (nothing half-written is left). A page writes only to the files it started. */
 export function trackSaves(backend: ToolBackend): ToolBackend & { dropUnfinished(): void } {
   const open = new Set<number>();
+  const mine = (token: number) => {
+    if (!open.has(token)) throw new Error("no such file being saved");
+  };
   return {
     ...backend,
     async saveStart(id, name, extension) {
@@ -149,7 +171,17 @@ export function trackSaves(backend: ToolBackend): ToolBackend & { dropUnfinished
       if (token) open.add(token);
       return token;
     },
-    saveEnd(token, keep) {
+    async saveWrite(token, bytes) {
+      mine(token);
+      try {
+        return await backend.saveWrite(token, bytes);
+      } catch (e) {
+        open.delete(token); // the launcher dropped it (src-tauri/src/mod_tool.rs)
+        throw e;
+      }
+    },
+    async saveEnd(token, keep) {
+      mine(token);
       open.delete(token);
       return backend.saveEnd(token, keep);
     },
