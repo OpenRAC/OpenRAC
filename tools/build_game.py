@@ -21,7 +21,9 @@ import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -80,6 +82,20 @@ def carried_repository(stamp: Path = STAMP) -> str:
     return REPOSITORY
 
 
+def without_top_folder(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo | None:
+    """A GitHub archive keeps everything in one folder, named after the commit."""
+    name = member.name.partition("/")[2]
+    return tarfile.data_filter(member.replace(name=name, deep=False), path) if name else None
+
+
+def use_the_systems_libraries() -> None:
+    """The compilers and git are the system's, and need its libraries. A launcher started from Steam
+    hands down Steam's, and with them the system's curl stopped on a symbol its libcurl lacked."""
+    if sys.platform.startswith("linux"):
+        for name in ("LD_LIBRARY_PATH", "LD_PRELOAD"):
+            os.environ.pop(name, None)
+
+
 def fetch_source(url: str, commit: str, out: Path) -> Path:
     """The source of COMMIT under OUT, downloaded unless the last run left it whole."""
     source = out / SOURCE
@@ -90,12 +106,14 @@ def fetch_source(url: str, commit: str, out: Path) -> Path:
     if source.exists():
         shutil.rmtree(source)
     source.mkdir(parents=True)
-    archive = "source.tar.gz"
+    archive = source / "source.tar.gz"
     print(f"downloading the source of {commit[:8]}", flush=True)
-    subprocess.run(["curl", "-sSfL", "-o", archive, url], cwd=source, check=True)
-    # From inside the folder: on Windows tar reads "D:\..." as a host named D.
-    subprocess.run(["tar", "-xzf", archive, "--strip-components=1"], cwd=source, check=True)
-    (source / archive).unlink()
+    # Python's own: not every Windows PC has curl and tar.
+    with urllib.request.urlopen(url, timeout=120) as response, archive.open("wb") as file:
+        shutil.copyfileobj(response, file)
+    with tarfile.open(archive) as tar:
+        tar.extractall(source, filter=without_top_folder)
+    archive.unlink()
     done.write_text(commit + "\n", encoding="utf-8")
     return source
 
@@ -149,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-url", help="where the source archive is, if not on GitHub")
     parser.add_argument("--preset", default=PRESET, help=f"the CMake preset; default {PRESET}")
     args = parser.parse_args(argv)
+    use_the_systems_libraries()
     if not args.disc.is_file():
         sys.exit(f"the disc image {args.disc} is not there")
     args.out.mkdir(parents=True, exist_ok=True)
@@ -168,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except FileNotFoundError as e:
-        sys.exit(f"{e.filename} was not found: it is needed to fetch the source")
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
+    except (OSError, tarfile.TarError) as e:
+        sys.exit(f"the build stopped: {e}")
