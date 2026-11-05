@@ -421,6 +421,8 @@ jobs:
   port-vulkan-enhanced-tests:
     name: Port / Enhanced Vulkan tests (${{ matrix.group }})
     needs: port-vulkan-enhanced-build
+    # On a push scope is skipped, which skips this job too unless it asks for the build alone.
+    if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
