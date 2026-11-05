@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -26,6 +28,9 @@ PRESET = "standalone"
 SOURCE = "src"
 DONE = ".openrac-source"
 PROGRAMS = "program"
+# The longest path a build makes under DIR, and the most Windows takes without long paths turned on.
+LONGEST_BUILD_PATH = 181
+WINDOWS_PATH_LIMIT = 259
 
 
 def carried_commit(stamp: Path = STAMP) -> str:
@@ -73,15 +78,31 @@ def copy_program(build: Path, game: str, out: Path) -> Path:
     sys.exit(f"the build made no {name} in {build}")
 
 
+def remove_tree(path: Path) -> None:
+    """Deletes what it can of PATH: the game is built by now, so what stays never stops it. Windows
+    refuses to delete a read-only file, and git makes its objects read-only (_deps/*-src/.git)."""
+    def writable_then_again(function, name, _error):
+        try:
+            os.chmod(name, stat.S_IWRITE)
+            function(name)
+        except OSError as e:
+            print(f"could not delete {name}: {e}", flush=True)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=writable_then_again)
+    else:
+        shutil.rmtree(path, onerror=writable_then_again)
+
+
 def clean_up(source: Path, out: Path) -> None:
     """After a build that worked: its source and build, and the builds of older launchers. Only
     under {data}/program, whose folders are all this script's."""
-    shutil.rmtree(source, ignore_errors=True)
+    remove_tree(source)
     if out.parent.name != PROGRAMS:
         return
     for other in out.parent.iterdir():
         if other.is_dir() and other != out:
-            shutil.rmtree(other, ignore_errors=True)
+            remove_tree(other)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -96,6 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(f"the disc image {args.disc} is not there")
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out.resolve()
+    if os.name == "nt" and len(str(out)) + LONGEST_BUILD_PATH > WINDOWS_PATH_LIMIT:
+        print(f"warning: {out} is long, and the build may stop with a path too long. If it does, turn on "
+              "long paths in Windows (LongPathsEnabled) and build again.", flush=True)
 
     commit = carried_commit()
     source = fetch_source(args.source_url or ARCHIVE.format(commit=commit), commit, out)
