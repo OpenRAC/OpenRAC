@@ -692,13 +692,15 @@ int main(int argc, char** argv) {
             log::info("enhanced rendering on (Vulkan only); probe bakes from {}",
                       g_options.probes.empty() ? std::string("nowhere") : g_options.probes.string());
         }
-        // A texture pack (docs/port/TEXTURE_PACKS.md): <data>/texture_packs/<game id>/, and
-        // OPENRAC_DUMP_TEXTURES=DIR writes every texture under the names a pack uses.
+        // A texture pack (docs/port/TEXTURE_PACKS.md): <data>/texture_packs/<game id>/, a mod like
+        // the others, so --no-mods leaves it out; OPENRAC_DUMP_TEXTURES=DIR writes every texture
+        // under the names a pack uses.
         {
             const auto dump = env::value(env::Var::DumpTextures);
             renderer::texture_pack::configure(
-                settings::get().texture_pack ? g_options.data / "texture_packs" / openrac_game.id
-                                             : fs::path{},
+                settings::get().texture_pack && !g_options.no_mods
+                    ? g_options.data / "texture_packs" / openrac_game.id
+                    : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
                 {texture_pack_load, texture_pack_save, texture_pack_load_gif},
                 texture_pack_level_name

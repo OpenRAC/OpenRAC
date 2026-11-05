@@ -18,7 +18,6 @@
   import Menu, { type MenuItem } from "$components/Menu.svelte";
   import ReportsBlock from "$components/ReportsBlock.svelte";
   import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
-  import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
   import { api, ask, onAndroid, pickMemoryCard, type ActionView, type ReportEntry } from "$lib/api";
   import {
     app,
@@ -413,10 +412,6 @@
             <SaveManagerBlock version={v} />
             {#if setUp && !onAndroid}<ReportsBlock game={v.game} program={choice ? programOf(v.key) : null} />{/if}
           </div>
-        {/if}
-        {#if portReady && setUp}
-          <!-- The player's own pictures for the game's (TexturePacksBlock.svelte). -->
-          <div in:fly|global={arrive(100)}><TexturePacksBlock version={v} /></div>
         {/if}
         {#if portReady}
           <!-- What the port does otherwise than the PS2 game; the game fixes switch back. Folded on

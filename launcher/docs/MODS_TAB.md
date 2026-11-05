@@ -11,24 +11,26 @@ only a contributor reads under developer tools (the last section).
 
 ## Where things are
 
-| Part                                                     | Component                                               | Shown when                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
-| The tab itself                                           | `components/Header.svelte`                              | every desktop launcher, installed or on a checkout; **not on Android**    |
-| The game list on the left                                | `pages/Mods.svelte` (`modState`) on `GamesFrame.svelte` | always                                                                    |
-| The head: the game's name, a lead line, Play with mods   | `pages/Mods.svelte`                                     | a game is picked; Play with mods when the level editor can open the game  |
-| The tabs: My mods, Level editor, Models and textures     | `pages/Mods.svelte`                                     | the level editor can open the game                                        |
-| The tab Audio, after them                                | `pages/Mods.svelte`                                     | the version has the `audio-export` action (Ratchet & Clank's two discs)   |
-| My mods → Add a mod (a link, a file, a folder, a drop)   | `components/AddMod.svelte`                              | My mods; the link field when the game has a port that plays               |
-| My mods → Gameplay mods (native and script mods, Purist) | `components/PluginsPanel.svelte`                        | the game has a port that plays (its `play` action is not `planned`)       |
-| A gameplay mod's own page (its settings)                 | `components/ModPage.svelte`, `ModSetting.svelte`        | its row opened (`lib/modNav.svelte.ts`), in place of My mods' lists       |
-| My mods → Textures, models and levels (data packs)       | `components/PacksPanel.svelte`                          | the level editor can open the game                                        |
-| My mods → "Want to make your own?" (to the Level editor) | `pages/Mods.svelte`                                     | under the lists                                                           |
-| Level editor: Open a level in Godot, Pack your changes   | `pages/Mods.svelte` (tab `editor`)                      | the level editor can open the game                                        |
-| Models and textures: Export, Import your edits           | `components/AssetsPanel.svelte` (tab `assets`)          | the level editor can open the game                                        |
-| Audio: Export, Import your edits                         | `components/AudioPanel.svelte` (tab `audio`)            | as the tab                                                                |
-| For developers                                           | `pages/Mods.svelte`                                     | developer tools on, under My mods and Level editor                        |
-| The crash notice's mods line                             | `components/CrashNotice.svelte`                         | on a game's page, after a crash, when the last start loaded gameplay mods |
-| Purist mode in Settings                                  | `pages/Settings.svelte` (General)                       | desktop only                                                              |
+| Part                                                          | Component                                                 | Shown when                                                                |
+| ------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| The tab itself                                                | `components/Header.svelte`                                | every desktop launcher, installed or on a checkout; **not on Android**    |
+| The game list on the left                                     | `pages/Mods.svelte` (`modState`) on `GamesFrame.svelte`   | always                                                                    |
+| The head: the game's name, a lead line, Play with mods        | `pages/Mods.svelte`                                       | a game is picked; Play with mods when the level editor can open the game  |
+| The tabs: My mods, Level editor, Models and textures          | `pages/Mods.svelte`                                       | the level editor can open the game                                        |
+| The tab Audio, after them                                     | `pages/Mods.svelte`                                       | the version has the `audio-export` action (Ratchet & Clank's two discs)   |
+| My mods → Add a mod (a link, a file, a folder, a drop)        | `components/AddMod.svelte`                                | My mods; the link field when the game has a port that plays               |
+| My mods → Gameplay mods (native and script mods, Purist)      | `components/PluginsPanel.svelte`                          | the game has a port that plays (its `play` action is not `planned`)       |
+| A gameplay mod's own page (its settings)                      | `components/ModPage.svelte`, `ModSetting.svelte`          | its row opened (`lib/modNav.svelte.ts`), in place of My mods' lists       |
+| My mods → toolbar: find, kind, order                          | `components/ModsToolbar.svelte`, `lib/modsView.svelte.ts` | six or more mods and packs                                                |
+| My mods → Graphics and sound packs (your texture pack first)  | `components/PacksPanel.svelte`                            | the level editor can open the game, or the game has a texture pack        |
+| Make a texture pack (save the game's pictures, make your own) | `components/TexturePacksBlock.svelte`                     | Models and textures; a fold under My mods where there are no tabs         |
+| My mods → "Want to make your own?" (to the Level editor)      | `pages/Mods.svelte`                                       | under the lists                                                           |
+| Level editor: Open a level in Godot, Pack your changes        | `pages/Mods.svelte` (tab `editor`)                        | the level editor can open the game                                        |
+| Models and textures: Export, Import your edits                | `components/AssetsPanel.svelte` (tab `assets`)            | the level editor can open the game                                        |
+| Audio: Export, Import your edits                              | `components/AudioPanel.svelte` (tab `audio`)              | as the tab                                                                |
+| For developers                                                | `pages/Mods.svelte`                                       | developer tools on, under My mods and Level editor                        |
+| The crash notice's mods line                                  | `components/CrashNotice.svelte`                           | on a game's page, after a crash, when the last start loaded gameplay mods |
+| Purist mode in Settings                                       | `pages/Settings.svelte` (General)                         | desktop only                                                              |
 
 ## The game list (left)
 
@@ -177,11 +179,24 @@ is off, or is below it; conflicts with another mod. From the game's last start
 (status.json): its library could not be opened, its load refused, a hook point
 it asked for is missing, a script error or a script over its time budget.
 
-## Textures, models and levels (PacksPanel.svelte)
+## My mods: one place for what the game loads
 
-Title `T.PACKS.title`, line `T.PACKS.sub` (+ `T.PACKS.orderHint`); each pack a
-switch, its name, author and what it replaces, up, down and remove
-(`T.PACKS.moveUpTitle`, `moveDownTitle`, `remove`). Empty: `T.PACKS.empty`.
+The tabs make things (Level editor, Models and textures, Audio); what they make lands in My mods.
+With six or more rows the toolbar (`T.VIEW`) shows a search, the kinds with their counts (All,
+Gameplay, Graphics and sound, Tools; a kind with none is left out) and the order (Load order or A to
+Z). In load order with nothing searched, a row's grip drags it (`lib/dragSort.ts`, a mouse or a
+finger) and its menu has Move up, Move down, Move to the top and Move to the bottom (a pad). Sorted
+or searched, nothing moves and `T.VIEW.orderFrozen` says so. Tools (a mod that is only a launcher
+page) are listed under the gameplay mods, apart (`T.VIEW.toolsTitle`, `toolsSub`).
+
+## Graphics and sound packs (PacksPanel.svelte)
+
+Title `T.PACKS.title`, line `T.PACKS.sub` (+ `T.PACKS.orderHint`). First, for a game with a texture
+pack, the player's own (`T.TEXTURES`): its switch, its badge, Make your own (Models and textures, or
+the fold) and a menu with Share my pack…, Replace with a pack… and Open its folder. Then each
+overrides pack: a grip, a switch, its name, author and what it replaces, up, down and remove
+(`T.PACKS.moveUpTitle`, `moveDownTitle`, `remove`). Empty: `T.PACKS.empty`. A texture pack's `.zip`
+added with Add a mod goes into the player's own pack (`lib/addMods.ts`).
 
 ## Level editor (tab `editor`, Mods.svelte)
 
@@ -216,7 +231,7 @@ the job's progress while it writes; Open folder for the last export) and Import 
 A partial import confirms the pack was made, in `--warn`; a refusal leaving nothing to import is in
 `--err`. Open activity log beside the result selects that import and opens its output in Activity
 (Develop's console with developer tools on). The pack it
-makes is listed with the others under Textures, models, levels and sound (`T.PACKS.title`).
+makes is listed with the others under Graphics and sound packs (`T.PACKS.title`).
 
 ## The mod hub: Browse and the change set
 
