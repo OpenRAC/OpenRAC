@@ -52,9 +52,11 @@ port`) when their stamp, `levels-<format>.json` with the format of
 the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
 `tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first, and so
-are Build the game and Rebuild: Play on a fresh checkout is Build and play. An installed launcher
-carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not): its Build and
-play runs `tools/build_game.py`, which fetches the source and builds it with the player's compiler.
+are Build the game and Rebuild: Play on a fresh checkout is Build and play. An installed launcher on
+Linux or macOS carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not):
+its Build and play runs `tools/build_game.py`, which fetches the source and builds it with the
+player's compiler. A Windows installer carries the game built without the disc, as Android's does
+(below): the player needs no compiler.
 
 On Android the APK (`tools/build_android.py`, CI's too) carries the game built
 without the disc: the functions still in assembly are called through slots
@@ -67,10 +69,20 @@ names the kit and tools it is built from, so another APK builds its own. The gam
 loads it before it starts (`--asm-part`). It takes a few minutes, once for each
 APK whose game changed; nothing of the disc is in the APK.
 
+A Windows installer does the same with `tools/part-zig/zig.exe` (Zig's Windows
+release, CI's `launcher.yml`), into `libopenrac-rac2-ntsc-part.dll`. The part is
+compiled with the free headers in Zig's release and links no C library: a DLL
+imports only from the program, which on Windows exports just what
+`asm_part_exports.def` names.
+
 After a sync that changes the asm stage's view of the code, write
 `asm_interface.json` again with the disc (`hostgen.py ... --retail-image <iso>
 --asm-interface-out port/game/rac2-ntsc/asm_interface.json`); a build without the
-disc then gives the same C as one with it.
+disc then gives the same C as one with it. Write `asm_part_exports.def` again too:
+`tools/asm_part.py kit rac2-ntsc --build <build> --out <kit> --windows-zig <zig>`,
+then `tools/asm_part.py exports rac2-ntsc --disc <iso> --kit <kit> --out <work>`
+(names only; a name the program no longer has stops its Windows link, and a name
+the part newly needs stops the part's).
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader

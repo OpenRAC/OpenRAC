@@ -73,10 +73,17 @@ __extension__ typedef unsigned __int128 openrac_u128;
  * memory access reads openrac_guest_base). On Android the game is a shared
  * library, whose globals are otherwise reached through its global offset
  * table, one more load each time: there they are the library's own. */
+/* A game's part on Windows, a DLL (tools/asm_part.py), reads the program's data
+ * through what it exports (asm_part_exports.def). */
+#if defined(_WIN32) && defined(OPENRAC_ASM_PART)
+#define OPENRAC_PART_IMPORT __declspec(dllimport)
+#else
+#define OPENRAC_PART_IMPORT
+#endif
 #if defined(__ANDROID__)
 #define OPENRAC_GUEST_GLOBAL __attribute__((visibility("hidden")))
 #else
-#define OPENRAC_GUEST_GLOBAL
+#define OPENRAC_GUEST_GLOBAL OPENRAC_PART_IMPORT
 #endif
 
 /* Those globals, which a game's part built on the device from the disc

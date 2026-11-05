@@ -165,7 +165,11 @@ def renamed(sym: str, text: str, defined: str | None = None) -> str:
 
 def register_text(names: list[str]) -> str:
     """The part's entry: every slot filled with its translation (the game calls it on loading the part)."""
-    decls = "".join(f"extern void *{slot(n)};\nvoid {own_name(n)}(void);\n" for n in names)
+    decls = "".join(f"extern OPENRAC_PART_SLOT void *{slot(n)};\nvoid {own_name(n)}(void);\n" for n in names)
+    # On Windows the part is a DLL: the slots are the program's exports, and its entry its own.
+    windows = ("#ifdef _WIN32\n#define OPENRAC_PART_SLOT __declspec(dllimport)\n"
+               "#define OPENRAC_PART_ENTRY __declspec(dllexport)\n#else\n"
+               "#define OPENRAC_PART_SLOT\n#define OPENRAC_PART_ENTRY\n#endif\n")
     sets = "".join(f"    {slot(n)} = (void *){own_name(n)};\n" for n in names)
     # On Android the game's runtime globals are its own (guest.h OPENRAC_PART_GLOBALS): the part
     # asks the game where they are.
@@ -177,5 +181,5 @@ def register_text(names: list[str]) -> str:
             "#define OPENRAC_PART_FIND(type, name) \\\n"
             "    if (!(openrac_part_##name = (type *)openrac_asm_global(\"openrac_\" #name))) return -1;\n"
             "    OPENRAC_PART_GLOBALS(OPENRAC_PART_FIND)\n#endif\n")
-    return (f"{android}{decls}\nint openrac_asm_register(void) {{\n{find}{sets}"
+    return (f"{windows}{android}{decls}\nOPENRAC_PART_ENTRY int openrac_asm_register(void) {{\n{find}{sets}"
             f"    return {len(names)};\n}}\n")

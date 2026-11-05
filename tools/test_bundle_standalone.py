@@ -71,6 +71,21 @@ class PlayerActions(unittest.TestCase):
         desktop = {a["id"]: a for a in bundle.player_actions()["versions"]["rac2/ntsc"]}
         self.assertNotIn("--asm-part", desktop["play"]["args"])
 
+    def test_a_windows_installer_builds_going_commandos_part_with_no_compiler_of_the_players(self):
+        windows = bundle.player_actions(windows_parts={"rac2/ntsc"}, part_tags={"rac2-ntsc": "abc123"})
+        rac2 = {a["id"]: a for a in windows["versions"]["rac2/ntsc"]}
+        part, play = rac2["port-part"], rac2["play"]
+        made = "{data}/asm-part/abc123/libopenrac-rac2-ntsc-part.dll"
+        self.assertEqual(part["makes"], made)
+        self.assertEqual(part["platforms"], ["windows"])
+        self.assertEqual(part["args"][:3], ["tools/asm_part.py", "build", "rac2-ntsc"])
+        self.assertEqual(part["cwd"], ".")
+        self.assertEqual(play["args"][-2:], ["--asm-part", made])
+        self.assertIn(made, [n["path"] for n in play["needs"]])
+        # Nothing asks for a compiler: no player's build, and the program is the one the copy carries.
+        self.assertNotIn("port-build", rac2)
+        self.assertEqual(play["artifact"], "port/build/release/openrac-rac2-ntsc.exe")
+
     def test_only_what_a_player_does(self):
         self.assertEqual(self.actions["repository"], [])
         for key, actions in self.actions["versions"].items():

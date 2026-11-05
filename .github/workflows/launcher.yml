@@ -326,11 +326,37 @@ jobs:
       - name: Build the game
         if: matrix.name != 'android'
         run: |
-          python tools/build_port.py rac1-pal rac1-ntsc --preset standalone --probe-baker || {
+          # Windows also carries Going Commando built without the disc, as the APK does: the player's
+          # computer builds what is missing with the Zig it carries (the next step, tools/asm_part.py).
+          games="rac1-pal rac1-ntsc"
+          if [ "$NAME" = windows ]; then games="$games rac2-ntsc"; fi
+          python tools/build_port.py $games --preset standalone --probe-baker || {
             echo "::warning::building again with a fresh configuration"
             rm -rf port/build/standalone/CMakeCache.txt port/build/standalone/CMakeFiles
-            python tools/build_port.py rac1-pal rac1-ntsc --preset standalone --probe-baker
+            python tools/build_port.py $games --preset standalone --probe-baker
           }
+
+      - name: Zig and the kit for Going Commando's part (Windows)
+        if: matrix.name == 'windows'
+        env:
+          # Zig's own release, the one the APK carries for Android (tools/build_android.py ZIG_VERSION).
+          ZIG_VERSION: "0.14.1"
+          ZIG_SHA256: 554f5378228923ffd558eac35e21af020c73789d87afeabf4bfd16f2e6feed2c
+        run: |
+          name="zig-x86_64-windows-$ZIG_VERSION"
+          curl -sSfL --retry 5 -o "$RUNNER_TEMP/zig.zip" "https://ziglang.org/download/$ZIG_VERSION/$name.zip"
+          python - "$RUNNER_TEMP/zig.zip" "$ZIG_SHA256" "$RUNNER_TEMP/zig" <<'PY'
+          import hashlib, sys, zipfile
+          got = hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()
+          if got != sys.argv[2]:
+              sys.exit(f"Zig's SHA-256 is {got}")
+          zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[3])
+          PY
+          echo "PART_ZIG=$RUNNER_TEMP/zig/$name" >> "$GITHUB_ENV"
+          python tools/asm_part.py kit rac2-ntsc --build port/build/standalone --out "$RUNNER_TEMP/kit" \
+            --windows-zig "$RUNNER_TEMP/zig/$name"
+          OPENRAC_PART_ZIG="$RUNNER_TEMP/zig/$name/zig.exe" python tools/asm_part.py check rac2-ntsc \
+            --kit "$RUNNER_TEMP/kit" --out "$RUNNER_TEMP/kit-check"
 
       - name: A Python for the tools
         if: matrix.name != 'android'
@@ -349,8 +375,10 @@ jobs:
       - name: Put the copy together and try it
         if: matrix.name != 'android'
         run: |
+          part=()
+          if [ "$NAME" = windows ]; then part=(--asm-part-kit "$RUNNER_TEMP/kit" --part-zig "$PART_ZIG"); fi
           python tools/bundle_standalone.py "$COPY" --game-build port/build/standalone \
-            --python "$RUNNER_TEMP/python/python"
+            --python "$RUNNER_TEMP/python/python" "${part[@]}"
           # Its own Python runs its own tools, and the game starts far enough to say what it is.
           py=$COPY/python/bin/python3; [ -x "$py" ] || py=$COPY/python/python.exe
           "$py" "$COPY/tools/extractor.py" --help > /dev/null
@@ -373,8 +401,13 @@ jobs:
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
-          # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
+          # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none. And
+          # Going Commando is carried, with what builds its part from the player's disc: the copy's
+          # own tools run the kit's check with the copy's own Zig.
           if [ "$NAME" = windows ]; then
+            "$COPY/port/build/release/openrac-rac2-ntsc.exe" --help || true
+            "$py" "$COPY/tools/asm_part.py" check rac2-ntsc --kit "$COPY/port/asm-part/rac2-ntsc" \
+              --out "$RUNNER_TEMP/copy-check"
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
               [ -f "$COPY/port/build/release/$dll" ] || { echo "the copy carries no $dll"; exit 1; }
             done
