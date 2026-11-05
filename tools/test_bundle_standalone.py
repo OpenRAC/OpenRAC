@@ -393,6 +393,21 @@ class Bundle(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in dest.iterdir()),
                              ["apps", "openrac-rac1-ntsc.exe"])
 
+    def test_windows_games_carry_the_cpp_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            system, dest = Path(tmp) / "system", Path(tmp) / "dest"
+            system.mkdir()
+            dest.mkdir()
+            for name in bundle.WINDOWS_RUNTIME:
+                (system / name).write_bytes(name.encode())
+            self.assertEqual(bundle.copy_windows_runtime(system, dest), list(bundle.WINDOWS_RUNTIME))
+            for name in bundle.WINDOWS_RUNTIME:
+                self.assertEqual((dest / name).read_bytes(), name.encode())
+            # One that is missing stops the installer here, not the game on a player's computer.
+            (system / "msvcp140_2.dll").unlink()
+            with self.assertRaisesRegex(SystemExit, "msvcp140_2.dll"):
+                bundle.copy_windows_runtime(system, dest)
+
     @unittest.skipUnless(sys.platform.startswith("linux") and shutil.which("cc")
                          and (shutil.which("llvm-strip") or shutil.which("strip")), "needs a Linux compiler and strip")
     def test_linux_programs_go_without_their_debug_info(self):

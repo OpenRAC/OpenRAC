@@ -24,7 +24,9 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
                              A Linux program goes without its debug info
                              (its symbols stay, for a crash report's backtrace):
                              three quarters of its size, which every installer
-                             would compress and every player download
+                             would compress and every player download.
+                             A Windows program goes with Microsoft's C++
+                             runtime beside it, which a new Windows lacks
   python/                    a Python to run the tools (--python: an unpacked
                              python-build-standalone "install_only" archive)
 
@@ -43,6 +45,7 @@ side against it (OPENRAC_ROOT=OUT); an installer needs both.
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -92,6 +95,10 @@ GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
+# What a Windows program built against MSVC's libraries imports and Windows does not always have:
+# without them it does not start ("MSVCP140.dll was not found"). Only the Visual C++ Redistributable
+# or Visual Studio installs them, and a player needs neither when they are beside the program.
+WINDOWS_RUNTIME = ("msvcp140.dll", "msvcp140_2.dll", "vcruntime140.dll", "vcruntime140_1.dll")
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
 WATER_PROFILES = "port/enhanced/water/profiles"
@@ -325,6 +332,15 @@ def copy_games(build: Path, dest: Path) -> list[str]:
     return carried
 
 
+def copy_windows_runtime(system: Path, dest: Path) -> list[str]:
+    """WINDOWS_RUNTIME from SYSTEM (the building computer's System32) to DEST; their names."""
+    for name in WINDOWS_RUNTIME:
+        if not (system / name).is_file():
+            sys.exit(f"{system} has no {name}: the Windows games cannot start without it on a new Windows")
+        shutil.copy2(system / name, dest / name)
+    return list(WINDOWS_RUNTIME)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
@@ -398,6 +414,8 @@ def main() -> int:
             for path in sorted(args.game_build.glob(pattern)):
                 shutil.copy2(path, dest / path.name, follow_symlinks=True)
                 carried.append(path.name)
+        if any(name.endswith(".exe") for name in carried):
+            carried += copy_windows_runtime(Path(os.environ["SystemRoot"]) / "System32", dest)
         # Carry notices for dependencies built into either the game or its optional baking tools.
         if (args.game_build / "licenses").is_dir():
             shutil.copytree(args.game_build / "licenses", dest / "licenses", dirs_exist_ok=True)

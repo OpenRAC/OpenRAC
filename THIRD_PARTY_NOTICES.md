@@ -24,6 +24,13 @@ as do the grain type names in `port/assets/sound/sound_bank.h`.
 OpenRAC. The launcher lists its own notices in
 [launcher/THIRD_PARTY_NOTICES.md](launcher/THIRD_PARTY_NOTICES.md).
 
+## Microsoft Visual C++ runtime
+
+The Windows installers carry `msvcp140.dll`, `msvcp140_2.dll`, `vcruntime140.dll`
+and `vcruntime140_1.dll` beside the game programs, unmodified, so a player needs
+no Visual C++ Redistributable. They are Microsoft's, redistributable under the
+Visual Studio license terms, and are not part of OpenRAC.
+
 ## Embree
 
 The offline probe baker (`openrac-enhanced-baker`: `port/enhanced/lighting/bake.cpp`,

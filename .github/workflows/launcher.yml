@@ -373,6 +373,12 @@ jobs:
           "$baker" --help > /dev/null || { echo "openrac-enhanced-baker does not start"; exit 1; }
           "$baker" --print-interior-profile > /dev/null || { echo "interior inference does not start"; exit 1; }
           "$baker" --print-water-profile > /dev/null || { echo "water baking does not start"; exit 1; }
+          # On Windows each program has Microsoft's C++ runtime beside it: a new Windows has none.
+          if [ "$NAME" = windows ]; then
+            for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
+              [ -f "$COPY/port/build/release/$dll" ] || { echo "the copy carries no $dll"; exit 1; }
+            done
+          fi
           # On macOS each game carries MoltenVK, for the Vulkan renderer (port/cmake/MacApp.cmake).
           if [ "$NAME" = macos ]; then
             for program in "$game" "$us"; do
