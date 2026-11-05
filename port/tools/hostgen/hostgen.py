@@ -1302,6 +1302,24 @@ def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool)
     return False
 
 
+class SortedPickler(pickle._Pickler):
+    """Writes sets sorted, so the same program gives the same bytes whatever the hash seed: an
+    Android copy names its part's folder by them (tools/bundle_standalone.py part_tag). The C
+    pickler writes a set in its own order and asks nothing first, hence the Python one."""
+
+    dispatch = dict(pickle._Pickler.dispatch)
+
+    def save_set(self, obj):
+        try:
+            items = sorted(obj)
+        except TypeError:
+            items = sorted(obj, key=repr)
+        self.save_reduce(type(obj), (items,), obj=obj)
+
+    dispatch[set] = save_set
+    dispatch[frozenset] = save_set
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_arguments(argv)
     cfg = load_config(args.game)
@@ -1351,8 +1369,9 @@ def main(argv: list[str] | None = None) -> int:
     problems += settle_signatures(program, cfg, source, host_sigs)
     if args.program_out:
         with open(args.program_out, "wb") as f:
-            pickle.dump({"format": asmext.FORMAT, "program": program, "host_text": port_host_text(args, cfg),
-                         "title": cfg.get("title", cfg.get("name", ""))}, f, protocol=4)
+            SortedPickler(f, protocol=4).dump({"format": asmext.FORMAT, "program": program,
+                                               "host_text": port_host_text(args, cfg),
+                                               "title": cfg.get("title", cfg.get("name", ""))})
     before = asmext.snapshot(program) if args.asm_interface_out else None
     asm_stage, asm_results, inherited = translate_from_assembly(program, args, cfg, source)
     if before is not None:
