@@ -253,6 +253,9 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (!g || port < 0 || port >= platform::kPadPorts) {
         return false;
     }
+    if (port == 0) {
+        debug_overlay::camera_pad_chord();  // before the read: its toggle holds the chord back
+    }
     const platform::Pad& p = g->input.pad(port);
     *buttons = p.buttons;
     analog[0] = p.right_x;

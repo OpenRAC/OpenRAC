@@ -682,8 +682,11 @@ included): the left stick moves along the view and strafes, the right stick
 looks, R2 rises and L2 sinks (both analog), R1 held is four times faster and L1
 held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3+R3
 pressed together turns freecam off; in developer mode (`OPENRAC_DEVELOPER=1`) it
-also turns it on, so a player's stray press never does. The gamepad moves the
-menu's rows instead while the menu or the Android drawer is open, where
+also turns it on, so a player's stray press never does. The chord's press is
+held back from the game until both are let go, so it does not open the map
+(R3) and closes the menu if L3 (its default button) opened it. R3 alone still
+reaches the game at once: press L3 first or both together, as an R3 a frame
+ahead opens the map. The gamepad moves the menu's rows instead while the menu or the Android drawer is open, where
 **Developer > Freecam** is offered too.
 
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades
