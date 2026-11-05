@@ -628,6 +628,8 @@ renderer (`prop_create`, `prop_pose`, `prop_hide`, `prop_remove`) and sounds of 
 and `has_api_12()` (`has_hero_drive()`, `has_collision()`, `has_props()`, `has_sounds()`). A game
 where no mod takes the hook point or calls them runs as before: the hook point's slot stays null,
 the triangles only read memory, a prop or a sound is only made when a mod asks.
+1.13 (SDK 1.13.0) touch pad action buttons: `touch_define`, `touch_icon`, `touch_push`,
+`touch_hint`, the manifest's `touch` file and `has_api_13()` ("Touch controls" above).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
