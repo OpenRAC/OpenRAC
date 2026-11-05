@@ -192,6 +192,23 @@ pub fn offered(current: &str, latest: &str, switching: bool) -> bool {
     is_newer(current, latest) || (switching && is_newer(latest, current))
 }
 
+/// What every APK's version code starts from: CI gives each build 1000000000 + its run
+/// (launcher.yml, OPENRAC_ANDROID_VERSION_CODE), so a later run's APK installs over an earlier one.
+pub const ANDROID_VERSION_CODE_BASE: u64 = 1_000_000_000;
+
+/// Whether Android installs `latest` over this launcher (`current`, whose APK has `version_code`
+/// when CI built it). A development build (`X.Y.Z-dev.<run>`) installs when its run is later than
+/// this APK's, whatever the versions say: a release's own build is later than the branch build made
+/// just before its tag, which still carries the release's version. Without both runs: when `latest`
+/// is not older than `current`.
+pub fn android_installs(current: &str, latest: &str, version_code: Option<u64>) -> bool {
+    let run = |v: &str| v.rsplit_once("-dev.").and_then(|(_, run)| run.parse::<u64>().ok());
+    match (version_code.and_then(|code| code.checked_sub(ANDROID_VERSION_CODE_BASE)), run(latest)) {
+        (Some(own), Some(theirs)) => theirs > own,
+        _ => !is_newer(latest, current),
+    }
+}
+
 /// The version updates are compared with: the package's, or for a build of a branch, whose
 /// package carries the release's plain version (Windows' MSI and RPM take no `-dev`), that version
 /// with the build's own `dev.<run>` (`OPENRAC_LAUNCHER_BUILD` when it was compiled).
@@ -352,6 +369,23 @@ mod tests {
         assert_eq!(effective_version("0.8.0", None), "0.8.0");
         assert_eq!(effective_version("0.8.0-dev.12", Some("dev.12")), "0.8.0-dev.12");
         assert!(is_newer(&effective_version("0.8.0", Some("dev.12")), "0.8.0-dev.13"));
+    }
+
+    #[test]
+    fn android_installs_later_runs() {
+        let code = |run: u64| Some(ANDROID_VERSION_CODE_BASE + run);
+        // Stable to Development: the next branch build installs, also one that still carries the
+        // release's version; the branch build made before the release's own does not.
+        assert!(android_installs("1.0.2", "1.0.3-dev.790", code(780)));
+        assert!(android_installs("1.0.2", "1.0.2-dev.781", code(780)));
+        assert!(!android_installs("1.0.2", "1.0.2-dev.777", code(780)));
+        // Development to Stable stays by the versions: an older release does not install.
+        assert!(!android_installs("1.0.3-dev.790", "1.0.2", code(790)));
+        assert!(android_installs("1.0.2-dev.777", "1.0.2", code(777)));
+        // A build CI did not make (no run of its own).
+        assert!(android_installs("1.0.2", "1.0.3-dev.5", None));
+        assert!(!android_installs("1.0.2", "1.0.2-dev.777", None));
+        assert!(!android_installs("1.0.2", "1.0.2-dev.777", Some(10_002)));
     }
 
     #[test]

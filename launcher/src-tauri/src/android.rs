@@ -397,6 +397,10 @@ fn updates_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
     Ok(app.path().app_cache_dir().map_err(|e| e.to_string())?.join("updates"))
 }
 
+/// This APK's version code when CI built it (launcher.yml): what Android compares an update with.
+#[cfg(target_os = "android")]
+const ANDROID_VERSION_CODE: Option<&str> = option_env!("OPENRAC_ANDROID_VERSION_CODE");
+
 /// A newer launcher on the releases (core/src/update.rs), or None. Android only: a desktop's
 /// launcher is updated by Tauri's updater.
 #[tauri::command]
@@ -422,7 +426,13 @@ pub async fn update_check<R: Runtime>(
             })?;
         let text = std::fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
         let _ = std::fs::remove_file(&manifest);
-        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), switching)
+        let current = crate::launcher_version(&app);
+        let release = update::release_for(&text, update::ANDROID, &current, switching)?;
+        // A development build is installed over this one as any update (its run is later), never
+        // through its page: one Android would refuse (made before this launcher) is no update.
+        // Going back to Stable keeps its page (UpdateModal.svelte): Android installs no older one.
+        let code = ANDROID_VERSION_CODE.and_then(|code| code.parse().ok());
+        Ok(release.filter(|r| source.channel.is_none() || update::android_installs(&current, &r.version, code)))
     }
     #[cfg(not(target_os = "android"))]
     {

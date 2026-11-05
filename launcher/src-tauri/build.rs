@@ -1,6 +1,8 @@
 fn main() {
     // A build of a branch names its run (lib.rs, LAUNCHER_BUILD).
     println!("cargo:rerun-if-env-changed=OPENRAC_LAUNCHER_BUILD");
+    // An APK's version code (android.rs, ANDROID_VERSION_CODE).
+    println!("cargo:rerun-if-env-changed=OPENRAC_ANDROID_VERSION_CODE");
     // tauri-build copies the bundle's resources next to the program in target/, for `tauri dev`;
     // an installer's resources are the whole copy of OpenRAC (resources/openrac: the games, a Python
     // and the tools, tools/bundle_standalone.py), which the bundler takes from resources/ itself.
