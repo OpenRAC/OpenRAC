@@ -295,14 +295,25 @@ export const api = {
   library: () => call<Library>("library"),
   /** `inputs`: which level a per-level action is for (the level editor's projects, one each), a
    *  file or folder the player chose (`{path}`), one of the action's options (`{option}`). */
-  runAction: (scope: Scope, id: string, inputs: RunInputs = {}) =>
-    call<Started>("run_action", {
+  runAction: async (scope: Scope, id: string, inputs: RunInputs = {}) => {
+    let installTools = false;
+    if (id === "port-build" || id === "port-rebuild") {
+      const missing = await call<string | null>("build_tools_check", { scope, id });
+      if (missing) {
+        if (!(await ask(missing, "Install listed tools and build")))
+          throw new Error("Build cancelled; no tools were installed.");
+        installTools = true;
+      }
+    }
+    return call<Started>("run_action", {
       scope,
       id,
       level: inputs.level ?? null,
       path: inputs.path ?? null,
       option: inputs.option ?? null,
-    }),
+      installTools,
+    });
+  },
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
   /** A file or folder in the checkout, relative to it (`games/rac1/README.md`). Android opens no
    *  app's own files: a document there is read on GitHub, and a folder cannot be shown. */

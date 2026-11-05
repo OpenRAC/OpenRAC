@@ -56,6 +56,9 @@ class BuildDirectory(unittest.TestCase):
 @unittest.skipUnless(shutil.which("curl") and shutil.which("tar"), "needs curl and tar")
 class FetchSource(unittest.TestCase):
     def setUp(self):
+        check = patch.object(build_game.build_tools, "ensure")
+        check.start()
+        self.addCleanup(check.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.dir = Path(self.tmp.name)

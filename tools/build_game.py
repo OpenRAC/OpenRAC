@@ -24,6 +24,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import build_tools
+
 ROOT = Path(__file__).resolve().parent.parent
 STAMP = ROOT / "port" / "build" / "release" / "openrac-build.json"
 ARCHIVE = "https://github.com/{repository}/archive/{commit}.tar.gz"
@@ -148,9 +150,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, required=True, help="where the finished program goes")
     parser.add_argument("--source-url", help="where the source archive is, if not on GitHub")
     parser.add_argument("--preset", default=PRESET, help=f"the CMake preset; default {PRESET}")
+    parser.add_argument("--install-tools", action="store_true", help="install missing Windows build tools after consent")
     args = parser.parse_args(argv)
     if not args.disc.is_file():
         sys.exit(f"the disc image {args.disc} is not there")
+    try:
+        build_tools.ensure(args.install_tools)
+    except build_tools.build_port.BuildError as e:
+        sys.exit(f"error: {e}")
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out.resolve()
 

@@ -16,13 +16,14 @@ Ratchet & Clank (PAL and NTSC-U) is playable today. The others can be browsed, a
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 
-An installed launcher needs only your disc image. Its installer carries the
+For Ratchet & Clank, an installed launcher needs only your disc image. Its installer carries the
 game built for your system, the set-up and level tools, and a Python to run
 them ([tools/bundle_standalone.py](../tools/bundle_standalone.py), put
 together by the [launcher workflow](../.github/workflows/launcher.yml)). The
 launcher uses this copy when it finds no OpenRAC checkout; a contributor's
-checkout comes first. With the copy there is nothing to build: pick the
-disc, prepare the levels, Play.
+checkout comes first. For this game there is nothing to build: pick the
+disc, prepare the levels, Play. Going Commando builds from your disc on your
+computer and needs the build tools described below.
 
 It is a [Tauri 2](https://tauri.app/) app. Rust does every file and process
 operation (`core/` and `src-tauri/`); Svelte 5 draws the UI (`src/`), styled
@@ -62,11 +63,29 @@ the launcher never downloads, uploads or bundles a game.
    A level that fails is read from the disc again and checked again.
 3. Press **Play**. In a checkout, **Build the game** first builds the native
    port ([tools/build_port.py](../tools/build_port.py)). An installed
-   launcher already carries a build.
+   launcher carries Ratchet & Clank; Going Commando is built on your computer.
 
 **Remove the set-up** deletes what set-up made, like OpenGOAL's uninstall. It
 keeps the disc image and the saves. The full flow is in
 [docs/INTEGRATION.md](docs/INTEGRATION.md#2-setting-a-game-up).
+
+Games such as Going Commando build a program from your disc on your PC. On
+Windows, the launcher checks their build tools before downloading source.
+If tools are missing, it names them, explains why they are needed and how
+to remove them later, and asks before installing anything:
+
+- **LLVM (Clang)**: remove LLVM from Windows Settings → Apps → Installed apps.
+- **Visual Studio 2022 Build Tools**, with the Desktop development with C++
+  workload (MSVC libraries, Windows SDK, CMake and Ninja): remove the workload
+  with Visual Studio Installer → Modify, or the product with More → Uninstall.
+
+Only missing prerequisites are requested through Windows App Installer
+(`winget`). The official installers may request administrator access. Once
+they finish, the launcher checks again and continues the build only if the
+tools are ready. Cancellation or an installer error stops the build. If
+`winget` is unavailable, install the named tools manually and retry.
+Removing shared development tools can affect other software and prevents
+future game builds; it does not remove your disc or saves.
 
 ### A game's page
 

@@ -319,8 +319,21 @@ async fn library(state: State<'_, AppState>) -> Result<Library, String> {
     tauri::async_runtime::spawn_blocking(move || library::library(&config)).await.map_err(|e| e.to_string())?
 }
 
-/// Runs action `id` of `scope`: a job whose output streams as `job-output`
-/// and `job-exit` events, or a detached launch (id 0).
+/// Names missing Windows prerequisites and how to remove them; never installs anything.
+#[tauri::command]
+async fn build_tools_check(state: State<'_, AppState>, scope: Scope, id: String) -> Result<Option<String>, String> {
+    let config = state.config.lock().unwrap().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let plan = library::plan(&config, &scope, &id, &openrac_launcher_core::actions::Inputs::default())?;
+        openrac_launcher_core::build_tools::check(&plan)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Runs an action as a job. Installing build tools requires the player's explicit consent.
+// Keep the existing named Tauri arguments compatible; consent is a separate optional input.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 fn run_action(
     app: AppHandle,
@@ -330,10 +343,14 @@ fn run_action(
     level: Option<u32>,
     path: Option<String>,
     option: Option<String>,
+    install_tools: Option<bool>,
 ) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let inputs = openrac_launcher_core::actions::Inputs { level, path, option };
-    let plan = library::plan(&config, &scope, &id, &inputs)?;
+    let mut plan = library::plan(&config, &scope, &id, &inputs)?;
+    if install_tools == Some(true) {
+        openrac_launcher_core::build_tools::allow_install(&mut plan)?;
+    }
     let is_play = library::is_play(&config, &scope, &id);
 
     // The play job's Discord presence (core discord.rs): its status now, its game for its log.
@@ -2431,6 +2448,7 @@ pub fn run() {
             adopt_godot,
             library,
             run_action,
+            build_tools_check,
             cancel_job,
             open_path,
             open_url,

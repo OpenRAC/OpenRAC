@@ -2499,6 +2499,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "sync_progress_from_web":
     case "apply_progress_json":
       return delay<Library>(library());
+    case "build_tools_check":
+      return null;
     case "run_action":
       return delay<Started>(start(args.scope as Scope, args.id as string, args));
     case "cancel_job": {

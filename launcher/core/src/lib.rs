@@ -39,6 +39,7 @@
 pub mod actions;
 pub mod android;
 pub mod appimage;
+pub mod build_tools;
 pub mod catalog;
 pub mod chd;
 pub mod config;
