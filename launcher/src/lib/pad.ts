@@ -387,14 +387,14 @@ function accept() {
     return;
   }
   pressed(el);
-  // A control can take A for itself (a game's tile plays its game): `padpress`, cancelled.
+  // A control can take A for itself: `padpress`, cancelled.
   if (!el.dispatchEvent(new CustomEvent("padpress", { cancelable: true }))) return;
   el.click();
   // A choice in a menu closes it: back to the button that opened it.
   if (el.getAttribute("role") === "menuitem") restoreOpener();
 }
 
-/** Y: what the focused control offers besides A (a game's tile opens its page), as `padmore`. */
+/** Y: what the focused control offers besides A, as `padmore`. */
 function more() {
   const el = current(focusables(scope()));
   el?.dispatchEvent(new CustomEvent("padmore"));

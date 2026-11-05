@@ -234,25 +234,59 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("takes a game's tile as one control: A its next step, Y its page, B back to it", async () => {
-    await open("");
+  it("opens a game's page from its tile, by A or a tap, and never plays from the list", async () => {
+    await open("built");
+    // No Play, or any other step, on the games list: only the game's page has them.
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+    expect(
+      await page
+        .locator(".tiles")
+        .getByRole("button", { name: /Play|Set up|Rebuild/ })
+        .count(),
+    ).toBe(0);
     await press("down");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // Right goes to the next game, not to the tile's own button.
+    // Right goes to the next game.
     await press("right");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
-    await press("left", "more");
+    await press("left", "accept");
     await page.waitForTimeout(500);
-    // The game's page has the focus on its first control: the next A presses it.
+    // The game's page has the focus on its first control, and nothing started.
     expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
     expect(await page.locator(".tile").count()).toBe(0);
+    expect(await page.locator(".go .big").textContent()).toContain("Play");
     await press("back");
     await page.waitForTimeout(500);
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // A starts preparing the levels from the tile without opening the game page.
-    await press("accept");
-    await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
-    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+    // A tap opens the page too.
+    await page.locator(".tile .open").first().click();
+    await page.locator(".go .big").waitFor();
+    expect(await page.locator(".tile").count()).toBe(0);
+  });
+
+  it("draws one ring on the games list: the focus, not the game picked last", async () => {
+    await open("version=rac1/pal&page=library");
+    const tile = page.locator(".tile").first();
+    await tile.waitFor();
+    await page.waitForTimeout(600);
+    // The picked game has no ring of its own, and its picture does not zoom under the pointer.
+    const ring = () => tile.evaluate((e) => getComputedStyle(e, "::after").boxShadow);
+    expect(await ring()).toBe("none");
+    await tile.hover();
+    await page.waitForTimeout(600);
+    expect(
+      await page
+        .locator(".tile .art")
+        .first()
+        .evaluate((e) => getComputedStyle(e).transform),
+    ).toBe("none");
+    // With the controller on the next game, only that one is ringed.
+    await press("down", "right");
+    const outlines = await page
+      .locator(".tile")
+      .evaluateAll((tiles) => tiles.map((t) => getComputedStyle(t).outlineStyle !== "none"));
+    expect(outlines.filter(Boolean).length).toBe(1);
+    expect(outlines[0]).toBe(false);
   });
 
   it("goes into the rail only sideways", async () => {
