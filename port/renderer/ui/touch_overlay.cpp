@@ -14,6 +14,7 @@
 #include "renderer/gl.h"
 #include "renderer/shader.h"
 #include "renderer/ui/logo.h"
+#include "renderer/ui/touch_icons.h"
 
 namespace openrac::renderer::ui::touch_overlay {
 namespace {
@@ -47,8 +48,11 @@ uniform vec2 knob;     // a stick's knob, -1..1 of the circle
 uniform float angle;   // an arrow's direction, in radians clockwise from up
 uniform int label0;    // two letters (letter()), -1 for none
 uniform int label1;
-uniform sampler2D tex_T0;  // the logo's mark, its coverage in alpha
+uniform sampler2D tex_T0;  // the logo's mark, its coverage in alpha; or the icons (touch_icons.h)
 uniform vec2 logo_half;    // the mark's half width and height in radii
+uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, v1
+uniform float icon_half;   // its half size in radii
+uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 out vec4 colour;
 
 // smoothstep() is undefined with equal edges: where d is flat across a pixel (fwidth 0, far from
@@ -61,8 +65,6 @@ float segment(vec2 p, vec2 a, vec2 b) {
     vec2 pa = p - a, ba = b - a;
     return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
 }
-// The pad's accent: Ratchet's orange, for a held control's light and the sticks' knobs.
-const vec3 accent = vec3(1.0, 0.56, 0.14);
 
 vec4 over(vec4 under, vec4 top) {
     float a = top.a + under.a * (1.0 - top.a);
@@ -187,6 +189,16 @@ void main() {
             mark = inside ? texture(tex_T0, uv).a : 0.0;
             ink.rgb = vec3(0.92);
         }
+        // An action's icon: white ink and the accent's, their coverage read from the icons' texture.
+        vec4 icon = vec4(0.0);
+        if (symbol == 11) {
+            vec2 uv = q / icon_half * 0.5 + 0.5;
+            if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
+                vec2 cover = texture(tex_T0, mix(icon_rect.xy, icon_rect.zw, uv)).rg;
+                vec3 tint = mix(vec3(0.96), accent, cover.g / max(cover.r + cover.g, 1e-4));
+                icon = vec4(tint, max(cover.r, cover.g));
+            }
+        }
         if (label0 >= 0) {        // the shoulders: their name
             const float size = 0.38;  // half a letter's height
             vec2 at = q / size;
@@ -201,7 +213,13 @@ void main() {
             c = over(c, vec4(vec3(0.0), 0.45 * ink.a * fill(s - 0.02) * (1.0 - fill(s))));
         }
         ink.a *= 0.75 + 0.25 * held;
-        c = over(c, vec4(ink.rgb, ink.a * (mark >= 0.0 ? mark : fill(s))));
+        if (symbol == 11) {
+            // A soft shadow under the icon, so that white reads over a light sky too.
+            c = over(c, vec4(vec3(0.0), 0.35 * icon.a));
+            c = over(c, vec4(icon.rgb, icon.a * (0.88 + 0.12 * held)));
+        } else {
+            c = over(c, vec4(ink.rgb, ink.a * (mark >= 0.0 ? mark : fill(s))));
+        }
         // The glow of a press, outside the outline.
         c = over(vec4(accent, 0.40 * held * (1.0 - smoothstep(0.0, 0.18, d)) * step(0.0, d)), c);
     }
@@ -223,6 +241,7 @@ enum Symbol : int {
     kStart = 8,
     kDpad = 9,
     kMenu = 10,
+    kIcon = 11,
 };
 
 // The shoulders' names, letter by letter (letter() in the shader).
@@ -248,11 +267,15 @@ struct State {
 
 // The mark's half height on the options button, in radii: as large as the face buttons' symbols.
 constexpr float kMarkHalf = 0.44f;
+// An action's icon's half size in radii: most of the button, a rim of glass around it.
+constexpr float kIconHalf = 0.62f;
 
 // The seconds a let-go control takes to ease most of the way out.
 constexpr float kPressEase = 0.06f;
 
 State s;
+// The accent (ui_colors.h's amber): the launcher's own until the game says.
+float g_accent[3] = {1.0f, 0.706f, 0.263f};
 
 struct Look {
     int symbol = kNone;
@@ -262,6 +285,9 @@ struct Look {
 };
 
 Look look(const TouchControl& c) {
+    if (!c.icon.empty() && touch_icons::has(c.icon)) {
+        return {kIcon, 1.0f, 1.0f, 1.0f};
+    }
     if (c.kind == TouchControl::Kind::Menu) {
         return {kMenu, 0.95f, 0.92f, 0.88f};
     }
@@ -326,8 +352,9 @@ void make_mark(int height) {
     s.mark_aspect = static_cast<float>(mask.width) / static_cast<float>(mask.height);
 }
 
+// An arm of the DualShock's d-pad; an action button that presses the d-pad is a button of its own.
 bool is_arm(const TouchControl& c) {
-    return c.kind == TouchControl::Kind::Button
+    return c.kind == TouchControl::Kind::Button && c.action.empty()
            && (c.button == Button::Up || c.button == Button::Down || c.button == Button::Left
                || c.button == Button::Right);
 }
@@ -371,6 +398,7 @@ void draw(platform::TouchPad& touch, int width, int height) {
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     s.shader.use();
     glBindVertexArray(s.vao);
+    glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
     const float aspect = touch.aspect();
     const auto controls = touch.controls();
     const auto now = std::chrono::steady_clock::now();
@@ -417,6 +445,19 @@ void draw(platform::TouchPad& touch, int width, int height) {
             continue;
         }
         const Look l = look(c);
+        if (l.symbol == kIcon) {
+            const auto cell = touch_icons::cell(c.icon);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, touch_icons::texture());
+            glUniform4f(
+                s.shader.uniform("icon_rect"),
+                cell ? cell->u0 : 0.0f,
+                cell ? cell->v0 : 0.0f,
+                cell ? cell->u1 : 0.0f,
+                cell ? cell->v1 : 0.0f
+            );
+            glUniform1f(s.shader.uniform("icon_half"), kIconHalf);
+        }
         if (l.symbol == kMenu) {
             const float mark_height = 2.0f * kMarkHalf * c.radius * static_cast<float>(height);
             make_mark(static_cast<int>(std::lround(mark_height)));
@@ -427,7 +468,7 @@ void draw(platform::TouchPad& touch, int width, int height) {
         box(c.x, c.y, c.radius, c.stretch, 1.2f);
         glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
         float& press = s.press[i];
-        press = touch.held(i) ? 1.0f : press - press * ease;
+        press = touch.held(i) || touch.toggled(i) ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
         glUniform1f(s.shader.uniform("angle"), l.angle);
@@ -444,7 +485,14 @@ void draw(platform::TouchPad& touch, int width, int height) {
     glDisable(GL_BLEND);
 }
 
+void set_accent(float r, float g, float b) {
+    g_accent[0] = r;
+    g_accent[1] = g;
+    g_accent[2] = b;
+}
+
 void release() {
+    touch_icons::release();
     s.shader.release();
     if (s.vao != 0) {
         glDeleteVertexArrays(1, &s.vao);
