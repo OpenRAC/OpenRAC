@@ -54,10 +54,9 @@ uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, 
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
-uniform int shape;         // the Arc style's, cut sharp as the logo: 0 an octagon, 1 a long hexagon
-                           // turned by `angle`, 2 a slanted bar, 3 a long octagon lying round `hub`
-                           // (as the GameCube's X and Y round its A)
-uniform vec2 hub;          // a long octagon's hub, from the button's centre in its radii
+uniform int shape;         // the Arc style's, cut sharp as the logo, never fewer than six sides: 0 an
+                           // octagon, 1 a long hexagon, 2 a long hexagonal bar, 3 a trapezium wider at
+                           // the top, its top corners cut
 uniform float large;       // 1 for a large action button
 out vec4 colour;
 
@@ -98,19 +97,16 @@ float octagon(vec2 p, float r) {
     return max(max(a.x, a.y), (a.x + a.y) * 0.7071) - r;
 }
 float slate_shape(vec2 p) {
+    vec2 q = abs(p);
     if (shape == 1) {
-        float ca = cos(angle), sa = sin(angle);
-        vec2 q = abs(mat2(ca, -sa, sa, ca) * p);
         return max(q.y - 0.70, (q.x + q.y * 0.55 - 1.05) * 0.85);
     }
     if (shape == 3) {
-        // Across the direction from the hub: a long octagon, its corners cut.
-        vec2 up = -hub / length(hub);
-        vec2 q = abs(vec2(p.x * up.y - p.y * up.x, p.x * up.x + p.y * up.y));
-        return max(max(q.x - 1.08, q.y - 0.76), (q.x + q.y) * 0.7071 - 1.22);
+        float side = (q.x + p.y * 0.28 - 1.02) * 0.96;
+        return max(max(q.y - 0.80, side), (q.x - p.y) * 0.7071 - 1.30);
     }
     if (shape == 2) {
-        return rounded_box(vec2(p.x + p.y * 0.35, p.y), vec2(stretch - 0.15, 1.0), 0.10);
+        return max(q.y - 1.0, (q.x + q.y * 0.45 - stretch) * 0.9);
     }
     return octagon(p, 0.95);
 }
@@ -489,18 +485,6 @@ void draw(platform::TouchPad& touch, int width, int height) {
     glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
     const bool arc = touch.style() == platform::TouchStyle::Arc;
     glUniform1i(s.shader.uniform("arc"), arc ? 1 : 0);
-    // The Arc style's small buttons lie along the circle round the button or stick they sit by,
-    // as stones round a larger one: the first action on the right, the stick on the left.
-    const TouchControl* hub_right = nullptr;
-    const TouchControl* hub_left = nullptr;
-    for (const TouchControl& c : touch.controls()) {
-        if (c.group == platform::TouchGroup::Arc0) {
-            hub_right = &c;
-        }
-        if (c.kind == TouchControl::Kind::LeftStick) {
-            hub_left = &c;
-        }
-    }
     const float aspect = touch.aspect();
     const auto controls = touch.controls();
     const auto now = std::chrono::steady_clock::now();
@@ -569,43 +553,22 @@ void draw(platform::TouchPad& touch, int width, int height) {
             glBindTexture(GL_TEXTURE_2D, s.mark);
             glUniform2f(s.shader.uniform("logo_half"), kMarkHalf * s.mark_aspect, kMarkHalf);
         }
-        // The Arc style's shapes, as the GameCube's buttons: the large ones round, the others
-        // beans curled round the button or stick they sit by, the small ones ovals along that
-        // circle, the top ones bars.
+        // The Arc style's shapes: the large buttons octagons, the others trapeziums, the small ones
+        // long hexagons, the top ones hexagonal bars.
         int shape = 0;
-        float angle = l.angle;
-        float hub_x = 0.0f;
-        float hub_y = 0.0f;
         if (arc && !c.action.empty()) {
-            const bool top = c.stretch > 1.0f;
             const bool small = !c.large && c.radius < 0.076f * touch.scale();
-            const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
-            const bool round = hub != nullptr && hub != &c;
-            hub_x = round ? (hub->x - c.x) * aspect / c.radius : 0.0f;
-            hub_y = round ? (hub->y - c.y) / c.radius : 0.0f;
-            const float far = std::hypot(hub_x, hub_y);
-            if (top) {
-                shape = 2;
-            } else if (small) {
-                shape = 1;
-                // The tangent of the circle round the hub, folded into a half turn (an oval looks
-                // the same turned round).
-                angle = round ? std::remainder(std::atan2(-hub_y, -hub_x) + 1.5708f, 3.14159265f)
-                              : 0.0f;
-            } else if (!c.large && round && far > 1.5f && far < 4.5f) {
-                shape = 3;
-            }
+            shape = c.stretch > 1.0f ? 2 : small ? 1 : c.large ? 0 : 3;
         }
-        box(c.x, c.y, c.radius, c.stretch, shape == 3 ? 1.5f : 1.2f);
+        box(c.x, c.y, c.radius, c.stretch, 1.2f);
         glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
         float& press = s.press[i];
         press = touch.held(i) || touch.toggled(i) ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
         glUniform1i(s.shader.uniform("shape"), shape);
-        glUniform2f(s.shader.uniform("hub"), hub_x, hub_y);
         glUniform1f(s.shader.uniform("large"), c.large ? 1.0f : 0.0f);
-        glUniform1f(s.shader.uniform("angle"), angle);
+        glUniform1f(s.shader.uniform("angle"), l.angle);
         glUniform1i(s.shader.uniform("label0"), l.label0);
         glUniform1i(s.shader.uniform("label1"), l.label1);
         float dx = 0.0f;
