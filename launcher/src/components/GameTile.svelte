@@ -1,6 +1,7 @@
 <script lang="ts">
   // One game on Android's Games tab (Library.svelte): its art, its name, whether it can be
-  // played, and the one thing to do next. The whole tile opens the game's page.
+  // played, and the one thing to do next. The whole tile opens the game's page; its button (Play,
+  // Set up) takes a finger only, as a controller's A opens the page too.
   import type { GameView } from "$lib/api";
   import { app, dismissCrashes, openVersion } from "$lib/app.svelte";
   import { pct } from "$lib/format";
@@ -10,11 +11,12 @@
   import { accentStyle, themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
-  /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). */
+  /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). It is
+   *  where the controller's focus starts (pad.ts, aria-current), and is not drawn: a ring of its
+   *  own beside the focus showed two picked games. */
   let { game, delay = 0, selected = false }: { game: GameView; delay?: number; selected?: boolean } = $props();
 
-  // The game's still picture (media.ts), zoomed in a little while the tile has the pointer or the
-  // focus; without one, the tile shows the game's colours.
+  // The game's still picture (media.ts); without one, the tile shows the game's colours.
   const art = $derived(gameTileArt(game.id));
   const v = $derived(playerVersion(game));
   const next = $derived(v ? playerState(game, v) : null);
@@ -28,32 +30,10 @@
       ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
       : "",
   );
-
-  /** With a controller the tile is one control (pad.ts): A takes its next step (Play, Set up,
-   *  Rebuild), or opens the game's page when it offers none; Y opens the page. A finger or the
-   *  mouse keeps the two apart: the tile opens the page, its button plays. */
-  function padTile(node: HTMLElement) {
-    const press = (e: Event) => {
-      if (!v || !next || !offers) return;
-      e.preventDefault();
-      void playerAct(v, next);
-    };
-    const more = () => {
-      if (v) openVersion(v.key);
-    };
-    node.addEventListener("padpress", press);
-    node.addEventListener("padmore", more);
-    return {
-      destroy() {
-        node.removeEventListener("padpress", press);
-        node.removeEventListener("padmore", more);
-      },
-    };
-  }
 </script>
 
 {#if v && next}
-  <article class="tile rise" class:selected style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
+  <article class="tile rise" style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
     {#if art}
       <img class="art" src={art} alt="" decoding="sync" onerror={hideMissing} />
     {/if}
@@ -61,7 +41,6 @@
 
     <button
       class="open"
-      use:padTile
       aria-current={selected || undefined}
       onclick={() => {
         openVersion(v.key);
@@ -141,10 +120,6 @@
       box-shadow: var(--shadow);
     }
 
-    :global(html:where(:not([data-input="pad"]))) .tile:hover .art {
-      transform: scale(1.06);
-    }
-
     :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
       opacity: 1;
       background: rgb(255 255 255 / 0.12);
@@ -189,48 +164,14 @@
     font-size: 0.875rem;
   }
 
-  /* The game picked last: ringed in the launcher's accent, which is its colour. */
-  .tile::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 2px var(--amber);
-    opacity: 0;
-    transition: opacity var(--medium) var(--ease);
-    pointer-events: none;
-  }
-
-  .tile.selected::after {
-    opacity: 1;
-  }
-
-  /* A pixel past the tile's edges, the picture and its shade, so that a zoom drawn a fraction of a
-     pixel short leaves no line of the tile's own colours. */
+  /* A pixel past the tile's edges, the picture and its shade, so that no line of the tile's own
+     colours shows at its round corners. The picture stays still under the pointer and the focus. */
   .art {
     position: absolute;
     inset: -1px;
     width: calc(100% + 2px);
     height: calc(100% + 2px);
     object-fit: cover;
-    will-change: transform;
-    backface-visibility: hidden;
-    transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .tile:has(:focus-visible) .art,
-  :global(html[data-input="pad"]) .tile:focus-within .art {
-    transform: scale(1.06);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .art {
-      transition: none;
-    }
-
-    .tile .art {
-      transform: none !important;
-    }
   }
 
   .crashed {
@@ -263,8 +204,7 @@
     padding: 0;
   }
 
-  /* The focus rings the whole tile from outside (the tile cuts what is inside it), apart from the
-     picked game's ring inside it. */
+  /* The focus rings the whole tile from outside (the tile cuts what is inside it). */
   .open:focus-visible,
   :global(html[data-input="pad"]) .open:focus {
     outline: none;

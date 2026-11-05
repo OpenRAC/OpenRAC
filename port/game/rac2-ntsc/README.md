@@ -43,7 +43,7 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10 \
   --no-card --skip-movies --stop-on-missing
 ```
 
-From the launcher, with Developer tools on (Settings): set the game up from
+From a checkout's launcher (no Developer tools needed): set the game up from
 your disc, then Play (`launcher/actions.json`, rac2/ntsc's `play`:
 `--data {data} --window --levels {root}/assets/port/rac2/ntsc`, after a warning
 to accept). Play first reads the levels (Get the levels ready, `editor/extract.py
@@ -51,8 +51,26 @@ port`) when their stamp, `levels-<format>.json` with the format of
 `editor/port.py` `GAME_FORMATS`, is not there, so a format bump reads them again;
 the game has no `--check-levels` yet, so that stamp is all Play waits for. An
 installed launcher reads and passes `<data>/port/ntsc` instead. Its Build the game runs
-`tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first; Build
-the game is `"developer": true`, so a player's launcher does not show it.
+`tools/build_port.py rac2-ntsc --disc {disc}`. Play is a player's, with a warning first, and so
+are Build the game and Rebuild: Play on a fresh checkout is Build and play. An installed launcher
+carries no `openrac-rac2-ntsc` (its build needs the player's disc, which CI has not): its Build and
+play runs `tools/build_game.py`, which fetches the source and builds it with the player's compiler.
+
+On Android the APK (`tools/build_android.py`, CI's too) carries the game built
+without the disc: the functions still in assembly are called through slots
+(`asm_interface.json`, `asmext.py`). Once the game is set up from the disc, Build
+and play first runs `tools/asm_part.py build`. The APK's Python translates those
+functions from the disc (`asmdev.py`, from the pickled program the build wrote),
+and the Clang and lld it carries (Zig's, `libopenrac-zig.so`)
+compile them into `<data>/asm-part/<tag>/libopenrac-rac2-ntsc-part.so`. The tag
+names the kit and tools it is built from, so another APK builds its own. The game
+loads it before it starts (`--asm-part`). It takes a few minutes, once for each
+APK whose game changed; nothing of the disc is in the APK.
+
+After a sync that changes the asm stage's view of the code, write
+`asm_interface.json` again with the disc (`hostgen.py ... --retail-image <iso>
+--asm-interface-out port/game/rac2-ntsc/asm_interface.json`); a build without the
+disc then gives the same C as one with it.
 
 For Going Commando `OPENRAC_RAC2_NTSC_RETAIL_IMAGE` gives only the boot
 executable: hostgen's `retail.read_image` uses the editor's reader

@@ -252,6 +252,9 @@ typedef struct openrac_front_end {
     /* Whether start_level works from inside a level too, not only over the title: the developer
      * menu then opens over a level as well (with F1, the pad's Select being the game's). */
     int start_level_anywhere;
+    /* The game's occlusion mask this frame (0x80 bytes, rac1's UpdateOcclusion), whose fallbacks
+     * outside the baked grid a level's code chooses (the fighter's octant masks); 0 for none. */
+    gaddr occlusion;
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;

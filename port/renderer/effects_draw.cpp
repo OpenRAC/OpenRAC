@@ -355,6 +355,13 @@ void EffectRenderer::draw_prepared(
         }
     }
 
+    // Quads are not cut at the far plane (the GS has none): Drek's Fleet's backdrop lies ~7000
+    // units away, past it.
+    const bool clamp_quads = quads && !input.depth_clamp && gl::depth_clamp_available();
+    if (clamp_quads) {
+        glEnable(GL_DEPTH_CLAMP);
+    }
+
     set.reset();
     quad_indices = quads && m_quad_indices != 0;
     if (quad_indices) {
@@ -412,6 +419,9 @@ void EffectRenderer::draw_prepared(
     }
 
     flush();
+    if (clamp_quads) {
+        glDisable(GL_DEPTH_CLAMP);
+    }
     stats::gauge("effect quads alpha tested", tested_quads);
     if (quads && gl::is_vulkan()) {
         stats::gauge("effect quad texture splits", texture_splits);

@@ -136,13 +136,16 @@ reason, as is the extractor's when it refuses a disc.
 **The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
-game does not, as the APK carries it. Rebuild, in the game's menu, reads the
-levels again and checks them. Android runs programs only from an app's native
+game does not, as the APK carries it. Going Commando adds one: the part of its
+code still in assembly is compiled on the device from the disc by the Clang and
+lld the APK carries (`tools/asm_part.py`, `port/game/rac2-ntsc/README.md`).
+Rebuild, in the game's menu, reads the levels again and checks them. Android runs programs only from an app's native
 library folder, so the APK carries them as libraries:
 
 | Library | What it is |
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
+| `libopenrac-zig.so` | [Zig](https://ziglang.org)'s static AArch64 Linux release (MIT, pinned by SHA-256): Clang and lld (`zig clang`, `zig ld.lld`), which build Going Commando's part from the disc on the device (`tools/asm_part.py`) |
 | `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
 | `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
