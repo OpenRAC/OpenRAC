@@ -37,7 +37,7 @@ class Subset(unittest.TestCase):
         script = self.root / "CMakeLists.txt"
         script.write_text(
             'cmake_minimum_required(VERSION 3.24)\nproject(CompressonatorSubset NONE)\n'
-            'set(FETCHCONTENT_SOURCE_DIR_OPENRAC_COMPRESSONATOR_BC6 "' + self.archive.as_posix() + '")\n'
+            'set(FETCHCONTENT_SOURCE_DIR_OPENRAC_BC6 "' + self.archive.as_posix() + '")\n'
             'include("' + MODULE.as_posix() + '")\n')
         self.command = ["cmake", "-S", str(self.root), "-B", str(self.root / "build"), "-G", "Ninja"]
         self.write_archive(FILES)
