@@ -180,7 +180,6 @@ struct State {
     float camera_look_x = 0,
           camera_look_y = 0;        // Mouse deltas consumed once per displayed snapshot.
     std::uint64_t camera_time = 0;  // SDL nanoseconds of the last input snapshot.
-    bool camera_pad_chord = false;  // L3+R3 held on a gamepad: toggles freecam once per press.
     std::vector<ScriptedInput> script;
     std::optional<ImVec2> script_pointer;  // App-local pointer held by explicit input scripts.
     SDL_Keymod script_modifiers = SDL_KMOD_NONE;
@@ -499,6 +498,10 @@ std::string menu_bar_button_label();
 
 // Opens or closes the menu. Defined in debug/menu_bar.cpp.
 void toggle_menu();
+
+// A gamepad's freecam press: L3 turns it off, L3+R3 on (developer mode). True when it took the
+// press. Defined in debug/camera.cpp.
+bool camera_pad_button(const SDL_Event& e);
 
 // Moves setting `row` (options_menu.h) on by `by`, saves the settings and marks them changed for
 // the window to apply (take_settings_changed). A picture shape of the player's own is the settings

@@ -15,21 +15,6 @@ constexpr float kTriggerDeadZone = 0.1f;  // of a trigger's travel
 constexpr float kPadLookRate = 900.0f;    // mouse pixels a second, right stick fully pushed
 constexpr float kAxisScale = 1.0f / 32767.0f;
 
-// Every connected gamepad's L3 and R3 held together (any one gamepad).
-bool pad_chord_held() {
-    bool held = false;
-    int count = 0;
-    if (SDL_JoystickID* ids = SDL_GetGamepads(&count)) {
-        for (int i = 0; i < count && !held; ++i) {
-            SDL_Gamepad* pad = SDL_GetGamepadFromID(ids[i]);
-            held = pad != nullptr && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK)
-                   && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK);
-        }
-        SDL_free(ids);
-    }
-    return held;
-}
-
 // The gamepads fly the freecam (any of them, added up): left stick moves and strafes, right stick
 // looks, R2 rises and L2 sinks, R1 held is faster and L1 held slower, as Shift and Ctrl.
 void pad_controls(scene::FlyControls& c, float seconds) {
@@ -121,24 +106,44 @@ void camera_debug_event(const SDL_Event& event) {
     }
 }
 
+// A gamepad's L3 turns freecam off; L3 with R3 held (or R3 with L3 held) turns it on, in
+// developer mode only, so a player's stray press does not. The press is the freecam's, not the
+// menu's (its button is L3 by default).
+bool camera_pad_button(const SDL_Event& e) {
+    if (e.type != SDL_EVENT_GAMEPAD_BUTTON_DOWN || s.menu_open || !s.window
+        || SDL_GetKeyboardFocus() != s.window) {
+        return false;
+    }
+    const auto button = static_cast<SDL_GamepadButton>(e.gbutton.button);
+    bool toggle = false;
+    if (s.camera_tools.enabled) {
+        toggle = button == SDL_GAMEPAD_BUTTON_LEFT_STICK;
+    } else if (s.developer) {
+        SDL_Gamepad* pad = SDL_GetGamepadFromID(e.gbutton.which);
+        toggle = pad != nullptr
+                 && ((button == SDL_GAMEPAD_BUTTON_LEFT_STICK
+                      && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_RIGHT_STICK))
+                     || (button == SDL_GAMEPAD_BUTTON_RIGHT_STICK
+                         && SDL_GetGamepadButton(pad, SDL_GAMEPAD_BUTTON_LEFT_STICK)));
+    }
+    if (!toggle) {
+        return false;
+    }
+    s.camera_tools.enabled = !s.camera_tools.enabled;
+    notify({
+        .id = "freecam",
+        .title = s.camera_tools.enabled ? "Freecam on" : "Freecam off",
+        .text = s.camera_tools.enabled ? "L3 gives the view back to the game." : "",
+        .seconds = 2.0,
+    });
+    return true;
+}
+
 // Samples the display clock and controls once before the scene handoff.
 CameraDebugFrame camera_debug_frame() {
     CameraDebugFrame result;
     const bool focused = s.window && SDL_GetKeyboardFocus() == s.window;
     const bool typing = ImGui::GetCurrentContext() && ImGui::GetIO().WantTextInput;
-    // L3+R3 on a gamepad turns freecam on (developer mode only, so a player's stray press does
-    // not) and off. The game still sees the press that turns it on.
-    const bool chord = focused && !s.menu_open && pad_chord_held();
-    if (chord && !s.camera_pad_chord && (s.developer || s.camera_tools.enabled)) {
-        s.camera_tools.enabled = !s.camera_tools.enabled;
-        notify({
-            .id = "freecam",
-            .title = s.camera_tools.enabled ? "Freecam on" : "Freecam off",
-            .text = s.camera_tools.enabled ? "L3+R3 gives the view back to the game." : "",
-            .seconds = 2.0,
-        });
-    }
-    s.camera_pad_chord = chord;
     result.settings = s.camera_tools;
     result.reset = std::exchange(s.camera_reset, false);
     // Ordinary player frames do not sample extra input or update a developer camera clock.
@@ -208,7 +213,7 @@ void camera_tools_controls() {
     );
     ImGui::TextWrapped(
         "Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 faster, L1 slower. "
-        "L3+R3 turns freecam off (and on, in developer mode)."
+        "L3 turns freecam off; L3+R3 turns it on in developer mode."
     );
     if (tools.mode == CameraDebugMode::CullingInspection) {
         ImGui::TextWrapped(

@@ -680,10 +680,11 @@ neutral controller input; F5 pauses gameplay while freecam still moves.
 A gamepad flies it too (any connected one, the built-in pad of a handheld
 included): the left stick moves along the view and strafes, the right stick
 looks, R2 rises and L2 sinks (both analog), R1 held is four times faster and L1
-held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3+R3
-pressed together turns freecam off; in developer mode (`OPENRAC_DEVELOPER=1`) it
-also turns it on, so a player's stray press never does. The gamepad moves the
-menu's rows instead while the menu or the Android drawer is open, where
+held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3
+turns freecam off (it does not open the menu then, though L3 is the menu's
+button by default); in developer mode (`OPENRAC_DEVELOPER=1`) L3+R3 pressed
+together turns it on, so a player's stray press never does. The gamepad moves
+the menu's rows instead while the menu or the Android drawer is open, where
 **Developer > Freecam** is offered too.
 
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades

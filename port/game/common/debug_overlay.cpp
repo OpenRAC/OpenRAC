@@ -743,6 +743,10 @@ bool event(const SDL_Event& e) {
             return true;
         }
     }
+    // Freecam's L3 goes before the menu's button, which is L3 too by default.
+    if (!controls_capturing() && !s.pad_locked && camera_pad_button(e)) {
+        return true;
+    }
     // The menu's controller button (menu_bar_button; by default L3), on a desktop and a touch
     // screen alike, while the game's window has the focus. Not "...": a running Steam client opens
     // its own panel on it.
