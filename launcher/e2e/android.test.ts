@@ -234,34 +234,36 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("opens a game's page from its tile, by A or a tap, and never plays from the list", async () => {
+  it("opens a game's page from its tile by A or a tap, and leaves the tile's button to a finger", async () => {
     await open("built");
-    // No Play, or any other step, on the games list: only the game's page has them.
-    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
-    expect(
-      await page
-        .locator(".tiles")
-        .getByRole("button", { name: /Play|Set up|Rebuild/ })
-        .count(),
-    ).toBe(0);
+    // The tile's own Play is there for a finger, but the controller never lands on it.
+    const play = page.locator(".tile .act").first();
+    await expect(play.textContent()).resolves.toContain("Play");
     await press("down");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // Right goes to the next game.
+    // Right goes to the next game, not to the tile's own button.
     await press("right");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
     await press("left", "accept");
     await page.waitForTimeout(500);
-    // The game's page has the focus on its first control, and nothing started.
+    // A opens the game's page, with the focus on its first control, and starts nothing.
     expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
     expect(await page.locator(".tile").count()).toBe(0);
-    expect(await page.locator(".go .big").textContent()).toContain("Play");
+    await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
     await press("back");
     await page.waitForTimeout(500);
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // A tap opens the page too.
+    // A tap on the tile opens the page too.
     await page.locator(".tile .open").first().click();
     await page.locator(".go .big").waitFor();
     expect(await page.locator(".tile").count()).toBe(0);
+  });
+
+  it("starts a game's next step from its tile's button by a tap", async () => {
+    await open("");
+    await page.locator(".tile .act").first().click();
+    await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
   });
 
   it("draws one ring on the games list: the focus, not the game picked last", async () => {

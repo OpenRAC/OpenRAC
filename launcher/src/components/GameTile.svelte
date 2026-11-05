@@ -1,13 +1,14 @@
 <script lang="ts">
-  // One game on Android's Games tab (Library.svelte): its art, its name and whether it can be
-  // played. The whole tile opens the game's page; Play and the other steps are only there.
+  // One game on Android's Games tab (Library.svelte): its art, its name, whether it can be
+  // played, and the one thing to do next. The whole tile opens the game's page; its button (Play,
+  // Set up) takes a finger only, as a controller's A opens the page too.
   import type { GameView } from "$lib/api";
   import { app, dismissCrashes, openVersion } from "$lib/app.svelte";
   import { pct } from "$lib/format";
   import { regionLabel } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
-  import { playerState, playerVersion } from "$lib/player.svelte";
-  import { themeStyle } from "$lib/themes";
+  import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
+  import { accentStyle, themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). It is
@@ -19,6 +20,8 @@
   const art = $derived(gameTileArt(game.id));
   const v = $derived(playerVersion(game));
   const next = $derived(v ? playerState(game, v) : null);
+  /** The tile offers the next step itself only when there is one to take. */
+  const offers = $derived(!!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job));
   /** What Play warns of before it starts (actions.json `warning`), shown in short on the tile. */
   const playWarning = $derived(v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null);
   /** With developer tools on: how far each version's decompilation is. */
@@ -71,6 +74,17 @@
           </p>
         {/if}
       </div>
+      {#if offers}
+        <button
+          class="act"
+          class:primary={next.primary}
+          data-pad-skip
+          style={accentStyle(game.id)}
+          onclick={() => void playerAct(v, next)}
+        >
+          <Icon name={next.icon} size={18} />{next.kind === "set-up" ? "Set up" : next.label}
+        </button>
+      {/if}
     </div>
   </article>
 {/if}
@@ -140,10 +154,14 @@
     font-size: 1.125rem;
   }
 
-  /* The compact card says only that it crashed; the tile's name for a screen reader and the page say
-     the rest. */
+  /* The compact card says only that it crashed; the button's label and the page say the rest. */
   :global(html[data-platform="android"]) .crashed .where {
     display: none;
+  }
+
+  :global(html[data-platform="android"]) .act {
+    padding: 8px 16px;
+    font-size: 0.875rem;
   }
 
   /* A pixel past the tile's edges, the picture and its shade, so that no line of the tile's own
@@ -209,6 +227,7 @@
     pointer-events: none;
   }
 
+  .foot .act,
   .foot .x {
     pointer-events: auto;
   }
@@ -262,5 +281,31 @@
     height: 8px;
     border-radius: 50%;
     background: currentColor;
+  }
+
+  .act {
+    flex: none;
+    font-size: 0.9375rem;
+    padding: 10px 22px;
+    background: rgb(0 0 0 / 0.5);
+    border-color: rgb(255 255 255 / 0.25);
+  }
+
+  /* A narrow tile: its button under its name, the tile's width. */
+  @container (max-width: 340px) {
+    .foot {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 14px;
+    }
+
+    .act {
+      justify-content: center;
+    }
+  }
+
+  .act.primary {
+    background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom));
+    border-color: rgb(0 0 0 / 0.3);
   }
 </style>
