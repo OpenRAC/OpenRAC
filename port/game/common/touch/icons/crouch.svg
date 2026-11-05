@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
 <!-- OpenRAC touch icon "crouch": a Lombax down on his haunches. White is drawn white, #ff8000 in the game's accent. -->
+  <g transform="translate(-1.15,5.75) scale(1.15)">
   <path d="M6,-20 L-14,-38 L0,-24 Z" fill="#fff"/><path d="M16,-20 L36,-34 L14,-26 Z" fill="#fff"/>
   <circle cx="10" cy="-14" r="11" fill="#fff"/>
   <g stroke="#fff" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
@@ -8,5 +9,5 @@
     <path d="M4,0 L18,8 L24,2"/>
     <path d="M-8,14 Q-28,16 -34,0" stroke-width="5"/>
   </g>
-  <path d="M-22,36 L0,46 L22,36" fill="none" stroke="#ff8000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
 </svg>

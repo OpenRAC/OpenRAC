@@ -85,8 +85,8 @@ vec4 glass(float d, float lift) {
     float rim = fill(abs(d + 0.035) - 0.022);
     return over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.30 + 0.5 * held) * rim));
 }
-// The Arc style's buttons: slate faces raised a little off a darker base, a soft shadow under them,
-// a fine light along the top edge. A press sinks the face into the base and warms it.
+// The Arc style's buttons: see-through slate faces on a darker base, a fine rim and a light along
+// the top edge. A press sinks the face into the base and warms it.
 float rounded_box(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -119,11 +119,10 @@ float slate_shape(vec2 p) {
 const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
 const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
 const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
-// The face sits in the middle of its base, its shadow all round it: a press shrinks it a little.
+// The face sits in the middle of its base, no shadow: a press shrinks it a little.
 vec4 slate(vec2 p) {
     float d = slate_shape(p);
-    vec4 c = vec4(vec3(0.0), 0.14 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
-    c = over(c, vec4(kSlateBase, 0.38 * fill(d)));
+    vec4 c = vec4(kSlateBase, 0.38 * fill(d));
     c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.025) - 0.016)));  // a fine rim, as the glass's
     float f = d + (large > 0.5 ? 0.13 : 0.12) + 0.04 * held;
     vec3 face = mix(kSlateTop, kSlateBottom, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
@@ -187,8 +186,7 @@ void main() {
         // The Arc style's stick: a slate base, an arrow each way (the one it leans to lit), a knob
         // with four dots, raised off its own lip.
         float d = length(p) - 1.0;
-        c = vec4(vec3(0.0), 0.14 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
-        c = over(c, vec4(kSlateBase, 0.36 * fill(d)));
+        c = vec4(kSlateBase, 0.36 * fill(d));
         c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.02) - 0.012)));
         c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.38 * fill(length(p) - 0.92)));
         c = over(c, vec4(vec3(1.0), 0.06 * fill(abs(length(p) - 0.90) - 0.012) * (1.0 - smoothstep(-0.3, 0.3, p.y))));
@@ -204,7 +202,6 @@ void main() {
         }
         vec2 k = p - knob * 0.50;
         float kr = 0.46;
-        c = over(c, vec4(vec3(0.0), 0.25 * (1.0 - smoothstep(0.0, 0.14, length(k) - kr))));
         c = over(c, vec4(kSlateBase, 0.55 * fill(length(k) - kr)));
         vec2 kf = k;
         vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));

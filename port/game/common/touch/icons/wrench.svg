@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
-<!-- OpenRAC touch icon "wrench": white is drawn white, #ff8000 in the game's accent. -->
-  <g transform="rotate(45)"><rect x="-6" y="-6" width="12" height="46" rx="5" fill="#fff"/>
-  <path d="M-16,-30 a18,18 0 1 0 32,0 l-8,-12 l0,14 l-16,0 l0,-14 z" fill="#fff"/></g>
+<!-- OpenRAC touch icon "wrench": the OmniWrench, an open jaw on a long shaft, a guard round the grip. White is drawn white, #ff8000 in the game's accent. -->
+  <g transform="rotate(45) translate(0,4) scale(1.08)">
+    <path d="M-9,-42.3 A11,11 0 1 0 9,-42.3" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+    <rect x="-5" y="-26" width="10" height="40" rx="2" fill="#fff"/>
+    <rect x="-8" y="10" width="16" height="6" rx="2" fill="#ff8000"/>
+    <rect x="-6.5" y="16" width="13" height="26" rx="6" fill="#fff"/>
+    <path d="M6,19 Q20,29 6,39" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+  </g>
 </svg>
