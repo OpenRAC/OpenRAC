@@ -88,7 +88,7 @@
       saved().developer ||
       saved().saveEditorAdvanced ||
       saved().renderer === "vulkan" ||
-      saved().hdr !== "" ||
+      saved().hdr === "on" ||
       saved().safeRendering,
   );
 
@@ -616,24 +616,18 @@
             </div>
           </div>
         {/if}
-        <!-- HDR output (OPENRAC_HDR, core/src/actions.rs; port docs/port/HDR.md): left to the
-             game's own setting, or the launcher's word for every start. -->
+        <!-- HDR output (OPENRAC_HDR, core/src/actions.rs; port docs/port/HDR.md): Off or On for
+             every start, over the game's own setting. -->
         <div class="setting">
           <span class="text">
             <strong>HDR</strong>
             <small>
-              {draft.hdr === ""
-                ? "As each game has it (its options drawer)."
-                : draft.hdr === "auto"
-                  ? "On when your screen is in HDR mode (Windows, macOS, Wayland)."
-                  : draft.hdr === "on"
-                    ? "Always, where the screen offers it."
-                    : "Off: the picture as always."}
+              {draft.hdr === "on" ? "On when your screen is in HDR mode." : "Off: the picture as always."}
               Shows the game on an HDR screen as it looks in SDR. Needs the Vulkan renderer.
             </small>
           </span>
           <div class="segmented" role="radiogroup" aria-label="HDR">
-            {#each [["", "Game"], ["off", "Off"], ["auto", "Auto"], ["on", "On"]] as [value, label] (value)}
+            {#each [["off", "Off"], ["on", "On"]] as [value, label] (value)}
               <button
                 role="radio"
                 aria-checked={draft.hdr === value}

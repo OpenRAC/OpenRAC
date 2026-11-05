@@ -657,7 +657,7 @@ int main(int argc, char** argv) {
             if (settings::set_hdr_mode(hdr)) {
                 log::info("HDR output {} (OPENRAC_HDR)", hdr);
             } else {
-                log::warn("OPENRAC_HDR={}: not off, auto or on, ignored", hdr);
+                log::warn("OPENRAC_HDR={}: not off or on, ignored", hdr);
             }
         }
         log::header("settings  " + settings::summary(), false);

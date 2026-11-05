@@ -63,7 +63,7 @@ void window_event(const SDL_Event& event) {
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
             g->muted = event.type == SDL_EVENT_WINDOW_FOCUS_LOST;
             break;
-        // The display's HDR turned on or off, or another display: HDR output follows (auto).
+        // The display's HDR turned on or off, or another display: HDR output follows (On).
         case SDL_EVENT_WINDOW_HDR_STATE_CHANGED:
             apply_hdr();
             break;

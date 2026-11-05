@@ -637,6 +637,9 @@ export const DETAIL_TAB = {
 } as const;
 
 export const noMatch = (q: string) => `No mods match "${q}".`;
+/** Why the list is empty: the search when there is one, else the preset alone. */
+export const nothingShown = (q: string, preset: keyof typeof PRESET_LABEL) =>
+  q.trim() ? noMatch(q.trim()) : `No mods in ${PRESET_LABEL[preset]}.`;
 export const didYouMean = (name: string) => `Did you mean ${name}?`;
 export const IMPACT_LABEL: Record<string, string> = {
   cosmetic: "Cosmetic only",

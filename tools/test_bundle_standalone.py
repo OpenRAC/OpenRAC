@@ -63,6 +63,8 @@ class PlayerActions(unittest.TestCase):
         made = part["makes"]
         self.assertRegex(made, r"^\{data\}/asm-part/[^/]+/libopenrac-rac2-ntsc-part\.so$")
         self.assertEqual(part["args"][part["args"].index("--out") + 1], made.rsplit("/", 1)[0])
+        # Run in the copy, where tools/asm_part.py is, not in the data folder as Play is.
+        self.assertEqual(part["cwd"], ".")
         self.assertEqual(play["args"][-2:], ["--asm-part", made])
         self.assertIn(made, [n["path"] for n in play["needs"]])
         # A desktop's copy plays its own build: no part.
