@@ -453,6 +453,9 @@ jobs:
 
   port-vulkan-enhanced-tests:
     needs: port-vulkan-enhanced-build
+    # Explicit: on a push `scope` is skipped, and the implicit success() skips every job below a
+    # skipped one, so the groups never ran and port-vulkan-enhanced failed on develop and master.
+    if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
