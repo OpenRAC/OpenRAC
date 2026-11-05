@@ -53,13 +53,22 @@ else()
   set(SDL_TESTS OFF CACHE BOOL "" FORCE)
   set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
-  # SDL 3.4 stops at a missing X11 extension; XTest is the one 3.2 did not ask for, so a machine
-  # without its headers (libxtst-dev) builds without it rather than not at all.
+  # SDL 3.4 stops at a missing X11 extension, and none of them is needed to play: a machine
+  # without one's headers builds without it rather than not at all (a player's own build).
   if(UNIX AND NOT APPLE AND NOT ANDROID)
-    find_file(OPENRAC_XTEST_HEADER NAMES X11/extensions/XTest.h)
-    if(NOT OPENRAC_XTEST_HEADER)
-      set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
-    endif()
+    foreach(extension
+            XCURSOR:Xcursor/Xcursor.h XDBE:extensions/Xdbe.h XFIXES:extensions/Xfixes.h
+            XINPUT:extensions/XInput2.h XRANDR:extensions/Xrandr.h XSCRNSAVER:extensions/scrnsaver.h
+            XSHAPE:extensions/shape.h XSYNC:extensions/sync.h XTEST:extensions/XTest.h)
+      string(REPLACE ":" ";" extension "${extension}")
+      list(GET extension 0 name)
+      list(GET extension 1 header)
+      find_file(OPENRAC_${name}_HEADER NAMES X11/${header})
+      if(NOT OPENRAC_${name}_HEADER)
+        message(STATUS "SDL3: without ${name}: no X11/${header}")
+        set(SDL_X11_${name} OFF CACHE BOOL "" FORCE)
+      endif()
+    endforeach()
   endif()
   # SYSTEM keeps the port's warnings off SDL's headers (CMake 3.25 and
   # later); EXCLUDE_FROM_ALL builds only the parts the port links (3.28).
