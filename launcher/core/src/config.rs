@@ -68,10 +68,11 @@ pub struct Config {
     /// (src-tauri/src/android.rs).
     #[ts(type = "\"opengl\" | \"vulkan\"")]
     pub renderer: String,
-    /// HDR output (port docs/port/HDR.md): "" (default) leaves it to the game's own setting (its
-    /// drawer, the settings file's `hdr`); "off", "auto" or "on" is given to each game's start
-    /// (OPENRAC_HDR), over that. On every system; it needs the Vulkan renderer.
-    #[ts(type = "\"\" | \"off\" | \"auto\" | \"on\"")]
+    /// HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
+    /// (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
+    /// mode. On every system; it needs the Vulkan renderer. An older file's "auto" reads as "on",
+    /// its "" (the game's own) as "off" (load).
+    #[ts(type = "\"off\" | \"on\"")]
     pub hdr: String,
     /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
     /// (webkit.rs), for a graphics driver that crashes it. Turned on by the launcher itself after
@@ -136,7 +137,7 @@ impl Default for Config {
             theme: "openrac".into(),
             detailed_game_log: false,
             renderer: "vulkan".into(),
-            hdr: String::new(),
+            hdr: "off".into(),
             safe_rendering: false,
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
@@ -161,7 +162,19 @@ impl Config {
 /// Reads `path`; a missing or unreadable file gives the defaults, so a
 /// broken settings file never stops the launcher from starting.
 pub fn load(path: &Path) -> Config {
-    std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default()
+    let mut config: Config =
+        std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
+    config.hdr = hdr_mode(&config.hdr).into();
+    config
+}
+
+/// The HDR setting as "off" or "on": an older "auto" (HDR when the system has it on, which "on"
+/// now is) reads as "on"; "" (the game's own) and anything else as "off", the game's default.
+pub fn hdr_mode(value: &str) -> &'static str {
+    match value {
+        "on" | "auto" => "on",
+        _ => "off",
+    }
 }
 
 /// Writes `config` to `path` through a temporary file, so a crash never
@@ -249,5 +262,18 @@ mod tests {
         assert_eq!(load(&path).renderer, "vulkan");
         save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
         assert_eq!(load(&path).renderer, "opengl");
+    }
+
+    /// HDR is Off or On: an older file's "auto" is On, its "" (the game's own) and odd words Off.
+    #[test]
+    fn hdr_is_off_or_on() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        assert_eq!(load(&path).hdr, "off");
+        for (old, now) in [("", "off"), ("off", "off"), ("auto", "on"), ("on", "on"), ("bright", "off")] {
+            std::fs::write(&path, format!(r#"{{"setupComplete": true, "hdr": "{old}"}}"#)).unwrap();
+            assert_eq!(load(&path).hdr, now, "{old}");
+        }
     }
 }

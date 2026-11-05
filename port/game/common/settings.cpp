@@ -392,7 +392,7 @@ void load(const std::filesystem::path& file) {
                 known = parse_listed(value, kAnisotropies, s.anisotropy);
             }
         } else if (key == "hdr") {
-            known = parse(value, hdr::kModeKeys, s.hdr);
+            known = hdr::parse_mode(value, s.hdr);
         } else if (key == "hdr_paper_white") {
             known = parse_int(value, 0, hdr::kPaperWhiteMax, s.hdr_paper_white);
         } else if (key == "hdr_peak") {
@@ -662,13 +662,7 @@ void save() {
 }
 
 bool set_hdr_mode(std::string_view name) {
-    for (std::size_t i = 0; i < std::size(hdr::kModeKeys); ++i) {
-        if (name == hdr::kModeKeys[i]) {
-            g_settings.hdr = static_cast<hdr::Mode>(i);
-            return true;
-        }
-    }
-    return false;
+    return hdr::parse_mode(name, g_settings.hdr);
 }
 
 void set_volume(int volume) {
