@@ -3,12 +3,14 @@
   // same page. Its head: the game's name (the game starts
   // with its mods from the game's page: the Mods switch under Play). Then its tabs, so that each of the player's jobs has a place of
   // its own that can be seen from the top: My mods (AddMod: a link, a file or a folder; the
-  // gameplay mods, PluginsPanel; the texture, model and level packs, PacksPanel; the player's
-  // own texture pack, TexturePacksBlock), Level editor (open a level in Godot, pack the changes), Models and textures
-  // (AssetsPanel) and, for a game whose sound can be changed, Audio (AudioPanel). A game the editor cannot open but that plays has My mods alone; one the editor
+  // gameplay mods, PluginsPanel; the packs, PacksPanel, the player's own texture pack first; with
+  // many, ModsToolbar finds, filters by kind and sorts), Level editor (open a level in Godot, pack
+  // the changes), Models and textures (AssetsPanel, and the texture pack's steps) and, for a game whose sound can be changed, Audio (AudioPanel). A game the editor cannot open but that plays has My mods alone; one the editor
   // cannot open yet says so, and where to follow it. A game it reads in early access (Going
   // Commando, Up Your Arsenal, Deadlocked: no pack or play action of theirs yet) says so in a line.
-  // The words are lib/modsText.ts's. The disc image is never changed.
+  // Making happens on the tabs (Level editor, Models and textures, Audio); what the game loads is
+  // all on My mods. Without tabs (Android, no level editor) the texture pack's steps are a fold
+  // under the lists. The words are lib/modsText.ts's. The disc image is never changed.
   // The version is the one the game page plays (playerVersion: the player's own disc), so every
   // disc goes the same way and no region is named; packs are shared by the discs
   // (editor/overrides.py stacks them for the one played). With developer tools on: the version,
@@ -25,6 +27,7 @@
   import ModBrowse from "$components/ModBrowse.svelte";
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
   import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
+  import ModsToolbar from "$components/ModsToolbar.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
   import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
   import { api, onAndroid, type ActionView, type GameView, type VersionView } from "$lib/api";
@@ -32,12 +35,13 @@
   import type { EntryState } from "$lib/labels";
   import { SITE_URL } from "$lib/links";
   import { BROWSE, EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
+  import { resetView } from "$lib/modsView.svelte";
   import { playerVersion } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
   import { arrive, enter } from "$lib/motion";
   import { followHistory, modFromAddress, modNav, openMod, resetMod } from "$lib/modNav.svelte";
   import { changeSet } from "$lib/deepLink.svelte";
-  import { onMount, untrack } from "svelte";
+  import { onMount, tick, untrack } from "svelte";
   import { tablist } from "$lib/tabs";
   import { themeStyle } from "$lib/themes";
   import { fade, fly } from "svelte/transition";
@@ -95,6 +99,20 @@
 
   /** Texture packs need the game's port and its disc set up: the game saves its pictures from it. */
   const textured = (game: GameView, version: VersionView) => playable(version) && !!game.install?.extracted;
+
+  /** The texture pack's steps, folded under the lists where there are no tabs. */
+  let making = $state(false);
+  /** Make your own on the texture pack's row: the Models and textures tab, or the fold opened. */
+  function makeTextures(tabs: boolean) {
+    if (tabs) {
+      tab = "assets";
+      return;
+    }
+    making = true;
+    void tick().then(() =>
+      document.getElementById("texture-make")?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+  }
 
   /** What the game list says for each game on this tab. */
   function modState(game: GameView): EntryState {
@@ -227,7 +245,11 @@
   onselect={onAndroid
     ? undefined
     : (g) => {
-        if (g.id !== shown?.id) resetMod();
+        if (g.id !== shown?.id) {
+          resetMod();
+          resetView();
+          making = false;
+        }
         picked = g.id;
       }}
   state={modState}
@@ -246,27 +268,46 @@
         </div>
 
         {#if onAndroid && mine}
-          <!-- Android: one page, what a player does there in the order they do it. The mods first,
-               with Enhanced graphics at the top and its switch in its row; adding one, from a link or
-               a .zip the system's picker copies in; then the texture and model packs, and the player's
-               own texture pack. No level editor or model export: they need Godot and a desktop. -->
+          <!-- Android: one page. What the game loads first (the toolbar once there are many): the mods,
+               with Enhanced graphics at the top and its switch in its row, then the packs, the
+               player's own texture pack first, with its steps folded under them. Then adding one,
+               from a link or a .zip the system's picker copies in, and browsing. No level editor or
+               model export: they need Godot and a desktop. -->
+          {#if !onModPage}<ModsToolbar />{/if}
           <PluginsPanel version={mine} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
+            <PacksPanel
+              version={mine}
+              {reload}
+              textures={textured(shown, mine)}
+              onmake={() => {
+                makeTextures(false);
+              }}
+            />
+            {#if textured(shown, mine)}<TexturePacksBlock version={mine} folded bind:open={making} />{/if}
             <AddMod version={mine} links={playable(mine)} onadded={added} />
             {#if playable(mine)}<ModBrowse version={mine} />{/if}
-            <PacksPanel version={mine} {reload} />
-            {#if textured(shown, mine)}<TexturePacksBlock version={mine} />{/if}
           {/if}
         {:else if !v && played}
           <!-- The level editor cannot open it here (an installed launcher without its tools, say), but the
                game plays: its gameplay mods, which load when it is played from its page. -->
-          {#if !onModPage}<AddMod version={played} onadded={added} />{/if}
+          {#if !onModPage}<AddMod version={played} onadded={added} /><ModsToolbar />{/if}
           <PluginsPanel version={played} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
+            {#if textured(shown, played)}
+              <PacksPanel
+                version={played}
+                {reload}
+                textures
+                onmake={() => {
+                  makeTextures(false);
+                }}
+              />
+              <TexturePacksBlock version={played} folded bind:open={making} />
+            {/if}
             <ModBrowse version={played} />
-            {#if textured(shown, played)}<TexturePacksBlock version={played} />{/if}
           {/if}
         {:else if !v}
           <!-- Every game has this page; one the editor cannot open yet says so. -->
@@ -316,6 +357,7 @@
                 <PluginsPanel version={v} reload={pluginsReload} onpack={() => (reload += 1)} />
               {:else if current === "mine"}
                 <AddMod version={v} links={playable(v)} files={playable(v) || !!adder?.runnable} onadded={added} />
+                <ModsToolbar />
                 {#if playable(v)}
                   <!-- Gameplay mods need the game's port: they plug into it (docs/port/MODS.md). -->
                   <PluginsPanel version={v} reload={pluginsReload} onpack={() => (reload += 1)} />
@@ -326,6 +368,10 @@
                   {reload}
                   onchange={() => reload++}
                   commands={[`python3 editor/overrides.py add <pack.zip> --into <data>/overrides`]}
+                  textures={textured(shown, v)}
+                  onmake={() => {
+                    makeTextures(true);
+                  }}
                 />
                 <p class="make-own">
                   <span class="muted">{PAGE.makeOwn}</span>
@@ -333,7 +379,6 @@
                     ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
                   >
                 </p>
-                {#if textured(shown, v)}<TexturePacksBlock version={v} />{/if}
               {:else if current === "browse"}
                 {#if playable(v)}<ModBrowse version={v} />{/if}
               {:else if current === "editor"}
@@ -360,6 +405,7 @@
                 <section class="panel">
                   <AssetsPanel version={v} onimported={() => reload++} />
                 </section>
+                {#if textured(shown, v)}<TexturePacksBlock version={v} onshow={() => (tab = "mine")} />{/if}
               {/if}
             </div>
           {/key}

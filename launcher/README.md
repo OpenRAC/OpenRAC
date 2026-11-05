@@ -110,17 +110,17 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
-- **Texture packs**: on the Mods tab, for a game with a port, your own
-  pictures in place of the game's, in three steps. **Save the game's
-  textures while you play** makes the next Play save every picture it shows,
-  sorted into Interface
-  (HUD, menus, font), Shared and a folder for each planet, with counts that
-  open each folder; they come from your disc, so keep them to yourself.
-  Edit or upscale the ones you want in any editor and put them in **your
-  pack**, which has its own switch. **Add a pack…** checks a shared `.zip`
-  (another game's is refused) and adds it to yours or replaces yours, which
-  is kept beside it. **Share my pack…** saves yours as a `.zip`, leaving out
-  pictures that are still the game's own
+- **Texture packs**: for a game with a port, your own pictures in place of
+  the game's, as a mod: **Your texture pack** is the first of the packs on
+  Mods → My mods, with its switch, **Share my pack…** (a `.zip` without the
+  pictures that are still the game's own) and **Replace with a pack…** (the
+  old one is kept beside it). A shared pack's `.zip` is added with **Add a
+  mod** (another game's is refused). **Make your own** opens the steps on
+  Models and textures: **Save the game's textures while you play** makes the
+  next Play save every picture it shows, sorted into Interface (HUD, menus,
+  font), Shared and a folder for each planet, with counts that open each
+  folder (they come from your disc, so keep them to yourself); then edit or
+  upscale them and put them in your pack
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
@@ -147,6 +147,14 @@ from the game's next start. Play brings them only with the **Mods** switch under
 it on (off by default: the game as the console plays it).
 Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
+
+**My mods** holds everything the game loads; the other tabs (Level editor,
+Models and textures, Audio) make things, and what they make lands in My mods.
+With six or more, a toolbar finds a mod by name, shows one kind (Gameplay,
+Graphics and sound, Tools, with their counts) and sorts by load order or A to
+Z. In load order a row's grip drags it to its place (a mouse or a finger);
+its menu also has Move up, Move down, Move to the top and Move to the bottom,
+for a pad. Tools (a mod that is only a page in the launcher) are listed apart.
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
 Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando

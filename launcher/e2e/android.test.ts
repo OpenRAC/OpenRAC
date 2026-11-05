@@ -320,21 +320,34 @@ describe("A controller", () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("menuitem");
   });
 
-  it("keeps the texture packs on Mods, not on the game's page, and reaches them by pad", async () => {
+  it("keeps the texture pack on Mods as a pack, not on the game's page, and reaches it by pad", async () => {
     await open("version=rac1/pal");
-    expect(await page.getByRole("heading", { name: "Texture packs" }).count()).toBe(0);
+    expect(await page.getByText("Your texture pack").count()).toBe(0);
     await open("page=mods&version=rac1/pal");
-    await page.getByRole("heading", { name: "Texture packs" }).waitFor();
-    await page.getByRole("button", { name: "Open your pack" }).focus();
-    // Down goes on to the pack's own row, and sideways along it, never out of the section.
-    const inTextures = () => page.evaluate(() => document.activeElement?.closest(".textures") !== null);
-    await press("down");
-    expect(await focused()).toMatch(/^(Use your texture pack|Add a pack…|Share my pack…)$/);
-    for (let i = 0; i < 2; i++) {
-      await press("left");
-      expect(await inTextures()).toBe(true);
-    }
-    expect(await focused()).toMatch(/^(Use your texture pack|Add a pack…)$/);
+    const own = page.getByRole("switch", { name: "Use Your texture pack" });
+    await own.waitFor();
+    // Its steps are folded under the packs until Make your own opens them.
+    const dumping = page.getByRole("switch", { name: "Save the game's textures while you play" });
+    expect(await dumping.isVisible()).toBe(false);
+    await own.focus();
+    await press("right");
+    expect(await focused()).toBe("Make your own");
+    await press("accept");
+    await dumping.waitFor();
+    expect(await dumping.isVisible()).toBe(true);
+  });
+
+  it("finds a mod and shows one kind when there are many", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const search = page.getByRole("searchbox", { name: "Find a mod" });
+    await search.fill("bolt magnet");
+    await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(1);
+    await expect(page.getByRole("switch", { name: /^Use Lock-strafe/ }).count()).resolves.toBe(0);
+    await search.fill("");
+    await page.getByRole("radio", { name: /^Tools/ }).click();
+    await expect(page.getByRole("button", { name: "Open Nanotech Upscaler" }).count()).resolves.toBe(1);
+    await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(0);
+    await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(0);
   });
 
   it("passes over what a closed fold holds", async () => {

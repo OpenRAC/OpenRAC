@@ -124,6 +124,31 @@ export const PANEL = {
   interface: "interface",
 } as const;
 
+/** My mods' toolbar when there are many (ModsToolbar.svelte, lib/modsView.svelte.ts). */
+export const VIEW = {
+  label: "Show my mods",
+  search: "Find a mod",
+  searchPlaceholder: "Find a mod by name or words",
+  clear: "Clear",
+  all: "All",
+  gameplay: "Gameplay",
+  looks: "Graphics and sound",
+  tools: "Tools",
+  sortLabel: "Order",
+  sortOrder: "Load order",
+  sortName: "A to Z",
+  /** Under a list sorted by name or searched: it cannot be moved like that. */
+  orderFrozen: "Sorted for viewing only: switch to Load order, with no search, to move mods.",
+  none: (query: string) => `Nothing matches “${query}”.`,
+  noneInGroup: "None of this kind yet.",
+  grip: (name: string) => `Drag to move ${name}`,
+  moveTop: "Move to the top",
+  moveBottom: "Move to the bottom",
+  toolsTitle: "Tools",
+  builtInTitle: "Built in",
+  toolsSub: "Pages of their own in the launcher: they make things, the game does not load them.",
+} as const;
+
 /** The badge on a mod's row besides its state and kind (lib/plugins.ts, modBadge). */
 export const BADGE = {
   update: (version: string) => `Update ${version}`,
@@ -235,8 +260,8 @@ export const alsoBound = (names: string[]) =>
 
 /** The packs' list (PacksPanel.svelte). */
 export const PACKS = {
-  title: "Textures, models, levels and sound",
-  sub: "Change how the game looks and sounds",
+  title: "Graphics and sound packs",
+  sub: "Textures, models, levels and sound",
   empty: "None yet. Add one above, or make your own in the Level editor, Models and textures, or Audio.",
   orderHint: "Lower in the list wins",
   moveUpTitle: "Move up: the packs under it win where they change the same thing",
@@ -249,6 +274,30 @@ export const PREVIEW = {
   nativeWarning: "Mods that run code are programs. Install them only from people you trust.",
   install: "Install",
   reinstall: "Reinstall",
+} as const;
+
+/** The player's own texture pack: a row of the packs (PacksPanel.svelte) and the steps that make
+ *  it (TexturePacksBlock.svelte; core/src/texture_packs.rs). */
+export const TEXTURES = {
+  name: "Your texture pack",
+  badge: "Texture pack",
+  badgeHint: "Pictures that replace the game's own by their name, at any size.",
+  make: "Make your own",
+  share: "Share my pack…",
+  replace: "Replace with a pack…",
+  replaceYes: "Replace my pack",
+  openFolder: "Open its folder",
+  pickTitle: "Choose a texture pack (.zip)",
+  replaced: (n: string, kept: string | null) =>
+    kept ? `Your pack is now ${n}. The old one is kept beside it, as “${kept}”.` : `Your pack is now ${n}.`,
+  added: (n: string, kept: string | null) =>
+    kept
+      ? `Added ${n} to your texture pack. The old pack is kept beside it, as “${kept}”.`
+      : `Added ${n} to your texture pack.`,
+  makeTitle: "Make a texture pack",
+  makeLead: "Save the game's pictures, repaint or upscale them, and they become your texture pack.",
+  whereItIs: "Your pack is in My mods, with the other packs, where you switch it on, share it or replace it.",
+  goToMine: "Show it in My mods",
 } as const;
 
 /** Mods, the switch under Play on the game's page (GamePlayer.svelte): off,

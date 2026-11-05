@@ -1733,6 +1733,48 @@ let mockPlugins: PluginView[] = query.has("nomods")
       },
     ];
 
+// ?manymods: a long list, as a player with many mods has (My mods' toolbar, search and moving).
+if (query.has("manymods")) {
+  const more: [string, string, "native" | "script", boolean][] = [
+    ["Bolt magnet", "Bolts fly to you from twice as far.", "script", true],
+    ["Faster Clank", "Clank's backpack moves you a little quicker.", "script", true],
+    ["Speedrun timer", "An in-game timer with splits per planet.", "native", true],
+    ["Hard mode plus", "Enemies hit harder and drop fewer bolts.", "native", false],
+    ["Skip intros", "Goes straight to the title screen.", "script", true],
+    ["Infinite ammo", "Weapons never run dry. For fun runs only.", "script", false],
+    ["Photo mode", "Freeze the game and fly the camera around.", "native", true],
+    ["Classic HUD", "The HUD as the first release had it.", "script", true],
+    ["Gadget hotkeys", "One key per gadget, no quick select.", "native", true],
+    ["Practice tools", "Save and load a position anywhere.", "native", false],
+    ["Colour blind HUD", "HUD colours that read for every eye.", "script", true],
+    ["Vendor tweaks", "Prices and stock of Gadgetron's vendors.", "script", false],
+  ];
+  const at = mockPlugins.findIndex((p) => p.kind === "tool");
+  mockPlugins.splice(
+    at < 0 ? mockPlugins.length : at,
+    0,
+    ...more.map(([name, description, kind, enabled]) => ({
+      id: name.toLowerCase().replace(/\s+/g, "-"),
+      name,
+      version: "1.0.0",
+      author: "someone",
+      description,
+      homepage: "",
+      license: "MIT",
+      enabled,
+      state: enabled ? ("ready" as const) : ("off" as const),
+      reason: "",
+      blocked: "",
+      settings: [],
+      hooks: [],
+      sharedHooks: [],
+      native: kind === "native",
+      kind,
+      path: `/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/${name}`,
+    })),
+  );
+}
+
 /** What the preview's game says it did with the mods at its last start. */
 function mockPluginStatus(): PluginStatus | null {
   if (mockPlugins.length === 0) return null;
@@ -1806,6 +1848,21 @@ const mockPacks: PackView[] = [
   },
   { ...samplePack("green-ratchet"), name: "Green Ratchet", enabled: false },
 ];
+
+if (query.has("manymods")) {
+  mockPacks.push(
+    {
+      ...samplePack("new-sounds"),
+      name: "Crunchier wrench",
+      author: "someone",
+      textures: 0,
+      models: 0,
+      levels: 0,
+      sounds: 14,
+    },
+    { ...samplePack("ship-skins"), name: "Ship skins", author: "someone", textures: 36, models: 2, levels: 3 },
+  );
+}
 
 if (query.has("summary")) {
   mockPacks.push({
@@ -2549,6 +2606,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "texture_packs_open":
       return delay(null);
     case "texture_packs_preview":
+      // Only a file named like a texture pack is one; any other .zip is a mod or an overrides pack.
+      if (!/texture/i.test(String(args.source))) throw new Error("This .zip holds no texture pictures.");
       if (String(args.source).includes("rac1")) {
         throw new Error(
           "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's Mods tab instead.",

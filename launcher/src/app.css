@@ -1038,3 +1038,39 @@ html[data-platform="android"] :is(button.small, .segmented button) {
     opacity: 0.4;
   }
 }
+
+/* A row's grip, dragged to move it in its list (lib/dragSort.ts: My mods' gameplay mods and packs). */
+[data-grip] {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  margin-right: -2px;
+  color: var(--dim);
+  cursor: grab;
+  touch-action: none;
+}
+@media (hover: hover) {
+  html:where(:not([data-input="pad"])) [data-grip]:hover {
+    color: var(--soft);
+  }
+}
+.dragging {
+  position: relative;
+  z-index: 2;
+  background: var(--panel-hi);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  cursor: grabbing;
+}
+.dragging [data-grip] {
+  cursor: grabbing;
+  color: var(--amber);
+}
+.drop-above {
+  box-shadow: inset 0 2px 0 var(--amber);
+}
+.drop-below {
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
