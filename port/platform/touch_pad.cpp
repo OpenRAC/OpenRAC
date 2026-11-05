@@ -145,10 +145,10 @@ void TouchPad::classic_controls() {
 
 void TouchPad::arc_controls() {
     using G = TouchGroup;
-    // The stick and the options button as in the Classic style; the actions in the style's places,
+    // The stick (a little smaller) and the options button as in the Classic style; the actions in the style's places,
     // each the size it asks for.
-    m_controls.push_back(make_control(Kind::LeftStick, Button::Cross, G::Stick, 0.15f, 1.0f));
-    m_members.push_back(Member{0.0f, 0.0f, 0.15f});
+    m_controls.push_back(make_control(Kind::LeftStick, Button::Cross, G::Stick, 0.135f, 1.0f));
+    m_members.push_back(Member{0.0f, 0.0f, 0.135f});
     m_controls.push_back(make_control(Kind::Menu, Button::Cross, G::Menu, 0.036f, 1.0f));
     m_members.push_back(Member{0.0f, 0.0f, 0.036f});
     constexpr G kArc[] = {G::Arc0, G::Arc1, G::Arc2, G::Arc3, G::Arc4, G::Arc5, G::Arc6, G::Arc7};
@@ -173,9 +173,9 @@ void TouchPad::arc_controls() {
         if (g == G::Count) {
             continue;  // more than the style has places for: the first ones, the most used, stay
         }
-        float radius = a.size == TouchSize::Large   ? 0.13f
-                       : a.size == TouchSize::Small ? 0.07f
-                                                    : 0.095f;
+        float radius = a.size == TouchSize::Large   ? 0.113f
+                       : a.size == TouchSize::Small ? 0.061f
+                                                    : 0.083f;
         float stretch = 1.0f;
         if (a.side == TouchSide::Top) {
             radius = 0.036f;

@@ -122,12 +122,13 @@ const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
 // The face sits in the middle of its base, its shadow all round it: a press shrinks it a little.
 vec4 slate(vec2 p) {
     float d = slate_shape(p);
-    vec4 c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
-    c = over(c, vec4(kSlateBase, 0.92 * fill(d)));
+    vec4 c = vec4(vec3(0.0), 0.14 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
+    c = over(c, vec4(kSlateBase, 0.38 * fill(d)));
+    c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.025) - 0.016)));  // a fine rim, as the glass's
     float f = d + (large > 0.5 ? 0.13 : 0.12) + 0.04 * held;
     vec3 face = mix(kSlateTop, kSlateBottom, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
     face = mix(face, accent * 0.5, 0.30 * held);
-    c = over(c, vec4(face, 0.97 * fill(f)));
+    c = over(c, vec4(face, (0.42 + 0.25 * held) * fill(f)));
     float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, p.y));
     c = over(c, vec4(vec3(1.0), 0.09 * edge));
     return c;
@@ -186,9 +187,10 @@ void main() {
         // The Arc style's stick: a slate base, an arrow each way (the one it leans to lit), a knob
         // with four dots, raised off its own lip.
         float d = length(p) - 1.0;
-        c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
-        c = over(c, vec4(kSlateBase, 0.90 * fill(d)));
-        c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.95 * fill(length(p) - 0.92)));
+        c = vec4(vec3(0.0), 0.14 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
+        c = over(c, vec4(kSlateBase, 0.36 * fill(d)));
+        c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.02) - 0.012)));
+        c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.38 * fill(length(p) - 0.92)));
         c = over(c, vec4(vec3(1.0), 0.06 * fill(abs(length(p) - 0.90) - 0.012) * (1.0 - smoothstep(-0.3, 0.3, p.y))));
         float lean = clamp(length(knob), 0.0, 1.0);
         for (int i = 0; i < 4; ++i) {
@@ -202,12 +204,12 @@ void main() {
         }
         vec2 k = p - knob * 0.50;
         float kr = 0.46;
-        c = over(c, vec4(vec3(0.0), 0.40 * (1.0 - smoothstep(0.0, 0.14, length(k) - kr))));
-        c = over(c, vec4(kSlateBase, fill(length(k) - kr)));
+        c = over(c, vec4(vec3(0.0), 0.25 * (1.0 - smoothstep(0.0, 0.14, length(k) - kr))));
+        c = over(c, vec4(kSlateBase, 0.55 * fill(length(k) - kr)));
         vec2 kf = k;
         vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));
         face = mix(face, accent * 0.6, 0.12 * held);
-        c = over(c, vec4(face, fill(length(kf) - kr * 0.86)));
+        c = over(c, vec4(face, 0.65 * fill(length(kf) - kr * 0.86)));
         c = over(c, vec4(vec3(1.0), 0.08 * fill(abs(length(kf) - kr * 0.84) - 0.012) * (1.0 - smoothstep(-0.2, 0.15, kf.y / kr))));
         for (int i = 0; i < 4; ++i) {
             float a = float(i) * 1.5708;
@@ -580,7 +582,7 @@ void draw(platform::TouchPad& touch, int width, int height) {
         float hub_y = 0.0f;
         if (arc && !c.action.empty()) {
             const bool top = c.stretch > 1.0f;
-            const bool small = !c.large && c.radius < 0.08f * touch.scale();
+            const bool small = !c.large && c.radius < 0.07f * touch.scale();
             const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
             const bool round = hub != nullptr && hub != &c;
             hub_x = round ? (hub->x - c.x) * aspect / c.radius : 0.0f;
