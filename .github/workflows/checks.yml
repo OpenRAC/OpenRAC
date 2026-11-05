@@ -350,11 +350,11 @@ jobs:
           SDL_VIDEO_DRIVER: offscreen
         run: ctest --preset release --parallel 2 --stop-on-failure
 
-  # The port without a window (the headless preset, no SDL3): the runtime, the
-  # games and their tests. Built here so code that only the window build can
-  # compile (outside the frontend's #ifdef) cannot creep back in unseen.
+  # The port without a window (the headless preset, no SDL3), built only: code that compiles
+  # only with a window (outside the frontend's #ifdef) cannot creep in. Its tests are the
+  # same as Port / Linux's, so they run there.
   port-headless:
-    name: Port / Linux without a window
+    name: Port / Builds without a window
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -385,10 +385,6 @@ jobs:
         run: |
           cmake --preset headless
           cmake --build --preset headless
-
-      - name: Tests
-        working-directory: port
-        run: ctest --preset headless
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
