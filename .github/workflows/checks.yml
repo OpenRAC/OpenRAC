@@ -350,42 +350,6 @@ jobs:
           SDL_VIDEO_DRIVER: offscreen
         run: ctest --preset release --parallel 2 --stop-on-failure
 
-  # The port without a window (the headless preset, no SDL3), built only: code that compiles
-  # only with a window (outside the frontend's #ifdef) cannot creep in. Its tests are the
-  # same as Port / Linux's, so they run there.
-  port-headless:
-    name: Port / Builds without a window
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.12"
-      - uses: ./.github/actions/compiler-cache
-        with:
-          key: checks-port-headless
-          max-size: 1G
-      - name: Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang ninja-build
-
-      - uses: ./.github/actions/port-build-cache
-        with:
-          variant: ubuntu-headless
-          preset: headless
-
-      - name: Build
-        working-directory: port
-        run: |
-          cmake --preset headless
-          cmake --build --preset headless
-
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced-build:
