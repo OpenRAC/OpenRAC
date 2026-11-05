@@ -64,11 +64,11 @@ FARG_REGS = list(range(12, 20))   # $f12-$f19
 INT_TYPES = set(ctype.INT_NAMES) | {"gaddr"}
 WIDE = {"long long", "unsigned long long", "long", "unsigned long", "long long int", "long int",
         "unsigned long long int", "unsigned long int"}
+# Called with (step, done, total) while functions are found ("find") and translated
+# ("translate"), for tools/asm_part.py's progress.
+PROGRESS = None
 # ei and di only gate the console's interrupts: the port takes none (its handlers run at set
 # points, never in the middle of a function), so they do nothing there, as sync does.
-# Called with (step, done, total) as the functions are found in the disc's programs ("find") and
-# translated ("translate"): tools/asm_part.py shows how far along it is.
-PROGRESS = None
 SKIP = {"nop", "sync", "pref", "cache", "vnop", "vwaitq", "ssnop", "ei", "di"}
 UNSUPPORTED = {
     "syscall": "a system call", "mfc0": "COP0 (mfc0)", "mtc0": "COP0 (mtc0)", "eret": "COP0 (eret)",

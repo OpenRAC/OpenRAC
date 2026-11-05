@@ -98,7 +98,7 @@ def kit(game: str, build: Path, out: Path, sysroot: Path | None, resource_dir: P
     print(f"{out}: the kit for {game}'s part ({len(files)} headers)")
 
 
-def tool(name: str, env: str, library: str, fallback: str) -> str:
+def tool(env: str, library: str, fallback: str) -> str:
     if os.environ.get(env):
         return os.environ[env]
     libs = os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR")
@@ -138,8 +138,8 @@ def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None,
     if code:
         sys.exit(code)
     android = bool(os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR"))
-    clang = tool("clang", "OPENRAC_PART_CLANG", "libopenrac-clang.so", "clang")
-    lld = tool("ld.lld", "OPENRAC_PART_LLD", "libopenrac-lld.so", "ld.lld")
+    clang = tool("OPENRAC_PART_CLANG", "libopenrac-clang.so", "clang")
+    lld = tool("OPENRAC_PART_LLD", "libopenrac-lld.so", "ld.lld")
     flags = ["--driver-mode=gcc", *C_FLAGS]
     for home, kind in meta["includes"]:
         flags += ["-isystem" if kind == "system" else "-I", str(kit_dir / "include" / home)]
