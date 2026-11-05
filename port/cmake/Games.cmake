@@ -304,6 +304,11 @@ function(openrac_add_game config)
       set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
       # program/asm_part.cpp: this program looks for the part (a build with the disc has none).
       target_compile_definitions(${target} PRIVATE OPENRAC_ASM_PART_SLOTS=1)
+      # On Windows a program exports only what it names: what the part reads of it
+      # (tools/asm_part.py exports).
+      if(WIN32 AND EXISTS "${config_dir}/asm_part_exports.def")
+        target_sources(${target} PRIVATE "${config_dir}/asm_part_exports.def")
+      endif()
     endif()
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/fixes.cpp" "${fixes_cpp}"
