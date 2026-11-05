@@ -144,6 +144,11 @@ bool take_touch_reset();
 // The lines a dragged group of the pad has snapped to (TouchPad::guide_x, guide_y), drawn across
 // the screen while editing: 0..1 of the width and of the height, below 0 for none.
 void set_touch_guides(float x, float y);
+// The size of the control the player last took hold of (TouchPad::selected_size), for the bar to
+// show and change, below 0 when none is.
+void set_touch_selected(float size);
+// The steps the bar's - and + asked that control's size to change by since the last call.
+int take_touch_size_steps();
 // True once after the drawer or the menus changed one of the port's settings (saved already): the
 // window applies it (frontend/window.cpp, apply_settings).
 bool take_settings_changed();

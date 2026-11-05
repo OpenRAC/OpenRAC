@@ -15,7 +15,7 @@
         { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
         { "id": "quick", "icon": "quick", "press": ["triangle"] },
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
-        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left" }
+        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left", "wide": true }
       ]
     },
     "foot": { "extends": "default", "actions": [] },
@@ -41,7 +41,7 @@
       "actions": [
         { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
         { "id": "punch", "icon": "punch", "press": ["square"], "size": "large" },
-        { "id": "bots", "icon": "bots", "press": ["triangle"] },
+        { "id": "bots", "icon": "bots", "press": ["triangle"], "wide": true },
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" }
       ]
     },
@@ -67,7 +67,7 @@
         { "id": "missile", "icon": "missile", "press": ["circle"] },
         { "id": "target", "icon": "lock", "press": ["right"], "size": "small" },
         { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
-        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true }
+        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true, "wide": true }
       ]
     },
     "turret": {
@@ -86,8 +86,8 @@
       "actions": [
         { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
         { "id": "back", "icon": "back", "press": ["triangle"] },
-        { "id": "prev", "icon": "tabs", "press": ["l1"], "size": "small", "side": "left" },
-        { "id": "next", "icon": "tabs", "press": ["r1"], "size": "small" },
+        { "id": "prev", "icon": "tabs", "press": ["l1"], "size": "small", "side": "left", "wide": true },
+        { "id": "next", "icon": "tabs", "press": ["r1"], "size": "small", "wide": true },
         { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" }
       ]
     },

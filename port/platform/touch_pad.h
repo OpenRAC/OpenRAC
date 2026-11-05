@@ -148,11 +148,23 @@ public:
     // 0.25..3.
     void set_look_speed(float speed);
 
-    // Where the player moved each group, from its own place, in window heights: "dpad 0.02
-    // -0.05, face ..." (layout() writes it). Unknown names and numbers are left out.
+    // Where the player moved each group, from its own place, in window heights, and how large
+    // they made it (1 its own size, left out when 1): "dpad 0.02 -0.05, face 0 0 1.2, ..."
+    // (layout() writes it). Unknown names and numbers are left out.
     void set_layout(std::string_view text);
     std::string layout() const;
     void reset_layout();
+
+    // The group a finger last took hold of while editing, for its size to be changed; Count for
+    // none.
+    TouchGroup selected() const { return m_selected; }
+
+    // The selected group's size: 1 its own, kMinSize..kMaxSize, in steps of kSizeStep.
+    static constexpr float kMinSize = 0.6f;
+    static constexpr float kMaxSize = 1.6f;
+    static constexpr float kSizeStep = 0.1f;
+    float selected_size() const;
+    void step_selected_size(int steps);
 
     // While editing, a finger drags the group it lands on and the game gets nothing; the pad stays
     // shown. A dragged group snaps into line with what it comes near (snap()).
@@ -280,6 +292,14 @@ private:
     std::vector<Member> m_members;
     std::array<Place, kTouchGroups> m_places{};
     std::array<std::array<float, 2>, kTouchGroups> m_offsets{};
+    std::array<float, kTouchGroups> m_sizes = filled_sizes();
+    TouchGroup m_selected = TouchGroup::Count;
+
+    static constexpr std::array<float, kTouchGroups> filled_sizes() {
+        std::array<float, kTouchGroups> sizes{};
+        sizes.fill(1.0f);
+        return sizes;
+    }
     float m_safe_left = 0.0f;
     float m_safe_right = 0.0f;
     float m_scale = kDefaultScale;

@@ -643,6 +643,16 @@ void set_touch_guides(float x, float y) {
     s.touch_guides = ImVec2(x, y);
 }
 
+void set_touch_selected(float size) {
+    s.touch_selected = size;
+}
+
+int take_touch_size_steps() {
+    const int steps = s.touch_size_steps;
+    s.touch_size_steps = 0;
+    return steps;
+}
+
 void toggle_drawer() {
     if (drawer_possible()) {
         set_menu(!s.menu_open);

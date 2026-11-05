@@ -277,7 +277,8 @@ An action is `id`, `icon` and `press` (a list of the pad's buttons:
 `up` .. `right`), and may have `then` (buttons pressed 50 ms after, for a
 combination), `size` (`large`, `medium`, `small`), `side` (`arc` under the
 right thumb, `left` over the stick, `top`), `when` (a hint it waits for) and
-`toggle` (stays down until tapped again). An action of the same `id` replaces
+`toggle` (stays down until tapped again) and `wide` (a pill wider than
+high, for a wide icon). An action of the same `id` replaces
 the one before; `"replace": true` drops the context's buttons before the
 mod's. An icon is an SVG drawn square from its viewBox: what is `#ff8000` is
 drawn in the game's accent, everything else white.

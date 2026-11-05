@@ -54,9 +54,6 @@ uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, 
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
-uniform int shape;         // the Arc style's, cut sharp as the logo, never fewer than six sides: 0 an
-                           // octagon, 1 a long hexagon, 2 a long hexagonal bar, 3 a trapezium wider at
-                           // the top, its top corners cut
 uniform float large;       // 1 for a large action button
 out vec4 colour;
 
@@ -91,24 +88,9 @@ float rounded_box(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
-// A regular octagon of inner radius `r`: the large buttons' shape.
-float octagon(vec2 p, float r) {
-    vec2 a = abs(p);
-    return max(max(a.x, a.y), (a.x + a.y) * 0.7071) - r;
-}
+// A circle, or a pill as wide as `stretch` says.
 float slate_shape(vec2 p) {
-    vec2 q = abs(p);
-    if (shape == 1) {
-        return max(q.y - 0.70, (q.x + q.y * 0.55 - 1.05) * 0.85);
-    }
-    if (shape == 3) {
-        float side = (q.x + p.y * 0.28 - 1.02) * 0.96;
-        return max(max(q.y - 0.80, side), (q.x - p.y) * 0.7071 - 1.30);
-    }
-    if (shape == 2) {
-        return max(q.y - 1.0, (q.x + q.y * 0.45 - stretch) * 0.9);
-    }
-    return octagon(p, 0.95);
+    return pill(p, stretch - 1.0, 1.0);
 }
 const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
 const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
@@ -519,7 +501,6 @@ void draw(platform::TouchPad& touch, int width, int height) {
         glUniform3f(s.shader.uniform("tint"), 0.93f, 0.91f, 0.88f);
         glUniform1f(s.shader.uniform("held"), 0.0f);
         glUniform1i(s.shader.uniform("symbol"), kDpad);
-        glUniform1i(s.shader.uniform("shape"), 0);
         glUniform1f(s.shader.uniform("large"), 0.0f);
         glUniform1f(s.shader.uniform("angle"), 0.0f);
         glUniform1i(s.shader.uniform("label0"), -1);
@@ -553,20 +534,14 @@ void draw(platform::TouchPad& touch, int width, int height) {
             glBindTexture(GL_TEXTURE_2D, s.mark);
             glUniform2f(s.shader.uniform("logo_half"), kMarkHalf * s.mark_aspect, kMarkHalf);
         }
-        // The Arc style's shapes: the large buttons octagons, the others trapeziums, the small ones
-        // long hexagons, the top ones hexagonal bars.
-        int shape = 0;
-        if (arc && !c.action.empty()) {
-            const bool small = !c.large && c.radius < 0.076f * touch.scale();
-            shape = c.stretch > 1.0f ? 2 : small ? 1 : c.large ? 0 : 3;
-        }
         box(c.x, c.y, c.radius, c.stretch, 1.2f);
         glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
         float& press = s.press[i];
-        press = touch.held(i) || touch.toggled(i) ? 1.0f : press - press * ease;
+        // While the layout is edited, the control picked to be resized lit as if held.
+        const bool picked = touch.editing() && c.group == touch.selected();
+        press = touch.held(i) || touch.toggled(i) || picked ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
-        glUniform1i(s.shader.uniform("shape"), shape);
         glUniform1f(s.shader.uniform("large"), c.large ? 1.0f : 0.0f);
         glUniform1f(s.shader.uniform("angle"), l.angle);
         glUniform1i(s.shader.uniform("label0"), l.label0);

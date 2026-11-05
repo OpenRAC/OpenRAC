@@ -464,8 +464,19 @@ int main() {
     CHECK(std::abs(up.x - (up_x + 0.1f)) < 1e-5f && std::abs(up.y - (up_y + 0.05f)) < 1e-5f);
     CHECK(std::abs(down.y - up.y - gap_y) < 1e-5f);  // the whole d-pad moved
     CHECK(read(edit).buttons == Pad{}.buttons);
+    // The group a finger took hold of has its own size, its arms kept in proportion.
+    CHECK(edit.selected() == TouchGroup::Dpad);
+    const float up_radius = up.radius;
+    edit.step_selected_size(2);
+    CHECK(std::abs(edit.selected_size() - 1.2f) < 1e-5f);
+    CHECK(std::abs(up.radius - up_radius * 1.2f) < 1e-5f);
+    CHECK(std::abs(down.y - up.y - gap_y * 1.2f) < 1e-5f);
+    edit.step_selected_size(100);
+    CHECK(edit.selected_size() == TouchPad::kMaxSize);
+    edit.step_selected_size(-4);
     edit.finger_up(1);
     edit.set_editing(false);
+    CHECK(edit.selected() == TouchGroup::Count);
     const std::string text = edit.layout();
     CHECK(text.starts_with("dpad 0.2000 0.0500"));
     TouchPad again;
@@ -473,8 +484,10 @@ int main() {
     again.set_layout(text);
     const TouchControl& up_again = control(again, TouchControl::Kind::Button, Button::Up);
     CHECK(std::abs(up_again.x - up.x) < 1e-4f && std::abs(up_again.y - up.y) < 1e-4f);
-    again.set_layout("dpad nonsense, face 0.1, nothing 1 2, stick 0.01 -0.02");
-    CHECK(again.layout() == "stick 0.0100 -0.0200");
+    CHECK(std::abs(up_again.radius - up.radius) < 1e-5f);
+    CHECK(text.starts_with("dpad 0.2000 0.0500 1.20"));
+    again.set_layout("dpad nonsense, face 0.1, nothing 1 2, stick 0.01 -0.02, face 0 0 9");
+    CHECK(again.layout() == "stick 0.0100 -0.0200, face 0.0000 0.0000 1.60");
     again.reset_layout();
     CHECK(again.layout().empty());
     CHECK(std::abs(up_again.x - up_x) < 1e-5f);

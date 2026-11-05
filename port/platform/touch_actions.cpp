@@ -91,6 +91,7 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
     }
     a.when = v["when"].string();
     a.toggle = v["toggle"].boolean();
+    a.wide = v["wide"].boolean();
     return true;
 }
 

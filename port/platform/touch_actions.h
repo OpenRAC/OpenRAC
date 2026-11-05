@@ -55,6 +55,7 @@ struct TouchAction {
     TouchSide side = TouchSide::Arc;
     std::string when;  // a hint that must be up for it to show; empty: always
     bool toggle = false;
+    bool wide = false;  // a pill wider than high, for an icon that is wide
 };
 
 class TouchActionSets {

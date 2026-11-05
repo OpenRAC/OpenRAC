@@ -149,8 +149,8 @@ void TouchPad::arc_controls() {
     // each the size it asks for.
     m_controls.push_back(make_control(Kind::LeftStick, Button::Cross, G::Stick, 0.135f, 1.0f));
     m_members.push_back(Member{0.0f, 0.0f, 0.135f});
-    m_controls.push_back(make_control(Kind::Menu, Button::Cross, G::Menu, 0.036f, 1.0f));
-    m_members.push_back(Member{0.0f, 0.0f, 0.036f});
+    m_controls.push_back(make_control(Kind::Menu, Button::Cross, G::Menu, 0.05f, 1.0f));
+    m_members.push_back(Member{0.0f, 0.0f, 0.05f});
     constexpr G kArc[] = {G::Arc0, G::Arc1, G::Arc2, G::Arc3, G::Arc4, G::Arc5, G::Arc6, G::Arc7};
     constexpr G kLeft[] = {G::Left0, G::Left1, G::Left2};
     constexpr G kTop[] = {G::Top0, G::Top1};
@@ -176,7 +176,7 @@ void TouchPad::arc_controls() {
         float radius = a.size == TouchSize::Large   ? 0.113f
                        : a.size == TouchSize::Small ? 0.070f
                                                     : 0.083f;
-        float stretch = 1.0f;
+        float stretch = a.wide ? 1.4f : 1.0f;
         if (a.side == TouchSide::Top) {
             radius = 0.036f;
             stretch = 1.6f;
@@ -321,6 +321,7 @@ void TouchPad::set_look_speed(float speed) {
 
 void TouchPad::set_layout(std::string_view text) {
     m_offsets = {};
+    m_sizes = filled_sizes();
     std::size_t at = 0;
     while (at <= text.size()) {
         const std::size_t end = std::min(text.find(',', at), text.size());
@@ -328,14 +329,18 @@ void TouchPad::set_layout(std::string_view text) {
         char name[16] = {};
         float dx = 0.0f;
         float dy = 0.0f;
+        float size = 1.0f;
         char after = 0;
-        if (std::sscanf(item.c_str(), " %15s %f %f %c", name, &dx, &dy, &after) == 3
-            && std::isfinite(dx) && std::isfinite(dy)) {
+        const int read =
+            std::sscanf(item.c_str(), " %15s %f %f %f %c", name, &dx, &dy, &size, &after);
+        if ((read == 3 || read == 4) && std::isfinite(dx) && std::isfinite(dy)
+            && std::isfinite(size)) {
             for (std::size_t g = 0; g < kTouchGroups; ++g) {
                 if (std::string_view(name) == kGroupNames[g]) {
                     m_offsets[g] =
                         {std::clamp(dx, -kMaxOffset, kMaxOffset),
                          std::clamp(dy, -kMaxOffset, kMaxOffset)};
+                    m_sizes[g] = std::clamp(size, kMinSize, kMaxSize);
                     break;
                 }
             }
@@ -349,9 +354,13 @@ std::string TouchPad::layout() const {
     std::string text;
     for (std::size_t g = 0; g < kTouchGroups; ++g) {
         const auto [dx, dy] = m_offsets[g];
-        if (dx != 0.0f || dy != 0.0f) {
+        const float size = m_sizes[g];
+        if (dx != 0.0f || dy != 0.0f || size != 1.0f) {
             text +=
                 std::format("{}{} {:.4f} {:.4f}", text.empty() ? "" : ", ", kGroupNames[g], dx, dy);
+            if (size != 1.0f) {
+                text += std::format(" {:.2f}", size);
+            }
         }
     }
     return text;
@@ -359,6 +368,22 @@ std::string TouchPad::layout() const {
 
 void TouchPad::reset_layout() {
     m_offsets = {};
+    m_sizes = filled_sizes();
+    layout_controls();
+}
+
+float TouchPad::selected_size() const {
+    return m_selected != TouchGroup::Count ? m_sizes[static_cast<std::size_t>(m_selected)] : 1.0f;
+}
+
+void TouchPad::step_selected_size(int steps) {
+    if (m_selected == TouchGroup::Count) {
+        return;
+    }
+    float& size = m_sizes[static_cast<std::size_t>(m_selected)];
+    // Counted in steps, so that ten of them come back to 1 exactly.
+    const float stepped = std::round(size / kSizeStep + static_cast<float>(steps)) * kSizeStep;
+    size = std::clamp(stepped, kMinSize, kMaxSize);
     layout_controls();
 }
 
@@ -367,6 +392,7 @@ void TouchPad::set_editing(bool on) {
         return;
     }
     m_editing = on;
+    m_selected = TouchGroup::Count;
     m_fingers.clear();  // a finger that came down as one thing is not the other's
     m_guide_x = m_guide_y = -1.0f;
     m_look_x = m_look_y = 0.0f;
@@ -446,9 +472,10 @@ void TouchPad::place(std::size_t index) {
     float across = 0.0f;
     float down = 0.0f;
     anchor(c.group, across, down);
-    c.x = (across + m.dx * m_scale) / m_aspect;
-    c.y = down + m.dy * m_scale;
-    c.radius = m.radius * m_scale;
+    const float size = m_scale * m_sizes[static_cast<std::size_t>(c.group)];
+    c.x = (across + m.dx * size) / m_aspect;
+    c.y = down + m.dy * size;
+    c.radius = m.radius * size;
 }
 
 bool TouchPad::stick_taken(std::size_t index) const {
@@ -510,6 +537,7 @@ void TouchPad::finger_down(std::uint64_t finger, float x, float y) {
             }
         }
         if (f.role == Role::Drag) {
+            m_selected = f.group;
             f.from_x = x;
             f.from_y = y;
             f.offset = m_offsets[static_cast<std::size_t>(f.group)];
