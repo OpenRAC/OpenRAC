@@ -78,12 +78,6 @@ void test_hdr_settings(const std::filesystem::path& file) {
     CHECK(settings::set_hdr_mode("off") && settings::get().hdr == hdr::Mode::Off);
     CHECK(settings::set_hdr_mode("on") && settings::get().hdr == hdr::Mode::On);
     CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::On);
-    // "auto", from before On and Auto were one, is On (the launcher's and the file's).
-    CHECK(settings::set_hdr_mode("off") && settings::set_hdr_mode("auto"));
-    CHECK(settings::get().hdr == hdr::Mode::On);
-    std::ofstream(file) << "hdr = auto\n";
-    settings::load(file);
-    CHECK(settings::get().hdr == hdr::Mode::On);
     // The ranges' tops: the brightest screens on sale.
     std::ofstream(file) << "hdr_paper_white = 1000\nhdr_peak = 10000\n";
     settings::load(file);

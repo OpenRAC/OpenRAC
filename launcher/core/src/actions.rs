@@ -1056,9 +1056,9 @@ mod tests {
         );
         let unnamed = Config { multiplayer_name: "no spaces".into(), ..installed.clone() };
         assert!(!play.plan(&ctx(&unnamed)).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_PLAYER_NAME"));
-        // Settings, "HDR": Off by default, else On; an older "auto" is On, anything else Off.
+        // Settings, "HDR": Off by default, else On; anything else is Off.
         assert!(plan.env.contains(&("OPENRAC_HDR".to_string(), "off".to_string())), "{:?}", plan.env);
-        let modes = [("off", "off"), ("on", "on"), ("auto", "on"), ("", "off"), ("bright", "off")]
+        let modes = [("off", "off"), ("on", "on"), ("bright", "off")]
             .map(|(hdr, sent)| (Config { hdr: hdr.into(), ..installed.clone() }, sent));
         for (config, sent) in &modes {
             let plan = play.plan(&ctx(config)).unwrap();

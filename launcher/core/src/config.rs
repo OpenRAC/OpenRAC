@@ -70,8 +70,7 @@ pub struct Config {
     pub renderer: String,
     /// HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
     /// (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
-    /// mode. On every system; it needs the Vulkan renderer. An older file's "auto" reads as "on",
-    /// its "" (the game's own) as "off" (load).
+    /// mode. On every system; it needs the Vulkan renderer. Anything else reads as "off" (load).
     #[ts(type = "\"off\" | \"on\"")]
     pub hdr: String,
     /// Linux: the launcher's own window draws without WebKitGTK's accelerated compositing mode
@@ -168,11 +167,10 @@ pub fn load(path: &Path) -> Config {
     config
 }
 
-/// The HDR setting as "off" or "on": an older "auto" (HDR when the system has it on, which "on"
-/// now is) reads as "on"; "" (the game's own) and anything else as "off", the game's default.
+/// The HDR setting as "off" or "on": anything but "on" is "off", the game's default.
 pub fn hdr_mode(value: &str) -> &'static str {
     match value {
-        "on" | "auto" => "on",
+        "on" => "on",
         _ => "off",
     }
 }
@@ -264,14 +262,14 @@ mod tests {
         assert_eq!(load(&path).renderer, "opengl");
     }
 
-    /// HDR is Off or On: an older file's "auto" is On, its "" (the game's own) and odd words Off.
+    /// HDR is Off or On: anything else reads as Off.
     #[test]
     fn hdr_is_off_or_on() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("launcher.json");
         std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
         assert_eq!(load(&path).hdr, "off");
-        for (old, now) in [("", "off"), ("off", "off"), ("auto", "on"), ("on", "on"), ("bright", "off")] {
+        for (old, now) in [("off", "off"), ("on", "on"), ("bright", "off")] {
             std::fs::write(&path, format!(r#"{{"setupComplete": true, "hdr": "{old}"}}"#)).unwrap();
             assert_eq!(load(&path).hdr, now, "{old}");
         }

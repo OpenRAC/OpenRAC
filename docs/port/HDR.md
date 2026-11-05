@@ -16,7 +16,7 @@ byte for byte.
 
 | Key | Values | Meaning |
 |---|---|---|
-| `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. An old `auto` reads as `on` |
+| `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. |
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
 

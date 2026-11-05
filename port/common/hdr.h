@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <string_view>
 
 namespace openrac::hdr {
 
@@ -213,18 +212,6 @@ inline Rgb encode(const Rgb& rgb, Output output, const Levels& levels) {
 inline constexpr const char* kModeKeys[] = {"off", "on"};
 inline constexpr const char* kModeNames[] = {"Off", "On"};
 inline constexpr const char* kOutputNames[] = {"SDR", "HDR10", "scRGB"};
-
-// A mode by its file name. "auto", from before On and Auto were one, is On.
-inline bool parse_mode(std::string_view key, Mode& mode) {
-    if (key == "off") {
-        mode = Mode::Off;
-    } else if (key == "on" || key == "auto") {
-        mode = Mode::On;
-    } else {
-        return false;
-    }
-    return true;
-}
 
 inline const char* name(Output output) {
     return kOutputNames[std::clamp(static_cast<int>(output), 0, 2)];

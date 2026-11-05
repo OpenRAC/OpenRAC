@@ -100,8 +100,7 @@ renderer: "opengl" | "vulkan",
 /**
  * HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
  * (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
- * mode. On every system; it needs the Vulkan renderer. An older file's "auto" reads as "on",
- * its "" (the game's own) as "off" (load).
+ * mode. On every system; it needs the Vulkan renderer. Anything else reads as "off" (load).
  */
 hdr: "off" | "on", 
 /**
