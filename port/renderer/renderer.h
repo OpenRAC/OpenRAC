@@ -486,8 +486,9 @@ private:
         std::size_t index, const FrameInput& input, RenderState& state, bool opaque_batched
     );
     FrameBuffer m_selection_depth;
-    // Owns smooth normals and matching depth; allocated only for enhanced lighting or AO.
+    // Owns smooth normals and owns depth when it cannot borrow the world attachment.
     FrameBuffer m_surface_prepass;
+    bool m_surface_prepass_shared_depth = false;
     TexturePool m_textures;
     std::vector<std::unique_ptr<BucketRenderer>> m_renderers;
     FrameStats m_stats;

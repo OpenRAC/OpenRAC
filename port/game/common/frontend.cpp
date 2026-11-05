@@ -422,6 +422,7 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
     config.hidden = env::flag(env::Var::Hidden);
     // HDR output may be turned on later only when it was not off at start (common/hdr.h).
     config.hdr = chosen.hdr != hdr::Mode::Off;
+    config.gpu_breadcrumbs = chosen.gpu_breadcrumbs;
     g->hdr_at_start = config.hdr;
     g->window = platform::Window::open(config, error);
     if (!g->window) {

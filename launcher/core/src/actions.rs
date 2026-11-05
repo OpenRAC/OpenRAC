@@ -245,6 +245,9 @@ pub struct ActionView {
     pub blockers: Vec<String>,
     /// Its `artifact` exists: for a step that makes one, it has been done.
     pub done: bool,
+    /// It needs its own `artifact` (Play, its program) and that is not there: only a step that
+    /// makes it (a build) unblocks it, never reading the levels again.
+    pub missing_artifact: bool,
     /// Listed only with Developer tools on (`Action::developer`).
     pub developer: bool,
     /// Confirmed before it starts (`Action::warning`).
@@ -414,6 +417,10 @@ impl Action {
                 Some(made) => fill(made, ctx, None).is_ok_and(|p| abs(ctx.root, &p).exists()),
                 None => self.artifact_path(ctx).is_ok_and(|p| p.exists()),
             },
+            // Android plays the game its APK carries, so its Play never misses a program.
+            missing_artifact: ctx.platform != Platform::Android
+                && self.requires.contains(&Requirement::Artifact)
+                && !self.artifact_path(ctx).is_ok_and(|p| p.exists()),
             developer: self.developer,
             warning: self.warning.clone(),
         }
@@ -859,6 +866,52 @@ mod tests {
         assert!(everyone.shown(&player));
         let view = everyone.view(&ctx(&player));
         assert!(view.runnable && !view.developer && view.warning.is_none());
+    }
+
+    /// A Play whose program is not there says so (`missing_artifact`), so that the launcher offers
+    /// a build for it and never reading the levels again, which cannot make the program: Going
+    /// Commando in launcher 1.0.0, which carried neither its program nor a way to build it, sent
+    /// the player round "Rebuild" (the levels again) forever.
+    #[test]
+    fn a_play_without_its_program_says_its_artifact_is_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let program = dir.path().join("openrac-rac2-ntsc");
+        let play: Action = serde_json::from_str(&format!(
+            r#"{{"id": "play", "label": "Play", "kind": "play", "state": "unverified", "program": "{{artifact}}",
+                "requires": ["artifact"], "artifact": {}}}"#,
+            serde_json::to_string(&program.to_string_lossy()).unwrap()
+        ))
+        .unwrap();
+        let config = Config::default();
+        let ctx = Context {
+            root: dir.path(),
+            config: &config,
+            version: None,
+            status: None,
+            toolchains: false,
+            platform: Platform::Linux,
+            level: None,
+            path: None,
+            option: None,
+        };
+        // Android plays the game its APK carries: its Play never misses a program, so Rebuild
+        // there stays the levels read again.
+        let on_android = Context { platform: Platform::Android, ..ctx };
+        assert!(!play.view(&on_android).missing_artifact);
+        let view = play.view(&ctx);
+        assert!(view.missing_artifact && !view.runnable && !view.done, "{view:?}");
+        std::fs::write(&program, "").unwrap();
+        let view = play.view(&ctx);
+        assert!(!view.missing_artifact && view.runnable && view.done, "{view:?}");
+
+        // An action that does not need its artifact to run (an export, which makes it) is never
+        // missing it.
+        let export: Action = serde_json::from_str(
+            r#"{"id": "port-levels", "label": "Levels", "kind": "build", "state": "unverified",
+                "program": "make", "artifact": "/nowhere/levels-20.json"}"#,
+        )
+        .unwrap();
+        assert!(!export.view(&ctx).missing_artifact);
     }
 
     #[test]

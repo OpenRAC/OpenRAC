@@ -57,6 +57,7 @@ std::string describe_level_bake_profile(const LevelBakeProfile& profile) {
            << settings.sunlight_scale[0] << ',' << settings.sunlight_scale[1] << ','
            << settings.sunlight_scale[2] << ']'
            << ",\"terrain_vertex_albedo\":" << (settings.terrain_vertex_albedo ? "true" : "false")
+           << ",\"terrain_vertex_albedo_strength\":" << settings.terrain_vertex_albedo_strength
            << ",\"texture_compression\":\"" << probe_texture_name(settings.texture_format) << '"'
            << ",\"depth_compression\":\"RG16 UNORM local mean/spread (canonical maps)\""
            << ",\"probe_format_version\":" << kProbeFormatVersion

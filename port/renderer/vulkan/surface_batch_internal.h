@@ -18,6 +18,21 @@ struct SurfaceNode {
 // Only the graphics owner uses this object, during one run_surface_chain call.
 class SurfaceBatch {
 public:
+    ~SurfaceBatch() {
+        if (g->surface_depth_owner == this) {
+            g->surface_depth_owner = nullptr;
+        }
+    }
+
+    // A lease spans all sections of this scope, including synchronous flushes.
+    bool claim_depth_scratch() {
+        if (g->surface_depth_owner) {
+            return false;
+        }
+        g->surface_depth_owner = this;
+        return true;
+    }
+
     // Imports source allocations and prepares compute packets, or retains an explicitly scoped
     // prepared callback.
     [[nodiscard]] Result<void> append(

@@ -196,6 +196,8 @@ public:
         bool repeat_t = true
     );
     void set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureColours> source);
+    // Drop cached world colours while keeping the game's source textures.
+    void clear_upscaled_texture_colours();
 
     bool has_upscaled_texture_colours() const { return m_upscaled_texture_colours != nullptr; }
 

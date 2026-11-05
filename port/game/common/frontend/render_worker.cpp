@@ -119,9 +119,11 @@ void RenderWorker::run() {
         } catch (const std::exception& failure) {
             crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
             error = failure.what();
+            crash::report(error.c_str(), crash::Kind::Exception);
         } catch (...) {
             crash::breadcrumb(crash::BreadcrumbThread::Render, "render job failed", frame);
             error = "unknown render-thread exception";
+            crash::report(error.c_str(), crash::Kind::Exception);
         }
 
         // Release captured owners before publishing completion.

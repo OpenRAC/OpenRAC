@@ -123,11 +123,22 @@ struct Scene {
     }
 };
 
+// Tests a finite edge against the independent lighting-only acceleration structure.
+inline bool crosses_lighting_barrier(const Scene* barriers, Point from, Point to) {
+    if (!barriers || from == to) {
+        return false;
+    }
+
+    // Include both endpoints so a barrier aligned with a voxel centre cannot be crossed.
+    return barriers->hit(from, sub(to, from), 1.0f, 0.0f).hit.geomID != RTC_INVALID_GEOMETRY_ID;
+}
+
 // Attach authored endpoint evidence, then propagate through enclosed air.
 void assign_transition_labels(
     const Scene& scene,
     std::span<const Transition> transitions,
     const Settings& settings,
+    const Scene* barriers,
     Result& result
 );
 }  // namespace openrac::lighting::interiors::detail

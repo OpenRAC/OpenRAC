@@ -8,6 +8,7 @@
 #include <bit>
 #include <exception>
 
+#include "common/breadcrumbs.h"
 #include "renderer/vulkan/graph_barriers.h"
 
 namespace openrac::vkgl::detail {
@@ -16,7 +17,9 @@ namespace graph = renderer::graph;
 
 // The acquired swapchain contents are discarded; only the presentation copy defines the next screen
 // image.
-Result<graph::Plan> presentation_plan(const Image& source, const Image& destination, bool screen) {
+Result<graph::Plan> presentation_plan(
+    const Image& source, const Image& destination, bool screen, const PresentationEncode& encode
+) {
     graph::Graph builder;
     const auto state = imported_state(source.layout);
 
@@ -51,13 +54,45 @@ Result<graph::Plan> presentation_plan(const Image& source, const Image& destinat
         return unexpected(!from ? from.error() : to.error());
     }
 
-    builder.add_pass(
-        {"presentation copy",
-         {{*from, {}, {graph::Stage::Transfer, graph::Access::Read, graph::Layout::TransferSource}},
-          {*to,
-           {},
-           {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}}}
-    );
+    auto copy_source = *from;
+    if (encode.record) {
+        auto encoded = *to;
+        if (encode.staging) {
+            const auto staging_state = imported_state(encode.staging->layout);
+            if (!staging_state) {
+                return unexpected(staging_state.error());
+            }
+            const auto staging = builder.import_image(
+                "HDR staging",
+                {{encode.staging->serial, 0}, 1, 1, graph::Aspect::Colour, *staging_state, false}
+            );
+            if (!staging) {
+                return unexpected(staging.error());
+            }
+            encoded = *staging;
+            copy_source = encoded;
+        }
+        builder.add_pass(
+            {"HDR encode",
+             {{*from,
+               {},
+               {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Sampled}},
+              {encoded,
+               {},
+               {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::General}}}}
+        );
+    }
+    if (!encode.record || encode.staging) {
+        builder.add_pass(
+            {"presentation copy",
+             {{copy_source,
+               {},
+               {graph::Stage::Transfer, graph::Access::Read, graph::Layout::TransferSource}},
+              {*to,
+               {},
+               {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}}}
+        );
+    }
     builder.add_pass(
         {"presentation consumer",
          {{*to,
@@ -77,15 +112,19 @@ Result<void> record_presentation(
     const ImagePtr& source,
     Image& destination,
     bool screen,
-    const std::function<void()>& record
+    const std::function<void()>& copy,
+    const PresentationEncode& encode
 ) {
     // Presentation cannot borrow missing images or change the allocation while a callback records.
-    if (!source || !destination.image || !command || !record
-        || source->image == destination.image) {
+    if (!source || !destination.image || !command || ((!encode.record || encode.staging) && !copy)
+        || source->image == destination.image
+        || (encode.staging
+            && (!encode.record || !encode.staging->image || encode.staging->image == source->image
+                || encode.staging->image == destination.image))) {
         return unexpected(Error{"invalid presentation graph bindings"});
     }
 
-    const auto plan = presentation_plan(*source, destination, screen);
+    const auto plan = presentation_plan(*source, destination, screen, encode);
 
     // Compilation must succeed before the presentation callback or either image changes state.
     if (!plan) {
@@ -95,6 +134,9 @@ Result<void> record_presentation(
     // Owners and swapchain fences outlive this synchronous callback, even if its recording fails.
     source->touched = g->recording;
     destination.touched = g->recording;
+    if (encode.staging) {
+        encode.staging->touched = g->recording;
+    }
 
     // Native recording errors remain inside the presentation graph boundary.
     try {
@@ -108,13 +150,17 @@ Result<void> record_presentation(
             for (const auto& transition : pass.barriers) {
                 const auto& description =
                     std::get<graph::ImageDesc>(plan->resources[transition.resource].description);
-                auto& image = description.key.generation == 0 ? *source : destination;
-                // Discarding the old pixels still requires waiting for swapchain acquisition.
-                // Chain the first transition to the submission's transfer-stage semaphore wait.
+                auto& image = description.key.generation == 2              ? destination
+                              : description.key.identity == source->serial ? *source
+                                                                           : *encode.staging;
+                // The first screen transition joins the semaphore wait on its submission.
+                const VkPipelineStageFlags wait_stage = encode.record
+                                                            ? VK_PIPELINE_STAGE_ALL_COMMANDS_BIT
+                                                            : VK_PIPELINE_STAGE_TRANSFER_BIT;
                 const VkPipelineStageFlags acquire =
                     screen && &image == &destination
                             && transition.before.layout == graph::Layout::Undefined
-                        ? VkPipelineStageFlags{VK_PIPELINE_STAGE_TRANSFER_BIT}
+                        ? wait_stage
                         : 0;
                 if (screen && &image == &destination) {
                     const TracyPresentZone timing(
@@ -129,11 +175,21 @@ Result<void> record_presentation(
 
             // Export phases change visibility only and must not repeat the native screen copy.
             if (pass.kind == graph::PassKind::Work) {
-                if (screen) {
+                crash::breadcrumb(pass.name);
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(command, pass.name, false);
+                }
+                if (encode.record && index == 0) {
+                    const TracyPresentZone timing(command, "HDR encode");
+                    encode.record();
+                } else if (screen) {
                     const TracyPresentZone timing(command, "Swapchain copy");
-                    record();
+                    copy();
                 } else {
-                    record();
+                    copy();
+                }
+                if (g->gpu_breadcrumbs) {
+                    record_gpu_breadcrumb(command, pass.name, true);
                 }
             }
             complete_graph_pass(*plan, index, event);

@@ -134,8 +134,8 @@ void caster_hulls() {
                     for (unsigned shift = 0; shift < volume.plane_count; ++shift) {
                         auto p = world;
                         for (unsigned k = 0; k < 3; ++k) {
-                            p[k] +=
-                                direction[k] * 5000 - volume.planes[shift][k] * (2 * texel + .025f);
+                            p[k] += direction[k] * 5000
+                                    - volume.planes[shift][k] * (3.8f * texel + .05f);
                         }
                         for (unsigned j = 0; j < volume.plane_count; ++j) {
                             const auto& plane = volume.planes[j];

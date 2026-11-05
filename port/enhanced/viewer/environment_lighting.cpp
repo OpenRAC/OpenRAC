@@ -13,6 +13,9 @@
 #include "enhanced_viewer_shaders.h"
 #include "renderer/gl.h"
 #include "renderer/renderer.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace openrac::lighting {
 using namespace gl;
@@ -136,6 +139,10 @@ void EnvironmentLighting::load(const std::filesystem::path& directory, const Pro
             asset.levels(),
             asset.gpu_bytes.size() + asset.brdf.size() * 4
         );
+#if defined(OPENRAC_VULKAN)
+    } catch (const vkgl::RecordingFailure&) {
+        throw;
+#endif
     } catch (const std::exception& error) {
         release();
         log::warn("baked environment reflections unavailable: {}", error.what());

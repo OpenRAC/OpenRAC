@@ -506,44 +506,55 @@ int menu_choice(const char* label, const std::string& value, bool can_lower, boo
     return blocked ? 0 : by;
 }
 
-// Draws a slider using the same focus, divider and value column as the choice rows.
+// Draws a slider using the same focus and divider as the choice rows: its value between two arrows
+// (a tap on one moves it a step), and a track to drag between them.
 int menu_percent_slider(const char* label, int value, int minimum, int maximum, int step) {
+    // The choice rows' column, so that the arrows line up with theirs.
     const float column = std::min(s.card.width * 0.48f, dp(190.0f));
+    const float arrow_room = dp(16.0f);  // each arrow's part of the column, which a tap on it hits
+    const float text_room = dp(42.0f);   // the value's, "120%"
+    const bool touch = drawer_possible();
+    float left = 0.0f;
     float track_left = 0.0f;
     float track_right = 0.0f;
+    float right_x = 0.0f;
     const auto draw = [&](ImDrawList* list, ImVec2 right) {
-        track_left = right.x - column;
-        track_right = right.x - column * 0.40f;
+        left = right.x - column;
+        right_x = right.x;
+        track_left = left + arrow_room;
+        track_right = right.x - arrow_room - text_room;
+        const ImU32 off = ui_colors::fade(ui().dim, 0.35f);
+        arrow(list, ImVec2(left, right.y), -1.0f, 0.0f, value > minimum ? ui().amber : off);
+        arrow(list, ImVec2(right.x, right.y), 1.0f, 0.0f, value < maximum ? ui().amber : off);
         const float fraction =
             static_cast<float>(value - minimum) / static_cast<float>(maximum - minimum);
         const ImVec2 start(track_left, right.y);
         const ImVec2 knob(std::lerp(track_left, track_right, fraction), right.y);
         list->AddLine(start, ImVec2(track_right, right.y), ui().line_strong, dp(3.0f));
         list->AddLine(start, knob, ui().amber, dp(3.0f));
-        list->AddCircleFilled(knob, dp(5.0f), ui().amber);
+        // The knob grows while a finger holds it, so that it shows beside the finger what moves.
+        const bool held = s.slider_held && ImGui::IsItemActive();
+        const float big = tween(item_part("knob"), held ? 1.0f : 0.0f, kFast);
+        const float radius = touch ? dp(7.0f) : dp(5.0f);
+        list->AddCircleFilled(knob, radius + dp(4.0f) * big, ui().amber);
         const std::string text = std::format("{}%", value);
         list->AddText(
             centred_text(
                 ImGui::GetFont(),
                 ImGui::GetFontSize(),
                 text,
-                ImVec2(right.x - column * 0.15f, right.y)
+                ImVec2(track_right + text_room * 0.5f + dp(4.0f), right.y)
             ),
             ui().gold,
             text.c_str()
         );
     };
     g_quiet_row = true;
-    const bool pressed = menu_row(label, ui().text, draw, column);
+    const bool pressed = menu_row(label, ui().text, draw, column + dp(8.0f));
     g_quiet_row = false;
 
-    // Touch applies on release so vertical swipes can still scroll the drawer.
     const ImGuiIO& io = ImGui::GetIO();
-    const float start_x = io.MouseClickedPos[0].x;
-    const bool started_on_track =
-        start_x >= track_left - dp(5.0f) && start_x <= track_right + dp(5.0f);
-    const bool dragging = !drawer_possible() && ImGui::IsItemActive() && ImGui::IsMouseDown(0);
-    if (started_on_track && (dragging || (pressed && ImGui::IsMouseReleased(0)))) {
+    const auto at_pointer = [&] {
         const float fraction =
             std::clamp((io.MousePos.x - track_left) / (track_right - track_left), 0.0f, 1.0f);
         return minimum
@@ -551,15 +562,54 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
                      * static_cast<int>(
                          std::lround(fraction * static_cast<float>((maximum - minimum) / step))
                      );
+    };
+    // Where the finger or the mouse came down: on an arrow, or on the track or near it.
+    const float start_x = io.MouseClickedPos[0].x;
+    const bool on_lower = start_x >= left - dp(12.0f) && start_x < track_left - dp(4.0f);
+    const bool on_raise = start_x > track_right + text_room && start_x <= right_x + dp(12.0f);
+    const bool on_track = start_x >= track_left - dp(4.0f) && start_x <= track_right + dp(8.0f);
+    const bool active = ImGui::IsItemActive() && ImGui::IsMouseDown(0);
+    if (!ImGui::IsMouseDown(0)) {
+        s.slider_held = false;
+    }
+    int next = value;
+    int by = 0;
+    if (pressed && (on_lower || on_raise)) {
+        by = on_lower ? -1 : 1;
+    } else if (touch) {
+        // A finger moved sideways first holds the slider, which then follows it until it lets go;
+        // moved up or down first, it scrolls the drawer (drag_scroll) and the row lets go. A tap
+        // on the track puts the value there.
+        const ImVec2 moved = ImGui::GetMouseDragDelta(0, 0.0f);
+        if (active && on_track && !s.slider_held && std::abs(moved.x) > dp(6.0f)
+            && std::abs(moved.x) > std::abs(moved.y)) {
+            s.slider_held = true;
+        }
+        if ((active && s.slider_held) || (on_track && pressed)) {
+            next = at_pointer();
+        }
+    } else if (on_track && (active || pressed)) {
+        next = at_pointer();
     }
 
-    // Arrow input also supports the controller d-pad through the menu's input mapping.
+    // The arrow keys, which the d-pad also presses (feed_gamepads): a step each, held to repeat.
     if (ImGui::IsItemFocused()) {
-        const int by = static_cast<int>(ImGui::IsKeyPressed(ImGuiKey_RightArrow))
-                       - static_cast<int>(ImGui::IsKeyPressed(ImGuiKey_LeftArrow));
-        return std::clamp(value + by * step, minimum, maximum);
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) {
+            by = -1;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) {
+            by = 1;
+        }
     }
-    return value;
+    if (by != 0) {
+        next = std::clamp(value + by * step, minimum, maximum);
+    }
+    // As the choice rows: the cursor's sound for each step it moves, Denied past either end.
+    if (next != value) {
+        menu_sound(MenuSound::Cursor);
+    } else if (by != 0) {
+        menu_sound(MenuSound::Denied);
+    }
+    return next;
 }
 
 bool menu_button(const char* label) {

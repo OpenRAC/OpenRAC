@@ -21,10 +21,22 @@ struct Transition {
     std::array<std::array<unsigned, 3>, 2> ambient{};
 };
 
+// A world-space seed for an existing light set and ambient colour.
+struct LightingSource {
+    Point position;                     // Enclosed-air position.
+    int light = 0;                      // Level light-set index.
+    std::array<unsigned, 3> ambient{};  // Ambient RGB bytes.
+    Point up{0, 0, 1};                  // Local deck normal for ceiling lighting.
+    unsigned frame = 0;                 // Shared lighting frame ID. Zero is world up.
+};
+
 struct Settings {
     float spacing = 2, height = 2.5f, radius = 0.45f, step = 2;
     float slope_cosine = 0.65f, sky_distance = 128;
     unsigned max_cells = 2000000;
+    // Triangulated two-sided polygons used only for lighting connectivity.
+    std::vector<Triangle> lighting_barriers;
+    std::vector<LightingSource> lighting_sources;  // Authored indoor seeds, in input order.
 };
 
 struct Cell {
@@ -45,9 +57,15 @@ struct Region {
     float sky = 0;
 };
 
+// Authored coverage leaves unreachable cells on the existing transition path.
+inline constexpr unsigned kUnreachedSourceCell = ~0u;
+inline constexpr unsigned kConflictingSourceCell = ~1u;
+
 struct Result {
     std::vector<Cell> cells;
     std::vector<Seed> seeds;
+    std::vector<unsigned> source_cell_labels;  // Optional per-cell overrides in floor sample order.
+    std::vector<unsigned> source_labels;       // Label per authored source, or ~0u if rejected.
     std::vector<Region> regions;
     // Physical walkability includes edges across authored lighting transitions.
     std::vector<std::array<unsigned, 2>> walkable_edges;

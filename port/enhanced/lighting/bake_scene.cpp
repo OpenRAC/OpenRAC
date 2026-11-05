@@ -101,7 +101,8 @@ void validate_triangle(
     const BakeTriangle& triangle, const BakeScene& input, const BakeSettings& settings
 ) {
     // Validate authored tints only when the albedo path consumes them.
-    if (settings.terrain_vertex_albedo && triangle.terrain_prelighting) {
+    if (settings.terrain_vertex_albedo && triangle.terrain_prelighting
+        && settings.terrain_vertex_albedo_strength > 0) {
         // Every vertex contributes to interpolation, even outside the probe grid.
         for (auto tint : triangle.authored_colours) {
             validate_colour(tint, false);

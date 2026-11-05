@@ -2612,7 +2612,7 @@ dependencies = [
 
 [[package]]
 name = "openrac-launcher"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "openrac-launcher-core",
  "serde",
@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "openrac-launcher-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "chd",

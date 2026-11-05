@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace openrac::crash {
 
@@ -81,6 +82,9 @@ void set_running_script(const char* const* current);
 
 void set_state(const GameState& state);
 const GameState& state();
+
+// Retains a bounded Vulkan diagnostic independently of the session log level.
+void note_vulkan(std::string_view message) noexcept;
 
 // Writes the report, once (a second call while one is being written, or after, does nothing and
 // returns null). The path of the file written, or null when none could be (no folder yet).
