@@ -969,6 +969,7 @@ if(OPENRAC_VULKAN)
 endif()
 
 openrac_add_test(bake_liquids SOURCES enhanced/tests/bake_liquids_test.cpp LIBS openrac_probe_scene)
+set_property(TEST bake_liquids APPEND PROPERTY LABELS baker)
 
 include(Fsr3)
 
@@ -1040,6 +1041,7 @@ target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
+set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
   game/rac1/host/water.c)

@@ -6,18 +6,21 @@
 A game that still needs code from the player's disc cannot be shipped built, so the installer
 carries no program for it. This fetches the source of the commit the installer was built from,
 builds it with tools/build_port.py from the player's own disc, and copies the program to DIR. The
-copy is read-only, so all of this happens under DIR. The compilers are the player's:
+copy is read-only. Long Windows installation paths build in the user's temporary folder;
+the finished program still goes into DIR. The compilers are the player's:
 tools/build_port.py says what to install when one is missing.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +34,21 @@ PROGRAMS = "program"
 # The longest path a build makes under DIR, and the most Windows takes without long paths turned on.
 LONGEST_BUILD_PATH = 181
 WINDOWS_PATH_LIMIT = 259
+
+
+def build_directory(out: Path) -> Path:
+    """Keep dependency paths below MAX_PATH without changing the player's installation."""
+    if sys.platform != "win32" or len(str(out)) + LONGEST_BUILD_PATH <= WINDOWS_PATH_LIMIT:
+        return out
+    # Stable across retries, separate for each installed program. A failed build can resume.
+    key = hashlib.sha256(os.path.normcase(str(out)).encode("utf-8")).hexdigest()[:12]
+    directory = Path(tempfile.gettempdir()).resolve() / f"openrac-{key}"
+    if len(str(directory)) + LONGEST_BUILD_PATH > WINDOWS_PATH_LIMIT:
+        sys.exit("the temporary folder's path is too long to build OpenRAC; set TEMP and TMP to a "
+                 "short writable folder and restart the launcher (the installation can stay where it is)")
+    directory.mkdir(parents=True, exist_ok=True)
+    print(f"building in {directory} to keep Windows paths short", flush=True)
+    return directory
 
 
 def carried_commit(stamp: Path = STAMP) -> str:
@@ -109,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Builds a game from your disc, from an installed launcher.")
     parser.add_argument("game", help="the port game, such as rac2-ntsc")
     parser.add_argument("--disc", type=Path, required=True, help="the image of your disc")
-    parser.add_argument("--out", type=Path, required=True, help="where the source, the build and the program go")
+    parser.add_argument("--out", type=Path, required=True, help="where the finished program goes")
     parser.add_argument("--source-url", help="where the source archive is, if not on GitHub")
     parser.add_argument("--preset", default=PRESET, help=f"the CMake preset; default {PRESET}")
     args = parser.parse_args(argv)
@@ -117,12 +135,9 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit(f"the disc image {args.disc} is not there")
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out.resolve()
-    if os.name == "nt" and len(str(out)) + LONGEST_BUILD_PATH > WINDOWS_PATH_LIMIT:
-        print(f"warning: {out} is long, and the build may stop with a path too long. If it does, turn on "
-              "long paths in Windows (LongPathsEnabled) and build again.", flush=True)
 
     commit = carried_commit()
-    source = fetch_source(args.source_url or ARCHIVE.format(commit=commit), commit, out)
+    source = fetch_source(args.source_url or ARCHIVE.format(commit=commit), commit, build_directory(out))
     subprocess.run([sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
                     "--preset", args.preset], cwd=source, check=True)
     program = copy_program(source / "port" / "build" / args.preset, args.game, out)

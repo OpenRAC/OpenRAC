@@ -141,25 +141,6 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
       COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard "${shard_index}" "${shard_count}")
     math(EXPR shard_index "${shard_index} + 1")
   endforeach()
-  set(equivalence_cache_dir "${CMAKE_CURRENT_BINARY_DIR}/test-cache/vulkan")
-  add_test(NAME render_equivalence_seed_vulkan COMMAND "${CMAKE_COMMAND}"
-    "-DCACHE_DIR=${equivalence_cache_dir}"
-    "-DSHARDS=${equivalence_tests}"
-    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SeedEquivalenceCaches.cmake")
-  set_tests_properties(render_equivalence_seed_vulkan PROPERTIES
-    LABELS render-equivalence
-    FIXTURES_REQUIRED render_equivalence_baselines
-    FIXTURES_SETUP render_equivalence_caches)
-  list(APPEND openrac_parallel_gpu_tests ${equivalence_tests})
-  set_tests_properties(${equivalence_tests} PROPERTIES SKIP_RETURN_CODE 77
-    LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_caches ENVIRONMENT
-    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
-  if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
-    # Start the longest runnable tests first on a runner with no timing history.
-    set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES COST 90)
-    set_tests_properties(${equivalence_tests} PROPERTIES COST 150)
-    set_property(TEST ${equivalence_tests} APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=1")
-  endif()
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
              COMMAND render_equivalence_test --compatibility-baseline
@@ -167,6 +148,44 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     set_tests_properties(shadow_scroll_vulkan PROPERTIES SKIP_RETURN_CODE 77
       FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
       "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1;OPENRAC_SCROLLING_SHADOWS=1")
+  endif()
+  option(OPENRAC_VULKAN_TEST_SEED_CACHE
+    "Seed selected Vulkan rendering tests from the local equivalence build" OFF)
+  set(vulkan_seed_tests ${equivalence_tests})
+  if(OPENRAC_VULKAN_TEST_SEED_CACHE)
+    # Output tests with overlapping world shaders. Cache and cold-start tests
+    # keep their own setup, and the baseline producer must start empty.
+    foreach(test IN ITEMS shadow_scroll_vulkan early_lighting_vulkan surface_chain
+        sky_chain sky_chain_separate sky_chain_scroll probe_gpu_vulkan
+        hero_shadow_vulkan sun_shadow_vulkan)
+      if(TEST "${test}")
+        get_property(environment TEST "${test}" PROPERTY ENVIRONMENT)
+        if("OPENRAC_GL_API=vulkan" IN_LIST environment
+            AND NOT environment MATCHES "(^|;)OPENRAC_VULKAN_PIPELINE_CACHE=")
+          list(APPEND vulkan_seed_tests "${test}")
+        endif()
+      endif()
+    endforeach()
+  endif()
+  set(equivalence_cache_dir "${CMAKE_CURRENT_BINARY_DIR}/test-cache/vulkan")
+  add_test(NAME render_equivalence_seed_vulkan COMMAND "${CMAKE_COMMAND}"
+    "-DCACHE_DIR=${equivalence_cache_dir}"
+    "-DTESTS=${vulkan_seed_tests}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SeedEquivalenceCaches.cmake")
+  set_tests_properties(render_equivalence_seed_vulkan PROPERTIES
+    LABELS render-equivalence
+    FIXTURES_REQUIRED render_equivalence_baselines
+    FIXTURES_SETUP render_equivalence_caches)
+  list(APPEND openrac_parallel_gpu_tests ${equivalence_tests})
+  set_tests_properties(${equivalence_tests} PROPERTIES SKIP_RETURN_CODE 77
+    LABELS render-equivalence ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  set_property(TEST ${vulkan_seed_tests} APPEND PROPERTY FIXTURES_REQUIRED render_equivalence_caches)
+  if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
+    # Start the longest runnable tests first on a runner with no timing history.
+    set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES COST 90)
+    set_tests_properties(${equivalence_tests} PROPERTIES COST 150)
+    set_property(TEST ${equivalence_tests} APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=1")
   endif()
 endif()
 

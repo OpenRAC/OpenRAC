@@ -145,6 +145,7 @@ std::uint64_t gpu_instance_recording();
 // Indexed viewports route shadow draws to atlas rectangles from the vertex
 // shader. Empty rectangles restore the ordinary single-viewport path.
 bool indexed_viewports_supported(unsigned count);
+bool extended_dynamic_state_supported();
 void indexed_viewports(std::span<const std::array<int, 4>> rectangles);
 renderer::GpuInstanceBatch gpu_instances(
     unsigned instance_buffer,

@@ -135,7 +135,7 @@ pub fn plain(path: &Path) -> PathBuf {
 /// The Python a bundled copy carries (python-build-standalone's layout).
 pub fn bundled_python(root: &Path) -> Option<PathBuf> {
     let rel = if cfg!(windows) { "python/python.exe" } else { "python/bin/python3" };
-    let path = crate::under(root, rel);
+    let path = plain(&crate::under(root, rel));
     path.is_file().then_some(path)
 }
 
