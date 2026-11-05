@@ -141,9 +141,18 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
       COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard "${shard_index}" "${shard_count}")
     math(EXPR shard_index "${shard_index} + 1")
   endforeach()
+  set(equivalence_cache_dir "${CMAKE_CURRENT_BINARY_DIR}/test-cache/vulkan")
+  add_test(NAME render_equivalence_seed_vulkan COMMAND "${CMAKE_COMMAND}"
+    "-DCACHE_DIR=${equivalence_cache_dir}"
+    "-DSHARDS=${equivalence_tests}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SeedEquivalenceCaches.cmake")
+  set_tests_properties(render_equivalence_seed_vulkan PROPERTIES
+    LABELS render-equivalence
+    FIXTURES_REQUIRED render_equivalence_baselines
+    FIXTURES_SETUP render_equivalence_caches)
   list(APPEND openrac_parallel_gpu_tests ${equivalence_tests})
   set_tests_properties(${equivalence_tests} PROPERTIES SKIP_RETURN_CODE 77
-    LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
+    LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_caches ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
     # Start the longest runnable tests first on a runner with no timing history.
@@ -227,9 +236,10 @@ if(TARGET openrac_renderer_vulkan)
   openrac_add_test(shader_precision LIBS openrac_renderer_vulkan)
 endif()
 
-# Required feature owners replace generic scene runs that cannot exercise those paths.
+# Required feature owners run the comparisons that live outside the generic scene.
 set(equivalence_feature_tests fsr3_motion fsr3_frame fsr3_sdk motion_blur water_runtime
-  effect_material vulkan_uniform vulkan_present vulkan_present_timing shadow_scroll_vulkan)
+  effect_material vulkan_uniform vulkan_present vulkan_present_timing shadow_scroll_vulkan
+  vulkan_prewarm)
 foreach(test IN LISTS equivalence_feature_tests)
   if(TEST "${test}" AND TEST render_equivalence_vulkan)
     set_property(TEST "${test}" APPEND PROPERTY FIXTURES_SETUP render_equivalence_features)

@@ -431,11 +431,9 @@ jobs:
       - name: Build enhanced lighting and baker
         working-directory: port
         run: |
-          # Keep the preset's optimisation level and stack-trace lines without full DWARF.
-          flags='-O2 -gline-tables-only -DNDEBUG'
+          # Keep the preset's compiler flags so PRs can reuse develop's cached objects.
           cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON \
-            -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON \
-            "-DCMAKE_C_FLAGS_RELWITHDEBINFO=$flags" "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=$flags"
+            -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON
           cmake --build --preset enhanced
       - name: CPU, Vulkan and Embree tests
         working-directory: port
@@ -459,7 +457,7 @@ jobs:
                       'render_equivalence_prepare_vulkan', 'render_equivalence_vulkan',
                       'render_equivalence_vulkan_remaining', 'render_equivalence_vulkan_shard_2',
                       'render_equivalence_vulkan_shard_3', 'render_equivalence_support',
-                      'render_bench_smoke',
+                      'render_bench_smoke', 'render_equivalence_seed_vulkan', 'vulkan_prewarm',
                       'motion_blur', 'fsr3_motion', 'fsr3_frame', 'fsr3_sdk',
                       'water_runtime', 'effect_material', 'vulkan_uniform',
                       'vulkan_present', 'vulkan_present_timing', 'shadow_scroll_vulkan'}
