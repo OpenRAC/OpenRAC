@@ -54,10 +54,10 @@ uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, 
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
-uniform int shape;         // the Arc style's, all cut sharp as the logo: 0 an octagon with a clipped
-                           // corner, 1 a long hexagon turned by `angle`, 2 a slanted bar, 3 a blade
-                           // lying round `hub` (as the GameCube's X and Y round its A)
-uniform vec2 hub;          // a bean's hub, from the button's centre in its radii
+uniform int shape;         // the Arc style's, cut sharp as the logo: 0 an octagon, 1 a long hexagon
+                           // turned by `angle`, 2 a slanted bar, 3 a long octagon lying round `hub`
+                           // (as the GameCube's X and Y round its A)
+uniform vec2 hub;          // a long octagon's hub, from the button's centre in its radii
 uniform float large;       // 1 for a large action button
 out vec4 colour;
 
@@ -92,10 +92,10 @@ float rounded_box(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
-// An octagon of inner radius `r`, its top left corner clipped further: the large buttons' shape.
+// A regular octagon of inner radius `r`: the large buttons' shape.
 float octagon(vec2 p, float r) {
     vec2 a = abs(p);
-    return max(max(max(a.x, a.y) - r * 0.92, (a.x + a.y) * 0.7071 - r), dot(p, vec2(-0.7071)) - r * 0.80);
+    return max(max(a.x, a.y), (a.x + a.y) * 0.7071) - r;
 }
 float slate_shape(vec2 p) {
     if (shape == 1) {
@@ -104,15 +104,15 @@ float slate_shape(vec2 p) {
         return max(q.y - 0.70, (q.x + q.y * 0.55 - 1.05) * 0.85);
     }
     if (shape == 3) {
-        // Across the direction from the hub: a blade longer on its outer side, one end slanted.
+        // Across the direction from the hub: a long octagon, its corners cut.
         vec2 up = -hub / length(hub);
-        vec2 q = vec2(p.x * up.y - p.y * up.x, p.x * up.x + p.y * up.y);
-        return max(abs(q.y) - 0.68, abs(q.x + 0.20 * q.y) - (1.10 + 0.22 * q.y)) * 0.9;
+        vec2 q = abs(vec2(p.x * up.y - p.y * up.x, p.x * up.x + p.y * up.y));
+        return max(max(q.x - 1.08, q.y - 0.76), (q.x + q.y) * 0.7071 - 1.22);
     }
     if (shape == 2) {
         return rounded_box(vec2(p.x + p.y * 0.35, p.y), vec2(stretch - 0.15, 1.0), 0.10);
     }
-    return octagon(p, 1.0);
+    return octagon(p, 0.95);
 }
 const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
 const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
@@ -128,16 +128,6 @@ vec4 slate(vec2 p) {
     c = over(c, vec4(face, (0.42 + 0.25 * held) * fill(f)));
     float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, p.y));
     c = over(c, vec4(vec3(1.0), 0.09 * edge));
-    if (shape == 0) {
-        // A claw mark in the accent along the lower right cut, three short slashes.
-        vec2 t = vec2(dot(p, vec2(0.7071, -0.7071)), dot(p, vec2(0.7071)));
-        float slash = 1e3;
-        for (int i = -1; i <= 1; ++i) {
-            vec2 u = t - vec2(float(i) * 0.13, 0.74);
-            slash = min(slash, max(abs(u.x + u.y * 0.5) - 0.022, abs(u.y) - 0.07));
-        }
-        c = over(c, vec4(accent, (0.55 + 0.35 * held) * fill(slash) * fill(f)));
-    }
     return c;
 }
 
@@ -191,10 +181,9 @@ void main() {
         float tri = max(abs(t.x) * 0.9 - t.y * 0.45, t.y - 0.14) - 0.17;
         c = over(c, vec4(vec3(0.05), 0.75 * fill(tri)));
     } else if (symbol == 5 && arc == 1) {
-        // The Arc style's stick: an octagon base, an arrow each way (the one it leans to lit), an
-        // octagon knob with four dots.
-        vec2 ap = abs(p);
-        float d = max(max(ap.x, ap.y) - 0.92, (ap.x + ap.y) * 0.7071 - 1.0);
+        // The Arc style's stick: a round base, an arrow each way (the one it leans to lit), a round
+        // knob with four dots.
+        float d = length(p) - 1.0;
         c = vec4(kSlateBase, 0.36 * fill(d));
         c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.02) - 0.012)));
         c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.38 * fill(d + 0.08)));
@@ -211,7 +200,7 @@ void main() {
         }
         vec2 k = p - knob * 0.50;
         float kr = 0.46;
-        float kd = octagon(k / kr, 1.0) * kr;
+        float kd = length(k) - kr;
         c = over(c, vec4(kSlateBase, 0.55 * fill(kd)));
         vec2 kf = k;
         vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));
@@ -365,9 +354,9 @@ struct State {
 };
 
 // The mark's half height on the options button, in radii: as large as the face buttons' symbols.
-constexpr float kMarkHalf = 0.44f;
+constexpr float kMarkHalf = 0.54f;
 // An action's icon's half size in radii: most of the button, a rim of glass around it.
-constexpr float kIconHalf = 0.70f;
+constexpr float kIconHalf = 0.66f;
 
 // The seconds a let-go control takes to ease most of the way out.
 constexpr float kPressEase = 0.06f;
@@ -589,7 +578,7 @@ void draw(platform::TouchPad& touch, int width, int height) {
         float hub_y = 0.0f;
         if (arc && !c.action.empty()) {
             const bool top = c.stretch > 1.0f;
-            const bool small = !c.large && c.radius < 0.07f * touch.scale();
+            const bool small = !c.large && c.radius < 0.076f * touch.scale();
             const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
             const bool round = hub != nullptr && hub != &c;
             hub_x = round ? (hub->x - c.x) * aspect / c.radius : 0.0f;

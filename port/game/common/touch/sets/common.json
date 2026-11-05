@@ -12,9 +12,9 @@
         { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
         { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
         { "id": "wrench", "icon": "wrench", "press": ["square"] },
+        { "id": "quick", "icon": "quick", "press": ["triangle"] },
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
         { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
-        { "id": "quick", "icon": "quick", "press": ["triangle"], "size": "small" },
         { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left" }
       ]
     },

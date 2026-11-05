@@ -174,7 +174,7 @@ void TouchPad::arc_controls() {
             continue;  // more than the style has places for: the first ones, the most used, stay
         }
         float radius = a.size == TouchSize::Large   ? 0.113f
-                       : a.size == TouchSize::Small ? 0.061f
+                       : a.size == TouchSize::Small ? 0.070f
                                                     : 0.083f;
         float stretch = 1.0f;
         if (a.side == TouchSide::Top) {
