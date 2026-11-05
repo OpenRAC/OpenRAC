@@ -220,7 +220,20 @@
           )}</button
         >
       {/if}
-      {#if mod.kind !== "tool"}
+      {#if mod.kind === "tool"}
+        <!-- A tool can't be off: its switch shows on, greyed, and says why. -->
+        <label class="power on" title={T.VIEW.toolAlwaysOn}>
+          <span>{T.VIEW.toolAlwaysOnShort}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={`${mod.name}: ${T.VIEW.toolAlwaysOn}`}
+            checked
+            disabled
+          />
+        </label>
+      {:else}
         <label class="power" class:on={mod.enabled}>
           <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
           <input

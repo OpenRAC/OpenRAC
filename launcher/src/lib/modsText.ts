@@ -153,7 +153,10 @@ export const VIEW = {
   moveBottom: "Move to the bottom",
   toolsTitle: "Tools",
   builtInTitle: "Built in",
-  toolsSub: "Pages of their own in the launcher: they make things, the game does not load them.",
+  toolsSub: "Pages of their own in the launcher, always on: they make things, the game does not load them.",
+  /** A tool's switch: on, greyed, and why. */
+  toolAlwaysOn: "Always on: a tool is a page in the launcher, so it can't be turned off.",
+  toolAlwaysOnShort: "Always on",
 } as const;
 
 /** The badge on a mod's row besides its state and kind (lib/plugins.ts, modBadge). */

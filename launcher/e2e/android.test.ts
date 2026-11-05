@@ -357,8 +357,14 @@ describe("A controller", () => {
     const list = await page.getByRole("switch", { name: "Use Your texture pack" }).boundingBox();
     expect(top && list && top.y < list.y).toBe(true);
     expect(await page.getByPlaceholder("Search mods").count()).toBe(0);
-    await banner.getByRole("button", { name: "Open the mod hub" }).click();
-    await expect.poll(() => said.join(" ")).toContain("https://openrac.dev/mods");
+    // A click anywhere on it opens the hub, not only on its button.
+    await banner.click({ position: { x: 30, y: 20 } });
+    await expect.poll(() => said.join(" ")).toContain('"https://openrac.dev/mods"');
+    // Publish does its own, not the hub.
+    said.length = 0;
+    await banner.getByRole("button", { name: "Publish your mod" }).click();
+    await expect.poll(() => said.join(" ")).toContain("https://openrac.dev/mods/submit");
+    expect(said.join(" ")).not.toContain('"https://openrac.dev/mods"');
     expect(said.join(" ")).not.toContain("index_fetch");
   });
 
@@ -371,6 +377,10 @@ describe("A controller", () => {
     await search.fill("");
     await page.getByRole("radio", { name: /^Tools/ }).click();
     await expect(page.getByRole("button", { name: "Open Nanotech Upscaler" }).count()).resolves.toBe(1);
+    // A tool can't be off: its switch is on and greyed, and says why.
+    const always = page.getByRole("switch", { name: /^Nanotech Upscaler: Always on/ });
+    expect(await always.isChecked()).toBe(true);
+    expect(await always.isDisabled()).toBe(true);
     await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(0);
     await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(0);
   });
