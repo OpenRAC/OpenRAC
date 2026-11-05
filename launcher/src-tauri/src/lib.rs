@@ -1831,7 +1831,8 @@ fn hub_error(e: impl std::fmt::Display) -> ModError {
 }
 
 /// Fetches and checks every mod index (or uses the cached copies), keeps the result for the next
-/// commands, and with a game turns off the installed mods whose version was revoked.
+/// commands, and with a game turns off the installed mods whose version was revoked. The change set
+/// (a link from openrac.dev) and Share use it; the launcher lists no mods itself.
 #[tauri::command]
 async fn index_fetch(
     app: AppHandle,
@@ -2034,13 +2035,17 @@ async fn mods_updates(
     let prerelease = allow_prerelease(&app, &state);
     let dir = plugins_dir(&state, &game).map_err(hub_error)?;
     tauri::async_runtime::spawn_blocking(move || {
+        // A revoked version is turned off first, so the plan sees it off.
+        let turned_off = index::turn_off_revoked(&dir, &game, &version, &index);
         let installed = resolver::installed_mods(&dir, &game, &version);
-        openrac_launcher_core::mod_updates::plan(
+        let mut plan = openrac_launcher_core::mod_updates::plan(
             &index,
             &installed,
             &remote::read_sources(&dir),
             &here_for(&game, &version, prerelease),
-        )
+        );
+        plan.turned_off = turned_off;
+        plan
     })
     .await
     .map_err(hub_error)
@@ -2068,8 +2073,11 @@ async fn mods_auto_update(
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let here = here_for(&game, &version, prerelease);
+        // A revoked version is turned off first, so the plan sees it off.
+        let turned_off = index::turn_off_revoked(&dir, &game, &version, &index);
         let installed = resolver::installed_mods(&dir, &game, &version);
-        let plan = mod_updates::plan(&index, &installed, &remote::read_sources(&dir), &here);
+        let mut plan = mod_updates::plan(&index, &installed, &remote::read_sources(&dir), &here);
+        plan.turned_off = turned_off;
         let items: Vec<mod_updates::UpdateItem> = match &ids {
             None => plan.silent.clone(),
             Some(ids) => plan.silent.iter().chain(&plan.waiting).filter(|i| ids.contains(&i.id)).cloned().collect(),

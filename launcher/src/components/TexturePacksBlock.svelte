@@ -89,8 +89,11 @@
 >
   {#if folded}
     <summary>
-      <h2>{TEXTURES.makeTitle}</h2>
-      <p class="muted lead">{TEXTURES.makeLead}</p>
+      <div class="grow">
+        <h2>{TEXTURES.makeTitle}</h2>
+        <p class="muted lead">{TEXTURES.makeLead}</p>
+      </div>
+      <span class="chevron"><Icon name="down" size={18} /></span>
     </summary>
   {:else}
     <h2>{TEXTURES.makeTitle}</h2>
@@ -178,9 +181,27 @@
     flex-direction: column;
     gap: 6px;
   }
+  /* Folded (Android, and a launcher without the editor): an arrow says it opens. */
   details.textures summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     list-style: none;
     cursor: pointer;
+    border-radius: var(--radius-sm);
+  }
+  details.textures summary:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 4px;
+  }
+  .chevron {
+    flex: none;
+    display: inline-flex;
+    color: var(--soft);
+    transition: transform var(--medium) var(--ease);
+  }
+  details.textures[open] .chevron {
+    transform: rotate(180deg);
   }
   details.textures summary::-webkit-details-marker {
     display: none;

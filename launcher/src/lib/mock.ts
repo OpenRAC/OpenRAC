@@ -2761,6 +2761,8 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
       return delay("added");
     case "index_fetch":
+      // Said, so a test sees that a page did not read the mod list by itself.
+      console.info("[preview] index_fetch");
       return delay(mockIndexView());
     case "index_resolve":
       return delay(mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []));

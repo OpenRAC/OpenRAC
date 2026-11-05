@@ -110,17 +110,10 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
-- **Texture packs**: for a game with a port, your own pictures in place of
-  the game's, as a mod: **Your texture pack** is the first of the packs on
-  Mods → My mods, with its switch, **Share my pack…** (a `.zip` without the
-  pictures that are still the game's own) and **Replace with a pack…** (the
-  old one is kept beside it). A shared pack's `.zip` is added with **Add a
-  mod** (another game's is refused). **Make your own** opens the steps on
-  Models and textures: **Save the game's textures while you play** makes the
-  next Play save every picture it shows, sorted into Interface (HUD, menus,
-  font), Shared and a folder for each planet, with counts that open each
-  folder (they come from your disc, so keep them to yourself); then edit or
-  upscale them and put them in your pack
+- **Texture packs**: your own pictures in place of the game's. Your pack is
+  a mod, first under the packs on Mods → My mods. Its menu shares it as a
+  `.zip` or replaces it. Add a shared pack with **Add a mod**. **Make your
+  own** saves the game's pictures while you play, so you can edit them
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
@@ -148,13 +141,11 @@ it on (off by default: the game as the console plays it).
 Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
 
-**My mods** holds everything the game loads; the other tabs (Level editor,
-Models and textures, Audio) make things, and what they make lands in My mods.
-With six or more, a toolbar finds a mod by name, shows one kind (Gameplay,
-Graphics and sound, Tools, with their counts) and sorts by load order or A to
-Z. In load order a row's grip drags it to its place (a mouse or a finger);
-its menu also has Move up, Move down, Move to the top and Move to the bottom,
-for a pad. Tools (a mod that is only a page in the launcher) are listed apart.
+**My mods** holds everything the game loads. The other tabs make things, and
+what they make shows up there. The **Get mods** banner at the top opens the
+hub (openrac.dev/mods); the launcher does not list mods itself. With six or
+more mods a toolbar adds a search, kinds and an order. In load order, drag a
+row by its grip, or use its menu (for a pad).
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
 Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando

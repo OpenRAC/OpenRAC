@@ -76,6 +76,17 @@ export const PAGE = {
   developerTitle: "For developers",
 } as const;
 
+/** My mods' first line (GetMods.svelte): where mods come from. The launcher lists none itself. */
+export const GET_MODS = {
+  title: "Get mods",
+  lead: "Find mods on the official hub, openrac.dev, or anywhere else: a GitHub page, a .zip or a folder. Add them below.",
+  leadNoHub: "Find mods anywhere: a GitHub page, a .zip or a folder. Add them below.",
+  hub: "Open the mod hub",
+  hubUrl: "https://openrac.dev/mods",
+  publish: "Publish your mod",
+  publishUrl: "https://openrac.dev/mods/submit",
+} as const;
+
 /** Adding a mod: a link, a file or a folder (AddMod.svelte). */
 export const ADD = {
   title: "Add a mod",
@@ -92,10 +103,6 @@ export const ADD = {
   addingSeveral: (count: number) => `Adding ${count} mods…`,
   drop: "or drop a .zip or folder on this page",
   dropHere: "Drop to add it",
-  browse: "Browse mods",
-  modsUrl: "https://openrac.dev/mods",
-  publish: "Publish your mod",
-  publishUrl: "https://openrac.dev/mods/submit",
   close: "Close",
 } as const;
 
@@ -499,7 +506,7 @@ export const AUDIO = {
   nothing: "No file in that folder differs from what was exported, so no pack is left from it.",
 } as const;
 
-// ---- The mod hub: the change set (DeepLinkInstall.svelte) and Browse (ModBrowse.svelte) ------
+// ---- The mod hub: the change set (DeepLinkInstall.svelte), opened by a link from openrac.dev ---
 // Each message says what happened, why if known, and what to do, in two short sentences at most,
 // with no code in it (core/src/mod_error.rs gives the kind; `detail` stays in "Copy details").
 
@@ -618,92 +625,16 @@ export function appliedText(done: number, total: number, failed: string | null):
   return done === 1 ? "Installed 1 mod. It's on." : `Installed ${done} mods. They're on.`;
 }
 
-export const INDEX_STATE = {
-  stale: "The mod list is out of date.",
-  newerFormat: "Update the launcher to see new mods.",
-} as const;
-
-export function offlineText(fetchedAt: number, now = Date.now() / 1000): string {
-  const hours = Math.max(0, Math.round((now - fetchedAt) / 3600));
-  if (fetchedAt === 0) return "Showing the saved mod list.";
-  if (hours < 1) return "Showing the mod list from less than an hour ago.";
-  if (hours < 48) return `Showing the mod list from ${hours} ${hours === 1 ? "hour" : "hours"} ago.`;
-  return `Showing the mod list from ${Math.round(hours / 24)} days ago.`;
-}
-
-export const revokedOffText = (name: string, version: string, reason: string) =>
-  `${name} ${version} was turned off: ${reason}`;
-
-export const BROWSE = {
-  tabTitle: "Browse",
-  search: "Search mods",
-  searchHint: "/",
-  presetsLabel: "Show",
-  name: "Name",
-  author: "Author",
-  version: "Version",
-  downloads: "Downloads",
-  install: "Install",
-  installed: "Installed",
-  notHere: "Doesn't work here",
-  devOnly: "Dev build only",
-  clearFilters: "Clear filters",
-  viewOnSite: "View on openrac.dev",
-  watch: "Watch on YouTube",
-  noReadme: "No description yet.",
-  noVersions: "No versions.",
-  noFiles: "No files listed.",
-  requires: "Needs",
-  conflicts: "Can't be on with",
-  recommends: "Recommends",
-  suggests: "Suggests",
-  nothing: "None",
-  license: "License",
-  tags: "Tags",
-  updated: "Updated",
-  impact: "Impact",
-  aiAssisted: "AI-assisted",
-  yes: "Yes",
-  no: "No",
-  detailsAria: "Mod details",
-  failed: "The mod list couldn't be loaded.",
-  empty: "No mods in this list yet.",
-} as const;
-
-export const PRESET_LABEL = {
-  compatible: "Compatible",
-  installed: "Installed",
-  upgradeable: "Upgradeable",
-  notInstalled: "Not installed",
-  all: "All",
-} as const;
-
-export const DETAIL_TAB = {
-  metadata: "Metadata",
-  relationships: "Relationships",
-  versions: "Versions",
-  files: "Files",
-} as const;
-
-export const noMatch = (q: string) => `No mods match "${q}".`;
-/** Why the list is empty: the search when there is one, else the preset alone. */
-export const nothingShown = (q: string, preset: keyof typeof PRESET_LABEL) =>
-  q.trim() ? noMatch(q.trim()) : `No mods in ${PRESET_LABEL[preset]}.`;
-export const didYouMean = (name: string) => `Did you mean ${name}?`;
-export const IMPACT_LABEL: Record<string, string> = {
-  cosmetic: "Cosmetic only",
-  gameplay: "Changes gameplay",
-  "speedrun-safe": "Speedrun-safe",
-  "touches-saves": "Changes saves",
-  online: "Online",
-};
-
 // ---- Mods kept current and tidy (lib/modAutoUpdate, ModUpdatesPanel.svelte, PluginsPanel) -----
 
 import type { Hold } from "./api";
 
 export const updatedMods = (n: number) =>
   n === 1 ? "Updated 1 mod. See what changed on the Mods tab." : `Updated ${n} mods. See what changed on the Mods tab.`;
+
+/** A withdrawn version the look for updates turned off (ModUpdatesPanel). */
+export const revokedOffText = (name: string, version: string, reason: string) =>
+  `${name} ${version} was turned off: ${reason}`;
 
 export const UPDATES = {
   title: "Mod updates",

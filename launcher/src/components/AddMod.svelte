@@ -18,9 +18,9 @@
     type VersionView,
   } from "$lib/api";
   import { addMods, type Added } from "$lib/addMods";
-  import { app, guardShown } from "$lib/app.svelte";
+  import { app } from "$lib/app.svelte";
   import { openLink } from "$lib/deepLink.svelte";
-  import { hubLink, isSiteLink } from "$lib/modBrowse";
+  import { hubLink, isSiteLink } from "$lib/siteLinks";
   import { modHint, modKind } from "$lib/plugins";
   import * as T from "$lib/modsText";
   import Icon from "./Icon.svelte";
@@ -237,14 +237,6 @@
 <section class="panel add" class:dropping aria-label={T.ADD.title}>
   <div class="row head">
     <h2 class="grow">{T.ADD.title}</h2>
-    {#if v.game === "rac1"}
-      <button class="small ghost" onclick={() => void guardShown(api.openUrl(T.ADD.modsUrl))}
-        ><Icon name="external" size={14} />{T.ADD.browse}</button
-      >
-      <button class="small ghost" onclick={() => void guardShown(api.openUrl(T.ADD.publishUrl))}
-        ><Icon name="external" size={14} />{T.ADD.publish}</button
-      >
-    {/if}
   </div>
 
   <div class="adds">
