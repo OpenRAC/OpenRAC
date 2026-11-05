@@ -125,26 +125,16 @@ void sample_timings() {
     }
 }
 
-// Android shows only the frame time: the display's refresh, which caps the frames a second, is
-// the system's there and cannot be changed, so the FPS number says nothing the time does not.
-#if defined(__ANDROID__)
-constexpr bool kShowFps = false;
-#else
-constexpr bool kShowFps = true;
-#endif
-
 // Formats each quarter-second sample and starts the next averaging window.
 void update_text() {
     const double fps = s.sample.fps();
     // FPS and whole-frame milliseconds come from the same displayed intervals.
-    const std::string lead =
-        kShowFps ? std::format("{:.0f} FPS", fps) : std::format("{:.1f} MS", s.sample.frame_ms());
     if (s.mode == Mode::Basic) {
-        s.text = kShowFps ? std::format("{} {:.1f} MS", lead, s.sample.frame_ms()) : lead;
+        s.text = std::format("{:.0f} FPS {:.1f} MS", fps, s.sample.frame_ms());
     } else {
         const std::string gpu =
             s.gpu_frames > 0 ? std::format("{:.1f}", s.gpu_ms / s.gpu_frames) : "--";
-        s.text = std::format("{} CPU {:.1f} MS GPU {} MS", lead, s.sample.cpu_ms(), gpu);
+        s.text = std::format("{:.0f} FPS CPU {:.1f} MS GPU {} MS", fps, s.sample.cpu_ms(), gpu);
     }
     s.sample = {};
     s.gpu_ms = 0;
