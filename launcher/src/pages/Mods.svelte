@@ -24,7 +24,7 @@
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
   import PacksPanel from "$components/PacksPanel.svelte";
-  import ModBrowse from "$components/ModBrowse.svelte";
+  import GetMods from "$components/GetMods.svelte";
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
   import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
   import ModsToolbar from "$components/ModsToolbar.svelte";
@@ -34,7 +34,7 @@
   import { app, guardShown, jobs, run } from "$lib/app.svelte";
   import type { EntryState } from "$lib/labels";
   import { SITE_URL } from "$lib/links";
-  import { BROWSE, EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
+  import { EDITOR, GAME_LIST, PAGE } from "$lib/modsText";
   import { resetView } from "$lib/modsView.svelte";
   import { playerVersion } from "$lib/player.svelte";
   import type { Job } from "$lib/queue";
@@ -182,16 +182,13 @@
   /** Android's one page of mods (no level editor there): the version they are for. */
   const mine = $derived(onAndroid ? (v ?? played) : null);
 
-  /** The page's tab: My mods, Browse, the level editor, models and textures, or audio. */
-  type Tab = "mine" | "browse" | "editor" | "assets" | "audio";
-  // ?tab=editor (or assets, browse, audio) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
+  /** The page's tab: My mods, the level editor, models and textures, or audio. */
+  type Tab = "mine" | "editor" | "assets" | "audio";
+  // ?tab=editor (or assets, audio) opens that tab at start: handy for screenshots, as ?page= is (App.svelte).
   const askedTab = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("tab");
-  let tab = $state<Tab>(
-    askedTab === "editor" || askedTab === "assets" || askedTab === "browse" || askedTab === "audio" ? askedTab : "mine",
-  );
-  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "globe" | "sound" }[] = [
+  let tab = $state<Tab>(askedTab === "editor" || askedTab === "assets" || askedTab === "audio" ? askedTab : "mine");
+  const TABS: { id: Tab; label: string; icon: "library" | "edit" | "folder" | "sound" }[] = [
     { id: "mine", label: PAGE.tabMine, icon: "library" },
-    { id: "browse", label: BROWSE.tabTitle, icon: "globe" },
     { id: "editor", label: PAGE.tabEditor, icon: "edit" },
     { id: "assets", label: PAGE.tabAssets, icon: "folder" },
     { id: "audio", label: PAGE.tabAudio, icon: "sound" },
@@ -273,9 +270,10 @@
           <!-- Android: one page. What the game loads first (the toolbar once there are many): the mods,
                with Enhanced graphics at the top and its switch in its row, then the packs, the
                player's own texture pack first, with its steps folded under them. Then adding one,
-               from a link or a .zip the system's picker copies in, and browsing. No level editor or
-               model export: they need Godot and a desktop. -->
-          {#if !onModPage}<ModsToolbar />{/if}
+               from a link or a .zip the system's picker copies in. Where mods come from is said
+               first (GetMods): the launcher lists none itself. No level editor or model export:
+               they need Godot and a desktop. -->
+          {#if !onModPage}<GetMods hub={mine.game === "rac1"} /><ModsToolbar />{/if}
           <PluginsPanel version={mine} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
@@ -289,12 +287,14 @@
             />
             {#if textured(shown, mine)}<TexturePacksBlock version={mine} folded bind:open={making} />{/if}
             <AddMod version={mine} links={playable(mine)} onadded={added} />
-            {#if playable(mine)}<ModBrowse version={mine} />{/if}
           {/if}
         {:else if !v && played}
           <!-- The level editor cannot open it here (an installed launcher without its tools, say), but the
                game plays: its gameplay mods, which load when it is played from its page. -->
-          {#if !onModPage}<AddMod version={played} onadded={added} /><ModsToolbar />{/if}
+          {#if !onModPage}<GetMods hub={played.game === "rac1"} /><AddMod
+              version={played}
+              onadded={added}
+            /><ModsToolbar />{/if}
           <PluginsPanel version={played} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
@@ -309,7 +309,6 @@
               />
               <TexturePacksBlock version={played} folded bind:open={making} />
             {/if}
-            <ModBrowse version={played} />
           {/if}
         {:else if !v}
           <!-- Every game has this page; one the editor cannot open yet says so. -->
@@ -358,6 +357,7 @@
               {#if current === "mine" && onModPage && playable(v)}
                 <PluginsPanel version={v} reload={pluginsReload} onpack={() => (reload += 1)} />
               {:else if current === "mine"}
+                <GetMods hub={v.game === "rac1"} />
                 <AddMod version={v} links={playable(v)} files={playable(v) || !!adder?.runnable} onadded={added} />
                 <ModsToolbar />
                 {#if playable(v)}
@@ -381,8 +381,6 @@
                     ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
                   >
                 </p>
-              {:else if current === "browse"}
-                {#if playable(v)}<ModBrowse version={v} />{/if}
               {:else if current === "editor"}
                 <EditorFlow game={shown} version={v} onchanged={() => reload++} />
                 {#if v.game === "rac1"}

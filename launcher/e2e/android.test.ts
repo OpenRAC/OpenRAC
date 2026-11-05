@@ -337,6 +337,29 @@ describe("A controller", () => {
     await press("accept");
     await dumping.waitFor();
     expect(await dumping.isVisible()).toBe(true);
+    // Its arrow says it opens, and turns when it is open.
+    const arrow = page.locator("#texture-make summary .chevron");
+    expect(await arrow.isVisible()).toBe(true);
+    expect(await arrow.evaluate((el) => getComputedStyle(el).transform)).not.toBe("none");
+  });
+
+  it("says where mods come from at the top, and lists none itself", async () => {
+    const said: string[] = [];
+    page.on("console", (m) => {
+      if (m.text().includes("[preview]"))
+        void Promise.all(m.args().map((x) => x.jsonValue())).then((a: unknown[]) => said.push(JSON.stringify(a)));
+    });
+    await open("page=mods&version=rac1/pal");
+    const banner = page.getByRole("region", { name: "Get mods" });
+    await banner.waitFor();
+    // First on the page, above the lists.
+    const top = await banner.boundingBox();
+    const list = await page.getByRole("switch", { name: "Use Your texture pack" }).boundingBox();
+    expect(top && list && top.y < list.y).toBe(true);
+    expect(await page.getByPlaceholder("Search mods").count()).toBe(0);
+    await banner.getByRole("button", { name: "Open the mod hub" }).click();
+    await expect.poll(() => said.join(" ")).toContain("https://openrac.dev/mods");
+    expect(said.join(" ")).not.toContain("index_fetch");
   });
 
   it("finds a mod and shows one kind when there are many", async () => {

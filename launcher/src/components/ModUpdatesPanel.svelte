@@ -1,11 +1,11 @@
 <script lang="ts">
-  // The updates of a game's mods from the index (lib/modAutoUpdate, core/src/mod_updates.rs): the
+  // The updates of a game's mods from the index, and the withdrawn versions the look turned off (lib/modAutoUpdate, core/src/mod_updates.rs): the
   // ones that wait for a click ("Update available": a major, or new hooks), with their changelog;
   // the ones held back, and why ("held back: A needs B 1.2.0"); the ones that just went in by
   // themselves, with what changed. Shown only when it has something to say. Changelogs are text.
   import { api, errorText, type UpdateItem, type VersionView } from "$lib/api";
   import { autoUpdates, gameRunning, updateVersion } from "$lib/modAutoUpdate.svelte";
-  import { UPDATES as T, holdText, updateFrom } from "$lib/modsText";
+  import { UPDATES as T, holdText, revokedOffText, updateFrom } from "$lib/modsText";
   import { onMount } from "svelte";
   import Icon from "./Icon.svelte";
 
@@ -16,7 +16,19 @@
 
   const plan = $derived(autoUpdates.plans[version.game] ?? null);
   const recent = $derived(autoUpdates.recent[version.game] ?? []);
-  const shown = $derived((!!plan && (plan.waiting.length > 0 || plan.held.length > 0)) || recent.length > 0);
+  const shown = $derived(
+    (!!plan && (plan.waiting.length > 0 || plan.held.length > 0 || plan.turnedOff.length > 0)) || recent.length > 0,
+  );
+
+  // A look turned off a withdrawn version: the lists show it off.
+  let toldOff = "";
+  $effect(() => {
+    const off = plan?.turnedOff.map((r) => `${r.id}@${r.version}`).join(",") ?? "";
+    if (off && off !== toldOff) {
+      toldOff = off;
+      onchange?.();
+    }
+  });
 
   onMount(() => {
     // The look at start may not have run for this game yet: what waits, without updating.
@@ -49,6 +61,9 @@
 
 {#if shown && plan}
   <section class="panel updates" aria-label={T.title}>
+    {#each plan.turnedOff as r (r.id)}<p class="err" role="alert">
+        {revokedOffText(r.name, r.version, r.reason)}
+      </p>{/each}
     {#if plan.waiting.length > 0}
       <h2>{T.waitingTitle}</h2>
       <ul>
