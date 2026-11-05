@@ -422,7 +422,12 @@ pub async fn update_check<R: Runtime>(
             })?;
         let text = std::fs::read_to_string(&manifest).map_err(|e| e.to_string())?;
         let _ = std::fs::remove_file(&manifest);
-        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), switching)
+        // Going back to Stable takes an older release too (its page: Android installs no older APK
+        // over a newer one). Development takes only a newer build, installed as any update: a
+        // newer version is a later CI run, so a higher version code (docs/RELEASING.md). An older
+        // one is the build made before this release, which Android would refuse.
+        let back_to_stable = switching && source.channel.is_none();
+        update::release_for(&text, update::ANDROID, &crate::launcher_version(&app), back_to_stable)
     }
     #[cfg(not(target_os = "android"))]
     {
