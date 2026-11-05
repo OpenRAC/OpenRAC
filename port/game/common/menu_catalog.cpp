@@ -57,7 +57,8 @@ constexpr Entry kEntries[] = {
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
      "soon as they are drawn."},
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
-     "Shows the frames a second in a corner of the picture. F2 changes it too."},
+     "Shows the frames a second and the frame time in a corner of the picture (on Android only the "
+     "frame time). F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, A, "HDR",
      "High dynamic range output, on a display that has it. Auto follows the system's setting. "
      "Turned on from Off, it starts with the game's next start."},
