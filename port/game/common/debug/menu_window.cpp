@@ -231,7 +231,8 @@ float text_block(
     return font->CalcTextSizeA(font->FontSize, FLT_MAX, wrap, text).y;
 }
 
-// Small capitals with room between the letters, as the launcher's section numbers and kickers.
+// Small capitals with room between the letters, as the launcher's section numbers and kickers;
+// in the accent's light amber, which reads on the dark panels for every game.
 void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
     ImFont* font = menu_fonts.small;
     const float gap = dp(1.6f);
@@ -271,7 +272,7 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     const float wrap = b.x - a.x - pad * 2.0f;
     if (chip == kQuitPage) {
         // The Quit page's question, where an option's details are.
-        kicker(list, ImVec2(a.x + pad, y), ink(ui().brand), menu::entry(menu::Id::Quit).label);
+        kicker(list, ImVec2(a.x + pad, y), ink(ui().amber), menu::entry(menu::Id::Quit).label);
         y += menu_fonts.small->FontSize + dp(12.0f);
         y += text_block(
             list, menu_fonts.head, ImVec2(a.x + pad, y), ink(ui().gold), "Quit the game?", wrap
@@ -298,7 +299,7 @@ void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
         kicker(
             list,
             ImVec2(a.x + pad, y),
-            ink(ui().brand),
+            ink(ui().amber),
             std::string(menu::tab_name(e.tab)) + "  /  " + e.section
         );
         y += menu_fonts.small->FontSize + dp(12.0f);
@@ -345,7 +346,7 @@ void tab_title(const std::string& name, int index, int count) {
     const ImVec2 at = ImGui::GetCursorScreenPos();
     ImGui::Dummy(ImVec2(0.0f, dp(22.0f)));
     const std::string place = std::format("{:02} / {:02}", index + 1, count);
-    kicker(list, ImVec2(at.x + dp(4.0f), at.y + dp(22.0f)), ui().brand, place);
+    kicker(list, ImVec2(at.x + dp(4.0f), at.y + dp(22.0f)), ui().amber, place);
     ImFont* title = menu_fonts.title;
     list->AddText(
         title,
@@ -625,7 +626,7 @@ void menu_window(const Shown& shown) {
         );
         list->ChannelsMerge();
 
-        // At the right: Quit, and Resume as the launcher's white button.
+        // At the right: Quit and Resume, both dark chips.
         ImGui::PushFont(menu_fonts.strong);
         const float quit_w = ImGui::CalcTextSize(menu::entry(menu::Id::Quit).label).x + dp(28.0f);
         const float resume_w = ImGui::CalcTextSize("Resume").x + dp(28.0f);
@@ -649,7 +650,8 @@ void menu_window(const Shown& shown) {
             s.menu_focus = true;
         }
         ImGui::SameLine(0.0f, dp(8.0f));
-        if (bar_chip("Resume", ui().ink_deep, true, tab_h, 0.0f, s.menu_tab == quit_at + 1)) {
+        // Dark, with white text, as Quit game beside it.
+        if (bar_chip("Resume", IM_COL32_WHITE, false, tab_h, 0.0f, s.menu_tab == quit_at + 1)) {
             set_menu(false);
         }
     }

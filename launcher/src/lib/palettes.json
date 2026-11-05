@@ -120,15 +120,15 @@
   ],
   "accents": {
     "rac2": {
-      "--bar-top": "#7fcdf5",
-      "--bar-bottom": "#43a3de",
-      "--bar-stripe": "#7ec5ea",
-      "--bar-stripe-alt": "#5ca3ce",
+      "--bar-top": "#1799ca",
+      "--bar-bottom": "#1487b3",
+      "--bar-stripe": "#1692c0",
+      "--bar-stripe-alt": "#1487b3",
       "--bar-ink": "#06233a",
       "--bar-ink-deep": "#03141f",
-      "--amber": "#7fcff5",
-      "--gold": "#c4e8fb",
-      "--brand": "#43a3de"
+      "--amber": "#31b6e8",
+      "--gold": "#a3def5",
+      "--brand": "#0e5e7c"
     },
     "rac3": {
       "--bar-top": "#ffd84a",

@@ -192,8 +192,8 @@ keeps clear of a camera cut-out (`MainActivity.kt`). A controller drives it
 The pages are arranged for a handheld, with a navigation rail:
 
 - Games has a compact card per game. The last one picked is ringed, and the
-  launcher takes its colour: Ratchet & Clank orange, Going Commando light
-  blue, Up Your Arsenal yellow, Deadlocked red, Size Matters blue
+  launcher takes its colour: Ratchet & Clank orange, Going Commando
+  teal, Up Your Arsenal yellow, Deadlocked red, Size Matters blue
   (`launcher/src/lib/themes.ts`).
 - Mods and Develop work on the game picked on Games, named at the top right.
 - A game's page keeps Play and the saves at hand; Differences from the
