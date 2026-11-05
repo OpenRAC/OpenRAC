@@ -665,6 +665,9 @@ add_executable(probe_gpu_test enhanced/tests/probe_gpu_test.cpp
 add_executable(early_lighting_test enhanced/tests/early_lighting_test.cpp)
 openrac_add_test(surface_normals SOURCES enhanced/tests/surface_normals_test.cpp
   LIBS openrac_viewer_lib openrac_platform)
+if(OPENRAC_VULKAN)
+  target_compile_definitions(surface_normals_test PRIVATE OPENRAC_VULKAN=1)
+endif()
 set_tests_properties(surface_normals PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
   "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1")
 target_link_libraries(early_lighting_test PRIVATE openrac_viewer_lib openrac_platform)
