@@ -56,6 +56,13 @@ function newer(a: string, b: string): boolean {
 
 export const upgradeable = (r: Row) => !!r.installed && !!r.here && newer(r.here.version, r.installed);
 
+/** The preset Browse opens on: Compatible, or All when nothing installs here (a native-only index
+ *  on Android, say), so the list never opens empty behind a filter the player didn't pick. Still
+ *  Compatible while the index loads, so the buttons don't flicker. */
+export function startPreset(rows: Row[]): Preset {
+  return rows.length === 0 || rows.some((r) => inPreset(r, "compatible")) ? "compatible" : "all";
+}
+
 export function inPreset(r: Row, preset: Preset): boolean {
   switch (preset) {
     case "compatible":

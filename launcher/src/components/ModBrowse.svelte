@@ -16,6 +16,7 @@
     LAUNCHER_API,
     PRESETS,
     siteUrl,
+    startPreset,
     upgradeable,
     versionHere,
     youtube,
@@ -30,7 +31,7 @@
     PRESET_LABEL,
     didYouMean,
     modErrorText,
-    noMatch,
+    nothingShown,
     offlineText,
     revokedOffText,
     updateTo,
@@ -47,7 +48,8 @@
   let error = $state<string | null>(null);
   let installed = $state<Record<string, string>>({});
   let query = $state("");
-  let preset = $state<Preset>("compatible");
+  /** The preset the player clicked; until then the one rows start on (startPreset). */
+  let picked = $state<Preset | null>(null);
   let selected = $state<string | null>(null);
   let tab = $state<keyof typeof DETAIL_TAB>("metadata");
   let searchBox = $state<HTMLInputElement | null>(null);
@@ -95,6 +97,7 @@
       installed: installed[mod.id] ?? null,
     })),
   );
+  const preset = $derived(picked ?? startPreset(rows));
   const shown = $derived(
     search(
       rows.filter((r) => inPreset(r, preset)).map((r) => ({ ...r, ...r.mod })),
@@ -102,7 +105,7 @@
     ),
   );
   const suggestion = $derived(
-    shown.length === 0 && query
+    shown.length === 0 && query.trim()
       ? closest(
           rows.map((r) => r.mod),
           query,
@@ -151,7 +154,7 @@
           aria-checked={preset === p}
           class:on={preset === p}
           onclick={() => {
-            preset = p;
+            picked = p;
           }}>{PRESET_LABEL[p]}</button
         >
       {/each}
@@ -174,7 +177,7 @@
     <p class="muted">{T.empty}</p>
   {:else if shown.length === 0}
     <div class="none">
-      <p>{noMatch(query)}</p>
+      <p>{nothingShown(query, preset)}</p>
       {#if suggestion}
         {@const s = suggestion}
         <button
@@ -188,7 +191,7 @@
         class="small"
         onclick={() => {
           query = "";
-          preset = "all";
+          picked = "all";
         }}>{T.clearFilters}</button
       >
     </div>

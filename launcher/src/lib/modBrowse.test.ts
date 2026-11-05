@@ -10,6 +10,7 @@ import {
   PRESETS,
   regions,
   siteUrl,
+  startPreset,
   upgradeable,
   versionHere,
   youtube,
@@ -117,6 +118,17 @@ describe("presets", () => {
     expect(by("notInstalled")).toEqual(["lock-strafe", "archipelago"]);
     expect(by("all")).toHaveLength(4);
     expect(upgradeable(row("camera-tweaks", "2.0.0"))).toBe(false);
+  });
+
+  it("open on Compatible, or on All when nothing installs here", () => {
+    expect(startPreset([row("lock-strafe"), row("archipelago")])).toBe("compatible");
+    // A native-only list on a platform it wasn't built for: not an empty list behind a filter.
+    const android = { ...here, platform: "android-arm64" };
+    const natives = index.mods.filter((m) => m.type === "native").map((m) => row(m.id, null, android));
+    expect(natives.length).toBeGreaterThan(0);
+    expect(natives.some((r) => inPreset(r, "compatible"))).toBe(false);
+    expect(startPreset(natives)).toBe("all");
+    expect(startPreset([])).toBe("compatible");
   });
 });
 
