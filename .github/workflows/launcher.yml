@@ -38,6 +38,7 @@ on:
       - "editor/**"
       - "games/rac1/**"
       - "tools/bundle_standalone.py"
+      - "tools/build_game.py"
       - "tools/build_android.py"
       - "tools/build_port.py"
       - "tools/extractor.py"
@@ -60,8 +61,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # A branch build's version, worked out once for every build and the rolling release. Each used to
+  # ask scripts/dev_version.sh itself: a release tag pushed while a run was going made the installers
+  # X.Y.Z and their latest.json X.Y.(Z+1)-dev, and launchers on that channel updated forever.
+  version:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      base: ${{ steps.base.outputs.base }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: launcher
+      - id: base
+        run: echo "base=$(launcher/scripts/dev_version.sh launcher/src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")" >> "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.name }}
+    needs: version
     runs-on: ${{ matrix.os }}
     # Fedora's row runs in Fedora itself; the others on the runner.
     container: ${{ matrix.container }}
@@ -429,7 +447,7 @@ jobs:
           endpoint="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/latest.json"
           if [[ "$GITHUB_REF" != refs/tags/launcher-v* ]]; then
             # Newer than any release, also when master was not raised after one (scripts/dev_version.sh).
-            base=$(scripts/dev_version.sh src-tauri/tauri.conf.json "$GITHUB_REPOSITORY")
+            base="${{ needs.version.outputs.base }}"
             version=$base
             channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
             endpoint="https://github.com/$GITHUB_REPOSITORY/releases/download/$channel/latest.json"
@@ -573,7 +591,7 @@ jobs:
   # cancelled (a newer one of the branch took its place).
   dev-release:
     if: ${{ !cancelled() && !startsWith(github.ref, 'refs/tags/') }}
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -597,7 +615,7 @@ jobs:
             exit 0
           fi
           # The builds' own version (Build the installers, above).
-          base=$(launcher/scripts/dev_version.sh launcher/src-tauri/tauri.conf.json "$GH_REPO")
+          base="${{ needs.version.outputs.base }}"
           version="$base-dev.$GITHUB_RUN_NUMBER"
           channel="launcher-dev-$(printf '%s' "$GITHUB_REF_NAME" | tr -c 'A-Za-z0-9._-' '-')"
           python3 tools/updater_manifest.py installers --tag "$channel" --repo "$GH_REPO" \

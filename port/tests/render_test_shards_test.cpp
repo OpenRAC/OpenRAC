@@ -65,7 +65,7 @@ void test_registry_costs() {
     CHECK(std::all_of(assigned.begin(), assigned.end(), [](auto owner) { return owner < 2; }));
 }
 
-// Every focused optimisation has one nonempty owner, and cache tests retain fresh objects.
+// Every focused optimisation has one nonempty owner.
 void test_feature_owners() {
     std::vector<bool> seen(openrac::renderer::render_opt::kOptCount);
     for (const auto& [opt, owner] : openrac::test::kFocusedEquivalence) {
@@ -77,7 +77,7 @@ void test_feature_owners() {
     }
     using openrac::renderer::render_opt::Opt;
     CHECK(!openrac::test::may_reuse_test_programs(Opt::PipelinePrewarm));
-    CHECK(!openrac::test::may_reuse_test_programs(Opt::SpirvDiskCache));
+    CHECK(!openrac::test::may_reuse_test_programs(Opt::VkDrawCache));
     CHECK(openrac::test::focused_equivalence_test(Opt::RegistrySelftest).empty());
     CHECK(openrac::test::may_reuse_test_programs(Opt::RegistrySelftest));
 }

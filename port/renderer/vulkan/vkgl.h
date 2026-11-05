@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -41,6 +42,12 @@
 struct SDL_Window;
 
 namespace openrac::vkgl {
+
+// Recording cannot continue after a command-buffer, submission or fence operation fails.
+class RecordingFailure : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
 
 struct Config {
     // The window to present to (made with SDL_WINDOW_VULKAN), or null: drawing without a screen,
@@ -53,6 +60,7 @@ struct Config {
     // the system's loader.
     void* get_instance_proc_addr = nullptr;
     bool validation = false;  // the Khronos validation layer, where it is installed
+    bool gpu_breadcrumbs = true;
     // For the tests: each presentation extension the backend asks of the device where it is
     // offered (VK_KHR_present_id, VK_KHR_present_wait, the FIFO latest-ready present mode), so a
     // test can open the device without it.
@@ -111,6 +119,21 @@ bool open(const Config& config, std::string& error);
 void close();
 bool active();
 
+// Batches texture copies during a level bake upload on the render thread.
+class BulkTextureUpload {
+public:
+    explicit BulkTextureUpload(std::size_t estimated_bytes);
+    ~BulkTextureUpload();
+    BulkTextureUpload(const BulkTextureUpload&) = delete;
+    BulkTextureUpload& operator=(const BulkTextureUpload&) = delete;
+
+    // Waits for the final batch before the caller publishes the textures.
+    void finish();
+
+private:
+    bool m_enabled = false;
+};
+
 // GPU culling/compaction and device-generated indexed draw arguments. No
 // readback participates in visibility decisions. Handles last one recording
 // (including readback flush boundaries), not merely one displayed frame.
@@ -122,6 +145,7 @@ std::uint64_t gpu_instance_recording();
 // Indexed viewports route shadow draws to atlas rectangles from the vertex
 // shader. Empty rectangles restore the ordinary single-viewport path.
 bool indexed_viewports_supported(unsigned count);
+bool extended_dynamic_state_supported();
 void indexed_viewports(std::span<const std::array<int, 4>> rectangles);
 renderer::GpuInstanceBatch gpu_instances(
     unsigned instance_buffer,
@@ -172,7 +196,10 @@ GpuMaterialCounters gpu_material_counters();
 
 // Copy RGBA8, RG32F or RGBA32F compute output to an allocated 2D texture without a readback.
 // Includes compute-write -> transfer-read and image-sampling dependencies.
-bool copy_buffer_to_texture(unsigned buffer, unsigned texture, int width, int height);
+// reuse_source orders the copy before subsequent compute writes to the same buffer.
+bool copy_buffer_to_texture(
+    unsigned buffer, unsigned texture, int width, int height, bool reuse_source = false
+);
 
 // Reversed-depth union: wrapped static depth plus an ordinary rectangle of dynamic depth.
 // The destination is an equally sized R32F storage texture; no CPU readback or image copy.
@@ -385,7 +412,8 @@ bool test_hdr_encode(
     const hdr::Levels& levels,
     int width,
     int height,
-    std::vector<std::uint8_t>& out
+    std::vector<std::uint8_t>& out,
+    bool staged = false
 );
 
 // With low-latency frames, called by the window's thread before a frame begins, before it reads

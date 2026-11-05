@@ -212,9 +212,52 @@ void test_nonfinite_inference_settings() {
     }
 }
 
+// Authored barriers cut lighting routes without adding collision or enclosing outdoor seeds.
+void test_authored_lighting_barriers_and_sources() {
+    Settings settings;
+    settings.lighting_sources = {{{4, 0, 2}, 1, {30, 40, 50}}, {{-6, 0, 2}, 2, {10, 10, 10}}};
+    auto triangles = room();
+    // A broad roof gives this open-sided exterior low sky exposure.
+    quad(triangles, {-30, -30, 4}, {0, -30, 4}, {0, 30, 4}, {-30, 30, 4});
+    const auto open = infer(triangles, {}, settings);
+    quad(settings.lighting_barriers, {7, -8, 0}, {7, 8, 0}, {7, 8, 5}, {7, -8, 5});
+    const auto divided = infer(triangles, {}, settings);
+
+    CHECK(divided.walkable_edges == open.walkable_edges);
+    CHECK(divided.source_labels == std::vector<unsigned>({0, ~0u}));
+    CHECK(divided.blocked_portal_edges > 0);
+    bool reached_near = false;
+    bool checked_far = false;
+    bool checked_exterior = false;
+    for (std::size_t i = 0; i < divided.cells.size(); ++i) {
+        const auto& cell = divided.cells[i];
+        if (cell.position[2] < 1 && cell.position[0] == 4 && cell.position[1] == 0) {
+            CHECK(divided.source_cell_labels[i] == 0);
+            reached_near = true;
+        }
+        if (cell.position[2] < 1 && cell.position[0] == 10 && cell.position[1] == 0) {
+            CHECK(open.source_cell_labels[i] == 0);
+            CHECK(divided.source_cell_labels[i] == kUnreachedSourceCell);
+            checked_far = true;
+        }
+        if (cell.position[2] < 1 && cell.position[0] == -6 && cell.position[1] == 0) {
+            CHECK(cell.sky <= .2f);
+            CHECK(divided.source_cell_labels[i] == kUnreachedSourceCell);
+            CHECK(std::any_of(divided.cells.begin(), divided.cells.end(), [&](const Cell& indoor) {
+                return indoor.position == Point{4, 0, 0} && indoor.component == cell.component;
+            }));
+            checked_exterior = true;
+        }
+    }
+    CHECK(reached_near);
+    CHECK(checked_far);
+    CHECK(checked_exterior);
+}
+
 }  // namespace
 
 int main() {
+    test_authored_lighting_barriers_and_sources();
     test_nonfinite_inference_settings();
     test_labels_propagate_between_floor_components();
     test_air_labels_route_around_floor_obstructions();

@@ -84,10 +84,14 @@ bool hdr_frame() {
 
 // Recreates the target when its dimensions, samples, depth-sampling requirement or colour
 // format changes.
-void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
+void resize_target(SceneFrame& frame, int samples) {
     auto& target = frame.owner.frame;
     const auto& output = frame.output;
     const bool float_colour = hdr_frame();
+    // Reserve sampleable depth while the level's probe data is still loading.
+    const bool wants_sampleable_depth =
+        gl::enhanced_rendering_available() && frame.graphics.enhanced_graphics;
+    const bool sampleable_depth = samples == 1 && wants_sampleable_depth;
 
     // Minimized pictures keep their last target until a drawable size returns.
     if (output.box.width <= 0 || output.box.height <= 0) {
@@ -109,12 +113,7 @@ void resize_target(SceneFrame& frame, int samples, bool sampleable_depth) {
     if (!created && samples > 1) {
         log::warn("{}; drawing without anti-aliasing", error);
         created = target.create(
-            output.width,
-            output.height,
-            error,
-            1,
-            enhanced_graphics_available() && frame.graphics.enhanced_graphics,
-            float_colour
+            output.width, output.height, error, 1, wants_sampleable_depth, float_colour
         );
     }
 
@@ -159,9 +158,7 @@ float prepare_target(SceneFrame& frame) {
     // Temporal reconstruction supplies antialiasing; native rendering keeps the saved MSAA preference.
     const int samples =
         frame.temporal ? 1 : std::clamp(graphics.msaa, 1, renderer::FrameBuffer::max_samples());
-    const bool sampleable_depth =
-        samples == 1 && enhanced_graphics_available() && graphics.enhanced_graphics;
-    resize_target(frame, samples, sampleable_depth);
+    resize_target(frame, samples);
 
     // A wider picture preserves the central television framing.
     if (output.aspect > kTvAspect && output.box.width > 0 && output.box.height > 0) {
@@ -353,7 +350,11 @@ void set_camera(SceneFrame& frame) {
     input.camera = drawn.value_or(camera);
     // Adjust the guarded gameplay lens before the debug camera can replace it. Scaling both
     // projection axes preserves the native aspect ratio and the picture's widescreen expansion.
-    if (has_camera && scene.gameplay_camera && !scene.world_under_menu
+    // The level's world under the pause menu keeps the lens it was paused with (keep_tick). A tick
+    // that drew mobys alone (the pause menu's frame objects over its picture of the frame) is no
+    // gameplay view: they are placed for the native lens.
+    float opened = 1.0f;
+    if (has_camera && scene.gameplay_camera && (scene.draws & kLevelLayers) != 0
         && !frame.output.camera_debug.settings.enabled
         && frame.graphics.gameplay_fov != settings::kDefaultGameplayFov) {
         const float original = 1.0f / input.camera.projection[5];
@@ -361,7 +362,10 @@ void set_camera(SceneFrame& frame) {
         const float scale = original / std::tan(std::atan(original) * percent);
         input.camera.projection[0] *= scale;
         input.camera.projection[5] *= scale;
+        opened = 1.0f / scale;
     }
+    // The game's view tests of the next ticks open by as much (openrac_game_view_opened).
+    set_view_opened(opened);
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
     }
@@ -409,7 +413,9 @@ bool draw_world(SceneFrame& frame) {
         debug_overlay::before_render(owner.renderer.get(), frame.input.frame);
         const stats::Scope render_scope("render");
         renderer::RenderTarget target{owner.frame.id(), width, height, picture_scale};
-        target.depth_texture = owner.frame.depth_texture();
+        if (graphics.enhanced_graphics && enhanced_graphics_available()) {
+            target.depth_texture = owner.frame.depth_texture();
+        }
         target.resolve_framebuffer = owner.frame.resolve_target();
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;

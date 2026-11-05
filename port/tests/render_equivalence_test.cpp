@@ -65,14 +65,15 @@ struct RunSetup {
     bool batched = false;  // Snapshot ordinary frames without a host wait per frame.
 };
 
-// Returns the scene the test draws: the benchmark's at a tenth of its size.
+// Keep multiple textured, cutout and blended meshes and skinned classes in the pixel matrix.
+// The benchmark smoke test covers the larger instance and upload workload.
 render::SceneSize test_size() {
     render::SceneSize size;
-    size.static_instances = 400;
-    size.triangles = 100'000;
-    size.materials = 40;
-    size.textures = 100;
-    size.mobys = 30;
+    size.static_instances = 120;
+    size.triangles = 30'000;
+    size.materials = 30;
+    size.textures = 60;
+    size.mobys = 18;
     return size;
 }
 
@@ -124,10 +125,11 @@ Frames draw_run(const RunSetup& setup, const render::Scenario& scenario, std::st
         if (check_scroll) {
             openrac::stats::begin_frame(openrac::stats::FrameKind::Tick, index);
         }
-        // Keep both resize directions; intermediate frames need no full-size atlas.
-        const auto shadow_quality = index == 0 || index == kFrames - 1
-                                        ? openrac::renderer::ShadowQuality::High
-                                        : openrac::renderer::ShadowQuality::Medium;
+        // The scrolling fixture checks full-size maps and both resize directions.
+        using openrac::renderer::ShadowQuality;
+        const auto shadow_quality = check_scroll && (index == 0 || index == kFrames - 1)
+                                        ? ShadowQuality::High
+                                        : ShadowQuality::Medium;
         const auto camera = render::camera_at(walk, scenario.camera, tick, ticks, aspect);
         // Another view in the same recording must not lend its visibility to this camera.
         if (index == 4) {
@@ -279,11 +281,17 @@ void test_the_scene_is_drawn(
 ) {
     constexpr double kLeast = 0.05;  // of the pixels: the ground alone covers more
     std::string error;
+    const auto before = openrac::vkgl::submission_counters();
     const Frames frames = draw_run({level, size, false}, render::kScenarios[0], error);
+    const auto after = openrac::vkgl::submission_counters();
     CHECK(!frames.empty());
     const double share = frames.empty() ? 0.0 : drawn_share(frames.front());
     std::printf("walk: %.3f of the first frame's pixels drawn over the clear colour\n", share);
     CHECK(share > kLeast);
+    CHECK(after.texture_upload_bytes > before.texture_upload_bytes);
+    if (openrac::vkgl::gpu_driven_active()) {
+        CHECK(after.gpu_payload_bytes > before.gpu_payload_bytes);
+    }
 }
 
 // Tests that `scenario` draws the same frames twice; reports the noise floor when it does not.
@@ -332,6 +340,7 @@ void test_an_entry_changes_no_frame(
     std::string error;
     const bool baseline_on = render_opt::enabled(entry.opt);
     render_opt::set(entry.opt, !baseline_on);
+    const auto before = openrac::vkgl::submission_counters();
     render::SceneRenderer scene;
     const bool opened = scene.open(setup.level, {kWidth, kHeight, 1, setup.enhanced}, error);
     CHECK(opened);
@@ -363,6 +372,10 @@ void test_an_entry_changes_no_frame(
         CHECK(equivalent);
     }
     timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
+    // Even a borrowed driver program must compile fresh SPIR-V with the disk cache off.
+    if (entry.opt == render_opt::Opt::SpirvDiskCache && baseline_on) {
+        CHECK(openrac::vkgl::submission_counters().shader_compiles > before.shader_compiles);
+    }
     scene.release();
     render_opt::reset();
 }

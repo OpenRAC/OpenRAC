@@ -81,6 +81,10 @@ void drag_scroll(Scroll& scroll) {
     if (ImGui::IsMouseClicked(0)) {
         scroll.dragged = false;
         scroll.velocity = 0.0f;  // a finger that lands stops it
+        s.slider_held = false;
+    }
+    if (s.slider_held) {
+        return;  // the finger moves a slider (menu_percent_slider), not the rows
     }
     if (ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)
         && ImGui::IsMouseDown(0)

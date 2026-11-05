@@ -446,6 +446,9 @@ VkShaderModule clamped_fragment(Program& p) {
         return p.fragment_clamped;
     }
     p.clamped_tried = true;
+    p.clamped_half_precision =
+        g->shader_float16
+        && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
     static const std::regex output(
         R"(layout\s*\(\s*location\s*=\s*0\s*\)\s*out\s+vec4\s+([A-Za-z_][A-Za-z_0-9]*)\s*;)"
     );

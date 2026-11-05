@@ -9,6 +9,8 @@
 
 #include "common/crash.h"
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <cstdlib>
@@ -405,7 +407,36 @@ void emit_line(const char* text, std::size_t length, void* context) {
     out->put("  ", 2).put(text, length).put("\n", 1);
 }
 
+struct VulkanDiagnostic {
+    std::atomic_flag busy = ATOMIC_FLAG_INIT;
+    std::uint64_t sequence = 0;
+    std::array<char, 1024> text{};
+    std::size_t length = 0;
+};
+
+constinit std::array<VulkanDiagnostic, 32> g_vulkan_diagnostics{};
+constinit std::atomic<std::uint64_t> g_vulkan_sequence{0};
+
+void write_vulkan_diagnostics(Out& out) {
+    const auto end = g_vulkan_sequence.load(std::memory_order_relaxed);
+    if (end == 0) {
+        return;
+    }
+    out.str("\nVulkan diagnostics (oldest first):\n");
+    const auto count = std::min<std::uint64_t>(end, g_vulkan_diagnostics.size());
+    for (auto sequence = end - count; sequence < end; ++sequence) {
+        auto& entry = g_vulkan_diagnostics[sequence % g_vulkan_diagnostics.size()];
+        if (!entry.busy.test_and_set(std::memory_order_acquire)) {
+            if (entry.sequence == sequence + 1) {
+                emit_line(entry.text.data(), entry.length, &out);
+            }
+            entry.busy.clear(std::memory_order_release);
+        }
+    }
+}
+
 void write_tail(Out& out) {
+    write_vulkan_diagnostics(out);
     out.str("\nThe log's last lines (the oldest first):\n");
     log::recent_lines(emit_line, &out);
     out.str("\nThe session:\n");
@@ -632,6 +663,24 @@ void set_moby_source(MobySource source) {
 }
 
 // ---- The report ----
+
+void note_vulkan(std::string_view message) noexcept {
+    const auto sequence = g_vulkan_sequence.fetch_add(1, std::memory_order_relaxed);
+    auto& entry = g_vulkan_diagnostics[sequence % g_vulkan_diagnostics.size()];
+    // A fault or a concurrent driver callback may interrupt a writer. Never wait for it.
+    if (entry.busy.test_and_set(std::memory_order_acquire)) {
+        return;
+    }
+    if (entry.sequence < sequence + 1) {
+        entry.length = std::min(message.size(), entry.text.size());
+        for (std::size_t i = 0; i < entry.length; ++i) {
+            const auto c = static_cast<unsigned char>(message[i]);
+            entry.text[i] = c < 32 || c == 127 ? ' ' : message[i];
+        }
+        entry.sequence = sequence + 1;
+    }
+    entry.busy.clear(std::memory_order_release);
+}
 
 void write_report(int fd, const char* reason, Kind kind, long long now) {
     const int fds[1] = {fd};

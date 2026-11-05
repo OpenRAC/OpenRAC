@@ -750,6 +750,12 @@ void TexturePool::set_upscaled_texture_colours(std::unique_ptr<UpscaledTextureCo
     m_upscaled_texture_colours = std::move(source);
 }
 
+void TexturePool::clear_upscaled_texture_colours() {
+    if (m_upscaled_texture_colours) {
+        m_upscaled_texture_colours->clear_cache();
+    }
+}
+
 void TexturePool::bind_upscaled_texture_colours(
     TextureHandle texture, const Shader& shader, TextureFilter filter, bool repeat_s, bool repeat_t
 ) {

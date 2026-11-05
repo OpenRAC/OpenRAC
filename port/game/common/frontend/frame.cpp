@@ -2590,6 +2590,18 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
+    // The pause menu runs in a mode of its own, but the world under it (the picture of the frame
+    // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
+    // paused with: a gameplay camera when the game was paused from play.
+    std::uint32_t mode_now = 0;
+    const auto pause_mode = g->profile->pause_mode();
+    const bool paused = pause_mode && openrac_game_mode != nullptr
+                        && openrac_game_mode(&mode_now) != 0 && mode_now == *pause_mode;
+    if (under_menu || paused) {
+        g->kept->gameplay_camera = g->paused_from_play;
+    } else if (world_ran) {
+        g->paused_from_play = g->kept->gameplay_camera;
+    }
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);

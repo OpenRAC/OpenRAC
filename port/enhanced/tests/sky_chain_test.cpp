@@ -392,6 +392,8 @@ int main() {
         if (!context.open(error) || !vkgl::active()) {
             return test::kSkip;
         }
+        // These cases exercise pass dependencies and pixels; prewarm has its own fixture.
+        opt::set(opt::Opt::PipelinePrewarm, false);
         test_sky_material_tint();
         test_material_without_probes();
         test_shared_sky();

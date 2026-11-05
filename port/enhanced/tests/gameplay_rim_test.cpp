@@ -14,6 +14,7 @@
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/scene_lighting.h"
 #include "renderer/framebuffer.h"
+#include "renderer/render_opt.h"
 #include "scene/level_renderer.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
@@ -226,6 +227,8 @@ int main() {
     if (!context.open(why) || !openrac::lighting::EarlyLighting::supported()) {
         return openrac::test::kSkip;
     }
+    // The fixture draws only moby materials. Build their pipelines on demand.
+    openrac::renderer::render_opt::set(openrac::renderer::render_opt::Opt::PipelinePrewarm, false);
     check_rim(false, 1);
     check_rim(true, 1);
     check_rim(true, 0);

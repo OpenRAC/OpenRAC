@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <stdexcept>
 
+#include "renderer/vulkan/graph_presentation.h"
 #include "renderer/vulkan/surface_format.h"
 #include "renderer/vulkan/vkgl_internal.h"
 #include "vkgl_shaders.h"
@@ -127,53 +129,16 @@ bool make_pipeline(Output output) {
     return true;
 }
 
-// A layout change of a screen (or its stand-in) the encode pass writes, against every stage:
-// only HDR frames take it, so the transfer-only form of swapchain_barrier is not needed here.
-void screen_barrier(VkCommandBuffer cmd, VkImage image, VkImageLayout from, VkImageLayout to) {
-    VkImageMemoryBarrier b{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    b.srcAccessMask = from == VK_IMAGE_LAYOUT_UNDEFINED
-                          ? 0
-                          : VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
-    b.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
-    b.oldLayout = from;
-    b.newLayout = to;
-    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    b.image = image;
-    b.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    vkCmdPipelineBarrier(
-        cmd,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &b
-    );
-    count_barrier(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-}
-
-// Records the encode of the default framebuffer into `screen` (seen through `view`, `extent`,
-// in GENERAL) for `output` at `levels`.
-bool encode(
-    VkCommandBuffer cmd,
-    VkImageView view,
-    VkExtent2D extent,
-    Output output,
-    const hdr::Levels& levels
-) {
-    if (!g->default_colour || !make_pipeline(output)) {
-        return false;
+// Prepare descriptors before recording so failure can select the SDR graph.
+VkDescriptorSet prepare_encode(VkImageView view, Output output) {
+    if (!g->default_colour || !view || !make_pipeline(output)) {
+        return VK_NULL_HANDLE;
     }
     const VkDescriptorSet set = allocate_set(g->hdr.descriptors);
     if (!set) {
-        return false;
+        return VK_NULL_HANDLE;
     }
     Image& colour = *g->default_colour;
-    barrier(cmd, colour, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     SamplerParams parameters;
     parameters.min = parameters.mag = gl::GL_LINEAR;
     parameters.wrap_s = parameters.wrap_t = gl::GL_CLAMP_TO_EDGE;
@@ -197,6 +162,13 @@ bool encode(
         g->device, static_cast<unsigned>(writes.size()), writes.data(), 0, nullptr
     );
     g->submission.descriptor_writes += writes.size();
+    return set;
+}
+
+void encode(
+    VkCommandBuffer cmd, VkDescriptorSet set, VkExtent2D extent, const hdr::Levels& levels
+) {
+    const Image& colour = *g->default_colour;
     const EncodeConstants constants{
         levels.paper_white,
         hdr::kSdrGamma,
@@ -219,7 +191,24 @@ bool encode(
     count_command(Command::Other);
     count_command(Command::Dispatch);
     count_copy(extent.width, extent.height);
-    return true;
+}
+
+void copy_encoded(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D extent) {
+    VkImageCopy copy{};
+    copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copy.extent = {extent.width, extent.height, 1};
+    vkCmdCopyImage(
+        cmd,
+        source,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        destination,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copy
+    );
+    count_command(Command::Copy);
+    count_copy(extent.width, extent.height);
 }
 
 // The screen's metadata: BT.2020 primaries, the display's peak, content up to the peak (MaxCLL:
@@ -331,56 +320,27 @@ bool hdr_encode_into(VkCommandBuffer cmd, std::uint32_t index) {
     auto& hdr = g->hdr;
     const VkImage screen = g->swapchain_images[index];
     const VkExtent2D extent = g->swapchain_extent;
-    const bool ready = hdr.direct ? index < hdr.views.size() : static_cast<bool>(hdr.staging);
-    // Nothing to write into: left ready for the SDR copy the caller makes instead.
-    if (hdr.shown == Output::Sdr || !ready) {
-        screen_barrier(
-            cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-        );
+    Image* staging = hdr.direct ? nullptr : hdr.staging.get();
+    const VkImageView view = hdr.direct
+                                 ? (index < hdr.views.size() ? hdr.views[index] : VK_NULL_HANDLE)
+                                 : (staging ? sample_view(*staging, 0, 0) : VK_NULL_HANDLE);
+    const VkDescriptorSet set = prepare_encode(view, hdr.shown);
+    if (!set) {
         return false;
     }
-    if (hdr.direct) {
-        screen_barrier(cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-        if (!encode(cmd, hdr.views[index], extent, hdr.shown, hdr.asked.levels)) {
-            // Nothing written: back to TRANSFER_DST for the SDR copy the caller makes instead.
-            screen_barrier(
-                cmd, screen, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
-            );
-            return false;
-        }
-        screen_barrier(cmd, screen, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-        return true;
-    }
-    // Through the pass's own image, then one copy of the same format and size.
-    Image& staging = *hdr.staging;
-    screen_barrier(cmd, staging.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    screen_barrier(cmd, screen, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    if (!encode(cmd, sample_view(staging, 0, 0), extent, hdr.shown, hdr.asked.levels)) {
-        staging.layout = VK_IMAGE_LAYOUT_GENERAL;
-        return false;
-    }
-    screen_barrier(
-        cmd, staging.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-    );
-    staging.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    VkImageCopy copy{};
-    copy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy.extent = {extent.width, extent.height, 1};
-    vkCmdCopyImage(
+    Image destination;
+    destination.image = screen;
+    const auto result = record_presentation(
         cmd,
-        staging.image,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        screen,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &copy
+        g->default_colour,
+        destination,
+        true,
+        [&] { copy_encoded(cmd, staging->image, screen, extent); },
+        {staging, [&] { encode(cmd, set, extent, hdr.asked.levels); }}
     );
-    count_command(Command::Copy);
-    count_copy(extent.width, extent.height);
-    screen_barrier(
-        cmd, screen, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-    );
+    if (!result) {
+        throw std::runtime_error(result.error().message);
+    }
     return true;
 }
 
@@ -435,7 +395,8 @@ bool test_hdr_encode(
     const hdr::Levels& levels,
     int width,
     int height,
-    std::vector<std::uint8_t>& out
+    std::vector<std::uint8_t>& out,
+    bool staged
 ) {
     using namespace detail;
     using hdr::Output;
@@ -454,6 +415,15 @@ bool test_hdr_encode(
     if (!screen) {
         return false;
     }
+    ImagePtr staging;
+    if (staged) {
+        staging =
+            make_image(format, width, height, 1, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_USAGE_STORAGE_BIT);
+        if (!staging) {
+            retire(screen);
+            return false;
+        }
+    }
     const auto bytes = static_cast<VkDeviceSize>(width) * height * format.bytes;
     VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     info.size = bytes;
@@ -467,18 +437,23 @@ bool test_hdr_encode(
     if (!check(
             vmaCreateBuffer(g->allocator, &info, &alloc, &buffer, &allocation, &got), "a read-back"
         )) {
+        retire(staging);
         retire(screen);
         return false;
     }
     VkCommandBuffer cmd = cmd_for(screen.get(), true);
     const VkExtent2D extent{static_cast<std::uint32_t>(width), static_cast<std::uint32_t>(height)};
-    screen_barrier(cmd, screen->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    const bool encoded = encode(cmd, sample_view(*screen, 0, 0), extent, output, levels);
+    const auto set = prepare_encode(sample_view(staged ? *staging : *screen, 0, 0), output);
+    const bool encoded = set
+                         && record_presentation(
+                             cmd,
+                             g->default_colour,
+                             *screen,
+                             false,
+                             [&] { copy_encoded(cmd, staging->image, screen->image, extent); },
+                             {staging.get(), [&] { encode(cmd, set, extent, levels); }}
+                         );
     if (encoded) {
-        screen_barrier(
-            cmd, screen->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
-        );
-        screen->layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         VkBufferImageCopy copy{};
         copy.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         copy.imageExtent = {extent.width, extent.height, 1};
@@ -486,8 +461,6 @@ bool test_hdr_encode(
             cmd, screen->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &copy
         );
         count_command(Command::Copy);
-    } else {
-        screen->layout = VK_IMAGE_LAYOUT_GENERAL;
     }
     flush_and_wait();
     if (encoded) {
@@ -496,6 +469,7 @@ bool test_hdr_encode(
         out.assign(from, from + bytes);
     }
     vmaDestroyBuffer(g->allocator, buffer, allocation);
+    retire(staging);
     retire(screen);
     return encoded;
 }
