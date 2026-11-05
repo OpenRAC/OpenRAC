@@ -225,6 +225,8 @@ Options parse(int argc, char** argv) {
             o.ship_map = true;
         } else if (a == "--destinations") {
             o.expect_destinations = true;
+        } else if (a == "--asm-part") {
+            o.asm_part = value();
         } else if (a == "--check-levels") {
             o.check_levels = true;
         } else if (a == "--help" || a == "-h") {

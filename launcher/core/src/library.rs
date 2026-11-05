@@ -313,6 +313,12 @@ mod tests {
         assert!(!bake.developer);
         let play = action_of(&player, "play").expect("a player has Going Commando's Play");
         assert!(!play.developer);
+        // A checkout builds the game from the player's disc without Developer tools, as
+        // Ratchet & Clank's: else Play waited for a program nothing offered to make.
+        for id in ["port-build", "port-rebuild"] {
+            let build = action_of(&player, id).unwrap_or_else(|| panic!("a player has Going Commando's {id}"));
+            assert!(!build.developer, "{id}");
+        }
         assert_ne!(play.state, actions::State::Planned);
         assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
     }

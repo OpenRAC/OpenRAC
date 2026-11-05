@@ -199,6 +199,15 @@ function(openrac_add_game config)
   # Handwritten replacements can live below hand/functional and other subfolders.
   # Track their contents, not only the immediate directory entry, on edits.
   file(GLOB_RECURSE hand_inputs CONFIGURE_DEPENDS "${config_dir}/hand/*")
+  # A game whose assembly a build without the disc calls through slots (hostgen.json "asm"
+  # "interface", tools/hostgen/asmext.py): its program, for the part built from the disc later
+  # (asmdev.py), and its symbols exported to that part.
+  string(JSON asm_interface ERROR_VARIABLE no_interface GET "${json}" asm interface)
+  set(OPENRAC_${ID}_ASM_PART OFF)
+  if(NOT no_interface AND NOT OPENRAC_${ID}_RETAIL_IMAGE)
+    list(APPEND asm_args --program-out "${gen}/program.pickle")
+    set(OPENRAC_${ID}_ASM_PART ON)
+  endif()
 
   add_custom_command(
     OUTPUT "${gen}/hostgen.stamp"
@@ -291,6 +300,11 @@ function(openrac_add_game config)
   # debug/: the debug overlay's panels and the menu; with a window only.
   file(GLOB debug_sources CONFIGURE_DEPENDS "${OPENRAC_GAME_DIR}/common/debug/*.cpp")
   foreach(target IN LISTS targets)
+    if(OPENRAC_${ID}_ASM_PART)
+      set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
+      # program/asm_part.cpp: this program looks for the part (a build with the disc has none).
+      target_compile_definitions(${target} PRIVATE OPENRAC_ASM_PART_SLOTS=1)
+    endif()
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/fixes.cpp" "${fixes_cpp}"
                                      ${program_sources} "${OPENRAC_GAME_DIR}/common/lib/kernel.c")

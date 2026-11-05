@@ -58,6 +58,7 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import subprocess
@@ -416,8 +417,13 @@ def write_stamp(build: Path, names: list[str]) -> None:
             games |= {g for g in old.get("games", []) if isinstance(g, str)}
     except (OSError, ValueError, AttributeError):
         pass
-    stamp.write_text(json.dumps({"version": version, "commit": commit, "games": sorted(games)}, indent=2) + "\n",
-                     encoding="utf-8")
+    data = {"version": version, "commit": commit, "games": sorted(games)}
+    # The GitHub repository CI built it in (a fork's commit is only there): where an installed
+    # launcher fetches this commit's source to build a game from the disc (tools/build_game.py).
+    repository = os.environ.get("GITHUB_REPOSITORY", "")
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9._-]*", repository):
+        data["repository"] = repository
+    stamp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
 def same_path(a: str | Path, b: str | Path) -> bool:
