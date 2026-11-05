@@ -431,11 +431,9 @@ jobs:
       - name: Build enhanced lighting and baker
         working-directory: port
         run: |
-          # Keep the preset's optimisation level and stack-trace lines without full DWARF.
-          flags='-O2 -gline-tables-only -DNDEBUG'
+          # Keep the preset's compiler flags so PRs can reuse develop's cached objects.
           cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON \
-            -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON \
-            "-DCMAKE_C_FLAGS_RELWITHDEBINFO=$flags" "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=$flags"
+            -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON
           cmake --build --preset enhanced
       - name: CPU, Vulkan and Embree tests
         working-directory: port
