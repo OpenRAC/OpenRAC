@@ -191,6 +191,7 @@ void TouchPad::arc_controls() {
             }
         }
         c.toggle = a.toggle;
+        c.large = a.size == TouchSize::Large;
         c.action = a.id;
         c.icon = a.icon;
         m_controls.push_back(std::move(c));

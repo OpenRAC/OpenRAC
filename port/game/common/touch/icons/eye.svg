@@ -1,4 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
-<!-- OpenRAC touch icon "eye": white is drawn white, #ff8000 in the game's accent. -->
-  <path d="M-40,0 Q0,-36 40,0 Q0,36 -40,0 Z" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle r="11" fill="#ff8000"/>
-</svg>

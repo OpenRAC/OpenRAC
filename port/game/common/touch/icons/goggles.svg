@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "goggles": Ratchet's goggles, a look through his eyes. White is drawn white, #ff8000 in the game's accent. -->
+  <path d="M-46,-4 L-36,-6 M36,-6 L46,-4" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+  <path d="M-36,-14 Q-36,-20 -30,-20 L-8,-20 Q-2,-20 -2,-14 L-2,-10 Q0,-12 2,-10 L2,-14 Q2,-20 8,-20 L30,-20 Q36,-20 36,-14 L36,8 Q36,18 26,18 L14,18 Q6,18 4,10 L2,4 Q0,0 -2,4 L-4,10 Q-6,18 -14,18 L-26,18 Q-36,18 -36,8 Z" fill="#fff"/>
+  <path d="M-30,-12 L-8,-12 L-8,2 Q-10,10 -16,10 L-24,10 Q-30,10 -30,4 Z" fill="#ff8000"/>
+  <path d="M30,-12 L8,-12 L8,2 Q10,10 16,10 L24,10 Q30,10 30,4 Z" fill="#ff8000"/>
+  <path d="M-26,-8 L-18,-8 L-26,2 Z" fill="#fff"/><path d="M12,-8 L20,-8 L12,2 Z" fill="#fff"/>
+</svg>

@@ -53,6 +53,9 @@ uniform vec2 logo_half;    // the mark's half width and height in radii
 uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, v1
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
+uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
+uniform int shape;         // the Arc style's: 0 a circle, 1 a rounded box turned by `angle`, 2 a rounded bar
+uniform float large;       // 1 for a large action button
 out vec4 colour;
 
 // smoothstep() is undefined with equal edges: where d is flat across a pixel (fwidth 0, far from
@@ -80,6 +83,42 @@ vec4 glass(float d, float lift) {
     float rim = fill(abs(d + 0.035) - 0.022);
     return over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.30 + 0.5 * held) * rim));
 }
+// The Arc style's buttons: slate faces raised a little off a darker base, a soft shadow under them,
+// a fine light along the top edge. A press sinks the face into the base and warms it.
+float rounded_box(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+}
+float slate_shape(vec2 p) {
+    if (shape == 1) {
+        float ca = cos(angle), sa = sin(angle);
+        return rounded_box(mat2(ca, -sa, sa, ca) * p, vec2(1.0, 0.78), 0.52);
+    }
+    if (shape == 2) {
+        return rounded_box(p, vec2(stretch, 1.0), 0.42);
+    }
+    return length(p) - 1.0;
+}
+const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
+const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
+const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
+float slate_rise() { return 0.07 * (1.0 - held); }
+vec4 slate(vec2 p) {
+    float d = slate_shape(p);
+    float ds = slate_shape(p - vec2(0.0, 0.07));
+    vec4 c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, ds)) * step(0.0, d));
+    c = over(c, vec4(kSlateBase, 0.92 * fill(d)));
+    float inset = shape == 0 ? (large > 0.5 ? 0.86 : 0.88) : 0.86;
+    vec2 fp = (p + vec2(0.0, slate_rise())) / inset;
+    float f = slate_shape(fp) * inset;
+    vec3 face = mix(kSlateTop, kSlateBottom, clamp(fp.y * 0.5 + 0.5, 0.0, 1.0));
+    face = mix(face, accent * 0.5, 0.30 * held);
+    c = over(c, vec4(face, 0.97 * fill(f)));
+    float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, fp.y));
+    c = over(c, vec4(vec3(1.0), 0.09 * edge));
+    return c;
+}
+
 // A letter of the shoulders' names in strokes, in a box 1 wide and 2 high centred on p's origin:
 // 0 L, 1 R, 2 one, 3 two.
 float letter(int code, vec2 p) {
@@ -129,6 +168,38 @@ void main() {
         vec2 t = q + vec2(0.0, 0.45);
         float tri = max(abs(t.x) * 0.9 - t.y * 0.45, t.y - 0.14) - 0.17;
         c = over(c, vec4(vec3(0.05), 0.75 * fill(tri)));
+    } else if (symbol == 5 && arc == 1) {
+        // The Arc style's stick: a slate base, an arrow each way (the one it leans to lit), a knob
+        // with four dots, raised off its own lip.
+        float d = length(p) - 1.0;
+        c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, length(p - vec2(0.0, 0.06)) - 1.0)) * step(0.0, d));
+        c = over(c, vec4(kSlateBase, 0.90 * fill(d)));
+        c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.95 * fill(length(p) - 0.92)));
+        c = over(c, vec4(vec3(1.0), 0.06 * fill(abs(length(p) - 0.90) - 0.012) * (1.0 - smoothstep(-0.3, 0.3, p.y))));
+        float lean = clamp(length(knob), 0.0, 1.0);
+        for (int i = 0; i < 4; ++i) {
+            float a = float(i) * 1.5708;
+            vec2 dir = vec2(sin(a), -cos(a));
+            vec2 t = vec2(dot(p, vec2(-dir.y, dir.x)), dot(p, dir) - 0.74);
+            float tri = max(abs(t.x) * 0.95 + t.y * 0.55, -t.y - 0.05) - 0.055;
+            float toward = lean * max(dot(normalize(knob + vec2(1e-5)), dir), 0.0);
+            vec3 ink = mix(vec3(0.30, 0.30, 0.34), accent, smoothstep(0.3, 0.9, toward));
+            c = over(c, vec4(ink, (0.9) * fill(tri)));
+        }
+        vec2 k = p - knob * 0.50;
+        float kr = 0.46;
+        float rise = 0.06 * (1.0 - 0.5 * held);
+        c = over(c, vec4(vec3(0.0), 0.40 * (1.0 - smoothstep(0.0, 0.14, length(k - vec2(0.0, 0.05)) - kr))));
+        c = over(c, vec4(kSlateBase, fill(length(k) - kr)));
+        vec2 kf = k + vec2(0.0, rise);
+        vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));
+        face = mix(face, accent * 0.6, 0.12 * held);
+        c = over(c, vec4(face, fill(length(kf) - kr * 0.86)));
+        c = over(c, vec4(vec3(1.0), 0.08 * fill(abs(length(kf) - kr * 0.84) - 0.012) * (1.0 - smoothstep(-0.2, 0.15, kf.y / kr))));
+        for (int i = 0; i < 4; ++i) {
+            float a = float(i) * 1.5708;
+            c = over(c, vec4(vec3(0.36, 0.36, 0.40), 0.9 * fill(length(kf - vec2(sin(a), -cos(a)) * 0.17) - 0.035)));
+        }
     } else if (symbol == 5) {
         // A stick: a well with a ring of ticks, and the knob where the thumb holds it.
         float d = length(p) - 1.0;
@@ -158,8 +229,14 @@ void main() {
         // A button: glass, its symbol in its colour.
         float half_width = stretch - 1.0;
         float d = pill(p / press, half_width, 1.0);
-        c = glass(d, 1.0);
         vec2 q = p / press;
+        if (arc == 1) {
+            d = slate_shape(p);
+            c = slate(p);
+            q = p + vec2(0.0, slate_rise());
+        } else {
+            c = glass(d, 1.0);
+        }
         float s = 1e3;
         if (symbol == 1) {         // triangle
             vec2 t = q + vec2(0.0, -0.08);
@@ -206,7 +283,7 @@ void main() {
             ink.rgb = vec3(mix(mp_vec3(0.95), mp_vec3(accent), mp_float(0.5) * mp_float(held)));
         }
         // A sheen across the top of the glass, which a press dims as the button sinks.
-        float sheen = fill(d + 0.10) * (1.0 - smoothstep(-0.85, 0.1, p.y / press));
+        float sheen = float(1 - arc) * fill(d + 0.10) * (1.0 - smoothstep(-0.85, 0.1, p.y / press));
         c = over(c, vec4(vec3(1.0), (0.10 - 0.06 * held) * sheen));
         // The symbol pressed into the glass: a faint shadow under it, then the ink.
         if (stretch > 1.0) {
@@ -215,13 +292,13 @@ void main() {
         ink.a *= 0.75 + 0.25 * held;
         if (symbol == 11) {
             // A soft shadow under the icon, so that white reads over a light sky too.
-            c = over(c, vec4(vec3(0.0), 0.35 * icon.a));
+            c = over(c, vec4(vec3(0.0), (arc == 1 ? 0.0 : 0.35) * icon.a));
             c = over(c, vec4(icon.rgb, icon.a * (0.88 + 0.12 * held)));
         } else {
             c = over(c, vec4(ink.rgb, ink.a * (mark >= 0.0 ? mark : fill(s))));
         }
         // The glow of a press, outside the outline.
-        c = over(vec4(accent, 0.40 * held * (1.0 - smoothstep(0.0, 0.18, d)) * step(0.0, d)), c);
+        c = over(vec4(accent, (arc == 1 ? 0.25 : 0.40) * held * (1.0 - smoothstep(0.0, 0.18, d)) * step(0.0, d)), c);
     }
     if (c.a <= 0.002) { discard; }
     colour = c;
@@ -399,6 +476,20 @@ void draw(platform::TouchPad& touch, int width, int height) {
     s.shader.use();
     glBindVertexArray(s.vao);
     glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
+    const bool arc = touch.style() == platform::TouchStyle::Arc;
+    glUniform1i(s.shader.uniform("arc"), arc ? 1 : 0);
+    // The Arc style's small buttons lie along the circle round the button or stick they sit by,
+    // as stones round a larger one: the first action on the right, the stick on the left.
+    const TouchControl* hub_right = nullptr;
+    const TouchControl* hub_left = nullptr;
+    for (const TouchControl& c : touch.controls()) {
+        if (c.group == platform::TouchGroup::Arc0) {
+            hub_right = &c;
+        }
+        if (c.kind == TouchControl::Kind::LeftStick) {
+            hub_left = &c;
+        }
+    }
     const float aspect = touch.aspect();
     const auto controls = touch.controls();
     const auto now = std::chrono::steady_clock::now();
@@ -433,6 +524,8 @@ void draw(platform::TouchPad& touch, int width, int height) {
         glUniform3f(s.shader.uniform("tint"), 0.93f, 0.91f, 0.88f);
         glUniform1f(s.shader.uniform("held"), 0.0f);
         glUniform1i(s.shader.uniform("symbol"), kDpad);
+        glUniform1i(s.shader.uniform("shape"), 0);
+        glUniform1f(s.shader.uniform("large"), 0.0f);
         glUniform1f(s.shader.uniform("angle"), 0.0f);
         glUniform1i(s.shader.uniform("label0"), -1);
         glUniform1i(s.shader.uniform("label1"), -1);
@@ -471,7 +564,25 @@ void draw(platform::TouchPad& touch, int width, int height) {
         press = touch.held(i) || touch.toggled(i) ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
-        glUniform1f(s.shader.uniform("angle"), l.angle);
+        int shape = 0;
+        float angle = l.angle;
+        if (arc && !c.action.empty()) {
+            const bool top = c.stretch > 1.0f;
+            const bool small = !c.large && c.radius < 0.08f * touch.scale();
+            const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
+            shape = top ? 2 : small ? 1 : 0;
+            if (shape == 1 && hub != nullptr && hub != &c) {
+                // The tangent of the circle round the hub, folded into a half turn (a box looks
+                // the same turned round).
+                angle = std::atan2(c.y - hub->y, (c.x - hub->x) * aspect) + 1.5708f;
+                angle = std::remainder(angle, 3.14159265f);
+            } else if (shape == 1) {
+                angle = 0.0f;
+            }
+        }
+        glUniform1i(s.shader.uniform("shape"), shape);
+        glUniform1f(s.shader.uniform("large"), c.large ? 1.0f : 0.0f);
+        glUniform1f(s.shader.uniform("angle"), angle);
         glUniform1i(s.shader.uniform("label0"), l.label0);
         glUniform1i(s.shader.uniform("label1"), l.label1);
         float dx = 0.0f;

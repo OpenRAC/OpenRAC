@@ -102,6 +102,7 @@ struct TouchControl {
     std::uint16_t buttons = 0;
     std::uint16_t then = 0;
     bool toggle = false;
+    bool large = false;  // one of the most used: drawn the boldest
     std::string action;
     std::string icon;
 };

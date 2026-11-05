@@ -15,7 +15,7 @@
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
         { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
         { "id": "quick", "icon": "quick", "press": ["triangle"], "size": "small" },
-        { "id": "look", "icon": "eye", "press": ["l1"], "size": "small", "side": "left" }
+        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left" }
       ]
     },
     "foot": { "extends": "default", "actions": [] },
@@ -66,7 +66,7 @@
         { "id": "missile", "icon": "missile", "press": ["circle"] },
         { "id": "target", "icon": "lock", "press": ["right"], "size": "small" },
         { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
-        { "id": "steady", "icon": "eye", "press": ["l3"], "size": "small", "side": "left", "toggle": true }
+        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true }
       ]
     },
     "turret": {
