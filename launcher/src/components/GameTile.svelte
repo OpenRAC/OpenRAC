@@ -181,8 +181,13 @@
     opacity: 1;
   }
 
-  :global(.tiles:has(.open:focus-visible)) .tile.selected::after,
-  :global(html[data-input="pad"] .tiles:has(.open:focus)) .tile.selected::after {
+  /* With the controller in use the focus is the one ring. Not with :has(): Android's WebView left
+     a :has() rule unapplied after the launcher opened, until the tiles were drawn again. */
+  :global(html[data-input="pad"]) .tile.selected::after {
+    opacity: 0;
+  }
+
+  :global(.tiles:has(.open:focus-visible)) .tile.selected::after {
     opacity: 0;
   }
 
@@ -233,8 +238,14 @@
     outline: none;
   }
 
-  .tile:has(.open:focus-visible),
-  :global(html[data-input="pad"]) .tile:has(.open:focus) {
+  /* The controller's focus by :focus-within (the pad reaches only .open in a tile), as :has() did
+     not show after the launcher opened on Android (above). */
+  :global(html[data-input="pad"]) .tile:focus-within {
+    outline: 3px solid var(--amber);
+    outline-offset: 3px;
+  }
+
+  .tile:has(.open:focus-visible) {
     outline: 3px solid var(--amber);
     outline-offset: 3px;
   }
