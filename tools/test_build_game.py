@@ -76,6 +76,14 @@ class Program(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in out.iterdir()), ["openrac-x"])
         self.assertEqual(sorted(p.name for p in out.parent.iterdir()), ["new", "note"])
 
+    def test_clean_up_deletes_a_read_only_file(self):
+        out = self.dir / "program" / "new"
+        (out / "src").mkdir(parents=True)
+        (out / "src" / "object").write_text("git's")
+        (out / "src" / "object").chmod(0o444)
+        build_game.clean_up(out / "src", out)
+        self.assertFalse((out / "src").exists())
+
     def test_clean_up_touches_no_other_folder(self):
         out = self.dir / "mine" / "new"
         (out / "src").mkdir(parents=True)

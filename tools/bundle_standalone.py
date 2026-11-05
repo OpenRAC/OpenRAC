@@ -124,7 +124,7 @@ def moved(value, key: str):
 def player_program_folder() -> str:
     """Where a player's own build of a game goes. By commit, so a launcher built from another one
     builds it again: CI raises a dev build's version only after this copy is made."""
-    commit = proc.git(ROOT, "rev-parse", "--short=12", "HEAD", check=False)
+    commit = proc.git(ROOT, "rev-parse", "--short=8", "HEAD", check=False)
     return f"{{data}}/program/{commit or 'source'}"
 
 

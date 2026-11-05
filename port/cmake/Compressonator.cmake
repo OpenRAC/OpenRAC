@@ -9,15 +9,15 @@ if(FETCHCONTENT_SOURCE_DIR_OPENRAC_COMPRESSONATOR)
   set(openrac_compressonator_SOURCE_DIR "${FETCHCONTENT_SOURCE_DIR_OPENRAC_COMPRESSONATOR}")
 else()
   set(_compressonator_commit 9da0bc2be8d095adfab04ba9262e94842b48dac2)
-  FetchContent_Declare(openrac_compressonator_bc6
+  FetchContent_Declare(openrac_bc6
     URL "https://github.com/GPUOpen-Tools/compressonator/archive/${_compressonator_commit}.tar.gz"
     URL_HASH SHA256=841203fe983c53d5f8aab4c4752e580f4695450ff05e13cf7286698fb02c1d29
     DOWNLOAD_NAME compressonator.tar.gz
     DOWNLOAD_NO_EXTRACT TRUE
     SOURCE_SUBDIR openrac-codec-sources-only)
-  FetchContent_MakeAvailable(openrac_compressonator_bc6)
+  FetchContent_MakeAvailable(openrac_bc6)
   set(_compressonator_root "compressonator-${_compressonator_commit}")
-  set(openrac_compressonator_SOURCE_DIR "${openrac_compressonator_bc6_SOURCE_DIR}/${_compressonator_root}")
+  set(openrac_compressonator_SOURCE_DIR "${openrac_bc6_SOURCE_DIR}/${_compressonator_root}")
   set(_compressonator_files
     cmp_core/shaders/bc6_common_encoder.h
     cmp_core/shaders/bc6_encode_kernel.cpp
@@ -39,8 +39,8 @@ else()
   # Preserve source timestamps on reconfigure, but repair an incomplete restored subset.
   if(_compressonator_missing)
     file(ARCHIVE_EXTRACT
-      INPUT "${openrac_compressonator_bc6_SOURCE_DIR}/compressonator.tar.gz"
-      DESTINATION "${openrac_compressonator_bc6_SOURCE_DIR}"
+      INPUT "${openrac_bc6_SOURCE_DIR}/compressonator.tar.gz"
+      DESTINATION "${openrac_bc6_SOURCE_DIR}"
       PATTERNS ${_compressonator_patterns})
   endif()
 endif()

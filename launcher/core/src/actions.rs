@@ -877,7 +877,7 @@ mod tests {
         let play: Action = serde_json::from_str(&format!(
             r#"{{"id": "play", "label": "Play", "kind": "play", "state": "unverified", "program": "{{artifact}}",
                 "requires": ["artifact"], "artifact": "{}"}}"#,
-            program.display()
+            program.display().to_string().replace('\\', "/")
         ))
         .unwrap();
         let config = Config::default();
