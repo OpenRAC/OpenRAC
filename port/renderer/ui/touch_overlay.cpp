@@ -54,7 +54,9 @@ uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, 
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
-uniform int shape;         // the Arc style's: 0 a circle, 1 a rounded box turned by `angle`, 2 a rounded bar
+uniform int shape;         // the Arc style's: 0 a circle, 1 an oval turned by `angle`, 2 a rounded bar,
+                           // 3 a bean curled round `hub` (the GameCube's X and Y round its A)
+uniform vec2 hub;          // a bean's hub, from the button's centre in its radii
 uniform float large;       // 1 for a large action button
 out vec4 colour;
 
@@ -89,10 +91,25 @@ float rounded_box(vec2 p, vec2 b, float r) {
     vec2 q = abs(p) - b + r;
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
 }
+// A piece of a ring round the origin, centred on +y: `ra` its radius, `half_angle` half its
+// length, `rb` half its thickness.
+float ring_arc(vec2 p, float half_angle, float ra, float rb) {
+    vec2 sc = vec2(sin(half_angle), cos(half_angle));
+    p.x = abs(p.x);
+    return (sc.y * p.x > sc.x * p.y ? length(p - sc * ra) : abs(length(p) - ra)) - rb;
+}
 float slate_shape(vec2 p) {
     if (shape == 1) {
         float ca = cos(angle), sa = sin(angle);
-        return rounded_box(mat2(ca, -sa, sa, ca) * p, vec2(1.0, 0.78), 0.52);
+        return rounded_box(mat2(ca, -sa, sa, ca) * p, vec2(1.0, 0.72), 0.70);
+    }
+    if (shape == 3) {
+        // The hub-to-button direction turned to +y, the ring through the button's centre.
+        float ra = length(hub);
+        vec2 up = -hub / ra;
+        vec2 q = p - hub;
+        q = vec2(q.x * up.y - q.y * up.x, q.x * up.x + q.y * up.y);
+        return ring_arc(q, 0.50 / ra, ra, 0.74);
     }
     if (shape == 2) {
         return rounded_box(p, vec2(stretch, 1.0), 0.42);
@@ -102,19 +119,16 @@ float slate_shape(vec2 p) {
 const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
 const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
 const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
-float slate_rise() { return 0.07 * (1.0 - held); }
+// The face sits in the middle of its base, its shadow all round it: a press shrinks it a little.
 vec4 slate(vec2 p) {
     float d = slate_shape(p);
-    float ds = slate_shape(p - vec2(0.0, 0.07));
-    vec4 c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, ds)) * step(0.0, d));
+    vec4 c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
     c = over(c, vec4(kSlateBase, 0.92 * fill(d)));
-    float inset = shape == 0 ? (large > 0.5 ? 0.86 : 0.88) : 0.86;
-    vec2 fp = (p + vec2(0.0, slate_rise())) / inset;
-    float f = slate_shape(fp) * inset;
-    vec3 face = mix(kSlateTop, kSlateBottom, clamp(fp.y * 0.5 + 0.5, 0.0, 1.0));
+    float f = d + (large > 0.5 ? 0.13 : 0.12) + 0.04 * held;
+    vec3 face = mix(kSlateTop, kSlateBottom, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
     face = mix(face, accent * 0.5, 0.30 * held);
     c = over(c, vec4(face, 0.97 * fill(f)));
-    float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, fp.y));
+    float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, p.y));
     c = over(c, vec4(vec3(1.0), 0.09 * edge));
     return c;
 }
@@ -172,7 +186,7 @@ void main() {
         // The Arc style's stick: a slate base, an arrow each way (the one it leans to lit), a knob
         // with four dots, raised off its own lip.
         float d = length(p) - 1.0;
-        c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, length(p - vec2(0.0, 0.06)) - 1.0)) * step(0.0, d));
+        c = vec4(vec3(0.0), 0.35 * (1.0 - smoothstep(0.0, 0.16, d)) * step(0.0, d));
         c = over(c, vec4(kSlateBase, 0.90 * fill(d)));
         c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.95 * fill(length(p) - 0.92)));
         c = over(c, vec4(vec3(1.0), 0.06 * fill(abs(length(p) - 0.90) - 0.012) * (1.0 - smoothstep(-0.3, 0.3, p.y))));
@@ -188,10 +202,9 @@ void main() {
         }
         vec2 k = p - knob * 0.50;
         float kr = 0.46;
-        float rise = 0.06 * (1.0 - 0.5 * held);
-        c = over(c, vec4(vec3(0.0), 0.40 * (1.0 - smoothstep(0.0, 0.14, length(k - vec2(0.0, 0.05)) - kr))));
+        c = over(c, vec4(vec3(0.0), 0.40 * (1.0 - smoothstep(0.0, 0.14, length(k) - kr))));
         c = over(c, vec4(kSlateBase, fill(length(k) - kr)));
-        vec2 kf = k + vec2(0.0, rise);
+        vec2 kf = k;
         vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));
         face = mix(face, accent * 0.6, 0.12 * held);
         c = over(c, vec4(face, fill(length(kf) - kr * 0.86)));
@@ -233,7 +246,7 @@ void main() {
         if (arc == 1) {
             d = slate_shape(p);
             c = slate(p);
-            q = p + vec2(0.0, slate_rise());
+            q = p;
         } else {
             c = glass(d, 1.0);
         }
@@ -558,29 +571,41 @@ void draw(platform::TouchPad& touch, int width, int height) {
             glBindTexture(GL_TEXTURE_2D, s.mark);
             glUniform2f(s.shader.uniform("logo_half"), kMarkHalf * s.mark_aspect, kMarkHalf);
         }
-        box(c.x, c.y, c.radius, c.stretch, 1.2f);
+        // The Arc style's shapes, as the GameCube's buttons: the large ones round, the others
+        // beans curled round the button or stick they sit by, the small ones ovals along that
+        // circle, the top ones bars.
+        int shape = 0;
+        float angle = l.angle;
+        float hub_x = 0.0f;
+        float hub_y = 0.0f;
+        if (arc && !c.action.empty()) {
+            const bool top = c.stretch > 1.0f;
+            const bool small = !c.large && c.radius < 0.08f * touch.scale();
+            const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
+            const bool round = hub != nullptr && hub != &c;
+            hub_x = round ? (hub->x - c.x) * aspect / c.radius : 0.0f;
+            hub_y = round ? (hub->y - c.y) / c.radius : 0.0f;
+            const float far = std::hypot(hub_x, hub_y);
+            if (top) {
+                shape = 2;
+            } else if (small) {
+                shape = 1;
+                // The tangent of the circle round the hub, folded into a half turn (an oval looks
+                // the same turned round).
+                angle = round ? std::remainder(std::atan2(-hub_y, -hub_x) + 1.5708f, 3.14159265f)
+                              : 0.0f;
+            } else if (!c.large && round && far > 1.5f && far < 4.5f) {
+                shape = 3;
+            }
+        }
+        box(c.x, c.y, c.radius, c.stretch, shape == 3 ? 1.5f : 1.2f);
         glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
         float& press = s.press[i];
         press = touch.held(i) || touch.toggled(i) ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
-        int shape = 0;
-        float angle = l.angle;
-        if (arc && !c.action.empty()) {
-            const bool top = c.stretch > 1.0f;
-            const bool small = !c.large && c.radius < 0.08f * touch.scale();
-            const TouchControl* hub = c.x > 0.5f ? hub_right : hub_left;
-            shape = top ? 2 : small ? 1 : 0;
-            if (shape == 1 && hub != nullptr && hub != &c) {
-                // The tangent of the circle round the hub, folded into a half turn (a box looks
-                // the same turned round).
-                angle = std::atan2(c.y - hub->y, (c.x - hub->x) * aspect) + 1.5708f;
-                angle = std::remainder(angle, 3.14159265f);
-            } else if (shape == 1) {
-                angle = 0.0f;
-            }
-        }
         glUniform1i(s.shader.uniform("shape"), shape);
+        glUniform2f(s.shader.uniform("hub"), hub_x, hub_y);
         glUniform1f(s.shader.uniform("large"), c.large ? 1.0f : 0.0f);
         glUniform1f(s.shader.uniform("angle"), angle);
         glUniform1i(s.shader.uniform("label0"), l.label0);
