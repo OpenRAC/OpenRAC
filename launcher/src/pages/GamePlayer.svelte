@@ -10,6 +10,7 @@
   import DifferencesBlock from "$components/DifferencesBlock.svelte";
   import DiscSwitch from "$components/DiscSwitch.svelte";
   import FolderPrompt from "$components/FolderPrompt.svelte";
+  import GameShortcuts from "$components/GameShortcuts.svelte";
   import GamesFrame from "$components/GamesFrame.svelte";
   import Icon from "$components/Icon.svelte";
   import { toolFailure } from "$lib/toolErrors";
@@ -412,6 +413,10 @@
             <SaveManagerBlock version={v} />
             {#if setUp && !onAndroid}<ReportsBlock game={v.game} program={choice ? programOf(v.key) : null} />{/if}
           </div>
+        {/if}
+        {#if portReady && !onAndroid}
+          <!-- Start this game without the launcher's window: Steam's own entry, a desktop shortcut. -->
+          <div in:fly|global={arrive(100)}><GameShortcuts version={v.key} /></div>
         {/if}
         {#if portReady}
           <!-- What the port does otherwise than the PS2 game; the game fixes switch back. Folded on

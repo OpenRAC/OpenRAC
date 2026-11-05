@@ -489,9 +489,14 @@ export const api = {
    *  ModError (modErrorOf), with the fix the page offers. */
   deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
   /** Where the launcher stands in the player's Steam library. */
-  steamState: () => call<SteamState>("steam_state"),
-  /** Adds the launcher to Steam's library, or updates it. Steam may be open. */
-  steamAdd: () => call<SteamState>("steam_add"),
+  steamState: (version: string | null = null) => call<SteamState>("steam_state", { version }),
+  /** Adds the launcher to Steam's library, or with a version that game (it starts the launcher
+   *  with --play), or updates it. Steam may be open. */
+  steamAdd: (version: string | null = null) => call<SteamState>("steam_add", { version }),
+  /** A desktop shortcut that starts a game (Linux): the path it wrote. */
+  shortcutCreate: (version: string) => call<string>("shortcut_create", { version }),
+  /** The game a `--play` start could not start, once; the page shows it. */
+  startupGame: () => call<string | null>("startup_game"),
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>
     call<IndexView>("index_fetch", { game, version }),
@@ -817,6 +822,14 @@ export async function onJobEvent(handler: (event: JobEvent) => void): Promise<Un
     offOutput();
     offExit();
   };
+}
+
+/** The game a `--play` start of an open launcher could not start (`open-game`): its version key. */
+export async function onOpenGame(handler: (key: string) => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => undefined;
+  return listen<string>("open-game", (e) => {
+    handler(e.payload);
+  });
 }
 
 /** Each mod applied (index_apply's `index-apply` events). */
