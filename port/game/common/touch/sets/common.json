@@ -41,6 +41,7 @@
       "actions": [
         { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
         { "id": "punch", "icon": "punch", "press": ["square"], "size": "large" },
+        { "id": "bots", "icon": "bots", "press": ["triangle"] },
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" }
       ]
     },
