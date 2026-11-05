@@ -82,8 +82,8 @@ TouchPad::TouchPad() {
     group(G::L1, From::Left, 0.36f, 0.15f);
     group(G::R1, From::Right, 0.36f, 0.15f);
     group(G::R2, From::Right, 0.13f, 0.15f);
-    group(G::Select, From::Middle, -0.14f, 0.075f);
-    group(G::Start, From::Middle, 0.14f, 0.075f);
+    group(G::Select, From::Middle, -0.16f, 0.075f);
+    group(G::Start, From::Middle, 0.16f, 0.075f);
     group(G::Menu, From::Middle, 0.0f, 0.075f);
     // The Arc style: the corner first, under the resting right thumb; then by how far the thumb
     // has to go, the low ones before the high ones (a thumb reaches across more easily than up).
@@ -135,7 +135,8 @@ void TouchPad::classic_controls() {
         {Kind::Button, Button::R2, G::R2, 0.0f, 0.0f, 0.045f, 1.75f},
         {Kind::Button, Button::Select, G::Select, 0.0f, 0.0f, 0.032f, 1.6f},
         {Kind::Button, Button::Start, G::Start, 0.0f, 0.0f, 0.032f, 1.6f},
-        {Kind::Menu, Button::Cross, G::Menu, 0.0f, 0.0f, 0.036f, 1.0f},
+        // The options button as large as the Arc style's.
+        {Kind::Menu, Button::Cross, G::Menu, 0.0f, 0.0f, 0.05f, 1.0f},
     };
     for (const Item& item : items) {
         TouchControl c =
