@@ -82,10 +82,16 @@ __extension__ typedef unsigned __int128 openrac_u128;
 /* Those globals, which a game's part built on the device from the disc
  * (tools/asm_part.py), another library, cannot see on Android: there it reaches
  * them through pointers the game gives it (openrac_asm_global) on loading. */
+/* clang-format off */
 #define OPENRAC_PART_GLOBALS(X) \
-    X(uint8_t*, guest_base) X(uint32_t, guest_ram_size) X(gaddr, guest_sp) \
-    X(gaddr, relocate_low) X(gaddr, relocate_high) X(gaddr, guest_last_entry) \
+    X(uint8_t*, guest_base) \
+    X(uint32_t, guest_ram_size) \
+    X(gaddr, guest_sp) \
+    X(gaddr, relocate_low) \
+    X(gaddr, relocate_high) \
+    X(gaddr, guest_last_entry) \
     X(openrac_host_fn, guest_last_fn)
+/* clang-format on */
 #if defined(__ANDROID__) && defined(OPENRAC_ASM_PART)
 #define openrac_guest_base (*openrac_part_guest_base)
 #define openrac_guest_ram_size (*openrac_part_guest_ram_size)

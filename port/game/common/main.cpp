@@ -518,7 +518,6 @@ int main(int argc, char** argv) {
     timeBeginPeriod(1);
 #endif
     g_options = parse(argc, argv);
-    load_asm_part(g_options);
     static struct openrac_map_config map_config{};
 
     if (g_options.custom_map) {
@@ -575,6 +574,9 @@ int main(int argc, char** argv) {
     // The session's log first, so that a game that cannot start says why in it (on Android the
     // only place the player can read it, through the launcher).
     open_session(argc, argv);
+    // The part of the game built from the disc, before any of its code runs, and after the log is
+    // open so that one that does not load says why there.
+    load_asm_part(g_options);
     const fs::path iso = g_options.data / "iso_data" / openrac_game.game;
     const fs::path exe = iso / openrac_game.serial;
     const fs::path disc = iso / "disc.iso";

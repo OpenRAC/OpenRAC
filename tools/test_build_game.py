@@ -76,6 +76,15 @@ class Program(unittest.TestCase):
         with self.assertRaises(SystemExit):
             build_game.carried_commit(self.dir / "none")
 
+    def test_the_repository_comes_from_the_stamp(self):
+        stamp = self.dir / "openrac-build.json"
+        stamp.write_text(json.dumps({"commit": "abc", "repository": "someone/OpenRAC"}))
+        self.assertEqual(build_game.carried_repository(stamp), "someone/OpenRAC")
+        for bad in ({"commit": "abc"}, {"repository": "../x"}, {"repository": 3}):
+            stamp.write_text(json.dumps(bad))
+            self.assertEqual(build_game.carried_repository(stamp), build_game.REPOSITORY)
+        self.assertEqual(build_game.carried_repository(self.dir / "none"), build_game.REPOSITORY)
+
 
 if __name__ == "__main__":
     unittest.main()

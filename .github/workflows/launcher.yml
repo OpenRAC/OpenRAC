@@ -383,7 +383,7 @@ jobs:
             build/android/llvm/build/bin/clang*
             build/android/llvm/build/bin/lld
             build/android/llvm/build/lib/clang
-          key: llvm-android-19.1.7-r1
+          key: llvm-android-19.1.7-r2
 
       # The libraries, SDL's Java and the carried copy, in the launcher's Android project.
       - name: Build the game, the libraries and the copy (Android)

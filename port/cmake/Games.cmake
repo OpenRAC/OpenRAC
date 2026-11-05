@@ -302,6 +302,8 @@ function(openrac_add_game config)
   foreach(target IN LISTS targets)
     if(OPENRAC_${ID}_ASM_PART)
       set_target_properties(${target} PROPERTIES ENABLE_EXPORTS ON)
+      # program/asm_part.cpp: this program looks for the part (a build with the disc has none).
+      target_compile_definitions(${target} PRIVATE OPENRAC_ASM_PART_SLOTS=1)
     endif()
     target_link_libraries(${target} PRIVATE openrac_${target_id}_game openrac_runtime openrac_mods)
     target_sources(${target} PRIVATE "${OPENRAC_GAME_DIR}/common/fixes.cpp" "${fixes_cpp}"

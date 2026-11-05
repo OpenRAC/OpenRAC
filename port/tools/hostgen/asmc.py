@@ -66,6 +66,9 @@ WIDE = {"long long", "unsigned long long", "long", "unsigned long", "long long i
         "unsigned long long int", "unsigned long int"}
 # ei and di only gate the console's interrupts: the port takes none (its handlers run at set
 # points, never in the middle of a function), so they do nothing there, as sync does.
+# Called with (step, done, total) as the functions are found in the disc's programs ("find") and
+# translated ("translate"): tools/asm_part.py shows how far along it is.
+PROGRESS = None
 SKIP = {"nop", "sync", "pref", "cache", "vnop", "vwaitq", "ssnop", "ei", "di"}
 UNSUPPORTED = {
     "syscall": "a system call", "mfc0": "COP0 (mfc0)", "mtc0": "COP0 (mtc0)", "eret": "COP0 (eret)",
@@ -1862,7 +1865,9 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     # already: calls to it go there (Program.canonical).
     stubs = [f for f in program.stubs() if f.symbol not in program.host and program.canonical(f.symbol) == f.symbol]
     found = {}
-    for f in stubs:
+    for k, f in enumerate(stubs):
+        if PROGRESS is not None:
+            PROGRESS("find", k, len(stubs))
         hit = tr.find(f)
         if hit is None:
             stage.without_asm.append(f.symbol)
@@ -1890,7 +1895,9 @@ def run(program: Program, cfg: dict, source: Path, host_text: str = "") -> tuple
     if a.get("results_before_calls"):
         stage.inherited = inherit_results(program)
     results: dict[str, Result] = {}
-    for sym, hit in sorted(found.items()):
+    for k, (sym, hit) in enumerate(sorted(found.items())):
+        if PROGRESS is not None:
+            PROGRESS("translate", k, len(found))
         r = tr.translate(program.functions[sym], hit)
         if r.text is None:
             stage.unsupported[sym] = r.reason

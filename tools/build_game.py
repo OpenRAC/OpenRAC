@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -20,22 +21,39 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STAMP = ROOT / "port" / "build" / "release" / "openrac-build.json"
-ARCHIVE = "https://github.com/OpenRAC/OpenRAC/archive/{commit}.tar.gz"
+ARCHIVE = "https://github.com/{repository}/archive/{commit}.tar.gz"
+# Where the source is when the copy does not say which repository built it.
+REPOSITORY = "OpenRAC/OpenRAC"
+# owner/name as GitHub allows them, and nothing that climbs out of the URL.
+REPOSITORY_NAME = r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9._-]*"
 PRESET = "standalone"
 # Under DIR, and short: Windows limits a path's length, and the build's own are long.
 SOURCE = "src"
 DONE = ".openrac-source"
 
 
+def read_stamp(stamp: Path) -> dict:
+    try:
+        data = json.loads(stamp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def carried_commit(stamp: Path = STAMP) -> str:
     """The commit this copy was built from, which the source has to match."""
-    try:
-        commit = json.loads(stamp.read_text(encoding="utf-8")).get("commit")
-    except (OSError, ValueError, AttributeError):
-        commit = None
+    commit = read_stamp(stamp).get("commit")
     if not isinstance(commit, str) or not commit:
         sys.exit(f"this copy of OpenRAC does not say which commit it is ({stamp})")
     return commit
+
+
+def carried_repository(stamp: Path = STAMP) -> str:
+    """The GitHub repository this copy was built in (a fork's commits are only there)."""
+    repository = read_stamp(stamp).get("repository")
+    if isinstance(repository, str) and re.fullmatch(REPOSITORY_NAME, repository):
+        return repository
+    return REPOSITORY
 
 
 def fetch_source(url: str, commit: str, out: Path) -> Path:
@@ -86,7 +104,8 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out.resolve()
 
     commit = carried_commit()
-    source = fetch_source(args.source_url or ARCHIVE.format(commit=commit), commit, out)
+    url = args.source_url or ARCHIVE.format(repository=carried_repository(), commit=commit)
+    source = fetch_source(url, commit, out)
     subprocess.run([sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
                     "--preset", args.preset], cwd=source, check=True)
     program = copy_program(source / "port" / "build" / args.preset, args.game, out)

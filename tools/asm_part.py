@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -43,6 +44,8 @@ C_FLAGS = ["-O2", "-DNDEBUG", "-std=gnu11", "-fno-strict-aliasing", "-fwrapv", "
            "-DOPENRAC_ASM_PART=1"]
 ANDROID_TARGET = "aarch64-linux-android29"
 KIT_FORMAT = 1
+# The scale of the count the build prints.
+PROGRESS_TOTAL = 1000
 
 
 def part_name(game: str) -> str:
@@ -115,8 +118,21 @@ def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None,
     shutil.rmtree(work, ignore_errors=True)
     src = work / "src"
     sys.path.insert(0, str(HOSTGEN))
-    import asmdev  # noqa: E402  (hostgen's, pure Python)
+    import asmc  # noqa: E402  (hostgen's, pure Python)
+    import asmdev  # noqa: E402
     print("translating the functions in assembly from your disc", flush=True)
+    # How far along, as the launcher reads a count ("[done/total]", launcher/src/lib/progress.ts):
+    # finding the functions in the disc's programs is most of the time, compiling the rest.
+    shown = [-1]
+
+    def progress(step: str, done: int, total: int) -> None:
+        start, share = {"find": (0, 800), "translate": (800, 50)}[step]
+        at = start + share * done // max(1, total)
+        if at > shown[0]:
+            shown[0] = at
+            print(f"[{at}/{PROGRESS_TOTAL}] {'finding' if step == 'find' else 'translating'} "
+                  f"the functions in assembly ({done}/{total})", flush=True)
+    asmc.PROGRESS = progress
     code = asmdev.main(["--program", str(kit_dir / "program.pickle"), "--game", str(kit_dir / "hostgen.json"),
                         "--retail-image", str(disc), "--out", str(src)])
     if code:
@@ -132,17 +148,24 @@ def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None,
     sources = sorted(src.glob("*.c"))
     print(f"compiling {len(sources)} files", flush=True)
 
+    compiled = [0]
+    lock = threading.Lock()
+
     def compile_one(c: Path) -> Path:
         o = c.with_suffix(".o")
         subprocess.run([clang, *flags, "-c", str(c), "-o", str(o)], check=True)
-        print(f"  {c.name}", flush=True)
+        with lock:
+            compiled[0] += 1
+            at = 850 + 140 * compiled[0] // len(sources)
+            print(f"[{at}/{PROGRESS_TOTAL}] compiled {c.name}", flush=True)
         return o
 
     with ThreadPoolExecutor(max(1, jobs)) as ex:
         objects = list(ex.map(compile_one, sources))
     part = out / part_name(game)
     tmp = out / (part.name + ".tmp")
-    link = [lld, "-flavor", "gnu", "-shared", "-o", str(tmp), f"-soname={part.name}", *map(str, objects)]
+    link = [lld, "-flavor", "gnu", "-shared", "-z", "max-page-size=16384", "-o", str(tmp), f"-soname={part.name}",
+            *map(str, objects)]
     libs = os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR")
     if libs:
         # The game's library, so the part finds the game's functions in it when it is loaded.
@@ -152,6 +175,7 @@ def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None,
         link = link[:4] + [str(lib / "crtbegin_so.o")] + link[4:] + [
             str(p) for p in sorted(lib.glob("*.a"))] + [str(lib / "libc.so"), str(lib / "libm.so"),
                                                       str(lib / "crtend_so.o")]
+    print(f"[990/{PROGRESS_TOTAL}] linking {part.name}", flush=True)
     subprocess.run(link, check=True)
     tmp.replace(part)
     shutil.rmtree(work, ignore_errors=True)
@@ -176,7 +200,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--out", type=Path, required=True)
     b.add_argument("--kit", type=Path, help="default: port/asm-part/GAME in this copy")
     b.add_argument("--sysroot", type=Path)
-    b.add_argument("--jobs", type=int, default=os.cpu_count() or 2)
+    # A phone's memory holds a few compilers at once (each takes up to about 160 MB).
+    b.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 2))
     args = ap.parse_args(argv)
     if args.command == "kit":
         kit(args.game, args.build, args.out, args.sysroot, args.resource_dir)

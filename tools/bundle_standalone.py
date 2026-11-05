@@ -41,6 +41,7 @@ bundled_root) and uses it when there is no checkout. Without --game-build or
 side against it (OPENRAC_ROOT=OUT); an installer needs both.
 """
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -139,12 +140,30 @@ def player_build(action: dict, game: str) -> dict:
     return action
 
 
-def android_part(actions: list[dict]) -> list[dict]:
+def part_tag(out: Path, game: str) -> str | None:
+    """What GAME's part in the copy OUT is built from (its kit, hostgen's translation and
+    tools/asm_part.py), as a short digest; None when the copy carries no kit for it. Two APKs of
+    one launcher version (dev builds) can carry different games, and a part fits only its own."""
+    kit = out / "port/asm-part" / game
+    if not (kit / "kit.json").is_file():
+        return None
+    files = sorted(p for p in kit.rglob("*") if p.is_file())
+    files += sorted((out / "port/tools/hostgen").glob("*.py")) + [out / "tools/asm_part.py"]
+    h = hashlib.sha256()
+    for path in files:
+        h.update(path.relative_to(out).as_posix().encode() + b"\0")
+        h.update(hashlib.sha256(path.read_bytes()).digest())
+    return h.hexdigest()[:16]
+
+
+def android_part(actions: list[dict], tag: str | None = None) -> list[dict]:
     """An Android copy's port-part and Play (tools/asm_part.py): the part built into a folder of
-    the launcher's version, as a desktop's player build is (player_program_folder), since a new APK
-    carries another game it may not fit; Play waits for it and names it to the game."""
-    config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
-    folder = f"{{data}}/asm-part/{config['version']}"
+    what it is built from (part_tag; else the launcher's version), since a new APK carries another
+    game it may not fit; Play waits for it and names it to the game."""
+    if tag is None:
+        config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+        tag = config["version"]
+    folder = f"{{data}}/asm-part/{tag}"
     part = next((a for a in actions if a["id"] == "port-part"), None)
     if part is None:
         return actions
@@ -172,9 +191,11 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions(android: bool = False, android_games: set[str] | None = None) -> dict:
+def player_actions(android: bool = False, android_games: set[str] | None = None,
+                   part_tags: dict[str, str] | None = None) -> dict:
     """launcher/actions.json cut down to what works from a carried copy. ANDROID_GAMES: the
-    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there."""
+    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there. PART_TAGS:
+    by game, what its part is built from (part_tag)."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
     out["repository"] = []
@@ -192,8 +213,8 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
             action = dict(action)
             if (android_games is not None and action["id"] == "play"
                     and key.replace("/", "-") not in android_games and "android" in action.get("platforms", [])):
-                # Its library is not in the APK (Going Commando's is built with the player's disc,
-                # tools/build_android.py --disc): Play would start nothing.
+                # Its library is not in the APK (tools/build_android.py GAME ...): Play would start
+                # nothing.
                 action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
@@ -249,7 +270,7 @@ def player_actions(android: bool = False, android_games: set[str] | None = None)
             if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
                 action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
-        out["versions"][key] = android_part(kept) if android else kept
+        out["versions"][key] = android_part(kept, (part_tags or {}).get(key.replace("/", "-"))) if android else kept
     return out
 
 
@@ -354,7 +375,9 @@ def main() -> int:
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
     android_games = set(args.android_games.split(",")) if args.android and args.android_games else None
-    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android, android_games), indent=2) + "\n")
+    tags = {game: tag for game in (android_games or set()) if (tag := part_tag(out, game))}
+    (out / "launcher/actions.json").write_text(
+        json.dumps(player_actions(args.android, android_games, tags), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)

@@ -230,6 +230,8 @@ def llvm_options(ndk: Path) -> list[str]:
     triple = f"aarch64-linux-android{ANDROID_API}"
     return [f"-DCMAKE_TOOLCHAIN_FILE={ndk / 'build/cmake/android.toolchain.cmake'}", "-DANDROID_ABI=arm64-v8a",
             f"-DANDROID_PLATFORM=android-{ANDROID_API}", "-DANDROID_STL=c++_static",
+            # Runs on a device with 16 KB pages too.
+            "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
             "-DCMAKE_BUILD_TYPE=MinSizeRel", "-DLLVM_ENABLE_PROJECTS=clang;lld", "-DLLVM_TARGETS_TO_BUILD=AArch64",
             f"-DLLVM_HOST_TRIPLE={triple}", f"-DLLVM_DEFAULT_TARGET_TRIPLE={triple}",
             *[f"-D{o}=OFF" for o in (

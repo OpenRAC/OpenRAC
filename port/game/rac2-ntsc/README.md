@@ -61,9 +61,10 @@ the functions still in assembly are called through slots (`asm_interface.json`, 
 the game is set up from the disc, Build and play first runs `tools/asm_part.py build`: the APK's
 Python translates those functions from the disc (`asmdev.py`, from the pickled program the build
 wrote) and the Clang and lld it carries (`libopenrac-clang.so`, `libopenrac-lld.so`, LLVM built
-for Android) compile them into `<data>/asm-part/<launcher version>/libopenrac-rac2-ntsc-part.so`,
-which the game loads before it starts (`--asm-part`). It takes a few minutes, once per launcher
-version; nothing of the disc is in the APK. After a sync that changes the asm stage's view of the
+for Android) compile them into `<data>/asm-part/<tag>/libopenrac-rac2-ntsc-part.so` (the tag names the kit
+and tools it is built from, so another APK builds its own),
+which the game loads before it starts (`--asm-part`). It takes a few minutes, once for each
+APK whose game changed; nothing of the disc is in the APK. After a sync that changes the asm stage's view of the
 code, `asm_interface.json` is written again with the disc (`hostgen.py ... --retail-image <iso>
 --asm-interface-out port/game/rac2-ntsc/asm_interface.json`); a build without the disc then gives
 the same C as one with it.
