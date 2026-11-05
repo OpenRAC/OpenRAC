@@ -3,6 +3,10 @@
 //
 // Standard includes and bounded CRT equivalents used only while compiling AMD's SDK.
 #pragma once
+
+#ifdef __cplusplus
+#include <mutex> /* ffx_vk.cpp uses it and counts on another header for it */
+#endif
 #include <algorithm>
 #include <bit>
 #include <cfloat>
