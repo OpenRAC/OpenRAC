@@ -20,7 +20,8 @@
 // replace those of the same id); "side" puts one beside the stick ("left") or along the top
 // ("top"); "when" shows one only while the game (or a mod) says the hint is up; "then" holds more
 // buttons a moment after "press" (a combination the game reads as two presses, such as crouch then
-// jump); "toggle" makes a tap hold it until the next tap. A set read later adds to one read before:
+// jump); "toggle" makes a tap hold it until the next tap; "wide" makes it a pill for a wide icon. A
+// set read later adds to one read before:
 // a context of the same name gets the later actions, replacing those of the same id (a mod adds a
 // button to the game's "foot"), unless it says "replace": true.
 
@@ -55,7 +56,9 @@ struct TouchAction {
     TouchSide side = TouchSide::Arc;
     std::string when;  // a hint that must be up for it to show; empty: always
     bool toggle = false;
-    bool wide = false;  // a pill wider than high, for an icon that is wide
+    bool wide = false;  // a pill wider than high, for a wide icon
+
+    bool operator==(const TouchAction&) const = default;
 };
 
 class TouchActionSets {
@@ -67,7 +70,7 @@ public:
     // The actions of `context`, its "extends" chain first; empty for an unknown name.
     std::vector<TouchAction> actions(std::string_view context) const;
 
-    bool has(std::string_view context) const { return m_contexts.contains(std::string(context)); }
+    bool has(std::string_view context) const { return m_contexts.contains(context); }
 
     void clear() { m_contexts.clear(); }
 

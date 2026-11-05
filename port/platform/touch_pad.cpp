@@ -145,8 +145,8 @@ void TouchPad::classic_controls() {
 
 void TouchPad::arc_controls() {
     using G = TouchGroup;
-    // The stick (a little smaller) and the options button as in the Classic style; the actions in the style's places,
-    // each the size it asks for.
+    // The stick (a little smaller) and the options button (larger) as in the Classic style; the
+    // actions in the style's places, each the size it asks for.
     m_controls.push_back(make_control(Kind::LeftStick, Button::Cross, G::Stick, 0.135f, 1.0f));
     m_members.push_back(Member{0.0f, 0.0f, 0.135f});
     m_controls.push_back(make_control(Kind::Menu, Button::Cross, G::Menu, 0.05f, 1.0f));
@@ -191,7 +191,6 @@ void TouchPad::arc_controls() {
             }
         }
         c.toggle = a.toggle;
-        c.large = a.size == TouchSize::Large;
         c.action = a.id;
         c.icon = a.icon;
         m_controls.push_back(std::move(c));
@@ -230,7 +229,8 @@ void TouchPad::rebuild() {
     if (stick) {
         m_controls[0].x = stick->first;
         m_controls[0].y = stick->second;
-        m_controls[0].radius = m_members[0].radius * m_scale;
+        m_controls[0].radius =
+            m_members[0].radius * m_scale * m_sizes[static_cast<std::size_t>(TouchGroup::Stick)];
     }
 }
 
@@ -243,16 +243,7 @@ void TouchPad::set_style(TouchStyle style) {
 }
 
 void TouchPad::set_actions(std::vector<TouchAction> actions, std::vector<std::string> hints) {
-    const auto same = [](const std::vector<TouchAction>& a, const std::vector<TouchAction>& b) {
-        return std::equal(
-            a.begin(), a.end(), b.begin(), b.end(), [](const TouchAction& x, const TouchAction& y) {
-                return x.id == y.id && x.icon == y.icon && x.press == y.press && x.then == y.then
-                       && x.size == y.size && x.side == y.side && x.when == y.when
-                       && x.toggle == y.toggle;
-            }
-        );
-    };
-    const bool now_same = same(actions, m_actions) && hints == m_hints;
+    const bool now_same = actions == m_actions && hints == m_hints;
     if (now_same && !m_waiting) {
         return;
     }
@@ -763,9 +754,7 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     };
     for (std::size_t i = 0; i < m_controls.size(); ++i) {
         const TouchControl& c = m_controls[i];
-        const bool on =
-            c.toggle && std::find(m_toggled.begin(), m_toggled.end(), c.action) != m_toggled.end();
-        if (!on && (c.toggle || !held(i))) {
+        if (c.toggle ? !toggled(i) : !held(i)) {
             continue;
         }
         if (c.kind == Kind::Menu) {

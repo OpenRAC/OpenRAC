@@ -53,8 +53,7 @@ uniform vec2 logo_half;    // the mark's half width and height in radii
 uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, v1
 uniform float icon_half;   // its half size in radii
 uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
-uniform int arc;           // 1 in the Arc style: slate buttons standing up from a dark base
-uniform float large;       // 1 for a large action button
+uniform int arc;           // 1 in the Arc style: see-through slate buttons
 out vec4 colour;
 
 // smoothstep() is undefined with equal edges: where d is flat across a pixel (fwidth 0, far from
@@ -82,25 +81,16 @@ vec4 glass(float d, float lift) {
     float rim = fill(abs(d + 0.035) - 0.022);
     return over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.30 + 0.5 * held) * rim));
 }
-// The Arc style's buttons: see-through slate faces on a darker base, a fine rim and a light along
-// the top edge. A press sinks the face into the base and warms it.
-float rounded_box(vec2 p, vec2 b, float r) {
-    vec2 q = abs(p) - b + r;
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
-}
-// A circle, or a pill as wide as `stretch` says.
-float slate_shape(vec2 p) {
-    return pill(p, stretch - 1.0, 1.0);
-}
+// The Arc style's buttons, round or a pill as wide as `stretch` says: a see-through slate face in
+// the middle of a darker base, a fine rim, a light along the top edge. A press shrinks the face a
+// little and warms it.
 const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
 const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
 const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
-// The face sits in the middle of its base, no shadow: a press shrinks it a little.
-vec4 slate(vec2 p) {
-    float d = slate_shape(p);
+vec4 slate(vec2 p, float d) {
     vec4 c = vec4(kSlateBase, 0.38 * fill(d));
     c = over(c, vec4(vec3(1.0), 0.16 * fill(abs(d + 0.025) - 0.016)));  // a fine rim, as the glass's
-    float f = d + (large > 0.5 ? 0.13 : 0.12) + 0.04 * held;
+    float f = d + 0.12 + 0.04 * held;
     vec3 face = mix(kSlateTop, kSlateBottom, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
     face = mix(face, accent * 0.5, 0.30 * held);
     c = over(c, vec4(face, (0.42 + 0.25 * held) * fill(f)));
@@ -220,8 +210,8 @@ void main() {
         float d = pill(p / press, half_width, 1.0);
         vec2 q = p / press;
         if (arc == 1) {
-            d = slate_shape(p);
-            c = slate(p);
+            d = pill(p, half_width, 1.0);
+            c = slate(p, d);
             q = p;
         } else {
             c = glass(d, 1.0);
@@ -501,7 +491,6 @@ void draw(platform::TouchPad& touch, int width, int height) {
         glUniform3f(s.shader.uniform("tint"), 0.93f, 0.91f, 0.88f);
         glUniform1f(s.shader.uniform("held"), 0.0f);
         glUniform1i(s.shader.uniform("symbol"), kDpad);
-        glUniform1f(s.shader.uniform("large"), 0.0f);
         glUniform1f(s.shader.uniform("angle"), 0.0f);
         glUniform1i(s.shader.uniform("label0"), -1);
         glUniform1i(s.shader.uniform("label1"), -1);
@@ -542,7 +531,6 @@ void draw(platform::TouchPad& touch, int width, int height) {
         press = touch.held(i) || touch.toggled(i) || picked ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
-        glUniform1f(s.shader.uniform("large"), c.large ? 1.0f : 0.0f);
         glUniform1f(s.shader.uniform("angle"), l.angle);
         glUniform1i(s.shader.uniform("label0"), l.label0);
         glUniform1i(s.shader.uniform("label1"), l.label1);

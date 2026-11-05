@@ -95,14 +95,14 @@ struct TouchControl {
     float x = 0.0f;
     float y = 0.0f;
     float radius = 0.0f;
-    // Half the width over the radius: 1 a circle, more a pill (the shoulders, Select and Start).
+    // Half the width over the radius: 1 a circle, more a pill (the shoulders, Select and Start, a
+    // wide action).
     float stretch = 1.0f;
     // The Arc style's: the buttons it holds (`button` is the first of them), those it adds a moment
     // later, its action and icon (touch_actions.h); empty icon for the Classic style's controls.
     std::uint16_t buttons = 0;
     std::uint16_t then = 0;
     bool toggle = false;
-    bool large = false;  // one of the most used: drawn the boldest
     std::string action;
     std::string icon;
 };

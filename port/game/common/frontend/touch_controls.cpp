@@ -66,7 +66,7 @@ std::string_view text(const OpenracTouchFile& f) {
 // The built-in sets and icons, the first time the pad needs them and again when a mod adds its own;
 // the mods' over them.
 void load(State& s, const mods::touch::Snapshot& mod) {
-    if (s.loaded && s.mods_generation == mod.generation) {
+    if (!mod.files) {
         return;
     }
     s.loaded = true;
@@ -138,7 +138,7 @@ void set_accent() {
 void update(platform::TouchPad& touch, int style) {
     State& s = state();
     const std::lock_guard guard(s.lock);
-    const mods::touch::Snapshot mod = mods::touch::snapshot();
+    const mods::touch::Snapshot mod = mods::touch::snapshot(s.loaded ? s.mods_generation : ~0u);
     load(s, mod);
     set_accent();
     std::vector<std::string> reported;
@@ -147,7 +147,7 @@ void update(platform::TouchPad& touch, int style) {
         context = mod.context;  // a mod's own context over the game's
     }
     reported.insert(reported.end(), mod.hints.begin(), mod.hints.end());
-    // A new context once it has held; the first one at once.
+    // A new context once it has held for kContextFrames.
     if (context == s.shown) {
         s.candidate.clear();
         s.candidate_frames = 0;
@@ -190,10 +190,6 @@ void update(platform::TouchPad& touch, int style) {
     const bool arc = style == 0 && !actions.empty();
     touch.set_style(arc ? platform::TouchStyle::Arc : platform::TouchStyle::Classic);
     touch.set_actions(std::move(actions), std::move(up));
-}
-
-const std::string& context() {
-    return state().shown;
 }
 
 }  // namespace openrac::frontend::touch_controls

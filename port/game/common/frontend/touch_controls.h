@@ -8,13 +8,10 @@
 // icons are game/common/touch/icons/*.svg and the mods' own.
 //
 // A context the game moves into is taken once it has held for a few frames, so that a state the
-// game passes through for a frame does not flash a set of buttons. A context with no set (a game
-// that reports none: rac3, rac4) shows the DualShock's buttons.
+// game passes through for a frame does not flash a set of buttons. A context with no set shows the
+// "default" set (a game that reports none: rac3, rac4).
 
 #pragma once
-
-#include <string>
-#include <string_view>
 
 #include "platform/touch_pad.h"
 
@@ -23,8 +20,5 @@ namespace openrac::frontend::touch_controls {
 // Once a frame, before the pad is drawn: the player's style (settings touch_style: 0 Arc, the
 // default, or 1 Classic), the game's context, the accent.
 void update(platform::TouchPad& touch, int style);
-
-// The context shown now ("foot"), for the drawer's developer tools and tests.
-const std::string& context();
 
 }  // namespace openrac::frontend::touch_controls

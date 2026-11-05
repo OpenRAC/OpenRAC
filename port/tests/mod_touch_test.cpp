@@ -41,6 +41,9 @@ int main() {
     CHECK(s.generation == start + 2);
     CHECK(s.sets.size() == 1 && s.sets[0].first == "a");
     CHECK(s.icons.size() == 1 && s.icons[0].first == "kart");
+    // Asked again with nothing changed: no copies of the sets and icons.
+    s = touch::snapshot(s.generation);
+    CHECK(!s.files && s.sets.empty() && s.icons.empty());
 
     // The last mod's pushed context shows; "" gives it back.
     touch::push("a", "kart");
@@ -58,10 +61,10 @@ int main() {
     touch::hint("a", "ledge", false);
     CHECK(touch::snapshot().hints.size() == 1);
 
-    // A mod forgotten takes its sets, context and hints with it.
+    // A mod forgotten takes its sets, icons, context and hints with it.
     touch::forget("a");
     s = touch::snapshot();
-    CHECK(s.sets.empty() && s.context.empty());
+    CHECK(s.sets.empty() && s.icons.empty() && s.context.empty());
     CHECK(s.hints.size() == 1 && s.hints[0] == "near_kart");
     touch::clear();
     s = touch::snapshot();

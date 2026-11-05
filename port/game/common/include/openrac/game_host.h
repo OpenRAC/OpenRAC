@@ -146,12 +146,11 @@ extern int (*openrac_game_mode)(uint32_t* mode);
 extern int (*openrac_game_hero_position)(float xyz[3]);
 extern int (*openrac_game_camera_position)(float xyz[3]);
 
-/* The on-screen pad's situation (platform/touch_actions.h, game/common/touch_controls.h), when a
- * game installs it (rac1: port/game/rac1/host/touch.c), asked once a frame: the name of the context
- * the game is in ("foot", "clank", "ship", "cutscene", "menu"; the sets in game/common/touch/sets/
- * say what each shows) into *context, and the hints up now ("swing_target") into hints. Returns the
- * number of hints, or -1 when it has no context now (the pad then shows the set "default"). It only
- * reads the game's memory. */
+/* The on-screen pad's context (platform/touch_actions.h, game/common/frontend/touch_controls.h),
+ * asked once a frame when a game installs it (rac1: port/game/rac1/host/touch.c). It writes the
+ * context's name ("foot", "clank", "ship", "cutscene", "menu"; see game/common/touch/sets/) into
+ * *context and the hints shown now ("swing_target") into hints. Returns the number of hints, or -1
+ * when there is no context (the pad then shows the "default" set). It only reads game memory. */
 #define OPENRAC_TOUCH_HINTS_MAX 4
 extern int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
 

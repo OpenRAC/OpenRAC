@@ -18,14 +18,16 @@
 namespace openrac::mods::touch {
 
 struct Snapshot {
-    unsigned generation = 0;                                 // grows when a set or an icon is added
+    unsigned generation = 0;  // changes when a set or an icon comes or goes
+    bool files = false;       // sets and icons filled (snapshot()'s `known` was not `generation`)
     std::vector<std::pair<std::string, std::string>> sets;   // mod, JSON; in the order given
     std::vector<std::pair<std::string, std::string>> icons;  // name, SVG
     std::string context;             // the last mod's pushed context, empty for none
     std::vector<std::string> hints;  // up now, every mod's
 };
 
-// False with `error` set for text that is not a set (a JSON object with "contexts") or an SVG.
+// False with `error` set for text that is not a set (a JSON object with "contexts") or an SVG. A
+// set's actions are checked when the pad reads it (touch_controls.cpp), which logs a bad one.
 bool define(std::string_view mod, std::string_view json, std::string& error);
 bool icon(std::string_view mod, std::string_view name, std::string_view svg, std::string& error);
 // A manifest's "touch" file (`file`, inside the mod's folder `root`): its sets, and its "icons"
@@ -42,10 +44,11 @@ bool load_file(
 void push(std::string_view mod, std::string_view context);
 void hint(std::string_view mod, std::string_view hint, bool on);
 
-// A copy of what the mods ask now.
-Snapshot snapshot();
+// A copy of what the mods ask now: the sets and icons only when they changed since `known` (a
+// generation from an earlier snapshot), the context and hints always.
+Snapshot snapshot(unsigned known = ~0u);
 
-// Everything a mod asked, gone (the mod unloaded; tests).
+// Everything a mod asked, gone, its icons too (the mod unloaded; tests).
 void forget(std::string_view mod);
 
 // Everything every mod asked, gone (the mods unloaded).

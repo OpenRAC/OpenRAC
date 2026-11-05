@@ -19,11 +19,17 @@ struct Pushed {
     std::string context;
 };
 
+struct Icon {
+    std::string mod;
+    std::string name;
+    std::string svg;
+};
+
 struct State {
     std::mutex lock;
     unsigned generation = 0;
     std::vector<std::pair<std::string, std::string>> sets;
-    std::vector<std::pair<std::string, std::string>> icons;
+    std::vector<Icon> icons;
     std::vector<Pushed> pushed;
     std::vector<std::pair<std::string, std::string>> hints;  // mod, hint
 };
@@ -120,8 +126,8 @@ bool icon(std::string_view mod, std::string_view name, std::string_view svg, std
     }
     State& s = state();
     const std::lock_guard guard(s.lock);
-    std::erase_if(s.icons, [&](const auto& i) { return i.first == name; });
-    s.icons.emplace_back(std::string(name), std::string(svg));
+    std::erase_if(s.icons, [&](const Icon& i) { return i.name == name; });
+    s.icons.push_back(Icon{std::string(mod), std::string(name), std::string(svg)});
     ++s.generation;
     return true;
 }
@@ -144,13 +150,18 @@ void hint(std::string_view mod, std::string_view hint, bool on) {
     }
 }
 
-Snapshot snapshot() {
+Snapshot snapshot(unsigned known) {
     State& s = state();
     const std::lock_guard guard(s.lock);
     Snapshot out;
     out.generation = s.generation;
-    out.sets = s.sets;
-    out.icons = s.icons;
+    out.files = known != s.generation;
+    if (out.files) {
+        out.sets = s.sets;
+        for (const Icon& i : s.icons) {
+            out.icons.emplace_back(i.name, i.svg);
+        }
+    }
     out.context = s.pushed.empty() ? std::string() : s.pushed.back().context;
     for (const auto& [mod, h] : s.hints) {
         if (std::find(out.hints.begin(), out.hints.end(), h) == out.hints.end()) {
@@ -163,11 +174,12 @@ Snapshot snapshot() {
 void forget(std::string_view mod) {
     State& s = state();
     const std::lock_guard guard(s.lock);
-    const std::size_t before = s.sets.size();
+    const std::size_t before = s.sets.size() + s.icons.size();
     std::erase_if(s.sets, [&](const auto& p) { return p.first == mod; });
+    std::erase_if(s.icons, [&](const Icon& i) { return i.mod == mod; });
     std::erase_if(s.pushed, [&](const Pushed& p) { return p.mod == mod; });
     std::erase_if(s.hints, [&](const auto& h) { return h.first == mod; });
-    if (s.sets.size() != before) {
+    if (s.sets.size() + s.icons.size() != before) {
         ++s.generation;
     }
 }
