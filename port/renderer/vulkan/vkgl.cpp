@@ -351,6 +351,10 @@ std::uint64_t gpu_instance_recording() {
     return g->recording;
 }
 
+bool extended_dynamic_state_supported() {
+    return g && g->extended_dynamic_state;
+}
+
 bool indexed_viewports_supported(unsigned count) {
     return active() && g->viewport_index_supported && count > 0
            && count <= g->properties.limits.maxViewports && material_enabled();

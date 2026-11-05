@@ -680,8 +680,12 @@ fn fill(text: &str, ctx: &Context, artifact: Option<&Path>) -> Result<String, St
 }
 
 fn value(name: &str, ctx: &Context) -> Result<String, String> {
+    // Without Windows' `\\?\` prefix (detect::plain): a build that bakes a program's path into a
+    // `cmd /C` line (CMake's hostgen step) cannot start a program named that way.
     let path = |p: &Option<PathBuf>, what: &str| {
-        p.as_ref().map(|p| p.display().to_string()).ok_or_else(|| format!("{what} is not set (Settings)"))
+        p.as_ref()
+            .map(|p| crate::detect::plain(p).display().to_string())
+            .ok_or_else(|| format!("{what} is not set (Settings)"))
     };
     let version = || ctx.version.ok_or_else(|| format!("{{{name}}} needs a version"));
     Ok(match name {
@@ -866,6 +870,29 @@ mod tests {
         assert!(everyone.shown(&player));
         let view = everyone.view(&ctx(&player));
         assert!(view.runnable && !view.developer && view.warning.is_none());
+    }
+
+    /// A tool path with Windows' `\\?\` prefix (Tauri's resource folder adds it to the bundled
+    /// Python) is filled in without it: Going Commando's build on Windows started hostgen through
+    /// `cmd /C "\\?\D:\...\python.exe"`, which cmd cannot find.
+    #[test]
+    fn a_tool_path_is_filled_in_without_the_verbatim_prefix() {
+        let config = Config {
+            python: Some(PathBuf::from(r"\\?\D:\claude code\openrac\python\python.exe")),
+            ..Config::default()
+        };
+        let ctx = Context {
+            root: Path::new("."),
+            config: &config,
+            version: None,
+            status: None,
+            toolchains: false,
+            platform: Platform::Windows,
+            level: None,
+            path: None,
+            option: None,
+        };
+        assert_eq!(value("python", &ctx).unwrap(), r"D:\claude code\openrac\python\python.exe");
     }
 
     /// A Play whose program is not there says so (`missing_artifact`), so that the launcher offers

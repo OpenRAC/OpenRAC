@@ -595,6 +595,7 @@ struct Program {
     std::string vertex_source, fragment_source;
     VkShaderModule fragment_clamped = VK_NULL_HANDLE;
     bool clamped_tried = false;
+    bool clamped_half_precision = false;  // Compiler mode used by the test program pool.
     VkShaderModule compute = VK_NULL_HANDLE;
     VkPipeline compute_pipeline = VK_NULL_HANDLE;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;

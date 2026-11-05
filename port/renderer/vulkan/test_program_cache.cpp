@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "renderer/render_opt.h"
 #include "renderer/vulkan/vkgl_internal.h"
 
 namespace openrac::vkgl::detail {
@@ -14,6 +15,16 @@ namespace {
 
 // Checks every input to module/layout creation, without accepting a hash collision.
 bool compatible(const Program& a, const Program& b) {
+    // The lazy clamped stage is compiled separately from the SPIR-V compared below.
+    if (b.clamped_tried) {
+        const bool half =
+            g->shader_float16
+            && renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderFloat16);
+        if (half != b.clamped_half_precision || a.vertex_source != b.vertex_source
+            || a.fragment_source != b.fragment_source) {
+            return false;
+        }
+    }
     return a.compiled.vertex == b.compiled.vertex && a.compiled.fragment == b.compiled.fragment
            && a.compiled.compute == b.compiled.compute
            && a.compiled.default_binding == b.compiled.default_binding
@@ -40,6 +51,7 @@ void move_objects(Program& to, Program& from) {
     to.fragment = std::exchange(from.fragment, VK_NULL_HANDLE);
     to.fragment_clamped = std::exchange(from.fragment_clamped, VK_NULL_HANDLE);
     to.clamped_tried = std::exchange(from.clamped_tried, false);
+    to.clamped_half_precision = from.clamped_half_precision;
     to.compute = std::exchange(from.compute, VK_NULL_HANDLE);
     to.compute_pipeline = std::exchange(from.compute_pipeline, VK_NULL_HANDLE);
     to.set_layout = std::exchange(from.set_layout, VK_NULL_HANDLE);
@@ -92,6 +104,10 @@ bool retain_test_program(Program& program) {
     retained.material_start = program.material_start;
     retained.dynamic_uniforms = program.dynamic_uniforms;
     retained.draw_uniform_offset = program.draw_uniform_offset;
+    if (program.clamped_tried) {
+        retained.vertex_source = program.vertex_source;
+        retained.fragment_source = program.fragment_source;
+    }
     move_objects(retained, program);
     g->test_programs.push_back(std::move(retained));
     return true;

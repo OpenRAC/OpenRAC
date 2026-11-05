@@ -36,6 +36,7 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::EffectStaticControls, "effect_material"},
     std::pair{renderer::render_opt::Opt::WaterLocalShader, "effect_material"},
     std::pair{renderer::render_opt::Opt::VkDrawUniform, "vulkan_uniform"},
+    std::pair{renderer::render_opt::Opt::VkExtendedDynamicState, "vulkan_uniform"},
     std::pair{renderer::render_opt::Opt::PresentSingleCopy, "vulkan_present"},
     std::pair{renderer::render_opt::Opt::PresentTiming, "vulkan_present_timing"},
     std::pair{renderer::render_opt::Opt::ShadowScrollReuse, "shadow_scroll_vulkan"},
@@ -52,12 +53,11 @@ inline std::string_view focused_equivalence_test(renderer::render_opt::Opt opt) 
     return {};
 }
 
-// Keep fresh driver objects for options that exercise creation or pipeline cache misses.
-// Descriptor sets and the last-draw shortcut are always fresh, even when borrowing a program.
+// Variant and precision comparisons can borrow only byte-identical programs with matching layouts.
+// Keep fresh objects for tests that exercise pipeline cache creation and misses.
 inline bool may_reuse_test_programs(renderer::render_opt::Opt opt) {
     using renderer::render_opt::Opt;
-    return opt != Opt::PipelinePrewarm && opt != Opt::VkDrawCache && opt != Opt::ShaderVariants
-           && opt != Opt::ShaderFloat16 && opt != Opt::VkExtendedDynamicState;
+    return opt != Opt::PipelinePrewarm && opt != Opt::VkDrawCache;
 }
 
 }  // namespace openrac::test

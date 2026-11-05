@@ -5,8 +5,52 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import build_game
+
+
+def short_enough(test: unittest.TestCase, temp: Path) -> None:
+    """Scale the build's longest path to this computer's temporary folder: macOS's is long enough
+    on its own to leave no room under Windows' limit, and these tests build in it."""
+    patcher = patch.object(build_game, "LONGEST_BUILD_PATH", build_game.WINDOWS_PATH_LIMIT - len(str(temp)) - 40)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
+class BuildDirectory(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name).resolve()
+        self.out = self.dir / ("installation with spaces " * 4).rstrip() / "program" / "abc"
+        short_enough(self, self.dir)
+
+    def test_windows_keeps_a_short_installation_path(self):
+        with patch.object(build_game.sys, "platform", "win32"):
+            self.assertEqual(build_game.build_directory(Path("C:/OR")), Path("C:/OR"))
+
+    def test_other_platforms_keep_the_installation_path(self):
+        with patch.object(build_game.sys, "platform", "linux"):
+            self.assertEqual(build_game.build_directory(self.out), self.out)
+
+    def test_windows_retries_use_the_same_short_folder_but_other_installs_do_not(self):
+        with patch.object(build_game.sys, "platform", "win32"), \
+                patch.object(build_game.tempfile, "gettempdir", return_value=str(self.dir)):
+            directory = build_game.build_directory(self.out)
+            self.assertEqual(build_game.build_directory(self.out), directory)
+            self.assertNotEqual(build_game.build_directory(self.out / "other"), directory)
+        self.assertTrue(directory.is_dir())
+        self.assertLessEqual(len(str(directory)) + build_game.LONGEST_BUILD_PATH,
+                             build_game.WINDOWS_PATH_LIMIT)
+        self.assertFalse(self.out.exists())
+
+    def test_an_overlong_temp_path_fails_before_fetching_or_building(self):
+        with patch.object(build_game.sys, "platform", "win32"), \
+                patch.object(build_game.tempfile, "gettempdir", return_value=str(self.out)):
+            with self.assertRaisesRegex(SystemExit, "temporary folder's path is too long"):
+                build_game.build_directory(self.out)
+        self.assertFalse(self.out.exists())
 
 
 @unittest.skipUnless(shutil.which("curl") and shutil.which("tar"), "needs curl and tar")
@@ -47,6 +91,48 @@ class FetchSource(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             build_game.fetch_source("file:///nothing/here", "abc", self.out)
         self.assertFalse((self.out / build_game.SOURCE / build_game.DONE).exists())
+
+    def test_long_install_builds_in_temp_and_copies_back_only_after_success(self):
+        # A tiny source archive exercises the real download, unpack, child process and copy.
+        tree = self.dir / "OpenRAC-abc"
+        (tree / "tools").mkdir()
+        (tree / "tools" / "build_port.py").write_text(
+            "from pathlib import Path\n"
+            "import sys\n"
+            "disc = Path(sys.argv[sys.argv.index('--disc') + 1])\n"
+            "assert disc.is_absolute() and disc.read_text() == 'test fixture'\n"
+            "if Path('fail').exists():\n"
+            "    Path('retry').write_text('keep partial build')\n"
+            "    sys.exit(7)\n"
+            "assert Path('retry').read_text() == 'keep partial build'\n"
+            "build = Path('port/build/standalone')\n"
+            "build.mkdir(parents=True)\n"
+            "(build / 'openrac-x.exe').write_text(str(Path.cwd()))\n",
+            encoding="utf-8")
+        (tree / "fail").touch()
+        subprocess.run(["tar", "-czf", "a.tar.gz", "OpenRAC-abc"], cwd=self.dir, check=True)
+        out = self.dir / ("installation with spaces " * 4).rstrip() / "program" / "abc"
+        out.mkdir(parents=True)
+        (out / "openrac-x.exe").write_text("previous program")
+        disc = out.parent.parent / "disc.iso"
+        disc.write_text("test fixture")
+        argv = ["x", "--disc", str(disc), "--out", str(out), "--source-url", self.url]
+        short_enough(self, self.dir.resolve())
+        with patch.object(build_game.sys, "platform", "win32"), \
+                patch.object(build_game.tempfile, "gettempdir", return_value=str(self.dir)), \
+                patch.object(build_game, "carried_commit", return_value="abc"):
+            with self.assertRaises(subprocess.CalledProcessError) as failure:
+                build_game.main(argv)
+            self.assertEqual(failure.exception.returncode, 7)
+            directory = build_game.build_directory(out.resolve())
+            source = directory / build_game.SOURCE
+            self.assertEqual((out / "openrac-x.exe").read_text(), "previous program")
+            (source / "fail").unlink()
+            self.assertEqual(build_game.main(argv), 0)
+        self.assertEqual(Path((out / "openrac-x.exe").read_text()), source)
+        self.assertFalse(source.exists())
+        self.assertFalse((out / build_game.SOURCE).exists())
+        self.assertEqual(disc.read_text(), "test fixture")
 
 
 class Program(unittest.TestCase):
