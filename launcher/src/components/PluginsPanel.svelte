@@ -24,7 +24,7 @@
     type VersionView,
   } from "$lib/api";
   import { addMods } from "$lib/addMods";
-  import { app, guardShown, jobs, run, saveConfig } from "$lib/app.svelte";
+  import { app, guardShown, jobs, run } from "$lib/app.svelte";
   import { modBadge, hasSettings } from "$lib/plugins";
   import * as T from "$lib/modsText";
   import { closeMod, modNav, openMod } from "$lib/modNav.svelte";
@@ -41,7 +41,7 @@
   import { shareLink } from "$lib/shareSetup";
   import { dragSort } from "$lib/dragSort";
   import { arrange, groupOf, matches, steps } from "$lib/modsList";
-  import { modsView, movable, report, shows } from "$lib/modsView.svelte";
+  import { forget, modsView, movable, report, searching, shows } from "$lib/modsView.svelte";
 
   let {
     version: v,
@@ -369,31 +369,46 @@
     !!enhanced && shows("looks") && matches(modsView.query, enhanced.mod.name, enhanced.mod.description),
   );
 
-  // How many of each kind, for the toolbar's counts.
+  /** Rows the search and the kind show. */
+  const found = $derived(groups.reduce((n, g) => n + g.rows.length, 0) + (enhancedShown ? 1 : 0));
+
+  // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
   $effect(() => {
     report("plugins", {
-      gameplay: mods.filter((m) => groupOf(m.kind) === "gameplay").length,
-      tools: mods.filter((m) => groupOf(m.kind) === "tools").length,
-      looks: enhanced ? 1 : 0,
+      counts: {
+        gameplay: mods.filter((m) => groupOf(m.kind) === "gameplay").length,
+        tools: mods.filter((m) => groupOf(m.kind) === "tools").length,
+        looks: enhanced ? 1 : 0,
+      },
+      on: mods.filter((m) => m.enabled && m.kind !== "tool").length + (enhanced?.mod.enabled ? 1 : 0),
+      found,
     });
   });
+  $effect(() => () => {
+    forget("plugins");
+  });
+
+  /** A move is running: the next waits (each is several one-place moves). */
+  let moving = $state(false);
 
   /** Moves MOD to where TARGET is in the load order, one place at a time (the core moves by one). */
   async function moveTo(mod: PluginView | undefined, target: PluginView | undefined) {
-    if (!mod || !target || target.id === mod.id) return;
+    if (moving || !mod || !target || target.id === mod.id) return;
     const from = mods.findIndex((m) => m.id === mod.id);
     const to = mods.findIndex((m) => m.id === target.id);
-    await change(
-      (async () => {
-        let list = mods;
-        for (const up of steps(from, to)) list = await api.pluginsMove(v.game, v.name, mod.id, up);
-        return list;
-      })(),
-    );
-  }
-
-  async function playWithMods() {
-    if (app.config) await saveConfig({ ...app.config, playWithMods: true });
+    if (from < 0 || to < 0) return;
+    moving = true;
+    try {
+      await change(
+        (async () => {
+          let list = mods;
+          for (const up of steps(from, to)) list = await api.pluginsMove(v.game, v.name, mod.id, up);
+          return list;
+        })(),
+      );
+    } finally {
+      moving = false;
+    }
   }
 </script>
 
@@ -425,7 +440,7 @@
   />
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 {:else}
-  {#if shows("gameplay") || enhancedShown || (shows("tools") && tools.length > 0)}
+  {#if (shows("gameplay") || enhancedShown || (shows("tools") && tools.length > 0)) && !(searching() && found === 0)}
     <section class="panel plugins" aria-label={title}>
       <div class="head">
         <h2>{title}</h2>
@@ -446,13 +461,6 @@
           >
         {/if}
       </div>
-
-      {#if purist && (mods.length || enhanced?.mod.enabled)}
-        <div class="notice" role="status">
-          <Icon name="info" size={16} /><span class="grow">{T.WITH_MODS.offNotice}</span>
-          <button class="small" onclick={() => void playWithMods()}>{T.WITH_MODS.turnOn}</button>
-        </div>
-      {/if}
 
       {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 
@@ -505,7 +513,7 @@
           {:else}
             <ul
               use:dragSort={{
-                enabled: group.id === "gameplay" && movable(),
+                enabled: group.id === "gameplay" && movable() && !moving,
                 onmove: (from, to) => void moveTo(group.rows[from], group.rows[to]),
               }}
             >

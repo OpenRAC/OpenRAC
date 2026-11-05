@@ -5,7 +5,7 @@
 import { api, type VersionView } from "./api";
 import { jobs, runChain } from "./app.svelte";
 import { added, TEXTURES, withName } from "./modsText";
-import { textureCount } from "./texturePacks";
+import { refusesPack, textureCount } from "./texturePacks";
 import { toolFailure } from "./toolErrors";
 
 export interface Added {
@@ -31,12 +31,14 @@ const nameOf = (path: string) => path.split(/[\\/]/).at(-1) ?? path;
  *  is not a texture pack at all (a mod, an overrides pack), to be added as one. */
 async function addTexturePack(v: VersionView, path: string): Promise<Added | null> {
   if (!path.toLowerCase().endsWith(".zip")) return null;
+  let preview;
   try {
-    await api.texturePacksPreview(v.game, v.name, path);
+    preview = await api.texturePacksPreview(v.game, v.name, path);
   } catch (e) {
-    const why = typeof e === "string" ? e : String(e);
-    // Another game's texture pack: said as it is. Anything else is not a texture pack.
-    if (why.startsWith("This pack is for")) {
+    const why = typeof e === "string" ? e : e instanceof Error ? e.message : String(e);
+    // A texture pack that cannot be added (another game's, say): said as it is. Anything else is
+    // not a texture pack, and is added as what it is.
+    if (refusesPack(why)) {
       return { text: withName(nameOf(path), why), failed: true, plugin: false, pack: false };
     }
     return null;
@@ -44,7 +46,7 @@ async function addTexturePack(v: VersionView, path: string): Promise<Added | nul
   try {
     const done = await api.texturePacksImport(v.game, v.name, path, "merge");
     return {
-      text: TEXTURES.added(textureCount(done.textures), done.kept ?? null),
+      text: TEXTURES.added(textureCount(done.textures), preview.replacing),
       failed: false,
       plugin: false,
       pack: true,

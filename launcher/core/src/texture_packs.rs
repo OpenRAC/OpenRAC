@@ -356,6 +356,9 @@ struct Scanned {
     skipped: u32,
 }
 
+/// What a mod's .zip is told when it is read as a texture pack.
+pub const NOT_A_PACK_BUT_A_MOD: &str = "This .zip is a mod, not a texture pack.";
+
 /// The folders a pack keeps at its top; a single other top folder (the pack zipped with its own
 /// folder) is taken off.
 const PACK_FOLDERS: &[&str] = &["Interface", "Shared", "Planets", "Animated"];
@@ -413,6 +416,11 @@ fn scan(archive: &mut zip::ZipArchive<std::fs::File>, id: &str) -> Result<Scanne
         if rel.starts_with("__MACOSX/") || file_name.starts_with('.') {
             skipped += 1;
             continue;
+        }
+        // A mod's manifest anywhere: the .zip is a mod (which may carry pictures of its own), not
+        // a texture pack. The launcher's Add a mod then installs it as one.
+        if file_name == crate::plugins::MANIFEST {
+            return Err(NOT_A_PACK_BUT_A_MOD.into());
         }
         if rel == MANIFEST {
             let mut text = String::new();
@@ -765,6 +773,21 @@ mod tests {
         }
         assert!(id("rac2", "ntsc").is_ok_and(|i| i == "rac2-ntsc"));
         assert!(id("../x", "ntsc").is_err());
+    }
+
+    #[test]
+    fn a_mod_with_pictures_is_not_a_texture_pack() {
+        let t = tempfile::tempdir().unwrap();
+        let zip = t.path().join("mod.zip");
+        make_zip(
+            &zip,
+            &[
+                ("my-mod/openrac-mod.json", br#"{"id":"my-mod"}"#.to_vec()),
+                ("my-mod/Interface/0123456789ABCDEF.png", png(1)),
+            ],
+        );
+        let err = preview_import(&t.path().join("data"), "rac2", "ntsc", &zip).unwrap_err();
+        assert_eq!(err, NOT_A_PACK_BUT_A_MOD);
     }
 
     #[test]

@@ -11,9 +11,10 @@
   import { dragSort } from "$lib/dragSort";
   import { arrange, matches, steps } from "$lib/modsList";
   import { PACKS, TEXTURES, VIEW } from "$lib/modsText";
-  import { modsView, movable, report, shows } from "$lib/modsView.svelte";
+  import { forget, modsView, movable, report, searching, shows } from "$lib/modsView.svelte";
   import { isPlaying } from "$lib/player.svelte";
-  import { packSummary, previewSummary, textureCount } from "$lib/texturePacks";
+  import { grouped } from "$lib/format";
+  import { packSummary, replaceSummary, textureCount } from "$lib/texturePacks";
   import CommandBox from "./CommandBox.svelte";
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
@@ -45,27 +46,31 @@
   let packsError = $state<string | null>(null);
   let pack = $state<TexturePackView | null>(null);
 
-  async function load() {
+  async function load(withTextures: boolean) {
     try {
       packs = await api.overridesList(v.game);
       packsError = null;
     } catch (e) {
       packsError = typeof e === "string" ? e : String(e);
     }
-    pack = textures ? await api.texturePacks(v.game, v.name).catch(() => null) : null;
+    pack = withTextures ? await api.texturePacks(v.game, v.name).catch(() => null) : null;
   }
 
   // Read again when RELOAD is bumped, and when the game stops: it may have saved textures.
   const playing = $derived(isPlaying(v));
   $effect(() => {
-    if (reload >= 0 && v.key && !playing) void load();
+    if (reload >= 0 && v.key && !playing) void load(textures);
   });
 
+  /** A change to the list: the list as it now is, or, refused (said in a toast), read again, as
+   *  a move of several places may have stopped half way. */
   async function change(work: Promise<PackView[]>) {
     const result = await guardShown(work);
     if (result) {
       packs = result;
       onchange?.();
+    } else {
+      await load(textures);
     }
   }
 
@@ -76,17 +81,25 @@
   }
 
   /** Moves PACK to where TARGET is, one place at a time (the core moves by one). */
+  /** A move is running: the next waits (each is several one-place moves). */
+  let moving = $state(false);
   async function moveTo(pack: PackView | undefined, target: PackView | undefined) {
-    if (!pack || !target || target.id === pack.id) return;
+    if (moving || !pack || !target || target.id === pack.id) return;
     const from = packs.findIndex((p) => p.id === pack.id);
     const to = packs.findIndex((p) => p.id === target.id);
-    await change(
-      (async () => {
-        let list = packs;
-        for (const up of steps(from, to)) list = await api.overridesMove(v.game, pack.id, up);
-        return list;
-      })(),
-    );
+    if (from < 0 || to < 0) return;
+    moving = true;
+    try {
+      await change(
+        (async () => {
+          let list = packs;
+          for (const up of steps(from, to)) list = await api.overridesMove(v.game, pack.id, up);
+          return list;
+        })(),
+      );
+    } finally {
+      moving = false;
+    }
   }
 
   function summary(pack: PackView): string {
@@ -106,9 +119,17 @@
   const shown = $derived(arrange(packs, modsView.query, modsView.sort, (p) => [p.name, p.author, p.description]));
   const packShown = $derived(!!pack && matches(modsView.query, TEXTURES.name, TEXTURES.badge));
 
-  // How many, for the toolbar's counts.
+  // What the list holds, for the toolbar (counts, Mods off, a search that finds nothing).
+  const found = $derived(shows("looks") ? shown.length + (packShown ? 1 : 0) : 0);
   $effect(() => {
-    report("packs", { looks: packs.length + (pack ? 1 : 0) });
+    report("packs", {
+      counts: { looks: packs.length + (pack ? 1 : 0) },
+      on: packs.filter((p) => p.enabled).length + (pack?.enabled && pack.packCount > 0 ? 1 : 0),
+      found,
+    });
+  });
+  $effect(() => () => {
+    forget("packs");
   });
 
   // The texture pack's own changes.
@@ -120,7 +141,7 @@
   const share = () =>
     guardShown(api.texturePacksExport(v.game, v.name)).then((done) => {
       if (!done?.saved) return;
-      const left = done.leftOut ? ` ${done.leftOut} unchanged picture(s) from the game were left out.` : "";
+      const left = done.leftOut ? ` ${grouped(done.leftOut)} unchanged picture(s) from the game were left out.` : "";
       toast(`Saved ${textureCount(done.textures)} as ${done.saved}.${left}`);
     });
 
@@ -128,15 +149,15 @@
     const source = await pickZip(TEXTURES.pickTitle);
     if (!source) return;
     const preview = await guardShown(api.texturePacksPreview(v.game, v.name, source));
-    if (!preview || !(await ask(previewSummary(preview), TEXTURES.replaceYes))) return;
+    if (!preview || !(await ask(replaceSummary(preview), TEXTURES.replaceYes))) return;
     const done = await guardShown(api.texturePacksImport(v.game, v.name, source, "replace"));
     if (!done) return;
     toast(TEXTURES.replaced(textureCount(done.textures), done.kept ?? null));
-    await load();
+    await load(textures);
   }
 </script>
 
-{#if shows("looks") && (packs.length > 0 || pack !== null || packsError !== null || modsView.filter === "looks")}
+{#if shows("looks") && (packs.length > 0 || pack !== null || packsError !== null || modsView.filter === "looks") && !(searching() && found === 0)}
   <section class="panel packs" aria-label={PACKS.title}>
     <div class="row head">
       <div class="grow">
@@ -189,9 +210,9 @@
     {:else if packs.length === 0}
       {#if !pack}<p class="dim empty">{PACKS.empty}</p>{/if}
     {:else if shown.length === 0}
-      {#if !packShown}<p class="dim empty">{VIEW.none(modsView.query)}</p>{/if}
+      <!-- The search found only the texture pack: nothing more to say. -->
     {:else}
-      <ul use:dragSort={{ enabled: movable(), onmove: (from, to) => void moveTo(shown[from], shown[to]) }}>
+      <ul use:dragSort={{ enabled: movable() && !moving, onmove: (from, to) => void moveTo(shown[from], shown[to]) }}>
         {#each shown as p, i (p.id)}
           <li class="pack" class:off={!p.enabled}>
             {#if movable() && shown.length > 1}
@@ -222,14 +243,14 @@
                   class="icon"
                   aria-label={`Move ${p.name} up`}
                   title={PACKS.moveUpTitle}
-                  disabled={i === 0}
+                  disabled={moving || i === 0}
                   onclick={() => void moveTo(p, shown[i - 1])}><Icon name="up" size={14} /></button
                 >
                 <button
                   class="icon"
                   aria-label={`Move ${p.name} down`}
                   title={PACKS.moveDownTitle}
-                  disabled={i === shown.length - 1}
+                  disabled={moving || i === shown.length - 1}
                   onclick={() => void moveTo(p, shown[i + 1])}><Icon name="down" size={14} /></button
                 >
               {/if}

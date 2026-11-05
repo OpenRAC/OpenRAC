@@ -290,9 +290,9 @@ export const TEXTURES = {
   pickTitle: "Choose a texture pack (.zip)",
   replaced: (n: string, kept: string | null) =>
     kept ? `Your pack is now ${n}. The old one is kept beside it, as “${kept}”.` : `Your pack is now ${n}.`,
-  added: (n: string, kept: string | null) =>
-    kept
-      ? `Added ${n} to your texture pack. The old pack is kept beside it, as “${kept}”.`
+  added: (n: string, replaced: number) =>
+    replaced
+      ? `Added ${n} to your texture pack, ${replaced} of them in place of yours.`
       : `Added ${n} to your texture pack.`,
   makeTitle: "Make a texture pack",
   makeLead: "Save the game's pictures, repaint or upscale them, and they become your texture pack.",

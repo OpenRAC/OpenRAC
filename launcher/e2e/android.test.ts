@@ -350,6 +350,51 @@ describe("A controller", () => {
     await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(0);
   });
 
+  it("says once when a search finds nothing, and keeps the search while it hides mods", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const search = page.getByRole("searchbox", { name: "Find a mod" });
+    await search.fill("no such mod");
+    await page.getByText("Nothing matches “no such mod”.").waitFor();
+    expect(await page.getByText(/^Nothing matches/).count()).toBe(1);
+    expect(await page.getByRole("heading", { name: "Gameplay mods" }).count()).toBe(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await page.getByRole("heading", { name: "Gameplay mods" }).waitFor();
+  });
+
+  it("moves a mod by dragging its grip, and not while sorted by name", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const names = () => page.locator(".plugins ul:not(.built-in) .name").allTextContents();
+    const before = await names();
+    // The page's slide in ends first: the rows are where they show.
+    await page.locator(".plugins ul:not(.built-in) li").first().waitFor();
+    await page.waitForTimeout(1500);
+    await page
+      .locator(".plugins ul:not(.built-in) li")
+      .first()
+      .evaluate((li) => {
+        li.scrollIntoView({ block: "start" });
+      });
+    await page.waitForTimeout(300);
+    const grip = page.locator(".plugins ul:not(.built-in) li").nth(2).locator("[data-grip]");
+    const g = await grip.boundingBox();
+    const top = await page.locator(".plugins ul:not(.built-in) li").first().boundingBox();
+    if (!g || !top) throw new Error("no grip");
+    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(g.x + g.width / 2, top.y + 4, { steps: 10 });
+    await page.waitForTimeout(100);
+    await page.mouse.up();
+    await expect.poll(names).toEqual([before[2], before[0], before[1], ...before.slice(3)]);
+    await page.getByRole("radio", { name: "A to Z" }).click();
+    expect(await page.locator(".plugins [data-grip]").count()).toBe(0);
+  });
+
+  it("says Play starts without mods above the lists, once", async () => {
+    await open("page=mods&version=rac1/pal");
+    await page.getByRole("switch", { name: "Use Your texture pack" }).waitFor();
+    expect(await page.getByText("Play starts the game without mods.", { exact: false }).count()).toBe(1);
+  });
+
   it("passes over what a closed fold holds", async () => {
     await open("page=settings");
     const advanced = page.locator("details:not([open]) > summary").first();

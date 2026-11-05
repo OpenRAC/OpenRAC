@@ -1,10 +1,14 @@
 <script lang="ts">
-  // My mods' toolbar, once there are many (lib/modsView.svelte.ts): a search, the kind to show
-  // (all, gameplay, graphics and sound, tools; each with its count) and the order (load order,
-  // which can be changed by dragging or a row's menu, or A to Z, for looking only).
+  // My mods' head (lib/modsView.svelte.ts). With the Mods switch under Play off and something on,
+  // a line says Play starts without them (gameplay mods, Enhanced graphics and every pack alike),
+  // with the way to turn it on. Once there are many: a search, the kind to show (all, gameplay,
+  // graphics and sound, tools; each with its count) and the order (load order, which can be changed
+  // by dragging or a row's menu, or A to Z, for looking only). A search that finds nothing says so
+  // here, once, as the lists hide.
+  import { app, saveConfig } from "$lib/app.svelte";
   import { TOOLBAR_FROM, type ModFilter } from "$lib/modsList";
-  import { VIEW } from "$lib/modsText";
-  import { modsView, total } from "$lib/modsView.svelte";
+  import { VIEW, WITH_MODS } from "$lib/modsText";
+  import { modsView, searching, total, totalFound, totalOn } from "$lib/modsView.svelte";
   import Icon from "./Icon.svelte";
 
   const FILTERS: { id: ModFilter; label: string }[] = [
@@ -15,14 +19,31 @@
   ];
   /** The kinds the player has: one with none is left out (All always shows). */
   const shown = $derived(FILTERS.filter((f) => f.id === "all" || total(f.id) > 0));
-  const visible = $derived(total() >= TOOLBAR_FROM);
+  /** Shown from that many rows, and while it hides any: removing mods during a search never
+   *  leaves rows hidden with no way to show them. */
+  const visible = $derived(
+    total() >= TOOLBAR_FROM || searching() || modsView.filter !== "all" || modsView.sort !== "order",
+  );
+  /** The Mods switch under Play is off (the default): Play starts the game without these. */
+  const purist = $derived(!(app.config?.playWithMods ?? false));
 
-  // A kind that is no longer there (its last mod removed): back to All.
+  async function playWithMods() {
+    if (app.config) await saveConfig({ ...app.config, playWithMods: true });
+  }
+
+  // A kind that is no longer there (its last mod removed): back to All. Not while the lists are
+  // still being read (none has said what it holds yet).
   $effect(() => {
-    if (!shown.some((f) => f.id === modsView.filter)) modsView.filter = "all";
+    if (total() > 0 && !shown.some((f) => f.id === modsView.filter)) modsView.filter = "all";
   });
 </script>
 
+{#if purist && totalOn() > 0}
+  <div class="notice" role="status">
+    <Icon name="info" size={16} /><span class="grow">{WITH_MODS.offNotice}</span>
+    <button class="small" onclick={() => void playWithMods()}>{WITH_MODS.turnOn}</button>
+  </div>
+{/if}
 {#if visible}
   <div class="toolbar" role="search" aria-label={VIEW.label}>
     <label class="find">
@@ -66,9 +87,33 @@
       {/each}
     </div>
   </div>
+  {#if searching() && totalFound() === 0}<p class="none" role="status">{VIEW.none(modsView.query.trim())}</p>{/if}
 {/if}
 
 <style>
+  /* The Mods switch off: said above the lists, with the way to turn it on. */
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--panel-hi);
+    font-size: 0.8125rem;
+    color: var(--body);
+  }
+
+  .notice > :global(svg) {
+    flex: none;
+    color: var(--amber);
+  }
+
+  .none {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--soft);
+  }
+
   .toolbar {
     display: flex;
     flex-wrap: wrap;

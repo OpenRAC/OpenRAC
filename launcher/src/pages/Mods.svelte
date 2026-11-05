@@ -222,6 +222,8 @@
   // another game or tab leaves it. ?mod=<id> opens one at start.
   const onModPage = $derived(modNav.mod !== null);
   onMount(() => {
+    // The page opened again: every mod shows, in load order.
+    resetView();
     const asked = modFromAddress(window.location);
     if (asked) openMod(asked);
     const stop = followHistory();
