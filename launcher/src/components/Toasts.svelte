@@ -89,6 +89,19 @@
               >
             </div>
             <small>{t.bake.failure.level ? `${t.bake.failure.level} - ` : ""}{t.bake.failure.code}</small>
+          {:else if t.details}
+            <details class="error-details">
+              <summary>Error details</summary>
+              <pre>{t.details}</pre>
+            </details>
+            <div class="actions">
+              <button
+                class="ghost small"
+                onclick={() => {
+                  app.page = "tasks";
+                }}>View details</button
+              >
+            </div>
           {/if}
         </div>
         <button

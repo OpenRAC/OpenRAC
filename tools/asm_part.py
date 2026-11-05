@@ -262,4 +262,7 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except subprocess.CalledProcessError as e:
+        # The compiler printed its errors above; this line says which step stopped.
+        cmd = e.cmd if isinstance(e.cmd, str) else " ".join(map(str, e.cmd))
+        print(f"error: {cmd[:300]} stopped with code {e.returncode}", file=sys.stderr, flush=True)
         sys.exit(e.returncode or 1)

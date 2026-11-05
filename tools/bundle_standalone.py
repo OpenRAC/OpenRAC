@@ -246,6 +246,10 @@ def player_actions(android: bool = False, android_games: set[str] | None = None,
                     action["makes"] = f"{levels}/{STAMP}"
                     action["needs"] = [{"path": f"{levels}/{LEVELS_STAMP}", "from": need["from"]}
                                        for need in action.get("needs", [])]
+                elif action["id"] == "port-part":
+                    # Run in the copy (cwd "."), where tools/asm_part.py and its kit are; it writes
+                    # to the data folder (android_part).
+                    pass
                 elif action["id"] in MODS:
                     for field in ("args", "artifact", "needs", "makes", "output"):
                         if field in action:
