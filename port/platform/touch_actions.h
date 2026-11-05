@@ -75,6 +75,7 @@ private:
         std::string extends;
         std::vector<TouchAction> actions;
     };
+
     std::map<std::string, Context, std::less<>> m_contexts;
 };
 

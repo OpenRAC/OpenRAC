@@ -52,7 +52,9 @@ TouchAction act(std::string id, std::uint16_t press, TouchSize size = TouchSize:
     return a;
 }
 
-constexpr auto bit = [](Button b) { return static_cast<std::uint16_t>(b); };
+constexpr auto bit = [](Button b) {
+    return static_cast<std::uint16_t>(b);
+};
 
 // The Arc style: the game's actions as buttons, in the corner first, changing with its context.
 void arc_style() {
@@ -104,7 +106,10 @@ void arc_style() {
     CHECK(touch.actions_waiting() && action(touch, "jump") != nullptr);
     CHECK(read(touch).held(Button::Cross));
     touch.finger_up(3);
-    CHECK(!touch.actions_waiting() && action(touch, "jump") == nullptr && action(touch, "boost") != nullptr);
+    CHECK(
+        !touch.actions_waiting() && action(touch, "jump") == nullptr
+        && action(touch, "boost") != nullptr
+    );
 
     // A thumb on the stick keeps it through a change, where it is.
     TouchControl stick = touch.controls()[0];
@@ -124,7 +129,10 @@ void arc_style() {
     CHECK(l != nullptr && l->x < 0.5f);
     touch.finger_down(5, l->x, l->y);
     touch.finger_up(5);
-    CHECK(read(touch).held(Button::L1) && touch.toggled(static_cast<std::size_t>(l - touch.controls().data())));
+    CHECK(
+        read(touch).held(Button::L1)
+        && touch.toggled(static_cast<std::size_t>(l - touch.controls().data()))
+    );
     touch.finger_down(5, l->x, l->y);
     touch.finger_up(5);
     CHECK(!read(touch).held(Button::L1));
@@ -138,34 +146,50 @@ void arc_style() {
 void action_sets() {
     TouchActionSets sets;
     std::string error;
-    CHECK(sets.read(R"({"contexts": {
+    CHECK(sets.read(
+        R"({"contexts": {
         "base": {"actions": [{"id": "map", "icon": "map", "press": ["select"], "side": "top"}]},
         "foot": {"extends": "base", "actions": [
             {"id": "jump", "icon": "jump", "press": ["cross"], "size": "large"},
             {"id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small"}]}}})",
-                    "game", error));
+        "game",
+        error
+    ));
     std::vector<TouchAction> foot = sets.actions("foot");
     CHECK(foot.size() == 3 && foot[0].id == "map" && foot[0].side == TouchSide::Top);
     CHECK(foot[1].press == bit(Button::Cross) && foot[1].size == TouchSize::Large);
     CHECK(foot[2].press == bit(Button::R1) && foot[2].then == bit(Button::Cross));
     // A mod adds a button and changes another; a bad set changes nothing.
-    CHECK(sets.read(R"({"contexts": {"foot": {"actions": [
+    CHECK(sets.read(
+        R"({"contexts": {"foot": {"actions": [
             {"id": "board", "icon": "board", "press": ["up"]},
             {"id": "jump", "icon": "jump", "press": ["cross"], "size": "medium"}]}}})",
-                    "mod", error));
+        "mod",
+        error
+    ));
     foot = sets.actions("foot");
     CHECK(foot.size() == 4 && foot[1].size == TouchSize::Medium && foot[3].id == "board");
-    CHECK(!sets.read(R"({"contexts": {"foot": {"actions": [{"id": "x", "icon": "x", "press": ["z"]}]}}})",
-                     "bad", error));
+    CHECK(!sets.read(
+        R"({"contexts": {"foot": {"actions": [{"id": "x", "icon": "x", "press": ["z"]}]}}})",
+        "bad",
+        error
+    ));
     CHECK(error.find("no button") != std::string::npos);
     CHECK(sets.actions("foot").size() == 4);
     // A context of its own, replacing.
-    CHECK(sets.read(R"({"contexts": {"foot": {"replace": true, "actions": [
-            {"id": "x", "icon": "x", "press": ["cross"]}]}}})", "mod2", error));
+    CHECK(sets.read(
+        R"({"contexts": {"foot": {"replace": true, "actions": [
+            {"id": "x", "icon": "x", "press": ["cross"]}]}}})",
+        "mod2",
+        error
+    ));
     CHECK(sets.actions("foot").size() == 1 && sets.actions("nothing").empty());
     // A loop of extends ends.
-    CHECK(sets.read(R"({"contexts": {"a": {"extends": "b", "actions": []}, "b": {"extends": "a", "actions": []}}})",
-                    "loop", error));
+    CHECK(sets.read(
+        R"({"contexts": {"a": {"extends": "b", "actions": []}, "b": {"extends": "a", "actions": []}}})",
+        "loop",
+        error
+    ));
     CHECK(sets.actions("a").empty());
 }
 

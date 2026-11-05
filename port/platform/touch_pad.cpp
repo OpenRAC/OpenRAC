@@ -52,10 +52,11 @@ TouchControl make_control(Kind kind, Button button, TouchGroup group, float radi
     return c;
 }
 
-constexpr const char* kGroupNames[] = {
-    "stick", "dpad",  "face",  "l1",    "l2",    "r1",    "r2",    "select", "start",
-    "menu",  "arc0",  "arc1",  "arc2",  "arc3",  "arc4",  "arc5",  "arc6",   "arc7",
-    "left0", "left1", "left2", "top0",  "top1",  "hint0", "hint1", "hint2"};
+constexpr const char* kGroupNames[] = {"stick", "dpad",   "face",  "l1",   "l2",   "r1",
+                                       "r2",    "select", "start", "menu", "arc0", "arc1",
+                                       "arc2",  "arc3",   "arc4",  "arc5", "arc6", "arc7",
+                                       "left0", "left1",  "left2", "top0", "top1", "hint0",
+                                       "hint1", "hint2"};
 static_assert(std::size(kGroupNames) == kTouchGroups, "a name for each TouchGroup");
 
 }  // namespace
@@ -134,7 +135,8 @@ void TouchPad::classic_controls() {
         {Kind::Menu, Button::Cross, G::Menu, 0.0f, 0.0f, 0.036f, 1.0f},
     };
     for (const Item& item : items) {
-        TouchControl c = make_control(item.kind, item.button, item.group, item.radius, item.stretch);
+        TouchControl c =
+            make_control(item.kind, item.button, item.group, item.radius, item.stretch);
         c.buttons = item.kind == Kind::Button ? static_cast<std::uint16_t>(item.button) : 0;
         m_controls.push_back(c);
         m_members.push_back(Member{item.dx, item.dy, item.radius});
@@ -171,7 +173,9 @@ void TouchPad::arc_controls() {
         if (g == G::Count) {
             continue;  // more than the style has places for: the first ones, the most used, stay
         }
-        float radius = a.size == TouchSize::Large ? 0.13f : a.size == TouchSize::Small ? 0.07f : 0.095f;
+        float radius = a.size == TouchSize::Large   ? 0.13f
+                       : a.size == TouchSize::Small ? 0.07f
+                                                    : 0.095f;
         float stretch = 1.0f;
         if (a.side == TouchSide::Top) {
             radius = 0.036f;
@@ -239,10 +243,13 @@ void TouchPad::set_style(TouchStyle style) {
 
 void TouchPad::set_actions(std::vector<TouchAction> actions, std::vector<std::string> hints) {
     const auto same = [](const std::vector<TouchAction>& a, const std::vector<TouchAction>& b) {
-        return std::equal(a.begin(), a.end(), b.begin(), b.end(), [](const TouchAction& x, const TouchAction& y) {
-            return x.id == y.id && x.icon == y.icon && x.press == y.press && x.then == y.then
-                   && x.size == y.size && x.side == y.side && x.when == y.when && x.toggle == y.toggle;
-        });
+        return std::equal(
+            a.begin(), a.end(), b.begin(), b.end(), [](const TouchAction& x, const TouchAction& y) {
+                return x.id == y.id && x.icon == y.icon && x.press == y.press && x.then == y.then
+                       && x.size == y.size && x.side == y.side && x.when == y.when
+                       && x.toggle == y.toggle;
+            }
+        );
     };
     const bool now_same = same(actions, m_actions) && hints == m_hints;
     if (now_same && !m_waiting) {
@@ -689,7 +696,8 @@ bool TouchPad::held(std::size_t index) const {
 
 bool TouchPad::toggled(std::size_t index) const {
     return index < m_controls.size() && m_controls[index].toggle
-           && std::find(m_toggled.begin(), m_toggled.end(), m_controls[index].action) != m_toggled.end();
+           && std::find(m_toggled.begin(), m_toggled.end(), m_controls[index].action)
+                  != m_toggled.end();
 }
 
 void TouchPad::knob(std::size_t index, float& dx, float& dy) const {
@@ -726,7 +734,8 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     };
     for (std::size_t i = 0; i < m_controls.size(); ++i) {
         const TouchControl& c = m_controls[i];
-        const bool on = c.toggle && std::find(m_toggled.begin(), m_toggled.end(), c.action) != m_toggled.end();
+        const bool on =
+            c.toggle && std::find(m_toggled.begin(), m_toggled.end(), c.action) != m_toggled.end();
         if (!on && (c.toggle || !held(i))) {
             continue;
         }

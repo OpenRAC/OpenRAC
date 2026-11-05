@@ -97,7 +97,9 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
 // Puts `add` over `into`: an action of the same id takes the old one's place, a new one goes last.
 void merge(std::vector<TouchAction>& into, const std::vector<TouchAction>& add) {
     for (const TouchAction& a : add) {
-        const auto same = std::find_if(into.begin(), into.end(), [&](const TouchAction& b) { return b.id == a.id; });
+        const auto same = std::find_if(into.begin(), into.end(), [&](const TouchAction& b) {
+            return b.id == a.id;
+        });
         if (same != into.end()) {
             *same = a;
         } else {
