@@ -55,9 +55,11 @@ extern "C" {
  * folder of the mod's own for its files and the memory card slot the game in progress saves into,
  * 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles
  * around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the
- * camera set by a mod, heat haze drawn over the picture and text in the game's HUD.
+ * camera set by a mod, heat haze drawn over the picture and text in the game's HUD, 1.13 the
+ * on-screen pad's buttons (touch screens): sets of action buttons, icons, a context of the mod's
+ * own (a vehicle) and hints.
  */
-#define OPENRAC_MOD_API_MINOR 12
+#define OPENRAC_MOD_API_MINOR 13
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -1608,6 +1610,26 @@ typedef struct openrac_api {
      * not started: that is his own update's, so a mod that has taken it hands a last hit to the
      * game (on_moby_hit returning 0). His health after, or -1 outside a level. Since 1.12. */
     int (*hero_hurt)(openrac_mod* mod, int damage);
+
+    /* The on-screen pad's action buttons (touch screens; docs/port/MODS.md, "Touch controls").
+     * touch_define reads a set of actions over the game's (the JSON a manifest's "touch" file
+     * holds: contexts, each with its buttons: an icon, the pad's buttons it presses, a size): a
+     * context of the game's gets the mod's buttons too, or the mod's own context is made.
+     * OPENRAC_HOOK_UNKNOWN for text that is not such a set. Since 1.13. */
+    int (*touch_define)(openrac_mod* mod, const char* json);
+
+    /* Adds an icon `name` for the sets' "icon": an SVG, white drawn white and #ff8000 in the
+     * game's accent. OPENRAC_HOOK_UNKNOWN for no name or text that is not an SVG. Since 1.13. */
+    int (*touch_icon)(openrac_mod* mod, const char* name, const char* svg);
+
+    /* Shows the buttons of `context` (one of the sets) in place of the game's, until the mod
+     * passes null or "" (a vehicle of the mod's, a mini-game). The last mod to push one shows.
+     * Since 1.13. */
+    void (*touch_push)(openrac_mod* mod, const char* context);
+
+    /* Raises (`on` 1) or lowers a hint: the buttons with that "when" show while it is up. Since
+     * 1.13. */
+    void (*touch_hint)(openrac_mod* mod, const char* hint, int on);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

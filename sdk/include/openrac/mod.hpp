@@ -1315,6 +1315,35 @@ public:
     // his own update's): his health after, or -1.
     int hero_hurt(int damage) const { return has_api_12() ? m_api->hero_hurt(m_handle, damage) : -1; }
 
+    // Whether the port has interface 1.13's calls: the on-screen pad's action buttons.
+    bool has_api_13() const {
+        return m_api->api_minor >= 13
+               && m_api->size >= offsetof(openrac_api, touch_hint) + sizeof(void*);
+    }
+    bool has_touch() const { return has_api_13(); }
+
+    // Since 1.13: a set of the on-screen pad's actions over the game's (the JSON of a manifest's
+    // "touch" file); false for text that is not one, or a port without them.
+    bool touch_define(const char* json) const {
+        return has_api_13() && m_api->touch_define(m_handle, json) == OPENRAC_HOOK_OK;
+    }
+    // Since 1.13: an icon `name` for the sets: an SVG, #ff8000 drawn in the game's accent.
+    bool touch_icon(const char* name, const char* svg) const {
+        return has_api_13() && m_api->touch_icon(m_handle, name, svg) == OPENRAC_HOOK_OK;
+    }
+    // Since 1.13: the buttons of `context` in place of the game's; null or "" gives them back.
+    void touch_push(const char* context) const {
+        if (has_api_13()) {
+            m_api->touch_push(m_handle, context);
+        }
+    }
+    // Since 1.13: raises or lowers a hint (the buttons with that "when" show while it is up).
+    void touch_hint(const char* hint, bool on) const {
+        if (has_api_13()) {
+            m_api->touch_hint(m_handle, hint, on ? 1 : 0);
+        }
+    }
+
     // Since 1.9: whether the port offers the world calls (moby_list() ... bolts()).
     bool has_world() const {
         return m_api->api_minor >= 9

@@ -187,6 +187,7 @@ files. Script mods and data packs work there as elsewhere.
 | `conflicts` | no | mods it cannot run with; either side may list the other |
 | `load` | no | `after` and `before`: ids it should load after or before when both are on (an order hint the launcher applies when a mod is installed or switched on) |
 | `tool` | no | `{"page": "ui/index.html"}`: an HTML file inside the mod, shown as its own page in the launcher (section 9, "A mod's page"). A mod with only a page is never loaded by the game |
+| `touch` | no | (1.13) a `.json` file inside the mod with buttons for the on-screen pad and their icons ("Touch controls" below) |
 
 A setting is `{key, name, type, default, description?}` with `key` in
 `[a-z0-9_]+`, and by type:
@@ -241,6 +242,54 @@ and `"shrub"`). Every class needs a `mesh`, read from the mod's folder; a
 broken `classes.json` stops the level from loading, with the reason in the log.
 The original manifests are never changed. `package_mod.py` checks the folder
 and packs it whole (hidden files left out).
+
+### Touch controls
+
+On a touch screen the port draws the pad as action buttons (the drawer's
+"Action buttons" switch; off shows the DualShock's own). Which buttons show
+depends on what the game is doing, its context: `foot`, `clank`,
+`giant_clank`, `swim`, `grind`, `hoverboard`, `ship`, `turret`, `cutscene`,
+`menu`, `dialog`, `vendor`, `front_end`, `default`. The sets are JSON
+(`port/game/common/touch/sets/common.json`, then `<game>.json`), and a mod adds
+its own over them:
+
+```jsonc
+{
+  "contexts": {
+    "kart": {                          // a context of the mod's own
+      "extends": "base",               // its buttons, then base's (map, pause)
+      "actions": [
+        { "id": "go",    "icon": "kart_go", "press": ["cross"], "size": "large" },
+        { "id": "brake", "icon": "down",    "press": ["square"] },
+        { "id": "hop",   "icon": "jump",    "press": ["r1"], "then": ["cross"], "size": "small" }
+      ]
+    },
+    "foot": {                          // the game's context, one button added
+      "actions": [ { "id": "kart", "icon": "kart_go", "press": ["l3"], "when": "near_kart" } ]
+    }
+  },
+  "icons": { "kart_go": "touch/kart_go.svg" }
+}
+```
+
+An action is `id`, `icon` and `press` (a list of the pad's buttons:
+`cross`, `circle`, `square`, `triangle`, `l1` .. `r3`, `start`, `select`,
+`up` .. `right`), and may have `then` (buttons pressed 50 ms after, for a
+combination), `size` (`large`, `medium`, `small`), `side` (`arc` under the
+right thumb, `left` over the stick, `top`), `when` (a hint it waits for) and
+`toggle` (stays down until tapped again). An action of the same `id` replaces
+the one before; `"replace": true` drops the context's buttons before the
+mod's. An icon is an SVG drawn square from its viewBox: what is `#ff8000` is
+drawn in the game's accent, everything else white.
+
+The manifest's `"touch"` names such a file, read when the mod loads. From
+code (1.13): `touch_define(mod, json)` adds a set, `touch_icon(mod, name,
+svg)` an icon, `touch_push(mod, context)` shows a context of the mod's in
+place of the game's until it passes null (a vehicle of its own; the last mod
+to push one shows), and `touch_hint(mod, hint, on)` raises a hint. Scripts
+have `openrac.touch_define`, `touch_icon`, `touch_push` and `touch_hint`.
+A context the game moves into shows once it has held for 6 frames, a hint
+after 3, and the pad changes only when no finger is on its buttons.
 
 ## 4. Hook points
 
