@@ -87,6 +87,8 @@ if(OPENRAC_PROBE_BAKER)
       "${PROJECT_SOURCE_DIR}/enhanced/tools/baker/test_native_pipeline.py"
       "$<TARGET_FILE:openrac-enhanced-baker>")
     set_tests_properties(enhanced_baker_pipeline PROPERTIES TIMEOUT 120)
+    set_property(TEST enhanced_water_sources enhanced_baker_cli enhanced_baker_pipeline
+      APPEND PROPERTY LABELS baker)
     if(WIN32)
       set_tests_properties(enhanced_water_sources enhanced_baker_cli enhanced_baker_pipeline PROPERTIES
         ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:embree>")
