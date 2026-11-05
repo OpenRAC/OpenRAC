@@ -56,7 +56,7 @@ void test_lily_momentum(const std::filesystem::path& file) {
     }
 }
 
-// HDR output: off with no key (the picture as always), its three modes and levels round-trip, and
+// HDR output: off with no key (the picture as always), its two modes and levels round-trip, and
 // values out of range keep the defaults.
 void test_hdr_settings(const std::filesystem::path& file) {
     using namespace openrac;
@@ -75,8 +75,9 @@ void test_hdr_settings(const std::filesystem::path& file) {
         CHECK(settings::get().hdr_paper_white == 250 && settings::get().hdr_peak == 1400);
     }
     // The launcher's word over the file's, and another word changes nothing.
-    CHECK(settings::set_hdr_mode("auto") && settings::get().hdr == hdr::Mode::Auto);
-    CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::Auto);
+    CHECK(settings::set_hdr_mode("off") && settings::get().hdr == hdr::Mode::Off);
+    CHECK(settings::set_hdr_mode("on") && settings::get().hdr == hdr::Mode::On);
+    CHECK(!settings::set_hdr_mode("bright") && settings::get().hdr == hdr::Mode::On);
     // The ranges' tops: the brightest screens on sale.
     std::ofstream(file) << "hdr_paper_white = 1000\nhdr_peak = 10000\n";
     settings::load(file);

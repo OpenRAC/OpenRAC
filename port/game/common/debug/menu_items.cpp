@@ -544,8 +544,8 @@ bool act(Id id, int by) {
             return false;
         case Id::Hdr: {
             // From Off, it counts from the next start (frontend's apply_hdr says so).
-            const int mode = static_cast<int>(set.hdr);
-            set.hdr = static_cast<hdr::Mode>((mode + by + 3) % 3);
+            const int count = static_cast<int>(hdr::Mode::Count);
+            set.hdr = static_cast<hdr::Mode>((static_cast<int>(set.hdr) + by + count) % count);
             changed();
             return false;
         }
