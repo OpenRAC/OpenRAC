@@ -704,6 +704,16 @@ export const STEAM_TEXT = {
   added: "Added. If Steam is open and does not show it, restart Steam.",
 } as const;
 
+/** A game's page: its own Steam entry and desktop shortcut (GameShortcuts.svelte). */
+export const SHORTCUT_TEXT = {
+  steamLine: "Add this game to your Steam library as its own entry. It starts without the launcher's window.",
+  steamIn: "In your Steam library.",
+  desktopTitle: "Desktop shortcut",
+  desktopLine: "A shortcut on your Desktop that starts this game without the launcher's window.",
+  create: "Create shortcut",
+  created: (path: string) => `Shortcut written to ${path}.`,
+} as const;
+
 export const SETTINGS_TEXT = {
   autoUpdate: "Update mods automatically",
   autoUpdateLine: "Small updates go in by themselves before you play. Big ones wait for you.",

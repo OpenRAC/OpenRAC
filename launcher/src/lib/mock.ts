@@ -2760,6 +2760,10 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "steam_add":
       if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
       return delay("added");
+    case "shortcut_create":
+      return delay(`/home/player/Desktop/${String(args.version).replace("/", "-")}.desktop`);
+    case "startup_game":
+      return delay(null);
     case "index_fetch":
       // Said, so a test sees that a page did not read the mod list by itself.
       console.info("[preview] index_fetch");

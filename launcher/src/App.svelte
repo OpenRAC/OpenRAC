@@ -6,10 +6,20 @@
   import ModUpdateModal from "$components/ModUpdateModal.svelte";
   import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
   import { startDeepLinks } from "$lib/deepLink.svelte";
+  import { startGameRequests } from "$lib/gameRequest";
   import { startAutoUpdates } from "$lib/modAutoUpdate.svelte";
   import UpdateModal from "$components/UpdateModal.svelte";
   import { errorText, onAndroid } from "$lib/api";
-  import { app, openDevelop, refresh, showLaunch, start, updateDiscordPresence, type Page } from "$lib/app.svelte";
+  import {
+    app,
+    openDevelop,
+    openVersion,
+    refresh,
+    showLaunch,
+    start,
+    updateDiscordPresence,
+    type Page,
+  } from "$lib/app.svelte";
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
   import { slide, slides } from "$lib/motion";
@@ -136,6 +146,8 @@
         if (app.config?.checkModUpdates) void lookForModUpdates().catch(() => undefined);
         // openrac:// links (the website's Install buttons): the start's own, then each one sent.
         void startDeepLinks().catch(() => undefined);
+        // A shortcut's game that could not start: the page for it (gameRequest.ts).
+        void startGameRequests(openVersion).catch(() => undefined);
         // Mods from the index kept current: now, then every 6 hours (lib/modAutoUpdate).
         stopAutoUpdates = startAutoUpdates();
         // ?launch: the version's start (Android's spinning disc), as Play shows it.

@@ -79,6 +79,7 @@ pub mod save_edit_rac2;
 pub mod save_edit_rac2_extra;
 pub mod save_transfer;
 pub mod saves;
+pub mod shortcut;
 pub mod status;
 pub mod steam;
 pub mod texture_packs;
