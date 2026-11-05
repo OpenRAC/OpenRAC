@@ -61,3 +61,14 @@ int func_0011C820(gaddr format, ...) {
     fprintf(stderr, "[game] %s", out);
     return n;
 }
+
+/* The kernel library's print core, which kprintf and scePrintf hand their format and va_list
+ * to: matched C in the decompilation, left out here (hostgen.json, "host_functions") as rac1's
+ * is (rac1-pal/host/kprintf.c), because it walks the console's argument area with pointer
+ * arithmetic on its va_list, which Clang's va_list is not on ARM64 (Android, Linux). Only the
+ * two prints above call it, and the port answers those itself, so nothing reaches this. */
+int func_0011C1F8(gaddr format, va_list arguments) {
+    (void)format;
+    (void)arguments;
+    return 0;
+}
