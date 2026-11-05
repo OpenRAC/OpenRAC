@@ -10,12 +10,21 @@ from unittest.mock import patch
 import build_game
 
 
+def short_enough(test: unittest.TestCase, temp: Path) -> None:
+    """Scale the build's longest path to this computer's temporary folder: macOS's is long enough
+    on its own to leave no room under Windows' limit, and these tests build in it."""
+    patcher = patch.object(build_game, "LONGEST_BUILD_PATH", build_game.WINDOWS_PATH_LIMIT - len(str(temp)) - 40)
+    patcher.start()
+    test.addCleanup(patcher.stop)
+
+
 class BuildDirectory(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.dir = Path(self.tmp.name).resolve()
         self.out = self.dir / ("installation with spaces " * 4).rstrip() / "program" / "abc"
+        short_enough(self, self.dir)
 
     def test_windows_keeps_a_short_installation_path(self):
         with patch.object(build_game.sys, "platform", "win32"):
@@ -108,6 +117,7 @@ class FetchSource(unittest.TestCase):
         disc = out.parent.parent / "disc.iso"
         disc.write_text("test fixture")
         argv = ["x", "--disc", str(disc), "--out", str(out), "--source-url", self.url]
+        short_enough(self, self.dir.resolve())
         with patch.object(build_game.sys, "platform", "win32"), \
                 patch.object(build_game.tempfile, "gettempdir", return_value=str(self.dir)), \
                 patch.object(build_game, "carried_commit", return_value="abc"):
