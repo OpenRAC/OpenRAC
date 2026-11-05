@@ -246,7 +246,7 @@ export async function checkForUpdate(
     if (!release) return null;
     // Android installs no older build over a newer one (its version code): the release is
     // downloaded from its page instead, and installed once this launcher is uninstalled. A
-    // development build is always later (android.rs, update_check, offers no other): installed as
+    // development build is always newer (android.rs, update_check, offers no other): installed as
     // any update, also from Stable.
     const older = channel === "stable" && isNewerVersion(release.version, currentVersion);
     return {
