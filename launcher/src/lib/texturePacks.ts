@@ -1,4 +1,4 @@
-// How a game's Texture packs section talks about a pack, in a player's words. No Svelte or Tauri
+// How the Mods tab's Texture packs section talks about a pack, in a player's words. No Svelte or Tauri
 // here, so it can be tested.
 import type { TexturePackPreview, TexturePackView } from "./api";
 import { grouped } from "./format";

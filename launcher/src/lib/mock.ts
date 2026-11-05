@@ -2551,7 +2551,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "texture_packs_preview":
       if (String(args.source).includes("rac1")) {
         throw new Error(
-          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's page instead.",
+          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's Mods tab instead.",
         );
       }
       return delay({

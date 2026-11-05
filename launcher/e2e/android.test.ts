@@ -320,6 +320,23 @@ describe("A controller", () => {
     expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("menuitem");
   });
 
+  it("keeps the texture packs on Mods, not on the game's page, and reaches them by pad", async () => {
+    await open("version=rac1/pal");
+    expect(await page.getByRole("heading", { name: "Texture packs" }).count()).toBe(0);
+    await open("page=mods&version=rac1/pal");
+    await page.getByRole("heading", { name: "Texture packs" }).waitFor();
+    await page.getByRole("button", { name: "Open your pack" }).focus();
+    // Down goes on to the pack's own row, and sideways along it, never out of the section.
+    const inTextures = () => page.evaluate(() => document.activeElement?.closest(".textures") !== null);
+    await press("down");
+    expect(await focused()).toMatch(/^(Use your texture pack|Add a pack…|Share my pack…)$/);
+    for (let i = 0; i < 2; i++) {
+      await press("left");
+      expect(await inTextures()).toBe(true);
+    }
+    expect(await focused()).toMatch(/^(Use your texture pack|Add a pack…)$/);
+  });
+
   it("passes over what a closed fold holds", async () => {
     await open("page=settings");
     const advanced = page.locator("details:not([open]) > summary").first();

@@ -3,8 +3,8 @@
   // same page. Its head: the game's name (the game starts
   // with its mods from the game's page: the Mods switch under Play). Then its tabs, so that each of the player's jobs has a place of
   // its own that can be seen from the top: My mods (AddMod: a link, a file or a folder; the
-  // gameplay mods, PluginsPanel; the texture, model and level packs,
-  // PacksPanel), Level editor (open a level in Godot, pack the changes), Models and textures
+  // gameplay mods, PluginsPanel; the texture, model and level packs, PacksPanel; the player's
+  // own texture pack, TexturePacksBlock), Level editor (open a level in Godot, pack the changes), Models and textures
   // (AssetsPanel) and, for a game whose sound can be changed, Audio (AudioPanel). A game the editor cannot open but that plays has My mods alone; one the editor
   // cannot open yet says so, and where to follow it. A game it reads in early access (Going
   // Commando, Up Your Arsenal, Deadlocked: no pack or play action of theirs yet) says so in a line.
@@ -26,6 +26,7 @@
   import ModLoadSummary from "$components/ModLoadSummary.svelte";
   import ModUpdatesPanel from "$components/ModUpdatesPanel.svelte";
   import PluginsPanel from "$components/PluginsPanel.svelte";
+  import TexturePacksBlock from "$components/TexturePacksBlock.svelte";
   import { api, onAndroid, type ActionView, type GameView, type VersionView } from "$lib/api";
   import { app, guardShown, jobs, run } from "$lib/app.svelte";
   import type { EntryState } from "$lib/labels";
@@ -91,6 +92,9 @@
     const play = action(v, "play");
     return !!play && play.state !== "planned";
   };
+
+  /** Texture packs need the game's port and its disc set up: the game saves its pictures from it. */
+  const textured = (game: GameView, version: VersionView) => playable(version) && !!game.install?.extracted;
 
   /** What the game list says for each game on this tab. */
   function modState(game: GameView): EntryState {
@@ -244,14 +248,15 @@
         {#if onAndroid && mine}
           <!-- Android: one page, what a player does there in the order they do it. The mods first,
                with Enhanced graphics at the top and its switch in its row; adding one, from a link or
-               a .zip the system's picker copies in; then the texture and model packs. No level editor
-               or model export: they need Godot and a desktop. -->
+               a .zip the system's picker copies in; then the texture and model packs, and the player's
+               own texture pack. No level editor or model export: they need Godot and a desktop. -->
           <PluginsPanel version={mine} reload={pluginsReload} onpack={() => (reload += 1)} />
           {#if !onModPage}
             <ModUpdatesPanel version={mine} onchange={() => (pluginsReload += 1)} />
             <AddMod version={mine} links={playable(mine)} onadded={added} />
             {#if playable(mine)}<ModBrowse version={mine} />{/if}
             <PacksPanel version={mine} {reload} />
+            {#if textured(shown, mine)}<TexturePacksBlock version={mine} />{/if}
           {/if}
         {:else if !v && played}
           <!-- The level editor cannot open it here (an installed launcher without its tools, say), but the
@@ -261,6 +266,7 @@
           {#if !onModPage}
             <ModUpdatesPanel version={played} onchange={() => (pluginsReload += 1)} />
             <ModBrowse version={played} />
+            {#if textured(shown, played)}<TexturePacksBlock version={played} />{/if}
           {/if}
         {:else if !v}
           <!-- Every game has this page; one the editor cannot open yet says so. -->
@@ -327,6 +333,7 @@
                     ><Icon name="edit" size={14} />{PAGE.makeOwnButton}</button
                   >
                 </p>
+                {#if textured(shown, v)}<TexturePacksBlock version={v} />{/if}
               {:else if current === "browse"}
                 {#if playable(v)}<ModBrowse version={v} />{/if}
               {:else if current === "editor"}

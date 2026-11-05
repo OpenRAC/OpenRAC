@@ -110,9 +110,10 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
-- **Texture packs**: for a game with a port, your own pictures in place of
-  the game's, in three steps. **Save the game's textures while you play**
-  makes the next Play save every picture it shows, sorted into Interface
+- **Texture packs**: on the Mods tab, for a game with a port, your own
+  pictures in place of the game's, in three steps. **Save the game's
+  textures while you play** makes the next Play save every picture it shows,
+  sorted into Interface
   (HUD, menus, font), Shared and a folder for each planet, with counts that
   open each folder; they come from your disc, so keep them to yourself.
   Edit or upscale the ones you want in any editor and put them in **your

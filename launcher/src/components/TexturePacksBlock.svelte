@@ -1,5 +1,6 @@
 <script lang="ts">
-  // A game's texture pack (core/src/texture_packs.rs, docs/port/TEXTURE_PACKS.md), as three steps a
+  // A game's texture pack on the Mods tab's My mods (core/src/texture_packs.rs,
+  // docs/port/TEXTURE_PACKS.md), as three steps a
   // player follows: save the game's pictures while playing, make their own in any editor, and use
   // them as their pack, which they can also add from a .zip or share as one. Counts per folder
   // (Interface, Shared, each planet) open that folder. Hashes, paths and the environment the

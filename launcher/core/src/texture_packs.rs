@@ -53,7 +53,7 @@ pub struct Folder {
     pub count: u32,
 }
 
-/// The Texture packs section of a game's page.
+/// The Texture packs section of a game's Mods tab.
 #[derive(Debug, Clone, Serialize, ts_rs::TS)]
 #[ts(rename = "TexturePackView")]
 #[serde(rename_all = "camelCase")]
@@ -468,7 +468,7 @@ fn scan(archive: &mut zip::ZipArchive<std::fs::File>, id: &str) -> Result<Scanne
     if let Some(game) = manifest.game.as_deref() {
         if game != id {
             return Err(format!(
-                "This pack is for {}, not {}. Add it on that game's page instead.",
+                "This pack is for {}, not {}. Add it on that game's Mods tab instead.",
                 title(game),
                 title(id)
             ));

@@ -24,7 +24,8 @@ off. The log says how many textures the pack has at the start.
 
 ## In the launcher
 
-A game's page has a **Texture packs** section, in three steps:
+The **Mods** tab has a **Texture packs** section under **My mods**, for the
+game picked there, in three steps:
 
 1. **Save the game's textures while you play.** Switch it on and play: every
    picture the game shows is saved once into the textures folder (below).
