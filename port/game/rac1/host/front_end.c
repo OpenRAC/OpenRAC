@@ -112,6 +112,7 @@ const openrac_front_end rac1_front_end = {
     .video_mode = RAC1_ADDR(0x0016044Cu),
     .game_mode = RAC1_ADDR(0x0015F6E8u),
     .light_bank = RAC1_ADDR(0x0019BEC0u),
+    .occlusion = RAC1_ADDR(0x001940C0u),
     .level = RAC1_ADDR(0x0015EE84u),
     .dialog = RAC1_ADDR(0x00193400u),
     .title_exit = RAC1_ADDR(0x0015F690u),

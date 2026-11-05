@@ -196,6 +196,11 @@ gaddr light_bank_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->light_bank : 0;
 }
 
+// The game's occlusion mask (0x80 bytes), in the executable's terms; 0 when the game has none.
+gaddr occlusion_address() {
+    return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
+}
+
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
