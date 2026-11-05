@@ -417,7 +417,9 @@ impl Action {
                 Some(made) => fill(made, ctx, None).is_ok_and(|p| abs(ctx.root, &p).exists()),
                 None => self.artifact_path(ctx).is_ok_and(|p| p.exists()),
             },
-            missing_artifact: self.requires.contains(&Requirement::Artifact)
+            // Android plays the game its APK carries, so its Play never misses a program.
+            missing_artifact: ctx.platform != Platform::Android
+                && self.requires.contains(&Requirement::Artifact)
                 && !self.artifact_path(ctx).is_ok_and(|p| p.exists()),
             developer: self.developer,
             warning: self.warning.clone(),
@@ -876,8 +878,8 @@ mod tests {
         let program = dir.path().join("openrac-rac2-ntsc");
         let play: Action = serde_json::from_str(&format!(
             r#"{{"id": "play", "label": "Play", "kind": "play", "state": "unverified", "program": "{{artifact}}",
-                "requires": ["artifact"], "artifact": "{}"}}"#,
-            program.display()
+                "requires": ["artifact"], "artifact": {}}}"#,
+            serde_json::to_string(&program.to_string_lossy()).unwrap()
         ))
         .unwrap();
         let config = Config::default();
@@ -892,6 +894,10 @@ mod tests {
             path: None,
             option: None,
         };
+        // Android plays the game its APK carries: its Play never misses a program, so Rebuild
+        // there stays the levels read again.
+        let on_android = Context { platform: Platform::Android, ..ctx };
+        assert!(!play.view(&on_android).missing_artifact);
         let view = play.view(&ctx);
         assert!(view.missing_artifact && !view.runnable && !view.done, "{view:?}");
         std::fs::write(&program, "").unwrap();

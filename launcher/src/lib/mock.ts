@@ -472,7 +472,7 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
     // built and its levels ready). Only the steps that made those are done; the rest are not,
     // or a page would say an action that never ran is done.
     done: built && BUILT_DONE.has(action.id),
-    missingArtifact: state !== "planned" && !built && (action.requires ?? []).includes("artifact"),
+    missingArtifact: platform !== "android" && state !== "planned" && !built && (action.requires ?? []).includes("artifact"),
     developer: action.developer ?? false,
     warning: action.warning ?? null,
   };
