@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod android;
+mod mod_tool;
 
 use openrac_launcher_core::actions::{Platform, Scope};
 use openrac_launcher_core::config::{self, Config};
@@ -1454,7 +1455,7 @@ fn overrides_remove(state: State<'_, AppState>, game: String, id: String) -> Res
 
 /// Where `version`'s level editor data is (core reset.rs), from the checkout and the install folder
 /// in Settings; the version must be one the checkout's catalogue knows.
-fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
+pub(crate) fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
     let config = state.config.lock().unwrap().clone();
     let root = config.root()?.to_path_buf();
     let install = config.install_dir.clone().ok_or("no install folder (Settings)")?;
@@ -2465,6 +2466,15 @@ pub fn run() {
             texture_packs_preview,
             texture_packs_import,
             texture_packs_export,
+            mod_tool::mod_tool_list,
+            mod_tool::mod_tool_read,
+            mod_tool::mod_tool_store_get,
+            mod_tool::mod_tool_store_set,
+            mod_tool::mod_tool_save,
+            mod_tool::mod_tool_save_start,
+            mod_tool::mod_tool_save_write,
+            mod_tool::mod_tool_save_end,
+            mod_tool::mod_tool_open,
             enhanced_set_setting,
             enhanced_delete_bakes,
             plugins_set_enabled,
@@ -2575,6 +2585,11 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             let _ = window.set_focus();
         }
     }));
+    // A mod's own page (mod_tool.rs), served from its folder under an address of its own.
+    let builder = builder.register_asynchronous_uri_scheme_protocol(mod_tool::SCHEME, |ctx, request, responder| {
+        let app = ctx.app_handle().clone();
+        tauri::async_runtime::spawn_blocking(move || responder.respond(mod_tool::serve(&app, &request)));
+    });
     let builder = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())

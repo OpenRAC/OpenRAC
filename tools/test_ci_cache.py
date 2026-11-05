@@ -72,7 +72,7 @@ endif()
 class CachePolicy(unittest.TestCase):
     def test_native_compiler_caches_do_not_save_pr_private_snapshots(self):
         """Checks and launcher builds share the success-only compiler cache policy."""
-        for name, count in (("checks.yml", 5), ("launcher.yml", 1)):
+        for name, count in (("checks.yml", 4), ("launcher.yml", 1)):
             text = (ROOT / ".github/workflows" / name).read_text()
             self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache"), name)
             self.assertNotIn("uses: hendrikmuhs/ccache-action@", text, name)

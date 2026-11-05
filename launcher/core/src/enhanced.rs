@@ -223,6 +223,7 @@ pub fn view(data_home: &Path, game: &str, version: &str, bake: BakeStatus) -> En
             kind: "built-in".into(),
             path: String::new(),
             missing: Vec::new(),
+            tool: None,
         },
         bake,
     }
