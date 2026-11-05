@@ -340,6 +340,7 @@ void test_an_entry_changes_no_frame(
     std::string error;
     const bool baseline_on = render_opt::enabled(entry.opt);
     render_opt::set(entry.opt, !baseline_on);
+    const auto before = openrac::vkgl::submission_counters();
     render::SceneRenderer scene;
     const bool opened = scene.open(setup.level, {kWidth, kHeight, 1, setup.enhanced}, error);
     CHECK(opened);
@@ -371,6 +372,10 @@ void test_an_entry_changes_no_frame(
         CHECK(equivalent);
     }
     timing.lap(setup.enhanced ? "enhanced draw/readback" : "compatibility draw/readback");
+    // Even a borrowed driver program must compile fresh SPIR-V with the disk cache off.
+    if (entry.opt == render_opt::Opt::SpirvDiskCache && baseline_on) {
+        CHECK(openrac::vkgl::submission_counters().shader_compiles > before.shader_compiles);
+    }
     scene.release();
     render_opt::reset();
 }
