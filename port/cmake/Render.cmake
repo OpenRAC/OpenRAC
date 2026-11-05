@@ -102,8 +102,9 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
   # the benchmark too, which render_bench_smoke runs.
   add_custom_target(render_bench_test)
   add_dependencies(render_bench_test openrac_render_bench)
+  # Keep the large scene's batched draws, culling and texture reupload out of the pixel matrix.
   add_test(NAME render_bench_smoke
-           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 160x90)
+           COMMAND openrac_render_bench --frames 10 --warmup 2 --size 160x90 --scenario reupload)
   set_tests_properties(render_bench_smoke PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 
@@ -127,14 +128,29 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     FIXTURES_SETUP render_equivalence_baselines PROCESSORS 2
     LABELS render-equivalence SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
-  add_test(NAME render_equivalence_vulkan
-    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 0 2)
-  add_test(NAME render_equivalence_vulkan_remaining
-    COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard 1 2)
-  set(openrac_parallel_gpu_tests render_equivalence_vulkan render_equivalence_vulkan_remaining)
-  set_tests_properties(${openrac_parallel_gpu_tests} PROPERTIES SKIP_RETURN_CODE 77
+  option(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS
+    "Run four software Vulkan equivalence shards instead of two" OFF)
+  set(equivalence_tests render_equivalence_vulkan render_equivalence_vulkan_remaining)
+  if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
+    list(APPEND equivalence_tests render_equivalence_vulkan_shard_2 render_equivalence_vulkan_shard_3)
+  endif()
+  list(LENGTH equivalence_tests shard_count)
+  set(shard_index 0)
+  foreach(test IN LISTS equivalence_tests)
+    add_test(NAME "${test}"
+      COMMAND render_equivalence_test --baseline "${equivalence_baselines}" --shard "${shard_index}" "${shard_count}")
+    math(EXPR shard_index "${shard_index} + 1")
+  endforeach()
+  list(APPEND openrac_parallel_gpu_tests ${equivalence_tests})
+  set_tests_properties(${equivalence_tests} PROPERTIES SKIP_RETURN_CODE 77
     LABELS render-equivalence FIXTURES_REQUIRED render_equivalence_baselines ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+  if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
+    # Start the longest runnable tests first on a runner with no timing history.
+    set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES COST 90)
+    set_tests_properties(${equivalence_tests} PROPERTIES COST 150)
+    set_property(TEST ${equivalence_tests} APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=1")
+  endif()
   if(OPENRAC_ENHANCED_RENDERING)
     add_test(NAME shadow_scroll_vulkan
              COMMAND render_equivalence_test --compatibility-baseline
@@ -154,7 +170,7 @@ foreach(test sun_shadow_vulkan sun_shadow_filter_reference_vulkan)
 endforeach()
 foreach(test probe_gpu_vulkan gtao_vulkan gtao_horizon_vulkan shadow_scroll_vulkan)
   if(TEST "${test}")
-    # These matrices need memory or CPU throughput; occupy both CI worker slots.
+    # Reserve two scheduler slots for these heavier matrices.
     set_tests_properties("${test}" PROPERTIES PROCESSORS 2)
   endif()
 endforeach()
@@ -221,6 +237,6 @@ foreach(test IN LISTS equivalence_feature_tests)
   endif()
 endforeach()
 if(TEST render_equivalence_vulkan)
-  set_property(TEST render_equivalence_vulkan render_equivalence_vulkan_remaining APPEND PROPERTY
+  set_property(TEST ${equivalence_tests} APPEND PROPERTY
     FIXTURES_REQUIRED render_equivalence_features)
 endif()

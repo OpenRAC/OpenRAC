@@ -242,7 +242,7 @@ jobs:
         run: yarn test:android
 
   # The native port (port/): hostgen's tests, then the whole port built with
-  # Clang (SDL3 fetched by CMake), with enhanced rendering compiled out. Exercise
+  # Clang and system SDL3, with enhanced rendering compiled out. Exercise
   # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
   port:
     runs-on: ubuntu-26.04
@@ -266,13 +266,11 @@ jobs:
       - uses: ./.github/actions/mesa-cache
         with:
           variant: ubuntu-release
-      - name: Compilers and SDL's system libraries
+      - name: Compilers, SDL3 and software Vulkan
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang ninja-build libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
-            libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev \
-            mesa-vulkan-drivers vulkan-validationlayers
+          sudo apt-get install -y --no-install-recommends clang lld ninja-build libsdl3-dev \
+            libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri mesa-vulkan-drivers vulkan-validationlayers
 
       - uses: ./.github/actions/port-build-cache
         with:
@@ -356,7 +354,7 @@ jobs:
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced:
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
@@ -371,13 +369,28 @@ jobs:
       - uses: ./.github/actions/mesa-cache
         with:
           variant: ubuntu-enhanced-nopt
+      - name: Restore enhanced Vulkan packages
+        id: enhanced-apt
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
+          key: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-${{ hashFiles('.github/workflows/checks.yml') }}
+          restore-keys: enhanced-apt-v1-ubuntu-26.04-${{ runner.arch }}-
       - name: Compilers, software Vulkan and Embree 4
         run: |
+          archives="$RUNNER_TEMP/openrac-enhanced-apt"
+          mkdir -p "$archives"
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang ninja-build libembree-dev \
+          sudo apt-get -o Dir::Cache::archives="$archives" install -y --no-install-recommends \
+            clang lld ninja-build libembree-dev libsdl3-dev \
             libgl1-mesa-dev libegl1-mesa-dev libgl1-mesa-dri mesa-vulkan-drivers vulkan-validationlayers \
-            libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev \
-            libwayland-dev libxkbcommon-dev libasound2-dev libpulse-dev xvfb xauth
+            xvfb xauth
+      - name: Save enhanced Vulkan packages
+        if: steps.enhanced-apt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/openrac-enhanced-apt/*.deb
+          key: ${{ steps.enhanced-apt.outputs.cache-primary-key }}
       - uses: ./.github/actions/port-build-cache
         with:
           variant: ubuntu-enhanced-baker
@@ -387,7 +400,11 @@ jobs:
       - name: Build enhanced lighting and baker
         working-directory: port
         run: |
-          cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON -DOPENRAC_LIGHT_AUTHORING=ON
+          # Keep the preset's optimisation level and stack-trace lines without full DWARF.
+          flags='-O2 -gline-tables-only -DNDEBUG'
+          cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON \
+            -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON \
+            "-DCMAKE_C_FLAGS_RELWITHDEBINFO=$flags" "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=$flags"
           cmake --build --preset enhanced
       - name: CPU, Vulkan and Embree tests
         working-directory: port
@@ -398,7 +415,7 @@ jobs:
           # Fedora below retains the default LLVM optimisation coverage.
           GALLIVM_PERF: nopt
         # Retain up to 1 MiB per passed test so JUnit keeps its phase timings.
-        run: xvfb-run -a ctest --preset enhanced --parallel 2 --stop-on-failure --test-output-size-passed 1048576 --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
+        run: xvfb-run -a ctest --preset enhanced --parallel 4 --stop-on-failure --test-output-size-passed 1048576 --output-junit "$PWD/build/enhanced/enhanced-tests.xml"
       - name: Enhanced GPU and bake checks must run, not skip
         working-directory: port
         run: |
@@ -409,7 +426,9 @@ jobs:
                       'object_lights', 'object_preview', 'object_preview_opengl',
                       'object_preview_es', 'local_lights',
                       'render_equivalence_prepare_vulkan', 'render_equivalence_vulkan',
-                      'render_equivalence_vulkan_remaining', 'render_equivalence_support',
+                      'render_equivalence_vulkan_remaining', 'render_equivalence_vulkan_shard_2',
+                      'render_equivalence_vulkan_shard_3', 'render_equivalence_support',
+                      'render_bench_smoke',
                       'motion_blur', 'fsr3_motion', 'fsr3_frame', 'fsr3_sdk',
                       'water_runtime', 'effect_material', 'vulkan_uniform',
                       'vulkan_present', 'vulkan_present_timing', 'shadow_scroll_vulkan'}
