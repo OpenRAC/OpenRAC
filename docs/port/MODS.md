@@ -187,7 +187,7 @@ files. Script mods and data packs work there as elsewhere.
 | `conflicts` | no | mods it cannot run with; either side may list the other |
 | `load` | no | `after` and `before`: ids it should load after or before when both are on (an order hint the launcher applies when a mod is installed or switched on) |
 | `tool` | no | `{"page": "ui/index.html"}`: an HTML file inside the mod, shown as its own page in the launcher (section 9, "A mod's page"). A mod with only a page is never loaded by the game |
-| `touch` | no | (1.13) a `.json` file inside the mod with buttons for the on-screen pad and their icons ("Touch controls" below) |
+| `touch` | no | (1.13) a `.json` file in the mod with touch buttons and icons ("Touch controls" below) |
 
 A setting is `{key, name, type, default, description?}` with `key` in
 `[a-z0-9_]+`, and by type:
@@ -245,13 +245,13 @@ and packs it whole (hidden files left out).
 
 ### Touch controls
 
-On a touch screen the port draws the pad as action buttons (the drawer's
-"Action buttons" switch; off shows the DualShock's own). Which buttons show
-depends on what the game is doing, its context: `foot`, `clank`,
-`giant_clank`, `swim`, `grind`, `hoverboard`, `ship`, `turret`, `cutscene`,
-`menu`, `dialog`, `vendor`, `front_end`, `default`. The sets are JSON
-(`port/game/common/touch/sets/common.json`, then `<game>.json`), and a mod adds
-its own over them:
+On a touch screen the pad can show action buttons with icons (the drawer's
+"Action buttons" switch; off shows the DualShock's buttons). The buttons follow
+what the game is doing, its context: `foot`, `clank`, `giant_clank`, `swim`,
+`grind`, `hoverboard`, `ship`, `turret`, `cutscene`, `menu`, `dialog`,
+`vendor`, `front_end`, `default`. The sets are JSON
+(`port/game/common/touch/sets/common.json`, then `<game>.json`). A mod adds its
+own on top:
 
 ```jsonc
 {
@@ -272,25 +272,29 @@ its own over them:
 }
 ```
 
-An action is `id`, `icon` and `press` (a list of the pad's buttons:
-`cross`, `circle`, `square`, `triangle`, `l1` .. `r3`, `start`, `select`,
-`up` .. `right`), and may have `then` (buttons pressed 50 ms after, for a
-combination), `size` (`large`, `medium`, `small`), `side` (`arc` under the
-right thumb, `left` over the stick, `top`), `when` (a hint it waits for) and
-`toggle` (stays down until tapped again) and `wide` (a pill wider than
-high, for a wide icon). An action of the same `id` replaces
-the one before; `"replace": true` drops the context's buttons before the
-mod's. An icon is an SVG drawn square from its viewBox: what is `#ff8000` is
-drawn in the game's accent, everything else white.
+An action has `id`, `icon` and `press` (pad buttons: `cross`, `circle`,
+`square`, `triangle`, `l1` .. `r3`, `start`, `select`, `up` .. `right`).
+Optional fields:
 
-The manifest's `"touch"` names such a file, read when the mod loads. From
-code (1.13): `touch_define(mod, json)` adds a set, `touch_icon(mod, name,
-svg)` an icon, `touch_push(mod, context)` shows a context of the mod's in
-place of the game's until it passes null (a vehicle of its own; the last mod
-to push one shows), and `touch_hint(mod, hint, on)` raises a hint. Scripts
-have `openrac.touch_define`, `touch_icon`, `touch_push` and `touch_hint`.
-A context the game moves into shows once it has held for 6 frames, a hint
-after 3, and the pad changes only when no finger is on its buttons.
+- `then`: buttons pressed 50 ms later, for a combo.
+- `size`: `large`, `medium` or `small`.
+- `side`: `arc` (under the right thumb), `left` (above the stick) or `top`.
+- `when`: a hint the button waits for.
+- `toggle`: stays down until tapped again.
+- `wide`: a wider pill, for a wide icon.
+
+An action with the same `id` replaces the old one. `"replace": true` removes
+the context's buttons first. An icon is an SVG drawn square from its viewBox:
+`#ff8000` is drawn in the game's accent, everything else white.
+
+The manifest's `"touch"` names this file; it is read when the mod loads. From
+code (1.13): `touch_define(mod, json)` adds a set, `touch_icon(mod, name, svg)`
+adds an icon, `touch_push(mod, context)` shows the mod's context instead of the
+game's until it passes null (for a mod's vehicle; the last mod to push wins),
+and `touch_hint(mod, hint, on)` turns a hint on or off. Scripts have
+`openrac.touch_define`, `touch_icon`, `touch_push` and `touch_hint`. A new
+context shows after it holds for 6 frames, a hint after 3. The buttons only
+change when no finger is on them.
 
 ## 4. Hook points
 

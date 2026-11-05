@@ -1315,29 +1315,31 @@ public:
     // his own update's): his health after, or -1.
     int hero_hurt(int damage) const { return has_api_12() ? m_api->hero_hurt(m_handle, damage) : -1; }
 
-    // Whether the port has interface 1.13's calls: the on-screen pad's action buttons.
+    // Whether the port has interface 1.13's calls: the touch pad's action
+    // buttons.
     bool has_api_13() const {
         return m_api->api_minor >= 13
                && m_api->size >= offsetof(openrac_api, touch_hint) + sizeof(void*);
     }
-    bool has_touch() const { return has_api_13(); }
-
-    // Since 1.13: a set of the on-screen pad's actions over the game's (the JSON of a manifest's
-    // "touch" file); false for text that is not one, or a port without them.
+    // Since 1.13: adds a set of touch buttons (the JSON of a manifest's "touch"
+    // file). False for bad JSON or an older port.
     bool touch_define(const char* json) const {
         return has_api_13() && m_api->touch_define(m_handle, json) == OPENRAC_HOOK_OK;
     }
-    // Since 1.13: an icon `name` for the sets: an SVG, #ff8000 drawn in the game's accent.
+    // Since 1.13: adds the SVG icon `name`. #ff8000 is drawn in the game's
+    // accent.
     bool touch_icon(const char* name, const char* svg) const {
         return has_api_13() && m_api->touch_icon(m_handle, name, svg) == OPENRAC_HOOK_OK;
     }
-    // Since 1.13: the buttons of `context` in place of the game's; null or "" gives them back.
+    // Since 1.13: shows the buttons of `context` instead of the game's. Null or
+    // "" ends it.
     void touch_push(const char* context) const {
         if (has_api_13()) {
             m_api->touch_push(m_handle, context);
         }
     }
-    // Since 1.13: raises or lowers a hint (the buttons with that "when" show while it is up).
+    // Since 1.13: turns a hint on or off. Buttons with that "when" show while
+    // it is on.
     void touch_hint(const char* hint, bool on) const {
         if (has_api_13()) {
             m_api->touch_hint(m_handle, hint, on ? 1 : 0);

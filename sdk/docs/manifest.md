@@ -75,7 +75,7 @@ the platform it built, and `package_mod.py --merge` joins the platforms
 | `requires` | no | Mods that must be on, and load before this one: `[{"id": "other-mod", "version": ">=1.2.0"}]` (`version` is `>=X.Y.Z`, `=X.Y.Z`, or left out). |
 | `conflicts` | no | Mods it cannot run with: `[{"id": "other-strafe", "reason": "both take L2 and R2"}]`. |
 | `load` | no | Order hints: `{"after": ["camera-tweaks"], "before": []}`. The launcher places the mod accordingly when it is switched on. |
-| `touch` | no | Since 1.13: a `.json` file inside the mod with the on-screen pad's buttons and icons (MODS.md, "Touch controls"). Packed with the icons it names. |
+| `touch` | no | Since 1.13: a `.json` file in the mod with touch buttons and icons (MODS.md, "Touch controls"). The icons it names are packed too. |
 
 ## What gets a mod refused
 

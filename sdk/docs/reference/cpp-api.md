@@ -246,12 +246,11 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `int hero_sound_play(int sound, bool loop = false) const` | Since 1.12: one of the hero's own sounds, the game's (openrac_api.hero_sound_play): its voice, or -1. |
 | `void hero_sound_stop(int voice) const` | Since 1.12: stops a voice hero_sound_play gave, while it still plays on the hero. |
 | `int hero_hurt(int damage) const` | Since 1.12: `damage` hit points taken from the hero as a hit of the game's does (his death is his own update's): his health after, or -1. |
-| `bool has_api_13() const` | Whether the port has interface 1.13's calls: the on-screen pad's action buttons. |
-| `bool has_touch() const` |  |
-| `bool touch_define(const char* json) const` | Since 1.13: a set of the on-screen pad's actions over the game's (the JSON of a manifest's "touch" file); false for text that is not one, or a port without them. |
-| `bool touch_icon(const char* name, const char* svg) const` | Since 1.13: an icon `name` for the sets: an SVG, #ff8000 drawn in the game's accent. |
-| `void touch_push(const char* context) const` | Since 1.13: the buttons of `context` in place of the game's; null or "" gives them back. |
-| `void touch_hint(const char* hint, bool on) const` | Since 1.13: raises or lowers a hint (the buttons with that "when" show while it is up). |
+| `bool has_api_13() const` | Whether the port has interface 1.13's calls: the touch pad's action buttons. |
+| `bool touch_define(const char* json) const` | Since 1.13: adds a set of touch buttons (the JSON of a manifest's "touch" file). False for bad JSON or an older port. |
+| `bool touch_icon(const char* name, const char* svg) const` | Since 1.13: adds the SVG icon `name`. #ff8000 is drawn in the game's accent. |
+| `void touch_push(const char* context) const` | Since 1.13: shows the buttons of `context` instead of the game's. Null or "" ends it. |
+| `void touch_hint(const char* hint, bool on) const` | Since 1.13: turns a hint on or off. Buttons with that "when" show while it is on. |
 | `bool has_world() const` | Since 1.9: whether the port offers the world calls (moby_list() ... bolts()). |
 | `std::vector<openrac_moby> moby_list() const` | Since 1.9: the level's live mobys (each's size set), all of them. |
 | `int moby_slot(int key) const` | Since 1.9: the slot of placed moby `key`, -1 for none. |
