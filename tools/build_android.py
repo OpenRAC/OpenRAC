@@ -10,8 +10,8 @@ rac1-ntsc and rac2-ntsc when none is named. A game whose code is still partly
 in assembly (Going Commando: hostgen.json "asm" "interface") is built without
 the disc, calling those functions through slots; the APK carries what the
 device needs to build them from the player's disc when it is set up
-(tools/asm_part.py): its kit, and Clang and lld built for Android
-(build/android/llvm, once for their version). The steps:
+(tools/asm_part.py): its kit, and Clang and lld (Zig's static AArch64 build,
+downloaded at a fixed version and checked against its SHA-256). The steps:
 
   1. a Python for the launcher's tools: CPython for Android as Chaquopy
      packages it (MIT), from Maven Central at a fixed version, each file
@@ -48,6 +48,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -65,12 +66,16 @@ BUILD = ROOT / "build/android"
 PORT_BUILD = PORT / "build/android-arm64"
 DEFAULT_GAMES = ("rac1-pal", "rac1-ntsc", "rac2-ntsc")
 # Clang and lld for the device, to build a game's part from the player's disc (tools/asm_part.py):
-# LLVM's release, its source fetched with git at that tag, built with the NDK for AArch64 alone.
-LLVM_VERSION = "19.1.7"
-LLVM_REPO = "https://github.com/llvm/llvm-project.git"
-LLVM_ANDROID = BUILD / "llvm"
-# The libraries of the APK they are, as the launcher's tools find them (OPENRAC_NATIVE_LIBRARY_DIR).
-PART_TOOLS = {"clang": "libopenrac-clang.so", "lld": "libopenrac-lld.so"}
+# Zig's official static AArch64 Linux build (MIT), one program with Clang and lld of LLVM 19.1.7
+# in it ("zig clang", "zig ld.lld"), downloaded instead of built. The host's build of the same
+# release checks the part's commands in the APK's build.
+ZIG_VERSION = "0.14.1"
+ZIG_FILES = {
+    "aarch64-linux": "f7a654acc967864f7a050ddacfaa778c7504a0eca8d2b678839c21eea47c992b",
+    "x86_64-linux": "24aeeec8af16c381934a6cd7d95c807a8cb2cf7df9fa40d359aa884195c4716c",
+}
+# The APK's library it is, as the launcher's tools find it (OPENRAC_NATIVE_LIBRARY_DIR).
+PART_TOOL = "libopenrac-zig.so"
 ANDROID_API = 29
 
 # Chaquopy's CPython for Android (https://github.com/chaquo/chaquopy, MIT): the interpreter as a
@@ -102,12 +107,12 @@ def ndk_home() -> Path:
     sys.exit("The Android NDK was not found: set ANDROID_NDK_HOME (or install it with the SDK's sdkmanager).")
 
 
-def download(name: str, sha256: str) -> Path:
-    file = f"target-{PYTHON_PACKAGE}-{name}.zip"
+def download(name: str, sha256: str, url: str | None = None) -> Path:
+    file = url.rsplit("/", 1)[1] if url else f"target-{PYTHON_PACKAGE}-{name}.zip"
     dest = BUILD / "downloads" / file
     if not dest.is_file() or digest.sha256(dest) != sha256:
         dest.parent.mkdir(parents=True, exist_ok=True)
-        url = f"{PYTHON_MAVEN}/{PYTHON_PACKAGE}/{file}"
+        url = url or f"{PYTHON_MAVEN}/{PYTHON_PACKAGE}/{file}"
         print(f"downloading {url}", flush=True)
         with urllib.request.urlopen(url) as response:
             data = response.read()
@@ -226,73 +231,52 @@ def ndk_toolchain(ndk: Path) -> Path:
     return found[0].parent.parent
 
 
-def llvm_options(ndk: Path) -> list[str]:
-    triple = f"aarch64-linux-android{ANDROID_API}"
-    return [f"-DCMAKE_TOOLCHAIN_FILE={ndk / 'build/cmake/android.toolchain.cmake'}", "-DANDROID_ABI=arm64-v8a",
-            f"-DANDROID_PLATFORM=android-{ANDROID_API}", "-DANDROID_STL=c++_static",
-            # Runs on a device with 16 KB pages too.
-            "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
-            "-DCMAKE_BUILD_TYPE=MinSizeRel", "-DLLVM_ENABLE_PROJECTS=clang;lld", "-DLLVM_TARGETS_TO_BUILD=AArch64",
-            f"-DLLVM_HOST_TRIPLE={triple}", f"-DLLVM_DEFAULT_TARGET_TRIPLE={triple}",
-            *[f"-D{o}=OFF" for o in (
-                "LLVM_INCLUDE_TESTS", "LLVM_INCLUDE_EXAMPLES", "LLVM_INCLUDE_BENCHMARKS", "LLVM_INCLUDE_DOCS",
-                "LLVM_ENABLE_ZLIB", "LLVM_ENABLE_ZSTD", "LLVM_ENABLE_LIBXML2", "LLVM_ENABLE_TERMINFO",
-                "LLVM_ENABLE_LIBEDIT", "CLANG_ENABLE_ARCMT", "CLANG_ENABLE_STATIC_ANALYZER",
-                "CLANG_PLUGIN_SUPPORT", "LLVM_ENABLE_BINDINGS", "CLANG_BUILD_TOOLS", "LLVM_BUILD_TOOLS")]]
+def zig(platform: str = "aarch64-linux") -> Path:
+    """Zig for PLATFORM (ZIG_FILES), unpacked under build/android/zig: its program, the Clang
+    headers it carries (lib/include) and the licenses (Zig's; LLVM's, the one libc++ carries)."""
+    name = f"zig-{platform}-{ZIG_VERSION}"
+    home = BUILD / "zig" / name
+    if not (home / "zig").is_file():
+        archive = download(name, ZIG_FILES[platform], f"https://ziglang.org/download/{ZIG_VERSION}/{name}.tar.xz")
+        shutil.rmtree(home, ignore_errors=True)
+        with tarfile.open(archive) as tar:
+            keep = {f"{name}/zig", f"{name}/LICENSE", f"{name}/lib/libcxx/LICENSE.TXT"}
+            members = [m for m in tar.getmembers() if m.name in keep or m.name.startswith(f"{name}/lib/include/")]
+            tar.extractall(home.parent, members=members, filter="data")
+    return home
 
 
-def build_llvm(ndk: Path) -> Path:
-    """Clang and lld for the device (LLVM_ANDROID/build/bin), built once for their version and options."""
-    options = llvm_options(ndk)
-    stamp = LLVM_ANDROID / "stamp.json"
-    want = {"version": LLVM_VERSION, "options": options}
-    build = LLVM_ANDROID / "build"
-    if stamp.is_file() and json.loads(stamp.read_text()) == want and \
-            all((build / "bin" / t).is_file() for t in PART_TOOLS):
-        return build
-    src = LLVM_ANDROID / "llvm-project"
-    if not (src / "llvm/CMakeLists.txt").is_file():
-        shutil.rmtree(src, ignore_errors=True)
-        proc.run(["git", "clone", "--depth", "1", "--filter=blob:none", "--sparse", "--branch",
-                  f"llvmorg-{LLVM_VERSION}", LLVM_REPO, src], cwd=ROOT, echo=True)
-        proc.run(["git", "sparse-checkout", "set", "llvm", "clang", "lld", "cmake", "third-party",
-                  "libunwind/include"],
-                 cwd=src, echo=True)
-    build.mkdir(parents=True, exist_ok=True)
-    # Not through the port's compiler cache (CI's): a few thousand objects that would push out the game's.
-    proc.run(["cmake", "-G", "Ninja", src / "llvm", *options, "-DCMAKE_C_COMPILER_LAUNCHER=",
-              "-DCMAKE_CXX_COMPILER_LAUNCHER="], cwd=build, echo=True)
-    proc.run(["cmake", "--build", ".", "--target", *PART_TOOLS], cwd=build, echo=True)
-    # Without their debug information they are a tenth of the size (about 110 MB), here and in CI's cache.
-    strip = ndk_toolchain(ndk) / "bin/llvm-strip"
-    for tool in PART_TOOLS:
-        proc.run([strip, "--strip-all", (build / "bin" / tool).resolve()], cwd=ROOT, echo=True)
-    stamp.write_text(json.dumps(want, indent=1) + "\n")
-    return build
+def host_zig() -> Path | None:
+    """The host's Zig of the same release, to check the part's commands; None where Zig has no
+    build in ZIG_FILES for it."""
+    platform = f"{os.uname().machine}-linux" if sys.platform.startswith("linux") else ""
+    return zig(platform) / "zig" if platform in ZIG_FILES else None
 
 
-def part_kit(game: str, ndk: Path, llvm: Path) -> Path:
-    """What the device needs besides the disc to build GAME's part (tools/asm_part.py kit)."""
+def part_kit(game: str, ndk: Path, tools: Path) -> Path:
+    """What the device needs besides the disc to build GAME's part (tools/asm_part.py kit), checked
+    with the host's Zig where there is one."""
     toolchain = ndk_toolchain(ndk)
     sysroot = toolchain / "sysroot"
     libs = sysroot / "usr/lib/aarch64-linux-android" / str(ANDROID_API)
     builtins = sorted(toolchain.glob("lib/clang/*/lib/linux/libclang_rt.builtins-aarch64-android.a"))
     if not builtins:
         sys.exit(f"{toolchain} has no libclang_rt.builtins for aarch64")
-    resource = sorted((llvm / "lib/clang").glob("*/include"))
-    if not resource:
-        sys.exit(f"{llvm} has no Clang resource headers")
     out = BUILD / "asm-part" / game
     env = dict(os.environ, CC=str(toolchain / "bin/clang"))
     proc.run([sys.executable, ROOT / "tools/asm_part.py", "kit", game, "--build", PORT_BUILD, "--out", out,
-              "--sysroot", sysroot, "--resource-dir", resource[-1].parent,
+              "--sysroot", sysroot, "--resource-dir", tools / "lib",
               "--libs", *[libs / n for n in ("crtbegin_so.o", "crtend_so.o", "libc.so", "libm.so")], builtins[-1]],
              cwd=ROOT, env=env, echo=True)
+    host = host_zig()
+    if host is not None:
+        proc.run([sys.executable, ROOT / "tools/asm_part.py", "check", game, "--kit", out, "--out", BUILD / "asm-check"],
+                 cwd=ROOT, env=dict(os.environ, OPENRAC_PART_ZIG=str(host)), echo=True)
     return out
 
 
 def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_symbols: bool,
-                      baker: bool = False, llvm: Path | None = None) -> list[str]:
+                      baker: bool = False, tools: Path | None = None) -> list[str]:
     dest = APP / "src/main/jniLibs/arm64-v8a"
     dest.mkdir(parents=True, exist_ok=True)
     # What an earlier run put here; the launcher's own library is Tauri's to place.
@@ -313,7 +297,6 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
     if not runtime:
         sys.exit(f"{ndk} has no libc++_shared.so for aarch64")
     wanted.append(runtime[0])
-    tools = [(llvm / "bin" / tool, PART_TOOLS[tool]) for tool in PART_TOOLS] if llvm else []
     wanted += sorted((python_target / "jniLibs/arm64-v8a").glob("*.so"))
     strip = sorted(ndk.glob("toolchains/llvm/prebuilt/*/bin/llvm-strip"))
     names = []
@@ -325,14 +308,11 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
         if strip and not keep_symbols:
             proc.run([strip[0], "--strip-debug", dest / path.name], cwd=ROOT, echo=True)
         names.append(path.name)
-    # Clang and lld under the names of libraries, so Android lets them run from the APK's folder.
-    for path, name in tools:
-        if not path.is_file():
-            sys.exit(f"{path} was not built")
-        shutil.copy2(path, dest / name, follow_symlinks=True)
-        if strip:
-            proc.run([strip[0], "--strip-all", dest / name], cwd=ROOT, echo=True)
-        names.append(name)
+    # Zig (Clang and lld) under a library's name, so Android lets it run from the APK's folder;
+    # its release is stripped already.
+    if tools is not None:
+        shutil.copy2(tools / "zig", dest / PART_TOOL)
+        names.append(PART_TOOL)
     # SDL's activity and its helpers, as the SDL the port was built with has them.
     sdl_java = sorted(PORT_BUILD.rglob("android-project/app/src/main/java/org/libsdl"))
     if not sdl_java:
@@ -344,7 +324,7 @@ def collect_libraries(games: list[str], ndk: Path, python_target: Path, keep_sym
 
 
 def bundle(python_home: Path, baker: bool = False, games: list[str] | None = None,
-           kits: list[Path] | None = None) -> Path:
+           kits: list[Path] | None = None, tools: Path | None = None) -> Path:
     out = BUILD / "openrac"
     proc.run([sys.executable, ROOT / "tools/bundle_standalone.py", out, "--android", "--python", python_home,
               "--android-games", ",".join(games or DEFAULT_GAMES),
@@ -357,6 +337,12 @@ def bundle(python_home: Path, baker: bool = False, games: list[str] | None = Non
         # The license of what the baker has built in, beside where the launcher finds it, as a
         # desktop's copy carries it (tools/bundle_standalone.py).
         shutil.copytree(EMBREE_ANDROID / "install/licenses", out / "port/build/release/licenses", dirs_exist_ok=True)
+    if tools is not None:
+        # Zig's license and LLVM's, whose Clang and lld are in libopenrac-zig.so.
+        notices = out / "port/build/release/licenses/zig"
+        notices.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(tools / "LICENSE", notices / "LICENSE")
+        shutil.copy2(tools / "lib/libcxx/LICENSE.TXT", notices / "LLVM-LICENSE.TXT")
     assets = APP / "src/main/assets"
     assets.mkdir(parents=True, exist_ok=True)
     archive = assets / "openrac.zip"
@@ -401,11 +387,11 @@ def main() -> int:
     python_target, python_home = python()
     baker = build_port(args.games, ndk, python_target, baker=not args.no_probe_baker)
     parts = [g for g in args.games if has_part(g)]
-    llvm = build_llvm(ndk) if parts else None
-    names = collect_libraries(args.games, ndk, python_target, args.keep_symbols, baker, llvm)
+    tools = zig() if parts else None
+    names = collect_libraries(args.games, ndk, python_target, args.keep_symbols, baker, tools)
     print("native libraries:", ", ".join(names))
-    kits = [part_kit(g, ndk, llvm) for g in parts]
-    bundle(python_home, baker, args.games, kits)
+    kits = [part_kit(g, ndk, tools) for g in parts]
+    bundle(python_home, baker, args.games, kits, tools)
     if not args.no_apk:
         build_apk(ndk, args.release, args.keep_symbols)
     return 0

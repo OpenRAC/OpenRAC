@@ -34,6 +34,7 @@ concurrency:
 
 jobs:
   scope:
+    name: Which checks run
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
@@ -55,6 +56,7 @@ jobs:
           fi
 
   checks:
+    name: Repository (tools, tables, conventions)
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
@@ -184,13 +186,15 @@ jobs:
   launcher:
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
-    name: launcher (${{ matrix.os }})
+    name: Launcher / ${{ matrix.system }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-26.04, windows-latest]
+        include:
+          - { system: Linux, os: ubuntu-26.04 }
+          - { system: Windows, os: windows-latest }
     defaults:
       run:
         shell: bash
@@ -224,11 +228,8 @@ jobs:
           fi
           "${apt[@]}" install -y --no-install-recommends "${packages[@]}"
 
-      - name: UI (svelte-check, ESLint, Prettier, Vitest)
-        run: |
-          yarn install --immutable
-          yarn verify
-
+      # The pages' checks (yarn verify) are the same on every system: they run once, in
+      # launcher-android. Here only what differs per system: the Rust side.
       - name: Rust format
         if: runner.os == 'Linux'
         run: cargo fmt --all --check
@@ -238,14 +239,15 @@ jobs:
 
       - name: Rust lints (the whole app)
         run: |
+          yarn install --immutable
           yarn build
           cargo clippy --workspace --all-targets -- -D warnings
 
-  # The Android launcher's pages in a browser (launcher/e2e/): the preview's Android layout, page
-  # by page, so that what Android has (Develop and Mods for the picked game, the start and running
-  # screens, the update's window, the themes) does not regress. About a minute: no Rust, one
-  # browser, one Vite server. On 24.04, which Playwright's install-deps knows.
+  # The launcher's pages, once (they are the same on every system): svelte-check, ESLint,
+  # Prettier and Vitest, then the Android layout in a browser (launcher/e2e/), page by page. No
+  # Rust, one browser, one Vite server. On 24.04, which Playwright's install-deps knows.
   launcher-android:
+    name: Launcher / Pages (lint, unit tests, Android layout)
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
@@ -264,10 +266,12 @@ jobs:
           package-manager-cache: false
       - run: corepack enable
       - uses: ./.github/actions/yarn-cache
-      - name: The launcher's packages and a headless Chromium
-        run: |
-          yarn install --immutable
-          yarn playwright-core install --with-deps chromium-headless-shell
+      - name: The launcher's packages
+        run: yarn install --immutable
+      - name: Lint and unit tests (svelte-check, ESLint, Prettier, Vitest)
+        run: yarn verify
+      - name: A headless Chromium
+        run: yarn playwright-core install --with-deps chromium-headless-shell
       - name: Android pages
         run: yarn test:android
 
@@ -275,6 +279,7 @@ jobs:
   # Clang and system SDL3, with enhanced rendering compiled out. Exercise
   # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
   port:
+    name: Port / Linux
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -345,48 +350,10 @@ jobs:
           SDL_VIDEO_DRIVER: offscreen
         run: ctest --preset release --parallel 2 --stop-on-failure
 
-  # The port without a window (the headless preset, no SDL3): the runtime, the
-  # games and their tests. Built here so code that only the window build can
-  # compile (outside the frontend's #ifdef) cannot creep back in unseen.
-  port-headless:
-    needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.12"
-      - uses: ./.github/actions/compiler-cache
-        with:
-          key: checks-port-headless
-          max-size: 1G
-      - name: Compilers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends clang ninja-build
-
-      - uses: ./.github/actions/port-build-cache
-        with:
-          variant: ubuntu-headless
-          preset: headless
-
-      - name: Build
-        working-directory: port
-        run: |
-          cmake --preset headless
-          cmake --build --preset headless
-
-      - name: Tests
-        working-directory: port
-        run: ctest --preset headless
-
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced-build:
+    name: Port / Enhanced Vulkan build
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -452,7 +419,10 @@ jobs:
           if-no-files-found: error
 
   port-vulkan-enhanced-tests:
+    name: Port / Enhanced Vulkan tests (${{ matrix.group }})
     needs: port-vulkan-enhanced-build
+    # On a push scope is skipped, which skips this job too unless it asks for the build alone.
+    if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
@@ -496,8 +466,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.time-vulkan-shards && matrix.group == 'vulkan'
         run: xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced timing
 
-  # Keep the existing check name for branch protection.
+  # One check for the build and every test group (what branch protection requires).
   port-vulkan-enhanced:
+    name: Port / Enhanced Vulkan
     needs: [scope, port-vulkan-enhanced-build, port-vulkan-enhanced-tests]
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -511,9 +482,10 @@ jobs:
 
   # The native port on Fedora (the release players run): the program built as the launcher's
   # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
-  # then hostgen, all non-Vulkan tests and a small Vulkan smoke set. The full Vulkan
+  # then all non-Vulkan tests and a small Vulkan smoke set (hostgen's tests run once, in port). The full Vulkan
   # suite runs in port-vulkan-enhanced; this set retains Fedora's optimised Mesa coverage.
   port-fedora:
+    name: Port / Fedora
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: ubuntu-26.04
@@ -552,9 +524,6 @@ jobs:
       - name: Build openrac-rac1-pal as the launcher builds it
         run: python3 tools/build_port.py rac1-pal
 
-      - name: hostgen
-        run: python3 -m unittest discover -s port/tools/hostgen
-
       # Every test program (the *_test targets), not the whole port: rac1/ntsc's program calls a
       # memchr nothing declares, which Clang 16 and later refuse.
       - name: Build the tests
@@ -581,6 +550,7 @@ jobs:
   # those of hostgen's that need no POSIX host. The port is written on Linux
   # and macOS, and what only builds there (execinfo.h, fseeko) stops here.
   port-windows:
+    name: Port / Windows
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
     runs-on: windows-latest

@@ -61,6 +61,7 @@ pub mod launcher_log;
 pub mod library;
 pub mod mod_error;
 pub mod mod_summary;
+pub mod mod_tools;
 pub mod mod_updates;
 pub mod multiplayer;
 pub mod overrides;

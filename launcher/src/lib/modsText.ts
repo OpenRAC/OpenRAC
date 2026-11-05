@@ -26,6 +26,7 @@ export const STATE_LABEL = {
 export const KIND_LABEL = {
   native: { text: "Runs code", tone: "warn" },
   script: { text: "Sandboxed script", tone: "ok" },
+  tool: { text: "Launcher page", tone: "ok" },
   pack: { text: "Textures and models", tone: "off" },
   builtIn: { text: "Experimental", tone: "warn" },
 } as const satisfies Record<string, Label>;
@@ -34,6 +35,7 @@ export const KIND_LABEL = {
 export const KIND_HINT = {
   native: "A program: it runs on this computer with the game's rights. Install it only from people you trust.",
   script: "Runs in the game's sandbox: it reaches only what the game lets scripts change, never your files.",
+  tool: "A page of its own in the launcher, kept apart from it: it reads the game's levels and saved textures, and saves only where you choose.",
   pack: "Data only: it replaces textures, models or levels, and runs nothing.",
   builtIn: "Part of the game, off unless you turn it on. Still being worked on.",
 } as const satisfies Record<KindKey, string>;
@@ -167,6 +169,9 @@ export const ENHANCED = {
 
 /** A mod's own page (ModPage.svelte). */
 export const MOD_PAGE = {
+  /** A mod with a page of its own (core/src/mod_tools.rs): the button that shows it. */
+  openTool: "Open",
+  openToolHint: (name: string) => `Open ${name}'s page`,
   back: "Back to My mods",
   crumbsLabel: "Where you are",
   crumbRoot: "My mods",
@@ -179,6 +184,8 @@ export const MOD_PAGE = {
   resetAllConfirm: (name: string) => `Put every setting of ${name} back to its default?`,
   resetAllDone: "Every setting is back to its default.",
   noSettings: "This mod has nothing to set: switch it on and play.",
+  /** A mod with a page of its own keeps its settings there. */
+  toolSettings: "Its settings are on its own page: Open.",
   offNote: "Off: its settings are kept for when you switch it on.",
   update: (version: string) => `Update to ${version}`,
   more: (name: string) => `More for ${name}`,
@@ -720,3 +727,11 @@ export const SETTINGS_TEXT = {
   cleanUp: "Clean up unused dependencies",
   cleanUpLine: "Removing a mod also removes what was installed only for it.",
 } as const;
+
+/** A mod's own page (ModTool.svelte). */
+export const MOD_TOOL = {
+  frameLabel: (name: string) => `${name}'s page`,
+  backTo: (name: string) => `Back to ${name}`,
+  failed: (why: string) => `The page asked for something the launcher could not do: ${why}`,
+  onlyInApp: "A mod's page opens in the launcher app, not in this preview.",
+};

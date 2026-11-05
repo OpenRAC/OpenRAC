@@ -29,6 +29,7 @@
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
   import ModPage from "./ModPage.svelte";
+  import ModTool from "./ModTool.svelte";
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
@@ -66,6 +67,9 @@
   /** The built-in Enhanced graphics entry, for a version that has it. */
   let enhanced = $state<EnhancedView | null>(null);
   const isEnhanced = (id: string | null) => id === T.ENHANCED.id;
+
+  /** The mod whose own page (ModTool.svelte) is shown over its page, if one is. */
+  let toolOpen = $state<string | null>(null);
 
   /** The mod whose page is open, when it is one of this game's. */
   const page = $derived(
@@ -332,7 +336,10 @@
   }
 </script>
 
-{#if page}
+{#if page?.tool && toolOpen === page.id}
+  {@const mod = page}
+  <ModTool mod={{ ...mod, tool: mod.tool ?? "" }} game={v.game} version={v.name} onclose={() => (toolOpen = null)} />
+{:else if page}
   {@const mod = page}
   <ModPage
     {mod}
@@ -353,6 +360,7 @@
     }}
     onhomepage={() => void guardShown(api.openUrl(mod.homepage))}
     onremove={() => void remove(mod)}
+    ontool={() => (toolOpen = mod.id)}
   />
   {#if said}<Reason text={said.text} tone={said.failed ? "err" : "ok"} role="status" />{/if}
 {:else}
@@ -427,17 +435,21 @@
         {#each mods as mod, i (mod.id)}
           {@const update = sources[mod.id]?.pin ? null : (updates[mod.id]?.available ?? null)}
           {@const badge = modBadge(mod, update, purist)}
-          <li class="mod" class:off={!mod.enabled}>
-            <input
-              type="checkbox"
-              role="switch"
-              class="switch"
-              aria-label={T.useAria(mod.name)}
-              checked={mod.enabled}
-              disabled={!mod.enabled && mod.blocked !== ""}
-              title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
-              onchange={(e) => void setOn(mod, e.currentTarget.checked)}
-            />
+          <li class="mod" class:off={!mod.enabled && mod.kind !== "tool"}>
+            {#if mod.kind === "tool"}
+              <span class="no-switch" aria-hidden="true"></span>
+            {:else}
+              <input
+                type="checkbox"
+                role="switch"
+                class="switch"
+                aria-label={T.useAria(mod.name)}
+                checked={mod.enabled}
+                disabled={!mod.enabled && mod.blocked !== ""}
+                title={!mod.enabled && mod.blocked ? hidePaths(mod.blocked).text : undefined}
+                onchange={(e) => void setOn(mod, e.currentTarget.checked)}
+              />
+            {/if}
             <button
               class="open"
               id={`open-${mod.id}`}
@@ -596,6 +608,12 @@
 
   .mod:first-child {
     border-top: 0;
+  }
+
+  /* A mod that is only a page in the launcher: nothing to switch on, its name where the others' are. */
+  .no-switch {
+    flex: none;
+    width: 42px;
   }
 
   .mod > input.switch:focus-visible {

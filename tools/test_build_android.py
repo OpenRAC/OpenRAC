@@ -7,6 +7,7 @@ import hashlib
 import io
 import os
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,27 +62,36 @@ class BuildAndroidTests(unittest.TestCase):
         configure = run.call_args_list[0].args[0]
         self.assertFalse([a for a in configure if "RETAIL_IMAGE" in str(a)])
 
-    def test_llvm_is_built_once_for_its_version_and_options(self):
-        ndk = self.make_ndk(self.dir / "ndk")
-        (ndk / "toolchains/llvm/prebuilt/test/bin").mkdir(parents=True)
-        (ndk / "toolchains/llvm/prebuilt/test/bin/clang").write_bytes(b"")
-        llvm = self.dir / "llvm"
-        (llvm / "llvm-project/llvm").mkdir(parents=True)
-        (llvm / "llvm-project/llvm/CMakeLists.txt").write_text("")
+    def test_zig_is_downloaded_once_checked_and_unpacked_with_its_headers_and_licenses(self):
+        name = f"zig-aarch64-linux-{build_android.ZIG_VERSION}"
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w:xz") as tar:
+            for member, data in ((f"{name}/zig", b"zig"), (f"{name}/LICENSE", b"MIT"),
+                                 (f"{name}/lib/libcxx/LICENSE.TXT", b"Apache"),
+                                 (f"{name}/lib/include/stddef.h", b"/* */"),
+                                 (f"{name}/lib/std/big.zig", b"left out")):
+                info = tarfile.TarInfo(member)
+                info.size = len(data)
+                tar.addfile(info, io.BytesIO(data))
+        data = archive.getvalue()
+        files = {"aarch64-linux": hashlib.sha256(data).hexdigest()}
+        with mock.patch.object(build_android, "BUILD", self.dir), \
+                mock.patch.dict(build_android.ZIG_FILES, files), \
+                mock.patch.object(build_android.urllib.request, "urlopen", return_value=Response(data)) as get:
+            home = build_android.zig()
+            build_android.zig()
+        self.assertEqual(get.call_count, 1)
+        self.assertIn(f"/{build_android.ZIG_VERSION}/{name}.tar.xz", get.call_args.args[0])
+        self.assertEqual((home / "zig").read_bytes(), b"zig")
+        self.assertTrue((home / "lib/include/stddef.h").is_file())
+        self.assertTrue((home / "lib/libcxx/LICENSE.TXT").is_file())
+        self.assertFalse((home / "lib/std").exists())
 
-        def fake(cmd, **kw):
-            if cmd[:2] == ["cmake", "--build"]:
-                for tool in build_android.PART_TOOLS:
-                    (llvm / "build/bin").mkdir(parents=True, exist_ok=True)
-                    (llvm / "build/bin" / tool).write_bytes(b"")
-        with mock.patch.object(build_android, "LLVM_ANDROID", llvm), \
-                mock.patch.object(build_android.proc, "run", side_effect=fake) as run:
-            self.assertEqual(build_android.build_llvm(ndk), llvm / "build")
-            self.assertEqual(run.call_count, 2 + len(build_android.PART_TOOLS))
-            configure = run.call_args_list[0].args[0]
-            self.assertIn("-DLLVM_TARGETS_TO_BUILD=AArch64", configure)
-            build_android.build_llvm(ndk)
-            self.assertEqual(run.call_count, 2 + len(build_android.PART_TOOLS))
+    def test_a_zig_archive_that_does_not_match_its_sum_is_refused(self):
+        with mock.patch.object(build_android, "BUILD", self.dir), \
+                mock.patch.object(build_android.urllib.request, "urlopen", return_value=Response(b"other")), \
+                self.assertRaises(SystemExit):
+            build_android.zig()
 
     def native_tree(self):
         """Creates fake build outputs, including SDL and the NDK runtime, without compiling."""
@@ -125,18 +135,16 @@ class BuildAndroidTests(unittest.TestCase):
             names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, baker=False)
         self.assertNotIn("libopenrac-enhanced-baker.so", names)
 
-    def test_android_library_collection_carries_clang_and_lld_as_libraries(self):
+    def test_android_library_collection_carries_zig_as_a_library(self):
         build, app, ndk, python = self.native_tree()
-        llvm = self.dir / "llvm"
-        (llvm / "bin").mkdir(parents=True)
-        for tool in build_android.PART_TOOLS:
-            (llvm / "bin" / tool).write_bytes(tool.encode())
+        tools = self.dir / "zig"
+        tools.mkdir()
+        (tools / "zig").write_bytes(b"zig")
         with mock.patch.object(build_android, "PORT_BUILD", build), \
                 mock.patch.object(build_android, "APP", app):
-            names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, llvm=llvm)
-        for tool, name in build_android.PART_TOOLS.items():
-            self.assertIn(name, names)
-            self.assertEqual((app / "src/main/jniLibs/arm64-v8a" / name).read_bytes(), tool.encode())
+            names = build_android.collect_libraries(["rac1-ntsc"], ndk, python, True, tools=tools)
+        self.assertIn(build_android.PART_TOOL, names)
+        self.assertEqual((app / "src/main/jniLibs/arm64-v8a" / build_android.PART_TOOL).read_bytes(), b"zig")
 
     def test_embree_for_android_is_the_ports_target_with_arms_choice(self):
         ndk = self.make_ndk(self.dir / "ndk")
