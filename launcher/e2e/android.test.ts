@@ -266,14 +266,14 @@ describe("A controller", () => {
     expect(await page.locator(".tile").count()).toBeGreaterThan(0);
   });
 
-  it("draws one ring on the games list: the focus, not the game picked last", async () => {
+  it("rings the game picked last, and only the focus once the controller moves", async () => {
     await open("version=rac1/pal&page=library");
     const tile = page.locator(".tile").first();
     await tile.waitFor();
     await page.waitForTimeout(600);
-    // The picked game has no ring of its own, and its picture does not zoom under the pointer.
-    const ring = () => tile.evaluate((e) => getComputedStyle(e, "::after").boxShadow);
-    expect(await ring()).toBe("none");
+    // The picked game is ringed, and its picture does not zoom under the pointer.
+    const ring = () => tile.evaluate((e) => getComputedStyle(e, "::after").opacity);
+    expect(await ring()).toBe("1");
     await tile.hover();
     await page.waitForTimeout(600);
     expect(
@@ -284,6 +284,8 @@ describe("A controller", () => {
     ).toBe("none");
     // With the controller on the next game, only that one is ringed.
     await press("down", "right");
+    await page.waitForTimeout(400);
+    expect(await ring()).toBe("0");
     const outlines = await page
       .locator(".tile")
       .evaluateAll((tiles) => tiles.map((t) => getComputedStyle(t).outlineStyle !== "none"));

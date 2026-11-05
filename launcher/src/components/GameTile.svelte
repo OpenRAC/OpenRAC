@@ -12,8 +12,8 @@
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). It is
-   *  where the controller's focus starts (pad.ts, aria-current), and is not drawn: a ring of its
-   *  own beside the focus showed two picked games. */
+   *  where the controller's focus starts (pad.ts, aria-current), and is ringed only while no tile
+   *  has the focus's ring, so that two rings never show. */
   let { game, delay = 0, selected = false }: { game: GameView; delay?: number; selected?: boolean } = $props();
 
   // The game's still picture (media.ts); without one, the tile shows the game's colours.
@@ -33,7 +33,7 @@
 </script>
 
 {#if v && next}
-  <article class="tile rise" style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
+  <article class="tile rise" class:selected style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
     {#if art}
       <img class="art" src={art} alt="" decoding="sync" onerror={hideMissing} />
     {/if}
@@ -164,6 +164,28 @@
     font-size: 0.875rem;
   }
 
+  /* The game picked last: ringed in the launcher's accent, which is its colour, unless a tile has
+     the focus's ring (below), which is then the only one. */
+  .tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px var(--amber);
+    opacity: 0;
+    transition: opacity var(--medium) var(--ease);
+    pointer-events: none;
+  }
+
+  .tile.selected::after {
+    opacity: 1;
+  }
+
+  :global(.tiles:has(.open:focus-visible)) .tile.selected::after,
+  :global(html[data-input="pad"] .tiles:has(.open:focus)) .tile.selected::after {
+    opacity: 0;
+  }
+
   /* A pixel past the tile's edges, the picture and its shade, so that no line of the tile's own
      colours shows at its round corners. The picture stays still under the pointer and the focus. */
   .art {
@@ -204,7 +226,8 @@
     padding: 0;
   }
 
-  /* The focus rings the whole tile from outside (the tile cuts what is inside it). */
+  /* The focus rings the whole tile from outside (the tile cuts what is inside it), and the picked
+     game's ring inside it gives way. */
   .open:focus-visible,
   :global(html[data-input="pad"]) .open:focus {
     outline: none;
