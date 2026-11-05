@@ -8,6 +8,7 @@ its APK carries; nothing of the disc is in the APK.
 
   python3 tools/asm_part.py kit GAME --build DIR --out KIT [--sysroot SYSROOT --resource-dir DIR]
   python3 tools/asm_part.py build GAME --disc IMAGE --out DIR [--kit KIT]
+  python3 tools/asm_part.py check GAME --kit KIT --out DIR
 
 kit (the APK's build, tools/build_android.py): what building the part needs besides the disc, in
 KIT: hostgen's program before its assembly stage (DIR/games/GAME/gen/program.pickle, which a build
@@ -16,9 +17,12 @@ include, copied from where the build compiled them, the system's (SYSROOT, Clang
 among them.
 
 build (the launcher's, once the disc is set up): DIR/libopenrac-GAME-part.so, where the game looks
-for it (<data>/asm-part). Clang and lld are OPENRAC_PART_CLANG and OPENRAC_PART_LLD, else the
-libraries of the APK (OPENRAC_NATIVE_LIBRARY_DIR: libopenrac-clang.so, libopenrac-lld.so), else
-clang and ld.lld on PATH; the game's library is linked against so the part finds its functions.
+for it (<data>/asm-part). Clang and lld are the APK's Zig (OPENRAC_NATIVE_LIBRARY_DIR:
+libopenrac-zig.so) or OPENRAC_PART_ZIG, else OPENRAC_PART_CLANG and OPENRAC_PART_LLD, else clang
+and ld.lld on PATH; the game's library is linked against so the part finds its functions.
+
+check (the APK's build): a file that includes what the translations do, built with KIT as the
+part is.
 """
 from __future__ import annotations
 
@@ -44,6 +48,8 @@ C_FLAGS = ["-O2", "-DNDEBUG", "-std=gnu11", "-fno-strict-aliasing", "-fwrapv", "
            "-DOPENRAC_ASM_PART=1"]
 ANDROID_TARGET = "aarch64-linux-android29"
 KIT_FORMAT = 1
+# Zig (Clang and lld in one program) as the APK carries it (tools/build_android.py PART_TOOL).
+ZIG_LIBRARY = "libopenrac-zig.so"
 # The scale of the count the build prints.
 PROGRESS_TOTAL = 1000
 
@@ -98,22 +104,73 @@ def kit(game: str, build: Path, out: Path, sysroot: Path | None, resource_dir: P
     print(f"{out}: the kit for {game}'s part ({len(files)} headers)")
 
 
-def tool(env: str, library: str, fallback: str) -> str:
-    if os.environ.get(env):
-        return os.environ[env]
+def tools() -> tuple[list[str], list[str]]:
+    """The commands that compile and link: OPENRAC_PART_ZIG's Zig ("zig clang", "zig ld.lld"), else
+    the APK's (OPENRAC_NATIVE_LIBRARY_DIR/libopenrac-zig.so), else OPENRAC_PART_CLANG and
+    OPENRAC_PART_LLD, else clang and ld.lld on PATH."""
+    zig = os.environ.get("OPENRAC_PART_ZIG")
     libs = os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR")
-    if libs and (Path(libs) / library).is_file():
-        return str(Path(libs) / library)
-    found = shutil.which(fallback)
-    if not found:
-        sys.exit(f"no {fallback} to build the part with ({env})")
-    return found
+    if not zig and libs and (Path(libs) / ZIG_LIBRARY).is_file():
+        zig = str(Path(libs) / ZIG_LIBRARY)
+    if zig:
+        return [zig, "clang"], [zig, "ld.lld"]
+    found = []
+    for env, name in (("OPENRAC_PART_CLANG", "clang"), ("OPENRAC_PART_LLD", "ld.lld")):
+        path = os.environ.get(env) or shutil.which(name)
+        if not path:
+            sys.exit(f"no {name} to build the part with ({env})")
+        found.append(path)
+    return [found[0]], [found[1], "-flavor", "gnu"]
 
 
-def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None, jobs: int) -> Path:
+def read_kit(kit_dir: Path, game: str) -> dict:
     meta = json.loads((kit_dir / "kit.json").read_text())
     if meta.get("format") != KIT_FORMAT or meta.get("game") != game:
         sys.exit(f"{kit_dir} is not a kit for {game}")
+    return meta
+
+
+def compile_and_link(game: str, sources: list[Path], part: Path, kit_dir: Path, meta: dict,
+                     sysroot: Path | None, jobs: int, game_library: Path | None) -> None:
+    """SOURCES compiled with the kit's headers and linked into PART, against GAME_LIBRARY."""
+    clang, lld = tools()
+    flags = ["--driver-mode=gcc", *C_FLAGS]
+    for home, kind in meta["includes"]:
+        flags += ["-isystem" if kind == "system" else "-I", str(kit_dir / "include" / home)]
+    lib = kit_dir / "lib"
+    android = lib.is_dir()
+    if android or sysroot:
+        flags += [f"--target={ANDROID_TARGET}", "-nostdinc"]
+    print(f"compiling {len(sources)} files", flush=True)
+    compiled = [0]
+    lock = threading.Lock()
+
+    def compile_one(c: Path) -> Path:
+        o = c.with_suffix(".o")
+        subprocess.run([*clang, *flags, "-c", str(c), "-o", str(o)], check=True)
+        with lock:
+            compiled[0] += 1
+            at = 850 + 140 * compiled[0] // len(sources)
+            print(f"[{at}/{PROGRESS_TOTAL}] compiled {c.name}", flush=True)
+        return o
+
+    with ThreadPoolExecutor(max(1, jobs)) as ex:
+        objects = [str(o) for o in ex.map(compile_one, sources)]
+    if game_library is not None:
+        # The game's library, so the part finds the game's functions in it when it is loaded.
+        objects.append(str(game_library))
+    if android:
+        objects = [str(lib / "crtbegin_so.o"), *objects, *map(str, sorted(lib.glob("*.a"))),
+                   str(lib / "libc.so"), str(lib / "libm.so"), str(lib / "crtend_so.o")]
+    tmp = part.with_name(part.name + ".tmp")
+    print(f"[990/{PROGRESS_TOTAL}] linking {part.name}", flush=True)
+    subprocess.run([*lld, "-shared", "-z", "max-page-size=16384", "-o", str(tmp), f"-soname={part.name}",
+                    *objects], check=True)
+    tmp.replace(part)
+
+
+def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None, jobs: int) -> Path:
+    meta = read_kit(kit_dir, game)
     work = out / "work"
     shutil.rmtree(work, ignore_errors=True)
     src = work / "src"
@@ -137,50 +194,26 @@ def build(game: str, disc: Path, out: Path, kit_dir: Path, sysroot: Path | None,
                         "--retail-image", str(disc), "--out", str(src)])
     if code:
         sys.exit(code)
-    android = bool(os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR"))
-    clang = tool("OPENRAC_PART_CLANG", "libopenrac-clang.so", "clang")
-    lld = tool("OPENRAC_PART_LLD", "libopenrac-lld.so", "ld.lld")
-    flags = ["--driver-mode=gcc", *C_FLAGS]
-    for home, kind in meta["includes"]:
-        flags += ["-isystem" if kind == "system" else "-I", str(kit_dir / "include" / home)]
-    if android or sysroot:
-        flags += [f"--target={ANDROID_TARGET}", "-nostdinc"]
-    sources = sorted(src.glob("*.c"))
-    print(f"compiling {len(sources)} files", flush=True)
-
-    compiled = [0]
-    lock = threading.Lock()
-
-    def compile_one(c: Path) -> Path:
-        o = c.with_suffix(".o")
-        subprocess.run([clang, *flags, "-c", str(c), "-o", str(o)], check=True)
-        with lock:
-            compiled[0] += 1
-            at = 850 + 140 * compiled[0] // len(sources)
-            print(f"[{at}/{PROGRESS_TOTAL}] compiled {c.name}", flush=True)
-        return o
-
-    with ThreadPoolExecutor(max(1, jobs)) as ex:
-        objects = list(ex.map(compile_one, sources))
-    part = out / part_name(game)
-    tmp = out / (part.name + ".tmp")
-    link = [lld, "-flavor", "gnu", "-shared", "-z", "max-page-size=16384", "-o", str(tmp), f"-soname={part.name}",
-            *map(str, objects)]
     libs = os.environ.get("OPENRAC_NATIVE_LIBRARY_DIR")
-    if libs:
-        # The game's library, so the part finds the game's functions in it when it is loaded.
-        link += [str(Path(libs) / f"libopenrac-{game}.so")]
-    if (kit_dir / "lib").is_dir():
-        lib = kit_dir / "lib"
-        link = link[:4] + [str(lib / "crtbegin_so.o")] + link[4:] + [
-            str(p) for p in sorted(lib.glob("*.a"))] + [str(lib / "libc.so"), str(lib / "libm.so"),
-                                                      str(lib / "crtend_so.o")]
-    print(f"[990/{PROGRESS_TOTAL}] linking {part.name}", flush=True)
-    subprocess.run(link, check=True)
-    tmp.replace(part)
+    part = out / part_name(game)
+    compile_and_link(game, sorted(src.glob("*.c")), part, kit_dir, meta, sysroot, jobs,
+                     Path(libs) / f"libopenrac-{game}.so" if libs else None)
     shutil.rmtree(work, ignore_errors=True)
     print(f"built {part}", flush=True)
     return part
+
+
+def check(game: str, kit_dir: Path, out: Path) -> None:
+    """The kit and the tools work together: a file that includes what a translation does,
+    compiled and linked as the part is (the APK's build runs it with the host's Zig)."""
+    meta = read_kit(kit_dir, game)
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    probe = out / "probe.c"
+    probe.write_text("".join(f"#include {i}\n" for i in INCLUDES)
+                     + "int openrac_asm_register(void) { return (int)sqrtf(4.0f); }\n")
+    compile_and_link(game, [probe], out / "probe.so", kit_dir, meta, None, 1, None)
+    print(f"{kit_dir}: the kit builds with {' '.join(tools()[0])}", flush=True)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -202,7 +235,14 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--sysroot", type=Path)
     # A phone's memory holds a few compilers at once (each takes up to about 160 MB).
     b.add_argument("--jobs", type=int, default=min(4, os.cpu_count() or 2))
+    c = sub.add_parser("check")
+    c.add_argument("game")
+    c.add_argument("--kit", type=Path, required=True)
+    c.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
+    if args.command == "check":
+        check(args.game, args.kit.resolve(), args.out.resolve())
+        return 0
     if args.command == "kit":
         kit(args.game, args.build, args.out, args.sysroot, args.resource_dir)
         if args.libs:
