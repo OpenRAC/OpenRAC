@@ -18,11 +18,12 @@
 // A context's actions come in the order the player reaches for them most, first the largest; the
 // pad places them on its arc in that order. "extends" takes another context's actions first (its own
 // replace those of the same id); "side" puts one beside the stick ("left") or along the top
-// ("top"); "when" shows one only while the game (or a mod) says the hint is up; "then" holds more
+// ("top"); "when" shows one, in the hint places unless its "side" says otherwise, only while the game (or a mod) says the hint is up; "then" holds more
 // buttons a moment after "press" (a combination the game reads as two presses, such as crouch then
 // jump); "toggle" makes a tap hold it until the next tap; "wide" makes it a pill for a wide icon;
 // "stick": true makes a finger held on it push the left stick the way it slides (a quick select
-// ring). A context with "dpad": true shows the d-pad in the stick's place (menus). A set read later
+// ring); "instead" names the action a "when" one takes the place of while its hint is up (a "press
+// triangle" prompt's button where the quick select was). A context with "dpad": true shows the d-pad in the stick's place (menus). A set read later
 // adds to one read before: a context of the same name gets the later actions, replacing those of
 // the same id (a mod adds a button to the game's "foot"), unless it says "replace": true.
 
@@ -45,7 +46,8 @@ enum class TouchSize : std::uint8_t {
 enum class TouchSide : std::uint8_t {
     Arc,   // around the right thumb
     Left,  // above the stick, for the left thumb
-    Top    // along the top edge, beside the options button
+    Top,   // along the top edge, beside the options button
+    Hint   // where the eye is, for a "when" one (its default)
 };
 
 struct TouchAction {
@@ -55,7 +57,8 @@ struct TouchAction {
     std::uint16_t then = 0;   // added kThenDelayMs after the press
     TouchSize size = TouchSize::Medium;
     TouchSide side = TouchSide::Arc;
-    std::string when;  // a hint that must be up for it to show; empty: always
+    std::string when;     // a hint that must be up for it to show; empty: always
+    std::string instead;  // with `when`: the action whose place (and size) it takes meanwhile
     bool toggle = false;
     bool wide = false;   // a pill wider than high, for a wide icon
     bool stick = false;  // while held, the finger's slide pushes the left stick

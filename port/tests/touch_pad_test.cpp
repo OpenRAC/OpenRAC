@@ -68,6 +68,7 @@ void arc_style() {
     foot[2].then = bit(Button::Cross);
     TouchAction swing = act("swing", bit(Button::Circle));
     swing.when = "swing_target";
+    swing.side = TouchSide::Hint;
     foot.push_back(swing);
     touch.set_actions(foot);
     CHECK(action(touch, "jump") == nullptr);  // the Classic style shows the DualShock's buttons
@@ -251,6 +252,37 @@ void steer_and_dpad() {
     // Back in play: the stick again.
     touch.set_actions({act("jump", bit(Button::Cross), TouchSize::Large)});
     CHECK(touch.controls()[0].kind == TouchControl::Kind::LeftStick);
+}
+
+// A "press triangle" prompt's button stands in for quick select while its hint is up.
+void stand_in() {
+    TouchPad touch;
+    touch.set_aspect(2.0f);
+    touch.set_style(TouchStyle::Arc);
+    TouchAction quick = act("quick", bit(Button::Triangle));
+    quick.stick = true;
+    TouchAction enter = act("enter", bit(Button::Triangle), TouchSize::Small);
+    enter.when = "board";
+    enter.instead = "quick";
+    const std::vector<TouchAction> foot{
+        act("jump", bit(Button::Cross), TouchSize::Large), quick, enter
+    };
+    touch.set_actions(foot);
+    const TouchControl* q = action(touch, "quick");
+    CHECK(q != nullptr && action(touch, "enter") == nullptr);
+    const float x = q->x, y = q->y, r = q->radius;
+    touch.set_actions(foot, {"board"});
+    const TouchControl* e = action(touch, "enter");
+    CHECK(action(touch, "quick") == nullptr && e != nullptr);
+    CHECK(e->x == x && e->y == y && e->radius == r && !e->stick && e->group != TouchGroup::Hint0);
+    TouchActionSets sets;
+    std::string error;
+    CHECK(!sets.read(
+        R"({"contexts": {"foot": {"actions": [
+        {"id": "a", "icon": "a", "press": ["triangle"], "instead": "quick"}]}}})",
+        "t",
+        error
+    ));
 }
 
 }  // namespace
@@ -575,5 +607,6 @@ int main() {
     arc_style();
     action_sets();
     steer_and_dpad();
+    stand_in();
     return openrac::test::result();
 }

@@ -83,6 +83,8 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
         a.side = TouchSide::Left;
     } else if (side == "top") {
         a.side = TouchSide::Top;
+    } else if (side == "hint" || (side.empty() && !v["when"].string().empty())) {
+        a.side = TouchSide::Hint;
     } else if (side.empty() || side == "arc") {
         a.side = TouchSide::Arc;
     } else {
@@ -90,6 +92,11 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
         return false;
     }
     a.when = v["when"].string();
+    a.instead = v["instead"].string();
+    if (!a.instead.empty() && a.when.empty()) {
+        error = std::format("action {}: \"instead\" needs a \"when\"", a.id);
+        return false;
+    }
     a.toggle = v["toggle"].boolean();
     a.wide = v["wide"].boolean();
     a.stick = v["stick"].boolean();

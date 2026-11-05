@@ -248,7 +248,7 @@ and packs it whole (hidden files left out).
 On a touch screen the pad can show action buttons with icons (the drawer's
 "Action buttons" switch; off shows the DualShock's buttons). The buttons follow
 what the game is doing, its context: `foot`, `clank`, `giant_clank`, `swim`,
-`grind`, `hoverboard`, `ship`, `turret`, `cutscene`, `menu`, `map`, `dialog`,
+`grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `menu`, `map`, `dialog`,
 `vendor`, `front_end`, `default`. The sets are JSON
 (`port/game/common/touch/sets/common.json`, then `<game>.json`). A mod adds its
 own on top:
@@ -279,7 +279,12 @@ Optional fields:
 - `then`: buttons pressed 50 ms later, for a combo. A quick tap still plays it.
 - `size`: `large`, `medium` or `small`.
 - `side`: `arc` (under the right thumb), `left` (above the stick) or `top`.
-- `when`: a hint the button waits for.
+- `when`: a hint the button waits for. It shows in the hint places (`side`
+  `hint`, left of the arc) unless `side` says otherwise.
+- `instead`: with `when`, the id of a button it replaces while the hint is
+  up, in the same place and size. rac1's "press triangle" prompts use it:
+  hints `board` (the ship), `buy` (a vendor) and `use` (a lift, a taxi)
+  turn quick select into that action.
 - `toggle`: stays down until tapped again.
 - `wide`: a wider pill, for a wide icon.
 - `stick`: while held, sliding the finger pushes the left stick that way (a

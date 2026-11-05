@@ -182,12 +182,30 @@ void TouchPad::arc_controls() {
     constexpr G kTop[] = {G::Top0, G::Top1};
     constexpr G kHint[] = {G::Hint0, G::Hint1, G::Hint2};
     std::size_t arc = 0, left = 0, top = 0, hint = 0;
-    for (const TouchAction& a : m_actions) {
-        if (!a.when.empty() && std::find(m_hints.begin(), m_hints.end(), a.when) == m_hints.end()) {
+    const auto up = [&](const TouchAction& a) {
+        return a.when.empty() || std::find(m_hints.begin(), m_hints.end(), a.when) != m_hints.end();
+    };
+    const auto has = [&](const std::string& id) {
+        return std::any_of(m_actions.begin(), m_actions.end(), [&](const TouchAction& b) {
+            return b.id == id;
+        });
+    };
+    for (const TouchAction& own : m_actions) {
+        // One that stands in for another shows in that one's place, as large.
+        if (!up(own) || (!own.instead.empty() && has(own.instead))) {
             continue;
         }
+        const auto stand_in =
+            std::find_if(m_actions.begin(), m_actions.end(), [&](const TouchAction& b) {
+                return b.instead == own.id && up(b);
+            });
+        TouchAction a = stand_in != m_actions.end() ? *stand_in : own;
+        a.size = own.size;
+        a.side = own.side;
+        a.when = own.when;
+        a.wide = own.wide;
         G g = G::Count;
-        if (!a.when.empty()) {
+        if (a.side == TouchSide::Hint) {
             g = hint < std::size(kHint) ? kHint[hint++] : G::Count;
         } else if (a.side == TouchSide::Left) {
             g = left < std::size(kLeft) ? kLeft[left++] : G::Count;

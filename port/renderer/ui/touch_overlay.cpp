@@ -197,15 +197,18 @@ void main() {
         if (symbol == 10) {
             vec2 uv = q / logo_half * 0.5 + 0.5;
             bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
-            mark = inside ? texture(tex_T0, uv).a : 0.0;
+            float read = texture(tex_T0, clamp(uv, 0.0, 1.0)).a;  // outside any branch: see below
+            mark = inside ? read : 0.0;
             ink.rgb = vec3(0.92);
         }
         // An action's icon: white ink and the accent's, their coverage read from the icons' texture.
         vec4 icon = vec4(0.0);
         if (symbol == 11) {
+            // Read for every pixel, then masked: read only inside the square, the mip level at its
+            // edge came from broken derivatives and drew a thin square around the icon (Adreno).
             vec2 uv = q / icon_half * 0.5 + 0.5;
+            vec2 cover = texture(tex_T0, mix(icon_rect.xy, icon_rect.zw, clamp(uv, 0.0, 1.0))).rg;
             if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
-                vec2 cover = texture(tex_T0, mix(icon_rect.xy, icon_rect.zw, uv)).rg;
                 vec3 tint = mix(vec3(0.96), accent, cover.g / max(cover.r + cover.g, 1e-4));
                 icon = vec4(tint, max(cover.r, cover.g));
             }

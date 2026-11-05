@@ -15,7 +15,10 @@
         { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
         { "id": "wrench", "icon": "wrench", "press": ["square"] },
         { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
-        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left", "wide": true }
+        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left", "wide": true },
+        { "id": "enter", "icon": "ship", "press": ["triangle"], "when": "board", "instead": "quick" },
+        { "id": "buy", "icon": "buy", "press": ["triangle"], "when": "buy", "instead": "quick" },
+        { "id": "use", "icon": "use", "press": ["triangle"], "when": "use", "instead": "quick" }
       ]
     },
     "foot": { "extends": "default", "actions": [] },
@@ -43,7 +46,8 @@
         { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
         { "id": "punch", "icon": "punch", "press": ["square"], "size": "large" },
         { "id": "bots", "icon": "bots", "press": ["triangle"], "wide": true, "stick": true },
-        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" }
+        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
+        { "id": "use", "icon": "use", "press": ["triangle"], "when": "use", "instead": "bots" }
       ]
     },
     "giant_clank": {
@@ -71,6 +75,16 @@
         { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true, "wide": true }
       ]
     },
+    "jet": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "crosshair", "press": ["square"], "size": "large" },
+        { "id": "boost", "icon": "boost", "press": ["cross"], "size": "large" },
+        { "id": "missile", "icon": "missile", "press": ["circle"] },
+        { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
+        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true, "wide": true }
+      ]
+    },
     "turret": {
       "extends": "base",
       "actions": [
@@ -80,7 +94,7 @@
     },
     "cutscene": {
       "actions": [
-        { "id": "skip", "icon": "skip", "press": ["start"], "side": "top" }
+        { "id": "skip", "icon": "skip", "press": ["start"], "size": "large" }
       ]
     },
     "menu": {
@@ -97,9 +111,8 @@
       "actions": [
         { "id": "missions", "icon": "missions", "press": ["cross"], "size": "large" },
         { "id": "back", "icon": "back", "press": ["triangle"] },
-        { "id": "planet", "icon": "planet", "press": ["circle"] },
-        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" },
-        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" }
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" },
+        { "id": "infobot", "icon": "planet", "press": ["circle"], "when": "infobot", "side": "arc" }
       ]
     },
     "dialog": {
