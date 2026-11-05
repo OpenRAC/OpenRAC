@@ -665,6 +665,9 @@ add_executable(probe_gpu_test enhanced/tests/probe_gpu_test.cpp
 add_executable(early_lighting_test enhanced/tests/early_lighting_test.cpp)
 openrac_add_test(surface_normals SOURCES enhanced/tests/surface_normals_test.cpp
   LIBS openrac_viewer_lib openrac_platform)
+if(OPENRAC_VULKAN)
+  target_compile_definitions(surface_normals_test PRIVATE OPENRAC_VULKAN=1)
+endif()
 set_tests_properties(surface_normals PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
   "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1")
 target_link_libraries(early_lighting_test PRIVATE openrac_viewer_lib openrac_platform)
@@ -966,6 +969,7 @@ if(OPENRAC_VULKAN)
 endif()
 
 openrac_add_test(bake_liquids SOURCES enhanced/tests/bake_liquids_test.cpp LIBS openrac_probe_scene)
+set_property(TEST bake_liquids APPEND PROPERTY LABELS baker)
 
 include(Fsr3)
 
@@ -1037,6 +1041,7 @@ target_sources(water_gpu_test PRIVATE
   enhanced/tests/water_window_gpu.cpp)
 add_test(NAME water_bake COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/tools/water/test_bake_water.py")
+set_property(TEST water_bake APPEND PROPERTY LABELS baker)
 
 add_executable(water_host_test enhanced/tests/water_host_test.c game/rac1-ntsc/host/water.c
   game/rac1/host/water.c)

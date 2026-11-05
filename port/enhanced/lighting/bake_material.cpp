@@ -244,16 +244,18 @@ std::array<float, 4> bake_material(
     float v,
     const BakeMaterialOptions& options
 ) {
-    const bool authored = options.terrain_vertex_albedo && triangle.terrain_prelighting;
+    const bool authored = options.terrain_vertex_albedo && triangle.terrain_prelighting
+                          && options.terrain_vertex_albedo_strength > 0;
     Float3 authored_tint{1, 1, 1};
 
     // Authored terrain tint follows the runtime albedo path.
     if (authored) {
         // Interpolate the artistic tint before colour decoding.
         for (unsigned c = 0; c < 3; ++c) {
-            authored_tint[c] = triangle.authored_colours[0][c] * (1 - u - v)
+            const float tint = triangle.authored_colours[0][c] * (1 - u - v)
                                + triangle.authored_colours[1][c] * u
                                + triangle.authored_colours[2][c] * v;
+            authored_tint[c] = std::lerp(1.f, tint, options.terrain_vertex_albedo_strength);
         }
     }
 

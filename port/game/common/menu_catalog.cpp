@@ -51,7 +51,9 @@ constexpr Entry kEntries[] = {
      "Original keeps the console's rate. The others draw extra frames between the game's ticks: "
      "as fast as the display, up to a cap, or without a limit. The game itself runs at its own "
      "speed either way."},
-    {Id::FrameCap, Tab::Graphics, "Frames", kChoice, A, "Frame cap",
+    // Desktop only: on Android the display's rate is the system's, and Frame rate's list of caps
+    // is enough there.
+    {Id::FrameCap, Tab::Graphics, "Frames", kChoice, D, "Frame cap",
      "The most frames a second, in steps of 5, while Frame rate is capped."},
     {Id::VSync, Tab::Graphics, "Frames", kChoice, A, "VSync",
      "Waits for the display before showing a frame, which stops tearing. Off shows frames as "
@@ -64,6 +66,10 @@ constexpr Entry kEntries[] = {
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
+    {Id::HdrPeak, Tab::Graphics, "HDR", kChoice, A, "HDR peak",
+     "The brightest that glows and explosions may go in HDR, also told to the display. Display "
+     "takes what the display reports. Where the system sets the brightness (Android, macOS), "
+     "it can only go lower."},
     {Id::HdrStatus, Tab::Graphics, "HDR", kNote, A, "HDR status",
      "What the display and the system give the game for HDR now."},
     {Id::LowLatency, Tab::Graphics, "Latency", kSwitch, A, "Low-latency frames",

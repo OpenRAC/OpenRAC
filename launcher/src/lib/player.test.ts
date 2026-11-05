@@ -60,6 +60,7 @@ function step(id: string, more: Partial<ActionView> = {}): ActionView {
     thisPlatform: true,
     runnable: true,
     done: false,
+    missingArtifact: false,
     blockers: [],
     state: "unverified",
     ...more,
@@ -114,24 +115,31 @@ describe("rebuild", () => {
   });
 });
 
-describe("a game this launcher cannot build", () => {
+describe("a game this launcher can neither find nor build", () => {
   beforeEach(() => {
     jobs.list.length = 0;
   });
 
-  const blockers = ["needs port/build/release/openrac-rac2-ntsc, which an earlier step makes"];
+  // Going Commando in launcher 1.0.0: the installer carried no program for it and no build step,
+  // so Rebuild read the levels again, which left Play blocked, and offered Rebuild again, forever.
+  const blockers = ["needs port/build/release/openrac-rac2-ntsc.exe, which an earlier step makes"];
+  const v = versionWith([
+    step("port-levels", { done: true }),
+    step("play", { runnable: false, missingArtifact: true, blockers }),
+  ]);
 
-  it("says so instead of offering levels or a rebuild that cannot help", () => {
-    const v = versionWith([step("play", { runnable: false, blockers }), step("port-levels")]);
+  it("is not offered a Rebuild that only reads the levels again", () => {
+    expect(rebuildSteps(v)).toBeNull();
     const state = playerState(gameOf(v), v);
-    expect(state.kind).toBe("unavailable");
+    expect(state.kind).toBe("blocked");
     expect(state.disabled).toBe(true);
-    expect(state.hint).toContain("no step that builds it");
+    expect(state.status).toBe("Needs a newer launcher");
   });
 
-  it("builds and plays where the launcher has the build", () => {
-    const v = versionWith([step("play", { runnable: false, blockers }), step("port-build")]);
-    expect(playerState(gameOf(v), v).kind).toBe("build");
+  it("is offered its build once the launcher has one", () => {
+    const buildable = versionWith([...v.actions, step("port-build")]);
+    expect(rebuildSteps(buildable)?.map((a) => a.id)).toEqual(["port-build"]);
+    expect(playerState(gameOf(buildable), buildable).kind).toBe("build");
   });
 });
 

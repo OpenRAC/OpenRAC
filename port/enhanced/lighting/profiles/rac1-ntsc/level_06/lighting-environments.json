@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "barriers": [],
+  "frames": {"exploding-ship-deck": {"up": [-0.140427, 0.049234, 0.988866]}},
+  "sources": [
+    {"position": [214.875, 356.75, 143.5], "light": 0, "ambient": [2, 78, 4]},
+    {"position": [324.875, 216.75, 131.5], "light": 0, "ambient": [17, 30, 30]},
+    {"position": [190.875, 330.75, 142.91], "light": 6, "ambient": [18, 15, 14]},
+    {"position": [178.875, 204.75, 132.75], "light": 6, "ambient": [6, 7, 11]},
+    {"position": [264.875, 490.75, 120.5], "light": 0, "ambient": [88, 4, 5], "frame": "exploding-ship-deck"}
+  ]
+}

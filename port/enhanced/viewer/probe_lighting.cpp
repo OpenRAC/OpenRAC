@@ -790,7 +790,8 @@ void ProbeLighting::finish_load(ProbeBakeRead read) {
         );
     }
 
-    m_terrain_vertex_albedo = expected.bake.terrain_vertex_albedo;
+    m_terrain_vertex_albedo =
+        expected.bake.terrain_vertex_albedo ? expected.bake.terrain_vertex_albedo_strength : 0;
     log::info(
         "enhanced sunlight RGB scale: {} {} {}",
         m_sunlight_scale[0],
@@ -865,9 +866,9 @@ void ProbeLighting::bind(
     glUniform1i(shader.uniform("probe_receiver"), receiver);
     glUniform1i(shader.uniform("probe_mode"), active() && receiver ? mode : 0);
     glUniform1f(shader.uniform("probe_gi_multiplier"), gi_multiplier);
-    glUniform1i(
+    glUniform1f(
         shader.uniform("probe_terrain_albedo"),
-        m_terrain_vertex_albedo && layer == scene::Layer::Terrain ? 1 : 0
+        layer == scene::Layer::Terrain ? m_terrain_vertex_albedo : 0
     );
     // Going Commando's original lighting is the anchor (README, Retail anchoring): its moby ambient
     // and terrain vertex lighting carry more of each level's look than its dimmer skies give the
@@ -1104,7 +1105,7 @@ void ProbeLighting::release() {
     m_sunlight_scale = {1, 1, 1};
     m_sunlight_direction.reset();
     runtime_sunlight_direction.reset();
-    m_terrain_vertex_albedo = false;
+    m_terrain_vertex_albedo = 0;
     m_selection.release();
     m_full_residency = false;
     m_region_offsets.clear();

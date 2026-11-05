@@ -3,6 +3,7 @@
 //
 // Range and access validation, independent of graphics APIs or GPU allocation.
 #include <algorithm>
+#include <tuple>
 
 #include "renderer/graph/graph_internal.h"
 
@@ -43,7 +44,9 @@ bool valid_state(State state, bool image) {
         case Layout::ColourAttachment:
             return within(state.stages, Stage::ColourOutput);
         case Layout::DepthAttachment:
-            return within(state.stages, Stage::DepthTests | Stage::ColourOutput);
+            // Colour output can write a depth resolve, but depth reads require depth tests.
+            return within(state.stages, Stage::DepthTests | Stage::ColourOutput)
+                   && (!reads(state.access) || state.stages != Stage::ColourOutput);
         case Layout::DepthReadOnly:
             return !writes(state.access) && within(state.stages, kShaders | Stage::DepthTests);
         case Layout::TransferSource:
@@ -64,7 +67,8 @@ bool valid_aspects(Layout layout, Aspect aspects) {
     const bool depth = layout == Layout::DepthAttachment || layout == Layout::DepthReadOnly;
     const bool colour =
         (static_cast<unsigned>(aspects) & static_cast<unsigned>(Aspect::Colour)) != 0;
-    return !(depth && colour) && (layout != Layout::ColourAttachment || aspects == Aspect::Colour);
+    const bool colour_only = layout == Layout::ColourAttachment || layout == Layout::Present;
+    return !(depth && colour) && (!colour_only || aspects == Aspect::Colour);
 }
 
 namespace {
@@ -151,6 +155,29 @@ Result<void> image_uses(
 
     return {};
 }
+
+bool range_order(const Use& a, const Use& b) {
+    return std::tie(a.resource, a.begin) < std::tie(b.resource, b.begin);
+}
+
+// On sorted input all active intervals must already be compatible with each other.
+bool conflicting_ranges(std::span<const Use> sorted) {
+    const Use* furthest = nullptr;
+    for (const auto& use : sorted) {
+        if (!furthest || furthest->resource != use.resource || furthest->end <= use.begin) {
+            furthest = &use;
+            continue;
+        }
+        if (writes(furthest->state.access) || writes(use.state.access)
+            || furthest->state.layout != use.state.layout) {
+            return true;
+        }
+        if (use.end > furthest->end) {
+            furthest = &use;
+        }
+    }
+    return false;
+}
 }  // namespace
 
 std::uint64_t extent(const Resource& resource) {
@@ -164,6 +191,7 @@ std::uint64_t extent(const Resource& resource) {
 
 Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> resources) {
     std::vector<Use> result;
+    result.reserve(pass.images.size() + pass.buffers.size());
 
     // Validate operations before adding ranges to the compilation work list.
     for (const auto& use : pass.images) {
@@ -196,22 +224,16 @@ Result<std::vector<Use>> normalise(const Pass& pass, std::span<const Resource> r
         );
     }
 
-    // Conflicting declarations in one pass have no barrier boundary between them.
-    for (std::size_t i = 0; i < result.size(); ++i) {
-        // Compare each pair once, including aliases of the same allocation.
-        for (std::size_t j = 0; j < i; ++j) {
-            const auto& a = result[i];
-            const auto& b = result[j];
-
-            // Duplicate compatible reads are allowed; writes need one explicit read/write use.
-            if (a.resource == b.resource && a.begin < b.end && b.begin < a.end
-                && (writes(a.state.access) || writes(b.state.access)
-                    || a.state.layout != b.state.layout)) {
-                return unexpected(
-                    Error{"overlapping writes or incompatible reads within one pass"}
-                );
-            }
-        }
+    // Validate in range order without changing the order in which barriers are emitted.
+    std::span<const Use> sorted = result;
+    std::vector<Use> scratch;
+    if (!std::is_sorted(result.begin(), result.end(), range_order)) {
+        scratch = result;
+        std::sort(scratch.begin(), scratch.end(), range_order);
+        sorted = scratch;
+    }
+    if (conflicting_ranges(sorted)) {
+        return unexpected(Error{"overlapping writes or incompatible reads within one pass"});
     }
 
     return result;

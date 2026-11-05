@@ -28,6 +28,10 @@
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
 
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
+
 namespace {
 using namespace openrac;
 
@@ -367,11 +371,26 @@ int main() {
             return test::kSkip;
         }
 
+        // Draws compile the programs this fixture exercises. The prewarm test covers the rest.
+        renderer::render_opt::set(renderer::render_opt::Opt::PipelinePrewarm, false);
+#if defined(OPENRAC_VULKAN)
+        // This matrix varies receivers and targets while reusing identical shader programs.
+        if (gl::is_vulkan()) {
+            vkgl::test_reuse_programs(true);
+        }
+#endif
         for (const int samples : {1, 4}) {
             test_mesh_variants(samples);
         }
 
         test_depth_only();
+#if defined(OPENRAC_VULKAN)
+        if (gl::is_vulkan()) {
+            CHECK(vkgl::submission_counters().test_program_reuses > 0);
+            CHECK(vkgl::submission_counters().validation_errors == 0);
+            vkgl::test_reuse_programs(false);
+        }
+#endif
         return test::result();
     } catch (const std::exception& failure) {
         std::fprintf(stderr, "%s\n", failure.what());

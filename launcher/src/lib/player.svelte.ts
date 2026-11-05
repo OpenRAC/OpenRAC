@@ -147,6 +147,13 @@ export function playerVersion(game: GameView): VersionView | null {
   });
 }
 
+/** Play waits for the game's program, which is not there, and this launcher has no step that
+ *  builds it (an installer that carries neither, such as Going Commando's in launcher 1.0.0). */
+export function missingProgram(v: VersionView): boolean {
+  const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a?.thisPlatform);
+  return !!action(v, "play")?.missingArtifact && builds.length === 0;
+}
+
 /** The game is built for this computer: its program is there (on Android, the APK's), whether or
  *  not its levels are ready yet. */
 export function isBuilt(game: GameView, v: VersionView): boolean {
@@ -155,7 +162,9 @@ export function isBuilt(game: GameView, v: VersionView): boolean {
 
 /**
  * What Rebuild runs: the build from scratch where this platform builds, else (Android, which plays
- * the game its APK carries) the levels read from the disc again and checked. Null when it cannot run.
+ * the game its APK carries) the levels read from the disc again and checked. Null when it cannot run,
+ * and when the game's program is not there with nothing to build it (missingProgram): reading the
+ * levels again would leave Play just as blocked, and Rebuild would be offered again, forever.
  */
 export function rebuildSteps(v: VersionView): ActionView[] | null {
   const builds = [action(v, "port-rebuild"), action(v, "port-build")].filter((a) => a !== null);
@@ -163,6 +172,7 @@ export function rebuildSteps(v: VersionView): ActionView[] | null {
     const build = builds.find((a) => a.runnable);
     return build ? [build] : null;
   }
+  if (missingProgram(v)) return null;
   const levels = action(v, "port-levels");
   const check = action(v, "port-levels-check");
   const part = action(v, "port-part");
@@ -181,15 +191,9 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
   const other = setUp && setUp.version !== v.key ? (game.versions.find((o) => o.key === setUp.version) ?? null) : null;
   const installing = jobs.list.find((j) => j.actionId === `install:${v.game}` && live(j)) ?? null;
   const base = { primary: false, disabled: false, job: null as Job | null };
-  /** Play waits for a program this launcher cannot make: it carries none for the game, and has no
-   *  step that builds one (Going Commando's is built from the player's own disc, in a checkout). */
-  // Android has no such case: a game the APK does not carry has no Play there (bundle_standalone.py).
-  const unbuildable = !onAndroid && !!play && !build && !play.done && play.blockers.some(missingProgram);
   /** Android: a game whose Play the APK leaves out, as it carries no library for it. */
   const notInApp = onAndroid && !play && v.actions.some((a) => a.id === "play" && a.state !== "planned");
-  const noBuildHint = notInApp
-    ? `This app does not carry ${game.title}: an APK built with it (tools/build_android.py) builds it from your disc.`
-    : `${game.title} is built on your computer from your own disc, and this launcher has no step that builds it. Run the launcher from a copy of OpenRAC's source to build and play it.`;
+  const noBuildHint = `This app does not carry ${game.title}: an APK built with it (tools/build_android.py) builds it from your disc.`;
 
   if (installing) {
     return {
@@ -204,21 +208,20 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
     };
   }
   if (!setUp) {
-    const planned = !play || play.state === "planned" || unbuildable;
+    const planned = !play || play.state === "planned";
     const found = foundDisc(v.game);
     return {
       ...base,
       kind: "set-up",
       label: found ? "Set up" : "Set up from your disc",
       icon: "disc",
-      hint:
-        unbuildable || notInApp
-          ? `${noBuildHint} You can set your disc up now.`
-          : planned
-            ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
-            : found
-              ? `Found in your games folder: ${fileName(found.path)}`
-              : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
+      hint: notInApp
+        ? `${noBuildHint} You can set your disc up now.`
+        : planned
+          ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
+          : found
+            ? `Found in your games folder: ${fileName(found.path)}`
+            : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
       primary: !planned,
       status: planned ? "Not playable yet" : "Not set up",
       tone: planned ? "info" : "warn",
@@ -236,7 +239,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "info",
     };
   }
-  if (unbuildable || notInApp) {
+  if (notInApp) {
     return {
       ...base,
       kind: "unavailable",
@@ -370,6 +373,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       tone: "warn",
     };
   }
+  if (missingProgram(v)) {
+    return {
+      ...base,
+      kind: "blocked",
+      label: "Play",
+      icon: "play",
+      hint: "This launcher has no program for this game and cannot build it. Update the launcher (Settings): a newer one builds it from your disc.",
+      disabled: true,
+      status: "Needs a newer launcher",
+      tone: "warn",
+    };
+  }
   const needs = play.blockers.map((b) => b.replace(/^needs /, "")).join(", ");
   return {
     ...base,
@@ -382,9 +397,6 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
     tone: "warn",
   };
 }
-
-/** Core's blocker for an action whose program is not there (actions.rs, Requirement::Artifact). */
-const missingProgram = (blocker: string) => blocker.endsWith(", which an earlier step makes");
 
 /** Something of the levels is still to do: reading them, or (where the version has it) the check. */
 function levelsNeeded(levels: ActionView | null, check: ActionView | null): boolean {

@@ -159,7 +159,7 @@ bool material_program(Program& p, const std::string& vertex, const std::string& 
          // Depth programs use the spare resource word for their atlas view;
          // colour programs use it for terrain albedo. They never coexist.
          {"shadow_view", "int(O_MATERIAL.resources.w)", 60},
-         {"probe_terrain_albedo", "int(O_MATERIAL.resources.w)", 60},
+         {"probe_terrain_albedo", "uintBitsToFloat(O_MATERIAL.resources.w)", 60},
          {"skinning", "int(O_MATERIAL.draw_flags.x)", 64},
          {"lighting", "int(O_MATERIAL.draw_flags.y)", 68},
          {"probe_receiver", "int(O_MATERIAL.draw_flags.z)", 72},
@@ -302,7 +302,9 @@ std::array<std::uint64_t, 2> material_texture_key(const Sampled& sample) {
 namespace {
 
 // Checks page capacity without counting a repeated sampler/image pair more than once.
-bool material_page_fits(const MaterialPage& page, std::span<const Sampled> textures) {
+bool material_page_fits(
+    const MaterialPage& page, std::span<const Sampled> textures, unsigned draws
+) {
     unsigned additional = 0;
 
     // Several material roles can use the same image and sampler.
@@ -323,17 +325,17 @@ bool material_page_fits(const MaterialPage& page, std::span<const Sampled> textu
         additional += repeated ? 0u : 1u;
     }
 
-    return page.draws < kMaterialDraws
+    return draws <= kMaterialDraws - page.draws
            && page.textures.size() + additional <= g->material_texture_capacity;
 }
 
 }  // namespace
 
 // Returns a fence-owned page with room for the draw and its distinct material textures.
-MaterialPage& material_page(std::span<const Sampled> textures) {
+MaterialPage& material_page(std::span<const Sampled> textures, unsigned draws) {
     auto& f = frame();
     if (!f.material_pages_used
-        || !material_page_fits(f.material_pages[f.material_pages_used - 1], textures)) {
+        || !material_page_fits(f.material_pages[f.material_pages_used - 1], textures, draws)) {
         if (f.material_pages_used == f.material_pages.size()) {
             auto& page = f.material_pages.emplace_back();
             page.data = gpu_buffer(
@@ -406,7 +408,7 @@ struct MaterialBinding {
 };
 
 // Resolves material textures and retains an immutable record for this draw.
-MaterialBinding material_binding(Program& p, const Target& target) {
+MaterialBinding material_binding(Program& p, const Target& target, unsigned draws) {
     if (!p.gpu_materials) {
         return {};
     }
@@ -430,7 +432,7 @@ MaterialBinding material_binding(Program& p, const Target& target) {
         const auto slot = std::find(kMaterialSamplers.begin(), kMaterialSamplers.end(), u.name);
         textures[static_cast<std::size_t>(slot - kMaterialSamplers.begin())] = sample;
     }
-    auto& page = material_page(textures);
+    auto& page = material_page(textures, draws);
     std::array<std::uint32_t, kMaterialWords> record;
     std::memcpy(record.data(), p.uniforms.data() + p.material_start, kMaterialBytes);
     // Depth/shadow programs can omit emission and upscaled colour sampling.
@@ -448,9 +450,13 @@ MaterialBinding material_binding(Program& p, const Target& target) {
         );
         ++g->material_records;
     }
-    const unsigned draw = page.draws++;
-    std::memcpy(page.data.mapped + draw * 4, &it->second, 4);
-    ++g->material_draws;
+    // Each indirect command advances gl_DrawID, even when all ranges share one material.
+    const unsigned draw = page.draws;
+    for (unsigned i = 0; i < draws; ++i) {
+        std::memcpy(page.data.mapped + (draw + i) * 4, &it->second, 4);
+    }
+    page.draws += draws;
+    g->material_draws += draws;
     return {page.set, draw};
 }
 
