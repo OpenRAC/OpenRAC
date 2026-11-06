@@ -227,10 +227,13 @@ struct GpuTransport::Impl {
             return false;
         }
 
-        VkApplicationInfo app{VK_STRUCTURE_TYPE_APPLICATION_INFO};
+        VkApplicationInfo app{};
+
+        app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app.pApplicationName = "openrac-probe-bake";
         app.apiVersion = VK_API_VERSION_1_2;
-        VkInstanceCreateInfo info{VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+        VkInstanceCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
         info.pApplicationInfo = &app;
 
         if (vkCreateInstance(&info, nullptr, &instance) != VK_SUCCESS) {
@@ -301,22 +304,21 @@ struct GpuTransport::Impl {
             return false;
         }
 
-        VkPhysicalDeviceRayQueryFeaturesKHR ray_query{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR
-        };
+        VkPhysicalDeviceRayQueryFeaturesKHR ray_query{};
+
+        ray_query.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR;
         ray_query.rayQuery = VK_TRUE;
-        VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR
-        };
+        VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration{};
+        acceleration.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
         acceleration.accelerationStructure = VK_TRUE;
         acceleration.pNext = &ray_query;
-        VkPhysicalDeviceVulkan12Features vulkan12{
-            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES
-        };
+        VkPhysicalDeviceVulkan12Features vulkan12{};
+        vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
         vulkan12.bufferDeviceAddress = VK_TRUE;
         vulkan12.pNext = &acceleration;
         const float priority = 1;
-        VkDeviceQueueCreateInfo queue_info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+        VkDeviceQueueCreateInfo queue_info{};
+        queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
         queue_info.queueFamilyIndex = family;
         queue_info.queueCount = 1;
         queue_info.pQueuePriorities = &priority;
@@ -325,7 +327,8 @@ struct GpuTransport::Impl {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
         };
-        VkDeviceCreateInfo device_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+        VkDeviceCreateInfo device_info{};
+        device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         device_info.pNext = &vulkan12;
         device_info.queueCreateInfoCount = 1;
         device_info.pQueueCreateInfos = &queue_info;
@@ -340,16 +343,19 @@ struct GpuTransport::Impl {
         volkLoadDevice(device);
         vkGetDeviceQueue(device, family, 0, &queue);
         vkGetPhysicalDeviceMemoryProperties(physical, &memory);
-        VkCommandPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        VkCommandPoolCreateInfo pool_info{};
+        pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         pool_info.queueFamilyIndex = family;
         check(vkCreateCommandPool(device, &pool_info, nullptr, &pool), "command pool");
-        VkCommandBufferAllocateInfo allocate{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        VkCommandBufferAllocateInfo allocate{};
+        allocate.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocate.commandPool = pool;
         allocate.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocate.commandBufferCount = 1;
         check(vkAllocateCommandBuffers(device, &allocate, &commands), "command buffer");
-        VkFenceCreateInfo fence_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+        VkFenceCreateInfo fence_info{};
+        fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         check(vkCreateFence(device, &fence_info, nullptr, &fence), "fence");
         return true;
     }
@@ -368,15 +374,18 @@ struct GpuTransport::Impl {
     Buffer make_buffer(VkDeviceSize size, VkBufferUsageFlags usage, bool host = true) {
         Buffer b;
         b.size = std::max<VkDeviceSize>(size, 16);
-        VkBufferCreateInfo info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        VkBufferCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         info.size = b.size;
         info.usage = usage | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
         check(vkCreateBuffer(device, &info, nullptr, &b.buffer), "buffer");
         VkMemoryRequirements requirements;
         vkGetBufferMemoryRequirements(device, b.buffer, &requirements);
-        VkMemoryAllocateFlagsInfo flags{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        VkMemoryAllocateFlagsInfo flags{};
+        flags.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO;
         flags.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-        VkMemoryAllocateInfo allocate{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        VkMemoryAllocateInfo allocate{};
+        allocate.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocate.pNext = &flags;
         allocate.allocationSize = requirements.size;
         allocate.memoryTypeIndex = memory_type(
@@ -391,7 +400,9 @@ struct GpuTransport::Impl {
             check(vkMapMemory(device, b.memory, 0, VK_WHOLE_SIZE, 0, &b.mapped), "map");
         }
 
-        VkBufferDeviceAddressInfo address{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+        VkBufferDeviceAddressInfo address{};
+
+        address.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
         address.buffer = b.buffer;
         b.address = vkGetBufferDeviceAddress(device, &address);
         owned.push_back(b);
@@ -409,12 +420,14 @@ struct GpuTransport::Impl {
 
     void submit(const std::function<void(VkCommandBuffer)>& record) {
         check(vkResetCommandBuffer(commands, 0), "reset commands");
-        VkCommandBufferBeginInfo begin{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        VkCommandBufferBeginInfo begin{};
+        begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         check(vkBeginCommandBuffer(commands, &begin), "begin commands");
         record(commands);
         check(vkEndCommandBuffer(commands), "end commands");
-        VkSubmitInfo info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+        VkSubmitInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         info.commandBufferCount = 1;
         info.pCommandBuffers = &commands;
         check(vkResetFences(device, 1, &fence), "reset fence");
@@ -428,17 +441,15 @@ struct GpuTransport::Impl {
         std::vector<VkAccelerationStructureGeometryKHR>& geometries,
         const std::vector<std::uint32_t>& primitives
     ) {
-        VkAccelerationStructureBuildGeometryInfoKHR info{
-            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR
-        };
+        VkAccelerationStructureBuildGeometryInfoKHR info{};
+        info.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
         info.type = type;
         info.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
         info.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
         info.geometryCount = static_cast<std::uint32_t>(geometries.size());
         info.pGeometries = geometries.data();
-        VkAccelerationStructureBuildSizesInfoKHR sizes{
-            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR
-        };
+        VkAccelerationStructureBuildSizesInfoKHR sizes{};
+        sizes.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
         vkGetAccelerationStructureBuildSizesKHR(
             device,
             VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
@@ -453,9 +464,8 @@ struct GpuTransport::Impl {
         );
         const auto scratch =
             make_buffer(sizes.buildScratchSize + 256, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, false);
-        VkAccelerationStructureCreateInfoKHR create{
-            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR
-        };
+        VkAccelerationStructureCreateInfoKHR create{};
+        create.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
         create.buffer = storage.buffer;
         create.size = sizes.accelerationStructureSize;
         create.type = type;
@@ -501,9 +511,8 @@ struct GpuTransport::Impl {
             const auto buffer = upload(
                 vertices, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
             );
-            VkAccelerationStructureGeometryKHR geometry{
-                VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR
-            };
+            VkAccelerationStructureGeometryKHR geometry{};
+            geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
             geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
             geometry.flags = group == 0 ? VK_GEOMETRY_OPAQUE_BIT_KHR : 0;
             auto& triangles = geometry.geometry.triangles;
@@ -522,9 +531,8 @@ struct GpuTransport::Impl {
         }
 
         blas = build(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, geometries, primitives);
-        VkAccelerationStructureDeviceAddressInfoKHR address{
-            VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR
-        };
+        VkAccelerationStructureDeviceAddressInfoKHR address{};
+        address.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
         address.accelerationStructure = blas;
         VkAccelerationStructureInstanceKHR instance_data{};
         instance_data.transform.matrix[0][0] = 1;
@@ -538,8 +546,8 @@ struct GpuTransport::Impl {
             std::vector<VkAccelerationStructureInstanceKHR>{instance_data},
             VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR
         );
-        VkAccelerationStructureGeometryKHR top{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR
-        };
+        VkAccelerationStructureGeometryKHR top{};
+        top.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
         top.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
         top.geometry.instances.sType =
             VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
@@ -759,24 +767,28 @@ struct GpuTransport::Impl {
                  nullptr};
         }
 
-        VkDescriptorSetLayoutCreateInfo set_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO
-        };
+        VkDescriptorSetLayoutCreateInfo set_info{};
+
+        set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         set_info.bindingCount = kBindings;
         set_info.pBindings = bindings.data();
         check(vkCreateDescriptorSetLayout(device, &set_info, nullptr, &set_layout), "set layout");
         const VkPushConstantRange range{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(Push)};
-        VkPipelineLayoutCreateInfo layout_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+        VkPipelineLayoutCreateInfo layout_info{};
+        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layout_info.setLayoutCount = 1;
         layout_info.pSetLayouts = &set_layout;
         layout_info.pushConstantRangeCount = 1;
         layout_info.pPushConstantRanges = &range;
         check(vkCreatePipelineLayout(device, &layout_info, nullptr, &layout), "pipeline layout");
-        VkShaderModuleCreateInfo module_info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+        VkShaderModuleCreateInfo module_info{};
+        module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         module_info.codeSize = code.size() * 4;
         module_info.pCode = code.data();
         VkShaderModule module;
         check(vkCreateShaderModule(device, &module_info, nullptr, &module), "shader module");
-        VkComputePipelineCreateInfo pipeline_info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+        VkComputePipelineCreateInfo pipeline_info{};
+        pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         pipeline_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipeline_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
         pipeline_info.stage.module = module;
@@ -791,12 +803,14 @@ struct GpuTransport::Impl {
             {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
              {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, kBindings - 1}}
         };
-        VkDescriptorPoolCreateInfo pool_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+        VkDescriptorPoolCreateInfo pool_info{};
+        pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         pool_info.maxSets = 1;
         pool_info.poolSizeCount = 2;
         pool_info.pPoolSizes = sizes.data();
         check(vkCreateDescriptorPool(device, &pool_info, nullptr, &descriptors), "descriptor pool");
-        VkDescriptorSetAllocateInfo allocate{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+        VkDescriptorSetAllocateInfo allocate{};
+        allocate.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         allocate.descriptorPool = descriptors;
         allocate.descriptorSetCount = 1;
         allocate.pSetLayouts = &set_layout;
@@ -804,14 +818,14 @@ struct GpuTransport::Impl {
 
         std::array<VkDescriptorBufferInfo, kBindings> infos{};
         std::array<VkWriteDescriptorSet, kBindings> writes{};
-        VkWriteDescriptorSetAccelerationStructureKHR acceleration{
-            VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR
-        };
+        VkWriteDescriptorSetAccelerationStructureKHR acceleration{};
+        acceleration.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
         acceleration.accelerationStructureCount = 1;
         acceleration.pAccelerationStructures = &tlas;
 
         for (std::uint32_t i = 0; i < kBindings; ++i) {
-            writes[i] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+            writes[i] = {};
+            writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             writes[i].dstSet = set;
             writes[i].dstBinding = i;
             writes[i].descriptorCount = 1;
@@ -883,7 +897,8 @@ void GpuTransport::sample(
             );
             vkCmdPushConstants(c, g.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof push, &push);
             vkCmdDispatch(c, (count + kLocalSize - 1) / kLocalSize, 1, 1);
-            VkMemoryBarrier barrier{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+            VkMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
             barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
             barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
             vkCmdPipelineBarrier(
