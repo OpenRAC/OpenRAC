@@ -54,8 +54,6 @@ Color* field(Colors& c, std::string_view name) {
         {"line", &Colors::line},
         {"line-strong", &Colors::line_strong},
         {"err", &Colors::err},
-        {"control", &Colors::control},
-        {"control-hi", &Colors::control_hi},
         {"control-card", &Colors::control_card},
         {"control-card-hi", &Colors::control_card_hi},
         {"menu-top", &Colors::menu_top},

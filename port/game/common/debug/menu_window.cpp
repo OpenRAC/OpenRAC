@@ -730,10 +730,8 @@ void menu_window(const Shown& shown) {
         // Many thin faint layers add up to a smooth edge.
         soft_shadow(list, at, b, dp(12.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
         list->PopClipRect();
-        // The launcher's panel, lit a little from above, with a glow of the accent along its top
-        // and a line of it on the top edge.
-        // The theme's coal with a glow of the accent at the top, or the game's own tinted ground
-        // (palettes.json accents: Going Commando's blue and the others; rac1 keeps the glow).
+        // The launcher's panel, lit a little from above: the theme's coal with a glow of the
+        // accent along its top, or a game's own tinted ground (palettes.json accents' --menu-*).
         const bool own = (ui().menu_top >> 24) != 0;
         panel_fill(
             list,

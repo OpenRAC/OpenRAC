@@ -44,10 +44,6 @@ ImU32 control_fill() {
     return ui().control_card;
 }
 
-ImU32 control_fill_hi() {
-    return ui().control_card_hi;
-}
-
 namespace {
 
 // `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it

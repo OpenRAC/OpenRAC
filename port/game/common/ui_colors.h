@@ -32,7 +32,7 @@ struct Colors {
     Color bar_top = rgba(0xe5, 0xa0, 0x13);     // --bar-top, --bar-bottom: the bar's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);  //   gradient (the menu draws none now)
     Color bar_ink = rgba(0x1b, 0x12, 0x06);     // --bar-ink-deep: text on gold
-    Color bar_label = rgba(0x2a, 0x18, 0x00);   // --bar-ink: the menu bar's tabs
+    Color bar_label = rgba(0x2a, 0x18, 0x00);   // --bar-ink: dark text on the gold
     Color bar_stripe = rgba(0xc9, 0x92, 0x22);  // --bar-stripe, --bar-stripe-alt: the menu
     Color bar_stripe_alt = rgba(0xbd, 0x86, 0x19);  //   bar's two golds (debug/menu_window.cpp)
     Color amber = rgba(0xf5, 0xc0, 0x40);  // --amber: the focus, a main button, a switch that is on
@@ -43,11 +43,9 @@ struct Colors {
     Color line = rgba(255, 255, 255, 23);  // --line: hairlines between rows
     Color line_strong = rgba(255, 255, 255, 41);  // --line-strong
     Color err = rgba(0xff, 0x8a, 0x7a);           // --err: Quit
-    // Control fills (launcher/docs/STYLE.md): no border, picked against what is behind them.
-    Color control = rgba(0x12, 0x12, 0x12);          // --control: on black
-    Color control_hi = rgba(0x1e, 0x1e, 0x1e);       // --control-hi: under the pointer
-    Color control_card = rgba(0x1e, 0x1e, 0x1e);     // --control-card: on a panel or a card
-    Color control_card_hi = rgba(0x26, 0x26, 0x26);  // --control-card-hi
+    // Control fills (launcher/docs/STYLE.md): no border; the menu's controls sit on a panel.
+    Color control_card = rgba(0x1e, 0x1e, 0x1e);     // --control-card
+    Color control_card_hi = rgba(0x26, 0x26, 0x26);  // --control-card-hi: under the pointer
     // A game's own ground for the menu's window (palettes.json accents: tinted with its colour);
     // none (alpha 0) keeps the theme's coal with an accent glow at the top.
     Color menu_top = rgba(0, 0, 0, 0);     // --menu-top
@@ -56,7 +54,7 @@ struct Colors {
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME
-// app.css's without its leading dashes ("panel-hi=#22222f,line=#9ca1d438").
+// app.css's without its leading dashes ("panel-hi=#191919,line=#ffffff17").
 Colors parse(std::string_view text);
 
 // The colours this run was started with (OPENRAC_UI_COLORS), read once.

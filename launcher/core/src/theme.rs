@@ -25,8 +25,6 @@ const DRAWER: &[&str] = &[
     "--line",
     "--line-strong",
     "--err",
-    "--control",
-    "--control-hi",
     "--control-card",
     "--control-card-hi",
     "--menu-top",
@@ -35,7 +33,7 @@ const DRAWER: &[&str] = &[
 ];
 
 /// The variable the game reads them from: `name=#rrggbb[aa]` pairs, comma-separated, each name
-/// app.css's without its leading dashes ("panel-hi=#22222f,line=#9ca1d438,...").
+/// app.css's without its leading dashes ("panel-hi=#191919,line=#ffffff17,...").
 pub const ENV: &str = "OPENRAC_UI_COLORS";
 
 /// The drawer's colours for theme `theme` (an unknown one is the launcher's own) and the accent of
@@ -101,9 +99,8 @@ mod tests {
         let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
         assert_eq!(color(&nord, "amber"), Some("#f5c040"));
-        assert_eq!(color(&own, "control"), Some("#121212"));
         assert_eq!(color(&own, "control-card"), Some("#1e1e1e"));
-        assert_eq!(color(&nord, "control"), Some("#3b4252"));
+        assert_eq!(color(&nord, "control-card"), Some("#434c5e"));
         assert_eq!(ui_colors("no-such", None), own);
         // The game's accent; Ratchet & Clank's is the launcher's own.
         let rac3 = ui_colors("nord", Some("rac3"));
