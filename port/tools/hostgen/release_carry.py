@@ -421,6 +421,17 @@ def add_signatures(p: Pairing, new_cfg: dict, cfg: dict, libraries: str, protos:
     release's are translated from their assembly, and its callers' declarations need not be the
     host's (`int f()` where the host defines `void f(gaddr)`)."""
     known = {m.group("name"): m for m in PROTO.finditer(protos)}
+    # Only for what this release has as assembly alone (asm.signatures is for those): its markers,
+    # less what its C defines, in the release's names.
+    other = {"pal": "src/us2", "us2": "src/pal"}[p.version]
+    marked, defined = set(), set()
+    for path in (p.source / "src").rglob("*.c"):
+        if path.relative_to(p.source).as_posix().startswith(other + "/"):
+            continue
+        text = path.read_text(errors="replace")
+        marked.update(p.table.name(n) for n in rel.INCLUDED.findall(text))
+        defined.update(p.table.name(n) for n in rel.DEFINED.findall(text))
+    asm_only = marked - defined
     names = [row.split("\t")[0] for row in libraries.splitlines()
              if not row.startswith("#") and len(row.split("\t")) > 3 and row.split("\t")[3] in ("host", "wrap")]
     names += cfg.get("host_functions", [])
@@ -434,7 +445,7 @@ def add_signatures(p: Pairing, new_cfg: dict, cfg: dict, libraries: str, protos:
             re.sub(r"\s+a\d+$", "", x.strip()) for x in m.group("params").split(",")]
         params = ["void *" if x == "gaddr" else x for x in params]
         ret = "void *" if m.group("ret").strip() == "gaddr" else m.group("ret").strip()
-        if new is not None:
+        if new is not None and new in asm_only:
             sigs.setdefault(new, f"{ret} ({', '.join(params) or 'void'})")
             p.kinds["signature: v1.01's"] += 1
 

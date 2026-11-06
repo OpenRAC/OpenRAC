@@ -56,8 +56,8 @@ NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{1,3})_)?(?
 SHORT = re.compile(r"(?<![\w])func_(80)?([0-9A-F]{6})(?![0-9A-Za-z_])")
 # Either, for a file with short names of its own.
 ANY = re.compile(r"(?<![\w])func_(?:80)?[0-9A-F]{6}(?![0-9A-Za-z_])|" + NAME.pattern)
-DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
-INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
+DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:[A-Z][A-Z0-9]{1,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
+INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:[A-Z][A-Z0-9]{1,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 DEAD = "V1"
 
