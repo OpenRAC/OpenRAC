@@ -46,8 +46,8 @@ struct Colors {
     // Control fills (launcher/docs/STYLE.md): no border, picked against what is behind them.
     Color control = rgba(0x12, 0x12, 0x12);          // --control: on black
     Color control_hi = rgba(0x1e, 0x1e, 0x1e);       // --control-hi: under the pointer
-    Color control_card = rgba(0x1d, 0x1b, 0x2a);     // --control-card: on a panel or a card (navy)
-    Color control_card_hi = rgba(0x29, 0x25, 0x3b);  // --control-card-hi
+    Color control_card = rgba(0x1a, 0x1a, 0x1a);     // --control-card: on a panel or a card
+    Color control_card_hi = rgba(0x22, 0x22, 0x22);  // --control-card-hi
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME

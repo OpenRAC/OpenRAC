@@ -23,9 +23,14 @@ follows the same rules.
   filled with `--control` and have a 1 px gold edge (`--edge`, the accent at
   35 %), drawn inside. No edge on the gold main button, ghost buttons, the
   bar's buttons, badges, or rows of a list.
-- Contrast rule: on black (or navy) a control is `#121212` (`#1e1e1e` under
-  the pointer); on a `#121212` card it is navy `#1d1b2a` (`#29253b`). See
-  "Control fills" below.
+- Contrast rule: a control is one step lighter than what is behind it, in the
+  blacks and coals only, never navy: `#121212` on the page (`#1e1e1e` under
+  the pointer), `#1a1a1a` on a `#121212` card (`#222222`). See "Control
+  fills" below.
+- Switches: the track is a track (`--ink-deep` with the gold edge, a dim
+  knob); on, it takes the gold tint of a control that is on (`--on-fill`) and a
+  gold knob. Never a solid gold track: a list of switches that are on would be
+  a wall of gold.
 - Controls stand on their own, with a 6 px gap between them. Never join a row
   of buttons or tabs into one capsule with dividers. A segmented choice is the
   one exception: its values sit on one strip, the picked one in the gold tint.
@@ -75,7 +80,7 @@ follows the same rules.
 | `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/.16` | lines between rows; never round a control       |
 | `--text`, `--body`                       | `#efeff3`, `#cacad3`             | text, neutral so the gold is the only accent    |
 | `--control`, `--control-hi`              | `#121212`, `#1e1e1e`             | plain controls on the page                      |
-| `--control-card`, `--control-card-hi`    | `#1d1b2a`, `#29253b`             | plain controls on a card (navy)                 |
+| `--control-card`, `--control-card-hi`    | `#1a1a1a`, `#222222`             | plain controls on a card                        |
 | `--edge`                                 | the accent at 35 %               | a control's 1 px edge                           |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink | a control that is on or picked                  |
 | `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above         | the bar's buttons                               |
@@ -106,37 +111,33 @@ the two equal.
 ### Control fills
 
 Buttons, fields, chips and tabs have a solid fill and a 1 px gold edge (none
-for the exceptions above). The fill is picked against the background so it
-always stands out, and it is never brown or a mid grey:
+for the exceptions above). The fill is one step lighter than what is behind it
+(each surface above the one under it is lighter, as dark themes show depth),
+and it stays in the blacks and coals: no navy (user decision), no brown, no
+mid grey. The gold edge, not the fill, is what sets a control apart.
 
-- On a black, navy or violet background (the OpenRAC theme's page, Nord,
-  Catppuccin Mocha), a control is neutral `#121212` (`#1e1e1e` on hover).
-- On a `#121212` background (the OpenRAC theme's cards), a control is navy
-  `#1d1b2a` (`#29253b` on hover).
-
-Themes can change the background, so this applies to the launcher and to the
-game's options drawer alike: a theme that changes the page also says which of
-the two fills its controls get. The site (openrac.dev) does the same.
+| Surface                         | Fill      | Control on it        |
+| ------------------------------- | --------- | -------------------- |
+| page (`--ink`)                  | `#0a0a0a` | `#121212`, `#1e1e1e` |
+| card, panel, drawer (`--panel`) | `#121212` | `#1a1a1a`, `#222222` |
+| card in the game (`--panel-hi`) | `#191919` | `#1a1a1a`, `#222222` |
 
 In code, `--control` / `--control-hi` is the fill on the page, and
 `--control-card` / `--control-card-hi` the fill on a card: any surface filled
 with `--card` or `--card-hi` sets `--control: var(--control-card)` (and
-`-hi`) for what is inside it. Each theme in `palettes.json` sets both pairs:
-
-| Theme            | Page      | `--control` | Card      | `--control-card` |
-| ---------------- | --------- | ----------- | --------- | ---------------- |
-| OpenRAC          | `#0a0a0a` | `#121212`   | `#121212` | navy             |
-| Gruvbox          | `#282828` | navy        | `#32302f` | navy             |
-| OLED black       | `#000000` | `#121212`   | `#0b0b0f` | `#121212`        |
-| Nord             | `#2e3440` | `#121212`   | `#3b4252` | `#121212`        |
-| Catppuccin Mocha | `#181825` | `#121212`   | `#1e1e2e` | `#121212`        |
+`-hi`) for what is inside it. Each theme in `palettes.json` sets both pairs
+from its own colours (one step lighter than the page and than its cards;
+Gruvbox's controls sit darker, in its own `#1d2021`, as its page is lighter).
 
 The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands.
 
 The game's menu gets the same colours (`OPENRAC_UI_COLORS`). Its drawer and
-window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the controls on them are `--control-card` with the
-gold edge. The bar's tabs and its Quit and Resume buttons are bar buttons:
+window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the
+controls on them are `--control-card` with the gold edge. A row under the
+pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
+left (no gold tint, which reads brown on dark). Key hints and the "Paused while
+open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
 coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 ## Logo

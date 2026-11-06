@@ -35,7 +35,9 @@ const ui_colors::Colors& ui() {
 }
 
 ImU32 pressed_fill() {
-    return ui_colors::mix(ui().panel_hi, ui().amber, 0.16f);
+    // A neutral lift, as a list row under the pointer on the site: no gold tint (that reads brown
+    // on dark) and no navy.
+    return ui().control_card_hi;
 }
 
 ImU32 control_fill() {
@@ -386,8 +388,8 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
     const ImVec2 b(a.x + std::round(w), a.y + std::round(h));
     const ImVec2 centre((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
-    // A badge: a fill a little lighter than the card under it, 4 px corners, no border.
-    list->AddRectFilled(a, b, ui_colors::fade(control_fill(), alpha), dp(4.0f));
+    // A badge: on the darkest black, as the site's badges and key hints, 4 px corners, no border.
+    list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, alpha), dp(4.0f));
     const CapText t = cap_text(key);
     ImVec2 at = centred_text(t.font, t.size, key, centre);
     if (cap_sign(key)) {
@@ -528,16 +530,19 @@ bool menu_switch(const char* label, bool on) {
         const float h = dp(26.0f);
         const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
         const ImVec2 b(right.x, right.y + h * 0.5f);
-        // The launcher's switch: a track with no border, the accent's fill when on, the knob in
-        // the dark of text on gold then.
-        list->AddRectFilled(a, b, ui_colors::mix(control_fill(), ui().amber, k), h * 0.5f);
+        // The launcher's switch: a track in the darkest black with the gold edge; when on, the
+        // gold tint of a control that is on and a gold knob (no wall of solid gold).
+        list->AddRectFilled(
+            a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f
+        );
+        control_edge(list, a, b, h * 0.5f);
         const float knob = h * 0.5f - dp(4.0f);
         const float from = a.x + h * 0.5f;
         const float to = b.x - h * 0.5f;
         list->AddCircleFilled(
             ImVec2(from + (to - from) * k, right.y),
             knob,
-            ui_colors::mix(ui().soft, ui().bar_ink, k)
+            ui_colors::mix(ui().dim, ui().amber, k)
         );
     });
 }
