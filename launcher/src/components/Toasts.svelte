@@ -141,7 +141,8 @@
     gap: 8px;
     /* Over the full-screen launch and running screens (LaunchScreen, GameRunning). */
     z-index: 70;
-    max-width: 420px;
+    /* Wide enough for a one-line message ("Updated 2 mods. See what changed on the Mods tab."). */
+    max-width: min(520px, calc(100vw - 40px));
   }
 
   /* Not display: contents, which takes a live region out of what a screen reader hears. */
@@ -218,10 +219,23 @@
     color: var(--err);
   }
 
+  /* Dismiss: a 40 px target that reaches over the toast's padding, so a one-line toast stays one
+     line tall and its text sits in the middle, level with the icon and the cross. */
   .toast button {
     flex: none;
-    margin: -4px 0;
+    min-height: 32px;
+    min-width: 32px;
+    justify-content: center;
+    margin: -6px 0;
     padding: 4px 6px;
+  }
+
+  .list[role="status"] .toast {
+    align-items: center;
+  }
+
+  .list[role="status"] .toast > :global(svg) {
+    margin-top: 0;
   }
 
   /* Android: centred over the bottom of the page, as its snackbars are. */
