@@ -331,7 +331,8 @@ the parameters, from `void`, `i32`, `u32` (a game address too), `i64`,
 `u64`, `f32`, `i16`, `u16`, `i8`, `u8` (`void(i32,f32,f32,f32)`). The SDK's
 game header gives each hook point's name, signature and a typedef
 (`OPENRAC_RAC1_HOOK_Hero_TurnToHeading`). A mod passes the signature it was
-written for; a different one is refused.
+written for; a different one is refused, though `i32` and `u32` count as one:
+they have the same width, and the discs' prototypes differ in them.
 
 **Several mods on one hook point** chain, as hooks do in Detours or
 MinHook: a mod's `hook()` call gets the function it replaces, the game's C

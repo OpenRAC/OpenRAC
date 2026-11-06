@@ -83,6 +83,22 @@ struct Planet_Unlock {
     using fn = void (*)(int32_t);
 };
 
+// Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
+struct Help_Request {
+    static constexpr const char* id = "rac1.help.request";
+    static constexpr const char* name = "Help_Request";
+    static constexpr const char* signature = "i32(i32,i32)";
+    using fn = int32_t (*)(int32_t, int32_t);
+};
+
+// Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+struct Ship_InitTransition {
+    static constexpr const char* id = "rac1.ship.init_transition";
+    static constexpr const char* name = "Ship_InitTransition";
+    static constexpr const char* signature = "void(i32)";
+    using fn = void (*)(int32_t);
+};
+
 // The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
 struct Vendor_InitLevelStock {
     static constexpr const char* id = "rac1.vendor.init_level_stock";
@@ -401,6 +417,14 @@ struct Save_UpdateState {
     static constexpr const char* name = "Save_UpdateState";
     static constexpr const char* signature = "void()";
     using fn = void (*)();
+};
+
+// Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+struct msg_string {
+    static constexpr const char* id = "rac1.text.msg_string";
+    static constexpr const char* name = "msg_string";
+    static constexpr const char* signature = "i32(i32)";
+    using fn = int32_t (*)(int32_t);
 };
 
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
@@ -5515,6 +5539,9 @@ namespace hooks {
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
     }  // namespace gold_bolt
+    namespace help {
+        using request = rac1::Help_Request;
+    }  // namespace help
     namespace hud {
         namespace quick_select {
             using draw = rac1::Hud_QuickSelect_Draw;
@@ -7499,8 +7526,12 @@ namespace hooks {
         using update_state = rac1::Save_UpdateState;
     }  // namespace save
     namespace ship {
+        using init_transition = rac1::Ship_InitTransition;
         using travel_to = rac1::Ship_TravelTo;
     }  // namespace ship
+    namespace text {
+        using msg_string = rac1::msg_string;
+    }  // namespace text
     namespace vendor {
         using build_item_list = rac1::Vendor_BuildItemList;
         using init_level_stock = rac1::Vendor_InitLevelStock;

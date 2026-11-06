@@ -149,6 +149,33 @@
       "about": "Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on."
     },
     {
+      "id": "rac1.help.request",
+      "name": "Help_Request",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "message",
+        "slot"
+      ],
+      "symbols": {
+        "pal": "func_L00_00203F20",
+        "ntsc": "FUN_L00_00203908"
+      },
+      "about": "Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1."
+    },
+    {
+      "id": "rac1.ship.init_transition",
+      "name": "Ship_InitTransition",
+      "signature": "void(i32)",
+      "params": [
+        "mode"
+      ],
+      "symbols": {
+        "pal": "func_L00_0028FCA0",
+        "ntsc": "FUN_L00_0028e9c8"
+      },
+      "about": "Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned."
+    },
+    {
       "id": "rac1.vendor.init_level_stock",
       "name": "Vendor_InitLevelStock",
       "signature": "void()",
@@ -669,6 +696,19 @@
         "ntsc": "FUN_002093d8"
       },
       "about": "The memory card's state machine, each tick (memcard_update_state): saves and loads go through it."
+    },
+    {
+      "id": "rac1.text.msg_string",
+      "name": "msg_string",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "pal": "func_001FE540",
+        "ntsc": "FUN_001fdd10"
+      },
+      "about": "Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn."
     }
   ],
   "bases": {
