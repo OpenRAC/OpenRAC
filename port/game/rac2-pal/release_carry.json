@@ -3,13 +3,13 @@
  "counts": {
   "function: by hand": 2,
   "function: called": 11,
-  "function: changed": 121,
+  "function: changed": 135,
   "function: found": 5,
-  "function: near": 135,
+  "function: near": 149,
   "function: not found": 4,
   "function: same": 798,
   "global: aligned": 11,
-  "global: between": 6,
+  "global: between": 15,
   "global: exact": 137,
   "global: the release's build": 69
  },
@@ -144,6 +144,11 @@
    "changed",
    "from_assembly"
   ],
+  "func_0029C4C0": [
+   "func_0029CE58",
+   "changed",
+   "RAC2_K PAUSE_LIST_OFFSET"
+  ],
   "func_0029CB58": [
    "func_0029D4F0",
    "changed",
@@ -217,7 +222,7 @@
   "func_002D58A0": [
    "func_002D6478",
    "near",
-   "host C"
+   "RAC2_K OPTIONS_LIST_OFFSET"
   ],
   "func_002D6F38": [
    "func_002D7B68",
@@ -299,10 +304,15 @@
    "near",
    "host C"
   ],
+  "func_0033C468": [
+   "func_0033E338",
+   "near",
+   "RAC2_K TEXT_PAGE_TOGGLE"
+  ],
   "func_0033C738": [
    "func_0033E608",
    "near",
-   "host C"
+   "RAC2_K TEXT_WIDESCREEN"
   ],
   "func_00341540": [
    "func_003435C0",
@@ -312,17 +322,27 @@
   "func_00341610": [
    "func_00343690",
    "near",
-   "host C"
+   "RAC2_K PAUSE_LIST_WHICH"
   ],
   "func_00341A68": [
    "func_00343AD0",
    "changed",
    "host C"
   ],
+  "func_00341A88": [
+   "func_00343AF0",
+   "changed",
+   "RAC2_K LIST_ORIGIN"
+  ],
   "func_00341C20": [
    "func_00343C88",
    "changed",
-   "host C"
+   "RAC2_K LIST_TITLE_TEXT"
+  ],
+  "func_00342118": [
+   "func_00344180",
+   "changed",
+   "RAC2_K TITLE_ICON_SHEET"
   ],
   "func_00342380": [
    "func_003443E8",
@@ -1245,6 +1265,11 @@
    "00152CE8",
    "between",
    "host C 0x00152C68"
+  ],
+  "boot:002652B0": [
+   "00265030",
+   "between",
+   "RAC2_K HELP_8"
   ],
   "ref_L00_00290B48_00": [
    "003581A7",

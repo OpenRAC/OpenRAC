@@ -9,6 +9,7 @@
 
 #define RAC2_ADDR(a) RAC2_ADDR_##a
 #define RAC2_LADDR(n, a) RAC2_LADDR_##n##_##a
+#define RAC2_K(name, value, where) RAC2_K_##name
 
 #define RAC2_LEVEL_BASE 0x001A7C80u /* a level's program replaces the executable's memory from here */
 #define RAC2_GP 0x001AEFF0u         /* the executable's $gp */
@@ -86,6 +87,7 @@
 #define func_00298E08 func_00299BF8
 #define func_0029B168 func_0029BF58
 #define func_0029B168__game func_0029BF58__game
+#define func_0029C4C0 func_0029D2F8
 #define func_0029D4D0 func_0029E308
 #define func_0029FEE0 func_002A0D18
 #define func_002A4078 func_002A4EC8
@@ -128,6 +130,7 @@
 #define func_0033C2D8 func_0033D320
 #define func_0033C2D8__game func_0033D320__game
 #define func_0033C378 func_0033D3C0
+#define func_0033C468 func_0033D4B0
 #define func_0033C590 func_0033D5D8
 #define func_0033C590__game func_0033D5D8__game
 #define func_0033C738 func_0033D780
@@ -137,8 +140,10 @@
 #define func_00341610__game func_00342520__game
 #define func_00341A48 func_00342958
 #define func_00341A68 func_00342978
+#define func_00341A88 func_00342998
 #define func_00341C20 func_00342B30
 #define func_00341C20__game func_00342B30__game
+#define func_00342118 func_00343028
 #define func_00342380 func_00343290
 #define func_0034AD10 func_0034BA50
 #define func_0034AD10__game func_0034BA50__game
@@ -230,5 +235,42 @@
 #define RAC2_LADDR_00_0x001B14B0u 0x001B1450u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E10u 0x001B8D90u /* the release's build */
 #define RAC2_LADDR_00_0x001B8E20u 0x001B8DA0u /* the release's build */
+
+/* Constants of the game's code (RAC2_K): the same instruction's in this release. */
+#define RAC2_K_CAMERA_CURSOR 0x2D8 /* v1.01 0x2A8; func_0033C738 as func_0033D780: 4 instructions */
+#define RAC2_K_HELP_0 0x2C3C /* v1.01 0x2DA6; word 0 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_1 0x2C3D /* v1.01 0x2DA7; word 1 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_2 0x2C3E /* v1.01 0x2DA8; word 2 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_3 0x2C02 /* v1.01 0x2D6C; word 3 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_4 0x2C40 /* v1.01 0x2DAA; word 4 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_5 0x2C41 /* v1.01 0x2DAB; word 5 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_6 0x2C42 /* v1.01 0x2DAC; word 6 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_7 0x2C44 /* v1.01 0x2DAE; word 7 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_HELP_8 0x2CB2 /* v1.01 0x2E1C; word 8 of the table at 0x00265270 (v1.01's 0x002652B0) */
+#define RAC2_K_LIST_CURSOR 0x130 /* v1.01 0x130; func_00342118 as func_00343028: 1 instructions */
+#define RAC2_K_LIST_ICON 0x17C /* v1.01 0x17C; func_00341A88 as func_00342998: 1 instructions */
+#define RAC2_K_LIST_ICON_SHEET 0x1C4 /* v1.01 0x1C4; func_00341A88 as func_00342998: 2 instructions */
+#define RAC2_K_LIST_ON 0x230 /* v1.01 0x220; func_00341C20 as func_00342B30: 1 instructions */
+#define RAC2_K_LIST_ORIGIN 0x228 /* v1.01 0x218; func_00341A88 as func_00342998: 2 instructions */
+#define RAC2_K_LIST_SPRITE_1 0x4C /* v1.01 0x4C; func_00341C20 as func_00342B30: 1 instructions */
+#define RAC2_K_LIST_SPRITE_2 0xE4 /* v1.01 0xE4; func_00341C20 as func_00342B30: 1 instructions */
+#define RAC2_K_LIST_TITLE_BAR 0x98 /* v1.01 0x98; func_00341C20 as func_00342B30: 1 instructions */
+#define RAC2_K_LIST_TITLE_TEXT 0x1D0 /* v1.01 0x1D0; func_00341C20 as func_00342B30: 1 instructions */
+#define RAC2_K_OPTIONS_LIST_OFFSET 0x3E760 /* v1.01 0x3E1D8; func_002D58A0 as func_002D6508: 1 instructions */
+#define RAC2_K_PAUSE_LIST_COUNT 0x1CC /* v1.01 0x1CC; func_00341610 as func_00342520: 1 instructions */
+#define RAC2_K_PAUSE_LIST_CURSORS 0x1B8 /* v1.01 0x1B8; func_00341610 as func_00342520: 1 instructions */
+#define RAC2_K_PAUSE_LIST_ICONS 0x1C8 /* v1.01 0x1C8; func_00341610 as func_00342520: 1 instructions */
+#define RAC2_K_PAUSE_LIST_OFFSET 0x3C160 /* v1.01 0x3BE08; func_0029C4C0 as func_0029D2F8: 1 instructions */
+#define RAC2_K_PAUSE_LIST_WHICH 0x31C /* v1.01 0x2FC; func_00341610 as func_00342520: 1 instructions */
+#define RAC2_K_PAUSE_OPTIONS_ROWS 0x8 /* v1.01 0x8; func_00341610 as func_00342520: 3 instructions */
+#define RAC2_K_TEXT_CAMERA_ROW 0x2C2E /* v1.01 0x2D98; func_0033C468 as func_0033D4B0: 1 instructions */
+#define RAC2_K_TEXT_CAMERA_TITLE 0x2C2E /* v1.01 0x2D98; func_0033C468 as func_0033D4B0: 1 instructions */
+#define RAC2_K_TEXT_LEFT_RIGHT 0x2C77 /* v1.01 0x2DE1; func_0033C738 as func_0033D780: 1 instructions */
+#define RAC2_K_TEXT_PAGE_EXIT 0x2BE5 /* v1.01 0x2D4F; func_0033C468 as func_0033D4B0: 1 instructions */
+#define RAC2_K_TEXT_PAGE_TOGGLE 0x2BE4 /* v1.01 0x2D4E; func_0033C468 as func_0033D4B0: 1 instructions */
+#define RAC2_K_TEXT_SPEED 0x2DAE /* v1.01 0x2F18; func_0033C738 as func_0033D780: 1 instructions */
+#define RAC2_K_TEXT_UP_DOWN 0x2C78 /* v1.01 0x2DE2; func_0033C738 as func_0033D780: 1 instructions */
+#define RAC2_K_TEXT_WIDESCREEN 0x307A /* v1.01 0x31E4; func_0033C738 as func_0033D780: 1 instructions */
+#define RAC2_K_TITLE_ICON_SHEET 0xEAA6 /* v1.01 0xEAA6; func_00342118 as func_00343028: 1 instructions */
 
 #endif /* OPENRAC_RAC2_VERSION_H */

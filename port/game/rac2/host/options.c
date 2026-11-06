@@ -90,7 +90,7 @@ void func_002E48E8(void) {
  * Down move the cursor, Cross and Right step its row to the next value, Left to the one before.
  * A level's pause menu shows the same rows from a Video item of its own in Options (below).
  */
-#define TEXT_WIDESCREEN 0x31E4 /* "16:9 (widescreen)": the Options item, the page's title */
+#define TEXT_WIDESCREEN RAC2_K(TEXT_WIDESCREEN, 0x31E4, func_0033C738) /* "16:9 (widescreen)": the Options item, the page's title */
 #define TEXT_PLANETS 0x7F01    /* no text of the disc: the developer mode's Planets (below) */
 #define TEXT_VIDEO 0x7F02      /* no text of the disc: the pause Options list's Video row (below) */
 #define TEXT_VIDEO_HELP 0x7F03 /* no text of the disc: that row's description */
@@ -108,6 +108,8 @@ void func_002E48E8(void) {
 #define ROW_CHOSEN 0x80F0F0F0ull /* the row under the cursor, the others (func_0033C738's) */
 #define ROW_OTHER 0x70808080ull
 #define TEXT_BYTES 96
+/* The page object's cursor, 0 once its panel is in place (func_0033C2D8, func_0033C738). */
+#define CAMERA_CURSOR RAC2_K(CAMERA_CURSOR, 0x2A8u, func_0033C738)
 
 static int page_cursor;
 static int page_top;
@@ -220,7 +222,7 @@ static void video_rows_draw(void) {
  * above names it), opening a copy of the 16:9 page's description: the same panel and object
  * (func_0033C2D8 and func_0033C378 above), which show the levels while that copy is the page.
  */
-#define OPTIONS_LIST_OFFSET 0x3E1D8u
+#define OPTIONS_LIST_OFFSET RAC2_K(OPTIONS_LIST_OFFSET, 0x3E1D8u, func_002D58A0)
 #define OPTIONS_ITEMS OPENRAC_DATA(RAC2_ADDR(0x00261590u))
 /* g_menuScreenBlock: + 0x14 the page shown, + 0x18 the next. */
 #define MENU_SCREEN OPENRAC_DATA(RAC2_ADDR(0x001F2840u))
@@ -365,11 +367,11 @@ static void planets_draw(void) {
 int func_0033C2D8(gaddr object, int buttons) {
     const unsigned pressed = (unsigned)buttons;
     if (planets_shown()) {
-        planets_update(pressed, GREF(int, object + 0x2A8) == 0);
+        planets_update(pressed, GREF(int, object + CAMERA_CURSOR) == 0);
         func_0033C2D8__game(object, (int)(pressed & ~MENU_CROSS));
         return (int)((pressed >> 6) & 1u);
     }
-    video_rows_update(pressed, GREF(int, object + 0x2A8) == 0);
+    video_rows_update(pressed, GREF(int, object + CAMERA_CURSOR) == 0);
     /* The panel's move, without the 16:9 byte's Cross. */
     func_0033C2D8__game(object, (int)(pressed & ~MENU_CROSS));
     return (int)((pressed >> 6) & 1u);
@@ -400,13 +402,13 @@ void func_0033C378(gaddr object) {
  * is kept off (above) and is not shown or reached.
  */
 #define PAUSE_OPTIONS_LIST 1
-#define PAUSE_OPTIONS_ROWS 8
-#define PAUSE_LIST_ICONS 0x1C8u
-#define PAUSE_LIST_COUNT 0x1CCu
-#define TEXT_CAMERA_ROW 0x2D98
+#define PAUSE_OPTIONS_ROWS RAC2_K(PAUSE_OPTIONS_ROWS, 8, func_00341610) /* PAL's list has 7 */
+#define PAUSE_LIST_ICONS RAC2_K(PAUSE_LIST_ICONS, 0x1C8u, func_00341610)
+#define PAUSE_LIST_COUNT RAC2_K(PAUSE_LIST_COUNT, 0x1CCu, func_00341610)
+#define TEXT_CAMERA_ROW RAC2_K(TEXT_CAMERA_ROW, 0x2D98, func_0033C468)
 #define VIDEO_ROW_AFTER 5 /* Camera's row */
 /* The title's Options list's icons: their sheet and their table (func_00341CE0 sets them). */
-#define TITLE_ICON_SHEET 0xEAA6
+#define TITLE_ICON_SHEET RAC2_K(TITLE_ICON_SHEET, 0xEAA6, func_00342118)
 #define TITLE_ICONS OPENRAC_DATA(RAC2_ADDR(0x001AE138u))
 /* The list's spacing: the cursor's, the rows' and the icons'. */
 #define LIST_CURSOR_STEP OPENRAC_DATA(RAC2_ADDR(0x001AE0E0u))
@@ -417,12 +419,16 @@ static gaddr video_page, video_items, video_icons;
 static float list_steps[3];
 static const float list_tighter = (float)PAUSE_OPTIONS_ROWS / (PAUSE_OPTIONS_ROWS + 1);
 
-#define PAUSE_LIST_OFFSET 0x3BE08u
-#define PAUSE_LIST_WHICH 0x2FCu
-#define PAUSE_LIST_CURSORS 0x1B8u
+#define PAUSE_LIST_OFFSET RAC2_K(PAUSE_LIST_OFFSET, 0x3BE08u, func_0029C4C0)
+#define PAUSE_LIST_WHICH RAC2_K(PAUSE_LIST_WHICH, 0x2FCu, func_00341610)
+#define PAUSE_LIST_CURSORS RAC2_K(PAUSE_LIST_CURSORS, 0x1B8u, func_00341610)
 /* The description's text id of the row the game's cursor is on, its eight rows and the row past them. */
-static const int options_help[PAUSE_OPTIONS_ROWS + 1] =
-    {0x2DA6, 0x2DA7, 0x2DA8, 0x2D6C, 0x2DAA, 0x2DAB, 0x2DAC, 0x2DAE, 0x2E1C};
+static const int options_help[9] = /* PAUSE_OPTIONS_ROWS + 1 of them read */
+    {RAC2_K(HELP_0, 0x2DA6, D_002652B0), RAC2_K(HELP_1, 0x2DA7, D_002652B0),
+     RAC2_K(HELP_2, 0x2DA8, D_002652B0), RAC2_K(HELP_3, 0x2D6C, D_002652B0),
+     RAC2_K(HELP_4, 0x2DAA, D_002652B0), RAC2_K(HELP_5, 0x2DAB, D_002652B0),
+     RAC2_K(HELP_6, 0x2DAC, D_002652B0), RAC2_K(HELP_7, 0x2DAE, D_002652B0),
+     RAC2_K(HELP_8, 0x2E1C, D_002652B0)};
 
 static int video_shown(void) {
     return video_page != 0
@@ -513,15 +519,15 @@ void func_00341610(gaddr list, int which) {
  * panel's bottom edge.
  */
 #define PANEL_SPRITE_ROWS 3
-#define LIST_ON 0x220u
-#define LIST_ORIGIN 0x218u
-#define LIST_TITLE_BAR 0x98u
-#define LIST_TITLE_TEXT 0x1D0u
-#define LIST_CURSOR 0x130u
+#define LIST_ON RAC2_K(LIST_ON, 0x220u, func_00341C20)
+#define LIST_ORIGIN RAC2_K(LIST_ORIGIN, 0x218u, func_00341A88)
+#define LIST_TITLE_BAR RAC2_K(LIST_TITLE_BAR, 0x98u, func_00341C20)
+#define LIST_TITLE_TEXT RAC2_K(LIST_TITLE_TEXT, 0x1D0u, func_00341C20)
+#define LIST_CURSOR RAC2_K(LIST_CURSOR, 0x130u, func_00342118)
 #define SPRITE_POSITION 0u
 #define SPRITE_SCALE 4u
-#define LIST_ICON 0x17Cu
-#define LIST_ICON_SHEET 0x1C4u
+#define LIST_ICON RAC2_K(LIST_ICON, 0x17Cu, func_00341A88)
+#define LIST_ICON_SHEET RAC2_K(LIST_ICON_SHEET, 0x1C4u, func_00341A88)
 #define LIST_ICON_LEFT OPENRAC_DATA(RAC2_ADDR(0x001AE120u))
 #define LIST_ICON_FIRST OPENRAC_DATA(RAC2_ADDR(0x001AE124u))
 #define GS_SCISSOR_1 0x40ull
@@ -585,7 +591,8 @@ void func_00341C20(gaddr list) {
     if (GREF(int, list + LIST_ON) == 0) {
         return;
     }
-    static const unsigned sprites[PANEL_SPRITE_ROWS] = {0u, 0x4Cu, 0xE4u};
+    static const unsigned sprites[PANEL_SPRITE_ROWS] =
+        {0u, RAC2_K(LIST_SPRITE_1, 0x4Cu, func_00341C20), RAC2_K(LIST_SPRITE_2, 0xE4u, func_00341C20)};
     const gaddr origin = GREF(gaddr, list + LIST_ORIGIN);
     const float step = GREF(float, LIST_ICON_STEP);
     const float first_row = GREF(float, origin + 4u) + GREF(float, LIST_ICON_FIRST);
@@ -618,7 +625,6 @@ void func_00341C20(gaddr list) {
 }
 
 #define CAMERA_HIDDEN_ROW 3 /* 16:9: the page's fourth row */
-#define CAMERA_CURSOR 0x2A8u
 /* The page's data, each level's own copy (OPENRAC_DATA). */
 #define CAMERA_LINES OPENRAC_DATA(RAC2_ADDR(0x001ADE00u))  /* each line's x and y words, 8 bytes a line */
 #define CAMERA_ON_OFF OPENRAC_DATA(RAC2_ADDR(0x001ADE20u)) /* the text ids of "Normal" and "Inverted" */
@@ -627,9 +633,9 @@ void func_00341C20(gaddr list) {
 #define CAMERA_LEFT_RIGHT RAC2_ADDR(0x001A7BA8u)
 #define CAMERA_SPEED RAC2_ADDR(0x001A7BACu)
 #define CAMERA_SPEED_COUNT 3u
-#define TEXT_UP_DOWN 0x2DE2
-#define TEXT_LEFT_RIGHT 0x2DE1
-#define TEXT_SPEED 0x2F18
+#define TEXT_UP_DOWN RAC2_K(TEXT_UP_DOWN, 0x2DE2, func_0033C738)
+#define TEXT_LEFT_RIGHT RAC2_K(TEXT_LEFT_RIGHT, 0x2DE1, func_0033C738)
+#define TEXT_SPEED RAC2_K(TEXT_SPEED, 0x2F18, func_0033C738)
 #define CAMERA_CHOSEN 0x80D0D0D0ull
 
 int func_0033C590(gaddr object, int buttons) {
@@ -667,9 +673,9 @@ static void camera_line(gaddr object, int row, gaddr name, gaddr value) {
 
 /* The page's title, which the game sets once when it builds the page (func_0033C468), follows what
  * it shows: Camera or Video. */
-#define TEXT_CAMERA_TITLE 0x2D98
-#define TEXT_PAGE_TOGGLE 11598
-#define TEXT_PAGE_EXIT 11599
+#define TEXT_CAMERA_TITLE RAC2_K(TEXT_CAMERA_TITLE, 0x2D98, func_0033C468)
+#define TEXT_PAGE_TOGGLE RAC2_K(TEXT_PAGE_TOGGLE, 0x2D4E, func_0033C468)
+#define TEXT_PAGE_EXIT RAC2_K(TEXT_PAGE_EXIT, 0x2D4F, func_0033C468)
 
 static gaddr titled_video;
 

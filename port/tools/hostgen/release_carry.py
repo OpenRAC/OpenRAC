@@ -475,6 +475,72 @@ def exe_size(path: Path) -> int:
     return ((end + 0xFFF) & ~0xFFF) - 0x00100000
 
 
+HOST_K = re.compile(r"\bRAC2_K\(\s*(\w+)\s*,\s*(0x[0-9A-Fa-f]+|\d+)u?\s*,\s*((?:func|D)_\w+)\s*\)")
+IMMEDIATE_OPS = {0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x18, 0x19, 0x1E, 0x1F, 0x20, 0x21, 0x23, 0x24,
+                 0x25, 0x27, 0x28, 0x29, 0x2B, 0x31, 0x37, 0x39, 0x3F}
+
+
+def constants(p: Pairing, code: dict[str, str], version: str) -> list[str]:
+    """The shared C's RAC2_K(name, value, where) in this release: the immediate the same instruction
+    of `where`'s pair here has (where v1.01's has value), or, for a table D_..., the word at the same
+    index of the release's table."""
+    import copycalls
+    import difflib
+    found = {}
+    for t in code.values():
+        for m in HOST_K.finditer(t):
+            found.setdefault(m.group(1), (int(m.group(2), 0), m.group(3)))
+    if not found:
+        return []
+    out = ["/* Constants of the game's code (RAC2_K): the same instruction's in this release. */"]
+    by_hand = {}
+    path = p.out_dir / "release_constants.tsv"
+    if path.is_file():
+        for line in path.read_text().splitlines():
+            cols = line.split("\t")
+            if not line.startswith("#") and len(cols) >= 3:
+                by_hand[cols[0]] = (int(cols[1], 0), cols[2])
+    us_boot, r_boot = p.code("us", "boot"), p.code(version, "boot")
+    for name, (value, where) in sorted(found.items()):
+        new, how = None, None
+        if name in by_hand:
+            new, how = by_hand[name][0], f"by hand: {by_hand[name][1]}"
+        elif where.startswith("D_"):
+            table = int(where[-8:], 16)
+            mine = copycalls.words(us_boot, table, 256) or ()
+            k = next((i for i, w in enumerate(mine) if w == value), None)
+            there = p.data(table, "boot", f"RAC2_K {name}")
+            theirs = copycalls.words(r_boot, there, 256) if there is not None else None
+            if k is not None and theirs:
+                new, how = theirs[k], f"word {k} of the table at 0x{there:08X} (v1.01's 0x{table:08X})"
+        else:
+            pair = p.function(where, f"RAC2_K {name}")
+            if pair is not None and where in p.us_entry and pair in p.r_entry:
+                a, b = p.us_entry[where], p.r_entry[pair]
+                mine = copycalls.words(us_boot, a, p.us_size[where] & ~3)
+                theirs = copycalls.words(r_boot, b, p.r_size[pair] & ~3)
+                if mine and theirs:
+                    sm = difflib.SequenceMatcher(None, [w >> 26 or w & 0x3F for w in mine],
+                                                 [w >> 26 or w & 0x3F for w in theirs], autojunk=False)
+                    seen = Counter()
+                    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                        if tag != "equal":
+                            continue
+                        for i, j in zip(range(i1, i2), range(j1, j2)):
+                            x, y = mine[i], theirs[j]
+                            if x >> 26 in IMMEDIATE_OPS and x >> 26 == y >> 26 and x & 0xFFFF == value & 0xFFFF:
+                                seen[(value & ~0xFFFF) | (y & 0xFFFF)] += 1
+                    if len(seen) == 1:
+                        new = next(iter(seen))
+                        how = f"{where} as {pair}: {sum(seen.values())} instructions"
+        if new is None:
+            out.append(f"/* RAC2_K_{name}: not found */")
+            p.report.setdefault("unpaired", {})[f"RAC2_K {name}"] = f"0x{value:X} in {where}"
+            continue
+        out.append(f"#define RAC2_K_{name} 0x{new:X} /* v1.01 0x{value:X}; {how} */")
+    return out
+
+
 def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, version: str) -> str:
     """The release's rac2_version.h for the shared host C (port/game/rac2/host/rac2.h)."""
     info = rel.RELEASES[version]
@@ -534,6 +600,7 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
             lines.append(f"/* RAC2_LADDR_{lv:02d}_0x{a:08X}u: not found */")
             continue
         lines.append(f"#define RAC2_LADDR_{lv:02d}_0x{a:08X}u 0x{new:08X}u /* {p.last} */")
+    lines += [""] + constants(p, code, version)
     names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
     head = [
         "/* SPDX-License-Identifier: GPL-3.0-or-later",
@@ -547,6 +614,7 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
         "",
         "#define RAC2_ADDR(a) RAC2_ADDR_##a",
         "#define RAC2_LADDR(n, a) RAC2_LADDR_##n##_##a",
+        "#define RAC2_K(name, value, where) RAC2_K_##name",
         "",
         f"#define RAC2_LEVEL_BASE 0x{info['level_base']:08X}u /* a level's program replaces the executable's memory from here */",
         f"#define RAC2_GP 0x{info['gp']:08X}u         /* the executable's $gp */",
@@ -656,6 +724,7 @@ def main(argv: list[str] | None = None) -> int:
     p = Pairing(args.source, args.version, table, vmap, carry)
     p.read_by_hand(out_dir / "release_pairs.tsv")
     p.primary_dir = args.primary.parent
+    p.out_dir = out_dir
     new_cfg = carry_config(p, cfg, args.version)
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
     primary = args.primary.parent

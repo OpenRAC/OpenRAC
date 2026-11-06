@@ -1,0 +1,3 @@
+# Constants release_carry.py takes as they are (RAC2_K in the shared host C): name, value, the evidence.
+PAUSE_LIST_COUNT	0x1CC	func_00341610 as func_00343690: sw $a0, 0x1CC($s0) at +0x7c, as v1.01's at +0x74 (the list's count)
+PAUSE_OPTIONS_ROWS	7	func_00341610 as func_00343690: addiu $v1, $zero, 0x7 at +0x5c for v1.01's 0x8 (the Options list's rows, list 1)

@@ -16,7 +16,7 @@
  * a release's table renames v1.01's names to its own. */
 #include "rac2_version.h"
 
-#if !defined(RAC2_ADDR) || !defined(RAC2_LADDR) || !defined(RAC2_LEVEL_BASE)
+#if !defined(RAC2_ADDR) || !defined(RAC2_LADDR) || !defined(RAC2_K) || !defined(RAC2_LEVEL_BASE)
 #error "rac2_version.h must define RAC2_ADDR, RAC2_LADDR and the release's layout"
 #endif
 
