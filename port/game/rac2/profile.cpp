@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Going Commando's profile for NTSC-U (game/common/profile.h): the camera, the fog and the live
-// mobys read from game memory, by program (the boot's and each level's copy of the engine's
-// globals), and the frame shown being the display list it sends through VIF1 DMA, without Ratchet
-// & Clank's two alternating list buffers. It defines game_profile() for openrac-rac2-ntsc.
+// Going Commando's profiles (game/common/profile.h), one per disc: USA v1.01 (SCUS-97268), PAL
+// (SCES-51607) and USA v2.00 (SCUS-97268, Greatest Hits). The camera, the fog and the live mobys
+// read from game memory, by program (the boot's and each level's copy of the engine's globals), and
+// the frame shown being the display list it sends through VIF1 DMA, without Ratchet & Clank's two
+// alternating list buffers. Each disc's addresses are its table (Release): v1.01's below, the other
+// releases' in profile_releases.h, carried from v1.01's by port/tools/hostgen/release_carry.py. The
+// fields' offsets are v1.01's on every disc: the functions that read them are the same code there
+// (release_carry.json). It defines game_profile() for openrac-rac2-ntsc, -pal and -ntsc2.
 
 #include "game/common/profile.h"
 
@@ -42,8 +46,25 @@ struct Addresses {
 
 constexpr std::uint32_t kEyeBeforeRows = 0x230;
 
-const Addresses kBoot{0x001B5570, 0x001B9040, 0x001B1B60, 0x001B1B64};
-const Addresses kLevels[31] = {
+// One disc's addresses: the engine's globals by program, and the executable's words the profile
+// reads (each named where the profile reads it, below).
+struct Release {
+    Addresses boot;
+    Addresses levels[31];
+    std::uint32_t armour;
+    std::array<std::pair<std::uint32_t, std::int32_t>, 4> look_flags;
+    std::uint32_t wrench_form;
+    std::uint32_t ship_body;
+    std::uint32_t ship_paint;
+    std::array<std::uint32_t, 4> scenery_matrices;
+    std::uint32_t shadow_directions;
+    std::uint32_t hero_state;
+};
+
+// USA v1.01's, as the decompilation names them.
+constexpr Release kNtsc{
+    {0x001B5570, 0x001B9040, 0x001B1B60, 0x001B1B64},
+    {
     {0x001B8FF0, 0x001BD2C0, 0x001B1EA0, 0x001B1EA4},  // 0
     {0x001B96F0, 0x001BD9C0, 0x001B2560, 0x001B2564},  // 1
     {0x001BA730, 0x001BEA00, 0x001B35A0, 0x001B35A4},  // 2
@@ -75,7 +96,25 @@ const Addresses kLevels[31] = {
     {},                                                // 28: no level
     {},                                                // 29: no level
     {0x001B9FF0, 0x001BE2C0, 0x001B2D20, 0x001B2D24},  // 30
+    },
+    0x001A7A18,
+    {{{0x001A7A49, 6}, {0x001A7A42, 8}, {0x001A7A4B, 7}, {0x001A7A4A, 5}}},
+    0x001A72C0,
+    0x00152C18,
+    0x00152C30,
+    {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u},
+    0x001B1B90u,
+    0x00189E20u,
 };
+
+}  // namespace
+}  // namespace openrac::game::rac2
+
+// PAL's and v2.00's (kPal, kNtsc2).
+#include "game/rac2/profile_releases.h"
+
+namespace openrac::game::rac2 {
+namespace {
 
 template <typename T>
 T at(std::span<const std::uint8_t> ram, std::uint32_t address) {
@@ -100,26 +139,19 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
 // has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
 constexpr std::int32_t kHeroLookClasses = 6000;
-constexpr std::uint32_t kArmour = 0x001A7A18;
-constexpr std::array<std::pair<std::uint32_t, std::int32_t>, 4> kLookFlags{
-    {{0x001A7A49, 6}, {0x001A7A42, 8}, {0x001A7A4B, 7}, {0x001A7A4A, 5}}
-};
 
 // The wrench is loaded the same way, by the form the game has (func_00292408).
 constexpr std::int32_t kWrenchClass = 71;
 constexpr std::int32_t kWrenchFormClasses = 6020;
-constexpr std::uint32_t kWrenchForm = 0x001A72C0;
 
 // His ship's hull is loaded over class 3412 on each load, by the hull he has (func_002925F0, which
 // keeps its number at +0x18 of 0x00152C00). The export has hull 0 as the class and the others as
 // classes of their own (editor/moby_class.py, SHIP_BODY_CLASSES).
 constexpr std::int32_t kShipClass = 3412;
 constexpr std::int32_t kShipBodyClasses = 6030;
-constexpr std::uint32_t kShipBody = 0x00152C18;
 constexpr std::int32_t kShipBodies = 3;
 // And its picture, one of 18 paint jobs, by func_002926B8, which keeps its number at +0x30
 // (editor/port.py's "ship_paints").
-constexpr std::uint32_t kShipPaint = 0x00152C30;
 constexpr std::int32_t kShipPaints = 18;
 
 // A class's bangles: parts of its mesh past its LOD lists, which a moby draws by the bits of its
@@ -158,9 +190,9 @@ void add_drawn_parts(
     }
 }
 
-std::int32_t hero_class(std::span<const std::uint8_t> ram) {
-    std::int32_t look = at<std::int16_t>(ram, kArmour);
-    for (const auto& [flag, pack] : kLookFlags) {
+std::int32_t hero_class(std::span<const std::uint8_t> ram, const Release& r) {
+    std::int32_t look = at<std::int16_t>(ram, r.armour);
+    for (const auto& [flag, pack] : r.look_flags) {
         if (at<std::uint8_t>(ram, flag) != 0) {
             look = pack;
             break;
@@ -169,7 +201,9 @@ std::int32_t hero_class(std::span<const std::uint8_t> ram) {
     return look > 0 && look <= 8 ? kHeroLookClasses + look : -1;
 }
 
-std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, std::uint32_t m) {
+std::optional<host::LiveMoby> read_live_moby(
+    std::span<const std::uint8_t> ram, std::uint32_t m, const Release& r
+) {
     if (m == 0 || m + 0x100 > ram.size()) {
         return std::nullopt;
     }
@@ -182,12 +216,12 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     live.address = m;
     live.class_id = at<std::int16_t>(ram, m + kMobyClass);
     if (live.class_id == 0) {
-        live.model_class = hero_class(ram);
+        live.model_class = hero_class(ram, r);
     } else if (live.class_id == kWrenchClass) {
-        const auto form = at<std::int32_t>(ram, kWrenchForm);
+        const auto form = at<std::int32_t>(ram, r.wrench_form);
         live.model_class = form > 0 && form < 3 ? kWrenchFormClasses + form : -1;
     } else if (live.class_id == kShipClass) {
-        const auto body = at<std::int32_t>(ram, kShipBody);
+        const auto body = at<std::int32_t>(ram, r.ship_body);
         live.model_class = body > 0 && body < kShipBodies ? kShipBodyClasses + body : -1;
     }
     live.occlusion = at<std::uint16_t>(ram, m + 0x36);
@@ -228,7 +262,9 @@ std::optional<host::LiveMoby> read_live_moby(std::span<const std::uint8_t> ram, 
     return live;
 }
 
-host::GameState read_game_state(std::span<const std::uint8_t> ram, const Addresses& a) {
+host::GameState read_game_state(
+    std::span<const std::uint8_t> ram, const Addresses& a, const Release& r
+) {
     host::GameState s;
     s.camera_position = vec3(ram, a.camera_rows - kEyeBeforeRows);
     s.forward = vec3(ram, a.camera_rows);
@@ -285,7 +321,7 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const Address
         if (at<std::uint8_t>(ram, m + 0x20) >= 0x80) {
             continue;
         }
-        if (const auto live = read_live_moby(ram, m)) {
+        if (const auto live = read_live_moby(ram, m, r)) {
             add_drawn_parts(ram, *live, s.mobys);
         }
     }
@@ -314,14 +350,16 @@ bool essential_moby(int class_id) {
 // The game's profile: its memory read by program, and the display list it sends.
 class Profile final : public host::GameProfile {
 public:
+    explicit constexpr Profile(const Release& release) : release_(release) {}
+
     host::GameState read_state(std::span<const std::uint8_t> ram, int level) const override {
-        return read_game_state(ram, addresses(level));
+        return read_game_state(ram, addresses(level), release_);
     }
 
     std::optional<host::LiveMoby> read_moby(
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {
-        return read_live_moby(ram, moby);
+        return read_live_moby(ram, moby, release_);
     }
 
     bool sends_display_list() const override { return true; }
@@ -339,7 +377,7 @@ public:
     // The paint job on his ship: func_002926B8 loads one of the 18 over the ship's picture (the
     // level's load by 0x001A7AF2, the Ship Shack's preview by the one shown) and keeps its number.
     int texture_variant(std::span<const std::uint8_t> ram) const override {
-        const auto paint = at<std::int32_t>(ram, kShipPaint);
+        const auto paint = at<std::int32_t>(ram, release_.ship_paint);
         return paint >= 0 && paint < kShipPaints ? paint : -1;
     }
 
@@ -352,7 +390,7 @@ public:
     // the ties' records: gp + 0x31C4 (0x2F3FE0; level 0's D_L00_001B2514), the shrubs' records:
     // gp + 0x30A8 (LightShrubs, 0x2E2C4C).
     std::array<std::uint32_t, 4> scenery_matrices() const override {
-        return {0x001B21BCu, 0x001B20A0u, 0x001B21B4u, 0x001B2098u};
+        return release_.scenery_matrices;
     }
 
     // Maktar's dome: light strips (tie class 2713) lie on the dome's band (class 2675) within a few
@@ -386,7 +424,7 @@ public:
     // window draws them from the moby instead. MobyProc copies the four directions from 0x1B1B90
     // (slot 0 aimed by func_0029FFB8) to the scratchpad; the slab is across the moby's up
     // axis.
-    std::uint32_t shadow_directions() const override { return 0x001B1B90u; }
+    std::uint32_t shadow_directions() const override { return release_.shadow_directions; }
 
     bool shadow_slab_on_up_axis() const override { return true; }
 
@@ -400,7 +438,7 @@ public:
     // +0xF0), whose shorts at +0x34C and +0x34E count the updates off the ground and are 0 on
     // landing (Ratchet & Clank's +0x30C and +0x30E: a jump in level 4 read 15, 25, 35, then 0).
     // Enhanced lighting tilts his own shadow map down by it.
-    std::uint32_t hero_state() const override { return 0x00189E20u; }
+    std::uint32_t hero_state() const override { return release_.hero_state; }
 
     std::uint32_t hero_air_frames() const override { return 0x34E; }
 
@@ -415,24 +453,35 @@ public:
     std::array<int, 2> stick_dead_zone() const override { return {0x30, 0x4C}; }
 
 private:
-    static const Addresses& addresses(int level) {
-        return level >= 0 && static_cast<std::size_t>(level) < std::size(kLevels)
-                       && kLevels[level].camera_rows != 0
-                   ? kLevels[level]
-                   : kBoot;
+    const Addresses& addresses(int level) const {
+        return level >= 0 && static_cast<std::size_t>(level) < std::size(release_.levels)
+                       && release_.levels[level].camera_rows != 0
+                   ? release_.levels[level]
+                   : release_.boot;
     }
+
+    const Release& release_;
 };
 
-// The one instance, a constant for the program's life.
-const Profile kProfile;
+// One instance for each disc, constants for the program's life.
+const Profile kNtscProfile{kNtsc};
+const Profile kPalProfile{kPal};
+const Profile kNtsc2Profile{kNtsc2};
 
 }  // namespace
 }  // namespace openrac::game::rac2
 
 namespace openrac::host {
 
-const GameProfile& game_profile(std::string_view /*game*/) {
-    return game::rac2::kProfile;
+const GameProfile& game_profile(std::string_view game) {
+    // The disc's program id picks its tables; any other id reads as USA v1.01.
+    if (game == "rac2-pal") {
+        return game::rac2::kPalProfile;
+    }
+    if (game == "rac2-ntsc2") {
+        return game::rac2::kNtsc2Profile;
+    }
+    return game::rac2::kNtscProfile;
 }
 
 }  // namespace openrac::host

@@ -8,9 +8,10 @@
   "function: near": 36,
   "function: not found": 2,
   "function: same": 967,
-  "global: between": 10,
-  "global: exact": 15,
-  "global: the release's build": 72
+  "global: aligned": 7,
+  "global: between": 8,
+  "global: exact": 101,
+  "global: the release's build": 107
  },
  "functions": {
   "func_001158F8": [
@@ -435,15 +436,15 @@
    "between",
    "host C 0x00138280"
   ],
-  "boot:00146B40": [
-   "00146B40",
-   "between",
-   "host C 0x00146B40"
-  ],
   "boot:00146B44": [
    "00146B44",
    "between",
    "host C 0x00146B44"
+  ],
+  "boot:00152C18": [
+   "00152C18",
+   "between",
+   "profile boot 0x00152C18"
   ],
   "boot:00152C26": [
    "00152C26",
@@ -455,6 +456,11 @@
    "between",
    "rac2_addresses.h"
   ],
+  "boot:00152C30": [
+   "00152C30",
+   "between",
+   "profile boot 0x00152C30"
+  ],
   "boot:00152C64": [
    "00152C64",
    "between",
@@ -464,21 +470,6 @@
    "00152C68",
    "between",
    "host C 0x00152C68"
-  ],
-  "boot:001AE120": [
-   "001AE0F8",
-   "between",
-   "host C 0x001AE120"
-  ],
-  "boot:001AE124": [
-   "001AE0FC",
-   "between",
-   "host C 0x001AE124"
-  ],
-  "boot:001AE128": [
-   "001AE100",
-   "between",
-   "host C 0x001AE128"
   ],
   "ref_L00_00290B48_00": [
    "00356D07",

@@ -8,10 +8,10 @@
   "function: near": 135,
   "function: not found": 4,
   "function: same": 798,
-  "global: between": 11,
-  "global: exact": 41,
-  "global: not found": 1,
-  "global: the release's build": 44
+  "global: aligned": 11,
+  "global: between": 6,
+  "global: exact": 137,
+  "global: the release's build": 69
  },
  "functions": {
   "func_001158F8": [
@@ -1216,20 +1216,25 @@
   ]
  },
  "globals": {
-  "boot:00146B40": [
-   "00146BC0",
-   "between",
-   "host C 0x00146B40"
-  ],
   "boot:00146B44": [
    "00146BC4",
    "between",
    "host C 0x00146B44"
   ],
+  "boot:00152C18": [
+   "00152C98",
+   "between",
+   "profile boot 0x00152C18"
+  ],
   "boot:00152C2E": [
    "00152CAE",
    "between",
    "rac2_addresses.h"
+  ],
+  "boot:00152C30": [
+   "00152CB0",
+   "between",
+   "profile boot 0x00152C30"
   ],
   "boot:00152C64": [
    "00152CE4",
@@ -1240,36 +1245,6 @@
    "00152CE8",
    "between",
    "host C 0x00152C68"
-  ],
-  "boot:001AE120": [
-   "001AE198",
-   "between",
-   "host C 0x001AE120"
-  ],
-  "boot:001AE124": [
-   "001AE19C",
-   "between",
-   "host C 0x001AE124"
-  ],
-  "boot:001AE128": [
-   "001AE1A0",
-   "between",
-   "host C 0x001AE128"
-  ],
-  "boot:001B1B74": [
-   "001B1B74",
-   "between",
-   "host C 0x001B1B74"
-  ],
-  "boot:001B1D90": [
-   "001B1D90",
-   "between",
-   "host C 0x001B1D90"
-  ],
-  "boot:001B1D98": [
-   "001B1D98",
-   "between",
-   "host C 0x001B1D98"
   ],
   "ref_L00_00290B48_00": [
    "003581A7",
@@ -1284,7 +1259,6 @@
   "to": "0026F678"
  },
  "unpaired": {
-  "boot:00261590": "host C 0x00261590",
   "func_002C0CC0": "from_assembly",
   "func_L00_00389E18": "from_assembly",
   "func_L02_003FE1B0": "from_assembly",

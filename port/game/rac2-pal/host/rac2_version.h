@@ -169,7 +169,7 @@
 #define RAC2_ADDR_0x0010E9F0u 0x0010E9F0u /* the same microcode at the same place */
 #define RAC2_ADDR_0x00138180u 0x00138200u /* the release's build */
 #define RAC2_ADDR_0x00138280u 0x00138300u /* the release's build */
-#define RAC2_ADDR_0x00146B40u 0x00146BC0u /* versionmap: between */
+#define RAC2_ADDR_0x00146B40u 0x00146BC0u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00146B44u 0x00146BC4u /* versionmap: between */
 #define RAC2_ADDR_0x00152C26u 0x00152CA6u /* the release's build */
 #define RAC2_ADDR_0x00152C64u 0x00152CE4u /* versionmap: between */
@@ -189,9 +189,9 @@
 #define RAC2_ADDR_0x001ADE28u 0x001ADEA0u /* the release's build */
 #define RAC2_ADDR_0x001AE0E0u 0x001AE158u /* the release's build */
 #define RAC2_ADDR_0x001AE0F4u 0x001AE16Cu /* the release's build */
-#define RAC2_ADDR_0x001AE120u 0x001AE198u /* versionmap: between */
-#define RAC2_ADDR_0x001AE124u 0x001AE19Cu /* versionmap: between */
-#define RAC2_ADDR_0x001AE128u 0x001AE1A0u /* versionmap: between */
+#define RAC2_ADDR_0x001AE120u 0x001AE198u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001AE124u 0x001AE19Cu /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001AE128u 0x001AE1A0u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001AE138u 0x001AE1B0u /* the release's build */
 #define RAC2_ADDR_0x001B15A0u 0x001B15A0u /* versionmap: exact */
 #define RAC2_ADDR_0x001B15FCu 0x001B15FCu /* versionmap: exact */
@@ -205,9 +205,9 @@
 #define RAC2_ADDR_0x001B187Cu 0x001B187Cu /* versionmap: exact */
 #define RAC2_ADDR_0x001B1890u 0x001B1890u /* versionmap: exact */
 #define RAC2_ADDR_0x001B1894u 0x001B1894u /* versionmap: exact */
-#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* versionmap: between */
-#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* versionmap: between */
-#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* versionmap: between */
+#define RAC2_ADDR_0x001B1B74u 0x001B1B74u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B1D90u 0x001B1D90u /* the same instruction of the paired function */
+#define RAC2_ADDR_0x001B1D98u 0x001B1D98u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x001B20F0u 0x001B20F0u /* versionmap: exact */
 #define RAC2_ADDR_0x001B22A8u 0x001B22A8u /* versionmap: exact */
 #define RAC2_ADDR_0x001B5200u 0x001B5200u /* versionmap: exact */
@@ -228,7 +228,7 @@
 #define RAC2_ADDR_0x001F1F40u 0x001F1F40u /* versionmap: exact */
 #define RAC2_ADDR_0x001F2840u 0x001F2840u /* versionmap: exact */
 #define RAC2_ADDR_0x00255330u 0x00255330u /* versionmap: exact */
-/* RAC2_ADDR_0x00261590u: not found */
+#define RAC2_ADDR_0x00261590u 0x00261330u /* the same instruction of the paired function */
 #define RAC2_ADDR_0x00263B50u 0x002638D0u /* the release's build */
 #define RAC2_ADDR_0x00263EF0u 0x00263C70u /* the release's build */
 #define RAC2_ADDR_0x00264290u 0x00264010u /* the release's build */

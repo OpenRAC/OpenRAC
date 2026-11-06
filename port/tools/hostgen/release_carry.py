@@ -43,7 +43,7 @@ class Pairing:
     """Where the release has what v1.01 has."""
 
     def __init__(self, source: Path, version: str, table: rel.Release, vmap: dict | None, carry: dict | None):
-        self.table, self.vmap, self.version = table, vmap, version
+        self.table, self.vmap, self.version, self.source = table, vmap, version, source
         info = rel.RELEASES[version]
         self.us_boot = rel.read_boot(source / "config/boot/functions.tsv")
         self.us_levels = rel.read_levels(source / "config/levels/functions.tsv")
@@ -171,9 +171,9 @@ class Pairing:
 
     def data(self, address: int, program: str = "boot", why: str = "") -> int | None:
         """The release's address of v1.01's global at ADDRESS (in PROGRAM: "boot", "level:NN")."""
-        name = rel.core("D", int(program[6:]) if program != "boot" and address >= rel.RELEASES["us"]["level_base"]
-                        and program != "boot" else None, address)
-        new = self.table.names.get(name) or self.table.names.get(rel.core("D", None, address))
+        level_part = program != "boot" and address >= rel.RELEASES["us"]["level_base"]
+        name = rel.core("D", int(program[6:]) if level_part else None, address)
+        new = self.table.names.get(name)
         if new and "_V1_" not in new:
             self.kinds["global: the release's build"] += 1
             self.last = "the release's build"
@@ -185,6 +185,11 @@ class Pairing:
                 self.kinds["global: exact"] += 1
                 self.last = "versionmap: exact"
                 return values[at - 1]
+            got = self.aligned(program).get(address)
+            if got is not None:
+                self.kinds["global: aligned"] += 1
+                self.last = "the same instruction of the paired function"
+                return got
             below = (keys[at - 1], values[at - 1]) if at else None
             above = (keys[at], values[at]) if at < len(keys) else None
             if below and above and below[1] - below[0] == above[1] - above[0]:
@@ -196,6 +201,64 @@ class Pairing:
         self.kinds["global: not found"] += 1
         self.report.setdefault("unpaired", {})[f"{program}:{address:08X}"] = why
         return None
+
+    def code(self, version: str, program: str):
+        """A program's loaded sections, [(address, bytes)]: the executable's, or a level's dump."""
+        import copycalls
+        cache = self.__dict__.setdefault("_code", {})
+        key = (version, program)
+        if key not in cache:
+            info = rel.RELEASES[version]
+            base = self.source / info["baserom"]
+            if program == "boot":
+                exe = {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
+                cache[key] = copycalls.elf_sections(base / exe)
+            else:
+                lv = program[6:]
+                folder = next((d for d in sorted((base / "levels").iterdir()) if d.name[:2] == lv), None)
+                cache[key] = copycalls.level_sections(folder) if folder else []
+        return cache[key]
+
+    def aligned(self, program: str) -> dict[int, int]:
+        """v1.01's globals formed by an instruction of a function versionmap pairs (the same, or
+        changed between unchanged neighbours) and the release's formed by the same instruction:
+        where every such pair agrees."""
+        import copycalls
+        import difflib
+        cache = self.__dict__.setdefault("_aligned", {})
+        if program in cache:
+            return cache[program]
+        votes: dict[int, Counter] = {}
+        gp_us, gp_r = rel.RELEASES["us"]["gp"], rel.RELEASES[self.version]["gp"]
+        us_code, r_code = self.code("us", program), self.code(self.version, program)
+        for a, row in (self.vmap or {}).get("programs", {}).get(program, {}).get("functions", {}).items():
+            if row[1] not in ("same", "near") or not row[2] or not row[3]:
+                continue
+            mine = copycalls.words(us_code, int(a, 16), row[2] & ~3)
+            theirs = copycalls.words(r_code, int(row[0], 16), row[3] & ~3)
+            if mine is None or theirs is None:
+                continue
+            fa, fb = copycalls.formed(mine, gp_us), copycalls.formed(theirs, gp_r)
+            if len(mine) == len(theirs):
+                pairs = [(i, i) for i in fa]
+            else:
+                sm = difflib.SequenceMatcher(None, [copycalls.masked(w) >> 26 for w in mine],
+                                             [copycalls.masked(w) >> 26 for w in theirs], autojunk=False)
+                index = {}
+                for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                    if tag == "equal":
+                        index.update(zip(range(i1, i2), range(j1, j2)))
+                pairs = [(i, index[i]) for i in fa if i in index]
+            for i, j in pairs:
+                if j in fb and (mine[i] >> 26) == (theirs[j] >> 26):
+                    votes.setdefault(fa[i], Counter())[fb[j]] += 1
+        out = {}
+        for x, c in votes.items():
+            y, n = c.most_common(1)[0]
+            if n == sum(c.values()):
+                out[x] = y
+        cache[program] = out
+        return out
 
     def _data_index(self, program: str):
         cache = getattr(self, "_index", {})
@@ -514,6 +577,68 @@ def addresses_header(p: Pairing, primary: str, version: str) -> str:
                         "(port/tools/hostgen/release_carry.py)")
 
 
+def profile_table(p: Pairing, profile: str, version: str) -> str:
+    """The release's table for port/game/rac2/profile.cpp: v1.01's kNtsc, each address as this
+    release has it, with how it was found."""
+    block = profile[profile.index("constexpr Release kNtsc{"):]
+    block = block[:block.index("\n};\n") + 4]
+    ident = {"pal": "kPal", "us2": "kNtsc2"}[version]
+    out = []
+    section = None
+    level = -1
+    for line in block.splitlines():
+        if line.startswith("constexpr Release kNtsc{"):
+            out.append(f"constexpr Release {ident}{{")
+            section = "boot"
+            continue
+        if line.strip() == "{":
+            section = "levels"
+            out.append(line)
+            continue
+        if section == "levels" and line.strip() == "},":
+            section = "rest"
+            out.append(line)
+            continue
+        if section == "levels":
+            level += 1
+        program = f"level:{level:02d}" if section == "levels" else "boot"
+        notes = []
+
+        def one(m: re.Match) -> str:
+            a = int(m.group(1), 16)
+            new = p.data(a, program, f"profile {program} 0x{a:08X}")
+            if new is None:
+                notes.append(f"0x{a:08X} not found")
+                return m.group(0)
+            notes.append(p.last)
+            return f"0x{new:08X}{m.group(2)}"
+        line = re.sub(r"\b0x([0-9A-Fa-f]{8})(u?)\b", one, line)
+        if notes and section != "levels":
+            kinds = sorted(set(notes))
+            line = line.split("//")[0].rstrip() + f"  // {', '.join(kinds)}"
+        elif notes:
+            kinds = sorted(set(notes))
+            line = line.rstrip() + f" ({', '.join(kinds)})"
+        out.append(line)
+    names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
+    return "\n".join([
+        "// SPDX-License-Identifier: GPL-3.0-or-later",
+        "// Copyright (c) 2026 the OpenRAC contributors",
+        "//",
+        f"// {names}: port/game/rac2/profile.cpp's table (Release) for this disc, v1.01's addresses as this",
+        "// release has them. Written by port/tools/hostgen/release_carry.py; do not edit.",
+        "",
+        "namespace openrac::game::rac2 {",
+        "namespace {",
+        "",
+        *out,
+        "",
+        "}  // namespace",
+        "}  // namespace openrac::game::rac2",
+        "",
+    ])
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--game", type=Path, required=True, help="the release's hostgen.json (its directory is written)")
@@ -541,6 +666,9 @@ def main(argv: list[str] | None = None) -> int:
     shared = primary.parent / "rac2" / "host"
     (host / "rac2_addresses.h").write_text(addresses_header(p, (primary / "host/rac2_addresses.h").read_text(), args.version))
     (host / "rac2_version.h").write_text(host_table(p, shared, primary / "host", args.source, args.version))
+    profile_dir = primary.parent / "rac2"
+    (profile_dir / f"profile_{new_cfg['id']}.h").write_text(
+        profile_table(p, (profile_dir / "profile.cpp").read_text(), args.version))
     report = {"about": "How release_carry.py paired what the primary release's port names: what rests on less "
                        "than the same code, and what it found nowhere.", "counts": dict(sorted(p.kinds.items())),
               **p.report}
