@@ -174,6 +174,13 @@ extern int (*openrac_game_camera_turn)(
     uint8_t right_x, float ticks, float* radians, float axis[3], unsigned* reads
 );
 
+/* How much faster than its own the game's follow camera turns sideways from the right stick, as
+ * the first pad's last read gave it (the right stick's sensitivity above 100% pushed past a full
+ * push, which the stick's byte cannot carry; frontend/input.cpp). 1, the game's own speed, unless
+ * the player turned the sensitivity up. A game's camera multiplies its stick's turn by it (rac1,
+ * rac2: camera_latch.c), and its camera_turn above does too. */
+extern float openrac_game_camera_speed;
+
 /* A trap the game raised on purpose, or another reason the game cannot go on: writes a crash
  * report (<data>/crashes) and ends the program. */
 #ifdef __cplusplus

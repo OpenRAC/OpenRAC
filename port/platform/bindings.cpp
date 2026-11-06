@@ -410,7 +410,7 @@ std::map<std::string, std::string, std::less<>> tuning_values(const PadTuning& t
     return out;
 }
 
-void tune_stick(float& x, float& y, const StickTuning& tuning) {
+float tune_stick(float& x, float& y, const StickTuning& tuning) {
     if (tuning.invert_x) {
         x = -x;
     }
@@ -427,11 +427,14 @@ void tune_stick(float& x, float& y, const StickTuning& tuning) {
         x = std::clamp(x * scale, -1.0f, 1.0f);
         y = std::clamp(y * scale, -1.0f, 1.0f);
     }
+    float past_full = 1.0f;
     if (tuning.sensitivity != 100) {
         const float scale = static_cast<float>(tuning.sensitivity) / 100.0f;
+        past_full = std::max(1.0f, std::fabs(x * scale));
         x = std::clamp(x * scale, -1.0f, 1.0f);
         y = std::clamp(y * scale, -1.0f, 1.0f);
     }
+    return past_full;
 }
 
 void swap_face_labels(PadInputs& inputs) {
@@ -778,7 +781,10 @@ void apply_pad(
         float& y = reading.sticks[2 * s + 1];
         x = static_cast<float>(inputs.axes[2 * s]) / 32768.0f;
         y = static_cast<float>(inputs.axes[2 * s + 1]) / 32768.0f;
-        tune_stick(x, y, bindings.tuning.sticks[s]);
+        const float past_full = tune_stick(x, y, bindings.tuning.sticks[s]);
+        if (s == 1) {
+            pad.camera_speed = past_full;
+        }
         shape_stick(x, y, gates[s]);
     }
 

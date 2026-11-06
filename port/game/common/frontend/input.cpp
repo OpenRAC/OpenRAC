@@ -328,6 +328,10 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (port == 0) {
         scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
     }
+    if (port == 0) {
+        // A scripted or replayed stick turns at the game's own speed.
+        openrac_game_camera_speed = analog[0] == p.right_x ? p.camera_speed : 1.0f;
+    }
     // Start skips an in-game scene the way the game itself skips it: a pressed Start also presses
     // what the game's own skip of the scene playing reads (rac1: in a cutscene the four shoulders,
     // since the game skips one on Start with L1, L2, R1 and R2 held, Start alone only once it is
