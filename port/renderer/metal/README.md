@@ -60,7 +60,8 @@ where there is no Metal device.
 
 `OPENRAC_GL_API=metal` (`platform/window.cpp`). The window opens a Metal window and `mtlgl::open`,
 then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot open, or one is
-missing, the log says why and the window tries Vulkan, then OpenGL.
+missing, the log says why and the window draws with OpenGL: not Vulkan, which on Apple's systems is
+MoltenVK on the same Metal.
 
 ## Still to come
 

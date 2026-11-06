@@ -575,8 +575,9 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
         if (window->open_metal(config, why)) {
             return window;
         }
-        log::warn("graphics: Metal could not be used ({}); trying Vulkan", why);
-        config.gl_api = GlApi::Vulkan;
+        // Not Vulkan: on Apple's systems it is MoltenVK, on the same Metal that just failed.
+        log::warn("graphics: Metal could not be used ({}); drawing with OpenGL", why);
+        config.gl_api = GlApi::Desktop;
     }
     if (config.gl_api == GlApi::Vulkan) {
         std::unique_ptr<Window> window(new Window());

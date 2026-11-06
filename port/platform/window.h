@@ -112,8 +112,8 @@ void install_app_menus(bool developer);
 // Which OpenGL the window's context is: the desktop's 4.1 core profile, OpenGL ES 3.2 (Android,
 // whose drivers have only ES; renderer/gl.h and renderer/shader.h adapt to it), or the renderer's
 // GL carried out with Vulkan (renderer/vulkan/vkgl.h) or with Metal (renderer/metal/mtlgl.h),
-// where the build has them; a window that cannot have Metal opens with Vulkan, and one that cannot
-// have Vulkan opens with the system's OpenGL instead.
+// where the build has them; a window that cannot have Metal or Vulkan opens with the system's
+// OpenGL instead.
 enum class GlApi {
     Desktop,
     ES,
