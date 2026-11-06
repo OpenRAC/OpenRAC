@@ -935,7 +935,7 @@ html[data-nav="up"] {
 }
 
 ::view-transition-old(page) {
-  animation: page-out 0.2s ease-in both;
+  animation: page-out 0.14s ease-in both;
 }
 
 ::view-transition-new(page) {

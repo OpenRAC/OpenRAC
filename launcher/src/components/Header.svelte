@@ -271,6 +271,8 @@
      capsule round them. */
   nav {
     position: relative;
+    /* The tabs' fills, the slider over them and the tabs' words stack inside the bar. */
+    isolation: isolate;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -286,6 +288,8 @@
     border-radius: var(--radius-sm);
     background: var(--coal-stripes-hi);
     opacity: 0;
+    /* Over every tab's fill (theirs is at -2), under their words. */
+    z-index: -1;
   }
 
   .slider.shown {
@@ -314,21 +318,31 @@
     font-weight: 600;
     /* A button of its own on the gold, as the site's bar has them: the bar's stripes continued in
        coal, gold text, no edge (the gold bar is its edge). */
-    background: var(--coal-stripes);
+    background: none;
+    box-shadow: none;
     color: var(--amber);
-    transition:
-      color var(--medium) var(--ease),
-      background var(--fast) var(--ease);
+    transition: color var(--medium) var(--ease);
   }
 
-  /* The open one lets the darker chip under it show (the slider, which moves from tab to tab). */
-  .tab.on {
-    background: transparent;
-    box-shadow: none;
+  /* Each tab's fill sits under the slider, so the slider passes over the tabs it crosses and the
+     tab opened keeps its fill until the slider gets there. */
+  .tab::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    border-radius: inherit;
+    background: var(--coal-stripes);
+    transition: background var(--fast) var(--ease);
   }
 
   @media (hover: hover) {
-    :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on) {
+    /* The fill is the ::before: the button's own hover fill would cover the slider. */
+    :global(html:where(:not([data-input="pad"]))) .tab:hover {
+      background-color: transparent;
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on)::before {
       background: var(--coal-stripes-hi);
     }
   }
@@ -631,7 +645,8 @@
     box-shadow: none;
   }
 
-  :global(html[data-platform="android"]) .slider {
+  :global(html[data-platform="android"]) .slider,
+  :global(html[data-platform="android"]) .tab::before {
     display: none;
   }
 

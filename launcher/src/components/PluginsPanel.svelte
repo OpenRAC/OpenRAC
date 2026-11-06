@@ -515,6 +515,8 @@
 
       {#if listError}
         <Reason text={listError} tone="err" />
+      {:else if !loaded}
+        <!-- Still reading the list: nothing yet, rather than "no mods" for a moment. -->
       {:else if mods.length === 0}
         {#if shows("gameplay")}<p class="empty">{T.PANEL.empty}</p>{/if}
       {:else}

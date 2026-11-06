@@ -343,7 +343,7 @@
   /* A narrow panel: a slot's planet and Edit on the first line, its bolts, time and mods under. */
   @container (max-width: 520px) {
     .slots li {
-      grid-template-columns: 48px minmax(0, 1fr) auto;
+      grid-template-columns: 60px minmax(0, 1fr) auto;
       grid-template-areas:
         "slot planet edit"
         ". bolts bolts"
@@ -391,7 +391,7 @@
 
   .slots li {
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto minmax(0, auto) auto auto;
+    grid-template-columns: 60px minmax(0, 1fr) auto minmax(0, auto) auto auto;
     align-items: center;
     gap: 14px;
     padding: 9px 2px;
@@ -402,6 +402,8 @@
   .slot {
     font-size: 0.8125rem;
     color: var(--dim);
+    /* "Co-op 1" on one line. */
+    white-space: nowrap;
   }
 
   .planet {
@@ -529,7 +531,7 @@
 
   @media (max-width: 640px) {
     .slots li {
-      grid-template-columns: 48px minmax(0, 1fr) auto;
+      grid-template-columns: 60px minmax(0, 1fr) auto;
       row-gap: 6px;
     }
 
