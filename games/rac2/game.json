@@ -185,7 +185,9 @@
         "crc32": "98197b41",
         "md5": "d684d7de14697dd0b1faa8b31206c710",
         "sha1": "eeba0fff2118b14cbf838e6638ef7af3e72c0c31",
-        "sha256": "eda31b4519d16014164090e8a36733af63ef8e458a96d37d6054b65c00ec6e72"
+        "sha256": "eda31b4519d16014164090e8a36733af63ef8e458a96d37d6054b65c00ec6e72",
+        "files": 97,
+        "contents": "6aba89fea2f43133b530610cac779e20576f2a1eadd7f3cfcfbf88e9c59fb580"
       },
       "boot": {
         "file": "SCUS_972.68",

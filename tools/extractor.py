@@ -78,9 +78,20 @@ def files_of(image: Path) -> list[tuple[str, int, int]]:
 
 # --- What OpenRAC knows ---------------------------------------------------------------
 
-def builds(game: str | None = None) -> dict[str, tuple[dict, str, dict]]:
-    """serial -> (game, version name, version), for GAME or every game."""
-    return {v["serial"]: (g, name, v) for g, name, v in games.versions() if game in (None, g["id"])}
+def builds(game: str | None = None) -> dict[str, list[tuple[dict, str, dict]]]:
+    """serial -> [(game, version name, version)], for GAME or every game. A serial can be more
+    than one build: Going Commando's v1.01 and v2.00 both boot SCUS_972.68."""
+    out: dict[str, list[tuple[dict, str, dict]]] = {}
+    for g, name, v in games.versions():
+        if game in (None, g["id"]):
+            out.setdefault(v["serial"], []).append((g, name, v))
+    return out
+
+
+def boot_matches(want: dict, boot_sha1: str | None, boot_sha256: str | None) -> bool:
+    """Whether the boot executable is the one game.json records: by SHA-1, else (a build pinned by
+    its SHA-256 alone, rac5's) by SHA-256."""
+    return boot_sha1 == want["sha1"] if "sha1" in want else boot_sha256 == want.get("sha256")
 
 
 def check_image_file(image: Path, minimum: int) -> None:
@@ -106,15 +117,16 @@ def validate(game: str, serial: str | None, boot_sha1: str | None, hashes: dict[
     if serial not in known:
         other = builds().get(serial)
         if other:
-            raise ExtractError(4001, f"{serial} is {other[0]['title']} ({other[2]['region']}), not {game}")
+            raise ExtractError(4001, f"{serial} is {other[0][0]['title']} ({other[0][2]['region']}), not {game}")
         raise ExtractError(4001, serial)
-    g, name, version = known[serial]
-    want = version["boot"]
-    if "sha1" in want:
-        if boot_sha1 != want["sha1"]:
-            raise ExtractError(4002, f"{serial} SHA-1 {boot_sha1}, game.json has {want['sha1']}")
-    elif boot_sha256 != want.get("sha256"):
+    found = next((b for b in known[serial] if boot_matches(b[2]["boot"], boot_sha1, boot_sha256)), None)
+    if found is None:
+        want = known[serial][0][2]["boot"]
+        if "sha1" in want:
+            have = " or ".join(b[2]["boot"].get("sha1", "?") for b in known[serial])
+            raise ExtractError(4002, f"{serial} SHA-1 {boot_sha1}, game.json has {have}")
         raise ExtractError(4002, f"{serial} SHA-256 {boot_sha256}, game.json has {want.get('sha256')}")
+    g, name, version = found
     # game.json may list the disc's file count and contents hash once someone
     # with the disc records them (the line print_new_build prints).
     disc = version.get("disc", {})
