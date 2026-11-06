@@ -245,26 +245,25 @@ and packs it whole (hidden files left out).
 
 ### Touch controls
 
-On a touch screen the pad can show action buttons with icons (the drawer's
-"Action buttons" switch; off shows the DualShock's buttons). The buttons follow
-what the game is doing, its context: `foot`, `clank`, `giant_clank`, `swim`,
-`grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `menu`, `map`, `dialog`,
-`vendor`, `front_end`, `default`. The sets are JSON
-(`port/game/common/touch/sets/common.json`, then `<game>.json`). A mod adds its
-own on top:
+On a touch screen the pad can show action buttons with icons (drawer:
+"Action buttons"; off shows the DualShock's buttons). The buttons change with
+what the game is doing. Contexts: `foot`, `clank`, `giant_clank`, `swim`,
+`grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `menu`, `map`,
+`dialog`, `vendor`, `front_end`, `default`. The sets are JSON in
+`port/game/common/touch/sets/` (`common.json`, then `<game>.json`). A mod adds
+its own on top:
 
 ```jsonc
 {
   "contexts": {
-    "kart": {                          // a context of the mod's own
-      "extends": "base",               // its buttons, then base's (map, pause)
+    "kart": {                          // a new context
+      "extends": "base",               // plus base's buttons (map, pause)
       "actions": [
         { "id": "go",    "icon": "kart_go", "press": ["cross"], "size": "large" },
-        { "id": "brake", "icon": "down",    "press": ["square"] },
-        { "id": "hop",   "icon": "jump",    "press": ["r1"], "then": ["cross"], "size": "small" }
+        { "id": "hop",   "icon": "jump",    "press": ["r1"], "then": ["cross"] }
       ]
     },
-    "foot": {                          // the game's context, one button added
+    "foot": {                          // one button added to the game's
       "actions": [ { "id": "kart", "icon": "kart_go", "press": ["l3"], "when": "near_kart" } ]
     }
   },
@@ -272,38 +271,30 @@ own on top:
 }
 ```
 
-An action has `id`, `icon` and `press` (pad buttons: `cross`, `circle`,
-`square`, `triangle`, `l1` .. `r3`, `start`, `select`, `up` .. `right`).
-Optional fields:
+An action needs `id`, `icon` and `press` (`cross`, `circle`, `square`,
+`triangle`, `l1` .. `r3`, `start`, `select`, `up` .. `right`). Optional:
 
-- `then`: buttons pressed 50 ms later, for a combo. A quick tap still plays it.
+- `then`: buttons added 50 ms later, for a combo. A quick tap still plays it.
 - `size`: `large`, `medium` or `small`.
-- `side`: `arc` (under the right thumb), `left` (above the stick) or `top`.
-- `when`: a hint the button waits for. It shows in the hint places (`side`
-  `hint`, left of the arc) unless `side` says otherwise.
-- `instead`: with `when`, the id of a button it replaces while the hint is
-  up, in the same place and size. rac1's "press triangle" prompts use it:
-  hints `board` (the ship), `buy` (a vendor) and `use` (a lift, a taxi)
-  turn quick select into that action.
-- `toggle`: stays down until tapped again.
-- `wide`: a wider pill, for a wide icon.
-- `stick`: while held, sliding the finger pushes the left stick that way (a
-  quick select ring). The button stays held until the finger lifts.
+- `side`: `arc` (right thumb), `left` (above the stick), `top` or `hint`.
+- `when`: shown only while this hint is up, in the `hint` places unless
+  `side` says otherwise.
+- `instead`: with `when`, takes this button's place and size while the hint
+  is up. rac1 uses it for "press triangle" prompts: hints `board`, `buy` and
+  `use` replace quick select.
+- `toggle`: a tap holds it until the next tap.
+- `wide`: a pill, for a wide icon.
+- `stick`: sliding the held finger pushes the left stick (quick select ring).
 
-A context with `"dpad": true` shows the d-pad instead of the stick (menus).
+`"dpad": true` on a context shows a d-pad instead of the stick. An action
+with an existing `id` replaces it; `"replace": true` clears the context
+first. Icons are SVG; `#ff8000` is drawn in the game's accent, the rest white.
 
-An action with the same `id` replaces the old one. `"replace": true` removes
-the context's buttons first. An icon is an SVG drawn square from its viewBox:
-`#ff8000` is drawn in the game's accent, everything else white.
-
-The manifest's `"touch"` names this file; it is read when the mod loads. From
-code (1.13): `touch_define(mod, json)` adds a set, `touch_icon(mod, name, svg)`
-adds an icon, `touch_push(mod, context)` shows the mod's context instead of the
-game's until it passes null (for a mod's vehicle; the last mod to push wins),
-and `touch_hint(mod, hint, on)` turns a hint on or off. Scripts have
-`openrac.touch_define`, `touch_icon`, `touch_push` and `touch_hint`. A new
-context shows after it holds for 6 frames, a hint after 3. The buttons only
-change when no finger is on them.
+The manifest's `"touch"` names the file. From code (1.13): `touch_define`
+adds a set, `touch_icon` an icon, `touch_push(mod, context)` shows a context
+until it pushes null (the last mod wins), `touch_hint(mod, hint, on)` sets a
+hint. Scripts have the same under `openrac.`. A context shows after 6 frames,
+a hint after 3, and the buttons wait until no finger is on them.
 
 ## 4. Hook points
 

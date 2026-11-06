@@ -1,19 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * Ratchet & Clank: the on-screen pad's context (game_host.h, openrac_game_touch), read from the
- * game's memory once a frame: which of the sets in game/common/touch/sets/ the pad shows. One
- * table for every disc: the addresses are games/rac1's, each version's through its rac1_version.h.
+ * Ratchet & Clank: the touch pad's context and hints (game_host.h, openrac_game_touch), read
+ * from game memory once a frame. Addresses are games/rac1's (PAL), mapped per disc by
+ * rac1_version.h; data the game keeps per level goes through OPENRAC_DATA, as hostgen's C does.
  *
- * In the boot program, the title and its menus ("front_end"), or the flight between planets and a
- * load ("cutscene"). In a level its game mode (D_L00_0015F6A8, play.c): 0 play, 1 a movie, 2 a
- * cutscene, 6 the ship's landing or take-off and 7 a slideshow ("cutscene"), 3 the pause menu
- * ("menu"; its map page "map", menu_system.current, draw_map_screen), 4 a dialog ("dialog"), 5 a
- * vendor ("vendor"). In play the hero's vehicle mode (+0x20A4:
- * 1 Clank, 2 Giant Clank; include/rnc/hero/hero.h) and his state (+0x2084, rnc/hero/hero_state.h):
- * swimming, grinding, the hoverboard, seated on a gun ("turret") or in a jet ("jet"). Its hints: a
- * "press triangle" prompt up (prompt(), below) and the map's planet with an infobot. It only reads. Installed with the other tools (boot.c): nothing
- * else names this file, so a constructor here would be dropped at the link.
+ * Outside a level: "front_end", or "cutscene" while a level loads. In a level, by game mode: 0 play,
+ * 3 pause ("menu", or "map" on the map page), 4 "dialog", 5 "vendor", else "cutscene". In play, by
+ * the hero: Clank, Giant Clank, swimming, grinding, hoverboard, seated on a gun or in a jet.
+ * Hints: a "press triangle" prompt (prompt()), the map's planet with an infobot, the Quick Select
+ * page. Only reads. boot.c installs it (a constructor here would be dropped at the link).
  */
 #include "openrac/host_env.h"
 #include "rac1.h"

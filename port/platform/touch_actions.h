@@ -1,31 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The on-screen pad's actions (touch_pad.h, the Arc style): what each button does in a situation of
-// the game, described as data. A game says which situation it is in by a name ("foot", "clank",
-// "ship", "cutscene", "menu"; game_host.h, openrac_game_touch), and the sets read here say which
-// buttons that situation shows: each an icon, the pad's buttons it holds down and how large it is.
-// The pad only presses buttons, as a DualShock 2 would; what they do is the game's.
+// The on-screen pad's action buttons (touch_pad.h, Arc style) as data. The game names its
+// situation, a context ("foot", "menu"; game_host.h, openrac_game_touch), and the sets read here
+// say which buttons it shows: an icon, the pad buttons it holds and a size. The pad only presses
+// buttons, as a DualShock 2 would.
 //
-// The sets are JSON (port/game/common/touch/sets/*.json, a mod's "touch" file, docs/port/MODS.md):
+// Sets are JSON (port/game/common/touch/sets/*.json, a mod's "touch" file; docs/port/MODS.md):
 //
-//   { "contexts": {
-//       "foot": { "extends": "base", "actions": [
-//         { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
-//         { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
-//         { "id": "swing", "icon": "swing", "press": ["circle"], "when": "swing_target" } ] } } }
+//   { "contexts": { "foot": { "extends": "base", "actions": [
+//       { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+//       { "id": "swing", "icon": "swing", "press": ["circle"], "when": "swing_target" } ] } } }
 //
-// A context's actions come in the order the player reaches for them most, first the largest; the
-// pad places them on its arc in that order. "extends" takes another context's actions first (its own
-// replace those of the same id); "side" puts one beside the stick ("left") or along the top
-// ("top"); "when" shows one, in the hint places unless its "side" says otherwise, only while the game (or a mod) says the hint is up; "then" holds more
-// buttons a moment after "press" (a combination the game reads as two presses, such as crouch then
-// jump); "toggle" makes a tap hold it until the next tap; "wide" makes it a pill for a wide icon;
-// "stick": true makes a finger held on it push the left stick the way it slides (a quick select
-// ring); "instead" names the action a "when" one takes the place of while its hint is up (a "press
-// triangle" prompt's button where the quick select was). A context with "dpad": true shows the d-pad in the stick's place (menus). A set read later
-// adds to one read before: a context of the same name gets the later actions, replacing those of
-// the same id (a mod adds a button to the game's "foot"), unless it says "replace": true.
+// Actions are listed most used first; the pad fills its places in that order. A set read later adds
+// to one read before: same id replaces, "replace": true clears the context first. MODS.md lists
+// the fields.
 
 #pragma once
 
