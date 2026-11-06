@@ -309,7 +309,7 @@ def source_table() -> str:
     out = ["| Directory | Project | Repository | Branch | Commit | Its date | License |", "|---|---|---|---|---|---|---|"]
     for game, name, v in games.versions():
         s = v.get("source")
-        if s:
+        if s and not s.get("shared"):
             out.append(f"| [`{games.version_dir(game, name)}`]({games.version_dir(game, name)}) | {s['name']} | {s['repo']} | "
                        f"{s['branch']} | `{s['commit'][:12]}` | {s['date']} | {s['license']} |")
     return "\n".join(out) + "\n"
@@ -326,7 +326,13 @@ def short_title(game: dict, name: str) -> str:
     title = game["title"]
     for series in ("Ratchet & Clank: ", "Ratchet: "):
         title = title.removeprefix(series)
-    return f"{title} ({name.upper()})" if len(game["versions"]) > 1 else title
+    if len(game["versions"]) == 1:
+        return title
+    version = game["versions"][name]
+    if sum(v.get("serial") == version.get("serial") for v in game["versions"].values()) > 1:
+        # Two releases of one serial (Going Commando's v1.01 and v2.00): told apart by the disc's version.
+        return f"{title} ({version['disc']['video']} v{version['disc']['version']})"
+    return f"{title} ({name.upper()})"
 
 
 def progress_box(versions) -> str:
@@ -345,9 +351,10 @@ def progress_box(versions) -> str:
         # The NTSC decomp is shown as its project, at the workspace owner's request.
         label = "Lombyte Project" if (game["id"], name) == ("rac1", "ntsc") else source.get("name")
         project = f'<a href="{source["repo"]}">{label}</a>' if source.get("repo") else "–"
+        bytematch_version = v.get("bytematch_version", v["serial"])
         query = urlencode({"mode": "shield", "label": "", "measure": "matched_code_percent",
-                           "version": v["serial"], "color": "ffb443", "style": "flat-square"})
-        badge = (f'<a href="https://bytematch.dev/{slug}/{v["serial"]}">'
+                           "version": bytematch_version, "color": "ffb443", "style": "flat-square"})
+        badge = (f'<a href="https://bytematch.dev/{slug}/{bytematch_version}">'
                  f'<img src="https://bytematch.dev/{slug}.svg?{query.replace("&", "&amp;")}" '
                  f'alt="{title}: code decompiled"></a>')
         rows.append(f'  <tr><td>{title.replace("&", "&amp;")}</td><td>{project}</td>'
@@ -389,7 +396,9 @@ def progress_badge(version: dict, measure: str, label: str) -> str | None:
     slug = version.get("bytematch")
     if not slug:
         return None
-    serial = version["serial"]
+    # ByteMatch's id for the version: its serial, unless two releases share one (Going Commando's
+    # v2.00 is SCUS_972.68_v2 beside v1.01's SCUS_972.68).
+    serial = version.get("bytematch_version", version["serial"])
     query = urlencode({"mode": "shield", "label": label, "measure": measure, "version": serial})
     return f"[![{label}](https://bytematch.dev/{slug}.svg?{query})](https://bytematch.dev/{slug}/{serial})"
 
@@ -402,7 +411,7 @@ def render(rows, dates: bool = True, badges: bool = False) -> str:
            "|---|---|---:|---:|---:|" + ("---|" if dates else "")]
     for game, name, version, m in rows:
         where = f"[`{games.version_dir(game, name)}`]({games.version_dir(game, name)})" if version.get("source") else "not started"
-        label = f"{version['serial']} ({where})"
+        label = f"{version.get('bytematch_version', version['serial'])} ({where})"
         if m is None:
             code, fns, fuzzy, date = "–", "–", "–", " – " if dates else ""
         elif "missing" in m:
