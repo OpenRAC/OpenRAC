@@ -208,6 +208,18 @@ if(OPENRAC_VULKAN)
   target_link_libraries(openrac_platform PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_platform PRIVATE OPENRAC_VULKAN=1)
 endif()
+
+# ---- renderer/metal (renderer/metal/README.md) ----
+# Its shaders are the Vulkan backend's SPIR-V, made by its glslang, as MSL.
+if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
+  message(FATAL_ERROR "OPENRAC_METAL needs OPENRAC_VULKAN: its shaders are compiled by the Vulkan backend's glslang")
+endif()
+if(OPENRAC_METAL)
+  add_library(openrac_renderer_metal STATIC renderer/metal/shader_translate.cpp)
+  target_link_libraries(openrac_renderer_metal
+    PUBLIC openrac_renderer_vulkan PRIVATE openrac_spirv_cross)
+  openrac_warnings(openrac_renderer_metal)
+endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
 if(APPLE)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
@@ -870,6 +882,15 @@ set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
 if(OPENRAC_VULKAN)
   target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
   target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+endif()
+# metal_shader  every program the game builds, translated to MSL and compiled by the Metal device
+#               (tests/metal_shader_test.mm)
+if(OPENRAC_METAL)
+  openrac_add_test(metal_shader SOURCES tests/metal_shader_test.mm
+                   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                   LIBS openrac_renderer_metal openrac_scene_renderer "-framework Metal" "-framework Foundation")
+  target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
+  set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
