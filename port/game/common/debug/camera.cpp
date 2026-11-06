@@ -127,7 +127,7 @@ void camera_debug_event(const SDL_Event& event) {
 // L3+R3 on a gamepad turns freecam on (developer mode only, so a player's stray press does
 // not) and off. Checked where the window samples the freecam and before the game reads its pad,
 // so whichever comes first in a frame sees it. What is held then (L3 and R3 too) is held back from
-// the game until let go: R3 opens the map, L3 is the menu's button by default. R3 alone reaches
+// the game until let go: R3 opens the map, L3 shows the health and bolts. R3 alone reaches
 // the game as before, with no wait, so an R3 pressed a frame before L3 still opens the map.
 void camera_pad_chord() {
     // A player's game (no developer mode, no freecam) reads nothing more.

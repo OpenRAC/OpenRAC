@@ -43,7 +43,7 @@ on-screen pad's.
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
 system. On Windows, Linux and macOS its key (`menu_bar_key`, `` ` `` by default)
-controller button (`menu_bar_button`, L3 by default) slide a bar of tabs (Graphics,
+controller button (`menu_button`, Start+Select by default) slide a bar of tabs (Graphics,
 Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
 from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while

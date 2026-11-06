@@ -238,6 +238,7 @@ void load(const std::filesystem::path& file) {
     // A file from before `vsync` was a key of its own: a frame waited for the display only at the
     // "display" frame rate, and so it does until the player says otherwise.
     bool has_vsync = false;
+    bool has_menu_button = false;  // menu_button read: an older menu_bar_button does not count
     bool has_frame_rate = false;
     // A file from before the strafe was a mod (2026-10-21): its `strafe` or `lock_strafe` is left
     // out, and said once.
@@ -423,10 +424,17 @@ void load(const std::filesystem::path& file) {
             if (known) {
                 s.menu_bar_key = value;
             }
-        } else if (key == "menu_bar_button") {
+        } else if (key == "menu_button") {
             // Any button name SDL knows, or "none"; the overlay uses the default for another.
             known = !value.empty();
             if (known) {
+                s.menu_bar_button = value;
+                has_menu_button = true;
+            }
+        } else if (key == "menu_bar_button") {
+            // An older port's key, whose default was L3 (the game's own button): a player's other
+            // pick carries over, L3 becomes Start+Select. menu_button wins over it.
+            if (!has_menu_button && !value.empty() && value != "leftstick") {
                 s.menu_bar_button = value;
             }
         } else if (key == "mute_unfocused") {
@@ -617,7 +625,7 @@ void save() {
         << "show_fps = " << static_cast<int>(s.show_fps) << "\n"
         << "gpu_breadcrumbs = " << (s.gpu_breadcrumbs ? 1 : 0) << "\n"
         << "menu_bar_key = " << s.menu_bar_key << "\n"
-        << "menu_bar_button = " << s.menu_bar_button << "\n"
+        << "menu_button = " << s.menu_bar_button << "\n"
         << "mute_unfocused = " << (s.mute_unfocused ? 1 : 0) << "\n"
         << "original_lod = " << (s.original_lod ? 1 : 0) << "\n"
         << "responsive_controls = " << (s.responsive_controls ? 1 : 0) << "\n"

@@ -54,6 +54,7 @@ add_library(openrac_platform STATIC
   platform/controls_file.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
+  platform/menu_chord.cpp
   platform/pad.cpp
   platform/players.cpp
   platform/performance_hint.cpp
@@ -75,6 +76,8 @@ openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_s
                           INCLUDES . game/common LIBS openrac_platform)
 # Which gamepad plays on which port (platform/input.h).
 openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS openrac_platform)
+# Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
+openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp

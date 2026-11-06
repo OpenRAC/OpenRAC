@@ -173,9 +173,10 @@ struct Settings {
     // The key that opens and closes the menu, by its place on the keyboard: an SDL scancode name
     // ("`", the key under Escape; "F4", "M"), or "Alt" (either Alt pressed and let go by itself).
     std::string menu_bar_key = "`";
-    // The controller button that does the same: an SDL gamepad button name ("leftstick", L3;
-    // "paddle1", the Steam Controller's R4; "misc1"), or "none".
-    std::string menu_bar_button = "leftstick";
+    // The controller button that does the same (settings.ini's menu_button): "start+back", Start and
+    // Select pressed together, which the game never sees (platform/menu_chord.h); an SDL gamepad
+    // button name ("paddle1", the Steam Controller's R4; "misc1"); or "none".
+    std::string menu_bar_button = "start+back";
     bool mute_unfocused = false;  // silence while another window has the keyboard
     bool skip_cutscenes = true;   // Start skips an in-game cutscene (without the game's L1 L2 R1 R2 hold)
     // Lower input latency, off by default (the timing players know). Reads the pad again just

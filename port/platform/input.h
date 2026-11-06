@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "platform/bindings.h"
+#include "platform/menu_chord.h"
 #include "platform/pad.h"
 #include "platform/players.h"
 #include "platform/touch_pad.h"
@@ -109,6 +110,11 @@ public:
     // What each player's controller and the keyboard hold now reads as let go until it is let go
     // indeed: a menu closed with its button, B or Esc does not also press them in the game.
     void hold_back_held();
+
+    // Start+Select opens the port's menu (menu_chord.h): while on, every port's pair is taken from
+    // the game. take_menu_chord() says whether a pair was pressed since it was last asked.
+    void set_menu_chord(bool on);
+    bool take_menu_chord();
 
     const Bindings& bindings(int port) const { return m_bindings[static_cast<std::size_t>(port)]; }
 
@@ -215,6 +221,8 @@ private:
     std::array<bool, kKeyCount> m_key_latch{};
     std::array<SDL_Gamepad*, kPadPorts> m_gates_of{};
     TouchPad m_touch;
+    bool m_menu_chord_on = false;
+    std::array<MenuChord, kPadPorts> m_menu_chord{};
     KeyboardMouse m_km;
     bool m_keyboard_table = true;
     StickDeadZone m_dead_zone;

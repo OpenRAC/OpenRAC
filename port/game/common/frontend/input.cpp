@@ -255,6 +255,7 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     }
     if (port == 0) {
         debug_overlay::camera_pad_chord();  // before the read: its toggle holds the chord back
+        debug_overlay::menu_pad_chord();
     }
     const platform::Pad& p = g->input.pad(port);
     *buttons = p.buttons;
