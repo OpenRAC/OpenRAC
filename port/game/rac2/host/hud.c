@@ -85,3 +85,31 @@ SHIP_HUD(func_L15_0042E1B0)
 /* Giant Clank's fights draw theirs the same way: his panel and the enemy's go to the sides. */
 SHIP_HUD(func_L22_003A5018)
 SHIP_HUD(func_L23_0041DA48)
+/*
+ * The hoverbike races (Barlow, Joba): before the start, during the race and at the end; and the
+ * crane on Endako, a callback of func_0029B7C0, whose camera's frame goes round the screen. With
+ * the stretch bit (renderer::GifInterpreter::kHudStretch) what crosses the middle grows out to the
+ * sides with the rest.
+ */
+#define STRETCH (1ull << 32)
+
+#define RACE_HUD(name)                                                                             \
+    void name(void) {                                                                              \
+        const int side = openrac_game_hud_side();                                                  \
+        if (side != 0) {                                                                           \
+            func_002FC560(REG_NOP, 0x4853ull << 48 | STRETCH | (uint32_t)side);                     \
+        }                                                                                          \
+        name##__game();                                                                            \
+        if (side != 0) {                                                                           \
+            func_002FC560(REG_NOP, 0x4853ull << 48);                                               \
+        }                                                                                          \
+    }
+
+RACE_HUD(func_L04_0040AD28)
+RACE_HUD(func_L04_00411298)
+RACE_HUD(func_L04_00417308)
+RACE_HUD(func_L03_003C7018)
+
+/* The meter func_00290010 shows for a while (the Thermanator's, on what it freezes or thaws), a
+ * callback of func_0029B7C0: drawn right of the middle, it goes out to that side. */
+SHIP_HUD(func_002900B8)

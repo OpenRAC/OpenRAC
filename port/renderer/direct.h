@@ -254,7 +254,10 @@ public:
     // Going Commando's HUD is one tree of widgets, without Ratchet & Clank's anchored slots: between
     // two markers of the same form, kHudSideMarker in the top 16 bits, what lies left or right of
     // the middle goes out that far (the low 32 bits, the chip's pixels; 0 ends it), with "HUD: Edges".
+    // With kHudStretch set too, an element across the middle and past it on both sides (a frame
+    // round the screen) is stretched instead: its parts past the middle go out as the rest does.
     static constexpr std::uint64_t kHudSideMarker = 0x4853;
+    static constexpr std::uint64_t kHudStretch = 1ull << 32;
     // What fills the sides of a target wider than the picture (a still picture's backdrop): from a
     // marker of the same form, kWholeMarker in the top 16 bits and 1 in the low bit, to one with 0
     // there, the draws stretch to the whole target, as a fade does, instead of keeping their shape
@@ -334,8 +337,9 @@ private:
     // The frame snapshot over the whole target (kFrameMarker).
     void draw_frame_snapshot();
     // What was drawn since the last marker out to its side, and the next stretch's width.
-    void hud_side(int side);
+    void hud_side(int side, bool stretch);
     int m_hud_side = 0;
+    bool m_hud_stretch = false;
     std::uint32_t m_hud_side_first = 0;
     bool m_whole = false;  // between kWholeMarker's two markers
     DirectVertex convert(const GsVertex& v) const;
