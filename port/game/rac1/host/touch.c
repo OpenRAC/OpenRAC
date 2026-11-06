@@ -25,12 +25,15 @@
 #define TITLE_EXIT RAC1_ADDR(0x0015F690u)
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
 
-/* The pause menu's page now (current_menu_page) and its map page (map_menu_page). */
-#define MENU_PAGE RAC1_ADDR(0x001D5F74u)
-#define MAP_PAGE RAC1_ADDR(0x001CF798u)
+/* The pause menu's page now (current_menu_page) and its map page (map_menu_page). The port moves
+ * the game's data (OPENRAC_DATA), as the generated code reads it. */
+#define MENU_PAGE OPENRAC_DATA(RAC1_ADDR(0x001D5F74u))
+#define MAP_PAGE OPENRAC_DATA(RAC1_ADDR(0x001CF798u))
+/* The Quick Select page, where L1 and R1 step through the slots (update_menu_item_slots). */
+#define QUICK_PAGE OPENRAC_DATA(RAC1_ADDR(0x001CF538u))
 /* The planet picked on the map (level_map_selection.level, map_state.h): O plays its infobot when it
  * is not 0 (draw_map_screen). */
-#define MAP_LEVEL (RAC1_ADDR(0x001A01F0u) + 0x224u)
+#define MAP_LEVEL (OPENRAC_DATA(RAC1_ADDR(0x001A01F0u)) + 0x224u)
 
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
@@ -39,9 +42,9 @@
 
 /* The help prompt up now (try_set_help_message, force_help_message): its owner (0 none; 6 a vehicle
  * or a guided shot hiding the prompts), its frames left and its message. */
-#define HELP_KEEPALIVE RAC1_ADDR(0x0015F6B0u)
-#define HELP_OWNER RAC1_ADDR(0x0015F6B4u)
-#define HELP_ID RAC1_ADDR(0x00161388u)
+#define HELP_KEEPALIVE OPENRAC_DATA(RAC1_ADDR(0x0015F6B0u))
+#define HELP_OWNER OPENRAC_DATA(RAC1_ADDR(0x0015F6B4u))
+#define HELP_ID OPENRAC_DATA(RAC1_ADDR(0x00161388u))
 
 /* The hero's states by what the pad shows for them (HeroStateId). */
 static int swimming(int state) {
@@ -125,7 +128,8 @@ int rac1_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
         case 3:
             if (GREF(gaddr, MENU_PAGE) != MAP_PAGE) {
                 *context = "menu";
-                return 0;
+                hints[0] = GREF(gaddr, MENU_PAGE) == QUICK_PAGE ? "slots" : NULL;
+                return hints[0] != NULL ? 1 : 0;
             }
             *context = "map";
             if (GREF(int, MAP_LEVEL) != 0) {

@@ -102,8 +102,9 @@
       "actions": [
         { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
         { "id": "back", "icon": "back", "press": ["triangle"] },
-        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" },
-        { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" }
+        { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" },
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small", "when": "slots", "side": "arc" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small", "when": "slots", "side": "arc" }
       ]
     },
     "map": {
@@ -112,6 +113,7 @@
         { "id": "missions", "icon": "missions", "press": ["cross"], "size": "large" },
         { "id": "back", "icon": "back", "press": ["triangle"] },
         { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" },
         { "id": "infobot", "icon": "planet", "press": ["circle"], "when": "infobot", "side": "arc" }
       ]
     },
@@ -125,7 +127,8 @@
     "vendor": {
       "extends": "menu",
       "actions": [
-        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" }
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" }
       ]
     },
     "front_end": {
