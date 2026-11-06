@@ -87,6 +87,21 @@ The game's options drawer wears the same colours: Play passes them in
 `palettes.json` repeats app.css's own colours under `base`, and a test keeps
 the two equal.
 
+### Control fills
+
+Buttons, fields, chips, tabs and the bar's buttons have a solid fill with no
+border or edge. The fill is picked against the background so it always stands
+out, and it is never brown or a mid grey:
+
+- On a navy or violet background (the OpenRAC theme's ink, Nord, Catppuccin
+  Mocha), a control is neutral `#121212` (`#1e1e1e` on hover).
+- On a neutral `#121212` background (or a theme close to it, such as OLED
+  black), a control is navy `#1d1b2a` (`#29253b` on hover).
+
+Themes can change the background, so this applies to the launcher and to the
+game's options drawer alike: a theme that changes the page also says which of
+the two fills its controls get. The site (openrac.dev) uses the first one.
+
 ## Logo
 
 `src/assets/openrac-logo.svg` is the logo. `src/components/Logo.svelte` draws
