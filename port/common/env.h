@@ -94,6 +94,8 @@ enum class Var : std::uint16_t {
     GlHideExtensions,
     GlProgramCache,
     Gpu,
+    GpuBake,
+    GpuBakeCheck,
     GpuBreadcrumbs,
     GpuDrivenOff,
     GpuDriverDir,
