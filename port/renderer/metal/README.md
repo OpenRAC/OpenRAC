@@ -53,12 +53,18 @@ of an image or of depth.
 
 [tests/mtlgl_test.cpp](../../tests/mtlgl_test.cpp) (`ctest -R mtlgl`) opens it without a window.
 It clears and reads back, uploads and reads textures through framebuffers, resolves a multisampled
-clear, copies from the default framebuffer, and draws an indexed quad with a uniform. It is skipped where there is no Metal device.
+clear, copies from the default framebuffer, and draws an indexed quad with a uniform. It is skipped
+where there is no Metal device.
+
+## Choosing it
+
+`OPENRAC_GL_API=metal` (`platform/window.cpp`). The window opens a Metal window and `mtlgl::open`,
+then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot open, or one is
+missing, the log says why and the window tries Vulkan, then OpenGL.
 
 ## Still to come
 
-- The rest of `renderer/gl.h`: compute, then the window choosing it with
-  `OPENRAC_GL_API=metal` and falling back to Vulkan, then OpenGL.
+- The rest of `renderer/gl.h`: compute.
 - The renderers' picture tests run on it, as their `_vulkan` variants do.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
 - macOS 12 as the deployment target, an Intel and universal build, iOS, Xcode projects.

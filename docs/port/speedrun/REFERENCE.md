@@ -122,7 +122,7 @@ Read with `std::getenv` throughout `port/`. The authoritative list is
 | `OPENRAC_UI_SKIP` | `NAME,...` | The listed 2D routines send the game's own packets instead of native quads. |
 | `OPENRAC_UI_RESIDUAL` | set | Log the kinds of 2D primitive still drawn from the game's packets. |
 | `OPENRAC_SHOW_MISSING` | set | Draw textured primitives whose texture is not uploaded with a magenta placeholder. |
-| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` | The kind of OpenGL context. |
+| `OPENRAC_GL_API` | `es` \| `desktop` \| `vulkan` \| `metal` | The kind of OpenGL context. |
 | `OPENRAC_GL_HIDE_EXTENSIONS` | `NAME,...` | Pretend the driver lacks these GL extensions. |
 | `OPENRAC_VULKAN_VALIDATION` | `1` | Khronos validation layer messages. |
 | `OPENRAC_VULKAN_PIPELINE_CACHE` | path, or `0`/`off` | Where Vulkan pipelines are cached. |

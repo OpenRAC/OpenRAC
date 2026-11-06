@@ -56,7 +56,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 | [tools/hostgen/](tools/hostgen/README.md) | Rewrites a decompilation's C for game memory, and reports what the program reaches that has no C |
 | [game/](game/README.md) | One directory per game version, plus [game/common/](game/common): the library replacements (disc, memory card, graphics, kernel, pads, sound) and the program, `openrac-<id>` |
 | [platform/](platform/README.md) | Window, pads, audio output, timing (SDL3) |
-| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`) |
+| [renderer/](renderer/README.md) | The OpenGL 4.1 renderer, in OpenGOAL's style; [graph/](renderer/graph/README.md) plans passes and barriers, [ui/](renderer/ui/README.md) draws over the picture, [vulkan/](renderer/vulkan/README.md) runs it on Vulkan 1.3 (`OPENRAC_GL_API=vulkan`), [metal/](renderer/metal/README.md) on Metal (`OPENRAC_GL_API=metal`) |
 | [scene/](scene/README.md) | A level and its live mobys, ready to draw |
 | [materials/](materials/README.md) | CPU-only material catalogs, override resolution and shared validation |
 | [viewer/](viewer/README.md) | `openrac-viewer`: one extracted level with a free camera |
