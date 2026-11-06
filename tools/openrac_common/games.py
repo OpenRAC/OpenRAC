@@ -78,6 +78,10 @@ def source_checkout(game_id: str, version_name: str, root: Path | str | None = N
     source = load(game_id, root)["versions"][version_name].get("source")
     if not source:
         return None
+    if source.get("shared"):
+        # Built from another version's tree (Going Commando's PAL and v2.00 from rac2/ntsc's mirror of
+        # rac2-decomp): that version's checkout, under its variable.
+        return source_checkout(game_id, source["shared"], root)
     override = os.environ.get(source_variable(game_id, version_name))
 
     # The variable wins; it is taken as given.

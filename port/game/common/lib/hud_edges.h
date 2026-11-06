@@ -3,7 +3,7 @@
 
 /*
  * The level HUD in a picture wider than the game's, what every game whose HUD is the same 13 slots
- * shares (rac1/host/hud.c, rac2-ntsc/host/hud.c): each slot is 0x90 bytes, an element with a place
+ * shares (rac1/host/hud.c, rac2/host/hud.c): each slot is 0x90 bytes, an element with a place
  * on the game's 512-pixel screen (+0x50 x) and anchor flags (+0x60: bit 0 top, bit 1 bottom, bit 2
  * left, bit 3 right; neither of a pair is centred).
  *

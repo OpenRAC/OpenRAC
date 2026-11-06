@@ -11,7 +11,7 @@
 
 namespace openrac::lighting {
 // Whether exports of `game` (a manifest's "game", "rac1") and `version` ("pal") can be baked and
-// their bakes loaded: Ratchet & Clank's PAL and NTSC-U discs, and Going Commando's NTSC-U disc.
+// their bakes loaded: Ratchet & Clank's PAL and NTSC-U discs, and Going Commando's three discs.
 bool bake_identity_supported(std::string_view game, std::string_view version);
 
 // The same for a port id ("rac1-pal", "rac2-ntsc").

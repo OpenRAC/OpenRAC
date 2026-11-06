@@ -1,3 +1,24 @@
+/* 6 November 2026, round 3: unchanged, 488/488 bytes, 0/3 places, 5 rows.
+ * All 120 orders of the three header stores, the state load and the 0x20 store,
+ * with and without -frac2-qcopy, give 5 rows or more. sched1 issues two ALU
+ * insns per cycle; the three constants tie on priority, so luid order decides,
+ * and stores follow the same order. Retail needs the byte constant first but
+ * the 0x34 store first: that needs a priority difference no plain store gives.
+ * A byte local set before the stores merges with the halfword 255 (484 bytes).
+ */
+/* 6 November 2026: current game compiler, -O2 -G0 -ffunction-sections -g:
+ * 488/488 bytes, 0/3 places in each release; five flag setup words remain.
+ * New one-pass groups around individual/adjacent header writes either tie
+ * or worsen the constant/store order. Grouped byte-constant initialization,
+ * before or inside the null guard with char/int locals, also does not improve.
+ * Retain the existing C; reopen with a measured constant lifetime explanation.
+ */
+/* 6 November 2026: on the current compiler, still 5 rows. Retail makes the byte 255, then 0x100,
+ * then the halfword 255, but stores +0x34, +0x30, +0x32. Signed short stores in that store order
+ * (as matched spawners write them) give 5 rows; the +0x30/+0x34/+0x32 order gives retail's
+ * constant order but 6 rows; a struct view of the header ties; without -g about 43 rows differ. */
+/* 5 November 2026: Scoped byte/word flag locals merge constants and give 484/488 bytes. Grouping the real header writes keeps 488 bytes but the same five flag constant/store words still differ. No variant is promoted.
+ */
 /* Retained nonmatching reconstruction, 27 October 2026.
  * Profile: -O2 -G0 -ffunction-sections -g. Candidate and retail: 488 bytes. USA v1.01, USA v2.00 and PAL each reject all three carrying places. Only five initial flag constant/store words differ: the byte and halfword 255 constants take different registers/order. The later spawn, vector operations, division hazards, stores and return agree. Reordering the stores either changes their order or merges the constants. A separately tested partial object-header view tied. Reopen with a measured allocation explanation; no volatile or artificial dependencies.
  */

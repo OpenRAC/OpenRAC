@@ -417,7 +417,7 @@ LevelBakeProfile load_level_bake_profile(
 
 bool bake_identity_supported(std::string_view game, std::string_view version) {
     return (game == "rac1" && (version == "pal" || version == "ntsc"))
-           || (game == "rac2" && version == "ntsc");
+           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"));
 }
 
 bool bake_identity_supported(std::string_view game_version) {

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * A game's VU0 scalar sine and cosine, for the games whose host C replaces
- * them (rac2-ntsc/host/trig.c, rac4-ntsc/host/trig.c): each describes where
+ * them (rac2/host/trig.c, rac4-ntsc/host/trig.c): each describes where
  * its microprogram lies and binds the two entry points to two-line functions
  * that call these.
  *

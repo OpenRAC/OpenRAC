@@ -21,7 +21,14 @@ The retail code was built with GNU EE-GCC 2.9-ee-991111b. `build.sh` rebuilds it
   single spill registers as retail's do; it is unconditional (docs/COMPILER-NOTES.md).
   `reload_reg_used_guard.py` puts back the archive's test that keeps reload from inheriting
   a value into a register a pseudo of the insn holds, which patch 0047 drops; it is
-  unconditional (docs/COMPILER-NOTES.md).
+  unconditional. It snapshots the non-spill exclusions before reloads add their own marks,
+  so self-inheritance reaches the existing lifetime checks (docs/COMPILER-NOTES.md).
+  `count_asm_words.py` counts copy words and inserted loop nops, including nops before an
+  already-visited branch. It also counts an unannounced external SI load/address as its
+  two emitted words, preserving the scheduler's lengths and the explicit GP/PIC/buffering
+  exclusions. `pad_div_erratum_nops.py` counts a known non-PIC relaxation
+  alternative once when measuring the code-label distance. Both have authored output
+  controls; neither changes compiler-authored operations or selects individual functions.
   `gcse_store_kills_loads.py` gives gcse GCC 2.95.3's memory model, where every store kills
   every load, in place of this tree's alias-analysis queries; it is unconditional too.
   `trap_delay_barrier.py` ends reorg's backward delay-slot search at a division guard
@@ -204,7 +211,32 @@ block (func_L20_002CD928 case 0x7C). It is off by default, enabled per unit in
 `tests/test_no_null_pointer_checks.py` covers the anchors, the default/disabled equality and an
 authored check the pass deletes.
 
+`narrow_saves_below.py` adds `-frac2-narrow-saves-below`: with `-mastra-quad-saves`, the GPR
+saves at the slot's full width take the upper slots and the saves narrowed by the stock
+`register_precision` attribute the lower ones, so `sd $ra` sits below `sq $s0`
+(func_L01_00324550, func_L08_00389B68). A frame with one save width is unchanged, and without
+`-mastra-quad-saves` the option does nothing. It is off by default, enabled per unit in
+`config/cflags.txt`, and `-fno-rac2-narrow-saves-below` disables it;
+`tests/test_narrow_saves_below.py` covers the anchors, the default/disabled equality, a
+mixed-width frame and a one-width control.
+
+`keep_block_zero_copy.py` adds `-frac2-keep-block-zero-copy`: cse keeps a copy from one
+pseudo to another whose value is known to be 0 when the source is set earlier in the same
+basic block, instead of folding it to `move $rd,$0` (func_002F7320: `daddu $a3,$t1,$zero`).
+A zero learnt in an earlier block is folded as before. It is off by default, enabled per unit
+in `config/cflags.txt`, and `-fno-rac2-keep-block-zero-copy` disables it;
+`tests/test_keep_block_zero_copy.py` covers the anchors, the default/disabled equality, the
+kept copy and a control across a call.
+
+`sticky_volatile_refs.py` adds `-frac2-sticky-volatile-refs`: mark_referenced_resources
+(resource.c) keeps `volatil` set at later MEMs and asm operands, as GCC 2.95's `|=` does,
+instead of the EE tree's `=`. reorg's forward delay-slot search then stops at a volatile asm
+(func_L00_002A9460: the `%lo(D_00189E20)` addiu fills the second call's slot). It is off by
+default, enabled per unit in `config/cflags.txt`, and `-fno-rac2-sticky-volatile-refs`
+disables it; `tests/test_sticky_volatile_refs.py` covers the anchors, the default/disabled
+equality, the stopped search and a control without the asm.
+
 `build.sh` stops unless `mips.c`, `mips.h`, `mips.md`, `toplev.c`, `flags.h`,
-`haifa-sched.c`, `gcse.c`, `flow.c`, `reorg.c` and `tc-mips.c` hash as it
+`haifa-sched.c`, `gcse.c`, `flow.c`, `reorg.c`, `reload1.c`, `loop.c`, `cse.c`, `resource.c` and `tc-mips.c` hash as it
 lists. The binaries' own hashes depend on the build host and path, so check a compiler by its
 output: `tools/build.py` compiles every matched function to the retail bytes.

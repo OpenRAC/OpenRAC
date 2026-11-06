@@ -249,7 +249,7 @@ public:
     static constexpr std::uint64_t kWorldMarker = 0x574C;
     // The frame the game read back, whole and at the frame's resolution, over everything so far: a
     // marker of the same form, kFrameMarker in the top 16 bits, for a game whose own transfer back
-    // is not in its list (Going Commando's tiles, rac2-ntsc/host/picture.c).
+    // is not in its list (Going Commando's tiles, rac2/host/picture.c).
     static constexpr std::uint64_t kFrameMarker = 0x4653;
     // Going Commando's HUD is one tree of widgets, without Ratchet & Clank's anchored slots: between
     // two markers of the same form, kHudSideMarker in the top 16 bits, what lies left or right of

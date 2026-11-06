@@ -1,11 +1,8 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/game", func_PAL_002E91B0);
 
 
 
-
-INCLUDE_ASM("asm/pal/game", func_PAL_002EA0B0);
 
 extern short D_00152C20;
 extern int D_001B1594 __attribute__((sda));

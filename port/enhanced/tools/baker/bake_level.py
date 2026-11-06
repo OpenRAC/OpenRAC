@@ -104,11 +104,19 @@ def write_json(path, value, *, replace=False):
             temporary.unlink(missing_ok=True)
 
 
+def profile_name(game: str, version: str) -> str:
+    """The reviewed profiles' folder for GAME and VERSION: the editor's (editor/enhanced/profiles.py),
+    which names one folder for releases that share their levels (Going Commando's three discs)."""
+    sys.path.insert(0, str(seeds.ROOT/'editor'))
+    from enhanced import profiles  # noqa: E402
+    return profiles.profile_name(game, version)
+
+
 def prepare_emission(level_dir, baker):
     """Resolve the same explicit material definitions used by normal level export."""
     manifest = diagnostics.read_json(level_dir/'manifest.json')
     if all(key in manifest for key in ('game', 'version', 'level')):
-        profiles = seeds.ROOT/'port/enhanced/lighting/profiles'/f"{manifest['game']}-{manifest['version']}"
+        profiles = seeds.ROOT/'port/enhanced/lighting/profiles'/profile_name(manifest['game'], manifest['version'])
         diagnostics.capture([str(baker), '--prepare-level-emission', str(level_dir),
                              str(profiles/'emission-materials.json'),
                              str(profiles/f"level_{manifest['level']:02}"/'probe-emission.json')])

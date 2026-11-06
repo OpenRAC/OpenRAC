@@ -1,6 +1,5 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/game", func_PAL_0032DB00);
 
 #include "common.h"
 typedef struct { float x,y,z,w; } EffectVector __attribute__((aligned(16)));
@@ -107,5 +106,3 @@ char *func_PAL_0032DF28(EffectVector *position, int flash, int n0, int n1,
     return object;
 }
 
-
-INCLUDE_ASM("asm/pal/game", func_PAL_0032E268);

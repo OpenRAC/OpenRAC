@@ -264,7 +264,6 @@ void func_L05_00418508(char *a0)
 
 /* func_L05_00419888 is defined in L05_003D33E8-g8.c (it reaches D_L05_001B104C through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L05_00419CC8);
 
 /* func_L05_00419F10 is defined in L05_00419F10-g8.c. */
 
@@ -672,7 +671,8 @@ void func_L05_00426D98(char *object)
 
 
 
-INCLUDE_ASM("asm/levels", func_L05_00427238);
+
+/* func_L05_00427238 lives in L05_003D33E8-g8.c. */
 
 /* func_L05_004276E8 is defined in L05_004276E8-g8.c. */
 

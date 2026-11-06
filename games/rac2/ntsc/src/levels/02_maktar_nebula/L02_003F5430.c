@@ -255,7 +255,7 @@ void func_L02_003FAF90(char *a0) {
     *(u32 *)(s0 + 0xC0) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L02_003FB000);
+/* func_L02_003FB000 is defined in L02_003FB000-g8.c. */
 
 /* func_L02_003FB120 is matched in L02_003FB120-g8.c (built with -g). */
 
@@ -969,7 +969,6 @@ INCLUDE_ASM("asm/levels", func_L02_003FE250);
 
 INCLUDE_ASM("asm/levels", func_L02_003FE8B8);
 
-INCLUDE_ASM("asm/levels", func_L02_003FF6E8);
 
 /* func_L02_003FF9A0 is defined in L02_003F5430-g8.c ($gp accesses). */
 

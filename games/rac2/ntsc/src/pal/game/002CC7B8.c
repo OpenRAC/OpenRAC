@@ -1,7 +1,5 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/game", func_PAL_002CC7B8);
-
 #include "common.h"
 extern int func_PAL_002D6710(int, char *);
 extern char D_0025BA90[];
@@ -18,6 +16,7 @@ int func_PAL_002CC8C8(int mode)
     }
     return result;
 }
+
 
 
 INCLUDE_ASM("asm/pal/game", func_PAL_002CC950);

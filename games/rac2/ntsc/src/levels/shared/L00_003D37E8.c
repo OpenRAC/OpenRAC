@@ -553,7 +553,6 @@ void func_L00_003DD680(char *p)
 
 /* func_L00_003DD6A8 lives in L00_003DD6A8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003DDEC8);
 
 /* func_L00_003DE088 lives in L00_003DE088-g8.c. */
 
@@ -770,7 +769,7 @@ void func_L00_003E0F58(char *pos, int a1, int a2, char *a3, int t0,
 }
 
 
-INCLUDE_ASM("asm/levels", func_L00_003E2510);
+/* func_L00_003E2510 is defined in L00_003D37E8-missile.c. */
 
 
 /* A trail quad packet: four vertices, their colors and UVs, then the GS words. */

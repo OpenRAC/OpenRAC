@@ -213,7 +213,6 @@ int func_00336EF0(void) {
 
 
 
-INCLUDE_ASM("asm/game", func_00337210);
 
 extern void *func_003361A8(void *);
 
@@ -374,8 +373,6 @@ void func_00338040(int object, int value, int count)
     func_00115AC0_1((void *)(object + 8292), value, 255);
     func_00337E98_1((void *)inner, 1, limit, 255.0f, 80.0f);
 }
-
-INCLUDE_ASM("asm/game", func_003380A8);
 
 /* Formats text (with up to three extra strings) into a buffer, lays it out in the box with the
    font routine chosen by mode, optionally centres the box vertically on the screen, then draws a

@@ -126,9 +126,11 @@ ASM_FUNC("asm/game", func_002E2988);
 
 ASM_FUNC("asm/game", func_002E2C38);
 
-INCLUDE_ASM("asm/game", func_002E31E8);
+/* Original assembly: lqc2/qmfc2 VU0 ops, $at as a working register and trapping addi. */
+ASM_FUNC("asm/game", func_002E31E8);
 
-INCLUDE_ASM("asm/game", func_002E3360);
+/* Original assembly: $at as a working register and trapping add/addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002E3360);
 
 
 
@@ -201,10 +203,6 @@ void func_002E3940(int index)
     }
 }
 
-INCLUDE_ASM("asm/game", func_002E3998);
-
-INCLUDE_ASM("asm/game", func_002E3BD8);
-
 ASM_FUNC("asm/game", func_002E3E54);
 
 ASM_FUNC("asm/game", func_002E3FA0);
@@ -213,7 +211,8 @@ ASM_FUNC("asm/game", func_002E40C8);
 
 ASM_FUNC("asm/game", func_002E425C);
 
-INCLUDE_ASM("asm/game", func_002E4388);
+/* Original assembly: lqc2/qmfc2 VU0 ops and trapping addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002E4388);
 
 void func_002E4478(void *object)
 {

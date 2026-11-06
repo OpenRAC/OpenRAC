@@ -272,7 +272,7 @@ typedef struct openrac_front_end {
 extern const openrac_front_end* openrac_game_front_end;
 
 /* What the developer tools need of a game (docs/port/DEBUGGING.md, Going anywhere, game/common/
- * program/tools.cpp), when a game installs it (rac2: port/game/rac2-ntsc/host/tools.c). NULL: the
+ * program/tools.cpp), when a game installs it (rac2: port/game/rac2/host/tools.c). NULL: the
  * tools' switches do nothing. Every call on the game's thread, at a vertical blank; a member a game
  * has not got is NULL. */
 typedef struct openrac_game_tools {
@@ -940,7 +940,7 @@ int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]
 gaddr openrac_game_text(int id);
 
 /* The port's settings as rows (options_menu.h), for a game whose options page is its own host C
- * (Going Commando: rac2-ntsc/host/options.c) rather than the front end's widgets: how many rows;
+ * (Going Commando: rac2/host/options.c) rather than the front end's widgets: how many rows;
  * a row's name and value now as the game's text (the language of openrac_front_end.language, its
  * accented letters at the font's codes), each cut to `size` bytes with its end; a row moved by
  * `by` (1 the next value, -1 the one before), saved and applied as the overlay's menus do; and one

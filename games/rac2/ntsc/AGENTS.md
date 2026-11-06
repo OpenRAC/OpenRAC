@@ -58,6 +58,9 @@ program's `placed.json`, not merely that the complete image prints `OK`.
   functions). Readable names go in `include/names.h` as `#define`s, never by renaming the function.
 - Data: `D_XXXXXXXX` for the boot's resident data (below `0x1A7C80`, the same in every program),
   `D_LNN_XXXXXXXX` for a level's data (its address in level NN).
+  A level's own file (`src/levels/NN_*/`) uses only level NN's names, even when the C was matched
+  beside another level's copy: rename `D_L18_001B0730` in a Joba file to Joba's `D_L11_001AECB8`
+  (the address that level's own code forms). `tests/check_repository.py` checks it.
 - **Never write a level address as a number.** A level function is linked into every level that
   has it, each with its own addresses; the build reads each symbol's value per program from the
   retail bytes. A hard-coded address only works in one level.
@@ -175,13 +178,29 @@ each have their own worktree for that reason (docs/AGENT_WORKFLOW.md).
   primitives (for example GCC's original `longlong.h` multiplication primitive) may be
   retained with their upstream provenance and licence, as in RAC1. Symbol aliases and
   independently evidenced file-scope padding are permitted. No register pins, empty asm
-  barriers, fake dependencies, false prototypes or invented volatile accesses. A helper
+  barriers, fake dependencies or false prototypes. A helper
   or primitive is not a match: validate its actual compiled bytes and every linked place.
+- **`volatile` describes the memory.** Use it on hardware registers
+  (`0x10000000`-`0x12002000`) and on memory a second context writes (an interrupt
+  handler, another thread, DMA or the IOP), naming that writer in a comment. It is not
+  allowed anywhere else in C that links: not to reproduce a reload, store order, delay
+  slot or allocation in ordinary data, even when measured in retail, and not on a local,
+  a jump table or a per-unit cast of a global other units read plainly. A retail reload
+  is evidence of a missing cause such as a struct member, type or alias, not of a
+  qualifier.
+- **Addresses.** Code and data in a program image are always symbols, never numbers.
+  Hardware registers and the scratchpad have no symbol: write them as integer constants,
+  named in a shared header once known.
+- **No other steering.** Inline asm beyond the reviewed shared helpers above and
+  `#define` aliases that give a symbol a second name or an offset view in a unit are not
+  allowed either. A function that matches only with a form these rules forbid is a near
+  miss: its C goes to `nonmatching/` with a line in `nonmatching/README.md`, and its
+  `INCLUDE_ASM` marker goes back.
 - **Check current RAC1 before rejecting a method.** Inspect its current source and build
   inputs, rather than treating an old experiment or private worker restriction as a ban.
   Methods used there are available here, subject to the same sourcing and strict-build
-  checks. Measured `volatile` fields can describe real reload/store sequences; they are
-  not limited to memory-mapped hardware. Typed integer/FP argument interleavings are
+  checks. The exception is `volatile`: RAC1's volatile fields on ordinary data are not a
+  precedent here (see the rule above). Typed integer/FP argument interleavings are
   permitted when the EE ABI preserves each register bank's argument order, count and
   widths, stack arguments, return contract and side effects. Do not invent accesses or
   change the callee's physical interface to influence allocation. See

@@ -17,7 +17,7 @@ func_00276158	0x00276158	function	Collision cell lookup, reads $t8; a piece run 
 func_002761F8	0x002761F8	function	CollLine	CollLine	gate SAME on 32 calls	proven	P3/P8
 func_00277258	0x00277258	function	CollSphere	CollSphere	gate SAME on 32 calls	proven	P3/P8
 func_00274D90	0x00274D90	function	Runs VU0 microprogram 0 on the moby draw side, not collision	(unknown)	only caller func_002A4D88	read	P8
-func_002A4D88	0x002A4D88	function	Moby draw routine, replaced by a host function	DrawMoby	rac2-ntsc/host/render.c	read	P8
+func_002A4D88	0x002A4D88	function	Moby draw routine, replaced by a host function	DrawMoby	rac2/host/render.c	read	P8
 func_00293A60	0x00293A60	function	Level staging state machine; state 3 and 5 wait on sound bank handles	UpdateLevelStagingMachine	forcing handles advanced it	proven	P2
 g_soundBankHandles	0x00189E00	data	Sound bank handles, -1 until loaded	g_soundBankHandles	P2 forced writes	proven	P2
 func_002A3110	0x002A3110	function	Saves t8/t9 to the scratchpad at entry	(unknown)	asm.input_idioms	read	P8/P6

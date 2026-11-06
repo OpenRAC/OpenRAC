@@ -416,7 +416,8 @@ def _header_lock(root: Path):
         try:
             os.mkdir(lock)
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError):
+            # Windows answers "access denied" while another unit's rmdir of it is still pending.
             time.sleep(0.01)
     else:
         raise RuntimeError(f"hostgen: {lock} was held for a minute; remove it if no hostgen is running")

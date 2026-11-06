@@ -1,7 +1,5 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L08_003B1594);
-
 #include "common.h"
 extern u8 *D_0018C0B0;
 extern float func_002A7878(float, float);
@@ -90,6 +88,5 @@ Moby_L08_003B2DB0 *func_PAL_L08_003B6448(int owner, float *pos, float *dir, int 
 }
 
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L08_003B6608);
 
 INCLUDE_ASM("asm/pal/levels", func_PAL_L08_003C9330);

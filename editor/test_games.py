@@ -53,6 +53,8 @@ class TableTests(unittest.TestCase):
         self.assertTrue(RAC2.world_lighting and not RAC2.lighting)
         self.assertFalse(RAC1.world_lighting or RAC3.world_lighting or RAC4.world_lighting)
         self.assertEqual(wads.RAC2_NTSC.normal_table, 0x238F00)
+        # Where func_002F0468 forms it in the PAL and v2.00 executables.
+        self.assertEqual((wads.RAC2_PAL.normal_table, wads.RAC2_NTSC2.normal_table), (0x238F00, 0x238E80))
         self.assertEqual((wads.RAC3_NTSC.normal_table, wads.RAC4_NTSC.normal_table), (0, 0))
 
     def test_records_lay_out_their_fields(self):

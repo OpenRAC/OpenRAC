@@ -1,8 +1,6 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L22_004115DC);
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L22_004123B0);
 
 #include "common.h"
 extern s32 func_002A77E0(s32 a0);

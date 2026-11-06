@@ -267,6 +267,198 @@ class Carry(unittest.TestCase):
              self.assertRaisesRegex(ValueError,"corrected level copies differ"):
             carry.correct_level_entries(rows)
 
+    def split_fixture(self, *tail):
+        """A boot with two closed functions at 0x2000, a gap word between them, and one level copy."""
+        body = code(addiu(2,0,1),JR_RA,NOP,NOP,addiu(2,0,2),JR_RA,NOP)
+        spec = {"whole": (28, (("whole",0,12), ("part",16,12)))}
+        boot = [("before",0x1FF8,8), ("whole",0x2000,28), ("after",0x2020,8)]
+        rows = [("whole","boot",28,"old",[(0,0x3000),(1,0x4000)])]
+        read = lambda p, n: (body + b"".join(tail))[p - 0x2000:p - 0x2000 + n]
+        return spec, boot, rows, read, body
+
+    def split_release(self, spec, boot, rows, read, level_text):
+        with patch.dict(levels.RELEASE_FUNCTION_SPLITS, spec, clear=True), \
+             patch.object(levels,"boot_bytes",side_effect=read), \
+             patch.object(levels,"level_text",side_effect=level_text):
+            return carry.split_release_rows(boot, rows)
+
+    def test_release_split_gives_each_function_a_row_at_every_place(self):
+        spec, boot, rows, read, body = self.split_fixture()
+        new_boot, new_rows = self.split_release(spec, boot, rows, read, [(0x3000,body),(0x4000,body)])
+        self.assertEqual(new_boot, [("before",0x1FF8,8), ("whole",0x2000,12), ("part",0x2010,12), ("after",0x2020,8)])
+        self.assertEqual([(r[0],r[1],r[2],r[4]) for r in new_rows],
+                         [("whole","boot",12,[(0,0x3000),(1,0x4000)]), ("part","boot",12,[(0,0x3010),(1,0x4010)])])
+        again = self.split_release(spec, new_boot, new_rows, read, [])
+        self.assertEqual(again, (new_boot, new_rows))
+
+    def test_release_split_rejects_what_was_not_measured(self):
+        spec, boot, rows, read, body = self.split_fixture()
+        other = code(addiu(2,0,1),JR_RA,NOP,NOP,lui(2,3),JR_RA,NOP)
+        for why, changed, message in (
+                ("no return", {"whole": (28, (("whole",0,8), ("part",16,12)))}, "does not close"),
+                ("short", {"whole": (28, (("whole",0,4), ("part",16,12)))}, "does not close")):
+            with self.subTest(why=why), self.assertRaisesRegex(ValueError, message):
+                self.split_release(changed, boot, rows, read, [(0x3000,body),(0x4000,body)])
+        gap = code(addiu(2,0,1),JR_RA,NOP,addiu(2,0,9),addiu(2,0,2),JR_RA,NOP)
+        with self.assertRaisesRegex(ValueError, "non-zero"):
+            self.split_release(spec, boot, rows, read, [(0x3000,gap),(0x4000,gap)])
+        with self.assertRaisesRegex(ValueError, "split copies differ"):
+            self.split_release(spec, boot, rows, read, [(0x3000,body),(0x4000,other)])
+        with self.assertRaisesRegex(ValueError, "child identity"):
+            self.split_release(spec, boot + [("part",0x2010,12)], [], read, [])
+        with self.assertRaisesRegex(ValueError, "20 bytes, expected 28 or 12"):
+            self.split_release(spec, [("whole",0x2000,20)], [], read, [])
+        with self.assertRaisesRegex(ValueError, "20 bytes, expected 28 or 12"):
+            self.split_release(spec, [], [("whole","boot",20,"old",[(0,0x3000)])], read, [])
+
+    def place_split(self, words, spec=("old", (8, 0xAA, "new", 0xBB))):
+        rows = [("old","shared",12,"fp",[(n,0x1000) for n in range(len(words))])]
+        texts = [(0x1000,code(0,0,w)) for w in words]
+        with patch.dict(levels.RELEASE_PLACE_SPLITS, dict([spec]), clear=True), \
+             patch.object(levels,"level_text",side_effect=texts):
+            return carry.split_release_places(rows)
+
+    def test_release_place_split_regroups_by_the_measured_word(self):
+        self.assertEqual(self.place_split((0xAA,0xAA,0xBB)),
+                         [("old","shared",12,"fp",[(0,0x1000),(1,0x1000)]), ("new","level",12,"fp",[(2,0x1000)])])
+        self.assertEqual(self.place_split((0xAA,0xAA)), [("old","shared",12,"fp",[(0,0x1000),(1,0x1000)])])
+        for words in ((0xAA,0xCC), (0xBB,0xBB)):
+            with self.subTest(words=words), self.assertRaises(ValueError):
+                self.place_split(words)
+
+    def row_merge(self, rows, texts, spec=("kept", ("copy",))):
+        with patch.dict(levels.RELEASE_ROW_MERGES, dict([spec]), clear=True), \
+             patch.object(levels,"level_text",side_effect=lambda path: texts[int(path.name[:2])]):
+            return carry.merge_release_rows([], rows)[1]
+
+    def test_release_row_merge_gives_the_kept_row_every_place(self):
+        body = code(addiu(29,29,-16), lui(2,0x30), lw(2,2,8), lw(3,4,0x2000), JR_RA, addiu(29,29,16))
+        moved = code(addiu(29,29,-16), lui(2,0x31), lw(2,2,12), lw(3,4,0x2000), JR_RA, addiu(29,29,16))
+        fp = levels.fingerprint(body, 0x1000)
+        self.assertEqual(levels.fingerprint(moved, 0x1000), fp)
+        texts = {0:(0x1000,body), 1:(0x1000,moved), 2:(0x1000,body)}
+        rows = [("kept","shared",24,fp,[(0,0x1000),(2,0x1000)]), ("other","level",4,"x",[(0,0x2000)]),
+                ("copy","level",24,fp,[(1,0x1000)])]
+        out = self.row_merge(rows, texts)
+        self.assertEqual(out, [("kept","shared",24,fp,[(0,0x1000),(1,0x1000),(2,0x1000)]), rows[1]])
+        self.assertEqual(self.row_merge(out, texts), out)
+        # A constant the fingerprint masks, another fingerprint, a level twice, or no kept row: all fail.
+        other = code(addiu(29,29,-16), lui(2,0x30), lw(2,2,8), lw(3,4,0x3000), JR_RA, addiu(29,29,16))
+        self.assertEqual(levels.fingerprint(other, 0x1000), fp)
+        for why, change, message in (
+                ("constant", lambda t, r: t.update({1:(0x1000,other)}), "not the body"),
+                ("fingerprint", lambda t, r: r.__setitem__(2, ("copy","level",24,"x",[(1,0x1000)])), "fingerprint"),
+                ("level twice", lambda t, r: r.__setitem__(2, ("copy","level",24,fp,[(2,0x1000)])), "one level"),
+                ("no kept row", lambda t, r: r.__delitem__(0), "no kept row")):
+            with self.subTest(why=why), self.assertRaisesRegex(ValueError, message):
+                t, r = dict(texts), list(rows)
+                change(t, r)
+                self.row_merge(r, t)
+
+    def test_release_row_merge_gives_a_merged_boot_entry_the_kept_name(self):
+        body = code(addiu(29,29,-16), lui(2,0x30), lw(2,2,8), lw(3,4,0x2000), JR_RA, addiu(29,29,16))
+        fp = levels.fingerprint(body, 0x1000)
+        texts = {0:(0x1000,body), 1:(0x1000,body)}
+        boot = [("before",0x5000,8), ("copy",0x5008,24), ("after",0x5020,8)]
+        rows = [("kept","shared",24,fp,[(0,0x1000)]), ("copy","boot",24,fp,[(1,0x1000)])]
+        boot_image = bytes(8) + body + bytes(8)
+
+        def merge(boot, rows, image=boot_image):
+            with patch.dict(levels.RELEASE_ROW_MERGES, {"kept": ("copy",)}, clear=True), \
+                 patch.object(levels,"boot_bytes",side_effect=lambda a, n: image[a - 0x5000:a - 0x5000 + n]), \
+                 patch.object(levels,"level_text",side_effect=lambda path: texts[int(path.name[:2])]):
+                return carry.merge_release_rows(boot, rows)
+
+        new_boot, new_rows = merge(boot, rows)
+        self.assertEqual(new_boot, [("before",0x5000,8), ("kept",0x5008,24), ("after",0x5020,8)])
+        self.assertEqual(new_rows, [("kept","boot",24,fp,[(0,0x1000),(1,0x1000)])])
+        self.assertEqual(merge(new_boot, new_rows), (new_boot, new_rows))
+        other = code(addiu(29,29,-16), lui(2,0x30), lw(2,2,8), lw(3,4,0x3000), JR_RA, addiu(29,29,16))
+        with self.assertRaisesRegex(ValueError, "the boot's copy is not the body of kept"):
+            merge(boot, rows, bytes(8) + other + bytes(8))
+        with self.assertRaisesRegex(ValueError, "kept is a boot function already"):
+            merge(boot + [("kept",0x6000,24)], rows)
+        with self.assertRaisesRegex(ValueError, "boot entry is left without its row"):
+            merge(boot, rows[:1])
+
+    def realign(self, images, rows, spec, boot=()):
+        """realign_release_places() over level texts IMAGES {level: (base, bytes)}."""
+        with patch.dict(levels.RELEASE_PLACE_RUNS, spec, clear=True), \
+             patch.object(levels, "NAMES", {n: "test" for n in images}), \
+             patch.object(levels, "level_text", side_effect=lambda p: images[int(p.name[:2])]):
+            return carry.realign_release_places(list(boot), rows)
+
+    T = 0x300000        # level code, above the boot's resident memory
+
+    def stretch(self, call=0x301000):
+        """Levels 0 and 1 hold A (constant 1, calling H) then B (constant 2); level 2 holds
+        the same two bodies, and the catalogue has a miscut row there and A one body late."""
+        jal = lambda t: 3 << 26 | ((t >> 2) & 0x3FFFFFF)
+        body = lambda k, c: code(addiu(4, 0, k), jal(c), NOP, JR_RA, NOP, 0)
+        pad = lambda b: b + bytes(0x1000 - len(b)) + code(JR_RA, NOP, JR_RA, NOP)
+        images = {lv: (self.T, pad(body(1, 0x301000) + body(2, 0x301000))) for lv in (0, 1)}
+        images[2] = (self.T, pad(body(1, call) + body(2, 0x301000)))
+        T = self.T
+        rows = [("A", "shared", 20, "fa", [(0, T), (1, T), (2, T + 0x18)]),
+                ("B", "shared", 20, "fb", [(0, T + 0x18), (1, T + 0x18)]),
+                ("miscut", "level", 24, "fm", [(2, T)]),
+                ("H", "shared", 8, "fh", [(0, T + 0x1000), (1, T + 0x1000), (2, T + 0x1000)]),
+                ("G", "shared", 8, "fh", [(0, T + 0x1008), (1, T + 0x1008), (2, T + 0x1008)])]
+        spec = {"A": ({2: T}, (("A", 0, 20), ("B", 0x18, 20)), ("miscut",))}
+        return images, rows, spec
+
+    def test_realign_gives_each_body_its_row_and_replays(self):
+        images, rows, spec = self.stretch()
+        T = self.T
+        new = self.realign(images, rows, spec)
+        self.assertEqual([r[0] for r in new], ["A", "B", "H", "G"])
+        self.assertEqual(new[0], ("A", "shared", 20, "fa", [(0, T), (1, T), (2, T)]))
+        self.assertEqual(new[1], ("B", "shared", 20, "fb", [(0, T + 0x18), (1, T + 0x18), (2, T + 0x18)]))
+        self.assertEqual(self.realign(images, new, spec), new)
+        self.assertEqual(self.realign(images, rows, {}), rows)
+
+    def test_realign_rejects_what_the_bytes_do_not_show(self):
+        images, rows, spec = self.stretch()
+        T = self.T
+        swapped = {"A": ({2: T}, (("A", 0x18, 20), ("B", 0, 20)), ("miscut",))}
+        with self.assertRaisesRegex(ValueError, "another function|differs at"):
+            self.realign(images, rows, swapped)
+        # Level 2's first body calls G where levels 0 and 1 call H: not A's copy.
+        with self.assertRaisesRegex(ValueError, "A: level 2 place 00300000 calls G, level 0 calls H"):
+            self.realign(self.stretch(call=0x301008)[0], rows, spec)
+        with self.assertRaisesRegex(ValueError, "C: level 2 place 00300010 overlaps the stretch"):
+            self.realign(images, rows + [("C", "level", 8, "fc", [(2, T + 0x10)])], spec)
+        # A retired row reaching a word the stretch does not hold would leave that word rowless.
+        base, data = images[2]
+        tail = {**images, 2: (base, data[:0x30] + code(JR_RA) + data[0x34:])}
+        with self.assertRaisesRegex(ValueError, "word 00300030 would lose its row"):
+            self.realign(tail, [r if r[0] != "miscut" else (r[0], r[1], 64, r[3], r[4]) for r in rows], spec)
+        with self.assertRaisesRegex(ValueError, "partly realigned"):
+            self.realign(images, [r for r in rows if r[0] != "miscut"], spec)
+        done = self.realign(images, rows, spec)
+        with self.assertRaisesRegex(ValueError, "partly realigned"):
+            self.realign(images, done + [rows[2]], spec)
+        with self.assertRaisesRegex(ValueError, "A: 20 bytes, expected 24"):
+            self.realign(images, rows, {"A": ({2: T}, (("A", 0, 24),), ("miscut",))})
+        with self.assertRaisesRegex(ValueError, "miscut: retired row has a place outside"):
+            self.realign(images, [r if r[0] != "miscut" else (r[0], r[1], r[2], r[3], [(1, T + 0x800), (2, T)])
+                                  for r in rows], spec)
+
+    def test_realign_ignores_only_words_that_differ_between_the_rows_own_copies(self):
+        images, rows, spec = self.stretch()
+        gp = lambda off: 0x8F820000 | off                                  # lw v0,off(gp)
+        # A's $gp offset (its jal's delay slot) differs between levels 0 and 1: level 2's third is no evidence.
+        for lv, off in ((0, 0x10), (1, 0x18), (2, 0x20)):
+            base, data = images[lv]
+            images[lv] = (base, data[:8] + code(gp(off)) + data[12:])
+        new = self.realign(images, rows, spec)
+        self.assertEqual(new[0][4][2], (2, self.T))
+        # B's constant is the same in levels 0 and 1, so a third value in level 2 is another function.
+        base, data = images[2]
+        images[2] = (base, data[:0x18] + code(addiu(4, 0, 3)) + data[0x1C:])
+        with self.assertRaisesRegex(ValueError, "B: level 2 place 00300018 (is another function|differs at)"):
+            self.realign(images, rows, spec)
+
     def test_branch_target(self):
         self.assertEqual(carry.branch_target(0x10400003, 0x1000), 0x1010)   # beqz v0,+3
         self.assertEqual(carry.branch_target(0x1000FFFF, 0x1000), 0x1000)   # b .

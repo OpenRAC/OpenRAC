@@ -1,0 +1,2 @@
+# Pairs release_carry.py takes as they are: v1.01 function, this release's (in the release's names), the evidence.
+func_0027F640	func_0027FCB0	FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808

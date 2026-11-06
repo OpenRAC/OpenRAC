@@ -209,7 +209,67 @@ void func_L00_002EA600(void) {
 /* func_L00_002EBE88 is in L00_002E5918-beams.c. */
 
 
-INCLUDE_ASM("asm/levels", func_L00_002EC248);
+typedef struct { float x,y,z,w; } BurstVector;
+extern void func_002A7A00(void *, float, float);
+extern void func_00282CC0(void *, void *, void *);
+extern void func_L00_00324F18(void *, void *, float, float, float);
+extern void func_00283098(void *, void *, void *);
+extern float func_002A7878(float, float);
+extern int func_00283CF0(float);
+extern void func_00282C88(void *);
+extern int func_00283D38(int, int, float);
+extern void *func_002BAA28(void *, void *, void *, int, int, int, int, int, int);
+
+void func_L00_002EC248(char *object, void *positionOffset, void *velocityOffset,
+                     int count, int palette, float positionSpread, float velocitySpread,
+                     float width, float gravity, float duration)
+{
+    BurstVector position, velocity, endpoint;
+    int start, end, i;
+    int first, middle, last;
+    int texture = 0x1003C;
+    float scale, small;
+    gravity *= 0.00027777778f;
+    palette &= 0xFF;
+    for (i = 0; i < count; i++) {
+        func_002A7A00(&position, 0.0f, positionSpread);
+        func_00282CC0(&position, &position, positionOffset);
+        func_L00_00324F18(object, &position, position.x, position.y, position.z);
+        func_002A7A00(&velocity, 0.0f, velocitySpread);
+        func_00282CC0(&velocity, &velocity, velocityOffset);
+        func_00283098(&velocity, &velocity, object + 0xC0);
+        scale = duration * func_002A7878(0.5f, 1.5f);
+        small = scale * 10.0f;
+        first = func_00283CF0(small);
+        middle = func_00283CF0(scale * 40.0f);
+        last = func_00283CF0(small);
+        velocity.w = width * func_002A7878(0.1f, 0.4f);
+        func_00282C88(&endpoint);
+        endpoint.z = -gravity * (float)(first + middle + last);
+        func_00282CC0(&endpoint, &endpoint, &velocity);
+        switch (palette) {
+        case 1:
+            start = func_00283D38(0x80102040, 0x801010A0, func_002A7878(0.0f, 1.0f));
+            end = func_00283D38(0x00102040, 0x001010A0, func_002A7878(0.0f, 1.0f));
+            break;
+        case 3:
+            start = func_00283D38(0x80201608, 0x80402510, func_002A7878(0.0f, 1.0f));
+            end = func_00283D38(0x00201608, 0x00402510, func_002A7878(0.0f, 1.0f));
+            break;
+        case 2:
+            start = func_00283D38(0x80104010, 0x8020A020, func_002A7878(0.0f, 1.0f));
+            end = func_00283D38(0x00104010, 0x0020A020, func_002A7878(0.0f, 1.0f));
+            break;
+        case 0:
+        default:
+            start = func_00283D38(0x80004080, 0x80408080, func_002A7878(0.0f, 1.0f));
+            end = func_00283D38(0x00004080, 0x00408080, func_002A7878(0.0f, 1.0f));
+            break;
+        }
+        func_002BAA28(&position, &velocity, &endpoint, start, end,
+                     first, middle, last, texture);
+    }
+}
 
 INCLUDE_ASM("asm/levels", func_L00_002EC608);
 
@@ -264,19 +324,23 @@ void func_L00_002ED808(void) {
 /* Original assembly: RAC1 game/math/fastfunc.c, func_001F9850. */
 ASM_FUNC("asm/levels", func_L00_002EDC90);
 
-INCLUDE_ASM("asm/levels", func_L00_002EDCB8);
+/* Original assembly: `lwc1; nop; jr $ra; mul.s` keeps a load-delay nop before the return that this cc1 never emits (MATCHING-BLOCKERS 4); its neighbours are RAC1 fast_vector_math original assembly. */
+ASM_FUNC("asm/levels", func_L00_002EDCB8);
 
 /* Original assembly: RAC1 game/math/fastfunc.c, func_001F9850. */
 ASM_FUNC("asm/levels", func_L00_002EDCC8);
 
-INCLUDE_ASM("asm/levels", func_L00_002EDCF0);
+/* Original assembly: `lwc1; nop; jr $ra; mul.s` keeps a load-delay nop before the return that this cc1 never emits (MATCHING-BLOCKERS 4); its neighbours are RAC1 fast_vector_math original assembly. */
+ASM_FUNC("asm/levels", func_L00_002EDCF0);
 
 /* Original assembly: RAC1 game/math/fastfunc.c, func_001F9850. */
 ASM_FUNC("asm/levels", func_L00_002EDD00);
 
-INCLUDE_ASM("asm/levels", func_L00_002EDD28);
+/* Original assembly: `lwc1; nop; jr $ra; mul.s` keeps a load-delay nop before the return that this cc1 never emits (MATCHING-BLOCKERS 4); its neighbours are RAC1 fast_vector_math original assembly. */
+ASM_FUNC("asm/levels", func_L00_002EDD28);
 
-INCLUDE_ASM("asm/levels", func_L00_002EDD38);
+/* Original assembly: `lwc1; nop; jr $ra; mul.s` keeps a load-delay nop before the return that this cc1 never emits (MATCHING-BLOCKERS 4); its neighbours are RAC1 fast_vector_math original assembly. */
+ASM_FUNC("asm/levels", func_L00_002EDD38);
 
 /* func_L00_002EE050 (the two-argument float maximum) is matched in its own
    unit, src/levels/shared/L00_002EE050.c: it needs the -O1 -ffast-math
@@ -286,7 +350,8 @@ ASM_FUNC("asm/levels", func_L00_002EE058);
 
 ASM_FUNC("asm/levels", func_L00_002EE078);
 
-INCLUDE_ASM("asm/levels", func_L00_002EE0C0);
+/* Original assembly: `sd; nop; jr $ra; sw` keeps a nop before the return that this cc1 never emits (MATCHING-BLOCKERS 4); its neighbours are RAC1 fast_vector_math original assembly. */
+ASM_FUNC("asm/levels", func_L00_002EE0C0);
 
 ASM_FUNC("asm/levels", func_L00_002EE290);
 

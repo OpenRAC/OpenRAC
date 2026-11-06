@@ -322,7 +322,7 @@ s32 func_L08_003391C0(u8 *p, s32 a1, s32 a2, u8 *out, f32 f1, f32 f2) {
     return 1;
 }
 
-INCLUDE_ASM("asm/levels", func_L08_00339220);
+/* func_L08_00339220 lives in L08_002F2D10-g.c. */
 
 extern void func_L01_00324410(s32, s32, void *);
 
@@ -338,7 +338,7 @@ void func_L08_0033CD18(s32 a0, s32 a1, ...) {
 
 
 
-INCLUDE_ASM("asm/levels", func_L08_00389B68);
+/* func_L08_00389B68 is in L08_00389B68-narrowsave.c. */
 
 void func_L08_0039DBE8(unsigned char *obj) {
     struct {
@@ -705,7 +705,7 @@ void func_L08_003C66F0(char *obj) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L08_003C67B8);
+/* func_L08_003C67B8 lives in L08_002F2D10-emit-g8.c. */
 
 INCLUDE_ASM("asm/levels", func_L08_003C6AB0);
 

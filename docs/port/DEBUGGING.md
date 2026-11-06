@@ -213,7 +213,7 @@ locations up each frame.
 
 The tools that put a run where the bug is, without playing there. A game offers them through
 `openrac_game_tools` and its front end ([game_host.h](../../port/game/common/include/openrac/game_host.h));
-Going Commando has them all ([host/tools.c](../../port/game/rac2-ntsc/host/tools.c)). Ratchet & Clank
+Going Commando has them all ([host/tools.c](../../port/game/rac2/host/tools.c)). Ratchet & Clank
 has the level start (below) and its own words for the rest ([RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md)).
 Frames count from control: the first tick of 30 in a row with the game in play.
 

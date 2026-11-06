@@ -673,7 +673,7 @@ unsigned int func_0031AB08(unsigned int param_1)
 /* func_0031AB18 is defined in 0031AB18-zero-ti.c. */
 
 
-INCLUDE_ASM("asm/game", func_0031BCC8);
+/* func_0031BCC8 is in 0031BCC8-g8.c. */
 
 /* func_0031C498 is in 0031C498.c. */
 
@@ -749,8 +749,6 @@ void func_0031D268(char *arg0) {
 
 
 /* func_0031D308 is in the -G8 sibling. */
-
-INCLUDE_ASM("asm/game", func_0031D350);
 
 /* func_0031D3E0 is in 0031D3E0.c. */
 
@@ -904,8 +902,6 @@ void func_0031DEE8(char *owner)
 
 
 /* func_0031E560 is defined in 0031E560-dbg.c (-g). */
-
-INCLUDE_ASM("asm/game", func_0031E6D8);
 
 
 

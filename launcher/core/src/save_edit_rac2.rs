@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 
-//! The save editor for Ratchet & Clank: Going Commando (NTSC-U, `SCUS_972.68`): reads one slot of
+//! The save editor for Ratchet & Clank: Going Commando (`SCUS_972.68`, v1.01 and v2.00, and the
+//! PAL release `SCES_516.07`, whose save tables are the same: [`edits_serial`]): reads one slot of
 //! the memory card, shows the fields whose place in the file was proven, and writes it back so
 //! that the game still loads it. The format and how each field was proven are in
 //! `launcher/docs/RAC2_SAVE_FORMAT.md`; the safety steps (game running, file changed since read,
@@ -587,9 +588,13 @@ pub struct Rac2WriteResult {
     pub view: Rac2SaveView,
 }
 
-/// Whether this editor knows the saves of the game with this disc serial.
+/// Whether this editor knows the saves of the game with this disc serial: Going Commando's three
+/// releases. v1.01 and v2.00 share `SCUS_972.68`; the PAL release is `SCES_516.07`. All three list
+/// the same save tables, entry for entry in id and size (the global table's 34 at 0x00256138 on
+/// v1.01 and PAL, 0x002560B8 on v2.00; the per-level table's 10 right after it), so their saves
+/// are the same chunks.
 pub fn edits_serial(serial: &str) -> bool {
-    serial == "SCUS_972.68"
+    serial == "SCUS_972.68" || serial == "SCES_516.07"
 }
 
 fn i32_at(b: &[u8], i: usize) -> i32 {
@@ -1365,7 +1370,7 @@ mod tests {
         assert!(read_save(card.path(), "SCUS_972.68", 2).unwrap_err().contains("empty"));
         assert!(read_save(card.path(), "SCUS_972.68", 4).is_err());
         assert!(read_save(card.path(), "SCES_509.16", 1).is_err(), "rac1's editor's serial");
-        assert!(edits_serial("SCUS_972.68") && !edits_serial("SCUS_971.99"));
+        assert!(edits_serial("SCUS_972.68") && edits_serial("SCES_516.07") && !edits_serial("SCUS_971.99"));
     }
 
     #[test]

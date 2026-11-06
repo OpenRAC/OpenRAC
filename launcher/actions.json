@@ -2027,14 +2027,1000 @@
     ],
     "rac2/pal": [
       {
+        "id": "tests",
+        "label": "Run rac2's checks",
+        "description": "The tool tests, the catalogue and layout check, and whether the progress report matches src/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "games/rac2/ntsc/docs/VERSIONS.md"
+      },
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Reads the boot executable and the 27 level programs from your disc (baserom/SCES_516.07.iso).",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/levels.py",
+          "dump",
+          "--version",
+          "pal"
+        ],
+        "requires": [
+          "python",
+          "inputs"
+        ],
+        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
+      },
+      {
+        "id": "build",
+        "label": "Build the PS2 program",
+        "description": "Rebuilds the PAL release's boot program and its 27 level programs with the C linked in (the C of src/ and src/pal/), and compares every loaded byte with retail.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build.py",
+          "all",
+          "--version",
+          "pal"
+        ],
+        "requires": [
+          "python",
+          "inputs",
+          "toolchains"
+        ],
+        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
+        "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/pal",
+          "--split"
+        ],
+        "output": "assets/levels/rac2/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/pal",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac2/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/pal. A few minutes and a few GB, once; read again when an update changes their format.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac2/pal",
+          "--replace"
+        ],
+        "output": "assets/port/rac2/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac2/pal/levels-20.json",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac2/pal",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack for this game, checked against its skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac2/pal",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's."
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/pal",
+          "--levels",
+          "{root}/assets/port/rac2/pal"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-pal), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-pal in port/ built the program (2026-10-27)."
+      },
+      {
+        "id": "port-part",
+        "label": "Build the game from your disc",
+        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/asm_part.py",
+          "build",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--out",
+          "{data}/asm-part"
+        ],
+        "makes": "{data}/asm-part/libopenrac-rac2-pal-part.so",
+        "cwd": ".",
+        "platforms": [
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac2/pal",
+          "--output-dir",
+          "{data}/probes/pal",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 18, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
+      },
+      {
         "id": "play",
         "label": "Play",
-        "description": "Going Commando's European release as a native PC program. Only its files are read so far: the disc is recognised and extracted, and nothing is built from it yet.",
+        "description": "Going Commando as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the levels read from your disc. It boots, plays a new game or a save, and every planet and ship flight can be reached; much is still to fix.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
+        "state": "unverified",
+        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-pal --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/pal"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      }
+    ],
+    "rac2/ntsc2": [
+      {
+        "id": "tests",
+        "label": "Run rac2's checks",
+        "description": "The tool tests, the catalogue and layout check, and whether the progress report matches src/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "games/rac2/ntsc/docs/VERSIONS.md"
+      },
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Reads the boot executable and the 27 level programs from your disc (baserom/SCUS_972.68_v2.00.iso).",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/levels.py",
+          "dump",
+          "--version",
+          "us2"
+        ],
+        "requires": [
+          "python",
+          "inputs"
+        ],
+        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
+      },
+      {
+        "id": "build",
+        "label": "Build the PS2 program",
+        "description": "Rebuilds the v2.00 release's boot program and its 27 level programs with the C linked in (the C of src/ and src/us2/), and compares every loaded byte with retail.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build.py",
+          "all",
+          "--version",
+          "us2"
+        ],
+        "requires": [
+          "python",
+          "inputs",
+          "toolchains"
+        ],
         "docs": "games/rac2/ntsc/docs/VERSIONS.md",
-        "todo": "Needs rac2/ntsc to get past the first level load, then a PAL function map (tools/versions.py) and port/game/rac2-pal, as rac1 has for its PAL release."
+        "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc2. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/ntsc2",
+          "--split"
+        ],
+        "output": "assets/levels/rac2/ntsc2",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/ntsc2",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac2/ntsc2",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/ntsc2. A few minutes and a few GB, once; read again when an update changes their format.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac2/ntsc2",
+          "--replace"
+        ],
+        "output": "assets/port/rac2/ntsc2",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac2/ntsc2/levels-20.json",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac2/ntsc2",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack for this game, checked against its skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's."
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/ntsc2",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc2), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc2 in port/ built the program (2026-10-27)."
+      },
+      {
+        "id": "port-part",
+        "label": "Build the game from your disc",
+        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/asm_part.py",
+          "build",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--out",
+          "{data}/asm-part"
+        ],
+        "makes": "{data}/asm-part/libopenrac-rac2-ntsc2-part.so",
+        "cwd": ".",
+        "platforms": [
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac2/ntsc2",
+          "--output-dir",
+          "{data}/probes/ntsc2",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/ntsc2",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 18, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "Going Commando as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the levels read from your disc. It boots, plays a new game or a save, and every planet and ship flight can be reached; much is still to fix.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc2 --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
       }
     ],
     "rac3/ntsc": [

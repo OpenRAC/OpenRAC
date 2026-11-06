@@ -11,6 +11,15 @@ from enhanced import profiles
 
 
 class ProfileTests(unittest.TestCase):
+    def test_going_commandos_discs_share_v101s_profiles(self):
+        self.assertEqual([profiles.profile_name("rac2", v) for v in ("ntsc", "pal", "ntsc2")], ["rac2-ntsc"] * 3)
+        self.assertEqual(profiles.profile_name("rac1", "pal"), "rac1-pal")
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            profiles.write_bake_profile(SimpleNamespace(game="rac2", version="ntsc2", id=5), directory)
+            shared = profiles.PROFILE_ROOT / "rac2-ntsc/level_05/probe-bake.json"
+            self.assertEqual((directory / "probe-bake.json").read_bytes(), shared.read_bytes())
+
     def test_object_lights_shared_by_pal_and_ntsc(self):
         """Model-attached lights share definitions across revisions and reach standalone exports."""
         with tempfile.TemporaryDirectory() as temp:

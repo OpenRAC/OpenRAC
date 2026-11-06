@@ -1,6 +1,5 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L09_00415440);
 
 
 
@@ -58,6 +57,3 @@ void func_PAL_L09_00415E28(u8 *arg)
         }
     }
 }
-
-
-INCLUDE_ASM("asm/pal/levels", func_PAL_L09_0041FC4C);

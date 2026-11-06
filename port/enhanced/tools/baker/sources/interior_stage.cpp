@@ -32,7 +32,7 @@ void validate_identity(const json::Value& data) {
     // Level IDs span 0-18 (RAC1) or 0-30 (RAC2) and the source identity is a 64-character
     // SHA-256 digest.
     if (!bake_identity_supported(data["game"].string()) || data["level"].number(-1) < 0
-        || data["level"].number() > (data["game"].string() == "rac2-ntsc" ? 30 : 18)
+        || data["level"].number() > (data["game"].string().starts_with("rac2-") ? 30 : 18)
         || data["source_sha256"].string().size() != 64) {
         throw std::runtime_error("invalid source identity");
     }

@@ -2,9 +2,19 @@
 
 Released in Europe as *Ratchet & Clank 2: Locked and Loaded*.
 
-| Version | Directory | Came from | Builds on |
+| Disc | game.json | rac2-decomp | Port |
 |---|---|---|---|
-| NTSC-U, `SCUS_972.68` (disc v1.01) | [ntsc/](ntsc/README.md) | [rac2-gc-decomp](https://github.com/OpenRAC/rac2-decomp) | macOS, Linux and Windows through Docker; Linux with Wine natively |
+| USA v1.01, `SCUS_972.68` (SHA-256 `9db2e33e…`) | `rac2/ntsc` | `--version us` (the default) | `openrac-rac2-ntsc` |
+| USA v2.00 Greatest Hits, `SCUS_972.68` (SHA-256 `eda31b45…`) | `rac2/ntsc2` | `--version us2` | `openrac-rac2-ntsc2` |
+| Europe v1.00, `SCES_516.07`, *Locked and Loaded* (SHA-256 `519f9fa7…`) | `rac2/pal` | `--version pal` | `openrac-rac2-pal` |
+
+All three are built from one tree, [ntsc/](ntsc/README.md), OpenRAC's mirror of
+[rac2-decomp](https://github.com/OpenRAC/rac2-decomp): the same C, with each release's own
+functions in `src/pal/` and `src/us2/` ([ntsc/docs/VERSIONS.md](ntsc/docs/VERSIONS.md)). It
+builds on macOS, Linux and Windows through Docker, and on Linux with Wine natively. The two US
+discs boot the same serial and are told apart by their boot executable (size and SHA-1) and
+their `SYSTEM.CNF` (`VER = 1.01`, `2.00`). A player inserts any of the three and gets the same
+setup, build and play.
 
 Since 2026-10-11 the project has rac1/pal's structure:
 
@@ -27,8 +37,8 @@ it: platypet2217-star's RAC2Decomp (MIT), a functional, not matching, reconstruc
 release (`SCES_516.07`) as C with SDL2 and OpenGL. It builds with CMake on its own and is not
 part of the matching sources or the progress.
 
-Only v1.01 is built; the Greatest Hits release (v2.00) and the PAL release are identified in
-[ntsc/docs/VERSIONS.md](ntsc/docs/VERSIONS.md). Disc checksums are in
+Each release has its own catalogues, build and report (`progress/`, `progress/pal/`,
+`progress/us2/`). Disc checksums are in
 [baserom/README.md](../../baserom/README.md); progress in [progress/](../../progress/README.md).
 
 ## Getting started
