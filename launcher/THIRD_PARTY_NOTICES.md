@@ -12,7 +12,9 @@ The colours, type, header bar, game cards and progress bar follow
 `src/components/Header.tsx`, `src/components/Progress.tsx`, `src/lib/projects.ts`).
 Steam's pictures (`src-tauri/steam/`, `scripts/steam_art.mjs`) are cut from
 `public/img/rac1-bg.webp`, with OpenRAC's logo. That picture's source is not recorded
-yet (docs/STYLE.md, "A game's picture").
+yet (docs/STYLE.md, "A game's picture"). Each game's own (`src-tauri/steam/games/`,
+`scripts/steam_game_art.sh`) is cut from that game's picture in `public/img/`, with its
+name set in Orbitron (SIL Open Font License, `port/game/common/fonts/OFL-Orbitron.txt`).
 The app icons are
 OpenRAC's own: the logo's mark (`src/components/Logo.svelte`) in `--ink-deep` on
 the bar's orange, drawn at 1024 px and made into `src-tauri/icons/` and

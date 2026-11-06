@@ -1914,17 +1914,45 @@ fn steam_roots() -> Vec<std::path::PathBuf> {
     openrac_launcher_core::steam::roots(home.as_deref(), registry)
 }
 
-/// What a Steam entry is for: the launcher, or the game `version` names (its title, its id and its
-/// icon, from the checkout the launcher plays from).
+/// A game's entry in Steam: what it is, its icon (from the checkout the launcher plays from) and
+/// its own pictures, if it has them.
 #[cfg(not(target_os = "android"))]
-fn steam_target(
-    config: &Config,
-    version: Option<&str>,
-) -> Result<(openrac_launcher_core::steam::Target, Vec<u8>), String> {
+type SteamGame = (openrac_launcher_core::steam::Target, Vec<u8>, Option<[&'static [u8]; 4]>);
+
+/// What a Steam entry is for: the launcher, or the game `version` names (its title, its id, its
+/// icon and its pictures).
+#[cfg(not(target_os = "android"))]
+fn steam_target(config: &Config, version: Option<&str>) -> Result<SteamGame, String> {
     use openrac_launcher_core::steam::Target;
-    let Some(key) = version else { return Ok((Target::launcher(), Vec::new())) };
+    let Some(key) = version else { return Ok((Target::launcher(), Vec::new(), None)) };
     let (title, id, icon) = game_for_shortcut(config, key)?;
-    Ok((Target::game(&title, &id), icon.unwrap_or_default()))
+    let pictures = game_pictures(&id);
+    let target = Target::game(&title, &id);
+    let target = if pictures.is_some() { target.with_pictures() } else { target };
+    Ok((target, icon.unwrap_or_default(), pictures))
+}
+
+/// A game's own pictures for Steam's library (scripts/steam_game_art.sh): cover, wide, hero and
+/// logo, by the game of the id (`rac2-ntsc`: rac2). None for a game without them.
+#[cfg(not(target_os = "android"))]
+fn game_pictures(id: &str) -> Option<[&'static [u8]; 4]> {
+    macro_rules! pictures {
+        ($game:literal) => {
+            [
+                include_bytes!(concat!("../steam/games/", $game, "/cover.jpg")).as_slice(),
+                include_bytes!(concat!("../steam/games/", $game, "/wide.jpg")).as_slice(),
+                include_bytes!(concat!("../steam/games/", $game, "/hero.jpg")).as_slice(),
+                include_bytes!(concat!("../steam/games/", $game, "/logo.png")).as_slice(),
+            ]
+        };
+    }
+    match id.split('-').next()? {
+        "rac1" => Some(pictures!("rac1")),
+        "rac2" => Some(pictures!("rac2")),
+        "rac3" => Some(pictures!("rac3")),
+        "rac4" => Some(pictures!("rac4")),
+        _ => None,
+    }
 }
 
 /// A game's title (the port's, as its menu entries carry), its id and its icon, if the checkout
@@ -1955,15 +1983,16 @@ fn steam_state(
     #[cfg(not(target_os = "android"))]
     {
         let config = state.config.lock().unwrap().clone();
-        let (target, _) = steam_target(&config, version.as_deref())?;
+        let (target, _, _) = steam_target(&config, version.as_deref())?;
         let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
         Ok(openrac_launcher_core::steam::state_for(&steam_roots(), &program, &target))
     }
 }
 
 /// Adds the launcher, or with `version` that game, to Steam's library, with its pictures
-/// (scripts/steam_art.mjs; a game's is its icon), or updates it. Steam may be open. A game's
-/// entry starts this launcher with `--play`, by the same stable path as the launcher's own.
+/// (scripts/steam_art.mjs; a game's own from scripts/steam_game_art.sh, and its icon), or
+/// updates it. Steam may be open. A game's entry starts this launcher with `--play`, by the
+/// same stable path as the launcher's own.
 #[tauri::command]
 fn steam_add(
     state: State<'_, AppState>,
@@ -1978,10 +2007,11 @@ fn steam_add(
     {
         use openrac_launcher_core::steam;
         let config = state.config.lock().unwrap().clone();
-        let (target, icon) = steam_target(&config, version.as_deref())?;
+        let (target, icon, pictures) = steam_target(&config, version.as_deref())?;
         let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
         if version.is_some() {
-            let art = steam::Art { cover: &[], wide: &[], hero: &[], logo: &[], icon: &icon };
+            let [cover, wide, hero, logo] = pictures.unwrap_or([&[]; 4]);
+            let art = steam::Art { cover, wide, hero, logo, icon: &icon };
             return steam::add_for(&steam_roots(), &program, &target, &art);
         }
         let art = steam::Art {
