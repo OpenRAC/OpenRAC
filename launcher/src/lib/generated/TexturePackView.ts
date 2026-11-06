@@ -2,7 +2,7 @@
 import type { TextureFolder } from "./TextureFolder";
 
 /**
- * The Texture packs section of a game's page.
+ * The Texture packs section of a game's Mods tab.
  */
 export type TexturePackView = { 
 /**

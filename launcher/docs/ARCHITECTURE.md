@@ -136,7 +136,7 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `overrides_list`                                                                                   | `{game}`                                                                           | the game's overrides packs (`core/src/overrides.rs`), in order                                                                                                              |
 | `overrides_set_enabled` / `overrides_move` / `overrides_remove`                                    | `{game, id, enabled}` / `{game, id, up}` / `{game, id}`                            | the packs again, changed                                                                                                                                                    |
 | `plugins_list` / `plugins_set_enabled` / `plugins_move` / `plugins_set_setting` / `plugins_remove` | `{game, version}`, then `{id, enabled}` / `{id, up}` / `{id, key, value}` / `{id}` | the game's gameplay mods (native and script) in load order, as they stand for that disc (`core/src/plugins.rs`, `PluginView`), changed                                      |
-| `texture_packs_view` / `texture_packs_set`                                                         | `{game, version}`, then `{enabled, dumping}` (either may be null)                  | the game page's Texture packs section (`core/src/texture_packs.rs`, `TexturePackView`): the pack's and the saved textures' counts by folder, the two switches; changed      |
+| `texture_packs_view` / `texture_packs_set`                                                         | `{game, version}`, then `{enabled, dumping}` (either may be null)                  | the Mods tab's Texture packs section (`core/src/texture_packs.rs`, `TexturePackView`): the pack's and the saved textures' counts by folder, the two switches; changed       |
 | `texture_packs_open`                                                                               | `{game, version, dump, folder}`                                                    | opens the pack's or the saved textures' folder, or one of their folders, made if missing                                                                                    |
 | `texture_packs_preview` / `texture_packs_import`                                                   | `{game, version, source}`, then `{mode}` (`merge`, `replace`)                      | what a pack's `.zip` holds, refused for another game's, unsafe names or pictures not named by a texture; imported                                                           |
 | `texture_packs_export`                                                                             | `{game, version}`                                                                  | the pack saved as a `.zip` with its folders and manifest where the player chooses (Android: its save screen); `saved` empty when they backed out                            |
@@ -149,6 +149,9 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `plugins_update`                                                                                   | `{game, version, id}`                                                              | installs the newest, keeping its place, switch and settings                                                                                                                 |
 | `plugins_sources` / `plugins_set_pin`                                                              | `{game}` / `{game, id, pin}`                                                       | where the mods added from a link came from (`sources.json`); keeps one at its version or lets it update                                                                     |
 | `deeplink_parse`                                                                                   | `{url}`                                                                            | the mods an `openrac://install/…` link asks for (`core/src/deeplink.rs`, `DeepLinkInstall`), or a `ModError`                                                                |
+| `steam_state` / `steam_add`                                                                        | `{version?}`                                                                       | the launcher's, or with a version that game's, entry in Steam (`SteamState`; `core/src/steam.rs`)                                                                           |
+| `shortcut_create`                                                                                  | `{version}`                                                                        | writes a `.desktop` that starts the game (`--play`) on the Desktop, Linux only (`core/src/shortcut.rs`); the path                                                           |
+| `startup_game`                                                                                     |                                                                                    | the game a `--play` start could not start, once, or null                                                                                                                    |
 | `index_fetch`                                                                                      | `{game, version}`                                                                  | the signed mod index, checked and merged (`core/src/index.rs`, `IndexView`); the cache offline; with a game, its revoked mods turned off                                    |
 | `index_resolve`                                                                                    | `{game, version, wanted, turnOff}`                                                 | the change set (`core/src/resolver.rs`, `InstallPlan`)                                                                                                                      |
 | `index_apply`                                                                                      | `{game, version, wanted, turnOff, serial, shared}`                                 | resolves again and installs in order (`core/src/index_apply.rs`, `ApplyResult`; `index-apply` events)                                                                       |
@@ -185,12 +188,13 @@ camelCase) and generated from there into `src/lib/generated/` (below).
 | `update_check` / `update_install` (Android)                                                        | `{channel}` / `{url, signature}`                                                   | a newer launcher on the releases (`core/src/update.rs`), or null; downloads its APK, checks the signature and hands it to Android's installer                               |
 | `game_status` / `game_window` (Android)                                                            | - / `{stop}`                                                                       | `{running, library}`: whether the game runs; brings it back in front, or ends it                                                                                            |
 
-| Event         | Payload                                                           |
-| ------------- | ----------------------------------------------------------------- |
-| `job-output`  | `{type: "output", id, stream: "stdout" \| "stderr", line}`        |
-| `job-exit`    | `{type: "exit", id, code, cancelled}`                             |
-| `disc-copy`   | `{name, copied, total}` (Android: a picked disc's copy)           |
-| `index-apply` | `{id, step, at, total}`: each mod of a change set being installed |
+| Event         | Payload                                                                   |
+| ------------- | ------------------------------------------------------------------------- |
+| `job-output`  | `{type: "output", id, stream: "stdout" \| "stderr", line}`                |
+| `job-exit`    | `{type: "exit", id, code, cancelled}`                                     |
+| `disc-copy`   | `{name, copied, total}` (Android: a picked disc's copy)                   |
+| `index-apply` | `{id, step, at, total}`: each mod of a change set being installed         |
+| `open-game`   | the version key: a `--play` start of the open launcher could not start it |
 
 ### Adding a command
 
@@ -497,6 +501,18 @@ non-Steam game with its pictures (`core/src/steam.rs`). Steam reads
 while Steam runs: the player closes it and clicks again. Other entries stay
 byte for byte, and the first write keeps `shortcuts.vdf.openrac-bak`. Flathub's
 Steam is refused: its sandbox has no way to start a program outside it.
+
+**One game from a shortcut.** `openrac-launcher --play <id>` (`rac1-pal`, or the
+key `rac1/pal`) starts a game as its Play button does, with no window:
+`library::direct_play` plans the game's first `play` action (data folder, mods,
+build checks), and a play that asks for confirmation is not started unseen. If
+it cannot start, the window opens on that game. An open launcher gets the
+argument through single instance and starts the game itself; otherwise the
+launcher hides its window and ends with the game. A game's page offers Add to
+Steam (its own entry: the launcher's stable path, `--play <id>`, the game's
+title and icon, found again by name and launch options, never mistaken for the
+launcher's) and, on Linux, Create shortcut (a `.desktop` on the Desktop). Both
+are hidden on Android and macOS, and the shortcut on Windows.
 
 ### What Linux gets
 

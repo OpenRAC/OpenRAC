@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -195,6 +196,11 @@ gaddr light_bank_address() {
     return openrac_game_front_end != nullptr ? openrac_game_front_end->light_bank : 0;
 }
 
+// The game's occlusion mask (0x80 bytes), in the executable's terms; 0 when the game has none.
+gaddr occlusion_address() {
+    return openrac_game_front_end != nullptr ? openrac_game_front_end->occlusion : 0;
+}
+
 // Uploads a level's geometry; while the boot program runs (the title and the main menu), the title
 // world's, or level 0's when the title world was not extracted.
 void use_level(int number) {
@@ -235,6 +241,7 @@ void use_level(int number) {
         }
     } else {
         g->renderer->clear_renderers();
+        g->renderer->textures().clear_upscaled_texture_colours();
     }
     crash::level_breadcrumb("level scene reset", wanted);
     g->scene.release();
@@ -650,6 +657,18 @@ int hud_side() {
     const float wider =
         static_cast<float>(box.width) / (kTvAspect * static_cast<float>(box.height));
     return wider > 1.0f ? static_cast<int>(256.0f * (wider - 1.0f)) : 0;
+}
+
+namespace {
+std::atomic<float> g_view_opened{1.0f};  // the game's thread reads it, the frame's writes it
+}  // namespace
+
+float view_opened() {
+    return g_view_opened.load(std::memory_order_relaxed);
+}
+
+void set_view_opened(float opened) {
+    g_view_opened.store(std::max(1.0f, opened), std::memory_order_relaxed);
 }
 
 float picture_wider() {

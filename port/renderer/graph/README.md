@@ -62,7 +62,13 @@ retain exact buffer ranges and shared allocation identities. Shader reads match
 bound descriptors; writable storage needs stable allocations. Graphics inputs are
 captured at shared shader setup rather than per material draw.
 
-Hi-Z, unknown hooks and providers without preparation support use separate scopes.
+Optional Hi-Z reductions share the surface plan with GTAO and early lighting.
+Unknown hooks and providers without preparation support use separate scopes.
+When GTAO needs copied depth, the shared scope borrows a depth/stencil scratch
+target. Vulkan retains one matching allocation across scopes and retires replaced
+allocations behind the frame fence.
+Water refraction can borrow the same depth target in a separate scope, with an
+independent RGBA8 snapshot. Overlapping leases use the existing owned targets.
 Blend boundaries retain opaque batch order. `run_surface_setup` finishes pending work
 and suspends collection for synchronous provider setup, including cold water simulation.
 Native SDK decisions flush before their result is consumed; private histories and

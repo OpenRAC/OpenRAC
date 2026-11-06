@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 12;
+pub const API_MINOR: u32 = 13;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -228,6 +228,10 @@ pub struct Manifest {
     /// (MODS.md, section 3).
     #[serde(default)]
     pub assets: Option<String>,
+    /// A .json file inside the mod with the on-screen pad's buttons and icons (interface 1.13;
+    /// MODS.md, "Touch controls").
+    #[serde(default)]
+    pub touch: Option<String>,
     #[serde(default)]
     pub hooks: Vec<String>,
     #[serde(default)]
@@ -241,6 +245,9 @@ pub struct Manifest {
     pub conflicts: Vec<Conflict>,
     #[serde(default)]
     pub load: LoadHints,
+    /// Its own page in the launcher (mod_tools.rs).
+    #[serde(default)]
+    pub tool: Option<crate::mod_tools::Tool>,
 }
 
 /// An id: lower-case letters and digits in words joined by hyphens, at most 64 characters.
@@ -303,10 +310,13 @@ impl Manifest {
         self.kind == "script"
     }
 
-    /// What it is, as the Mods tab tells it: `script`, `native` (a library), or `data`.
+    /// What it is, as the Mods tab tells it: `script`, `native` (a library), `tool` (only its own
+    /// page in the launcher, mod_tools.rs) or `data`.
     pub fn kind_name(&self) -> &'static str {
         if self.is_script() {
             "script"
+        } else if self.plugin.is_empty() && self.tool.is_some() {
+            "tool"
         } else if self.plugin.is_empty() {
             "data"
         } else {
@@ -358,9 +368,19 @@ impl Manifest {
         } else if !self.scripts.is_empty() {
             return Err("only a script mod (\"type\": \"script\") names scripts".into());
         }
+        if let Some(tool) = &self.tool {
+            if !safe_relative(&tool.page) || !tool.page.ends_with(".html") {
+                return Err(format!("its page {:?} is not an .html file inside the mod", tool.page));
+            }
+        }
         if let Some(assets) = &self.assets {
             if !safe_relative(assets) {
                 return Err(format!("its assets {assets:?} is not a folder inside the mod"));
+            }
+        }
+        if let Some(touch) = &self.touch {
+            if !touch.ends_with(".json") || !safe_relative(touch) {
+                return Err(format!("its touch {touch:?} is not a .json file inside the mod"));
             }
         }
         if !self.plugin.is_empty() {
@@ -662,8 +682,9 @@ pub struct PluginView {
     pub shared_hooks: Vec<SharedHook>,
     /// Whether it carries code (a library) or only data.
     pub native: bool,
-    /// `native` (runs code on this computer), `script` (runs scripts, sandboxed) or `data`.
-    #[ts(type = "\"native\" | \"script\" | \"data\" | \"built-in\"")]
+    /// `native` (runs code on this computer), `script` (runs scripts, sandboxed), `tool` (a page
+    /// of its own in the launcher, kept apart from it) or `data`.
+    #[ts(type = "\"native\" | \"script\" | \"tool\" | \"data\" | \"built-in\"")]
     pub kind: String,
     /// The installed folder (developer tools show it).
     pub path: String,
@@ -671,6 +692,10 @@ pub struct PluginView {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[ts(as = "Option<Vec<String>>", optional)]
     pub missing: Vec<String>,
+    /// Its own page in the launcher, inside its folder (mod_tools.rs): the Open button shows it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tool: Option<String>,
 }
 
 /// The mods of a game, in load order, for its disc `version` ("pal").
@@ -767,6 +792,7 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             kind: m.kind_name().into(),
             path: folder.display().to_string(),
             missing: m.requires.iter().filter(|r| !mods.iter().any(|e| e.id == r.id)).map(|r| r.id.clone()).collect(),
+            tool: m.tool.as_ref().map(|t| t.page.clone()),
         });
     }
     Ok(out)
@@ -837,6 +863,9 @@ pub fn set_enabled(dir: &Path, game: &str, version: &str, id: &str, on: bool) ->
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
         let m = manifests[at].clone().map_err(|e| format!("{id} cannot be read: {e}"))?;
+        if m.kind_name() == "tool" {
+            return Err(format!("{} is a page in the launcher, with nothing to load in the game", m.name));
+        }
         m.runs_on(game, version, platform_key())?;
         if let Some(why) = against_others(&m, at, &mods, &manifests, true) {
             return Err(why);
@@ -1369,7 +1398,7 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
     }
     // A native mod's source folder (a checkout not yet built) names no library: the port would
     // refuse it at every start, so it is refused here, before it replaces a working copy.
-    if !m.is_script() && m.plugin.is_empty() {
+    if !m.is_script() && m.plugin.is_empty() && m.tool.is_none() {
         return Err(format!(
             "{} has no library built: this is its source folder. Add its release .zip, or build the mods \
              first (cmake --build build) and add the checkout again, whose build/package is then taken",
@@ -1386,6 +1415,11 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
             return Err(format!("{} names a script it does not hold ({path})", m.name));
         }
     }
+    if let Some(tool) = &m.tool {
+        if !root.join(&tool.page).is_file() {
+            return Err(format!("{} names a page it does not hold ({})", m.name, tool.page));
+        }
+    }
     // Staged in `.staging/<id>`, then swapped in; an install it replaces waits in `.previous/<id>`
     // (one kept), so a failure puts it back and a bad update can be rolled back.
     let staging = dir.join(STAGING).join(&m.id);
@@ -1400,7 +1434,10 @@ pub fn install(dir: &Path, game: &str, version: &str, source: &Path) -> Result<I
         // New: on when it can run here and nothing stands against it.
         let manifests: Vec<Result<Manifest, String>> =
             mods.iter().map(|e| read_manifest(&dir.join(&e.id)).and_then(|m| m.validate().map(|()| m))).collect();
-        if m.runs_on(game, version, platform_key()).is_ok() && against_others(&m, at, &mods, &manifests, true).is_none()
+        // A mod that is only a page in the launcher has nothing for the game to load: never on.
+        if m.kind_name() != "tool"
+            && m.runs_on(game, version, platform_key()).is_ok()
+            && against_others(&m, at, &mods, &manifests, true).is_none()
         {
             mods[at].enabled = true;
             place(&mut mods, at, &manifests);
@@ -1488,6 +1525,48 @@ mod tests {
         assert!(!meets("2.0.1", Some("=2.0.0")).unwrap());
         assert!(meets("0.1.0", None).unwrap());
         assert!(meets("1.0.0", Some("^1.0")).is_err());
+    }
+
+    #[test]
+    fn a_page_of_its_own() {
+        let mut m = manifest("nanotech-upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        m.as_object_mut().unwrap().remove("plugin");
+        m.as_object_mut().unwrap().remove("api");
+        let tool: Manifest = serde_json::from_value(m.clone()).unwrap();
+        assert_eq!(tool.validate(), Ok(()));
+        assert_eq!(tool.kind_name(), "tool");
+        assert_eq!(tool.runs_on("rac1", "pal", None), Ok(()), "a page runs wherever the launcher does");
+        for bad in ["../index.html", "/ui/index.html", "ui/index.js", ""] {
+            m["tool"] = json!({"page": bad});
+            let refused: Manifest = serde_json::from_value(m.clone()).unwrap();
+            assert!(refused.validate().is_err(), "{bad:?} was let through");
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        installed_mod(&dir, "nanotech-upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        let views = list(&dir, "rac1", "pal").unwrap();
+        assert_eq!(view(&views, "nanotech-upscaler").tool.as_deref(), Some("ui/index.html"));
+    }
+
+    #[test]
+    fn install_a_page_of_its_own() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("plugins");
+        let mut m = manifest("upscaler", json!({"tool": {"page": "ui/index.html"}}));
+        m.as_object_mut().unwrap().remove("plugin");
+        m.as_object_mut().unwrap().remove("api");
+        let src = tmp.path().join("upscaler");
+        std::fs::create_dir_all(src.join("ui")).unwrap();
+        std::fs::write(src.join(MANIFEST), serde_json::to_vec(&m).unwrap()).unwrap();
+        assert!(install(&dir, "rac1", "pal", &src).unwrap_err().contains("page it does not hold"));
+        std::fs::write(src.join("ui").join("index.html"), "<!doctype html>").unwrap();
+        // Installed, but never on: the game has nothing of it to load.
+        match install(&dir, "rac1", "pal", &src).unwrap() {
+            Installed::Plugin { id, enabled, .. } => assert_eq!((id.as_str(), enabled), ("upscaler", false)),
+            other => panic!("{other:?}"),
+        }
+        assert!(set_enabled(&dir, "rac1", "pal", "upscaler", true).unwrap_err().contains("page in the launcher"));
+        assert_eq!(view(&list(&dir, "rac1", "pal").unwrap(), "upscaler").kind, "tool");
     }
 
     #[test]
@@ -1585,6 +1664,11 @@ mod tests {
         native(json!({"assets": "assets"})).unwrap();
         for bad in ["", "../up", "/abs", "a\\b"] {
             assert!(native(json!({"assets": bad})).unwrap_err().contains("assets"), "{bad}");
+        }
+        // Its touch file (MODS.md, "Touch controls") is a .json file inside it.
+        native(json!({"touch": "touch/touch.json"})).unwrap();
+        for bad in ["", "../up.json", "/abs.json", "touch.txt"] {
+            assert!(native(json!({"touch": bad})).unwrap_err().contains("touch"), "{bad}");
         }
         // A native mod built for interface 1.0 still loads on 1.1.
         let old: Manifest = serde_json::from_value(manifest("n", json!({"api": "1.0"}))).unwrap();

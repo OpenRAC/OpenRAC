@@ -73,10 +73,40 @@ __extension__ typedef unsigned __int128 openrac_u128;
  * memory access reads openrac_guest_base). On Android the game is a shared
  * library, whose globals are otherwise reached through its global offset
  * table, one more load each time: there they are the library's own. */
+/* A game's part on Windows, a DLL (tools/asm_part.py), reads the program's data
+ * through what it exports (asm_part_exports.def). */
+#if defined(_WIN32) && defined(OPENRAC_ASM_PART)
+#define OPENRAC_PART_IMPORT __declspec(dllimport)
+#else
+#define OPENRAC_PART_IMPORT
+#endif
 #if defined(__ANDROID__)
 #define OPENRAC_GUEST_GLOBAL __attribute__((visibility("hidden")))
 #else
-#define OPENRAC_GUEST_GLOBAL
+#define OPENRAC_GUEST_GLOBAL OPENRAC_PART_IMPORT
+#endif
+
+/* Those globals, which a game's part built on the device from the disc
+ * (tools/asm_part.py), another library, cannot see on Android: there it reaches
+ * them through pointers the game gives it (openrac_asm_global) on loading. */
+/* clang-format off */
+#define OPENRAC_PART_GLOBALS(X) \
+    X(uint8_t*, guest_base) \
+    X(uint32_t, guest_ram_size) \
+    X(gaddr, guest_sp) \
+    X(gaddr, relocate_low) \
+    X(gaddr, relocate_high) \
+    X(gaddr, guest_last_entry) \
+    X(openrac_host_fn, guest_last_fn)
+/* clang-format on */
+#if defined(__ANDROID__) && defined(OPENRAC_ASM_PART)
+#define openrac_guest_base (*openrac_part_guest_base)
+#define openrac_guest_ram_size (*openrac_part_guest_ram_size)
+#define openrac_guest_sp (*openrac_part_guest_sp)
+#define openrac_relocate_low (*openrac_part_relocate_low)
+#define openrac_relocate_high (*openrac_part_relocate_high)
+#define openrac_guest_last_entry (*openrac_part_guest_last_entry)
+#define openrac_guest_last_fn (*openrac_part_guest_last_fn)
 #endif
 
 /* Where game memory starts in the host's address space. Set once by the

@@ -1,0 +1,144 @@
+{
+  "contexts": {
+    "base": {
+      "actions": [
+        { "id": "map", "icon": "map", "press": ["select"], "side": "top" },
+        { "id": "pause", "icon": "pause", "press": ["start"], "side": "top" }
+      ]
+    },
+    "default": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "quick", "icon": "quick", "press": ["triangle"], "stick": true },
+        { "id": "dash", "icon": "dash", "press": ["r1"], "then": ["cross"], "size": "small" },
+        { "id": "wrench", "icon": "wrench", "press": ["square"] },
+        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
+        { "id": "look", "icon": "goggles", "press": ["l1"], "size": "small", "side": "left", "wide": true },
+        { "id": "enter", "icon": "ship", "press": ["triangle"], "when": "board", "instead": "quick" },
+        { "id": "buy", "icon": "buy", "press": ["triangle"], "when": "buy", "instead": "quick" },
+        { "id": "use", "icon": "use", "press": ["triangle"], "when": "use", "instead": "quick" }
+      ]
+    },
+    "foot": { "extends": "default", "actions": [] },
+    "grind": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "wrench", "icon": "wrench", "press": ["square"] }
+      ]
+    },
+    "swim": {
+      "extends": "base",
+      "actions": [
+        { "id": "up", "icon": "up", "press": ["cross"], "size": "large" },
+        { "id": "down", "icon": "down", "press": ["square"] },
+        { "id": "fire", "icon": "fire", "press": ["circle"] },
+        { "id": "quick", "icon": "quick", "press": ["triangle"], "size": "small", "stick": true },
+        { "id": "fast", "icon": "boost", "press": ["r1"], "size": "small" }
+      ]
+    },
+    "clank": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "punch", "icon": "punch", "press": ["square"], "size": "large" },
+        { "id": "bots", "icon": "bots", "press": ["triangle"], "wide": true, "stick": true },
+        { "id": "crouch", "icon": "crouch", "press": ["r1"], "size": "small" },
+        { "id": "use", "icon": "use", "press": ["triangle"], "when": "use", "instead": "bots" }
+      ]
+    },
+    "giant_clank": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" },
+        { "id": "punch", "icon": "giant", "press": ["square"], "size": "large" },
+        { "id": "blast", "icon": "blast", "press": ["circle"] }
+      ]
+    },
+    "hoverboard": {
+      "extends": "base",
+      "actions": [
+        { "id": "jump", "icon": "jump", "press": ["cross"], "size": "large" }
+      ]
+    },
+    "ship": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "crosshair", "press": ["square"], "size": "large" },
+        { "id": "boost", "icon": "boost", "press": ["cross"], "size": "large" },
+        { "id": "missile", "icon": "missile", "press": ["circle"] },
+        { "id": "target", "icon": "lock", "press": ["right"], "size": "small" },
+        { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
+        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true, "wide": true }
+      ]
+    },
+    "jet": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "crosshair", "press": ["square"], "size": "large" },
+        { "id": "boost", "icon": "boost", "press": ["cross"], "size": "large" },
+        { "id": "missile", "icon": "missile", "press": ["circle"] },
+        { "id": "weapon", "icon": "swap", "press": ["left"], "size": "small" },
+        { "id": "steady", "icon": "goggles", "press": ["l3"], "size": "small", "side": "left", "toggle": true, "wide": true }
+      ]
+    },
+    "turret": {
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "fire", "press": ["circle"], "size": "large" },
+        { "id": "leave", "icon": "back", "press": ["triangle"], "size": "small" }
+      ]
+    },
+    "cutscene": {
+      "actions": [
+        { "id": "skip", "icon": "skip", "press": ["start"], "size": "large" }
+      ]
+    },
+    "menu": {
+      "dpad": true,
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] },
+        { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" },
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small", "when": "slots", "side": "arc" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small", "when": "slots", "side": "arc" }
+      ]
+    },
+    "map": {
+      "extends": "base",
+      "actions": [
+        { "id": "missions", "icon": "missions", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] },
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" },
+        { "id": "infobot", "icon": "planet", "press": ["circle"], "when": "infobot", "side": "arc" }
+      ]
+    },
+    "dialog": {
+      "dpad": true,
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] }
+      ]
+    },
+    "vendor": {
+      "extends": "menu",
+      "actions": [
+        { "id": "prev", "icon": "prev", "press": ["l1"], "size": "small" },
+        { "id": "next", "icon": "next", "press": ["r1"], "size": "small" }
+      ]
+    },
+    "front_end": {
+      "dpad": true,
+      "actions": [
+        { "id": "ok", "icon": "ok", "press": ["cross"], "size": "large" },
+        { "id": "back", "icon": "back", "press": ["triangle"] },
+        { "id": "other", "icon": "circle", "press": ["circle"] },
+        { "id": "start", "icon": "pause", "press": ["start"], "side": "top" }
+      ]
+    }
+  }
+}

@@ -84,7 +84,7 @@ BounceSurface bounce_surface(
             acceleration.triangle(hit.hit),
             hit.hit.u,
             hit.hit.v,
-            {{1, 1, 1}, settings.terrain_vertex_albedo}
+            {{1, 1, 1}, settings.terrain_vertex_albedo, settings.terrain_vertex_albedo_strength}
         )
     };
 }

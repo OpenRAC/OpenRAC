@@ -617,7 +617,7 @@ void VKGL compressed_tex_image_2d(
     if (!texture->image || !pixels) {
         return;
     }
-    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    const auto staged = stage_compressed_pixels(pixels, static_cast<VkDeviceSize>(size));
     if (!staged.data) {
         return;
     }
@@ -655,7 +655,7 @@ void VKGL compressed_tex_sub_image_2d(
         fail(kGlInvalidEnum);
         return;
     }
-    const auto staged = ring_copy(pixels, static_cast<VkDeviceSize>(size));
+    const auto staged = stage_compressed_pixels(pixels, static_cast<VkDeviceSize>(size));
     if (!staged.data) {
         return;
     }

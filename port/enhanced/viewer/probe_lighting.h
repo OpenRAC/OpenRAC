@@ -169,7 +169,7 @@ private:
     lighting::Float3 m_sunlight_scale{1, 1, 1};
     // Loaded only after scene and bake settings verification; cleared on release.
     std::optional<lighting::Float3> m_sunlight_direction;
-    bool m_terrain_vertex_albedo = false;
+    float m_terrain_vertex_albedo = 0;  // Authored terrain tint strength of the loaded bake.
     std::vector<lighting::ProbeVolume> m_regions;
     std::vector<lighting::ProbeGrid> m_region_grids;
     lighting::ProbeRegionSelector m_selector;

@@ -69,8 +69,11 @@ float linear_reference(float encoded) {
 InteriorLightSeed read_seed(const json::Value& row, const scene::LevelData& level) {
     InteriorLightSeed seed;
     seed.position = vector(row["position"]);
+    if (!row["up"].is_null()) {
+        seed.up = vector(row["up"]);
+    }
     seed.region = index(row["region"], 100'000);
-    const unsigned light_set = index(row["light_set"], kLightSetFloats - 1);
+    const unsigned light_set = index(row["light_set"], kInteriorLightSetCount - 1);
     const auto ambient = vector(row["ambient"]);
     const unsigned bank = light_set * kLightSetFloats;
 
@@ -184,7 +187,7 @@ Result<std::string> apply_interior_sources(const scene::LevelData& level, BakeSc
 
         if (data["version"].number() != 1 || data["level"].number(-1) != level.level
             || !data["samples"].is_array() || data["samples"].items().size() > 100'000
-            || level.light_sets.size() != std::size_t{kLightSetFloats} * kLightSetFloats) {
+            || level.light_sets.size() != std::size_t{kInteriorLightSetCount} * kLightSetFloats) {
             return unexpected(Error{"invalid interior source sidecar"});
         }
 

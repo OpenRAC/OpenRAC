@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// Explicit owners for optimisations absent from the generic world fixture.
+// Explicit owners for optimisations covered by focused fixtures.
 // CTest requires these existing output/counter comparisons before the scene shards run.
 
 #pragma once
@@ -36,9 +36,11 @@ inline constexpr std::array kFocusedEquivalence{
     std::pair{renderer::render_opt::Opt::EffectStaticControls, "effect_material"},
     std::pair{renderer::render_opt::Opt::WaterLocalShader, "effect_material"},
     std::pair{renderer::render_opt::Opt::VkDrawUniform, "vulkan_uniform"},
+    std::pair{renderer::render_opt::Opt::VkExtendedDynamicState, "vulkan_uniform"},
     std::pair{renderer::render_opt::Opt::PresentSingleCopy, "vulkan_present"},
     std::pair{renderer::render_opt::Opt::PresentTiming, "vulkan_present_timing"},
     std::pair{renderer::render_opt::Opt::ShadowScrollReuse, "shadow_scroll_vulkan"},
+    std::pair{renderer::render_opt::Opt::PipelinePrewarm, "vulkan_prewarm"},
 };
 
 // Returns the CTest owner, or empty when the generic scene retains the comparison.
@@ -51,13 +53,11 @@ inline std::string_view focused_equivalence_test(renderer::render_opt::Opt opt) 
     return {};
 }
 
-// Keeps compilation/cache/lifecycle checks independent of the test-only immutable object pool.
+// Variant and precision comparisons can borrow only byte-identical programs with matching layouts.
+// Keep fresh objects for tests that exercise pipeline cache creation and misses.
 inline bool may_reuse_test_programs(renderer::render_opt::Opt opt) {
     using renderer::render_opt::Opt;
-    return opt != Opt::PipelinePrewarm && opt != Opt::SpirvDiskCache && opt != Opt::VkDrawCache
-           && opt != Opt::VkPersistentDescriptors && opt != Opt::VkLastPipeline
-           && opt != Opt::ShaderVariants && opt != Opt::ShaderFloat16
-           && opt != Opt::VkExtendedDynamicState;
+    return opt != Opt::PipelinePrewarm && opt != Opt::VkDrawCache;
 }
 
 }  // namespace openrac::test

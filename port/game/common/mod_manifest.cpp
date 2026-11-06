@@ -550,6 +550,15 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
         }
         m.assets = assets.string();
     }
+    const json::Value& touch = v["touch"];
+    if (!touch.is_null()) {
+        if (!touch.is_string() || !touch.string().ends_with(".json")
+            || !folder_path(touch.string())) {
+            error = "\"touch\" must be a .json file inside the mod, with / (\"touch.json\")";
+            return false;
+        }
+        m.touch = touch.string();
+    }
     // Interface 1.4: only moves the loading before the window, so it is read and never refused (the
     // packager's and the launcher's checks know nothing of it): true on a native mod of 1.4 or later.
     m.vulkan_device = v["vulkan_device"].boolean(false) && !m.script && m.has_api

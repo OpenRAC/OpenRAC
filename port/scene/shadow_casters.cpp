@@ -104,9 +104,7 @@ void LevelScene::draw_shadow_map(
     glActiveTexture(GL_TEXTURE0);
     const auto sides =
         frustum_sides(region ? shadow_region_clip(matrix, *region, resolution) : matrix);
-    static const bool& receiver_culling_off =
-        stats::probe("OPENRAC_SUN_RECEIVER_CULL_OFF", "Reference: square shadow-map caster bounds");
-    const auto* volume = gl::is_vulkan() && !hero && !receiver_culling_off && cascade < kSunCascades
+    const auto* volume = gl::is_vulkan() && !hero && cascade < kSunCascades
                                  && m_sun_cascades.casters[cascade].plane_count
                              ? &m_sun_cascades.casters[cascade]
                              : nullptr;

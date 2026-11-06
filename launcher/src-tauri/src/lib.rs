@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 mod android;
+mod mod_tool;
 
 use openrac_launcher_core::actions::{Platform, Scope};
 use openrac_launcher_core::config::{self, Config};
@@ -197,6 +198,8 @@ static DRAW_CHECK: OnceLock<openrac_launcher_core::webkit::DrawCheck> = OnceLock
 static CLICKED: AtomicBool = AtomicBool::new(false);
 /// This start turned Safe rendering on, after the last one crashed (AppInfo).
 static SAFE_AFTER_CRASH: AtomicBool = AtomicBool::new(false);
+/// The game a `--play` start could not start (startup_game).
+static PENDING_GAME: Mutex<Option<String>> = Mutex::new(None);
 
 /// The page saw the player's first click, before it is drawn.
 #[tauri::command]
@@ -1454,7 +1457,7 @@ fn overrides_remove(state: State<'_, AppState>, game: String, id: String) -> Res
 
 /// Where `version`'s level editor data is (core reset.rs), from the checkout and the install folder
 /// in Settings; the version must be one the checkout's catalogue knows.
-fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
+pub(crate) fn reset_layout(state: &State<'_, AppState>, version: &str) -> Result<reset::Layout, String> {
     let config = state.config.lock().unwrap().clone();
     let root = config.root()?.to_path_buf();
     let install = config.install_dir.clone().ok_or("no install folder (Settings)")?;
@@ -1792,27 +1795,76 @@ fn steam_roots() -> Vec<std::path::PathBuf> {
     openrac_launcher_core::steam::roots(home.as_deref(), registry)
 }
 
-/// Where the launcher stands in the player's Steam library. Android has no Steam.
+/// What a Steam entry is for: the launcher, or the game `version` names (its title, its id and its
+/// icon, from the checkout the launcher plays from).
+#[cfg(not(target_os = "android"))]
+fn steam_target(
+    config: &Config,
+    version: Option<&str>,
+) -> Result<(openrac_launcher_core::steam::Target, Vec<u8>), String> {
+    use openrac_launcher_core::steam::Target;
+    let Some(key) = version else { return Ok((Target::launcher(), Vec::new())) };
+    let (title, id, icon) = game_for_shortcut(config, key)?;
+    Ok((Target::game(&title, &id), icon.unwrap_or_default()))
+}
+
+/// A game's title (the port's, as its menu entries carry), its id and its icon, if the checkout
+/// has one. `key` must be a version of the catalogue.
+#[cfg(not(target_os = "android"))]
+fn game_for_shortcut(config: &Config, key: &str) -> Result<(String, String, Option<Vec<u8>>), String> {
+    use openrac_launcher_core::{catalog, desktop, shortcut};
+    let root = config.root()?;
+    let catalog = catalog::load(root)?;
+    let key = shortcut::version_for_arg(&catalog, key).ok_or_else(|| format!("no game {key}"))?;
+    let id = shortcut::game_id(&key);
+    let icon = std::fs::read(root.join("port/game").join(&id).join("icon.png")).ok();
+    Ok((desktop::game_title(&catalog, &id), id, icon))
+}
+
+/// Where the launcher, or with `version` that game, stands in the player's Steam library. Android
+/// has no Steam.
 #[tauri::command]
-fn steam_state() -> openrac_launcher_core::steam::State {
+fn steam_state(
+    state: State<'_, AppState>,
+    version: Option<String>,
+) -> Result<openrac_launcher_core::steam::State, String> {
     #[cfg(target_os = "android")]
-    return openrac_launcher_core::steam::State::NoSteam;
+    {
+        let _ = (&state, &version);
+        return Ok(openrac_launcher_core::steam::State::NoSteam);
+    }
     #[cfg(not(target_os = "android"))]
     {
+        let config = state.config.lock().unwrap().clone();
+        let (target, _) = steam_target(&config, version.as_deref())?;
         let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
-        openrac_launcher_core::steam::state(&steam_roots(), &program)
+        Ok(openrac_launcher_core::steam::state_for(&steam_roots(), &program, &target))
     }
 }
 
-/// Adds the launcher to Steam's library, with its pictures (scripts/steam_art.mjs), or updates it.
-/// Steam may be open.
+/// Adds the launcher, or with `version` that game, to Steam's library, with its pictures
+/// (scripts/steam_art.mjs; a game's is its icon), or updates it. Steam may be open. A game's
+/// entry starts this launcher with `--play`, by the same stable path as the launcher's own.
 #[tauri::command]
-fn steam_add() -> Result<openrac_launcher_core::steam::State, String> {
+fn steam_add(
+    state: State<'_, AppState>,
+    version: Option<String>,
+) -> Result<openrac_launcher_core::steam::State, String> {
     #[cfg(target_os = "android")]
-    return Err("Steam isn't on Android.".into());
+    {
+        let _ = (&state, &version);
+        return Err("Steam isn't on Android.".into());
+    }
     #[cfg(not(target_os = "android"))]
     {
         use openrac_launcher_core::steam;
+        let config = state.config.lock().unwrap().clone();
+        let (target, icon) = steam_target(&config, version.as_deref())?;
+        let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
+        if version.is_some() {
+            let art = steam::Art { cover: &[], wide: &[], hero: &[], logo: &[], icon: &icon };
+            return steam::add_for(&steam_roots(), &program, &target, &art);
+        }
         let art = steam::Art {
             cover: include_bytes!("../steam/cover.jpg"),
             wide: include_bytes!("../steam/wide.jpg"),
@@ -1820,8 +1872,97 @@ fn steam_add() -> Result<openrac_launcher_core::steam::State, String> {
             logo: include_bytes!("../steam/logo.png"),
             icon: include_bytes!("../icons/icon.png"),
         };
-        let program = openrac_launcher_core::desktop::LauncherProgram::from_env().path;
         steam::add(&steam_roots(), &program, &art)
+    }
+}
+
+/// A desktop shortcut that starts the game `version` names (`--play`): a `.desktop` file on the
+/// Desktop, by the launcher's stable path (an AppImage's own file, not its mount). Linux only.
+/// The path it wrote.
+#[tauri::command]
+fn shortcut_create(state: State<'_, AppState>, version: String) -> Result<String, String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (&state, &version);
+        Err("Shortcuts are made on Linux only.".into())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use openrac_launcher_core::{desktop, shortcut};
+        let config = state.config.lock().unwrap().clone();
+        let (title, id, icon) = game_for_shortcut(&config, &version)?;
+        let places = desktop::Places::from_env().ok_or("No home folder.")?;
+        let home = detect::home_dir().ok_or("No home folder.")?;
+        let program = desktop::LauncherProgram::from_env().path;
+        let dir = shortcut::desktop_dir(&home);
+        let path = shortcut::write_shortcut(&dir, &places, &title, &id, &program, icon.as_deref())?;
+        desktop::refresh(&places, desktop::Changed { icons: icon.is_some(), entries: false });
+        Ok(path.display().to_string())
+    }
+}
+
+/// The game a `--play` start could not start, once: the page shows it. None otherwise.
+#[tauri::command]
+fn startup_game() -> Option<String> {
+    PENDING_GAME.lock().unwrap().take()
+}
+
+/// Starts the game `arg` (`--play`) as the Play button does, with no window: the same plan (data
+/// folder, mods, build checks). With `exit_after` the launcher ends with the game, for a start
+/// that opened it only for this. Err: the version to show instead, if it is known, and why.
+#[cfg(desktop)]
+fn play_from_shortcut<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    arg: &str,
+    exit_after: bool,
+) -> Result<(), (Option<String>, String)> {
+    use openrac_launcher_core::{catalog, jobs, shortcut};
+    let state = app.try_state::<AppState>().ok_or((None, "the launcher is still starting".to_string()))?;
+    let config = state.config.lock().unwrap().clone();
+    let root = config.root().map_err(|e| (None, e))?.to_path_buf();
+    let catalog = catalog::load(&root).map_err(|e| (None, e))?;
+    let key = shortcut::version_for_arg(&catalog, arg).ok_or_else(|| (None, format!("no game {arg}")))?;
+    let shown = |e: String| (Some(key.clone()), e);
+    let plan = library::direct_play(&config, &key).map_err(shown)?;
+    launcher_log::line(&format!("play: {}", jobs::command_line(&plan)));
+    let mut child = jobs::spawn_detached(&plan, Some(&root)).map_err(shown)?;
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let _ = child.wait();
+        if exit_after {
+            app.exit(0);
+        }
+    });
+    Ok(())
+}
+
+/// A `--play` request: the game starts and the window stays away; if it cannot start, the window
+/// comes up on that game. `own` is a start made for this (the window is hidden, and the launcher
+/// ends with the game); otherwise the launcher was open already.
+#[cfg(desktop)]
+fn handle_play_request<R: tauri::Runtime>(app: &AppHandle<R>, arg: &str, own: bool) {
+    let window = app.get_webview_window("main");
+    match play_from_shortcut(app, arg, own) {
+        Ok(()) => {
+            if own {
+                // Nothing will be drawn: not a crash if it is killed with the game.
+                if let Some(check) = DRAW_CHECK.get() {
+                    check.end();
+                }
+            }
+        }
+        Err((key, why)) => {
+            launcher_log::line(&format!("could not play {arg}: {why}"));
+            if let Some(key) = key {
+                *PENDING_GAME.lock().unwrap() = Some(key.clone());
+                let _ = app.emit("open-game", key);
+            }
+            if let Some(window) = window {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
     }
 }
 
@@ -1830,7 +1971,8 @@ fn hub_error(e: impl std::fmt::Display) -> ModError {
 }
 
 /// Fetches and checks every mod index (or uses the cached copies), keeps the result for the next
-/// commands, and with a game turns off the installed mods whose version was revoked.
+/// commands, and with a game turns off the installed mods whose version was revoked. The change set
+/// (a link from openrac.dev) and Share use it; the launcher lists no mods itself.
 #[tauri::command]
 async fn index_fetch(
     app: AppHandle,
@@ -2033,13 +2175,17 @@ async fn mods_updates(
     let prerelease = allow_prerelease(&app, &state);
     let dir = plugins_dir(&state, &game).map_err(hub_error)?;
     tauri::async_runtime::spawn_blocking(move || {
+        // A revoked version is turned off first, so the plan sees it off.
+        let turned_off = index::turn_off_revoked(&dir, &game, &version, &index);
         let installed = resolver::installed_mods(&dir, &game, &version);
-        openrac_launcher_core::mod_updates::plan(
+        let mut plan = openrac_launcher_core::mod_updates::plan(
             &index,
             &installed,
             &remote::read_sources(&dir),
             &here_for(&game, &version, prerelease),
-        )
+        );
+        plan.turned_off = turned_off;
+        plan
     })
     .await
     .map_err(hub_error)
@@ -2067,8 +2213,11 @@ async fn mods_auto_update(
     let handle = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let here = here_for(&game, &version, prerelease);
+        // A revoked version is turned off first, so the plan sees it off.
+        let turned_off = index::turn_off_revoked(&dir, &game, &version, &index);
         let installed = resolver::installed_mods(&dir, &game, &version);
-        let plan = mod_updates::plan(&index, &installed, &remote::read_sources(&dir), &here);
+        let mut plan = mod_updates::plan(&index, &installed, &remote::read_sources(&dir), &here);
+        plan.turned_off = turned_off;
         let items: Vec<mod_updates::UpdateItem> = match &ids {
             None => plan.silent.clone(),
             Some(ids) => plan.silent.iter().chain(&plan.waiting).filter(|i| ids.contains(&i.id)).cloned().collect(),
@@ -2465,6 +2614,15 @@ pub fn run() {
             texture_packs_preview,
             texture_packs_import,
             texture_packs_export,
+            mod_tool::mod_tool_list,
+            mod_tool::mod_tool_read,
+            mod_tool::mod_tool_store_get,
+            mod_tool::mod_tool_store_set,
+            mod_tool::mod_tool_save,
+            mod_tool::mod_tool_save_start,
+            mod_tool::mod_tool_save_write,
+            mod_tool::mod_tool_save_end,
+            mod_tool::mod_tool_open,
             enhanced_set_setting,
             enhanced_delete_bakes,
             plugins_set_enabled,
@@ -2483,6 +2641,8 @@ pub fn run() {
             deeplink_parse,
             steam_state,
             steam_add,
+            shortcut_create,
+            startup_game,
             index_fetch,
             index_resolve,
             index_apply,
@@ -2568,6 +2728,11 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
     // handed on here, by the same rule (forward_link).
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        // A shortcut's game starts in this launcher, and its window stays as it is.
+        if let Some(game) = openrac_launcher_core::shortcut::play_arg(&args) {
+            handle_play_request(app, &game, false);
+            return;
+        }
         forward_link(app, &args);
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
@@ -2575,6 +2740,11 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
             let _ = window.set_focus();
         }
     }));
+    // A mod's own page (mod_tool.rs), served from its folder under an address of its own.
+    let builder = builder.register_asynchronous_uri_scheme_protocol(mod_tool::SCHEME, |ctx, request, responder| {
+        let app = ctx.app_handle().clone();
+        tauri::async_runtime::spawn_blocking(move || responder.respond(mod_tool::serve(&app, &request)));
+    });
     let builder = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_dialog::init())
@@ -2601,6 +2771,15 @@ fn with_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wr
 /// command shares ([`AppState`]).
 fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     set_up_desktop(app);
+    // A start for one game (`--play`, a shortcut) keeps the window away until it fails to start.
+    #[cfg(desktop)]
+    let play = openrac_launcher_core::shortcut::play_arg(&std::env::args().collect::<Vec<_>>());
+    #[cfg(desktop)]
+    if play.is_some() {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.hide();
+        }
+    }
     let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
     let mut config = config_file.as_deref().map(config::load).unwrap_or_default();
     config.progress_cache = progress_cache(config_file.as_deref());
@@ -2625,6 +2804,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         mod_index: Mutex::new(None),
     });
     set_up_deep_links(app);
+    #[cfg(desktop)]
+    if let Some(game) = play {
+        handle_play_request(app.handle(), &game, true);
+    }
     Ok(())
 }
 

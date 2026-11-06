@@ -25,6 +25,7 @@ describe("phaseLabel", () => {
   it("names each step in plain words", () => {
     expect(phaseLabel(job("install:rac1"))).toBe("Setting up from your disc");
     expect(phaseLabel(job("port-build"))).toBe("Building the game for this computer");
+    expect(phaseLabel(job("port-part"))).toBe("Building the game from your disc");
     expect(phaseLabel(job("port-levels"))).toBe("Reading the levels from your disc");
     expect(phaseLabel(job("port-levels-check"))).toBe("Checking the levels");
     expect(phaseLabel(job("probe-bake"))).toBe("Preparing the enhanced lighting");

@@ -186,6 +186,8 @@ files. Script mods and data packs work there as elsewhere.
 | `requires` | no | mods that must be on and load before it; `version` is `>=X.Y.Z`, `=X.Y.Z` or absent |
 | `conflicts` | no | mods it cannot run with; either side may list the other |
 | `load` | no | `after` and `before`: ids it should load after or before when both are on (an order hint the launcher applies when a mod is installed or switched on) |
+| `tool` | no | `{"page": "ui/index.html"}`: an HTML file inside the mod, shown as its own page in the launcher (section 9, "A mod's page"). A mod with only a page is never loaded by the game |
+| `touch` | no | (1.13) a `.json` file in the mod with touch buttons and icons ("Touch controls" below) |
 
 A setting is `{key, name, type, default, description?}` with `key` in
 `[a-z0-9_]+`, and by type:
@@ -240,6 +242,59 @@ and `"shrub"`). Every class needs a `mesh`, read from the mod's folder; a
 broken `classes.json` stops the level from loading, with the reason in the log.
 The original manifests are never changed. `package_mod.py` checks the folder
 and packs it whole (hidden files left out).
+
+### Touch controls
+
+On a touch screen the pad can show action buttons with icons (drawer:
+"Action buttons"; off shows the DualShock's buttons). The buttons change with
+what the game is doing. Contexts: `foot`, `clank`, `giant_clank`, `swim`,
+`grind`, `hoverboard`, `ship`, `jet`, `turret`, `cutscene`, `menu`, `map`,
+`dialog`, `vendor`, `front_end`, `default`. The sets are JSON in
+`port/game/common/touch/sets/` (`common.json`, then `<game>.json`). A mod adds
+its own on top:
+
+```jsonc
+{
+  "contexts": {
+    "kart": {                          // a new context
+      "extends": "base",               // plus base's buttons (map, pause)
+      "actions": [
+        { "id": "go",    "icon": "kart_go", "press": ["cross"], "size": "large" },
+        { "id": "hop",   "icon": "jump",    "press": ["r1"], "then": ["cross"] }
+      ]
+    },
+    "foot": {                          // one button added to the game's
+      "actions": [ { "id": "kart", "icon": "kart_go", "press": ["l3"], "when": "near_kart" } ]
+    }
+  },
+  "icons": { "kart_go": "touch/kart_go.svg" }
+}
+```
+
+An action needs `id`, `icon` and `press` (`cross`, `circle`, `square`,
+`triangle`, `l1` .. `r3`, `start`, `select`, `up` .. `right`). Optional:
+
+- `then`: buttons added 50 ms later, for a combo. A quick tap still plays it.
+- `size`: `large`, `medium` or `small`.
+- `side`: `arc` (right thumb), `left` (above the stick), `top` or `hint`.
+- `when`: shown only while this hint is up, in the `hint` places unless
+  `side` says otherwise.
+- `instead`: with `when`, takes this button's place and size while the hint
+  is up. rac1 uses it for "press triangle" prompts: hints `board`, `buy` and
+  `use` replace quick select.
+- `toggle`: a tap holds it until the next tap.
+- `wide`: a pill, for a wide icon.
+- `stick`: sliding the held finger pushes the left stick (quick select ring).
+
+`"dpad": true` on a context shows a d-pad instead of the stick. An action
+with an existing `id` replaces it; `"replace": true` clears the context
+first. Icons are SVG; `#ff8000` is drawn in the game's accent, the rest white.
+
+The manifest's `"touch"` names the file. From code (1.13): `touch_define`
+adds a set, `touch_icon` an icon, `touch_push(mod, context)` shows a context
+until it pushes null (the last mod wins), `touch_hint(mod, hint, on)` sets a
+hint. Scripts have the same under `openrac.`. A context shows after 6 frames,
+a hint after 3, and the buttons wait until no finger is on them.
 
 ## 4. Hook points
 
@@ -579,6 +634,8 @@ renderer (`prop_create`, `prop_pose`, `prop_hide`, `prop_remove`) and sounds of 
 and `has_api_12()` (`has_hero_drive()`, `has_collision()`, `has_props()`, `has_sounds()`). A game
 where no mod takes the hook point or calls them runs as before: the hook point's slot stays null,
 the triangles only read memory, a prop or a sound is only made when a mod asks.
+1.13 (SDK 1.13.0) touch pad action buttons: `touch_define`, `touch_icon`, `touch_push`,
+`touch_hint`, the manifest's `touch` file and `has_api_13()` ("Touch controls" above).
 
 The port's own readers of the pad (the movie player) and its Start skip take the
 report the mods leave, so a key a mod binds to Start skips as the pad's
@@ -712,6 +769,52 @@ Ratchet & Clank (PAL) shows the same badge on the game's own memory card page
 ([rac1/host/save_marks.c](../../port/game/rac1/host/save_marks.c), the
 `Pause_DrawSaveSlots` wrap); the NTSC-U disc shows it in the launcher only,
 until that page's draw is carried over.
+
+### A mod's page
+
+A mod can have its own page in the launcher, for work done outside the game
+(for example, making a texture pack from the game's textures). Add
+`"tool": {"page": "ui/index.html"}` to the manifest. The Mods tab then shows
+an **Open** button, and the page opens in a frame. A mod with only a page (no
+`plugin`, no scripts) is never switched on, because the game has nothing to
+load.
+
+The page is the mod's own code, so it is kept apart from the launcher
+([core/src/mod_tools.rs](../../launcher/core/src/mod_tools.rs),
+[src-tauri/src/mod_tool.rs](../../launcher/src-tauri/src/mod_tool.rs)):
+
+- It is served from the mod's folder on its own address,
+  `openrac-mod://localhost/<game>/<mod id>/<path>`
+  (`http://openrac-mod.localhost/...` on Windows and Android). It cannot
+  reach the launcher's page or commands.
+- It can load only its own files (scripts, styles, pictures, WebAssembly,
+  workers). It has no network.
+- It asks the launcher for things by messages
+  ([lib/modTool.ts](../../launcher/src/lib/modTool.ts) checks each one):
+
+| Call | Arguments | Answer |
+|---|---|---|
+| `info` | | `{game, version, packId, mod: {id, name, version}, system}`. `packId` is the game's texture pack id (`rac1-pal`), `system` is `android` or `desktop` |
+| `list` | `root`: `levels` or `dump` | `[{path, size}]`: the levels read from the disc, or the textures the game dumped. Only `.png .gif .glb .gltf .bin .json .txt` |
+| `read` | `root`, `path`, optional `start` and `length` | the bytes (an `ArrayBuffer`, at most 64 MB), or that part of the file |
+| `storeGet`, `storeSet` | `key` (`[a-z0-9_-]`, at most 64), `value` (JSON, at most 1 MB; null removes it) | the mod's own value, kept across updates |
+| `save` | `name`, `extension` (`zip` or `json`), `bytes` | asks where to save. The saved name, or `""` if the player backed out |
+| `saveStart` | `name`, `extension` | starts a large file sent in parts. A token, or `0` if the player backed out |
+| `saveWrite` | `token`, `bytes` | the next part, in order |
+| `saveEnd` | `token`, `keep` | the saved name, or `""` when dropped. A file not ended before the page closes is deleted |
+| `open` | `extension` (`json`) | a small file the player picks (at most 1 MB), or null if they backed out |
+| `close` | | goes back to the mod's page |
+
+A message is `{openrac: 1, id, call, args}`, posted to `window.parent`. The
+answer is `{openrac: 1, id, ok: true, value}` or
+`{openrac: 1, id, ok: false, error}`. The page never names the game: the
+launcher answers for the game it was opened for. Only the store and the files
+the player saves are written.
+
+Controller buttons go to the page as `{openrac: 1, event: "pad", button, down}`
+(`up`, `down`, `left`, `right`, `accept`, `back`, `prev`, `next`, `more`), and
+the page moves its own focus. Escape, the Back button or the `close` call
+return to the mod's page.
 
 ## 10. Mods in a git repository
 

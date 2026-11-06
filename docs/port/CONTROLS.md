@@ -128,7 +128,7 @@ Two controls may share a pad input: both press. The Controls tab marks them.
 |---|---|---|
 | `pad_left_deadzone`, `pad_right_deadzone` | `0`, up to `50` (percent) | A push shorter than this is none; the rest of the travel is stretched over the whole. The game has its own dead zone (`d >= 0x30`), so the port adds none by default |
 | `pad_left_outer`, `pad_right_outer` | `100`, down to `50` | A push this long is a full one |
-| `pad_left_sensitivity`, `pad_right_sensitivity` | `100`, `25` to `300` | A push is this much as long, held within the stick's square |
+| `pad_left_sensitivity`, `pad_right_sensitivity` | `100`, `25` to `300` | A push is this much as long, held within the stick's square. Above 100%, a full right stick push also turns the camera faster (rac1, rac2) |
 | `pad_left_invert_x`, `_invert_y`, `pad_right_invert_x`, `_invert_y` | `0`, `1` | The axis turned over |
 | `pad_trigger_threshold` | about `13`, `1` to `100` (percent) | How far a trigger goes before it holds its button |
 | `pad_face_buttons` | `position`, `labels` | `labels`: a pad marked Nintendo's way (A on the right) is read by its marks, so the button marked A is `PadSouth` |

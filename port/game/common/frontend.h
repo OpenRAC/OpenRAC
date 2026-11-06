@@ -84,6 +84,11 @@ int hud_side();
 // frame's horizontal tangent is the game's times (render's projection, picture_scale).
 float picture_wider();
 
+// How many times the Field of View setting opened the last frame's gameplay camera, at least 1
+// (openrac_game_view_opened); set by the frame that applies it (frontend/scene_frame.cpp).
+float view_opened();
+void set_view_opened(float opened);
+
 // A sky sprite the game drew this frame (openrac_game_sky_sprite).
 void sky_sprite(const std::uint8_t* record, std::uint64_t tex0);
 

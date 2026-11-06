@@ -545,7 +545,7 @@ void draw(
     if (pipeline == VK_NULL_HANDLE) {
         return;
     }
-    const auto material = material_binding(*p, t);
+    const auto material = material_binding(*p, t, gpu_page ? gpu_draw_count : 1);
     const VkDescriptorSet set = descriptors(*p, samplers);
     BufferRef index{};
     VkIndexType vk_index = VK_INDEX_TYPE_UINT32;

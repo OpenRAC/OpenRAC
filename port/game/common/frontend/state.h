@@ -261,6 +261,9 @@ struct State {
     // That world was drawn under a menu with its own mobys (world_under_menu): world_camera's
     // mobys are the frame's.
     bool world_under_menu = false;
+    // The last world drawn outside a menu was seen with a gameplay camera (Kept::gameplay_camera):
+    // the world under the pause menu then keeps the player's Field of View.
+    bool paused_from_play = false;
     // Mobys drawn this frame with a camera of their own (mobys_drawn): address, that camera.
     std::vector<std::pair<std::uint32_t, host::GameState>> moby_cameras;
 
@@ -502,6 +505,7 @@ void apply_mouse_capture();
 // The directional light bank, in the executable's terms (relocated to the loaded program's copy);
 // 0 for a game without one (frontend/world.cpp).
 gaddr light_bank_address();
+gaddr occlusion_address();
 
 // Uploads level `number`'s geometry and makes the renderers that draw it. Below 0 the boot program
 // runs: the title world (level 0 where it was not extracted), or at -2 the flight between planets

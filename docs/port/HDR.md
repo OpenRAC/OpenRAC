@@ -16,13 +16,21 @@ byte for byte.
 
 | Key | Values | Meaning |
 |---|---|---|
-| `hdr` | `off` (default), `auto`, `on` | `auto`: HDR when the system says the display is in HDR mode. `on`: HDR whenever the screen offers it (needed on X11) |
+| `hdr` | `off` (default), `on` | `on`: HDR when the system says the display is in HDR mode. Where it can't say (X11), HDR whenever the screen offers it. |
 | `hdr_paper_white` | `0`, `80` to `1000` nits | How bright the game's white is. `0`: the system's SDR brightness, else 203 |
 | `hdr_peak` | `0`, `400` to `10000` nits | The brightest the effects may go. `0`: what the display reports, else 1000 |
 
-You can set it in the Video options page, the options drawer, the settings file, or the
-launcher's Settings > HDR. The launcher's "Game" leaves it to the game. Its Off, Auto and On
-override the game for every start (`OPENRAC_HDR`).
+The ranges follow the brightest screens on sale in 2026. Mini-LED TVs (TCL X11L) and some phones
+(Honor X80 Pro Max, Samsung Display's M16 panel) are sold at 10000 nits in a small window, which is
+also the top of PQ (HDR10), so the peak stops there. Paper white is the whole picture's
+brightness (203 by BT.2408); above 1000 the game's white reaches the peak and the highlights stop
+standing out, so it stops at 1000. The display's own number (Windows' EDID peak,
+Android's desired max luminance or HDR/SDR headroom) stays the default.
+
+You can set the mode in the Video options page, the options drawer, the settings file, or the
+launcher's Settings > HDR. The launcher's Off or On is given to every start it makes
+(`OPENRAC_HDR`), over the game's own. Paper white and peak are in the options drawer
+and the settings file.
 
 Turning HDR on from `off` needs a restart. Other changes apply at once.
 
@@ -30,11 +38,11 @@ Turning HDR on from `off` needs a restart. Other changes apply at once.
 
 HDR needs the Vulkan renderer. OpenGL always stays SDR.
 
-| Platform | Format | How `auto` knows |
+| Platform | Format | How `on` knows the display is in HDR |
 |---|---|---|
 | Windows | HDR10, else scRGB | SDL: HDR on, SDR brightness, peak |
 | Linux, Wayland | HDR10, else scRGB | SDL (needs a compositor with colour management) |
-| Linux, X11 | whatever the driver offers | it can't: use `on` |
+| Linux, X11 | whatever the driver offers | it can't: HDR whenever the driver offers it |
 | macOS | scRGB (EDR), else HDR10 | SDL: EDR headroom |
 | Android 14+ with headroom | scRGB, white = the system's SDR white | `GameActivity.displayHdr` |
 | Other Android | HDR10, else scRGB | `GameActivity.displayHdr` |
@@ -51,7 +59,7 @@ Paper white doesn't apply there, because white follows the slider. The extra lig
 only as much as the panel has left: at full brightness there may be none.
 
 Without headroom, the game sends HDR10 if the display supports it. Android's Vulkan lists HDR10
-on every display, so `on` on a non-HDR screen just gets squeezed back into SDR.
+on every display, so the game goes by what the activity says, not by the formats.
 
 ## How it works
 
@@ -67,8 +75,9 @@ on every display, so `on` on a non-HDR screen just gets squeezed back into SDR.
   clamp as before, so the game reads back the same values.
 - `renderer/vulkan/surface_format.h` picks the swapchain format. SDR picks the same format as
   before. HDR picks HDR10 or scRGB if the device can write it, else falls back to SDR.
-- `hdr_output.cpp` and `shaders/hdr_encode.comp`: one compute pass writes the frame into the
-  swapchain image, instead of the SDR copy. It also sends HDR metadata (peak, MaxCLL = peak,
+- The Vulkan presentation graph encodes the frame with `shaders/hdr_encode.comp` and transitions
+  the result for presentation. If encoder setup fails, the graph uses its SDR copy path.
+  `hdr_output.cpp` also sends HDR metadata (peak, MaxCLL = peak,
   MaxFALL = paper white). If the swapchain images can't be written by a shader, the pass writes
   its own image and copies it.
 

@@ -153,7 +153,8 @@ private:
     );
     std::unique_ptr<WaterMesh> m_mesh;
     renderer::FrameBuffer m_background;
-    bool m_background_ready = false;
+    std::array<unsigned, 2> m_background_textures{};
+    std::array<int, 2> m_background_extent{};
     scene::LevelScene& m_scene;
     std::vector<Texel> m_bodies, m_coast, m_hydraulics;
     std::vector<Texel> m_ocean_pixels;  // Coastal response followed by the inverse FFT basis row.

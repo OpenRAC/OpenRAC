@@ -175,6 +175,24 @@ pub fn is_play(config: &Config, scope: &Scope, id: &str) -> bool {
     actions::load(root).is_ok_and(|file| file.is_play(scope, id))
 }
 
+/// The command that plays version `key` from a shortcut (`--play`): its first `play` action, as
+/// the Play button runs it, so the data folder, the mods and the build checks are the same. An
+/// action that asks the player to confirm is not started unseen; the error says why it can't
+/// start now, and the launcher shows the game instead.
+pub fn direct_play(config: &Config, key: &str) -> Result<Plan, String> {
+    let root = config.root()?;
+    let file = actions::load(root)?;
+    let action = file
+        .versions
+        .get(key)
+        .and_then(|list| list.iter().find(|a| a.kind == actions::Kind::Play && !a.developer))
+        .ok_or_else(|| format!("{key} has no Play"))?;
+    if action.warning.is_some() {
+        return Err(format!("{}: it needs your confirmation first", action.label));
+    }
+    plan(config, &Scope::Version(key.to_string()), &action.id, &Inputs::default())
+}
+
 /// A version's action's arguments and artifact, filled in, whether or not it can run now
 /// (Action::filled).
 pub fn filled(config: &Config, key: &str, id: &str) -> Result<(Vec<String>, Option<std::path::PathBuf>), String> {
@@ -229,6 +247,16 @@ mod tests {
                 assert_ne!(action.state, actions::State::Planned, "{key} {id}");
             }
         }
+    }
+
+    #[test]
+    fn a_shortcut_plays_only_what_play_could() {
+        let config = Config { root: Some(checkout()), ..Config::default() };
+        // Nothing is built or installed here: the same refusal the Play button gives.
+        let err = direct_play(&config, "rac1/pal").unwrap_err();
+        assert!(err.starts_with("Play:"), "{err}");
+        assert!(direct_play(&config, "nope/pal").unwrap_err().contains("no Play"));
+        assert!(direct_play(&Config::default(), "rac1/pal").is_err(), "no OpenRAC folder");
     }
 
     #[test]
@@ -299,25 +327,28 @@ mod tests {
         assert_the_editor_is_offered(&library, &editable_versions());
     }
 
-    /// Going Commando's Play is a developer's: a player's library does not have it (the game says
-    /// "Not playable yet"), a developer's has it, with the warning shown before it starts.
+    /// A player's library has Going Commando's Play, with the warning shown before it starts, and
+    /// its enhanced lighting bake.
     #[test]
-    fn going_commandos_play_is_for_developers() {
-        let play_of = |config: &Config| {
+    fn going_commandos_play_and_bake_are_for_players() {
+        let action_of = |config: &Config, id: &str| {
             let library = library(config).unwrap();
             let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == "rac2/ntsc");
-            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == "play").cloned()
+            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == id).cloned()
         };
         let player = Config { root: Some(checkout()), ..Config::default() };
-        assert!(play_of(&player).is_none(), "a player is offered Going Commando's Play");
-        let refused = plan(&player, &Scope::Version("rac2/ntsc".into()), "play", &Inputs::default()).unwrap_err();
-        assert!(refused.contains("for developers only"), "{refused}");
-
-        let developer = Config { developer: true, ..player };
-        let play = play_of(&developer).expect("a developer has Going Commando's Play");
-        assert!(play.developer);
+        let bake = action_of(&player, "probe-bake").expect("a player has Going Commando's bake");
+        assert!(!bake.developer);
+        let play = action_of(&player, "play").expect("a player has Going Commando's Play");
+        assert!(!play.developer);
+        // A checkout builds the game from the player's disc without Developer tools, as
+        // Ratchet & Clank's: else Play waited for a program nothing offered to make.
+        for id in ["port-build", "port-rebuild"] {
+            let build = action_of(&player, id).unwrap_or_else(|| panic!("a player has Going Commando's {id}"));
+            assert!(!build.developer, "{id}");
+        }
         assert_ne!(play.state, actions::State::Planned);
-        assert!(play.warning.as_deref().is_some_and(|w| w.contains("development only")), "{:?}", play.warning);
+        assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
     }
 
     #[test]

@@ -2,6 +2,7 @@
 // job queue. Pages read `app` and call the functions below; nothing else
 // talks to the Rust side except through api.ts.
 import { hidePaths } from "./paths";
+import { toolFailure } from "./toolErrors";
 import { bakeFailure, type BakeFailure } from "./bakeFailure";
 import {
   api,
@@ -65,6 +66,8 @@ interface AppState {
     text: string;
     kind: "info" | "error";
     bake?: BakeNotice;
+    /** A failed task's last output lines, folders cut to their names. */
+    details?: string;
   }[];
   update: UpdateInfo | null;
   showUpdateModal: boolean;
@@ -216,9 +219,9 @@ function expire(id: number) {
 }
 
 /** Says something for a moment; an error stays until it is dismissed, as it may need reading twice. */
-export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice) {
+export function toast(text: string, kind: "info" | "error" = "info", bake?: BakeNotice, details?: string) {
   const id = ++toastId;
-  app.toasts.push({ id, text, kind, bake });
+  app.toasts.push({ id, text, kind, bake, details });
   // No more than four errors at once: the oldest gives way.
   const errors = app.toasts.filter((t) => t.kind === "error");
   if (errors.length > 4 && errors[0]) expire(errors[0].id);
@@ -385,7 +388,9 @@ function handleExit(job: Job) {
   else if (job.state === "failed" && job.actionId === "probe-bake" && version !== null) {
     const failure = bakeFailure(job);
     toast(failure.title, "error", { failure, version, jobKey: job.key });
-  } else if (job.state === "failed" && !job.actionId.startsWith("install:")) toast(`${job.title} failed`, "error");
+  } else if (job.state === "failed" && !job.actionId.startsWith("install:"))
+    // What the task printed last says why: without it the player only reads that it failed.
+    toast(`${job.title} failed`, "error", undefined, toolFailure(job.lines).details || undefined);
   // Played to the end since: the notice folds to a line (CrashNotice), the report still a click away.
   if (job.state === "succeeded" && played && app.stopped && version.startsWith(`${app.stopped.game}/`)) {
     app.stopped = { ...app.stopped, playedSince: true };

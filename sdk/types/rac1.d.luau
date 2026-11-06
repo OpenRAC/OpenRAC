@@ -1522,6 +1522,11 @@ declare openrac: {
     pointer: () -> (number, number, boolean),
     take_input: (...("keyboard" | "mouse")) -> (),
     capture_mouse: (capture: boolean) -> (),
+    -- interface 1.13: the on-screen pad's action buttons (MODS.md, "Touch controls")
+    touch_define: (json: string) -> boolean,
+    touch_icon: (name: string, svg: string) -> boolean,
+    touch_push: (context: string?) -> (),
+    touch_hint: (hint: string, on: boolean) -> (),
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,
 }

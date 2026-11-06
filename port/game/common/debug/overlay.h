@@ -276,6 +276,7 @@ struct State {
     bool pad_locked = false;        // ImGui gets no gamepad: a binding's press until let go
     bool drew_last_frame = false;   // the overlay drew the frame before (ImGui's clock ran)
     Scroll menu_scroll;             // the finger's drag over the drawer's rows
+    bool slider_held = false;       // a finger moving a slider sideways: the rows do not scroll
     bool shot_when_shut =
         false;  // a screenshot asked for in it, taken once it is out of the picture
     bool menu_confirm_reset = false;  // Enhanced "Reset" pressed once; pressed again, it resets
@@ -299,6 +300,10 @@ struct State {
     ImVec2 bar_min{};
     ImVec2 bar_max{};
     ImVec2 touch_guides{-1.0f, -1.0f};
+    // The size of the control picked to be resized (set_touch_selected()), below 0 for none, and
+    // the steps the bar asked to change it by (take_touch_size_steps()).
+    float touch_selected = -1.0f;
+    int touch_size_steps = 0;
     Card card;                      // the card being drawn on
     bool settings_changed = false;  // a setting changed in the drawer or the menus, not applied yet
     Scroll panel_scroll;            // the panel's drag_scroll
@@ -491,9 +496,11 @@ void press(SDL_Keycode key);
 std::string menu_bar_key_label();
 SDL_Scancode menu_bar_scancode();
 
-// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
-// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none and for Start+Select),
+// whether it is Start+Select pressed together (the default, platform/menu_chord.h), and its name as
+// the player reads it ("Start+Select", "R4", "none"). Defined in debug/menu_bar.cpp.
 SDL_GamepadButton menu_bar_button();
+bool menu_bar_chord();
 std::string menu_bar_button_label();
 
 // Opens or closes the menu. Defined in debug/menu_bar.cpp.

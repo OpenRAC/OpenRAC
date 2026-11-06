@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "common/log.h"
+#include "mod_touch.h"
 #include "mods.h"
 
 // The game's calls into the mods' world (game_host.h), set while mods are loaded.
@@ -1129,6 +1130,42 @@ int api_hero_hurt(openrac_mod* mod, int damage) {
     return g_play->hero_hurt(damage);
 }
 
+int api_touch_define(openrac_mod* mod, const char* json) {
+    std::string error;
+    if (mod == nullptr || json == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (!touch::define(mod_id(mod), json, error)) {
+        log::warn("mods: {}", error);
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+int api_touch_icon(openrac_mod* mod, const char* name, const char* svg) {
+    std::string error;
+    if (mod == nullptr || name == nullptr || svg == nullptr) {
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    if (!touch::icon(mod_id(mod), name, svg, error)) {
+        log::warn("mods: {}", error);
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    return OPENRAC_HOOK_OK;
+}
+
+void api_touch_push(openrac_mod* mod, const char* context) {
+    if (mod != nullptr) {
+        touch::push(mod_id(mod), context != nullptr ? context : "");
+    }
+}
+
+void api_touch_hint(openrac_mod* mod, const char* hint, int on) {
+    if (mod != nullptr && hint != nullptr) {
+        touch::hint(mod_id(mod), hint, on != 0);
+    }
+}
+
 int api_sound_load(openrac_mod* mod, const char* path) {
     if (mod == nullptr || g_sound_load == nullptr || g_sounds.size() >= kSoundsMax) {
         return OPENRAC_HOOK_UNKNOWN;
@@ -1275,6 +1312,10 @@ void fill_motion_api(openrac_api& api, const Host& host) {
     api.hero_sound_play = api_hero_sound_play;
     api.hero_sound_stop = api_hero_sound_stop;
     api.hero_hurt = api_hero_hurt;
+    api.touch_define = api_touch_define;
+    api.touch_icon = api_touch_icon;
+    api.touch_push = api_touch_push;
+    api.touch_hint = api_touch_hint;
 }
 
 std::vector<HazeDraw> haze_drawn() {
@@ -1410,6 +1451,7 @@ void reset_play() {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         g_hud.clear();
     }
+    touch::clear();
     stop_hero_voices(nullptr);
     if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
         g_play->camera_set(nullptr, nullptr);

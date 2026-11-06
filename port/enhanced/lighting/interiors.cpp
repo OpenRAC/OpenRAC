@@ -181,11 +181,13 @@ public:
         const Scene& scene,
         const std::vector<Triangle>& triangles,
         const Settings& settings,
-        SamplingDomain domain
+        SamplingDomain domain,
+        const Scene* barriers
     )
         : m_scene(scene),
           m_triangles(triangles),
           m_settings(settings),
+          m_barriers(barriers),
           m_domain(domain),
           m_columns(static_cast<std::size_t>(domain.nx) * domain.ny) {}
 
@@ -286,9 +288,12 @@ private:
         }
         m_result.walkable_edges.push_back({a, b});
         // Authored boxes are evaluated at body height, as their bounds need not reach the floor.
-        if (std::any_of(transitions.begin(), transitions.end(), [&](const Transition& transition) {
-                return crosses_transition(transition, p, q);
-            })) {
+        if (crosses_lighting_barrier(m_barriers, p, q)
+            || std::any_of(
+                transitions.begin(), transitions.end(), [&](const Transition& transition) {
+                    return crosses_transition(transition, p, q);
+                }
+            )) {
             ++m_result.blocked_portal_edges;
             return;
         }
@@ -339,6 +344,7 @@ private:
     const Scene& m_scene;  // Borrowed collision owner for all receiver and step queries.
     const std::vector<Triangle>& m_triangles;  // Source support flags indexed by collision hits.
     const Settings& m_settings;                // Validated lengths and budgets.
+    const Scene* m_barriers;                   // Optional lighting-only barriers.
     SamplingDomain m_domain;                   // Bounded XY lattice and collision height range.
     Result m_result;  // Floor cells and components in stable traversal order.
     std::vector<std::vector<unsigned>> m_columns, m_edges;  // Layer lookup and symmetric adjacency.
@@ -362,8 +368,14 @@ Result infer(
         (void)world(transition, {0, 0, 0});
     }
     Scene scene(triangles);
-    auto result = FloorSampler(scene, triangles, settings, domain).run(transitions);
-    assign_transition_labels(scene, transitions, settings, result);
+    std::unique_ptr<Scene> barriers;
+    if (!settings.lighting_barriers.empty()) {
+        validate_sampling(settings.lighting_barriers, settings);
+        (void)sampling_domain(settings.lighting_barriers, settings);
+        barriers = std::make_unique<Scene>(settings.lighting_barriers);
+    }
+    auto result = FloorSampler(scene, triangles, settings, domain, barriers.get()).run(transitions);
+    assign_transition_labels(scene, transitions, settings, barriers.get(), result);
     return result;
 }
 }  // namespace openrac::lighting::interiors

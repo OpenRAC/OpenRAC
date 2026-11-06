@@ -260,7 +260,7 @@ let config: Config = {
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
     ? "vulkan"
     : "opengl",
-  hdr: "",
+  hdr: "off",
   safeRendering: false,
   // ?mods: the Mods switch under Play is on.
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
@@ -418,8 +418,11 @@ function status(key: string, v: RawVersion): VersionStatus {
   };
 }
 
-function view(action: RawAction, st: VersionStatus | null): ActionView {
+function view(action: RawAction, st: VersionStatus | null, version?: string): ActionView {
   const state = action.state ?? "planned";
+  // The Android APK carries both RAC1 programs. The disc's levels still need preparing.
+  const bundledPlay = platform === "android" && action.id === "play" && version?.startsWith("rac1/") === true;
+  const artifactMissing = !built && !bundledPlay && (action.requires ?? []).includes("artifact");
   // As core/src/actions.rs (runs_on): Android runs only a play action, unless one names it.
   const thisPlatform = action.platforms?.length
     ? action.platforms.includes(platform)
@@ -441,7 +444,7 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
         python: !config.python,
         godot: !config.godot,
         docker: !config.docker,
-        artifact: !built,
+        artifact: artifactMissing,
       };
       const words: Record<string, string> = {
         disc: "your disc image (baserom/)",
@@ -454,6 +457,7 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
       };
       if (missing[need]) blockers.push(`needs ${words[need] ?? need}`);
     }
+    if (bundledPlay && !built) blockers.push("needs a check of the levels (Check the levels)");
   }
   return {
     id: action.id,
@@ -468,10 +472,10 @@ function view(action: RawAction, st: VersionStatus | null): ActionView {
     thisPlatform,
     runnable: blockers.length === 0,
     blockers,
-    // The mock has no files: nothing is built or made, except what ?built says is (the game
-    // built and its levels ready). Only the steps that made those are done; the rest are not,
-    // or a page would say an action that never ran is done.
-    done: built && BUILT_DONE.has(action.id),
+    // The mock tracks the bundled program and the files implied by ?built. Exports and editor
+    // projects still need their own steps.
+    done: bundledPlay || (built && BUILT_DONE.has(action.id)),
+    missingArtifact: state !== "planned" && artifactMissing,
     developer: action.developer ?? false,
     warning: action.warning ?? null,
   };
@@ -531,7 +535,7 @@ function library(): Library {
             : null,
           progress: progress(key),
           status: st,
-          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st)),
+          actions: (actions.versions[key] ?? []).filter(shown).map((a) => view(a, st, key)),
           portOutdated: false,
         };
       });
@@ -1706,7 +1710,70 @@ let mockPlugins: PluginView[] = query.has("nomods")
         kind: "native",
         path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/difficulty",
       },
+      {
+        id: "nanotech-upscaler",
+        name: "Nanotech Upscaler",
+        version: "0.1.0",
+        author: "Mateusz Kłysz",
+        description:
+          "Upscales every texture of Ratchet & Clank on your own device into a texture pack, in the game's own style.",
+        homepage: "https://github.com/mateuszklysz/Nanotech-Upscaler",
+        license: "GPL-3.0-or-later",
+        enabled: false,
+        state: "ready",
+        reason: "",
+        blocked: "",
+        settings: [],
+        hooks: [],
+        sharedHooks: [],
+        native: false,
+        kind: "tool",
+        path: "/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/nanotech-upscaler",
+        tool: "ui/index.html",
+      },
     ];
+
+// ?manymods: a long list, as a player with many mods has (My mods' toolbar, search and moving).
+if (query.has("manymods")) {
+  const more: [string, string, "native" | "script", boolean][] = [
+    ["Bolt magnet", "Bolts fly to you from twice as far.", "script", true],
+    ["Faster Clank", "Clank's backpack moves you a little quicker.", "script", true],
+    ["Speedrun timer", "An in-game timer with splits per planet.", "native", true],
+    ["Hard mode plus", "Enemies hit harder and drop fewer bolts.", "native", false],
+    ["Skip intros", "Goes straight to the title screen.", "script", true],
+    ["Infinite ammo", "Weapons never run dry. For fun runs only.", "script", false],
+    ["Photo mode", "Freeze the game and fly the camera around.", "native", true],
+    ["Classic HUD", "The HUD as the first release had it.", "script", true],
+    ["Gadget hotkeys", "One key per gadget, no quick select.", "native", true],
+    ["Practice tools", "Save and load a position anywhere.", "native", false],
+    ["Colour blind HUD", "HUD colours that read for every eye.", "script", true],
+    ["Vendor tweaks", "Prices and stock of Gadgetron's vendors.", "script", false],
+  ];
+  const at = mockPlugins.findIndex((p) => p.kind === "tool");
+  mockPlugins.splice(
+    at < 0 ? mockPlugins.length : at,
+    0,
+    ...more.map(([name, description, kind, enabled]) => ({
+      id: name.toLowerCase().replace(/\s+/g, "-"),
+      name,
+      version: "1.0.0",
+      author: "someone",
+      description,
+      homepage: "",
+      license: "MIT",
+      enabled,
+      state: enabled ? ("ready" as const) : ("off" as const),
+      reason: "",
+      blocked: "",
+      settings: [],
+      hooks: [],
+      sharedHooks: [],
+      native: kind === "native",
+      kind,
+      path: `/home/you/.local/share/dev.openrac.launcher/active/rac1/data/plugins/${name}`,
+    })),
+  );
+}
 
 /** What the preview's game says it did with the mods at its last start. */
 function mockPluginStatus(): PluginStatus | null {
@@ -1781,6 +1848,21 @@ const mockPacks: PackView[] = [
   },
   { ...samplePack("green-ratchet"), name: "Green Ratchet", enabled: false },
 ];
+
+if (query.has("manymods")) {
+  mockPacks.push(
+    {
+      ...samplePack("new-sounds"),
+      name: "Crunchier wrench",
+      author: "someone",
+      textures: 0,
+      models: 0,
+      levels: 0,
+      sounds: 14,
+    },
+    { ...samplePack("ship-skins"), name: "Ship skins", author: "someone", textures: 36, models: 2, levels: 3 },
+  );
+}
 
 if (query.has("summary")) {
   mockPacks.push({
@@ -2524,9 +2606,11 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "texture_packs_open":
       return delay(null);
     case "texture_packs_preview":
+      // Only a file named like a texture pack is one; any other .zip is a mod or an overrides pack.
+      if (!/texture/i.test(String(args.source))) throw new Error("This .zip holds no texture pictures.");
       if (String(args.source).includes("rac1")) {
         throw new Error(
-          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's page instead.",
+          "This pack is for Ratchet & Clank (PAL), not Going Commando (NTSC-U). Add it on that game's Mods tab instead.",
         );
       }
       return delay({
@@ -2553,6 +2637,23 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
         kept: args.mode === "replace" ? "rac2-ntsc (before import 2026-11-03-061500)" : null,
       });
     }
+    case "mod_tool_list":
+      return delay([{ path: "level_00/textures/moby_0001.png", size: 4096 }]);
+    case "mod_tool_read":
+    case "mod_tool_open":
+      return delay(new ArrayBuffer(0));
+    case "mod_tool_store_get":
+      return delay(null);
+    case "mod_tool_store_set":
+      return delay(null);
+    case "mod_tool_save":
+      return delay("~/Downloads/Nanotech 4x.zip");
+    case "mod_tool_save_start":
+      return delay(1);
+    case "mod_tool_save_write":
+      return delay(null);
+    case "mod_tool_save_end":
+      return delay(args.keep ? "~/Downloads/Nanotech Upscaler rac1-pal.zip" : "");
     case "texture_packs_export":
       return delay({ saved: "~/Downloads/rac2-ntsc-texture-pack.zip", textures: mockTextures.packCount, leftOut: 3 });
     case "enhanced_view":
@@ -2659,7 +2760,13 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
     case "steam_add":
       if (steamAsked() === "open") throw new Error("Close Steam, then try again.");
       return delay("added");
+    case "shortcut_create":
+      return delay(`/home/player/Desktop/${String(args.version).replace("/", "-")}.desktop`);
+    case "startup_game":
+      return delay(null);
     case "index_fetch":
+      // Said, so a test sees that a page did not read the mod list by itself.
+      console.info("[preview] index_fetch");
       return delay(mockIndexView());
     case "index_resolve":
       return delay(mockResolve(args.wanted as WantedMod[], (args.turnOff as string[] | undefined) ?? []));

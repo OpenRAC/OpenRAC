@@ -152,9 +152,9 @@ game's log.
     clear of the notch. Turning the phone upright keeps landscape; turning it
     over flips to the other landscape.
 17. **The performance hint (Android 13 and later).** Start a level: the log
-    says `performance hints: a session for the window thread, ...`. A
-    diagnostics recording's header has `performance hint: active, window
-    thread, target 8.33 ms` (a 120 Hz display's refresh). Record the same
-    scene with `OPENRAC_ADPF_OFF` set (the
+    says `performance hints: a session for 1 thread(s), ...` and, once the
+    render thread draws the world (Vulkan), `the session covers 2 threads`. A
+    diagnostics recording's header has `performance hint: active, 2 thread(s),
+    target 14.17 ms` (85% of a 16.67 ms frame, to keep time in hand). Record the same scene with `OPENRAC_ADPF_OFF` set (the
     game's `dev.openrac.game.ENVIRONMENT` extra): the header says `off`. Compare
     the two recordings' frame times, CPU clocks and thermal lines.

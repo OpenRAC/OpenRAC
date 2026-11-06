@@ -130,6 +130,26 @@ class Commands(unittest.TestCase):
         steps = build_port.commands("cmake", "release", self.build, ["rac1-pal"], None, {}, None, "/usr/bin/python3")
         self.assertEqual(steps[0], ["cmake", "--preset", "release", "-DPython3_EXECUTABLE=/usr/bin/python3"])
 
+    def test_python_is_named_without_the_windows_verbatim_prefix(self):
+        self.assertEqual(build_port.plain_path("\\\\?\\D:\\claude code\\python\\python.exe"),
+                         Path("D:\\claude code\\python\\python.exe"))
+        self.assertEqual(build_port.plain_path("\\\\?\\UNC\\nas\\share\\python.exe"),
+                         Path("\\\\nas\\share\\python.exe"))
+        self.assertEqual(build_port.plain_path("/usr/bin/python3"), Path("/usr/bin/python3"))
+
+    def test_a_folder_holding_a_verbatim_python_gets_the_plain_one(self):
+        # What launcher 1.0.1 left behind: hostgen's `cmd /C` could not start this Python.
+        (self.build / "build.ninja").write_text("")
+        cache = build_port.parse_cache(CACHE)
+        cache["Python3_EXECUTABLE"] = "//?/D:/claude code/python/python.exe"
+        steps = build_port.commands("cmake", "release", self.build, ["rac1-pal"], None, cache, None,
+                                    "D:/claude code/python/python.exe")
+        self.assertEqual(steps, [["cmake", "-S", str(build_port.PORT), "-B", str(self.build),
+                                  "-DPython3_EXECUTABLE=D:/claude code/python/python.exe"], BUILD])
+        unconfigured = build_port.commands("cmake", "release", self.build / "new", ["rac1-pal"], None,
+                                           {"Python3_EXECUTABLE": "//?/D:/python.exe"}, None, "D:/python.exe")
+        self.assertIn("-DPython3_EXECUTABLE=D:/python.exe", unconfigured[0])
+
     def test_more_targets_are_built_with_the_game(self):
         (self.build / "build.ninja").write_text("")
         steps = build_port.commands("cmake", "release", self.build, ["rac1-pal"], None,
@@ -298,6 +318,14 @@ class Stamp(unittest.TestCase):
         # Another game built from the same checkout joins it.
         build_port.write_stamp(self.build, ["rac1-ntsc"])
         self.assertEqual(self.read()["games"], ["rac1-ntsc", "rac1-pal"])
+
+    def test_a_ci_build_records_its_repository(self):
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "someone/OpenRAC"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertEqual(self.read()["repository"], "someone/OpenRAC")
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "not a repository"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertNotIn("repository", self.read())
 
     def test_a_build_from_another_checkout_starts_the_list_again(self):
         (self.build / "openrac-build.json").write_text('{"version": "0.0.1", "commit": null, "games": ["rac1-pal"]}')

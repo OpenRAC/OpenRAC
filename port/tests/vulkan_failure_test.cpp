@@ -14,6 +14,7 @@
 #include <string>
 #include <utility>
 
+#include "common/breadcrumbs.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
 #include "renderer/render_opt.h"
@@ -54,7 +55,46 @@ private:
 unsigned g_allocations = 0;
 unsigned g_waits = 0;
 unsigned g_layouts = 0;
+unsigned g_fault_queries = 0;
 PFN_vkAllocateDescriptorSets g_allocate = nullptr;
+
+VKAPI_ATTR VkResult VKAPI_CALL
+query_device_fault(VkDevice device, VkDeviceFaultCountsEXT* counts, VkDeviceFaultInfoEXT* info) {
+    ++g_fault_queries;
+    CHECK(device == detail::g->device);
+    CHECK(counts->addressInfoCount > 0);
+    CHECK(counts->vendorInfoCount > 0);
+    CHECK(counts->vendorBinarySize == 0);
+    CHECK(info->pVendorBinaryData == nullptr);
+    constexpr char description[] = "Injected GPU fault";
+    std::ranges::copy(description, info->description);
+    info->pAddressInfos[0] = {VK_DEVICE_FAULT_ADDRESS_TYPE_READ_INVALID_EXT, 0x1000, 16};
+    counts->addressInfoCount = 1;
+    counts->vendorInfoCount = 0;
+    return VK_INCOMPLETE;
+}
+
+void test_device_fault_query() {
+    // NVIDIA only permits querying checkpoints on an actually lost device.
+    std::unique_ptr<detail::GpuBreadcrumbs> checkpoints;
+    if (detail::g->gpu_breadcrumbs && detail::g->gpu_breadcrumbs->nvidia) {
+        checkpoints = std::move(detail::g->gpu_breadcrumbs);
+    }
+    const FunctionOverride injected(vkGetDeviceFaultInfoEXT, query_device_fault);
+    {
+        const FunctionOverride unsupported(detail::g->device_fault_enabled, false);
+        CHECK(!detail::check(VK_ERROR_DEVICE_LOST, "injected unsupported device loss"));
+        CHECK(g_fault_queries == 0);
+    }
+    detail::g->device_fault_reported.clear();
+    const FunctionOverride supported(detail::g->device_fault_enabled, true);
+    CHECK(!detail::check(VK_ERROR_DEVICE_LOST, "injected device loss"));
+    CHECK(!detail::check(VK_ERROR_DEVICE_LOST, "injected repeated device loss"));
+    CHECK(g_fault_queries == 1);
+    if (checkpoints) {
+        detail::g->gpu_breadcrumbs = std::move(checkpoints);
+    }
+}
 
 // Fails once so a regression that retries incorrectly fails a count check instead of hanging CI.
 VKAPI_ATTR VkResult VKAPI_CALL fail_descriptor_allocation(
@@ -311,18 +351,25 @@ void test_descriptor_failure_is_not_retried() {
 
 // A failed queue submit leaves the slot unsubmitted and does not enter its fence wait.
 void test_failed_submit_never_waits() {
+    const openrac::crash::BreadcrumbScope trail(42);
     g_waits = 0;
     const FunctionOverride submit(vkQueueSubmit, fail_submit);
     const FunctionOverride wait(vkWaitForFences, count_waits);
     bool rejected = false;
     try {
         detail::flush_and_wait();
-    } catch (const std::runtime_error& failure) {
+    } catch (const vkgl::RecordingFailure& failure) {
         rejected = std::string(failure.what()).find("submit frame") != std::string::npos;
     }
     CHECK(rejected);
     CHECK(g_waits == 0);
     CHECK(!detail::frame().submitted);
+    openrac::crash::Breadcrumbs::Snapshot breadcrumbs;
+    const auto count = openrac::crash::breadcrumbs().snapshot(breadcrumbs);
+    CHECK(std::any_of(breadcrumbs.begin(), breadcrumbs.begin() + count, [](const auto& entry) {
+        return entry.value == 42
+               && std::string_view(entry.message).starts_with("Vulkan submit frame:");
+    }));
 }
 
 // Unsupported external layouts return an import error without throwing across the graph interface.
@@ -369,6 +416,29 @@ void test_failed_graph_retains_images() {
     target.release();
 }
 
+void test_gpu_breadcrumbs() {
+    auto* state = detail::g->gpu_breadcrumbs.get();
+    if (!state) {
+        return;
+    }
+    vkgl::GraphExecution execution;
+    execution.add_pass({"breadcrumb test pass", {}});
+    const auto before = state->next;
+    CHECK(execution.run([](unsigned) {}));
+    CHECK(state->next == before + 2);
+    detail::flush_and_wait();
+    for (std::uint32_t id = before + 1; id <= before + 2; ++id) {
+        const auto slot = id % state->markers.size();
+        const auto& marker = state->markers[slot];
+        CHECK(marker.id == id);
+        CHECK(std::string_view(marker.pass.data()) == "breadcrumb test pass");
+        CHECK(marker.end == (id == before + 2));
+        if (state->mapped) {
+            CHECK(state->mapped[slot] == id);
+        }
+    }
+}
+
 // Runs every check in one tiny context; injected entry points are restored before shutdown.
 int run_tests() {
     vkgl::Config config;
@@ -393,9 +463,11 @@ int run_tests() {
     test_native_compute_rejects_conflicting_images();
     test_graph_rejects_unknown_layout();
     test_failed_graph_retains_images();
+    test_gpu_breadcrumbs();
     test_rejects_oversized_dispatch();
     test_descriptor_failure_is_not_retried();
     test_failed_submit_never_waits();
+    test_device_fault_query();
     CHECK(vkgl::submission_counters().validation_errors == 0);
     vkgl::close();
     return openrac::test::result();

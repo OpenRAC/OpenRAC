@@ -146,6 +146,14 @@ extern int (*openrac_game_mode)(uint32_t* mode);
 extern int (*openrac_game_hero_position)(float xyz[3]);
 extern int (*openrac_game_camera_position)(float xyz[3]);
 
+/* The on-screen pad's context (platform/touch_actions.h, game/common/frontend/touch_controls.h),
+ * asked once a frame when a game installs it (rac1: port/game/rac1/host/touch.c). It writes the
+ * context's name ("foot", "clank", "ship", "cutscene", "menu"; see game/common/touch/sets/) into
+ * *context and the hints shown now ("swing_target") into hints. Returns the number of hints, or -1
+ * when there is no context (the pad then shows the "default" set). It only reads game memory. */
+#define OPENRAC_TOUCH_HINTS_MAX 4
+extern int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
+
 /* For crash reports: the moby whose update was running when the program stopped. */
 typedef struct openrac_game_moby {
     uint32_t address; /* in game memory */
@@ -173,6 +181,10 @@ extern int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* s
 extern int (*openrac_game_camera_turn)(
     uint8_t right_x, float ticks, float* radians, float axis[3], unsigned* reads
 );
+
+/* Camera turn speed from right stick sensitivity above 100% (the stick byte stops at a full
+ * push). 1 = normal. Games multiply their stick camera turn by it (rac1, rac2: camera_latch.c). */
+extern float openrac_game_camera_speed;
 
 /* A trap the game raised on purpose, or another reason the game cannot go on: writes a crash
  * report (<data>/crashes) and ends the program. */
@@ -252,6 +264,9 @@ typedef struct openrac_front_end {
     /* Whether start_level works from inside a level too, not only over the title: the developer
      * menu then opens over a level as well (with F1, the pad's Select being the game's). */
     int start_level_anywhere;
+    /* The game's occlusion mask this frame (0x80 bytes, rac1's UpdateOcclusion), whose fallbacks
+     * outside the baked grid a level's code chooses (the fighter's octant masks); 0 for none. */
+    gaddr occlusion;
 } openrac_front_end;
 
 extern const openrac_front_end* openrac_game_front_end;
@@ -730,6 +745,11 @@ int openrac_game_hud_texts(openrac_game_hud_text* out, int max);
 /* How many times wider than the game's 4:3 the picture is (the player's aspect setting): its
  * horizontal tangent is the game's times this. 1 for a 4:3 picture, and without a window. */
 float openrac_game_picture_wider(void);
+
+/* How many times the player's Field of View opens the gameplay camera's tangents (both of them),
+ * at least 1: the frame's view tests open by as much, so that what the wider view shows is not
+ * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
+float openrac_game_view_opened(void);
 
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The

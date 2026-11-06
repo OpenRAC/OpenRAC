@@ -343,6 +343,9 @@ public:
         const renderer::Shader& shader, const renderer::Camera& camera
     ) const;
 
+    // The game's occlusion mask this tick (std::nullopt when the game has none).
+    void set_game_pvs(const std::optional<Pvs::Mask>& mask) { m_pvs.game = mask; }
+
     void set_light_sets(const std::vector<float>& sets) {
         if (sets.size() == 16 * 16) {
             m_light_sets = sets;

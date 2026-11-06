@@ -20,32 +20,32 @@ gives the game (`--data`) and the game id is the port's:
 Every `.png` in it or in its sub-folders whose name is a texture's hash is
 used; other files are left alone, and the folders are only for you. The
 setting `texture_pack` (on by default, [SETTINGS.md](SETTINGS.md)) turns it
-off. The log says how many textures the pack has at the start.
+off. It is a mod like the others: `--no-mods` (the launcher's Mods switch
+under Play off) leaves it out too. The log says how many textures the pack
+has at the start.
 
 ## In the launcher
 
-A game's page has a **Texture packs** section, in three steps:
+Your pack is a mod. It is the first row of **Graphics and sound packs** on
+**Mods → My mods**, with a switch (the `texture_pack` setting) and a menu:
 
-1. **Save the game's textures while you play.** Switch it on and play: every
-   picture the game shows is saved once into the textures folder (below).
-   The counts per folder open that folder. It stays on until you switch it
-   off; the launcher starts the game with `OPENRAC_DUMP_TEXTURES` for you.
-2. **Make your own pictures.** Open a saved picture in any image editor,
-   upscale or repaint it, keep its file name, and put it in your pack
-   (**Open your pack**), in any folder.
-3. **Your texture pack.** Its switch is the `texture_pack` setting. **Add a
-   pack…** reads a shared `.zip`: it says how many textures it has and in
-   which folders, refuses another game's pack, and adds it to yours (a
-   picture for the same texture replaces yours) or replaces yours, which is
-   kept beside it as `<game id> (before import <date>)`. **Share my pack…**
-   saves your pack as a `.zip` with its folders and a manifest, and leaves
-   out any picture that is still byte for byte the one the game saved: those
-   are your disc's, not yours to share.
+- **Share my pack…** saves it as a `.zip`. Pictures that are still exactly the
+  game's own are left out (they come from your disc).
+- **Replace with a pack…** puts in another pack and keeps the old one as
+  `<game id> (before import <date>)`.
 
-The textures folder is `texture_dumps/<game id>/` in the launcher's data folder
-(`%LOCALAPPDATA%\openrac`, `~/Library/Application Support/OpenRAC`,
-`~/.local/share/openrac`), not the pack's, so the game's own pictures never
-end up in a pack by themselves.
+To add a shared pack, use **Add a mod** (a file or a drop). It is checked,
+another game's pack is refused, and its pictures are added to yours.
+
+**Make your own** opens the steps (Models and textures; on Android a fold):
+
+1. **Save the game's textures while you play.** Switch it on and play. Each
+   picture the game shows is saved once.
+2. **Make your own pictures.** Edit or upscale a saved picture, keep its file
+   name, and put it in your pack (**Open your pack**), in any folder.
+
+Saved pictures go to `texture_dumps/<game id>/` in the launcher's data folder,
+not into your pack.
 
 ## Making one by hand
 

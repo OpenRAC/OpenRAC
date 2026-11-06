@@ -285,7 +285,7 @@ void Water::release() {
     water_ready.store(false);
     ocean_ready.store(false);
     m_background.release();
-    m_background_ready = false;
+    m_background_textures = {};
     m_step.release();
     m_window_prepare.release();
     m_light.release();

@@ -41,6 +41,8 @@ public:
         bool texture_depth = false,
         bool float_colour = false
     );
+    // A single-sample RGBA8 target for colour copies and readback.
+    bool create_colour(int width, int height, std::string& error);
     // A depth-only target: a sampleable depth texture and no colour or stencil at all, for a map
     // that only depth is drawn into (the shadow atlas). A tile-based GPU then gives the pass's
     // tiles no colour storage and has no stencil to keep. colour_texture() is 0.
@@ -88,6 +90,7 @@ public:
     void blit_to(unsigned target, int dst_width, int dst_height) const;
 
 private:
+    void allocate_colour(bool float_colour);
     unsigned m_framebuffer = 0;
     unsigned m_colour = 0;
     unsigned m_depth = 0;

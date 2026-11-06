@@ -28,6 +28,7 @@
 #include <SDL3/SDL.h>
 
 #include "common/breadcrumbs.h"
+#include "common/crash.h"
 #include "common/env.h"
 #include "common/log.h"
 #include "common/precise_wait.h"
@@ -58,6 +59,7 @@
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+#include "ui_colors.h"
 
 namespace openrac::frontend {
 
@@ -208,6 +210,7 @@ void swapped(std::chrono::steady_clock::time_point started) {
         const auto next_tick =
             pacing.tick + duration_cast<steady_clock::duration>(pacing.period) + slip();
         precise_wait::until(std::min(pacing.due, next_tick));
+        platform::work_waited(duration<double>(steady_clock::now() - before).count());
     }
     const auto swap_started = steady_clock::now();
     g->window->swap();
@@ -221,10 +224,12 @@ void swapped(std::chrono::steady_clock::time_point started) {
         pacing.interval = rate > 20.0f ? 1.0 / rate : 0.0;
         pacing.interval_stale = false;
     }
-    // What a frame may take, for the system's CPU clocks (performance_hint.h): a refresh, or the
-    // player's frame cap when it is lower (as in 0.9.0 and 0.10.0).
+    // What a frame may take, for the system's CPU clocks (performance_hint.h), as the diagnostics
+    // recording sets its target: with frames between ticks a refresh, or the player's frame cap
+    // when it is lower; with a frame a tick (or a refresh not known), the game's tick.
     const double cap = frame_cap();
-    platform::set_frame_target(cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval);
+    const double display = cap > 0.0 ? std::max(1.0 / cap, pacing.interval) : pacing.interval;
+    platform::set_frame_target(interpolating() && display > 0.0 ? display : pacing.period.count());
     if (g->swap == platform::SwapInterval::Immediate || gl::is_vulkan()
         || duration<double>(after - before).count() < 0.0005) {
         // Vulkan's return is not a vblank timestamp, and an immediate GL return
@@ -402,6 +407,10 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
     State& owner = *g;
     const bool queued = g->render_worker->submit(
         [&owner, snapshot = std::move(snapshot)] {
+            // The render thread's share of the frame, for the system's CPU clocks
+            // (performance_hint.h).
+            const auto job_started = std::chrono::steady_clock::now();
+            platform::add_this_thread();
             renderer::g_dump_draws = snapshot->presentation->dump_draws;
             render_scene(owner, *snapshot->scene, snapshot->graphics, *snapshot->presentation);
             sampler::note_thread("render");  // [debug tools] sampled while a capture runs
@@ -410,6 +419,10 @@ void queue_frame(const std::shared_ptr<FramePresentation>& output) {
                 const stats::Scope slow("simulated slow cpu");
                 slow_cpu::pad();
             }
+            platform::render_work_done(
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - job_started)
+                    .count()
+            );
         },
         error,
         output->source_frame
@@ -459,6 +472,7 @@ void draw_overlay(const FramePresentation& output) {
 
 // Composites debug UI and presents on the window thread, after exclusive graphics ownership returns.
 void present_frame(FramePresentation& output) {
+    const crash::BreadcrumbScope breadcrumbs(output.source_frame);
     // A between-tick job keeps draw logging suppressed through its later presentation too.
     struct RestoreDrawDump {
         bool previous = renderer::g_dump_draws;
@@ -487,7 +501,9 @@ void present_frame(FramePresentation& output) {
         debug_menu::draw(shown, width, height);
         mod_menu::draw(shown, width, height);
         if (settings::get().show_fps != settings::FrameCounter::Off) {
-            renderer::ui::fps_counter::draw(shown, width, height);
+            // In the game's accent over the theme's darkest ink, as the launcher and the menu.
+            const ui_colors::Colors& colors = ui_colors::launcher();
+            renderer::ui::fps_counter::draw(shown, width, height, colors.amber, colors.ink_deep);
         }
     }
     {
@@ -544,15 +560,18 @@ bool finish_render() try {
     }
     const std::chrono::duration<double> waited = std::chrono::steady_clock::now() - started;
     stats::gauge("render thread wait ms", waited.count() * 1000.0);
+    platform::work_waited(waited.count());  // the render thread's work, reported as its own
     present_frame(*output);
     return true;
 } catch (const std::exception& failure) {
     g->render_failed = true;
     log::error("cannot finish render: {}", failure.what());
+    crash::report(failure.what(), crash::Kind::Exception);
     return false;
 } catch (...) {
     g->render_failed = true;
     log::error("cannot finish render: unknown exception");
+    crash::report("cannot finish render: unknown exception", crash::Kind::Exception);
     return false;
 }
 
@@ -608,10 +627,12 @@ void draw_kept(bool first) try {
     g->pending_frame.reset();
     g->render_failed = true;
     log::error("cannot prepare render snapshot: {}", failure.what());
+    crash::report(failure.what(), crash::Kind::Exception);
 } catch (...) {
     g->pending_frame.reset();
     g->render_failed = true;
     log::error("cannot prepare render snapshot: unknown exception");
+    crash::report("cannot prepare render snapshot: unknown exception", crash::Kind::Exception);
 }
 
 // ---- Between ticks ----
@@ -672,10 +693,11 @@ int between(std::chrono::steady_clock::time_point next_tick) {
     // is free for it, so that what it draws for and the input it reads are as fresh as they can
     // be, and never after the next tick is due (Window::latency_sleep). With the render thread as
     // well: the job before it is finished (above), and the window thread reads the time and the
-    // input for the next one below.
+    // input for the next one below. The sleep is a wait, not work, for the system's CPU clocks.
     double slept = 0.0;
     if (settings::get().low_latency_frames) {
         slept = g->window->latency_sleep(next_tick);
+        platform::work_waited(slept);
         now = std::chrono::steady_clock::now();
     }
     // Do not queue another interpolation job once simulation is due to resume.

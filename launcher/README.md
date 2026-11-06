@@ -110,16 +110,10 @@ the game you used last.
 - **Logs**: every play session and crash is kept under **Help**, newest
   first, with the same Copy and Save actions. A recent crash marks the game
   in the list. **Detailed logs** makes the game write more, for when we ask.
-- **Texture packs**: for a game with a port, your own pictures in place of
-  the game's, in three steps. **Save the game's textures while you play**
-  makes the next Play save every picture it shows, sorted into Interface
-  (HUD, menus, font), Shared and a folder for each planet, with counts that
-  open each folder; they come from your disc, so keep them to yourself.
-  Edit or upscale the ones you want in any editor and put them in **your
-  pack**, which has its own switch. **Add a pack…** checks a shared `.zip`
-  (another game's is refused) and adds it to yours or replaces yours, which
-  is kept beside it. **Share my pack…** saves yours as a `.zip`, leaving out
-  pictures that are still the game's own
+- **Texture packs**: your own pictures in place of the game's. Your pack is
+  a mod, first under the packs on Mods → My mods. Its menu shares it as a
+  `.zip` or replaces it. Add a shared pack with **Add a mod**. **Make your
+  own** saves the game's pictures while you play, so you can edit them
   ([docs/port/TEXTURE_PACKS.md](../docs/port/TEXTURE_PACKS.md)).
 - **Differences from the original**: for a game with a port, what it does
   differently and why. **Game fixes** can be switched; **Kept from crashing**
@@ -146,6 +140,12 @@ from the game's next start. Play brings them only with the **Mods** switch under
 it on (off by default: the game as the console plays it).
 Android loads no native mods. Its Mods tab shows the script mods, Enhanced
 graphics and the packs on one page, without the level editor.
+
+**My mods** holds everything the game loads. The other tabs make things, and
+what they make shows up there. The **Get mods** banner at the top opens the
+hub (openrac.dev/mods); the launcher does not list mods itself. With six or
+more mods a toolbar adds a search, kinds and an order. In load order, drag a
+row by its grip, or use its menu (for a pad).
 
 **Enhanced graphics** (experimental) is built in. It is the first row of
 Gameplay mods for Ratchet & Clank (PAL and NTSC-U) and Going Commando
@@ -209,9 +209,14 @@ Going Commando, Up Your Arsenal and Deadlocked (NTSC-U) are early access.
 Their levels open in Godot and **Models and textures** works, but edits are
 not packed back. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
-Your Arsenal and Deadlocked are not playable yet; Going Commando's Play is
-there with developer tools on (it gets its levels ready first, as Ratchet &
-Clank's does, and reads them again when their format changes).
+Your Arsenal and Deadlocked are not playable yet. Going Commando's program
+still needs code from your disc. The Windows installer carries the game without
+that code and a small compiler: **Build and play** builds the missing part from
+your disc, with nothing to install or download, then gets its levels ready as
+Ratchet & Clank's does. On Linux and macOS no installer carries it: **Build and
+play** downloads OpenRAC's source and builds it from your disc. That needs a
+compiler, and says which is missing. On Linux it also needs SDL's X11, Wayland
+and audio development packages, such as `libxss-dev`.
 
 ## Develop
 

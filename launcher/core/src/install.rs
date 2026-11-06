@@ -200,7 +200,7 @@ pub fn settle_games_dir(wanted: &Path, earlier: &[PathBuf]) -> PathBuf {
 ///
 /// OpenGOAL asks for an install folder at first start; until the player picks one, games are set
 /// up in the `OpenRAC` folder of `home` (`/home/<user>/OpenRAC`, `/Users/<user>/OpenRAC`,
-/// `C:\Users\<user>\OpenRAC`), made here when it is missing. Launchers before that folder kept them
+/// `C:\Users\<user>\OpenRAC`), made here when it is missing and only then. Launchers before that folder kept them
 /// in `local_data`, the launcher's per-user data folder: a config that still names it, or names
 /// none, is moved to the `OpenRAC` folder, its `active/` renamed there when the `OpenRAC` folder
 /// has none yet, and the config saved to `config_file`. A folder the player chose is left as it is.
@@ -215,6 +215,9 @@ pub fn settle_install_dir(
     local_data: Option<&Path>,
     config_file: Option<&Path>,
 ) {
+    if config.install_dir.is_some() && config.install_dir.as_deref() != local_data {
+        return;
+    }
     let openrac_home = home.and_then(|home| crate::detect::ensure_openrac_dir_in(home).ok());
     let Some(openrac_dir) = openrac_home else {
         if config.install_dir.is_none() {
@@ -222,9 +225,6 @@ pub fn settle_install_dir(
         }
         return;
     };
-    if config.install_dir.is_some() && config.install_dir.as_deref() != local_data {
-        return;
-    }
     if let Some(data) = local_data {
         let old_active = data.join("active");
         let new_active = openrac_dir.join("active");
@@ -410,7 +410,7 @@ mod tests {
         start.settle(&mut config);
         assert_eq!(config.install_dir, Some(chosen));
         assert!(set_up_game_is_in(&start.data));
-        assert!(start.openrac().is_dir(), "the OpenRAC folder is made all the same");
+        assert!(!start.openrac().exists(), "no OpenRAC folder appears in the player's home");
         assert!(!start.file.exists());
     }
 

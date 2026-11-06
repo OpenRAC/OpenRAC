@@ -43,9 +43,14 @@ struct BakeTexture {
 };
 
 // Colour controls shared by ordinary material and emission-texture sampling.
+// Default fraction of the original terrain vertex lighting used to tint enhanced diffuse.
+inline constexpr float kTerrainVertexAlbedoStrength = .5f;
+
 struct BakeMaterialOptions {
     Float3 texture_tint{1, 1, 1};       // GS/sRGB modulation before decoding.
     bool terrain_vertex_albedo = true;  // Decode authored terrain after filtering and tinting.
+    float terrain_vertex_albedo_strength =
+        kTerrainVertexAlbedoStrength;  // Blend from neutral to the authored multiplier.
 };
 
 // Barycentric texture sampling: linear RGB and alpha. Repeat wrapping, as
@@ -118,6 +123,8 @@ struct BakeSettings {
     // Optional world-space light travel direction; absent preserves authored primary directions.
     std::optional<Float3> sunlight_direction;
     bool terrain_vertex_albedo = true;  // preserve authored terrain shading as an artistic tint
+    float terrain_vertex_albedo_strength =
+        kTerrainVertexAlbedoStrength;  // Fraction of authored terrain tint to retain.
     // Each probe pairs this many primary directions with independent emitter samples.
     std::uint32_t rays_per_probe = 256;
     std::uint32_t bounces = 3;

@@ -57,6 +57,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "options_menu.h"
+#include "platform/performance_hint.h"
 #include "platform/pump.h"
 #include "renderer/direct.h"
 #include "renderer/renderer.h"
@@ -1869,6 +1870,16 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
             }
         }
     }
+    // The game's occlusion mask, which picks retail's fallback outside the baked grid.
+    std::optional<scene::Pvs::Mask> occlusion;
+    if (occlusion_address() != 0) {
+        const gaddr mask = openrac_relocate_data(occlusion_address());
+        if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
+            occlusion.emplace();
+            std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
+        }
+    }
+    g->scene.set_game_pvs(occlusion);
 }
 
 // Keeps this tick's scene for the frames drawn until the next one (Kept), the last tick's as
@@ -1896,6 +1907,9 @@ void keep_tick(
         k.scenery = {};
         k.prev_scenery = {};
         k.level = g->loaded;
+        // A new level's frames cost what they cost: the system forgets the last level's
+        // (performance_hint.h).
+        platform::workload_reset();
         g->water_impulses.clear();
     }
     const bool adjacent = g->index == k.frame + 1;
@@ -2586,6 +2600,18 @@ bool frame(std::span<const std::uint8_t> ram, std::uint32_t chain, std::uint32_t
     part.emplace("tick kept");
     keep_tick(ram, state, draws, std::move(mobys));
     g->kept->world_under_menu = under_menu;
+    // The pause menu runs in a mode of its own, but the world under it (the picture of the frame
+    // it took, or a level's world drawn live under it) is the level's, seen with the camera it was
+    // paused with: a gameplay camera when the game was paused from play.
+    std::uint32_t mode_now = 0;
+    const auto pause_mode = g->profile->pause_mode();
+    const bool paused = pause_mode && openrac_game_mode != nullptr
+                        && openrac_game_mode(&mode_now) != 0 && mode_now == *pause_mode;
+    if (under_menu || paused) {
+        g->kept->gameplay_camera = g->paused_from_play;
+    } else if (world_ran) {
+        g->paused_from_play = g->kept->gameplay_camera;
+    }
     g->kept->packets = std::move(packets.packets);
     g->kept->strip_vertices = std::move(packets.strip_vertices);
     g->kept->strips = std::move(packets.strips);

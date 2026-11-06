@@ -136,13 +136,16 @@ reason, as is the extractor's when it refuses a disc.
 **The setup** is the desktop's: `tools/extractor.py`, `editor/extract.py port`
 for the levels, then the game's `--check-levels`, with their output in the
 launcher. These steps name Android in `launcher/actions.json`; building the
-game does not, as the APK carries it. Rebuild, in the game's menu, reads the
-levels again and checks them. Android runs programs only from an app's native
+game does not, as the APK carries it. Going Commando adds one: the part of its
+code still in assembly is compiled on the device from the disc by the Clang and
+lld the APK carries (`tools/asm_part.py`, `port/game/rac2-ntsc/README.md`).
+Rebuild, in the game's menu, reads the levels again and checks them. Android runs programs only from an app's native
 library folder, so the APK carries them as libraries:
 
 | Library | What it is |
 |---|---|
 | `libpython3.13.so`, `libopenrac-python.so` | CPython for Android from [Chaquopy](https://github.com/chaquo/chaquopy) (MIT, pinned from Maven Central), and a small `python3` around it (`port/android/python_main.c`) |
+| `libopenrac-zig.so` | [Zig](https://ziglang.org)'s static AArch64 Linux release (MIT, pinned by SHA-256): Clang and lld (`zig clang`, `zig ld.lld`), which build Going Commando's part from the disc on the device (`tools/asm_part.py`) |
 | `libopenrac-<id>-cli.so` | the game without a window, for `--check-levels` |
 | `libopenrac-enhanced-baker.so` | Enhanced graphics' probe baker, with Embree built by the NDK (the release `tools/build_port.py` pins) |
 
@@ -189,8 +192,8 @@ keeps clear of a camera cut-out (`MainActivity.kt`). A controller drives it
 The pages are arranged for a handheld, with a navigation rail:
 
 - Games has a compact card per game. The last one picked is ringed, and the
-  launcher takes its colour: Ratchet & Clank orange, Going Commando light
-  blue, Up Your Arsenal yellow, Deadlocked red, Size Matters blue
+  launcher takes its colour: Ratchet & Clank orange, Going Commando
+  teal, Up Your Arsenal yellow, Deadlocked red, Size Matters blue
   (`launcher/src/lib/themes.ts`).
 - Mods and Develop work on the game picked on Games, named at the top right.
 - A game's page keeps Play and the saves at hand; Differences from the
@@ -203,7 +206,7 @@ The pages are arranged for a handheld, with a navigation rail:
 The desktop's menus (View, Graphics, Sound, Developer) are a drawer on
 Android, as in an emulator. It slides in from the left over the paused game
 with the pad's options button, Back, a controller's Guide button, or the
-controller's menu button (L3 by default, `menu_bar_button`). Its Controller settings row
+controller's menu button (Start+Select by default, `menu_button`). Its Controller settings row
 opens the controller's settings (buttons, sticks, players) in a panel over the
 rest of the screen; B or its close button puts it away.
 

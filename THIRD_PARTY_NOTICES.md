@@ -24,6 +24,22 @@ as do the grain type names in `port/assets/sound/sound_bank.h`.
 OpenRAC. The launcher lists its own notices in
 [launcher/THIRD_PARTY_NOTICES.md](launcher/THIRD_PARTY_NOTICES.md).
 
+## Microsoft Visual C++ runtime
+
+The Windows installers carry `msvcp140.dll`, `msvcp140_2.dll`, `vcruntime140.dll`
+and `vcruntime140_1.dll` beside the game programs, unmodified, so a player needs
+no Visual C++ Redistributable. They are Microsoft's, redistributable under the
+Visual Studio license terms, and are not part of OpenRAC.
+
+## Zig and mingw-w64
+
+The Windows installers carry [Zig](https://ziglang.org)'s program (MIT; Clang and
+lld of LLVM in it, Apache-2.0 with LLVM exceptions), unmodified, and the headers of
+Clang and [mingw-w64](https://www.mingw-w64.org) from its release (the system
+headers are in the public domain), to build the part of Going Commando that comes
+from the player's disc (`tools/asm_part.py`). Their licenses are carried in
+`port/build/release/licenses/zig`.
+
 ## Embree
 
 The offline probe baker (`openrac-enhanced-baker`: `port/enhanced/lighting/bake.cpp`,
@@ -180,6 +196,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |
+| [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons: reading and drawing their SVGs ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h)) |
 | [Luau](https://github.com/luau-lang/luau) | 0.741 (commit 2d88f9b) | MIT | script mods: its virtual machine and compiler ([docs/port/MODS.md](docs/port/MODS.md), section 11; [port/cmake/Luau.cmake](port/cmake/Luau.cmake)) |
 | [Vulkan-Headers](https://github.com/KhronosGroup/Vulkan-Headers) | vulkan-sdk-1.4.350.1 | Apache-2.0 or MIT | the Vulkan renderer |
 | [volk](https://github.com/zeux/volk) | vulkan-sdk-1.4.350.1 | MIT | the Vulkan renderer: the Vulkan loader, opened at run time |

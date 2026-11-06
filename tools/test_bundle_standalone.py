@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import bundle_standalone as bundle
 
@@ -46,13 +47,54 @@ class PlayerActions(unittest.TestCase):
         self.pal = {a["id"]: a for a in self.actions["versions"]["rac1/pal"]}
         self.ntsc = {a["id"]: a for a in self.actions["versions"]["rac1/ntsc"]}
 
+    def test_an_apk_plays_only_the_games_it_carries(self):
+        def platforms(actions, key):
+            return next(a for a in actions["versions"][key] if a["id"] == "play").get("platforms", [])
+        without = bundle.player_actions(android=True, android_games={"rac1-pal", "rac1-ntsc"})
+        self.assertNotIn("android", platforms(without, "rac2/ntsc"))
+        self.assertIn("linux", platforms(without, "rac2/ntsc"))
+        with_rac2 = bundle.player_actions(android=True, android_games={"rac1-pal", "rac1-ntsc", "rac2-ntsc"})
+        self.assertIn("android", platforms(with_rac2, "rac2/ntsc"))
+        self.assertIn("android", platforms(bundle.player_actions(android=True), "rac2/ntsc"))
+
+    def test_an_apk_builds_going_commandos_part_for_its_own_version(self):
+        rac2 = {a["id"]: a for a in bundle.player_actions(android=True)["versions"]["rac2/ntsc"]}
+        part, play = rac2["port-part"], rac2["play"]
+        made = part["makes"]
+        self.assertRegex(made, r"^\{data\}/asm-part/[^/]+/libopenrac-rac2-ntsc-part\.so$")
+        self.assertEqual(part["args"][part["args"].index("--out") + 1], made.rsplit("/", 1)[0])
+        # Run in the copy, where tools/asm_part.py is, not in the data folder as Play is.
+        self.assertEqual(part["cwd"], ".")
+        self.assertEqual(play["args"][-2:], ["--asm-part", made])
+        self.assertIn(made, [n["path"] for n in play["needs"]])
+        # A desktop's copy plays its own build: no part.
+        desktop = {a["id"]: a for a in bundle.player_actions()["versions"]["rac2/ntsc"]}
+        self.assertNotIn("--asm-part", desktop["play"]["args"])
+
+    def test_a_windows_installer_builds_going_commandos_part_with_no_compiler_of_the_players(self):
+        windows = bundle.player_actions(windows_parts={"rac2/ntsc"}, part_tags={"rac2-ntsc": "abc123"})
+        rac2 = {a["id"]: a for a in windows["versions"]["rac2/ntsc"]}
+        part, play = rac2["port-part"], rac2["play"]
+        made = "{data}/asm-part/abc123/libopenrac-rac2-ntsc-part.dll"
+        self.assertEqual(part["makes"], made)
+        self.assertEqual(part["platforms"], ["windows"])
+        self.assertEqual(part["args"][:3], ["tools/asm_part.py", "build", "rac2-ntsc"])
+        self.assertEqual(part["cwd"], ".")
+        self.assertEqual(play["args"][-2:], ["--asm-part", made])
+        self.assertIn(made, [n["path"] for n in play["needs"]])
+        # Nothing asks for a compiler: no player's build, and the program is the one the copy carries.
+        self.assertNotIn("port-build", rac2)
+        self.assertEqual(play["artifact"], "port/build/release/openrac-rac2-ntsc.exe")
+
     def test_only_what_a_player_does(self):
         self.assertEqual(self.actions["repository"], [])
         for key, actions in self.actions["versions"].items():
-            self.assertLessEqual({a["id"] for a in actions}, set(bundle.KEEP), key)
+            self.assertLessEqual({a["id"] for a in actions if a["id"] != "port-build" or key not in bundle.PLAYER_BUILDS},
+                             set(bundle.KEEP), key)
         # Playing, and modding: every player gets the Mods page, not only a checkout's.
-        self.assertEqual(set(self.pal), set(bundle.KEEP))
-        self.assertEqual(set(self.ntsc), set(bundle.KEEP))
+        # port-part is Going Commando's alone (its code still in assembly, built on an Android device).
+        self.assertEqual(set(self.pal), set(bundle.KEEP) - {"port-part"})
+        self.assertEqual(set(self.ntsc), set(bundle.KEEP) - {"port-part"})
 
     def test_the_later_games_levels_are_read_for_packs_in_the_data_folder(self):
         # Going Commando, Up Your Arsenal and Deadlocked: early access, so no play and no packing
@@ -148,15 +190,19 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual([need["path"] for need in check["needs"]], [levels["artifact"]])
         self.assertTrue(check["artifact"].endswith("openrac-rac1-ntsc.exe"))
 
-    def test_going_commando_plays_for_developers(self):
-        # Its Play is carried as it is (a developer's, with its warning), started in the data
+    def test_going_commando_plays_for_players(self):
+        # Its Play is carried as it is (a player's, with its warning), started in the data
         # folder, reading the data folder's levels. It has no level check yet, so it waits for the
         # disc set up there and for the export's own stamp: a format bump reads the levels again
-        # before it starts. Its build needs a checkout.
+        # before it starts. The player builds its program, from the disc (tools/build_game.py).
         actions = {a["id"]: a for a in self.actions["versions"]["rac2/ntsc"]}
         play = actions["play"]
-        self.assertTrue(play["developer"])
-        self.assertIn("development only", play["warning"])
+        self.assertNotIn("developer", play)
+        self.assertIn("early and unstable", play["warning"])
+        bake = actions["probe-bake"]
+        self.assertNotIn("developer", bake)
+        self.assertEqual(bake["args"][bake["args"].index("--levels-dir") + 1], "{data}/port/ntsc")
+        self.assertEqual([need["path"] for need in bake["needs"]], [actions["port-levels"]["artifact"]])
         self.assertEqual(play["args"], ["--data", "{data}", "--window", "--levels", "{data}/port/ntsc"])
         self.assertEqual(play["cwd"], "{data}")
         self.assertEqual([n["path"] for n in play["needs"]],
@@ -164,8 +210,27 @@ class PlayerActions(unittest.TestCase):
         self.assertEqual(actions["port-levels"]["artifact"], f"{{data}}/port/ntsc/levels-{going_commando_format()}.json")
         self.assertTrue(play["artifact"].endswith("openrac-rac2-ntsc.exe"))
         self.assertNotIn("todo", play)
+        build = actions["port-build"]
+        self.assertNotIn("developer", build)
+        self.assertEqual(build["args"][:4], ["tools/build_game.py", "rac2-ntsc", "--disc", "{disc}"])
+        self.assertIn("disc", build["requires"])
+        self.assertEqual(build["artifact"], play["artifact"])
+        self.assertTrue(play["artifact"].startswith("{data}/program/"))
+        self.assertEqual(build["args"][build["args"].index("--out") + 1] + "/openrac-rac2-ntsc.exe", play["artifact"])
+        # What needs the player's disc is never carried, and only this version is built by the player.
+        self.assertNotIn("openrac-rac2-ntsc", bundle.GAMES)
+        self.assertNotIn("port-build", {a["id"] for a in self.actions["versions"]["rac1/pal"]})
+
+    def test_the_player_build_goes_by_commit(self):
+        with mock.patch.object(bundle.proc, "git", return_value="abc123def456"):
+            self.assertEqual(bundle.player_program_folder(), "{data}/program/abc123def456")
+        with mock.patch.object(bundle.proc, "git", return_value=""):
+            self.assertEqual(bundle.player_program_folder(), "{data}/program/source")
+
+    def test_android_has_no_player_build(self):
+        actions = {a["id"]: a for a in bundle.player_actions(android=True)["versions"]["rac2/ntsc"]}
         self.assertNotIn("port-build", actions)
-        self.assertIn("openrac-rac2-ntsc", bundle.GAMES)
+        self.assertEqual(actions["play"]["artifact"], "port/build/release/openrac-rac2-ntsc.exe")
 
     def test_folders_and_arguments(self):
         self.assertEqual(bundle.levels_folder("rac1/pal"), "{data}/port/pal")
@@ -337,11 +402,26 @@ class Bundle(unittest.TestCase):
             (build / "openrac-rac2-ntsc.exe").write_bytes(b"rac2")
             dest.mkdir()
             self.assertEqual(bundle.copy_games(build, dest),
-                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
+                             ["apps/openrac-rac1-pal", "openrac-rac1-ntsc.exe"])
             self.assertEqual((dest / app / "Contents/MacOS/Ratchet & Clank").read_bytes(), b"pal")
             self.assertTrue((dest / app / "Contents/Info.plist").is_file())
             self.assertEqual(sorted(p.name for p in dest.iterdir()),
-                             ["apps", "openrac-rac1-ntsc.exe", "openrac-rac2-ntsc.exe"])
+                             ["apps", "openrac-rac1-ntsc.exe"])
+
+    def test_windows_games_carry_the_cpp_runtime(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            system, dest = Path(tmp) / "system", Path(tmp) / "dest"
+            system.mkdir()
+            dest.mkdir()
+            for name in bundle.WINDOWS_RUNTIME:
+                (system / name).write_bytes(name.encode())
+            self.assertEqual(bundle.copy_windows_runtime(system, dest), list(bundle.WINDOWS_RUNTIME))
+            for name in bundle.WINDOWS_RUNTIME:
+                self.assertEqual((dest / name).read_bytes(), name.encode())
+            # One that is missing stops the installer here, not the game on a player's computer.
+            (system / "msvcp140_2.dll").unlink()
+            with self.assertRaisesRegex(SystemExit, "msvcp140_2.dll"):
+                bundle.copy_windows_runtime(system, dest)
 
     @unittest.skipUnless(sys.platform.startswith("linux") and shutil.which("cc")
                          and (shutil.which("llvm-strip") or shutil.which("strip")), "needs a Linux compiler and strip")
