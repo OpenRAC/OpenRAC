@@ -80,7 +80,9 @@ void install(
     const std::string& which,
     const char* built,
     const std::string& api = "1.13",
-    const std::string& extra = ""
+    const std::string& extra = "",
+    const std::string& games = R"({"test": ["one"]})",
+    const std::string& hooks = R"(["Test_Add"])"
 ) {
     const fs::path dir = plugins / ("test-" + which);
     fs::create_directories(dir / "lib");
@@ -89,7 +91,7 @@ void install(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-)" + which + R"(", "name": "Test", "version": "1.0.0",
         "api": ")"
-            + api + R"(", "games": {"test": ["one"]}, "hooks": ["Test_Add"],)" + extra + R"(
+            + api + R"(", "games": )" + games + R"(, "hooks": )" + hooks + R"(,)" + extra + R"(
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": "lib/)" + library_name() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0},
@@ -105,7 +107,8 @@ void install(
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
-                                  {"value": "hoverboard", "name": "Hoverboard"}]},
+                                  {"value": "hoverboard", "name": "Hoverboard"},
+                                  {"value": "callback_only", "name": "Callback only"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -120,6 +123,16 @@ mods::Host host(const fs::path& plugins) {
     h.list = plugins / "plugins.json";
     h.pad_hook = &g_pad_hook;
     h.now = "2026-10-21T00:00:00+00:00";
+    return h;
+}
+
+mods::Host rac2_host(const fs::path& plugins) {
+    mods::Host h = host(plugins);
+    h.game = "rac2";
+    h.version = "ntsc";
+    h.hooks = nullptr;
+    h.hook_count = 0;
+    h.scripts = nullptr;
     return h;
 }
 
@@ -903,6 +916,39 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     CHECK(mods::ui_pause_item_count() == 0);
 }
 
+// RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
+// common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
+void rac2_callback_only_native_mod(const fs::path& plugins) {
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.13", "", R"({"rac2": ["ntsc"]})", "[]");
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true,
+         "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
+    g_records.clear();
+    CHECK(mods::load(rac2_host(plugins)) == "test-a 1.0.0");
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(g_pad_hook != nullptr);
+    unsigned char report[18] = {10};
+    g_pad_hook(0, report, 18);
+    CHECK(report[0] == 14);
+    mods::tick_boundary(7);
+    CHECK(std::find(g_records.begin(), g_records.end(), 3007) != g_records.end());
+    mods::reset();
+
+    install(
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.13", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+    );
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
+    CHECK(mods::load(rac2_host(plugins)) == "none (1 not loaded: plugins/status.json)");
+    const auto [state, reason] = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("no hook point Test_Add") != std::string::npos);
+    mods::reset();
+
+    // Restore the ordinary test target for the remaining cases in this executable.
+    install(plugins, "a", OPENRAC_TEST_MOD_A);
+}
+
 // The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,
 // its callback run by mods::tick_boundary with the tick, the snapshot calls refused for a game
 // without a snapshot (the test's) and outside the boundary; reset takes the callback back.
@@ -1154,6 +1200,7 @@ int main() {
     views_reach_the_host(plugins);
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
+    rac2_callback_only_native_mod(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

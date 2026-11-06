@@ -597,6 +597,13 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             return 15;
         }
     }
+    if (behaviour[0] == 'c') { /* callback_only */
+        if (api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK
+            || api->on_pad(mod, on_pad, NULL) != OPENRAC_HOOK_OK) {
+            return 18;
+        }
+        return 0;
+    }
     if (behaviour[0] == 'g') { /* game_ui */
         static const char* const letters[] = {"A", "B", "C"};
         const openrac_ui_item items[] = {

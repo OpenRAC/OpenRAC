@@ -298,6 +298,12 @@ a hint after 3, and the buttons wait until no finger is on them.
 
 ## 4. Hook points
 
+A native mod does not have to take a game hook point. Common host callbacks such as
+`openrac_api.on_pad` and `openrac_api.on_tick_boundary` are independent of the
+per-game hook catalogue. RAC2 therefore supports native callback-only mods even
+while its game hook catalogue is empty; trying to take a RAC2 game hook is still
+refused, and script mods still require a RAC2 script binding.
+
 A hook point is declared in a disc's `libraries.tsv`, in the `port` column:
 
 ```

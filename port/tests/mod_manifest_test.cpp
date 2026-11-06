@@ -239,6 +239,13 @@ void checks() {
         Target rac2 = rac1_pal();
         rac2.game = "rac2";
         CHECK(!plan_all({candidate(manifest("a"))}, rac2)[0].load);
+        rac2.version = "ntsc";
+        const std::string rac2_native =
+            R"({"format": 2, "id": "callback", "name": "Callback", "version": "1.0.0", "api": "1.0", "games": {"rac2": ["ntsc"]}, "hooks": [], "plugin": {")"
+            + std::string(platform_key()) + R"(": "lib/callback"}})";
+        CHECK(
+            plan_all({candidate(rac2_native)}, rac2)[0].load
+        );  // native callbacks need no game hook catalogue or script binding
         d = plan_all({candidate(manifest("a", "1.0.0", "", "2.0"))});
         CHECK(!d[0].load && d[0].reason.find("needs interface 2.0") != std::string::npos);
         d = plan_all({candidate(manifest("a", "1.0.0", "", "1.3"))});
