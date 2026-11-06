@@ -2,9 +2,11 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // renderer/metal/mtlgl.h without a window: the context says what it is, clears the default
-// framebuffer and reads it back with GL's pack alignment, and refuses the clears it cannot do yet.
+// framebuffer and reads it back with GL's pack alignment, and refuses the clears it cannot do yet;
+// textures, framebuffers, a multisample resolve, copies and buffers.
 // Skipped (exit 77) where there is no Metal device.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -76,6 +78,104 @@ int main() {
 
     read_pixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, pixels.data());
     CHECK(get_error() == 0x0500);  // GL_INVALID_ENUM
+
+    const auto gen_textures = proc<PFN_glGenTextures>("glGenTextures");
+    const auto bind_texture = proc<PFN_glBindTexture>("glBindTexture");
+    const auto tex_image = proc<PFN_glTexImage2D>("glTexImage2D");
+    const auto tex_sub_image = proc<PFN_glTexSubImage2D>("glTexSubImage2D");
+    const auto copy_tex_sub_image = proc<PFN_glCopyTexSubImage2D>("glCopyTexSubImage2D");
+    const auto gen_framebuffers = proc<PFN_glGenFramebuffers>("glGenFramebuffers");
+    const auto bind_framebuffer = proc<PFN_glBindFramebuffer>("glBindFramebuffer");
+    const auto framebuffer_texture = proc<PFN_glFramebufferTexture2D>("glFramebufferTexture2D");
+    const auto framebuffer_renderbuffer =
+        proc<PFN_glFramebufferRenderbuffer>("glFramebufferRenderbuffer");
+    const auto check_status = proc<PFN_glCheckFramebufferStatus>("glCheckFramebufferStatus");
+    const auto gen_renderbuffers = proc<PFN_glGenRenderbuffers>("glGenRenderbuffers");
+    const auto bind_renderbuffer = proc<PFN_glBindRenderbuffer>("glBindRenderbuffer");
+    const auto renderbuffer_storage_multisample =
+        proc<PFN_glRenderbufferStorageMultisample>("glRenderbufferStorageMultisample");
+    const auto blit_framebuffer = proc<PFN_glBlitFramebuffer>("glBlitFramebuffer");
+    const auto gen_buffers = proc<PFN_glGenBuffers>("glGenBuffers");
+    const auto bind_buffer = proc<PFN_glBindBuffer>("glBindBuffer");
+    const auto buffer_data = proc<PFN_glBufferData>("glBufferData");
+    const auto buffer_sub_data = proc<PFN_glBufferSubData>("glBufferSubData");
+
+    // A texture's rows read back as uploaded, row 0 first, through a framebuffer.
+    GLuint textures[4] = {};
+    gen_textures(4, textures);
+    GLuint framebuffers[3] = {};
+    gen_framebuffers(3, framebuffers);
+    const std::uint8_t texels[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    bind_texture(GL_TEXTURE_2D, textures[0]);
+    tex_image(GL_TEXTURE_2D, 0, GL_RGBA8, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, texels);
+    bind_framebuffer(GL_FRAMEBUFFER, framebuffers[0]);
+    CHECK(check_status(GL_FRAMEBUFFER) == 0x8CD7);  // GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT
+    framebuffer_texture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+    CHECK(check_status(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    std::uint8_t read[16] = {};
+    read_pixels(0, 0, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, read);
+    CHECK(std::equal(read, read + 16, texels));
+
+    // An upload after a clear in the same frame lands after it.
+    clear_colour(0.0f, 1.0f, 0.0f, 1.0f);
+    clear(GL_COLOR_BUFFER_BIT);
+    const std::uint8_t blue[4] = {0, 0, 255, 255};
+    tex_sub_image(GL_TEXTURE_2D, 0, 1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, blue);
+    read_pixels(0, 0, 2, 2, GL_RGBA, GL_UNSIGNED_BYTE, read);
+    CHECK(read[0] == 0 && read[1] == 255 && read[2] == 0);
+    CHECK(read[12] == 0 && read[13] == 0 && read[14] == 255);
+    CHECK(get_error() == GL_NO_ERROR);
+
+    // A half float frame read as floats.
+    const float hdr[4] = {2.5f, -1.0f, 0.25f, 1.0f};
+    bind_texture(GL_TEXTURE_2D, textures[1]);
+    tex_image(GL_TEXTURE_2D, 0, 0x881A /* GL_RGBA16F */, 1, 1, 0, GL_RGBA, GL_FLOAT, hdr);
+    framebuffer_texture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[1], 0);
+    float floats[4] = {};
+    read_pixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, floats);
+    CHECK(std::equal(floats, floats + 4, hdr));
+
+    // A multisampled clear resolved into a texture of its size.
+    GLuint renderbuffer = 0;
+    gen_renderbuffers(1, &renderbuffer);
+    bind_renderbuffer(GL_RENDERBUFFER, renderbuffer);
+    renderbuffer_storage_multisample(GL_RENDERBUFFER, 4, GL_RGBA8, 4, 4);
+    bind_framebuffer(GL_FRAMEBUFFER, framebuffers[1]);
+    framebuffer_renderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, renderbuffer);
+    CHECK(check_status(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    clear_colour(1.0f, 0.0f, 0.0f, 1.0f);
+    clear(GL_COLOR_BUFFER_BIT);
+    bind_texture(GL_TEXTURE_2D, textures[2]);
+    tex_image(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    bind_framebuffer(GL_DRAW_FRAMEBUFFER, framebuffers[2]);
+    framebuffer_texture(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[2], 0);
+    blit_framebuffer(0, 0, 4, 4, 0, 0, 4, 4, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    CHECK(get_error() == GL_NO_ERROR);
+    blit_framebuffer(0, 0, 4, 4, 0, 0, 2, 2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    CHECK(get_error() == 0x0502);  // a scaled blit is a draw: not yet
+    bind_framebuffer(GL_READ_FRAMEBUFFER, framebuffers[2]);
+    read_pixels(3, 3, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, read);
+    CHECK(read[0] == 255 && read[1] == 0 && read[2] == 0 && read[3] == 255);
+
+    // The default framebuffer's orange copied into a texture.
+    bind_framebuffer(GL_FRAMEBUFFER, 0);
+    bind_texture(GL_TEXTURE_2D, textures[3]);
+    tex_image(GL_TEXTURE_2D, 0, GL_RGBA8, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    copy_tex_sub_image(GL_TEXTURE_2D, 0, 0, 0, 0, 0, 2, 2);
+    bind_framebuffer(GL_FRAMEBUFFER, framebuffers[2]);
+    framebuffer_texture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[3], 0);
+    read_pixels(1, 1, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, read);
+    CHECK(read[0] == 255 && read[1] >= 127 && read[1] <= 128 && read[2] == 0);
+    bind_framebuffer(GL_FRAMEBUFFER, 0);
+
+    GLuint buffer = 0;
+    gen_buffers(1, &buffer);
+    bind_buffer(GL_ARRAY_BUFFER, buffer);
+    buffer_data(GL_ARRAY_BUFFER, 8, texels, GL_STATIC_DRAW);
+    buffer_sub_data(GL_ARRAY_BUFFER, 4, 4, texels);
+    CHECK(get_error() == GL_NO_ERROR);
+    buffer_sub_data(GL_ARRAY_BUFFER, 6, 4, texels);
+    CHECK(get_error() == 0x0501);  // GL_INVALID_VALUE
 
     openrac::mtlgl::present();
     openrac::mtlgl::close();

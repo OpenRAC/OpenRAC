@@ -1,60 +1,140 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+//
+// The context, the command stream (mtlgl_internal.h), state, and the present. Resources are
+// mtlgl_resources.mm's.
 
-#include "renderer/metal/mtlgl.h"
-
-#import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
-
-#include <SDL3/SDL_metal.h>
 #include <SDL3/SDL_video.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <cstring>
 #include <format>
 #include <utility>
+#include <vector>
 
-#include "renderer/gl.h"
+#include "renderer/metal/mtlgl_internal.h"
 
-namespace openrac::mtlgl {
-
-namespace {
-
-using namespace openrac::gl;
-
-constexpr GLenum kGlInvalidEnum = 0x0500;
-constexpr GLenum kGlInvalidOperation = 0x0502;
-constexpr GLenum kGlFramebufferBinding = 0x8CA6;
-constexpr GLenum kGlViewportQuery = 0x0BA2;
-
-struct State {
-    bool blend = false, depth_test = false, cull = false, scissor_test = false, stencil_test = false;
-    GLint viewport[4] = {}, scissor[4] = {};
-    float clear_colour[4] = {}, clear_depth = 1.0f;
-    GLint clear_stencil = 0;
-    bool colour_mask[4] = {true, true, true, true}, depth_mask = true;
-    GLuint stencil_mask = 0xFFFFFFFF;
-    GLint pack_alignment = 4, unpack_alignment = 4;
-    GLuint draw_framebuffer = 0, read_framebuffer = 0;
-};
-
-struct Context {
-    id<MTLDevice> device;
-    id<MTLCommandQueue> queue;
-    SDL_Window* window = nullptr;
-    SDL_MetalView view = nullptr;
-    CAMetalLayer* layer = nil;
-    id<MTLRenderPipelineState> flip;  // the default framebuffer to the drawable, upside down
-    id<MTLTexture> colour, depth;     // the default framebuffer
-    id<MTLCommandBuffer> commands;
-    id<MTLRenderCommandEncoder> pass;
-    State state;
-    GLenum error = GL_NO_ERROR;
-    std::string version, renderer;
-};
+namespace openrac::mtlgl::detail {
 
 Context* g = nullptr;
+
+void fail(GLenum error) {
+    if (g->error == GL_NO_ERROR) {
+        g->error = error;
+    }
+}
+
+id<MTLCommandBuffer> commands() {
+    if (g->commands == nil) {
+        g->commands = [g->queue commandBuffer];
+    }
+    return g->commands;
+}
+
+void end_encoders() {
+    [g->pass endEncoding];
+    g->pass = nil;
+    g->pass_target = {};
+    [g->blit endEncoding];
+    g->blit = nil;
+}
+
+id<MTLBlitCommandEncoder> blit() {
+    if (g->blit == nil) {
+        end_encoders();
+        g->blit = [commands() blitCommandEncoder];
+    }
+    return g->blit;
+}
+
+id<MTLBlitCommandEncoder> blit_for(Texture& texture) {
+    if (texture.used == g->serial) {
+        return blit();
+    }
+    if (g->uploads == nil) {
+        g->uploads = [g->queue commandBuffer];
+        // Its place on the queue is taken now, before the frame's command buffer, which takes
+        // its own at commit.
+        [g->uploads enqueue];
+        g->upload_blit = [g->uploads blitCommandEncoder];
+    }
+    return g->upload_blit;
+}
+
+void submit(bool wait) {
+    end_encoders();
+    if (g->uploads != nil) {
+        [g->upload_blit endEncoding];
+        g->upload_blit = nil;
+        [g->uploads commit];
+        g->uploads = nil;
+    }
+    id<MTLCommandBuffer> frame = commands();
+    Context* context = g;
+    const std::uint64_t serial = g->serial++;
+    [frame addCompletedHandler:^(id<MTLCommandBuffer>) {
+      context->completed.store(serial, std::memory_order_release);
+    }];
+    [frame commit];
+    if (wait) {
+        [frame waitUntilCompleted];
+    }
+    g->commands = nil;
+}
+
+Target target_of(GLuint name) {
+    if (name == 0) {
+        return {g->colour, g->depth};
+    }
+    const Framebuffer* fb = g->framebuffers.find(name);
+    if (fb == nullptr) {
+        return {};
+    }
+    auto image = [](GLuint texture, GLuint renderbuffer) -> id<MTLTexture> {
+        // Counted as used now, so that a later upload to it keeps its place after the pass.
+        if (Texture* t = g->textures.find(texture)) {
+            t->used = g->serial;
+            return t->texture;
+        }
+        const Renderbuffer* r = g->renderbuffers.find(renderbuffer);
+        return r != nullptr ? r->texture : nil;
+    };
+    return {image(fb->colour_texture, fb->colour_renderbuffer),
+            image(fb->depth_texture, fb->depth_renderbuffer)};
+}
+
+void begin_pass(const Target& target, GLbitfield clear) {
+    end_encoders();
+    const State& s = g->state;
+    MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
+    if (target.colour != nil) {
+        d.colorAttachments[0].texture = target.colour;
+        d.colorAttachments[0].loadAction =
+            (clear & GL_COLOR_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
+        d.colorAttachments[0].clearColor = MTLClearColorMake(
+            s.clear_colour[0], s.clear_colour[1], s.clear_colour[2], s.clear_colour[3]);
+    }
+    if (target.depth != nil) {
+        d.depthAttachment.texture = target.depth;
+        d.depthAttachment.loadAction =
+            (clear & GL_DEPTH_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
+        d.depthAttachment.clearDepth = s.clear_depth;
+        if (target.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
+            d.stencilAttachment.texture = target.depth;
+            d.stencilAttachment.loadAction =
+                (clear & GL_STENCIL_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
+            d.stencilAttachment.clearStencil = static_cast<std::uint32_t>(s.clear_stencil) & 0xFF;
+        }
+    }
+    const bool multisampled = (target.colour != nil ? target.colour : target.depth).sampleCount > 1;
+    if (multisampled) {
+        d.colorAttachments[0].storeAction = MTLStoreActionStore;
+    }
+    g->pass = [commands() renderCommandEncoderWithDescriptor:d];
+    g->pass_target = target;
+}
+
+namespace {
 
 constexpr const char* kFlipSource = R"(
 #include <metal_stdlib>
@@ -70,36 +150,6 @@ fragment float4 flip_fragment(Out in [[stage_in]], texture2d<float> frame [[text
 }
 )";
 
-void fail(GLenum error) {
-    if (g->error == GL_NO_ERROR) {
-        g->error = error;
-    }
-}
-
-id<MTLCommandBuffer> commands() {
-    if (g->commands == nil) {
-        g->commands = [g->queue commandBuffer];
-    }
-    return g->commands;
-}
-
-void end_pass() {
-    [g->pass endEncoding];
-    g->pass = nil;
-}
-
-void submit(bool wait) {
-    end_pass();
-    if (g->commands == nil) {
-        return;
-    }
-    [g->commands commit];
-    if (wait) {
-        [g->commands waitUntilCompleted];
-    }
-    g->commands = nil;
-}
-
 void make_default_framebuffer(int width, int height) {
     MTLTextureDescriptor* d = [MTLTextureDescriptor
         texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
@@ -114,25 +164,19 @@ void make_default_framebuffer(int width, int height) {
     g->depth = [g->device newTextureWithDescriptor:d];
 }
 
-// A pass on the default framebuffer, clearing what `clear` names and keeping the rest.
-void begin_pass(GLbitfield clear) {
-    end_pass();
-    const State& s = g->state;
-    MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
-    d.colorAttachments[0].texture = g->colour;
-    d.colorAttachments[0].loadAction =
-        (clear & GL_COLOR_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
-    d.colorAttachments[0].clearColor = MTLClearColorMake(
-        s.clear_colour[0], s.clear_colour[1], s.clear_colour[2], s.clear_colour[3]);
-    d.depthAttachment.texture = g->depth;
-    d.depthAttachment.loadAction =
-        (clear & GL_DEPTH_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
-    d.depthAttachment.clearDepth = s.clear_depth;
-    d.stencilAttachment.texture = g->depth;
-    d.stencilAttachment.loadAction =
-        (clear & GL_STENCIL_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
-    d.stencilAttachment.clearStencil = static_cast<std::uint32_t>(s.clear_stencil) & 0xFF;
-    g->pass = [commands() renderCommandEncoderWithDescriptor:d];
+// The compressed formats this device samples, by GL's extension names.
+std::vector<const char*> extensions() {
+    std::vector<const char*> out;
+    if (g->device.supportsBCTextureCompression) {
+        out.push_back("GL_ARB_texture_compression_bptc");
+    }
+    if ([g->device supportsFamily:MTLGPUFamilyApple2]) {
+        out.push_back("GL_KHR_texture_compression_astc_ldr");
+    }
+    if ([g->device supportsFamily:MTLGPUFamilyApple6]) {
+        out.push_back("GL_KHR_texture_compression_astc_hdr");
+    }
+    return out;
 }
 
 // ---- The GL functions ----
@@ -155,15 +199,23 @@ const GLubyte* MTLGL get_string(GLenum name) {
     }
 }
 
+const GLubyte* MTLGL get_stringi(GLenum, GLuint index) {
+    const auto names = extensions();
+    return index < names.size() ? reinterpret_cast<const GLubyte*>(names[index]) : nullptr;
+}
+
 void MTLGL get_integerv(GLenum name, GLint* data) {
     switch (name) {
         // MTLGPUFamilyMac2's largest 2D texture (Apple's Metal feature set tables).
         case GL_MAX_TEXTURE_SIZE:
             *data = 16384;
             return;
-        case GL_SAMPLES:
-            *data = 1;
+        case GL_SAMPLES: {
+            const Target t = target_of(g->state.draw_framebuffer);
+            id<MTLTexture> any = t.colour != nil ? t.colour : t.depth;
+            *data = any != nil ? static_cast<GLint>(any.sampleCount) : 1;
             return;
+        }
         case GL_MAX_SAMPLES:
             *data = 1;
             for (const GLint count : {8, 4, 2}) {
@@ -173,16 +225,42 @@ void MTLGL get_integerv(GLenum name, GLint* data) {
                 }
             }
             return;
+        case GL_NUM_EXTENSIONS:
+            *data = static_cast<GLint>(extensions().size());
+            return;
         case GL_MAJOR_VERSION:
             *data = 4;
             return;
         case GL_MINOR_VERSION:
             *data = 1;
             return;
+        case GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS:
+            *data = kUniformBindings;
+            return;
+        // Metal's alignment for a buffer offset bound for constant reads on a Mac (Apple's Metal
+        // feature set tables).
+        case kGlUniformBufferOffsetAlignment:
+            *data = 256;
+            return;
+        case kGlMaxCombinedTextureUnits:
+            *data = kUnits;
+            return;
+        case GL_MAX_TEXTURE_BUFFER_SIZE:
+            *data = static_cast<GLint>(std::min<NSUInteger>(g->device.maxBufferLength / 16, 0x7FFFFFFF));
+            return;
+        case kGlMaxVertexAttribs:
+            *data = 16;
+            return;
+        case kGlMaxUniformBlockSize:
+            *data = 65536;
+            return;
         case kGlFramebufferBinding:
             *data = static_cast<GLint>(g->state.draw_framebuffer);
             return;
-        case kGlViewportQuery:
+        case kGlTextureBinding2d:
+            *data = static_cast<GLint>(g->state.unit_2d[g->state.active_unit]);
+            return;
+        case GL_VIEWPORT:
             std::memcpy(data, g->state.viewport, sizeof g->state.viewport);
             return;
         default:
@@ -192,6 +270,10 @@ void MTLGL get_integerv(GLenum name, GLint* data) {
 }
 
 void MTLGL get_floatv(GLenum name, GLfloat* data) {
+    if (name == GL_MAX_TEXTURE_MAX_ANISOTROPY) {
+        *data = 16.0f;  // MTLSamplerDescriptor.maxAnisotropy's largest
+        return;
+    }
     GLint v = 0;
     get_integerv(name, &v);
     *data = static_cast<GLfloat>(v);
@@ -219,6 +301,12 @@ void enable_cap(GLenum cap, bool on) {
         case GL_STENCIL_TEST:
             s.stencil_test = on;
             break;
+        case GL_PRIMITIVE_RESTART:
+            s.primitive_restart = on;
+            break;
+        case GL_DEPTH_CLAMP:
+            s.depth_clamp = on;
+            break;
         default:
             break;
     }
@@ -240,12 +328,17 @@ void MTLGL clear(GLbitfield mask) {
                          || ((mask & GL_COLOR_BUFFER_BIT) != 0
                              && !std::ranges::all_of(s.colour_mask, std::identity{}))
                          || ((mask & GL_DEPTH_BUFFER_BIT) != 0 && !s.depth_mask)
-                         || ((mask & GL_STENCIL_BUFFER_BIT) != 0 && (s.stencil_mask & 0xFF) != 0xFF);
-    if (partial || s.draw_framebuffer != 0) {
+                         || ((mask & GL_STENCIL_BUFFER_BIT) != 0
+                             && (s.stencil_write_mask & 0xFF) != 0xFF);
+    const Target target = target_of(s.draw_framebuffer);
+    if (partial) {
         fail(kGlInvalidOperation);
         return;
     }
-    begin_pass(mask);
+    if (target.colour == nil && target.depth == nil) {
+        return;
+    }
+    begin_pass(target, mask);
 }
 
 void MTLGL clear_color(GLfloat r, GLfloat gr, GLfloat b, GLfloat a) {
@@ -277,6 +370,14 @@ void MTLGL scissor(GLint x, GLint y, GLsizei w, GLsizei h) {
     g->state.scissor[3] = h;
 }
 
+void MTLGL depth_func(GLenum f) {
+    g->state.depth_func = f;
+}
+
+void MTLGL depth_mask(GLboolean flag) {
+    g->state.depth_mask = flag != GL_FALSE;
+}
+
 void MTLGL colour_mask(GLboolean r, GLboolean gr, GLboolean b, GLboolean a) {
     g->state.colour_mask[0] = r != GL_FALSE;
     g->state.colour_mask[1] = gr != GL_FALSE;
@@ -284,12 +385,60 @@ void MTLGL colour_mask(GLboolean r, GLboolean gr, GLboolean b, GLboolean a) {
     g->state.colour_mask[3] = a != GL_FALSE;
 }
 
-void MTLGL depth_mask(GLboolean flag) {
-    g->state.depth_mask = flag != GL_FALSE;
+void MTLGL blend_func_separate(GLenum sr, GLenum dr, GLenum sa, GLenum da) {
+    State& s = g->state;
+    s.blend_src_rgb = sr;
+    s.blend_dst_rgb = dr;
+    s.blend_src_a = sa;
+    s.blend_dst_a = da;
+}
+
+void MTLGL blend_equation(GLenum mode) {
+    g->state.blend_equation = mode;
+}
+
+void MTLGL blend_color(GLfloat r, GLfloat gr, GLfloat b, GLfloat a) {
+    g->state.blend_colour[0] = r;
+    g->state.blend_colour[1] = gr;
+    g->state.blend_colour[2] = b;
+    g->state.blend_colour[3] = a;
+}
+
+void MTLGL cull_face(GLenum mode) {
+    g->state.cull_face = mode;
+}
+
+void MTLGL front_face(GLenum mode) {
+    g->state.front_face = mode;
+}
+
+// Only the depth convention: the origin stays lower left (mtlgl.h).
+void MTLGL clip_control(GLenum, GLenum depth) {
+    g->state.clip_zero_to_one = depth == GL_ZERO_TO_ONE;
+}
+
+void MTLGL polygon_mode(GLenum, GLenum mode) {
+    g->state.polygon_mode = mode;
+}
+
+void MTLGL stencil_func(GLenum func, GLint ref, GLuint mask) {
+    g->state.stencil_func = func;
+    g->state.stencil_ref = ref;
+    g->state.stencil_value_mask = mask;
+}
+
+void MTLGL stencil_op_separate(GLenum face, GLenum sfail, GLenum dpfail, GLenum dppass) {
+    const StencilFace f{sfail, dpfail, dppass};
+    if (face == GL_FRONT || face == GL_FRONT_AND_BACK) {
+        g->state.stencil_front = f;
+    }
+    if (face == GL_BACK || face == GL_FRONT_AND_BACK) {
+        g->state.stencil_back = f;
+    }
 }
 
 void MTLGL stencil_mask(GLuint mask) {
-    g->state.stencil_mask = mask;
+    g->state.stencil_write_mask = mask;
 }
 
 void MTLGL pixel_store(GLenum name, GLint value) {
@@ -300,53 +449,11 @@ void MTLGL pixel_store(GLenum name, GLint value) {
         case GL_PACK_ALIGNMENT:
             g->state.pack_alignment = value;
             break;
+        case kGlUnpackRowLength:
+            g->state.unpack_row_length = value;
+            break;
         default:
             break;
-    }
-}
-
-void MTLGL
-read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GLenum type, void* pixels) {
-    if (format != GL_RGBA || type != GL_UNSIGNED_BYTE || w <= 0 || h <= 0) {
-        fail(kGlInvalidEnum);
-        return;
-    }
-    if (g->state.read_framebuffer != 0) {
-        fail(kGlInvalidOperation);
-        return;
-    }
-    id<MTLTexture> image = g->colour;
-    const int width = static_cast<int>(image.width), height = static_cast<int>(image.height);
-    const int x0 = std::clamp(x, 0, width), y0 = std::clamp(y, 0, height);
-    const int x1 = std::clamp(x + w, x0, width), y1 = std::clamp(y + h, y0, height);
-    if (x1 <= x0 || y1 <= y0) {
-        return;
-    }
-    const auto cw = static_cast<NSUInteger>(x1 - x0), ch = static_cast<NSUInteger>(y1 - y0);
-    id<MTLBuffer> buffer = [g->device newBufferWithLength:cw * ch * 4
-                                                  options:MTLResourceStorageModeShared];
-    end_pass();
-    id<MTLBlitCommandEncoder> blit = [commands() blitCommandEncoder];
-    [blit copyFromTexture:image
-                     sourceSlice:0
-                     sourceLevel:0
-                    sourceOrigin:MTLOriginMake(static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), 0)
-                      sourceSize:MTLSizeMake(cw, ch, 1)
-                        toBuffer:buffer
-               destinationOffset:0
-          destinationBytesPerRow:cw * 4
-        destinationBytesPerImage:cw * ch * 4];
-    [blit endEncoding];
-    submit(true);
-    // The texture's rows are GL's (mtlgl.h): row 0 is the bottom one GL gives first.
-    const int align = std::max(g->state.pack_alignment, 1);
-    const std::size_t pitch = (static_cast<std::size_t>(w) * 4 + align - 1) / align * align;
-    const auto* src = static_cast<const std::uint8_t*>(buffer.contents);
-    auto* dst = static_cast<std::uint8_t*>(pixels);
-    for (NSUInteger row = 0; row < ch; ++row) {
-        std::memcpy(dst + pitch * (row + static_cast<std::size_t>(y0 - y))
-                        + static_cast<std::size_t>(x0 - x) * 4,
-                    src + row * cw * 4, cw * 4);
     }
 }
 
@@ -364,6 +471,7 @@ struct Entry {
 #define MTLGL_ENTRY(name, fn) {#name, reinterpret_cast<Proc>(&fn)}
 const Entry kEntries[] = {
     MTLGL_ENTRY(glGetString, get_string),
+    MTLGL_ENTRY(glGetStringi, get_stringi),
     MTLGL_ENTRY(glGetIntegerv, get_integerv),
     MTLGL_ENTRY(glGetFloatv, get_floatv),
     MTLGL_ENTRY(glGetError, get_error),
@@ -375,16 +483,68 @@ const Entry kEntries[] = {
     MTLGL_ENTRY(glClearStencil, clear_stencil),
     MTLGL_ENTRY(glViewport, viewport),
     MTLGL_ENTRY(glScissor, scissor),
-    MTLGL_ENTRY(glColorMask, colour_mask),
+    MTLGL_ENTRY(glDepthFunc, depth_func),
     MTLGL_ENTRY(glDepthMask, depth_mask),
+    MTLGL_ENTRY(glColorMask, colour_mask),
+    MTLGL_ENTRY(glBlendFuncSeparate, blend_func_separate),
+    MTLGL_ENTRY(glBlendEquation, blend_equation),
+    MTLGL_ENTRY(glBlendColor, blend_color),
+    MTLGL_ENTRY(glCullFace, cull_face),
+    MTLGL_ENTRY(glFrontFace, front_face),
+    MTLGL_ENTRY(glClipControl, clip_control),
+    MTLGL_ENTRY(glPolygonMode, polygon_mode),
+    MTLGL_ENTRY(glStencilFunc, stencil_func),
+    MTLGL_ENTRY(glStencilOpSeparate, stencil_op_separate),
     MTLGL_ENTRY(glStencilMask, stencil_mask),
     MTLGL_ENTRY(glPixelStorei, pixel_store),
-    MTLGL_ENTRY(glReadPixels, read_pixels),
     MTLGL_ENTRY(glFinish, finish),
+    MTLGL_ENTRY(glReadPixels, read_pixels),
+    MTLGL_ENTRY(glCopyTexSubImage2D, copy_tex_sub_image),
+    MTLGL_ENTRY(glGenTextures, gen_textures),
+    MTLGL_ENTRY(glDeleteTextures, delete_textures),
+    MTLGL_ENTRY(glBindTexture, bind_texture),
+    MTLGL_ENTRY(glActiveTexture, active_texture),
+    MTLGL_ENTRY(glTexImage2D, tex_image_2d),
+    MTLGL_ENTRY(glCompressedTexImage2D, compressed_tex_image_2d),
+    MTLGL_ENTRY(glCompressedTexSubImage2D, compressed_tex_sub_image_2d),
+    MTLGL_ENTRY(glTexSubImage2D, tex_sub_image_2d),
+    MTLGL_ENTRY(glTexImage3D, tex_image_3d),
+    MTLGL_ENTRY(glTexParameteri, tex_parameter_i),
+    MTLGL_ENTRY(glTexParameterf, tex_parameter_f),
+    MTLGL_ENTRY(glGenerateMipmap, generate_mipmap),
+    MTLGL_ENTRY(glTexBuffer, tex_buffer),
+    MTLGL_ENTRY(glGenSamplers, gen_samplers),
+    MTLGL_ENTRY(glDeleteSamplers, delete_samplers),
+    MTLGL_ENTRY(glBindSampler, bind_sampler),
+    MTLGL_ENTRY(glSamplerParameteri, sampler_parameter_i),
+    MTLGL_ENTRY(glGenBuffers, gen_buffers),
+    MTLGL_ENTRY(glDeleteBuffers, delete_buffers),
+    MTLGL_ENTRY(glBindBuffer, bind_buffer),
+    MTLGL_ENTRY(glBindBufferBase, bind_buffer_base),
+    MTLGL_ENTRY(glBufferData, buffer_data),
+    MTLGL_ENTRY(glBufferSubData, buffer_sub_data),
+    MTLGL_ENTRY(glGenFramebuffers, gen_framebuffers),
+    MTLGL_ENTRY(glDeleteFramebuffers, delete_framebuffers),
+    MTLGL_ENTRY(glBindFramebuffer, bind_framebuffer),
+    MTLGL_ENTRY(glFramebufferTexture2D, framebuffer_texture_2d),
+    MTLGL_ENTRY(glFramebufferRenderbuffer, framebuffer_renderbuffer),
+    MTLGL_ENTRY(glCheckFramebufferStatus, check_framebuffer_status),
+    MTLGL_ENTRY(glGenRenderbuffers, gen_renderbuffers),
+    MTLGL_ENTRY(glDeleteRenderbuffers, delete_renderbuffers),
+    MTLGL_ENTRY(glBindRenderbuffer, bind_renderbuffer),
+    MTLGL_ENTRY(glRenderbufferStorage, renderbuffer_storage),
+    MTLGL_ENTRY(glRenderbufferStorageMultisample, renderbuffer_storage_multisample),
+    MTLGL_ENTRY(glBlitFramebuffer, blit_framebuffer),
 };
 #undef MTLGL_ENTRY
 
 }  // namespace
+
+}  // namespace openrac::mtlgl::detail
+
+namespace openrac::mtlgl {
+
+using namespace detail;
 
 bool open(const Config& config, std::string& error) {
     close();
@@ -469,7 +629,7 @@ Proc get_proc(const char* name) {
 }
 
 void present() {
-    end_pass();
+    end_encoders();
     if (g->layer != nil) {
         @autoreleasepool {
             id<CAMetalDrawable> drawable = [g->layer nextDrawable];
