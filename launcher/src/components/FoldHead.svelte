@@ -40,6 +40,7 @@
     gap: 12px;
     width: 100%;
     padding: 0;
+    min-height: 0;
     border: 0;
     background: none;
     color: inherit;

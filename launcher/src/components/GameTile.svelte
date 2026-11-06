@@ -96,7 +96,7 @@
     align-items: flex-end;
     /* Two rows of tiles fill the window at any height it can have. */
     min-height: clamp(240px, calc((100vh - var(--nav-top) - var(--nav-bottom) - 108px) / 2), 400px);
-    border-radius: 22px;
+    border-radius: var(--radius);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow-sm);
@@ -142,7 +142,7 @@
      shows at once. */
   :global(html[data-platform="android"]) .tile {
     min-height: clamp(128px, calc((100vh - 2 * var(--page-top) - var(--nav-bottom) - 28px) / 3), 200px);
-    border-radius: 18px;
+    border-radius: var(--radius);
   }
 
   :global(html[data-platform="android"]) .foot {
@@ -229,6 +229,7 @@
     border-radius: inherit;
     background: none;
     padding: 0;
+    min-height: 0;
   }
 
   /* The focus rings the whole tile from outside (the tile cuts what is inside it), and the picked
@@ -322,7 +323,6 @@
     font-size: 0.9375rem;
     padding: 10px 22px;
     background: rgb(0 0 0 / 0.5);
-    border-color: rgb(255 255 255 / 0.25);
   }
 
   /* A narrow tile: its button under its name, the tile's width. */
@@ -339,7 +339,6 @@
   }
 
   .act.primary {
-    background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom));
-    border-color: rgb(0 0 0 / 0.3);
+    background: var(--amber);
   }
 </style>

@@ -141,8 +141,7 @@
     flex-wrap: wrap;
     gap: 4px;
     padding: 4px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
   }
 
@@ -164,7 +163,6 @@
   .tabs button.on {
     background: var(--panel-hi);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .tabs button:focus-visible {
@@ -180,7 +178,7 @@
   .busy {
     min-width: 20px;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--warn) 22%, transparent);
     color: var(--warn);
     font-size: 0.75rem;

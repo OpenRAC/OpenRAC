@@ -29,6 +29,9 @@ const ui_colors::Colors& ui();
 
 // A row or button held down: the launcher's accent, faint over the card.
 ImU32 pressed_fill();
+// What sets a control apart on a card in place of a border (a key cap, a switch's track, a chip):
+// the card's fill a little lighter, as the launcher's --fill.
+ImU32 control_fill();
 
 // The launcher's transitions: what changes eases to its new state over `seconds`; `id` is ImGui's.
 float tween(ImGuiID id, float target, float seconds);

@@ -128,14 +128,14 @@
     gap: 8px;
     min-width: 0;
     padding: 0 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
     color: var(--soft);
   }
 
   .find:focus-within {
-    border-color: var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .find input {
@@ -164,8 +164,7 @@
     flex-wrap: wrap;
     gap: 4px;
     padding: 3px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
   }
 
@@ -190,7 +189,6 @@
   .kinds button.on {
     background: var(--panel-hi);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .kinds button.on b {

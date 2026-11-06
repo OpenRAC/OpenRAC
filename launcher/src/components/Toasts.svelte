@@ -157,7 +157,6 @@
     gap: 10px;
     align-items: flex-start;
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     padding: 10px 8px 10px 14px;
     font-size: 0.875rem;
@@ -210,7 +209,7 @@
   }
 
   .toast.error {
-    border-color: color-mix(in srgb, var(--err) 60%, transparent);
+    background: color-mix(in srgb, var(--err) 14%, var(--panel));
   }
 
   .toast.error > :global(svg) {

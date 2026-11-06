@@ -618,8 +618,7 @@
     gap: 10px;
     min-height: 40px;
     padding: 0 6px 0 14px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--ink-deep);
     font-size: 0.875rem;
     font-weight: 600;
@@ -629,7 +628,6 @@
 
   .power.on {
     color: var(--text);
-    border-color: color-mix(in srgb, var(--brand) 60%, transparent);
   }
 
   .power input.switch {

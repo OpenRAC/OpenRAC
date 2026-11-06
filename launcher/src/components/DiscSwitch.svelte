@@ -39,8 +39,7 @@
     align-items: center;
     gap: 2px;
     padding: 3px;
-    border-radius: 999px;
-    border: 1px solid var(--bd);
+    border-radius: var(--radius-sm);
     background: rgb(0 0 0 / 0.35);
   }
 
@@ -56,7 +55,7 @@
     font-size: 0.8125rem;
     color: var(--tx2);
     padding: 5px 14px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
   }
 
   @media (hover: hover) {

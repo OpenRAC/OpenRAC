@@ -42,7 +42,6 @@
     align-items: center;
     gap: 12px 16px;
     padding: 16px 18px;
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     background: linear-gradient(120deg, color-mix(in srgb, var(--amber) 14%, var(--panel)), var(--panel) 70%);
   }
@@ -55,12 +54,14 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .get.linked:hover {
-      border-color: var(--amber);
+      background: var(--on-fill);
+      color: var(--amber);
     }
   }
 
   .get.linked:has(.hub:focus-visible) {
-    border-color: var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .mark {

@@ -742,7 +742,6 @@
     max-width: 980px;
     height: calc(100vh - 48px);
     background: var(--panel);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -832,7 +831,6 @@
     max-height: 168px;
     overflow-y: auto;
     padding: 4px;
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     background: var(--panel);
   }
@@ -855,7 +853,6 @@
 
   .discard {
     color: var(--err);
-    border-color: color-mix(in srgb, var(--err) 40%, transparent);
   }
 
   .running {
@@ -929,7 +926,6 @@
   .jump button.on {
     color: var(--text);
     background: var(--panel-hi);
-    border-color: var(--line);
   }
 
   section h3 {
@@ -978,7 +974,6 @@
     font-size: 0.875rem;
     background: var(--ink-deep);
     color: var(--text);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
     max-width: 100%;
@@ -1003,13 +998,12 @@
     width: 130px;
     background: var(--ink-deep);
     color: var(--text);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
   }
 
   input[type="number"][aria-invalid="true"] {
-    border-color: var(--err);
+    box-shadow: inset 0 0 0 2px var(--err);
   }
 
   input[type="checkbox"] {
@@ -1027,8 +1021,7 @@
     align-items: center;
     gap: 7px;
     font-size: 0.8125rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 5px 12px;
     cursor: pointer;
     color: var(--soft);
@@ -1037,7 +1030,7 @@
 
   .chip.on {
     color: var(--text);
-    border-color: var(--amber);
+    background: var(--on-fill);
   }
 
   .rows {
@@ -1109,8 +1102,8 @@
     display: inline-block;
     margin-right: 6px;
     padding: 0 6px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    background: var(--fill);
+    border-radius: var(--radius-xs);
     font-size: 0.6875rem;
     color: var(--soft);
   }
@@ -1154,7 +1147,7 @@
   .goldbolt.on {
     color: var(--bar-ink-deep);
     background: var(--gold);
-    border-color: var(--gold);
+    background: var(--on-fill);
   }
 
   @container (max-width: 560px) {
@@ -1192,7 +1185,7 @@
   .skill.on {
     color: var(--bar-ink-deep);
     background: var(--amber);
-    border-color: var(--amber);
+    background: var(--on-fill);
   }
 
   /* A skill point changed: the same amber dot, in the corner. */

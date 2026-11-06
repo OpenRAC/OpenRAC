@@ -215,6 +215,7 @@
     border: 0;
     background: none;
     padding: 0;
+    min-height: 0;
     font-size: inherit;
     color: var(--amber);
     font-weight: 600;

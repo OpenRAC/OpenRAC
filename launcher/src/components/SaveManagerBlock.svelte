@@ -396,7 +396,6 @@
     text-transform: uppercase;
     color: var(--amber);
     background: color-mix(in srgb, var(--amber) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
     border-radius: 6px;
     padding: 2px 7px;
     cursor: help;
@@ -427,7 +426,6 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;

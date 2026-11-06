@@ -457,7 +457,7 @@
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    border: 1.5px solid currentColor;
+    background: color-mix(in srgb, currentColor 14%, transparent);
     opacity: 0.7;
   }
 
@@ -466,7 +466,6 @@
   }
 
   .steps li.done::before {
-    border-color: var(--ok);
     background: var(--ok)
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3.5 7.3l2.2 2.2 4.8-5' fill='none' stroke='%2312121a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
       center / 14px no-repeat;
@@ -510,6 +509,11 @@
     object-fit: cover;
   }
 
+  /* Over the game's picture the menu's button is a dark shade, so it shows on any picture. */
+  .hero :global(.trigger) {
+    background: rgb(0 0 0 / 0.45);
+  }
+
   .hero {
     position: relative;
     display: flex;
@@ -517,7 +521,7 @@
     align-items: center;
     gap: 16px;
     padding: 34px 28px 30px;
-    border-radius: 30px;
+    border-radius: var(--radius);
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow);
@@ -584,7 +588,6 @@
   }
 
   .box {
-    border: 7px solid var(--bd);
     background: var(--box);
     color: var(--tx);
     text-align: center;
@@ -636,7 +639,7 @@
     gap: 10px;
     margin-top: 12px;
     padding: 6px 14px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: rgb(255 255 255 / 0.05);
     font-size: 0.875rem;
     color: var(--soft);
@@ -663,7 +666,7 @@
     font-size: 1.375rem;
     font-weight: 700;
     padding: 16px 46px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     gap: 12px;
     transition:
       transform 0.15s ease,
@@ -694,7 +697,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-color: color-mix(in srgb, var(--amber) 45%, transparent);
     color: var(--amber);
   }
 
@@ -749,6 +751,7 @@
 
   .link {
     padding: 0;
+    min-height: 0;
     border: 0;
     background: none;
     color: var(--amber);
@@ -769,7 +772,6 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: 7px;
     padding: 3px 9px;
     white-space: nowrap;

@@ -507,7 +507,7 @@
     gap: 4px 10px;
     margin: 0;
     padding: 10px 16px;
-    border: 1px dashed var(--line-strong);
+    background: var(--panel-hi);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
   }
@@ -524,8 +524,7 @@
     flex-wrap: wrap;
     gap: 4px;
     padding: 4px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--panel);
   }
 
@@ -547,7 +546,6 @@
   .tabs button.on {
     background: var(--panel-hi);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   @media (hover: hover) {
@@ -601,6 +599,7 @@
     border: 0;
     background: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-weight: 600;
   }

@@ -159,7 +159,7 @@ bool bar_tab(const char* name, bool open, float height) {
             a,
             ImVec2(a.x + size.x, a.y + size.y),
             IM_COL32(0, 0, 0, static_cast<int>(26 * hover)),
-            size.y * 0.5f
+            dp(4.0f)
         );
     }
     const float on = tween(item_part("on"), open ? 1.0f : 0.0f, kMedium);
@@ -172,7 +172,7 @@ bool bar_tab(const char* name, bool open, float height) {
     return pressed;
 }
 
-// A chip on the bar's right: dark, a hairline, its text; true when clicked.
+// A chip on the bar's right: dark, no border, 6 px corners, its text; true when clicked.
 bool bar_chip(
     const char* label, ImU32 ink, bool light, float height, float held = 0.0f, bool picked = false
 ) {
@@ -186,15 +186,13 @@ bool bar_chip(
     const float hover = tween(item_part("hover"), ImGui::IsItemHovered() ? 1.0f : 0.0f, kFast);
     const ImU32 fill = light ? ui_colors::mix(IM_COL32_WHITE, ui().gold, 0.25f * hover)
                              : ui_colors::mix(ui().ink_deep, ui().panel_hi, hover);
-    list->AddRectFilled(a, b, fill, size.y * 0.5f);
+    const float round = dp(6.0f);
+    list->AddRectFilled(a, b, fill, round);
     if (held > 0.0f) {
         // Held on the controller: filling up to the moment it acts.
         list->PushClipRect(a, ImVec2(a.x + size.x * held, b.y), true);
-        list->AddRectFilled(a, b, ui_colors::fade(ink, 0.35f), size.y * 0.5f);
+        list->AddRectFilled(a, b, ui_colors::fade(ink, 0.35f), round);
         list->PopClipRect();
-    }
-    if (!light) {
-        list->AddRect(a, b, ui_colors::fade(ui().line, 1.0f), size.y * 0.5f);
     }
     // Reached with L1/R1: a ring around it, as the open tab has its pill.
     const float ring = tween(item_part("picked"), picked ? 1.0f : 0.0f, kFast);
@@ -204,7 +202,7 @@ bool bar_chip(
             ImVec2(a.x - out, a.y - out),
             ImVec2(b.x + out, b.y + out),
             ui_colors::fade(ui().ink_deep, ring),
-            size.y * 0.5f + out,
+            round + out,
             ImDrawFlags_None,
             dp(2.0f)
         );
@@ -248,7 +246,7 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 // darker ground with the bar's stripes faint at its top.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
-    const float round = dp(16.0f);
+    const float round = dp(12.0f);
     list->AddRectFilled(
         a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
     );
@@ -595,6 +593,7 @@ void menu_window(const Shown& shown) {
         list->ChannelsSetCurrent(1);
         float pill_x = pill_at.x;
         float pill_w = 0.0f;
+        float tabs_end = pill_at.x;
         for (int i = 0; i < tab_count; ++i) {
             if (i > 0) {
                 ImGui::SameLine();
@@ -612,8 +611,17 @@ void menu_window(const Shown& shown) {
                 pill_x = x;
                 pill_w = ImGui::GetItemRectSize().x;
             }
+            tabs_end = ImGui::GetItemRectMax().x;
         }
         list->ChannelsSetCurrent(0);
+        // The tabs share one capsule, a darker shade of the bar, as the launcher's header has them.
+        const float lip = dp(2.0f);
+        list->AddRectFilled(
+            ImVec2(pill_at.x - lip, pill_at.y - lip),
+            ImVec2(tabs_end + lip, pill_at.y + tab_h + lip),
+            IM_COL32(0, 0, 0, 38),
+            dp(6.0f)
+        );
         const float px = tween(ImGui::GetID("pill x"), pill_x, kMedium);
         const float pw = tween(ImGui::GetID("pill w"), pill_w, kMedium);
         const float pill_alpha =
@@ -622,7 +630,7 @@ void menu_window(const Shown& shown) {
             ImVec2(px, pill_at.y),
             ImVec2(px + pw, pill_at.y + tab_h),
             ui_colors::fade(ui().ink_deep, pill_alpha),
-            tab_h * 0.5f
+            dp(4.0f)
         );
         list->ChannelsMerge();
 
@@ -686,7 +694,7 @@ void menu_window(const Shown& shown) {
         ImGui::SetNextWindowFocus();
     }
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ease);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(16.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(12.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -703,11 +711,11 @@ void menu_window(const Shown& shown) {
         )) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         const ImVec2 b(at.x + width, at.y + height);
-        // The launcher's panel: a shadow, its ink, a hairline border.
+        // The launcher's panel: a shadow and its fill, no border.
         // (Outside the window's own rectangle, so not clipped to its square corners.)
         list->PushClipRectFullScreen();
         // Many thin faint layers add up to a smooth edge.
-        soft_shadow(list, at, b, dp(16.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
+        soft_shadow(list, at, b, dp(12.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
         list->PopClipRect();
         // The launcher's panel, lit a little from above, with a glow of the accent along its top
         // and a line of it on the top edge.
@@ -719,9 +727,8 @@ void menu_window(const Shown& shown) {
             ui().ink_deep,
             ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
             dp(160.0f),
-            dp(16.0f)
+            dp(12.0f)
         );
-        list->AddRect(at, b, ui().line, dp(16.0f));
         const float rows_w = std::floor(width * 0.62f);
         MenuMotion& m = s.menu_motion;
         // A tab just picked: its page comes in from the side of the one before, as the launcher's

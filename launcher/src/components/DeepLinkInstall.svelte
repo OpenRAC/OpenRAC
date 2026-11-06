@@ -264,7 +264,6 @@
     max-width: 560px;
     max-height: 100%;
     background: var(--panel);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -377,13 +376,12 @@
   }
 
   .warn {
-    border: 1px solid var(--amber);
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
     color: var(--amber);
   }
 
   .error,
   .block {
-    border: 1px solid var(--err);
     background: color-mix(in srgb, var(--err) 12%, transparent);
     color: var(--err);
   }

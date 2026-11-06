@@ -368,7 +368,6 @@
     gap: 10px;
     padding: 20px 24px;
     background: var(--panel);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
@@ -442,7 +441,7 @@
     align-items: flex-start;
     gap: 10px;
     padding: 10px 12px;
-    border: 1px dashed var(--line-strong);
+    background: var(--panel-hi);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     cursor: pointer;
@@ -493,7 +492,6 @@
 
   .danger-solid {
     background: color-mix(in srgb, var(--err) 22%, var(--panel-hi));
-    border-color: color-mix(in srgb, var(--err) 55%, transparent);
     color: var(--text);
   }
 </style>

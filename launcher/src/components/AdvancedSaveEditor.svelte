@@ -585,7 +585,6 @@
     font-size: 0.8125rem;
     background: var(--ink-deep);
     color: var(--text);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     padding: 5px 8px;
     min-width: 0;
@@ -600,7 +599,7 @@
   }
 
   textarea[aria-invalid="true"] {
-    border-color: var(--err);
+    box-shadow: inset 0 0 0 2px var(--err);
   }
 
   input[type="checkbox"] {
@@ -650,7 +649,6 @@
   }
 
   .t.known {
-    border-color: var(--soft);
     color: var(--soft);
   }
 
@@ -661,7 +659,7 @@
   .t.on {
     color: var(--bar-ink-deep);
     background: var(--amber);
-    border-color: var(--amber);
+    background: var(--on-fill);
   }
 
   .note {
@@ -676,14 +674,14 @@
 
   .tag {
     font-size: 0.75rem;
-    border: 1px solid var(--ok);
+    background: color-mix(in srgb, var(--ok) 10%, transparent);
     color: var(--ok);
-    border-radius: 999px;
+    border-radius: var(--radius-xs);
     padding: 0 8px;
   }
 
   .tag.raw {
-    border-color: var(--amber);
+    background: var(--on-fill);
     color: var(--amber);
   }
 

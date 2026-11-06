@@ -126,9 +126,9 @@
     top: 0;
     left: 10px;
     right: 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    background: var(--panel-hi);
+    border-radius: var(--radius-sm);
+    /* The open game: the gold tint of a control that is on (no ring round its picture). */
+    background: var(--on-fill);
     opacity: 0;
     pointer-events: none;
   }
@@ -150,8 +150,8 @@
     gap: 12px;
     width: 100%;
     padding: 8px;
-    border: 1px solid transparent;
-    border-radius: 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
     background: none;
     color: var(--text);
     text-align: left;
@@ -197,21 +197,15 @@
     place-items: center;
     width: 64px;
     height: 44px;
-    border-radius: 8px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from, var(--panel)), var(--to, var(--ink-deep)));
-    border: 1px solid var(--bd, var(--line-strong));
     color: var(--soft);
     transition: box-shadow 0.2s ease;
   }
 
-  .entry.on .thumb {
-    box-shadow: 0 0 0 2px var(--amber);
-  }
-
   .thumb.icon {
     background: var(--panel);
-    border-color: var(--line-strong);
   }
 
   .thumb img {
@@ -340,7 +334,7 @@
     width: auto;
     padding: 0;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
 
   :global(html[data-platform="android"]) .entry.on {
@@ -358,7 +352,7 @@
   :global(html[data-platform="android"]) .thumb {
     width: 112px;
     height: 63px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
 
   :global(html[data-platform="android"]) .entry:not(.on) .thumb {

@@ -213,6 +213,7 @@
     background: none;
     color: inherit;
     padding: 0;
+    min-height: 0;
   }
 
   /* Amber on the orange bar would not show: the ring is the bar's ink there (not on Android's
@@ -258,7 +259,7 @@
     height: 15px;
     padding: 0 6px;
     margin-left: 2px;
-    border-radius: 999px;
+    border-radius: var(--radius-xs);
     background: var(--bar-ink-deep);
     color: var(--gold);
     font-size: 0.625rem;
@@ -267,21 +268,28 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* The tabs share one light capsule, as the site's bar has its links: a darker shade of the bar,
+     6 px corners, no frame of its own. */
   nav {
     position: relative;
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: 4px;
+    gap: 2px;
+    height: 36px;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 0.15);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
   }
 
   /* The open tab's dark pill, sliding from tab to tab. */
   .slider {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 2px;
+    bottom: 2px;
     left: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-xs);
     background: var(--bar-ink-deep);
     opacity: 0;
   }
@@ -298,7 +306,8 @@
 
   .tab {
     position: relative;
-    border-radius: 999px;
+    min-height: 32px;
+    border-radius: var(--radius-xs);
     padding: 5px 14px;
     font-size: 0.9375rem;
     /* Heavier than the page's text, to stand beside the logo's strokes. */
@@ -341,8 +350,7 @@
     font-weight: 600;
     color: var(--bar-ink-deep);
     background: rgb(0 0 0 / 0.1);
-    border: 1px solid rgb(0 0 0 / 0.25);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 5px 12px;
     animation: rise var(--medium) var(--ease) both;
   }
@@ -360,7 +368,7 @@
     align-items: center;
     height: 24px;
     padding: 0 10px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: rgb(0 0 0 / 0.12);
     font-size: 0.75rem;
     font-weight: 700;
@@ -373,9 +381,9 @@
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    height: 30px;
-    padding: 0 3px;
-    border-radius: 999px;
+    height: 36px;
+    padding: 0 2px;
+    border-radius: var(--radius-sm);
     background: var(--bar-ink-deep);
   }
 
@@ -383,9 +391,9 @@
   .discord {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-xs);
     color: var(--gold);
     transition:
       background var(--fast) var(--ease),
@@ -423,8 +431,7 @@
     font-weight: 700;
     background: var(--bar-ink-deep);
     color: var(--gold);
-    border: 1px solid rgb(0 0 0 / 0.3);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 4px 14px 4px 11px;
     transition: color var(--fast);
   }
@@ -433,7 +440,6 @@
      moved it by a pixel and left its text redrawn a little differently. */
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .update:hover {
-      border-color: rgb(0 0 0 / 0.3);
       color: var(--amber);
     }
   }
@@ -591,6 +597,11 @@
   :global(html[data-platform="android"]) nav {
     flex-direction: column;
     gap: 12px;
+    height: auto;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
   }
 
   :global(html[data-platform="android"]) .slider {

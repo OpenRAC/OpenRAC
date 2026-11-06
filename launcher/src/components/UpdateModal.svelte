@@ -212,7 +212,6 @@
     width: 100%;
     max-width: 560px;
     background: var(--panel);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -285,7 +284,6 @@
     font-weight: 600;
     color: var(--amber);
     background: color-mix(in srgb, var(--amber) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
     padding: 3px 10px;
     border-radius: 6px;
   }
@@ -336,7 +334,6 @@
     margin: 0;
     padding: 12px;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     font-family: var(--font-sans);
     font-size: 0.8125rem;
@@ -360,7 +357,6 @@
     background: var(--ink-deep);
     border-radius: 4px;
     overflow: hidden;
-    border: 1px solid var(--line);
   }
 
   .progress-fill {
@@ -405,7 +401,6 @@
     gap: 8px;
     padding: 10px 14px;
     background: color-mix(in srgb, var(--err) 12%, transparent);
-    border: 1px solid var(--err);
     border-radius: var(--radius-sm);
     color: var(--err);
     font-size: 0.8125rem;
@@ -423,7 +418,6 @@
 
   .btn-cancel {
     background: transparent;
-    border: 1px solid var(--line);
     color: var(--soft);
     padding: 8px 18px;
     border-radius: var(--radius-sm);
@@ -442,7 +436,7 @@
   }
 
   .btn-primary {
-    background: linear-gradient(180deg, var(--bar-top), var(--bar-bottom));
+    background: var(--amber);
     border: none;
     color: var(--bar-ink-deep);
     font-weight: 600;

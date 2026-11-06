@@ -119,7 +119,6 @@
     width: 100%;
     max-width: 480px;
     background: var(--panel);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -174,7 +173,6 @@
     padding: 12px 14px;
     list-style: none;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     display: flex;
     flex-direction: column;
@@ -197,7 +195,6 @@
     margin: 0;
     padding: 10px 14px;
     background: color-mix(in srgb, var(--err) 12%, transparent);
-    border: 1px solid var(--err);
     border-radius: var(--radius-sm);
     color: var(--err);
     font-size: 0.8125rem;

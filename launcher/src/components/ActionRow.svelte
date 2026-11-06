@@ -100,6 +100,7 @@
     border-radius: var(--radius-sm);
     background: none;
     padding: 0;
+    min-height: 0;
     text-align: left;
     font-weight: 400;
   }

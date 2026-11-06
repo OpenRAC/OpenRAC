@@ -52,6 +52,7 @@
     border: 0;
     background: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-weight: 400;
     text-decoration: underline;

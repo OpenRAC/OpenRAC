@@ -165,13 +165,11 @@
     font-size: 0.75rem;
     padding: 3px 10px;
     background: transparent;
-    border-color: var(--line);
     color: var(--soft);
   }
 
   .filters button.on {
     background: var(--panel-hi);
-    border-color: var(--line-strong);
     color: var(--amber);
   }
 
@@ -187,7 +185,6 @@
     text-align: left;
     border-radius: var(--radius-sm);
     background: transparent;
-    border-color: var(--line);
     padding: 9px 11px;
     font-weight: 400;
     flex: none;
@@ -195,7 +192,8 @@
 
   .job.on {
     background: var(--panel-hi);
-    border-color: var(--brand);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .small {
@@ -226,7 +224,6 @@
     margin: 0;
     overflow: auto;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     padding: 12px 14px;
     font-family: var(--font-mono);

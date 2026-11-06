@@ -400,6 +400,7 @@
     width: 24px;
     height: 20px;
     padding: 0;
+    min-height: 0;
     border: 0;
     border-radius: 6px;
     background: none;
@@ -417,6 +418,7 @@
 
   .cancel {
     padding: 0;
+    min-height: 0;
     margin-left: 4px;
     border: 0;
     background: none;
@@ -464,21 +466,19 @@
 
   .slider input::-webkit-slider-runnable-track {
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: linear-gradient(to right, var(--brand) var(--at), var(--ink-deep) var(--at));
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .slider input::-moz-range-track {
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--ink-deep);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .slider input::-moz-range-progress {
     height: 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: var(--brand);
   }
 
@@ -489,7 +489,6 @@
     margin-top: -7px;
     border-radius: 50%;
     background: var(--text);
-    border: 2px solid var(--brand);
     box-shadow: 0 2px 6px rgb(0 0 0 / 0.45);
     transition: transform var(--fast) var(--ease);
   }
@@ -499,7 +498,6 @@
     height: 16px;
     border-radius: 50%;
     background: var(--text);
-    border: 2px solid var(--brand);
     box-shadow: 0 2px 6px rgb(0 0 0 / 0.45);
   }
 
@@ -568,7 +566,7 @@
   }
 
   .num[aria-invalid="true"] {
-    border-color: var(--err);
+    box-shadow: inset 0 0 0 2px var(--err);
   }
 
   .field {
@@ -611,8 +609,7 @@
     font-weight: 600;
     color: var(--gold);
     background: var(--ink-deep);
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 6px 44px 6px 18px;
     appearance: none;
     cursor: pointer;
@@ -642,7 +639,7 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    border-color: transparent;
+    min-height: 0;
     background: transparent;
     color: var(--soft);
   }

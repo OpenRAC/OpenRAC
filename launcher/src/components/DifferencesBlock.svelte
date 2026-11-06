@@ -164,7 +164,6 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;

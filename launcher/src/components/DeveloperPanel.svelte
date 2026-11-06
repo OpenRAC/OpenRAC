@@ -247,7 +247,6 @@
     display: inline-flex;
     align-items: center;
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: 7px;
     padding: 1px 8px;
     font-size: 0.75rem;
@@ -380,6 +379,7 @@
     border-radius: 4px;
     background: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-weight: 600;
     text-align: left;

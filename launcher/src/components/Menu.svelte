@@ -156,8 +156,7 @@
     height: 44px;
     padding: 0;
     justify-content: center;
-    background: rgb(0 0 0 / 0.45);
-    border-color: rgb(255 255 255 / 0.22);
+    background: var(--fill);
   }
 
   .list {
@@ -169,7 +168,6 @@
     flex-direction: column;
     padding: 6px;
     background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-sm);
   }

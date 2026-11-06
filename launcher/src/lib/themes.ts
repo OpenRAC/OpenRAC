@@ -87,11 +87,11 @@ export const THEMES: Record<string, Theme> = {
 
 /** For a game the site has no card for yet: the launcher's own colours. */
 export const FALLBACK: Theme = {
-  box: "#1d1d28",
-  border: "#d58a00",
-  text: "#ffd08a",
-  text2: "#ffb443",
-  from: "#22222f",
+  box: "#1d1d27",
+  border: "#d6a020",
+  text: "#ffe08f",
+  text2: "#f5c040",
+  from: "#23232f",
   to: "#12121a",
   font: "head",
   weight: 600,

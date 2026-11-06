@@ -38,6 +38,10 @@ ImU32 pressed_fill() {
     return ui_colors::mix(ui().panel_hi, ui().amber, 0.16f);
 }
 
+ImU32 control_fill() {
+    return ui_colors::mix(ui().panel_hi, ui_colors::rgba(255, 255, 255), 0.08f);
+}
+
 float tween(ImGuiID id, float target, float seconds) {
     auto [at, made] = s.tweens.try_emplace(id, target);
     float& v = at->second;
@@ -150,22 +154,9 @@ void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
 }
 
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round);
-    ImGui::ShadeVertsLinearColorGradientKeepAlpha(
-        list,
-        first,
-        list->VtxBuffer.Size,
-        ImVec2(a.x, a.y),
-        ImVec2(a.x, b.y),
-        ui_colors::mix(ui().bar_top, ui().ink_deep, 0.18f * held),
-        ui_colors::mix(ui().bar_bottom, ui().ink_deep, 0.18f * held)
-    );
-    list->AddLine(
-        ImVec2(a.x + round, a.y + 1.0f),
-        ImVec2(b.x - round, a.y + 1.0f),
-        IM_COL32(255, 255, 255, 90)
-    );
+    // A flat fill in the accent, as the launcher's main button (no gradient, no edge); a little
+    // darker while held.
+    list->AddRectFilled(a, b, ui_colors::mix(ui().amber, ui().ink_deep, 0.18f * held), round);
 }
 
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
@@ -318,8 +309,8 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
     const ImVec2 b(a.x + std::round(w), a.y + std::round(h));
     const ImVec2 centre((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
-    list->AddRectFilled(a, b, ui_colors::fade(ui().panel_hi, alpha), h * 0.5f);
-    list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), h * 0.5f);
+    // A badge: a fill a little lighter than the card under it, 4 px corners, no border.
+    list->AddRectFilled(a, b, ui_colors::fade(control_fill(), alpha), dp(4.0f));
     const CapText t = cap_text(key);
     ImVec2 at = centred_text(t.font, t.size, key, centre);
     if (cap_sign(key)) {
@@ -346,8 +337,8 @@ void card_end() {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const ImVec2 end(s.card.top.x + s.card.width, ImGui::GetCursorScreenPos().y);
     list->ChannelsSetCurrent(0);
-    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(16.0f));
-    list->AddRect(s.card.top, end, ui().line, dp(16.0f));
+    // A card is a fill with no frame, 12 px corners.
+    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(12.0f));
     list->ChannelsMerge();
 }
 
@@ -406,10 +397,10 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
     const float hover = tween(item_part("hover"), over ? 1.0f : 0.0f, kFast);
     if (held > 0.0f || hover > 0.0f) {
         list->AddRectFilled(
-            a, b, ui_colors::fade(pressed_fill(), std::max(held, hover * 0.5f)), dp(10.0f)
+            a, b, ui_colors::fade(pressed_fill(), std::max(held, hover * 0.5f)), dp(6.0f)
         );
     }
-    focus_ring(list, a, b, dp(10.0f));
+    focus_ring(list, a, b, dp(6.0f));
     // The row under the pointer or the focus: a short bar of the accent at its left, the label
     // moved a little right of it.
     const bool lit = over || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
@@ -460,13 +451,16 @@ bool menu_switch(const char* label, bool on) {
         const float h = dp(26.0f);
         const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
         const ImVec2 b(right.x, right.y + h * 0.5f);
-        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().brand, k), h * 0.5f);
-        list->AddRect(a, b, ui_colors::mix(ui().line_strong, ui().brand, k), h * 0.5f);
+        // The launcher's switch: a track with no border, the accent's fill when on, the knob in
+        // the dark of text on gold then.
+        list->AddRectFilled(a, b, ui_colors::mix(control_fill(), ui().amber, k), h * 0.5f);
         const float knob = h * 0.5f - dp(4.0f);
         const float from = a.x + h * 0.5f;
         const float to = b.x - h * 0.5f;
         list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().text, k)
+            ImVec2(from + (to - from) * k, right.y),
+            knob,
+            ui_colors::mix(ui().soft, ui().bar_ink, k)
         );
     });
 }
@@ -629,7 +623,7 @@ bool menu_button(const char* label) {
         menu_sound(MenuSound::Confirm);
     }
     ImDrawList* list = ImGui::GetWindowDrawList();
-    const float round = dp(12.0f);
+    const float round = dp(6.0f);
     primary_fill(
         list, a, b, round, tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast)
     );

@@ -193,6 +193,7 @@
     border: 0;
     background: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-size: 0.8125rem;
   }

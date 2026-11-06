@@ -1,32 +1,59 @@
 # The launcher's look
 
 The launcher looks like [openrac.dev](https://openrac.dev): the same dark ink
-background, orange header bar, type and per-game cards. Everything
+background, gold header bar, type and per-game cards. Everything
 here comes from [OpenRAC/openrac-site](https://github.com/OpenRAC/openrac-site)
-at commit `2964d72`; when the site changes, change the files in the last
-section to match.
+and its `STYLE.md` (one gold accent, no borders on controls or cards); when the
+site changes, change the files in the last section to match. The game's own
+menu (the desktop's bar and window, Android's drawer) follows the same rules.
+
+## In short
+
+- One accent: gold (`--amber`), or the picked game's own (`palettes.json`
+  `accents`). No second accent colour.
+- No borders on buttons, fields, chips, tabs, badges, cards or panels. A fill
+  sets them apart: `--fill` for a button or chip, `--field` for a text field,
+  `--panel` / `--panel-hi` for a card. A thin `--line` only splits things
+  (rows of a list, a bar from the page), never round a control.
+- Corners: 6 px (`--radius-sm`) for buttons, fields, chips, tabs and small
+  boxes; 4 px (`--radius-xs`) for badges; 12 px (`--radius`) for cards, panels,
+  pictures and dialogs. Round only for what is really round (dots, switches,
+  avatars, count bubbles, icon-only circles).
+- On or picked: a gold tint and gold text (`--on-fill`, `aria-pressed`,
+  `data-on`, `aria-checked` on `.segmented`), never a gold border.
+- Focus on a field: a 2 px gold ring inside it. Other controls keep the
+  focus outline.
+- The main action: a flat fill in the accent with dark text (`button.primary`),
+  lifting 2 px under the pointer.
+- Anything you can tap is at least 40 px tall (44 px on Android); fields on
+  Android use 16 px text.
+- The header bar's logo and ink are always dark, whatever the accent.
 
 ## Colours
 
 `src/app.css`, on `:root`, with the site's names (its `@theme` in
 `src/app/globals.css`):
 
-| Token                         | Value                             | Use                                                       |
-| ----------------------------- | --------------------------------- | --------------------------------------------------------- |
-| `--ink`                       | `#181820`                         | the page                                                  |
-| `--ink-deep`                  | `#12121a`                         | inputs, job output                                        |
-| `--panel`                     | `#1d1d28`                         | panels                                                    |
-| `--panel-hi`                  | `#22222f`                         | cards inside panels, buttons                              |
-| `--brand`                     | `#d58a00`                         | section numbers, the selected job                         |
-| `--amber`                     | `#ffb443`                         | links, focus rings, blockers ("needs …"), warnings        |
-| `--gold`                      | `#ffd08a`                         | headings                                                  |
-| `--lav`, `--soft`, `--dim`    | `#c8d2ff`, `#aab6dc`, `#8f9ac4`   | secondary text, from most to least prominent              |
-| `--line`, `--line-strong`     | `rgb(156 161 212 / .22)`, `/ .35` | borders                                                   |
-| `--text`, `--body`            | `#e8f0ff`, `#c3cdea`              | text (the site's body and prose colours)                  |
-| `--bar-top`, `--bar-bottom`   | `#e5a013`, `#cd8300`              | the header bar's gradient, primary buttons                |
-| `--bar-ink`, `--bar-ink-deep` | `#2a1800`, `#1b1206`              | text on the bar; the selected tab (desktop: `--ink-deep`) |
-| `--bar-name`                  | `#000`                            | the logo on the bar (desktop: `--ink-deep`)               |
-| `--on-game`                   | `#fff`                            | text on a game's colours or picture                       |
+| Token                                    | Value                             | Use                                                       |
+| ---------------------------------------- | --------------------------------- | --------------------------------------------------------- |
+| `--ink`                                  | `#12121a`                         | the page                                                  |
+| `--ink-deep`                             | `#0c0c12`                         | job output, the darkest parts                             |
+| `--panel`                                | `#1d1d27`                         | panels                                                    |
+| `--panel-hi`                             | `#23232f`                         | cards inside panels                                       |
+| `--brand`                                | `#d6a020`                         | section numbers, small labels                             |
+| `--amber`                                | `#f5c040`                         | the main button, links, focus rings, what is on           |
+| `--gold`                                 | `#ffe08f`                         | headings, numbers                                         |
+| `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`   | secondary text, from most to least prominent              |
+| `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/ .16` | lines between rows; never round a control                 |
+| `--text`, `--body`                       | `#efeff3`, `#cacad3`              | text, neutral so the gold is the only accent              |
+| `--fill`, `--fill-hi`                    | white 7 % / 12 % over `--panel`   | a button's or chip's fill, under the pointer              |
+| `--field`, `--field-hi`                  | white 5 % / 8 % over `--panel`    | a text field's or dropdown's fill                         |
+| `--on-fill`, `--on-fill-hi`              | the accent at 15 % / 22 %         | a control that is on or picked                            |
+| `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                       | cards; controls; badges                                   |
+| `--bar-top`, `--bar-bottom`              | `#e5a013`, `#cd8300`              | the header bar's gradient, primary buttons                |
+| `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`              | text on the bar; the selected tab (desktop: `--ink-deep`) |
+| `--bar-name`                             | `#000`                            | the logo on the bar (desktop: `--ink-deep`)               |
+| `--on-game`                              | `#fff`                            | text on a game's colours or picture                       |
 
 The site has no status colours; the launcher adds `--ok` (`#8fd694`), `--warn`
 (amber) and `--err` (`#ff8a7a`), used only in pills and messages. The theme is
@@ -36,7 +63,7 @@ These are the "OpenRAC" theme. The other themes (Settings → General: Gruvbox,
 OLED black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by
 `src/lib/palettes.ts` and the core (`core/src/theme.rs`). A theme sets the
 page, panel, text, line and status tokens, never the accent (`--amber`,
-`--gold`, `--brand`, the bar's): that stays orange, or on Android the picked
+`--gold`, `--brand`, the bar's): that stays gold, or on Android the picked
 game's. So a colour that should follow the theme uses a token, such as
 `color-mix(in srgb, var(--ink-deep) 75%, transparent)` for a shade over a
 picture, not a fixed `rgb()`.
@@ -76,15 +103,15 @@ The fonts are bundled from npm (`@fontsource/audiowide`,
 
 | Site                                                                                                                                                                                                                                         | Launcher                                                                                                                                           |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Header.tsx`: the sticky orange bar, the logo, round tabs (selected: dark brown with amber text), the site and Discord links                                                                                                                 | `src/components/Header.svelte`                                                                                                                     |
+| `Header.tsx`: the sticky gold bar, the logo, the tabs in one darker capsule (selected: a dark chip with gold text), the site and Discord links                                                                                               | `src/components/Header.svelte`                                                                                                                     |
 | `Progress.tsx`: a game's card, a gradient from its `from` to its `to` colour, boxes with a thick border in its `border` colour, the "Progress / 59,32 %" pair, the bar with a light sweeping across it, the "… of … code bytes matched" line | `src/components/GameTile.svelte` (smaller), the band in `src/pages/GamePlayer.svelte`, `src/components/ProgressBar.svelte` and `.bar` in `app.css` |
 | `globals.css`: section numbers that count up (`01`, `02`, …), the `rise` and `sweep` animations, reduced motion                                                                                                                              | `.sec-num`, `.sections`, `.rise`, `.bar` in `app.css`                                                                                              |
 | Numbers: two decimals with a decimal comma (`59,32 %`), bytes grouped with narrow spaces                                                                                                                                                     | `src/lib/format.ts`                                                                                                                                |
 
 The launcher's own additions keep to the same palette: pills (a dot and a
-word, coloured by state), rounded buttons (primary ones in the bar's orange),
-panels with a thin `--line` border and 16 px corners, dashed borders for what
-is planned but not there yet.
+word on a tint of their state's colour, 4 px corners), buttons with 6 px
+corners (the primary one a flat fill in the accent), panels as fills with no
+border and 12 px corners.
 
 ## A game's colours
 
@@ -104,7 +131,7 @@ is planned but not there yet.
 (`--box`, `--bd`, `--tx`, `--tx2`, `--from`, `--to`, `--title-font`,
 `--title-weight`): set it on an element and everything inside it takes that
 game's colours. A game without a theme gets `FALLBACK` (the launcher's own
-orange); the tests fail until every game in `games/` has one.
+gold); the tests fail until every game in `games/` has one.
 
 ## A game's picture
 
@@ -139,8 +166,8 @@ release, and a new file adds its line there when it is added.
 
 ## Structure
 
-- A page has one main action, in the bar's orange, in a fixed place. Stops,
-  dead ends and secondary actions are never orange.
+- A page has one main action, in the accent's gold, in a fixed place. Stops,
+  dead ends and secondary actions are never gold.
 - Secondary actions go in a menu beside the main one (`Menu.svelte`), with
   anything that removes set apart at the end in `--err`.
 - A panel holds rows, not more boxes: lists are rows with a `--line` rule
@@ -168,7 +195,7 @@ release, and a new file adds its line there when it is added.
   and each opens a page of its own with a back button and where you are
   (`ModPage.svelte`), not settings unfolded in the list.
 - A setting applies as it changes, without Enter or a Save button, and says
-  that it saved. A number with both ends is a slider (the brand's orange up to
+  that it saved. A number with both ends is a slider (the accent up to
   the value, a mark at the default) with its value in a field beside it; a
   setting off its default has a Reset beside its control.
 - No path in plain view on a page players share screenshots of (Mods): a
@@ -209,7 +236,7 @@ release, and a new file adds its line there when it is added.
   style outside `@media (hover: hover)` or without the controller's guard. It
   names the file and line of what breaks one.
 - Android follows Android's own patterns, not the desktop's: a navigation rail
-  on the left (a bar at the bottom below 600 px wide) in place of the orange
+  on the left (a bar at the bottom below 600 px wide) in place of the gold
   bar, Material's 24/16 px margins, a ripple under the finger
   (`src/lib/ripple.ts`), snackbar-style toasts and no text selection on
   controls. The `--nav-*` tokens say what the navigation takes of the window.

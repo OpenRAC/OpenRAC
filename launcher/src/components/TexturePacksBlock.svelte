@@ -244,8 +244,7 @@
     font-size: 0.8125rem;
     color: var(--lav);
     background: var(--panel-hi);
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -255,11 +254,7 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  @media (hover: hover) {
-    :global(html:where(:not([data-input="pad"]))) .count:hover {
-      border-color: var(--line-strong);
-    }
-  }
+
   h2 {
     font-size: 1rem;
   }

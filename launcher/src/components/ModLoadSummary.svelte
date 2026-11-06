@@ -160,7 +160,6 @@
 
 <style>
   .load-summary {
-    border-top: 3px solid var(--amber);
     margin-bottom: 20px;
   }
   .summary-head,
@@ -184,8 +183,8 @@
   }
   .edition,
   .status {
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    background: var(--fill);
+    border-radius: var(--radius-xs);
     padding: 5px 10px;
     font-size: 12px;
     white-space: nowrap;
@@ -208,6 +207,7 @@
   .notice.quiet {
     background: transparent;
     padding: 0;
+    min-height: 0;
     color: var(--dim);
   }
   .metrics {
@@ -218,9 +218,8 @@
   }
   .metric {
     background: rgb(255 255 255 / 0.025);
-    border: 1px solid var(--line);
     padding: 15px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
   .metric > span {
     display: block;

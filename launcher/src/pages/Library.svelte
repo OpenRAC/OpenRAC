@@ -74,7 +74,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-color: color-mix(in srgb, var(--amber) 45%, transparent);
     color: var(--amber);
   }
 
