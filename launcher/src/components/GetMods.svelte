@@ -29,8 +29,8 @@
   </div>
   {#if hub}<div class="buttons">
       <button class="hub" onclick={openHub}><Icon name="external" size={16} />{T.hub}</button>
-      <button class="ghost small" onclick={() => void guardShown(api.openUrl(T.publishUrl))}
-        ><Icon name="external" size={14} />{T.publish}</button
+      <button class="publish" onclick={() => void guardShown(api.openUrl(T.publishUrl))}
+        ><Icon name="external" size={16} />{T.publish}</button
       >
     </div>{/if}
 </section>
@@ -44,6 +44,9 @@
     padding: 16px 18px;
     border-radius: var(--radius);
     background: linear-gradient(120deg, color-mix(in srgb, var(--amber) 14%, var(--panel)), var(--panel) 70%);
+    /* A card: its buttons take the fill for a card. */
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   /* With the hub: the whole banner opens it. */

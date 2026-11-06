@@ -464,9 +464,7 @@
           >
         {/if}
         {#if shows("gameplay") && mods.some((m) => m.enabled && !isEnhanced(m.id))}
-          <button class="small ghost" onclick={() => void share()}
-            ><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button
-          >
+          <button class="small" onclick={() => void share()}><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button>
         {/if}
         {#if hasSources && shows("gameplay")}
           {#if pending > 1}
@@ -474,7 +472,7 @@
               ><Icon name="refresh" size={14} />{T.PANEL.updateAll(pending)}</button
             >
           {/if}
-          <button class="small ghost" disabled={checking} onclick={() => void checkUpdates()}
+          <button class="small" disabled={checking} onclick={() => void checkUpdates()}
             >{#if checking}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}{T.PANEL
               .checkUpdates}</button
           >
