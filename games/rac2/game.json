@@ -62,7 +62,7 @@
             "extern void func_003182C0(char *);\n\n/* Calls the measured callee with the object it was given. OpenRAC: the decompilation's\n   (void) left a0 unset; the console's a0 still held the moby, the host's held anything. */\nvoid func_L00_003BAAD0(char *self)\n{\n    func_003182C0(self);\n}\n"
           ]
         ],
-        "commit": "6840434e6afeff3cac19f8b8527a9b3fcabb33d1",
+        "commit": "93ac3849711fd9777426565604e63995c3bd0217",
         "date": "2026-11-06",
         "imported": "2026-11-06"
       },
@@ -133,7 +133,7 @@
         "branch": "master",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
-        "commit": "6840434e6afeff3cac19f8b8527a9b3fcabb33d1",
+        "commit": "93ac3849711fd9777426565604e63995c3bd0217",
         "date": "2026-11-06",
         "imported": "2026-11-06"
       },
@@ -205,7 +205,7 @@
         "branch": "master",
         "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
-        "commit": "6840434e6afeff3cac19f8b8527a9b3fcabb33d1",
+        "commit": "93ac3849711fd9777426565604e63995c3bd0217",
         "date": "2026-11-06",
         "imported": "2026-11-06"
       },

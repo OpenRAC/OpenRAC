@@ -1020,7 +1020,7 @@ class ProgressChecks(unittest.TestCase):
                              "source_path":"src/game/open.c","categories":["executable","game"]},
                 "Shared level code":{"rows":[row("e",8,0x300,False)],
                                      "source_path":"src/levels/shared","categories":["level_code","common"]}}
-        report=progress.build_report(groups,lambda n:f"Level {n:02d}",{})
+        report=progress.build_report(groups,lambda n:f"Level {n:02d}")
         total=report["measures"]
         self.assertEqual((total["complete_code"],total["complete_units"],total["total_code"]),("12",1,"40"))
         self.assertAlmostEqual(total["complete_code_percent"],30.0)
@@ -1054,6 +1054,17 @@ class ProgressChecks(unittest.TestCase):
     def test_unmatched_named_retirement_can_wait_for_a_report_refresh(self):
         self.release([{"name":"kept","fuzzy_match_percent":0.0},
                       {"name":"retired","fuzzy_match_percent":0.0}])
+
+    def test_realigned_stretch_retires_only_its_unmatched_miscut_rows(self):
+        spec = {"kept": ({5: 0x1000}, (("kept", 0, 8),), ("miscut",))}
+        with patch.object(levels, "RELEASE_PLACE_RUNS", spec):
+            self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                          {"name":"miscut","fuzzy_match_percent":0.0}])
+            for change in ("matched", "unnamed"):
+                with self.subTest(change=change), self.assertRaises(SystemExit):
+                    name = "other" if change == "unnamed" else "miscut"
+                    self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                                  {"name":name,"fuzzy_match_percent":100.0 if change == "matched" else 0.0}])
 
     def split_fixture(self, address=0x00131DF8):
         main, sound = "func_00131D98", "func_00131DE8"
