@@ -445,16 +445,10 @@ the launcher or a shortcut needs no "non-Steam game" entry in Steam. The port
 asks for the driver on every desktop (`SDL_JOYSTICK_HIDAPI_STEAM=1`,
 `platform/window.cpp`); `SDL_JOYSTICK_HIDAPI_STEAM=0` in the environment turns
 it off. Android keeps SDL's default (off: it would ask for Bluetooth rights).
-Any controller's Start and Select pressed together open and close the menu by
-default, as its key does, while the game's window has the focus (`menu_button`,
-changed in the menu's Controls tab, Menu; the Steam Controller's R4 is
-`paddle1`). Every button of the PS2 pad does something in the game (L3 shows the
-health and bolts, and turns the ship sharper), so the pair is taken from the game
-(`platform/menu_chord.h`): a lone Start or Select waits up to 100 ms for the other
-and reaches the game after that, or as a tap when let go sooner; the pair never
-does, so it neither pauses nor opens the map. Not "...": the port cannot keep a
-running Steam client from reading the same controller, and Steam opens its own
-panel on "..." whatever window has the focus.
+Start+Select opens and closes the menu by default (`menu_button`; change it in
+the menu's Controls tab). The game never gets the pair, so no pause and no map.
+A lone Start or Select reaches the game after up to 100 ms
+(`platform/menu_chord.h`). Not "...": Steam opens its own panel on it.
 
 With the Steam client open, Steam's desktop layout may still move the mouse
 from the controller while the game plays; Steam's "desktop configuration"
