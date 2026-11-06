@@ -62,7 +62,6 @@ sends gameplay mods to Gameplay mods, packs to the packs, and a texture pack
 - **Link field:** a GitHub repository, branch, folder or release. A mod's page
   on openrac.dev (or an `openrac://` link) opens the install screen. Any other
   openrac.dev page says `T.ADD.notModPage`.
-- **Added from before:** one button per link already used.
 - **File, Folder,** or drop a file on the window (desktop).
 - A link shows a preview first: each mod, whether it fits, and an Install,
   Reinstall or Update button. Nothing installs without a click.
