@@ -29,6 +29,8 @@ pub const SUMS: &str = "SHA256SUMS";
 pub const INDEX_TAG: &str = "index";
 /// The largest file fetched (a mod's archive, a repository's).
 pub const MAX_BYTES: u64 = 256 * 1024 * 1024;
+/// The most of a manifest read out of an archive.
+const MANIFEST_MAX_BYTES: u64 = 1024 * 1024;
 
 // ---- Fetching -------------------------------------------------------------------------------
 
@@ -390,7 +392,16 @@ fn manifest_in_zip(bytes: &[u8]) -> Result<Value, String> {
     }
     let name = best.ok_or_else(|| format!("the download has no {MANIFEST}: it is not an OpenRAC mod"))?;
     let mut text = String::new();
-    archive.by_name(&name).map_err(|e| e.to_string())?.read_to_string(&mut text).map_err(|e| e.to_string())?;
+    // A manifest is a few kilobytes: one that claims more is read no further than the limit.
+    archive
+        .by_name(&name)
+        .map_err(|e| e.to_string())?
+        .take(MANIFEST_MAX_BYTES + 1)
+        .read_to_string(&mut text)
+        .map_err(|e| e.to_string())?;
+    if text.len() as u64 > MANIFEST_MAX_BYTES {
+        return Err(format!("its {MANIFEST} is too large to be a mod's"));
+    }
     serde_json::from_str(&text).map_err(|e| format!("its {MANIFEST} cannot be read ({e})"))
 }
 
@@ -1234,6 +1245,14 @@ pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
     }
     let mut asset = None;
     let mut published = None;
+    // What is installed is the release's archive, not the repository's manifest: with a release,
+    // the kind is the archive's. A native build is `<id>-<version>-<platform>.zip` (for any
+    // platform), a script `<id>-<version>.zip`; stage_pinned checks the archive's manifest agrees.
+    let mut kind = described.kind.clone();
+    if let Some(release) = &release {
+        let built = plugins::PLATFORMS.iter().any(|p| release.asset(&asset_name(&pin.id, &pin.version, p)).is_some());
+        kind = if built { "native".into() } else { "script".into() };
+    }
     if let Some(release) = &release {
         published = release.published_at.clone();
         let sums_asset = release.asset(SUMS).ok_or(PinError::Changed)?;
@@ -1242,7 +1261,7 @@ pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
             return Err(PinError::Changed);
         }
         let listed = parse_sums(&String::from_utf8_lossy(&text));
-        let wanted = if described.kind == "native" {
+        let wanted = if kind == "native" {
             let Some(platform) = ctx.platform else {
                 return Err(PinError::Unfit("Native mods are not loaded on this system.".into()));
             };
@@ -1253,16 +1272,14 @@ pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
         match (release.asset(&wanted), listed.get(&wanted)) {
             (Some(a), Some(hash)) => asset = Some((wanted, a.browser_download_url.clone(), hash.clone())),
             (Some(_), None) => return Err(PinError::Changed),
-            (None, _) if described.kind == "native" => {
-                return Err(PinError::Unfit("Not built for this computer.".into()))
-            }
+            (None, _) if kind == "native" => return Err(PinError::Unfit("Not built for this computer.".into())),
             (None, _) => {}
         }
-    } else if described.kind == "native" {
+    } else if kind == "native" {
         return Err(PinError::Unfit("A native mod is installed built, from a release.".into()));
     }
     let zipball = asset.is_none().then(|| format!("{}/repos/{owner}/{repo}/zipball/{at}", ctx.hosts.api));
-    Ok(Pinned { pin: pin.clone(), name: described.name, kind: described.kind, manifest, published, asset, zipball })
+    Ok(Pinned { pin: pin.clone(), name: described.name, kind, manifest, published, asset, zipball })
 }
 
 /// The newest version of mod `id` a repository's releases have an archive of, for "ask the host to
@@ -1357,7 +1374,7 @@ pub fn stage_pinned(ctx: &Context, pinned: &Pinned) -> Result<Staged, String> {
             }
         };
         let inside = manifest_in_zip(&bytes)?;
-        check_inside(&inside, &pinned.pin)?;
+        check_inside(&inside, pinned, ctx.platform)?;
         let file = scratch.0.join(name);
         std::fs::write(&file, &bytes).map_err(|e| format!("{}: {e}", file.display()))?;
         file
@@ -1376,14 +1393,16 @@ pub fn stage_pinned(ctx: &Context, pinned: &Pinned) -> Result<Staged, String> {
         let folder = top.join(&pinned.pin.path);
         let inside: Value =
             json(&std::fs::read(folder.join(MANIFEST)).map_err(|e| format!("{}: {e}", pinned.name))?, MANIFEST)?;
-        check_inside(&inside, &pinned.pin)?;
+        check_inside(&inside, pinned, ctx.platform)?;
         folder
     };
     Ok(Staged { _scratch: scratch, path })
 }
 
-/// A download must hold the mod its manifest in the repository described.
-fn check_inside(manifest: &Value, pin: &Pin) -> Result<(), String> {
+/// A download must hold the mod the review showed: its id and version, and its kind, a native
+/// mod's library for this computer among them.
+fn check_inside(manifest: &Value, pinned: &Pinned, platform: Option<&str>) -> Result<(), String> {
+    let pin = &pinned.pin;
     let text = |k: &str| manifest.get(k).and_then(Value::as_str).unwrap_or_default();
     if text("id") != pin.id || text("version") != pin.version {
         return Err(format!(
@@ -1392,6 +1411,24 @@ fn check_inside(manifest: &Value, pin: &Pin) -> Result<(), String> {
             text("version"),
             pin.id,
             pin.version
+        ));
+    }
+    let inside: Manifest = serde_json::from_value(manifest.clone())
+        .map_err(|e| format!("The download's {MANIFEST} cannot be read ({e}): it is not installed."))?;
+    let kind = if inside.is_script() { "script" } else { "native" };
+    if kind != pinned.kind {
+        return Err(format!(
+            "The download holds a {kind} mod, not the {} mod shown: {} is not installed.",
+            pinned.kind, pinned.name
+        ));
+    }
+    if kind == "native" && platform.is_none_or(|p| !inside.plugin.contains_key(p)) {
+        return Err(format!("The download has no library for this computer: {} is not installed.", pinned.name));
+    }
+    if kind == "script" && !inside.plugin.is_empty() {
+        return Err(format!(
+            "The download names a library, not the script mod shown: {} is not installed.",
+            pinned.name
         ));
     }
     Ok(())
@@ -2061,6 +2098,53 @@ mod tests {
         assert!(preview(&ctx(dir.path(), &fx), "https://github.com/o/r/releases/tag/v9")
             .unwrap_err()
             .contains("no release v9"));
+    }
+
+    /// A code's review and install read the release's archive, not the repository's manifest: one
+    /// that says script while its release ships a library is shown native, and an archive named
+    /// as a script's that holds a library is refused.
+    #[test]
+    fn a_pinned_mod_is_what_its_release_holds() {
+        let script = r#"{"format": 2, "id": "m", "name": "Mod m", "version": "1.0.0", "author": "Someone",
+            "type": "script", "scripts": ["main.luau"], "api": "1.1", "games": {"rac1": ["pal", "ntsc"]}}"#;
+        let pin = |sums: &[u8]| Pin {
+            url: "https://github.com/o/r".into(),
+            path: String::new(),
+            id: "m".into(),
+            version: "1.0.0".into(),
+            tag: Some("v1.0.0".into()),
+            commit: None,
+            sums: Some(sha(sums)),
+        };
+        // A native build in the release: shown native, and it installs.
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let rel = release(&mut fx, "v1.0.0", "m", "1.0.0", Some(String::new()), false);
+        fx.put(&format!("{API}/repos/o/r/releases/tags/v1.0.0"), rel.to_string());
+        fx.put(&format!("{RAW}/o/r/v1.0.0/openrac-mod.json"), script);
+        let sums = fx.files[&format!("{DL}/v1.0.0/SHA256SUMS")].clone();
+        let c = ctx(dir.path(), &fx);
+        let pinned = read_pinned(&c, &pin(&sums)).unwrap();
+        assert_eq!(pinned.kind, "native");
+        assert!(stage_pinned(&c, &pinned).is_ok());
+        // The script's archive name, a library inside: refused before anything is installed.
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        let bytes = mod_zip("m", "1.0.0");
+        let name = "m-1.0.0.zip";
+        let text = format!("{}  {name}\n", sha(&bytes));
+        fx.put(&format!("{DL}/v1.0.0/{name}"), bytes);
+        fx.put(&format!("{DL}/v1.0.0/SHA256SUMS"), text.clone());
+        let rel = serde_json::json!({"tag_name": "v1.0.0", "draft": false, "prerelease": false, "assets": [
+            {"name": name, "browser_download_url": format!("{DL}/v1.0.0/{name}")},
+            {"name": "SHA256SUMS", "browser_download_url": format!("{DL}/v1.0.0/SHA256SUMS")}]});
+        fx.put(&format!("{API}/repos/o/r/releases/tags/v1.0.0"), rel.to_string());
+        fx.put(&format!("{RAW}/o/r/v1.0.0/openrac-mod.json"), script);
+        let c = ctx(dir.path(), &fx);
+        let pinned = read_pinned(&c, &pin(text.as_bytes())).unwrap();
+        assert_eq!(pinned.kind, "script");
+        let err = stage_pinned(&c, &pinned).err().unwrap();
+        assert!(err.contains("native mod, not the script"), "{err}");
     }
 
     /// Another host, through git: a local repository stands for it. Skipped without git.
