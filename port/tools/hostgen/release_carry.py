@@ -149,8 +149,9 @@ class Pairing:
                 address = int(hit[0], 16)
                 lv = None if at[0] == "boot" else int(at[0][6:])
                 found = self.r_exe_at.get(address) if lv is None else self.r_level_at.get((lv, address))
-                if found is not None and lv is None and int(found[-8:], 16) != address:
-                    # A row entered away from its name (a fill word in front): the entry's own name.
+                if found is not None and lv is None and int(found[-8:], 16) != address and base not in self.us_entry:
+                    # v1.01's name is an entry, not a row of its catalogue (a fill word in front), and
+                    # the release's row is entered there too: the entry's own name.
                     found = rel.core("func", None, address)
                 if found is None and at[1] not in self._starts(lv):
                     # An entry inside a function (the linker's fill word before it), found by its

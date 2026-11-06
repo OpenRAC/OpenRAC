@@ -12,7 +12,7 @@
   "global: between": 15,
   "global: exact": 137,
   "global: the release's build": 69,
-  "signature: v1.01's": 6
+  "signature: v1.01's": 7
  },
  "functions": {
   "func_001158F8": [
@@ -236,7 +236,7 @@
    "host C 0x002DC908"
   ],
   "func_002FAE68": [
-   "func_002FBEB8",
+   "func_002FBEB4",
    "near",
    "from_assembly"
   ],
@@ -256,7 +256,7 @@
    "from_assembly"
   ],
   "func_003136D0": [
-   "func_00314B60",
+   "func_00314B5C",
    "near",
    "host C"
   ],

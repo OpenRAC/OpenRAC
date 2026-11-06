@@ -579,7 +579,7 @@
     "func_002CC7B8",
     "func_002D1EB0",
     "func_002D6730",
-    "func_002FBEB8",
+    "func_002FBEB4",
     "func_0030FCE8",
     "func_00311E78",
     "func_00336E98",
@@ -928,6 +928,7 @@
       "func_L15_004334B0": "int (void)",
       "func_L22_003A83A8": "int (void)",
       "func_L23_00422D10": "int (void)",
+      "func_00314B5C": "void (void *)",
       "func_L00_0042A488": "void (void *, void *, void *)"
     },
     "results_before_calls": true,
