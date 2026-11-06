@@ -483,7 +483,7 @@ def carry_split_places(p: Pairing, text: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-HOST_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:__\w+)?)\b")
+HOST_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:_\w+)?)\b")
 HOST_ADDR = re.compile(r"\bRAC2_ADDR\(\s*0x([0-9A-F]{8})u\s*\)")
 HOST_LADDR = re.compile(r"\bRAC2_LADDR\(\s*(\d\d)\s*,\s*0x([0-9A-F]{8})u\s*\)")
 HOST_SKIP = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.S)
