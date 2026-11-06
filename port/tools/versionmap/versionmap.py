@@ -73,6 +73,11 @@ def programs(key: str) -> dict[str, dict[str, tuple[int, bytes]]]:
                 out[f"level:{level:02d}"] = {
                     ("." + r["name"]): (r["address"], (p / f"{r['name']}.bin").read_bytes())
                     for r in records if (p / f"{r['name']}.bin").exists()}
+            elif entry["format"] == "rac2-level":       # games/rac2/*/baserom/[<version>/]levels/NN_name
+                sections = json.loads((p / "manifest.json").read_text())["sections"]
+                out[f"level:{int(p.name[:2]):02d}"] = {
+                    ("." + s["name"]): (s["address"], (p / f"{s['name']}.bin").read_bytes())
+                    for s in sections if (p / f"{s['name']}.bin").exists()}
     return out
 
 
