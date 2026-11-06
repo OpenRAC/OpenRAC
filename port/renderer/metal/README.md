@@ -63,9 +63,29 @@ then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot
 missing, the log says why and the window draws with OpenGL: not Vulkan, which on Apple's systems is
 MoltenVK on the same Metal.
 
+It draws what OpenGL draws. The enhanced renderer (shadows, water, FSR3, HDR, frame
+interpolation) runs only on Vulkan's render graph, so under Metal the game looks as it does on
+OpenGL.
+
+The `_metal` tests (`ctest --preset release -R _metal`) run the drawing tests on it with Metal's
+API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
+
+## Trying it on your Mac
+
+1. Build (only the Command Line Tools are needed: `xcode-select --install`), from `port/`:
+   `cmake --preset release && cmake --build --preset release`.
+2. Set a game up once from your disc image, into a folder of your choice:
+   `./build/release/openrac-extractor ~/discs/rac1.iso --game rac1 --proj-path ~/OpenRAC/active/rac1/data`.
+   A folder the launcher has already set up (`<install>/active/rac1/data`) works too.
+3. Play on Metal:
+   `OPENRAC_GL_API=metal ./build/release/openrac-rac1-ntsc --data ~/OpenRAC/active/rac1/data`.
+   The log's `graphics: <GPU>, Metal, the renderer's GL carried out with Metal` line says it
+   is on Metal; a `Metal could not be used (...)` warning says why it is on OpenGL instead.
+4. To compare, run the same command with `OPENRAC_GL_API=desktop` (OpenGL).
+
 ## Still to come
 
 - The rest of `renderer/gl.h`: compute.
-- The renderers' picture tests run on it, as their `_vulkan` variants do.
+- The renderers' picture tests (`render_equivalence`, `texture_filter`) run on it.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
 - macOS 12 as the deployment target, an Intel and universal build, iOS, Xcode projects.
