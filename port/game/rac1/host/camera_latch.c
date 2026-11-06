@@ -26,7 +26,7 @@
 #include "rac1.h"
 
 #define PAD RAC1_ADDR(0x0013CA40u)
-#define ANALOG_X (PAD + 0x100u) /* the right stick's x as the game reads it, a float */
+#define ANALOG_X (PAD + 0x100u) /* right stick x as a float */
 #define PAD_MIRROR RAC1_ADDR(0x0015EEB4u)
 #define CAM_INVERT RAC1_ADDR(0x0015EEE0u)
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))
@@ -42,9 +42,7 @@ void func_L00_002E9E60(gaddr camera, gaddr yaw, gaddr pitch) {
     func_L00_002E9E60__game(camera, yaw, pitch);
     s_camera = GREF(gaddr, camera + 0x70u);
     ++s_reads;
-    /* The right stick's sensitivity past a full push (openrac_game_camera_speed, 1 unless the
-     * player turned it up): the yaw the stick gave is the spring's target, so the camera turns
-     * that much faster. Not a camera volume's own turn, nor a locked one. */
+    /* Sensitivity above 100%: scale the stick's turn. Locked and scripted turns stay as they are. */
     if (openrac_game_camera_speed != 1.0f && (GREF(int32_t, s_camera + 0x1B8u) & 1) == 0
         && GREF(float, ANALOG_X) != 0.0f) {
         GREF(float, yaw) *= openrac_game_camera_speed;

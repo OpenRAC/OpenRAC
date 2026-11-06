@@ -28,7 +28,7 @@
 #include "openrac/game_host.h"
 
 #define CAM_LEFT_RIGHT 0x001A7BA8u
-#define ANALOG_X 0x00138280u /* the right stick's x as the game reads it, a float */
+#define ANALOG_X 0x00138280u /* right stick x as a float */
 #define SPRING_STIFFNESS OPENRAC_LDATA(0, 0x001B14ACu)
 #define SPRING_DAMPING OPENRAC_LDATA(0, 0x001B14B0u)
 #define CAMERA_BLOCK OPENRAC_LDATA(0, 0x001B8E20u)
@@ -47,8 +47,7 @@ void func_L00_00424F98(gaddr camera, gaddr x, gaddr y) {
     func_L00_00424F98__game(camera, x, y);
     s_state = GREF(gaddr, camera + 0x70u) + 0x1C0u;
     ++s_reads;
-    /* The right stick's sensitivity past a full push, as in Ratchet & Clank (rac1/host/
-     * camera_latch.c): the spring's target scaled, unless the stick did not give it. */
+    /* Sensitivity above 100%: scale the stick's turn, as in rac1. */
     if (openrac_game_camera_speed != 1.0f && (GREF(int32_t, s_state + STATE_FLAGS) & 1) == 0
         && GREF(float, ANALOG_X) != 0.0f) {
         GREF(float, x) *= openrac_game_camera_speed;

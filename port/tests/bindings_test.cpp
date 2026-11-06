@@ -515,6 +515,17 @@ void test_tuned_sticks() {
     const Pad turned = pad_from(g_bindings, inputs);
     CHECK(turned.right_x == 0xFF);
     CHECK(turned.camera_speed > 1.99f && turned.camera_speed <= 2.0f);
+    // Not when something else is bound to the right stick's x.
+    set_bindings({{"pad_right_sensitivity", "200"}, {"bind_rstick_right", "PadLeftStickRight"}});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    // Not at 100%, nor below a full push.
+    set_bindings({});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    set_bindings({{"pad_right_sensitivity", "200"}});
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 8192;
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = -32768;
+    CHECK(pad_from(g_bindings, inputs).camera_speed > 1.99f);
     set_bindings({{"pad_left_sensitivity", "200"}});
     inputs.axes[SDL_GAMEPAD_AXIS_LEFTX] = 32767;
     inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 0;

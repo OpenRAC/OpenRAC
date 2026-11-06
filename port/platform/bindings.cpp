@@ -758,6 +758,7 @@ void apply_keys(const Bindings& bindings, std::span<const bool> keys, Pad& pad) 
     }
     if (rx != 0) {
         pad.right_x = key_stick_byte(rx);
+        pad.camera_speed = 1.0f;  // keys turn at normal speed
     }
     if (ry != 0) {
         pad.right_y = key_stick_byte(ry);
@@ -776,6 +777,7 @@ void apply_pad(
     // Each is tuned first (the player's dead zone, sensitivity and inversion), then shaped.
     Reading reading;
     reading.threshold = bindings.tuning.trigger_threshold;
+    float right_past_full = 1.0f;
     for (std::size_t s = 0; s < 2; ++s) {
         float& x = reading.sticks[2 * s];
         float& y = reading.sticks[2 * s + 1];
@@ -783,7 +785,7 @@ void apply_pad(
         y = static_cast<float>(inputs.axes[2 * s + 1]) / 32768.0f;
         const float past_full = tune_stick(x, y, bindings.tuning.sticks[s]);
         if (s == 1) {
-            pad.camera_speed = past_full;
+            right_past_full = past_full;
         }
         shape_stick(x, y, gates[s]);
     }
@@ -848,6 +850,24 @@ void apply_pad(
         pad.right_x,
         pad.right_y
     );
+
+    // Faster camera only for the right stick itself, pushed all the way, with default binding.
+    if (right_past_full > 1.0f) {
+        const float x = reading.sticks[SDL_GAMEPAD_AXIS_RIGHTX];
+        const int sign = x > 0.0f ? 1 : -1;
+        const Target toward = sign > 0 ? Target::RightStickRight : Target::RightStickLeft;
+        const Target away = sign > 0 ? Target::RightStickLeft : Target::RightStickRight;
+        const Bindings::Slot& slot = bindings.slots[static_cast<std::size_t>(toward)];
+        const Binding own{Binding::Kind::PadAxis, SDL_GAMEPAD_AXIS_RIGHTX, sign};
+        bool bound = false;
+        for (int p = 0; p < slot.pad_count; ++p) {
+            const PadChord& chord = slot.pad[static_cast<std::size_t>(p)];
+            bound = bound || (chord.input == own && chord.with.kind == Binding::Kind::None);
+        }
+        if (bound && std::fabs(x) >= 1.0f && push[static_cast<std::size_t>(away)] == 0.0f) {
+            pad.camera_speed = right_past_full;
+        }
+    }
 }
 
 }  // namespace openrac::platform

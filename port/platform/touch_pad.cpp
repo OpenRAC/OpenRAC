@@ -536,6 +536,7 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     if (lx != 0.0f || ly != 0.0f) {
         square_stick(lx, ly);
         stick_pair_bytes(lx, ly, dead_zone, pad.right_x, pad.right_y);
+        pad.camera_speed = 1.0f;  // touch turns at normal speed
     }
 }
 
