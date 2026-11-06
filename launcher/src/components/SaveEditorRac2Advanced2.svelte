@@ -290,7 +290,6 @@
     font: inherit;
     font-size: 0.875rem;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -382,7 +381,6 @@
     cursor: pointer;
     color: var(--soft);
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
   }
 
   .chip.on {

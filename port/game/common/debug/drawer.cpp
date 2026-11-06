@@ -370,7 +370,6 @@ bool bar_button(const char* label, float width, bool primary = false) {
         primary_fill(list, a, b, round, held);
     } else {
         list->AddRectFilled(a, b, ui_colors::mix(control_fill(), pressed_fill(), held), round);
-        control_edge(list, a, b, round);
     }
     focus_ring(
         list,

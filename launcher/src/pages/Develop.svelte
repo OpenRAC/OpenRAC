@@ -149,7 +149,6 @@
     gap: 8px;
     border: 0;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;

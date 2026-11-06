@@ -277,7 +277,6 @@
     gap: 10px;
     padding: 8px 10px;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     cursor: pointer;

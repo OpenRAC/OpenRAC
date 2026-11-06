@@ -612,7 +612,6 @@
     font-weight: 600;
     color: var(--gold);
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: var(--radius-sm);
     padding: 6px 44px 6px 18px;
     appearance: none;

@@ -46,8 +46,8 @@ struct Colors {
     // Control fills (launcher/docs/STYLE.md): no border, picked against what is behind them.
     Color control = rgba(0x12, 0x12, 0x12);          // --control: on black
     Color control_hi = rgba(0x1e, 0x1e, 0x1e);       // --control-hi: under the pointer
-    Color control_card = rgba(0x1a, 0x1a, 0x1a);     // --control-card: on a panel or a card
-    Color control_card_hi = rgba(0x22, 0x22, 0x22);  // --control-card-hi
+    Color control_card = rgba(0x1e, 0x1e, 0x1e);     // --control-card: on a panel or a card
+    Color control_card_hi = rgba(0x26, 0x26, 0x26);  // --control-card-hi
     // A game's own ground for the menu's window (palettes.json accents: tinted with its colour);
     // none (alpha 0) keeps the theme's coal with an accent glow at the top.
     Color menu_top = rgba(0, 0, 0, 0);     // --menu-top

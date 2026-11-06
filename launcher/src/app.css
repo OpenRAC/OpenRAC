@@ -43,16 +43,21 @@
   --on-game: #fff;
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
-  /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy.
-     On the page (#0a0a0a) a control is #121212; on a card (#121212) it is #1a1a1a. A card sets
+  /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy and no edge.
+     On the page (#0a0a0a) a control is #121212; on a card (#121212) it is #1e1e1e. A card sets
      --control from the card pair; a theme (palettes.json) sets both pairs. */
   --control: #121212;
   --control-hi: #1e1e1e;
-  --control-card: #1a1a1a;
-  --control-card-hi: #222222;
-  /* A control's 1 px gold edge, the accent at 35 %; none on the main button, ghost buttons, the
-     bar's buttons and rows of a list. */
-  --edge: color-mix(in srgb, var(--amber) 35%, transparent);
+  --control-card: #1e1e1e;
+  --control-card-hi: #262626;
+  /* A game's own coal (palettes.json accents: Going Commando's a little blue), worn by the
+     OpenRAC theme only (the rule after :root); another theme keeps its own surfaces. */
+  --tint-panel: #121212;
+  --tint-panel-hi: #191919;
+  --tint-control: #121212;
+  --tint-control-hi: #1e1e1e;
+  --tint-control-card: #1e1e1e;
+  --tint-control-card-hi: #262626;
   /* On or picked: a gold tint on the page's black, with gold text. */
   --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
@@ -93,6 +98,18 @@
   --nav-left: 0px;
   --nav-bottom: 0px;
   color-scheme: dark;
+}
+
+/* The OpenRAC theme wears the picked game's coal (--tint-*); a theme's own surfaces, set on the
+   root's style (palettes.ts), win over this. */
+html:not([data-theme]),
+html[data-theme="openrac"] {
+  --panel: var(--tint-panel);
+  --panel-hi: var(--tint-panel-hi);
+  --control: var(--tint-control);
+  --control-hi: var(--tint-control-hi);
+  --control-card: var(--tint-control-card);
+  --control-card-hi: var(--tint-control-card-hi);
 }
 
 /* The accent's colours as colours, so that they ease from one game's to the next (App.svelte) rather
@@ -324,7 +341,6 @@ button,
   border: 0;
   background: var(--control);
   /* The gold edge, drawn inside so it takes no room. */
-  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--text);
   min-height: 40px;
   padding: 8px 16px;
@@ -462,7 +478,6 @@ select {
   color: var(--text);
   background-color: var(--control);
   border: 0;
-  box-shadow: inset 0 0 0 1px var(--edge);
   border-radius: var(--radius-sm);
   transition:
     background-color var(--fast),
@@ -572,9 +587,8 @@ input.switch {
   height: 24px;
   margin: 0;
   border-radius: 999px;
-  /* A track, as the site's progress tracks: the darkest black, with the gold edge. */
+  /* A track, as the site's progress tracks: the darkest black, no edge. */
   background: var(--ink-deep);
-  box-shadow: inset 0 0 0 1px var(--edge);
   border: 0;
   cursor: pointer;
   transition: background var(--fast) var(--ease);
@@ -618,7 +632,6 @@ input.switch:disabled {
   gap: 2px;
   border-radius: var(--radius-sm);
   background: var(--control);
-  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .segmented button {

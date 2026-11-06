@@ -157,7 +157,6 @@
     padding: 0;
     justify-content: center;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
   }
 
   .list {

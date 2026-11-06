@@ -218,7 +218,7 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_WindowBg] = c(u.panel, 0.94f);
     colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
     colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
-    colors[ImGuiCol_Border] = c(u.amber, 0.35f);  // a control's gold edge (the launcher's --edge)
+    colors[ImGuiCol_Border] = c(u.line);
     colors[ImGuiCol_FrameBg] = c(control);
     colors[ImGuiCol_FrameBgHovered] = c(control_hi);
     colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.panel, u.amber, 0.18f));
@@ -286,7 +286,7 @@ void style_and_font() {
     style.WindowBorderSize = 0.0f;
     style.ChildBorderSize = 0.0f;
     style.PopupBorderSize = 0.0f;
-    style.FrameBorderSize = 1.0f;  // only frames have an edge; windows and popups none
+    style.FrameBorderSize = 0.0f;
     style.TabBorderSize = 0.0f;
     style.WindowPadding = ImVec2(12.0f, 10.0f);
     style.FramePadding = ImVec2(8.0f, 4.0f);

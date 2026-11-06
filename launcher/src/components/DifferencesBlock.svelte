@@ -164,7 +164,6 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;

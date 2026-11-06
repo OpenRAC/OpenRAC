@@ -34,8 +34,6 @@ ImU32 pressed_fill();
 // (--control-card-hi). The bar's own controls use ui().control.
 ImU32 control_fill();
 ImU32 control_fill_hi();
-// A control's 1 px gold edge (the launcher's --edge, the accent at 35 %), drawn inside [a, b].
-void control_edge(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float alpha = 1.0f);
 // The rounded rectangle [a, b] in the launcher's stripes: bands of `one` and `two`, 20 px each at
 // 35 degrees, a band of `one` starting at `origin` (the screen's corner for a card; the bar's own
 // for its buttons, so their stripes continue the bar's).

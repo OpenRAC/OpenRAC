@@ -584,7 +584,6 @@
     font: inherit;
     font-size: 0.8125rem;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 5px 8px;

@@ -621,7 +621,6 @@
     padding: 0 6px 0 14px;
     border-radius: var(--radius-sm);
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--soft);

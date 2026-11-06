@@ -247,7 +247,6 @@
     display: inline-flex;
     align-items: center;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: 7px;
     padding: 1px 8px;
     font-size: 0.75rem;

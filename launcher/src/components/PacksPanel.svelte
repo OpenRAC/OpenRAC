@@ -354,7 +354,6 @@
     padding: 2px 8px;
     border-radius: 7px;
     background: var(--control);
-    box-shadow: inset 0 0 0 1px var(--edge);
     font-size: 0.75rem;
     color: var(--soft);
   }

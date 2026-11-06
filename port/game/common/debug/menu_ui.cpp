@@ -48,18 +48,6 @@ ImU32 control_fill_hi() {
     return ui().control_card_hi;
 }
 
-void control_edge(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float alpha) {
-    const float half = 0.5f;
-    list->AddRect(
-        ImVec2(a.x + half, a.y + half),
-        ImVec2(b.x - half, b.y - half),
-        ui_colors::fade(ui().amber, 0.35f * alpha),
-        round,
-        ImDrawFlags_None,
-        1.0f
-    );
-}
-
 namespace {
 
 // `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it
@@ -538,10 +526,9 @@ bool menu_switch(const char* label, bool on) {
         const float h = dp(26.0f);
         const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
         const ImVec2 b(right.x, right.y + h * 0.5f);
-        // The launcher's switch: a track in the darkest black with the gold edge; when on, the
+        // The launcher's switch: a track in the darkest black, no edge; when on, the
         // gold tint of a control that is on and a gold knob (no wall of solid gold).
         list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f);
-        control_edge(list, a, b, h * 0.5f);
         const float knob = h * 0.5f - dp(4.0f);
         const float from = a.x + h * 0.5f;
         const float to = b.x - h * 0.5f;
