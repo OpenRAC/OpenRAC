@@ -22,6 +22,7 @@
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
+#include "mod_touch.h"
 #include "openrac/guest.h"
 #include "openrac/keys.h"
 
@@ -721,6 +722,40 @@ int api_capture_mouse(lua_State* L) {
     return 0;
 }
 
+// ---- The on-screen pad's buttons (interface 1.13) ----
+
+int api_touch_define(lua_State* L) {
+    State* s = state_of(L);
+    std::string error;
+    const bool ok = touch::define(s->mod.id, luaL_checkstring(L, 1), error);
+    if (!ok) {
+        log_line(s, OPENRAC_LOG_WARN, error);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+int api_touch_icon(lua_State* L) {
+    State* s = state_of(L);
+    std::string error;
+    const bool ok = touch::icon(s->mod.id, luaL_checkstring(L, 1), luaL_checkstring(L, 2), error);
+    if (!ok) {
+        log_line(s, OPENRAC_LOG_WARN, error);
+    }
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+int api_touch_push(lua_State* L) {
+    touch::push(state_of(L)->mod.id, luaL_optstring(L, 1, ""));
+    return 0;
+}
+
+int api_touch_hint(lua_State* L) {
+    touch::hint(state_of(L)->mod.id, luaL_checkstring(L, 1), lua_toboolean(L, 2) != 0);
+    return 0;
+}
+
 int api_read(lua_State* L) {
     std::uint8_t kind = 0;
     if (!kind_named(luaL_checkstring(L, 1), kind)) {
@@ -868,6 +903,10 @@ void push_openrac(lua_State* L, State* s) {
     set_function(L, "pointer", api_pointer);
     set_function(L, "take_input", api_take_input);
     set_function(L, "capture_mouse", api_capture_mouse);
+    set_function(L, "touch_define", api_touch_define);
+    set_function(L, "touch_icon", api_touch_icon);
+    set_function(L, "touch_push", api_touch_push);
+    set_function(L, "touch_hint", api_touch_hint);
     if (s->binding->moby != nullptr) {
         set_function(L, "pvars", api_pvars);
     }

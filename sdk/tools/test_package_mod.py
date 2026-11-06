@@ -228,6 +228,31 @@ class Archives(unittest.TestCase):
             self.assertTrue(any("assets" in e for e in pm.check_manifest(changed(assets=bad))), bad)
         self.assertEqual(pm.check_manifest(changed(assets="assets")), [])
 
+    def test_package_carries_the_touch_file_and_its_icons(self):
+        # MODS.md, "Touch controls": the touch file and the icons it names go in.
+        folder = self.folder("linux-x86_64")
+        m = json.loads((folder / pm.MANIFEST).read_text())
+        m["touch"] = "touch/touch.json"
+        (folder / pm.MANIFEST).write_text(json.dumps(m))
+        (folder / "touch").mkdir()
+        (folder / "touch" / "touch.json").write_text(json.dumps(
+            {"contexts": {"kart": {"actions": [{"id": "go", "icon": "kart", "press": "cross"}]}},
+             "icons": {"kart": "touch/kart.svg"}}))
+        (folder / "touch" / "kart.svg").write_text("<svg/>")
+        out = pm.package(folder, self.root / "dist")
+        with zipfile.ZipFile(out) as z:
+            names = z.namelist()
+        self.assertIn("touch/touch.json", names)
+        self.assertIn("touch/kart.svg", names)
+        (folder / "touch" / "kart.svg").unlink()
+        with self.assertRaises(pm.ManifestError):
+            pm.package(folder, self.root / "dist")
+
+    def test_touch_must_be_a_json_file_inside(self):
+        for bad in ("", "../up.json", "/abs.json", "touch.txt", "a\\b.json", 3):
+            self.assertTrue(any("touch" in e for e in pm.check_manifest(changed(touch=bad))), bad)
+        self.assertEqual(pm.check_manifest(changed(touch="touch.json")), [])
+
     def test_package_refuses_a_missing_library(self):
         folder = self.folder("linux-x86_64")
         (folder / "lib/linux-x86_64/lock_strafe.so").unlink()

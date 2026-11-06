@@ -60,6 +60,7 @@ add_library(openrac_platform STATIC
   platform/performance_hint.cpp
   platform/pump.cpp
   platform/show_folder.cpp
+  platform/touch_actions.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
@@ -282,10 +283,11 @@ add_library(openrac_renderer_ui STATIC
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp
   renderer/ui/picture_blit.cpp
+  renderer/ui/touch_icons.cpp
   renderer/ui/touch_overlay.cpp
 )
 target_link_libraries(openrac_renderer_ui PUBLIC openrac_renderer openrac_platform
-  PRIVATE openrac_imgui)
+  PRIVATE openrac_imgui openrac_nanosvg)
 openrac_warnings(openrac_renderer_ui)
 
 # Optional upscaled texture colours: the normal renderer only owns the provider interface.

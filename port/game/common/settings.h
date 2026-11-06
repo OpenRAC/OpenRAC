@@ -193,6 +193,9 @@ struct Settings {
     // The on-screen pad (platform/touch_pad.h): its controls' size and the camera's speed, in
     // percent of the pad's own, and where the player moved its groups (TouchPad::layout()).
     int touch_scale = 75;
+    // Its buttons: 0 the game's actions as icons, changing with what the game is doing (the Arc
+    // style, game/common/frontend/touch_controls.h), 1 the DualShock's (Classic).
+    int touch_style = 0;
     int touch_camera = 100;
     std::string touch_layout;
     bool verbose_log =

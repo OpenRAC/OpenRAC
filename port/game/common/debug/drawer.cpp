@@ -472,6 +472,26 @@ void touch_edit_bar() {
         if (resized) {
             settings::save();
         }
+        // The control a finger last took hold of: its own size, apart from the rest.
+        if (s.touch_selected < 0.0f) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(ui().dim));
+            ImGui::TextUnformatted("Tap a button to change its own size.");
+            ImGui::PopStyleColor();
+        } else {
+            if (bar_button("-##button_smaller", button)) {
+                --s.touch_size_steps;
+            }
+            ImGui::SameLine();
+            const std::string own = std::format(
+                "This button {}%##button_size",
+                static_cast<int>(std::lround(s.touch_selected * 100.0f))
+            );
+            bar_button(own.c_str(), wide * 2.0f + gap);
+            ImGui::SameLine();
+            if (bar_button("+##button_larger", button)) {
+                ++s.touch_size_steps;
+            }
+        }
         s.bar_min = ImGui::GetWindowPos();
         s.bar_max =
             ImVec2(s.bar_min.x + ImGui::GetWindowSize().x, s.bar_min.y + ImGui::GetWindowSize().y);

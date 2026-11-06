@@ -146,6 +146,14 @@ extern int (*openrac_game_mode)(uint32_t* mode);
 extern int (*openrac_game_hero_position)(float xyz[3]);
 extern int (*openrac_game_camera_position)(float xyz[3]);
 
+/* The on-screen pad's context (platform/touch_actions.h, game/common/frontend/touch_controls.h),
+ * asked once a frame when a game installs it (rac1: port/game/rac1/host/touch.c). It writes the
+ * context's name ("foot", "clank", "ship", "cutscene", "menu"; see game/common/touch/sets/) into
+ * *context and the hints shown now ("swing_target") into hints. Returns the number of hints, or -1
+ * when there is no context (the pad then shows the "default" set). It only reads game memory. */
+#define OPENRAC_TOUCH_HINTS_MAX 4
+extern int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
+
 /* For crash reports: the moby whose update was running when the program stopped. */
 typedef struct openrac_game_moby {
     uint32_t address; /* in game memory */

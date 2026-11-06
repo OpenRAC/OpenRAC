@@ -18,6 +18,8 @@
 
 void func_00288CB0(int level, int fade);
 void func_00298E08(void);
+/* The on-screen pad's context (touch.c). */
+int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
 
 /* The levels, by the game's own numbers (games/rac2/ntsc/docs/LEVELS.md): 21 and 27 to 29 have no
  * program on the disc. */
@@ -491,6 +493,7 @@ void rac2_install_tools(void) {
     openrac_game_hero = hero;
     openrac_game_skip_buttons = skip_buttons;
     openrac_game_skip = skip;
+    openrac_game_touch = rac2_touch;
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
 }

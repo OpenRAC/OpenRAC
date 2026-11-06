@@ -236,6 +236,7 @@ add_library(openrac_mods STATIC
   game/common/mod_manifest.cpp
   game/common/mod_play.cpp
   game/common/mod_scripts.cpp
+  game/common/mod_touch.cpp
   game/common/mods.cpp
 )
 target_include_directories(openrac_mods PUBLIC game/common game/common/include "${PROJECT_SOURCE_DIR}/../sdk/include")
@@ -244,6 +245,8 @@ target_link_libraries(openrac_mods PUBLIC openrac_runtime ${CMAKE_DL_LIBS}
 openrac_warnings(openrac_mods)
 
 openrac_add_test(mod_manifest LIBS openrac_mods)
+# What the mods ask of the on-screen pad's buttons (mod_touch.h).
+openrac_add_test(mod_touch LIBS openrac_mods)
 # When the mods' pages of the game's menus take the pad (mod_ui.h): only while the title stays.
 openrac_add_test(mod_ui_menus INCLUDES game/common)
 

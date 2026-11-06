@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 /// The mod interface this launcher's port has: `OPENRAC_MOD_API_MAJOR` and `_MINOR` of
 /// `sdk/include/openrac/openrac_mod.h`. Change them with it.
 pub const API_MAJOR: u32 = 1;
-pub const API_MINOR: u32 = 12;
+pub const API_MINOR: u32 = 13;
 /// The interface a script mod needs at least: 1.1, the first with scripts (MODS.md, section 11).
 pub const SCRIPT_API_MINOR: u32 = 1;
 
@@ -228,6 +228,10 @@ pub struct Manifest {
     /// (MODS.md, section 3).
     #[serde(default)]
     pub assets: Option<String>,
+    /// A .json file inside the mod with the on-screen pad's buttons and icons (interface 1.13;
+    /// MODS.md, "Touch controls").
+    #[serde(default)]
+    pub touch: Option<String>,
     #[serde(default)]
     pub hooks: Vec<String>,
     #[serde(default)]
@@ -372,6 +376,11 @@ impl Manifest {
         if let Some(assets) = &self.assets {
             if !safe_relative(assets) {
                 return Err(format!("its assets {assets:?} is not a folder inside the mod"));
+            }
+        }
+        if let Some(touch) = &self.touch {
+            if !touch.ends_with(".json") || !safe_relative(touch) {
+                return Err(format!("its touch {touch:?} is not a .json file inside the mod"));
             }
         }
         if !self.plugin.is_empty() {
@@ -1655,6 +1664,11 @@ mod tests {
         native(json!({"assets": "assets"})).unwrap();
         for bad in ["", "../up", "/abs", "a\\b"] {
             assert!(native(json!({"assets": bad})).unwrap_err().contains("assets"), "{bad}");
+        }
+        // Its touch file (MODS.md, "Touch controls") is a .json file inside it.
+        native(json!({"touch": "touch/touch.json"})).unwrap();
+        for bad in ["", "../up.json", "/abs.json", "touch.txt"] {
+            assert!(native(json!({"touch": bad})).unwrap_err().contains("touch"), "{bad}");
         }
         // A native mod built for interface 1.0 still loads on 1.1.
         let old: Manifest = serde_json::from_value(manifest("n", json!({"api": "1.0"}))).unwrap();

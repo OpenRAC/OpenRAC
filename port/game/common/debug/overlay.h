@@ -300,6 +300,10 @@ struct State {
     ImVec2 bar_min{};
     ImVec2 bar_max{};
     ImVec2 touch_guides{-1.0f, -1.0f};
+    // The size of the control picked to be resized (set_touch_selected()), below 0 for none, and
+    // the steps the bar asked to change it by (take_touch_size_steps()).
+    float touch_selected = -1.0f;
+    int touch_size_steps = 0;
     Card card;                      // the card being drawn on
     bool settings_changed = false;  // a setting changed in the drawer or the menus, not applied yet
     Scroll panel_scroll;            // the panel's drag_scroll

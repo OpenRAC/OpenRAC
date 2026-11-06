@@ -14,6 +14,7 @@
 #include "renderer/gl.h"
 #include "renderer/shader.h"
 #include "renderer/ui/logo.h"
+#include "renderer/ui/touch_icons.h"
 
 namespace openrac::renderer::ui::touch_overlay {
 namespace {
@@ -47,8 +48,11 @@ uniform vec2 knob;     // a stick's knob, -1..1 of the circle
 uniform float angle;   // an arrow's direction, in radians clockwise from up
 uniform int label0;    // two letters (letter()), -1 for none
 uniform int label1;
-uniform sampler2D tex_T0;  // the logo's mark, its coverage in alpha
+uniform sampler2D tex_T0;  // the logo's mark, its coverage in alpha; or the icons (touch_icons.h)
 uniform vec2 logo_half;    // the mark's half width and height in radii
+uniform vec4 icon_rect;    // an icon's cell in the icons' texture: u0, v0, u1, v1
+uniform float icon_half;   // its half size in radii
+uniform vec3 accent;       // the game's accent (the launcher's, ui_colors.h): a held control's light
 out vec4 colour;
 
 // smoothstep() is undefined with equal edges: where d is flat across a pixel (fwidth 0, far from
@@ -61,23 +65,29 @@ float segment(vec2 p, vec2 a, vec2 b) {
     vec2 pa = p - a, ba = b - a;
     return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
 }
-// The pad's accent: Ratchet's orange, for a held control's light and the sticks' knobs.
-const vec3 accent = vec3(1.0, 0.56, 0.14);
 
 vec4 over(vec4 under, vec4 top) {
     float a = top.a + under.a * (1.0 - top.a);
     return vec4(a > 0.0 ? (top.rgb * top.a + under.rgb * under.a * (1.0 - top.a)) / a : vec3(0.0), a);
 }
-// The DualShock 2's black plastic, translucent over the game: lighter where the light falls
-// at the top, a fine rim.
-vec4 glass(float d, float lift) {
-    vec4 body = vec4(vec3(mix(mp_vec3(0.20, 0.20, 0.21), mp_vec3(0.05, 0.05, 0.055), mp_float(v_at.y * 0.5 + 0.5))),
-                     0.48 + 0.15 * held);
-    body.rgb = mix(body.rgb, accent * 0.55, 0.45 * held * lift);
-    vec4 c = vec4(body.rgb, body.a * fill(d));
-    float rim = fill(abs(d + 0.035) - 0.022);
-    return over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.30 + 0.5 * held) * rim));
+// Every button, round or a pill as wide as `stretch` says: a see-through slate face in the middle
+// of a darker base, a clear rim, a light along the top edge. A press shrinks the face a little and
+// warms it.
+const vec3 kSlateBase = vec3(0.075, 0.075, 0.085);
+const vec3 kSlateTop = vec3(0.205, 0.205, 0.235);
+const vec3 kSlateBottom = vec3(0.150, 0.150, 0.172);
+vec4 slate(vec2 p, float d) {
+    vec4 c = vec4(kSlateBase, 0.38 * fill(d));
+    c = over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.34 + 0.4 * held) * fill(abs(d + 0.025) - 0.022)));  // the rim
+    float f = d + 0.12 + 0.04 * held;
+    vec3 face = mix(kSlateTop, kSlateBottom, clamp(p.y * 0.5 + 0.5, 0.0, 1.0));
+    face = mix(face, accent * 0.5, 0.30 * held);
+    c = over(c, vec4(face, (0.42 + 0.25 * held) * fill(f)));
+    float edge = fill(abs(f + 0.025) - 0.016) * (1.0 - smoothstep(-0.2, 0.3, p.y));
+    c = over(c, vec4(vec3(1.0), 0.09 * edge));
+    return c;
 }
+
 // A letter of the shoulders' names in strokes, in a box 1 wide and 2 high centred on p's origin:
 // 0 L, 1 R, 2 one, 3 two.
 float letter(int code, vec2 p) {
@@ -107,57 +117,60 @@ void main() {
     vec4 c = vec4(0.0);
     vec4 ink = vec4(tint, 0.92);
     if (symbol == 9) {
-        // The d-pad's round well in the pad's body, as on the DualShock 2.
+        // The d-pad's round base, as the stick's.
         float d = length(p) - 1.0;
-        c = glass(d, 0.0);
-        c.rgb *= 0.7;
+        c = vec4(kSlateBase, 0.36 * fill(d));
+        c = over(c, vec4(vec3(1.0), 0.30 * fill(abs(d + 0.02) - 0.018)));
     } else if (symbol == 6) {
-        // An arm of the d-pad: the DualShock 2's own, a key pointed toward the middle, with an
-        // arrow pressed into it.
+        // An arm of the d-pad: a key pointed toward the middle, an arrow on it.
         float ca = cos(angle), sa = sin(angle);
         vec2 q = mat2(ca, -sa, sa, ca) * p / press;
-        // The pad's middle is 1.5 radii inward (touch_pad.cpp's kArm): the keys' outer ends follow
-        // the well's circle.
+        // The pad's middle is 1.5 radii inward (kArm): the keys' outer ends follow the base's circle.
         float key = max(max(abs(q.x) - 0.80, length(q - vec2(0.0, 1.5)) - 2.45),
                         (q.y + abs(q.x) - 1.02) * 0.7071);
-        vec3 plastic = mix(vec3(0.30, 0.30, 0.32), vec3(0.12, 0.12, 0.13), q.y * 0.4 + 0.5);
-        plastic = mix(plastic, accent * 0.75, 0.55 * held);
-        c = vec4(plastic, (0.62 + 0.2 * held) * fill(key));
-        c = over(c, vec4(mix(vec3(1.0), accent, 0.7 * held), (0.28 + 0.5 * held) * fill(abs(key + 0.03) - 0.018)));
+        vec3 face = mix(kSlateTop, kSlateBottom, clamp(q.y * 0.5 + 0.5, 0.0, 1.0));
+        face = mix(face, accent * 0.5, 0.30 * held);
+        c = vec4(face, (0.55 + 0.2 * held) * fill(key));
+        c = over(c, vec4(mix(vec3(1.0), accent, 0.6 * held), (0.30 + 0.4 * held) * fill(abs(key + 0.03) - 0.02)));
         vec2 t = q + vec2(0.0, 0.45);
         float tri = max(abs(t.x) * 0.9 - t.y * 0.45, t.y - 0.14) - 0.17;
-        c = over(c, vec4(vec3(0.05), 0.75 * fill(tri)));
+        c = over(c, vec4(mix(vec3(0.93, 0.91, 0.88), accent, held), 0.9 * fill(tri)));
     } else if (symbol == 5) {
-        // A stick: a well with a ring of ticks, and the knob where the thumb holds it.
+        // The stick: a round base, an arrow each way (the one it leans to lit), a round
+        // knob with four dots.
         float d = length(p) - 1.0;
-        c = glass(d, 0.0);
-        c.a *= 0.8;
-        float ticks = 0.0;
-        for (int k = 0; k < 4; ++k) {
-            float a = float(k) * 1.5708;
+        c = vec4(kSlateBase, 0.36 * fill(d));
+        c = over(c, vec4(vec3(1.0), 0.30 * fill(abs(d + 0.02) - 0.018)));
+        c = over(c, vec4(mix(vec3(0.165, 0.165, 0.19), vec3(0.13, 0.13, 0.15), clamp(p.y * 0.5 + 0.5, 0.0, 1.0)), 0.38 * fill(d + 0.08)));
+        c = over(c, vec4(vec3(1.0), 0.06 * fill(abs(d + 0.10) - 0.012) * (1.0 - smoothstep(-0.3, 0.3, p.y))));
+        float lean = clamp(length(knob), 0.0, 1.0);
+        for (int i = 0; i < 4; ++i) {
+            float a = float(i) * 1.5708;
             vec2 dir = vec2(sin(a), -cos(a));
-            ticks = max(ticks, fill(segment(p, dir * 0.74, dir * 0.84) - 0.025));
+            vec2 t = vec2(dot(p, vec2(-dir.y, dir.x)), dot(p, dir) - 0.74);
+            float tri = max(abs(t.x) * 0.95 + t.y * 0.55, -t.y - 0.05) - 0.055;
+            float toward = lean * max(dot(normalize(knob + vec2(1e-5)), dir), 0.0);
+            vec3 ink = mix(vec3(0.30, 0.30, 0.34), accent, smoothstep(0.3, 0.9, toward));
+            c = over(c, vec4(ink, (0.9) * fill(tri)));
         }
-        c = over(c, vec4(vec3(1.0), 0.35 * ticks));
-        vec2 k = p - knob * 0.55;
-        float kd = length(k) - 0.42 * press;
-        vec4 shadow = vec4(vec3(0.0), 0.35 * fill(length(k - vec2(0.0, 0.06)) - 0.46));
-        c = over(c, shadow);
-        // The DualShock 2's cap: black rubber, a ribbed rim, its top dished in.
-        float r = length(k) / (0.42 * press);
-        vec3 face = mix(vec3(0.24, 0.24, 0.25), vec3(0.08, 0.08, 0.085), clamp(k.y / 0.42 * 0.5 + 0.5, 0.0, 1.0));
-        float ribs = step(0.78, r) * (0.5 + 0.5 * cos(atan(k.y, k.x) * 28.0));
-        face = mix(face, vec3(0.34, 0.34, 0.36), 0.5 * ribs);
-        face = mix(face, face * 0.6, (1.0 - smoothstep(0.0, 0.65, r)) * 0.6);  // the dish
-        face = mix(face, accent * 0.8, 0.5 * held);
-        c = over(c, vec4(face, 0.88 * fill(kd)));
-        c = over(c, vec4(mix(vec3(0.75), accent, held), (0.35 + 0.4 * held) * fill(abs(length(k) - 0.42 * press + 0.02) - 0.02)));
+        vec2 k = p - knob * 0.50;
+        float kr = 0.46;
+        float kd = length(k) - kr;
+        c = over(c, vec4(kSlateBase, 0.55 * fill(kd)));
+        vec2 kf = k;
+        vec3 face = mix(vec3(0.235, 0.235, 0.27), vec3(0.18, 0.18, 0.205), clamp(kf.y / kr * 0.5 + 0.5, 0.0, 1.0));
+        face = mix(face, accent * 0.6, 0.12 * held);
+        c = over(c, vec4(face, 0.65 * fill(kd + kr * 0.14)));
+        c = over(c, vec4(vec3(1.0), 0.08 * fill(abs(kd + kr * 0.16) - 0.012) * (1.0 - smoothstep(-0.2, 0.15, kf.y / kr))));
+        for (int i = 0; i < 4; ++i) {
+            float a = float(i) * 1.5708;
+            c = over(c, vec4(vec3(0.36, 0.36, 0.40), 0.9 * fill(length(kf - vec2(sin(a), -cos(a)) * 0.17) - 0.035)));
+        }
     } else {
-        // A button: glass, its symbol in its colour.
-        float half_width = stretch - 1.0;
-        float d = pill(p / press, half_width, 1.0);
-        c = glass(d, 1.0);
-        vec2 q = p / press;
+        // A button: slate, its symbol or icon on it.
+        float d = pill(p, stretch - 1.0, 1.0);
+        vec2 q = p;
+        c = slate(p, d);
         float s = 1e3;
         if (symbol == 1) {         // triangle
             vec2 t = q + vec2(0.0, -0.08);
@@ -184,8 +197,21 @@ void main() {
         if (symbol == 10) {
             vec2 uv = q / logo_half * 0.5 + 0.5;
             bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
-            mark = inside ? texture(tex_T0, uv).a : 0.0;
+            float read = texture(tex_T0, clamp(uv, 0.0, 1.0)).a;  // outside any branch: see below
+            mark = inside ? read : 0.0;
             ink.rgb = vec3(0.92);
+        }
+        // An action's icon: white ink and the accent's, their coverage read from the icons' texture.
+        vec4 icon = vec4(0.0);
+        if (symbol == 11) {
+            // Read for every pixel, then masked: read only inside the square, the mip level at its
+            // edge came from broken derivatives and drew a thin square around the icon (Adreno).
+            vec2 uv = q / icon_half * 0.5 + 0.5;
+            vec2 cover = texture(tex_T0, mix(icon_rect.xy, icon_rect.zw, clamp(uv, 0.0, 1.0))).rg;
+            if (all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) {
+                vec3 tint = mix(vec3(0.96), accent, cover.g / max(cover.r + cover.g, 1e-4));
+                icon = vec4(tint, max(cover.r, cover.g));
+            }
         }
         if (label0 >= 0) {        // the shoulders: their name
             const float size = 0.38;  // half a letter's height
@@ -193,17 +219,18 @@ void main() {
             s = min(letter(label0, at + vec2(0.8, 0.0)), letter(label1, at - vec2(0.8, 0.0))) * size - 0.07;
             ink.rgb = vec3(mix(mp_vec3(0.95), mp_vec3(accent), mp_float(0.5) * mp_float(held)));
         }
-        // A sheen across the top of the glass, which a press dims as the button sinks.
-        float sheen = fill(d + 0.10) * (1.0 - smoothstep(-0.85, 0.1, p.y / press));
-        c = over(c, vec4(vec3(1.0), (0.10 - 0.06 * held) * sheen));
-        // The symbol pressed into the glass: a faint shadow under it, then the ink.
+        // The symbol: a faint shadow under it on a pill (the shoulders), then the ink.
         if (stretch > 1.0) {
             c = over(c, vec4(vec3(0.0), 0.45 * ink.a * fill(s - 0.02) * (1.0 - fill(s))));
         }
         ink.a *= 0.75 + 0.25 * held;
-        c = over(c, vec4(ink.rgb, ink.a * (mark >= 0.0 ? mark : fill(s))));
+        if (symbol == 11) {
+            c = over(c, vec4(icon.rgb, icon.a * (0.88 + 0.12 * held)));
+        } else {
+            c = over(c, vec4(ink.rgb, ink.a * (mark >= 0.0 ? mark : fill(s))));
+        }
         // The glow of a press, outside the outline.
-        c = over(vec4(accent, 0.40 * held * (1.0 - smoothstep(0.0, 0.18, d)) * step(0.0, d)), c);
+        c = over(vec4(accent, 0.25 * held * (1.0 - smoothstep(0.0, 0.18, d)) * step(0.0, d)), c);
     }
     if (c.a <= 0.002) { discard; }
     colour = c;
@@ -223,6 +250,7 @@ enum Symbol : int {
     kStart = 8,
     kDpad = 9,
     kMenu = 10,
+    kIcon = 11,
 };
 
 // The shoulders' names, letter by letter (letter() in the shader).
@@ -247,12 +275,16 @@ struct State {
 };
 
 // The mark's half height on the options button, in radii: as large as the face buttons' symbols.
-constexpr float kMarkHalf = 0.44f;
+constexpr float kMarkHalf = 0.54f;
+// An action's icon's half size in radii: most of the button, a rim of slate around it.
+constexpr float kIconHalf = 0.66f;
 
 // The seconds a let-go control takes to ease most of the way out.
 constexpr float kPressEase = 0.06f;
 
 State s;
+// The accent (ui_colors.h's amber): the launcher's own until the game says.
+float g_accent[3] = {1.0f, 0.706f, 0.263f};
 
 struct Look {
     int symbol = kNone;
@@ -262,13 +294,16 @@ struct Look {
 };
 
 Look look(const TouchControl& c) {
+    if (!c.icon.empty() && touch_icons::has(c.icon)) {
+        return {kIcon, 1.0f, 1.0f, 1.0f};
+    }
     if (c.kind == TouchControl::Kind::Menu) {
         return {kMenu, 0.95f, 0.92f, 0.88f};
     }
     if (c.kind != TouchControl::Kind::Button) {
         return {kStick, 1.0f, 0.56f, 0.14f};
     }
-    // The DualShock's own colours, a little brighter for a glass over a game.
+    // The DualShock's own colours, a little brighter over a game.
     switch (c.button) {
         case Button::Triangle: return {kTriangle, 0.35f, 0.92f, 0.78f};
         case Button::Circle: return {kCircle, 1.0f, 0.42f, 0.45f};
@@ -326,8 +361,9 @@ void make_mark(int height) {
     s.mark_aspect = static_cast<float>(mask.width) / static_cast<float>(mask.height);
 }
 
+// An arm of the DualShock's d-pad; an action button that presses the d-pad is a button of its own.
 bool is_arm(const TouchControl& c) {
-    return c.kind == TouchControl::Kind::Button
+    return c.kind == TouchControl::Kind::Button && c.action.empty()
            && (c.button == Button::Up || c.button == Button::Down || c.button == Button::Left
                || c.button == Button::Right);
 }
@@ -371,6 +407,7 @@ void draw(platform::TouchPad& touch, int width, int height) {
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     s.shader.use();
     glBindVertexArray(s.vao);
+    glUniform3f(s.shader.uniform("accent"), g_accent[0], g_accent[1], g_accent[2]);
     const float aspect = touch.aspect();
     const auto controls = touch.controls();
     const auto now = std::chrono::steady_clock::now();
@@ -417,6 +454,19 @@ void draw(platform::TouchPad& touch, int width, int height) {
             continue;
         }
         const Look l = look(c);
+        if (l.symbol == kIcon) {
+            const auto cell = touch_icons::cell(c.icon);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, touch_icons::texture());
+            glUniform4f(
+                s.shader.uniform("icon_rect"),
+                cell ? cell->u0 : 0.0f,
+                cell ? cell->v0 : 0.0f,
+                cell ? cell->u1 : 0.0f,
+                cell ? cell->v1 : 0.0f
+            );
+            glUniform1f(s.shader.uniform("icon_half"), kIconHalf);
+        }
         if (l.symbol == kMenu) {
             const float mark_height = 2.0f * kMarkHalf * c.radius * static_cast<float>(height);
             make_mark(static_cast<int>(std::lround(mark_height)));
@@ -427,7 +477,9 @@ void draw(platform::TouchPad& touch, int width, int height) {
         box(c.x, c.y, c.radius, c.stretch, 1.2f);
         glUniform3f(s.shader.uniform("tint"), l.r, l.g, l.b);
         float& press = s.press[i];
-        press = touch.held(i) ? 1.0f : press - press * ease;
+        // While the layout is edited, the control picked to be resized lit as if held.
+        const bool picked = touch.editing() && c.group == touch.selected();
+        press = touch.held(i) || touch.toggled(i) || picked ? 1.0f : press - press * ease;
         glUniform1f(s.shader.uniform("held"), press);
         glUniform1i(s.shader.uniform("symbol"), l.symbol);
         glUniform1f(s.shader.uniform("angle"), l.angle);
@@ -444,7 +496,14 @@ void draw(platform::TouchPad& touch, int width, int height) {
     glDisable(GL_BLEND);
 }
 
+void set_accent(float r, float g, float b) {
+    g_accent[0] = r;
+    g_accent[1] = g;
+    g_accent[2] = b;
+}
+
 void release() {
+    touch_icons::release();
     s.shader.release();
     if (s.vao != 0) {
         glDeleteVertexArrays(1, &s.vao);

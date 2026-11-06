@@ -651,6 +651,11 @@ def luau_types(b: dict) -> str:
     out.append("    pointer: () -> (number, number, boolean),")
     out.append("    take_input: (...(\"keyboard\" | \"mouse\")) -> (),")
     out.append("    capture_mouse: (capture: boolean) -> (),")
+    out.append("    -- interface 1.13: the on-screen pad's action buttons (MODS.md, \"Touch controls\")")
+    out.append("    touch_define: (json: string) -> boolean,")
+    out.append("    touch_icon: (name: string, svg: string) -> boolean,")
+    out.append("    touch_push: (context: string?) -> (),")
+    out.append("    touch_hint: (hint: string, on: boolean) -> (),")
     if b["moby"] is not None:
         out.append("    -- experimental: a moby's pvars by name, from the behaviour catalogue")
         out.append("    pvars: (moby: number) -> { [string]: number }?,")
