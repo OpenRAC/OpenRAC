@@ -10,14 +10,13 @@
   /* The site's @theme colours. */
   --ink: #0a0a0a;
   --ink-deep: #050505;
-  /* Cards and panels: faint diagonal stripes, 35deg, 20 px bands, --panel-stripe on --panel
-     (hover or open: the -hi pair). A theme sets the four colours; --card and --card-hi lay them. */
+  /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
   --panel: #121212;
-  --panel-stripe: #151515;
   --panel-hi: #191919;
-  --panel-hi-stripe: #1c1c1c;
-  --card: repeating-linear-gradient(35deg, var(--panel-stripe) 0 20px, var(--panel) 20px 40px);
-  --card-hi: repeating-linear-gradient(35deg, var(--panel-hi-stripe) 0 20px, var(--panel-hi) 20px 40px);
+  /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
+     wear stripes. */
+  --card: var(--panel);
+  --card-hi: var(--panel-hi);
   --brand: #d6a020;
   --amber: #f5c040;
   --gold: #ffe08f;
@@ -300,7 +299,7 @@ code,
 }
 
 .panel {
-  /* No frame: faint diagonal stripes, a little lighter than the page, set it apart. */
+  /* No frame: its fill, a little lighter than the page, sets it apart. */
   background: var(--card);
   --control: var(--control-card);
   --control-hi: var(--control-card-hi);

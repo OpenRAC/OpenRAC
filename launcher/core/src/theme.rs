@@ -10,8 +10,6 @@ const DRAWER: &[&str] = &[
     "--ink-deep",
     "--panel",
     "--panel-hi",
-    "--panel-stripe",
-    "--panel-hi-stripe",
     "--brand",
     "--bar-top",
     "--bar-bottom",

@@ -15,9 +15,10 @@ follows the same rules.
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
 - The page is black (`--ink` `#0a0a0a`, `--ink-deep` `#050505`), never navy.
-- Cards and panels have no border. They wear faint diagonal stripes: 35°,
-  20 px bands, `#151515` on `#121212` (`--card`); hover or open, `#1c1c1c` on
-  `#191919` (`--card-hi`). Their stripes scroll with them.
+- Cards and panels have no border and no stripes: a flat `#121212`
+  (`--panel`, `--card`), `#191919` when hovered or open (`--panel-hi`,
+  `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
+  decision): only the bar's buttons wear stripes.
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have a 1 px gold edge (`--edge`, the accent at
   35 %), drawn inside. No edge on the gold main button, ghost buttons, the
@@ -65,8 +66,8 @@ follows the same rules.
 | ---------------------------------------- | -------------------------------- | ----------------------------------------------- |
 | `--ink`                                  | `#0a0a0a`                        | the page                                        |
 | `--ink-deep`                             | `#050505`                        | badges, tracks, job output, the darkest parts   |
-| `--panel`, `--panel-stripe`              | `#121212`, `#151515`             | a card's stripes (`--card`)                     |
-| `--panel-hi`, `--panel-hi-stripe`        | `#191919`, `#1c1c1c`             | a card under the pointer or open (`--card-hi`)  |
+| `--panel`                                | `#121212`                        | cards and panels (`--card`)                     |
+| `--panel-hi`                             | `#191919`                        | a card under the pointer or open (`--card-hi`)  |
 | `--brand`                                | `#d6a020`                        | section numbers, small labels                   |
 | `--amber`                                | `#f5c040`                        | the main button, links, focus rings, what is on |
 | `--gold`                                 | `#ffe08f`                        | headings, numbers                               |
@@ -91,7 +92,7 @@ dark only, as the site is.
 These are the "OpenRAC" theme. The other themes (Settings → General: Gruvbox,
 OLED black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by
 `src/lib/palettes.ts` and the core (`core/src/theme.rs`). A theme sets the
-page, panel and stripe, control, text, line and status tokens, never the
+page, panel, control, text, line and status tokens, never the
 accent (`--amber`, `--gold`, `--brand`, the bar's): that stays gold, or on
 Android the picked game's. So a colour that should follow the theme uses a
 token, such as `color-mix(in srgb, var(--ink-deep) 75%, transparent)` for a
@@ -134,8 +135,7 @@ The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands.
 
 The game's menu gets the same colours (`OPENRAC_UI_COLORS`). Its drawer and
-window are coal sheets (`--panel`), its cards wear the `--card-hi` stripes
-(laid on the screen), and the controls on them are `--control-card` with the
+window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the controls on them are `--control-card` with the
 gold edge. The bar's tabs and its Quit and Resume buttons are bar buttons:
 coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 

@@ -103,35 +103,6 @@ void stripes(ImDrawList* list, ImVec2 a, ImVec2 b) {
     );
 }
 
-// Bands of `ink` at the bar's lean over [a, b], fading out downwards from `strength`: the bar's
-// stripes, faint, at the top of the window's side.
-void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
-    const float band = dp(20.0f);
-    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
-    const ImU32 top = ui_colors::fade(ink, strength);
-    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
-    list->PushClipRect(a, b, true);
-    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
-        const int first = list->VtxBuffer.Size;
-        list->AddQuadFilled(
-            ImVec2(x + band, a.y),
-            ImVec2(x + band * 2.0f, a.y),
-            ImVec2(x + band * 2.0f - lean, b.y),
-            ImVec2(x + band - lean, b.y),
-            IM_COL32_WHITE
-        );
-        // Each corner's colour by its height: the top's, fading to none at the bottom.
-        for (int v = first; v < list->VtxBuffer.Size; ++v) {
-            ImDrawVert& vert = list->VtxBuffer[v];
-            const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
-            // And gone by the right edge, so none shows past the window's rounded corner.
-            const float edge = std::clamp((b.x - vert.pos.x) / dp(80.0f), 0.0f, 1.0f);
-            vert.col = ui_colors::fade(ui_colors::mix(top, bottom, t), edge);
-        }
-    }
-    list->PopClipRect();
-}
-
 // The window's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a
 // glow of `glow` along its top `glow_depth` pixels, all in its own corners.
 void panel_fill(
@@ -258,15 +229,12 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 }
 
 // The right side of the window: what the entry under the pointer or the focus is and does, on a
-// darker ground with the bar's stripes faint at its top.
+// darker ground.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     list->AddRectFilled(
         a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
-    );
-    faint_stripes(
-        list, ImVec2(a.x, a.y + 1.0f), ImVec2(b.x - 1.0f, a.y + dp(150.0f)), ui().amber, 0.06f
     );
     list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
     const float pad = dp(30.0f);

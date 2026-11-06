@@ -414,10 +414,8 @@ void card_end() {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const ImVec2 end(s.card.top.x + s.card.width, ImGui::GetCursorScreenPos().y);
     list->ChannelsSetCurrent(0);
-    // A card has no frame: faint diagonal stripes, laid on the screen, 12 px corners.
-    striped_rect(
-        list, s.card.top, end, dp(12.0f), ui().panel_hi_stripe, ui().panel_hi, ImVec2(0.0f, 0.0f)
-    );
+    // A card is a flat fill with no frame, 12 px corners (no stripes on big surfaces).
+    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(12.0f));
     list->ChannelsMerge();
 }
 

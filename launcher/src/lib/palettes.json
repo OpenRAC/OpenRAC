@@ -28,9 +28,7 @@
     "--control": "#121212",
     "--control-hi": "#1e1e1e",
     "--control-card": "#1d1b2a",
-    "--control-card-hi": "#29253b",
-    "--panel-stripe": "#151515",
-    "--panel-hi-stripe": "#1c1c1c"
+    "--control-card-hi": "#29253b"
   },
   "palettes": [
     {
@@ -61,9 +59,7 @@
         "--control": "#1d1b2a",
         "--control-hi": "#29253b",
         "--control-card": "#1d1b2a",
-        "--control-card-hi": "#29253b",
-        "--panel-stripe": "#363432",
-        "--panel-hi-stripe": "#403c3a"
+        "--control-card-hi": "#29253b"
       },
       "swatch": ["#282828", "#3c3836", "#ebdbb2"]
     },
@@ -85,9 +81,7 @@
         "--control": "#121212",
         "--control-hi": "#1e1e1e",
         "--control-card": "#121212",
-        "--control-card-hi": "#1e1e1e",
-        "--panel-stripe": "#0f0f14",
-        "--panel-hi-stripe": "#19191f"
+        "--control-card-hi": "#1e1e1e"
       },
       "swatch": ["#000000", "#15151c", "#f4f6ff"]
     },
@@ -113,9 +107,7 @@
         "--control": "#121212",
         "--control-hi": "#1e1e1e",
         "--control-card": "#121212",
-        "--control-card-hi": "#1e1e1e",
-        "--panel-stripe": "#3f4657",
-        "--panel-hi-stripe": "#47505f"
+        "--control-card-hi": "#1e1e1e"
       },
       "swatch": ["#2e3440", "#434c5e", "#eceff4"]
     },
@@ -141,9 +133,7 @@
         "--control": "#121212",
         "--control-hi": "#1e1e1e",
         "--control-card": "#121212",
-        "--control-card-hi": "#1e1e1e",
-        "--panel-stripe": "#222233",
-        "--panel-hi-stripe": "#2d2d42"
+        "--control-card-hi": "#1e1e1e"
       },
       "swatch": ["#181825", "#29293d", "#cdd6f4"]
     }

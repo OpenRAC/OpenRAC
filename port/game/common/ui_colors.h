@@ -27,9 +27,7 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
 struct Colors {
     Color ink_deep = rgba(0x05, 0x05, 0x05);      // --ink-deep: under everything; a switch's track
     Color panel = rgba(0x12, 0x12, 0x12);         // --panel: the drawer
-    Color panel_stripe = rgba(0x15, 0x15, 0x15);  // --panel-stripe
-    Color panel_hi = rgba(0x19, 0x19, 0x19);      // --panel-hi: its cards, striped with
-    Color panel_hi_stripe = rgba(0x1c, 0x1c, 0x1c);  // --panel-hi-stripe
+    Color panel_hi = rgba(0x19, 0x19, 0x19);      // --panel-hi: its cards
     Color brand = rgba(0xd6, 0xa0, 0x20);         // --brand: small labels
     Color bar_top = rgba(0xe5, 0xa0, 0x13);       // --bar-top, --bar-bottom: the bar's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);    //   gradient (the menu draws none now)
