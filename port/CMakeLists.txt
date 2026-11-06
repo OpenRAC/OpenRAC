@@ -408,6 +408,9 @@ openrac_add_c_test(hero_guard NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 openrac_add_c_test(hero_killed NO_STRICT_ALIASING WRAPV MATH
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
+# A game started from code after the title's Load and Quit saves nothing to the player's card.
+openrac_add_c_test(play_card NO_STRICT_ALIASING WRAPV MATH
+  INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host ../sdk/include)
 
 openrac_add_c_test(resource_bank NO_STRICT_ALIASING)
 openrac_add_c_test(exe_moby_grid NO_STRICT_ALIASING)

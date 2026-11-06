@@ -319,6 +319,27 @@ static void a_save_the_game_would_not_load_never_replaces_one(void) {
     CHECK(!openrac_game_card_write(3, guest + BUFFER, SAVE_SIZE));
 }
 
+/* A save slot the player's card does not have yet, opened to be created (0x200), stays off the
+ * card whichever way the filter turns the game's writes. */
+static void a_new_save_slot_is_never_made_on_the_players_card(void) {
+    char other[700];
+    snprintf(other, sizeof other, "%s/save1.bin", folder_path);
+    for (int mode = 1; mode <= 2; mode++) {
+        fresh();
+        remove(other);
+        CHECK(openrac_game_card_filter(mode, "GAME-coop"));
+        int fd = mc_open("save1.bin", 0x203);
+        CHECK(fd >= 0);
+        if (fd >= 0) {
+            mc_write(fd, 0x44, 64);
+            mc_close(fd);
+        }
+        CHECK(!exists(other));
+        openrac_game_card_filter(0, "");
+    }
+    remove(other);
+}
+
 static void a_new_cards_folder_still_gets_made(void) {
     fresh();
     CHECK(openrac_game_card_filter(2, "GAME-coop"));
@@ -359,6 +380,7 @@ int main(int argc, char** argv) {
     a_write_cut_short_leaves_the_save_as_it_was();
     a_save_the_game_would_not_load_never_replaces_one();
     a_new_cards_folder_still_gets_made();
+    a_new_save_slot_is_never_made_on_the_players_card();
     refused();
 
     clean();

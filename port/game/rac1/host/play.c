@@ -670,6 +670,14 @@ static int start(int level, const uint8_t* save, uint32_t size) {
     if (level >= LEVELS || in_level()) {
         return 0;
     }
+    /* A game started from code is none of the player's saves: the card record the title's Load
+     * left (a card in use, a save chosen, saving on) would have the game's own saves write it over
+     * that save. No card in use, nothing pending, as at boot; a party's card session sets its own
+     * for its saves and, at its end, puts these back, not the Load's. */
+    CARD_WORD(RAC1_CARD_ACTIVE) = -1;
+    CARD_WORD(RAC1_CARD_SAVING) = 0;
+    card_kept.active = -1;
+    card_kept.saving = 0;
     if (save == NULL) {
         rac1_start_level(level < 0 ? 0 : level);
         return 1;
@@ -738,6 +746,9 @@ static int save_slot_current(void) {
     return seconds >= openrac_game_save_in_use_seconds ? openrac_game_save_in_use : -1;
 }
 
+/* A unit test that compiles this file for its statics alone (play_card_test.c) leaves the table
+ * and the rest of the host it names out. */
+#ifndef RAC1_PLAY_STATICS_ONLY
 const openrac_game_play rac1_play = {
     .levels = LEVELS,
     .level_names = rac1_level_names,
@@ -820,3 +831,4 @@ const openrac_game_play rac1_play = {
     .hero_sound_stop = hero_sound_stop,
     .hero_hurt = hero_hurt,
 };
+#endif

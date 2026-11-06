@@ -124,4 +124,23 @@ void func_L00_00232C10(int a0, int a1, float a2);
 void func_L00_00211908(void);
 void func_L00_00211908__game(void);
 
+/* play.c */
+void func_001F7B40(void);
+void func_001FA218(gaddr a0, gaddr a1);
+void func_00209CE8(int a0);
+void func_00209DC0(void);
+void func_0020BA00(gaddr a0);
+void func_00213D28(gaddr a0, int a1, int a2);
+void func_00213DE0(gaddr a0, int a1, int a2, int a3);
+void func_0022EAB0(int a0);
+int func_0022ED80(int a0, int a1, int a2);
+void func_0022F4A0(int a0);
+void func_L00_002056D8(int a0);
+void func_L00_00205CC0(void);
+void func_L00_00207220(void);
+void func_L00_00208E98(void);
+void func_L00_002098B8(int a0);
+void func_L00_00210FE0(void);
+void func_L00_00232EF0(void);
+
 #endif

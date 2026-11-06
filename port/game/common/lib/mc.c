@@ -501,9 +501,8 @@ static int fate_of(const char* path, int mode) {
     if (card_mode == CARD_PASS || (mode & (2 | 0x200)) == 0) {
         return FATE_ASKED;
     }
-    if ((mode & 0x200) != 0) {
-        return is_there(path) ? FATE_DROPPED : FATE_ASKED;
-    }
+    /* A save's file goes where the filter says, created or written: a create-mode open of a save
+     * not on the card yet would otherwise make it there. */
     const char* slash = strrchr(path, '/');
     if (save_slot_of(slash != NULL ? slash + 1 : path) < 0) {
         return is_there(path) ? FATE_DROPPED : FATE_ASKED;
@@ -548,6 +547,11 @@ int openrac_lib_sceMcOpen(int port, int slot, gaddr name, int mode) {
         }
     } else if (fate == FATE_DROPPED) {
         f = fopen(path, "rb");
+        if (f == NULL && (mode & 0x200) != 0) {
+            /* A save the card does not have, created while writes are dropped: the game writes
+             * to nothing and is told it went well, as for any dropped write. */
+            f = tmpfile();
+        }
     } else if (mode & 0x200) {
         f = fopen(path, "r+b");
         if (f == NULL) {
