@@ -534,9 +534,10 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     float ly = 0.0f;
     look(lx, ly);
     if (lx != 0.0f || ly != 0.0f) {
+        // Camera speed above 100%: a full sideways swipe also turns faster, like the stick.
+        pad.camera_speed = std::fabs(lx) >= 0.999f ? std::max(1.0f, m_look_speed) : 1.0f;
         square_stick(lx, ly);
         stick_pair_bytes(lx, ly, dead_zone, pad.right_x, pad.right_y);
-        pad.camera_speed = 1.0f;  // touch turns at normal speed
     }
 }
 
