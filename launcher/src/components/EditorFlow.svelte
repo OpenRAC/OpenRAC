@@ -449,7 +449,7 @@
     width: 34px;
     height: 34px;
     border-radius: 999px;
-    background: var(--panel-hi);
+    background: var(--umber);
     color: var(--lav);
   }
 
@@ -603,7 +603,7 @@
   .actions select {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--ink-deep);
+    background: var(--umber);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 7px 12px;

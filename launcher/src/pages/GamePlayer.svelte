@@ -771,7 +771,7 @@
   .chip {
     font-size: 0.75rem;
     color: var(--soft);
-    background: var(--panel-hi);
+    background: var(--umber);
     border-radius: 7px;
     padding: 3px 9px;
     white-space: nowrap;

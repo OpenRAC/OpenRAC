@@ -129,7 +129,7 @@
     min-width: 0;
     padding: 0 10px;
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background: var(--umber);
     color: var(--soft);
   }
 
@@ -162,10 +162,8 @@
   .kinds {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 3px;
-    border-radius: var(--radius-sm);
-    background: var(--panel);
+    /* Filter chips, each on its own: no strip joining them. */
+    gap: 6px;
   }
 
   .kinds button {
@@ -173,7 +171,7 @@
     align-items: center;
     gap: 6px;
     border: 0;
-    background: none;
+    background: var(--umber);
     padding: 6px 12px;
     font-size: 0.8125rem;
     font-weight: 600;
@@ -187,7 +185,7 @@
   }
 
   .kinds button.on {
-    background: var(--panel-hi);
+    background: var(--on-fill);
     color: var(--amber);
   }
 

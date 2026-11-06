@@ -12,9 +12,15 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
 - One accent: gold (`--amber`), or the picked game's own (`palettes.json`
   `accents`). No second accent colour.
 - No borders on buttons, fields, chips, tabs, badges, cards or panels. A fill
-  sets them apart: `--fill` for a button or chip, `--field` for a text field,
-  `--panel` / `--panel-hi` for a card. A thin `--line` only splits things
-  (rows of a list, a bar from the page), never round a control.
+  sets them apart: `--panel` / `--panel-hi` for a card, and for a plain
+  control (a button, a chip, a field, a tab) `--umber`, a warm dark brown made
+  from the accent (`--umber-hi` under the pointer). No grey on a control, no
+  white mix. A thin `--line` only splits things (rows of a list, a bar from
+  the page), never round a control.
+- Controls stand on their own, with a 6 px gap between them. Never join a row
+  of buttons or tabs into one capsule with dividers. A segmented choice (a
+  setting's two or three values) is the one exception: its values sit on one
+  `--umber` strip, the picked one in the gold tint.
 - Corners: 6 px (`--radius-sm`) for buttons, fields, chips, tabs and small
   boxes; 4 px (`--radius-xs`) for badges; 12 px (`--radius`) for cards, panels,
   pictures and dialogs. Round only for what is really round (dots, switches,
@@ -27,7 +33,15 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
   lifting 2 px under the pointer.
 - Anything you can tap is at least 40 px tall (44 px on Android); fields on
   Android use 16 px text.
-- The header bar's logo and ink are always dark, whatever the accent.
+- The header bar: the gold stripes, the logo and the version badge dark,
+  whatever the accent. Each tab (Games, Mods, Develop, Settings) is a button
+  of its own, 36 px tall, `--umber` with light text and a small icon before
+  its word (the icons go first when the window is narrow). The open tab is a
+  darker chip (`--bar-ink-deep`) with gold text, sliding from tab to tab. The
+  site and Discord links are two more such buttons, icon only. The game's
+  menu bar does the same, without icons.
+- A big main button over the game (the drawer's Resume) is the bar's own gold
+  (`--bar-stripe`), a shade deeper than `--amber`, so it does not glare.
 
 ## Colours
 
@@ -46,9 +60,9 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
 | `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`   | secondary text, from most to least prominent              |
 | `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/ .16` | lines between rows; never round a control                 |
 | `--text`, `--body`                       | `#efeff3`, `#cacad3`              | text, neutral so the gold is the only accent              |
-| `--fill`, `--fill-hi`                    | white 7 % / 12 % over `--panel`   | a button's or chip's fill, under the pointer              |
-| `--field`, `--field-hi`                  | white 5 % / 8 % over `--panel`    | a text field's or dropdown's fill                         |
-| `--on-fill`, `--on-fill-hi`              | the accent at 15 % / 22 %         | a control that is on or picked                            |
+| `--umber`, `--umber-hi`                  | `--brand` at 17 % / 23 % on black | plain controls (the site's `#261b0e` / `#33240f`)         |
+| `--fill`, `--field` (and `-hi`)          | `--umber` (`--umber-hi`)          | a button's or chip's fill; a text field's or dropdown's   |
+| `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 %         | a control that is on or picked                            |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                       | cards; controls; badges                                   |
 | `--bar-top`, `--bar-bottom`              | `#e5a013`, `#cd8300`              | the header bar's gradient, primary buttons                |
 | `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`              | text on the bar; the selected tab (desktop: `--ink-deep`) |

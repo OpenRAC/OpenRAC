@@ -243,7 +243,7 @@
     padding: 3px 10px;
     font-size: 0.8125rem;
     color: var(--lav);
-    background: var(--panel-hi);
+    background: var(--umber);
     border-radius: var(--radius-sm);
     overflow: hidden;
     text-overflow: ellipsis;

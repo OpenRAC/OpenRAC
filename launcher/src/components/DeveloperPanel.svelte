@@ -246,7 +246,7 @@
   .chip {
     display: inline-flex;
     align-items: center;
-    background: var(--panel-hi);
+    background: var(--umber);
     border-radius: 7px;
     padding: 1px 8px;
     font-size: 0.75rem;

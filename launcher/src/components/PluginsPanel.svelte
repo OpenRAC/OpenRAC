@@ -789,7 +789,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .open:hover:not(:disabled) {
-      background: var(--panel-hi);
+      background: var(--umber);
     }
 
     :global(html:where(:not([data-input="pad"]))) .open:hover .go {

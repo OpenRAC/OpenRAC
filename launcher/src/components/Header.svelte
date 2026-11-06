@@ -107,12 +107,10 @@
           aria-current={on ? "page" : undefined}
           onclick={() => (app.page = tab.page)}
         >
-          {#if onAndroid}
-            <span class="icon">
-              <Icon name={tab.icon} size={22} />
-              {#if tab.page === "settings" && app.update}<span class="badge" aria-hidden="true"></span>{/if}
-            </span>
-          {/if}
+          <span class="icon">
+            <Icon name={tab.icon} size={onAndroid ? 22 : 17} />
+            {#if onAndroid && tab.page === "settings" && app.update}<span class="badge" aria-hidden="true"></span>{/if}
+          </span>
           <span class="label">{tab.label}</span>
           {#if onAndroid && tab.page === "settings" && app.update}<span class="sr-only">, an update is out</span>{/if}
           {#if tab.page === "develop" && pending > 0}<span class="count">{pending}</span>{/if}
@@ -268,29 +266,25 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* The tabs share one light capsule, as the site's bar has its links: a darker shade of the bar,
-     6 px corners, no frame of its own. */
+  /* The tabs stand on the bar on their own, an icon and a word each, with room between them: no
+     capsule round them. */
   nav {
     position: relative;
     display: flex;
     align-items: center;
     flex-shrink: 0;
-    gap: 2px;
-    height: 36px;
-    padding: 2px;
-    border-radius: var(--radius-sm);
-    background: rgb(0 0 0 / 0.15);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+    gap: 6px;
   }
 
   /* The open tab's dark pill, sliding from tab to tab. */
   .slider {
     position: absolute;
-    top: 2px;
-    bottom: 2px;
+    top: 0;
+    bottom: 0;
     left: 0;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
     background: var(--bar-ink-deep);
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
     opacity: 0;
   }
 
@@ -304,21 +298,36 @@
       width var(--medium) var(--ease);
   }
 
+  /* The open tab is a dark chip with gold text (the slider above, moving from tab to tab); the
+     others write in the bar's ink and darken a little under the pointer. */
   .tab {
     position: relative;
-    min-height: 32px;
-    border-radius: var(--radius-xs);
-    padding: 5px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    min-height: 36px;
+    border-radius: var(--radius-sm);
+    padding: 0 14px 0 12px;
     font-size: 0.9375rem;
     /* Heavier than the page's text, to stand beside the logo's strokes. */
     font-weight: 600;
-    color: var(--bar-ink);
-    transition: color var(--medium) var(--ease);
+    /* A button of its own on the gold, as the site's bar has them: umber, light text. */
+    background: var(--umber);
+    color: var(--text);
+    transition:
+      color var(--medium) var(--ease),
+      background var(--fast) var(--ease);
+  }
+
+  /* The open one lets the darker chip under it show (the slider, which moves from tab to tab). */
+  .tab.on {
+    background: transparent;
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on) {
-      background: rgb(0 0 0 / 0.1);
+      background: var(--umber-hi);
     }
   }
 
@@ -348,10 +357,11 @@
     max-width: 280px;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--bar-ink-deep);
-    background: rgb(0 0 0 / 0.1);
+    color: var(--text);
+    background: var(--umber);
     border-radius: var(--radius-sm);
-    padding: 5px 12px;
+    height: 36px;
+    padding: 0 12px;
     animation: rise var(--medium) var(--ease) both;
   }
 
@@ -377,24 +387,22 @@
 
   /* A capsule as tall as the tabs, in the selected tab's dark brown, its marks in gold that turn
      amber on a lighter round under the pointer. */
+  /* The site and Discord: two buttons of their own, as the tabs, not one joined capsule. */
   .links {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    height: 36px;
-    padding: 0 2px;
-    border-radius: var(--radius-sm);
-    background: var(--bar-ink-deep);
+    gap: 6px;
   }
 
   .site,
   .discord {
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-xs);
-    color: var(--gold);
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--umber);
+    color: var(--text);
     transition:
       background var(--fast) var(--ease),
       color var(--fast) var(--ease);
@@ -407,7 +415,7 @@
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .site:hover,
     :global(html:where(:not([data-input="pad"]))) .discord:hover {
-      background: rgb(255 255 255 / 0.1);
+      background: var(--umber-hi);
       color: var(--amber);
     }
 
@@ -418,7 +426,7 @@
 
   .site:active,
   .discord:active {
-    background: rgb(255 255 255 / 0.1);
+    background: var(--umber-hi);
     color: var(--amber);
   }
 
@@ -504,6 +512,18 @@
 
     .job {
       max-width: 150px;
+    }
+  }
+
+  /* Where room runs short (developer tools, a job and an update all showing), the tabs keep their
+     words and drop their icons first. */
+  @media (max-width: 1100px) {
+    :global(html:not([data-platform="android"])) .tab .icon {
+      display: none;
+    }
+
+    :global(html:not([data-platform="android"])) .tab {
+      padding: 0 12px;
     }
   }
 
@@ -616,8 +636,10 @@
     align-items: center;
     gap: 4px;
     width: var(--nav-left);
+    height: auto;
     padding: 0;
     border-radius: 0;
+    background: none;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--soft);
@@ -642,17 +664,26 @@
     outline-offset: 3px;
   }
 
-  /* A circle, as round as the logo's "O" above them. */
+  /* On the desktop's bar: a small icon before the word, in its colour. */
   .icon {
     position: relative;
     display: grid;
     place-items: center;
+  }
+
+  .icon::before {
+    display: none;
+  }
+
+  /* On Android's rail: a circle, as round as the logo's "O" above them. */
+  :global(html[data-platform="android"]) .icon {
     width: 40px;
     height: 40px;
     border-radius: 50%;
   }
 
-  .icon::before {
+  :global(html[data-platform="android"]) .icon::before {
+    display: block;
     content: "";
     position: absolute;
     inset: 0;
@@ -725,7 +756,7 @@
   }
 
   :global(html[data-platform="android"]) .job .count {
-    background: var(--panel-hi);
+    background: var(--umber);
   }
 
   :global(html[data-platform="android"]) .end {

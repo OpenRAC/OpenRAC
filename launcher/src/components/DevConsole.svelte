@@ -169,7 +169,7 @@
   }
 
   .filters button.on {
-    background: var(--panel-hi);
+    background: var(--on-fill);
     color: var(--amber);
   }
 

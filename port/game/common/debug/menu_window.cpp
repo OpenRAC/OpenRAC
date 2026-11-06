@@ -142,8 +142,9 @@ void panel_fill(
     }
 }
 
-// A round tab on the bar: true when clicked. The open one wears the dark pill (drawn by the bar,
-// sliding from tab to tab), its name in the accent.
+// A tab on the bar, a button of its own: umber with light text, lighter under the pointer; the
+// open one is the darker chip under it (drawn by the bar, sliding from tab to tab), its name in the
+// accent. True when clicked.
 bool bar_tab(const char* name, bool open, float height) {
     ImFont* font = menu_fonts.strong;
     ImGui::PushFont(font);
@@ -154,18 +155,18 @@ bool bar_tab(const char* name, bool open, float height) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float hover =
         tween(item_part("hover"), ImGui::IsItemHovered() && !open ? 1.0f : 0.0f, kFast);
-    if (hover > 0.0f) {
+    const float on = tween(item_part("on"), open ? 1.0f : 0.0f, kMedium);
+    if (on < 1.0f) {
         list->AddRectFilled(
             a,
             ImVec2(a.x + size.x, a.y + size.y),
-            IM_COL32(0, 0, 0, static_cast<int>(26 * hover)),
-            dp(4.0f)
+            ui_colors::fade(ui_colors::mix(control_fill(), control_fill_hi(), hover), 1.0f - on),
+            dp(6.0f)
         );
     }
-    const float on = tween(item_part("on"), open ? 1.0f : 0.0f, kMedium);
     list->AddText(
         centred_text(font, font->FontSize, name, ImVec2(a.x + size.x * 0.5f, a.y + size.y * 0.5f)),
-        ui_colors::mix(ui().bar_label, ui().amber, on),
+        ui_colors::mix(ui().text, ui().amber, on),
         name
     );
     ImGui::PopFont();
@@ -185,7 +186,7 @@ bool bar_chip(
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float hover = tween(item_part("hover"), ImGui::IsItemHovered() ? 1.0f : 0.0f, kFast);
     const ImU32 fill = light ? ui_colors::mix(IM_COL32_WHITE, ui().gold, 0.25f * hover)
-                             : ui_colors::mix(ui().ink_deep, ui().panel_hi, hover);
+                             : ui_colors::mix(ui().ink_deep, control_fill_hi(), hover);
     const float round = dp(6.0f);
     list->AddRectFilled(a, b, fill, round);
     if (held > 0.0f) {
@@ -583,7 +584,7 @@ void menu_window(const Shown& shown) {
         const float logo_w = s.logo_rect >= 0
                                  ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
                                  : dp(120.0f);
-        const float tab_h = dp(32.0f);
+        const float tab_h = dp(36.0f);
         ImGui::SetCursorScreenPos(
             ImVec2(bar_a.x + dp(18.0f) + logo_w + dp(22.0f), bar_a.y + (bar - tab_h) * 0.5f)
         );
@@ -593,10 +594,9 @@ void menu_window(const Shown& shown) {
         list->ChannelsSetCurrent(1);
         float pill_x = pill_at.x;
         float pill_w = 0.0f;
-        float tabs_end = pill_at.x;
         for (int i = 0; i < tab_count; ++i) {
             if (i > 0) {
-                ImGui::SameLine();
+                ImGui::SameLine(0.0f, dp(6.0f));  // each tab on its own, with room between
             }
             const float x = ImGui::GetCursorScreenPos().x;
             if (bar_tab(tabs[static_cast<std::size_t>(i)].name.c_str(), i == s.menu_tab, tab_h)) {
@@ -611,17 +611,8 @@ void menu_window(const Shown& shown) {
                 pill_x = x;
                 pill_w = ImGui::GetItemRectSize().x;
             }
-            tabs_end = ImGui::GetItemRectMax().x;
         }
         list->ChannelsSetCurrent(0);
-        // The tabs share one capsule, a darker shade of the bar, as the launcher's header has them.
-        const float lip = dp(2.0f);
-        list->AddRectFilled(
-            ImVec2(pill_at.x - lip, pill_at.y - lip),
-            ImVec2(tabs_end + lip, pill_at.y + tab_h + lip),
-            IM_COL32(0, 0, 0, 38),
-            dp(6.0f)
-        );
         const float px = tween(ImGui::GetID("pill x"), pill_x, kMedium);
         const float pw = tween(ImGui::GetID("pill w"), pill_w, kMedium);
         const float pill_alpha =
@@ -630,7 +621,7 @@ void menu_window(const Shown& shown) {
             ImVec2(px, pill_at.y),
             ImVec2(px + pw, pill_at.y + tab_h),
             ui_colors::fade(ui().ink_deep, pill_alpha),
-            dp(4.0f)
+            dp(6.0f)
         );
         list->ChannelsMerge();
 

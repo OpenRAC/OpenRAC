@@ -473,7 +473,7 @@
   .slider input::-moz-range-track {
     height: 6px;
     border-radius: var(--radius-sm);
-    background: var(--ink-deep);
+    background: var(--umber);
   }
 
   .slider input::-moz-range-progress {
@@ -608,7 +608,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--gold);
-    background: var(--ink-deep);
+    background: var(--umber);
     border-radius: var(--radius-sm);
     padding: 6px 44px 6px 18px;
     appearance: none;
@@ -617,7 +617,7 @@
 
   select option {
     color: var(--text);
-    background: var(--ink-deep);
+    background: var(--panel);
   }
 
   :global(html[data-platform="android"]) select {

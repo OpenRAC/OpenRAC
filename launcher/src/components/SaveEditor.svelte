@@ -990,7 +990,7 @@
     gap: 4px;
     margin: 0 -22px;
     padding: 8px 18px;
-    background: var(--panel);
+    background: var(--umber);
     border-bottom: 1px solid var(--line);
   }
 
@@ -1008,7 +1008,7 @@
 
   .jump button.on {
     color: var(--text);
-    background: var(--panel-hi);
+    background: var(--on-fill);
   }
 
   /* Asks before "Take all" gadgets, under the button that asked. */
@@ -1097,7 +1097,7 @@
   select {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--ink-deep);
+    background: var(--umber);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -1121,7 +1121,7 @@
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
     width: 130px;
-    background: var(--ink-deep);
+    background: var(--umber);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -1159,7 +1159,7 @@
     padding: 5px 12px;
     cursor: pointer;
     color: var(--soft);
-    background: var(--panel-hi);
+    background: var(--umber);
   }
 
   .choice input {

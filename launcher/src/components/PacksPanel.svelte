@@ -353,7 +353,7 @@
     white-space: nowrap;
     padding: 2px 8px;
     border-radius: 7px;
-    background: var(--panel-hi);
+    background: var(--umber);
     font-size: 0.75rem;
     color: var(--soft);
   }

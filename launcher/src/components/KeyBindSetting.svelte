@@ -180,7 +180,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
-    background: var(--panel-hi);
+    background: var(--umber);
     border-bottom-width: 3px;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -236,7 +236,7 @@
     font-size: 0.9375rem;
     line-height: 1;
     color: var(--soft);
-    background: var(--panel-hi);
+    background: var(--umber);
     border-left: none;
     border-bottom-width: 3px;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;

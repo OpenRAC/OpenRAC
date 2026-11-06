@@ -39,7 +39,11 @@ ImU32 pressed_fill() {
 }
 
 ImU32 control_fill() {
-    return ui_colors::mix(ui().panel_hi, ui_colors::rgba(255, 255, 255), 0.08f);
+    return ui_colors::mix(ui_colors::rgba(0, 0, 0), ui().brand, 0.17f);
+}
+
+ImU32 control_fill_hi() {
+    return ui_colors::mix(ui_colors::rgba(0, 0, 0), ui().brand, 0.23f);
 }
 
 float tween(ImGuiID id, float target, float seconds) {
@@ -154,9 +158,9 @@ void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
 }
 
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    // A flat fill in the accent, as the launcher's main button (no gradient, no edge); a little
-    // darker while held.
-    list->AddRectFilled(a, b, ui_colors::mix(ui().amber, ui().ink_deep, 0.18f * held), round);
+    // A flat fill in the bar's own gold (no gradient, no edge): deeper than the bright accent, so a
+    // big button over the game does not glare; darker while held.
+    list->AddRectFilled(a, b, ui_colors::mix(ui().bar_stripe, ui().ink_deep, 0.18f * held), round);
 }
 
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {
