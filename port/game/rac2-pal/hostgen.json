@@ -928,6 +928,10 @@
       "func_L15_004334B0": "int (void)",
       "func_L22_003A83A8": "int (void)",
       "func_L23_00422D10": "int (void)",
+      "func_L04_0040F2B0": "void (void)",
+      "func_L04_004158F0": "void (void)",
+      "func_L04_0041BC68": "void (void)",
+      "func_L03_003CB058": "void (void)",
       "func_00314B5C": "void (void *)",
       "func_L00_0042A488": "void (void *, void *, void *)"
     },

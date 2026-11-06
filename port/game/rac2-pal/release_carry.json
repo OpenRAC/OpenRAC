@@ -3,16 +3,16 @@
  "counts": {
   "function: by hand": 3,
   "function: called": 20,
-  "function: changed": 141,
+  "function: changed": 144,
   "function: found": 6,
-  "function: near": 161,
+  "function: near": 170,
   "function: not found": 4,
-  "function: same": 798,
+  "function: same": 800,
   "global: aligned": 11,
   "global: between": 15,
   "global: exact": 137,
   "global: the release's build": 69,
-  "signature: v1.01's": 7
+  "signature: v1.01's": 11
  },
  "functions": {
   "func_001158F8": [
@@ -715,6 +715,11 @@
    "changed",
    "from_assembly"
   ],
+  "func_L03_003C7018": [
+   "func_L03_003CB058",
+   "changed",
+   "host C"
+  ],
   "func_L03_00425108": [
    "func_L03_0042A6B0",
    "near",
@@ -770,10 +775,25 @@
    "near",
    "from_assembly"
   ],
+  "func_L04_0040AD28": [
+   "func_L04_0040F2B0",
+   "near",
+   "host C"
+  ],
+  "func_L04_00411298": [
+   "func_L04_004158F0",
+   "near",
+   "host C"
+  ],
   "func_L04_00412EC0": [
    "func_L04_00417578",
    "near",
    "from_assembly"
+  ],
+  "func_L04_00417308": [
+   "func_L04_0041BC68",
+   "near",
+   "host C"
   ],
   "func_L04_00418A58": [
    "func_L04_0041D5F0",

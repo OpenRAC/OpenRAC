@@ -916,6 +916,11 @@
       "func_L15_0042F6D0": "int (void)",
       "func_L22_003A6448": "int (void)",
       "func_L23_0041EF48": "int (void)",
+      "func_L04_0040C228": "void (void)",
+      "func_L04_004127A8": "void (void)",
+      "func_L04_004188B8": "void (void)",
+      "func_L03_003C8620": "void (void)",
+      "func_00290920": "int (void)",
       "func_003144C8": "void (void *)"
     },
     "results_before_calls": true,
