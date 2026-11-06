@@ -216,7 +216,7 @@ if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
 endif()
 if(OPENRAC_METAL)
   add_library(openrac_renderer_metal STATIC
-    renderer/metal/mtlgl.mm renderer/metal/mtlgl_resources.mm
+    renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
     renderer/metal/shader_translate.cpp)
   target_link_libraries(openrac_renderer_metal
     PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore"

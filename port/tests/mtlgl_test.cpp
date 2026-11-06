@@ -3,7 +3,7 @@
 //
 // renderer/metal/mtlgl.h without a window: the context says what it is, clears the default
 // framebuffer and reads it back with GL's pack alignment, and refuses the clears it cannot do yet;
-// textures, framebuffers, a multisample resolve, copies and buffers.
+// textures, framebuffers, a multisample resolve, copies and buffers; a program's indexed draw.
 // Skipped (exit 77) where there is no Metal device.
 
 #include <algorithm>
@@ -176,6 +176,109 @@ int main() {
     CHECK(get_error() == GL_NO_ERROR);
     buffer_sub_data(GL_ARRAY_BUFFER, 6, 4, texels);
     CHECK(get_error() == 0x0501);  // GL_INVALID_VALUE
+
+    // An indexed quad on the bottom left quarter, in a uniform's colour plus an input the vertex
+    // array does not feed, which reads GL's (0, 0, 0, 1).
+    const auto create_shader = proc<PFN_glCreateShader>("glCreateShader");
+    const auto shader_source = proc<PFN_glShaderSource>("glShaderSource");
+    const auto compile_shader = proc<PFN_glCompileShader>("glCompileShader");
+    const auto get_shader_iv = proc<PFN_glGetShaderiv>("glGetShaderiv");
+    const auto create_program = proc<PFN_glCreateProgram>("glCreateProgram");
+    const auto attach_shader = proc<PFN_glAttachShader>("glAttachShader");
+    const auto link_program = proc<PFN_glLinkProgram>("glLinkProgram");
+    const auto get_program_iv = proc<PFN_glGetProgramiv>("glGetProgramiv");
+    const auto get_program_info_log = proc<PFN_glGetProgramInfoLog>("glGetProgramInfoLog");
+    const auto use_program = proc<PFN_glUseProgram>("glUseProgram");
+    const auto get_uniform_location = proc<PFN_glGetUniformLocation>("glGetUniformLocation");
+    const auto uniform_4f = proc<PFN_glUniform4f>("glUniform4f");
+    const auto gen_vertex_arrays = proc<PFN_glGenVertexArrays>("glGenVertexArrays");
+    const auto bind_vertex_array = proc<PFN_glBindVertexArray>("glBindVertexArray");
+    const auto enable_attrib = proc<PFN_glEnableVertexAttribArray>("glEnableVertexAttribArray");
+    const auto attrib_pointer = proc<PFN_glVertexAttribPointer>("glVertexAttribPointer");
+    const auto draw_elements = proc<PFN_glDrawElements>("glDrawElements");
+    const auto draw_arrays = proc<PFN_glDrawArrays>("glDrawArrays");
+    const auto viewport = proc<PFN_glViewport>("glViewport");
+
+    const char* sources[2] = {R"(#version 410 core
+layout(location = 0) in vec2 position;
+layout(location = 1) in vec4 tint;
+out vec4 v_tint;
+void main() {
+    v_tint = tint;
+    gl_Position = vec4(position, 0, 1);
+}
+)",
+                              R"(#version 410 core
+uniform vec4 colour;
+in vec4 v_tint;
+layout(location = 0) out vec4 result;
+void main() { result = colour + v_tint; }
+)"};
+    const GLuint program = create_program();
+    for (int i = 0; i < 2; ++i) {
+        const GLuint shader = create_shader(i == 0 ? GL_VERTEX_SHADER : GL_FRAGMENT_SHADER);
+        shader_source(shader, 1, &sources[i], nullptr);
+        compile_shader(shader);
+        GLint compiled = 0;
+        get_shader_iv(shader, GL_COMPILE_STATUS, &compiled);
+        CHECK(compiled == GL_TRUE);
+        attach_shader(program, shader);
+    }
+    link_program(program);
+    GLint linked = 0;
+    get_program_iv(program, GL_LINK_STATUS, &linked);
+    if (linked != GL_TRUE) {
+        char log[1024] = {};
+        get_program_info_log(program, sizeof log, nullptr, log);
+        std::printf("%s\n", log);
+    }
+    CHECK(linked == GL_TRUE);
+    use_program(program);
+    const GLint colour = get_uniform_location(program, "colour");
+    CHECK(colour >= 0);
+    uniform_4f(colour, 1.0f, 0.0f, 0.0f, 0.0f);
+
+    GLuint vertex_array = 0;
+    gen_vertex_arrays(1, &vertex_array);
+    bind_vertex_array(vertex_array);
+    GLuint quad[2] = {};
+    gen_buffers(2, quad);
+    const float corners[8] = {-1, -1, 0, -1, 0, 0, -1, 0};
+    bind_buffer(GL_ARRAY_BUFFER, quad[0]);
+    buffer_data(GL_ARRAY_BUFFER, sizeof corners, corners, GL_STATIC_DRAW);
+    enable_attrib(0);
+    attrib_pointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    const std::uint16_t indices[6] = {0, 1, 2, 0, 2, 3};
+    bind_buffer(GL_ELEMENT_ARRAY_BUFFER, quad[1]);
+    buffer_data(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices, GL_STATIC_DRAW);
+
+    GLuint target = 0;
+    gen_textures(1, &target);
+    bind_texture(GL_TEXTURE_2D, target);
+    tex_image(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    bind_framebuffer(GL_FRAMEBUFFER, framebuffers[0]);
+    framebuffer_texture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target, 0);
+    viewport(0, 0, 4, 4);
+    clear_colour(0.0f, 0.0f, 0.0f, 0.0f);
+    clear(GL_COLOR_BUFFER_BIT);
+    draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, nullptr);
+    CHECK(get_error() == GL_NO_ERROR);
+    std::uint8_t drawn[64] = {};
+    read_pixels(0, 0, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, drawn);
+    for (int y = 0; y < 4; ++y) {
+        for (int x = 0; x < 4; ++x) {
+            const std::uint8_t* p = &drawn[(y * 4 + x) * 4];
+            const bool inside = x < 2 && y < 2;
+            CHECK(p[0] == (inside ? 255 : 0) && p[1] == 0 && p[2] == 0 && p[3] == (inside ? 255 : 0));
+        }
+    }
+
+    // What Metal cannot draw is refused.
+    draw_elements(GL_TRIANGLES, 6, GL_UNSIGNED_BYTE, nullptr);
+    CHECK(get_error() == 0x0500);  // GL_INVALID_ENUM
+    draw_arrays(0x0006 /* GL_TRIANGLE_FAN */, 0, 4);
+    CHECK(get_error() == 0x0500);
+    bind_framebuffer(GL_FRAMEBUFFER, 0);
 
     openrac::mtlgl::present();
     openrac::mtlgl::close();

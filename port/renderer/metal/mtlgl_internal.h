@@ -14,13 +14,16 @@
 
 #include <SDL3/SDL_metal.h>
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "renderer/gl.h"
 #include "renderer/metal/mtlgl.h"
+#include "renderer/metal/shader_translate.h"
 #include "renderer/world/gl_world.h"
 
 namespace openrac::mtlgl::detail {
@@ -48,6 +51,10 @@ inline constexpr GLenum kGlUniformBufferOffsetAlignment = 0x8A34;
 inline constexpr GLenum kGlMaxCombinedTextureUnits = 0x8B4D;
 inline constexpr GLenum kGlMaxVertexAttribs = 0x8869;
 inline constexpr GLenum kGlMaxUniformBlockSize = 0x8A30;
+
+// The vertex stage's function constant: true when its z is 0..w already (glClipControl), as
+// vkgl_internal.h's kClipZeroToOneConstant, which shader_compiler.cpp declares it with.
+inline constexpr NSUInteger kClipConstant = 900;
 
 inline constexpr GLuint kUnits = 32;
 inline constexpr GLuint kUniformBindings = 16;
@@ -99,6 +106,7 @@ struct Texture {
     int base_level = 0, max_level = 1000;
     GLuint buffer = 0;  // GL_TEXTURE_BUFFER's buffer, and its texels' format
     GLenum buffer_format = 0;
+    id<MTLTexture> buffer_view;  // the texels of buffer_view.buffer
     std::uint64_t used = 0;
 };
 
@@ -114,6 +122,45 @@ struct Framebuffer {
 // The textures a framebuffer draws into (nil for an attachment it has not).
 struct Target {
     id<MTLTexture> colour, depth;
+};
+
+struct Shader {
+    GLenum type = 0;
+    std::string source;
+    bool compiled = false;
+    std::string log;
+};
+
+struct Program {
+    std::vector<GLuint> shaders;
+    bool linked = false;
+    std::string log;
+    vkgl::CompiledProgram compiled;
+    MslProgram msl;
+    id<MTLLibrary> vertex, fragment;
+    // Each stage's function by the clip control constant: [clip_zero_to_one][fragment].
+    id<MTLFunction> functions[2][2];
+    std::vector<std::uint8_t> uniforms;  // the default block
+    std::vector<GLint> units;            // by uniform: a sampler's texture unit
+    std::vector<GLuint> block_bindings;  // by block: its GL uniform buffer binding
+    std::unordered_map<std::string, id<MTLRenderPipelineState>> pipelines;
+};
+
+inline constexpr GLuint kAttributes = 16;
+
+struct Attribute {
+    bool enabled = false;
+    GLint size = 4;
+    GLenum type = GL_FLOAT;
+    bool normalized = false, integer = false;
+    GLsizei stride = 0;
+    std::uintptr_t offset = 0;
+    GLuint buffer = 0, divisor = 0;
+};
+
+struct VertexArray {
+    std::array<Attribute, kAttributes> attributes{};
+    GLuint elements = 0;
 };
 
 struct StencilFace {
@@ -142,7 +189,8 @@ struct State {
     GLuint active_unit = 0;
     GLuint unit_2d[kUnits] = {}, unit_buffer[kUnits] = {}, unit_array[kUnits] = {};
     GLuint unit_sampler[kUnits] = {};
-    GLuint array_buffer = 0, element_buffer = 0, uniform_buffer = 0, texture_buffer = 0;
+    GLuint program = 0, vertex_array = 0;
+    GLuint array_buffer = 0, uniform_buffer = 0, texture_buffer = 0;
     GLuint storage_buffer = 0;
     GLuint uniform_bindings[kUniformBindings] = {}, storage_bindings[kUniformBindings] = {};
     GLuint draw_framebuffer = 0, read_framebuffer = 0, renderbuffer = 0;
@@ -170,6 +218,15 @@ struct Context {
     Names<SamplerParams> samplers;
     Names<Renderbuffer> renderbuffers;
     Names<Framebuffer> framebuffers;
+    Names<Shader> shaders;
+    Names<Program> programs;
+    Names<VertexArray> vertex_arrays;
+    VertexArray default_vertex_array;
+    std::unordered_map<std::string, id<MTLDepthStencilState>> depth_states;
+    std::unordered_map<std::string, id<MTLSamplerState>> sampler_states;
+    // Bound where a program samples a unit with no texture, by MTLTextureType.
+    std::unordered_map<NSUInteger, id<MTLTexture>> empty_textures;
+    id<MTLBuffer> attribute_defaults;  // GL's (0, 0, 0, 1) as floats, then as integers
     GLenum error = GL_NO_ERROR;
     std::string version, renderer;
 };
@@ -195,6 +252,8 @@ Target target_of(GLuint name);
 // Opens a render pass on `target`, clearing what `clear` (GL's clear bits) names and keeping the
 // rest.
 void begin_pass(const Target& target, GLbitfield clear);
+// The bound vertex array, or the default one.
+VertexArray& vertex_array();
 
 // mtlgl_resources.mm's GL functions, for get_proc.
 #define MTLGL OPENRAC_GLAPI
@@ -245,6 +304,46 @@ void MTLGL renderbuffer_storage_multisample(GLenum target, GLsizei samples, GLen
                                             GLsizei h);
 void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
                             GLint dx1, GLint dy1, GLbitfield mask, GLenum filter);
+
+// mtlgl_draw.mm's.
+GLuint MTLGL create_shader(GLenum type);
+void MTLGL shader_source(GLuint name, GLsizei count, const GLchar* const* strings, const GLint* lengths);
+void MTLGL compile_shader(GLuint name);
+void MTLGL get_shader_iv(GLuint name, GLenum what, GLint* out);
+void MTLGL get_shader_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log);
+void MTLGL delete_shader(GLuint name);
+GLuint MTLGL create_program();
+void MTLGL attach_shader(GLuint program, GLuint shader);
+void MTLGL bind_attrib_location(GLuint program, GLuint index, const GLchar* name);
+void MTLGL link_program(GLuint name);
+void MTLGL get_program_iv(GLuint name, GLenum what, GLint* out);
+void MTLGL get_program_info_log(GLuint name, GLsizei size, GLsizei* length, GLchar* log);
+void MTLGL delete_program(GLuint name);
+void MTLGL use_program(GLuint name);
+GLint MTLGL get_uniform_location(GLuint program, const GLchar* name);
+void MTLGL uniform_1i(GLint location, GLint v);
+void MTLGL uniform_1f(GLint location, GLfloat v);
+void MTLGL uniform_2f(GLint location, GLfloat a, GLfloat b);
+void MTLGL uniform_3f(GLint location, GLfloat a, GLfloat b, GLfloat c);
+void MTLGL uniform_4f(GLint location, GLfloat a, GLfloat b, GLfloat c, GLfloat d);
+void MTLGL uniform_4fv(GLint location, GLsizei count, const GLfloat* v);
+void MTLGL uniform_matrix_4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* v);
+GLuint MTLGL get_uniform_block_index(GLuint program, const GLchar* name);
+void MTLGL uniform_block_binding(GLuint program, GLuint block, GLuint binding);
+void MTLGL gen_vertex_arrays(GLsizei n, GLuint* names);
+void MTLGL delete_vertex_arrays(GLsizei n, const GLuint* names);
+void MTLGL bind_vertex_array(GLuint name);
+void MTLGL enable_vertex_attrib_array(GLuint index);
+void MTLGL vertex_attrib_pointer(GLuint index, GLint size, GLenum type, GLboolean normalized,
+                                 GLsizei stride, const void* pointer);
+void MTLGL vertex_attrib_i_pointer(GLuint index, GLint size, GLenum type, GLsizei stride,
+                                   const void* pointer);
+void MTLGL vertex_attrib_divisor(GLuint index, GLuint divisor);
+void MTLGL draw_arrays(GLenum mode, GLint first, GLsizei count);
+void MTLGL draw_arrays_instanced(GLenum mode, GLint first, GLsizei count, GLsizei instances);
+void MTLGL draw_elements(GLenum mode, GLsizei count, GLenum type, const void* indices);
+void MTLGL draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, const void* indices,
+                                   GLsizei instances);
 #undef MTLGL
 
 }  // namespace openrac::mtlgl::detail

@@ -261,7 +261,7 @@ GLuint* buffer_binding(GLenum target) {
         case GL_ARRAY_BUFFER:
             return &s.array_buffer;
         case GL_ELEMENT_ARRAY_BUFFER:
-            return &s.element_buffer;
+            return &vertex_array().elements;
         case wgl::GL_UNIFORM_BUFFER:
             return &s.uniform_buffer;
         case wgl::GL_TEXTURE_BUFFER:
@@ -631,10 +631,13 @@ void MTLGL buffer_data(GLenum target, GLsizeiptr size, const void* data, GLenum)
         return;
     }
     const auto length = static_cast<std::size_t>(size);
+    // Rounded up so that a texel buffer's row, which Metal aligns (256 bytes at most), fits.
     b->buffer = length == 0 ? nil
-                : data != nullptr
-                    ? [g->device newBufferWithBytes:data length:length options:MTLResourceStorageModeShared]
-                    : [g->device newBufferWithLength:length options:MTLResourceStorageModeShared];
+                            : [g->device newBufferWithLength:(length + 255) & ~std::size_t{255}
+                                                     options:MTLResourceStorageModeShared];
+    if (data != nullptr && length != 0) {
+        std::memcpy(b->buffer.contents, data, length);
+    }
     b->size = length;
     b->used = 0;
 }
@@ -656,7 +659,7 @@ void MTLGL buffer_sub_data(GLenum target, GLintptr offset, GLsizeiptr size, cons
     // use is copied, and the copy written.
     if (b->used > g->completed.load(std::memory_order_acquire)) {
         b->buffer = [g->device newBufferWithBytes:b->buffer.contents
-                                           length:b->size
+                                           length:b->buffer.length
                                           options:MTLResourceStorageModeShared];
         b->used = 0;
     }

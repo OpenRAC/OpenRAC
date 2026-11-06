@@ -1,8 +1,8 @@
 # renderer/metal
 
 The port's Metal renderer for macOS (Apple Silicon and Intel), built with `OPENRAC_METAL` (on by
-default on Apple's systems). It is being written in steps; today it holds the shaders and the
-core of its GL.
+default on Apple's systems). It is being written in steps; today it holds the shaders and its GL
+up to draws.
 
 The target is macOS 12 on the oldest Macs the port supports (2015's MacBook Pros, AMD GPUs,
 `MTLGPUFamilyMac2`): MSL 2.4, no Metal 3. Macs without Metal keep the OpenGL 4.1 renderer, and
@@ -39,18 +39,25 @@ with Vulkan. The header gives the conventions.
   them), samplers, buffers, framebuffers, multisampled renderbuffers, `glReadPixels` (RGBA8, and
   RGBA16F as floats or bytes), `glCopyTexSubImage2D` and `glBlitFramebuffer`. A buffer updated
   while the GPU may still read it is copied first, so nothing waits for the GPU.
+- [mtlgl_draw.mm](mtlgl_draw.mm): shaders and programs (linked by `vkgl::compile_program`, then
+  translated and compiled for Metal), uniforms, vertex arrays and draws, with their pipeline,
+  depth/stencil and sampler states cached. An input the vertex array does not feed reads GL's
+  (0, 0, 0, 1). A texture a draw both samples and writes reads as an empty one.
 
-Some operations are refused with `GL_INVALID_OPERATION` until there are draws to do them with: a
+Metal has no triangle fans, 8-bit indices or unnormalised float inputs from integers: draws with
+them are refused (`GL_INVALID_ENUM`, then `GL_INVALID_OPERATION`), as no renderer uses them.
+
+Some operations are refused with `GL_INVALID_OPERATION` until they are done with draws: a
 scissored or masked clear, a copy between formats, a scaled or flipped blit, and a resolve of part
 of an image or of depth.
 
 [tests/mtlgl_test.cpp](../../tests/mtlgl_test.cpp) (`ctest -R mtlgl`) opens it without a window.
 It clears and reads back, uploads and reads textures through framebuffers, resolves a multisampled
-clear, and copies from the default framebuffer. It is skipped where there is no Metal device.
+clear, copies from the default framebuffer, and draws an indexed quad with a uniform. It is skipped where there is no Metal device.
 
 ## Still to come
 
-- The rest of `renderer/gl.h`: programs, draws and compute, then the window choosing it with
+- The rest of `renderer/gl.h`: compute, then the window choosing it with
   `OPENRAC_GL_API=metal` and falling back to Vulkan, then OpenGL.
 - The renderers' picture tests run on it, as their `_vulkan` variants do.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
