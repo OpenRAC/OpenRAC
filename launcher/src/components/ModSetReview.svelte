@@ -18,6 +18,10 @@
   let error = $state<string | null>(null);
   let applied = $state<Applied | null>(null);
   let working = $state(false);
+  // A code that comes while this one applies, or shows applied, waits (modCodes.svelte.ts).
+  $effect(() => {
+    modCode.busy = working || applied !== null;
+  });
   let extras = $state<string[]>([]);
   let trusted = $state<string[]>([]);
 
@@ -262,7 +266,7 @@
 
     {#snippet actions()}
       {#if applied}
-        <button class="ghost small grow" disabled={working} onclick={() => void undo()}>{T.undo}</button>
+        <button class="ghost small grow" disabled={working || running} onclick={() => void undo()}>{T.undo}</button>
         {#if review?.party}
           <button class="ghost" disabled={working} onclick={closeCode}>{T.close}</button>
           <button class="primary" disabled={working} onclick={() => void playAndJoin()}
@@ -277,6 +281,12 @@
         <button class="primary" disabled={working || !ready} onclick={() => void apply()}>
           {#if working}<span class="spinner"></span>{T.applying}{:else}{T.apply}{/if}
         </button>
+      {:else if review?.party && review.nothing && !review.wrongGame}
+        <!-- Everything already matches: nothing to apply, the party can be joined at once. -->
+        <button class="ghost" onclick={closeCode}>{T.close}</button>
+        <button class="primary" disabled={working} onclick={() => void playAndJoin()}
+          >{T.playAndJoin(review.party)}</button
+        >
       {:else}
         <button class="primary" onclick={closeCode}>{T.close}</button>
       {/if}

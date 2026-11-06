@@ -1783,6 +1783,9 @@ async fn modset_apply(
     code: Option<String>,
     choices: modset::Choices,
 ) -> Result<modset::Applied, String> {
+    if !state.jobs.running().is_empty() {
+        return Err("The game is running: close it, then apply the code.".into());
+    }
     let g = game.clone();
     on_plugins(state, &game, move |dir| {
         with_remote(&app, dir, &g, &version, |c| {
@@ -1799,6 +1802,10 @@ async fn modset_profiles(state: State<'_, AppState>, game: String) -> Result<Vec
 
 #[tauri::command]
 async fn modset_restore(state: State<'_, AppState>, game: String, id: String) -> Result<(), String> {
+    // The game reads its mods as it runs: they change only once it has closed.
+    if !state.jobs.running().is_empty() {
+        return Err("The game is running: close it, then put the mods back.".into());
+    }
     on_plugins(state, &game, move |dir| modset::restore(dir, &id)).await
 }
 

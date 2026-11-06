@@ -1144,6 +1144,32 @@ pub struct Applied {
 
 /// Applies a set the player reviewed. All its mods are fetched and checked first; only then does
 /// anything change, after a way back is kept. A failure from there puts everything back.
+/// The games whose mods a code is changing now (their plugins folders): one change at a time a
+/// game, so a second link or a click during an Apply cannot interleave with it.
+static CHANGING: std::sync::Mutex<Vec<std::path::PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+/// Held while a game's mods change; let go when dropped.
+pub struct ChangeLock(std::path::PathBuf);
+
+impl ChangeLock {
+    /// Takes `dir`'s lock, or says another change of it still runs.
+    pub fn take(dir: &Path) -> Result<ChangeLock, String> {
+        let mut busy = CHANGING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if busy.iter().any(|d| d == dir) {
+            return Err("Another change of this game's mods is still running: try again when it is done.".into());
+        }
+        busy.push(dir.to_path_buf());
+        Ok(ChangeLock(dir.to_path_buf()))
+    }
+}
+
+impl Drop for ChangeLock {
+    fn drop(&mut self) {
+        let mut busy = CHANGING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        busy.retain(|d| d != &self.0);
+    }
+}
+
 pub fn apply(
     ctx: &Context,
     set_json: &str,
@@ -1152,6 +1178,7 @@ pub fn apply(
     openrac: &str,
     now: &str,
 ) -> Result<Applied, String> {
+    let _lock = ChangeLock::take(ctx.dir)?;
     let set = ModSet::from_json(set_json.as_bytes())?;
     if set.game != ctx.game {
         return Err("This code is for another game.".into());
@@ -1251,6 +1278,7 @@ pub fn apply(
 
 /// Puts a profile back.
 pub fn restore(dir: &Path, id: &str) -> Result<(), String> {
+    let _lock = ChangeLock::take(dir)?;
     profile::restore(dir, id, false)?;
     let _ = std::fs::remove_file(dir.join(GAME_FILE));
     Ok(())
@@ -1260,6 +1288,18 @@ pub fn restore(dir: &Path, id: &str) -> Result<(), String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn one_change_of_a_games_mods_at_a_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let held = ChangeLock::take(dir.path()).unwrap();
+        assert!(ChangeLock::take(dir.path()).is_err());
+        assert!(restore(dir.path(), "x").unwrap_err().contains("still running"));
+        let other = tempfile::tempdir().unwrap();
+        assert!(ChangeLock::take(other.path()).is_ok());
+        drop(held);
+        assert!(ChangeLock::take(dir.path()).is_ok());
+    }
     use sha2::{Digest, Sha256};
     use std::cell::RefCell;
     use std::collections::HashMap;

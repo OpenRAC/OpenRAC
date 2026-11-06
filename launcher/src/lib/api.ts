@@ -811,13 +811,13 @@ export async function pickIso(title: string, copying?: (progress: DiscCopy) => v
   return typeof picked === "string" ? picked : null;
 }
 
-/** `disc-copy` events: a picked image's copy (Android) or a .chd's unpacking. */
 /** A mod code's link came in (modsetTakeLink has it). */
 export async function onModsetLink(handler: () => void): Promise<UnlistenFn> {
   if (!inTauri) return () => undefined;
   return listen("modset-link", handler);
 }
 
+/** `disc-copy` events: a picked image's copy (Android) or a .chd's unpacking. */
 export async function onDiscCopy(handler: (progress: DiscCopy) => void): Promise<UnlistenFn> {
   if (!inTauri) return () => undefined;
   return listen<DiscCopy>("disc-copy", (e) => {

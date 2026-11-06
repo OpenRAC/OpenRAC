@@ -522,6 +522,7 @@ export const MOD_CODES = {
   fresh: "Published in the last two days",
   otherGame: "This code is for another game.",
   noGame: "Set up a game first, then enter the code again.",
+  queued: "Another code came in: it opens when this one is closed.",
   otherOpenrac: (version: string) =>
     `It was made with OpenRAC ${version}. A party needs the same OpenRAC on every side.`,
   partial: "Part of this can't be applied. The rest can, but the party may still refuse you.",

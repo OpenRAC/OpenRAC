@@ -10,7 +10,11 @@ export const modCode = $state<{
   open: { text: string; version: VersionView } | null;
   /** Bumped when the mods changed: the lists are read again. */
   revision: number;
-}>({ open: null, revision: 0 });
+  /** The review is applying a code or shows one applied: a new code waits for it to close. */
+  busy: boolean;
+  /** The code that came while busy (the last one), opened when the review closes. */
+  queued: { text: string; version: VersionView } | null;
+}>({ open: null, revision: 0, busy: false, queued: null });
 
 /** The disc played of `game`, or of the game last opened, or of any game with mods. */
 export function versionFor(game?: string): VersionView | null {
@@ -31,11 +35,18 @@ export function openCode(text: string, version?: VersionView | null) {
     toast(T.noGame, "error");
     return;
   }
+  if (modCode.open && modCode.busy) {
+    modCode.queued = { text, version: v };
+    toast(T.queued, "info");
+    return;
+  }
   modCode.open = { text, version: v };
 }
 
 export function closeCode() {
-  modCode.open = null;
+  modCode.open = modCode.queued;
+  modCode.queued = null;
+  modCode.busy = false;
 }
 
 /** The mods changed. */
