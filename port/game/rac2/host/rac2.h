@@ -4,16 +4,16 @@
  * Going Commando's host C, one copy for every disc (USA v1.01, PAL, USA v2.00; port/game/rac2/README.md).
  *
  * The files here are compiled into each release's program (hostgen.json, "host_shared") with that
- * release's translation and its table of names and addresses (rac2_version.h in
- * port/game/rac2-<release>/host). They are written with v1.01's names for the game's functions
- * (func_0027F538, func_L05_0041DF58, func_0027F640__game) and its addresses inside RAC2_ADDR() and
- * RAC2_LADDR(): each release's table turns them into its own, so a fix written here holds for every disc.
+ * release's translation and its tables (port/game/rac2-<release>/host). They are written with v1.01's
+ * names for the game's functions (func_0027F538, func_L05_0041DF58, func_0027F640__game), which another
+ * release's build writes as its own before compiling (rac2_names.tsv, tools/hostgen/release_host.py),
+ * and its addresses and constants inside RAC2_ADDR(), RAC2_LADDR() and RAC2_K(), which rac2_version.h
+ * turns into the release's: a fix written here holds for every disc.
  */
 #ifndef OPENRAC_RAC2_H
 #define OPENRAC_RAC2_H
 
-/* After a file's own includes (and the translation's prototypes, game_protos.h, where it reads them):
- * a release's table renames v1.01's names to its own. */
+/* A release's addresses, constants and layout. */
 #include "rac2_version.h"
 
 #if !defined(RAC2_ADDR) || !defined(RAC2_LADDR) || !defined(RAC2_K) || !defined(RAC2_LEVEL_BASE)

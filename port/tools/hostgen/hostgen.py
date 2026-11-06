@@ -1252,13 +1252,11 @@ def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
                    for p in sorted(d.glob("*.c")))
     if RELEASE is not None:
         # The shared C is written with the primary release's names; this release's table
-        # (host/*.h, `#define func_... func_...`) renames them, as the compiler will.
-        renames = {}
-        for header in sorted((args.game.parent / "host").glob("*.h")):
-            for m in re.finditer(r"^#define\s+(func_\w+)\s+(func_\w+)\s*$", header.read_text(errors="replace"), re.M):
-                renames[m.group(1)] = m.group(2)
-        if renames:
-            text = re.sub(r"\bfunc_\w+\b", lambda m: renames.get(m.group(0), m.group(0)), text)
+        # (host/rac2_names.tsv) renames them, as its build does (release_host.py).
+        import release_host
+        names = args.game.parent / "host" / "rac2_names.tsv"
+        if names.is_file():
+            text = release_host.rename(text, release_host.read_names(names))
     return text
 
 

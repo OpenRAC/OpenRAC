@@ -581,17 +581,21 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
         for m in HOST_FUNC.finditer(t):
             base = m.group(0)[:len(m.group(0)) - len(m.group(1))] if m.group(1) else m.group(0)
             funcs.setdefault(base, set()).add(m.group(1))
-    lines.append("/* Functions: v1.01's name and this release's (release_carry.json says how each was paired). */")
+    # Functions: v1.01's name and this release's, a table the build renames the shared C with
+    # (release_host.py: one pass, so that no name is renamed twice, as macros would).
+    renames = ["# The shared host C's function names (v1.01's) and this release's. Written by",
+               "# port/tools/hostgen/release_carry.py (release_carry.json says how each was paired); do not edit."]
     for base in sorted(funcs):
         new = p.function(base, "host C")
         if new is None:
-            lines.append(f"/* {base}: not in this release */")
+            renames.append(f"# {base}: not in this release")
             continue
         new = "func" + new[3:] if new.startswith("FUN_") else new
         if new == base:
             continue
         for suffix in sorted(funcs[base]):
-            lines.append(f"#define {base}{suffix} {new}{suffix}")
+            renames.append(f"{base}{suffix}\t{new}{suffix}")
+    p.host_names = "\n".join(renames) + "\n"
     addrs, laddrs = set(), set()
     for t in code.values():
         addrs.update(int(m.group(1), 16) for m in HOST_ADDR.finditer(t))
@@ -629,7 +633,7 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
             lines.append(f"/* RAC2_LADDR_{lv:02d}_0x{a:08X}u: not found */")
             continue
         lines.append(f"#define RAC2_LADDR_{lv:02d}_0x{a:08X}u 0x{new:08X}u /* {p.last} */")
-    lines += [""] + constants(p, code, version)
+    lines += constants(p, code, version)
     names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
     head = [
         "/* SPDX-License-Identifier: GPL-3.0-or-later",
@@ -760,6 +764,11 @@ def main(argv: list[str] | None = None) -> int:
     new_cfg = carry_config(p, cfg, args.version)
     primary = args.primary.parent
     (out_dir / "libraries.tsv").write_text(carry_libraries(p, (primary / "libraries.tsv").read_text()))
+    extra = out_dir / "release_extra.json"
+    if extra.is_file():
+        for key, rows in json.loads(extra.read_text()).items():
+            if key == "from_assembly":
+                new_cfg["from_assembly"] = list(dict.fromkeys(new_cfg.get("from_assembly", []) + list(rows)))
     if args.primary_protos:
         add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
@@ -769,6 +778,7 @@ def main(argv: list[str] | None = None) -> int:
     shared = primary.parent / "rac2" / "host"
     (host / "rac2_addresses.h").write_text(addresses_header(p, (primary / "host/rac2_addresses.h").read_text(), args.version))
     (host / "rac2_version.h").write_text(host_table(p, shared, primary / "host", args.source, args.version))
+    (host / "rac2_names.tsv").write_text(p.host_names)
     profile_dir = primary.parent / "rac2"
     (profile_dir / f"profile_{new_cfg['id']}.h").write_text(
         profile_table(p, (profile_dir / "profile.cpp").read_text(), args.version))
