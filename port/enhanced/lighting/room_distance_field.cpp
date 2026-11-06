@@ -3,9 +3,16 @@
 // Sparse walkable-layer samples of the unsigned wall distance field.
 #include "enhanced/lighting/room_distance_field.h"
 
+#include <atomic>
+#include <cfenv>
+#include <exception>
 #include <map>
+#include <mutex>
+#include <thread>
 #include <tuple>
+#include <vector>
 
+#include "common/joining_thread.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
 #include "enhanced/lighting/room_layout.h"
@@ -14,6 +21,45 @@ namespace openrac::lighting::bake_detail {
 namespace {
 constexpr unsigned kMaximumSamples = 256000;
 using Cell = std::tuple<unsigned, int, int>;
+
+// Runs task(i) for every i on all CPU threads; each task writes only its own slot, so the result
+// does not depend on scheduling. The caller's rounding mode carries over; the first error is rethrown.
+template <class Task>
+void parallel_each(std::size_t count, const Task& task) {
+    std::fenv_t environment;
+    std::fegetenv(&environment);
+    std::atomic<std::size_t> next{0};
+    std::exception_ptr failure;
+    std::mutex mutex;
+    auto worker = [&] {
+        std::fesetenv(&environment);
+
+        try {
+            for (auto i = next.fetch_add(1); i < count; i = next.fetch_add(1)) {
+                task(i);
+            }
+        } catch (...) {
+            const std::lock_guard lock(mutex);
+            failure = failure ? failure : std::current_exception();
+            next = count;
+        }
+    };
+    const auto threads =
+        std::min<std::size_t>(std::max(1u, std::thread::hardware_concurrency()), count);
+    {
+        std::vector<JoiningThread> pool;
+
+        for (std::size_t t = 1; t < threads; ++t) {
+            pool.emplace_back(worker);
+        }
+
+        worker();
+    }
+
+    if (failure) {
+        std::rethrow_exception(failure);
+    }
+}
 
 // The normal support window stays narrow; floor-following repairs allow a bounded deeper dip.
 std::optional<Float3> supporting_floor(
@@ -404,6 +450,18 @@ RoomDistanceField room_distance_field(
     std::map<Cell, std::vector<unsigned>> cells;
     const float radius = result.step;
 
+    // A candidate is skipped only for an earlier node of its own cell, so cells are independent:
+    // each walks its candidates in the original order, and the accepted nodes are then numbered
+    // in that order, exactly as one serial pass would.
+    struct Candidate {
+        unsigned source;
+        int x, y;
+        std::optional<RoomFieldNode> node;  // set when accepted
+    };
+
+    std::vector<Candidate> candidates;
+    std::map<Cell, std::vector<std::size_t>> cell_candidates;
+
     for (unsigned source = 0; source < floors.size(); ++source) {
         const auto base = floors[source].position;
         const unsigned room = layout.owners[source];
@@ -414,53 +472,91 @@ RoomDistanceField room_distance_field(
             for (int y = int(std::ceil((base[1] - radius) / result.step));
                  y <= int(std::floor((base[1] + radius) / result.step));
                  ++y) {
-                const auto key = Cell{room, x, y};
-                const auto cell = cells.find(key);
-
-                if (cell != cells.end()
-                    && std::any_of(cell->second.begin(), cell->second.end(), [&](auto a) {
-                           return std::abs(result.nodes[a].position[2] - base[2]) < .75f;
-                       })) {
-                    continue;
-                }
-
-                Float3 p{float(x) * result.step, float(y) * result.step, base[2]};
-                const auto floor = floors[source].swimming_surface
-                                       ? std::optional<Float3>{p}
-                                       : supporting_floor(scene, p, settings);
-
-                if (!floor
-                    || !(
-                        floors[source].swimming_surface
-                            ? room_body_path_clear(scene, base, *floor, settings, true)
-                            : room_path_clear(scene, base, *floor, settings)
-                    )) {
-                    continue;
-                }
-
-                if (source < layout.height_bounds.size()
-                    && ((*floor)[2] < layout.height_bounds[source][0] - .01f
-                        || (*floor)[2] + 1.25f > layout.height_bounds[source][1] + .01f)) {
-                    continue;
-                }
-
-                auto eye = *floor;
-                eye[2] += 1.25f;
-                const auto wall = room_wall_distance(scene, eye);
-
-                if (wall.distance < .15f) {
-                    continue;
-                }
-
-                if (result.nodes.size() == kMaximumSamples) {
-                    throw std::runtime_error("medial distance field exceeds 256000 samples");
-                }
-
-                cells[key].push_back(static_cast<unsigned>(result.nodes.size()));
-                result.nodes.push_back({*floor, wall, room, false, {}});
+                cell_candidates[Cell{room, x, y}].push_back(candidates.size());
+                candidates.push_back({source, x, y, {}});
             }
         }
     }
+
+    std::vector<const std::vector<std::size_t>*> cell_list;
+
+    for (const auto& [key, list] : cell_candidates) {
+        cell_list.push_back(&list);
+    }
+
+    parallel_each(cell_list.size(), [&](std::size_t c) {
+        std::vector<float> heights;  // accepted floor heights in this cell
+
+        for (auto index : *cell_list[c]) {
+            auto& candidate = candidates[index];
+            const auto source = candidate.source;
+            const auto base = floors[source].position;
+            const unsigned room = layout.owners[source];
+
+            if (std::any_of(heights.begin(), heights.end(), [&](float z) {
+                    return std::abs(z - base[2]) < .75f;
+                })) {
+                continue;
+            }
+
+            Float3 p{float(candidate.x) * result.step, float(candidate.y) * result.step, base[2]};
+            const auto floor = floors[source].swimming_surface
+                                   ? std::optional<Float3>{p}
+                                   : supporting_floor(scene, p, settings);
+
+            if (!floor
+                || !(
+                    floors[source].swimming_surface
+                        ? room_body_path_clear(scene, base, *floor, settings, true)
+                        : room_path_clear(scene, base, *floor, settings)
+                )) {
+                continue;
+            }
+
+            if (source < layout.height_bounds.size()
+                && ((*floor)[2] < layout.height_bounds[source][0] - .01f
+                    || (*floor)[2] + 1.25f > layout.height_bounds[source][1] + .01f)) {
+                continue;
+            }
+
+            auto eye = *floor;
+            eye[2] += 1.25f;
+            const auto wall = room_wall_distance(scene, eye);
+
+            if (wall.distance < .15f) {
+                continue;
+            }
+
+            heights.push_back((*floor)[2]);
+            candidate.node = RoomFieldNode{*floor, wall, room, false, {}};
+        }
+    });
+
+    for (const auto& candidate : candidates) {
+        if (!candidate.node) {
+            continue;
+        }
+
+        if (result.nodes.size() == kMaximumSamples) {
+            throw std::runtime_error("medial distance field exceeds 256000 samples");
+        }
+
+        const auto& node = *candidate.node;
+        cells[Cell{node.room, candidate.x, candidate.y}].push_back(
+            static_cast<unsigned>(result.nodes.size())
+        );
+        result.nodes.push_back(node);
+    }
+
+    candidates.clear();
+
+    // Wall checks between neighbouring nodes run in parallel; edges are added in the serial order.
+    struct Link {
+        unsigned a, b, room;
+        bool clear;
+    };
+
+    std::vector<Link> links;
 
     for (const auto& [key, indices] : cells) {
         const auto [room, x, y] = key;
@@ -485,30 +581,26 @@ RoomDistanceField room_distance_field(
                             continue;
                         }
 
-                        const bool clear = result.swimming_rooms[room]
-                                               ? room_body_path_clear(
-                                                     scene,
-                                                     result.nodes[a].position,
-                                                     result.nodes[b].position,
-                                                     settings,
-                                                     true
-                                                 )
-                                               : room_path_clear(
-                                                     scene,
-                                                     result.nodes[a].position,
-                                                     result.nodes[b].position,
-                                                     settings
-                                                 );
-
-                        if (!clear) {
-                            continue;
-                        }
-
-                        result.nodes[a].neighbours.push_back(b);
-                        result.nodes[b].neighbours.push_back(a);
+                        links.push_back({a, b, room, false});
                     }
                 }
             }
+        }
+    }
+
+    parallel_each(links.size(), [&](std::size_t i) {
+        auto& link = links[i];
+        const auto& a = result.nodes[link.a].position;
+        const auto& b = result.nodes[link.b].position;
+        link.clear = result.swimming_rooms[link.room]
+                         ? room_body_path_clear(scene, a, b, settings, true)
+                         : room_path_clear(scene, a, b, settings);
+    });
+
+    for (const auto& link : links) {
+        if (link.clear) {
+            result.nodes[link.a].neighbours.push_back(link.b);
+            result.nodes[link.b].neighbours.push_back(link.a);
         }
     }
 
