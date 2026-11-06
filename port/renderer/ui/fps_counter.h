@@ -9,6 +9,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 
 namespace openrac::renderer::ui::fps_counter {
 
@@ -25,9 +26,10 @@ enum class Mode {
 // Detailed mode consumes completed profiler frames without waiting for GPU results.
 void frame_drawn(std::chrono::steady_clock::time_point now, double swap_seconds, Mode mode);
 
-// Draws the counter over a framebuffer of one sample a pixel, width x height. The context is
-// current.
-void draw(unsigned framebuffer, int width, int height);
+// Draws the counter over a framebuffer of one sample a pixel, width x height, its glyphs in `ink`
+// over a box of `paper` (RGBA, red in the low byte: the host's game accent and theme). The
+// context is current.
+void draw(unsigned framebuffer, int width, int height, std::uint32_t ink, std::uint32_t paper);
 
 // Frees its GL objects (the context is still current).
 void release();

@@ -761,7 +761,7 @@ void rac1_world_keep_running(int on) {
     keep_running = on != 0;
 }
 
-/* Whether the world keeps being drawn under the pause menu (interface 1.12, play_live_picture).
+/* Whether the world keeps being drawn under the pause menu (interface 1.14, play_live_picture).
  * Off, the menu's picture of the frame stands as it opened on, and the mobys still go on. */
 static int live_picture = 1;
 

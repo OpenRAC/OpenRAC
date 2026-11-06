@@ -5,7 +5,7 @@ include_guard(GLOBAL)
 
 # Private, initially empty caches let fresh scenes reuse compiled shaders without
 # reading a player's cache. ARGN names tests that may overlap other GPU work.
-# Overlapping tests use two Mesa rendering workers; serial tests retain their own settings.
+# Overlapping tests default to two Mesa workers unless they have their own limit.
 function(openrac_configure_gpu_tests)
   get_property(tests DIRECTORY PROPERTY TESTS)
   set(reset "")
@@ -18,7 +18,7 @@ function(openrac_configure_gpu_tests)
     set_property(TEST "${test}" APPEND PROPERTY LABELS gpu)
     if(NOT test IN_LIST parallel)
       set_property(TEST "${test}" APPEND PROPERTY RESOURCE_LOCK openrac_gpu)
-    else()
+    elseif(NOT environment MATCHES "(^|;)LP_NUM_THREADS=")
       set_property(TEST "${test}" APPEND PROPERTY ENVIRONMENT "LP_NUM_THREADS=2")
     endif()
     # Cache-behaviour tests may deliberately select their own cache or disable it.

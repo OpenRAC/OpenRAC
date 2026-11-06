@@ -44,26 +44,31 @@ extern "C" {
  * is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's
  * picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of
  * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),
- * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the
- * tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus
- * (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play
- * (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the
- * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
- * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
- * update with the hero standing in for another player, hits watched and posted, eyes that keep
- * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a
- * folder of the mod's own for its files and the memory card slot the game in progress saves into,
- * 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles
- * around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the
- * camera set by a mod, heat haze drawn over the picture and text in the game's HUD;
- * and the mods a party has to agree on: each loaded mod and its settings listed, and rules a mod
- * publishes for the host's game that the same mod takes in the members' games, and what a shared
- * game needs of the port: a party's own save slot, progress shared between players' games, a hero
- * placed, held and revived, shots with more to say, the level's mobys with their mission, a picture
- * drawn over the game, camera scripts and metal detector digs seen, the data packs applied, the
+ * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6
+ * the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of
+ * the game's own menus (its frames, list, text, prompt and sounds) and items of
+ * the title's main menu, 1.8 play (multiplayer's calls): the game's phase and
+ * level, the hero's pose, figures that look like the hero, a game started or a
+ * level travelled to from code, and the player's saves, 1.9 the world: the
+ * level's mobys listed, driven by a mod, posed, killed and made, a gate around
+ * each moby's update with the hero standing in for another player, hits watched
+ * and posted, eyes that keep mobys running, and the bolts, 1.10 optional
+ * top-level desktop menu entries for mods, 1.11 a folder of the mod's own for
+ * its files and the memory card slot the game in progress saves into, 1.12 the
+ * hero moved by a mod (his update a hook point, his pose set), the collision
+ * triangles around a place, props (meshes of the mod's drawn in the level),
+ * sounds of the mod's own, the camera set by a mod, heat haze drawn over the
+ * picture and text in the game's HUD, 1.13 touch pad action buttons: button
+ * sets, icons, a mod's own context and hints, 1.14 the mods a party has to
+ * agree on: each loaded mod and its settings listed, and rules a mod publishes
+ * for the host's game that the same mod takes in the members' games, and what a
+ * shared game needs of the port: a party's own save slot, progress shared
+ * between players' games, a hero placed, held and revived, shots with more to
+ * say, the level's mobys with their mission, a picture drawn over the game,
+ * camera scripts and metal detector digs seen, the data packs applied, the
  * clipboard and a link, and which world a game's disc belongs to.
  */
-#define OPENRAC_MOD_API_MINOR 12
+#define OPENRAC_MOD_API_MINOR 14
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -623,10 +628,10 @@ typedef struct openrac_play_status {
 /* The animation is blending into `seq` from another: `frame` is where it arrives. */
 #define OPENRAC_POSE_BLENDING 0x1u
 /* The hero's pose only: he stands still enough on the level's own ground, on foot and unhurt, for
- * another to be put beside him (hero_place). Since 1.12. */
+ * another to be put beside him (hero_place). Since 1.14. */
 #define OPENRAC_POSE_STEADY 0x8u
 /* The hero's pose only: his feet are off the ground (a jump, a fall, water with no floor under him).
- * Since 1.12. */
+ * Since 1.14. */
 #define OPENRAC_POSE_AIRBORNE 0x10u
 /* For hero_set_pose: the hero on the ground, or in the air, as the game's camera should follow him
  * (Ratchet & Clank: the ground fields his own update keeps; on the ground, a jump, flip, fall or
@@ -1050,7 +1055,7 @@ typedef void (*openrac_pad_fn)(void* user, int port, uint8_t* report, int size);
 
 /* What a loaded mod is to a multiplayer party: its manifest's "multiplayer". A mod that does not say
  * is gameplay, the safe choice. Gameplay mods must be the same in every game of a party; input and
- * cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.12. */
+ * cosmetic mods are each player's own; a solo mod cannot be played in a party at all. Since 1.14. */
 #define OPENRAC_PARTY_MOD_GAMEPLAY 0
 #define OPENRAC_PARTY_MOD_INPUT 1
 #define OPENRAC_PARTY_MOD_COSMETIC 2
@@ -1058,16 +1063,16 @@ typedef void (*openrac_pad_fn)(void* user, int port, uint8_t* report, int size);
 
 /* What a setting of a gameplay mod is to a party: its manifest's "multiplayer". Shared (the default)
  * must be the same in every game; own is each player's; host is the host's, the mod takes it through
- * the party's rules. Since 1.12. */
+ * the party's rules. Since 1.14. */
 #define OPENRAC_PARTY_SETTING_SHARED 0
 #define OPENRAC_PARTY_SETTING_OWN 1
 #define OPENRAC_PARTY_SETTING_HOST 2
 
-/* The most bytes of a mod's party rules. Since 1.12. */
+/* The most bytes of a mod's party rules. Since 1.14. */
 #define OPENRAC_PARTY_RULES_MAX 1024
 
 /* One loaded mod (openrac_api.mod_entry). The strings stay valid for the life of the program.
- * Since 1.12. */
+ * Since 1.14. */
 typedef struct openrac_mod_entry {
     /* sizeof(openrac_mod_entry), set by the caller. */
     uint32_t size;
@@ -1081,7 +1086,7 @@ typedef struct openrac_mod_entry {
 } openrac_mod_entry;
 
 /* One setting of a loaded mod (openrac_api.mod_setting), as that mod reads it this run. The strings
- * stay valid for the life of the program. Since 1.12. */
+ * stay valid for the life of the program. Since 1.14. */
 typedef struct openrac_mod_setting {
     /* sizeof(openrac_mod_setting), set by the caller. */
     uint32_t size;
@@ -1100,42 +1105,42 @@ typedef struct openrac_mod_setting {
 
 /* The host's rules for this mod reached this game (openrac_api.party_rules_deliver), `size` bytes
  * as the same mod published them in the host's game; null and 0 when there are none any more (the
- * party went): the mod's own settings count again. Since 1.12. */
+ * party went): the mod's own settings count again. Since 1.14. */
 typedef void (*openrac_party_rules_fn)(void* user, const void* data, uint32_t size);
 
-/* ---- Interface 1.12: what a shared game needs of the port ---- */
+/* ---- Interface 1.14: what a shared game needs of the port ---- */
 
-/* What card_filter does with the game's writes to its memory card. Since 1.12. */
+/* What card_filter does with the game's writes to its memory card. Since 1.14. */
 #define OPENRAC_CARD_PASS 0     /* the game's writes reach the card as always */
 #define OPENRAC_CARD_DISCARD 1  /* they are dropped, the game told they succeeded */
 #define OPENRAC_CARD_REDIRECT 2 /* they go to the card folder the mod names */
 
-/* hero_place flags. Since 1.12. */
+/* hero_place flags. Since 1.14. */
 #define OPENRAC_PLACE_INVULNERABLE 0x1u /* the hero takes no damage for a few seconds */
 #define OPENRAC_PLACE_GROUND 0x2u       /* the position is dropped to the ground below it */
 #define OPENRAC_PLACE_BESIDE 0x4u       /* a spot beside the position, behind `yaw` and looking at it */
 
 /* hero_revive flags: with none, a dead hero is brought back. HOLD and LET_GO say what comes of a
  * hero who dies on his feet from now on: he stays down, or goes to his checkpoint as always. RESPAWN
- * sends the hero to his checkpoint now, dead or not. Since 1.12. */
+ * sends the hero to his checkpoint now, dead or not. Since 1.14. */
 #define OPENRAC_REVIVE_HOLD 0x1u
 #define OPENRAC_REVIVE_LET_GO 0x2u
 #define OPENRAC_REVIVE_RESPAWN 0x4u
 
-/* openrac_api.hero_grab's flags. Since 1.12. */
+/* openrac_api.hero_grab's flags. Since 1.14. */
 /* The grab kills him: he dies as the holder holds him. */
 #define OPENRAC_GRAB_FATAL 0x1u
 /* He turns on the spot while held, whatever yaw hero_hold_at asks. */
 #define OPENRAC_GRAB_SPIN 0x2u
 
-/* openrac_stand_in.flags. Since 1.12. */
+/* openrac_stand_in.flags. Since 1.14. */
 /* In: the player's feet are off the ground. */
 #define OPENRAC_STAND_IN_AIRBORNE 0x1u
 /* Out: the update ended the hero the way a kill volume does, whatever his health says. */
 #define OPENRAC_STAND_IN_KILLED 0x2u
 
 /* A player a moby's update takes the hero for (openrac_api.hero_stand_in_as), and what the update
- * did to him (hero_stand_in_read), none of which reaches this game's hero. Since 1.12. */
+ * did to him (hero_stand_in_read), none of which reaches this game's hero. Since 1.14. */
 typedef struct openrac_stand_in {
     float position[3];
     /* Out only. */
@@ -1148,20 +1153,20 @@ typedef struct openrac_stand_in {
 } openrac_stand_in;
 
 /* The bytes of one level's mission state (mission_state_read, mission_state_write): 0 not done,
- * 0xFF done. Since 1.12. */
+ * 0xFF done. Since 1.14. */
 #define OPENRAC_MISSION_STATE_SIZE 16
 
 /* openrac_shot2.flags: a weapon that is no single shot (a flame, a beam, a steered missile) is a
  * track, and each of its shots says where in it this one is; aux[0] tells a player's tracks apart.
  * Each may be lost: a MOVE stands in for a lost START, a track that goes silent ends by itself. No
- * flag: one shot, fired once. Since 1.12. */
+ * flag: one shot, fired once. Since 1.14. */
 #define OPENRAC_SHOT_START 0x1u
 #define OPENRAC_SHOT_MOVE 0x2u
 #define OPENRAC_SHOT_STOP 0x4u
 #define OPENRAC_SHOT_BURST 0x8u /* with STOP: it ended in a blast */
 
 /* shared_read and shared_give's sections, a byte each, non-zero had; numbers both discs share.
- * Since 1.12. */
+ * Since 1.14. */
 #define OPENRAC_SHARED_GOLD_WEAPONS 1  /* by item id, 40 bytes */
 #define OPENRAC_SHARED_SKILL_POINTS 2  /* 32 bytes */
 #define OPENRAC_SHARED_LEVEL_FLAGS 3   /* every level's mission state, 20 x 16 bytes */
@@ -1169,7 +1174,7 @@ typedef struct openrac_stand_in {
 
 /* A shot with more to say than openrac_shot (hero_shots2, figure_shot2): the same fields, then the
  * shot's flags (OPENRAC_SHOT_*), the key of the moby it homes on (-1 for none), a second velocity
- * (a weapon that throws two things) and four more values of the weapon's own. Since 1.12. */
+ * (a weapon that throws two things) and four more values of the weapon's own. Since 1.14. */
 typedef struct openrac_shot2 {
     /* sizeof(openrac_shot2), set by whoever fills it. */
     uint32_t size;
@@ -1184,7 +1189,7 @@ typedef struct openrac_shot2 {
 } openrac_shot2;
 
 /* A moby of the level as moby_list2 gives it: everything openrac_moby has, and the mission that
- * deletes it when done (-1 for none; the game's byte, 0xFF, is none). Since 1.12. */
+ * deletes it when done (-1 for none; the game's byte, 0xFF, is none). Since 1.14. */
 typedef struct openrac_moby2 {
     /* sizeof(openrac_moby2), set by the mod. */
     uint32_t size;
@@ -1205,7 +1210,7 @@ typedef struct openrac_moby2 {
 } openrac_moby2;
 
 /* The port's drawing over the game, handed to an on_overlay callback for the length of the call.
- * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. Since 1.12. */
+ * Screen positions are in the game's 512 x 448 picture, as menu_rect and menu_text's. Since 1.14. */
 typedef struct openrac_overlay {
     /* sizeof(openrac_overlay), set by the port. */
     uint32_t size;
@@ -1225,25 +1230,25 @@ typedef struct openrac_overlay {
 } openrac_overlay;
 
 /* Called once a frame, after the world is drawn and before the port's own overlay, while the game
- * shows a level (not in a menu or a scene). Since 1.12. */
+ * shows a level (not in a menu or a scene). Since 1.14. */
 typedef void (*openrac_overlay_fn)(void* user, const openrac_overlay* overlay);
 
 /* A camera script (a level's shot, a door's, a lift's: any moby's) started (`started` 1) or ended
  * (0) in this game. The game has no list of them: `id` is the class of the moby that runs it, the
- * same on every disc, -1 for none. Since 1.12. */
+ * same on every disc, -1 for none. Since 1.14. */
 typedef void (*openrac_camera_script_fn)(void* user, int id, int started);
 
-/* What openrac_api.camera_script_play takes to end a script shown here. Since 1.12. */
+/* What openrac_api.camera_script_play takes to end a script shown here. Since 1.14. */
 #define OPENRAC_CAMERA_SCRIPT_END (-1)
 #define OPENRAC_CAMERA_SCRIPT_CUT (-2)
 
 /* The metal detector found a buried moby (`slot`, `key`) as the game was about to give its bolts.
  * Return non-zero to let the game go on, 0 to hold it back (the mod has asked someone else, and
- * tells the game of the outcome with moby_kill and bolts). Since 1.12. */
+ * tells the game of the outcome with moby_kill and bolts). Since 1.14. */
 typedef int (*openrac_metal_detect_fn)(void* user, int slot, int key);
 
 /* The data packs that change the game in this run (packs_info): gameplay data, collision, a map. A
- * pack of looks alone is each player's own and is not counted. Since 1.12. */
+ * pack of looks alone is each player's own and is not counted. Since 1.14. */
 typedef struct openrac_packs_info {
     /* sizeof(openrac_packs_info), set by the caller. */
     uint32_t size;
@@ -1252,7 +1257,7 @@ typedef struct openrac_packs_info {
     uint32_t digest;
 } openrac_packs_info;
 
-/* One data pack (packs_entry). The strings stay valid for the life of the program. Since 1.12. */
+/* One data pack (packs_entry). The strings stay valid for the life of the program. Since 1.14. */
 typedef struct openrac_pack_entry {
     /* sizeof(openrac_pack_entry), set by the caller. */
     uint32_t size;
@@ -1837,48 +1842,67 @@ typedef struct openrac_api {
      * game (on_moby_hit returning 0). His health after, or -1 outside a level. Since 1.12. */
     int (*hero_hurt)(openrac_mod* mod, int damage);
 
+    /* Touch pad action buttons (docs/port/MODS.md, "Touch controls").
+     * touch_define adds a set of buttons, the same JSON as a manifest's "touch"
+     * file. It adds to the game's contexts or makes new ones.
+     * OPENRAC_HOOK_UNKNOWN for bad JSON. Since 1.13. */
+    int (*touch_define)(openrac_mod* mod, const char* json);
+
+    /* Adds the SVG icon `name`. #ff8000 is drawn in the game's accent, the rest
+     * white. OPENRAC_HOOK_UNKNOWN for no name or bad SVG. Since 1.13. */
+    int (*touch_icon)(openrac_mod* mod, const char* name, const char* svg);
+
+    /* Shows the buttons of `context` instead of the game's (a mod's vehicle or
+     * mini-game). Null or "" ends it. If several mods push, the last one wins.
+     * Since 1.13. */
+    void (*touch_push)(openrac_mod* mod, const char* context);
+
+    /* Turns a hint on (`on` 1) or off. Buttons with that "when" show while it
+     * is on. Since 1.13. */
+    void (*touch_hint)(openrac_mod* mod, const char* hint, int on);
+
     /* The mods loaded this run, in load order: how many, and mod `index` (0 up) into `out`, whose
      * `size` the caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last.
-     * Since 1.12. */
+     * Since 1.14. */
     int (*mod_count)(void);
     int (*mod_entry)(int index, openrac_mod_entry* out);
 
     /* Setting `setting` (0 up, in its manifest's order) of mod `index` into `out`, whose `size` the
-     * caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.12. */
+     * caller sets. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN past the last. Since 1.14. */
     int (*mod_setting)(int index, int setting, openrac_mod_setting* out);
 
     /* The rules this mod plays by in this game, for a party whose host this game is: at most
      * OPENRAC_PARTY_RULES_MAX bytes of the mod's own format, and `text`, a line or more (\n between
      * them) saying them to a player ("Bolts x2\nChaos on"). Publish again when they change. Nothing
      * reads them but a mod that carries them to other games, and with no party they change nothing.
-     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.12. */
+     * Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for no data or too much. Since 1.14. */
     int (*party_rules_publish)(openrac_mod* mod, const void* data, uint32_t size, const char* text);
 
     /* The rules mod `index` published: copies up to `size` bytes to `out` and returns how many there
-     * are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.12. */
+     * are, -1 for none published. `*version` (when not null) grows with each publish. Since 1.14. */
     int (*party_rules_read)(int index, void* out, uint32_t size, uint32_t* version);
 
     /* The words mod `index` published with its rules, "" for none. Valid until it publishes again.
-     * Since 1.12. */
+     * Since 1.14. */
     const char* (*party_rules_text)(int index);
 
     /* Calls `fn(user, data, size)` when the host's rules for this mod reach this game. One a mod.
      * Returns 0, or non-zero when refused (after openrac_mod_load). Only during openrac_mod_load.
-     * Since 1.12. */
+     * Since 1.14. */
     int (*on_party_rules)(openrac_mod* mod, openrac_party_rules_fn fn, void* user);
 
     /* Hands mod `index` the host's rules, as it published them there (null and 0: there are none any
      * more). Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a mod past the last, one that takes
-     * no rules, or too much. Since 1.12. */
+     * no rules, or too much. Since 1.14. */
     int (*party_rules_deliver)(int index, const void* data, uint32_t size);
 
     /* While on, what a mod makes the game do is another player's doing passed on, already decided in
      * that player's game (an item that player got, given here too): a mod that changes what the game
-     * gives lets it through as it is. `party_replaying` reads it. Since 1.12. */
+     * gives lets it through as it is. `party_replaying` reads it. Since 1.14. */
     void (*party_replay)(int on);
     int (*party_replaying)(void);
 
-    /* ---- Interface 1.12. Each call answers OPENRAC_HOOK_UNKNOWN (0, or a size of 0) in a port that
+    /* ---- Interface 1.14. Each call answers OPENRAC_HOOK_UNKNOWN (0, or a size of 0) in a port that
      * does not have it yet; a mod tests the feature before it depends on it. ---- */
 
     /* What the game's memory card writes do while a party plays (OPENRAC_CARD_*): in a mode that
@@ -1887,32 +1911,32 @@ typedef struct openrac_api {
      * folder of mode OPENRAC_CARD_REDIRECT beside the game's own ("coop": <game's folder>-coop),
      * ignored otherwise. One mod holds the filter. Returns OPENRAC_HOOK_OK, OPENRAC_HOOK_UNKNOWN
      * for a mode or folder the port refuses, or for OPENRAC_CARD_PASS OPENRAC_HOOK_TAKEN while a
-     * write of the party's still runs: ask again, the filter stays on till then. Since 1.12. */
+     * write of the party's still runs: ask again, the filter stays on till then. Since 1.14. */
     int (*card_filter)(openrac_mod* mod, int mode, const char* folder);
 
     /* The slot the game's next card write goes to in the folder card_filter redirects to, in place
-     * of the one the game chose (-1: the game's). Since 1.12. */
+     * of the one the game chose (-1: the game's). Since 1.14. */
     int (*card_slot_hint)(openrac_mod* mod, int slot);
 
     /* Writes `size` bytes (a save as save_capture gives it) as slot `slot` of the redirect folder,
      * as the game would have written it, the save before it kept; refused for bytes the game would
-     * not read, wherever they came from. Since 1.12. */
+     * not read, wherever they came from. Since 1.14. */
     int (*coop_save_write)(openrac_mod* mod, int slot, const void* bytes, uint32_t size);
 
     /* save_slot and save_read for the saves in the card folder `folder` ("" is the game's own).
-     * Since 1.12. */
+     * Since 1.14. */
     int (*save_slot2)(const char* folder, int slot, openrac_save_info* out);
     size_t (*save_read2)(const char* folder, int slot, void* out, size_t size);
 
     /* The game's shared progress section `tag` (OPENRAC_SHARED_*: gold weapons, skill points, the
      * levels' flags) read into `out`, returning its size, or -1 for none; and given from other
-     * players' games: `data` merged in, upward only and without a sound or a banner. Since 1.12. */
+     * players' games: `data` merged in, upward only and without a sound or a banner. Since 1.14. */
     int (*shared_read)(int tag, void* out, uint32_t size);
     int (*shared_give)(int tag, const void* data, uint32_t size);
 
     /* The 16 bytes (OPENRAC_MISSION_STATE_SIZE) of the mission state the game keeps for level
      * `level`, and the same merged back, upward only (a byte done stays done). The copy the level
-     * took when it loaded is left as it is: the game reads it as "not done on arrival". Since 1.12. */
+     * took when it loaded is left as it is: the game reads it as "not done on arrival". Since 1.14. */
     int (*mission_state_read)(int level, uint8_t* out);
     int (*mission_state_write)(int level, const uint8_t* in);
 
@@ -1920,29 +1944,29 @@ typedef struct openrac_api {
      * `flags`, in a level; a place asked for in a menu, a scene or on a ride waits until the player
      * is in control, on foot, and goes with the level. OPENRAC_HOOK_OK says it was asked, not done:
      * the hero's pose says when he is there, and with OPENRAC_PLACE_BESIDE, where no spot beside
-     * the position has ground, he never goes. Since 1.12. */
+     * the position has ground, he never goes. Since 1.14. */
     int (*hero_place)(openrac_mod* mod, const float position[3], float yaw, uint32_t flags);
 
     /* Holds the hero as a grab does, controls locked, playing animation `animation` (below 0: the
      * hold's own), with OPENRAC_GRAB_* `flags`, once the player is in control and on foot, until
      * hero_release or the game's own end of it (he dies, or the level goes); and lets go. Asked, not
-     * done: the hero's pose says when he is held. Since 1.12. */
+     * done: the hero's pose says when he is held. Since 1.14. */
     int (*hero_grab)(openrac_mod* mod, int animation, uint32_t flags);
     int (*hero_release)(openrac_mod* mod);
 
     /* Brings a dead hero back where it fell, or at `position` when not null, or does what
-     * OPENRAC_REVIVE_* `flags` say. Since 1.12. */
+     * OPENRAC_REVIVE_* `flags` say. Since 1.14. */
     int (*hero_revive)(openrac_mod* mod, const float position[3], uint32_t flags);
 
     /* Calls `fn(user, overlay)` once a frame to draw over the game (openrac_overlay). One a mod.
-     * Only during openrac_mod_load. Since 1.12. */
+     * Only during openrac_mod_load. Since 1.14. */
     int (*on_overlay)(openrac_mod* mod, openrac_overlay_fn fn, void* user);
 
-    /* hero_shots and figure_shot with openrac_shot2. Since 1.12. */
+    /* hero_shots and figure_shot with openrac_shot2. Since 1.14. */
     int (*hero_shots2)(openrac_shot2* out, int max);
     int (*figure_shot2)(openrac_mod* mod, int id, const openrac_shot2* shot);
 
-    /* moby_list with openrac_moby2. Since 1.12. */
+    /* moby_list with openrac_moby2. Since 1.14. */
     int (*moby_list2)(openrac_moby2* out, int max);
 
     /* Calls `fn(user, id, started)` when a camera script starts or ends in this game (one a mod,
@@ -1951,100 +1975,100 @@ typedef struct openrac_api {
      * camera_script_show gives its views. OPENRAC_CAMERA_SCRIPT_END hands the camera back eased,
      * OPENRAC_CAMERA_SCRIPT_CUT behind the hero at once. Asked in first person or with a script of
      * this game's playing it does not start: camera_script_show then answers
-     * OPENRAC_HOOK_UNKNOWN, as it does once the game has taken the camera away. Since 1.12. */
+     * OPENRAC_HOOK_UNKNOWN, as it does once the game has taken the camera away. Since 1.14. */
     int (*on_camera_script)(openrac_mod* mod, openrac_camera_script_fn fn, void* user);
     int (*camera_script_play)(openrac_mod* mod, int id);
 
     /* Reserved for play_scene from frame `start_frame` of the scene. No port does this: a scene is read
      * from the disc as it plays and cannot start part way, so it answers OPENRAC_HOOK_UNKNOWN.
-     * Since 1.12. */
+     * Since 1.14. */
     int (*play_scene_from)(openrac_mod* mod, int scene, int start_frame);
 
     /* Whether the picture behind the game's pause menus is the world still running (`on` 1, as it
      * is until asked otherwise) or stands as the menu found it (0), when play_overlay_pause is on:
      * the mobys go on either way. Returns OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN for a game
-     * without it. Since 1.12. */
+     * without it. Since 1.14. */
     int (*play_live_picture)(openrac_mod* mod, int on);
 
     /* Calls `fn(user, slot, key)` when the metal detector finds a buried moby (one a mod, only
-     * during openrac_mod_load). Since 1.12. */
+     * during openrac_mod_load). Since 1.14. */
     int (*on_metal_detect)(openrac_mod* mod, openrac_metal_detect_fn fn, void* user);
 
     /* The data packs that change the game this run, in the order they apply: how many and their
      * digest, and entry `index` (0 up). A pack holding the same has the same digest on any disc.
-     * Since 1.12. */
+     * Since 1.14. */
     int (*packs_info)(openrac_packs_info* out);
     int (*packs_entry)(int index, openrac_pack_entry* out);
 
-    /* Puts `text` (UTF-8) on the system clipboard. Since 1.12. */
+    /* Puts `text` (UTF-8) on the system clipboard. Since 1.14. */
     int (*clipboard_set)(const char* text);
 
     /* Opens `url` in the system's handler; only a mod code's link (openrac://modset/...) is
      * accepted. Ask the player first: a button of the mod's own page is that asking. Returns
-     * OPENRAC_HOOK_OK when it went to the system. Since 1.12. */
+     * OPENRAC_HOOK_OK when it went to the system. Since 1.14. */
     int (*open_link)(const char* url);
 
     /* The world this game's disc belongs to, as text into `out` (`size` bytes, ending in a zero):
      * two discs with the same text have levels, items and classes that mean the same. Returns its
-     * length, or 0 when the port does not say. Since 1.12. */
+     * length, or 0 when the port does not say. Since 1.14. */
     int (*world_family)(char* out, uint32_t size);
 
     /* A key that stays the same for this installation across runs and is not its owner's name, as
-     * text into `out` (as world_family): for a host that bans a player. Since 1.12. */
+     * text into `out` (as world_family): for a host that bans a player. Since 1.14. */
     int (*identity_key)(char* out, uint32_t size);
 
     /* What must agree for two games to share `level`, as a number into `out`: its placed things,
      * their order and places, and none of what each game runs by itself. Two games of one
      * world_family with another number cannot share that level. Returns OPENRAC_HOOK_OK, or
-     * OPENRAC_HOOK_UNKNOWN for a level not loaded or a game that does not say. Since 1.12. */
+     * OPENRAC_HOOK_UNKNOWN for a level not loaded or a game that does not say. Since 1.14. */
     int (*sim_digest)(int32_t level, uint32_t* out);
 
     /* How many of the game's own saves have reached the redirect folder since the program
-     * started: it moving says the game has just saved. Since 1.12. */
+     * started: it moving says the game has just saved. Since 1.14. */
     uint32_t (*card_saves)(void);
 
     /* A short text kept beside slot `slot` of the redirect folder (under 1024 bytes), and read back
      * from the card folder `folder` into `out`, its length returned, 0 for none: what a mod has to
-     * remember of a slot; the launcher shows nothing of it but what is documented there. Since 1.12. */
+     * remember of a slot; the launcher shows nothing of it but what is documented there. Since 1.14. */
     int (*card_note_write)(openrac_mod* mod, int slot, const char* text);
     int (*card_note_read)(const char* folder, int slot, char* out, uint32_t size);
 
     /* The folder the mods are in, <data>/plugins, as text into `out` (`size` bytes, ending in a
      * zero): the launcher's file for the game, modset.json, is there. Returns its length, or 0 when
-     * there is none or it does not fit. Since 1.12. */
+     * there is none or it does not fit. Since 1.14. */
     int (*plugins_folder)(char* out, uint32_t size);
 
     /* The view of the camera script running in this game: where the camera is and its rotation
      * (radians, x y z, as the game's), into `eye` and `rotation`, and where its moby is into
      * `where`; `stand_in`, when not null, says it runs for another player standing in
      * (hero_stand_in): this game's camera is not in it, and these are the views it would have
-     * shown. OPENRAC_HOOK_UNKNOWN with none. Since 1.12. */
+     * shown. OPENRAC_HOOK_UNKNOWN with none. Since 1.14. */
     int (*camera_script_view)(float eye[3], float rotation[3], float where[3], int* stand_in);
 
     /* The view of the script shown here by camera_script_play, each tick. Returns
-     * OPENRAC_HOOK_OK while it is asked for or up, else OPENRAC_HOOK_UNKNOWN. Since 1.12. */
+     * OPENRAC_HOOK_OK while it is asked for or up, else OPENRAC_HOOK_UNKNOWN. Since 1.14. */
     int (*camera_script_show)(openrac_mod* mod, const float eye[3], const float rotation[3]);
     /* While the hero is held (hero_grab), he goes on towards `position`, a share of the way a tick,
-     * facing `yaw`. Since 1.12. */
+     * facing `yaw`. Since 1.14. */
     int (*hero_hold_at)(openrac_mod* mod, const float position[3], float yaw);
 
     /* hero_stand_in, for the update of a moby that looks at more of the hero than where he is: it
-     * also sees `as`'s state, health and flags. Since 1.12. */
+     * also sees `as`'s state, health and flags. Since 1.14. */
     int (*hero_stand_in_as)(openrac_mod* mod, const openrac_stand_in* as, int figure);
 
     /* Only in the gate's call after an update under a stand-in: what the update did to the hero who
      * stood in. A stand-in's hero is never this game's: what an update does to him, its state, its
-     * health, a kill, a place, stays there and ends here. Since 1.12. */
+     * health, a kill, a place, stays there and ends here. Since 1.14. */
     int (*hero_stand_in_read)(openrac_mod* mod, openrac_stand_in* out);
 
     /* Writes into `blocked` whether the level's own walls and ground stand on the straight line
      * between two points (the level's units): 1 for blocked, 0 for clear. Mobys do not count, a
      * door among them. The game sees no query, so it may be asked at any time. Returns
-     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.12. */
+     * OPENRAC_HOOK_OK, or OPENRAC_HOOK_UNKNOWN outside a level. Since 1.14. */
     int (*level_line)(const float from[3], const float to[3], int* blocked);
     /* Clears the flags of level `level`'s mission state that `flags` (OPENRAC_MISSION_STATE_SIZE
      * bytes, nonzero for each) names; mission_state_write sets them again. Returns OPENRAC_HOOK_OK,
-     * or OPENRAC_HOOK_UNKNOWN outside a level or for a port without it. Since 1.12. */
+     * or OPENRAC_HOOK_UNKNOWN outside a level or for a port without it. Since 1.14. */
     int (*mission_state_clear)(int level, const uint8_t* flags);
 } openrac_api;
 

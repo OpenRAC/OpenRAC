@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Ratchet & Clank: a dead hero kept down, brought back, or sent to his checkpoint by a mod
- * (game_host.h, openrac_game_play's hero_revive; interface 1.12, multiplayer: the party's stand-over
+ * (game_host.h, openrac_game_play's hero_revive; interface 1.14, multiplayer: the party's stand-over
  * revive and a full wipe).
  *
  * How the game does it. A dying state, once its animation has ended, calls Hero_OnKilled

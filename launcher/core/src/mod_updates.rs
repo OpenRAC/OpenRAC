@@ -67,6 +67,8 @@ pub struct UpdatePlan {
     pub waiting: Vec<UpdateItem>,
     /// Cannot go in now, and why.
     pub held: Vec<UpdateItem>,
+    /// Installed versions the index revoked, turned off by this look (filled by the launcher).
+    pub turned_off: Vec<crate::index::RevokedOff>,
 }
 
 /// What a game's mods are checked against.

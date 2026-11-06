@@ -18,8 +18,8 @@ use std::path::{Path, PathBuf};
 
 use openrac_launcher_core::{
     actions, config, controls, deeplink, detect, differences, disc_choice, discs, editor_state, enhanced, index,
-    index_apply, jobs, library, mod_error, mod_updates, modset, overrides, pcsx2_card, plugins, profile, remote,
-    reports, reset, resolver, save_edit, save_edit_rac2, save_edit_rac2_extra, save_transfer, saves, steam,
+    index_apply, jobs, library, mod_error, mod_tools, mod_updates, modset, overrides, pcsx2_card, plugins, profile,
+    remote, reports, reset, resolver, save_edit, save_edit_rac2, save_edit_rac2_extra, save_transfer, saves, steam,
     texture_packs, update,
 };
 use ts_rs::{Config, TS};
@@ -53,6 +53,8 @@ fn export_all(cfg: &Config) {
         jobs::Started,
         library::Library,
         mod_error::ModError,
+        mod_tools::ToolFile,
+        mod_tools::ToolRoot,
         mod_updates::LastUpdate,
         mod_updates::Orphan,
         mod_updates::UpdatePlan,

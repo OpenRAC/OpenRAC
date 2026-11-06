@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Ratchet & Clank: the hero put somewhere by a mod (game_host.h, openrac_game_play's hero_place;
- * interface 1.12, multiplayer: a late joiner beside the host, "Go to host" on the pause page).
+ * interface 1.14, multiplayer: a late joiner beside the host, "Go to host" on the pause page).
  *
  * How the game does it. Hero_ResetToPosition (func_L00_00217718; rac1-ntsc's FUN_L00_00216f90) is
  * what its own teleporters and level scripts call: the hero and his moby at a place and a rotation,

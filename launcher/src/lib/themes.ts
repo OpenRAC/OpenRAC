@@ -119,7 +119,7 @@ export function themeStyle(game: string): string {
 
 /** The launcher's accent while a game is the one picked, from palettes.json: its bar gradient,
  *  the desktop bar's two stripes and the ink on them, its amber (headings, the focus ring, what is on) and gold, in that
- *  game's colour, as the games' own menus have it: Going Commando's pale blue, Up Your Arsenal's
+ *  game's colour, as the games' own menus have it: Going Commando's teal, Up Your Arsenal's
  *  yellow, Deadlocked's red, Size Matters' blue. Ratchet & Clank keeps the launcher's own orange
  *  (app.css). The warning colour is not an accent's (app.css), so a warning still reads as one. */
 export const ACCENTS: Record<string, Record<string, string>> = palettes.accents;

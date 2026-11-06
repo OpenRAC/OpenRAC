@@ -2,7 +2,7 @@
 # tools, installed packages, runner image, workspace and build configuration. Compile objects
 # belong to ccache; Ninja files and test results are regenerated on every run.
 name: Port build preparation cache
-description: Cache CMake preparation and independently validated hostgen output
+description: Cache dependency sources, CMake preparation and validated hostgen output
 inputs:
   variant:
     description: Unique platform and feature configuration, never shared across jobs
@@ -24,6 +24,29 @@ runs:
       shell: pwsh
       run: python tools/ci_cache.py
       if: runner.os == 'Windows'
+    # Sources depend on the pins, rather than the runner's compiler or the workflow.
+    - name: Restore and refresh pinned dependency sources
+      id: sources-write
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: github.event_name != 'pull_request'
+      with:
+        path: |
+          port/build/${{ inputs.preset }}/_deps/*-src
+          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
+        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
+    - name: Restore pinned dependency sources for a pull request
+      id: sources-read
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      if: github.event_name == 'pull_request'
+      with:
+        path: |
+          port/build/${{ inputs.preset }}/_deps/*-src
+          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
+        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
+    - name: Use restored dependency sources
+      if: steps.sources-write.outputs.cache-hit == 'true' || steps.sources-read.outputs.cache-hit == 'true'
+      shell: bash
+      run: echo 'OPENRAC_CI_DEPENDENCY_SOURCES=1' >> "$GITHUB_ENV"
     # PR-private copies of these large trees evict caches that all branches can reuse.
     - name: Restore and refresh shared preparation
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -32,14 +55,10 @@ runs:
         path: |
           port/build/${{ inputs.preset }}/CMakeCache.txt
           port/build/${{ inputs.preset }}/CMakeFiles/[0-9]*
-          port/build/${{ inputs.preset }}/_deps/*-src
-          port/build/${{ inputs.preset }}/_deps/*-subbuild
-          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
-          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-subbuild
           !port/build/**/*.o
           !port/build/**/*.obj
           !port/build/**/*.pdb
-        key: prep-v2-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
+        key: prep-v3-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
     - name: Restore shared preparation for a pull request
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       if: github.event_name == 'pull_request' && (steps.identity.outputs.fingerprint != '' || steps.windows-identity.outputs.fingerprint != '')
@@ -47,14 +66,10 @@ runs:
         path: |
           port/build/${{ inputs.preset }}/CMakeCache.txt
           port/build/${{ inputs.preset }}/CMakeFiles/[0-9]*
-          port/build/${{ inputs.preset }}/_deps/*-src
-          port/build/${{ inputs.preset }}/_deps/*-subbuild
-          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
-          !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-subbuild
           !port/build/**/*.o
           !port/build/**/*.obj
           !port/build/**/*.pdb
-        key: prep-v2-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
+        key: prep-v3-${{ inputs.variant }}-${{ inputs.preset }}-${{ steps.identity.outputs.fingerprint || steps.windows-identity.outputs.fingerprint }}-c${{ hashFiles('port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json', 'tools/build_port.py', 'tools/ci_cache.py', '.github/actions/port-build-cache/**', '.github/workflows/checks.yml') }}
     # Without Ninja's stamp, hostgen validates every restored input digest before reuse.
     - name: Restore and refresh validated hostgen output
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

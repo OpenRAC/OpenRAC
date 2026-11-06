@@ -301,8 +301,13 @@ const updateItem = (id: string, from: string, to: string, hold: UpdateItem["hold
 };
 
 export function mockUpdates(): UpdatePlan {
-  if (query.has("noupdates")) return { silent: [], waiting: [], held: [] };
+  // ?revokedoff: a withdrawn version the look turned off.
+  const turnedOff = query.has("revokedoff")
+    ? [{ id: "ammo-max", name: "Ammo max", version: "1.0.0", reason: "It corrupts saves on PAL." }]
+    : [];
+  if (query.has("noupdates")) return { silent: [], waiting: [], held: [], turnedOff };
   return {
+    turnedOff,
     silent: [updateItem("camera-base", "1.1.0", "1.2.0", null)],
     waiting: [
       updateItem("lock-strafe", "1.1.0", "1.2.0", { kind: "newHooks", hooks: ["rac1.player.turn_to_heading"] }),

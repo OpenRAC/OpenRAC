@@ -28,6 +28,8 @@ import type { Differences } from "./generated/Differences";
 import type { DiscChoice } from "./generated/DiscChoice";
 import type { DiscState } from "./generated/DiscState";
 import type { EnhancedView } from "./generated/EnhancedView";
+import type { ToolRoot } from "./generated/ToolRoot";
+import type { ToolFile } from "./generated/ToolFile";
 import type { FoundDisc } from "./generated/FoundDisc";
 import type { Applied } from "./generated/Applied";
 import type { Choices } from "./generated/Choices";
@@ -138,6 +140,7 @@ export const onAndroid =
 
 export type { TextureFolder, TexturePackImportMode, TexturePackPreview, TexturePackView };
 export type { ExportedTexturePack, ImportedTexturePack };
+export type { ToolFile, ToolRoot };
 export type { ActionArea };
 export type { ActionKind };
 export type { ActionState };
@@ -280,6 +283,13 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
   // Loaded only in a browser, so the desktop build never carries the mock.
   const { mockCall } = await import("./mock");
   return mockCall(command, args) as Promise<T>;
+}
+
+/** A command whose body is raw bytes (a file a mod's page saves), with what describes them in headers. */
+async function callRaw<T>(command: string, body: Uint8Array, headers: Record<string, string>): Promise<T> {
+  if (inTauri) return invoke<T>(command, body, { headers });
+  const { mockCall } = await import("./mock");
+  return mockCall(command, { headers, size: body.byteLength }) as Promise<T>;
 }
 
 export const api = {
@@ -435,6 +445,29 @@ export const api = {
   /** Saves the pack as a .zip where the player chooses; `saved` is empty when they backed out. */
   texturePacksExport: (game: string, version: string) =>
     call<ExportedTexturePack>("texture_packs_export", { game, version }),
+  // A mod's own page (core/src/mod_tools.rs, src-tauri/src/mod_tool.rs, lib/modTool.ts).
+  modToolList: (game: string, version: string, root: ToolRoot) =>
+    call<ToolFile[]>("mod_tool_list", { game, version, root }),
+  modToolRead: (game: string, version: string, root: ToolRoot, path: string, start?: number, length?: number) =>
+    call<ArrayBuffer>("mod_tool_read", { game, version, root, path, start: start ?? null, length: length ?? null }),
+  modToolStoreGet: (id: string, key: string) => call<unknown>("mod_tool_store_get", { id, key }),
+  modToolStoreSet: (id: string, key: string, value: unknown) => call<null>("mod_tool_store_set", { id, key, value }),
+  /** Saves a file the page made where the player chooses: the name it was saved under, or "" (backed out). */
+  modToolSave: (id: string, name: string, extension: string, bytes: Uint8Array) =>
+    callRaw<string>("mod_tool_save", bytes, {
+      "x-mod": encodeURIComponent(id),
+      "x-name": encodeURIComponent(name),
+      "x-extension": encodeURIComponent(extension),
+    }),
+  /** Starts saving a large file in parts: its number, 0 when the player backed out. */
+  modToolSaveStart: (id: string, name: string, extension: string) =>
+    call<number>("mod_tool_save_start", { id, name, extension }),
+  modToolSaveWrite: (token: number, bytes: Uint8Array) =>
+    callRaw<null>("mod_tool_save_write", bytes, { "x-token": String(token) }),
+  /** Ends it: kept (the name it was saved under) or dropped (""). */
+  modToolSaveEnd: (token: number, keep: boolean) => call<string>("mod_tool_save_end", { token, keep }),
+  /** A small file the player picks: its bytes, empty when they backed out. */
+  modToolOpen: (extension: string) => call<ArrayBuffer>("mod_tool_open", { extension }),
   enhancedView: (game: string, version: string) => call<EnhancedView | null>("enhanced_view", { game, version }),
   enhancedSetEnabled: (game: string, version: string, enabled: boolean) =>
     call<EnhancedView | null>("enhanced_set_enabled", { game, version, enabled }),
@@ -479,9 +512,14 @@ export const api = {
    *  ModError (modErrorOf), with the fix the page offers. */
   deeplinkParse: (url: string) => call<DeepLinkInstall>("deeplink_parse", { url }),
   /** Where the launcher stands in the player's Steam library. */
-  steamState: () => call<SteamState>("steam_state"),
-  /** Adds the launcher to Steam's library, or updates it. Steam may be open. */
-  steamAdd: () => call<SteamState>("steam_add"),
+  steamState: (version: string | null = null) => call<SteamState>("steam_state", { version }),
+  /** Adds the launcher to Steam's library, or with a version that game (it starts the launcher
+   *  with --play), or updates it. Steam may be open. */
+  steamAdd: (version: string | null = null) => call<SteamState>("steam_add", { version }),
+  /** A desktop shortcut that starts a game (Linux): the path it wrote. */
+  shortcutCreate: (version: string) => call<string>("shortcut_create", { version }),
+  /** The game a `--play` start could not start, once; the page shows it. */
+  startupGame: () => call<string | null>("startup_game"),
   /** Every mod index, checked (or its cached copy); with a game, its revoked mods are turned off. */
   indexFetch: (game: string | null = null, version: string | null = null) =>
     call<IndexView>("index_fetch", { game, version }),
@@ -813,6 +851,14 @@ export async function onJobEvent(handler: (event: JobEvent) => void): Promise<Un
     offOutput();
     offExit();
   };
+}
+
+/** The game a `--play` start of an open launcher could not start (`open-game`): its version key. */
+export async function onOpenGame(handler: (key: string) => void): Promise<UnlistenFn> {
+  if (!inTauri) return () => undefined;
+  return listen<string>("open-game", (e) => {
+    handler(e.payload);
+  });
 }
 
 /** Each mod applied (index_apply's `index-apply` events). */

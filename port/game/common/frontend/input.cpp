@@ -26,6 +26,7 @@
 #include "game/common/frontend/camera_latch.h"
 #include "game/common/frontend/geometry.h"
 #include "game/common/frontend/state.h"
+#include "game/common/frontend/touch_controls.h"
 #include "mod_menu.h"
 #include "mod_ui.h"
 #include "mods.h"
@@ -58,6 +59,9 @@ void draw_touch_pad(int window_width, int window_height) {
     settings::Settings& set = settings::get();
     static std::string applied_layout;
     static bool was_editing = false;
+    // What the game is doing picks the buttons (the Arc style), unless the player keeps the
+    // DualShock's (touch_controls.h).
+    touch_controls::update(touch, set.touch_style);
     touch.set_scale(static_cast<float>(set.touch_scale) / 100.0f);
     touch.set_look_speed(static_cast<float>(set.touch_camera) / 100.0f);
     const bool editing = debug_overlay::touch_editing();
@@ -71,6 +75,10 @@ void draw_touch_pad(int window_width, int window_height) {
     }
     touch.set_editing(editing);
     debug_overlay::set_touch_guides(touch.guide_x(), touch.guide_y());
+    touch.step_selected_size(debug_overlay::take_touch_size_steps());
+    debug_overlay::set_touch_selected(
+        touch.selected() != platform::TouchGroup::Count ? touch.selected_size() : -1.0f
+    );
     if (was_editing && !editing) {
         set.touch_layout = touch.layout();
         applied_layout = set.touch_layout;
@@ -253,6 +261,10 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     if (!g || port < 0 || port >= platform::kPadPorts) {
         return false;
     }
+    if (port == 0) {
+        debug_overlay::camera_pad_chord();  // before the read: its toggle holds the chord back
+        debug_overlay::menu_pad_chord();
+    }
     const platform::Pad& p = g->input.pad(port);
     *buttons = p.buttons;
     analog[0] = p.right_x;
@@ -323,6 +335,10 @@ bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]) {
     }
     if (port == 0) {
         scripted_pad(*buttons, analog);  // [debug tools] OPENRAC_RECORD, _REPLAY and _WALK
+    }
+    if (port == 0) {
+        // Scripted and replayed sticks turn at normal speed.
+        openrac_game_camera_speed = analog[0] == p.right_x ? p.camera_speed : 1.0f;
     }
     // Start skips an in-game scene the way the game itself skips it: a pressed Start also presses
     // what the game's own skip of the scene playing reads (rac1: in a cutscene the four shoulders,

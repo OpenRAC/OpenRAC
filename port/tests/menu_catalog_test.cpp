@@ -106,6 +106,7 @@ constexpr Old kOld[] = {
     {kTouch, "Volume", Id::Volume},
     {kTouch, "Skip cutscenes", Id::SkipCutscenes},
     {kTouch, "Controller bindings", Id::ControllerBindings},
+    {kTouch, "Action buttons", Id::TouchActionButtons},
     {kTouch, "Button size", Id::TouchButtonSize},
     {kTouch, "Camera speed", Id::TouchCameraSpeed},
     {kTouch, "Move the controls", Id::TouchMoveControls},

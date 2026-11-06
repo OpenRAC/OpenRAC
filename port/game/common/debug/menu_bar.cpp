@@ -10,6 +10,9 @@
 #include <SDL3/SDL.h>
 
 #include "debug/menu_ui.h"
+#include "debug_overlay.h"
+#include "frontend.h"
+#include "platform/input.h"
 #include "settings.h"
 
 namespace openrac::frontend::debug_overlay {
@@ -57,15 +60,20 @@ std::string menu_bar_key_label() {
 
 SDL_GamepadButton menu_bar_button() {
     const std::string& name = settings::get().menu_bar_button;
-    if (name == "none") {
-        return SDL_GAMEPAD_BUTTON_INVALID;
-    }
-    const SDL_GamepadButton button = SDL_GetGamepadButtonFromString(name.c_str());
-    // A name SDL does not know: the default, L3.
-    return button == SDL_GAMEPAD_BUTTON_INVALID ? SDL_GAMEPAD_BUTTON_LEFT_STICK : button;
+    return name == "none" ? SDL_GAMEPAD_BUTTON_INVALID
+                          : SDL_GetGamepadButtonFromString(name.c_str());
+}
+
+// "start+back", the default, and any name SDL does not know.
+bool menu_bar_chord() {
+    return settings::get().menu_bar_button != "none"
+           && menu_bar_button() == SDL_GAMEPAD_BUTTON_INVALID;
 }
 
 std::string menu_bar_button_label() {
+    if (menu_bar_chord()) {
+        return "Start+Select";
+    }
     switch (const SDL_GamepadButton button = menu_bar_button()) {
         case SDL_GAMEPAD_BUTTON_INVALID:
             return "none";
@@ -95,6 +103,19 @@ std::string menu_key_label() {
 
 void toggle_menu() {
     set_menu(!s.menu_open);
+}
+
+void menu_pad_chord() {
+    platform::Input* input = frontend::input();
+    if (input == nullptr) {
+        return;
+    }
+    input->set_menu_chord(menu_bar_chord());
+    if (input->take_menu_chord() && !s.menu_open && SDL_GetKeyboardFocus() != nullptr
+        && !s.pad_locked && !controls_capturing()) {
+        s.menu_motion.pad = true;
+        toggle_menu();
+    }
 }
 
 }  // namespace openrac::frontend::debug_overlay

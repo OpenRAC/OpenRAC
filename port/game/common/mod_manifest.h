@@ -84,6 +84,9 @@ struct Manifest {
     // "assets": a folder inside the mod (MODS.md, section 3): its level_NN folders are searched
     // before the extracted levels' files, and their classes.json adds render classes.
     std::string assets;
+    // "touch" (interface 1.13): a JSON file inside the mod with the on-screen pad's sets of actions
+    // ("contexts") and the icons they use ("icons": name -> an .svg inside the mod).
+    std::string touch;
     std::vector<std::string> hooks;
     std::vector<Setting> settings;
     std::vector<Requirement> requirements;  // the manifest's "requires"
@@ -93,7 +96,7 @@ struct Manifest {
     // (openrac_api.setup_vulkan), so the mods load before the window opens. Ignored on a script
     // mod or one of an older interface.
     bool vulkan_device = false;
-    // "multiplayer" (interface 1.12): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
+    // "multiplayer" (interface 1.14): an OPENRAC_PARTY_MOD_* value, gameplay when it says nothing.
     int party = 0;
 };
 

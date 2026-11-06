@@ -49,6 +49,7 @@ export async function updateVersion(v: VersionView, ids: string[] | null = null)
       silent: plan.silent.filter((u) => !done.includes(u.id)),
       waiting: plan.waiting.filter((u) => !done.includes(u.id)),
       held: plan.held,
+      turnedOff: plan.turnedOff,
     };
   }
   return run.updated;

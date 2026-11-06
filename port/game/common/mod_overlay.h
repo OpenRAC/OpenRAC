@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// What mods draw over the game (mod interface 1.12: openrac_api.on_overlay, docs/port/MODS.md):
+// What mods draw over the game (mod interface 1.14: openrac_api.on_overlay, docs/port/MODS.md):
 // each displayed frame, after the world and the game's own 2D and before the port's menus and
 // overlay, the mods' callbacks fill a list of triangles (renderer/ui/overlay_list.h) with the
 // frame's own camera, and it is blended over the frame. With no mod asking, nothing runs.

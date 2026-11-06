@@ -387,14 +387,14 @@ function accept() {
     return;
   }
   pressed(el);
-  // A control can take A for itself (a game's tile plays its game): `padpress`, cancelled.
+  // A control can take A for itself: `padpress`, cancelled.
   if (!el.dispatchEvent(new CustomEvent("padpress", { cancelable: true }))) return;
   el.click();
   // A choice in a menu closes it: back to the button that opened it.
   if (el.getAttribute("role") === "menuitem") restoreOpener();
 }
 
-/** Y: what the focused control offers besides A (a game's tile opens its page), as `padmore`. */
+/** Y: what the focused control offers besides A, as `padmore`. */
 function more() {
   const el = current(focusables(scope()));
   el?.dispatchEvent(new CustomEvent("padmore"));
@@ -559,11 +559,25 @@ export function padHeld(): boolean {
 
 /** A button pressed (`down:accept`) or let go (`up:accept`). A press while held is ignored, so
  *  that a hat seen both as keys and as an axis acts once. */
+/** Where the buttons go instead of moving the focus, while a mod's own page is shown (ModTool.svelte):
+ *  the page moves its own focus. */
+let routed: ((button: PadButton, down: boolean) => void) | null = null;
+
+/** Sends every press and let-go to `to` instead of the launcher's navigation, or (null) back to it. */
+export function routePad(to: ((button: PadButton, down: boolean) => void) | null) {
+  routed = to;
+  releasePad();
+}
+
 function padEvent(event: string) {
   if (holding) return;
   const [kind, name] = event.split(":");
   if (!name || !BUTTONS.includes(name)) return;
   const button = name as PadButton;
+  if (routed) {
+    if (kind === "down" || kind === "up") routed(button, kind === "down");
+    return;
+  }
   if (kind === "down") {
     if (held.has(button)) return;
     usingPad(true);

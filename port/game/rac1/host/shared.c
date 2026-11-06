@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Ratchet & Clank: the progress a party shares beyond the items, gold bolts and planets (interface
- * 1.12; the multiplayer mod's shared.hpp). Every table here is one of the save's (memcard_PrepData's
+ * 1.14; the multiplayer mod's shared.hpp). Every table here is one of the save's (memcard_PrepData's
  * tag tables, mc_gamedata and mc_leveldata): the same ids, sizes and order on both discs, a byte
  * each, so a section read on one disc means the same on the other.
  *

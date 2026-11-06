@@ -184,7 +184,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "FRAME:ADDRESS:BYTES[:SKIP]: the first write into those bytes ends the program"},
     {Var::Hdr, "OPENRAC_HDR",
      Kind::Text, Truth::NotAFlag, "the settings' hdr",
-     "off, auto or on: HDR output for this run, over the settings file (the launcher's HDR)"},
+     "off or on: HDR output for this run, over the settings file (the launcher's HDR)"},
     {Var::HdrFrame, "OPENRAC_HDR_FRAME",
      Kind::Flag, Truth::Set, "off",
      "Vulkan: the HDR frame (half floats) without an HDR screen, shown clamped as SDR, to compare"},

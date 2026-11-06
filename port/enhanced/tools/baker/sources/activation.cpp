@@ -335,6 +335,8 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             }
 
             bake.terrain_vertex_albedo = value.boolean();
+        } else if (key == "terrain_vertex_albedo_strength") {
+            bake.terrain_vertex_albedo_strength = number(value, 0, 1);
         } else if (key == "rays") {
             bake.rays_per_probe = integer(value, 16, 1048576);
         } else if (key == "bounces") {

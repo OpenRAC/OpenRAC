@@ -291,6 +291,7 @@ __attribute__((constructor)) static void install_direct_start(void) {
     openrac_game_mode = game_mode;
     openrac_game_hero_position = hero_position;
     openrac_game_hero = hero;
+    openrac_game_touch = rac1_touch;
     openrac_game_front_end = &rac1_front_end;
     openrac_game_play_host = &rac1_play;
 }

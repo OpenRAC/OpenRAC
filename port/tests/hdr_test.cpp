@@ -113,6 +113,12 @@ void test_levels() {
     CHECK(l.paper_white == hdr::kPaperWhiteMax && l.peak == hdr::kPeakMax);
     l = hdr::resolve_levels(10, 10, windows);
     CHECK(l.paper_white == hdr::kPaperWhiteMin && l.peak == hdr::kPeakMin);
+    // The brightest screens on sale: a display's 10000 nits and a bright paper white stay as they are.
+    const hdr::Display bright{true, true, 0.0f, 10000.0f};
+    l = hdr::resolve_levels(1000, 0, bright);
+    CHECK(l.paper_white == 1000.0f && l.peak == 10000.0f);
+    l = hdr::resolve_levels(0, 6000, bright);
+    CHECK(l.peak == 6000.0f);
     // A peak below paper white is raised to it.
     l = hdr::resolve_levels(600, 400, windows);
     CHECK(l.peak == 600.0f);
@@ -135,7 +141,7 @@ void test_relative_display() {
     android.peak_nits = 2000.0f;
     l = hdr::resolve_levels(0, 400, android);  // asks for less: less
     CHECK(near(l.peak, 400.0f, 1e-3f));
-    CHECK(hdr::wanted_output(hdr::Mode::Auto, android, false) == Output::ScRgb);
+    CHECK(hdr::wanted_output(hdr::Mode::On, android, false) == Output::ScRgb);
     // White comes out at scRGB's 1.0.
     l = hdr::resolve_levels(0, 0, android);
     CHECK(near(hdr::encode({1.0f, 1.0f, 1.0f}, Output::ScRgb, l)[0], 1.0f, 1e-5f));
@@ -146,10 +152,11 @@ void test_wanted_output() {
     const hdr::Display sdr_display{true, false, 0.0f, 0.0f};
     const hdr::Display hdr_display{true, true, 203.0f, 1000.0f};
     CHECK(hdr::wanted_output(hdr::Mode::Off, hdr_display, false) == Output::Sdr);
-    CHECK(hdr::wanted_output(hdr::Mode::Auto, unknown, false) == Output::Sdr);
-    CHECK(hdr::wanted_output(hdr::Mode::Auto, sdr_display, false) == Output::Sdr);
-    CHECK(hdr::wanted_output(hdr::Mode::Auto, hdr_display, false) == Output::Hdr10);
-    CHECK(hdr::wanted_output(hdr::Mode::Auto, hdr_display, true) == Output::ScRgb);
+    CHECK(hdr::wanted_output(hdr::Mode::Off, unknown, false) == Output::Sdr);
+    // On follows the system where it says; where it cannot (X11), it tries HDR.
+    CHECK(hdr::wanted_output(hdr::Mode::On, sdr_display, false) == Output::Sdr);
+    CHECK(hdr::wanted_output(hdr::Mode::On, hdr_display, false) == Output::Hdr10);
+    CHECK(hdr::wanted_output(hdr::Mode::On, hdr_display, true) == Output::ScRgb);
     CHECK(hdr::wanted_output(hdr::Mode::On, unknown, false) == Output::Hdr10);
 }
 

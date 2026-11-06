@@ -60,6 +60,7 @@
 #include "scene/level_renderer.h"
 #include "scene/screenshot.h"
 #include "settings.h"
+#include "ui_colors.h"
 
 namespace openrac::frontend {
 
@@ -502,7 +503,9 @@ void present_frame(FramePresentation& output) {
         debug_menu::draw(shown, width, height);
         mod_menu::draw(shown, width, height);
         if (settings::get().show_fps != settings::FrameCounter::Off) {
-            renderer::ui::fps_counter::draw(shown, width, height);
+            // In the game's accent over the theme's darkest ink, as the launcher and the menu.
+            const ui_colors::Colors& colors = ui_colors::launcher();
+            renderer::ui::fps_counter::draw(shown, width, height, colors.amber, colors.ink_deep);
         }
     }
     {

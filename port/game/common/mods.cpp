@@ -31,6 +31,7 @@
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mod_scripts.h"
+#include "mod_touch.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
@@ -59,7 +60,7 @@ struct openrac_mod {
     fs::path dir;                                 // its folder (1.12: props' meshes, sounds)
     openrac_mod_unload_fn unload = nullptr;
 
-    // What a party needs of it (interface 1.12): its settings as text, made when first asked and
+    // What a party needs of it (interface 1.14): its settings as text, made when first asked and
     // kept for the life of the mod (the table hands out their strings), the rules it published
     // (none yet: not published), how often, and who takes the host's rules.
     struct PartySetting {
@@ -976,7 +977,7 @@ int api_ui_sound(openrac_mod* mod, int sound) {
     return OPENRAC_HOOK_OK;
 }
 
-// ---- The mods a party has to agree on (interface 1.12) ----
+// ---- The mods a party has to agree on (interface 1.14) ----
 
 // While on, what the mods make the game do is another player's doing passed on.
 bool g_party_replay = false;
@@ -1117,7 +1118,7 @@ int api_party_replaying() {
     return g_party_replay ? 1 : 0;
 }
 
-// ---- Interface 1.12: calls of the port as a whole that a shared game needs. Each answers
+// ---- Interface 1.14: calls of the port as a whole that a shared game needs. Each answers
 // "unknown" until its package fills it in. ----
 
 int api_on_overlay(openrac_mod* mod, openrac_overlay_fn fn, void* user) {
@@ -1705,6 +1706,16 @@ std::string load(const Host& host) {
                         } else {
                             log::warn("mod {}: its assets folder {} is missing", c.manifest.id,
                                       c.manifest.assets);
+                        }
+                    }
+                    // Its on-screen pad's buttons (MODS.md, "Touch controls").
+                    if (!c.manifest.touch.empty()) {
+                        std::string why;
+                        if (!touch::load_file(
+                                c.manifest.id, folder / c.manifest.id, c.manifest.touch, why
+                            )
+                            || !why.empty()) {
+                            log::warn("mod {}", why);
                         }
                     }
                 }

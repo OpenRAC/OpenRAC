@@ -580,10 +580,12 @@ int host_camera_position(float out[3]) {
     return OPENRAC_HOOK_OK;
 }
 
-// The published 1.11 calls keep their place before anything of 1.12.
-static_assert(offsetof(openrac_api, save_slot_current) < offsetof(openrac_api, mod_count));
+// The published 1.11 calls keep their place before anything of 1.12, and the published 1.13 calls
+// theirs before anything of 1.14.
+static_assert(offsetof(openrac_api, save_slot_current) < offsetof(openrac_api, hero_hurt));
+static_assert(offsetof(openrac_api, touch_hint) < offsetof(openrac_api, mod_count));
 
-// A fake host's mods (interface 1.12): one mod with one setting, rules kept and handed back.
+// A fake host's mods (interface 1.14): one mod with one setting, rules kept and handed back.
 int host_mod_count() {
     return 1;
 }
@@ -659,20 +661,20 @@ int host_replaying() {
     return g_replay;
 }
 
-// A fake host's interface 1.12 calls: each says what it was asked in a record the test reads.
-std::string g_12;
+// A fake host's interface 1.14 calls: each says what it was asked in a record the test reads.
+std::string g_14;
 
-void fill_12(openrac_api& api) {
+void fill_14(openrac_api& api) {
     api.card_filter = [](openrac_mod*, int mode, const char* folder) {
-        g_12 = "filter " + std::to_string(mode) + " " + folder;
+        g_14 = "filter " + std::to_string(mode) + " " + folder;
         return OPENRAC_HOOK_OK;
     };
     api.card_slot_hint = [](openrac_mod*, int slot) {
-        g_12 = "hint " + std::to_string(slot);
+        g_14 = "hint " + std::to_string(slot);
         return OPENRAC_HOOK_OK;
     };
     api.coop_save_write = [](openrac_mod*, int slot, const void*, uint32_t size) {
-        g_12 = "write " + std::to_string(slot) + " " + std::to_string(size);
+        g_14 = "write " + std::to_string(slot) + " " + std::to_string(size);
         return OPENRAC_HOOK_OK;
     };
     api.save_slot2 = [](const char*, int slot, openrac_save_info* out) {
@@ -687,7 +689,7 @@ void fill_12(openrac_api& api) {
     };
     api.card_saves = []() -> uint32_t { return 4; };
     api.card_note_write = [](openrac_mod*, int slot, const char* text) {
-        g_12 = "note " + std::to_string(slot) + " " + text;
+        g_14 = "note " + std::to_string(slot) + " " + text;
         return OPENRAC_HOOK_OK;
     };
     api.card_note_read = [](const char*, int slot, char* out, uint32_t size) {
@@ -701,7 +703,7 @@ void fill_12(openrac_api& api) {
         return 2;
     };
     api.shared_give = [](int tag, const void*, uint32_t size) {
-        g_12 = "give " + std::to_string(tag) + " " + std::to_string(size);
+        g_14 = "give " + std::to_string(tag) + " " + std::to_string(size);
         return OPENRAC_HOOK_OK;
     };
     api.mission_state_read = [](int level, uint8_t* out) {
@@ -709,28 +711,28 @@ void fill_12(openrac_api& api) {
         return OPENRAC_HOOK_OK;
     };
     api.mission_state_write = [](int level, const uint8_t* in) {
-        g_12 = "mission " + std::to_string(level) + " " + std::to_string(in[1]);
+        g_14 = "mission " + std::to_string(level) + " " + std::to_string(in[1]);
         return OPENRAC_HOOK_OK;
     };
     api.hero_place = [](openrac_mod*, const float p[3], float yaw, uint32_t flags) {
-        g_12 = "place " + std::to_string(static_cast<int>(p[0])) + " " + std::to_string(static_cast<int>(yaw))
+        g_14 = "place " + std::to_string(static_cast<int>(p[0])) + " " + std::to_string(static_cast<int>(yaw))
                + " " + std::to_string(flags);
         return OPENRAC_HOOK_OK;
     };
     api.hero_grab = [](openrac_mod*, int animation, uint32_t) {
-        g_12 = "grab " + std::to_string(animation);
+        g_14 = "grab " + std::to_string(animation);
         return OPENRAC_HOOK_OK;
     };
     api.hero_release = [](openrac_mod*) {
-        g_12 = "release";
+        g_14 = "release";
         return OPENRAC_HOOK_OK;
     };
     api.hero_hold_at = [](openrac_mod*, const float p[3], float yaw) {
-        g_12 = "hold " + std::to_string(static_cast<int>(p[0])) + " " + std::to_string(static_cast<int>(yaw));
+        g_14 = "hold " + std::to_string(static_cast<int>(p[0])) + " " + std::to_string(static_cast<int>(yaw));
         return OPENRAC_HOOK_OK;
     };
     api.hero_stand_in_as = [](openrac_mod*, const openrac_stand_in* as, int figure) {
-        g_12 = "as " + std::to_string(as->state) + " " + std::to_string(figure);
+        g_14 = "as " + std::to_string(as->state) + " " + std::to_string(figure);
         return OPENRAC_HOOK_OK;
     };
     api.hero_stand_in_read = [](openrac_mod*, openrac_stand_in* out) {
@@ -738,11 +740,11 @@ void fill_12(openrac_api& api) {
         return OPENRAC_HOOK_OK;
     };
     api.hero_revive = [](openrac_mod*, const float p[3], uint32_t) {
-        g_12 = p != nullptr ? "revive here" : "revive";
+        g_14 = p != nullptr ? "revive here" : "revive";
         return OPENRAC_HOOK_OK;
     };
     api.on_overlay = [](openrac_mod*, openrac_overlay_fn fn, void*) {
-        g_12 = fn != nullptr ? "overlay" : "no overlay";
+        g_14 = fn != nullptr ? "overlay" : "no overlay";
         return OPENRAC_HOOK_OK;
     };
     api.hero_shots2 = [](openrac_shot2* out, int max) {
@@ -751,7 +753,7 @@ void fill_12(openrac_api& api) {
         return max > 0 ? 1 : 0;
     };
     api.figure_shot2 = [](openrac_mod*, int id, const openrac_shot2* shot) {
-        g_12 = "shot " + std::to_string(id) + " " + std::to_string(shot->target_key);
+        g_14 = "shot " + std::to_string(id) + " " + std::to_string(shot->target_key);
         return OPENRAC_HOOK_OK;
     };
     api.moby_list2 = [](openrac_moby2* out, int max) {
@@ -761,7 +763,7 @@ void fill_12(openrac_api& api) {
     };
     api.on_camera_script = [](openrac_mod*, openrac_camera_script_fn, void*) { return OPENRAC_HOOK_OK; };
     api.camera_script_play = [](openrac_mod*, int id) {
-        g_12 = "camera " + std::to_string(id);
+        g_14 = "camera " + std::to_string(id);
         return OPENRAC_HOOK_OK;
     };
     api.camera_script_view = [](float eye[3], float rotation[3], float where[3], int* stand_in) {
@@ -776,15 +778,15 @@ void fill_12(openrac_api& api) {
         return from[1] != 0.0f ? OPENRAC_HOOK_UNKNOWN : OPENRAC_HOOK_OK;
     };
     api.camera_script_show = [](openrac_mod*, const float eye[3], const float rotation[3]) {
-        g_12 = "show " + std::to_string(static_cast<int>(eye[0] + rotation[2]));
+        g_14 = "show " + std::to_string(static_cast<int>(eye[0] + rotation[2]));
         return OPENRAC_HOOK_OK;
     };
     api.play_scene_from = [](openrac_mod*, int scene, int frame) {
-        g_12 = "scene " + std::to_string(scene) + " " + std::to_string(frame);
+        g_14 = "scene " + std::to_string(scene) + " " + std::to_string(frame);
         return OPENRAC_HOOK_OK;
     };
     api.play_live_picture = [](openrac_mod*, int on) {
-        g_12 = "picture " + std::to_string(on);
+        g_14 = "picture " + std::to_string(on);
         return OPENRAC_HOOK_OK;
     };
     api.on_metal_detect = [](openrac_mod*, openrac_metal_detect_fn, void*) { return OPENRAC_HOOK_OK; };
@@ -804,11 +806,11 @@ void fill_12(openrac_api& api) {
         return OPENRAC_HOOK_OK;
     };
     api.clipboard_set = [](const char* text) {
-        g_12 = std::string("clip ") + text;
+        g_14 = std::string("clip ") + text;
         return OPENRAC_HOOK_OK;
     };
     api.open_link = [](const char* url) {
-        g_12 = std::string("link ") + url;
+        g_14 = std::string("link ") + url;
         return OPENRAC_HOOK_OK;
     };
     api.sim_digest = [](int32_t level, uint32_t* out) {
@@ -846,7 +848,7 @@ openrac_api make_api() {
     api.setting_float = host_setting_float;
     api.setting_string = host_setting_string;
     api.hook = host_hook;
-    fill_12(api);
+    fill_14(api);
     api.mod_count = host_mod_count;
     api.mod_entry = host_mod_entry;
     api.mod_setting = host_mod_setting;
@@ -1643,7 +1645,7 @@ int main() {
         api.size = size;
     }
     {
-        // The mods a party agrees on (interface 1.12), and a port without them.
+        // The mods a party agrees on (interface 1.14), and a port without them.
         openrac::Mod mod(&api, handle);
         CHECK(mod.has_party_rules());
         const std::vector<openrac::ModEntry> mods = mod.mods();
@@ -1668,57 +1670,57 @@ int main() {
         api.api_minor = OPENRAC_MOD_API_MINOR;
     }
     {
-        // What a shared game needs (interface 1.12), and a port without it.
+        // What a shared game needs (interface 1.14), and a port without it.
         openrac::Mod mod(&api, handle);
         CHECK(mod.has_save_filter() && mod.has_shared_progress() && mod.has_hero_place());
         CHECK(mod.has_overlay() && mod.has_shots2() && mod.has_moby_list2());
         CHECK(mod.has_camera_scripts() && mod.has_metal_detect());
-        CHECK(mod.card_filter(OPENRAC_CARD_REDIRECT, "Game-coop") && g_12 == "filter 2 Game-coop");
-        CHECK(mod.card_slot_hint(3) && g_12 == "hint 3");
-        CHECK(mod.coop_save_write(1, {1, 2, 3}) && g_12 == "write 1 3");
+        CHECK(mod.card_filter(OPENRAC_CARD_REDIRECT, "Game-coop") && g_14 == "filter 2 Game-coop");
+        CHECK(mod.card_slot_hint(3) && g_14 == "hint 3");
+        CHECK(mod.coop_save_write(1, {1, 2, 3}) && g_14 == "write 1 3");
         openrac_save_info info{};
         CHECK(mod.save_slot2("Game-coop", 0, info) == 1 && info.level == 3);
         CHECK(mod.save_read2("Game-coop", 0).size() == 5);
         CHECK(mod.has_card_notes() && mod.card_saves() == 4);
-        CHECK(mod.card_note_write(2, "hello") && g_12 == "note 2 hello");
+        CHECK(mod.card_note_write(2, "hello") && g_14 == "note 2 hello");
         CHECK(mod.card_note_read("coop", 0) == "key" && mod.card_note_read("coop", 1).empty());
         std::vector<std::uint8_t> section;
         CHECK(mod.shared_read(1, section) && section.size() == 2 && !mod.shared_read(2, section));
-        CHECK(mod.shared_give(4, {1, 2, 3}) && g_12 == "give 4 3");
+        CHECK(mod.shared_give(4, {1, 2, 3}) && g_14 == "give 4 3");
         std::uint8_t missions[OPENRAC_MISSION_STATE_SIZE] = {};
         CHECK(mod.mission_state_read(5, missions) && missions[0] == 5);
         missions[1] = 8;
-        CHECK(mod.mission_state_write(2, missions) && g_12 == "mission 2 8");
+        CHECK(mod.mission_state_write(2, missions) && g_14 == "mission 2 8");
         const float where[3] = {6, 0, 0};
-        CHECK(mod.hero_place(where, 90, OPENRAC_PLACE_INVULNERABLE) && g_12 == "place 6 90 1");
-        CHECK(mod.hero_grab(12) && g_12 == "grab 12" && mod.hero_release() && g_12 == "release");
-        CHECK(mod.hero_hold_at(where, 2) && g_12 == "hold 6 2");
+        CHECK(mod.hero_place(where, 90, OPENRAC_PLACE_INVULNERABLE) && g_14 == "place 6 90 1");
+        CHECK(mod.hero_grab(12) && g_14 == "grab 12" && mod.hero_release() && g_14 == "release");
+        CHECK(mod.hero_hold_at(where, 2) && g_14 == "hold 6 2");
         openrac_stand_in as{};
         as.state = 7;
-        CHECK(mod.hero_stand_in_as(as, 3) && g_12 == "as 7 3");
+        CHECK(mod.hero_stand_in_as(as, 3) && g_14 == "as 7 3");
         CHECK(mod.hero_stand_in_read(as) && as.state == 120);
-        CHECK(mod.hero_revive() && g_12 == "revive" && mod.hero_revive(&where) && g_12 == "revive here");
-        CHECK(mod.on_overlay([](void*, const openrac_overlay*) {}) && g_12 == "overlay");
+        CHECK(mod.hero_revive() && g_14 == "revive" && mod.hero_revive(&where) && g_14 == "revive here");
+        CHECK(mod.on_overlay([](void*, const openrac_overlay*) {}) && g_14 == "overlay");
         const std::vector<openrac_shot2> shots = mod.hero_shots2();
         CHECK(shots.size() == 1 && shots[0].item == 11 && shots[0].target_key == 42);
-        CHECK(mod.figure_shot2(3, shots[0]) && g_12 == "shot 3 42");
+        CHECK(mod.figure_shot2(3, shots[0]) && g_14 == "shot 3 42");
         const std::vector<openrac_moby2> mobys = mod.moby_list2();
         CHECK(mobys.size() == 1 && mobys[0].slot == 4 && mobys[0].mission == 7);
-        CHECK(mod.camera_script_play(6) && g_12 == "camera 6");
+        CHECK(mod.camera_script_play(6) && g_14 == "camera 6");
         float eye[3] = {0.0f, 0.0f, 0.0f};
         float rotation[3] = {0.0f, 0.0f, 0.0f};
         float moby[3] = {0.0f, 0.0f, 0.0f};
         bool stand_in = false;
         CHECK(mod.camera_script_view(eye, rotation, moby, &stand_in) && stand_in);
         CHECK(eye[0] == 1.0f && rotation[2] == 2.0f && moby[1] == 3.0f);
-        CHECK(mod.camera_script_show(eye, rotation) && g_12 == "show 3");
+        CHECK(mod.camera_script_show(eye, rotation) && g_14 == "show 3");
         const float near_point[3] = {0, 0, 0}, far_point[3] = {1, 0, 0}, outside[3] = {0, 1, 0};
         bool blocked = false;
         CHECK(mod.level_line(near_point, far_point, blocked) && blocked);
         CHECK(mod.level_line(far_point, near_point, blocked) && !blocked);
         CHECK(!mod.level_line(outside, far_point, blocked));
-        CHECK(mod.play_scene_from(2, 90) && g_12 == "scene 2 90");
-        CHECK(mod.play_live_picture(true) && g_12 == "picture 1");
+        CHECK(mod.play_scene_from(2, 90) && g_14 == "scene 2 90");
+        CHECK(mod.play_live_picture(true) && g_14 == "picture 1");
         openrac_packs_info packs{};
         std::string id, pack_version;
         std::uint32_t digest = 0;
@@ -1727,22 +1729,22 @@ int main() {
         CHECK(!mod.packs_entry(1, id, pack_version, digest));
         std::string pack_name;
         CHECK(mod.packs_entry(0, id, pack_name, pack_version, digest) && pack_name == "Maps" && pack_version == "2.0.0");
-        CHECK(mod.clipboard_set("K7M2-9QXR") && g_12 == "clip K7M2-9QXR");
-        CHECK(mod.open_link("openrac://modset/K7M2-9QXR") && g_12 == "link openrac://modset/K7M2-9QXR");
+        CHECK(mod.clipboard_set("K7M2-9QXR") && g_14 == "clip K7M2-9QXR");
+        CHECK(mod.open_link("openrac://modset/K7M2-9QXR") && g_14 == "link openrac://modset/K7M2-9QXR");
         CHECK(mod.world_family() == "rac1-60-1" && mod.identity_key() == "key-1");
         CHECK(mod.sim_digest(3) == 0x1234u && mod.sim_digest(4) == 0);
 
         // A port of 1.11 has none of it: every call answers no and touches nothing.
-        g_12.clear();
+        g_14.clear();
         api.api_minor = 11;
         CHECK(!mod.has_save_filter() && !mod.has_hero_place() && !mod.has_overlay());
         CHECK(!mod.card_filter(OPENRAC_CARD_DISCARD) && !mod.hero_place(where, 0) && !mod.clipboard_set("x"));
         CHECK(mod.hero_shots2().empty() && mod.moby_list2().empty() && mod.world_family().empty());
         CHECK(mod.sim_digest(3) == 0);
-        CHECK(mod.save_slot2("", 0, info) == -1 && mod.save_read2("", 0).empty() && g_12.empty());
+        CHECK(mod.save_slot2("", 0, info) == -1 && mod.save_read2("", 0).empty() && g_14.empty());
         api.api_minor = OPENRAC_MOD_API_MINOR;
 
-        // A table that ends before the 1.12 slots (a port built from older headers) answers no too.
+        // A table that ends before the 1.14 slots (a port built from older headers) answers no too.
         const std::uint32_t size = api.size;
         api.size = static_cast<std::uint32_t>(offsetof(openrac_api, party_replaying) + sizeof(void*));
         CHECK(!mod.has_shared_progress() && !mod.identity_key().size() && !mod.open_link("openrac://x"));

@@ -301,6 +301,13 @@ void LevelScene::prepare_sun_shadow(
         m_sun_camera = input.culling_camera ? *input.culling_camera : input.camera;
         m_sun_cascades =
             sun_cascades(m_sun_camera, direction, low, high, 256, input.shadow_quality);
+        static const bool& receiver_culling_off = stats::probe(
+            "OPENRAC_SUN_RECEIVER_CULL_OFF", "Reference: square shadow-map caster bounds"
+        );
+        if (receiver_culling_off) {
+            // Draw and cache the same caster footprint, including after a live toggle.
+            m_sun_cascades.casters = {};
+        }
 #if defined(OPENRAC_VULKAN)
         static const bool& scrolling = stats::probe(
             "OPENRAC_SCROLLING_SHADOWS", "Experimental toroidal static caches for the sun cascades"

@@ -45,6 +45,8 @@ struct Options {
     bool debug_overlay = false;  // the debug overlay shown from the start (F3 shows and hides it)
     bool check_levels =
         false;  // read every extracted level as the window would, say what is wrong, and stop
+    fs::path asm_part;  // the part of the game built from the disc (program/asm_part.cpp), if not
+                        // in its place in the data folder
 };
 
 // OpenRAC's folder in the player's data home, where the launcher keeps cards and settings:

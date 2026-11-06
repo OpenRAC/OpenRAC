@@ -37,6 +37,7 @@
     onfolder,
     onhomepage,
     onremove,
+    ontool = () => undefined,
     builtIn = null,
   }: {
     mod: PluginView;
@@ -53,6 +54,8 @@
     onfolder: () => void;
     onhomepage: () => void;
     onremove: () => void;
+    /** Shows the mod's own page (ModTool.svelte), for a mod that has one (`tool`). */
+    ontool?: () => void;
     /** A built-in entry's bake: its status, the job running it, and the way to start it. */
     builtIn?: { bake: BakeStatus; job: Job | null; onbake: () => void; ondelete: () => void } | null;
   } = $props();
@@ -187,7 +190,7 @@
     </ol>
   </nav>
 
-  <section class="panel head" class:off={!mod.enabled}>
+  <section class="panel head" class:off={!mod.enabled && mod.kind !== "tool"}>
     <div class="title">
       <h2 bind:this={heading} tabindex="-1">{mod.name}</h2>
       <p class="meta">
@@ -205,6 +208,11 @@
       {#if mod.description}<p class="desc">{mod.description}</p>{/if}
     </div>
     <div class="actions">
+      {#if mod.tool}
+        <button class="primary" title={T.MOD_PAGE.openToolHint(mod.name)} onclick={ontool}
+          ><Icon name="external" size={16} />{T.MOD_PAGE.openTool}</button
+        >
+      {/if}
       {#if update && !source?.pin}
         <button disabled={updating} onclick={onupdate}
           >{#if updating}<span class="spinner"></span>{:else}<Icon name="refresh" size={16} />{/if}{T.MOD_PAGE.update(
@@ -212,24 +220,39 @@
           )}</button
         >
       {/if}
-      <label class="power" class:on={mod.enabled}>
-        <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
-        <input
-          type="checkbox"
-          role="switch"
-          class="switch"
-          aria-label={T.useAria(mod.name)}
-          checked={mod.enabled}
-          disabled={!mod.enabled && mod.blocked !== ""}
-          onchange={(e) => {
-            onenable(e.currentTarget.checked);
-          }}
-        />
-      </label>
+      {#if mod.kind === "tool"}
+        <!-- A tool can't be off: its switch shows on, greyed, and says why. -->
+        <label class="power on" title={T.VIEW.toolAlwaysOn}>
+          <span>{T.VIEW.toolAlwaysOnShort}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={`${mod.name}: ${T.VIEW.toolAlwaysOn}`}
+            checked
+            disabled
+          />
+        </label>
+      {:else}
+        <label class="power" class:on={mod.enabled}>
+          <span>{mod.enabled ? T.MOD_PAGE.on : T.MOD_PAGE.off}</span>
+          <input
+            type="checkbox"
+            role="switch"
+            class="switch"
+            aria-label={T.useAria(mod.name)}
+            checked={mod.enabled}
+            disabled={!mod.enabled && mod.blocked !== ""}
+            onchange={(e) => {
+              onenable(e.currentTarget.checked);
+            }}
+          />
+        </label>
+      {/if}
       {#if menu.length}<Menu label={T.MOD_PAGE.more(mod.name)} items={menu} />{/if}
     </div>
 
-    {#if purist && mod.enabled}
+    {#if purist && mod.enabled && !mod.tool}
       <p class="notice"><Icon name="info" size={16} /><span>{T.WITH_MODS.offNotice}</span></p>
     {/if}
     {#if cannotLoad}
@@ -427,7 +450,7 @@
       {/if}
     {/each}
   {:else}
-    <p class="none">{T.MOD_PAGE.noSettings}</p>
+    <p class="none">{mod.tool ? T.MOD_PAGE.toolSettings : T.MOD_PAGE.noSettings}</p>
   {/if}
 </div>
 

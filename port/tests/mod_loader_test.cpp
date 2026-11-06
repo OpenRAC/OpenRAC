@@ -82,8 +82,10 @@ void install(
     const fs::path& plugins,
     const std::string& which,
     const char* built,
-    const std::string& api = "1.12",
-    const std::string& extra = ""
+    const std::string& api = "1.14",
+    const std::string& extra = "",
+    const std::string& games = R"({"test": ["one"]})",
+    const std::string& hooks = R"(["Test_Add"])"
 ) {
     const fs::path dir = plugins / ("test-" + which);
     fs::create_directories(dir / "lib");
@@ -92,7 +94,7 @@ void install(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-)" + which + R"(", "name": "Test", "version": "1.0.0",
         "api": ")"
-            + api + R"(", "games": {"test": ["one"]}, "hooks": ["Test_Add"],)" + extra + R"(
+            + api + R"(", "games": )" + games + R"(, "hooks": )" + hooks + R"(,)" + extra + R"(
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": "lib/)" + library_name() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0},
@@ -111,7 +113,8 @@ void install(
                                   {"value": "game_ui", "name": "Game UI"},
                                   {"value": "play", "name": "Play"},
                                   {"value": "world", "name": "World"},
-                                  {"value": "hoverboard", "name": "Hoverboard"}]},
+                                  {"value": "hoverboard", "name": "Hoverboard"},
+                                  {"value": "callback_only", "name": "Callback only"}]},
                      {"key": "jump", "name": "Jump", "type": "keybind", "default": "Space"}]})"
     );
 }
@@ -126,6 +129,16 @@ mods::Host host(const fs::path& plugins) {
     h.list = plugins / "plugins.json";
     h.pad_hook = &g_pad_hook;
     h.now = "2026-10-21T00:00:00+00:00";
+    return h;
+}
+
+mods::Host rac2_host(const fs::path& plugins) {
+    mods::Host h = host(plugins);
+    h.game = "rac2";
+    h.version = "ntsc";
+    h.hooks = nullptr;
+    h.hook_count = 0;
+    h.scripts = nullptr;
     return h;
 }
 
@@ -496,7 +509,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
-        "api": "1.12", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
+        "api": "1.13", "games": {"test": ["one"]}, "hooks": ["Test_Add"],
         "plugin": {")"
             + std::string(mods::platform_key()) + R"(": ")" + lib.generic_string() + R"("},
         "settings": [{"key": "tag", "name": "Tag", "type": "int", "default": 0}]})"
@@ -607,7 +620,7 @@ void a_menu_page_draws_through_the_host(const fs::path& plugins) {
     CHECK(mods::menu_entry_count() == 0);
 }
 
-// The mods a party has to agree on (interface 1.12): the mods loaded and their settings as read this
+// The mods a party has to agree on (interface 1.14): the mods loaded and their settings as read this
 // run, the rules a mod publishes and the host's it takes, the replay switch.
 void a_party_reads_the_mods(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
@@ -616,7 +629,7 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     g_records.clear();
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0, test-b 1.0.0");
     const openrac_api& api = mods::api_for_tests();
-    CHECK(api.api_minor >= 12 && api.mod_count() == 2);
+    CHECK(api.api_minor >= 14 && api.mod_count() == 2);
     openrac_mod_entry entry{};
     entry.size = sizeof entry;
     CHECK(api.mod_entry(0, &entry) == OPENRAC_HOOK_OK);
@@ -659,21 +672,21 @@ void a_party_reads_the_mods(const fs::path& plugins) {
     mods::reset();
 }
 
-// The calls of interface 1.12 are in the table, and with no game behind them each answers "unknown"
+// The calls of interface 1.14 are in the table, and with no game behind them each answers "unknown"
 // to a mod that loads against the real table (the test mod's "twelve" checks every one).
-void the_1_12_calls_answer_unknown_without_a_game(const fs::path& plugins) {
+void the_1_14_calls_answer_unknown_without_a_game(const fs::path& plugins) {
     write(plugins / "plugins.json", R"({"format": 1, "mods": [
         {"id": "test-a", "enabled": true, "settings": {"behaviour": "twelve"}},
         {"id": "test-b", "enabled": false}]})");
     CHECK(mods::load(host(plugins)) == "test-a 1.0.0");
     const openrac_api& api = mods::api_for_tests();
-    CHECK(api.api_minor >= 12 && api.size >= offsetof(openrac_api, card_note_read) + sizeof(void*));
+    CHECK(api.api_minor >= 14 && api.size >= offsetof(openrac_api, card_note_read) + sizeof(void*));
     mods::reset();
 }
 
 std::vector<std::string> g_copied;
 
-// A party's check of data packs (interface 1.12): only those stack.json says change the game, the
+// A party's check of data packs (interface 1.14): only those stack.json says change the game, the
 // strings kept, one number for the same packs; a stack that is gone or broken lists none.
 void a_party_reads_the_data_packs(const fs::path& plugins) {
     const fs::path stack = plugins / "stack.json";
@@ -741,7 +754,7 @@ void a_party_reads_the_data_packs(const fs::path& plugins) {
     mods::reset();
 }
 
-// The clipboard and the launcher's key (interface 1.12).
+// The clipboard and the launcher's key (interface 1.14).
 void a_mod_copies_and_knows_the_key(const fs::path& plugins) {
     write(
         plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-a", "enabled": true}]})"
@@ -1224,6 +1237,39 @@ void game_ui_pages_reach_the_front_end(const fs::path& plugins) {
     CHECK(mods::ui_pause_item_count() == 0);
 }
 
+// RAC2 has no game hook catalogue or script binding yet, but a native mod that only uses
+// common callbacks still loads. A native mod that tries to take a game hook is refused cleanly.
+void rac2_callback_only_native_mod(const fs::path& plugins) {
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.13", "", R"({"rac2": ["ntsc"]})", "[]");
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true,
+         "settings": {"tag": 4, "behaviour": "callback_only"}}]})");
+    g_records.clear();
+    CHECK(mods::load(rac2_host(plugins)) == "test-a 1.0.0");
+    CHECK(status_of(plugins, "test-a").first == "loaded");
+    CHECK(g_pad_hook != nullptr);
+    unsigned char report[18] = {10};
+    g_pad_hook(0, report, 18);
+    CHECK(report[0] == 14);
+    mods::tick_boundary(7);
+    CHECK(std::find(g_records.begin(), g_records.end(), 3007) != g_records.end());
+    mods::reset();
+
+    install(
+        plugins, "a", OPENRAC_TEST_MOD_A, "1.13", "", R"({"rac2": ["ntsc"]})", R"(["Test_Add"])"
+    );
+    write(plugins / "plugins.json", R"({"format": 1, "mods": [
+        {"id": "test-a", "enabled": true, "settings": {"tag": 1}}]})");
+    CHECK(mods::load(rac2_host(plugins)) == "none (1 not loaded: plugins/status.json)");
+    const auto [state, reason] = status_of(plugins, "test-a");
+    CHECK(state == "failed");
+    CHECK(reason.find("no hook point Test_Add") != std::string::npos);
+    mods::reset();
+
+    // Restore the ordinary test target for the remaining cases in this executable.
+    install(plugins, "a", OPENRAC_TEST_MOD_A);
+}
+
 // The tick boundary and the snapshot calls (interface 1.6): the boundary taken during load only,
 // its callback run by mods::tick_boundary with the tick, the snapshot calls refused for a game
 // without a snapshot (the test's) and outside the boundary; reset takes the callback back.
@@ -1291,7 +1337,7 @@ void views_reach_the_host(const fs::path& plugins) {
 
     // Without "vulkan_device" the mods load after the window, as always; with it, before.
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", false));
-    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.12", R"( "vulkan_device": true,)");
+    install(plugins, "a", OPENRAC_TEST_MOD_A, "1.13", R"( "vulkan_device": true,)");
     CHECK(mods::makes_vulkan_device(plugins / "plugins.json", false));
     CHECK(!mods::makes_vulkan_device(plugins / "plugins.json", true));  // purist: none
     CHECK(!mods::makes_vulkan_device(plugins / "nowhere.json", false));
@@ -1332,7 +1378,7 @@ void an_old_name_still_binds(const fs::path& plugins) {
     mods::reset();
 }
 
-// Drawing over the game (interface 1.12): the mod's callback only with a level in play, through
+// Drawing over the game (interface 1.14): the mod's callback only with a level in play, through
 // what the port hands it, and none from a mod taken back. A mod's link: a code's, nothing else.
 std::vector<std::string> g_opened;
 float g_overlay_rect[4];
@@ -1561,11 +1607,12 @@ int main() {
     a_menu_page_draws_through_the_host(plugins);
     a_mod_provides_a_desktop_menu(plugins);
     a_party_reads_the_mods(plugins);
-    the_1_12_calls_answer_unknown_without_a_game(plugins);
+    the_1_14_calls_answer_unknown_without_a_game(plugins);
     a_party_reads_the_data_packs(plugins);
     a_mod_copies_and_knows_the_key(plugins);
     a_mod_draws_over_the_level(plugins, dir);
     only_a_mod_codes_link_opens(plugins);
+    rac2_callback_only_native_mod(plugins);
     the_tick_boundary_reaches_the_mod(plugins);
     game_ui_pages_reach_the_front_end(plugins);
     play_reaches_the_game(plugins, dir);

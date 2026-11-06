@@ -3,7 +3,7 @@
  *
  * Ratchet & Clank: a moby's update that acts on the hero, when the hero it acts on is another
  * player's (game_host.h, openrac_game_play's stand_in_as and stand_in_read, hero_grab, hero_hold_at
- * and hero_release; interface 1.12, multiplayer: enemies that grab, in the game that runs them, and
+ * and hero_release; interface 1.14, multiplayer: enemies that grab, in the game that runs them, and
  * the grabbed player's own game).
  *
  * What the game's mobys do. Most reach the hero with a hit, which a stand-in sends to the figure

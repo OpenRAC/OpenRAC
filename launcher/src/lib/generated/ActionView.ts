@@ -24,6 +24,11 @@ blockers: Array<string>,
  */
 done: boolean, 
 /**
+ * It needs its own `artifact` (Play, its program) and that is not there: only a step that
+ * makes it (a build) unblocks it, never reading the levels again.
+ */
+missingArtifact: boolean, 
+/**
  * Listed only with Developer tools on (`Action::developer`).
  */
 developer: boolean, 

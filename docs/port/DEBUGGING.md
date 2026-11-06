@@ -43,7 +43,7 @@ on-screen pad's.
 The same keys and the port's settings are in one menu, whose entries are one
 list (`port/game/common/menu_catalog.cpp`): an entry added there shows on every
 system. On Windows, Linux and macOS its key (`menu_bar_key`, `` ` `` by default)
-controller button (`menu_bar_button`, L3 by default) slide a bar of tabs (Graphics,
+controller button (`menu_button`, Start+Select by default) slide a bar of tabs (Graphics,
 Enhanced, Game, Controls, Developer, and a tab for each mod's own menu) down
 from the window's top, with the tab's options in a window under it and, beside
 them, what the option under the pointer or the focus does. The game waits while
@@ -364,7 +364,7 @@ same variables, so a new variable gets a row in both.
 | `OPENRAC_MENU` | a tab's name | The menu open on that tab from the start (`graphics`, `enhanced`, `game`, `controls`, `developer`), for screenshots of it. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_DRAWER` | any (set) | The menu in the drawer, as on Android, in place of the desktop's bar of tabs. | `port/game/common/debug/touch.cpp` |
 | `OPENRAC_GL_API` | `es`, `desktop`, `vulkan` | The kind of OpenGL context: `es` asks for OpenGL ES 3.2, what Android draws with (the default there), and runs the renderer's ES path on a desktop driver; `desktop` the 4.1 core profile (the default elsewhere); `vulkan` the renderer's GL carried out on Vulkan 1.3 (`port/renderer/vulkan`; on macOS through MoltenVK). Where Vulkan cannot start, the log says why and the game draws with OpenGL. | `port/platform/window.cpp` |
-| `OPENRAC_HDR` | `off`, `auto`, `on` | HDR for this run, over the settings file's `hdr` ([HDR.md](HDR.md)). Set by the launcher's Settings > HDR. | `port/game/common/main.cpp` |
+| `OPENRAC_HDR` | `off`, `on` | HDR for this run, over the settings file's `hdr` ([HDR.md](HDR.md)). Set by the launcher's Settings > HDR. | `port/game/common/main.cpp` |
 | `OPENRAC_HDR_FRAME` | `1` | Vulkan: draws the HDR float frame without an HDR screen and logs how much is above white, to compare with the normal frame ([HDR.md](HDR.md)). | `port/game/common/frontend/scene_frame.cpp` |
 | `OPENRAC_VULKAN_VALIDATION` | `1` | With `OPENRAC_GL_API=vulkan`: Khronos' validation layer, where it is installed, its messages in the log. On macOS it needs a Vulkan loader (Homebrew's `vulkan-loader` and `vulkan-validationlayers`, with `VK_LAYER_PATH` set), which is then opened in place of the bundle's MoltenVK. | `port/renderer/vulkan/vkgl.cpp`, `port/platform/window.cpp` |
 | `OPENRAC_RENDER_GRAPH_DUMP` | `1` | Logs one frame-wide Vulkan dependency and resource-lifetime dump at the first presented frame with declared renderer work (skips presentation-only startup frames). Includes declared subgraphs, nested callback completions and conservative boundaries for intervening native work. Diagnostic only: it does not change barriers, scheduling or GPU allocations. | `port/renderer/vulkan/frame_capture.cpp` |
@@ -683,8 +683,11 @@ included): the left stick moves along the view and strafes, the right stick
 looks, R2 rises and L2 sinks (both analog), R1 held is four times faster and L1
 held one-quarter, as Shift and Ctrl. A partly pushed stick flies slower. L3+R3
 pressed together turns freecam off; in developer mode (`OPENRAC_DEVELOPER=1`) it
-also turns it on, so a player's stray press never does. The gamepad moves the
-menu's rows instead while the menu or the Android drawer is open, where
+also turns it on, so a player's stray press never does. The chord's press is
+held back from the game until both are let go, so it does not open the map
+(R3) and closes the menu if L3 (its default button) opened it. R3 alone still
+reaches the game at once: press L3 first or both together, as an R3 a frame
+ahead opens the map. The gamepad moves the menu's rows instead while the menu or the Android drawer is open, where
 **Developer > Freecam** is offered too.
 
 **Culling inspection** is an alternative mode. Renderer visibility and sun cascades

@@ -161,8 +161,30 @@ fn prepared_ocean(level: &Path) -> bool {
 }
 
 /// The bake status of the levels in `levels` against the bakes in `probes`, made by `baker`.
-pub fn bake_status(levels: &Path, probes: &Path, baker: &Path) -> BakeStatus {
-    bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level| baker_profile(baker, level))
+pub fn bake_status(levels: &Path, probes: &Path, baker: &Path, profiles: &Path, version: &str) -> BakeStatus {
+    let version = version.replace('/', "-");
+    bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level| {
+        if lighting_profile_needs_refresh(profiles, &version, level) {
+            return None;
+        }
+        baker_profile(baker, level)
+    })
+}
+
+// Predict the baker's tracked profile refresh without touching the export.
+fn lighting_profile_needs_refresh(profiles: &Path, version: &str, level: &Path) -> bool {
+    let Some(name) = level.file_name() else { return false };
+    let Some(shipped) = sha256(&profiles.join(version).join(name).join("lighting-environments.json")) else {
+        return false;
+    };
+    let local = level.join("lighting-environments.json");
+    let ownership = level.join(".lighting-environments.sha256");
+    if !local.exists() {
+        return !ownership.is_file();
+    }
+    let installed = sha256(&local);
+    let recorded = std::fs::read_to_string(ownership).ok();
+    installed.as_ref().is_some_and(|digest| digest != &shipped && recorded.as_ref() == Some(digest))
 }
 
 /// [`bake_status`] on a computer that gets the baker or not (`ships_baker`, SHIPS_BAKER), with the
@@ -205,6 +227,8 @@ fn bake_status_on(
         let current = stamp.as_ref().is_some_and(|s| {
             s["manifest_sha256"].as_str() == sha256(&manifest).as_deref()
                 && s["profile_sha256"].as_str() == sha256(&entry.path().join("probe-bake.json")).as_deref()
+                && s["lighting_environments_sha256"].as_str()
+                    == sha256(&entry.path().join("lighting-environments.json")).as_deref()
                 && has_baker
                 && verified_bake(&baked, s["reflections"] == Value::Bool(true))
                 && prepared_water(&entry.path(), &manifest)
@@ -275,7 +299,10 @@ fn bake_folders(config: &crate::config::Config, key: &str) -> Result<(PathBuf, P
 /// The bake status of a version (`rac1/pal`) from its probe-bake action's folders and baker.
 pub fn version_bake_status(config: &crate::config::Config, key: &str) -> BakeStatus {
     match bake_folders(config, key) {
-        Ok((levels, probes, baker)) => bake_status(&levels, &probes, &baker),
+        Ok((levels, probes, baker)) => match config.root() {
+            Ok(root) => bake_status(&levels, &probes, &baker, &root.join("port/enhanced/lighting/profiles"), key),
+            Err(e) => BakeStatus { why: e, ..BakeStatus::default() },
+        },
         Err(e) => BakeStatus { why: e, ..BakeStatus::default() },
     }
 }
@@ -485,8 +512,44 @@ mod tests {
         std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         let status = || bake_status_on(&levels, &probes, &baker, true, &|_| Some("profile".to_owned()));
         assert_eq!(status().ready, 1);
+        let authoring = level.join("lighting-environments.json");
+        std::fs::write(&authoring, "{}").unwrap();
+        assert_eq!(status().ready, 0);
+        let mut authored_stamp = stamp.clone();
+        authored_stamp["lighting_environments_sha256"] = serde_json::json!(sha256(&authoring));
+        std::fs::write(baked.join(STAMP), authored_stamp.to_string()).unwrap();
+        assert_eq!(status().ready, 1);
+        std::fs::write(&authoring, "{ }").unwrap();
+        assert_eq!(status().ready, 0);
+        std::fs::remove_file(&authoring).unwrap();
+        assert_eq!(status().ready, 0);
+        std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         std::fs::write(level.join("probe-bake.json"), "{}").unwrap();
         assert_eq!(status().ready, 0);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn lighting_refresh_preserves_edits_and_local_removal() {
+        let root = temp("lighting-refresh");
+        let level = root.join("level_06");
+        let shipped = root.join("rac1-ntsc").join("level_06");
+        std::fs::create_dir_all(&level).unwrap();
+        std::fs::create_dir_all(&shipped).unwrap();
+        let name = "lighting-environments.json";
+        let ownership = level.join(".lighting-environments.sha256");
+        std::fs::write(shipped.join(name), "first profile").unwrap();
+        let pending = || lighting_profile_needs_refresh(&root, "rac1-ntsc", &level);
+        assert!(pending());
+        std::fs::copy(shipped.join(name), level.join(name)).unwrap();
+        std::fs::write(&ownership, sha256(&level.join(name)).unwrap()).unwrap();
+        assert!(!pending());
+        std::fs::write(shipped.join(name), "updated profile").unwrap();
+        assert!(pending());
+        std::fs::write(level.join(name), "local edit").unwrap();
+        assert!(!pending());
+        std::fs::remove_file(level.join(name)).unwrap();
+        assert!(!pending());
         let _ = std::fs::remove_dir_all(root);
     }
 

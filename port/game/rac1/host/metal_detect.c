@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * Ratchet & Clank: the metal detector's dig, told to a mod (game_host.h,
- * openrac_game_metal_detect; interface 1.12, multiplayer: two players must not dig one pile).
+ * openrac_game_metal_detect; interface 1.14, multiplayer: two players must not dig one pile).
  *
  * Moby_MetalDetector_Update (class 585) gives a buried moby's bolts in one tick, inside its update,
  * when the button is held, the item has been out long enough, and its target (class 605, set each

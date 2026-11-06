@@ -66,6 +66,8 @@ uint32_t rac1_sim_digest(int level);
  * flight between planets plays (DoSpaceTransition), with the space scene's mobys in place of the
  * level's: nothing of the level may be read or written then. */
 int rac1_level_running(void);
+/* The on-screen pad's context (touch.c; game_host.h, openrac_game_touch). */
+int rac1_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]);
 
 /* hero_place.c: the hero put somewhere by a mod, from the end of the tick's moby loop (asked by
  * play.c's table), and whether he stands where another could be put beside him. */
@@ -201,7 +203,7 @@ gaddr rac1_updating_moby(void);
  * whether a moby is an actor of the scene playing (world.c's listing). */
 int32_t rac1_scene_playing(int32_t* frame);
 int rac1_scene_start(int32_t scene);
-/* camera_script.c: the game's camera scripts for the mods (interface 1.12; play.c's table), and
+/* camera_script.c: the game's camera scripts for the mods (interface 1.14; play.c's table), and
  * what ends or shows one at the end of the tick's moby loop. */
 void rac1_camera_script_tick(void);
 void rac1_camera_script_free_hero(void);

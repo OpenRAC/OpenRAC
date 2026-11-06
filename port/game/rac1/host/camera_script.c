@@ -3,7 +3,7 @@
 
 /*
  * Ratchet & Clank: the game's camera scripts for the mods (game_host.h, openrac_game_play's
- * camera_script_*; interface 1.12, multiplayer).
+ * camera_script_*; interface 1.14, multiplayer).
  *
  * How the game plays one. There is no list of scripts: any moby's update calls CameraScript
  * (func_L00_002EBF50, US FUN_L00_002eaaa0) with an eye, a rotation and a mode, which puts the camera

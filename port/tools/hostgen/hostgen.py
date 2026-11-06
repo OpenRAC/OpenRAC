@@ -27,6 +27,7 @@ import argparse
 import hashlib
 import json
 import os
+import pickle
 import re
 import shutil
 import subprocess
@@ -39,6 +40,7 @@ sys.path.insert(1, str(next(p for p in Path(__file__).resolve().parents if (p / 
 from openrac_common import tables  # noqa: E402
 
 import asmc  # noqa: E402
+import asmext  # noqa: E402
 import clangast  # noqa: E402
 import derived  # noqa: E402
 import ctype  # noqa: E402
@@ -943,6 +945,12 @@ def parse_arguments(argv: list[str] | None) -> argparse.Namespace:
                     help="the same from the executable itself (and --retail-dump, the level dumps)")
     ap.add_argument("--retail-dump", type=Path, metavar="DIR",
                     help="with --retail-exe: the level dumps (level_NN/manifest.json and its records)")
+    ap.add_argument("--asm-interface-out", type=Path, metavar="FILE",
+                    help="with the disc: write what the assembly stage gave the program (asmext.py), the "
+                         "interface a build without the disc is given")
+    ap.add_argument("--program-out", type=Path, metavar="FILE",
+                    help="the program before the assembly stage (a pickle), for asmdev.py to translate the "
+                         "assembly from a disc later without Clang")
     ap.add_argument("--asm-console", type=Path, metavar="DIR",
                     help="also write each executable function translated from assembly in the console's "
                          "form, a candidate file each in DIR (for rac1-decomp's tools/fcheck.py)")
@@ -957,6 +965,9 @@ def apply_assembly_options(cfg: dict, args: argparse.Namespace) -> None:
         cfg["asm"] = {**cfg["asm"], "enabled": args.asm == "on"}
     if args.asm_source and cfg.get("asm"):
         cfg["asm"] = {**cfg["asm"], "source": str(args.asm_source.resolve())}
+    # The port's interface for a build without the disc (asmext.py), beside hostgen.json.
+    if cfg.get("asm") and cfg["asm"].get("interface"):
+        cfg["asm"] = {**cfg["asm"], "interface_path": str((args.game.resolve().parent / cfg["asm"]["interface"]))}
     if cfg.get("asm") and (args.retail_image or args.retail_exe):
         cfg["asm"] = {**cfg["asm"], "retail": {
             k: str(v.resolve()) for k, v in (("image", args.retail_image), ("exe", args.retail_exe),
@@ -1211,16 +1222,20 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     return problems
 
 
+def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
+    """The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
+    what it calls keeps the signature it calls it by."""
+    host_dirs = [args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"]
+    return "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
+                   for p in sorted(d.glob("*.c")))
+
+
 def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> tuple[dict, dict, list[str]]:
     """Functions with no C whose assembly the game's setup wrote (hostgen.json "asm"): C from
     their instructions, so the port runs them instead of stubs (asmc.py). Before the units, so
     calls to them are matched to the signatures they are written with. Returns the stage's
     report, its results and the functions whose results were inherited from tail calls."""
-    # The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
-    # what it calls keeps the signature it calls it by.
-    host_dirs = [args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"]
-    host_text = "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
-                        for p in sorted(d.glob("*.c")))
+    host_text = port_host_text(args, cfg)
     # The results C wrappers pass on from their tail calls, before the assembly stage: a translated
     # caller reads such a wrapper's result in $v0 as the EE's did (Going Commando's menu read its
     # selection through a `void` wrapper and lost it). Only callees with C count, a function whose C
@@ -1287,6 +1302,24 @@ def stop_for_unreadable_units(reports: list[UnitReport], allow_unreadable: bool)
     return False
 
 
+class SortedPickler(pickle._Pickler):
+    """Writes sets sorted, so the same program gives the same bytes whatever the hash seed: an
+    Android copy names its part's folder by them (tools/bundle_standalone.py part_tag). The C
+    pickler writes a set in its own order and asks nothing first, hence the Python one."""
+
+    dispatch = dict(pickle._Pickler.dispatch)
+
+    def save_set(self, obj):
+        try:
+            items = sorted(obj)
+        except TypeError:
+            items = sorted(obj, key=repr)
+        self.save_reduce(type(obj), (items,), obj=obj)
+
+    dispatch[set] = save_set
+    dispatch[frozenset] = save_set
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_arguments(argv)
     cfg = load_config(args.game)
@@ -1303,7 +1336,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     # The translation is skipped when what it reads is what it last wrote from.
     digest = inputs_digest(source, args.game.resolve(), cfg, args.only + ["--allow-unreadable"] * args.allow_unreadable)
-    if is_up_to_date(out, digest, source, cfg):
+    if is_up_to_date(out, digest, source, cfg) and not (args.program_out and not args.program_out.is_file()):
         if not args.quiet:
             print(f"hostgen: {out} is up to date")
         return 0
@@ -1334,7 +1367,19 @@ def main(argv: list[str] | None = None) -> int:
     problems += index_units(program, state, units, args.jobs)
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
     problems += settle_signatures(program, cfg, source, host_sigs)
+    if args.program_out:
+        with open(args.program_out, "wb") as f:
+            SortedPickler(f, protocol=4).dump({"format": asmext.FORMAT, "program": program,
+                                               "host_text": port_host_text(args, cfg),
+                                               "title": cfg.get("title", cfg.get("name", ""))})
+    before = asmext.snapshot(program) if args.asm_interface_out else None
     asm_stage, asm_results, inherited = translate_from_assembly(program, args, cfg, source)
+    if before is not None:
+        if not asm_results:
+            print("hostgen: error: --asm-interface-out needs the disc (no function was translated from it)",
+                  file=sys.stderr)
+            return 1
+        asmext.write(args.asm_interface_out, asmext.interface(program, before))
     state["program"] = program
     with ProcessPoolExecutor(args.jobs, initializer=_init, initargs=(state,)) as ex:
         reports = list(ex.map(_lower_one, units))

@@ -476,7 +476,7 @@ static void on_pad(void* user, int port, uint8_t* report, int size) {
     }
 }
 
-/* The host's rules heard (interface 1.12): its bytes as a number, 0 for none any more. */
+/* The host's rules heard (interface 1.14): its bytes as a number, 0 for none any more. */
 static char s_big[OPENRAC_PARTY_RULES_MAX + 1];
 
 static void on_party_rules(void* user, const void* data, uint32_t size) {
@@ -574,7 +574,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         }
     }
     if (behaviour[0] == 'r') { /* rules */
-        if (api->api_minor < 12 || s_record == NULL
+        if (api->api_minor < 14 || s_record == NULL
             || api->on_party_rules(mod, on_party_rules, NULL) != 0
             || api->party_rules_publish(mod, "abc", 3, "Bolts x2") != OPENRAC_HOOK_OK
             || api->party_rules_publish(mod, s_big, sizeof s_big, "") == OPENRAC_HOOK_OK) {
@@ -583,7 +583,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         s_api = api;
     }
     if (behaviour[0]
-        == 't') { /* twelve: with no game behind them, the calls of interface 1.12 answer unknown; with no stack, no packs */
+        == 't') { /* twelve: with no game behind them, the calls of interface 1.14 answer unknown; with no stack, no packs */
         float where[3] = {0, 0, 0};
         int blocked = 0;
         openrac_stand_in stand_in = {{0, 0, 0}, 0, 0, 0, 0};
@@ -595,7 +595,7 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
         openrac_moby2 moby = {sizeof moby};
         openrac_packs_info packs = {sizeof packs, 0, 0};
         openrac_pack_entry pack = {sizeof pack, NULL, NULL, 0, NULL};
-        if (api->api_minor < 12
+        if (api->api_minor < 14
             || api->card_filter(mod, OPENRAC_CARD_PASS, "") != OPENRAC_HOOK_UNKNOWN
             || api->card_slot_hint(mod, 0) != OPENRAC_HOOK_UNKNOWN
             || api->coop_save_write(mod, 0, text, 1) != OPENRAC_HOOK_UNKNOWN
@@ -698,6 +698,13 @@ OPENRAC_MOD_EXPORT int openrac_mod_load(const openrac_api* api, openrac_mod* mod
             || api->hero_stand_in(mod, where, -1) != OPENRAC_HOOK_UNKNOWN) {
             return 15;
         }
+    }
+    if (behaviour[0] == 'c') { /* callback_only */
+        if (api->on_tick_boundary(mod, on_tick_boundary, NULL) != OPENRAC_HOOK_OK
+            || api->on_pad(mod, on_pad, NULL) != OPENRAC_HOOK_OK) {
+            return 18;
+        }
+        return 0;
     }
     if (behaviour[0] == 'g') { /* game_ui */
         static const char* const letters[] = {"A", "B", "C"};

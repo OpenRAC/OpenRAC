@@ -14,6 +14,8 @@ export function phaseLabel(job: Pick<Job, "actionId" | "state" | "startedAt">, n
   switch (id) {
     case "port-build":
       return "Building the game for this computer";
+    case "port-part":
+      return "Building the game from your disc";
     case "port-levels":
       return "Reading the levels from your disc";
     case "port-levels-check":

@@ -20,6 +20,9 @@ struct Pvs {
     std::vector<std::uint8_t> grid;
     Mask previous{};
     bool has_previous = false;
+    // The game's own mask this tick, when the game exposes it: outside the grid a level's code
+    // picks the fallback (Drek's Fleet's fighter uses octant masks), so it wins there.
+    std::optional<Mask> game;
 
     static Mask all_visible() {
         Mask mask;
@@ -46,6 +49,9 @@ struct Pvs {
             previous = *mask;
             has_previous = true;
             return *mask;
+        }
+        if (game) {
+            return *game;
         }
         return has_previous ? previous : all_visible();
     }

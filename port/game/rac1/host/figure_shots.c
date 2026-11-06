@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * Ratchet & Clank: the shots a figure fires (game_host.h, openrac_game_play; interfaces 1.9, 1.12).
+ * Ratchet & Clank: the shots a figure fires (game_host.h, openrac_game_play; interfaces 1.9, 1.14).
  * Shots are shown only: damage is the shooter's game's to tell, and a late shot is dropped by the
  * mod. figure_tracks.h has the table of what each item shows.
  *

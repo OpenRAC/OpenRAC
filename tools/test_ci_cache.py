@@ -29,10 +29,50 @@ def cache_settings(step):
     return step.split("      with:\n")[1].split("    #")[0].rstrip()
 
 
+@unittest.skipUnless(shutil.which("cmake") and shutil.which("ninja"), "CMake and Ninja required")
+class DependencySourceRestore(unittest.TestCase):
+    def test_restored_source_bypasses_fetch_and_missing_source_still_downloads(self):
+        """Fresh configure can use a source-only cache with no FetchContent build state."""
+        module = ROOT / "port/cmake/CiDependencySources.cmake"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            build = root / "build"
+            restored = build / "_deps/restored-src"
+            restored.mkdir(parents=True)
+            (restored / "CMakeLists.txt").write_text("add_library(restored INTERFACE)\n")
+            payload = root / "CMakeLists.payload"
+            payload.write_text("add_library(missing INTERFACE)\n")
+            archive = root / "dependency.tar"
+            with tarfile.open(archive, "w") as stream:
+                stream.add(payload, arcname="CMakeLists.txt")
+            (root / "CMakeLists.txt").write_text(f'''
+cmake_minimum_required(VERSION 3.24)
+project(SourceRestore NONE)
+include("{module.as_posix()}")
+include(FetchContent)
+FetchContent_Declare(restored URL "{(root / 'unavailable.tar').as_posix()}")
+FetchContent_Declare(missing URL "{archive.as_posix()}")
+FetchContent_MakeAvailable(restored missing)
+if(NOT TARGET restored OR NOT TARGET missing)
+  message(FATAL_ERROR "Both cached and uncached sources are required")
+endif()
+''', encoding="utf-8")
+            for _ in range(2):
+                result = subprocess.run(
+                    ["cmake", "-G", "Ninja", "-S", str(root), "-B", str(build)],
+                    capture_output=True, text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse((build / "_deps/restored-subbuild").exists())
+            self.assertTrue((build / "_deps/missing-src/CMakeLists.txt").is_file())
+            cache = (build / "CMakeCache.txt").read_text(encoding="utf-8")
+            self.assertNotIn("FETCHCONTENT_SOURCE_DIR_RESTORED:PATH=", cache)
+
+
 class CachePolicy(unittest.TestCase):
     def test_native_compiler_caches_do_not_save_pr_private_snapshots(self):
         """Checks and launcher builds share the success-only compiler cache policy."""
-        for name, count in (("checks.yml", 5), ("launcher.yml", 1)):
+        for name, count in (("checks.yml", 4), ("launcher.yml", 1)):
             text = (ROOT / ".github/workflows" / name).read_text()
             self.assertEqual(count, text.count("uses: ./.github/actions/compiler-cache"), name)
             self.assertNotIn("uses: hendrikmuhs/ccache-action@", text, name)
@@ -76,15 +116,36 @@ class CachePolicy(unittest.TestCase):
         """PRs restore the same preparation as branch builds, through a read-only action."""
         text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
         steps = re.split(r"(?m)^    - ", text)
+        preparation = [step for step in steps if "key: prep-v3-" in step]
+        self.assertEqual(2, len(preparation))
+        write = next(step for step in preparation if "uses: actions/cache@" in step)
+        read = next(step for step in preparation if "uses: actions/cache/restore@" in step)
+        self.assertIn("github.event_name != 'pull_request'", write)
+        self.assertIn("github.event_name == 'pull_request'", read)
+        self.assertEqual(cache_settings(write), cache_settings(read))
+        self.assertIn("outputs.fingerprint", read)
+        self.assertIn(".github/workflows/checks.yml", read)
+        self.assertNotIn("games/*/gen", read)
+        self.assertNotIn("hashFiles('games/**',", read)
+        self.assertNotIn("/_deps/", read)
+
+    def test_dependency_source_key_covers_the_pins(self):
+        """A workflow edit keeps sources reusable while a dependency declaration changes the key."""
+        text = (ROOT / ".github/actions/port-build-cache/action.yml").read_text()
+        steps = [step for step in re.split(r"(?m)^    - ", text) if "key: port-sources-v1-" in step]
+        self.assertEqual(2, len(steps))
         write = next(step for step in steps if "uses: actions/cache@" in step)
         read = next(step for step in steps if "uses: actions/cache/restore@" in step)
         self.assertIn("github.event_name != 'pull_request'", write)
         self.assertIn("github.event_name == 'pull_request'", read)
         self.assertEqual(cache_settings(write), cache_settings(read))
-        self.assertIn("key: prep-v2-", read)
-        self.assertNotIn("games/*/gen", read)
-        self.assertNotIn("hashFiles('games/**',", read)
-        self.assertIn("!port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src", read)
+        self.assertIn("/_deps/*-src", read)
+        for unrelated in ("CMakeCache.txt", "-subbuild", "checks.yml", "outputs.fingerprint",
+                          "restore-keys:"):
+            self.assertNotIn(unrelated, read)
+        for cmake in (ROOT / "port").glob("cmake/*.cmake"):
+            if re.search(r"(?im)^\s*FetchContent_Declare\(", cmake.read_text(encoding="utf-8")):
+                self.assertIn(cmake.relative_to(ROOT).as_posix(), read)
 
     def test_hostgen_restore_is_independent_and_always_validated(self):
         """Only generated text is restored, without a Ninja stamp that could bypass validation."""
