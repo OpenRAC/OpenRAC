@@ -1152,7 +1152,8 @@ fn program_marks(serial: &str) -> &'static [&'static str] {
     match serial {
         "SCES_509.16" => &["openrac-rac1-pal", "Ratchet & Clank (PAL)"],
         "SCUS_971.99" => &["openrac-rac1-ntsc", "Ratchet & Clank (NTSC)"],
-        "SCUS_972.68" => &["openrac-rac2-ntsc", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCUS_972.68" => &["openrac-rac2-ntsc", "openrac-rac2-ntsc2", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCES_516.07" => &["openrac-rac2-pal", "Ratchet & Clank - Going Commando (PAL)"],
         _ => &[],
     }
 }

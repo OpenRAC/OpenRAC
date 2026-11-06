@@ -95,11 +95,13 @@ pub fn state(install: &Path, game: &str) -> InstallState {
     InstallState { decompiled: filled("decompiler_out"), compiled: filled("out"), extracted, dir }
 }
 
-/// The disc image the extractor kept for `serial`, if this game was set up from that version.
-pub fn disc_image(install: &Path, game: &str, serial: &str) -> Option<PathBuf> {
+/// The disc image the extractor kept for version `version` (`rac1/pal`), if this game was set up
+/// from that version: by the version, not the serial, which two releases can share (Going
+/// Commando's v1.01 and v2.00).
+pub fn disc_image(install: &Path, game: &str, version: &str) -> Option<PathBuf> {
     let state = state(install, game);
     let image = state.dir.join("iso_data").join(game).join("disc.iso");
-    (state.extracted?.serial == serial && image.is_file()).then_some(image)
+    (state.extracted?.version == version && image.is_file()).then_some(image)
 }
 
 /// The job that extracts and validates `image` for `game`: OpenGOAL's
@@ -261,15 +263,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let install = dir.path();
         assert_eq!(state(install, "rac1").extracted, None);
-        assert_eq!(disc_image(install, "rac1", "SCES_509.16"), None);
+        assert_eq!(disc_image(install, "rac1", "rac1/pal"), None);
 
         extracted(install, "rac1", "SCES_509.16");
         let got = state(install, "rac1");
         assert_eq!(got.extracted.as_ref().unwrap().serial, "SCES_509.16");
         assert_eq!(got.extracted.as_ref().unwrap().elf_sha1, "ab");
         assert!(!got.decompiled && !got.compiled);
-        assert!(disc_image(install, "rac1", "SCES_509.16").is_some());
-        assert_eq!(disc_image(install, "rac1", "SCUS_971.99"), None);
+        assert!(disc_image(install, "rac1", "rac1/pal").is_some());
+        assert_eq!(disc_image(install, "rac1", "rac1/ntsc"), None);
 
         let keep = data_dir(install, "rac1").join("saves");
         std::fs::create_dir_all(&keep).unwrap();

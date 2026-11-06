@@ -107,8 +107,8 @@ interface RawAction {
 interface RawVersion {
   region?: string;
   serial?: string;
-  disc?: { file: string; size?: number; sha1?: string };
-  boot?: { file: string; size?: number; sha1?: string };
+  disc?: { file: string; size?: number; sha1?: string; version?: string };
+  boot?: { file: string; size?: number; sha1?: string; version?: string };
   inputs?: { from: string; path: string; target?: string }[];
   target?: string;
   setup?: string;
@@ -523,8 +523,22 @@ function library(): Library {
           region: v.region ?? "",
           serial: v.serial ?? "",
           dir: `games/${g.id}/${name}`,
-          disc: v.disc ? { file: v.disc.file, size: v.disc.size ?? null, sha1: v.disc.sha1 ?? null } : null,
-          boot: v.boot ? { file: v.boot.file, size: v.boot.size ?? null, sha1: v.boot.sha1 ?? null } : null,
+          disc: v.disc
+            ? {
+                file: v.disc.file,
+                size: v.disc.size ?? null,
+                sha1: v.disc.sha1 ?? null,
+                version: v.disc.version ?? null,
+              }
+            : null,
+          boot: v.boot
+            ? {
+                file: v.boot.file,
+                size: v.boot.size ?? null,
+                sha1: v.boot.sha1 ?? null,
+                version: v.boot.version ?? null,
+              }
+            : null,
           inputs: (v.inputs ?? []).map((i) => ({ from: i.from, path: i.path, target: i.target ?? null })),
           target: v.target ?? null,
           setup: v.setup ?? null,
