@@ -95,6 +95,10 @@ Everything else is exactly as it was at that commit.
   rebuilt to rac1-decomp's structure, so it was imported afresh at that commit.
 - `ports/pal-functional/` (platypet2217-star's RAC2Decomp, MIT) comes along unchanged; it is
   not part of the matching sources or progress.
+- The same tree builds the PAL release and v2.00 (rac2-decomp's `--version pal` and `us2`:
+  `src/pal/`, `src/us2/`, `config/pal/`, `config/us2/`). `rac2/pal` and `rac2/ntsc2` in game.json
+  name this tree (`"dir"`) and share its source (`"shared": "ntsc"`): they are not synced on their
+  own, and a sync of rac2/ntsc records its commit for them too.
 
 **rac5/ntsc**
 - Nothing changed: imported as the project's commit, whole. It already states the sourcing

@@ -14,8 +14,8 @@ their levels can be exported for inspection, but packing edits back into those
 games is not supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
-Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's, Up
-Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
+Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's three
+discs and Up Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).
 
@@ -910,8 +910,8 @@ the formats and the evidence for them.
 
 ## The later games (early access)
 
-Going Commando (`SCUS_972.68` v1.01), Up Your Arsenal (`SCUS_973.53`) and
-Deadlocked (`SCUS_974.65`), NTSC-U. Their levels are the first game's
+Going Commando (`SCUS_972.68` v1.01 and v2.00, `SCES_516.07` v1.00), Up Your
+Arsenal (`SCUS_973.53`) and Deadlocked (`SCUS_974.65`, both NTSC-U). Their levels are the first game's
 format with a few differences, read by the same readers through a table of
 what each game changes ([games.py](games.py); the formats, and what was
 checked on each disc, are in
@@ -930,7 +930,11 @@ python3 editor/assets.py import build/uya-export --levels assets/port/rac3/ntsc 
 ```
 
 The disc is told apart by the executable `SYSTEM.CNF` boots, as for the
-first game. A level is numbered as the game numbers it (its level header's
+first game; Going Commando's v1.01 and v2.00 both boot `SCUS_972.68` and are
+told apart by its size and SHA-1 (`wads.identify`). Its three discs hold the
+same table of contents layout and the same levels but for a few files, and go
+through the same readers: only the executable's normal table moves (v2.00's is
+at `0x238E80`). A level is numbered as the game numbers it (its level header's
 number), so the folders have gaps: Going Commando 0–20, 22–26 and 30 (the
 Insomniac Museum); Up Your Arsenal 1–55 but for 15, 25, 37 and 38;
 Deadlocked 0–74 with its multiplayer maps and split-screen copies. The
