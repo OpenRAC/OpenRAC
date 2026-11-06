@@ -46,6 +46,79 @@ ImU32 control_fill_hi() {
     return ui().control_card_hi;
 }
 
+void control_edge(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float alpha) {
+    const float half = 0.5f;
+    list->AddRect(
+        ImVec2(a.x + half, a.y + half),
+        ImVec2(b.x - half, b.y - half),
+        ui_colors::fade(ui().amber, 0.35f * alpha),
+        round,
+        ImDrawFlags_None,
+        1.0f
+    );
+}
+
+namespace {
+
+// `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it
+// (`above`) or below: one step of clipping a convex shape to a band.
+void cut(const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float top, float at, bool above) {
+    out.resize(0);
+    const auto side = [&](ImVec2 p) {
+        const float v = p.x + (p.y - top) * lean - at;
+        return above ? v : -v;
+    };
+    for (int i = 0; i < in.Size; ++i) {
+        const ImVec2 p = in[i];
+        const ImVec2 q = in[(i + 1) % in.Size];
+        const float sp = side(p);
+        const float sq = side(q);
+        if (sp >= 0.0f) {
+            out.push_back(p);
+        }
+        if ((sp >= 0.0f) != (sq >= 0.0f)) {
+            const float k = sp / (sp - sq);
+            out.push_back(ImVec2(p.x + (q.x - p.x) * k, p.y + (q.y - p.y) * k));
+        }
+    }
+}
+
+}  // namespace
+
+void striped_rect(
+    ImDrawList* list, ImVec2 a, ImVec2 b, float round, ImU32 one, ImU32 two, ImVec2 origin,
+    float alpha
+) {
+    if (alpha <= 0.0f || b.x <= a.x || b.y <= a.y) {
+        return;
+    }
+    list->AddRectFilled(a, b, ui_colors::fade(one, alpha), round);
+    const float band = dp(20.0f);
+    const float period = band * 2.0f;
+    const float lean = std::tan(35.0f * 3.14159265f / 180.0f);
+    // The shape's outline, its corners rounded as the fill's; each band of `two` is cut from it.
+    list->PathRect(a, b, round);
+    ImVector<ImVec2> shape;
+    shape.swap(list->_Path);
+    list->PathClear();
+    const float low = a.x + (a.y - origin.y) * lean;
+    const float high = b.x + (b.y - origin.y) * lean;
+    ImVector<ImVec2> half;
+    ImVector<ImVec2> piece;
+    const ImU32 ink = ui_colors::fade(two, alpha);
+    for (float at = origin.x + std::floor((low - origin.x) / period) * period + band; at < high;
+         at += period) {
+        cut(shape, half, lean, origin.y, at, true);
+        if (half.Size < 3) {
+            continue;
+        }
+        cut(half, piece, lean, origin.y, at + band, false);
+        if (piece.Size >= 3) {
+            list->AddConvexPolyFilled(piece.Data, piece.Size, ink);
+        }
+    }
+}
+
 float tween(ImGuiID id, float target, float seconds) {
     auto [at, made] = s.tweens.try_emplace(id, target);
     float& v = at->second;
@@ -341,8 +414,10 @@ void card_end() {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const ImVec2 end(s.card.top.x + s.card.width, ImGui::GetCursorScreenPos().y);
     list->ChannelsSetCurrent(0);
-    // A card is a fill with no frame, 12 px corners.
-    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(12.0f));
+    // A card has no frame: faint diagonal stripes, laid on the screen, 12 px corners.
+    striped_rect(
+        list, s.card.top, end, dp(12.0f), ui().panel_hi_stripe, ui().panel_hi, ImVec2(0.0f, 0.0f)
+    );
     list->ChannelsMerge();
 }
 

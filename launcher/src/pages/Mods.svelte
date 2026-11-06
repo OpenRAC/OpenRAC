@@ -507,7 +507,7 @@
     gap: 4px 10px;
     margin: 0;
     padding: 10px 16px;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
@@ -534,6 +534,7 @@
     gap: 8px;
     border: 0;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -599,6 +600,7 @@
     gap: 6px;
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
     color: var(--amber);

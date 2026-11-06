@@ -449,7 +449,7 @@
     width: 34px;
     height: 34px;
     border-radius: 999px;
-    background: var(--control);
+    background: var(--ink-deep);
     color: var(--lav);
   }
 
@@ -561,7 +561,7 @@
     gap: 6px;
     padding: 12px 14px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     font-size: 0.875rem;
@@ -606,6 +606,7 @@
     font: inherit;
     font-size: 0.875rem;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 7px 12px;
@@ -646,6 +647,7 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
     color: var(--amber);

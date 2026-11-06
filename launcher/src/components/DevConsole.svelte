@@ -165,6 +165,7 @@
     font-size: 0.75rem;
     padding: 3px 10px;
     background: transparent;
+    box-shadow: none;
     color: var(--soft);
   }
 
@@ -185,13 +186,14 @@
     text-align: left;
     border-radius: var(--radius-sm);
     background: transparent;
+    box-shadow: none;
     padding: 9px 11px;
     font-weight: 400;
     flex: none;
   }
 
   .job.on {
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     background: var(--on-fill);

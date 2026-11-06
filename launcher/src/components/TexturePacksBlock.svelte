@@ -243,7 +243,7 @@
     padding: 3px 10px;
     font-size: 0.8125rem;
     color: var(--lav);
-    background: var(--control);
+    background: var(--ink-deep);
     border-radius: var(--radius-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -267,7 +267,7 @@
     margin: 4px 0 0;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;

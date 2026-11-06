@@ -98,7 +98,7 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
@@ -132,6 +132,7 @@
     padding: 0 10px;
     border-radius: var(--radius-sm);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--soft);
   }
 
@@ -145,6 +146,7 @@
     min-width: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 9px 0;
     color: var(--text);
     outline: none;
@@ -157,6 +159,7 @@
   .clear {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 4px;
     color: var(--soft);
   }
@@ -174,6 +177,7 @@
     gap: 6px;
     border: 0;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     padding: 6px 12px;
     font-size: 0.8125rem;
     font-weight: 600;

@@ -25,9 +25,11 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
 // app.css's tokens the menu (the drawer, the desktop's bar and window) draws with, under their
 // names there. A game's accent (the launcher's palettes.json) sets the bar's and the accent's.
 struct Colors {
-    Color ink_deep = rgba(0x0c, 0x0c, 0x12);      // --ink-deep: under everything; a switch's track
-    Color panel = rgba(0x1d, 0x1d, 0x27);         // --panel: the drawer
-    Color panel_hi = rgba(0x23, 0x23, 0x2f);      // --panel-hi: its cards
+    Color ink_deep = rgba(0x05, 0x05, 0x05);      // --ink-deep: under everything; a switch's track
+    Color panel = rgba(0x12, 0x12, 0x12);         // --panel: the drawer
+    Color panel_stripe = rgba(0x15, 0x15, 0x15);  // --panel-stripe
+    Color panel_hi = rgba(0x19, 0x19, 0x19);      // --panel-hi: its cards, striped with
+    Color panel_hi_stripe = rgba(0x1c, 0x1c, 0x1c);  // --panel-hi-stripe
     Color brand = rgba(0xd6, 0xa0, 0x20);         // --brand: small labels
     Color bar_top = rgba(0xe5, 0xa0, 0x13);       // --bar-top, --bar-bottom: the bar's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);    //   gradient (the menu draws none now)
@@ -44,10 +46,10 @@ struct Colors {
     Color line_strong = rgba(255, 255, 255, 41);  // --line-strong
     Color err = rgba(0xff, 0x8a, 0x7a);           // --err: Quit
     // Control fills (launcher/docs/STYLE.md): no border, picked against what is behind them.
-    Color control = rgba(0x1d, 0x1b, 0x2a);          // --control: on the bar and the page
-    Color control_hi = rgba(0x29, 0x25, 0x3b);       // --control-hi: under the pointer
-    Color control_card = rgba(0x12, 0x12, 0x12);     // --control-card: on a panel or a card
-    Color control_card_hi = rgba(0x1e, 0x1e, 0x1e);  // --control-card-hi
+    Color control = rgba(0x12, 0x12, 0x12);          // --control: on black
+    Color control_hi = rgba(0x1e, 0x1e, 0x1e);       // --control-hi: under the pointer
+    Color control_card = rgba(0x1d, 0x1b, 0x2a);     // --control-card: on a panel or a card (navy)
+    Color control_card_hi = rgba(0x29, 0x25, 0x3b);  // --control-card-hi
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME

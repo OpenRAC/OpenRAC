@@ -181,6 +181,7 @@
     font-weight: 600;
     color: var(--text);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-bottom-width: 3px;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -204,6 +205,7 @@
 
   .cap.empty {
     background: transparent;
+    box-shadow: none;
     border-style: dashed;
     border-bottom-width: 1px;
   }
@@ -213,6 +215,7 @@
     font-weight: 500;
     color: var(--bar-ink);
     background: var(--amber);
+    box-shadow: none;
     background: var(--on-fill);
     animation: pulse 1.2s ease-in-out infinite;
   }
@@ -237,6 +240,7 @@
     line-height: 1;
     color: var(--soft);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-left: none;
     border-bottom-width: 3px;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;

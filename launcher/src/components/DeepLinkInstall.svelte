@@ -263,7 +263,7 @@
     width: 100%;
     max-width: 560px;
     max-height: 100%;
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
@@ -284,7 +284,7 @@
     gap: 12px;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -435,7 +435,7 @@
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }

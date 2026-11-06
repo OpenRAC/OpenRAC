@@ -52,6 +52,7 @@
   button {
     border: 0;
     background: none;
+    box-shadow: none;
     font-size: 0.8125rem;
     color: var(--tx2);
     padding: 5px 14px;

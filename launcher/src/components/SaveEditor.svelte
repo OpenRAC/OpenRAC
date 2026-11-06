@@ -807,7 +807,7 @@
     width: 100%;
     max-width: 980px;
     height: calc(100vh - 48px);
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
@@ -825,7 +825,7 @@
   .head,
   .foot {
     padding: 16px 22px;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -870,6 +870,7 @@
     margin-left: 7px;
     border-radius: 50%;
     background: var(--amber);
+    box-shadow: none;
     vertical-align: middle;
   }
 
@@ -911,7 +912,7 @@
     overflow-y: auto;
     padding: 4px;
     border-radius: var(--radius-sm);
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -997,6 +998,7 @@
     margin: 0 -22px;
     padding: 8px 18px;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-bottom: 1px solid var(--line);
   }
 
@@ -1027,7 +1029,7 @@
     padding: 10px 12px;
     font-size: 0.8125rem;
     color: var(--text);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
@@ -1093,6 +1095,7 @@
     font-size: 0.8125rem;
     padding: 4px 14px;
     background: transparent;
+    box-shadow: none;
     color: var(--soft);
   }
 
@@ -1106,6 +1109,7 @@
     font: inherit;
     font-size: 0.875rem;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -1130,6 +1134,7 @@
     font-variant-numeric: tabular-nums;
     width: 130px;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -1168,6 +1173,7 @@
     cursor: pointer;
     color: var(--soft);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
   }
 
   .choice input {
@@ -1292,6 +1298,7 @@
   .goldbolt.on {
     color: var(--bar-ink-deep);
     background: var(--gold);
+    box-shadow: none;
     background: var(--on-fill);
   }
 
@@ -1326,6 +1333,7 @@
   .skill.on {
     color: var(--bar-ink-deep);
     background: var(--amber);
+    box-shadow: none;
     background: var(--on-fill);
   }
 

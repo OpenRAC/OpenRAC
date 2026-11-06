@@ -99,6 +99,7 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
     text-align: left;

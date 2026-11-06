@@ -211,7 +211,7 @@
     z-index: 1;
     width: 100%;
     max-width: 560px;
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
@@ -227,7 +227,7 @@
     justify-content: space-between;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -249,6 +249,7 @@
 
   .close-btn {
     background: transparent;
+    box-shadow: none;
     border: none;
     color: var(--dim);
     font-size: 1.125rem;
@@ -417,13 +418,14 @@
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
 
   .btn-cancel {
     background: transparent;
+    box-shadow: none;
     color: var(--soft);
     padding: 8px 18px;
     border-radius: var(--radius-sm);

@@ -640,7 +640,7 @@
     margin-top: 12px;
     padding: 6px 14px;
     border-radius: var(--radius-sm);
-    background: rgb(255 255 255 / 0.05);
+    background: var(--ink-deep);
     font-size: 0.875rem;
     color: var(--soft);
   }
@@ -754,6 +754,7 @@
     min-height: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--amber);
     font-weight: 600;
   }
@@ -772,6 +773,7 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: 7px;
     padding: 3px 9px;
     white-space: nowrap;

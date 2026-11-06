@@ -216,7 +216,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: var(--control);
+    background: var(--ink-deep);
     color: var(--soft);
   }
 
@@ -268,6 +268,7 @@
     height: 100%;
     border-radius: 999px;
     background: var(--amber);
+    box-shadow: none;
     transition: width 0.4s;
   }
 

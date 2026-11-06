@@ -8,10 +8,16 @@
 
 :root {
   /* The site's @theme colours. */
-  --ink: #12121a;
-  --ink-deep: #0c0c12;
-  --panel: #1d1d27;
-  --panel-hi: #23232f;
+  --ink: #0a0a0a;
+  --ink-deep: #050505;
+  /* Cards and panels: faint diagonal stripes, 35deg, 20 px bands, --panel-stripe on --panel
+     (hover or open: the -hi pair). A theme sets the four colours; --card and --card-hi lay them. */
+  --panel: #121212;
+  --panel-stripe: #151515;
+  --panel-hi: #191919;
+  --panel-hi-stripe: #1c1c1c;
+  --card: repeating-linear-gradient(35deg, var(--panel-stripe) 0 20px, var(--panel) 20px 40px);
+  --card-hi: repeating-linear-gradient(35deg, var(--panel-hi-stripe) 0 20px, var(--panel-hi) 20px 40px);
   --brand: #d6a020;
   --amber: #f5c040;
   --gold: #ffe08f;
@@ -38,16 +44,22 @@
   --on-game: #fff;
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
-  /* Control fills (STYLE.md, "Control fills"): buttons, fields, chips and tabs have a solid fill
-     and no border, picked against what is behind them. On the page (#12121a, near #121212) they
-     are navy; on a card (--panel, navy) they are #121212. A surface sets --control from the card
-     pair; a theme (palettes.json) sets both pairs. */
-  --control: #1d1b2a;
-  --control-hi: #29253b;
-  --control-card: #121212;
-  --control-card-hi: #1e1e1e;
-  --on-fill: color-mix(in srgb, var(--amber) 22%, transparent);
-  --on-fill-hi: color-mix(in srgb, var(--amber) 28%, transparent);
+  /* Control fills (STYLE.md, "Control fills"): picked against what is behind them. On the page
+     (black) a control is #121212; on a card (#121212) it is navy. A card sets --control from the
+     card pair; a theme (palettes.json) sets both pairs. */
+  --control: #121212;
+  --control-hi: #1e1e1e;
+  --control-card: #1d1b2a;
+  --control-card-hi: #29253b;
+  /* A control's 1 px gold edge, the accent at 35 %; none on the main button, ghost buttons, the
+     bar's buttons and rows of a list. */
+  --edge: color-mix(in srgb, var(--amber) 35%, transparent);
+  /* On or picked: a gold tint on the page's black, with gold text. */
+  --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
+  --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
+  /* The bar's buttons: the bar's stripes continued in coal, laid on the window so they line up. */
+  --coal-stripes: repeating-linear-gradient(35deg, #181818 0 20px, #121212 20px 40px) fixed;
+  --coal-stripes-hi: repeating-linear-gradient(35deg, #252525 0 20px, #1f1f1f 20px 40px) fixed;
   /* States. The site has none; these sit with its palette. */
   --ok: #8fd694;
   /* Its own amber, not var(--amber): a game's accent (themes.ts) changes that one. */
@@ -288,8 +300,8 @@ code,
 }
 
 .panel {
-  /* No frame: its fill, a little lighter than the page, sets it apart. */
-  background: var(--panel);
+  /* No frame: faint diagonal stripes, a little lighter than the page, set it apart. */
+  background: var(--card);
   --control: var(--control-card);
   --control-hi: var(--control-card-hi);
   border-radius: var(--radius);
@@ -312,6 +324,8 @@ button,
   border-radius: var(--radius-sm);
   border: 0;
   background: var(--control);
+  /* The gold edge, drawn inside so it takes no room. */
+  box-shadow: inset 0 0 0 1px var(--edge);
   color: var(--text);
   min-height: 40px;
   padding: 8px 16px;
@@ -328,7 +342,7 @@ button,
     transform var(--fast) var(--ease);
 }
 
-/* On or picked (a filter in use, a choice made): a gold tint and gold text, never a gold border. */
+/* On or picked (a filter in use, a choice made): a gold tint and gold text; the edge stays. */
 button[aria-pressed="true"],
 button[data-on] {
   background: var(--on-fill);
@@ -406,6 +420,7 @@ button.pad-press:not(:disabled),
 button.primary,
 .button.primary {
   background: var(--amber);
+  box-shadow: none;
   color: var(--bar-ink-deep);
 }
 
@@ -413,18 +428,20 @@ button.primary,
   html:where(:not([data-input="pad"])) button.primary:hover:not(:disabled),
   html:where(:not([data-input="pad"])) .button.primary:hover {
     background-color: var(--gold);
+    box-shadow: none;
   }
 }
 
 /* A quiet button beside a main one: no fill until hovered. */
 button.ghost {
   background: transparent;
+  box-shadow: none;
   color: var(--soft);
 }
 
 @media (hover: hover) {
   html:where(:not([data-input="pad"])) button.ghost:hover:not(:disabled) {
-    background: rgb(255 255 255 / 0.06);
+    background: var(--control);
     color: var(--text);
   }
 }
@@ -446,6 +463,7 @@ select {
   color: var(--text);
   background-color: var(--control);
   border: 0;
+  box-shadow: inset 0 0 0 1px var(--edge);
   border-radius: var(--radius-sm);
   transition:
     background-color var(--fast),
@@ -578,6 +596,7 @@ input.switch::before {
 /* On: the accent's fill, its knob in the dark of text on gold. */
 input.switch:checked {
   background: var(--amber);
+  box-shadow: none;
 }
 
 input.switch:checked::before {
@@ -598,12 +617,14 @@ input.switch:disabled {
   gap: 2px;
   border-radius: var(--radius-sm);
   background: var(--control);
+  box-shadow: inset 0 0 0 1px var(--edge);
 }
 
 .segmented button {
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
+  box-shadow: none;
   color: var(--soft);
   font-size: 0.8125rem;
   min-height: 36px;
@@ -776,7 +797,7 @@ ol.steps .span {
   height: 14px;
   overflow: hidden;
   border-radius: 7px;
-  background: rgb(255 255 255 / 0.1);
+  background: var(--ink-deep);
 }
 
 .bar > i {
@@ -1007,6 +1028,7 @@ html[data-motion="slides"] :is(.page > :is(section, .panel, h1), .tile.rise) {
   display: block;
   height: 100%;
   background: var(--amber);
+  box-shadow: none;
   transition: width var(--fast) var(--ease);
 }
 
@@ -1130,7 +1152,7 @@ html[data-platform="android"] :is(input[type="text"], input[type="search"], inpu
 .dragging {
   position: relative;
   z-index: 2;
-  background: var(--panel-hi);
+  background: var(--card-hi);
   --control: var(--control-card);
   --control-hi: var(--control-card-hi);
   border-radius: var(--radius-sm);

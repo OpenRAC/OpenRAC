@@ -43,6 +43,7 @@
     min-height: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: inherit;
     text-align: left;
   }
@@ -67,7 +68,7 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     color: var(--lav);

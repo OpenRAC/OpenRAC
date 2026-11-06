@@ -209,6 +209,7 @@
   button {
     border: 0;
     background: none;
+    box-shadow: none;
     color: inherit;
     padding: 0;
     min-height: 0;
@@ -283,8 +284,7 @@
     bottom: 0;
     left: 0;
     border-radius: var(--radius-sm);
-    background: var(--bar-ink-deep);
-    box-shadow: 0 4px 14px rgb(0 0 0 / 0.28);
+    background: var(--coal-stripes-hi);
     opacity: 0;
   }
 
@@ -305,16 +305,17 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    height: 36px;
-    min-height: 36px;
+    height: 34px;
+    min-height: 34px;
     border-radius: var(--radius-sm);
     padding: 0 14px 0 12px;
     font-size: 0.9375rem;
     /* Heavier than the page's text, to stand beside the logo's strokes. */
     font-weight: 600;
-    /* A button of its own on the gold, as the site's bar has them: umber, light text. */
-    background: var(--control);
-    color: var(--text);
+    /* A button of its own on the gold, as the site's bar has them: the bar's stripes continued in
+       coal, gold text, no edge (the gold bar is its edge). */
+    background: var(--coal-stripes);
+    color: var(--amber);
     transition:
       color var(--medium) var(--ease),
       background var(--fast) var(--ease);
@@ -323,16 +324,18 @@
   /* The open one lets the darker chip under it show (the slider, which moves from tab to tab). */
   .tab.on {
     background: transparent;
+    box-shadow: none;
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on) {
-      background: var(--control-hi);
+      background: var(--coal-stripes-hi);
     }
   }
 
+  /* The open one: the lighter stripes (the slider), light gold text. */
   .tab.on {
-    color: var(--amber);
+    color: var(--gold);
   }
 
   .count {
@@ -349,6 +352,7 @@
 
   .tab.on .count {
     background: var(--amber);
+    box-shadow: none;
     color: var(--bar-ink-deep);
   }
 
@@ -357,10 +361,10 @@
     max-width: 280px;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: var(--text);
-    background: var(--control);
+    color: var(--amber);
+    background: var(--coal-stripes);
     border-radius: var(--radius-sm);
-    height: 36px;
+    height: 34px;
     padding: 0 12px;
     animation: rise var(--medium) var(--ease) both;
   }
@@ -398,11 +402,11 @@
   .discord {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: var(--radius-sm);
-    background: var(--control);
-    color: var(--text);
+    background: var(--coal-stripes);
+    color: var(--amber);
     transition:
       background var(--fast) var(--ease),
       color var(--fast) var(--ease);
@@ -415,8 +419,8 @@
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .site:hover,
     :global(html:where(:not([data-input="pad"]))) .discord:hover {
-      background: var(--control-hi);
-      color: var(--amber);
+      background: var(--coal-stripes-hi);
+      color: var(--gold);
     }
 
     :global(html:where(:not([data-input="pad"]))) .discord:hover .mark {
@@ -426,18 +430,19 @@
 
   .site:active,
   .discord:active {
-    background: var(--control-hi);
-    color: var(--amber);
+    background: var(--coal-stripes-hi);
+    color: var(--gold);
   }
 
-  /* An update: the selected tab's dark brown and gold, with a dot that pulses. */
+  /* An update: a bar button (coal stripes, gold text), with a dot that pulses. */
   .update {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    height: 34px;
     font-size: 0.8125rem;
     font-weight: 700;
-    background: var(--bar-ink-deep);
+    background: var(--coal-stripes);
     color: var(--gold);
     border-radius: var(--radius-sm);
     padding: 4px 14px 4px 11px;
@@ -460,6 +465,7 @@
     height: 8px;
     border-radius: 50%;
     background: var(--amber);
+    box-shadow: none;
   }
 
   .pulse::after {
@@ -468,6 +474,7 @@
     inset: 0;
     border-radius: 50%;
     background: var(--amber);
+    box-shadow: none;
     opacity: 0;
     animation: pulse 1.8s ease-out 5;
   }
@@ -640,6 +647,7 @@
     padding: 0;
     border-radius: 0;
     background: none;
+    box-shadow: none;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--soft);
@@ -736,6 +744,7 @@
     height: 18px;
     font-size: 0.75rem;
     background: var(--amber);
+    box-shadow: none;
     color: var(--bar-ink-deep);
   }
 
@@ -748,6 +757,7 @@
     padding: 8px;
     color: var(--amber);
     background: none;
+    box-shadow: none;
     border: 0;
   }
 
@@ -756,7 +766,7 @@
   }
 
   :global(html[data-platform="android"]) .job .count {
-    background: var(--control);
+    background: var(--ink-deep);
   }
 
   :global(html[data-platform="android"]) .end {

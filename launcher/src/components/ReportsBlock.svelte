@@ -427,7 +427,7 @@
   .empty {
     color: var(--soft);
     padding: 14px 16px;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: 12px;
@@ -439,6 +439,7 @@
     min-height: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--amber);
     font: inherit;
     text-decoration: underline;

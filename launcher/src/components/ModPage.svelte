@@ -514,6 +514,7 @@
   .crumb {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 6px 4px;
     border-radius: 6px;
     color: var(--amber);
@@ -620,6 +621,7 @@
     padding: 0 6px 0 14px;
     border-radius: var(--radius-sm);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--soft);
@@ -646,7 +648,7 @@
     margin: 0;
     padding: 9px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;

@@ -367,7 +367,7 @@
     flex-direction: column;
     gap: 10px;
     padding: 20px 24px;
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
@@ -443,7 +443,7 @@
     align-items: flex-start;
     gap: 10px;
     padding: 10px 12px;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);

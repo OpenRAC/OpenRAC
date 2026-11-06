@@ -426,6 +426,7 @@
     font-size: 0.75rem;
     color: var(--soft);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;
@@ -446,6 +447,7 @@
     padding: 4px 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--lav);
     font-weight: 600;
   }

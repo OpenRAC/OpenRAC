@@ -183,7 +183,7 @@
   }
   .edition,
   .status {
-    background: var(--control);
+    background: var(--ink-deep);
     border-radius: var(--radius-xs);
     padding: 5px 10px;
     font-size: 12px;
@@ -217,7 +217,7 @@
     margin: 18px 0;
   }
   .metric {
-    background: rgb(255 255 255 / 0.025);
+    background: var(--ink-deep);
     padding: 15px;
     border-radius: var(--radius-sm);
   }
@@ -280,6 +280,7 @@
     width: 6px;
     height: 6px;
     background: var(--amber);
+    box-shadow: none;
     border-radius: 50%;
   }
   summary {

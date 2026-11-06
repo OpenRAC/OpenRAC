@@ -10,6 +10,8 @@ const DRAWER: &[&str] = &[
     "--ink-deep",
     "--panel",
     "--panel-hi",
+    "--panel-stripe",
+    "--panel-hi-stripe",
     "--brand",
     "--bar-top",
     "--bar-bottom",
@@ -84,15 +86,15 @@ mod tests {
     fn hands_the_game_the_theme_and_the_accent() {
         let own = ui_colors("openrac", None);
         assert_eq!(own.split(',').count(), DRAWER.len(), "{own}");
-        assert_eq!(color(&own, "panel"), Some("#1d1d27"));
+        assert_eq!(color(&own, "panel"), Some("#121212"));
         assert_eq!(color(&own, "line"), Some("#ffffff17"));
         assert_eq!(color(&own, "amber"), Some("#f5c040"));
         // A theme sets its own; what it leaves is the launcher's.
         let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
         assert_eq!(color(&nord, "amber"), Some("#f5c040"));
-        assert_eq!(color(&own, "control"), Some("#1d1b2a"));
-        assert_eq!(color(&own, "control-card"), Some("#121212"));
+        assert_eq!(color(&own, "control"), Some("#121212"));
+        assert_eq!(color(&own, "control-card"), Some("#1d1b2a"));
         assert_eq!(color(&nord, "control"), Some("#121212"));
         assert_eq!(ui_colors("no-such", None), own);
         // The game's accent; Ratchet & Clank's is the launcher's own.

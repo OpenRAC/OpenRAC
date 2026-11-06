@@ -404,6 +404,7 @@
     border: 0;
     border-radius: 6px;
     background: none;
+    box-shadow: none;
     color: var(--dim);
   }
 
@@ -422,6 +423,7 @@
     margin-left: 4px;
     border: 0;
     background: none;
+    box-shadow: none;
     font: inherit;
     color: var(--lav);
     text-decoration: underline;
@@ -459,6 +461,7 @@
     height: 36px;
     margin: 0;
     background: transparent;
+    box-shadow: none;
     cursor: pointer;
     position: relative;
     z-index: 1;
@@ -473,7 +476,7 @@
   .slider input::-moz-range-track {
     height: 6px;
     border-radius: var(--radius-sm);
-    background: var(--control);
+    background: var(--ink-deep);
   }
 
   .slider input::-moz-range-progress {
@@ -609,6 +612,7 @@
     font-weight: 600;
     color: var(--gold);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     border-radius: var(--radius-sm);
     padding: 6px 44px 6px 18px;
     appearance: none;
@@ -617,7 +621,7 @@
 
   select option {
     color: var(--text);
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -643,6 +647,7 @@
     padding: 0;
     min-height: 0;
     background: transparent;
+    box-shadow: none;
     color: var(--soft);
   }
 

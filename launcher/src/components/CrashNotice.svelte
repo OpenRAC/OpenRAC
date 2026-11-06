@@ -213,7 +213,7 @@
 
   /* No crash report: the game was closed, which is not a fault. Not red, and no alarm. */
   .notice.quiet {
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -228,7 +228,7 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }

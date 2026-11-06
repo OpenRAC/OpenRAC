@@ -234,6 +234,7 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
     font-size: inherit;

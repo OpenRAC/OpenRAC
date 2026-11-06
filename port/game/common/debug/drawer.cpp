@@ -259,8 +259,9 @@ void drawer(const Shown& shown) {
             const ImVec2 pill_a(
                 pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
             );
-            // A chip, as the launcher's: --control-card, no border, soft text, 6 px corners.
+            // A chip, as the launcher's: --control-card with the gold edge, soft text, 6 px corners.
             front->AddRectFilled(pill_a, pill_b, control_fill(), dp(6.0f));
+            control_edge(front, pill_a, pill_b, dp(6.0f));
             front->AddText(ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)), ui().soft, state);
         }
 
@@ -370,6 +371,7 @@ bool bar_button(const char* label, float width, bool primary = false) {
         primary_fill(list, a, b, round, held);
     } else {
         list->AddRectFilled(a, b, ui_colors::mix(control_fill(), pressed_fill(), held), round);
+        control_edge(list, a, b, round);
     }
     focus_ring(
         list,

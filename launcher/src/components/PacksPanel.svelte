@@ -315,7 +315,7 @@
     margin-left: 8px;
     padding: 1px 8px;
     border-radius: var(--radius-xs);
-    background: var(--control);
+    background: var(--ink-deep);
     font-size: 0.6875rem;
     font-weight: 600;
     color: var(--lav);
@@ -354,6 +354,7 @@
     padding: 2px 8px;
     border-radius: 7px;
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     font-size: 0.75rem;
     color: var(--soft);
   }

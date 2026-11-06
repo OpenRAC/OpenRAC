@@ -156,7 +156,7 @@
     display: flex;
     gap: 10px;
     align-items: flex-start;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);

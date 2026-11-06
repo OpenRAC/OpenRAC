@@ -715,7 +715,7 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
@@ -784,6 +784,7 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
+    box-shadow: none;
     color: var(--text);
     text-align: left;
     font-weight: 400;
@@ -801,7 +802,7 @@
 
   .open:active:not(:disabled) {
     transform: none;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }

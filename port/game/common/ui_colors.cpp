@@ -39,6 +39,8 @@ Color* field(Colors& c, std::string_view name) {
         {"ink-deep", &Colors::ink_deep},
         {"panel", &Colors::panel},
         {"panel-hi", &Colors::panel_hi},
+        {"panel-stripe", &Colors::panel_stripe},
+        {"panel-hi-stripe", &Colors::panel_hi_stripe},
         {"brand", &Colors::brand},
         {"bar-top", &Colors::bar_top},
         {"bar-bottom", &Colors::bar_bottom},

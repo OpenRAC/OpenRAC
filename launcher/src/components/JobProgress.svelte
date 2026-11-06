@@ -127,6 +127,7 @@
     border: 0;
     border-radius: 0;
     background: none;
+    box-shadow: none;
     backdrop-filter: none;
   }
 
@@ -190,7 +191,7 @@
     height: 6px;
     overflow: hidden;
     border-radius: 3px;
-    background: rgb(255 255 255 / 0.12);
+    background: var(--ink-deep);
   }
 
   .track > i {

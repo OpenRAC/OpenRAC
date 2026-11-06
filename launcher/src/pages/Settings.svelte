@@ -812,6 +812,7 @@
     padding: 6px 12px 6px 6px;
     border-radius: var(--radius-sm);
     background: var(--control);
+    box-shadow: inset 0 0 0 1px var(--edge);
     color: var(--soft);
     font-size: 0.8125rem;
     font-weight: 600;
@@ -900,6 +901,7 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
     color: var(--amber);
@@ -942,7 +944,7 @@
     align-items: center;
     gap: 10px;
     padding: 12px 14px 12px 20px;
-    background: var(--panel-hi);
+    background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);

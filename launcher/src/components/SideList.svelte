@@ -127,8 +127,8 @@
     left: 10px;
     right: 10px;
     border-radius: var(--radius-sm);
-    /* The open game: the gold tint of a control that is on (no ring round its picture). */
-    background: var(--on-fill);
+    /* The open game: a picked row, the accent at 12 % (no ring round its picture). */
+    background: color-mix(in srgb, var(--amber) 12%, transparent);
     opacity: 0;
     pointer-events: none;
   }
@@ -153,6 +153,7 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: none;
+    box-shadow: none;
     color: var(--text);
     text-align: left;
     font-weight: 400;
@@ -176,7 +177,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) {
-      background: color-mix(in srgb, var(--panel-hi) 60%, transparent);
+      background: var(--control);
       transform: translateX(2px);
     }
   }
@@ -205,7 +206,7 @@
   }
 
   .thumb.icon {
-    background: var(--panel);
+    background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
   }
@@ -341,12 +342,14 @@
 
   :global(html[data-platform="android"]) .entry.on {
     background: none;
+    box-shadow: none;
     transform: none;
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))[data-platform="android"]) .entry:hover:not(.on) {
       background: none;
+      box-shadow: none;
       transform: none;
     }
   }

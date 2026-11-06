@@ -122,7 +122,7 @@
 
     :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
       opacity: 1;
-      background: rgb(255 255 255 / 0.12);
+      background: var(--control-hi);
     }
   }
 
@@ -228,6 +228,7 @@
     border: 0;
     border-radius: inherit;
     background: none;
+    box-shadow: none;
     padding: 0;
     min-height: 0;
   }
@@ -272,6 +273,7 @@
     padding: 3px;
     color: inherit;
     background: none;
+    box-shadow: none;
     border: 0;
     border-radius: 50%;
     opacity: 0.75;
@@ -340,5 +342,6 @@
 
   .act.primary {
     background: var(--amber);
+    box-shadow: none;
   }
 </style>
