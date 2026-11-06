@@ -307,6 +307,10 @@ void MTLGL uniform_1i(GLint location, GLint v) {
     }
 }
 
+void MTLGL uniform_1ui(GLint location, GLuint v) {
+    write_uniform(location, &v, 4);
+}
+
 void MTLGL uniform_1f(GLint location, GLfloat v) {
     write_uniform(location, &v, 4);
 }

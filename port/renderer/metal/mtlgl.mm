@@ -551,6 +551,7 @@ const Entry kEntries[] = {
     MTLGL_ENTRY(glUseProgram, use_program),
     MTLGL_ENTRY(glGetUniformLocation, get_uniform_location),
     MTLGL_ENTRY(glUniform1i, uniform_1i),
+    MTLGL_ENTRY(glUniform1ui, uniform_1ui),
     MTLGL_ENTRY(glUniform1f, uniform_1f),
     MTLGL_ENTRY(glUniform2f, uniform_2f),
     MTLGL_ENTRY(glUniform3f, uniform_3f),

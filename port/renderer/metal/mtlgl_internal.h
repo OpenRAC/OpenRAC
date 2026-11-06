@@ -322,6 +322,7 @@ void MTLGL delete_program(GLuint name);
 void MTLGL use_program(GLuint name);
 GLint MTLGL get_uniform_location(GLuint program, const GLchar* name);
 void MTLGL uniform_1i(GLint location, GLint v);
+void MTLGL uniform_1ui(GLint location, GLuint v);
 void MTLGL uniform_1f(GLint location, GLfloat v);
 void MTLGL uniform_2f(GLint location, GLfloat a, GLfloat b);
 void MTLGL uniform_3f(GLint location, GLfloat a, GLfloat b, GLfloat c);
