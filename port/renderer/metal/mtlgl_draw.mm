@@ -615,17 +615,32 @@ bool is_integer(MTLPixelFormat f) {
     return f == MTLPixelFormatR32Uint || f == MTLPixelFormatRGBA32Uint;
 }
 
+// A vertex buffer slot: `buffer` from `offset`, the lowest offset of the attributes it feeds.
+struct Stream {
+    Buffer* buffer;
+    std::uintptr_t offset;
+    NSUInteger stride;
+    GLuint divisor;
+};
+
 // The vertex inputs of a draw: the pipeline's descriptor and the buffers it reads.
 struct Inputs {
     MTLVertexDescriptor* descriptor = [MTLVertexDescriptor vertexDescriptor];
     std::string key;
-    std::vector<std::pair<Buffer*, std::uintptr_t>> buffers;  // from slot kVertexBufferBase
+    std::vector<Stream> buffers;  // from slot kVertexBufferBase
     bool defaults = false;  // GL's (0, 0, 0, 1) bound after them
 };
 
 // False, with GL_INVALID_OPERATION, for an attribute Metal cannot read.
 bool inputs_of(const Program& p, Inputs& out) {
     const VertexArray& va = vertex_array();
+    struct Fed {
+        int location;
+        const Attribute* a;
+        Buffer* b;
+        MTLVertexFormat format;
+    };
+    std::vector<Fed> fed;
     for (const vkgl::CompiledProgram::Attribute& in : p.compiled.attributes) {
         if (in.location < 0 || in.location >= static_cast<int>(kAttributes)) {
             continue;
@@ -639,16 +654,7 @@ bool inputs_of(const Program& p, Inputs& out) {
                 fail(kGlInvalidOperation);
                 return false;
             }
-            const NSUInteger slot = kVertexBufferBase + out.buffers.size();
-            const auto stride = static_cast<NSUInteger>(a.stride != 0 ? a.stride : a.size * type_bytes(a.type));
-            attribute.format = format;
-            attribute.bufferIndex = slot;
-            out.descriptor.layouts[slot].stride = stride;
-            out.descriptor.layouts[slot].stepFunction =
-                a.divisor != 0 ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex;
-            out.descriptor.layouts[slot].stepRate = std::max<NSUInteger>(a.divisor, 1);
-            out.buffers.emplace_back(b, a.offset);
-            out.key += key_of(in.location, format, stride, a.divisor);
+            fed.push_back({in.location, &a, b, format});
         } else {
             const int kind = input_kind(in.gl_type);
             attribute.format = kind == 0 ? MTLVertexFormatFloat4
@@ -658,6 +664,35 @@ bool inputs_of(const Program& p, Inputs& out) {
             out.defaults = true;
             out.key += key_of(in.location, kind);
         }
+    }
+    // Interleaved attributes share their buffer's slot: one slot each would pass Metal's 31.
+    std::ranges::stable_sort(fed, {}, [](const Fed& f) { return f.a->offset; });
+    for (const Fed& f : fed) {
+        const Attribute& a = *f.a;
+        const auto bytes = static_cast<std::uintptr_t>(a.size * type_bytes(a.type));
+        const auto stride = static_cast<NSUInteger>(a.stride != 0 ? a.stride : bytes);
+        const auto shared = std::ranges::find_if(out.buffers, [&](const Stream& s) {
+            return s.buffer == f.b && s.stride == stride && s.divisor == a.divisor
+                   && a.offset + bytes <= s.offset + s.stride;
+        });
+        const auto index = static_cast<NSUInteger>(shared - out.buffers.begin());
+        const NSUInteger slot = kVertexBufferBase + index;
+        if (shared == out.buffers.end()) {
+            if (slot >= 31) {
+                fail(kGlInvalidOperation);  // Metal's 31 buffer slots
+                return false;
+            }
+            out.buffers.push_back({f.b, a.offset, stride, a.divisor});
+            out.descriptor.layouts[slot].stride = stride;
+            out.descriptor.layouts[slot].stepFunction =
+                a.divisor != 0 ? MTLVertexStepFunctionPerInstance : MTLVertexStepFunctionPerVertex;
+            out.descriptor.layouts[slot].stepRate = std::max<NSUInteger>(a.divisor, 1);
+        }
+        MTLVertexAttributeDescriptor* attribute = out.descriptor.attributes[static_cast<NSUInteger>(f.location)];
+        attribute.format = f.format;
+        attribute.bufferIndex = slot;
+        attribute.offset = a.offset - out.buffers[index].offset;
+        out.key += key_of(f.location, f.format, slot, attribute.offset, stride, a.divisor);
     }
     if (kVertexBufferBase + out.buffers.size() + (out.defaults ? 1 : 0) > 31) {
         fail(kGlInvalidOperation);  // Metal's 31 buffer slots
@@ -869,10 +904,12 @@ void set_buffer(id<MTLRenderCommandEncoder> pass, NSUInteger slot, Buffer* b, st
 void bind_resources(id<MTLRenderCommandEncoder> pass, Program& p, const Target& t) {
     const State& s = g->state;
     const vkgl::CompiledProgram& c = p.compiled;
+    // MSL rounds a block's struct up to its alignment, at most 16 bytes, past the GL size.
+    const auto msl_size = [](std::size_t size) { return (size + 15) / 16 * 16; };
     for (std::size_t slot = 0; slot < p.msl.buffers.size(); ++slot) {
         const int binding = p.msl.buffers[slot];
         if (binding == c.default_binding) {
-            set_bytes(pass, slot, p.uniforms.data(), p.uniforms.size(), p.uniforms.size());
+            set_bytes(pass, slot, p.uniforms.data(), p.uniforms.size(), msl_size(p.uniforms.size()));
             continue;
         }
         for (std::size_t i = 0; i < c.blocks.size(); ++i) {
@@ -880,7 +917,7 @@ void bind_resources(id<MTLRenderCommandEncoder> pass, Program& p, const Target& 
                 const GLuint unit = p.block_bindings[i];
                 set_buffer(pass, slot,
                            unit < kUniformBindings ? g->buffers.find(s.uniform_bindings[unit]) : nullptr,
-                           static_cast<std::size_t>(c.blocks[i].size));
+                           msl_size(static_cast<std::size_t>(c.blocks[i].size)));
             }
         }
         for (const vkgl::ProgramBlock& block : c.storage) {
@@ -1030,9 +1067,9 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
                           static_cast<NSUInteger>(x1 - x0), static_cast<NSUInteger>(y1 - y0)}];
     bind_resources(pass, *p, t);
     for (std::size_t i = 0; i < inputs.buffers.size(); ++i) {
-        auto [buffer, offset] = inputs.buffers[i];
-        buffer->used = g->serial;
-        [pass setVertexBuffer:buffer->buffer offset:offset atIndex:kVertexBufferBase + i];
+        const Stream& stream = inputs.buffers[i];
+        stream.buffer->used = g->serial;
+        [pass setVertexBuffer:stream.buffer->buffer offset:stream.offset atIndex:kVertexBufferBase + i];
     }
     if (inputs.defaults) {
         if (g->attribute_defaults == nil) {
