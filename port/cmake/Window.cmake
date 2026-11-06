@@ -971,6 +971,25 @@ if(OPENRAC_VULKAN)
   set_tests_properties(${openrac_vulkan_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
 endif()
+# And on the Metal renderer (renderer/metal/mtlgl.h), with Metal's API validation. Where Metal
+# cannot open, the window falls back to OpenGL and these repeat the tests above. SDL's offscreen
+# driver has no Metal, so these open hidden Cocoa windows.
+if(OPENRAC_METAL)
+  add_test(NAME renderer_direct_metal COMMAND renderer_direct_test)
+  add_test(NAME renderer_shader_metal COMMAND renderer_shader_test)
+  add_test(NAME touch_overlay_metal COMMAND touch_overlay_test)
+  add_test(NAME imgui_gl_metal COMMAND imgui_gl_test)
+  add_test(NAME overlay_draw_metal COMMAND overlay_draw_test)
+  add_test(NAME viewer_metal COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_metal")
+  set(openrac_metal_tests renderer_direct_metal renderer_shader_metal touch_overlay_metal imgui_gl_metal
+      overlay_draw_metal viewer_metal)
+  if(TARGET world_gl_smoke_test)
+    add_test(NAME world_gl_smoke_metal COMMAND world_gl_smoke_test)
+    list(APPEND openrac_metal_tests world_gl_smoke_metal)
+  endif()
+  set_tests_properties(${openrac_metal_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 
 # Spatial GTAO: plane invariance, contact occlusion, deterministic frames and MSAA depth resolve.
 add_executable(gtao_test enhanced/tests/gtao_test.cpp)
