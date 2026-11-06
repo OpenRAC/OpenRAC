@@ -1,0 +1,553 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+"""A release's port tables, carried from the primary release's (release.py).
+
+The primary release's port (port/game/rac2-ntsc) names what it knows by v1.01's functions and
+addresses: the functions the host replaces, the library entry points, the level hooks, the
+folded copies, the copies of the draw lists. This writes the same tables for another release
+(port/game/rac2-pal, rac2-ntsc2) in that release's names, from:
+
+- the release table (release.py build): a function of the same code has its new name there;
+- the decompilation's carry (`build/<version>/carry.json`, tools/carry.py): a function the
+  release changed at the same size and offsets (60 against 50 Hz) is paired with the v1.01
+  function it was;
+- versionmap's map (port/tools/versionmap): a function between the same unchanged neighbours
+  (`near`) or reached by the same call of shared code (`called`), and a global formed by the
+  same instruction of the same code (`exact`) or between two that moved alike (`between`).
+
+Everything that rests on less than the same code is listed in the carry's report
+(`release_carry.json` beside the tables), with how it was paired, so it can be read again:
+a host replacement of a changed function may need the release's own fields.
+
+    python3 port/tools/hostgen/release_carry.py --game port/game/rac2-pal/hostgen.json \\
+        --primary port/game/rac2-ntsc/hostgen.json --source <the built decompilation> --map <versionmap>
+"""
+from __future__ import annotations
+
+import argparse
+import bisect
+import json
+import re
+import sys
+from collections import Counter
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import release as rel  # noqa: E402
+
+FUNC = re.compile(r"(?<![\w])func_(?:L(\d\d)_)?([0-9A-F]{8})((?:_\w+)?)(?![\w])")
+
+
+class Pairing:
+    """Where the release has what v1.01 has."""
+
+    def __init__(self, source: Path, version: str, table: rel.Release, vmap: dict | None, carry: dict | None):
+        self.table, self.vmap, self.version = table, vmap, version
+        info = rel.RELEASES[version]
+        self.us_boot = rel.read_boot(source / "config/boot/functions.tsv")
+        self.us_levels = rel.read_levels(source / "config/levels/functions.tsv")
+        self.r_boot = rel.read_boot(source / info["config"] / "boot/functions.tsv")
+        self.r_levels = rel.read_levels(source / info["config"] / "levels/functions.tsv")
+        self.us_entry = {n: a for n, a, _ in self.us_boot}
+        self.us_size = {n: s for n, _, s in self.us_boot}
+        self.us_size.update({n: s for n, _, s, _ in self.us_levels})
+        self.us_places = {n: p for n, _, _, p in self.us_levels}
+        self.r_places = {table.name(n): p for n, _, _, p in self.r_levels}
+        self.r_entry = {table.name(n): a for n, a, _ in self.r_boot}
+        self.r_size = {table.name(n): s for n, _, s in self.r_boot}
+        self.r_size.update({table.name(n): s for n, _, s, _ in self.r_levels})
+        self.r_exe_at = {a: table.name(n) for n, a, _ in self.r_boot}
+        self.r_level_at = {}
+        for n, _, _, places in self.r_levels:
+            for p in places:
+                self.r_level_at.setdefault(p, table.name(n))
+        self.us_level_rows: dict[int, list[tuple[int, int, str]]] = {}
+        for n, _, s, places in self.us_levels:
+            for lv, a in places:
+                self.us_level_rows.setdefault(lv, []).append((a, s, n))
+        for rows in self.us_level_rows.values():
+            rows.sort()
+        # tools/carry.py's pairs: the release's function -> the v1.01 functions it was ("changed").
+        self.was: dict[str, tuple[str, str]] = {}
+        for part in ("boot", "levels"):
+            for name, row in (carry or {}).get(part, {}).items():
+                how = row.get("how")
+                hows = how if isinstance(how, list) else [how]
+                was = row.get("was")
+                was = was if isinstance(was, list) else [was] if was else []
+                # The carry's own names are its run's; the committed catalogue's row at the same place
+                # is the release's function.
+                m = FUNC.fullmatch(name.replace(f"_{rel.RELEASES[version]['tag']}_", "_", 1))
+                if not re.search(r"[0-9A-F]{8}$", name):
+                    continue
+                if part == "boot":
+                    address = row.get("address", int(name[-8:], 16))
+                    here = self.r_exe_at.get(address)
+                else:
+                    lv = int(m.group(1)) if m and m.group(1) else None
+                    here = self.r_level_at.get((lv, int(name[-8:], 16))) if lv is not None else None
+                if here is None:
+                    continue
+                for w in was:
+                    if "changed" in hows and w:
+                        self.was.setdefault(w, (here, "changed"))
+        self.report: dict[str, dict] = {}
+        self.kinds: Counter = Counter()
+        self.by_hand: dict[str, str] = {}
+
+    def read_by_hand(self, path: Path) -> None:
+        """release_pairs.tsv beside the release's hostgen.json: pairs checked by hand where nothing
+        above pairs them (v1.01 name, the release's name in the release's names, the evidence)."""
+        if not path.is_file():
+            return
+        for line in path.read_text().splitlines():
+            cols = line.split("\t")
+            if line.startswith("#") or len(cols) < 3:
+                continue
+            self.by_hand[cols[0]] = cols[1]
+
+    def _starts(self, level: int | None) -> set[int]:
+        """v1.01's catalogue places in the executable (None) or a level."""
+        if level is None:
+            return set(self.us_entry.values())
+        return {a for a, _, _ in self.us_level_rows.get(level, [])}
+
+    # ---- functions
+
+    def us_place(self, name: str) -> tuple[str, int] | None:
+        """(versionmap program, address) of a v1.01 function."""
+        m = FUNC.fullmatch(name)
+        if m is None:
+            return None
+        if m.group(1):
+            lv = int(m.group(1))
+            places = self.us_places.get(name.removesuffix(m.group(3)), [])
+            a = next((a for l, a in places if l == lv), int(m.group(2), 16))
+            return f"level:{lv:02d}", a
+        base = name.removesuffix(m.group(3))
+        return "boot", self.us_entry.get(base, int(m.group(2), 16))
+
+    def function(self, name: str, why: str = "") -> str | None:
+        """The release's name for v1.01's function NAME (a suffix kept), or None."""
+        m = FUNC.fullmatch(name)
+        if m is None:
+            return name
+        suffix = m.group(3)
+        base = name[:len(name) - len(suffix)] if suffix else name
+        new = self.table.name(base)
+        how = None
+        if base in self.by_hand:
+            new, how = self.by_hand[base], "by hand"
+        elif "_V1_" not in new and (new in self.r_entry or new in self.r_places):
+            how = "same"
+        elif base in self.was:
+            new, how = self.was[base]
+        elif self.vmap is not None and (at := self.us_place(base)) is not None:
+            hit = self.vmap["programs"].get(at[0], {}).get("functions", {}).get(f"{at[1]:08X}")
+            if hit:
+                address = int(hit[0], 16)
+                lv = None if at[0] == "boot" else int(at[0][6:])
+                found = self.r_exe_at.get(address) if lv is None else self.r_level_at.get((lv, address))
+                if found is not None and lv is None and int(found[-8:], 16) != address:
+                    # A row entered away from its name (a fill word in front): the entry's own name.
+                    found = rel.core("func", None, address)
+                if found is None and at[1] not in self._starts(lv):
+                    # An entry inside a function (the linker's fill word before it), found by its
+                    # instructions or by the calls that reach it: its address.
+                    found = rel.core("func", lv, address)
+                if found is not None:
+                    new, how = found, hit[1]
+        if how is None:
+            self.kinds["function: not found"] += 1
+            self.report.setdefault("unpaired", {})[name] = why
+            return None
+        self.kinds[f"function: {how}"] += 1
+        if how != "same":
+            self.report.setdefault("functions", {})[name] = [new + suffix, how, why]
+        return new + suffix
+
+    # ---- globals
+
+    def data(self, address: int, program: str = "boot", why: str = "") -> int | None:
+        """The release's address of v1.01's global at ADDRESS (in PROGRAM: "boot", "level:NN")."""
+        name = rel.core("D", int(program[6:]) if program != "boot" and address >= rel.RELEASES["us"]["level_base"]
+                        and program != "boot" else None, address)
+        new = self.table.names.get(name) or self.table.names.get(rel.core("D", None, address))
+        if new and "_V1_" not in new:
+            self.kinds["global: the release's build"] += 1
+            self.last = "the release's build"
+            return int(new[-8:], 16)
+        if self.vmap is not None:
+            keys, values = self._data_index(program)
+            at = bisect.bisect_right(keys, address)
+            if at and keys[at - 1] == address:
+                self.kinds["global: exact"] += 1
+                self.last = "versionmap: exact"
+                return values[at - 1]
+            below = (keys[at - 1], values[at - 1]) if at else None
+            above = (keys[at], values[at]) if at < len(keys) else None
+            if below and above and below[1] - below[0] == above[1] - above[0]:
+                self.kinds["global: between"] += 1
+                self.last = "versionmap: between"
+                self.report.setdefault("globals", {})[f"{program}:{address:08X}"] = [
+                    f"{address + below[1] - below[0]:08X}", "between", why]
+                return address + below[1] - below[0]
+        self.kinds["global: not found"] += 1
+        self.report.setdefault("unpaired", {})[f"{program}:{address:08X}"] = why
+        return None
+
+    def _data_index(self, program: str):
+        cache = getattr(self, "_index", {})
+        if program not in cache:
+            d = self.vmap["programs"].get(program, {}).get("data", {})
+            keys = sorted(int(k, 16) for k in d)
+            cache[program] = (keys, [int(d[f"{k:08X}"], 16) for k in keys])
+            self._index = cache
+        return cache[program]
+
+    def code_place(self, level: int, address: int, why: str = "") -> int | None:
+        """The release's address of a place inside a v1.01 level function (a copy entered late)."""
+        rows = self.us_level_rows.get(level, [])
+        i = bisect.bisect_right(rows, (address, 1 << 40, "")) - 1
+        if i < 0 or not rows[i][0] <= address < rows[i][0] + rows[i][1]:
+            return None
+        start, _, name = rows[i]
+        new = self.function(name, why)
+        if new is None:
+            return None
+        place = next((a for l, a in self.r_places.get(new, []) if l == level), None)
+        return None if place is None else place + address - start
+
+
+def carry_list(p: Pairing, names: list[str], why: str) -> list[str]:
+    out = []
+    for n in names:
+        new = p.function(n, why)
+        if new is not None and new not in out:
+            out.append(new)
+    return out
+
+
+def level_hooks(p: Pairing, carried: list[str]) -> list[str]:
+    """The release's level hooks: the empty functions of its executable each level's program fills.
+    They are alike, so the calls that reach them, not their order, say which is which; the release
+    has more of them (PAL: 33 for 31). All the 8-byte functions of the run that holds the carried
+    ones, in address order."""
+    rows = sorted((a, s, n) for n, a, s in ((p.table.name(n), a, s) for n, a, s in p.r_boot))
+    at = {n: i for i, (_, _, n) in enumerate(rows)}
+    found = sorted(at[n] for n in carried if n in at)
+    if not found:
+        return carried
+    first, last = found[0], found[-1]
+    while first > 0 and rows[first - 1][1] == 8 and rows[first - 1][0] + 8 == rows[first][0]:
+        first -= 1
+    while last + 1 < len(rows) and rows[last + 1][1] == 8 and rows[last][0] + 8 == rows[last + 1][0]:
+        last += 1
+    hooks = [n for a, s, n in rows[first:last + 1] if s == 8]
+    p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
+                               "carried": len(found)}
+    return hooks
+
+
+def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
+    """The release's hostgen.json from the primary release's."""
+    info = rel.RELEASES[version]
+    out = dict(cfg)
+    names = {"pal": "PAL", "us2": "NTSC-U, v2.00"}
+    out["id"] = {"pal": "rac2-pal", "us2": "rac2-ntsc2"}[version]
+    out["title"] = f"Ratchet & Clank: Going Commando ({names[version]})"
+    out["serial"] = {"pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
+    out["frame_rate"] = 50 if version == "pal" else 60
+    out["entry"] = p.function(cfg["entry"], "entry")
+    out["ps2_float"] = carry_list(p, cfg.get("ps2_float", []), "ps2_float")
+    other = {"pal": "src/us2", "us2": "src/pal"}[version]
+    out["skip"] = [other if s in ("src/pal", "src/us2") else s for s in cfg.get("skip", [])]
+    out["skip"] = list(dict.fromkeys(out["skip"]))
+    out["symbols"] = []
+    out["derived"] = {"table": "release_names.json"}
+    out["release"] = {"version": version, "table": "release_names.json"}
+    out["places"] = f"{info['config']}/levels/functions.tsv"
+    out["executable_functions"] = f"{info['config']}/boot/functions.tsv"
+    if "formed_as" in cfg:
+        formed = {}
+        primary = json.loads((p.primary_dir / cfg["derived"]["table"]).read_text())
+        for name, address in cfg["formed_as"].items():
+            # The sum the code forms, less the name's value: the same C adds the same, so the release's
+            # sum is its own value plus that.
+            was = primary.get("values", {}).get(name) or (primary.get("levels", {}).get(name) or [None, None])[1]
+            mine = p.table.table.get("values", {}).get(name) or (p.table.table.get("levels", {}).get(name) or [None, None])[1]
+            new = None
+            if was is not None and mine is not None:
+                new = int(mine, 16) + int(address, 16) - int(was, 16)
+                p.report.setdefault("globals", {})[name] = [f"{new:08X}", "its value plus what the C adds", "formed_as"]
+            else:
+                m = re.match(r"ref_L(\d\d)_", name)
+                new = p.data(int(address, 16), f"level:{m.group(1)}" if m else "boot", f"formed_as {name}")
+            if new is not None:
+                formed[name] = f"0x{new:08X}"
+        out["formed_as"] = formed
+    # By the decompilation's names (read_candidates compares the table's rows before the release view):
+    # the primary's, and those the release table finds naming what the release does not have.
+    out["candidates_left_out"] = {**cfg.get("candidates_left_out", {}),
+                                  **p.table.table.get("candidates_left_out", {})}
+    calls = {}
+    for key, table in cfg.get("calls_as", {}).items():
+        k2 = key if re.fullmatch(r"L\d\d", key) else p.function(key, "calls_as")
+        if k2 is None:
+            continue
+        row = {}
+        for a, b in table.items():
+            a2 = p.table.name(a) if FUNC.fullmatch(a) else a
+            b2 = p.function(b, f"calls_as {key}")
+            if b2 is not None:
+                row[a2] = b2
+        calls[k2] = row
+    out["calls_as"] = calls
+    more = {}
+    for name, text in cfg.get("more_places", {}).items():
+        new = p.function(name, "more_places")
+        places = []
+        for item in text.split(","):
+            lv, a = item.split(":")
+            got = p.code_place(int(lv), int(a, 16), f"more_places {name}")
+            if got is not None:
+                places.append(f"{lv}:{got:08X}")
+        if new and places:
+            more[new] = ",".join(places)
+    out["more_places"] = more
+    units = {}
+    for unit, table in cfg.get("unit_aliases", {}).items():
+        own = p.table.units.get(unit, {})
+        row = {}
+        for a, b in table.items():
+            if a in own:
+                continue        # the release table names it already, from the release's build
+            a2 = p.table.name(a)
+            b2 = p.function(b, f"unit_aliases {unit}")
+            if b2 is not None and a2 != b2:
+                row[a2] = b2
+        if row:
+            units[unit] = row
+    out["unit_aliases"] = units
+    out["relocate"] = [info["level_base"], cfg["relocate"][1]]
+    out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"))
+    out["host_functions"] = carry_list(p, cfg.get("host_functions", []), "host_functions")
+    out["from_assembly"] = carry_list(p, cfg.get("from_assembly", []), "from_assembly")
+    out["roots"] = carry_list(p, cfg.get("roots", []), "roots")
+    out["returns_64"] = carry_list(p, cfg.get("returns_64", []), "returns_64")
+    if "asm" in cfg:
+        asm = dict(cfg["asm"])
+        asm["signatures"] = {n2: sig for n, sig in cfg["asm"].get("signatures", {}).items()
+                             if (n2 := (p.function(n, "asm.signatures") if FUNC.fullmatch(n) else n))}
+        asm["gp"] = f"0x{info['gp']:08X}"
+        asm["retail"] = {"exe": f"{info['baserom']}/{out['serial']}", "dump": f"{info['baserom']}/levels"}
+        out["asm"] = asm
+    out.pop("about", None)
+    return {"about": "Written by port/tools/hostgen/release_carry.py from port/game/rac2-ntsc/hostgen.json "
+                     "and the release table; do not edit by hand (release_carry.json says how each name was paired).",
+            **out}
+
+
+def carry_libraries(p: Pairing, text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 2:
+            lines.append(line)
+            continue
+        new = p.function(cols[0], f"libraries.tsv {cols[2] if len(cols) > 2 else ''}")
+        if new is None:
+            lines.append(f"# not in this release: {line}")
+            continue
+        lines.append("\t".join([new] + cols[1:]))
+    return "\n".join(lines) + "\n"
+
+
+def carry_split_places(p: Pairing, text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 3:
+            lines.append(line)
+            continue
+        variant, parent = p.function(cols[0], "split_places"), p.function(cols[1], "split_places")
+        if variant is None or parent is None:
+            lines.append(f"# not in this release: {line}")
+            continue
+        places = ",".join(f"{lv:02d}:{a:08X}" for lv, a in p.r_places.get(variant, []))
+        lines.append("\t".join([variant, parent, places] + cols[3:]))
+    return "\n".join(lines) + "\n"
+
+
+HOST_FUNC = re.compile(r"\bfunc_(?:L\d\d_)?[0-9A-F]{8}((?:__\w+)?)\b")
+HOST_ADDR = re.compile(r"\bRAC2_ADDR\(\s*0x([0-9A-F]{8})u\s*\)")
+HOST_LADDR = re.compile(r"\bRAC2_LADDR\(\s*(\d\d)\s*,\s*0x([0-9A-F]{8})u\s*\)")
+HOST_SKIP = re.compile(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*', re.S)
+
+
+def code_text(text: str) -> str:
+    """TEXT without comments and string literals."""
+    return HOST_SKIP.sub(" ", text)
+
+
+def exe_bytes(path: Path, address: int, size: int) -> bytes | None:
+    import struct
+    data = path.read_bytes()
+    table, count = struct.unpack_from("<I", data, 28)[0], struct.unpack_from("<H", data, 44)[0]
+    for i in range(count):
+        kind, offset, vaddr, _, filesz = struct.unpack_from("<5I", data, table + i * 32)
+        if kind == 1 and vaddr <= address and address + size <= vaddr + filesz:
+            return data[offset + address - vaddr:offset + address - vaddr + size]
+    return None
+
+
+def exe_size(path: Path) -> int:
+    """The executable's loaded bytes from 0x00100000, to a page (its first program header's end)."""
+    import struct
+    data = path.read_bytes()
+    table = struct.unpack_from("<I", data, 28)[0]
+    _, _, vaddr, _, _, memsz = struct.unpack_from("<6I", data, table)
+    end = vaddr + memsz
+    return ((end + 0xFFF) & ~0xFFF) - 0x00100000
+
+
+def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, version: str) -> str:
+    """The release's rac2_version.h for the shared host C (port/game/rac2/host/rac2.h)."""
+    info = rel.RELEASES[version]
+    texts = {f.name: f.read_text() for f in sorted(shared.glob("*.[ch]"))}
+    code = {n: code_text(t) for n, t in texts.items()}
+    lines = []
+    funcs: dict[str, set[str]] = {}
+    for t in code.values():
+        for m in HOST_FUNC.finditer(t):
+            base = m.group(0)[:len(m.group(0)) - len(m.group(1))] if m.group(1) else m.group(0)
+            funcs.setdefault(base, set()).add(m.group(1))
+    lines.append("/* Functions: v1.01's name and this release's (release_carry.json says how each was paired). */")
+    for base in sorted(funcs):
+        new = p.function(base, "host C")
+        if new is None:
+            lines.append(f"/* {base}: not in this release */")
+            continue
+        new = "func" + new[3:] if new.startswith("FUN_") else new
+        if new == base:
+            continue
+        for suffix in sorted(funcs[base]):
+            lines.append(f"#define {base}{suffix} {new}{suffix}")
+    addrs, laddrs = set(), set()
+    for t in code.values():
+        addrs.update(int(m.group(1), 16) for m in HOST_ADDR.finditer(t))
+        laddrs.update((int(m.group(1)), int(m.group(2), 16)) for m in HOST_LADDR.finditer(t))
+    us_exe = source / "baserom/SCUS_972.68"
+    r_exe = source / info["baserom"] / {"pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
+    starts = {a: n for n, a in p.us_entry.items()}
+    lines.append("")
+    lines.append("/* Addresses of the executable's memory. */")
+    for a in sorted(addrs):
+        new, how = None, None
+        if a in starts or a - 8 in starts or a - 4 in starts:
+            name = starts.get(a) or rel.core("func", None, a)
+            got = p.function(name if a in starts else rel.core("func", None, a), f"host C 0x{a:08X}")
+            if got is not None:
+                new, how = int(got[-8:], 16), "code"
+        if new is None and 0x00100000 <= a < 0x00115220:
+            # The VU microcode the game uploads (.vutext): the same bytes at the same place?
+            mine, theirs = exe_bytes(us_exe, a, 64), exe_bytes(r_exe, a, 64)
+            if mine is not None and mine == theirs:
+                new, how = a, "the same microcode at the same place"
+        if new is None:
+            new = p.data(a, "boot", f"host C 0x{a:08X}")
+            how = p.last
+        if new is None:
+            lines.append(f"/* RAC2_ADDR_0x{a:08X}u: not found */")
+            continue
+        lines.append(f"#define RAC2_ADDR_0x{a:08X}u 0x{new:08X}u /* {how} */")
+    if laddrs:
+        lines.append("")
+        lines.append("/* Addresses of a level's program. */")
+    for lv, a in sorted(laddrs):
+        new = p.data(a, f"level:{lv:02d}", f"host C level {lv:02d} 0x{a:08X}")
+        if new is None:
+            lines.append(f"/* RAC2_LADDR_{lv:02d}_0x{a:08X}u: not found */")
+            continue
+        lines.append(f"#define RAC2_LADDR_{lv:02d}_0x{a:08X}u 0x{new:08X}u /* {p.last} */")
+    names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
+    head = [
+        "/* SPDX-License-Identifier: GPL-3.0-or-later",
+        " * Copyright (c) 2026 the OpenRAC contributors",
+        " *",
+        f" * {names}: its names and addresses for the shared host C (port/game/rac2/host/rac2.h), v1.01's",
+        " * names and addresses as this release has them. Written by port/tools/hostgen/release_carry.py",
+        " * from the shared C, the release table and versionmap's map; do not edit. */",
+        "#ifndef OPENRAC_RAC2_VERSION_H",
+        "#define OPENRAC_RAC2_VERSION_H",
+        "",
+        "#define RAC2_ADDR(a) RAC2_ADDR_##a",
+        "#define RAC2_LADDR(n, a) RAC2_LADDR_##n##_##a",
+        "",
+        f"#define RAC2_LEVEL_BASE 0x{info['level_base']:08X}u /* a level's program replaces the executable's memory from here */",
+        f"#define RAC2_GP 0x{info['gp']:08X}u         /* the executable's $gp */",
+        f"#define RAC2_EXE_SIZE 0x{exe_size(r_exe):08X}u   /* the executable's loaded bytes from 0x00100000, to a page */",
+        "",
+        '#include "rac2_addresses.h"',
+        "",
+    ]
+    return "\n".join(head + lines + ["", "#endif /* OPENRAC_RAC2_VERSION_H */", ""])
+
+
+def addresses_header(p: Pairing, primary: str, version: str) -> str:
+    """The release's rac2_addresses.h: the primary's names with this release's addresses."""
+    out = []
+    for line in primary.splitlines():
+        m = re.match(r"(#define RAC2_\w+\s+)0x([0-9A-F]{8})u(.*)$", line)
+        if m:
+            new = p.data(int(m.group(2), 16), "boot", f"rac2_addresses.h {m.group(1).split()[1]}")
+            line = f"{m.group(1)}0x{new:08X}u{m.group(3)}" if new is not None else f"/* not found: {line} */"
+        elif re.match(r"\s+0x([0-9A-F]{8})u", line) and out and out[-1].rstrip().endswith("\\"):
+            mm = re.match(r"(\s+)0x([0-9A-F]{8})u(.*)$", line)
+            new = p.data(int(mm.group(2), 16), "boot", "rac2_addresses.h")
+            line = f"{mm.group(1)}0x{new:08X}u{mm.group(3)}" if new is not None else line
+        out.append(line)
+    text = "\n".join(out) + "\n"
+    return text.replace("(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt)",
+                        "(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt), at this release's addresses "
+                        "(port/tools/hostgen/release_carry.py)")
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--game", type=Path, required=True, help="the release's hostgen.json (its directory is written)")
+    ap.add_argument("--primary", type=Path, required=True, help="the primary release's hostgen.json")
+    ap.add_argument("--source", type=Path, required=True, help="the built decompilation (release.py build's)")
+    ap.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release")
+    ap.add_argument("--version", required=True, choices=["pal", "us2"])
+    args = ap.parse_args(argv)
+    out_dir = args.game.parent
+    cfg = json.loads(args.primary.read_text())
+    table = rel.Release.load(out_dir / "release_names.json")
+    carry_path = args.source / rel.RELEASES[args.version]["build"] / "carry.json"
+    carry = json.loads(carry_path.read_text()) if carry_path.is_file() else None
+    vmap = json.loads(args.map.read_text()) if args.map else None
+    p = Pairing(args.source, args.version, table, vmap, carry)
+    p.read_by_hand(out_dir / "release_pairs.tsv")
+    p.primary_dir = args.primary.parent
+    new_cfg = carry_config(p, cfg, args.version)
+    args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
+    primary = args.primary.parent
+    (out_dir / "libraries.tsv").write_text(carry_libraries(p, (primary / "libraries.tsv").read_text()))
+    (out_dir / "split_places.tsv").write_text(carry_split_places(p, (primary / "split_places.tsv").read_text()))
+    host = out_dir / "host"
+    host.mkdir(exist_ok=True)
+    shared = primary.parent / "rac2" / "host"
+    (host / "rac2_addresses.h").write_text(addresses_header(p, (primary / "host/rac2_addresses.h").read_text(), args.version))
+    (host / "rac2_version.h").write_text(host_table(p, shared, primary / "host", args.source, args.version))
+    report = {"about": "How release_carry.py paired what the primary release's port names: what rests on less "
+                       "than the same code, and what it found nowhere.", "counts": dict(sorted(p.kinds.items())),
+              **p.report}
+    (out_dir / "release_carry.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
+    print(f"release_carry: {out_dir}: " + ", ".join(f"{k} {v}" for k, v in sorted(p.kinds.items())))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,565 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 the OpenRAC contributors
+"""Another release of a game whose decompilation names everything by one release's addresses.
+
+Going Commando's decompilation builds three releases from one C (games/rac2/ntsc/docs/VERSIONS.md):
+USA v1.01, whose addresses every name states (`func_0027F538`, `D_001A7A18`, `func_L05_0041DF58`),
+and PAL and USA v2.00, whose programs hold the same code elsewhere. Its build reads each name's
+value in another release from that release's bytes, and the release's own functions are named
+for it (`func_PAL_...`, `D_US2_L00_...`, at the release's addresses).
+
+hostgen, and every table of the port, knows a function or a global by the address its name
+states. So the port of another release reads the decompilation through a table that renames
+every address name to the release's address, the "release view": `func_0027F538` is
+`func_0027F3D8` in the PAL port, `func_PAL_002907D0` is `func_002907D0`, a v1.01 function the
+release does not have is `func_V1_0028E458` (no address, so nothing reaches it). Then the
+release's port is what v1.01's is, on the release's addresses, and the same rules hold.
+
+The table is written from a built checkout of the decompilation, beside the release's
+hostgen.json (`"release": {"table": ...}`, the same file as its `"derived"` table):
+
+    python3 port/tools/hostgen/release.py build --game port/game/rac2-pal/hostgen.json \\
+        --source <rac2-decomp built with --version pal and for v1.01> [--map <versionmap>]
+
+Where each name's new address comes from (the table's "evidence" counts them):
+
+- a function: the release's catalogues (`config/<version>/boot/functions.tsv` and
+  `levels/functions.tsv`), which name each of its functions by the v1.01 function whose code it
+  is (tools/carry.py); a twin entered away from its name keeps that distance;
+- a global: the value the release's own build gave the name (its `build/<version>/*/placed.json`,
+  every relocation checked against the retail bytes), else, for a name no placed C uses, the
+  address versionmap pairs it with by the same instruction of the same code (`exact` only).
+
+A name with neither is not renamed to a guess: it gets the `V1` mark, and what uses it stays a
+stub, which hostgen's report lists.
+
+Short names (`func_2F15C8`, an address in the program of the file's level, and kseg0 spellings
+`func_80338398`) are renamed per file, from the value that level's build gave them.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from collections import Counter
+from pathlib import Path
+
+# An address name: func_, FUN_ or D_, a release tag, a level, eight digits; a suffix after it stays.
+NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{1,3})_)?(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?![0-9A-Za-z])")
+# A short name: six digits, or kseg0's 80 and six (an address in the program of the file's level).
+SHORT = re.compile(r"(?<![\w])func_(80)?([0-9A-F]{6})(?![0-9A-Za-z_])")
+# Either, for a file with short names of its own.
+ANY = re.compile(r"(?<![\w])func_(?:80)?[0-9A-F]{6}(?![0-9A-Za-z_])|" + NAME.pattern)
+DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
+INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
+UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
+DEAD = "V1"
+
+# The releases tools/levels.py builds: catalogues, build, dumps; where a level's program starts; $gp.
+RELEASES = {
+    "us": {"config": "config", "build": "build", "baserom": "baserom", "tag": None,
+           "level_base": 0x1A7C80, "gp": 0x1AEFF0},
+    "pal": {"config": "config/pal", "build": "build/pal", "baserom": "baserom/pal", "tag": "PAL",
+            "level_base": 0x1A7D00, "gp": 0x1AF070},
+    "us2": {"config": "config/us2", "build": "build/us2", "baserom": "baserom/us2", "tag": "US2",
+            "level_base": 0x1A7C80, "gp": 0x1AEFF0},
+}
+
+
+def core(kind: str, level: int | None, address: int, tag: str | None = None) -> str:
+    kind = "func" if kind == "FUN" else kind
+    return f"{kind}_{tag + '_' if tag else ''}{f'L{level:02d}_' if level is not None else ''}{address:08X}"
+
+
+def read_boot(path: Path) -> list[tuple[str, int, int]]:
+    rows = []
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 3:
+            continue
+        rows.append((cols[0], int(cols[1], 16), int(cols[2])))
+    return rows
+
+
+def read_levels(path: Path) -> list[tuple[str, str, int, list[tuple[int, int]]]]:
+    rows = []
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 6:
+            continue
+        places = [(int(p[:2]), int(p[3:], 16)) for p in cols[5].split(",") if p]
+        rows.append((cols[0], cols[1], int(cols[2]), places))
+    return rows
+
+
+def placed_values(build: Path) -> dict[str, dict[str, int]]:
+    """Program ("boot", "00", ...) -> {name: value} from a build's placed.json files."""
+    out = {}
+    for path in sorted(build.glob("*/placed.json")):
+        name = path.parent.name
+        program = "boot" if name == "boot" else name[:2] if name[:2].isdigit() else None
+        if program is None:
+            continue
+        values = json.loads(path.read_text()).get("values", {})
+        out[program] = {k: int(v, 0) for k, v in values.items() if isinstance(v, str)}
+    return out
+
+
+class Release:
+    """The table: renames and the derived values in the release's names."""
+
+    def __init__(self, table: dict):
+        self.table = table
+        self.names: dict[str, str] = table.get("names", {})
+        self.units: dict[str, dict[str, str]] = table.get("units", {})
+
+    @classmethod
+    def load(cls, path: Path) -> "Release":
+        return cls(json.loads(Path(path).read_text()))
+
+    def name(self, symbol: str) -> str:
+        """SYMBOL in the release's names (a suffix kept: func_00280B90_7)."""
+        return NAME.sub(self._one, symbol)
+
+    def _one(self, m: re.Match) -> str:
+        key = core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), m.group(2))
+        new = self.names.get(key)
+        if new is None:
+            return m.group(0)
+        return "FUN" + new[4:] if m.group(1) == "FUN" and new.startswith("func_") else new
+
+    def text(self, text: str, unit: str | None = None) -> str:
+        """A file's text in the release's names: every address name, in code, strings (assembler
+        names) and comments alike, and the unit's own short names."""
+        own = self.units.get(unit or "", {})
+        if not own:
+            return NAME.sub(self._one, text)
+
+        # One pass, so that a name the unit's table gives (already the release's) is not renamed again.
+        def one(m: re.Match) -> str:
+            word = m.group(0)
+            if word in own:
+                return own[word]
+            named = NAME.fullmatch(word)
+            return self._one(named) if named else word
+        return ANY.sub(one, text)
+
+
+def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
+    """The release table hostgen.json names ("release": {"table": ...}), or None for a primary release."""
+    r = cfg.get("release")
+    if not r:
+        return None
+    path = config_dir / r["table"]
+    if not path.is_file():
+        raise FileNotFoundError(f"{cfg.get('id')}: no release table {path}: write it with port/tools/hostgen/release.py build")
+    return Release.load(path)
+
+
+# ---------------------------------------------------------------- building the table
+
+def build(source: Path, version: str, versionmap: Path | None, uses: Counter) -> dict:
+    us, rel = RELEASES["us"], RELEASES[version]
+    tag = rel["tag"]
+    evidence: Counter = Counter()
+    names: dict[str, str] = {}
+
+    us_boot = read_boot(source / us["config"] / "boot/functions.tsv")
+    us_levels = read_levels(source / us["config"] / "levels/functions.tsv")
+    r_boot = read_boot(source / rel["config"] / "boot/functions.tsv")
+    r_levels = read_levels(source / rel["config"] / "levels/functions.tsv")
+    us_entry = {n: a for n, a, _ in us_boot}
+
+    def stated(name: str) -> int:
+        return int(name[-8:], 16)
+
+    def own(name: str) -> bool:
+        return f"_{tag}_" in name
+
+    def strip(name: str) -> str:
+        return name.replace(f"_{tag}_", "_", 1)
+
+    # Functions of the release's executable.
+    r_boot_names = set()
+    plain: dict[str, int] = {}
+    absent: set[str] = set()
+    for name, address, _ in r_boot:
+        r_boot_names.add(name)
+        if own(name):
+            new = strip(name)
+            evidence["function: the release's own"] += 1
+        else:
+            m = NAME.fullmatch(name)
+            if m is None:
+                # A name of the symbol table (_sysbitFlush): the catalogue's address, as a symbol.
+                evidence["function: by its own name"] += 1
+                plain[name] = address
+                continue
+            if name not in us_entry:
+                raise SystemExit(f"release: {name} of the release's executable is not a v1.01 function")
+            # A twin entered away from its name (leftovers in front): the same distance here.
+            new = core("func", None, address + stated(name) - us_entry[name])
+            evidence["function: carried (same code)"] += 1
+        names[name] = new
+    # Functions of the levels (and executable functions the levels hold only).
+    for name, kind, _, places in r_levels:
+        if name in names:
+            continue
+        m = NAME.fullmatch(name)
+        if m is None:
+            continue
+        level = int(m.group(3)) if m.group(3) else None
+        if level is None:
+            # An executable function the release changed whose level copies stayed v1.01's: here a
+            # level function, named for its first place.
+            level, address = places[0]
+            evidence["function: v1.01's level copies of a changed executable function"] += 1
+        else:
+            address = next((a for lv, a in places if lv == level), None)
+            if address is None:
+                level, address = places[0]
+            evidence["function: the release's own" if own(name) else "function: carried (same code)"] += 1
+        names[name] = core("func", level, address)
+    # Where the release's catalogues place each function (their names, before renaming).
+    level_base_r = rel["level_base"]
+    r_level_place = {}
+    for n, _, _, places in r_levels:
+        for pl in places:
+            r_level_place.setdefault(pl, n)
+    r_boot_at = {a: n for n, a, _ in r_boot}
+    pending: dict[str, str] = {}
+    # Globals and other names: the release's build's values for v1.01's names, program by program.
+    r_values = placed_values(source / rel["build"])
+    us_values = placed_values(source / us["build"])
+    # v1.01's functions the release's catalogues do not have: where the release's C takes one's
+    # address, the value its build read (the release's changed function there); else no address.
+    for name, *_ in us_boot + [(n, 0, 0) for n, *_ in us_levels]:
+        if name in names or not (m := NAME.fullmatch(name)):
+            continue
+        home = f"{int(m.group(3)):02d}" if m.group(3) else "boot"
+        value = r_values.get(home, {}).get(name)
+        absent.add(name)
+        if value is not None:
+            names[name] = core("func", int(m.group(3)) if m.group(3) else None, value)
+            evidence["function: the release's build (a changed function's address)"] += 1
+            continue
+        if home == "boot":
+            # Only a level's C names it: the release's function at the place that level's build read
+            # (a level's copy of it, or the executable's).
+            found = None
+            for program in sorted(p for p in r_values if p != "boot"):
+                v = r_values[program].get(name)
+                if v is None:
+                    continue
+                lv = int(program)
+                row = r_level_place.get((lv, v)) if v >= level_base_r else r_boot_at.get(v)
+                if row is not None:
+                    found = row
+                    break
+            if found is not None:
+                pending[name] = found
+                evidence["function: the release's build (a level's, the release's function there)"] += 1
+                continue
+        names[name] = name.replace("func_", f"func_{DEAD}_", 1)
+        evidence["function: not in the release (marked)"] += 1
+    vmap = json.loads(versionmap.read_text()) if versionmap else None
+
+    def mapped(program: str, address: int) -> int | None:
+        if vmap is None:
+            return None
+        key = "boot" if program == "boot" else f"level:{program}"
+        hit = vmap["programs"].get(key, {}).get("data", {}).get(f"{address:08X}")
+        return int(hit, 16) if hit else None
+
+    level_base = us["level_base"]
+
+    def mapped_function(program: str, address: int) -> int | None:
+        if vmap is None:
+            return None
+        key = "boot" if program == "boot" else f"level:{program}"
+        hit = vmap["programs"].get(key, {}).get("functions", {}).get(f"{address:08X}")
+        return int(hit[0], 16) if hit else None
+
+    # Every other address name the C uses or the builds placed: functions the catalogues do not
+    # have (an entry inside one: func_00283208), globals, and names spelled with another release's
+    # tag (PAL's C carried from v2.00's says D_US2_...): their value in the release's build.
+    cores: set[str] = set()
+    for program, values in list(r_values.items()) + list(us_values.items()):
+        for sym in values:
+            m = NAME.match(sym)
+            if m:
+                cores.add(core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), m.group(2)))
+    for sym in uses:
+        m = NAME.match(sym)
+        if m:
+            cores.add(core(m.group(1), int(m.group(3)) if m.group(3) else None, int(m.group(4), 16), m.group(2)))
+    for name in sorted(cores - set(names)):
+        m = NAME.fullmatch(name)
+        kind, tagged = m.group(1), m.group(2)
+        level, address = (int(m.group(3)) if m.group(3) else None), int(m.group(4), 16)
+        what = "function" if kind == "func" else "global"
+        if tagged == tag:
+            names[name] = strip(name)
+            evidence[f"{what}: the release's own"] += 1
+            continue
+        if tagged in (DEAD,):
+            continue
+        home = f"{level:02d}" if level is not None else "boot"
+        value, how, at = None, None, level
+        if name in r_values.get(home, {}):
+            value, how = r_values[home][name], f"{what}: the release's build"
+        elif not tagged and (v := (mapped(home, address) if kind == "D" else mapped_function(home, address))) is not None:
+            value, how = v, f"{what}: versionmap ({'exact' if kind == 'D' else 'paired'})"
+        else:
+            # Used only where another program placed it (a level's C): the first level whose build
+            # did (level_data has each level's own).
+            for program in sorted(p for p in r_values if p != "boot"):
+                if name in r_values[program]:
+                    value, how = r_values[program][name], f"{what}: the release's build (a level's)"
+                    if kind == "func" and level is None and value >= level_base:
+                        at = int(program)     # a level's copy: a function of that level
+                    break
+        if value is None:
+            names[name] = name.replace(f"{'func' if kind == 'func' else 'D'}_", f"{'func' if kind == 'func' else 'D'}_{DEAD}_", 1)
+            evidence[f"{what}: no value (marked)"] += 1
+            continue
+        names[name] = core(kind, at, value)
+        evidence[how] += 1
+    # Names given as another catalogue row's (above): that row's name in the release.
+    for k, v in pending.items():
+        names[k] = names.get(v, v)
+    # Two v1.01 names of one function here (the release merged two of v1.01's alike empty hooks; a
+    # level's short spelling and its catalogue name): one file can declare both, with other types,
+    # so all but the catalogue's take another spelling of the same address (FUN_..., F<n>_func_...),
+    # which hostgen reads as that function.
+    catalogued = {n for n, _, _ in r_boot} | {n for n, _, _, _ in r_levels}
+    groups: dict[str, list[str]] = {}
+    for k, v in names.items():
+        if v.startswith("func_") and f"_{DEAD}_" not in v:
+            groups.setdefault(v, []).append(k)
+    for v, ks in groups.items():
+        if len(ks) < 2:
+            continue
+        ks.sort(key=lambda k: (k not in catalogued, k))
+        m = NAME.fullmatch(v)
+        for i, k in enumerate(ks[1:]):
+            if i == 0:
+                names[k] = "FUN" + v[4:]
+            elif m.group(3) is None:
+                names[k] = f"F{i:08x}_{v}"
+            else:
+                continue
+            evidence["function: another spelling of a function with two v1.01 names"] += 1
+    return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),
+            "r_values": r_values, "us_values": us_values, "r_levels": r_levels, "us_levels": us_levels,
+            "r_boot": r_boot, "us_boot": us_boot, "plain": plain, "absent": absent}
+
+
+def units(source: Path, version: str, release: Release, parts: dict, sources: list[str]) -> tuple[dict, Counter]:
+    """Each file's short names in the release's names: the function at the value that level's
+    build gave the name (the release's, else v1.01's renamed)."""
+    tag = RELEASES[version]["tag"]
+    evidence: Counter = Counter()
+
+    def at(rows_levels, boot_rows, level: int, address: int) -> str | None:
+        for name, _, _, places in rows_levels:
+            if (level, address) in places:
+                return name
+        for name, a, _ in boot_rows:
+            if a == address:
+                return name
+        return None
+    r_at = {}
+    for name, _, _, places in parts["r_levels"]:
+        for p in places:
+            r_at.setdefault(p, name)
+    us_at = {}
+    for name, _, _, places in parts["us_levels"]:
+        for p in places:
+            us_at.setdefault(p, name)
+    r_exe = {a: n for n, a, _ in parts["r_boot"]}
+    r_place_of = {}
+    for (l, a), n in r_at.items():
+        r_place_of.setdefault((l, release.name(n)), a)
+    r_exe_names = {release.name(n): a for n, a, _ in parts["r_boot"]}
+    us_exe = {a: n for n, a, _ in parts["us_boot"]}
+    out: dict[str, dict[str, str]] = {}
+    for d in sources:
+        for path in sorted((source / d).rglob("*.c")):
+            rel = path.relative_to(source).as_posix()
+            unit_level = UNIT_LEVEL.search(rel)
+            level = f"{int(unit_level.group(1)):02d}" if unit_level else "boot"
+            mine = rel.startswith(f"src/{version}/")
+            text = path.read_text(errors="replace")
+            # A v1.01 function the release does not have, defined here (as C or as its assembly's
+            # marker): no address in this file, though the release's C elsewhere may take the address
+            # its build read for that name (the release's own function there).
+            for name in DEFINED.findall(text) + INCLUDED.findall(text):
+                if name in parts["absent"] and f"_{DEAD}_" not in release.name(name):
+                    out.setdefault(rel, {})[name] = name.replace("func_", f"func_{DEAD}_", 1)
+                    evidence["function: v1.01's definition of one the release does not have"] += 1
+            if unit_level is None:
+                continue
+            found = {m.group(0) for m in SHORT.finditer(text)}
+            found |= set(re.findall(r"(?<![\w])func_80[0-9A-F]{6}(?![0-9A-Za-z_])", text))
+            lv = int(level)
+            for short in sorted(found):
+                # The same spelling at the release's address of that function in this level's program,
+                # so hostgen reads it as it reads v1.01's (hostgen.json "level_short_names").
+                value = parts["r_values"].get(level, {}).get(short)
+                how = "short name: the release's build"
+                if value is None and not mine:
+                    old = parts["us_values"].get(level, {}).get(short)
+                    name = (us_at.get((lv, old)) or us_exe.get(old)) if old is not None else None
+                    renamed = release.name(name) if name else None
+                    value = r_place_of.get((lv, renamed)) if renamed else None
+                    if value is None and renamed and renamed in r_exe_names and old is not None and old < 0x1000000:
+                        value = r_exe_names[renamed]
+                    how = "short name: v1.01's build, the same function's place here"
+                if value is None or value >= 0x1000000:
+                    evidence["short name: left as it is"] += 1
+                    continue
+                new = f"func_80{value:06X}" if short.startswith("func_80") and len(short) == 13 else f"func_{value:06X}"
+                evidence[how] += 1
+                if new != short:
+                    out.setdefault(rel, {})[short] = new
+    return out, evidence
+
+
+def derived_values(parts: dict, release: Release, level_base: int) -> dict:
+    """The derived table (derived.py's form) in the release's names: every value the release's build
+    gave, the executable's as values, a level's where it moved."""
+    values = {release.name(k): v for k, v in parts["r_values"].get("boot", {}).items()}
+    for k, v in parts["plain"].items():
+        values.setdefault(k, v)
+    # A named global only levels' C uses (g_pHeroMoby): one value in every level below the levels'
+    # programs is the executable's datum.
+    seen: dict[str, set[int]] = {}
+    for program, vals in parts["r_values"].items():
+        if program != "boot":
+            for k, v in vals.items():
+                if NAME.match(k) is None and not k.startswith(("ref_", "r1_", "func_", "FUN_")) \
+                        and not re.match(r"F[0-9a-f]{8}_", k):
+                    seen.setdefault(k, set()).add(v)
+    for k, vs in seen.items():
+        if k not in values and len(vs) == 1 and next(iter(vs)) < level_base:
+            values[k] = next(iter(vs))
+    levels: dict[str, list] = {}
+    level_data: dict[str, dict[str, str]] = {}
+    for program, vals in sorted(parts["r_values"].items()):
+        if program == "boot":
+            continue
+        lv = int(program)
+        moved = {}
+        for k, v in vals.items():
+            name = release.name(k)
+            if name.startswith(("ref_", "r1_func_")) or re.fullmatch(r"F[0-9a-f]{8}_(?:FUN|func)_[0-9A-F]{8}", name):
+                if name not in values:
+                    own = re.match(r"(?:ref|r1_func)_L(\d\d)_", name)
+                    if name not in levels or (own is not None and int(own.group(1)) == lv):
+                        levels[name] = [lv, f"{v:#010x}"]
+                continue
+            m = NAME.match(name)
+            if m and m.group(1) == "D":
+                stated = int(m.group(4), 16)
+                if v != stated or (m.group(0) == name and stated >= level_base and name not in values):
+                    moved[name] = f"{v:#010x}"
+            elif name.startswith(("D_", "r1_D_")) or (m is None and not name.startswith(("func_", "FUN_"))):
+                if name in values and int(values[name]) != v:
+                    moved[name] = f"{v:#010x}"
+                elif name not in values and not name.startswith(("func_", "FUN_")):
+                    moved[name] = f"{v:#010x}"
+        if moved:
+            level_data[str(lv)] = dict(sorted(moved.items()))
+    return {"values": {k: f"{v:#010x}" for k, v in sorted(values.items())},
+            "levels": dict(sorted(levels.items())), "level_data": level_data}
+
+
+def used_tokens(source: Path, sources: list[str]) -> Counter:
+    out: Counter = Counter()
+    for d in sources:
+        for p in (source / d).rglob("*"):
+            if p.suffix in (".c", ".h") and p.is_file():
+                out.update(m.group(0) for m in NAME.finditer(p.read_text(errors="replace")))
+    return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("build", help="write the release's table from a built decompilation")
+    b.add_argument("--game", type=Path, required=True, help="the release's hostgen.json")
+    b.add_argument("--source", type=Path, required=True,
+                   help="the decompilation, built for v1.01 and for the release (build/, build/<version>/)")
+    b.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release (globals no placed C uses)")
+    n = sub.add_parser("name", help="print names in the release's names")
+    n.add_argument("--game", type=Path, required=True)
+    n.add_argument("names", nargs="+")
+    args = ap.parse_args(argv)
+    cfg = json.loads(args.game.read_text())
+    table_path = args.game.parent / cfg["release"]["table"]
+    if args.cmd == "name":
+        r = Release.load(table_path)
+        for x in args.names:
+            print(x, r.name(x))
+        return 0
+    version = cfg["release"]["version"]
+    source = args.source.resolve()
+    roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"]) + ["nonmatching"]))
+    uses = used_tokens(source, roots)
+    parts = build(source, version, args.map, uses)
+    release = Release({"names": parts["names"]})
+    unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
+    release.units = unit_names
+    derived = derived_values(parts, release, RELEASES[version]["level_base"])
+    try:
+        commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, capture_output=True, text=True,
+                                timeout=15).stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired):
+        commit = None
+    # The decompilation's candidates (C for functions it has as assembly) for functions this release
+    # does not have, or that name what it does not: the release's assembly is translated instead.
+    left_out = {}
+    table_path_c = source / cfg.get("candidates", "nonmatching/functional.tsv")
+    if table_path_c.is_file():
+        for line in table_path_c.read_text().splitlines():
+            if not line.strip() or line.startswith("#"):
+                continue
+            cname, _, crel = line.partition("\t")
+            cname, cpath = cname.strip(), source / crel.strip()
+            if f"_{DEAD}_" in release.name(cname):
+                left_out[cname] = "not in this release"
+                continue
+            if cpath.is_file():
+                text = release.text(cpath.read_text(errors="replace"))
+                marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD}_\w+", text)))
+                if marked:
+                    left_out[cname] = f"names what this release does not have ({', '.join(marked[:3])})"
+    unresolved = sorted({release.name(t) for t in uses if t.startswith(("D_", "func_"))
+                         and f"_{DEAD}_" in release.name(t) and uses[t]})
+    table = {
+        "about": "The release view of the decompilation: each v1.01 address name and the release's name for it, "
+                 "and the values the release's build derived, in those names. Written by "
+                 "port/tools/hostgen/release.py build; do not edit.",
+        "source": {"commit": commit, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"},
+        "evidence": {**parts["evidence"], **dict(sorted(unit_evidence.items()))},
+        "names": parts["names"],
+        "units": unit_names,
+        **derived,
+        "unresolved": [],
+        "candidates_left_out": dict(sorted(left_out.items())),
+        "marked_in_use": unresolved,
+    }
+    table_path.write_text(json.dumps(table, indent=1) + "\n")
+    print(f"release: {table_path}: {len(table['names'])} names, {len(unit_names)} files with short names, "
+          f"{len(table['values'])} values; {len(unresolved)} marked names the C uses")
+    for k, v in table["evidence"].items():
+        print(f"  {k}: {v}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
