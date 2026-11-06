@@ -19,10 +19,10 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "../../common/lib/ui_quad.h"
 #include "game_protos.h"
-#include "openrac/game_host.h"
 #include "rac2.h"
+#include "../../common/lib/ui_quad.h"
+#include "openrac/game_host.h"
 
 /* The offset the game adds to every 2D position (g_gsPixelOffsetX, Y), shared by every program. */
 #define SCREEN_OFX GREF(int, RAC2_ADDR(0x001A7350u))

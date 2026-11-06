@@ -116,8 +116,9 @@ pub fn parse(text: &str) -> Result<DifferenceFile, String> {
         if d.name.trim().is_empty() || d.original.trim().is_empty() || d.port.trim().is_empty() {
             return Err(at("name, original and port are all needed"));
         }
-        if d.discs.is_empty() || d.discs.iter().any(|v| v != "pal" && v != "ntsc") {
-            return Err(at("discs are pal, ntsc or both"));
+        // A game's versions (games/<game>/game.json): Going Commando's USA v2.00 is ntsc2.
+        if d.discs.is_empty() || d.discs.iter().any(|v| !matches!(v.as_str(), "pal" | "ntsc" | "ntsc2")) {
+            return Err(at("discs are pal, ntsc or ntsc2"));
         }
         match (d.kind, &d.setting) {
             (Kind::Fix, None) => return Err(at("a fix needs a setting")),

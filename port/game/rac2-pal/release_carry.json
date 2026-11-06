@@ -1,68 +1,69 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 2,
-  "function: called": 11,
-  "function: changed": 135,
-  "function: found": 5,
-  "function: near": 149,
+  "function: by hand": 3,
+  "function: called": 20,
+  "function: changed": 141,
+  "function: found": 6,
+  "function: near": 161,
   "function: not found": 4,
   "function: same": 798,
   "global: aligned": 11,
   "global: between": 15,
   "global: exact": 137,
-  "global: the release's build": 69
+  "global: the release's build": 69,
+  "signature: v1.01's": 29
  },
  "functions": {
   "func_001158F8": [
    "func_001158F8",
    "found",
-   "libraries.tsv strncmp"
+   "signature"
   ],
   "func_00124418": [
    "func_00124418",
    "called",
-   "libraries.tsv sceGsResetPath"
+   "signature"
   ],
   "func_00125D98": [
    "func_00125D98",
    "called",
-   "libraries.tsv sceGsPutDispEnv"
+   "signature"
   ],
   "func_00126108": [
    "func_00126108",
    "called",
-   "libraries.tsv sceGsPutDrawEnv"
+   "signature"
   ],
   "func_00126288": [
    "func_00126288",
    "called",
-   "libraries.tsv sceGsSetDefLoadImage"
+   "signature"
   ],
   "func_00126470": [
    "func_00126470",
    "called",
-   "libraries.tsv sceGsSetDefStoreImage"
+   "signature"
   ],
   "func_00126730": [
    "func_00126730",
    "called",
-   "libraries.tsv sceGsExecStoreImage"
+   "signature"
   ],
   "func_00126DC0": [
    "func_00126DC0",
    "called",
-   "libraries.tsv sceGsSyncVCallback"
+   "signature"
   ],
   "func_00127348": [
    "func_00127348",
    "called",
-   "libraries.tsv sceMcInit"
+   "signature"
   ],
   "func_00128F50": [
    "func_00128F50",
    "called",
-   "libraries.tsv sceVibGetProfile"
+   "signature"
   ],
   "func_00131430": [
    "func_00131430",

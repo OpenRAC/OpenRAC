@@ -412,8 +412,37 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
             **out}
 
 
+PROTO = re.compile(r"^(?P<ret>[\w ]+?)\s*\b(?P<name>func_\w+)\((?P<params>[^)]*)\);$", re.M)
+
+
+def add_signatures(p: Pairing, new_cfg: dict, cfg: dict, libraries: str, protos: str) -> None:
+    """asm.signatures for the functions the port's host C replaces or wraps (libraries.tsv's host and
+    wrap rows, host_functions) where this release has its own code, as v1.01's C declares them: the
+    release's are translated from their assembly, and its callers' declarations need not be the
+    host's (`int f()` where the host defines `void f(gaddr)`)."""
+    known = {m.group("name"): m for m in PROTO.finditer(protos)}
+    names = [row.split("\t")[0] for row in libraries.splitlines()
+             if not row.startswith("#") and len(row.split("\t")) > 3 and row.split("\t")[3] in ("host", "wrap")]
+    names += cfg.get("host_functions", [])
+    sigs = new_cfg.setdefault("asm", {}).setdefault("signatures", {})
+    for name in names:
+        if name not in p.report.get("functions", {}) or name not in known:
+            continue                    # the same code: v1.01's C is the release's
+        new = p.function(name, "signature")
+        m = known[name]
+        params = [] if m.group("params").strip() in ("", "void") else [
+            re.sub(r"\s+a\d+$", "", x.strip()) for x in m.group("params").split(",")]
+        params = ["void *" if x == "gaddr" else x for x in params]
+        ret = "void *" if m.group("ret").strip() == "gaddr" else m.group("ret").strip()
+        if new is not None:
+            sigs.setdefault(new, f"{ret} ({', '.join(params) or 'void'})")
+            p.kinds["signature: v1.01's"] += 1
+
+
 def carry_libraries(p: Pairing, text: str) -> str:
-    lines = []
+    lines = ["# This release's copy of port/game/rac2-ntsc/libraries.tsv, written by port/tools/hostgen/release_carry.py:",
+             "# the same rows by this release's names (release_carry.json says how each was paired); do not edit.",
+             "# The primary's notes follow."]
     for line in text.splitlines():
         cols = line.split("\t")
         if line.startswith("#") or len(cols) < 2:
@@ -428,7 +457,7 @@ def carry_libraries(p: Pairing, text: str) -> str:
 
 
 def carry_split_places(p: Pairing, text: str) -> str:
-    lines = []
+    lines = ["# This release's copy of port/game/rac2-ntsc/split_places.tsv, by its names (release_carry.py).", "#"]
     for line in text.splitlines():
         cols = line.split("\t")
         if line.startswith("#") or len(cols) < 3:
@@ -714,6 +743,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--source", type=Path, required=True, help="the built decompilation (release.py build's)")
     ap.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release")
     ap.add_argument("--version", required=True, choices=["pal", "us2"])
+    ap.add_argument("--primary-protos", type=Path,
+                    help="the primary's generated game_protos.h (port/build/<preset>/games/rac2-ntsc/gen): the "
+                         "signatures of the functions the host C replaces or wraps that this release changed")
     args = ap.parse_args(argv)
     out_dir = args.game.parent
     cfg = json.loads(args.primary.read_text())
@@ -726,9 +758,11 @@ def main(argv: list[str] | None = None) -> int:
     p.primary_dir = args.primary.parent
     p.out_dir = out_dir
     new_cfg = carry_config(p, cfg, args.version)
-    args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
     primary = args.primary.parent
     (out_dir / "libraries.tsv").write_text(carry_libraries(p, (primary / "libraries.tsv").read_text()))
+    if args.primary_protos:
+        add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
+    args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")
     (out_dir / "split_places.tsv").write_text(carry_split_places(p, (primary / "split_places.tsv").read_text()))
     host = out_dir / "host"
     host.mkdir(exist_ok=True)

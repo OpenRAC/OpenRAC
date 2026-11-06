@@ -11,9 +11,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "rac2.h"
 #include "game/common/lib/guest_format.h"
 #include "openrac/guest.h"
-#include "rac2.h"
 
 /* printf: to the log. */
 void func_00115D48(gaddr format, ...) {

@@ -14,10 +14,10 @@
 #include <string.h>
 
 #include "draw_owner.h"
-#include "game/common/lib/effect_texture.h"
 #include "game_protos.h"
-#include "openrac/game_host.h"
 #include "rac2.h"
+#include "game/common/lib/effect_texture.h"
+#include "openrac/game_host.h"
 
 /* BuildViewMatrices's rotation rows; the camera block is 0x370 before them and the eye 0x230. */
 #define CAMERA_ROWS RAC2_ADDR(0x001B5570u)

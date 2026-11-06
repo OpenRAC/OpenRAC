@@ -14,9 +14,9 @@
  */
 #include <stdint.h>
 
-#include "../../common/lib/hud_edges.h"
 #include "game_protos.h"
 #include "rac2.h"
+#include "../../common/lib/hud_edges.h"
 
 static void draw_hud(void) {
     func_0028E458__game();
@@ -66,7 +66,9 @@ void func_0034AD10(gaddr panel) {
  * The ship levels draw a HUD of their own from a callback (func_0029B758), which is not the widgets
  * above: Feltzin, Hrugis and Gorn. The same markers move it.
  */
-#define SHIP_HUD(name)                                                                             \
+/* The name is expanded first, so that a release's table (rac2_version.h) renames it before ## pastes. */
+#define SHIP_HUD(name) SHIP_HUD_(name)
+#define SHIP_HUD_(name)                                                                            \
     int name(void) {                                                                               \
         const int side = openrac_game_hud_side();                                                  \
         side_marker(side);                                                                         \

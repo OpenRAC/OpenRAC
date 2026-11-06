@@ -118,7 +118,10 @@ What the translation reads (`hostgen.json`):
 - `from_assembly`: 15 wrappers whose C omits registers they forward
   (`arguments_filled_with_zero` in the report), translated from assembly.
 
-## The port's own code (`host/`)
+## The port's own code (`port/game/rac2/host/`)
+
+Shared by the three discs' programs ([rac2](../rac2/README.md)): this folder's `host/rac2_version.h`
+renames nothing, PAL's and v2.00's give their names and addresses.
 
 | File | Replaces |
 |---|---|
@@ -174,7 +177,7 @@ many bytes can be another field in another level: it reads what the running copy
 - Ratchet's class has no packets in a level: the game loads his mesh and textures from a pack of
   RC2.HDR (`packs[]` at +0x4F08, by armour) over the class at run time. The export reads pack 0
   (`editor/wads.py`, `hero_pack`) as `mobys/moby_0.glb`, textures `moby_1000.png` on. Packs 1 to 8, his
-  other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `profile.cpp`
+  other looks, are classes 6001 to 6008 of the export, textures 16 places on for each; `port/game/rac2/profile.cpp`
   has the window draw the one the game has (armour `0x001A7A18`, or the four flags before it), through
   `LiveMoby::model_class`, so class 0 stays the hero everywhere else. His sequences are compressed on
   the disc, so the glTF has none: the game draws him from its memory.
@@ -199,7 +202,7 @@ many bytes can be another field in another level: it reads what the running copy
   against the retail GS memory in levels 0, 1, 3 and 4. Offset 0 of the texture data, which format
   8 to 11 read, is the first terrain texture (some levels' alpha 0xFF stripes: a hard white line on
   the visor and the vendor). `Format.maps_in_textures`; format 14.
-- A moby's animation fields start at +0x40 (`profile.cpp`, `moby_anim_fields`).
+- A moby's animation fields start at +0x40 (`port/game/rac2/profile.cpp`, `moby_anim_fields`).
 - Glow: a packet's compact vertex table ends with a count of its last vertices whose lit colours
   func_00274D90 overwrites with the moby's glow word, +0x78 (`moby_glow_word`), when its mode has
   0x10 (the lift button's grey pulse and green, lamps, eyes). The export marks them light slot -2

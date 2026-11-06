@@ -16,8 +16,8 @@
 
 #define WIDE_CAMERA OPENRAC_DATA(RAC2_ADDR(0x001B5200u))
 #define WIDE_VIEW OPENRAC_DATA(RAC2_ADDR(0x001B9040u))
-#include "../../common/lib/wide_view_lists.h"
 #include "rac2.h"
+#include "../../common/lib/wide_view_lists.h"
 
 static const unsigned char* g_fix_liquids;
 static const unsigned char* g_fix_orbs;

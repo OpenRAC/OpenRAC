@@ -16,9 +16,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "rac2.h"
 #include "game/common/lib/vu0_sine.h"
 #include "openrac/ee.h"
-#include "rac2.h"
 
 /* The microprogram's constants: pi/2 at 0xC80, pi at 0xC90, -pi at 0xC98 and
  * c3..c9 at 0xCF0..0xD08. The packet's code starts one word after its MPG tag. */

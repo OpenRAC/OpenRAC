@@ -47,6 +47,9 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import derived as derived_mod  # noqa: E402
+
 # An address name: func_, FUN_ or D_, a release tag, a level, eight digits; a suffix after it stays.
 NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{1,3})_)?(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?![0-9A-Za-z])")
 # A short name: six digits, or kseg0's 80 and six (an address in the program of the file's level).
@@ -549,7 +552,9 @@ def main(argv: list[str] | None = None) -> int:
         "names": parts["names"],
         "units": unit_names,
         **derived,
-        "unresolved": [],
+        # The derived names the C uses that this release's build gave no value (their C is v1.01's
+        # only, or left as assembly here): derived.py's check tells them from a stale table.
+        "unresolved": sorted(derived_mod.used_names(source, cfg) - set(derived["values"]) - set(derived["levels"])),
         "candidates_left_out": dict(sorted(left_out.items())),
         "marked_in_use": unresolved,
     }

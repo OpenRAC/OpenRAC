@@ -1,8 +1,11 @@
+# This release's copy of port/game/rac2-ntsc/libraries.tsv, written by port/tools/hostgen/release_carry.py:
+# the same rows by this release's names (release_carry.json says how each was paired); do not edit.
+# The primary's notes follow.
 # The libraries Ratchet & Clank: Going Commando (NTSC-U) calls, by entry point, and what the port
 # does with each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
 # A host row binds an entry point to the replacement of that name every game shares
 # (port/game/common/libraries.tsv), or, with a signature of its own, to this game's host C
-# (port/game/rac2-ntsc/host). Names come from the decompilation's symbol_addrs/usa/symbol_addrs.txt
+# (port/game/rac2/host, shared by the three discs). Names come from the decompilation's symbol_addrs/usa/symbol_addrs.txt
 # where it has them; the kernel's system-call wrappers are identified by the call number each
 # loads into $v1 (ps2tek's EE kernel table). Entry points not here run from their C, or from
 # their assembly (hostgen.json "asm").
