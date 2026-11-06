@@ -215,9 +215,13 @@ if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
   message(FATAL_ERROR "OPENRAC_METAL needs OPENRAC_VULKAN: its shaders are compiled by the Vulkan backend's glslang")
 endif()
 if(OPENRAC_METAL)
-  add_library(openrac_renderer_metal STATIC renderer/metal/shader_translate.cpp)
+  add_library(openrac_renderer_metal STATIC
+    renderer/metal/mtlgl.mm renderer/metal/shader_translate.cpp)
   target_link_libraries(openrac_renderer_metal
-    PUBLIC openrac_renderer_vulkan PRIVATE openrac_spirv_cross)
+    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore"
+           "-framework Foundation"
+    PRIVATE openrac_spirv_cross)
+  target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
   openrac_warnings(openrac_renderer_metal)
 endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
@@ -888,9 +892,12 @@ endif()
 if(OPENRAC_METAL)
   openrac_add_test(metal_shader SOURCES tests/metal_shader_test.mm
                    INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
-                   LIBS openrac_renderer_metal openrac_scene_renderer "-framework Metal" "-framework Foundation")
+                   LIBS openrac_renderer_metal openrac_scene_renderer)
   target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
   set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
+  # mtlgl          the GL core on Metal without a window: clears and reads (tests/mtlgl_test.cpp)
+  openrac_add_test(mtlgl LIBS openrac_renderer_metal)
+  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.

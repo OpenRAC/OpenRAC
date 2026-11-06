@@ -1,7 +1,8 @@
 # renderer/metal
 
 The port's Metal renderer for macOS (Apple Silicon and Intel), built with `OPENRAC_METAL` (on by
-default on Apple's systems). It is being written in steps; today it holds the shaders only.
+default on Apple's systems). It is being written in steps; today it holds the shaders and the
+core of its GL.
 
 The target is macOS 12 on the oldest Macs the port supports (2015's MacBook Pros, AMD GPUs,
 `MTLGPUFamilyMac2`): MSL 2.4, no Metal 3. Macs without Metal keep the OpenGL 4.1 renderer, and
@@ -24,10 +25,22 @@ each program the game builds and compiles it on the Metal device for MSL 2.4, wi
 constant both ways, and checks that every binding has its slot. It is skipped where there is no
 Metal device.
 
+## GL
+
+[mtlgl.h](mtlgl.h), [mtlgl.mm](mtlgl.mm): the GL calls of `renderer/gl.h` carried out with Metal,
+as `../vulkan` does with Vulkan. The header gives the conventions. Today it has the device, the
+default framebuffer (RGBA8 colour, 32-bit float depth with stencil) and its present to a window's
+`CAMetalLayer`, the state queries, whole clears, `glReadPixels` and `glFinish`. A scissored or
+masked clear is refused with `GL_INVALID_OPERATION` until there are draws to make it with.
+
+[tests/mtlgl_test.cpp](../../tests/mtlgl_test.cpp) (`ctest -R mtlgl`) opens it without a window,
+clears and reads back. It is skipped where there is no Metal device.
+
 ## Still to come
 
-- The GL calls of `renderer/gl.h` carried out with Metal, as `../vulkan` does with Vulkan, chosen
-  with `OPENRAC_GL_API=metal` and falling back to Vulkan, then OpenGL.
+- The rest of `renderer/gl.h`: buffers, textures, samplers, framebuffers, programs, draws and
+  compute, then the window choosing it with `OPENRAC_GL_API=metal` and falling back to Vulkan,
+  then OpenGL.
 - The renderers' picture tests run on it, as their `_vulkan` variants do.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
 - macOS 12 as the deployment target, an Intel and universal build, iOS, Xcode projects.
