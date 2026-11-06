@@ -10540,6 +10540,20 @@
     "v": false
    }
   },
+  "func_002FBEB4": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [],
+    "v": false
+   }
+  },
   "func_002FC1D0": {
    "asm": true,
    "inherits": false,
@@ -10927,13 +10941,16 @@
    "new": false,
    "sig": {
     "f": {
-     "b": "int",
+     "b": "void",
      "q": []
     },
     "pr": true,
     "ps": [
      {
-      "b": "int",
+      "p": {
+       "b": "void",
+       "q": []
+      },
       "q": []
      }
     ],

@@ -9509,6 +9509,20 @@
     "v": false
    }
   },
+  "func_002FBCEC": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [],
+    "v": false
+   }
+  },
   "func_002FC008": {
    "asm": true,
    "inherits": false,
