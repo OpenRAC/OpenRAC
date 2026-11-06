@@ -20,15 +20,13 @@ follows the same rules.
   `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
   decision): only the bar's buttons wear stripes.
 - Controls (buttons, fields, chips, segmented choices, the search box) are
-  filled with `--control` and have a 1 px gold edge (`--edge`, the accent at
-  35 %), drawn inside. No edge on the gold main button, ghost buttons, the
-  bar's buttons, badges, or rows of a list.
+  filled with `--control` and have no edge or border (user decision: gold
+  edges looked bad). The fill alone sets a control apart.
 - Contrast rule: a control is one step lighter than what is behind it, in the
   blacks and coals only, never navy: `#121212` on the page (`#1e1e1e` under
-  the pointer), `#1a1a1a` on a `#121212` card (`#222222`). See "Control
+  the pointer), `#1e1e1e` on a `#121212` card (`#262626`). See "Control
   fills" below.
-- Switches: the track is a track (`--ink-deep` with the gold edge, a dim
-  knob); on, it takes the gold tint of a control that is on (`--on-fill`) and a
+- Switches: the track is a track (`--ink-deep`, a dim knob); on, it takes the gold tint of a control that is on (`--on-fill`) and a
   gold knob. Never a solid gold track: a list of switches that are on would be
   a wall of gold.
 - Controls stand on their own, with a 6 px gap between them. Never join a row
@@ -36,7 +34,7 @@ follows the same rules.
   one exception: its values sit on one strip, the picked one in the gold tint.
 - On or picked: a gold tint on the page's black (`--on-fill`, the accent at
   22 % over `--ink`) with gold text (`aria-pressed`, `data-on`,
-  `aria-checked` on `.segmented`); the edge stays. A picked row in a list (the
+  `aria-checked` on `.segmented`). A picked row in a list (the
   game list) is the accent at 12 %. A row under the pointer is `--control`.
 - Badges, tags, count chips and progress tracks sit on `--ink-deep`, with no
   border.
@@ -80,8 +78,7 @@ follows the same rules.
 | `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/.16` | lines between rows; never round a control       |
 | `--text`, `--body`                       | `#efeff3`, `#cacad3`             | text, neutral so the gold is the only accent    |
 | `--control`, `--control-hi`              | `#121212`, `#1e1e1e`             | plain controls on the page                      |
-| `--control-card`, `--control-card-hi`    | `#1a1a1a`, `#222222`             | plain controls on a card                        |
-| `--edge`                                 | the accent at 35 %               | a control's 1 px edge                           |
+| `--control-card`, `--control-card-hi`    | `#1e1e1e`, `#262626`             | plain controls on a card                        |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink | a control that is on or picked                  |
 | `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above         | the bar's buttons                               |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                      | cards; controls; badges                         |
@@ -110,17 +107,16 @@ the two equal.
 
 ### Control fills
 
-Buttons, fields, chips and tabs have a solid fill and a 1 px gold edge (none
-for the exceptions above). The fill is one step lighter than what is behind it
-(each surface above the one under it is lighter, as dark themes show depth),
-and it stays in the blacks and coals: no navy (user decision), no brown, no
-mid grey. The gold edge, not the fill, is what sets a control apart.
+Buttons, fields, chips and tabs have a solid fill and no edge. The fill is one
+step lighter than what is behind it (each surface above the one under it is
+lighter, as dark themes show depth), and it stays in the blacks and coals: no
+navy (user decision), no brown, no mid grey.
 
 | Surface                         | Fill      | Control on it        |
 | ------------------------------- | --------- | -------------------- |
 | page (`--ink`)                  | `#0a0a0a` | `#121212`, `#1e1e1e` |
-| card, panel, drawer (`--panel`) | `#121212` | `#1a1a1a`, `#222222` |
-| card in the game (`--panel-hi`) | `#191919` | `#1a1a1a`, `#222222` |
+| card, panel, drawer (`--panel`) | `#121212` | `#1e1e1e`, `#262626` |
+| card in the game (`--panel-hi`) | `#191919` | `#1e1e1e`, `#262626` |
 
 In code, `--control` / `--control-hi` is the fill on the page, and
 `--control-card` / `--control-card-hi` the fill on a card: any surface filled
@@ -129,15 +125,23 @@ with `--card` or `--card-hi` sets `--control: var(--control-card)` (and
 from its own colours (one step lighter than the page and than its cards;
 Gruvbox's controls sit darker, in its own `#1d2021`, as its page is lighter).
 
+On the OpenRAC theme, a game's accent may tint the coals with its bar colour:
+each accent sets `--tint-panel`, `--tint-panel-hi`, `--tint-control`,
+`--tint-control-hi`, `--tint-control-card` and `--tint-control-card-hi`
+(`base` holds the plain coals). The app uses them only while the theme is
+OpenRAC (`html[data-theme="openrac"]`); another theme keeps its own colours.
+So Going Commando's `#191919` becomes `#192125`, a coal with a little blue.
+
 The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands.
 
 The game's menu gets the same colours (`OPENRAC_UI_COLORS`). Its drawer and
 window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the
-controls on them are `--control-card` with the gold edge. A row under the
+controls on them are `--control-card`, with no edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
 open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
+coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 The game's window ground is the theme's coal with a glow of the accent at its
 top (Ratchet & Clank). Another game's accent (`palettes.json` `accents`) sets
@@ -145,7 +149,6 @@ its own ground instead: `--menu-top`, `--menu-bottom` and `--menu-glow`, the
 coal tinted a little with its bar colour, so Going Commando's window goes with
 its blue bar. The window's right side has the bar's stripes, barely visible,
 in its top left corner only, fading out down and to the right.
-coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 ## Logo
 
