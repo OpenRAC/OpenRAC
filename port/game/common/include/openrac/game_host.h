@@ -174,6 +174,10 @@ extern int (*openrac_game_camera_turn)(
     uint8_t right_x, float ticks, float* radians, float axis[3], unsigned* reads
 );
 
+/* Camera turn speed from right stick sensitivity above 100% (the stick byte stops at a full
+ * push). 1 = normal. Games multiply their stick camera turn by it (rac1, rac2: camera_latch.c). */
+extern float openrac_game_camera_speed;
+
 /* A trap the game raised on purpose, or another reason the game cannot go on: writes a crash
  * report (<data>/crashes) and ends the program. */
 #ifdef __cplusplus

@@ -195,8 +195,13 @@ int main() {
     camera.finger_down(4, 0.6f, 0.4f);
     camera.finger_move(4, 0.6f + 0.03f, 0.4f);
     CHECK(read(camera).right_x == 0xFF);
-    camera.finger_up(4);
+    // A full sideways swipe above 100% also turns the camera faster; at 100% it does not.
+    camera.finger_move(4, 0.6f + 0.2f, 0.4f);
+    CHECK(read(camera).camera_speed == 2.0f);
     camera.set_look_speed(1.0f);
+    camera.finger_move(4, 0.6f + 0.4f, 0.4f);
+    CHECK(read(camera).camera_speed == 1.0f);
+    camera.finger_up(4);
     // A finger that lands on a button presses it and does not turn the camera, even dragged.
     const TouchControl& triangle = control(camera, TouchControl::Kind::Button, Button::Triangle);
     camera.finger_down(2, triangle.x, triangle.y);
