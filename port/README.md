@@ -21,6 +21,11 @@ read the decompilation) and Python 3.
 
 - `--preset headless` builds without a window (no SDL3): the runtime, the
   games and their tests.
+- macOS builds with the Command Line Tools (`xcode-select --install`) alone; the
+  Xcode app is not needed. The programs run on macOS 12 and later
+  (`CMAKE_OSX_DEPLOYMENT_TARGET`). `--preset release-x86_64` builds for Intel
+  Macs and `--preset release-universal` for Apple silicon and Intel in one
+  binary; both build SDL3 in, as Homebrew's is for one architecture only.
 - On Linux the build uses mold or lld and ccache when installed
   (`-DOPENRAC_PORT_FAST_BUILD=OFF` turns that off).
 - `python3 tools/build_port.py [GAME] [--source DIR]`, run from the top of
