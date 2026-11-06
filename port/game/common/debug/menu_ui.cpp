@@ -64,7 +64,9 @@ namespace {
 
 // `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it
 // (`above`) or below: one step of clipping a convex shape to a band.
-void cut(const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float top, float at, bool above) {
+void cut(
+    const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float top, float at, bool above
+) {
     out.resize(0);
     const auto side = [&](ImVec2 p) {
         const float v = p.x + (p.y - top) * lean - at;
@@ -88,7 +90,13 @@ void cut(const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float to
 }  // namespace
 
 void striped_rect(
-    ImDrawList* list, ImVec2 a, ImVec2 b, float round, ImU32 one, ImU32 two, ImVec2 origin,
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    ImU32 one,
+    ImU32 two,
+    ImVec2 origin,
     float alpha
 ) {
     if (alpha <= 0.0f || b.x <= a.x || b.y <= a.y) {
@@ -532,17 +540,13 @@ bool menu_switch(const char* label, bool on) {
         const ImVec2 b(right.x, right.y + h * 0.5f);
         // The launcher's switch: a track in the darkest black with the gold edge; when on, the
         // gold tint of a control that is on and a gold knob (no wall of solid gold).
-        list->AddRectFilled(
-            a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f
-        );
+        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f);
         control_edge(list, a, b, h * 0.5f);
         const float knob = h * 0.5f - dp(4.0f);
         const float from = a.x + h * 0.5f;
         const float to = b.x - h * 0.5f;
         list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y),
-            knob,
-            ui_colors::mix(ui().dim, ui().amber, k)
+            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().amber, k)
         );
     });
 }

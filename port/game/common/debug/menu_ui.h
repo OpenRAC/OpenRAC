@@ -40,7 +40,13 @@ void control_edge(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float alpha
 // 35 degrees, a band of `one` starting at `origin` (the screen's corner for a card; the bar's own
 // for its buttons, so their stripes continue the bar's).
 void striped_rect(
-    ImDrawList* list, ImVec2 a, ImVec2 b, float round, ImU32 one, ImU32 two, ImVec2 origin,
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    ImU32 one,
+    ImU32 two,
+    ImVec2 origin,
     float alpha = 1.0f
 );
 
