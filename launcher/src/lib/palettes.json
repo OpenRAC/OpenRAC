@@ -24,7 +24,11 @@
     "--bar-stripe-alt": "#bd8619",
     "--bar-ink": "#2a1800",
     "--bar-ink-deep": "#1b1206",
-    "--err": "#ff8a7a"
+    "--err": "#ff8a7a",
+    "--control": "#1d1b2a",
+    "--control-hi": "#29253b",
+    "--control-card": "#121212",
+    "--control-card-hi": "#1e1e1e"
   },
   "palettes": [
     {
@@ -51,7 +55,11 @@
         "--line-field": "rgb(168 153 132 / 0.6)",
         "--ok": "#b8bb26",
         "--warn": "#fabd2f",
-        "--err": "#fb4934"
+        "--err": "#fb4934",
+        "--control": "#1d1b2a",
+        "--control-hi": "#29253b",
+        "--control-card": "#1d1b2a",
+        "--control-card-hi": "#29253b"
       },
       "swatch": ["#282828", "#3c3836", "#ebdbb2"]
     },
@@ -69,7 +77,11 @@
         "--dim": "#8a93b4",
         "--line": "rgb(160 165 200 / 0.22)",
         "--line-strong": "rgb(160 165 200 / 0.36)",
-        "--line-field": "rgb(160 165 200 / 0.6)"
+        "--line-field": "rgb(160 165 200 / 0.6)",
+        "--control": "#1d1b2a",
+        "--control-hi": "#29253b",
+        "--control-card": "#1d1b2a",
+        "--control-card-hi": "#29253b"
       },
       "swatch": ["#000000", "#15151c", "#f4f6ff"]
     },
@@ -91,7 +103,11 @@
         "--line-field": "rgb(216 222 233 / 0.6)",
         "--ok": "#a3be8c",
         "--warn": "#ebcb8b",
-        "--err": "#e8858e"
+        "--err": "#e8858e",
+        "--control": "#121212",
+        "--control-hi": "#1e1e1e",
+        "--control-card": "#121212",
+        "--control-card-hi": "#1e1e1e"
       },
       "swatch": ["#2e3440", "#434c5e", "#eceff4"]
     },
@@ -113,7 +129,11 @@
         "--line-field": "rgb(147 153 178 / 0.6)",
         "--ok": "#a6e3a1",
         "--warn": "#f9e2af",
-        "--err": "#f38ba8"
+        "--err": "#f38ba8",
+        "--control": "#121212",
+        "--control-hi": "#1e1e1e",
+        "--control-card": "#121212",
+        "--control-card-hi": "#1e1e1e"
       },
       "swatch": ["#181825", "#29293d", "#cdd6f4"]
     }

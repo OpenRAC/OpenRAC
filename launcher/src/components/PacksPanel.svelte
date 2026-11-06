@@ -315,7 +315,7 @@
     margin-left: 8px;
     padding: 1px 8px;
     border-radius: var(--radius-xs);
-    background: var(--fill);
+    background: var(--control);
     font-size: 0.6875rem;
     font-weight: 600;
     color: var(--lav);
@@ -353,7 +353,7 @@
     white-space: nowrap;
     padding: 2px 8px;
     border-radius: 7px;
-    background: var(--umber);
+    background: var(--control);
     font-size: 0.75rem;
     color: var(--soft);
   }

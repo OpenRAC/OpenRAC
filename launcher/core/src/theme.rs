@@ -25,6 +25,10 @@ const DRAWER: &[&str] = &[
     "--line",
     "--line-strong",
     "--err",
+    "--control",
+    "--control-hi",
+    "--control-card",
+    "--control-card-hi",
 ];
 
 /// The variable the game reads them from: `name=#rrggbb[aa]` pairs, comma-separated, each name
@@ -87,6 +91,9 @@ mod tests {
         let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
         assert_eq!(color(&nord, "amber"), Some("#f5c040"));
+        assert_eq!(color(&own, "control"), Some("#1d1b2a"));
+        assert_eq!(color(&own, "control-card"), Some("#121212"));
+        assert_eq!(color(&nord, "control"), Some("#121212"));
         assert_eq!(ui_colors("no-such", None), own);
         // The game's accent; Ratchet & Clank's is the launcher's own.
         let rac3 = ui_colors("nord", Some("rac3"));

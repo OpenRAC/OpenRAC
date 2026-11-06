@@ -148,7 +148,7 @@
     align-items: center;
     gap: 8px;
     border: 0;
-    background: var(--umber);
+    background: var(--control);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;

@@ -68,6 +68,8 @@
     height: 36px;
     border-radius: 50%;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     color: var(--lav);
     transition: transform var(--medium) var(--ease);
   }

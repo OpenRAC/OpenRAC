@@ -313,7 +313,7 @@
     /* Heavier than the page's text, to stand beside the logo's strokes. */
     font-weight: 600;
     /* A button of its own on the gold, as the site's bar has them: umber, light text. */
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     transition:
       color var(--medium) var(--ease),
@@ -327,7 +327,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on) {
-      background: var(--umber-hi);
+      background: var(--control-hi);
     }
   }
 
@@ -358,7 +358,7 @@
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text);
-    background: var(--umber);
+    background: var(--control);
     border-radius: var(--radius-sm);
     height: 36px;
     padding: 0 12px;
@@ -401,7 +401,7 @@
     width: 36px;
     height: 36px;
     border-radius: var(--radius-sm);
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     transition:
       background var(--fast) var(--ease),
@@ -415,7 +415,7 @@
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .site:hover,
     :global(html:where(:not([data-input="pad"]))) .discord:hover {
-      background: var(--umber-hi);
+      background: var(--control-hi);
       color: var(--amber);
     }
 
@@ -426,7 +426,7 @@
 
   .site:active,
   .discord:active {
-    background: var(--umber-hi);
+    background: var(--control-hi);
     color: var(--amber);
   }
 
@@ -756,7 +756,7 @@
   }
 
   :global(html[data-platform="android"]) .job .count {
-    background: var(--umber);
+    background: var(--control);
   }
 
   :global(html[data-platform="android"]) .end {

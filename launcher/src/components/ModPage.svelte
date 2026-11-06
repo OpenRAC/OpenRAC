@@ -619,7 +619,7 @@
     min-height: 40px;
     padding: 0 6px 0 14px;
     border-radius: var(--radius-sm);
-    background: var(--umber);
+    background: var(--control);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--soft);
@@ -647,6 +647,8 @@
     padding: 9px 12px;
     border-radius: var(--radius-sm);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }

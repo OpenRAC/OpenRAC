@@ -142,7 +142,7 @@ void panel_fill(
     }
 }
 
-// A tab on the bar, a button of its own: umber with light text, lighter under the pointer; the
+// A tab on the bar, a button of its own: --control (navy) with light text, lighter under the pointer; the
 // open one is the darker chip under it (drawn by the bar, sliding from tab to tab), its name in the
 // accent. True when clicked.
 bool bar_tab(const char* name, bool open, float height) {
@@ -160,7 +160,7 @@ bool bar_tab(const char* name, bool open, float height) {
         list->AddRectFilled(
             a,
             ImVec2(a.x + size.x, a.y + size.y),
-            ui_colors::fade(ui_colors::mix(control_fill(), control_fill_hi(), hover), 1.0f - on),
+            ui_colors::fade(ui_colors::mix(ui().control, ui().control_hi, hover), 1.0f - on),
             dp(6.0f)
         );
     }
@@ -186,7 +186,7 @@ bool bar_chip(
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float hover = tween(item_part("hover"), ImGui::IsItemHovered() ? 1.0f : 0.0f, kFast);
     const ImU32 fill = light ? ui_colors::mix(IM_COL32_WHITE, ui().gold, 0.25f * hover)
-                             : ui_colors::mix(ui().ink_deep, control_fill_hi(), hover);
+                             : ui_colors::mix(ui().control, ui().control_hi, hover);
     const float round = dp(6.0f);
     list->AddRectFilled(a, b, fill, round);
     if (held > 0.0f) {

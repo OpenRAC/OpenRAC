@@ -13,14 +13,14 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
   `accents`). No second accent colour.
 - No borders on buttons, fields, chips, tabs, badges, cards or panels. A fill
   sets them apart: `--panel` / `--panel-hi` for a card, and for a plain
-  control (a button, a chip, a field, a tab) `--umber`, a warm dark brown made
-  from the accent (`--umber-hi` under the pointer). No grey on a control, no
-  white mix. A thin `--line` only splits things (rows of a list, a bar from
+  control (a button, a chip, a field, a tab) `--control`, navy or `#121212`
+  against what is behind it (see "Control fills" below). No brown or mid grey
+  on a control, no white mix. A thin `--line` only splits things (rows of a list, a bar from
   the page), never round a control.
 - Controls stand on their own, with a 6 px gap between them. Never join a row
   of buttons or tabs into one capsule with dividers. A segmented choice (a
   setting's two or three values) is the one exception: its values sit on one
-  `--umber` strip, the picked one in the gold tint.
+  `--control` strip, the picked one in the gold tint.
 - Corners: 6 px (`--radius-sm`) for buttons, fields, chips, tabs and small
   boxes; 4 px (`--radius-xs`) for badges; 12 px (`--radius`) for cards, panels,
   pictures and dialogs. Round only for what is really round (dots, switches,
@@ -35,7 +35,7 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
   Android use 16 px text.
 - The header bar: the gold stripes, the logo and the version badge dark,
   whatever the accent. Each tab (Games, Mods, Develop, Settings) is a button
-  of its own, 36 px tall, `--umber` with light text and a small icon before
+  of its own, 36 px tall, `--control` with light text and a small icon before
   its word (the icons go first when the window is narrow). The open tab is a
   darker chip (`--bar-ink-deep`) with gold text, sliding from tab to tab. The
   site and Discord links are two more such buttons, icon only. The game's
@@ -60,8 +60,8 @@ menu (the desktop's bar and window, Android's drawer) follows the same rules.
 | `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`   | secondary text, from most to least prominent              |
 | `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/ .16` | lines between rows; never round a control                 |
 | `--text`, `--body`                       | `#efeff3`, `#cacad3`              | text, neutral so the gold is the only accent              |
-| `--umber`, `--umber-hi`                  | `--brand` at 17 % / 23 % on black | plain controls (the site's `#261b0e` / `#33240f`)         |
-| `--fill`, `--field` (and `-hi`)          | `--umber` (`--umber-hi`)          | a button's or chip's fill; a text field's or dropdown's   |
+| `--control`, `--control-hi`              | `#1d1b2a`, `#29253b`              | plain controls on the page and the bar (navy)             |
+| `--control-card`, `--control-card-hi`    | `#121212`, `#1e1e1e`              | plain controls on a card or panel (`--panel` is navy)     |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 %         | a control that is on or picked                            |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                       | cards; controls; badges                                   |
 | `--bar-top`, `--bar-bottom`              | `#e5a013`, `#cd8300`              | the header bar's gradient, primary buttons                |
@@ -93,14 +93,32 @@ Buttons, fields, chips, tabs and the bar's buttons have a solid fill with no
 border or edge. The fill is picked against the background so it always stands
 out, and it is never brown or a mid grey:
 
-- On a navy or violet background (the OpenRAC theme's ink, Nord, Catppuccin
+- On a navy or violet background (the OpenRAC theme's cards, Nord, Catppuccin
   Mocha), a control is neutral `#121212` (`#1e1e1e` on hover).
-- On a neutral `#121212` background (or a theme close to it, such as OLED
-  black), a control is navy `#1d1b2a` (`#29253b` on hover).
+- On a neutral `#121212` background (the OpenRAC theme's page `#12121a`, or a
+  theme close to it, such as OLED black), a control is navy `#1d1b2a`
+  (`#29253b` on hover).
 
 Themes can change the background, so this applies to the launcher and to the
 game's options drawer alike: a theme that changes the page also says which of
 the two fills its controls get. The site (openrac.dev) uses the first one.
+
+In code, `--control` / `--control-hi` is the fill on the page and the bar, and
+`--control-card` / `--control-card-hi` the fill on a card: any surface filled
+with `--panel` or `--panel-hi` sets `--control: var(--control-card)` (and
+`-hi`) for what is inside it. Each theme in `palettes.json` sets both pairs:
+
+| Theme            | Page      | `--control` | Card             | `--control-card` |
+| ---------------- | --------- | ----------- | ---------------- | ---------------- |
+| OpenRAC          | `#12121a` | navy        | `#1d1d27` (navy) | `#121212`        |
+| Gruvbox          | `#282828` | navy        | `#32302f`        | navy             |
+| OLED black       | `#000000` | navy        | `#0b0b0f`        | navy             |
+| Nord             | `#2e3440` | `#121212`   | `#3b4252`        | `#121212`        |
+| Catppuccin Mocha | `#181825` | `#121212`   | `#1e1e2e`        | `#121212`        |
+
+The game's menu gets all four (`OPENRAC_UI_COLORS`): its drawer and window
+are panels, so their controls use `--control-card`; the bar's tabs and chips
+use `--control`.
 
 ## Logo
 

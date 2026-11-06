@@ -30,8 +30,8 @@ const ui_colors::Colors& ui();
 // A row or button held down: the launcher's accent, faint over the card.
 ImU32 pressed_fill();
 // What sets a control apart in place of a border (a key cap, a switch's track, a chip, a tab):
-// umber, a warm dark brown made from the accent, as the launcher's --umber; lighter under the
-// pointer (--umber-hi). No grey.
+// the launcher's --control-card, as the menu's controls sit on a panel; lighter under the pointer
+// (--control-card-hi). The bar's own controls use ui().control.
 ImU32 control_fill();
 ImU32 control_fill_hi();
 

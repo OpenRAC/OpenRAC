@@ -216,7 +216,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: var(--fill);
+    background: var(--control);
     color: var(--soft);
   }
 

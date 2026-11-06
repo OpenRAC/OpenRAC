@@ -243,7 +243,7 @@
     padding: 3px 10px;
     font-size: 0.8125rem;
     color: var(--lav);
-    background: var(--umber);
+    background: var(--control);
     border-radius: var(--radius-sm);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -268,6 +268,8 @@
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
   }
   .where > :global(svg) {

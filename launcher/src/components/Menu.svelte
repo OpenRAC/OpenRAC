@@ -156,7 +156,7 @@
     height: 44px;
     padding: 0;
     justify-content: center;
-    background: var(--fill);
+    background: var(--control);
   }
 
   .list {
@@ -168,6 +168,8 @@
     flex-direction: column;
     padding: 6px;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-sm);
   }

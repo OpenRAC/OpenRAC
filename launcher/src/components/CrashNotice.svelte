@@ -214,6 +214,8 @@
   /* No crash report: the game was closed, which is not a fault. Not red, and no alarm. */
   .notice.quiet {
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .notice.quiet .mark {
@@ -227,6 +229,8 @@
     gap: 10px;
     padding: 12px 16px;
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .short p {

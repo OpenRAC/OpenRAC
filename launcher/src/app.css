@@ -38,16 +38,14 @@
   --on-game: #fff;
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
-  /* The fills that set controls apart, in place of a border (the site's STYLE.md): no grey. A
-     plain control (a button, a chip, a field, a tab) is umber, a warm dark brown made from the
-     accent (so a game's own accent gives its own dark shade), lighter under the pointer; a control
-     that is on takes a stronger gold tint. */
-  --umber: color-mix(in srgb, var(--brand) 17%, black);
-  --umber-hi: color-mix(in srgb, var(--brand) 23%, black);
-  --fill: var(--umber);
-  --fill-hi: var(--umber-hi);
-  --field: var(--umber);
-  --field-hi: var(--umber-hi);
+  /* Control fills (STYLE.md, "Control fills"): buttons, fields, chips and tabs have a solid fill
+     and no border, picked against what is behind them. On the page (#12121a, near #121212) they
+     are navy; on a card (--panel, navy) they are #121212. A surface sets --control from the card
+     pair; a theme (palettes.json) sets both pairs. */
+  --control: #1d1b2a;
+  --control-hi: #29253b;
+  --control-card: #121212;
+  --control-card-hi: #1e1e1e;
   --on-fill: color-mix(in srgb, var(--amber) 22%, transparent);
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, transparent);
   /* States. The site has none; these sit with its palette. */
@@ -292,6 +290,8 @@ code,
 .panel {
   /* No frame: its fill, a little lighter than the page, sets it apart. */
   background: var(--panel);
+  --control: var(--control-card);
+  --control-hi: var(--control-card-hi);
   border-radius: var(--radius);
   padding: 20px 22px;
 }
@@ -311,7 +311,7 @@ button,
   font-weight: 600;
   border-radius: var(--radius-sm);
   border: 0;
-  background: var(--fill);
+  background: var(--control);
   color: var(--text);
   min-height: 40px;
   padding: 8px 16px;
@@ -339,7 +339,7 @@ button[data-on] {
 @media (hover: hover) {
   html:where(:not([data-input="pad"])) button:hover:not(:disabled),
   html:where(:not([data-input="pad"])) .button:hover {
-    background-color: var(--fill-hi);
+    background-color: var(--control-hi);
   }
 
   html:where(:not([data-input="pad"])) button.primary:hover:not(:disabled),
@@ -444,7 +444,7 @@ select {
   font: inherit;
   font-size: 0.875rem;
   color: var(--text);
-  background-color: var(--field);
+  background-color: var(--control);
   border: 0;
   border-radius: var(--radius-sm);
   transition:
@@ -476,7 +476,7 @@ html[data-input="pad"]
   html:where(:not([data-input="pad"])) input[type="number"]:hover:not(:focus):not(:disabled),
   html:where(:not([data-input="pad"])) textarea:hover:not(:focus):not(:disabled),
   html:where(:not([data-input="pad"])) select:hover:not(:focus):not(:disabled) {
-    background-color: var(--field-hi);
+    background-color: var(--control-hi);
   }
 }
 
@@ -494,6 +494,8 @@ select {
 
 select option {
   background: var(--panel);
+  --control: var(--control-card);
+  --control-hi: var(--control-card-hi);
 }
 
 /* A search field is a text field: no system look (WebKit's rounded white box, Chromium's clear
@@ -553,7 +555,7 @@ input.switch {
   height: 24px;
   margin: 0;
   border-radius: 999px;
-  background: var(--fill-hi);
+  background: var(--control-hi);
   border: 0;
   cursor: pointer;
   transition: background var(--fast) var(--ease);
@@ -595,7 +597,7 @@ input.switch:disabled {
   padding: 2px;
   gap: 2px;
   border-radius: var(--radius-sm);
-  background: var(--field);
+  background: var(--control);
 }
 
 .segmented button {
@@ -686,7 +688,7 @@ ol.steps > li::before {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--fill);
+  background: var(--control);
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--soft);
@@ -1129,6 +1131,8 @@ html[data-platform="android"] :is(input[type="text"], input[type="search"], inpu
   position: relative;
   z-index: 2;
   background: var(--panel-hi);
+  --control: var(--control-card);
+  --control-hi: var(--control-card-hi);
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
   cursor: grabbing;

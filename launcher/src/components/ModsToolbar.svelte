@@ -99,6 +99,8 @@
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }
@@ -129,7 +131,7 @@
     min-width: 0;
     padding: 0 10px;
     border-radius: var(--radius-sm);
-    background: var(--umber);
+    background: var(--control);
     color: var(--soft);
   }
 
@@ -171,7 +173,7 @@
     align-items: center;
     gap: 6px;
     border: 0;
-    background: var(--umber);
+    background: var(--control);
     padding: 6px 12px;
     font-size: 0.8125rem;
     font-weight: 600;

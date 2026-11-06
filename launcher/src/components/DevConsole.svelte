@@ -192,6 +192,8 @@
 
   .job.on {
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     background: var(--on-fill);
     color: var(--amber);
   }

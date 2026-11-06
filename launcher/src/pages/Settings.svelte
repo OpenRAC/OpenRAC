@@ -811,7 +811,7 @@
     gap: 8px;
     padding: 6px 12px 6px 6px;
     border-radius: var(--radius-sm);
-    background: var(--fill);
+    background: var(--control);
     color: var(--soft);
     font-size: 0.8125rem;
     font-weight: 600;
@@ -943,6 +943,8 @@
     gap: 10px;
     padding: 12px 14px 12px 20px;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
     font-size: 0.875rem;

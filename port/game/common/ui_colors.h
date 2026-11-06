@@ -43,6 +43,11 @@ struct Colors {
     Color line = rgba(255, 255, 255, 23);         // --line: hairlines between rows
     Color line_strong = rgba(255, 255, 255, 41);  // --line-strong
     Color err = rgba(0xff, 0x8a, 0x7a);           // --err: Quit
+    // Control fills (launcher/docs/STYLE.md): no border, picked against what is behind them.
+    Color control = rgba(0x1d, 0x1b, 0x2a);          // --control: on the bar and the page
+    Color control_hi = rgba(0x29, 0x25, 0x3b);       // --control-hi: under the pointer
+    Color control_card = rgba(0x12, 0x12, 0x12);     // --control-card: on a panel or a card
+    Color control_card_hi = rgba(0x1e, 0x1e, 0x1e);  // --control-card-hi
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME

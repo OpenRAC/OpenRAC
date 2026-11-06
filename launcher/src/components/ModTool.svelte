@@ -193,6 +193,8 @@
     border: 0;
     border-radius: 12px;
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   /* Android: the crumbs (40px) and the gap above the frame; the rest of the screen is the page's. */

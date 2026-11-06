@@ -163,7 +163,7 @@
     text-overflow: ellipsis;
     font-size: 0.75rem;
     color: var(--soft);
-    background: var(--umber);
+    background: var(--control);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;

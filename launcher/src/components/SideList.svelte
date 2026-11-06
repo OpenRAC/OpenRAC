@@ -206,6 +206,8 @@
 
   .thumb.icon {
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .thumb img {

@@ -289,7 +289,7 @@
   input[type="number"] {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -380,7 +380,7 @@
     padding: 5px 12px;
     cursor: pointer;
     color: var(--soft);
-    background: var(--umber);
+    background: var(--control);
   }
 
   .chip.on {

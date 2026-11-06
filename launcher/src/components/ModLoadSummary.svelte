@@ -183,7 +183,7 @@
   }
   .edition,
   .status {
-    background: var(--fill);
+    background: var(--control);
     border-radius: var(--radius-xs);
     padding: 5px 10px;
     font-size: 12px;

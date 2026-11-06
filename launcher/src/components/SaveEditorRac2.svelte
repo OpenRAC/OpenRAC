@@ -742,6 +742,8 @@
     max-width: 980px;
     height: calc(100vh - 48px);
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -758,6 +760,8 @@
   .foot {
     padding: 16px 22px;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .head {
@@ -833,6 +837,8 @@
     padding: 4px;
     border-radius: var(--radius-sm);
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .review button {
@@ -915,7 +921,7 @@
     gap: 4px;
     margin: 0 -22px;
     padding: 8px 18px;
-    background: var(--umber);
+    background: var(--control);
     border-bottom: 1px solid var(--line);
   }
 
@@ -972,7 +978,7 @@
   select {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -996,7 +1002,7 @@
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
     width: 130px;
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
@@ -1025,7 +1031,7 @@
     padding: 5px 12px;
     cursor: pointer;
     color: var(--soft);
-    background: var(--umber);
+    background: var(--control);
   }
 
   .chip.on {
@@ -1102,7 +1108,7 @@
     display: inline-block;
     margin-right: 6px;
     padding: 0 6px;
-    background: var(--fill);
+    background: var(--control);
     border-radius: var(--radius-xs);
     font-size: 0.6875rem;
     color: var(--soft);

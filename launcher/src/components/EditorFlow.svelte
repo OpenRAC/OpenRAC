@@ -449,7 +449,7 @@
     width: 34px;
     height: 34px;
     border-radius: 999px;
-    background: var(--umber);
+    background: var(--control);
     color: var(--lav);
   }
 
@@ -562,6 +562,8 @@
     padding: 12px 14px;
     border-radius: var(--radius-sm);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.875rem;
   }
 
@@ -603,7 +605,7 @@
   .actions select {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--umber);
+    background: var(--control);
     color: var(--text);
     border-radius: var(--radius-sm);
     padding: 7px 12px;

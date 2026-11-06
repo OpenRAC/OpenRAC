@@ -209,9 +209,9 @@ void launcher_style(ImGuiStyle& style) {
         return v;
     };
     const ui_colors::Colors& u = ui();
-    // Plain controls are umber, a warm dark brown made from the accent (the launcher's --umber).
-    const ui_colors::Color umber = ui_colors::mix(ui_colors::rgba(0, 0, 0), u.brand, 0.17f);
-    const ui_colors::Color umber_hi = ui_colors::mix(ui_colors::rgba(0, 0, 0), u.brand, 0.23f);
+    // Plain controls sit on a panel: the launcher's --control-card (launcher/docs/STYLE.md).
+    const ui_colors::Color control = u.control_card;
+    const ui_colors::Color control_hi = u.control_card_hi;
     ImVec4* colors = style.Colors;
     colors[ImGuiCol_Text] = c(u.text);
     colors[ImGuiCol_TextDisabled] = c(u.dim);
@@ -219,8 +219,8 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
     colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
     colors[ImGuiCol_Border] = c(u.line);
-    colors[ImGuiCol_FrameBg] = c(umber);
-    colors[ImGuiCol_FrameBgHovered] = c(umber_hi);
+    colors[ImGuiCol_FrameBg] = c(control);
+    colors[ImGuiCol_FrameBgHovered] = c(control_hi);
     colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.panel, u.amber, 0.18f));
     colors[ImGuiCol_TitleBg] = c(u.ink_deep);
     colors[ImGuiCol_TitleBgActive] = c(u.panel_hi);
@@ -233,8 +233,8 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_CheckMark] = c(u.amber);
     colors[ImGuiCol_SliderGrab] = c(u.amber);
     colors[ImGuiCol_SliderGrabActive] = c(u.gold);
-    colors[ImGuiCol_Button] = c(umber);
-    colors[ImGuiCol_ButtonHovered] = c(umber_hi);
+    colors[ImGuiCol_Button] = c(control);
+    colors[ImGuiCol_ButtonHovered] = c(control_hi);
     colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel, u.amber, 0.22f));
     colors[ImGuiCol_Header] = c(ui_colors::mix(u.panel_hi, u.amber, 0.14f));
     colors[ImGuiCol_HeaderHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
@@ -245,11 +245,11 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ResizeGrip] = c(u.line);
     colors[ImGuiCol_ResizeGripHovered] = c(u.amber, 0.6f);
     colors[ImGuiCol_ResizeGripActive] = c(u.amber);
-    colors[ImGuiCol_Tab] = c(umber);
+    colors[ImGuiCol_Tab] = c(control);
     colors[ImGuiCol_TabHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
     colors[ImGuiCol_TabSelected] = c(ui_colors::mix(u.panel, u.amber, 0.15f));
     colors[ImGuiCol_TabSelectedOverline] = c(u.amber, 0.0f);
-    colors[ImGuiCol_TabDimmed] = c(umber);
+    colors[ImGuiCol_TabDimmed] = c(control);
     colors[ImGuiCol_TabDimmedSelected] = c(ui_colors::mix(u.panel, u.amber, 0.10f));
     colors[ImGuiCol_PlotLines] = c(u.soft);
     colors[ImGuiCol_PlotLinesHovered] = c(u.amber);

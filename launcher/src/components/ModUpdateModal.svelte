@@ -119,6 +119,8 @@
     width: 100%;
     max-width: 480px;
     background: var(--panel);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -137,6 +139,8 @@
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .title-row {
@@ -208,6 +212,8 @@
     padding: 16px 24px;
     border-top: 1px solid var(--line);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .grow {

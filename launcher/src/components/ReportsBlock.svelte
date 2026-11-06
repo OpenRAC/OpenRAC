@@ -428,6 +428,8 @@
     color: var(--soft);
     padding: 14px 16px;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: 12px;
   }
 

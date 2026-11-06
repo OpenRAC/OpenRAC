@@ -508,6 +508,8 @@
     margin: 0;
     padding: 10px 16px;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
   }
@@ -531,7 +533,7 @@
     align-items: center;
     gap: 8px;
     border: 0;
-    background: var(--umber);
+    background: var(--control);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -548,7 +550,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tabs button:hover:not(.on) {
-      background: var(--umber-hi);
+      background: var(--control-hi);
       color: var(--text);
     }
   }

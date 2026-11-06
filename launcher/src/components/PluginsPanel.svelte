@@ -716,6 +716,8 @@
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }
@@ -789,7 +791,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .open:hover:not(:disabled) {
-      background: var(--umber);
+      background: var(--control);
     }
 
     :global(html:where(:not([data-input="pad"]))) .open:hover .go {
@@ -800,6 +802,8 @@
   .open:active:not(:disabled) {
     transform: none;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .words {

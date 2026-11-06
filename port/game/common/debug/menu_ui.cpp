@@ -39,11 +39,11 @@ ImU32 pressed_fill() {
 }
 
 ImU32 control_fill() {
-    return ui_colors::mix(ui_colors::rgba(0, 0, 0), ui().brand, 0.17f);
+    return ui().control_card;
 }
 
 ImU32 control_fill_hi() {
-    return ui_colors::mix(ui_colors::rgba(0, 0, 0), ui().brand, 0.23f);
+    return ui().control_card_hi;
 }
 
 float tween(ImGuiID id, float target, float seconds) {

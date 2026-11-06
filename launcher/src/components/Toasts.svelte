@@ -157,6 +157,8 @@
     gap: 10px;
     align-items: flex-start;
     background: var(--panel-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     padding: 10px 8px 10px 14px;
     font-size: 0.875rem;
