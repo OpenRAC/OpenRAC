@@ -1453,6 +1453,13 @@ static int line_prim(
 }
 
 /* The moby pass of CollLine_Fix: the grid cells under the DDA list, (x >> 2, y >> 2) without repeats. */
+/* A moby the line query also passes through, while a figure's shot is made (figure_shots.c). */
+static gaddr line_also_ignores;
+
+void rac1_coll_line_also_ignore(gaddr moby) {
+    line_also_ignores = moby;
+}
+
 static void line_mobys(
     const Ctx* x,
     uint32_t stamp,
@@ -1495,7 +1502,7 @@ static void line_mobys(
         const gaddr list = grid_cell(x, cells[ci][0], cells[ci][1], &count);
         for (int li = 0; li < count; ++li) {
             const gaddr m = moby_at(x, U16(list + 2 * (gaddr)li));
-            if (m == ignore) {
+            if (m == ignore || (line_also_ignores != 0 && m == line_also_ignores)) {
                 continue;
             }
             if ((fl & 0x9) != 0 && (U16(m + 0x34) & 0x4000) == 0) {
@@ -2085,6 +2092,40 @@ static int host_line(gaddr a0, gaddr a1, int a2, int a3, int a4) {
     return r;
 }
 
+/* Whether the level's own walls and ground stand between two points (openrac_api.level_line): the
+ * line query's world pass and nothing of its moby pass, for a mod's question, not the game's. The
+ * game sees no query: no stamp, no CollOutput, no hit record, and the vector registers as they were. */
+int rac1_level_line(const float from[3], const float to[3], int* blocked) {
+    const gaddr mesh = openrac_game_loaded_overlay() >= 0 ? U32(level_ctx()->out) : 0;
+    if (mesh == 0) {
+        return 0;
+    }
+    uint32_t kept[32][4];
+    memcpy(kept, g_vf, sizeof kept);
+    const int fr = fegetround();
+    fesetround(FE_TOWARDZERO);
+    const V3 a = v3(from[0], from[1], from[2]);
+    const V3 b = v3(to[0], to[1], to[2]);
+    *blocked = 0;
+    if (in_world_lo(a, b) && in_world_hi(a, b, collision_has_extended_tree(mesh))) {
+        const V3 a1024 = vmuls(a, K1024);
+        const V3 b1024 = vmuls(b, K1024);
+        const int n = line_cell_list(a1024, b1024);
+        if (n >= 0) {
+            float best_t = 1.0f;
+            Best best;
+            best_start(&best);
+            line_world(mesh, 0, a1024, b1024, vsub(b1024, a1024), n, &best_t, &best);
+            *blocked = best.have;
+        }
+    }
+    fesetround(fr);
+    memcpy(g_vf, kept, sizeof kept);
+    return 1;
+}
+
+/* The sphere query (radius, centre, flags, ignore): the closest face within the radius, the centre
+ * pushed out to touch it (+0x30). */
 static int host_sphere(float a0, gaddr a1, int a2, gaddr a3) {
     const int fr = fegetround();
     fesetround(FE_TOWARDZERO);

@@ -170,6 +170,7 @@ struct FramePresentation {
     std::chrono::steady_clock::time_point
         finished{};           // Worker completion, excluding handoff idle time.
     renderer::Camera camera;  // Camera of the submitted scene, for the debug UI.
+    bool has_camera = false;  // The scene drew a world with that camera.
     CameraDebugFrame
         camera_debug;  // Window-thread inputs fixed before handing the scene to the worker.
     std::vector<scene::Instance> picker_live;

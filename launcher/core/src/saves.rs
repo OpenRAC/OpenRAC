@@ -69,6 +69,21 @@ pub struct SaveSlotInfo {
     pub mods: Option<Vec<SaveMod>>,
 }
 
+/// A save of a party's, in the co-op folder beside the game's (`<game's folder>-coop`). The game
+/// writes these while a party plays, never the player's own slots (port/game/common/lib/mc.c); they
+/// are started from the game's Multiplayer pages, so this list only shows them.
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct CoopSaveInfo {
+    pub slot_index: usize,
+    pub path: String,
+    pub bolts: Option<u32>,
+    pub planet_name: Option<String>,
+    pub timestamp: Option<String>,
+    /// Whose party it was, from the note beside the save (`save0.bin.party`: the multiplayer mod's).
+    pub host: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveBackupInfo {
@@ -91,6 +106,9 @@ pub struct GameSaveStatus {
     pub game_folder_name: Option<String>,
     pub title: Option<String>,
     pub slots: Vec<SaveSlotInfo>,
+    /// The parties' saves; the player's own are `slots`.
+    #[serde(default)]
+    pub coop_saves: Vec<CoopSaveInfo>,
     pub backups: Vec<SaveBackupInfo>,
 }
 
@@ -504,6 +522,7 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
     }
 
     backups.sort_by_key(|b| std::cmp::Reverse(b.created_millis));
+    let coop_saves = if exists { coop_saves(card_dir, serial) } else { Vec::new() };
 
     GameSaveStatus {
         serial: serial.to_string(),
@@ -512,8 +531,66 @@ fn inspect_card(card_dir: &Path, serial: &str) -> GameSaveStatus {
         game_folder_name,
         title,
         slots,
+        coop_saves,
         backups,
     }
+}
+
+/// What ends the name of a card's co-op folder.
+const COOP_FOLDER_SUFFIX: &str = "-coop";
+
+/// The host named in the note beside a co-op save: a `host=` line.
+fn coop_host(save_path: &Path) -> Option<String> {
+    let note = fs::read_to_string(format!("{}.party", save_path.to_string_lossy())).ok()?;
+    let host = note.lines().find_map(|line| line.strip_prefix("host="))?.trim();
+    (!host.is_empty()).then(|| host.to_string())
+}
+
+/// The saves in the card's co-op folder. A write stopped between its two renames leaves the save
+/// before it as `<save>.bak` (mc.c), which counts for it.
+fn coop_saves(card_dir: &Path, serial: &str) -> Vec<CoopSaveInfo> {
+    // The game's own folder's: <game>-coop beside it, as mc.c names it, not any folder ending so.
+    // A card with a party's saves and none of the player's has only that folder.
+    let folder = match find_game_folder(card_dir) {
+        Some(game) => {
+            let mut name = game.file_name().unwrap_or_default().to_os_string();
+            name.push(COOP_FOLDER_SUFFIX);
+            card_dir.join(name)
+        }
+        None => {
+            let Ok(entries) = fs::read_dir(card_dir) else { return Vec::new() };
+            let mut folders: Vec<PathBuf> = entries
+                .flatten()
+                .filter(|e| e.file_name().to_string_lossy().ends_with(COOP_FOLDER_SUFFIX))
+                .map(|e| e.path())
+                .filter(|p| p.is_dir())
+                .collect();
+            folders.sort();
+            let Some(first) = folders.into_iter().next() else { return Vec::new() };
+            first
+        }
+    };
+    if !folder.is_dir() {
+        return Vec::new();
+    }
+    (0..5)
+        .filter_map(|i| {
+            let path = folder.join(format!("save{i}.bin"));
+            let read = if path.is_file() { path.clone() } else { folder.join(format!("save{i}.bin.bak")) };
+            let info = parse_save_gameplay_info(&fs::read(read).ok()?, bolts_record(serial));
+            if info.empty || info.timestamp.is_none() {
+                return None;
+            }
+            Some(CoopSaveInfo {
+                slot_index: i,
+                host: coop_host(&path),
+                path: path.to_string_lossy().to_string(),
+                bolts: info.bolts,
+                planet_name: info.planet_id.and_then(|p| get_planet_name(serial, p)),
+                timestamp: info.timestamp,
+            })
+        })
+        .collect()
 }
 
 /// Creates a snapshot backup of the current save state.
@@ -525,12 +602,16 @@ pub fn backup_saves(serial: &str, note: Option<&str>) -> Result<SaveBackupInfo, 
     backup_card(&card_dir, note)
 }
 
-/// The game's own folder on a card (`BESCES-50916RATCHET`): the first folder that is not a backup.
+/// The game's own folder on a card (`BESCES-50916RATCHET`): the first folder that is not a backup
+/// or the parties' (`coop_saves`).
 pub fn find_game_folder(card_dir: &Path) -> Option<PathBuf> {
     let mut found: Vec<PathBuf> = fs::read_dir(card_dir)
         .ok()?
         .flatten()
-        .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .filter(|e| {
+            let name = e.file_name().to_string_lossy().to_string();
+            !name.starts_with('.') && !name.ends_with(COOP_FOLDER_SUFFIX)
+        })
         .map(|e| e.path())
         .filter(|p| p.is_dir())
         .collect();
@@ -633,19 +714,23 @@ pub fn restore_backup(serial: &str, backup_name: &str) -> Result<(), String> {
     // First, automatically backup current state as safety fallback
     let _ = backup_saves(serial, Some("auto_safety_before_restore"));
 
-    // Remove current non-backup directories
+    // Remove current non-backup directories. The parties' folder (<game>-coop) is no part of a
+    // backup's and stays: a restore of the player's own saves never takes a party's.
     for entry in fs::read_dir(&card_dir).map_err(|e| e.to_string())?.flatten() {
         let p = entry.path();
         let fname = entry.file_name().to_string_lossy().to_string();
-        if p.is_dir() && !fname.starts_with(".backup_") {
+        if p.is_dir() && !fname.starts_with(".backup_") && !fname.ends_with(COOP_FOLDER_SUFFIX) {
             fs::remove_dir_all(&p).map_err(|e| e.to_string())?;
         }
     }
 
-    // Copy backup contents into card_dir
+    // Copy backup contents into card_dir; the parties' folder kept above is not written over.
     for entry in fs::read_dir(&backup_path).map_err(|e| e.to_string())?.flatten() {
         let p = entry.path();
         let fname = entry.file_name().to_string_lossy().to_string();
+        if fname.ends_with(COOP_FOLDER_SUFFIX) && card_dir.join(&fname).is_dir() {
+            continue;
+        }
         if p.is_dir() {
             copy_dir_recursive(&p, &card_dir.join(&fname))?;
         }
@@ -775,6 +860,38 @@ mod tests {
         }
         out.extend_from_slice(&(-1i32).to_le_bytes());
         out
+    }
+
+    /// A party's saves show as co-op saves, never as the player's own slots, and a card with only
+    /// them has no game folder for the editor and the slots to read.
+    #[test]
+    fn coop_saves_are_listed_apart() {
+        let card = tempfile::tempdir().unwrap();
+        let clock: &[u8] = &[0, 0x30, 0x20, 0x10, 0, 0x09, 0x10, 0x26];
+        let played = save(&[(0, &11u32.to_le_bytes()), (1, &500u32.to_le_bytes()), (4, clock)]);
+        let blank = save(&[(0, &(-1i32).to_le_bytes())]);
+        let coop = card.path().join("BESCES-50916RATCHET-coop");
+        fs::create_dir_all(&coop).unwrap();
+        fs::write(coop.join("save1.bin"), &played).unwrap();
+        fs::write(coop.join("save1.bin.party"), "format=1\nkey=5\nsaved=9\nhost=Kero\n").unwrap();
+        fs::write(coop.join("save2.bin"), &blank).unwrap();
+        // A write stopped between its renames: only the save before it is there.
+        fs::write(coop.join("save3.bin.bak"), &played).unwrap();
+
+        assert_eq!(find_game_folder(card.path()), None);
+        let status = inspect_card(card.path(), "SCES_509.16");
+        assert!(status.slots.is_empty());
+        let listed: Vec<usize> = status.coop_saves.iter().map(|s| s.slot_index).collect();
+        assert_eq!(listed, vec![1, 3]);
+        assert_eq!(status.coop_saves[0].host.as_deref(), Some("Kero"));
+        assert_eq!(status.coop_saves[0].bolts, Some(500));
+        assert_eq!(status.coop_saves[0].planet_name.as_deref(), Some("Pokitaru"));
+        assert_eq!(status.coop_saves[1].host, None);
+
+        // Beside the game's folder, whichever sorts first, the game's is the one read.
+        fs::create_dir_all(card.path().join("BESCES-50916RATCHET")).unwrap();
+        fs::create_dir_all(card.path().join("A-coop")).unwrap();
+        assert_eq!(find_game_folder(card.path()), Some(card.path().join("BESCES-50916RATCHET")));
     }
 
     /// The install folder's cards and settings go to migrated/, the ones in use and a file already
@@ -940,6 +1057,35 @@ mod tests {
         assert!(!is_backup_name(".."));
         assert!(!is_backup_name(".backup_1/../.backup_2"));
         assert!(!is_backup_name(""));
+    }
+
+    #[test]
+    fn a_restore_keeps_the_parties_saves() {
+        let home = tempfile::tempdir().unwrap();
+        with_data_home(home.path(), || {
+            let card = get_memcard_dir("SCES_509.16");
+            std::fs::create_dir_all(card.join("BESCES-50916RATCHET")).unwrap();
+            std::fs::write(card.join("BESCES-50916RATCHET/save0.bin"), "old").unwrap();
+            std::fs::create_dir_all(card.join("BESCES-50916RATCHET-coop")).unwrap();
+            std::fs::write(card.join("BESCES-50916RATCHET-coop/save0.bin"), "party, old").unwrap();
+            let backup = backup_card(&card, Some("test")).unwrap();
+            std::fs::write(card.join("BESCES-50916RATCHET/save0.bin"), "new").unwrap();
+            std::fs::write(card.join("BESCES-50916RATCHET-coop/save0.bin"), "party, new").unwrap();
+            restore_backup("SCES_509.16", &backup.name).unwrap();
+            let read = |p: &str| std::fs::read_to_string(card.join(p)).unwrap();
+            assert_eq!(read("BESCES-50916RATCHET/save0.bin"), "old");
+            assert_eq!(read("BESCES-50916RATCHET-coop/save0.bin"), "party, new");
+        });
+    }
+
+    #[test]
+    fn the_coop_saves_are_the_game_folders() {
+        let card = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(card.path().join("BESCES-50916RATCHET")).unwrap();
+        // Another folder ending the same way is not the game's parties' folder.
+        std::fs::create_dir_all(card.path().join("AAA-coop")).unwrap();
+        std::fs::write(card.path().join("AAA-coop/save0.bin"), "x").unwrap();
+        assert!(coop_saves(card.path(), "SCES_509.16").is_empty());
     }
 
     #[test]

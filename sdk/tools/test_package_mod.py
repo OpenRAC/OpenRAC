@@ -55,6 +55,15 @@ class ManifestRules(unittest.TestCase):
     def test_good(self):
         self.assertEqual(pm.check_manifest(GOOD), [])
 
+    def test_multiplayer(self):
+        for word in ("gameplay", "input", "cosmetic", "solo"):
+            self.assertEqual(pm.check_manifest(changed(multiplayer=word)), [])
+        self.assertTrue(pm.check_manifest(changed(multiplayer="party")))
+        setting = {"key": "a", "name": "A", "type": "bool", "default": True}
+        self.assertEqual(pm.check_manifest(changed(settings=[dict(setting, multiplayer="host")])), [])
+        self.assertEqual(pm.check_manifest(changed(settings=[dict(setting, multiplayer="own")])), [])
+        self.assertTrue(pm.check_manifest(changed(settings=[dict(setting, multiplayer="mine")])))
+
     def test_format(self):
         self.assertIn("data pack", pm.check_manifest(changed(format=1))[0])
         self.assertTrue(pm.check_manifest(changed(format=3)))

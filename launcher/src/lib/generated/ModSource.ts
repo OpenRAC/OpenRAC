@@ -17,6 +17,10 @@ kind: string,
  */
 pin: boolean, 
 /**
+ * The SHA-256 of its release's `SHA256SUMS`, when a mod code installed it.
+ */
+sums?: string, 
+/**
  * Installed as another mod's dependency, not asked for (index_apply.rs).
  */
 auto?: boolean, 

@@ -65,7 +65,8 @@ const asModError = (e: unknown): ModError =>
 
 /** A link arrived: shown now, or kept for when the one shown closes. Anything more is dropped. */
 export function receive(url: string | null | undefined): void {
-  if (!url) return;
+  // A mod code's link is not an install link: modCodes.svelte.ts opens its review.
+  if (!url || url.startsWith("openrac://modset/")) return;
   if (changeSet.link === null) {
     void openLink(url);
   } else if (changeSet.queued === null && changeSet.link !== url) {

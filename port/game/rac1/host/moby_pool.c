@@ -43,6 +43,7 @@
 #include <string.h>
 
 #include "rac1.h"
+#include "sim_digest.h"
 
 /* The level load's state (Load244110 in loaders_00240398.c): +4 the gameplay file's header. */
 #define LOAD RAC1_LADDR(00, 0x00173F00u)
@@ -51,6 +52,7 @@ enum {
     LOAD_HEADER = 0x4,
     HEADER_MOBYS = 0x44, /* the moby section's offset in the header */
     MOBYS_SPARE = 0x4,   /* in the section: the placed count, then the spare count n2 */
+    MOBYS_RECORDS = 0x10, /* and the records after 12 bytes of them */
     VANILLA_SPARE = 768  /* spare slots in the original 32 MiB arena (767 usable) */
 };
 
@@ -112,6 +114,24 @@ void game_rac1_warn_moby_grid_full(void) {
     }
 }
 
+/* The level's sim digest (sim_digest.h), read from its records as they come off the disc, and the
+ * level it is of (-1 none). A respawn reads the same file again. */
+static uint32_t sim_digest;
+static int sim_digest_level = -1;
+
+static void read_sim_digest(gaddr header) {
+    const gaddr mobys = header + (gaddr)GREF(int, header + HEADER_MOBYS);
+    const int32_t count = GREF(int32_t, mobys);
+    const gaddr records = mobys + MOBYS_RECORDS;
+    const uint32_t room = openrac_guest_ram_size > records ? openrac_guest_ram_size - records : 0;
+    sim_digest = sim_digest_records(G(records), count, room);
+    sim_digest_level = GREF(int, OPENRAC_DATA(CURRENT_LEVEL));
+}
+
+uint32_t rac1_sim_digest(int level) {
+    return level == sim_digest_level ? sim_digest : 0;
+}
+
 /* The gameplay header decompressed to `to`, while a loader that named it runs: its spare count raised
  * to the selected arena's spare capacity (once a run; a level that ships more keeps its own). */
 void rac1_wad_decompressed(gaddr to) {
@@ -120,6 +140,7 @@ void rac1_wad_decompressed(gaddr to) {
         return;
     }
     g_header = 0;
+    read_sim_digest(to);
     map_spawn(to);
     /* Switched off: the disc's count, as on a console. */
     if (!bigger_pool()) {
@@ -148,6 +169,8 @@ gaddr func_L00_002422D8(int skip_read) {
     g_header = GREF(gaddr, OPENRAC_LDATA(0, LOAD) + LOAD_HEADER);
     const gaddr cursor = func_L00_002422D8__hooked(skip_read);
     g_header = outer;
+    /* A new moby array, also at a respawn in the same program: what named a slot or a moby goes. */
+    rac1_mobys_rebuilt();
     return cursor;
 }
 

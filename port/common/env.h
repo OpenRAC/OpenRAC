@@ -110,6 +110,7 @@ enum class Var : std::uint16_t {
     HidePassesEvery,
     Hitch,
     HitLog,
+    IdentityKey,
     Invincible,
     ItemsDebug,
     Keys,

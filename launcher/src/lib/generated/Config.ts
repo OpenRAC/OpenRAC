@@ -133,6 +133,12 @@ discChoice: { [key in string]: string },
  */
 multiplayerName: string, 
 /**
+ * This installation's key (multiplayer.rs): random, made at the first start and never shown.
+ * What a host's ban holds on to, so a new name gets round none. Given to the game as
+ * `OPENRAC_IDENTITY_KEY`.
+ */
+multiplayerKey: string, 
+/**
  * The mod indexes to read (index.rs), in order; empty: the built-in list (`index::INDEXES`).
  */
 modIndexes: Array<string>, 

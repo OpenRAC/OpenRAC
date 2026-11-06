@@ -7,8 +7,8 @@
  * host's plays.
  *
  * How the game starts one. StartCutscene (func_L00_00299B68, src/overlays/shared/
- * cutscene_and_movie_playback.c; the US disc's FUN_L00_00298840, host C there:
- * rac1-ntsc/host/scene_start.c) takes the scene's number in the level: it clears the scene's
+ * cutscene_and_movie_playback.c; the US disc's FUN_L00_00298840) takes the scene's number in the
+ * level: it clears the scene's
  * block (cutscene_state, D_L00_0016C960: +0x30 the number, +0x34 the frames played, +0x40 the
  * last frame, +0x44 the actors' count, +0x178 the actors), sets the game mode (D_L00_0015F6A8) to
  * 2, takes the hero over (HeroEnterMoveState 0x64), reads the scene's chunk from the disc and makes
@@ -82,12 +82,12 @@ static int32_t scene_number(void) {
 /* The scene playing is the level's (started by its mobys or a mod) when it is the one noted. */
 static int level_scene_playing(void) {
     return cutscene_playing() && level_scene >= 0 && level_scene == scene_number()
-           && level_scene_load == rac1_program_loads();
+           && level_scene_load == rac1_moby_generation();
 }
 
 static void note_level_scene(void) {
     level_scene = scene_number();
-    level_scene_load = rac1_program_loads();
+    level_scene_load = rac1_moby_generation();
 }
 
 int32_t rac1_scene_playing(int32_t* frame) {
@@ -109,7 +109,7 @@ int rac1_scene_start(int32_t scene) {
         return 0;
     }
     wanted = scene;
-    wanted_load = rac1_program_loads();
+    wanted_load = rac1_moby_generation();
     return 1;
 }
 
@@ -126,7 +126,7 @@ void rac1_scenes_tick(void) {
     if (wanted < 0) {
         return;
     }
-    if (!rac1_level_running() || wanted_load != rac1_program_loads()) {
+    if (!rac1_level_running() || wanted_load != rac1_moby_generation()) {
         wanted = -1;
         return;
     }
