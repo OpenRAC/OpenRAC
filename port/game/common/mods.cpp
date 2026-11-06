@@ -27,6 +27,7 @@
 #include "mod_manifest.h"
 #include "mod_play.h"
 #include "mod_scripts.h"
+#include "mod_touch.h"
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/memory.h"
@@ -1355,6 +1356,16 @@ std::string load(const Host& host) {
                         } else {
                             log::warn("mod {}: its assets folder {} is missing", c.manifest.id,
                                       c.manifest.assets);
+                        }
+                    }
+                    // Its on-screen pad's buttons (MODS.md, "Touch controls").
+                    if (!c.manifest.touch.empty()) {
+                        std::string why;
+                        if (!touch::load_file(
+                                c.manifest.id, folder / c.manifest.id, c.manifest.touch, why
+                            )
+                            || !why.empty()) {
+                            log::warn("mod {}", why);
                         }
                     }
                 }

@@ -229,13 +229,7 @@ impl Jobs {
 /// Starts `plan` on its own: its output is not read and the launcher does
 /// not wait for it.
 pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, String> {
-    // Quiet, so a console program (Godot's `_console.exe`, a Scoop shim) opens no console
-    // window on Windows; a window program opens its window as ever.
-    let mut cmd = crate::detect::quiet(&plan.program);
-    cmd.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-    environment(&mut cmd, root);
-    cmd.envs(plan.env.iter().map(|(k, v)| (k, v)));
-    let mut child = cmd.spawn().map_err(|e| format!("cannot start {}: {e}", plan.program.display()))?;
+    let mut child = spawn_detached(plan, root)?;
     // Reap it when it ends, so it never lingers as a zombie on Unix.
     std::thread::spawn(move || child.wait());
     Ok(Started {
@@ -245,6 +239,18 @@ pub fn launch(plan: &Plan, root: Option<&std::path::Path>) -> Result<Started, St
         detached: true,
         output: plan.output.as_ref().map(|p| p.display().to_string()),
     })
+}
+
+/// Starts a detached plan and hands back the child, for a caller that waits for it (a game started
+/// from a shortcut, which ends the launcher with it).
+pub fn spawn_detached(plan: &Plan, root: Option<&std::path::Path>) -> Result<std::process::Child, String> {
+    // Quiet, so a console program (Godot's `_console.exe`, a Scoop shim) opens no console
+    // window on Windows; a window program opens its window as ever.
+    let mut cmd = crate::detect::quiet(&plan.program);
+    cmd.args(&plan.args).current_dir(&plan.cwd).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    environment(&mut cmd, root);
+    cmd.envs(plan.env.iter().map(|(k, v)| (k, v)));
+    cmd.spawn().map_err(|e| format!("cannot start {}: {e}", plan.program.display()))
 }
 
 /// The command line as a person would type it, for display only.

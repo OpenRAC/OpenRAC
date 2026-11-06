@@ -319,6 +319,14 @@ class Stamp(unittest.TestCase):
         build_port.write_stamp(self.build, ["rac1-ntsc"])
         self.assertEqual(self.read()["games"], ["rac1-ntsc", "rac1-pal"])
 
+    def test_a_ci_build_records_its_repository(self):
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "someone/OpenRAC"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertEqual(self.read()["repository"], "someone/OpenRAC")
+        with mock.patch.dict(build_port.os.environ, {"GITHUB_REPOSITORY": "not a repository"}):
+            build_port.write_stamp(self.build, ["rac2-ntsc"])
+        self.assertNotIn("repository", self.read())
+
     def test_a_build_from_another_checkout_starts_the_list_again(self):
         (self.build / "openrac-build.json").write_text('{"version": "0.0.1", "commit": null, "games": ["rac1-pal"]}')
         build_port.write_stamp(self.build, ["rac1-ntsc"])

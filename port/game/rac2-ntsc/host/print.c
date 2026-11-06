@@ -61,3 +61,11 @@ int func_0011C820(gaddr format, ...) {
     fprintf(stderr, "[game] %s", out);
     return n;
 }
+
+/* The kernel's print core: its C does pointer arithmetic on a va_list, which does not compile on
+ * ARM64. Only the two prints above call it, so it is never reached (as rac1-pal/host/kprintf.c). */
+int func_0011C1F8(gaddr format, va_list arguments) {
+    (void)format;
+    (void)arguments;
+    return 0;
+}

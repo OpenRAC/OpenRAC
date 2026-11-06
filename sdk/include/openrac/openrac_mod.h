@@ -44,20 +44,24 @@ extern "C" {
  * is unchanged), 1.2 the keyboard and mouse, 1.3 the pointer over the game's
  * picture (openrac_input.pointer_*), 1.4 the graphics context, extra views of
  * the game and a Vulkan device made with the mod (a VR headset, docs/views.md),
- * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6 the
- * tick-boundary callback and warm in-session snapshot calls, 1.7 pages of the game's own menus
- * (its frames, list, text, prompt and sounds) and items of the title's main menu, 1.8 play
- * (multiplayer's calls): the game's phase and level, the hero's pose, figures that look like the
- * hero, a game started or a level travelled to from code, and the player's saves, 1.9 the world:
- * the level's mobys listed, driven by a mod, posed, killed and made, a gate around each moby's
- * update with the hero standing in for another player, hits watched and posted, eyes that keep
- * mobys running, and the bolts, 1.10 optional top-level desktop menu entries for mods, 1.11 a
- * folder of the mod's own for its files and the memory card slot the game in progress saves into,
- * 1.12 the hero moved by a mod (his update a hook point, his pose set), the collision triangles
- * around a place, props (meshes of the mod's drawn in the level), sounds of the mod's own, the
- * camera set by a mod, heat haze drawn over the picture and text in the game's HUD.
+ * 1.5 entries in the game's front-end menu with a page of the mod's own, 1.6
+ * the tick-boundary callback and warm in-session snapshot calls, 1.7 pages of
+ * the game's own menus (its frames, list, text, prompt and sounds) and items of
+ * the title's main menu, 1.8 play (multiplayer's calls): the game's phase and
+ * level, the hero's pose, figures that look like the hero, a game started or a
+ * level travelled to from code, and the player's saves, 1.9 the world: the
+ * level's mobys listed, driven by a mod, posed, killed and made, a gate around
+ * each moby's update with the hero standing in for another player, hits watched
+ * and posted, eyes that keep mobys running, and the bolts, 1.10 optional
+ * top-level desktop menu entries for mods, 1.11 a folder of the mod's own for
+ * its files and the memory card slot the game in progress saves into, 1.12 the
+ * hero moved by a mod (his update a hook point, his pose set), the collision
+ * triangles around a place, props (meshes of the mod's drawn in the level),
+ * sounds of the mod's own, the camera set by a mod, heat haze drawn over the
+ * picture and text in the game's HUD, 1.13 touch pad action buttons: button
+ * sets, icons, a mod's own context and hints.
  */
-#define OPENRAC_MOD_API_MINOR 12
+#define OPENRAC_MOD_API_MINOR 13
 
 /* The interface a mod is built for, what its openrac_mod_query reports: its manifest's "api" minor,
  * which the SDK's openrac_add_mod passes in, else this header's. A mod for 1.1 built with a newer
@@ -1608,6 +1612,25 @@ typedef struct openrac_api {
      * not started: that is his own update's, so a mod that has taken it hands a last hit to the
      * game (on_moby_hit returning 0). His health after, or -1 outside a level. Since 1.12. */
     int (*hero_hurt)(openrac_mod* mod, int damage);
+
+    /* Touch pad action buttons (docs/port/MODS.md, "Touch controls").
+     * touch_define adds a set of buttons, the same JSON as a manifest's "touch"
+     * file. It adds to the game's contexts or makes new ones.
+     * OPENRAC_HOOK_UNKNOWN for bad JSON. Since 1.13. */
+    int (*touch_define)(openrac_mod* mod, const char* json);
+
+    /* Adds the SVG icon `name`. #ff8000 is drawn in the game's accent, the rest
+     * white. OPENRAC_HOOK_UNKNOWN for no name or bad SVG. Since 1.13. */
+    int (*touch_icon)(openrac_mod* mod, const char* name, const char* svg);
+
+    /* Shows the buttons of `context` instead of the game's (a mod's vehicle or
+     * mini-game). Null or "" ends it. If several mods push, the last one wins.
+     * Since 1.13. */
+    void (*touch_push)(openrac_mod* mod, const char* context);
+
+    /* Turns a hint on (`on` 1) or off. Buttons with that "when" show while it
+     * is on. Since 1.13. */
+    void (*touch_hint)(openrac_mod* mod, const char* hint, int on);
 } openrac_api;
 
 /* ------------------------------------------------------------------------------------------ *

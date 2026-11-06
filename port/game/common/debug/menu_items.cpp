@@ -386,6 +386,9 @@ Item item(Id id, std::uint8_t where) {
             it.can_raise = r.can_raise;
             return it;
         }
+        case Id::TouchActionButtons:
+            it.on = set.touch_style == 0;
+            return it;
         case Id::TouchButtonSize:
             it.value = std::format("{}%", set.touch_scale);
             it.can_lower = set.touch_scale > settings::kTouchScales[0];
@@ -544,8 +547,8 @@ bool act(Id id, int by) {
             return false;
         case Id::Hdr: {
             // From Off, it counts from the next start (frontend's apply_hdr says so).
-            const int mode = static_cast<int>(set.hdr);
-            set.hdr = static_cast<hdr::Mode>((mode + by + 3) % 3);
+            const int count = static_cast<int>(hdr::Mode::Count);
+            set.hdr = static_cast<hdr::Mode>((static_cast<int>(set.hdr) + by + count) % count);
             changed();
             return false;
         }
@@ -696,6 +699,10 @@ bool act(Id id, int by) {
         case Id::MenuOpen:
         case Id::ControlsReset:
             controls_act(id, by);
+            return false;
+        case Id::TouchActionButtons:
+            set.touch_style = set.touch_style == 0 ? 1 : 0;
+            settings::save();
             return false;
         case Id::TouchButtonSize:
             set.touch_scale = settings::step_listed(settings::kTouchScales, set.touch_scale, by);

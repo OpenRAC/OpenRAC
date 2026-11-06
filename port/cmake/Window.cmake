@@ -54,11 +54,13 @@ add_library(openrac_platform STATIC
   platform/controls_file.cpp
   platform/gpu_driver.cpp
   platform/input.cpp
+  platform/menu_chord.cpp
   platform/pad.cpp
   platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
   platform/show_folder.cpp
+  platform/touch_actions.cpp
   platform/touch_pad.cpp
   platform/window.cpp
 )
@@ -75,6 +77,8 @@ openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_s
                           INCLUDES . game/common LIBS openrac_platform)
 # Which gamepad plays on which port (platform/input.h).
 openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS openrac_platform)
+# Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
+openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
 if(ANDROID)
   target_sources(openrac_platform PRIVATE android/gpu_driver.cpp
@@ -279,10 +283,11 @@ add_library(openrac_renderer_ui STATIC
   renderer/ui/imgui_gl.cpp
   renderer/ui/logo.cpp
   renderer/ui/picture_blit.cpp
+  renderer/ui/touch_icons.cpp
   renderer/ui/touch_overlay.cpp
 )
 target_link_libraries(openrac_renderer_ui PUBLIC openrac_renderer openrac_platform
-  PRIVATE openrac_imgui)
+  PRIVATE openrac_imgui openrac_nanosvg)
 openrac_warnings(openrac_renderer_ui)
 
 # Optional upscaled texture colours: the normal renderer only owns the provider interface.

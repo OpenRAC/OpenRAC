@@ -17,9 +17,9 @@ namespace openrac::hdr {
 
 // The player's setting (`hdr` in the settings file).
 enum class Mode {
-    Off,   // SDR, as always (the default)
-    Auto,  // HDR when the system says the window's display shows HDR, else SDR
-    On,    // HDR whenever the screen offers it, also where the system cannot say (X11)
+    Off,  // SDR, as always (the default)
+    On,   // HDR when the system says the window's display shows HDR; where it cannot say (X11),
+          // whenever the screen offers it
     Count,
 };
 
@@ -32,7 +32,7 @@ enum class Output {
 };
 
 // What the system says of the window's display (SDL's window properties; Android's activity).
-// `known` is false where nothing can tell (X11): Mode::Auto then stays SDR.
+// `known` is false where nothing can tell (X11): Mode::On then tries HDR all the same.
 struct Display {
     bool known = false;
     bool hdr_enabled = false;
@@ -120,8 +120,7 @@ inline Levels resolve_levels(int paper_white, int peak, const Display& display) 
 // (`prefer_scrgb`: macOS, whose EDR is linear). Whether the screen offers it is the swapchain's
 // to find out (renderer/vulkan/surface_format.h), which falls back to the other kind or to SDR.
 inline Output wanted_output(Mode mode, const Display& display, bool prefer_scrgb) {
-    const bool hdr =
-        mode == Mode::On || (mode == Mode::Auto && display.known && display.hdr_enabled);
+    const bool hdr = mode == Mode::On && (!display.known || display.hdr_enabled);
     if (!hdr) {
         return Output::Sdr;
     }
@@ -210,8 +209,8 @@ inline Rgb encode(const Rgb& rgb, Output output, const Levels& levels) {
 }
 
 // The settings file's and the menus' names.
-inline constexpr const char* kModeKeys[] = {"off", "auto", "on"};
-inline constexpr const char* kModeNames[] = {"Off", "Auto", "On"};
+inline constexpr const char* kModeKeys[] = {"off", "on"};
+inline constexpr const char* kModeNames[] = {"Off", "On"};
 inline constexpr const char* kOutputNames[] = {"SDR", "HDR10", "scRGB"};
 
 inline const char* name(Output output) {

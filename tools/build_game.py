@@ -16,16 +16,23 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STAMP = ROOT / "port" / "build" / "release" / "openrac-build.json"
-ARCHIVE = "https://github.com/OpenRAC/OpenRAC/archive/{commit}.tar.gz"
+ARCHIVE = "https://github.com/{repository}/archive/{commit}.tar.gz"
+# Where the source is when the copy does not say which repository built it.
+REPOSITORY = "OpenRAC/OpenRAC"
+# owner/name as GitHub allows them, and nothing that climbs out of the URL.
+REPOSITORY_NAME = r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9._-]*"
 PRESET = "standalone"
 # Under DIR, and short: Windows limits a path's length, and the build's own are long.
 SOURCE = "src"
@@ -51,15 +58,42 @@ def build_directory(out: Path) -> Path:
     return directory
 
 
+def read_stamp(stamp: Path) -> dict:
+    try:
+        data = json.loads(stamp.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def carried_commit(stamp: Path = STAMP) -> str:
     """The commit this copy was built from, which the source has to match."""
-    try:
-        commit = json.loads(stamp.read_text(encoding="utf-8")).get("commit")
-    except (OSError, ValueError, AttributeError):
-        commit = None
+    commit = read_stamp(stamp).get("commit")
     if not isinstance(commit, str) or not commit:
         sys.exit(f"this copy of OpenRAC does not say which commit it is ({stamp})")
     return commit
+
+
+def carried_repository(stamp: Path = STAMP) -> str:
+    """The GitHub repository this copy was built in (a fork's commits are only there)."""
+    repository = read_stamp(stamp).get("repository")
+    if isinstance(repository, str) and re.fullmatch(REPOSITORY_NAME, repository):
+        return repository
+    return REPOSITORY
+
+
+def without_top_folder(member: tarfile.TarInfo, path: str) -> tarfile.TarInfo | None:
+    """A GitHub archive keeps everything in one folder, named after the commit."""
+    name = member.name.partition("/")[2]
+    return tarfile.data_filter(member.replace(name=name, deep=False), path) if name else None
+
+
+def use_the_systems_libraries() -> None:
+    """The compilers and git are the system's, and need its libraries. A launcher started from Steam
+    hands down Steam's, and with them the system's curl stopped on a symbol its libcurl lacked."""
+    if sys.platform.startswith("linux"):
+        for name in ("LD_LIBRARY_PATH", "LD_PRELOAD"):
+            os.environ.pop(name, None)
 
 
 def fetch_source(url: str, commit: str, out: Path) -> Path:
@@ -72,12 +106,14 @@ def fetch_source(url: str, commit: str, out: Path) -> Path:
     if source.exists():
         shutil.rmtree(source)
     source.mkdir(parents=True)
-    archive = "source.tar.gz"
+    archive = source / "source.tar.gz"
     print(f"downloading the source of {commit[:8]}", flush=True)
-    subprocess.run(["curl", "-sSfL", "-o", archive, url], cwd=source, check=True)
-    # From inside the folder: on Windows tar reads "D:\..." as a host named D.
-    subprocess.run(["tar", "-xzf", archive, "--strip-components=1"], cwd=source, check=True)
-    (source / archive).unlink()
+    # Python's own: not every Windows PC has curl and tar.
+    with urllib.request.urlopen(url, timeout=120) as response, archive.open("wb") as file:
+        shutil.copyfileobj(response, file)
+    with tarfile.open(archive) as tar:
+        tar.extractall(source, filter=without_top_folder)
+    archive.unlink()
     done.write_text(commit + "\n", encoding="utf-8")
     return source
 
@@ -131,13 +167,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-url", help="where the source archive is, if not on GitHub")
     parser.add_argument("--preset", default=PRESET, help=f"the CMake preset; default {PRESET}")
     args = parser.parse_args(argv)
+    use_the_systems_libraries()
     if not args.disc.is_file():
         sys.exit(f"the disc image {args.disc} is not there")
     args.out.mkdir(parents=True, exist_ok=True)
     out = args.out.resolve()
 
     commit = carried_commit()
-    source = fetch_source(args.source_url or ARCHIVE.format(commit=commit), commit, build_directory(out))
+    url = args.source_url or ARCHIVE.format(repository=carried_repository(), commit=commit)
+    source = fetch_source(url, commit, build_directory(out))
     subprocess.run([sys.executable, "tools/build_port.py", args.game, "--disc", str(args.disc.resolve()),
                     "--preset", args.preset], cwd=source, check=True)
     program = copy_program(source / "port" / "build" / args.preset, args.game, out)
@@ -149,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except FileNotFoundError as e:
-        sys.exit(f"{e.filename} was not found: it is needed to fetch the source")
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
+    except (OSError, tarfile.TarError) as e:
+        sys.exit(f"the build stopped: {e}")

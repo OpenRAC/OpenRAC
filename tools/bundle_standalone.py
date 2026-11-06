@@ -24,8 +24,10 @@ OUT (launcher/src-tauri/resources/openrac for an installer) gets:
                              A Linux program goes without its debug info
                              (its symbols stay, for a crash report's backtrace):
                              three quarters of its size, which every installer
-                             would compress and every player download
-  python/                    a Python to run the tools (--python: an unpacked
+                             would compress and every player download.
+                             A Windows program goes with Microsoft's C++
+                             runtime beside it, which a new Windows lacks
+  python/                   a Python to run the tools (--python: an unpacked
                              python-build-standalone "install_only" archive)
 
 --android makes the copy the Android launcher carries in its APK
@@ -41,7 +43,9 @@ bundled_root) and uses it when there is no checkout. Without --game-build or
 side against it (OPENRAC_ROOT=OUT); an installer needs both.
 """
 import argparse
+import hashlib
 import json
+import os
 import re
 import shutil
 import sys
@@ -67,7 +71,7 @@ LEVELS_STAMP = f"levels-{levels_format()}.json"
 # What a player's launcher offers for a version, from launcher/actions.json. The rest (the
 # decompilation's builds and checks, building the port, the tools' tests) needs a checkout, except
 # PLAYER_BUILDS.
-PLAY = ("port-levels", "port-levels-check", "probe-bake", "play")
+PLAY = ("port-levels", "port-levels-check", "port-part", "probe-bake", "play")
 # Mods: the level editor (Godot projects of the disc's levels, packed back into the game's data),
 # models and textures, packs, and playing with them. In a checkout they work in its assets/; the
 # carried copy is read-only, so they work in the data folder instead (MOD_FOLDERS).
@@ -91,6 +95,15 @@ GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
+# The games a Windows installer carries built without the disc, with a kit and Zig's Clang and lld
+# to build what is missing on the player's computer (tools/asm_part.py), as an APK does. Version -> port game.
+WINDOWS_PARTS = {"rac2/ntsc": "rac2-ntsc"}
+# Where the copy keeps that Zig (tools/asm_part.py ZIG_PROGRAM).
+PART_ZIG = "tools/part-zig"
+# What a Windows program built against MSVC's libraries imports and Windows does not always have:
+# without them it does not start ("MSVCP140.dll was not found"). Only the Visual C++ Redistributable
+# or Visual Studio installs them, and a player needs neither when they are beside the program.
+WINDOWS_RUNTIME = ("msvcp140.dll", "msvcp140_2.dll", "vcruntime140.dll", "vcruntime140_1.dll")
 # Authored settings travel with the exporter, rather than depending on a source checkout.
 PROBE_PROFILES = "port/enhanced/lighting/profiles"
 WATER_PROFILES = "port/enhanced/water/profiles"
@@ -140,6 +153,52 @@ def player_build(action: dict, game: str) -> dict:
     return action
 
 
+def part_tag(out: Path, game: str) -> str | None:
+    """What GAME's part in the copy OUT is built from (its kit, hostgen's translation and
+    tools/asm_part.py), as a short digest; None when the copy carries no kit for it. Two APKs of
+    one launcher version (dev builds) can carry different games, and a part fits only its own."""
+    kit = out / "port/asm-part" / game
+    if not (kit / "kit.json").is_file():
+        return None
+    files = sorted(p for p in kit.rglob("*") if p.is_file())
+    files += sorted((out / "port/tools/hostgen").glob("*.py")) + [out / "tools/asm_part.py"]
+    h = hashlib.sha256()
+    for path in files:
+        h.update(path.relative_to(out).as_posix().encode() + b"\0")
+        h.update(hashlib.sha256(path.read_bytes()).digest())
+    return h.hexdigest()[:16]
+
+
+def carried_part(actions: list[dict], tag: str | None = None, platform: str = "android") -> list[dict]:
+    """The port-part and Play of a copy that builds a game's part on PLATFORM (tools/asm_part.py):
+    the part built into a folder of what it is built from (part_tag; else the launcher's version),
+    since a new launcher carries another game it may not fit; Play waits for it and names it to the
+    game."""
+    if tag is None:
+        config = json.loads((ROOT / "launcher/src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+        tag = config["version"]
+    folder = f"{{data}}/asm-part/{tag}"
+    part = next((a for a in actions if a["id"] == "port-part"), None)
+    if part is None:
+        return actions
+    name = part["makes"].rsplit("/", 1)[1]
+    made = f"{folder}/{name.removesuffix('.so')}.dll" if platform == "windows" else f"{folder}/{name}"
+    out = []
+    for action in actions:
+        action = dict(action)
+        if action["id"] == "port-part":
+            at = action["args"].index("--out")
+            action["args"] = action["args"][:at + 1] + [folder] + action["args"][at + 2:]
+            action["makes"] = made
+            action["platforms"] = [platform]
+        elif action["id"] == "play" and platform in action.get("platforms", []):
+            action["args"] = action["args"] + ["--asm-part", made]
+            action["needs"] = action.get("needs", []) + [
+                {"path": made, "from": "the game built from your disc (Build the game from your disc)"}]
+        out.append(action)
+    return out
+
+
 def point_at(args: list[str], levels: str) -> list[str]:
     """ARGS with --levels naming LEVELS."""
     if "--levels" not in args:
@@ -148,15 +207,20 @@ def point_at(args: list[str], levels: str) -> list[str]:
     return args[:at + 1] + [levels] + args[at + 2:]
 
 
-def player_actions(android: bool = False) -> dict:
-    """launcher/actions.json cut down to what works from a carried copy."""
+def player_actions(android: bool = False, android_games: set[str] | None = None,
+                   part_tags: dict[str, str] | None = None, windows_parts: set[str] | None = None) -> dict:
+    """launcher/actions.json cut down to what works from a carried copy. ANDROID_GAMES: the
+    games an APK carries (rac1-pal, ...); a Play for any other is not Android's there. PART_TAGS:
+    by game, what its part is built from (part_tag). WINDOWS_PARTS: the versions a Windows
+    installer carries built without the disc (WINDOWS_PARTS), which need no compiler of the player's."""
     source = json.loads((ROOT / "launcher/actions.json").read_text())
     out = {key: value for key, value in source.items() if key not in ("repository", "versions")}
     out["repository"] = []
     out["versions"] = {}
     for key, actions in source["versions"].items():
         levels = levels_folder(key)
-        game = None if android else PLAYER_BUILDS.get(key)
+        windows_part = key in (windows_parts or set())
+        game = None if android or windows_part else PLAYER_BUILDS.get(key)
         kept = []
         for action in actions:
             if game and action["id"] == "port-build":
@@ -165,6 +229,11 @@ def player_actions(android: bool = False) -> dict:
             if action["id"] not in KEEP:
                 continue
             action = dict(action)
+            if (android_games is not None and action["id"] == "play"
+                    and key.replace("/", "-") not in android_games and "android" in action.get("platforms", [])):
+                # Its library is not in the APK (tools/build_android.py GAME ...): Play would start
+                # nothing.
+                action["platforms"] = [p for p in action["platforms"] if p != "android"]
             if action.get("state") != "planned":
                 args = action.get("args", [])
                 if action["id"] == "port-levels" and not key.startswith("rac1/"):
@@ -194,6 +263,10 @@ def player_actions(android: bool = False) -> dict:
                     action["makes"] = f"{levels}/{STAMP}"
                     action["needs"] = [{"path": f"{levels}/{LEVELS_STAMP}", "from": need["from"]}
                                        for need in action.get("needs", [])]
+                elif action["id"] == "port-part":
+                    # Run in the copy (cwd "."), where tools/asm_part.py and its kit are; it writes
+                    # to the data folder (carried_part).
+                    pass
                 elif action["id"] in MODS:
                     for field in ("args", "artifact", "needs", "makes", "output"):
                         if field in action:
@@ -219,6 +292,11 @@ def player_actions(android: bool = False) -> dict:
             if game and action.get("artifact", "").endswith(f"openrac-{game}.exe"):
                 action["artifact"] = f"{player_program_folder()}/openrac-{game}.exe"
             kept.append(action)
+        tag = (part_tags or {}).get(key.replace("/", "-"))
+        if android:
+            kept = carried_part(kept, tag)
+        elif windows_part:
+            kept = carried_part(kept, tag, "windows")
         out["versions"][key] = kept
     return out
 
@@ -246,12 +324,12 @@ def strip_debug(path: Path) -> bool:
     return True
 
 
-def copy_games(build: Path, dest: Path) -> list[str]:
+def copy_games(build: Path, dest: Path, extra: tuple[str, ...] = ()) -> list[str]:
     """The game programs in BUILD, copied to DEST; their names. On macOS a game is an application
     bundle named by its title in apps/openrac-<id>/ (port/cmake/MacApp.cmake), carried whole; the
     build folder's link to its program is not."""
     carried = []
-    for game in GAMES + TOOLS:
+    for game in GAMES + extra + TOOLS:
         apps = build / "apps" / game
         if any(apps.glob("*.app")):
             shutil.copytree(apps, dest / "apps" / game, symlinks=True, dirs_exist_ok=True)
@@ -269,15 +347,31 @@ def copy_games(build: Path, dest: Path) -> list[str]:
     return carried
 
 
+def copy_windows_runtime(system: Path, dest: Path) -> list[str]:
+    """WINDOWS_RUNTIME from SYSTEM (the building computer's System32) to DEST; their names."""
+    for name in WINDOWS_RUNTIME:
+        if not (system / name).is_file():
+            sys.exit(f"{system} has no {name}: the Windows games cannot start without it on a new Windows")
+        shutil.copy2(system / name, dest / name)
+    return list(WINDOWS_RUNTIME)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("out", type=Path)
     parser.add_argument("--game-build", type=Path, help="the build folder holding the game (port/build/release)")
     parser.add_argument("--python", type=Path, help="an unpacked standalone Python (its python/ folder)")
     parser.add_argument("--android", action="store_true", help="the Android launcher's copy (tools/build_android.py)")
+    parser.add_argument("--asm-part-kit", type=Path, action="append", default=[], metavar="KIT",
+                        help="a game's kit for the part built from the disc (tools/asm_part.py kit)")
+    parser.add_argument("--part-zig", type=Path, help="with --asm-part-kit, on Windows: an unpacked Zig for Windows")
+    parser.add_argument("--android-games", metavar="ID,...",
+                        help="with --android: the games the APK carries (rac1-pal,rac1-ntsc); Play is Android's for those only")
     args = parser.parse_args()
     if args.android and args.game_build:
         sys.exit("--android carries no game build: the games are the APK's libraries")
+    if not args.android and bool(args.part_zig) != bool(args.asm_part_kit):
+        sys.exit("--asm-part-kit and --part-zig go together")
     out = args.out.resolve()
     # The folder in the launcher's resources is kept in git with a note in it: the note stays.
     if out.exists() and any(p.name != "README.txt" for p in out.iterdir()):
@@ -289,13 +383,21 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     # The tools, without their tests; the catalogue; the progress the library shows.
-    for name in ("openrac.py", "extractor.py") + (() if args.android else ("build_game.py",)):
+    for name in ("openrac.py", "extractor.py", "asm_part.py") + (() if args.android else ("build_game.py",)):
         (out / "tools").mkdir(exist_ok=True)
         shutil.copy2(ROOT / "tools" / name, out / "tools" / name)
     # The helpers they import, found from the copy's own tools/ (they find the copy's root by
     # the STANDALONE note written below).
     files.copy_tree(ROOT / "tools/openrac_common", out / "tools/openrac_common", lambda rel: rel.suffix == ".py")
     files.copy_tree(ROOT / "editor", out / "editor", editor_file)
+    if args.android or args.asm_part_kit:
+        # The part of a game built from the disc on the device (tools/asm_part.py): hostgen's
+        # translation from assembly, which needs no Clang, and each game's kit.
+        files.copy_tree(ROOT / "port/tools/hostgen", out / "port/tools/hostgen",
+                        lambda rel: rel.suffix == ".py" and len(rel.parts) == 1 and not rel.name.startswith("test_"))
+        for kit in args.asm_part_kit:
+            game = json.loads((kit / "kit.json").read_text())["game"]
+            shutil.copytree(kit, out / "port/asm-part" / game)
     # Players have no decompilation headers. Carry the same validated typed fields the
     # checkout uses, or edits such as Novalis's moveSpeed would be ignored when packed.
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
@@ -311,7 +413,12 @@ def main() -> int:
     (out / "progress").mkdir(exist_ok=True)
     shutil.copy2(ROOT / "progress/summary.json", out / "progress/summary.json")
     (out / "launcher").mkdir(exist_ok=True)
-    (out / "launcher/actions.json").write_text(json.dumps(player_actions(args.android), indent=2) + "\n")
+    android_games = set(args.android_games.split(",")) if args.android and args.android_games else None
+    windows_parts = {key for key, game in WINDOWS_PARTS.items() if args.part_zig and part_tag(out, game)}
+    tags = {game: tag for game in (android_games or set()) | {WINDOWS_PARTS[key] for key in windows_parts}
+            if (tag := part_tag(out, game))}
+    (out / "launcher/actions.json").write_text(
+        json.dumps(player_actions(args.android, android_games, tags, windows_parts), indent=2) + "\n")
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
         if (ROOT / name).is_file():
             shutil.copy2(ROOT / name, out / name)
@@ -320,19 +427,35 @@ def main() -> int:
     if args.game_build:
         dest = out / "port/build/release"
         dest.mkdir(parents=True, exist_ok=True)
-        carried += copy_games(args.game_build, dest)
+        carried += copy_games(args.game_build, dest, tuple(f"openrac-{WINDOWS_PARTS[key]}" for key in windows_parts))
         # The libraries the game was linked against as files of their own (SDL3 when it is not
         # built into the program).
         for pattern in ("*.dll", "*.dylib", "*.so", "*.so.*"):
             for path in sorted(args.game_build.glob(pattern)):
                 shutil.copy2(path, dest / path.name, follow_symlinks=True)
                 carried.append(path.name)
+        for key in windows_parts:
+            if f"openrac-{WINDOWS_PARTS[key]}.exe" not in carried:
+                sys.exit(f"{args.game_build} has no openrac-{WINDOWS_PARTS[key]}.exe, and the copy carries its kit")
+        if any(name.endswith(".exe") for name in carried):
+            carried += copy_windows_runtime(Path(os.environ["SystemRoot"]) / "System32", dest)
         # Carry notices for dependencies built into either the game or its optional baking tools.
         if (args.game_build / "licenses").is_dir():
             shutil.copytree(args.game_build / "licenses", dest / "licenses", dirs_exist_ok=True)
             carried.append("licenses")
         if not any(name.split("/")[-1].startswith(GAMES[0]) for name in carried):
             sys.exit(f"{args.game_build} has no {GAMES[0]}: build it first (tools/build_port.py rac1-pal)")
+    if args.part_zig:
+        (out / PART_ZIG).mkdir(parents=True)
+        shutil.copy2(args.part_zig / "zig.exe", out / PART_ZIG / "zig.exe")
+        # Zig's license, LLVM's (its Clang and lld) and mingw-w64's (the headers in the kit), where
+        # the copy's other notices are.
+        notices = out / "port/build/release/licenses/zig"
+        notices.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(args.part_zig / "LICENSE", notices / "LICENSE")
+        shutil.copy2(args.part_zig / "lib/libcxx/LICENSE.TXT", notices / "LLVM-LICENSE.TXT")
+        shutil.copy2(args.part_zig / "lib/libc/mingw/COPYING", notices / "MINGW-W64-COPYING")
+        carried.append("Zig")
     if args.python and args.android:
         if not any(args.python.glob("lib/python3.*/os.py")):
             sys.exit(f"{args.python} is not a PYTHONHOME for Android (no lib/python3.N/os.py)")

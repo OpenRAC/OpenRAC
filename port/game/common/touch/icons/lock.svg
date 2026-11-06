@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100">
+<!-- OpenRAC touch icon "lock", in the logo's style (sharp shapes, claw strokes). White is drawn white, #ff8000 in the game's accent. -->
+<g transform="translate(-0.00,-0.00) scale(1.000)"><g transform="rotate(0)"><path d="M-40,-14 L-40,-40 L-14,-40 L-20,-32 L-32,-32 L-32,-20 Z" fill="#fff"/></g><g transform="rotate(90)"><path d="M-40,-14 L-40,-40 L-14,-40 L-20,-32 L-32,-32 L-32,-20 Z" fill="#fff"/></g><g transform="rotate(180)"><path d="M-40,-14 L-40,-40 L-14,-40 L-20,-32 L-32,-32 L-32,-20 Z" fill="#fff"/></g><g transform="rotate(270)"><path d="M-40,-14 L-40,-40 L-14,-40 L-20,-32 L-32,-32 L-32,-20 Z" fill="#fff"/></g><path d="M0,-13 L13,0 L0,13 L-13,0 Z" fill="#ff8000"/></g>
+</svg>

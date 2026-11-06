@@ -175,6 +175,24 @@ pub fn is_play(config: &Config, scope: &Scope, id: &str) -> bool {
     actions::load(root).is_ok_and(|file| file.is_play(scope, id))
 }
 
+/// The command that plays version `key` from a shortcut (`--play`): its first `play` action, as
+/// the Play button runs it, so the data folder, the mods and the build checks are the same. An
+/// action that asks the player to confirm is not started unseen; the error says why it can't
+/// start now, and the launcher shows the game instead.
+pub fn direct_play(config: &Config, key: &str) -> Result<Plan, String> {
+    let root = config.root()?;
+    let file = actions::load(root)?;
+    let action = file
+        .versions
+        .get(key)
+        .and_then(|list| list.iter().find(|a| a.kind == actions::Kind::Play && !a.developer))
+        .ok_or_else(|| format!("{key} has no Play"))?;
+    if action.warning.is_some() {
+        return Err(format!("{}: it needs your confirmation first", action.label));
+    }
+    plan(config, &Scope::Version(key.to_string()), &action.id, &Inputs::default())
+}
+
 /// A version's action's arguments and artifact, filled in, whether or not it can run now
 /// (Action::filled).
 pub fn filled(config: &Config, key: &str, id: &str) -> Result<(Vec<String>, Option<std::path::PathBuf>), String> {
@@ -229,6 +247,16 @@ mod tests {
                 assert_ne!(action.state, actions::State::Planned, "{key} {id}");
             }
         }
+    }
+
+    #[test]
+    fn a_shortcut_plays_only_what_play_could() {
+        let config = Config { root: Some(checkout()), ..Config::default() };
+        // Nothing is built or installed here: the same refusal the Play button gives.
+        let err = direct_play(&config, "rac1/pal").unwrap_err();
+        assert!(err.starts_with("Play:"), "{err}");
+        assert!(direct_play(&config, "nope/pal").unwrap_err().contains("no Play"));
+        assert!(direct_play(&Config::default(), "rac1/pal").is_err(), "no OpenRAC folder");
     }
 
     #[test]
@@ -313,6 +341,12 @@ mod tests {
         assert!(!bake.developer);
         let play = action_of(&player, "play").expect("a player has Going Commando's Play");
         assert!(!play.developer);
+        // A checkout builds the game from the player's disc without Developer tools, as
+        // Ratchet & Clank's: else Play waited for a program nothing offered to make.
+        for id in ["port-build", "port-rebuild"] {
+            let build = action_of(&player, id).unwrap_or_else(|| panic!("a player has Going Commando's {id}"));
+            assert!(!build.developer, "{id}");
+        }
         assert_ne!(play.state, actions::State::Planned);
         assert!(play.warning.as_deref().is_some_and(|w| w.contains("early and unstable")), "{:?}", play.warning);
     }

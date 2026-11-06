@@ -137,4 +137,7 @@ void load_level_program(int level);
 int check_levels(const fs::path& levels, const fs::path& mods = {});
 #endif
 
+// Loads the part of the game built from the player's disc (asm_part.cpp), where there is one.
+void load_asm_part(const Options& o);
+
 }  // namespace openrac::program

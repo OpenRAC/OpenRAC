@@ -61,8 +61,8 @@ constexpr Entry kEntries[] = {
     {Id::FrameCounter, Tab::Graphics, "Frames", kChoice, A, "Frame counter",
      "Shows the frames a second in a corner of the picture. F2 changes it too."},
     {Id::Hdr, Tab::Graphics, "HDR", kChoice, A, "HDR",
-     "High dynamic range output, on a display that has it. Auto follows the system's setting. "
-     "Turned on from Off, it starts with the game's next start."},
+     "High dynamic range output, when the system has the display in HDR mode. Turned on from "
+     "Off, it starts with the game's next start."},
     {Id::HdrPaperWhite, Tab::Graphics, "HDR", kChoice, A, "HDR paper white",
      "How bright the game's white is in HDR. System takes the brightness the system gives "
      "ordinary pictures."},
@@ -178,6 +178,9 @@ constexpr Entry kEntries[] = {
      "The key and the controller button that open and close this menu. Any controller's Select "
      "and Start pressed together do too. The key is kept by its place on the keyboard; Alt "
      "counts pressed by itself, so Alt+Return still goes full screen."},
+    {Id::TouchActionButtons, Tab::Controls, "Touch controls", kSwitch, T, "Action buttons",
+     "Buttons that show what they do (jump, fire, the ship's boost) and change with what the game "
+     "is doing. Off: the DualShock's buttons."},
     {Id::TouchButtonSize, Tab::Controls, "Touch controls", kChoice, T, "Button size",
      "The on-screen buttons' size."},
     {Id::TouchCameraSpeed, Tab::Controls, "Touch controls", kChoice, T, "Camera speed",

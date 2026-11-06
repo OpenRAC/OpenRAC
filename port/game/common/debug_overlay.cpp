@@ -643,6 +643,16 @@ void set_touch_guides(float x, float y) {
     s.touch_guides = ImVec2(x, y);
 }
 
+void set_touch_selected(float size) {
+    s.touch_selected = size;
+}
+
+int take_touch_size_steps() {
+    const int steps = s.touch_size_steps;
+    s.touch_size_steps = 0;
+    return steps;
+}
+
 void toggle_drawer() {
     if (drawer_possible()) {
         set_menu(!s.menu_open);
@@ -743,10 +753,25 @@ bool event(const SDL_Event& e) {
             return true;
         }
     }
-    // The menu's controller button (menu_bar_button; by default L3), on a desktop and a touch
-    // screen alike, while the game's window has the focus. Not "...": a running Steam client opens
-    // its own panel on it.
+    // The menu's controller button (menu_bar_button), on a desktop and a touch screen alike, while
+    // the game's window has the focus. Not "...": a running Steam client opens its own panel on it.
+    // Start+Select, the default, opens the menu from the game's pad (menu_pad_chord) and closes
+    // it here: the second of the pair pressed while the first is held, on one controller.
     MenuMotion& m = s.menu_motion;
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && s.menu_open && menu_bar_chord()
+        && (e.gbutton.button == SDL_GAMEPAD_BUTTON_START
+            || e.gbutton.button == SDL_GAMEPAD_BUTTON_BACK)
+        && SDL_GetKeyboardFocus() != nullptr && !s.pad_locked && !controls_capturing()) {
+        SDL_Gamepad* pad = SDL_GetGamepadFromID(e.gbutton.which);
+        const SDL_GamepadButton other = e.gbutton.button == SDL_GAMEPAD_BUTTON_START
+                                            ? SDL_GAMEPAD_BUTTON_BACK
+                                            : SDL_GAMEPAD_BUTTON_START;
+        if (pad != nullptr && SDL_GetGamepadButton(pad, other)) {
+            m.pad = true;
+            toggle_menu();
+            return true;
+        }
+    }
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN && SDL_GetKeyboardFocus() != nullptr
         && menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID && e.gbutton.button == menu_bar_button()
         && !s.pad_locked && !controls_capturing()) {

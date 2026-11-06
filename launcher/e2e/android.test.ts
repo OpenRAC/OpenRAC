@@ -234,25 +234,63 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("takes a game's tile as one control: A its next step, Y its page, B back to it", async () => {
-    await open("");
+  it("opens a game's page from its tile by A or a tap, and leaves the tile's button to a finger", async () => {
+    await open("built");
+    // The tile's own Play is there for a finger, but the controller never lands on it.
+    const play = page.locator(".tile .act").first();
+    await expect(play.textContent()).resolves.toContain("Play");
     await press("down");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
     // Right goes to the next game, not to the tile's own button.
     await press("right");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
-    await press("left", "more");
+    await press("left", "accept");
     await page.waitForTimeout(500);
-    // The game's page has the focus on its first control: the next A presses it.
+    // A opens the game's page, with the focus on its first control, and starts nothing.
     expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
     expect(await page.locator(".tile").count()).toBe(0);
+    await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
     await press("back");
     await page.waitForTimeout(500);
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // A starts preparing the levels from the tile without opening the game page.
-    await press("accept");
+    // A tap on the tile opens the page too.
+    await page.locator(".tile .open").first().click();
+    await page.locator(".go .big").waitFor();
+    expect(await page.locator(".tile").count()).toBe(0);
+  });
+
+  it("starts a game's next step from its tile's button by a tap", async () => {
+    await open("");
+    await page.locator(".tile .act").first().click();
     await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
     expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+  });
+
+  it("rings the game picked last, and only the focus once the controller moves", async () => {
+    await open("version=rac1/pal&page=library");
+    const tile = page.locator(".tile").first();
+    await tile.waitFor();
+    await page.waitForTimeout(600);
+    // The picked game is ringed, and its picture does not zoom under the pointer.
+    const ring = () => tile.evaluate((e) => getComputedStyle(e, "::after").opacity);
+    expect(await ring()).toBe("1");
+    await tile.hover();
+    await page.waitForTimeout(600);
+    expect(
+      await page
+        .locator(".tile .art")
+        .first()
+        .evaluate((e) => getComputedStyle(e).transform),
+    ).toBe("none");
+    // With the controller on the next game, only that one is ringed.
+    await press("down", "right");
+    await page.waitForTimeout(400);
+    expect(await ring()).toBe("0");
+    const outlines = await page
+      .locator(".tile")
+      .evaluateAll((tiles) => tiles.map((t) => getComputedStyle(t).outlineStyle !== "none"));
+    expect(outlines.filter(Boolean).length).toBe(1);
+    expect(outlines[0]).toBe(false);
   });
 
   it("goes into the rail only sideways", async () => {
@@ -282,6 +320,114 @@ describe("A controller", () => {
     await press("down");
     expect(await focused()).not.toBe(first);
     expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("menuitem");
+  });
+
+  it("keeps the texture pack on Mods as a pack, not on the game's page, and reaches it by pad", async () => {
+    await open("version=rac1/pal");
+    expect(await page.getByText("Your texture pack").count()).toBe(0);
+    await open("page=mods&version=rac1/pal");
+    const own = page.getByRole("switch", { name: "Use Your texture pack" });
+    await own.waitFor();
+    // Its steps are folded under the packs until Make your own opens them.
+    const dumping = page.getByRole("switch", { name: "Save the game's textures while you play" });
+    expect(await dumping.isVisible()).toBe(false);
+    await own.focus();
+    await press("right");
+    expect(await focused()).toBe("Make your own");
+    await press("accept");
+    await dumping.waitFor();
+    expect(await dumping.isVisible()).toBe(true);
+    // Its arrow says it opens, and turns when it is open.
+    const arrow = page.locator("#texture-make summary .chevron");
+    expect(await arrow.isVisible()).toBe(true);
+    expect(await arrow.evaluate((el) => getComputedStyle(el).transform)).not.toBe("none");
+  });
+
+  it("says where mods come from at the top, and lists none itself", async () => {
+    const said: string[] = [];
+    page.on("console", (m) => {
+      if (m.text().includes("[preview]"))
+        void Promise.all(m.args().map((x) => x.jsonValue())).then((a: unknown[]) => said.push(JSON.stringify(a)));
+    });
+    await open("page=mods&version=rac1/pal");
+    const banner = page.getByRole("region", { name: "Get mods" });
+    await banner.waitFor();
+    // First on the page, above the lists.
+    const top = await banner.boundingBox();
+    const list = await page.getByRole("switch", { name: "Use Your texture pack" }).boundingBox();
+    expect(top && list && top.y < list.y).toBe(true);
+    expect(await page.getByPlaceholder("Search mods").count()).toBe(0);
+    // A click anywhere on it opens the hub, not only on its button.
+    await banner.click({ position: { x: 30, y: 20 } });
+    await expect.poll(() => said.join(" ")).toContain('"https://openrac.dev/mods"');
+    // Publish does its own, not the hub.
+    said.length = 0;
+    await banner.getByRole("button", { name: "Publish your mod" }).click();
+    await expect.poll(() => said.join(" ")).toContain("https://openrac.dev/mods/submit");
+    expect(said.join(" ")).not.toContain('"https://openrac.dev/mods"');
+    expect(said.join(" ")).not.toContain("index_fetch");
+  });
+
+  it("finds a mod and shows one kind when there are many", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const search = page.getByRole("searchbox", { name: "Find a mod" });
+    await search.fill("bolt magnet");
+    await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(1);
+    await expect(page.getByRole("switch", { name: /^Use Lock-strafe/ }).count()).resolves.toBe(0);
+    await search.fill("");
+    await page.getByRole("radio", { name: /^Tools/ }).click();
+    await expect(page.getByRole("button", { name: "Open Nanotech Upscaler" }).count()).resolves.toBe(1);
+    // A tool can't be off: its switch is on and greyed, and says why.
+    const always = page.getByRole("switch", { name: /^Nanotech Upscaler: Always on/ });
+    expect(await always.isChecked()).toBe(true);
+    expect(await always.isDisabled()).toBe(true);
+    await expect(page.getByRole("switch", { name: /^Use Bolt magnet/ }).count()).resolves.toBe(0);
+    await expect(page.getByRole("switch", { name: "Use Your texture pack" }).count()).resolves.toBe(0);
+  });
+
+  it("says once when a search finds nothing, and keeps the search while it hides mods", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const search = page.getByRole("searchbox", { name: "Find a mod" });
+    await search.fill("no such mod");
+    await page.getByText("Nothing matches “no such mod”.").waitFor();
+    expect(await page.getByText(/^Nothing matches/).count()).toBe(1);
+    expect(await page.getByRole("heading", { name: "Gameplay mods" }).count()).toBe(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await page.getByRole("heading", { name: "Gameplay mods" }).waitFor();
+  });
+
+  it("moves a mod by dragging its grip, and not while sorted by name", async () => {
+    await open("page=mods&version=rac1/pal&manymods");
+    const names = () => page.locator(".plugins ul:not(.built-in) .name").allTextContents();
+    const before = await names();
+    // The page's slide in ends first: the rows are where they show.
+    await page.locator(".plugins ul:not(.built-in) li").first().waitFor();
+    await page.waitForTimeout(1500);
+    await page
+      .locator(".plugins ul:not(.built-in) li")
+      .first()
+      .evaluate((li) => {
+        li.scrollIntoView({ block: "start" });
+      });
+    await page.waitForTimeout(300);
+    const grip = page.locator(".plugins ul:not(.built-in) li").nth(2).locator("[data-grip]");
+    const g = await grip.boundingBox();
+    const top = await page.locator(".plugins ul:not(.built-in) li").first().boundingBox();
+    if (!g || !top) throw new Error("no grip");
+    await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(g.x + g.width / 2, top.y + 4, { steps: 10 });
+    await page.waitForTimeout(100);
+    await page.mouse.up();
+    await expect.poll(names).toEqual([before[2], before[0], before[1], ...before.slice(3)]);
+    await page.getByRole("radio", { name: "A to Z" }).click();
+    expect(await page.locator(".plugins [data-grip]").count()).toBe(0);
+  });
+
+  it("says Play starts without mods above the lists, once", async () => {
+    await open("page=mods&version=rac1/pal");
+    await page.getByRole("switch", { name: "Use Your texture pack" }).waitFor();
+    expect(await page.getByText("Play starts the game without mods.", { exact: false }).count()).toBe(1);
   });
 
   it("passes over what a closed fold holds", async () => {

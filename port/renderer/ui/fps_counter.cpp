@@ -64,21 +64,24 @@ struct State {
     double gpu_ms = 0;              // Completed GPU pass times.
     int gpu_frames = 0;             // Frames with available GPU measurements.
     std::string text;
-    std::string drawn;  // the text the texture holds
+    std::string drawn;            // the text the texture holds
+    std::uint32_t drawn_ink = 0;  // and its colours
+    std::uint32_t drawn_paper = 0;
     int width = 0;
     unsigned texture = 0;
     unsigned framebuffer = 0;
 };
 State s;
 
-// The text as a picture: light glyphs on a dark box, top row first.
-std::vector<std::uint8_t> picture(const std::string& text, int& width, int& height) {
+// The text as a picture: `ink` glyphs on a `paper` box, top row first.
+std::vector<std::uint8_t> picture(
+    const std::string& text, std::uint32_t ink, std::uint32_t paper, int& width, int& height
+) {
     width = static_cast<int>(text.size()) * kCell - 1 + 2 * kMargin;
     height = kRows + 2 * kMargin;
     std::vector<std::uint8_t> rgba(static_cast<std::size_t>(width) * height * 4);
     for (std::size_t i = 0; i < rgba.size(); i += 4) {
-        const std::uint32_t dark = 0xFF101010u;
-        std::memcpy(&rgba[i], &dark, 4);
+        std::memcpy(&rgba[i], &paper, 4);
     }
     int x = kMargin;
     for (char c : text) {
@@ -86,8 +89,11 @@ std::vector<std::uint8_t> picture(const std::string& text, int& width, int& heig
             for (int r = 0; r < kRows; ++r) {
                 for (int col = 0; col < 5; ++col) {
                     if (rows[r * 5 + col] == '#') {
-                        const std::uint32_t light = 0xFF40FFF0u;  // yellow-green, as A B G R bytes
-                        std::memcpy(&rgba[(static_cast<std::size_t>(kMargin + r) * width + x + col) * 4], &light, 4);
+                        std::memcpy(
+                            &rgba[(static_cast<std::size_t>(kMargin + r) * width + x + col) * 4],
+                            &ink,
+                            4
+                        );
                     }
                 }
             }
@@ -172,7 +178,7 @@ void frame_drawn(std::chrono::steady_clock::time_point now, double swap_seconds,
     }
 }
 
-void draw(unsigned framebuffer, int width, int height) {
+void draw(unsigned framebuffer, int width, int height, std::uint32_t ink, std::uint32_t paper) {
     if (s.text.empty() || width <= 0 || height <= 0) {
         return;
     }
@@ -183,9 +189,9 @@ void draw(unsigned framebuffer, int width, int height) {
         glGenFramebuffers(1, &s.framebuffer);
     }
     glBindFramebuffer(GL_READ_FRAMEBUFFER, s.framebuffer);
-    // The texture is sent again only when the text changed.
-    if (s.text != s.drawn) {
-        const std::vector<std::uint8_t> rgba = picture(s.text, w, h);
+    // The texture is sent again only when the text or its colours changed.
+    if (s.text != s.drawn || ink != s.drawn_ink || paper != s.drawn_paper) {
+        const std::vector<std::uint8_t> rgba = picture(s.text, ink, paper, w, h);
         glBindTexture(GL_TEXTURE_2D, s.texture);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
         glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(GL_RGBA8), w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
@@ -195,6 +201,8 @@ void draw(unsigned framebuffer, int width, int height) {
         glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, s.texture, 0);
         glBindTexture(GL_TEXTURE_2D, 0);
         s.drawn = s.text;
+        s.drawn_ink = ink;
+        s.drawn_paper = paper;
         s.width = w;
     }
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, framebuffer);

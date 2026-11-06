@@ -31,6 +31,10 @@ language server at the SDK's `types/rac1.d.luau` for autocomplete. How to use it
 | `openrac.pointer` | `() -> (number, number, boolean)` |
 | `openrac.take_input` | `(...("keyboard" \| "mouse")) -> ()` |
 | `openrac.capture_mouse` | `(capture: boolean) -> ()` |
+| `openrac.touch_define` | `(json: string) -> boolean` |
+| `openrac.touch_icon` | `(name: string, svg: string) -> boolean` |
+| `openrac.touch_push` | `(context: string?) -> ()` |
+| `openrac.touch_hint` | `(hint: string, on: boolean) -> ()` |
 | `openrac.pvars` | `(moby: number) -> { [string]: number }?` |
 
 ## Types

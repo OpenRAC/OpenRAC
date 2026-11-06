@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import json
-import shutil
 import subprocess
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 from unittest.mock import patch
 
 import build_game
@@ -53,7 +54,6 @@ class BuildDirectory(unittest.TestCase):
         self.assertFalse(self.out.exists())
 
 
-@unittest.skipUnless(shutil.which("curl") and shutil.which("tar"), "needs curl and tar")
 class FetchSource(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -62,7 +62,8 @@ class FetchSource(unittest.TestCase):
         tree = self.dir / "OpenRAC-abc"
         tree.mkdir()
         (tree / "file").write_text("one")
-        subprocess.run(["tar", "-czf", "a.tar.gz", "OpenRAC-abc"], cwd=self.dir, check=True)
+        with tarfile.open(self.dir / "a.tar.gz", "w:gz") as tar:
+            tar.add(tree, "OpenRAC-abc")
         self.url = (self.dir / "a.tar.gz").as_uri()
         self.out = self.dir / "out"
 
@@ -87,8 +88,13 @@ class FetchSource(unittest.TestCase):
         build_game.fetch_source(self.url, "abc", self.out)
         self.assertFalse((source / "stale").exists())
 
+    def test_needs_no_program_of_the_players(self):
+        with mock.patch.object(subprocess, "run", side_effect=FileNotFoundError):
+            source = build_game.fetch_source(self.url, "abc", self.out)
+        self.assertEqual((source / "file").read_text(), "one")
+
     def test_a_failed_download_is_not_taken_for_a_source(self):
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(OSError):
             build_game.fetch_source("file:///nothing/here", "abc", self.out)
         self.assertFalse((self.out / build_game.SOURCE / build_game.DONE).exists())
 
@@ -110,7 +116,8 @@ class FetchSource(unittest.TestCase):
             "(build / 'openrac-x.exe').write_text(str(Path.cwd()))\n",
             encoding="utf-8")
         (tree / "fail").touch()
-        subprocess.run(["tar", "-czf", "a.tar.gz", "OpenRAC-abc"], cwd=self.dir, check=True)
+        with tarfile.open(self.dir / "a.tar.gz", "w:gz") as tar:
+            tar.add(tree, "OpenRAC-abc")
         out = self.dir / ("installation with spaces " * 4).rstrip() / "program" / "abc"
         out.mkdir(parents=True)
         (out / "openrac-x.exe").write_text("previous program")
@@ -133,6 +140,19 @@ class FetchSource(unittest.TestCase):
         self.assertFalse(source.exists())
         self.assertFalse((out / build_game.SOURCE).exists())
         self.assertEqual(disc.read_text(), "test fixture")
+
+
+class Environment(unittest.TestCase):
+    def test_linux_drops_only_the_library_variables(self):
+        steam = {"LD_LIBRARY_PATH": "/steam", "LD_PRELOAD": "/overlay.so", "PATH": "/usr/bin"}
+        with mock.patch.dict(build_game.os.environ, steam, clear=True), mock.patch.object(build_game.sys, "platform", "linux"):
+            build_game.use_the_systems_libraries()
+            self.assertEqual(dict(build_game.os.environ), {"PATH": "/usr/bin"})
+
+    def test_other_systems_keep_them(self):
+        with mock.patch.dict(build_game.os.environ, {"LD_PRELOAD": "x"}, clear=True), mock.patch.object(build_game.sys, "platform", "win32"):
+            build_game.use_the_systems_libraries()
+            self.assertEqual(dict(build_game.os.environ), {"LD_PRELOAD": "x"})
 
 
 class Program(unittest.TestCase):
@@ -187,6 +207,15 @@ class Program(unittest.TestCase):
             build_game.carried_commit(stamp)
         with self.assertRaises(SystemExit):
             build_game.carried_commit(self.dir / "none")
+
+    def test_the_repository_comes_from_the_stamp(self):
+        stamp = self.dir / "openrac-build.json"
+        stamp.write_text(json.dumps({"commit": "abc", "repository": "someone/OpenRAC"}))
+        self.assertEqual(build_game.carried_repository(stamp), "someone/OpenRAC")
+        for bad in ({"commit": "abc"}, {"repository": "../x"}, {"repository": 3}):
+            stamp.write_text(json.dumps(bad))
+            self.assertEqual(build_game.carried_repository(stamp), build_game.REPOSITORY)
+        self.assertEqual(build_game.carried_repository(self.dir / "none"), build_game.REPOSITORY)
 
 
 if __name__ == "__main__":

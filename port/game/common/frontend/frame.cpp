@@ -1870,6 +1870,16 @@ void light_scene(std::span<const std::uint8_t> ram, const host::GameState& state
             }
         }
     }
+    // The game's occlusion mask, which picks retail's fallback outside the baked grid.
+    std::optional<scene::Pvs::Mask> occlusion;
+    if (occlusion_address() != 0) {
+        const gaddr mask = openrac_relocate_data(occlusion_address());
+        if (mask + sizeof(scene::Pvs::Mask) <= ram.size()) {
+            occlusion.emplace();
+            std::memcpy(occlusion->data(), ram.data() + mask, occlusion->size());
+        }
+    }
+    g->scene.set_game_pvs(occlusion);
 }
 
 // Keeps this tick's scene for the frames drawn until the next one (Kept), the last tick's as
