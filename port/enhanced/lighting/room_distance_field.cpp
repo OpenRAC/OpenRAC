@@ -12,54 +12,15 @@
 #include <tuple>
 #include <vector>
 
-#include "common/joining_thread.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_scene.h"
+#include "enhanced/lighting/parallel_each.h"
 #include "enhanced/lighting/room_layout.h"
 
 namespace openrac::lighting::bake_detail {
 namespace {
 constexpr unsigned kMaximumSamples = 256000;
 using Cell = std::tuple<unsigned, int, int>;
-
-// Runs task(i) for every i on all CPU threads; each task writes only its own slot, so the result
-// does not depend on scheduling. The caller's rounding mode carries over; the first error is rethrown.
-template <class Task>
-void parallel_each(std::size_t count, const Task& task) {
-    std::fenv_t environment;
-    std::fegetenv(&environment);
-    std::atomic<std::size_t> next{0};
-    std::exception_ptr failure;
-    std::mutex mutex;
-    auto worker = [&] {
-        std::fesetenv(&environment);
-
-        try {
-            for (auto i = next.fetch_add(1); i < count; i = next.fetch_add(1)) {
-                task(i);
-            }
-        } catch (...) {
-            const std::lock_guard lock(mutex);
-            failure = failure ? failure : std::current_exception();
-            next = count;
-        }
-    };
-    const auto threads =
-        std::min<std::size_t>(std::max(1u, std::thread::hardware_concurrency()), count);
-    {
-        std::vector<JoiningThread> pool;
-
-        for (std::size_t t = 1; t < threads; ++t) {
-            pool.emplace_back(worker);
-        }
-
-        worker();
-    }
-
-    if (failure) {
-        std::rethrow_exception(failure);
-    }
-}
 
 // The normal support window stays narrow; floor-following repairs allow a bounded deeper dip.
 std::optional<Float3> supporting_floor(
@@ -119,9 +80,12 @@ void refine_ridges(RoomDistanceField& field, const Scene& scene, const BakeSetti
         samples.push_back(n.wall);
     }
 
-    for (auto& node : field.nodes) {
+    // Each node moves only itself and reads the unmoved samples, so nodes run in parallel.
+    parallel_each(field.nodes.size(), [&](std::size_t index) {
+        auto& node = field.nodes[index];
+
         if (field.swimming_rooms[node.room]) {
-            continue;  // Water is an authored support plane; projecting it onto solid floor would sink it.
+            return;  // Water is an authored support plane; projecting it onto solid floor would sink it.
         }
 
         auto eye = node.position;
@@ -200,7 +164,7 @@ void refine_ridges(RoomDistanceField& field, const Scene& scene, const BakeSetti
             node.position = selected;
             node.ridge = true;
         }
-    }
+    });
 }
 
 // Two samples may project onto the same ridge point. Coalesce them before extracting topology
@@ -238,7 +202,7 @@ void compact(RoomDistanceField& field, const Scene& scene, const BakeSettings& s
         }
     }
 
-    for (unsigned a = 0; a < nodes.size(); ++a) {
+    parallel_each(nodes.size(), [&](std::size_t a) {
         auto& row = nodes[a].neighbours;
         std::sort(row.begin(), row.end());
         row.erase(std::unique(row.begin(), row.end()), row.end());
@@ -252,7 +216,7 @@ void compact(RoomDistanceField& field, const Scene& scene, const BakeSettings& s
                            : room_path_clear(scene, nodes[a].position, nodes[b].position, settings)
                    );
         });
-    }
+    });
 
     // The checks above run from each end, and the body check is not symmetric: keep an edge
     // only when it passed from both ends, so a path may walk it either way.
@@ -613,6 +577,7 @@ RoomDistanceField room_distance_field(
     cells.clear();
     refine_ridges(result, scene, settings);
     compact(result, scene, settings);
+
     scene.check_error();
     return result;
 }
