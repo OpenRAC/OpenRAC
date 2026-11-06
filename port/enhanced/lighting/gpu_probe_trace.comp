@@ -82,6 +82,7 @@ layout(std430, set = 0, binding = 14) readonly buffer Primary { vec4 primary[]; 
 layout(std430, set = 0, binding = 15) readonly buffer Origins { vec4 origins[]; };
 layout(std430, set = 0, binding = 16) writeonly buffer Rays { vec4 rays[]; };          // 2 per ray
 layout(std430, set = 0, binding = 17) writeonly buffer Lights { vec4 lights[]; };      // 2 per sample
+layout(std430, set = 0, binding = 19) readonly buffer Pairs { vec4 pairs[]; };       // 2 per pair
 layout(std430, set = 0, binding = 18) readonly buffer Params {
     vec4 environment;        // uniform fallback rgb, use level sky (0/1)
     vec4 primary_colour;     // primary directional colour, sky weight
@@ -97,6 +98,8 @@ layout(push_constant) uniform Push {
     uint first_probe;  // the volume's index of origins[0], for the probes' seeds
     uint count;
     float max_distance;  // the grid's stored visibility cap
+    uint pair_count;     // placement: paired directions
+    float cap;           // placement: clearance cap, 0 for no clearance rays
 } push;
 
 const float kPi = 3.14159265358979323846;
@@ -547,6 +550,57 @@ vec3 radiance(Hit hit, inout uint state) {
     return result;
 }
 
+#ifdef OPENRAC_PLACEMENT
+// ---- Placement (bake_transport.cpp crossing_parity/classify, bake_alignment.cpp clearance) ----
+bool crossing_parity(vec3 position, vec3 ray, float bias, inout float nearest, inout vec3 exit_direction) {
+    bool odd = false;
+    float near = bias;
+    for (uint crossings = 0u;; ++crossings) {
+        const Hit hit = trace(position, ray, near, kInfinity);
+        if (!hit.found || crossings >= 4096u) {
+            break;
+        }
+        odd = !odd;
+        if (hit.t < nearest) {
+            nearest = hit.t;
+            exit_direction = ray;
+        }
+        // nextafter toward infinity of a positive finite value.
+        near = uintBitsToFloat(floatBitsToUint(hit.t + bias) + 1u);
+    }
+    return odd;
+}
+
+void main() {
+    const uint local = gl_GlobalInvocationID.x;
+    if (local >= push.count) {
+        return;
+    }
+    const vec3 position = origins[local].xyz;
+    const float bias = params.albedo.z;
+    float nearest = kInfinity;
+    vec3 exit_direction = vec3(0.0);
+    uint inside = 0u;
+    for (uint i = 0u; i < push.pair_count; ++i) {
+        const bool forward = crossing_parity(position, pairs[2u * i].xyz, bias, nearest, exit_direction);
+        const bool reverse = crossing_parity(position, pairs[2u * i + 1u].xyz, bias, nearest, exit_direction);
+        inside += forward && reverse ? 1u : 0u;
+    }
+    float clearance = push.cap;
+    if (push.cap > 0.0) {
+        const float margin = 2.0 * bias;
+        for (uint i = 0u; i < 2u * push.pair_count; ++i) {
+            const vec3 direction = pairs[i].xyz;
+            const Hit hit = trace(position - direction * margin, direction, bias, push.cap + margin);
+            if (hit.found) {
+                clearance = min(clearance, max(0.0, hit.t - margin));
+            }
+        }
+    }
+    rays[2u * local] = vec4(exit_direction, nearest);
+    rays[2u * local + 1u] = vec4(float(inside), clearance, 0.0, 0.0);
+}
+#else
 void main() {
     const uint local = gl_GlobalInvocationID.x;
     if (local >= push.count) {
@@ -580,3 +634,4 @@ void main() {
         rays[at + 1u] = vec4(light, 0.0);
     }
 }
+#endif

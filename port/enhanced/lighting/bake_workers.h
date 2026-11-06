@@ -16,6 +16,10 @@
 #include "common/result.h"
 
 namespace openrac::lighting {
+namespace bake_detail {
+class GpuTransport;
+}
+
 // Owns a fixed worker budget; controller threads submit concurrent batches, never from a worker.
 // Tasks may run concurrently and must establish their own floating-point environment.
 // Destruction wakes and joins every worker. One-thread pools execute on the caller.
@@ -64,5 +68,6 @@ private:
 struct BakeExecution {
     unsigned threads = 0;            // Zero selects hardware concurrency without a shared pool.
     BakeThreadPool* pool = nullptr;  // Optional shared workers, used only by the calling stage.
+    bake_detail::GpuTransport* gpu = nullptr;  // Optional ray-query device for placement rays.
 };
 }  // namespace openrac::lighting

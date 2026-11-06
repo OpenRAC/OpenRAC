@@ -22,7 +22,8 @@
 
 namespace openrac::lighting::bake_detail {
 namespace {
-constexpr std::uint32_t kBindings = 19;
+constexpr std::uint32_t kBindings = 20;
+constexpr std::uint32_t kMaxPairs = 64;  // placement direction pairs per query
 constexpr std::uint32_t kLocalSize = 32;
 constexpr std::uint32_t kChunk = 1024;  // probes per dispatch: bounded memory and GPU time
 
@@ -98,7 +99,9 @@ struct Params {
 struct Push {
     std::uint32_t first, count;
     float max_distance;
-    std::uint32_t pad;
+    std::uint32_t pair_count;
+    float cap;
+    std::uint32_t pad[3];
 };
 
 static_assert(sizeof(Material) == 112 && sizeof(Emission) == 96 && sizeof(Emitter) == 48);
@@ -126,12 +129,14 @@ float emission_scale(const BakeTriangle& triangle, const BakeSettings& settings)
     return scale;
 }
 
-std::vector<std::uint32_t> compile(std::string& error) {
+// The placement kernel is the same source with OPENRAC_PLACEMENT defined.
+std::vector<std::uint32_t> compile(bool placement, std::string& error) {
     static std::once_flag once;
     std::call_once(once, [] { glslang::InitializeProcess(); });
     glslang::TShader shader(EShLangCompute);
     const char* text = kGpuProbeTraceSource;
     shader.setStrings(&text, 1);
+    shader.setPreamble(placement ? "#define OPENRAC_PLACEMENT 1\n" : "");
     shader.setEnvInput(glslang::EShSourceGlsl, EShLangCompute, glslang::EShClientVulkan, 460);
     shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
     shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_4);
@@ -181,7 +186,8 @@ struct GpuTransport::Impl {
     VkFence fence = VK_NULL_HANDLE;
     VkDescriptorSetLayout set_layout = VK_NULL_HANDLE;
     VkPipelineLayout layout = VK_NULL_HANDLE;
-    VkPipeline pipeline = VK_NULL_HANDLE;
+    VkPipeline pipeline = VK_NULL_HANDLE, placement = VK_NULL_HANDLE;
+    std::mutex mutex;  // one query on the device at a time; volumes may bake concurrently
     VkDescriptorPool descriptors = VK_NULL_HANDLE;
     VkDescriptorSet set = VK_NULL_HANDLE;
     VkAccelerationStructureKHR blas = VK_NULL_HANDLE, tlas = VK_NULL_HANDLE;
@@ -208,6 +214,7 @@ struct GpuTransport::Impl {
             }
             vkDestroyDescriptorPool(device, descriptors, nullptr);
             vkDestroyPipeline(device, pipeline, nullptr);
+            vkDestroyPipeline(device, placement, nullptr);
             vkDestroyPipelineLayout(device, layout, nullptr);
             vkDestroyDescriptorSetLayout(device, set_layout, nullptr);
             vkDestroyFence(device, fence, nullptr);
@@ -744,17 +751,69 @@ struct GpuTransport::Impl {
         bound[15] = make_buffer(VkDeviceSize{kChunk} * sizeof(Vec4), kStorage);
         bound[16] = make_buffer(ray_bytes, kStorage);
         bound[17] = make_buffer(emitter_count ? ray_bytes : 16, kStorage);
+        bound[19] = make_buffer(VkDeviceSize{kMaxPairs} * 2 * sizeof(Vec4), kStorage);
     }
 
     // ---- Pipeline ----
-    void build_pipeline() {
+    VkPipeline make_pipeline(bool placing) {
         std::string error;
-        const auto code = compile(error);
+        const auto code = compile(placing, error);
 
         if (code.empty()) {
             throw std::runtime_error("GPU bake: shader: " + error);
         }
 
+        VkShaderModuleCreateInfo module_info{};
+        module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        module_info.codeSize = code.size() * 4;
+        module_info.pCode = code.data();
+        VkShaderModule module;
+        check(vkCreateShaderModule(device, &module_info, nullptr, &module), "shader module");
+        VkComputePipelineCreateInfo pipeline_info{};
+        pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipeline_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        pipeline_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        pipeline_info.stage.module = module;
+        pipeline_info.stage.pName = "main";
+        pipeline_info.layout = layout;
+        VkPipeline created_pipeline = VK_NULL_HANDLE;
+        const auto created = vkCreateComputePipelines(
+            device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &created_pipeline
+        );
+        vkDestroyShaderModule(device, module, nullptr);
+        check(created, "compute pipeline");
+        return created_pipeline;
+    }
+
+    // Runs one bound kernel over count invocations and waits for its results on the host.
+    void dispatch(VkPipeline kernel, const Push& push) {
+        submit([&](VkCommandBuffer c) {
+            vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_COMPUTE, kernel);
+            vkCmdBindDescriptorSets(
+                c, VK_PIPELINE_BIND_POINT_COMPUTE, layout, 0, 1, &set, 0, nullptr
+            );
+            vkCmdPushConstants(c, layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof push, &push);
+            vkCmdDispatch(c, (push.count + kLocalSize - 1) / kLocalSize, 1, 1);
+            VkMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+            barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
+            vkCmdPipelineBarrier(
+                c,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_HOST_BIT,
+                0,
+                1,
+                &barrier,
+                0,
+                nullptr,
+                0,
+                nullptr
+            );
+        });
+    }
+
+    void build_pipeline() {
         std::array<VkDescriptorSetLayoutBinding, kBindings> bindings{};
 
         for (std::uint32_t i = 0; i < kBindings; ++i) {
@@ -781,23 +840,8 @@ struct GpuTransport::Impl {
         layout_info.pushConstantRangeCount = 1;
         layout_info.pPushConstantRanges = &range;
         check(vkCreatePipelineLayout(device, &layout_info, nullptr, &layout), "pipeline layout");
-        VkShaderModuleCreateInfo module_info{};
-        module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        module_info.codeSize = code.size() * 4;
-        module_info.pCode = code.data();
-        VkShaderModule module;
-        check(vkCreateShaderModule(device, &module_info, nullptr, &module), "shader module");
-        VkComputePipelineCreateInfo pipeline_info{};
-        pipeline_info.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        pipeline_info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        pipeline_info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        pipeline_info.stage.module = module;
-        pipeline_info.stage.pName = "main";
-        pipeline_info.layout = layout;
-        const auto created =
-            vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline);
-        vkDestroyShaderModule(device, module, nullptr);
-        check(created, "compute pipeline");
+        pipeline = make_pipeline(false);
+        placement = make_pipeline(true);
 
         const std::array<VkDescriptorPoolSize, 2> sizes{
             {{VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1},
@@ -878,6 +922,7 @@ void GpuTransport::sample(
     std::span<EmissionSample> emission
 ) {
     auto& g = *m_impl;
+    const std::lock_guard lock(g.mutex);
     const auto per_probe = g.settings.rays_per_probe;
 
     for (std::size_t start = 0; start < origins.size(); start += kChunk) {
@@ -889,31 +934,9 @@ void GpuTransport::sample(
             staged[i] = v4(origins[start + i]);
         }
 
-        const Push push{first + static_cast<std::uint32_t>(start), count, max_distance, 0};
-        g.submit([&](VkCommandBuffer c) {
-            vkCmdBindPipeline(c, VK_PIPELINE_BIND_POINT_COMPUTE, g.pipeline);
-            vkCmdBindDescriptorSets(
-                c, VK_PIPELINE_BIND_POINT_COMPUTE, g.layout, 0, 1, &g.set, 0, nullptr
-            );
-            vkCmdPushConstants(c, g.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof push, &push);
-            vkCmdDispatch(c, (count + kLocalSize - 1) / kLocalSize, 1, 1);
-            VkMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-            barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-            barrier.dstAccessMask = VK_ACCESS_HOST_READ_BIT;
-            vkCmdPipelineBarrier(
-                c,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_HOST_BIT,
-                0,
-                1,
-                &barrier,
-                0,
-                nullptr,
-                0,
-                nullptr
-            );
-        });
+        g.dispatch(
+            g.pipeline, {first + static_cast<std::uint32_t>(start), count, max_distance, 0, 0, {}}
+        );
 
         const auto* out = static_cast<const Vec4*>(g.bound[16].mapped);
         const auto total = std::size_t{count} * per_probe;
@@ -934,5 +957,46 @@ void GpuTransport::sample(
             }
         }
     }
+}
+
+std::vector<GpuPlacement> GpuTransport::place(
+    std::span<const Float3> positions, std::span<const std::array<Float3, 2>> pairs, float cap
+) {
+    auto& g = *m_impl;
+    const std::lock_guard lock(g.mutex);
+
+    if (pairs.size() > kMaxPairs) {
+        throw std::runtime_error("GPU bake: too many placement directions");
+    }
+
+    auto* directions = static_cast<Vec4*>(g.bound[19].mapped);
+
+    for (std::size_t i = 0; i < pairs.size(); ++i) {
+        directions[2 * i] = v4(pairs[i][0]);
+        directions[2 * i + 1] = v4(pairs[i][1]);
+    }
+
+    std::vector<GpuPlacement> result(positions.size());
+
+    for (std::size_t start = 0; start < positions.size(); start += kChunk) {
+        const auto count =
+            static_cast<std::uint32_t>(std::min<std::size_t>(kChunk, positions.size() - start));
+        auto* staged = static_cast<Vec4*>(g.bound[15].mapped);
+
+        for (std::uint32_t i = 0; i < count; ++i) {
+            staged[i] = v4(positions[start + i]);
+        }
+
+        g.dispatch(g.placement, {0, count, 0, static_cast<std::uint32_t>(pairs.size()), cap, {}});
+        const auto* out = static_cast<const Vec4*>(g.bound[16].mapped);
+
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const auto& a = out[2 * i];
+            const auto& b = out[2 * i + 1];
+            result[start + i] = {a[3], {a[0], a[1], a[2]}, static_cast<std::uint32_t>(b[0]), b[1]};
+        }
+    }
+
+    return result;
 }
 }  // namespace openrac::lighting::bake_detail

@@ -6,11 +6,20 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "enhanced/lighting/bake_integration.h"
 #include "enhanced/lighting/bake_scene.h"
 
 namespace openrac::lighting::bake_detail {
+// Paired crossing parity (classify) and short clearance rays for one position.
+struct GpuPlacement {
+    float nearest;               // nearest accepted crossing, infinity when none
+    Float3 exit_direction;       // ray toward that crossing
+    std::uint32_t inside_pairs;  // pairs whose forward and reverse rays both saw odd crossings
+    float clearance;             // capped surface clearance, the cap when not asked for
+};
+
 // Uploads one prepared scene and traces probe rays; integration into texels stays on the CPU.
 class GpuTransport {
 public:
@@ -28,6 +37,11 @@ public:
         float max_distance,
         std::span<RaySample> rays,
         std::span<EmissionSample> emission
+    );
+
+    // classify() and, when cap > 0, the alignment's clearance for each position. At most 64 pairs.
+    std::vector<GpuPlacement> place(
+        std::span<const Float3> positions, std::span<const std::array<Float3, 2>> pairs, float cap
     );
 
     // The chosen adapter, for logs.

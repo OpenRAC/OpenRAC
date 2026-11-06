@@ -477,6 +477,104 @@ void parallel_for(
 }
 
 #if OPENRAC_GPU_BAKE
+// relocate() for every probe, with each classification round as one ray-query batch.
+void relocate_on_gpu(const ProbeWork& work, bake_detail::GpuTransport& gpu) {
+    auto& out = work.out;
+    const auto& settings = work.settings;
+    const auto& pairs = work.directions.placement;
+    const auto count = out.probes.size();
+    const float limit = settings.relocation_max_fraction
+                        * *std::min_element(out.grid.spacing.begin(), out.grid.spacing.end());
+    auto inside = [&](const bake_detail::GpuPlacement& placement) {
+        return static_cast<float>(placement.inside_pairs) / static_cast<float>(pairs.size())
+               >= settings.min_inside_fraction;
+    };
+    auto classify = [&](const std::vector<std::size_t>& probes) {
+        std::vector<Float3> positions;
+        positions.reserve(probes.size());
+
+        for (auto probe : probes) {
+            positions.push_back(out.position(probe));
+        }
+
+        return gpu.place(positions, pairs, 0);
+    };
+    // relocate_from_current over a set of probes, one batch per iteration.
+    auto from_current = [&](std::vector<std::size_t> pending) {
+        auto placement = classify(pending);
+
+        for (std::uint32_t iteration = 0;
+             iteration < settings.relocation_iterations && !pending.empty();
+             ++iteration) {
+            std::vector<std::size_t> next;
+
+            for (std::size_t k = 0; k < pending.size(); ++k) {
+                auto& probe = out.probes[pending[k]];
+
+                if (!inside(placement[k])) {
+                    probe.valid = true;
+                    continue;
+                }
+
+                const auto candidate =
+                    add(probe.offset,
+                        mul(placement[k].exit_direction,
+                            placement[k].nearest + 4 * settings.ray_bias));
+
+                if (dot(candidate, candidate) > limit * limit) {
+                    probe.valid = false;
+                    continue;
+                }
+
+                probe.offset = candidate;
+                next.push_back(pending[k]);
+            }
+
+            pending = std::move(next);
+            placement =
+                pending.empty() ? std::vector<bake_detail::GpuPlacement>{} : classify(pending);
+        }
+
+        for (std::size_t k = 0; k < pending.size(); ++k) {
+            out.probes[pending[k]].valid = !inside(placement[k]);
+        }
+    };
+
+    std::vector<Float3> initial(count);
+    std::vector<std::size_t> all(count);
+
+    for (std::size_t probe = 0; probe < count; ++probe) {
+        initial[probe] = out.probes[probe].offset;
+        all[probe] = probe;
+    }
+
+    from_current(all);
+    std::vector<std::size_t> retry;
+    std::vector<Float3> aligned(count);
+
+    for (std::size_t probe = 0; probe < count; ++probe) {
+        if (!out.probes[probe].valid && initial[probe] != Float3{}) {
+            aligned[probe] = out.probes[probe].offset;
+            out.probes[probe].offset = {};
+            retry.push_back(probe);
+        }
+    }
+
+    if (!retry.empty()) {
+        from_current(retry);
+    }
+
+    for (auto probe : retry) {
+        if (!out.probes[probe].valid) {
+            out.probes[probe].offset = aligned[probe];
+        }
+    }
+
+    for (std::size_t probe = 0; probe < count; ++probe) {
+        out.probes[probe].relocated = out.probes[probe].offset != initial[probe];
+    }
+}
+
 // Traces every 16th probe of a GPU batch on the CPU too and logs how far the two differ.
 void check_gpu(
     const ProbeWork& work,
@@ -490,7 +588,9 @@ void check_gpu(
     std::mutex mutex;
     double probes = 0, total = 0, same_depth = 0, same_light = 0;
     double error_sum = 0, error_max = 0, emission_error = 0;
-    auto luminance = [](Float3 c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    auto luminance = [](Float3 c) {
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
     std::vector<std::size_t> picked;
 
     for (std::size_t i = 0; i < batch; ++i) {
@@ -579,7 +679,6 @@ struct ProbeBaker::Impl {
     std::map<std::pair<std::uint32_t, int>, std::unique_ptr<const BakeDirections>> direction_cache;
 #if OPENRAC_GPU_BAKE
     std::unique_ptr<bake_detail::GpuTransport> gpu;  // Probe rays on the GPU (OPENRAC_GPU_BAKE).
-    std::mutex gpu_mutex;                            // One volume on the device at a time.
 #endif
 
     Impl(
@@ -671,7 +770,10 @@ ProbeVolume ProbeBaker::bake(
         local_pool = std::make_unique<BakeThreadPool>(thread_count);
     }
 
-    const BakeExecution execution{thread_count, m_impl->pool ? m_impl->pool : local_pool.get()};
+    BakeExecution execution{thread_count, m_impl->pool ? m_impl->pool : local_pool.get()};
+#if OPENRAC_GPU_BAKE
+    execution.gpu = m_impl->gpu.get();
+#endif
     const auto alignment = bake_detail::align_probe_grid(scene, settings, out, execution);
     report_alignment(alignment);
 
@@ -681,7 +783,7 @@ ProbeVolume ProbeBaker::bake(
     // GPU path: relocation and integration on the CPU workers, every probe ray on the device.
     if (m_impl->gpu) {
         const auto count = out.probes.size();
-        parallel_for(count, execution, [&](std::size_t probe) { work.relocate(probe); });
+        relocate_on_gpu(work, *m_impl->gpu);
         const auto rays_per_probe = settings.rays_per_probe;
         constexpr std::size_t kBatch = 8192;
         std::vector<RaySample> rays(kBatch * rays_per_probe);
@@ -697,7 +799,6 @@ ProbeVolume ProbeBaker::bake(
             }
 
             {
-                const std::lock_guard lock(m_impl->gpu_mutex);
                 m_impl->gpu->sample(
                     origins,
                     static_cast<std::uint32_t>(start),
@@ -729,7 +830,7 @@ ProbeVolume ProbeBaker::bake(
         }
     } else
 #endif
-    BakeWorkers(work, progress, thread_count, execution.pool).run();
+        BakeWorkers(work, progress, thread_count, execution.pool).run();
 
     scene.check_error();
     update_probe_gutters(out);

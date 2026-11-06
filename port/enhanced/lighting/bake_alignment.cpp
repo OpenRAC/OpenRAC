@@ -17,6 +17,9 @@
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
 #include "enhanced/lighting/bake_workers.h"
+#if OPENRAC_GPU_BAKE
+#include "enhanced/lighting/gpu_transport.h"
+#endif
 
 namespace openrac::lighting::bake_detail {
 namespace {
@@ -104,30 +107,63 @@ struct PhaseWork {
     float cap = 0;                                    // Desired clearance in world units.
 };
 
-// Computes ray evidence only; parallel workers never update a shared floating-point sum.
-SampleScore score_sample(const PhaseWork& work, std::size_t sample) {
+// The probe position that one flattened phase sample scores.
+Float3 sample_position(const PhaseWork& work, std::size_t sample) {
     const auto phase = sample / work.samples.count;
     const auto n = sample % work.samples.count;
     const auto index = (2 * n + 1) * work.volume.probes.size() / (2 * work.samples.count);
-    const auto position =
-        add(work.volume.position(index),
-            anchored_offset(work.volume.grid, index, work.samples.offsets[phase]));
-    const float nearest = surface_clearance(work.scene, position, work.settings.ray_bias, work.cap);
+    return add(
+        work.volume.position(index),
+        anchored_offset(work.volume.grid, index, work.samples.offsets[phase])
+    );
+}
+
+// Combines capped clearance and occupancy into one sample's score.
+SampleScore sample_score(const PhaseWork& work, float nearest, bool inside) {
     const double clearance = nearest / work.cap;
     const double deficit = 1 - clearance;
-    const auto placement = classify(work.scene, position, work.settings, work.directions);
     return {
         clearance * clearance - kNearPenalty * deficit * deficit
-            - kInsidePenalty * static_cast<double>(placement.inside),
+            - kInsidePenalty * static_cast<double>(inside),
         nearest < work.cap,
-        placement.inside
+        inside
     };
+}
+
+// Computes ray evidence only; parallel workers never update a shared floating-point sum.
+SampleScore score_sample(const PhaseWork& work, std::size_t sample) {
+    const auto position = sample_position(work, sample);
+    const float nearest = surface_clearance(work.scene, position, work.settings.ray_bias, work.cap);
+    const auto placement = classify(work.scene, position, work.settings, work.directions);
+    return sample_score(work, nearest, placement.inside);
 }
 
 // Runs bounded sample chunks on shared workers, inheriting the controller's arithmetic environment.
 void trace_samples(
     const PhaseWork& work, std::span<SampleScore> scores, const BakeExecution& execution
 ) {
+#if OPENRAC_GPU_BAKE
+    // The same rays on a ray-query device, all samples in one query.
+    if (execution.gpu) {
+        std::vector<Float3> positions(scores.size());
+
+        for (std::size_t sample = 0; sample < scores.size(); ++sample) {
+            positions[sample] = sample_position(work, sample);
+        }
+
+        const auto placed = execution.gpu->place(positions, work.directions, work.cap);
+
+        for (std::size_t sample = 0; sample < scores.size(); ++sample) {
+            const bool inside = static_cast<float>(placed[sample].inside_pairs)
+                                    / static_cast<float>(work.directions.size())
+                                >= work.settings.min_inside_fraction;
+            scores[sample] = sample_score(work, placed[sample].clearance, inside);
+        }
+
+        return;
+    }
+#endif
+
     // Direct fixtures and standalone serial bakes retain caller-thread evaluation.
     if (!execution.pool) {
         // Serial callers retain the same sample order without scheduling overhead.
