@@ -41,6 +41,8 @@ void camera_debug_event(const SDL_Event& event);
 bool free_camera_enabled();
 // A gamepad's L3+R3 toggles freecam, held back from the game's pad (no map on its R3).
 void camera_pad_chord();
+// Start+Select opens the menu, taken from the game's pad (no pause, no map). Before the game's read.
+void menu_pad_chord();
 // Alt or right-click requests hidden-cursor freecam look while the window is focused.
 bool camera_debug_capturing();
 

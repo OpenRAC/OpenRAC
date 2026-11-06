@@ -492,9 +492,11 @@ void press(SDL_Keycode key);
 std::string menu_bar_key_label();
 SDL_Scancode menu_bar_scancode();
 
-// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none), and its name
-// as the player reads it ("R4", "none"). Defined in debug/menu_bar.cpp.
+// The controller button that does the same (SDL_GAMEPAD_BUTTON_INVALID for none and for Start+Select),
+// whether it is Start+Select pressed together (the default, platform/menu_chord.h), and its name as
+// the player reads it ("Start+Select", "R4", "none"). Defined in debug/menu_bar.cpp.
 SDL_GamepadButton menu_bar_button();
+bool menu_bar_chord();
 std::string menu_bar_button_label();
 
 // Opens or closes the menu. Defined in debug/menu_bar.cpp.

@@ -302,6 +302,7 @@ PadInputs Input::read_device(std::size_t index) const {
 }
 
 void Input::taps_read(int port) {
+    m_menu_chord[static_cast<std::size_t>(port)].read();
     SDL_Gamepad* g = gamepad(port);
     for (Connected& c : m_gamepads) {
         if (g != nullptr && c.gamepad == g) {
@@ -310,8 +311,26 @@ void Input::taps_read(int port) {
     }
 }
 
+void Input::set_menu_chord(bool on) {
+    if (on != m_menu_chord_on) {
+        m_menu_chord_on = on;
+        m_menu_chord = {};
+    }
+}
+
+bool Input::take_menu_chord() {
+    bool fired = false;
+    for (MenuChord& chord : m_menu_chord) {
+        fired = chord.take_fired() || fired;
+    }
+    return fired;
+}
+
 void Input::hold_back_held() {
     SDL_UpdateGamepads();
+    for (MenuChord& chord : m_menu_chord) {
+        chord.reset();
+    }
     for (Connected& c : m_gamepads) {
         c.tapped = {};  // a tap before this was not the game's either
     }
@@ -555,6 +574,10 @@ void Input::refresh_pads() {
         if (port == 0) {
             m_touch.idle(SDL_GetTicks());
             m_touch.apply(pad, m_dead_zone);
+        }
+        if (m_menu_chord_on) {
+            pad.buttons =
+                m_menu_chord[static_cast<std::size_t>(port)].filter(pad.buttons, SDL_GetTicksNS());
         }
     }
 }

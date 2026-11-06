@@ -398,15 +398,26 @@ void test_menu_bar_key(const std::filesystem::path& file) {
     std::ofstream(file) << "menu_bar_key = \n";
     settings::load(file);
     CHECK(settings::get().menu_bar_key == "`");
-    // The controller button: R4 by default, any name kept, "none" too.
-    CHECK(settings::get().menu_bar_button == "leftstick");
+    // The controller button: Start+Select by default, any name kept, "none" too.
+    CHECK(settings::get().menu_bar_button == "start+back");
     settings::get().menu_bar_button = "none";
     settings::save();
     settings::load(file);
     CHECK(settings::get().menu_bar_button == "none");
-    std::ofstream(file) << "menu_bar_button = misc1\n";
+    std::ofstream(file) << "menu_button = misc1\n";
     settings::load(file);
     CHECK(settings::get().menu_bar_button == "misc1");
+    // An older file's menu_bar_button: its old default, L3, becomes Start+Select; another pick
+    // carries over; menu_button wins over it, before or after it.
+    std::ofstream(file) << "menu_bar_button = leftstick\n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_button == "start+back");
+    std::ofstream(file) << "menu_bar_button = paddle1\n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_button == "paddle1");
+    std::ofstream(file) << "menu_button = leftstick\nmenu_bar_button = paddle1\n";
+    settings::load(file);
+    CHECK(settings::get().menu_bar_button == "leftstick");
     std::filesystem::remove(file);
 }
 

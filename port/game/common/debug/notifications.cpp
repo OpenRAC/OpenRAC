@@ -306,7 +306,7 @@ void notify_menu_hint() {
     // The desktop's menu key or Android's Back, and the controller's menu button.
     std::vector<std::string> keys;
     keys.push_back(drawer_possible() ? std::string("Back") : menu_key_label());
-    if (menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID) {
+    if (menu_bar_chord() || menu_bar_button() != SDL_GAMEPAD_BUTTON_INVALID) {
         keys.push_back(menu_bar_button_label());
     }
     notify({
