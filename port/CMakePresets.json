@@ -33,6 +33,14 @@
       "cacheVariables": {"CMAKE_OSX_ARCHITECTURES": "arm64;x86_64", "OPENRAC_STATIC_SDL": "ON"}
     },
     {
+      "name": "xcode",
+      "inherits": "base",
+      "displayName": "An Xcode project, for those who work in Xcode (optional: the other presets need only the Command Line Tools)",
+      "generator": "Xcode",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"},
+      "cacheVariables": {"OPENRAC_STATIC_SDL": "ON"}
+    },
+    {
       "name": "enhanced",
       "inherits": "release",
       "displayName": "Release with experimental Vulkan enhanced rendering",
@@ -79,6 +87,7 @@
     {"name": "release", "configurePreset": "release"},
     {"name": "release-x86_64", "configurePreset": "release-x86_64"},
     {"name": "release-universal", "configurePreset": "release-universal"},
+    {"name": "xcode", "configurePreset": "xcode", "configuration": "RelWithDebInfo"},
     {"name": "enhanced", "configurePreset": "enhanced"},
     {"name": "standalone", "configurePreset": "standalone"},
     {"name": "debug", "configurePreset": "debug"},
