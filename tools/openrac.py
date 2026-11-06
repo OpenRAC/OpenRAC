@@ -329,7 +329,8 @@ def short_title(game: dict, name: str) -> str:
     if len(game["versions"]) == 1:
         return title
     version = game["versions"][name]
-    if sum(v.get("serial") == version.get("serial") for v in game["versions"].values()) > 1:
+    serial = version.get("serial")
+    if serial and "disc" in version and sum(v.get("serial") == serial for v in game["versions"].values()) > 1:
         # Two releases of one serial (Going Commando's v1.01 and v2.00): told apart by the disc's version.
         return f"{title} ({version['disc']['video']} v{version['disc']['version']})"
     return f"{title} ({name.upper()})"

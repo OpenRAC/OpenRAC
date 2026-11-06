@@ -96,11 +96,15 @@ class ExtractTests(unittest.TestCase):
         # Going Commando's v1.01 and v2.00 both boot SCUS_972.68.
         found = {name: version["boot"]["sha1"] for _, name, version in extractor.builds("rac2")["SCUS_972.68"]}
         self.assertEqual(set(found), {"ntsc", "ntsc2"})
-        for name, sha1 in found.items():
-            _, which, _ = extractor.validate("rac2", "SCUS_972.68", sha1, {"SCUS_972.68": sha1})
-            self.assertEqual(which, name)
-        with self.assertRaises(extractor.ExtractError) as caught:
-            extractor.validate("rac2", "SCUS_972.68", "0" * 40, {"SCUS_972.68": "0" * 40})
+        game = {"id": "rac2", "title": "Going Commando"}
+        both = {"SCUS_972.68": [(game, name, {"serial": "SCUS_972.68", "region": "NTSC-U", "boot": {"sha1": sha1},
+                                              "disc": {}}) for name, sha1 in found.items()]}
+        with mock.patch.object(extractor, "builds", lambda wanted=None: both):
+            for name, sha1 in found.items():
+                _, which, _ = extractor.validate("rac2", "SCUS_972.68", sha1, {"SCUS_972.68": sha1})
+                self.assertEqual(which, name)
+            with self.assertRaises(extractor.ExtractError) as caught:
+                extractor.validate("rac2", "SCUS_972.68", "0" * 40, {"SCUS_972.68": "0" * 40})
         self.assertEqual(caught.exception.code, 4002)
 
     def test_refuses_another_game(self):
