@@ -148,7 +148,10 @@
       "--bar-ink-deep": "#03141f",
       "--amber": "#31b6e8",
       "--gold": "#a3def5",
-      "--brand": "#0e5e7c"
+      "--brand": "#0e5e7c",
+      "--menu-top": "#161f22",
+      "--menu-bottom": "#060b0c",
+      "--menu-glow": "#1c2c32"
     },
     "rac3": {
       "--bar-top": "#ffd84a",
@@ -159,7 +162,10 @@
       "--bar-ink-deep": "#1c1500",
       "--amber": "#ffd23f",
       "--gold": "#ffe9a3",
-      "--brand": "#e9b30c"
+      "--brand": "#e9b30c",
+      "--menu-top": "#25231a",
+      "--menu-bottom": "#0e0d08",
+      "--menu-glow": "#352f1e"
     },
     "rac4": {
       "--bar-top": "#f25a5a",
@@ -170,7 +176,10 @@
       "--bar-ink-deep": "#1f0303",
       "--amber": "#ff6b61",
       "--gold": "#ffb8b2",
-      "--brand": "#e23c3c"
+      "--brand": "#e23c3c",
+      "--menu-top": "#241b1b",
+      "--menu-bottom": "#0e0808",
+      "--menu-glow": "#352322"
     },
     "rac5": {
       "--bar-top": "#6aa0ff",
@@ -181,7 +190,10 @@
       "--bar-ink-deep": "#020c24",
       "--amber": "#7aa8ff",
       "--gold": "#c2d6ff",
-      "--brand": "#3f78f0"
+      "--brand": "#3f78f0",
+      "--menu-top": "#1c1f25",
+      "--menu-bottom": "#090b0e",
+      "--menu-glow": "#252a35"
     },
     "rac6": {
       "--bar-top": "#38bdf8",
@@ -192,7 +204,10 @@
       "--bar-ink-deep": "#01131f",
       "--amber": "#5cc8fa",
       "--gold": "#bae6fd",
-      "--brand": "#0ea5e9"
+      "--brand": "#0ea5e9",
+      "--menu-top": "#192125",
+      "--menu-bottom": "#070c0e",
+      "--menu-glow": "#212e34"
     }
   }
 }

@@ -29,6 +29,9 @@ const DRAWER: &[&str] = &[
     "--control-hi",
     "--control-card",
     "--control-card-hi",
+    "--menu-top",
+    "--menu-bottom",
+    "--menu-glow",
 ];
 
 /// The variable the game reads them from: `name=#rrggbb[aa]` pairs, comma-separated, each name
@@ -83,7 +86,9 @@ mod tests {
     #[test]
     fn hands_the_game_the_theme_and_the_accent() {
         let own = ui_colors("openrac", None);
-        assert_eq!(own.split(',').count(), DRAWER.len(), "{own}");
+        // All but the menu's own ground, which only a game's accent sets.
+        assert_eq!(own.split(',').count(), DRAWER.len() - 3, "{own}");
+        assert_eq!(color(&own, "menu-top"), None);
         assert_eq!(color(&own, "panel"), Some("#121212"));
         assert_eq!(color(&own, "line"), Some("#ffffff17"));
         assert_eq!(color(&own, "amber"), Some("#f5c040"));
@@ -98,6 +103,7 @@ mod tests {
         // The game's accent; Ratchet & Clank's is the launcher's own.
         let rac3 = ui_colors("nord", Some("rac3"));
         assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
+        assert_eq!(color(&ui_colors("openrac", Some("rac2")), "menu-top"), Some("#161f22"));
         // The bar's stripes and ink too, for the game's menu bar (debug/menu_window.cpp).
         assert_eq!(color(&own, "bar-stripe"), Some("#c99222"));
         assert_eq!(color(&rac3, "bar-stripe-alt"), Some("#d7ac27"));

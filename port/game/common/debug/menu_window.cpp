@@ -103,6 +103,35 @@ void stripes(ImDrawList* list, ImVec2 a, ImVec2 b) {
     );
 }
 
+// Bands of `ink` at the bar's lean over [a, b], `strength` at its top left corner and fading out
+// to none down and to the right: the bar's stripes, barely there, in the corner of the window's
+// side.
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
+    const float band = dp(20.0f);
+    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
+    const ImU32 top = ui_colors::fade(ink, strength);
+    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
+    list->PushClipRect(a, b, true);
+    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
+        const int first = list->VtxBuffer.Size;
+        list->AddQuadFilled(
+            ImVec2(x + band, a.y),
+            ImVec2(x + band * 2.0f, a.y),
+            ImVec2(x + band * 2.0f - lean, b.y),
+            ImVec2(x + band - lean, b.y),
+            IM_COL32_WHITE
+        );
+        // Each corner's colour by its height: the top's, fading to none at the bottom.
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float down = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            const float across = std::clamp((vert.pos.x - a.x) / (b.x - a.x), 0.0f, 1.0f);
+            vert.col = ui_colors::mix(top, bottom, std::min(1.0f, down + across));
+        }
+    }
+    list->PopClipRect();
+}
+
 // The window's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a
 // glow of `glow` along its top `glow_depth` pixels, all in its own corners.
 void panel_fill(
@@ -229,12 +258,19 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 }
 
 // The right side of the window: what the entry under the pointer or the focus is and does, on a
-// darker ground.
+// darker ground with the bar's stripes, barely there, in its top left corner.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     list->AddRectFilled(
         a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
+    );
+    faint_stripes(
+        list,
+        ImVec2(a.x, a.y + 1.0f),
+        ImVec2(std::min(b.x - 1.0f, a.x + dp(300.0f)), a.y + dp(170.0f)),
+        ui().amber,
+        0.05f
     );
     list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
     const float pad = dp(30.0f);
@@ -696,13 +732,16 @@ void menu_window(const Shown& shown) {
         list->PopClipRect();
         // The launcher's panel, lit a little from above, with a glow of the accent along its top
         // and a line of it on the top edge.
+        // The theme's coal with a glow of the accent at the top, or the game's own tinted ground
+        // (palettes.json accents: Going Commando's blue and the others; rac1 keeps the glow).
+        const bool own = (ui().menu_top >> 24) != 0;
         panel_fill(
             list,
             at,
             b,
-            ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
-            ui().ink_deep,
-            ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
+            own ? ui().menu_top : ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
+            own ? ui().menu_bottom : ui().ink_deep,
+            own ? ui().menu_glow : ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
             dp(160.0f),
             dp(12.0f)
         );

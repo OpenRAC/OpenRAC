@@ -48,6 +48,11 @@ struct Colors {
     Color control_hi = rgba(0x1e, 0x1e, 0x1e);       // --control-hi: under the pointer
     Color control_card = rgba(0x1a, 0x1a, 0x1a);     // --control-card: on a panel or a card
     Color control_card_hi = rgba(0x22, 0x22, 0x22);  // --control-card-hi
+    // A game's own ground for the menu's window (palettes.json accents: tinted with its colour);
+    // none (alpha 0) keeps the theme's coal with an accent glow at the top.
+    Color menu_top = rgba(0, 0, 0, 0);     // --menu-top
+    Color menu_bottom = rgba(0, 0, 0, 0);  // --menu-bottom
+    Color menu_glow = rgba(0, 0, 0, 0);    // --menu-glow
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME

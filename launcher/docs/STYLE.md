@@ -138,6 +138,13 @@ controls on them are `--control-card` with the gold edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
 open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
+
+The game's window ground is the theme's coal with a glow of the accent at its
+top (Ratchet & Clank). Another game's accent (`palettes.json` `accents`) sets
+its own ground instead: `--menu-top`, `--menu-bottom` and `--menu-glow`, the
+coal tinted a little with its bar colour, so Going Commando's window goes with
+its blue bar. The window's right side has the bar's stripes, barely visible,
+in its top left corner only, fading out down and to the right.
 coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 ## Logo

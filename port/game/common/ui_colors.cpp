@@ -58,6 +58,9 @@ Color* field(Colors& c, std::string_view name) {
         {"control-hi", &Colors::control_hi},
         {"control-card", &Colors::control_card},
         {"control-card-hi", &Colors::control_card_hi},
+        {"menu-top", &Colors::menu_top},
+        {"menu-bottom", &Colors::menu_bottom},
+        {"menu-glow", &Colors::menu_glow},
     };
     const auto* found = std::find_if(std::begin(kNames), std::end(kNames), [&](const Named& n) {
         return n.name == name;
