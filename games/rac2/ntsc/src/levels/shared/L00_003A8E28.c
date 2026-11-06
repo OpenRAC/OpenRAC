@@ -110,7 +110,7 @@ void func_L00_003AB6F0(void *unused, void *position)
 
 /* func_L00_003AB8B8 is defined in L00_003AB8B8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_003AB9C0);
+/* func_L00_003AB9C0 is defined in L00_003AB9C0-g8.c (the ring index is read through $gp). */
 
 INCLUDE_ASM("asm/levels", func_L00_003ABEC0);
 
@@ -334,7 +334,6 @@ int func_L00_003AE550(char *motion, char *object, int mode)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_003AE900);
 
 /* func_L00_003B0A28 is defined in L00_003B0A28-g8.c. */
 

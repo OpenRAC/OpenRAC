@@ -93,9 +93,6 @@ int func_002EEB00(int *a0)
     return s2;
 }
 
-INCLUDE_ASM("asm/game", func_002EEBB0);
-
-INCLUDE_ASM("asm/game", func_002EEBC8);
 
 void func_002EED08(void)
 {
@@ -211,9 +208,11 @@ ASM_FUNC("asm/game", func_002F0218);
 
 ASM_FUNC("asm/game", func_002F0468);
 
-INCLUDE_ASM("asm/game", func_002F0B78);
+/* Original assembly: lqc2/qmtc2/qmfc2 VU0 ops, $at as a working register and trapping addi. */
+ASM_FUNC("asm/game", func_002F0B78);
 
-INCLUDE_ASM("asm/game", func_002F0D00);
+/* Original assembly: $at as a working register and trapping add/addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002F0D00);
 
 void func_002F0E08(void)
 {
@@ -248,7 +247,6 @@ void func_002F0E38(void)
 /* func_002F0EF8 is in 002EEB00-flags.c (-mno-split-addresses). */
 
 
-INCLUDE_ASM("asm/game", func_002F0FA0);
 
 ASM_FUNC("asm/game", func_002F1010);
 
@@ -258,7 +256,8 @@ ASM_FUNC("asm/game", func_002F1E88);
 
 ASM_FUNC("asm/game", func_002F2610);
 
-INCLUDE_ASM("asm/game", func_002F2758);
+/* Original assembly: lqc2/qmtc2/qmfc2 VU0 macro ops, $at as a working register and trapping addi. */
+ASM_FUNC("asm/game", func_002F2758);
 
 ASM_FUNC("asm/game", func_002F29E4);
 
@@ -270,15 +269,19 @@ ASM_FUNC("asm/game", func_002F32AC);
 
 ASM_FUNC("asm/game", func_002F32D4);
 
-INCLUDE_ASM("asm/game", func_002F3300);
+/* Original assembly: $at as a working register and trapping add/addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002F3300);
 
 ASM_FUNC("asm/game", func_002F35B0);
 
-INCLUDE_ASM("asm/game", func_002F3CF8);
+/* Original assembly: $at as a working register (lw $at,off($a0)); the compiler cannot emit it. */
+ASM_FUNC("asm/game", func_002F3CF8);
 
-INCLUDE_ASM("asm/game", func_002F3D20);
+/* Original assembly: qmtc2 VU0 ops, $at as a working register and trapping addi/add. */
+ASM_FUNC("asm/game", func_002F3D20);
 
-INCLUDE_ASM("asm/game", func_002F3E40);
+/* Original assembly: qmtc2 VU0 op and trapping addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002F3E40);
 
 ASM_FUNC("asm/game", func_002F3E78);
 
@@ -286,4 +289,5 @@ ASM_FUNC("asm/game", func_002F4F78);
 
 ASM_FUNC("asm/game", func_002F4FA0);
 
-INCLUDE_ASM("asm/game", func_002F5118);
+/* Original assembly: $at as a working register and trapping add/addi; the compiler cannot emit them. */
+ASM_FUNC("asm/game", func_002F5118);

@@ -44,7 +44,7 @@ extern void func_L00_00424EB0(char *a0, char *a1, float t);
 
 extern float func_L00_00424C90(char *a0, char *a1, float t);
 
-INCLUDE_ASM("asm/levels", func_L00_004224D0);
+/* func_L00_004224D0 is in L00_004224D0-main-g8.c (-G8, -frac2-qcopy). */
 
 typedef struct { float x, y, z, w; } Vector;
 typedef struct { Vector row[3]; } Matrix;
@@ -120,9 +120,8 @@ void func_L00_00423038(int reposition)
 
 /* func_L00_00423038 is in a separate compilation unit. */
 
-INCLUDE_ASM("asm/levels", func_L00_00423290);
 
-INCLUDE_ASM("asm/levels", func_L00_004233F8);
+/* func_L00_004233F8 is in L00_004233F8-g8.c. */
 
 
 /* func_L00_004237C8 is in a separate compilation unit. */
@@ -301,7 +300,22 @@ void func_L00_00424B70(float a, float b)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00424BB8);
+void func_L00_00424BB8(float a, float b)
+{
+    char *p = D_L00_001B8E10;
+
+    if (*(short *)(p + 134) == 0) {
+        char *q = *(char **)(p + 112);
+        char *r = q + 0x60;
+
+        if (a != 0.0f) {
+            *(float *)(r + 228) = a;
+        }
+        if (b != 0.0f) {
+            *(float *)(r + 232) = b;
+        }
+    }
+}
 
 void func_L00_00424C00(void)
 {
@@ -418,7 +432,6 @@ void func_L00_00424F58(char *a0, float a, float b)
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00424F98);
 
 /* func_L00_00425118 is in L00_00425118-g8.c. */
 

@@ -247,8 +247,6 @@ void func_L00_00413298(char *object)
     *(int *)(state + 0x8) = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00413358);
-
 void func_L00_00414018(void)
 {
 }
@@ -825,7 +823,6 @@ void func_L00_004181A8(char *p)
     *(float *)(p + 60) = 1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_00418230);
 
 char *func_L00_00418730(float size, char *position, int trigger, int kind, int red, int green, int blue, int enabled, int flags, int extra, int control)
 {
@@ -939,4 +936,3 @@ void func_L00_00419B58(char *object)
 
 /* func_L00_0041A490 is defined in L00_0041A490-dbg.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_0041A5C0);

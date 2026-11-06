@@ -386,7 +386,6 @@ int func_002F6510(void)
     return result;
 }
 
-INCLUDE_ASM("asm/game", func_002F7320);
 
 extern unsigned char D_001A7AB8[] MACRO_ADDR;
 extern unsigned char D_001A7AF8[] MACRO_ADDR;
@@ -546,7 +545,123 @@ void func_002F9198(void)
 }
 
 
-INCLUDE_ASM("asm/game", func_002F93B0);
+extern int D_001B2240, D_001B223C;
+extern int D_001B2244 __attribute__((sda));
+extern int D_00139688[];
+extern void func_0028B6C8(int, unsigned int);
+extern int func_002F6510(void);
+extern void func_002F9198(void);
+
+typedef struct { int id, kind; int fields[4]; } ShopRow_93;
+typedef struct {
+    char pad0[0x28]; char *moby; char pad2C[0x24];
+    int mode; char pad54[0x18]; int scroll;
+    char pad70[8]; int handle; char pad7C[4]; int selected;
+    int busy; int animated; char pad8C[4]; int animation;
+    char pad94[0xAC]; ShopRow_93 rows[64]; int count;
+} ShopInput_93;
+extern ShopInput_93 F93State __asm__("D_0021F240");
+typedef struct { char pad[0x1C4]; int buttons; } Input_93;
+void func_002F93B0(void)
+{
+    ShopInput_93 *state = &F93State;
+    int cost;
+    char *record;
+    if (state->busy) return;
+    {
+        Input_93 *input = (Input_93 *)D_00138180;
+        if ((input->buttons & 0x2000) ||
+                (D_001B2240 >= 16 && D_001B2240 % 10 == 1)) {
+            if (state->scroll < 57) {
+                int moved = 0;
+                if (state->selected < state->count - 1) {
+                    ++state->selected;
+                    moved = 1;
+                }
+                if (moved) {
+                    if (state->animated) {
+                        int animation = 3;
+                        if (state->mode != 2) animation = 1;
+                        state->animation = animation;
+                    }
+                    state->scroll += 56;
+                    func_002E5CF8(1, 17, state->moby);
+                    if (state->handle != -1) {
+                        if (state->mode == 0)
+                            func_0028B6C8(state->handle, 0);
+                    }
+                    F93State.handle = -1;
+                }
+            }
+        }
+    }
+    {
+        Input_93 *input = (Input_93 *)D_00138180;
+        ShopInput_93 *state;
+        if ((input->buttons & 0x8000) ||
+                (D_001B223C >= 16 && D_001B223C % 10 == 1)) {
+            state = &F93State;
+            if (state->scroll >= -56) {
+                int moved = 0;
+                if (state->selected > 0) {
+                    --state->selected;
+                    moved = 1;
+                }
+                if (moved) {
+                    if (state->animated) {
+                        int animation = 3;
+                        if (state->mode != 2) animation = 1;
+                        state->animation = animation;
+                    }
+                    state->scroll -= 56;
+                    func_002E5CF8(1, 17, state->moby);
+                    if (state->handle != -1) {
+                        if (state->mode == 0)
+                            func_0028B6C8(state->handle, 0);
+                    }
+                    F93State.handle = -1;
+                }
+            }
+        }
+    }
+    {
+        Input_93 *input = (Input_93 *)D_00138180;
+        ShopInput_93 *state;
+        if (((input->buttons & 0x40) && !(D_001B2244 & 0x40) && F93State.mode != 3) ||
+            ((input->buttons & 0x40) && !(D_001B2244 & 0x40) && F93State.mode == 3 &&
+             *(int *)((char *)&F93State + 0x144 + F93State.selected * 12) != 0)) {
+                state = &F93State;
+                if (state->mode == 0) {
+                    int stride = sizeof(ShopRow_93);
+                    int *kinds = &state->rows[0].kind;
+                    if (*(int *)((char *)kinds + state->selected * stride) == 0) {
+                        cost = func_002F6510();
+                        if ((*(int *)&D_001A79F8) >= cost) goto activate;
+                    }
+                    if (*(int *)((char *)kinds + state->selected * stride) != 1) goto rejected;
+                    {
+                        int id = state->rows[state->selected].id;
+                        int owned = D_00139688[id];
+                        record = (char *)D_00239BA0 + D_00139568[id] * 224;
+                        if (owned >= *(unsigned short *)(record + 0x8E)) goto rejected;
+                    }
+                    if ((*(int *)&D_001A79F8) < *(unsigned short *)(record + 0x88)) goto rejected;
+                }
+activate:
+                {
+                    ShopInput_93 *active = &F93State;
+                    if (active->animated) active->animation = 1;
+                    active->busy = 1;
+                    func_002E5CF8(0, 17, active->moby);
+                    goto finish;
+                }
+rejected:
+                func_002E5CF8(2, 17, F93State.moby);
+        }
+    }
+finish:
+    if (((Input_93 *)D_00138180)->buttons & 0x10) func_002F9198();
+}
 
 extern void func_002F93B0(void);
 
@@ -556,4 +671,108 @@ void func_002F9778(void)
 }
 
 
-INCLUDE_ASM("asm/game", func_002F97A0);
+/* One font glyph: its texture cell, its top offset and its advance. */
+typedef struct { u8 u, v; signed char top, adv; } Glyph_002F97A0;
+
+extern Glyph_002F97A0 D_00263EF0[];
+extern u64 func_0027C878(int);
+extern float func_00283CE0(int);
+extern void func_0027E1A0(float, float, float, float, int, int, int, int, u32 *, u64);
+
+/* Prints up to `limit` characters of `text` from (x, y) at `scale`, in the large font, fading
+   each glyph's left and right edges out with their distance from the screen centre (215 on
+   the second screen layout, 256 elsewhere, three quarters as fast). Characters 0x80..0xa7
+   draw their entry 0x40 later; control characters below 0x20 draw a grey 24-pixel sprite. */
+void func_002F97A0(u64 color, u8 *text, int limit, float x, float y, float scale)
+{
+    u32 colors[4];
+    u32 gray[4];
+    Glyph_002F97A0 *glyphs;
+    Shop_002F9198 *shop = &D_0021F240;
+    Glyph_002F97A0 *g;
+    u64 texture;
+    int count = 0;
+    float size;
+    float top;
+    float dx;
+    float dy;
+    double d;
+    int left;
+    int right;
+    int shade;
+    int tint;
+    u8 *cursor;
+    u32 c;
+
+    texture = func_0027C878(2);
+    size = scale * 16.0f;
+    glyphs = D_00263EF0;
+    color &= 0xFFFFFF;
+    if (limit == 0 || *text == 0)
+        return;
+    cursor = text;
+    do {
+        if (glyphs[*cursor].adv != 0) {
+            top = func_00283CE0(glyphs[*cursor].top) * scale;
+            if (shop->mode == 2) {
+                d = 215.0f - x;
+                if (d < 0)
+                    d = -d;
+                left = 0x80 - (int)d;
+                d = 215.0f - (x + size);
+                if (d < 0)
+                    d = -d;
+                right = 0x80 - (int)d;
+            } else {
+                d = 256.0f - x;
+                if (d < 0)
+                    d = -d;
+                left = 0x80 - (int)(d * 0.75);
+                d = 256.0f - (x + size);
+                if (d < 0)
+                    d = -d;
+                right = 0x80 - (int)(d * 0.75);
+            }
+            if (left < 0)
+                left = 0;
+            c = color;
+            if (right < 0)
+                right = 0;
+            left <<= 24;
+            right <<= 24;
+            colors[0] = left | c;
+            colors[1] = right | c;
+            colors[2] = left | c;
+            colors[3] = right | c;
+            if (*cursor < 0x20) {
+                c = colors[0];
+                shade = (c & 0xFF) + ((c >> 8) & 0xFF) + ((c >> 16) & 0xFF);
+                shade /= 3;
+                tint = (int)(c & 0xFF000000);
+                tint += shade << 16;
+                tint += shade << 8;
+                shade += tint;
+                gray[0] = shade;
+                gray[1] = shade;
+                gray[2] = shade;
+                gray[3] = shade;
+                func_0027E1A0(x, y + top, scale * 24.0f, scale * 16.0f, glyphs[*cursor].u,
+                              glyphs[*cursor].v, 24, 16, gray, texture);
+            }
+            if ((u8)(*cursor + 0x80) < 0x28) {
+                g = (Glyph_002F97A0 *)((((u8)*cursor + 0x40) << 2) + (int)glyphs);
+                dx = func_00283CE0(g->adv) * scale;
+                dy = func_00283CE0(g->top) * scale;
+                func_0027E1A0(x + dx, y + dy, size, size, g->u, g->v, 16, 16, colors, texture);
+            } else if ((u8)*cursor > 0x20) {
+                func_0027E1A0(x, y + top, size, size, glyphs[*cursor].u, glyphs[*cursor].v, 16, 16,
+                              colors, texture);
+            }
+            x += func_00283CE0(glyphs[*cursor].adv) * scale;
+        }
+        count++;
+        if (count == limit)
+            break;
+        cursor++;
+    } while (*cursor != 0);
+}

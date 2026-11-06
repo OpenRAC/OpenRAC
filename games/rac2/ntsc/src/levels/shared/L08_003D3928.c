@@ -213,7 +213,6 @@ s32 func_L08_003DB4E8(void)
     return r;
 }
 
-INCLUDE_ASM("asm/levels", func_L08_003DB518);
 
 /* func_L08_003DB8E8 is matched in its own unit, L08_003DB8E8-g8.c. */
 
@@ -263,7 +262,7 @@ void func_L08_0041E630(float *a0, float *a1, float *a2, float *a3, float *p4)
         *p4 = -1.0f;
 }
 
-INCLUDE_ASM("asm/levels", func_L08_0041E790);
+/* func_L08_0041E790 is defined in L08_0041E790-g8.c. */
 
 /* func_L08_0041EA88 is defined in L08_0041EA88-match.c. */
 

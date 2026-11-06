@@ -272,7 +272,6 @@ void func_L13_003FE970(u8 *a0) {
 
 /* func_L13_004067F8 is in L13_004067F8-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L13_0041A550);
 
 void func_L13_0041B260(u8 *a0) {
     s32 *ptr = *(s32 **)(a0 + 0x68);
@@ -490,4 +489,15 @@ void func_L13_0042BFD8(u8 *a0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L13_0043E8C0);
+/* Separate camera activate, update and exit entries in camvtbl. */
+void func_L13_0043E8C0(void *camera)
+{
+}
+
+void func_L13_0043E8C8(void *camera)
+{
+}
+
+void func_L13_0043E8D0(void *camera)
+{
+}

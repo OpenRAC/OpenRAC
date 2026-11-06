@@ -1,6 +1,5 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L00_003A6238);
 
 
 
@@ -81,9 +80,7 @@ void func_PAL_L00_003A77D8(char *moby)
 }
 
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L00_003A7A68);
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L00_003A7ED8);
 
 extern char D_L00_001A8F20[] __attribute__((sda));
 extern void func_0029FCC0_1(int a, int b, void *c);
@@ -104,7 +101,6 @@ void func_PAL_L00_003A8978(int a0)
     }
 }
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L00_003A89F0);
 
 typedef struct {
     unsigned char pad_000[0x18];

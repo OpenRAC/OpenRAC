@@ -309,7 +309,7 @@ INCLUDE_ASM("asm/levels", func_L02_003E7B58);
 
 /* func_L02_003E7F28 is defined in L02_003DB310-g8.c (it reads D_L02_001B0A60 through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L02_003E80F8);
+/* func_L02_003E80F8 moved to L02_003E80F8-g8.c */
 
 /* func_L02_003E87D8 is defined in L02_003E87D8-g8.c. */
 
@@ -319,7 +319,7 @@ INCLUDE_ASM("asm/levels", func_L02_003E80F8);
 
 /* func_L02_003E9040 is matched in L02_003E9040-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 
-INCLUDE_ASM("asm/levels", func_L02_003E91F0);
+/* func_L02_003E91F0 is in L02_003E91F0-g8.c. */
 
 /* func_L02_003E98A8 is in L02_003E98A8-g8.c. */
 
@@ -350,7 +350,6 @@ void func_L02_003EA488(char *arg0) {
 
 /* func_L02_003EB138 is defined in L02_003DB310-g8.c (it reads D_L02_001B35B8 through $gp). */
 
-INCLUDE_ASM("asm/levels", func_L02_003EB258);
 
 /* func_L02_003EB648 is matched in L02_003EB648-g8.c (built with -frac2-qcopy -frac2-qcopy-barrier). */
 

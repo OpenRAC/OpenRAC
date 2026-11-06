@@ -100,7 +100,6 @@ extern void func_310440();
 
 
 
-INCLUDE_ASM("asm/levels", func_L00_003B39D0);
 
 
 
@@ -248,8 +247,6 @@ void func_L00_003B8158(NODE *a0)
 
 
 
-
-INCLUDE_ASM("asm/levels", func_L00_003B84F0);
 
 /* Picks a target: the hero's current one while it is live; else, of the class 0xEE1 mobies
    func_002AF580 finds, the preferred one (while controller 1 holds a button of the hero's

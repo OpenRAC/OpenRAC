@@ -185,12 +185,9 @@ extern char D_001ADA38[] __attribute__((sda));
 
 /* func_0032EB28 uses small data in 0032EB28-update-g8.c. */
 
-INCLUDE_ASM("asm/game", func_0032F3D0);
 
 
 INCLUDE_ASM("asm/game", func_0032F598);
-
-INCLUDE_ASM("asm/game", func_0032FDC0);
 
 
 /* func_0032FEA8 uses small data in 0032EB28-g8.c. */
@@ -317,7 +314,7 @@ char *func_00332440(void *a0, void *a1, void *a2)
 
 
 
-INCLUDE_ASM("asm/game", func_003334B0);
+/* func_003334B0 is in 0032EB28-trigger-g8.c. */
 
 /* func_00333AF8 is in 0032EB28-beam.c. */
 
@@ -370,8 +367,6 @@ s32 func_00334100(s32 a0)
     return r;
 }
 
-
-INCLUDE_ASM("asm/game", func_00334550);
 
 /* func_00334710 is matched in 00334710-rc2.c. */
 
@@ -464,8 +459,6 @@ done:
     return ret;
 }
 
-INCLUDE_ASM("asm/game", func_00335270);
-
 /* func_00335370 is defined in 00335370-copy.c. */
 
 /* func_003353C8 uses the quadword-copy profile in 0032EB28-qcopy.c. */
@@ -505,8 +498,6 @@ void func_003355A8(int mode)
         *(float *)(state + 0x2A8) = 0.018f;
     }
 }
-
-INCLUDE_ASM("asm/game", func_003356E8);
 
 void func_00335840(void) {
     func_002704D0();

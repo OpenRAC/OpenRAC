@@ -1,10 +1,10 @@
 #include "include_asm.h"
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L04_003FD4F8);
+/* func_PAL_L04_003FD4F8 is in L04_003FD4F8-shot.c. */
 
 /* func_PAL_L04_003FD8F0 is in L04_003FD4F8-homing.c. */
 
-INCLUDE_ASM("asm/pal/levels", func_PAL_L04_003FDE38);
+/* func_PAL_L04_003FDE38 is in L04_003FDE38-zero.c. */
 
 #include "common.h"
 typedef int Q16_B0e5d8f83 __attribute__((mode(TI)));
@@ -289,8 +289,6 @@ unsigned char *func_PAL_L04_003FE7B0(unsigned char *owner, float *pos,
 
 
 INCLUDE_ASM("asm/pal/levels", func_PAL_L04_003FE9E8);
-
-INCLUDE_ASM("asm/pal/levels", func_PAL_L04_003FFB98);
 
 
 INCLUDE_ASM("asm/pal/levels", func_PAL_L04_00400108);

@@ -1,3 +1,30 @@
+/* 6 November 2026, lead: the only real difference is the order of two stack stores into clip: retail y0, x1, y1, x0; ours y0, y1, x1, x0. Direct stores to menuClipGP (864 B), loading screenWidthGP (or width-1) into a local before the if (7-12 rows), x1 written last, and struct initializers / compound literal (932-964 B) all fail. */
+/* 6 November 2026: current game compiler, -O2 -G8 -ffunction-sections:
+ * 900/900 bytes, 0/28 places in each release; only the +0x230/+0x234 stores
+ * differ (sw $a0, 0x2C($sp) vs retail sw $v0, 0x24($sp)).
+ * Detailed scheduler analysis shows:
+ * - All 120 permutations of the 5 statements in `if (D_001B23C0 == 0)` tie at 2 or 5 diffs.
+ *   Haifa sched1 schedules independent statements by critical-path priority:
+ *   screenWidthGP load (257, latency 2) delays `screenWidth - 1` (259) to clock 3, so `clip.x1` (261)
+ *   is not ready until clock 4. Meanwhile, 340 (264) issues at clock 2, so `clip.y1` (266, prio 4,
+ *   weight -1) issues at clock 3 ahead of 261.
+ * - In sched2, ready list at t=4 contains both 261 and 266; tie-breaker INSN_LUID preserves
+ *   sched1 order.
+ * - Grouping menuClipGP and D_001B23C0 into a unified struct MenuClipState increases flag priority
+ *   from 3 to 4, but cannot beat 264's priority of 5 (cost to 277 struct copy).
+ * - Hoisting width load outside the block moves the load before bnez and yields 6 diffs.
+ * - Permuting all 24 colour word store orders ties at 2 diffs or degrades up to 10 diffs.
+ * - Nonempty do-while(0) groups introduce a .p2align 3 nop before unaligned .L00342E4C (904 bytes).
+ * Retained C is unchanged.
+ */
+/* 5 November 2026: retained reconstruction, not linked or counted.
+ * Retain func_0028EA58 as void with its real colour pointer and unsigned alpha packing.
+ * The last bounded checks remain 900/900 bytes, 0/28 USA places: only clip.x1 and clip.y1 stores swap.
+ * Complete screen-size views, captured width, builtin/byte-view copies, complete-owner stores and equivalent zero-to-initialized flag transitions all tie.
+ * Do not repeat store permutations or add volatile stack fields.
+ * Earlier measurements below describe earlier sources or toolchains.
+ */
+#include "common.h"
 /* 3 November 2026 (opus, v2198): still 2 words. Ranking sched1 by hand (priority, then INSN_REG_WEIGHT, class,
  * depcount, luid) shows retail needs sched1 order 264<261<269 and 256<266<249. With the width load (252, p7, latency 2)
  * in the block, y1's store (266, p4, weight 0) always takes t3, before li 1 (269, p3, weight +1). Only a width pseudo
@@ -46,7 +73,7 @@ extern int D_001A7340 MACRO_ADDR, D_001A7344 MACRO_ADDR;
 extern int screenWidthGP SDATA(D_001A7340);
 extern void func_002FC620(int, int, int, int);
 extern int func_0028E588(int, int);
-extern int func_0028EA58(int, int, int, int, int, unsigned int *);
+extern void func_0028EA58(int, int, int, int, int, int *);
 
 
 typedef struct {
@@ -83,10 +110,10 @@ void func_00342BE8(MenuList *object)
         second = func_003427C0((char *)object, low,
                 object->position->y + object->rowHeight * current + object->iconSize + (float)object->scrollOffset,
                 high, D_001AE1D0, D_001AE1D4);
-        *(unsigned int *)(colours + 0) = (*(unsigned int *)(colours + 0) & 0xFFFFFF) | (first << 24);
-        *(unsigned int *)(colours + 4) = (*(unsigned int *)(colours + 4) & 0xFFFFFF) | (first << 24);
-        *(unsigned int *)(colours + 8) = (*(unsigned int *)(colours + 8) & 0xFFFFFF) | (second << 24);
-        *(unsigned int *)(colours + 12) = (*(unsigned int *)(colours + 12) & 0xFFFFFF) | (second << 24);
+        *(unsigned int *)(colours + 0) = (*(unsigned int *)(colours + 0) & 0xFFFFFF) | ((unsigned int)first << 24);
+        *(unsigned int *)(colours + 4) = (*(unsigned int *)(colours + 4) & 0xFFFFFF) | ((unsigned int)first << 24);
+        *(unsigned int *)(colours + 8) = (*(unsigned int *)(colours + 8) & 0xFFFFFF) | ((unsigned int)second << 24);
+        *(unsigned int *)(colours + 12) = (*(unsigned int *)(colours + 12) & 0xFFFFFF) | ((unsigned int)second << 24);
         if (D_001B23C0 == 0) {
             clip.x0 = 0;
             clip.x1 = screenWidthGP - 1;
@@ -100,7 +127,7 @@ void func_00342BE8(MenuList *object)
         texture = func_0028E588(*(unsigned short *)(entry + 0x3C), 0);
         func_0028EA58(texture, (int)object->position->x,
                 (int)(object->position->y + object->rowHeight * current + (float)object->scrollOffset),
-                (int)object->iconSize, (int)object->iconSize, (unsigned int *)colours);
+                (int)object->iconSize, (int)object->iconSize, (int *)colours);
         func_002FC620(0, D_001A7340 - 1, 0, D_001A7344 - 1);
     }
 }
