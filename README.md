@@ -28,7 +28,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/launcher.jpg" alt="The OpenRAC launcher: the Ratchet &amp; Clank games beside the page of the one picked, with its saves and the way to play" width="860">
+  <img src="docs/assets/launcher.gif" alt="The OpenRAC launcher in use: a game's page with its saves, Going Commando, the Mods tab and Settings" width="860">
 </p>
 
 ## What is OpenRAC?
