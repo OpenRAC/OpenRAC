@@ -20,7 +20,7 @@
     type VersionView,
   } from "$lib/api";
   import { addMods, type Added } from "$lib/addMods";
-  import { app, guardShown } from "$lib/app.svelte";
+  import { app } from "$lib/app.svelte";
   import { looksLikeCode } from "$lib/modCodes";
   import { openCode } from "$lib/modCodes.svelte";
   import { openLink } from "$lib/deepLink.svelte";
