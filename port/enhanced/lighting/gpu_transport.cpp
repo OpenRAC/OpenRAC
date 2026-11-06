@@ -5,6 +5,7 @@
 #include "enhanced/lighting/gpu_transport.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <functional>
 #include <mutex>
@@ -188,6 +189,8 @@ struct GpuTransport::Impl {
     VkPipelineLayout layout = VK_NULL_HANDLE;
     VkPipeline pipeline = VK_NULL_HANDLE, placement = VK_NULL_HANDLE;
     std::mutex mutex;  // one query on the device at a time; volumes may bake concurrently
+    double trace_seconds = 0, place_seconds = 0;  // device time waited for, guarded by mutex
+    std::uint64_t traced_probes = 0, placed = 0;
     VkDescriptorPool descriptors = VK_NULL_HANDLE;
     VkDescriptorSet set = VK_NULL_HANDLE;
     VkAccelerationStructureKHR blas = VK_NULL_HANDLE, tlas = VK_NULL_HANDLE;
@@ -890,7 +893,15 @@ struct GpuTransport::Impl {
 
 GpuTransport::GpuTransport(std::unique_ptr<Impl> impl) : m_impl(std::move(impl)) {}
 
-GpuTransport::~GpuTransport() = default;
+GpuTransport::~GpuTransport() {
+    log::info(
+        "GPU probe bake: {} probes traced in {:.2f} s, {} placement queries in {:.2f} s",
+        m_impl->traced_probes,
+        m_impl->trace_seconds,
+        m_impl->placed,
+        m_impl->place_seconds
+    );
+}
 
 std::unique_ptr<GpuTransport> GpuTransport::create(
     const Scene& scene, const BakeSettings& settings
@@ -923,6 +934,8 @@ void GpuTransport::sample(
 ) {
     auto& g = *m_impl;
     const std::lock_guard lock(g.mutex);
+    const auto began = std::chrono::steady_clock::now();
+    g.traced_probes += origins.size();
     const auto per_probe = g.settings.rays_per_probe;
 
     for (std::size_t start = 0; start < origins.size(); start += kChunk) {
@@ -957,6 +970,9 @@ void GpuTransport::sample(
             }
         }
     }
+
+    g.trace_seconds +=
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
 }
 
 std::vector<GpuPlacement> GpuTransport::place(
@@ -964,6 +980,8 @@ std::vector<GpuPlacement> GpuTransport::place(
 ) {
     auto& g = *m_impl;
     const std::lock_guard lock(g.mutex);
+    const auto began = std::chrono::steady_clock::now();
+    g.placed += positions.size();
 
     if (pairs.size() > kMaxPairs) {
         throw std::runtime_error("GPU bake: too many placement directions");
@@ -997,6 +1015,8 @@ std::vector<GpuPlacement> GpuTransport::place(
         }
     }
 
+    g.place_seconds +=
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
     return result;
 }
 }  // namespace openrac::lighting::bake_detail
