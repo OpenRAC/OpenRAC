@@ -111,15 +111,17 @@ void install_app_menus(bool developer);
 
 // Which OpenGL the window's context is: the desktop's 4.1 core profile, OpenGL ES 3.2 (Android,
 // whose drivers have only ES; renderer/gl.h and renderer/shader.h adapt to it), or the renderer's
-// GL carried out with Vulkan (renderer/vulkan/vkgl.h), where the build has it; a window that
-// cannot have Vulkan opens with the system's OpenGL instead.
+// GL carried out with Vulkan (renderer/vulkan/vkgl.h) or with Metal (renderer/metal/mtlgl.h),
+// where the build has them; a window that cannot have Metal opens with Vulkan, and one that cannot
+// have Vulkan opens with the system's OpenGL instead.
 enum class GlApi {
     Desktop,
     ES,
     Vulkan,
+    Metal,
 };
 
-// ES on Android, the desktop's elsewhere; OPENRAC_GL_API=es, =desktop or =vulkan in the
+// ES on Android, the desktop's elsewhere; OPENRAC_GL_API=es, =desktop, =vulkan or =metal in the
 // environment chooses (es on a desktop draws through its driver's ES context, which is how the ES
 // path is checked without a phone).
 GlApi default_gl_api();
@@ -237,10 +239,13 @@ private:
 
     // Opens the window for GlApi::Vulkan; false (and nothing left open) when Vulkan cannot be had.
     bool open_vulkan(const WindowConfig& config, std::string& error);
+    // The same for GlApi::Metal, which must also carry out every function of renderer/gl.h.
+    bool open_metal(const WindowConfig& config, std::string& error);
 
     SDL_Window* m_window = nullptr;
     SDL_GLContextState* m_context = nullptr;
     bool m_vulkan = false;
+    bool m_metal = false;
     bool m_low_latency = false;
     bool m_hdr_window = false;        // Android: the window's colour mode asked for HDR
     float m_hdr_headroom = 0.0f;      // Android: the headroom the window asked for

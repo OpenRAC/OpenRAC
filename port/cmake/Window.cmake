@@ -224,6 +224,8 @@ if(OPENRAC_METAL)
     PRIVATE openrac_spirv_cross)
   target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
   openrac_warnings(openrac_renderer_metal)
+  target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
+  target_compile_definitions(openrac_platform PRIVATE OPENRAC_METAL=1)
 endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
 if(APPLE)
