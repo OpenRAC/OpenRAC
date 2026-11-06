@@ -1,3 +1,4 @@
+/* Written by port/tools/hostgen/release_carry.py from the shared host C and this release's maps. Do not edit. */
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *

@@ -1,3 +1,4 @@
+/* Written by port/tools/hostgen/release_carry.py from rac2-ntsc's rac2_addresses.h. Do not edit. */
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *

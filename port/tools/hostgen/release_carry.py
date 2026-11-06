@@ -647,6 +647,7 @@ def host_table(p: Pairing, shared: Path, primary_host: Path, source: Path, versi
     lines += constants(p, code, version)
     names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
     head = [
+        "/* Written by port/tools/hostgen/release_carry.py from the shared host C and this release's maps. Do not edit. */",
         "/* SPDX-License-Identifier: GPL-3.0-or-later",
         " * Copyright (c) 2026 the OpenRAC contributors",
         " *",
@@ -683,7 +684,8 @@ def addresses_header(p: Pairing, primary: str, version: str) -> str:
             new = p.data(int(mm.group(2), 16), "boot", "rac2_addresses.h")
             line = f"{mm.group(1)}0x{new:08X}u{mm.group(3)}" if new is not None else line
         out.append(line)
-    text = "\n".join(out) + "\n"
+    text = ("/* Written by port/tools/hostgen/release_carry.py from rac2-ntsc's rac2_addresses.h. Do not edit. */\n"
+            + "\n".join(out) + "\n")
     return text.replace("(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt)",
                         "(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt), at this release's addresses "
                         "(port/tools/hostgen/release_carry.py)")
@@ -734,6 +736,7 @@ def profile_table(p: Pairing, profile: str, version: str) -> str:
         out.append(line)
     names = {"pal": "PAL (SCES-51607)", "us2": "USA v2.00 (SCUS-97268, Greatest Hits)"}[version]
     return "\n".join([
+        "// Written by port/tools/hostgen/release_carry.py from profile.cpp's kNtsc and this release's maps. Do not edit.",
         "// SPDX-License-Identifier: GPL-3.0-or-later",
         "// Copyright (c) 2026 the OpenRAC contributors",
         "//",
