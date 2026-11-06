@@ -1106,10 +1106,15 @@ body {
   user-select: text;
 }
 
-/* A finger needs 44 px (Material's 48 dp less the space around): the small buttons and the
-   segmented choices keep their look, and grow to that height. */
-html[data-platform="android"] :is(button, .segmented button) {
+/* A finger needs 44 px (Material's 48 dp less the space around): every button and field keeps
+   its look and grows to that height, so they all stay the same height. */
+html[data-platform="android"] :is(button, input:not([type="checkbox"], [type="radio"], [type="range"]), select) {
   min-height: 44px;
+}
+
+/* A segmented choice's strip is the control: it is 44 px, its values 40 px inside it. */
+html[data-platform="android"] .segmented button {
+  min-height: 40px;
 }
 
 /* 16 px text in a field on Android, so the WebView does not zoom in on focus. */

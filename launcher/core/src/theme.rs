@@ -109,9 +109,9 @@ mod tests {
         let rac3 = ui_colors("nord", Some("rac3"));
         assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
         let rac2 = ui_colors("openrac", Some("rac2"));
-        assert_eq!(color(&rac2, "menu-top"), Some("#161f22"));
+        assert_eq!(color(&rac2, "menu-top"), Some("#11171b"));
         // Going Commando's coal, on the OpenRAC theme only.
-        assert_eq!(color(&rac2, "panel-hi"), Some("#192125"));
+        assert_eq!(color(&rac2, "panel-hi"), Some("#141a1e"));
         assert_eq!(color(&ui_colors("nord", Some("rac2")), "panel-hi"), Some("#434c5e"));
         // The bar's stripes and ink too, for the game's menu bar (debug/menu_window.cpp).
         assert_eq!(color(&own, "bar-stripe"), Some("#c99222"));

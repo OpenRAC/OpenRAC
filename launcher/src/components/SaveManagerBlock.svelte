@@ -160,17 +160,17 @@
     {/if}
     <div class="actions">
       {#if developer && status?.exists}
-        <button class="ghost small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
+        <button class="small" onclick={loadStatus} disabled={loading} title="Read the memory card again">
           {#if loading}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}Refresh
         </button>
       {/if}
       {#if used.length}
-        <button class="ghost small" onclick={() => (transfer = { mode: "export", source: null })}
+        <button class="small" onclick={() => (transfer = { mode: "export", source: null })}
           ><Icon name="upload" size={14} />Export</button
         >
       {/if}
-      <button class="ghost small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
-      <button class="ghost small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
+      <button class="small" onclick={() => void startImport()}><Icon name="download" size={14} />Import</button>
+      <button class="small" onclick={openFolder}><Icon name="folder" size={14} />Open folder</button>
     </div>
   </div>
 

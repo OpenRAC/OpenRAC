@@ -193,7 +193,7 @@
           <div class="row tools">
             {#if !onAndroid}
               <!-- Android opens no app's own folders: Save puts a report where the player chooses. -->
-              <button class="ghost small" onclick={() => void guard(api.openReportsFolder(game, false))}>
+              <button class="small" onclick={() => void guard(api.openReportsFolder(game, false))}>
                 <Icon name="folder" size={14} />Open folder
               </button>
             {/if}

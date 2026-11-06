@@ -130,7 +130,11 @@ each accent sets `--tint-panel`, `--tint-panel-hi`, `--tint-control`,
 `--tint-control-hi`, `--tint-control-card` and `--tint-control-card-hi`
 (`base` holds the plain coals). The app uses them only while the theme is
 OpenRAC (`html[data-theme="openrac"]`); another theme keeps its own colours.
-So Going Commando's `#191919` becomes `#192125`, a coal with a little blue.
+Each tint keeps the lightness of the plain coal it replaces (OKLCH: the same L,
+chroma 0.012, the hue of the game's bar colour), so a tinted card is as dark
+as Ratchet & Clank's and the accent stands out on it just as much: Going
+Commando's `#191919` becomes `#141a1e`. Never tint by mixing the bar colour in,
+which also lightens the coal.
 
 The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands.
