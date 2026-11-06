@@ -361,6 +361,11 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
         if dup:
             errors.append(f"settings: a key twice ({', '.join(sorted(map(str, dup)))})")
         _check_presets(m.get("presets"), {s["key"]: s for s in settings if isinstance(s, dict) and "key" in s}, errors)
+    if m.get("multiplayer", "gameplay") not in ("gameplay", "input", "cosmetic", "solo"):
+        errors.append("multiplayer: gameplay, input, cosmetic or solo")
+    for s in settings if isinstance(settings, list) else []:
+        if isinstance(s, dict) and s.get("multiplayer", "own") not in ("own", "host"):
+            errors.append(f"setting {s.get('key')}: multiplayer is own or host")
     _check_refs("requires", m.get("requires", []), errors, True)
     _check_refs("conflicts", m.get("conflicts", []), errors, False)
     load = m.get("load", {})
@@ -375,11 +380,52 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
             errors.append("assets: a folder inside the mod, with / (\"assets\")")
         elif root is not None and not (root / a).is_dir():
             errors.append(f"assets: {assets} is not a folder in the mod")
+    touch = m.get("touch")
+    if touch is not None:
+        t = touch if isinstance(touch, str) and touch.endswith(".json") and "\\" not in touch and ":" not in touch else None
+        if t is None or t.startswith("/") or any(part in ("", ".", "..") for part in t.split("/")):
+            errors.append("touch: a .json file inside the mod, with / (\"touch.json\")")
+        elif root is not None:
+            errors += _touch_errors(root, t)
     if isinstance(mid, str):
         for name in ("requires", "conflicts"):
             if any(isinstance(r, dict) and r.get("id") == mid for r in m.get(name, []) or []):
                 errors.append(f"{name}: the mod names itself")
     return errors
+
+
+def _inside(p) -> bool:
+    return (isinstance(p, str) and p != "" and not p.startswith("/") and "\\" not in p and ":" not in p
+            and all(part not in ("", ".", "..") for part in p.split("/")))
+
+
+def _touch_errors(root: Path, touch: str) -> list[str]:
+    """The manifest's "touch" file (MODS.md, "Touch controls"): a set of contexts, its icons .svg
+    files inside the mod."""
+    try:
+        doc = json.loads((root / PurePosixPath(touch)).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return [f"touch: {touch} cannot be read ({e})"]
+    if not isinstance(doc, dict) or not isinstance(doc.get("contexts"), dict):
+        return [f"touch: {touch} has no \"contexts\" object"]
+    icons = doc.get("icons", {})
+    if not isinstance(icons, dict):
+        return [f"touch: {touch}: \"icons\" maps names to .svg files"]
+    return [f"touch: icon {name}: {path!r} is not an .svg file in the mod" for name, path in icons.items()
+            if not _inside(path) or not path.endswith(".svg") or not (root / PurePosixPath(path)).is_file()]
+
+
+def _touch_files(folder: Path, m: dict) -> list[Path]:
+    """The manifest's "touch" file and the icons it names."""
+    if not m.get("touch"):
+        return []
+    path = folder / PurePosixPath(m["touch"])
+    out = [path]
+    try:
+        icons = json.loads(path.read_text(encoding="utf-8")).get("icons", {})
+    except (OSError, ValueError, AttributeError):
+        return out
+    return out + [folder / PurePosixPath(p) for p in icons.values() if _inside(p)]
 
 
 def read_manifest(path: Path) -> dict:
@@ -428,10 +474,12 @@ def _files(folder: Path) -> list[Path]:
     """What goes in the archive: the manifest, the plugin files, the assets, the files for people."""
     m = read_manifest(folder / MANIFEST)
     if m.get("type") == "script":
-        return _script_files(folder, m) + _asset_files(folder, m)
+        script = _script_files(folder, m)
+        return script + [p for p in _touch_files(folder, m) if p not in script] + _asset_files(folder, m)
     out = [folder / MANIFEST]
     for path in (m.get("plugin") or {}).values():
         out.append(folder / PurePosixPath(path))
+    out += _touch_files(folder, m)
     out += _asset_files(folder, m)
     out += sorted(p for p in folder.iterdir() if p.is_file() and EXTRAS.match(p.name))
     return out

@@ -17,6 +17,8 @@ type HookPoint =
     | "rac1.player.update"
     | "rac1.item.give"
     | "rac1.planet.unlock"
+    | "rac1.help.request"
+    | "rac1.ship.init_transition"
     | "rac1.vendor.init_level_stock"
     | "rac1.vendor.build_item_list"
     | "rac1.gold_bolt.count_collected"
@@ -57,6 +59,7 @@ type HookPoint =
     | "rac1.save.new_game_plus"
     | "rac1.save.serialize"
     | "rac1.save.update_state"
+    | "rac1.text.msg_string"
     | "rac1.moby.class_1750.update"
     | "rac1.moby.class_676.update"
     | "rac1.moby.class_482.update"
@@ -698,6 +701,7 @@ type HookPoint =
     | "Ammo_SpawnDrop"
     | "FollowCamera_ApplyOverrides"
     | "GoldBolts_CountCollected"
+    | "Help_Request"
     | "Hero_AdvanceAnimation"
     | "Hero_ApproachSpeed"
     | "Hero_SetPlanarVelocity"
@@ -1374,12 +1378,14 @@ type HookPoint =
     | "Save_RestoreData"
     | "Save_Serialize"
     | "Save_UpdateState"
+    | "Ship_InitTransition"
     | "Ship_TravelTo"
     | "Vendor_BuildItemList"
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
     | "Weapon_TakeAmmo"
+    | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
 
 type Fields = {
@@ -1414,6 +1420,10 @@ type Hero_UpdateFn = () -> ()
 type Item_GiveFn = (id: number, equip: number) -> ()
 -- rac1.planet.unlock (Planet_Unlock) void(i32): Unlocks a planet's coordinates (UnlockPlanet): its flag (one byte per level), the galaxy list, and its banner unless it is the planet the player is on.
 type Planet_UnlockFn = (planet: number) -> ()
+-- rac1.help.request (Help_Request) i32(i32,i32): Queues help message message in the help window's slot (Help_Request): 1 when queued, 0 when it cannot be. Every tutorial and hint of the levels comes through it. A mod may replace the message: call the original with the new id and the same slot, and return its result. The id must be in the level's table; one that is not shows nothing, though the result is still 1.
+type Help_RequestFn = (message: number, slot: number) -> number
+-- rac1.ship.init_transition (Ship_InitTransition) void(i32): Puts the hero in the ship for a landing or take-off (initialize_level_transition_with_audio): the ship's records, the sound, and the chunks to load. On Orxon its choice of chunks goes by whether the O2 Mask is owned.
+type Ship_InitTransitionFn = (mode: number) -> ()
 -- rac1.vendor.init_level_stock (Vendor_InitLevelStock) void(): The vendor's stock at each level start (VendorStockLevelInit): gives the Bomb Glove while the player has none, keeps the stock's known items and adds the level's new weapon.
 type Vendor_InitLevelStockFn = () -> ()
 -- rac1.vendor.build_item_list (Vendor_BuildItemList) void(i32): The vendor menu's list (VendorBuildItemList), from the stock and the items owned: each time the menu opens and after each purchase. skip_unflagged leaves out what is for sale (the menu opened from the pause screen).
@@ -1494,6 +1504,8 @@ type Save_NewGamePlusFn = (slot: number) -> ()
 type Save_SerializeFn = (out: number) -> ()
 -- rac1.save.update_state (Save_UpdateState) void(): The memory card's state machine, each tick (memcard_update_state): saves and loads go through it.
 type Save_UpdateStateFn = () -> ()
+-- rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
+type msg_stringFn = (id: number) -> number
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
@@ -1522,6 +1534,11 @@ declare openrac: {
     pointer: () -> (number, number, boolean),
     take_input: (...("keyboard" | "mouse")) -> (),
     capture_mouse: (capture: boolean) -> (),
+    -- interface 1.13: the on-screen pad's action buttons (MODS.md, "Touch controls")
+    touch_define: (json: string) -> boolean,
+    touch_icon: (name: string, svg: string) -> boolean,
+    touch_push: (context: string?) -> (),
+    touch_hint: (hint: string, on: boolean) -> (),
     -- experimental: a moby's pvars by name, from the behaviour catalogue
     pvars: (moby: number) -> { [string]: number }?,
 }

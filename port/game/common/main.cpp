@@ -65,6 +65,8 @@
 #include "program/program.h"
 
 #ifdef OPENRAC_FRONTEND
+#include <SDL3/SDL_misc.h>
+
 #include "debug_overlay.h"
 #include "enhanced/renderer/fur.h"
 #include "enhanced/viewer/probe_lighting.h"
@@ -215,11 +217,14 @@ int (*openrac_game_skip_buttons)(void) = nullptr;
 void (*openrac_game_skip)(void) = nullptr;
 int (*openrac_game_flight)(void) = nullptr;
 int (*openrac_game_mode)(uint32_t* mode) = nullptr;
+int (*openrac_game_touch)(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]) =
+    nullptr;
 int (*openrac_game_hero_position)(float xyz[3]) = nullptr;
 int (*openrac_game_camera_position)(float xyz[3]) = nullptr;
 int (*openrac_game_updating_moby)(openrac_game_moby* out) = nullptr;
 int (*openrac_game_hero)(float position[3], float rotation[3], int32_t* state) = nullptr;
 int (*openrac_game_camera_turn)(uint8_t, float, float*, float[3], unsigned*) = nullptr;
+float openrac_game_camera_speed = 1.0f;
 const openrac_front_end* openrac_game_front_end = nullptr;
 const openrac_game_play* openrac_game_play_host = nullptr;
 const openrac_game_tools* openrac_game_tools_host = nullptr;
@@ -354,6 +359,7 @@ void load_mods() {
     host.hooks = openrac_game_hook_points;
     host.hook_count = openrac_game_hook_point_count;
     host.list = g_options.plugins;
+    host.stack = g_options.mods.empty() ? std::filesystem::path() : g_options.mods / "stack.json";
     host.purist = g_options.no_mods;
     host.loaded_level = openrac_game_loaded_overlay;
     host.pad_hook = &openrac_game_pad_report_hook;
@@ -449,6 +455,12 @@ void load_mods() {
     host.graphics = frontend::mod_graphics;
     host.menu_rect = frontend::mod_menu::rect;
     host.menu_text = frontend::mod_menu::text_at;
+    host.open_url = [](const char* url) {
+        return SDL_OpenURL(url);
+    };
+    host.set_clipboard = [](const char* text) {
+        return SDL_SetClipboardText(text);
+    };
     host.set_views = frontend::set_view_source;
     host.set_vulkan_setup = [](const openrac_vulkan_setup* setup) {
         platform::VulkanSetup s;

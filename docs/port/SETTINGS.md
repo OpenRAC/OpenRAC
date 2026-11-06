@@ -97,9 +97,10 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Mute in background | `mute_unfocused` | `0`, `1` | Silence while another window has the keyboard |
 | Game fixes: one row each | `fix_...` | `1` (the port's fix), `0` (the console's behaviour) | What the port changes from the console that a player may switch back (section 8). Ratchet & Clank: `fix_wide_moby_effects`, `fix_wide_nanotech_orbs`, `fix_wide_liquids` |
 | (F9, F10) | `volume` | `100`, `0` to `100` | How loud everything the port plays is |
+| Touch controls: Action buttons | `touch_style` | `0` (on), `1` (off) | On: the touch pad shows action buttons with icons that follow what the game is doing (on foot, Clank, swimming, a menu; [touch_controls.h](../../port/game/common/frontend/touch_controls.h)). Off: the DualShock's buttons |
 | Touch controls: Button size | `touch_scale` | `75`, `50` to `150` (percent) | The on-screen pad's size against its own ([touch_pad.h](../../port/platform/touch_pad.h)). Smaller controls sit nearer the screen's edges as well |
-| Touch controls: Camera speed | `touch_camera` | `100`, `25` to `300` (percent) | How short a push of the finger on the right of the screen, from where it landed, turns the camera at full speed: 200 halves the push |
-| Touch controls: Edit layout | `touch_layout` | empty, `GROUP DX DY, ...` | Where the player moved each group of the pad from its own place, in screen heights (`dpad 0.0200 -0.0500, face ...`; the groups are `stick`, `dpad`, `face`, `l1`, `l2`, `r1`, `r2`, `select`, `start`, `menu`). Empty: every control at its place. Written only when something was moved |
+| Touch controls: Camera speed | `touch_camera` | `100`, `25` to `300` (percent) | How short a push of the finger on the right of the screen, from where it landed, turns the camera at full speed: 200 halves the push. Above 100%, a full sideways swipe also turns the camera faster (rac1, rac2) |
+| Touch controls: Edit layout | `touch_layout` | empty, `GROUP DX DY [SIZE], ...` | How far the player moved each group, in screen heights, and its size if changed (`0.6` to `1.6`, the edit bar's "This button"): `dpad 0.0200 -0.0500 1.20, face ...`. Groups: `stick`, `dpad`, `face`, `l1`, `l2`, `r1`, `r2`, `select`, `start`, `menu`, and the action button slots `arc0` to `arc7`, `left0` to `left2`, `top0`, `top1`, `hint0` to `hint2`. Empty: nothing moved |
 | (the launcher's Detailed logs) | `verbose_log` | `0`, `1` | The detailed log, as `OPENRAC_LOG=verbose` ([DEBUGGING.md](DEBUGGING.md#logs-and-traces)). Written only when on |
 | (the game's own options) | `game_language`, `game_playback`, `game_music_volume`, `game_sound_volume` | the game's values | Options the game keeps in its own memory, which a console forgets at power off: Ratchet & Clank's language and its **Options, Sound** page (the playback mode, and the music and sound volumes, `0` to `1024`). Written as the game changes them, put back at the next start, and kept when a save is loaded ([rac1/host/options.c](../../port/game/rac1/host/options.c)). The language starts the game as the console's setting would (`1` English, `2` French, `3` Spanish, `4` German, `5` Italian). A file may hold any whole number from -1000000 to 1000000; a program without a window keeps none |
 
@@ -118,8 +119,10 @@ shown, `OPENRAC_FRAME_COST=N` where a frame's time goes (section 5),
 ## 2. The tick and the frames
 
 The game's logic counts ticks, not time: a tick is one field of the
-television it was written for, 50 a second for a PAL game. The port never
-changes that. What it draws is its own business:
+television it was written for. Since 2026-10-15 the port runs every disc in the
+game's own 60 Hz mode, PAL too, so both discs tick alike (`tick_rate()`,
+[speedrun/TIMING.md](speedrun/TIMING.md)); the 50 Hz figures in this section and
+section 3 are from before that. What it draws is its own business:
 
 - `original`: one frame a tick.
 - anything else: frames **between** ticks as well, the camera, the mobys and

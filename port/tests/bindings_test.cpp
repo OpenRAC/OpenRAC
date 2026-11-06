@@ -497,6 +497,39 @@ void test_tuned_sticks() {
     const Pad pad = pad_from(g_bindings, inputs);
     CHECK(pad.right_y == 0xFF);
     CHECK(pad.left_y == 0x80);
+    CHECK(pad.camera_speed == 1.0f);
+
+    // Sensitivity above 100%: the byte stops at a full push, the rest turns the camera faster.
+    StickTuning fast;
+    fast.sensitivity = 300;
+    x = 0.2f;
+    y = 0.0f;
+    CHECK(openrac::platform::tune_stick(x, y, fast) == 1.0f);
+    CHECK(x > 0.59f && x < 0.61f);
+    x = -1.0f;
+    CHECK(openrac::platform::tune_stick(x, y, fast) == 3.0f);
+    CHECK(x == -1.0f);
+    set_bindings({{"pad_right_sensitivity", "200"}});
+    inputs = {};
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 32767;
+    const Pad turned = pad_from(g_bindings, inputs);
+    CHECK(turned.right_x == 0xFF);
+    CHECK(turned.camera_speed > 1.99f && turned.camera_speed <= 2.0f);
+    // Not when something else is bound to the right stick's x.
+    set_bindings({{"pad_right_sensitivity", "200"}, {"bind_rstick_right", "PadLeftStickRight"}});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    // Not at 100%, nor below a full push.
+    set_bindings({});
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    set_bindings({{"pad_right_sensitivity", "200"}});
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 8192;
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = -32768;
+    CHECK(pad_from(g_bindings, inputs).camera_speed > 1.99f);
+    set_bindings({{"pad_left_sensitivity", "200"}});
+    inputs.axes[SDL_GAMEPAD_AXIS_LEFTX] = 32767;
+    inputs.axes[SDL_GAMEPAD_AXIS_RIGHTX] = 0;
+    CHECK(pad_from(g_bindings, inputs).camera_speed == 1.0f);
 }
 
 // The trigger threshold moves where L2 holds; labels swap a Nintendo pad's face buttons.

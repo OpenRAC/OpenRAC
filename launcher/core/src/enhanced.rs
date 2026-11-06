@@ -67,6 +67,7 @@ fn spec(key: &str, name: &str, kind: &str, default: Value, description: &str) ->
         max_length: None,
         binds: None,
         group: String::new(),
+        multiplayer: None,
     }
 }
 

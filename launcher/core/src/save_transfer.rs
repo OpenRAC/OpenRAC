@@ -508,10 +508,13 @@ pub fn import_into(
     }
 
     fs::create_dir_all(card_dir).map_err(|e| format!("{}: {e}", card_dir.display()))?;
-    let backup = match saves::find_game_folder(card_dir) {
-        Some(_) => Some(saves::backup_card(card_dir, Some("before import"))?),
-        None => None,
-    };
+    // Anything on the card is backed up first, a card of co-op saves alone included.
+    let holds_saves = fs::read_dir(card_dir)
+        .map(|entries| {
+            entries.flatten().any(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
+        })
+        .unwrap_or(false);
+    let backup = if holds_saves { Some(saves::backup_card(card_dir, Some("before import"))?) } else { None };
 
     // The file's folders, each with its files.
     let mut by_folder: BTreeMap<&str, Vec<(&str, &[u8])>> = BTreeMap::new();

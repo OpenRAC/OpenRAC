@@ -627,7 +627,7 @@ void player_panel(controls::Store& store, platform::Input& input, int p) {
         write(keyboard, choices[static_cast<std::size_t>((at + by + count) % count)].first);
     }
     note_hover(static_cast<int>(id));
-    static constexpr const char* kKeyboardNames[] = {"No", "Only without a controller", "Always"};
+    static constexpr const char* kKeyboardNames[] = {"No", "If no pad", "Always"};
     if (const int by =
             menu_choice("Keyboard", kKeyboardNames[keyboard], keyboard > 0, keyboard < 2);
         by != 0 && can) {

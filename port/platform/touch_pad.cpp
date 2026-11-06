@@ -7,6 +7,8 @@
 #include <cmath>
 #include <cstdio>
 #include <format>
+#include <optional>
+#include <utility>
 
 namespace openrac::platform {
 namespace {
@@ -30,6 +32,9 @@ constexpr float kLookZoneLeft = 0.5f;
 constexpr float kLookReach = 0.1f;
 constexpr float kLookDead = 0.12f;
 constexpr float kLookFloor = 0.22f;
+// A finger held on a "stick" action pushes the stick all the way once it has slid this far from
+// where it landed, in window heights.
+constexpr float kSteerDead = 0.02f;
 // How far the player may move a group from its place, in window heights.
 constexpr float kMaxOffset = 2.0f;
 // A group's centre keeps this far inside the window.
@@ -39,8 +44,22 @@ constexpr float kSnap = 0.025f;
 
 using Kind = TouchControl::Kind;
 
-constexpr const char* kGroupNames[] =
-    {"stick", "dpad", "face", "l1", "l2", "r1", "r2", "select", "start", "menu"};
+// A control of `kind` in `group`, its radius (in window heights at scale 1) and stretch; placed later.
+TouchControl make_control(Kind kind, Button button, TouchGroup group, float radius, float stretch) {
+    TouchControl c;
+    c.kind = kind;
+    c.button = button;
+    c.group = group;
+    c.radius = radius;
+    c.stretch = stretch;
+    return c;
+}
+
+constexpr const char* kGroupNames[] = {"stick", "dpad",   "face",  "l1",   "l2",   "r1",
+                                       "r2",    "select", "start", "menu", "arc0", "arc1",
+                                       "arc2",  "arc3",   "arc4",  "arc5", "arc6", "arc7",
+                                       "left0", "left1",  "left2", "top0", "top1", "hint0",
+                                       "hint1", "hint2"};
 static_assert(std::size(kGroupNames) == kTouchGroups, "a name for each TouchGroup");
 
 }  // namespace
@@ -63,10 +82,35 @@ TouchPad::TouchPad() {
     group(G::L1, From::Left, 0.36f, 0.15f);
     group(G::R1, From::Right, 0.36f, 0.15f);
     group(G::R2, From::Right, 0.13f, 0.15f);
-    group(G::Select, From::Middle, -0.14f, 0.075f);
-    group(G::Start, From::Middle, 0.14f, 0.075f);
+    group(G::Select, From::Middle, -0.16f, 0.075f);
+    group(G::Start, From::Middle, 0.16f, 0.075f);
     group(G::Menu, From::Middle, 0.0f, 0.075f);
+    // The Arc style: the corner first, under the resting right thumb; then by how far the thumb
+    // has to go, the low ones before the high ones (a thumb reaches across more easily than up).
+    group(G::Arc0, From::Right, 0.185f, 0.75f);
+    group(G::Arc1, From::Right, 0.465f, 0.83f);
+    group(G::Arc2, From::Right, 0.32f, 0.58f);
+    group(G::Arc3, From::Right, 0.165f, 0.485f);
+    group(G::Arc4, From::Right, 0.64f, 0.69f);
+    group(G::Arc5, From::Right, 0.10f, 0.29f);
+    group(G::Arc6, From::Right, 0.62f, 0.45f);
+    group(G::Arc7, From::Right, 0.33f, 0.33f);
+    // Beside the stick, above it, for the left thumb (what the shoulders under the left index
+    // finger did on the pad: looking, strafing).
+    group(G::Left0, From::Left, 0.18f, 0.40f);
+    group(G::Left1, From::Left, 0.18f, 0.25f);
+    group(G::Left2, From::Left, 0.36f, 0.25f);
+    group(G::Top0, From::Middle, -0.20f, 0.075f);
+    group(G::Top1, From::Middle, 0.20f, 0.075f);
+    // A hint's button, where the eye is (left of the arc, above the middle of the right half).
+    group(G::Hint0, From::Right, 0.84f, 0.52f);
+    group(G::Hint1, From::Right, 0.84f, 0.32f);
+    group(G::Hint2, From::Right, 1.02f, 0.42f);
+    rebuild();
+}
 
+void TouchPad::classic_controls() {
+    using G = TouchGroup;
     struct Item {
         Kind kind;
         Button button;
@@ -91,15 +135,207 @@ TouchPad::TouchPad() {
         {Kind::Button, Button::R2, G::R2, 0.0f, 0.0f, 0.045f, 1.75f},
         {Kind::Button, Button::Select, G::Select, 0.0f, 0.0f, 0.032f, 1.6f},
         {Kind::Button, Button::Start, G::Start, 0.0f, 0.0f, 0.032f, 1.6f},
-        {Kind::Menu, Button::Cross, G::Menu, 0.0f, 0.0f, 0.036f, 1.0f},
+        // The options button as large as the Arc style's.
+        {Kind::Menu, Button::Cross, G::Menu, 0.0f, 0.0f, 0.05f, 1.0f},
     };
     for (const Item& item : items) {
-        m_controls.push_back(
-            TouchControl{item.kind, item.button, item.group, 0.0f, 0.0f, item.radius, item.stretch}
-        );
+        TouchControl c =
+            make_control(item.kind, item.button, item.group, item.radius, item.stretch);
+        c.buttons = item.kind == Kind::Button ? static_cast<std::uint16_t>(item.button) : 0;
+        m_controls.push_back(c);
         m_members.push_back(Member{item.dx, item.dy, item.radius});
     }
+}
+
+void TouchPad::arc_controls() {
+    using G = TouchGroup;
+    // The stick (a little smaller) and the options button (larger) as in the Classic style, or a
+    // d-pad in the stick's place; the actions in the style's places, each the size it asks for.
+    if (m_dpad) {
+        constexpr float kArm = 0.075f;
+        constexpr float kArmRadius = 0.05f;
+
+        const struct {
+            Button button;
+            float dx, dy;
+        } arms[] = {
+            {Button::Up, 0.0f, -kArm},
+            {Button::Down, 0.0f, kArm},
+            {Button::Left, -kArm, 0.0f},
+            {Button::Right, kArm, 0.0f},
+        };
+
+        for (const auto& arm : arms) {
+            TouchControl c = make_control(Kind::Button, arm.button, G::Stick, kArmRadius, 1.0f);
+            c.buttons = static_cast<std::uint16_t>(arm.button);
+            m_controls.push_back(c);
+            m_members.push_back(Member{arm.dx, arm.dy, kArmRadius});
+        }
+    } else {
+        m_controls.push_back(make_control(Kind::LeftStick, Button::Cross, G::Stick, 0.135f, 1.0f));
+        m_members.push_back(Member{0.0f, 0.0f, 0.135f});
+    }
+    m_controls.push_back(make_control(Kind::Menu, Button::Cross, G::Menu, 0.05f, 1.0f));
+    m_members.push_back(Member{0.0f, 0.0f, 0.05f});
+    constexpr G kArc[] = {G::Arc0, G::Arc1, G::Arc2, G::Arc3, G::Arc4, G::Arc5, G::Arc6, G::Arc7};
+    constexpr G kLeft[] = {G::Left0, G::Left1, G::Left2};
+    constexpr G kTop[] = {G::Top0, G::Top1};
+    constexpr G kHint[] = {G::Hint0, G::Hint1, G::Hint2};
+    std::size_t arc = 0, left = 0, top = 0, hint = 0;
+    const auto up = [&](const TouchAction& a) {
+        return a.when.empty() || std::find(m_hints.begin(), m_hints.end(), a.when) != m_hints.end();
+    };
+    const auto has = [&](const std::string& id) {
+        return std::any_of(m_actions.begin(), m_actions.end(), [&](const TouchAction& b) {
+            return b.id == id;
+        });
+    };
+    for (const TouchAction& own : m_actions) {
+        // One that stands in for another shows in that one's place, as large.
+        if (!up(own) || (!own.instead.empty() && has(own.instead))) {
+            continue;
+        }
+        const auto stand_in =
+            std::find_if(m_actions.begin(), m_actions.end(), [&](const TouchAction& b) {
+                return b.instead == own.id && up(b);
+            });
+        TouchAction a = stand_in != m_actions.end() ? *stand_in : own;
+        a.size = own.size;
+        a.side = own.side;
+        a.when = own.when;
+        a.wide = own.wide;
+        G g = G::Count;
+        if (a.side == TouchSide::Hint) {
+            g = hint < std::size(kHint) ? kHint[hint++] : G::Count;
+        } else if (a.side == TouchSide::Left) {
+            g = left < std::size(kLeft) ? kLeft[left++] : G::Count;
+        } else if (a.side == TouchSide::Top) {
+            g = top < std::size(kTop) ? kTop[top++] : G::Count;
+        } else {
+            g = arc < std::size(kArc) ? kArc[arc++] : G::Count;
+        }
+        if (g == G::Count) {
+            continue;  // more than the style has places for: the first ones, the most used, stay
+        }
+        float radius = a.size == TouchSize::Large   ? 0.113f
+                       : a.size == TouchSize::Small ? 0.070f
+                                                    : 0.083f;
+        float stretch = a.wide ? 1.4f : 1.0f;
+        if (a.side == TouchSide::Top) {
+            radius = 0.036f;
+            stretch = 1.6f;
+        }
+        TouchControl c = make_control(Kind::Button, Button::Cross, g, radius, stretch);
+        c.buttons = a.press != 0 ? a.press : a.then;
+        c.then = a.press != 0 ? a.then : 0;
+        for (std::uint16_t bit = 1; bit != 0; bit = static_cast<std::uint16_t>(bit << 1)) {
+            if ((c.buttons & bit) != 0) {
+                c.button = static_cast<Button>(bit);
+                break;
+            }
+        }
+        c.toggle = a.toggle;
+        c.stick = a.stick;
+        c.action = a.id;
+        c.icon = a.icon;
+        m_controls.push_back(std::move(c));
+        m_members.push_back(Member{0.0f, 0.0f, radius});
+    }
+}
+
+void TouchPad::rebuild() {
+    // A thumb on the stick keeps it where it is: its index and place come over to the new set.
+    std::optional<std::pair<float, float>> stick;
+    for (std::size_t i = 0; i < m_controls.size(); ++i) {
+        if (m_controls[i].kind == Kind::LeftStick && stick_taken(i)) {
+            stick = std::pair{m_controls[i].x, m_controls[i].y};
+        }
+    }
+    m_controls.clear();
+    m_members.clear();
+    if (m_style == TouchStyle::Arc) {
+        arc_controls();
+    } else {
+        classic_controls();
+    }
+    m_held_since.assign(m_controls.size(), 0);
+    // The stick is the first control when there is one (the stick's fingers keep its index; with a
+    // d-pad in its place they hold nothing until they lift). A finger steering an action lets go.
+    const bool has_stick = !m_controls.empty() && m_controls[0].kind == Kind::LeftStick;
+    for (Finger& f : m_fingers) {
+        if (f.role == Role::Stick) {
+            f.stick = has_stick ? 0 : -1;
+        } else if (f.role == Role::Steer) {
+            f.role = Role::None;
+            f.stick = -1;
+        }
+    }
+    std::erase_if(m_toggled, [this](const std::string& id) {
+        return std::none_of(m_controls.begin(), m_controls.end(), [&](const TouchControl& c) {
+            return c.toggle && c.action == id;
+        });
+    });
     layout_controls();
+    if (stick && has_stick) {
+        m_controls[0].x = stick->first;
+        m_controls[0].y = stick->second;
+        m_controls[0].radius =
+            m_members[0].radius * m_scale * m_sizes[static_cast<std::size_t>(TouchGroup::Stick)];
+    }
+}
+
+void TouchPad::set_style(TouchStyle style) {
+    if (style != m_style) {
+        m_style = style;
+        m_toggled.clear();
+        rebuild();
+    }
+}
+
+void TouchPad::set_actions(
+    std::vector<TouchAction> actions, std::vector<std::string> hints, bool dpad
+) {
+    const bool now_same = actions == m_actions && hints == m_hints && dpad == m_dpad;
+    if (now_same && !m_waiting) {
+        return;
+    }
+    m_next_actions = std::move(actions);
+    m_next_hints = std::move(hints);
+    m_next_dpad = dpad;
+    m_waiting = !now_same;
+    take_waiting();
+}
+
+bool TouchPad::button_held() const {
+    for (const Finger& f : m_fingers) {
+        if (f.role == Role::Steer) {
+            return true;
+        }
+        if (f.role != Role::None) {
+            continue;
+        }
+        for (const TouchControl& c : m_controls) {
+            if (c.kind == Kind::Button && distance(c, f.x, f.y) <= c.radius + kButtonReach) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void TouchPad::take_waiting() {
+    if (!m_waiting || button_held()) {
+        return;
+    }
+    m_waiting = false;
+    m_actions = std::move(m_next_actions);
+    m_hints = std::move(m_next_hints);
+    m_dpad = m_next_dpad;
+    m_next_actions.clear();
+    m_next_hints.clear();
+    if (m_style == TouchStyle::Arc) {
+        rebuild();
+    }
 }
 
 void TouchPad::set_aspect(float aspect) {
@@ -133,6 +369,7 @@ void TouchPad::set_look_speed(float speed) {
 
 void TouchPad::set_layout(std::string_view text) {
     m_offsets = {};
+    m_sizes = filled_sizes();
     std::size_t at = 0;
     while (at <= text.size()) {
         const std::size_t end = std::min(text.find(',', at), text.size());
@@ -140,14 +377,18 @@ void TouchPad::set_layout(std::string_view text) {
         char name[16] = {};
         float dx = 0.0f;
         float dy = 0.0f;
+        float size = 1.0f;
         char after = 0;
-        if (std::sscanf(item.c_str(), " %15s %f %f %c", name, &dx, &dy, &after) == 3
-            && std::isfinite(dx) && std::isfinite(dy)) {
+        const int read =
+            std::sscanf(item.c_str(), " %15s %f %f %f %c", name, &dx, &dy, &size, &after);
+        if ((read == 3 || read == 4) && std::isfinite(dx) && std::isfinite(dy)
+            && std::isfinite(size)) {
             for (std::size_t g = 0; g < kTouchGroups; ++g) {
                 if (std::string_view(name) == kGroupNames[g]) {
                     m_offsets[g] =
                         {std::clamp(dx, -kMaxOffset, kMaxOffset),
                          std::clamp(dy, -kMaxOffset, kMaxOffset)};
+                    m_sizes[g] = std::clamp(size, kMinSize, kMaxSize);
                     break;
                 }
             }
@@ -161,9 +402,13 @@ std::string TouchPad::layout() const {
     std::string text;
     for (std::size_t g = 0; g < kTouchGroups; ++g) {
         const auto [dx, dy] = m_offsets[g];
-        if (dx != 0.0f || dy != 0.0f) {
+        const float size = m_sizes[g];
+        if (dx != 0.0f || dy != 0.0f || size != 1.0f) {
             text +=
                 std::format("{}{} {:.4f} {:.4f}", text.empty() ? "" : ", ", kGroupNames[g], dx, dy);
+            if (size != 1.0f) {
+                text += std::format(" {:.2f}", size);
+            }
         }
     }
     return text;
@@ -171,6 +416,22 @@ std::string TouchPad::layout() const {
 
 void TouchPad::reset_layout() {
     m_offsets = {};
+    m_sizes = filled_sizes();
+    layout_controls();
+}
+
+float TouchPad::selected_size() const {
+    return m_selected != TouchGroup::Count ? m_sizes[static_cast<std::size_t>(m_selected)] : 1.0f;
+}
+
+void TouchPad::step_selected_size(int steps) {
+    if (m_selected == TouchGroup::Count) {
+        return;
+    }
+    float& size = m_sizes[static_cast<std::size_t>(m_selected)];
+    // Counted in steps, so that ten of them come back to 1 exactly.
+    const float stepped = std::round(size / kSizeStep + static_cast<float>(steps)) * kSizeStep;
+    size = std::clamp(stepped, kMinSize, kMaxSize);
     layout_controls();
 }
 
@@ -179,6 +440,7 @@ void TouchPad::set_editing(bool on) {
         return;
     }
     m_editing = on;
+    m_selected = TouchGroup::Count;
     m_fingers.clear();  // a finger that came down as one thing is not the other's
     m_guide_x = m_guide_y = -1.0f;
     m_look_x = m_look_y = 0.0f;
@@ -232,8 +494,11 @@ void TouchPad::snap(TouchGroup group) {
     near(down, home_y, best_y, to_y);
     near(across, m_aspect * 0.5f, best_x, to_x);
     for (std::size_t o = 0; o < kTouchGroups; ++o) {
-        if (o == g || (static_cast<TouchGroup>(o) == TouchGroup::Menu && !m_menu_button)) {
-            continue;
+        if (o == g || (static_cast<TouchGroup>(o) == TouchGroup::Menu && !m_menu_button)
+            || std::none_of(m_controls.begin(), m_controls.end(), [o](const TouchControl& c) {
+                   return static_cast<std::size_t>(c.group) == o;
+               })) {
+            continue;  // only the groups the style shows now
         }
         float other_x = 0.0f;
         float other_y = 0.0f;
@@ -255,9 +520,10 @@ void TouchPad::place(std::size_t index) {
     float across = 0.0f;
     float down = 0.0f;
     anchor(c.group, across, down);
-    c.x = (across + m.dx * m_scale) / m_aspect;
-    c.y = down + m.dy * m_scale;
-    c.radius = m.radius * m_scale;
+    const float size = m_scale * m_sizes[static_cast<std::size_t>(c.group)];
+    c.x = (across + m.dx * size) / m_aspect;
+    c.y = down + m.dy * size;
+    c.radius = m.radius * size;
 }
 
 bool TouchPad::stick_taken(std::size_t index) const {
@@ -319,6 +585,7 @@ void TouchPad::finger_down(std::uint64_t finger, float x, float y) {
             }
         }
         if (f.role == Role::Drag) {
+            m_selected = f.group;
             f.from_x = x;
             f.from_y = y;
             f.offset = m_offsets[static_cast<std::size_t>(f.group)];
@@ -337,7 +604,28 @@ void TouchPad::finger_down(std::uint64_t finger, float x, float y) {
             continue;
         }
         if (c.kind == Kind::Button) {
-            on_button = on_button || distance(c, x, y) <= c.radius + kButtonReach;
+            const bool on = distance(c, x, y) <= c.radius + kButtonReach;
+            if (on && c.then != 0 && i < m_held_since.size() && m_held_since[i] == 0) {
+                // From now: a tap that lifts before the next frame still plays the combination.
+                m_held_since[i] = std::max<std::uint64_t>(m_now_ms, 1);
+            }
+            if (on && c.toggle) {
+                // A tap turns it on or off (a finger slid onto it changes nothing).
+                const auto it = std::find(m_toggled.begin(), m_toggled.end(), c.action);
+                if (it != m_toggled.end()) {
+                    m_toggled.erase(it);
+                } else {
+                    m_toggled.push_back(c.action);
+                }
+            }
+            if (on && c.stick && f.role == Role::None) {
+                // Held by this finger wherever it slides, the slide pushing the stick.
+                f.role = Role::Steer;
+                f.stick = static_cast<int>(i);
+                f.from_x = x;
+                f.from_y = y;
+            }
+            on_button = on_button || on;
             continue;
         }
         if (!stick_taken(i) && distance(c, x, y) <= c.radius * kStickReach) {
@@ -395,6 +683,7 @@ void TouchPad::finger_up(std::uint64_t finger) {
         }
     }
     layout_controls();  // a stick let go goes home
+    take_waiting();
 }
 
 void TouchPad::release_all() {
@@ -402,6 +691,7 @@ void TouchPad::release_all() {
     m_guide_x = m_guide_y = -1.0f;
     m_look_x = m_look_y = 0.0f;
     layout_controls();
+    take_waiting();
 }
 
 void TouchPad::set_menu_button(bool on) {
@@ -418,6 +708,15 @@ bool TouchPad::take_menu_press() {
 }
 
 void TouchPad::idle(std::uint64_t now_ms) {
+    m_now_ms = now_ms;
+    m_held_since.resize(m_controls.size(), 0);
+    for (std::size_t i = 0; i < m_controls.size(); ++i) {
+        if (!held(i) && !combo_running(i)) {
+            m_held_since[i] = 0;
+        } else if (m_held_since[i] == 0) {
+            m_held_since[i] = std::max<std::uint64_t>(now_ms, 1);
+        }
+    }
     if (m_touched || !m_fingers.empty() || m_editing) {
         m_touched = false;
         m_last_touch_ms = now_ms;
@@ -475,12 +774,29 @@ bool TouchPad::held(std::size_t index) const {
                 return f.stick == static_cast<int>(index);
             case Role::Look:
                 return false;
+            case Role::Steer:
+                return f.stick == static_cast<int>(index);
             case Role::None:
                 break;
         }
         return c.kind != Kind::LeftStick && !m_editing
                && distance(c, f.x, f.y) <= c.radius + kButtonReach;
     });
+}
+
+bool TouchPad::combo_running(std::size_t index) const {
+    if (index >= m_controls.size() || index >= m_held_since.size()) {
+        return false;
+    }
+    const std::uint64_t since = m_held_since[index];
+    return m_controls[index].then != 0 && since != 0
+           && m_now_ms < since + kThenDelayMs + kThenHoldMs;
+}
+
+bool TouchPad::toggled(std::size_t index) const {
+    return index < m_controls.size() && m_controls[index].toggle
+           && std::find(m_toggled.begin(), m_toggled.end(), m_controls[index].action)
+                  != m_toggled.end();
 }
 
 void TouchPad::knob(std::size_t index, float& dx, float& dy) const {
@@ -508,16 +824,28 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
     if (m_editing) {
         return;  // the fingers move the controls, not Ratchet
     }
+    const auto press = [&pad](std::uint16_t bits) {
+        for (std::uint16_t bit = 1; bit != 0; bit = static_cast<std::uint16_t>(bit << 1)) {
+            if ((bits & bit) != 0) {
+                pad.set(static_cast<Button>(bit), true);
+            }
+        }
+    };
     for (std::size_t i = 0; i < m_controls.size(); ++i) {
-        if (!held(i)) {
+        const TouchControl& c = m_controls[i];
+        if (c.toggle ? !toggled(i) : !held(i) && !combo_running(i)) {
             continue;
         }
-        const TouchControl& c = m_controls[i];
         if (c.kind == Kind::Menu) {
             continue;  // the port's, not the game's
         }
         if (c.kind == Kind::Button) {
-            pad.set(c.button, true);
+            press(c.buttons);
+            // A combination's second press, a moment after its first (only while it is held).
+            const std::uint64_t since = i < m_held_since.size() ? m_held_since[i] : 0;
+            if (c.then != 0 && since != 0 && m_now_ms - since >= kThenDelayMs) {
+                press(c.then);
+            }
             continue;
         }
         float dx = 0.0f;
@@ -530,10 +858,27 @@ void TouchPad::apply(Pad& pad, const StickDeadZone& dead_zone) const {
         square_stick(dx, dy);
         stick_pair_bytes(dx, dy, dead_zone, pad.left_x, pad.left_y);
     }
+    // A finger steering an action: the stick all the way toward its slide, once it has slid.
+    for (const Finger& f : m_fingers) {
+        if (f.role != Role::Steer || !held(static_cast<std::size_t>(f.stick))) {
+            continue;
+        }
+        float dx = (f.x - f.from_x) * m_aspect;
+        float dy = f.y - f.from_y;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        if (length >= kSteerDead) {
+            dx /= length;
+            dy /= length;
+            square_stick(dx, dy);
+            stick_pair_bytes(dx, dy, dead_zone, pad.left_x, pad.left_y);
+        }
+    }
     float lx = 0.0f;
     float ly = 0.0f;
     look(lx, ly);
     if (lx != 0.0f || ly != 0.0f) {
+        // Camera speed above 100%: a full sideways swipe also turns faster, like the stick.
+        pad.camera_speed = std::fabs(lx) >= 0.999f ? std::max(1.0f, m_look_speed) : 1.0f;
         square_stick(lx, ly);
         stick_pair_bytes(lx, ly, dead_zone, pad.right_x, pad.right_y);
     }
