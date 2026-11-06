@@ -83,6 +83,21 @@ class SourcesTests(unittest.TestCase):
                          ("2" * 40, "2026-10-01", "2026-10-23"))
         self.assertTrue(path.read_text(encoding="utf-8").endswith("}\n"))
 
+    def test_a_shared_source_is_synced_with_the_version_it_shares(self):
+        # Going Commando's PAL and v2.00 are built from rac2/ntsc's tree: not a sync of their own,
+        # and their recorded commit follows that version's.
+        path = self.root / "games/b/game.json"
+        game = json.loads(path.read_text(encoding="utf-8"))
+        game["versions"]["pal"] = {"dir": "games/b/ntsc", "source": dict(SOURCE, shared="ntsc")}
+        path.write_text(json.dumps(game), encoding="utf-8")
+        found = sources.manifests()
+        self.assertEqual(list(found), ["a/pal", "b/ntsc"])
+        git = FakeGit({("log", "-1", "--format=%cs", "3" * 40): b"2026-11-06\n"})
+        with mock.patch("subprocess.run", git), mock.patch("time.strftime", return_value="2026-11-06"):
+            sources.record(path, found["b/ntsc"][1], "ntsc", "3" * 40, Path("/repo"))
+        written = json.loads(path.read_text(encoding="utf-8"))["versions"]["pal"]["source"]
+        self.assertEqual((written["commit"], written["date"], written["shared"]), ("3" * 40, "2026-11-06", "ntsc"))
+
     def test_sync_at_the_recorded_commit_does_nothing(self):
         git = FakeGit({("rev-parse", "HEAD"): ("1" * 40 + "\n").encode()})
         out = io.StringIO()
