@@ -5,16 +5,17 @@ own world as an additional ship destination, keeping the original planets.
 It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
-`SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
+`SCES_509.16` v2.00 or v1.00, NTSC-U, `SCUS_971.99` v1.00, or Japan, `SCPS_150.37`
+v1.02) into a Godot 4 project.
 Godot is the map editor: open a level, move, add or delete objects, and save.
-For RAC1 PAL and NTSC-U, `extract.py pack` turns supported scene edits back
+For RAC1 PAL v2.00 and NTSC-U, `extract.py pack` turns supported scene edits back
 into mod files without writing to the disc. The launcher's Mods page can
 extract, open, pack, and run those edits. Later games are still early access:
 their levels can be exported for inspection, but packing edits back into those
 games is not supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
-Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's three
+Ratchet & Clank's four discs in full, and Going Commando's three
 discs and Up Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).
@@ -30,31 +31,41 @@ You need:
 - Godot 4, tested with 4.7.2. On macOS its command is
   `/Applications/Godot.app/Contents/MacOS/Godot`; below it is `godot`.
 - An ISO image of your own disc, placed at the top of OpenRAC as
-  `baserom/SCES_509.16.iso` (PAL) or `baserom/SCUS_971.99.iso` (NTSC-U)
+  `baserom/SCES_509.16.iso` (PAL), `baserom/SCUS_971.99.iso` (NTSC-U),
+  `baserom/SCES_509.16_v1.00.iso` (PAL v1.00) or `baserom/SCPS_150.37.iso` (Japan)
   ([baserom/README.md](../baserom/README.md)). `baserom/` is ignored by git.
-  The commands below name the PAL image; every one of them reads the NTSC-U
-  image the same way.
+  The commands below name the PAL image; every one of them reads the other
+  discs' images the same way.
 
 The RAC1 PAL build only needs the executable from that image
 ([games/rac1/README.md](../games/rac1/README.md)).
 The extractor reads the whole image, and it stops unless the executable
-inside is PAL v2.00's or NTSC-U v1.00's (its name in `SYSTEM.CNF`, its size
+inside is one of the four discs' (its name in `SYSTEM.CNF`, its size
 and SHA-1, which it reads from the version's entry in
 [games/rac1/game.json](../games/rac1/game.json), as it does for the later games'
 discs from theirs).
 
-## The two discs
+## The four discs
 
-Both discs keep their levels the same way, so every reader serves both;
-what differs is one table per version in [disc.py](disc.py) (`VERSIONS`;
-the executable's name, size and SHA-1 come from `games/rac1/game.json`):
+All four discs keep their levels the same way, so every reader serves all of
+them; what differs is one table per version in [disc.py](disc.py) (`VERSIONS`;
+the executable's name, size and SHA-1 come from `games/rac1/game.json`). PAL
+v1.00 and v2.00 boot the same file name, `SCES_509.16`, so the reader tells
+them apart by the executable's size and SHA-1.
 
-| | PAL v2.00 | NTSC-U v1.00 |
-|---|---|---|
-| Executable | `SCES_509.16` | `SCUS_971.99` |
-| Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same |
-| Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc |
-| (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) |
+| | PAL v2.00 | NTSC-U v1.00 | PAL v1.00 | Japan v1.02 |
+|---|---|---|---|---|
+| Executable | `SCES_509.16` | `SCUS_971.99` | `SCES_509.16` (1,381,764 bytes) | `SCPS_150.37` |
+| Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same | the same | the same |
+| Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc | `gameplay_ntsc` (inferred) | `gameplay_ntsc` (inferred; 100 sectors in level 0 against the PAL copy's 210) |
+| (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) | 0x165480 (the same values) | 0x165600 (the same values) |
+
+The table's address is where `func_0020DFF8` forms it in each executable (its
+copy in PAL v1.00 is at 0x20CCB0, in the Japanese one at 0x20EEF0); the
+2,048 bytes there are PAL's. The gameplay copy of the two newer discs is read
+from the shared source and was not run on a console: no native program plays
+them yet, so only the extraction is checked (all 21 levels of each disc read
+without an error, and both place the same number of meshes in every level).
 
 The NTSC-U side follows ReRAC's disc layout (`docs/formats/disc_layout.md`)
 and the NTSC decomp's `load_level_gameplay`, which loads the NTSC copy

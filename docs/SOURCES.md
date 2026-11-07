@@ -71,6 +71,11 @@ Everything else is exactly as it was at that commit.
   reads itself: `src/game/mobyfunc.c`, where it goes, now uses `include/moby.h`,
   whose field names differ.
 
+- `rac1/pal1` (PAL disc v1.00) and `rac1/jp` (the Japanese release) name this tree (`"dir"`) and share
+  its source (`"shared": "pal"`): rac1-decomp builds them as its `pal_v1` and `jp` versions
+  (`src/versions/`, `config/versions/`). They are not synced on their own, and a sync of rac1/pal
+  records its commit for them too.
+
 **rac1/ntsc**
 - The README credits the NTSC decomp by that name only
   ([removal requests](policy/SOURCING.md#removal-requests)).

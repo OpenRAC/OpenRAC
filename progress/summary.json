@@ -29,18 +29,48 @@
     },
     "note": "Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs."
   },
+  "rac1/pal1": {
+    "title": "Ratchet & Clank",
+    "region": "PAL (Europe)",
+    "serial": "SCES_509.16",
+    "progress": {
+      "matched_code": 2888380,
+      "total_code": 3693664,
+      "matched_functions": 4873,
+      "total_functions": 5089,
+      "fuzzy_percent": 78.54,
+      "date": "2026-11-03",
+      "percent": 78.2
+    },
+    "note": "The boot executable and all 19 level programs, counted with the primary's rules (config/versions/pal_v1/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/pal_v1/, builds its bytes (tools/version_check.py)."
+  },
+  "rac1/jp": {
+    "title": "Ratchet & Clank",
+    "region": "NTSC-J (Japan)",
+    "serial": "SCPS_150.37",
+    "progress": {
+      "matched_code": 3319596,
+      "total_code": 3706260,
+      "matched_functions": 5009,
+      "total_functions": 5101,
+      "fuzzy_percent": 89.7,
+      "date": "2026-11-03",
+      "percent": 89.57
+    },
+    "note": "The boot executable and all 19 level programs, counted with the primary's rules (config/versions/jp/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/jp/, builds its bytes (tools/version_check.py)."
+  },
   "rac2/ntsc": {
     "title": "Ratchet & Clank: Going Commando",
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 5202320,
+      "matched_code": 5203520,
       "total_code": 5524060,
-      "matched_functions": 8353,
+      "matched_functions": 8355,
       "total_functions": 8527,
-      "fuzzy_percent": 94.18,
+      "fuzzy_percent": 94.2,
       "date": "2026-11-06",
-      "percent": 94.18
+      "percent": 94.2
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },
@@ -49,13 +79,13 @@
     "region": "PAL (Europe)",
     "serial": "SCES_516.07",
     "progress": {
-      "matched_code": 5145744,
-      "total_code": 5702200,
-      "matched_functions": 8322,
-      "total_functions": 8630,
-      "fuzzy_percent": 90.24,
+      "matched_code": 5237972,
+      "total_code": 5697856,
+      "matched_functions": 8340,
+      "total_functions": 8620,
+      "fuzzy_percent": 91.93,
       "date": "2026-11-06",
-      "percent": 90.24
+      "percent": 91.93
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },
@@ -64,13 +94,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 5137712,
+      "matched_code": 5168092,
       "total_code": 5578636,
-      "matched_functions": 8333,
+      "matched_functions": 8354,
       "total_functions": 8586,
-      "fuzzy_percent": 92.1,
+      "fuzzy_percent": 92.64,
       "date": "2026-11-06",
-      "percent": 92.1
+      "percent": 92.64
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },

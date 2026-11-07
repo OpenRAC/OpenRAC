@@ -8,9 +8,11 @@ are comparable within a game, not between games.
 |---|---|---:|---:|---:|---|
 | Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,096 / 3,713,096 bytes) | 5,116 / 5,116 | 100.00% | 2026-11-03 |
 | Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
-| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 94.18% (5,202,320 / 5,524,060 bytes) | 8,353 / 8,527 | 94.18% | 2026-11-06 |
-| Ratchet & Clank: Going Commando | SCES_516.07 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 90.24% (5,145,744 / 5,702,200 bytes) | 8,322 / 8,630 | 90.24% | 2026-11-06 |
-| Ratchet & Clank: Going Commando | SCUS_972.68_v2 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 92.10% (5,137,712 / 5,578,636 bytes) | 8,333 / 8,586 | 92.10% | 2026-11-06 |
+| Ratchet & Clank | SCES_509.16_v1 ([`games/rac1`](../games/rac1)) | 78.20% (2,888,380 / 3,693,664 bytes) | 4,873 / 5,089 | 78.54% | 2026-11-03 |
+| Ratchet & Clank | SCPS_150.37 ([`games/rac1`](../games/rac1)) | 89.57% (3,319,596 / 3,706,260 bytes) | 5,009 / 5,101 | 89.70% | 2026-11-03 |
+| Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 94.20% (5,203,520 / 5,524,060 bytes) | 8,355 / 8,527 | 94.20% | 2026-11-06 |
+| Ratchet & Clank: Going Commando | SCES_516.07 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 91.93% (5,237,972 / 5,697,856 bytes) | 8,340 / 8,620 | 91.93% | 2026-11-06 |
+| Ratchet & Clank: Going Commando | SCUS_972.68_v2 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 92.64% (5,168,092 / 5,578,636 bytes) | 8,354 / 8,586 | 92.64% | 2026-11-06 |
 | Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](../games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% | 2026-10-03 |
 | Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/ntsc`](../games/rac4/ntsc)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
 | Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/ntsc`](../games/rac5/ntsc)) | – | – | – | – |
@@ -20,6 +22,8 @@ are comparable within a game, not between games.
 
 - **rac1/pal**: The boot executable and all 19 level programs. Handwritten assembly and linker remnants count as finished; staged near misses (nonmatching/) give the fuzzy figure.
 - **rac1/ntsc**: Lombyte commits no report: its CI publishes one on the project's progress branch, which `openrac.py progress --fetch` copies to progress/sources/. Byte-weighted over the boot executable and the 19 level programs.
+- **rac1/pal1**: The boot executable and all 19 level programs, counted with the primary's rules (config/versions/pal_v1/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/pal_v1/, builds its bytes (tools/version_check.py).
+- **rac1/jp**: The boot executable and all 19 level programs, counted with the primary's rules (config/versions/jp/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/jp/, builds its bytes (tools/version_check.py).
 - **rac2/ntsc**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
 - **rac2/pal**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
 - **rac2/ntsc2**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
