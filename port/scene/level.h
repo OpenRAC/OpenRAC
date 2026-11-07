@@ -98,6 +98,9 @@ struct Primitive {
     int material = 0;
     int shell = -1;  // a sky's: the game's shell number (its node Sky_N), for the shell's matrix
     int terrain_fragment = -1;
+    // The streamed chunk the fragment belongs to (Going Commando's levels, node Terrain_cN_MMM):
+    // 0 the level's own terrain. The game draws one chunk's fragments at a time.
+    int terrain_chunk = 0;
     std::uint16_t occlusion = Pvs::always;
     // Whether any of its vertices is a glow packet's (light slot -2, mesh.vert): only those can be
     // drawn by the mobys' glow pass, which leaves the others out (LevelScene::upload sets it).

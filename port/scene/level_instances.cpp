@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <iterator>
+#include <map>
 #include <stdexcept>
 
 #include "assets/geometry/shrub_lighting.h"
@@ -590,10 +591,28 @@ void LevelScene::move_scenery(const GameScenery& game) {
     // The terrain's occlusion words from the game's records (GameScenery::terrain_occlusion), once
     // they differ from the primitives': the cached visible lists are made again.
     if (!game.terrain_occlusion.empty()) {
-        bool changed = false;
+        // The streamed chunk the game's records are (Going Commando: the level's own terrain, or a
+        // chunk it loaded in its place): the one with as many fragments. Only that one is drawn.
+        std::map<int, std::size_t> fragments;
+        for (const Model& model : m_models) {
+            for (const Primitive& p : model.primitives) {
+                if (p.terrain_fragment >= 0) {
+                    auto& n = fragments[p.terrain_chunk];
+                    n = std::max(n, static_cast<std::size_t>(p.terrain_fragment) + 1);
+                }
+            }
+        }
+        int chunk = -1;
+        for (const auto& [c, n] : fragments) {
+            if (n == game.terrain_occlusion.size() && chunk < 0) {
+                chunk = c;
+            }
+        }
+        bool changed = chunk != m_terrain_chunk;
+        m_terrain_chunk = chunk;
         for (Model& model : m_models) {
             for (Primitive& p : model.primitives) {
-                if (p.terrain_fragment >= 0
+                if (p.terrain_fragment >= 0 && p.terrain_chunk == chunk
                     && static_cast<std::size_t>(p.terrain_fragment)
                            < game.terrain_occlusion.size()) {
                     const std::uint16_t word =

@@ -697,6 +697,8 @@ private:
     std::vector<PvsModel> m_pvs_models;
     // The terrain fragments past the game's far cull this tick (GameScenery::terrain_far).
     std::vector<std::uint8_t> m_terrain_far;
+    // The terrain chunk the game's records are (move_scenery); -1 every chunk.
+    int m_terrain_chunk = -1;
     std::array<CameraCulling, kLayerCount> m_camera_culling{};
     // Each model's copy in material order, for the opaque pass of the static layers (upload); a
     // model of one primitive, or one only live mobys use, is its own.

@@ -743,6 +743,7 @@ void LevelScene::release() {
     }
     m_pvs_models.clear();
     m_terrain_far.clear();
+    m_terrain_chunk = -1;
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
@@ -1568,6 +1569,12 @@ void LevelScene::draw_layer(
                     std::vector<std::uint32_t> visible_indices;
                     for (const auto& primitive : *primitives) {
                         const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
+                        // Another streamed chunk than the game's: not drawn (move_scenery).
+                        if (primitive.terrain_fragment >= 0 && m_terrain_chunk >= 0
+                            && primitive.terrain_chunk != m_terrain_chunk) {
+                            ++cached.rejected;
+                            continue;
+                        }
                         const bool far = primitive.terrain_fragment >= 0
                                          && fragment < m_terrain_far.size()
                                          && m_terrain_far[fragment];

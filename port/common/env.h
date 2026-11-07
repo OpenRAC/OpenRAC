@@ -151,6 +151,7 @@ enum class Var : std::uint16_t {
     RenderThread,
     Replay,
     RoundNearest,
+    SceneryLog,
     ScriptBudgetMs,
     ScrollingShadows,
     ShaderDir,

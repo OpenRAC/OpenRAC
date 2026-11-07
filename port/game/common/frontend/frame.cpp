@@ -1390,6 +1390,24 @@ std::optional<scene::GameScenery> scenery_matrices(
             result.shrub_hidden[i] = (r[0x16] & 1) || far;
         }
     }
+    // Once a level: which visibility the culls use and the caps they read, for a player's log.
+    static int logged_level = -100;
+    if (logged_level != g->loaded) {
+        logged_level = g->loaded;
+        log::info(
+            "level {}: scenery culls from the game's records: occlusion mask {}, {} ties, {} "
+            "shrubs, {} terrain fragments; caps {} (ties) and {:.0f} (shrubs); draw distance {}",
+            g->loaded,
+            mask ? "read" : "unavailable",
+            result.tie_hidden.size(),
+            result.shrub_hidden.size(),
+            result.terrain_occlusion.size(),
+            tie_cap,
+            shrub_cap,
+            settings::get().draw_distance == 0 ? std::string("Unlimited")
+                                               : std::format("{}%", settings::get().draw_distance)
+        );
+    }
     // OPENRAC_SCENERY_LOG: what the culls above leave out, every 100 ticks.
     static const bool& scenery_log = stats::probe(
         "OPENRAC_SCENERY_LOG", "the ties, shrubs and terrain the game's culls leave out"
