@@ -33,7 +33,8 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$host" ] || { sed -n 5,20p "$0" >&2; exit 2; }
 
-tests="mtlgl imgui_gl overlay_draw renderer_direct renderer_shader touch_overlay viewer world_gl_smoke"
+tests="mtlgl imgui_gl overlay_draw renderer_direct renderer_shader touch_overlay viewer world_gl_smoke
+       texture_filter render_equivalence"
 app=$(ls -d "$build"/apps/openrac-rac1-ntsc/*.app)
 remote=openrac-remote
 results=build/remote/${host#*@}
@@ -64,10 +65,15 @@ system_profiler SPDisplaysDataType | grep -E 'Chipset Model|Metal'
 for t in $tests; do
     if [ "$t" = mtlgl ]; then
         MTL_DEBUG_LAYER=1 ./mtlgl_test > "out/$t.log" 2>&1
+    elif [ "$t" = render_equivalence ]; then
+        OPENRAC_GL_API=desktop SDL_VIDEO_DRIVER=cocoa ./${t}_test --opengl-frames out/opengl-frames.bin \
+            > "out/${t}_opengl.log" 2>&1 &&
+            OPENRAC_GL_API=metal MTL_DEBUG_LAYER=1 SDL_VIDEO_DRIVER=cocoa \
+                ./${t}_test --against-opengl out/opengl-frames.bin > "out/${t}_metal.log" 2>&1
     else
         args=""
         [ "$t" = viewer ] && args=./viewer_test_level_metal
-        OPENRAC_GL_API=metal MTL_DEBUG_LAYER=1 SDL_VIDEO_DRIVER=cocoa ./${t}_test $args > "out/${t}_metal.log" 2>&1
+        OPENRAC_GL_API=metal OPENRAC_ENHANCED=0 MTL_DEBUG_LAYER=1 SDL_VIDEO_DRIVER=cocoa ./${t}_test $args > "out/${t}_metal.log" 2>&1
     fi
     status=$?
     case $status in 0) r=passed ;; 77) r=skipped ;; *) r="FAILED ($status)" ;; esac
