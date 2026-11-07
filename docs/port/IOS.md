@@ -74,7 +74,7 @@ are retained, and existing saves are preserved. Keep the app open during import.
 Legacy `Documents/data` installations are moved into the active game folder
 when it has no existing installation. Prepared desktop data is accepted by the
 import backend as well. The public bundle contains code, libraries, notices and
-the desktop catalogue's small thumbnails. Retail discs and extracted gameplay
+the desktop catalogue's thumbnails, tiles and game-page backgrounds. Retail discs and extracted gameplay
 data must remain outside the application bundle and Git.
 
 The current iOS host supports native play, local disc preparation, game fixes,
