@@ -14,7 +14,7 @@ s32 func_L00_005A8E28(s32 *arg0, s32 arg1) {
         do {
             temp_v0 = *var_a0;
             var_a1 -= 1;
-            var_a0 += 4;
+            var_a0 += 1;
             var_v1 += temp_v0;
         } while (var_a1 != 0);
     }

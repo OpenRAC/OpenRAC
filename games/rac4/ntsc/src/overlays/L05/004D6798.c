@@ -12,6 +12,6 @@ void func_L05_004D6798(s32 arg0, s32 arg1, s32 arg2, f32 fparg0) {
     do {
         var_s1 -= 1;
         *var_s0 = func_L00_005BD140(arg1, arg2, fparg0);
-        var_s0 += 4;
+        var_s0 += 1;
     } while (var_s1 >= 0);
 }

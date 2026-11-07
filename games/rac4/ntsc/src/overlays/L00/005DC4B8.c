@@ -25,8 +25,8 @@ void func_L00_005DC4B8(void) {
         *var_v1 = 0;
         var_v0 -= 1;
         *var_a0 = 0;
-        var_v1 += 4;
-        var_a0 += 4;
+        var_v1 += 1;
+        var_a0 += 1;
     } while (var_v0 >= 0);
     var_a0_2 = &D_00222440;
     var_v1_2 = &D_00222430;
@@ -35,7 +35,7 @@ void func_L00_005DC4B8(void) {
         *var_v1_2 = 0;
         var_v0_2 -= 1;
         *var_a0_2 = 0;
-        var_v1_2 += 4;
-        var_a0_2 += 4;
+        var_v1_2 += 1;
+        var_a0_2 += 1;
     } while (var_v0_2 >= 0);
 }

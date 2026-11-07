@@ -8,7 +8,7 @@ void *func_L01_00636D50(u32 arg0) {
 
     var_v1 = NULL;
     if (arg0 < 0x40U) {
-        var_v1 = (arg0 * 0x50) + &D_00354720;
+        var_v1 = (arg0 * 0x50) + (u8 *)&D_00354720;
     }
     return var_v1;
 }

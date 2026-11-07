@@ -22,7 +22,7 @@ void func_004B9140(void) {
         *var_v1 = 1;
         var_v0 -= 1;
         *var_a0 = 0;
-        var_v1 += 0x10;
-        var_a0 += 0x10;
+        var_v1 += 4;
+        var_a0 += 4;
     } while (var_v0 >= 0);
 }

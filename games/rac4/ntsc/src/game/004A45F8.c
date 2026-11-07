@@ -13,7 +13,7 @@ extern s32 D_307B58_[];
 void func_004A45F8(s32 a0) {
     s32 *temp_s0;
 
-    temp_s0 = (func_00505B20() * 0xEC) + &D_307B58;
+    temp_s0 = (s32 *)((func_00505B20() * 0xEC) + (u8 *)&D_307B58);
     if (*temp_s0 & 1) {
         func_004A46A8();
     }
