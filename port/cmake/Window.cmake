@@ -903,9 +903,11 @@ if(OPENRAC_METAL)
                    LIBS openrac_renderer_metal openrac_scene_renderer)
   target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
   set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
-  # mtlgl          the GL core on Metal without a window: clears and reads (tests/mtlgl_test.cpp)
-  openrac_add_test(mtlgl LIBS openrac_renderer_metal)
-  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77)
+  # mtlgl          the GL core on Metal without a window: clears and reads; then the same calls
+  #                in a hidden window on OpenGL and on Metal, read back (tests/mtlgl_test.cpp)
+  openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.

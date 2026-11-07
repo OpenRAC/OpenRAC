@@ -2,9 +2,10 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // renderer/metal/mtlgl.h without a window: the context says what it is, clears the default
-// framebuffer and reads it back with GL's pack alignment, and refuses the clears it cannot do yet;
-// textures, framebuffers, a multisample resolve, copies and buffers; a program's indexed draw.
-// Skipped (exit 77) where there is no Metal device.
+// framebuffer and reads it back with GL's pack alignment; textures, framebuffers, a multisample
+// resolve, copies and buffers; a program's indexed draw. Then cases the renderers need, drawn
+// through renderer/gl.h in a hidden window on OpenGL and on Metal, read back and compared.
+// Skipped (exit 77) where there is no Metal device; the comparison where either window cannot open.
 
 #include <algorithm>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include <vector>
 
 #include "check.h"
+#include "platform/window.h"
 #include "renderer/gl.h"
 #include "renderer/metal/mtlgl.h"
 
@@ -26,6 +28,222 @@ Fn proc(const char* name) {
     const auto p = openrac::mtlgl::get_proc(name);
     CHECK(p != nullptr);
     return reinterpret_cast<Fn>(p);
+}
+
+// ---- The same calls on OpenGL and on Metal, through renderer/gl.h in a hidden window ----
+
+constexpr int kSide = 16;
+constexpr GLenum kRgba32ui = 0x8D70, kRgbaInteger = 0x8D99, kUnsignedInt = 0x1405,
+                 kReplace = 0x1E01, kFrontAndBack = 0x0408;
+
+GLuint program_of(const char* fragment) {
+    const char* vertex = R"(#version 410 core
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 colour;
+out vec4 v_colour;
+void main() {
+    v_colour = colour;
+    gl_Position = vec4(position, 1);
+}
+)";
+    const GLuint program = glCreateProgram();
+    for (const auto& [type, source] : {std::pair{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}) {
+        const GLuint shader = glCreateShader(type);
+        glShaderSource(shader, 1, &source, nullptr);
+        glCompileShader(shader);
+        glAttachShader(program, shader);
+    }
+    glLinkProgram(program);
+    GLint linked = 0;
+    glGetProgramiv(program, GL_LINK_STATUS, &linked);
+    CHECK(linked == GL_TRUE);
+    glUseProgram(program);
+    return program;
+}
+
+// Triangles of (x, y, z, r, g, b, a) vertices.
+void draw(std::initializer_list<float> vertices) {
+    GLuint array = 0, buffer = 0;
+    glGenVertexArrays(1, &array);
+    glBindVertexArray(array);
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(float)),
+                 std::data(vertices), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float),
+                          reinterpret_cast<const void*>(3 * sizeof(float)));
+    glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 7));
+    glDeleteBuffers(1, &buffer);
+    glDeleteVertexArrays(1, &array);
+}
+
+// The whole target at depth z in one colour.
+void quad(float z, float r, float g, float b) {
+    draw({-1, -1, z, r, g, b, 1, 1, -1, z, r, g, b, 1, 1, 1, z, r, g, b, 1,
+          -1, -1, z, r, g, b, 1, 1, 1, z, r, g, b, 1, -1, 1, z, r, g, b, 1});
+}
+
+constexpr const char* kColourFragment = R"(#version 410 core
+in vec4 v_colour;
+layout(location = 0) out vec4 result;
+void main() { result = v_colour; }
+)";
+
+GLuint texture(GLenum internal, int side) {
+    GLuint name = 0;
+    glGenTextures(1, &name);
+    glBindTexture(GL_TEXTURE_2D, name);
+    const bool integer = internal == kRgba32ui;
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internal), side, side, 0,
+                 integer ? kRgbaInteger : GL_RGBA, integer ? kUnsignedInt : GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    return name;
+}
+
+// A framebuffer of a colour texture and, given a format, a depth renderbuffer, bound for drawing
+// and reading, its viewport the whole of it.
+GLuint framebuffer(GLuint colour, int side, GLenum depth = 0) {
+    GLuint name = 0;
+    glGenFramebuffers(1, &name);
+    glBindFramebuffer(GL_FRAMEBUFFER, name);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colour, 0);
+    if (depth != 0) {
+        GLuint buffer = 0;
+        glGenRenderbuffers(1, &buffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, buffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, depth, side, side);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+                                  depth == GL_DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
+                                                               : GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, buffer);
+    }
+    CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    glViewport(0, 0, side, side);
+    return name;
+}
+
+// A multisampled colour renderbuffer's framebuffer, bound for drawing and reading.
+GLuint multisampled(int side) {
+    GLuint buffer = 0, name = 0;
+    glGenRenderbuffers(1, &buffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, buffer);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_RGBA8, side, side);
+    glGenFramebuffers(1, &name);
+    glBindFramebuffer(GL_FRAMEBUFFER, name);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, buffer);
+    CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+    return name;
+}
+
+void clear_to(float r, float g, float b, float a) {
+    glClearColor(r, g, b, a);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
+// A fresh kSide² RGBA8 target, cleared to transparent black.
+GLuint target(GLenum depth = 0) {
+    const GLuint name = framebuffer(texture(GL_RGBA8, kSide), kSide, depth);
+    clear_to(0, 0, 0, 0);
+    return name;
+}
+
+// The read framebuffer's kSide² pixels, then the first error since the case began.
+std::vector<std::uint8_t> pixels() {
+    std::vector<std::uint8_t> out(kSide * kSide * 4 + 1);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_UNSIGNED_BYTE, out.data());
+    out.back() = static_cast<std::uint8_t>(glGetError() & 0xFF);
+    return out;
+}
+
+struct Case {
+    const char* name;
+    std::vector<std::uint8_t> (*run)();
+    // AMD's OpenGL filters in eighths of a level, so channels may differ by 1 there; Apple's
+    // OpenGL runs on Metal and agrees exactly.
+    bool filtered = false;
+};
+
+const Case kCases[] = {
+    {"gradient",
+     [] {
+         target();
+         program_of(kColourFragment);
+         draw({-1, -1, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1,
+               -1, -1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 0.5f});
+         return pixels();
+     }},
+    {"edges",
+     [] {
+         target();
+         program_of(kColourFragment);
+         draw({-0.9f, -0.93f, 0, 1, 1, 1, 1, 0.71f, -0.2f, 0, 1, 1, 1, 1, -0.33f, 0.87f, 0, 1, 1, 1, 1,
+               0.5f, 0.5f, 0, 1, 0, 0, 1, 0.75f, 0.5f, 0, 1, 0, 0, 1, 0.5f, 0.75f, 0, 1, 0, 0, 1});
+         return pixels();
+     }},
+    {"linear texture",
+     [] {
+         target();
+         const GLuint image = texture(GL_RGBA8, 3);
+         const std::uint8_t texels[36] = {255, 0, 0, 255, 0, 255, 0, 200, 0, 0, 255, 255,
+                                          17, 99, 3, 0, 250, 250, 250, 255, 64, 32, 16, 8,
+                                          1, 2, 3, 4, 128, 129, 130, 131, 0, 255, 0, 255};
+         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 3, 3, GL_RGBA, GL_UNSIGNED_BYTE, texels);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+         glBindTexture(GL_TEXTURE_2D, image);
+         program_of(R"(#version 410 core
+in vec4 v_colour;
+uniform sampler2D image;
+layout(location = 0) out vec4 result;
+void main() { result = texture(image, v_colour.xy); }
+)");
+         draw({-1, -1, 0, -0.1f, -0.2f, 0, 0, 1, -1, 0, 1.1f, -0.2f, 0, 0, 1, 1, 0, 1.1f, 0.9f, 0, 0,
+               -1, -1, 0, -0.1f, -0.2f, 0, 0, 1, 1, 0, 1.1f, 0.9f, 0, 0, -1, 1, 0, -0.1f, 0.9f, 0, 0});
+         return pixels();
+     },
+     true},
+    {"scaled multisampled blit",
+     [] {
+         const GLuint from = multisampled(8);
+         clear_to(1, 0, 0, 1);
+         const GLuint into = target();
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(0, 0, 8, 8, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     }},
+};
+
+// Each case's pixels drawn through `api`, and its renderer's name; empty when no window of it
+// opens.
+std::vector<std::vector<std::uint8_t>> draw_cases(openrac::platform::GlApi api, std::string& renderer) {
+    openrac::platform::Platform sdl(openrac::platform::kVideo);
+    openrac::platform::WindowConfig config;
+    config.width = kSide;
+    config.height = kSide;
+    config.hidden = true;
+    config.vsync = false;
+    config.resizable = false;
+    config.gl_api = api;
+    std::string why;
+    const auto window = openrac::platform::Window::open(config, why);
+    std::string missing;
+    if (!sdl.ok() || !window || window->gl_api() != api
+        || !load(openrac::platform::Window::gl_loader(), missing)) {
+        std::printf("no window: %s%s\n", why.c_str(), missing.c_str());
+        return {};
+    }
+    renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    std::vector<std::vector<std::uint8_t>> drawn;
+    for (const Case& c : kCases) {
+        drawn.push_back(c.run());
+    }
+    return drawn;
 }
 
 }  // namespace
@@ -299,5 +517,27 @@ void main() { result = colour + v_tint; }
     openrac::mtlgl::present();
     openrac::mtlgl::close();
     CHECK(!openrac::mtlgl::active());
+
+    std::string renderer;
+    const auto opengl = draw_cases(openrac::platform::GlApi::Desktop, renderer);
+    const auto metal = draw_cases(openrac::platform::GlApi::Metal, renderer);
+    if (opengl.empty() || metal.empty()) {
+        return openrac::test::result();
+    }
+    const bool apple = renderer.starts_with("Apple");
+    for (std::size_t i = 0; i < std::size(kCases); ++i) {
+        const auto& a = opengl[i];
+        const auto& b = metal[i];
+        int differ = 0, worst = 0;
+        for (std::size_t n = 0; n + 1 < a.size(); ++n) {
+            const int d = std::abs(a[n] - b[n]);
+            differ += d != 0 ? 1 : 0;
+            worst = std::max(worst, d);
+        }
+        std::printf("%s on %s: OpenGL error 0x%02X, Metal 0x%02X; %d channels differ, by up to %d\n",
+                    kCases[i].name, renderer.c_str(), a.back(), b.back(), differ, worst);
+        CHECK(a.back() == b.back());
+        CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0));
+    }
     return openrac::test::result();
 }
