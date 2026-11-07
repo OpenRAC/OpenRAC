@@ -611,7 +611,7 @@ int main() {
     std::string error;
     if (!openrac::mtlgl::open({.width = 5, .height = 3}, error)) {
         std::printf("%s\n", error.c_str());
-        return error == "no Metal device" ? 77 : 1;
+        return error == "no Metal device" || error.ends_with("is not MTLGPUFamilyMac2") ? 77 : 1;
     }
     const auto get_string = proc<PFN_glGetString>("glGetString");
     const auto get_error = proc<PFN_glGetError>("glGetError");

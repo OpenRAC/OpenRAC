@@ -4,6 +4,7 @@
 // The context, the command stream (mtlgl_internal.h), state, and the present. Resources are
 // mtlgl_resources.mm's.
 
+#include <OpenGL/OpenGL.h>
 #include <SDL3/SDL_video.h>
 
 #include <algorithm>
@@ -706,6 +707,45 @@ const Entry kEntries[] = {
 };
 #undef MTLGL_ENTRY
 
+// The GPU OpenGL would draw with: Metal's default is the discrete one even where `pmset -a
+// gpuswitch 0` keeps a MacBook Pro on its integrated one, which OpenGL then uses.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+id<MTLDevice> opengl_device() {
+    const CGLPixelFormatAttribute attributes[] = {
+        kCGLPFAOpenGLProfile, static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_GL4_Core), kCGLPFAAccelerated,
+        static_cast<CGLPixelFormatAttribute>(0)};
+    CGLPixelFormatObj format = nullptr;
+    int screens = 0, renderer = 0, count = 0;
+    if (CGLChoosePixelFormat(attributes, &format, &screens) != kCGLNoError || format == nullptr) {
+        return nil;
+    }
+    CGLDescribePixelFormat(format, 0, kCGLPFARendererID, &renderer);
+    CGLReleasePixelFormat(format);
+    CGLRendererInfoObj info = nullptr;
+    if (CGLQueryRendererInfo(0xFFFFFFFF, &info, &count) != kCGLNoError) {
+        return nil;
+    }
+    std::uint64_t registry = 0;
+    for (int i = 0; i < count; ++i) {
+        int rid = 0, low = 0, high = 0;
+        CGLDescribeRenderer(info, i, kCGLRPRendererID, &rid);
+        CGLDescribeRenderer(info, i, kCGLRPRegistryIDLow, &low);
+        CGLDescribeRenderer(info, i, kCGLRPRegistryIDHigh, &high);
+        if (rid == renderer) {
+            registry = std::uint64_t{static_cast<std::uint32_t>(high)} << 32 | static_cast<std::uint32_t>(low);
+        }
+    }
+    CGLDestroyRendererInfo(info);
+    for (id<MTLDevice> device in MTLCopyAllDevices()) {
+        if (device.registryID == registry) {
+            return device;
+        }
+    }
+    return nil;
+}
+#pragma clang diagnostic pop
+
 }  // namespace
 
 }  // namespace openrac::mtlgl::detail
@@ -716,7 +756,10 @@ using namespace detail;
 
 bool open(const Config& config, std::string& error) {
     close();
-    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+    id<MTLDevice> device = opengl_device();
+    if (device == nil) {
+        device = MTLCreateSystemDefaultDevice();
+    }
     if (device == nil) {
         error = "no Metal device";
         return false;

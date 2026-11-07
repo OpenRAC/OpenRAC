@@ -219,7 +219,7 @@ if(OPENRAC_METAL)
     renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
     renderer/metal/shader_translate.cpp)
   target_link_libraries(openrac_renderer_metal
-    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore"
+    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
            "-framework Foundation"
     PRIVATE openrac_spirv_cross)
   target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)

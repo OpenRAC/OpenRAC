@@ -125,10 +125,11 @@ Mac, from `port/`:
    `cmake --preset release-x86_64 && cmake --build --preset release-x86_64`.
 3. `tools/remote-mac.sh you@that-mac.local --data ~/OpenRAC/active/rac1/data`.
 
-Each game log's `graphics:` line names the GPU it ran on. A MacBook Pro with two GPUs gives
-Metal its discrete one; for the integrated one, run `sudo pmset -a gpuswitch 0` on it first
-(`sudo pmset -a gpuswitch 2` switches back). A GPU older than `MTLGPUFamilyMac2` (Haswell's Iris
-Pro, for one) is not used: the game says so and draws with OpenGL.
+Each game log's `graphics:` line names the GPU it ran on. Metal takes the GPU OpenGL would
+(`mtlgl::open` asks CGL), so a MacBook Pro with two GPUs draws on its discrete one, or on its
+integrated one after `sudo pmset -a gpuswitch 0` (`sudo pmset -a gpuswitch 2` switches back).
+A GPU older than `MTLGPUFamilyMac2` (Haswell's Iris Pro, for one) is not used: the game says so
+and draws with OpenGL, and `mtlgl_test` is skipped.
 
 Compute (`glDispatchCompute`, `glMemoryBarrier`) is not handed out, so `gl::load` leaves it null as
 it does on macOS's OpenGL 4.1, whose framework has neither function. What dispatches compute is
