@@ -128,9 +128,11 @@ Metal its discrete one; for the integrated one, run `sudo pmset -a gpuswitch 0` 
 (`sudo pmset -a gpuswitch 2` switches back). A GPU older than `MTLGPUFamilyMac2` (Haswell's Iris
 Pro, for one) is not used: the game says so and draws with OpenGL.
 
+Compute (`glDispatchCompute`, `glMemoryBarrier`) is not handed out, so `gl::load` leaves it null as
+it does on macOS's OpenGL 4.1, whose framework has neither function. What dispatches compute is
+the enhanced renderer, behind `gl::is_vulkan()`.
+
 ## Still to come
 
-- The rest of `renderer/gl.h`: compute.
-- The renderers' picture tests (`render_equivalence`, `texture_filter`) run on it.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
 - iOS.
