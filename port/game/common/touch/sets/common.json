@@ -35,7 +35,7 @@
       "actions": [
         { "id": "up", "icon": "up", "press": ["cross"], "at": 0, "size": "large" },
         { "id": "down", "icon": "down", "press": ["square"], "at": 4 },
-        { "id": "fast", "icon": "boost", "press": ["r1"], "at": 5, "size": "small", "when": "hydro", "side": "arc" }
+        { "id": "fast", "icon": "boost", "press": ["r1"], "at": 3, "size": "small", "when": "hydro", "side": "arc" }
       ]
     },
     "clank": {
