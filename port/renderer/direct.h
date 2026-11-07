@@ -469,7 +469,8 @@ private:
     Input m_input;
     std::unique_ptr<GifInterpreter> m_interpreter;
     // The 2D shader as it drops a pixel failing the alpha test: discarded, or on a multisampled
-    // frame its samples masked out (OPENRAC_SAMPLE_MASK). use_program picks one.
+    // frame its samples masked out (OPENRAC_SAMPLE_MASK), except on Apple's systems. use_program
+    // picks one.
     Shader m_shader;
     Shader m_shader_masked;
     bool m_masked = false;

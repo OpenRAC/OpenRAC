@@ -22,7 +22,7 @@ column by column from the first, each column fused: that is written out.
 
 Division follows the OpenGL beside it (`shader_translate.cpp`). Apple's divides as `fast::divide`
 does, not exactly. AMD's multiplies by a constant divisor's rounded reciprocal, so that is written
-out; `fast::divide` there would fold the reciprocal into an earlier multiply by a constant. Two
+out; `fast::divide` there would fold the reciprocal into an earlier multiply by a constant. Three
 differences remain, each found by bits written out of a shader on both APIs:
 
 - AMD's OpenGL divides by a variable as fast math does. Metal does so only with fast math for
@@ -30,6 +30,9 @@ differences remain, each found by bits written out of a shader on both APIs:
   `a * (200.0 * (1.0 / 255.0))` (even through `volatile`) and an invariant stage's matrix product
   rounds differently, so the quotient's last bit may differ there. It hardly shows: on an
   R9 M370X, `remote-mac.sh`'s level 1 differs in as many pixels with fast math as without.
+- AMD's OpenGL ignores `gl_SampleMask`, where Metal keeps only the samples named. The 2D renderer
+  (`../direct.cpp`) therefore discards a pixel failing the alpha test on Apple's systems, which
+  drops all of its samples on either API.
 - Apple's OpenGL folds a chain of multiplies by constants into one (`a * 200.0 * (1.0 / 255.0)`
   is `a * (200.0 / 255.0)`); Metal multiplies in the written order. The renderers' shaders fold
   such constants themselves.

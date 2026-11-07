@@ -241,8 +241,8 @@ struct Case {
     // OpenGL runs on Metal and agrees exactly.
     bool filtered = false;
     // AMD's OpenGL divides by a variable as fast math does, which Metal does only with fast math
-    // throughout (README.md): checked on Apple's GPUs alone.
-    bool divides = false;
+    // throughout (README.md), and ignores gl_SampleMask: checked on Apple's GPUs alone.
+    bool amd_differs = false;
 };
 
 const Case kCases[] = {
@@ -264,6 +264,27 @@ const Case kCases[] = {
      }},
     {"multisampled edges resolved", [] { return resolved_edges(GL_RGBA8); }},
     {"multisampled half float edges resolved", [] { return resolved_edges(GL_RGBA16F); }},
+    // Each pixel keeps the samples its mask names.
+    {"sample mask",
+     [] {
+         const GLuint frame = multisampled(kSide);
+         glViewport(0, 0, kSide, kSide);
+         clear_to(0, 0.2f, 0.8f, 1);
+         program_of(R"(#version 410 core
+layout(location = 0) out vec4 result;
+void main() {
+    gl_SampleMask[0] = (int(gl_FragCoord.x) + 3 * int(gl_FragCoord.y)) & 15;
+    result = vec4(1.0, 0.4, 0.2, 1.0);
+}
+)");
+         quad(0, 0, 0, 0);
+         const GLuint into = framebuffer(texture(GL_RGBA8, kSide), kSide);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, frame);
+         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     },
+     false, true},
     // Each pixel's bytes are the bits of a multiply and an add written as two statements.
     {"multiply then add",
      [] {
@@ -890,7 +911,7 @@ void main() { result = colour + v_tint; }
         std::printf("%s on %s: OpenGL error 0x%02X, Metal 0x%02X; %d channels differ, by up to %d\n",
                     kCases[i].name, renderer.c_str(), a.back(), b.back(), differ, worst);
         CHECK(a.back() == b.back());
-        CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0) || (kCases[i].divides && !apple));
+        CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0) || (kCases[i].amd_differs && !apple));
     }
     return openrac::test::result();
 }
