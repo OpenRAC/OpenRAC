@@ -376,7 +376,8 @@ bool load_vulkan_library(bool validation, std::string& error) {
         paths.emplace_back(library);
     }
 #if defined(OPENRAC_IOS)
-    const std::string bundled = (program_folder() / "Frameworks/MoltenVK.framework/MoltenVK").string();
+    const std::string bundled =
+        (program_folder() / "Frameworks/MoltenVK.framework/MoltenVK").string();
 #else
     const std::string bundled = (program_folder().parent_path() / "Frameworks" / "libMoltenVK.dylib").string();
 #endif
