@@ -6,6 +6,5 @@ Applied to [rac-sac-decomp](https://github.com/OpenRAC/rac-sac-decomp) (`games/r
 <!-- Written by tools/sources.py save; do not edit. -->
 | Patch | What |
 |---|---|
-| [0001-compiler-path.patch](0001-compiler-path.patch) | Name the compiler depot by its relative path. |
-| [0002-gcc-credit.patch](0002-gcc-credit.patch) | Credit GCC's runtime-library sources. |
+| [0001-gcc-credit.patch](0001-gcc-credit.patch) | Credit GCC's runtime-library sources. |
 <!-- patches:end -->

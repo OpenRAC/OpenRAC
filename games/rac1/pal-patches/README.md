@@ -5,7 +5,7 @@ Applied to [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (`games/rac1/pa
 The files are OpenRAC's own:
 
 - `nonmatching/functional/*.c`: functional C the port runs for functions with no matched C yet
-  (listed in `nonmatching/functional.tsv` by patch 0005).
+  (listed in `nonmatching/functional.tsv` by patch 0004).
 - `versions/ntsc/`: NTSC-U's splat config and the C where its code differs from PAL's, so
   `tools/version_build.py --version ntsc` links NTSC-U from this tree ([VERSIONS.md](../VERSIONS.md)).
 
@@ -15,10 +15,9 @@ The files are OpenRAC's own:
 |---|---|
 | [0001-tools-inside-openrac.patch](0001-tools-inside-openrac.patch) | Run the tools from inside OpenRAC. |
 | [0002-overlay-triage.patch](0002-overlay-triage.patch) | Triage overlay assembly from its own directory. |
-| [0003-docs-links.patch](0003-docs-links.patch) | Point the docs to OpenRAC's editor and rules. |
-| [0004-c-for-the-port.patch](0004-c-for-the-port.patch) | Write the C so the port's translation reads it. |
-| [0005-functional-c.patch](0005-functional-c.patch) | Add functional C the port runs for unmatched functions. |
-| [0006-big-modded-levels.patch](0006-big-modded-levels.patch) | Let a modded level use more than 32 MiB. |
+| [0003-c-for-the-port.patch](0003-c-for-the-port.patch) | Write the C so the port's translation reads it. |
+| [0004-functional-c.patch](0004-functional-c.patch) | Add functional C the port runs for unmatched functions. |
+| [0005-big-modded-levels.patch](0005-big-modded-levels.patch) | Let a modded level use more than 32 MiB. |
 
 Files under [files/](files) (copied as they are):
 
