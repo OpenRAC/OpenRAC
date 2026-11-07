@@ -289,9 +289,8 @@
   input[type="number"] {
     font: inherit;
     font-size: 0.875rem;
-    background: var(--ink-deep);
+    background: var(--control);
     color: var(--text);
-    border: 1px solid var(--line-strong);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
     max-width: 100%;
@@ -304,7 +303,7 @@
   }
 
   input[type="number"][aria-invalid="true"] {
-    border-color: var(--err);
+    box-shadow: inset 0 0 0 2px var(--err);
   }
 
   input[type="checkbox"] {
@@ -377,17 +376,16 @@
     align-items: center;
     gap: 7px;
     font-size: 0.8125rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     padding: 5px 12px;
     cursor: pointer;
     color: var(--soft);
-    background: var(--panel-hi);
+    background: var(--control);
   }
 
   .chip.on {
     color: var(--text);
-    border-color: var(--amber);
+    background: var(--on-fill);
   }
 
   .price {
@@ -403,6 +401,7 @@
     margin-left: 7px;
     border-radius: 50%;
     background: var(--amber);
+    box-shadow: none;
     vertical-align: middle;
   }
 

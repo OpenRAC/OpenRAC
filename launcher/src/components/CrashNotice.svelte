@@ -207,15 +207,15 @@
     flex-direction: column;
     gap: 12px;
     padding: 20px 22px;
-    border-radius: 16px;
-    border: 1px solid color-mix(in srgb, var(--err) 55%, transparent);
+    border-radius: var(--radius);
     background: linear-gradient(color-mix(in srgb, var(--err) 7%, transparent), transparent 60%), var(--panel);
   }
 
   /* No crash report: the game was closed, which is not a fault. Not red, and no alarm. */
   .notice.quiet {
-    border-color: var(--line-strong);
-    background: var(--panel);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .notice.quiet .mark {
@@ -228,8 +228,9 @@
     align-items: center;
     gap: 10px;
     padding: 12px 16px;
-    border-color: var(--line-strong);
-    background: var(--panel);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .short p {
@@ -332,7 +333,7 @@
     padding: 10px 12px;
     max-height: 220px;
     overflow: auto;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: var(--ink-deep);
     color: var(--body);
     font-size: 0.75rem;

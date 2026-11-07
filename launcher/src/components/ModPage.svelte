@@ -514,6 +514,7 @@
   .crumb {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 6px 4px;
     border-radius: 6px;
     color: var(--amber);
@@ -618,9 +619,8 @@
     gap: 10px;
     min-height: 40px;
     padding: 0 6px 0 14px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
+    background: var(--control);
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--soft);
@@ -629,7 +629,6 @@
 
   .power.on {
     color: var(--text);
-    border-color: color-mix(in srgb, var(--brand) 60%, transparent);
   }
 
   .power input.switch {
@@ -648,7 +647,9 @@
     margin: 0;
     padding: 9px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }

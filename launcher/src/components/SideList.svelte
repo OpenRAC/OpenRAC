@@ -103,8 +103,11 @@
     flex-direction: column;
     gap: 4px;
     padding: 20px 10px;
-    background: var(--ink-deep);
+    background: var(--rail);
     border-right: 1px solid var(--line);
+    /* A row under the pointer: one step lighter than the rail. */
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     min-height: 100%;
   }
 
@@ -126,9 +129,9 @@
     top: 0;
     left: 10px;
     right: 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 12px;
-    background: var(--panel-hi);
+    border-radius: var(--radius-sm);
+    /* The open game: a picked row, the accent at 12 % (no ring round its picture). */
+    background: color-mix(in srgb, var(--amber) 12%, transparent);
     opacity: 0;
     pointer-events: none;
   }
@@ -150,9 +153,10 @@
     gap: 12px;
     width: 100%;
     padding: 8px;
-    border: 1px solid transparent;
-    border-radius: 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
     background: none;
+    box-shadow: none;
     color: var(--text);
     text-align: left;
     font-weight: 400;
@@ -176,7 +180,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) {
-      background: color-mix(in srgb, var(--panel-hi) 60%, transparent);
+      background: var(--control);
       transform: translateX(2px);
     }
   }
@@ -197,21 +201,17 @@
     place-items: center;
     width: 64px;
     height: 44px;
-    border-radius: 8px;
+    border-radius: var(--radius-xs);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from, var(--panel)), var(--to, var(--ink-deep)));
-    border: 1px solid var(--bd, var(--line-strong));
     color: var(--soft);
     transition: box-shadow 0.2s ease;
   }
 
-  .entry.on .thumb {
-    box-shadow: 0 0 0 2px var(--amber);
-  }
-
   .thumb.icon {
-    background: var(--panel);
-    border-color: var(--line-strong);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .thumb img {
@@ -340,17 +340,19 @@
     width: auto;
     padding: 0;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
 
   :global(html[data-platform="android"]) .entry.on {
     background: none;
+    box-shadow: none;
     transform: none;
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))[data-platform="android"]) .entry:hover:not(.on) {
       background: none;
+      box-shadow: none;
       transform: none;
     }
   }
@@ -358,7 +360,7 @@
   :global(html[data-platform="android"]) .thumb {
     width: 112px;
     height: 63px;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
   }
 
   :global(html[data-platform="android"]) .entry:not(.on) .thumb {

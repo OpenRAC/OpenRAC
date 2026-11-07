@@ -163,8 +163,7 @@
     text-overflow: ellipsis;
     font-size: 0.75rem;
     color: var(--soft);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    background: var(--control);
     border-radius: 7px;
     padding: 2px 8px;
     white-space: nowrap;
@@ -212,6 +211,7 @@
     padding: 8px 0;
     border: 0;
     background: none;
+    box-shadow: none;
     color: var(--text);
     font-weight: 600;
     text-align: left;

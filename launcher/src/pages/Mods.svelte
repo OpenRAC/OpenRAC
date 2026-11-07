@@ -507,7 +507,9 @@
     gap: 4px 10px;
     margin: 0;
     padding: 10px 16px;
-    border: 1px dashed var(--line-strong);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
   }
@@ -522,11 +524,8 @@
     display: flex;
     align-self: flex-start;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--panel);
+    /* Each tab a button of its own, with room between: no strip joining them. */
+    gap: 6px;
   }
 
   .tabs button {
@@ -534,7 +533,7 @@
     align-items: center;
     gap: 8px;
     border: 0;
-    background: none;
+    background: var(--control);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -545,13 +544,13 @@
   }
 
   .tabs button.on {
-    background: var(--panel-hi);
+    background: var(--on-fill);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tabs button:hover:not(.on) {
+      background: var(--control-hi);
       color: var(--text);
     }
   }
@@ -600,7 +599,9 @@
     gap: 6px;
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-weight: 600;
   }

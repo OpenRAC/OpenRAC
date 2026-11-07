@@ -23,6 +23,8 @@ extern const unsigned char openrac_font_inter[];
 extern const unsigned int openrac_font_inter_size;
 extern const unsigned char openrac_font_inter_semibold[];
 extern const unsigned int openrac_font_inter_semibold_size;
+extern const unsigned char openrac_font_inter_medium[];
+extern const unsigned int openrac_font_inter_medium_size;
 extern const unsigned char openrac_font_orbitron[];
 extern const unsigned int openrac_font_orbitron_size;
 
@@ -35,7 +37,82 @@ const ui_colors::Colors& ui() {
 }
 
 ImU32 pressed_fill() {
-    return ui_colors::mix(ui().panel_hi, ui().amber, 0.16f);
+    // A neutral lift, as a list row under the pointer on the site: no gold tint (that reads brown
+    // on dark) and no navy.
+    return ui().control_card_hi;
+}
+
+ImU32 control_fill() {
+    return ui().control_card;
+}
+
+namespace {
+
+// `in` cut by the line x + (y - top) * lean = at, keeping the side where that sum is above it
+// (`above`) or below: one step of clipping a convex shape to a band.
+void cut(
+    const ImVector<ImVec2>& in, ImVector<ImVec2>& out, float lean, float top, float at, bool above
+) {
+    out.resize(0);
+    const auto side = [&](ImVec2 p) {
+        const float v = p.x + (p.y - top) * lean - at;
+        return above ? v : -v;
+    };
+    for (int i = 0; i < in.Size; ++i) {
+        const ImVec2 p = in[i];
+        const ImVec2 q = in[(i + 1) % in.Size];
+        const float sp = side(p);
+        const float sq = side(q);
+        if (sp >= 0.0f) {
+            out.push_back(p);
+        }
+        if ((sp >= 0.0f) != (sq >= 0.0f)) {
+            const float k = sp / (sp - sq);
+            out.push_back(ImVec2(p.x + (q.x - p.x) * k, p.y + (q.y - p.y) * k));
+        }
+    }
+}
+
+}  // namespace
+
+void striped_rect(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    ImU32 one,
+    ImU32 two,
+    ImVec2 origin,
+    float alpha
+) {
+    if (alpha <= 0.0f || b.x <= a.x || b.y <= a.y) {
+        return;
+    }
+    list->AddRectFilled(a, b, ui_colors::fade(one, alpha), round);
+    const float band = dp(20.0f);
+    const float period = band * 2.0f;
+    const float lean = std::tan(35.0f * 3.14159265f / 180.0f);
+    // The shape's outline, its corners rounded as the fill's; each band of `two` is cut from it.
+    list->PathRect(a, b, round);
+    ImVector<ImVec2> shape;
+    shape.swap(list->_Path);
+    list->PathClear();
+    const float low = a.x + (a.y - origin.y) * lean;
+    const float high = b.x + (b.y - origin.y) * lean;
+    ImVector<ImVec2> half;
+    ImVector<ImVec2> piece;
+    const ImU32 ink = ui_colors::fade(two, alpha);
+    for (float at = origin.x + std::floor((low - origin.x) / period) * period + band; at < high;
+         at += period) {
+        cut(shape, half, lean, origin.y, at, true);
+        if (half.Size < 3) {
+            continue;
+        }
+        cut(half, piece, lean, origin.y, at + band, false);
+        if (piece.Size >= 3) {
+            list->AddConvexPolyFilled(piece.Data, piece.Size, ink);
+        }
+    }
 }
 
 float tween(ImGuiID id, float target, float seconds) {
@@ -82,6 +159,7 @@ void add_menu_fonts(bool touch) {
     menu_fonts.body = add_font(openrac_font_inter, openrac_font_inter_size, body);
     menu_fonts.strong =
         add_font(openrac_font_inter_semibold, openrac_font_inter_semibold_size, body);
+    menu_fonts.bar = add_font(openrac_font_inter_medium, openrac_font_inter_medium_size, body);
     menu_fonts.head =
         add_font(openrac_font_orbitron, openrac_font_orbitron_size, std::round(17.0f * s.ui_scale));
     menu_fonts.title =
@@ -102,6 +180,7 @@ void add_menu_fonts(bool touch) {
     for (ImFont** font :
          {&menu_fonts.body,
           &menu_fonts.strong,
+          &menu_fonts.bar,
           &menu_fonts.head,
           &menu_fonts.title,
           &menu_fonts.small,
@@ -149,22 +228,84 @@ void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
     }
 }
 
+void panel_fill(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    ImU32 top,
+    ImU32 bottom,
+    ImU32 glow,
+    float glow_depth,
+    float round,
+    ImDrawFlags corners
+) {
+    if (b.y <= a.y) {
+        return;
+    }
+    if ((corners & ImDrawFlags_RoundCornersMask_) == 0) {
+        corners |= ImDrawFlags_RoundCornersAll;
+    }
+    // Colours are set per vertex, so the panel is cut into bands down through the light; one
+    // rect would fade the light over the whole height and not match a panel drawn over it.
+    float cuts[16];
+    int count = 0;
+    cuts[count++] = a.y;
+    const float top_round = (corners & ImDrawFlags_RoundCornersTop) ? round + 1.0f : 0.0f;
+    const float bottom_round = (corners & ImDrawFlags_RoundCornersBottom) ? round + 1.0f : 0.0f;
+    const float lowest = b.y - bottom_round;
+    if (a.y + top_round < lowest) {
+        cuts[count++] = a.y + top_round;
+    }
+    constexpr int kBands = 10;
+    for (int i = 1; i <= kBands; ++i) {
+        const float y = a.y + glow_depth * i / kBands;
+        if (y > cuts[count - 1] + 0.5f && y < lowest) {
+            cuts[count++] = y;
+        }
+    }
+    if (lowest > cuts[count - 1]) {
+        cuts[count++] = lowest;
+    }
+    cuts[count++] = b.y;
+    for (int i = 0; i + 1 < count; ++i) {
+        ImDrawFlags flags = ImDrawFlags_RoundCornersNone;
+        if (i == 0) {
+            flags |= corners & ImDrawFlags_RoundCornersTop;
+        }
+        if (i + 2 == count) {
+            flags |= corners & ImDrawFlags_RoundCornersBottom;
+        }
+        const int first = list->VtxBuffer.Size;
+        list->AddRectFilled(
+            ImVec2(a.x, cuts[i]), ImVec2(b.x, cuts[i + 1]), IM_COL32_WHITE, round, flags
+        );
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
+            vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
+        }
+    }
+}
+
+ImU32 panel_glow() {
+    return ui_colors::mix(ui().panel_hi, ui().glow, 0.08f);
+}
+
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round);
-    ImGui::ShadeVertsLinearColorGradientKeepAlpha(
+    // The bar's own gold stripes (no edge): deeper than the bright accent, so a big button over the
+    // game does not glare; its stripes half as strong as the bar's; darker while held.
+    const float dark = 0.18f * held;
+    striped_rect(
         list,
-        first,
-        list->VtxBuffer.Size,
-        ImVec2(a.x, a.y),
-        ImVec2(a.x, b.y),
-        ui_colors::mix(ui().bar_top, ui().ink_deep, 0.18f * held),
-        ui_colors::mix(ui().bar_bottom, ui().ink_deep, 0.18f * held)
-    );
-    list->AddLine(
-        ImVec2(a.x + round, a.y + 1.0f),
-        ImVec2(b.x - round, a.y + 1.0f),
-        IM_COL32(255, 255, 255, 90)
+        a,
+        b,
+        round,
+        ui_colors::mix(ui().bar_stripe, ui().ink_deep, dark),
+        ui_colors::mix(
+            ui_colors::mix(ui().bar_stripe, ui().bar_stripe_alt, 0.5f), ui().ink_deep, dark
+        ),
+        a
     );
 }
 
@@ -318,8 +459,8 @@ float key_cap(ImDrawList* list, float x, float middle, const std::string& key, f
     const ImVec2 a(std::round(x), std::round(middle - h * 0.5f));
     const ImVec2 b(a.x + std::round(w), a.y + std::round(h));
     const ImVec2 centre((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
-    list->AddRectFilled(a, b, ui_colors::fade(ui().panel_hi, alpha), h * 0.5f);
-    list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), h * 0.5f);
+    // A badge: on the darkest black, as the site's badges and key hints, 4 px corners, no border.
+    list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, alpha), dp(4.0f));
     const CapText t = cap_text(key);
     ImVec2 at = centred_text(t.font, t.size, key, centre);
     if (cap_sign(key)) {
@@ -346,8 +487,8 @@ void card_end() {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const ImVec2 end(s.card.top.x + s.card.width, ImGui::GetCursorScreenPos().y);
     list->ChannelsSetCurrent(0);
-    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(16.0f));
-    list->AddRect(s.card.top, end, ui().line, dp(16.0f));
+    // A card is a flat fill with no frame, 12 px corners (no stripes on big surfaces).
+    list->AddRectFilled(s.card.top, end, ui().panel_hi, dp(12.0f));
     list->ChannelsMerge();
 }
 
@@ -406,10 +547,10 @@ bool menu_row(const char* label, ImU32 ink, const RowRight& right, float right_w
     const float hover = tween(item_part("hover"), over ? 1.0f : 0.0f, kFast);
     if (held > 0.0f || hover > 0.0f) {
         list->AddRectFilled(
-            a, b, ui_colors::fade(pressed_fill(), std::max(held, hover * 0.5f)), dp(10.0f)
+            a, b, ui_colors::fade(pressed_fill(), std::max(held, hover * 0.5f)), dp(6.0f)
         );
     }
-    focus_ring(list, a, b, dp(10.0f));
+    focus_ring(list, a, b, dp(6.0f));
     // The row under the pointer or the focus: a short bar of the accent at its left, the label
     // moved a little right of it.
     const bool lit = over || (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible);
@@ -460,13 +601,14 @@ bool menu_switch(const char* label, bool on) {
         const float h = dp(26.0f);
         const ImVec2 a(right.x - dp(46.0f), right.y - h * 0.5f);
         const ImVec2 b(right.x, right.y + h * 0.5f);
-        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().brand, k), h * 0.5f);
-        list->AddRect(a, b, ui_colors::mix(ui().line_strong, ui().brand, k), h * 0.5f);
+        // The launcher's switch: a track in the darkest black, no edge; when on, the
+        // gold tint of a control that is on and a gold knob (no wall of solid gold).
+        list->AddRectFilled(a, b, ui_colors::mix(ui().ink_deep, ui().amber, 0.22f * k), h * 0.5f);
         const float knob = h * 0.5f - dp(4.0f);
         const float from = a.x + h * 0.5f;
         const float to = b.x - h * 0.5f;
         list->AddCircleFilled(
-            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().text, k)
+            ImVec2(from + (to - from) * k, right.y), knob, ui_colors::mix(ui().dim, ui().amber, k)
         );
     });
 }
@@ -629,7 +771,7 @@ bool menu_button(const char* label) {
         menu_sound(MenuSound::Confirm);
     }
     ImDrawList* list = ImGui::GetWindowDrawList();
-    const float round = dp(12.0f);
+    const float round = dp(6.0f);
     primary_fill(
         list, a, b, round, tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast)
     );

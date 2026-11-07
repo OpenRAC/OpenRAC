@@ -8,7 +8,7 @@
   import { regionLabel } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
-  import { accentStyle, themeStyle } from "$lib/themes";
+  import { themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). It is
@@ -75,13 +75,7 @@
         {/if}
       </div>
       {#if offers}
-        <button
-          class="act"
-          class:primary={next.primary}
-          data-pad-skip
-          style={accentStyle(game.id)}
-          onclick={() => void playerAct(v, next)}
-        >
+        <button class="act" class:primary={next.primary} data-pad-skip onclick={() => void playerAct(v, next)}>
           <Icon name={next.icon} size={18} />{next.kind === "set-up" ? "Set up" : next.label}
         </button>
       {/if}
@@ -96,7 +90,7 @@
     align-items: flex-end;
     /* Two rows of tiles fill the window at any height it can have. */
     min-height: clamp(240px, calc((100vh - var(--nav-top) - var(--nav-bottom) - 108px) / 2), 400px);
-    border-radius: 22px;
+    border-radius: var(--radius);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow-sm);
@@ -122,7 +116,7 @@
 
     :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
       opacity: 1;
-      background: rgb(255 255 255 / 0.12);
+      background: var(--control-hi);
     }
   }
 
@@ -142,7 +136,7 @@
      shows at once. */
   :global(html[data-platform="android"]) .tile {
     min-height: clamp(128px, calc((100vh - 2 * var(--page-top) - var(--nav-bottom) - 28px) / 3), 200px);
-    border-radius: 18px;
+    border-radius: var(--radius);
   }
 
   :global(html[data-platform="android"]) .foot {
@@ -228,7 +222,9 @@
     border: 0;
     border-radius: inherit;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
   }
 
   /* The focus rings the whole tile from outside (the tile cuts what is inside it), and the picked
@@ -271,6 +267,7 @@
     padding: 3px;
     color: inherit;
     background: none;
+    box-shadow: none;
     border: 0;
     border-radius: 50%;
     opacity: 0.75;
@@ -322,7 +319,6 @@
     font-size: 0.9375rem;
     padding: 10px 22px;
     background: rgb(0 0 0 / 0.5);
-    border-color: rgb(255 255 255 / 0.25);
   }
 
   /* A narrow tile: its button under its name, the tile's width. */
@@ -339,7 +335,7 @@
   }
 
   .act.primary {
-    background: linear-gradient(to bottom, var(--bar-top), var(--bar-bottom));
-    border-color: rgb(0 0 0 / 0.3);
+    background: var(--amber);
+    box-shadow: none;
   }
 </style>

@@ -243,9 +243,8 @@
     padding: 3px 10px;
     font-size: 0.8125rem;
     color: var(--lav);
-    background: var(--panel-hi);
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    background: var(--ink-deep);
+    border-radius: var(--radius-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -255,11 +254,7 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
-  @media (hover: hover) {
-    :global(html:where(:not([data-input="pad"]))) .count:hover {
-      border-color: var(--line-strong);
-    }
-  }
+
   h2 {
     font-size: 1rem;
   }
@@ -272,7 +267,9 @@
     margin: 4px 0 0;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
   }
   .where > :global(svg) {

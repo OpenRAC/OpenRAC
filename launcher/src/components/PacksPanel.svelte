@@ -314,8 +314,8 @@
     gap: 4px;
     margin-left: 8px;
     padding: 1px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-xs);
+    background: var(--ink-deep);
     font-size: 0.6875rem;
     font-weight: 600;
     color: var(--lav);
@@ -353,8 +353,7 @@
     white-space: nowrap;
     padding: 2px 8px;
     border-radius: 7px;
-    border: 1px solid var(--line-strong);
-    background: var(--panel-hi);
+    background: var(--control);
     font-size: 0.75rem;
     color: var(--soft);
   }

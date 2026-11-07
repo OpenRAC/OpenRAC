@@ -116,17 +116,18 @@
     flex-direction: column;
     gap: 8px;
     padding: 12px 16px;
-    border-radius: 16px;
+    border-radius: var(--radius);
     background: color-mix(in srgb, var(--ink-deep) 72%, transparent);
-    border: 1px solid var(--line);
     backdrop-filter: blur(6px);
   }
 
   .job.plain {
     padding: 0;
+    min-height: 0;
     border: 0;
     border-radius: 0;
     background: none;
+    box-shadow: none;
     backdrop-filter: none;
   }
 
@@ -190,7 +191,7 @@
     height: 6px;
     overflow: hidden;
     border-radius: 3px;
-    background: rgb(255 255 255 / 0.12);
+    background: var(--ink-deep);
   }
 
   .track > i {
@@ -222,7 +223,7 @@
     /* About eight lines, then it scrolls. */
     max-height: calc(8 * 1.45em + 16px);
     overflow: auto;
-    border-radius: 10px;
+    border-radius: var(--radius-sm);
     background: var(--ink-deep);
     color: var(--body);
     font-size: 0.75rem;

@@ -51,7 +51,9 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-weight: 400;
     text-decoration: underline;

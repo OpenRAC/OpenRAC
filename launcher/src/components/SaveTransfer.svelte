@@ -231,8 +231,9 @@
     flex-direction: column;
     gap: 12px;
     padding: 20px 24px;
-    background: var(--panel);
-    border: 1px solid var(--line-strong);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
@@ -275,7 +276,7 @@
     align-items: flex-start;
     gap: 10px;
     padding: 8px 10px;
-    border: 1px solid var(--line);
+    background: var(--control);
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     cursor: pointer;
