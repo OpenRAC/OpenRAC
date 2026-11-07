@@ -64,6 +64,27 @@ function rules(file: string, text: string): Rule[] {
 const all = Object.entries(sources).flatMap(([file, text]) => rules(file.replace(/^\.\.\//, "src/"), text));
 
 describe("stylesheets", () => {
+  it("keeps root font sizing independent of rem during animated game accents", () => {
+    const relativeRootFonts = all
+      .filter((rule) =>
+        rule.path
+          .at(-1)
+          ?.split(",")
+          .some((selector) => selector.trim() === "html"),
+      )
+      .flatMap((rule) => rule.declarations)
+      .filter((declaration) => /^font(?:-size)?\s*:/.test(declaration) && /[\d.]rem\b/.test(declaration));
+    expect(relativeRootFonts).toEqual([]);
+  });
+
+  it("keeps the page at its size while navigation fades and slides it", () => {
+    const zooms = all
+      .filter((rule) => rule.path.some((path) => /^@keyframes page-(in|out)$/.test(path)))
+      .flatMap((rule) => rule.declarations)
+      .filter((declaration) => /^scale\s*:|\bscale\(/.test(declaration));
+    expect(zooms).toEqual([]);
+  });
+
   it("finds the launcher's styles", () => {
     expect(Object.keys(sources).length).toBeGreaterThan(30);
     expect(all.length).toBeGreaterThan(500);
