@@ -171,6 +171,8 @@ void rac1_world_post_hit(
     const float position[3],
     const float velocity[3]
 );
+/* A hit record the collision queries wrote (collision.c), told to the mods. */
+void rac1_world_hit_recorded(gaddr victim);
 void rac1_world_eyes(const float* xyz, int count);
 int32_t rac1_world_bolts(int32_t add);
 void rac1_world_keep_running(int on);
@@ -192,6 +194,8 @@ void rac1_figure_shots_remove(gaddr figure);
 void rac1_figure_items_tick(void);
 void rac1_figure_items_remove(gaddr figure);
 int rac1_figure_owned(gaddr moby);
+/* Whether `moby` is a player's shot (the hero's or a figure's): what a weapon fires or throws. */
+int rac1_player_shot(gaddr moby);
 /* A moby the line query also passes through, 0 for none: while a figure's shot is made. */
 void rac1_coll_line_also_ignore(gaddr moby);
 void rac1_figure_hit_dropped(const char* what);
