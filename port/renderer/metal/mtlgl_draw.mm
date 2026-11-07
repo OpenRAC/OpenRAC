@@ -843,8 +843,14 @@ id<MTLTexture> empty_texture(MTLTextureType type) {
             MTLTextureDescriptor* d = [MTLTextureDescriptor new];
             d.textureType = type;
             d.pixelFormat = MTLPixelFormatRGBA8Unorm;
-            d.storageMode = MTLStorageModeShared;
+            // Intel and AMD GPUs refuse shared textures, and a managed one starts undefined.
+            d.storageMode = MTLStorageModeManaged;
             t = [g->device newTextureWithDescriptor:d];
+            const std::uint32_t zero = 0;
+            for (NSUInteger slice = 0; slice < (type == MTLTextureTypeCube ? 6 : 1); ++slice) {
+                [t replaceRegion:MTLRegionMake3D(0, 0, 0, 1, 1, 1) mipmapLevel:0 slice:slice
+                       withBytes:&zero bytesPerRow:4 bytesPerImage:4];
+            }
         }
     }
     return t;
