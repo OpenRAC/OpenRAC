@@ -727,6 +727,21 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size) {
     });
 }
 
+void openrac_game_set_motors(int port, int small, int large) {
+    c_boundary::call("openrac_game_set_motors", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::set_motors(
+                port, small != 0, static_cast<std::uint8_t>(std::clamp(large, 0, 255))
+            );
+        }
+#endif
+        (void)port;
+        (void)small;
+        (void)large;
+    });
+}
+
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]) {
     return c_boundary::call("openrac_game_pad", 0, [&]() -> int {
 #ifdef OPENRAC_FRONTEND

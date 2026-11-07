@@ -166,6 +166,17 @@ constexpr Entry kEntries[] = {
      "Controllers work in the background",
      "The controllers still play while another window is in front. Off: the game ignores them "
      "while it is alt-tabbed or minimised."},
+    {Id::RumbleStrength, Tab::Controls, "Vibration", kChoice, A, "Vibration",
+     "How hard the controller shakes where the game shakes it. Off: never."},
+    {Id::RumbleStyle, Tab::Controls, "Vibration", kChoice, A, "Vibration style",
+     "Enhanced: the DualShock 2's motors as a modern controller plays them best, with a short "
+     "spin-up and fade so every pulse is felt and none ends in a click. Classic: the game's "
+     "motor values as they are."},
+    {Id::RumbleTriggers, Tab::Controls, "Vibration", kSwitch, A, "Vibration in the triggers",
+     "On controllers with motors in their triggers (Xbox One and later): the buzz in the "
+     "triggers too."},
+    {Id::RumblePhone, Tab::Controls, "Vibration", kSwitch, T, "Vibrate the phone",
+     "Playing on the screen's own controls: the phone or tablet vibrates itself."},
     {Id::ConnectedControllers, Tab::Controls, "Players", kPanel, A, "Controllers connected",
      "Each controller connected, lit while a button is pressed on it, and the player it is."},
     {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",

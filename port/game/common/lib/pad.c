@@ -76,8 +76,38 @@ int openrac_lib_scePad2GetState(int socket) { /* scePad2GetState */
     return 1; /* connected and stable */
 }
 
+/* libvib: a DualShock 2's motors. The profile is one byte with a bit for each motor the pad has:
+ * bit 0 the small one (on or off), bit 1 the large one (a speed, 0..255). The game keeps it and
+ * sends its motors to the pad in that order, packed in bits: the small motor's one bit first, then
+ * the large motor's eight (Going Commando's pad poll, func_002B85F8: (large << 1) | small). */
+enum { VIB_SMALL = 1, VIB_LARGE = 2 };
+
 int openrac_lib_sceVibGetProfile(int socket, gaddr profile) { /* sceVibGetProfile */
     (void)socket;
-    (void)profile;
-    return 0;
+    *(uint8_t *)G(profile) = VIB_SMALL | VIB_LARGE;
+    return 1;
+}
+
+/* sceVibSetActParam(socket, profile size, profile, data size, data): the motors for the profile's
+ * actuators, as above; what the profile leaves out is off. The window plays them
+ * (openrac_game_set_motors). */
+int openrac_lib_sceVibSetActParam(int socket, int profile_size, gaddr profile, int data_size,
+                                  gaddr data) { /* sceVibSetActParam */
+    const uint8_t act = profile_size > 0 ? *(const uint8_t *)G(profile) : 0;
+    uint32_t bits = 0;
+    unsigned at = 0;
+    int small = 0, large = 0, n;
+
+    for (n = 0; n < data_size && n < 4; n++) {
+        bits |= (uint32_t)((const uint8_t *)G(data))[n] << (8 * n);
+    }
+    if (act & VIB_SMALL) {
+        small = (int)(bits & 1u);
+        at = 1;
+    }
+    if (act & VIB_LARGE) {
+        large = (int)((bits >> at) & 0xFFu);
+    }
+    openrac_game_set_motors(socket, small, large);
+    return 1;
 }

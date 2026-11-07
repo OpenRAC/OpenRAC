@@ -251,6 +251,12 @@ void skip_after_mods(int port, std::uint16_t& buttons) {
     }
 }
 
+void set_motors(int port, bool small, std::uint8_t large) {
+    if (g) {
+        g->input.set_motors(port, {small, large});
+    }
+}
+
 void refresh_pads() {
     if (g && g->window && settings::get().responsive_controls) {
         g->input.refresh_pads();
