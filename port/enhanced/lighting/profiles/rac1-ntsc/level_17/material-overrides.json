@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "fleet-deck-light-lens",
+      "match": {
+        "model": "shrub_480.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0006.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/deck-light-emission.png",
+          "runtime_intensity": 2.65,
+          "bake_intensity": 16.25,
+          "vertex_colour": true
+        }
+      }
+    },
+    {
+      "id": "fleet-red-orange-terrain-panel",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 3,
+        "texture_path": "textures/terrain_0022.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/red-orange-panel-emission.png",
+          "runtime_intensity": 2.65,
+          "bake_intensity": 1.625
+        }
+      }
+    },
+    {
+      "id": "fleet-green-floor-panel",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 50,
+        "texture_path": "textures/terrain_0065.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/green-floor-panel-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 5
+        }
+      }
+    },
+    {
+      "id": "fleet-cyan-ceiling-fixture",
+      "match": {
+        "model": "tie_2327.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0055.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/cyan-ceiling-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 5
+        }
+      }
+    },
+    {
+      "id": "fleet-orange-overhead-light-lens",
+      "match": {
+        "model": "tie_2109.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0044.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.05,
+          "bake_intensity": 0.4,
+          "vertex_colour": true
+        }
+      }
+    }
+  ]
+}

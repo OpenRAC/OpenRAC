@@ -4,6 +4,7 @@
 #include "platform/input.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 #include <SDL3/SDL.h>
@@ -56,6 +57,10 @@ void Input::set_bindings(const std::array<Bindings, kPadPorts>& bindings) {
 }
 
 Input::~Input() {
+    stop_rumble();
+    if (m_vibrator != nullptr) {
+        SDL_CloseHaptic(m_vibrator);
+    }
     for (const Connected& c : m_gamepads) {
         SDL_CloseGamepad(c.gamepad);
     }
@@ -105,6 +110,12 @@ void Input::handle_event(const SDL_Event& event) {
                     it->gamepad,
                     static_cast<SDL_Gamepad*>(nullptr)
                 );
+                // Nothing more is sent to it; the port it played on starts afresh.
+                for (Rumble& r : m_rumble) {
+                    if (r.gamepad == it->gamepad) {
+                        r = Rumble{};
+                    }
+                }
                 SDL_CloseGamepad(it->gamepad);
                 m_gamepads.erase(it);
                 m_devices.erase(m_devices.begin() + index);
@@ -473,17 +484,137 @@ void Input::update() {
     m_dx = m_dy = m_wheel_x = m_wheel_y = 0.0f;
 
     refresh_pads();
-    for (int port = 0; port < kPadPorts; ++port) {
-        // The large motor has a speed, the small one is on or off: they
-        // drive SDL's low- and high-frequency rumble. Renewed each frame,
-        // so a short duration stops it when the game stops asking.
-        const Pad& pad = m_pads[static_cast<std::size_t>(port)];
-        if (SDL_Gamepad* g = gamepad(port); g != nullptr) {
-            const auto low = static_cast<Uint16>(pad.large_motor * 257);
-            const auto high = static_cast<Uint16>(pad.small_motor ? 0xFFFF : 0);
-            SDL_RumbleGamepad(g, low, high, 100);
+    play_rumble();
+}
+
+void Input::set_motors(int port, const MotorCommand& command) {
+    if (port < 0 || port >= kPadPorts) {
+        return;
+    }
+    m_motors[static_cast<std::size_t>(port)] = {command, SDL_GetTicksNS()};
+}
+
+SDL_Haptic* Input::device_vibrator() {
+    if (m_vibrator_tried) {
+        return m_vibrator;
+    }
+    m_vibrator_tried = true;
+    if (!SDL_InitSubSystem(SDL_INIT_HAPTIC)) {
+        log::info("rumble: no haptic devices ({})", SDL_GetError());
+        return nullptr;
+    }
+    // The first haptic device that is not a controller's: a phone's or a tablet's own vibrator.
+    int count = 0;
+    SDL_HapticID* ids = SDL_GetHaptics(&count);
+    for (int i = 0; ids != nullptr && i < count && m_vibrator == nullptr; ++i) {
+        SDL_Haptic* h = SDL_OpenHaptic(ids[i]);
+        if (h == nullptr) {
+            continue;
+        }
+        const char* name = SDL_GetHapticName(h);
+        if (SDL_InitHapticRumble(h)) {
+            log::info("rumble: the device's vibrator ({})", name != nullptr ? name : "unnamed");
+            m_vibrator = h;
+        } else {
+            SDL_CloseHaptic(h);
         }
     }
+    SDL_free(ids);
+    return m_vibrator;
+}
+
+void Input::play_rumble() {
+    const std::uint64_t now = SDL_GetTicksNS();
+    const float seconds =
+        m_rumble_ns != 0 ? static_cast<float>(now - m_rumble_ns) / 1'000'000'000.0f : 0.0f;
+    m_rumble_ns = now;
+
+    // Where each port plays: its gamepad, or for player 1 on touch controls, the phone. When a
+    // port's device changes, it starts from rest and the old pad stops, unless another port
+    // uses it now.
+    std::array<SDL_Gamepad*, kPadPorts> now_on{};
+    std::array<bool, kPadPorts> vibrator_on{};
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
+        now_on[p] = gamepad(port);
+        vibrator_on[p] = now_on[p] == nullptr && port == 0 && tuning.phone && m_touch.visible()
+                         && tuning.strength > 0;
+    }
+    for (std::size_t p = 0; p < m_rumble.size(); ++p) {
+        Rumble& r = m_rumble[p];
+        if (r.gamepad == now_on[p] && r.vibrator == vibrator_on[p]) {
+            continue;
+        }
+        const bool kept = std::find(now_on.begin(), now_on.end(), r.gamepad) != now_on.end();
+        if (r.gamepad != nullptr && !kept) {
+            SDL_RumbleGamepad(r.gamepad, 0, 0, 0);
+            SDL_RumbleGamepadTriggers(r.gamepad, 0, 0, 0);
+        }
+        if (r.vibrator && m_vibrator != nullptr) {
+            SDL_StopHapticRumble(m_vibrator);
+        }
+        r = Rumble{};
+        r.gamepad = now_on[p];
+        r.vibrator = vibrator_on[p];
+    }
+
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
+        const Motors& motors = m_motors[p];
+        const MotorCommand command =
+            motors.ns != 0 && now - motors.ns < kMotorHoldNs ? motors.command : MotorCommand{};
+        Rumble& r = m_rumble[p];
+        SDL_Gamepad* g = r.gamepad;
+        const bool vibrator = r.vibrator;
+        const RumbleOutput out = r.shaper.step(command, seconds, tuning);
+        const bool renew = !out.silent() && now - r.sent_ns >= kRumbleRenewNs;
+        if (!rumble_changed(out, r.sent) && !renew) {
+            continue;
+        }
+        if (g != nullptr) {
+            SDL_RumbleGamepad(g, rumble_word(out.low), rumble_word(out.high), kRumbleMs);
+            // Only pads with motors in their triggers take it; the others answer false.
+            const bool triggers_were = r.sent.left_trigger > 0.0f || r.sent.right_trigger > 0.0f;
+            if (tuning.triggers || triggers_were) {
+                SDL_RumbleGamepadTriggers(
+                    g, rumble_word(out.left_trigger), rumble_word(out.right_trigger), kRumbleMs
+                );
+            }
+        } else if (vibrator) {
+            // One motor. Sent in steps of 1/8, since each command restarts a phone's vibrator.
+            const float strength = std::ceil(std::max(out.low, out.high * 0.8f) * 8.0f) / 8.0f;
+            if (strength == r.vibrator_sent && !renew) {
+                r.sent = out;
+                continue;
+            }
+            if (SDL_Haptic* h = device_vibrator(); h != nullptr) {
+                if (strength <= 0.0f) {
+                    SDL_StopHapticRumble(h);
+                } else {
+                    SDL_PlayHapticRumble(h, strength, kRumbleMs);
+                }
+            }
+            r.vibrator_sent = strength;
+        }
+        r.sent = out;
+        r.sent_ns = now;
+    }
+}
+
+void Input::stop_rumble() {
+    for (Rumble& r : m_rumble) {
+        if (r.gamepad != nullptr) {
+            SDL_RumbleGamepad(r.gamepad, 0, 0, 0);
+            SDL_RumbleGamepadTriggers(r.gamepad, 0, 0, 0);
+        }
+        r = Rumble{};
+    }
+    if (m_vibrator != nullptr) {
+        SDL_StopHapticRumble(m_vibrator);
+    }
+    m_motors = {};
 }
 
 void Input::refresh_pads() {
@@ -511,12 +642,8 @@ void Input::refresh_pads() {
 
     for (int port = 0; port < kPadPorts; ++port) {
         Pad& pad = m_pads[static_cast<std::size_t>(port)];
-        // Fresh state each frame, keeping the motors the game asked for.
-        const bool small_motor = pad.small_motor;
-        const std::uint8_t large_motor = pad.large_motor;
+        // Fresh state each frame.
         pad = Pad{};
-        pad.small_motor = small_motor;
-        pad.large_motor = large_motor;
 
         SDL_Gamepad* g = gamepad(port);
         const bool keyboard_here = m_assignment.keyboard == port;

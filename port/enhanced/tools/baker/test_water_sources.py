@@ -94,6 +94,15 @@ class WaterSources(unittest.TestCase):
         (self.level/'bake-inputs/overlay.bin').write_bytes(compressed)
         self.assertEqual(self.decode()['surfaces'][0],body)
 
+        table.pop('pointer_offset')
+        table['vertices_address'] = 192
+        self.save_profile()
+        self.assertEqual(self.decode()['surfaces'][0], body)
+
+        table['pointer_offset'] = 0
+        self.save_profile()
+        self.decode(success=False)
+
     def test_invalid_profiles_and_pointers_fail_before_output(self):
         """Malformed counts, operations, offsets and unsupported flags cannot be silently accepted."""
         original = copy.deepcopy(self.profile)

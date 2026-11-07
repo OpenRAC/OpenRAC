@@ -213,6 +213,24 @@ scripts, per-level region/bake settings and emission/interior sidecars, so chang
 layouts even when the native baker executable has not changed.
 `seed_regions.py` can inspect or replace regions for an existing sparse bake, saving the previous list.
 
+Use `regions.authored` for local volumes outside the automatic floor graph, such as a
+swingshot path or a tall arena. Each entry takes `bounds` as world-space minimum XYZ then
+maximum XYZ, and `spacing` as a scalar or XYZ. Authored volumes are added to automatic
+coverage and count towards the same region and per-volume probe budgets.
+
+The optional top-level `look_regions` list scales Enhanced diffuse lighting within world-space
+boxes. Each box takes `bounds`, a `feather` in world units and a `diffuse_gain`. A gain of
+zero can fade a shaft into darkness. Material emission is evaluated separately.
+
+Use Classic captures as visual references only. Fix Enhanced lighting through probe placement,
+baked light sources and, where appropriate, emissive materials. Do not blend Classic diffuse
+lighting into Enhanced to match a reference. Review the resulting Enhanced bake from the
+same camera and check adjacent surfaces for spill and leaks.
+
+For authored fill, `area_lights` takes bake-only rectangles with a world-space `position`,
+perpendicular half-edges `axis_u` and `axis_v`, and linear RGB `radiance`. The cross product
+of the half-edges points toward the lit side. Geometry occludes these lights during the bake.
+
 ## Formats and compatibility
 
 Only **file format 5, bake revision 5** is supported. Rebake older data.
@@ -309,6 +327,34 @@ independent of level/texture numbering. Export/preparation resolves it into `pro
 runtime needs no catalog/checkout. Per-level values, including explicit zero, override defaults.
 `_catalog_defaults` lets existing exports refresh tracked defaults while retaining local authoring.
 Changed texture content needs a reviewed identity; brightness never implies emission.
+
+For emission generated from game textures, put an authored 8-bit grayscale PNG in
+`emission-masks/` beside the profile's `material-overrides.json`. Add its recipe to
+`emission-textures.json`:
+
+```json
+{
+  "version": 1,
+  "textures": [{
+    "output": "yellow-light-emission.png",
+    "mask": "yellow-light-mask.png",
+    "mode": "source",
+    "source": "textures/tie_0039.png"
+  }]
+}
+```
+
+The native baker reads `source` from the local export. It must match the mask size.
+`source` keeps the texture's RGB detail. `tint` multiplies it by an RGB `colour` in
+0–255, and `solid` uses that colour without a source texture. The mask scales the
+encoded RGB channels from black to full colour. Optional `gain` scales those channels
+before they are clamped. The output is opaque.
+
+Use `materials/<layer>/textures/<output>` as the level-relative `emission.texture`.
+The baker installs the generated image and its material layer before checking the
+bake cache. The game and the baker use that same image with their respective
+emission intensities. Keep generated colour textures in the local export.
+Independently authored colour PNGs can still be installed from `material-textures/`.
 
 `vertex_colour` uses ties'/shrubs' original instance light-slot colours in runtime and transport,
 not base mesh colour. An empty object marks reviewed ordinary material without overriding glTF emission.

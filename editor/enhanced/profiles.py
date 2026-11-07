@@ -62,8 +62,16 @@ def write_material_profiles(level, directory: Path) -> None:
     for layer, source in sources:
         catalog = source/"material-overrides.json"
         target = directory/"materials"/layer/catalog.name
+        # The native bake publishes this layer together with the generated textures.
+        if (source/"emission-textures.json").is_file():
+            continue
         if catalog.is_file():
             target.parent.mkdir(parents=True, exist_ok=True)
+            assets = target.parent/"textures"
+            for texture in (source/"material-textures").glob("*.png"):
+                if texture.is_file():
+                    assets.mkdir(exist_ok=True)
+                    shutil.copyfile(texture, assets/texture.name)
             shutil.copyfile(catalog, target)
         else:
             target.unlink(missing_ok=True)

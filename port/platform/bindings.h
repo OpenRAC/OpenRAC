@@ -35,6 +35,7 @@
 #include <SDL3/SDL.h>
 
 #include "platform/pad.h"
+#include "platform/rumble.h"
 
 namespace openrac::platform {
 
@@ -141,6 +142,8 @@ struct PadTuning {
     // The controllers count while another window has the keyboard (the game alt-tabbed or
     // minimised). Off by default: a pad used elsewhere does not play the game behind it.
     bool background = false;
+    // How the game's rumble is played on this player's controller (rumble.h).
+    RumbleTuning rumble;
 
     bool operator==(const PadTuning&) const = default;
 };

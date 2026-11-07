@@ -8,8 +8,8 @@
  * Outside a level: "front_end", or "cutscene" while a level loads. In a level, by game mode: 0 play,
  * 3 pause ("menu", or "map" on the map page), 4 "dialog", 5 "vendor", else "cutscene". In play, by
  * the hero: Clank, Giant Clank, swimming, grinding, hoverboard, seated on a gun or in a jet.
- * Hints: a "press triangle" prompt (prompt()), the map's planet with an infobot, the Quick Select
- * page. Only reads. boot.c installs it (a constructor here would be dropped at the link).
+ * Hints: a "press triangle" prompt (prompt()), the Hydro-Pack under water, the map's planet with an
+ * infobot, the Quick Select page. Only reads. boot.c installs it (a constructor here would be dropped at the link).
  */
 #include "openrac/host_env.h"
 #include "rac1.h"
@@ -30,6 +30,10 @@
 /* The planet picked on the map (level_map_selection.level, map_state.h): O plays its infobot when it
  * is not 0 (draw_map_screen). */
 #define MAP_LEVEL (OPENRAC_DATA(RAC1_ADDR(0x001A01F0u)) + 0x224u)
+
+/* The items the hero has (item_available); 4 the Hydro-Pack, which R1 speeds up under water. */
+#define ITEM_AVAILABLE RAC1_ADDR(0x0013D5C8u)
+#define HYDRO_PACK 4u
 
 #define HERO RAC1_ADDR(0x0013F450u)
 #define HERO_MOBY (HERO + 0x2080u)
@@ -119,7 +123,11 @@ int rac1_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
                 return 0;
             }
             *context = play_context(level);
-            hints[0] = prompt();
+            if (swimming(GREF(int, HERO_STATE))) {
+                hints[0] = GREF(unsigned char, ITEM_AVAILABLE + HYDRO_PACK) != 0 ? "hydro" : NULL;
+            } else {
+                hints[0] = prompt();
+            }
             return hints[0] != NULL ? 1 : 0;
         case 3:
             if (GREF(gaddr, MENU_PAGE) != MAP_PAGE) {

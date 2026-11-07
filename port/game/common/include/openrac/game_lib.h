@@ -182,6 +182,7 @@ int openrac_lib_scePad2GetButtonProfile(int, gaddr);
 int openrac_lib_scePad2GetState(int);
 /* vib */
 int openrac_lib_sceVibGetProfile(int, gaddr);
+int openrac_lib_sceVibSetActParam(int, int, gaddr, int, gaddr);
 /* vu0 */
 void openrac_lib_sceVu0RotMatrixZ(gaddr, gaddr, float);
 void openrac_lib_sceVu0RotMatrixX(gaddr, gaddr, float);

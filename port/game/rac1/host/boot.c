@@ -3,6 +3,7 @@
  *
  * Ratchet & Clank: around the game's own start-up code (libraries.tsv, port = wrap). */
 #include <stdlib.h>
+#include <string.h>
 
 #include "openrac/host_env.h"
 #include "rac1.h"
@@ -37,11 +38,69 @@ static int in_level(void) {
     return loaded_level >= 0 && loaded_level < LEVELS;
 }
 
+static int give_inventory(const char* what) {
+    const int weapons = strcmp(what, "weapons") == 0 || strcmp(what, "all") == 0;
+    const int gadgets = strcmp(what, "gadgets") == 0 || strcmp(what, "all") == 0;
+    if ((!weapons && !gadgets) || !in_level() || GREF(int, LEVEL_MODE) != 0) {
+        return -1;
+    }
+
+    typedef void (*GiveItem)(int, int);
+    const GiveItem give = GFN(GiveItem, OPENRAC_LCODE(0, RAC1_LADDR(00, 0x002618D8u)));
+    if (give == NULL) {
+        return -1;
+    }
+    // Item IDs are shared by the RAC1 discs. Wrench and Clank are starting equipment.
+    static const uint8_t weapon_ids[] =
+        {0x09, 0x0a, 0x0b, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x17, 0x18, 0x19};
+    static const uint8_t gadget_ids[] =
+        {0x02,
+         0x03,
+         0x04,
+         0x05,
+         0x06,
+         0x07,
+         0x0c,
+         0x16,
+         0x1a,
+         0x1b,
+         0x1c,
+         0x1d,
+         0x1e,
+         0x1f,
+         0x20,
+         0x21,
+         0x22,
+         0x23};
+    int changed = 0;
+    for (unsigned group = 0; group < 2; ++group) {
+        if (!(group == 0 ? weapons : gadgets)) {
+            continue;
+        }
+        const uint8_t* ids = group == 0 ? weapon_ids : gadget_ids;
+        const unsigned count = group == 0 ? sizeof(weapon_ids) : sizeof(gadget_ids);
+        for (unsigned i = 0; i < count; ++i) {
+            const unsigned id = ids[i];
+            if (!GREF(uint8_t, RAC1_ADDR(0x0013D5C8u) + id)) {
+                give(id, 0);
+                ++changed;
+            }
+        }
+    }
+    return changed;
+}
+
+static const openrac_game_tools rac1_tools = {.give = give_inventory};
+
 /* Whether a level's landing or take-off plays: the level in game mode 6, the ship in one of those
  * two states. */
 static int ship_scene(void) {
     const int state = GREF(int, SHIP_STATE);
     return in_level() && GREF(int, LEVEL_MODE) == 6 && (state == SHIP_TAKE_OFF || state == SHIP_LANDING);
+}
+
+int rac1_landing(int level) {
+    return level == loaded_level && ship_scene() && GREF(int, SHIP_STATE) == SHIP_LANDING;
 }
 
 /* ParseBin: copies the next level's program over the executable's main
@@ -294,4 +353,5 @@ __attribute__((constructor)) static void install_direct_start(void) {
     openrac_game_touch = rac1_touch;
     openrac_game_front_end = &rac1_front_end;
     openrac_game_play_host = &rac1_play;
+    openrac_game_tools_host = &rac1_tools;
 }

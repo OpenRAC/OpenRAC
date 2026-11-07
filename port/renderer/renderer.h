@@ -207,6 +207,8 @@ struct FrameInput {
     Camera camera;
     // Opt-in developer inspection: render from camera, but retain visibility from this camera.
     std::optional<Camera> culling_camera;
+    // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
+    bool keep_pvs_history = true;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     // The frame's world effect quads, in the order the game drew them.
