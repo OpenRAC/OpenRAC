@@ -1313,6 +1313,20 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
         if p.startswith("overrides:"):
             print(f"hostgen: warning: {p}", file=sys.stderr)
     asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")), asm_stage)
+    # A build without the disc knows the slots the part fills: the Windows program's list of
+    # exports for the part, written from the disc, must still name the same (asmext.stale_exports).
+    interface = (cfg.get("asm") or {}).get("interface_path")
+    if asm_stage is not None and asm_stage.external and asm_stage.translator is None and interface:
+        exports = Path(interface).parent / "asm_part_exports.def"
+        stale = asmext.stale_exports(exports.read_text(), asm_stage.external, asm_stage.program) \
+            if exports.is_file() else []
+        for problem in stale[:20]:
+            print(f"hostgen: {exports.name}: {problem}", file=sys.stderr)
+        if stale:
+            print(f"hostgen: {exports}: {len(stale)} entries no longer fit this program; write it again "
+                  f"with the disc: python3 tools/asm_part.py exports {args.game.resolve().parent.name} "
+                  "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
+            return None
     extra["asm"] = asm_stage
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
