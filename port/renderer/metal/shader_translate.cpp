@@ -95,17 +95,33 @@ private:
 // Apple's OpenGL divides as fast::divide does, not exactly as `/` does without fast math. AMD's
 // multiplies by a constant's rounded reciprocal, which fast::divide there folds into an earlier
 // multiply (README.md).
+//
+// Apple's OpenGL fuses a multiply into a later add, except in a vertex stage whose position is
+// invariant: there only a matrix times a vector is fused, column by column from the first.
 class Translator : public CompilerMSL {
 public:
-    Translator(const std::vector<std::uint32_t>& code, bool apple) : CompilerMSL(code), m_apple(apple) {}
+    Translator(const std::vector<std::uint32_t>& code, bool apple, bool exact)
+        : CompilerMSL(code), m_apple(apple), m_exact(exact) {}
 
 protected:
     void emit_instruction(const spirv_cross::Instruction& instr) override {
+        const std::uint32_t* ops = stream(instr);
+        if (m_exact && static_cast<spv::Op>(instr.op) == spv::OpMatrixTimesVector) {
+            const std::string m = to_enclosed_unpacked_expression(ops[2]);
+            const std::string v = to_enclosed_unpacked_expression(ops[3]);
+            std::string sum = spirv_cross::join(m, "[0] * ", v, "[0]");
+            for (std::uint32_t c = 1; c < expression_type(ops[2]).columns; ++c) {
+                sum = spirv_cross::join("fma(", m, "[", c, "], ", v, "[", c, "], ", sum, ")");
+            }
+            emit_op(ops[0], ops[1], sum, should_forward(ops[2]) && should_forward(ops[3]));
+            inherit_expression_dependencies(ops[1], ops[2]);
+            inherit_expression_dependencies(ops[1], ops[3]);
+            return;
+        }
         if (static_cast<spv::Op>(instr.op) != spv::OpFDiv) {
             CompilerMSL::emit_instruction(instr);
             return;
         }
-        const std::uint32_t* ops = stream(instr);
         if (m_apple || !maybe_get<spirv_cross::SPIRConstant>(ops[3])) {
             emit_binary_func_op(ops[0], ops[1], ops[2], ops[3], "fast::divide");
             return;
@@ -119,10 +135,22 @@ protected:
 
 private:
     bool m_apple;
+    bool m_exact;
 };
 
-std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& code, bool apple) {
-    auto compiler = std::make_unique<Translator>(code, apple);
+bool invariant(const std::vector<std::uint32_t>& code) {
+    for (std::size_t i = 5; i < code.size(); i += code[i] >> 16) {
+        const auto op = static_cast<spv::Op>(code[i] & 0xffff);
+        if ((op == spv::OpDecorate && code[i + 2] == spv::DecorationInvariant) ||
+            (op == spv::OpMemberDecorate && code[i + 3] == spv::DecorationInvariant)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& code, bool apple, bool exact) {
+    auto compiler = std::make_unique<Translator>(code, apple, exact);
     CompilerMSL::Options options;
     options.platform = CompilerMSL::Options::macOS;
     options.set_msl_version(kMslMajor, kMslMinor);
@@ -145,6 +173,7 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
             std::string& source;
             std::string& entry;
             std::unique_ptr<CompilerMSL> compiler;
+            bool exact = false;
         };
         std::vector<Stage> stages;
         if (!spirv.compute.empty()) {
@@ -155,7 +184,8 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
         }
         Slots slots;
         for (Stage& stage : stages) {
-            stage.compiler = make_compiler(stage.code, apple);
+            stage.exact = apple && stage.model == spv::ExecutionModelVertex && invariant(stage.code);
+            stage.compiler = make_compiler(stage.code, apple, stage.exact);
             slots.assign(*stage.compiler);
         }
         if (const std::string why = slots.overflow(); !why.empty()) {
@@ -164,7 +194,8 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
         }
         for (Stage& stage : stages) {
             slots.bind(*stage.compiler, stage.model);
-            stage.source = stage.compiler->compile();
+            stage.source = std::string(stage.exact ? "#pragma clang fp contract(off)\n" : "#pragma clang fp contract(fast)\n") +
+                           stage.compiler->compile();
             stage.entry = stage.compiler->get_cleansed_entry_point_name("main", stage.model);
         }
         if (!spirv.compute.empty()) {

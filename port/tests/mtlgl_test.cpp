@@ -37,8 +37,7 @@ constexpr int kSide = 16;
 constexpr GLenum kRgba32ui = 0x8D70, kRgbaInteger = 0x8D99, kUnsignedInt = 0x1405,
                  kReplace = 0x1E01, kFrontAndBack = 0x0408;
 
-GLuint program_of(const char* fragment) {
-    const char* vertex = R"(#version 410 core
+constexpr const char* kColourVertex = R"(#version 410 core
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec4 colour;
 out vec4 v_colour;
@@ -47,6 +46,8 @@ void main() {
     gl_Position = vec4(position, 1);
 }
 )";
+
+GLuint program_of(const char* fragment, const char* vertex = kColourVertex) {
     const GLuint program = glCreateProgram();
     for (const auto& [type, source] : {std::pair{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}) {
         const GLuint shader = glCreateShader(type);
@@ -289,6 +290,42 @@ void main() {
      }},
     {"divide", [] { return divided("a / b"); }, false, true},
     {"divide by a constant", [] { return divided("a * 200.0 / 255.0"); }},
+    // Each point's pixel holds the bits of a channel of a matrix times a vector, in a vertex stage
+    // whose position is invariant: Apple's OpenGL leaves `a * b + c` unfused there.
+    {"invariant vertex stage",
+     [] {
+         target();
+         const GLuint program = program_of(R"(#version 410 core
+flat in uint v_bits;
+layout(location = 0) out vec4 result;
+void main() { result = vec4(v_bits & 255u, (v_bits >> 8u) & 255u, (v_bits >> 16u) & 255u, v_bits >> 24u) / 255.0; }
+)",
+                                           R"(#version 410 core
+invariant gl_Position;
+uniform mat4 m;
+flat out uint v_bits;
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+float r(uint i) { return float(hash(i) >> 8u) / 16777216.0 * 200.0 - 100.0; }
+void main() {
+    uint id = uint(gl_VertexID), n = id / 4u;
+    v_bits = floatBitsToUint((m * vec4(r(n * 3u), r(n * 3u + 1u), r(n * 3u + 2u), 1.0))[id % 4u]);
+    gl_Position = vec4((float(id % 16u) + 0.5) / 8.0 - 1.0, (float(id / 16u) + 0.5) / 8.0 - 1.0, 0, 1);
+}
+)");
+         const float m[16] = {1.27f, 0.17f, -0.468f, 0.47f, 0.03f, 1.62f, 0.354f, -0.35f,
+                              0.65f, -0.53f, 0.81f, -0.81f, -16.0f, -11.8f, -150.2f, 150.25f};
+         glUniformMatrix4fv(glGetUniformLocation(program, "m"), 1, GL_FALSE, m);
+         GLuint array = 0;
+         glGenVertexArrays(1, &array);
+         glBindVertexArray(array);
+         glDrawArrays(GL_POINTS, 0, kSide * kSide);
+         glDeleteVertexArrays(1, &array);
+         return pixels();
+     }},
     {"linear texture",
      [] {
          target();

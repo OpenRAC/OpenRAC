@@ -16,7 +16,9 @@ The renderers' GLSL is not rewritten for Metal. glslang makes SPIR-V of it exact
 API, and its forms cannot drift apart.
 
 Programs compile without fast math, but with a multiply fused into a later add even across
-statements, as Apple's and AMD's OpenGL compile them (`mtlgl_draw.mm`).
+statements, as Apple's and AMD's OpenGL compile them (`shader_translate.cpp`). Apple's fuses none
+in a vertex stage whose position is invariant, except in a matrix times a vector, which it adds up
+column by column from the first, each column fused: that is written out.
 
 Division follows the OpenGL beside it (`shader_translate.cpp`). Apple's divides as `fast::divide`
 does, not exactly. AMD's multiplies by a constant divisor's rounded reciprocal, so that is written
