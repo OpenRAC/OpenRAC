@@ -77,6 +77,19 @@ class ProfileTests(unittest.TestCase):
                 settings = json.loads((directory/'probe-bake.json').read_text())
                 self.assertEqual(settings['strategy'], 'scene')
 
+    def test_generated_material_layer_waits_for_the_baker(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'profiles/rac1-ntsc/level_02'
+            source.mkdir(parents=True)
+            (source/'emission-textures.json').write_text('{"version":1,"textures":[]}')
+            (source/'material-overrides.json').write_text('{"version":1,"overrides":[]}')
+            export = root/'export'
+            export.mkdir()
+            with mock.patch.object(profiles, 'PROFILE_ROOT', root/'profiles'):
+                profiles.write_material_profiles(SimpleNamespace(game='rac1', version='ntsc', id=2), export)
+            self.assertFalse((export/'materials/level/material-overrides.json').exists())
+
     def test_region_settings_are_exported_with_bake_profile(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

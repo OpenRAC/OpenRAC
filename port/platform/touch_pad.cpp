@@ -111,12 +111,14 @@ TouchPad::TouchPad() {
 
 void TouchPad::classic_controls() {
     using G = TouchGroup;
+
     struct Item {
         Kind kind;
         Button button;
         G group;
         float dx, dy, radius, stretch;
     };
+
     constexpr float kFace = 0.105f;  // the face buttons' distance from their diamond's centre
     constexpr float kArm = 0.078f;   // the d-pad's arms' from its centre
     const Item items[] = {
@@ -181,7 +183,7 @@ void TouchPad::arc_controls() {
     constexpr G kLeft[] = {G::Left0, G::Left1, G::Left2};
     constexpr G kTop[] = {G::Top0, G::Top1};
     constexpr G kHint[] = {G::Hint0, G::Hint1, G::Hint2};
-    std::size_t arc = 0, left = 0, top = 0, hint = 0;
+    std::size_t left = 0, top = 0, hint = 0;
     const auto up = [&](const TouchAction& a) {
         return a.when.empty() || std::find(m_hints.begin(), m_hints.end(), a.when) != m_hints.end();
     };
@@ -190,8 +192,9 @@ void TouchPad::arc_controls() {
             return b.id == id;
         });
     };
+    // What shows: one that stands in for another takes that one's place, as large.
+    std::vector<TouchAction> shown;
     for (const TouchAction& own : m_actions) {
-        // One that stands in for another shows in that one's place, as large.
         if (!up(own) || (!own.instead.empty() && has(own.instead))) {
             continue;
         }
@@ -202,8 +205,36 @@ void TouchPad::arc_controls() {
         TouchAction a = stand_in != m_actions.end() ? *stand_in : own;
         a.size = own.size;
         a.side = own.side;
+        a.at = own.at;
         a.when = own.when;
         a.wide = own.wide;
+        shown.push_back(std::move(a));
+    }
+    // The arc: those with their own place first, so a button stays put from context to context;
+    // the rest in the free places, in order.
+    std::array<bool, std::size(kArc)> taken{};
+    std::vector<G> arc_of(shown.size(), G::Count);
+    for (std::size_t i = 0; i < shown.size(); ++i) {
+        const int at = shown[i].at;
+        if (shown[i].side == TouchSide::Arc && at >= 0 && !taken[static_cast<std::size_t>(at)]) {
+            taken[static_cast<std::size_t>(at)] = true;
+            arc_of[i] = kArc[at];
+        }
+    }
+    for (std::size_t i = 0, free = 0; i < shown.size(); ++i) {
+        if (shown[i].side != TouchSide::Arc || arc_of[i] != G::Count) {
+            continue;
+        }
+        while (free < std::size(kArc) && taken[free]) {
+            ++free;
+        }
+        if (free < std::size(kArc)) {
+            taken[free] = true;
+            arc_of[i] = kArc[free];
+        }
+    }
+    for (std::size_t i = 0; i < shown.size(); ++i) {
+        const TouchAction& a = shown[i];
         G g = G::Count;
         if (a.side == TouchSide::Hint) {
             g = hint < std::size(kHint) ? kHint[hint++] : G::Count;
@@ -212,7 +243,7 @@ void TouchPad::arc_controls() {
         } else if (a.side == TouchSide::Top) {
             g = top < std::size(kTop) ? kTop[top++] : G::Count;
         } else {
-            g = arc < std::size(kArc) ? kArc[arc++] : G::Count;
+            g = arc_of[i];
         }
         if (g == G::Count) {
             continue;  // more than the style has places for: the first ones, the most used, stay
@@ -559,7 +590,9 @@ float TouchPad::distance(const TouchControl& c, float x, float y) const {
 }
 
 TouchPad::Finger* TouchPad::find(std::uint64_t id) {
-    const auto it = std::find_if(m_fingers.begin(), m_fingers.end(), [id](const Finger& f) { return f.id == id; });
+    const auto it = std::find_if(m_fingers.begin(), m_fingers.end(), [id](const Finger& f) {
+        return f.id == id;
+    });
     return it != m_fingers.end() ? &*it : nullptr;
 }
 

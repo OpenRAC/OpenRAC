@@ -368,6 +368,8 @@ void set_camera(SceneFrame& frame) {
     set_view_opened(opened);
     if (has_camera) {
         owner.debug_camera.apply(input, frame.output.camera_debug, scene.level);
+        frame.output.freecam = frame.output.camera_debug.settings.enabled;
+        frame.output.camera_level = scene.level;
     }
     const auto& visibility_camera = input.culling_camera ? *input.culling_camera : input.camera;
     owner.scene.choose_scenery(
@@ -542,6 +544,7 @@ void render_scene(
     output.camera = frame.input.camera;
     output.has_camera = frame.has_camera;
     output.tick = frame.input.frame;
+    output.enhanced_graphics = graphics.enhanced_graphics && enhanced_graphics_available();
     output.finished = std::chrono::steady_clock::now();
     output.scene_seconds = std::chrono::duration<double>(scene_done - output.started).count();
     output.record_seconds = std::chrono::duration<double>(recorded - scene_done).count();

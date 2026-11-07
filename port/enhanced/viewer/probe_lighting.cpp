@@ -549,8 +549,7 @@ namespace {
 // The parts of `level` that its probe scene fingerprint reads (export_probe_scene's, through
 // probe_activation_hash): its folders, number, light sets, images count, sky, materials and the
 // mobys that place proxy emitters. A copy, so that the reading thread never shares the level the
-// game keeps using; a field the fingerprint reads and this leaves out fails the check, never
-// passes a stale bake.
+// game keeps using. Resolved material bindings are immutable and shared with the reader.
 std::shared_ptr<const scene::LevelData> fingerprint_inputs(const scene::LevelData& level) {
     auto inputs = std::make_shared<scene::LevelData>();
     inputs->dir = level.dir;
@@ -561,6 +560,7 @@ std::shared_ptr<const scene::LevelData> fingerprint_inputs(const scene::LevelDat
     inputs->missing_images = level.missing_images;
     inputs->sky_panorama = level.sky_panorama;
     inputs->materials = level.materials;
+    inputs->material_bindings = level.material_bindings;
     inputs->moby_classes = level.moby_classes;
     const auto mobys = static_cast<std::size_t>(scene::Layer::Mobys);
     inputs->instances[mobys] = level.instances[mobys];
@@ -578,7 +578,9 @@ ProbeBakeRead read_bake(
     ProbeBakeRead read;
     read.path = path;
     auto& expected = read.expected;
-    expected = lighting::load_level_bake_profile(level.dir, level.overrides).activation;
+    auto profile = lighting::load_level_bake_profile(level.dir, level.overrides);
+    expected = profile.activation;
+    read.look_regions = std::move(profile.look_regions);
     if (!environment(env::Var::ProbeRays).empty()) {
         expected.bake.rays_per_probe = rays_from_environment();
     }
@@ -790,6 +792,21 @@ void ProbeLighting::finish_load(ProbeBakeRead read) {
         );
     }
 
+    m_look_uniforms.clear();
+    m_look_uniforms.reserve(read.look_regions.size() * 8);
+    for (const auto& region : read.look_regions) {
+        m_look_uniforms.insert(
+            m_look_uniforms.end(),
+            {region.minimum[0],
+             region.minimum[1],
+             region.minimum[2],
+             region.feather,
+             region.maximum[0],
+             region.maximum[1],
+             region.maximum[2],
+             region.diffuse_gain}
+        );
+    }
     m_terrain_vertex_albedo =
         expected.bake.terrain_vertex_albedo ? expected.bake.terrain_vertex_albedo_strength : 0;
     log::info(
@@ -865,6 +882,12 @@ void ProbeLighting::bind(
     const int receiver = static_receiver ? 1 : (layer == scene::Layer::Mobys ? 2 : 0);
     glUniform1i(shader.uniform("probe_receiver"), receiver);
     glUniform1i(shader.uniform("probe_mode"), active() && receiver ? mode : 0);
+    const int look_count =
+        active() && receiver && mode == 1 ? static_cast<int>(m_look_uniforms.size() / 8) : 0;
+    glUniform1i(shader.uniform("probe_look_count"), look_count);
+    if (look_count) {
+        glUniform4fv(shader.uniform("probe_look[0]"), look_count * 2, m_look_uniforms.data());
+    }
     glUniform1f(shader.uniform("probe_gi_multiplier"), gi_multiplier);
     glUniform1f(
         shader.uniform("probe_terrain_albedo"),
@@ -1106,6 +1129,7 @@ void ProbeLighting::release() {
     m_sunlight_direction.reset();
     runtime_sunlight_direction.reset();
     m_terrain_vertex_albedo = 0;
+    m_look_uniforms.clear();
     m_selection.release();
     m_full_residency = false;
     m_region_offsets.clear();

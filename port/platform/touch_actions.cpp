@@ -91,6 +91,15 @@ bool read_action(const json::Value& v, TouchAction& a, std::string& error) {
         error = std::format("action {}: no side \"{}\"", a.id, side);
         return false;
     }
+    const json::Value& at = v["at"];
+    if (!at.is_null()) {
+        const double n = at.number(-1.0);
+        if (!at.is_number() || n < 0.0 || n > 7.0 || n != static_cast<int>(n)) {
+            error = std::format("action {}: \"at\" is an arc place, 0 to 7", a.id);
+            return false;
+        }
+        a.at = static_cast<int>(n);
+    }
     a.when = v["when"].string();
     a.instead = v["instead"].string();
     if (!a.instead.empty() && a.when.empty()) {

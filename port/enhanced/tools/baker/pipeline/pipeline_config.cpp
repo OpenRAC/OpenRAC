@@ -100,12 +100,12 @@ void option(Options& options, const std::string& key, const std::string& value) 
 
 // Rejects region controls that Python previously validated before sending its final request.
 void validate_regions(const json::Value& settings, const json::Value& defaults) {
-    // Every supplied field has a known default and a fixed scalar type.
+    // Authored volumes are optional. The other fields have scalar defaults.
     for (const auto& [key, value] : settings.members()) {
-        const auto& expected = defaults[key];
+        const auto expected = key == "authored" ? json::Value::Type::Array : defaults[key].type();
 
         // Unknown or mistyped controls cannot silently alter default coverage.
-        if (expected.is_null() || value.type() != expected.type()
+        if (expected == json::Value::Type::Null || value.type() != expected
             || (value.is_number() && (!std::isfinite(value.number()) || value.number() < 0))) {
             throw std::runtime_error("invalid region planning setting: " + key);
         }

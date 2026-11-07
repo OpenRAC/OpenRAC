@@ -35,6 +35,12 @@ namespace openrac::frontend::debug_overlay {
 
 // Samples window-thread controls into an owned render job; tools remain active while paused.
 CameraDebugFrame camera_debug_frame();
+// Run requested review travel at the same game-loop boundary as developer and mod travel.
+void meat_proxy_review_update();
+// The pending review view is waiting for its destination's ship landing.
+bool meat_proxy_review_skips_landing();
+// The review started a trip and the ship is in its interplanetary flight.
+bool meat_proxy_review_skips_flight();
 // Observes pointer input after UI routing, including releases and focus loss.
 void camera_debug_event(const SDL_Event& event);
 // Freecam takes gameplay input but leaves developer shortcuts available.
@@ -107,6 +113,9 @@ struct Shown {
     int picker_level_number = -1;
     std::uint64_t picker_tick = 0;
     unsigned picker_layers = 0;
+    bool freecam = false;   // The picture's camera came from freecam.
+    int camera_level = -1;  // Level that supplied the rendered camera.
+    bool enhanced_graphics = false;
 };
 
 void draw(const Shown& shown);

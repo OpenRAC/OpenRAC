@@ -99,9 +99,11 @@ same elevation; disconnected ponds remain separate bodies.
 
 A `triangle_strips` table describes `address`, `count`, `record_stride`, embedded `pointer_offset`
 and `count_offset`, `vertex_stride`, three float32 `position_offsets`, runtime `source` ID,
-`flowing` and `flow`. Optional `second_height_offset` averages two endpoints. Optional
+`flowing` and `flow`. A single strip with a direct vertex array uses `vertices_address` in place
+of `pointer_offset`. Optional `second_height_offset` averages two endpoints. Optional
 `height_offset` adjusts rest height and rounds to source float32 precision. Optional `scale` and
-`translation` transform XYZ afterward. Record and triangle order remain stable.
+`translation` transform XYZ afterward. Translated positions round toward zero to match the
+game's float32 world vertices. Record and triangle order remain stable.
 
 This is a closed set of table formats, not a scripting language. Unknown fields and operations,
 unloaded pointers, invalid counts and nonfinite coordinates fail before output publication.

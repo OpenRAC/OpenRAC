@@ -11,6 +11,7 @@
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
 #include "enhanced/tools/baker/pipeline/stage_file.h"
+#include "enhanced/tools/baker/sources/emission_textures.h"
 #include "enhanced/tools/baker/sources/interior_stage.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 
@@ -57,6 +58,7 @@ json::Value stamp(
 
     assets::disc::Sha256 profile_digest;
     profile_digest.update(description);
+    const auto emission = emission_texture_fingerprint(level, options.profiles);
     return parsed(
         "{\"version\":5,\"pipeline\":1,\"planner\":1,\"environment_algorithm\":20,\"source\":"
         + coordinator_string(std::to_string(source ? *source : probe_input_hash(level)))
@@ -73,6 +75,7 @@ json::Value stamp(
                          bake_json::file_hash(level / "lighting-environments.json")
                      )
                : "")
+        + (emission.empty() ? "" : ",\"emission_textures_sha256\":" + coordinator_string(emission))
         + ",\"moby_whitelist_sha256\":" + moby_hash + ",\"profile\":" + description
         + ",\"regions\":" + bake_json::json_text(settings)
         + ",\"interior\":" + interior_stage_profile()

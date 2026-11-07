@@ -1,6 +1,6 @@
-# Enhanced Novalis water
+# Enhanced pool water
 
-Novalis (NTSC-U and PAL) optionally adds Vulkan probe lighting, soft reflections and local GPU shallow-water
+Novalis (NTSC-U and PAL) and Drek's Fleet (NTSC-U) optionally add Vulkan probe lighting, soft reflections and local GPU shallow-water
 simulation, disturbed by Ratchet's movement/hands. Enhanced surfaces transmit the actual scene with
 Beer-Lambert absorption and gentle, depth-faded refraction (at most six render pixels). Original art
 supplies the blue/cyan medium tint and stylised ripple detail. One GPU colour/depth snapshot per visible
@@ -80,11 +80,10 @@ scripted captures; 0 is normal shading and 12 compares the original reflection s
 
 ## Bake local water data
 
-The launcher's enhanced-lighting preparation automatically bakes Novalis (NTSC-U and PAL) water before GI
-and reflections. Export retains the original overlay in `bake-inputs/overlay.bin`; preparation
-reads its authored tables and applies the game's initial grid spacing and strip rest heights.
-No game launch or RAM snapshot is required. Older exports recover the input from `--disc`, or
-must be exported again. Other levels are unsupported.
+The launcher's enhanced-lighting preparation automatically bakes supported pools before GI and
+reflections. Export retains the original overlay in `bake-inputs/overlay.bin`. Preparation reads
+the authored grid or strip geometry. Fleet's profile places its relative strips at the five
+pool moby origins. No game launch or RAM snapshot is required. Older exports need a fresh export.
 
 `water-bake.json` records input and output hashes. Unchanged water is kept; missing or changed
 files, collision, outlet settings or baker code trigger preparation again. Outputs stay beside

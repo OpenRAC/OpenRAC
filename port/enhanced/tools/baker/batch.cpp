@@ -201,7 +201,7 @@ std::vector<BatchJob> batch_jobs(
     for (const auto& region : plan["regions"].items()) {
         auto grid = batch_region_grid(exported, sparse, region);
 
-        if (!floors.empty()) {
+        if (!floors.empty() && region["fit_to_floor"].boolean(true)) {
             grid = bake_detail::fit_room_grid(grid, exported.scene, floors, layout, adaptive);
         }
 

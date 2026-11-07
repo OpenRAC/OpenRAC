@@ -33,10 +33,12 @@ void test_camera_lifecycle() {
     tools.apply(input, frame, 1);
     CHECK(input.camera.view == game.view);
     CHECK(!input.culling_camera);
+    CHECK(input.keep_pvs_history);
     frame.settings.enabled = true;
     frame.settings.mode = frontend::CameraDebugMode::CullingInspection;
     tools.apply(input, frame, 1);
     CHECK(input.culling_camera.has_value());
+    CHECK(input.keep_pvs_history);
     const auto held = *input.culling_camera;
     frame.controls.forward = true;
     frame.seconds = .05f;
@@ -62,6 +64,38 @@ void test_camera_lifecycle() {
     tools.apply(input, frame, 2);
     CHECK(input.camera.view == game.view);
     CHECK(!input.culling_camera);
+}
+
+// A queued view survives until its level renders, then ordinary flight continues from it.
+void test_review_placement() {
+    frontend::DebugCamera tools;
+    frontend::CameraDebugFrame frame;
+    renderer::FrameInput input;
+    frame.settings.enabled = true;
+    frame.placement = frontend::CameraDebugPlacement{2, {20, 30, 40}, {0, 1, 0}, 1};
+    input.camera = camera();
+    tools.apply(input, frame, 1);
+    CHECK(input.camera.position == camera().position);
+    input.camera = camera();
+    tools.apply(input, frame, 2);
+    CHECK(input.camera.position == frame.placement->position);
+    CHECK(std::abs(input.camera.view[6] + 1) < 1e-5f);
+
+    frame.controls.forward = true;
+    frame.seconds = .05f;
+    input.camera = camera();
+    tools.apply(input, frame, 2);
+    CHECK(input.camera.position[1] > 30);
+    const float moved = input.camera.position[1];
+    input.camera = camera();
+    tools.apply(input, frame, 2);
+    CHECK(input.camera.position[1] > moved);
+
+    frame.controls = {};
+    ++frame.placement->serial;
+    input.camera = camera();
+    tools.apply(input, frame, 2);
+    CHECK(input.camera.position == frame.placement->position);
 }
 
 // Inspection tracks a changing game or cutscene pose independently of the freecam.
@@ -129,6 +163,7 @@ void test_default_free_look() {
     CHECK(input.camera.position[2] > game.position[2]);
     CHECK(!input.culling_camera);
     CHECK(!input.culling_inspection);
+    CHECK(!input.keep_pvs_history);
     frame.controls = {};
     frame.controls.up = true;
     const auto before_up = input.camera.position;
@@ -142,11 +177,13 @@ void test_default_free_look() {
     tools.apply(input, frame, 1);
     CHECK(input.culling_camera.has_value());
     CHECK(input.culling_inspection == 0);
+    CHECK(input.keep_pvs_history);
     frame.settings.mode = frontend::CameraDebugMode::FreeLook;
     input.camera = game;
     tools.apply(input, frame, 1);
     CHECK(!input.culling_camera);
     CHECK(!input.culling_inspection);
+    CHECK(!input.keep_pvs_history);
 }
 
 // Diagonal FPS travel retains the same speed, while the viewer's original flight stays available.
@@ -259,6 +296,7 @@ void test_clip_geometry() {
 
 int main() {
     test_camera_lifecycle();
+    test_review_placement();
     test_live_game_culling();
     test_culling_targets();
     test_default_free_look();
