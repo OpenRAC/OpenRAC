@@ -76,3 +76,24 @@ class PlanTest(unittest.TestCase):
         for path in ("port/renderer/frame.cpp", "port/game/common/main.cpp", "tools/build_port.py",
                      "editor/mobys.py"):
             self.check([path], port=True, enhanced=True, port_parts=SHARED)
+
+    def test_a_game_folder_the_shared_tests_compile_also_runs_them(self):
+        result = plan(["port/game/rac1-pal/host/destinations.c"], PROGRAMS, {"rac1-pal"})
+        self.assertEqual(result["port_parts"], ["common", "rac1-pal"])
+        self.assertTrue(result["enhanced"])
+
+    def test_files_the_other_side_reads(self):
+        # The port's build reads the launcher's icons and version; the launcher reads the port's
+        # bindings and differences; the native env test reads DEBUGGING.md.
+        self.check(["launcher/src-tauri/tauri.conf.json"], launcher=True, port=True, port_parts=SHARED)
+        self.check(["port/platform/bindings.cpp"], launcher=True, pages=True, port_parts=SHARED)
+        self.check(["port/game/rac2-ntsc/differences.json"], launcher=True, pages=True,
+                   port_parts=["rac2-ntsc"])
+        self.check(["docs/port/DEBUGGING.md"], docs_only=False, launcher=False, port=True,
+                   port_parts=SHARED)
+        self.check(["games/rac1/game.json"], launcher=True, pages=True)
+
+    def test_the_shared_game_folders_are_found_in_the_checkout(self):
+        from pathlib import Path
+        from ci_scope import shared_game_dirs
+        self.assertIn("rac1-pal", shared_game_dirs(Path(__file__).resolve().parent.parent))

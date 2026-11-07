@@ -11,6 +11,7 @@ own folder changes. Anything unclear (a workflow, this file, a failed git call) 
 
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 
@@ -57,8 +58,40 @@ def programs(root=ROOT):
     return found
 
 
-def plan(paths, known):
-    """What to run for PATHS (None: everything), with KNOWN from programs()."""
+# Files outside the port that its build reads (the icons, the version).
+PORT_READS = ("launcher/src-tauri/icons/", "launcher/src-tauri/tauri.conf.json", "docs/port/DEBUGGING.md")
+# Files outside launcher/ that the launcher's Rust side reads (include_str!, its checkout tests).
+LAUNCHER_READS = re.compile(r"^port/(game/[^/]+/(differences\.json|icon\.png|hostgen\.json)$"
+                            r"|platform/bindings\.(cpp|h)$|enhanced/lighting/profiles/)")
+# Files outside launcher/ that the launcher's pages import (src/lib/mock.ts and the tests).
+PAGES_READS = re.compile(r"^(games/[^/]+/game\.json|port/game/[^/]+/differences\.json"
+                         r"|port/platform/bindings\.(cpp|h)|progress/summary\.json"
+                         r"|sdk/include/openrac/keys\.h)$")
+SHARED_SOURCES = ("port/CMakeLists.txt", "port/tests", "port/renderer", "port/runtime", "port/platform",
+                  "port/scene", "port/enhanced", "port/viewer", "port/game/common")
+
+
+def shared_game_dirs(root=ROOT):
+    """The port/game/<dir> folders the shared build and its tests compile or read: a change there
+    also needs the shared part and the enhanced build."""
+    found = set()
+    for top in SHARED_SOURCES:
+        base = root / top
+        files = [base] if base.is_file() else (p for p in base.rglob("*") if p.is_file())
+        for path in files:
+            if path.suffix not in (".txt", ".cmake", ".c", ".cpp", ".h", ".hpp", ".py", ".json"):
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if path.name == "CMakeLists.txt":
+                text = text.split("if(OPENRAC_PORT_GAMES)")[0]
+            found.update(re.findall(r"game/([A-Za-z0-9_-]+)/", text))
+    found.discard("common")
+    return found
+
+
+def plan(paths, known, shared=frozenset()):
+    """What to run for PATHS (None: everything), with KNOWN from programs() and SHARED from
+    shared_game_dirs()."""
     every = sorted(known)
     everything = {"docs_only": False, "launcher": True, "pages": True, "port": True,
                   "enhanced": True, "port_parts": ["common", *every]}
@@ -68,12 +101,14 @@ def plan(paths, known):
         return {**everything, "docs_only": True, "launcher": False, "pages": False, "port": False,
                 "enhanced": False, "port_parts": []}
     # Plain text that no build or test reads.
-    quiet = [path for path in paths if not is_docs(path) and not (
-        "/" not in path and path.endswith(".md"))]
-    launcher = any(not path.startswith(("port/", "docs/")) for path in quiet)
-    pages = any(path.startswith("launcher/") for path in quiet)
-    port_paths = [path for path in quiet if not path.startswith(("launcher/", "docs/"))]
-    parts = set()
+    quiet = [path for path in paths if path.startswith(PORT_READS) or not (
+        is_docs(path) or ("/" not in path and path.endswith(".md")))]
+    launcher = any(not path.startswith(("port/", "docs/")) or LAUNCHER_READS.match(path)
+                   for path in quiet)
+    pages = any(path.startswith("launcher/") or PAGES_READS.match(path) for path in quiet)
+    port_paths = [path for path in quiet
+                  if path.startswith(PORT_READS) or not path.startswith(("launcher/", "docs/"))]
+    parts, enhanced = set(), False
     for path in port_paths:
         bits = path.split("/")
         if bits[:2] == ["port", "game"] and len(bits) > 3 and bits[2] != "common":
@@ -81,16 +116,18 @@ def plan(paths, known):
             mine = [p for p in every if p == bits[2] or p.startswith(bits[2] + "-")]
             if mine:
                 parts.update(p for p in mine if p == bits[2] or not known[p])
+                if bits[2] in shared:
+                    parts.add("common")
+                    enhanced = True
                 continue
         if bits[0] == "games" and len(bits) > 2:
             parts.update(p for p in every if p.startswith(bits[1] + "-") and not known[p])
             continue
         # Anything else the port reads: the shared part and every game it builds itself.
         parts.update(["common", *(p for p in every if not known[p])])
-    # Fedora and Windows build rac1-pal with the shared code; the enhanced build is the shared code.
+        enhanced = True
+    # Fedora and Windows build rac1-pal with the shared code.
     port = "common" in parts or "rac1-pal" in parts
-    enhanced = any(path.startswith("port/game/common/")
-                   or not path.startswith(("port/game/", "games/")) for path in port_paths)
     ordered = [part for part in ["common", *every] if part in parts]
     return {"docs_only": False, "launcher": launcher, "pages": pages, "port": port,
             "enhanced": enhanced, "port_parts": ordered}
@@ -99,7 +136,8 @@ def plan(paths, known):
 if __name__ == "__main__":
     pull = os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
     known = programs()
-    result = plan(changed_paths(os.environ.get("PR_BASE", "")) if pull else None, known)
+    result = plan(changed_paths(os.environ.get("PR_BASE", "")) if pull else None, known,
+                  shared_game_dirs())
     with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
         for key, value in result.items():
             print(f"{key}={json.dumps(value) if isinstance(value, list) else str(value).lower()}",
