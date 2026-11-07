@@ -26,8 +26,10 @@ out; `fast::divide` there would fold the reciprocal into an earlier multiply by 
 differences remain, each found by bits written out of a shader on both APIs:
 
 - AMD's OpenGL divides by a variable as fast math does. Metal does so only with fast math for
-  the whole program, which other operations then round differently, so the quotient's last bit
-  may differ there.
+  the whole program, and then AMD's compiler reorders `a * 200.0 * (1.0 / 255.0)` into
+  `a * (200.0 * (1.0 / 255.0))` (even through `volatile`) and an invariant stage's matrix product
+  rounds differently, so the quotient's last bit may differ there. It hardly shows: on an
+  R9 M370X, `remote-mac.sh`'s level 1 differs in as many pixels with fast math as without.
 - Apple's OpenGL folds a chain of multiplies by constants into one (`a * 200.0 * (1.0 / 255.0)`
   is `a * (200.0 / 255.0)`); Metal multiplies in the written order. The renderers' shaders fold
   such constants themselves.
