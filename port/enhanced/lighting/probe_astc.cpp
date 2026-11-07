@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <astcenc_internal.h>
+#include <bit>
 #include <cmath>
 #include <numeric>
 #include <optional>
@@ -126,8 +127,60 @@ struct AstcFitter {
         std::array<std::uint64_t, 65> error_known{};     // texel bits filled in error
     } endpoint_cache;
 
+    // Interpolated weight index per texel for the last candidate; a new candidate usually
+    // differs in a few stored weights, so only the texels reading those weights are recomputed.
+    struct IndexCache {
+        int decimation = -1;
+        std::array<std::uint8_t, 64> weights{};
+        std::array<std::uint8_t, 64> index{};
+        std::array<std::uint64_t, 64> texels{};  // texels reading each stored weight
+    } index_cache;
+
     // A new tile changes the error table, so it starts with an empty cache.
     void reset_endpoint_cache() { endpoint_cache.valid = false; }
+
+    // Same integer sums as the decoder, so a cached index equals a recomputed one.
+    const std::array<std::uint8_t, 64>& texel_indices(
+        const decimation_info& di, int decimation, const symbolic_compressed_block& candidate
+    ) {
+        auto& cache = index_cache;
+        std::uint64_t dirty = ~std::uint64_t{0};
+
+        if (cache.decimation == decimation) {
+            dirty = 0;
+
+            for (unsigned i = 0; i < di.weight_count; ++i) {
+                if (cache.weights[i] != candidate.weights[i]) {
+                    dirty |= cache.texels[i];
+                }
+            }
+        } else {
+            cache.decimation = decimation;
+            cache.texels.fill(0);
+
+            for (unsigned p = 0; p < 64; p++) {
+                for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
+                    cache.texels[di.texel_weights_tr[i][p]] |= std::uint64_t{1} << p;
+                }
+            }
+        }
+
+        std::copy_n(candidate.weights, di.weight_count, cache.weights.begin());
+
+        for (; dirty; dirty &= dirty - 1) {
+            const auto p = static_cast<unsigned>(std::countr_zero(dirty));
+            int weight = 8;
+
+            for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
+                weight += di.texel_weight_contribs_int_tr[i][p]
+                          * candidate.weights[di.texel_weights_tr[i][p]];
+            }
+
+            cache.index[p] = static_cast<std::uint8_t>(weight >> 4);
+        }
+
+        return cache.index;
+    }
 
     // Same endpoint bytes decode to the same colours, so the cache never changes a result.
     EndpointCache& endpoint_tables(const symbolic_compressed_block& scb) {
@@ -249,18 +302,7 @@ struct AstcFitter {
         auto& tables = endpoint_tables(candidate);
         const auto& mode = bsd.get_block_mode(candidate.block_mode);
         const auto& di = bsd.get_decimation_info(mode.decimation_mode);
-        std::array<std::uint8_t, 64> index;
-
-        for (unsigned p = 0; p < 64; p++) {
-            int weight = 8;
-
-            for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
-                weight += di.texel_weight_contribs_int_tr[i][p]
-                          * candidate.weights[di.texel_weights_tr[i][p]];
-            }
-
-            index[p] = static_cast<std::uint8_t>(weight >> 4);
-        }
+        const auto& index = texel_indices(di, mode.decimation_mode, candidate);
 
         // Same test as SeamBudget::accepts, read from the per-weight tables.
         for (unsigned p = 0; p < 64; p++) {
