@@ -207,6 +207,79 @@ void main() { result = texture(image, v_colour.xy); }
          return pixels();
      },
      true},
+    {"colour-masked clear",
+     [] {
+         target();
+         clear_to(0.2f, 0.4f, 0.6f, 0.8f);
+         glColorMask(GL_TRUE, GL_FALSE, GL_TRUE, GL_FALSE);
+         clear_to(1, 1, 1, 1);
+         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+         return pixels();
+     }},
+    {"scissored clear",
+     [] {
+         target();
+         clear_to(0, 0, 1, 1);
+         glEnable(GL_SCISSOR_TEST);
+         glScissor(3, 4, 7, 5);
+         clear_to(1, 0, 0, 1);
+         glDisable(GL_SCISSOR_TEST);
+         return pixels();
+     }},
+    // DirectRenderer::offscreen's clear, with the masks its last draw left: depth not written.
+    {"depth-masked clear",
+     [] {
+         target(GL_DEPTH_COMPONENT24);
+         glClearDepth(1.0);
+         glClear(GL_DEPTH_BUFFER_BIT);
+         glDepthMask(GL_FALSE);
+         glClearDepth(0.0);
+         glColorMask(GL_FALSE, GL_TRUE, GL_FALSE, GL_TRUE);
+         glClearColor(1, 1, 1, 1);
+         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+         glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+         glDepthMask(GL_TRUE);
+         glEnable(GL_DEPTH_TEST);
+         glDepthFunc(GL_LESS);
+         program_of(kColourFragment);
+         quad(0, 1, 0, 0);
+         glDisable(GL_DEPTH_TEST);
+         return pixels();
+     }},
+    {"scissored depth clear",
+     [] {
+         target(GL_DEPTH_COMPONENT24);
+         glClearDepth(1.0);
+         glClear(GL_DEPTH_BUFFER_BIT);
+         glEnable(GL_SCISSOR_TEST);
+         glScissor(2, 5, 9, 6);
+         glClearDepth(0.0);
+         glClear(GL_DEPTH_BUFFER_BIT);
+         glDisable(GL_SCISSOR_TEST);
+         glEnable(GL_DEPTH_TEST);
+         glDepthFunc(GL_LESS);
+         program_of(kColourFragment);
+         quad(0, 0, 1, 0);
+         glDisable(GL_DEPTH_TEST);
+         return pixels();
+     }},
+    {"stencil-masked clear",
+     [] {
+         target(GL_DEPTH24_STENCIL8);
+         glClearStencil(0);
+         glClear(GL_STENCIL_BUFFER_BIT);
+         glStencilMask(0x0F);
+         glClearStencil(0xFF);
+         glClear(GL_STENCIL_BUFFER_BIT);
+         glStencilMask(0xFF);
+         glEnable(GL_STENCIL_TEST);
+         glStencilOpSeparate(kFrontAndBack, GL_KEEP, GL_KEEP, kReplace);
+         glStencilFunc(GL_EQUAL, 0x0F, 0xFF);
+         program_of(kColourFragment);
+         quad(0, 0, 0, 1);
+         glDisable(GL_STENCIL_TEST);
+         return pixels();
+     }},
     {"scaled multisampled blit",
      [] {
          const GLuint from = multisampled(8);
@@ -258,8 +331,6 @@ int main() {
     const auto get_error = proc<PFN_glGetError>("glGetError");
     const auto clear_colour = proc<PFN_glClearColor>("glClearColor");
     const auto clear = proc<PFN_glClear>("glClear");
-    const auto enable = proc<PFN_glEnable>("glEnable");
-    const auto disable = proc<PFN_glDisable>("glDisable");
     const auto pixel_store = proc<PFN_glPixelStorei>("glPixelStorei");
     const auto read_pixels = proc<PFN_glReadPixels>("glReadPixels");
     CHECK(openrac::mtlgl::get_proc("glNotAFunction") == nullptr);
@@ -289,10 +360,6 @@ int main() {
     read_pixels(4, 2, 2, 1, GL_RGBA, GL_UNSIGNED_BYTE, corner);
     CHECK(corner[0] == 255 && corner[4] == 0);
 
-    enable(GL_SCISSOR_TEST);
-    clear(GL_COLOR_BUFFER_BIT);
-    CHECK(get_error() == 0x0502);  // GL_INVALID_OPERATION
-    disable(GL_SCISSOR_TEST);
 
     read_pixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, pixels.data());
     CHECK(get_error() == 0x0500);  // GL_INVALID_ENUM

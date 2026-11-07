@@ -34,7 +34,7 @@ with Vulkan. The header gives the conventions.
   buffer per frame, plus an upload one that runs before it for textures the frame has not used yet,
   so that uploads do not split its render passes.
 - [mtlgl.mm](mtlgl.mm): the device, the default framebuffer (RGBA8 colour, 32-bit float depth with
-  stencil) and its present to a window's `CAMetalLayer`, state, queries and whole clears.
+  stencil) and its present to a window's `CAMetalLayer`, state, queries and clears (a scissored or masked one is drawn).
 - [mtlgl_resources.mm](mtlgl_resources.mm): textures (with mips and BC6H/ASTC where the GPU has
   them), samplers, buffers, framebuffers, multisampled renderbuffers, `glReadPixels` (RGBA8, and
   RGBA16F as floats or bytes), `glCopyTexSubImage2D` and `glBlitFramebuffer` (a scaled, flipped
@@ -48,8 +48,8 @@ with Vulkan. The header gives the conventions.
 Metal has no triangle fans, 8-bit indices or unnormalised float inputs from integers: draws with
 them are refused (`GL_INVALID_ENUM`, then `GL_INVALID_OPERATION`), as no renderer uses them.
 
-Some operations are refused with `GL_INVALID_OPERATION` until they are done with draws: a
-scissored or masked clear, a copy between formats, a scaled or flipped blit of depth, of integers
+Some operations are refused with `GL_INVALID_OPERATION` until they are done with draws: a copy
+between formats, a scaled or flipped blit of depth, of integers
 or of a multisampled image, and a resolve of part of an image or of depth.
 
 [tests/mtlgl_test.cpp](../../tests/mtlgl_test.cpp) (`ctest -R mtlgl`) opens it without a window.

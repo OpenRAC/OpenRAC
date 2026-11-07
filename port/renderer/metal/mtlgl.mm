@@ -160,6 +160,14 @@ fragment float4 blit_fragment(Out in [[stage_in]], texture2d<float> from [[textu
     constexpr sampler smooth(filter::linear);
     return linear != 0 ? from.sample(smooth, in.uv) : from.sample(nearest, in.uv);
 }
+// A scissored or masked glClear: the target covered at the clear depth, in the clear colour.
+vertex float4 clear_vertex(uint id [[vertex_id]], constant float& depth [[buffer(0)]]) {
+    const float2 p = float2((id << 1) & 2, id & 2);
+    return float4(p * 2.0 - 1.0, depth, 1.0);
+}
+fragment float4 clear_fragment(constant float4& colour [[buffer(0)]]) {
+    return colour;
+}
 )";
 
 void make_default_framebuffer(int width, int height) {
@@ -332,8 +340,81 @@ void MTLGL disable(GLenum cap) {
     enable_cap(cap, false);
 }
 
-// A load action clears whole attachments only: a scissored or masked clear is a draw, which this
-// backend does not have yet (README.md).
+// A clear through the scissor and the write masks, drawn: a load action clears whole attachments.
+void draw_clear(const Target& t, GLbitfield mask) {
+    const State& s = g->state;
+    const id<MTLTexture> size = t.colour != nil ? t.colour : t.depth;
+    const auto width = static_cast<GLint>(size.width), height = static_cast<GLint>(size.height);
+    GLint x0 = 0, y0 = 0, x1 = width, y1 = height;
+    if (s.scissor_test) {
+        x0 = std::clamp(s.scissor[0], 0, width);
+        y0 = std::clamp(s.scissor[1], 0, height);
+        x1 = std::clamp(s.scissor[0] + s.scissor[2], x0, width);
+        y1 = std::clamp(s.scissor[1] + s.scissor[3], y0, height);
+    }
+    if (x1 == x0 || y1 == y0) {
+        return;
+    }
+    const bool stencil_format = t.depth != nil && t.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8;
+    const bool depth = (mask & GL_DEPTH_BUFFER_BIT) != 0 && s.depth_mask;
+    const bool stencil = (mask & GL_STENCIL_BUFFER_BIT) != 0 && stencil_format;
+    const MTLColorWriteMask write =
+        (mask & GL_COLOR_BUFFER_BIT) == 0
+            ? MTLColorWriteMaskNone
+            : (s.colour_mask[0] ? MTLColorWriteMaskRed : 0) | (s.colour_mask[1] ? MTLColorWriteMaskGreen : 0)
+                  | (s.colour_mask[2] ? MTLColorWriteMaskBlue : 0) | (s.colour_mask[3] ? MTLColorWriteMaskAlpha : 0);
+    const MTLPixelFormat colour_format = t.colour != nil ? t.colour.pixelFormat : MTLPixelFormatInvalid;
+    const MTLPixelFormat depth_format = t.depth != nil ? t.depth.pixelFormat : MTLPixelFormatInvalid;
+    // Above blit pipelines' keys, which are formats and sample counts.
+    const NSUInteger key = NSUInteger{1} << 63 | NSUInteger{write} << 48 | size.sampleCount << 40
+                           | NSUInteger{depth_format} << 20 | colour_format;
+    __strong id<MTLRenderPipelineState>& pipeline = g->blits[key];
+    if (pipeline == nil) {
+        MTLRenderPipelineDescriptor* d = [MTLRenderPipelineDescriptor new];
+        d.vertexFunction = [g->library newFunctionWithName:@"clear_vertex"];
+        d.fragmentFunction = [g->library newFunctionWithName:@"clear_fragment"];
+        d.rasterSampleCount = size.sampleCount;
+        d.colorAttachments[0].pixelFormat = colour_format;
+        d.colorAttachments[0].writeMask = write;
+        d.depthAttachmentPixelFormat = depth_format;
+        d.stencilAttachmentPixelFormat = stencil_format ? depth_format : MTLPixelFormatInvalid;
+        pipeline = [g->device newRenderPipelineStateWithDescriptor:d error:nil];
+    }
+    if (pipeline == nil) {
+        fail(kGlInvalidOperation);  // an integer image's: its clear colour is not floats
+        return;
+    }
+    const std::string state_key = std::format("clear {} {} {}", depth, stencil, s.stencil_write_mask & 0xFF);
+    __strong id<MTLDepthStencilState>& state = g->depth_states[state_key];
+    if (state == nil) {
+        MTLDepthStencilDescriptor* d = [MTLDepthStencilDescriptor new];
+        d.depthWriteEnabled = depth;
+        if (stencil) {
+            MTLStencilDescriptor* face = [MTLStencilDescriptor new];
+            face.depthStencilPassOperation = MTLStencilOperationReplace;
+            face.writeMask = s.stencil_write_mask & 0xFF;
+            d.frontFaceStencil = d.backFaceStencil = face;
+        }
+        state = [g->device newDepthStencilStateWithDescriptor:d];
+    }
+    if (g->pass == nil || g->pass_target.colour != t.colour || g->pass_target.depth != t.depth) {
+        begin_pass(t, 0);
+    }
+    id<MTLRenderCommandEncoder> pass = g->pass;
+    [pass setRenderPipelineState:pipeline];
+    [pass setDepthStencilState:state];
+    [pass setStencilReferenceValue:static_cast<std::uint32_t>(s.clear_stencil) & 0xFF];
+    [pass setCullMode:MTLCullModeNone];
+    [pass setTriangleFillMode:MTLTriangleFillModeFill];
+    [pass setDepthClipMode:MTLDepthClipModeClip];
+    [pass setViewport:{0.0, 0.0, static_cast<double>(width), static_cast<double>(height), 0.0, 1.0}];
+    [pass setScissorRect:{static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0), static_cast<NSUInteger>(x1 - x0),
+                          static_cast<NSUInteger>(y1 - y0)}];
+    [pass setVertexBytes:&s.clear_depth length:sizeof s.clear_depth atIndex:0];
+    [pass setFragmentBytes:s.clear_colour length:sizeof s.clear_colour atIndex:0];
+    [pass drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+}
+
 void MTLGL clear(GLbitfield mask) {
     const State& s = g->state;
     const bool partial = s.scissor_test
@@ -343,11 +424,11 @@ void MTLGL clear(GLbitfield mask) {
                          || ((mask & GL_STENCIL_BUFFER_BIT) != 0
                              && (s.stencil_write_mask & 0xFF) != 0xFF);
     const Target target = target_of(s.draw_framebuffer);
-    if (partial) {
-        fail(kGlInvalidOperation);
+    if (target.colour == nil && target.depth == nil) {
         return;
     }
-    if (target.colour == nil && target.depth == nil) {
+    if (partial) {
+        draw_clear(target, mask);
         return;
     }
     begin_pass(target, mask);
