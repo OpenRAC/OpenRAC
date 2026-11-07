@@ -247,7 +247,7 @@ struct Case {
 
 // Each point's pixel holds the bits of its window depth, most of them as far off as the game's
 // reversed depth puts the world (mtlgl_draw.mm's depth_form), a quarter anywhere from beyond the
-// far plane to half way to the near one.
+// far plane to beyond the near one, an eighth at w 1 as the 2D renderer's are.
 std::vector<std::uint8_t> depths(bool clamp) {
     GLuint depth = 0;
     glGenTextures(1, &depth);
@@ -278,8 +278,8 @@ uint hash(uint i) {
 float r(uint i) { return float(hash(i) >> 8u) / 16777216.0; }
 void main() {
     uint id = uint(gl_VertexID);
-    float w = 1.0 + r(2u * id) * 999.0;
-    float z = id % 4u == 0u ? r(2u * id + 1u) * 1.2 - 1.2 : r(2u * id + 1u) * 0.1 - 1.0;
+    float w = id % 8u == 1u ? 1.0 : 1.0 + r(2u * id) * 999.0;
+    float z = id % 4u == 0u ? r(2u * id + 1u) * 2.4 - 1.2 : r(2u * id + 1u) * 0.1 - 1.0;
     gl_Position = vec4((float(id % 16u) + 0.5) / 8.0 - 1.0, (float(id / 16u) + 0.5) / 8.0 - 1.0, z, 1.0) * w;
 }
 )");
@@ -301,6 +301,50 @@ void main() {
 )");
     glBindTexture(GL_TEXTURE_2D, depth);
     quad(0, 0, 0, 0);
+    return pixels();
+}
+
+// Each pixel counts the triangles drawn over it, each from beyond the far plane to beyond the near
+// one and with a corner at w 1: a fragment where depth_form's halves meet must be drawn once, as in OpenGL. Their edges stay
+// off the target, because Apple's GPUs cover a pixel within a thousandth of one of an edge as the
+// edge's ends' z says (README.md), and only the halves are tested here.
+std::vector<std::uint8_t> halves(bool clamp) {
+    target(GL_DEPTH_COMPONENT32F);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    glDepthMask(GL_FALSE);
+    if (clamp) {
+        glEnable(GL_DEPTH_CLAMP);
+    }
+    glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
+    program_of(R"(#version 410 core
+layout(location = 0) out vec4 result;
+void main() { result = vec4(1.0 / 255.0); }
+)",
+               R"(#version 410 core
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+float r(uint i) { return float(hash(i) >> 8u) / 16777216.0; }
+void main() {
+    uint id = uint(gl_VertexID);
+    float w = id % 3u == 0u ? 1.0 : 1.0 + r(2u * id) * 999.0;
+    vec2 corners[3] = vec2[3](vec2(-3.0, -3.0), vec2(7.0, -3.0), vec2(-3.0, 7.0));
+    gl_Position = vec4(corners[id % 3u], r(2u * id + 1u) * 3.0 - 1.5, 1.0) * w;
+}
+)");
+    GLuint array = 0;
+    glGenVertexArrays(1, &array);
+    glBindVertexArray(array);
+    glDrawArrays(GL_TRIANGLES, 0, 3 * 200);
+    glDeleteVertexArrays(1, &array);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_CLAMP);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
     return pixels();
 }
 
@@ -636,6 +680,8 @@ void main() {
     {"edges near pixel centres", near_edges},
     {"depth", [] { return depths(false); }},
     {"clamped depth", [] { return depths(true); }},
+    {"depth halves", [] { return halves(false); }},
+    {"clamped depth halves", [] { return halves(true); }},
     {"linear texture",
      [] {
          target();

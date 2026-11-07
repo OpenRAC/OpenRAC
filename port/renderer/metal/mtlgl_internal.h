@@ -142,7 +142,7 @@ struct Program {
     MslProgram msl;
     id<MTLLibrary> vertex, fragment;
     // Each stage's function: [depth_form][fragment].
-    id<MTLFunction> functions[3][2];
+    id<MTLFunction> functions[6][2];
     std::vector<std::uint8_t> uniforms;  // the default block
     std::vector<GLint> units;            // by uniform: a sampler's texture unit
     std::vector<GLuint> block_bindings;  // by block: its GL uniform buffer binding

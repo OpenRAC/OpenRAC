@@ -150,24 +150,26 @@ id<MTLLibrary> library_of(Program& p, const std::string& source) {
 }
 
 // The vertex stage's depth, Program::functions' first index: 0 GL's -w..w taken to 0..w, 1 z as
-// it is (glClipControl), 2 the far half, for a depth-tested draw. OpenGL's window depth is the
-// GPU's own z / w times 0.5 plus 0.5, which no shader computes: taking (z + w) * 0.5 to 0..1 misses
-// its last bit for about two points in five. Metal rounds as OpenGL does when given z as it is
-// and a range of 0.5 to 1, but it clamps or clips to that range first; given -z and 0.5 to 0 it
-// keeps the far half exactly, which with reversed depth is all but the space within twice the
-// near plane, and clamps z beyond the far plane to 0 as GL_DEPTH_CLAMP does. A vertex with w 1
-// (the 2D renderer's, at any depth) divides exactly either way, so it keeps 0..w and 0 to 1 in a
-// second viewport. Nearer than the half, a depth-tested draw with other w is clipped, or clamped to
-// 0.5.
+// it is (glClipControl), 2 and 3 the far and near halves of a depth-tested draw, 4 and 5 those
+// with depth clamped. OpenGL's window depth is the GPU's own z / w times 0.5 plus 0.5, which no
+// shader computes: taking (z + w) * 0.5 to 0..1 misses its last bit for about two points in five.
+// Metal rounds as OpenGL does when given z as it is and a range of 0.5 to 1, but it clamps or
+// clips to that range first. So a depth-tested draw is drawn twice: given -z and 0.5 to 0 it keeps
+// the far half exactly, which with reversed depth is all but the space within twice the near plane,
+// and clamps z beyond the far plane to 0 as GL_DEPTH_CLAMP does; given z as it is and 0.5 to 1, the
+// near half. Both in one draw, as amplified copies, would move triangles' edges on Apple's GPUs.
+// Clamped depth clips neither half away, so there the fragment stage keeps each half's own. The
+// first draw's form; a depth-tested one has the next form's draw too.
 int depth_form(const State& s) {
-    return s.clip_zero_to_one ? 1 : s.depth_test ? 2 : 0;
+    return s.clip_zero_to_one ? 1 : !s.depth_test ? 0 : s.depth_clamp ? 4 : 2;
 }
 
 id<MTLFunction> function_of(Program& p, id<MTLLibrary> library, const std::string& entry, int form) {
-    const bool clip = form != 0, far = form == 2;
+    const bool clip = form != 0, far = form == 2 || form == 4, clamped = form >= 4;
     MTLFunctionConstantValues* constants = [MTLFunctionConstantValues new];
     [constants setConstantValue:&clip type:MTLDataTypeBool atIndex:kClipConstant];
     [constants setConstantValue:&far type:MTLDataTypeBool atIndex:kFarHalfConstant];
+    [constants setConstantValue:&clamped type:MTLDataTypeBool atIndex:kClampedConstant];
     NSError* error = nil;
     id<MTLFunction> function = [library newFunctionWithName:@(entry.c_str())
                                              constantValues:constants
@@ -205,7 +207,7 @@ void MTLGL link_program(GLuint name) {
         if (p->fragment == nil) {
             return;
         }
-        for (int form = 0; form < 3; ++form) {
+        for (int form = 0; form < 6; ++form) {
             __strong id<MTLFunction>* f = p->functions[form];
             f[0] = function_of(*p, p->vertex, p->msl.vertex_entry, form);
             f[1] = function_of(*p, p->fragment, p->msl.fragment_entry, form);
@@ -733,13 +735,12 @@ bool inputs_of(const Program& p, Inputs& out) {
     return true;
 }
 
-id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs& in) {
+id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs& in, int form) {
     const State& s = g->state;
     const MTLPixelFormat colour = t.colour != nil ? t.colour.pixelFormat : MTLPixelFormatInvalid;
     const MTLPixelFormat depth = t.depth != nil ? t.depth.pixelFormat : MTLPixelFormatInvalid;
     const NSUInteger samples = (t.colour != nil ? t.colour : t.depth).sampleCount;
     const bool blend = s.blend && colour != MTLPixelFormatInvalid && !is_integer(colour);
-    const int form = depth_form(s);
     std::string key = key_of(form, colour, depth, samples, blend, s.colour_mask);
     if (blend) {
         key += key_of(s.blend_src_rgb, s.blend_dst_rgb, s.blend_src_a, s.blend_dst_a, s.blend_equation);
@@ -1057,8 +1058,10 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     if (!inputs_of(*p, inputs)) {
         return;
     }
-    id<MTLRenderPipelineState> pipeline = pipeline_of(*p, t, inputs);
-    if (pipeline == nil) {
+    const int form = depth_form(s);
+    id<MTLRenderPipelineState> pipeline = pipeline_of(*p, t, inputs, form);
+    id<MTLRenderPipelineState> near = form >= 2 ? pipeline_of(*p, t, inputs, form + 1) : nil;
+    if (pipeline == nil || (form >= 2 && near == nil)) {
         fail(kGlInvalidOperation);
         return;
     }
@@ -1076,13 +1079,11 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     [pass setFrontFacingWinding:s.front_face == GL_CCW ? MTLWindingClockwise : MTLWindingCounterClockwise];
     [pass setTriangleFillMode:s.polygon_mode == GL_LINE ? MTLTriangleFillModeLines : MTLTriangleFillModeFill];
     [pass setDepthClipMode:s.depth_clamp ? MTLDepthClipModeClamp : MTLDepthClipModeClip];
-    const MTLViewport viewports[2] = {
-        {static_cast<double>(s.viewport[0]), static_cast<double>(s.viewport[1]),
-         static_cast<double>(s.viewport[2]), static_cast<double>(s.viewport[3]), 0.5, 0.0},
-        {static_cast<double>(s.viewport[0]), static_cast<double>(s.viewport[1]),
-         static_cast<double>(s.viewport[2]), static_cast<double>(s.viewport[3]), 0.0, 1.0}};
-    const bool far_half = depth_form(s) == 2;
-    [pass setViewports:far_half ? viewports : viewports + 1 count:far_half ? 2 : 1];
+    const bool halves = form >= 2;
+    MTLViewport viewport{static_cast<double>(s.viewport[0]), static_cast<double>(s.viewport[1]),
+                         static_cast<double>(s.viewport[2]), static_cast<double>(s.viewport[3]),
+                         halves ? 0.5 : 0.0, halves ? 0.0 : 1.0};
+    [pass setViewport:viewport];
     GLint x0 = 0, y0 = 0, x1 = width, y1 = height;
     if (s.scissor_test) {
         x0 = std::clamp(s.scissor[0], 0, width);
@@ -1093,10 +1094,8 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     if (x1 == x0 || y1 == y0) {
         return;  // Metal's scissor cannot be empty
     }
-    const MTLScissorRect scissor{static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0),
-                                 static_cast<NSUInteger>(x1 - x0), static_cast<NSUInteger>(y1 - y0)};
-    const MTLScissorRect scissors[2] = {scissor, scissor};
-    [pass setScissorRects:scissors count:far_half ? 2 : 1];
+    [pass setScissorRect:{static_cast<NSUInteger>(x0), static_cast<NSUInteger>(y0),
+                          static_cast<NSUInteger>(x1 - x0), static_cast<NSUInteger>(y1 - y0)}];
     bind_resources(pass, *p, t);
     for (std::size_t i = 0; i < inputs.buffers.size(); ++i) {
         const Stream& stream = inputs.buffers[i];
@@ -1116,17 +1115,27 @@ void draw(GLenum mode, GLint first, GLsizei count, GLsizei instances, bool index
     }
     if (indexed) {
         elements->used = g->serial;
+    }
+    for (int half = 0; half < (halves ? 2 : 1); ++half) {
+        if (half == 1) {
+            [pass setRenderPipelineState:near];
+            viewport.znear = 0.5;
+            viewport.zfar = 1.0;
+            [pass setViewport:viewport];
+        }
+        if (!indexed) {
+            [pass drawPrimitives:primitive
+                     vertexStart:static_cast<NSUInteger>(std::max(first, 0))
+                     vertexCount:static_cast<NSUInteger>(count)
+                   instanceCount:static_cast<NSUInteger>(instances)];
+            continue;
+        }
         [pass drawIndexedPrimitives:primitive
                          indexCount:static_cast<NSUInteger>(count)
                           indexType:index_type == GL_UNSIGNED_SHORT ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32
                         indexBuffer:elements->buffer
                   indexBufferOffset:index_offset
                       instanceCount:static_cast<NSUInteger>(instances)];
-    } else {
-        [pass drawPrimitives:primitive
-                 vertexStart:static_cast<NSUInteger>(std::max(first, 0))
-                 vertexCount:static_cast<NSUInteger>(count)
-               instanceCount:static_cast<NSUInteger>(instances)];
     }
 }
 

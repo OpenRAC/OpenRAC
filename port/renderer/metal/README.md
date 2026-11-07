@@ -40,6 +40,10 @@ differences remain, each found by bits written out of a shader on both APIs:
 - Apple's OpenGL folds a chain of multiplies by constants into one (`a * 200.0 * (1.0 / 255.0)`
   is `a * (200.0 / 255.0)`); Metal multiplies in the written order. The renderers' shaders fold
   such constants themselves.
+- Blending with the constant colour's alpha may round a result exactly halfway between two bytes
+  the other way: on an M1, 28 channels in 186,000 of every equation and factor over every byte.
+  Both APIs pass the same constant, and no order of float operations fits Apple's OpenGL's choices
+  better than Metal's.
 
 - [shader_translate.h](shader_translate.h), [.cpp](shader_translate.cpp): a compiled program as
   MSL, with the Metal slot of each of its bindings. The comment at the top of the header gives the
@@ -96,15 +100,20 @@ then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot
 missing, the log says why and the window draws with OpenGL: not Vulkan, which on Apple's systems is
 MoltenVK on the same Metal.
 
-It draws what OpenGL draws, but for the differences under Shaders and one rounding Metal's API
-cannot match. OpenGL turns z into window depth as `z / w * 0.5 + 0.5`; Metal is given
-`(z + w) * 0.5` and divides it by w itself, and the last bit differs for about two points in
-five. Metal would round as OpenGL with z as it is and a depth range of 0.5 to 1, but it clips
-depth outside 0 to 1 before that range, and clamping instead flattens all that is nearer. So
-where two surfaces meet at nearly the same depth, a pixel on their edge can show the other one:
-in `remote-mac.sh`'s levels, about two pixels in ten thousand differ on an M1. On an R9 M370X
-about one in ten differs, nearly all by 1 (filtering, above), and three in ten thousand by more
-than 8.
+It draws what OpenGL draws, but for the differences under Shaders and one rounding of Apple's
+GPUs. OpenGL turns z into window depth as `z / w * 0.5 + 0.5`, which Metal rounds the same only
+given z as it is and a depth range of 0.5 to 1, and Metal clips or clamps depth to 0..1 before
+that range. So a depth-tested draw is drawn twice (`mtlgl_draw.mm`'s `depth_form`): with -z and a
+range of 0.5 to 0 for the far half, with z as it is for the near one; with depth clamped, each
+draw drops the other half's fragments. Depth then comes out bit for bit as OpenGL's.
+
+What remains is which pixels a triangle covers: an Apple GPU covers a pixel whose centre is
+within about a thousandth of a pixel of an edge, or on it, as the z of the edge's ends says, and
+OpenGL gives the GPU a z (-w..w) that Metal's API cannot. Given `(z + w) * 0.5` instead, such a
+pixel is covered as OpenGL covers it, but depth misses its last bit for about two points in
+five, which shows far more where surfaces meet. So in `remote-mac.sh`'s levels about two pixels
+in a hundred thousand differ on an M1, nearly all by 1. On an R9 M370X about one in ten differs,
+nearly all by 1 (filtering, above), and three in ten thousand by more than 8.
 
 The enhanced renderer (shadows, water, FSR3, HDR, frame interpolation) runs only on Vulkan's
 render graph, so under Metal the game looks as it does on OpenGL.
