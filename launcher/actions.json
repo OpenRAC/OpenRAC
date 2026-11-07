@@ -1705,6 +1705,44 @@
         "docs": "port/viewer/README.md"
       },
       {
+        "id": "port-levels-check",
+        "label": "Check the levels",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/pal1",
+          "--mods",
+          "{data}/mods/pal1",
+          "--check-levels"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "makes": "assets/port/rac1/pal1/verified-4.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Run it from the desktop app. The game is built by tools/build_port.py rac1-pal1."
+      },
+      {
         "id": "assets-export",
         "label": "Export models and textures",
         "description": "Writes a level's models (glTF, with their skeletons and animations) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
@@ -1875,8 +1913,21 @@
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-pal1) is not built yet, so PAL v1.00 (Europe) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-pal1",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md",
+        "todo": "tools/build_port.py builds the version of the disc set up (rac1-pal1). Run it from the desktop app on each platform."
       },
       {
         "id": "port-rebuild",
@@ -1884,8 +1935,21 @@
         "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-pal1) is not built yet, so PAL v1.00 (Europe) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-pal1",
+          "--disc",
+          "{disc}",
+          "--clean",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md"
       },
       {
         "id": "probe-bake",
@@ -1893,8 +1957,38 @@
         "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-pal1) is not built yet, so PAL v1.00 (Europe) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac1/pal1",
+          "--output-dir",
+          "{data}/probes/pal1",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/pal1",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
       },
       {
         "id": "play",
@@ -1902,8 +1996,27 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-pal1) is not built yet, so PAL v1.00 (Europe) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Run from the desktop app on each platform. Built from PAL v2.00's C through the release view (port/game/rac1-pal1/README.md); not played by a person yet.",
+        "program": "{artifact}",
+        "requires": [
+          "artifact"
+        ],
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/pal1"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
       },
       {
         "id": "play-edited",
@@ -1911,8 +2024,29 @@
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-pal1) is not built yet, so PAL v1.00 (Europe) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Built by port-build. The Mods page runs overrides-stack first, which writes {data}/mods/pal1. Not run from the desktop app yet.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/pal1",
+          "--mods",
+          "{data}/mods/pal1"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
       }
     ],
     "rac1/jp": [
@@ -2090,6 +2224,44 @@
         "docs": "port/viewer/README.md"
       },
       {
+        "id": "port-levels-check",
+        "label": "Check the levels",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/jp",
+          "--mods",
+          "{data}/mods/jp",
+          "--check-levels"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "makes": "assets/port/rac1/jp/verified-4.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Run it from the desktop app. The game is built by tools/build_port.py rac1-jp."
+      },
+      {
         "id": "assets-export",
         "label": "Export models and textures",
         "description": "Writes a level's models (glTF, with their skeletons and animations) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
@@ -2260,8 +2432,21 @@
         "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-jp) is not built yet, so Japanese (NTSC-J) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-jp",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md",
+        "todo": "tools/build_port.py builds the version of the disc set up (rac1-jp). Run it from the desktop app on each platform."
       },
       {
         "id": "port-rebuild",
@@ -2269,8 +2454,21 @@
         "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-jp) is not built yet, so Japanese (NTSC-J) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-jp",
+          "--disc",
+          "{disc}",
+          "--clean",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md"
       },
       {
         "id": "probe-bake",
@@ -2278,8 +2476,38 @@
         "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
         "kind": "build",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-jp) is not built yet, so Japanese (NTSC-J) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac1/jp",
+          "--output-dir",
+          "{data}/probes/jp",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/jp",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
       },
       {
         "id": "play",
@@ -2287,8 +2515,27 @@
         "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-jp) is not built yet, so Japanese (NTSC-J) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Run from the desktop app on each platform. Built from PAL v2.00's C through the release view (port/game/rac1-jp/README.md); not played by a person yet.",
+        "program": "{artifact}",
+        "requires": [
+          "artifact"
+        ],
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/jp"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
       },
       {
         "id": "play-edited",
@@ -2296,8 +2543,29 @@
         "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "todo": "The native program for this disc (openrac-rac1-jp) is not built yet, so Japanese (NTSC-J) cannot be played. Its levels can already be read from the disc."
+        "state": "unverified",
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Built by port-build. The Mods page runs overrides-stack first, which writes {data}/mods/jp. Not run from the desktop app yet.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/jp",
+          "--mods",
+          "{data}/mods/jp"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
       }
     ],
     "rac2/ntsc": [
