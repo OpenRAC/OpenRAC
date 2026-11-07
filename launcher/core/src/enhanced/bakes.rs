@@ -185,15 +185,9 @@ fn prepared_emission(level: &Path, baker: &Path, profiles: &Path, game: &str, ve
     if !has_recipe || previous.is_none() {
         return !has_recipe && previous.is_none();
     }
-    crate::detect::quiet(baker)
-        .arg("--print-emission-fingerprint")
-        .arg(level)
-        .arg(profiles)
-        .output()
-        .ok()
-        .is_some_and(|output| {
-            output.status.success() && previous == Some(String::from_utf8_lossy(&output.stdout).trim())
-        })
+    crate::detect::quiet(baker).arg("--print-emission-fingerprint").arg(level).arg(profiles).output().ok().is_some_and(
+        |output| output.status.success() && previous == Some(String::from_utf8_lossy(&output.stdout).trim()),
+    )
 }
 
 // Predict the baker's tracked profile refresh without touching the export.
@@ -396,9 +390,8 @@ mod tests {
         let shipped = profiles.join("rac1-ntsc/level_02");
         std::fs::create_dir_all(&shipped).unwrap();
         let recipe = shipped.join("emission-textures.json");
-        let ready = |stamp| {
-            prepared_emission(&level, &profiles.join("unused-baker"), profiles, "rac1", "rac1-ntsc", stamp)
-        };
+        let ready =
+            |stamp| prepared_emission(&level, &profiles.join("unused-baker"), profiles, "rac1", "rac1-ntsc", stamp);
         assert!(ready(&Value::Null));
         std::fs::write(&recipe, "{}").unwrap();
         assert!(!ready(&Value::Null));
