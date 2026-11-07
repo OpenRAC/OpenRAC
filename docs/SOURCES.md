@@ -12,7 +12,7 @@ each project.
 | [`games/rac1/ntsc`](../games/rac1/ntsc) | Lombyte | https://github.com/lombyte-project/Lombyte | main | `d29807486aeb` | 2026-10-31 | GPL-3.0 (GPL-2.0 and newlib parts keep theirs) |
 | [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/OpenRAC/rac2-decomp | master | `11876eec6de6` | 2026-11-07 | GPL-3.0 |
 | [`games/rac3/ntsc`](../games/rac3/ntsc) | rac3-uya-decomp | https://github.com/OpenRAC/rac3-uya-decomp | main | `bfd8278e8c73` | 2026-10-07 | GPL-3.0 |
-| [`games/rac4/ntsc`](../games/rac4/ntsc) | rac-deadlocked-decomp | https://github.com/OpenRAC/rac-deadlocked-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
+| [`games/rac4/ntsc`](../games/rac4/ntsc) | rac4-decomp | https://github.com/OpenRAC/rac4-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
 | [`games/rac5/ntsc`](../games/rac5/ntsc) | rac5-sm-decomp | https://github.com/OpenRAC/rac5-sm-decomp | master | `57b025248ac0` | 2026-10-18 | GPL-3.0 |
 | [`games/rac6/ntsc`](../games/rac6/ntsc) | rac-sac-decomp | https://github.com/OpenRAC/rac-sac-decomp | main | `4e38d3d88f62` | 2026-10-21 | GPL-3.0 |
 <!-- sources:end -->
@@ -33,11 +33,18 @@ committed inside it. OpenRAC's changes are in `games/<game>/<version>-patches/`:
 After a clone or a pull:
 
 ```sh
-git submodule update --init --depth 1
-python3 tools/sources.py apply
+python3 tools/sources.py init    # git submodule update --init --depth 1, then apply
 ```
 
 `unapply` removes the changes again, `status` shows each project.
+
+## Moving a pin
+
+A project's pin (its submodule commit and game.json's `"commit"`) and the port's tables made from it
+move together: hostgen's config and tables, the release names and tables, the asm interfaces and the
+Windows exports under `port/game/<game>*`. CI runs `tools/sources.py check --since <base>`, which
+fails a pull request whose pin and game.json disagree, or which moves a pin without changing anything
+under `port/game/<game>*`.
 
 ## Where a change goes
 

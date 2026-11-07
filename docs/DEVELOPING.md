@@ -7,12 +7,11 @@ How to work on OpenRAC from a checkout. To play, use the launcher from the
 ## Your checkout and your discs
 
 ```sh
-git clone --recurse-submodules --shallow-submodules https://github.com/OpenRAC/OpenRAC.git && cd OpenRAC
-python3 tools/sources.py apply     # put OpenRAC's changes into the decompilations
+git clone https://github.com/OpenRAC/OpenRAC.git && cd OpenRAC
+python3 tools/sources.py init      # the decompilations at their pinned commits, with OpenRAC's changes
 ```
 
-The decomps are git submodules ([SOURCES.md](SOURCES.md)). After a pull, run
-`git submodule update --init --depth 1` and `apply` again.
+The decomps are git submodules ([SOURCES.md](SOURCES.md)). After a pull, run `init` again.
 
 Put images of your own discs in `baserom/` ([baserom/README.md](../baserom/README.md)
 lists the supported ones), then:

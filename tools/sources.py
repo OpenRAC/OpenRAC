@@ -10,14 +10,17 @@ games/<game>/<version>-patches/:
   files/<path>           OpenRAC's own files, copied to <path> in the project
   README.md              what the folder holds; its list of patches is written by `save`
 
-  python3 tools/sources.py apply [GAME/VERSION...]    put the changes in place (after a clone or a pull)
+  python3 tools/sources.py init                       check out every project at its pin and apply (after a clone or a pull)
+  python3 tools/sources.py apply [GAME/VERSION...]    put the changes in place
   python3 tools/sources.py unapply [GAME/VERSION...]  take them out: the project as it is upstream
   python3 tools/sources.py edit GAME/VERSION          turn the patches into commits in the submodule
   python3 tools/sources.py save GAME/VERSION          write those commits back as the patches
   python3 tools/sources.py update GAME/VERSION [REV]  move to REV (default: its branch's tip), patches rebased
   python3 tools/sources.py status                     where each project is, and its patches
+  python3 tools/sources.py check [--since REV]        every pin matches game.json; a pin moved since REV
+                                                      came with the port's tables regenerated (CI)
 
-A first clone takes `git submodule update --init --depth 1`, then `apply`. To change a patch:
+After a clone or a pull, `init` does both steps: `git submodule update --init --depth 1`, then `apply`. To change a patch:
 `edit`, then work with git in the submodule (commit, `git commit --amend`, `git rebase -i`: each
 commit is one patch, its message the patch's reason), then `save`. A change to the project itself
 (a match, a name) goes to its own repository instead (docs/SOURCES.md).
@@ -289,6 +292,45 @@ def do_status() -> None:
         print(line)
 
 
+def do_init() -> None:
+    """Check out every submodule at its pin (LF endings, shallow), then apply every project's changes."""
+    for tree in trees().values():
+        if tree.checked_out():
+            do_unapply(tree)
+    proc.git(ROOT, "-c", "core.autocrlf=false", "submodule", "update", "--init", "--depth", "1", "--jobs", "8")
+    for tree in trees().values():
+        do_apply(tree)
+
+
+def changed_since(rev: str) -> list[str]:
+    return proc.git(ROOT, "diff", "--name-only", rev, "HEAD").splitlines()
+
+
+def do_check(since: str | None) -> None:
+    """The index's pins and game.json agree; and, given REV, a project whose pin moved since REV
+    comes with its port tables (port/game/<game>*) changed in the same range, since hostgen's tables,
+    release names and asm interfaces are made from one commit of the project."""
+    problems = []
+    for key, tree in trees().items():
+        pinned, recorded = tree.pinned(), tree.source["commit"]
+        if pinned != recorded:
+            problems.append(f"{key}: game.json records {recorded[:10]} but the submodule is pinned to "
+                            f"{pinned[:10] if pinned else 'nothing'} (tools/sources.py update {key})")
+    if since:
+        changed = changed_since(since)
+        for key, tree in trees().items():
+            if tree.rel not in changed:
+                continue
+            ported = [p for p in changed if p.startswith(f"port/game/{tree.game['id']}")]
+            if not ported:
+                problems.append(f"{key}: the submodule moved since {since} but nothing under "
+                                f"port/game/{tree.game['id']}* changed: regenerate the port's tables "
+                                f"(hostgen, release tables, asm interfaces, Windows exports) for the new commit")
+    if problems:
+        sys.exit("\n".join(problems))
+    print("sources: every pin matches game.json" + (f"; pins moved since {since} came with port changes" if since else ""))
+
+
 def chosen(keys: list[str]) -> list[Tree]:
     known = trees()
     for key in keys:
@@ -308,6 +350,8 @@ def main() -> None:
     up.add_argument("version")
     up.add_argument("rev", nargs="?")
     sub.add_parser("status")
+    sub.add_parser("init")
+    sub.add_parser("check").add_argument("--since")
     args = ap.parse_args()
     if args.cmd == "apply":
         for t in chosen(args.versions):
@@ -318,6 +362,10 @@ def main() -> None:
             print(f"{t.key}: as it is upstream")
     elif args.cmd == "status":
         do_status()
+    elif args.cmd == "init":
+        do_init()
+    elif args.cmd == "check":
+        do_check(args.since)
     else:
         tree = chosen([args.version])[0]
         {"edit": do_edit, "save": do_save}.get(args.cmd, lambda t: do_update(t, args.rev))(tree)
