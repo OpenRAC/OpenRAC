@@ -51,13 +51,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import derived as derived_mod  # noqa: E402
 
 # An address name: func_, FUN_ or D_, a release tag, a level, eight digits; a suffix after it stays.
-NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{1,3})_)?(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?![0-9A-Za-z])")
+NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{0,3})_)?(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?![0-9A-Za-z])")
 # A short name: six digits, or kseg0's 80 and six (an address in the program of the file's level).
 SHORT = re.compile(r"(?<![\w])func_(80)?([0-9A-F]{6})(?![0-9A-Za-z_])")
 # Either, for a file with short names of its own.
 ANY = re.compile(r"(?<![\w])func_(?:80)?[0-9A-F]{6}(?![0-9A-Za-z_])|" + NAME.pattern)
-DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:[A-Z][A-Z0-9]{1,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
-INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:[A-Z][A-Z0-9]{1,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
+DEFINED = re.compile(r"^[A-Za-z_][\w \t\*]*?\b(func_(?:[A-Z][A-Z0-9]{0,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\([^;{}]*\)\s*\{", re.M)
+INCLUDED = re.compile(r"^[ \t]*(?:INCLUDE_ASM|ASM_FUNC)\([^,]*,\s*(func_(?:[A-Z][A-Z0-9]{0,3}_)?(?:L\d\d_)?[0-9A-F]{8})\s*\)", re.M)
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 DEAD = "V1"
 
@@ -118,10 +118,61 @@ class Release:
         self.table = table
         self.names: dict[str, str] = table.get("names", {})
         self.units: dict[str, dict[str, str]] = table.get("units", {})
+        self.gone: list[str] = table.get("gone", [])
 
     @classmethod
     def load(cls, path: Path) -> "Release":
         return cls(json.loads(Path(path).read_text()))
+
+    # The release's own definitions (rac1-decomp's src/versions/<key>/<shared file>/<function>.c):
+    # shared file (its path under the decompilation) -> [(function, the definition's text)].
+    splices: dict[str, list[tuple[str, str]]] = {}
+    tag: str | None = None
+
+    def read_splices(self, source: Path, directory: str, tag: str | None) -> None:
+        """The release's definitions under DIRECTORY (src/versions/<key>), each standing in for the
+        shared file's definition of its function, as the release's build compiles it."""
+        root = source / directory
+        out: dict[str, list[tuple[str, str]]] = {}
+        for path in sorted(root.rglob("*.c")) if root.is_dir() else []:
+            shared = (Path("src") / path.relative_to(root).parent).as_posix() + ".c"
+            out.setdefault(shared, []).append((path.stem, path.read_text(encoding="utf-8", errors="surrogateescape")))
+        self.splices, self.tag = out, tag
+
+    def splice(self, text: str, unit: str, readable: dict[str, list[str]] | None = None) -> str:
+        """UNIT's text with the release's definitions in place of the shared ones (rac1-decomp's
+        tools/version_src.py spliced()): one for a function of the shared file takes the place of
+        its definition, found by the function's name or a readable name the names header gives it;
+        one for a function only the release has (func_<tag>_...) goes at the end."""
+        import prep
+        spans, tail = [], []
+        for name in self.gone:
+            # A definition of PAL v2.00's the release has no function for: left out (its lines stay).
+            spellings = [name] + (readable or {}).get(name, [])
+            for spelling in spellings + [f"{x}_r" for x in spellings]:
+                span = prep._definition(text, spelling) if spelling in text else None
+                if span:
+                    text = text[:span[0]] + "\n" * text.count("\n", span[0], span[1]) + text[span[1]:]
+                    break
+        for name, body in self.splices.get(unit, []):
+            if self.tag and name.startswith(f"func_{self.tag}_"):
+                tail.append(body.rstrip("\n"))
+                continue
+            span = None
+            # rac1-decomp's spellings of a definition: its name, a readable one, either with the `_r`
+            # its C gives a function defined under an assembler name (`int func_00227100_r(...)
+            # __asm__("func_00227100")`).
+            spellings = [name] + (readable or {}).get(name, [])
+            for spelling in spellings + [f"{x}_r" for x in spellings]:
+                span = prep._definition(text, spelling)
+                if span:
+                    break
+            if span is None:
+                raise ValueError(f"{unit}: the release's definition of {name} has no definition there to replace")
+            spans.append((span, body.rstrip("\n")))
+        for (start, end), body in sorted(spans, reverse=True):
+            text = text[:start] + body + text[end:]
+        return text + "".join(f"\n{body}\n" for body in tail)
 
     def name(self, symbol: str) -> str:
         """SYMBOL in the release's names (a suffix kept: func_00280B90_7)."""
@@ -159,7 +210,10 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
     path = config_dir / r["table"]
     if not path.is_file():
         raise FileNotFoundError(f"{cfg.get('id')}: no release table {path}: write it with port/tools/hostgen/release.py build")
-    return Release.load(path)
+    table = Release.load(path)
+    if r.get("splice"):
+        table.read_splices(source, r["splice"], RAC1_RELEASES.get(r["version"], {}).get("tag"))
+    return table
 
 
 # ---------------------------------------------------------------- building the table
@@ -361,6 +415,209 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter) ->
             "r_boot": r_boot, "us_boot": us_boot, "plain": plain, "absent": absent}
 
 
+# ---------------------------------------------------------------- Ratchet & Clank's releases
+
+# rac1-decomp (games/rac1/docs/VERSIONS.md) builds PAL v1.00 and NTSC-J from PAL v2.00's C. Each
+# release's catalogue (config/versions/<key>/functions.tsv) names every function by its PAL v2.00
+# counterpart, or func_<tag>_... for code only it has, with its places; its own definitions
+# (src/versions/<key>/) stand in for the shared ones where its code differs; and its check
+# (tools/version_check.py) proves every relocation of every function against its bytes, which
+# version_relocs.py writes out as the values release.py reads for Going Commando's builds.
+MAIN_SEGMENT = 0x15F000     # where PAL v2.00's main segment (the part a level replaces) starts
+RAC1_RELEASES = {
+    "pal_v1": {"game": "rac1", "tag": "E1", "dead": "V2", "label": "PAL v1.00"},
+    "jp": {"game": "rac1", "tag": "J", "dead": "V2", "label": "NTSC-J"},
+}
+
+
+def read_rows(path: Path) -> list[dict]:
+    """A rac1-decomp version catalogue (config/versions/<key>/functions.tsv): name, kind, size,
+    fingerprint, counterpart, method, similarity, same, places (boot:ADDR or NN:ADDR)."""
+    rows = []
+    for line in path.read_text().splitlines():
+        cols = line.split("\t")
+        if line.startswith("#") or len(cols) < 9:
+            continue
+        places = []
+        for item in cols[8].split(","):
+            prog, _, addr = item.partition(":")
+            if addr:
+                places.append(("boot" if prog == "boot" else int(prog), int(addr, 16)))
+        rows.append({"name": cols[0], "kind": cols[1], "size": int(cols[2]), "fp": cols[3],
+                     "counterpart": None if cols[4] == "-" else cols[4], "same": cols[7] == "yes",
+                     "places": places})
+    return rows
+
+
+def build_rac1(source: Path, version: str, relocs: Path, versionmap: Path | None, uses: Counter) -> dict:
+    """The release table of a rac1-decomp release: build()'s, from its catalogue and its check."""
+    info = RAC1_RELEASES[version]
+    tag, dead = info["tag"], info["dead"]
+    evidence: Counter = Counter()
+    names: dict[str, str] = {}
+    how: dict[str, str] = {}
+    primary = {r["name"]: r for r in read_rows(source / "config/versions/pal/functions.tsv")}
+    rows = read_rows(source / "config/versions" / version / "functions.tsv")
+    r_values = placed_values(relocs)
+
+    def own(name: str) -> bool:
+        return name.startswith((f"func_{tag}_", f"D_{tag}_"))
+
+    def strip(name: str) -> str:
+        return name.replace(f"_{tag}_", "_", 1)
+
+    def home_of(m: re.Match):
+        return int(m.group(3)) if m.group(3) else "boot"
+
+    def mark(name: str) -> str:
+        return re.sub(r"^(func|D)_", rf"\1_{dead}_", name)
+
+    def put(name: str, new: str, why: str) -> None:
+        names[name] = new
+        how[name] = why
+        evidence[why] += 1
+
+    # Functions: the release's catalogue places each by its PAL v2.00 name.
+    for r in rows:
+        name = r["name"]
+        if own(name):
+            put(name, strip(name), "function: the release's own")
+            continue
+        m = NAME.fullmatch(name)
+        if m is None:
+            continue
+        home, stated = home_of(m), int(m.group(4), 16)
+        mine = sorted(a for p, a in r["places"] if p == home)
+        theirs = sorted(a for p, a in primary.get(name, {}).get("places", []) if p == home)
+        why = "function: carried (same code)" if r["same"] else "function: carried (the release's own C for it)"
+        if mine:
+            # The k-th place of PAL v2.00's in that program is the k-th here (version_check.py's table);
+            # a name stated away from its place keeps the distance.
+            k = theirs.index(stated) if stated in theirs else 0
+            base = theirs[k] if theirs else stated
+            put(name, core("func", m.group(3) and int(m.group(3)), mine[min(k, len(mine) - 1)] + stated - base), why)
+        elif r["places"]:
+            # Here only in other programs (an executable function only the levels hold): a function of
+            # the first of them, as release.build() names one.
+            level, address = next((p, a) for p, a in sorted(r["places"], key=lambda p: (p[0] == "boot", p)) if p != "boot")
+            put(name, core("func", level, address), "function: only in other programs here")
+    vmap = json.loads(versionmap.read_text()) if versionmap else None
+    between = None
+    if versionmap:
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "versionmap"))
+        from versionmap import Map
+        between = Map(versionmap)
+    # PAL v2.00's functions the release does not have: what the release's check placed for the name
+    # (a relocation to it, through its counterpart here), else marked.
+    absent, gone = set(), set()
+    r_at = {}
+    for r in rows:
+        for p in r["places"]:
+            r_at.setdefault(p, r)
+    for name in primary:
+        if name in names or not (m := NAME.fullmatch(name)):
+            continue
+        absent.add(name)
+        home = "boot" if m.group(3) is None else f"{int(m.group(3)):02d}"
+        value = r_values.get(home, {}).get(name)
+        if value is None and home == "boot":
+            # Reached only from the levels' checked C (a callback a level's code stores): the
+            # executable's function whose copy in that level its relocations reached.
+            for p in sorted(x for x in r_values if x != "boot"):
+                v = r_values[p].get(name)
+                row = r_at.get((int(p), v)) if v is not None else None
+                if v is not None and v < MAIN_SEGMENT:
+                    value = v
+                elif row is not None:
+                    value = next((a for q, a in row["places"] if q == "boot"), None)
+                if value is not None:
+                    break
+        if value is None and between is not None:
+            # No relocation of the release's checked C reaches it: versionmap's pair of the same
+            # instructions, where the release's catalogue counts them under another copy (below).
+            hit = between.function(int(m.group(4), 16), "boot" if home == "boot" else f"level:{home}")
+            if hit is not None and hit[1] == "same":
+                cand = r_at.get((home if home == "boot" else int(home), hit[0]))
+                if cand is not None and cand["fp"] == primary[name]["fp"]:
+                    value = hit[0]
+        at = r_at.get((home if home == "boot" else int(home), value)) if value is not None else None
+        if at is not None and at["fp"] == primary[name]["fp"]:
+            # The same code here, which the release's catalogue counts under another copy's name
+            # (an executable function and its level copies folded into one row): its own function.
+            put(name, core("func", m.group(3) and int(m.group(3)), value),
+                "function: carried (same code; the release's catalogue names it by another copy)")
+        elif value is not None:
+            # The release has the code PAL v2.00's C calls by this name elsewhere (its own function,
+            # or one it changed): the calls go there, spelled FUN_, as hostgen reads another name
+            # of a function; PAL v2.00's definition is not the release's (Release.splice drops it).
+            new = core("func", m.group(3) and int(m.group(3)), value)
+            put(name, "FUN" + new[4:], "function: the release's check (its counterpart here)")
+            gone.add(name)
+        else:
+            put(name, mark(name), "function: not in the release (marked)")
+
+    def mapped(program: str, address: int, kind: str) -> int | None:
+        if vmap is None:
+            return None
+        key = "boot" if program == "boot" else f"level:{program}"
+        if kind == "D":
+            hit = vmap["programs"].get(key, {}).get("data", {}).get(f"{address:08X}")
+            if isinstance(hit, list):
+                hit = hit[0] if len(hit) > 1 and hit[1] == "exact" else None
+            return int(hit, 16) if isinstance(hit, str) else None
+        hit = vmap["programs"].get(key, {}).get("functions", {}).get(f"{address:08X}")
+        return int(hit[0], 16) if hit and hit[1] == "same" else None
+
+    # Every other address name the C uses or the check placed: globals, entries inside functions,
+    # the release's own data (D_E1_...): the check's value, else versionmap's exact pair.
+    cores: set[str] = set()
+    for values in r_values.values():
+        cores.update(values)
+    cores.update(uses)
+    for sym in sorted(cores - set(names)):
+        m = NAME.fullmatch(sym)
+        if m is None:
+            continue
+        kind, tagged = m.group(1), m.group(2)
+        what = "function" if kind == "func" else "global"
+        if tagged == tag:
+            put(sym, strip(sym), f"{what}: the release's own")
+            continue
+        if tagged:
+            continue
+        level, address = (int(m.group(3)) if m.group(3) else None), int(m.group(4), 16)
+        home = f"{level:02d}" if level is not None else "boot"
+        value, why, at = r_values.get(home, {}).get(sym), f"{what}: the release's check", level
+        if value is None and (value := mapped(home, address, "D" if kind == "D" else "func")) is not None:
+            why = f"{what}: versionmap ({'exact' if kind == 'D' else 'same'})"
+        if value is None:
+            # Used only where another program's check placed it (a level's C naming the executable's).
+            for program in sorted(p for p in r_values if p != "boot"):
+                if sym in r_values[program] and (level is not None or r_values[program][sym] < 0x15F000):
+                    value, why = r_values[program][sym], f"{what}: the release's check (a level's)"
+                    break
+        if value is None and kind == "D" and between is not None:
+            # Between two neighbours that moved alike (versionmap's `between`): inferred, listed.
+            hit = between.data(address, "boot" if home == "boot" else f"level:{home}")
+            if hit is not None and hit[1] == "between":
+                value, why = hit[0], "global: versionmap (between)"
+        if value is None:
+            put(sym, mark(sym), f"{what}: no value (marked)")
+            continue
+        put(sym, core(kind, at, value), why)
+    # The release's own datum that a PAL v2.00 name reaches too (the release's own C names it D_E1_...,
+    # the shared C by PAL v2.00's name): one datum, two declarations that may differ in type, so the
+    # release's own takes a spelling of its own of the same address (D_..._E1, a view hostgen reads
+    # at that address).
+    taken = Counter(v for k, v in names.items() if not own(k))
+    for k, v in list(names.items()):
+        if own(k) and k.startswith("D_") and taken[v]:
+            names[k] = f"{v}_{tag}"
+            evidence["global: the release's own, spelled apart from a PAL v2.00 name of it"] += 1
+    return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),
+            "how": how, "absent": absent, "gone": sorted(gone), "rows": rows, "primary": primary, "r_values": r_values}
+
+
 def units(source: Path, version: str, release: Release, parts: dict, sources: list[str]) -> tuple[dict, Counter]:
     """Each file's short names in the release's names: the function at the value that level's
     build gave the name (the release's, else v1.01's renamed)."""
@@ -481,10 +738,13 @@ def derived_values(parts: dict, release: Release, level_base: int) -> dict:
             "levels": dict(sorted(levels.items())), "level_data": level_data}
 
 
-def used_tokens(source: Path, sources: list[str]) -> Counter:
+def used_tokens(source: Path, sources: list[str], skip: list[str] = ()) -> Counter:
     out: Counter = Counter()
     for d in sources:
         for p in (source / d).rglob("*"):
+            rel = p.relative_to(source).as_posix()
+            if any(rel == s or rel.startswith(s.rstrip("/") + "/") for s in skip):
+                continue
             if p.suffix in (".c", ".h") and p.is_file():
                 out.update(m.group(0) for m in NAME.finditer(p.read_text(errors="replace")))
     return out
@@ -498,6 +758,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--source", type=Path, required=True,
                    help="the decompilation, built for v1.01 and for the release (build/, build/<version>/)")
     b.add_argument("--map", type=Path, help="versionmap.py's map from v1.01 to the release (globals no placed C uses)")
+    b.add_argument("--relocs", type=Path,
+                   help="Ratchet & Clank: version_relocs.py's output for the release (what its check proved)")
     n = sub.add_parser("name", help="print names in the release's names")
     n.add_argument("--game", type=Path, required=True)
     n.add_argument("names", nargs="+")
@@ -513,11 +775,27 @@ def main(argv: list[str] | None = None) -> int:
     source = args.source.resolve()
     roots = sorted(set(cfg.get("sources", ["src"]) + cfg.get("includes", ["include"]) + ["nonmatching"]))
     uses = used_tokens(source, roots)
-    parts = build(source, version, args.map, uses)
-    release = Release({"names": parts["names"]})
-    unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
-    release.units = unit_names
-    derived = derived_values(parts, release, RELEASES[version]["level_base"])
+    if version in RAC1_RELEASES:
+        # What hostgen leaves out (src/data: the port reads the executable's data from the disc).
+        uses = used_tokens(source, roots, cfg.get("skip", []))
+        if args.relocs is None:
+            ap.error("a Ratchet & Clank release needs --relocs (version_relocs.py's output)")
+        # The release's own definitions are its C too (hostgen splices them in: "release" "splice").
+        uses.update(used_tokens(source, [f"src/versions/{version}"]))
+        parts = build_rac1(source, version, args.relocs.resolve(), args.map, uses)
+        release = Release({"names": parts["names"]})
+        unit_names, unit_evidence = {}, Counter()
+        derived = {"values": {}, "levels": {}, "level_data": {}}
+        DEAD_NOW = RAC1_RELEASES[version]["dead"]
+        source_note = {"commit": None, "version": version, "table": "version_relocs.py (rac1-decomp's tools/version_check.py)"}
+    else:
+        parts = build(source, version, args.map, uses)
+        release = Release({"names": parts["names"]})
+        unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
+        release.units = unit_names
+        derived = derived_values(parts, release, RELEASES[version]["level_base"])
+        DEAD_NOW = DEAD
+        source_note = {"commit": None, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"}
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, capture_output=True, text=True,
                                 timeout=15).stdout.strip() or None
@@ -533,31 +811,39 @@ def main(argv: list[str] | None = None) -> int:
                 continue
             cname, _, crel = line.partition("\t")
             cname, cpath = cname.strip(), source / crel.strip()
-            if f"_{DEAD}_" in release.name(cname):
+            if f"_{DEAD_NOW}_" in release.name(cname):
                 left_out[cname] = "not in this release"
                 continue
             if cpath.is_file():
                 text = release.text(cpath.read_text(errors="replace"))
-                marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD}_\w+", text)))
+                marked = sorted(set(re.findall(rf"\b(?:func|D)_{DEAD_NOW}_\w+", text)))
                 if marked:
                     left_out[cname] = f"names what this release does not have ({', '.join(marked[:3])})"
     unresolved = sorted({release.name(t) for t in uses if t.startswith(("D_", "func_"))
-                         and f"_{DEAD}_" in release.name(t) and uses[t]})
+                         and f"_{DEAD_NOW}_" in release.name(t) and uses[t]})
     table = {
         "about": "The release view of the decompilation: each v1.01 address name and the release's name for it, "
                  "and the values the release's build derived, in those names. Written by "
                  "port/tools/hostgen/release.py build; do not edit.",
-        "source": {"commit": commit, "version": version, "table": f"{RELEASES[version]['build']}/*/placed.json"},
+        "source": {**source_note, "commit": commit},
         "evidence": {**parts["evidence"], **dict(sorted(unit_evidence.items()))},
         "names": parts["names"],
         "units": unit_names,
         **derived,
         # The derived names the C uses that this release's build gave no value (their C is v1.01's
         # only, or left as assembly here): derived.py's check tells them from a stale table.
-        "unresolved": sorted(derived_mod.used_names(source, cfg) - set(derived["values"]) - set(derived["levels"])),
+        "unresolved": (sorted(derived_mod.used_names(source, cfg) - set(derived["values"]) - set(derived["levels"]))
+                       if cfg.get("derived") else []),
         "candidates_left_out": dict(sorted(left_out.items())),
         "marked_in_use": unresolved,
     }
+    if parts.get("gone"):
+        # PAL v2.00's definitions the release has no function for (another of its own is called).
+        table["gone"] = parts["gone"]
+    if parts.get("how"):
+        # How each name rests (Ratchet & Clank's releases: release_rac1.py lists what is inferred).
+        table["how"] = {k: v for k, v in sorted(parts["how"].items()) if parts["names"].get(k, k) != k
+                        or not v.startswith("function: carried (same code)")}
     table_path.write_text(json.dumps(table, indent=1) + "\n")
     print(f"release: {table_path}: {len(table['names'])} names, {len(unit_names)} files with short names, "
           f"{len(table['values'])} values; {len(unresolved)} marked names the C uses")

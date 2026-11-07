@@ -833,7 +833,10 @@ def best_declaration(sigs: list[Signature]) -> Signature:
 def read_places(path: Path, program: Program) -> int:
     """Each level function's address in each level that has it
     (config/overlays/functions.tsv of rac1/pal: name, kind, size,
-    fingerprint, levels, places as level:address,...)."""
+    fingerprint, levels, places as level:address,...; or a release's catalogue,
+    config/versions/<key>/functions.tsv: name, kind, size, fingerprint, counterpart,
+    method, similarity, same, places, whose executable places, boot:address, are the
+    name's own)."""
     if not path.exists():
         return 0
     count = 0
@@ -843,10 +846,11 @@ def read_places(path: Path, program: Program) -> int:
         cols = line.split("\t")
         if len(cols) < 6:
             continue
+        column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
         places = []
-        for item in cols[5].split(","):
+        for item in cols[column].split(","):
             level, _, addr = item.partition(":")
-            if level and addr:
+            if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
         if places:
             program.places[cols[0]] = places

@@ -149,3 +149,64 @@ class Committed(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Rac1Release(unittest.TestCase):
+    """Ratchet & Clank's releases: rac1-decomp's catalogues and its check (release.build_rac1)."""
+
+    HEAD = "# name\tkind\tsize\tfingerprint\tcounterpart\tmethod\tsimilarity\tsame\tplaces\n"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = Path(self.tmp.name)
+        self.source = root / "decomp"
+        (self.source / "config/versions/pal").mkdir(parents=True)
+        (self.source / "config/versions/pal_v1").mkdir(parents=True)
+        (self.source / "config/versions/pal/functions.tsv").write_text(self.HEAD + "".join([
+            "func_00200000\texe\t8\tf\tfunc_00200000\tfingerprint\t1.00\tyes\tboot:00200000\n",
+            "func_L00_00300000\tshared\t8\tf\tfunc_L00_00300000\tfingerprint\t1.00\tyes\t00:00300000,01:00310000\n",
+            "func_00200100\texe\t8\tf\tfunc_00200100\tfingerprint\t1.00\tyes\tboot:00200100\n",
+        ]))
+        (self.source / "config/versions/pal_v1/functions.tsv").write_text(self.HEAD + "".join([
+            "func_00200000\texe\t8\tf\tfunc_00200000\tfingerprint\t1.00\tyes\tboot:001FFF00\n",
+            "func_L00_00300000\tshared\t8\tf\tfunc_L00_00300000\tfingerprint\t1.00\tno\t00:002FFF00,01:0030FF00\n",
+            "func_E1_00201000\texe\t8\tf\t-\t-\t-\tno\tboot:00201000\n",
+        ]))
+        self.relocs = root / "relocs"
+        (self.relocs / "boot").mkdir(parents=True)
+        (self.relocs / "boot/placed.json").write_text(json.dumps(
+            {"values": {"D_00150000": "0x0014FF00", "func_00200000": "0x001FFF00"}}))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_names(self):
+        uses = Counter({"D_00150000": 1, "D_00160000": 1, "D_E1_00150100": 1})
+        parts = release.build_rac1(self.source, "pal_v1", self.relocs, None, uses)
+        names = parts["names"]
+        self.assertEqual(names["func_00200000"], "func_001FFF00")
+        self.assertEqual(names["func_L00_00300000"], "func_L00_002FFF00")
+        self.assertEqual(names["func_E1_00201000"], "func_00201000")
+        # PAL v2.00's function the release does not have, and a global nothing proves: marked.
+        self.assertEqual(names["func_00200100"], "func_V2_00200100")
+        self.assertEqual(names["D_00160000"], "D_V2_00160000")
+        # The release's check proves one global; the release's own keeps its address.
+        self.assertEqual(names["D_00150000"], "D_0014FF00")
+        self.assertEqual(names["D_E1_00150100"], "D_00150100")
+        self.assertEqual(parts["how"]["func_L00_00300000"], "function: carried (the release's own C for it)")
+
+    def test_one_letter_tag(self):
+        m = release.NAME.fullmatch("func_J_001F6B60")
+        self.assertEqual((m.group(2), m.group(4)), ("J", "001F6B60"))
+
+    def test_splice(self):
+        table = release.Release({"names": {}})
+        table.splices = {"src/a.c": [("func_00200000", "int read_x(void) { return 2; }\n"),
+                                     ("func_E1_00201000", "void func_E1_00201000(void) {}\n")]}
+        table.tag = "E1"
+        text = "int other(void) { return 0; }\nint read_x(void) {\n    return 1;\n}\nint after;\n"
+        out = table.splice(text, "src/a.c", {"func_00200000": ["read_x"]})
+        self.assertIn("int read_x(void) { return 2; }\nint after;", out)
+        self.assertTrue(out.rstrip().endswith("void func_E1_00201000(void) {}"))
+        with self.assertRaises(ValueError):
+            table.splice("int nothing;\n", "src/a.c", {})
