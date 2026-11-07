@@ -32,12 +32,15 @@ beforeEach(async () => {
     navigator.getGamepads = () => {
       throw new Error("The iOS launcher must not poll the browser Gamepad API");
     };
+    window.__nativeSaveRequests = [];
     window.webkit = { messageHandlers: { openrac: { postMessage(request) {
+      if (["export_saves", "pick_saves_file", "preview_save_import", "import_saves"].includes(request.command))
+        window.__nativeSaveRequests.push({ command: request.command, args: request.args });
       import("/src/lib/mock.ts").then(async (mock) => {
         try {
-          let value = await mock.mockCall(request.command, request.args);
+          let value = request.command === "pick_saves_file" ? "/private/imports/saves.zip" : await mock.mockCall(request.command, request.args);
           if (request.command === "app_info") value = { ...value, platform: "ios", standalone: true,
-            capabilities: { mods: false, saveEditing: false, saveTransfer: false, openFolders: false, folderScan: false, updates: false } };
+            capabilities: { mods: false, saveEditing: false, saveTransfer: true, openFolders: false, folderScan: false, updates: false } };
           if (request.command === "get_config") value = { ...value, checkUpdates: false, checkModUpdates: false, autoUpdateMods: false };
           window.__openracReply(request.id, true, value);
         } catch (error) {
@@ -109,4 +112,39 @@ it("keeps a visible, actionable target when WebKit declines DOM focus", async ()
   expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe("rac2");
   await page.locator(".tab[data-page=settings]").click();
   expect(await page.locator("[data-pad-focus]").count()).toBe(0);
+});
+
+it("exports a chosen slot through the native share command", async () => {
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Export saves" });
+  await dialog.getByRole("radio", { name: /Slot 2/ }).check();
+  await dialog.getByRole("button", { name: "Share…", exact: true }).click();
+  await dialog.waitFor({ state: "hidden" });
+  const requests = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __nativeSaveRequests: { command: string; args: { slot?: number } }[];
+        }
+      ).__nativeSaveRequests,
+  );
+  expect(requests).toContainEqual({ command: "export_saves", args: { serial: "SCES_509.16", slot: 1 } });
+});
+
+it("opens Files and previews a save before an explicit import confirmation", async () => {
+  await page.getByRole("button", { name: "Import", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Import saves" });
+  await dialog.getByText(/Replaces Kerwan/).waitFor();
+  const commands = () =>
+    page.evaluate(() =>
+      (
+        window as unknown as {
+          __nativeSaveRequests: { command: string }[];
+        }
+      ).__nativeSaveRequests.map((r) => r.command),
+    );
+  expect(await commands()).toEqual(["pick_saves_file", "preview_save_import"]);
+  await dialog.getByRole("button", { name: "Import", exact: true }).click();
+  await dialog.waitFor({ state: "hidden" });
+  expect(await commands()).toEqual(["pick_saves_file", "preview_save_import", "import_saves"]);
 });

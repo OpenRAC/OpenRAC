@@ -30,8 +30,8 @@ function(openrac_ios_app target)
   if(NOT EXISTS "${OPENRAC_IOS_LAUNCHER_LIBRARY}" OR NOT EXISTS "${PROJECT_SOURCE_DIR}/../launcher/dist/index.html")
     message(FATAL_ERROR "Build the shared frontend and openrac-launcher-ios static library first")
   endif()
-  target_sources(${target} PRIVATE "${PROJECT_SOURCE_DIR}/ios/bootstrap.mm" "${PROJECT_SOURCE_DIR}/ios/prepare.mm" "${PROJECT_SOURCE_DIR}/ios/launcher.mm" "${PROJECT_SOURCE_DIR}/ios/controller.mm")
-  set_source_files_properties("${PROJECT_SOURCE_DIR}/ios/bootstrap.mm" "${PROJECT_SOURCE_DIR}/ios/prepare.mm" "${PROJECT_SOURCE_DIR}/ios/launcher.mm" "${PROJECT_SOURCE_DIR}/ios/controller.mm"
+  target_sources(${target} PRIVATE "${PROJECT_SOURCE_DIR}/ios/bootstrap.mm" "${PROJECT_SOURCE_DIR}/ios/prepare.mm" "${PROJECT_SOURCE_DIR}/ios/launcher.mm" "${PROJECT_SOURCE_DIR}/ios/controller.mm" "${PROJECT_SOURCE_DIR}/ios/save_transfer.mm")
+  set_source_files_properties("${PROJECT_SOURCE_DIR}/ios/bootstrap.mm" "${PROJECT_SOURCE_DIR}/ios/prepare.mm" "${PROJECT_SOURCE_DIR}/ios/launcher.mm" "${PROJECT_SOURCE_DIR}/ios/controller.mm" "${PROJECT_SOURCE_DIR}/ios/save_transfer.mm"
     PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
   target_include_directories(${target} PRIVATE "${PROJECT_SOURCE_DIR}/../launcher/ios/include")
   target_include_directories(${target} SYSTEM PRIVATE "${python_framework}/Headers")

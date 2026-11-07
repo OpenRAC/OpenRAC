@@ -1,5 +1,7 @@
 //! The shared launcher's filesystem API in the native iOS app. UIKit owns import and play;
 //! catalogue, settings, controls, saves and reports keep using the desktop core.
+mod save_transfer;
+
 use openrac_launcher_core::{
     catalog, config, controls, differences, discs, install, library, overrides, plugins, reports, saves,
 };
@@ -87,7 +89,7 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             let update = json!({"repository":"OpenRAC/OpenRAC","fork":false,"channel":null,"manifest":"","page":runtime.bundle.store_url});
             Ok(json!({"version":runtime.bundle.version,"platform":"ios","configFile":runtime.config_file,
                 "standalone":true,"updates":update,"updateChannels":{"stable":update,"dev":update},
-                "noCompositing":false,"safeRenderingAfterCrash":false,"capabilities":{"mods":false,"saveEditing":false,"saveTransfer":false,"openFolders":false,"folderScan":false,"updates":false}}))
+                "noCompositing":false,"safeRenderingAfterCrash":false,"capabilities":{"mods":false,"saveEditing":false,"saveTransfer":true,"openFolders":false,"folderScan":false,"updates":false}}))
         }
         "get_config" | "adopt_godot" => value(&runtime.config),
         "save_config" => {
@@ -125,6 +127,9 @@ fn command(runtime: &mut Runtime, name: &str, args: &Value) -> Result<Value, Str
             text(args, "file")?,
             &runtime.bundle.version,
         )?),
+        "export_saves" | "preview_save_import" | "import_saves" | "restore_backup" => {
+            save_transfer::command(runtime, name, args)
+        }
         "get_saves" | "inspect_saves" | "saves_status" => value(saves::inspect_saves(text(args, "serial")?)),
         "controls_view" => {
             value(controls::view(&runtime.home, args["game"].as_str(), args["player"].as_u64().map(|n| n as u8))?)
@@ -310,5 +315,74 @@ mod tests {
         assert_eq!(runtime.config.install_dir, install);
         assert!(data(&runtime, "../outside").is_err());
         assert!(command(&mut runtime, "unknown_command", &json!({})).is_err());
+    }
+
+    #[test]
+    fn saves_round_trip_between_ios_and_desktop_with_preview_and_backup() {
+        use openrac_launcher_core::save_transfer as transfer;
+        let mut ios = runtime();
+        let serial = "SCES_509.16";
+        let folder = "BESCES-50916RATCHET";
+        let card = ios.home.join("memcard").join(serial);
+        let save_dir = card.join(folder);
+        std::fs::create_dir_all(&save_dir).unwrap();
+        let mut bytes = vec![0u8; 16];
+        for (record, number) in [(0i32, 3u32), (1, 1234)] {
+            bytes.extend_from_slice(&record.to_le_bytes());
+            bytes.extend_from_slice(&4i32.to_le_bytes());
+            bytes.extend_from_slice(&number.to_le_bytes());
+        }
+        bytes.extend_from_slice(&4i32.to_le_bytes());
+        bytes.extend_from_slice(&8i32.to_le_bytes());
+        bytes.extend_from_slice(&[0x00, 0x14, 0x14, 0x23, 0x00, 0x10, 0x10, 0x26]);
+        bytes.extend_from_slice(&(-1i32).to_le_bytes());
+        std::fs::write(save_dir.join("save0.bin"), &bytes).unwrap();
+        let exports = ios.home.join("save-transfers/exports/test");
+        let imports = ios.home.join("save-transfers/imports/test");
+        std::fs::create_dir_all(&exports).unwrap();
+        std::fs::create_dir_all(&imports).unwrap();
+        let exported = command(
+            &mut ios,
+            "export_saves",
+            &json!({
+                "serial":serial,"slot":null,"directory":exports
+            }),
+        )
+        .unwrap();
+        let archive = PathBuf::from(exported["saved"].as_str().unwrap());
+        assert_eq!(exported["slots"].as_array().unwrap().len(), 1);
+        // The iOS file is read and imported by the desktop's unmodified core.
+        let pc = ios.home.join("pc-card");
+        let preview = transfer::preview_into(&pc, serial, &archive).unwrap();
+        assert_eq!(preview.slots[0].slot.bolts, Some(1234));
+        let choice = transfer::SaveImportChoice { replace_all: true, slots: vec![] };
+        transfer::import_into(&pc, serial, &archive, &choice).unwrap();
+        assert_eq!(std::fs::read(pc.join(folder).join("save0.bin")).unwrap(), bytes);
+        // Export on PC, pick a private snapshot on iOS, preview without changing the card.
+        let incoming = imports.join("saves.zip");
+        transfer::export_card(&pc, serial, Some(0), "desktop-test", &incoming).unwrap();
+        let mut old = bytes.clone();
+        old[36..40].copy_from_slice(&999u32.to_le_bytes());
+        std::fs::write(save_dir.join("save0.bin"), &old).unwrap();
+        let preview = command(&mut ios, "preview_save_import", &json!({"serial":serial,"source":incoming})).unwrap();
+        assert_eq!(preview["launcherVersion"], "desktop-test");
+        assert_eq!(preview["cardHasSaves"], true);
+        assert_eq!(preview["slots"][0]["replaces"]["bolts"], 999);
+        assert_eq!(std::fs::read(save_dir.join("save0.bin")).unwrap(), old);
+        let imported = command(
+            &mut ios,
+            "import_saves",
+            &json!({"serial":serial,"source":incoming,
+            "choice":{"replaceAll":false,"slots":[{"folder":folder,"slotIndex":0}]}}),
+        )
+        .unwrap();
+        assert_eq!(std::fs::read(save_dir.join("save0.bin")).unwrap(), bytes);
+        let backup = PathBuf::from(imported["backup"]["path"].as_str().unwrap());
+        assert_eq!(std::fs::read(backup.join(folder).join("save0.bin")).unwrap(), old);
+        assert!(command(&mut ios, "preview_save_import", &json!({"serial":"SCUS_971.99","source":incoming})).is_err());
+        assert!(command(&mut ios, "preview_save_import", &json!({"serial":serial,"source":archive})).is_err());
+        assert!(command(&mut ios, "export_saves", &json!({"serial":"../outside","directory":exports})).is_err());
+        let outside = ios.home.clone();
+        assert!(command(&mut ios, "export_saves", &json!({"serial":serial,"directory":outside})).is_err());
     }
 }

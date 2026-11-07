@@ -746,6 +746,7 @@ export async function pickMemoryCard(title: string, dir: string | null): Promise
  *  the app's cache first (pick_zip). */
 export async function pickSavesFile(title: string): Promise<string | null> {
   if (!inTauri) return "/home/you/Downloads/OpenRAC saves SCES_509.16 2026-11-02.zip";
+  if (onIOS) return iosInvoke<string | null>("pick_saves_file");
   if (onAndroid) return call<string | null>("pick_zip");
   const picked = await open({
     directory: false,

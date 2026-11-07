@@ -11,7 +11,7 @@ existing Svelte interface and shared Rust core through a small iOS adapter.
 | `launcher/src` | Shared UI and optional host capability checks |
 | `launcher/core` | Platform-independent catalogue, settings, controls, saves and reports |
 | `launcher/ios` | Rust C ABI adapter; the only launcher crate producing an iOS static library |
-| `port/ios` | UIKit lifecycle, Files access, signed importer runtime and native engine handover |
+| `port/ios` | UIKit lifecycle, Files access/save sharing, signed importer runtime and native engine handover |
 | `port/cmake/IosApp.cmake` | iOS bundle and framework assembly |
 | `tools/build_ios.py` | Reproducible frontend, Rust and CMake build entry point |
 
@@ -78,8 +78,8 @@ the desktop catalogue's thumbnails, tiles and game-page backgrounds. Retail disc
 data must remain outside the application bundle and Git.
 
 The current iOS host supports native play, local disc preparation, game fixes,
-control settings, save inspection/backups and reports. Mod loading, save editing
-or transfer, desktop folder opening/scanning and self-updating are not enabled.
+control settings, save inspection/backups, save transfer and reports. Mod loading, save editing,
+desktop folder opening/scanning and self-updating are not enabled.
 The host reports these limits to the shared UI. Unsupported commands fail
 explicitly rather than simulating successful operations.
 
@@ -87,6 +87,28 @@ During gameplay, the on-screen options button opens the same touch drawer as
 Android. Under Touch controls, change action/classic buttons, button size and
 camera speed, or choose Edit the on-screen buttons to drag the controls. The
 game pauses during editing; Done saves the layout and returns to the game.
+
+## Portable saves
+
+Export in the Saves panel can carry all slots or a single slot. Share opens the
+iOS share sheet for AirDrop, Save to Files, or another installed destination.
+Cancelling the share sheet keeps the export dialog open. This is the desktop
+launcher's existing OpenRAC saves ZIP format, not a separate mobile format.
+
+On PC/Mac, use Import in the Saves panel to open that ZIP. In the other direction,
+export from the desktop launcher, put the ZIP in Files on the iPhone/iPad, then
+choose Import. Files materializes a copy and the host retains a private snapshot
+so preview and confirmation read the same bytes. The preview names each incoming
+slot and any save it replaces. Import selected slots or replace the card; the
+shared core creates a backup before writing. Backups can be restored from the
+same panel. No import is applied just by choosing a file.
+
+The game's disc serial must match (for example NTSC-U to NTSC-U). Another game's
+or region's saves, damaged data and unsafe archive paths are refused by the same
+core checks used on desktop. Local handoff paths are confined to the app's own
+save-transfer area. The archive contains saves and their companion card files,
+not the game disc or touch-control layout. Transfer while the launcher is open;
+the game is not running against its memory card at that point.
 
 ## Controller navigation
 

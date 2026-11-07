@@ -5,6 +5,7 @@
 
 #import "ios/controller.h"
 #import "ios/prepare.h"
+#import "ios/save_transfer.h"
 #include "openrac_launcher.h"
 
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -40,6 +41,7 @@ NSString* json(id object) {
                                   UIDocumentPickerDelegate>
 @property(nonatomic, weak) WKWebView* web;
 @property(nonatomic, strong) OpenRACControllerNavigation* controller;
+@property(nonatomic, strong) OpenRACSaveTransfer* saves;
 @property(nonatomic, weak) UIViewController* owner;
 @property(nonatomic, strong) NSURL* files;
 @property(nonatomic, strong) NSURL* data;
@@ -140,6 +142,14 @@ NSString* json(id object) {
     NSString* command = request[@"command"];
     NSDictionary* args = request[@"args"];
     if (![command isKindOfClass:NSString.class] || ![args isKindOfClass:NSDictionary.class]) {
+        return;
+    }
+    __weak OpenRACWebBridge* weakSelf = self;
+    if ([self.saves handleCommand:command
+                             args:args
+                            reply:^(BOOL ok, id value) {
+                              [weakSelf reply:identifier ok:ok value:value];
+                            }]) {
         return;
     }
     if ([command isEqualToString:@"dialog_open"]) {
@@ -346,6 +356,7 @@ UIView* openrac_launcher_view(
     web.opaque = NO;
     web.backgroundColor = [UIColor colorWithRed:0.07 green:0.07 blue:0.1 alpha:1];
     bridge.web = web;
+    bridge.saves = [[OpenRACSaveTransfer alloc] initWithOwner:owner];
     bridge.controller = [[OpenRACControllerNavigation alloc] initWithWebView:web owner:owner];
     [web
         loadRequest:[NSURLRequest
