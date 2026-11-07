@@ -199,6 +199,8 @@ constexpr Entry kEntries[] = {
      "Click a moby in the picture to select it and see its fields."},
     {Id::ObjectViewer, Tab::Developer, "Tools", kSwitch, D, "Object viewer",
      "Look at a picked object on its own: its model, bones, lights and materials."},
+    {Id::MeatProxyReview, Tab::Developer, "Tools", kSwitch, D, "Meat Proxy Review",
+     "Open saved freecam views and record feedback."},
     {Id::LevelSelect, Tab::Developer, "Tools", kAction, A, "Level select",
      "Goes to another level. F1 opens it too."},
     {Id::KeepPaused, Tab::Developer, "Time", kSwitch, A, "Keep paused",

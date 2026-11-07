@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "water_sources": {
+    "version": 1,
+    "format": "sectioned_le32",
+    "image_bytes": 33554432,
+    "pool_spacing": [1, 1],
+    "tables": [
+      {
+        "kind": "triangle_strips",
+        "source": 1,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450512,
+        "count": 1,
+        "record_stride": 36,
+        "pointer_offset": 32,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [499.57257080078125, 616.0685424804688, 151.50001525878906]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 1,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450516,
+        "count": 1,
+        "record_stride": 36,
+        "pointer_offset": 32,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [499.57257080078125, 616.0685424804688, 151.50001525878906]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 2,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450624,
+        "count": 1,
+        "record_stride": 4,
+        "vertices_address": 1949216,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [530.4000244140625, 441.4961853027344, 145.98243713378906]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 2,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450720,
+        "count": 1,
+        "record_stride": 4,
+        "vertices_address": 1953504,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [499.5128479003906, 378.0317077636719, 138.95608520507812]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 3,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450816,
+        "count": 1,
+        "record_stride": 4,
+        "vertices_address": 1955680,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [499.5743408203125, 557.739013671875, 138.02191162109375]
+      },
+      {
+        "kind": "triangle_strips",
+        "source": 3,
+        "flowing": false,
+        "flow": [0, 0, 0],
+        "address": 1450816,
+        "count": 1,
+        "record_stride": 4,
+        "vertices_address": 1955680,
+        "count_offset": 0,
+        "vertex_stride": 12,
+        "position_offsets": [0, 4, 8],
+        "translation": [499.5743408203125, 579.9575805664062, 138.02191162109375]
+      }
+    ]
+  },
+  "surface_emission_regions": [
+    {
+      "minimum": [520.5, 611.3, 151.2],
+      "maximum": [520.9, 620.9, 160.9],
+      "scale": 10
+    }
+  ],
+  "regions": {
+    "authored": [
+      {
+        "bounds": [
+          581,
+          143,
+          153,
+          619,
+          188,
+          187
+        ],
+        "spacing": 5
+      },
+      {
+        "bounds": [
+          670,
+          413,
+          156,
+          722,
+          457,
+          185
+        ],
+        "spacing": 5
+      },
+      {
+        "bounds": [
+          335,
+          284,
+          159,
+          393,
+          349,
+          192
+        ],
+        "spacing": 5
+      },
+      {
+        "bounds": [689, 427, 168, 702, 440, 177],
+        "spacing": 1.5
+      }
+    ]
+  },
+  "area_lights": [
+    {
+      "position": [
+        367,
+        319,
+        179.8
+      ],
+      "axis_u": [
+        2.6,
+        0,
+        0
+      ],
+      "axis_v": [
+        0,
+        -1.7,
+        0
+      ],
+      "radiance": [
+        4.44,
+        4.62,
+        4.32
+      ]
+    },
+    {
+      "position": [
+        378,
+        313,
+        181.4
+      ],
+      "axis_u": [
+        2.7,
+        0,
+        0
+      ],
+      "axis_v": [
+        0,
+        -1.9,
+        0
+      ],
+      "radiance": [
+        5.04,
+        5.46,
+        5.94
+      ]
+    },
+    {
+      "position": [
+        360,
+        325,
+        177.7
+      ],
+      "axis_u": [
+        1.8,
+        0,
+        0
+      ],
+      "axis_v": [
+        0,
+        -1.4,
+        0
+      ],
+      "radiance": [
+        3.96,
+        4.56,
+        4.8
+      ]
+    },
+    {
+      "position": [366, 319, 175.5],
+      "axis_u": [2.2, 0, 0],
+      "axis_v": [0, 1.65, 0],
+      "radiance": [3.12, 3.68, 4.6]
+    },
+    {
+      "position": [374, 315, 176],
+      "axis_u": [-1.5, -1.5, 0],
+      "axis_v": [0, 0, 1.2],
+      "radiance": [3.6, 4.0, 4.48]
+    }
+  ]
+}

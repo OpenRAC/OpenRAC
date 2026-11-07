@@ -761,6 +761,7 @@ const openrac_game_play rac1_play = {
     .figure_remove = figure_remove,
     .start = start,
     .travel = travel,
+    .landing = rac1_landing,
     .save_capture = save_capture,
     .save_folder = RAC1_SAVE_FOLDER,
     .save_file = "save%d.bin",

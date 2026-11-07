@@ -43,6 +43,7 @@ void set_probe_background_load(bool background);
 struct ProbeBakeRead {
     std::string path;  // The sparse grid's file; its folder holds the companion files.
     lighting::ProbeActivation expected;
+    std::vector<ProbeLookRegion> look_regions;
     lighting::ProbeVolume volume;
     std::vector<lighting::ProbeVolume> regions;
     double seconds = 0;  // How long the read took.
@@ -169,7 +170,8 @@ private:
     lighting::Float3 m_sunlight_scale{1, 1, 1};
     // Loaded only after scene and bake settings verification; cleared on release.
     std::optional<lighting::Float3> m_sunlight_direction;
-    float m_terrain_vertex_albedo = 0;  // Authored terrain tint strength of the loaded bake.
+    float m_terrain_vertex_albedo = 0;   // Authored terrain tint strength of the loaded bake.
+    std::vector<float> m_look_uniforms;  // Two packed vec4 values per look region.
     std::vector<lighting::ProbeVolume> m_regions;
     std::vector<lighting::ProbeGrid> m_region_grids;
     lighting::ProbeRegionSelector m_selector;

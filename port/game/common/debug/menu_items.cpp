@@ -416,6 +416,10 @@ Item item(Id id, std::uint8_t where) {
             it.shown = s.developer;
             it.on = s.object_viewer.open;
             return it;
+        case Id::MeatProxyReview:
+            it.shown = s.developer;
+            it.on = s.meat_proxy_review;
+            return it;
         case Id::LevelSelect:
             it.shown = s.developer;
             return it;
@@ -730,6 +734,9 @@ bool act(Id id, int by) {
                 set_picker_enabled(true);
             }
             return false;
+        case Id::MeatProxyReview:
+            s.meat_proxy_review = !s.meat_proxy_review;
+            return s.meat_proxy_review;
         case Id::LevelSelect:
             press(SDLK_F1);
             return true;

@@ -104,13 +104,15 @@ extern const char* const rac1_level_names[];
 /* play.c: what the mods' play calls need of the game (game_host.h, interfaces 1.8 and 1.9), and a
  * moby put in a pose (a figure, or a moby of the world a mod drives). */
 extern const openrac_game_play rac1_play;
+int rac1_landing(int level);
+void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
+
 /* shared.c: the progress a party shares. */
 int rac1_shared_read(int tag, void* out, uint32_t size);
 int rac1_shared_give(int tag, const void* data, uint32_t size);
 int rac1_mission_state_read(int level, uint8_t* out);
 int rac1_mission_state_write(int level, const uint8_t* in);
 int rac1_mission_state_clear(int level, const uint8_t* flags);
-void rac1_pose_moby(gaddr moby, const openrac_game_pose* pose);
 
 /* collision.c: the collision triangles in a box for the mods (interface 1.12, game_host.h's
  * collision_triangles: openrac_collision_triangle records), read from the game's memory only. */

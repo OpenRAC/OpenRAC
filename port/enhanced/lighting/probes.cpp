@@ -620,9 +620,9 @@ float probe_boundary_weight(const ProbeGrid& grid, Float3 p) {
 
     for (unsigned axis = 0; axis < 3; ++axis) {
         const float coordinate = p[axis] / grid.spacing[axis];
-        edge = std::min(
-            edge, std::min(coordinate, static_cast<float>(grid.dimensions[axis] - 1) - coordinate)
-        );
+        const float upper = static_cast<float>(grid.dimensions[axis] - 1) - coordinate;
+        // A taller top apron lets surfaces leave a local grid without a visible horizontal seam.
+        edge = std::min(edge, std::min(coordinate, upper * (axis == 2 ? .5f : 1.f)));
     }
 
     edge = std::clamp(edge, 0.0f, 1.0f);

@@ -29,6 +29,44 @@ static void water_marker(unsigned surface) {
 
 void openrac_skip_ocean_quad(int skip);
 
+/* Fleet draws each pool twice with different UV scroll. The enhanced material
+ * composes transmission itself, so submit each physical strip only once. */
+static int fleet_water_strips = -1;
+
+static void fleet_water_draw(void (*draw)(gaddr), gaddr moby, unsigned surface, int strips) {
+    if (!openrac_game_enhanced_water()) {
+        draw(moby);
+        return;
+    }
+    water_level_marker(17, surface);
+    fleet_water_strips = strips;
+    draw(moby);
+    fleet_water_strips = -1;
+    water_level_marker(17, 0);
+}
+
+void game_FUN_L17_002f04d0(gaddr moby) {
+    fleet_water_draw(game_FUN_L17_002f04d0__game, moby, 1, 2);
+}
+
+void game_FUN_L17_002f0948(gaddr moby) {
+    fleet_water_draw(game_FUN_L17_002f0948__game, moby, 2, 1);
+}
+
+void game_FUN_L17_002f10c8(gaddr moby) {
+    fleet_water_draw(game_FUN_L17_002f10c8__game, moby, 3, 1);
+}
+
+void game_FUN_L00_001fde98(int count, gaddr vertices, gaddr colours, gaddr uv, int mode) {
+    if (fleet_water_strips == 0) {
+        return;
+    }
+    if (fleet_water_strips > 0) {
+        --fleet_water_strips;
+    }
+    game_FUN_L00_001fde98__game(count, vertices, colours, uv, mode);
+}
+
 void game_FUN_L11_0030a908(gaddr moby) {
     /* Preserve the original draw packets and keep the tag local to the ocean callback. */
     const int enhanced = openrac_game_enhanced_water();

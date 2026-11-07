@@ -403,7 +403,8 @@ def main() -> int:
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
               out / "editor/pvar_layouts.json"])
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
-                    lambda rel: rel.suffix == ".json")
+                    lambda rel: rel.suffix == ".json"
+                    or (rel.suffix == ".png" and rel.parent.name == "emission-masks"))
     files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
                     lambda rel: rel.name in {"water-boundaries.json", "ocean-profile.json"})
     for manifest in sorted((ROOT / "games").glob("*/game.json")):

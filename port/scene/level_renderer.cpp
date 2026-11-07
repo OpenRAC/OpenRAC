@@ -914,8 +914,12 @@ void LevelScene::draw_layer(
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
     const bool skip_pvs = pvs_off || shadow_inspection;
-    const auto pvs_mask = skip_pvs ? Pvs::all_visible() : m_pvs.follow(cull_camera.position);
     const bool use_pvs = !skip_pvs && !m_pvs.grid.empty();
+    auto pvs_mask = Pvs::all_visible();
+    if (use_pvs) {
+        pvs_mask = input.keep_pvs_history ? m_pvs.follow(cull_camera.position)
+                                          : m_pvs.select(cull_camera.position);
+    }
     const bool gpu = gpu_driven();
     const bool cache_visibility =
         gpu && (state.depth_prepass || state.reuse_prepass_depth)
