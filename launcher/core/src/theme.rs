@@ -45,8 +45,10 @@ pub fn ui_colors(theme: &str, game: Option<&str>) -> String {
     DRAWER
         .iter()
         .filter_map(|token| {
-            let value =
-                [accent, palette, Some(&data["base"])].into_iter().flatten().find_map(|colors| colors[*token].as_str())?;
+            let value = [accent, palette, Some(&data["base"])]
+                .into_iter()
+                .flatten()
+                .find_map(|colors| colors[*token].as_str())?;
             Some(format!("{}={}", token.trim_start_matches('-'), hex(value)?))
         })
         .collect::<Vec<_>>()
