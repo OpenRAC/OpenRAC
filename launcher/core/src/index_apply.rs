@@ -391,7 +391,7 @@ mod tests {
             version: "pal",
             platform: Some("linux-x86_64"),
             fetch: hub,
-            hosts: remote::Hosts { api: API.into(), raw: RAW.into() },
+            hosts: remote::Hosts { api: API.into(), raw: RAW.into(), ..Default::default() },
         }
     }
 

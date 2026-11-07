@@ -93,16 +93,22 @@ fn run_curl(mut cmd: std::process::Command, url: &str, purpose: &str) -> Result<
     })
 }
 
-/// Where GitHub answers: its API and its raw files (the tests point both elsewhere).
+/// Where GitHub answers: its API, its raw files and its site, for a repository's archive (the
+/// tests point them elsewhere). Raw files and archives do not count against the API's limit.
 #[derive(Debug, Clone)]
 pub struct Hosts {
     pub api: String,
     pub raw: String,
+    pub web: String,
 }
 
 impl Default for Hosts {
     fn default() -> Self {
-        Hosts { api: "https://api.github.com".into(), raw: "https://raw.githubusercontent.com".into() }
+        Hosts {
+            api: "https://api.github.com".into(),
+            raw: "https://raw.githubusercontent.com".into(),
+            web: "https://github.com".into(),
+        }
     }
 }
 
@@ -1005,7 +1011,7 @@ pub fn install_checked(
             // The repository's archive at the commit shown: one top folder, then the mod's.
             let Source::GitHub { owner, repo, .. } = &source else { unreachable!() };
             let at = preview.commit.clone().unwrap_or_else(|| preview.reference.clone());
-            let bytes = ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/zipball/{at}", ctx.hosts.api), false)?;
+            let bytes = ctx.fetch.get(&archive_url(&ctx.hosts, owner, repo, &at), false)?;
             let zip = staging.0.join("repo.zip");
             std::fs::write(&zip, &bytes).map_err(|e| e.to_string())?;
             let out = staging.0.join("repo");
@@ -1204,6 +1210,26 @@ fn github_parts(url: &str) -> Result<(String, String), String> {
     }
 }
 
+/// A repository's archive at `at` (a commit, a tag), from GitHub's site rather than its API, whose
+/// limit it does not count against.
+fn archive_url(hosts: &Hosts, owner: &str, repo: &str, at: &str) -> String {
+    format!("{}/{owner}/{repo}/archive/{at}.zip", hosts.web)
+}
+
+/// The release tagged `tag`: from the list of the newest releases, which every mod of a repository
+/// shares (one request for a code of ten mods, through [`Cached`]), else asked for by its tag.
+fn release_by_tag(ctx: &Context, owner: &str, repo: &str, tag: &str) -> Result<Release, String> {
+    let base = format!("{}/repos/{owner}/{repo}", ctx.hosts.api);
+    let listed = ctx.fetch.get(&format!("{base}/releases?per_page=100"), true).ok();
+    if let Some(r) = listed
+        .and_then(|bytes| serde_json::from_slice::<Vec<Release>>(&bytes).ok())
+        .and_then(|list| list.into_iter().find(|r| r.tag_name == tag))
+    {
+        return Ok(r);
+    }
+    json(&ctx.fetch.get(&format!("{base}/releases/tags/{tag}"), true)?, "the release")
+}
+
 /// An error of the fetcher: "not found" and every other failure are different stories to tell.
 fn pin_fetch_error(e: String) -> PinError {
     if e.ends_with("not found") {
@@ -1214,19 +1240,13 @@ fn pin_fetch_error(e: String) -> PinError {
 }
 
 /// Reads what `pin` names with as few of GitHub's requests as can be: one to the API for its
-/// release, which the anonymous limit (60 an hour) counts, and raw files, which it does not. No
-/// list of releases and no tree: a code of ten mods from one repository must not read it ten times.
+/// release (the list of releases, which a code's other mods from the repository share), which the
+/// anonymous limit (60 an hour) counts, and raw files, which it does not. No tree: a code of ten
+/// mods from one repository must not read it ten times.
 pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
     let (owner, repo) = github_parts(&pin.url).map_err(PinError::Failed)?;
     let (at, release) = match (&pin.tag, &pin.commit) {
-        (Some(tag), _) => {
-            let bytes = ctx
-                .fetch
-                .get(&format!("{}/repos/{owner}/{repo}/releases/tags/{tag}", ctx.hosts.api), true)
-                .map_err(pin_fetch_error)?;
-            let release: Release = json(&bytes, "the release").map_err(PinError::Failed)?;
-            (tag.clone(), Some(release))
-        }
+        (Some(tag), _) => (tag.clone(), Some(release_by_tag(ctx, &owner, &repo, tag).map_err(pin_fetch_error)?)),
         (None, Some(commit)) => (commit.clone(), None),
         (None, None) => return Err(PinError::Failed(format!("{} names no version to fetch", pin.id))),
     };
@@ -1278,7 +1298,7 @@ pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
     } else if kind == "native" {
         return Err(PinError::Unfit("A native mod is installed built, from a release.".into()));
     }
-    let zipball = asset.is_none().then(|| format!("{}/repos/{owner}/{repo}/zipball/{at}", ctx.hosts.api));
+    let zipball = asset.is_none().then(|| archive_url(&ctx.hosts, &owner, &repo, &at));
     Ok(Pinned { pin: pin.clone(), name: described.name, kind, manifest, published, asset, zipball })
 }
 
@@ -1308,8 +1328,7 @@ pub fn newest_release(ctx: &Context, url: &str, id: &str) -> Option<String> {
 /// platform's hash, so one code serves them all, and a rebuilt release changes it.
 pub fn sums_hash(ctx: &Context, url: &str, tag: &str) -> Result<String, String> {
     let (owner, repo) = github_parts(url)?;
-    let bytes = ctx.fetch.get(&format!("{}/repos/{owner}/{repo}/releases/tags/{tag}", ctx.hosts.api), true)?;
-    let release: Release = json(&bytes, "the release")?;
+    let release = release_by_tag(ctx, &owner, &repo, tag)?;
     let asset = release.asset(SUMS).ok_or_else(|| format!("{tag} has no {SUMS}"))?;
     Ok(format!("{:x}", Sha256::digest(ctx.fetch.get(&asset.browser_download_url, false)?)))
 }
@@ -1493,8 +1512,10 @@ mod tests {
     const DL: &str = "https://dl.test";
     const PLATFORM: &str = "linux-x86_64";
 
+    const WEB: &str = "https://web.test";
+
     fn hosts() -> Hosts {
-        Hosts { api: API.into(), raw: RAW.into() }
+        Hosts { api: API.into(), raw: RAW.into(), web: WEB.into() }
     }
 
     fn manifest(id: &str, version: &str) -> String {
@@ -1909,7 +1930,7 @@ mod tests {
         w.start_file("o-r-c1/shiny/level_00/textures/x.png", o).unwrap();
         w.write_all(b"png").unwrap();
         w.start_file("o-r-c1/README.md", o).unwrap();
-        fx.put(&format!("{API}/repos/o/r/zipball/c1"), w.finish().unwrap().into_inner());
+        fx.put(&format!("{WEB}/o/r/archive/c1.zip"), w.finish().unwrap().into_inner());
         let c = ctx(dir.path(), &fx);
         let p = preview(&c, "https://github.com/o/r").unwrap();
         assert_eq!((p.mods[0].id.as_str(), p.mods[0].kind.as_str(), p.mods[0].compatible), ("shiny", "pack", true));
@@ -1949,7 +1970,7 @@ mod tests {
         w.start_file(format!("o-r-{commit}/{folder}/main.luau"), o).unwrap();
         w.write_all(b"openrac.log('hi')\n").unwrap();
         w.start_file(format!("o-r-{commit}/README.md"), o).unwrap();
-        fx.put(&format!("{API}/repos/o/r/zipball/{commit}"), w.finish().unwrap().into_inner());
+        fx.put(&format!("{WEB}/o/r/archive/{commit}.zip"), w.finish().unwrap().into_inner());
     }
 
     #[test]
