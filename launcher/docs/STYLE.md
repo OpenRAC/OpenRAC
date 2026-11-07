@@ -14,19 +14,24 @@ follows the same rules.
 - No grey, no brown and no white mix as a fill (`rgb(255 255 255 / …)`). The
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
-- The page is black (`--ink` `#0a0a0a`, `--ink-deep` `#050505`), never navy.
-  The game list beside it and Android's rail are dark but not black: `--rail`
-  `#111111` (the site's band). Pure black is the OLED theme's alone.
-- Cards and panels have no border and no stripes: a flat `#121212`
-  (`--panel`, `--card`), `#191919` when hovered or open (`--panel-hi`,
+- The page is a near black (`--ink` `#121212`, `--ink-deep` `#0b0b0b`), never
+  navy and never pure black: text on a black page glares and blurs for many
+  eyes (halation; user decision), so the launcher starts where dark themes do
+  (Material's `#121212`), one step lighter than the site's page. The game list
+  beside it and Android's rail are darker than the page: `--rail` `#0d0d0d`.
+  Pure black is the OLED theme's alone.
+- Text is an off white (`--text` `#e6e6eb`, about 15:1 on the page), not a
+  near white: more contrast than that only tires the eyes.
+- Cards and panels have no border and no stripes: a flat `#191919`
+  (`--panel`, `--card`), `#202020` when hovered or open (`--panel-hi`,
   `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
   decision): only the bar's buttons wear stripes.
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have no edge or border (user decision: gold
   edges looked bad). The fill alone sets a control apart.
 - Contrast rule: a control is one step lighter than what is behind it, in the
-  blacks and coals only, never navy: `#121212` on the page (`#1e1e1e` under
-  the pointer), `#1e1e1e` on a `#121212` card (`#262626`). See "Control
+  blacks and coals only, never navy: `#191919` on the page (`#242424` under
+  the pointer), `#242424` on a `#191919` card (`#2c2c2c`). See "Control
   fills" below.
 - Switches: the track is a track (`--ink-deep`, a dim knob); on, it takes the gold tint of a control that is on (`--on-fill`) and a
   gold knob. Never a solid gold track: a list of switches that are on would be
@@ -70,19 +75,19 @@ follows the same rules.
 
 | Token                                    | Value                            | Use                                             |
 | ---------------------------------------- | -------------------------------- | ----------------------------------------------- |
-| `--ink`                                  | `#0a0a0a`                        | the page                                        |
-| `--ink-deep`                             | `#050505`                        | badges, tracks, job output, the darkest parts   |
-| `--rail`                                 | `#111111`                        | the game list beside the page, Android's rail   |
-| `--panel`                                | `#121212`                        | cards and panels (`--card`)                     |
-| `--panel-hi`                             | `#191919`                        | a card under the pointer or open (`--card-hi`)  |
+| `--ink`                                  | `#121212`                        | the page                                        |
+| `--ink-deep`                             | `#0b0b0b`                        | badges, tracks, job output, the darkest parts   |
+| `--rail`                                 | `#0d0d0d`                        | the game list beside the page, Android's rail   |
+| `--panel`                                | `#191919`                        | cards and panels (`--card`)                     |
+| `--panel-hi`                             | `#202020`                        | a card under the pointer or open (`--card-hi`)  |
 | `--brand`                                | `#d6a020`                        | section numbers, small labels                   |
 | `--amber`                                | `#f5c040`                        | the main button, links, focus rings, what is on |
 | `--gold`                                 | `#ffe08f`                        | headings, numbers                               |
 | `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`  | secondary text, from most to least prominent    |
 | `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/.16` | lines between rows; never round a control       |
-| `--text`, `--body`                       | `#efeff3`, `#cacad3`             | text, neutral so the gold is the only accent    |
-| `--control`, `--control-hi`              | `#121212`, `#1e1e1e`             | plain controls on the page                      |
-| `--control-card`, `--control-card-hi`    | `#1e1e1e`, `#262626`             | plain controls on a card                        |
+| `--text`, `--body`                       | `#e6e6eb`, `#cacad3`             | text, neutral so the gold is the only accent    |
+| `--control`, `--control-hi`              | `#191919`, `#242424`             | plain controls on the page                      |
+| `--control-card`, `--control-card-hi`    | `#242424`, `#2c2c2c`             | plain controls on a card                        |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink | a control that is on or picked                  |
 | `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above         | the bar's buttons                               |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                      | cards; controls; badges                         |
@@ -118,9 +123,9 @@ navy (user decision), no brown, no mid grey.
 
 | Surface                         | Fill      | Control on it        |
 | ------------------------------- | --------- | -------------------- |
-| page (`--ink`)                  | `#0a0a0a` | `#121212`, `#1e1e1e` |
-| card, panel, drawer (`--panel`) | `#121212` | `#1e1e1e`, `#262626` |
-| card in the game (`--panel-hi`) | `#191919` | `#1e1e1e`, `#262626` |
+| page (`--ink`)                  | `#121212` | `#191919`, `#242424` |
+| card, panel, drawer (`--panel`) | `#191919` | `#242424`, `#2c2c2c` |
+| card in the game (`--panel-hi`) | `#202020` | `#242424`, `#2c2c2c` |
 
 In code, `--control` / `--control-hi` is the fill on the page, and
 `--control-card` / `--control-card-hi` the fill on a card: any surface filled
@@ -137,11 +142,12 @@ OpenRAC (`html[data-theme="openrac"]`); another theme keeps its own colours.
 Each tint keeps the lightness of the plain coal it replaces (OKLCH: the same L,
 chroma 0.012, the hue of the game's bar colour), so a tinted card is as dark
 as Ratchet & Clank's and the accent stands out on it just as much: Going
-Commando's `#191919` becomes `#141a1e`. Never tint by mixing the bar colour in,
+Commando's `#202020` becomes `#1a2125`. Never tint by mixing the bar colour in,
 which also lightens the coal.
 
 The site's lighter home bands (`#111111`, with darker card stripes on them)
-have no place in the launcher, which has no such bands.
+have no place in the launcher, which has no such bands; its page is already
+lighter than the site's.
 
 The game's menu gets the same colours (`OPENRAC_UI_COLORS`). Its drawer and
 window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the

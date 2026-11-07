@@ -25,9 +25,9 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
 // app.css's tokens the menu (the drawer, the desktop's bar and window) draws with, under their
 // names there. A game's accent (the launcher's palettes.json) sets the bar's and the accent's.
 struct Colors {
-    Color ink_deep = rgba(0x05, 0x05, 0x05);    // --ink-deep: under everything; a switch's track
-    Color panel = rgba(0x12, 0x12, 0x12);       // --panel: the drawer
-    Color panel_hi = rgba(0x19, 0x19, 0x19);    // --panel-hi: its cards
+    Color ink_deep = rgba(0x0b, 0x0b, 0x0b);    // --ink-deep: under everything; a switch's track
+    Color panel = rgba(0x19, 0x19, 0x19);       // --panel: the drawer
+    Color panel_hi = rgba(0x20, 0x20, 0x20);    // --panel-hi: its cards
     Color brand = rgba(0xd6, 0xa0, 0x20);       // --brand: small labels
     Color bar_top = rgba(0xe5, 0xa0, 0x13);     // --bar-top, --bar-bottom: the bar's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);  //   gradient (the menu draws none now)
@@ -37,15 +37,15 @@ struct Colors {
     Color bar_stripe_alt = rgba(0xbd, 0x86, 0x19);  //   bar's two golds (debug/menu_window.cpp)
     Color amber = rgba(0xf5, 0xc0, 0x40);  // --amber: the focus, a main button, a switch that is on
     Color gold = rgba(0xff, 0xe0, 0x8f);   // --gold: values, headings
-    Color text = rgba(0xef, 0xef, 0xf3);   // --text
+    Color text = rgba(0xe6, 0xe6, 0xeb);   // --text
     Color soft = rgba(0xb4, 0xb4, 0xbf);   // --soft: what is said under or beside
     Color dim = rgba(0x8b, 0x8b, 0x98);    // --dim: a switch's knob when off, small print
     Color line = rgba(255, 255, 255, 23);  // --line: hairlines between rows
     Color line_strong = rgba(255, 255, 255, 41);  // --line-strong
     Color err = rgba(0xff, 0x8a, 0x7a);           // --err: Quit
     // Control fills (launcher/docs/STYLE.md): no border; the menu's controls sit on a panel.
-    Color control_card = rgba(0x1e, 0x1e, 0x1e);     // --control-card
-    Color control_card_hi = rgba(0x26, 0x26, 0x26);  // --control-card-hi: under the pointer
+    Color control_card = rgba(0x24, 0x24, 0x24);     // --control-card
+    Color control_card_hi = rgba(0x2c, 0x2c, 0x2c);  // --control-card-hi: under the pointer
     // A game's own ground for the menu's window (palettes.json accents: tinted with its colour);
     // none (alpha 0) keeps the theme's coal with an accent glow at the top.
     Color menu_top = rgba(0, 0, 0, 0);     // --menu-top
@@ -54,7 +54,7 @@ struct Colors {
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME
-// app.css's without its leading dashes ("panel-hi=#191919,line=#ffffff17").
+// app.css's without its leading dashes ("panel-hi=#202020,line=#ffffff17").
 Colors parse(std::string_view text);
 
 // The colours this run was started with (OPENRAC_UI_COLORS), read once.

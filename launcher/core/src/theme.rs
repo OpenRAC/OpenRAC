@@ -33,7 +33,7 @@ const DRAWER: &[&str] = &[
 ];
 
 /// The variable the game reads them from: `name=#rrggbb[aa]` pairs, comma-separated, each name
-/// app.css's without its leading dashes ("panel-hi=#191919,line=#ffffff17,...").
+/// app.css's without its leading dashes ("panel-hi=#202020,line=#ffffff17,...").
 pub const ENV: &str = "OPENRAC_UI_COLORS";
 
 /// The drawer's colours for theme `theme` (an unknown one is the launcher's own) and the accent of
@@ -92,23 +92,23 @@ mod tests {
         // All but the menu's own ground, which only a game's accent sets.
         assert_eq!(own.split(',').count(), DRAWER.len() - 3, "{own}");
         assert_eq!(color(&own, "menu-top"), None);
-        assert_eq!(color(&own, "panel"), Some("#121212"));
+        assert_eq!(color(&own, "panel"), Some("#191919"));
         assert_eq!(color(&own, "line"), Some("#ffffff17"));
         assert_eq!(color(&own, "amber"), Some("#f5c040"));
         // A theme sets its own; what it leaves is the launcher's.
         let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
         assert_eq!(color(&nord, "amber"), Some("#f5c040"));
-        assert_eq!(color(&own, "control-card"), Some("#1e1e1e"));
+        assert_eq!(color(&own, "control-card"), Some("#242424"));
         assert_eq!(color(&nord, "control-card"), Some("#434c5e"));
         assert_eq!(ui_colors("no-such", None), own);
         // The game's accent; Ratchet & Clank's is the launcher's own.
         let rac3 = ui_colors("nord", Some("rac3"));
         assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
         let rac2 = ui_colors("openrac", Some("rac2"));
-        assert_eq!(color(&rac2, "menu-top"), Some("#11171b"));
+        assert_eq!(color(&rac2, "menu-top"), Some("#181e22"));
         // Going Commando's coal, on the OpenRAC theme only.
-        assert_eq!(color(&rac2, "panel-hi"), Some("#141a1e"));
+        assert_eq!(color(&rac2, "panel-hi"), Some("#1a2125"));
         assert_eq!(color(&ui_colors("nord", Some("rac2")), "panel-hi"), Some("#434c5e"));
         // The bar's stripes and ink too, for the game's menu bar (debug/menu_window.cpp).
         assert_eq!(color(&own, "bar-stripe"), Some("#c99222"));

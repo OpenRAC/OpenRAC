@@ -8,14 +8,14 @@
 
 :root {
   /* The site's @theme colours. */
-  --ink: #0a0a0a;
-  --ink-deep: #050505;
+  --ink: #121212;
+  --ink-deep: #0b0b0b;
   /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
-  --panel: #121212;
-  --panel-hi: #191919;
-  /* The game list beside the page and Android's rail: dark, but not black (the site's #111111
-     band); a theme with a black of its own (OLED) sets its own. */
-  --rail: #111111;
+  --panel: #191919;
+  --panel-hi: #202020;
+  /* The game list beside the page and Android's rail: darker than the page, but not black; a
+     theme with a black of its own (OLED) sets its own. */
+  --rail: #0d0d0d;
   /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
      wear stripes. */
   --card: var(--panel);
@@ -30,7 +30,7 @@
   --line: rgb(255 255 255 / 0.09);
   --line-strong: rgb(255 255 255 / 0.16);
   /* Body text and headings, neutral rather than blue, so the gold is the only accent. */
-  --text: #efeff3;
+  --text: #e6e6eb;
   --body: #cacad3;
   /* The header bar's gradient and the dark brown it writes on. */
   --bar-top: #e5a013;
@@ -47,20 +47,20 @@
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
   /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy and no edge.
-     On the page (#0a0a0a) a control is #121212; on a card (#121212) it is #1e1e1e. A card sets
+     On the page (#121212) a control is #191919; on a card (#191919) it is #242424. A card sets
      --control from the card pair; a theme (palettes.json) sets both pairs. */
-  --control: #121212;
-  --control-hi: #1e1e1e;
-  --control-card: #1e1e1e;
-  --control-card-hi: #262626;
+  --control: #191919;
+  --control-hi: #242424;
+  --control-card: #242424;
+  --control-card-hi: #2c2c2c;
   /* A game's own coal (palettes.json accents: Going Commando's a little blue), worn by the
      OpenRAC theme only (the rule after :root); another theme keeps its own surfaces. */
-  --tint-panel: #121212;
-  --tint-panel-hi: #191919;
-  --tint-control: #121212;
-  --tint-control-hi: #1e1e1e;
-  --tint-control-card: #1e1e1e;
-  --tint-control-card-hi: #262626;
+  --tint-panel: #191919;
+  --tint-panel-hi: #202020;
+  --tint-control: #191919;
+  --tint-control-hi: #242424;
+  --tint-control-card: #242424;
+  --tint-control-card-hi: #2c2c2c;
   /* On or picked: a gold tint on the page's black, with gold text. */
   --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
