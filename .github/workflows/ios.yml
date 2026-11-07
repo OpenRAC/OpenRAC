@@ -4,7 +4,7 @@ on:
   pull_request:
     paths: ['port/**', 'editor/**', 'launcher/**', 'tools/build_ios.py', '.github/workflows/ios.yml']
   push:
-    branches: [develop, 'llesieur99/ios-*']
+    branches: [develop, '**/ios-*']
   workflow_dispatch:
 permissions:
   contents: read
