@@ -389,7 +389,7 @@ mod tests {
     fn the_versions_the_baker_reads_have_the_entry() {
         assert!(supported("rac1", "pal") && supported("rac1", "ntsc") && supported("rac2", "ntsc"));
         assert!(supported("rac2", "pal") && supported("rac2", "ntsc2"));
-        assert!(!supported("rac3", "ntsc") && !supported("rac1", "jp"));
+        assert!(!supported("rac3", "ntsc") && !supported("rac1", "jp") && !supported("rac1", "pal1"));
         // Going Commando's settings file is its own: switching it on leaves Ratchet & Clank's alone.
         let home = temp("rac2-entry");
         set_enabled(&home, "rac2", "ntsc", true).unwrap();
