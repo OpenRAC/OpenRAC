@@ -105,6 +105,10 @@ It does not require a touch to activate WebKit's Gamepad API.
 | L1/R1 / LB/RB | Previous/next tab |
 | Triangle / Y | Open available context actions |
 
+A white outline with a dark border marks the controller target independently
+of the opened game. This target remains visible and actionable if WebKit
+declines programmatic DOM focus; touching the interface clears it.
+
 Select fields cycle through choices with Cross/A or left/right; they do not
 open a system picker that cannot receive these navigation events. Files and
 confirmation dialogs retain their native interface and may require touch.

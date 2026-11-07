@@ -93,3 +93,20 @@ it("cycles select fields without opening a native picker", async () => {
   await press("left");
   expect(await page.locator("#choice").inputValue()).toBe("One");
 });
+
+it("keeps a visible, actionable target when WebKit declines DOM focus", async () => {
+  await press("down");
+  await page.evaluate(() => {
+    HTMLElement.prototype.focus = () => undefined;
+  });
+  const target = page.locator("[data-pad-focus]");
+  expect(await target.getAttribute("data-key")).toBe("rac1");
+  expect(await target.evaluate((el) => getComputedStyle(el).outlineColor)).toBe("rgb(255, 255, 255)");
+  expect(await target.evaluate((el) => getComputedStyle(el).outlineWidth)).toBe("4px");
+  await press("down");
+  expect(await target.getAttribute("data-key")).toBe("rac2");
+  await press("accept");
+  expect(await page.locator(".list .entry[aria-current=page]").getAttribute("data-key")).toBe("rac2");
+  await page.locator(".tab[data-page=settings]").click();
+  expect(await page.locator("[data-pad-focus]").count()).toBe(0);
+});

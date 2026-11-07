@@ -186,17 +186,28 @@ function clearAside(el: HTMLElement) {
 const glide = typeof matchMedia === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 let repeating = false;
 
+function markFocus(el: HTMLElement | null) {
+  document.querySelector("[data-pad-focus]")?.removeAttribute("data-pad-focus");
+  el?.setAttribute("data-pad-focus", "");
+}
+
 function show(el: HTMLElement) {
   if (!el.closest('[role="dialog"], [role="menu"]')) lastOnPage = el;
   parked = false;
   clearAside(el);
   el.focus({ preventScroll: true });
+  markFocus(el);
   // app.css gives the focus a margin, so its ring is not cut by the edge it scrolls to.
   el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: glide && !repeating ? "smooth" : "auto" });
   note(el);
 }
 
 function current(items: HTMLElement[]): HTMLElement | null {
+  // WebKit may decline programmatic DOM focus or leave it on the preceding control.
+  if (document.documentElement.dataset.input === "pad") {
+    const marked = items.find((el) => el.hasAttribute("data-pad-focus"));
+    if (marked) return marked;
+  }
   const active = document.activeElement;
   return active instanceof HTMLElement && items.includes(active) ? active : null;
 }
@@ -260,7 +271,7 @@ function move(dir: Direction) {
     from = still;
   }
   // A range, and a list to pick from, move their value sideways.
-  const sideways = (dir === "left" || dir === "right") && from === document.activeElement;
+  const sideways = (dir === "left" || dir === "right") && from === current(items);
   if (sideways && from instanceof HTMLInputElement && from.type === "range") {
     if (dir === "left") from.stepDown();
     else from.stepUp();
@@ -533,6 +544,7 @@ function act(button: PadButton) {
  *  the mouse moved or pressed brings them back. */
 function usingPad(on: boolean) {
   const mode = on ? "pad" : "pointer";
+  if (!on) markFocus(null);
   if (document.documentElement.dataset.input !== mode) document.documentElement.dataset.input = mode;
 }
 
@@ -686,7 +698,10 @@ export function startPad(
   // The focus follows what is focused another way (the mouse, a dialog's own first control), and
   // stays on something whatever goes away (keep).
   document.addEventListener("focusin", (e) => {
-    if (e.target instanceof HTMLElement && e.target.matches(FOCUSABLE) && usable(e.target)) note(e.target);
+    if (e.target instanceof HTMLElement && e.target.matches(FOCUSABLE) && usable(e.target)) {
+      note(e.target);
+      if (document.documentElement.dataset.input === "pad") markFocus(e.target);
+    }
   });
   new MutationObserver(schedule).observe(document.body, {
     childList: true,
