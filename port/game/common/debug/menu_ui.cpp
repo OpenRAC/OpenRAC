@@ -294,7 +294,7 @@ ImU32 panel_glow() {
 
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
     // The bar's own gold stripes (no edge): deeper than the bright accent, so a big button over the
-    // game does not glare; darker while held. The dark stripes are a step deeper than the bar's.
+    // game does not glare; its stripes half as strong as the bar's; darker while held.
     const float dark = 0.18f * held;
     striped_rect(
         list,
@@ -302,7 +302,9 @@ void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held)
         b,
         round,
         ui_colors::mix(ui().bar_stripe, ui().ink_deep, dark),
-        ui_colors::mix(ui().bar_stripe_alt, ui().ink_deep, 0.1f + dark * 0.9f),
+        ui_colors::mix(
+            ui_colors::mix(ui().bar_stripe, ui().bar_stripe_alt, 0.5f), ui().ink_deep, dark
+        ),
         a
     );
 }
@@ -760,7 +762,7 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
 }
 
 bool menu_button(const char* label) {
-    const float height = dp(56.0f);
+    const float height = dp(46.0f);
     const ImVec2 a = ImGui::GetCursorScreenPos();
     const ImVec2 b(a.x + ImGui::GetContentRegionAvail().x, a.y + height);
     const bool pressed =
@@ -779,12 +781,13 @@ bool menu_button(const char* label) {
         ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
         round + dp(3.0f)
     );
+    // Inter SemiBold, as the other buttons.
+    ImFont* font = menu_fonts.strong ? menu_fonts.strong : ImGui::GetFont();
     list->AddText(
+        font,
+        ImGui::GetFontSize(),
         centred_text(
-            ImGui::GetFont(),
-            ImGui::GetFontSize(),
-            label,
-            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+            font, ImGui::GetFontSize(), label, ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
         ),
         ui().bar_ink,
         label
