@@ -133,9 +133,11 @@ struct EffectStrip {
     std::uint32_t fog_colour = 0;
     // Sent before the world's mobys (OPENRAC_WORLD_MOBYS_MARKER), from a draw callback list the
     // game runs between the ties and the mobys: drawn with the liquids, before the shrubs and the
-    // mobys, writing depth unless its ZBUF masks it (z_masked) or its TEST writes none.
+    // mobys, writing depth only where the list shows the chip writes it (before_mobys_writes_z).
     bool before_mobys = false;
+    // The list set ZBUF before the strip: with ZMSK (z_masked), or without (z_written).
     bool z_masked = false;
+    bool z_written = false;
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:

@@ -573,6 +573,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.alpha = gs.alpha;
                 strip.test = gs.test;
                 strip.z_masked = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) != 0;
+                strip.z_written = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) == 0;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(

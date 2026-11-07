@@ -46,6 +46,12 @@ bool test_writes_z(std::uint64_t test);
 // TEST that writes Z.
 bool liquid_strip(std::uint64_t alpha, std::uint64_t test);
 
+// Whether a strip sent before the world's mobys writes Z, as far as its list shows: a solid one
+// (liquid_strip), or one whose list set ZBUF without ZMSK or alpha-tests what it draws (Dobbo's
+// water, TEST 0x5310B). Not when ZBUF masks it, its TEST writes none, or the list gave neither
+// (Oozla's additive water shine, ALPHA 0x48, TEST 0x513F0: Z there cut the bolts' glows in half).
+bool before_mobys_writes_z(const EffectStrip& strip);
+
 // A strip the liquids' pass draws: a solid one (liquid_strip), or one the game sent before the
 // world's mobys (EffectStrip::before_mobys), drawn where the game drew it.
 bool liquid_pass_strip(const EffectStrip& strip);
