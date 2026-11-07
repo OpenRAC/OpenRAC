@@ -6,8 +6,12 @@
 //! Each place is a byte of the story chunk (5, at 0x001395B8) or a bit of the cinematics chunk
 //! (43), named from the level code that reads and writes it. The notes per flag, and the flags of
 //! these planets left out, are in `RAC2_SAVE_FORMAT.md`, "Planets 0 to 8 (L-6a)".
+//!
+//! The Electrolyzer puzzles ([`super::electrolyzer`]) are also the board's moby count (chunk 3005)
+//! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
+//! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{Confidence, Flag, Place};
+use super::{count, electrolyzer, group_done, Confidence, Flag, Place};
 
 /// A byte of the story chunk, set to `on`.
 const fn story(offset: usize, on: u8) -> Place {
@@ -66,6 +70,25 @@ pub const FLAGS: &[Flag] = &[
     arena("maktar-arena-12", "Arena: Ultimate Challenge!", 0x3B),
     arena("maktar-arena-13", "Arena: Timed Avoidance: Dodge Chainblade for 2 Minutes", 0x92),
     arena("maktar-arena-14", "Arena: Wrench Expert: Wrench Only and Don't Take a Hit", 0x93),
+    // Maktar's two Electrolyzer puzzles (boards 593 and 40, nearer and farther from the landing).
+    electrolyzer(
+        "maktar-electrolyzer-1",
+        2,
+        "Electrolyzer puzzle 1 solved",
+        "The board nearer the landing (moby 593): solved, its two platforms stay moved into place. Off, \
+         the board can be played again.",
+        &[count(2, 593), group_done(2, 6), story(3, 1)],
+        Confidence::Proven,
+    ),
+    electrolyzer(
+        "maktar-electrolyzer-2",
+        2,
+        "Electrolyzer puzzle 2 solved",
+        "The board farther on, toward the arena (moby 40): solved, its two platforms stay moved into \
+         place. Off, the board can be played again.",
+        &[count(2, 40), group_done(2, 9)],
+        Confidence::Proven,
+    ),
     // Endako (level 3).
     Flag {
         id: "endako-swingshot-start-passed",
@@ -76,6 +99,43 @@ pub const FLAGS: &[Flag] = &[
         place: story(0x0D, 1),
         confidence: Confidence::Proven,
     },
+    // Endako's four Electrolyzer puzzles, nearest to farthest from the landing.
+    electrolyzer(
+        "endako-electrolyzer-1",
+        3,
+        "Electrolyzer puzzle 1 solved",
+        "The board beside the factory door (moby 217): solved, the door is open. Off, the door is \
+         shut and the board can be played again.",
+        &[count(3, 217)],
+        Confidence::Proven,
+    ),
+    electrolyzer(
+        "endako-electrolyzer-2",
+        3,
+        "Electrolyzer puzzle 2 solved",
+        "The board that powers the first control panel (moby 437). Off, the panel is dead and the \
+         board can be played again.",
+        &[count(3, 437)],
+        Confidence::Proven,
+    ),
+    electrolyzer(
+        "endako-electrolyzer-3",
+        3,
+        "Electrolyzer puzzle 3 solved",
+        "The board that powers the second control panel (moby 466). Off, the panel is dead and the \
+         board can be played again.",
+        &[count(3, 466)],
+        Confidence::Proven,
+    ),
+    electrolyzer(
+        "endako-electrolyzer-4",
+        3,
+        "Electrolyzer puzzle 4 solved",
+        "The board farthest from the landing (moby 20), with what it sets off: scene 50 and, after it, \
+         story byte 7. Off, the board can be played again and the scene plays when it is solved.",
+        &[count(3, 20), Place::Bit { chunk: 43, level: None, offset: 0x32, bit: 2 }, story(7, 1)],
+        Confidence::Proven,
+    ),
     // Barlow (level 4).
     Flag {
         id: "barlow-thermanator-start-passed",
@@ -86,6 +146,15 @@ pub const FLAGS: &[Flag] = &[
         place: story(0x12, 1),
         confidence: Confidence::FromCode,
     },
+    electrolyzer(
+        "barlow-electrolyzer",
+        4,
+        "Electrolyzer puzzle solved",
+        "Barlow's board (moby 561), with what it sets off: a switch that saves story byte 0x0F, and a \
+         watcher that plays scene 56 and marks object group 7 done. Off, the board can be played again.",
+        &[count(4, 561), story(0x0F, 1), group_done(4, 7), Place::Bit { chunk: 43, level: None, offset: 0x3B, bit: 0 }],
+        Confidence::Proven,
+    ),
     // Feltzin System (level 5): the four space combat missions, a count of wins each (the game
     // keeps up to 127 and lowers the bolt prize after the second win).
     Flag {

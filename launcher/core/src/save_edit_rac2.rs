@@ -677,6 +677,11 @@ impl SaveFile {
         match place {
             Place::Byte { chunk, level, offset, .. } => get(chunk, level, offset) != 0,
             Place::Bit { chunk, level, offset, bit } => get(chunk, level, offset) & (1 << bit) != 0,
+            Place::Count { level, uid } => {
+                let (offset, shift) = count_at(uid);
+                (get(rac2_flags::MOBY_COUNTS, Some(level), offset) >> shift) & 7 != 0
+            }
+            Place::All(places) => places.first().is_some_and(|&p| self.flag(p)),
         }
     }
 
@@ -693,6 +698,18 @@ impl SaveFile {
                     *byte &= !(1 << bit);
                 }
             }
+            Place::Count { level, uid } => {
+                let (offset, shift) = count_at(uid);
+                let byte = self.flag_byte(rac2_flags::MOBY_COUNTS, Some(level), offset);
+                // The count's three bits only, as the game raises them; bit 3 of the nibble is not
+                // the count's.
+                if !on {
+                    *byte &= !(7 << shift);
+                } else if (*byte >> shift) & 7 == 0 {
+                    *byte |= 1 << shift;
+                }
+            }
+            Place::All(places) => places.iter().for_each(|&p| self.set_flag(p, on)),
         }
     }
 
@@ -923,6 +940,12 @@ fn clock_text(clock: &[u8]) -> Option<String> {
     let (s, m, h, d, mo, y) =
         (bcd(clock[1])?, bcd(clock[2])?, bcd(clock[3])?, bcd(clock[5])?, bcd(clock[6])?, bcd(clock[7])?);
     Some(format!("{:04}-{mo:02}-{d:02} {h:02}:{m:02}:{s:02}", 2000 + y))
+}
+
+/// Where moby `uid`'s count is in its level's chunk 3005: the byte, and the shift of its nibble
+/// (`func_L02_003C26F0`, `func_002A6C58`: the low nibble for an even id, the high for an odd one).
+fn count_at(uid: u16) -> (usize, u32) {
+    (usize::from(uid >> 1), if uid & 1 == 1 { 4 } else { 0 })
 }
 
 /// The page's view of a decoded save.
@@ -1276,19 +1299,74 @@ mod tests {
                 assert!(l >= last_level, "{} is in planet order", f.id);
                 last_level = l;
             }
-            let (chunk, level, offset, bit) = match f.place {
-                Place::Byte { chunk, level, offset, on } => {
-                    assert_ne!(on, 0, "{}: a set byte is not 0", f.id);
-                    (chunk, level, offset, 0)
-                }
-                Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
-            };
-            assert!(bit < 8, "{}", f.id);
-            let layout = if level.is_some() { LEVEL_LAYOUT } else { GLOBAL_LAYOUT };
-            let size = layout.iter().find(|&&(c, _)| c == chunk).map(|&(_, n)| n);
-            assert!(size.is_some_and(|n| offset < n), "{}: chunk {chunk} offset {offset}", f.id);
-            assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{}", f.id);
+            check_place(f.id, f.place);
         }
+    }
+
+    fn check_place(id: &str, place: Place) {
+        let (chunk, level, offset, bit) = match place {
+            Place::Byte { chunk, level, offset, on } => {
+                assert_ne!(on, 0, "{id}: a set byte is not 0");
+                (chunk, level, offset, 0)
+            }
+            Place::Bit { chunk, level, offset, bit } => (chunk, level, offset, bit),
+            Place::Count { level, uid } => (rac2_flags::MOBY_COUNTS, Some(level), usize::from(uid >> 1), 0),
+            Place::All(places) => {
+                assert!(!places.is_empty(), "{id}: names its places");
+                for &p in places {
+                    assert!(!matches!(p, Place::All(_)), "{id}: one level of places");
+                    check_place(id, p);
+                }
+                return;
+            }
+        };
+        assert!(bit < 8, "{id}");
+        let layout = if level.is_some() { LEVEL_LAYOUT } else { GLOBAL_LAYOUT };
+        let size = layout.iter().find(|&&(c, _)| c == chunk).map(|&(_, n)| n);
+        assert!(size.is_some_and(|n| offset < n), "{id}: chunk {chunk} offset {offset}");
+        assert!(level.is_none_or(|l| l < LEVEL_SLOTS), "{id}");
+    }
+
+    #[test]
+    fn an_electrolyzer_puzzle_is_reset_with_what_it_opened() {
+        // Dobbo's board, moby 182 (even: the low nibble of byte 91 of level 9's chunk 3005), its
+        // object group 5 (chunk 3004) and the seller's story byte 0x1F, as the game writes them.
+        const ID: &str = "dobbo-electrolyzer";
+        let before = oozla();
+        let f = before.fields();
+        assert!(!f.flags.iter().find(|x| x.id == ID).unwrap().on);
+        let mut want = f.clone();
+        want.flags.iter_mut().filter(|x| x.id == ID).for_each(|x| x.on = true);
+        let mut after = before.clone();
+        after.apply(&want).unwrap();
+        let mut c = changed(&before, &after);
+        c.sort();
+        assert_eq!(c, [(None, 5, 0x1F), (Some(9), 3004, 5), (Some(9), 3005, 91)]);
+        assert_eq!(after.levels[9].get(3005)[91], 0x01);
+        assert_eq!(after.levels[9].get(3004)[5], 0x80);
+        assert_eq!(after.global.get(5)[0x1F], 1);
+        assert_eq!(SaveFile::parse(&after.to_bytes()).unwrap().fields(), want);
+
+        // A count the game raised further, beside another moby's count in the same byte, is
+        // cleared alone; bit 3 of the nibble is not the count's.
+        after.levels[9].get_mut(3005)[91] = 0x5B;
+        let solved = after.fields();
+        assert!(solved.flags.iter().find(|x| x.id == ID).unwrap().on);
+        let mut off = solved.clone();
+        off.flags.iter_mut().filter(|x| x.id == ID).for_each(|x| x.on = false);
+        after.apply(&off).unwrap();
+        assert_eq!(after.levels[9].get(3005)[91], 0x58);
+        assert_eq!(after.levels[9].get(3004)[5], 0);
+        assert_eq!(after.global.get(5)[0x1F], 0);
+
+        // An odd id is the high nibble: Maktar's moby 593 is byte 296's.
+        let mut maktar = f.clone();
+        maktar.flags.iter_mut().filter(|x| x.id == "maktar-electrolyzer-1").for_each(|x| x.on = true);
+        let mut m = before.clone();
+        m.apply(&maktar).unwrap();
+        assert_eq!(m.levels[2].get(3005)[296], 0x10);
+        assert_eq!(m.levels[2].get(3004)[6], 0x80);
+        assert_eq!(m.global.get(5)[3], 1);
     }
 
     #[test]
