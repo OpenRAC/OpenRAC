@@ -7,6 +7,7 @@ import "./layouts/compact.css";
 import App from "./App.svelte";
 import { onAndroid } from "./lib/api";
 import { app } from "./lib/app.svelte";
+import { onIOS } from "./lib/ios";
 import { startPad } from "./lib/pad";
 import { applyPalette, storedPalette } from "./lib/palettes";
 import { padRipple, startRipples } from "./lib/ripple";
@@ -38,8 +39,11 @@ startPad(
     app.page = "library";
     return true;
   },
-  !onAndroid,
-  onAndroid ? padRipple : undefined,
+  {
+    readGamepads: !onAndroid && !onIOS,
+    nativePicker: onAndroid,
+    press: onAndroid ? padRipple : undefined,
+  },
 );
 
 export default mount(App, { target });

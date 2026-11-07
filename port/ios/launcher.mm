@@ -3,6 +3,7 @@
 // The desktop launcher's actual Svelte interface, with a native Files/engine bridge.
 #import "ios/launcher.h"
 
+#import "ios/controller.h"
 #import "ios/prepare.h"
 #include "openrac_launcher.h"
 
@@ -38,6 +39,7 @@ NSString* json(id object) {
                                   WKNavigationDelegate,
                                   UIDocumentPickerDelegate>
 @property(nonatomic, weak) WKWebView* web;
+@property(nonatomic, strong) OpenRACControllerNavigation* controller;
 @property(nonatomic, weak) UIViewController* owner;
 @property(nonatomic, strong) NSURL* files;
 @property(nonatomic, strong) NSURL* data;
@@ -52,6 +54,10 @@ NSString* json(id object) {
 @end
 
 @implementation OpenRACWebBridge
+
+- (void)webView:(WKWebView*)web didFinishNavigation:(WKNavigation*)navigation {
+    [self.controller start];
+}
 
 - (void)reply:(NSInteger)request ok:(BOOL)ok value:(id)value {
     NSString* script = [NSString stringWithFormat:@"window.__openracReply(%ld,%@,%@)",
@@ -264,6 +270,7 @@ NSString* json(id object) {
                   @"detached": @YES,
                   @"output": NSNull.null
               }];
+        [self.controller stop];
         dispatch_async(dispatch_get_main_queue(), self.play);
         return;
     }
@@ -339,6 +346,7 @@ UIView* openrac_launcher_view(
     web.opaque = NO;
     web.backgroundColor = [UIColor colorWithRed:0.07 green:0.07 blue:0.1 alpha:1];
     bridge.web = web;
+    bridge.controller = [[OpenRACControllerNavigation alloc] initWithWebView:web owner:owner];
     [web
         loadRequest:[NSURLRequest
                         requestWithURL:[NSURL URLWithString:@"openrac-app://launcher/index.html"]]];

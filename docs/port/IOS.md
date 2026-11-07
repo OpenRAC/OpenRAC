@@ -88,6 +88,29 @@ Android. Under Touch controls, change action/classic buttons, button size and
 camera speed, or choose Edit the on-screen buttons to drag the controls. The
 game pauses during editing; Done saves the layout and returns to the game.
 
+## Controller navigation
+
+The launcher reads connected extended gamepads through Apple's GameController
+framework, including DualSense and Xbox controllers, and forwards the same
+button events as Android to the shared `launcher/src/lib/pad.ts` navigation.
+It does not require a touch to activate WebKit's Gamepad API.
+
+| Control | Launcher action |
+| --- | --- |
+| D-pad or left stick | Move focus |
+| Cross / A, or Menu | Activate the focused control |
+| Circle / B | Close a menu/dialog, then return to the library |
+| L1/R1 / LB/RB | Previous/next tab |
+| Triangle / Y | Open available context actions |
+
+Select fields cycle through choices with Cross/A or left/right; they do not
+open a system picker that cannot receive these navigation events. Files and
+confirmation dialogs retain their native interface and may require touch.
+Native navigation pauses while these dialogs are open or the app is inactive.
+Held buttons must be released before they act again after a dialog or app
+transition. Controller polling stops before handing the engine to SDL, so
+launcher navigation cannot consume gameplay input.
+
 ## Checks and release
 
 `.github/workflows/ios.yml` runs memory/lifecycle tests on macOS, cross-compiles

@@ -67,12 +67,18 @@ describe("Android launcher", () => {
   });
 
   it("opens every page at one width", async () => {
+    // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
     for (const query of ["page=library", "version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
-      const box = await page.locator(".page").first().boundingBox();
-      expect(box, query).not.toBeNull();
-      lefts.push(Math.round(box?.x ?? -1));
+      await page.locator(".page").first().waitFor({ state: "visible" });
+      lefts.push(
+        await page
+          .locator(".page")
+          .first()
+          .evaluate((el) => Math.round(el.getBoundingClientRect().left)),
+      );
     }
     expect(new Set(lefts).size).toBe(1);
   });

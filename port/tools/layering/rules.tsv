@@ -77,7 +77,7 @@ allow	audio	assets
 allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
-allow	tests	viewer extract
+allow	tests	viewer extract ios
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.

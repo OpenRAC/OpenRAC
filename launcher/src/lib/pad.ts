@@ -362,10 +362,9 @@ function accept() {
     return;
   }
   if (el instanceof HTMLSelectElement) {
-    // Android's list opens in a window of its own, which the controller moves through; a desktop's
-    // is the system's menu, which the controller cannot reach (Gamepad API): A takes the next
-    // choice there, as right does.
-    if (gamepadApi) {
+    // Android forwards controller keys to its native picker. On desktop and iOS the system
+    // picker cannot receive our navigation events: A takes the next choice, as right does.
+    if (!nativePicker) {
       step(el, 1);
       return;
     }
@@ -438,7 +437,9 @@ export function back(): boolean {
 
 /** LB and RB: the tab before or after the one open. */
 function tab(step: number) {
-  const tabs = [...document.querySelectorAll<HTMLElement>("header nav .tab")];
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>("header nav .tab")].filter(
+    (tab) => !tab.disabled && visible(tab),
+  );
   if (!tabs.length || scope() !== document.body) return;
   const at = tabs.findIndex((t) => t.classList.contains("on"));
   const next = tabs[(at + step + tabs.length) % tabs.length];
@@ -535,8 +536,8 @@ function usingPad(on: boolean) {
   if (document.documentElement.dataset.input !== mode) document.documentElement.dataset.input = mode;
 }
 
-/** Whether the controller is read with the Gamepad API (a desktop), not handed over by Android. */
-let gamepadApi = false;
+/** Whether the host forwards controller keys to a native select picker (Android). */
+let nativePicker = false;
 
 /** What else shows A's press (ripple.ts on Android); set by startPad. */
 let onPress: (el: HTMLElement) => void = () => undefined;
@@ -651,12 +652,16 @@ export function pollGamepads(
 
 /**
  * Starts reading the controller. `home` is what B does once nothing is open (back to the games);
- * true when it did something. `readGamepads`: read controllers with the Gamepad API (a desktop's;
- * Android's come from its activity).
+ * true when it did something. Desktop reads the Gamepad API; Android and iOS send native events.
+ * Only Android forwards controller keys to a native select picker.
  */
-export function startPad(home: () => boolean, readGamepads: boolean, press?: (el: HTMLElement) => void) {
+export function startPad(
+  home: () => boolean,
+  options: { readGamepads: boolean; nativePicker?: boolean; press?: (el: HTMLElement) => void },
+) {
+  const { readGamepads, press } = options;
   backHome = home;
-  gamepadApi = readGamepads;
+  nativePicker = options.nativePicker ?? false;
   if (press) onPress = press;
   const w = window as unknown as {
     __openracPad?: typeof padEvent;
