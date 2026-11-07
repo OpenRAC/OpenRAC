@@ -27,7 +27,7 @@
 	ignore = dirty
 [submodule "games/rac4/ntsc"]
 	path = games/rac4/ntsc
-	url = https://github.com/OpenRAC/rac-deadlocked-decomp.git
+	url = https://github.com/OpenRAC/rac4-decomp.git
 	branch = main
 	shallow = true
 	ignore = dirty

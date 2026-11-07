@@ -42,8 +42,8 @@
       ],
       "setup": "in games/rac4/ntsc: bash tools/setup_asm.sh, bash tools/docker/run.sh bash tools/build.sh, then venv/bin/python tools/audit_matches.py (its README; toolchains/README.md for the compilers)",
       "source": {
-        "name": "rac-deadlocked-decomp",
-        "repo": "https://github.com/OpenRAC/rac-deadlocked-decomp",
+        "name": "rac4-decomp",
+        "repo": "https://github.com/OpenRAC/rac4-decomp",
         "branch": "main",
         "license": "MIT (GPL libgcc, newlib libm)",
         "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
