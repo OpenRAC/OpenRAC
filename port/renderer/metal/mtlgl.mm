@@ -148,6 +148,18 @@ fragment float4 flip_fragment(Out in [[stage_in]], texture2d<float> frame [[text
     constexpr sampler nearest(filter::nearest);
     return frame.sample(nearest, in.uv);
 }
+// glBlitFramebuffer's scaled, flipped or converting copies: the viewport is the destination box,
+// `uv` the source's coordinates at its first and last corners.
+vertex Out blit_vertex(uint id [[vertex_id]], constant float4& uv [[buffer(0)]]) {
+    const float2 p = float2((id << 1) & 2, id & 2);
+    return {float4(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0, 0.0, 1.0), mix(uv.xy, uv.zw, p)};
+}
+fragment float4 blit_fragment(Out in [[stage_in]], texture2d<float> from [[texture(0)]],
+                              constant uint& linear [[buffer(0)]]) {
+    constexpr sampler nearest(filter::nearest);
+    constexpr sampler smooth(filter::linear);
+    return linear != 0 ? from.sample(smooth, in.uv) : from.sample(nearest, in.uv);
+}
 )";
 
 void make_default_framebuffer(int width, int height) {
@@ -620,6 +632,7 @@ bool open(const Config& config, std::string& error) {
     g->device = device;
     g->queue = [device newCommandQueue];
     g->flip = pipeline;
+    g->library = library;
     g->renderer = device.name.UTF8String;
     g->version = std::format("4.1 OpenRAC on Metal, {}", g->renderer);
     int width = config.width, height = config.height;

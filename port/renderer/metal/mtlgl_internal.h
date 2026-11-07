@@ -203,6 +203,8 @@ struct Context {
     SDL_MetalView view = nullptr;
     CAMetalLayer* layer = nil;
     id<MTLRenderPipelineState> flip;  // the default framebuffer to the drawable, upside down
+    id<MTLLibrary> library;           // flip's and the blits' functions
+    std::unordered_map<NSUInteger, id<MTLRenderPipelineState>> blits;  // by MTLPixelFormat
     id<MTLTexture> colour, depth;     // the default framebuffer
 
     id<MTLCommandBuffer> commands, uploads;
@@ -252,6 +254,8 @@ Target target_of(GLuint name);
 // Opens a render pass on `target`, clearing what `clear` (GL's clear bits) names and keeping the
 // rest.
 void begin_pass(const Target& target, GLbitfield clear);
+// Whether `f` is one of the unsigned integer colour formats, which are not filtered or blended.
+bool is_integer(MTLPixelFormat f);
 // The bound vertex array, or the default one.
 VertexArray& vertex_array();
 

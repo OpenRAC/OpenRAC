@@ -615,10 +615,6 @@ bool has_stencil(id<MTLTexture> depth) {
     return depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8;
 }
 
-bool is_integer(MTLPixelFormat f) {
-    return f == MTLPixelFormatR32Uint || f == MTLPixelFormatRGBA32Uint;
-}
-
 // A vertex buffer slot: `buffer` from `offset`, the lowest offset of the attributes it feeds.
 struct Stream {
     Buffer* buffer;
@@ -1122,5 +1118,9 @@ void MTLGL draw_elements_instanced(GLenum mode, GLsizei count, GLenum type, cons
 }
 
 #undef MTLGL
+
+bool is_integer(MTLPixelFormat f) {
+    return f == MTLPixelFormatR32Uint || f == MTLPixelFormatRGBA32Uint;
+}
 
 }  // namespace openrac::mtlgl::detail

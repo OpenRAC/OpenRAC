@@ -152,10 +152,26 @@ int main() {
     blit_framebuffer(0, 0, 4, 4, 0, 0, 4, 4, GL_COLOR_BUFFER_BIT, GL_NEAREST);
     CHECK(get_error() == GL_NO_ERROR);
     blit_framebuffer(0, 0, 4, 4, 0, 0, 2, 2, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-    CHECK(get_error() == 0x0502);  // a scaled blit is a draw: not yet
+    CHECK(get_error() == 0x0502);  // a scaled resolve: not yet
     bind_framebuffer(GL_READ_FRAMEBUFFER, framebuffers[2]);
     read_pixels(3, 3, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, read);
     CHECK(read[0] == 255 && read[1] == 0 && read[2] == 0 && read[3] == 255);
+
+    // A flipped, doubled blit, drawn: the 2x2 texture's blue (1, 1) lands on rows 0-1, columns 2-3.
+    bind_framebuffer(GL_READ_FRAMEBUFFER, framebuffers[0]);
+    framebuffer_texture(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+    blit_framebuffer(0, 0, 2, 2, 0, 4, 4, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    CHECK(get_error() == GL_NO_ERROR);
+    bind_framebuffer(GL_READ_FRAMEBUFFER, framebuffers[2]);
+    std::uint8_t doubled[64] = {};
+    read_pixels(0, 0, 4, 4, GL_RGBA, GL_UNSIGNED_BYTE, doubled);
+    for (int row = 0; row < 4; ++row) {
+        for (int column = 0; column < 4; ++column) {
+            const std::uint8_t* p = doubled + (row * 4 + column) * 4;
+            const bool blue_here = row < 2 && column >= 2;
+            CHECK(p[0] == 0 && p[1] == (blue_here ? 0 : 255) && p[2] == (blue_here ? 255 : 0));
+        }
+    }
 
     // The default framebuffer's orange copied into a texture.
     bind_framebuffer(GL_FRAMEBUFFER, 0);

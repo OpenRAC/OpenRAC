@@ -783,11 +783,65 @@ void MTLGL renderbuffer_storage(GLenum target, GLenum format, GLsizei w, GLsizei
     renderbuffer_storage_multisample(target, 0, format, w, h);
 }
 
-// Copies of one size and format, and resolves of a whole multisampled colour image into one of its
-// size. A scaled, flipped or converting blit is a draw, which this backend does not have yet
-// (README.md): GL_INVALID_OPERATION.
+namespace {
+
+// A scaled, flipped or converting colour blit, drawn: `src` sampled into the destination box,
+// clipped to `dst`.
+void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLint sx1, GLint sy1,
+               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter) {
+    // Along one axis: the destination's pixels lo..hi inside `size`, and the source's coordinates
+    // (0..1) at them, as d0..d1 shows s0..s1.
+    struct Axis {
+        int lo, hi;
+        float a, b;
+    };
+    auto axis = [](int s0, int s1, int d0, int d1, NSUInteger size, NSUInteger source) {
+        const int lo = std::max(std::min(d0, d1), 0);
+        const int hi = std::min(std::max(d0, d1), static_cast<int>(size));
+        auto at = [&](int d) {
+            return static_cast<float>((s0 + (s1 - s0) * static_cast<double>(d - d0) / (d1 - d0)) / source);
+        };
+        return hi > lo ? Axis{lo, hi, at(lo), at(hi)} : Axis{0, 0, 0, 0};
+    };
+    const Axis x = axis(sx0, sx1, dx0, dx1, dst.width, src.width);
+    const Axis y = axis(sy0, sy1, dy0, dy1, dst.height, src.height);
+    if (x.hi == x.lo || y.hi == y.lo) {
+        return;
+    }
+    __strong id<MTLRenderPipelineState>& pipeline = g->blits[dst.pixelFormat];
+    if (pipeline == nil) {
+        MTLRenderPipelineDescriptor* d = [MTLRenderPipelineDescriptor new];
+        d.vertexFunction = [g->library newFunctionWithName:@"blit_vertex"];
+        d.fragmentFunction = [g->library newFunctionWithName:@"blit_fragment"];
+        d.colorAttachments[0].pixelFormat = dst.pixelFormat;
+        pipeline = [g->device newRenderPipelineStateWithDescriptor:d error:nil];
+    }
+    end_encoders();
+    MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
+    d.colorAttachments[0].texture = dst;
+    d.colorAttachments[0].loadAction = MTLLoadActionLoad;
+    d.colorAttachments[0].storeAction = MTLStoreActionStore;
+    id<MTLRenderCommandEncoder> pass = [commands() renderCommandEncoderWithDescriptor:d];
+    const float uv[4] = {x.a, y.a, x.b, y.b};
+    const std::uint32_t linear = filter == GL_LINEAR ? 1 : 0;
+    [pass setRenderPipelineState:pipeline];
+    [pass setViewport:{static_cast<double>(x.lo), static_cast<double>(y.lo), static_cast<double>(x.hi - x.lo),
+                       static_cast<double>(y.hi - y.lo), 0.0, 1.0}];
+    [pass setVertexBytes:uv length:sizeof uv atIndex:0];
+    [pass setFragmentTexture:src atIndex:0];
+    [pass setFragmentBytes:&linear length:sizeof linear atIndex:0];
+    [pass drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+    [pass endEncoding];
+}
+
+}  // namespace
+
+// Copies of one size and format, resolves of a whole multisampled colour image into one of its
+// size, and colour blits between single-sampled float or normalised images drawn. A scaled,
+// flipped or converting blit of depth, of an integer image or of a multisampled one is
+// GL_INVALID_OPERATION (README.md).
 void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
-                            GLint dx1, GLint dy1, GLbitfield mask, GLenum) {
+                            GLint dx1, GLint dy1, GLbitfield mask, GLenum filter) {
     const Target from = target_of(g->state.read_framebuffer);
     const Target to = target_of(g->state.draw_framebuffer);
     auto blit_one = [&](id<MTLTexture> src, id<MTLTexture> dst) {
@@ -796,7 +850,12 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
         }
         const int w = sx1 - sx0, h = sy1 - sy0;
         if (w <= 0 || h <= 0 || dx1 - dx0 != w || dy1 - dy0 != h || src.pixelFormat != dst.pixelFormat) {
-            fail(kGlInvalidOperation);
+            if (is_depth(src.pixelFormat) || src.sampleCount > 1 || dst.sampleCount > 1
+                || is_integer(src.pixelFormat) || is_integer(dst.pixelFormat)) {
+                fail(kGlInvalidOperation);
+                return;
+            }
+            draw_blit(src, dst, sx0, sy0, sx1, sy1, dx0, dy0, dx1, dy1, filter);
             return;
         }
         const bool whole = sx0 == 0 && sy0 == 0 && dx0 == 0 && dy0 == 0
