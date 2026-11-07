@@ -1,22 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// std::to_chars for float and double, for macOS before 13.3. Apple's libc++ there lacks them, and
-// std::format of a floating-point value calls them (the log, the errors, every formatted number).
-// The build turns off libc++'s availability markup (_LIBCPP_DISABLE_AVAILABILITY, CMakeLists.txt)
-// and this file stands in for the library's: found in the program, they are used on newer systems
-// too, so the output is the same everywhere. Nothing else is covered: of what the port uses, these
-// were the only calls the markup refused for macOS 12 (build without the define to check a new
-// libc++ feature).
+// What the port takes from Apple's libc++ that macOS before 13.3 lacks: std::to_chars for float,
+// double and long double, which std::format of a floating-point value calls (the log, the errors,
+// every formatted number), std::__hash_memory (std::hash of a string or a number) and
+// std::__libcpp_verbose_abort (a failed library check). The build turns off libc++'s availability
+// markup (_LIBCPP_DISABLE_AVAILABILITY, CMakeLists.txt), which refuses only the first, and this file
+// stands in for the library's: found in the program, they are used on newer systems too, so the
+// output is the same everywhere. A libc++ that needs more shows it on macOS 12 as "dyld: missing
+// symbol called" (tools/remote-mac.sh runs a build there).
 //
 // The shortest form is the fewest digits that read back as the same value, found with snprintf
 // and strtod.
 
 #include <charconv>
+#include <cstdarg>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <string>
 
 namespace {
@@ -158,4 +161,27 @@ std::to_chars_result std::to_chars(char *first, char *last, float value, std::ch
 }
 std::to_chars_result std::to_chars(char *first, char *last, double value, std::chars_format format, int precision) {
   return precise_to_chars<double>(first, last, value, format, precision);
+}
+// As libc++ does: a long double is written as the double it rounds to.
+std::to_chars_result std::to_chars(char *first, char *last, long double value) {
+  return std::to_chars(first, last, static_cast<double>(value));
+}
+std::to_chars_result std::to_chars(char *first, char *last, long double value, std::chars_format format) {
+  return std::to_chars(first, last, static_cast<double>(value), format);
+}
+std::to_chars_result std::to_chars(char *first, char *last, long double value, std::chars_format format, int precision) {
+  return std::to_chars(first, last, static_cast<double>(value), format, precision);
+}
+
+// The hash libc++'s headers use where the system's library has none.
+size_t std::__hash_memory(__attribute__((noescape)) const void *data, size_t size) noexcept {
+  return std::__murmur2_or_cityhash<size_t>()(data, size);
+}
+
+void std::__libcpp_verbose_abort(const char *format, ...) noexcept {
+  va_list args;
+  va_start(args, format);
+  std::vfprintf(stderr, format, args);
+  va_end(args);
+  std::abort();
 }

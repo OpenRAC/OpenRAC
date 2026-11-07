@@ -41,7 +41,8 @@ if(MSVC AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 
 # macOS: Apple's libc++ before macOS 13.3 has no floating-point std::to_chars, which std::format
-# needs. Its availability markup is off and common/apple_to_chars.cpp supplies them.
+# needs. Its availability markup is off and common/apple_to_chars.cpp supplies them, with the rest
+# of what that turns on and macOS 12 lacks.
 if(APPLE)
   add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
 endif()
