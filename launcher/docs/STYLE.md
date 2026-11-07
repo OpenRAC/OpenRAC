@@ -77,8 +77,9 @@ follows the same rules.
   light gold, and its chip slides from tab to tab. The game's menu bar does the
   same, without icons.
 - A big main button over the game (the drawer's Resume) wears the bar's own
-  gold stripes (`--bar-stripe` and `--bar-stripe-alt`), a shade deeper than
-  `--amber`, so it does not glare.
+  gold stripes (`--bar-stripe`, and `--bar-stripe-alt` mixed 10 % toward
+  `--ink-deep` so the stripes show), a shade deeper than `--amber`, so it does
+  not glare. It is 56 dp tall.
 - A game's title box on its page is the launcher's own: `--panel` at 92 % over
   the picture, the title in `--gold`, the year and the notes in `--amber`, and
   the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).

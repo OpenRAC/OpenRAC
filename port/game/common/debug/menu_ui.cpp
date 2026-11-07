@@ -239,13 +239,52 @@ void panel_fill(
     float round,
     ImDrawFlags corners
 ) {
-    const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round, corners);
-    for (int v = first; v < list->VtxBuffer.Size; ++v) {
-        ImDrawVert& vert = list->VtxBuffer[v];
-        const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
-        const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
-        vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
+    if (b.y <= a.y) {
+        return;
+    }
+    if ((corners & ImDrawFlags_RoundCornersMask_) == 0) {
+        corners |= ImDrawFlags_RoundCornersAll;
+    }
+    // Colours are set per vertex, so the panel is cut into bands down through the light; one
+    // rect would fade the light over the whole height and not match a panel drawn over it.
+    float cuts[16];
+    int count = 0;
+    cuts[count++] = a.y;
+    const float top_round = (corners & ImDrawFlags_RoundCornersTop) ? round + 1.0f : 0.0f;
+    const float bottom_round = (corners & ImDrawFlags_RoundCornersBottom) ? round + 1.0f : 0.0f;
+    const float lowest = b.y - bottom_round;
+    if (a.y + top_round < lowest) {
+        cuts[count++] = a.y + top_round;
+    }
+    constexpr int kBands = 10;
+    for (int i = 1; i <= kBands; ++i) {
+        const float y = a.y + glow_depth * i / kBands;
+        if (y > cuts[count - 1] + 0.5f && y < lowest) {
+            cuts[count++] = y;
+        }
+    }
+    if (lowest > cuts[count - 1]) {
+        cuts[count++] = lowest;
+    }
+    cuts[count++] = b.y;
+    for (int i = 0; i + 1 < count; ++i) {
+        ImDrawFlags flags = ImDrawFlags_RoundCornersNone;
+        if (i == 0) {
+            flags |= corners & ImDrawFlags_RoundCornersTop;
+        }
+        if (i + 2 == count) {
+            flags |= corners & ImDrawFlags_RoundCornersBottom;
+        }
+        const int first = list->VtxBuffer.Size;
+        list->AddRectFilled(
+            ImVec2(a.x, cuts[i]), ImVec2(b.x, cuts[i + 1]), IM_COL32_WHITE, round, flags
+        );
+        for (int v = first; v < list->VtxBuffer.Size; ++v) {
+            ImDrawVert& vert = list->VtxBuffer[v];
+            const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+            const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
+            vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
+        }
     }
 }
 
@@ -255,7 +294,7 @@ ImU32 panel_glow() {
 
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
     // The bar's own gold stripes (no edge): deeper than the bright accent, so a big button over the
-    // game does not glare; darker while held.
+    // game does not glare; darker while held. The dark stripes are a step deeper than the bar's.
     const float dark = 0.18f * held;
     striped_rect(
         list,
@@ -263,7 +302,7 @@ void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held)
         b,
         round,
         ui_colors::mix(ui().bar_stripe, ui().ink_deep, dark),
-        ui_colors::mix(ui().bar_stripe_alt, ui().ink_deep, dark),
+        ui_colors::mix(ui().bar_stripe_alt, ui().ink_deep, 0.1f + dark * 0.9f),
         a
     );
 }
@@ -721,7 +760,7 @@ int menu_percent_slider(const char* label, int value, int minimum, int maximum, 
 }
 
 bool menu_button(const char* label) {
-    const float height = dp(46.0f);
+    const float height = dp(56.0f);
     const ImVec2 a = ImGui::GetCursorScreenPos();
     const ImVec2 b(a.x + ImGui::GetContentRegionAvail().x, a.y + height);
     const bool pressed =
