@@ -113,7 +113,17 @@ void controller_panel(float left, float right_inset) {
     if (ImGui::Begin("OpenRAC controller settings", nullptr, flags)) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         const ImVec2 b(a.x + size.x, a.y + size.y);
-        list->AddRectFilled(a, b, ui_colors::fade(ui().panel, ease), dp(12.0f));
+        // The drawer's ground: its coal, lit along the top in the game's colour.
+        panel_fill(
+            list,
+            a,
+            b,
+            ui_colors::fade(ui().panel, ease),
+            ui_colors::fade(ui().panel, ease),
+            ui_colors::fade(panel_glow(), ease),
+            dp(160.0f),
+            dp(12.0f)
+        );
         // Header: title and a close button (B also closes it).
         ImFont* head = menu_fonts.head;
         list->AddText(
@@ -132,7 +142,6 @@ void controller_panel(float left, float right_inset) {
         const ImVec2 c(b.x - close * 0.5f - dp(10.0f), a.y + header * 0.5f);
         const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
         list->AddCircleFilled(c, close * 0.5f, ui_colors::mix(ui().panel_hi, pressed_fill(), held));
-        list->AddCircle(c, close * 0.5f, ui().line_strong);
         const float k = dp(6.0f);
         list->AddLine(ImVec2(c.x - k, c.y - k), ImVec2(c.x + k, c.y + k), ui().soft, dp(1.6f));
         list->AddLine(ImVec2(c.x + k, c.y - k), ImVec2(c.x - k, c.y + k), ui().soft, dp(1.6f));

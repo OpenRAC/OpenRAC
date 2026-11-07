@@ -781,13 +781,12 @@ bool menu_button(const char* label) {
         ImVec2(b.x + dp(3.0f), b.y + dp(3.0f)),
         round + dp(3.0f)
     );
-    // Inter SemiBold, as the other buttons.
-    ImFont* font = menu_fonts.strong ? menu_fonts.strong : ImGui::GetFont();
     list->AddText(
-        font,
-        ImGui::GetFontSize(),
         centred_text(
-            font, ImGui::GetFontSize(), label, ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
+            ImGui::GetFont(),
+            ImGui::GetFontSize(),
+            label,
+            ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
         ),
         ui().bar_ink,
         label

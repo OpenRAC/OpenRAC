@@ -79,7 +79,6 @@ follows the same rules.
 - A big main button over the game (the drawer's Resume) wears the bar's own
   gold stripes at half strength (`--bar-stripe`, then halfway to
   `--bar-stripe-alt`), a shade deeper than `--amber`, so it does not glare.
-  Its label is Inter SemiBold.
 - A game's title box on its page is the launcher's own: `--panel` at 92 % over
   the picture, the title in `--gold`, the year and the notes in `--amber`, and
   the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).
@@ -165,8 +164,8 @@ coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 The game's window ground is the theme's coal with a glow of the game's colour
 along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
-on the coal. Android's drawer has the same light along its top, under its
-header too. The window's right side has the bar's stripes, barely visible,
+on the coal. Android's drawer and its controller settings panel have the same
+light along their top, under the header too. The window's right side has the bar's stripes, barely visible,
 in its top left corner only, fading out down and to the right.
 
 ## Logo
