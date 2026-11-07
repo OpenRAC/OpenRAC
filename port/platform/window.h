@@ -152,6 +152,22 @@ struct WindowConfig {
 using GlProc = void (*)();
 using GlLoader = GlProc (*)(const char* name);
 
+// The Metal renderer (renderer/metal/mtlgl.h) as a window opens and draws with it. The platform is
+// below the renderer, so it declares this and renderer/metal defines it, in a build with
+// OPENRAC_METAL. open presents to `window`, or to no screen when it is null, and fails when Metal
+// cannot open or lacks a function of renderer/gl.h.
+struct MetalBackend {
+    bool (*open)(SDL_Window* window, int width, int height, bool vsync, std::string& error);
+    void (*close)();
+    bool (*active)();
+    GlLoader get_proc;
+    void (*present)();
+    void (*set_swap_interval)(int interval);
+    std::string (*device_name)();
+};
+
+const MetalBackend& metal_backend();
+
 class Window {
 public:
     // Opens the window and its context, and makes the context current. On

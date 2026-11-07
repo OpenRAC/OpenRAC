@@ -98,10 +98,12 @@ there is no Metal device.
 
 ## Choosing it
 
-`OPENRAC_GL_API=metal` (`platform/window.cpp`). The window opens a Metal window and `mtlgl::open`,
-then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot open, or one is
-missing, the log says why and the window draws with OpenGL: not Vulkan, which on Apple's systems is
-MoltenVK on the same Metal.
+`OPENRAC_GL_API=metal` (`platform/window.cpp`). The window opens a Metal window and reaches mtlgl
+through `platform::metal_backend()`, which the platform declares and
+[mtlgl_backend.cpp](mtlgl_backend.cpp) defines, so the platform never includes the renderer. Its
+open calls `mtlgl::open`, then asks `mtlgl::get_proc` for every function `gl::load` needs. If
+Metal cannot open, or one is missing, the log says why and the window draws with OpenGL: not
+Vulkan, which on Apple's systems is MoltenVK on the same Metal.
 
 It draws what OpenGL draws, but for the differences under Shaders and one rounding of Apple's
 GPUs. OpenGL turns z into window depth as `z / w * 0.5 + 0.5`, which Metal rounds the same only

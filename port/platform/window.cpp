@@ -29,10 +29,6 @@
 #if defined(OPENRAC_VULKAN) && defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
-#if defined(OPENRAC_METAL)
-#include "renderer/gl.h"
-#include "renderer/metal/mtlgl.h"
-#endif
 
 namespace openrac::platform {
 namespace {
@@ -519,27 +515,10 @@ bool Window::open_metal(const WindowConfig& config, std::string& error) {
         error = std::format("no window for Metal: {}", SDL_GetError());
         return false;
     }
-    mtlgl::Config mtl;
-    mtl.window = config.hidden ? nullptr : m_window;
-    SDL_GetWindowSizeInPixels(m_window, &mtl.width, &mtl.height);
-    mtl.vsync = config.vsync;
-    if (!mtlgl::open(mtl, error)) {
-        SDL_DestroyWindow(m_window);
-        m_window = nullptr;
-        return false;
-    }
-    // The caller's gl::load fails on one missing function, after the window is open and cannot
-    // fall back; a Metal that is not whole yet is found here.
-    std::string missing;
-#define OPENRAC_METAL_CHECK(ret, name, params)                                                     \
-    if (mtlgl::get_proc(#name) == nullptr) {                                                       \
-        missing += missing.empty() ? #name : " " #name;                                            \
-    }
-    OPENRAC_GL_FUNCTIONS(OPENRAC_METAL_CHECK)
-#undef OPENRAC_METAL_CHECK
-    if (!missing.empty()) {
-        error = "the Metal renderer lacks GL functions: " + missing;
-        mtlgl::close();
+    int width = 0, height = 0;
+    SDL_GetWindowSizeInPixels(m_window, &width, &height);
+    SDL_Window* screen = config.hidden ? nullptr : m_window;
+    if (!metal_backend().open(screen, width, height, config.vsync, error)) {
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
         return false;
@@ -547,7 +526,7 @@ bool Window::open_metal(const WindowConfig& config, std::string& error) {
     m_metal = true;
     m_gl_api = GlApi::Metal;
     m_gl_version = "Metal";
-    m_gl_renderer = mtlgl::device_name();
+    m_gl_renderer = metal_backend().device_name();
     log::info("graphics: {}, Metal, the renderer's GL carried out with Metal", m_gl_renderer);
     log::header(std::format("graphics  {}, Metal", m_gl_renderer), false);
     if (config.display > 0 && config.mode == DisplayMode::Windowed) {
@@ -775,7 +754,7 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
 Window::~Window() {
 #if defined(OPENRAC_METAL)
     if (m_metal) {
-        mtlgl::close();
+        metal_backend().close();
     }
 #endif
 #if defined(OPENRAC_VULKAN)
@@ -836,7 +815,7 @@ bool Window::set_display_mode(DisplayMode mode, int display) {
 bool Window::set_vsync(bool on) {
 #if defined(OPENRAC_METAL)
     if (m_metal) {
-        mtlgl::set_swap_interval(on ? 1 : 0);
+        metal_backend().set_swap_interval(on ? 1 : 0);
         return true;
     }
 #endif
@@ -860,7 +839,7 @@ SwapInterval Window::set_swap_interval(SwapInterval interval) {
     if (m_metal) {
         // The layer's display sync is on or off; there is no adaptive mode.
         const bool on = interval != SwapInterval::Immediate;
-        mtlgl::set_swap_interval(on ? 1 : 0);
+        metal_backend().set_swap_interval(on ? 1 : 0);
         return on ? SwapInterval::VSync : SwapInterval::Immediate;
     }
 #endif
@@ -1017,7 +996,7 @@ bool Window::focused() const {
 void Window::swap() {
 #if defined(OPENRAC_METAL)
     if (m_metal) {
-        mtlgl::present();
+        metal_backend().present();
         return;
     }
 #endif
@@ -1042,8 +1021,8 @@ void Window::drawable_size(int& width, int& height) const {
 
 GlLoader Window::gl_loader() {
 #if defined(OPENRAC_METAL)
-    if (mtlgl::active()) {
-        return mtlgl::get_proc;
+    if (metal_backend().active()) {
+        return metal_backend().get_proc;
     }
 #endif
 #if defined(OPENRAC_VULKAN)
