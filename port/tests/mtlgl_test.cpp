@@ -280,6 +280,24 @@ void main() { result = texture(image, v_colour.xy); }
          glDisable(GL_STENCIL_TEST);
          return pixels();
      }},
+    {"clears of a texture's two levels",
+     [] {
+         const GLuint image = texture(GL_RGBA8, kSide * 2);
+         glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+         const GLuint first = framebuffer(image, kSide);
+         clear_to(0.9f, 0.1f, 0.3f, 1.0f);
+         GLuint second = 0;
+         glGenFramebuffers(1, &second);
+         glBindFramebuffer(GL_FRAMEBUFFER, second);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, image, 1);
+         clear_to(0.2f, 0.4f, 0.6f, 0.8f);
+         auto both = pixels();
+         both.pop_back();
+         glBindFramebuffer(GL_FRAMEBUFFER, first);
+         const auto level0 = pixels();
+         both.insert(both.end(), level0.begin(), level0.end());
+         return both;
+     }},
     {"scaled multisampled blit",
      [] {
          const GLuint from = multisampled(8);

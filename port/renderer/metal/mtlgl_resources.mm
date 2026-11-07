@@ -696,13 +696,14 @@ void MTLGL bind_framebuffer(GLenum target, GLuint name) {
     }
 }
 
-void MTLGL framebuffer_texture_2d(GLenum target, GLenum attachment, GLenum, GLuint texture, GLint) {
+void MTLGL framebuffer_texture_2d(GLenum target, GLenum attachment, GLenum, GLuint texture, GLint level) {
     Framebuffer* fb = bound_framebuffer(target);
     if (fb == nullptr) {
         return;
     }
     if (attachment == GL_COLOR_ATTACHMENT0) {
         fb->colour_texture = texture;
+        fb->colour_level = level;
         fb->colour_renderbuffer = 0;
     } else if (attachment == GL_DEPTH_ATTACHMENT || attachment == GL_DEPTH_STENCIL_ATTACHMENT) {
         fb->depth_texture = texture;

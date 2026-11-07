@@ -86,7 +86,7 @@ Target target_of(GLuint name) {
     if (name == 0) {
         return {g->colour, g->depth};
     }
-    const Framebuffer* fb = g->framebuffers.find(name);
+    Framebuffer* fb = g->framebuffers.find(name);
     if (fb == nullptr) {
         return {};
     }
@@ -99,8 +99,18 @@ Target target_of(GLuint name) {
         const Renderbuffer* r = g->renderbuffers.find(renderbuffer);
         return r != nullptr ? r->texture : nil;
     };
-    return {image(fb->colour_texture, fb->colour_renderbuffer),
-            image(fb->depth_texture, fb->depth_renderbuffer)};
+    id<MTLTexture> colour = image(fb->colour_texture, fb->colour_renderbuffer);
+    if (fb->colour_level != 0 && colour != nil) {
+        const auto level = static_cast<NSUInteger>(fb->colour_level);
+        if (level < colour.mipmapLevelCount && fb->colour_view.parentTexture != colour) {
+            fb->colour_view = [colour newTextureViewWithPixelFormat:colour.pixelFormat
+                                                        textureType:MTLTextureType2D
+                                                             levels:NSMakeRange(level, 1)
+                                                             slices:NSMakeRange(0, 1)];
+        }
+        colour = level < colour.mipmapLevelCount ? fb->colour_view : nil;
+    }
+    return {colour, image(fb->depth_texture, fb->depth_renderbuffer)};
 }
 
 void begin_pass(const Target& target, GLbitfield clear) {

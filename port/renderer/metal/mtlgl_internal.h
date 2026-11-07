@@ -117,6 +117,9 @@ struct Renderbuffer {
 struct Framebuffer {
     GLuint colour_texture = 0, colour_renderbuffer = 0;
     GLuint depth_texture = 0, depth_renderbuffer = 0;
+    GLint colour_level = 0;
+    // Kept, so that draws into the level find their pass open on the same texture.
+    id<MTLTexture> colour_view;
 };
 
 // The textures a framebuffer draws into (nil for an attachment it has not).
