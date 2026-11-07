@@ -16,6 +16,7 @@
 #include "renderer/gl.h"
 #include "renderer/precise_depth.h"
 #include "renderer/render_opt.h"
+#include "renderer/world/fog.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
 #include "renderer_shaders.h"
@@ -757,17 +758,15 @@ void LevelScene::release() {
 void LevelScene::set_fog(
     const std::array<float, 3>& colour, float near_depth, float far_depth, float near_f, float far_f
 ) {
-    // UpdateViewContext's terms (renderer/world/fog.h): F = depth x slope + offset, clamped to
-    // [far F, near F]. Equal depths or no fog asked for (both F 255) leave it off.
-    const float range = far_depth - near_depth;
-    if (!(range > 0.0f) || (near_f >= 255.0f && far_f >= 255.0f)) {
+    // UpdateViewContext's terms, clamped as the programs clamp them (renderer/world/fog.h). Equal
+    // depths or a fog that fogs nothing (far F 255) leave it off.
+    const auto params = renderer::world::scene_fog_params(near_depth, far_depth, near_f, far_f);
+    if (!params) {
         m_fog_colour = {colour[0], colour[1], colour[2], 0.0f};
         return;
     }
-    const float slope = (far_f - near_f) / range;
-    const float offset = (near_f * far_depth - far_f * near_depth) / range;
     m_fog_colour = {colour[0], colour[1], colour[2], 1.0f};
-    m_fog_params = {slope, offset, std::min(near_f, far_f), std::max(near_f, far_f)};
+    m_fog_params = *params;
 }
 
 bool LevelScene::batches_opaque_colour() const {

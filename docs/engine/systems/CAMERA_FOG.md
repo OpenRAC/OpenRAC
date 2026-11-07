@@ -69,6 +69,12 @@ near and far intensity In, If (GS fog values, 255 = no fog).
     cf14 = (In · Df − If · Dn) / (Df − Dn)
     F(z) = In + (If − In) · (z − Dn) / (Df − Dn), clamped to [If, In]
 
+The programs clamp with If last: the terrain program as `max(min(F, In), If)`,
+the moby program as `min(max(F, If), 255)`. With In below If the whole view
+gets If, so If = 255 fogs nothing, whatever In says: Going Commando's
+Electrolyzer puzzles set In 100, If 255 for their board (shared level code,
+level 2's `func_L02_003C26F0`) and restore the level's pair on leaving.
+
 F is linear in camera **depth**, not distance. The GS fogs RGB after the
 texture, alpha untouched: `C = FOGCOL + (C − FOGCOL) · F / 255`, F
 interpolated in screen space. Novalis: fog colour (105, 127, 180), Dn 0, Df
