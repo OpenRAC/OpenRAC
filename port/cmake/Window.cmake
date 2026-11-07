@@ -14,6 +14,12 @@
 include_guard(GLOBAL)
 include(Dependencies)
 
+if(NOT OPENRAC_IOS AND NOT WIN32)
+  openrac_add_test(mobile_lifecycle SOURCES tests/mobile_lifecycle_test.cpp platform/pump.cpp
+    INCLUDES . DEFINITIONS OPENRAC_IOS=1 LIBS openrac_common openrac_sdl3)
+  set_tests_properties(mobile_lifecycle PROPERTIES TIMEOUT 10)
+endif()
+
 # GLSL sources become C++ string constants in <name>_shaders.h / .cpp under
 # the build directory: namespace <namespace>::shaders, one constant per file,
 # named after it (direct.frag -> direct_frag). Shaders are part of the
@@ -209,7 +215,7 @@ if(OPENRAC_VULKAN)
   target_compile_definitions(openrac_platform PRIVATE OPENRAC_VULKAN=1)
 endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
   target_link_libraries(openrac_platform PRIVATE "-framework Cocoa")
 endif()
@@ -784,7 +790,7 @@ include(EnhancedBaker)
 add_executable(openrac-viewer viewer/main.cpp)
 target_link_libraries(openrac-viewer PRIVATE openrac_viewer_lib openrac_game_rac1_profile openrac_platform)
 openrac_warnings(openrac-viewer)
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   include(MacApp)
   openrac_macos_app(openrac-viewer NAME "OpenRAC Viewer" ID dev.openrac.viewer
     ICON "${PROJECT_SOURCE_DIR}/../launcher/src-tauri/icons/icon.icns")

@@ -175,10 +175,14 @@ if(NOT TARGET openrac_imgui)
   )
   target_include_directories(openrac_imgui SYSTEM PUBLIC "${imgui_SOURCE_DIR}" "${imgui_SOURCE_DIR}/backends")
   target_link_libraries(openrac_imgui PUBLIC openrac_sdl3)
-  if(ANDROID)
+  if(ANDROID OR OPENRAC_IOS)
     # OpenGL ES 3 there (platform/window.h, GlApi), linked as the system's libGLESv3.
     target_compile_definitions(openrac_imgui PUBLIC IMGUI_IMPL_OPENGL_ES3)
-    target_link_libraries(openrac_imgui PRIVATE GLESv3)
+    if(OPENRAC_IOS)
+      target_link_libraries(openrac_imgui PRIVATE "-framework OpenGLES")
+    else()
+      target_link_libraries(openrac_imgui PRIVATE GLESv3)
+    endif()
   elseif(UNIX AND NOT APPLE)
     target_link_libraries(openrac_imgui PRIVATE ${CMAKE_DL_LIBS})  # the backend's loader opens libGL
   endif()
@@ -263,7 +267,7 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   # the window opens it (platform/window.cpp): a player needs nothing installed. Homebrew's
   # (brew install molten-vk) or the Vulkan SDK's. Without it the game still opens a system's
   # Vulkan loader where one is installed, and otherwise draws with OpenGL.
-  if(APPLE)
+  if(APPLE AND NOT OPENRAC_IOS)
     find_library(OPENRAC_MOLTENVK_LIBRARY NAMES libMoltenVK.dylib MoltenVK
       HINTS "$ENV{VULKAN_SDK}/lib" /opt/homebrew/opt/molten-vk/lib /opt/homebrew/lib /usr/local/lib
       NO_CMAKE_SYSTEM_PATH

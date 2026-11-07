@@ -462,6 +462,14 @@ bool open(const std::string& game_id, const std::filesystem::path& levels, std::
                 : "in GL's form: no glClipControl here (GameProfile::depth_near)"
         );
     }
+#if defined(OPENRAC_IOS)
+    platform::set_background_handler([] {
+        // Finish both the worker's recording and GPU execution before UIKit suspends the scene.
+        if (g && finish_render() && gl::glFinish != nullptr) {
+            gl::glFinish();
+        }
+    });
+#endif
     return true;
 }
 
@@ -587,6 +595,9 @@ std::int64_t since_control() {
 }
 
 void close() {
+#if defined(OPENRAC_IOS)
+    platform::set_background_handler(nullptr);
+#endif
     if (g) {
         // Stop the worker before releasing the scene, temporal history or graphics context.
         // Cleanup still releases resources after a previously reported render error.

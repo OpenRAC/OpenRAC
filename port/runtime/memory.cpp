@@ -26,6 +26,10 @@
 #include <unistd.h>
 
 #include <sys/mman.h>
+#if defined(OPENRAC_IOS)
+#include <mach/mach.h>
+#include <mach/vm_map.h>
+#endif
 #if defined(__ANDROID__)
 #include <sys/syscall.h>
 #endif
@@ -188,6 +192,7 @@ void Memory::map_all() {
 
 namespace {
 
+#if !defined(OPENRAC_IOS)
 int ram_object() {
 #if defined(__ANDROID__) && __ANDROID_API__ < 30
     // bionic declares memfd_create from API 30; the kernel call is older (Linux 3.17).
@@ -204,6 +209,8 @@ int ram_object() {
     return fd;
 #endif
 }
+
+#endif
 
 bool map_fixed(std::uint8_t* at, std::size_t size, int fd) {
     const int flags =
@@ -223,6 +230,42 @@ void Memory::map_all() {
     base_ = static_cast<std::uint8_t*>(reserved);
 
     aliases_ = false;
+#if defined(OPENRAC_IOS)
+    // iOS's sandbox has no POSIX shared-memory namespace. Remap the same anonymous pages
+    // into the console's cached/uncached views without creating a file or copying its RAM.
+    if (!map_fixed(base_ + GUEST_RAM, ram_size_, -1)) {
+        log::fatal("could not map game RAM");
+    }
+
+    aliases_ = true;
+
+    for (gaddr view : kRamViews) {
+        if (view == GUEST_RAM) {
+            continue;
+        }
+
+        vm_address_t destination = reinterpret_cast<vm_address_t>(base_ + view);
+        vm_prot_t current = VM_PROT_NONE;
+        vm_prot_t maximum = VM_PROT_NONE;
+        const kern_return_t result = vm_remap(
+            mach_task_self(),
+            &destination,
+            ram_size_,
+            0,
+            VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+            mach_task_self(),
+            reinterpret_cast<vm_address_t>(base_ + GUEST_RAM),
+            false,
+            &current,
+            &maximum,
+            VM_INHERIT_NONE
+        );
+
+        if (result != KERN_SUCCESS) {
+            log::fatalf("could not alias game RAM: {}", result);
+        }
+    }
+#else
     int fd = ram_object();
     if (fd >= 0 && ftruncate(fd, ram_size_) == 0) {
         aliases_ = true;
@@ -242,6 +285,7 @@ void Memory::map_all() {
         }
         log::warn("main RAM could not be aliased: uncached RAM addresses are not mapped");
     }
+#endif
     const std::uint32_t page = page_size();
     for (const Region& r : kPlainRegions) {
         if (!map_fixed(base_ + r.address, round_up(r.size, page), -1)) {
