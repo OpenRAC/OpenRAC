@@ -103,8 +103,11 @@
     flex-direction: column;
     gap: 4px;
     padding: 20px 10px;
-    background: var(--ink-deep);
+    background: var(--rail);
     border-right: 1px solid var(--line);
+    /* A row under the pointer: one step lighter than the rail. */
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     min-height: 100%;
   }
 

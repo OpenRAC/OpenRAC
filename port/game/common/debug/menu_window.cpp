@@ -158,7 +158,7 @@ void panel_fill(
 // under the pointer, no edge; the open one is the lighter chip under it (drawn by the bar, sliding
 // from tab to tab), its name in light gold. True when clicked.
 bool bar_tab(const char* name, bool open, float height) {
-    ImFont* font = menu_fonts.strong;
+    ImFont* font = menu_fonts.bar;
     ImGui::PushFont(font);
     const ImVec2 text = ImGui::CalcTextSize(name);
     const ImVec2 size(text.x + dp(28.0f), height);
@@ -187,7 +187,7 @@ bool bar_tab(const char* name, bool open, float height) {
 bool bar_chip(
     const char* label, ImU32 ink, bool light, float height, float held = 0.0f, bool picked = false
 ) {
-    ImGui::PushFont(menu_fonts.strong);
+    ImGui::PushFont(menu_fonts.bar);
     const ImVec2 text = ImGui::CalcTextSize(label);
     const ImVec2 size(text.x + dp(28.0f), height);
     const ImVec2 a = ImGui::GetCursorScreenPos();
@@ -224,8 +224,8 @@ bool bar_chip(
     }
     list->AddText(
         centred_text(
-            menu_fonts.strong,
-            menu_fonts.strong->FontSize,
+            menu_fonts.bar,
+            menu_fonts.bar->FontSize,
             label,
             ImVec2((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f)
         ),
@@ -602,7 +602,7 @@ void menu_window(const Shown& shown) {
         const float logo_w = s.logo_rect >= 0
                                  ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
                                  : dp(120.0f);
-        const float tab_h = dp(34.0f);
+        const float tab_h = dp(32.0f);
         ImGui::SetCursorScreenPos(
             ImVec2(bar_a.x + dp(18.0f) + logo_w + dp(22.0f), bar_a.y + (bar - tab_h) * 0.5f)
         );
@@ -647,8 +647,8 @@ void menu_window(const Shown& shown) {
         );
         list->ChannelsMerge();
 
-        // At the right: Quit and Resume, both dark chips.
-        ImGui::PushFont(menu_fonts.strong);
+        // At the right: Quit and Resume, both bar buttons.
+        ImGui::PushFont(menu_fonts.bar);
         const float quit_w = ImGui::CalcTextSize(menu::entry(menu::Id::Quit).label).x + dp(28.0f);
         const float resume_w = ImGui::CalcTextSize("Resume").x + dp(28.0f);
         ImGui::PopFont();

@@ -23,6 +23,8 @@ extern const unsigned char openrac_font_inter[];
 extern const unsigned int openrac_font_inter_size;
 extern const unsigned char openrac_font_inter_semibold[];
 extern const unsigned int openrac_font_inter_semibold_size;
+extern const unsigned char openrac_font_inter_medium[];
+extern const unsigned int openrac_font_inter_medium_size;
 extern const unsigned char openrac_font_orbitron[];
 extern const unsigned int openrac_font_orbitron_size;
 
@@ -157,6 +159,7 @@ void add_menu_fonts(bool touch) {
     menu_fonts.body = add_font(openrac_font_inter, openrac_font_inter_size, body);
     menu_fonts.strong =
         add_font(openrac_font_inter_semibold, openrac_font_inter_semibold_size, body);
+    menu_fonts.bar = add_font(openrac_font_inter_medium, openrac_font_inter_medium_size, body);
     menu_fonts.head =
         add_font(openrac_font_orbitron, openrac_font_orbitron_size, std::round(17.0f * s.ui_scale));
     menu_fonts.title =
@@ -177,6 +180,7 @@ void add_menu_fonts(bool touch) {
     for (ImFont** font :
          {&menu_fonts.body,
           &menu_fonts.strong,
+          &menu_fonts.bar,
           &menu_fonts.head,
           &menu_fonts.title,
           &menu_fonts.small,

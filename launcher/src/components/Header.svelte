@@ -309,13 +309,13 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    height: 34px;
-    min-height: 34px;
+    height: 32px;
+    min-height: 32px;
     border-radius: var(--radius-sm);
     padding: 0 14px 0 12px;
     font-size: 0.9375rem;
-    /* Heavier than the page's text, to stand beside the logo's strokes. */
-    font-weight: 600;
+    /* Medium, not bold: close to the logo's thin strokes beside it (user decision). */
+    font-weight: 500;
     /* A button of its own on the gold, as the site's bar has them: the bar's stripes continued in
        coal, gold text, no edge (the gold bar is its edge). */
     background: none;
@@ -374,11 +374,11 @@
     gap: 8px;
     max-width: 280px;
     font-size: 0.8125rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--amber);
     background: var(--coal-stripes);
     border-radius: var(--radius-sm);
-    height: 34px;
+    height: 32px;
     padding: 0 12px;
     animation: rise var(--medium) var(--ease) both;
   }
@@ -403,8 +403,6 @@
     color: var(--bar-ink-deep);
   }
 
-  /* A capsule as tall as the tabs, in the selected tab's dark brown, its marks in gold that turn
-     amber on a lighter round under the pointer. */
   /* The site and Discord: two buttons of their own, as the tabs, not one joined capsule. */
   .links {
     display: inline-flex;
@@ -416,8 +414,8 @@
   .discord {
     display: grid;
     place-items: center;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
     background: var(--coal-stripes);
     color: var(--amber);
@@ -453,9 +451,9 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    height: 34px;
+    height: 32px;
     font-size: 0.8125rem;
-    font-weight: 700;
+    font-weight: 500;
     background: var(--coal-stripes);
     color: var(--gold);
     border-radius: var(--radius-sm);
@@ -598,7 +596,7 @@
     height: auto;
     min-height: 0;
     padding: 16px 0 12px;
-    background: var(--ink-deep);
+    background: var(--rail);
     border-bottom: 0;
     border-right: 1px solid var(--line);
     box-shadow: none;

@@ -15,6 +15,8 @@ follows the same rules.
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
 - The page is black (`--ink` `#0a0a0a`, `--ink-deep` `#050505`), never navy.
+  The game list beside it and Android's rail are dark but not black: `--rail`
+  `#111111` (the site's band). Pure black is the OLED theme's alone.
 - Cards and panels have no border and no stripes: a flat `#121212`
   (`--panel`, `--card`), `#191919` when hovered or open (`--panel-hi`,
   `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
@@ -53,7 +55,8 @@ follows the same rules.
   Games, Mods, Develop, Settings; the site and Discord icons at the right; a
   job; an update) continue the bar's stripes in coal (`--coal-stripes`:
   `#181818` on `#121212`, laid on the window so they line up with the bar's),
-  34 px tall, gold text, no edge. Under the pointer and for the open tab, the
+  32 px tall, gold text in Inter Medium (500, as thin as the logo beside them),
+  no edge. Under the pointer and for the open tab, the
   lighter `--coal-stripes-hi` (`#252525` on `#1f1f1f`); the open tab's text is
   light gold, and its chip slides from tab to tab. The game's menu bar does the
   same, without icons.
@@ -69,6 +72,7 @@ follows the same rules.
 | ---------------------------------------- | -------------------------------- | ----------------------------------------------- |
 | `--ink`                                  | `#0a0a0a`                        | the page                                        |
 | `--ink-deep`                             | `#050505`                        | badges, tracks, job output, the darkest parts   |
+| `--rail`                                 | `#111111`                        | the game list beside the page, Android's rail   |
 | `--panel`                                | `#121212`                        | cards and panels (`--card`)                     |
 | `--panel-hi`                             | `#191919`                        | a card under the pointer or open (`--card-hi`)  |
 | `--brand`                                | `#d6a020`                        | section numbers, small labels                   |

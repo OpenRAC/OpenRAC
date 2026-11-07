@@ -66,7 +66,8 @@ float slide(float at, bool open);
 // read. Set by add_menu_fonts.
 struct MenuFonts {
     ImFont* body = nullptr;    // Inter, the rows
-    ImFont* strong = nullptr;  // Inter SemiBold, the tabs and buttons
+    ImFont* strong = nullptr;  // Inter SemiBold, the buttons
+    ImFont* bar = nullptr;     // Inter Medium, the bar's tabs and chips (as thin as the logo)
     ImFont* head = nullptr;    // Orbitron, the headings
     ImFont* title = nullptr;   // Orbitron, larger: the open tab's name over its rows
     ImFont* small = nullptr;   // Inter SemiBold, smaller: a section's kicker, the version

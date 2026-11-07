@@ -13,6 +13,9 @@
   /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
   --panel: #121212;
   --panel-hi: #191919;
+  /* The game list beside the page and Android's rail: dark, but not black (the site's #111111
+     band); a theme with a black of its own (OLED) sets its own. */
+  --rail: #111111;
   /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
      wear stripes. */
   --card: var(--panel);
