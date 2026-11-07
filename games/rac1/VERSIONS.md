@@ -23,10 +23,10 @@ Both decompilations cover the boot executable and the 19 level programs
 
 PAL v1.00 and v2.00 boot the same file name, `SCES_509.16`; the launcher and the
 editor tell them apart by the disc's version (`VER` in `SYSTEM.CNF`) and the
-executable's size and SHA-1. The two newer versions are recognised, their
-levels are read and their code is counted ([progress/](../../progress/README.md)),
-but no native program plays them yet (`openrac-rac1-pal1` and `openrac-rac1-jp`
-come later), so the launcher lists their Play as not playable yet.
+executable's size and SHA-1. Each has a native program of its own, built from the same C through its release view
+(`openrac-rac1-pal1`, `openrac-rac1-jp`: [port/game/rac1-pal1](../../port/game/rac1-pal1/README.md),
+[port/game/rac1-jp](../../port/game/rac1-jp/README.md)); their levels are read from their own discs
+and their code is counted ([progress/](../../progress/README.md)).
 
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
 in [progress/](../../progress/README.md).
