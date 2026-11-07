@@ -33,7 +33,7 @@ unsigned char *spawn_projectile_expiry_particle(char *pos, char *vec) {
 }
 extern int truncate_float_to_s32(float);
 
-extern unsigned char *umbris_part_type61_textures;
+extern unsigned char *l07_projectile_expiry_particle_lookup;
 extern float frame_scale MACRO_ADDR;
 extern float debris_far_point[];
 
@@ -63,11 +63,11 @@ unsigned char *spawn_moby_point_offset_particle(void *m, short index, float amou
         *(volatile unsigned char *)&((struct PartBase *)p)->unk_01 = 0;
         /* FAKEMATCH: volatile: store order unk_09, blend, unk_01, size (6/376 bytes differ without it). */
         *(volatile float *)&((struct PartBase *)p)->size = amount;
-        ((struct PartBase *)p)->texture = umbris_part_type61_textures[*(short *)(q + 0xc)];
+        ((struct PartBase *)p)->texture = l07_projectile_expiry_particle_lookup[*(short *)(q + 0xc)];
         *(float *)(q + 0x10) = frame_scale * 0.015f;
         *(short *)(q + 0xe) = index;
         ((struct PartBase *)p)->spin = truncate_float_to_s32(*(float *)(q + 8) * 255.0f);
-        Moby_GetJointWorldPos(*(void **)q, *(short *)(q + 0xe), v);
+        moby_point_position(*(void **)q, *(short *)(q + 0xe), v);
         FastVecSub(t, debris_far_point, v);
         vec_scale_to_length(t, t, *(float *)(q + 0x14));
         FastVecAdd(&((struct PartBase *)p)->pos, v, t);

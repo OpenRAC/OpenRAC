@@ -123,7 +123,7 @@ typedef struct {
 
 #define F43(x) (*(float *)&(x))
 extern char hero_globals_base[];
-extern Camera43 player_camera;
+extern Camera43 gCameraLvl;
 extern char *active_mobies[];
 extern char tesla_beam_points[];
 extern float tesla_beam_point_state_a[], tesla_beam_point_state_b[];
@@ -252,7 +252,7 @@ void build_beam_and_arc_points(u8 *o) {
             v->second_timer = 0;
         } else {
             for (k = 0; (candidate = ((M43 **)active_mobies)[k]) != 0; k++) {
-                camera = ((float *)&player_camera);
+                camera = ((float *)&gCameraLvl);
                 aim_hero = &hero43;
                 if (candidate == v->target || candidate == v->second_target || !candidate || !candidate->cls ||
                     *(short *)((char *)candidate->cls + 0x46) != 5)
@@ -264,7 +264,7 @@ void build_beam_and_arc_points(u8 *o) {
                 if (!GetFlaggedPvarWord(candidate))
                     continue;
                 FastVecSub(&target0, &candidate->position, v);
-                distance_w16 = vec_length_xy(&target0);
+                distance_w16 = vector_length_xy(&target0);
                 if (tesla_beam_length < distance_w16)
                     continue;
                 length_w3 = FastDiffRots(camera[0x56], fast_atan2(candidate->position.v.x - camera[0x50],
@@ -302,9 +302,9 @@ void build_beam_and_arc_points(u8 *o) {
         }
     }
     if (second && enabled) {
-        distance_w17 = FastVecDist(v, &best->position);
+        distance_w17 = fast_vec_dist(v, &best->position);
         if (distance_w17 < tesla_beam_length) {
-            angle = FastVecDist(&best->position, &second->position);
+            angle = fast_vec_dist(&best->position, &second->position);
             if (distance_w17 + angle < tesla_beam_length) {
                 v->second_target = second;
                 v->second_timer = 0;
@@ -316,14 +316,14 @@ void build_beam_and_arc_points(u8 *o) {
         data = (char *)GetFlaggedPvarWord(v->target);
         qcopy(&target0, &v->target->position);
         target0.f[2] += *(float *)(data + 0x10);
-        primary_distance = FastVecDist(v, &target0);
+        primary_distance = fast_vec_dist(v, &target0);
         spacing = primary_distance * 0.05f;
     }
     if (v->second_target) {
         data = (char *)GetFlaggedPvarWord(v->second_target);
         qcopy(&target1, &v->second_target->position);
         target1.f[2] += *(float *)(data + 0x10);
-        spacing = (FastVecDist(&target0, &target1) + primary_distance) * 0.05f;
+        spacing = (fast_vec_dist(&target0, &target1) + primary_distance) * 0.05f;
     }
     if (enabled)
         (beam_arc_outer_color) = 0x207f20;
@@ -584,7 +584,7 @@ void build_beam_and_arc_points(u8 *o) {
     FastVecScale(&target_delta, &direction, D_L00_001616F8 * frame_scale);
     build_look_at_matrix(&target_delta, &target_delta, &hero43.row1, phase);
     build_look_at_matrix(&target_delta, &target_delta, &hero43.row2, angle);
-    spin = rand_range(1, 8);
+    spin = random_int_between(1, 8);
     if (random_integer_below(2))
         spin = -spin;
     amplitude = random_float_between(0.2f, 0.6f);
@@ -593,7 +593,7 @@ void build_beam_and_arc_points(u8 *o) {
     spin = -spin + (*(unsigned char *)v >> 8) + (((unsigned char *)v)[1] >> 8);
     PartType53Spawn(v, scale_ticks(15), amplitude * 0.15f, amplitude * 0.5f, 0x307f7f7f, 0, spin,
                     (float *)&target_delta, 0.0f);
-    spin = rand_range(1, 8);
+    spin = random_int_between(1, 8);
     if (random_integer_below(2))
         spin = -spin;
     amplitude = random_float_between(0.15f, 3.0f);
@@ -613,18 +613,18 @@ void build_beam_and_arc_points(u8 *o) {
     PartType53Spawn(&v->tip, scale_ticks(12), amplitude * 0.1f, amplitude, (beam_arc_outer_color) | 0x7f000000, 0, spin,
                     (float *)veldin1_zero_vec, 0.0f);
 }
-extern float beam_arc_tex_scroll SDATA(beam_arc_tex_scroll);
-extern float beam_arc_tex_scroll_speed SDATA(beam_arc_tex_scroll_speed);
-extern int beam_arc_main_inner_alpha SDATA(beam_arc_main_inner_alpha);
-extern int beam_arc_main_outer_alpha SDATA(beam_arc_main_outer_alpha);
-extern float beam_arc_main_half_width SDATA(beam_arc_main_half_width);
-extern float beam_arc_main_outer_half_width SDATA(beam_arc_main_outer_half_width);
-extern float beam_arc_main_end_extension SDATA(beam_arc_main_end_extension);
-extern int beam_arc_second_inner_alpha SDATA(beam_arc_second_inner_alpha);
-extern int beam_arc_second_outer_alpha SDATA(beam_arc_second_outer_alpha);
+extern float beam_first_pass_texture_u_offset_gp SDATA(D_L00_001616BC);
+extern float beam_first_pass_texture_u_scroll_speed_gp SDATA(D_L00_001616C0);
+extern int primary_beam_first_pass_alpha_gp SDATA(D_L00_001616A4);
+extern int primary_beam_second_pass_alpha_gp SDATA(D_L00_001616AC);
+extern float beam_and_arc_first_pass_half_width_gp SDATA(D_L00_001616CC);
+extern float primary_beam_second_pass_half_width_gp SDATA(D_L00_001616D0);
+extern float primary_beam_second_pass_segment_extension_factor_gp SDATA(D_L00_00161700);
+extern int secondary_beam_first_pass_alpha_gp SDATA(D_L00_001616D4);
+extern int secondary_beam_second_pass_alpha_gp SDATA(D_L00_001616D8);
 extern float beam_arc_bolt_half_width SDATA(beam_arc_bolt_half_width);
-extern float beam_arc_bolt_outer_half_width SDATA(beam_arc_bolt_outer_half_width);
-extern float beam_arc_second_end_extension SDATA(beam_arc_second_end_extension);
+extern float secondary_beam_and_arc_second_pass_half_width_gp SDATA(D_L00_001616E0);
+extern float secondary_beam_second_pass_segment_extension_factor_gp SDATA(D_L00_00161704);
 extern int beam_arc_second_row_alpha MACRO_ADDR;
 extern int beam_arc_third_row_alpha MACRO_ADDR;
 extern int beam_arc_fourth_row_alpha MACRO_ADDR;
@@ -634,28 +634,30 @@ extern void draw_beam_anchor_camera_facing_quads(void *);
 /* Scrolls the texture offset and refreshes the five scrolling-strip records of a moby. */
 void draw_beam_and_arc_effects(char *m) {
     struct BeamArcVars *p = (struct BeamArcVars *)((Moby *)m)->pvars;
-    float t = beam_arc_tex_scroll - beam_arc_tex_scroll_speed * frame_scale;
-    beam_arc_tex_scroll = t;
+    float t = beam_first_pass_texture_u_offset_gp - beam_first_pass_texture_u_scroll_speed_gp * frame_scale;
+    beam_first_pass_texture_u_offset_gp = t;
     if (t <= -8.0f) {
-        beam_arc_tex_scroll = t + 8.0f;
+        beam_first_pass_texture_u_offset_gp = t + 8.0f;
     }
-    draw_beam_and_arc_two_pass_quads(tesla_beam_points, beam_arc_main_inner_alpha, beam_arc_main_outer_alpha,
-                                     p->arc_alpha, beam_arc_main_half_width, beam_arc_main_outer_half_width,
-                                     beam_arc_main_end_extension);
-    draw_beam_and_arc_two_pass_quads(tesla_beam_points + 0x140, beam_arc_second_inner_alpha,
-                                     beam_arc_second_outer_alpha, p->arc_alpha, beam_arc_bolt_half_width,
-                                     beam_arc_bolt_outer_half_width, beam_arc_second_end_extension);
+    draw_beam_and_arc_two_pass_quads(tesla_beam_points, primary_beam_first_pass_alpha_gp,
+                                     primary_beam_second_pass_alpha_gp, p->arc_alpha,
+                                     beam_and_arc_first_pass_half_width_gp, primary_beam_second_pass_half_width_gp,
+                                     primary_beam_second_pass_segment_extension_factor_gp);
+    draw_beam_and_arc_two_pass_quads(tesla_beam_points + 0x140, secondary_beam_first_pass_alpha_gp,
+                                     secondary_beam_second_pass_alpha_gp, p->arc_alpha, beam_arc_bolt_half_width,
+                                     secondary_beam_and_arc_second_pass_half_width_gp,
+                                     secondary_beam_second_pass_segment_extension_factor_gp);
     draw_beam_and_arc_two_pass_quads(arc_points, *(short *)&beam_arc_bolt0_alpha, *(short *)&beam_arc_bolt0_alpha, 5,
-                                     beam_arc_bolt_half_width, beam_arc_bolt_outer_half_width, 0.2f);
+                                     beam_arc_bolt_half_width, secondary_beam_and_arc_second_pass_half_width_gp, 0.2f);
     draw_beam_and_arc_two_pass_quads(arc_points + 0x50, *(short *)&beam_arc_second_row_alpha,
                                      *(short *)&beam_arc_second_row_alpha, 5, beam_arc_bolt_half_width,
-                                     beam_arc_bolt_outer_half_width, 0.2f);
+                                     secondary_beam_and_arc_second_pass_half_width_gp, 0.2f);
     draw_beam_and_arc_two_pass_quads(arc_points + 0xA0, *(short *)&beam_arc_third_row_alpha,
                                      *(short *)&beam_arc_third_row_alpha, 5, beam_arc_bolt_half_width,
-                                     beam_arc_bolt_outer_half_width, 0.2f);
+                                     secondary_beam_and_arc_second_pass_half_width_gp, 0.2f);
     draw_beam_and_arc_two_pass_quads(arc_points + 0xF0, *(short *)&beam_arc_fourth_row_alpha,
                                      *(short *)&beam_arc_fourth_row_alpha, 5, beam_arc_bolt_half_width,
-                                     beam_arc_bolt_outer_half_width, 0.2f);
+                                     secondary_beam_and_arc_second_pass_half_width_gp, 0.2f);
     draw_beam_anchor_camera_facing_quads(m);
 }
 
@@ -709,13 +711,13 @@ void draw_beam_and_arc_two_pass_quads(void *m, int a, int b, int n, float sx, fl
     u.f[5] = 0;
     u.f[6] = 1.0f;
     u.f[7] = 1.0f;
-    t.f[0] = u.f[0] + beam_arc_tex_scroll;
+    t.f[0] = u.f[0] + beam_first_pass_texture_u_offset_gp;
     t.f[1] = u.f[1];
-    t.f[2] = u.f[2] + beam_arc_tex_scroll;
+    t.f[2] = u.f[2] + beam_first_pass_texture_u_offset_gp;
     t.f[3] = u.f[3];
-    t.f[4] = u.f[4] + beam_arc_tex_scroll;
+    t.f[4] = u.f[4] + beam_first_pass_texture_u_offset_gp;
     t.f[5] = u.f[5];
-    t.f[6] = u.f[6] + beam_arc_tex_scroll;
+    t.f[6] = u.f[6] + beam_first_pass_texture_u_offset_gp;
     t.f[7] = u.f[7];
     FastVecSub(w140, m, g_debug_camera);
     FastVecSub(w150, &((P_2BBDE8 *)m)[1], m);
@@ -723,7 +725,7 @@ void draw_beam_and_arc_two_pass_quads(void *m, int a, int b, int n, float sx, fl
     len0 = FastVecLength(w120);
     if (len0 != 0)
         len0 = 1.0f / len0;
-    FastVecScale(w120, w120, beam_arc_main_half_width * len0);
+    FastVecScale(w120, w120, beam_and_arc_first_pass_half_width_gp * len0);
     FastVecAdd(q[0], m, w120);
     FastVecSub(q[1], m, w120);
     for (i = 1; i < n - 1; i++) {
@@ -733,7 +735,7 @@ void draw_beam_and_arc_two_pass_quads(void *m, int a, int b, int n, float sx, fl
         len = FastVecLength(w120);
         if (len != 0)
             len = 1.0f / len;
-        FastVecScale(w120, w120, beam_arc_main_half_width * len);
+        FastVecScale(w120, w120, beam_and_arc_first_pass_half_width_gp * len);
         FastVecAdd(q[2], &((P_2BBDE8 *)m)[i], w120);
         FastVecSub(q[3], &((P_2BBDE8 *)m)[i], w120);
         if (i == 1) {
@@ -809,9 +811,9 @@ typedef struct {
 
 extern V_2bb0b0 beam_anchor_quad_corners[];
 extern QuadUv beam_anchor_quad_uvs[];
-extern int beam_anchor_quad_color SDATA(beam_anchor_quad_color);
-extern float beam_anchor_quad_size SDATA(beam_anchor_quad_size);
-extern float beam_anchor_outer_quad_size SDATA(beam_anchor_outer_quad_size);
+extern int l00_beam_anchor_first_pass_vertex_color SDATA(D_L00_00161710);
+extern float beam_anchor_first_pass_base_corner_scale_gp SDATA(D_L00_00161718);
+extern float beam_anchor_second_pass_base_corner_scale_gp SDATA(D_L00_0016171C);
 
 // Builds and draws two layered glow quads around a moby. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/unclassified_002b94d0.c, FUN_L00_002bb0b0.
 void draw_beam_anchor_camera_facing_quads(void *mv) {
@@ -834,12 +836,12 @@ void draw_beam_anchor_camera_facing_quads(void *mv) {
     FastVecCross(&mat[1], &mat[0], &((struct Hero *)g_hero)->gravity_dir);
     vec_scale_to_length(&mat[1], &mat[1], -1.0f);
     FastVecCross(&mat[2], &mat[1], &mat[0]);
-    c = beam_anchor_quad_color;
+    c = l00_beam_anchor_first_pass_vertex_color;
     quad.color[3] = c;
     quad.color[2] = c;
     quad.color[1] = c;
     quad.color[0] = c;
-    s = beam_anchor_quad_size + randf_sym(0.0f, 0.025f);
+    s = beam_anchor_first_pass_base_corner_scale_gp + randf_sym(0.0f, 0.025f);
     for (i = 0; i < 4; i++) {
         FastVecScale(&quad.corner[i], &beam_anchor_quad_corners[i], s);
         transform_vector(&quad.corner[i], &quad.corner[i], &mat[0]);
@@ -852,7 +854,7 @@ void draw_beam_anchor_camera_facing_quads(void *mv) {
     quad.color[2] = c;
     quad.color[1] = c;
     quad.color[0] = c;
-    s = beam_anchor_outer_quad_size + randf_sym(0.0f, 0.05f);
+    s = beam_anchor_second_pass_base_corner_scale_gp + randf_sym(0.0f, 0.05f);
     for (i = 0; i < 4; i++) {
         FastVecScale(&quad.corner[i], &beam_anchor_quad_corners[i], s);
         transform_vector(&quad.corner[i], &quad.corner[i], &mat[0]);
@@ -881,14 +883,14 @@ char *spawn_linked_moby_from_basis(char *src) {
         *(Vu *)&m->rot_row0 = *(Vu *)&((Moby *)src)->rot_row0;
         *(Vu *)&m->rot_row1 = *(Vu *)&((Moby *)src)->rot_row1;
         *(Vu *)&m->rot_row2 = *(Vu *)&((Moby *)src)->rot_row2;
-        moby_anim_sphere_lerp(m);
+        refresh_moby_spatial_bounds_from_basis(m);
         moby_build_matrix(m);
     }
     return (char *)m;
 }
 
 /* Per-frame update of a moby that follows its parent's flag and spins. */
-void update_linked_moby_scale_and_rotation(Moby *m) {
+void trailing_flame_update(Moby *m) {
     struct LinkedMobyVars *p = (struct LinkedMobyVars *)m->pvars;
     Moby *par = (Moby *)p->parent;
     struct Hero *g;
@@ -921,24 +923,24 @@ void update_linked_moby_scale_and_rotation(Moby *m) {
     offset_moby_class_point_pairs(*(unsigned char **)&m->pclass, 0, d);
     m->scale = *(float *)(*(char **)&m->pclass + 0x24) * p->spin * random_float_between(0.5f, 1.0f);
     m->rot.y = FastAddRots(m->rot.y, normalize_angle(p->spin));
-    moby_anim_sphere_lerp(m);
+    refresh_moby_spatial_bounds_from_basis(m);
 }
-extern short walloper_arc_timers[];
-extern short walloper_arc_alpha[];
+extern short l00_walloper_arc_update_countdowns[];
+extern short l00_walloper_arc_base_alphas[];
 extern short walloper_arc_state_a[];
 extern short walloper_arc_state_b[];
-extern char walloper_arc_points[];
+extern char l00_walloper_arcs[];
 typedef struct {
     float previous[4];
     float point[4][4];
 } SparkleRowC860;
 extern SparkleRowC860 D_L00_001DBE90_rows[] __asm__("D_L00_001DBE90");
-extern int walloper_fade_in_ticks SDATA(walloper_fade_in_ticks);
-extern int walloper_fade_out_ticks SDATA(walloper_fade_out_ticks);
+extern int walloper_effect_fade_in_duration_frames SDATA(D_L00_00161778);
+extern int walloper_effect_fade_out_duration_frames SDATA(D_L00_0016177C);
 extern int walloper_fade_in_timer MACRO_ADDR;
 extern int walloper_effect_fade_out_countdown MACRO_ADDR;
 extern float walloper_effect_alpha_scale MACRO_ADDR;
-extern float walloper_arc_spread SDATA(walloper_arc_spread);
+extern float l00_walloper_arc_step_sample_bound SDATA(D_L00_00161774);
 extern float held_weapon_tesla_walloper_factor;
 
 extern void draw_walloper_arc_and_quad_effects(int);
@@ -964,26 +966,26 @@ void walloper_update(Moby *m) {
         case 0:
             m->state = 2;
             for (q = 0; q < 10; q++) {
-                walloper_arc_timers[q] = 0;
+                l00_walloper_arc_update_countdowns[q] = 0;
                 walloper_arc_state_a[q] = 2;
                 walloper_arc_state_b[q] = 1;
             }
-            walloper_fade_in_timer = scale_ticks(walloper_fade_in_ticks);
-            walloper_effect_fade_out_countdown = scale_ticks(walloper_fade_out_ticks);
+            walloper_fade_in_timer = scale_ticks(walloper_effect_fade_in_duration_frames);
+            walloper_effect_fade_out_countdown = scale_ticks(walloper_effect_fade_out_duration_frames);
             break;
         case 2:
             if (g->state.current == HERO_STATE_HELD_ITEM_ATTACK) {
-                float f = MobyGetFrameValue(m);
+                float f = compute_interpolated_record_value(m);
                 if (6.0f <= f) {
                     flag = 1;
                     if (fast_dec_timer(&walloper_fade_in_timer) == 0) {
                         float a = IntToFloat(walloper_fade_in_timer);
-                        a = a / IntToFloat(scale_ticks(walloper_fade_in_ticks));
+                        a = a / IntToFloat(scale_ticks(walloper_effect_fade_in_duration_frames));
                         walloper_effect_alpha_scale = 1.0f - a;
                     } else if (12.0f <= f) {
                         if (fast_dec_timer(&walloper_effect_fade_out_countdown) == 0) {
                             float a = IntToFloat(walloper_effect_fade_out_countdown);
-                            a = a / IntToFloat(scale_ticks(walloper_fade_out_ticks));
+                            a = a / IntToFloat(scale_ticks(walloper_effect_fade_out_duration_frames));
                             walloper_effect_alpha_scale = a;
                         } else {
                             walloper_effect_alpha_scale = 0.0f;
@@ -993,8 +995,8 @@ void walloper_update(Moby *m) {
                     }
                 }
             } else {
-                walloper_fade_in_timer = scale_ticks(walloper_fade_in_ticks);
-                walloper_effect_fade_out_countdown = scale_ticks(walloper_fade_out_ticks);
+                walloper_fade_in_timer = scale_ticks(walloper_effect_fade_in_duration_frames);
+                walloper_effect_fade_out_countdown = scale_ticks(walloper_effect_fade_out_duration_frames);
                 MobyBlendAnimation(m, 1, 0, scale_ticks(12));
             }
     }
@@ -1002,7 +1004,7 @@ void walloper_update(Moby *m) {
     FastVecAdd(vec0, vec0, &m->pos);
     any = 0;
     for (j = 0; j < 10; j++) {
-        if (walloper_arc_timers[j] != 0) {
+        if (l00_walloper_arc_update_countdowns[j] != 0) {
             any = 1;
             break;
         }
@@ -1010,17 +1012,17 @@ void walloper_update(Moby *m) {
     if (!flag && !any)
         return;
     for (i = 0; i < 10; i = n) {
-        walloper_arc_timers[i]--;
-        if (walloper_arc_timers[i] < 0)
-            walloper_arc_timers[i] = 0;
-        if (walloper_arc_timers[i] == 0) {
+        l00_walloper_arc_update_countdowns[i]--;
+        if (l00_walloper_arc_update_countdowns[i] < 0)
+            l00_walloper_arc_update_countdowns[i] = 0;
+        if (l00_walloper_arc_update_countdowns[i] == 0) {
             if (flag) {
                 float sign;
                 int k;
-                walloper_arc_timers[i] = 2;
-                walloper_arc_alpha[i] = 0x40;
-                random_spherical_offset(vec1, walloper_arc_spread, walloper_arc_spread);
-                qcopy(walloper_arc_points + i * 0x50, vec0);
+                l00_walloper_arc_update_countdowns[i] = 2;
+                l00_walloper_arc_base_alphas[i] = 0x40;
+                random_spherical_offset(vec1, l00_walloper_arc_step_sample_bound, l00_walloper_arc_step_sample_bound);
+                qcopy(l00_walloper_arcs + i * 0x50, vec0);
                 n = i + 1;
                 sign = 1.0f;
                 for (k = 1; k < 5; k++) {
@@ -1029,7 +1031,7 @@ void walloper_update(Moby *m) {
                     ang = random_float_between(0.17453292f, 0.7853982f) * sign;
                     sign = -sign;
                     build_look_at_matrix(vec1, vec1, t, ang);
-                    FastVecAdd(((float (*)[4])(walloper_arc_points + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1],
+                    FastVecAdd(((float (*)[4])(l00_walloper_arcs + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1],
                                vec1);
                 }
             } else {
@@ -1040,21 +1042,21 @@ void walloper_update(Moby *m) {
             float (*workspace)[4] = w;
             for (k = 1; k < 5; k++) {
                 float *v = workspace[k];
-                FastVecSub(v, ((float (*)[4])(walloper_arc_points + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1]);
+                FastVecSub(v, ((float (*)[4])(l00_walloper_arcs + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1]);
                 v[0] += randf_sym(0.0f, 0.1f);
                 v[1] += randf_sym(0.0f, 0.1f);
                 v[2] += randf_sym(0.0f, 0.1f);
             }
             n = i + 1;
-            qcopy(walloper_arc_points + i * 0x50, vec0);
+            qcopy(l00_walloper_arcs + i * 0x50, vec0);
             for (k = 1; k < 5; k++) {
-                FastVecAdd(((float (*)[4])(walloper_arc_points + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1],
+                FastVecAdd(((float (*)[4])(l00_walloper_arcs + i * 0x50))[k], D_L00_001DBE90_rows[i].point[k - 1],
                            workspace[k]);
             }
-            if (walloper_arc_timers[i] > 0)
-                walloper_arc_alpha[i] = 0x20;
+            if (l00_walloper_arc_update_countdowns[i] > 0)
+                l00_walloper_arc_base_alphas[i] = 0x20;
             else
-                walloper_arc_alpha[i] = 0;
+                l00_walloper_arc_base_alphas[i] = 0;
         }
     }
     AddDrawCallback(draw_walloper_arc_and_quad_effects, m);
@@ -1062,8 +1064,8 @@ void walloper_update(Moby *m) {
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 extern float walloper_effect_fade_m __asm__("D_L00_001617A4") MACRO_ADDR;
-extern float walloper_arc_half_width SDATA(walloper_arc_half_width);
-extern float walloper_arc_outer_half_width SDATA(walloper_arc_outer_half_width);
+extern float walloper_arc_first_pass_half_width_gp SDATA(D_L00_00161760);
+extern float walloper_arc_second_pass_half_width_gp SDATA(D_L00_00161764);
 extern void draw_walloper_arc_two_pass_quads(char *, int, int, int, float, float, float);
 extern void draw_walloper_camera_facing_quad(int);
 
@@ -1071,19 +1073,20 @@ extern void draw_walloper_camera_facing_quad(int);
 void draw_walloper_arc_and_quad_effects(int arg) {
     int i;
     for (i = 9; i >= 0; i--) {
-        if (walloper_arc_timers[9 - i] != 0) {
-            int r = truncate_float_to_s32_r(IntToFloat(walloper_arc_alpha[9 - i]) * walloper_effect_fade_m);
-            draw_walloper_arc_two_pass_quads(walloper_arc_points + (9 - i) * 0x50, r, r, 5, walloper_arc_half_width,
-                                             walloper_arc_outer_half_width, 0.2f);
+        if (l00_walloper_arc_update_countdowns[9 - i] != 0) {
+            int r = truncate_float_to_s32_r(IntToFloat(l00_walloper_arc_base_alphas[9 - i]) * walloper_effect_fade_m);
+            draw_walloper_arc_two_pass_quads(l00_walloper_arcs + (9 - i) * 0x50, r, r, 5,
+                                             walloper_arc_first_pass_half_width_gp,
+                                             walloper_arc_second_pass_half_width_gp, 0.2f);
         }
     }
     draw_walloper_camera_facing_quad(arg);
 }
 
-extern int walloper_arc_inner_tex SDATA(walloper_arc_inner_tex);
-extern int walloper_arc_inner_color SDATA(walloper_arc_inner_color);
-extern int walloper_arc_outer_tex SDATA(walloper_arc_outer_tex);
-extern int walloper_arc_outer_color SDATA(walloper_arc_outer_color);
+extern int walloper_arc_first_pass_texture_index_gp SDATA(D_L00_00161780);
+extern int walloper_arc_first_pass_base_vertex_color_gp SDATA(D_L00_00161750);
+extern int walloper_arc_second_pass_texture_index_gp SDATA(D_L00_00161784);
+extern int walloper_arc_second_pass_base_vertex_color_gp SDATA(D_L00_00161754);
 typedef float RW[4] __attribute__((aligned(16)));
 typedef struct {
     int c[4];
@@ -1100,8 +1103,8 @@ void draw_walloper_arc_two_pass_quads(char *m, int a, int b, int n, float sx, fl
     RW w120, w130, w140, w150, r160, r170, a180, b190, s1A0, s1B0;
     int i, col0, col1;
     float len, len0, l0, l1;
-    t.q0 = GetEffectTex(walloper_arc_inner_tex);
-    col0 = walloper_arc_inner_color | (a << 24);
+    t.q0 = GetEffectTex(walloper_arc_first_pass_texture_index_gp);
+    col0 = walloper_arc_first_pass_base_vertex_color_gp | (a << 24);
     t.q2 = 0x8000000048L;
     t.q1 = 0xFF9000000260L;
     t.z4 = 0;
@@ -1109,8 +1112,8 @@ void draw_walloper_arc_two_pass_quads(char *m, int a, int b, int n, float sx, fl
     t.c[2] = col0;
     t.c[1] = col0;
     t.c[0] = col0;
-    u.q0 = GetEffectTex(walloper_arc_outer_tex);
-    col1 = walloper_arc_outer_color | (b << 24);
+    u.q0 = GetEffectTex(walloper_arc_second_pass_texture_index_gp);
+    col1 = walloper_arc_second_pass_base_vertex_color_gp | (b << 24);
     u.q2 = t.q2;
     u.q1 = t.q1;
     u.z4 = t.z4;
@@ -1154,11 +1157,11 @@ void draw_walloper_arc_two_pass_quads(char *m, int a, int b, int n, float sx, fl
         FastVecAdd(q[2], m + i * 16, w120);
         FastVecSub(q[3], m + i * 16, w120);
         if (i == 1) {
-            t.c[1] = walloper_arc_inner_color;
-            t.c[0] = walloper_arc_inner_color;
+            t.c[1] = walloper_arc_first_pass_base_vertex_color_gp;
+            t.c[0] = walloper_arc_first_pass_base_vertex_color_gp;
         } else if (i == n - 2) {
-            t.c[3] = walloper_arc_inner_color;
-            t.c[2] = walloper_arc_inner_color;
+            t.c[3] = walloper_arc_first_pass_base_vertex_color_gp;
+            t.c[2] = walloper_arc_first_pass_base_vertex_color_gp;
         } else if (i == 2) {
             t.c[1] = col0;
             t.c[0] = col0;
@@ -1200,11 +1203,11 @@ void draw_walloper_arc_two_pass_quads(char *m, int a, int b, int n, float sx, fl
         FastVecAdd(q2[2], r170, w130);
         FastVecSub(q2[3], r170, w130);
         if (i == 0) {
-            u.c[1] = walloper_arc_outer_color;
-            u.c[0] = walloper_arc_outer_color;
+            u.c[1] = walloper_arc_second_pass_base_vertex_color_gp;
+            u.c[0] = walloper_arc_second_pass_base_vertex_color_gp;
         } else if (i == n - 2) {
-            u.c[3] = walloper_arc_outer_color;
-            u.c[2] = walloper_arc_outer_color;
+            u.c[3] = walloper_arc_second_pass_base_vertex_color_gp;
+            u.c[2] = walloper_arc_second_pass_base_vertex_color_gp;
         } else if (i == 1) {
             u.c[1] = col1;
             u.c[0] = col1;
@@ -1214,11 +1217,11 @@ void draw_walloper_arc_two_pass_quads(char *m, int a, int b, int n, float sx, fl
     VU1_addGSregister(0x47, 0x5360B);
 }
 
-extern float walloper_glow_quad_size SDATA(walloper_glow_quad_size);
-extern float walloper_glow_forward_offset SDATA(walloper_glow_forward_offset);
-extern int walloper_glow_color SDATA(walloper_glow_color);
-extern int walloper_glow_flicker_color SDATA(walloper_glow_flicker_color);
-extern int walloper_glow_tex SDATA(walloper_glow_tex);
+extern float walloper_quad_corner_scale_gp SDATA(D_L00_00161788);
+extern float walloper_quad_basis_offset_scale_gp SDATA(D_L00_0016178C);
+extern int l00_walloper_quad_common_base_vertex_color SDATA(D_L00_00161790);
+extern int l00_walloper_quad_rare_base_vertex_color SDATA(D_L00_00161794);
+extern int walloper_quad_texture_index_gp SDATA(D_L00_00161798);
 extern float walloper_glow_quad_corners[][4];
 typedef float W[4] __attribute__((aligned(16)));
 typedef struct {
@@ -1240,9 +1243,9 @@ void draw_walloper_camera_facing_quad(int arg) {
     int i, col, r;
     float *qq;
     float *cc;
-    FastVecScale(a, &m->rot_row1, walloper_glow_forward_offset);
+    FastVecScale(a, &m->rot_row1, walloper_quad_basis_offset_scale_gp);
     FastVecAdd(bb, a, &m->pos);
-    t.q0 = GetEffectTex(walloper_glow_tex);
+    t.q0 = GetEffectTex(walloper_quad_texture_index_gp);
     t.q2 = 0x8000000048L;
     t.q1 = 0xFF9000000260L;
     t.z4 = 0;
@@ -1255,9 +1258,9 @@ void draw_walloper_camera_facing_quad(int arg) {
     t.f2 = 1.0f;
     t.f3 = 1.0f;
     if (random_integer_below(4) == 0) {
-        col = walloper_glow_flicker_color;
+        col = l00_walloper_quad_rare_base_vertex_color;
     } else {
-        col = walloper_glow_color;
+        col = l00_walloper_quad_common_base_vertex_color;
     }
     r = truncate_float_to_s32_r(IntToFloat(col >> 24) * walloper_effect_fade_m);
     col = (col & 0xFFFFFF) | (r << 24);
@@ -1276,7 +1279,7 @@ void draw_walloper_camera_facing_quad(int arg) {
     p = walloper_glow_quad_corners;
     qq = q[0];
     for (i = 3; i >= 0; i--) {
-        FastVecScale(tmp, p, walloper_glow_quad_size);
+        FastVecScale(tmp, p, walloper_quad_corner_scale_gp);
         p++;
         transform_vector(qq, tmp, c);
         qq += 4;
@@ -1337,7 +1340,7 @@ char *select_morphoray_target_and_adjust_aim(char *self, float *position, float 
             distance = vec_distance_xy(position, target);
             elevation = fast_atan2(distance, target[2] - position[2]);
             headingError = FastDiffRots(*heading, angle);
-            distance = FastVecDist(position, target);
+            distance = fast_vec_dist(position, target);
             if (distance < 2.5f) {
                 float toward;
                 struct Hero *g1 = (struct Hero *)g_hero;
@@ -1345,7 +1348,7 @@ char *select_morphoray_target_and_adjust_aim(char *self, float *position, float 
                 toward = fast_atan2(((Moby *)candidate)->pos.x - g1->motion.pos.f[0],
                                     ((Moby *)candidate)->pos.y - g1->motion.pos.f[1]);
                 if (FastDiffRots(*(float *)(moby + 0x48), toward) < 1.0471976f &&
-                    FastAbsF(position[2] - target[2]) < 2.0f &&
+                    absolute_float(position[2] - target[2]) < 2.0f &&
                     !coll_line((Vec4f *)position, (Vec4f *)target, 6, *(char **)&g1->moby, 0)) {
                     res[0] = (int)candidate;
                     *pitch = -elevation;
@@ -1360,7 +1363,7 @@ char *select_morphoray_target_and_adjust_aim(char *self, float *position, float 
                 BuildSphericalOffset(offset, distance, *heading, *pitch + g2->ground_pitch.f * 0.5f);
             }
             FastVecAdd(offset, offset, position);
-            apparentAngle = FastArcSin(FastVecDist(offset, target) / (distance + distance));
+            apparentAngle = FastArcSin(fast_vec_dist(offset, target) / (distance + distance));
             apparentAngle += apparentAngle;
             if (morphoray_target_angle_threshold_degrees_gp * 0.017453292f < apparentAngle) {
                 data = (char *)GetFlaggedPvarWord(candidate);
@@ -1455,7 +1458,7 @@ extern int Moby_PlaySound_r(int, int, void *) __asm__("func_0022ED80");
 
 // Morphoray (moby Morphoray) update: aims the hero's morph-o-ray, transforms what it hits over time,
 // and keeps its glow light and sound going while the gadget is held.
-void MorphorayUpdate(Moby *m) {
+void morphoray_update(Moby *m) {
     Vq v0;
     Vq v[3];
     Vq mt[4];
@@ -1477,7 +1480,7 @@ void MorphorayUpdate(Moby *m) {
         morphoray_light_fade_timer_r = 0;
     }
     near = 1;
-    if (m->prev_seq == 0 && MobyGetFrameValue(m) < 6.0f) {
+    if (m->prev_seq == 0 && compute_interpolated_record_value(m) < 6.0f) {
         near = 0;
     }
     FastDecTimer(&p->timer);
@@ -1503,14 +1506,14 @@ void MorphorayUpdate(Moby *m) {
         if (p->timer == 0) {
             p->timer = scale_ticks(15);
         }
-        Moby_GetJointWorldPos(m, 0, p);
+        moby_point_position(m, 0, p);
         if (((Hero *)g_hero_r)->state.current == HERO_STATE_LOOK) {
             HeroEnterMoveState(HERO_STATE_LOOK_RELEASE_WAIT, 1);
         }
         *(u128_2BDAF0 *)&v0 = 0;
         if (((Hero *)g_hero_r)->state.current == HERO_STATE_LOOK_RELEASE_WAIT &&
             (*(unsigned short *)((char *)((Hero *)g_hero_r)->moby + 0x34) & 1)) {
-            matrix_copy_rows(v, player_camera_r);
+            copy_matrix3x4(v, player_camera_r);
             matrix_from_basis_rows(mt, v);
             v0.z = 1.0f;
             transform_vector(&v0, &v0, mt);
@@ -1518,10 +1521,10 @@ void MorphorayUpdate(Moby *m) {
             FastVecScale(&v0, &m->rot_row1, -1.0f);
         } else {
             v0.x = 1.0f;
-            matrix_mul_vec3(&v0, &v0, ((Hero *)g_hero_r)->basis[0].f);
+            transform_vector_by_basis(&v0, &v0, ((Hero *)g_hero_r)->basis[0].f);
         }
         p->yaw = fast_atan2(v0.x, v0.y);
-        p->pitch = fast_atan2(vec_length_xy(&v0), v0.z);
+        p->pitch = fast_atan2(vector_length_xy(&v0), v0.z);
         *(u128_2BDAF0 *)&v[0] = *(u128_2BDAF0 *)p->pos;
         hit = select_morphoray_target_and_adjust_aim_r(m, &v[0], &p->yaw, &p->pitch);
         fast_dec_timer(&p->delay);
@@ -1563,8 +1566,8 @@ void MorphorayUpdate(Moby *m) {
             if (g_current_level_index_r == LEVEL_RILGAR && p->target->oclass == MOBY_CLASS_EXTERMITANK &&
                 ((Skill_2BDAF0 *)gSkillPoints_r)->f8 == 0) {
                 ((Skill_2BDAF0 *)gSkillPoints_r)->f8 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53DB, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53DB, -1);
             }
             spawn_morphoray_chicken(p->target);
             p->target = 0;
@@ -1582,7 +1585,7 @@ void MorphorayUpdate(Moby *m) {
             ((Light *)level_point_lights_r)[morphoray_light_slot_r].pos[2] = v[1].z;
             ((Light *)level_point_lights_r)[morphoray_light_slot_r].radius = 7.5f;
         }
-        if (Sound_IsPlaying(m, morphoray_beam_voice_r) == 0) {
+        if (voice_is_playing(m, morphoray_beam_voice_r) == 0) {
             morphoray_beam_voice_r = Moby_PlaySound_r(0, 4, m);
         }
     } else {
@@ -1633,7 +1636,7 @@ void MorphorayUpdate(Moby *m) {
 typedef struct {
     float f[4];
 } __attribute__((aligned(16))) V_t;
-extern V_t tesla_chain_points;
+extern V_t beam_nodes;
 extern int tesla_chain_reset_pending MACRO_ADDR;
 extern float tesla_chain_segment_length MACRO_ADDR;
 extern short tesla_ring_tex_v_scroll;
@@ -1642,8 +1645,8 @@ extern short tesla_ring_tex_u_scroll_b;
 extern int tesla_rail_twist_phase MACRO_ADDR;
 extern int tesla_pulse_active[] MACRO_ADDR;
 extern int tesla_pulse_spawn_timer MACRO_ADDR;
-extern char tesla_chain_points_base[];
-extern Vec4A tesla_pulse_dir[];
+extern char beam_prev_nodes[];
+extern Vec4A beam_pulse_directions[];
 
 /* rebuilds the camera tables from a moby's matrix */
 void reset_beam_chain_and_pulse_state(Moby *m) {
@@ -1656,9 +1659,9 @@ void reset_beam_chain_and_pulse_state(Moby *m) {
         f = tesla_arc_range / IntToFloat(12);
         tesla_chain_segment_length = f;
         FastVecScale(v, &m->rot_row1, -f);
-        qcopy(&tesla_chain_points, p);
+        qcopy(&beam_nodes, p);
         for (i = 10; i >= 0; i--) {
-            FastVecAdd((char *)&tesla_chain_points + 16 * (11 - i), tesla_chain_points_base + 16 * (11 - i), v);
+            FastVecAdd((char *)&beam_nodes + 16 * (11 - i), beam_prev_nodes + 16 * (11 - i), v);
         }
         *(int *)&tesla_ring_tex_v_scroll = 0;
         *(int *)&tesla_ring_tex_u_scroll_a = 0;
@@ -1667,7 +1670,7 @@ void reset_beam_chain_and_pulse_state(Moby *m) {
         tesla_pulse_spawn_timer = 0;
         for (j = 0; j < 3; j++) {
             tesla_pulse_active[j] = 0;
-            qcopy(&tesla_pulse_dir[j], v);
+            qcopy(&beam_pulse_directions[j], v);
         }
     }
 }
@@ -1706,14 +1709,14 @@ extern int D_L00_00161820_2BE3A8 SDATA(D_L00_00161820);
 extern float D_L00_00161828_2BE3A8 SDATA(D_L00_00161828);
 extern float D_L00_0016182C_2BE3A8 SDATA(D_L00_0016182C);
 extern float D_L00_00161838_2BE3A8 SDATA(D_L00_00161838);
-extern signed char D_L00_00161833[] MACRO_ADDR;
+extern signed char tesla_pulse_initial_alpha_r[] MACRO_ADDR;
 extern float tesla_chain_segment_length_r __asm__("D_L00_0016189C") MACRO_ADDR;
 extern float tesla_rail_twist_phase_r __asm__("D_L00_001618A0") MACRO_ADDR;
 extern int tesla_pulse_spawn_timer_r __asm__("D_L00_001618F4") MACRO_ADDR;
 extern float frame_scale_r __asm__("D_0015EE60") MACRO_ADDR;
-extern int D_L00_001618A8[3] MACRO_ADDR;
+extern int tesla_pulse_timer[3] MACRO_ADDR;
 extern float tesla_pulse_alpha_r[3] __asm__("D_L00_001618B8") MACRO_ADDR;
-extern float D_L00_001618C8[3] MACRO_ADDR;
+extern float tesla_pulse_travel[3] MACRO_ADDR;
 extern float tesla_pulse_size_r[3] __asm__("D_L00_001618D8") MACRO_ADDR;
 extern int tesla_pulse_active_r[3] __asm__("D_L00_001618E8") MACRO_ADDR;
 extern Vec4A tesla_chain_points_base_r[12] __asm__("D_L00_001DC250");
@@ -1725,7 +1728,7 @@ extern Vec4A tesla_pulse_pos_r[3] __asm__("D_L00_001DD3A0");
 extern Vec4A tesla_pulse_dir_r[3] __asm__("D_L00_001DD3D0");
 extern Vec4A collision_hit_point_r __asm__("D_L00_00173F60");
 extern char veldin1_zero_vec_r[] __asm__("D_L00_0015F660") MACRO_ADDR;
-extern Tab D_L00_001E9E30;
+extern Tab l00_beam_origin_particle_color_palette;
 extern char hero_globals_base_r2[] __asm__("D_0013E633");
 extern void reset_beam_chain_and_pulse_state_r(void) __asm__("func_L00_002BE2A0");
 
@@ -1873,7 +1876,7 @@ void update_beam_ring_rail_and_pulse_effects(Moby *m) {
             Vec4A out;
             Vec4A up;
 
-            cols = tesla_spark_colors;
+            cols = l00_beam_origin_particle_color_palette;
             col = cols.c[random_integer_below(5)];
             w = randf_sym(0.0f, D_L00_0016180C_2BE3A8);
             build_look_at_matrix(&out, &dir, &((struct Hero *)g_hero)->gravity_dir,
@@ -1984,8 +1987,8 @@ extern int beam_ring_default_vertex_color_gp SDATA(beam_ring_default_vertex_colo
 extern int tesla_ring_alt_color SDATA(tesla_ring_alt_color);
 extern int beam_ring_texture_index_gp SDATA(beam_ring_texture_index_gp);
 extern Vec4 g_debug_camera_r __asm__("D_L00_00166EC0");
-extern Vec4 tesla_rail0_points[];
-extern Vec4 tesla_rail1_points[];
+extern Vec4 beam_rail_a_points[];
+extern Vec4 beam_rail_b_points[];
 extern OvlQuad tesla_ring_vertices_base[][20];
 extern OvlQuad tesla_ring_vertices[][20];
 void func_L00_002BF380_BEF58(void *, int, int, int, float, float, float, int) __asm__("func_L00_002BF380");
@@ -2006,11 +2009,11 @@ void draw_beam_ring_and_rail_effects(void *o) {
         (beam_rail_first_pass_texture_u_offset_gp) - (beam_rail_first_pass_texture_u_scroll_speed_gp)*frame_scale;
     if ((beam_rail_first_pass_texture_u_offset_gp) <= -8.0f)
         (beam_rail_first_pass_texture_u_offset_gp) += 8.0f;
-    func_L00_002BF380_BEF58(tesla_rail0_points, (beam_rail_first_pass_alpha_gp), (beam_rail_second_pass_alpha_gp), 12,
+    func_L00_002BF380_BEF58(beam_rail_a_points, (beam_rail_first_pass_alpha_gp), (beam_rail_second_pass_alpha_gp), 12,
                             (beam_rail_first_pass_half_width_gp), (beam_rail_second_pass_half_width_gp),
                             (beam_rail_second_pass_segment_extension_factor_gp),
                             (beam_first_rail_second_pass_base_vertex_color_gp));
-    func_L00_002BF380_BEF58(tesla_rail1_points, (beam_rail_first_pass_alpha_gp), (beam_rail_second_pass_alpha_gp), 12,
+    func_L00_002BF380_BEF58(beam_rail_b_points, (beam_rail_first_pass_alpha_gp), (beam_rail_second_pass_alpha_gp), 12,
                             (beam_rail_first_pass_half_width_gp), (beam_rail_second_pass_half_width_gp),
                             (beam_rail_second_pass_segment_extension_factor_gp),
                             (beam_second_rail_second_pass_base_vertex_color_gp));
@@ -2081,9 +2084,9 @@ void draw_beam_ring_and_rail_effects(void *o) {
         y += (beam_ring_band_texture_u_step_gp);
     }
 }
-extern int tesla_rail_inner_tex SDATA(tesla_rail_inner_tex);
-extern int tesla_rail_inner_color SDATA(tesla_rail_inner_color);
-extern int tesla_rail_outer_tex SDATA(tesla_rail_outer_tex);
+extern int beam_rail_first_pass_texture_index_gp SDATA(D_L00_00161874);
+extern int beam_rail_first_pass_base_vertex_color_gp SDATA(D_L00_00161850);
+extern int beam_rail_second_pass_texture_index_gp SDATA(D_L00_00161878);
 typedef float RW_2BF380[4] __attribute__((aligned(16)));
 typedef struct {
     float v[4];
@@ -2103,8 +2106,8 @@ void draw_scrolling_ribbon_colored(P_2BF380 *m, int a, int b, float sx, float sy
     RW_2BF380 w120, w130, w140, w150, r160, r170, a180, b190, s1A0, s1B0;
     int i, col0, col1;
     float len, len0, len2, l0, l1;
-    t.q0 = GetEffectTex(tesla_rail_inner_tex);
-    col0 = tesla_rail_inner_color | (a << 24);
+    t.q0 = GetEffectTex(beam_rail_first_pass_texture_index_gp);
+    col0 = beam_rail_first_pass_base_vertex_color_gp | (a << 24);
     t.q2 = 0x8000000048L;
     t.q1 = 0xFF9000000260L;
     t.z4 = 0;
@@ -2112,7 +2115,7 @@ void draw_scrolling_ribbon_colored(P_2BF380 *m, int a, int b, float sx, float sy
     t.c[2] = col0;
     t.c[1] = col0;
     t.c[0] = col0;
-    u.q0 = GetEffectTex(tesla_rail_outer_tex);
+    u.q0 = GetEffectTex(beam_rail_second_pass_texture_index_gp);
     col1 = col | (b << 24);
     u.q2 = t.q2;
     u.q1 = t.q1;
@@ -2157,11 +2160,11 @@ void draw_scrolling_ribbon_colored(P_2BF380 *m, int a, int b, float sx, float sy
         FastVecAdd(q[2], &m[i], w120);
         FastVecSub(q[3], &m[i], w120);
         if (i == 1) {
-            t.c[1] = tesla_rail_inner_color;
-            t.c[0] = tesla_rail_inner_color;
+            t.c[1] = beam_rail_first_pass_base_vertex_color_gp;
+            t.c[0] = beam_rail_first_pass_base_vertex_color_gp;
         } else if (i == n - 2) {
-            t.c[3] = tesla_rail_inner_color;
-            t.c[2] = tesla_rail_inner_color;
+            t.c[3] = beam_rail_first_pass_base_vertex_color_gp;
+            t.c[2] = beam_rail_first_pass_base_vertex_color_gp;
         } else if (i == 2) {
             t.c[1] = col0;
             t.c[0] = col0;
@@ -2221,9 +2224,9 @@ extern V_t tesla_quad_corners[];
 extern int tesla_pulse_active[3] MACRO_ADDR;
 extern float tesla_pulse_alpha[3] MACRO_ADDR;
 extern float tesla_pulse_size[3] MACRO_ADDR;
-extern Vec4A tesla_pulse_pos[];
+extern Vec4A beam_pulse_positions[];
 extern int tesla_pulse_alt_color SDATA(tesla_pulse_alt_color);
-extern int tesla_pulse_color SDATA(tesla_pulse_color);
+extern int beam_pulse_default_rgb_gp SDATA(D_L00_00161830);
 
 /* Draw each active Tesla pulse as a camera-facing textured quad in the pulse colour. */
 void draw_beam_pulse_quads(void *unused) {
@@ -2246,7 +2249,7 @@ void draw_beam_pulse_quads(void *unused) {
     q.uv[3][0] = 1.0f;
     q.uv[3][1] = 1.0f;
     {
-        int c = ((unsigned char)hero_globals_base[2] != 0) ? tesla_pulse_alt_color : tesla_pulse_color;
+        int c = ((unsigned char)hero_globals_base[2] != 0) ? tesla_pulse_alt_color : beam_pulse_default_rgb_gp;
         base = c & 0xFFFFFF;
     }
     pd = &D;
@@ -2258,8 +2261,8 @@ void draw_beam_pulse_quads(void *unused) {
             q.rgba[2] = col;
             q.rgba[1] = col;
             q.rgba[0] = col;
-            qcopy(pd, &tesla_pulse_pos[i]);
-            qcopy(&A, &tesla_pulse_dir[i]);
+            qcopy(pd, &beam_pulse_positions[i]);
+            qcopy(&A, &beam_pulse_directions[i]);
             FastVecScale(&C, &((struct Hero *)g_hero)->gravity_dir, -1.0f);
             FastVecCross(&B, &A, &C);
             vec_scale_to_length(&B, &B, 1.0f);
@@ -2272,10 +2275,10 @@ void draw_beam_pulse_quads(void *unused) {
         }
     }
 }
-extern int tesla_origin_quad_color SDATA(tesla_origin_quad_color);
-extern float tesla_origin_forward_offset SDATA(tesla_origin_forward_offset);
-extern float tesla_origin_quad_size SDATA(tesla_origin_quad_size);
-extern float tesla_origin_core_quad_size SDATA(tesla_origin_core_quad_size);
+extern int beam_origin_quad_first_pass_vertex_color_gp SDATA(D_L00_00161888);
+extern float beam_origin_quad_basis_offset_length_gp SDATA(D_L00_00161884);
+extern float beam_origin_quad_first_pass_corner_scale_gp SDATA(D_L00_0016187C);
+extern float beam_origin_quad_second_pass_corner_scale_gp SDATA(D_L00_00161880);
 
 typedef struct {
     V_t corner[4];
@@ -2297,7 +2300,7 @@ void draw_beam_origin_camera_facing_quads(void *mv) {
     int c;
     int i, j;
     quad.tex = GetEffectTex(11);
-    c = tesla_origin_quad_color;
+    c = beam_origin_quad_first_pass_vertex_color_gp;
     quad.unk88 = 0x8000000048L;
     quad.unk80 = 0xFF9000000260L;
     quad.unk70 = 0;
@@ -2313,15 +2316,15 @@ void draw_beam_origin_camera_facing_quads(void *mv) {
     quad.unk64 = 0;
     quad.unk68 = 1.0f;
     quad.unk6C = 1.0f;
-    vec_scale_to_length(&e, &m->rot_row1, tesla_origin_forward_offset);
-    FastVecAdd(&mat[3], &tesla_chain_points, &e);
+    vec_scale_to_length(&e, &m->rot_row1, beam_origin_quad_basis_offset_length_gp);
+    FastVecAdd(&mat[3], &beam_nodes, &e);
     FastVecSub(&e, g_debug_camera, &mat[3]);
     vec_scale_to_length(&mat[0], &e, 1.0f);
     FastVecCross(&mat[1], &mat[0], &((struct Hero *)g_hero)->gravity_dir);
     vec_scale_to_length(&mat[1], &mat[1], -1.0f);
     FastVecCross(&mat[2], &mat[1], &mat[0]);
     for (i = 3; i >= 0; i--) {
-        FastVecScale(&t, &tesla_quad_corners[3 - i], tesla_origin_quad_size);
+        FastVecScale(&t, &tesla_quad_corners[3 - i], beam_origin_quad_first_pass_corner_scale_gp);
         transform_vector(&quad.corner[3 - i], &t, &mat[0]);
     }
     draw_world_quad(&quad, 0, 0);
@@ -2330,7 +2333,7 @@ void draw_beam_origin_camera_facing_quads(void *mv) {
     quad.color[1] = -1;
     quad.color[0] = -1;
     for (j = 3; j >= 0; j--) {
-        FastVecScale(&t, &tesla_quad_corners[3 - j], tesla_origin_core_quad_size);
+        FastVecScale(&t, &tesla_quad_corners[3 - j], beam_origin_quad_second_pass_corner_scale_gp);
         transform_vector(&quad.corner[3 - j], &t, &mat[0]);
     }
     draw_world_quad(&quad, 0, 0);
@@ -2442,7 +2445,7 @@ float probe_moby_landing_height(Vx *a, void *b) {
     }
     return 0.0f;
 }
-extern char gHeroPos[];
+extern char hero_pos[];
 
 extern int coll_line_r2(void *, void *, int, void *, int) __asm__("func_L00_001EFFF0");
 
@@ -2462,7 +2465,7 @@ char *select_class5_target_or_hero(char *self, float *position, float *angles, i
         short classId = classData ? *(short *)(classData + 0x46) : 0;
         if (classId != 5)
             continue;
-        distance = FastVecDist(position, &((struct Moby *)candidate)->pos);
+        distance = fast_vec_dist(position, &((struct Moby *)candidate)->pos);
         if (distance > 40.0f)
             continue;
         if (distance > 30.0f)
@@ -2474,7 +2477,7 @@ char *select_class5_target_or_hero(char *self, float *position, float *angles, i
         heightError = FastDiffRots(angles[1], fast_atan2(distance, target[2] - position[2]));
         heightError *= heightError;
         if (checkCollision) {
-            if (8.0f < FastAbsF(((struct Moby *)candidate)->pos.z - *(float *)(self + 0x18)))
+            if (8.0f < absolute_float(((struct Moby *)candidate)->pos.z - *(float *)(self + 0x18)))
                 valid = 1;
             else
                 valid = coll_line_r2(position, target, 6, candidate, 0) != 0;
@@ -2483,7 +2486,7 @@ char *select_class5_target_or_hero(char *self, float *position, float *angles, i
         }
         if (mode != 0 || !valid) {
             bonus = 0.0f;
-            score = FastVecDist(position, target);
+            score = fast_vec_dist(position, target);
             if (((struct Moby *)candidate)->pos.z - *(float *)(self + 0x18) > 3.25f)
                 score += 15.0f;
             if (valid)
@@ -2498,7 +2501,7 @@ char *select_class5_target_or_hero(char *self, float *position, float *angles, i
         }
     }
     if (best == 0) {
-        char *playerPosition = gHeroPos;
+        char *playerPosition = hero_pos;
         if (vec_distance_xy(self + 0x10, playerPosition) > 3.2f)
             best = *(char **)(playerPosition + 0x2000);
     }
@@ -2590,7 +2593,7 @@ f32 select_moby_heading_by_collision_probes(Mob *m, Vec4 *pos, f32 *tgt, f32 *ou
             return cur;
         }
         best = cur;
-        bestDist = FastVecDist(&v0, &collision_hit_point);
+        bestDist = fast_vec_dist(&v0, &collision_hit_point);
         bestDiff = 0.0f;
         if (*out < bestDist) {
             *out = bestDist;
@@ -2625,7 +2628,7 @@ f32 select_moby_heading_by_collision_probes(Mob *m, Vec4 *pos, f32 *tgt, f32 *ou
                 *out = 100.0f;
                 return arc;
             }
-            d = FastVecDist(&v0, &collision_hit_point);
+            d = fast_vec_dist(&v0, &collision_hit_point);
             if (bestDist < d) {
                 best = arc;
                 bestDist = d;
@@ -2660,7 +2663,7 @@ f32 select_moby_heading_by_collision_probes(Mob *m, Vec4 *pos, f32 *tgt, f32 *ou
     if (coll_line_r3(&v0, &v1, 4, m, 0) != 0) {
         if (g_coll_hit_moby_r != x->p38 &&
             !(g_coll_hit_moby_r != 0 && g_coll_hit_moby_r->p24 != 0 && g_coll_hit_moby_r->p24->h46 == 5)) {
-            d = FastVecDist(&v0, &collision_hit_point);
+            d = fast_vec_dist(&v0, &collision_hit_point);
             best = FastAddRots(best, (r2 - d) * 3.1415927f / (r2 * 3.0f));
         }
     }
@@ -2676,7 +2679,7 @@ f32 select_moby_heading_by_collision_probes(Mob *m, Vec4 *pos, f32 *tgt, f32 *ou
     if (coll_line_r3(&v0, &v1, 4, m, 0) != 0) {
         if (g_coll_hit_moby_r != x->p38 &&
             !(g_coll_hit_moby_r != 0 && g_coll_hit_moby_r->p24 != 0 && g_coll_hit_moby_r->p24->h46 == 5)) {
-            d = FastVecDist(&v0, &collision_hit_point);
+            d = fast_vec_dist(&v0, &collision_hit_point);
             best = FastSubRots(best, (r2 - d) * 3.1415927f / (r2 * 3.0f));
         }
     }
@@ -2710,7 +2713,7 @@ void initialize_moby_hop_trajectory(unsigned char *m, unsigned char *o, void *sr
     qcopy(o, src);
     s = vec_distance_xy(&((Moby *)m)->pos, o);
     s = s * s;
-    t = F2BF(o, 0x1C) * 35.0f * F2BF(o, 0x20) / (FastAbsF(F2BF(o, 8) - F2BF(m, 0x18)) + 1.0f) * (s + 0.25f);
+    t = F2BF(o, 0x1C) * 35.0f * F2BF(o, 0x20) / (absolute_float(F2BF(o, 8) - F2BF(m, 0x18)) + 1.0f) * (s + 0.25f);
     F2BF(o, 0x14) = t;
     if (F2BF(o, 0x20) < t)
         F2BF(o, 0x14) = F2BF(o, 0x20);
@@ -2754,7 +2757,7 @@ extern float calculate_triangular_corrected_scalar_r(void *a, void *b, int *out,
 extern void accumulate_local_vector_steps_r(void *a, void *b, int n, int c, int d, int e, float g,
                                             int f) __asm__("func_L00_002C0B18");
 extern int coll_line_r4(void *, void *, int, void *, int) __asm__("func_L00_001EFFF0");
-extern char D_L00_00173F80[];
+extern char coll_hit_normal[];
 extern void *g_coll_hit_moby_r2 __asm__("D_L00_00173F58");
 
 /* Tries a hop of the moby toward q: probes the ground at the landing point and the path to it, and sets the jump
@@ -2776,7 +2779,7 @@ int try_start_moby_hop(Mob_2C0CF8 *m, Blk *p, void *q, int flag) {
     clamp_vec_length_xy(m->f2C * 5.2f / m->p24->f24, d, d);
     FastVecAdd(land, m->pos, d);
     FastVecScale(half, d, 0.5f);
-    len = vec_length_xy(half);
+    len = vector_length_xy(half);
     FastVecAdd(half, m->pos, half);
     if (!(0.5f < len)) {
         ok = 0;
@@ -2797,9 +2800,9 @@ int try_start_moby_hop(Mob_2C0CF8 *m, Blk *p, void *q, int flag) {
     }
     qcopy(mid, coll_hit_normal);
     vec_scale_to_length(mid, mid, 1.0f);
-    sum = FastAbsF(mid[0]);
-    sum = sum + FastAbsF(mid[1]);
-    if (FastAbsF(mid[2]) < sum) {
+    sum = absolute_float(mid[0]);
+    sum = sum + absolute_float(mid[1]);
+    if (absolute_float(mid[2]) < sum) {
         if (ok) {
             return try_start_moby_hop(m, p, half, 1);
         }

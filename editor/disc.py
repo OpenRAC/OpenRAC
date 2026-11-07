@@ -78,7 +78,7 @@ class Version:
     identifies it (region to executable_sha1) is read from games/rac1/game.json
     (util.disc_identity); where it keeps things is known here."""
     key: str                # OpenRAC's name for it (games/rac1/game.json, launcher/actions.json)
-    region: str             # "PAL", "NTSC-U"
+    region: str             # "PAL", "NTSC-U", "NTSC-J"
     label: str              # "PAL v2.00": the region and the disc's version
     executable: str         # the boot executable, named after the serial
     executable_size: int
@@ -101,7 +101,20 @@ PAL = Version(key="pal", **util.disc_identity("rac1", "pal"), gameplay="gameplay
 # D_00137B80). Its game loads the NTSC gameplay copy: the NTSC decomp's load_level_gameplay reads
 # the level header that follows the table (+0x2970, header 0x10) unless pal_mode is set.
 NTSC = Version(key="ntsc", **util.disc_identity("rac1", "ntsc"), gameplay="gameplay_ntsc", normal_table=0x165500)
-VERSIONS = (PAL, NTSC)
+# PAL v1.00 (the same serial and executable name as v2.00, told apart by the executable's size and
+# SHA-1). The table's address is where func_0020DFF8 forms it: PAL's lui/addiu at 0x20E008 gives
+# 0x165600, this release's counterpart (config/versions/pal_v1/functions.tsv) at 0x20CCB0 gives
+# 0x165480, and the 2,048 bytes there equal PAL's. Its table of contents and level headers have the
+# same layout (sector 1500, 0x2960 bytes, 19 level headers of 0x2434), checked from the disc.
+# Gameplay: inferred, not run. Its executable is the PAL program, whose load_level_gameplay reads
+# the header's +0x10 range unless pal_mode is set, and the port keeps PAL in 60 Hz mode as for v2.00.
+PAL1 = Version(key="pal1", **util.disc_identity("rac1", "pal1"), gameplay="gameplay_ntsc", normal_table=0x165480)
+# NTSC-J v1.02 (SCPS_150.37, VMODE = NTSC): the same table at 0x165600, formed by the counterpart of
+# func_0020DFF8 at 0x20EEF0; the disc keeps the same table of contents. Gameplay: inferred, not run.
+# A 60 Hz console never sets pal_mode, so the game reads the header's +0x10 range (gameplay_ntsc);
+# on this disc that range is not the same size as the PAL copy (level 0: 100 against 210 sectors).
+JP = Version(key="jp", **util.disc_identity("rac1", "jp"), gameplay="gameplay_ntsc", normal_table=0x165600)
+VERSIONS = (PAL, NTSC, PAL1, JP)
 # The executable SYSTEM.CNF boots, from the disc only: stricter than iso9660.parse_boot2, which
 # takes any device.
 BOOT = re.compile(rb"BOOT2\s*=\s*cdrom0:\\([^;\r\n]+)")
@@ -176,14 +189,22 @@ class Disc:
         boot = BOOT.search(self.read(cnf["lba"] * SECTOR, min(cnf["bytes"], SECTOR))) if cnf else None
         if boot:
             name = boot.group(1).decode("ascii", "replace").strip()
-            version = next((v for v in VERSIONS if v.executable == name), None)
+            candidates = [v for v in VERSIONS if v.executable == name]
         else:
-            version = next((v for v in VERSIONS if v.executable in files), None)
-        exe = files.get(version.executable) if version else None
-        if exe is None or exe["bytes"] != version.executable_size:
-            supported = " and ".join(f"{v.executable} ({v.label})" for v in VERSIONS)
+            candidates = [v for v in VERSIONS if v.executable in files]
+        # One serial can be two releases (PAL v1.00 and v2.00 both boot SCES_509.16): the
+        # executable's size, then its SHA-1, say which.
+        executable = candidates[0].executable if candidates else None
+        exe = files.get(executable)
+        sized = [v for v in candidates if v.executable == executable and exe and exe["bytes"] == v.executable_size]
+        if len(sized) > 1:
+            digest = hashlib.sha1(self.read(exe["lba"] * SECTOR, exe["bytes"])).hexdigest()
+            sized = [v for v in sized if v.executable_sha1 == digest] or sized[:1]
+        if not sized:
+            names = [f"{v.executable} ({v.label})" for v in VERSIONS]
+            supported = ", ".join(names[:-1]) + " and " + names[-1]
             raise FormatError(f"only {supported} are supported")
-        return version, exe
+        return sized[0], exe
 
     @property
     def version(self) -> Version:
@@ -197,7 +218,7 @@ class Disc:
         return self._version
 
     def executable(self) -> bytes:
-        """The game's executable (SCES_509.16 or SCUS_971.99)."""
+        """The game's executable (the boot program: SCES_509.16, SCUS_971.99 or SCPS_150.37)."""
         version, exe = self.identify()
         return self.read(exe["lba"] * SECTOR, exe["bytes"])
 

@@ -18,7 +18,7 @@ extern int g_render_packet_cursor MACRO_ADDR;
 extern int tie_tex_dma_tag_slot MACRO_ADDR;
 extern int max_tie_texture_dma_size MACRO_ADDR;
 extern int g_gs_texture_allocation_cursor MACRO_ADDR;
-extern char str_tie_texture_overflow[];
+extern char tie_texture_overflow_message[];
 
 /* DmaTieTextures: the same splice for ties, largest size in max_tie_texture_dma_size. */
 void DmaTieTextures(void) {
@@ -34,7 +34,7 @@ void DmaTieTextures(void) {
         size = BuildTieTextureDma(g_gs_texture_allocation_cursor);
         VU1_texFlush();
         if (size > 0x400000) {
-            STUB_printf(str_tie_texture_overflow);
+            STUB_printf(tie_texture_overflow_message);
         }
         if (max_tie_texture_dma_size < size) {
             max_tie_texture_dma_size = size;
@@ -114,16 +114,16 @@ void DrawTies_1(void) {
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
     p += 0x10;
     g_render_packet_cursor = p;
-    ProfileMarker_Begin(str_tie_texs, 1);
+    noop_core_callback_secondary(str_tie_texs, 1);
     if (tie_proc_enabled != 0) {
         flush_cache(0);
         TieProc();
         write_dma_channel(tie_light_data, 0x3600, 0x40);
     }
-    ProfileMarker_Begin(str_tie_draw, 5);
+    noop_core_callback_secondary(str_tie_draw, 5);
     DmaTieTextures();
     FastMemCopy((void *)g_render_packet_cursor, tie_packet_tail_tags, 0x20);
-    ProfileMarker_End(str_tie_draw, 5);
+    noop_core_callback(str_tie_draw, 5);
 }
 
 extern int registered_object_render_class_count MACRO_ADDR;
@@ -156,7 +156,7 @@ void DrawTies_2(void) {
         p += 0x10;
         g_render_packet_cursor = p;
     }
-    ProfileMarker_Begin(str_tie_texs, 1);
+    noop_core_callback_secondary(str_tie_texs, 1);
     {
         DrawCfg *d = (DrawCfg *)draw_config;
         if (d->unk18 != 0) {
@@ -195,7 +195,7 @@ void DrawTies_2(void) {
             write_dma_channel(tie_light_data, 0x3600, 0x40);
         }
     }
-    ProfileMarker_Begin(str_tie_draw, 5);
+    noop_core_callback_secondary(str_tie_draw, 5);
     DmaTieTextures();
     {
         int i;
@@ -205,5 +205,5 @@ void DrawTies_2(void) {
         }
     }
     FastMemCopy((void *)g_render_packet_cursor, tie_packet_tail_tags, 0x20);
-    ProfileMarker_End(str_tie_draw, 5);
+    noop_core_callback(str_tie_draw, 5);
 }

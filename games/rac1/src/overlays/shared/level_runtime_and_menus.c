@@ -37,7 +37,7 @@
 #include "overlays/shared/pause_menu.h"
 #include "overlays/shared/vendor_screen_drawing.h"
 extern char item_available[];
-extern char level_map_coverage[];
+extern char map_coverage_pages[];
 
 typedef struct {
     unsigned short count;
@@ -139,7 +139,7 @@ void run_level_main_loop(void) {
     ((Cam *)g_debug_menu_r)->f38 = -1;
     ((Cam *)g_debug_menu_r)->fC = one;
     ((Cam *)g_debug_menu_r)->fF4 = one;
-    clear_dma_queue_entry();
+    reset_draw_config();
     initialize_level_map_archive_r();
     init_hud();
     load_misc_animations_into_stash();
@@ -252,7 +252,7 @@ void run_level_main_loop(void) {
                 size = 272.0f;
                 VU1_addGSregister(0x47, 0x3004B);
                 t = GetIconFrame(0x755D, 0);
-                HudSprite(t, 0x32, 0x12C, 0x40, 0x40, 0x80);
+                draw_hud_sprite(t, 0x32, 0x12C, 0x40, 0x40, 0x80);
                 ang = (float)(rendered_frame_count_r % n) * -6.2831855f / (float)n;
                 draw_rotated_sprite_r(1312.0f, 5312.0f, 0x40, 0x40, GetFrameTex(GetIconFrame(0x755D, 1)), size, size,
                                       ang);
@@ -324,13 +324,13 @@ void run_level_main_loop(void) {
 }
 extern struct DiscTable disc_table;
 
-extern int map_menu_initial_value_pairs[];
+extern int map_parameter_pair_defaults[];
 extern float map_points[];
 extern float map_coefficients[];
 extern char render_archive_source_file[];
 extern int *lvl_load_scratch_buffer;
-extern char map_archive_stash_comment[];
-extern unsigned char map_menu_state_circle_mask[];
+extern char map_archive_stash_tag[];
+extern unsigned char l00_map_outside_circle_mask[];
 
 /* Sets up the map's tables, loads its data from disc and builds the circular mask. */
 void initialize_level_map_archive(void) {
@@ -353,9 +353,9 @@ void initialize_level_map_archive(void) {
     {
         int i;
         for (i = 0; i < 20; i++) {
-            map_menu_state[0x41 + i] = map_menu_initial_value_pairs[i * 2];
+            map_menu_state[0x41 + i] = map_parameter_pair_defaults[i * 2];
             ((float *)map_menu_state)[0x2D + i] = 0.65f;
-            map_menu_state[0x55 + i] = map_menu_initial_value_pairs[i * 2 + 1];
+            map_menu_state[0x55 + i] = map_parameter_pair_defaults[i * 2 + 1];
         }
     }
     v = g_current_level_index_r;
@@ -392,7 +392,7 @@ void initialize_level_map_archive(void) {
         archive = (int *)((int)archive_base + 0x9A800);
         scratch = e[1] << 7;
         Load(archive, e[0], e[1]);
-        gl[0x8B] = Stash_SendData((int)archive, scratch, 0x4800, (int)map_archive_stash_comment);
+        gl[0x8B] = Stash_SendData((int)archive, scratch, 0x4800, (int)map_archive_stash_tag);
         gl[0x8D] = scratch;
         fast_decompress((int)archive, (int)archive_base);
         archive = archive_base;
@@ -411,7 +411,7 @@ void initialize_level_map_archive(void) {
             map_menu_state[14 + i * 4] = map_menu_state[2] + i * 0x200;
         }
         w = Hud_HeapAlloc(0x8000, 0, render_archive_source_file, 0x2FC);
-        level_data = level_map_coverage + map_menu_state[0x89] * 0x800;
+        level_data = map_coverage_pages + map_menu_state[0x89] * 0x800;
         map_menu_state[3] = w;
         if (level_data[0] != 0) {
             load_map_chunk((void *)map_menu_state[3], level_data, map_menu_state[5]);
@@ -422,7 +422,7 @@ void initialize_level_map_archive(void) {
         for (y = 0; y < 32; y++) {
             for (x = 0; x < 32; x++) {
                 if ((15.5f - (float)x) * (15.5f - (float)x) + (15.5f - (float)y) * (15.5f - (float)y) > lim) {
-                    map_menu_state_circle_mask[x / 8 + y * 4] |= 1 << (x - (x / 8) * 8);
+                    l00_map_outside_circle_mask[x / 8 + y * 4] |= 1 << (x - (x / 8) * 8);
                 }
             }
         }
@@ -604,11 +604,11 @@ int FindMapSlotById(int id) {
     return -1;
 }
 INCLUDE_ASM("asm/overlays", func_L00_00247650);
-extern int *find_id_list MACRO_ADDR;
+extern int *selection_values MACRO_ADDR;
 
 /* Returns the index of key in the zero-terminated id list (at most 20 entries), or -1. */
 int FindIdInList(int key) {
-    int *list = find_id_list;
+    int *list = selection_values;
     int *p = list;
     int i;
 
@@ -639,7 +639,7 @@ typedef struct {
 } MapBitGrid;
 
 extern s32 map_menu_cache_active NOT_SDA;
-extern s32 map_reveal_alt_projection_flag SDATA(map_reveal_alt_projection_flag);
+extern s32 rotated_map_transform_enabled SDATA(D_L00_0015FEB8);
 extern MapFilter map_filter_range_table[19][16] NOT_SDA;
 extern MapFilterCallback map_filter_callback_table[19][8] NOT_SDA;
 extern s32 map_filter_unlocked_flags[] NOT_SDA;
@@ -669,7 +669,7 @@ void reveal_map_around_position(f32 *position) {
     if (map_menu_cache_active == 0) {
         return;
     }
-    if (map_reveal_alt_projection_flag != 0) {
+    if (rotated_map_transform_enabled != 0) {
         map_world_to_uv(position[0], position[1], &px, &py, g_current_level_index + 100);
     } else {
         map_world_to_uv(position[0], position[1], &px, &py, g_current_level_index);

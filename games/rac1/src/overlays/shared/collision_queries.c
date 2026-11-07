@@ -7,7 +7,7 @@
 #include "game/system/stub.h"
 
 extern int cinematic_mode MACRO_ADDR;
-extern int effect_queue[];
+extern int l00_reticle_submission_queue[];
 
 /* append a 0x30-byte entry to the 3-slot queue */
 void EffectQueue_Add(int a0, int a1, float f12, float f13, int *a2, int a3, int t0, float f14) {
@@ -15,10 +15,10 @@ void EffectQueue_Add(int a0, int a1, float f12, float f13, int *a2, int a3, int 
     int n;
     if (cinematic_mode == 2)
         return;
-    n = effect_queue[0xC0 / 4];
+    n = l00_reticle_submission_queue[0xC0 / 4];
     if (n >= 3)
         return;
-    e = effect_queue + n * 12;
+    e = l00_reticle_submission_queue + n * 12;
     e[8] = a0;
     e[5] = a1;
     *(float *)&e[4] = f12;
@@ -44,14 +44,14 @@ void EffectQueue_Add(int a0, int a1, float f12, float f13, int *a2, int a3, int 
         *(float *)&e[10] = f14;
         e[11] = t0;
     }
-    effect_queue[0xC0 / 4]++;
+    l00_reticle_submission_queue[0xC0 / 4]++;
 }
 typedef int q128 __attribute__((mode(TI)));
 
 extern s32 truncate_float_to_s32(f32);
 extern s32 *camera_collision_grid MACRO_ADDR;
 
-extern char camera_collision_out_of_grid_msg[];
+extern char camera_collision_grid_out_of_bounds_warning[];
 extern s32 test_point_in_camera_collision_volume_r(Vec4 *, s32 *, f32) __asm__("func_L00_001EE698");
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/unclassified_001ee1b0.c, FUN_L00_001ee1b0. */
@@ -69,7 +69,7 @@ s32 *find_camera_collision_volume_for_point(q128 *v, f32 rad) {
     i = truncate_float_to_s32(t.f[0] * 0.0625f);
     j = truncate_float_to_s32(t.f[1] * 0.0625f);
     if (i < 0 || j < 0 || i > 0x40 || j > 0x40) {
-        STUB_printf(camera_collision_out_of_grid_msg);
+        STUB_printf(camera_collision_grid_out_of_bounds_warning);
         return 0;
     }
     p = (char *)camera_collision_grid[j * 64 + i];
@@ -82,7 +82,7 @@ s32 *find_camera_collision_volume_for_point(q128 *v, f32 rad) {
         FastVecSub(&d, e, tp);
         f = *(f32 *)(e + 0xC);
         d.f[3] = 1.0f;
-        if (vec_length_xy(&d) < f + rad) {
+        if (vector_length_xy(&d) < f + rad) {
             if (test_point_in_camera_collision_volume_r(tp, (s32 *)e, rad) != 0) {
                 return (s32 *)e;
             }
@@ -112,7 +112,7 @@ int test_point_in_camera_collision_volume(Vec4 *pt, int *vol, float rad) {
             e += vol[5] << 7;
             FastVecSub(&d, pt, e + 0x30);
             d.i[3] = 0;
-            matrix_mul_vec3(&l, &d, e + 0x40);
+            transform_vector_by_basis(&l, &d, e + 0x40);
             return -1.0f <= l.f[0] && l.f[0] <= 1.0f && -1.0f <= l.f[1] && l.f[1] <= 1.0f && -1.0f <= l.f[2] &&
                    l.f[2] <= 1.0f;
         }
@@ -123,8 +123,8 @@ int test_point_in_camera_collision_volume(Vec4 *pt, int *vol, float rad) {
             r = 0;
             FastVecSub(&d, pt, e + 0x30);
             d.i[3] = 0;
-            matrix_mul_vec3(&l, &d, e + 0x40);
-            if (vec_length_xy(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
+            transform_vector_by_basis(&l, &d, e + 0x40);
+            if (vector_length_xy(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
                 r = 1;
             }
             return r;
@@ -135,7 +135,7 @@ int test_point_in_camera_collision_volume(Vec4 *pt, int *vol, float rad) {
             e += vol[5] << 7;
             {
                 float s = FastVecLength(e) + rad;
-                return FastVecDist(pt, e + 0x30) < s;
+                return fast_vec_dist(pt, e + 0x30) < s;
             }
         }
         case 7: {
@@ -143,15 +143,15 @@ int test_point_in_camera_collision_volume(Vec4 *pt, int *vol, float rad) {
             e = level_clip_volumes + vol[5] * 0x90;
             FastVecSub(&d, pt, e + 0x30);
             d.i[3] = 0;
-            matrix_mul_vec3(&l, &d, e + 0x40);
-            if (vec_length_xy(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
+            transform_vector_by_basis(&l, &d, e + 0x40);
+            if (vector_length_xy(&l) < 1.0f && -1.0f <= l.f[2] && l.f[2] <= 1.0f) {
                 return 1;
             }
             c.i[0] = 0;
             c.i[1] = 0;
             c.f[2] = 1.0f;
             c.f[3] = 1.0f;
-            matrix_mul_vec3(&l, &c, e);
+            transform_vector_by_basis(&l, &c, e);
             FastVecAdd(&l, &l, e + 0x30);
             FastVecSub(&c, pt, &l);
             if (FastVecLength(&c) < *(float *)(e + 0x80)) {
@@ -161,7 +161,7 @@ int test_point_in_camera_collision_volume(Vec4 *pt, int *vol, float rad) {
             c.f[2] = -1.0f;
             c.i[0] = 0;
             c.i[1] = 0;
-            matrix_mul_vec3(&l, &c, e);
+            transform_vector_by_basis(&l, &c, e);
             FastVecAdd(&l, &l, e + 0x30);
             FastVecSub(&c, pt, &l);
             if (FastVecLength(&c) < *(float *)(e + 0x80)) {

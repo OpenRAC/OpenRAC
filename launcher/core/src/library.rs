@@ -262,7 +262,17 @@ mod tests {
     #[test]
     fn every_game_the_editor_reads_offers_it() {
         let editable = editable_versions();
-        for key in ["rac1/pal", "rac1/ntsc", "rac2/ntsc", "rac2/pal", "rac2/ntsc2", "rac3/ntsc", "rac4/ntsc"] {
+        for key in [
+            "rac1/pal",
+            "rac1/ntsc",
+            "rac1/pal1",
+            "rac1/jp",
+            "rac2/ntsc",
+            "rac2/pal",
+            "rac2/ntsc2",
+            "rac3/ntsc",
+            "rac4/ntsc",
+        ] {
             assert!(editable.iter().any(|k| k == key), "{key} is not editable: {editable:?}");
         }
         let config = Config { root: Some(checkout()), ..Config::default() };

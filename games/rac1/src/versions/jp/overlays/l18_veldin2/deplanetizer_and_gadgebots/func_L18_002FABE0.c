@@ -4,7 +4,7 @@ void draw_three_scaled_camera_facing_quads(void) {
     extern int scale_ticks(int);
     extern unsigned long GetEffectTex_v(int) __asm__("func_001F4868");
     extern void VU1_addGSregister(int, long);
-    extern void matrix_mul_vec3(void *, void *, void *);
+    extern void transform_vector_by_basis(void *, void *, void *);
     extern void FastVecAdd(void *, void *, void *);
     extern void FastVecSub(void *, void *, void *);
     extern void vec_scale_to_length(void *, void *, float);
@@ -13,7 +13,7 @@ void draw_three_scaled_camera_facing_quads(void) {
     extern void transform_vector(void *, void *, void *);
     extern void draw_world_quad(void *, void *, int);
     extern short deplanetizer_quads_start_tick;
-    extern char veldin2_camera_matrix[];
+    extern char deplanetizer_camera_rotation_basis[];
     extern short deplanetizer_flare_outer_color;
     extern short deplanetizer_flare_inner_color;
     extern float veldin2_deplanetizer_quad_corners[4][4];
@@ -27,7 +27,7 @@ void draw_three_scaled_camera_facing_quads(void) {
 
     if (veldin2_cutscene_state.n == scale_ticks((*(int *)&deplanetizer_quads_start_tick) + 1)) {
         deplanetizer_camera_quad_local_offset_x = 1.0f;
-        deplanetizer_flare_cam_offset_y = 0.0f;
+        l18_deplanetizer_camera_quad_local_offset_y = 0.0f;
         if (veldin2_cutscene_state.state == 7) {
             tilt = -0.15f;
         } else {
@@ -42,8 +42,8 @@ void draw_three_scaled_camera_facing_quads(void) {
     pk.a = 0;
     VU1_addGSregister(0x4A, 0);
     VU1_addGSregister(0x47, 0x51001);
-    matrix_mul_vec3(mat[3], &deplanetizer_camera_quad_local_offset_x, veldin2_camera_matrix);
-    target = veldin2_camera_matrix;
+    transform_vector_by_basis(mat[3], &deplanetizer_camera_quad_local_offset_x, deplanetizer_camera_rotation_basis);
+    target = deplanetizer_camera_rotation_basis;
     target -= 0x210;
     FastVecAdd(mat[3], mat[3], target);
     FastVecSub(mat[0], mat[3], target);

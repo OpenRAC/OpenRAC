@@ -569,9 +569,9 @@ def check() -> None:
 
 # ---------------------------------------------------------------- apply
 
-DECL_LINE = re.compile(r"^\s*(extern\b|#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|typedef\b)")
+DECL_LINE = re.compile(r"^\s*(extern\b|#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|PREBUILT_ASM|typedef\b)")
 EXTERN_LINE = re.compile(r"^\s*extern\b")
-PROTO_LINE = re.compile(r"^(?!\s*(#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|typedef\b))[A-Za-z_][^=;{}\n]*\([^;{}\n]*\)\s*;\s*(/\*.*)?$")
+PROTO_LINE = re.compile(r"^(?!\s*(#|INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|PREBUILT_ASM|typedef\b))[A-Za-z_][^=;{}\n]*\([^;{}\n]*\)\s*;\s*(/\*.*)?$")
 
 
 def apply() -> None:

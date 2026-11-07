@@ -864,6 +864,23 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     return text
 
 
+def readable_names(aliases: dict[str, str], release) -> dict[str, list[str]]:
+    """The primary release's address name -> the readable names that stand for it (ALIASES' values
+    are the release's names; RELEASE names the primary's)."""
+    if not aliases:
+        return {}
+    if getattr(release, "_readable", None) is None or release._readable[0] is not aliases:
+        by_new: dict[str, list[str]] = {}
+        for readable, address in aliases.items():
+            by_new.setdefault(address, []).append(readable)
+        primary: dict[str, list[str]] = {}
+        names = {v: k for k, v in release.names.items()}
+        for new, readable in by_new.items():
+            primary[names.get(new, new)] = readable
+        release._readable = (aliases, primary)
+    return release._readable[1]
+
+
 def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
               candidates: dict[str, str] | None = None, used: set[str] | None = None,
               drafts: tuple[str, set[str]] | None = None, prefix: str = "",
@@ -886,6 +903,10 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
             out = dst / path.relative_to(src)
             rel = (Path(prefix) / path.relative_to(src)).as_posix()
             text = path.read_text(encoding="utf-8", errors="surrogateescape")
+            if release is not None and (release.splices.get(rel) or release.gone) and path.suffix == ".c":
+                # The release's own definitions where its code differs (release.py), first: they are
+                # the release's C, which every later step reads as it reads the shared C.
+                text = release.splice(text, rel, readable_names(aliases or {}, release))
             if long_long_128 and rel in long_long_128:
                 text = widen_long_long(text)
             if release is not None:

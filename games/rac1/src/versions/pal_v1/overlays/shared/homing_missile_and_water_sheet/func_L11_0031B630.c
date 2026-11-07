@@ -24,8 +24,8 @@ void update_moby_hit_stats_and_state(char *m) {
             *(short *)(*(char **)(info + 0x20) + 0xA6) == 0xAC) {
             if (++skill_point_18_kill_count >= 3 && gSkillPoints[0x12] == 0) {
                 gSkillPoints[0x12] = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53D6, -1);
             }
         }
         if (*(int *)(d + 0x88) != 0) {

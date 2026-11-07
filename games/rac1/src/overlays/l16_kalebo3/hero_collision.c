@@ -125,7 +125,7 @@ void HeroL16_UpdateStateFlags(void) {
         }
         h = &g_hero;
         if (h->selector_13 != 0 && h->state.current != HERO_STATE_SINK) {
-            if (FastAbsF(h->water_surface_z - (h->motion.pos.f[2] + 0.25f)) < 1.0f) {
+            if (absolute_float(h->water_surface_z - (h->motion.pos.f[2] + 0.25f)) < 1.0f) {
                 if (h->water_surface_z - h->motion.pos.f[2] > 0.0f) {
                     if (h->motion.displacement.f[2] < 0.0f) {
                         exit_hero_vehicle_mode_if_mode_three();
@@ -228,7 +228,7 @@ void HeroL16_UpdateGroundCollision(void) {
         if (is_moby_in_class_range_500_to_540(kalebo3_coll_hit.moby)) {
             g_hero.on_flagged_ground_moby = 1;
             if ((u32)(g_hero.state.control_mode - 0x15) < 2) {
-                HeroMoveDownAlongNormal((u8 *)&kalebo3_coll_hit.point, (u8 *)&kalebo3_coll_hit.point, 1.0f);
+                add_hero_gravity_offset((u8 *)&kalebo3_coll_hit.point, (u8 *)&kalebo3_coll_hit.point, 1.0f);
             }
         }
         p = GetFlaggedPvarWord(kalebo3_coll_hit.moby);
@@ -239,7 +239,7 @@ void HeroL16_UpdateGroundCollision(void) {
     if (kalebo3_coll_hit.unk1C > 0) {
         qcopy((u8 *)&g_hero + 0x2A0, &kalebo3_coll_hit.point);
         g_hero.ground_z.f = kalebo3_coll_hit.point.f[2];
-        g_hero.ground_distance = FastVecDist((u8 *)&g_hero + 0x80, ((u8 *)&g_hero + 0x2A0));
+        g_hero.ground_distance = fast_vec_dist((u8 *)&g_hero + 0x80, ((u8 *)&g_hero + 0x2A0));
         g_hero.ground_moby = (struct Moby *)kalebo3_coll_hit.moby;
         sceVu0Normalize((u8 *)&g_hero + 0x270, (u8 *)&kalebo3_coll_hit.normal.f[0]);
         g_hero.ground_slope.f = compute_gravity_relative_vector_inclination((u8 *)&kalebo3_coll_hit.normal.f[0]);
@@ -314,7 +314,7 @@ d1:
         if (coll_line(&v30, &v0, 0x22, (s32)g_hero.moby, 0)) {
             f = kalebo3_coll_hit.point.f[2] - g_hero.ground_z.f;
             g_hero.unk2C0.f[i] = f;
-            if (0.4f < FastAbsF(f)) {
+            if (0.4f < absolute_float(f)) {
                 g_hero.unk2C0.f[i] = 0.0f;
             }
             sceVu0Normalize(&v60, (u8 *)&kalebo3_coll_hit.normal.f[0]);
@@ -355,7 +355,7 @@ int HeroL16_ApplyPositionOffset(int mode) {
     qcopy(&old, &hero.motion.pos);
     clear_u64_value(&collision_position_offset);
     if (hero.path_constrain_pending != 0) {
-        Hero_ConstrainToPath();
+        resolve_hero_pending_path_clearance();
         hero.path_constrain_pending = 0;
     }
     control_mode = hero.state.control_mode;
@@ -367,9 +367,9 @@ int HeroL16_ApplyPositionOffset(int mode) {
         int c = hero.gravity_mode;
         if (c != 0 || hero.unk1F8 != 0) {
             if (c == 1 || hero.unk1F8 != 0 || (unsigned)(control_mode - 0x15) < 2U) {
-                HeroOffsetAlongViewZ(&collision_position_offset, &collision_position_offset, 0.6f);
+                add_hero_up_offset(&collision_position_offset, &collision_position_offset, 0.6f);
             } else {
-                HeroMoveDownAlongNormal(&collision_position_offset, &collision_position_offset, -hero.capsule_bottom);
+                add_hero_gravity_offset(&collision_position_offset, &collision_position_offset, -hero.capsule_bottom);
             }
         } else {
             collision_position_offset.f[2] = hero.capsule_bottom;
@@ -404,8 +404,8 @@ int HeroL16_ApplyPositionOffset(int mode) {
                 if (collision_extent_or_displacement_length < 0.05f) {
                     collision_extent_or_displacement_length = 0.05f;
                 }
-                collision_result = coll_capsule(hero.capsule_radius, collision_extent_or_displacement_length,
-                                                &hero.motion.pos, mask, hero.moby);
+                collision_result = rig_probe(hero.capsule_radius, collision_extent_or_displacement_length,
+                                             &hero.motion.pos, mask, hero.moby);
                 collision_result |= coll_sphere_hero_groups(hero.capsule_radius, &hero.motion.pos);
                 if (collision_result == 0)
                     break;
@@ -502,7 +502,7 @@ void integrate_hero_motion(void) {
             float limit;
 
             position = (float *)&g_hero.motion.velocity;
-            length = vec_length_xy(position);
+            length = vector_length_xy(position);
             limit = player->capsule_radius - 0.02f;
             if (limit < length)
                 vec_set_length_xy(position, position, limit);
@@ -530,7 +530,7 @@ void integrate_hero_motion(void) {
                     float limit;
 
                     position = player->motion.velocity.f;
-                    length = vec_length_xy(position);
+                    length = vector_length_xy(position);
                     limit = player->capsule_radius - 0.02f;
                     if (limit < length)
                         vec_set_length_xy(position, position, limit);
@@ -598,7 +598,7 @@ void integrate_hero_motion(void) {
     vec_scale_to_length(vertical, plane.f, magnitude);
     motion_player = &g_hero;
     motion_player->motion.speed_xy = FastVecLength(delta);
-    motion_player->motion.flat_speed = vec_length_xy(delta);
+    motion_player->motion.flat_speed = vector_length_xy(delta);
     work.q = *(Q *)delta;
     motion_player->motion.forward_speed = forward_component(work.f);
     if (motion_player->motion.forward_speed < 0.0f)

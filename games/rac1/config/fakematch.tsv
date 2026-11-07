@@ -60,7 +60,7 @@ src/overlays/l04_eudora/snow_plow_and_woodcut_bot.c	leaf_update	marked	volatile:
 src/overlays/l04_eudora/walker_rig_gait.c	rig_animate	marked	the later fields are read through the rig shifted by one leg stride
 src/overlays/l05_rilgar/sharkigator_and_faucet.c	extermitank_update	kept	the short declaration is for $gp, so volatile has to be in the cast
 src/overlays/l05_rilgar/sharkigator_and_faucet.c	extermitank_update	marked	volatile: a nop stays in this delay slot (8/3672 bytes differ without it)
-src/overlays/l07_umbris/scene_mobys_and_trails.c	update_moby_offset_motion	kept	retail loads 0xFF before the byte. A local does that, and it is ordinary C
+src/overlays/l07_umbris/scene_mobys_and_trails.c	MovingMobyL07_Update	kept	retail loads 0xFF before the byte. A local does that, and it is ordinary C
 src/overlays/l08_batalia/commando_deserter_and_effects.c	-	kept	short and MACRO_ADDR select how each function addresses this global
 src/overlays/l13_gemlik/qwark_starfighter_and_forcefield.c	-	kept	the calls disagree on where the float goes: the argument order changes the moves
 src/overlays/l14_oltanis/wind_lightning_and_taxi.c	-	kept	short and SDATA select how each function addresses this global
@@ -85,10 +85,15 @@ src/overlays/shared/projectile_expiry_particles.c	spawn_moby_point_offset_partic
 src/overlays/shared/projectile_expiry_particles.c	spawn_moby_point_offset_particle	marked	volatile: store order unk_09, blend, unk_01, size (4/376 bytes differ without it)
 src/overlays/shared/projectile_expiry_particles.c	spawn_moby_point_offset_particle	marked	volatile: store order unk_09, blend, unk_01, size (6/376 bytes differ without it)
 src/overlays/shared/projectile_expiry_particles.c	spawn_moby_point_offset_particle	marked	volatile: store order unk_09, blend, unk_01, size (6/376 bytes differ without it)
-src/overlays/shared/trigger_switches_and_hoverboard.c	update_moby_glow_and_contact_explosion	marked	the distance passes through a second variable; assigned directly,
+src/overlays/shared/trigger_switches_and_hoverboard.c	breakable_lamp_update	marked	the distance passes through a second variable; assigned directly,
 src/overlays/shared/walloper_and_beam_effects.c	build_beam_and_arc_points	marked	a never-taken branch (cprop proves dead == 0, then jump deletes it). Retail
 src/overlays/shared/water_pool_and_sand_mouse.c	activate_smaller_amoeboid	marked	volatile: nops stay in the delay slots (28/296 bytes differ without it)
 src/overlays/shared/water_pool_and_sand_mouse.c	activate_smaller_amoeboid	marked	volatile: nops stay in the delay slots (28/296 bytes differ without it)
 src/overlays/shared/water_pool_and_sand_mouse.c	gunship_follow_path	marked	duplicating the reset preserves retail's voice-call argument scheduling
 src/overlays/shared/water_pool_and_sand_mouse.c	gunship_follow_path	marked	the never-taken call keeps gcse from propagating &off[1] into the call, so dir
 src/overlays/shared/weapon_hud_and_counters.c	select_moby_context	marked	without volatile, only this store moves, from here to near the end
+src/versions/pal_v1/game/system/pad/func_002181F0.c	func_002181F0_r	marked	a guess standing in for PAL's input lock test. `quiet` and these stores are invented:
+src/versions/pal_v1/overlays/l07_umbris/snagglebeast/func_L07_00315528.c	snagglebeast_update	marked	a guess at code v1 had here and later versions dropped. Retail only shows the
+src/versions/pal_v1/overlays/shared/walloper_and_beam_effects/func_L00_002BA7C8.c	build_beam_and_arc_points	marked	a never-taken branch (cprop proves dead == 0, then jump deletes it). Retail
+src/versions/us/game/system/pad/func_002181F0.c	func_002181F0_r	marked	a guess standing in for PAL's input lock test. `quiet` and these stores are invented:
+src/versions/us/overlays/shared/walloper_and_beam_effects/func_L00_002BA7C8.c	build_beam_and_arc_points	marked	a never-taken branch (cprop proves dead == 0, then jump deletes it). Retail

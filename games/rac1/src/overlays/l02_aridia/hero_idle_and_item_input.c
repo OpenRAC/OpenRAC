@@ -52,14 +52,14 @@ extern float g_frame_time_sq MACRO_ADDR;
 extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern short aridia_hero_run_step_start_frames;
 extern short aridia_hero_state_f_jump_velocity_keys;
 extern char aridia_hero_state_d_jump_velocity_keys[];
 extern unsigned char aridia_hero_run_jump_land_anim_by_frame[];
 extern T2C aridia_attack_records[];
-extern float aridia_hero_anim_time_curves[][25];
+extern float hero_animation_blend_curve_samples[][25];
 
 /* Puts the hero into move state A (with its animation when B is set); returns 0 when the change is refused. */
 int HeroL02_SetMoveState(int a, int b) {
@@ -121,7 +121,7 @@ int HeroL02_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 request_hero_idle_state_for_vehicle_mode();
@@ -243,7 +243,7 @@ int HeroL02_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -257,7 +257,7 @@ int HeroL02_SetMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = &g_hero;
@@ -329,7 +329,7 @@ int HeroL02_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -392,7 +392,7 @@ int HeroL02_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
@@ -457,7 +457,7 @@ int HeroL02_SetMoveState(int a, int b) {
             p->item_use_locked = 1;
             *(int *)&p->grapple_pull_speed = 0;
             p->grapple_pull_ending = 0;
-            p->tether_radius = FastVecDist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
+            p->tether_radius = fast_vec_dist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
             if (b)
                 set_hero_animation(0x30, 1, (float)scale_ticks(5));
             break;
@@ -507,7 +507,7 @@ int HeroL02_SetMoveState(int a, int b) {
                     q->swing_rope_max_speed = *(float *)(d + 0x2C);
                 q->swing_yaw = fast_atan2(*(float *)(*(char **)&q->swing_target_moby + 0x10) - q->motion.pos.f[0],
                                           *(float *)(*(char **)&q->swing_target_moby + 0x14) - q->motion.pos.f[1]);
-                q->unk9A4 = FastVecDist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
+                q->unk9A4 = fast_vec_dist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
                 q->swing_gravity = g_frame_time_sq * 27.0f;
                 if (q->state.prev_control_mode == HERO_MODE_JUMP) {
                     q->swing_gravity = q->jump_gravity;
@@ -1257,7 +1257,7 @@ int HeroL02_SetMoveState(int a, int b) {
                 if (b) {
                     set_hero_animation(0x10, 3, -3.0f);
                     *(float *)(*(char **)&q->moby + 0x54) =
-                        aridia_hero_anim_time_curves[q->anim_blend_curve][(q->anim_blend_step)++];
+                        hero_animation_blend_curve_samples[q->anim_blend_curve][(q->anim_blend_step)++];
                 }
             }
             break;
@@ -1351,7 +1351,7 @@ int HeroL02_SetMoveState(int a, int b) {
             {
                 char *v = &g_hero.motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -1383,7 +1383,7 @@ int HeroL02_SetMoveState(int a, int b) {
             if (b) {
                 set_hero_animation(2, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    aridia_hero_anim_time_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    hero_animation_blend_curve_samples[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }
@@ -1530,12 +1530,12 @@ extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 extern int quick_swap_item MACRO_ADDR;
 extern float aridia_hero_fall_state_height MACRO_ADDR;
 extern int item_selector_hud_inhibit MACRO_ADDR;
-extern int aridia_hero_run_step1_start_frame MACRO_ADDR;
+extern int l02_hero_run_start_frame MACRO_ADDR;
 extern int aridia_hero_double_tap_timer SDATA(aridia_hero_double_tap_timer);
 
 extern int aridia_hero_state_1e_clear_word;
 extern HeroBoneScalars aridia_lean_state;
-extern HeroIdleFidget aridia_idle_fidgets[];
+extern HeroIdleFidget l02_idle_fidget_records[];
 extern HeroItemDefView aridia_item_defs[];
 extern HeroAttackRecord aridia_attack_records_rec[] __asm__("D_L02_0017C2A8");
 extern HeroSpeedBands aridia_hero_speed_bands;
@@ -1677,7 +1677,7 @@ void HeroL02_UpdateStateTransitions(void) {
                                     HeroIdleFidget *rec;
 
                                     g_hero.fidget_index = sp20;
-                                    rec = &aridia_idle_fidgets[sp20];
+                                    rec = &l02_idle_fidget_records[sp20];
                                     g_hero.fidget_cooldown = scale_ticks(0x78);
                                     rec->f60 = multiply_global_factor(rec->f5C) * 60.0f;
                                     if (rec->f44 != 0) {
@@ -1710,7 +1710,8 @@ void HeroL02_UpdateStateTransitions(void) {
                                 if (fast_dec_timer(&g_hero.slot3_anim_timer)) {
                                     if (0.55850536f > aridia_lean_state.f258 && aridia_lean_state.f254 < 0.34906584f &&
                                         g_hero.items[3].state == 2) {
-                                        g_hero.slot3_anim_timer = rand_range(scale_ticks(0x6E), scale_ticks(0x10E));
+                                        g_hero.slot3_anim_timer =
+                                            random_int_between(scale_ticks(0x6E), scale_ticks(0x10E));
                                         blend_hero_slot3_animation_pair();
                                     }
                                 }
@@ -1863,13 +1864,13 @@ void HeroL02_UpdateStateTransitions(void) {
                     case HERO_STATE_DYING_SPEED_LIMITED:
                     case HERO_STATE_DYING_ZERO_HEALTH:
                         if (g_hero.anim_flags & 2) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case HERO_STATE_SINK:
                         if (g_hero.state_timer > scale_ticks(0xDC)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -2153,14 +2154,14 @@ void HeroL02_UpdateStateTransitions(void) {
                         }
                         if (g_hero.sink_surface_z - 1.2f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0xAA)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case HERO_STATE_HEIGHT_OR_TIMEOUT_RESPAWN_WAIT:
                         if (g_hero.sink_surface_z - 1.2f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0x96)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -2182,13 +2183,13 @@ void HeroL02_UpdateStateTransitions(void) {
                             break;
                         }
                         g_hero.unk1F8 = scale_ticks(0x28);
-                        if (FastAbsF(g_hero.motion.rot.f[1]) > 0.7853982f ||
-                            FastAbsF(g_hero.motion.rot.f[0]) > 0.7853982f) {
+                        if (absolute_float(g_hero.motion.rot.f[1]) > 0.7853982f ||
+                            absolute_float(g_hero.motion.rot.f[0]) > 0.7853982f) {
                             g_hero.ledge_probe_cooldown = scale_ticks(0x28);
                         }
                         if (g_hero.grounded_frames != 0 && g_hero.on_magnet_ground == 0 &&
-                            FastAbsF(g_hero.motion.rot.f[1]) < 0.7853982f &&
-                            FastAbsF(g_hero.motion.rot.f[0]) < 0.7853982f) {
+                            absolute_float(g_hero.motion.rot.f[1]) < 0.7853982f &&
+                            absolute_float(g_hero.motion.rot.f[0]) < 0.7853982f) {
                             HeroL02_SetMoveState(HERO_STATE_RUN, 1);
                             break;
                         }
@@ -2477,7 +2478,7 @@ void HeroL02_UpdateStateTransitions(void) {
                         break;
                     case HERO_STATE_SLIP:
                         if (scale_ticks(0x12C) < g_hero.state_timer) {
-                            Hero_OnKilled();
+                            hero_respawn();
                         }
                         if (g_hero.on_slip_ground != 0) {
                             break;
@@ -2604,7 +2605,7 @@ void HeroL02_UpdateStateTransitions(void) {
                              (77.0f > g_hero.motion.pos.f[2] || (g_hero.state_timer > 0x14 && g_hero.wall_hit != 0 &&
                                                                  g_hero.motion.displacement.f[2] >= 0.0f))) ||
                             g_hero.state_timer > scale_ticks(0x78)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -2715,7 +2716,7 @@ void HeroL02_UpdateStateTransitions(void) {
                             HeroL02_SetMoveState(HERO_STATE_RUN, 0);
                             if (g_hero.state.current == HERO_STATE_RUN) {
                                 g_hero.state.step = 1;
-                                set_hero_animation(4, aridia_hero_run_step1_start_frame, scale_ticks(0xC));
+                                set_hero_animation(4, l02_hero_run_start_frame, scale_ticks(0xC));
                             }
                             configure_hero_point_effect_emission(0.016f, 0.002f, 5, 2, 1, 0);
                             break;
@@ -3040,7 +3041,7 @@ void HeroL02_UpdateStateTransitions(void) {
                                         g_hero.can_double_jump != 0 && scale_ticks(0xE) < g_hero.state_timer &&
                                         (g_hero.past_jump_apex == 0 ||
                                          (g_hero.ground_distance > 0.7f &&
-                                          FastAbsF(gravity_z(g_hero.motion.velocity.f)) < g_frame_time * 5.8f))) {
+                                          absolute_float(gravity_z(g_hero.motion.velocity.f)) < g_frame_time * 5.8f))) {
                                         HeroL02_SetMoveState(HERO_STATE_DOUBLE_JUMP, 1);
                                     } else if (item_available[2] != 0 && hero_slot_item_id(3) != 4 &&
                                                g_hero.pack_disabled == 0 && (g_controller_state.held & PAD_CROSS) &&
@@ -3121,7 +3122,7 @@ void HeroL02_UpdateStateTransitions(void) {
                         break;
                     case HERO_STATE_VEHICLE_MODE_3_SLIP:
                         if (scale_ticks(0x12C) < g_hero.state_timer) {
-                            Hero_OnKilled();
+                            hero_respawn();
                         }
                         if (g_hero.on_slip_ground != 0) {
                             break;

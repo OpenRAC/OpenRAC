@@ -287,9 +287,9 @@ Bigint_1154D0 *__multiply(void *ptr, Bigint_1154D0 *a, Bigint_1154D0 *b) {
 
 /* newlib mprec.c pow5mult(ptr,b,k): multiplies Bigint b by 5^k using a
  * squaring ladder cached in ptr->_p5s (the first four bits of k via the
- * {5,25,125} table pow5mult_p05, the rest by repeated squaring of 625). */
+ * {5,25,125} table small_powers_of_five, the rest by repeated squaring of 625). */
 extern void *__multadd(void *ptr, void *b, int m, int a); /* multadd */
-extern int pow5mult_p05[3];
+extern int small_powers_of_five[3];
 
 typedef struct {
     char pad[0x48];
@@ -302,7 +302,7 @@ void *__pow5mult(void *ptr, void *b, int k) {
     int i;
 
     if ((i = k & 3))
-        b = __multadd(ptr, b, pow5mult_p05[i - 1], 0);
+        b = __multadd(ptr, b, small_powers_of_five[i - 1], 0);
 
     if (!(k >>= 2))
         return b;

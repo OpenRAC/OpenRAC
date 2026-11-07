@@ -13,7 +13,7 @@
  */
 
 extern char dir_lights[];
-extern float gCamera_yaw;
+extern float camera_lighting_reference_angle;
 extern char point_lights[];
 extern char point_light_data[];
 
@@ -22,7 +22,7 @@ extern void CreatePointLight(int);
 /* Per-frame light update: the ambient colour (0.8 grey, -0.3) and a key
    light 0.8 rad behind the camera heading, tilted down; then every
    active point light (0x30-byte records at point_light_data, positions from
-   point_lights) that has moved more than 8 units is re-placed and either
+   D_0019C2C0) that has moved more than 8 units is re-placed and either
    created (state 1 -> 2) or refreshed (state 2). */
 void UpdateAllPointLights(void) {
     char *l = dir_lights;
@@ -33,7 +33,7 @@ void UpdateAllPointLights(void) {
     *(float *)(l + 0x340) = 0.8f;
     *(float *)(l + 0x344) = 0.8f;
     *(float *)(l + 0x348) = 0.8f;
-    ang = FastAddRots(gCamera_yaw, -0.8f);
+    ang = FastAddRots(camera_lighting_reference_angle, -0.8f);
     *(float *)(l + 0x350) = FastCos(ang) * 0.866f;
     *(float *)(l + 0x354) = FastSin(ang) * 0.866f;
     *(float *)(l + 0x358) = -0.5f;
@@ -42,7 +42,7 @@ void UpdateAllPointLights(void) {
         char *src = point_lights + i * 0x20;
         char *dst = point_light_data + i * 0x30;
 
-        if (*(int *)(dst + 0x10) != 0 && FastVecDist(src + 0x10, dst + 0x20) > 8.0f) {
+        if (*(int *)(dst + 0x10) != 0 && fast_vec_dist(src + 0x10, dst + 0x20) > 8.0f) {
             qcopy(dst + 0x20, src + 0x10);
             if (*(int *)(dst + 0x10) == 1) {
                 CreatePointLight(i);
@@ -86,11 +86,11 @@ typedef struct {
 } LtObj40;
 
 extern LtObj20 *ties_o __asm__("D_00161050") MACRO_ADDR;
-extern LtObj20 *D_00161054 MACRO_ADDR;
+extern LtObj20 *ties_end MACRO_ADDR;
 extern LtObj40 *tfrag_render_records_o __asm__("D_00160F8C") MACRO_ADDR;
 extern int tfrag_render_record_count MACRO_ADDR;
 extern LtObj20 *shrubs_o __asm__("D_001604D4") MACRO_ADDR;
-extern LtObj20 *D_001604D8 MACRO_ADDR;
+extern LtObj20 *shrubs_end MACRO_ADDR;
 
 /* CreatePointLight: lists which objects of the three lists the light's sphere touches and records the light's index in their packed nibble field. Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/create_point_light.c, create_point_light. */
 void CreatePointLight(int i) {
@@ -236,9 +236,9 @@ extern u8 *shrubs MACRO_ADDR;
 extern u8 *tfrag_render_records MACRO_ADDR;
 extern u8 *ties MACRO_ADDR;
 
-extern u8 str_bad_point_light_tie[];
-extern u8 str_bad_point_light_tfrag[];
-extern u8 str_bad_point_light_shrub[];
+extern u8 tie_point_light_missing_message[];
+extern u8 tfrag_point_light_missing_message[];
+extern u8 shrub_point_light_missing_message[];
 
 /* Remove one point light from three packed attachment lists. Each 16-bit
    reference stores up to four light IDs in nibbles; deleting one shifts
@@ -286,7 +286,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((firstPacked & 0xF000) == fourthNibble) {
                 firstPacked |= 0xF000;
             } else {
-                STUB_printf(str_bad_point_light_tie);
+                STUB_printf(tie_point_light_missing_message);
             }
             firstLinks += 1;
             if (firstPacked == 0xFFFF) {
@@ -313,7 +313,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((secondPacked & 0xF000) == fourthNibble) {
                 secondPacked |= 0xF000;
             } else {
-                STUB_printf(str_bad_point_light_tfrag);
+                STUB_printf(tfrag_point_light_missing_message);
             }
             secondLinks += 1;
             if (secondPacked == 0xFFFF) {
@@ -340,7 +340,7 @@ void DetachPointLight(s32 arg0) {
             } else if ((thirdPacked & 0xF000) == fourthNibble) {
                 thirdPacked |= 0xF000;
             } else {
-                STUB_printf(str_bad_point_light_shrub);
+                STUB_printf(shrub_point_light_missing_message);
             }
             thirdLinks += 1;
             if (thirdPacked == 0xFFFF) {

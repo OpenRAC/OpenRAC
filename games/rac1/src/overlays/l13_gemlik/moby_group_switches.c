@@ -4,27 +4,27 @@
 #include "structs/moby.h"
 #include "include_asm.h"
 
-extern char *gemlik_moby_array_start MACRO_ADDR;
-extern char *gemlik_moby_array_last MACRO_ADDR;
+extern char *moby_base MACRO_ADDR;
+extern char *l13_moby_scan_inclusive_end MACRO_ADDR;
 
 /* updates matching objects in the selected object range */
 void jet_group_flag(int id, int state) {
-    char *moby = gemlik_moby_array_start;
-    if ((unsigned long)gemlik_moby_array_last >= (unsigned long)moby) {
+    char *moby = moby_base;
+    if ((unsigned long)l13_moby_scan_inclusive_end >= (unsigned long)moby) {
         do {
             if (*(short *)(moby + 0xA6) == id) {
                 if (moby[0x20] >= 0)
                     moby[0x20] = state;
             }
             moby += 0x100;
-        } while ((unsigned long)gemlik_moby_array_last >= (unsigned long)moby);
+        } while ((unsigned long)l13_moby_scan_inclusive_end >= (unsigned long)moby);
     }
 }
 
 // Sets flag bits and a data pointer on every live object in the pool whose id appears in a zero-terminated list.
 void jet_group_switch(short *ids, int a, int b, int c) {
     char *m;
-    for (m = gemlik_moby_array_start; m <= gemlik_moby_array_last; m += 0x100) {
+    for (m = moby_base; m <= l13_moby_scan_inclusive_end; m += 0x100) {
         int n;
         for (n = 0; ids[n] != 0 && ids[n] < 0x800 && n < 0xE0; n++) {
             if (*(short *)(m + 0xA6) == ids[n] && m[0x20] >= 0) {

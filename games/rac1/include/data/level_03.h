@@ -8,6 +8,6 @@
 extern char kerwan_camera_pos[];
 extern float kerwan_camera_yaw;
 extern char kerwan_coll_hit_point[];
-extern char *kerwan_paths[];
+extern char *D_L03_001B08B0[];
 
 #endif /* DATA_LEVEL_03_H */

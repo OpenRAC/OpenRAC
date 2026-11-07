@@ -215,7 +215,7 @@ struct malloc_chunk {
     struct malloc_chunk *fd;
     struct malloc_chunk *bk;
 };
-extern struct malloc_chunk __malloc_av_last_remainder;
+extern struct malloc_chunk malloc_split_remainder_bin_head;
 typedef struct malloc_chunk *mchunkptr;
 typedef struct malloc_chunk *mbinptr;
 
@@ -294,15 +294,15 @@ void *_malloc_r(struct _reent *ptr, u32 bytes) {
 
         ++idx;
     }
-    if ((victim = (&__malloc_av_last_remainder)->fd) != (&__malloc_av_last_remainder)) {
+    if ((victim = (&malloc_split_remainder_bin_head)->fd) != (&malloc_split_remainder_bin_head)) {
         victim_size = victim->size & (~(1 | 0x2));
         remainder_size = (victim_size < nb) ? (-((long)(nb - victim_size))) : (victim_size - nb);
         if (remainder_size >= ((long)16)) {
             remainder = (mchunkptr)(((char *)victim) + nb);
             victim->size = nb | 1;
             {
-                (&__malloc_av_last_remainder)->fd = ((&__malloc_av_last_remainder)->bk = remainder);
-                remainder->fd = (remainder->bk = &__malloc_av_last_remainder);
+                (&malloc_split_remainder_bin_head)->fd = ((&malloc_split_remainder_bin_head)->bk = remainder);
+                remainder->fd = (remainder->bk = &malloc_split_remainder_bin_head);
             };
             remainder->size = remainder_size | 1;
             ((mchunkptr)(((char *)remainder) + remainder_size))->prev_size = remainder_size;
@@ -310,7 +310,8 @@ void *_malloc_r(struct _reent *ptr, u32 bytes) {
             __malloc_unlock(ptr);
             return (void *)(((char *)victim) + (2 * 4));
         }
-        (&__malloc_av_last_remainder)->fd = ((&__malloc_av_last_remainder)->bk = &__malloc_av_last_remainder);
+        (&malloc_split_remainder_bin_head)->fd =
+            ((&malloc_split_remainder_bin_head)->bk = &malloc_split_remainder_bin_head);
         if (remainder_size >= 0) {
             ((mchunkptr)(((char *)victim) + victim_size))->size |= 1;
             (void)0;
@@ -320,8 +321,8 @@ void *_malloc_r(struct _reent *ptr, u32 bytes) {
         {
             if (victim_size < 512) {
                 remainder_index = ((unsigned long)victim_size) >> 3;
-                new_var3 = ((u8 *)&__malloc_av_last_remainder - (2 * 4)) + ((2 * remainder_index) * 4);
-                ((mbinptr)((u8 *)&__malloc_av_last_remainder - (2 * 4)))->size |=
+                new_var3 = ((u8 *)&malloc_split_remainder_bin_head - (2 * 4)) + ((2 * remainder_index) * 4);
+                ((mbinptr)((u8 *)&malloc_split_remainder_bin_head - (2 * 4)))->size |=
                     (u32)(((unsigned long)1) << (remainder_index / 4));
                 bck = (mbinptr)new_var3;
                 fwd = bck->fd;
@@ -387,8 +388,9 @@ void *_malloc_r(struct _reent *ptr, u32 bytes) {
                             bck->fd = fwd;
                         };
                         {
-                            (&__malloc_av_last_remainder)->fd = ((&__malloc_av_last_remainder)->bk = remainder);
-                            remainder->fd = (remainder->bk = &__malloc_av_last_remainder);
+                            (&malloc_split_remainder_bin_head)->fd =
+                                ((&malloc_split_remainder_bin_head)->bk = remainder);
+                            remainder->fd = (remainder->bk = &malloc_split_remainder_bin_head);
                         };
                         remainder->size = remainder_size | 1;
                         ((mchunkptr)(((char *)remainder) + remainder_size))->prev_size = remainder_size;

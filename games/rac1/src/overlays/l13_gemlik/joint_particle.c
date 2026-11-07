@@ -7,7 +7,7 @@
 #include "asm_functions/executable.h"
 #include "overlays/shared/moby_frame_packet.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern unsigned char *gemlik_part_type68_textures;
 
@@ -28,7 +28,7 @@ unsigned char *create_moby_joint_particle(char *moby, unsigned char a, int b, in
         ((struct PartBase *)e)->blend = 0x48;
         ((struct PartBase *)e)->unk_01 = 3;
         ((struct PartBase *)e)->texture = *gemlik_part_type68_textures;
-        Moby_GetJointWorldPos(moby, a, p);
+        moby_point_position(moby, a, p);
         qcopy(((struct PartBase *)e)->data, p);
         *(float *)(e + 0x2C) = y;
         ((struct PartBase *)e)->pos.f[3] = x;

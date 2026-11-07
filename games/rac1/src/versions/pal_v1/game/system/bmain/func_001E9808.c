@@ -35,7 +35,7 @@ void start_level(int level) {
         char *g = level_resource_buffers;
         t = *(int *)(g + 0x1C);
     }
-    Movie_Play(b, a, t + 0x100000, t + 0x400000, 0);
+    play_mpeg_movie(b, a, t + 0x100000, t + 0x400000, 0);
     sce_cd_sync_s(0);
     sce_gs_sync_v(0);
     wait_for_graphics_pipeline_idle(0, 0);

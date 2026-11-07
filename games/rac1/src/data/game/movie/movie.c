@@ -7,7 +7,7 @@ char movie_error_message[] DATA_SECTION(D_001612F8) =
 
 int decoder_buffer_address DATA_SECTION(D_00161308) = {0};
 
-int movie_decoder_thread_id DATA_SECTION(D_00161310) = {0};
+int D_00161310 DATA_SECTION(D_00161310) = {0};
 
 int movie_play_step DATA_SECTION(D_00161314) = {0};
 

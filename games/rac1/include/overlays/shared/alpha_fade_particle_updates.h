@@ -7,7 +7,7 @@
 
 extern void *PartType44Spawn(void *, void *, int, int, int, int, float, float, float, float, float);
 extern void *PartType53Spawn(void *, int, float, float, int, int, int, void *, float);
-extern void *PartType59Spawn(void *, int, unsigned char, int, int, int, int, float);
+extern void *func_L00_00273E08(void *, int, unsigned char, int, int, int, int, float);
 extern void load_misc_animations_into_stash(void);
 extern void *spawn_color_tween_emitter_particle(void *, unsigned char, unsigned char, unsigned char, unsigned char,
                                                 unsigned char, void *, float, float);

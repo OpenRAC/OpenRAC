@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LISTS = (
     ("config/handwritten_asm.txt", "handwritten"),
     ("config/linker_remnants.txt", "remnants"),
+    ("config/prebuilt_asm.txt", "prebuilt"),
 )
 ENTRY = re.compile(r"(core_text|text)/(func_[0-9A-F]{8})")
 

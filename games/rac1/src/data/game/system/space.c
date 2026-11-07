@@ -3,7 +3,7 @@
 
 #include "structs/vector.h"
 
-u8 level_render_state[32] DATA_SECTION(D_0013E130) = {0};
+u8 D_0013E130[32] DATA_SECTION(D_0013E130) = {0};
 
 int ship_substate[16] DATA_SECTION(D_0013E150) = {0};
 
@@ -69,7 +69,7 @@ u32 resident_banner_texture[] DATA_SECTION(D_00160688) = {
 #include "data_inc/D_00160688.inc"
 };
 
-u32 textured_quad_giftag[] DATA_SECTION(D_00160950) = {
+u32 D_00160950[] DATA_SECTION(D_00160950) = {
 #include "data_inc/D_00160950.inc"
 };
 
@@ -79,21 +79,21 @@ s32 render_sequence_slots[26] DATA_SECTION(D_0018CD98) = {0};
 
 int level_resource_buffer_base DATA_SECTION(D_001941D4) = {0};
 
-s32 resident_indexed_texture_addrs[256] DATA_SECTION(D_001B5D00) = {0};
+s32 D_001B5D00[256] DATA_SECTION(D_001B5D00) = {0};
 
 u32 resident_class_material_maps[896] DATA_SECTION(D_001B6C00) = {0};
 
 u32 space_flight_paths[240] DATA_SECTION(D_001CC730) = {0};
 
-u32 default_dir_lights[] DATA_SECTION(D_001D9AD0) = {
+u32 D_001D9AD0[] DATA_SECTION(D_001D9AD0) = {
 #include "data_inc/D_001D9AD0.inc"
 };
 
-u32 quad_default_uvs[] DATA_SECTION(D_001D9B40) = {
+u32 D_001D9B40[] DATA_SECTION(D_001D9B40) = {
 #include "data_inc/D_001D9B40.inc"
 };
 
-float light_flare_corners[] DATA_SECTION(D_001D9B60) = {
+float D_001D9B60[] DATA_SECTION(D_001D9B60) = {
 #include "data_inc/D_001D9B60.inc"
 };
 
@@ -105,19 +105,19 @@ u32 warp_trail_colors[] DATA_SECTION(D_001D9DC0) = {
 #include "data_inc/D_001D9DC0.inc"
 };
 
-float resident_quad_corners[] DATA_SECTION(D_001D9DE0) = {
+float D_001D9DE0[] DATA_SECTION(D_001D9DE0) = {
 #include "data_inc/D_001D9DE0.inc"
 };
 
-float resident_quad_level_scales[] DATA_SECTION(D_001D9E20) = {
+float D_001D9E20[] DATA_SECTION(D_001D9E20) = {
 #include "data_inc/D_001D9E20.inc"
 };
 
-u32 sky_shell_scroll_dirs[] DATA_SECTION(D_001D9E70) = {
+u32 D_001D9E70[] DATA_SECTION(D_001D9E70) = {
 #include "data_inc/D_001D9E70.inc"
 };
 
-float sky_shell_base_rot_z_by_mode[] DATA_SECTION(D_001D9EC0) = {
+float D_001D9EC0[] DATA_SECTION(D_001D9EC0) = {
 #include "data_inc/D_001D9EC0.inc"
 };
 
@@ -125,15 +125,15 @@ float cam_mode_min_fov[] DATA_SECTION(D_001D9ED8) = {
 #include "data_inc/D_001D9ED8.inc"
 };
 
-float flare_spark_offsets[] DATA_SECTION(D_001D9EF0) = {
+float D_001D9EF0[] DATA_SECTION(D_001D9EF0) = {
 #include "data_inc/D_001D9EF0.inc"
 };
 
-Vec4f env_map_world_positions[102] DATA_SECTION(D_001DC870) = {0};
+Vec4f D_001DC870[102] DATA_SECTION(D_001DC870) = {0};
 
-float env_map_uvs[204] DATA_SECTION(D_001DCED0) = {0};
+float D_001DCED0[204] DATA_SECTION(D_001DCED0) = {0};
 
-float env_map_saved_uvs[204] DATA_SECTION(D_001DD200) = {0};
+float D_001DD200[204] DATA_SECTION(D_001DD200) = {0};
 
 u32 unloaded_sound_bank_format[] DATA_SECTION(D_001E8CB8) = {
 #include "data_inc/D_001E8CB8.inc"

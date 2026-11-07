@@ -5,7 +5,7 @@
 
 extern char cd_read_state[];
 // Requests a music track and stinger.
-void MusicRequestTrack(int track, int stinger) {
+void request_music_track(int track, int stinger) {
     char *b = cd_read_state;
     if (*(short *)(b + 0x38) == track) {
         if (*(signed char *)(b + 0x22) == -1)

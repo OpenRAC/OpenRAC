@@ -23,7 +23,7 @@ int help_message_keepalive[] DATA_SECTION(D_0015F6B0) = {
 
 u32 visible_moby_list DATA_SECTION(D_00160024) = 0;
 
-u32 quat_next_axis_table[] DATA_SECTION(D_001600D8) = {
+u32 D_001600D8[] DATA_SECTION(D_001600D8) = {
 #include "data_inc/D_001600D8.inc"
 };
 
@@ -41,6 +41,6 @@ u32 damage_reaction_scale_table[] DATA_SECTION(D_001CC448) = {
 #include "data_inc/D_001CC448.inc"
 };
 
-u32 moby_class_data_table[] DATA_SECTION(D_001E8F00) = {
+u32 D_001E8F00[] DATA_SECTION(D_001E8F00) = {
 #include "data_inc/D_001E8F00.inc"
 };

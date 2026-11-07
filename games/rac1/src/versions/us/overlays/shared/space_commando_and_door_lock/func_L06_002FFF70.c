@@ -29,8 +29,8 @@ void process_blarg_space_commando_hits(char *m) {
         if (g_current_level_index == LEVEL_ORXON && t != 0 && *(char **)(t + 0x20) != 0 &&
             *(short *)(*(char **)(t + 0x20) + 0xA6) == 0x31A && gSkillPoints[0x11] == 0) {
             gSkillPoints[0x11] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53D6, -1);
         }
         f = *(float *)(d + 0x20) - dt;
         *(float *)(d + 0x20) = f;
@@ -133,7 +133,7 @@ void process_blarg_space_commando_hits(char *m) {
         if (FindNearestEligibleMoby(*(float *)(d + 0x198), m, q, 0, 0, e + 4, *e) != 2) {
             if (*(float *)(d + 0x198) < vec_distance_xy(d + 0x170, d + 0x120)) {
                 *(int *)(d + 0x164) = 2;
-            } else if (3.0f < FastAbsF(*(float *)(m + 0x18) - *(float *)(d + 0x128))) {
+            } else if (3.0f < absolute_float(*(float *)(m + 0x18) - *(float *)(d + 0x128))) {
                 *(int *)(d + 0x164) = 2;
             }
         }

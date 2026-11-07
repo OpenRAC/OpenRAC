@@ -8,6 +8,9 @@ compiling C would misrepresent their origin. The tracked lists are:
   disassembler (83,520 retail bytes).
 - `config/linker_remnants.txt`: 145 entries of dead-strip remnants (3,260
   retail bytes).
+- `config/prebuilt_asm.txt`: 3 functions (4,472 bytes) from Sony's prebuilt `libgcc.a`:
+  `__moddi3`, `__udivdi3` and `__umoddi3`. They are compiled code, not hand-written, but they
+  do not build from `libgcc2.c` with our compiler (`src/libgcc/nonmatching_0011EF28.c`).
 
 On 2026-10-17, 33 VU0 helpers in fastfunc.o (func_001F9BC8..func_001FA8A8)
 were added to `config/handwritten_asm.txt`: retail's fastfunc is hand-written

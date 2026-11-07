@@ -19,20 +19,20 @@ typedef struct {
     void *serve;
 } SifRpcClientData;
 
-extern int mc_semaphore;
+extern int mc_sema;
 
 extern int sceSifInitRpc(int);
 extern char mc_rpc_client[];
 extern int mc_rpc_request;
-extern char mc_rpc_reply[];
+extern char mc_rpc_result[];
 extern int sceSifBindRpc(void *, int, int);
-extern char str_mc_bind_error[];
+extern char mc_rpc_bind_error_message[];
 
-extern char str_mc_old_mcserv[];
-extern char str_mc_old_mcman[];
+extern char mcserv_old_release_message[];
+extern char mcman_old_release_message[];
 
 /* sceMcInit (libmc): one-shot init. Creates the module semaphore
-   mc_semaphore if not already valid, resets any pending command
+   mc_sema if not already valid, resets any pending command
    (sce_mc_sync, sceMcSync), takes the semaphore, brings up the SIF RPC
    layer (sceSifInitRpc) and loops binding the IOP memory-card RPC server
    (0x80000400) until mc_rpc_client's SifRpcClientData.serve is set,
@@ -48,18 +48,18 @@ int sce_mc_init(void) {
     int i;
     int r;
 
-    if (mc_semaphore < 0) {
+    if (mc_sema < 0) {
         buf[5] = 0;
         buf[2] = 1;
         buf[1] = 1;
-        mc_semaphore = create_semaphore(buf);
+        mc_sema = create_semaphore(buf);
     }
     sce_mc_sync(0, 0, 0);
-    wait_semaphore(mc_semaphore);
+    wait_semaphore(mc_sema);
     sceSifInitRpc(0);
     for (;;) {
         if (sceSifBindRpc(mc_rpc_client, 0x80000400, 0) < 0) {
-            scePrintf(str_mc_bind_error);
+            scePrintf(mc_rpc_bind_error_message);
             for (;;)
                 ;
         }
@@ -68,24 +68,24 @@ int sce_mc_init(void) {
         for (i = 0x100000; i != 0; i--)
             ;
     }
-    r = sif_call_rpc(mc_rpc_client, 0xFE, 0, &mc_rpc_request, 0x30, mc_rpc_reply, 0xC, 0, 0);
-    signal_semaphore(mc_semaphore);
+    r = sif_call_rpc(mc_rpc_client, 0xFE, 0, &mc_rpc_request, 0x30, mc_rpc_result, 0xC, 0, 0);
+    signal_semaphore(mc_sema);
     if (r < 0) {
         ((SifRpcClientData *)mc_rpc_client)->serve = 0;
         return r - 100;
     }
-    rbuf = (int *)mc_rpc_reply;
+    rbuf = (int *)mc_rpc_result;
     if (rbuf[1] < 0x20A) {
-        scePrintf(str_mc_old_mcserv);
+        scePrintf(mcserv_old_release_message);
         ((SifRpcClientData *)mc_rpc_client)->serve = 0;
         return -0x78;
     }
     if (rbuf[2] < 0x20E) {
-        scePrintf(str_mc_old_mcman);
+        scePrintf(mcman_old_release_message);
         ((SifRpcClientData *)mc_rpc_client)->serve = 0;
         return -0x79;
     }
-    return *(int *)mc_rpc_reply;
+    return *(int *)mc_rpc_result;
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_001238A8);
@@ -94,7 +94,7 @@ extern char mc_rpc_client[];
 
 extern char mc_rpc_path_request[];
 
-extern int mc_current_command;
+extern int mc_current_func;
 
 /* sceMcOpen(port, slot, fname, mode) (libmc): same RPC-wrapper shape as
    sceMcDelete (sce_mc_delete) but with the flags/mode argument stored to
@@ -108,11 +108,11 @@ int sce_mc_open(int port, int slot, int fname_, int mode) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     if (fname == 0 || *fname == 0) {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
         return -210;
     }
     libc_strncpy(mc_rpc_path_request + 0x14, fname, 0x3FF);
@@ -121,11 +121,11 @@ int sce_mc_open(int port, int slot, int fname_, int mode) {
     fp[0x413] = 0;
     *(int *)(fp + 0x8) = mode;
     *(int *)(fp + 0x4) = slot;
-    r = sif_call_rpc(cd, 2, 1, fp, 0x414, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 2, 1, fp, 0x414, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 2;
+        mc_current_func = 2;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -135,7 +135,7 @@ extern int sce_mc_open(int, int, int, int);
 int sce_mc_mkdir(int arg0, int arg1, int arg2) {
     int r = sce_mc_open(arg0, arg1, arg2, 0x40);
     if (r == 0) {
-        mc_current_command = 0xB;
+        mc_current_func = 0xB;
     }
     return r;
 }
@@ -152,15 +152,15 @@ int sce_mc_close(int arg0) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     mc_rpc_request = arg0;
-    r = sif_call_rpc(cd, 3, 1, &mc_rpc_request, 0x30, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 3, 1, &mc_rpc_request, 0x30, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 3;
+        mc_current_func = 3;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -178,18 +178,18 @@ int sce_mc_seek(int arg0, int arg1, int arg2) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     buf = &mc_rpc_request;
     buf[0] = arg0;
     buf[4] = arg1;
     buf[5] = arg2;
-    r = sif_call_rpc(cd, 4, 1, buf, 0x30, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 4, 1, buf, 0x30, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 4;
+        mc_current_func = 4;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -257,7 +257,7 @@ int sce_mc_read(int fd, void *buf, int nbyte) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     p = &mc_rpc_request;
@@ -266,11 +266,11 @@ int sce_mc_read(int fd, void *buf, int nbyte) {
     p[7] = (int)next;
     sceSifWriteBackDCache((void *)(p[6] = (int)buf), p[3] = nbyte);
     sceSifWriteBackDCache(next, 0xC0);
-    r = sif_call_rpc(cd, 5, 1, p, 0x30, mc_rpc_reply, 4, mc_read_fix_align, next);
+    r = sif_call_rpc(cd, 5, 1, p, 0x30, mc_rpc_result, 4, mc_read_fix_align, next);
     if (r == 0) {
-        mc_current_command = 5;
+        mc_current_func = 5;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -303,7 +303,7 @@ int sce_mc_write_buffer(int fd, unsigned char *buffer, int size) {
     if (mc_rpc_client_c.is_initialized == 0) {
         return -0x64;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -0xC8;
     }
     mc_rpc_request_r.file_descriptor = fd;
@@ -322,11 +322,11 @@ int sce_mc_write_buffer(int fd, unsigned char *buffer, int size) {
         mc_rpc_request_r.data[i] = buffer[i];
     }
     flush_cache(0);
-    rpc_result = sif_call_rpc(&mc_rpc_client_c, 6, 1, &mc_rpc_request_r, 0x30, mc_rpc_reply, 4, 0, 0);
+    rpc_result = sif_call_rpc(&mc_rpc_client_c, 6, 1, &mc_rpc_request_r, 0x30, mc_rpc_result, 4, 0, 0);
     if (rpc_result == 0) {
-        mc_current_command = 6;
+        mc_current_func = 6;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return rpc_result;
 }
@@ -350,7 +350,7 @@ extern void mc_delay_thread(int);
 int sce_mc_sync(int mode, int *cmd, int *result) {
     int r;
 
-    if (mc_current_command == 0) {
+    if (mc_current_func == 0) {
         return -1;
     }
     r = sce_sif_check_stat_rpc(mc_rpc_client);
@@ -362,14 +362,14 @@ int sce_mc_sync(int mode, int *cmd, int *result) {
     }
     r = (r == 0);
     if (cmd != 0) {
-        *cmd = mc_current_command;
+        *cmd = mc_current_func;
     }
     if (r != 0) {
-        mc_current_command = 0;
+        mc_current_func = 0;
         if (result != 0) {
-            *result = *(int *)mc_rpc_reply;
+            *result = *(int *)mc_rpc_result;
         }
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -402,7 +402,7 @@ int sce_mc_get_info(int port, int slot, int *type, int *free, int *format) {
             return -100;
         }
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     mc_rpc_request_a[1] = port;
@@ -427,11 +427,11 @@ int sce_mc_get_info(int port, int slot, int *type, int *free, int *format) {
     mc_get_info_free_out = free;
     mc_get_info_format_out = format;
     sceSifWriteBackDCache(mc_rpc_end_data, 0xC0);
-    r = sif_call_rpc(mc_rpc_client, 1, 1, mc_rpc_request_a, 0x30, mc_rpc_reply, 4, mc_get_info_end, mc_rpc_end_data);
+    r = sif_call_rpc(mc_rpc_client, 1, 1, mc_rpc_request_a, 0x30, mc_rpc_result, 4, mc_get_info_end, mc_rpc_end_data);
     if (r == 0) {
-        mc_current_command = 1;
+        mc_current_func = 1;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -449,11 +449,11 @@ int sce_mc_get_dir(int port, int slot, char *name, int mode, int count, void *ta
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     if (name == 0 || *name == 0) {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
         return -210;
     }
     fp = mc_rpc_path_request;
@@ -467,11 +467,11 @@ int sce_mc_get_dir(int port, int slot, char *name, int mode, int count, void *ta
     if (count >= 0) {
         sceSifWriteBackDCache(table, count << 6);
     }
-    r = sif_call_rpc(cd, 0xD, 1, fp, 0x414, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 0xD, 1, fp, 0x414, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 0xD;
+        mc_current_func = 0xD;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -487,17 +487,17 @@ int sce_mc_format(int arg0, int arg1) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     buf = &mc_rpc_request;
     buf[1] = arg0;
     buf[2] = arg1;
-    r = sif_call_rpc(cd, 0x10, 1, buf, 0x30, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 0x10, 1, buf, 0x30, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 0x10;
+        mc_current_func = 0x10;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -519,11 +519,11 @@ int sce_mc_delete(int port, int slot, char *fname) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     if (fname == 0 || *fname == 0) {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
         return -210;
     }
     libc_strncpy(mc_rpc_path_request + 0x14, fname, 0x3FF);
@@ -532,11 +532,11 @@ int sce_mc_delete(int port, int slot, char *fname) {
     *(int *)(fp + 0x4) = slot;
     fp[0x413] = 0;
     *(int *)(fp + 0x8) = 0;
-    r = sif_call_rpc(cd, 0xF, 1, fp, 0x414, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 0xF, 1, fp, 0x414, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 0xF;
+        mc_current_func = 0xF;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -553,17 +553,17 @@ int sce_mc_unformat(int arg0, int arg1) {
     if (*(int *)(cd + 0x24) == 0) {
         return -100;
     }
-    if (poll_semaphore(mc_semaphore) < 0) {
+    if (poll_semaphore(mc_sema) < 0) {
         return -200;
     }
     buf = &mc_rpc_request;
     buf[1] = arg0;
     buf[2] = arg1;
-    r = sif_call_rpc(cd, 0x11, 1, buf, 0x30, mc_rpc_reply, 4, 0, 0);
+    r = sif_call_rpc(cd, 0x11, 1, buf, 0x30, mc_rpc_result, 4, 0, 0);
     if (r == 0) {
-        mc_current_command = 0x11;
+        mc_current_func = 0x11;
     } else {
-        signal_semaphore(mc_semaphore);
+        signal_semaphore(mc_sema);
     }
     return r;
 }
@@ -576,9 +576,9 @@ int sce_dbc_get_mod_version(void) {
     return RpcReceiveData;
 }
 
-extern char dbc_second_rpc_client[];
-extern char str_dbc_bind_failed[];
-extern char str_dbc_version_mismatch[];
+extern char dbc_transfer_rpc_client[];
+extern char dbc_rpc_bind_failure_message[];
+extern char dbc_module_version_mismatch_message[];
 extern char str_dbc_version_pair_fmt[];
 extern char str_dbc_sif_dma_addr_fmt[];
 extern int dbc_port_link_states[];
@@ -599,7 +599,7 @@ int sce_dbc_init(void) {
     sceSifInitRpc(0);
     for (;;) {
         if (sceSifBindRpc(RpcQueueData, 0x80000900, 0) < 0) {
-            debug_print_stub(str_dbc_bind_failed);
+            debug_print_stub(dbc_rpc_bind_failure_message);
             libc_exit(-1);
         }
         if (*(int *)(RpcQueueData + 0x24) != 0) {
@@ -610,11 +610,11 @@ int sce_dbc_init(void) {
         }
     }
     for (;;) {
-        if (sceSifBindRpc(dbc_second_rpc_client, 0x8000091B, 0) < 0) {
-            debug_print_stub(str_dbc_bind_failed);
+        if (sceSifBindRpc(dbc_transfer_rpc_client, 0x8000091B, 0) < 0) {
+            debug_print_stub(dbc_rpc_bind_failure_message);
             libc_exit(-1);
         }
-        if (*(int *)(dbc_second_rpc_client + 0x24) != 0) {
+        if (*(int *)(dbc_transfer_rpc_client + 0x24) != 0) {
             break;
         }
         i = 0x10000;
@@ -623,7 +623,7 @@ int sce_dbc_init(void) {
     }
     v = sce_dbc_get_mod_version();
     if (v >> 8 != 2) {
-        scePrintf(str_dbc_version_mismatch);
+        scePrintf(dbc_module_version_mismatch_message);
         scePrintf(str_dbc_version_pair_fmt, 2, 0, v >> 8, v & 0xFF);
         return 0;
     }
@@ -635,7 +635,7 @@ int sce_dbc_init(void) {
     return 1;
 }
 
-extern char str_dbc_set_work_addr_error[];
+extern char dbc_set_work_address_rpc_error_message[];
 
 /* Same RPC shape as sce_dbc_get_mod_version above (9 args: $4-$11 plus one stack
    slot), but with a different command id and an error path.
@@ -656,12 +656,12 @@ int sceDbcSetWorkAddr(int arg0) {
     if (sif_call_rpc(RpcQueueData, 0x80000904, 0, buf, 0x400, buf, 0x400, 0, 0) >= 0) {
         return RpcReceiveData;
     } else {
-        debug_print_stub(str_dbc_set_work_addr_error);
+        debug_print_stub(dbc_set_work_address_rpc_error_message);
         return 0;
     }
 }
 
-extern char str_dbc_create_socket_error[];
+extern char socket_create_rpc_error_message[];
 
 /* sceDbcCreateSocket (libdbc): copy the caller's socket record (five
    header words, then a 16-byte name) into the RPC buffer RpcReceiveData, set
@@ -692,7 +692,7 @@ int sceDbcCreateSocket(void *arg0, int arg1, int arg2) {
         namedst[i] = namesrc[i];
     }
     if (sif_call_rpc(RpcQueueData, 0x80000901, 0, &RpcReceiveData, 0x400, &RpcReceiveData, 0x400, 0, 0) < 0) {
-        debug_print_stub(str_dbc_create_socket_error);
+        debug_print_stub(socket_create_rpc_error_message);
         return 0;
     }
     return buf[9];
@@ -703,7 +703,7 @@ int sceDbcCreateSocket(void *arg0, int arg1, int arg2) {
    allocated. */
 extern int enable_interrupts_i(void) __asm__("func_0011D9A8");
 
-extern char str_dbc_get_dep_number_error[];
+extern char dbc_get_dep_number_rpc_error_message[];
 
 /*
  * sceDbcGetDepNumber(port) (libdbc): write back the 0x80-byte DMA buffer
@@ -730,7 +730,7 @@ int sceDbcGetDepNumber(int port) {
     buf = &RpcReceiveData;
     buf[0] = port;
     if (sif_call_rpc(RpcQueueData, 0x80000903, 0, &RpcReceiveData, 0x400, &RpcReceiveData, 0x400, 0, 0) < 0) {
-        debug_print_stub(str_dbc_get_dep_number_error);
+        debug_print_stub(dbc_get_dep_number_rpc_error_message);
         return 0;
     }
     return buf[1];
@@ -738,7 +738,7 @@ int sceDbcGetDepNumber(int port) {
 
 LINKER_REMNANT("asm/remnants/core_text", func_00124A68);
 
-extern char str_dbc_receive_data_error[];
+extern char dbc_receive_rpc_error_message[];
 
 /* RPC 0x8000091A round trip on RpcReceiveData (the buffer is both request
    and reply), copying the reply's bytes to arg3. `r` is assigned in both
@@ -754,7 +754,7 @@ int sceDbcReceiveData(int arg0, int arg1, int *arg2, char *arg3) {
     buf[1] = arg1;
     buf[2] = *arg2;
     if (sif_call_rpc(RpcQueueData, 0x8000091A, 0, buf, 0x400, buf, 0x400, 0, 0) < 0) {
-        debug_print_stub(str_dbc_receive_data_error);
+        debug_print_stub(dbc_receive_rpc_error_message);
         return 0;
     }
     r = buf[0x23];

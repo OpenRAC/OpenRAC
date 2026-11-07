@@ -15,16 +15,16 @@
 #include "asm_functions/level_12.h"
 #include "overlays/shared/moby_ground_collision.h"
 
-/* Blarg commander shot (Blarg Commander): thrown by the commander, falls with mine_fall and bursts. */
+/* Blarg commander shot (Blarg Commander): thrown by the commander, falls with step_moby_motion and bursts. */
 struct CommanderShotVars {
     u8 pad_00[0x10];
     s32 mine_ptr; /* 0x10: address of mine_state */
     u8 pad_14[0xC];
-    u8 mine_state[0x10]; /* 0x20: mine_fall state */
+    u8 mine_state[0x10]; /* 0x20: step_moby_motion state */
 };
 
-extern int *hoven_dma_packet_cursor MACRO_ADDR;
-extern char hoven_effect_list_setup_packet[];
+extern int *l12_render_packet_cursor MACRO_ADDR;
+extern char textured_effect_gs_state_packet[];
 
 /* draw a list of effect entries into the scratchpad */
 void draw_textured_effect_list(void *list_, int count, int tex0, int tex1) {
@@ -34,11 +34,11 @@ void draw_textured_effect_list(void *list_, int count, int tex0, int tex1) {
     int idx;
     VU1_addGSregister(6, tex0);
     VU1_addGSregister(7, tex1);
-    hoven_dma_packet_cursor[0] = 0x30000009;
-    hoven_dma_packet_cursor[1] = (int)hoven_effect_list_setup_packet;
-    hoven_dma_packet_cursor[2] = 0;
-    hoven_dma_packet_cursor[3] = 0x50000009;
-    hoven_dma_packet_cursor += 4;
+    l12_render_packet_cursor[0] = 0x30000009;
+    l12_render_packet_cursor[1] = (int)textured_effect_gs_state_packet;
+    l12_render_packet_cursor[2] = 0;
+    l12_render_packet_cursor[3] = 0x50000009;
+    l12_render_packet_cursor += 4;
     font_queue_vu_state();
     sp = (int *)0x70000000;
     for (i = 0xB3; i >= 0; i--) {
@@ -67,7 +67,7 @@ typedef struct {
 extern int hoven_cinematic_mode MACRO_ADDR;
 extern unsigned char gCheats[] MACRO_ADDR;
 extern Level12MobyList hoven_cutscene_state;
-extern unsigned char hoven_big_head_cheat_manipulator[];
+extern unsigned char l12_npc_big_head_manipulator[];
 
 /* Re-arms the matching entry of the moby list when the level mode is 2
    (attach_big_head_cheat_manipulator_to_matching_moby with argument 1). */
@@ -77,7 +77,7 @@ void apply_npc_big_head_cheat(char *moby) {
         for (i = 0; i < hoven_cutscene_state.count; i++) {
             Moby *e = (Moby *)hoven_cutscene_state.mobys[i];
             if (e->oclass == ((Moby *)moby)->oclass) {
-                unsigned char *s = hoven_big_head_cheat_manipulator;
+                unsigned char *s = l12_npc_big_head_manipulator;
                 if (s[1] == 0) {
                     AttachManipulator((char *)e, 1, s);
                     *(float *)(s + 0x20) = 2.75f;
@@ -90,11 +90,11 @@ void apply_npc_big_head_cheat(char *moby) {
 }
 
 extern void draw_textured_effect_list(void *, int, int, int);
-extern char hoven_textured_effect_entries[];
+extern char level_12_effect_entries[];
 
 /* calls draw_textured_effect_list with two looked-up ids */
 void draw_level_12_effects(void) {
-    draw_textured_effect_list(hoven_textured_effect_entries, 0x2F, GetEffectTex(0x2C), GetEffectTex(0x2D));
+    draw_textured_effect_list(level_12_effect_entries, 0x2F, GetEffectTex(0x2C), GetEffectTex(0x2D));
 }
 typedef int u128_8670 __attribute__((mode(TI)));
 
@@ -166,14 +166,14 @@ void start_blarg_commander_knockback(void *unused, struct Moby *m) {
     g = g_frame_time_sq;
     d->rise = g * 40.0f;
     d->fall = g * 100.0f;
-    t1 = vec_length(d->rise * 4.0f);
-    t2 = vec_length(g_frame_time_sq * 40.0f * 4.0f);
+    t1 = square_root(d->rise * 4.0f);
+    t2 = square_root(g_frame_time_sq * 40.0f * 4.0f);
     a = g_frame_time_sq * 40.0f;
     d->launch_speed = 3.0f / ((t1 + t1) / a) + g_frame_time_sq * 100.0f * 0.5f * ((t2 + t2) / a);
-    d->unk3C = vec_length(a * 4.0f);
+    d->unk3C = square_root(a * 4.0f);
     d->unk5D = 0;
     d->unk44 = 1;
-    HeadingFromVector(dir, &ang, &d->launch_speed, &d->unk3C);
+    trooper_knockback_arc(dir, &ang, &d->launch_speed, &d->unk3C);
     InitKnockback_v(ang, m, &d->arc, 1, 5, 2);
     d->unk6C = g_frame_time + g_frame_time;
     d->unk70 = -1.0f;
@@ -193,7 +193,7 @@ void blarg_commander_update(char *m) {
     d = (struct CommanderShotVars *)((Moby *)m)->pvars;
     if (st == 1) {
         p = (char *)d->mine_state;
-        r = mine_fall(m, p);
+        r = step_moby_motion(m, p);
         ((Moby *)m)->rot.x = FastAddRots(((Moby *)m)->rot.x, g_frame_time * 4.3633232f);
         ((Moby *)m)->rot.y = FastAddRots(((Moby *)m)->rot.y, g_frame_time * 4.3633232f);
         ((Moby *)m)->flags &= 0xEFFF;

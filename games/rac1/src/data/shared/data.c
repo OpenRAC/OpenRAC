@@ -165,7 +165,7 @@ extern void map_filter_l11_3();
 extern void map_filter_l11_4();
 extern void map_filter_l11_5();
 extern void map_filter_l12_0();
-extern void MenuL12_IsAlwaysActive1();
+extern void map_filter_l12_1();
 extern void map_filter_l12_2();
 extern void map_filter_l15_0();
 extern void map_filter_l16_0();
@@ -197,7 +197,7 @@ extern u32 D_001CFE68[];
 extern void enter_menu_stream_image();
 extern void leave_menu_stream_image();
 extern void advance_audio_stream_state();
-extern void draw_two_texture_panels();
+extern void draw_menu_stream_image();
 extern u32 D_001D09A8[];
 extern u32 D_001D0D18[];
 extern u32 D_001D0F20[];
@@ -911,7 +911,7 @@ u32 D_001303E8[] DATA_SECTION(D_001303E8) = {
 #include "data_inc/D_001303E8.inc"
 };
 
-int cd_debug_level DATA_SECTION(D_001313D0) = {0};
+int D_001313D0 DATA_SECTION(D_001313D0) = {0};
 
 int cd_ncmd_sema DATA_SECTION(D_001313E8) = {
 #include "data_inc/D_001313E8.inc"
@@ -921,17 +921,17 @@ int cd_scmd_sema DATA_SECTION(D_001313EC) = {
 #include "data_inc/D_001313EC.inc"
 };
 
-int cd_ncmd_busy DATA_SECTION(D_001313F0) = {0};
+int D_001313F0 DATA_SECTION(D_001313F0) = {0};
 
 int cd_read_mode_flags DATA_SECTION(D_001313F4) = {0};
 
 int cd_callback_num DATA_SECTION(D_00131414) = {0};
 
-u32 cd_ncmd_rpc_client[12] DATA_SECTION(D_00132590) = {0};
+u32 D_00132590[12] DATA_SECTION(D_00132590) = {0};
 
-int cd_scmd_recv_buffer[272] DATA_SECTION(D_001325C0) = {0};
+int D_001325C0[272] DATA_SECTION(D_001325C0) = {0};
 
-u32 cd_scmd_rpc_client[] DATA_SECTION(D_00132E08) = {
+u32 D_00132E08[] DATA_SECTION(D_00132E08) = {
 #include "data_inc/D_00132E08.inc"
 };
 
@@ -947,7 +947,7 @@ u8 g_controller_state[256] DATA_SECTION(D_0013CA40) = {0};
 
 u8 g_controller_state_analog[160] DATA_SECTION(D_0013CB40) = {0};
 
-u8 pad_held[16] DATA_SECTION(D_0013CBE0) = {0};
+u8 D_0013CBE0[16] DATA_SECTION(D_0013CBE0) = {0};
 
 u8 D_0013CBF0[416] DATA_SECTION(D_0013CBF0) = {0};
 
@@ -995,7 +995,7 @@ u8 menu_item_enabled_17 DATA_SECTION(D_0013D4AD) = 0;
 
 u8 menu_item_enabled_18 DATA_SECTION(D_0013D4AE) = 0;
 
-u8 menu_item_enabled_19 DATA_SECTION(D_0013D4AF) = 0;
+u8 D_0013D4AF DATA_SECTION(D_0013D4AF) = 0;
 
 u32 menu_item_enabled_20[4] DATA_SECTION(D_0013D4B0) = {0};
 
@@ -1019,7 +1019,7 @@ u8 menu_item_enabled_75 DATA_SECTION(D_0013D4E7) = 0;
 
 u32 menu_item_enabled_76[4] DATA_SECTION(D_0013D4E8) = {0};
 
-u8 menu_item_enabled_92[23] DATA_SECTION(D_0013D4F8) = {0};
+u8 D_0013D4F8[23] DATA_SECTION(D_0013D4F8) = {0};
 
 u8 menu_item_enabled_115 DATA_SECTION(D_0013D50F) = 0;
 
@@ -1045,13 +1045,13 @@ u8 D_0013DE78[152] DATA_SECTION(D_0013DE78) = {0};
 
 u8 D_0013DF10[152] DATA_SECTION(D_0013DF10) = {0};
 
-u8 weapon_ammo_used[152] DATA_SECTION(D_0013DFA8) = {0};
+u8 D_0013DFA8[152] DATA_SECTION(D_0013DFA8) = {0};
 
 u8 level_bolts[80] DATA_SECTION(D_0013E040) = {0};
 
 u8 level_hero_hit_counts[80] DATA_SECTION(D_0013E090) = {0};
 
-u8 level_hero_death_counts[80] DATA_SECTION(D_0013E0E0) = {0};
+u8 D_0013E0E0[80] DATA_SECTION(D_0013E0E0) = {0};
 
 u8 D_0013E550[176] DATA_SECTION(D_0013E550) = {0};
 
@@ -1061,7 +1061,7 @@ u32 gold_weapon_purchased[12] DATA_SECTION(D_0013E620) = {0};
 
 u8 voice_pool[80] DATA_SECTION(D_0013E650) = {0};
 
-u8 pause_sound_volume[32] DATA_SECTION(D_0013E6A0) = {0};
+u8 D_0013E6A0[32] DATA_SECTION(D_0013E6A0) = {0};
 
 u8 D_0013E6C0[16] DATA_SECTION(D_0013E6C0) = {0};
 
@@ -1077,11 +1077,11 @@ u8 D_0013F3D0[128] DATA_SECTION(D_0013F3D0) = {0};
 
 u8 g_hero[128] DATA_SECTION(D_0013F450) = {0};
 
-u8 gHeroPos[8] DATA_SECTION(D_0013F4D0) = {0};
+u8 D_0013F4D0[8] DATA_SECTION(D_0013F4D0) = {0};
 
 u8 g_hero_pos_z[8] DATA_SECTION(D_0013F4D8) = {0};
 
-u8 g_hero_rot[64] DATA_SECTION(D_0013F4E0) = {0};
+u8 D_0013F4E0[64] DATA_SECTION(D_0013F4E0) = {0};
 
 u8 g_hero_body_center[16] DATA_SECTION(D_0013F520) = {0};
 
@@ -1089,7 +1089,7 @@ u8 hero_velocity[16] DATA_SECTION(D_0013F530) = {0};
 
 u8 D_0013F540[16] DATA_SECTION(D_0013F540) = {0};
 
-u8 hero_displacement[16] DATA_SECTION(D_0013F550) = {0};
+u8 D_0013F550[16] DATA_SECTION(D_0013F550) = {0};
 
 u8 D_0013F560[32] DATA_SECTION(D_0013F560) = {0};
 
@@ -1121,7 +1121,7 @@ u8 D_0013FA30[96] DATA_SECTION(D_0013FA30) = {0};
 
 u8 hero_basis[32] DATA_SECTION(D_0013FA90) = {0};
 
-u8 hero_basis_2[704] DATA_SECTION(D_0013FAB0) = {0};
+u8 D_0013FAB0[704] DATA_SECTION(D_0013FAB0) = {0};
 
 u8 D_0013FD70[224] DATA_SECTION(D_0013FD70) = {0};
 
@@ -1141,11 +1141,11 @@ u8 g_hero_item_slot0_moby[24] DATA_SECTION(D_001404E0) = {0};
 
 u8 D_001404F8[16] DATA_SECTION(D_001404F8) = {0};
 
-u8 g_hero_items_2_item_id[1256] DATA_SECTION(D_001405A8) = {0};
+u8 D_001405A8[1256] DATA_SECTION(D_001405A8) = {0};
 
 u8 D_00140A90[368] DATA_SECTION(D_00140A90) = {0};
 
-u8 g_hero_transform_history[1360] DATA_SECTION(D_00140C00) = {0};
+u8 D_00140C00[1360] DATA_SECTION(D_00140C00) = {0};
 
 u8 D_00141170[16] DATA_SECTION(D_00141170) = {0};
 
@@ -1221,7 +1221,7 @@ u8 D_00141B88[48] DATA_SECTION(D_00141B88) = {0};
 
 u8 D_00141BB8[80] DATA_SECTION(D_00141BB8) = {0};
 
-u8 help_records_52_count[80] DATA_SECTION(D_00141C08) = {0};
+u8 D_00141C08[80] DATA_SECTION(D_00141C08) = {0};
 
 u8 D_00141C58[128] DATA_SECTION(D_00141C58) = {0};
 
@@ -1247,11 +1247,11 @@ u8 D_00141FB0[8] DATA_SECTION(D_00141FB0) = {0};
 
 u8 D_00141FB8[8] DATA_SECTION(D_00141FB8) = {0};
 
-u8 level_map_coverage[40960] DATA_SECTION(D_00141FC0) = {0};
+u8 D_00141FC0[40960] DATA_SECTION(D_00141FC0) = {0};
 
 u8 gold_bolts_collected[72] DATA_SECTION(D_0014BFC0) = {0};
 
-u8 metal_detector_dig_counts[64] DATA_SECTION(D_0014C010) = {0};
+u8 D_0014C010[64] DATA_SECTION(D_0014C010) = {0};
 
 u8 D_0014C050[256] DATA_SECTION(D_0014C050) = {0};
 
@@ -1259,11 +1259,11 @@ u8 saved_mission_state[64] DATA_SECTION(D_0014C150) = {0};
 
 u8 D_0014C190[256] DATA_SECTION(D_0014C190) = {0};
 
-u8 level_moby_killed[5120] DATA_SECTION(D_0014C290) = {0};
+u8 D_0014C290[5120] DATA_SECTION(D_0014C290) = {0};
 
-u8 bolt_source_stats[5120] DATA_SECTION(D_0014D690) = {0};
+u8 D_0014D690[5120] DATA_SECTION(D_0014D690) = {0};
 
-u8 level_mission_death_counts[1024] DATA_SECTION(D_0014EA90) = {0};
+u8 D_0014EA90[1024] DATA_SECTION(D_0014EA90) = {0};
 
 u8 D_0014EE90[256] DATA_SECTION(D_0014EE90) = {0};
 
@@ -1271,7 +1271,7 @@ u8 mission_death_counts[64] DATA_SECTION(D_0014EF90) = {0};
 
 u8 cd_read_active[24] DATA_SECTION(D_001517D8) = {0};
 
-u8 stream_read_mode_template[8] DATA_SECTION(D_00151800) = {0};
+u8 D_00151800[8] DATA_SECTION(D_00151800) = {0};
 
 u8 D_00151808[24] DATA_SECTION(D_00151808) = {0};
 
@@ -1283,7 +1283,7 @@ u32 D_00152300[] DATA_SECTION(D_00152300) = {
 #include "data_inc/D_00152300.inc"
 };
 
-u8 dtoa_nan_string[] DATA_SECTION(D_00152420) = {
+u8 D_00152420[] DATA_SECTION(D_00152420) = {
 #include "data_inc/D_00152420.inc"
 };
 
@@ -1369,7 +1369,7 @@ u32 D_001537D8[] DATA_SECTION(D_001537D8) = {
 #include "data_inc/D_001537D8.inc"
 };
 
-u32 str_mpeg_intra_skip_mb[] DATA_SECTION(D_00153870) = {
+u32 D_00153870[] DATA_SECTION(D_00153870) = {
 #include "data_inc/D_00153870.inc"
 };
 
@@ -1451,7 +1451,7 @@ u32 gBolts[2] DATA_SECTION(D_0015EE98) = {0};
 
 u32 gCheats[4] DATA_SECTION(D_0015EEB0) = {0};
 
-u32 invert52 DATA_SECTION(D_0015EEDC) =
+u32 D_0015EEDC DATA_SECTION(D_0015EEDC) =
 #include "data_inc/D_0015EEDC.inc"
     ;
 
@@ -1615,7 +1615,7 @@ float fog_near_intensity DATA_SECTION(D_0015F590) = {0};
 
 float fog_far_intensity DATA_SECTION(D_0015F594) = {0};
 
-int GlobalStateFlag DATA_SECTION(D_0015F59C) = {0};
+int D_0015F59C DATA_SECTION(D_0015F59C) = {0};
 
 s32 font_window_active[] DATA_SECTION(D_0015F5A0) = {
 #include "data_inc/D_0015F5A0.inc"
@@ -1741,7 +1741,7 @@ char str_default[] DATA_SECTION(D_00160370) =
 
 u32 str_empty_menu_label[2] DATA_SECTION(D_00160378) = {0};
 
-char str_error_text[] DATA_SECTION(D_001603E8) =
+char D_001603E8[] DATA_SECTION(D_001603E8) =
 #include "data_inc/D_001603E8.inc"
     ;
 
@@ -1791,7 +1791,7 @@ short resident_effect_quad_counts[] DATA_SECTION(D_001605C0) = {
 #include "data_inc/D_001605C0.inc"
 };
 
-u32 view_depth_constants[] DATA_SECTION(D_00160820) = {
+u32 D_00160820[] DATA_SECTION(D_00160820) = {
 #include "data_inc/D_00160820.inc"
 };
 
@@ -1861,7 +1861,7 @@ u32 D_00161078[] DATA_SECTION(D_00161078) = {
 #include "data_inc/D_00161078.inc"
 };
 
-int surface_height_tiles DATA_SECTION(D_00161290) = {0};
+int D_00161290 DATA_SECTION(D_00161290) = {0};
 
 int occl_cell_count DATA_SECTION(D_00161298) = {0};
 
@@ -1877,7 +1877,7 @@ u32 D_001612EC DATA_SECTION(D_001612EC) = 0;
 
 u32 D_001612F0[2] DATA_SECTION(D_001612F0) = {0};
 
-u32 decoder_state DATA_SECTION(D_0016130C) = 0;
+u32 D_0016130C DATA_SECTION(D_0016130C) = 0;
 
 u32 D_00165E00[] DATA_SECTION(D_00165E00) = {
 #include "data_inc/D_00165E00.inc"
@@ -1959,7 +1959,7 @@ u32 D_0019ACC0[128] DATA_SECTION(D_0019ACC0) = {0};
 
 u32 dir_lights[228] DATA_SECTION(D_0019BEC0) = {0};
 
-u32 point_lights[128] DATA_SECTION(D_0019C2C0) = {0};
+u32 D_0019C2C0[128] DATA_SECTION(D_0019C2C0) = {0};
 
 u32 point_light_data[2144] DATA_SECTION(D_0019C4C0) = {0};
 
@@ -2035,7 +2035,7 @@ void *D_001A0000[] DATA_SECTION(D_001A0000) = {
     0,
     0,
     map_filter_l12_0,
-    MenuL12_IsAlwaysActive1,
+    map_filter_l12_1,
     map_filter_l12_2,
     0,
     0,
@@ -2267,7 +2267,7 @@ u32 D_001B3180[32] DATA_SECTION(D_001B3180) = {0};
 
 u32 moby_class_resources[224] DATA_SECTION(D_001B3580) = {0};
 
-int resident_moby_class_data[224] DATA_SECTION(D_001B3900) = {0};
+int D_001B3900[224] DATA_SECTION(D_001B3900) = {0};
 
 u32 resident_class_slot_by_id[1744] DATA_SECTION(D_001B3E40) = {0};
 
@@ -2287,7 +2287,7 @@ u32 D_001C8480[256] DATA_SECTION(D_001C8480) = {0};
 
 u32 D_001C8880[96] DATA_SECTION(D_001C8880) = {0};
 
-float shadow_light_dir[16] DATA_SECTION(D_001CAE00) = {0};
+float D_001CAE00[16] DATA_SECTION(D_001CAE00) = {0};
 
 u32 resident_indexed_textures[1024] DATA_SECTION(D_001CAE40) = {0};
 
@@ -2872,7 +2872,7 @@ u32 D_001D0808[] DATA_SECTION(D_001D0808) = {
 
 void *D_001D0860[] DATA_SECTION(D_001D0860) = {
     advance_audio_stream_state,
-    draw_two_texture_panels,
+    draw_menu_stream_image,
     enter_menu_stream_image,
     leave_menu_stream_image,
     0,
@@ -2913,7 +2913,7 @@ u32 D_001D09A8[] DATA_SECTION(D_001D09A8) = {
 #include "data_inc/D_001D09A8.inc"
 };
 
-u32 heli_pack_menu_table[] DATA_SECTION(D_001D0A50) = {
+u32 D_001D0A50[] DATA_SECTION(D_001D0A50) = {
 #include "data_inc/D_001D0A50.inc"
 };
 
@@ -3330,7 +3330,7 @@ u32 D_001D2610[] DATA_SECTION(D_001D2610) = {
 };
 
 #include "data_inc/D_001D2678.refs"
-u32 pause_default_action_list[] DATA_SECTION(D_001D2678) = {
+u32 D_001D2678[] DATA_SECTION(D_001D2678) = {
 #include "data_inc/D_001D2678.inc"
 };
 
@@ -3983,7 +3983,7 @@ u32 shrub_render_classes[64] DATA_SECTION(D_001D82C0) = {0};
 
 u8 shrub_render_class_slot_by_id[1024] DATA_SECTION(D_001D8440) = {0};
 
-s32 shrub_render_texture_addrs[256] DATA_SECTION(D_001D8840) = {0};
+s32 D_001D8840[256] DATA_SECTION(D_001D8840) = {0};
 
 u32 shrub_scratchpad_copy[256] DATA_SECTION(D_001D9240) = {0};
 
@@ -4189,7 +4189,7 @@ u32 object_render_classes[128] DATA_SECTION(D_001E1A00) = {0};
 
 u8 object_render_class_slot_by_id[3072] DATA_SECTION(D_001E1D00) = {0};
 
-s32 object_render_texture_addrs[256] DATA_SECTION(D_001E2900) = {0};
+s32 D_001E2900[256] DATA_SECTION(D_001E2900) = {0};
 
 u32 tie_light_data[256] DATA_SECTION(D_001E3500) = {0};
 

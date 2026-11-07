@@ -58,7 +58,7 @@ int draw_hud_progress_and_rank(char *e) {
     }
     draw_stretchable_ui_frame(px - 0x18, py, *(int *)&(rilgar_counter_frame_width), 0x20, 0x60);
     w = GetIconFrame(0x7558, 2);
-    HudSprite(w, px, py, 0x20, 0x20, 0x80);
+    draw_hud_sprite(w, px, py, 0x20, 0x20, 0x80);
     print_text_with_texture_3_v(px + 0x29, py + 8, 0x80000000L, buf + 0x40, -1);
     h2 = (char *)&g_hero;
     if (*(unsigned char *)(h2 + 0x8CE) != 0)

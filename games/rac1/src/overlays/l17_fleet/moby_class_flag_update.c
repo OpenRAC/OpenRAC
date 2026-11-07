@@ -25,12 +25,12 @@ typedef struct {
 } Level17Moby;
 
 extern Level17Moby *fleet_mobys MACRO_ADDR;
-extern Level17Moby *fleet_last_moby MACRO_ADDR;
+extern Level17Moby *l17_moby_array_last MACRO_ADDR;
 
 /* Apply three optional state changes to live mobys of one class. */
-void update_moby_class_flags_and_link(int class_id, int flag2, int flag1, int link_mode) {
+void set_class_mobys_flags_and_collision(int class_id, int flag2, int flag1, int link_mode) {
     Level17Moby *moby;
-    for (moby = fleet_mobys; moby <= fleet_last_moby; moby++) {
+    for (moby = fleet_mobys; moby <= l17_moby_array_last; moby++) {
         if (moby->class_id == class_id && moby->state >= 0) {
             if (flag2 != -1) {
                 if (flag2 != 0)

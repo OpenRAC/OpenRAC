@@ -26,7 +26,7 @@ VERSION = "22.1"
 # include/names.h and include/names/ are generated, src/libgcc is verbatim GCC source, and these stay as upstream wrote them.
 SKIP = ("include/names.h", "include/names/", "src/libgcc/")
 STRING = re.compile(r'"(?:\\.|[^"\\\n])*"')
-MARKER = re.compile(r"^([ \t]+)(INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT)\s*\(", re.M)
+MARKER = re.compile(r"^([ \t]+)(INCLUDE_ASM|ASM_FUNC|LINKER_REMNANT|PREBUILT_ASM)\s*\(", re.M)
 # A prototype without extern, wrapped: its first line looks like a function definition.
 WRAPPED_PROTO = re.compile(r"^(?!extern\b|typedef\b|#|__asm__|struct\b[^(]*\{)[A-Za-z_][^;{}()\n=]*\([^;{}]*?\n[^;{}]*?\)[^;{}\n]*;", re.M)
 # An old-style definition joined on one line. Keep these in /* clang-format off */.

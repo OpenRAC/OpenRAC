@@ -18,7 +18,7 @@ extern void VU1_swapChain(void);
 extern void VU1_syncChain(int);
 extern void VU1_texFlush(void);
 extern void append_dma_tag(int);
-extern void calculate_dma_transfer_address(void);
+extern void func_002348B8(void);
 extern void vu1_add_vif_code(int);
 extern void vu1_gs_regs_alt(void);
 extern void vu1_gs_regs_font(void);

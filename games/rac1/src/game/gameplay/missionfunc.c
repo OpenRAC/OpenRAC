@@ -15,12 +15,12 @@
 extern int level_map_selection[];
 
 extern int check_mission_condition(short type, int arg);
-extern char *planet_mission_lists[];
+extern char *mission_lists_by_level[];
 extern unsigned char level_visit_state[];
 extern char mission_list_state[];
 
 /* Per-frame objective update over the 0x28-byte node list of the current
-   pad slot (planet_mission_lists[level_map_selection[0x89]], kept at mission_list_state+0x10):
+   pad slot (mission_lists_by_level[level_map_selection[0x89]], kept at mission_list_state+0x10):
    status +0x24 = 0 when a gated node (+0x10 & 4) has its level_visit_state byte
    clear or its first condition (check_mission_condition) fails, else 2 or 1 by the
    second condition; then each +0x1C callback's result goes to +0x26; then
@@ -33,7 +33,7 @@ int update_mission_list(void) {
 
     {
         char *p = mission_list_state;
-        *(char **)(p + 0x10) = planet_mission_lists[level_map_selection[0x89]];
+        *(char **)(p + 0x10) = mission_lists_by_level[level_map_selection[0x89]];
         if (*(char **)(p + 0x10) == 0) {
             return 0;
         }
@@ -198,11 +198,11 @@ int MissionCond_Obj2FAndSpecials(void) {
 }
 
 extern unsigned char gHaveHeliPack NOT_SDA;
-extern int race_gates NOT_SDA;
+extern int level_object_states NOT_SDA;
 
-/* Predicate: true when both mission words at race_gates are non-zero. */
+/* Predicate: true when both mission words at level_object_states are non-zero. */
 int MissionCond_Obj3FAnd40(void) {
-    char *base = (char *)&race_gates;
+    char *base = (char *)&level_object_states;
     if (*(int *)(base + 0x40C) != 0 && *(int *)(base + 0x3FC) != 0)
         return 1;
     return 0;
@@ -346,41 +346,41 @@ struct TextRegion {
 };
 /* One entry of a level's map icon list; the list ends at the first entry with flags bit 4. */
 struct MapIcon {
-    s16 id;             /* 0x00: moby index (current level) or race_gates index; -1..-9 are fixed positions */
-    s16 link;           /* 0x02: -1 always active, else the link's active word decides */
-    u16 flags;          /* 0x04: 0x4 ends the list, 0x10 label shown */
-    u16 texture_id;     /* 0x06 */
-    s16 frame_index;    /* 0x08 */
-    s16 label_text_id;  /* 0x0A: 0 = no label */
-    s16 label_item;     /* 0x0C */
-    u16 label_width;    /* 0x0E */
-    u16 label_height;   /* 0x10 */
+    s16 id; /* 0x00: moby index (current level) or level_object_states index; -1..-9 are fixed positions */
+    s16 link; /* 0x02: -1 always active, else the link's active word decides */
+    u16 flags; /* 0x04: 0x4 ends the list, 0x10 label shown */
+    u16 texture_id; /* 0x06 */
+    s16 frame_index; /* 0x08 */
+    s16 label_text_id; /* 0x0A: 0 = no label */
+    s16 label_item; /* 0x0C */
+    u16 label_width; /* 0x0E */
+    u16 label_height; /* 0x10 */
     s16 label_offset_x; /* 0x12 */
     s16 label_offset_y; /* 0x14 */
     u8 pad16[0x2];
-    f32 x;              /* 0x18: map position 0..1 */
-    f32 y;              /* 0x1C */
-    f32 angle;          /* 0x20 */
-    s32 active;         /* 0x24 */
+    f32 x; /* 0x18: map position 0..1 */
+    f32 y; /* 0x1C */
+    f32 angle; /* 0x20 */
+    s32 active; /* 0x24 */
 };
 /* Map screen state at level_map_selection, as far as this function reads it. */
 struct MapState {
     u8 pad0[0x20];
     struct MapIcon *icons; /* 0x020: icon list of the shown level */
     u8 pad24[0xE0];
-    s32 pan_x[20];               /* 0x104 */
-    s32 pan_y[20];               /* 0x154 */
+    s32 pan_x[20]; /* 0x104 */
+    s32 pan_y[20]; /* 0x154 */
 };
 extern struct MapState level_map_selection_r __asm__("D_001A01F0");
-extern struct Hero D_0013F450;
-extern s32 D_0015EE84 MACRO_ADDR;
+extern struct Hero g_hero;
+extern s32 g_current_level_index MACRO_ADDR;
 extern u8 level_visit_state_r[] __asm__("D_0013DE60");
-extern struct MapIcon *D_001A2F40[];
+extern struct MapIcon *map_icon_lists[];
 extern s32 D_001A02F4_0CDE0[] __asm__("D_001A02F4");
-extern s32 D_0015FE20 MACRO_ADDR;
-extern MapWorldObject *D_00199578[];
+extern s32 map_use_alt_level_layout MACRO_ADDR;
+extern MapWorldObject *menu_action_messages[];
 extern MapPoint race_gates_r2[] __asm__("D_0013D6B8");
-extern s32 D_0013D6C4[];
+extern s32 map_icon_flags_table[];
 extern struct {
     u8 pad0[0x10];
     MapIconLink *links;

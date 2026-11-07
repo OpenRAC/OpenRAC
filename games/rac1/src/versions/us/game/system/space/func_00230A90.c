@@ -77,7 +77,7 @@ void update_resident_gameplay_state(void) {
                 if (resident_data_001517D0.unk5A != 6 && resident_data_001517D0.unk5A != 7) {
                     resident_data_001517D0.unk5A = 5;
                 }
-                calculate_dma_transfer_address();
+                select_level_vu_chain();
                 resident_data_0018CEB0[0] = 0.63f;
                 UpdateViewContext();
                 /* Retail releases the attachment once per sequence object, even when that object is null. */
@@ -127,8 +127,8 @@ void update_resident_gameplay_state(void) {
             resident_data_0018CEB0[0] = keyframe_angles[3];
             UpdateViewContext();
             qcopy(&resident_data_00187040.position, &keyframe->position);
-            matrix_mul_vec3(&resident_data_00187040.position, &resident_data_00187040.position,
-                            resident_data_0013E130.player->transform);
+            transform_vector_by_basis(&resident_data_00187040.position, &resident_data_00187040.position,
+                                      resident_data_0013E130.player->transform);
             FastVecAdd(&resident_data_00187040.position, &resident_data_00187040.position,
                        &resident_data_0013E130.player->position);
             segment_angle = FastAddRots(keyframe_angles[2], resident_data_0013E130.player->rotation.components[2]);
@@ -164,7 +164,8 @@ void update_resident_gameplay_state(void) {
                              1.0f - object->blend);
                 FastVecScale(&scratch_vectors[1], animation_positions + object->next_frame * 16, object->blend);
                 FastVecAdd(&object->position, &scratch_vectors[0], &scratch_vectors[1]);
-                matrix_mul_vec3(&object->position, &object->position, resident_data_0013E130.player->transform);
+                transform_vector_by_basis(&object->position, &object->position,
+                                          resident_data_0013E130.player->transform);
                 FastVecAdd(&object->position, &object->position, &resident_data_0013E130.player->position);
                 object->rotation.components[2] = resident_data_0013E130.player->rotation.components[2];
                 object->cached_selector = 0xFF;
@@ -376,8 +377,8 @@ void update_resident_gameplay_state(void) {
                                 path->p[path_point_index + 1].components[0] - path->p[path_point_index].components[0],
                                 path->p[path_point_index + 1].components[1] - path->p[path_point_index].components[1]),
                             segment_angle);
-                        if (maximum_turn < FastAbsF(path->p[path_point_index].components[3])) {
-                            maximum_turn = FastAbsF(path->p[path_point_index].components[3]);
+                        if (maximum_turn < absolute_float(path->p[path_point_index].components[3])) {
+                            maximum_turn = absolute_float(path->p[path_point_index].components[3]);
                         }
                     }
                     segment_angle = fast_arc_tan(
@@ -391,7 +392,7 @@ void update_resident_gameplay_state(void) {
                     for (point_index = 0; point_index < path->point_count; point_index++) {
                         path->p[point_index].components[3] *= turn_scale;
                     }
-                    resident_data_0013E130.path_segment_length = FastVecDist(&path->p[0], &path->p[1]);
+                    resident_data_0013E130.path_segment_length = fast_vec_dist(&path->p[0], &path->p[1]);
                     resident_data_0013E130.path_progress = 0.0f;
                     resident_data_0013E130.speed = 0.0f;
                     resident_data_0013E130.trail = 0;
@@ -498,16 +499,16 @@ void update_resident_gameplay_state(void) {
                         if (resident_data_0013E130.history_count < 0x20) {
                             resident_data_0013E130.history_count++;
                         }
-                        matrix_mul_vec3(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
-                                        &resident_data_001D9D40[resident_data_0013E130.content_variant].a,
-                                        resident_data_0013E130.player->transform);
+                        transform_vector_by_basis(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
+                                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].a,
+                                                  resident_data_0013E130.player->transform);
                         FastVecAdd(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
                                    &resident_data_0013E130.trailA[resident_data_0013E130.trail],
                                    &resident_data_0013E130.player->position);
                         resident_data_0013E130.trailA[resident_data_0013E130.trail].components[3] = 1.0f;
-                        matrix_mul_vec3(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
-                                        &resident_data_001D9D40[resident_data_0013E130.content_variant].b,
-                                        resident_data_0013E130.player->transform);
+                        transform_vector_by_basis(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
+                                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].b,
+                                                  resident_data_0013E130.player->transform);
                         FastVecAdd(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
                                    &resident_data_0013E130.trailB[resident_data_0013E130.trail],
                                    &resident_data_0013E130.player->position);
@@ -525,8 +526,9 @@ void update_resident_gameplay_state(void) {
                     ResidentRenderObject *p = resident_data_0013E130.player;
                     ResidentRenderObject *scratch_vectors = resident_data_0013E130.companion_a;
                     qcopy(&scratch_vectors->rotation, &p->rotation);
-                    matrix_mul_vec3(&scratch_vectors->position,
-                                    &resident_data_001DA010[resident_data_0013E130.content_variant], p->transform);
+                    transform_vector_by_basis(&scratch_vectors->position,
+                                              &resident_data_001DA010[resident_data_0013E130.content_variant],
+                                              p->transform);
                 }
                 FastVecAdd(&resident_data_0013E130.companion_a->position, &resident_data_0013E130.companion_a->position,
                            &resident_data_0013E130.player->position);
@@ -535,8 +537,9 @@ void update_resident_gameplay_state(void) {
                     ResidentRenderObject *scratch_vectors = resident_data_0013E130.companion_b;
                     ResidentRenderObject *p = resident_data_0013E130.player;
                     qcopy(&scratch_vectors->rotation, &p->rotation);
-                    matrix_mul_vec3(&scratch_vectors->position,
-                                    &resident_data_001DA040[resident_data_0013E130.content_variant], p->transform);
+                    transform_vector_by_basis(&scratch_vectors->position,
+                                              &resident_data_001DA040[resident_data_0013E130.content_variant],
+                                              p->transform);
                 }
                 FastVecAdd(&resident_data_0013E130.companion_b->position, &resident_data_0013E130.companion_b->position,
                            &resident_data_0013E130.player->position);

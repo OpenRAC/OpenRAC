@@ -36,7 +36,7 @@ void update_toxic_crab_hit_reactions_and_targeting(void *mv) {
             if (d->f1AC != 0 && ((Flags *)gSkillPoints)->b11 == 0) {
                 ((Flags *)gSkillPoints)->b11 = 1;
                 PlayBankSound_r(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+                queue_dialogue_message(0x53D6, -1);
             }
         }
         if (d->h26 != 0 && r->b28 == 0) {
@@ -60,7 +60,7 @@ void update_toxic_crab_hit_reactions_and_targeting(void *mv) {
             }
         }
         if (r->h2A == 0x47) {
-            *(u128_2E52B0 *)&vA = *(u128_2E52B0 *)gHeroPos;
+            *(u128_2E52B0 *)&vA = *(u128_2E52B0 *)hero_pos;
             *(u128_2E52B0 *)&vB = *(u128_2E52B0 *)((V_2E52B0 *)&m->pos);
             vA.z += 1.0f;
             vB.z += 1.0f;
@@ -79,7 +79,7 @@ void update_toxic_crab_hit_reactions_and_targeting(void *mv) {
                 *(u128_2E52B0 *)&W = *(u128_2E52B0 *)&dst;
                 vec_scale_to_length(&W, &W, 1.0f);
                 vec_scale_to_length(&X, &orxon_ground_hit_normal_r, 1.0f);
-                if (0.5f < FastAbsF(FastVecDot(&W, &X))) {
+                if (0.5f < absolute_float(FastVecDot(&W, &X))) {
                     B = 0.0f;
                     v21 = 11;
                 }
@@ -161,10 +161,10 @@ void update_toxic_crab_hit_reactions_and_targeting(void *mv) {
     }
     if (d->f1AC != 0) {
         FindNearestTargetMoby(m, &d->a120, d->f1A0);
-        if (d->f1A0 < vec_distance_xy(&d->a170, &d->a120) || 3.0f < FastAbsF(m->pos.z - d->a120.z)) {
+        if (d->f1A0 < vec_distance_xy(&d->a170, &d->a120) || 3.0f < absolute_float(m->pos.z - d->a120.z)) {
             d->f164 = 2;
         }
-    } else if (d->f1A0 < vec_distance_xy(&d->a170, &d->a120) || 3.0f < FastAbsF(m->pos.z - d->a120.z)) {
+    } else if (d->f1A0 < vec_distance_xy(&d->a170, &d->a120) || 3.0f < absolute_float(m->pos.z - d->a120.z)) {
         FindNearestTargetMoby(m, &d->a120, d->f1A0);
         d->f164 = 2;
     } else {
@@ -174,7 +174,7 @@ void update_toxic_crab_hit_reactions_and_targeting(void *mv) {
     if (m->state != 1 && d->f164 == 2) {
         d->f1D4++;
         if (scale_ticks(300) < d->f1D4) {
-            if (1.0f < FastVecDist(&m->pos, &d->a170)) {
+            if (1.0f < fast_vec_dist(&m->pos, &d->a170)) {
                 m->state = 8;
                 if (m->prev_seq != 4)
                     MobyBlendAnimation(m, 4, 0, scale_ticks(12));

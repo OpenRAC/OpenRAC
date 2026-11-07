@@ -160,10 +160,10 @@ ASM_FUNC("asm/handwritten/core_text", func_00118EA0);
 
 ASM_FUNC("asm/handwritten/core_text", func_00118EB0);
 
-extern int CoreGlobalWord NOT_SDA;
+extern int tty_initialized NOT_SDA;
 
 void tty_reset_init_flag(void) {
-    CoreGlobalWord = 0;
+    tty_initialized = 0;
 }
 
 /* VSync (glue.o): clear INTC_STAT's VBlank-start bit (guarded by
@@ -232,11 +232,11 @@ long wait_vblank_csr(void) {
    the jal slot and swaps $s0/$s1. */
 int libc_glue_write(int fd, int buf, int len) {
     if (fd == 1 || fd == 2) {
-        if (CoreGlobalWord == 0) {
+        if (tty_initialized == 0) {
             if (sceTtyInit() == 0) {
                 return -1;
             }
-            CoreGlobalWord = 1;
+            tty_initialized = 1;
         }
         return sceTtyWrite(buf, len);
     }
@@ -246,11 +246,11 @@ int libc_glue_write(int fd, int buf, int len) {
 /* As libc_glue_write: sceTtyInit is called with no argument. */
 int libc_glue_read(int arg0, int arg1, int arg2) {
     if (arg0 == 0) {
-        if (CoreGlobalWord == 0) {
+        if (tty_initialized == 0) {
             if (sceTtyInit() == 0) {
                 return -1;
             }
-            CoreGlobalWord = 1;
+            tty_initialized = 1;
         }
         return sceTtyRead(arg1, arg2);
     }

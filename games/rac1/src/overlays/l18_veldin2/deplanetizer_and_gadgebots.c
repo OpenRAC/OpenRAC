@@ -47,7 +47,7 @@ struct GadgebotVars {
     u8 pad_59[0x3];
     u8 unk_5C; /* 0x5C */
     u8 pad_5D[0x13];
-    u8 carry[0x10]; /* 0x70: CarriedMobyUpdate / mine_fall state */
+    u8 carry[0x10]; /* 0x70: CarriedMobyUpdate / step_moby_motion state */
     u8 pad_80[0xB8];
     s16 unk_138; /* 0x138 */
     u8 pad_13A[0x6];
@@ -85,11 +85,11 @@ typedef struct {
     float f48;
     float f4C;
 } V_9D48;
-extern F5_9D48 deplanetizer_part_trail_sizes;
+extern F5_9D48 l18_deplanetizer_object_trail_base_radii;
 extern ML_9D48 veldin2_cutscene_state_r __asm__("D_L18_0016D2E0");
 extern int veldin2_cinematic_mode MACRO_ADDR;
-extern Moby *veldin2_moby_list MACRO_ADDR;
-extern Moby *deplanetizer_class_59b_moby MACRO_ADDR;
+extern Moby *l18_moby_list_head MACRO_ADDR;
+extern Moby *l18_deplanetizer_class_059b_glow_moby MACRO_ADDR;
 extern int deplanetizer_glow_quad_alpha MACRO_ADDR;
 extern float deplanetizer_camera_quad_base_scale MACRO_ADDR;
 extern float deplanetizer_three_quad_local_x_scale MACRO_ADDR;
@@ -100,7 +100,7 @@ extern float frame_scale MACRO_ADDR;
 extern float veldin2_zero_vec[] MACRO_ADDR;
 extern float deplanetizer_trail_prev_tip_a[] MACRO_ADDR;
 extern float deplanetizer_trail_prev_tip_b[] MACRO_ADDR;
-extern char veldin2_camera_matrix[];
+extern char deplanetizer_camera_rotation_basis[];
 extern float deplanetizer_camera_quad_scale_from SDATA(deplanetizer_camera_quad_scale_from);
 extern float deplanetizer_camera_quad_scale_to SDATA(deplanetizer_camera_quad_scale_to);
 extern short deplanetizer_quads_start_tick;
@@ -136,7 +136,7 @@ extern void draw_moby_three_scaled_two_tint_quads_r(void *) __asm__("func_L18_00
 
 /* Class 1563 update: a cutscene director that times its effects (part flashes, fades, bursts) off the level script
    state. */
-void update_deplanetizer_gun_sequence_effects(Moby *moby) {
+void deplanetizer_effects_update(Moby *moby) {
     switch (moby->state) {
         case 0:
             *(int *)&deplanetizer_quads_start_tick = 0x163;
@@ -154,9 +154,9 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
             if (veldin2_cutscene_state_r.state == 4) {
                 if (veldin2_cutscene_state_r.timer == 1) {
                     Moby *m;
-                    for (m = veldin2_moby_list; m != 0; m = m->next) {
+                    for (m = l18_moby_list_head; m != 0; m = m->next) {
                         if (m->oclass == 0x59B) {
-                            deplanetizer_class_59b_moby = m;
+                            l18_deplanetizer_class_059b_glow_moby = m;
                             break;
                         }
                     }
@@ -169,12 +169,12 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     } t;
                     float v[4];
                     int k;
-                    t.s = deplanetizer_part_trail_sizes;
+                    t.s = l18_deplanetizer_object_trail_base_radii;
                     for (k = 3; k < 8; k++) {
                         float f;
                         if (veldin2_cutscene_state_r.objs[k] == 0)
                             continue;
-                        Moby_GetJointWorldPos(veldin2_cutscene_state_r.objs[k], 0, v);
+                        moby_point_position(veldin2_cutscene_state_r.objs[k], 0, v);
                         f = t.s.f[k - 3];
                         if (k == 3 && veldin2_cutscene_state_r.timer >= scale_ticks(0x285) &&
                             veldin2_cutscene_state_r.timer <= scale_ticks(0x2E0))
@@ -190,7 +190,7 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     if (m != 0) {
                         float pos[4];
                         float up[4];
-                        Moby_GetJointWorldPos(m, 0, pos);
+                        moby_point_position(m, 0, pos);
                         clear_u64_value(up);
                         up[2] = 1.0f;
                         spawn_explosion(m, up, pos, 0.0f, 0.0f, 0x32, 0x19, 0x19, 8.0f, 4.0f, 9.0f, 1.0f, -1, 30.0f, 0,
@@ -202,7 +202,7 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     if (m != 0) {
                         float pos[4];
                         float up[4];
-                        Moby_GetJointWorldPos(m, 0, pos);
+                        moby_point_position(m, 0, pos);
                         clear_u64_value(up);
                         up[2] = 1.0f;
                         spawn_explosion(m, up, pos, 0.0f, 0.0f, 0x32, 0x19, 0x19, 8.0f, 4.0f, 9.0f, 1.0f, -1, 30.0f, 0,
@@ -214,7 +214,7 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     if (m != 0) {
                         float pos[4];
                         float up[4];
-                        Moby_GetJointWorldPos(m, 0, pos);
+                        moby_point_position(m, 0, pos);
                         clear_u64_value(up);
                         up[2] = 1.0f;
                         spawn_explosion(m, up, pos, 0.0f, 0.0f, 0x32, 0x19, 0x19, 8.0f, 4.0f, 9.0f, 1.0f, -1, 30.0f, 0,
@@ -226,7 +226,7 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     if (m != 0) {
                         float pos[4];
                         float up[4];
-                        Moby_GetJointWorldPos(m, 0, pos);
+                        moby_point_position(m, 0, pos);
                         clear_u64_value(up);
                         up[2] = 1.0f;
                         spawn_explosion(m, up, pos, 0.0f, 0.0f, 0x32, 0x19, 0x19, 8.0f, 4.0f, 9.0f, 1.0f, -1, 30.0f, 0,
@@ -251,14 +251,14 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                     float f = IntToFloat(veldin2_cutscene_state_r.timer - scale_ticks(deplanetizer_glow_start_tick));
                     f = f / IntToFloat(scale_ticks(deplanetizer_glow_end_tick - deplanetizer_glow_start_tick));
                     deplanetizer_glow_quad_alpha = truncate_float_to_s32_r(f * 255.0f);
-                    AddDrawCallback(draw_moby_two_tint_glow_quads, deplanetizer_class_59b_moby);
+                    AddDrawCallback(draw_moby_two_tint_glow_quads, l18_deplanetizer_class_059b_glow_moby);
                 }
                 if (veldin2_cutscene_state_r.timer >= scale_ticks(deplanetizer_streak_start_tick) &&
                     veldin2_cutscene_state_r.timer < scale_ticks(deplanetizer_streak_end_tick)) {
                     float f = IntToFloat(veldin2_cutscene_state_r.timer - scale_ticks(deplanetizer_streak_start_tick));
                     f = f / IntToFloat(scale_ticks(deplanetizer_streak_end_tick - deplanetizer_streak_start_tick));
                     deplanetizer_three_quad_local_x_scale = f * 200.0f + 0.25f;
-                    AddDrawCallback(draw_moby_three_scaled_two_tint_quads_r, deplanetizer_class_59b_moby);
+                    AddDrawCallback(draw_moby_three_scaled_two_tint_quads_r, l18_deplanetizer_class_059b_glow_moby);
                 }
                 if (veldin2_cutscene_state_r.timer >= scale_ticks(*(int *)&deplanetizer_quads_start_tick) &&
                     veldin2_cutscene_state_r.timer < scale_ticks(deplanetizer_quads_end_tick)) {
@@ -290,9 +290,9 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                         *(int *)&deplanetizer_quads_start_tick = deplanetizer_state_7_camera_quad_start_frame_gp;
                         deplanetizer_camera_quad_ramp_end_tick =
                             deplanetizer_state_7_camera_quad_scale_ramp_end_frame_gp;
-                        for (m = veldin2_moby_list; m != 0; m = m->next) {
+                        for (m = l18_moby_list_head; m != 0; m = m->next) {
                             if (m->oclass == 0x59B) {
-                                deplanetizer_class_59b_moby = m;
+                                l18_deplanetizer_class_059b_glow_moby = m;
                                 break;
                             }
                         }
@@ -302,14 +302,14 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                         float f = IntToFloat(veldin2_cutscene_state_r.timer - deplanetizer_glow_start_tick);
                         f = f / IntToFloat(deplanetizer_glow_end_tick - deplanetizer_glow_start_tick);
                         deplanetizer_glow_quad_alpha = truncate_float_to_s32_r(f * 255.0f);
-                        AddDrawCallback(draw_moby_two_tint_glow_quads, deplanetizer_class_59b_moby);
+                        AddDrawCallback(draw_moby_two_tint_glow_quads, l18_deplanetizer_class_059b_glow_moby);
                     }
                     if (veldin2_cutscene_state_r.timer >= scale_ticks(deplanetizer_streak_start_tick) &&
                         veldin2_cutscene_state_r.timer < scale_ticks(deplanetizer_streak_end_tick)) {
                         float f = IntToFloat(veldin2_cutscene_state_r.timer - deplanetizer_streak_start_tick);
                         f = f / IntToFloat(deplanetizer_streak_end_tick - deplanetizer_streak_start_tick);
                         deplanetizer_three_quad_local_x_scale = f * 200.0f + 0.25f;
-                        AddDrawCallback(draw_moby_three_scaled_two_tint_quads_r, deplanetizer_class_59b_moby);
+                        AddDrawCallback(draw_moby_three_scaled_two_tint_quads_r, l18_deplanetizer_class_059b_glow_moby);
                     }
                     if (veldin2_cutscene_state_r.timer >= scale_ticks(*(int *)&deplanetizer_quads_start_tick) &&
                         veldin2_cutscene_state_r.timer < scale_ticks(deplanetizer_quads_end_tick)) {
@@ -338,8 +338,8 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                             float x[4];
                             float e[4];
                             int j;
-                            Moby_GetJointWorldPos(m, 0, a);
-                            Moby_GetJointWorldPos(m, 2, b);
+                            moby_point_position(m, 0, a);
+                            moby_point_position(m, 2, b);
                             for (j = 0; j < 12; j++) {
                                 float f = IntToFloat(j) / 12.0f;
                                 lerp_vector(x, a, deplanetizer_trail_prev_tip_a, f);
@@ -354,8 +354,8 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                             qcopy(deplanetizer_trail_prev_tip_a, a);
                             qcopy(deplanetizer_trail_prev_tip_b, b);
                         } else {
-                            Moby_GetJointWorldPos(m, 0, deplanetizer_trail_prev_tip_a);
-                            Moby_GetJointWorldPos(m, 2, deplanetizer_trail_prev_tip_b);
+                            moby_point_position(m, 0, deplanetizer_trail_prev_tip_a);
+                            moby_point_position(m, 2, deplanetizer_trail_prev_tip_b);
                         }
                     }
                 }
@@ -368,15 +368,15 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                         int col0;
                         int col1;
                         v->f10 = 0;
-                        Moby_GetJointWorldPos(m, 3, a);
-                        Moby_GetJointWorldPos(m, 10, b);
+                        moby_point_position(m, 3, a);
+                        moby_point_position(m, 10, b);
                         FastVecSub(c, b, a);
                         vec_scale_to_length(&moby->rot_row1, c, 1.0f);
                         qcopy(v->pos, b);
                         col0 = 0x207F7F;
                         col1 = 0x7F7F20;
                         v->f48 = fast_atan2(moby->rot_row1.x, moby->rot_row1.y);
-                        v->f4C = fast_atan2(vec_length_xy(&moby->rot_row1), moby->rot_row1.z);
+                        v->f4C = fast_atan2(vector_length_xy(&moby->rot_row1), moby->rot_row1.z);
                         save = beam_effect_default_length;
                         beam_effect_default_length = 24.0f;
                         update_beam_ring_rail_and_pulse_effects(moby);
@@ -394,14 +394,14 @@ void update_deplanetizer_gun_sequence_effects(Moby *moby) {
                 if (veldin2_cutscene_state_r.state == 3 && veldin2_cutscene_state_r.timer == scale_ticks(0x24A)) {
                     char *target;
                     int i;
-                    target = veldin2_camera_matrix;
-                    matrix_mul_vec3(a, &deplanetizer_burst_local_spawn_offset_x_gp, target);
+                    target = deplanetizer_camera_rotation_basis;
+                    transform_vector_by_basis(a, &deplanetizer_burst_local_spawn_offset_x_gp, target);
                     FastVecAdd(a, a, target - 0x210);
-                    qcopy(b, veldin2_camera_matrix + 0x10);
+                    qcopy(b, deplanetizer_camera_rotation_basis + 0x10);
                     for (i = 0; i < 32; i++) {
                         int r;
                         char *p;
-                        build_look_at_matrix(c, b, veldin2_camera_matrix, IntToFloat(i) * 0.19634955f);
+                        build_look_at_matrix(c, b, deplanetizer_camera_rotation_basis, IntToFloat(i) * 0.19634955f);
                         vec_scale_to_length(c, c, deplanetizer_burst_velocity_scale_gp * frame_scale);
                         r = random_integer_below(16);
                         p = PartType23Spawn_c(a, random_integer_below(2) ? -r : r, c, 0.0f, 1.0f, 1.01f,
@@ -433,7 +433,7 @@ typedef struct {
     int n;
 } ML_9780;
 extern float deplanetizer_camera_quad_local_offset_x MACRO_ADDR;
-extern volatile float deplanetizer_flare_cam_offset_y MACRO_ADDR;
+extern volatile float l18_deplanetizer_camera_quad_local_offset_y MACRO_ADDR;
 extern volatile float deplanetizer_flare_cam_offset_z MACRO_ADDR;
 extern float deplanetizer_flare_cam_offset_w MACRO_ADDR;
 extern float deplanetizer_camera_quad_base_scale MACRO_ADDR;
@@ -443,7 +443,7 @@ void draw_three_scaled_camera_facing_quads(void) {
     extern int scale_ticks(int);
     extern unsigned long GetEffectTex_v(int) __asm__("func_001F4868");
     extern void VU1_addGSregister(int, long);
-    extern void matrix_mul_vec3(void *, void *, void *);
+    extern void transform_vector_by_basis(void *, void *, void *);
     extern void FastVecAdd(void *, void *, void *);
     extern void FastVecSub(void *, void *, void *);
     extern void vec_scale_to_length(void *, void *, float);
@@ -452,7 +452,7 @@ void draw_three_scaled_camera_facing_quads(void) {
     extern void transform_vector(void *, void *, void *);
     extern void draw_world_quad(void *, void *, int);
     extern short deplanetizer_quads_start_tick;
-    extern char veldin2_camera_matrix[];
+    extern char deplanetizer_camera_rotation_basis[];
     extern short deplanetizer_flare_outer_color;
     extern short deplanetizer_flare_inner_color;
     extern float veldin2_deplanetizer_quad_corners[4][4];
@@ -466,7 +466,7 @@ void draw_three_scaled_camera_facing_quads(void) {
 
     if (veldin2_cutscene_state.n == scale_ticks((*(int *)&deplanetizer_quads_start_tick) + 1)) {
         deplanetizer_camera_quad_local_offset_x = 1.0f;
-        deplanetizer_flare_cam_offset_y = 0.0f;
+        l18_deplanetizer_camera_quad_local_offset_y = 0.0f;
         if (veldin2_cutscene_state.state == 7) {
             tilt = -0.15f;
         } else {
@@ -481,8 +481,8 @@ void draw_three_scaled_camera_facing_quads(void) {
     pk.a = 0;
     VU1_addGSregister(0x4A, 0);
     VU1_addGSregister(0x47, 0x51001);
-    matrix_mul_vec3(mat[3], &deplanetizer_camera_quad_local_offset_x, veldin2_camera_matrix);
-    target = veldin2_camera_matrix;
+    transform_vector_by_basis(mat[3], &deplanetizer_camera_quad_local_offset_x, deplanetizer_camera_rotation_basis);
+    target = deplanetizer_camera_rotation_basis;
     target -= 0x210;
     FastVecAdd(mat[3], mat[3], target);
     FastVecSub(mat[0], mat[3], target);
@@ -576,7 +576,7 @@ void draw_moby_two_tint_glow_quads(struct Moby *m) {
     pk.a = 0;
     VU1_addGSregister(0x4A, 0);
     VU1_addGSregister(0x47, 0x51001);
-    matrix_mul_vec3(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
+    transform_vector_by_basis(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
     FastVecAdd(mat[3], mat[3], &m->pos);
     FastVecSub(mat[0], mat[3], veldin2_camera_pos);
     vec_scale_to_length(mat[0], mat[0], 1.0f);
@@ -645,12 +645,12 @@ void draw_moby_three_scaled_two_tint_quads(struct Moby *m) {
     pk.a = 0;
     VU1_addGSregister(0x4A, 0);
     VU1_addGSregister(0x47, 0x51001);
-    matrix_mul_vec3(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
+    transform_vector_by_basis(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
     FastVecAdd(mat[3], mat[3], &m->pos);
     *(u128_9c20_FB318 *)up = 0;
     up[2] = -1.0f;
     up[3] = 1.0f;
-    matrix_mul_vec3(mat[0], up, &m->rot_row0);
+    transform_vector_by_basis(mat[0], up, &m->rot_row0);
     FastVecSub(mat[1], mat[3], veldin2_camera_pos);
     FastVecCross(mat[2], mat[1], mat[0]);
     vec_scale_to_length(mat[2], mat[2], 1.0f);
@@ -769,7 +769,7 @@ void spawn_deplanetizer_gun_trail_effects(void *a, void *b, void *c, float f0, f
 extern int veldin2_cinematic_mode MACRO_ADDR;
 
 /* State machine: waits for level flags, then turns the moby around and back. */
-void update_moby_visibility_and_half_turn(char *moby) {
+void hidden_deplanetizer_gun_update(char *moby) {
     enum { INITIALIZE_STATE_MACHINE = 0, WAIT_TO_HIDE_AND_TURN = 1, HIDDEN_WAIT_TO_SHOW = 2 };
     switch (((struct Moby *)moby)->state) {
         case INITIALIZE_STATE_MACHINE:
@@ -796,7 +796,7 @@ void update_moby_visibility_and_half_turn(char *moby) {
 }
 
 /* updates a moby that drags a child moby along with it */
-void update_moby_transform_and_child(char *moby) {
+void child_carrier_update(char *moby) {
     struct ChildCarrierVars *data = (struct ChildCarrierVars *)((Moby *)moby)->pvars;
     char tmp[16];
     char *child;
@@ -833,7 +833,7 @@ extern unsigned short *veldin2_moby_groups[];
 extern unsigned char *veldin2_moby_table_m __asm__("D_L18_00160058") MACRO_ADDR;
 
 /* Sets the byte at +0xBC to value on every class 0x630 moby in list idx. */
-void set_group_class_0630_moby_byte_bc(int idx, int value) {
+void set_group_child_carrier_byte_bc(int idx, int value) {
     unsigned short *table = veldin2_moby_groups[idx];
     if (table != 0) {
         unsigned short *p = table;
@@ -851,7 +851,7 @@ typedef struct {
 } Level18VendorData;
 
 /* Remove a vendor moby and any child it owns. */
-void mark_class_0630_moby_and_child_for_removal(Moby *moby) {
+void remove_child_carrier_and_child(Moby *moby) {
     if (moby->oclass == 0x630) {
         void *child = ((Level18VendorData *)moby->pvars)->child;
         if (child != 0) {
@@ -861,9 +861,9 @@ void mark_class_0630_moby_and_child_for_removal(Moby *moby) {
     }
 }
 
-extern float veldin2_joint_trail_offset SDATA(veldin2_joint_trail_offset);
-extern float veldin2_joint_trail_size_a SDATA(veldin2_joint_trail_size_a);
-extern float veldin2_joint_trail_size_b SDATA(veldin2_joint_trail_size_b);
+extern float cutscene_joint_trail_velocity_scale_gp SDATA(D_L18_00162608);
+extern float cutscene_joint_trail_first_spawn_particle_value_gp SDATA(D_L18_0016260C);
+extern float cutscene_joint_trail_second_spawn_particle_value_gp SDATA(D_L18_00162610);
 typedef struct {
     char pad[0x30];
     unsigned int n;
@@ -880,7 +880,7 @@ typedef struct {
 } M2;
 
 /* Cutscene moby update that emits a glow effect between two joints. */
-void update_selected_moby_joint_trail(M2 *m) {
+void cutscene_joint_trail_update(M2 *m) {
     char buf[16];
     char buf2[16];
     char buf3[16];
@@ -901,11 +901,12 @@ void update_selected_moby_joint_trail(M2 *m) {
                     if (veldin2_cutscene_state.n == 1)
                         idx = 4;
                     p = veldin2_cutscene_state.arr[idx];
-                    Moby_GetJointWorldPos(p, 8, buf);
-                    Moby_GetJointWorldPos(p, 9, buf2);
+                    moby_point_position(p, 8, buf);
+                    moby_point_position(p, 9, buf2);
                     FastVecSub(buf3, buf, buf2);
-                    vec_scale_to_length(buf3, buf3, veldin2_joint_trail_offset);
-                    draw_trail(buf, buf, buf3, veldin2_joint_trail_size_a, veldin2_joint_trail_size_b);
+                    vec_scale_to_length(buf3, buf3, cutscene_joint_trail_velocity_scale_gp);
+                    draw_trail(buf, buf, buf3, cutscene_joint_trail_first_spawn_particle_value_gp,
+                               cutscene_joint_trail_second_spawn_particle_value_gp);
                 }
             }
             break;
@@ -966,7 +967,7 @@ void gadgebot_1906_update(unsigned char *m) {
             FastVecAdd(s0, s0, &e->fall_vel);
             qcopy(tmp, s0);
             ((float *)tmp)[2] += 1.0f;
-            r = ProbeGroundHeight(tmp, 0, 0.5f);
+            r = probe_ground_height(tmp, 0, 0.5f);
             if (((Moby *)m)->pos.z < r) {
                 ((Moby *)m)->pos.z = r;
                 ((Moby *)m)->state = 2;
@@ -1019,7 +1020,7 @@ void gadgebot_1906_update(unsigned char *m) {
             b = g_frame_time_sq * k;
             d = g_frame_time * k;
             SteerAngleWithVelocity((float *)s0, &e->turn_vel, r, b, b, d);
-            if (IsFrameWithinWindow((char *)m, 14.0f))
+            if (is_value_within_interpolated_window((char *)m, 14.0f))
                 collect_mobies_in_sphere_at_moby_point(m, 0.5f, 1.0f, 1.0f, 1, 1, 0, 1, 0);
             if (((Moby *)m)->anim_flags & 2) {
                 if (e->mode == 2) {
@@ -1038,7 +1039,7 @@ void gadgebot_1906_update(unsigned char *m) {
             break;
         }
         case 5:
-            if (!(mine_fall(m, e->carry) & 0x140))
+            if (!(step_moby_motion(m, e->carry) & 0x140))
                 break;
         case 6:
             qcopy(tmp, m + 0x10);
@@ -1191,7 +1192,7 @@ void update_gadgebot_damage_target_and_glow(void *m_) {
                 sentry_vars->unkBC = g_frame_time + g_frame_time;
                 moby->flags &= ~0x1000;
                 v.q = *(u128 *)&coll->unk_10;
-                HeadingFromVector(&v, &angle, &sentry_vars->unk88, &sentry_vars->unk8C);
+                trooper_knockback_arc(&v, &angle, &sentry_vars->unk88, &sentry_vars->unk8C);
                 InitKnockback_v(angle, moby, sentry_vars->fall, 3, 1, 0);
                 sentry_vars->unkC0 = 7.5f;
                 sentry_vars->unkC4 = 15.0f;
@@ -1246,7 +1247,7 @@ float move_gadgebot_toward_target(char *self, float *src) {
     v[0] = FastCos(((Moby *)self)->rot.z) * o->speed;
     v[1] = FastSin(((Moby *)self)->rot.z) * o->speed;
     v[2] = -(g_frame_time + g_frame_time);
-    move_4318((int)self, (int)v, h, h, z, 0);
+    MoveMobyWithCollision((int)self, (int)v, h, h, z, 0);
     resolve_point_path_segment_xy_clearance(h, o->path, self + 0x10, self + 0x10);
     return dist;
 }
@@ -1321,18 +1322,18 @@ typedef struct {
     float uv[4][2];
     unsigned long a, b, c, d;
 } Pk;
-extern short D_L18_001626BC;
-extern short D_L18_001626C0;
-extern short D_L18_001626C4;
-extern short D_L18_001626C8;
-extern short D_L18_001626CC;
-extern short D_L18_001626D0;
-extern short D_L18_001626D4;
-extern short D_L18_001626D8;
-extern short D_L18_001626DC;
-extern short D_L18_001626E0;
+extern short gadgebot_launch_glow_blend_minuend_selector;
+extern short gadgebot_launch_glow_blend_subtrahend_selector;
+extern short gadgebot_launch_glow_blend_alpha_factor_selector;
+extern short gadgebot_launch_glow_blend_addend_selector;
+extern short gadgebot_launch_glow_tint_start;
+extern short gadgebot_launch_glow_tint_end;
+extern short gadgebot_launch_glow_texture_index;
+extern short gadgebot_launch_glow_z_offset;
+extern short gadgebot_launch_glow_vertical_scale_adjustment;
+extern short gadgebot_launch_glow_horizontal_scale_adjustment;
 extern char veldin2_camera_pos_r[] __asm__("D_L18_00167840");
-extern float D_L18_001EFF90[4][2];
+extern float gadgebot_launch_glow_quad_uvs[4][2];
 
 extern unsigned long GetEffectTex_v(int) __asm__("func_001F4868");
 
@@ -1368,8 +1369,8 @@ void func_L18_002FDD20_r(struct Moby *m) {
            ((unsigned long)(*(int *)&gadgebot_launch_glow_blend_addend_selector) << 6) | 0x8000000000ULL;
     c = FastTweenColor((*(int *)&gadgebot_launch_glow_tint_start), (*(int *)&gadgebot_launch_glow_tint_end), d->glow);
     for (i = 0; i < 4; i++) {
-        pk.uv[i][0] = gadgebot_launch_glow_uvs[i][0];
-        pk.uv[i][1] = gadgebot_launch_glow_uvs[i][1];
+        pk.uv[i][0] = gadgebot_launch_glow_quad_uvs[i][0];
+        pk.uv[i][1] = gadgebot_launch_glow_quad_uvs[i][1];
         p = pk.m[i];
         clear_u64_value(p);
         if (i & 1)
@@ -1386,7 +1387,7 @@ void func_L18_002FDD20_r(struct Moby *m) {
     draw_world_quad(&pk, mat, 0);
 }
 extern unsigned short *veldin2_moby_groups[];
-extern int gadgebot_joint_glow_alpha SDATA(gadgebot_joint_glow_alpha);
+extern int gadgebot_joint_glow_alpha_gp SDATA(D_L18_001626E4);
 
 /* For each listed moby of matching type, spawns effects at five points. */
 void draw_group_gadgebot_1906_joint_glows(unsigned char *moby) {
@@ -1397,10 +1398,10 @@ void draw_group_gadgebot_1906_joint_glows(unsigned char *moby) {
             unsigned short *next = p + 1;
             if (*(short *)(obj + 0xA6) == 0x772 && obj[0x20] != 0 && obj[0x20] < 6) {
                 int i;
-                int col = (*(int *)(obj + 0x90) & 0xFFFFFF) + (gadgebot_joint_glow_alpha << 24);
+                int col = (*(int *)(obj + 0x90) & 0xFFFFFF) + (gadgebot_joint_glow_alpha_gp << 24);
                 float v[4];
                 for (i = 2; i < 5; i++) {
-                    Moby_GetJointWorldPos(obj, i, v);
+                    moby_point_position(obj, i, v);
                     draw_offset_textured_effect_quad(v, col, 0.175f, 0.08f);
                 }
             }

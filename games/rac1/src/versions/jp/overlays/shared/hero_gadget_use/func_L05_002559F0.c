@@ -37,7 +37,7 @@ int hero_pick_help_mode(void) {
         goto L_BAC;
     if (*(int *)(h + 0x1C) == 0)
         goto L_BAC;
-    if (!(1.2217305f < fast_atan2(*(float *)(h + 0x48), vec_length_xy(h + 0x40))))
+    if (!(1.2217305f < fast_atan2(*(float *)(h + 0x48), vector_length_xy(h + 0x40))))
         goto L_BAC;
     g->f8A4 = FastAddRots(fast_atan2(*(float *)(h + 0x40), *(float *)(h + 0x44)), 3.1415927f);
     if (!(FastDiffRots(fast_atan2(g->fE0[0], g->fE0[1]), g->f8A4) < 0.7853982f))
@@ -51,8 +51,8 @@ int hero_pick_help_mode(void) {
 
 L_BAC:
     if (((H_9F0 *)(&g_hero))->b257 != 0) {
-        f20 = vec_length_xy(((H_9F0 *)(&g_hero))->f100);
-        if (f20 < vec_length_xy(((H_9F0 *)(&g_hero))->fE0) * 0.25f) {
+        f20 = vector_length_xy(((H_9F0 *)(&g_hero))->f100);
+        if (f20 < vector_length_xy(((H_9F0 *)(&g_hero))->fE0) * 0.25f) {
             Hero_TryMoveStateL05(0x6D, 1);
             return 1;
         }
@@ -123,7 +123,7 @@ L_D68:
 L_DEC:
     ok = (((H_9F0 *)(&g_hero))->s30C == 0);
     if (((H_9F0 *)(&g_hero))->b257 != 0) {
-        if (FastAbsF(((H_9F0 *)(&g_hero))->f218 - ((H_9F0 *)(&g_hero))->f2D8) < 0.05f)
+        if (absolute_float(((H_9F0 *)(&g_hero))->f218 - ((H_9F0 *)(&g_hero))->f2D8) < 0.05f)
             ok = 1;
     }
     if (ok == 0)
@@ -133,11 +133,11 @@ L_DEC:
     if (!(((H_9F0 *)(&g_hero))->fE0[2] < 0.0f))
         return 0;
     f20 = 1.0471976f;
-    if (f20 < FastAbsF(((H_9F0 *)(&g_hero))->f94)) {
+    if (f20 < absolute_float(((H_9F0 *)(&g_hero))->f94)) {
         Hero_TryMoveStateL05(0x6D, 1);
         return 1;
     }
-    if (f20 < FastAbsF(((H_9F0 *)(&g_hero))->f90)) {
+    if (f20 < absolute_float(((H_9F0 *)(&g_hero))->f90)) {
         Hero_TryMoveStateL05(0x6D, 1);
         return 1;
     }
@@ -158,8 +158,8 @@ L_DEC:
             Flags_9F0 *fl = (Flags_9F0 *)gSkillPoints;
             if (fl->f7 == 0) {
                 fl->f7 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x542D, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x542D, -1);
             }
         }
         ((H_9F0 *)(&g_hero))->i714 = 0;

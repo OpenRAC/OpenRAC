@@ -453,7 +453,7 @@ LINKER_REMNANT("asm/remnants/text", func_001FFD98);
 /* Stores arg1 into +0x24 of the record whose +0x64 is arg0, and into
    +0x04 when its +0x68 is 0. Indexing the extern array at each access,
    not through a cached base pointer, gives retail's per-access %lo. */
-void Hud_SetBarValueById(int arg0, int arg1) {
+void set_animation_parameter(int arg0, int arg1) {
     int i;
     for (i = 0; i < 13; i++) {
         if (hud_chan_slots[i].unk64 == arg0) {
@@ -494,7 +494,7 @@ LINKER_REMNANT("asm/remnants/text", func_001FFF08);
 extern int ResourceCounter SDATA(ResourceCounter);
 
 /* Counts the resource counter down by one until it reaches 0. */
-void update_resource_counter(void) {
+void decrement_resource_counter(void) {
     int v = ResourceCounter;
     if (v != 0) {
         ResourceCounter = v - 1;
@@ -610,7 +610,7 @@ int GetIconFrame(int iconId, int sub) {
 
 __asm__(".section .text\n\tnop\n");
 
-extern s32 D_0015EF74 MACRO_ADDR;
+extern s32 g_gs_texture_allocation_cursor MACRO_ADDR;
 struct TextureUpload {
     s32 clut_data; /* 0x00: EE address of the CLUT (fun_00204cf0: texture CLUT pointer) */
     s16 unk4; /* 0x04: every writer stores 0 */
@@ -634,9 +634,9 @@ struct FrameImagePage {
     u8 width_log2;
     u8 height_log2;
 };
-extern s32 D_0015EF8C MACRO_ADDR;
-extern s32 D_0015F558 MACRO_ADDR;
-extern struct TextureUpload D_0018D140[];
+extern s32 g_gs_texture_allocation_base MACRO_ADDR;
+extern s32 pending_texture_upload_count MACRO_ADDR;
+extern struct TextureUpload pending_texture_uploads[];
 struct FrameTextureTables {
     u8 pad00[0x20];
     s32 frame_references_address;
@@ -752,7 +752,7 @@ extern int g_screen_extent[];
    texture's TEX0 from GetFrameTex and its full size (1 << the
    entry's +6/+7 log2 sizes) as the far UV. The entry is found through
    the arena's +0x20 index table into its +0x24 texture table. */
-void HudSprite(int tex, int x, int y, int w, int h, int alpha) {
+void draw_hud_sprite(int tex, int x, int y, int w, int h, int alpha) {
     char *arena = hud_state_raw;
     unsigned char *e =
         (unsigned char *)(*(char **)(arena + 0x24) + *(short *)(*(char **)(arena + 0x20) + tex * 4 + 2) * 8);
@@ -786,7 +786,7 @@ void HudSprite(int tex, int x, int y, int w, int h, int alpha) {
     g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x50);
 }
 
-/* HudSprite drawn as a four-vertex strip (PRIM 0x154) instead of a
+/* draw_hud_sprite drawn as a four-vertex strip (PRIM 0x154) instead of a
    sprite, the texture turned a quarter: corners (x, y+h), (x, y),
    (x+w, y+h), (x+w, y) take UVs (tw, 0), (tw, th), (0, 0), (0, th). */
 void draw_hud_sprite_flipped(int tex, int x, int y, int w, int h, int alpha) {
@@ -831,7 +831,7 @@ void draw_hud_sprite_flipped(int tex, int x, int y, int w, int h, int alpha) {
 
 LINKER_REMNANT("asm/remnants/text", func_002008B0);
 
-/* HudSprite with the position and size already in 16ths of a pixel. */
+/* draw_hud_sprite with the position and size already in 16ths of a pixel. */
 void draw_hud_sprite_subpixel(int tex, int x, int y, int w, int h, int alpha) {
     char *arena = hud_state_raw;
     unsigned char *e =
@@ -1167,7 +1167,7 @@ extern int *g_render_packet_cursor MACRO_ADDR;
    draw_hud_rect_depth's, instead of 0x41): same 1-tag + 3-quadword PACKED GIF
    packet with a FIXED mask 0x00FFFFF000000000 in the vertices' upper 32
    bits instead of a Z parameter. */
-void draw_hud_rect_blended(int arg0, int arg1, int arg2, int arg3, long arg4, int arg5) {
+void append_screen_rect_packet(int arg0, int arg1, int arg2, int arg3, long arg4, int arg5) {
     int *base;
 
     g_render_packet_cursor[0] = 0x10000003;
@@ -1236,7 +1236,7 @@ void draw_hud_rect_depth(int arg0, int arg1, int arg2, int arg3, long arg4, int 
 LINKER_REMNANT("asm/remnants/text", func_00201948);
 
 extern int GetIconFrame(int, int);
-extern void HudSprite(int, int, int, int, int, int);
+extern void draw_hud_sprite(int, int, int, int, int, int);
 extern void draw_hud_sprite_flipped(int, int, int, int, int, int);
 
 /* Draw a 3-part stretchable bar: left cap, stretched middle, right cap
@@ -1246,8 +1246,8 @@ void draw_stretchable_ui_frame(int a0, int a1, int a2, int a3, int a4) {
     int v0 = GetIconFrame(0x7580, 0);
     int v1 = GetIconFrame(0x7580, 1);
 
-    HudSprite(v1, a0, a1, 0x20, a3, a4);
-    HudSprite(v0, a0 + 0x20, a1, a2 - 0x40, a3, a4);
+    draw_hud_sprite(v1, a0, a1, 0x20, a3, a4);
+    draw_hud_sprite(v0, a0 + 0x20, a1, a2 - 0x40, a3, a4);
     a0 = a0 + a2;
     draw_hud_sprite_flipped(v1, a0 - 0x20, a1, 0x20, a3, a4);
 }

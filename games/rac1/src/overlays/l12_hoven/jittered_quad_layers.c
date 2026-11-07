@@ -24,7 +24,7 @@ typedef struct Vq {
 
 extern long GetEffectTex_v(int) __asm__("func_001F4868");
 
-extern float hoven_jitter_quad_uvs[][2];
+extern float hoven_jittered_quad_base_uvs[][2];
 extern Vq hoven_jitter_quad_back_corners[];
 extern Vq hoven_jitter_quad_front_corners[];
 extern int hoven_jitter_quad_color SDATA(hoven_jitter_quad_color);
@@ -67,8 +67,8 @@ void draw_hoven_jittered_quad_layers(char *m) {
         float u, v;
         qcopy(P[1].corner[j], &hoven_jitter_quad_back_corners[j]);
         qcopy(P[0].corner[j], &hoven_jitter_quad_front_corners[j]);
-        u = hoven_jitter_quad_uvs[j][0];
-        v = hoven_jitter_quad_uvs[j][1];
+        u = hoven_jittered_quad_base_uvs[j][0];
+        v = hoven_jittered_quad_base_uvs[j][1];
         P[0].uv[j][0] = u;
         P[0].uv[j][1] = v;
         P[1].uv[j][0] = u;
@@ -81,8 +81,8 @@ void draw_hoven_jittered_quad_layers(char *m) {
             float (*r1)[4] = P[1].corner;
             r0[k][2] = r0[k][2] + 1.0f;
             r1[k][2] = r1[k][2] + 1.0f;
-            P[0].uv[k][0] = hoven_jitter_quad_uvs[k][0] + f3;
-            P[0].uv[k][1] = hoven_jitter_quad_uvs[k][1];
+            P[0].uv[k][0] = hoven_jittered_quad_base_uvs[k][0] + f3;
+            P[0].uv[k][1] = hoven_jittered_quad_base_uvs[k][1];
         }
         f20 = 0.0f;
         b = -3;

@@ -13,18 +13,18 @@ extern int truncate_float_to_s32(float);
 extern int frame_size;
 extern int pal_mode MACRO_ADDR;
 extern int g_current_level_index MACRO_ADDR;
-extern int blarg_hud_meter_center_x SDATA(blarg_hud_meter_center_x);
-extern float blarg_hud_meter_last_segment_fill_scale SDATA(blarg_hud_meter_last_segment_fill_scale);
-extern float blarg_hud_meter_first_segment_fill_scale SDATA(blarg_hud_meter_first_segment_fill_scale);
+extern int l06_hud_segment_meter_center_x SDATA(D_L06_0015F9BC);
+extern float l06_hud_segment_meter_last_segment_fill_scale SDATA(D_L06_0015F9C4);
+extern float l06_hud_segment_meter_first_segment_fill_scale SDATA(D_L06_0015F9C8);
 
 /* Draw the segmented HUD meter (3, 6 or 7 segments by level), fading with the element's opacity. */
-int draw_segmented_hud_meter(unsigned char *p) {
+int draw_hud_segment_meter(unsigned char *p) {
     int y;
     int ntsc_y;
     int level;
     int segments = 3;
     int x, start_x, inner, i, color, remaining, tile_count, k;
-    int center_x = blarg_hud_meter_center_x;
+    int center_x = l06_hud_segment_meter_center_x;
     float alpha, scaled_alpha, fill, step, limit;
 
     ntsc_y = frame_size - 50;
@@ -67,11 +67,11 @@ int draw_segmented_hud_meter(unsigned char *p) {
             limit = remaining * step;
             if (limit < fill) {
                 fill -= limit;
-                fill *= blarg_hud_meter_last_segment_fill_scale;
+                fill *= l06_hud_segment_meter_last_segment_fill_scale;
                 fill += limit;
             } else if (fill < step) {
                 fill -= step;
-                fill *= blarg_hud_meter_first_segment_fill_scale;
+                fill *= l06_hud_segment_meter_first_segment_fill_scale;
                 fill += step;
             }
             x = truncate_float_to_s32((float)(segments << 5) * fill);
@@ -81,20 +81,20 @@ int draw_segmented_hud_meter(unsigned char *p) {
                 color = FastTweenColor(0x800000ff, 0x8000ffff, fill + fill);
             }
         }
-        draw_hud_rect_blended(start_x, y + 8, start_x + x, y + 26, color, 0);
+        append_screen_rect_packet(start_x, y + 8, start_x + x, y + 26, color, 0);
         x = start_x;
         segments = x - 40;
         if (remaining > 0) {
             tile_count = remaining;
             do {
-                HudSprite(GetIconFrame(0x7562, 1), x, y, 32, 32, inner);
+                draw_hud_sprite(GetIconFrame(0x7562, 1), x, y, 32, 32, inner);
                 x += 32;
                 tile_count--;
             } while (tile_count != 0);
         }
-        HudSprite(GetIconFrame(0x7562, 2), x, y, 32, 32, inner);
-        HudSprite(GetIconFrame(0x7562, 4), segments, y - 8, 48, 48, i);
-        HudSprite(GetIconFrame(0x7562, 0), segments, y - 8, 48, 48, i);
+        draw_hud_sprite(GetIconFrame(0x7562, 2), x, y, 32, 32, inner);
+        draw_hud_sprite(GetIconFrame(0x7562, 4), segments, y - 8, 48, 48, i);
+        draw_hud_sprite(GetIconFrame(0x7562, 0), segments, y - 8, 48, 48, i);
     }
     return *(int *)(p + 0x58);
 }

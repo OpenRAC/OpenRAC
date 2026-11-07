@@ -397,7 +397,7 @@ void music_start_track_by_id(int track, int track_flags, int volume) {
 extern short cd_read_state[];
 
 /* Resume the secondary stream once its channel is ready; return 1 if it was resumed. */
-int Music_ContinueStreamIfReady(void) {
+int continue_audio_stream_if_ready(void) {
     char *d = (char *)cd_read_state;
     void *p = *(void **)(d + 0x50);
     if (p != 0) {

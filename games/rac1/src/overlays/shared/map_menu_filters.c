@@ -42,7 +42,7 @@ int ovl_map_filter_l01_4_tail(float a, float b, float x) {
     }
     return 0;
 }
-extern Hero D_0013F450;
+extern Hero g_hero;
 
 /* item < 256: whether the hero is in control mode 0x11 or 0x12 or has base condition 1;
    else x >= 95.0f (the joined tail) */
@@ -242,7 +242,7 @@ int ensure_menu_cache_entry(int key) {
     map_menu_state.e[0].stamp = rendered_frame_count;
     return miss;
 }
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 /* stores a value into a table slot chosen by the current index */
 void store_current_level_table_value(int a, int b) {

@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void initialize_streaming_state(void);
+extern void func_001E94A8(void);
 
 #endif /* GAME_GAMEPLAY_ACTUATOR_H */

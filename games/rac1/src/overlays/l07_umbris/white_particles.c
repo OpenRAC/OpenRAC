@@ -8,7 +8,7 @@
 #include "game/moby/mobyutil.h"
 #include "asm_functions/executable.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern unsigned char *umbris_part_type65_textures;
 
@@ -49,10 +49,10 @@ float select_segment_point_near_sphere_surface(char *dst, char *a1, char *a2, ch
     f21 = -d / L;
     FastVecScale(v + 2, v + 1, f21);
     FastVecAdd(v + 2, v + 2, a3);
-    r1 = FastVecDist(v + 2, a2);
+    r1 = fast_vec_dist(v + 2, a2);
     if (r1 < f) {
         ap = f * f - r1 * r1;
-        t20 = vec_length(ap);
+        t20 = square_root(ap);
         t20 = t20 / FastVecLength(v + 1);
         lo = f21 - t20;
         if (lo < 0)
@@ -66,19 +66,19 @@ float select_segment_point_near_sphere_surface(char *dst, char *a1, char *a2, ch
             hi = 1;
         FastVecScale(v + 3, v + 1, lo);
         FastVecAdd(v + 3, v + 3, a3);
-        r2 = FastVecDist(v + 3, a2);
-        t22 = FastAbsF(r2 - f);
+        r2 = fast_vec_dist(v + 3, a2);
+        t22 = absolute_float(r2 - f);
         thr = f * 0.01f;
         if (t22 < thr)
             t22 = 0;
         q4 = v + 4;
         FastVecScale(q4, v + 1, hi);
         FastVecAdd(q4, q4, a3);
-        r3 = FastVecDist(q4, a2);
-        f21 = FastAbsF(r3 - f);
+        r3 = fast_vec_dist(q4, a2);
+        f21 = absolute_float(r3 - f);
         if (f21 < thr)
             f21 = 0;
-        if (t22 < f21 || (t22 == f21 && FastVecDist(v + 3, a1) < FastVecDist(q4, a1))) {
+        if (t22 < f21 || (t22 == f21 && fast_vec_dist(v + 3, a1) < fast_vec_dist(q4, a1))) {
             qcopy(dst, v + 3);
             r1 = t22;
         } else {
@@ -88,10 +88,10 @@ float select_segment_point_near_sphere_surface(char *dst, char *a1, char *a2, ch
     } else {
         if (f21 < 0) {
             qcopy(dst, a3);
-            r1 = FastAbsF(FastVecDist(dst, a2) - f);
+            r1 = absolute_float(fast_vec_dist(dst, a2) - f);
         } else if (1.0f < f21) {
             qcopy(dst, a4);
-            r1 = FastAbsF(FastVecDist(dst, a2) - f);
+            r1 = absolute_float(fast_vec_dist(dst, a2) - f);
         } else {
             qcopy(dst, v + 2);
         }

@@ -7,7 +7,7 @@
 extern struct {
     int a, b, c;
     char *p;
-} umbris_map_menu_state;
+} D_L07_001842F0;
 
 /* Clears each set bit in a rectangle of a per-row bit grid, notifying for each. */
 void clear_bit_grid_rectangle(int x, int y0, int w, int h) {
@@ -16,7 +16,7 @@ void clear_bit_grid_rectangle(int x, int y0, int w, int h) {
         int rowbase = (y >> 5) << 4;
         int i;
         for (i = x; i < x + w; i++) {
-            unsigned char *p = (unsigned char *)umbris_map_menu_state.p + (y << 6) + i / 8;
+            unsigned char *p = (unsigned char *)l07_packed_bit_grid.p + (y << 6) + i / 8;
             if (*p != 0) {
                 int bit = 1 << (i & 7);
                 if (*p & bit) {

@@ -20,7 +20,7 @@
  * sizes -- see docs/reference/DECOMP_PROGRESS.md. Compiled as C for now.
  */
 
-extern float shadow_light_dir[] NOT_SDA;
+extern float resident_packed_direction[] NOT_SDA;
 
 ASM_FUNC("asm/handwritten/text", func_00213A78);
 
@@ -31,12 +31,12 @@ typedef struct {
     int a;
     int b;
 } Rec0C;
-extern Rec0C moby_class_data_table[];
+extern Rec0C resident_class_defaults[];
 
 extern char *moby_class_resources[];
 extern int resident_moby_class_count MACRO_ADDR;
 
-/* Looks arg0 up in the {key, a, b} table moby_class_data_table (ended by key -1).
+/* Looks arg0 up in the {key, a, b} table resident_class_defaults (ended by key -1).
    resident_moby_class_count is read at every use, not cached in a local: CSE then
    reproduces retail's load order and its surviving register copy. */
 struct Obj {
@@ -44,7 +44,7 @@ struct Obj {
     s32 extra;                       /* 0x2C */
 };
 
-/* Looks id up in the {key, a, b} table moby_class_data_table (ended by key -1).
+/* Looks id up in the {key, a, b} table resident_class_defaults (ended by key -1).
    resident_moby_class_count is read at every use, not cached in a local: CSE then
    reproduces retail's load order and its surviving register copy. */
 
@@ -53,12 +53,12 @@ void assign_moby_class_data(int id) {
     int i = 0;
 
     class_resource = moby_class_resources[resident_moby_class_count];
-    while (moby_class_data_table[i].key != -1 && moby_class_data_table[i].key != id) {
+    while (resident_class_defaults[i].key != -1 && resident_class_defaults[i].key != id) {
         i++;
     }
-    resident_moby_class_data[resident_moby_class_count] = moby_class_data_table[i].a;
+    moby_class_updates[resident_moby_class_count] = resident_class_defaults[i].a;
     if (class_resource != 0) {
-        ((struct Obj *)moby_class_resources[resident_moby_class_count])->extra = moby_class_data_table[i].b;
+        ((struct Obj *)moby_class_resources[resident_moby_class_count])->extra = resident_class_defaults[i].b;
     }
 }
 
@@ -147,7 +147,7 @@ void MobyBlendAnimation(MobyAnim *arg0, int arg1, int arg2, int arg3) {
     }
     if (*(float *)((char *)arg0 + 0x54) > 0.025f || *(int *)((char *)arg0 + 0x60) != 0 ||
         *(int *)((char *)arg0 + 0x64) != 0) {
-        slot = find_or_allocate_id_slot((int)arg0);
+        slot = find_or_allocate_moby_render_slot((int)arg0);
         if (slot >= 0) {
             capture_moby_blend_pose(arg0, slot | 0x300);
             qcopy(moby_blend_slot_poses + slot * 0x10, (char *)arg0 + 0xF0);
@@ -171,7 +171,7 @@ void MobyBlendAnimation(MobyAnim *arg0, int arg1, int arg2, int arg3) {
 }
 
 /* Re-registers this MobyAnim in the shared slot table (moby_render_slots, via
-   find_or_allocate_id_slot) when it hasn't settled yet (unk54 > 0.025, or unk60/unk64
+   find_or_allocate_moby_render_slot) when it hasn't settled yet (unk54 > 0.025, or unk60/unk64
    nonzero) or the caller forces it (arg4 & 4): builds a flags byte from
    arg4 bits 0/1 (0x100/0x200), hands it to capture_moby_blend_pose, snapshots this
    moby's unkF0 vector into the matching moby_blend_slot_poses slot, remembers the
@@ -189,7 +189,7 @@ void blend_moby_animation_ex(MobyAnim *arg0, int arg1, int arg2, int arg3, int a
 
     if (*(float *)((char *)arg0 + 0x54) > 0.025f || *(int *)((char *)arg0 + 0x60) != 0 ||
         *(int *)((char *)arg0 + 0x64) != 0 || (arg4 & 4)) {
-        slot = find_or_allocate_id_slot((int)arg0);
+        slot = find_or_allocate_moby_render_slot((int)arg0);
         if (slot >= 0) {
             flags = (arg4 & 1) ? (slot | 0x100) : slot;
             capture_moby_blend_pose(arg0, (arg4 & 2) ? (flags | 0x200) : flags);
@@ -251,7 +251,7 @@ void random_spherical_offset(void *arg0, float arg1, float arg2) {
 }
 
 /* Cosine interpolation: a + (b - a) * ((1 - cos(t * pi)) * 0.5). */
-float CosineInterpolate(float a, float b, float t) {
+float cosine_interpolate(float a, float b, float t) {
     if (t == 0.0f) {
         return a;
     }
@@ -268,7 +268,7 @@ LINKER_REMNANT("asm/remnants/text", func_002142B8);
    Passes both to coll_line_fix (a collision/line test elsewhere in the
    file's neighbours); returns coll_hit_pos's float at +8 on success, else
    0.0f. */
-f32 ProbeGroundHeight(void *arg0, s32 arg1, f32 arg2) {
+f32 probe_ground_height(void *arg0, s32 arg1, f32 arg2) {
     char sp0[16];
     char sp1[16];
 
@@ -307,7 +307,7 @@ float resolve_camera_surface_height(float *pos, void *out) {
             return h;
         }
     }
-    if (local_surface_region_enabled != 0 && FastAbsF(pos[2] - local_surface_region_center_x[2]) < 0.5f &&
+    if (local_surface_region_enabled != 0 && absolute_float(pos[2] - local_surface_region_center_x[2]) < 0.5f &&
         vec_distance_xy(pos, local_surface_region_center_x) < local_surface_region_center_x[3]) {
         if (out != 0) {
             set_vector_unit_z(out);
@@ -325,7 +325,7 @@ LINKER_REMNANT("asm/remnants/text", func_00214538);
 extern char coll_output[];
 
 /* Shadow range probe: cast a ray down (8 units) from the moby position
-   shifted against the light direction shadow_light_dir by its size, then a
+   shifted against the light direction resident_packed_direction by its size, then a
    second one along the light from just above; +0x84/+0x88 get the lower
    and upper hit height (at most 4 apart), or 0 when nothing is below. */
 void update_moby_shadow_range(char *m) {
@@ -338,8 +338,8 @@ void update_moby_shadow_range(char *m) {
     float t;
     char *hit;
 
-    qcopy(dir, shadow_light_dir);
-    vec_scale_xy_to_length(dir, dir, 1.0f);
+    qcopy(dir, resident_packed_direction);
+    set_vector_length_xy(dir, dir, 1.0f);
     FastVecScale(p, &((struct Moby *)m)->bsphere, 0.0009765625f);
     qcopy(a, p);
     a[0] -= dir[0] * ((struct Moby *)m)->bsphere.w * 0.000732421875f;
@@ -378,8 +378,8 @@ extern unsigned char damage_reaction_code_table[];
 extern char damage_reaction_scale_table[];
 extern unsigned char hero_globals_base[];
 extern char g_hero[];
-extern int suck_get_aim_height(char *);
-extern int read_state_field(char *);
+extern int get_moby_target_info(char *);
+extern int get_moby_hit_state(char *);
 
 typedef struct {
     float v[4];
@@ -414,7 +414,7 @@ int select_damage_reaction(char *a, char *B, char *an, unsigned int btn, int *ou
         return 0;
     }
     if (an == 0) {
-        an = (char *)suck_get_aim_height(a);
+        an = (char *)get_moby_target_info(a);
         if (an == 0) {
             *outA = 0;
             return 0;
@@ -450,7 +450,7 @@ int select_damage_reaction(char *a, char *B, char *an, unsigned int btn, int *ou
             FastVecScale(B + 0x10, B + 0x10, 0.3f);
             FastVecAdd(w, B + 0x10, v);
             *(Q_214778 *)(B + 0x10) = *(Q_214778 *)w;
-            vec_scale_xy_to_length((float *)(B + 0x10), (float *)(B + 0x10), 1.0f);
+            set_vector_length_xy((float *)(B + 0x10), (float *)(B + 0x10), 1.0f);
         }
     } else {
         if (*(char **)(B + 0x20) == 0) {
@@ -607,11 +607,11 @@ int select_damage_reaction(char *a, char *B, char *an, unsigned int btn, int *ou
         *outF = *(float *)(B + 0x2C);
 
     if (s21 == 4) {
-        char *p = (char *)read_state_field(a);
+        char *p = (char *)get_moby_hit_state(a);
         if (p != 0)
             p[0x2E] = 1;
     } else {
-        char *p = (char *)read_state_field(a);
+        char *p = (char *)get_moby_hit_state(a);
         if (p != 0)
             p[0x2E] = 0;
     }
@@ -629,7 +629,7 @@ float ApproachValue(float *p, float target, float maxstep) {
         d = -maxstep;
     }
     *p = *p + d;
-    return FastAbsF(target - *p);
+    return absolute_float(target - *p);
 }
 
 LINKER_REMNANT("asm/remnants/text", func_00214D80);
@@ -639,9 +639,9 @@ LINKER_REMNANT("asm/remnants/text", func_00214D80);
    (ApproachValue) and is added. Otherwise, inside the braking distance
    (*p2^2 / c / 2) it eases to 0 by c, or by 1.1c once |diff| + |*p2| no
    longer exceeds that distance; outside it, it eases by b toward
-   +-min(vec_length(2c * diff), d) (vec_length is a square root).
+   +-min(square_root(2c * diff), d) (square_root is a square root).
    Then, if |*p2| < |diff| the velocity is added and returned, else *p1
-   snaps to `a` and diff is returned. FastAbsF is fabsf; the fabs
+   snaps to `a` and diff is returned. absolute_float is fabsf; the fabs
    calls are made in retail's order through temporaries. */
 float ApproachWithVelocity(float *p1, float *p2, float a, float b, float c, float d) {
     float diff = a - *p1;
@@ -649,16 +649,16 @@ float ApproachWithVelocity(float *p1, float *p2, float a, float b, float c, floa
     if (*p2 * diff >= 0.0f && diff != 0.0f) {
         float half = *p2 * *p2 / c * 0.5f;
 
-        if (FastAbsF(diff) < half) {
-            float s = FastAbsF(diff);
-            s += FastAbsF(*p2);
+        if (absolute_float(diff) < half) {
+            float s = absolute_float(diff);
+            s += absolute_float(*p2);
             if (half < s) {
                 ApproachValue(p2, 0.0f, c);
             } else {
                 ApproachValue(p2, 0.0f, c * 1.1f);
             }
         } else {
-            float speed = vec_length((c + c) * diff);
+            float speed = square_root((c + c) * diff);
 
             if (d < speed) {
                 speed = d;
@@ -670,8 +670,8 @@ float ApproachWithVelocity(float *p1, float *p2, float a, float b, float c, floa
             }
         }
         {
-            float m1 = FastAbsF(diff);
-            float m2 = FastAbsF(*p2);
+            float m1 = absolute_float(diff);
+            float m2 = absolute_float(*p2);
 
             if (m2 < m1) {
                 *p1 = *p1 + *p2;
@@ -742,7 +742,7 @@ LINKER_REMNANT("asm/remnants/text", func_00215038);
 
 /* A goto into the first `return 0` gives retail's backward beqz; the two
    nops before it are short-loop padding (tools/ps2eeas_nops.py). */
-int suck_get_aim_height(char *arg0) {
+int get_moby_target_info(char *arg0) {
     if (arg0 == 0) {
     ret0:
         return 0;
@@ -753,8 +753,8 @@ int suck_get_aim_height(char *arg0) {
     return *((int *)((Moby *)arg0)->pvars);
 }
 
-/* suck_get_aim_height for the +0x10 field. */
-int read_state_field(char *arg0) {
+/* get_moby_target_info for the +0x10 field. */
+int get_moby_hit_state(char *arg0) {
     if (arg0 == 0) {
     ret0:
         return 0;
@@ -772,15 +772,15 @@ typedef struct {
     int next[3];
 } QuatNext;
 
-extern QuatNext quat_next_axis_table;
+extern QuatNext matrix_to_quaternion_next_axis_table;
 
 /* Rotation matrix (rows of four floats) to quaternion (x, y, z, w), by
    Shoemake's method: from the trace when it is positive, else from the
    largest diagonal element, working on a packed 3x3 copy. */
-void MatrixToQuaternion(void *arg0, void *arg1) {
+void matrix_to_quaternion(void *arg0, void *arg1) {
     float *q = arg0;
     float (*m)[4] = arg1;
-    QuatNext n = quat_next_axis_table;
+    QuatNext n = matrix_to_quaternion_next_axis_table;
     float mat[3][3];
     float trace;
     float s;
@@ -788,7 +788,7 @@ void MatrixToQuaternion(void *arg0, void *arg1) {
 
     trace = m[0][0] + m[1][1] + m[2][2];
     if (trace > 0.0f) {
-        s = vec_length(trace + 1.0f);
+        s = square_root(trace + 1.0f);
         q[3] = s * 0.5f;
         s = 0.5f / s;
         q[0] = (m[2][1] - m[1][2]) * s;
@@ -813,7 +813,7 @@ void MatrixToQuaternion(void *arg0, void *arg1) {
         }
         j = n.next[i];
         k = n.next[j];
-        s = vec_length(mat[i][i] - (mat[j][j] + mat[k][k]) + 1.0f);
+        s = square_root(mat[i][i] - (mat[j][j] + mat[k][k]) + 1.0f);
         q[i] = s * 0.5f;
         if (s != 0.0f) {
             s = 0.5f / s;
@@ -824,15 +824,15 @@ void MatrixToQuaternion(void *arg0, void *arg1) {
     }
 }
 
-extern void MatrixToQuaternion(void *, void *);
+extern void matrix_to_quaternion(void *, void *);
 
 /* copy_matrix_rotation takes two arguments: arg1 is passed on to it untouched,
    which gives arg1 three references and retail's $s0. */
 void extract_matrix_rotation_quaternion(void *arg0, void *arg1) {
     char buf[0x40];
     copy_matrix_rotation(buf, arg1);
-    MatrixToQuaternion(arg0, buf);
-    matrix_copy_rows(arg1, buf);
+    matrix_to_quaternion(arg0, buf);
+    copy_matrix3x4(arg1, buf);
 }
 
 LINKER_REMNANT("asm/remnants/text", func_00215378);
@@ -854,7 +854,7 @@ typedef struct {
 
 /* Matrix to Euler angles: on a copy of src with the translation cleared,
    read the Z angle from row 0, undo it (euler_to_matrix builds the Z
-   rotation, sce_vu0_mul_matrix multiplies), read and undo Y the same way,
+   rotation, multiply_matrix multiplies), read and undo Y the same way,
    then read X from row 1; out = (x, y, z). The last undo vector is
    filled but never used. The 16-byte aligned struct copy is retail's
    four interleaved lq/sq. */
@@ -874,13 +874,13 @@ void matrix_to_euler(Mtx44 *src, float *out) {
     v[1] = 0.0f;
     v[2] = -z;
     euler_to_matrix(rot, v);
-    sce_vu0_mul_matrix(&m, rot, &m);
+    multiply_matrix(&m, rot, &m);
     y = fast_arc_tan(m.m[0][0], -m.m[0][2]);
     v[0] = 0.0f;
     v[2] = 0.0f;
     v[1] = -y;
     euler_to_matrix_ee(rot, v);
-    sce_vu0_mul_matrix(&m, rot, &m);
+    multiply_matrix(&m, rot, &m);
     x = fast_arc_tan(m.m[1][1], m.m[1][2]);
     v[1] = 0.0f;
     v[0] = -x;
@@ -916,7 +916,7 @@ int is_point_inside_clip_volume(void *arg0, int arg1) {
     m = &clip_volume_table[arg1];
     FastVecSub(d, arg0, m->pos);
     d[3] = 0.0f;
-    matrix_mul_vec3(v, d, m->mtx);
+    transform_vector_by_basis(v, d, m->mtx);
     if (v[0] >= -1.0f && v[0] <= 1.0f && v[1] >= -1.0f && v[1] <= 1.0f && v[2] >= -1.0f && v[2] <= 1.0f) {
         return 1;
     }
@@ -951,7 +951,7 @@ extern void rotate_vector_by_quaternion(void *arg0, void *arg1, void *arg2);
 void build_look_at_matrix(void *dst, void *vec, void *axis, float angle) {
     float q[4];
 
-    if (FastAbsF(angle) < 0.00001f) {
+    if (absolute_float(angle) < 0.00001f) {
         qcopy(dst, vec);
         return;
     }
@@ -1000,7 +1000,7 @@ void set_video_timing(int pal) {
 
 LINKER_REMNANT("asm/remnants/text", func_002158E0);
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 /* Packs vector v into one RGBA word at *out (FastVectorToPackedChars converts a
    float4 to bytes): its largest absolute component sets a scale n,
@@ -1008,9 +1008,9 @@ extern int func_001FA898(float);
    which goes in w; x, y, z become v / (n / 10000) + 127. */
 void pack_vector_xyz_with_shared_scale(float *v, int *out) {
     float buf[4];
-    float a = FastAbsF(v[0]);
-    float b = FastAbsF(v[1]);
-    float c = FastAbsF(v[2]);
+    float a = absolute_float(v[0]);
+    float b = absolute_float(v[1]);
+    float c = absolute_float(v[2]);
     float m;
     int n;
     float s;
@@ -1076,8 +1076,8 @@ float round_float_to_decimal_places(int arg0, float arg1) {
 extern float round_float_to_decimal_places(int, float);
 
 /* Returns 1 if the moby's current anim frame lies inside the one-frame window starting at arg1. */
-int IsFrameWithinWindow(char *arg0, float arg1) {
-    float now = MobyGetFrameValue(arg0);
+int is_value_within_interpolated_window(char *arg0, float arg1) {
+    float now = compute_interpolated_record_value(arg0);
     float a = round_float_to_decimal_places(4, now - arg1);
     float b = round_float_to_decimal_places(4, *(float *)(arg0 + 0x58) * *(float *)(arg0 + 0x5C));
 
@@ -1116,7 +1116,7 @@ typedef struct {
    floor(t) and the next into pos and, unless flags bit 0 is set, writes
    the rotation interpolated between the two segments' directions (and
    the points' w as roll) into rot. Without wrap the last segment clamps. */
-void SamplePathAt(Path *path, int wrap, void *pos, float *rot, int flags, float t) {
+void sample_camera_path(Path *path, int wrap, void *pos, float *rot, int flags, float t) {
     PathPt a;
     PathPt b;
     PathPt c;
@@ -1157,7 +1157,7 @@ void SamplePathAt(Path *path, int wrap, void *pos, float *rot, int flags, float 
     }
     FastVecSub(&d, &b, &a);
     yaw = fast_arc_tan(d.v[0], d.v[1]);
-    pitch = fast_arc_tan(vec_length_xy(&d), d.v[2]);
+    pitch = fast_arc_tan(vector_length_xy(&d), d.v[2]);
     roll = a.v[3];
     if (clamp) {
         yaw2 = yaw;
@@ -1167,7 +1167,7 @@ void SamplePathAt(Path *path, int wrap, void *pos, float *rot, int flags, float 
         qcopy(&c, &path->pts[k]);
         FastVecSub(&d, &c, &b);
         yaw2 = fast_arc_tan(d.v[0], d.v[1]);
-        pitch2 = fast_arc_tan(vec_length_xy(&d), d.v[2]);
+        pitch2 = fast_arc_tan(vector_length_xy(&d), d.v[2]);
         roll2 = b.v[3];
     }
     rot[0] = 0.0f;
@@ -1225,9 +1225,9 @@ int force_help_message(int arg0, int arg1) {
 }
 
 /* Returns gold bolts collected minus four per gold weapon bought, clamped to 0..40. */
-int compute_clamped_count_difference(void) {
-    int a = count_nonzero_entries_up_to_40();
-    int b = count_nonzero_entries_up_to_10();
+int count_unspent_gold_bolts(void) {
+    int a = count_gold_bolts();
+    int b = count_gold_weapons();
     int v = a - b * 4;
     if (v < 0)
         v = 0;
@@ -1237,7 +1237,7 @@ int compute_clamped_count_difference(void) {
 extern unsigned char gold_bolts_collected[];
 
 /* Counts the gold bolts collected, capped at 40. */
-int count_nonzero_entries_up_to_40(void) {
+int count_gold_bolts(void) {
     int count = 0;
     int row;
     for (row = 0; row < 0x14; row++) {
@@ -1257,7 +1257,7 @@ int count_nonzero_entries_up_to_40(void) {
 extern unsigned char gold_weapon_purchased[];
 
 /* Counts the gold weapons bought, capped at 10. */
-int count_nonzero_entries_up_to_10(void) {
+int count_gold_weapons(void) {
     int count = 0;
     int i;
     for (i = 0; i < 0x25; i++) {
@@ -1272,7 +1272,7 @@ int count_nonzero_entries_up_to_10(void) {
 extern unsigned char gSkillPoints[];
 
 /* Counts the skill points earned, capped at 30. */
-int count_nonzero_entries_up_to_30(void) {
+int count_skill_points(void) {
     int count = 0;
     int i;
     for (i = 0; i < 0x20; i++) {

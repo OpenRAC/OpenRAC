@@ -33,14 +33,14 @@ void build_axis_roll_matrix(void *out, void *dir, float roll) {
     ang[0] = 0.0f;
     ang[1] = 0.0f;
     fast_euler_to_matrix(Rx, ang);
-    sce_vu0_mul_matrix(M, Rz, M);
-    sce_vu0_mul_matrix(M, Ry, M);
-    sce_vu0_mul_matrix(M, Rx, M);
+    multiply_matrix(M, Rz, M);
+    multiply_matrix(M, Ry, M);
+    multiply_matrix(M, Rx, M);
     matrix_from_basis_rows(Ry, Ry);
-    sce_vu0_mul_matrix(M, Ry, M);
+    multiply_matrix(M, Ry, M);
     matrix_from_basis_rows(Rz, Rz);
-    sce_vu0_mul_matrix(M, Rz, M);
+    multiply_matrix(M, Rz, M);
     qcopy(d, dir);
     transform_vector(d, d, M);
-    matrix_copy_rows(out, M);
+    copy_matrix3x4(out, M);
 }

@@ -1,15 +1,15 @@
 /* Data owned by src/game/ui/vendor.c. Its values come from your own baserom (tools/data_in_c.py). */
 #include "common.h"
 
-u32 attachment_vertex_indices[] DATA_SECTION(D_00160FD0) = {
+u32 D_00160FD0[] DATA_SECTION(D_00160FD0) = {
 #include "data_inc/D_00160FD0.inc"
 };
 
-char fmt_thousands_grouped_int[] DATA_SECTION(D_00161178) =
+char D_00161178[] DATA_SECTION(D_00161178) =
 #include "data_inc/D_00161178.inc"
     ;
 
-u32 fmt_plain_int[] DATA_SECTION(D_00161180) = {
+u32 D_00161180[] DATA_SECTION(D_00161180) = {
 #include "data_inc/D_00161180.inc"
 };
 
@@ -19,7 +19,7 @@ short surface_height_layer[] DATA_SECTION(D_001611E0) = {
 #include "data_inc/D_001611E0.inc"
 };
 
-int status_message_text_ids[] DATA_SECTION(D_001E62B8) = {
+int D_001E62B8[] DATA_SECTION(D_001E62B8) = {
 #include "data_inc/D_001E62B8.inc"
 };
 

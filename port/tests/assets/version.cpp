@@ -11,7 +11,7 @@
 using namespace openrac::assets;
 
 int main() {
-    CHECK(versions().size() == 7);
+    CHECK(versions().size() == 9);
     const GameVersion* pal = find_version("rac1-pal");
     CHECK(pal != nullptr);
     if (pal) {
@@ -20,6 +20,16 @@ int main() {
         CHECK(pal->region == Region::Pal);
         CHECK(pal->frame_rate == 50);
         CHECK(find_version_by_boot(pal->serial, pal->boot_sha1) == pal);
+    }
+    // Ratchet & Clank's two PAL releases share SCES_509.16, told apart by the executable's bytes.
+    const GameVersion* pal1 = find_version("rac1/pal1");
+    const GameVersion* jp = find_version("rac1/jp");
+    CHECK(pal1 && jp);
+    if (pal && pal1 && jp) {
+        CHECK(pal1->serial == pal->serial && pal1->boot_sha1 != pal->boot_sha1);
+        CHECK(find_version_by_boot(pal1->serial, pal1->boot_sha1) == pal1);
+        CHECK(pal1->region == Region::Pal && pal1->frame_rate == 50);
+        CHECK(jp->serial == "SCPS_150.37" && jp->region == Region::NtscJ && jp->frame_rate == 60);
     }
     // Going Commando's three releases: two of them boot SCUS_972.68, told apart by its bytes.
     const GameVersion* gc = find_version("rac2/ntsc");

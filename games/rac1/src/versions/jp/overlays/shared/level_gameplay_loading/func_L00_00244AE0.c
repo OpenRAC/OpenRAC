@@ -45,18 +45,20 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         used = fast_decompress((char *)(src[0x14] + (s32)src), base);
 
         level_texture_data_base = (s32)(base + h->v[0x18]);
-        level_tex0_regs_128a[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) |
-                                    ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
-                                    ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) |
-                                    ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
-        level_tex0_regs_128a[1] = 0x0000FFA0000000E0;
-        level_tex0_regs_128a[2] = 0x0040000400004000;
-        level_tex0_regs_64[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) |
-                                  ((u64)(0x13) << 20) | ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) |
-                                  ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) |
-                                  ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
-        level_tex0_regs_64[1] = 0x0000FFA0000000E0;
-        level_tex0_regs_64[2] = 0x0040000400004000;
+        level_texture_128x128_descriptor[0] =
+            (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) | ((u64)(0x13) << 20) |
+              ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) |
+              ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) |
+              ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_texture_128x128_descriptor[1] = 0x0000FFA0000000E0;
+        level_texture_128x128_descriptor[2] = 0x0040000400004000;
+        level_texture_64x64_descriptor[0] =
+            (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) | ((u64)(0x13) << 20) |
+              ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) |
+              ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) |
+              ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_texture_64x64_descriptor[1] = 0x0000FFA0000000E0;
+        level_texture_64x64_descriptor[2] = 0x0040000400004000;
         level_tex0_regs_128b[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x30]) >> 8) | ((u64)(2) << 14) |
                                     ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
                                     ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x31]) >> 8) << 37) |
@@ -67,20 +69,20 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         t1 = (TexRef244110 *)((char *)h + h->v[0xD]);
         tfrag_texture_ref_count = h->v[0xC];
         for (c1 = 0; c1 < tfrag_texture_ref_count; c1++)
-            tfrag_texture_addrs[c1] = level_texture_data_base + t1[c1].offset + (log2dim(t1[c1].kind) << 28);
+            tfrag_packed_texture_refs[c1] = level_texture_data_base + t1[c1].offset + (log2dim(t1[c1].kind) << 28);
         tex = (TexRef244110 *)((char *)h + h->v[0xF]);
         moby_texture_count = h->v[0xE];
         for (c2 = 0; c2 < moby_texture_count; c2++)
             moby_texture_addrs[c2] = level_texture_data_base + tex[c2].offset + (log2dim(tex[c2].kind) << 28);
-        FastMemCopy(moby_texture_records, tex, moby_texture_count * 16);
+        FastMemCopy(moby_texture_table, tex, moby_texture_count * 16);
         t3 = (TexRef244110 *)((char *)h + h->v[0x11]);
         tie_texture_ref_count = h->v[0x10];
         for (c3 = 0; c3 < tie_texture_ref_count; c3++)
-            tie_texture_addrs[c3] = level_texture_data_base + t3[c3].offset + (log2dim(t3[c3].kind) << 28);
+            tie_packed_texture_refs[c3] = level_texture_data_base + t3[c3].offset + (log2dim(t3[c3].kind) << 28);
         t4 = (TexRef244110 *)((char *)h + h->v[0x13]);
         shrub_texture_ref_count = h->v[0x12];
         for (c4 = 0; c4 < shrub_texture_ref_count; c4++)
-            shrub_texture_addrs[c4] = level_texture_data_base + t4[c4].offset + (log2dim(t4[c4].kind) << 28);
+            shrub_packed_texture_refs[c4] = level_texture_data_base + t4[c4].offset + (log2dim(t4[c4].kind) << 28);
 
         initialize_tfrag_render_data(base + h->v[2], (char *)h + h->v[0xD]);
         if (h->v[3])
@@ -98,7 +100,7 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         for (sq = 0, p = (char *)h + h->v[0x1E]; sq < moby_class_headers[0]->seq_count; sq++, p += 4) {
             if (*(s32 *)p) {
                 moby_class_headers[0]->seqs[sq] = base + *(s32 *)p;
-                relocateObjectPointers(moby_class_headers[0], sq);
+                relocate_asset_entry_pointers(moby_class_headers[0], sq);
             }
         }
         loaded_swap_moby_class_set = -1;
@@ -106,12 +108,12 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         swap_moby_class_block_field_8 = 0;
         moby_class_reference_count = h->v[0x20];
         for (m = 0; m < h->v[0x20]; m++, q += 0x10) {
-            swap_moby_class_ids[m] = *(s32 *)(q + 4);
-            swap_moby_class_data[m] = base + *(s32 *)q;
+            moby_reference_class_ids[m] = *(s32 *)(q + 4);
+            moby_reference_data_bases[m] = base + *(s32 *)q;
             D_J_L00_001AFE00[m] = *(s32 *)(q + 8);
             {
                 s32 o = g_class_slot[*(s32 *)(q + 4)] * 32 + 0x10;
-                qcopy(&swap_moby_class_headers[m], (char *)h + h->v[7] + o);
+                qcopy(&l00_moby_reference_texture_slot_maps[m], (char *)h + h->v[7] + o);
             }
         }
         for (i = 0, q2 = (char *)h + h->v[9]; i < h->v[8]; i++, q2 += 0x20)
@@ -120,7 +122,7 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         for (i = 0, q2 = (char *)h + h->v[0xB]; i < h->v[0xA]; i++, q2 += 0x30)
             register_shrub_render_class(base + *(s32 *)q2, (char *)h + h->v[0x13], q2 + 0x10, q2 + 0x20,
                                         *(s32 *)(q2 + 4));
-        level_effects_data = base + h->v[0x1A];
+        effect_texture_data_base = base + h->v[0x1A];
         unpack_point_records((char *)h + h->v[0x17], h->v[0x16]);
         if (h->v[0x28]) {
             relocate_counted_pointer_table(base + h->v[0x28]);
@@ -173,13 +175,13 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
             Class244110 *cls = moby_class_headers[ci];
             if (cls == 0) {
                 for (j = 0; j < moby_class_reference_count; j++)
-                    if (swap_moby_class_ids[j] == moby_class_ids[ci])
+                    if (moby_reference_class_ids[j] == moby_class_ids[ci])
                         break;
                 if (j < moby_class_reference_count) {
-                    FastMemSet(swap_moby_class_sounds[j], -1, 0x20);
+                    FastMemSet(moby_reference_sound_ids[j], -1, 0x20);
                     e = tbl + span->off;
                     for (k = 0; k < span->count && k < 15; k++, e += 4)
-                        swap_moby_class_sounds[j][k] = *(u16 *)e;
+                        moby_reference_sound_ids[j][k] = *(u16 *)e;
                 }
             } else {
                 if (span->count != cls->count0D)
@@ -259,17 +261,16 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         ((void (*)())STUB_printf)(
             mem_report_texture_data_fmt,
             (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)((particle_texture_vram_table[1] >> 4) - level_texture_data_base)) *
-                (1.0f / 1024.0f)))));
+                IntToFloat((s32)((particle_texture_ranges[1] >> 4) - level_texture_data_base)) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_particle_vram_fmt,
             (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)((s32)level_effects_data - (particle_texture_vram_table[1] >> 4))) *
+                IntToFloat((s32)((s32)effect_texture_data_base - (particle_texture_ranges[1] >> 4))) *
                 (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_effects_vram_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)moby_class_headers[0] - level_effects_data)) *
-                                             (1.0f / 1024.0f)))));
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)((char *)moby_class_headers[0] - effect_texture_data_base)) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(mem_report_moby_classes_fmt,
                                   (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_classes[0]) -
                                                                                     (char *)moby_class_headers[0])) *
@@ -284,32 +285,34 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
             ((void (*)())STUB_printf)(
                 mem_report_tie_classes_fmt,
                 (((*(f64 (*)(f32))func_00120778)(
-                    IntToFloat((s32)(((char *)tie_instances) - ((char *)level_tie_classes[0]))) * (1.0f / 1024.0f)))));
+                    IntToFloat((s32)(((char *)level_tie_instances) - ((char *)level_tie_classes[0]))) *
+                    (1.0f / 1024.0f)))));
         if (h->v[0xA])
             ((void (*)())STUB_printf)(
                 mem_report_shrub_classes_fmt,
                 (((*(f64 (*)(f32))func_00120778)(
                     IntToFloat((s32)(moby_class_headers[0]->seqs[0] - ((char *)shrub_class_table[0]))) *
                     (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(
-            mem_report_moby_seqs_fmt,
-            (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)(((char *)tie_instances) - moby_class_headers[0]->seqs[0])) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(
-            mem_report_tie_instances_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)shrub_instances) - ((char *)tie_instances))) *
-                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_moby_seqs_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_instances) -
+                                                                                    moby_class_headers[0]->seqs[0])) *
+                                                                   (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_tie_instances_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_shrub_instances) -
+                                                                                    ((char *)level_tie_instances))) *
+                                                                   (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_shrub_instances_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)moby_array_start) - ((char *)shrub_instances))) *
-                                             (1.0f / 1024.0f)))));
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)(((char *)moby_array_start) - ((char *)level_shrub_instances))) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_mobys_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(moby_spawn_pvar_pool - ((char *)moby_array_start))) *
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(l00_active_moby_pool_end - ((char *)moby_array_start))) *
                                              (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_moby_pvars_fmt,
-                                  (((*(f64 (*)(f32))func_00120778)(
-                                      IntToFloat((s32)(level_path_data - moby_spawn_pvar_pool)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_moby_pvars_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(level_path_data - l00_active_moby_pool_end)) *
+                                             (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_paths_fmt,
             (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(particle_pool - level_path_data)) * (1.0f / 1024.0f)))));

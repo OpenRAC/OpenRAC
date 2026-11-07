@@ -18,7 +18,7 @@ extern int g_current_level_index MACRO_ADDR;
 extern Level15State g_mission;
 
 /* Update each moby while the level event is in phase three or four. */
-void update_level15_mission_mobys(void) {
+void update_level15_cutscene_mobys(void) {
     int i;
     if (g_current_level_index == LEVEL_QUARTU && (unsigned)(g_mission.state - 3) < 2) {
         for (i = 0; i < g_mission.count; i++) {

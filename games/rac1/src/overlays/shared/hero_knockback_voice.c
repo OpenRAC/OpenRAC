@@ -19,7 +19,7 @@
 typedef int Q_8 __attribute__((mode(TI)));
 extern Hero g_hero;
 extern s32 batalia_game_mode MACRO_ADDR;
-extern struct HitMessage batalia_moby_hit_records[];
+extern struct HitMessage l08_moby_hit_records[];
 extern s32 g_current_level_index MACRO_ADDR;
 
 extern s32 hero_hit_count MACRO_ADDR;
@@ -56,7 +56,7 @@ s32 handle_hero_hit(s32 arg) {
     if (m[0xA4] == 0xFF) {
         return 0;
     }
-    tbl = &batalia_moby_hit_records[m[0xA4]];
+    tbl = &l08_moby_hit_records[m[0xA4]];
     if (tbl->target != m) {
         return 0;
     }

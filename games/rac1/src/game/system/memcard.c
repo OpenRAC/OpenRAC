@@ -93,7 +93,7 @@ extern int mc_leveldata[];
 extern int memcard_GetDataSize(int *p);
 extern int memcard_RestoreData(void *src, int i, int *table);
 
-extern char memcard_restore_size_mismatch_msg[];
+extern char out_of_date_save_message[];
 
 /* The counterpart of memcard_MakeWholeSave below: both descriptor sizes are
    recomputed and checked against the ones stored in the blob, then the
@@ -109,7 +109,7 @@ void memcard_RestoreGame(int arg0) {
     a = memcard_GetDataSize(mc_gamedata);
     b = memcard_GetDataSize(mc_leveldata);
     if (*(int *)p != a || *(int *)(p + 4) != b) {
-        STUB_printf(memcard_restore_size_mismatch_msg);
+        STUB_printf(out_of_date_save_message);
         return;
     }
     p += 8;
@@ -131,7 +131,7 @@ extern int music_volume MACRO_ADDR;
 extern int sound_volume MACRO_ADDR;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 
-extern int func_002176C8(int, int, int);
+extern int Load(int, int, int);
 
 /* Load returns int and takes three arguments (stream.c). */
 void load_and_initialize_level_chunk(void) {
@@ -1632,12 +1632,12 @@ extern unsigned char level_visit_state[];
 extern int gBolts MACRO_ADDR;
 extern int game_clock_ticks MACRO_ADDR;
 extern int D_0015EF20 MACRO_ADDR;
-extern int D_0015EFB4 MACRO_ADDR;
+extern int mode_freeze_flags MACRO_ADDR;
 extern char memcard_game_data_buffer[];
 extern char memcard_level_data_buffer[];
 
 /* memcard_Save(slot, flags): starts the save (sce_cd_read_clock/sce_scf_get_local_time_from_rtc
-   on save_clock_time, copy_level_object_positions, save_map_coverage on the level_map_coverage page for
+   on save_clock_time, copy_level_object_positions, save_map_coverage on the map_coverage_pages page for
    g_current_level_index). With no valid card slot (memory_card_state+0xC8, its record's
    +0x14) it returns whether `slot` is 0. Otherwise it ORs `slot` into the
    pending mask (+0xFC); unless nothing is pending, a save is running
@@ -1655,7 +1655,7 @@ int memcard_Save(int slot, int flags) {
     sce_cd_read_clock(save_clock_time);
     sce_scf_get_local_time_from_rtc(save_clock_time);
     copy_level_object_positions();
-    save_map_coverage(level_map_coverage + (g_current_level_index_m << 11));
+    save_map_coverage(map_coverage_pages + (g_current_level_index_m << 11));
     {
         char *p = memory_card_state;
         int active = ((struct MemoryCardState *)p)->xC8;

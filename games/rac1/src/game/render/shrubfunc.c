@@ -18,7 +18,7 @@ extern int g_render_packet_cursor MACRO_ADDR;
 extern int shrub_tex_dma_tag MACRO_ADDR;
 extern int max_shrub_texture_dma_size MACRO_ADDR;
 extern int g_gs_texture_allocation_cursor MACRO_ADDR;
-extern char str_shrub_texture_overflow[];
+extern char shrub_texture_overflow_message[];
 
 /* DmaShrubTextures: DmaMobyTextures' splice around the shrub texture
    upload, which also warns past 0x400000 bytes and keeps the largest
@@ -36,7 +36,7 @@ void DmaShrubTextures(void) {
         size = BuildShrubTextureDma(g_gs_texture_allocation_cursor);
         VU1_texFlush();
         if (size > 0x400000) {
-            STUB_printf(str_shrub_texture_overflow);
+            STUB_printf(shrub_texture_overflow_message);
         }
         if (max_shrub_texture_dma_size < size) {
             max_shrub_texture_dma_size = size;
@@ -53,7 +53,7 @@ void DmaShrubTextures(void) {
     p[3] = 0;
 }
 
-extern int shrub_class_index_list[];
+extern int shrub_gif_patch_class_ids[];
 extern char *shrub_render_classes[];
 extern short shrub_paging_table[];
 typedef struct {
@@ -65,7 +65,7 @@ typedef struct {
    rec->ptr` rather than `items[i].ptr`, give retail's base-first addu. */
 void patch_shrub_gifs(void) {
     int *p;
-    for (p = shrub_class_index_list; *p >= 0; p++) {
+    for (p = shrub_gif_patch_class_ids; *p >= 0; p++) {
         char *obj = shrub_render_classes[*p];
         int i;
         for (i = 0; i < *(short *)(obj + 0x28); i++) {
@@ -87,9 +87,9 @@ void patch_shrub_gifs(void) {
 }
 
 extern int g_gs_texture_allocation_start MACRO_ADDR;
-extern int shrub_draw_enabled;
-extern char str_shrub_texs[];
-extern char str_shrub_draw[];
+extern int shrub_draw_submission_state;
+extern char shrub_textures_label[];
+extern char shrub_draw_label[];
 extern char shrub_scratchpad_copy[];
 
 extern void DmaShrubTextures(void);
@@ -104,13 +104,13 @@ void DrawShrubs(void) {
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
     p += 0x10;
     g_render_packet_cursor = p;
-    ProfileMarker_Begin(str_shrub_texs, 1);
-    if (shrub_draw_enabled != 0) {
+    noop_core_callback_secondary(shrub_textures_label, 1);
+    if (shrub_draw_submission_state != 0) {
         flush_cache(0);
         ShrubProc();
         write_dma_channel(shrub_scratchpad_copy, 0x3200, 0x40);
     }
-    ProfileMarker_Begin(str_shrub_draw, 7);
+    noop_core_callback_secondary(shrub_draw_label, 7);
     DmaShrubTextures();
-    ProfileMarker_End(str_shrub_draw, 7);
+    noop_core_callback(shrub_draw_label, 7);
 }

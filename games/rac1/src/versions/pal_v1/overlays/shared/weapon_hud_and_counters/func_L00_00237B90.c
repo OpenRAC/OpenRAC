@@ -42,9 +42,9 @@ int draw_hud_text_panel(char *e) {
             left = l1;
             width = w1;
         }
-        HudSprite(GetIconFrame(0x7580, 0), left + 0x20, y, width, 0x36, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 0), left + 0x20, y, width, 0x36, alpha);
         c = color;
-        HudSprite(GetIconFrame(0x7580, 1), left, y, 0x20, 0x36, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 1), left, y, 0x20, 0x36, alpha);
         tex = GetIconFrame(0x7580, 1);
         {
             int t = width + 0x20;
@@ -56,8 +56,8 @@ int draw_hud_text_panel(char *e) {
         int w, x;
         w = measure_text_width_regular((const char *)hud_text_panel_string, -1);
         x = 0xe0 - (w >> 1);
-        HudSprite(GetIconFrame(0x7580, 1), x, y, 0x20, 0x20, alpha);
-        HudSprite(GetIconFrame(0x7580, 0), x + 0x20, y, w, 0x20, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 1), x, y, 0x20, 0x20, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 0), x + 0x20, y, w, 0x20, alpha);
         tex = GetIconFrame(0x7580, 1);
         {
             int t = w + 0x20;
@@ -82,7 +82,7 @@ int draw_hud_text_panel(char *e) {
             qcopy(&point, &points[1]);
         }
         pt = &point;
-        if (FastVecDist(gHeroPos, pt) < 5.0f) {
+        if (fast_vec_dist(hero_pos, pt) < 5.0f) {
             race_record_panel_end_y = y + 100;
             elapsed = race_best_times[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];
             score = race_best_records[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];

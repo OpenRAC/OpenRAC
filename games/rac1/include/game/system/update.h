@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void DebugProfiler_Hook(void);
+extern void func_00238D88(void);
 extern void project_graphics_bounds(void *, void *, void *, void *, void *, void *);
 extern void project_graphics_bounds_float(void *, void *, float *, float *, float *, float *);
 extern void set_scrolling_status_message(void *);

@@ -19,7 +19,7 @@ typedef struct VuChainRecord {
 } VuChainRecord;
 extern void libc_memset(void *, int, int);
 /* Clears each record's three buffer groups and resets its scalar parameters. */
-void RipplePatchesInit(VuChainRecord *records, int count) {
+void pool_init_tiles(VuChainRecord *records, int count) {
     int i;
     for (i = 0; i < count; i++) {
         int j;
@@ -46,10 +46,10 @@ void RipplePatchesInit(VuChainRecord *records, int count) {
     }
 }
 extern float pool_light[];
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 /* Converts a float vector to fixed-point ints, relative to the grid origin, plus two scale shorts. */
-void RipplePatch_ToFixedPoint(float *in, int *out) {
+void pool_bind_tile(float *in, int *out) {
     out[0] = truncate_float_to_s32((in[0] + pool_light[2]) * 1024.0f);
     out[1] = truncate_float_to_s32((in[1] + pool_light[3]) * 1024.0f);
     out[2] = truncate_float_to_s32((in[2] - 1.0f) * 1024.0f);

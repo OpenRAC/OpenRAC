@@ -6,7 +6,7 @@
 #include "common.h"
 
 extern int AddDrawCallback(void *, void *);
-extern void BuildViewMatrices(void);
+extern void func_001F2608(void);
 extern void DoGifPaging(void);
 extern void DrawDebugProfiler(void);
 extern void DrawTexturedQuad(int, int, int, int, int, int, int, int, long, long);
@@ -18,11 +18,11 @@ extern int FontPrintCenterSmall(int, int, long, void *, int);
 extern void FontPrintLarge(int, int, long, void *, int);
 extern void FontPrintSmall(int, int, long, void *, int);
 extern void FontSetWindow(void *, int, int, int, int, int, int, int, int);
-extern void Font_DisableColorCodes(void);
-extern void Font_EnableColorCodes(void);
+extern void func_001F65A8(void);
+extern void func_001F6598(void);
 extern void InitViewContext(void);
-extern void ProfileMarker_Begin(void *, int);
-extern void ProfileMarker_End(void *, int);
+extern void func_001F2560(void *, int);
+extern void func_001F2558(void *, int);
 extern void ResetDrawGlobals(void);
 extern void ResetGsRegisters(void);
 extern void ResetGsRegistersPr(void);
@@ -34,7 +34,7 @@ extern void append_rotated_sprite_quad(float, float, float, float, float, int, i
                                        float);
 extern void append_subpixel_textured_screen_quad(float, float, float, float, int, int, int, int, unsigned long, long);
 extern void begin_draw_frame(void);
-extern void clear_dma_queue_entry(void);
+extern void func_001F0F30(void);
 extern void configure_graphics_projection(int, int, float, float, float, float, float);
 extern void configure_graphics_render_target_and_projection(int, int, int, float);
 extern void dispatch_callback_list_1(void);

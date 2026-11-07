@@ -13,12 +13,12 @@ void draw_moby_three_scaled_two_tint_quads(struct Moby *m) {
     pk.a = 0;
     VU1_addGSregister(0x4A, 0);
     VU1_addGSregister(0x47, 0x51001);
-    matrix_mul_vec3(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
+    transform_vector_by_basis(mat[3], &deplanetizer_glow_local_offset_x, &m->rot_row0);
     FastVecAdd(mat[3], mat[3], &m->pos);
     *(u128_9c20_FB318 *)up = 0;
     up[2] = -1.0f;
     up[3] = 1.0f;
-    matrix_mul_vec3(mat[0], up, &m->rot_row0);
+    transform_vector_by_basis(mat[0], up, &m->rot_row0);
     FastVecSub(mat[1], mat[3], veldin2_camera_pos);
     FastVecCross(mat[2], mat[1], mat[0]);
     vec_scale_to_length(mat[2], mat[2], 1.0f);

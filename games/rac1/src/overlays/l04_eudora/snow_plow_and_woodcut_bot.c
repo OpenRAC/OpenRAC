@@ -218,8 +218,8 @@ typedef struct {
     float strength;
     s32 result;
 } VehicleQuery;
-extern s32 *eudora_paths[];
-extern VehiclePath *eudora_scene_points MACRO_ADDR;
+extern s32 *l04_paths[];
+extern VehiclePath *l04_cuboids MACRO_ADDR;
 extern char eudora_snow_plow_no_path_msg[];
 extern s32 eudora_skill_snow_plow_hits MACRO_ADDR;
 typedef struct {
@@ -264,8 +264,8 @@ void snow_plow_update(VehicleMoby *m) {
     sub = (VehicleSub *)d->motion;
     if (state == 0) {
         if (sub->path_id != -1) {
-            s32 *path = eudora_paths[sub->path_id];
-            if (FastVecDist((char *)path + 0x10, (char *)path + (*path << 4)) < 0.5f)
+            s32 *path = l04_paths[sub->path_id];
+            if (fast_vec_dist((char *)path + 0x10, (char *)path + (*path << 4)) < 0.5f)
                 --*path;
         } else {
             STUB_printf(eudora_snow_plow_no_path_msg, m->cls,
@@ -305,14 +305,14 @@ void snow_plow_update(VehicleMoby *m) {
                 break;
             }
             case 1:
-                MobySpringTurn(m, &d->turn_velocity, eudora_scene_points[d->selected].angle,
-                               g_frame_time_sq * 1.0471976f, g_frame_time_sq * 3.1415927f, g_frame_time * 3.1415927f);
-                if (vec_distance_xy(&m->pos, &eudora_scene_points[d->selected].pos) < 1.0f &&
-                    FastDiffRots(m->rot.f[2], eudora_scene_points[d->selected].angle) < 0.17453292f) {
+                MobySpringTurn(m, &d->turn_velocity, l04_cuboids[d->selected].angle, g_frame_time_sq * 1.0471976f,
+                               g_frame_time_sq * 3.1415927f, g_frame_time * 3.1415927f);
+                if (vec_distance_xy(&m->pos, &l04_cuboids[d->selected].pos) < 1.0f &&
+                    FastDiffRots(m->rot.f[2], l04_cuboids[d->selected].angle) < 0.17453292f) {
                     d->phase = 2;
                     d->phase_timer = scale_ticks(300);
                 }
-                FastVecSub(&delta, &eudora_scene_points[d->selected].pos, &m->pos);
+                FastVecSub(&delta, &l04_cuboids[d->selected].pos, &m->pos);
                 vec_scale_to_length(&delta, &delta, g_frame_time * 3.0f);
                 FastVecAdd(&m->pos, &m->pos, &delta);
                 break;
@@ -368,7 +368,7 @@ void snow_plow_update(VehicleMoby *m) {
             case 0:
             case 14:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 0, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 0, d->angle0);
                 break;
             case 19:
             case 20:
@@ -377,14 +377,14 @@ void snow_plow_update(VehicleMoby *m) {
             case 32:
             case 89:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 2, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 2, d->angle0);
                 break;
             case 22:
             case 27:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 2, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 2, d->angle0);
                 d->angle1 = FastAddRots(d->angle1, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix1 + 0x10, 2, d->angle1);
+                build_axis_rotation_quaternion(d->matrix1 + 0x10, 2, d->angle1);
                 break;
         }
     }
@@ -396,24 +396,24 @@ void snow_plow_update(VehicleMoby *m) {
                 delta.quad = 0;
                 delta.f[0] = 0.5f;
                 delta.f[2] = -5.0f;
-                matrix_mul_vec3(&delta, &delta, m->matrix);
+                transform_vector_by_basis(&delta, &delta, m->matrix);
                 FastVecAdd(&other->pos, &m->pos, &delta);
                 qcopy(&other->rot, &m->rot);
                 other->rot.f[1] = FastAddRots(other->rot.f[1], 1.5707964f);
                 MobyAnimAdvance(other);
                 moby_build_matrix(other);
-                moby_anim_sphere_lerp(other);
+                refresh_moby_spatial_bounds_from_basis(other);
                 other->flags |= 6;
                 break;
             case 0x1EE:
                 delta.quad = 0;
                 delta.f[2] = -2.0f;
-                matrix_mul_vec3(&delta, &delta, m->matrix);
+                transform_vector_by_basis(&delta, &delta, m->matrix);
                 FastVecAdd(&other->pos, &m->pos, &delta);
                 qcopy(&other->rot, &m->rot);
                 MobyAnimAdvance(other);
                 moby_build_matrix(other);
-                moby_anim_sphere_lerp(other);
+                refresh_moby_spatial_bounds_from_basis(other);
                 other->flags |= 6;
                 break;
         }
@@ -421,8 +421,8 @@ void snow_plow_update(VehicleMoby *m) {
     if (MobyGetHitMessage(m, 0x210000, 0)) {
         if (++eudora_skill_snow_plow_hits >= 10 && gSkillPoints.flag == 0) {
             gSkillPoints.flag = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53DB, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53DB, -1);
         }
         switch ((s16)((u16)m->cls - 0x1D2)) {
             case 19:
@@ -468,12 +468,12 @@ void snow_plow_update(VehicleMoby *m) {
                     VehicleArr_2CB800 none;
                     VehicleQuery query2;
                     clear_u64_value(none);
-                    Moby_GetJointWorldPos(m, 0, &delta);
+                    moby_point_position(m, 0, &delta);
                     FastVecAdd(&delta, &delta, offset);
-                    SpawnExplosionFx(m, &delta, -1, 1.0f, 13.0f);
-                    Moby_GetJointWorldPos(m, 1, &delta);
+                    cart_burst(m, &delta, -1, 1.0f, 13.0f);
+                    moby_point_position(m, 1, &delta);
                     FastVecAdd(&delta, &delta, offset);
-                    SpawnExplosionFx(m, &delta, -1, 1.0f, 13.0f);
+                    cart_burst(m, &delta, -1, 1.0f, 13.0f);
                     FastVecAdd(&delta, offset, &m->pos);
                     spawn_explosion(m, none, &delta, 0.0f, 0.0f, 20, 5, 4, 2, 1, 100000, 3, -1, 15, 1, 1, -1, 0);
                     Moby_PlaySound(1, 0, (s32)m);
@@ -582,9 +582,9 @@ void snow_plow_update(VehicleMoby *m) {
     }
 }
 extern char *eudora_mobys_b __asm__("D_L04_00160058") MACRO_ADDR;
-extern float eudora_floating_platform_spin_rate_deg SDATA(eudora_floating_platform_spin_rate_deg);
+extern float floating_platform_ring_rotation_rate_degrees SDATA(D_L04_001619EC);
 extern float g_frame_time_b __asm__("D_0015EE6C") MACRO_ADDR;
-extern float D_0015EE64 MACRO_ADDR;
+extern float g_frame_scale_sq MACRO_ADDR;
 
 struct FloatingPlatformUpdateVars {
     u8 pad_00[0x3E];
@@ -628,15 +628,15 @@ void FloatingPlatformUpdate(char *m) {
         }
         case 1: {
             float off = 0.0f;
-            float bob = FastCos(FastNormalizeAngle(MobyGetFrameValue(m) * 6.2831855f / 118.0f)) * 0.75f;
+            float bob = FastCos(FastNormalizeAngle(compute_interpolated_record_value(m) * 6.2831855f / 118.0f)) * 0.75f;
             int i;
             for (i = 0; i < 3; i++) {
                 float *p = &((struct FloatingPlatformUpdateVars *)d)->unk_224 + i;
-                float a = FastAddRots(*p, eudora_floating_platform_spin_rate_deg * 0.017453292f * g_frame_time_b);
+                float a = FastAddRots(*p, floating_platform_ring_rotation_rate_degrees * 0.017453292f * g_frame_time_b);
                 float g = g_frame_scale_sq;
                 *p = a;
                 *(float *)(d + 0x108 + i * 0x80) = a;
-                EaseManipulatorOffsets(m, d + 0xA0 + i * 0x80, i, g * 0.03f, g * 0.3f);
+                update_joint_animation(m, d + 0xA0 + i * 0x80, i, g * 0.03f, g * 0.3f);
             }
             if (((struct FloatingPlatformUpdateVars *)d)->unk_230 != -1) {
                 char *o = eudora_mobys_b + (((struct FloatingPlatformUpdateVars *)d)->unk_230 << 8);
@@ -721,7 +721,7 @@ void emit_woodcut_bot_death_effects(void *m) {
     char pos[16];
     char vec[16];
     clear_u64_value(vec);
-    Moby_GetJointWorldPos(m, 12, pos);
+    moby_point_position(m, 12, pos);
     spawn_explosion(m, vec, pos, 0.0f, 0.0f, 10, 3, 4, 2.0f, 1.0f, 100000.0f, 1.0f, -1, 15.0f, 1, 1, -1, 0);
 }
 
@@ -751,7 +751,7 @@ extern float g_frame_time MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 extern WBJoints eudora_woodcut_bot_joints;
 extern WBAngles eudora_woodcut_bot_angles;
-extern int *eudora_paths[];
+extern int *l04_paths[];
 extern float eudora_zero_vector[] MACRO_ADDR;
 
 // Update function of the woodcut bot (moby Woodcut Bot): damage reaction, saw attack, patrol/chase state machine,
@@ -778,13 +778,13 @@ void woodcut_bot_update(Moby *m) {
     Manipulator_ApplyScale(2.5f, m, 6, p);
     p120 = p;
     pos = (float *)&m->pos;
-    if (m->visible != 0 && FastVecDist(pos, eudora_camera_pos) < 27.0f) {
+    if (m->visible != 0 && fast_vec_dist(pos, eudora_camera_pos) < 27.0f) {
         set_ground_height_band(m);
         m->shadow_range = 0x15;
     }
     adiff = FastDiffRots(m->rot.z, fast_atan2(tgt[0] - m->pos.x, tgt[1] - m->pos.y));
     dist = vec_distance_xy(pos, tgt);
-    hd = MobyGetFrameValue(m);
+    hd = compute_interpolated_record_value(m);
     qcopy(v60, pos);
     qcopy(v70, pos);
     FastDecTimer(&d->t3C4);
@@ -841,7 +841,7 @@ void woodcut_bot_update(Moby *m) {
                     d->fD8 = g_frame_time * 7.0f;
                     d->fDC = g_frame_time * 13.0f;
                     *(w128 *)v = *(w128 *)(p + 0x10);
-                    HeadingFromVector(v, &angle, &d->fD8, &d->fDC);
+                    trooper_knockback_arc(v, &angle, &d->fD8, &d->fDC);
                     InitKnockback_v(angle, m, d->fC0, 8, 1, 0);
                     d->f110 = 14.0f;
                     d->f114 = 24.0f;
@@ -868,7 +868,7 @@ void woodcut_bot_update(Moby *m) {
                             d->f3E4 = 2.0f / multiply_global_factor(15.0f);
                         }
                         *(w128 *)v = *(w128 *)(p + 0x10);
-                        HeadingFromVector(v, &angle, &d->f3E4, &one);
+                        trooper_knockback_arc(v, &angle, &d->f3E4, &one);
                         d->fB7 = 0x78;
                         RerollEffectCounter(m, d->fB0);
                         d->t3C4 = scale_ticks(0xF);
@@ -882,7 +882,7 @@ void woodcut_bot_update(Moby *m) {
                     m->state = 1;
                     d->f3E4 = 2.0f / multiply_global_factor(15.0f);
                     *(w128 *)v = *(w128 *)(p + 0x10);
-                    HeadingFromVector(v, &angle, &d->f3E4, &one);
+                    trooper_knockback_arc(v, &angle, &d->f3E4, &one);
                     m->rot.z = FastAddRots(3.1415927f, angle);
                     d->fB7 = 0x78;
                     RerollEffectCounter(m, d->fB0);
@@ -925,8 +925,8 @@ void woodcut_bot_update(Moby *m) {
                 coll_line(pts[i], pts[i + 1], 9, m, &s);
             FastVecAdd(mid, pts[0], pts[4]);
             FastVecScale(mid, mid, 0.5f);
-            coll_sphere_mobys_v(mid, FastVecDist(pts[0], pts[4]) * 0.5f, 0x10, m, &s);
-            Moby_GetJointWorldPos(m, 0x11, mid);
+            coll_sphere_mobys_v(mid, fast_vec_dist(pts[0], pts[4]) * 0.5f, 0x10, m, &s);
+            moby_point_position(m, 0x11, mid);
             coll_sphere_mobys_v(mid, 0.5f, 0x10, m, &s);
         }
     }
@@ -974,7 +974,7 @@ void woodcut_bot_update(Moby *m) {
                 } else if (excited ? (dist < d->f3E8 * 2.0f) : (dist < d->f3E8)) {
                     if (m->command & 1) {
                         if (excited || d->f3DC == -1 ||
-                            IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                            point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                             m->state = 5;
                             m->command |= 8;
                         }
@@ -988,8 +988,8 @@ void woodcut_bot_update(Moby *m) {
                 }
                 if (!excited) {
                     if (vec_distance_xy(pos, d->f3B0) > 2.0f) {
-                        if (d->f3E8 < dist || (d->f3DC != -1 && IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4,
-                                                                                 *eudora_paths[d->f3DC]) == 0)) {
+                        if (d->f3E8 < dist || (d->f3DC != -1 && point_in_path_xy(tgt, l04_paths[d->f3DC] + 4,
+                                                                                 *l04_paths[d->f3DC]) == 0)) {
                             m->state = 6;
                             m->command |= 8;
                         }
@@ -1000,7 +1000,7 @@ void woodcut_bot_update(Moby *m) {
         case 2:
             if (m->seq == 2 && (m->anim_flags & 2)) {
                 if (excited || d->f3DC == -1 ||
-                    IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                    point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                     m->state = 5;
                     m->command |= 8;
                 } else {
@@ -1014,7 +1014,7 @@ void woodcut_bot_update(Moby *m) {
                 MobyBlendAnimation(m, 0xC, 0, scale_ticks(10));
                 m->anim_speed = random_float_between(0.8f, 1.2f);
             }
-            if (IsFrameWithinWindow(m, 36.0f) != 0) {
+            if (is_value_within_interpolated_window(m, 36.0f) != 0) {
                 int i;
 
                 for (i = 0; i < 20; i++) {
@@ -1029,7 +1029,7 @@ void woodcut_bot_update(Moby *m) {
                     rot[1] = random_float_between(-1.0f, 1.0f);
                     rot[2] = random_float_between(-1.0f, 1.0f);
                     *(w128 *)off = *(w128 *)rot;
-                    Moby_GetJointWorldPos(m, 0, p);
+                    moby_point_position(m, 0, p);
                     vel[0] = FastCos(m->rot.z) * -(random_float_between(5.0f, 10.0f) * g_frame_time);
                     vel[1] = FastSin(m->rot.z) * -(random_float_between(5.0f, 10.0f) * g_frame_time);
                     vel[2] = 0.0f;
@@ -1049,7 +1049,7 @@ void woodcut_bot_update(Moby *m) {
                 } else if (excited ? (dist < d->f3E8 * 2.0f) : (dist < d->f3E8)) {
                     if (m->command & 1) {
                         if (excited || d->f3DC == -1 ||
-                            IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                            point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                             m->state = 5;
                             m->command |= 8;
                         }
@@ -1070,8 +1070,7 @@ void woodcut_bot_update(Moby *m) {
                     MobyBlendAnimation(m, 4, 0, scale_ticks(10));
                     reset_walker_gait_helpers(d->f160);
                     m->state = 8;
-                } else if (d->f3DC == -1 ||
-                           IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                } else if (d->f3DC == -1 || point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                     m->state = 5;
                     m->command |= 8;
                 } else if (adiff > 1.5707964f) {
@@ -1103,10 +1102,10 @@ void woodcut_bot_update(Moby *m) {
                 v[2] = 0.0f;
                 p = (unsigned char *)v;
                 FastVecAdd(p, p, pos);
-                if (IsPointInPolygon(p, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) == 0) {
-                    if (excited && IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) == 0) {
+                if (point_in_path_xy(p, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) == 0) {
+                    if (excited && point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) == 0) {
                         m->state = 7;
-                    } else if (IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                    } else if (point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                         d->f3D0 = 0.0f;
                         MobyBlendAnimation(m, 0x10, 0, scale_ticks(10));
                         reset_walker_gait_helpers(d->f160);
@@ -1114,7 +1113,7 @@ void woodcut_bot_update(Moby *m) {
                     }
                 }
                 if (!excited) {
-                    if (IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) == 0) {
+                    if (point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) == 0) {
                         m->state = 6;
                     }
                 }
@@ -1148,13 +1147,13 @@ void woodcut_bot_update(Moby *m) {
                         v[1] = FastSin(m->rot.z) * 2.0f;
                         v[2] = 0.0f;
                         FastVecAdd(v, v, pos);
-                        if (IsPointInPolygon(v, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) == 0) {
+                        if (point_in_path_xy(v, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) == 0) {
                             d->f3D0 = 0.0f;
                             MobyBlendAnimation(m, 0x10, 0, scale_ticks(10));
                             reset_walker_gait_helpers(d->f160);
                             m->state = 0xA;
                             m->command |= 0x10;
-                        } else if (IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                        } else if (point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                             m->state = 7;
                         }
                     }
@@ -1214,7 +1213,7 @@ void woodcut_bot_update(Moby *m) {
                                               fast_atan2(m->pos.x - h->motion.pos.f[0], m->pos.y - h->motion.pos.f[1]));
                             BuildSphericalOffset(v, 6.0f, ang, m->rot.y);
                             FastVecAdd(v, v, pos);
-                            if (IsPointInPolygon(v, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) != 0) {
+                            if (point_in_path_xy(v, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) != 0) {
                                 found = 1;
                                 MobyBlendAnimation(m, 0x10, 0, scale_ticks(10));
                                 d->f3D4 = ang;
@@ -1270,8 +1269,7 @@ void woodcut_bot_update(Moby *m) {
             break;
         case 10:
             if (m->seq == 0x10 && (m->anim_flags & 2)) {
-                if ((m->command & 0x10) ||
-                    IsPointInPolygon(tgt, eudora_paths[d->f3DC] + 4, *eudora_paths[d->f3DC]) == 0) {
+                if ((m->command & 0x10) || point_in_path_xy(tgt, l04_paths[d->f3DC] + 4, *l04_paths[d->f3DC]) == 0) {
                     m->state = 6;
                     MobyBlendAnimation(m, 0, 0, scale_ticks(10));
                 } else {
@@ -1289,7 +1287,7 @@ void woodcut_bot_update(Moby *m) {
             }
             break;
         case 11:
-            if ((mine_fall(m, d->fC0) & 0x40) || m->pos.z < 1.0f) {
+            if ((step_moby_motion(m, d->fC0) & 0x40) || m->pos.z < 1.0f) {
                 emit_woodcut_bot_death_effects(m);
                 SpawnBreakFragment(m, 0x6CB, pos, &m->rot, 0, 0, 0.0f, eudora_zero_vector, eudora_zero_vector,
                                    eudora_zero_vector);
@@ -1315,11 +1313,11 @@ void woodcut_bot_update(Moby *m) {
             w[2] = 0.0f;
             FastVecAdd(w, w, pos);
             d->f3E4 += -2.0f / (multiply_global_factor(15.0f) * multiply_global_factor(15.0f));
-            MoveKeepingOverGround(m, pos, w, 1, 0.25f, 1.0f, 0.75f, 0.87266463f);
+            move_moby_xy_with_collision_constraints(m, pos, w, 1, 0.25f, 1.0f, 0.75f, 0.87266463f);
         }
         d->f3C8 *= 0.96f;
-        axis_rotation_2d48(w, 1, d->f3C8);
-        axis_rotation_2d48(d->f130, 2, 0.0f);
+        build_axis_rotation_quaternion(w, 1, d->f3C8);
+        build_axis_rotation_quaternion(d->f130, 2, 0.0f);
         multiply_quaternions(d->f130, d->f130, w);
         if (m->state != 9)
             d->f3C1 = m->state;
@@ -1328,7 +1326,7 @@ void woodcut_bot_update(Moby *m) {
 
             d->f3E0 += g_frame_time_sq * 9.8f;
             m->pos.z -= d->f3E0 - 2.0f;
-            g = ProbeGroundHeight(pos, 0, 0.5f);
+            g = probe_ground_height(pos, 0, 0.5f);
             m->pos.z -= 2.0f;
             if (m->pos.z < g) {
                 m->pos.z = g;
@@ -1379,7 +1377,7 @@ struct UpdateMobyTranslationDeltaMatrixVars {
 };
 
 /* UpdateMoby_584 */
-void update_moby_translation_delta_matrix(char *m) {
+void translation_delta_matrix_update(char *m) {
     struct UpdateMobyTranslationDeltaMatrixVars *d = (struct UpdateMobyTranslationDeltaMatrixVars *)((Moby *)m)->pvars;
     float v[4];
     FastVecSub(v, m + 0x10, &d->unk_A0);
@@ -1399,9 +1397,9 @@ extern char *eudora_mobys MACRO_ADDR;
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 /* update: blend two keyframes of a path and write the result to a position */
-void interpolate_moby_and_linked_moby_positions_on_path(char *moby) {
+void path_progress_mover_update(char *moby) {
     int *p = ((int *)((Moby *)moby)->pvars);
-    int *t = eudora_paths[p[2]];
+    int *t = l04_paths[p[2]];
     char *base = eudora_mobys;
     int o0 = p[0] * 256;
     float *src = *(float **)(base + o0 + 0x78);
@@ -1453,12 +1451,10 @@ struct MobyP {
 #define rib_p func_002140B0
 #define cif_p func_001FA888
 
-#define vector_length_xy func_001F9CE8
 
-#define random_int_between func_L00_00258BC8
 #define collision_line ((int (*)(void *, void *, int, void *, void *))(func_L00_001EFFF0))
 
-extern float eudora_leaf_drift[6];
+extern float leaf_motion_parameters[6];
 extern char eudora_coll_hit_point[];
 
 /* Three-state motion update. The saved position is restored when the timer expires. */
@@ -1502,35 +1498,35 @@ void leaf_update(struct MobyP *moby) {
             moby->scale = 0.0f;
             motion = (float *)moby->pvars;
             initialDirection.q = direction.q;
-            normalize_vector_xyz(&initialDirection, &initialDirection, eudora_leaf_drift[5] / 5.0f);
-            motion[0] = eudora_leaf_drift[5] * fast_cos(eudora_leaf_drift[1]);
+            normalize_vector_xyz(&initialDirection, &initialDirection, leaf_motion_parameters[5] / 5.0f);
+            motion[0] = leaf_motion_parameters[5] * fast_cos(leaf_motion_parameters[1]);
             {
-                float sn = fast_sin(eudora_leaf_drift[1]);
-                float st = eudora_leaf_drift[5];
+                float sn = fast_sin(leaf_motion_parameters[1]);
+                float st = leaf_motion_parameters[5];
                 float ft = frame_time;
                 motion[1] = st * sn;
                 motion[2] = ft * -0.5f;
             }
             normalize_vector_xyz(&moby->rot, &initialDirection, 3.1415927f);
             normalize_vector_xyz(motion + 8, &initialDirection, 0.098174773f);
-            normalize_vector_xyz(motion + 4, &initialDirection, eudora_leaf_drift[5] * 0.5f);
+            normalize_vector_xyz(motion + 4, &initialDirection, leaf_motion_parameters[5] * 0.5f);
             *(int *)(motion + 16) = *(int *)(motion + 17) = random_int_between(720, 1200);
             moby->state = 2;
             return;
         case 2:
             fast_dec_timer(&data->timer);
-            normalize_vector_xyz(&random, &random, eudora_leaf_drift[5] / 10.0f);
+            normalize_vector_xyz(&random, &random, leaf_motion_parameters[5] / 10.0f);
             add_vector_xyz(&data->drift, &data->drift, &random);
             normalize_vector_xyz(&work, &data->drift, 5.0f);
-            normalize_vector_xyz(&data->drift, &data->drift, eudora_leaf_drift[5] * 0.5f);
+            normalize_vector_xyz(&data->drift, &data->drift, leaf_motion_parameters[5] * 0.5f);
             add_vector_xyz(&work, &work, &moby->pos);
             if (collision_line(&old, &work, 6, 0, 0) && !rib_p(8)) {
-                vec_reflect(&data->drift, &data->drift, eudora_coll_hit_point + 0x20);
-                data->drift.z += eudora_leaf_drift[5] / 10.0f;
+                reflect_vector(&data->drift, &data->drift, eudora_coll_hit_point + 0x20);
+                data->drift.z += leaf_motion_parameters[5] / 10.0f;
             }
             add_vector_xyz(&data->vel, &data->vel, &data->drift);
-            work.f[0] = eudora_leaf_drift[5] * fast_cos(eudora_leaf_drift[1]);
-            work.f[1] = eudora_leaf_drift[5] * fast_sin(eudora_leaf_drift[1]);
+            work.f[0] = leaf_motion_parameters[5] * fast_cos(leaf_motion_parameters[1]);
+            work.f[1] = leaf_motion_parameters[5] * fast_sin(leaf_motion_parameters[1]);
             work.f[2] = frame_time * -0.5f;
             scale_vector_xyz(&work, &work, 0.4f);
             scale_vector_xyz(&data->vel, &data->vel, 0.6f);
@@ -1538,13 +1534,13 @@ void leaf_update(struct MobyP *moby) {
             add_vector_xyz(&moby->pos, &moby->pos, &data->vel);
             if (collision_line(&old, &moby->pos, 6, 0, 0)) {
                 qcopy(&moby->pos, eudora_coll_hit_point);
-                vec_reflect(&data->vel, &data->vel, eudora_coll_hit_point + 0x20);
+                reflect_vector(&data->vel, &data->vel, eudora_coll_hit_point + 0x20);
                 scale_vector_xyz(&data->vel, &data->vel, 0.25f);
                 add_vector_xyz(&moby->pos, &moby->pos, &data->vel);
-                data->vel.z += eudora_leaf_drift[5] / 5.0f;
+                data->vel.z += leaf_motion_parameters[5] / 5.0f;
             }
-            if (eudora_leaf_drift[5] < speed)
-                normalize_vector_xyz(&data->vel, &data->vel, eudora_leaf_drift[5]);
+            if (leaf_motion_parameters[5] < speed)
+                normalize_vector_xyz(&data->vel, &data->vel, leaf_motion_parameters[5]);
             {
                 float amount = frame_time * -0.5f;
                 if (amount < data->vel.z)
@@ -1591,8 +1587,8 @@ void leaf_update(struct MobyP *moby) {
 #undef scale_vector_xyz
 #undef rib_p
 #undef cif_p
-#undef vector_length_xy
-#undef random_int_between
+#undef func_001F9CE8
+#undef func_L00_00258BC8
 #undef collision_line
 /* Return the riser's vertical speed by moby class (negative values move it down). */
 float riser_rise_speed(char *moby) {
@@ -1642,7 +1638,7 @@ typedef struct {
     unsigned char taken[0];
 } CollectFlags2BB8;
 extern CollectFlags2BB8 D_L04_001BB6C0_flags __asm__("D_L04_001BB6C0") NOT_SDA;
-extern int eudora_moby_killed_bits[];
+extern int level_completed_save_id_bits[];
 extern CollectMoby2BB8 *D_L04_00160058_pickups SDATA(D_L04_00160058);
 
 /* updates a collectable moby: arms, waits for pickup, then marks it taken */
@@ -1679,7 +1675,7 @@ void upper_door_update(CollectMoby2BB8 *m) {
                 id1 = m->id;
                 level_moby_killed[g_current_level_index][(short)id1 >> 5] |= 1 << (id1 & 0x1F);
                 id2 = m->id;
-                eudora_moby_killed_bits[(short)id2 >> 5] |= 1 << (id2 & 0x1F);
+                level_completed_save_id_bits[(short)id2 >> 5] |= 1 << (id2 & 0x1F);
                 if (m->oclass == MOBY_CLASS_UPPER_DOOR_1101)
                     Moby_PlaySound(1, 0, (int)m);
                 m->state = 3;
@@ -1740,7 +1736,7 @@ void suck_cannon_update(Moby *moby) {
             update_suck_cannon_particles_r(moby);
             if (vec_distance_xy(&moby->pos, gHeroPos_r) < 3.0f) {
                 moby->flags |= 0x41;
-                StartCutscene(2);
+                start_scene(2);
                 moby->state = 2;
             }
             break;
@@ -1748,9 +1744,9 @@ void suck_cannon_update(Moby *moby) {
             if (eudora_game_mode_r == 2)
                 break;
             if (!*(gHaveHeliPack_r + 7))
-                ShowBanner(0xFA7, -1);
+                queue_dialogue_message(0xFA7, -1);
             else
-                ShowBanner(0x53E4, -1);
+                queue_dialogue_message(0x53E4, -1);
             dialogue_message_duration_frames_r = 0xB4;
             grant_inventory_item(9, 1);
             if (vars->exitMoby != -1) {
@@ -1805,9 +1801,9 @@ void update_suck_cannon_particles(char *m) {
         }
         f = IntToFloat(scale_ticks(0xFF) - p->c[i]);
         f = f / (float)scale_ticks(0xFF);
-        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, FastAbsF(0.5f - f));
+        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, absolute_float(0.5f - f));
         if (eudora_game_mode != 2)
-            PartType59Spawn(d, col, truncate_float_to_s32(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
+            spawn_timed_hero_relative_particle(d, col, truncate_float_to_s32(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
         FastVecAdd(d, d, e);
     }
 }
@@ -1832,7 +1828,7 @@ void lieutenant_update(char *m) {
     int g;
     int c;
     if (((Moby *)m)->visible != 0) {
-        if (FastVecDist(m + 0x10, eudora_camera_pos) < 30.0f) {
+        if (fast_vec_dist(m + 0x10, eudora_camera_pos) < 30.0f) {
             set_ground_height_band(m);
             ((Moby *)m)->shadow_range = 0x18;
         }
@@ -1914,11 +1910,11 @@ typedef struct {
     unsigned int mask;
 } Help_2E57F8;
 
-extern unsigned char discount_purchase_pricing[];
+extern unsigned char gHavePersuader[];
 extern int eudora_help_popup_state[] NOT_SDA;
 extern int gameplay_event_frame_count MACRO_ADDR;
 extern int hero_death_count MACRO_ADDR;
-extern Moby *D_L04_00160064 MACRO_ADDR;
+extern Moby *eudora_moby_list MACRO_ADDR;
 extern Moby *eudora_mobys_r __asm__("D_L04_00160058") MACRO_ADDR;
 extern unsigned char item_available_20 NOT_SDA;
 extern unsigned char item_available_26 NOT_SDA;
@@ -1934,7 +1930,7 @@ extern unsigned short g_help_play_time_offset NOT_SDA;
 extern unsigned short usage_stats_entry25_count NOT_SDA;
 
 /* UpdateMoby_1343: tutorial hint and statistic triggers around the player on Eudora. */
-void update_eudora_tutorial_hints_and_stats(Moby *moby) {
+void Moby1343Update(Moby *moby) {
     Data_2E57F8 *data = *(void **)&moby->pvars;
 
     switch (moby->state) {
@@ -1961,14 +1957,14 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                     if (item_available_20 == 0) {
                         Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                         if (b[0x1D].count == 0) {
-                            Help_Request(0xFA1, 0x1D);
+                            help_request(0xFA1, 0x1D);
                         }
                     } else {
                         int t = scale_ticks(gameplay_event_frame_count) - item_usage_entry40_last_time * 600;
                         if (scale_ticks(0x4650) < t) {
                             Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                             if (b[0x1C].count == 0) {
-                                Help_Request(0xFA0, 0x1C);
+                                help_request(0xFA0, 0x1C);
                             }
                         }
                     }
@@ -1985,11 +1981,11 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                             Moby *m;
                             for (m = eudora_moby_list; m != 0; m = m->next) {
                                 if (m->oclass == MOBY_CLASS_BOLT_CRANK &&
-                                    FastVecDist(((float *)&m->pos), &g_hero.motion.pos) < 3.0f &&
+                                    fast_vec_dist(((float *)&m->pos), &g_hero.motion.pos) < 3.0f &&
                                     *(float *)*(void **)&m->pvars != 1.0f) {
                                     data->f20++;
                                     if (data->f20 == 3 || data->f20 == 6) {
-                                        Help_Request(0x3EE, 0x42);
+                                        help_request(0x3EE, 0x42);
                                     }
                                 }
                             }
@@ -1999,11 +1995,11 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
             }
 
             {
-                unsigned char *g = discount_purchase_pricing + 5;
+                unsigned char *g = gHavePersuader + 5;
                 if (g[9] != 0 && eudora_help_popup_state[0] == 0 && eudora_help_popup_state[9] == -1) {
                     Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                     if (b[0x1E].count == 0) {
-                        Help_Request(0xFA2, 0x1E);
+                        help_request(0xFA2, 0x1E);
                     }
                 }
             }
@@ -2012,7 +2008,7 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                 eudora_help_popup_state[0] == 0 && eudora_help_popup_state[9] == -1) {
                 Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                 if (b[0x77].count == 0) {
-                    Help_Request(0x4E2D, 0x77);
+                    help_request(0x4E2D, 0x77);
                 }
             }
 
@@ -2046,7 +2042,7 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                     Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                     int t = scale_ticks(gameplay_event_frame_count) - b[0x1F].time * 600;
                     if ((int)(scale_ticks(0x12) * 60.0f) < t || b[0x1F].time * 600 == 0) {
-                        Help_Request(0xFA3, 0x1F);
+                        help_request(0xFA3, 0x1F);
                     } else {
                         int n = scale_ticks(gameplay_event_frame_count) / 600;
                         if (b[0x1F].time < n) {
@@ -2073,7 +2069,7 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                             if (b[0x20].count != 0) {
                                 int t = scale_ticks(gameplay_event_frame_count) - b[0x20].time * 600;
                                 if ((int)(scale_ticks(0x12) * 60.0f) < t || b[0x20].time * 600 == 0) {
-                                    Help_Request(0xFA4, 0x20);
+                                    help_request(0xFA4, 0x20);
                                 } else {
                                     int n = scale_ticks(gameplay_event_frame_count) / 600;
                                     if (b[0x20].time < n) {
@@ -2105,7 +2101,7 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                 if (scale_ticks(0x34BC0) < t) {
                     Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                     if (!(b[0x43].mask & (1 << g_current_level_index))) {
-                        Help_Request(0x3EF, 0x43);
+                        help_request(0x3EF, 0x43);
                     }
                 }
             }
@@ -2119,11 +2115,11 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                         p->oclass == MOBY_CLASS_TRESSPASSER_PAD &&
                         is_point_inside_clip_volume((char *)h + 0x80, data->f4) != 0) {
                         if (b[0x46].count == 0) {
-                            Help_Request(0x7DB, 0x46);
+                            help_request(0x7DB, 0x46);
                         } else if (b[0x47].count == 0) {
                             data->f1C++;
                             if (scale_ticks(0x708) < data->f1C) {
-                                Help_Request(0x7DC, 0x47);
+                                help_request(0x7DC, 0x47);
                             }
                         }
                     } else {
@@ -2162,15 +2158,15 @@ void update_eudora_tutorial_hints_and_stats(Moby *moby) {
                 data->f24 >= 3 && eudora_help_popup_state[0] == 0 && eudora_help_popup_state[9] == -1) {
                 Help_2E57F8 *b = (Help_2E57F8 *)help_records;
                 if (b[0x49].count == 0) {
-                    Help_Request(0xFA5, 0x49);
+                    help_request(0xFA5, 0x49);
                 }
             }
             break;
     }
 }
 extern char eudora_coll_hit_normal[];
-extern float eudora_debris_spin_min_deg SDATA(eudora_debris_spin_min_deg);
-extern float eudora_debris_spin_max_deg SDATA(eudora_debris_spin_max_deg);
+extern float woodcut_debris_bounce_spin_min_degrees_gp SDATA(D_L04_00161E08);
+extern float woodcut_debris_bounce_spin_max_degrees_gp SDATA(D_L04_00161E0C);
 
 // Updates a bouncing moby: spins it, then in state 0 reflects its direction off a plane and in state 1 fades it out.
 typedef struct BounceData2E6558 {
@@ -2182,7 +2178,7 @@ typedef struct BounceData2E6558 {
     float spin[3];
 } BounceData2E6558;
 /* Fragment update: fall, spin and bounce off geometry; sink below the floor, then delete. */
-void update_entity_bounce_and_decay(char *moby) {
+void woodcut_bot_debris_update(char *moby) {
     enum { ENTITY_MOTION_STATE_BOUNCE = 0, ENTITY_MOTION_STATE_DECAY_AND_REMOVE = 1 };
     struct Moby *entity = (struct Moby *)moby;
     BounceData2E6558 *pv = (BounceData2E6558 *)entity->pvars;
@@ -2207,13 +2203,15 @@ void update_entity_bounce_and_decay(char *moby) {
                     if (FastVecDot(vel, collision_normal) < (zero = 0.0f)) {
                         qcopy(pos, collision_normal - 1);
                         *(unsigned short *)&pv->bounces = *(unsigned short *)&pv->bounces - 1;
-                        vec_reflect(vel, vel, collision_normal);
+                        reflect_vector(vel, vel, collision_normal);
                         FastVecScale(vel, vel, 0.75f);
                         pv->spin[0] = zero;
-                        pv->spin[1] = randf_sym(eudora_debris_spin_min_deg, eudora_debris_spin_max_deg) * 0.017453292f *
-                                      g_frame_time;
-                        pv->spin[2] = randf_sym(eudora_debris_spin_min_deg, eudora_debris_spin_max_deg) * 0.017453292f *
-                                      g_frame_time;
+                        pv->spin[1] = randf_sym(woodcut_debris_bounce_spin_min_degrees_gp,
+                                                woodcut_debris_bounce_spin_max_degrees_gp) *
+                                      0.017453292f * g_frame_time;
+                        pv->spin[2] = randf_sym(woodcut_debris_bounce_spin_min_degrees_gp,
+                                                woodcut_debris_bounce_spin_max_degrees_gp) *
+                                      0.017453292f * g_frame_time;
                     }
                 }
             }
@@ -2238,10 +2236,10 @@ struct L04MissionState {
     char pad1[0x178 - 0x34];
     int slot[4];
 };
-extern struct L04MissionState eudora_cutscene_action;
+extern struct L04MissionState l04_mode_slot_dispatch_state;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l04/gameplay/vendor/002e3078.c, FUN_L04_002e53a0. */
-void dispatch_mode_selected_slot(struct Moby *m) {
+void SparksTriggerL04_Update(struct Moby *m) {
     switch (m->state) {
         case 0:
             m->update_dist = 0xFF;
@@ -2249,15 +2247,15 @@ void dispatch_mode_selected_slot(struct Moby *m) {
             break;
         case 1:
             if (eudora_game_mode == 2) {
-                if (eudora_cutscene_action.mode == 0 || eudora_cutscene_action.mode == 1) {
-                    int v = eudora_cutscene_action.mode;
+                if (l04_mode_slot_dispatch_state.mode == 0 || l04_mode_slot_dispatch_state.mode == 1) {
+                    int v = l04_mode_slot_dispatch_state.mode;
                     int i;
                     i = 0;
                     if (v == 0)
                         i = 3;
                     else if (v == 1)
                         i = 2;
-                    cutscene_set_camera_target(eudora_cutscene_action.slot[i]);
+                    cutscene_set_camera_target(l04_mode_slot_dispatch_state.slot[i]);
                 }
             }
             break;

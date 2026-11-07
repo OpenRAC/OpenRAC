@@ -32,7 +32,7 @@ typedef struct {
 } E001f36f8;
 extern s32 debug_text_queue_count SDATA(debug_text_queue_count);
 extern void *debug_text_queue_cursor SDATA(debug_text_queue_cursor);
-extern E001f36f8 debug_text_queue[];
+extern E001f36f8 l00_debug_text_queue_entries[];
 extern u8 debug_text_queue_buffer[];
 void draw_debug_text(s32, s32, s32, s32);
 
@@ -42,7 +42,8 @@ void flush_debug_text_queue(void) {
     E001f36f8 *p;
 
     for (i = 0; i < (debug_text_queue_count); i++) {
-        draw_debug_text(debug_text_queue[i].a, debug_text_queue[i].b, debug_text_queue[i].c, debug_text_queue[i].d);
+        draw_debug_text(l00_debug_text_queue_entries[i].a, l00_debug_text_queue_entries[i].b,
+                        l00_debug_text_queue_entries[i].c, l00_debug_text_queue_entries[i].d);
     }
     (debug_text_queue_count) = 0;
     (debug_text_queue_cursor) = debug_text_queue_buffer;
@@ -50,8 +51,8 @@ void flush_debug_text_queue(void) {
 
 extern int *dma_packet_cursor MACRO_ADDR;
 extern long debug_font_pif_header MACRO_ADDR;
-extern int debug_font_glyph_uvs[];
-extern int debug_font_glyph_widths[];
+extern int debug_font_glyph_texture_coordinates[];
+extern int debug_font_glyph_advances[];
 extern int g_screen_extent[];
 
 /* Appends a line of font glyph quads at (x, y) in COLOR to the packet buffer and patches the packet tags. */
@@ -88,7 +89,7 @@ void draw_debug_text(int x, int y, int color, int s_) {
         glyph = (u8)(*text - 0x20);
         if (glyph >= 0x60)
             glyph = 0x20;
-        texture_coordinates = debug_font_glyph_uvs[glyph];
+        texture_coordinates = debug_font_glyph_texture_coordinates[glyph];
         text++;
         if (texture_coordinates != -1) {
             cursor[0] = (s64)texture_coordinates;
@@ -101,7 +102,7 @@ void draw_debug_text(int x, int y, int color, int s_) {
                         ((u64)(s64)(((y + 12) * 16) + g_screen_extent[5] - 8) << 16) | 0xFFFFF300000000UL;
             dma_packet_cursor = (int *)((u64 *)dma_packet_cursor + 4);
         }
-        x += debug_font_glyph_widths[glyph];
+        x += debug_font_glyph_advances[glyph];
     }
     ((u32 *)packet)[0] = quadwords | 0x10000000;
     ((u32 *)packet)[1] = 0;
@@ -137,11 +138,11 @@ extern char g_controller_state_r[] __asm__("D_0013CA40");
 extern char g_debug_menu_r[] __asm__("D_L00_0016C158");
 extern char player_camera_r[] __asm__("D_L00_00166D80");
 extern char player_camera_matrix_r[] __asm__("D_L00_001670D0");
-extern char D_L00_001670E0[];
-extern char D_L00_001670F0[];
-extern char D_L00_00166ED0[];
+extern char camera_lateral_axis[];
+extern char player_camera_up_axis[];
+extern char camera_rotation[];
 
-extern void sce_vu0_mul_matrix(void *, void *, void *);
+extern void multiply_matrix(void *, void *, void *);
 
 /* Free-camera controls (debug camera): pad buttons move the camera (in the free-look matrix when the hero's
    camera mode is 2, else on the ground plane), turn it about three axes with eased speeds, and when the camera
@@ -190,8 +191,8 @@ void update_debug_camera(void) {
         }
         if (((PadDwords *)g_controller_state_r)->held_pressed.i & 1) {
             if (k) {
-                vec_scale_to_length(s, player_camera_side_axis, ((Cam *)g_debug_menu_r)->f70);
-                FastVecAdd(player_camera_side_axis - 0x220, player_camera_side_axis - 0x220, s);
+                vec_scale_to_length(s, camera_lateral_axis, ((Cam *)g_debug_menu_r)->f70);
+                FastVecAdd(camera_lateral_axis - 0x220, camera_lateral_axis - 0x220, s);
             } else {
                 ((View *)player_camera_r)->f140 -=
                     FastSin(((View *)player_camera_r)->f158) * ((Cam *)g_debug_menu_r)->f70;
@@ -202,8 +203,8 @@ void update_debug_camera(void) {
         }
         if (((PadDwords *)g_controller_state_r)->held_pressed.i & 2) {
             if (k) {
-                vec_scale_to_length(s, player_camera_side_axis, ((Cam *)g_debug_menu_r)->f70);
-                FastVecSub(player_camera_side_axis - 0x220, player_camera_side_axis - 0x220, s);
+                vec_scale_to_length(s, camera_lateral_axis, ((Cam *)g_debug_menu_r)->f70);
+                FastVecSub(camera_lateral_axis - 0x220, camera_lateral_axis - 0x220, s);
             } else {
                 ((View *)player_camera_r)->f140 +=
                     FastSin(((View *)player_camera_r)->f158) * ((Cam *)g_debug_menu_r)->f70;
@@ -249,8 +250,8 @@ void update_debug_camera(void) {
             s[4] = b;
             s[9] = b;
             copy_matrix_rotation(s + 20, player_camera_matrix_r);
-            sce_vu0_mul_matrix(s + 20, s + 20, s + 4);
-            matrix_copy_rows(player_camera_matrix_r, s + 20);
+            multiply_matrix(s + 20, s + 20, s + 4);
+            copy_matrix3x4(player_camera_matrix_r, s + 20);
         } else {
             ((View *)player_camera_r)->f158 =
                 FastSubRots(((View *)player_camera_r)->f158, ((Cam *)g_debug_menu_r)->f80);
@@ -259,7 +260,7 @@ void update_debug_camera(void) {
         float t = ((Cam *)g_debug_menu_r)->f80 / 1.5f;
 
         ((Cam *)g_debug_menu_r)->f80 = t;
-        if (FastAbsF(t) < 0.002f) {
+        if (absolute_float(t) < 0.002f) {
             ((Cam *)g_debug_menu_r)->f80 = 0.0f;
         }
     }
@@ -284,8 +285,8 @@ void update_debug_camera(void) {
             s[8] = -b;
             s[10] = a;
             copy_matrix_rotation(s + 16, player_camera_matrix_r);
-            sce_vu0_mul_matrix(s + 16, s + 16, s);
-            matrix_copy_rows(player_camera_matrix_r, s + 16);
+            multiply_matrix(s + 16, s + 16, s);
+            copy_matrix3x4(player_camera_matrix_r, s + 16);
         } else {
             ((View *)player_camera_r)->f154 =
                 FastSubRots(((View *)player_camera_r)->f154, ((Cam *)g_debug_menu_r)->f7C);
@@ -294,7 +295,7 @@ void update_debug_camera(void) {
         float t = ((Cam *)g_debug_menu_r)->f7C / 1.5f;
 
         ((Cam *)g_debug_menu_r)->f7C = t;
-        if (FastAbsF(t) < 0.002f) {
+        if (absolute_float(t) < 0.002f) {
             ((Cam *)g_debug_menu_r)->f7C = 0.0f;
         }
     }
@@ -318,13 +319,13 @@ void update_debug_camera(void) {
         s[5] = b;
         s[10] = b;
         copy_matrix_rotation(s + 16, player_camera_matrix_r);
-        sce_vu0_mul_matrix(s + 36, s + 16, s);
-        matrix_copy_rows(player_camera_matrix_r, s + 36);
+        multiply_matrix(s + 36, s + 16, s);
+        copy_matrix3x4(player_camera_matrix_r, s + 36);
     } else {
         float t = ((Cam *)g_debug_menu_r)->f78 / 1.5f;
 
         ((Cam *)g_debug_menu_r)->f78 = t;
-        if (FastAbsF(t) < 0.002f) {
+        if (absolute_float(t) < 0.002f) {
             ((Cam *)g_debug_menu_r)->f78 = 0.0f;
         }
     }
@@ -363,7 +364,7 @@ void update_debug_camera(void) {
         vec_scale_to_length(s, s, 1.0f);
         vec_scale_to_length(s + 4, s + 4, 1.0f);
         vec_scale_to_length(s + 8, s + 8, 1.0f);
-        matrix_copy_rows(camera_rotation + 0x200, s);
+        copy_matrix3x4(camera_rotation + 0x200, s);
     }
     if (((Cam *)g_debug_menu_r)->f14 == 2) {
         if (((View *)player_camera_r)->p180 != 0) {
@@ -385,13 +386,13 @@ void update_debug_camera(void) {
     }
 }
 
-extern char g_debug_menu[];
-extern char player_camera[];
+extern char gDebugFreeCamLvl[];
+extern char gCameraLvl[];
 
 /* places the camera-follow vector from the angle and offsets, then copies it into the object */
 void update_hero_from_debug_camera(void) {
-    char *g = player_camera;
-    char *c = g_debug_menu;
+    char *g = gCameraLvl;
+    char *c = gDebugFreeCamLvl;
     char *b;
     float t = FastAddRots(*(float *)(g + 0x158), *(float *)(c + 0x88));
     char *m;
@@ -435,7 +436,7 @@ typedef struct {
 } Input;
 
 extern Input g_controller_state;
-extern MenuCounts debug_menu_group_item_counts;
+extern MenuCounts l00_debug_menu_column_row_counts;
 typedef union {
     float f;
     s32 i;
@@ -517,127 +518,127 @@ void update_debug_menu(void) {
     sound_update();
     buttons = g_controller_state.keys.word.pressed;
     if (buttons & 0x500) {
-        cinematic_mode = ((DebugMenu *)g_debug_menu)->buffer_mode;
+        cinematic_mode = ((DebugMenu *)gDebugFreeCamLvl)->buffer_mode;
         SetBackgroundColor(render_view_params.a, render_view_params.b, render_view_params.c);
-        ((DebugMenu *)g_debug_menu)->saved_timer = 110;
-        ((DebugMenu *)g_debug_menu)->point_timer = 110;
-        ((DebugMenu *)g_debug_menu)->x = (s32)((CameraSystem *)player_camera)->pos.f[0] >> 2;
-        ((DebugMenu *)g_debug_menu)->y = (s32)((CameraSystem *)player_camera)->pos.f[1] >> 2;
-        ((DebugMenu *)g_debug_menu)->z = (s32)((CameraSystem *)player_camera)->pos.f[2] >> 2;
+        ((DebugMenu *)gDebugFreeCamLvl)->saved_timer = 110;
+        ((DebugMenu *)gDebugFreeCamLvl)->point_timer = 110;
+        ((DebugMenu *)gDebugFreeCamLvl)->x = (s32)((CameraSystem *)gCameraLvl)->pos.f[0] >> 2;
+        ((DebugMenu *)gDebugFreeCamLvl)->y = (s32)((CameraSystem *)gCameraLvl)->pos.f[1] >> 2;
+        ((DebugMenu *)gDebugFreeCamLvl)->z = (s32)((CameraSystem *)gCameraLvl)->pos.f[2] >> 2;
         return;
     }
-    counts = debug_menu_group_item_counts;
+    counts = l00_debug_menu_column_row_counts;
     if (buttons & 0x2000) {
-        if (++((DebugMenu *)g_debug_menu)->group == 3)
-            ((DebugMenu *)g_debug_menu)->group = 0;
-        else if (((DebugMenu *)g_debug_menu)->group == 6)
-            ((DebugMenu *)g_debug_menu)->group = 3;
+        if (++((DebugMenu *)gDebugFreeCamLvl)->group == 3)
+            ((DebugMenu *)gDebugFreeCamLvl)->group = 0;
+        else if (((DebugMenu *)gDebugFreeCamLvl)->group == 6)
+            ((DebugMenu *)gDebugFreeCamLvl)->group = 3;
     } else if (buttons & 0x8000) {
-        if (--((DebugMenu *)g_debug_menu)->group < 0)
-            ((DebugMenu *)g_debug_menu)->group = 2;
-        else if (((DebugMenu *)g_debug_menu)->group == 2)
-            ((DebugMenu *)g_debug_menu)->group = 5;
+        if (--((DebugMenu *)gDebugFreeCamLvl)->group < 0)
+            ((DebugMenu *)gDebugFreeCamLvl)->group = 2;
+        else if (((DebugMenu *)gDebugFreeCamLvl)->group == 2)
+            ((DebugMenu *)gDebugFreeCamLvl)->group = 5;
     }
-    if ((g_controller_state.keys.word.pressed & 0x1000) && --((DebugMenu *)g_debug_menu)->item < 0) {
-        if (((DebugMenu *)g_debug_menu)->group >= 3)
-            ((DebugMenu *)g_debug_menu)->group = (((DebugMenu *)g_debug_menu)->group + 3) % 6;
-        ((DebugMenu *)g_debug_menu)->item = counts.v[((DebugMenu *)g_debug_menu)->group] - 1;
+    if ((g_controller_state.keys.word.pressed & 0x1000) && --((DebugMenu *)gDebugFreeCamLvl)->item < 0) {
+        if (((DebugMenu *)gDebugFreeCamLvl)->group >= 3)
+            ((DebugMenu *)gDebugFreeCamLvl)->group = (((DebugMenu *)gDebugFreeCamLvl)->group + 3) % 6;
+        ((DebugMenu *)gDebugFreeCamLvl)->item = counts.v[((DebugMenu *)gDebugFreeCamLvl)->group] - 1;
     } else if (g_controller_state.keys.word.pressed & 0x4000) {
-        if (++((DebugMenu *)g_debug_menu)->item >= counts.v[((DebugMenu *)g_debug_menu)->group]) {
-            if (((DebugMenu *)g_debug_menu)->group < 3)
-                ((DebugMenu *)g_debug_menu)->group = (((DebugMenu *)g_debug_menu)->group + 9) % 6;
-            ((DebugMenu *)g_debug_menu)->item = 0;
+        if (++((DebugMenu *)gDebugFreeCamLvl)->item >= counts.v[((DebugMenu *)gDebugFreeCamLvl)->group]) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->group < 3)
+                ((DebugMenu *)gDebugFreeCamLvl)->group = (((DebugMenu *)gDebugFreeCamLvl)->group + 9) % 6;
+            ((DebugMenu *)gDebugFreeCamLvl)->item = 0;
         }
     }
-    if (((DebugMenu *)g_debug_menu)->item >= counts.v[((DebugMenu *)g_debug_menu)->group])
-        ((DebugMenu *)g_debug_menu)->item = counts.v[((DebugMenu *)g_debug_menu)->group] - 1;
-    switch (((DebugMenu *)g_debug_menu)->group) {
+    if (((DebugMenu *)gDebugFreeCamLvl)->item >= counts.v[((DebugMenu *)gDebugFreeCamLvl)->group])
+        ((DebugMenu *)gDebugFreeCamLvl)->item = counts.v[((DebugMenu *)gDebugFreeCamLvl)->group] - 1;
+    switch (((DebugMenu *)gDebugFreeCamLvl)->group) {
         case 0:
             if (g_controller_state.keys.word.pressed & 0x40) {
-                s32 bit = 1 << ((DebugMenu *)g_debug_menu)->item;
-                ((DebugMenu *)g_debug_menu)->draw_bits ^= bit;
+                s32 bit = 1 << ((DebugMenu *)gDebugFreeCamLvl)->item;
+                ((DebugMenu *)gDebugFreeCamLvl)->draw_bits ^= bit;
                 if (bit == 16) {
-                    if (((DebugMenu *)g_debug_menu)->draw_bits & 16)
-                        ((DebugMenu *)g_debug_menu)->draw_bits = bit;
+                    if (((DebugMenu *)gDebugFreeCamLvl)->draw_bits & 16)
+                        ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = bit;
                     else
-                        ((DebugMenu *)g_debug_menu)->draw_bits = 15;
+                        ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = 15;
                 }
             }
             break;
         case 1:
-            switch (((DebugMenu *)g_debug_menu)->item) {
+            switch (((DebugMenu *)gDebugFreeCamLvl)->item) {
                 case 0:
                     if (g_controller_state.keys.word.pressed & 0x50) {
                         if (g_controller_state.keys.word.pressed & 0x40) {
-                            if (++((DebugMenu *)g_debug_menu)->camera_mode >= 4)
-                                ((DebugMenu *)g_debug_menu)->camera_mode = 0;
+                            if (++((DebugMenu *)gDebugFreeCamLvl)->camera_mode >= 4)
+                                ((DebugMenu *)gDebugFreeCamLvl)->camera_mode = 0;
                         }
                         if (g_controller_state.keys.word.pressed & 0x10) {
-                            if (--((DebugMenu *)g_debug_menu)->camera_mode < 0)
-                                ((DebugMenu *)g_debug_menu)->camera_mode = 3;
+                            if (--((DebugMenu *)gDebugFreeCamLvl)->camera_mode < 0)
+                                ((DebugMenu *)gDebugFreeCamLvl)->camera_mode = 3;
                         }
-                        switch (((DebugMenu *)g_debug_menu)->camera_mode) {
+                        switch (((DebugMenu *)gDebugFreeCamLvl)->camera_mode) {
                             case 0:
-                                ((DebugMenu *)g_debug_menu)->draw_bits = 15;
+                                ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = 15;
                                 break;
                             case 1:
-                                ((DebugMenu *)g_debug_menu)->draw_bits = 0;
+                                ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = 0;
                                 break;
                             case 2:
-                                ((DebugMenu *)g_debug_menu)->draw_bits = 0;
+                                ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = 0;
                                 FastVecSub(buf.points.vec, &g_hero.motion.pos.f[0],
-                                           &((CameraSystem *)player_camera)->pos.f[0]);
-                                ((DebugMenu *)g_debug_menu)->distance = vec_length_xy(buf.points.vec);
-                                ((DebugMenu *)g_debug_menu)->angle =
+                                           &((CameraSystem *)gCameraLvl)->pos.f[0]);
+                                ((DebugMenu *)gDebugFreeCamLvl)->distance = vector_length_xy(buf.points.vec);
+                                ((DebugMenu *)gDebugFreeCamLvl)->angle =
                                     FastSubRots(fast_atan2(buf.points.vec[0], buf.points.vec[1]),
-                                                ((CameraSystem *)player_camera)->rot.f[2]);
-                                ((DebugMenu *)g_debug_menu)->height =
-                                    g_hero.motion.pos.f[2] - ((CameraSystem *)player_camera)->pos.f[2];
-                                ((DebugMenu *)g_debug_menu)->rot =
-                                    FastSubRots(g_hero.motion.rot.f[2], ((CameraSystem *)player_camera)->rot.f[2]);
+                                                ((CameraSystem *)gCameraLvl)->rot.f[2]);
+                                ((DebugMenu *)gDebugFreeCamLvl)->height =
+                                    g_hero.motion.pos.f[2] - ((CameraSystem *)gCameraLvl)->pos.f[2];
+                                ((DebugMenu *)gDebugFreeCamLvl)->rot =
+                                    FastSubRots(g_hero.motion.rot.f[2], ((CameraSystem *)gCameraLvl)->rot.f[2]);
                                 break;
                             case 3:
-                                ((DebugMenu *)g_debug_menu)->draw_bits = 6;
+                                ((DebugMenu *)gDebugFreeCamLvl)->draw_bits = 6;
                                 break;
                         }
                     }
                     break;
                 case 1:
                     if (g_controller_state.keys.word.pressed & 0x40) {
-                        if (++((DebugMenu *)g_debug_menu)->display_mode >= 8)
-                            ((DebugMenu *)g_debug_menu)->display_mode = 0;
+                        if (++((DebugMenu *)gDebugFreeCamLvl)->display_mode >= 8)
+                            ((DebugMenu *)gDebugFreeCamLvl)->display_mode = 0;
                     }
                     if (g_controller_state.keys.word.pressed & 0x10) {
-                        if (--((DebugMenu *)g_debug_menu)->display_mode < 0)
-                            ((DebugMenu *)g_debug_menu)->display_mode = 7;
+                        if (--((DebugMenu *)gDebugFreeCamLvl)->display_mode < 0)
+                            ((DebugMenu *)gDebugFreeCamLvl)->display_mode = 7;
                     }
                     break;
                 case 2:
                     if (!occlusion_grid) {
-                        ((DebugMenu *)g_debug_menu)->occl_mode = 0;
+                        ((DebugMenu *)gDebugFreeCamLvl)->occl_mode = 0;
                         break;
                     }
                     if (g_controller_state.keys.word.pressed & 0x40) {
-                        if (++((DebugMenu *)g_debug_menu)->occl_mode >= 3)
-                            ((DebugMenu *)g_debug_menu)->occl_mode = 0;
+                        if (++((DebugMenu *)gDebugFreeCamLvl)->occl_mode >= 3)
+                            ((DebugMenu *)gDebugFreeCamLvl)->occl_mode = 0;
                     }
                     if (g_controller_state.keys.word.pressed & 0x10) {
-                        if (--((DebugMenu *)g_debug_menu)->occl_mode < 0)
-                            ((DebugMenu *)g_debug_menu)->occl_mode = 2;
+                        if (--((DebugMenu *)gDebugFreeCamLvl)->occl_mode < 0)
+                            ((DebugMenu *)gDebugFreeCamLvl)->occl_mode = 2;
                     }
                     break;
                 case 3:
                     if (g_controller_state.keys.word.pressed & 0x50)
-                        ((DebugMenu *)g_debug_menu)->f20 = !((DebugMenu *)g_debug_menu)->f20;
+                        ((DebugMenu *)gDebugFreeCamLvl)->f20 = !((DebugMenu *)gDebugFreeCamLvl)->f20;
                     break;
                 case 4:
                     if (g_controller_state.keys.word.pressed & 0x50)
-                        ((DebugMenu *)g_debug_menu)->f24 = !((DebugMenu *)g_debug_menu)->f24;
+                        ((DebugMenu *)gDebugFreeCamLvl)->f24 = !((DebugMenu *)gDebugFreeCamLvl)->f24;
                     break;
                 case 5:
                     if (g_controller_state.keys.word.pressed & 0x50) {
-                        ((DebugMenu *)g_debug_menu)->f28 = !((DebugMenu *)g_debug_menu)->f28;
-                        if (((DebugMenu *)g_debug_menu)->f28) {
+                        ((DebugMenu *)gDebugFreeCamLvl)->f28 = !((DebugMenu *)gDebugFreeCamLvl)->f28;
+                        if (((DebugMenu *)gDebugFreeCamLvl)->f28) {
                             level_tfrag_draw_distance = 65536.0f;
                             level_tie_draw_distance = 64.0f;
                             shrub_draw_distance = 40.0f;
@@ -654,22 +655,22 @@ void update_debug_menu(void) {
                     break;
                 case 6:
                     if (g_controller_state.keys.word.pressed & 0x40) {
-                        if (++((DebugMenu *)g_debug_menu)->f2C >= 3)
-                            ((DebugMenu *)g_debug_menu)->f2C = 0;
+                        if (++((DebugMenu *)gDebugFreeCamLvl)->f2C >= 3)
+                            ((DebugMenu *)gDebugFreeCamLvl)->f2C = 0;
                     }
                     if (g_controller_state.keys.word.pressed & 0x10) {
-                        if (--((DebugMenu *)g_debug_menu)->f2C < 0)
-                            ((DebugMenu *)g_debug_menu)->f2C = 2;
+                        if (--((DebugMenu *)gDebugFreeCamLvl)->f2C < 0)
+                            ((DebugMenu *)gDebugFreeCamLvl)->f2C = 2;
                     }
                     break;
                 case 7:
                     if (g_controller_state.keys.word.pressed & 0x50)
-                        ((DebugMenu *)g_debug_menu)->f30 = !((DebugMenu *)g_debug_menu)->f30;
+                        ((DebugMenu *)gDebugFreeCamLvl)->f30 = !((DebugMenu *)gDebugFreeCamLvl)->f30;
                     break;
                 case 8:
                     if (g_controller_state.keys.word.pressed & 0x50) {
-                        ((DebugMenu *)g_debug_menu)->f34 = !((DebugMenu *)g_debug_menu)->f34;
-                        if (((DebugMenu *)g_debug_menu)->f34) {
+                        ((DebugMenu *)gDebugFreeCamLvl)->f34 = !((DebugMenu *)gDebugFreeCamLvl)->f34;
+                        if (((DebugMenu *)gDebugFreeCamLvl)->f34) {
                             render_view_params.x.f = IntToFloat(fs_aa_buffer.x) * 0.125f;
                             render_view_params.y.f = IntToFloat(fs_aa_buffer.y) * 0.125f;
                         } else {
@@ -688,33 +689,33 @@ void update_debug_menu(void) {
                 case 9:
                     if (g_controller_state.keys.word.pressed & 0x50) {
                         if (g_controller_state.keys.word.pressed & 0x40) {
-                            ((DebugMenu *)g_debug_menu)->selection++;
-                            while (((DebugMenu *)g_debug_menu)->selection == 36)
-                                ((DebugMenu *)g_debug_menu)->selection = -1;
+                            ((DebugMenu *)gDebugFreeCamLvl)->selection++;
+                            while (((DebugMenu *)gDebugFreeCamLvl)->selection == 36)
+                                ((DebugMenu *)gDebugFreeCamLvl)->selection = -1;
                         } else {
-                            ((DebugMenu *)g_debug_menu)->selection--;
-                            while (((DebugMenu *)g_debug_menu)->selection < -1)
-                                ((DebugMenu *)g_debug_menu)->selection = 35;
+                            ((DebugMenu *)gDebugFreeCamLvl)->selection--;
+                            while (((DebugMenu *)gDebugFreeCamLvl)->selection < -1)
+                                ((DebugMenu *)gDebugFreeCamLvl)->selection = 35;
                         }
                     }
-                    if (((DebugMenu *)g_debug_menu)->selection >= 0)
-                        ((DebugMenu *)g_debug_menu)->buffer_mode = 2;
+                    if (((DebugMenu *)gDebugFreeCamLvl)->selection >= 0)
+                        ((DebugMenu *)gDebugFreeCamLvl)->buffer_mode = 2;
                     else
-                        ((DebugMenu *)g_debug_menu)->buffer_mode = 0;
+                        ((DebugMenu *)gDebugFreeCamLvl)->buffer_mode = 0;
                     break;
                 case 10:
                     if (g_controller_state.keys.word.pressed & 0x50) {
                         if (g_controller_state.keys.word.pressed & 0x40) {
-                            ((DebugMenu *)g_debug_menu)->mission++;
-                            while (((DebugMenu *)g_debug_menu)->mission == 16)
-                                ((DebugMenu *)g_debug_menu)->mission = 0;
+                            ((DebugMenu *)gDebugFreeCamLvl)->mission++;
+                            while (((DebugMenu *)gDebugFreeCamLvl)->mission == 16)
+                                ((DebugMenu *)gDebugFreeCamLvl)->mission = 0;
                         } else {
-                            ((DebugMenu *)g_debug_menu)->mission--;
-                            while (((DebugMenu *)g_debug_menu)->mission < 0)
-                                ((DebugMenu *)g_debug_menu)->mission = 15;
+                            ((DebugMenu *)gDebugFreeCamLvl)->mission--;
+                            while (((DebugMenu *)gDebugFreeCamLvl)->mission < 0)
+                                ((DebugMenu *)gDebugFreeCamLvl)->mission = 15;
                         }
                     } else if (g_controller_state.keys.word.pressed & 0x20) {
-                        s32 slot = ((DebugMenu *)g_debug_menu)->mission;
+                        s32 slot = ((DebugMenu *)gDebugFreeCamLvl)->mission;
                         s32 offset = slot + (g_current_level_index << 4);
                         u8 *p = (u8 *)saved_mission_state + offset;
                         *p = *p ? 0 : 255;
@@ -725,13 +726,13 @@ void update_debug_menu(void) {
             break;
         case 2:
             if (g_controller_state.keys.word.pressed & 0x40)
-                ((DebugMenu *)g_debug_menu)->bits ^= 1 << ((DebugMenu *)g_debug_menu)->item;
+                ((DebugMenu *)gDebugFreeCamLvl)->bits ^= 1 << ((DebugMenu *)gDebugFreeCamLvl)->item;
             break;
         case 3: {
             s32 *value;
             s32 limit = 999999;
-            if (((DebugMenu *)g_debug_menu)->item < 13) {
-                s32 id = ((u8 *)&debug_menu_item_ids)[((DebugMenu *)g_debug_menu)->item];
+            if (((DebugMenu *)gDebugFreeCamLvl)->item < 13) {
+                s32 id = ((u8 *)&debug_menu_item_ids)[((DebugMenu *)gDebugFreeCamLvl)->item];
                 value = (s32 *)weapon_ammo_counts + id;
                 limit = ((Weapon_1F4918 *)(id * 24 + (char *)item_price_table))->limit;
             } else
@@ -765,11 +766,11 @@ void update_debug_menu(void) {
             if (*value > limit)
                 *value = limit;
             if (g_controller_state.keys.word.pressed & 0x10)
-                ((u8 *)gold_weapon_purchased)[((u8 *)&debug_menu_item_ids)[((DebugMenu *)g_debug_menu)->item]]++;
+                ((u8 *)gold_weapon_purchased)[((u8 *)&debug_menu_item_ids)[((DebugMenu *)gDebugFreeCamLvl)->item]]++;
             if (g_controller_state.keys.word.pressed & 0x80)
-                ((u8 *)gold_weapon_purchased)[((u8 *)&debug_menu_item_ids)[((DebugMenu *)g_debug_menu)->item]]--;
+                ((u8 *)gold_weapon_purchased)[((u8 *)&debug_menu_item_ids)[((DebugMenu *)gDebugFreeCamLvl)->item]]--;
             {
-                s32 id = ((u8 *)&debug_menu_item_ids)[((DebugMenu *)g_debug_menu)->item];
+                s32 id = ((u8 *)&debug_menu_item_ids)[((DebugMenu *)gDebugFreeCamLvl)->item];
                 Item_1F4918 *record = item_defs + id;
                 u8 *p = (u8 *)gold_weapon_purchased + id;
                 if (*p > record->limit.word)
@@ -778,7 +779,7 @@ void update_debug_menu(void) {
             break;
         }
         case 4:
-            if (((DebugMenu *)g_debug_menu)->item == 0) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 0) {
                 u64 keys = g_controller_state.keys.all;
                 if (keys & 0x800000040ULL)
                     level_fog_near_distance += 1024.0f;
@@ -789,7 +790,7 @@ void update_debug_menu(void) {
                 else if (level_fog_near_distance < 0.0f)
                     level_fog_near_distance = 0.0f;
             }
-            if (((DebugMenu *)g_debug_menu)->item == 2) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 2) {
                 u64 keys = g_controller_state.keys.all;
                 if (keys & 0x800000040ULL)
                     level_fog_far_distance += 1024.0f;
@@ -800,7 +801,7 @@ void update_debug_menu(void) {
                 else if (level_fog_far_distance < level_fog_near_distance)
                     level_fog_far_distance = level_fog_near_distance;
             }
-            if (((DebugMenu *)g_debug_menu)->item == 1) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 1) {
                 u64 keys = g_controller_state.keys.all;
                 if (keys & 0x800000040ULL)
                     level_fog_near_intensity -= 2.55f;
@@ -811,7 +812,7 @@ void update_debug_menu(void) {
                 else if (level_fog_near_intensity < 0.0f)
                     level_fog_near_intensity = 0.0f;
             }
-            if (((DebugMenu *)g_debug_menu)->item == 3) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 3) {
                 u64 keys = g_controller_state.keys.all;
                 if (keys & 0x800000040ULL)
                     level_fog_far_intensity -= 2.55f;
@@ -822,19 +823,19 @@ void update_debug_menu(void) {
                 else if (level_fog_far_intensity < 0.0f)
                     level_fog_far_intensity = 0.0f;
             }
-            if (((DebugMenu *)g_debug_menu)->item == 4) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 4) {
                 if ((*(u8 *)&level_fog_color_red) < 255 && (g_controller_state.keys.all & 0x800000040ULL))
                     ++(*(u8 *)&level_fog_color_red);
                 if ((*(u8 *)&level_fog_color_red) > 0 && (g_controller_state.keys.all & 0x400000010ULL))
                     --(*(u8 *)&level_fog_color_red);
             }
-            if (((DebugMenu *)g_debug_menu)->item == 5) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 5) {
                 if ((*(u8 *)&level_fog_color_green) < 255 && (g_controller_state.keys.all & 0x800000040ULL))
                     ++(*(u8 *)&level_fog_color_green);
                 if ((*(u8 *)&level_fog_color_green) > 0 && (g_controller_state.keys.all & 0x400000010ULL))
                     --(*(u8 *)&level_fog_color_green);
             }
-            if (((DebugMenu *)g_debug_menu)->item == 6) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 6) {
                 if ((*(u8 *)&level_fog_color_blue) < 255 && (g_controller_state.keys.all & 0x800000040ULL))
                     ++(*(u8 *)&level_fog_color_blue);
                 if ((*(u8 *)&level_fog_color_blue) > 0 && (g_controller_state.keys.all & 0x400000010ULL))
@@ -843,11 +844,11 @@ void update_debug_menu(void) {
             UpdateFog();
             break;
         case 5:
-            if (((DebugMenu *)g_debug_menu)->item == 0 && (g_controller_state.keys.word.pressed & 0x50))
-                ((DebugMenu *)g_debug_menu)->fF0 = !((DebugMenu *)g_debug_menu)->fF0;
-            if (((DebugMenu *)g_debug_menu)->item == 1 && (g_controller_state.keys.word.pressed & 0x50))
-                ((DebugMenu *)g_debug_menu)->fF4 = !((DebugMenu *)g_debug_menu)->fF4;
-            if (((DebugMenu *)g_debug_menu)->item == 2 && (g_controller_state.keys.word.pressed & 0xF0)) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 0 && (g_controller_state.keys.word.pressed & 0x50))
+                ((DebugMenu *)gDebugFreeCamLvl)->fF0 = !((DebugMenu *)gDebugFreeCamLvl)->fF0;
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 1 && (g_controller_state.keys.word.pressed & 0x50))
+                ((DebugMenu *)gDebugFreeCamLvl)->fF4 = !((DebugMenu *)gDebugFreeCamLvl)->fF4;
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 2 && (g_controller_state.keys.word.pressed & 0xF0)) {
                 extern char level_file_path_format;
                 char *fmt = level_directory;
                 char *dev = &level_file_path_format;
@@ -859,12 +860,12 @@ void update_debug_menu(void) {
                     if (count > 0) {
                         p = g_occlusion_samples;
                         do {
-                            if (p[0] < ((CameraSystem *)player_camera)->pos.f[0] + 0.5f &&
-                                p[0] > ((CameraSystem *)player_camera)->pos.f[0] - 0.5f &&
-                                p[1] < ((CameraSystem *)player_camera)->pos.f[1] + 0.5f &&
-                                p[1] > ((CameraSystem *)player_camera)->pos.f[1] - 0.5f &&
-                                p[2] < ((CameraSystem *)player_camera)->pos.f[2] + 0.5f &&
-                                p[2] > ((CameraSystem *)player_camera)->pos.f[2] - 0.5f) {
+                            if (p[0] < ((CameraSystem *)gCameraLvl)->pos.f[0] + 0.5f &&
+                                p[0] > ((CameraSystem *)gCameraLvl)->pos.f[0] - 0.5f &&
+                                p[1] < ((CameraSystem *)gCameraLvl)->pos.f[1] + 0.5f &&
+                                p[1] > ((CameraSystem *)gCameraLvl)->pos.f[1] - 0.5f &&
+                                p[2] < ((CameraSystem *)gCameraLvl)->pos.f[2] + 0.5f &&
+                                p[2] > ((CameraSystem *)gCameraLvl)->pos.f[2] - 0.5f) {
                                 found = 1;
                                 break;
                             }
@@ -876,15 +877,15 @@ void update_debug_menu(void) {
                     break;
                 sprintf(buf.points.path, dev, fmt, g_current_level_index, occlusion_deltas_file_name,
                         iso_version_suffix);
-                sprintf(buf.points.text, add_sample_format, func_00120778(((CameraSystem *)player_camera)->pos.f[0]),
-                        func_00120778(((CameraSystem *)player_camera)->pos.f[1]),
-                        func_00120778(((CameraSystem *)player_camera)->pos.f[2]));
+                sprintf(buf.points.text, add_sample_format, func_00120778(((CameraSystem *)gCameraLvl)->pos.f[0]),
+                        func_00120778(((CameraSystem *)gCameraLvl)->pos.f[1]),
+                        func_00120778(((CameraSystem *)gCameraLvl)->pos.f[2]));
                 fd = sceOpen(buf.points.path, 0x303);
                 if (fd >= 0) {
                     sceLseek(fd, 0, 2);
                     sceWrite(fd, buf.points.text, libc_strlen(buf.points.text));
                     sceClose(fd);
-                    ((DebugMenu *)g_debug_menu)->point_timer = 121;
+                    ((DebugMenu *)gDebugFreeCamLvl)->point_timer = 121;
                 }
                 {
                     float *p = g_occlusion_samples;
@@ -893,9 +894,9 @@ void update_debug_menu(void) {
                     fd = sceOpen(buf.points.path, 0x303);
                     if (fd >= 0) {
                         sceLseek(fd, 0, 2);
-                        sceWrite(fd, &((CameraSystem *)player_camera)->pos.f[0], 4);
-                        sceWrite(fd, &((CameraSystem *)player_camera)->pos.f[1], 4);
-                        sceWrite(fd, &((CameraSystem *)player_camera)->pos.f[2], 4);
+                        sceWrite(fd, &((CameraSystem *)gCameraLvl)->pos.f[0], 4);
+                        sceWrite(fd, &((CameraSystem *)gCameraLvl)->pos.f[1], 4);
+                        sceWrite(fd, &((CameraSystem *)gCameraLvl)->pos.f[2], 4);
                         sceLseek(fd, 0, 0);
                         size = sceLseek(fd, 0, 2);
                         if (size <= 0x100000) {
@@ -908,21 +909,21 @@ void update_debug_menu(void) {
                     }
                 }
             }
-            if (((DebugMenu *)g_debug_menu)->item == 3 && (g_controller_state.keys.word.pressed & 0xF0)) {
+            if (((DebugMenu *)gDebugFreeCamLvl)->item == 3 && (g_controller_state.keys.word.pressed & 0xF0)) {
                 /* KEPT: char and char[] are addressed differently at -G2. */
                 extern char level_file_path_format[];
                 s32 fd;
                 sprintf(buf.saved.path, level_file_path_format, level_directory, g_current_level_index,
                         occlusion_deltas_file_name, iso_version_suffix);
-                sprintf(buf.saved.text, start_point_format, func_00120778(((CameraSystem *)player_camera)->pos.f[0]),
-                        func_00120778(((CameraSystem *)player_camera)->pos.f[1]),
-                        func_00120778(((CameraSystem *)player_camera)->pos.f[2]));
+                sprintf(buf.saved.text, start_point_format, func_00120778(((CameraSystem *)gCameraLvl)->pos.f[0]),
+                        func_00120778(((CameraSystem *)gCameraLvl)->pos.f[1]),
+                        func_00120778(((CameraSystem *)gCameraLvl)->pos.f[2]));
                 fd = sceOpen(buf.saved.path, 0x303);
                 if (fd >= 0) {
                     sceLseek(fd, 0, 2);
                     sceWrite(fd, buf.saved.text, libc_strlen(buf.saved.text));
                     sceClose(fd);
-                    ((DebugMenu *)g_debug_menu)->saved_timer = 121;
+                    ((DebugMenu *)gDebugFreeCamLvl)->saved_timer = 121;
                 }
             }
             break;
@@ -948,80 +949,80 @@ extern volatile s32 debug_text_flush_wait_flag MACRO_ADDR;
 extern void flush_debug_text_queue(void);
 
 extern double func_00120778(float);
-extern char debug_menu_title[];
+extern char debug_menu_title_text[];
 extern char debug_menu_title_underline[];
-extern char debug_menu_update_header[];
-extern char debug_menu_update_underline[];
-extern char debug_label_ratchet[];
-extern char debug_label_update_bit1[];
-extern char debug_label_parts[];
-extern char debug_label_camera[];
-extern char debug_label_update_bit4[];
-extern char debug_menu_cursor[];
-extern char debug_menu_group1_header[];
-extern char debug_menu_header_underline[];
-extern char debug_label_control[];
-extern char debug_label_profile[];
-extern char debug_label_occlusion_mode[];
-extern char debug_label_bookmark[];
-extern char debug_label_invincible[];
-extern char debug_label_drawdist[];
-extern char debug_label_group1_item6[];
-extern char debug_label_tv_mode[];
-extern char debug_label_screen[];
-extern char debug_label_scene[];
-extern char debug_int_format[];
-extern char debug_scene_none_text[];
-extern char debug_label_segment[];
-extern char debug_segment_format[];
-extern char debug_menu_group2_header[];
-extern char debug_label_darken[];
-extern char debug_label_env_coll[];
-extern char debug_label_moby_coll[];
-extern char debug_label_hero_coll[];
-extern char debug_label_bspheres[];
-extern char debug_label_cameras[];
-extern char debug_label_cuboids[];
-extern char debug_label_samples[];
-extern char debug_label_group2_bit8[];
-extern char debug_menu_weapon_header[];
-extern char debug_label_suck_cannon[];
-extern char debug_label_morph_o_ray[];
-extern char debug_label_inflato[];
-extern char debug_label_weapon_row3[];
-extern char debug_label_d_droids[];
-extern char debug_label_weapon_row5[];
-extern char debug_label_devastator[];
-extern char debug_label_visibomb[];
-extern char debug_label_agents[];
-extern char debug_label_pyrocitor[];
-extern char debug_label_tesla_claw[];
-extern char debug_label_mine_glove[];
-extern char debug_label_blaster[];
-extern char debug_label_bolts[];
-extern char debug_menu_fog_header[];
-extern char debug_menu_fog_underline[];
-extern char debug_label_near_dist[];
-extern char debug_fog_value_format[];
-extern char debug_label_near_int[];
-extern char debug_label_far_dist[];
-extern char debug_label_far_int[];
-extern char debug_label_color_r[];
-extern char debug_label_color_g[];
-extern char debug_label_color_b[];
-extern char debug_menu_samples_header[];
-extern char debug_label_battle_cam[];
-extern char debug_label_actuator[];
-extern char debug_label_add_sample[];
-extern char debug_label_add_start[];
-extern char *debug_on_off_strings[];
-extern char *debug_camera_mode_names[];
-extern char *debug_drawdist_names[];
-extern char *debug_group1_item6_names[];
-extern char *debug_tv_mode_names[];
-extern char *debug_screen_names[];
-extern char *debug_occlusion_mode_names[];
-extern char *debug_display_mode_names[];
+extern char debug_menu_update_heading[];
+extern char debug_menu_update_heading_underline[];
+extern char debug_menu_ratchet_update_label[];
+extern char debug_menu_mobys_update_label[];
+extern char debug_menu_parts_update_label[];
+extern char debug_menu_camera_update_label[];
+extern char debug_menu_step_update_label[];
+extern char debug_menu_selection_marker[];
+extern char debug_menu_mode_heading[];
+extern char debug_menu_section_heading_underline[];
+extern char debug_menu_control_mode_label[];
+extern char debug_menu_profiler_mode_label[];
+extern char debug_menu_occlusion_mode_label[];
+extern char debug_menu_bookmark_label[];
+extern char debug_menu_invincibility_label[];
+extern char debug_menu_draw_distance_override_label[];
+extern char debug_menu_collision_mode_label[];
+extern char debug_menu_television_mode_label[];
+extern char debug_menu_screen_mode_label[];
+extern char debug_menu_scene_label[];
+extern char debug_menu_integer_format[];
+extern char debug_menu_no_scene_text[];
+extern char debug_menu_segment_label[];
+extern char debug_menu_segment_visited_format[];
+extern char debug_menu_draw_heading[];
+extern char debug_menu_darken_draw_label[];
+extern char debug_menu_environment_collision_draw_label[];
+extern char debug_menu_moby_collision_draw_label[];
+extern char debug_menu_hero_collision_draw_label[];
+extern char debug_menu_bounding_spheres_draw_label[];
+extern char debug_menu_cameras_draw_label[];
+extern char debug_menu_cuboids_draw_label[];
+extern char debug_menu_samples_draw_label[];
+extern char debug_menu_text_draw_label[];
+extern char debug_menu_ammo_heading[];
+extern char debug_menu_suck_cannon_label[];
+extern char debug_menu_morph_ray_label[];
+extern char debug_menu_inflato_r_label[];
+extern char debug_menu_ryno_label[];
+extern char debug_menu_droids_label[];
+extern char debug_menu_bomb_label[];
+extern char debug_menu_devastator_label[];
+extern char debug_menu_visibomb_label[];
+extern char debug_menu_agents_label[];
+extern char debug_menu_pyrocitor_label[];
+extern char debug_menu_tesla_label[];
+extern char debug_menu_mine_glove_label[];
+extern char debug_menu_blaster_label[];
+extern char debug_menu_bolts_label[];
+extern char debug_menu_fog_heading[];
+extern char debug_menu_fog_heading_underline[];
+extern char debug_menu_fog_near_distance_label[];
+extern char debug_menu_fog_float_format[];
+extern char debug_menu_fog_near_intensity_label[];
+extern char debug_menu_fog_far_distance_label[];
+extern char debug_menu_fog_far_intensity_label[];
+extern char debug_menu_fog_red_label[];
+extern char debug_menu_fog_green_label[];
+extern char debug_menu_fog_blue_label[];
+extern char debug_menu_misc_heading[];
+extern char debug_menu_battle_camera_label[];
+extern char debug_menu_actuator_label[];
+extern char debug_menu_sample_capture_label[];
+extern char debug_menu_start_capture_label[];
+extern char *debug_menu_toggle_value_texts[];
+extern char *debug_menu_control_mode_texts[];
+extern char *debug_menu_draw_distance_override_texts[];
+extern char *debug_menu_collision_mode_texts[];
+extern char *debug_menu_television_mode_texts[];
+extern char *debug_menu_screen_mode_texts[];
+extern char *debug_menu_occlusion_mode_texts[];
+extern char *debug_menu_profiler_mode_texts[];
 
 /* Row-stride helper for draw_debug_menu: 0 when FLAGS is clear, else one pointer width (the next string slot). */
 static __inline__ int flag_offset60(int flags) {
@@ -1043,201 +1044,202 @@ void draw_debug_menu(void) {
 
     append_gif_transfer_packet();
     if (skip_frame == 0) {
-        print_debug_text_centered(0x100, 0x10, 0x80C0C000, debug_menu_title);
+        print_debug_text_centered(0x100, 0x10, 0x80C0C000, debug_menu_title_text);
         print_debug_text_centered(0x100, 0x18, 0x80C0C000, debug_menu_title_underline);
-        print_debug_text(0xC, 0x2C, 0x8000C000, debug_menu_update_header);
-        print_debug_text(0xC, 0x32, 0x8000C000, debug_menu_update_underline);
-        print_debug_text(0x14, 0x40, 0x8000C0C0, debug_label_ratchet);
+        print_debug_text(0xC, 0x2C, 0x8000C000, debug_menu_update_heading);
+        print_debug_text(0xC, 0x32, 0x8000C000, debug_menu_update_heading_underline);
+        print_debug_text(0x14, 0x40, 0x8000C0C0, debug_menu_ratchet_update_label);
         print_debug_text(0x6C, 0x40, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.draw_bits & 1)));
-        print_debug_text(0x14, 0x4F, 0x8000C0C0, debug_label_update_bit1);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.draw_bits & 1)));
+        print_debug_text(0x14, 0x4F, 0x8000C0C0, debug_menu_mobys_update_label);
         print_debug_text(0x6C, 0x4F, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.draw_bits & 2)));
-        print_debug_text(0x14, 0x5E, 0x8000C0C0, debug_label_parts);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.draw_bits & 2)));
+        print_debug_text(0x14, 0x5E, 0x8000C0C0, debug_menu_parts_update_label);
         print_debug_text(0x6C, 0x5E, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.draw_bits & 4)));
-        print_debug_text(0x14, 0x6D, 0x8000C0C0, debug_label_camera);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.draw_bits & 4)));
+        print_debug_text(0x14, 0x6D, 0x8000C0C0, debug_menu_camera_update_label);
         print_debug_text(0x6C, 0x6D, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.draw_bits & 8)));
-        print_debug_text(0x14, 0x7C, 0x8000C0C0, debug_label_update_bit4);
-        print_debug_text(0x6C, 0x7C, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.draw_bits & 0x10)));
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.draw_bits & 8)));
+        print_debug_text(0x14, 0x7C, 0x8000C0C0, debug_menu_step_update_label);
+        print_debug_text(
+            0x6C, 0x7C, 0x80F0F0F0,
+            *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.draw_bits & 0x10)));
         if (debug_menu60.group == 0) {
-            print_debug_text(9, (debug_menu60.item * 0xF) + 0x40, 0x800000C0, debug_menu_cursor);
+            print_debug_text(9, (debug_menu60.item * 0xF) + 0x40, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0xA8, 0x2C, 0x8000C000, debug_menu_group1_header);
-        print_debug_text(0xA8, 0x32, 0x8000C000, debug_menu_header_underline);
-        print_debug_text(0xB0, 0x40, 0x8000C0C0, debug_label_control);
-        print_debug_text(0x108, 0x40, 0x80F0F0F0, debug_camera_mode_names[debug_menu60.camera_mode]);
-        print_debug_text(0xB0, 0x4F, 0x8000C0C0, debug_label_profile);
-        print_debug_text(0x108, 0x4F, 0x80F0F0F0, debug_display_mode_names[debug_menu60.display_mode]);
-        print_debug_text(0xB0, 0x5E, 0x8000C0C0, debug_label_occlusion_mode);
-        print_debug_text(0x108, 0x5E, 0x80F0F0F0, debug_occlusion_mode_names[debug_menu60.occl_mode]);
-        print_debug_text(0xB0, 0x6D, 0x8000C0C0, debug_label_bookmark);
-        print_debug_text(0x108, 0x6D, 0x80F0F0F0, debug_on_off_strings[(debug_menu60.f20 != 0) ? 0 : 1]);
-        print_debug_text(0xB0, 0x7C, 0x8000C0C0, debug_label_invincible);
-        print_debug_text(0x108, 0x7C, 0x80F0F0F0, debug_on_off_strings[debug_menu60.f24]);
-        print_debug_text(0xB0, 0x8B, 0x8000C0C0, debug_label_drawdist);
-        print_debug_text(0x108, 0x8B, 0x80F0F0F0, debug_drawdist_names[debug_menu60.f28]);
-        print_debug_text(0xB0, 0x9A, 0x8000C0C0, debug_label_group1_item6);
-        print_debug_text(0x108, 0x9A, 0x80F0F0F0, debug_group1_item6_names[debug_menu60.f2C]);
-        print_debug_text(0xB0, 0xA9, 0x8000C0C0, debug_label_tv_mode);
-        print_debug_text(0x108, 0xA9, 0x80F0F0F0, debug_tv_mode_names[debug_menu60.f30]);
-        print_debug_text(0xB0, 0xB8, 0x8000C0C0, debug_label_screen);
-        print_debug_text(0x108, 0xB8, 0x80F0F0F0, debug_screen_names[debug_menu60.f34]);
-        print_debug_text(0xB0, 0xC7, 0x8000C0C0, debug_label_scene);
+        print_debug_text(0xA8, 0x2C, 0x8000C000, debug_menu_mode_heading);
+        print_debug_text(0xA8, 0x32, 0x8000C000, debug_menu_section_heading_underline);
+        print_debug_text(0xB0, 0x40, 0x8000C0C0, debug_menu_control_mode_label);
+        print_debug_text(0x108, 0x40, 0x80F0F0F0, debug_menu_control_mode_texts[debug_menu60.camera_mode]);
+        print_debug_text(0xB0, 0x4F, 0x8000C0C0, debug_menu_profiler_mode_label);
+        print_debug_text(0x108, 0x4F, 0x80F0F0F0, debug_menu_profiler_mode_texts[debug_menu60.display_mode]);
+        print_debug_text(0xB0, 0x5E, 0x8000C0C0, debug_menu_occlusion_mode_label);
+        print_debug_text(0x108, 0x5E, 0x80F0F0F0, debug_menu_occlusion_mode_texts[debug_menu60.occl_mode]);
+        print_debug_text(0xB0, 0x6D, 0x8000C0C0, debug_menu_bookmark_label);
+        print_debug_text(0x108, 0x6D, 0x80F0F0F0, debug_menu_toggle_value_texts[(debug_menu60.f20 != 0) ? 0 : 1]);
+        print_debug_text(0xB0, 0x7C, 0x8000C0C0, debug_menu_invincibility_label);
+        print_debug_text(0x108, 0x7C, 0x80F0F0F0, debug_menu_toggle_value_texts[debug_menu60.f24]);
+        print_debug_text(0xB0, 0x8B, 0x8000C0C0, debug_menu_draw_distance_override_label);
+        print_debug_text(0x108, 0x8B, 0x80F0F0F0, debug_menu_draw_distance_override_texts[debug_menu60.f28]);
+        print_debug_text(0xB0, 0x9A, 0x8000C0C0, debug_menu_collision_mode_label);
+        print_debug_text(0x108, 0x9A, 0x80F0F0F0, debug_menu_collision_mode_texts[debug_menu60.f2C]);
+        print_debug_text(0xB0, 0xA9, 0x8000C0C0, debug_menu_television_mode_label);
+        print_debug_text(0x108, 0xA9, 0x80F0F0F0, debug_menu_television_mode_texts[debug_menu60.f30]);
+        print_debug_text(0xB0, 0xB8, 0x8000C0C0, debug_menu_screen_mode_label);
+        print_debug_text(0x108, 0xB8, 0x80F0F0F0, debug_menu_screen_mode_texts[debug_menu60.f34]);
+        print_debug_text(0xB0, 0xC7, 0x8000C0C0, debug_menu_scene_label);
         if (debug_menu60.selection >= 0) {
-            sprintf(buf, debug_int_format, debug_menu60.selection);
+            sprintf(buf, debug_menu_integer_format, debug_menu60.selection);
             print_debug_text(0x108, 0xC7, 0x80F0F0F0, buf);
         } else {
-            print_debug_text(0x108, 0xC7, 0x80F0F0F0, debug_scene_none_text);
+            print_debug_text(0x108, 0xC7, 0x80F0F0F0, debug_menu_no_scene_text);
         }
         stride = 16;
-        print_debug_text(0xB0, 0xD6, 0x8000C0C0, debug_label_segment);
+        print_debug_text(0xB0, 0xD6, 0x8000C0C0, debug_menu_segment_label);
         {
             int mission = debug_menu60.mission;
-            sprintf(buf, debug_segment_format, mission,
+            sprintf(buf, debug_menu_segment_visited_format, mission,
                     (help_stats_base + 0xAA35)[mission + g_current_level_index * stride]);
         }
         print_debug_text(0x108, 0xD6, 0x80F0F0F0, buf);
         if (debug_menu60.group == 1) {
-            print_debug_text(0xA5, (debug_menu60.item * 0xF) + 0x40, 0x800000C0, debug_menu_cursor);
+            print_debug_text(0xA5, (debug_menu60.item * 0xF) + 0x40, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0x158, 0x2C, 0x8000C000, debug_menu_group2_header);
-        print_debug_text(0x158, 0x32, 0x8000C000, debug_menu_header_underline);
-        print_debug_text(0x160, 0x40, 0x8000C0C0, debug_label_darken);
+        print_debug_text(0x158, 0x2C, 0x8000C000, debug_menu_draw_heading);
+        print_debug_text(0x158, 0x32, 0x8000C000, debug_menu_section_heading_underline);
+        print_debug_text(0x160, 0x40, 0x8000C0C0, debug_menu_darken_draw_label);
         print_debug_text(0x1CC, 0x40, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 1)));
-        print_debug_text(0x160, 0x4F, 0x8000C0C0, debug_label_env_coll);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 1)));
+        print_debug_text(0x160, 0x4F, 0x8000C0C0, debug_menu_environment_collision_draw_label);
         print_debug_text(0x1CC, 0x4F, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 2)));
-        print_debug_text(0x160, 0x5E, 0x8000C0C0, debug_label_moby_coll);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 2)));
+        print_debug_text(0x160, 0x5E, 0x8000C0C0, debug_menu_moby_collision_draw_label);
         print_debug_text(0x1CC, 0x5E, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 4)));
-        print_debug_text(0x160, 0x6D, 0x8000C0C0, debug_label_hero_coll);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 4)));
+        print_debug_text(0x160, 0x6D, 0x8000C0C0, debug_menu_hero_collision_draw_label);
         print_debug_text(0x1CC, 0x6D, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 8)));
-        print_debug_text(0x160, 0x7C, 0x8000C0C0, debug_label_bspheres);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 8)));
+        print_debug_text(0x160, 0x7C, 0x8000C0C0, debug_menu_bounding_spheres_draw_label);
         print_debug_text(0x1CC, 0x7C, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 0x10)));
-        print_debug_text(0x160, 0x8B, 0x8000C0C0, debug_label_cameras);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 0x10)));
+        print_debug_text(0x160, 0x8B, 0x8000C0C0, debug_menu_cameras_draw_label);
         print_debug_text(0x1CC, 0x8B, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 0x20)));
-        print_debug_text(0x160, 0x9A, 0x8000C0C0, debug_label_cuboids);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 0x20)));
+        print_debug_text(0x160, 0x9A, 0x8000C0C0, debug_menu_cuboids_draw_label);
         print_debug_text(0x1CC, 0x9A, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 0x40)));
-        print_debug_text(0x160, 0xA9, 0x8000C0C0, debug_label_samples);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 0x40)));
+        print_debug_text(0x160, 0xA9, 0x8000C0C0, debug_menu_samples_draw_label);
         print_debug_text(0x1CC, 0xA9, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 0x80)));
-        print_debug_text(0x160, 0xB8, 0x8000C0C0, debug_label_group2_bit8);
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 0x80)));
+        print_debug_text(0x160, 0xB8, 0x8000C0C0, debug_menu_text_draw_label);
         print_debug_text(0x1CC, 0xB8, 0x80F0F0F0,
-                         *(char **)((char *)debug_on_off_strings + flag_offset60(debug_menu60.bits & 0x100)));
+                         *(char **)((char *)debug_menu_toggle_value_texts + flag_offset60(debug_menu60.bits & 0x100)));
         if (debug_menu60.group == 2) {
-            print_debug_text(0x155, (debug_menu60.item * 0xF) + 0x3E, 0x800000C0, debug_menu_cursor);
+            print_debug_text(0x155, (debug_menu60.item * 0xF) + 0x3E, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0xC, 0xA6, 0x8000C000, debug_menu_weapon_header);
-        print_debug_text(0xC, 0xAC, 0x8000C000, debug_menu_header_underline);
+        print_debug_text(0xC, 0xA6, 0x8000C000, debug_menu_ammo_heading);
+        print_debug_text(0xC, 0xAC, 0x8000C000, debug_menu_section_heading_underline);
         if (debug_menu60.group == 3) {
-            print_debug_text(9, (debug_menu60.item * 0xF) + 0xB8, 0x800000C0, debug_menu_cursor);
+            print_debug_text(9, (debug_menu60.item * 0xF) + 0xB8, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0x14, 0xBA, 0x8000C0C0, debug_label_suck_cannon);
+        print_debug_text(0x14, 0xBA, 0x8000C0C0, debug_menu_suck_cannon_label);
         weapon_order = (u8 *)screen_globals_base + 0x4C6;
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x9]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x9]);
         print_debug_text(0x7A, 0xBA, 0x80406080, buf);
-        print_debug_text(0x14, 0xC9, 0x8000C0C0, debug_label_morph_o_ray);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x15]);
+        print_debug_text(0x14, 0xC9, 0x8000C0C0, debug_menu_morph_ray_label);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x15]);
         print_debug_text(0x7A, 0xC9, 0x80406080, buf);
-        print_debug_text(0x14, 0xD8, 0x8000C0C0, debug_label_inflato);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x19]);
+        print_debug_text(0x14, 0xD8, 0x8000C0C0, debug_menu_inflato_r_label);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x19]);
         print_debug_text(0x7A, 0xD8, 0x80406080, buf);
-        print_debug_text(0x14, 0xE7, 0x8000C0C0, debug_label_weapon_row3);
+        print_debug_text(0x14, 0xE7, 0x8000C0C0, debug_menu_ryno_label);
         ammo = (AmmoDisplay60 *)(menu_item_enabled_115 + 0x21);
-        sprintf(buf, debug_int_format, ammo->ammo5C);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo5C);
         print_debug_text(0x8C, 0xE7, 0x80F0F0F0, buf);
-        print_debug_text(0x14, 0xF6, 0x8000C0C0, debug_label_d_droids);
-        sprintf(buf, debug_int_format, ammo->ammo60);
+        print_debug_text(0x14, 0xF6, 0x8000C0C0, debug_menu_droids_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo60);
         print_debug_text(0x8C, 0xF6, 0x80F0F0F0, buf);
-        print_debug_text(0x14, 0x105, 0x8000C0C0, debug_label_weapon_row5);
-        sprintf(buf, debug_int_format, ammo->ammo28);
+        print_debug_text(0x14, 0x105, 0x8000C0C0, debug_menu_bomb_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo28);
         print_debug_text(0x8C, 0x105, 0x80F0F0F0, buf);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0xA]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0xA]);
         print_debug_text(0x7A, 0x105, 0x80406080, buf);
-        print_debug_text(0x14, 0x114, 0x8000C0C0, debug_label_devastator);
-        sprintf(buf, debug_int_format, ammo->ammo2C);
+        print_debug_text(0x14, 0x114, 0x8000C0C0, debug_menu_devastator_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo2C);
         print_debug_text(0x8C, 0x114, 0x80F0F0F0, buf);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0xB]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0xB]);
         print_debug_text(0x7A, 0x114, 0x80406080, buf);
-        print_debug_text(0x14, 0x123, 0x8000C0C0, debug_label_visibomb);
-        sprintf(buf, debug_int_format, ammo->ammo34);
+        print_debug_text(0x14, 0x123, 0x8000C0C0, debug_menu_visibomb_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo34);
         print_debug_text(0x8C, 0x123, 0x80F0F0F0, buf);
-        print_debug_text(0x14, 0x132, 0x8000C0C0, debug_label_agents);
-        sprintf(buf, debug_int_format, ammo->ammo50);
+        print_debug_text(0x14, 0x132, 0x8000C0C0, debug_menu_agents_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo50);
         print_debug_text(0x8C, 0x132, 0x80F0F0F0, buf);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x14]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x14]);
         print_debug_text(0x7A, 0x132, 0x80406080, buf);
-        print_debug_text(0x14, 0x141, 0x8000C0C0, debug_label_pyrocitor);
-        sprintf(buf, debug_int_format, ammo->ammo40);
+        print_debug_text(0x14, 0x141, 0x8000C0C0, debug_menu_pyrocitor_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo40);
         print_debug_text(0x8C, 0x141, 0x80F0F0F0, buf);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x10]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x10]);
         print_debug_text(0x7A, 0x141, 0x80406080, buf);
-        print_debug_text(0x14, 0x150, 0x8000C0C0, debug_label_tesla_claw);
-        sprintf(buf, debug_int_format, ammo->ammo4C);
+        print_debug_text(0x14, 0x150, 0x8000C0C0, debug_menu_tesla_label);
+        sprintf(buf, debug_menu_integer_format, ammo->ammo4C);
         print_debug_text(0x8C, 0x150, 0x80F0F0F0, buf);
-        sprintf(buf, debug_int_format, (s32)weapon_order[0x13]);
+        sprintf(buf, debug_menu_integer_format, (s32)weapon_order[0x13]);
         print_debug_text(0x7A, 0x150, 0x80406080, buf);
-        print_debug_text(0x14, 0x15F, 0x8000C0C0, debug_label_mine_glove);
-        sprintf(buf, fmt = debug_int_format, ammo->ammo44);
+        print_debug_text(0x14, 0x15F, 0x8000C0C0, debug_menu_mine_glove_label);
+        sprintf(buf, fmt = debug_menu_integer_format, ammo->ammo44);
         print_debug_text(0x8C, 0x15F, 0x80F0F0F0, buf);
         sprintf(buf, fmt, (s32)weapon_order[0x11]);
         print_debug_text(0x7A, 0x15F, 0x80406080, buf);
-        print_debug_text(0x14, 0x16E, 0x8000C0C0, debug_label_blaster);
+        print_debug_text(0x14, 0x16E, 0x8000C0C0, debug_menu_blaster_label);
         sprintf(buf, fmt, ammo->ammo3C);
         print_debug_text(0x8C, 0x16E, 0x80F0F0F0, buf);
         sprintf(buf, fmt, (s32)weapon_order[0xF]);
         print_debug_text(0x7A, 0x16E, 0x80406080, buf);
-        print_debug_text(0x14, 0x17D, 0x8000C0C0, debug_label_bolts);
+        print_debug_text(0x14, 0x17D, 0x8000C0C0, debug_menu_bolts_label);
         sprintf(buf, fmt, gBolts);
         print_debug_text(0x8C, 0x17D, 0x80F0F0F0, buf);
-        print_debug_text(0xBC, 0x100, 0x8000C000, debug_menu_fog_header);
-        print_debug_text(0xBC, 0x106, 0x8000C000, debug_menu_fog_underline);
+        print_debug_text(0xBC, 0x100, 0x8000C000, debug_menu_fog_heading);
+        print_debug_text(0xBC, 0x106, 0x8000C000, debug_menu_fog_heading_underline);
         if (debug_menu60.group == 4) {
-            print_debug_text(0xB9, (debug_menu60.item * 0xF) + 0x112, 0x800000C0, debug_menu_cursor);
+            print_debug_text(0xB9, (debug_menu60.item * 0xF) + 0x112, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0xC4, 0x114, 0x8000C0C0, debug_label_near_dist);
-        sprintf(buf, debug_fog_value_format, func_00120778(level_fog_near_distance * 0.0009765625f));
+        print_debug_text(0xC4, 0x114, 0x8000C0C0, debug_menu_fog_near_distance_label);
+        sprintf(buf, debug_menu_fog_float_format, func_00120778(level_fog_near_distance * 0.0009765625f));
         print_debug_text(0x11C, 0x114, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x123, 0x8000C0C0, debug_label_near_int);
-        sprintf(buf, debug_fog_value_format, func_00120778(100.0f - (level_fog_near_intensity / 2.55f)));
+        print_debug_text(0xC4, 0x123, 0x8000C0C0, debug_menu_fog_near_intensity_label);
+        sprintf(buf, debug_menu_fog_float_format, func_00120778(100.0f - (level_fog_near_intensity / 2.55f)));
         print_debug_text(0x11C, 0x123, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x132, 0x8000C0C0, debug_label_far_dist);
-        sprintf(buf, debug_fog_value_format, func_00120778(level_fog_far_distance * 0.0009765625f));
+        print_debug_text(0xC4, 0x132, 0x8000C0C0, debug_menu_fog_far_distance_label);
+        sprintf(buf, debug_menu_fog_float_format, func_00120778(level_fog_far_distance * 0.0009765625f));
         print_debug_text(0x11C, 0x132, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x141, 0x8000C0C0, debug_label_far_int);
-        sprintf(buf, debug_fog_value_format, func_00120778(100.0f - (level_fog_far_intensity / 2.55f)));
+        print_debug_text(0xC4, 0x141, 0x8000C0C0, debug_menu_fog_far_intensity_label);
+        sprintf(buf, debug_menu_fog_float_format, func_00120778(100.0f - (level_fog_far_intensity / 2.55f)));
         print_debug_text(0x11C, 0x141, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x150, 0x8000C0C0, debug_label_color_r);
+        print_debug_text(0xC4, 0x150, 0x8000C0C0, debug_menu_fog_red_label);
         sprintf(buf, fmt, (s32)level_fog_color_red[0]);
         print_debug_text(0x11C, 0x150, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x15F, 0x8000C0C0, debug_label_color_g);
+        print_debug_text(0xC4, 0x15F, 0x8000C0C0, debug_menu_fog_green_label);
         sprintf(buf, fmt, (s32)level_fog_color_green[0]);
         print_debug_text(0x11C, 0x15F, 0x80F0F0F0, buf);
-        print_debug_text(0xC4, 0x16E, 0x8000C0C0, debug_label_color_b);
+        print_debug_text(0xC4, 0x16E, 0x8000C0C0, debug_menu_fog_blue_label);
         sprintf(buf, fmt, (s32)level_fog_color_blue[0]);
         print_debug_text(0x11C, 0x16E, 0x80F0F0F0, buf);
-        print_debug_text(0x160, 0x100, 0x8000C000, debug_menu_samples_header);
-        print_debug_text(0x160, 0x106, 0x8000C000, debug_menu_header_underline);
+        print_debug_text(0x160, 0x100, 0x8000C000, debug_menu_misc_heading);
+        print_debug_text(0x160, 0x106, 0x8000C000, debug_menu_section_heading_underline);
         if (debug_menu60.group == 5) {
-            print_debug_text(0x15D, (debug_menu60.item * 0xF) + 0x112, 0x800000C0, debug_menu_cursor);
+            print_debug_text(0x15D, (debug_menu60.item * 0xF) + 0x112, 0x800000C0, debug_menu_selection_marker);
         }
-        print_debug_text(0x168, 0x114, 0x8000C0C0, debug_label_battle_cam);
-        print_debug_text(0x1CA, 0x114, 0x80F0F0F0, debug_on_off_strings[(debug_menu60.fF0 != 0) ? 0 : 1]);
-        print_debug_text(0x168, 0x123, 0x8000C0C0, debug_label_actuator);
-        print_debug_text(0x1CA, 0x123, 0x80F0F0F0, debug_on_off_strings[debug_menu60.fF4]);
-        print_debug_text(0x168, 0x132, 0x8000C0C0, debug_label_add_sample);
+        print_debug_text(0x168, 0x114, 0x8000C0C0, debug_menu_battle_camera_label);
+        print_debug_text(0x1CA, 0x114, 0x80F0F0F0, debug_menu_toggle_value_texts[(debug_menu60.fF0 != 0) ? 0 : 1]);
+        print_debug_text(0x168, 0x123, 0x8000C0C0, debug_menu_actuator_label);
+        print_debug_text(0x1CA, 0x123, 0x80F0F0F0, debug_menu_toggle_value_texts[debug_menu60.fF4]);
+        print_debug_text(0x168, 0x132, 0x8000C0C0, debug_menu_sample_capture_label);
         buf[1] = 0;
         buf[0] = debug_menu60.point_timer;
         print_debug_text(0x1CA, 0x132, 0x80F0F0F0, buf);
-        print_debug_text(0x168, 0x141, 0x8000C0C0, debug_label_add_start);
+        print_debug_text(0x168, 0x141, 0x8000C0C0, debug_menu_start_capture_label);
         buf[1] = 0;
         buf[0] = debug_menu60.saved_timer;
         print_debug_text(0x1CA, 0x141, 0x80F0F0F0, buf);
@@ -1355,12 +1357,12 @@ void draw_debug_profiler_if_enabled(void) {
    pause-menu pages; draw_freeze_message_box runs either way. Nothing while skip_frame (loading) is set. */
 void draw_dialog_background_and_text(void) {
     if (skip_frame == 0) {
-        if (get_global_state_pointer() == 0) {
+        if (GetDebugOverlayMode() == 0) {
             append_gif_transfer_packet();
             debug_profiler_color = 0x100FF;
             DrawDebugProfiler();
         } else {
-            if (get_global_state_pointer() == 3)
+            if (GetDebugOverlayMode() == 3)
                 draw_pause_menu_pages(1);
         }
         draw_freeze_message_box();
@@ -1454,12 +1456,12 @@ void draw_timed_text_line(int x, int y, int mode, unsigned char *p, float scale,
             break;
     }
     draw_stretchable_ui_frame(l - 0x20, y - 0xE, r - l + 0x40, 0x1C, truncate_float_to_s32_r(scale * 112.0f));
-    Font_DisableColorCodes();
+    disable_font_color_codes();
     c = (int)(alpha * 128.0f) << 24;
     d = c + 0xE0E0E0;
     FontPrintLarge(l + 1, y - 7, (unsigned int)c, p, -1);
     FontPrintLarge(l, y - 8, d, p, -1);
-    Font_EnableColorCodes();
+    enable_font_color_codes();
 }
 typedef void (*LabelFn)(int, int, int, float, float, unsigned char *);
 

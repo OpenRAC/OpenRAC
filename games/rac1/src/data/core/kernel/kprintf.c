@@ -4,7 +4,7 @@
 extern void serialPutchar();
 extern u32 D_00152A48[];
 
-int deci2_putchar_count DATA_SECTION(D_0012FCFC) = {0};
+int D_0012FCFC DATA_SECTION(D_0012FCFC) = {0};
 
 void *kprintf_putchar_hook DATA_SECTION(D_0012FD00) = serialPutchar;
 
@@ -14,29 +14,29 @@ int RpcCommandState[] DATA_SECTION(D_0012FD08) = {
 #include "data_inc/D_0012FD08.inc"
 };
 
-s32 fs_async_semaphores[] DATA_SECTION(D_0012FD10) = {
+s32 D_0012FD10[] DATA_SECTION(D_0012FD10) = {
 #include "data_inc/D_0012FD10.inc"
 };
 
-u32 fs_receive_bank DATA_SECTION(D_0012FD90) = 0;
+u32 D_0012FD90 DATA_SECTION(D_0012FD90) = 0;
 
 int FsResetState DATA_SECTION(D_0012FD94) = {0};
 
 s32 fs_double_buffered DATA_SECTION(D_0012FD98) = {0};
 
-int fs_call_sema DATA_SECTION(D_0012FD9C) = {
+int D_0012FD9C DATA_SECTION(D_0012FD9C) = {
 #include "data_inc/D_0012FD9C.inc"
 };
 
-int fs_iob_sema DATA_SECTION(D_0012FDA0) = {
+int D_0012FDA0 DATA_SECTION(D_0012FDA0) = {
 #include "data_inc/D_0012FDA0.inc"
 };
 
-int fs_iob_sema_2 DATA_SECTION(D_0012FDA4) = {
+int D_0012FDA4 DATA_SECTION(D_0012FDA4) = {
 #include "data_inc/D_0012FDA4.inc"
 };
 
-void *fs_expected_version DATA_SECTION(D_0012FDA8) = D_00152A48;
+void *D_0012FDA8 DATA_SECTION(D_0012FDA8) = D_00152A48;
 
 int iop_heap_bind_state DATA_SECTION(D_0012FDAC) = {
 #include "data_inc/D_0012FDAC.inc"

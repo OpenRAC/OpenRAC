@@ -21,7 +21,7 @@ void suck_cannon_update(Moby *moby) {
             update_suck_cannon_particles_r(moby);
             if (vec_distance_xy(&moby->pos, gHeroPos_r) < 3.0f) {
                 moby->flags |= 0x41;
-                StartCutscene(2);
+                start_scene(2);
                 moby->state = 2;
             }
             break;
@@ -29,9 +29,9 @@ void suck_cannon_update(Moby *moby) {
             if (eudora_game_mode_r == 2)
                 break;
             if (!*(gHaveHeliPack_r + 7))
-                ShowBanner(0xFA7, -1);
+                queue_dialogue_message(0xFA7, -1);
             else
-                ShowBanner(0x53DF, -1);
+                queue_dialogue_message(0x53DF, -1);
             dialogue_message_duration_frames_r = 0xB4;
             grant_inventory_item(9, 1);
             if (vars->exitMoby != -1) {

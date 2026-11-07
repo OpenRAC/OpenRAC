@@ -134,7 +134,7 @@ extern int texture_alloc_counter MACRO_ADDR;
 extern int g_gs_texture_allocation_cursor SDATA(g_gs_texture_allocation_cursor);
 
 /* Reset the texture allocation count and the GS texture allocation cursor. */
-void initialize_streaming_state(void) {
+void reset_gs_texture_allocation(void) {
     texture_alloc_counter = 0;
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_base;
 }

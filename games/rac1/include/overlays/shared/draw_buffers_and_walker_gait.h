@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void WalkCycleStep(void *, void *, float, float, float, int);
+extern void func_L00_002A2900(void *, void *, float, float, float, int);
 extern void append_draw_buffer_upload_packets(int, int, int);
 extern void reset_walker_gait_helpers(void *);
 extern void transfer_draw_buffer_chunks(int, int, int);

@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern char *gaspar_paths[];
+extern char *D_L09_001B0930[];
 
 #endif /* DATA_LEVEL_09_H */

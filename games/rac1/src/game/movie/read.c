@@ -5,7 +5,7 @@
 #include "game/movie/movie.h"
 
 extern char *decoder_state MACRO_ADDR;
-extern char str_pts_buffer_overflow[];
+extern char pts_buffer_overflow_message[];
 
 extern int cpy2area(char *, int, char *, int, char *, int, char *, int);
 
@@ -32,7 +32,7 @@ int videoCallback(void *unused, char *entry, char *buffer) {
     if (copied > 0) {
         if (!videoDecPutTs(decoder_state + 0xD9048, *(long *)(entry + 0x10), *(long *)(entry + 0x18), spans.p1,
                            copied)) {
-            ErrMessage(str_pts_buffer_overflow);
+            ErrMessage(pts_buffer_overflow_message);
         }
     }
     videoDecEndPut(decoder_state + 0xD9048, copied);

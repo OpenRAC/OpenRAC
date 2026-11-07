@@ -1,7 +1,7 @@
 /* Data owned by src/game/render/skyfunc.c. Its values come from your own baserom (tools/data_in_c.py). */
 #include "common.h"
 
-char str_sky_texs[] DATA_SECTION(D_00160550) =
+char D_00160550[] DATA_SECTION(D_00160550) =
 #include "data_inc/D_00160550.inc"
     ;
 

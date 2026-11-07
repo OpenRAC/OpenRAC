@@ -13,13 +13,13 @@ void render_vendor_item_details_pass(void) {
         font_print_right_small(0x76, 0x65, 0x80F0F0F0L, buf, -1);
         if (vendor_state_m.f40 != 0) {
             w = measure_text_width_regular((unsigned char *)buf, -1);
-            draw_hud_rect_blended(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
-            draw_hud_rect_blended(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
-            draw_hud_rect_blended(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
-            draw_hud_rect_blended(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
-            draw_hud_rect_blended(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
-            draw_hud_rect_blended(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
-            draw_hud_rect_blended(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
+            append_screen_rect_packet(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
+            append_screen_rect_packet(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
+            append_screen_rect_packet(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
+            append_screen_rect_packet(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
+            append_screen_rect_packet(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
+            append_screen_rect_packet(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
+            append_screen_rect_packet(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
             format_scaled_display_value(buf, vendor_state_m.f40
                                                  ? vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].d
                                                  : vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].c);
@@ -32,13 +32,13 @@ void render_vendor_item_details_pass(void) {
         font_print_right_small(0x76, 0x65, item_available_b[0x23] ? 0x80808080L : 0x80F0F0F0L, buf, -1);
         if (item_available_b[0x23] != 0) {
             w = measure_text_width_regular((unsigned char *)buf, -1);
-            draw_hud_rect_blended(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
-            draw_hud_rect_blended(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
-            draw_hud_rect_blended(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
-            draw_hud_rect_blended(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
-            draw_hud_rect_blended(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
-            draw_hud_rect_blended(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
-            draw_hud_rect_blended(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
+            append_screen_rect_packet(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
+            append_screen_rect_packet(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
+            append_screen_rect_packet(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
+            append_screen_rect_packet(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
+            append_screen_rect_packet(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
+            append_screen_rect_packet(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
+            append_screen_rect_packet(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
             format_scaled_display_value(buf, item_available_b[0x23]
                                                  ? vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].b
                                                  : vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].a);

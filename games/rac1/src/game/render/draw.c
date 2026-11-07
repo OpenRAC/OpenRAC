@@ -39,7 +39,7 @@
  */
 
 /* Resets the texture DMA state words to 1. */
-void clear_dma_queue_entry(void) {
+void reset_draw_config(void) {
     int *p = draw_config;
     int val = 1;
     int i = 0x13;
@@ -163,7 +163,7 @@ extern Tbl1088 render_debug_menu_row_counts;
 extern int view_context[];
 extern int g_game_mode MACRO_ADDR;
 extern int part_clip_dist MACRO_ADDR;
-extern char *occl_grid_data MACRO_ADDR;
+extern char *camera_visibility_grid MACRO_ADDR;
 extern short fs_aa_buffer[];
 extern float tfrag_draw_distance MACRO_ADDR;
 extern float tie_draw_distance MACRO_ADDR;
@@ -283,7 +283,7 @@ void update_render_debug_menu(void) {
                                 float v[4];
                                 occl_cam_state.flags8 = 0;
                                 FastVecSub(v, g_hero.motion.pos.f, gCamera.pos.f);
-                                occl_cam_state.f8C = vec_length_xy(v);
+                                occl_cam_state.f8C = vector_length_xy(v);
                                 occl_cam_state.f88 = FastSubRots(fast_arc_tan(v[0], v[1]), gCamera.rot.f[2]);
                                 occl_cam_state.f90 = g_hero.motion.pos.f[2] - gCamera.pos.f[2];
                                 occl_cam_state.f84 = FastSubRots(g_hero.motion.rot.f[2], gCamera.rot.f[2]);
@@ -308,7 +308,7 @@ void update_render_debug_menu(void) {
                     }
                     break;
                 case 2:
-                    if (occl_grid_data == 0) {
+                    if (camera_visibility_grid == 0) {
                         occl_cam_state.a1C = 0;
                         break;
                     }
@@ -689,7 +689,7 @@ void project_to_screen(Vec3f *a0, float *a1) {
     m[3][0] = -gCamera_cam.pos.f[0] * 1024.0f;
     m[3][1] = -gCamera_cam.pos.f[1] * 1024.0f;
     m[3][2] = -gCamera_cam.pos.f[2] * 1024.0f;
-    sce_vu0_mul_matrix(m2, gCamera_cam.view_matrix, m);
+    multiply_matrix(m2, gCamera_cam.view_matrix, m);
 
     FastVecScale(v, a1, 1024.0f);
     v[3] = 1.0f;
@@ -706,21 +706,21 @@ void project_to_screen(Vec3f *a0, float *a1) {
 LINKER_REMNANT("asm/remnants/text", func_001F2550);
 
 /* Empty stub (returns immediately). */
-void ProfileMarker_End(void) {
+void noop_core_callback(void) {
 }
 
 /* Empty stub (returns immediately). */
-void ProfileMarker_Begin(void) {
+void noop_core_callback_secondary(void) {
 }
 
-extern int D_0015F6FC MACRO_ADDR;
+extern int space_load_in_progress MACRO_ADDR;
 extern int pal_mode MACRO_ADDR;
 extern int g_gs_texture_allocation_start MACRO_ADDR;
 extern int *g_render_packet_cursor MACRO_ADDR;
 
 extern void SetPalMode(void);
 
-extern volatile int D_00160FE0 MACRO_ADDR;
+extern volatile int vif_chain_flags MACRO_ADDR;
 
 /* Render setup: raises space_load_in_progress, clears vif_chain_flags, runs the setup calls,
    picks sceGsResetGraph's mode from pal_mode (retail's movz), then runs
@@ -762,7 +762,7 @@ typedef struct {
 extern SceneG gCamera_g __asm__("D_00187040");
 
 /* Builds the view matrices in the camera block from the rotation set up in camera_rows or the three rotation angles, then copies the result to sky_view_mtx. Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/view/fun_001f2260.c, FUN_001f2260. */
-void BuildViewMatrices(void) {
+void update_camera_view_matrices(void) {
     float m[4][4];
     SceneG *g;
     char *x;
@@ -800,8 +800,8 @@ void BuildViewMatrices(void) {
     *(int *)&g->f[0xC / 4] = 0;
     *(int *)&g->f[0x1C / 4] = 0;
     *(int *)&g->f[0x2C / 4] = 0;
-    sce_vu0_mul_matrix(&g->f[0x40 / 4], x, g);
-    sce_vu0_mul_matrix(&g->f[0x80 / 4], x + 0x40, g);
+    multiply_matrix(&g->f[0x40 / 4], x, g);
+    multiply_matrix(&g->f[0x80 / 4], x + 0x40, g);
     a = xf[0x1A0 / 4];
     b = xf[0x1A4 / 4];
     c = xf[0x1A8 / 4];
@@ -817,12 +817,12 @@ void BuildViewMatrices(void) {
     g->f[0xB0 / 4] += g->f[0xBC / 4] * a;
     g->f[0xB4 / 4] += g->f[0xBC / 4] * b;
     g->f[0xB8 / 4] += g->f[0xBC / 4] * c;
-    sce_vu0_mul_matrix(&g->f[0xC0 / 4], x + 0x80, g);
+    multiply_matrix(&g->f[0xC0 / 4], x + 0x80, g);
     scale_vector(&g->f[0x100 / 4], x + 0x80, xf[0x1C0 / 4]);
     scale_vector(&g->f[0x110 / 4], x + 0x90, xf[0x1C0 / 4]);
     qcopy(&g->f[0x120 / 4], x + 0xA0);
     qcopy(&g->f[0x130 / 4], x + 0xB0);
-    sce_vu0_mul_matrix(&g->f[0x100 / 4], &g->f[0x100 / 4], g);
+    multiply_matrix(&g->f[0x100 / 4], &g->f[0x100 / 4], g);
     qcopy(sky_view_mtx, g);
     qcopy(sky_view_mtx + 0x10, &g->f[0x10 / 4]);
     qcopy(sky_view_mtx + 0x20, &g->f[0x20 / 4]);
@@ -868,7 +868,7 @@ void UpdateFog(void) {
 __asm__(".section .text\n\tnop\n");
 
 /* ParseOcclGrid(x, y, z): walks the three-level occlusion grid at
-   occl_grid_data. Each level is {u16 start, u16 count, u16 entry[count]};
+   camera_visibility_grid. Each level is {u16 start, u16 count, u16 entry[count]};
    the coordinate minus start must fall in [0, count), and its entry is
    the next level's offset in words from the grid (levels 1 and 2, 0 =
    empty) or, at the last level, a 128-byte cell index from the root
@@ -878,7 +878,7 @@ __asm__(".section .text\n\tnop\n");
    one `if`, which is what leaves retail's shared failure return after
    level 2 and a separate one for the 0xFFFF test. */
 int ParseOcclGrid(int x, int y, int z) {
-    char *grid = occl_grid_data;
+    char *grid = camera_visibility_grid;
     char *base = grid + *(int *)grid;
     unsigned short *l = (unsigned short *)(grid + 4);
     int cz, cy, cx;
@@ -1119,14 +1119,14 @@ struct FogRegs2P {
 };
 
 extern Vec4 view_clip_constants[4];
-extern f32 view_depth_constants[4];
+extern f32 view_projection_scale_bias_constants[4];
 extern f32 view_fog_multiplier MACRO_ADDR;
 extern f32 view_fog_multiplier_copy[];
 extern f32 view_fog_multiplier_copy2[];
 extern struct FogRegs2P shrub_vu1_constants;
-extern struct FogRegs2P shrub_vu1_constants_alt;
-extern Vec4 shrub_vu1_constants_alt_screen[2];
-extern Vec4 vu1_view_screen_consts[3];
+extern struct FogRegs2P view_fog_register_constants;
+extern Vec4 view_screen_scale_bias_constants[2];
+extern Vec4 view_screen_bias_scale_aspect_constants[3];
 extern struct {
     u8 pad0[0x10];
     s32 mul;
@@ -1221,13 +1221,13 @@ void UpdateViewContext(void) {
     tfrag_vu_const_block.far_int = far_bits;
     tfrag_vu_const_block.near_int = near_bits;
     shrub_vu1_constants.mul = mul_bits;
-    shrub_vu1_constants_alt.mul = mul_bits;
+    view_fog_register_constants.mul = mul_bits;
     shrub_vu1_constants.far_int = far_bits;
     shrub_vu1_constants.near_int = near_bits;
-    shrub_vu1_constants_alt.far_int = far_bits;
-    shrub_vu1_constants_alt.near_int = near_bits;
+    view_fog_register_constants.far_int = far_bits;
+    view_fog_register_constants.near_int = near_bits;
     shrub_vu1_constants.max = 0x437EFFFF;
-    shrub_vu1_constants_alt.max = 0x437EFFFF;
+    view_fog_register_constants.max = 0x437EFFFF;
     set_tfrag_dists();
 
     projection_near_clip = view->near_clip;
@@ -1237,10 +1237,10 @@ void UpdateViewContext(void) {
     viewport_width = view->half_width;
     viewport_height = view->half_height;
     projection_fog_multiplier = view->fog_mul;
-    view_depth_constants[0] = 0.5f / 210000.0f;
-    view_depth_constants[1] = -0.5f / 210000.0f;
-    view_depth_constants[2] = 0.5f;
-    view_depth_constants[3] = viewport_width / (horizontal_fov * 210000.0f);
+    view_projection_scale_bias_constants[0] = 0.5f / 210000.0f;
+    view_projection_scale_bias_constants[1] = -0.5f / 210000.0f;
+    view_projection_scale_bias_constants[2] = 0.5f;
+    view_projection_scale_bias_constants[3] = viewport_width / (horizontal_fov * 210000.0f);
     view->proj[0] = viewport_width / (horizontal_fov * projection_near_clip);
     view->proj[1] = 0;
     view->proj[2] = 0;
@@ -1314,16 +1314,16 @@ void UpdateViewContext(void) {
     qcopy(&packet_view->regs[2], &packet_view->inverse_screen_scale);
     qcopy(&packet_view->regs[3], &packet_view->screen_scale);
     qcopy(&packet_view->regs[4], &packet_view->screen_bias);
-    qcopy(&vu1_view_screen_consts[0], &packet_view->screen_bias);
-    qcopy(&vu1_view_screen_consts[1], &packet_view->screen_scale);
-    qcopy(&vu1_view_screen_consts[2], &packet_view->viewport_aspect);
+    qcopy(&view_screen_bias_scale_aspect_constants[0], &packet_view->screen_bias);
+    qcopy(&view_screen_bias_scale_aspect_constants[1], &packet_view->screen_scale);
+    qcopy(&view_screen_bias_scale_aspect_constants[2], &packet_view->viewport_aspect);
     qcopy(&tfrag_vu_const_block.constants[0], &packet_view->screen_bias);
     qcopy(&tfrag_vu_const_block.constants[1], &packet_view->inverse_screen_scale);
     qcopy(&tfrag_vu_const_block.constants[2], &packet_view->screen_scale);
     tfrag_vu_const_block.x = packet_view->viewport_aspect.i[0];
     tfrag_vu_const_block.y = packet_view->viewport_aspect.i[1];
-    qcopy(&shrub_vu1_constants_alt_screen[0], &packet_view->screen_scale);
-    qcopy(&shrub_vu1_constants_alt_screen[1], &packet_view->screen_bias);
+    qcopy(&view_screen_scale_bias_constants[0], &packet_view->screen_scale);
+    qcopy(&view_screen_scale_bias_constants[1], &packet_view->screen_bias);
 }
 
 #undef view_context_p
@@ -1416,9 +1416,9 @@ typedef struct {
 extern FsAaBuf fs_aa_buffer_3890 __asm__("D_00151880");
 extern ScreenExtent screen_extent_3890 __asm__("D_0013E600");
 extern GsDrawEnvRegs draw_env_3890 __asm__("D_0013D010");
-extern u64 D_0013D200;
-extern u64 D_0013D270;
-extern unsigned char D_001942C0[];
+extern u64 depth_buffer_register;
+extern u64 masked_depth_buffer_register;
+extern unsigned char image_clear_buffer[];
 extern int g_gs_texture_allocation_cursor MACRO_ADDR;
 extern int display_buffer_address MACRO_ADDR;
 extern int draw_buffer_address MACRO_ADDR;
@@ -1575,31 +1575,31 @@ extern char *level_sky_effect_data MACRO_ADDR;
 extern int draw_force_gif_transfer[];
 extern int draw_enable_mask_f __asm__("D_0015F534") MACRO_ADDR;
 extern int font_state MACRO_ADDR;
-extern unsigned char D_0015EF40[] MACRO_ADDR;
+extern unsigned char subtitles_enabled[] MACRO_ADDR;
 extern float gFade MACRO_ADDR;
 extern float white_fade_level MACRO_ADDR;
 extern float draw_frame_time_ratio MACRO_ADDR;
-extern unsigned char D_001611C0[] MACRO_ADDR;
-extern unsigned char D_001611C1[] MACRO_ADDR;
-extern unsigned char D_001611C2[] MACRO_ADDR;
-extern unsigned char D_001611C3[] MACRO_ADDR;
+extern unsigned char underwater_screen_tint_r[] MACRO_ADDR;
+extern unsigned char underwater_screen_tint_g[] MACRO_ADDR;
+extern unsigned char underwater_screen_tint_b[] MACRO_ADDR;
+extern unsigned char underwater_screen_tint_a[] MACRO_ADDR;
 extern unsigned short moby_vu1_data_qwc NOT_SDA;
 
-extern char profile_mark_frame_start[];
-extern char profile_mark_after_sky[];
-extern char profile_mark_after_ties[];
-extern char profile_mark_after_mobys[];
-extern char profile_mark_after_lights[];
-extern char profile_mark_after_particles[];
-extern char profile_mark_after_sprites[];
-extern char profile_mark_after_blur[];
-extern char profile_mark_after_hud[];
-extern char profile_mark_after_fades[];
-extern char profile_mark_vu1_sync[];
-extern char profile_mark_tie_lighting[];
-extern char profile_mark_moby_patch[];
-extern char profile_mark_tfrag_lighting[];
-extern char profile_mark_shrub_lighting[];
+extern char render_setup_label[];
+extern char sky_draw_label[];
+extern char pre_effects_label[];
+extern char vu_effects_label[];
+extern char moby_effects_label[];
+extern char part_draw_label[];
+extern char post_effects_label[];
+extern char aa_blur_label[];
+extern char hud_label[];
+extern char screen_overlays_label[];
+extern char dma_sync_empty_label[];
+extern char tie_patch_light_label[];
+extern char moby_patch_label[];
+extern char tfrag_patch_light_label[];
+extern char shrub_patch_light_label[];
 extern char frame_vu0_micro_program[];
 extern char tfrag_dma_block[];
 extern char tie_light_data[];
@@ -1609,7 +1609,7 @@ extern void ProfileMarker_End_a(void *, int) __asm__("func_001F2558");
 extern void ProfileMarker_Begin_a(void *, int) __asm__("func_001F2560");
 extern void UpdateFog_v(void) __asm__("func_001F2930");
 
-extern void BuildViewMatrices(void);
+extern void update_camera_view_matrices(void);
 
 extern void SetupGifPaging(int);
 extern void dispatch_callback_list_2(void);
@@ -1639,19 +1639,19 @@ void DrawDebugProfiler(void) {
         draw_config[2] == 0 || draw_force_gif_transfer[0] != 0) {
         append_gif_transfer_packet();
     }
-    BuildViewMatrices();
+    update_camera_view_matrices();
     prune_moby_references();
     UpdateOcclusion();
     ResetGsRegisters();
     font_state = -1;
-    ProfileMarker_End_a(profile_mark_frame_start, 0xF);
-    ProfileMarker_Begin_a(profile_mark_frame_start, 0xF);
+    ProfileMarker_End_a(render_setup_label, 0xF);
+    ProfileMarker_Begin_a(render_setup_label, 0xF);
     if (level_sky_effect_data != 0 && (draw_enable_mask_f & 1)) {
         if (draw_config[2] != 0) {
             Transition_DrawSky();
         }
-        ProfileMarker_Begin_a(profile_mark_after_sky, 0xE);
-        ProfileMarker_End_a(profile_mark_after_sky, 0xE);
+        ProfileMarker_Begin_a(sky_draw_label, 0xE);
+        ProfileMarker_End_a(sky_draw_label, 0xE);
     }
     if (draw_enable_mask_f & 2) {
         DrawTfrag();
@@ -1672,8 +1672,8 @@ void DrawDebugProfiler(void) {
         DoGifPaging();
         VU1_gsRegsNormal();
     }
-    ProfileMarker_End_a(profile_mark_after_ties, 6);
-    ProfileMarker_Begin_a(profile_mark_after_ties, 6);
+    ProfileMarker_End_a(pre_effects_label, 6);
+    ProfileMarker_Begin_a(pre_effects_label, 6);
     if (draw_enable_mask_f & 8) {
         DrawShrubs();
     }
@@ -1702,8 +1702,8 @@ void DrawDebugProfiler(void) {
         VU1_addDataRef(moby_vu1_data, moby_vu1_data_qwc);
         font_state = 6;
     }
-    ProfileMarker_Begin_a(profile_mark_after_mobys, 4);
-    ProfileMarker_End_a(profile_mark_after_mobys, 4);
+    ProfileMarker_Begin_a(vu_effects_label, 4);
+    ProfileMarker_End_a(vu_effects_label, 4);
     if (draw_enable_mask_f & 0x20) {
         vu1_gs_regs_alt();
         if (draw_config[0x34 / 4] != 0) {
@@ -1715,8 +1715,8 @@ void DrawDebugProfiler(void) {
             vu1_gs_regs_alt();
             draw_light_quads();
         }
-        ProfileMarker_End_a(profile_mark_after_lights, 6);
-        ProfileMarker_Begin_a(profile_mark_after_lights, 6);
+        ProfileMarker_End_a(moby_effects_label, 6);
+        ProfileMarker_Begin_a(moby_effects_label, 6);
         if (draw_config[0x38 / 4] != 0) {
             VU1_addGSregister(8, 5);
             vu1_gs_regs_alt();
@@ -1724,8 +1724,8 @@ void DrawDebugProfiler(void) {
             PartProc();
             font_state = 8;
         }
-        ProfileMarker_End_a(profile_mark_after_particles, 8);
-        ProfileMarker_Begin_a(profile_mark_after_particles, 8);
+        ProfileMarker_End_a(part_draw_label, 8);
+        ProfileMarker_Begin_a(part_draw_label, 8);
         if (draw_config[0x3C / 4] != 0) {
             if (draw_callback2_count != 0) {
                 vu1_gs_regs_alt();
@@ -1737,16 +1737,16 @@ void DrawDebugProfiler(void) {
             VU1_addGSregister(0x42, 0x8000000044L);
             render_queued_rotated_sprites();
         }
-        ProfileMarker_End_a(profile_mark_after_sprites, 6);
-        ProfileMarker_Begin_a(profile_mark_after_sprites, 6);
+        ProfileMarker_End_a(post_effects_label, 6);
+        ProfileMarker_Begin_a(post_effects_label, 6);
     }
     if (draw_config[0x48 / 4] != 0) {
         AA_BlurPass();
     }
-    ProfileMarker_Begin_a(profile_mark_after_blur, 0xF);
+    ProfileMarker_Begin_a(aa_blur_label, 0xF);
     vu1_gs_regs_alt();
     if (draw_enable_mask_f & 0x10000) {
-        DebugProfiler_Hook();
+        noop_graphics_callback();
     }
     if ((draw_enable_mask_f & 0x80) && draw_config[0x40 / 4] != 0) {
         update_hud();
@@ -1756,8 +1756,8 @@ void DrawDebugProfiler(void) {
     if (g_game_mode == 2 && subtitles_enabled[0] != 0) {
         draw_subtitles();
     }
-    ProfileMarker_Begin_a(profile_mark_after_hud, 0xE);
-    ProfileMarker_End_a(profile_mark_after_hud, 0xE);
+    ProfileMarker_Begin_a(hud_label, 0xE);
+    ProfileMarker_End_a(hud_label, 0xE);
     DoGifPaging();
     if (draw_enable_mask_f & 0x40) {
         if (draw_config[0x44 / 4] != 0) {
@@ -1782,23 +1782,23 @@ void DrawDebugProfiler(void) {
                 draw_screen_effect();
             }
         }
-        ProfileMarker_Begin_a(profile_mark_after_fades, 0xA);
+        ProfileMarker_Begin_a(screen_overlays_label, 0xA);
     }
     VU0_loadMicroProgram(frame_vu0_micro_program);
     flush_cache(0);
     t = IntToFloat(*(volatile int *)0x10000800);
     draw_frame_time_ratio = t / (pal_mode != 0 ? 11520.0f : 9600.0f);
     VU1_syncChain(2);
-    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    ProfileMarker_End_a(dma_sync_empty_label, 0x11);
     if (draw_enable_mask_f & 2) {
         if (draw_config[0x10 / 4] != 0) {
             LightTfrags(tfrag_dma_block);
             PatchTfragGifs();
         }
-        ProfileMarker_End_a(profile_mark_tfrag_lighting, 2);
+        ProfileMarker_End_a(tfrag_patch_light_label, 2);
     }
     VU1_syncChain(4);
-    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    ProfileMarker_End_a(dma_sync_empty_label, 0x11);
     if (draw_enable_mask_f & 4) {
         if (draw_config[0x18 / 4] != 0) {
             if (pal_mode != 0) {
@@ -1809,24 +1809,24 @@ void DrawDebugProfiler(void) {
                 PatchTieGifs();
             }
         }
-        ProfileMarker_End_a(profile_mark_tie_lighting, 5);
+        ProfileMarker_End_a(tie_patch_light_label, 5);
     }
     VU1_syncChain(8);
-    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    ProfileMarker_End_a(dma_sync_empty_label, 0x11);
     if (draw_enable_mask_f & 8) {
         if (draw_config[0x20 / 4] != 0) {
             LightShrubs(shrub_scratchpad_copy);
             patch_shrub_gifs();
         }
-        ProfileMarker_End_a(profile_mark_shrub_lighting, 7);
+        ProfileMarker_End_a(shrub_patch_light_label, 7);
     }
     VU1_syncChain(0x10);
-    ProfileMarker_End_a(profile_mark_vu1_sync, 0x11);
+    ProfileMarker_End_a(dma_sync_empty_label, 0x11);
     if (draw_enable_mask_f & 0x10) {
         if (draw_config[0x28 / 4] != 0) {
             PatchMobyGifs();
         }
-        ProfileMarker_End_a(profile_mark_moby_patch, 3);
+        ProfileMarker_End_a(moby_patch_label, 3);
     }
     UpdateFog_v();
     occl_fallback_mode = 0;
@@ -1846,7 +1846,7 @@ void prepare_debug_profiler_render(void) {
 
 LINKER_REMNANT("asm/remnants/text", func_001F4628);
 
-extern int *gif_paging_head_tag MACRO_ADDR;
+extern int *gif_page_marker MACRO_ADDR;
 extern int effect_tex_cnt MACRO_ADDR;
 extern int pending_texture_upload_count MACRO_ADDR;
 extern PageSlot effect_texture_definitions[];
@@ -1857,7 +1857,7 @@ static inline char *PagingArena(void) {
     return hud_state;
 }
 
-/* SetupGifPaging(int): marks the g_render_packet_cursor packet in gif_paging_head_tag and
+/* SetupGifPaging(int): marks the g_render_packet_cursor packet in gif_page_marker and
    reserves 0x10 bytes, copies g_gs_texture_allocation_start to g_gs_texture_allocation_cursor, clears
    pending_texture_upload_count and the first dword of the effect_tex_cnt paging slots, then,
    when arg0 is 0, clears the +4 half of the arena's 8-byte list entries:
@@ -1873,7 +1873,7 @@ void SetupGifPaging(int arg0) {
     int *p = g_render_packet_cursor;
     int i;
 
-    gif_paging_head_tag = p;
+    gif_page_marker = p;
     p += 4;
     g_render_packet_cursor = p;
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
@@ -1912,7 +1912,7 @@ extern int gif_paging_texture_flush_enabled;
 
 /* DoGifPaging: pushes two 4-word GIF tags (0x20000000 in the first word)
    onto the g_render_packet_cursor packet, gif_paging_tail_tag marking where it started and
-   gif_paging_head_tag's tag pointing at the second one; between the two, when
+   gif_page_marker's tag pointing at the second one; between the two, when
    gif_paging_texture_flush_enabled is set, flush_pending_texture_uploads and VU1_texFlush add their own.
    The first advance goes through a local advanced in place, which keeps
    the old and new pointer in one register as retail does. */
@@ -1922,16 +1922,16 @@ void DoGifPaging(void) {
     gif_paging_tail_tag = p;
     p += 4;
     g_render_packet_cursor = p;
-    gif_paging_head_tag[0] = 0x20000000;
-    gif_paging_head_tag[1] = (int)g_render_packet_cursor;
-    gif_paging_head_tag[2] = 0;
-    gif_paging_head_tag[3] = 0;
+    gif_page_marker[0] = 0x20000000;
+    gif_page_marker[1] = (int)g_render_packet_cursor;
+    gif_page_marker[2] = 0;
+    gif_page_marker[3] = 0;
     if (gif_paging_texture_flush_enabled != 0) {
         flush_pending_texture_uploads();
         VU1_texFlush();
     }
     g_render_packet_cursor[0] = 0x20000000;
-    g_render_packet_cursor[1] = (int)(gif_paging_head_tag + 4);
+    g_render_packet_cursor[1] = (int)(gif_page_marker + 4);
     g_render_packet_cursor[2] = 0;
     g_render_packet_cursor[3] = 0;
     g_render_packet_cursor += 4;
@@ -1962,9 +1962,9 @@ struct TextureUpload_et {
 };
 
 extern struct EffectTextureDefinition_et effect_texture_definitions_et[] __asm__("D_0018D540");
-extern struct TextureUpload_et D_0018D140[0x40];
+extern struct TextureUpload_et pending_texture_uploads[0x40];
 extern s32 pending_texture_upload_count_et __asm__("D_0015F558") MACRO_ADDR;
-extern s32 D_0015F560 MACRO_ADDR;
+extern s32 level_texture_payload_address MACRO_ADDR;
 extern s32 gs_texture_allocation_cursor_et __asm__("D_0015EF74") MACRO_ADDR;
 
 /* GetEffectTex: the GS TEX0 word of effect texture slot index. The first
@@ -2100,7 +2100,7 @@ typedef struct {
     FRow pos;
     FRow dir;
 } LightRec;
-extern FRow effect_quad_corners[4];
+extern FRow light_quad_vertex_template[4];
 extern LightRec effect_quad_entries[];
 
 /* GetEffectTex as it really returns: the 64-bit TEX0 (for the callers that keep it whole). */
@@ -2108,7 +2108,7 @@ extern long GetEffectTex64(int) __asm__("func_001F4868");
 
 /* Builds a 4-row matrix per light in effect_quad_entries (count effect_quad_count):
    each row starts as the light's position and is pushed along the
-   corner effect_quad_corners[k], projected off the normalised light direction,
+   corner light_quad_vertex_template[k], projected off the normalised light direction,
    scaled by the position's w; draw_world_quad_packet draws it. The packet header,
    colours and UVs are filled on the stack but never sent. Both copies
    are qcopy (retail's lq/sq stay inside the loop), and the inner loop
@@ -2127,8 +2127,8 @@ void draw_light_quads(void) {
     pkt[0] = 5;
     pkt[3] = 0x8000000044;
     for (j = 0; j < 4; j++) {
-        uv[j][0] = effect_quad_corners[j].v[2];
-        uv[j][1] = effect_quad_corners[j].v[3];
+        uv[j][0] = light_quad_vertex_template[j].v[2];
+        uv[j][1] = light_quad_vertex_template[j].v[3];
         colors[j] = 0x40808080;
     }
     for (i = 0; i < effect_quad_count; i++) {
@@ -2139,9 +2139,9 @@ void draw_light_quads(void) {
         fast_vec_normalize(&dir, &dir, 1.0f);
         s = effect_quad_entries[i].pos.v[3];
         for (k = 0; k < 4; k++) {
-            float cx = effect_quad_corners[k].v[0];
+            float cx = light_quad_vertex_template[k].v[0];
             float vx = dir.v[0];
-            float cy = effect_quad_corners[k].v[1];
+            float cy = light_quad_vertex_template[k].v[1];
             float d = cx * vx + cy * dir.v[1];
 
             qcopy(&m[k], &effect_quad_entries[i].pos);
@@ -2218,7 +2218,7 @@ typedef struct {
     char pad38[0x14];
     char *subs; /* 0x4C */
 } SubState;
-extern SubState D_0018CC20;
+extern SubState render_sequence;
 extern int g_game_language MACRO_ADDR;
 extern void FontSetWindow(void *arg0, int a1, int a2, int a3, int a4, int a5, int a6, int a7, int a8);
 extern void font_print_window_regular_l(void *, long, char *, int) __asm__("func_001F7560");
@@ -2578,7 +2578,7 @@ void append_subpixel_textured_screen_quad(float x, float y, float w, float h, in
     g_render_packet_cursor = (int *)((char *)g_render_packet_cursor + 0x60);
 }
 
-extern char textured_rect_gif_regs[];
+extern char textured_rectangle_packet_header_template[];
 
 /* append_subpixel_textured_screen_quad, skipped when the rectangle lies outside 0x7000..0x9000
    (12.4), with a CLAMP register (REGION_CLAMP to the texel rectangle)
@@ -2609,7 +2609,7 @@ void emit_textured_rectangle(float x, float y, float w, float h, int u, int v, i
     s1 = ub * 16;
     base = g_render_packet_cursor;
     g_render_packet_cursor = base + 4;
-    qcopy(base + 4, textured_rect_gif_regs);
+    qcopy(base + 4, textured_rectangle_packet_header_template);
     p = (long *)(base + 8);
     g_render_packet_cursor = base + 8;
     p[0] = tex;
@@ -2811,16 +2811,16 @@ void draw_outlined_rect(int a0, int a1, int a2, int a3, int a4) {
 /* gp-relative: declared as a 2-byte type purely so -G2 places it in the
    small-data area (placement is decided by DECLARED size), then accessed
    as the 4-byte word it really is. gp base 0x166D00 - 0x7764 = 0x15F59C. */
-extern int GlobalStateFlag MACRO_ADDR;
+extern int font_color_codes_enabled MACRO_ADDR;
 
-/* Sets the word flag at GlobalStateFlag to 1. */
-void Font_EnableColorCodes(void) {
-    *(int *)&GlobalStateFlag = 1;
+/* Sets the word flag at font_color_codes_enabled to 1. */
+void enable_font_color_codes(void) {
+    *(int *)&font_color_codes_enabled = 1;
 }
 
-/* Clears the word flag at GlobalStateFlag. */
-void Font_DisableColorCodes(void) {
-    *(int *)&GlobalStateFlag = 0;
+/* Clears the word flag at font_color_codes_enabled. */
+void disable_font_color_codes(void) {
+    *(int *)&font_color_codes_enabled = 0;
 }
 
 /* String width: sums the signed width byte (+3 of each 4-byte entry of
@@ -3014,7 +3014,7 @@ void process_bgm_display_text_event(u64 color, u8 *str, f32 x, s32 n, s64 tex, s
     s = str;
     do {
         if ((u8)(*s - 8) < 8) {
-            if ((*(s32 *)&GlobalStateFlag) != 0) {
+            if ((*(s32 *)&font_color_codes_enabled) != 0) {
                 color &= 0xFF000000;
                 color |= font_palette_colors[*s - 8] & 0xFFFFFF;
             }
@@ -3158,7 +3158,7 @@ void FontPrintWindow(void *win_p, long a1, void *text_p, int len, long a4, unsig
                     while (width < W) {
                         if (text[i] == 0x20 || text[i] < 0x10)
                             brk = i;
-                        if (*(int *)&GlobalStateFlag != 0 && (unsigned char)(text[i] - 8) < 8)
+                        if (*(int *)&font_color_codes_enabled != 0 && (unsigned char)(text[i] - 8) < 8)
                             colr = text[i] - 8;
                         if (text[i] < 2)
                             break;
@@ -3361,10 +3361,10 @@ void font_queue_vu_state(void) {
     base[6] = 0;
     base[7] = 0x6C0C43A4;
     p = base + 8;
-    sce_vu0_mul_matrix(p, cam - 0x100, m);
+    multiply_matrix(p, cam - 0x100, m);
     *(float *)(p + 14) += *(float *)&font_depth_bias;
     p = base + 0x18;
-    sce_vu0_mul_matrix(p, cam - 0x80, m);
+    multiply_matrix(p, cam - 0x80, m);
     *(float *)(p + 14) += *(float *)&font_depth_bias;
     g = (char *)view_context;
     base[0x28] = 0x8000;
@@ -3389,10 +3389,10 @@ void font_queue_vu_state(void) {
     vu1_gs_regs_font();
 }
 
-extern short render_target_base_page NOT_SDA;
+extern short fixed_render_target_framebuffer_page NOT_SDA;
 
 /* Sets up a (1 << a) x (1 << b) area, as vendor.c's configure_capture_target does:
-   setup_render_target gets the sizes and a base address, which is render_target_base_page
+   setup_render_target gets the sizes and a base address, which is fixed_render_target_framebuffer_page
    pages when `flag` is set, else g_gs_texture_allocation_base less 4 << min(a + b, 16)
    bytes rounded down to a page (8 KB); configure_graphics_projection gets the sizes and
    the float setup (f, 0, 524288, 255, 0); GS registers 0x47 (0 with the
@@ -3403,7 +3403,7 @@ void configure_graphics_render_target_and_projection(int a, int b, int flag, flo
     int base;
 
     if (flag != 0) {
-        base = render_target_base_page << 13;
+        base = fixed_render_target_framebuffer_page << 13;
     } else {
         int t = a + b;
 

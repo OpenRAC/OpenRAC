@@ -1,4 +1,4 @@
-void update_level09_item_unlock_and_frame_record(char *moby) {
+void Moby1000Update(char *moby) {
     int *data = *(int **)(moby + 0x78);
     unsigned char *q;
     unsigned char *b;
@@ -9,8 +9,8 @@ void update_level09_item_unlock_and_frame_record(char *moby) {
             q = gSkillPoints;
             if (q[0xE] == 0) {
                 q[0xE] = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x542D, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x542D, -1);
                 airship_parts_alive_count = 0;
             } else {
                 airship_parts_alive_count = 0;
@@ -30,8 +30,8 @@ void update_level09_item_unlock_and_frame_record(char *moby) {
             *(unsigned short *)(b + 0x2DA) = scale_ticks(gameplay_event_frame_count) / 600;
         }
         *(int *)(b + 0x2DC) = *(int *)(b + 0x2DC) | (1 << g_current_level_index_m) | 0x80000000;
-        if (is_point_inside_clip_volume(gHeroPos, *data) != 0) {
-            Help_Request(0x2329, 0x5B);
+        if (is_point_inside_clip_volume(hero_pos, *data) != 0) {
+            help_request(0x2329, 0x5B);
         }
     }
 }

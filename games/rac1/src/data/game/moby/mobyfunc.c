@@ -1,19 +1,19 @@
 /* Data owned by src/game/moby/mobyfunc.c. Its values come from your own baserom (tools/data_in_c.py). */
 #include "common.h"
 
-u32 graphics_setup_profile_label[] DATA_SECTION(D_0015FFC0) = {
+u32 D_0015FFC0[] DATA_SECTION(D_0015FFC0) = {
 #include "data_inc/D_0015FFC0.inc"
 };
 
-u32 draw_mobys_profile_label[] DATA_SECTION(D_0015FFD0) = {
+u32 D_0015FFD0[] DATA_SECTION(D_0015FFD0) = {
 #include "data_inc/D_0015FFD0.inc"
 };
 
-u32 moby_texture_dma_profile_label[] DATA_SECTION(D_0015FFE0) = {
+u32 D_0015FFE0[] DATA_SECTION(D_0015FFE0) = {
 #include "data_inc/D_0015FFE0.inc"
 };
 
-char draw_mobys_cleanup_profile_label[] DATA_SECTION(D_0015FFF0) =
+char D_0015FFF0[] DATA_SECTION(D_0015FFF0) =
 #include "data_inc/D_0015FFF0.inc"
     ;
 

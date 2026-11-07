@@ -6,7 +6,7 @@ void alien_queen_update(unsigned char *moby) {
     update_alien_queen_hit_response_and_recovery(moby);
     target = *(char **)(data + 0xB0);
     Manipulator_ApplyScale_q(moby, alien_queen_scale_manip_flag, 1.9f, data + 0x130);
-    if ((unsigned char)moby[0x31] != 0 && FastVecDist(moby + 0x10, blarg_camera_pos_q) < 45.0f) {
+    if ((unsigned char)moby[0x31] != 0 && fast_vec_dist(moby + 0x10, blarg_camera_pos_q) < 45.0f) {
         set_ground_height_band(moby);
         moby[0x7F] = 0x24;
     }
@@ -74,7 +74,8 @@ void alien_queen_update(unsigned char *moby) {
             *(float *)(moby + 0x18) = *(float *)(moby + 0x18) + *(float *)(data + 0x48);
             *(float *)(data + 0x48) = *(float *)(data + 0x48) - g;
             if ((unsigned char)moby[0x53] == 8) {
-                if (FastAbsF((*(float *)(moby + 0x18) - *(float *)(data + 0xC8)) / *(float *)(data + 0x48)) <= 6.0f &&
+                if (absolute_float((*(float *)(moby + 0x18) - *(float *)(data + 0xC8)) / *(float *)(data + 0x48)) <=
+                        6.0f &&
                     (unsigned char)moby[0x53] != 9) {
                     MobyBlendAnimation(moby, 9, 0, scale_ticks(5));
                 }
@@ -152,10 +153,10 @@ void alien_queen_update(unsigned char *moby) {
                                      g_frame_time_sq_q * 6.2831855f, g_frame_time_q * 3.1415927f);
             if (turn < 0.7853982f && alien_queen_attack_range < dist) {
                 ApproachValue_q((float *)(data + 0xE8), alien_queen_walk_speed * g_frame_time_q,
-                                alien_queen_walk_accel * g_frame_time_sq_q);
+                                alien_queen_movement_acceleration_gp * g_frame_time_sq_q);
             } else if (dist < alien_queen_back_off_range) {
                 ApproachValue_q((float *)(data + 0xE8), -(alien_queen_walk_speed * g_frame_time_q),
-                                alien_queen_walk_accel * g_frame_time_sq_q);
+                                alien_queen_movement_acceleration_gp * g_frame_time_sq_q);
             } else {
                 ApproachValue_q((float *)(data + 0xE8), 0.0f, g_frame_time_sq_q * 8.0f);
             }
@@ -211,7 +212,7 @@ void alien_queen_update(unsigned char *moby) {
             QueenProbe probe;
             float buf[4];
             fast_dec_timer(data + 0x120);
-            if (1.0f < MobyGetFrameValue(moby) && MobyGetFrameValue(moby) < 8.0f) {
+            if (1.0f < compute_interpolated_record_value(moby) && compute_interpolated_record_value(moby) < 8.0f) {
                 v[0] = FastCos(*(float *)(moby + 0x48)) * 0.45f;
                 v[1] = FastSin(*(float *)(moby + 0x48)) * 0.45f;
                 v[2] = 0.0f;
@@ -222,19 +223,19 @@ void alien_queen_update(unsigned char *moby) {
                 probe.dir[0] = FastCos(*(float *)(moby + 0x48));
                 probe.dir[1] = FastSin(*(float *)(moby + 0x48));
                 probe.dir[2] = 0.0f;
-                Moby_GetJointWorldPos(moby, 0, buf);
+                moby_point_position(moby, 0, buf);
                 coll_sphere_mobys_q(buf, 0.5f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 1, buf);
+                moby_point_position(moby, 1, buf);
                 coll_sphere_mobys_q(buf, 0.5f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 2, buf);
+                moby_point_position(moby, 2, buf);
                 coll_sphere_mobys_q(buf, 0.5f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 3, buf);
+                moby_point_position(moby, 3, buf);
                 coll_sphere_mobys_q(buf, 0.5f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 4, buf);
+                moby_point_position(moby, 4, buf);
                 coll_sphere_mobys_q(buf, 0.5f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 5, buf);
+                moby_point_position(moby, 5, buf);
                 coll_sphere_mobys_q(buf, 1.1f, 0, moby, &probe);
-                Moby_GetJointWorldPos(moby, 6, buf);
+                moby_point_position(moby, 6, buf);
                 coll_sphere_mobys_q(buf, 1.1f, 0, moby, &probe);
                 return;
             }
@@ -325,18 +326,18 @@ void alien_queen_update(unsigned char *moby) {
             if (flag[0xA] != 0)
                 return;
             flag[0xA] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x542D, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x542D, -1);
             return;
         }
         case 15: {
             int i;
             char *m = 0;
             for (i = 0; i < 0x30; i++) {
-                if (blarg_camera_slot_used[i] != 0) {
-                    m = blarg_camera_slots + i * 0xA0;
+                if (l06_post_death_scan_record_gates[i] != 0) {
+                    m = l06_post_death_scan_records + i * 0xA0;
                     if (*(short *)(m + 0x86) == 0x12) {
-                        SetTableEntryFlagIfKind18(m);
+                        release_moby_camera_control(m);
                         break;
                     }
                 }

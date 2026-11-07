@@ -8,13 +8,13 @@
 #include "asm_functions/shared_levels.h"
 #include "core/libc/printf_rand.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern char batalia_hero_pos[];
 extern unsigned char *batalia_part_type39_textures;
-extern float batalia_offset_effect_push_dist SDATA(batalia_offset_effect_push_dist);
-extern int batalia_offset_effect_color SDATA(batalia_offset_effect_color);
-extern float batalia_offset_effect_size SDATA(batalia_offset_effect_size);
+extern float moby_offset_effect_offset_length_gp SDATA(D_L08_00160288);
+extern int moby_offset_effect_color_gp SDATA(D_L08_00160284);
+extern float moby_offset_effect_size_gp SDATA(D_L08_00160280);
 
 /* Spawns an effect moby at the position of moby a. */
 unsigned char *spawn_moby_offset_effect(char *a) {
@@ -26,14 +26,14 @@ unsigned char *spawn_moby_offset_effect(char *a) {
         p = a + 0x10;
         q = (unsigned char *)((struct PartBase *)m)->data;
         FastVecSub(v, p, batalia_hero_pos);
-        vec_scale_to_length(v, v, batalia_offset_effect_push_dist);
+        vec_scale_to_length(v, v, moby_offset_effect_offset_length_gp);
         FastVecAdd(&((struct PartBase *)m)->pos, p, v);
-        ((struct PartBase *)m)->color = batalia_offset_effect_color;
+        ((struct PartBase *)m)->color = moby_offset_effect_color_gp;
         ((struct PartBase *)m)->unk_09 = truncate_float_to_s32(4.0f) + 0x40;
         ((struct PartBase *)m)->blend = 0x48;
         ((struct PartBase *)m)->unk_01 = 0;
         ((struct PartBase *)m)->texture = *batalia_part_type39_textures;
-        ((struct PartBase *)m)->size = batalia_offset_effect_size;
+        ((struct PartBase *)m)->size = moby_offset_effect_size_gp;
         ((struct PartBase *)m)->timer = scale_ticks(0x1E);
         *(float *)(m + 0x20) = 255.0f;
         *(char **)(q + 4) = a;

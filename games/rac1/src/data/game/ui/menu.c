@@ -3,9 +3,9 @@
 
 #include "structs/data/game_ui_menu.h"
 
-u8 max_map_coverage_size[80] DATA_SECTION(D_0013D668) = {0};
+u8 D_0013D668[80] DATA_SECTION(D_0013D668) = {0};
 
-u32 menu_item_price_fmt[] DATA_SECTION(D_0015FE60) = {
+u32 D_0015FE60[] DATA_SECTION(D_0015FE60) = {
 #include "data_inc/D_0015FE60.inc"
 };
 
@@ -49,10 +49,10 @@ u32 menu_state_handlers[] DATA_SECTION(D_001A0538) = {
 #include "data_inc/D_001A0538.inc"
 };
 
-int level_object_index_ranges[] DATA_SECTION(D_001E06B8) = {
+int D_001E06B8[] DATA_SECTION(D_001E06B8) = {
 #include "data_inc/D_001E06B8.inc"
 };
 
-NibbleBits nibble_popcount_table DATA_SECTION(D_001E83B0) = {
+NibbleBits D_001E83B0 DATA_SECTION(D_001E83B0) = {
 #include "data_inc/D_001E83B0.inc"
 };

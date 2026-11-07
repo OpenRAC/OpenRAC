@@ -131,10 +131,10 @@ union double_union {
 };
 extern const f64 __mprec_tens[23];
 extern const f64 __mprec_bigtens[5];
-extern const f64 __mprec_bigtens_4[];
-extern char dtoa_infinity_string[];
-extern char dtoa_nan_string[];
-extern char dtoa_zero_string[];
+extern const f64 dtoa_quick_overflow_divisor[];
+extern char dtoa_infinity_text[];
+extern char dtoa_nan_text[];
+extern char dtoa_zero_text[];
 extern _Bigint *_Balloc(struct _reent *, s32);
 extern void _Bfree(struct _reent *, _Bigint *);
 extern _Bigint *__d2b(struct _reent *, f64, s32 *, s32 *);
@@ -221,9 +221,9 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
         *decpt = 9999;
         s =
 
-            !((d).i[0]) && !(((d).i[1]) & 0xfffff) ? dtoa_infinity_string :
+            !((d).i[0]) && !(((d).i[1]) & 0xfffff) ? dtoa_infinity_text :
 
-                                                   dtoa_nan_string;
+                                                   dtoa_nan_text;
         if (rve)
             *rve =
 
@@ -235,7 +235,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
 
     if (!d.d) {
         *decpt = 1;
-        s = dtoa_zero_string;
+        s = dtoa_zero_text;
         if (rve)
             *rve = s + 1;
         return s;
@@ -367,7 +367,7 @@ char *func_001126D8(struct _reent *ptr, f64 _d, s32 mode, s32 ndigits, s32 *decp
             if (j & 0x10) {
                 /* prevent overflows */
                 j &= 0x10 - 1;
-                d.d /= __mprec_bigtens_4[0];
+                d.d /= dtoa_quick_overflow_divisor[0];
                 ieps++;
             }
             for (; j; j >>= 1, i++)

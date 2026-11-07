@@ -11,7 +11,7 @@ typedef struct {
     unsigned char flag;
     char pad2[0x43];
 } RotorPoolMoby17B68;
-extern RotorPoolMoby17B68 *D_L05_00160098 MACRO_ADDR;
+extern RotorPoolMoby17B68 *moby_pool_4f60 MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 
@@ -24,7 +24,7 @@ typedef struct {
 
 extern float SteerAngleWithVelocity_v(float *, float, float *, float, float, float) __asm__("func_L00_0025CE58");
 /* Updates a triggered rotor: initialize its angle, wait for the target, then ease its rotation. */
-void update_triggered_moby_yaw(Moby *moby) {
+void triggered_moby_yaw_update(Moby *moby) {
     RotorData17B68 *p = (RotorData17B68 *)moby->pvars;
     float f;
     switch (moby->state) {

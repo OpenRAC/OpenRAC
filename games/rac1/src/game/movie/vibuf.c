@@ -175,7 +175,7 @@ void viBufEndPut(ViBuf *vb, int size) {
     *(long *)(vb->pad48) += size;
     signal_semaphore(vb->sema);
 }
-extern char vibuf_dma_not_active_msg[];
+extern char dma_add_not_active_message[];
 extern int getFIFOindex(ViBuf *, unsigned int);
 
 /* viBufAddDMA(ViBuf *): under the buffer's semaphore, reads the channel-4 DMA position,
@@ -193,7 +193,7 @@ int viBufAddDMA(ViBuf *vb) {
 
     wait_semaphore(vb->sema);
     if (vb->f44 == 0) {
-        ErrMessage(vibuf_dma_not_active_msg);
+        ErrMessage(dma_add_not_active_message);
         return 0;
     }
     setD4_CHCR(5);

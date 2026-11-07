@@ -155,6 +155,8 @@ pub fn title(id: &str) -> String {
     match id {
         "rac1-pal" => "Ratchet & Clank (PAL)".into(),
         "rac1-ntsc" => "Ratchet & Clank (NTSC-U)".into(),
+        "rac1-pal1" => "Ratchet & Clank (PAL v1.00)".into(),
+        "rac1-jp" => "Ratchet & Clank (Japan)".into(),
         "rac2-ntsc" => "Going Commando (NTSC-U)".into(),
         "rac2-pal" => "Going Commando (PAL)".into(),
         "rac2-ntsc2" => "Going Commando (NTSC-U v2.00)".into(),

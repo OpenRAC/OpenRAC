@@ -30,7 +30,7 @@ typedef struct {
 } Particle5F0A0;
 typedef int u128 __attribute__((mode(TI)));
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern int quartu_owner_target_particle_life SDATA(quartu_owner_target_particle_life);
 

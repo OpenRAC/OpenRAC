@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void set_vendor_camera_mode(int, int);
+extern void func_L02_002F9E50(int, int);
 extern void *spawn_projectile_moby(void *, void *, void *);
 
 #endif /* OVERLAYS_L02_ARIDIA_BACKGROUND_SHIP_AND_SKID_H */

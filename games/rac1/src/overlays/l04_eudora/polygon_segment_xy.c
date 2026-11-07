@@ -38,7 +38,7 @@ float find_closest_point_on_segment_xy(float *dst, float *a, float *b, float *c)
     FastVecAdd(d3, c, d3);
     FastVecSub(d1, c, d3);
     det = d0[1] * d1[0] - d0[0] * d1[1];
-    if (FastAbsF(det) < 0.0001f) {
+    if (absolute_float(det) < 0.0001f) {
         qcopy(dst, a);
         return 0.0f;
     }

@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void draw_vendor_beam(void *);
+extern void func_L14_00303430(void *);
 
 #endif /* OVERLAYS_SHARED_VENDOR_BEAM_H */

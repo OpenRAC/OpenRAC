@@ -32,11 +32,11 @@ extern int frame_counter_ref MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
 extern float aridia_coll_hit_point[];
-extern float aridia_shot_stream_max_speed SDATA(aridia_shot_stream_max_speed);
-extern int aridia_shot_stream_lead_count SDATA(aridia_shot_stream_lead_count);
-extern int aridia_shot_stream_extra_count SDATA(aridia_shot_stream_extra_count);
-extern float aridia_shot_stream_spread_far SDATA(aridia_shot_stream_spread_far);
-extern float aridia_shot_stream_spread_near SDATA(aridia_shot_stream_spread_near);
+extern float l02_effect_particle_travel_step_limit SDATA(D_L02_00160150);
+extern int l02_effect_alternate_particle_count SDATA(D_L02_00160154);
+extern int l02_effect_default_particle_count SDATA(D_L02_00160158);
+extern float l02_effect_particle_full_travel_spread SDATA(D_L02_0016015C);
+extern float l02_effect_particle_zero_travel_spread SDATA(D_L02_00160160);
 
 extern int truncate_float_to_s32(float);
 
@@ -71,7 +71,7 @@ void effect_slots_fire(char *slots, float *position, float *direction, float dis
     vec_scale_to_length(adjusted, direction, distance + 0.75f);
     FastVecAdd(end, adjusted, origin);
     if (coll_line(origin, end, 2, 0, 0)) {
-        travel = FastVecDist(origin, aridia_coll_hit_point) - 0.75f;
+        travel = fast_vec_dist(origin, aridia_coll_hit_point) - 0.75f;
         if (travel < 0.0f)
             travel = 0.0f;
     } else {
@@ -79,17 +79,18 @@ void effect_slots_fire(char *slots, float *position, float *direction, float dis
     }
     acceleration = g_frame_time_sq;
     ApproachWithVelocity(&speed, &travel_step, travel, 1.0f, acceleration * 48.0f,
-                         (aridia_shot_stream_max_speed)*g_frame_time);
+                         (l02_effect_particle_travel_step_limit)*g_frame_time);
     ((float (*)(void *, void *, float))vec_scale_to_length)(adjusted, adjusted, travel_step);
-    n = (aridia_shot_stream_extra_count);
-    first_count = (aridia_shot_stream_lead_count);
+    n = (l02_effect_default_particle_count);
+    first_count = (l02_effect_alternate_particle_count);
     if (travel < 4.0f)
         first_count = 1;
     for (i = 0; i < n + first_count; i++) {
-        rand_vec(offset, 0.0f,
-                 (((aridia_shot_stream_spread_far) - (aridia_shot_stream_spread_near)) * (travel / distance) +
-                  (aridia_shot_stream_spread_near)) *
-                     g_frame_time);
+        random_vector(offset, 0.0f,
+                      (((l02_effect_particle_full_travel_spread) - (l02_effect_particle_zero_travel_spread)) *
+                           (travel / distance) +
+                       (l02_effect_particle_zero_travel_spread)) *
+                          g_frame_time);
         FastVecAdd(offset, offset, adjusted);
         FastVecScale(velocity, adjusted, random_float_between(0.0f, 1.0f));
         FastVecAdd(velocity, velocity, origin);
@@ -112,7 +113,7 @@ void effect_slots_fire(char *slots, float *position, float *direction, float dis
         float sp2 = random_float_between(10.0f, 30.0f);
         sp2 = multiply_global_factor(sp2);
         ((Slots *)slots)->timer = truncate_float_to_s32(sp2);
-        rand_vec(offset, 0.0f, g_frame_time + g_frame_time);
+        random_vector(offset, 0.0f, g_frame_time + g_frame_time);
         FastVecScale(velocity, adjusted, random_float_between(0.5f, 0.1f));
         FastVecAdd(velocity, velocity, offset);
         velocity[3] = 0.0f;

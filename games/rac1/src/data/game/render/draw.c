@@ -50,59 +50,59 @@ short draw_unused_reset_flag[8] DATA_SECTION(D_0015F460) = {0};
 
 short occl_debug_overlay_enabled[8] DATA_SECTION(D_0015F470) = {0};
 
-char profile_mark_frame_start[] DATA_SECTION(D_0015F480) =
+char D_0015F480[] DATA_SECTION(D_0015F480) =
 #include "data_inc/D_0015F480.inc"
     ;
 
-u32 profile_mark_after_sky[] DATA_SECTION(D_0015F490) = {
+u32 D_0015F490[] DATA_SECTION(D_0015F490) = {
 #include "data_inc/D_0015F490.inc"
 };
 
-u32 profile_mark_after_ties[] DATA_SECTION(D_0015F4A0) = {
+u32 D_0015F4A0[] DATA_SECTION(D_0015F4A0) = {
 #include "data_inc/D_0015F4A0.inc"
 };
 
-u32 profile_mark_after_mobys[] DATA_SECTION(D_0015F4B0) = {
+u32 D_0015F4B0[] DATA_SECTION(D_0015F4B0) = {
 #include "data_inc/D_0015F4B0.inc"
 };
 
-char profile_mark_after_lights[] DATA_SECTION(D_0015F4C0) =
+char D_0015F4C0[] DATA_SECTION(D_0015F4C0) =
 #include "data_inc/D_0015F4C0.inc"
     ;
 
-u32 profile_mark_after_particles[] DATA_SECTION(D_0015F4D0) = {
+u32 D_0015F4D0[] DATA_SECTION(D_0015F4D0) = {
 #include "data_inc/D_0015F4D0.inc"
 };
 
-char profile_mark_after_sprites[] DATA_SECTION(D_0015F4E0) =
+char D_0015F4E0[] DATA_SECTION(D_0015F4E0) =
 #include "data_inc/D_0015F4E0.inc"
     ;
 
-char profile_mark_after_blur[] DATA_SECTION(D_0015F4F0) =
+char D_0015F4F0[] DATA_SECTION(D_0015F4F0) =
 #include "data_inc/D_0015F4F0.inc"
     ;
 
-u32 profile_mark_after_hud[] DATA_SECTION(D_0015F4F8) = {
+u32 D_0015F4F8[] DATA_SECTION(D_0015F4F8) = {
 #include "data_inc/D_0015F4F8.inc"
 };
 
-char profile_mark_after_fades[] DATA_SECTION(D_0015F500) =
+char D_0015F500[] DATA_SECTION(D_0015F500) =
 #include "data_inc/D_0015F500.inc"
     ;
 
-u32 profile_mark_vu1_sync[2] DATA_SECTION(D_0015F510) = {0};
+u32 D_0015F510[2] DATA_SECTION(D_0015F510) = {0};
 
-char profile_mark_tie_lighting[] DATA_SECTION(D_0015F518) =
+char D_0015F518[] DATA_SECTION(D_0015F518) =
 #include "data_inc/D_0015F518.inc"
     ;
 
-char profile_mark_moby_patch[] DATA_SECTION(D_0015F528) =
+char D_0015F528[] DATA_SECTION(D_0015F528) =
 #include "data_inc/D_0015F528.inc"
     ;
 
 int letterbox_bar_height[2] DATA_SECTION(D_0015F548) = {0};
 
-u32 gif_paging_head_tag DATA_SECTION(D_0015F550) = 0;
+u32 D_0015F550 DATA_SECTION(D_0015F550) = 0;
 
 u32 gif_paging_tail_tag DATA_SECTION(D_0015F554) = 0;
 
@@ -118,7 +118,7 @@ int level_fog_mode DATA_SECTION(D_0015F598) = {0};
 
 float draw_frame_time_ratio[6] DATA_SECTION(D_0015F6F8) = {0};
 
-u32 occl_grid_data DATA_SECTION(D_0015F720) = 0;
+u32 D_0015F720 DATA_SECTION(D_0015F720) = 0;
 
 u32 occl_oct DATA_SECTION(D_0015F724) = 0;
 
@@ -138,7 +138,7 @@ u32 textured_quad_header[] DATA_SECTION(D_00160940) = {
 #include "data_inc/D_00160940.inc"
 };
 
-u32 textured_rect_gif_regs[] DATA_SECTION(D_00160960) = {
+u32 D_00160960[] DATA_SECTION(D_00160960) = {
 #include "data_inc/D_00160960.inc"
 };
 
@@ -176,7 +176,7 @@ u32 D_0018CB40[] DATA_SECTION(D_0018CB40) = {
 #include "data_inc/D_0018CB40.inc"
 };
 
-u32 effect_quad_corners[] DATA_SECTION(D_0018CBA0) = {
+u32 D_0018CBA0[] DATA_SECTION(D_0018CBA0) = {
 #include "data_inc/D_0018CBA0.inc"
 };
 
@@ -232,7 +232,7 @@ u32 D_00194180[16] DATA_SECTION(D_00194180) = {0};
 
 u32 camera_sample_points[8] DATA_SECTION(D_001941E0) = {0};
 
-Vec4f vu1_view_screen_consts[3] DATA_SECTION(D_001DEA90) = {0};
+Vec4f D_001DEA90[3] DATA_SECTION(D_001DEA90) = {0};
 
 u32 tfrag_vu_const_block[] DATA_SECTION(D_001DEAC0) = {
 #include "data_inc/D_001DEAC0.inc"
@@ -246,11 +246,11 @@ u32 shrub_vu1_constants[] DATA_SECTION(D_001DED30) = {
 #include "data_inc/D_001DED30.inc"
 };
 
-u32 shrub_vu1_constants_alt[] DATA_SECTION(D_001DED80) = {
+u32 D_001DED80[] DATA_SECTION(D_001DED80) = {
 #include "data_inc/D_001DED80.inc"
 };
 
-u32 shrub_vu1_constants_alt_screen[] DATA_SECTION(D_001DEDC0) = {
+u32 D_001DEDC0[] DATA_SECTION(D_001DEDC0) = {
 #include "data_inc/D_001DEDC0.inc"
 };
 
@@ -270,10 +270,10 @@ char camera_sample_text_name[] DATA_SECTION(D_001E7AF8) =
 #include "data_inc/D_001E7AF8.inc"
     ;
 
-u32 profile_mark_tfrag_lighting[] DATA_SECTION(D_001E7BA0) = {
+u32 D_001E7BA0[] DATA_SECTION(D_001E7BA0) = {
 #include "data_inc/D_001E7BA0.inc"
 };
 
-u32 profile_mark_shrub_lighting[] DATA_SECTION(D_001E7BB8) = {
+u32 D_001E7BB8[] DATA_SECTION(D_001E7BB8) = {
 #include "data_inc/D_001E7BB8.inc"
 };

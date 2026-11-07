@@ -6,7 +6,7 @@
 #include "common.h"
 
 extern void PlayMovieEntryIfIdle(int);
-extern void StartCutscene(int);
+extern void func_L00_00299B68(int);
 extern void handle_pause_input(void);
 extern void play_queued_movie(void);
 extern void queue_language_zero_movie(int);

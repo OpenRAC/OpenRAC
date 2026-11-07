@@ -22,10 +22,10 @@ typedef struct Strip_21E410 {
 } Strip_21E410;
 
 extern int *l09_packet_r __asm__("D_L09_00161240") MACRO_ADDR;
-extern char D_L09_0016D380[];
-extern long D_L09_00162040[];
-extern char *D_L09_0015F520 MACRO_ADDR;
-extern int D_0015EF74 MACRO_ADDR;
+extern char level09_strip_texture_entry_table[];
+extern long level09_strip_texture_transfer_packet[];
+extern char *texture_vertices MACRO_ADDR;
+extern int g_gs_texture_allocation_cursor MACRO_ADDR;
 
 /* Queues the GS packet for a draw (a == b), or builds the strip between two table entries and queues it. */
 void func_L09_0021E410_r(int a, int b, float t) __asm__("func_L09_0021E410");
@@ -49,14 +49,14 @@ void func_L09_0021E410_r(int a, int b, float t) {
     } else {
         int *q;
         long *g;
-        int a1 = ((Strip_21E410 *)gaspar_texture_table)[a].b;
-        int a0 = ((Strip_21E410 *)gaspar_texture_table)[a].a;
-        int b1 = ((Strip_21E410 *)gaspar_texture_table)[b].b;
-        int b0 = ((Strip_21E410 *)gaspar_texture_table)[b].a;
+        int a1 = ((Strip_21E410 *)level09_strip_texture_entry_table)[a].b;
+        int a0 = ((Strip_21E410 *)level09_strip_texture_entry_table)[a].a;
+        int b1 = ((Strip_21E410 *)level09_strip_texture_entry_table)[b].b;
+        int b0 = ((Strip_21E410 *)level09_strip_texture_entry_table)[b].a;
 
-        gaspar_strip_texture_buffer[0] = 0x0800000000000400L;
-        gaspar_strip_texture_buffer[1] = 0;
-        vu0_lerp_vertex_table_pairs(&gaspar_strip_texture_buffer[2], texture_vertices + (a0 << 4),
+        level09_strip_texture_transfer_packet[0] = 0x0800000000000400L;
+        level09_strip_texture_transfer_packet[1] = 0;
+        vu0_lerp_vertex_table_pairs(&level09_strip_texture_transfer_packet[2], texture_vertices + (a0 << 4),
                                     texture_vertices + (a1 << 4), texture_vertices + (b0 << 4),
                                     texture_vertices + (b1 << 4), 0x1000, t);
         l09_packet_r[0] = 0x10000006;
@@ -80,7 +80,7 @@ void func_L09_0021E410_r(int a, int b, float t) {
         g[11] = 0x53;
         l09_packet_r = q + 28;
         l09_packet_r[0] = 0x30000401;
-        l09_packet_r[1] = (int)gaspar_strip_texture_buffer;
+        l09_packet_r[1] = (int)level09_strip_texture_transfer_packet;
         l09_packet_r[2] = 0;
         l09_packet_r[3] = 0x50000401;
         l09_packet_r += 4;
@@ -102,7 +102,7 @@ void func_L09_0021E410_r(int a, int b, float t) {
 }
 
 extern int *l09_packet MACRO_ADDR;
-extern char gaspar_strip_gs_setup_packet[];
+extern char level09_scrolling_strip_gs_setup_packet[];
 extern int gaspar_frame_count MACRO_ADDR;
 
 extern void queue_level09_strip_texture_packets_t(int, int, float) __asm__("func_L09_0021E410");
@@ -122,7 +122,7 @@ void draw_level09_scrolling_textured_strips(char *list, float t, int count, long
     float s1;
     queue_level09_strip_texture_packets_t(tex0, tex1, t);
     l09_packet[0] = 0x30000009;
-    l09_packet[1] = (int)gaspar_strip_gs_setup_packet;
+    l09_packet[1] = (int)level09_scrolling_strip_gs_setup_packet;
     l09_packet[2] = 0;
     l09_packet[3] = 0x50000009;
     l09_packet += 4;
@@ -158,7 +158,7 @@ void draw_level09_scrolling_textured_strips(char *list, float t, int count, long
     }
 }
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 extern int depth_buffer_address MACRO_ADDR;
 /* Draw the Gaspar sky: rotating shells in level 9, static shells otherwise, then GS setup. */

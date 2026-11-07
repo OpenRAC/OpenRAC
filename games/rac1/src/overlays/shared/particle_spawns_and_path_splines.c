@@ -72,14 +72,14 @@ char *spawn_type_14_particle(int a, char *b) {
     }
     return p;
 }
-extern char *novalis_part_type41_textures[];
+extern char *number_particle_lookup_tables[];
 extern char *create_part_r(int) __asm__("func_00218928");
 extern int truncate_float_to_s32(float);
 
 /* Allocates a type 0x29 particle and fills it from the arguments; kind 0xFF derives the frame from flags and picks one
    of two blend modes.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/rendering/0027f660.c, FUN_L01_00285768. */
-char *PartType41Spawn(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind) {
+char *draw_number(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind) {
     char *r = create_part_r(0x29);
     if (r != 0) {
         int *tail = (int *)(r + 0x20);
@@ -97,7 +97,7 @@ char *PartType41Spawn(float scale, void *pos, int a, int idx, int b, unsigned ch
             r[3] = kind;
         }
         r[1] = 0;
-        r[2] = novalis_part_type41_textures[0][idx];
+        r[2] = number_particle_lookup_tables[0][idx];
         *(float *)(r + 0xC) = scale * 210000.0f;
         *(short *)(r + 0xA) = h;
         ((unsigned char *)r)[8] = 0xA0;
@@ -134,7 +134,7 @@ unsigned char *spawn_type_52_particle(void *a, int b, int c, int d, float f, flo
     return r;
 }
 
-extern unsigned char D_L01_001B2928[];
+extern unsigned char novalis_part_type74_textures[];
 /* spawns a type-74 particle with transformed offset and velocity */
 unsigned char *spawn_type_74_particle(char *m, char *pos, float *vel, char *cfg, int flag) {
     float v[4];
@@ -187,7 +187,7 @@ void initialize_path_descriptor(char *p) {
         q = *(char **)(p + 0x10);
         off = i << 4;
         *(float *)(*(char **)(p + 0x10) + off + 0x1C) =
-            FastVecDist(q + (off + 0x10), q + ((((i + 1) % *(int *)q) << 4) + 0x10));
+            fast_vec_dist(q + (off + 0x10), q + ((((i + 1) % *(int *)q) << 4) + 0x10));
         *(float *)(*(char **)(p + 0x10) + off + 0x18) += 0.5f;
         *(float *)(*(char **)(p + 0x10) + off + 0x18) -= 0.5f;
     }
@@ -204,8 +204,8 @@ int select_point_index_by_distance(void *arg0, List *arg1, float target) {
     int i;
     float bestDiff = 1e11f;
     for (i = 0; i < arg1->count; i++) {
-        float d = FastVecDist(arg1->e[i], arg0);
-        if (FastAbsF(d - target) < bestDiff) {
+        float d = fast_vec_dist(arg1->e[i], arg0);
+        if (absolute_float(d - target) < bestDiff) {
             bestDiff = d;
             best = i;
         }
@@ -224,12 +224,12 @@ int select_list_point_toward_target(char *a0, List_8C3A8 *list, char *pt, char *
     int idx1 = -1;
     float best0 = 10000.0f;
     float best1 = 10000.0f;
-    float d_init = FastVecDist(a0 + 0x10, pt);
+    float d_init = fast_vec_dist(a0 + 0x10, pt);
     int i;
 
     for (i = 0; i < list->count; i++) {
-        float d_pt = FastVecDist(list->e[i], pt);
-        float d_a0 = FastVecDist(list->e[i], a0 + 0x10);
+        float d_pt = fast_vec_dist(list->e[i], pt);
+        float d_a0 = fast_vec_dist(list->e[i], a0 + 0x10);
         if (d_a0 < best0) {
             best0 = d_a0;
             idx0 = i;
@@ -311,7 +311,7 @@ int advance_path_node_index(char *p) {
     *(int *)p = next;
     return next;
 }
-extern void *func_001153FC(void *, int, unsigned int);
+extern void *libc_memset(void *, int, unsigned int);
 extern void *get_path_node(void *, int);
 
 typedef int u128 __attribute__((mode(TI)));
@@ -332,8 +332,8 @@ void compute_path_node_tangent(void *out, int *l, int idx, float a, float b) {
         wb = (1.0f - a) * (b + 1.0f) * 0.5f;
         wa = (1.0f - a) * (1.0f - b) * 0.5f;
     }
-    d1 = FastVecDist(p[0], p[1]);
-    d2 = FastVecDist(p[1], p[2]);
+    d1 = fast_vec_dist(p[0], p[1]);
+    d2 = fast_vec_dist(p[1], p[2]);
     if (d1 < d2)
         m = d1;
     else
@@ -368,7 +368,7 @@ void evaluate_cubic_hermite_segment(float t, void *out, void *p1, void *p2, void
     FastVecScale(tmp, p2, b - a);
     FastVecAdd(out, out, tmp);
 }
-char *PartType41Spawn(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind);
+char *draw_number(float scale, void *pos, int a, int idx, int b, unsigned char flags, short h, unsigned char kind);
 typedef int OvlQuad __attribute__((mode(TI)));
 typedef struct {
     char pad0[4];
@@ -396,7 +396,7 @@ float compute_sampled_spline_path_lengths(float a, float b, T_28b828 *path, int 
     *(int *)path = 0;
     nextNode.q = *(OvlQuad *)((char *)path->f10 + 0x10);
     if (particles) {
-        PartType41Spawn(0.666f, &nextNode, (int)moby, 0, 0x80101080, 0x7f, -1, 0xff);
+        draw_number(0.666f, &nextNode, (int)moby, 0, 0x80101080, 0x7f, -1, 0xff);
     }
     /* The SN ABI assigns float arguments independently of the integer arguments.
      * Keep the retail argument setup order without changing the shared helper. */
@@ -411,7 +411,7 @@ float compute_sampled_spline_path_lengths(float a, float b, T_28b828 *path, int 
         currentNode.q = nextNode.q;
         previousTangent.q = nextTangent.q;
         if (particles) {
-            PartType41Spawn(1.0f, &currentNode, (int)moby, index % 15 + 2, 0x80108010, 0x7f, -1, 0xff);
+            draw_number(1.0f, &currentNode, (int)moby, index % 15 + 2, 0x80108010, 0x7f, -1, 0xff);
         }
         t = 0.05f;
         nextIndex = func_L01_0028C5F0_8C958(path, index + 1);
@@ -423,11 +423,11 @@ float compute_sampled_spline_path_lengths(float a, float b, T_28b828 *path, int 
         step = t;
         do {
             if (particles) {
-                PartType41Spawn(0.2f, &previousPoint, (int)moby, 0, 0x80404080, 0x7f, -1, 0xff);
+                draw_number(0.2f, &previousPoint, (int)moby, 0, 0x80404080, 0x7f, -1, 0xff);
             }
             evaluate_cubic_hermite_segment(t, &point, &currentNode, &nextNode, &previousTangent, &nextTangent);
             t += step;
-            segmentLength += FastVecDist(&previousPoint, &point);
+            segmentLength += fast_vec_dist(&previousPoint, &point);
             previousPoint.q = point.q;
         } while (t <= 1.0f);
         total += segmentLength;

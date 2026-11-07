@@ -32,7 +32,7 @@ void background_ship_2_update(char *moby) {
                 DeleteMoby(moby);
                 return;
             }
-            f70 = FastVecDist(aridia_paths[*(int *)(d + 0x60)] + 0x10, aridia_paths[*(int *)(d + 0x60)] + 0x20);
+            f70 = fast_vec_dist(aridia_paths[*(int *)(d + 0x60)] + 0x10, aridia_paths[*(int *)(d + 0x60)] + 0x20);
             *(unsigned char *)(d + 0x2C) = 0x28;
             *(float *)(d + 0x70) = f70;
             *(unsigned char *)(d + 0x2B) = 1;
@@ -50,7 +50,7 @@ void background_ship_2_update(char *moby) {
                 return;
             }
             qcopy(tv, moby + 0x10);
-            if (Sound_IsPlaying(moby, *(int *)(d + 0x6C)) == 0) {
+            if (voice_is_playing(moby, *(int *)(d + 0x6C)) == 0) {
                 *(int *)(d + 0x6C) = Moby_PlaySound(1, 4, (int)moby);
             }
             p2 = background_ship_2_speed * g_frame_time;
@@ -62,9 +62,9 @@ void background_ship_2_update(char *moby) {
                 *(float *)(d + 0x64) = *(float *)(d + 0x64) - (float)*(int *)t;
             }
             if ((unsigned int)(g_current_level_index_r - 9) < 2) {
-                SamplePathAt((int *)t, 1, moby + 0x10, (float *)(moby + 0x40), 0, *(float *)(d + 0x64));
+                sample_camera_path((int *)t, 1, moby + 0x10, (float *)(moby + 0x40), 0, *(float *)(d + 0x64));
             } else {
-                SamplePathAt((int *)t, 0, moby + 0x10, (float *)(moby + 0x40), 0, *(float *)(d + 0x64));
+                sample_camera_path((int *)t, 0, moby + 0x10, (float *)(moby + 0x40), 0, *(float *)(d + 0x64));
             }
             if (*(float *)(moby + 0x10) < 8.0f) {
                 *(int *)(moby + 0x94) = 0;
@@ -94,8 +94,8 @@ void background_ship_2_update(char *moby) {
                     unsigned char *p = gSkillPoints;
                     if (p[2] == 0) {
                         p[2] = 1;
-                        PlayBankSound(1, 0, 0);
-                        ShowBanner(0x542D, -1);
+                        allocate_voice_for_bank_entry(1, 0, 0);
+                        queue_dialogue_message(0x542D, -1);
                     }
                 }
             }
@@ -106,8 +106,8 @@ void background_ship_2_update(char *moby) {
                         unsigned char *p = gSkillPoints;
                         if (p[0xF] == 0) {
                             p[0xF] = 1;
-                            PlayBankSound(1, 0, 0);
-                            ShowBanner(0x542D, -1);
+                            allocate_voice_for_bank_entry(1, 0, 0);
+                            queue_dialogue_message(0x542D, -1);
                         }
                     }
                 }

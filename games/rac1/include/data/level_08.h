@@ -6,12 +6,12 @@
 #include "common.h"
 
 extern float batalia_camera_yaw;
-extern int batalia_mesh11_colors[];
-extern int batalia_mesh11_counts[];
-extern int batalia_mesh13_colors[];
-extern int batalia_mesh13_counts[];
-extern int batalia_mesh8_colors[];
-extern int batalia_mesh8_counts[];
+extern int D_L08_001E2AE8[];
+extern int D_L08_001DE200[];
+extern int D_L08_001E85D0[];
+extern int D_L08_001E2B18[];
+extern int D_L08_001DE1E0[];
+extern int D_L08_001DB7D8[];
 extern short batalia_usage_event_timer;
 
 #endif /* DATA_LEVEL_08_H */

@@ -674,6 +674,7 @@ class Unit:
             if d.get("name"):
                 self.local_names[d["name"]] = f"{cname(own)}__{d['name']}"
                 self.local_names[f"openrac_td_{d['name']}"] = f"openrac_td_{cname(own)}__{d['name']}"
+        consts_before = dict(self.enum_consts)
         try:
             hoisted = []
             for d in local_types:
@@ -691,6 +692,9 @@ class Unit:
             report.status = "stub"
             report.reason = str(e)
             del self.inline_copies[copies_before:]  # the copies of helpers it called go with it
+            # Its hoisted enumerators go with it too: another function's `enum { X = 0 }` that was
+            # left to share this one's X must write its own.
+            self.enum_consts = consts_before
             unused = " ".join(f"(void){n};" for n in names)
             ret_canon = self.canon(sig_t.ret)
             ret = "" if self.cls(sig_t.ret) == "void" else (

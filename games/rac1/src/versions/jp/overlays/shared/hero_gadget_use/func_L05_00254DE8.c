@@ -25,7 +25,7 @@ void update_hero_hoverboard_race_progress(void) {
         v0[0] = 163.0f;
         v0[1] = 119.0f;
         v0[2] = 80.0f;
-        if (FastVecDist(g_hero.motion.pos.f, v0) < 11.0f) {
+        if (fast_vec_dist(g_hero.motion.pos.f, v0) < 11.0f) {
             if (g_hero.race_path_node < 3 || g_hero.race_path_node > 0x46) {
                 if (g_hero.race_path_node >= 3) {
                     g_hero.race_lap++;
@@ -37,7 +37,7 @@ void update_hero_hoverboard_race_progress(void) {
         v1[0] = 223.0f;
         v1[1] = 281.0f;
         v1[2] = 93.0f;
-        if (FastVecDist(g_hero.motion.pos.f, v1) < 7.0f) {
+        if (fast_vec_dist(g_hero.motion.pos.f, v1) < 7.0f) {
             if (g_hero.race_path_node < 0x3B) {
                 g_hero.race_path_node = 0x3B;
             }
@@ -93,7 +93,7 @@ void update_hero_hoverboard_race_progress(void) {
                 compute_hero_hoverboard_respawn_transform_r(v0, v1);
                 g_hero.off_course_frames = 0;
                 g_hero.board_air_yaw = v1[2];
-                Hero_ResetToPosition(v0, v1, 0x6B, 1);
+                set_race_camera(v0, v1, 0x6B, 1);
                 if (((Path *)g_hero.race_path) != 0) {
                     int r = select_point_index_by_distance(g_hero.motion.pos.f, (Path *)g_hero.race_path, 0.0f);
 
@@ -166,8 +166,8 @@ void update_hero_hoverboard_race_progress(void) {
         if (t >= g_hero.race_time_frames) {
             if (((Flags *)(menu_item_enabled_115_r + 1))->f9 == 0) {
                 ((Flags *)(menu_item_enabled_115_r + 1))->f9 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x542D, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x542D, -1);
             }
         }
         if (d->f28 == -1) {
@@ -192,10 +192,10 @@ void update_hero_hoverboard_race_progress(void) {
         }
         moby_pool_4f60_r2[d->f28].f30 = 0xFF;
         if (g_hero.trick_hud_handle != -1) {
-            Hud_SetBarValueById(g_hero.trick_hud_handle, 0);
+            set_animation_parameter(g_hero.trick_hud_handle, 0);
             g_hero.trick_hud_handle = -1;
         }
-        update_resource_counter();
+        decrement_resource_counter();
     } else if (g_current_level_index_r == LEVEL_KALEBO3) {
         if (d->f28 == -1) {
             return;
@@ -219,9 +219,9 @@ void update_hero_hoverboard_race_progress(void) {
         }
         moby_pool_4f60_r2[d->f28].f30 = 0xFF;
         if (g_hero.trick_hud_handle != -1) {
-            Hud_SetBarValueById(g_hero.trick_hud_handle, 0);
+            set_animation_parameter(g_hero.trick_hud_handle, 0);
             g_hero.trick_hud_handle = -1;
         }
-        update_resource_counter();
+        decrement_resource_counter();
     }
 }

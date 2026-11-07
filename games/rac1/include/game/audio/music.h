@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern int Music_ContinueStreamIfReady(void);
+extern int func_00216960(void);
 extern void Music_QueueTrack(int, int);
 extern void music_Pause(int);
 extern void music_PreseekTrack(int, int, int);

@@ -7,7 +7,7 @@
 #include "enums/level.h"
 #include "game/render/vuchain.h"
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 extern int depth_buffer_address MACRO_ADDR;
 /* Draws the Gemlik sky shells and particles on level 13, then restores the GS draw registers. */

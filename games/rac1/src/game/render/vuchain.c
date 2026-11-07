@@ -36,15 +36,15 @@ void VU0_loadMicroProgram(long *prog) {
     }
 }
 
-extern int D_0015EE84 MACRO_ADDR;
-extern int D_0016100C MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
+extern int current_vu_chain MACRO_ADDR;
 extern int vu_chain_table[];
 
 /* Advances the index at current_vu_chain, wrapping at 0x13. The old note had
    the condition backwards: `slti; movz x,$0,t` is `if (idx >= 0x13)
    idx = 0`. Both globals are MACRO_ADDR, which gives the one-register
    load and the $gp store in the jr slot. */
-void calculate_dma_transfer_address(void) {
+void select_level_vu_chain(void) {
     int idx = g_current_level_index;
     if (idx >= 0x13) {
         idx = 0;
@@ -69,7 +69,7 @@ extern int vu1_chain_safe_end MACRO_ADDR;
 extern int vu1_chain_buffers[2];
 extern int level_resource_buffers[];
 
-extern int D_0015F698 MACRO_ADDR;
+extern int vu1_chain_reserved_bytes MACRO_ADDR;
 
 /* `end` reads g_render_packet_cursor back right after storing it (CSE folds the
    load away), which changes how the stores are scheduled: that, not
@@ -103,7 +103,7 @@ void VU1_swapChain(void) {
 
 extern int vu1_chain_peak_bytes MACRO_ADDR;
 extern volatile int vif_chain_flags SDATA(vif_chain_flags);
-extern char vu1_chain_overflow_msg[];
+extern char vu1_chain_overflow_message[];
 
 /* VU1_sendChain. vif_chain_flags is volatile, so its store stays out of the
    delay slot (reorg never moves a volatile access there). */
@@ -119,7 +119,7 @@ void VU1_sendChain(void) {
     if (vu1_chain_peak_bytes < size) {
         vu1_chain_peak_bytes = size;
         if (current_vu_chain < size) {
-            STUB_printf(vu1_chain_overflow_msg);
+            STUB_printf(vu1_chain_overflow_message);
             err = 1;
         }
     }
@@ -139,7 +139,7 @@ void VU1_sendChain(void) {
 }
 
 extern volatile int vif_chain_flags SDATA(vif_chain_flags);
-extern char vu1_sync_timeout_msg[];
+extern char vu1_chain_sync_timeout_message[];
 
 /* VU1_syncChain(int) */
 void VU1_syncChain(int mask) {
@@ -147,7 +147,7 @@ void VU1_syncChain(int mask) {
     while ((*(int *)&vif_chain_flags & mask) != 0) {
         spin_wait(0x400);
         if (i > 100000) {
-            STUB_printf(vu1_sync_timeout_msg);
+            STUB_printf(vu1_chain_sync_timeout_message);
             reset_graphics();
             break;
         }
@@ -264,23 +264,23 @@ void VU1_texFlush(void) {
     g_render_packet_cursor += 4;
 }
 
-extern char gs_regs_normal_packet[];
+extern char normal_gs_regs_dma_payload[];
 
 /* VU1_gsRegsNormal(void) */
 void VU1_gsRegsNormal(void) {
     g_render_packet_cursor[0] = 0x30000003;
-    g_render_packet_cursor[1] = (int)gs_regs_normal_packet;
+    g_render_packet_cursor[1] = (int)normal_gs_regs_dma_payload;
     g_render_packet_cursor[2] = 0;
     g_render_packet_cursor[3] = 0x50000003;
     g_render_packet_cursor += 4;
 }
 
-extern char gs_regs_alt_packet[];
+extern char vu1_gs_regs_alt_dma_source[];
 
 /* Append a DMA ref tag that sends the alt GS register packet (3 qwords) via DIRECT. */
 void vu1_gs_regs_alt(void) {
     g_render_packet_cursor[0] = 0x30000003;
-    g_render_packet_cursor[1] = (int)gs_regs_alt_packet;
+    g_render_packet_cursor[1] = (int)vu1_gs_regs_alt_dma_source;
     g_render_packet_cursor[2] = 0;
     g_render_packet_cursor[3] = 0x50000003;
     g_render_packet_cursor += 4;
@@ -345,18 +345,18 @@ void DMAC_VIF1_Disable(void) {
 
 ASM_FUNC("asm/handwritten/text", func_00235118);
 
-extern char vu1_halt_msg_header[];
-extern char vu1_halt_register_fmt[];
-extern char vu1_halt_msg_footer[];
+extern char dmac_bus_error_message[];
+extern char dma1_register_values_format[];
+extern char dma_halt_question_message[];
 
 /* Print the VIF1 DMA register values and hang (VU1 timeout handler). */
 void print_register_values_and_halt(void) {
     int a = *(volatile int *)0x10009000;
     int b = *(volatile int *)0x10009030;
 
-    STUB_printf(vu1_halt_msg_header);
-    STUB_printf(vu1_halt_register_fmt, a, b);
-    STUB_printf(vu1_halt_msg_footer);
+    STUB_printf(dmac_bus_error_message);
+    STUB_printf(dma1_register_values_format, a, b);
+    STUB_printf(dma_halt_question_message);
     while (1) {
         ;
     }

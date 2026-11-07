@@ -98,9 +98,9 @@ OVERLAY_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_L\d{2}_[0-9A-Fa-f]{8
 FUNC_DEF = re.compile(r"^(?!extern\b)[A-Za-z_].*?\b(func_[0-9A-Fa-f]{8})(?:_r)?\s*\(", re.M)
 STUB = re.compile(r"INCLUDE_ASM\([^)]*\b(func_[0-9A-Fa-f]{8})\)")
 ORIGINAL_ASM = re.compile(
-    r"\b(ASM_FUNC|LINKER_REMNANT)\(\"asm/(handwritten|remnants)/(core_text|text)\",\s*"
+    r"\b(ASM_FUNC|LINKER_REMNANT|PREBUILT_ASM)\(\"asm/(handwritten|remnants|prebuilt)/(core_text|text)\",\s*"
     r"(func_[0-9A-F]{8})\)")
-NONMATCHING = re.compile(r"nonmatching\s+(func_[0-9A-Fa-f]{8}),\s*(0x[0-9A-Fa-f]+)")
+NONMATCHING = re.compile(r"nonmatching\s+(func_[0-9A-Fa-f]{8})(?:,\s*(0x[0-9A-Fa-f]+))?")
 WORD = re.compile(r"/\* [0-9A-F]+ [0-9A-F]{8} ([0-9A-F]{8}) \*/")
 LINKER_FILL = "CDCDCDCD"
 
@@ -121,7 +121,9 @@ def retail_functions() -> dict[str, tuple[str, int, int]]:
             words = WORD.findall(text.split("endlabel")[0])
             if words and all(w == LINKER_FILL for w in words):
                 continue
-            out[m.group(1)] = (seg, int(m.group(1)[5:], 16), int(m.group(2), 16))
+            # no size: splat took hand-written code for data; its words give the size
+            size = int(m.group(2), 16) if m.group(2) else 4 * len(words)
+            out[m.group(1)] = (seg, int(m.group(1)[5:], 16), size)
     return out
 
 
@@ -150,10 +152,12 @@ def classified_asm() -> dict[str, str]:
                 sys.exit(f"*** duplicate original assembly classification: {name}")
             expected[name] = (folder, segment)
     found = {}
-    for sources in SEGMENT_SOURCES.values():
+    # libgcc's stub files are not in SEGMENT_SOURCES: they stand in for objects of GCC's own source
+    stub_files = sorted(str(p) for p in Path("src/libgcc").glob("nonmatching_*.c"))
+    for sources in (*SEGMENT_SOURCES.values(), stub_files):
         for source in sources:
             for macro, folder, segment, name in ORIGINAL_ASM.findall(Path(source).read_text()):
-                if macro != {"handwritten": "ASM_FUNC", "remnants": "LINKER_REMNANT"}[folder]:
+                if macro != {"handwritten": "ASM_FUNC", "remnants": "LINKER_REMNANT", "prebuilt": "PREBUILT_ASM"}[folder]:
                     sys.exit(f"*** {name}: wrong original assembly macro {macro}")
                 if name in found:
                     sys.exit(f"*** duplicate original assembly include: {name}")

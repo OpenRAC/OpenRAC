@@ -40,12 +40,12 @@ void update_blarg_elite_commando_damage_and_pursuit(char *m) {
             case 6:
             case 7:
             case 8: {
-                float impulse = g_frame_time * 6.0f;
+                float impulse_value = g_frame_time * 6.0f;
                 char *source;
                 d->blend_start = -1.0f;
                 d->blend_end = -1.0f;
-                d->forward_impulse = impulse;
-                d->lateral_impulse = impulse;
+                d->forward_impulse = impulse_value;
+                d->lateral_impulse = impulse_value;
                 source = *(char **)(hit + 0x20);
                 {
                     float heading = fast_atan2(*(float *)(m + 0x10) - *(float *)(source + 0x10),
@@ -53,7 +53,7 @@ void update_blarg_elite_commando_damage_and_pursuit(char *m) {
                     scratch.vector = *(unsigned long long *)(hit + 0x10);
                     scratch.angle = heading;
                 }
-                HeadingFromVector(&scratch.vector, &scratch.angle, &d->forward_impulse, &d->lateral_impulse);
+                trooper_knockback_arc(&scratch.vector, &scratch.angle, &d->forward_impulse, &d->lateral_impulse);
                 InitKnockback_v(scratch.angle, m, d->knockback, 6, 1, 0);
                 m[0x20] = 8;
                 d->animation = 0x78;
@@ -67,8 +67,8 @@ void update_blarg_elite_commando_damage_and_pursuit(char *m) {
                     if (elite_commando_reward_hit_count >= 10) {
                         if (((L16DamageReward *)gSkillPoints)->awarded == 0) {
                             ((L16DamageReward *)gSkillPoints)->awarded = 1;
-                            PlayBankSound(1, 0, 0);
-                            ShowBanner(0x53D6, -1);
+                            allocate_voice_for_bank_entry(1, 0, 0);
+                            queue_dialogue_message(0x53D6, -1);
                         }
                     }
                 }
@@ -76,14 +76,14 @@ void update_blarg_elite_commando_damage_and_pursuit(char *m) {
                 *(unsigned short *)(m + 0x34) &= 0xEFFF;
                 d->impulse_time = time_scale;
                 if (((L16DamageResident *)((char *)&D_L16DamageState + 0xE1D))->difficulty == 2) {
-                    float impulse = g_frame_time;
+                    float impulse_value = g_frame_time;
                     *(float *)(m + 0x58) = 0.5f;
-                    d->forward_impulse = impulse * 24.0f;
-                    d->lateral_impulse = impulse * 8.0f;
+                    d->forward_impulse = impulse_value * 24.0f;
+                    d->lateral_impulse = impulse_value * 8.0f;
                 } else {
-                    float impulse = g_frame_time * 8.0f;
-                    d->forward_impulse = impulse;
-                    d->lateral_impulse = impulse;
+                    float impulse_value = g_frame_time * 8.0f;
+                    d->forward_impulse = impulse_value;
+                    d->lateral_impulse = impulse_value;
                 }
                 d->blend_start = -1.0f;
                 d->blend_end = -1.0f;
@@ -94,7 +94,7 @@ void update_blarg_elite_commando_damage_and_pursuit(char *m) {
                     scratch.vector = *(unsigned long long *)(hit + 0x10);
                     scratch.fatal_angle = heading;
                 }
-                HeadingFromVector(&scratch.vector, &scratch.fatal_angle, &d->forward_impulse, &d->lateral_impulse);
+                trooper_knockback_arc(&scratch.vector, &scratch.fatal_angle, &d->forward_impulse, &d->lateral_impulse);
                 InitKnockback_v(scratch.fatal_angle, m, d->knockback, 7, 1, 0);
                 m[0x20] = 9;
                 d->animation = 0xF0;

@@ -5,9 +5,9 @@
 
 #include "common.h"
 
-extern void Moby_GetJointWorldPos(void *, int, void *);
+extern void func_L00_00250800(void *, int, void *);
 extern int SlotTable_Insert(void *);
-extern void advance_moby_animation_blend(void *, void *);
+extern void func_L00_002501C8(void *, void *);
 extern void *allocate_moby_animation_slot(void *, int);
 extern void apply_nearest_environment_sample(int);
 extern void compute_selected_world_matrices(int, int, void *, void *);

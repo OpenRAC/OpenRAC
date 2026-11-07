@@ -46,11 +46,11 @@ typedef struct {
     int off;
 } B_234fd0;
 extern G_234fd0 texture_group_header_r __asm__("D_L00_0017E5D8") __attribute__((section(".data")));
-extern B_234fd0 D_L00_001BA070 __attribute__((section(".data")));
-extern int D_L00_0017E610 __attribute__((section(".data")));
-extern int D_L00_0017E618 __attribute__((section(".data")));
-extern int D_L00_0017E61C __attribute__((section(".data")));
-extern int D_L00_0017E620 __attribute__((section(".data")));
+extern B_234fd0 level_menu_system __attribute__((section(".data")));
+extern int texture_group1_upload_size __attribute__((section(".data")));
+extern int texture_group3_upload_size __attribute__((section(".data")));
+extern int texture_group4_upload_size __attribute__((section(".data")));
+extern int texture_group5_upload_size __attribute__((section(".data")));
 void func_00234238_234fd0(void *, void *, int, int, int) __asm__("func_00234238");
 void func_0020C468_234fd0(void *, int) __asm__("func_0020C468");
 
@@ -146,38 +146,38 @@ void apply_group_entry_adjustment(int n) {
     texture_group_header_r2.t->c[n] = 0;
 }
 extern volatile s32 level_mobys_end MACRO_ADDR;
-extern volatile int alt_moby_array_start MACRO_ADDR;
-extern volatile int alt_level_mobys_end MACRO_ADDR;
-extern volatile int alt_moby_array_last MACRO_ADDR;
-extern volatile int alt_moby_spawn_pvar_pool MACRO_ADDR;
+extern volatile int l00_inactive_moby_array_start MACRO_ADDR;
+extern volatile int l00_inactive_loaded_moby_end MACRO_ADDR;
+extern volatile int l00_inactive_moby_pool_last_slot MACRO_ADDR;
+extern volatile int l00_inactive_moby_pool_end MACRO_ADDR;
 extern int moby_array_start MACRO_ADDR;
 extern volatile int moby_array_last MACRO_ADDR;
-extern volatile int moby_spawn_pvar_pool MACRO_ADDR;
-extern volatile int moby_context_index SDATA(moby_context_index);
+extern volatile int l00_active_moby_pool_end MACRO_ADDR;
+extern volatile int l00_active_moby_context_selector SDATA(D_L00_0015F808);
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/ui/hud/00234fd0.c, FUN_L00_00235668. */
 void select_moby_context(int state) {
-    int oldState = (*(int *)&moby_context_index);
+    int oldState = (*(int *)&l00_active_moby_context_selector);
     if (state != oldState) {
         int old70, old74, old78, old7C, oldDC, oldE0, oldE8;
         oldDC = moby_array_start;
-        old70 = alt_moby_array_start;
-        alt_moby_array_start = oldDC;
+        old70 = l00_inactive_moby_array_start;
+        l00_inactive_moby_array_start = oldDC;
         oldDC = level_mobys_end;
-        old74 = alt_level_mobys_end;
-        alt_level_mobys_end = oldDC;
+        old74 = l00_inactive_loaded_moby_end;
+        l00_inactive_loaded_moby_end = oldDC;
         oldDC = moby_array_last;
-        old78 = alt_moby_array_last;
-        oldE8 = moby_spawn_pvar_pool;
-        old7C = alt_moby_spawn_pvar_pool;
-        moby_context_index = oldState ^ 1;
+        old78 = l00_inactive_moby_pool_last_slot;
+        oldE8 = l00_active_moby_pool_end;
+        old7C = l00_inactive_moby_pool_end;
+        l00_active_moby_context_selector = oldState ^ 1;
         /* FAKEMATCH: without volatile, only this store moves, from here to near the end. */
         *(volatile int *)&moby_array_start = old70;
         level_mobys_end = old74;
         moby_array_last = old78;
-        alt_moby_array_last = oldDC;
-        moby_spawn_pvar_pool = old7C;
-        alt_moby_spawn_pvar_pool = oldE8;
+        l00_inactive_moby_pool_last_slot = oldDC;
+        l00_active_moby_pool_end = old7C;
+        l00_inactive_moby_pool_end = oldE8;
     }
 }
 typedef struct {
@@ -255,13 +255,13 @@ int hud_screen_position(HudElem *rec, int *x, int *y) {
 }
 
 extern int truncate_float_to_s32(float);
-extern float hud_slide_ramp_timed[];
-extern float hud_slide_ramp_idle[];
+extern float hud_slide_timer_active_scales[];
+extern float hud_slide_timer_inactive_scales[];
 
 /* Slides a HUD element in or out from its anchored edge: step T moves by
    D (back while the timer +0x7C runs, forward otherwise), clamped to
-   0..23, picks a ramp value from hud_slide_ramp_timed (timer running) or
-   hud_slide_ramp_idle, and offsets *Y by it times (height + 52) for flags 1
+   0..23, picks a ramp value from hud_slide_timer_active_scales (timer running) or
+   hud_slide_timer_inactive_scales, and offsets *Y by it times (height + 52) for flags 1
    (up) / 2 (down), or *X by it times (width + 20) for flags 4 (left) /
    8 (right), rounded (IntToFloat / truncate_float_to_s32 convert). */
 void apply_hud_slide_offset(HudElem *e, int *x, int *y, int t, int d) {
@@ -281,9 +281,9 @@ void apply_hud_slide_offset(HudElem *e, int *x, int *y, int t, int d) {
         t = 23;
     }
     if (e->unk7C != 0) {
-        s = hud_slide_ramp_timed[t];
+        s = hud_slide_timer_active_scales[t];
     } else {
-        s = hud_slide_ramp_idle[t];
+        s = hud_slide_timer_inactive_scales[t];
     }
     if (e->flags & 1) {
         dy = -truncate_float_to_s32(s * (IntToFloat(e->h) + 52.0f) + 0.5f);
@@ -396,7 +396,7 @@ void Hud_UpdateCounter(HudElem *e) {
             d = x;
             d = d < 0 ? -d : d;
             if (d != 0) {
-                n = truncate_float_to_s32(vec_length(IntToFloat(d) / 25.0f) * 5.0f);
+                n = truncate_float_to_s32(square_root(IntToFloat(d) / 25.0f) * 5.0f);
                 n = n < d * scale_ticks(2) / scale_ticks(10) ? d * scale_ticks(2) / scale_ticks(10) : n;
                 if (n >= 0x7A) {
                     n = 0x79;
@@ -485,7 +485,7 @@ void update_numeric_hud_element_direct_value(HudElem *e) {
     update_hud_animation_frame((char *)e + 0x40);
 }
 
-extern float hud_star_particles[][4];
+extern float l00_hud_star_particles[][4];
 extern float star_init_limit0_gp SDATA(star_init_limit0_gp);
 extern float star_init_limit1_gp SDATA(star_init_limit1_gp);
 extern float star_init_limit2_gp SDATA(star_init_limit2_gp);
@@ -509,14 +509,14 @@ void hud_init_particles(HudElem *e) {
         span = (232.0f - (v + v)) / (float)n;
         lo = (v - 116.0f) + (float)(i % n) * span;
         hi = lo + span;
-        hud_star_particles[i][0] = random_float_between(v - 17.0f, 17.0f - v);
-        hud_star_particles[i][1] = random_float_between(lo, hi);
-        hud_star_particles[i][2] = random_float_between(-0.4f, 0.4f);
-        hud_star_particles[i][3] = random_float_between(-0.6f, 0.6f);
-        hud_star_particles[i][2] += random_float_between(-0.4f, 0.4f);
-        hud_star_particles[i][3] += random_float_between(-0.6f, 0.6f);
-        hud_star_particles[i][2] += random_float_between(-0.4f, 0.4f);
-        hud_star_particles[i][3] += random_float_between(-0.6f, 0.6f);
+        l00_hud_star_particles[i][0] = random_float_between(v - 17.0f, 17.0f - v);
+        l00_hud_star_particles[i][1] = random_float_between(lo, hi);
+        l00_hud_star_particles[i][2] = random_float_between(-0.4f, 0.4f);
+        l00_hud_star_particles[i][3] = random_float_between(-0.6f, 0.6f);
+        l00_hud_star_particles[i][2] += random_float_between(-0.4f, 0.4f);
+        l00_hud_star_particles[i][3] += random_float_between(-0.6f, 0.6f);
+        l00_hud_star_particles[i][2] += random_float_between(-0.4f, 0.4f);
+        l00_hud_star_particles[i][3] += random_float_between(-0.6f, 0.6f);
     }
 }
 extern void Hud_UpdateCounter_v(HudElem *) __asm__("func_L00_00236830");
@@ -536,7 +536,7 @@ void hud_update_particles(HudElem *e) {
     Hud_UpdateCounter_v(e);
     cnt = rendered_frame_count;
     par = cnt - (cnt / 2) * 2;
-    p = hud_star_particles[par];
+    p = l00_hud_star_particles[par];
     for (i = par; i < 100; i += 2) {
         float lim;
         float a, b, na, nb;
@@ -615,7 +615,7 @@ int draw_hud_stars(HudElem *rec) {
         top += h / 256;
         right = left + bh / 64;
         bottom = top + bottom / 256;
-        draw_hud_rect_blended(left, top, right, bottom, 0x80684C2F, 1);
+        append_screen_rect_packet(left, top, right, bottom, 0x80684C2F, 1);
     }
 
     n = ((HudElem *)r)->unk74;
@@ -708,9 +708,9 @@ int draw_hud_stars(HudElem *rec) {
             w = (int)c2;
             f21 = f21 + c0;
         }
-        if (f21 < hud_star_particles[i][1])
+        if (f21 < l00_hud_star_particles[i][1])
             continue;
-        vec_mul_components(v50, hud_star_particles[i], v0);
+        vec_mul_components(v50, l00_hud_star_particles[i], v0);
         FastVecAdd(v50, v50, v10);
         draw_hud_sprite_subpixel(t21, (int)v50[0], (int)v50[1], w, w, 0x80);
     }
@@ -785,9 +785,9 @@ int draw_uniform_size_hud_stars(HudElem *e) {
             sz = (int)(star_init_limit0_gp * 32.0f);
             t += star_init_limit0_gp;
         }
-        if (t < hud_star_particles[i][1])
+        if (t < l00_hud_star_particles[i][1])
             continue;
-        vec_mul_components(v5, hud_star_particles[i], v0);
+        vec_mul_components(v5, l00_hud_star_particles[i], v0);
         FastVecAdd(v5, v5, v1);
         draw_hud_sprite_subpixel(tex, (int)v5[0], (int)v5[1], sz, sz, 0x80);
     }
@@ -815,7 +815,7 @@ extern int g_current_level_index MACRO_ADDR;
 extern int race_record_panel_end_y MACRO_ADDR;
 extern int hud_text_panel_y SDATA(hud_text_panel_y);
 extern unsigned char hud_text_panel_string[];
-extern float gHeroPos[];
+extern float hero_pos[];
 extern int race_best_times[] MACRO_ADDR;
 extern int race_best_records[] MACRO_ADDR;
 extern const char hud_text_panel_time_format[];
@@ -865,9 +865,9 @@ int draw_hud_text_panel(char *e) {
             left = l1;
             width = w1;
         }
-        HudSprite(GetIconFrame(0x7580, 0), left + 0x20, y, width, 0x36, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 0), left + 0x20, y, width, 0x36, alpha);
         c = color;
-        HudSprite(GetIconFrame(0x7580, 1), left, y, 0x20, 0x36, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 1), left, y, 0x20, 0x36, alpha);
         tex = GetIconFrame(0x7580, 1);
         {
             int t = width + 0x20;
@@ -879,8 +879,8 @@ int draw_hud_text_panel(char *e) {
         int w, x;
         w = measure_text_width_regular((const char *)hud_text_panel_string, -1);
         x = 0xe0 - (w >> 1);
-        HudSprite(GetIconFrame(0x7580, 1), x, y, 0x20, 0x20, alpha);
-        HudSprite(GetIconFrame(0x7580, 0), x + 0x20, y, w, 0x20, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 1), x, y, 0x20, 0x20, alpha);
+        draw_hud_sprite(GetIconFrame(0x7580, 0), x + 0x20, y, w, 0x20, alpha);
         tex = GetIconFrame(0x7580, 1);
         {
             int t = w + 0x20;
@@ -905,7 +905,7 @@ int draw_hud_text_panel(char *e) {
             qcopy(&point, &points[1]);
         }
         pt = &point;
-        if (FastVecDist(gHeroPos, pt) < 5.0f) {
+        if (fast_vec_dist(hero_pos, pt) < 5.0f) {
             race_record_panel_end_y = y + 100;
             elapsed = race_best_times[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];
             score = race_best_records[g_current_level_index == LEVEL_KALEBO3 ? 1 : 0];
@@ -988,14 +988,14 @@ int hud_draw_gauge_frame(HudElem *e) {
     top += h / 256;
     right = left + bh / 64;
     bottom = top + bottom / 256;
-    draw_hud_rect_blended(left, top, right, bottom, 0x80000000, 1);
+    append_screen_rect_packet(left, top, right, bottom, 0x80000000, 1);
     {
         int st = hud_star_height * 0xEA0;
         h = hud_star_height;
         top = (pos[1] + e->unk4A) << 4;
         top += (h * 0xF40) / 256;
         bh = (e->unk74 * st) / (e->unk08 << 8);
-        draw_hud_rect_blended(left, top, right, top - bh, 0x80829E00, 1);
+        append_screen_rect_packet(left, top, right, top - bh, 0x80829E00, 1);
     }
     i = 1;
     if (i < e->unk74)
@@ -1008,7 +1008,7 @@ int hud_draw_gauge_frame(HudElem *e) {
             i++;
             top -= step;
             top -= 16;
-            draw_hud_rect_blended(left, top, right, top + 32, 0x80000000, 1);
+            append_screen_rect_packet(left, top, right, top + 32, 0x80000000, 1);
         } while (i < e->unk74);
     w = GetIconFrame(*(int *)e, 0);
     draw_rotated_hud_sprite(w, pos[0] + e->unk48, pos[1] + e->unk4A, hud_stars_width, hud_star_height, 0x80);
@@ -1039,7 +1039,7 @@ typedef struct {
 
 extern int quick_select_slot_count MACRO_ADDR;
 extern void *hud_selector_slot_tables MACRO_ADDR;
-extern DestElem quick_select_slot_entries[8];
+extern DestElem l00_eight_slot_hud_selector_entries[8];
 extern SrcElem item_defs[];
 extern short quick_select_width;
 extern short quick_select_height;
@@ -1065,7 +1065,7 @@ void initialize_eight_slot_hud_selector(Obj238478 *o) {
     o->x78 = scale_ticks(0x1E);
     o->x70 = 0;
     *(int *)&quick_select_page = 0;
-    d = quick_select_slot_entries;
+    d = l00_eight_slot_hud_selector_entries;
     tab = item_defs;
     s = (int *)((char *)help_stats_base_i + 0x885);
     for (i = 7; i >= 0; i--) {
@@ -1092,7 +1092,7 @@ typedef struct {
     int w7C;
 } Obj_38530;
 extern PadState g_controller_state_r __asm__("D_0013CA40");
-extern short quick_select_fade_steps;
+extern short l00_hud_selector_fade_counter_limit_gp;
 extern int D_L00_0015FB54_38530 SDATA(D_L00_0015FB54);
 extern Ent_38530 **hud_selector_slot_tables_r __asm__("D_L00_0015FB78") MACRO_ADDR;
 extern int quick_select_last_state MACRO_ADDR;
@@ -1131,7 +1131,7 @@ void update_hud_item_selector_selection_and_visibility(Obj_38530 *p) {
         g_controller_state_r.mode = 2;
     x = g_controller_state_r.analog_prev[2];
     y = g_controller_state_r.analog_prev[3];
-    mag = vec_length(x * x + y * y);
+    mag = square_root(x * x + y * y);
     if (mag != 0.0f) {
         x /= mag;
         y /= mag;
@@ -1215,7 +1215,7 @@ void update_hud_item_selector_selection_and_visibility(Obj_38530 *p) {
     }
     if (p->w74 != old)
         c[1] = 0;
-    else if (c[1] < (*(int *)&quick_select_fade_steps))
+    else if (c[1] < (*(int *)&l00_hud_selector_fade_counter_limit_gp))
         c[1]++;
     if (!(((int)g_controller_state_r.held_unmasked) & 0x10)) {
         int sel = p->w74;
@@ -1239,7 +1239,7 @@ void update_hud_item_selector_selection_and_visibility(Obj_38530 *p) {
         }
         if (c[0])
             c[0]--;
-    } else if (c[0] < (*(int *)&quick_select_fade_steps))
+    } else if (c[0] < (*(int *)&l00_hud_selector_fade_counter_limit_gp))
         c[0]++;
     if (c[0] == 0) {
         {
@@ -1273,7 +1273,7 @@ typedef struct {
     char pad4A[2];
 } TI_238C30;
 
-extern void HudFrame(char *, int, int, int, int, int);
+extern void hud_frame(char *, int, int, int, int, int);
 
 extern unsigned char screen_globals_base[];
 extern short quick_select_pulse_period;
@@ -1282,17 +1282,17 @@ extern short quick_select_ring_aspect;
 extern short quick_select_unselected_alpha_scale;
 extern short quick_select_center_x;
 extern short quick_select_center_y;
-extern short quick_select_name_color_from;
-extern short quick_select_name_color_to;
-extern short quick_select_text_shadow_from;
+extern short l00_hud_item_selector_title_color_from;
+extern short l00_hud_item_selector_title_color_to;
+extern short l00_hud_item_selector_text_shadow_color_from;
 extern short hud_item_selector_text_shadow_color_to;
-extern short quick_select_empty_ammo_color_from;
-extern short quick_select_empty_ammo_color_to;
-extern short quick_select_ammo_color_from;
+extern short l00_hud_item_selector_zero_ammo_text_color_from;
+extern short l00_hud_item_selector_zero_ammo_text_color_to;
+extern short l00_hud_item_selector_nonzero_ammo_text_color_from;
 extern short hud_item_selector_nonzero_ammo_text_color_to;
 extern short hud_item_selector_title_with_ammo_y_offset;
 extern short hud_item_selector_split_title_without_ammo_y_offset;
-extern short quick_select_name_y_single;
+extern short l00_hud_item_selector_single_line_title_without_ammo_y_offset;
 extern int level_frame_counter MACRO_ADDR;
 extern char hud_ammo_format[];
 extern char menu_item_enabled_115[];
@@ -1313,12 +1313,12 @@ int draw_hud_item_selector_panel(HudElem *rec) {
     unsigned char *q = rec->cnt;
     char formatted[80];
 
-    open = IntToFloat(q[0]) / IntToFloat(GI(quick_select_fade_steps));
+    open = IntToFloat(q[0]) / IntToFloat(GI(l00_hud_selector_fade_counter_limit_gp));
     if (1.0f < open)
         open = 1.0f;
     else if (open < 0.0f)
         open = 0.0f;
-    fade = IntToFloat(q[1]) / IntToFloat(GI(quick_select_fade_steps));
+    fade = IntToFloat(q[1]) / IntToFloat(GI(l00_hud_selector_fade_counter_limit_gp));
     if (1.0f < fade)
         fade = 1.0f;
     else if (fade < 0.0f)
@@ -1340,11 +1340,11 @@ int draw_hud_item_selector_panel(HudElem *rec) {
     hud_screen_position(rec, &x, &y);
     half_w = GI(quick_select_width) / 2;
     half_h = GI(quick_select_height) / 2;
-    HudSprite(GetIconFrame(0xe934, 0), x, y, half_w, half_h, alpha);
-    HudSprite(GetIconFrame(0xe934, 0), x + GI(quick_select_width), y + GI(quick_select_height), -half_w, -half_h,
-              alpha);
-    HudSprite(GetIconFrame(0xe934, 0), x + GI(quick_select_width), y, -half_w, half_h, alpha);
-    HudSprite(GetIconFrame(0xe934, 0), x, y + GI(quick_select_height), half_w, -half_h, alpha);
+    draw_hud_sprite(GetIconFrame(0xe934, 0), x, y, half_w, half_h, alpha);
+    draw_hud_sprite(GetIconFrame(0xe934, 0), x + GI(quick_select_width), y + GI(quick_select_height), -half_w, -half_h,
+                    alpha);
+    draw_hud_sprite(GetIconFrame(0xe934, 0), x + GI(quick_select_width), y, -half_w, half_h, alpha);
+    draw_hud_sprite(GetIconFrame(0xe934, 0), x, y + GI(quick_select_height), half_w, -half_h, alpha);
     for (i = 0; i < quick_select_slot_count; i++) {
         angle =
             FastAddRots(((float)i + (float)i) * 3.1415927f / (float)quick_select_slot_count - 3.1415927f, 1.5707964f);
@@ -1352,26 +1352,26 @@ int draw_hud_item_selector_panel(HudElem *rec) {
                  (int)(GF(quick_select_ring_radius) * FastCos(angle) * GF(quick_select_ring_aspect));
         icon_y = y + GI(quick_select_center_y) + (int)(GF(quick_select_ring_radius) * FastSin(angle));
         if (rec->unk74 == i && ((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].id != 0)
-            HudSprite(GetIconFrame(0xe99c, 0), icon_x - 0x13, icon_y - 0x13, 0x26, 0x26, marker_alpha);
+            draw_hud_sprite(GetIconFrame(0xe99c, 0), icon_x - 0x13, icon_y - 0x13, 0x26, 0x26, marker_alpha);
         if (((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].id != 0) {
             int icon_alpha;
             if (i != rec->unk74)
                 icon_alpha = truncate_float_to_s32((float)alpha * GF(quick_select_unselected_alpha_scale));
             else
                 icon_alpha = alpha;
-            HudFrame((char *)rec,
-                     GetIconFrame(((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].id,
-                                  ((unsigned char *)screen_globals_base +
-                                   0x4C6)[((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].item]
-                                      ? 4
-                                      : 0),
-                     icon_x, icon_y, 1, icon_alpha);
+            hud_frame((char *)rec,
+                      GetIconFrame(((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].id,
+                                   ((unsigned char *)screen_globals_base +
+                                    0x4C6)[((E_238C30 **)hud_selector_slot_tables)[GI(quick_select_page)][i].item]
+                                       ? 4
+                                       : 0),
+                      icon_x, icon_y, 1, icon_alpha);
         }
     }
     selected = rec->unk74;
     if (selected >= 0 && *(int *)(((char **)hud_selector_slot_tables)[GI(quick_select_page)] + selected * 0x1C) != 0) {
-        color =
-            FastTweenColor(GI(quick_select_text_shadow_from), GI(hud_item_selector_text_shadow_color_to), open * fade);
+        color = FastTweenColor(GI(l00_hud_item_selector_text_shadow_color_from),
+                               GI(hud_item_selector_text_shadow_color_to), open * fade);
         {
             int id;
             id = *(int *)((char *)help_stats_base_i + 0x885 + selected * 4);
@@ -1381,11 +1381,11 @@ int draw_hud_item_selector_panel(HudElem *rec) {
                 item = *(int *)(menu_item_enabled_115 + 0x21 + id * 4);
                 sprintf(formatted, hud_ammo_format, item, *(unsigned short *)(wr + 0xE));
                 if (item != 0)
-                    shadow = FastTweenColor(GI(quick_select_ammo_color_from),
+                    shadow = FastTweenColor(GI(l00_hud_item_selector_nonzero_ammo_text_color_from),
                                             GI(hud_item_selector_nonzero_ammo_text_color_to), open * fade);
                 else
-                    shadow = FastTweenColor(GI(quick_select_empty_ammo_color_from),
-                                            GI(quick_select_empty_ammo_color_to), open * fade);
+                    shadow = FastTweenColor(GI(l00_hud_item_selector_zero_ammo_text_color_from),
+                                            GI(l00_hud_item_selector_zero_ammo_text_color_to), open * fade);
                 FontPrintCenter(x + GI(quick_select_center_x) + 1, y + GI(quick_select_center_y) + 13, color, formatted,
                                 -1);
                 FontPrintCenter(x + GI(quick_select_center_x), y + GI(quick_select_center_y) + 12, shadow, formatted,
@@ -1393,7 +1393,8 @@ int draw_hud_item_selector_panel(HudElem *rec) {
             }
         }
         prefix_length = 0;
-        shadow = FastTweenColor(GI(quick_select_name_color_from), GI(quick_select_name_color_to), open * fade);
+        shadow = FastTweenColor(GI(l00_hud_item_selector_title_color_from), GI(l00_hud_item_selector_title_color_to),
+                                open * fade);
         {
             int item, id;
             item = *(int *)(((char **)hud_selector_slot_tables)[GI(quick_select_page)] + selected * 0x1C + 0x18);
@@ -1439,7 +1440,7 @@ int draw_hud_item_selector_panel(HudElem *rec) {
             else if (prefix_length != 0)
                 text_y += GI(hud_item_selector_split_title_without_ammo_y_offset);
             else
-                text_y += GI(quick_select_name_y_single);
+                text_y += GI(l00_hud_item_selector_single_line_title_without_ammo_y_offset);
         }
         if (prefix_length != 0) {
             FontPrintCenter(x + GI(quick_select_center_x) + 1, text_y + 1, color, (void *)text, prefix_length);
@@ -1506,7 +1507,7 @@ void update_hud_radial_selector_selection_and_visibility(Obj *o) {
     g_controller_state.mode = 2;
     x = g_controller_state.analog_prev[2];
     y = g_controller_state.analog_prev[3];
-    len = vec_length(x * x + y * y);
+    len = square_root(x * x + y * y);
     if (len != 0.0f) {
         x /= len;
         y /= len;
@@ -1561,7 +1562,7 @@ void update_hud_radial_selector_selection_and_visibility(Obj *o) {
     }
     if (o->w74 != old) {
         c[1] = 0;
-    } else if (c[1] < (*(int *)&quick_select_fade_steps)) {
+    } else if (c[1] < (*(int *)&l00_hud_selector_fade_counter_limit_gp)) {
         c[1]++;
     }
     if (!(((int)g_controller_state.held_unmasked) & 0x10)) {
@@ -1571,7 +1572,7 @@ void update_hud_radial_selector_selection_and_visibility(Obj *o) {
             radial_select_choice[0] = hud_selector_slot_tables_r2[(*(int *)&quick_select_page_r)][o->w74].f18;
         if (c[0] != 0)
             c[0]--;
-    } else if (c[0] < (*(int *)&quick_select_fade_steps)) {
+    } else if (c[0] < (*(int *)&l00_hud_selector_fade_counter_limit_gp)) {
         c[0]++;
     }
     if (c[0] == 0) {
@@ -1622,7 +1623,7 @@ extern float D_L00_0015F8A4_239918 SDATA(D_L00_0015F8A4);
 extern int D_L00_0015F8B4_239918 SDATA(D_L00_0015F8B4);
 extern int D_L00_0015F8B8_239918 SDATA(D_L00_0015F8B8);
 extern int D_L00_0015F8BC_239918 SDATA(D_L00_0015F8BC);
-extern Ids D_L00_0015F8C0;
+extern Ids quick_select_label_msg_ids;
 extern char texture_group_header_r3[] __asm__("D_L00_0017E5D8");
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
@@ -1680,10 +1681,10 @@ int draw_hud_radial_selector_panel(Elem *e) {
     hud_screen_position_r(e, &x, &y);
     hw = D_L00_0015F7F8_239918 / 2;
     hh = D_L00_0015F7FC_239918 / 2;
-    HudSprite(GetIconFrame(0xE934, 1), x, y, hw, hh, a);
-    HudSprite(GetIconFrame(0xE934, 1), x + D_L00_0015F7F8_239918, y + D_L00_0015F7FC_239918, -hw, -hh, a);
-    HudSprite(GetIconFrame(0xE934, 1), x + D_L00_0015F7F8_239918, y, -hw, hh, a);
-    HudSprite(GetIconFrame(0xE934, 1), x, y + D_L00_0015F7FC_239918, hw, -hh, a);
+    draw_hud_sprite(GetIconFrame(0xE934, 1), x, y, hw, hh, a);
+    draw_hud_sprite(GetIconFrame(0xE934, 1), x + D_L00_0015F7F8_239918, y + D_L00_0015F7FC_239918, -hw, -hh, a);
+    draw_hud_sprite(GetIconFrame(0xE934, 1), x + D_L00_0015F7F8_239918, y, -hw, hh, a);
+    draw_hud_sprite(GetIconFrame(0xE934, 1), x, y + D_L00_0015F7FC_239918, hw, -hh, a);
     for (i = 0; i < quick_select_slot_count_r2; i++) {
         int X, Y;
         float f20 =
@@ -1691,7 +1692,7 @@ int draw_hud_radial_selector_panel(Elem *e) {
         X = x + D_L00_0015F800_239918 + (int)(D_L00_0015F86C_239918 * FastCos(f20) * D_L00_0015F8A4_239918);
         Y = y + D_L00_0015F804_239918 + (int)(D_L00_0015F86C_239918 * FastSin(f20));
         if (e->sel == i && hud_selector_slot_tables_r3[D_L00_0015F80C_239918][i].f0 != 0) {
-            HudSprite(GetIconFrame(0xE99C, 0), X - 0x13, Y - 0x13, 0x26, 0x26, b);
+            draw_hud_sprite(GetIconFrame(0xE99C, 0), X - 0x13, Y - 0x13, 0x26, 0x26, b);
         }
         if (hud_selector_slot_tables_r3[D_L00_0015F80C_239918][i].f0 != 0) {
             if (i != e->sel) {
@@ -1736,10 +1737,10 @@ typedef struct {
     short unk6;
 } HudCounter;
 
-extern HudCounter health_hud_wobble_counter MACRO_ADDR;
+extern HudCounter l00_hud_element_counter_state MACRO_ADDR;
 
 /* reset_numeric_hud_element for a 64 x 64 element with offset 0x48 at 32, then
-   points +0x80 at the four shorts of health_hud_wobble_counter and sets them to
+   points +0x80 at the four shorts of l00_hud_element_counter_state and sets them to
    0, 0, 0, 1. They are declared as one 8-byte struct: as separate shorts
    -G2 would put them in $gp's reach, where retail stores them through
    lui $at. */
@@ -1750,13 +1751,13 @@ void initialize_hud_element_with_counters(HudElem *e) {
     e->unk48 = 0x20;
     e->unk4A = 0;
     initialize_numeric_hud_values_and_dimensions(e);
-    e->unk80 = &health_hud_wobble_counter;
-    health_hud_wobble_counter.unk0 = 0;
-    health_hud_wobble_counter.unk2 = 0;
-    health_hud_wobble_counter.unk4 = 0;
-    health_hud_wobble_counter.unk6 = 1;
+    e->unk80 = &l00_hud_element_counter_state;
+    l00_hud_element_counter_state.unk0 = 0;
+    l00_hud_element_counter_state.unk2 = 0;
+    l00_hud_element_counter_state.unk4 = 0;
+    l00_hud_element_counter_state.unk6 = 1;
 }
-extern int health_hud_fade_steps SDATA(health_hud_fade_steps);
+extern int l00_hud_panel_visibility_counter_limit_gp SDATA(D_L00_0015F8D0);
 
 /* Updates the health HUD element: advances the wobble counters in its HudCounter (+0x80), clamps the target (+0x78) to
    +0x08, and steps the two digits (+0x70, +0x71) up or down. */
@@ -1803,9 +1804,9 @@ void update_health_hud_animation_and_visibility(HudElem *e) {
         e->unk74 = e->unk78;
     }
     if (e->unk7C >= scale_ticks(5)) {
-        if (health_hud_fade_steps > c[0]) {
+        if (l00_hud_panel_visibility_counter_limit_gp > c[0]) {
             c[0]++;
-        } else if (c[1] < health_hud_fade_steps) {
+        } else if (c[1] < l00_hud_panel_visibility_counter_limit_gp) {
             c[1]++;
         }
     } else {
@@ -1828,11 +1829,11 @@ extern int health_hud_panel_max_alpha SDATA(health_hud_panel_max_alpha);
 extern int health_hud_panel_y_offset SDATA(health_hud_panel_y_offset);
 extern int health_hud_panel_cap_size SDATA(health_hud_panel_cap_size);
 extern int health_hud_panel_row_y_step SDATA(health_hud_panel_row_y_step);
-extern short health_hud_icon_offsets;
-extern short health_hud_icon_offsets_8[];
-extern short health_hud_icon_offsets_5[];
+extern short health_hud_default_icon_offsets;
+extern short l00_health_hud_eight_capacity_icon_offsets[];
+extern short l00_health_hud_five_capacity_icon_offsets[];
 
-extern void HudFrame(char *, int, int, int, int, int);
+extern void hud_frame(char *, int, int, int, int, int);
 
 /* Draws the health bar (and its nanotech orbs) of a HUD element; returns the element's field 0x58. */
 int draw_health_hud_panel(HudElem *e) {
@@ -1867,14 +1868,14 @@ int draw_health_hud_panel(HudElem *e) {
         return e->w;
     }
     f20 = IntToFloat(e->cnt[0]);
-    f21 = f20 / IntToFloat((health_hud_fade_steps));
+    f21 = f20 / IntToFloat((l00_hud_panel_visibility_counter_limit_gp));
     if (f21 > 1.0f) {
         f21 = 1.0f;
     } else if (f21 < 0.0f) {
         f21 = 0.0f;
     }
     f20 = IntToFloat(q[1]);
-    f22 = f20 / IntToFloat((health_hud_fade_steps));
+    f22 = f20 / IntToFloat((l00_hud_panel_visibility_counter_limit_gp));
     if (f22 > 1.0f) {
         f22 = 1.0f;
     } else if (f22 < 0.0f) {
@@ -1900,16 +1901,16 @@ int draw_health_hud_panel(HudElem *e) {
     if (cnt == 8) {
         f20 = 48.0f;
         f20 = f21 * f20;
-        tbl = health_hud_icon_offsets_8;
+        tbl = l00_health_hud_eight_capacity_icon_offsets;
         bw = truncate_float_to_s32(f20);
         bw2 = truncate_float_to_s32(f20);
     } else if (cnt == 5) {
-        tbl = health_hud_icon_offsets_5;
+        tbl = l00_health_hud_five_capacity_icon_offsets;
         bw = truncate_float_to_s32(f21 * 32.0f);
         bw2 = truncate_float_to_s32(f21 * 16.0f);
     } else {
         bw2 = 0;
-        tbl = &health_hud_icon_offsets;
+        tbl = &health_hud_default_icon_offsets;
         bw = truncate_float_to_s32(f21 * 48.0f);
     }
     x = x0 - bw;
@@ -1917,34 +1918,34 @@ int draw_health_hud_panel(HudElem *e) {
     tex = GetIconFrame(0x7580, 1);
     tex2 = GetIconFrame(0x7580, 0);
     draw_hud_sprite_flipped(tex, x0 + bw, y, (health_hud_panel_cap_size), (health_hud_panel_cap_size), w);
-    HudSprite(tex2, x, y, bw << 1, (health_hud_panel_cap_size), w);
+    draw_hud_sprite(tex2, x, y, bw << 1, (health_hud_panel_cap_size), w);
     {
         int h = (health_hud_panel_cap_size);
-        HudSprite(tex, x - h, y, h, h, w);
+        draw_hud_sprite(tex, x - h, y, h, h, w);
     }
     if (bw2) {
         int x2;
         y += health_hud_panel_row_y_step;
         draw_hud_sprite_flipped(tex, x0 + bw2, y, (health_hud_panel_cap_size), (health_hud_panel_cap_size), w);
         x2 = x0 - bw2;
-        HudSprite(tex2, x2, y, bw2 << 1, (health_hud_panel_cap_size), w);
+        draw_hud_sprite(tex2, x2, y, bw2 << 1, (health_hud_panel_cap_size), w);
         {
             int h = (health_hud_panel_cap_size);
-            HudSprite(tex, x2 - h, y, h, h, w);
+            draw_hud_sprite(tex, x2 - h, y, h, h, w);
         }
     }
     for (i = 0; i < cnt; i++) {
-        HudFrame((char *)e, GetIconFrame(0x7536, phase), x0 + tbl[i * 2], y0 + tbl[i * 2 + 1], 1, alpha);
+        hud_frame((char *)e, GetIconFrame(0x7536, phase), x0 + tbl[i * 2], y0 + tbl[i * 2 + 1], 1, alpha);
         if (phase != 0x1E) {
             int a, b, px, py;
-            HudFrame((char *)e, GetIconFrame(0x7536, 0x1E), x0 + tbl[i * 2], y0 + tbl[i * 2 + 1], 1, alpha);
+            hud_frame((char *)e, GetIconFrame(0x7536, 0x1E), x0 + tbl[i * 2], y0 + tbl[i * 2 + 1], 1, alpha);
             a = GetIconFrame(0x7536, 0x1F);
             px = x0 + tbl[i * 2];
             py = y0 + tbl[i * 2 + 1];
             px += 0xE;
             py -= 0x11;
             b = truncate_float_to_s32((float)(*(short *)(ip + 2) >> 4) * f22);
-            HudSprite(a, px, py, 0x22, 0x22, b);
+            draw_hud_sprite(a, px, py, 0x22, 0x22, b);
             if (n == i + 1) {
                 phase = 0x1E;
             } else {
@@ -1954,16 +1955,16 @@ int draw_health_hud_panel(HudElem *e) {
     }
     return e->w;
 }
-extern HudCounter bolt_counter_icon_tick MACRO_ADDR;
+extern HudCounter l00_bolt_hud_icon_animation_counters MACRO_ADDR;
 extern void initialize_numeric_hud_timer_and_base_dimensions(HudElem *);
 
 /* Sets E up with initialize_numeric_hud_timer_and_base_dimensions, points +0x80 at the shorts of
-   bolt_counter_icon_tick (declared like health_hud_wobble_counter, out of $gp's reach) and
+   l00_bolt_hud_icon_animation_counters (declared like l00_hud_element_counter_state, out of $gp's reach) and
    clears the first. */
 void initialize_bolt_counter_hud(HudElem *e) {
     initialize_numeric_hud_timer_and_base_dimensions(e);
-    e->unk80 = &bolt_counter_icon_tick;
-    bolt_counter_icon_tick.unk0 = 0;
+    e->unk80 = &l00_bolt_hud_icon_animation_counters;
+    l00_bolt_hud_icon_animation_counters.unk0 = 0;
 }
 /* Words reached through $gp: under -G2 that takes declarations of at
    most two bytes. */
@@ -2094,8 +2095,8 @@ int draw_bolt_counter_hud_panel(HudElem_3A788 *m) {
     slide = truncate_float_to_s32((f32)((digit_width)*digits) * open);
     draw_hud_sprite_flipped(GetIconFrame(0x7580, 1), cap_x, y, 32, 32, alpha);
     panel_x -= slide;
-    HudSprite(GetIconFrame(0x7580, 0), panel_x, y, slide + 0x10, 32, alpha);
-    HudSprite(GetIconFrame(0x7580, 1), panel_x - 0x20, y, 32, 32, alpha);
+    draw_hud_sprite(GetIconFrame(0x7580, 0), panel_x, y, slide + 0x10, 32, alpha);
+    draw_hud_sprite(GetIconFrame(0x7580, 1), panel_x - 0x20, y, 32, 32, alpha);
     HudFrame_r2(m, GetIconFrame(0x754F, *frame >> 1), icon_x, y, 0, 0x80);
 
     /* the count, shadow first */
@@ -2125,7 +2126,7 @@ LINKER_REMNANT("asm/overlays", func_L00_0023AB88);
 
 /* Steps a two-digit HUD counter (+0x70, +0x71): while the flag at
    g_hero + 0x2048 is set, restarts the timer at scale_ticks(10)
-   and raises the first digit, then the second, up to health_hud_fade_steps;
+   and raises the first digit, then the second, up to l00_hud_panel_visibility_counter_limit_gp;
    otherwise clears the timer, sets +0x6C to 1 and lowers the second
    digit, then the first, setting +0x6C to -6 once both are 0. The
    second digit goes through a pointer kept across the call, as retail
@@ -2138,7 +2139,7 @@ void update_hud_panel_visibility(HudElem *e) {
 
     if (*(int *)(g_hero + 0x2048) != 0) {
         t = scale_ticks(10);
-        max = health_hud_fade_steps;
+        max = l00_hud_panel_visibility_counter_limit_gp;
         e->unk7C = t;
         if (e->cnt[0] < max) {
             e->cnt[0]++;
@@ -2166,7 +2167,7 @@ extern int bolt_exclamation_text_y SDATA(bolt_exclamation_text_y);
 extern int bolt_exclamation_color_from SDATA(bolt_exclamation_color_from);
 extern int bolt_exclamation_color_to SDATA(bolt_exclamation_color_to);
 extern int bolt_exclamation_pulse_ticks SDATA(bolt_exclamation_pulse_ticks);
-extern char bolt_exclamation_format[];
+extern char bolt_exclamation_label_format[];
 
 /* Draw the bolt counter panel sliding in with its fade; skipped in some hero states. */
 int draw_hud_bolt_exclamation_panel(HudElem *m) {
@@ -2193,12 +2194,12 @@ int draw_hud_bolt_exclamation_panel(HudElem *m) {
     if (q[0] == 0)
         return m->w;
 
-    open = IntToFloat(q[0]) / IntToFloat(health_hud_fade_steps);
+    open = IntToFloat(q[0]) / IntToFloat(l00_hud_panel_visibility_counter_limit_gp);
     if (1.0f < open)
         open = 1.0f;
     else if (open < 0.0f)
         open = 0.0f;
-    text = IntToFloat(q[1]) / IntToFloat(health_hud_fade_steps);
+    text = IntToFloat(q[1]) / IntToFloat(l00_hud_panel_visibility_counter_limit_gp);
     if (1.0f < text)
         text = 1.0f;
     else if (text < 0.0f)
@@ -2210,11 +2211,11 @@ int draw_hud_bolt_exclamation_panel(HudElem *m) {
     slide = truncate_float_to_s32((float)bolt_exclamation_panel_width * open);
     draw_hud_sprite_flipped(GetIconFrame(0x7580, 1), panel_right + 16, y, 32, 32, alpha);
     panel_left = panel_right - slide;
-    HudSprite(GetIconFrame(0x7580, 0), panel_left, y, slide + 16, 32, alpha);
-    HudSprite(GetIconFrame(0x7580, 1), panel_left - 32, y, 32, 32, alpha);
-    HudFrame((char *)m, GetIconFrame(0x754f, level_frame_counter % 60 >> 1), x - 32, y, 0, text_alpha);
+    draw_hud_sprite(GetIconFrame(0x7580, 0), panel_left, y, slide + 16, 32, alpha);
+    draw_hud_sprite(GetIconFrame(0x7580, 1), panel_left - 32, y, 32, 32, alpha);
+    hud_frame((char *)m, GetIconFrame(0x754f, level_frame_counter % 60 >> 1), x - 32, y, 0, text_alpha);
 
-    sprintf(buf, bolt_exclamation_format);
+    sprintf(buf, bolt_exclamation_label_format);
     text_x = x + bolt_exclamation_text_x;
     text_y = y + bolt_exclamation_text_y;
     period = scale_ticks(bolt_exclamation_pulse_ticks);
@@ -2253,8 +2254,8 @@ int draw_hud_cropped_gauge_panel(HudElem *e) {
     apply_hud_slide_offset(e, &x, &y, e->unk6C, 0);
     len = e->unk74 * 0xDD / e->unk08 + 0x1B;
     draw_cropped_hud_sprite(GetIconFrame(0x7558, 1), x, y, len, 0x40, 0x80);
-    HudSprite(GetIconFrame(0x7558, 0), x, y, 0x100, 0x40, 0x80);
-    HudSprite(GetIconFrame(0x7558, 2), x, y, 0x20, 0x20, g_hero_vehicle_triangle_cooldown != 0 ? 0x80 : 0);
+    draw_hud_sprite(GetIconFrame(0x7558, 0), x, y, 0x100, 0x40, 0x80);
+    draw_hud_sprite(GetIconFrame(0x7558, 2), x, y, 0x20, 0x20, g_hero_vehicle_triangle_cooldown != 0 ? 0x80 : 0);
     return e->w;
 }
 /* reset_numeric_hud_element_32x32_base without the offsets: a 32 x 32 element with a timer
@@ -2267,16 +2268,16 @@ void initialize_numeric_hud_timer_and_base_dimensions(HudElem *e) {
 }
 extern int weapon_hud_open_steps SDATA(weapon_hud_open_steps);
 extern int weapon_hud_text_fade_steps SDATA(weapon_hud_text_fade_steps);
-extern int weapon_hud_panel_width SDATA(weapon_hud_panel_width);
-extern int weapon_hud_wide_panel_width SDATA(weapon_hud_wide_panel_width);
-extern int weapon_hud_ammo_color_from SDATA(weapon_hud_ammo_color_from);
-extern int weapon_hud_ammo_color_to SDATA(weapon_hud_ammo_color_to);
-extern int weapon_hud_empty_color_from SDATA(weapon_hud_empty_color_from);
-extern int weapon_hud_empty_color_to SDATA(weapon_hud_empty_color_to);
-extern int weapon_hud_text_x SDATA(weapon_hud_text_x);
-extern int weapon_hud_text_y SDATA(weapon_hud_text_y);
+extern int ammo_hud_frame_width_below_100 SDATA(D_L00_0015F9FC);
+extern int ammo_hud_frame_width_at_least_100 SDATA(D_L00_0015FA00);
+extern int ammo_hud_nonzero_text_color_blend_start SDATA(D_L00_0015FA04);
+extern int ammo_hud_nonzero_text_color_blend_end SDATA(D_L00_0015FA08);
+extern int ammo_hud_zero_text_color_blend_start SDATA(D_L00_0015FA0C);
+extern int ammo_hud_zero_text_color_blend_end SDATA(D_L00_0015FA10);
+extern int ammo_hud_text_right_x_offset SDATA(D_L00_0015FA14);
+extern int ammo_hud_text_y_offset SDATA(D_L00_0015FA18);
 
-extern void HudFrame(char *, int, int, int, int, int);
+extern void hud_frame(char *, int, int, int, int, int);
 
 /* Draws the weapon HUD tile: three-part frame, weapon icon and ammo text with shadow, faded by the slide-in timers. */
 int draw_weapon_ammo_hud_panel(char *m) {
@@ -2307,26 +2308,26 @@ int draw_weapon_ammo_hud_panel(char *m) {
         alpha = truncate_float_to_s32(f21 * 128.0f);
         a = truncate_float_to_s32((float)alpha * 0.7f);
         if (((HudElem *)m)->unk08 < 100)
-            w = weapon_hud_panel_width;
+            w = ammo_hud_frame_width_below_100;
         else
-            w = weapon_hud_wide_panel_width;
+            w = ammo_hud_frame_width_at_least_100;
         x4 = x + 4;
         wd = x + truncate_float_to_s32((float)w * f21);
-        HudSprite(GetIconFrame(0x7580, 1), x - 0x1C, y, 0x20, 0x20, a);
-        HudSprite(GetIconFrame(0x7580, 0), x4, y, wd, 0x20, a);
+        draw_hud_sprite(GetIconFrame(0x7580, 1), x - 0x1C, y, 0x20, 0x20, a);
+        draw_hud_sprite(GetIconFrame(0x7580, 0), x4, y, wd, 0x20, a);
         draw_hud_sprite_flipped(GetIconFrame(0x7580, 1), x4 + wd, y, 0x20, 0x20, a);
         tex = GetIconFrame(*(int *)m, 3);
         *(int *)(m + 0x44) = tex;
-        HudFrame(m, tex, x, y, 0, alpha);
+        hud_frame(m, tex, x, y, 0, alpha);
         v74 = ((HudElem *)m)->unk74;
         sprintf(buf, hud_ammo_format, v74, ((HudElem *)m)->unk08);
         if (v74 != 0)
-            s16 = FastTweenColor(weapon_hud_ammo_color_from, weapon_hud_ammo_color_to, f20);
+            s16 = FastTweenColor(ammo_hud_nonzero_text_color_blend_start, ammo_hud_nonzero_text_color_blend_end, f20);
         else
-            s16 = FastTweenColor(weapon_hud_empty_color_from, weapon_hud_empty_color_to, f20);
+            s16 = FastTweenColor(ammo_hud_zero_text_color_blend_start, ammo_hud_zero_text_color_blend_end, f20);
         c1 = FastTweenColor(0, 0x80000000, f20);
-        font_print_right(x + weapon_hud_text_x + w + 1, y + weapon_hud_text_y + 1, c1, buf, -1);
-        font_print_right(x + weapon_hud_text_x + w, y + weapon_hud_text_y, s16, buf, -1);
+        font_print_right(x + ammo_hud_text_right_x_offset + w + 1, y + ammo_hud_text_y_offset + 1, c1, buf, -1);
+        font_print_right(x + ammo_hud_text_right_x_offset + w, y + ammo_hud_text_y_offset, s16, buf, -1);
     }
     return ((HudElem *)m)->w;
 }
@@ -2438,7 +2439,7 @@ int update_hud_elements(int call) {
     return n;
 }
 
-extern int weapon_hud_suspended SDATA(weapon_hud_suspended);
+extern int weapon_hud_updates_suspended_gp SDATA(D_L00_0015FA40);
 extern int D_hud_pair[2] __asm__("D_L00_0015FA44") MACRO_ADDR;
 
 extern int draw_weapon_ammo_hud_panel(char *);
@@ -2449,7 +2450,7 @@ void update_weapon_hud_state(void) {
     int w;
     int mode;
 
-    if (weapon_hud_suspended == 0) {
+    if (weapon_hud_updates_suspended_gp == 0) {
         base = (struct Hero *)g_hero;
         w = base->items[0].item_id;
         mode = base->vehicle_mode;
@@ -2466,7 +2467,7 @@ void update_weapon_hud_state(void) {
                 (int)draw_weapon_ammo_hud_panel, (int)((char *)&weapon_ammo_counts + w * 4), item_price_table[w].unkE);
         } else if (mode == 2) {
             if (D_hud_pair[1] != -1) {
-                Hud_SetBarValueById(D_hud_pair[1], 0);
+                set_animation_parameter(D_hud_pair[1], 0);
                 D_hud_pair[1] = -1;
             }
             base->unk1634 =
@@ -2474,7 +2475,7 @@ void update_weapon_hud_state(void) {
                                        (int)draw_hud_cropped_gauge_panel, (int)((char *)&base->vehicle_hp), 200);
         } else {
             if (D_hud_pair[1] != -1) {
-                Hud_SetBarValueById(D_hud_pair[1], 0);
+                set_animation_parameter(D_hud_pair[1], 0);
                 D_hud_pair[1] = -1;
             }
         }
@@ -2486,18 +2487,18 @@ extern int weapon_hud_item MACRO_ADDR;
 extern int weapon_hud_handle MACRO_ADDR;
 extern void reset_hud_animation_channels(void);
 
-/* Resets the HUD banks (reset_hud_animation_channels), then weapon_hud_suspended = 1,
+/* Resets the HUD banks (reset_hud_animation_channels), then weapon_hud_updates_suspended_gp = 1,
    weapon_hud_handle = -1 and weapon_hud_item = 0. */
 void reset_hud_and_suspend_weapon_updates(void) {
     reset_hud_animation_channels();
-    weapon_hud_suspended = 1;
+    weapon_hud_updates_suspended_gp = 1;
     weapon_hud_handle = -1;
     weapon_hud_item = 0;
 }
 extern char texture_group_header[];
 
 // Places a HUD element: looks up its size, offsets x/y by the anchor flags and draws it.
-void HudFrame(char *e, int id, int x, int y, int flags, int alpha) {
+void hud_frame(char *e, int id, int x, int y, int flags, int alpha) {
     if (id >= 0) {
         char *g = texture_group_header;
         char *a = *(char **)(g + 0x20);
@@ -2527,12 +2528,12 @@ void HudFrame(char *e, int id, int x, int y, int flags, int alpha) {
             w <<= 1;
             h <<= 1;
         }
-        HudSprite(id, x, y, w, h, alpha);
+        draw_hud_sprite(id, x, y, w, h, alpha);
     }
 }
 extern int *dma_packet_cursor MACRO_ADDR;
 
-/* The level's HudSprite (src/game/ui/hud.c) with the UV given: draws
+/* The level's draw_hud_sprite (src/game/ui/hud.c) with the UV given: draws
    texture TEX as a sprite at (x, y), w x h, with ALPHA, through the
    packet pointer dma_packet_cursor, the far UV being (w, h) itself rather
    than the texture's full size. The arena pointer is taken after the
@@ -2689,7 +2690,7 @@ extern void init_level_item_inventory(void);
    game_clock_ticks by 180. */
 void init_level_runtime_state(void) {
     register_audio_stream_callback();
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     InitMemSlots();
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_base;
     g_gs_texture_allocation_start = g_gs_texture_allocation_base;
@@ -2717,7 +2718,7 @@ void init_level_runtime_state(void) {
 extern unsigned char vendor_stock[] MACRO_ADDR;
 
 extern void append_level_item_if_absent(int idx);
-extern unsigned char discount_purchase_pricing[] NOT_SDA;
+extern unsigned char gHavePersuader[] NOT_SDA;
 extern unsigned char gHaveHeliPack[] NOT_SDA;
 extern unsigned char help_stats_base[] NOT_SDA;
 
@@ -2728,7 +2729,7 @@ void init_level_item_inventory(void) {
     if (g_current_level_index >= 0x13) {
         for (k = 0; k < 0x25; k++) {
             (item_available)[k] = 1;
-            (discount_purchase_pricing + 5)[k] = 1;
+            (gHavePersuader + 5)[k] = 1;
         }
         vendor_stock[0] = 0x4A;
         vendor_stock[1] = 0x50;

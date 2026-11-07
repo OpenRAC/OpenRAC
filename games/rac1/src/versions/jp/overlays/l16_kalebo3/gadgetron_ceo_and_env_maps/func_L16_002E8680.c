@@ -1,8 +1,8 @@
-void update_two_region_trigger_latch(char *moby) {
+void clip_volume_dialogue_trigger_update(char *moby) {
     char *data = *(char **)(moby + 0x78);
     switch (*(int *)(data + 8)) {
         case 0: {
-            char *g = gHeroPos;
+            char *g = hero_pos;
             if (is_point_inside_clip_volume(g, *(int *)data) != 0) {
                 if (*(int *)(g + 0x200C) == 0xF) {
                     *(int *)(data + 8) = 1;
@@ -18,8 +18,8 @@ void update_two_region_trigger_latch(char *moby) {
                 unsigned char *f = gSkillPoints;
                 if (f[0x19] == 0) {
                     f[0x19] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x542D, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x542D, -1);
                 }
             }
             break;

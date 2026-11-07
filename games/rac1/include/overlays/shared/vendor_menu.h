@@ -1,7 +1,7 @@
 #ifndef OVERLAYS_SHARED_VENDOR_MENU_H
 #define OVERLAYS_SHARED_VENDOR_MENU_H
 
-/* Functions defined in src/overlays/shared/vendor_menu.c. */
+/* Functions defined in src/overlays/shared/D_L00_001CA7C0.c. */
 
 #include "common.h"
 

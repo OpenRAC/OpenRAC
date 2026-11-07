@@ -37,7 +37,7 @@ struct Obj {
     struct Sub sub;
 };
 extern u8 *particle_texture_ptrs[];
-extern u8 *particle_texture_ptrs_23[];
+extern u8 *default_spark_lookup[];
 
 extern s32 truncate_float_to_s32(f32);
 
@@ -59,7 +59,7 @@ struct Obj *PartType02Spawn(u128 *arg0, f32 *arg1, f32 *arg2, s32 arg3, s32 arg4
         o->b3 = 0x44;
         o->b8 = truncate_float_to_s32(random_float_between(o->fC, 255.0f));
         if (arg8 == -1) {
-            o->b2 = *particle_texture_ptrs_23[0];
+            o->b2 = *default_spark_lookup[0];
         } else {
             o->b2 = *particle_texture_ptrs[(u16)arg8];
             if (arg8 & 0x10000) {

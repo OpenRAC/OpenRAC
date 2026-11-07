@@ -39,9 +39,9 @@ void vendor_update(char *moby) {
             if (*(float *)(p + 0x90) <= 0.0f)
                 *(unsigned short *)(*(char **)(p + 0xC) + 0x34) |= 1;
             if ((level_frame_counter & 7) == 0) {
-                char *g = gHeroPos;
+                char *g = hero_pos;
                 if (vec_distance_xy(moby + 0x10, g) <= 16.0f) {
-                    if (FastAbsF(*(float *)(moby + 0x18) - *(float *)(g + 8)) <= 8.0f) {
+                    if (absolute_float(*(float *)(moby + 0x18) - *(float *)(g + 8)) <= 8.0f) {
                         *(unsigned char *)(moby + 0x20) = 2;
                         if (*(unsigned char *)(moby + 0x53) != 1)
                             MobyBlendAnimation(moby, 1, 0, 10);
@@ -50,8 +50,8 @@ void vendor_update(char *moby) {
                 }
             }
             AddDrawCallback(draw_vendor_effects, moby);
-            axis_rotation_2d48(p + 0x20, 2, vendor_ring_a_angle);
-            axis_rotation_2d48(p + 0x60, 2, vendor_ring_b_angle);
+            build_axis_rotation_quaternion(p + 0x20, 2, vendor_ring_a_angle);
+            build_axis_rotation_quaternion(p + 0x60, 2, vendor_ring_b_angle);
             vendor_ring_a_angle = FastAddRots(vendor_ring_a_angle, 0.01f);
             t2 = FastAddRots(vendor_ring_b_angle, -0.02f);
             m = *(char **)(p + 0xC);
@@ -69,9 +69,9 @@ void vendor_update(char *moby) {
             int r;
             if (*(float *)(p + 0x90) < 1.0f)
                 *(float *)(p + 0x90) += 0.1f;
-            g = gHeroPos;
+            g = hero_pos;
             dist = vec_distance_xy(moby + 0x10, g);
-            dz = FastAbsF(*(float *)(moby + 0x18) - *(float *)(g + 8));
+            dz = absolute_float(*(float *)(moby + 0x18) - *(float *)(g + 8));
             if ((level_frame_counter & 7) == 0) {
                 if (18.0f < dist || 10.0f < dz) {
                     *(unsigned char *)(moby + 0x20) = 1;
@@ -83,8 +83,8 @@ void vendor_update(char *moby) {
             AddDrawCallback(draw_vendor_effects, moby);
             a = 1;
             b = 1;
-            axis_rotation_2d48(p + 0x20, 2, vendor_ring_a_angle);
-            axis_rotation_2d48(p + 0x60, 2, vendor_ring_b_angle);
+            build_axis_rotation_quaternion(p + 0x20, 2, vendor_ring_a_angle);
+            build_axis_rotation_quaternion(p + 0x60, 2, vendor_ring_b_angle);
             vendor_ring_a_angle = FastAddRots(vendor_ring_a_angle, 0.01f);
             t2 = FastAddRots(vendor_ring_b_angle, -0.02f);
             m = *(char **)(p + 0xC);

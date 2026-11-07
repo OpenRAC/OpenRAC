@@ -76,7 +76,7 @@ void update_hero_and_vehicle_mode_effects(void) {
         {
             unsigned char *m = *(unsigned char **)&((struct Hero *)b0)->moby;
             if (((*(unsigned short *)(m + 0x34) ^ 1) & 1) != 0) {
-                Moby_GetJointWorldPos(m, 6, copy);
+                moby_point_position(m, 6, copy);
                 qcopy(b0 + 0x1D80, copy);
                 enqueue_hero_glow_draw_callback_once();
             }
@@ -115,7 +115,7 @@ void update_hero_and_vehicle_mode_effects(void) {
             FastTweenColor_v(0.1f, *(unsigned int *)(*(unsigned char **)(b3 + 0x2080) + 0x90), color);
         for (i = 0; i < 3; i++) {
             b4 = (char *)&g_hero;
-            Moby_GetJointWorldPos(*(void **)(b4 + 0x2080), i, b4 + 0x1D50 + i * 16);
+            moby_point_position(*(void **)(b4 + 0x2080), i, b4 + 0x1D50 + i * 16);
         }
         alpha = 0x30;
         b4 = (char *)&g_hero;
@@ -190,7 +190,7 @@ void update_hero_bobbing_and_target_position(void) {
             qcopy(m + 0x10, cam + 0x10);
             *(u128 *)v = 0;
             v[2] = 0.21f;
-            matrix_mul_vec3(v, v, cam + 0xC0);
+            transform_vector_by_basis(v, v, cam + 0xC0);
             euler_to_matrix(w, &quartu_hero_bones_0_rot);
             transform_vector(v, v, w);
             FastVecAdd(*(char **)&base->hoverboard_moby + 0x10, *(char **)&base->hoverboard_moby + 0x10, v);
@@ -209,7 +209,7 @@ void restore_saved_hero_moby_and_clear_vehicle_mode(void) {
     if (base->vehicle_mode == 2) {
         int v = base->unk1634;
         if (v != -1) {
-            Hud_SetBarValueById(v, 0);
+            set_animation_parameter(v, 0);
             base->unk1634 = -1;
         }
     }
@@ -320,7 +320,7 @@ void adjust_hero_planar_velocity_from_probes(int arg) {
     a[2] = a[2] + f2;
     qcopy(b, base);
     b[2] = b[2] + f2 * 0.3f;
-    if (arg != 0 || vec_length_xy(base + 0x60) < 0.01f) {
+    if (arg != 0 || vector_length_xy(base + 0x60) < 0.01f) {
         h1 = base - 0x80;
         c[0] = FastCos(*(float *)(h1 + 0x98)) * f21;
         c[1] = FastSin(*(float *)(h1 + 0x98)) * f21;
@@ -331,7 +331,7 @@ void adjust_hero_planar_velocity_from_probes(int arg) {
     } else {
         qcopy(c, base + 0x60);
         c[2] = 0.0f;
-        FastVecScale(c, c, f21 / vec_length_xy(c));
+        FastVecScale(c, c, f21 / vector_length_xy(c));
         qcopy(d, c);
         FastVecScale(d, d, 1.4f);
     }
@@ -348,7 +348,7 @@ void adjust_hero_planar_velocity_from_probes(int arg) {
     if (coll_line(a, c, 4, *(int *)&((struct Hero *)b2)->moby, 0)) {
         char *q = quartu_coll_hit;
         if (*(int *)(q + 0x1C) > 0)
-            f20 = fast_atan2(*(float *)(q + 0x48), vec_length_xy(q + 0x40));
+            f20 = fast_atan2(*(float *)(q + 0x48), vector_length_xy(q + 0x40));
     }
     if (f20 >= 0.87266463f || r18 == 8 || r18 == 12) {
         float f;
@@ -451,7 +451,7 @@ void HeroL15_ResetMotionState(void) {
     if (quartu_coll_hit_r.unk1C > 0) {
         qcopy((u8 *)&g_hero_r + 0x2A0, &quartu_coll_hit_r.point);
         g_hero_r.ground_z.f = quartu_coll_hit_r.point.f[2];
-        g_hero_r.ground_distance = FastVecDist((u8 *)&g_hero_r + 0x80, ((u8 *)&g_hero_r + 0x2A0));
+        g_hero_r.ground_distance = fast_vec_dist((u8 *)&g_hero_r + 0x80, ((u8 *)&g_hero_r + 0x2A0));
         g_hero_r.ground_moby = (struct Moby *)quartu_coll_hit_r.moby;
         sceVu0Normalize((u8 *)&g_hero_r + 0x270, (u8 *)&quartu_coll_hit_r.normal.f[0]);
         g_hero_r.ground_slope.f = compute_gravity_relative_vector_inclination((u8 *)&quartu_coll_hit_r.normal.f[0]);
@@ -527,7 +527,7 @@ d1:
         if (coll_line(&v30, &v0, 0x22, (s32)g_hero_r.moby, 0)) {
             f = quartu_coll_hit_r.point.f[2] - g_hero_r.ground_z.f;
             g_hero_r.unk2C0.f[i] = f;
-            if (0.4f < FastAbsF(f)) {
+            if (0.4f < absolute_float(f)) {
                 g_hero_r.unk2C0.f[i] = 0.0f;
             }
             sceVu0Normalize(&v60, (u8 *)&quartu_coll_hit_r.normal.f[0]);
@@ -551,7 +551,7 @@ typedef struct {
     u8 pad4[0x70 - 4];
 } Entry70_215e58;
 extern struct PadState g_controller_state;
-extern Entry70_215e58 quartu_idle_fidgets_field_60[];
+extern Entry70_215e58 l15_hero_auxiliary_countdown_records[];
 extern short quartu_game_mode_r __asm__("D_L15_0015F6A8");
 extern u8 gHaveBoltGrabber NOT_SDA;
 
@@ -642,7 +642,7 @@ void update_hero_timers_and_auxiliary_state(void) {
         FastDecTimer(&g_hero_r2.vehicle_triangle_cooldown);
     }
     for (i = 0; i < 5; i++) {
-        fast_dec_timer(&quartu_idle_fidgets_field_60[i].w0);
+        fast_dec_timer(&l15_hero_auxiliary_countdown_records[i].w0);
     }
     g_hero_r2.current_path_dist = 9999.0f;
     if (g_hero_r2.air_frames.s != 0 && gravity_z(&g_hero_r2.motion.velocity) < 0.0f) {
@@ -692,7 +692,7 @@ skip:
         }
     }
     if (g_hero_r2.motion.pos.f[2] < 1.0f) {
-        Hero_OnKilled();
+        hero_respawn();
     }
 }
 

@@ -87,7 +87,7 @@ int sce_sif_sync_iop(void) {
 }
 
 extern char iop_reboot_udnl_prefix[];   /* "rom0:UDNL " */
-extern char iop_reboot_param_too_long_msg[];
+extern char iop_reboot_parameter_too_long_format[];
 extern void scePrintf();
 extern void sceSifInitRpc(int);
 extern void sceSifExitRpc(void);
@@ -105,7 +105,7 @@ int sce_sif_reboot_iop(char *img) {
         p++;
     }
     if ((unsigned int)(p + 11 - img) > 80) {
-        scePrintf(iop_reboot_param_too_long_msg, img);
+        scePrintf(iop_reboot_parameter_too_long_format, img);
         return 0;
     }
     sceSifInitRpc(0);
@@ -146,14 +146,14 @@ ASM_FUNC("asm/handwritten/core_text", func_0011D3A8);
 
 ASM_FUNC("asm/handwritten/core_text", func_0011D3B8);
 
-extern int tlb_functions_syscall_table[];
-extern char tlb_functions_kernel_code[];
-extern int tlb_saved_syscall_3_entry;
+extern int tlb_syscall_registration_pairs[];
+extern char tlb_init_syscall_payload[];
+extern int saved_syscall_3_handler;
 
 /*
  * Boot-time
  * hardware init: three explicit (addr, value) pokes through
- * set_syscall, a kcopy block copy of tlb_functions_kernel_code (0x330 bytes)
+ * set_syscall, a kcopy block copy of tlb_init_syscall_payload (0x330 bytes)
  * to a fixed load address, an interrupt-disable/enable bracket, then a
  * loop over 5 more 8-byte table entries where get_entry_address reads the
  * entry's current value back before set_syscall rewrites it. All
@@ -179,14 +179,14 @@ extern void set_syscall_v(int, int) __asm__("func_0011D3B8");
 /* set_syscall returns nothing: declared int, its result register
    pushed the loop test to $v1. */
 int InitTLBFunctions(void) {
-    int *t = tlb_functions_syscall_table;
+    int *t = tlb_syscall_registration_pairs;
     D_00130138_pair *p;
     unsigned int i;
     int old;
     int r;
 
     set_syscall_v(t[0], t[1]);
-    kcopy((void *)0x80075000, tlb_functions_kernel_code, 0x330);
+    kcopy((void *)0x80075000, tlb_init_syscall_payload, 0x330);
     flush_cache(0);
     flush_cache(2);
     set_syscall_v(t[2], t[3]);
@@ -200,7 +200,7 @@ int InitTLBFunctions(void) {
     }
 
     r = get_entry_address(3);
-    tlb_saved_syscall_3_entry = r;
+    saved_syscall_3_handler = r;
     return r;
 }
 

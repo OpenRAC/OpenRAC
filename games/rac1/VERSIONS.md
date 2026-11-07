@@ -18,6 +18,15 @@ Both decompilations cover the boot executable and the 19 level programs
 |---|---|---|---|
 | PAL, `SCES_509.16` (disc v2.00) | [`games/rac1/`](README.md) | [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) | macOS and Linux through Docker; Windows natively |
 | NTSC-U, `SCUS_971.99` (disc v1.00) | [ntsc/](ntsc/README.md) | [Lombyte](https://github.com/lombyte-project/Lombyte) | Linux or WSL; macOS through `./setup.sh --docker` |
+| PAL, `SCES_509.16` (disc v1.00) | [`games/rac1/`](README.md), as `rac1/pal1` | [rac1-decomp](https://github.com/OpenRAC/rac1-decomp)'s `pal_v1` | the same tree as PAL v2.00 ([docs/VERSIONS.md](docs/VERSIONS.md)) |
+| NTSC-J (Japan), `SCPS_150.37` (disc v1.02) | [`games/rac1/`](README.md), as `rac1/jp` | rac1-decomp's `jp` | the same tree as PAL v2.00 (docs/VERSIONS.md) |
+
+PAL v1.00 and v2.00 boot the same file name, `SCES_509.16`; the launcher and the
+editor tell them apart by the disc's version (`VER` in `SYSTEM.CNF`) and the
+executable's size and SHA-1. Each has a native program of its own, built from the same C through its release view
+(`openrac-rac1-pal1`, `openrac-rac1-jp`: [port/game/rac1-pal1](../../port/game/rac1-pal1/README.md),
+[port/game/rac1-jp](../../port/game/rac1-jp/README.md)); their levels are read from their own discs
+and their code is counted ([progress/](../../progress/README.md)).
 
 Disc checksums are in [baserom/README.md](../../baserom/README.md); progress
 in [progress/](../../progress/README.md).

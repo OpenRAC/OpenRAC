@@ -359,10 +359,18 @@ int func_00116248(gaddr buffer, gaddr format, ...) {
  * a 64-bit register passed on as it came (FontPrintWindow takes it as a long): a caller's int
  * colour sign-extended, another's `0x80F0F0F0LL` not (libraries.tsv gives both their prototype).
  */
+#ifndef RAC1_FONT_PRINT_WINDOW
+/* The routine both draw with; a version whose text is drawn by a routine of its own names it
+ * (NTSC-J's, rac1-jp/host/rac1_version.h). */
+#define RAC1_FONT_PRINT_WINDOW func_001F7070
+#endif
+
 void func_001F7560(gaddr a, long long b, gaddr c, int d) {
-    func_001F7070(a, b, c, d, func_001F4868(1), OPENRAC_DATA(RAC1_ADDR(0x001DF3D0u)));
+    RAC1_FONT_PRINT_WINDOW(a, b, c, d, func_001F4868(1), OPENRAC_DATA(RAC1_ADDR(0x001DF3D0u)));
 }
 
+#if !RAC1_OMIT(func_001F75D0)
 void func_001F75D0(gaddr a, long long b, gaddr c, int d) {
     func_001F7070(a, b, c, d, func_001F4868(2), OPENRAC_DATA(RAC1_ADDR(0x001DF770u)));
 }
+#endif

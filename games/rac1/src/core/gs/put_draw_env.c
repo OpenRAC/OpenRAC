@@ -15,7 +15,7 @@
 
 extern void scePrintf();
 
-extern char gs_put_draw_env_dma_timeout_msg[];
+extern char gs_draw_env_dma_timeout_message[];
 
 /* Kicks a DMA transfer on the GIF channel (D2 at 0x1000A000), waiting
    for the channel with a timeout. Every register access is volatile. */
@@ -26,7 +26,7 @@ int sceGsPutDrawEnv(void *arg0) {
     i = 0;
     while (*(volatile int *)0x1000A000 & 0x100) {
         if (i++ > 0x1000000) {
-            scePrintf(gs_put_draw_env_dma_timeout_msg);
+            scePrintf(gs_draw_env_dma_timeout_message);
             return -1;
         }
     }

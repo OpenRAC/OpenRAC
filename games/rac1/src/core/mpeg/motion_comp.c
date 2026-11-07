@@ -341,8 +341,8 @@ void _getAllRefs(struct MpegDecoder *d, int bx, int by, int mb_type, int motion_
     }
 }
 
-extern MpegMcFunc mpeg_luma_mc_routines[];
-extern MpegMcFunc mpeg_chroma_mc_routines[];
+extern MpegMcFunc mpeg_luma_mc_functions[];
+extern MpegMcFunc mpeg_chroma_mc_functions[];
 
 void _getRef0(struct MpegDecoder *d, struct MpegRefImage *ref, int sfield, int dfield, int yofs, int h, int bx, int by,
               int dx, int dy, int fieldpred, int avg) {
@@ -437,7 +437,7 @@ void _getRef0(struct MpegDecoder *d, struct MpegRefImage *ref, int sfield, int d
         }
     }
     fc->step = 8 << fieldpred;
-    d->mb_buf[d->mb_buf_index].luma_func[n] = mpeg_luma_mc_routines[code];
+    d->mb_buf[d->mb_buf_index].luma_func[n] = mpeg_luma_mc_functions[code];
     data = ref->data;
     {
         int c0 = (ly << 3) + 0x100;
@@ -449,11 +449,11 @@ void _getRef0(struct MpegDecoder *d, struct MpegRefImage *ref, int sfield, int d
     }
     d->mb_buf[d->mb_buf_index].luma_ref[n] = data + mb * 0x180;
     d->mb_buf[d->mb_buf_index].chroma_ref[n] = data + (mb + ref->unk10) * 0x180;
-    d->mb_buf[d->mb_buf_index].chroma_func[n] = mpeg_chroma_mc_routines[(avg << 2) | (xh << 1) | yh];
+    d->mb_buf[d->mb_buf_index].chroma_func[n] = mpeg_chroma_mc_functions[(avg << 2) | (xh << 1) | yh];
     d->mb_buf[d->mb_buf_index].fetch_count++;
 }
 
-extern char str_mpeg_intra_skip_mb[];
+extern char intra_skip_mb_error_message[];
 
 void func_001263A8_r(void *arg0, int idx) __asm__("func_001263A8");
 
@@ -469,7 +469,7 @@ void func_001263A8_r(void *arg0, int idx) {
         }
     }
     if (p->mb_buf[idx].unk130 != 0 && p->mb_buf[idx].unk13C != 0) {
-        _Error(p, str_mpeg_intra_skip_mb);
+        _Error(p, intra_skip_mb_error_message);
     }
     if (p->mb_buf[idx].unk130 != 0) {
         mpeg_clamp_pack_block(p->mb_buf[idx].unk128, p->mb_buf[idx].ipu_out);
@@ -514,14 +514,14 @@ ASM_FUNC("asm/handwritten/core_text", func_001271A0);
 
 ASM_FUNC("asm/handwritten/core_text", func_001272B8);
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_00127318);
+ASM_FUNC("asm/handwritten/core_text", func_00127318);
 
 void ipu_set_mpeg1(int arg0) {
     unsigned int *p = (unsigned int *)0x10002010;
     *p = (*p & 0xFF7FFFFF) | (arg0 << 23);
 }
 
-extern char str_mpeg_bdec_error[];
+extern char bdec_error_message[];
 
 extern void dispatch_mpeg_callback(int, void *);
 
@@ -566,7 +566,7 @@ int _waitBdecOut(void *arg0) {
         d->bit_count = 32;
     }
     if (*IPU_CTRL & 0x4000) {
-        _Error(d, str_mpeg_bdec_error);
+        _Error(d, bdec_error_message);
         cb2[0] = 2;
         dispatch_mpeg_callback((int)d->mpeg, cb2);
         *(unsigned int *)0x10002010 = 0x40000000;
@@ -671,7 +671,7 @@ int mb_address_increment(void *arg0) {
     return val;
 }
 
-extern char str_mpeg_skip_to_next_picture[];
+extern char skip_to_next_picture_error_message[];
 extern int _slice0(void *, int);
 extern int _waitBdecOut(void *);
 
@@ -705,7 +705,7 @@ int _pictureData0(void *arg0) {
     }
 
     if ((unsigned int)(ret - 1) < 2) {
-        _Error(s, str_mpeg_skip_to_next_picture);
+        _Error(s, skip_to_next_picture_error_message);
     }
 
     return (unsigned int)ret < 1;
@@ -715,7 +715,7 @@ extern void next_start_code(void *);
 extern int _sliceB(void *);
 
 extern char str_mpeg_slice_start_code_range[];
-extern char str_mpeg_slice_a0_error[];
+extern char slice_setup_error_message[];
 
 /* sliceA0 (libmpeg.a:mpc.o): ISO/IEC 13818-2 6.2.4 slice_header(), the
  * hardware-VLC variant. nextStartCode, then peek 32 bits: if it isn't a
@@ -751,7 +751,7 @@ int _sliceA0(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
     *arg3 = mbInc;
 
     if (s->unk11C != 0) {
-        _Error(s, str_mpeg_slice_a0_error);
+        _Error(s, slice_setup_error_message);
         return 1;
     }
 
@@ -773,7 +773,7 @@ int _sliceA0(void *arg0, int arg1, int *arg2, int *arg3, void *arg4) {
 extern int _sliceA0(void *, int, int *, int *, void *);
 extern int mb_address_increment(void *);
 
-extern char str_mpeg_too_many_macroblocks[];
+extern char too_many_macroblocks_error_message[];
 extern int _decMB0(void *, int *, int *, int *, void *, void *, void *);
 extern int _motionComp0(void *, int, int, int, int, void *, void *, void *);
 
@@ -844,7 +844,7 @@ int _slice0(void *arg0, int mbCount) {
         }
 
         if (!(mbAddr < mbCount)) {
-            _Error(s, str_mpeg_too_many_macroblocks);
+            _Error(s, too_many_macroblocks_error_message);
             return 2;
         }
 
@@ -879,13 +879,13 @@ int _slice0(void *arg0, int mbCount) {
     }
 }
 
-extern char str_mpeg_skipped_mb_in_i_picture[];
+extern char skipped_macroblock_in_i_picture_error_message[];
 
 /* arg0 is a moby/entity-ish struct: a table index at +0x810 selects a
  * +0x140-strided sub-entry whose +0x6CC field gets set, and several
  * other struct-pointer outputs get filled from +0x150/+0x174 flags.
  * Ends by clearing bit 0 of *a4, reporting through _Error (an
- * already-matched "log to str_mpeg_skipped_mb_in_i_picture" family member) first when
+ * already-matched "log to skipped_macroblock_in_i_picture_error_message" family member) first when
  * +0x150 == 1. The _Error call takes arg0 -- the moby struct,
  * still live in $4 -- not a4/s0, which is a common trap here. */
 int _skipMB0(void *a0, int *a1, int *a2, int *a3, int *a4) {
@@ -916,7 +916,7 @@ int _skipMB0(void *a0, int *a1, int *a2, int *a3, int *a4) {
     }
 
     if (s->picture_coding_type == 1) {
-        _Error(a0, str_mpeg_skipped_mb_in_i_picture);
+        _Error(a0, skipped_macroblock_in_i_picture_error_message);
         ret = 0;
     }
     mask = *a4;
@@ -925,7 +925,7 @@ int _skipMB0(void *a0, int *a1, int *a2, int *a3, int *a4) {
     return ret;
 }
 
-extern char str_mpeg_invalid_mb_type[];
+extern char invalid_macroblock_type_error_message[];
 
 extern void motion_vector(void *, int *, int *, int, int, int, int, int);
 extern void motion_vectors_x(void *, int *, int *, int *, int, int, int, int, int, int, int) __asm__("func_00128270");
@@ -957,7 +957,7 @@ int _decMB0(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void *arg5,
     v = ipu_vdec((int)d, 1);
     *arg1 = v;
     if (v == 0) {
-        _Error(d, str_mpeg_invalid_mb_type);
+        _Error(d, invalid_macroblock_type_error_message);
         d->unk11C = 1;
         return 0;
     }
@@ -1592,7 +1592,7 @@ void _groupOfPicturesHeader(void *arg0) {
     _extensionAndUserData(s);
 }
 
-extern char str_mpeg_load_chroma_intra_qm[];
+extern char chroma_intra_matrix_error_message[];
 extern char str_mpeg_load_chroma_non_intra_qm[];
 
 /* quantMatrixExtension (libmpeg.a:mpc.o): ISO/IEC 13818-2 6.2.3.2
@@ -1625,7 +1625,7 @@ void _quantMatrixExtension(void *arg0) {
     }
 
     if (_nextBit(s, 1) != 0) { /* load_chroma_intra_quantizer_matrix */
-        _Error(s, str_mpeg_load_chroma_intra_qm);
+        _Error(s, chroma_intra_matrix_error_message);
     }
 
     if (_nextBit(s, 1) != 0) { /* load_chroma_non_intra_quantizer_matrix */
@@ -1682,14 +1682,14 @@ void _copyrightExtension(void *arg0) {
 }
 
 extern int _pictureData0(void *);
-extern char str_mpeg_odd_field_pictures[];
-extern char str_mpeg_unknown_picture_structure[];
+extern char odd_field_picture_count_error_message[];
+extern char unknown_picture_structure_error_message[];
 
 /*
  * Decoder state step: if the picture state (s+0x174) is 3 and s+0x120 is
- * set, report str_mpeg_odd_field_pictures through _Error, clear s+0x120 and re-read
+ * set, report odd_field_picture_count_error_message through _Error, clear s+0x120 and re-read
  * the state; pick the target pointer by state (3 -> +0x1C0, 1 -> +0x1D0,
- * 2 -> +0x1E0, anything else -> +0x1C0 plus a str_mpeg_unknown_picture_structure report; the
+ * 2 -> +0x1E0, anything else -> +0x1C0 plus a unknown_picture_structure_error_message report; the
  * field is a POINTER, the target of the final +0x28 write); then
  * r = _pictureData0(s), and if r, target->+0x28 = 1. Exact under both
  * compilers.
@@ -1709,7 +1709,7 @@ int mpeg_dec_picture(void *arg0) {
     int r;
 
     if (state == 3 && s->second_field != 0) {
-        _Error(s, str_mpeg_odd_field_pictures);
+        _Error(s, odd_field_picture_count_error_message);
         s->second_field = 0;
         state = s->picture_structure;
     }
@@ -1725,7 +1725,7 @@ int mpeg_dec_picture(void *arg0) {
             break;
         default:
             target = s->ref_images[2];
-            _Error(s, str_mpeg_unknown_picture_structure);
+            _Error(s, unknown_picture_structure_error_message);
             break;
     }
     r = _pictureData0(s);
@@ -2052,7 +2052,7 @@ long _getPtsDtsFlags(void *arg0, void *arg1, void *arg2, void *arg3, void *arg4)
 }
 
 extern long _getPtsDtsFlags(void *s, void *t, void *o1, void *o3, void *o4);
-extern unsigned int mpeg_display_field_count_table[];
+extern unsigned int display_values_by_picture_flags[];
 
 void _dispRefImage(char *s_arg, char *t_arg) {
     struct MpegDecoder *s = (struct MpegDecoder *)s_arg;
@@ -2065,7 +2065,7 @@ void _dispRefImage(char *s_arg, char *t_arg) {
     base = s->mpeg;
     x = *(long *)&base->flags;
     s->unk80 = *(int *)&base->pts;
-    s->unk88 = mpeg_display_field_count_table[(int)(x >> 5) & 0xF];
+    s->unk88 = display_values_by_picture_flags[(int)(x >> 5) & 0xF];
     s->unkCC = t->display_horizontal_size;
     s->unkD0 = t->display_vertical_size;
     s->unkB4 = t->frame_centre_horizontal_offset[0];

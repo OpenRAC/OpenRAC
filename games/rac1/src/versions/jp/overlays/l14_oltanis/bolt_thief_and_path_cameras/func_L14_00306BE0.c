@@ -1,4 +1,4 @@
-void CollectiblePickupUpdate(struct Moby *moby) {
+void morphoray_pickup_update(struct Moby *moby) {
     u8 *o = (u8 *)moby;
     u8 *d = (u8 *)moby->pvars;
     f32 v[4];
@@ -11,7 +11,7 @@ void CollectiblePickupUpdate(struct Moby *moby) {
                 return;
             }
             initialize_morphoray_private_state_r((void *)moby);
-            ProbeGroundHeight(o + 0x10, 0, 0.5f);
+            probe_ground_height(o + 0x10, 0, 0.5f);
             moby->rot.x = 0.0f;
             moby->rot.y = -1.5707964f;
             moby->pos.z = oltanis_coll_hit_point_z_r[0] + D_L14_001622B8_06BE0;
@@ -28,14 +28,14 @@ void CollectiblePickupUpdate(struct Moby *moby) {
                 return;
             if (!(vec_distance_xy(o + 0x10, g_hero_r.motion.pos.f) < 1.0f))
                 return;
-            if (!(FastAbsF(*(f32 *)(o + 0x18) - g_hero_r.motion.pos.f[2]) < 2.0f))
+            if (!(absolute_float(*(f32 *)(o + 0x18) - g_hero_r.motion.pos.f[2]) < 2.0f))
                 return;
             if (gHaveMorphORay_r != 0)
                 *(s32 *)(d + 0x18) = state;
             else
                 *(s32 *)(d + 0x18) = 0;
             grant_inventory_item(0x15, 1);
-            StartCutscene(6);
+            start_scene(6);
             moby->state = 2;
             break;
         case 2:
@@ -45,10 +45,10 @@ void CollectiblePickupUpdate(struct Moby *moby) {
                     memcard_Save(0, -1);
                 }
                 if (*(s32 *)(d + 0x18) != 0)
-                    ShowBanner(0x5437, -1);
+                    queue_dialogue_message(0x5437, -1);
                 else
-                    ShowBanner(0x36b2, -1);
-                Help_Request(0x36b0, 0x7a);
+                    queue_dialogue_message(0x36b2, -1);
+                help_request(0x36b0, 0x7a);
                 DeleteMoby(moby);
                 return;
             }

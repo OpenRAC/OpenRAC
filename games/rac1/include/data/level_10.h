@@ -6,7 +6,7 @@
 #include "common.h"
 
 extern char ground_hit[];
-extern short *orxon_moby_groups[];
+extern short *D_L10_001ABFC0[];
 extern int orxon_moby_killed[];
 extern char orxon_player_camera[];
 

@@ -65,7 +65,7 @@ LINKER_REMNANT("asm/remnants/text", func_001EC108);
 
 /* Cam_InterpValues(from, to, vel, stiffness, damping, max): steps *vel
    toward to - from (a damped spring: stiffness * diff - damping * vel),
-   clamps it to +-max and to +-FastAbsF(to - from), and returns
+   clamps it to +-max and to +-absolute_float(to - from), and returns
    from + *vel. The nop between the first compare and its bc1f is ps2eeas's
    (tools/ps2eeas_nops.py). */
 float Cam_InterpValues(float from, float to, float *vel, float stiffness, float damping, float max) {
@@ -81,10 +81,10 @@ float Cam_InterpValues(float from, float to, float *vel, float stiffness, float 
             *vel = -max;
         }
     }
-    if (FastAbsF(diff) < *vel) {
-        *vel = FastAbsF(diff);
-    } else if (-FastAbsF(diff) > *vel) {
-        *vel = -FastAbsF(diff);
+    if (absolute_float(diff) < *vel) {
+        *vel = absolute_float(diff);
+    } else if (-absolute_float(diff) > *vel) {
+        *vel = -absolute_float(diff);
     }
     return from + *vel;
 }
@@ -248,7 +248,7 @@ typedef struct {
 extern CameraDef *gCameraDefs MACRO_ADDR;
 extern CamRec20 *cam_activation_rule7_table MACRO_ADDR;
 extern char g_hero[];
-extern char gHeroPos[];
+extern char hero_pos[];
 
 /* Camera_ActivationCheckPriority(cur, other): whether camera `cur` should
    take over from `other`. An inactive camera (priority 0) never does; the
@@ -301,7 +301,7 @@ int Camera_ActivationCheckPriority(Camera *cur, Camera *other) {
             if (other != 0 && other->transition_state == 0 && !(state[8] > other->priority)) {
                 return 0;
             }
-            if (is_point_inside_clip_volume(gHeroPos, info->clip_volume)) {
+            if (is_point_inside_clip_volume(hero_pos, info->clip_volume)) {
                 return 1;
             }
             break;
@@ -343,14 +343,14 @@ void Camera_Exit(Camera *cam) {
     }
 }
 
-extern int gCameraSlotUsed[];
-extern Camera gCameraSlots[];
+extern int camera_selectable_flags[];
+extern Camera camera_selection_records[];
 extern int Camera_ActivationCheckPriority(Camera *cur, Camera *other);
 extern void switch_active_camera_record(Camera *next_camera);
 
 /* UpdateAllCameras: the per-frame camera pass. Exits the current camera
-   (Camera_Exit), scans the 48 camera slots (gCameraSlotUsed[i] != 0 = in
-   use, gCameraSlots[i] = the Camera record) and keeps whichever
+   (Camera_Exit), scans the 48 camera slots (camera_selectable_flags[i] != 0 = in
+   use, camera_selection_records[i] = the Camera record) and keeps whichever
    Camera_ActivationCheckPriority prefers over the current one. If that
    changed the camera, switch_active_camera_record switches to it. Then the new
    camera's update hook (read before Camera_handleCollWithHero, as retail
@@ -370,8 +370,8 @@ int UpdateAllCameras(void) {
     Camera_Exit(cur);
 
     for (i = 0; i < 0x30; i++) {
-        if (gCameraSlotUsed[i] != 0) {
-            rec = &gCameraSlots[i];
+        if (camera_selectable_flags[i] != 0) {
+            rec = &camera_selection_records[i];
             if (rec != cur) {
                 if (Camera_ActivationCheckPriority(rec, cur)) {
                     cur = rec;
@@ -409,7 +409,7 @@ int UpdateAllCameras(void) {
    (p0 - p1) off the axis, out[1] = signed pitch after rotating dir0 by
    that yaw, out[2] = |p0 - p1|. A zero length becomes 0.0001 before the
    acos. The two sign fixups are shaped differently, as in retail. */
-void Camera_Pos2Polar3d(float *out, void *p0, void *p1, void *dir0, void *dir1, void *axis) {
+void compute_camera_angles(float *out, void *p0, void *p1, void *dir0, void *dir1, void *axis) {
     char diff[16];
     char proj[16];
     char perp[16];
@@ -478,7 +478,7 @@ void capture_camera_orientation(void) {
     qcopy(&r->orbit.fwd, row0);
     qcopy(&r->orbit.up, row2);
 
-    Camera_Pos2Polar3d((float *)&r->orbit.yaw, &r->orbit.pos, &g->motion, row0, row1, row2);
+    compute_camera_angles((float *)&r->orbit.yaw, &r->orbit.pos, &g->motion, row0, row1, row2);
 
     qcopy(&r->orbit.rot, &r->orbit.saved_rot);
 }
@@ -511,15 +511,15 @@ void restore_camera_vectors(void) {
 }
 
 /* The final mode store goes through this alias: written through
-   cam_trans_state itself, gcse keeps the entry's %hi alive in a saved register
+   D_001872B0 itself, gcse keeps the entry's %hi alive in a saved register
    across the calls, where retail rebuilds it. */
-extern short D_001872B0 NOT_SDA;
+extern short cam_trans_state NOT_SDA;
 
 /* start_camera_blend(from): captures the blend source from the previous
    camera and starts the blend (phase 3). When the phase is 1 or 2, the
    sub-mode (next_kind) picks what is captured from it: 0 the lerp pair
    (pos, rot), 2 the orbit pair and capture_camera_orientation's angles,
-   otherwise the hero's axes and Camera_Pos2Polar3d's yaw/pitch/dist into
+   otherwise the hero's axes and compute_camera_angles's yaw/pitch/dist into
    the orbit. Other phases restore through save_camera_vectors and
    restore_camera_vectors. Then the phase becomes 3, kind takes
    next_kind, and either the lerp resets or the orbit frame count advances. */
@@ -546,8 +546,8 @@ void start_camera_blend(Camera *from) {
             fast_vec_normalize(local1, *(char **)&g->moby + 0xD0, 1.0f);
             fast_vec_normalize(local2, *(char **)&g->moby + 0xE0, 1.0f);
             /* &gCamera.current->pos: the previous camera is the one the switch saved */
-            Camera_Pos2Polar3d((float *)&r->orbit.yaw, &from->pos, &(*(Camera **)((char *)r - 0xF0))->pos, local0,
-                               local1, local2);
+            compute_camera_angles((float *)&r->orbit.yaw, &from->pos, &(*(Camera **)((char *)r - 0xF0))->pos, local0,
+                                  local1, local2);
             extract_matrix_rotation_quaternion(&r->orbit.rot, from);
             qcopy(&r->orbit.saved_rot, &r->orbit.rot);
         }
@@ -602,7 +602,7 @@ int step_camera_blend(Camera *to, CamBlendLerp *lerp) {
     if (lerp->pos_t == 1.0f && lerp->rot_t == 1.0f) {
         return 1;
     }
-    t = CosineInterpolate(0.0f, 1.0f, lerp->pos_t);
+    t = cosine_interpolate(0.0f, 1.0f, lerp->pos_t);
     FastVecAdd(&lerp->from_pos, g_hero_platform_carry, &lerp->from_pos);
     st = &occl_cam_state;
     lerp->pos.f[0] = lerp->from_pos.f[0] + (to->pos.x - lerp->from_pos.f[0]) * t;
@@ -613,11 +613,11 @@ int step_camera_blend(Camera *to, CamBlendLerp *lerp) {
     }
     extract_matrix_rotation_quaternion(m, to);
     rot = lerp->rot.f;
-    t = CosineInterpolate(0.0f, 1.0f, lerp->rot_t);
-    quat_nlerp(rot, &lerp->from_rot, m, t);
+    t = cosine_interpolate(0.0f, 1.0f, lerp->rot_t);
+    quaternion_nlerp(rot, &lerp->from_rot, m, t);
     quaternion_to_matrix(rot, q);
     if (st->active == 0) {
-        matrix_copy_rows(gCamera.matrix, q);
+        copy_matrix3x4(gCamera.matrix, q);
     }
     lerp->pos_t += lerp->pos_rate * frame_scale;
     if (1.0f < lerp->pos_t) {
@@ -668,13 +668,13 @@ int advance_alternate_camera_transition(Camera *cam, CamBlendOrbit *o) {
     if (o->frames_left <= 0) {
         return 1;
     }
-    step = 1.0f / CosineInterpolate(1.0f, (float)o->frames, (float)o->frames_left * o->inv_frames);
+    step = 1.0f / cosine_interpolate(1.0f, (float)o->frames, (float)o->frames_left * o->inv_frames);
     if (gCamera.blend.kind == 2) {
-        qcopy(&target, gHeroPos);
+        qcopy(&target, hero_pos);
         qcopy(&fwd, &o->fwd);
         qcopy(&up, &o->up);
         FastVecCross(&side, &fwd, &up);
-        Camera_Pos2Polar3d(ang.v, &cam->pos, &target, &fwd, &side, &up);
+        compute_camera_angles(ang.v, &cam->pos, &target, &fwd, &side, &up);
     } else {
         qcopy(&target, &cam->pos);
         g = (struct Hero *)g_hero;
@@ -708,7 +708,7 @@ int advance_alternate_camera_transition(Camera *cam, CamBlendOrbit *o) {
         sign = 1.0f;
     }
     yaw = yaw * sign;
-    if (FastAbsF(dyaw) > 1.5707964f && ((dyaw >= 0.0f && sign < 0.0f) || (dyaw < 0.0f && sign >= 0.0f))) {
+    if (absolute_float(dyaw) > 1.5707964f && ((dyaw >= 0.0f && sign < 0.0f) || (dyaw < 0.0f && sign >= 0.0f))) {
         if (yaw < 0.0f) {
             yaw += 6.2831855f;
         } else {
@@ -716,7 +716,7 @@ int advance_alternate_camera_transition(Camera *cam, CamBlendOrbit *o) {
         }
     }
     turn = yaw * step;
-    if (FastAbsF(turn) < 1e-5f) {
+    if (absolute_float(turn) < 1e-5f) {
         qcopy(&r0, &m[0]);
         qcopy(&r1, &m[1]);
     } else {
@@ -724,7 +724,7 @@ int advance_alternate_camera_transition(Camera *cam, CamBlendOrbit *o) {
         rotate_vector_by_quaternion(&r0, &m[0], &r2);
         rotate_vector_by_quaternion(&r1, &m[1], &r2);
     }
-    if (FastAbsF(yaw) < 1e-5f) {
+    if (absolute_float(yaw) < 1e-5f) {
         qcopy(&r2, &m[0]);
     } else {
         build_quaternion_from_axis_angle(&q, &m[2], yaw);
@@ -879,7 +879,7 @@ void update_camera_tracking_state(void) {
         m->oclass != MOBY_CLASS_METROPOLIS_TRAIN_LOCOMOTIVE) {
         if (m == f->ground_moby) {
             f->ground_dz = m->pos.z - f->ground_z;
-            if (FastAbsF(f->ground_dz) < 0.001f) {
+            if (absolute_float(f->ground_dz) < 0.001f) {
                 f->ground_dz = 0.0f;
             }
             f->ground_z = f->ground_moby->pos.z;
@@ -918,7 +918,7 @@ void update_camera_underwater_flag(void) {
     b[2] -= 0.75f;
     i = 0;
     while (i < 6 && coll_line_fix(a, b, 0x12, 0, 0) != 0) {
-        if (coll_hit_material() == 0) {
+        if (collision_hit_material() == 0) {
             float h = resolve_camera_surface_height(coll_hit_pos, 0) + 0.04f;
             CameraSystem *c2 = &gCamera;
 
@@ -1012,7 +1012,7 @@ void advance_timed_camera_control(void) {
 }
 
 extern int text_screen_active;
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern void refresh_camera_control_flags(void);
 

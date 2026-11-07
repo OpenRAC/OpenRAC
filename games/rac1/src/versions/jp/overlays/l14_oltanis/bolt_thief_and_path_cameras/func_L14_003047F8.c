@@ -1,5 +1,5 @@
 extern char D_J_L14_001EA3A0[];
-void update_moby_draw_registration(unsigned char *moby) {
+void audio_stream_callback_keeper_update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             prepare_scaled_float_table_with_target_byte(D_J_L14_001EA3A0, 0.6666667f, 0x40);

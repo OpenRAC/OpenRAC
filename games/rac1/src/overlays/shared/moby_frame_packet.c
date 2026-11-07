@@ -9,7 +9,7 @@
 extern char cd_read_state[];
 extern char voice_pool[];
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 typedef struct O0024ed18Key {
     u8 pad_00[4];
@@ -144,7 +144,7 @@ extern void Moby_BuildFramePacket(void *, int, int, int);
 extern void moby_blend_anim_frames_to_spr(void *);
 
 /* advances an animation blend timer and steps through its frame table */
-void advance_moby_animation_blend(void *unused, unsigned char *a) {
+void MobyAnim_StepBlend(void *unused, unsigned char *a) {
     float s = *(float *)(a + 0x28);
     a[5] = 0;
     if (s != 0.0f && *(float *)(a + 0x2C) != 0.0f) {
@@ -263,7 +263,7 @@ typedef struct {
     Model_50478p *first, *second;
 } Object_50478p;
 
-extern void func_L00_001FF040(void *, void *, int);
+extern void copy_memory_by_alignment(void *, void *, int);
 
 /* Defined under a local name: this unit already declares FUN_L00_0024f440
  * with a generic prototype for its callers. */
@@ -333,13 +333,13 @@ INCLUDE_ASM("asm/overlays", func_L00_00250700);
 /* Scale the object's local vertex (built via get_moby_joint_matrices into a local
    0x40-byte scratch buffer) by arg0+0x2C in 1/1024 units, writing the
    scaled result to arg2, then run arg2 through the two per-object
-   transforms at arg0+0xC0 and arg0+0x10.  Same family as MobyTransformScaledVertex in
+   transforms at arg0+0xC0 and arg0+0x10.  Same family as build_moby_bone_transform in
    src/game/moby/mobyfunc.c, but the scaling target here is a caller-supplied
    vec4 (arg2) rather than a field of a caller-supplied 0x40-byte struct.
    0x3A800000 is exactly 2^-10. */
 
 /* Writes the world position of joint arg1 of moby arg0 to arg2. */
-void Moby_GetJointWorldPos(char *arg0, int arg1, void *arg2) {
+void moby_point_position(char *arg0, int arg1, void *arg2) {
     char buf[0x40];
     int n;
     float s;
@@ -348,7 +348,7 @@ void Moby_GetJointWorldPos(char *arg0, int arg1, void *arg2) {
     n = arg1;
     get_moby_joint_matrices(arg0, 1, &n, buf);
     FastVecScale(arg2, buf + 0x30, s);
-    matrix_mul_vec3(arg2, arg2, arg0 + 0xC0);
+    transform_vector_by_basis(arg2, arg2, arg0 + 0xC0);
     FastVecAdd(arg2, arg2, arg0 + 0x10);
 }
 
@@ -362,7 +362,7 @@ void compute_selected_world_matrices(char *o, int n, int *arg2, char *out) {
     copy_matrix_rotation(buf, o + 0xC0);
     get_moby_joint_matrices(o, n, arg2, out);
     for (i = 0; i < n; i++) {
-        sce_vu0_mul_matrix(out + i * 0x40, buf, out + i * 0x40);
+        multiply_matrix(out + i * 0x40, buf, out + i * 0x40);
         FastVecScale(out + i * 0x40 + 0x30, out + i * 0x40 + 0x30, s);
         FastVecAdd(out + i * 0x40 + 0x30, out + i * 0x40 + 0x30, o + 0x10);
     }
@@ -370,7 +370,7 @@ void compute_selected_world_matrices(char *o, int n, int *arg2, char *out) {
 
 extern int environment_sample_count MACRO_ADDR;
 extern char *environment_samples MACRO_ADDR;
-extern char no_environment_sample_msg[];
+extern char no_environment_sample_message[];
 
 /* Finds the table entry nearest the object's position (within 8 units) and applies its fields to the object and
    globals. */
@@ -396,7 +396,7 @@ void apply_nearest_environment_sample(char *o) {
         }
     }
     if (idx == -1) {
-        STUB_printf(no_environment_sample_msg);
+        STUB_printf(no_environment_sample_message);
         return;
     }
     off = idx * 0x30;

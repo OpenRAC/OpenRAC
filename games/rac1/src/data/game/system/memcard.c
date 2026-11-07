@@ -57,7 +57,7 @@ u32 memcard_dir_entries[8] DATA_SECTION(D_001A0980) = {0};
 
 u32 memcard_save_file_name_buffer[168] DATA_SECTION(D_001A09A0) = {0};
 
-u32 memcard_restore_size_mismatch_msg[] DATA_SECTION(D_001E8500) = {
+u32 D_001E8500[] DATA_SECTION(D_001E8500) = {
 #include "data_inc/D_001E8500.inc"
 };
 

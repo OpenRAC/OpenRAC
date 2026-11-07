@@ -108,12 +108,12 @@ long register_8bit_texture(int tw, int th, int a2, int a3, int clut, int tex) {
 }
 __asm__(".section .text\n\tnop\n");
 
-extern int map_slot_use[];
+extern int map_slot_table[];
 
 /* Returns a used map slot that holds no map (id -1), searched downward unless arg0 is 0. */
 int find_free_map_slot(int arg0) {
-    int *a = map_slot_use;
-    int *b = map_slot_use + 5;
+    int *a = map_slot_table;
+    int *b = map_slot_table + 5;
     int i = 0;
     do {
         int idx = 4 - i;
@@ -247,7 +247,7 @@ int find_map_entry_slot(int arg0) {
 
 extern unsigned char gHaveMapOMatic NOT_SDA;
 /* The MACRO_ADDR view declared further down, needed here already. */
-extern int *D_001602E0 MACRO_ADDR;
+extern int *menu_level_indices MACRO_ADDR;
 
 /* Picks the map to load next: the current map id (level_map_selection+0x224,
    +0x100 when gHaveMapOMatic is set) unless find_map_entry_slot finds it already
@@ -396,7 +396,7 @@ int update_map_zoom_and_pan(void) {
     int *xs;
     int *ys;
 
-    DebugEnter_Nop();
+    noop_memory_callback();
     pad = g_controller_state;
     if (*(int *)(pad + 0x1A4) & 0x500) {
         return 1;
@@ -536,16 +536,16 @@ typedef struct {
     s32 y1;
 } MapIconBounds;
 
-extern struct TagPtr D_00161000 MACRO_ADDR;
-extern struct ScreenOffsets D_0013E600;
+extern struct TagPtr g_render_packet_cursor MACRO_ADDR;
+extern struct ScreenOffsets g_screen_extent;
 extern MapOverlayState map_data_001A01F0 __asm__("D_001A01F0");
-extern Hero D_0013F450;
-extern MapTextureTables D_0019A4E8;
-extern MapIdFlags D_0013D6C4[];
-extern u16 D_001519D2[];
+extern Hero g_hero;
+extern MapTextureTables hud_state;
+extern MapIdFlags map_icon_flags_table[];
+extern u16 occl_cam_param1[];
 extern s32 map_data_0015EE84 __asm__("D_0015EE84") MACRO_ADDR;
 extern s32 map_current_level_205E70 SDATA(D_0015EE84);
-extern u8 D_0015EEB4[4] MACRO_ADDR;
+extern u8 draw_map51[4] MACRO_ADDR;
 extern s32 map_data_0015FE20 SDATA(D_0015FE20);
 extern f32 map_data_0015FE40 SDATA(D_0015FE40);
 extern f32 map_data_0015FE44 SDATA(D_0015FE44);
@@ -553,13 +553,13 @@ extern f32 map_data_0015FE48 SDATA(D_0015FE48);
 extern f32 map_data_0015FE4C SDATA(D_0015FE4C);
 extern f32 map_data_0015FE50 SDATA(D_0015FE50);
 extern f32 map_data_0015FE54 SDATA(D_0015FE54);
-extern u8 D_001E8398[];
+extern u8 no_map_available_text[];
 
 extern void world_to_map_coords_r(f32 *, f32 *, s32, f32, f32) __asm__("func_00208C38");
 /* EABI places floating and integer arguments in independent register banks. */
 extern void world_to_map_coords_xy_205E70(f32, f32, f32 *, f32 *, s32) __asm__("func_00208C38");
 
-extern void *func_001153FC(void *, s32, u32);
+extern void *libc_memset(void *, s32, u32);
 
 /* UNK_NoMapAvailable */
 void draw_map_overlay(void) {
@@ -606,7 +606,7 @@ void draw_map_overlay(void) {
     s32 tile_limit;
 
     if (map_data_001A01F0.enabled == 0) {
-        u8 *font = str_no_map_available;
+        u8 *font = no_map_available_text;
 
         SetupGifPaging(0);
         print_debug_text_centered(0x100, (s16)occl_cam_param1[0] >> 1, 0x80909090, font);
@@ -700,8 +700,8 @@ void draw_map_overlay(void) {
             if (cell >= 0) {
                 cell_x = cell % 16;
                 cell_y = cell / 16;
-                draw_hud_rect_blended(rx0 + cell_x * dx / 16, ry0 + cell_y * dy / 16, rx0 + (cell_x + 1) * dx / 16,
-                                      ry0 + (cell_y + 1) * dy / 16, 0x20000000, 1);
+                append_screen_rect_packet(rx0 + cell_x * dx / 16, ry0 + cell_y * dy / 16, rx0 + (cell_x + 1) * dx / 16,
+                                          ry0 + (cell_y + 1) * dy / 16, 0x20000000, 1);
             }
         }
     }
@@ -829,9 +829,9 @@ void draw_map_overlay(void) {
                         sprite_word = map_data_001A01F0.icons[i].frame_index;
                         if (id != 0) {
                             if (map_data_001A01F0.icons[i].flags & 0x40) {
-                                draw_hud_rect_blended(icon_bounds[i].x0 - 0x20, icon_bounds[i].y0 - 0x20,
-                                                      icon_bounds[i].x1 + 0x20, icon_bounds[i].y1 + 0x20, 0x80000000,
-                                                      1);
+                                append_screen_rect_packet(icon_bounds[i].x0 - 0x20, icon_bounds[i].y0 - 0x20,
+                                                          icon_bounds[i].x1 + 0x20, icon_bounds[i].y1 + 0x20,
+                                                          0x80000000, 1);
                             }
                             if (map_data_001A01F0.icons[i].flags & 0x200) {
                                 s = map_data_001A01F0.zoom[map_data_001A01F0.selected_map];

@@ -139,7 +139,7 @@ struct PadOptions {
     u8 mirror;                /* draw_map51 */
     u8 pad5[7];
 };
-extern struct PadOptions D_0015EEB0 MACRO_ADDR;
+extern struct PadOptions gCheats MACRO_ADDR;
 extern PadState g_controller_state_r __asm__("D_0013CA40");
 
 void func_002181F0_r(PadState *p, u8 *buf, s32 len) __asm__("func_002181F0");
@@ -264,7 +264,7 @@ void func_002181F0_r(PadState *p, u8 *buf, s32 len) {
     }
     v[0] = p->analog[2];
     v[1] = p->analog[3];
-    mag = vec_length_xy(v);
+    mag = vector_length_xy(v);
     ang = fast_arc_tan(v[0], v[1]);
     p->hist_mag[p->hist_idx] = mag;
     p->hist_ang[p->hist_idx] = ang;

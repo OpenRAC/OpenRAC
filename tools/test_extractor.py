@@ -107,6 +107,26 @@ class ExtractTests(unittest.TestCase):
                 extractor.validate("rac2", "SCUS_972.68", "0" * 40, {"SCUS_972.68": "0" * 40})
         self.assertEqual(caught.exception.code, 4002)
 
+    def test_ratchet_and_clanks_pal_releases_share_a_serial_and_japan_has_its_own(self):
+        # PAL v1.00 and v2.00 both boot SCES_509.16; the Japanese release is SCPS_150.37.
+        found = {name: version["boot"]["sha1"] for _, name, version in extractor.builds("rac1")["SCES_509.16"]}
+        self.assertEqual(found, {"pal": "79956931bd62fafd8d20fa2eae796dbaf2e15e83",
+                                 "pal1": "553a7f6c2c7a004d384d77b7139accbc52242149"})
+        game = {"id": "rac1", "title": "Ratchet & Clank"}
+        both = {"SCES_509.16": [(game, name, {"serial": "SCES_509.16", "region": "PAL", "boot": {"sha1": sha1},
+                                              "disc": {}}) for name, sha1 in found.items()]}
+        with mock.patch.object(extractor, "builds", lambda wanted=None: both):
+            for name, sha1 in found.items():
+                _, which, _ = extractor.validate("rac1", "SCES_509.16", sha1, {"SCES_509.16": sha1})
+                self.assertEqual(which, name)
+            with self.assertRaises(extractor.ExtractError) as caught:
+                extractor.validate("rac1", "SCES_509.16", "0" * 40, {"SCES_509.16": "0" * 40})
+        self.assertEqual(caught.exception.code, 4002)
+        [(_, name, jp)] = extractor.builds("rac1")["SCPS_150.37"]
+        self.assertEqual((name, jp["region"], jp["boot"]["sha1"]), ("jp", "NTSC-J (Japan)",
+                                                                   "0df83877d53e19d69ec82038e2aaa227f643178f"))
+        self.assertEqual(jp["disc"]["files"], 3)
+
     def test_refuses_another_game(self):
         with mock.patch.object(extractor, "builds", fake_builds(hashlib.sha1(BOOT).hexdigest())):
             with self.assertRaises(extractor.ExtractError) as caught:
@@ -154,7 +174,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_every_real_build_is_known(self):
         serials = extractor.builds()
-        for serial in ("SCES_509.16", "SCUS_971.99", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCUS_974.65"):
+        for serial in ("SCES_509.16", "SCUS_971.99", "SCPS_150.37", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCUS_974.65"):
             self.assertIn(serial, serials)
             for _game, _name, version in serials[serial]:
                 self.assertEqual(len(version["boot"]["sha1"]), 40)

@@ -83,7 +83,7 @@ short snd_batch_free_bytes[] DATA_SECTION(D_0015EDA8) = {
 #include "data_inc/D_0015EDA8.inc"
 };
 
-s32 snd_batch_free_bytes_1 DATA_SECTION(D_0015EDAC) = {
+s32 D_0015EDAC DATA_SECTION(D_0015EDAC) = {
 #include "data_inc/D_0015EDAC.inc"
 };
 
@@ -109,7 +109,7 @@ u32 snd_batch_return_buffers_1 DATA_SECTION(D_0015EDBC) =
 
 short snd_batch_index[2] DATA_SECTION(D_0015EDC0) = {0};
 
-u32 GlobalTableStatus DATA_SECTION(D_0015EDC4) = 0;
+u32 D_0015EDC4 DATA_SECTION(D_0015EDC4) = 0;
 
 short snd_cd_callback_pending[4] DATA_SECTION(D_0015EDC8) = {0};
 

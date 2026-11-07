@@ -1,5 +1,5 @@
 /* Starts at 0x00303430 (was vendor_00303430.c). */
-/* Level 14 code: draw_vendor_beam in a file of its own, built with -fno-sched-spec
+/* Level 14 code: draw_electric_beam in a file of its own, built with -fno-sched-spec
  * (config/file_cflags.txt). The functions of vendor_002B2A28.c do not build
  * with it (emit_moby_offset_particles changes), so it was another object in retail
  * (docs/reference/BUILD_FIDELITY.md, rule 2). */
@@ -25,14 +25,14 @@ u64 GetEffectTex_v(s32) __asm__("func_001F4868");
 typedef struct {
     float v[8][4];
 } Frame;
-extern char *oltanis_clip_volumes MACRO_ADDR;
+extern char *l14_cuboids MACRO_ADDR;
 
-extern float oltanis_vendor_beam_quad_uvs[][2];
-extern int oltanis_vendor_beam_tex_index SDATA(oltanis_vendor_beam_tex_index);
-extern int vendor_beam_blend_minuend_selector_gp SDATA(vendor_beam_blend_minuend_selector_gp);
-extern int vendor_beam_blend_subtrahend_selector_gp SDATA(vendor_beam_blend_subtrahend_selector_gp);
-extern int vendor_beam_blend_alpha_factor_selector_gp SDATA(vendor_beam_blend_alpha_factor_selector_gp);
-extern int vendor_beam_blend_addend_selector_gp SDATA(vendor_beam_blend_addend_selector_gp);
+extern float electric_beam_base_uv[][2];
+extern int electric_beam_effect_texture_index_gp SDATA(D_L14_001621AC);
+extern int electric_beam_blend_minuend_selector_gp SDATA(D_L14_001621B0);
+extern int electric_beam_blend_subtrahend_selector_gp SDATA(D_L14_001621B4);
+extern int electric_beam_blend_alpha_factor_selector_gp SDATA(D_L14_001621B8);
+extern int electric_beam_blend_addend_selector_gp SDATA(D_L14_001621BC);
 
 typedef struct {
     int idx;
@@ -45,7 +45,7 @@ typedef struct {
 } D_03430;
 
 /* Draws the vendor's beam effect. */
-void draw_vendor_beam(char *m) {
+void draw_electric_beam(char *m) {
     D_03430 *d = ((D_03430 *)((Moby *)m)->pvars);
     Pkt P[3];
     float M1[16] __attribute__((aligned(16)));
@@ -61,15 +61,15 @@ void draw_vendor_beam(char *m) {
     int c;
     int t;
 
-    euler_to_matrix(M1, ((Frame *)oltanis_clip_volumes)[d->idx].v[7]);
+    euler_to_matrix(M1, ((Frame *)l14_cuboids)[d->idx].v[7]);
     matrix_from_basis_rows(M2, M1);
-    qcopy_nc(&M1[12], ((Frame *)oltanis_clip_volumes)[d->idx].v[3]);
-    FastVecSub(v230, oltanis_camera_pos, ((Frame *)oltanis_clip_volumes)[d->idx].v[3]);
-    matrix_mul_vec3(v230, v230, M2);
-    tex = GetEffectTex_v(oltanis_vendor_beam_tex_index);
-    flags = (long)vendor_beam_blend_minuend_selector_gp | ((long)vendor_beam_blend_subtrahend_selector_gp << 2) |
-            ((long)vendor_beam_blend_alpha_factor_selector_gp << 4) |
-            ((long)vendor_beam_blend_addend_selector_gp << 6) | (0x8000L << 24);
+    qcopy_nc(&M1[12], ((Frame *)l14_cuboids)[d->idx].v[3]);
+    FastVecSub(v230, oltanis_camera_pos, ((Frame *)l14_cuboids)[d->idx].v[3]);
+    transform_vector_by_basis(v230, v230, M2);
+    tex = GetEffectTex_v(electric_beam_effect_texture_index_gp);
+    flags = (long)electric_beam_blend_minuend_selector_gp | ((long)electric_beam_blend_subtrahend_selector_gp << 2) |
+            ((long)electric_beam_blend_alpha_factor_selector_gp << 4) |
+            ((long)electric_beam_blend_addend_selector_gp << 6) | (0x8000L << 24);
     P[2].state = 0xFF9000000260L;
     P[1].state = 0xFF9000000260L;
     P[0].state = 0xFF9000000260L;
@@ -83,7 +83,7 @@ void draw_vendor_beam(char *m) {
     P[1].flags = flags;
     P[0].flags = flags;
     for (t = 0; t < 4; t++) {
-        float v = oltanis_vendor_beam_quad_uvs[t][1];
+        float v = electric_beam_base_uv[t][1];
         int col;
         P[2].uv[t][1] = v;
         P[1].uv[t][1] = v;
@@ -120,7 +120,7 @@ void draw_vendor_beam(char *m) {
                     else
                         FastVecSub(P[0].corner[k], P[0].corner[k], v250);
                 }
-                P[0].uv[k][0] = oltanis_vendor_beam_quad_uvs[k][0] + IntToFloat(i - i / 4 * 4) * 0.25f;
+                P[0].uv[k][0] = electric_beam_base_uv[k][0] + IntToFloat(i - i / 4 * 4) * 0.25f;
             }
             draw_world_quad(&P[0], M1, 0);
         }
@@ -158,7 +158,7 @@ void draw_vendor_beam(char *m) {
                     else
                         FastVecSub(P[0].corner[k], P[0].corner[k], v250);
                 }
-                P[0].uv[k][0] = oltanis_vendor_beam_quad_uvs[k][0] + IntToFloat(n - n / 4 * 4) * 0.25f;
+                P[0].uv[k][0] = electric_beam_base_uv[k][0] + IntToFloat(n - n / 4 * 4) * 0.25f;
             }
             draw_world_quad(&P[0], M1, 0);
         }

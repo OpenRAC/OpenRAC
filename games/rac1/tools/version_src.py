@@ -57,14 +57,18 @@ def spliced(v, src, funcs):
     import try_func
     lines = src.read_text(errors="replace").splitlines()
     spans = []
+    extra = []
     for name, path in funcs.items():
+        if name.startswith(f"func_{v.tag}_"):       # code only this version has: added at the end
+            extra += path.read_text().rstrip("\n").splitlines()
+            continue
         seg, s, first, last = try_func.find_stub(name)
         if Path(s).as_posix() != src.as_posix():
             sys.exit(f"{path}: {name} is defined in {s}, not {src}")
         spans.append((first, last, path.read_text().rstrip("\n").splitlines()))
     for first, last, body in sorted(spans, reverse=True):
         lines[first:last + 1] = body
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines + extra) + "\n"
 
 
 def segment_of(src):
@@ -117,7 +121,10 @@ def try_one(v, name, cand):
     """Splice CAND in as NAME's version-specific definition (with the version's others) and check it."""
     import try_func
     import version_check as vc
-    seg, src, first, last = try_func.find_stub(name)
+    if name.startswith(f"func_{v.tag}_"):
+        src = shared_file(v, overrides(v)[name])
+    else:
+        seg, src, first, last = try_func.find_stub(name)
     funcs = {n: str(p) for n, p in overrides(v).items() if shared_file(v, p) == Path(src)}
     funcs[name] = str(cand)
     work = ROOT / "build-sn/versions" / v.key / "try" / name

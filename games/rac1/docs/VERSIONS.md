@@ -193,11 +193,11 @@ decomp" (matched there, not here).
 
 | Version | Functions finished | Code finished |
 | --- | --- | --- |
-| `SCES_509.16` (PAL v2.00) | 5,089 of 5,120 | 98.48% (3,656,816 of 3,713,416 bytes) |
-| `SCES_509.16_v1` (PAL v1.00) | 4,848 of 5,092 | 76.90% (2,840,248 of 3,693,592 bytes) |
-| `SCPS_150.37` (NTSC-J v1.02) | 4,983 of 5,104 | 88.13% (3,266,172 of 3,706,188 bytes) |
-| `SCUS_971.99` (NTSC-U v1.00), our count (`progress/us/report.json`) | 4,756 of 5,097 | 74.21% (2,741,936 of 3,694,748 bytes) |
-| `SCUS_971.99` (NTSC-U v1.00), the NTSC decomp's own count (on ByteMatch) | 4,221 of 4,244 | 98.93% (3,510,004 of 3,547,932 bytes) |
+| `SCES_509.16` (PAL v2.00) | 5,118 of 5,118 | 100.00% (3,713,584 of 3,713,584 bytes) |
+| `SCES_509.16_v1` (PAL v1.00) | 5,082 of 5,082 | 100.00% (3,693,664 of 3,693,664 bytes) |
+| `SCPS_150.37` (NTSC-J v1.02) | 5,101 of 5,101 | 100.00% (3,706,260 of 3,706,260 bytes) |
+| `SCUS_971.99` (NTSC-U v1.00), our count (`progress/us/report.json`) | 5,003 of 5,094 | 95.14% (3,515,340 of 3,694,820 bytes) |
+| `SCUS_971.99` (NTSC-U v1.00), the NTSC decomp's own count (on ByteMatch) | 4,244 of 4,244 | 100.00% (3,547,932 of 3,547,932 bytes) |
 
 The NTSC decomp groups level copies and pieces differently, hence its 4,244 functions against our
 5,097, and counts its level data objects in C as well (not shown here).

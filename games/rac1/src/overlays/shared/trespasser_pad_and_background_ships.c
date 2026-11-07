@@ -41,7 +41,7 @@
 #include "overlays/shared/camera_update_callbacks.h"
 #include "overlays/shared/hero_update_ground_material.h"
 extern Hero g_hero;
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char gSkillPoints[];
 extern struct Hero g_hero;
 extern char hero_current_state[];
@@ -120,8 +120,8 @@ struct BackgroundShip2Vars {
 };
 
 LINKER_REMNANT("asm/overlays", func_L02_002A5218);
-extern u8 aridia_scaled_float_table[];
-extern float aridia_scaled_float_table_source[];
+extern u8 scaled_table_output[];
+extern float scaled_table_source[];
 extern s32 scaled_table_header_first_word SDATA(scaled_table_header_first_word);
 extern s32 scaled_table_header_second_word MACRO_ADDR;
 extern s32 scaled_table_header_third_word MACRO_ADDR;
@@ -134,12 +134,12 @@ void prepare_scaled_float_table_with_target_byte(char *arg, int val, float scale
     float *q;
     float *base;
     arg[0x3F] = val;
-    *(s32 *)(aridia_scaled_float_table + 0x0) = (scaled_table_header_first_word);
-    *(s32 *)(aridia_scaled_float_table + 0x4) = scaled_table_header_second_word;
-    *(s32 *)(aridia_scaled_float_table + 0x8) = scaled_table_header_third_word;
-    *(s32 *)(aridia_scaled_float_table + 0xC) = scaled_table_header_final_word;
-    p = (float *)(aridia_scaled_float_table + 0x10);
-    base = aridia_scaled_float_table_source;
+    *(s32 *)(scaled_table_output + 0x0) = (scaled_table_header_first_word);
+    *(s32 *)(scaled_table_output + 0x4) = scaled_table_header_second_word;
+    *(s32 *)(scaled_table_output + 0x8) = scaled_table_header_third_word;
+    *(s32 *)(scaled_table_output + 0xC) = scaled_table_header_final_word;
+    p = (float *)(scaled_table_output + 0x10);
+    base = scaled_table_source;
     q = base + 4;
     for (i = 0xF7; i >= 0; i--) {
         *p = *q * scale;
@@ -184,21 +184,21 @@ typedef struct Frame {
 } Frame;
 
 extern char aridia_view_params_r[] __asm__("D_L02_0016D0C0");
-extern int D_L02_0015F558 MACRO_ADDR;
+extern int textured_grid_fog_source_mode MACRO_ADDR;
 extern float textured_grid_saved_fog_near_distance_r __asm__("D_L02_00161378") MACRO_ADDR;
 extern float textured_grid_saved_fog_far_distance_r __asm__("D_L02_0016137C") MACRO_ADDR;
 extern float textured_grid_saved_fog_near_intensity_r __asm__("D_L02_00161380") MACRO_ADDR;
 extern float textured_grid_saved_fog_far_intensity_r __asm__("D_L02_00161384") MACRO_ADDR;
 extern char aridia_camera_pos_r[] __asm__("D_L02_00167440");
-extern unsigned short D_0010E800 NOT_SDA;
-extern char D_0010E810[];
+extern unsigned short font_vu_program_tag NOT_SDA;
+extern char font_vu_program[];
 extern int *l02_packet_r __asm__("D_L02_00161240") MACRO_ADDR;
-extern char D_L02_001CBB70[];
-extern Frame D_L02_0016D800[];
+extern char interpolated_draw_gif_preamble[];
+extern Frame l02_interpolated_frame_source_index_table[];
 extern int frame_counter_ref_r __asm__("D_L02_0015F6B0") MACRO_ADDR;
-extern char *D_L02_0015F520 MACRO_ADDR;
-extern int D_0015EF74 MACRO_ADDR;
-extern long D_L02_00161370 MACRO_ADDR;
+extern char *interpolated_frame_source_data MACRO_ADDR;
+extern int g_gs_texture_allocation_cursor MACRO_ADDR;
+extern long quad_texture_state MACRO_ADDR;
 
 /* Builds one moby's VU1 draw packet: camera matrices and screen setup, the two interpolated vertex tables of
  * its animation frame, then the GS register block for its texture. */
@@ -222,7 +222,7 @@ void build_interpolated_dma_packet(Arg *arg) {
         ((Cam *)aridia_view_params_r)->f22C = arg->f2C;
     }
     UpdateViewContext();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     set_scale_matrix(m, 1024.0f);
     FastVecScale(&m[12], aridia_camera_pos_r, -1024.0f);
     m[15] = 1.0f;
@@ -237,9 +237,9 @@ void build_interpolated_dma_packet(Arg *arg) {
     base[6] = 0;
     base[7] = 0x6C0C43A4;
     p = base + 8;
-    sce_vu0_mul_matrix(p, aridia_camera_pos_r - 0x100, m);
+    multiply_matrix(p, aridia_camera_pos_r - 0x100, m);
     p = base + 0x18;
-    sce_vu0_mul_matrix(p, aridia_camera_pos_r - 0x80, m);
+    multiply_matrix(p, aridia_camera_pos_r - 0x80, m);
     base[0x28] = 0x8000;
     base[0x29] = 0x303EC000;
     base[0x2A] = 0x412;
@@ -260,7 +260,7 @@ void build_interpolated_dma_packet(Arg *arg) {
     l02_packet_r[0] |= ((char *)p - (char *)l02_packet_r >> 4) - 1;
     l02_packet_r = p;
     l02_packet_r[0] = 0x30000003;
-    l02_packet_r[1] = (int)aridia_interp_dma_ref_block;
+    l02_packet_r[1] = (int)interpolated_draw_gif_preamble;
     l02_packet_r[2] = 0;
     l02_packet_r[3] = 0x50000003;
     l02_packet_r += 4;
@@ -280,12 +280,12 @@ void build_interpolated_dma_packet(Arg *arg) {
         t = frame_counter_ref_r;
         q = t / arg->frames;
         frac = (float)t / (float)arg->frames - (float)q;
-        e1 = &aridia_interp_anim_frames[arg->first + q % arg->count];
-        e2 = &aridia_interp_anim_frames[arg->first + (q + 1) % arg->count];
-        pa = aridia_interp_vertex_tables + e1->a * 16;
-        pb = aridia_interp_vertex_tables + e1->b * 16;
-        pd = aridia_interp_vertex_tables + e2->b * 16;
-        pc = aridia_interp_vertex_tables + e2->a * 16;
+        e1 = &l02_interpolated_frame_source_index_table[arg->first + q % arg->count];
+        e2 = &l02_interpolated_frame_source_index_table[arg->first + (q + 1) % arg->count];
+        pa = interpolated_frame_source_data + e1->a * 16;
+        pb = interpolated_frame_source_data + e1->b * 16;
+        pd = interpolated_frame_source_data + e2->b * 16;
+        pc = interpolated_frame_source_data + e2->a * 16;
         dst = arg->dst;
         *(long *)dst = 0x0800000000000400;
         *(long *)(arg->dst + 8) = 0;
@@ -345,7 +345,7 @@ extern float textured_grid_saved_fog_near_distance MACRO_ADDR;
 extern float textured_grid_saved_fog_far_distance MACRO_ADDR;
 extern float textured_grid_saved_fog_near_intensity MACRO_ADDR;
 extern float textured_grid_saved_fog_far_intensity MACRO_ADDR;
-extern char aridia_view_params[];
+extern char level02_camera_view_state[];
 extern int *l02_packet MACRO_ADDR;
 
 // Copy four level floats into the draw state, then queue a two-register GS packet from it.
@@ -354,13 +354,13 @@ void restore_view_after_textured_grid(void) {
     long *g;
     int *q;
     vu1_add_vif_code(0x13000000);
-    b = aridia_view_params;
+    b = level02_camera_view_state;
     *(float *)(b + 0x218) = textured_grid_saved_fog_near_distance;
     *(float *)(b + 0x21C) = textured_grid_saved_fog_far_distance;
     *(float *)(b + 0x228) = textured_grid_saved_fog_near_intensity;
     *(float *)(b + 0x22C) = textured_grid_saved_fog_far_intensity;
     UpdateViewContext();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     l02_packet[0] = 0x10000002;
     l02_packet[1] = 0;
     l02_packet[2] = 0x11000000;
@@ -375,11 +375,11 @@ void restore_view_after_textured_grid(void) {
     l02_packet = q + 12;
     AA_BlurPass();
 }
-extern unsigned int aridia_mobys_end MACRO_ADDR;
+extern unsigned int l02_trackdrive_left_moby_address_cutoff MACRO_ADDR;
 
 /* Clears a moby's field and sets a flag if its pointer is below the moby pool limit. */
 void trackdrive_left_update(struct Moby *moby) {
-    if ((unsigned int)moby < aridia_mobys_end) {
+    if ((unsigned int)moby < l02_trackdrive_left_moby_address_cutoff) {
         *(int *)((char *)moby + 0x58) = 0;
         moby->flags |= 0x40;
     }
@@ -406,7 +406,7 @@ typedef struct {
     float y;
 } H2d8910;
 extern H2d8910 aridia_player_camera_r __asm__("D_L02_00167300");
-extern char *aridia_scene_points MACRO_ADDR;
+extern char *l02_cuboids MACRO_ADDR;
 
 /* Spawn point for the moby: its slot's stored position and rotation, or, with no slot, a point beside it on the side
    facing the hero.
@@ -429,7 +429,7 @@ void compute_tresspasser_pad_camera_transform(float *pos, float *rot, Moby *moby
         to = fast_atan2(aridia_player_camera_r.x - moby->pos.x, aridia_player_camera_r.y - moby->pos.y);
         dl = FastDiffRots(to, left);
         pick = dl < FastDiffRots(to, right) ? left : right;
-        FastVecAdd(v, gHeroPos, &moby->pos);
+        FastVecAdd(v, hero_pos, &moby->pos);
         FastVecScale(v, v, 0.5f);
         qcopy(pos, v);
         pos[0] += FastCos(pick) * 2.0f;
@@ -439,7 +439,7 @@ void compute_tresspasser_pad_camera_transform(float *pos, float *rot, Moby *moby
         rot[1] = 0;
         rot[2] = FastAddRots(pick, 3.14159274f);
     } else {
-        base = aridia_scene_points;
+        base = l02_cuboids;
         qcopy(pos, base + idx * 128 + 0x30);
         qcopy(rot, base + idx * 128 + 0x70);
     }
@@ -470,16 +470,16 @@ typedef struct {
     char pad0[0x454];
     unsigned char collected[1];
 } Lvl;
-extern Lvl D_L02_001BBB40;
+extern Lvl aridia_moby_collected;
 extern int g_current_level_index_r __asm__("D_0015EE84") MACRO_ADDR;
-extern char D_0014C290[];
+extern char level_moby_killed[];
 extern Vec4A aridia_camera_pos_r2[] __asm__("D_L02_00167440");
 extern float g_frame_time_sq_r __asm__("D_0015EE70") MACRO_ADDR;
 extern float g_frame_time_r __asm__("D_0015EE6C") MACRO_ADDR;
-extern int D_L02_0017EB88;
+extern int aridia_tresspasser_pad_camera_set;
 extern Cam_2D9F08 aridia_player_camera_r2 __asm__("D_L02_00167300");
 extern Idle aridia_help_popup_state_r __asm__("D_L02_00179A90");
-extern int D_L02_001BADE0[];
+extern int aridia_moby_killed[];
 extern int D_L02_00161BAC_2D9F08 SDATA(D_L02_00161BAC);
 extern int D_L02_00161B38_2D9F08 SDATA(D_L02_00161B38);
 extern int D_L02_00161B34_2D9F08 SDATA(D_L02_00161B34);
@@ -540,7 +540,7 @@ void tresspasser_pad_update(Moby *moby) {
                     data->input_flags = 0;
                     HeroL02_SetMoveState(0x72, 0);
                     set_hero_animation(0x57, 0, scale_ticks(6));
-                    CameraScript(&aridia_camera_pos_r2[0], &aridia_camera_pos_r2[1], 1, 0, 0);
+                    jet_mount(&aridia_camera_pos_r2[0], &aridia_camera_pos_r2[1], 1, 0, 0);
                     moby->state = 2;
                     data->timer = scale_ticks(0x3C);
                     data->camera_t = 0.0f;
@@ -567,7 +567,7 @@ void tresspasser_pad_update(Moby *moby) {
             aridia_tresspasser_pad_camera_set = 1;
             force_help_message(6, 0);
             if (aridia_player_camera_r2.p180 != 0 && aridia_player_camera_r2.p180->unk86 != 5) {
-                CameraScript(&aridia_player_camera_r2.v140, &aridia_player_camera_r2.v150, 1, 0, 0);
+                jet_mount(&aridia_player_camera_r2.v140, &aridia_player_camera_r2.v150, 1, 0, 0);
             }
             i = 0;
             if (0.99f <= data->camera_t && FastDiffRots(aridia_player_camera_r2.v150.z, camera_rot.z) < 0.017453292f) {
@@ -644,7 +644,7 @@ void tresspasser_pad_update(Moby *moby) {
                      aridia_help_popup_state_r.i0 == 0 && aridia_help_popup_state_r.i24 == -1) ||
                     g_hero.state.current != 0x72 || g_hero.items[0].item_id != 0x1A) {
                     moby->state = 1;
-                    CameraScript2(1);
+                    jet_end_mount(1);
                     request_hero_idle_state_for_vehicle_mode();
                     data->timer = scale_ticks(0x3C);
                 }
@@ -657,7 +657,7 @@ void tresspasser_pad_update(Moby *moby) {
                         1 << (moby->save_id & 0x1F);
                     aridia_moby_killed[(short)moby->save_id >> 5] |= 1 << (moby->save_id & 0x1F);
                 }
-                CameraScript2(1);
+                jet_end_mount(1);
                 HeroL02_SetMoveState(HERO_STATE_IDLE, 1);
                 moby->command = 1;
                 moby->state = 4;
@@ -677,8 +677,8 @@ void align_hero_to_tresspasser_pad(struct Moby *moby) {
     float f;
     float lim;
     struct Hero *p;
-    Moby_GetJointWorldPos(moby, 0, v);
-    g = gHeroPos;
+    moby_point_position(moby, 0, v);
+    g = hero_pos;
     FastVecSub(v, v, g);
     ClampVectorLength(v, g_frame_time * 4.0f);
     FastVecAdd(g, g, v);
@@ -1093,7 +1093,7 @@ void draw_tresspasser_puzzle_ring_arc(int tex, u32 col, float a, float b, float 
         xy[2] += truncate_float_to_s32_r(FastSin(t1) * rx * 16.0f) + 0x8000;
         xy[3] += (u32)(-(truncate_float_to_s32_r(FastCos(t1) * ry * 16.0f) << 16) - (int)0x80000000);
         xy[3] += truncate_float_to_s32_r(FastSin(t1) * ry * 16.0f) + 0x8000;
-        draw_geometry_quad_5188(xy, uv, cols, tex, 1);
+        AppendDisplayListEntry(xy, uv, cols, tex, 1);
     }
 }
 extern int trespasser_arrow_hit_uv_0 SDATA(trespasser_arrow_hit_uv_0);
@@ -1109,7 +1109,7 @@ extern int trespasser_arrow_idle_uv_1 SDATA(trespasser_arrow_idle_uv_1);
 extern int trespasser_arrow_idle_uv_2 SDATA(trespasser_arrow_idle_uv_2);
 extern int trespasser_arrow_idle_uv_3 SDATA(trespasser_arrow_idle_uv_3);
 extern u32 trespasser_arrow_color SDATA(trespasser_arrow_color);
-extern int trespasser_effect_tex_base SDATA(trespasser_effect_tex_base);
+extern int l02_tresspasser_puzzle_texture_index_offset SDATA(D_L02_00161BAC);
 extern float trespasser_arrow_corners[4][4];
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
@@ -1161,7 +1161,7 @@ void draw_tresspasser_puzzle_arrow(int p0, int p1, int sel, float a, float s) {
     clear_u64_value(ang);
     ang[2] = -a;
     euler_to_matrix(M, ang);
-    sce_vu0_mul_matrix(M, M, trespasser_arrow_corners);
+    multiply_matrix(M, M, trespasser_arrow_corners);
     xy[0] += truncate_float_to_s32_r(M[0][0] * 16.0f) << 16;
     xy[0] += truncate_float_to_s32_r(M[0][1] * 16.0f);
     xy[1] += truncate_float_to_s32_r(M[1][0] * 16.0f) << 16;
@@ -1170,19 +1170,19 @@ void draw_tresspasser_puzzle_arrow(int p0, int p1, int sel, float a, float s) {
     xy[2] += truncate_float_to_s32_r(M[2][1] * 16.0f);
     xy[3] += truncate_float_to_s32_r(M[3][0] * 16.0f) << 16;
     xy[3] += truncate_float_to_s32_r(M[3][1] * 16.0f);
-    tex = GetEffectTex(trespasser_effect_tex_base + 0x29);
-    draw_geometry_quad_5188(xy, uv, col, tex, 1);
-    draw_geometry_quad_5188(xy, uv, col, tex, 1);
+    tex = GetEffectTex(l02_tresspasser_puzzle_texture_index_offset + 0x29);
+    AppendDisplayListEntry(xy, uv, col, tex, 1);
+    AppendDisplayListEntry(xy, uv, col, tex, 1);
 }
 extern f32 trespasser_beam_scroll_speed SDATA(trespasser_beam_scroll_speed);
-extern char *trespasser_beam_uv_0 SDATA(trespasser_beam_uv_0);
-extern char *trespasser_beam_uv_1 SDATA(trespasser_beam_uv_1);
-extern char *trespasser_beam_uv_2 SDATA(trespasser_beam_uv_2);
-extern char *trespasser_beam_uv_3 SDATA(trespasser_beam_uv_3);
-extern char *trespasser_beam_glow_uv_0 SDATA(trespasser_beam_glow_uv_0);
-extern char *trespasser_beam_glow_uv_1 SDATA(trespasser_beam_glow_uv_1);
-extern char *trespasser_beam_glow_uv_2 SDATA(trespasser_beam_glow_uv_2);
-extern char *trespasser_beam_glow_uv_3 SDATA(trespasser_beam_glow_uv_3);
+extern char *tresspasser_radial_strip_scrolling_first_vertex_uv_base_gp SDATA(D_L02_00161B7C);
+extern char *tresspasser_radial_strip_scrolling_second_vertex_uv_base_gp SDATA(D_L02_00161B80);
+extern char *tresspasser_radial_strip_scrolling_third_vertex_uv_base_gp SDATA(D_L02_00161B84);
+extern char *tresspasser_radial_strip_scrolling_fourth_vertex_uv_base_gp SDATA(D_L02_00161B88);
+extern char *tresspasser_radial_strip_fixed_first_vertex_uv_gp SDATA(D_L02_00161B8C);
+extern char *tresspasser_radial_strip_fixed_second_vertex_uv_gp SDATA(D_L02_00161B90);
+extern char *tresspasser_radial_strip_fixed_third_vertex_uv_gp SDATA(D_L02_00161B94);
+extern char *tresspasser_radial_strip_fixed_fourth_vertex_uv_gp SDATA(D_L02_00161B98);
 extern s32 tresspasser_radial_strip_texture_index_gp SDATA(tresspasser_radial_strip_texture_index_gp);
 
 extern s32 truncate_float_to_s32(f32);
@@ -1204,10 +1204,10 @@ void draw_tresspasser_puzzle_radial_strip(void *unused, f32 a, f32 b, f32 c, s32
     a4[2] = d;
     a4[1] = d;
     a4[0] = d;
-    p4[0] = (s32)((trespasser_beam_uv_0) + off);
-    p4[1] = (s32)((trespasser_beam_uv_1) + off);
-    p4[2] = (s32)((trespasser_beam_uv_2) + off);
-    p4[3] = (s32)((trespasser_beam_uv_3) + off);
+    p4[0] = (s32)((tresspasser_radial_strip_scrolling_first_vertex_uv_base_gp) + off);
+    p4[1] = (s32)((tresspasser_radial_strip_scrolling_second_vertex_uv_base_gp) + off);
+    p4[2] = (s32)((tresspasser_radial_strip_scrolling_third_vertex_uv_base_gp) + off);
+    p4[3] = (s32)((tresspasser_radial_strip_scrolling_fourth_vertex_uv_base_gp) + off);
 
     f25 = FastSin(a) * b;
     f24 = FastCos(a) * b;
@@ -1277,12 +1277,12 @@ void draw_tresspasser_puzzle_radial_strip(void *unused, f32 a, f32 b, f32 c, s32
     };
 
     tex = GetEffectTex((tresspasser_radial_strip_texture_index_gp));
-    draw_geometry_quad_5188(m, p4, a4, tex, 0);
+    AppendDisplayListEntry(m, p4, a4, tex, 0);
 
-    p4[0] = (s32)(trespasser_beam_glow_uv_0);
-    p4[1] = (s32)(trespasser_beam_glow_uv_1);
-    p4[2] = (s32)(trespasser_beam_glow_uv_2);
-    p4[3] = (s32)(trespasser_beam_glow_uv_3);
+    p4[0] = (s32)(tresspasser_radial_strip_fixed_first_vertex_uv_gp);
+    p4[1] = (s32)(tresspasser_radial_strip_fixed_second_vertex_uv_gp);
+    p4[2] = (s32)(tresspasser_radial_strip_fixed_third_vertex_uv_gp);
+    p4[3] = (s32)(tresspasser_radial_strip_fixed_fourth_vertex_uv_gp);
 
     f25 = FastSin(a) * b;
     f24 = FastCos(a) * b;
@@ -1351,12 +1351,12 @@ void draw_tresspasser_puzzle_radial_strip(void *unused, f32 a, f32 b, f32 c, s32
         (m[3]) += (u64)q_;
     };
 
-    draw_geometry_quad_5188(m, p4, a4, tex, 0);
+    AppendDisplayListEntry(m, p4, a4, tex, 0);
 }
 typedef struct {
     long a, b, c, d;
 } Q_2dae88;
-extern Q_2dae88 trespasser_backdrop_quads[];
+extern Q_2dae88 l02_tresspasser_textured_quad_packed_vertices[];
 extern int trespasser_backdrop_color SDATA(trespasser_backdrop_color);
 extern int trespasser_backdrop_uv_0 SDATA(trespasser_backdrop_uv_0);
 extern int trespasser_backdrop_uv_1 SDATA(trespasser_backdrop_uv_1);
@@ -1370,7 +1370,7 @@ void draw_tresspasser_puzzle_textured_quads(void) {
     Q_2dae88 q;
     int c[4];
     int b[4];
-    Q_2dae88 *p = trespasser_backdrop_quads;
+    Q_2dae88 *p = l02_tresspasser_textured_quad_packed_vertices;
     int i;
     for (i = 3; i >= 0; i--) {
         b[0] = (trespasser_backdrop_uv_0);
@@ -1381,7 +1381,8 @@ void draw_tresspasser_puzzle_textured_quads(void) {
         q = *p++;
         /* The TEX0 is 64 bits (its palette, height and colour mode in the upper half): read and
            passed whole, as draw_tresspasser_puzzle reads it, not through GetEffectTex's int declaration. */
-        func_L02_0020BF88_DC2C0(&q, b, c, ((u64 (*)(int))GetEffectTex)((trespasser_effect_tex_base) + 0x28), 1);
+        func_L02_0020BF88_DC2C0(&q, b, c,
+                                ((u64 (*)(int))GetEffectTex)((l02_tresspasser_puzzle_texture_index_offset) + 0x28), 1);
     }
 }
 
@@ -1437,7 +1438,7 @@ state1: {
         }
     } else {
         speed = FastVecLength(&data->velocity);
-        limit = FastAbsF((escalator_max_speed)*g_frame_time);
+        limit = absolute_float((escalator_max_speed)*g_frame_time);
         /* Retail loads D_0015EE6C_sq through its absolute EE address here. */
         if (speed < limit)
             speed += (escalator_accel)*g_frame_time_sq;
@@ -1464,7 +1465,7 @@ state2: {
         }
     } else {
         speed = FastVecLength(&data->velocity);
-        limit = FastAbsF((escalator_max_speed)*g_frame_time);
+        limit = absolute_float((escalator_max_speed)*g_frame_time);
         if (speed < limit)
             speed += (escalator_accel)*g_frame_time_sq;
         data->velocity.x = FastCos(moby->rot.z) * speed;
@@ -1481,8 +1482,8 @@ state3:
 move:
     update_entity_matrix(data->entity_matrix, &data->velocity, &moby->rot, &moby->rot);
 }
-extern int D_L02_00160058 MACRO_ADDR;
-extern unsigned char D_0014171B[];
+extern int aridia_mobys MACRO_ADDR;
+extern unsigned char help_stats_base[];
 extern float versatarget_sparkle_lifetime SDATA(versatarget_sparkle_lifetime);
 extern int versatarget_sparkle_color SDATA(versatarget_sparkle_color);
 extern float versatarget_sparkle_size SDATA(versatarget_sparkle_size);
@@ -1581,7 +1582,7 @@ typedef struct {
 extern int aridia_cinematic_mode MACRO_ADDR;
 extern unsigned char gCheats[] MACRO_ADDR;
 extern Level02MobyList talk_camera;
-extern unsigned char big_head_cheat_manipulator[];
+extern unsigned char l02_big_head_cheat_manipulator[];
 /* Re-arms the matching entry of the moby list when the level mode is 2. */
 void attach_big_head_cheat_manipulator_to_matching_moby(Moby *moby) {
     int i;
@@ -1589,7 +1590,7 @@ void attach_big_head_cheat_manipulator_to_matching_moby(Moby *moby) {
         for (i = 0; i < talk_camera.count; i++) {
             char *e = talk_camera.mobys[i];
             if (((Moby *)e)->oclass == moby->oclass) {
-                unsigned char *s = big_head_cheat_manipulator;
+                unsigned char *s = l02_big_head_cheat_manipulator;
                 if (s[1] == 0) {
                     AttachManipulator(e, 0, s);
                     *(float *)(s + 0x20) = 2.75f;
@@ -1600,7 +1601,7 @@ void attach_big_head_cheat_manipulator_to_matching_moby(Moby *moby) {
         }
     }
 }
-extern char discount_purchase_pricing[];
+extern char gHavePersuader[];
 extern float aridia_coll_hit_z;
 extern float aridia_fade_level MACRO_ADDR;
 extern int frame_counter_ref MACRO_ADDR;
@@ -1640,13 +1641,13 @@ void tresspasser_update(char *moby) {
     switch (((Moby *)moby)->state) {
         case 0:
             initialize_collectible_sprite_state(moby);
-            q = (unsigned char *)(discount_purchase_pricing + 5);
+            q = (unsigned char *)(gHavePersuader + 5);
             k = 0.2f;
             if (q[sel] != 0) {
                 DeleteMoby(moby);
                 break;
             }
-            ProbeGroundHeight(moby + 0x10, 0, 0.5f);
+            probe_ground_height(moby + 0x10, 0, 0.5f);
             *(float *)(moby + 0x40) = 1.5707964f;
             *(float *)(moby + 0x44) = 3.1415927f;
             ((Moby *)moby)->pos.z = aridia_coll_hit_z + k;
@@ -1658,11 +1659,11 @@ void tresspasser_update(char *moby) {
             if (frame_counter_ref % 10 != 0) {
                 break;
             }
-            g = gHeroPos;
+            g = hero_pos;
             if (!(vec_distance_xy(moby + 0x10, g) < 1.0f)) {
                 break;
             }
-            t = FastAbsF(((Moby *)moby)->pos.z - *(float *)(g + 0x8));
+            t = absolute_float(((Moby *)moby)->pos.z - *(float *)(g + 0x8));
             if (!(t < 2.0f)) {
                 break;
             }
@@ -1671,9 +1672,9 @@ void tresspasser_update(char *moby) {
             moby[0x31] = 0;
             *(int *)(moby + 0x94) = 0;
             if (((Moby *)moby)->oclass == MOBY_CLASS_TRESSPASSER) {
-                StartCutscene(4);
+                start_scene(4);
             } else {
-                StartCutscene(2);
+                start_scene(2);
             }
             break;
         case 2:
@@ -1693,12 +1694,12 @@ void tresspasser_update(char *moby) {
                 grant_inventory_item(sel, 1);
             }
             if (((Moby *)moby)->oclass == MOBY_CLASS_TRESSPASSER) {
-                ShowBanner(0x7DF, -1);
+                queue_dialogue_message(0x7DF, -1);
                 clear_active_help_record();
-                Help_Request(0x7D9, 0x13);
+                help_request(0x7D9, 0x13);
                 aridia_fade_level = 1.0f;
                 moby[0x20] = 4;
-                Hero_ResetToPosition(gHeroPos, gHeroPos + 0x10, 0x72, 1);
+                set_race_camera(hero_pos, hero_pos + 0x10, 0x72, 1);
             } else {
                 memcard_Save(0, -1);
                 DeleteMoby(moby);
@@ -1736,7 +1737,7 @@ void tresspasser_update(char *moby) {
             w[0] = FastAddRots(t * *(float *)(d + 0x40), a[8]);
             gp = aridia_camera_moby;
             if (gp != 0 && *(short *)(gp + 0x86) != 5) {
-                CameraScript(o, w, 1, 0, 0);
+                jet_mount(o, w, 1, 0, 0);
             }
             set_camera_position(o);
             set_camera_rotation(w);
@@ -1747,8 +1748,8 @@ void tresspasser_update(char *moby) {
                 ApproachValue(&aridia_fade_level, 0.0f, g_frame_time * 4.0f);
             }
             if (aridia_fade_level == 1.0f) {
-                Hero_ResetToPosition(gHeroPos, gHeroPos + 0x10, 0, 0);
-                CameraScript2(0);
+                set_race_camera(hero_pos, hero_pos + 0x10, 0, 0);
+                jet_end_mount(0);
                 moby[0x20] = 5;
             }
         } break;
@@ -1793,7 +1794,7 @@ typedef struct {
 
 extern int truncate_float_to_s32_r2(float) __asm__("func_001FA898");
 
-/* Animates a moby's four sprite layers (emit_moby_sprite_effect_particles lifted by 0.5 instead of 0.1). */
+/* Animates a moby's four sprite layers (draw_spinning_sprite_effect_sprites lifted by 0.5 instead of 0.1). */
 void update_collectible_sprite_effect(char *m) {
     L02SpriteData *p = ((L02SpriteData *)((Moby *)m)->pvars);
     float d[4] __attribute__((aligned(16)));
@@ -1820,8 +1821,8 @@ void update_collectible_sprite_effect(char *m) {
         }
         f = IntToFloat(scale_ticks(0xFF) - p->c[i]);
         f = f / (float)scale_ticks(0xFF);
-        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, FastAbsF(0.5f - f));
-        PartType59Spawn(d, col, truncate_float_to_s32_r2(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
+        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, absolute_float(0.5f - f));
+        spawn_timed_hero_relative_particle(d, col, truncate_float_to_s32_r2(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
         FastVecAdd(d, d, e);
     }
 }
@@ -1863,7 +1864,7 @@ void prepare_background_ship_1_joint_billboards(char *moby) {
     data = (struct BackgroundShip1Vars *)((Moby *)moby)->pvars;
     p = (char *)data->joint_pos;
     for (i = 0; i < 3; i++) {
-        Moby_GetJointWorldPos(moby, i + 3, p);
+        moby_point_position(moby, i + 3, p);
         p += 0x10;
     }
     v = frame_counter_ref;
@@ -1931,7 +1932,7 @@ void background_ship_1_update(char *moby) {
                 DeleteMoby(moby);
                 return;
             }
-            f70 = FastVecDist(aridia_paths[d->path] + 0x10, aridia_paths[d->path] + 0x20);
+            f70 = fast_vec_dist(aridia_paths[d->path] + 0x10, aridia_paths[d->path] + 0x20);
             d->unk_2C = 0x28;
             d->first_leg = f70;
             d->unk_2B = 1;
@@ -1945,7 +1946,7 @@ void background_ship_1_update(char *moby) {
         }
         case 1:
             qcopy(tv, &((Moby *)moby)->pos);
-            if (Sound_IsPlaying(moby, d->voice) == 0) {
+            if (voice_is_playing(moby, d->voice) == 0) {
                 d->voice = Moby_PlaySound(1, 4, (int)moby);
             }
             p2 = background_ship_1_speed * g_frame_time;
@@ -1954,9 +1955,9 @@ void background_ship_1_update(char *moby) {
                 d->path_pos = d->path_pos - (float)*(int *)t;
             }
             if (g_current_level_index_r == LEVEL_GASPAR) {
-                SamplePathAt((int *)t, 1, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
+                sample_camera_path((int *)t, 1, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
             } else {
-                SamplePathAt((int *)t, 0, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
+                sample_camera_path((int *)t, 0, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
             }
             if (((Moby *)moby)->pos.x < 8.0f) {
                 *(int *)&((Moby *)moby)->collision = 0;
@@ -1982,8 +1983,8 @@ void background_ship_1_update(char *moby) {
                     unsigned char *p = gSkillPoints;
                     if (p[2] == 0) {
                         p[2] = 1;
-                        PlayBankSound(1, 0, 0);
-                        ShowBanner(0x53DB, -1);
+                        allocate_voice_for_bank_entry(1, 0, 0);
+                        queue_dialogue_message(0x53DB, -1);
                     }
                 }
             }
@@ -1994,8 +1995,8 @@ void background_ship_1_update(char *moby) {
                         unsigned char *p = gSkillPoints;
                         if (p[0xF] == 0) {
                             p[0xF] = 1;
-                            PlayBankSound(1, 0, 0);
-                            ShowBanner(0x53DB, -1);
+                            allocate_voice_for_bank_entry(1, 0, 0);
+                            queue_dialogue_message(0x53DB, -1);
                         }
                     }
                 }
@@ -2038,20 +2039,20 @@ void background_ship_1_update(char *moby) {
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
-extern float background_ship_1_spark_start_vel_scale SDATA(background_ship_1_spark_start_vel_scale);
-extern float background_ship_1_spark_end_vel_scale SDATA(background_ship_1_spark_end_vel_scale);
-extern float background_ship_1_spark_jitter SDATA(background_ship_1_spark_jitter);
-extern int background_ship_1_spark_lifetime SDATA(background_ship_1_spark_lifetime);
-extern int background_ship_1_spark_time2 SDATA(background_ship_1_spark_time2);
-extern int background_ship_1_spark_time3 SDATA(background_ship_1_spark_time3);
-extern float background_ship_1_spark_time_jitter SDATA(background_ship_1_spark_time_jitter);
-extern float background_ship_1_spark_start_size_min SDATA(background_ship_1_spark_start_size_min);
-extern float background_ship_1_spark_start_size_max SDATA(background_ship_1_spark_start_size_max);
-extern float background_ship_1_spark_end_size_min SDATA(background_ship_1_spark_end_size_min);
-extern float background_ship_1_spark_end_size_max SDATA(background_ship_1_spark_end_size_max);
-extern int background_ship_1_spark_start_color_a SDATA(background_ship_1_spark_start_color_a);
-extern int background_ship_1_spark_start_color_b SDATA(background_ship_1_spark_start_color_b);
-extern int background_ship_1_spark_end_color_a SDATA(background_ship_1_spark_end_color_a);
+extern float background_ship_1_first_spark_position_delta_scale_gp SDATA(D_L02_00162014);
+extern float background_ship_1_second_spark_position_delta_scale_gp SDATA(D_L02_00162018);
+extern float background_ship_1_spark_random_offset_radius_scale_gp SDATA(D_L02_0016201C);
+extern int background_ship_1_spark_frame_count_random_span_gp SDATA(D_L02_00162020);
+extern int background_ship_1_spark_second_frame_count_base_gp SDATA(D_L02_00162024);
+extern int background_ship_1_spark_third_frame_count_base_gp SDATA(D_L02_00162028);
+extern float background_ship_1_spark_frame_count_variation_fraction_gp SDATA(D_L02_0016202C);
+extern float background_ship_1_first_spark_fourth_component_range_start_gp SDATA(D_L02_00162030);
+extern float background_ship_1_first_spark_fourth_component_range_end_gp SDATA(D_L02_00162034);
+extern float background_ship_1_second_spark_fourth_component_range_start_gp SDATA(D_L02_00162038);
+extern float background_ship_1_second_spark_fourth_component_range_end_gp SDATA(D_L02_0016203C);
+extern int background_ship_1_first_spark_color_tween_start_gp SDATA(D_L02_00162040);
+extern int background_ship_1_first_spark_color_tween_end_gp SDATA(D_L02_00162044);
+extern int background_ship_1_second_spark_color_tween_start_gp SDATA(D_L02_00162048);
 extern int background_ship_1_spark_end_color_b SDATA(background_ship_1_spark_end_color_b);
 
 /* Spawns three particles around a moby with randomized direction, speed and colour. */
@@ -2062,25 +2063,31 @@ void spawn_background_ship_1_joint_sparks(char *m, void *arg1) {
     for (i = 0; i < 3; i++) {
         int a, b, c, d, e;
         char *p;
-        Moby_GetJointWorldPos(m, i, v50);
-        FastVecScale(v10, v30, background_ship_1_spark_start_vel_scale);
-        FastVecScale(v20, v30, background_ship_1_spark_end_vel_scale);
-        rand_vec(v40, 0.0f, background_ship_1_spark_jitter * g_frame_time);
+        moby_point_position(m, i, v50);
+        FastVecScale(v10, v30, background_ship_1_first_spark_position_delta_scale_gp);
+        FastVecScale(v20, v30, background_ship_1_second_spark_position_delta_scale_gp);
+        random_vector(v40, 0.0f, background_ship_1_spark_random_offset_radius_scale_gp * g_frame_time);
         FastVecAdd(v20, v20, v40);
-        v10[3] = random_float_between(background_ship_1_spark_start_size_min, background_ship_1_spark_start_size_max);
-        v20[3] = random_float_between(background_ship_1_spark_end_size_min, background_ship_1_spark_end_size_max);
-        a = FastTweenColor(background_ship_1_spark_start_color_a, background_ship_1_spark_start_color_b,
+        v10[3] = random_float_between(background_ship_1_first_spark_fourth_component_range_start_gp,
+                                      background_ship_1_first_spark_fourth_component_range_end_gp);
+        v20[3] = random_float_between(background_ship_1_second_spark_fourth_component_range_start_gp,
+                                      background_ship_1_second_spark_fourth_component_range_end_gp);
+        a = FastTweenColor(background_ship_1_first_spark_color_tween_start_gp,
+                           background_ship_1_first_spark_color_tween_end_gp, random_float_between(0.0f, 1.0f));
+        b = FastTweenColor(background_ship_1_second_spark_color_tween_start_gp, background_ship_1_spark_end_color_b,
                            random_float_between(0.0f, 1.0f));
-        b = FastTweenColor(background_ship_1_spark_end_color_a, background_ship_1_spark_end_color_b,
-                           random_float_between(0.0f, 1.0f));
-        c = truncate_float_to_s32_r(
-            multiply_global_factor((float)background_ship_1_spark_lifetime * random_float_between(0.0f, 1.0f) + 1.0f));
-        d = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_1_spark_time2 *
-            (random_float_between(-background_ship_1_spark_time_jitter, background_ship_1_spark_time_jitter) + 1.0f)));
-        e = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_1_spark_time3 *
-            (random_float_between(-background_ship_1_spark_time_jitter, background_ship_1_spark_time_jitter) + 1.0f)));
+        c = truncate_float_to_s32_r(multiply_global_factor(
+            (float)background_ship_1_spark_frame_count_random_span_gp * random_float_between(0.0f, 1.0f) + 1.0f));
+        d = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_1_spark_second_frame_count_base_gp *
+                                   (random_float_between(-background_ship_1_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_1_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
+        e = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_1_spark_third_frame_count_base_gp *
+                                   (random_float_between(-background_ship_1_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_1_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
         p = PartType02Spawn(v50, v10, v20, a, b, c, d, e, -1);
         if (p != 0)
             p[9] = truncate_float_to_s32_r(8.0f) + 0x60;
@@ -2121,7 +2128,7 @@ void prepare_background_ship_2_joint_draw_data(char *m) {
         data = (struct BackgroundShip2Vars *)((Moby *)m)->pvars;
         p = (char *)data->joint_pos;
         for (i = 0; i < 6; i++, p += 0x10) {
-            Moby_GetJointWorldPos(m, i + 2, p);
+            moby_point_position(m, i + 2, p);
         }
         v = frame_counter_ref;
         col = *(unsigned char *)(m + 0x92) << 16;
@@ -2186,7 +2193,7 @@ void background_ship_2_update(char *moby) {
                 DeleteMoby(moby);
                 return;
             }
-            f70 = FastVecDist(aridia_paths[d->path] + 0x10, aridia_paths[d->path] + 0x20);
+            f70 = fast_vec_dist(aridia_paths[d->path] + 0x10, aridia_paths[d->path] + 0x20);
             d->unk_2C = 0x28;
             d->first_leg = f70;
             d->unk_2B = 1;
@@ -2204,7 +2211,7 @@ void background_ship_2_update(char *moby) {
                 return;
             }
             qcopy(tv, &((Moby *)moby)->pos);
-            if (Sound_IsPlaying(moby, d->voice) == 0) {
+            if (voice_is_playing(moby, d->voice) == 0) {
                 d->voice = Moby_PlaySound(1, 4, (int)moby);
             }
             p2 = background_ship_2_speed * g_frame_time;
@@ -2216,9 +2223,9 @@ void background_ship_2_update(char *moby) {
                 d->path_pos = d->path_pos - (float)*(int *)t;
             }
             if ((unsigned int)(g_current_level_index_r - 9) < 2) {
-                SamplePathAt((int *)t, 1, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
+                sample_camera_path((int *)t, 1, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
             } else {
-                SamplePathAt((int *)t, 0, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
+                sample_camera_path((int *)t, 0, &((Moby *)moby)->pos, &((Moby *)moby)->rot.x, 0, d->path_pos);
             }
             if (((Moby *)moby)->pos.x < 8.0f) {
                 *(int *)&((Moby *)moby)->collision = 0;
@@ -2248,8 +2255,8 @@ void background_ship_2_update(char *moby) {
                     unsigned char *p = gSkillPoints;
                     if (p[2] == 0) {
                         p[2] = 1;
-                        PlayBankSound(1, 0, 0);
-                        ShowBanner(0x53DB, -1);
+                        allocate_voice_for_bank_entry(1, 0, 0);
+                        queue_dialogue_message(0x53DB, -1);
                     }
                 }
             }
@@ -2260,8 +2267,8 @@ void background_ship_2_update(char *moby) {
                         unsigned char *p = gSkillPoints;
                         if (p[0xF] == 0) {
                             p[0xF] = 1;
-                            PlayBankSound(1, 0, 0);
-                            ShowBanner(0x53DB, -1);
+                            allocate_voice_for_bank_entry(1, 0, 0);
+                            queue_dialogue_message(0x53DB, -1);
                         }
                     }
                 }
@@ -2301,21 +2308,21 @@ void background_ship_2_update(char *moby) {
         prepare_background_ship_2_joint_draw_data(moby);
     }
 }
-extern float background_ship_2_spark_start_vel_scale SDATA(background_ship_2_spark_start_vel_scale);
-extern float background_ship_2_spark_end_vel_scale SDATA(background_ship_2_spark_end_vel_scale);
-extern float background_ship_2_spark_jitter SDATA(background_ship_2_spark_jitter);
-extern int background_ship_2_spark_lifetime SDATA(background_ship_2_spark_lifetime);
-extern int background_ship_2_spark_time2 SDATA(background_ship_2_spark_time2);
-extern int background_ship_2_spark_time3 SDATA(background_ship_2_spark_time3);
-extern float background_ship_2_spark_time_jitter SDATA(background_ship_2_spark_time_jitter);
-extern float background_ship_2_spark_start_size_min SDATA(background_ship_2_spark_start_size_min);
-extern float background_ship_2_spark_start_size_max SDATA(background_ship_2_spark_start_size_max);
-extern float background_ship_2_spark_end_size_min SDATA(background_ship_2_spark_end_size_min);
-extern float background_ship_2_spark_end_size_max SDATA(background_ship_2_spark_end_size_max);
-extern int background_ship_2_spark_start_color_a SDATA(background_ship_2_spark_start_color_a);
-extern int background_ship_2_spark_start_color_b SDATA(background_ship_2_spark_start_color_b);
-extern int background_ship_2_spark_end_color_a SDATA(background_ship_2_spark_end_color_a);
-extern int background_ship_2_spark_end_color_b SDATA(background_ship_2_spark_end_color_b);
+extern float background_ship_2_first_spark_position_delta_scale_gp SDATA(D_L02_00162068);
+extern float background_ship_2_second_spark_position_delta_scale_gp SDATA(D_L02_0016206C);
+extern float background_ship_2_spark_random_offset_radius_scale_gp SDATA(D_L02_00162070);
+extern int background_ship_2_spark_frame_count_random_span_gp SDATA(D_L02_00162074);
+extern int background_ship_2_spark_second_frame_count_base_gp SDATA(D_L02_00162078);
+extern int background_ship_2_spark_third_frame_count_base_gp SDATA(D_L02_0016207C);
+extern float background_ship_2_spark_frame_count_variation_fraction_gp SDATA(D_L02_00162080);
+extern float background_ship_2_first_spark_fourth_component_range_start_gp SDATA(D_L02_00162084);
+extern float background_ship_2_first_spark_fourth_component_range_end_gp SDATA(D_L02_00162088);
+extern float background_ship_2_second_spark_fourth_component_range_start_gp SDATA(D_L02_0016208C);
+extern float background_ship_2_second_spark_fourth_component_range_end_gp SDATA(D_L02_00162090);
+extern int background_ship_2_first_spark_color_tween_start_gp SDATA(D_L02_00162094);
+extern int background_ship_2_first_spark_color_tween_end_gp SDATA(D_L02_00162098);
+extern int background_ship_2_second_spark_color_tween_start_gp SDATA(D_L02_0016209C);
+extern int background_ship_2_second_spark_color_tween_end_gp SDATA(D_L02_001620A0);
 // Spawns two particles at a moby, scattered away from a point.
 void spawn_background_ship_2_joint_sparks(char *m, void *arg1) {
     float v10[4], v20[4], v30[4], v40[4], v50[4];
@@ -2324,37 +2331,43 @@ void spawn_background_ship_2_joint_sparks(char *m, void *arg1) {
     for (i = 0; i < 2; i++) {
         int a, b, c, d, e;
         char *p;
-        Moby_GetJointWorldPos(m, i, v50);
-        FastVecScale(v10, v30, background_ship_2_spark_start_vel_scale);
-        FastVecScale(v20, v30, background_ship_2_spark_end_vel_scale);
-        rand_vec(v40, 0.0f, background_ship_2_spark_jitter * g_frame_time);
+        moby_point_position(m, i, v50);
+        FastVecScale(v10, v30, background_ship_2_first_spark_position_delta_scale_gp);
+        FastVecScale(v20, v30, background_ship_2_second_spark_position_delta_scale_gp);
+        random_vector(v40, 0.0f, background_ship_2_spark_random_offset_radius_scale_gp * g_frame_time);
         FastVecAdd(v20, v20, v40);
-        v10[3] = random_float_between(background_ship_2_spark_start_size_min, background_ship_2_spark_start_size_max);
-        v20[3] = random_float_between(background_ship_2_spark_end_size_min, background_ship_2_spark_end_size_max);
-        a = FastTweenColor(background_ship_2_spark_start_color_a, background_ship_2_spark_start_color_b,
-                           random_float_between(0.0f, 1.0f));
-        b = FastTweenColor(background_ship_2_spark_end_color_a, background_ship_2_spark_end_color_b,
-                           random_float_between(0.0f, 1.0f));
-        c = truncate_float_to_s32_r(
-            multiply_global_factor((float)background_ship_2_spark_lifetime * random_float_between(0.0f, 1.0f) + 1.0f));
-        d = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_2_spark_time2 *
-            (random_float_between(-background_ship_2_spark_time_jitter, background_ship_2_spark_time_jitter) + 1.0f)));
-        e = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_2_spark_time3 *
-            (random_float_between(-background_ship_2_spark_time_jitter, background_ship_2_spark_time_jitter) + 1.0f)));
+        v10[3] = random_float_between(background_ship_2_first_spark_fourth_component_range_start_gp,
+                                      background_ship_2_first_spark_fourth_component_range_end_gp);
+        v20[3] = random_float_between(background_ship_2_second_spark_fourth_component_range_start_gp,
+                                      background_ship_2_second_spark_fourth_component_range_end_gp);
+        a = FastTweenColor(background_ship_2_first_spark_color_tween_start_gp,
+                           background_ship_2_first_spark_color_tween_end_gp, random_float_between(0.0f, 1.0f));
+        b = FastTweenColor(background_ship_2_second_spark_color_tween_start_gp,
+                           background_ship_2_second_spark_color_tween_end_gp, random_float_between(0.0f, 1.0f));
+        c = truncate_float_to_s32_r(multiply_global_factor(
+            (float)background_ship_2_spark_frame_count_random_span_gp * random_float_between(0.0f, 1.0f) + 1.0f));
+        d = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_2_spark_second_frame_count_base_gp *
+                                   (random_float_between(-background_ship_2_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_2_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
+        e = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_2_spark_third_frame_count_base_gp *
+                                   (random_float_between(-background_ship_2_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_2_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
         p = PartType02Spawn(v50, v10, v20, a, b, c, d, e, -1);
         if (p != 0)
             p[9] = truncate_float_to_s32_r(8.0f) + 0x60;
     }
 }
-extern float background_ship_2_orxon_spark_start_vel_scale SDATA(background_ship_2_orxon_spark_start_vel_scale);
-extern float background_ship_2_orxon_spark_end_vel_scale SDATA(background_ship_2_orxon_spark_end_vel_scale);
-extern float background_ship_2_orxon_spark_jitter SDATA(background_ship_2_orxon_spark_jitter);
-extern int background_ship_2_orxon_spark_start_color_a SDATA(background_ship_2_orxon_spark_start_color_a);
-extern int background_ship_2_orxon_spark_start_color_b SDATA(background_ship_2_orxon_spark_start_color_b);
-extern int background_ship_2_orxon_spark_end_color_a SDATA(background_ship_2_orxon_spark_end_color_a);
-extern int background_ship_2_orxon_spark_end_color_b SDATA(background_ship_2_orxon_spark_end_color_b);
+extern float background_ship_2_level_10_first_spark_position_delta_scale_gp SDATA(D_L02_001620A4);
+extern float background_ship_2_level_10_second_spark_position_delta_scale_gp SDATA(D_L02_001620A8);
+extern float background_ship_2_level_10_spark_random_offset_radius_scale_gp SDATA(D_L02_001620AC);
+extern int background_ship_2_level_10_first_spark_color_tween_start_gp SDATA(D_L02_001620B0);
+extern int background_ship_2_level_10_first_spark_color_tween_end_gp SDATA(D_L02_001620B4);
+extern int background_ship_2_level_10_second_spark_color_tween_start_gp SDATA(D_L02_001620B8);
+extern int background_ship_1_second_spark_color_tween_end_gp SDATA(D_L02_001620BC);
 
 /* spawns two particles around a moby with randomized parameters */
 void spawn_background_ship_2_level_10_joint_sparks(char *moby, void *arg) {
@@ -2368,26 +2381,33 @@ void spawn_background_ship_2_level_10_joint_sparks(char *moby, void *arg) {
     for (i = 0; i < 2; i++) {
         int a, b, c, d, e;
         char *p;
-        Moby_GetJointWorldPos(moby, i, m);
-        FastVecScale(v0, mat, background_ship_2_orxon_spark_start_vel_scale);
-        FastVecScale(v1, mat, background_ship_2_orxon_spark_end_vel_scale);
-        rand_vec(v2, 0.0f, background_ship_2_orxon_spark_jitter * g_frame_time);
+        moby_point_position(moby, i, m);
+        FastVecScale(v0, mat, background_ship_2_level_10_first_spark_position_delta_scale_gp);
+        FastVecScale(v1, mat, background_ship_2_level_10_second_spark_position_delta_scale_gp);
+        random_vector(v2, 0.0f, background_ship_2_level_10_spark_random_offset_radius_scale_gp * g_frame_time);
         FastVecAdd(v1, v1, v2);
-        v0[3] =
-            random_float_between(background_ship_2_spark_start_size_min, background_ship_2_spark_start_size_max) / 1.5f;
-        v1[3] = random_float_between(background_ship_2_spark_end_size_min, background_ship_2_spark_end_size_max) / 1.5f;
-        a = FastTweenColor(background_ship_2_orxon_spark_start_color_a, background_ship_2_orxon_spark_start_color_b,
-                           random_float_between(0.0f, 1.0f));
-        b = FastTweenColor(background_ship_2_orxon_spark_end_color_a, background_ship_2_orxon_spark_end_color_b,
-                           random_float_between(0.0f, 1.0f));
-        c = truncate_float_to_s32_r(
-            multiply_global_factor((float)background_ship_2_spark_lifetime * random_float_between(0.0f, 1.0f) + 1.0f));
-        d = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_2_spark_time2 *
-            (random_float_between(-background_ship_2_spark_time_jitter, background_ship_2_spark_time_jitter) + 1.0f)));
-        e = truncate_float_to_s32_r(multiply_global_factor(
-            (float)background_ship_2_spark_time3 *
-            (random_float_between(-background_ship_2_spark_time_jitter, background_ship_2_spark_time_jitter) + 1.0f)));
+        v0[3] = random_float_between(background_ship_2_first_spark_fourth_component_range_start_gp,
+                                     background_ship_2_first_spark_fourth_component_range_end_gp) /
+                1.5f;
+        v1[3] = random_float_between(background_ship_2_second_spark_fourth_component_range_start_gp,
+                                     background_ship_2_second_spark_fourth_component_range_end_gp) /
+                1.5f;
+        a = FastTweenColor(background_ship_2_level_10_first_spark_color_tween_start_gp,
+                           background_ship_2_level_10_first_spark_color_tween_end_gp, random_float_between(0.0f, 1.0f));
+        b = FastTweenColor(background_ship_2_level_10_second_spark_color_tween_start_gp,
+                           background_ship_1_second_spark_color_tween_end_gp, random_float_between(0.0f, 1.0f));
+        c = truncate_float_to_s32_r(multiply_global_factor(
+            (float)background_ship_2_spark_frame_count_random_span_gp * random_float_between(0.0f, 1.0f) + 1.0f));
+        d = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_2_spark_second_frame_count_base_gp *
+                                   (random_float_between(-background_ship_2_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_2_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
+        e = truncate_float_to_s32_r(
+            multiply_global_factor((float)background_ship_2_spark_third_frame_count_base_gp *
+                                   (random_float_between(-background_ship_2_spark_frame_count_variation_fraction_gp,
+                                                         background_ship_2_spark_frame_count_variation_fraction_gp) +
+                                    1.0f)));
         p = PartType02Spawn(m, v0, v1, a, b, c, d, e, -1);
         if (p != 0) {
             p[9] = truncate_float_to_s32_r(8.0f) + 0x60;
@@ -2477,13 +2497,13 @@ void initialize_camera_offset_effect_state(void) {
     camera_offset_effect_state_r.e = apply_camera_offset_effect;
 }
 extern float camera_offset_effect_strength;
-extern void Cam_SetEyeOffset(int, float, float);
+extern void follow_camera_set_offset_scale(int, float, float);
 extern void update_camera_offset_effect_state(void);
 
 /* Start the timed effect while its duration is nonzero. */
 void apply_camera_offset_effect(void) {
     if (camera_offset_effect_strength != 0.0f) {
-        Cam_SetEyeOffset(1, camera_offset_effect_strength * 0.35f + 0.0f, 0.005f);
+        follow_camera_set_offset_scale(1, camera_offset_effect_strength * 0.35f + 0.0f, 0.005f);
         register_camera_update_callback(update_camera_offset_effect_state);
     }
 }
@@ -2493,11 +2513,11 @@ typedef struct {
     float c;
     float d;
 } S;
-extern S camera_offset_effect_state;
+extern S camera_offset_effect;
 extern float camera_offset_effect_step SDATA(camera_offset_effect_step);
 // Resets a timer block: sets a large value and decays a countdown toward zero.
 void update_camera_offset_effect_state(void) {
-    S *s = &camera_offset_effect_state;
+    S *s = &camera_offset_effect;
     s->c = 10000.0f;
     if (s->b == 0) {
         float v = s->d - camera_offset_effect_step;
@@ -2524,9 +2544,9 @@ void try_select_camera_offset_effect_moby(char *m) {
     float f;
     float ang;
     if (*(short *)(p + 0x86) == 0) {
-        if (!(0.05f < FastAbsF(*(float *)(pad_globals_base + 0x2564)))) {
+        if (!(0.05f < absolute_float(*(float *)(pad_globals_base + 0x2564)))) {
             h = g + 0x380;
-            FastVecSub(v, m + 0x10, gHeroPos);
+            FastVecSub(v, m + 0x10, hero_pos);
             d = FastVecLength(v);
             if (d < 22.0f) {
                 if (0.0f < d) {
@@ -2561,13 +2581,13 @@ void try_select_camera_offset_effect_moby(char *m) {
 typedef u32 u128 __attribute__((mode(TI), aligned(16)));
 struct Moby;
 
-extern char *aridia_camera_descriptors MACRO_ADDR;
+extern char *l02_moby_record_table MACRO_ADDR;
 extern char *aridia_camera_follow_override_moby;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/vendor/002ec308.c, FUN_L02_002fb648. */
 int test_moby_camera_control_activation(char *moby) {
     char *special = aridia_camera_follow_override_moby;
-    char *data = *(char **)(aridia_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x1c);
+    char *data = *(char **)(l02_moby_record_table + *(short *)(moby + 0x84) * 32 + 0x1c);
     char *target = *(char **)(data + 0x48);
     int *entry;
     int result;
@@ -2579,7 +2599,7 @@ int test_moby_camera_control_activation(char *moby) {
         return (char *)g_hero.ground_moby == target;
     }
     if (*(unsigned char *)(data + 0x22) == 1) {
-        return FastVecDist(&g_hero.motion.pos, target + 0x10) < *(float *)(data + 0x24);
+        return fast_vec_dist(&g_hero.motion.pos, target + 0x10) < *(float *)(data + 0x24);
     }
     if (*(int *)(data + 0xc) >= 0) {
         result = is_point_inside_clip_volume(&g_hero.motion.pos, *(int *)(data + 0xc));
@@ -2606,7 +2626,7 @@ int test_moby_camera_control_activation(char *moby) {
         goto rejected;
     }
     entry = (int *)aridia_paths[*(int *)(data + 0x14)];
-    result = IsPointInPolygon(&g_hero.motion.pos, entry + 4, *entry);
+    result = point_in_path_xy(&g_hero.motion.pos, entry + 4, *entry);
     if (result == 0) {
         goto rejected;
     }
@@ -2632,7 +2652,7 @@ int test_moby_camera_target_angle_limits(char *moby, float a, float b) {
     float dot3;
     float den;
 
-    char *tbl = aridia_camera_descriptors;
+    char *tbl = l02_moby_record_table;
     char *src;
 
     data = *(char **)(tbl + *(short *)(moby + 0x84) * 32 + 0x1C);
@@ -2666,26 +2686,26 @@ int test_moby_camera_target_angle_limits(char *moby, float a, float b) {
     if (den == 0.0f) {
         return 0;
     }
-    if (FastAbsF(1.5707964f - FastArcSin(dot3 / den)) < a * 0.017453292f) {
+    if (absolute_float(1.5707964f - FastArcSin(dot3 / den)) < a * 0.017453292f) {
         return 1;
     }
     return 0;
 }
-extern PadState D_0013CA40;
-extern int D_L02_001AC140[];
-extern void func_L00_002E9838(char *);
-extern int func_L00_002E9870(char *);
+extern PadState g_controller_state;
+extern int aridia_moby_groups[];
+extern void clear_follow_camera_volume_if_current(char *);
+extern int try_select_follow_camera_volume(char *);
 extern int f_trigger_2FCE00(char *) __asm__("func_L02_002FCA80");
 
 extern void f_6570_2FCE00(int) __asm__("func_L02_002F79A8");
 extern void f_6598_2FCE00(float, float, float) __asm__("func_L02_002F79D0");
 
-extern void func_L00_002E9DC8(float, float, float *);
-extern void func_L00_002E9E20(float, float, void *);
-extern void func_L00_002E9900(int, float, float);
-extern void func_L00_002E9AD0(void);
+extern void set_follow_camera_angle_blend_from_direction(float, float, float *);
+extern void set_follow_camera_angle_blend_from_position(float, float, void *);
+extern void follow_camera_set_distance(int, float, float);
+extern void set_follow_camera_flag_226(void);
 extern void follow_camera_set_height(float, float);
-extern void Cam_SetEyeOffset(int, float, float);
+extern void follow_camera_set_offset_scale(int, float, float);
 extern void set_follow_camera_orbit_clamp_mode(int);
 extern void follow_camera_start_slide(void);
 extern void follow_camera_set_lateral_spring(float, float);
@@ -2696,7 +2716,7 @@ extern void follow_camera_set_lateral_spring(float, float);
    heading, springs and offsets for its mode (data +0x3C). Adapted from Lombyte's project
    (GPL-3.0), FUN_L02_002fb9c8. */
 void apply_moby_camera_control(char *moby) {
-    char *data = *(char **)(aridia_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x1c);
+    char *data = *(char **)(l02_moby_record_table + *(short *)(moby + 0x84) * 32 + 0x1c);
     char *target;
     unsigned short *group;
     int id;
@@ -2782,15 +2802,16 @@ void apply_moby_camera_control(char *moby) {
     if (*(short *)(data + 0x3c) == 5) {
         angle = fast_atan2(*(float *)aridia_camera_moby, *(float *)(aridia_camera_moby + 4));
         if (*(short *)(data + 0x20) < 2)
-            *(float *)(data + 0x40) = *(float *)(aridia_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x18);
-        else if (FastAbsF(g_controller_state.analog[0]) >= 0.3f || FastAbsF(g_controller_state.analog[1]) >= 0.3f)
+            *(float *)(data + 0x40) = *(float *)(l02_moby_record_table + *(short *)(moby + 0x84) * 32 + 0x18);
+        else if (absolute_float(g_controller_state.analog[0]) >= 0.3f ||
+                 absolute_float(g_controller_state.analog[1]) >= 0.3f)
             *(float *)(data + 0x40) = angle;
         heading = *(float *)(data + 0x40);
         if (FastDiffRots(heading, angle) > 1.5707964f)
             FastAddRots(heading, 3.1415927f);
     }
     if (*(short *)(data + 0x3c) == 4) {
-        heading = *(float *)(aridia_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x18);
+        heading = *(float *)(l02_moby_record_table + *(short *)(moby + 0x84) * 32 + 0x18);
         angle = fast_atan2(*(float *)aridia_camera_moby, *(float *)(aridia_camera_moby + 4));
         if (FastDiffRots(heading, angle) > 1.5707964f)
             heading = FastAddRots(heading, 3.1415927f);
@@ -2883,13 +2904,13 @@ void apply_moby_camera_control(char *moby) {
         }
     }
     if (*(float *)(data + 0x34) != 0.0f) {
-        Cam_SetDistanceGoal(0, *(float *)(data + 0x34), 0.003f);
+        follow_camera_set_distance(0, *(float *)(data + 0x34), 0.003f);
         set_follow_camera_flag_226();
     }
     if (*(float *)(data + 0x38) != 0.0f)
         follow_camera_set_height(*(float *)(data + 0x38), 0.003f);
     if (*(float *)(data + 0x4c) != 0.0f)
-        Cam_SetEyeOffset(0, *(float *)(data + 0x4c), 0.005f);
+        follow_camera_set_offset_scale(0, *(float *)(data + 0x4c), 0.005f);
     if (*(short *)(data + 0x3c) == 3) {
         float heading;
         set_follow_camera_orbit_clamp_mode(0);
@@ -2907,16 +2928,16 @@ void apply_moby_camera_control(char *moby) {
         set_follow_camera_flag_226();
         follow_camera_start_slide();
         follow_camera_set_lateral_spring(0.02f, 0.2f);
-        Cam_SetDistanceGoal(0, 5.84f, 0.003f);
+        follow_camera_set_distance(0, 5.84f, 0.003f);
         if (*(short *)(data + 0x3c) == 4) {
             float angle;
             FastVecSub(vec, target + 0x10, &g_hero.motion.pos);
             angle = fast_atan2(vec[0], vec[1]);
             if (hit && FastDiffRots(angle, *(float *)(data + 0x40)) > 1.9198622f) {
                 if (*(float *)(data + 0x34) != 0.0f)
-                    Cam_SetDistanceGoal(0, *(float *)(data + 0x34) + 3.36f, 0.003f);
+                    follow_camera_set_distance(0, *(float *)(data + 0x34) + 3.36f, 0.003f);
                 else
-                    Cam_SetDistanceGoal(0, 8.0f, 0.003f);
+                    follow_camera_set_distance(0, 8.0f, 0.003f);
             }
         }
         f_6570_2FCE00(176);
@@ -2927,7 +2948,7 @@ void apply_moby_camera_control(char *moby) {
 // Camera init: runs the setup when the flag is clear and the camera record is not negative, then clears a field and
 // returns 0.
 int update_moby_camera_control(char *moby) {
-    char *cam = *(char **)(aridia_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x1C);
+    char *cam = *(char **)(l02_moby_record_table + *(short *)(moby + 0x84) * 32 + 0x1C);
     if (*(short *)(aridia_camera_moby + 0x86) == 0 && *(short *)(cam + 0x20) >= 0)
         apply_moby_camera_control(moby);
     *(int *)(cam + 0x50) = 0;

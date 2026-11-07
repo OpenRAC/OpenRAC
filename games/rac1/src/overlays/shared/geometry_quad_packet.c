@@ -4,10 +4,10 @@
 #include "include_asm.h"
 
 extern int *l02_packet MACRO_ADDR;
-extern char aridia_geometry_quad_giftag[];
+extern char textured_quad_packet_header_template[];
 
 /* Appends a display-list entry: a DMA tag, a constant quad and a 0x154 record built from three vectors. */
-void draw_geometry_quad_5188(long *a, int *b, int *c, long d, int on) {
+void AppendDisplayListEntry(long *a, int *b, int *c, long d, int on) {
     int *t;
     long *w;
     long a3;
@@ -17,7 +17,7 @@ void draw_geometry_quad_5188(long *a, int *b, int *c, long d, int on) {
     l02_packet[3] = 0x50000009;
     t = l02_packet;
     l02_packet = t + 4;
-    qcopy(t + 4, aridia_geometry_quad_giftag);
+    qcopy(t + 4, textured_quad_packet_header_template);
     w = (long *)(t + 8);
     l02_packet = (int *)w;
     if (on != 0) {
