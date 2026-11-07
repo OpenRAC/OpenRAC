@@ -1056,7 +1056,25 @@ struct DiscScan {
 
 fn scan(config: &Config) -> Result<(openrac_launcher_core::catalog::Catalog, Vec<FoundDisc>), String> {
     let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
-    let found = config.discs_dir.as_deref().map(|dir| discs::scan(dir, &catalog)).unwrap_or_default();
+    let mut found = config.discs_dir.as_deref().map(|dir| discs::scan(dir, &catalog)).unwrap_or_default();
+    // A developer's checkout keeps its discs in `baserom/` (and each game's `games/<game>/baserom/`):
+    // those count too, after the games folder's, so the disc switch sees them without one.
+    if config.developer {
+        let root = config.root()?;
+        let mut dirs = vec![root.join("baserom")];
+        if let Ok(games) = std::fs::read_dir(root.join("games")) {
+            let mut games: Vec<_> = games.flatten().map(|e| e.path().join("baserom")).collect();
+            games.sort();
+            dirs.extend(games);
+        }
+        for dir in dirs.iter().filter(|d| d.is_dir()) {
+            for disc in discs::scan(dir, &catalog) {
+                if !found.iter().any(|f| f.version == disc.version) {
+                    found.push(disc);
+                }
+            }
+        }
+    }
     Ok((catalog, found))
 }
 
