@@ -60,7 +60,9 @@ permissions:
 
 concurrency:
   group: launcher-${{ github.ref }}
-  cancel-in-progress: true
+  # develop and master finish the build in progress (it publishes their dev release); the newest
+  # push waits behind it. Other branches still cancel an older run.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/master' }}
 
 jobs:
   # A branch build's version, worked out once for every build and the rolling release. Each used to
