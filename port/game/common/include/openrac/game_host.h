@@ -925,11 +925,8 @@ extern int openrac_game_start_level;
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
-/* The DualShock 2's motors as the game asks for them now, through its pad library's actuator call
- * (libvib's sceVibSetActParam, libpad's scePadSetActDirect) or, for a game without one, its host C:
- * the small motor on (nonzero) or off, the large one's speed 0..255. The window plays them on the
- * player's controller (platform/rumble.h). A game renews them every time it reads the pad; a port
- * left without a new command for a moment is stopped. */
+/* The game's DualShock 2 motor values: small on (nonzero) or off, large speed 0..255. Sent by the
+ * pad library replacements each time the game reads the pad; the window plays them. */
 void openrac_game_set_motors(int port, int small, int large);
 
 /* The mods' pad callbacks (game/common/mods.h, docs/port/MODS.md): each report scePad2Read fills,

@@ -529,10 +529,9 @@ void Input::play_rumble() {
         m_rumble_ns != 0 ? static_cast<float>(now - m_rumble_ns) / 1'000'000'000.0f : 0.0f;
     m_rumble_ns = now;
 
-    // Where each port plays now: the player's gamepad; for player 1 playing on the screen's own
-    // pad, the device's vibrator, if the player keeps it on. A port whose controller changed
-    // starts from rest, and the controller it left stops, unless another port plays on it now (a
-    // gamepad moved from port 2 to port 1 keeps shaking for port 1).
+    // Where each port plays: its gamepad, or for player 1 on touch controls, the phone. When a
+    // port's device changes, it starts from rest and the old pad stops, unless another port
+    // uses it now.
     std::array<SDL_Gamepad*, kPadPorts> now_on{};
     std::array<bool, kPadPorts> vibrator_on{};
     for (int port = 0; port < kPadPorts; ++port) {
@@ -584,8 +583,7 @@ void Input::play_rumble() {
                 );
             }
         } else if (vibrator) {
-            // One motor: the stronger of the two, the large one's heavier. A phone's vibrator
-            // restarts with each command, so it is sent in eighths, when the eighth changes.
+            // One motor. Sent in steps of 1/8, since each command restarts a phone's vibrator.
             const float strength = std::ceil(std::max(out.low, out.high * 0.8f) * 8.0f) / 8.0f;
             if (strength == r.vibrator_sent && !renew) {
                 r.sent = out;

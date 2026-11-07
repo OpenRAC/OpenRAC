@@ -97,15 +97,11 @@ public:
     // The game has read the port's pad: the buttons tapped since (taps) count no more.
     void taps_read(int port);
 
-    // The motors the game asks of a port's pad now (its pad library's actuator call: libvib's
-    // sceVibSetActParam, libpad's scePadSetActDirect). The game sends them every time it reads the
-    // pad; update() plays them through the port's RumbleShaper (rumble.h) on the player's gamepad,
-    // or the device's own vibrator. A command not renewed for kMotorHoldNs counts as both motors
-    // off, so a game that stops asking (paused by the port, loading, stopped) stops the pad.
+    // The game's motor values for a port (sent each time it reads the pad). update() plays them
+    // on the player's gamepad, or the phone. Not renewed for kMotorHoldNs: both motors off.
     void set_motors(int port, const MotorCommand& command);
 
-    // What the game asked of a port's motors last, and what was played on the pad (for the
-    // developer tools and the tests).
+    // The last motor values, and what was sent to the pad (for tests and tools).
     const MotorCommand& motors(int port) const {
         return m_motors[static_cast<std::size_t>(port)].command;
     }
@@ -114,7 +110,7 @@ public:
         return m_rumble[static_cast<std::size_t>(port)].sent;
     }
 
-    // Stops every pad's motors at once (the game quit, the window went away).
+    // Stops all rumble now.
     void stop_rumble();
 
     // The keyboard and mouse as update() last read them, for the mods.
@@ -226,17 +222,15 @@ private:
         std::uint64_t ns = 0;
     };
 
-    // A command is held this long: the games renew theirs every read of the pad, 50 or 60 times
-    // a second, and a frame can be slow.
+    // How long a motor value stays valid (games resend it every frame).
     static constexpr std::uint64_t kMotorHoldNs = 200'000'000;
-    // How long one command to a gamepad's motors lasts, and how often a steady one is renewed: if
-    // the frames stop (the port's menu, a hang), the pad stops by itself.
+    // Each command to the pad lasts kRumbleMs and is resent every kRumbleRenewNs, so the pad
+    // stops by itself if frames stop.
     static constexpr std::uint32_t kRumbleMs = 250;
     static constexpr std::uint64_t kRumbleRenewNs = 100'000'000;
     std::array<Motors, kPadPorts> m_motors{};
 
-    // What each port played: its shaper, the gamepad it played on (another one starts afresh,
-    // and the last one is stopped), what was sent and when.
+    // Per port: the shaper, the gamepad it plays on, and what was sent when.
     struct Rumble {
         RumbleShaper shaper;
         SDL_Gamepad* gamepad = nullptr;

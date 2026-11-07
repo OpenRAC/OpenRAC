@@ -1,34 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 //
-// The DualShock 2's two motors, as the game drives them, turned into what a modern gamepad plays.
+// Turns the game's DualShock 2 motor values into rumble for a modern controller.
 //
-// The game decides when and how hard the pad shakes, as on the console: its own code sets the
-// motors through the pad library (libvib's sceVibSetActParam, libpad's scePadSetActDirect), and the
-// port's replacement of that library hands the two values here (Pad::small_motor, large_motor). The
-// DualShock 2 has
+// The game sets two motors through its pad library: a small one (on or off) and a large one
+// (speed 0-255). Classic plays them as they are. Enhanced (the default) adds a short spin-up and
+// fade to each motor, a stronger start so very short pulses are felt, a softer small motor, and a
+// bit of the large motor in the high one. Optional: trigger motors, strength 0-200%.
 //
-//   - a small motor, on or off: a light, fast buzz;
-//   - a large motor with a speed 0..255: a heavy, slow rumble that takes a moment to spin up and
-//     coasts on a little after it is let go.
-//
-// SDL's gamepads have a low- and a high-frequency motor with a strength each (some have motors in
-// the triggers too). Playing the game's values straight onto them (Style::Classic) works, but
-// feels cheap on today's pads: the small motor at full strength is a harsh rattle, a short pulse
-// of the large motor ends in a hard cut, and a pulse of a frame or two never gets a small, light
-// motor going at all. RumbleShaper (Style::Enhanced, the default) plays the same commands with
-//
-//   - an envelope for each motor: a quick spin-up and a short coast-down, as the DualShock 2's
-//     weighted motors have, so a burst ends in a tail rather than a click;
-//   - a kick on the way up: a motor that starts from rest is driven harder for its first few
-//     milliseconds, so a one-frame pulse is felt;
-//   - the small motor at the strength a DualShock 2's small motor has next to its large one, with
-//     a little of the large motor's rumble in the high-frequency motor, which gives the heavy
-//     rumble its texture on pads whose low motor alone feels dull;
-//   - optionally the triggers (Xbox's impulse triggers): the buzz in both;
-//   - the player's strength (0 off, up to 200%).
-//
-// Nothing here touches SDL, so the shaping is tested on its own (tests/rumble_test.cpp).
+// No SDL here, so tests/rumble_test.cpp tests it directly.
 
 #pragma once
 

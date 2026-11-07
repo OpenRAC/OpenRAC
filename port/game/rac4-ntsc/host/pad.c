@@ -3,10 +3,8 @@
  * The retail reader at 0x0013BA20 copies the padman's packet; the game's
  * reader at 0x00490400 consumes the status/id prefix, active-low buttons,
  * sticks and pressures. libpad2 uses the same payload without that prefix.
- * Configuration completes synchronously. Multitaps are absent. The two motors are a
- * DualShock 2's: scePadSetActAlign says which byte of scePadSetActDirect's six drives which motor
- * (0 the small one, on or off; 1 the large one, a speed), and the window plays them
- * (openrac_game_set_motors).
+ * Configuration completes synchronously. Multitaps are absent. Motors: SetActAlign maps each
+ * SetActDirect byte to motor 0 (small, on/off) or 1 (large, speed).
  */
 #include <stdint.h>
 #include <string.h>
@@ -97,8 +95,7 @@ int func_0013BC30(int port, int slot, int actuator, int term) { /* scePadInfoAct
     if (actuator == -1) {
         return ACT_COUNT; /* how many motors */
     }
-    /* What each motor is (term 0..3) is not known from Deadlocked yet: a motor that exists
-     * answers 1. */
+    /* Term details are unknown for Deadlocked; an existing motor answers 1. */
     (void)term;
     return actuator >= 0 && actuator < ACT_COUNT;
 }
