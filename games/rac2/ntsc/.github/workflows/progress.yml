@@ -29,9 +29,9 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
@@ -75,21 +75,21 @@ jobs:
           PY
 
       - name: Upload the USA v1.01 report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCUS_972.68_report
           path: progress/report.json
           if-no-files-found: error
 
       - name: Upload the PAL report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCES_516.07_report
           path: progress/pal/report.json
           if-no-files-found: error
 
       - name: Upload the USA v2.00 report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCUS_972.68_v2_report
           path: progress/us2/report.json
