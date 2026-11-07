@@ -328,7 +328,7 @@ jobs:
         run: |
           # Windows also carries Going Commando built without the disc, as the APK does: the player's
           # computer builds what is missing with the Zig it carries (the next step, tools/asm_part.py).
-          games="rac1-pal rac1-ntsc"
+          games="rac1-pal rac1-ntsc rac1-pal1 rac1-jp"
           if [ "$NAME" = windows ]; then games="$games rac2-ntsc rac2-pal rac2-ntsc2"; fi
           python tools/build_port.py $games --preset standalone --probe-baker || {
             echo "::warning::building again with a fresh configuration"
@@ -459,7 +459,8 @@ jobs:
           }
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
                      libopenrac-python.so; do
@@ -604,7 +605,8 @@ jobs:
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
                      libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
                      libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
                      libopenrac-zig.so libSDL3.so libc++_shared.so libopenrac-python.so \
