@@ -1034,7 +1034,15 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     aliases, the "long long 128" names, and the overrides that define no function of their name."""
     # The port's own C for hand-written assembly first; a decompilation's
     # candidate for the same function stands aside.
-    candidates = {**read_candidates(source, cfg), **read_hand(args.game.parent, cfg)}
+    decomp = read_candidates(source, cfg)
+    if RELEASE is not None:
+        # The decompilation's own candidates name the primary's addresses; the port's (hand/) are
+        # the release's already. Renamed apart, before the two are put together: a name of one
+        # spelling can be another function in each (rac1 PAL v1.00's func_001F9F30 is PAL v2.00's
+        # func_001FA5C8).
+        texts = {id(c): RELEASE.text(c) for c in decomp.values()}
+        decomp = {RELEASE.name(name): texts[id(c)] for name, c in decomp.items()}
+    candidates = {**decomp, **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
     # besides is dead (rac1/pal's DIntr, func_0011D960, keeps the interrupt enable bit in a global
@@ -1050,13 +1058,6 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     overrides = read_overrides(args.game.parent, cfg)
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
-    if RELEASE is not None:
-        # The decompilation's own candidates name v1.01's addresses; the port's (hand/) are the release's.
-        # Before the aliases, whose names are the release's already.
-        own = set(read_hand(args.game.parent, cfg))
-        texts = {id(c): RELEASE.text(c) for name, c in candidates.items() if name not in own}
-        candidates = {(name if name in own else RELEASE.name(name)): (c if name in own else texts[id(c)])
-                      for name, c in candidates.items()}
     if aliases:
         # One text for several functions stays one text (use_candidates puts it in once).
         texts = {id(c): prep.unalias(c, aliases) for c in [*candidates.values(), *overrides.values()]}
@@ -1247,17 +1248,18 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
 def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
     """The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
     what it calls keeps the signature it calls it by."""
-    host_dirs = [args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"]
-    text = "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
-                   for p in sorted(d.glob("*.c")))
+    own_dir, shared_dir = args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"
+    own = "".join(p.read_text(errors="replace") for p in sorted(own_dir.glob("*.c"))) if own_dir.is_dir() else ""
+    shared = "".join(p.read_text(errors="replace") for p in sorted(shared_dir.glob("*.c"))) if shared_dir.is_dir() else ""
     if RELEASE is not None:
         # The shared C is written with the primary release's names; this release's table
-        # (host/rac2_names.tsv) renames them, as its build does (release_host.py).
+        # (host/<game>_names.tsv) renames them, as its build does (release_host.py). The release's
+        # own host C is in its names already.
         import release_host
-        names = args.game.parent / "host" / "rac2_names.tsv"
+        names = own_dir / f"{cfg.get('game', '')}_names.tsv"
         if names.is_file():
-            text = release_host.rename(text, release_host.read_names(names))
-    return text
+            shared = release_host.rename(shared, release_host.read_names(names))
+    return own + shared
 
 
 def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> tuple[dict, dict, list[str]]:
