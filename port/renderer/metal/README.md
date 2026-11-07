@@ -15,6 +15,9 @@ The renderers' GLSL is not rewritten for Metal. glslang makes SPIR-V of it exact
 `cmake/Dependencies.cmake`) writes that SPIR-V as MSL. A shader therefore has one source for every
 API, and its forms cannot drift apart.
 
+Programs compile without fast math, but with a multiply fused into a later add even across
+statements, as Apple's and AMD's OpenGL compile them (`mtlgl_draw.mm`).
+
 - [shader_translate.h](shader_translate.h), [.cpp](shader_translate.cpp): a compiled program as
   MSL, with the Metal slot of each of its bindings. The comment at the top of the header gives the
   conventions: rows flipped in the vertex stage so viewports and reads keep GL's numbers, depth by

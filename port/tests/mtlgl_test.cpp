@@ -211,6 +211,30 @@ const Case kCases[] = {
                0.5f, 0.5f, 0, 1, 0, 0, 1, 0.75f, 0.5f, 0, 1, 0, 0, 1, 0.5f, 0.75f, 0, 1, 0, 0, 1});
          return pixels();
      }},
+    // Each pixel's bytes are the bits of a multiply and an add written as two statements.
+    {"multiply then add",
+     [] {
+         target();
+         program_of(R"(#version 410 core
+layout(location = 0) out vec4 result;
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+void main() {
+    uint h = hash(uint(gl_FragCoord.x) + 16u * uint(gl_FragCoord.y)), h2 = hash(h);
+    float a = uintBitsToFloat(0x3f800000u | (h >> 9u));
+    float b = uintBitsToFloat(0x3f800000u | (h2 >> 9u));
+    float c = uintBitsToFloat(0xbf800000u | (hash(h2) >> 9u));
+    float t = a * b;
+    uint v = floatBitsToUint(t + c);
+    result = vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
+}
+)");
+         quad(0, 0, 0, 0);
+         return pixels();
+     }},
     {"linear texture",
      [] {
          target();

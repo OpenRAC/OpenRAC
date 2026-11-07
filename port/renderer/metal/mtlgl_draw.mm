@@ -139,8 +139,10 @@ id<MTLLibrary> library_of(Program& p, const std::string& source) {
     options.languageVersion = MTLLanguageVersion2_4;
     // OpenGL's shaders round as written; fast math changes the last bit of colours.
     options.fastMathEnabled = NO;
+    // Apple's OpenGL fuses a multiply into an add even across statements.
+    const std::string fused = "#pragma clang fp contract(fast)\n" + source;
     NSError* error = nil;
-    id<MTLLibrary> library = [g->device newLibraryWithSource:@(source.c_str())
+    id<MTLLibrary> library = [g->device newLibraryWithSource:@(fused.c_str())
                                                      options:options
                                                        error:&error];
     if (library == nil) {
