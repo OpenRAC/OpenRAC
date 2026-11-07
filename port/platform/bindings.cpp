@@ -377,6 +377,18 @@ bool read_tuning(std::string_view key, std::string_view value, PadTuning& tuning
         }
     } else if (key == "pad_background") {
         good = read_switch(value, tuning.background);
+    } else if (key == "pad_rumble") {
+        good = read_int(value, 0, 200, tuning.rumble.strength);
+    } else if (key == "pad_rumble_style") {
+        const std::string_view v = trimmed(value);
+        good = v == "enhanced" || v == "classic";
+        if (good) {
+            tuning.rumble.style = v == "classic" ? RumbleStyle::Classic : RumbleStyle::Enhanced;
+        }
+    } else if (key == "pad_rumble_triggers") {
+        good = read_switch(value, tuning.rumble.triggers);
+    } else if (key == "pad_rumble_phone") {
+        good = read_switch(value, tuning.rumble.phone);
     } else {
         known = false;
         for (const TuningKey& t : kStickKeys) {
@@ -407,6 +419,10 @@ std::map<std::string, std::string, std::less<>> tuning_values(const PadTuning& t
     out["pad_trigger_threshold"] = std::to_string(threshold_percent(tuning.trigger_threshold));
     out["pad_face_buttons"] = tuning.face_labels ? "labels" : "position";
     out["pad_background"] = tuning.background ? "1" : "0";
+    out["pad_rumble"] = std::to_string(tuning.rumble.strength);
+    out["pad_rumble_style"] = tuning.rumble.style == RumbleStyle::Classic ? "classic" : "enhanced";
+    out["pad_rumble_triggers"] = tuning.rumble.triggers ? "1" : "0";
+    out["pad_rumble_phone"] = tuning.rumble.phone ? "1" : "0";
     return out;
 }
 

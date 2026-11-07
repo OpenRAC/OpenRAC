@@ -925,6 +925,10 @@ extern int openrac_game_start_level;
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
+/* The game's DualShock 2 motor values: small on (nonzero) or off, large speed 0..255. Sent by the
+ * pad library replacements each time the game reads the pad; the window plays them. */
+void openrac_game_set_motors(int port, int small, int large);
+
 /* The mods' pad callbacks (game/common/mods.h, docs/port/MODS.md): each report scePad2Read fills,
  * `size` bytes at `report`, before the game reads it. Null while no mod asked for one. */
 extern void (*openrac_game_pad_report_hook)(int port, uint8_t* report, int size);

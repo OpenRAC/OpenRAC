@@ -59,6 +59,7 @@ add_library(openrac_platform STATIC
   platform/players.cpp
   platform/performance_hint.cpp
   platform/pump.cpp
+  platform/rumble.cpp
   platform/show_folder.cpp
   platform/touch_actions.cpp
   platform/touch_pad.cpp
@@ -77,6 +78,8 @@ openrac_add_test(controls SOURCES tests/controls_test.cpp game/common/controls_s
                           INCLUDES . game/common LIBS openrac_platform)
 # Which gamepad plays on which port (platform/input.h).
 openrac_add_test(input_ports SOURCES tests/input_ports_test.cpp INCLUDES . LIBS openrac_platform)
+# The game's motor commands as a gamepad plays them (platform/rumble.h).
+openrac_add_test(rumble SOURCES tests/rumble_test.cpp INCLUDES . LIBS openrac_platform)
 # Start+Select opens the menu, which the game never sees (platform/menu_chord.h).
 openrac_add_test(menu_chord SOURCES tests/menu_chord_test.cpp INCLUDES . LIBS openrac_platform)
 # Android: the player's own GPU driver package (platform/gpu_driver.h, cmake/Android.cmake).
