@@ -373,6 +373,46 @@ void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.
          out.back() = static_cast<std::uint8_t>(error & 0xFF);
          return out;
      }},
+    {"partial resolve",
+     [] {
+         const GLuint from = multisampled(kSide);
+         clear_to(1, 0, 0, 1);
+         const GLuint into = target();
+         clear_to(0, 0, 1, 1);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(2, 3, 10, 9, 2, 3, 10, 9, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     }},
+    {"offset resolve",
+     [] {
+         const GLuint from = multisampled(kSide);
+         clear_to(1, 0, 0, 1);
+         const GLuint into = target();
+         clear_to(0, 0, 1, 1);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(2, 3, 10, 9, 5, 1, 13, 7, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     }},
+    // scene_hud's held world copied into a multisampled frame.
+    {"blit into a multisampled image",
+     [] {
+         const GLuint from = target();
+         clear_to(0, 1, 0, 1);
+         const GLuint frame = multisampled(kSide);
+         clear_to(0, 0, 1, 1);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         const GLenum error = glGetError();
+         const GLuint into = target();
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, frame);
+         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         auto out = pixels();
+         out.back() = static_cast<std::uint8_t>(error & 0xFF);
+         return out;
+     }},
     {"scaled multisampled blit",
      [] {
          const GLuint from = multisampled(8);

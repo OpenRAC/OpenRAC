@@ -866,9 +866,9 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
 
 }  // namespace
 
-// Copies of one size and format, resolves of a whole multisampled colour image into one of its
-// size, and other blits between single-sampled images drawn. A scaled, flipped or converting
-// blit of stencil or of a multisampled image is GL_INVALID_OPERATION (README.md).
+// Copies of one size and format and resolves of colour; other blits drawn. A scaled, flipped or
+// converting blit of stencil, a resolve of depth and part of one multisampled image copied into
+// another are GL_INVALID_OPERATION (README.md).
 void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
                             GLint dx1, GLint dy1, GLbitfield mask, GLenum filter) {
     const Target from = target_of(g->state.read_framebuffer);
@@ -883,8 +883,17 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
             return;
         }
         const int w = sx1 - sx0, h = sy1 - sy0;
-        if (w <= 0 || h <= 0 || dx1 - dx0 != w || dy1 - dy0 != h || src.pixelFormat != dst.pixelFormat) {
-            if (stencil || src.sampleCount > 1 || dst.sampleCount > 1) {
+        const bool same_size = w > 0 && h > 0 && dx1 - dx0 == w && dy1 - dy0 == h;
+        // GL's rules for multisampled blits.
+        if ((src.sampleCount > 1 || dst.sampleCount > 1)
+            && (!same_size
+                || (src.sampleCount > 1 && (src.pixelFormat != dst.pixelFormat
+                                            || (dst.sampleCount > 1 && dst.sampleCount != src.sampleCount))))) {
+            fail(kGlInvalidOperation);
+            return;
+        }
+        if (!same_size || src.pixelFormat != dst.pixelFormat || src.sampleCount < dst.sampleCount) {
+            if (stencil) {
                 fail(kGlInvalidOperation);
                 return;
             }
@@ -894,25 +903,34 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
         const bool whole = sx0 == 0 && sy0 == 0 && dx0 == 0 && dy0 == 0
                            && static_cast<NSUInteger>(w) == src.width && src.width == dst.width
                            && static_cast<NSUInteger>(h) == src.height && src.height == dst.height;
-        if (src.sampleCount > 1 && dst.sampleCount == 1) {
-            if (!whole || is_depth(src.pixelFormat)) {
+        if (src.sampleCount > dst.sampleCount) {
+            if (is_depth(src.pixelFormat)) {
                 fail(kGlInvalidOperation);
                 return;
+            }
+            // Part of an image is resolved whole into a scratch one, then copied.
+            id<MTLTexture> resolved = dst;
+            if (!whole) {
+                MTLTextureDescriptor* t = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:src.pixelFormat
+                                                                                             width:src.width
+                                                                                            height:src.height
+                                                                                         mipmapped:NO];
+                t.storageMode = MTLStorageModePrivate;
+                t.usage = MTLTextureUsageRenderTarget;
+                resolved = [g->device newTextureWithDescriptor:t];
             }
             end_encoders();
             MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
             d.colorAttachments[0].texture = src;
             d.colorAttachments[0].loadAction = MTLLoadActionLoad;
             d.colorAttachments[0].storeAction = MTLStoreActionStoreAndMultisampleResolve;
-            d.colorAttachments[0].resolveTexture = dst;
+            d.colorAttachments[0].resolveTexture = resolved;
             [[commands() renderCommandEncoderWithDescriptor:d] endEncoding];
-            return;
-        }
-        if (src.sampleCount != dst.sampleCount) {
-            fail(kGlInvalidOperation);
-            return;
-        }
-        if (src.sampleCount > 1) {
+            if (whole) {
+                return;
+            }
+            src = resolved;
+        } else if (src.sampleCount > 1) {
             if (!whole) {
                 fail(kGlInvalidOperation);
                 return;
