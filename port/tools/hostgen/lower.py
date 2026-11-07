@@ -1967,9 +1967,12 @@ class Unit:
             level = int(unit_level.group(1))
             moved = self.program.level_data.get(level, {})
             placed = moved.get(symbol)
-            if placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol):
+            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol)
+                    and symbol not in getattr(self.program, "level_names", {})):
                 # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
-                # 0x001B1B5C, the moby table's base): where this level's build put that datum.
+                # 0x001B1B5C, the moby table's base): where this level's build put that datum. Not
+                # a name a level's build derived (ref_L00_00424F98_00): its address is that
+                # level's already, and the executable's datum there is another.
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:
