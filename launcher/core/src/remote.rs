@@ -39,8 +39,16 @@ pub trait Fetch {
     fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String>;
 }
 
+impl<T: Fetch + ?Sized> Fetch for &T {
+    fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String> {
+        (**self).get(url, api)
+    }
+}
+
 /// The real one for mods: `curl` (on Linux, macOS and Windows 10+), https only, following
 /// redirects (a release's asset, a repository's archive), with a time limit and a size cap.
+/// GitHub's API is asked with the token in `GH_TOKEN` or `GITHUB_TOKEN` when one is set (5,000
+/// requests an hour instead of 60), handed to curl on its input, never on its command line.
 pub struct Curl;
 
 impl Fetch for Curl {
@@ -49,13 +57,150 @@ impl Fetch for Curl {
             return Err(format!("{url} is not an https:// address"));
         }
         let mut cmd = crate::detect::quiet(Path::new("curl"));
-        cmd.args(["-sS", "-f", "-L", "--proto", "=https", "--connect-timeout", "15", "--max-time", "600"])
+        // No -f: the answer's headers (-D -, before its body) say why GitHub refused, and when its
+        // limit lets the launcher ask again.
+        cmd.args(["-sS", "-L", "-D", "-", "--proto", "=https", "--connect-timeout", "15", "--max-time", "600"])
             .args(["--max-filesize", &MAX_BYTES.to_string()])
             .args(["-H", concat!("User-Agent: openrac-launcher/", env!("CARGO_PKG_VERSION"))]);
         if api {
             cmd.args(["-H", "Accept: application/vnd.github+json", "-H", "X-GitHub-Api-Version: 2022-11-28"]);
         }
-        run_curl(cmd, url, "the launcher fetches mods with it")
+        // curl sends a header given this way to the address asked only, not where it redirects to.
+        let token = github_token().filter(|_| url.starts_with("https://api.github.com/"));
+        let config = token.map(|t| {
+            cmd.args(["-K", "-"]);
+            format!("header = \"Authorization: Bearer {t}\"\n")
+        });
+        let out = run_curl(cmd, url, config.as_deref(), "the launcher fetches mods with it")?;
+        let (status, headers, body) = split_response(&out);
+        match status {
+            200..=299 => Ok(body.to_vec()),
+            _ => Err(http_error(url, status, &headers, config.is_some(), unix_now())),
+        }
+    }
+}
+
+/// A GitHub token from the environment, if one is set and looks like one.
+fn github_token() -> Option<String> {
+    ["GH_TOKEN", "GITHUB_TOKEN"]
+        .iter()
+        .filter_map(|k| std::env::var(k).ok())
+        .map(|t| t.trim().to_string())
+        .find(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+}
+
+fn unix_now() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
+}
+
+/// curl's output with `-D -`: the final answer's status and headers (names in lower case) and its
+/// body. With `-L` each redirect's headers come first, and are skipped.
+fn split_response(out: &[u8]) -> (u16, Vec<(String, String)>, &[u8]) {
+    let mut rest = out;
+    let (mut status, mut headers) = (0, Vec::new());
+    while rest.starts_with(b"HTTP/") {
+        let end = rest.windows(4).position(|w| w == b"\r\n\r\n").map(|i| (i, 4));
+        let Some((i, n)) = end.or_else(|| rest.windows(2).position(|w| w == b"\n\n").map(|i| (i, 2))) else { break };
+        let block = String::from_utf8_lossy(&rest[..i]);
+        let mut lines = block.lines();
+        let first = lines.next().unwrap_or_default();
+        status = first.split_whitespace().nth(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+        headers = lines
+            .filter_map(|l| l.split_once(':'))
+            .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string()))
+            .collect();
+        rest = &rest[i + n..];
+        // A redirect followed, a 100 Continue, a proxy's tunnel: another answer comes after it.
+        let interim = (100..200).contains(&status)
+            || (300..400).contains(&status)
+            || first.to_ascii_lowercase().contains("connection established");
+        if !(interim && rest.starts_with(b"HTTP/")) {
+            break;
+        }
+    }
+    (status, headers, rest)
+}
+
+/// Why an answer of `status` is no file, in the words the Mods tab shows. `now`: the time in Unix
+/// seconds, for how long GitHub's limit lasts.
+fn http_error(url: &str, status: u16, headers: &[(String, String)], token: bool, now: u64) -> String {
+    let header = |name: &str| headers.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str());
+    let spent = header("x-ratelimit-remaining") == Some("0");
+    let retry = header("retry-after").and_then(|s| s.parse::<u64>().ok());
+    if matches!(status, 403 | 429) && (spent || retry.is_some()) {
+        let wait = retry.or_else(|| header("x-ratelimit-reset")?.parse::<u64>().ok().map(|r| r.saturating_sub(now)));
+        let when = match wait.map(|s| s.div_ceil(60).max(1)) {
+            None => "try again in an hour".to_string(),
+            Some(1) => "try again in a minute".to_string(),
+            Some(m) => format!("try again in {m} minutes"),
+        };
+        if !spent {
+            return format!("GitHub asked the launcher to slow down; {when}");
+        }
+        let limit = header("x-ratelimit-limit").map_or(String::new(), |l| format!(" of {l} requests an hour"));
+        let whose = if token { "for your GitHub token" } else { "from this network" };
+        return format!("GitHub's limit{limit} {whose} is used up; {when}");
+    }
+    match status {
+        404 => format!("{url}: not found"),
+        0 => format!("{url} could not be fetched"),
+        s => format!("{url} could not be fetched (HTTP {s})"),
+    }
+}
+
+/// How long an answer of GitHub's API is reused: long enough for one look and its updates, short
+/// enough that a release just published is seen soon.
+pub const API_CACHE_SECONDS: u64 = 5 * 60;
+
+/// Answers of GitHub's API kept for a few minutes ([`API_CACHE_SECONDS`]), for the launcher's
+/// whole run: checking a repository of eleven mods and then updating each would read it twelve
+/// times, and GitHub allows 60 requests an hour without a login. Files and downloads are not kept.
+pub struct ApiCache {
+    ttl: std::time::Duration,
+    answers: std::sync::Mutex<std::collections::HashMap<String, (std::time::Instant, Vec<u8>)>>,
+}
+
+impl ApiCache {
+    pub fn new(ttl: std::time::Duration) -> Self {
+        ApiCache { ttl, answers: Default::default() }
+    }
+
+    /// The launcher's one cache.
+    pub fn shared() -> &'static ApiCache {
+        static SHARED: std::sync::OnceLock<ApiCache> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| ApiCache::new(std::time::Duration::from_secs(API_CACHE_SECONDS)))
+    }
+}
+
+/// A [`Fetch`] whose API answers come from `cache` while they are fresh. Failures are not kept.
+pub struct Cached<'c, F> {
+    pub inner: F,
+    pub cache: &'c ApiCache,
+}
+
+impl<F> Cached<'static, F> {
+    /// `inner` through the launcher's one cache.
+    pub fn shared(inner: F) -> Self {
+        Cached { inner, cache: ApiCache::shared() }
+    }
+}
+
+impl<F: Fetch> Fetch for Cached<'_, F> {
+    fn get(&self, url: &str, api: bool) -> Result<Vec<u8>, String> {
+        if !api {
+            return self.inner.get(url, api);
+        }
+        let lock = || self.cache.answers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some((at, bytes)) = lock().get(url) {
+            if at.elapsed() < self.cache.ttl {
+                return Ok(bytes.clone());
+            }
+        }
+        let bytes = self.inner.get(url, api)?;
+        let mut answers = lock();
+        answers.retain(|_, (at, _)| at.elapsed() < self.cache.ttl);
+        answers.insert(url.to_string(), (std::time::Instant::now(), bytes.clone()));
+        Ok(bytes)
     }
 }
 
@@ -68,18 +213,28 @@ impl Fetch for QuickCurl {
     fn get(&self, url: &str, _api: bool) -> Result<Vec<u8>, String> {
         let mut cmd = crate::detect::quiet(Path::new("curl"));
         cmd.args(["-s", "-f", "--connect-timeout", "4", "--max-time", "10"]);
-        run_curl(cmd, url, "the launcher fetches its progress figures with it")
+        run_curl(cmd, url, None, "the launcher fetches its progress figures with it")
     }
 }
 
-/// Runs `cmd` (a `curl` with its options) on `url`, its input closed: the body, or why not.
-/// `purpose` says, when curl cannot be started, what the launcher needed it for.
-fn run_curl(mut cmd: std::process::Command, url: &str, purpose: &str) -> Result<Vec<u8>, String> {
-    let out = cmd
-        .arg(url)
-        .stdin(std::process::Stdio::null())
-        .output()
-        .map_err(|e| format!("curl cannot be started ({e}): {purpose}"))?;
+/// Runs `cmd` (a `curl` with its options) on `url`, `input` (a config: `-K -`) on its input, else
+/// its input closed: what it printed, or why it failed. `purpose` says, when curl cannot be
+/// started, what the launcher needed it for.
+fn run_curl(mut cmd: std::process::Command, url: &str, input: Option<&str>, purpose: &str) -> Result<Vec<u8>, String> {
+    use std::process::Stdio;
+    let started = |e: std::io::Error| format!("curl cannot be started ({e}): {purpose}");
+    cmd.arg(url).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let out = match input {
+        None => cmd.stdin(Stdio::null()).output().map_err(started)?,
+        Some(text) => {
+            let mut child = cmd.stdin(Stdio::piped()).spawn().map_err(started)?;
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            child.wait_with_output().map_err(started)?
+        }
+    };
     if out.status.success() {
         return Ok(out.stdout);
     }
@@ -2106,6 +2261,119 @@ mod tests {
         assert!(u.is_empty());
         assert_eq!(errors.len(), 1, "{errors:?}");
         assert!(errors[0].starts_with("m, n: "), "{errors:?}");
+    }
+
+    /// A repository o/r of `ids` mods, each in its folder with a release `<id>-v<version>` (as
+    /// openrac-mods is), all at commit `commit`.
+    fn many(fx: &mut Fixture, ids: &[&str], version: &str, commit: &str) {
+        let mut releases = Vec::new();
+        let mut files = Vec::new();
+        for id in ids {
+            let tag = format!("{id}-v{version}");
+            releases.push(release(fx, &tag, id, version, Some(String::new()), false));
+            fx.put(&format!("{API}/repos/o/r/commits/{tag}"), serde_json::json!({"sha": commit}).to_string());
+            files.push((format!("{id}/openrac-mod.json"), manifest(id, version)));
+        }
+        let files: Vec<(&str, String)> = files.iter().map(|(p, t)| (p.as_str(), t.clone())).collect();
+        repo(fx, &files, Value::Array(releases), commit);
+    }
+
+    /// Checking a repository of several mods and updating each reads GitHub's API once, through
+    /// the launcher's cache: not once per mod, which spent the anonymous 60 an hour.
+    #[test]
+    fn updating_every_mod_of_a_repository_reads_it_once() {
+        let ids = ["a", "b", "c", "d", "e"];
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        many(&mut fx, &ids, "1.0.0", "c1");
+        for id in ids {
+            install(&ctx(dir.path(), &fx), "https://github.com/o/r", id).unwrap();
+        }
+        let api = |fx: &Fixture| fx.asked.borrow().iter().filter(|u| u.starts_with(API)).count();
+        let update_all = |fetch: &dyn Fetch| {
+            let c = ctx(dir.path(), fetch);
+            let (found, errors) = check_updates(&c);
+            assert!(errors.is_empty(), "{errors:?}");
+            assert_eq!(found.len(), ids.len());
+            for u in found {
+                update(&c, &u.id).unwrap();
+            }
+        };
+        // Without the cache: the look reads the repository (its releases, the commit, the tree),
+        // and every update reads it again.
+        let mut fx = Fixture::default();
+        many(&mut fx, &ids, "1.1.0", "c2");
+        update_all(&fx);
+        assert_eq!(api(&fx), 3 * (1 + ids.len()));
+        // With it: three requests in all.
+        for id in ids {
+            let mut sources = read_sources(dir.path());
+            sources.mods.get_mut(id).unwrap().version = "1.0.0".into();
+            write_sources(dir.path(), &sources).unwrap();
+        }
+        fx.asked.borrow_mut().clear();
+        let cache = ApiCache::new(std::time::Duration::from_secs(60));
+        update_all(&Cached { inner: &fx, cache: &cache });
+        assert_eq!(api(&fx), 3, "{:#?}", fx.asked.borrow());
+        assert_eq!(read_sources(dir.path()).mods["e"].version, "1.1.0");
+        // An answer past its time is asked again; a failure is never kept.
+        let stale = ApiCache::new(std::time::Duration::ZERO);
+        let once = Cached { inner: &fx, cache: &stale };
+        let url = format!("{API}/repos/o/r/releases?per_page=100");
+        fx.asked.borrow_mut().clear();
+        once.get(&url, true).unwrap();
+        once.get(&url, true).unwrap();
+        assert_eq!(api(&fx), 2);
+        let missing = format!("{API}/repos/o/missing");
+        let cached = Cached { inner: &fx, cache: &cache };
+        assert!(cached.get(&missing, true).is_err() && cached.get(&missing, true).is_err());
+        assert_eq!(fx.asked.borrow().iter().filter(|u| **u == missing).count(), 2);
+        // Downloads go around it.
+        fx.asked.borrow_mut().clear();
+        let dl = format!("{DL}/a-v1.1.0/SHA256SUMS");
+        cached.get(&dl, false).unwrap();
+        cached.get(&dl, false).unwrap();
+        assert_eq!(fx.asked.borrow().len(), 2);
+    }
+
+    /// curl's `-D -` output: the redirects' headers skipped, the last answer's kept.
+    #[test]
+    fn the_answer_after_its_redirects() {
+        let out = b"HTTP/2 302\r\nlocation: https://x\r\n\r\nHTTP/1.1 200 Connection established\r\n\r\nHTTP/2 200\r\nETag: \"e\"\r\n\r\nHTTP/ body";
+        let (status, headers, body) = split_response(out);
+        assert_eq!((status, body), (200, &b"HTTP/ body"[..]));
+        assert_eq!(headers, [("etag".to_string(), "\"e\"".to_string())]);
+        let (status, _, body) = split_response(b"HTTP/1.1 404 Not Found\r\n\r\n{}");
+        assert_eq!((status, body), (404, &b"{}"[..]));
+        assert_eq!(split_response(b"no headers").0, 0);
+    }
+
+    /// GitHub's limit said plainly, with when it lets the launcher ask again.
+    #[test]
+    fn the_rate_limit_is_said_plainly() {
+        let h = |pairs: &[(&str, &str)]| -> Vec<(String, String)> {
+            pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        };
+        let url = "https://api.github.com/repos/OpenRAC/openrac-mods/releases?per_page=100";
+        let spent = h(&[("x-ratelimit-limit", "60"), ("x-ratelimit-remaining", "0"), ("x-ratelimit-reset", "10000")]);
+        assert_eq!(
+            http_error(url, 403, &spent, false, 10000 - 23 * 60 + 5),
+            "GitHub's limit of 60 requests an hour from this network is used up; try again in 23 minutes"
+        );
+        assert_eq!(
+            http_error(url, 403, &spent, true, 9990),
+            "GitHub's limit of 60 requests an hour for your GitHub token is used up; try again in a minute"
+        );
+        assert_eq!(
+            http_error(url, 429, &h(&[("retry-after", "120")]), false, 0),
+            "GitHub asked the launcher to slow down; try again in 2 minutes"
+        );
+        // Another refusal is not the limit; a missing file is "not found", as before.
+        assert_eq!(
+            http_error(url, 403, &h(&[("x-ratelimit-remaining", "59")]), false, 0),
+            format!("{url} could not be fetched (HTTP 403)")
+        );
+        assert_eq!(http_error(url, 404, &[], false, 0), format!("{url}: not found"));
     }
 
     #[test]

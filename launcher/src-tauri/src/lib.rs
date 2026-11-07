@@ -1658,12 +1658,14 @@ fn with_remote<T>(
     version: &str,
     work: impl FnOnce(&remote::Context) -> T,
 ) -> T {
+    // GitHub's API answers are shared for a few minutes (remote::ApiCache): a look for updates and
+    // the updates of a repository's several mods read it once.
     #[cfg(target_os = "android")]
-    let fetch = android::KotlinFetch { app: app.clone() };
+    let fetch = remote::Cached::shared(android::KotlinFetch { app: app.clone() });
     #[cfg(not(target_os = "android"))]
     let fetch = {
         let _ = app;
-        remote::Curl
+        remote::Cached::shared(remote::Curl)
     };
     work(&remote::Context {
         dir,
@@ -1885,11 +1887,11 @@ async fn plugins_status(state: State<'_, AppState>, game: String) -> Result<Opti
 /// What fetches for the mod hub: curl, or on Android the Kotlin side's download.
 fn hub_fetch(app: &AppHandle) -> Box<dyn remote::Fetch> {
     #[cfg(target_os = "android")]
-    return Box::new(android::KotlinFetch { app: app.clone() });
+    return Box::new(remote::Cached::shared(android::KotlinFetch { app: app.clone() }));
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
-        Box::new(remote::Curl)
+        Box::new(remote::Cached::shared(remote::Curl))
     }
 }
 
