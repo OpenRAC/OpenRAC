@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "check.h"
+#include "common/cache_folder.h"
 #include "platform/window.h"
 #include "renderer/framebuffer.h"
 #include "renderer/gl.h"
@@ -78,6 +79,7 @@ int main() {
         / ("openrac_gl_warmup_test_"
            + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
     set_variable("XDG_CACHE_HOME", folder.string());
+    set_variable("HOME", folder.string());  // macOS keeps caches under HOME, not XDG_CACHE_HOME
     set_variable("OPENRAC_GL_PROGRAM_CACHE", (folder / "programs").string());
 
     openrac::test::GlContext context;
@@ -121,7 +123,7 @@ int main() {
     CHECK(gl_warmup::counts().noted == 2);
 
     // The file is saved on a thread of its own: there within a few seconds.
-    const std::filesystem::path states = folder / "openrac" / "gl_states";
+    const std::filesystem::path states = openrac::cache_folder() / "gl_states";
     bool saved = false;
     for (int n = 0; n < 50 && !saved; ++n) {
         std::error_code ec;
