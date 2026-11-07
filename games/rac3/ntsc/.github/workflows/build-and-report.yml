@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       # Retail frontbin.elf, boot_elf.elf and i5bootn.elf are copyrighted and
       # gitignored; check_match.py needs them.
@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload build log (always, even on failure)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: build_log
           path: build_log.txt
@@ -73,7 +73,7 @@ jobs:
           objdiff-cli.exe report generate -o build/report.json
 
       - name: Upload report artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCUS_973.53_report
           path: build/report.json
