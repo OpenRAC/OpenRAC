@@ -33,16 +33,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
 
 jobs:
-  # A pull request's scope (docs_only), and on every event the parts the Linux port job is built
-  # in: one for what the games share, one per game program (port/game/*/hostgen.json "id").
+  # What a pull request needs (tools/ci_scope.py: the jobs and the port's parts its files can
+  # affect), and on every event all the parts the Linux port job is built in: one for what the
+  # games share, one per game program (port/game/*/hostgen.json "id"). A push runs everything.
   scope:
     name: Which checks run
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
+      launcher: ${{ steps.scope.outputs.launcher }}
+      pages: ${{ steps.scope.outputs.pages }}
+      port: ${{ steps.scope.outputs.port }}
+      enhanced: ${{ steps.scope.outputs.enhanced }}
       port_programs: ${{ steps.parts.outputs.port_programs }}
-      port_parts: ${{ steps.parts.outputs.port_parts }}
+      port_parts: ${{ steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -198,7 +203,7 @@ jobs:
   # backslashes, files are checked out with CRLF and the Unix-only tests are left out.
   launcher:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' }}
     name: Launcher / ${{ matrix.system }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -262,7 +267,7 @@ jobs:
   launcher-android:
     name: Launcher / Pages (lint, unit tests, Android layout)
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -300,7 +305,7 @@ jobs:
   port-part:
     name: Port / Linux (${{ matrix.part }})
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     strategy:
@@ -409,14 +414,16 @@ jobs:
       - name: Require every part
         env:
           RESULT: ${{ needs.port-part.result }}
-        run: test "$RESULT" = success
+          PARTS: ${{ needs.scope.outputs.port_parts }}
+        # Skipped only when the pull request needs no part.
+        run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced-build:
     name: Port / Enhanced Vulkan build
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
@@ -489,7 +496,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [vulkan, equivalence, cpu, baker]
+        # cpu and baker take half a minute each: one runner for both.
+        group: [vulkan, equivalence, cpu-baker]
     env:
       SDL_VIDEO_DRIVER: x11
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -522,7 +530,9 @@ jobs:
           mkdir -p port/build
           tar -C port/build -xzf "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
           test "$(cat port/build/enhanced/ci-workspace.txt)" = "$(pwd -P)"
-          xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$TEST_GROUP"
+          for group in ${TEST_GROUP//-/ }; do
+            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group"
+          done
       - name: Measure Vulkan shard contention
         if: github.event_name == 'workflow_dispatch' && inputs.time-vulkan-shards && matrix.group == 'vulkan'
         run: xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced timing
@@ -539,7 +549,11 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
           TEST_RESULT: ${{ needs.port-vulkan-enhanced-tests.result }}
-        run: test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
+          NEEDED: ${{ needs.scope.outputs.enhanced }}
+        # Skipped only when the pull request does not touch what the enhanced build reads.
+        run: |
+          if [ "$NEEDED" = false ]; then test "$BUILD_RESULT" = skipped; exit; fi
+          test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
 
   # The native port on Fedora (the release players run): the program built as the launcher's
   # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
@@ -548,7 +562,7 @@ jobs:
   port-fedora:
     name: Port / Fedora
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
     timeout-minutes: 60
@@ -613,7 +627,7 @@ jobs:
   port-windows:
     name: Port / Windows
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: windows-latest
     timeout-minutes: 60
     env:
