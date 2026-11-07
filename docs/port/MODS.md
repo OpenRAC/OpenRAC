@@ -294,6 +294,9 @@ An action needs `id`, `icon` and `press` (`cross`, `circle`, `square`,
 - `then`: buttons added 50 ms later, for a combo. A quick tap still plays it.
 - `size`: `large`, `medium` or `small`.
 - `side`: `arc` (right thumb), `left` (above the stick), `top` or `hint`.
+- `at`: its own arc place, `0` to `7`, so it stays put across contexts. The
+  game's sets give each button one place (cross 0, circle 1, triangle 2,
+  R1 3 and 5, square 4). Without `at` it takes the next free place.
 - `when`: shown only while this hint is up, in the `hint` places unless
   `side` says otherwise.
 - `instead`: with `when`, takes this button's place and size while the hint

@@ -18,7 +18,9 @@ namespace {
 
 using namespace openrac::platform;
 
-const TouchControl& control(const TouchPad& touch, TouchControl::Kind kind, Button button = Button::Cross) {
+const TouchControl& control(
+    const TouchPad& touch, TouchControl::Kind kind, Button button = Button::Cross
+) {
     for (const TouchControl& c : touch.controls()) {
         if (c.kind == kind && (kind != TouchControl::Kind::Button || c.button == button)) {
             return c;
@@ -285,6 +287,42 @@ void stand_in() {
     ));
 }
 
+// An action with its own arc place keeps it whatever comes before it; the rest fill the free ones.
+void own_place() {
+    TouchPad touch;
+    touch.set_aspect(2.0f);
+    touch.set_style(TouchStyle::Arc);
+    TouchAction jump = act("jump", bit(Button::Cross), TouchSize::Large);
+    jump.at = 0;
+    TouchAction wrench = act("wrench", bit(Button::Square));
+    wrench.at = 4;
+    touch.set_actions({act("fire", bit(Button::Circle)), wrench, jump});
+    CHECK(action(touch, "jump")->group == TouchGroup::Arc0);
+    CHECK(action(touch, "wrench")->group == TouchGroup::Arc4);
+    CHECK(action(touch, "fire")->group == TouchGroup::Arc1);
+    TouchActionSets sets;
+    std::string error;
+    CHECK(sets.read(
+        R"({"contexts": {"a": {"actions": [
+        {"id": "a", "icon": "a", "press": ["cross"], "at": 7}]}}})",
+        "t",
+        error
+    ));
+    CHECK(sets.actions("a").at(0).at == 7);
+    CHECK(!sets.read(
+        R"({"contexts": {"a": {"actions": [
+        {"id": "a", "icon": "a", "press": ["cross"], "at": 8}]}}})",
+        "t",
+        error
+    ));
+    CHECK(!sets.read(
+        R"({"contexts": {"a": {"actions": [
+        {"id": "a", "icon": "a", "press": ["cross"], "at": "x"}]}}})",
+        "t",
+        error
+    ));
+}
+
 }  // namespace
 
 int main() {
@@ -405,7 +443,8 @@ int main() {
     // Clear of Select and Start beside it.
     const TouchControl& select = control(menu, TouchControl::Kind::Button, Button::Select);
     const TouchControl& start = control(menu, TouchControl::Kind::Button, Button::Start);
-    const float gap = (start.x - options.x) * menu.aspect() - start.radius * start.stretch - options.radius;
+    const float gap =
+        (start.x - options.x) * menu.aspect() - start.radius * start.stretch - options.radius;
     CHECK(gap > 0.05f * menu.scale());
     CHECK(select.x < options.x && options.x < start.x);
 
@@ -608,5 +647,6 @@ int main() {
     action_sets();
     steer_and_dpad();
     stand_in();
+    own_place();
     return openrac::test::result();
 }
