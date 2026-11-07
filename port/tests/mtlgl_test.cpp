@@ -240,8 +240,10 @@ struct Case {
     // AMD's OpenGL filters in eighths of a level, so channels may differ by 1 there; Apple's
     // OpenGL runs on Metal and agrees exactly.
     bool filtered = false;
-    // AMD's OpenGL divides by a variable as fast math does, which Metal does only with fast math
-    // throughout (README.md), and ignores gl_SampleMask: checked on Apple's GPUs alone.
+    // AMD's OpenGL differs where Metal on AMD cannot follow it (README.md): it divides by a variable
+    // as fast math does, ignores gl_SampleMask, leaves new images as memory held them, gives a pixel
+    // on an edge to the other triangle, interpolates in other low bits, and its depth is GL's own
+    // z / w. Checked on Apple's GPUs alone.
     bool amd_differs = false;
 };
 
@@ -524,7 +526,8 @@ const Case kCases[] = {
                -1.0625f, -0.0625f, 0, 0.875f, 0, 0.75f, 1, -0.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,
                -1.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,      -1.0625f, -1.0625f, 0, 1, 1, 0.75f, 1});
          return pixels();
-     }},
+     },
+     false, true},
     {"multisampled edges resolved", [] { return resolved_edges(GL_RGBA8); }},
     {"multisampled half float edges resolved", [] { return resolved_edges(GL_RGBA16F); }},
     // Each pixel keeps the samples its mask names.
@@ -632,7 +635,8 @@ void main() {
          glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
          glBindFramebuffer(GL_FRAMEBUFFER, into);
          return pixels();
-     }},
+     },
+     false, true},
     {"new depth image tested",
      [] {
          target(GL_DEPTH_COMPONENT32F);
@@ -659,11 +663,12 @@ void main() {
          glBindTexture(GL_TEXTURE_2D, depth);
          quad(0, 0, 0, 0);
          return pixels();
-     }},
+     },
+     false, true},
     {"blending", [] { return blended(GL_RGBA8); }},
     {"half float blending", [] { return blended(GL_RGBA16F); }},
-    {"perspective varying", [] { return perspective("bits(stq.x)"); }},
-    {"perspective quotient", [] { return perspective("bits(stq.y / stq.z)"); }},
+    {"perspective varying", [] { return perspective("bits(stq.x)"); }, false, true},
+    {"perspective quotient", [] { return perspective("bits(stq.y / stq.z)"); }, false, true},
     {"perspective texture",
      [] {
          std::vector<std::uint8_t> texels(64 * 64 * 4);
@@ -676,12 +681,12 @@ void main() {
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
          return perspective("texture(image, stq.xy / stq.z)", image);
      },
-     true},
-    {"edges near pixel centres", near_edges},
-    {"depth", [] { return depths(false); }},
-    {"clamped depth", [] { return depths(true); }},
-    {"depth halves", [] { return halves(false); }},
-    {"clamped depth halves", [] { return halves(true); }},
+     true, true},
+    {"edges near pixel centres", near_edges, false, true},
+    {"depth", [] { return depths(false); }, false, true},
+    {"clamped depth", [] { return depths(true); }, false, true},
+    {"depth halves", [] { return halves(false); }, false, true},
+    {"clamped depth halves", [] { return halves(true); }, false, true},
     {"linear texture",
      [] {
          target();
