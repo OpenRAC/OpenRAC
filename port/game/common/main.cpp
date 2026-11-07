@@ -83,7 +83,7 @@
 #include "settings.h"
 #endif
 #if defined(OPENRAC_IOS)
-#include "ios/bootstrap.h"
+#include "platform/ios.h"
 #endif
 #if defined(OPENRAC_ANDROID_ACTIVITY) || defined(OPENRAC_IOS)
 // The game as Android's activity loads it (libopenrac-<id>.so): main is SDL_main, which SDL's
@@ -527,7 +527,7 @@ bool has_virtual_sector_mappings(const fs::path& mount) {
 
 int main(int argc, char** argv) {
 #if defined(OPENRAC_IOS)
-    auto ios_arguments = openrac::ios::arguments();
+    auto ios_arguments = openrac::platform::ios_arguments();
     std::vector<char*> ios_argv;
     for (auto& argument : ios_arguments) {
         ios_argv.push_back(argument.data());

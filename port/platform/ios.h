@@ -4,6 +4,6 @@
 #include <string>
 #include <vector>
 
-namespace openrac::ios {
-std::vector<std::string> arguments();
+namespace openrac::platform {
+std::vector<std::string> ios_arguments();
 }
