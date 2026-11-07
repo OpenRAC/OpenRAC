@@ -56,6 +56,11 @@ struct GameScenery {
     // The same of the shrubs (their records' +0 and +0x1E).
     std::vector<std::array<float, 4>> shrub_spheres;
     std::vector<std::uint16_t> shrub_lights;
+    // Per tie and per shrub, nonzero where the game has hidden it in its record: a tie's +0x1E bit
+    // 2, a shrub's +0x16 bit 0, which Going Commando's TieProc (0x2F133C) and ShrubProc
+    // (0x2E15B0) test to leave it undrawn. Empty: none hidden.
+    std::vector<std::uint8_t> tie_hidden;
+    std::vector<std::uint8_t> shrub_hidden;
 };
 
 class LevelScene {
@@ -154,8 +159,8 @@ public:
     // (GameProfile::scenery_matrices), one per instance as loaded in each layer's order, the
     // matrix's first three columns and its translation; empty: drawn as loaded. An instance the
     // game moved leaves its layer and is drawn with the mobys (add_moved_scenery) where the game
-    // puts it; one whose matrix the game zeroed is not drawn. A layer is grouped again only when
-    // the set of moved instances changes.
+    // puts it; one whose matrix the game zeroed, or that its record hides, is not drawn. A layer
+    // is grouped again only when the set of moved instances changes.
     // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
     void move_scenery(const GameScenery& scenery);
 

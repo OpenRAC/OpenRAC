@@ -629,6 +629,10 @@ void LevelScene::move_scenery(const GameScenery& game) {
         const bool ties = kSceneryLayers[k] == Layer::Ties;
         const bool listed =
             ties && game.tie_lights.size() == count && game.tie_spheres.size() == count;
+        // The ones the game hides by a bit of their record (GameScenery::tie_hidden): Dobbo
+        // Orbit's buildings, whose ties stay where they stood once Giant Clank has knocked them
+        // down, their collision mobys deleted.
+        const auto& hidden = ties ? game.tie_hidden : game.shrub_hidden;
         bool changed = false;
         for (std::size_t i = 0; i < count; ++i) {
             const Mat4& m = scenery.source[i].matrix;
@@ -641,7 +645,8 @@ void LevelScene::move_scenery(const GameScenery& game) {
                     same = same && std::abs(v - m[c * 4 + r]) < kSame;
                 }
             }
-            const std::uint8_t state = zero ? 2 : same ? 0 : 1;
+            const bool gone = hidden.size() == count && hidden[i] != 0;
+            const std::uint8_t state = zero || gone ? 2 : same ? 0 : 1;
             m_moved_count += state == 1;
             changed = changed || state != moved.state[i];
             moved.state[i] = state;

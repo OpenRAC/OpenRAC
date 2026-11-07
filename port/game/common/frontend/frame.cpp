@@ -1230,10 +1230,12 @@ std::optional<scene::GameScenery> scenery_matrices(
     if (const gaddr at = table(words[2], ties, 0x20); at != 0) {
         result.tie_spheres.resize(ties);
         result.tie_lights.resize(ties);
+        result.tie_hidden.resize(ties);
         for (std::size_t i = 0; i < ties; ++i) {
             const std::uint8_t* r = ram.data() + at + i * 0x20;
             std::memcpy(result.tie_spheres[i].data(), r, 16);
             std::memcpy(&result.tie_lights[i], r + 0x1A, 2);
+            result.tie_hidden[i] = r[0x1E] & 4;
         }
     }
     const std::size_t shrubs =
@@ -1241,10 +1243,12 @@ std::optional<scene::GameScenery> scenery_matrices(
     if (const gaddr at = table(words[3], shrubs, 0x20); at != 0) {
         result.shrub_spheres.resize(shrubs);
         result.shrub_lights.resize(shrubs);
+        result.shrub_hidden.resize(shrubs);
         for (std::size_t i = 0; i < shrubs; ++i) {
             const std::uint8_t* r = ram.data() + at + i * 0x20;
             std::memcpy(result.shrub_spheres[i].data(), r, 16);
             std::memcpy(&result.shrub_lights[i], r + 0x1E, 2);
+            result.shrub_hidden[i] = r[0x16] & 1;
         }
     }
     return result;
