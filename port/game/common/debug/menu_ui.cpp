@@ -228,10 +228,44 @@ void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round) {
     }
 }
 
+void panel_fill(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    ImU32 top,
+    ImU32 bottom,
+    ImU32 glow,
+    float glow_depth,
+    float round,
+    ImDrawFlags corners
+) {
+    const int first = list->VtxBuffer.Size;
+    list->AddRectFilled(a, b, IM_COL32_WHITE, round, corners);
+    for (int v = first; v < list->VtxBuffer.Size; ++v) {
+        ImDrawVert& vert = list->VtxBuffer[v];
+        const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
+        const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
+        vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
+    }
+}
+
+ImU32 panel_glow() {
+    return ui_colors::mix(ui().panel_hi, ui().glow, 0.08f);
+}
+
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held) {
-    // A flat fill in the bar's own gold (no gradient, no edge): deeper than the bright accent, so a
-    // big button over the game does not glare; darker while held.
-    list->AddRectFilled(a, b, ui_colors::mix(ui().bar_stripe, ui().ink_deep, 0.18f * held), round);
+    // The bar's own gold stripes (no edge): deeper than the bright accent, so a big button over the
+    // game does not glare; darker while held.
+    const float dark = 0.18f * held;
+    striped_rect(
+        list,
+        a,
+        b,
+        round,
+        ui_colors::mix(ui().bar_stripe, ui().ink_deep, dark),
+        ui_colors::mix(ui().bar_stripe_alt, ui().ink_deep, dark),
+        a
+    );
 }
 
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink) {

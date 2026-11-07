@@ -229,7 +229,18 @@ void drawer(const Shown& shown) {
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + viewport->Size.y);
             back->PushClipRect(top, bottom, false);
-            back->AddRectFilled(top, bottom, ui().panel, dp(12.0f), ImDrawFlags_RoundCornersRight);
+            // The panel lit from above in the game's colour, as the window on a desktop.
+            panel_fill(
+                back,
+                top,
+                bottom,
+                ui().panel,
+                ui().panel,
+                panel_glow(),
+                dp(160.0f),
+                dp(12.0f),
+                ImDrawFlags_RoundCornersRight
+            );
             back->PopClipRect();
         }
         {
@@ -237,8 +248,17 @@ void drawer(const Shown& shown) {
             ImDrawList* front = ImGui::GetForegroundDrawList();
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + header);
-            front->AddRectFilled(
-                top, bottom, ui().panel, dp(12.0f), ImDrawFlags_RoundCornersTopRight
+            // The same light as the panel under it, so the header does not cut it off.
+            panel_fill(
+                front,
+                top,
+                bottom,
+                ui().panel,
+                ui().panel,
+                panel_glow(),
+                dp(160.0f),
+                dp(12.0f),
+                ImDrawFlags_RoundCornersTopRight
             );
             // A hairline under it once rows have scrolled beneath, fading in as they do.
             const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);

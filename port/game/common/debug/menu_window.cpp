@@ -132,28 +132,6 @@ void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float streng
     list->PopClipRect();
 }
 
-// The window's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a
-// glow of `glow` along its top `glow_depth` pixels, all in its own corners.
-void panel_fill(
-    ImDrawList* list,
-    ImVec2 a,
-    ImVec2 b,
-    ImU32 top,
-    ImU32 bottom,
-    ImU32 glow,
-    float glow_depth,
-    float round
-) {
-    const int first = list->VtxBuffer.Size;
-    list->AddRectFilled(a, b, IM_COL32_WHITE, round);
-    for (int v = first; v < list->VtxBuffer.Size; ++v) {
-        ImDrawVert& vert = list->VtxBuffer[v];
-        const float t = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
-        const float lit = std::clamp(1.0f - (vert.pos.y - a.y) / glow_depth, 0.0f, 1.0f);
-        vert.col = ui_colors::mix(ui_colors::mix(top, bottom, t), glow, lit * lit);
-    }
-}
-
 // A tab on the bar, a button of its own: coal stripes continuing the bar's, gold text, lighter
 // under the pointer, no edge; the open one is the lighter chip under it (drawn by the bar, sliding
 // from tab to tab), its name in light gold. True when clicked.
@@ -738,7 +716,7 @@ void menu_window(const Shown& shown) {
             b,
             ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
             ui().ink_deep,
-            ui_colors::mix(ui().panel_hi, ui().glow, 0.08f),
+            panel_glow(),
             dp(160.0f),
             dp(12.0f)
         );

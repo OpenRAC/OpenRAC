@@ -76,8 +76,9 @@ follows the same rules.
   lighter `--coal-stripes-hi` (`#252525` on `#1f1f1f`); the open tab's text is
   light gold, and its chip slides from tab to tab. The game's menu bar does the
   same, without icons.
-- A big main button over the game (the drawer's Resume) is the bar's own gold
-  (`--bar-stripe`), a shade deeper than `--amber`, so it does not glare.
+- A big main button over the game (the drawer's Resume) wears the bar's own
+  gold stripes (`--bar-stripe` and `--bar-stripe-alt`), a shade deeper than
+  `--amber`, so it does not glare.
 - A game's title box on its page is the launcher's own: `--panel` at 92 % over
   the picture, the title in `--gold`, the year and the notes in `--amber`, and
   the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).
@@ -163,7 +164,8 @@ coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
 The game's window ground is the theme's coal with a glow of the game's colour
 along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
-on the coal. The window's right side has the bar's stripes, barely visible,
+on the coal. Android's drawer has the same light along its top, under its
+header too. The window's right side has the bar's stripes, barely visible,
 in its top left corner only, fading out down and to the right.
 
 ## Logo
