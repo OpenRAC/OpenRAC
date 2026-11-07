@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { devTag, updateSourceOf, type AppInfo, type Config } from "./api";
 import {
   checkGitHubRelease,
+  gitHubRefusal,
   isNewerVersion,
   offeredVersion,
   offerUpdate,
@@ -84,6 +85,17 @@ describe("checkGitHubRelease", () => {
   it("says so when nothing is published where the launcher looks", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 404 })));
     await expect(checkGitHubRelease("0.8.0-dev.3", source)).rejects.toThrow(/no release/);
+  });
+
+  it("says when GitHub's hourly limit lets it look again", async () => {
+    const headers = { "x-ratelimit-limit": "60", "x-ratelimit-remaining": "0", "x-ratelimit-reset": "10000" };
+    const spent = new Response("", { status: 403, headers });
+    expect(gitHubRefusal(spent, "here", (10_000 - 23 * 60 + 5) * 1000)).toBe(
+      "GitHub's limit of 60 requests an hour from this network is used up; try again in 23 minutes (here)",
+    );
+    expect(gitHubRefusal(new Response("", { status: 403 }), "here")).toBe("GitHub answered 403 (here)");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 403, headers })));
+    await expect(checkGitHubRelease("0.8.0-dev.3", source)).rejects.toThrow(/limit of 60 requests an hour/);
   });
 
   it("reads a branch's version from the release's title", async () => {

@@ -139,6 +139,20 @@ export function switchingChannel(built: UpdateSource, source: UpdateSource): boo
  *  (the mod SDK's `sdk-v<version>`), and GitHub's "latest" can be one of those. */
 const LAUNCHER_TAG = /^launcher-v\d/;
 
+/** Why GitHub refused RES: its hourly limit for this network (60 requests without a login, shared
+ *  with the Mods tab's looks), said plainly with when it lifts, or else its status. */
+export function gitHubRefusal(res: Response, where: string, now = Date.now()): string {
+  if ((res.status === 403 || res.status === 429) && res.headers.get("x-ratelimit-remaining") === "0") {
+    const limit = res.headers.get("x-ratelimit-limit");
+    const reset = Number(res.headers.get("x-ratelimit-reset"));
+    const minutes = reset > 0 ? Math.max(1, Math.ceil((reset * 1000 - now) / 60_000)) : 60;
+    const when = minutes === 1 ? "in a minute" : `in ${minutes} minutes`;
+    const of = limit ? ` of ${limit} requests an hour` : "";
+    return `GitHub's limit${of} from this network is used up; try again ${when} (${where})`;
+  }
+  return `GitHub answered ${res.status} (${where})`;
+}
+
 export async function checkGitHubRelease(
   currentVersion: string,
   source: UpdateSource = DEFAULT_SOURCE,
@@ -159,7 +173,7 @@ export async function checkGitHubRelease(
   // No release where this launcher looks is not "the latest": a fork's builds publish none until
   // it has the update key (TAURI_SIGNING_PRIVATE_KEY), and the player is told so.
   if (res.status === 404) throw new Error(`no release has been published there yet (${where})`);
-  if (!res.ok) throw new Error(`GitHub answered ${res.status} (${where})`);
+  if (!res.ok) throw new Error(gitHubRefusal(res, where));
   try {
     let data = (await res.json()) as GitHubReleaseResponse;
     // GitHub's latest release that is not the launcher's (the mod SDK's, 1.0.1, was offered to every
