@@ -170,6 +170,14 @@ fragment float4 blit_fragment(Out in [[stage_in]], texture2d<float> from [[textu
     constexpr sampler smooth(filter::linear);
     return linear != 0 ? from.sample(smooth, in.uv) : from.sample(nearest, in.uv);
 }
+fragment uint4 blit_uint(Out in [[stage_in]], texture2d<uint> from [[texture(0)]]) {
+    return from.read(uint2(in.uv * float2(from.get_width(), from.get_height())));
+}
+struct Depth { float depth [[depth(any)]]; };
+fragment Depth blit_depth(Out in [[stage_in]], depth2d<float> from [[texture(0)]]) {
+    constexpr sampler nearest(filter::nearest);
+    return {from.sample(nearest, in.uv)};
+}
 // A scissored or masked glClear: the target covered at the clear depth, in the clear colour.
 vertex float4 clear_vertex(uint id [[vertex_id]], constant float& depth [[buffer(0)]]) {
     const float2 p = float2((id << 1) & 2, id & 2);

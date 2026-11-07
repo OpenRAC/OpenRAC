@@ -819,21 +819,39 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
     if (x.hi == x.lo || y.hi == y.lo) {
         return;
     }
-    __strong id<MTLRenderPipelineState>& pipeline = g->blits[dst.pixelFormat];
+    const bool depth = is_depth(dst.pixelFormat);
+    __strong id<MTLRenderPipelineState>& pipeline = g->blits[dst.pixelFormat | dst.sampleCount << 16];
     if (pipeline == nil) {
         MTLRenderPipelineDescriptor* d = [MTLRenderPipelineDescriptor new];
         d.vertexFunction = [g->library newFunctionWithName:@"blit_vertex"];
-        d.fragmentFunction = [g->library newFunctionWithName:@"blit_fragment"];
-        d.colorAttachments[0].pixelFormat = dst.pixelFormat;
+        d.fragmentFunction = [g->library newFunctionWithName:depth                         ? @"blit_depth"
+                                                             : is_integer(dst.pixelFormat) ? @"blit_uint"
+                                                                                           : @"blit_fragment"];
+        d.rasterSampleCount = dst.sampleCount;
+        if (depth) {
+            d.depthAttachmentPixelFormat = dst.pixelFormat;
+        } else {
+            d.colorAttachments[0].pixelFormat = dst.pixelFormat;
+        }
         pipeline = [g->device newRenderPipelineStateWithDescriptor:d error:nil];
     }
     end_encoders();
     MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
-    d.colorAttachments[0].texture = dst;
-    d.colorAttachments[0].level = level;
-    d.colorAttachments[0].loadAction = MTLLoadActionLoad;
-    d.colorAttachments[0].storeAction = MTLStoreActionStore;
+    MTLRenderPassAttachmentDescriptor* to = depth ? d.depthAttachment : d.colorAttachments[0];
+    to.texture = dst;
+    to.level = level;
+    to.loadAction = MTLLoadActionLoad;
+    to.storeAction = MTLStoreActionStore;
     id<MTLRenderCommandEncoder> pass = [commands() renderCommandEncoderWithDescriptor:d];
+    if (depth) {
+        __strong id<MTLDepthStencilState>& state = g->depth_states["blit"];
+        if (state == nil) {
+            MTLDepthStencilDescriptor* written = [MTLDepthStencilDescriptor new];
+            written.depthWriteEnabled = YES;
+            state = [g->device newDepthStencilStateWithDescriptor:written];
+        }
+        [pass setDepthStencilState:state];
+    }
     const float uv[4] = {x.a, y.a, x.b, y.b};
     const std::uint32_t linear = filter == GL_LINEAR ? 1 : 0;
     [pass setRenderPipelineState:pipeline];
@@ -849,21 +867,24 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
 }  // namespace
 
 // Copies of one size and format, resolves of a whole multisampled colour image into one of its
-// size, and colour blits between single-sampled float or normalised images drawn. A scaled,
-// flipped or converting blit of depth, of an integer image or of a multisampled one is
-// GL_INVALID_OPERATION (README.md).
+// size, and other blits between single-sampled images drawn. A scaled, flipped or converting
+// blit of stencil or of a multisampled image is GL_INVALID_OPERATION (README.md).
 void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
                             GLint dx1, GLint dy1, GLbitfield mask, GLenum filter) {
     const Target from = target_of(g->state.read_framebuffer);
     const Target to = target_of(g->state.draw_framebuffer);
-    auto blit_one = [&](id<MTLTexture> src, id<MTLTexture> dst) {
+    auto blit_one = [&](id<MTLTexture> src, id<MTLTexture> dst, bool stencil) {
         if (src == nil || dst == nil || src == dst) {
+            return;
+        }
+        const bool exact = is_depth(src.pixelFormat) || is_integer(src.pixelFormat);
+        if (is_integer(src.pixelFormat) != is_integer(dst.pixelFormat) || (exact && filter != GL_NEAREST)) {
+            fail(kGlInvalidOperation);
             return;
         }
         const int w = sx1 - sx0, h = sy1 - sy0;
         if (w <= 0 || h <= 0 || dx1 - dx0 != w || dy1 - dy0 != h || src.pixelFormat != dst.pixelFormat) {
-            if (is_depth(src.pixelFormat) || src.sampleCount > 1 || dst.sampleCount > 1
-                || is_integer(src.pixelFormat) || is_integer(dst.pixelFormat)) {
+            if (stencil || src.sampleCount > 1 || dst.sampleCount > 1) {
                 fail(kGlInvalidOperation);
                 return;
             }
@@ -918,10 +939,10 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
               destinationOrigin:MTLOriginMake(static_cast<NSUInteger>(ox), static_cast<NSUInteger>(oy), 0)];
     };
     if ((mask & GL_COLOR_BUFFER_BIT) != 0) {
-        blit_one(from.colour, to.colour);
+        blit_one(from.colour, to.colour, false);
     }
     if ((mask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) != 0) {
-        blit_one(from.depth, to.depth);
+        blit_one(from.depth, to.depth, (mask & GL_STENCIL_BUFFER_BIT) != 0);
     }
 }
 

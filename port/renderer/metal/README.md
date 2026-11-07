@@ -38,7 +38,8 @@ with Vulkan. The header gives the conventions.
 - [mtlgl_resources.mm](mtlgl_resources.mm): textures (with mips and BC6H/ASTC where the GPU has
   them), samplers, buffers, framebuffers, multisampled renderbuffers, `glReadPixels` (RGBA8, and
   RGBA16F as floats or bytes), `glCopyTexSubImage2D` (a copy between float or normalised formats
-  is drawn) and `glBlitFramebuffer` (a scaled, flipped or converting colour blit is drawn). A buffer updated while the GPU may still read it is copied
+  is drawn) and `glBlitFramebuffer` (a scaled, flipped or converting blit of colour, integers or depth is
+  drawn). A buffer updated while the GPU may still read it is copied
   first, so nothing waits for the GPU.
 - [mtlgl_draw.mm](mtlgl_draw.mm): shaders and programs (linked by `vkgl::compile_program`, then
   translated and compiled for Metal), uniforms, vertex arrays and draws, with their pipeline,
@@ -49,8 +50,8 @@ Metal has no triangle fans, 8-bit indices or unnormalised float inputs from inte
 them are refused (`GL_INVALID_ENUM`, then `GL_INVALID_OPERATION`), as no renderer uses them.
 
 Some operations are refused with `GL_INVALID_OPERATION` until they are done with draws: a copy
-between integer formats, a scaled or flipped blit of depth, of integers
-or of a multisampled image, and a resolve of part of an image or of depth.
+between integer formats, a scaled or flipped blit of stencil or of a multisampled image, and a
+resolve of part of an image or of depth.
 
 [tests/mtlgl_test.cpp](../../tests/mtlgl_test.cpp) (`ctest -R mtlgl`) opens it without a window.
 It clears and reads back, uploads and reads textures through framebuffers, resolves a multisampled

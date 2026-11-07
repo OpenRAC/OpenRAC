@@ -160,6 +160,25 @@ std::vector<std::uint8_t> pixels() {
     return out;
 }
 
+// A depth image drawn at 8², blitted up to kSide² and drawn behind: what shows is its shape.
+std::vector<std::uint8_t> scaled_depth_blit(GLenum depth, GLenum filter = GL_NEAREST) {
+    const GLuint from = framebuffer(texture(GL_RGBA8, 8), 8, depth);
+    glClearDepth(1.0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    program_of(kColourFragment);
+    draw({-1, -1, -0.5f, 0, 0, 0, 1, 0.5f, -1, -0.5f, 0, 0, 0, 1, -1, 0.25f, -0.5f, 0, 0, 0, 1});
+    const GLuint into = target(depth);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+    glBlitFramebuffer(0, 0, 8, 8, 0, 0, kSide, kSide, GL_DEPTH_BUFFER_BIT, filter);
+    glBindFramebuffer(GL_FRAMEBUFFER, into);
+    glDepthFunc(GL_LESS);
+    quad(0, 1, 1, 0);
+    glDisable(GL_DEPTH_TEST);
+    return pixels();
+}
+
 struct Case {
     const char* name;
     std::vector<std::uint8_t> (*run)();
@@ -324,6 +343,35 @@ void main() { result = texture(image, v_colour.xy); }
          glCopyTexSubImage2D(GL_TEXTURE_2D, 1, 2, 3, 0, 0, 9, 7);
          glBindFramebuffer(GL_FRAMEBUFFER, level);
          return pixels();
+     }},
+    {"scaled depth blit", [] { return scaled_depth_blit(GL_DEPTH_COMPONENT24); }},
+    {"scaled depth blit of depth and stencil", [] { return scaled_depth_blit(GL_DEPTH24_STENCIL8); }},
+    {"filtered depth blit", [] { return scaled_depth_blit(GL_DEPTH_COMPONENT24, GL_LINEAR); }},
+    {"scaled integer blit",
+     [] {
+         const GLuint image = texture(kRgba32ui, 4);
+         std::uint32_t texels[64] = {};
+         for (std::uint32_t i = 0; i < 64; ++i) {
+             texels[i] = i * 4;
+         }
+         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 4, 4, kRgbaInteger, kUnsignedInt, texels);
+         const GLuint from = framebuffer(image, 4);
+         const GLuint scaled = texture(kRgba32ui, kSide);
+         framebuffer(scaled, kSide);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(0, 0, 4, 4, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         const GLenum error = glGetError();
+         target();
+         glBindTexture(GL_TEXTURE_2D, scaled);
+         program_of(R"(#version 410 core
+uniform usampler2D image;
+layout(location = 0) out vec4 result;
+void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.0; }
+)");
+         quad(0, 0, 0, 0);
+         auto out = pixels();
+         out.back() = static_cast<std::uint8_t>(error & 0xFF);
+         return out;
      }},
     {"scaled multisampled blit",
      [] {
