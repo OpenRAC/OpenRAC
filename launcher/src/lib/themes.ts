@@ -21,7 +21,8 @@ export interface Theme {
 
 export const THEMES: Record<string, Theme> = {
   rac1: {
-    box: "#181820",
+    // The launcher's coal, not the site's navy-tinted #181820 (user decision: no navy).
+    box: "#191919",
     border: "#747669",
     text: "#c8d2ff",
     text2: "#9ca1d4",
