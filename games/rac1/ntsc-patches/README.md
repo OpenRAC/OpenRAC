@@ -10,8 +10,6 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
 - `config/us/port_symbols.txt`: the address of 49 readable names that some files call by a plain
   name and others label with `__asm__` (port/game/rac1-ntsc/hostgen.json "symbols"). Without them
   the port had no function for those names.
-- `config/us/port_aliases.h`: `func_0020D348_m`, the PAL decompilation's name for CreateMoby, written
-  as NTSC-U's `func_0020C4F8` (hostgen.json "aliases"); 45 files declare it bare.
 - `src/ui/menus/confirm_prompt_input.c`: C for `FUN_00221ab8`, the memory card prompt's Yes/No
   input, which splat has as a text gap (rac1-decomp's `Menu_ConfirmPromptInput`, the same 148 bytes).
 - `README.md`: Lombyte's README as OpenRAC keeps it, with the NTSC decomp named as OpenRAC names
@@ -32,7 +30,6 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
 Files under [files/](files) (copied as they are):
 
 - [`README.md`](files/README.md)
-- [`config/us/port_aliases.h`](files/config/us/port_aliases.h)
 - [`config/us/port_symbols.txt`](files/config/us/port_symbols.txt)
 - [`host/README.md`](files/host/README.md)
 - [`host/run.sh`](files/host/run.sh)

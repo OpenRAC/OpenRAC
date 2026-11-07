@@ -156,12 +156,6 @@ code passes. Same registers, no move added, so the PS2 build is unchanged.
 - FUN_L01_002efaf8, FUN_L02_002d6210, FUN_L06_002ea6a8, FUN_L11_00316210, FUN_L12_002e1758,
   FUN_L18_002d6190: each takes (moby, quad) and passes quad to FUN_L00_002dbb20. As above, for
   the second argument (a1), which FUN_L00_002dbb20 reads. Not rebuilt.
-- FUN_L09_002eaea8 (Gaspar's falling asteroid): its declaration of the dust spawn
-  FUN_L09_002efe48 follows the definition, (void *, float, float, void *, float *), and both
-  calls pass (m, radii, v2, movement_step). The declaration had the two pointers before the
-  floats; the registers are the same (a0-a2 and $f12, $f13: retail 0x2EB350-0x2EB364), but
-  translated, the origin and direction went into the radii and the radii into the pointers. Not
-  rebuilt.
 - FUN_L00_002da218 (a carried moby's class hook 4, the placing): takes (moby, b) and passes b to
   the hook. The C took one argument; the retail code
   (build/overlay-asm/level_00/split/f002DA218/FUN_L00_002da1e0.s) never touches a1 before its
@@ -194,7 +188,6 @@ code passes. Same registers, no move added, so the PS2 build is unchanged.
  src/overlays/l04/mobys/leg_walker.c           |  7 ++-
  .../l07/mobys/matches_first_moby_in_group.c   | 10 ++--
  .../l09/draw_level09_textured_surfaces.c      | 20 ++++---
- src/overlays/l09/mobys/asteroid.c             | 14 ++---
  src/overlays/l11/mobys/puffoid.c              | 19 +++---
  src/overlays/l12/mobys/hoven_anklebiter.c     | 18 +++---
  src/overlays/l14/mobys/minibomber.c           |  4 +-
@@ -226,7 +219,7 @@ code passes. Same registers, no move added, so the PS2 build is unchanged.
  .../packets/transform_scaled_vertex_batch.c   |  4 +-
  src/ui/help/force_help_message.c              |  4 +-
  src/ui/help/get_help_message_text.c           | 10 ++--
- 41 files changed, 241 insertions(+), 202 deletions(-)
+ 40 files changed, 234 insertions(+), 195 deletions(-)
 
 diff --git a/src/audio/sound/clamp_voice_position_to_collision.c b/src/audio/sound/clamp_voice_position_to_collision.c
 index c554b8d..009c9c3 100644
@@ -469,47 +462,6 @@ index 3f1cfb9..bcc9e0b 100644
      D_L09_001611B8[2][0] = 0x30000009;
      D_L09_001611B8[2][1] = (int)level09_scrolling_strip_gs_setup_packet;
      D_L09_001611B8[2][2] = 0;
-diff --git a/src/overlays/l09/mobys/asteroid.c b/src/overlays/l09/mobys/asteroid.c
-index 1e8eb11..08c281e 100644
---- a/src/overlays/l09/mobys/asteroid.c
-+++ b/src/overlays/l09/mobys/asteroid.c
-@@ -107,7 +107,7 @@ V6 D_L09_00208B18 = {
-     {0x2f005f7f, 0x2f004f7f, 0x2f003f7f, 0x2f00004f, 0x2f000000, 0x3f000000}
- };
- 
--extern char *FUN_L09_002efe48_c(void *, void *, void *, float, float) __asm__("FUN_L09_002efe48");
-+extern char *FUN_L09_002efe48_c(void *, float, float, void *, float *) __asm__("FUN_L09_002efe48");
- extern float D_L09_00173FE8 NOT_SDA;
- extern float D_0015ED6C     MACRO_ADDR;
- extern int                  FUN_001efa68(void *, void *, int, int, int);
-@@ -430,10 +430,10 @@ void update_falling_asteroid(Moby *falling_rock) {
-                 position_or_movement_step[2] = 25.0f;
-                 for (j = 4; j >= 0; j--) {
-                     FUN_L09_002efe48_c(falling_rock,
--                                       position_or_movement_step,
--                                       movement_step,
-                                        moby_vars->f50 * 4.0f,
--                                       moby_vars->f50 * 12.0f);
-+                                       moby_vars->f50 * 12.0f,
-+                                       position_or_movement_step,
-+                                       movement_step);
-                 }
-                 moby_vars->f54 = moby_vars->f54 * (frame_scale_macro * -0.100000024f + 1.0f);
-                 if (moby_vars->f58 <= 0) {
-@@ -516,10 +516,10 @@ void update_falling_asteroid(Moby *falling_rock) {
-             position_or_movement_step[2] = 25.0f;
-             for (j = 1; j >= 0; j--) {
-                 FUN_L09_002efe48_c(falling_rock,
--                                   position_or_movement_step,
--                                   movement_step,
-                                    moby_vars->f50 * 4.0f,
--                                   moby_vars->f50 * 12.0f);
-+                                   moby_vars->f50 * 12.0f,
-+                                   position_or_movement_step,
-+                                   movement_step);
-             }
-             if (falling_rock->state > scale_game_frames(10)) {
-                 mark_moby_for_removal(falling_rock);
 diff --git a/src/overlays/l11/mobys/puffoid.c b/src/overlays/l11/mobys/puffoid.c
 index 22bfadd..d9173f3 100644
 --- a/src/overlays/l11/mobys/puffoid.c
