@@ -348,7 +348,7 @@ class Game:
         if getattr(self, "_labels", None) is None:
             self._labels = {}
             pat = re.compile(r"\b([A-Za-z_]\w*)\s*\([^;{}]*\)\s*__asm__\s*\(\s*\"(\w+)\"\s*\)")
-            for path in sorted((self.source / "src").rglob("*.[ch]")):
+            for path in sorted(p for d in ("src", "include") for p in (self.source / d).rglob("*.[ch]")):
                 for m in pat.finditer(path.read_text(errors="replace")):
                     if any(p.match(m.group(2)) for p in self.code_names):
                         self._labels.setdefault(m.group(1), m.group(2))
