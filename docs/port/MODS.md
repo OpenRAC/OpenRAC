@@ -944,6 +944,15 @@ releases, a newer commit on its branch), and offers **Update** on the mod's
 row. A pinned mod (**Keep this version**) is never offered one. An update
 installs as a reinstall does: the mod's place, on/off and settings are kept.
 
+**GitHub's limit.** Without a login GitHub's API answers 60 requests an hour
+from one network, and reading a repository costs three (its releases, the
+commit, the file tree). The launcher keeps each API answer for five minutes
+(`remote::ApiCache`), so a check and **Update all** on a repository of many
+mods read it once; manifests come from raw.githubusercontent.com and archives
+from github.com, which the limit does not count. A `GH_TOKEN` or `GITHUB_TOKEN`
+in the launcher's environment is sent to the API (5,000 an hour); it is never
+stored or shown. When the limit is spent, the Mods tab says so and when it lifts.
+
 ### Mod codes
 
 Friends match their mods in one step (`launcher/core/src/modset.rs`, `profile.rs`). The Mods tab's
