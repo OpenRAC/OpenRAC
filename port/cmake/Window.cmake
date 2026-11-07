@@ -646,6 +646,11 @@ add_library(openrac_viewer_lib INTERFACE)
 target_link_libraries(openrac_viewer_lib INTERFACE openrac_scene_renderer openrac_enhanced_viewer
   openrac_enhanced_textures)
 
+# MobyProc's distance test and fade (game/common/moby_proc.h), which both games' profiles share.
+add_library(openrac_game_moby_proc STATIC game/common/moby_proc.cpp)
+target_link_libraries(openrac_game_moby_proc PUBLIC openrac_scene_renderer)
+openrac_warnings(openrac_game_moby_proc)
+
 # Ratchet & Clank's profile (game/common/profile.h): what the renderers read of the running game
 # from its memory (game/rac1/game_state.h), for rac1's programs (cmake/Games.cmake links it as
 # openrac_game_<game>_profile), the viewer and its tests.
@@ -655,7 +660,7 @@ add_library(openrac_game_rac1_profile STATIC
   game/rac1/shrub_proc.cpp
 )
 target_include_directories(openrac_game_rac1_profile PRIVATE runtime/include)
-target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer)
+target_link_libraries(openrac_game_rac1_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac1_profile)
 openrac_add_test(camera_target LIBS openrac_game_rac1_profile)
 openrac_add_test(moby_fade LIBS openrac_game_rac1_profile openrac_ps2float)
