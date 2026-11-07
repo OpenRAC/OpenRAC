@@ -1,9 +1,9 @@
-// For developers with more than one disc of a game in the games folder (core/src/disc_choice.rs):
+// For developers whose launcher knows more than one disc of a game (core/src/disc_choice.rs):
 // which version the game's page plays. Without a choice (a player, or one disc), the launcher
 // picks as it always has: the disc set up, else the first found, else the first playable.
 import type { DiscChoice } from "./api";
 
-/** The choice the games folder offers for GAME, if any (only with developer tools on). */
+/** The disc choice offered for GAME, if any (only with developer tools on). */
 export function choiceFor(choices: readonly DiscChoice[], game: string): DiscChoice | null {
   return choices.find((c) => c.game === game) ?? null;
 }
