@@ -1619,7 +1619,13 @@ TickMobys pose_mobys(
             });
         std::optional<std::uint8_t> distance_fade = std::uint8_t{0x80};
         if (!extra && world_ran && m.address + 0x34 <= ram.size() && !own_camera) {
-            distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            if (state.moby_view && g->profile->keeps_game_draw_distance(m.class_id)) {
+                host::GameState retail = state;
+                retail.moby_view->scale = 1.0f;
+                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, retail);
+            } else {
+                distance_fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            }
         }
         if (!distance_fade) {
 #ifdef OPENRAC_LIGHT_AUTHORING

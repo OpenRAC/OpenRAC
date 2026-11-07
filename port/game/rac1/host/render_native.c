@@ -178,7 +178,10 @@ static void mark_drawn_mobys(gaddr first, int count) {
             }
             /* Draw distance: the reach times its factor; Unlimited, any depth (a moby with no draw
              * distance stays undrawn). */
-            const float reach = scale > 0.0f   ? (float)distance * scale
+            /* Above Original, a quarter farther than the window draws it, so that one barely in
+             * view at the far end is already active. */
+            const float reach = scale > 1.0f   ? (float)distance * scale * 1.25f
+                                : scale > 0.0f ? (float)distance * scale
                                 : distance > 0 ? 3.0e38f
                                                : (float)distance;
             drawn = moby_in_view(d, rows, r, reach, tx, ty, wider);

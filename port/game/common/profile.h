@@ -288,6 +288,11 @@ public:
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
 
+    // Whether a moby class keeps the game's own draw distance whatever Draw distance says: one the
+    // game parks out of sight and shows only by its distance (Going Commando's Electrolyzer
+    // boards).
+    virtual bool keeps_game_draw_distance(int /*class_id*/) const { return false; }
+
     // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
     // level, which enhanced motion blur takes the cutscene's tuning for; none for a game without
     // one known.

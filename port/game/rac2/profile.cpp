@@ -363,6 +363,12 @@ constexpr std::array kEssentialMobys{
     3291,  // a crate's ammo pickup, flying to the hero (0xCDB)
 };
 
+// The Electrolyzer puzzles' boards: the controller (0x896, func_L02_003C26F0), the gates (0xA24),
+// platforms (0xA55) and rotators (0x873) its group holds, and the board's other pieces, every one
+// of them only in the levels with a controller. The game parks each board out of sight (Barlow's
+// at z 31 under its floor) and its pieces' draw distances (64, 128) keep them out of view there.
+constexpr std::array kBoardMobys{2163, 2198, 2596, 2645, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
+
 bool essential_moby(int class_id) {
     return std::find(kEssentialMobys.begin(), kEssentialMobys.end(), class_id)
            != kEssentialMobys.end();
@@ -474,6 +480,11 @@ public:
     // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,
     // Gameplay rim lighting); held items and the hero's attachments are added by the frontend.
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // An Electrolyzer board keeps the game's draw distance at every Draw distance (kBoardMobys).
+    bool keeps_game_draw_distance(int class_id) const override {
+        return std::find(kBoardMobys.begin(), kBoardMobys.end(), class_id) != kBoardMobys.end();
+    }
 
     // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }

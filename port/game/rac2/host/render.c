@@ -86,6 +86,17 @@ void func_002E3940(int shell) {
  * group mask at +0x36 against the table indexed by +0x37, the hidden bits of the mode at +0x34, the
  * bounding sphere against the draw distance (+0x32, at most the global one) and the view.
  */
+/* The Electrolyzer boards' classes (game/rac2/profile.cpp kBoardMobys). */
+static int board_moby(int class_id) {
+    static const int kBoard[] = {2163, 2198, 2596, 2645, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
+    for (size_t i = 0; i < sizeof(kBoard) / sizeof(kBoard[0]); ++i) {
+        if (kBoard[i] == class_id) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void mark_drawn_mobys(gaddr first, int count) {
     float eye[3], block[12], rows[12], tx, ty;
     memcpy(eye, G(OPENRAC_DATA(CAMERA_EYE)), sizeof(eye));
@@ -145,8 +156,15 @@ static void mark_drawn_mobys(gaddr first, int count) {
             /* As far as the window draws it (openrac_game_draw_distance): the active list
              * (func_002A08A0) takes a drawn moby whatever its update distance (+0x30), so what is
              * seen farther away moves too. A moby with no draw distance stays undrawn. */
-            const int near_only = scale <= 0.0f && distance > 0;
-            drawn = (near_only || z <= (float)distance * (scale > 0.0f ? scale : 1.0f))
+            /* An Electrolyzer board's piece keeps the game's distance (game/rac2/profile.cpp
+             * kBoardMobys): the game parks the boards out of sight within reach of a longer one. */
+            /* Above Original, a quarter farther than the window draws it, so that one barely in
+             * view at the far end is already active. */
+            const float own = board_moby(*(int16_t*)(b + 0xAA)) ? 1.0f
+                              : scale > 1.0f                    ? scale * 1.25f
+                                                                : scale;
+            const int near_only = own <= 0.0f && distance > 0;
+            drawn = (near_only || z <= (float)distance * (own > 0.0f ? own : 1.0f))
                     && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
                     && fabsf(y) - r * ky <= ty * z;
         }
