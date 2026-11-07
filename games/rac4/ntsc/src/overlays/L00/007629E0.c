@@ -13,8 +13,8 @@ void func_L00_007629E0(s32 arg0, s32 *arg1) {
     do {
         temp_v0 = *var_a1;
         var_v1 -= 1;
-        var_a1 += 4;
+        var_a1 += 1;
         *var_a0 = temp_v0;
-        var_a0 += 4;
+        var_a0 += 1;
     } while (var_v1 >= 0);
 }

@@ -13,7 +13,7 @@ s32 func_L01_0047ED00(s32 arg0) {
 loop_1:
     if (*var_v1 != arg0) {
         var_a0 += 1;
-        var_v1 += 4;
+        var_v1 += 1;
         if (var_a0 >= 0x19) {
             return 0;
         }

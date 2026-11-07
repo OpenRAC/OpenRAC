@@ -13,7 +13,7 @@ void func_L01_00666830(void) {
     var_s1 = 9;
     var_v1 = D_003660F8;
     do {
-        var_s0 += 4;
+        var_s0 += 1;
         var_s1 -= 1;
         if (var_v1 != 0) {
             func_L01_00666888(var_v1);
