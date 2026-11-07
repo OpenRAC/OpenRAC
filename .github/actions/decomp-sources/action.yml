@@ -9,5 +9,7 @@ runs:
     - name: Submodules and patches
       shell: bash
       run: |
+        # Jobs in a container run as another user than the one owning the checkout.
+        git config --global --add safe.directory '*'
         git -c core.autocrlf=false submodule update --init --depth 1 --jobs 4
         "$(command -v python3 || command -v python)" tools/sources.py apply
