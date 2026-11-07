@@ -121,11 +121,17 @@ playWithMods: boolean,
  */
 crashesSeen: { [key in string]: number }, 
 /**
- * For developers with more than one disc of a game in the games folder: the version each
+ * For developers whose launcher knows more than one disc of a game: the version each
  * game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
  * (disc_choice.rs); without one, the disc set up, as for a player.
  */
 discChoice: { [key in string]: string }, 
+/**
+ * For developers: the image each version was last set up from (`rac1/ntsc` -> the .iso), so
+ * the disc switch offers that version without a games folder (disc_choice.rs). An image
+ * moved, deleted or now another disc is not offered.
+ */
+discImages: { [key in string]: string }, 
 /**
  * The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
  * underscores, made up at the first start and changed in Settings. Given to the game as

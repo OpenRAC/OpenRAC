@@ -85,7 +85,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Fedora's row runs in Fedora itself; the others on the runner.
     container: ${{ matrix.container }}
-    timeout-minutes: 60
+    # A row's own limit where its build is longer (timeout, below), else an hour.
+    timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
       NAME: ${{ matrix.name }}
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -106,8 +107,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Every game's programs, Going Commando's three among them, with link-time optimisation
+          # on a four-core runner: with a cold compiler cache the build alone is about two hours
+          # (half its compiles were done when an hour's limit stopped it, 2026-11-07). A warm cache
+          # takes it under half an hour. The programs are built here and not in jobs of their own:
+          # tools/bundle_standalone.py and tools/asm_part.py read them in the build's own folder.
           - name: windows
             os: windows-latest
+            timeout: 180
             python: x86_64-pc-windows-msvc
             python_sha256: 11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a
             tauri: build
@@ -168,8 +175,12 @@ jobs:
           # APK, signed with the launcher's own key when the repository has it (the
           # ANDROID_KEYSTORE secrets: updates install only over an APK of the same key), else
           # with the runner's debug key; the device tests are in port/android/README.md.
+          # Every game's libraries, twice each (the game's and its windowless checks'): with a cold
+          # compiler cache about an hour and a quarter (four fifths done at an hour, 2026-11-07);
+          # tools/build_android.py builds and collects them in one folder.
           - name: android
             os: ubuntu-latest
+            timeout: 120
             targets: aarch64-linux-android
             tauri: android build --apk --target aarch64 --debug
             files: launcher/src-tauri/gen/android/app/build/outputs/apk/*/debug/OpenRAC*.apk*

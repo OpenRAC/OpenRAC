@@ -85,12 +85,17 @@ fn check_game(game: &str) -> Result<&str, String> {
     }
 }
 
+/// What the extractor wrote in `iso_data` (`buildinfo.json`): the disc a set-up was made from.
+/// Read from `iso_data/<game>`, or from a set-up kept aside (`iso_data/<game>@<version>`,
+/// disc_choice.rs).
+pub fn build_info(iso_data: &Path) -> Option<BuildInfo> {
+    let text = std::fs::read_to_string(iso_data.join("buildinfo.json")).ok()?;
+    serde_json::from_str::<Vec<BuildInfo>>(&text).ok()?.into_iter().next()
+}
+
 pub fn state(install: &Path, game: &str) -> InstallState {
     let dir = data_dir(install, game);
-    let extracted = std::fs::read_to_string(dir.join("iso_data").join(game).join("buildinfo.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<Vec<BuildInfo>>(&text).ok())
-        .and_then(|list| list.into_iter().next());
+    let extracted = build_info(&dir.join("iso_data").join(game));
     let filled = |sub: &str| std::fs::read_dir(dir.join(sub).join(game)).is_ok_and(|mut d| d.next().is_some());
     InstallState { decompiled: filled("decompiler_out"), compiled: filled("out"), extracted, dir }
 }
