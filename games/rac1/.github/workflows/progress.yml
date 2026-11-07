@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
 
@@ -115,7 +115,7 @@ jobs:
         run: python tools/gen_functional_list.py
 
       - name: Upload the progress report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCES_509.16_report
           path: |
@@ -124,21 +124,21 @@ jobs:
           if-no-files-found: error
 
       - name: Upload the PAL v1.00 report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCES_509.16_v1_report
           path: progress/pal_v1/report.json
           if-no-files-found: error
 
       - name: Upload the NTSC-J report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCPS_150.37_report
           path: progress/jp/report.json
           if-no-files-found: error
 
       - name: Upload the NTSC-U report (the NTSC decomp)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCUS_971.99_report
           path: ${{ env.NTSC_DIR }}/build/progress/report.json
