@@ -115,6 +115,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));
+    const float scale = openrac_game_draw_distance();
     const uint8_t* groups = G(OPENRAC_DATA(MOBY_GROUPS));
     for (gaddr m = first; (count < 0 || m != end) && m - first < 0x100u * 4096u; m += 0x100) {
         uint8_t* b = G(m);
@@ -141,7 +142,12 @@ static void mark_drawn_mobys(gaddr first, int count) {
             const float z = d[0] * rows[0] + d[1] * rows[1] + d[2] * rows[2];
             const float x = d[0] * rows[4] + d[1] * rows[5] + d[2] * rows[6];
             const float y = d[0] * rows[8] + d[1] * rows[9] + d[2] * rows[10];
-            drawn = z <= (float)distance && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
+            /* As far as the window draws it (openrac_game_draw_distance): the active list
+             * (func_002A08A0) takes a drawn moby whatever its update distance (+0x30), so what is
+             * seen farther away moves too. A moby with no draw distance stays undrawn. */
+            const int near_only = scale <= 0.0f && distance > 0;
+            drawn = (near_only || z <= (float)distance * (scale > 0.0f ? scale : 1.0f))
+                    && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
                     && fabsf(y) - r * ky <= ty * z;
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);
