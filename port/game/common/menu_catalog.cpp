@@ -166,6 +166,15 @@ constexpr Entry kEntries[] = {
      "Controllers work in the background",
      "The controllers still play while another window is in front. Off: the game ignores them "
      "while it is alt-tabbed or minimised."},
+    {Id::RumbleStrength, Tab::Controls, "Vibration", kChoice, A, "Vibration",
+     "How strong the controller vibrates. Off: never."},
+    {Id::RumbleStyle, Tab::Controls, "Vibration", kChoice, A, "Vibration style",
+     "Enhanced: smoother and easier to feel on modern controllers. Classic: the game's raw "
+     "values."},
+    {Id::RumbleTriggers, Tab::Controls, "Vibration", kSwitch, A, "Vibration in the triggers",
+     "Also vibrate the triggers, on controllers that have trigger motors (Xbox One and later)."},
+    {Id::RumblePhone, Tab::Controls, "Vibration", kSwitch, T, "Vibrate the phone",
+     "With touch controls, the phone or tablet vibrates."},
     {Id::ConnectedControllers, Tab::Controls, "Players", kPanel, A, "Controllers connected",
      "Each controller connected, lit while a button is pressed on it, and the player it is."},
     {Id::PlayersReset, Tab::Controls, "Players", kAction, A, "Players back to the defaults",

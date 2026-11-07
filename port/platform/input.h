@@ -36,6 +36,7 @@
 #include "platform/menu_chord.h"
 #include "platform/pad.h"
 #include "platform/players.h"
+#include "platform/rumble.h"
 #include "platform/touch_pad.h"
 
 union SDL_Event;
@@ -96,8 +97,21 @@ public:
     // The game has read the port's pad: the buttons tapped since (taps) count no more.
     void taps_read(int port);
 
-    // The game sets the motors here (scePadSetActDirect); update() plays them.
-    Pad& pad(int port) { return m_pads[static_cast<std::size_t>(port)]; }
+    // The game's motor values for a port (sent each time it reads the pad). update() plays them
+    // on the player's gamepad, or the phone. Not renewed for kMotorHoldNs: both motors off.
+    void set_motors(int port, const MotorCommand& command);
+
+    // The last motor values, and what was sent to the pad (for tests and tools).
+    const MotorCommand& motors(int port) const {
+        return m_motors[static_cast<std::size_t>(port)].command;
+    }
+
+    const RumbleOutput& rumble_output(int port) const {
+        return m_rumble[static_cast<std::size_t>(port)].sent;
+    }
+
+    // Stops all rumble now.
+    void stop_rumble();
 
     // The keyboard and mouse as update() last read them, for the mods.
     const KeyboardMouse& keyboard_mouse() const { return m_km; }
@@ -167,6 +181,12 @@ public:
 
 private:
     SDL_Gamepad* gamepad(int port) const;
+
+    // Plays the game's motor commands (update()): each port's shaper, then its gamepad, or for
+    // port 0 without one the device's vibrator.
+    void play_rumble();
+    // The device's own vibrator (a phone's), opened the first time it is needed; null if none.
+    SDL_Haptic* device_vibrator();
     struct Connected {
         SDL_Gamepad* gamepad = nullptr;
         std::uint64_t active_ns = 0;  // SDL's time of its last press or stick pushed well out
@@ -195,6 +215,35 @@ private:
     void capture_step();
 
     std::array<Pad, kPadPorts> m_pads{};
+
+    // The game's motor commands, and when each was given (SDL's ns).
+    struct Motors {
+        MotorCommand command;
+        std::uint64_t ns = 0;
+    };
+
+    // How long a motor value stays valid (games resend it every frame).
+    static constexpr std::uint64_t kMotorHoldNs = 200'000'000;
+    // Each command to the pad lasts kRumbleMs and is resent every kRumbleRenewNs, so the pad
+    // stops by itself if frames stop.
+    static constexpr std::uint32_t kRumbleMs = 250;
+    static constexpr std::uint64_t kRumbleRenewNs = 100'000'000;
+    std::array<Motors, kPadPorts> m_motors{};
+
+    // Per port: the shaper, the gamepad it plays on, and what was sent when.
+    struct Rumble {
+        RumbleShaper shaper;
+        SDL_Gamepad* gamepad = nullptr;
+        bool vibrator = false;  // played on the device's vibrator
+        float vibrator_sent = 0.0f;
+        RumbleOutput sent;
+        std::uint64_t sent_ns = 0;
+    };
+
+    std::array<Rumble, kPadPorts> m_rumble{};
+    std::uint64_t m_rumble_ns = 0;  // the last play_rumble()
+    SDL_Haptic* m_vibrator = nullptr;
+    bool m_vibrator_tried = false;
     // The gamepads in port order: first those used so far (the first m_used), then the others in
     // the order they came. A gamepad pressed takes port 0 when port 0's has been left alone for
     // kHandOverNs (or was never used).

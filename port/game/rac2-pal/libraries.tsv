@@ -164,6 +164,7 @@ func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
 func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
 func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
 func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
+func_00128FD0	vib	sceVibSetActParam	host	the motors the pad poll (func_002B85F8) sends each read, packed by the profile sceVibGetProfile gave; played by the window (lib/pad.c)
 # sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
 # instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
 # from the host's libm, whose last bit differs between macOS and glibc, and level starts built the

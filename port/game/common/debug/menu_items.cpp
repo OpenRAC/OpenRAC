@@ -370,6 +370,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:
@@ -696,6 +700,10 @@ bool act(Id id, int by) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:

@@ -16,7 +16,8 @@
  * A figure is a moby of the hero's class, 0, which every level has loaded (initialize_hero binds
  * the hero to the level's placed moby of class 0): CreateMoby (func_0020D348) makes one as the
  * space scene's companion is made (space.c). It is the hero's look only: no update function (the
- * class's would run the hero's), no collision (+0x94 0, every primitive off at +0x98), out of the
+ * class's would run the hero's), no collision of its own (every primitive off at +0x98, but on
+ * for the update of an enemy that takes it for the hero: world.c's stand-in), out of the
  * target list (flag 0x1000, which the hero's lock-on and weapons read). The moby loop (UpdateMobys)
  * still advances its animation (MobyAnimAdvance, flag 0x40 clear) and rebuilds its matrix from
  * its rotation (flag 4 clear), so the mod sets its pose and the game animates it. Its look is the
@@ -456,7 +457,9 @@ static gaddr figure_spawn(void) {
         return 0;
     }
     GREF(gaddr, moby + MOBY_UPDATE) = 0;
-    GREF(uint32_t, moby + MOBY_COLLISION) = 0;
+    /* Its class's collision stays (the hero's: two primitives, no mesh), every primitive off
+     * (+0x98): nothing finds it, but it is on the moby grid where it stands, so a stand-in can
+     * turn it on for one update (world.c). */
     GREF(int32_t, moby + MOBY_COLLISION_OFF) = -1;
     GREF(uint16_t, moby + MOBY_FLAGS) =
         (uint16_t)(GREF(uint16_t, moby + MOBY_FLAGS)
