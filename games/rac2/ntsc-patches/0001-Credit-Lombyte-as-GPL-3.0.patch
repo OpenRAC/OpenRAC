@@ -396,7 +396,7 @@ index ceebba9..8896e0a 100644
      unsigned char *q;
      q = *(unsigned char **)(r1_D_L10_0015F050 + i * 0x20 + 0x1C);
 diff --git a/src/levels/shared/L03_002AB5C8.c b/src/levels/shared/L03_002AB5C8.c
-index 48e196f..dc55405 100644
+index fa46d58..8e85f95 100644
 --- a/src/levels/shared/L03_002AB5C8.c
 +++ b/src/levels/shared/L03_002AB5C8.c
 @@ -407,7 +407,7 @@ void func_L03_002BC430(void) {

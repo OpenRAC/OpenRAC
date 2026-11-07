@@ -35,9 +35,9 @@
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "93ac3849711fd9777426565604e63995c3bd0217",
-        "date": "2026-11-06",
-        "imported": "2026-11-06"
+        "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
+        "date": "2026-11-07",
+        "imported": "2026-11-07"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
