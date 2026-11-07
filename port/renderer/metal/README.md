@@ -96,9 +96,18 @@ then asks `mtlgl::get_proc` for every function `gl::load` needs. If Metal cannot
 missing, the log says why and the window draws with OpenGL: not Vulkan, which on Apple's systems is
 MoltenVK on the same Metal.
 
-It draws what OpenGL draws. The enhanced renderer (shadows, water, FSR3, HDR, frame
-interpolation) runs only on Vulkan's render graph, so under Metal the game looks as it does on
-OpenGL.
+It draws what OpenGL draws, but for the differences under Shaders and one rounding Metal's API
+cannot match. OpenGL turns z into window depth as `z / w * 0.5 + 0.5`; Metal is given
+`(z + w) * 0.5` and divides it by w itself, and the last bit differs for about two points in
+five. Metal would round as OpenGL with z as it is and a depth range of 0.5 to 1, but it clips
+depth outside 0 to 1 before that range, and clamping instead flattens all that is nearer. So
+where two surfaces meet at nearly the same depth, a pixel on their edge can show the other one:
+in `remote-mac.sh`'s levels, about two pixels in ten thousand differ on an M1. On an R9 M370X
+about one in ten differs, nearly all by 1 (filtering, above), and three in ten thousand by more
+than 8.
+
+The enhanced renderer (shadows, water, FSR3, HDR, frame interpolation) runs only on Vulkan's
+render graph, so under Metal the game looks as it does on OpenGL.
 
 The `_metal` tests (`ctest --preset release -R _metal`) run the drawing tests on it with Metal's
 API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
