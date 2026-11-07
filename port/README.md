@@ -26,6 +26,9 @@ read the decompilation) and Python 3.
   (`CMAKE_OSX_DEPLOYMENT_TARGET`). `--preset release-x86_64` builds for Intel
   Macs and `--preset release-universal` for Apple silicon and Intel in one
   binary; both build SDL3 in, as Homebrew's is for one architecture only.
+  With the Xcode app, `cmake --preset xcode` writes
+  `build/xcode/openrac_port.xcodeproj`, to build, run and debug in Xcode (its
+  GPU frame capture shows the Metal renderer's passes).
 - On Linux the build uses mold or lld and ccache when installed
   (`-DOPENRAC_PORT_FAST_BUILD=OFF` turns that off).
 - `python3 tools/build_port.py [GAME] [--source DIR]`, run from the top of

@@ -76,18 +76,39 @@ API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
 
 1. Build (only the Command Line Tools are needed: `xcode-select --install`), from `port/`:
    `cmake --preset release && cmake --build --preset release`.
-2. Set a game up once from your disc image, into a folder of your choice:
-   `./build/release/openrac-extractor ~/discs/rac1.iso --game rac1 --proj-path ~/OpenRAC/active/rac1/data`.
-   A folder the launcher has already set up (`<install>/active/rac1/data`) works too.
-3. Play on Metal:
-   `OPENRAC_GL_API=metal ./build/release/openrac-rac1-ntsc --data ~/OpenRAC/active/rac1/data`.
+2. Your disc as an ISO. A `.chd` is turned into one with MAME's `chdman` (`brew install
+   rom-tools`): `chdman extractcd -i rac1.chd -o rac1.cue -ob rac1.iso`.
+3. Set the game up once, into a folder of your choice:
+   `./build/release/openrac-extractor ~/discs/rac1.iso --game rac1 --proj-path ~/OpenRAC/active/rac1/data`,
+   then its levels, from the top of OpenRAC (about a quarter of an hour):
+   `python3 editor/extract.py port ~/discs/rac1.iso ~/OpenRAC/active/rac1/data/port/ntsc --anywhere`.
+   A folder the launcher has already set up (`<install>/active/rac1/data`) has both.
+4. Play on Metal:
+   `OPENRAC_GL_API=metal ./build/release/openrac-rac1-ntsc --data ~/OpenRAC/active/rac1/data --window`.
    The log's `graphics: <GPU>, Metal, the renderer's GL carried out with Metal` line says it
    is on Metal; a `Metal could not be used (...)` warning says why it is on OpenGL instead.
-4. To compare, run the same command with `OPENRAC_GL_API=desktop` (OpenGL).
+5. To compare, run the same command with `OPENRAC_GL_API=desktop` (OpenGL).
+
+## Trying it on another Mac
+
+[tools/remote-mac.sh](../../tools/remote-mac.sh) sends a build to another Mac over ssh, runs the
+Metal tests there and the game on both APIs, and brings the logs and screenshots back to
+`build/remote/<host>/`. For an Intel Mac, from `port/`:
+
+1. On that Mac: System Settings, General, Sharing, Remote Login on; stay logged in at its screen
+   (the tests open windows).
+2. Here: `ssh-copy-id you@that-mac.local`, then
+   `cmake --preset release-x86_64 && cmake --build --preset release-x86_64`.
+3. `tools/remote-mac.sh you@that-mac.local --data ~/OpenRAC/active/rac1/data`.
+
+Each game log's `graphics:` line names the GPU it ran on. A MacBook Pro with two GPUs gives
+Metal its discrete one; for the integrated one, run `sudo pmset -a gpuswitch 0` on it first
+(`sudo pmset -a gpuswitch 2` switches back). A GPU older than `MTLGPUFamilyMac2` (Haswell's Iris
+Pro, for one) is not used: the game says so and draws with OpenGL.
 
 ## Still to come
 
 - The rest of `renderer/gl.h`: compute.
 - The renderers' picture tests (`render_equivalence`, `texture_filter`) run on it.
 - The shader compiler moved out of `../vulkan`, so Metal no longer needs `OPENRAC_VULKAN`.
-- macOS 12 as the deployment target, an Intel and universal build, iOS, Xcode projects.
+- iOS.
