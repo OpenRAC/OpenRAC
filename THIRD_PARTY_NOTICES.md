@@ -302,6 +302,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## Python on iOS
+
+The iOS application embeds CPython 3.14 through
+[BeeWare's Python Apple Support 3.14-b14](https://github.com/beeware/Python-Apple-support/releases/tag/3.14-b14)
+to run OpenRAC's existing local disc exporter. It uses the public Python embedding API;
+the game remains native C/C++. Python's PSF license and its bundled-library notices are
+carried in `python/lib/python3.14/LICENSE.txt` inside the application. No game assets or
+user-supplied Python code are bundled or executed by the importer. The extension-framework
+layout follows the [CPython iOS documentation](https://docs.python.org/3.14/using/ios.html).
+
 ## AgX colour conversion matrices
 
 `port/enhanced/renderer/shaders/agx.frag` adapts the AgX colour conversion matrices from

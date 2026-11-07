@@ -4,7 +4,8 @@
 # Tauri commands over `core`. See docs/ARCHITECTURE.md.
 [workspace]
 resolver = "2"
-members = ["core", "src-tauri"]
+members = ["core", "ios", "src-tauri"]
+default-members = ["core", "src-tauri"]
 
 [workspace.package]
 version = "1.0.2"

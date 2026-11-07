@@ -1,0 +1,7 @@
+{
+  "rac1-ntsc": {
+    "key": "rac1/ntsc",
+    "importer": "rac1",
+    "readyFile": "port/ntsc/level_00/manifest.json"
+  }
+}

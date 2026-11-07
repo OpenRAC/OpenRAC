@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   // The website's sticky orange bar (openrac-site src/components/Header.tsx):
   // the OpenRAC logo in the bar's ink, and round pills in a shade of it: the tabs, the site, Discord.
   // On Android the same places are a navigation rail on the left, or a bar at the bottom when
@@ -103,6 +104,10 @@
         <button
           class="tab"
           class:on
+          disabled={tab.page === "mods" && !supports(app.info, "mods")}
+          title={tab.page === "mods" && !supports(app.info, "mods")
+            ? "Mods are not available in this build"
+            : undefined}
           data-page={tab.page}
           aria-current={on ? "page" : undefined}
           onclick={() => (app.page = tab.page)}

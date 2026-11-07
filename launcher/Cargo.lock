@@ -2645,6 +2645,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "openrac-launcher-ios"
+version = "1.0.2"
+dependencies = [
+ "openrac-launcher-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

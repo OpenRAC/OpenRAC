@@ -167,6 +167,8 @@ pub enum Platform {
     Windows,
     /// The Android launcher (docs/port/ANDROID.md): it plays from the copy it carries.
     Android,
+    /// iPhone and iPad: local preparation and an engine carried in the signed application.
+    Ios,
 }
 
 impl Platform {
@@ -177,6 +179,8 @@ impl Platform {
             Platform::Macos
         } else if cfg!(target_os = "android") {
             Platform::Android
+        } else if cfg!(target_os = "ios") {
+            Platform::Ios
         } else {
             Platform::Linux
         }
@@ -188,6 +192,7 @@ impl Platform {
             Platform::Macos => "macOS",
             Platform::Windows => "Windows",
             Platform::Android => "Android",
+            Platform::Ios => "iOS",
         }
     }
 }
