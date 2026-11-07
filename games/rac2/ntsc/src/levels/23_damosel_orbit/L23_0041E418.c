@@ -8,8 +8,6 @@ extern void func_00282DD8(float *, float *, float *);
 
 /* func_L23_0041E418 is defined in L23_0041E418-g8.c (this unit has no $gp access for it). */
 
-INCLUDE_ASM("asm/levels", func_L23_0041E538);
-
 /* func_L23_0041E5B0 is defined in its dedicated source unit. */
 
 char *func_L23_00422540(char *pos, char *dir, float *damage) {
@@ -162,7 +160,7 @@ void func_L23_00429FF8(u8 *arg0) {
     }
 }
 
-INCLUDE_ASM("asm/levels", func_L23_0042A018);
+/* func_L23_0042A018 is defined in L23_0042A018-g8.c. */
 
 /* func_L23_0042A438 is defined in L23_0042A438-g8.c. */
 

@@ -33,9 +33,10 @@ source method or adding a compiler mechanism. At revision
 
 - [`movie/vobuf.c`](https://github.com/OpenRAC/rac1-decomp/blob/e7e787ed94f0d56c1ab617e7abdb83ac6db787ec/src/game/movie/vobuf.c#L68)
   and [`hud.c`](https://github.com/OpenRAC/rac1-decomp/blob/e7e787ed94f0d56c1ab617e7abdb83ac6db787ec/src/game/hud.c#L469)
-  use volatile memory fields to retain reloads. Such a field need not be MMIO:
-  establish the actual access widths, offsets and ordering from the retail body.
-  A synthetic volatile local or extra access is not equivalent evidence.
+  use volatile memory fields to retain reloads. That route is not available here:
+  `volatile` describes memory, so it is for hardware registers and memory a second
+  context writes, never for a measured reload in ordinary data (AGENTS.md, Rules). A
+  function that only matches with it stays in `nonmatching/`.
 - [`map.c`](https://github.com/OpenRAC/rac1-decomp/blob/e7e787ed94f0d56c1ab617e7abdb83ac6db787ec/src/game/map.c#L642)
   declares the same target with different integer/FP interleavings. The EE assigns
   the two banks independently. A typed interleaving may change argument setup
@@ -44,17 +45,57 @@ source method or adding a compiler mechanism. At revision
   This does not justify permuting arguments inside a bank or omitting an argument.
 
 RAC2 already uses this call-shape method in `func_0030E700` and Barlow helpers.
+Meaningful one-pass statement groups are also present in active RAC1 game C at
+[`1d8228cc`](https://github.com/OpenRAC/rac1-decomp/tree/1d8228cc0c81da7bc2bdc3e77479ee050e0ef434):
+[`taxi_and_mine_layer.c`](https://github.com/OpenRAC/rac1-decomp/blob/1d8228cc0c81da7bc2bdc3e77479ee050e0ef434/src/overlays/l03_kerwan/taxi_and_mine_layer.c#L1391)
+groups an actual mission-field read, and
+[`map_menu_filters.c`](https://github.com/OpenRAC/rac1-decomp/blob/1d8228cc0c81da7bc2bdc3e77479ee050e0ef434/src/overlays/shared/map_menu_filters.c#L212)
+groups an actual inner loop. `tools/overlay_asm.py` discovers these overlay
+sources; the public release maps include matched entries from them. Following
+the current RAC1 source-practice rule, a nonempty `do { real_operation; } while (0)`
+can group necessary operations here too. It may preserve compiler loop notes,
+scheduling or label alignment without adding runtime instructions. Empty loops,
+dummy values, false tests, extra accesses and changed call contracts remain
+excluded; a group must preserve the original control flow and side effects.
+The three centered-text draws (`func_002CDA20`, `func_002CF2B8`, `func_002D53F0`)
+group their real formatter call, preserving its 64-bit style argument and the
+text getter's signed 32-bit EE address result. `func_L02_003FB000` groups its
+final 16-bit report-state store. All 84 strict release programs pass, with the
+functions present in each carrying program. These are source forms, not compiler patches.
+
 Different C declarations across units need a consistent interface or adapter for
 a native ABI; an EE match alone does not establish a working native port.
 Qualify the actual RAC2 source/profile and every carrying release, rather than
 assuming that an example in RAC1 guarantees a match here.
 
+An unused incoming argument also needs caller evidence. The retail
+`func_002CD3C0` explicitly passes its owner pointer to `func_0034EBE0` and
+`func_0034EC70`, although both helpers initialize resident state without reading
+that parameter. Their definitions now accept the same ignored pointer as the
+caller; the complete compiled helper object is unchanged. An unused register
+left at return is a separate question and does not establish a return value.
+Separating the screen-coordinate lifetime from the borrowed owner pointer
+resolves the title/setup caller's allocation difference without sharing a
+misleading integer local between those roles.
+
+The rectangle setup forwarders (`func_0029B658`, `func_US2_0029C448`,
+`func_PAL_0029BFF0`) also preserve four FP inputs. Retail leaves `f12` through
+`f15` unchanged in the wrapper, and `func_003384C0` consumes all four before
+its first call. Declare and forward those bounds explicitly, using the typed
+renderer interface already used in `00336A78.c`. The three complete objects
+remain identical. A native 32-bit C regression tests the context, flags, four
+bounds and null-context path; its prior-source control fails on the lost FP
+arguments. Ambient register contents are not a C argument-forwarding contract.
+[PR #420](https://github.com/OpenRAC/rac2-decomp/pull/420) contains the source
+repairs, the regression and the linked-placement checks.
+
 `func_L02_003D0408` uses one borrowed actor-field view for all six measured
-byte reads at offset `0x60`. Its volatile qualifier describes the complete
+byte reads at offset `0x60`. Its volatile qualifier reproduces the complete
 reload sequence, including two snapshots before the distance test on its
 abandon path. The animation writer `func_002A7470` clears the same bit after
-updating the sequence/frame. This is an access model, not proof of the original
-source qualifier. Both local vectors own their full 16 bytes; the xyz-only
+updating the sequence/frame. It landed before `volatile` was ruled out of
+matched C (AGENTS.md, Rules) and needs plain C without it, or a move back to
+`nonmatching/`. Both local vectors own their full 16 bytes; the xyz-only
 random-vector helper does not justify inventing an initialized fourth lane.
 The interleaved particle call preserves four integer and four FP arguments,
 including its actual vector pointer and byte tag. The ignored-pointer hook
@@ -153,6 +194,9 @@ wrong profile with extra operations or knowingly false prototypes.
 | Public SDK/libgcc source differs under game compiler | sdk profile, accurate types and inline declarations | func_00122800, func_00122B00 |
 | libgcc `_eh.o` (L_eh): preserve the frame at final calls and place the exception-return stub correctly | sdk profile with -fexceptions, as GCC's libgcc Makefile builds _eh.o (rac3-decomp builds its copy the same way) | func_00120A30, func_001208E8; paired throw/rethrow func_00120F00 and func_001210E0 |
 | Whole GPR save area uses sq/lq | -mastra-quad-saves | func_00119BC8, func_00115F28, func_00115C90 |
+| Quad slots: `sd $ra` below `sq $s0` | -mastra-quad-saves -frac2-narrow-saves-below, `register_precision(ra, 64)` | func_L01_00324550, func_L08_00389B68 |
+| Copy of a zero set in the same block stays a register copy | -frac2-keep-block-zero-copy | func_002F7320 |
+| A volatile asm ends the forward delay-slot search past later loads | -frac2-sticky-volatile-refs | func_L00_002A9460 |
 | Two-word truncation cannot fill return slot | -mastra-split-trunc-slot | func_0012E8C8 |
 | SDK unit: a volatile access or sign extension fills a `jal`/`jr` slot | -Wa,--r5900-swap-branch-slots | func_001253A8, func_0012E378, func_0011C000 |
 | Arguments spilled and branch to common epilogue | Measured -O0 unit, not an invented varargs helper | func_001175F0 |
@@ -231,6 +275,8 @@ keeps generic frame scheduling by default; `-mastra-keep-frame-order` is an expl
 experiment. `func_002B7170` needs the generic order plus measured source lifetimes
 and stores. No frame-order option fixes arbitrary entry-block allocation.
 
+### Short-loop padding
+
 Short-loop padding must run after delay-slot scheduling: this C pipeline uses GNU
 `as`, rather than the assembler assumed by patch 0054.
 [enable_loop_padding.py](../tools/compiler/transformers/enable_loop_padding.py)
@@ -278,6 +324,36 @@ It runs after count_block_move_length.py and extends the same counter condition.
 No matched function changes: `build.py all --strict` is OK with both patches.
 Test: [test_count_asm_words.py](../tests/test_count_asm_words.py).
 
+Inserted padding also advances the running word count. The pass places nops
+before the branch it is already visiting, so they will not be visited later.
+Without accounting for them, a second back edge to the same label adds redundant
+padding. Both filled and assembler-filled delay-slot paths now count those nops.
+Authored single-pair, independent-pair and volatile polling controls inspect the
+actual assembled backward spans; the previous compiler fails all three. This
+recovers `func_00294420`'s two tests of a shared search-loop head without changing
+its C operations. Symbolic macro-length estimation is a separate limitation.
+
+The counter also handles one measured symbolic class: an ordinary, external
+32-bit register load/address whose assembler metadata has not been emitted yet.
+GAS expands it to two words in reorder mode, even when the scheduler length is
+one. `SYMBOL_REF_USED` establishes external provenance during expansion, and
+the existing `TREE_ASM_WRITTEN` markers distinguish prior announcements and
+definitions. Definitions are marked at `-G0` too, without changing emitted
+assembly. Both raw `*name` and ordinary name spellings are respected.
+
+This applies only to simple SI register SETs on R5900/GAS: not delay-slot
+sequences, stores, FP/wide operations, PIC or buffered extern output. Explicit
+`SDATA` aliases are excluded because their `__gp` metadata is supplied by the
+existing assembly-input pass. Scheduler lengths and compiler-authored operations
+are untouched. [test_symbolic_loop_words.py](../tests/test_symbolic_loop_words.py)
+checks unknown addresses/loads, early SDA, incomplete SDATA, both alias spellings
+and an external defined between functions. The previous compiler produces
+eight-word loops in the three positive cases; all seven controls pass with the
+corrected counter. The linked C witnesses are `func_002EEBC8` (one place per USA
+release and 28 in PAL) and `func_002F0FA0` (28 in each release). The complete
+84-program strict qualification preserves every existing match and accepts
+all 114 placements of these two bodies.
+
 ### Quadword saves and return slots
 
 Patch 0058 enables `-mastra-quad-saves` per file: all GPR slots widen to TImode and
@@ -285,6 +361,46 @@ the GPR order retains the released descending walk; default output is unchanged.
 Witnesses include `func_00119BC8` (48 bytes), `func_00115F28` (80) and
 `func_00115C90` (92). The last also needs its failure value compared as unsigned
 `0xFFFFFFFF` to preserve the immediate sequence.
+
+Two variadic level functions mix widths in quad slots: func_L01_00324550 (132 bytes,
+11 places; `sd $ra,0x200` below `sq $s0,0x210`) and func_L08_00389B68 (264 bytes, 4 places;
+`sd $ra,0x0` below `sq $s0,0x10`), each restoring `lq $s0` before `ld $ra`. A scan of every
+catalogue prologue finds one other frame mixing `sq` and `sd` GPR saves, func_L02_00411D18
+(`sq $s2` in a 16-byte slot below 8-byte ones), which this rule does not cover. The stock EE
+attribute `register_precision(ra, 64)` on the prototype narrows the `$ra` save to `sd`, but
+the save loop still gives `$ra` the top slot.
+[narrow_saves_below.py](../tools/compiler/transformers/narrow_saves_below.py) adds
+`-frac2-narrow-saves-below`: with `-mastra-quad-saves` the loop walks the registers saved at
+the slot's full width first, then the narrower ones, so the narrower save sits below. A frame
+whose saves all have one width keeps `$ra` on top, as func_00115C90 and func_00115FC0 do;
+without `-mastra-quad-saves` the option has no effect. Forced on in every game unit, it changes
+none of 7,572 (144 SDK units use another compiler). `register_precision` sets the mode for the
+rest of the unit, so each function has a file of its own. The attribute is an inference from
+the save widths, not a recovered source line.
+
+func_002F7320 (132 bytes, 28 places) starts `daddu $t1,$zero,$zero ... daddu $a3,$t1,$zero`
+for `int result = 0; int i = result;`. Stock cse folds that copy to `move $a3,$0`: CONST_INT
+costs 0 and a pseudo 1. With the copy alive, result=0 has a dependent, sched1 moves it ahead
+of the argument copies and allocation becomes retail's (a0 value, a3 i, t1 result).
+[keep_block_zero_copy.py](../tools/compiler/transformers/keep_block_zero_copy.py) adds
+`-frac2-keep-block-zero-copy`: cse keeps a copy from one pseudo to another whose value is known
+to be 0 when its source is set earlier in the same basic block; the REG_EQUAL note still gives
+loop.c the zero start. Without the same-block limit, forced on, it changes one matched body,
+func_00349680, where jump1's duplicated loop-exit copy `lo = hi` sees a zero from an earlier
+block and retail keeps `move $18,$0`. With the limit, forced on in every game unit, it changes
+none of 7,577 others (144 SDK units use another compiler).
+
+func_L00_002A9460 (412 bytes, 27 places) differs from stock cc1 in one delay slot: retail puts
+`addiu $s1,$s1,%lo(D_00189E20)` in the slot of its second call, stock in the first. reorg's
+forward search from the first call passes the second qcopy asm (volatile). The EE tree's
+resource.c predates GCC 2.95's 6 May 1999 change (Mark Mitchell: "Make volatil monotonically
+increasing"): mark_referenced_resources assigns `res->volatil = MEM_VOLATILE_P (x)`, so the
+next ordinary load clears the flag and the search goes on to the addiu. Upstream 2.95 and
+2.95.3 use `|=` there. [sticky_volatile_refs.py](../tools/compiler/transformers/sticky_volatile_refs.py)
+adds `-frac2-sticky-volatile-refs`: the MEM and ASM_OPERANDS cases of
+mark_referenced_resources keep the flag set. Forced on in every game unit it changes none of
+8,510 others. The mark_set_resources half of the same upstream change is not applied: forced
+on it also changes matched func_00132498 (0 of 1 places).
 
 Patch 0057 enables `-mastra-split-trunc-slot`: split `truncdisi2` after reload and
 before scheduling so its second shift can fill the return slot. `func_0012E8C8`
@@ -688,7 +804,15 @@ unconditional. The archive's `reload_reg_free_for_value_p` returns 0 for a regis
 spill set (`IOR_COMPL_HARD_REG_SET (reload_reg_used, chain->used_spill_regs)`). Patch 0047,
 the GCC 2.95.2 reload1.c in Lombyte's stack, drops that test, so reload could inherit a
 spilled pseudo's value into a hard register that a pseudo of the same insn holds. The
-transformer restores the archive's test and leaves the rest of 0047 alone.
+transformer restores that exclusion without changing the rest of 0047.
+
+The excluded set is a snapshot taken immediately after the spill-set complement.
+The mutable `reload_reg_used` also accumulates `RELOAD_OTHER` marks later in the
+instruction: testing those marks at entry rejects a reload's own register before
+the existing lifetime loop can skip `i == reloadnum`. The immutable snapshot
+rejects genuinely unavailable registers while that loop continues to reject
+overlapping reloads. This removes the intermediate color spills in the trail,
+quad and grid renderers without deleting the count-reload safeguard below.
 
 The visible case is a count in a stack slot, incremented and then compared: the increment's
 output reload leaves the value in `$v0`, and local-alloc gives the `slt` result `$v0` too.
@@ -696,15 +820,18 @@ Without the test the compare inherits it (`addiu $v0,$v0,1; sw $v0,n; slti $v0,$
 with it the compare reloads the slot (`sw $v0,n; lw $v1,n; slti $v0,$v1,128`), and the
 round-robin reload registers after it move on by one, as retail's do.
 
-Witnesses: `func_L00_003C5B88` (1,804 bytes) and its 22 copies in other levels are exact
+Historical qualification: `func_L00_003C5B88` (1,804 bytes) and its 22 copies in other levels were exact
 under it: the count reload after `n++` and the index reloads in `$a0` were their only
 differences. Every matched function of the 28 programs compiles to the same bytes with and
 without it (`tools/build.py all --strict`, 28 of 28). Of 625 profiled near misses in
 `nonmatching/`, 57 compile differently; 9 of their functions come closer to retail,
 3 move further and the rest are unchanged. [tests/test_reload_reg_used_guard.py](../tests/test_reload_reg_used_guard.py)
-checks the anchor and two authored controls: a count compared after its increment is
-reloaded into `$v1`, and an increment whose reload register is a spill register of the
-compare is still inherited.
+checks the anchors and the two original object controls. A native harness additionally
+compiles the actual prepared GCC predicate and covers self-inheritance, non-spill
+exclusions, other reload lifetimes, equal read-only inputs, multi-register overlaps
+and reset at the next instruction. The old mutable-set guard fails the self case;
+removing the guard fails the unavailable-register case. These are negative controls,
+not substitutes for linked game builds.
 
 ### Clear scheduling and materialized stack zeros
 
@@ -1185,6 +1312,28 @@ without the change. A division emitted inside a noreorder region still gets no n
 floor. [test_div_label_after_call.py](../tests/test_div_label_after_call.py) covers
 the label, no-label and noreorder cases.
 
+Across a non-PIC GP relaxation fragment, the label-distance calculation follows
+the selected expansion when its symbol already has a size or section. The
+alternative `lui`/load words stored for relaxation are not additional emitted
+instructions. Thus a labelled GP load followed by `div.s` receives one nop,
+just like an explicit GP operand; an absolute two-word expansion receives none.
+Unknown forward symbols, alignment and unsupported fragment kinds retain the
+previous fallback. This is a bounded distance correction, not general relaxation
+or SDK equivalence. [test_div_gp_fragments.py](../tests/test_div_gp_fragments.py)
+checks authored GP, absolute, two-load, `.word` and unknown-symbol controls. The
+previous assembler fails only the one-load GP macro control. The corresponding
+C witnesses are `func_L05_00419CC8` and `func_L00_00424F98`, at four and 27
+placements respectively in each USA release; neither identity is carried in PAL.
+
+The strict USA regression exposed one existing source dependency on the old
+overcount: `func_L30_00383398` gained a nop before its brightness division.
+Its final pixel-address arithmetic is scheduled between the bounds loads;
+separate debug source lines introduced a label before the last GP load.
+Keeping the whole brightness calculation, clamp and store on one source line
+preserves retail's lack of that label and restores all 1,424 bytes. No C
+operation or evaluation order changes. This existing function earns no new
+matching credit.
+
 The genuine SDK 3.01 oracle Ps2EeAs has SHA-256
 `cb5adda955e64626564212ef7e0c1434708c4e1ef423344a92ec8033306ed3aa`.
 The SN 2.0 full-image assembler has SHA-256
@@ -1389,6 +1538,7 @@ oracle, and a same-size draft screen is not a match or current progress.
 | TImode reload count | [test_ti_one_gpr.py](../tests/test_ti_one_gpr.py) |
 | Inheritance into non-spill registers | [test_reload_reg_used_guard.py](../tests/test_reload_reg_used_guard.py) |
 | Null-pointer-check pass | [test_no_null_pointer_checks.py](../tests/test_no_null_pointer_checks.py) |
+| Width-ordered quad saves | [test_narrow_saves_below.py](../tests/test_narrow_saves_below.py) |
 | Masks/sign seed | [test_dli_masks.py](../tests/test_dli_masks.py) |
 | Inline li.d into GPRs | [test_inline_li_d.py](../tests/test_inline_li_d.py) |
 | Hazard labels | [test_hazard_labels.py](../tests/test_hazard_labels.py), [hazard_labels.s](../tests/fixtures/hazard_labels.s) |

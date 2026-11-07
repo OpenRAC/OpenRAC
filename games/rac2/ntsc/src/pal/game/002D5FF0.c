@@ -2,6 +2,10 @@
 
 INCLUDE_ASM("asm/pal/game", func_PAL_002D5FF0);
 
+INCLUDE_ASM("asm/pal/game", func_PAL_002D6058);
+
+INCLUDE_ASM("asm/pal/game", func_PAL_002D60C8);
+
 extern int D_00138344;
 extern void func_0029CF08(int);
 extern int D_00138344;
@@ -340,15 +344,10 @@ void func_PAL_002D6A48(char *object, int *result) {
 
 
 
-INCLUDE_ASM("asm/pal/game", func_PAL_002D6A98);
-
-INCLUDE_ASM("asm/pal/game", func_PAL_002D6E30);
-
-INCLUDE_ASM("asm/pal/game", func_PAL_002D74D8);
 
 
 
-INCLUDE_ASM("asm/pal/game", func_PAL_002D7B68);
 
 
-INCLUDE_ASM("asm/pal/game", func_PAL_002D82D8);
+
+

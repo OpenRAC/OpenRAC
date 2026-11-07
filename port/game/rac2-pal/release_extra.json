@@ -1,0 +1,7 @@
+{
+  "about": "This release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
+  "from_assembly": {
+    "func_0034A870": "src/pal/game/0034A870-cc.c declares its last callee, func_PAL_0034ABB0, void where its definition returns int: the inherited result does not compile",
+    "func_002CBD80": "src/pal/game/002CBD80-g8.c declares func_PAL_0034ABB0 void too (as above)"
+  }
+}

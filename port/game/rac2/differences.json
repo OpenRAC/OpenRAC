@@ -6,37 +6,37 @@
       "id": "wide-moby-effects",
       "kind": "fix",
       "name": "Wide-screen effects",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "A moby near the side of a picture wider than 4:3 counts as out of view for its effects.",
       "port": "MobyProc's drawn test runs against the wider picture. The game then runs differently with the picture's shape (a moby drawn makes its effects, which take random numbers and spawn), as it would on a wider console picture; it is the only thing that does: off, the game's memory at 16:9 and 21:9 is the same for 4,000 ticks of level 3, as at 4:3. Off, it runs against the 4:3 view, and mobys near the sides lose their effects.",
       "setting": {"key": "fix_wide_moby_effects", "default": true},
-      "refs": ["port/game/rac2-ntsc/host/render.c"]
+      "refs": ["port/game/rac2/host/render.c"]
     },
     {
       "id": "wide-nanotech-orbs",
       "kind": "fix",
       "name": "Wide-screen crate orbs",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "The glowing orb on a nanotech crate draws itself only while its centre is inside the game's 4:3 view.",
       "port": "The orb's view test runs against the wider picture. Off, it runs against the 4:3 view, and orbs near the sides are missing.",
       "setting": {"key": "fix_wide_nanotech_orbs", "default": true},
-      "refs": ["port/game/rac2-ntsc/host/wide_view.c"]
+      "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
       "id": "wide-liquids",
       "kind": "fix",
       "name": "Wide-screen scenery",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "The draw callbacks cull what they send against the 4:3 view.",
       "port": "Each draw callback list runs with the view tests opened as far as the picture is wider. Off, they run against the 4:3 view, and what they draw is missing near the sides.",
       "setting": {"key": "fix_wide_liquids", "default": true},
-      "refs": ["port/game/rac2-ntsc/host/wide_view.c"]
+      "refs": ["port/game/rac2/host/wide_view.c"]
     },
     {
       "id": "frames-between-ticks",
       "kind": "port",
       "name": "Frames between ticks",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "One picture a game tick, 60 a second.",
       "port": "The game still ticks 60 times a second, but the port also draws frames between ticks, with the camera, the mobys and their poses moved from one tick to the next, at the display's rate or the Frame rate setting.",
       "refs": ["docs/port/SETTINGS.md (2. The tick and the frames)", "port/game/common/settings.h"]
@@ -45,28 +45,28 @@
       "id": "wide-picture",
       "kind": "port",
       "name": "Wider pictures",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "A 4:3 picture, or the game's own 16:9 option, which narrows the vertical view and leaves the television to stretch it.",
       "port": "A wider picture keeps the game's vertical field of view and shows more of the world to the sides. The game's 16:9 option has no meaning in a window, and the port keeps it off.",
-      "refs": ["docs/port/SETTINGS.md (1. The settings)", "port/game/rac2-ntsc/host/options.c"]
+      "refs": ["docs/port/SETTINGS.md (1. The settings)", "port/game/rac2/host/options.c"]
     },
     {
       "id": "remembered-options",
       "kind": "port",
       "name": "Remembered sound",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "The Sound page (playback mode, music and sound volume) resets at power off.",
       "port": "The port keeps the Sound page in its settings file and puts it back at every start. A loaded save's Sound page still replaces it, as on the console, and is kept from then on.",
-      "refs": ["port/game/rac2-ntsc/host/options.c"]
+      "refs": ["port/game/rac2/host/options.c"]
     },
     {
       "id": "start-skips-scenes",
       "kind": "port",
       "name": "Start skips cutscenes",
-      "discs": ["ntsc"],
+      "discs": ["ntsc", "pal", "ntsc2"],
       "original": "Start needs the shoulder buttons held with it to skip a scene. The ship leaving a planet skips on Cross or Triangle only, and the flight between planets cannot be skipped.",
       "port": "With the Skip cutscenes setting on (the default), Start alone skips an in-game scene: the port holds the shoulder buttons for it, so the game's own skip ends the scene. Start also presses Cross while the ship leaves a planet, and ends the flight between planets once the next planet is read from the disc: the flight's lap and then the approach end, and the planet loads as it would have. The planet's arrival scene then plays; Start skips it as any other scene. Off, Start works as on a console.",
-      "refs": ["port/game/rac2-ntsc/host/tools.c"]
+      "refs": ["port/game/rac2/host/tools.c"]
     }
   ]
 }

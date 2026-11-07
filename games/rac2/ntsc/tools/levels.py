@@ -837,15 +837,246 @@ FUNCTION_ENTRY_OFFSETS = {
     "func_US2_0032F944": (2224, 100),
     "func_US2_L09_00409904": (1744, 4),
     "func_US2_L10_0036A298": (288, 16),
+    "func_PAL_002CE9BC": (96, 4),
+    "func_PAL_002D022C": (96, 4),
+    "func_PAL_002D5A04": (452, 4),
+    "func_PAL_002FBEB4": (748, 4),
+    "func_PAL_00303BA4": (916, 76),
+    "func_PAL_00314B5C": (4204, 4),
+    "func_PAL_003161FC": (284, 4),
+    "func_PAL_003198A4": (5296, 92),
+    "func_PAL_0031E96C": (140, 4),
+    "func_PAL_0033423C": (2672, 28),
+    "func_PAL_003373BC": (188, 4),
+    "func_PAL_L00_00349574": (96, 4),
+    "func_PAL_L00_0034ADE4": (96, 4),
+    "func_PAL_L00_0038822C": (844, 4),
+    "func_PAL_L00_003BD904": (2512, 4),
+    "func_PAL_L00_003C715C": (964, 4),
+    "func_PAL_L00_003CA0B4": (2076, 4),
+    "func_PAL_L00_003CC93C": (2632, 4),
+    "func_PAL_L00_003EBF24": (440, 4),
+    "func_PAL_L00_003EEF94": (636, 4),
+    "func_PAL_L00_00402D4C": (1120, 4),
+    "func_PAL_L00_0040779C": (2416, 4),
+    "func_PAL_L00_0042E68C": (1032, 4),
+    "func_PAL_L01_0037B73C": (1316, 4),
+    "func_PAL_L01_003B93DC": (4976, 4),
+    "func_PAL_L01_003BFAF4": (1352, 4),
+    "func_PAL_L01_00416484": (188, 4),
+    "func_PAL_L01_00432064": (980, 4),
+    "func_PAL_L02_003C6394": (6620, 4),
+    "func_PAL_L02_003D3AF4": (1864, 4),
+    "func_PAL_L02_003DBD24": (5600, 4),
+    "func_PAL_L02_003E5D6C": (1840, 4),
+    "func_PAL_L02_003F639C": (7324, 4),
+    "func_PAL_L02_004030B4": (3820, 4),
+    "func_PAL_L02_00410A1C": (3332, 4),
+    "func_PAL_L02_0041B204": (748, 4),
+    "func_PAL_L02_0044B234": (2048, 4),
+    "func_PAL_L03_003C5A84": (5684, 4),
+    "func_PAL_L03_00422624": (2292, 4),
+    "func_PAL_L04_003E61CC": (10400, 4),
+    "func_PAL_L04_0040F2AC": (3444, 4),
+    "func_PAL_L04_0041E49C": (5132, 4),
+    "func_PAL_L05_0033ED34": (44, 4),
+    "func_PAL_L05_004259FC": (1456, 4),
+    "func_PAL_L06_00422184": (4300, 4),
+    "func_PAL_L06_004347BC": (2540, 4),
+    "func_PAL_L06_00461504": (840, 4),
+    "func_PAL_L06_004695FC": (1060, 4),
+    "func_PAL_L07_003EA44C": (2040, 4),
+    "func_PAL_L07_003EEC8C": (2532, 4),
+    "func_PAL_L07_003F85AC": (1388, 4),
+    # Retired by RELEASE_ROW_MERGES, but the entry repair must run first so their bodies fingerprint alike: keep.
+    "func_PAL_L08_003B1594": (796, 4),
+    "func_PAL_L08_003DF82C": (992, 4),
+    "func_PAL_L08_003FB594": (2372, 4),
+    "func_PAL_L08_00422A2C": (3368, 4),
+    "func_PAL_L08_0042BE14": (4988, 4),
+    "func_PAL_L08_0043B2AC": (672, 4),
+    "func_PAL_L09_003C4454": (1708, 4),
+    "func_PAL_L09_0041FC4C": (920, 4),
+    "func_PAL_L10_0041AD3C": (928, 4),
+    "func_PAL_L10_00426194": (1152, 4),
+    "func_PAL_L10_00428C8C": (204, 4),
+    "func_PAL_L11_003FDC7C": (1208, 4),
+    "func_PAL_L11_00439ADC": (1176, 4),
+    "func_PAL_L11_004439E4": (8116, 4),
+    "func_PAL_L11_00449CBC": (5028, 4),
+    "func_PAL_L11_00456D04": (4892, 4),
+    "func_PAL_L12_003A44BC": (2188, 4),
+    "func_PAL_L12_003E4E5C": (2696, 4),
+    "func_PAL_L12_0041D6B4": (2148, 12),
+    "func_PAL_L12_004294CC": (824, 4),
+    "func_PAL_L13_0040B7AC": (8648, 4),
+    "func_PAL_L13_0040F08C": (7176, 4),
+    "func_PAL_L14_003E3E84": (3500, 4),
+    "func_PAL_L14_003E6114": (1168, 4),
+    "func_PAL_L14_003F53E4": (300, 4),
+    "func_PAL_L14_0042B28C": (2444, 4),
+    "func_PAL_L14_0042C5AC": (784, 4),
+    "func_PAL_L14_0042CCA4": (3188, 4),
+    "func_PAL_L15_003DF93C": (5924, 4),
+    "func_PAL_L16_0040C384": (1512, 4),
+    "func_PAL_L16_00410D14": (1932, 4),
+    "func_PAL_L16_00421AFC": (536, 4),
+    "func_PAL_L17_003CBDF4": (1672, 4),
+    "func_PAL_L18_0043A56C": (1404, 4),
+    "func_PAL_L18_0043C3F4": (2448, 4),
+    "func_PAL_L19_003E0F5C": (2612, 20),
+    "func_PAL_L19_00416A3C": (1672, 4),
+    "func_PAL_L19_0041A8A4": (2972, 4),
+    "func_PAL_L19_0043054C": (1600, 4),
+    "func_PAL_L20_0043A00C": (776, 4),
+    "func_PAL_L22_003AF154": (1244, 4),
+    "func_PAL_L22_003BCCAC": (4064, 4),
+    "func_PAL_L22_003FFAFC": (1768, 4),
+    "func_PAL_L22_004115DC": (3536, 4),
+    "func_PAL_L26_003D881C": (960, 4),
+    "func_PAL_L26_003DFB1C": (1612, 4),
+    "func_PAL_L30_0041DB3C": (1228, 4),
+    "func_PAL_0030A9D8": (2820, 24),
+    "func_PAL_0030F460": (1740, 8),
+    "func_PAL_003188D8": (2564, 56),
+    "func_PAL_0032B930": (2104, 512),
+    "func_PAL_00333360": (2420, 8),
+    "func_PAL_00336710": (1924, 8),
+    "func_PAL_L00_0039C018": (1064, 8),
+    "func_PAL_L19_003E4048": (5012, 8),
+    "func_PAL_L24_003FED38": (2052, 8),
+    "func_US2_0028DC24": (2588, 4),
+    "func_US2_002CE9D4": (96, 4),
+    "func_US2_002D023C": (96, 4),
+    "func_US2_002D0D04": (1100, 4),
+    "func_US2_002D5A44": (452, 4),
+    "func_US2_002D6024": (192, 4),
+    "func_US2_002FAB0C": (1532, 4),
+    "func_US2_002FBCEC": (748, 4),
+    "func_US2_00315AEC": (316, 4),
+    "func_US2_0031E14C": (140, 4),
+    "func_US2_003364DC": (196, 4),
+    "func_US2_L00_00348244": (96, 4),
+    "func_US2_L00_00349AAC": (96, 4),
+    "func_US2_L00_00390CB4": (936, 4),
+    "func_US2_L00_003F51EC": (1216, 4),
+    "func_US2_L00_003FF2E4": (1176, 4),
+    "func_US2_L01_003DAD3C": (2664, 4),
+    "func_US2_L01_0040153C": (828, 4),
+    "func_US2_L01_0041264C": (188, 4),
+    "func_US2_L02_003C3B7C": (6620, 4),
+    "func_US2_L02_003FFEDC": (3812, 4),
+    "func_US2_L02_00417BEC": (748, 4),
+    "func_US2_L03_0041E914": (2196, 4),
+    "func_US2_L04_0040C224": (3388, 4),
+    "func_US2_L04_0041B01C": (5148, 4),
+    "func_US2_L05_0041EFBC": (1212, 4),
+    "func_US2_L05_00421F7C": (1456, 4),
+    "func_US2_L08_003DB3BC": (5448, 4),
+    "func_US2_L08_003F82AC": (2372, 4),
+    "func_US2_L08_0041EDCC": (3336, 4),
+    "func_US2_L08_00424F74": (5572, 4),
+    "func_US2_L10_00422824": (1152, 4),
+    "func_US2_L10_00425104": (204, 4),
+    "func_US2_L11_00399764": (608, 4),
+    "func_US2_L11_0043F9DC": (8116, 4),
+    "func_US2_L11_00445CB4": (5028, 4),
+    "func_US2_L11_0044754C": (508, 4),
+    "func_US2_L11_00452BAC": (4860, 4),
+    "func_US2_L13_0040BC84": (7068, 4),
+    "func_US2_L13_0041CAFC": (1068, 4),
+    "func_US2_L14_003F64DC": (1340, 4),
+    "func_US2_L14_004284F4": (760, 4),
+    "func_US2_L16_003C404C": (1792, 4),
+    "func_US2_L19_0042BE14": (1504, 4),
+    "func_US2_L20_0036F994": (12, 4),
+    "func_US2_L30_003B4E94": (2736, 4),
+    "func_US2_L02_00400E04": (728, 12),
+    "func_US2_L11_0044709C": (784, 12),
     "func_US2_L16_0034DE08": (288, 16),
     "func_US2_L19_00353D38": (288, 16),
     "func_US2_L19_003DEC48": (3336, 8),
     "func_US2_L19_004131DC": (596, 4),
+    # Stack-restore residue, then an empty callback whose address is built with
+    # lui/addiu at every placement (US/PAL/US2); 5 November 2026.
+    "func_0032A130": (16, 8),
+    "func_L03_0041B848": (16, 8),
+    "func_PAL_0032B920": (16, 8),
+    "func_PAL_L00_003E63F0": (16, 8),
+    # Two 0xCDCDCDCD fill words after the previous return, then a syscall-0
+    # stub; nothing enters the fill in US/PAL/US2; 6 November 2026.
+    "func_0011A7F8": (24, 8),
+    # Seven 0xCDCDCDCD fill words after the previous return, then the privileged
+    # exception handler (k0, CP0, eret); nothing enters the fill in US/PAL/US2.
+    "func_0011F364": (636, 28),
+    # 7 November 2026: filler, stack restores or an orphan instruction ahead of a
+    # stack-frame prologue at every place; no jump, branch, aligned word or lui/addiu
+    # pair enters the prefix in any of the release's programs.
+    "func_0032A140": (2104, 512),
+    "func_PAL_00321BC0": (4576, 80),
+    "func_PAL_00335118": (1596, 56),
+    "func_PAL_L00_0039C438": (1856, 8),
+    "func_PAL_L04_003FE9E8": (4524, 8),
+    "func_PAL_L17_003A7DB0": (528, 8),
+    "func_PAL_L23_003C1280": (4068, 8),
+    "func_US2_003342A8": (1604, 64),
+    # A row that starts inside its function: the prologue is 32 bytes earlier, in
+    # the row before it (see FUNCTION_END_EXTRA), and the end does not move.
+    "func_PAL_0029C8A0": (456, -32),
+}
+
+
+# Rows measured one word short: the catalogued extent ends on the body's last
+# `jr $ra` and leaves its delay slot to the next row. Give the slot back.
+FUNCTION_DELAY_SLOTS = {
+    # PAL only: `jr $ra; addiu $sp,$sp,0x20` restores its own -0x20 frame at
+    # all 27 placements; the rest of the old next row is a residue.
+    "func_PAL_L00_0030BA80": 336,
+}
+
+
+# Rows with a measured wrong end, corrected once from that size. Most end on
+# `jr ra` and the delay slot belongs to them.
+FUNCTION_END_EXTRA = {
+    "func_PAL_L00_003FB330": (832, -4),
+    "func_PAL_L00_00418F28": (816, -4),
+    "func_PAL_L17_00388C38": (1088, -4),
+    "func_PAL_L18_00438248": (608, -4),
+    "func_PAL_L00_002A7D48": (5628, 4),
+    "func_PAL_L00_0039BE70": (424, 4),
+    "func_PAL_L00_003C64E8": (1604, 4),
+    "func_PAL_L00_003E1488": (964, 4),
+    "func_PAL_L00_003EED30": (556, 4),
+    "func_PAL_L01_002C1C58": (2476, 4),
+    "func_PAL_L02_003EFD50": (1204, 4),
+    "func_PAL_L20_0039FEA0": (996, 4),
+    "func_US2_00295D70": (444, 4),
+    "func_US2_002AF9C8": (140, 4),
+    "func_US2_002ECC48": (972, 4),
+    "func_US2_L00_003C3BE8": (1604, 4),
+    # USA v1.01 boot and 27 levels: the VU0 routine ends at its `jr $ra` and delay
+    # slot (404 bytes). The 248 bytes after it are out-of-line blocks of
+    # func_002F1E88: only its branches enter them, they jump back into it and the
+    # last one restores the registers it saved. 6 November 2026.
+    "func_002F2758": (652, -248),
+    # Past the end or short of it, 7 November 2026: the first two stop just before the
+    # epilogue's last load, so the load, the return and its slot belong to them; the
+    # third runs past its return into the next function's prologue.
+    "func_PAL_002FB8D0": (1196, 12),
+    "func_PAL_L00_0039C018": (1044, 12),
+    "func_PAL_0029C820": (128, -36),
 }
 
 
 def function_extent(name: str, address: int, size: int) -> tuple[int, int]:
     """Apply a named, measured entry correction once; reject unexpected extents."""
+    if name in FUNCTION_DELAY_SLOTS:
+        short = FUNCTION_DELAY_SLOTS[name]
+        if size not in (short, short + 4):
+            raise ValueError(f"{name}: {size} bytes, expected {short} or {short + 4}")
+        return address, short + 4
+    if name in FUNCTION_END_EXTRA and size == FUNCTION_END_EXTRA[name][0]:
+        size += FUNCTION_END_EXTRA[name][1]
     if name not in FUNCTION_ENTRY_OFFSETS:
         return address, size
     original, skip = FUNCTION_ENTRY_OFFSETS[name]
@@ -889,6 +1120,93 @@ FUNCTION_RESIDUES = {
     "func_002DE7F0": 28,
     "func_002E3E50": 4,
     "func_00335E28": 12,
+    # 5 November 2026 audit: each follows a completed return (or tail jump) and
+    # delay slot; no direct branch/jump, aligned loaded word or lui/addiu pair
+    # enters it at any placement of USA v1.01, PAL or USA v2.00 carrying the name.
+    "func_0033B538": 4,
+    "func_003495B8": 4,
+    "func_0034CE88": 12,
+    "func_L00_0031A710": 20,
+    "func_0029B848": 12,
+    "func_00288D40": 20,
+    "func_002ED570": 4,
+    "func_0029CEC8": 12,
+    "func_002ED9A8": 20,
+    "func_002EEBB0": 20,
+    "func_002ED880": 28,
+    "func_002ED848": 36,
+    "func_002ED8F0": 84,
+    "func_00280660": 12,
+    "func_002B80B8": 76,
+    "func_L05_0033CD40": 28,
+    "func_L05_0033F4A8": 156,
+    "func_002B0A08": 12,
+    "func_L05_0037B6C0": 12,
+    "func_L05_0037BB78": 20,
+    "func_L09_003FB780": 4,
+    "func_00130AAC": 4,
+    "func_00290718": 4,
+    "func_002FC460": 4,
+    "func_002FC510": 4,
+    "func_002FC618": 4,
+    "func_002FC868": 4,
+    "func_003380A8": 4,
+    "func_L25_00373ED0": 4,
+    "func_L25_00373F08": 4,
+    "func_0011B580": 8,
+    "func_0011FA48": 8,
+    "func_0011C8C8": 12,
+    "func_00272540": 12,
+    "func_002B49A0": 12,
+    "func_002DF630": 12,
+    "func_0031E6D8": 12,
+    "func_00326CA8": 12,
+    "func_0032FDC0": 12,
+    "func_L01_0042C450": 12,
+    "func_L23_0041E538": 12,
+    "func_0012F998": 16,
+    "func_0026FEF0": 20,
+    "func_002725C8": 20,
+    "func_00298D10": 20,
+    "func_002B8530": 20,
+    "func_L25_00373EE0": 20,
+    "func_L30_0032AAF0": 20,
+    "func_0011E920": 24,
+    "func_002B4068": 36,
+    "func_00123490": 44,
+    "func_0012FB10": 52,
+    "func_0011ED28": 56,
+    "func_00129410": 64,
+    "func_0031D350": 132,
+    "func_003356E8": 172,
+    "func_003172D0": 188,
+    "func_00335270": 252,
+    "func_00314CF8": 300,
+    # 6 November 2026: two stack restores and orphan $v0 moves after a completed
+    # return at all 27 placements of each release (in PAL the first word is the
+    # predecessor's delay slot, see FUNCTION_DELAY_SLOTS); no reference enters it.
+    "func_L00_00309DB0": 28,
+    # 6 November 2026: stack restores, nops and one orphan store after a completed
+    # return, boot only (US/US2 444 bytes, PAL 432); no reference enters them.
+    "func_00334550": 444,
+    "func_PAL_003361E8": 432,
+    # 7 November 2026: the same audit, release rows only: stack restores, moves and
+    # orphan stores with their nops, from a completed return to the next body. Nine
+    # are word for word what USA v1.01 leaves in a gap; func_PAL_00343230,
+    # func_PAL_L00_003281B0, func_US2_002DFFFC and func_US2_003420C0 have no exact copy.
+    "func_PAL_00300104": 40,
+    "func_PAL_00343230": 12,
+    "func_PAL_0034D230": 8,
+    "func_PAL_L00_003281B0": 16,
+    "func_PAL_L00_003D5AB0": 8,
+    "func_PAL_L00_00405878": 8,
+    "func_PAL_L22_004024D0": 8,
+    "func_PAL_L23_003ADFC8": 8,
+    "func_PAL_L23_00409528": 8,
+    "func_US2_002DFFFC": 16,
+    "func_US2_003420C0": 12,
+    "func_US2_0034BDA8": 8,
+    "func_US2_L00_00402420": 8,
 }
 
 
@@ -994,6 +1312,289 @@ def level_text(directory: Path) -> tuple[int, bytes]:
     return text["address"], (directory / "text.bin").read_bytes()
 
 
+# Complete reviewed extents, including separately entered empty callbacks.
+# Names and placement families stay distinct even when the shortened bytes agree.
+LEVEL_FUNCTION_SPLITS = {
+    # Boldan binds these three empty entries through object dispatch records;
+    # the other 26 copies use one camera dispatch record.
+    "func_L00_0042A4E8": ("d456d82bfa98afa7", "shared", 27,
+                            {"default": "camvtbl", 13: "vtbl"}, 1,
+                            (("func_L00_0042A4E8", 8), ("func_L00_0042A4F0", 8), ("func_L00_0042A4F8", 8))),
+    "func_L19_0041C328": ("2c7af8399d44fbd2", "level", 1, "vtbl", 15,
+                            (("func_L19_0041C328", 168), ("func_L19_0041C3D0", 8))),
+    "func_L14_004321C0": ("19a756548c944b84", "level", 1, "vtbl", 1,
+                            (("func_L14_004321C0", 8), ("func_L14_004321C8", 8))),
+    "func_L13_0043E8C0": ("d456d82bfa98afa7", "level", 1, "camvtbl", 1,
+                            (("func_L13_0043E8C0", 8), ("func_L13_0043E8C8", 8), ("func_L13_0043E8D0", 8))),
+    "func_L06_0047C1D0": ("d456d82bfa98afa7", "shared", 7, "camvtbl", 1,
+                            (("func_L06_0047C1D0", 8), ("func_L06_0047C1D8", 8), ("func_L06_0047C1E0", 8))),
+    # Hrugis: an 88-byte closed body, then an empty callback whose address the
+    # level's own code builds with lui/addiu and passes to a registration call.
+    "func_L10_00419188": ("741d326f9af76cac", "level", 1, "text", 1,
+                            (("func_L10_00419188", 88), ("func_L10_004191E0", 8))),
+}
+
+
+# Audited fingerprint collisions (docs/MATCHING-BLOCKERS.md section 34): the
+# fingerprint masks these field offsets with the address halves, so two bodies
+# share one key. The words after the leading SKIP bytes (the release-specific
+# address pair) are the same in every release and tell the bodies apart. Retired
+# names are the former rows that held a mixture of both bodies.
+IDENTITY_SPLITS = {
+    # Levels 16, 22, 23 and 26 also hold a `q + 0x20` setter (fields +0x1C/+0x20)
+    # beside the `q + 0x60` one (fields +0xE4/+0xE8) of all 27 levels; the third
+    # body under this key, 0x48 bytes earlier, was already grouped correctly.
+    ("6b8116fb9abb08d4", 72): (8, (("func_L00_00424B70", "7f473cd36e239055"),
+                                   ("func_L00_00424BB8", "cd3f4bff2deda94a"),
+                                   ("func_L16_0042FB10", "8ad3e57cf77c5195")),
+                               ("func_L16_0042FB58",)),
+}
+
+
+# A release's rows that hold several closed functions: the row's size, then each
+# function's (name, offset, size). The row keeps its name for the first. Every part
+# ends on `jr $ra` and its slot, and any gap between parts is zeros. tools/carry.py
+# --entries applies these to the boot and the level copies alike.
+RELEASE_FUNCTION_SPLITS = {
+    # A jal reaches each of the six in every one of the 24 places. They are the
+    # release's counterparts of six USA rows, func_0029B910 to func_0029BE88; the
+    # first is 280 bytes here against 328 there, the other five keep their sizes.
+    "func_PAL_0029C2A8": (1400, (("func_PAL_0029C2A8", 0, 280), ("func_PAL_0029C3C0", 280, 216),
+                                 ("func_PAL_0029C498", 496, 408), ("func_PAL_0029C630", 904, 12),
+                                 ("func_PAL_0029C640", 920, 432), ("func_PAL_0029C7F0", 1352, 48))),
+    # A pointer table holds each of the three in every one of the 28 places. USA's
+    # boot rows are func_002D53F0 (140 bytes against 104), func_002D5480 and func_002D54F0.
+    "func_PAL_002D5FF0": (256, (("func_PAL_002D5FF0", 0, 104), ("func_PAL_002D6058", 104, 112),
+                                ("func_PAL_002D60C8", 216, 40))),
+}
+
+
+# A release's rows that group copies differing in a constant the fingerprint masks:
+# the offset of a word that tells them apart, its value in the places the row
+# keeps, the new row's name, and its value there. USA keeps these two apart as
+# func_L12_00429ED8 (0x202020, levels 12 and 17) and func_L30_00417120 (0x801010).
+RELEASE_PLACE_SPLITS = {
+    "func_PAL_L12_0042F4F0": (0x260, 0x3C030020, "func_PAL_L30_0041C5B0", 0x3C030080),
+    "func_US2_L12_0042B340": (0x260, 0x3C030020, "func_US2_L30_004177A0", 0x3C030080),
+}
+
+
+# A release's rows that are one function in different levels: the row that stays,
+# then the rows whose places it takes. A merged row that is a boot function also gives
+# the kept row its boot entry, under the kept name. tools/carry.py --entries checks
+# every merged place, the boot's included.
+RELEASE_ROW_MERGES = {
+    # Each of these two merged rows was carried with an entry 4 bytes early
+    # (FUNCTION_ENTRY_OFFSETS), so its fingerprint only joined the kept row's after that repair.
+    # The PAL copy of func_L03_003A40A0: levels 3, 4, 7, 9, 13, 20 and 30, and
+    # levels 8, 11, 16, 17 and 18. USA and v2.00 have one row in all 12.
+    "func_PAL_L03_003A7720": ("func_PAL_L08_003B1594",),
+    # The PAL copy of func_L00_00408E58: 24 levels, and levels 16, 23 and 30.
+    # USA and v2.00 have one row in all 27.
+    "func_PAL_L00_0040D990": ("func_PAL_L16_0040C384",),
+    # The split of func_PAL_0029C2A8 (RELEASE_FUNCTION_SPLITS) gave the boot and 23 levels
+    # rows for five functions that levels 05, 10, 15 and 25 already held under rows of
+    # their own, since carry.align() had cut that stretch correctly only there. The boot's
+    # name stays, except for the 12-byte function: the carry found it as v1.01's
+    # func_0029BCC8, so the boot entry takes that name.
+    "func_PAL_0029C2A8": ("func_PAL_L05_00326B88",),
+    "func_PAL_0029C3C0": ("func_PAL_L05_00326CA0",),
+    "func_PAL_0029C498": ("func_PAL_L05_00326D78",),
+    "func_0029BCC8": ("func_PAL_0029C630",),
+    "func_PAL_0029C640": ("func_PAL_L05_00326F48",),
+}
+
+
+# A release's stretch whose places the carry gave to the wrong copies (OpenRAC/rac2-decomp#421).
+# In PAL's starship levels 05, 10, 15 and 25, carry.align() anchored the 48-byte menu
+# accessors one body early and pasted v1.01's cuts over boundaries that moved, so from
+# func_PAL_0029C7F0's body on, rows took the next body of the same shape (the fingerprint
+# hides the accessors' offsets), func_PAL_0029C820 and func_PAL_0029C8A0 sat inside one
+# 592-byte row, and the first 60-byte accessor was cut across two rows. The other 23
+# levels have every body in level 00's order. Each entry: the stretch's address in each
+# level, every function whose place there changes as (name, offset, size), and the rows
+# that held the stretch's miscut bodies. The empty function at +0x278 is the copy those
+# levels have one more of: it goes to the row USA v1.01 and v2.00 give that level's copy.
+# tools/carry.py --entries checks every new place against the row's copies elsewhere
+# (constants and callees compared) before writing; a stretch already in place passes.
+RELEASE_PLACE_RUNS = {
+    "func_PAL_0029C7F0": (
+        {5: 0x003270F8, 10: 0x00329800, 15: 0x00327950, 25: 0x00321450},
+        (("func_PAL_0029C7F0", 0x0, 48), ("func_PAL_0029C820", 0x30, 92),
+         ("func_PAL_0029C8A0", 0x90, 488),
+         ({5: "func_L03_00456E58", 10: "func_L04_0047A7C8", 15: "func_L03_004586F0",
+           25: "func_L03_00456E58"}, 0x278, 8),
+         ("func_PAL_L00_0030F000", 0x280, 48), ("func_PAL_L00_0030F030", 0x2B0, 48),
+         ("func_PAL_L00_0030F060", 0x2E0, 48), ("func_PAL_L00_0030F090", 0x310, 60),
+         ("func_PAL_L00_0030F130", 0x3B0, 60), ("func_PAL_L00_0030F1B8", 0x438, 60),
+         ("func_PAL_L00_0030F228", 0x4A8, 60), ("func_PAL_L00_0030F2C8", 0x548, 60),
+         ("func_PAL_L00_0030F338", 0x5B8, 60), ("func_PAL_L00_0030F3A8", 0x628, 60),
+         ("func_PAL_L00_0030F418", 0x698, 60), ("func_PAL_L00_0030F488", 0x708, 60),
+         ("func_PAL_L00_0030F4F8", 0x778, 60), ("func_PAL_L00_0030F568", 0x7E8, 60),
+         ("func_PAL_L00_0030F5D8", 0x858, 60), ("func_PAL_L00_0030F618", 0x898, 60),
+         ("func_PAL_L00_0030F688", 0x908, 60), ("func_PAL_L00_0030F6F8", 0x978, 60),
+         ("func_PAL_L00_0030F768", 0x9E8, 60), ("func_PAL_L00_0030F7D8", 0xA58, 60),
+         ("func_PAL_L00_0030F848", 0xAC8, 60), ("func_PAL_L00_0030F8B8", 0xB38, 60),
+         ("func_PAL_L00_0030F928", 0xBA8, 60), ("func_PAL_L00_0030F998", 0xC18, 60),
+         ("func_PAL_L00_0030FA08", 0xC88, 60), ("func_PAL_L00_0030FB08", 0xD88, 60),
+         ("func_PAL_L00_0030FE60", 0x1118, 60)),
+        ("func_PAL_L05_00327128", "func_PAL_L05_003273D8", "func_PAL_L05_00327418")),
+}
+
+
+def split_identities(rows: list[tuple]) -> list[tuple]:
+    """Regroup the places of an audited colliding fingerprint by their unmasked words.
+
+    Every place must carry one of the measured bodies, and no level may hold one
+    body twice; anything else fails before a catalogue is written."""
+    out, groups, at = [], {}, {}
+    for row in rows:
+        key = (row[3], row[2])
+        if key not in IDENTITY_SPLITS:
+            out.append(row)
+            continue
+        groups.setdefault(key, []).append(row)
+        at.setdefault(key, len(out))
+    for key in sorted(at, key=at.get, reverse=True):
+        skip, parts, retired = IDENTITY_SPLITS[key]
+        known = {name for name, _ in parts} | set(retired)
+        places = {digest: [] for _, digest in parts}
+        for name, _, size, _, locations in groups[key]:
+            if name not in known:
+                raise ValueError(f"{name}: unaudited row with split fingerprint {key[0]}")
+            for lv, a in locations:
+                base, text = level_text(DUMP / level_dir(lv))
+                if not base <= a or a + size > base + len(text):
+                    raise ValueError(f"{name}: level {lv} split body outside EE text")
+                digest = hashlib.sha256(text[a - base + skip:a - base + size]).hexdigest()[:16]
+                if digest not in places:
+                    raise ValueError(f"{name}: level {lv} body is not one of the audited bodies")
+                places[digest].append((lv, a))
+        split = []
+        for name, digest in parts:
+            found = sorted(places[digest])
+            if not found:
+                raise ValueError(f"{name}: audited body has no place")
+            if len({lv for lv, _ in found}) != len(found):
+                raise ValueError(f"{name}: two copies of one body in a level")
+            split.append((name, "level" if len(found) == 1 else "shared", key[1], key[0], found))
+        out[at[key]:at[key]] = split
+    return out
+
+
+def code_address_pairs(text: bytes, base: int, target: int) -> int:
+    """How many `lui r,hi` + `addiu r2,r,lo` pairs (within eight words) in TEXT build TARGET."""
+    w, count = words(text), 0
+    for i, x in enumerate(w):
+        if x >> 26 != 0x0F:
+            continue
+        rt, hi = (x >> 16) & 31, (x & 0xFFFF) << 16
+        for y in w[i + 1:i + 9]:
+            if y >> 26 == 0x09 and (y >> 21) & 31 == rt:
+                lo = y & 0xFFFF
+                if (hi + (lo - 0x10000 if lo & 0x8000 else lo)) & 0xFFFFFFFF == target:
+                    count += 1
+                break
+    return count
+
+
+def split_level_rows(rows: list[tuple]) -> list[tuple]:
+    """Apply only the named splits, verifying every complete body and dispatch witness.
+
+    Both merged and fully split inputs are accepted. Partial, overlapping or
+    divergent metadata fails before any catalogue is written. Hrugis's tail is split
+    only with its measured code witness: return-looking bytes alone are not an entry.
+    """
+    by_name = {r[0]: r for r in rows}
+    if len(by_name) != len(rows):
+        raise ValueError("duplicate level identity before entry splitting")
+    out = list(rows)
+    for name, (expected_fp, expected_kind, count, table, witnesses, parts) in LEVEL_FUNCTION_SPLITS.items():
+        names = {n for n, _ in parts}
+        if name not in by_name:
+            if names & by_name.keys():
+                raise ValueError(f"{name}: partial split without its first entry")
+            continue
+        row = by_name[name]
+        _, kind, size, _, places = row
+        total = sum(n for _, n in parts)
+        merged = size == total
+        if kind != expected_kind or len(places) != count or len({lv for lv, _ in places}) != count:
+            raise ValueError(f"{name}: changed split placement family")
+        if size not in (total, parts[0][1]):
+            raise ValueError(f"{name}: unexpected split extent {size}")
+        if merged and (names - {name}) & by_name.keys():
+            raise ValueError(f"{name}: merged row already has a child identity")
+        if not merged and not names <= by_name.keys():
+            raise ValueError(f"{name}: incomplete split entries")
+        keys = [set() for _ in parts]
+        for lv, address in places:
+            base, text = level_text(DUMP / level_dir(lv))
+            if not base <= address or address + total > base + len(text):
+                raise ValueError(f"{name}: complete split span outside EE text")
+            body = text[address - base:address - base + total]
+            if fingerprint(body, address) != expected_fp:
+                raise ValueError(f"{name}: level {lv} complete split body differs")
+            if any(p < address + total and p + n > address
+                   for other, _, n, _, locations in rows if other not in names
+                   for level, p in locations if level == lv):
+                raise ValueError(f"{name}: another level extent overlaps the split")
+            selected_table = table.get(lv, table.get("default")) if isinstance(table, dict) else table
+            if selected_table == "text" and len(parts) == 2:
+                # A code witness: the level's own text builds the second entry's
+                # address with a lui/addiu pair (e.g. to register it as a callback).
+                if code_address_pairs(text, base, address + parts[0][1]) != witnesses:
+                    raise ValueError(f"{name}: level {lv} code entry witnesses differ")
+                offset = 0
+                for i, (_, length) in enumerate(parts):
+                    keys[i].add(fingerprint(body[offset:offset + length], address + offset))
+                    offset += length
+                continue
+            if selected_table not in ("camvtbl", "vtbl"):
+                raise ValueError(f"{name}: unknown dispatch table")
+            raw = (DUMP / level_dir(lv) / f"{selected_table}.bin").read_bytes()
+            if len(raw) % 4:
+                raise ValueError(f"{name}: incomplete dispatch word")
+            data, width, seen = words(raw), 5 if selected_table == "camvtbl" else 3, set()
+            entry_witnesses = [set() for _ in parts]
+            for start in range(0, len(data) - width + 1, width):
+                record = data[start:start + width]
+                if record[0] == 0xFFFFFFFF:
+                    break
+                if ((selected_table == "camvtbl" and record[2:5] == (address, address + 8, address + 16))
+                        or (selected_table == "vtbl" and record[1] == address + parts[0][1])):
+                    seen.add(record[0])
+                if selected_table == "vtbl" and len(parts) == 3:
+                    offset = 0
+                    for index, (_, length) in enumerate(parts):
+                        if record[1] == address + offset:
+                            entry_witnesses[index].add(record[0])
+                        offset += length
+            witnessed = (all(len(entry) == witnesses for entry in entry_witnesses)
+                         if selected_table == "vtbl" and len(parts) == 3 else len(seen) == witnesses)
+            if not witnessed:
+                raise ValueError(f"{name}: level {lv} structured entry witnesses differ")
+            offset = 0
+            for i, (_, length) in enumerate(parts):
+                keys[i].add(fingerprint(body[offset:offset + length], address + offset))
+                offset += length
+        if any(len(k) != 1 for k in keys):
+            raise ValueError(f"{name}: split copies differ")
+        offset, split = 0, []
+        for (child, length), key in zip(parts, keys):
+            split.append((child, kind, length, next(iter(key)), [(lv, a + offset) for lv, a in places]))
+            offset += length
+        if not merged:
+            if any(by_name[r[0]] != r for r in split):
+                raise ValueError(f"{name}: conflicting split metadata")
+            continue
+        if row[3] != expected_fp:
+            raise ValueError(f"{name}: merged catalogue fingerprint differs")
+        at = out.index(row)
+        out[at:at + 1] = split
+    return out
+
+
 def old_extents(program: str) -> list[tuple[int, int]]:
     """Function extents from the catalogues this project kept before (config/function-catalog/,
     one gzipped file per program): only for the first catalogue."""
@@ -1012,6 +1613,58 @@ def read_boot_functions() -> list[tuple[str, int, int]]:
             name, address, size = line.split("\t")[:3]
             rows.append((name, int(address, 16), int(size)))
     return rows
+
+
+ABORT_ASSERT_IDENTITY = "3e4dda7e1a6bd73e4c5ab02d78d0fb5eb52353fb3264f8f567509a989128ead1"
+
+
+def split_boot_rows(rows: list[tuple[str, int, int]]) -> list[tuple[str, int, int]]:
+    """Separate abort from the independently called assertion printer after it.
+
+    The complete 64-byte span, its three named calls and four incoming calls
+    establish this boundary. Accept both the old row and an identical replay;
+    never infer an entry merely from a missing return in a noreturn routine.
+    """
+    first, second = "func_00115E28", "func_00115E38"
+    by_name = {name: (address, size) for name, address, size in rows}
+    if len(by_name) != len(rows):
+        raise ValueError("duplicate boot identity before entry splitting")
+    if first not in by_name:
+        if second in by_name:
+            raise ValueError("assertion entry without abort")
+        return rows
+    address, size = by_name[first]
+    if size not in (16, 64):
+        raise ValueError("unexpected abort/assertion extent")
+    if ((size == 64 and second in by_name)
+            or (size == 16 and by_name.get(second) != (address + 16, 48))):
+        raise ValueError("incomplete or overlapping abort/assertion split")
+    if any(p < address + 64 and p + n > address for name, p, n in rows
+           if name not in (first, second)):
+        raise ValueError("another boot extent overlaps abort/assertion")
+    body = boot_bytes(address, 64)
+    if len(body) != 64 or hashlib.sha256(cross_identity(body)).hexdigest() != ABORT_ASSERT_IDENTITY:
+        raise ValueError("complete abort/assertion body differs")
+    for offset, name in ((8, "func_00131CA8"), (48, "func_00115CF0"), (56, first)):
+        word = struct.unpack_from("<I", body, offset)[0]
+        destination = ((address + offset + 4) & 0xF0000000) | ((word & 0x3FFFFFF) << 2)
+        if word >> 26 != 3 or name not in by_name or destination != by_name[name][0]:
+            raise ValueError("abort/assertion callee differs")
+    for name, offset in (("func_003358A0", 0x2C), ("func_00336DB8", 0x40),
+                         ("func_00336E40", 0x74), ("func_0034EE78", 0x68)):
+        if name not in by_name or offset + 4 > by_name[name][1]:
+            raise ValueError("assertion caller extent differs")
+        pc = by_name[name][0] + offset
+        word = struct.unpack("<I", boot_bytes(pc, 4))[0]
+        destination = ((pc + 4) & 0xF0000000) | ((word & 0x3FFFFFF) << 2)
+        if word >> 26 != 3 or destination != address + 16:
+            raise ValueError("assertion entry witness differs")
+    if size == 16:
+        return rows
+    out = []
+    for name, p, n in rows:
+        out.extend([(first, p, 16), (second, p + 16, 48)] if name == first else [(name, p, n)])
+    return out
 
 
 def read_catalogue() -> list[tuple[str, str, int, str, list[tuple[int, int]]]]:
@@ -1036,6 +1689,7 @@ def catalogue() -> None:
                 if text_va <= a < text_va + text_size]
     else:
         boot = read_boot_functions()
+    boot = split_boot_rows(boot)
     # Recover the original complete extent even after a previous regeneration.
     # Its exact normalized code/size identifies level copies without a table of
     # per-level addresses, including when starting from the historical inputs.
@@ -1054,7 +1708,7 @@ def catalogue() -> None:
     for name, a, n in boot:
         if name in FUNCTION_ENTRY_OFFSETS:
             remember_entry(name, a, n, boot_bytes, "boot")
-    source_rows = [] if from_old and not CATALOGUE.is_file() else read_catalogue()
+    source_rows = [] if from_old and not CATALOGUE.is_file() else split_level_rows(read_catalogue())
     for name, kind, n, _, places in source_rows:
         if name in FUNCTION_ENTRY_OFFSETS and name not in entry_bodies:
             number, a = places[0]
@@ -1062,9 +1716,14 @@ def catalogue() -> None:
             remember_entry(name, a, n, lambda p, size: data[p - base:p - base + size], kind)
     source_kinds = {name: kind for name, kind, _, _, _ in source_rows}
     stable_keys = set(entry_bodies.values())
+    split_names = {n for spec in LEVEL_FUNCTION_SPLITS.values() for n, _ in spec[-1]}
+    stable_keys.update((fp, n) for name, _, n, fp, _ in source_rows if name in split_names)
+    stable_keys.update((spec[0], sum(n for _, n in spec[-1])) for spec in LEVEL_FUNCTION_SPLITS.values())
     # Read named residues from the immutable input, including after their rows
     # have disappeared. Otherwise a second run can rename a surviving copy.
     for name, n in FUNCTION_RESIDUES.items():
+        if name.startswith(("func_PAL_", "func_US2_")):
+            continue                    # another release's address
         a = int(name.rsplit("_", 1)[1], 16)
         if name.startswith("func_L"):
             number = int(name.split("_")[1][1:])
@@ -1099,6 +1758,36 @@ def catalogue() -> None:
             base, data = level_text(DUMP / level_dir(number))
             extents[number] = [(a, n, None) for a, n in old_extents(f"{number}_{NAMES[number]}")
                                if base <= a < base + len(data)]
+        # Historical inputs may still hold the complete merged spans. Once the
+        # witnessed identities exist, bootstrapping must not merge them again.
+        known_rows = {name: (size, places) for name, _, size, _, places in source_rows if name in split_names}
+        whole, pieces = {}, {}
+        for name, spec in LEVEL_FUNCTION_SPLITS.items():
+            if name not in known_rows:
+                continue
+            parts = spec[-1]
+            for lv, address in known_rows[name][1]:
+                whole[lv, address] = parts
+            for child, length in parts:
+                for lv, address in known_rows[child][1]:
+                    pieces[lv, address] = child, length
+        for lv, entries in extents.items():
+            expanded = []
+            for address, size, original in entries:
+                parts = whole.get((lv, address))
+                if parts and size == sum(n for _, n in parts):
+                    offset = 0
+                    for child, length in parts:
+                        expanded.append((address + offset, length, child))
+                        offset += length
+                elif (lv, address) in pieces:
+                    child, length = pieces[lv, address]
+                    if size != length:
+                        raise ValueError(f"{child}: conflicting historical split extent")
+                    expanded.append((address, size, child))
+                else:
+                    expanded.append((address, size, original))
+            extents[lv] = expanded
     else:
         for name, kind, size, fp, places in source_rows:
             for number, a in places:
@@ -1112,6 +1801,8 @@ def catalogue() -> None:
             if function_residue(original_name, n):
                 continue
             a, n = level_extent(number, a, n)
+            if original_name in FUNCTION_END_EXTRA:
+                a, n = function_extent(original_name, a, n)
             body = data[a - base:a - base + n]
             candidates = entry_keys.get((fingerprint(body, a), n), set())
             entry_name = (original_name if original_name in candidates else
@@ -1186,6 +1877,7 @@ def catalogue() -> None:
                 name = f"func_L{number:02d}_{a:08X}"
                 kind = "level" if len({p[0] for p in places}) == 1 else "shared"
             rows.append((name, kind, e["size"], fp, places))
+    rows = split_identities(rows)
     rows.sort(key=lambda r: r[4][0])
     BOOT_FUNCTIONS.parent.mkdir(parents=True, exist_ok=True)
     BOOT_FUNCTIONS.write_text("# name\taddress\tsize\n" +

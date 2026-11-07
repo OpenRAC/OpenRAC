@@ -370,6 +370,17 @@ with C). A level function is one named `func_Lnn_...` or `FUN_Lnn_...`.
 Names other than `func_...` get a `game_` prefix in the generated C, so
 the game's own `memcpy` or `main` never meets the host's.
 
+## Another release of one decompilation (`"release"`)
+
+A decompilation that builds several releases from one C names everything by one release's
+addresses (Going Commando's rac2-decomp: v1.01's). The port of another release reads it through a
+table of that release's names for them, `"release": {"version": ..., "table": ...}`
+([release.py](release.py)): `prep.py` writes every file in those names (the address names in code,
+strings and comments; a file's short names by its level's program), the catalogues' names are
+read in them, the candidates too, and the table is the `"derived"` values as well. Every other
+rule then holds as for the primary release. [release_carry.py](release_carry.py) writes the
+release's configuration and tables from the primary's (port/game/rac2/README.md).
+
 ## Files
 
 | File | |
@@ -383,6 +394,7 @@ the game's own `memcpy` or `main` never meets the host's.
 | [asm.py](asm.py), [asmc.py](asmc.py) | reading the decompilation's assembly, and C from it for the functions with no C |
 | [retail.py](retail.py), [test_retail.py](test_retail.py) | the same instructions from the retail program (the disc image, or the executable and level dumps) |
 | [derived.py](derived.py), [test_derived.py](test_derived.py) | the names a decompilation's build derives: which table is read, and the port's copy written again |
+| [release.py](release.py), [release_carry.py](release_carry.py), [test_release.py](test_release.py) | another release's names for the primary's (the release view), and its port tables carried |
 | [no_c.py](no_c.py), [test_no_c.py](test_no_c.py) | which functions with no C need C: each game's `no_c.tsv` |
 | [tests/assembler.py](tests/assembler.py) | the tests' small assembler: assembly files written the way the setup writes them |
 | [test_hostgen.py](test_hostgen.py), [tests/harness.c](tests/harness.c) | small programs in the console's C, translated, built, run and checked |

@@ -1,4 +1,5 @@
 """Tests for tools/levels.py and tools/elf.py: no game data, no toolchains."""
+import copy
 import json
 import struct
 import sys
@@ -118,6 +119,339 @@ class FunctionExtents(unittest.TestCase):
         for name, size in (("func_002C38A0", 60), ("func_00335918", 64)):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 levels.function_extent(name, 0x2000, size)
+
+
+class SplitLevelEntries(unittest.TestCase):
+    def fixture(self, root, table="camvtbl", count=1):
+        name = "func_L06_0047C1D0"
+        parts = ((name,8), ("func_L06_0047C1D8",8), ("func_L06_0047C1E0",8))
+        body = code(0x03E00008,0) * 3
+        kind = "shared" if count > 1 else "level"
+        places = []
+        for number in (6,13)[:count]:
+            address = 0x2000 + number * 0x100
+            places.append((number,address))
+            directory = root / levels.level_dir(number)
+            directory.mkdir(parents=True)
+            (directory/"manifest.json").write_text(json.dumps({"sections":[
+                {"name":"text","address":address,"size":len(body),"type":1}]}))
+            (directory/"text.bin").write_bytes(body)
+            (directory/"camvtbl.bin").write_bytes(code(23,0,address,address+8,address+16,0xFFFFFFFF))
+            (directory/"vtbl.bin").write_bytes(code(4563,address+8,0))
+        if table == "vtbl":
+            parts = parts[:2]
+            body = body[:16]
+            for number,_ in places:
+                (root/levels.level_dir(number)/"text.bin").write_bytes(body)
+        fp = levels.fingerprint(body, places[0][1])
+        spec = {name:(fp,kind,count,table,1,parts)}
+        return [(name,kind,len(body),fp,places)], spec
+
+    def test_witnessed_split_preserves_end_places_and_replays(self):
+        for table,count in (("camvtbl",1),("camvtbl",2),("vtbl",1)):
+            with self.subTest(table=table,count=count), tempfile.TemporaryDirectory() as d:
+                root=Path(d);rows,spec=self.fixture(root,table,count)
+                before=list(rows)
+                with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec):
+                    split=levels.split_level_rows(rows)
+                    self.assertEqual(levels.split_level_rows(split),split)
+                self.assertEqual(rows,before)
+                self.assertEqual(sum(r[2] for r in split),rows[0][2])
+                for index,row in enumerate(split):
+                    self.assertEqual(row[4],[(lv,a+8*index) for lv,a in rows[0][4]])
+                    self.assertEqual(row[1],rows[0][1])
+
+    def test_changed_body_or_missing_dispatch_witness_is_rejected(self):
+        for change in ("body","outside text","wrong slot","unentered","after terminator"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as d:
+                root=Path(d);rows,spec=self.fixture(root)
+                directory=root/levels.level_dir(6);a=rows[0][4][0][1]
+                if change=="body": (directory/"text.bin").write_bytes(code(0x24020001,0)*3)
+                elif change=="outside text": (directory/"text.bin").write_bytes(code(0x03E00008,0)*2)
+                elif change=="wrong slot": (directory/"camvtbl.bin").write_bytes(code(a,a+8,a+16,0,0))
+                elif change=="after terminator": (directory/"camvtbl.bin").write_bytes(code(0xFFFFFFFF,0,0,0,0,23,0,a,a+8,a+16))
+                else: (directory/"camvtbl.bin").write_bytes(code(23,0,a,0,a+16))
+                with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec), self.assertRaises(ValueError):
+                    levels.split_level_rows(rows)
+
+    def test_partial_conflicting_overlapping_and_duplicate_metadata_is_rejected(self):
+        for change in ("duplicate","child in merged","missing child","wrong child","overlap","kind","places","fingerprint"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as d:
+                root=Path(d);rows,spec=self.fixture(root)
+                with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec):
+                    split=levels.split_level_rows(rows)
+                    if change=="duplicate": bad=rows+rows
+                    elif change=="child in merged": bad=rows+[split[1]]
+                    elif change=="missing child": bad=split[:-1]
+                    elif change=="wrong child":
+                        bad=list(split);r=bad[1];bad[1]=(r[0],r[1],r[2],r[3],[(6,r[4][0][1]+4)])
+                    elif change=="overlap": bad=rows+[("unrelated","level",8,"",[(6,rows[0][4][0][1]+8)])]
+                    else:
+                        r=list(rows[0]);r[{"kind":1,"places":4,"fingerprint":3}[change]]={"kind":"shared","places":r[4]*2,"fingerprint":"wrong"}[change];bad=[tuple(r)]
+                    with self.assertRaises(ValueError): levels.split_level_rows(bad)
+
+    def test_changed_second_shared_copy_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);rows,spec=self.fixture(root,count=2)
+            (root/levels.level_dir(13)/"text.bin").write_bytes(code(0x24020001,0)*3)
+            with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec), self.assertRaises(ValueError):
+                levels.split_level_rows(rows)
+
+    def test_shared_callbacks_accept_each_measured_dispatch_kind(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);rows,spec=self.fixture(root,count=2)
+            name=rows[0][0];rule=list(spec[name]);rule[3]={"default":"camvtbl",13:"vtbl"};spec[name]=tuple(rule)
+            a=rows[0][4][1][1]
+            (root/levels.level_dir(13)/"vtbl.bin").write_bytes(code(101,a,0,102,a+8,0,103,a+16,0))
+            with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec):
+                split=levels.split_level_rows(rows)
+                self.assertEqual(levels.split_level_rows(split),split)
+                self.assertEqual([r[4] for r in split],
+                    [[(lv,p+8*i) for lv,p in rows[0][4]] for i in range(3)])
+
+    def test_object_dispatch_must_witness_all_three_callback_entries(self):
+        for missing in (0,1,2):
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as d:
+                root=Path(d);rows,spec=self.fixture(root,count=2)
+                name=rows[0][0];rule=list(spec[name]);rule[3]={"default":"camvtbl",13:"vtbl"};spec[name]=tuple(rule)
+                a=rows[0][4][1][1];data=[]
+                for i in range(3):data.extend((101+i,0 if i==missing else a+8*i,0))
+                (root/levels.level_dir(13)/"vtbl.bin").write_bytes(code(*data))
+                with patch.object(levels,"DUMP",root), patch.object(levels,"LEVEL_FUNCTION_SPLITS",spec), self.assertRaises(ValueError):
+                    levels.split_level_rows(rows)
+
+    def test_unrelated_rows_are_not_split_from_return_bytes(self):
+        rows=[("unrelated","level",24,"",[(6,0x2000)])]
+        self.assertEqual(levels.split_level_rows(rows),rows)
+
+    def test_catalogue_keeps_equal_byte_families_and_unrelated_old_extents(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);rows,spec=self.fixture(root,count=2)
+            body=code(0x03E00008,0)*3
+            address=rows[0][4][1][1]
+            other="func_L13_00002E00"
+            parts=((other,8),("func_L13_00002E08",8),("func_L13_00002E10",8))
+            fp=levels.fingerprint(body,address)
+            spec[other]=(fp,"level",1,"camvtbl",1,parts)
+            unrelated="func_L13_00002F00"
+            rows += [(other,"level",24,fp,[(13,address+0x100)]),
+                     (unrelated,"level",24,fp,[(13,address+0x200)])]
+            directory=root/levels.level_dir(13)
+            raw=bytearray(0x218)
+            for offset in (0,0x100,0x200): raw[offset:offset+24]=body
+            (directory/"text.bin").write_bytes(raw)
+            (directory/"camvtbl.bin").write_bytes(code(
+                23,0,address,address+8,address+16,
+                17,0,address+0x100,address+0x108,address+0x110,0xFFFFFFFF))
+            boot,catalogue=root/"boot.tsv",root/"levels.tsv"
+            boot.write_text("# name\taddress\tsize\n")
+            catalogue.write_text("# name\tkind\tsize\tfingerprint\tlevels\tplaces\n"+"".join(
+                f"{n}\t{k}\t{s}\t{f}\t{len(p)}\t"+",".join(f"{lv:02d}:{a:08X}" for lv,a in p)+"\n"
+                for n,k,s,f,p in rows))
+            with patch.multiple(levels, DUMP=root, LEVELS=root, CATALOGUE=catalogue,
+                                BOOT_FUNCTIONS=boot, BOOT_PAIRS=root/"absent.tsv",
+                                NAMES={6:"notak",13:"boldan"}, LEVEL_FUNCTION_SPLITS=spec,
+                                FUNCTION_ENTRY_OFFSETS={},FUNCTION_RESIDUES={},BOOT_RESIDUES={}), \
+                 patch.object(levels,"boot_image",return_value=(bytes(4),[(0x1000,0,4)])), \
+                 patch.object(sys,"argv",["levels.py","catalogue"]):
+                levels.catalogue()
+                result={r[0]:r for r in levels.read_catalogue()}
+                expected={n for rule in spec.values() for n,_ in rule[-1]}|{unrelated}
+                self.assertEqual(set(result),expected)
+                self.assertEqual(result[unrelated],rows[-1])
+                for name,_ in spec[rows[0][0]][-1]:
+                    self.assertEqual(result[name][1],"shared")
+                    self.assertEqual({lv for lv,_ in result[name][4]},{6,13})
+                for name,_ in parts:
+                    self.assertEqual(result[name][1],"level")
+                    self.assertEqual({lv for lv,_ in result[name][4]},{13})
+                snapshot=boot.read_bytes(),catalogue.read_bytes()
+                levels.catalogue()
+                self.assertEqual((boot.read_bytes(),catalogue.read_bytes()),snapshot)
+                legacy={"boot":[], "6_notak":[(rows[0][4][0][1],24)],
+                        "13_boldan":[(address,24),(address+0x100,24),(address+0x200,24)]}
+                with patch.object(sys,"argv",["levels.py","catalogue","--from-old"]), \
+                     patch.object(levels,"old_extents",side_effect=lambda program:legacy[program]):
+                    levels.catalogue()
+                self.assertEqual((boot.read_bytes(),catalogue.read_bytes()),snapshot)
+                raw[0]=1
+                (directory/"text.bin").write_bytes(raw)
+                with self.assertRaises(ValueError): levels.catalogue()
+                self.assertEqual((boot.read_bytes(),catalogue.read_bytes()),snapshot)
+
+
+class CodeWitnessedSplit(unittest.TestCase):
+    """The 5 November 2026 boundary audit: a code-built callback address is an entry witness."""
+
+    def fixture(self, root, pairs=1, target_offset=8):
+        name, child, address = "func_L10_00419188", "func_L10_00419190", 0x2000
+        body = code(0x24020001, 0) + code(0x03E00008, 0)
+        caller = []
+        for _ in range(pairs):
+            caller += [lui(5, (address + target_offset + 0x8000) >> 16), 0,
+                       addiu(5, 5, (address + target_offset) & 0xFFFF)]
+        text = body + code(*caller)
+        directory = root / levels.level_dir(10)
+        directory.mkdir(parents=True)
+        (directory / "manifest.json").write_text(json.dumps({"sections": [
+            {"name": "text", "address": address, "size": len(text), "type": 1}]}))
+        (directory / "text.bin").write_bytes(text)
+        fp = levels.fingerprint(body, address)
+        spec = {name: (fp, "level", 1, "text", 1, ((name, 8), (child, 8)))}
+        return [(name, "level", 16, fp, [(10, address)])], spec
+
+    def test_code_witness_splits_and_replays(self):
+        with tempfile.TemporaryDirectory() as d:
+            rows, spec = self.fixture(Path(d))
+            with patch.object(levels, "DUMP", Path(d)), patch.object(levels, "LEVEL_FUNCTION_SPLITS", spec):
+                split = levels.split_level_rows(rows)
+                self.assertEqual(levels.split_level_rows(split), split)
+            self.assertEqual([(r[0], r[2], r[4]) for r in split],
+                             [("func_L10_00419188", 8, [(10, 0x2000)]), ("func_L10_00419190", 8, [(10, 0x2008)])])
+
+    def test_missing_extra_or_misaimed_code_witness_is_rejected(self):
+        for pairs, offset in ((0, 8), (2, 8), (1, 4), (1, 0)):
+            with self.subTest(pairs=pairs, offset=offset), tempfile.TemporaryDirectory() as d:
+                rows, spec = self.fixture(Path(d), pairs, offset)
+                with patch.object(levels, "DUMP", Path(d)), patch.object(levels, "LEVEL_FUNCTION_SPLITS", spec), \
+                        self.assertRaises(ValueError):
+                    levels.split_level_rows(rows)
+
+    def test_address_pair_needs_the_same_register(self):
+        text = code(lui(5, 0x42), addiu(6, 4, 0x91E0), lui(4, 0x42), addiu(4, 4, -0x6E20))
+        self.assertEqual(levels.code_address_pairs(text, 0, 0x4191E0), 1)
+        self.assertEqual(levels.code_address_pairs(text, 0, 0x4291E0), 0)
+
+    def test_audited_rows_keep_real_entries_and_the_pal_exception(self):
+        # Referenced or returning rows of the audit stay functions.
+        for name in ("func_002B9030", "func_002B9380", "func_002A1378", "func_002A677C", "func_002A08A0",
+                     "func_00282848", "func_001325E0", "func_00131CB0"):
+            with self.subTest(name=name):
+                self.assertNotIn(name, levels.FUNCTION_RESIDUES)
+        for name in ("func_0032A130", "func_L03_0041B848", "func_PAL_0032B920", "func_PAL_L00_003E63F0"):
+            with self.subTest(name=name):
+                self.assertEqual(levels.FUNCTION_ENTRY_OFFSETS[name], (16, 8))
+                self.assertEqual(levels.function_extent(name, 0x32A130, 16), (0x32A138, 8))
+                self.assertEqual(levels.function_extent(name, 0x32A138, 8), (0x32A138, 8))
+
+
+class DelaySlotBoundary(unittest.TestCase):
+    """6 November 2026: a fill-prefixed syscall stub and a PAL row that left its delay slot behind."""
+
+    def test_named_corrections(self):
+        self.assertEqual(levels.function_extent("func_0011A7F8", 0x11A7F8, 24), (0x11A800, 16))
+        self.assertEqual(levels.function_extent("func_0011A7F8", 0x11A800, 16), (0x11A800, 16))
+        self.assertTrue(levels.function_residue("func_L00_00309DB0", 28))
+        with self.assertRaises(ValueError):
+            levels.function_residue("func_L00_00309DB0", 24)
+        name = "func_PAL_L00_0030BA80"
+        self.assertEqual(levels.function_extent(name, 0x30BA80, 336), (0x30BA80, 340))
+        self.assertEqual(levels.function_extent(name, 0x30BA80, 340), (0x30BA80, 340))
+        with self.assertRaises(ValueError):
+            levels.function_extent(name, 0x30BA80, 344)
+
+    def fixture(self, root, ret):
+        import carry
+        address = 0x2000
+        text = code(0x27BDFFE0, ret, 0x27BD0020, 0, 0x0000102D, 0)
+        directory = root / levels.level_dir(0)
+        directory.mkdir(parents=True)
+        (directory / "manifest.json").write_text(json.dumps({"sections": [
+            {"name": "text", "address": address, "size": len(text), "type": 1}]}))
+        (directory / "text.bin").write_bytes(text)
+        rows = [("pred", "shared", 8, levels.fingerprint(text[:8], address), [(0, address)]),
+                ("res", "shared", 16, "x", [(0, address + 8)])]
+        with patch.object(levels, "DUMP", root), patch.object(levels, "FUNCTION_DELAY_SLOTS", {"pred": 8}), \
+                patch.object(levels, "FUNCTION_RESIDUES", {"res": 16}):
+            return carry.correct_level_entries(rows), text
+
+    def test_slot_returns_to_its_function_and_the_rest_is_residue(self):
+        with tempfile.TemporaryDirectory() as d:
+            out, text = self.fixture(Path(d), 0x03E00008)
+        self.assertEqual(out, [("pred", "shared", 12, levels.fingerprint(text[:12], 0x2000), [(0, 0x2000)])])
+
+    def test_slot_needs_a_return_before_it(self):
+        with tempfile.TemporaryDirectory() as d, self.assertRaises(ValueError):
+            self.fixture(Path(d), 0)
+
+
+class RoundElevenBoundaries(unittest.TestCase):
+    """6 November 2026: a fill-prefixed handler, a VU0 routine with foreign blocks after it, a residue."""
+
+    def test_handler_skips_its_fill(self):
+        self.assertEqual(levels.function_extent("func_0011F364", 0x11F364, 636), (0x11F380, 608))
+        self.assertEqual(levels.function_extent("func_0011F364", 0x11F380, 608), (0x11F380, 608))
+        with self.assertRaises(ValueError):
+            levels.function_extent("func_0011F364", 0x11F364, 640)
+
+    def test_vu0_routine_ends_at_its_delay_slot(self):
+        self.assertEqual(levels.function_extent("func_002F2758", 0x2F2758, 652), (0x2F2758, 404))
+        self.assertEqual(levels.function_extent("func_002F2758", 0x2F2758, 404), (0x2F2758, 404))
+
+    def test_boot_residue_in_each_release(self):
+        self.assertTrue(levels.function_residue("func_00334550", 444))
+        self.assertTrue(levels.function_residue("func_PAL_003361E8", 432))
+        with self.assertRaises(ValueError):
+            levels.function_residue("func_00334550", 432)
+
+    def test_unproved_entry_is_kept(self):
+        # A store at the start is not an entry witness (section 50).
+        self.assertNotIn("func_002DC3C8", levels.FUNCTION_RESIDUES)
+        self.assertNotIn("func_002DC3C8", levels.FUNCTION_ENTRY_OFFSETS)
+
+
+class AuditedIdentitySplit(unittest.TestCase):
+    """Section 34: a fingerprint shared by two bodies is regrouped only by audited digests."""
+
+    def fixture(self, root):
+        import hashlib
+        a = code(0x3C02001C, 0x8C430000, 0x24420060, 0xE44C00E4)
+        b = code(0x3C02001C, 0x8C430000, 0x24420020, 0xE44C001C)
+        texts = {0: a, 16: b + a}
+        for number, text in texts.items():
+            directory = root / levels.level_dir(number)
+            directory.mkdir(parents=True)
+            (directory / "manifest.json").write_text(json.dumps({"sections": [
+                {"name": "text", "address": 0x1000, "size": len(text), "type": 1}]}))
+            (directory / "text.bin").write_bytes(text)
+        digest = lambda body: hashlib.sha256(body[8:]).hexdigest()[:16]
+        spec = {("fp", 16): (8, (("func_A", digest(a)), ("func_B", digest(b))), ("func_old",))}
+        # the historical grouping: the first copy of each level in one row, the second in another
+        rows = [("func_A", "shared", 16, "fp", [(0, 0x1000), (16, 0x1000)]),
+                ("func_old", "level", 16, "fp", [(16, 0x1010)]),
+                ("other", "level", 8, "x", [(0, 0x2000)])]
+        return rows, spec
+
+    def test_mixed_rows_are_regrouped_by_body_and_replay(self):
+        with tempfile.TemporaryDirectory() as d:
+            rows, spec = self.fixture(Path(d))
+            with patch.object(levels, "DUMP", Path(d)), patch.object(levels, "IDENTITY_SPLITS", spec):
+                out = levels.split_identities(rows)
+                self.assertEqual(levels.split_identities(out), out)
+            self.assertEqual(out, [("func_A", "shared", 16, "fp", [(0, 0x1000), (16, 0x1010)]),
+                                   ("func_B", "level", 16, "fp", [(16, 0x1000)]),
+                                   ("other", "level", 8, "x", [(0, 0x2000)])])
+
+    def test_unaudited_name_unknown_body_and_double_copies_fail(self):
+        for change in ("name", "body", "double"):
+            with self.subTest(change=change), tempfile.TemporaryDirectory() as d:
+                rows, spec = self.fixture(Path(d))
+                if change == "name":
+                    rows[1] = ("func_new",) + rows[1][1:]
+                elif change == "body":
+                    (Path(d) / levels.level_dir(16) / "text.bin").write_bytes(code(0, 0, 0, 0) * 2)
+                else:
+                    text = Path(d) / levels.level_dir(16) / "text.bin"
+                    text.write_bytes(text.read_bytes()[16:] * 2)
+                with patch.object(levels, "DUMP", Path(d)), patch.object(levels, "IDENTITY_SPLITS", spec), \
+                        self.assertRaises(ValueError):
+                    levels.split_identities(rows)
+
+    def test_real_split_names_the_two_setters(self):
+        skip, parts, retired = levels.IDENTITY_SPLITS[("6b8116fb9abb08d4", 72)]
+        self.assertEqual(skip, 8)
+        self.assertEqual([n for n, _ in parts], ["func_L00_00424B70", "func_L00_00424BB8", "func_L16_0042FB10"])
+        self.assertEqual(retired, ("func_L16_0042FB58",))
 
 
 class Filler(unittest.TestCase):
@@ -358,7 +692,7 @@ class Catalogue(unittest.TestCase):
             with patch.multiple(levels, BOOT_FUNCTIONS=boot, CATALOGUE=catalogue, LEVELS=root,
                                 BOOT_PAIRS=root / "absent.tsv", DUMP=dump, NAMES={0:"test"},
                                 BOOT_RESIDUES={}, FUNCTION_ENTRY_OFFSETS={},
-                                FUNCTION_RESIDUES={"func_00001000": 4}), \
+                                FUNCTION_RESIDUES={"func_00001000": 4, "func_PAL_L00_00900000": 8}), \
                  patch.object(levels, "boot_image", return_value=(raw, [(0x1000,0,len(raw))])), \
                  patch.object(sys, "argv", ["levels.py", "catalogue"]):
                 levels.catalogue()
@@ -686,7 +1020,7 @@ class ProgressChecks(unittest.TestCase):
                              "source_path":"src/game/open.c","categories":["executable","game"]},
                 "Shared level code":{"rows":[row("e",8,0x300,False)],
                                      "source_path":"src/levels/shared","categories":["level_code","common"]}}
-        report=progress.build_report(groups,lambda n:f"Level {n:02d}",{})
+        report=progress.build_report(groups,lambda n:f"Level {n:02d}")
         total=report["measures"]
         self.assertEqual((total["complete_code"],total["complete_units"],total["total_code"]),("12",1,"40"))
         self.assertAlmostEqual(total["complete_code_percent"],30.0)
@@ -697,11 +1031,15 @@ class ProgressChecks(unittest.TestCase):
         units={u["name"]:u["measures"]["complete_code"] for u in report["units"]}
         self.assertEqual(units,{"game/done":"12","game/open":"0","Shared level code":"0"})
 
-    def release(self, functions, flags=(), where=None, source=None):
+    def release(self, functions, flags=(), where=None, source=None, not_carried=()):
         import progress
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             path = root / "report.json"
+            if not_carried:
+                listed = root / levels.VERSIONS["pal"]["config"] / "not_carried.tsv"
+                listed.parent.mkdir(parents=True)
+                listed.write_text("# header\n" + "".join(f"{n}\tmeasured\n" for n in not_carried))
             path.write_text(json.dumps({"units":[{"functions":functions}]}))
             before = path.read_bytes()
             with patch.object(progress,"ROOT",root), \
@@ -716,6 +1054,17 @@ class ProgressChecks(unittest.TestCase):
     def test_unmatched_named_retirement_can_wait_for_a_report_refresh(self):
         self.release([{"name":"kept","fuzzy_match_percent":0.0},
                       {"name":"retired","fuzzy_match_percent":0.0}])
+
+    def test_realigned_stretch_retires_only_its_unmatched_miscut_rows(self):
+        spec = {"kept": ({5: 0x1000}, (("kept", 0, 8),), ("miscut",))}
+        with patch.object(levels, "RELEASE_PLACE_RUNS", spec):
+            self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                          {"name":"miscut","fuzzy_match_percent":0.0}])
+            for change in ("matched", "unnamed"):
+                with self.subTest(change=change), self.assertRaises(SystemExit):
+                    name = "other" if change == "unnamed" else "miscut"
+                    self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                                  {"name":name,"fuzzy_match_percent":100.0 if change == "matched" else 0.0}])
 
     def split_fixture(self, address=0x00131DF8):
         main, sound = "func_00131D98", "func_00131DE8"
@@ -776,11 +1125,73 @@ class ProgressChecks(unittest.TestCase):
                         where["other"] = (0x2000,8,"boot",None)
                 self.release(functions, where=where)
 
-    def test_split_tolerance_does_not_hide_a_retired_row(self):
-        functions, where = self.split_fixture()
-        functions.append({"name":"retired", "fuzzy_match_percent":0.0})
-        with self.assertRaises(SystemExit):
+    def release_split_fixture(self):
+        functions = [{"name":"whole", "size":"28", "fuzzy_match_percent":0.0}]
+        where = {"whole":(0x1000,12,"boot",None), "part":(0x1010,12,"boot",None)}
+        return functions, where
+
+    def test_release_split_can_wait_for_a_report_refresh(self):
+        spec = {"whole": (28, (("whole",0,12), ("part",16,12)))}
+        with patch.object(levels, "RELEASE_FUNCTION_SPLITS", spec):
+            functions, where = self.release_split_fixture()
             self.release(functions, where=where)
+            for change in ("matched", "moved", "reported", "other"):
+                with self.subTest(change=change), self.assertRaises(SystemExit):
+                    functions, where = self.release_split_fixture()
+                    if change == "matched": functions[0]["fuzzy_match_percent"] = 100.0
+                    elif change == "moved": where["part"] = (0x1014,12,"boot",None)
+                    elif change == "reported": functions.append({"name":"part","fuzzy_match_percent":0.0})
+                    else: where["other"] = (0x2000,8,"boot",None)
+                    self.release(functions, where=where)
+
+    def test_release_place_split_can_wait_for_a_report_refresh(self):
+        spec = {"kept": (8, 1, "copy", 2)}
+        functions = [{"name":"kept", "size":"16", "fuzzy_match_percent":0.0}]
+        where = {"kept":(0x1000,16,"shared",12), "copy":(0x2000,16,"level",30)}
+        with patch.object(levels, "RELEASE_PLACE_SPLITS", spec):
+            self.release(functions, where=where)
+            with self.assertRaises(SystemExit):
+                self.release([dict(functions[0], fuzzy_match_percent=100.0)], where=where)
+            with self.assertRaises(SystemExit):
+                self.release(functions, where=dict(where, copy=(0x2000,20,"level",30)))
+
+    def test_identity_split_retires_its_matched_name_only_with_its_parts(self):
+        spec = {("fp", 8): (0, (("kept", "a"), ("part", "b")), ("old",))}
+        with patch.object(levels, "IDENTITY_SPLITS", spec):
+            where = {"kept":(0x1000,8,"boot",None), "part":(0x2000,8,"boot",None)}
+            self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                          {"name":"old","fuzzy_match_percent":100.0}], where=where)
+            for extra in ({"other":(0x3000,8,"boot",None)}, {}):
+                with self.subTest(extra=extra), self.assertRaises(SystemExit):
+                    w = dict(where, **extra) if extra else {"kept":where["kept"]}
+                    self.release([{"name":"kept","fuzzy_match_percent":0.0},
+                                  {"name":"old","fuzzy_match_percent":100.0}] + ([] if extra else
+                                 [{"name":"stray","fuzzy_match_percent":0.0}]), where=w)
+
+    def test_split_tolerance_accepts_only_a_measured_unmatched_retired_row(self):
+        functions, where = self.split_fixture()
+        self.release(functions + [{"name":"retired", "fuzzy_match_percent":0.0}], where=where)
+        for extra in ({"name":"retired", "fuzzy_match_percent":100.0}, {"name":"unknown", "fuzzy_match_percent":0.0}):
+            with self.subTest(extra=extra), self.assertRaises(SystemExit):
+                self.release(functions + [extra], where=where)
+        with self.assertRaises(SystemExit):
+            self.release(functions + [{"name":"retired", "fuzzy_match_percent":0.0}], where=where, flags=("--strict",))
+
+    def test_demoted_rename_is_accepted_only_as_listed_unmatched_and_same_address(self):
+        old = {"name":"func_0033A520", "fuzzy_match_percent":0.0,
+               "metadata":{"virtual_address":str(0x0033C448)}}
+        where = {"kept":(0x1000,8,"boot",None), "func_PAL_0033C448":(0x0033C448,360,"boot",None)}
+        kept = {"name":"kept", "fuzzy_match_percent":0.0}
+        self.release([kept, old], where=where, not_carried=["func_0033A520"])
+        for change in ("unlisted", "matched", "address", "strict"):
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                f = copy.deepcopy(old)
+                listed, flags = ["func_0033A520"], ()
+                if change == "unlisted": listed = []
+                elif change == "matched": f["fuzzy_match_percent"] = 100.0
+                elif change == "address": f["metadata"]["virtual_address"] = "0"
+                elif change == "strict": flags = ("--strict",)
+                self.release([kept, f], where=where, not_carried=listed, flags=flags)
 
     def test_old_merged_main_with_a_reported_tail_is_rejected(self):
         functions, where = self.split_fixture()
@@ -799,6 +1210,111 @@ class ProgressChecks(unittest.TestCase):
         functions[0]["size"] = "80"
         functions.append({"name":"func_00131DE8", "size":"576", "fuzzy_match_percent":0.0})
         self.release(functions, flags=("--strict",), where=where)
+
+    def assertion_fixture(self):
+        first, second, address = "func_00115E28", "func_00115E38", 0x00115E28
+        functions = [{"name": first, "size": "64", "fuzzy_match_percent": 0.0,
+                      "metadata": {"virtual_address": str(address)}}]
+        where = {first: (address, 16, "boot", None), second: (address + 16, 48, "boot", None)}
+        return functions, where
+
+    def test_unmatched_assertion_split_waits_without_mutating_the_report(self):
+        functions, where = self.assertion_fixture()
+        self.release(functions, where=where,
+                     source={"src/core/abort.c": [(n, True) for n in where]})
+        with self.assertRaises(SystemExit):
+            self.release(functions, flags=("--strict",), where=where)
+
+    def test_boot_and_level_splits_jointly_explain_only_their_own_gaps(self):
+        functions, where = self.assertion_fixture()
+        level_functions, level_where = self.level_split_fixture(["func_L00_0042A4E8"])
+        functions += level_functions
+        where.update(level_where)
+        before = copy.deepcopy(functions)
+        self.release(functions, where=where)
+        self.assertEqual(functions, before)
+        with self.assertRaises(SystemExit):
+            self.release(functions, where=where, flags=("--strict",))
+        where["unknown_gap"] = (0x300000, 8, "boot", None)
+        with self.assertRaises(SystemExit):
+            self.release(functions, where=where)
+
+    def test_assertion_split_rejects_credit_drift_duplicates_and_unknown_gaps(self):
+        for change in ("matched", "partial", "address", "size", "tail", "duplicate",
+                       "unknown", "current size", "kind", "missing metadata"):
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                functions, where = self.assertion_fixture()
+                if change == "matched": functions[0]["fuzzy_match_percent"] = 100.0
+                elif change == "partial": functions[0]["fuzzy_match_percent"] = 25.0
+                elif change == "address": functions[0]["metadata"]["virtual_address"] = "0"
+                elif change == "size": functions[0]["size"] = "60"
+                elif change == "tail":
+                    functions.append({"name": "func_00115E38", "size": "48", "fuzzy_match_percent": 0.0})
+                elif change == "duplicate": functions.append(dict(functions[0]))
+                elif change == "unknown": where["other"] = (0x2000, 8, "boot", None)
+                elif change == "current size": where["func_00115E38"] = (0x00115E38, 44, "boot", None)
+                elif change == "kind": where["func_00115E38"] = (0x00115E38, 48, "shared", 0)
+                else: del functions[0]["metadata"]
+                self.release(functions, where=where,
+                             source={"src/core/abort.c": [(n, True) for n in where]})
+
+    def level_split_fixture(self, families=None):
+        families = families or ["func_L13_0043E8C0"]
+        functions, where = [], {}
+        for index,name in enumerate(families):
+            spec=levels.LEVEL_FUNCTION_SPLITS[name];address=0x200000+0x1000*index
+            kind=spec[1];level=6 if kind=="shared" else 13
+            functions.append({"name":name,"size":str(sum(n for _,n in spec[-1])),
+                              "fuzzy_match_percent":0.0,"metadata":{"virtual_address":str(address)}})
+            offset=0
+            for child,length in spec[-1]:
+                where[child]=(address+offset,length,kind,level)
+                offset+=length
+        return functions,where
+
+    def test_witnessed_level_splits_can_wait_for_report_refresh(self):
+        for families in ([name] for name in levels.LEVEL_FUNCTION_SPLITS):
+            with self.subTest(families=families):
+                functions,where=self.level_split_fixture(families)
+                self.release(functions,where=where)
+        functions,where=self.level_split_fixture(list(levels.LEVEL_FUNCTION_SPLITS))
+        self.release(functions,where=where)
+
+    def test_level_split_staleness_still_fails_strict_check(self):
+        functions,where=self.level_split_fixture()
+        with self.assertRaises(SystemExit): self.release(functions,where=where,flags=("--strict",))
+
+    def test_level_split_rejects_old_credit_and_wrong_old_metadata(self):
+        for change in ("matched","partial","size","address","metadata"):
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                functions,where=self.level_split_fixture();row=functions[0]
+                if change=="matched": row["fuzzy_match_percent"]=100.0
+                elif change=="partial": row["fuzzy_match_percent"]=50.0
+                elif change=="size": row["size"]="20"
+                elif change=="address": row["metadata"]["virtual_address"]="2097160"
+                else: del row["metadata"]
+                self.release(functions,where=where,source={"x.c":[(row["name"],True)]})
+
+    def test_level_split_rejects_wrong_current_layout_and_partial_children(self):
+        for change in ("size","address","kind","level","reported child","unknown missing","retired"):
+            with self.subTest(change=change), self.assertRaises(SystemExit):
+                functions,where=self.level_split_fixture()
+                child="func_L13_0043E8C8";row=list(where[child])
+                if change in ("size","address","kind","level"):
+                    at={"address":0,"size":1,"kind":2,"level":3}[change]
+                    row[at]={"address":row[0]+4,"size":12,"kind":"shared","level":14}[change]
+                    where[child]=tuple(row)
+                elif change=="reported child": functions.append({"name":child,"size":"8","fuzzy_match_percent":0.0})
+                elif change=="unknown missing": where["other"]=(0x300000,8,"level",13)
+                else: functions.append({"name":"unmeasured","fuzzy_match_percent":0.0})
+                self.release(functions,where=where)
+
+    def test_refreshed_level_split_rows_need_no_exception(self):
+        _,where=self.level_split_fixture()
+        functions=[{"name":name,"size":str(size),"fuzzy_match_percent":0.0,
+                    "metadata":{"virtual_address":str(address)}}
+                   for name,(address,size,_,_) in where.items()]
+        self.release(functions,where=where,flags=("--strict",))
 
     def test_strict_report_check_still_requires_the_retired_row_removed(self):
         with self.assertRaises(SystemExit):

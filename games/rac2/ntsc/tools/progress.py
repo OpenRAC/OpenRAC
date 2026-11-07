@@ -98,32 +98,16 @@ def complete_measures(units: list[dict]) -> dict:
     return {"complete_code": str(done), "complete_code_percent": 100.0 * done / total if total else 0.0}
 
 
-CODE_SECTIONS = {".vutext", "core.text", ".text"}
-
-
-def data_measures() -> dict:
-    """The boot executable's data, for the top-level measures and the executable category: every
-    loaded section of initialised data (core.data, core.rdata, the literal pools, .data, the lvl
-    vtables, legal.data and mc1.data; .bss has no bytes to compare). None of it is matched yet:
-    tools/build.py places C functions' code only and discards their objects' data, so all of it
-    still comes from retail's dumps. The levels' data is not measured."""
-    import elf
-    image = elf.read(levels.BOOT) if levels.BOOT.is_file() else None
-    if image is None:
-        return {}
-    total = sum(s["size"] for s in image["sections"]
-                if s["type"] == 1 and s["address"] and s["name"] not in CODE_SECTIONS)
-    return {"total_data": str(total), "matched_data": "0", "matched_data_percent": 0.0,
-            "complete_data": "0", "complete_data_percent": 0.0}
-
-
 def check() -> None:
     report = json.loads(REPORT.read_text())
     matched = {f["name"] for u in report["units"] for f in u["functions"] if f["fuzzy_match_percent"] == 100.0}
     c_names = {n for fns in source_functions().values() for n, c in fns if c}
     by_hand = handwritten()
     in_c = c_names | by_hand
-    gone = sorted(matched - in_c)
+    # Names an audited identity split retired (levels.IDENTITY_SPLITS): the report
+    # keeps them until a maintainer regenerates it on master.
+    renamed = {n for spec in levels.IDENTITY_SPLITS.values() for n in spec[2]}
+    gone = sorted(matched - in_c - renamed)
     if gone:
         sys.exit(f"progress/report.json counts {len(gone)} function(s) that are not C in src/, e.g. "
                  f"{', '.join(gone[:5])}: run tools/build.py all, then tools/progress.py")
@@ -192,10 +176,10 @@ def release_report(version: str) -> dict:
         g = groups.setdefault(unit, {"rows": [], "source_path": source, "categories": cats})
         g["rows"].append({"name": name, "size": size, "address": address,
                           "matched": name in has_c and name in placed or name in by_hand})
-    return build_report(groups, title, data_measures())
+    return build_report(groups, title)
 
 
-def build_report(groups: dict, title, data: dict) -> dict:
+def build_report(groups: dict, title) -> dict:
     units = []
     for unit, g in sorted(groups.items()):
         rows = sorted(g["rows"], key=lambda r: r["address"])
@@ -219,36 +203,128 @@ def build_report(groups: dict, title, data: dict) -> dict:
         members = [u for u in units if cid in u["_category"]]
         rows = [r for u in members for r in u["_rows"]]
         cats.append({"id": cid, "name": cname,
-                     "measures": measures(rows) | complete_measures(members) | (data if cid == "executable" else {})})
+                     "measures": measures(rows) | complete_measures(members)})
     total = measures(allrows) | complete_measures(units)
     total.update({"total_units": len(units), "complete_units": sum(u["measures"]["complete_units"] for u in units)})
-    total.update(data)
     for u in units:
         del u["_rows"], u["_category"]
     return {"version": 2, "measures": total, "categories": cats, "units": units}
 
 
-def pending_boot_split(functions: list[dict], where: dict) -> bool:
-    """Recognize only the unmatched report row predating the measured main/sound split.
+def pending_boot_split(functions: list[dict], where: dict,
+                       main: str = "func_00131D98", sound: str = "func_00131DE8",
+                       head_size: int = 80, tail_size: int = 576) -> bool:
+    """Recognize an unmatched report row predating a named, measured boot split.
 
     The catalogue repair validates the retail bodies. Without game data, CI can
     check the exact old/new names, boot extents and virtual address; it never
     rewrites the report or turns the old merged row into matching credit.
     """
-    main, sound = "func_00131D98", "func_00131DE8"
     reported = {f["name"] for f in functions}
-    if set(where) - reported != {sound} or main not in where:
+    # Validate this split independently; release_check requires the union of
+    # all verified splits to explain every missing identity, without extras.
+    if sound not in where or sound in reported or main not in where:
         return False
     address, size, kind, level = where[main]
-    if (size, kind, level) != (80, "boot", None) or where[sound] != (address + 80, 576, "boot", None):
+    if ((size, kind, level) != (head_size, "boot", None)
+            or where[sound] != (address + head_size, tail_size, "boot", None)):
         return False
     old = [f for f in functions if f["name"] == main]
     if len(old) != 1 or old[0]["fuzzy_match_percent"] != 0.0:
         return False
     try:
-        return old[0]["size"] == "656" and old[0]["metadata"]["virtual_address"] == str(address)
+        return (old[0]["size"] == str(head_size + tail_size)
+                and old[0]["metadata"]["virtual_address"] == str(address))
     except (KeyError, TypeError):
         return False
+
+
+def pending_level_splits(functions: list[dict], where: dict) -> set[str] | None:
+    """Missing identities explained by the exact old, wholly unmatched level rows.
+
+    Catalogue generation checks the retail bodies and typed dispatch witnesses.
+    CI checks the old/new extent graph without game data or report mutations.
+    None denotes an invalid merged row, including one alongside reported children.
+    """
+    reported = {f["name"]:f for f in functions}
+    missing = set()
+    for name, spec in levels.LEVEL_FUNCTION_SPLITS.items():
+        parts = spec[-1]
+        old = reported.get(name)
+        if not old or name not in where or old.get("size") != str(sum(n for _, n in parts)):
+            continue
+        address, _, kind, level = where[name]
+        if old["fuzzy_match_percent"] != 0.0 or kind != spec[1]:
+            return None
+        try:
+            if old["metadata"]["virtual_address"] != str(address):
+                return None
+        except (KeyError, TypeError):
+            return None
+        offset = 0
+        for child, length in parts:
+            if where.get(child) != (address + offset, length, kind, level):
+                return None
+            if child != name:
+                if child in reported:
+                    return None
+                missing.add(child)
+            offset += length
+    return missing
+
+
+def pending_release_splits(functions: list[dict], where: dict) -> set[str] | None:
+    """Missing names explained by the exact old, wholly unmatched rows of a release's splits
+    (levels.RELEASE_FUNCTION_SPLITS, levels.RELEASE_PLACE_SPLITS). None denotes an invalid
+    old row, or a split whose new rows are not where the catalogues should have them."""
+    reported = {f["name"]:f for f in functions}
+    missing = set()
+    for name, (size, parts) in levels.RELEASE_FUNCTION_SPLITS.items():
+        old = reported.get(name)
+        if not old or name not in where or old.get("size") != str(size):
+            continue
+        address, _, kind, level = where[name]
+        if old["fuzzy_match_percent"] != 0.0:
+            return None
+        for part, offset, length in parts:
+            if where.get(part) != (address + offset, length, kind, level):
+                return None
+            if part != name:
+                if part in reported:
+                    return None
+                missing.add(part)
+    for name, (_, _, child, _) in levels.RELEASE_PLACE_SPLITS.items():
+        old = reported.get(name)
+        if not old or name not in where or child not in where or child in reported:
+            continue
+        if old["fuzzy_match_percent"] != 0.0 or where[child][1] != where[name][1]:
+            return None
+        missing.add(child)
+    return missing
+
+
+def demoted_renames(version: str, functions: list, retired: set, missing: set, where: dict) -> dict:
+    """Retired report rows that tools/carry.py --demote renamed for the release: each is
+    listed in config/<version>/not_carried.tsv, is unmatched in the report, and has exactly
+    one missing catalogue row of the release's own name at its reported address."""
+    path = ROOT / levels.VERSIONS[version]["config"] / "not_carried.tsv"
+    listed = set()
+    if path.is_file():
+        listed = {line.split("\t", 1)[0] for line in path.read_text().splitlines()
+                  if line and not line.startswith("#")}
+    prefix = f"func_{levels.VERSIONS[version]['tag']}_"
+    out = {}
+    for f in functions:
+        name = f["name"]
+        if name not in retired or name not in listed or f["fuzzy_match_percent"] != 0.0:
+            continue
+        address = f.get("metadata", {}).get("virtual_address")
+        if address is None:
+            continue
+        found = [m for m in missing if m.startswith(prefix) and where[m][0] == int(address)]
+        if len(found) == 1:
+            out[name] = found[0]
+    return out
 
 
 def release_check(version: str, report_path: Path) -> None:
@@ -261,7 +337,8 @@ def release_check(version: str, report_path: Path) -> None:
     c_names = {n for fns in source_functions(version).values() for n, c in fns if c}
     by_hand = handwritten(version)
     in_c = c_names | by_hand
-    gone = sorted(matched - (in_c & set(where)))
+    renamed = {n for spec in levels.IDENTITY_SPLITS.values() for n in spec[2]}
+    gone = sorted(matched - (in_c & set(where)) - renamed)
     if gone:
         sys.exit(f"{report_path.relative_to(ROOT)} counts {len(gone)} function(s) that are not C in src/, e.g. "
                  f"{', '.join(gone[:5])}: run tools/build.py all --version {version}, then tools/progress.py --version {version}")
@@ -271,21 +348,44 @@ def release_check(version: str, report_path: Path) -> None:
     retired = reported - set(where)
     missing = set(where) - reported
     split = pending_boot_split(functions, where)
+    assertion_split = pending_boot_split(functions, where, "func_00115E28", "func_00115E38", 16, 48)
     if total != len(reported):
         sys.exit(f"{report_path.relative_to(ROOT)} has duplicate function rows")
+    level_splits = pending_level_splits(functions, where)
+    if level_splits is None:
+        sys.exit(f"{report_path.relative_to(ROOT)} has an invalid merged level row")
+    release_splits = pending_release_splits(functions, where)
+    if release_splits is None:
+        sys.exit(f"{report_path.relative_to(ROOT)} has an invalid merged release row")
     if "func_00131DE8" in where and not split and any(
             f["name"] == "func_00131D98" and f.get("size") == "656" for f in functions):
         sys.exit(f"{report_path.relative_to(ROOT)} has an invalid merged main/sound row")
+    if "func_00115E38" in where and not assertion_split and any(
+            f["name"] == "func_00115E28" and f.get("size") == "64" for f in functions):
+        sys.exit(f"{report_path.relative_to(ROOT)} has an invalid merged abort/assertion row")
     if total != len(where) or retired or missing:
         # Boundary-only PRs leave the reports for a maintainer's later refresh.
-        # Only measured unmatched remnants or this exact unmatched merged boot
-        # row are tolerated. Missing entries and duplicate compensation still fail.
-        known_split = split and not retired
-        known_boundary = ((retired or known_split) and retired <= set(levels.FUNCTION_RESIDUES)
+        # Only measured unmatched remnants or the named unmatched merged rows
+        # are tolerated. Unknown missing entries and duplicate compensation fail.
+        explained = (level_splits | release_splits | ({"func_00131DE8"} if split else set())
+                     | ({"func_00115E38"} if assertion_split else set()))
+        # A name retired by an audited identity split explains its unreported parts.
+        explained |= {n for spec in levels.IDENTITY_SPLITS.values() if set(spec[2]) & retired
+                      for n, _ in spec[1] if n not in reported}
+        # A demoted v1.01 name (config/<version>/not_carried.tsv), unmatched in the report,
+        # explains exactly one missing release-named row at the same address.
+        demoted = demoted_renames(version, functions, retired, missing, where)
+        explained |= set(demoted.values())
+        # Measured residues may retire in the same tree as exactly explained splits, and so
+        # may the miscut rows a realigned stretch replaces (levels.RELEASE_PLACE_RUNS).
+        realigned = {n for spec in levels.RELEASE_PLACE_RUNS.values() for n in spec[2]}
+        known_split = bool(missing) and missing == explained
+        known_boundary = ((retired or known_split)
+                          and retired <= set(levels.FUNCTION_RESIDUES) | renamed | set(demoted) | realigned
                           and (not missing or known_split)
                           and total == len(where) + len(retired) - len(missing)
                           and all(f["fuzzy_match_percent"] == 0.0 for f in functions
-                                  if f["name"] in retired))
+                                  if f["name"] in retired - renamed))
         if not known_boundary or "--strict" in sys.argv:
             sys.exit(f"{report_path.relative_to(ROOT)} has {total} functions, the catalogues {len(where)}: "
                      f"regenerate it with tools/progress.py --version {version}")
@@ -294,6 +394,12 @@ def release_check(version: str, report_path: Path) -> None:
                   "a maintainer regenerates it on master")
         if split:
             print(f"{report_path.relative_to(ROOT)} retains the unmatched merged main/sound row; "
+                  "a maintainer regenerates it on master")
+        if assertion_split:
+            print(f"{report_path.relative_to(ROOT)} retains the unmatched merged abort/assertion row; "
+                  "a maintainer regenerates it on master")
+        if level_splits:
+            print(f"{report_path.relative_to(ROOT)} predates {len(level_splits)} witnessed level entries; "
                   "a maintainer regenerates it on master")
     ahead = sorted((in_c & set(where)) - matched)
     if ahead and "--strict" in sys.argv:
@@ -431,16 +537,14 @@ def main() -> None:
     wanted = [("executable", "Boot executable"), ("level_code", "Level code"), ("game", "Boot game code"),
               ("common", "Shared level code"), ("levels", "Level-specific code")]
     wanted += [(f"level_{n:02d}", title(n)) for n in sorted(levels.NAMES)]
-    data = data_measures()
     cats = []
     for cid, cname in wanted:
         members = [u for u in units if cid in u["_category"]]
         rows = [r for u in members for r in u["_rows"]]
         cats.append({"id": cid, "name": cname,
-                     "measures": measures(rows) | complete_measures(members) | (data if cid == "executable" else {})})
+                     "measures": measures(rows) | complete_measures(members)})
     total = measures(allrows) | complete_measures(units)
     total.update({"total_units": len(units), "complete_units": sum(u["measures"]["complete_units"] for u in units)})
-    total.update(data)
     for u in units:
         del u["_rows"], u["_category"]
     report = {"version": 2, "measures": total, "categories": cats, "units": units}

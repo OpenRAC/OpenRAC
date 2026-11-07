@@ -46,7 +46,7 @@ SHIP_CLASS = 3412           # his ship: the disc has its hulls and the picture o
 SHIP_BODY_CLASSES = 6030    # his ship's other hulls, by number (the port draws the one the game loaded)
 HERO_LOOK_CLASSES = 6000
 # Going Commando: a class's bangles, exported as classes numbered BANGLE_CLASSES + class * 16 + bangle
-# (bangles()); the port draws them for the moby's bangle word (rac2-ntsc/profile.cpp).
+# (bangles()); the port draws them for the moby's bangle word (rac2/profile.cpp).
 BANGLE_CLASSES = 100000
 BANGLES = 15
 GREY = Texture(8, 8, bytes(64), bytes((0x80,) * 4) + bytes(1020))
@@ -492,7 +492,7 @@ def moby_classes(level) -> dict[int, MobyClass | None]:
         if fmt.moby_bangles and mesh_file is None:
             result.update(bangle_classes(level.block(start), remap, class_id, fmt, level.problems))
     # His looks past the first are classes of their own: his skeleton with another pack's packets.
-    # The port asks for the class of the pack the game loaded (rac2-ntsc/profile.cpp).
+    # The port asks for the class of the pack the game loaded (rac2/profile.cpp).
     starts = {c: s for s, c in (unpack("<ii", e) for e in level.table(0x18, 32))}
     for number, mesh_file in level.hero_looks:
         remap = [HERO_TEXTURES + number * HERO_LOOK_TEXTURES + i for i in range(16)]

@@ -43,6 +43,7 @@ import asmc  # noqa: E402
 import asmext  # noqa: E402
 import clangast  # noqa: E402
 import derived  # noqa: E402
+import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
@@ -197,7 +198,9 @@ def read_aliases(source: Path, cfg: dict) -> dict[str, str]:
         if path.suffix == ".json":
             out.update(prep.read_carried_aliases(path.read_text(encoding="utf-8", errors="surrogateescape")))
         else:
-            out.update(prep.read_aliases(prep.read_alias_header(path)))
+            # A readable name for an address name: in another release, for the release's name (the
+            # carried names above are the release's already).
+            out.update({k: in_release(v) for k, v in prep.read_aliases(prep.read_alias_header(path)).items()})
     return out
 
 
@@ -1016,6 +1019,15 @@ def warn_of_uncovered_names(derived_table: Path | None, source: Path, cfg: dict,
               f"--game {args.game} --source <it>.", file=sys.stderr)
 
 
+# Another release's view of the decompilation (hostgen.json "release", release.py): its names
+# for every address name, applied to every file prepared and every table of the decompilation read.
+RELEASE: "release.Release | None" = None
+
+
+def in_release(name: str) -> str:
+    return RELEASE.name(name) if RELEASE is not None else name
+
+
 def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict:
     """The port's own C that stands in for the decompilation's: what is read, as a dict of
     candidates (functions the decompilation has no C for), overrides (functions it matches),
@@ -1038,6 +1050,13 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     overrides = read_overrides(args.game.parent, cfg)
     aliases = read_aliases(source, cfg)
     long_long_128 = read_long_long_128(source, cfg)
+    if RELEASE is not None:
+        # The decompilation's own candidates name v1.01's addresses; the port's (hand/) are the release's.
+        # Before the aliases, whose names are the release's already.
+        own = set(read_hand(args.game.parent, cfg))
+        texts = {id(c): RELEASE.text(c) for name, c in candidates.items() if name not in own}
+        candidates = {(name if name in own else RELEASE.name(name)): (c if name in own else texts[id(c)])
+                      for name, c in candidates.items()}
     if aliases:
         # One text for several functions stays one text (use_candidates puts it in once).
         texts = {id(c): prep.unalias(c, aliases) for c in [*candidates.values(), *overrides.values()]}
@@ -1063,7 +1082,7 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
         if (source / d).is_dir():
             prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
-                           overrides=replacements["overrides"], overridden=overridden)
+                           overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
     return used, overridden
 
 
@@ -1101,6 +1120,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     Raises ValueError for a hook point libraries.tsv spells wrongly."""
     if cfg.get("places"):
         read_places(source / cfg["places"], program)
+        if RELEASE is not None:
+            program.places = {in_release(k): v for k, v in program.places.items()}
+            program.sizes = {in_release(k): v for k, v in program.sizes.items()}
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
     if cfg.get("call_copies"):
@@ -1226,8 +1248,16 @@ def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
     """The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
     what it calls keeps the signature it calls it by."""
     host_dirs = [args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"]
-    return "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
+    text = "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
                    for p in sorted(d.glob("*.c")))
+    if RELEASE is not None:
+        # The shared C is written with the primary release's names; this release's table
+        # (host/rac2_names.tsv) renames them, as its build does (release_host.py).
+        import release_host
+        names = args.game.parent / "host" / "rac2_names.tsv"
+        if names.is_file():
+            text = release_host.rename(text, release_host.read_names(names))
+    return text
 
 
 def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> tuple[dict, dict, list[str]]:
@@ -1321,10 +1351,16 @@ class SortedPickler(pickle._Pickler):
 
 
 def main(argv: list[str] | None = None) -> int:
+    global RELEASE
     args = parse_arguments(argv)
     cfg = load_config(args.game)
     apply_assembly_options(cfg, args)
     source = args.source.resolve()
+    try:
+        RELEASE = release.configured(source, args.game.resolve().parent, cfg)
+    except FileNotFoundError as e:
+        print(f"hostgen: error: {e}", file=sys.stderr)
+        return 1
     out = args.out.resolve()
     try:
         derived_table = add_derived_names(cfg, args, source)

@@ -662,6 +662,12 @@ openrac_add_test(moby_fade LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(shrub_proc LIBS openrac_game_rac1_profile openrac_ps2float)
 openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 
+# Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
+add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
+target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include)
+target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer)
+openrac_warnings(openrac_game_rac2_profile)
+
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
 # add_test on its target. The enhanced renderer's programs below stay written out: their tests are

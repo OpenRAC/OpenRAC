@@ -269,7 +269,6 @@ void func_L00_00390E10(char *object)
 }
 
 
-INCLUDE_ASM("asm/levels", func_L00_00390FF8);
 
 /* Releases the second argument's object: clears a word of the sub-object at +0x68, clears
  * two globals, hands its +0x14 word over before clearing it, then runs five helpers and the
@@ -456,7 +455,6 @@ void func_L00_00398118(Rac2Native_9cdc323a4d0c2fbd_AnalysisOwner *owner)
 }
 
 
-INCLUDE_ASM("asm/levels", func_L00_00398810);
 
 
 /* func_L00_0039B288 is defined in L00_0039B288-g8.c. */

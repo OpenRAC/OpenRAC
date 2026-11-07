@@ -273,7 +273,6 @@ void func_L01_003DC9E0(void *arg, void *fallback) {
 
 
 
-INCLUDE_ASM("asm/levels", func_L01_003DCF40);
 
 /* func_L01_003DD3A0 is in L01_003DD3A0.c. */
 
@@ -520,8 +519,6 @@ void func_L01_0041C960(u8 *a0) {
 }
 
 /* func_L01_0041C970 is in L01_003DA740-g8.c. */
-
-INCLUDE_ASM("asm/levels", func_L01_0042C450);
 
 /* func_L01_0042C540 is in L01_003DA740-campath-g8.c. */
 

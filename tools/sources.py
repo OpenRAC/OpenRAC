@@ -39,9 +39,11 @@ ROOT = paths.repo_root()
 
 def manifests() -> dict[str, tuple[Path, dict]]:
     """'game/version' -> (its game.json, the whole manifest), for every version with a source.
-    The versions of one game share its manifest, so record() writes back all of it."""
+    The versions of one game share its manifest, so record() writes back all of it. A version whose
+    source is "shared" with another (Going Commando's PAL and v2.00, built from rac2/ntsc's tree)
+    is not synced on its own: record() brings its commit along with that version's."""
     return {f"{game['id']}/{version}": (games.manifest_path(game["id"], ROOT), game)
-            for game, version, info in games.versions(ROOT) if info.get("source")}
+            for game, version, info in games.versions(ROOT) if info.get("source") and not info["source"].get("shared")}
 
 
 def version_dir(game: dict, version: str) -> Path:
@@ -141,6 +143,10 @@ def record(path: Path, game: dict, version: str, commit: str, repo: Path) -> Non
     source["commit"] = commit
     source["date"] = proc.git(repo, "log", "-1", "--format=%cs", commit)
     source["imported"] = time.strftime("%Y-%m-%d")
+    for other in game["versions"].values():
+        shared = other.get("source") or {}
+        if shared.get("shared") == version:
+            shared.update({k: source[k] for k in ("commit", "date", "imported")})
     path.write_text(json.dumps(game, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 

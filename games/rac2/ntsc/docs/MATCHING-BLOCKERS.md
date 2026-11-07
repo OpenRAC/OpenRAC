@@ -34,6 +34,147 @@ agreed result here. A persistent personal issue comment is no longer required fo
 
 ## Recent verified updates
 
+### Reload self-conflicts and padding counters
+
+**5 November 2026, strict linked matches; pending PR review.**
+The non-spill exclusion in `reload_reg_free_for_value_p` now uses the initial
+instruction mask, before `RELOAD_OTHER` marks accumulate. The lifetime loop
+still rejects other interfering reloads and permits its own reload. Authored
+controls reject both the old self-conflicting guard and a removed exclusion.
+This removes the partial color/flag spills in `func_002E7338`,
+`func_00337210`, `func_00316E08`, `func_L00_00418230` and
+`func_L03_002ECF08`; ordinary mode-store ordering and independent switch-case
+placement supply the remaining source differences. No register or opcode is
+patched. See [the mechanism and controls](COMPILER-NOTES.md#inheritance-into-a-register-the-insns-pseudos-hold).
+
+Two existing counters had separate accounting errors. The post-delay-slot loop
+pass must include nops inserted before an already-visited branch: otherwise
+another back edge adds them again (`func_00294420`, 28 places per release).
+The assembler's division-label distance must count the selected GP expansion
+once, excluding its stored absolute alternative (`func_L05_00419CC8`, four
+places, and `func_L00_00424F98`, 27 places, in both USA releases). Known symbol
+metadata permits the latter correction; unknown symbols and general alignment
+remain bounded by the prior fallback. Neither USA identity is carried in PAL.
+All three corrections have authored positive and negative controls; the linked
+build remains the acceptance gate. The complete qualification passes all 84
+programs across USA v1.01, USA v2.00 and PAL with zero C fallbacks, including
+the separately witnessed abort/assertion entries described below.
+The existing museum brightness routine retains its 1,424-byte match after
+keeping its calculation, clamp and store on one debug source line; it earns
+no additional credit. Progress reports were not regenerated.
+
+The renderers use complete quad, matrix and UV owners. `GridEquipped.item[4]`
+includes the observed menu selector 3; a two-element declaration was too small
+even though its object matched. Both trail renderers preserve a retail defect:
+the second packet's color word at offset `0x44` is never initialized before
+the assembly renderer transfers it. The C caller never evaluates that word as
+a scalar. This is not evidence of a fully initialized packet or native gameplay
+validation; adding a new store would change retail.
+
+`func_L11_004465F8` is explicitly held. Although its `qcopy_nc` spelling becomes
+locally exact, subsequent C reads and modifies those copied vertices, violating
+the helper's dependency contract. The retained normal-`qcopy` source is
+1668/1660 bytes, 0/1 USA placement. Typed TI copies with the existing copy
+pattern, with and without its barrier, both give 1636/1660. None earns C credit.
+The vehicle-input callback uses an unsigned level-bit shift on its current
+gameplay-level contract (observed overlay IDs 0..26 excluding 21, plus 30).
+Adding an explicit mask costs a word; no out-of-range vehicle caller has been
+observed. A discovered caller outside that domain must reopen the assumption.
+
+The remaining unannounced-symbolic-macro counter case is also resolved:
+`func_002EEBC8` (320 USA bytes) and `func_002F0FA0` (108) pass every carrying
+placement and the complete 84-program strict build. Only ordinary unannounced
+external SI loads/addresses count as two words; prior metadata, SDATA aliases,
+PIC, buffering and delay-slot sequences remain excluded. Seven authored
+controls cover the boundary; the old compiler fails the three positive cases.
+See [the counter model](COMPILER-NOTES.md#short-loop-padding).
+
+The retained counter-display draft `func_0034DB98` is no longer registered as
+functional native C. Its wide font read and sign-preserving style inputs are
+not faithfully represented by the retained body; declaration repairs alone
+do not settle those differences. The C and measured failed alternatives stay
+in `nonmatching/` and private working evidence, with no matching credit.
+
+`func_00342BE8` remains a 900-byte near miss: only the `clip.x1` and `clip.y1`
+store order differs. Complete screen-size views, explicit width capture,
+builtin/byte-view copies, complete-owner stores and equivalent initialization
+state transitions all tie. Reopen with independent scheduling or source-boundary
+evidence, not another store permutation or invented volatile stack access.
+
+**6 November 2026, bounded replay:** the isolated game `-O2 -G8
+-ffunction-sections` source still gives 900/900 bytes, 0/28 in each release.
+One-pass groups around the initialization stores, flag/bounds constant setup,
+or the guard plus clipping call grow to 904 bytes with a label-alignment nop
+and altered scheduling. None closes the two-store difference. The retained
+source is unchanged; these are local checks, with no linked build.
+
+The spawn routine `func_L18_0043FFF8` likewise stays 488/488 bytes and 0/3
+in each release under game `-O2 -G0 -ffunction-sections -g`. Grouped header
+writes or grouped byte-constant locals before/inside the null guard do not
+improve its five flag constant/store differences. Reopen with a measured
+constant lifetime explanation, rather than another equivalent store order.
+
+
+### Floating formatter lifetimes and inherited limits
+
+`func_001185E8` is 1,496 bytes in each release and passes all three strict boot
+builds. A separate integer-digit budget and decimal exponent shorten the real
+value lifetimes. Grouping the actual bit-pattern dispatch, and the character
+encoding/store, preserves the remaining schedule without fake inputs or asm.
+Its unit uses `-O2 -G2 -ffunction-sections -mastra-quad-saves`.
+
+Keep the measured behavior distinct from a safe formatting API: retail examines
+the low word for its special-value dispatch, and the caller supplies an
+unbounded precision. The formatter applies no new cap. For example, formatting
+zero with precision 128 reaches `p[130]`, beyond the next known tty-buffer base
+at `D_0013C100`. No larger scratch extent or missing guard was invented.
+
+A separate pre-existing source issue remains in the `INSERT_WORDS` macros of
+`func_00117650` and `func_00117848`: the scalar `iw` is evaluated before it is
+initialized. Overwriting both halves later does not make that C evaluation
+defined. Initializing it to zero gives 460/500 and 1048/1108 bytes; initializing
+from the destination gives 504/500 and 1112/1108. Proper bit-field owners, with
+and without real half-write groups, give 472/500 and 1052/1108. None replaces
+the existing source in this change. Reopen with a defined word-construction
+model or independently supported compiler behavior; the current retail-byte
+proof is not an ISO-C or native-safety certification of those callees.
+
+### Trigger and title/setup lifetimes
+
+**4 November 2026, strict linked matches; [PR #420](https://github.com/OpenRAC/rac2-decomp/pull/420) pending review.**
+`func_L01_00390A50` is 528 bytes and passes six placements in each release with
+the actual forced-trigger arm grouped as one statement. Its volume/path calls
+use their canonical names and real point/index interfaces. `func_002CD3C0` is
+284 bytes and passes 28 USA v1.01 placements after separating its screen y
+coordinate from the later owner pointer; its canonical identity is absent in
+the other releases. The two setup hooks accept the owner explicitly supplied
+by retail. Each hook passes 28 placements in every release, and their complete
+compiled object is unchanged. All 84 loaded images and the 46 new C placements
+are verified, with PAL rebuilt after the latest carry update. See [source interfaces](COMPILER-NOTES.md#source-methods-shared-with-rac1).
+
+One-pass groups are not a general remedy. In `func_L01_0031B300`, grouping the
+actual height read restores the register map but adds an alignment nop at
++0x74 (276/272 bytes, 0/5 USA places). Wider response groups lose that map.
+The HUD-bank loop, menu cache and frame-phase drafts still have allocation or
+call-scheduling differences; their source, exact trial limits and next useful
+conditions remain in `nonmatching/`. No failed variant is linked or counted.
+
+### Player initialization and retained allocation constraints
+
+**4 November 2026, strict linked match; pending PR review.**
+`func_L22_002A8B98` is 172 bytes and matches both placements in each release with
+ordinary assignments and the real signed32 return of `func_L22_002C9898`.
+Four parameter/selector grouping trials did not match; no group or additional
+flag is needed. The borrowed player prefix describes the measured field offsets
+without creating an owning allocation.
+
+The same investigation did not resolve `func_002B6658`, `func_L22_003D0840` or
+`func_L13_0041AB30`. True callback/SetState contracts, consumed one-pass groups
+and measured grid views remain short or allocate differently; their markers
+and near misses are retained. The second vector grid ends at the counter at
++0x620 (three rows of four cells), so an owning four-row view is not justified.
+
+
 ### `func_002B60B0` returns nothing
 
 **4 November 2026, local match (pending PR).** `func_002B60B0` (the motion-parameter
@@ -64,6 +205,23 @@ comma expressions and FP/pointer parameter interleavings all tied at 18 or regre
 Retail has no branch into the three call sequences. The scheduler dumps (`-dS`/`-dR`)
 abort under `_FORTIFY_SOURCE`; a private `haifa-sched.o` built with `-U_FORTIFY_SOURCE`
 gives identical output and readable `-fsched-verbose-5` priorities.
+
+### `func_002E3E54` takes three arguments
+
+**6 November 2026, local match (PR pending; USA v1.01 strict build).** The sky piece
+renderers `func_002E3998` and `func_002E3BD8` (boot and all 27 levels) had stopped one
+`daddu $a3,$t0` short (576/572 and 632/628): retail loads the +0x2C halfword straight
+into `$a3` and uses it for `base + h` with no copy. Their drafts declared the
+handwritten vertex transform `func_002E3E54` with four arguments and passed `h` as
+the fourth. The retail body never reads `$a3`, and its functional C already said
+"arg3 is unused". Declared and called with its three real arguments, both functions
+match 28/28 in `src/game/002E10B8-sky-g8.c`. The `$a3` was only local-alloc giving `h`
+a free call-clobbered register, because `h` dies before the call.
+
+When a near miss is one argument-register copy away, check the callee's actual
+register use before tuning schedules, especially for an `ASM_FUNC` callee, whose
+interface no C definition constrains. The same applies to return values; see the
+entry above.
 
 ### Three-quantity local allocation
 
@@ -409,6 +567,25 @@ The numbered history below is retained, with obsolete conclusions and incorrect 
 
 ## 1. Register allocation on long bodies (the dominant wall)
 
+**6 November 2026, ribbon PRE replay:** `func_00281A08` remains 980/980
+bytes, 0/7 in each release with game `-O2 -G8 -ffunction-sections -g
+-frac2-qcopy -frac2-qcopy-barrier`. Eight non-relocated spill-offset words
+differ in the retained source, superseding its older ten-row count. Explicit
+`qcopy` for either/both matrix translations ties. Scoped loop counters, an
+explicit pair count, a zero-based step and one-pass groups around the setup,
+outer loop or translation copy do not improve; groups give 976-1004 bytes or
+earlier allocation differences. Reopen with a measured PRE expression or
+lifetime change that fixes the slot order. No linked build was run.
+**6 November 2026, Endako initializer (retained):** `func_L03_00421930`
+remains 416/412 bytes, 0/1 USA v1.01 places, default game G0. Four new
+one-pass groups around its initializer call, record-address calculation,
+middle append call or complete initialization sequence each give 420/412:
+obj moves to s3 and p to s2, while table/stride remain locally allocated in
+s0/s1. Disabling expensive optimizations gives 404/412 and loses the saved
+FP zero without fixing the integer allocation; `-fno-local-alloc` is unsupported.
+The earlier best C remains in `nonmatching/levels/func_L03_00421930.c`.
+Reopen on table/stride promotion, rather than another tied grouping.
+
 **Ties and spill slots, 1 November 2026:**
 global allocation orders pseudos by `floor_log2(refs) * refs / live length`. With equal refs, the
 order of two sets decides. `func_00306680` swapped $s7/$fp until its `%hi` was set first, through a
@@ -513,6 +690,61 @@ with 161 to 183, 191, 193, 201 and up all exact, so it needed 2 more buckets (4 
 loops give them: `for (i = 0; i < 16; i++) a[i] = 0;` has an address computation per element at gcse, and loop.c turns it
 into the same pointer countdown as `*dst++` over a reversed counter. Check loop spellings first when a near miss is
 all stack offsets; they change nothing after loop.c.
+
+**Joba state machines, 5 November 2026 (USA v1.01, `-O2 -G8`, retained in `nonmatching/levels/`):**
+`func_L11_00453358` is now 4524/4524 bytes with every instruction equal; a scratch cc1 whose bucket
+count is forced from an environment variable (not committed) makes it `1 of 1` at S 539-543 and
+561-565, so only the gcse insn count is left (its source gives 551). Whole-file `-fno-force-mem`
+also lands it in the window (it removes the HI copy that `emit_cmp_insn`/`compare_from_rtx` force
+before each `short` compare), but changes four other places, among them a `u8` compare whose
+`andi 0xFF` retail keeps, so that flag is not retail's profile. Skipping `force_not_mem` only
+in `extendhisi2`, or only for HImode compares, moves `max_cuid` by just 2 and 4. Every spelling of
+an `if (*(s16 *)p)` test (`!= 0`, an `(s32)` cast, a struct field, an `s32` local) expands to the
+same three insns. Dead initialisers count one insn each and change no instruction. The case-9
+cross-jump in that function is closed only by the matched twin `func_L02_0040BE08`'s
+`height = 0.0f;`, which needs a ruling. (Under blocker 26 it is an artificial use, so `func_L11_00453358` is kept in `nonmatching/` exact but unlanded.) `func_L11_00451178`'s natural wording needs S 575-585 and
+then still differs in two orders, so it is not a count alone.
+Second pass: for 453358, loop spellings, `rot` placement and the byte-offset `qcopy` are
+count-neutral, and even all ten dead initialisers reach only S 555. A `pos` local lands in the
+window but takes a saved register, so the roughly 20-insn difference is still unidentified.
+**Later on 5 November 2026:** `func_L11_00453358` became exact (level 11 `OK`) but is kept in
+`nonmatching/` because of the case-9 dead store (blocker 26). The count came from two inlined helpers, not from
+spellings: `anim(self, a, b)` (`if (self[0x43] != a) func_002A7470(self, a, 0, b);`, eight
+sites) and `turn(self, rate, speed)` (`func_002B60B0` with the shared last two constants, four
+sites). Both are code-neutral and bring S from 551 to 543. So a void helper that wraps a
+repeated idiom is a count lever: F4's "inline helpers returning a value do nothing" does not
+extend to these. On the forced-bucket check, an `emit()` helper around the `func_002A8C28`
+calls is code-neutral too (S 541). For `func_L11_00451178` the same helpers bring the natural
+wording into its window (`turn` alone gives S 581), but its case-7 hoist order still differs.
+**Resolved later the same day:** `func_L11_00451178` matches too (`L11_00451178-gu-g8.c`). Three
+steps, each read from a dump:
+- **Slot order.** Retail's 0xCC slot for `tmpl` sits between gcse registers (0xC4/0xC8 for
+  `&work[1]`/`&work[4]`, 0xD0+ for case 12's addresses), which a user variable can only get if
+  it is *evicted*. Global-alloc gives `tmpl` and case 12's three reaching registers one saved
+  register (their lives do not overlap), reload takes it back, and the evicted pseudos get
+  slots in pseudo order after the ones spilled from the start. The variable has to win the
+  register first, so `tmpl = &particle;` goes just before the template is filled (a short
+  life), not earlier in the case. As a register argument it also drops gcse's copy from the
+  particle loop: 46 insns, so loop.c's first-pass threshold (61 - 3 per hoist) still covers
+  0x70707F.
+- **PRE copy order.** PRE inserts its copies in expression-index order, which is the order of
+  first appearance. `spin = (float *)(state + 0x2B0);` before the loop (`func_L11_0044AFC8`'s
+  `rotation`) makes `state+0x2B0` appear before `object+0xF0`.
+- **Bucket count.** The `turn()` helper gives S 583.
+Reading `-dL` for "not desirable" and the loop's real insn count is the quickest check on a
+preheader order.
+
+**PR #419 contract review, 4 November 2026:** the sentry's `func_002B1C20` call must
+preserve its matched callee's unsigned 64-bit return. With that declaration and a
+64-bit local, the compound `!func_002A77E0(30) || (flags & 1)` condition adds a
+`dsll32`/`dsra32` normalization pair (4832/4824 bytes). The equivalent early exit
+`if (func_002A77E0(30) && (flags & 1UL) == 0) break;` preserves the original call
+order and low-bit tests and restores 4824 bytes, 1/1 USA v1.01 placements. Its
+canonical identity is absent from PAL and USA v2.00. The held drone also restores
+four ignored return contracts from their matched definitions: integer results for
+`func_002A8C28`, `func_002A8D70` and `func_L07_00321D68`, and a float result for
+`func_002AA548`. It remains 1/1 in both USA releases, but its case-9 dead store
+still prevents promotion.
 
 **Update, 3 November 2026 (pending review):** now matched. `func_L12_00300410` is C in `src/levels/12_todano/L12_00300410-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 1 US place (PAL and US2 catalogues have no function of this name). The measurements above are kept as history.
 
@@ -758,6 +990,21 @@ through +0xFC. Neither equal size nor a neutral allocator-dump build is a match.
 
 ## 2. LICM: the retail re-materialises a base inside a loop
 
+**6 November 2026, strand refresh/draw (retained):**
+`func_L00_003C48D0` improves to 700/708 bytes, 0/27 USA v1.01 places with
+default game G0. Indexed points, `next = i + 1` and a separate halfword-table
+byte offset recover the 0x120 frame and both post-copy integer multiply-adds.
+The point base still occupies s7, next fp, and the alpha base is rebuilt after
+the inner loops. Diagnostic and ordinary objects agree; the point-base pseudo
+has 8 references over 152 instructions and is allocated s7. Goto outer loops,
+with or without gcse, and size optimization are worse (656/652/656 bytes).
+An indexed first timer guard, complete union vector and grouped alpha tail tie
+700; `-fno-rerun-loop-opt` gives 688. Retained C records the other bounded
+pointer-lifetime trials. A rematerialized retail address alone does not prove
+that loop.c skipped that loop: reload can rebuild a hoisted base. The next
+useful experiment is promotion of the real alpha-table base while preserving
+the strand index's shortened lifetime. No strict linked match is claimed.
+
 **Signature:** retail emits `lui $r,%hi(D)` + `lw`/`addiu` *inside* the loop body; cc1 hoists the address into a callee-saved register, so the loop loses an instruction, the 8-byte alignment `nop` before the label disappears, and the frame grows by two saves.
 
 **Measured:** `for` and `do/while` both fold. Those tested loop forms did not move the original attempts. Later source/profile remedies mean this is not a universal impossibility claim; wave 8 recorded the two observations below.
@@ -973,6 +1220,14 @@ pools, `.sdata` and unsupported assembly data directives remain rejected.
 **Update, 29 October 2026 (pending review):** matched by the tiered-wave series; `func_L19_00423CC0` is C in `src/levels/19_grelbin/L19_00423CC0.c` (`-O2 -G0 -ffunction-sections`), placed at 1 US, 1 PAL, 1 US2 places. The measurements above are kept as history.
 
 ## 7. Annulled integer branch delay slots
+
+**6 November 2026, retained near miss:** `func_L07_0040EC08` is 952/952
+bytes, 0/1 in both USA releases under game `-O2 -G8 -ffunction-sections`;
+PAL has no canonical identity. Only `bnel` versus retail's `bnez` at +0x328
+remains. One-pass groups around the mode tests/calls and early-continue
+forms retain it; a shared health-label form grows to 956 bytes. The retained
+source explains the reorg jump-budget hypothesis. New evidence must change
+the first mode-branch slot selection; no linked match is claimed.
 
 Historical mismatches involved bnel/beql with a taken-path slot where retail used a normal branch and fall-through work, often one word different. The wave 9 correction counted 342 then-matched functions containing a likely branch: the compiler does emit them from ordinary C. That count is historical, not today's corpus size.
 
@@ -1316,7 +1571,9 @@ the canonical `D_00189EA0`. Earlier zero/constant labels described a mistaken
 interpretation of `func_00334710`, which returns this stored vector. Preserve the
 shared identities without inventing constness or zero initialization at each read.
 
-**Current scope:** func_L00_00424BB8 remains a marker. The 23/27 report is historical; section 34 describes different field offsets. Re-extract the current extents before changing their grouping.
+**5 November 2026, resolved:** in all three releases, levels 16, 22, 23 and 26 held the `q + 0x20` body under this name and the `q + 0x60` body under `func_L16_0042FB58`. The audited `IDENTITY_SPLITS` entry in `tools/levels.py` (also run by `carry.py --entries`) regroups the key by the release-independent words after the address pair: `func_L00_00424BB8` is now the `q + 0x60` setter at all 27 levels, `func_L16_0042FB10` the `q + 0x20` one at 4, and `func_L00_00424B70` is unchanged. Retail `jal` targets confirm which callers use which body; the level callers were renamed. Both setters are now C (27/27 and 4/4 in each release).
+
+**Earlier scope (superseded above):** func_L00_00424BB8 was a marker with a historical 23/27 report.
 
 **Signature:** `tools/check.py` reports a partial count (`23 of 27 places match`) and
 `instruction at +0xNN differs` on an `addiu` **immediate** or a **store displacement** - a word
@@ -1510,6 +1767,15 @@ A start inside a prior epilogue, measured linker filler, or an implausible entry
 
 No jr, two returns, a short size, or a register read before its local definition is not proof by itself. Trap/tail-call bodies may lack jr; ABI-defined live-ins must be considered. A four-byte residue needs its surrounding completed return and reference evidence, not just its size.
 
+**Abort/assertion boundary, 4 November 2026:** the old 64-byte
+`func_00115E28` extent contains a 16-byte abort thunk and the independently
+entered 48-byte `func_00115E38` assertion reporter. All three releases have
+the same complete normalized body, named callees and four incoming assertion
+calls. Guarded generation and two replays change only these boot rows;
+seven synthetic tests reject changed bodies, targets and malformed metadata.
+Both C bodies pass their local checks in every release. The strict linked
+qualification accompanies the implementation PR; the split alone is not C credit.
+
 **Resolved entry, 30 October 2026, `func_L05_0042AFE0`:** callback address
 construction in `func_L05_0042AC30` (US/US2) and the distinct PAL caller
 `func_PAL_L05_00430828` reaches the GP load into F1 before the stack prologue.
@@ -1568,6 +1834,10 @@ its draft declared `func_002FC560(int, int)`. The callee stores its second input
 as a 64-bit packet value. Its real unsigned 64-bit declaration and literal recover
 27/27 checks in both USA releases; the name is absent from PAL's catalogue.
 No flag or artificial scheduling dependency is needed beyond the existing G8 unit.
+
+**6 November 2026, resolved:** `func_L02_002EFB60` (8/8) and `func_L00_003C5310`
+(27/27) match with `-frac2-sticky-volatile-refs`: GCC 2.95's `res->volatil |=`
+keeps reorg's search stopped after the copy's volatile asm.
 
 **Named examples now resolved:** func_L18_0042FAA8, func_L02_003D69F0 and func_L23_003C0E98 each pass1/1. Their older measurements below are retained as history, not current blockers.
 
@@ -1762,6 +2032,20 @@ reproduces retail's `sd a2..t3` + `swc1 f12..f18` save prologue **and** the fram
 <a id="blocker-22"></a>
 
 ## 22. Vector copies: address materialisation is only part of the mismatch
+
+**6 November 2026, Barlow UV storage (retained):**
+`func_L04_0040DCA8` reaches 740/740 bytes and 0/6 USA v1.01 places with
+default game G0. Both UV cursors now walk the complete packet's unsigned-byte
+representation; the final v cursor remains inside the packet at +0x74.
+A separate UV counter and block-local v cursor recover the complete retail
+UV loop, including allocation and delay slots. Corners still own complete
+quadword/float unions. The frame remains 0x1A0 rather than 0x1D0, corner/save
+offsets are lower by 0x30, and five corner-store words differ. No unused scratch
+array or artificial stack padding fills that gap. Grouping the positive-height
+stores (together or only the first) gives 748 bytes and disrupts preceding
+scheduling; a complete-array corner union adds no improvement. Retained C is
+`nonmatching/levels/func_L04_0040DCA8.c`; reopen on evidenced stack storage and
+the corner-store dependence graph. The 3 November measurements below are history.
 
 **Barlow/Joba storage and phase lifetimes, 3 November 2026 (retained):**
 `func_L04_0040DCA8` now owns its corners as quadword/float unions and its UVs
@@ -2232,7 +2516,9 @@ fields at `+0x1C`/`+0x20`); the matching body in level 16 sits at `0x0042FB58` i
 candidates for the same collision (`func_L01_003BAFB0` against `func_L00_0037E668`,
 `func_L02_003E9BB0` against `func_L00_003973E8`, `func_L02_00401298` against
 `func_L00_002E94B8`). It is a `tools/levels.py` fix - the masking of the small immediates on a
-non-tainted base - not a C problem.
+non-tainted base - not a C problem. **5 November 2026:** this row is resolved by a named, audited
+`IDENTITY_SPLITS` entry (section 12). The same screen on today's catalogue finds 92 single-place
+rows sharing a multi-place fingerprint; each still needs its own byte-level audit.
 
 <a id="blocker-35"></a>
 
@@ -2417,6 +2703,21 @@ Use measured siblings, final unit/profile checks and a bounded budget. Reopen a 
 
 **Current counterexample:** func_L22_00328220 passes 2/2. The other named attempts remain open. Eight identical variants establish a stopping point for those variants, not the absence of every source/profile lever.
 
+**6 November 2026, retained USA v1.01 misses:** `func_00285030` remains
+680/680 bytes, 0/28 places with game `-O2 -G8 -ffunction-sections` (first
++0x1F4). Real packet-store reordering and statement groups do not recover the
+state-address/0x106 ordering; the current RAC1 `setup_render_target` donor
+confirms the structure but does not match this four-argument variant.
+`func_L13_0041AB30` remains 460/460, 0/2 with the same profile plus `-g`;
+wide pointer views tie or change the frame, and grouping the row copy worsens
+its four preheader rows. `func_002CF5B0` is 576/576, 0/28 with `-G32
+-Wa,-G32`: reusing the actual mask working variable for the later item read
+recovers the item's `$a0` allocation (23 to 21 differing instruction rows),
+but base/status allocation and cleanup-call setup remain. Sharing the table
+pointer across navigation arms adds a saved register. The original two drafts
+and improved menu draft stay in `nonmatching/`; their notes give measured
+limits and reopening conditions. No linked or secondary-release check was run.
+
 **Signature:** two values compete and the tested source forms did not change their allocation. The
 `.lreg` dump (`cc1 -dl`; each pseudo carries `refs`, `live_length`, `crosses N calls`) shows the
 tie: two pseudos with *identical* statistics, and `local-alloc` breaks it by pseudo number.
@@ -2515,7 +2816,8 @@ Historical examples, to requalify in the final unit:
 - Spill slots that move with several unrelated registers can be a bucket count too: func_002DE990 went from 77 words to exact when `*gameState = savedState` lost its pointer local, which took the count from 159 to 157. `*(table + i)` gives (plus index sp) where `table[i]` gives (plus sp index).
 - Hoist order in a preheader follows the source's expressions. In func_L12_0041BF88 the 0.5 from the inner loop always came before `-(width * 0.5f)`, scanned last from the rotated test. A `halfWidth` local takes the multiply out of the test, and the two copies swap.
 - Before tuning a near miss, compare it with its matched relatives by masked opcodes. func_L02_00421DA0 needed func_L15_00438B00's `for` loop and `angle` local, func_L07_002B3580 the `scale` local of the ground probes (a constant set before an `if`, used after it), and func_L13_0040DFC0 is func_L16_003E7248 with other data. Copy the relative's flags too: func_L10_0039DA48 went from 131 to 26 words on func_L00_0040D058's.
-- A rule table loop with an unreduced `mult` at an aligned label is a loop that loop.c skipped (func_L05_00444840): `for` with a `break` gets the same tail, but jump1 copies the test and the found arm ahead of the loop, which gives "multiple entry points".
+- A rule table loop with an unreduced `mult` at an aligned label is a loop that loop.c skipped (func_L05_00444840): `for` with a `break` gets the same tail, but jump1 copies the test and the found arm ahead of the loop, which gives "multiple entry points". **6 November 2026, USA v1.01, check.py only:** grouping the real class read inside an infinite indexed scan stops that peeling (retained 732/736 bytes, 0/4 places, `-O2 -G8 -ffunction-sections -fno-rerun-loop-opt`). The first scan still hoists its table base/base+4 and the second becomes a pointer walk; allocation also differs. A macro-address table gives 740/712-byte alternatives with worse loop shapes, and a volatile indexed read gives 836. The next experiment needs both indexed scans and base rematerialization while preserving outer-loop invariant motion; the retained C is in `nonmatching/levels/func_L05_00444840.c`.
+- **UI lifetime constraints, 6 November 2026 (USA v1.01, check.py only): matched.** `func_L08_003DB518` matched 2/2 (src/levels/shared/L08_003DB518-g8.c). The 0x80 frame came from the dead-test helper (as func_L11_004456A0) on the height rounding, which makes `one2` global (s5) and needs `half2` for f20. Reusing `fade` for the 1.0 constant, and `t` for the product and a scale, makes them global: no local tie, so the temporaries take f1 like retail. A one-pass group ends the rounding block. `-malign-loops=2` stops the pad of the label after it.
 - A float kept off a free register: a pseudo set by local-alloc in a hard register gives its operands a preference that keeps other pseudos off that register (global.c regs_someone_prefers). In func_L12_0041BF88 a scratch float shared with a later loop made the pseudo global and freed $f1.
 - **A variable reused across blocks is a global pseudo (1 November 2026).** Local-alloc only takes pseudos of one block. A function-scope `f`, `n`, `id` or `history` reused for an unrelated later job goes to global-alloc after the block-local temporaries, which swaps whole register groups around it. A fresh block-local closed func_L22_003FC870 (f0/f1 group), func_L18_00428AE8 (a0/a2), and the history pointers of func_L08_003D4190. Check this before reading allocator dumps.
 - **Byte-pointer stores pin later loads.** `*(float *)(m + 0xF8) = x` is not in a struct, so a following scalar global load cannot pass it; a store through a struct view can (`MEM_IN_STRUCT_P`). Where retail reads a global ahead of an object field just after a store, view the store's object as a struct: func_L08_003E5BB8, func_L05_004170C8.
@@ -2544,6 +2846,33 @@ Historical examples, to requalify in the final unit:
 **Update, 3 November 2026 (pending review):** now matched. `func_002F8178` is C in `src/game/002F5220-open-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US places (PAL and US2 catalogues have no function of this name). The measurements above are kept as history.
 
 **Update, 1 November 2026 (closer D).** Before tuning a near miss, walk its branch targets against retail's: `func_L02_003EB8F8` went from 132 rows to 0 by fixing three wrong targets, nothing else; a jump into the middle of what looks like an arm is the sign. A table reached through two `la` with reloads between stores (`func_L09_003806A0`) is one structure array declared `MACRO_ADDR`: separate arrays give the `la` but no aliasing, pointers walk it into a reversed loop. A base kept unfolded for a hero field can be a pointer local inside the arm, which loop.c hoists: it reaches the loop's preheader without being available at the next use, so gcse leaves that use alone. A pointer local set before the branch on the path where PRE must not insert (`d = delta;` in one `case`) gives one insertion instead of three. loop.c's `threshold` falls by 3 per register moved: when retail hoists some constants of a loop and not others, make one a local so the count works out (`func_L10_0039DA48`).
+
+**6 November 2026, retained source controls (USA v1.01):**
+`func_002F93B0` reaches 964/964 bytes under game `-O2 -G8 -ffunction-sections`,
+0/28 placements, first difference +0xC4. Writing the confirm alternatives as
+`(pressed && !held && mode != 3) || (pressed && !held && mode == 3 && kind)`
+recovers retail's repeated held-bit test, state-base copy and volatile mode reload;
+the older nested guard was 16 bytes short. A separate activation pointer and
+one consistent state alias recover both final tails. Animation and item-lookup
+register choices remain. This is a source remedy for the guard, not a full match.
+The measurements above are kept as history.
+
+**Update, 6 November 2026 (pending review):** now matched, 28/28 US places, in
+`src/game/002F5220.c`. The `volatile` on `mode` was not needed: it blocked reorg
+(a volatile reference stops `fill_slots_from_thread`), so the animation choice
+written inside its branch could not reach the delay slot. Reading each kind
+without an `item` pointer and loading `D_00139688[id]` before the record fixed
+the remaining allocation.
+
+`func_L06_00382608` reaches 588/584 bytes, 0/2 placements, with an explicit outer
+back edge under the default game G0 profile. It restores the 0xA0 frame and
+in-loop flags/constant setup, but also loses the timer-only invariant that retail
+hoists. Reusing the digit counter gives 564 bytes through an explicit back edge
+and 600 through a structured loop. No synthetic guard is needed for these
+measurements; neither form matches. The source retains the earlier negative
+controls as history. For the related grid `func_L06_003E5D30`, a smoothing-call
+group reaches 976/976 bytes, still 0/3: allocator diagnostics retain state in fp
+and spill the strand offset. Equal size alone has not closed either blocker.
 
 <a id="blocker-46"></a>
 
@@ -2605,7 +2934,7 @@ Words **and operands** matter: qualifying sp-by-sp adjustments, zero moves and n
 
 The four-byte residue rule also needs its measured position after a completed return and delay slot. PR #253 now handles five additional specifically audited mixed-instruction residues (section 50), not an opcode-only generalization.
 
-An extent beginning inside a prior epilogue but containing a later real function needs an entry correction, not deletion. Positive stack adjustment is only a clue. Verify call/data/vtable entries, preserve ends and raw bytes, and preserve boot/level identity when regenerating fingerprints. Other mixed boundaries remain open.
+An extent beginning inside a prior epilogue but containing a later real function needs an entry correction, not deletion. Positive stack adjustment is only a clue. Verify call/data/vtable entries, preserve ends and raw bytes, and preserve boot/level identity when regenerating fingerprints. Other mixed boundaries remain open. **5 November 2026:** 59 more named residues and four 16-to-8 entry corrections are applied; see section 50. **6 November 2026:** one more residue, one fill-skipping entry correction and one PAL delay slot returned to its function (section 50); later that day a second residue, a second fill skip and one end correction (section 50).
 
 One boot example remains open: USA v1.01 callers `func_0027B440` and
 `func_00291850` enter `0x00126288`, four bytes after the catalogued
@@ -2703,6 +3032,37 @@ PR #253 is merged. Generator, catalogue, markers and tests account for these spe
 **29 October 2026 USA v1.01 follow-up, pending maintainer review:** boot-only `func_002B8530` is catalogued as 20 bytes and disassembles to `lwc1 $f0,0x2D0($a2); nop; lwc1 $f0,0x258($a2); nop; addiu $sp,$sp,0x30`. The previous extent ends with a completed return/delay slot, the disassembler labels this address `alabel`, and a new frame begins at `func_002B8548`. This local boundary evidence is insufficient to edit the release-shared catalogue; retain the marker and row pending maintainer review.
 
 **28 October 2026 USA v1.01 follow-up, pending maintainer review:** boot-only `func_002B4068` is 36 bytes, labelled `alabel`, after `func_002B4040`'s completed return at 0x002B4054, delay-slot result operation, and padding. Its body is `sw $zero,0($gp); nop; sw $zero,0($gp); nop; addiu $sp,$sp,0x60; nop; addiu $sp,$sp,0x90; nop; addiu $sp,$sp,0x150; nop`, followed by the next frame at 0x002B4090. It has no local prologue or return. A temporary empty C probe emits 8 bytes and matches 0/1. Keep marker and catalogue row pending maintainer review; do not count it as a match or handwritten function.
+
+**5 November 2026, applied (USA v1.01, PAL, USA v2.00):** 68 unmatched rows of at most 400 bytes without `jr $ra`, plus three lead-reported rows, were re-read at every placement in all three releases. Each placement was checked for its position after a completed return or tail jump and for direct branch/jump targets, aligned loaded words and `lui`/`addiu`-`ori`-load pairs into the extent; hits were classified by section (packed halfword data and coincidental instruction words are not pointers). Results:
+
+- **Residue, removed** through the named `FUNCTION_RESIDUES` list (59 rows): every row of the 28/29 October follow-ups above, the "Suspected catalogue remnants" row except `func_00131CB0`, `func_003495B8`, `func_0034CE88`, `func_0029B848`, `func_003356E8`, `func_003172D0`, `func_00314CF8`, `func_00335270`, `func_0031D350`, `func_00129410`, `func_0011B580`, `func_0011FA48`, `func_0011C8C8`, `func_0011ED28`, `func_00123490`, `func_0012F998`, `func_00326CA8`, `func_0032FDC0`, `func_0031E6D8`, and the level rows `func_L00_0031A710`, `func_L05_0033CD40`, `func_L05_0033F4A8`, `func_L05_0037B6C0`, `func_L05_0037BB78`, `func_L09_003FB780`, `func_L01_0042C450`, `func_L23_0041E538`, `func_L25_00373ED0`, `func_L25_00373EE0`, `func_L25_00373F08`, `func_L30_0032AAF0`. No witness at any placement; the same names are removed from the PAL/US2 catalogues by `carry.py --entries`. Release-specific rows over the same PAL/US2 bytes (for example `func_PAL_003373BC`, `func_US2_0031E14C`) have other sizes and are not changed.
+- **Entry corrections** (`FUNCTION_ENTRY_OFFSETS`, 16 to 8 bytes): `func_0032A130`, `func_L03_0041B848`, `func_PAL_0032B920`, `func_PAL_L00_003E63F0`. Each starts with an 8-byte stack-restore residue; the code builds the address of the `jr $ra; nop` at +8 with `lui`/`addiu` at every placement (28/5/1/27). The callers now pass the symbol without `+ 8`; the four empty callbacks are C.
+- **Real functions, kept:** `func_002B9030` (jal thunk), `func_002B9380` (address pair), `func_002A1378` (jump target), `func_002A677C`, `func_002A08A0`, `func_001325E0` (jal), `func_00282848` (returns), `func_00131CB0` (crt0 passes it in `$t0` to the thread syscall).
+- **Kept pending:** `func_L00_00309DB0` (PAL copies start in the previous delay slot; the PAL level-20 word is packed halfword data, not a pointer) and `func_L00_00424BB8` (section 34).
+
+**6 November 2026, applied (all three releases):**
+
+- `func_L00_00309DB0` is a residue (`FUNCTION_RESIDUES`, 28 bytes). US and US2: all 27 copies follow `jr $ra`, its delay slot and a `nop`. PAL: `func_PAL_L00_0030BA80` (frame `-0x20`) ends on `jr $ra` at all 27 places and the row's first word, `addiu $sp,$sp,0x20`, is that return's delay slot. The new named `FUNCTION_DELAY_SLOTS` table gives the slot back (336 to 340 bytes; `carry.py --entries` checks the `jr $ra`); the other 24 PAL bytes are the same residue. No direct target, aligned loaded word or address pair from the level's own sections enters any placement (boot `.text` hits at those addresses are boot code; the PAL level-20 word is the halfword data above).
+- `func_0011A7F8` gets an entry correction (`FUNCTION_ENTRY_OFFSETS`, 24 to 16 bytes). In all three boots 0x11A7F8/0x11A7FC are `0xCDCDCDCD` fill after `jr $ra; addiu $sp,$sp,0x140`; 0x11A800 is `addiu $v1,$zero,0; syscall; jr $ra; nop`. Nothing in the boots or levels enters 0x11A7F8..0x11A800. Like its syscall-stub neighbours (commit eb2811fe) it is `ASM_FUNC`: no C emits `syscall`.
+
+
+**6 November 2026, round eleven (verified in US, PAL and US2):**
+
+- `func_00334550` is a boot-only residue (`FUNCTION_RESIDUES`; US 444 bytes, US2 444 at 0x335348, PAL `func_PAL_003361E8` 432). It follows `jr $ra; addiu $sp,$sp,0x90` and holds only `addiu $sp,$sp,N; nop` pairs, nops and one `sw $zero,0x14($a2)`. No branch, jump, aligned word or address pair in any boot enters it; the memory is above the level base, so level code does not reach it. The old "8 bytes too long at the front" note was wrong.
+- `func_0011F364` gets an entry correction (`FUNCTION_ENTRY_OFFSETS`, 636 to 608 bytes, entry 0x11F380) in all three boots: seven `0xCDCDCDCD` words follow `jr $ra; addiu $sp,$sp,0x40`. The handler (k0 frame, CP0, `mfsa`/`mthi1`, `sync.p`, `eret`, `$at` as a working register) is `ASM_FUNC`. Its end still holds one fill word after a `break`.
+- `func_002F2758` (USA v1.01 boot and 27 levels) ends at its `jr $ra` and delay slot: 652 to 404 bytes (`FUNCTION_END_EXTRA`, now also applied to US level rows). The 248 bytes after it are out-of-line blocks of `func_002F1E88`: only its branches (0x2F1EE8, 0x2F1FB8, 0x2F20C0/C8, 0x2F2588) enter them, they jump back into it, and the last restores the registers it saved at 0x70003FA8. They stay uncatalogued retail assembly. The VU0 routine (jal from 0x2F25C8 and 0x2F318C) is `ASM_FUNC`. PAL and US2 still hold this whole area as one 2908-byte release row (`func_PAL_002F2DD8`, `func_US2_002F2CE0`); unchanged.
+- `func_002DC3C8` is kept. It starts `sw $zero,0x50($a0); nop` in all three releases and nothing enters +0, +4 or +8; a store at the start is not an entry witness (see "Entry still unproved" below).
+
+**7 November 2026, applied (all three releases):** rows whose extent stopped a match, each re-read at every placement. A reference index of every program of the release (`j`/`jal`, branches, aligned words in every loaded section, `lui` + `addiu`/`ori` within 24 words) found nothing entering a removed prefix or a retired row, apart from two `.data` words in the v2.00 boot (0x00257B90, 0x00259CEC) that hold 0x002E0000 inside a packed table.
+
+- **Entry corrections** (`FUNCTION_ENTRY_OFFSETS`): filler, stack restores or an orphan instruction ahead of the prologue. Each new entry is a stack-frame `addiu $sp,$sp,-N` at every place, so none of these rests on a store at the start. `func_0032A140` +512, `func_PAL_00303BA4` +76, `func_PAL_003198A4` +92, `func_PAL_00321BC0` +80, `func_PAL_0033423C` +28, `func_PAL_00335118` +56, `func_PAL_L00_0039C438` +8, `func_PAL_L04_003FE9E8` +8, `func_PAL_L12_0041D6B4` +12, `func_PAL_L17_003A7DB0` +8, `func_PAL_L19_003E0F5C` +20, `func_PAL_L23_003C1280` +8, `func_US2_003342A8` +64. A skip counts from the row's original start, also in the five rows an earlier 4-byte correction had already shortened. The +8 of `func_PAL_L00_0039C438` is its predecessor's return and slot, which `func_PAL_L00_0039C018` now holds.
+- **Boundaries:** `func_PAL_0029C820` ran 36 bytes past its return into the next prologue, and `func_PAL_0029C8A0` started 32 bytes after it (`bnez $v0` testing a load the row did not hold): now 92 and 488 bytes, the second by a negative skip. `func_PAL_002FB8D0` and `func_PAL_L00_0039C018` stopped 12 bytes short, just before the epilogue's last load.
+- **Residue, removed:** `func_PAL_00300104`, `func_PAL_00343230`, `func_PAL_0034D230`, `func_PAL_L00_003281B0`, `func_PAL_L00_003D5AB0`, `func_PAL_L00_00405878`, `func_PAL_L22_004024D0`, `func_PAL_L23_003ADFC8`, `func_PAL_L23_00409528`, `func_US2_002DFFFC`, `func_US2_003420C0`, `func_US2_0034BDA8`, `func_US2_L00_00402420`: stack restores, moves and orphan stores with their nops, from a completed return to the next body. Nine are word for word what USA v1.01 leaves in a gap; `func_PAL_00343230`, `func_PAL_L00_003281B0`, `func_US2_002DFFFC` and `func_US2_003420C0` have no exact USA copy. The release names take their address from the release, so `catalogue` skips them when it reads USA v1.01's residue bytes.
+- **Rows split** (`RELEASE_FUNCTION_SPLITS`, `RELEASE_PLACE_SPLITS`, applied by `carry.py --entries`): `func_PAL_0029C2A8` is six closed functions, each the target of a `jal` at all 24 places, and `func_PAL_002D5FF0` three, each held by a pointer table at all 28 places. USA's boot catalogue has all nine as rows of their own, `func_0029B910` to `func_0029BE88` and `func_002D53F0` to `func_002D54F0`; two differ in size from PAL (`func_0029B910` 328 bytes against 280, `func_002D53F0` 140 against 104). USA's level catalogue has seven of them under those names, and the level copies of `func_0029BE88` and `func_002D54F0` sit under `func_L00_0030CF60` and `func_L00_0034E950`. `func_PAL_L12_0042F4F0` and `func_US2_L12_0042B340` grouped levels 12 and 17 (0x202020) with level 30 (0x801010): their level 30 copies are now `func_PAL_L30_0041C5B0` and `func_US2_L30_004177A0`, as USA keeps `func_L30_00417120` apart. The fingerprint hides the difference, and those constants at +0x260/+0x268 are the only words that differ apart from addresses.
+
+Rows merged: `RELEASE_ROW_MERGES` in `tools/levels.py` folds a named pair of rows that are one function catalogued twice, applied last by `tools/carry.py --entries`; a merged boot function's boot entry takes the kept name. It rejects a different size, fingerprint or `cross_identity`, and two copies in one level. Fingerprints mask constants, so this is a named table and never an automatic merge. First used for `func_PAL_L08_003B1594` and `func_PAL_L16_0040C384`.
+- **Realigned for OpenRAC/rac2-decomp#421 (7 November 2026, PAL):** in levels 05, 10, 15 and 25 the carry anchored the menu stretch one body early. `carry.align()` took a 48-byte body at its predicted place without a uniqueness test (`0x00327378`, `0x003273A8` and `0x00327448` in level 05 are each one accessor before the true place) and then pasted v1.01's cuts over two equal-length stretches whose inner boundaries had moved. So from `func_PAL_0029C7F0`'s body on, `func_PAL_L00_0030F000`, `_0030F030` and `_0030F060` held the next 48-byte body, the 23 accessors `func_PAL_L00_0030F090` to `_0030FB08` the next 60-byte one, `func_PAL_L00_0030FE60` none, and the first accessor body (`0x00327408`) was cut across `func_PAL_L05_003273D8` (its predecessor plus 12 bytes) and `func_PAL_L05_00327418`. The fingerprint hides the accessors' offsets, so the k-th-copy rule spread the shift instead of exposing it. USA v1.01 and v2.00 are aligned. `RELEASE_PLACE_RUNS` in `tools/levels.py` now gives each of 31 rows its body there, in level 00's order, and retires the three miscut rows; `carry.py --entries` checks each new place against the row's copies in the other 23 levels (words that agree there compared, constants included, and each call's callee), that no other row overlaps and that no word loses its row. The level copies of `func_PAL_0029C7F0`, `func_PAL_0029C820` and `func_PAL_0029C8A0` gain those four places. The 8-byte empty function before `func_PAL_L00_0030F000`'s body, one more copy than those levels had rows for, goes to the row USA v1.01 and v2.00 give that level's extra copy (`func_L03_00456E58` in 05 and 25, `func_L04_0047A7C8` in 10, `func_L03_004586F0` in 15), so no name is added. `func_PAL_L00_0030F060` and 22 of the accessors failed only at those four places (the 23rd, `func_PAL_L00_0030F418`, has the same words as `func_PAL_L00_0030F488`); C for them now has 27 places to match.
+- **Duplicate rows merged (7 November 2026, PAL):** the split above gave the boot and 23 levels new rows for five functions that levels 05, 10, 15 and 25 already held under rows of their own, since `carry.align()` had cut that stretch correctly only there. Five more `RELEASE_ROW_MERGES` entries fold each pair into one row: `func_PAL_L05_00326B88` into `func_PAL_0029C2A8`, `func_PAL_L05_00326CA0` into `func_PAL_0029C3C0`, `func_PAL_L05_00326D78` into `func_PAL_0029C498`, `func_PAL_L05_00326F48` into `func_PAL_0029C640`, and the boot's `func_PAL_0029C630` into v1.01's `func_0029BCC8`, which the carry had found as the same code. A merged row that is a boot function now gives its boot entry to the kept name, after the same size, fingerprint and `cross_identity` checks of the boot's copy. The four PAL functions' C, matched at the four levels, moved under the boot names to `src/pal/game/` with the same flags; `func_0029BCC8`'s C is v1.01's. Each row now has the boot and 27 levels, and PAL's function total no longer counts the five twice.
 
 <a id="blocker-51"></a>
 
@@ -3099,6 +3459,7 @@ there is no independent entry witness at +0, +4 or +8. The twenty words at
 `0026CDF0` are internal switch-case targets, not callbacks. Closed predecessor
 flow and a suspicious state store alone do not settle that ambiguity. Keep the
 complete draft and reopen on a traced entry or object-origin evidence.
+**6 November 2026:** rechecked in US, PAL and US2; still no witness, row kept.
 
 **Measured generator corrections:** `func_002C38A0` now starts eight bytes later
 and spans 56 bytes; `func_00335918` starts 32 bytes later and spans 36 bytes.
@@ -3168,12 +3529,14 @@ resolve the earlier conflicting prefix counts: seven fill words, or 28 bytes, pr
 real code. The following exception/context code uses CP0, the saved arithmetic banks and
 privileged return operations, with additional entries/fragments. This fixes the prefix
 description, not the full entry map; no generator or assembly-classification change is made.
+**6 November 2026:** the fill is skipped (entry 0x11F380, 608 bytes) and the handler is `ASM_FUNC`; see section 50.
 
 **28 October 2026 follow-up for `func_0011A7F8`:** USA v1.01's 24-byte extent has two
 fill-like words before a syscall/return body. It follows the preceding completed return and
 stack-adjustment delay slot. The scan of catalogued boot functions and aligned loaded words
 found no direct/pointer reference to the extent, but computed indirect entries are untraced
 and the syscall body itself is coherent. Retain the marker pending entry/ABI and compiler review.
+**6 November 2026:** the fill is skipped (entry 0x11A800, 16 bytes) and the stub is `ASM_FUNC`; see section 50.
 
 A known entry pointer is strong positive evidence; one pointer lookup is not proof that all other entry points or indirect targets are absent. Verify every affected placement and preserve raw bytes.
 
@@ -3230,6 +3593,41 @@ reopen with a measured scheduler/allocator input beyond these tied forms.
 **Update, 3 November 2026 (pending review):** now matched. `func_002FDBD8` is C in `src/game/002FC8D0-billboard-g8.c` (`-O2 -G8 -ffunction-sections`), placed at 28 US, 28 US2 places (PAL catalogue has no function of this name). The measurements above are kept as history.
 
 For #267, a same-source comparison of 781 configured units changed code only in the new multiplier; eleven differences were debug-only. The shared union changed no object section in the four existing users. Source, flags and durable explanations are in the merged repository; partial C remains in `nonmatching/`. No progress report was regenerated.
+
+**6 November 2026, retained scheduling follow-up (USA v1.01 only):**
+
+- `func_0027BA68` (matched 6 November 2026, round 3: `src/game/0027BA68-g16-qcopy.c`,
+  28/28 in USA, US2 and PAL; `view_matrix` assigned after `func_002A0300` and an
+  int-typed `func_002A0468` prototype as in its matched callers). Earlier: 772/772 bytes,
+  0/28 places with `-O2 -G16 -Wa,-G16 -ffunction-sections -frac2-qcopy
+  -frac2-qcopy-barrier`. The permitted one-pass view-position assignment fixes
+  the saved-register roles. Eight instruction positions remain in the flag/copy
+  setup (+0x78) and 64-bit command argument setup (+0x118). Matrix-source grouping
+  moves the mask/store too early; destination rebinding and a named command color
+  tie. The four command fields retain their measured 64-bit contract.
+- [`func_00301F18`](../nonmatching/game/func_00301F18.c): 900/900 bytes,
+  0/28 places with `-O2 -G0 -ffunction-sections -frac2-qcopy
+  -frac2-qcopy-barrier`. The existing group leaves two positions, +0x31c/+0x324,
+  setting the last add's a1/a2 in opposite order. Boundary aliases and an inline
+  add helper tie; extending/grouping the real angle/output operations changes
+  allocation or padding. Retained source unchanged.
+- [`func_L00_002EC608`](../nonmatching/levels/func_L00_002EC608.c):
+  868/868 bytes, 0/27 places with default game flags. Reordering the real vertex
+  and color stores, updating tint for the second alpha, and separating the final
+  white color fix the former saved-register and packing differences. Only
+  +0x108/+0x10c/+0x110 differ: color[0] precedes two zero UV stores. Private
+  sched1/sched2 dumps place the early color store in sched1. Integer-bit UV and
+  inline-broadcast views tie; one-pass store groups, volatile views and real-loop
+  unrolling worsen the result. Reopen on this store lifetime/dependency.
+- [`func_L03_003C5668`](../nonmatching/levels/func_L03_003C5668.c):
+  644/644 bytes, 0/2 places with default game flags. Current reproduction corrects
+  the older one-displaced-instruction claim: 12 prologue positions and 10 loop
+  spill offsets differ. Tail alias, concrete output view and height local tie;
+  the entry output alias still adds eight bytes. First-call/output groups yield
+  652/640 bytes. Reopen on the output spill dependency and loop spill order.
+
+These are near misses, without alternate-release or linked-build qualification.
+The assembly markers and production flags are restored; no function is counted.
 
 ### Camera and effect-record follow-up (23 October 2026)
 
@@ -3410,7 +3808,7 @@ attributed for provenance, not exclusive ownership.
 | **Clear through a register address at a nonzero offset:** `func_002B5678` | Open | Retail has `addiu $v0,$s1,0x60 ; sq $zero,0($v0)`, the clear macro's register operand. After #258, C gives `por` + `sq $v0,0x60($s1)`. **Next:** a profile that materializes the address of a displaced const-0 TImode store. |
 | **A `por` clear at a zero displacement:** `func_L02_003DB200`, `func_L02_00423520`, `func_L23_00422798`, and with the copy barrier `func_L02_003DBA70`, `func_L23_00429DC8` | Proposed: PR #281 | These functions clear a stack vector with `por $v0,$zero,$zero` + `sq $v0,0($sp)`. Since #258, the fold still makes that `sq $zero,0($sp)`, because the address is register-only.<br><br>A finer retail count (one place per catalogue row, boot game code from 0x26EA00, a store counted when every path into it starts from the `por`) finds 183 `por`-fed stores at a zero displacement, in 153 functions. Every one of them is to `0($sp)`; none goes through another register. Against that, 396 `sq $zero,0(reg)` stores in 263 functions, of which 82 (58 functions) are also to `0($sp)`.<br><br>PR #281 adds the opt-in `-frac2-zero-ti-por`: with it, the fold leaves a store to `0($sp)` alone, and stores through any other register still fold. It is neutral by default (806 of 806 units). Forced on everywhere, it changes exactly the 4 units whose matched functions clear `0($sp)` with `sq $zero`. The five functions above are exact with it. `func_L23_003C16D8` stays out: three of its clears go through a computed stack address. |
 | **A cse block boundary that leaves no instruction:** `func_L02_003D26B0`; the five 632-byte twins `func_L11_00436D08`, `func_L11_00449C70`, `func_L11_0044C850`, `func_L11_004530E0`, `func_L11_004566C0`; `func_L02_003F1BA8`, `func_L02_0040BBD8`; `func_L07_00378898` | Open | Retail keeps a gcse (PRE) copy, for example `daddu $s5,$s4,$zero` of `e + 0x10`, that this cc1 makes only when cse1 and cse2 both see a label at that spot. Adding `\|\| x == 7 \|\| y == 9` to the test reproduces it, with extra code. An empty `do { } while (0)` reproduces it exactly but is rejected (#257, fc4a6c6). For `func_L07_00378898`, `-fno-cse-follow-jumps -fno-cse-skip-blocks` reproduces the block, as a probe only. **Next:** the original's construct at that spot, or a measured cse rule. |
-| **A non-empty `do { ... } while (0)` as a block barrier:** `func_L02_003FB000` (288 bytes), `func_0033A520` (360 bytes, 28 places) and `func_002D53F0` (140 bytes, 28 places) | Question for maintainers | `func_L02_003FB000` is exact with its last store wrapped in `do { ... } while (0);`. The loop notes give the shared `jr $ra` retail's alignment `nop`, which cc1 adds only after a loop. `func_0033A520` needs a block boundary after its rounding of `D_001B23A4 * 300`; the wrapper gets that block right, and six allocation words remain. `func_002D53F0` is exact with its draw call wrapped and 329.0f held in a local; its rounding of `D_001B23A4 * 329.0f + 0.5f` is the same shape as `func_0033A520`'s. `func_L20_004450D8`, listed here before, now matches without a wrapper: written as the group-walk loop of its merged twins (`func_L02_003EAD38` and others), with their repeated `q != 0` test.<br><br>Two merged functions use the same wrapper as a documented scheduling barrier: `func_00124818` and `func_L23_0041C8C0` (ours). The repository check rejects only the empty form. Since AGENTS.md rules out artificial barriers, we have not landed more. **Question:** is a non-empty wrapper acceptable as a macro-shaped statement, or should the two precedents be revisited? |
+| **Meaningful nonempty one-pass groups:** `func_L02_003FB000`, `func_002CDA20`, `func_002CF2B8`, `func_002D53F0` | Strict linked matches; pending PR review | **4 November 2026:** current active RAC1 game C supplies the missing source-method precedent; see [source methods](COMPILER-NOTES.md#source-methods-shared-with-rac1). The actual last store gives Maktar 288 bytes, 1/1 places in each USA release (PAL identity absent). Actual formatter-call groups give the three text draws 140/136/140 bytes and 28/28 USA v1.01 places each; their canonical identities are absent in the other releases. The formatter style remains 64 bits; its return and the signed32 address getter follow their real definitions. Old narrower-style trials remain invalid. All 84 strict programs pass with zero C fallbacks, and all 92 placements of the five added functions are present in their carrying programs. This supersedes the earlier blanket hold on nonempty groups, not the ban on empty loops or fake dependencies. `func_0033A520` is still unresolved: its historical exact probe also assumes an unevidenced const global and fails both alternate releases.<br><br>**5 November 2026:** `func_L02_003FE768` (shared boss bar) matches the same way, with each real conversion of its rounded edge in a group (`t = v * scale + 0.5f; do { top = t; } while (0);`): 2 of 2 USA places, 0 of 2 without the groups. A scratch cc1 that made every float-to-int conversion a sched2 barrier broke 95 of 228 matched functions, so the barrier belongs to these sources. In `func_L11_00444400` the same groups give retail's boundary before each box call (4692/4684 bytes); its register allocation is still open. |
 | **Jump tables the build cannot place:** `func_L06_003FDA08`, `func_L13_00422CB8`, `func_L03_003C4578`, `func_L02_003F9AF0`, `func_L02_003F9B70`, `func_L02_003FE1B0` | Solved, PR pending | A computed goto through retail's own table, in the form of `func_00310A40`, matches all six. The three level 2 records' in-order switches were wrong: retail's tables map the values to the bodies in another order. Decode the table before trusting a record's `switch`. |
 | **Labels behind hazard nops:** `func_L18_004308F0`, `func_L02_00411530` | Merged, #264 | Opt-in `-frac2-hazard-labels`. 198 retail branch targets after a compare or `mtc1` sit on the nop, and SN's `Ps2EeAs` agrees. Forced on everywhere it is neutral (778 of 779, one `.mdebug`). |
 | **gcse critical-edge split, Cygnus block merge:** `func_002CD720`, `func_L02_003E79F8`, `func_L02_003FCCA0`, `func_L18_004283F0` | Merged, #261 | Opt-in `-frac2-gcse-unsplit-edges` and `-frac2-keep-block-order`. `func_L23_0041B9F0` reaches retail's size with the gcse switch and still stops at the copy order. |
@@ -4129,16 +4527,33 @@ The first has a closed 168-byte body and a separately referenced 8-byte stub
 entered 8-byte stubs. The two camera families each have three distinct camvtbl
 entry pointers, including all seven copies of the L06 family. They belong to
 different camera classes even in the same level: identical bytes must not
-collapse their identities. A guarded generator repair and all-release linked
-qualification remain to do. Hrugis instead has an 88-byte closed body plus
+collapse their identities. The named correction in `split_level_rows` now
+checks the complete body, placement family, text bounds and typed dispatch
+witnesses in every carrying release before recovering the separate entries.
+Both original and shortened fingerprints retain stable identities, including
+the unrelated methods that still have identical complete bytes. Catalogue
+replay and historical-bootstrap regression tests cover the camera collision.
+The 168-byte traversal and nine separate no-op callbacks are ordinary C;
+their linked qualification is distinct from the entry-boundary evidence.
+The [implementation](https://github.com/OpenRAC/rac2-decomp/commit/42e0babe572b3f2ef5da5cbc4989e6f7b63a2c51)
+passes all 84 strict programs, with all ten C entries checked in each carrying
+placement report and 382 unit tests passing. No-op callbacks are counted as
+their real individual entries; no original-assembly classification is involved.
+Hrugis instead has an 88-byte closed body plus
 an unreachable 8-byte return pair with no independent scanned entry witness;
-do not invent a second function or discard those bytes on that evidence alone.
+do not invent a second function or discard those bytes on that evidence alone. **5 November 2026:** a code witness exists. At
+`0x00418E1C`/`0x00418E24` (USA v1.01; same code in PAL and US2) `lui`/`addiu`
+build `0x004191E0` and pass it as `$a1` to a registration call. The split now
+accepts this `text` witness: 88-byte `func_L10_00419188` plus the empty C
+callback `func_L10_004191E0`. Its C now matches (1/1 per release) by reading `D_001B251C` through an sda alias inside the loop (section 2).
 
-The retained `func_L00_00309DB0` residue hypothesis also has a PAL exception:
+**6 November 2026:** resolved; see section 50. The retained `func_L00_00309DB0` residue hypothesis also had a PAL exception:
 all 27 PAL copies begin in the preceding return's delay slot, and an aligned
 loaded word in PAL level 20 equals that address with unproven pointer meaning.
 Resolve its predecessor extent and that word's provenance before a shared
-deletion. Direct or nearby address-pair absence alone is not proof of no entry.
+deletion. **5 November 2026:** that word is part of packed halfword data
+(`00190000 00190100 00320200`), not a pointer; the predecessor extent is still
+open, so the row stays. Direct or nearby address-pair absence alone is not proof of no entry.
 
 - Remove diagnostic source controls before comparing meaningful C. The eight
   overwritten initializers in `func_L02_00412D50`, ten dead initializers in
@@ -4185,10 +4600,14 @@ deletion. Direct or nearby address-pair absence alone is not proof of no entry.
   diagnostic return; narrowing the IMR or declaring the ignored result void is
   not a legitimate scheduling remedy. Its equal error-path variants are recorded
   in the retained source.
-- `func_L00_0042A4E8` contains three independent return stubs: initialized
-  pointers reach `+0`, `+8` and `+0x10` in all 27 USA placements. The same
-  three-entry pattern has separate witnesses for `func_L13_0043E8C0` in all
-  three releases. Do not fabricate a single C function spanning these entries.
+- `func_L00_0042A4E8`, `func_L00_0042A4F0` and `func_L00_0042A4F8` now have
+  separate eight-byte rows and C bodies. In each release, 26 copies have a
+  camera-table record naming all three entries; Boldan names each through
+  its object dispatch table instead. The generator verifies the complete
+  original extent, every typed witness and all 27 placements before splitting.
+  Both regeneration replays and all 243 C placements pass; all 84 complete
+  programs pass the strict build. No return-looking padding was promoted
+  without an entry witness.
 
 Reference scans must separate EE text from `.vutext`: decoding VU microcode as
 R5900 instructions creates false branch witnesses. An aligned word equal to an

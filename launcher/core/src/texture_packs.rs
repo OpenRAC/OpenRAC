@@ -156,6 +156,8 @@ pub fn title(id: &str) -> String {
         "rac1-pal" => "Ratchet & Clank (PAL)".into(),
         "rac1-ntsc" => "Ratchet & Clank (NTSC-U)".into(),
         "rac2-ntsc" => "Going Commando (NTSC-U)".into(),
+        "rac2-pal" => "Going Commando (PAL)".into(),
+        "rac2-ntsc2" => "Going Commando (NTSC-U v2.00)".into(),
         "rac3-ntsc" => "Up Your Arsenal (NTSC-U)".into(),
         "rac4-ntsc" => "Deadlocked (NTSC-U)".into(),
         other => other.into(),

@@ -215,8 +215,6 @@ void func_L05_0037BB28(char *object)
     p->f10 = 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L05_0037BB78);
-
 int func_L05_0037BB90(char *obj)
 {
     int *p = (int *)func_002ED688(obj);
@@ -543,7 +541,7 @@ void func_L05_003CD4C0(char *object)
 
 /* func_L05_003CF040 is in L05_003CF040-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L05_003CF350);
+/* func_L05_003CF350 is in L05_003CF350-g8.c. */
 
 /* func_L05_003CFAB8 is in L05_0037B6D0-g8.c. */
 

@@ -11,7 +11,7 @@
 using namespace openrac::assets;
 
 int main() {
-    CHECK(versions().size() == 5);
+    CHECK(versions().size() == 7);
     const GameVersion* pal = find_version("rac1-pal");
     CHECK(pal != nullptr);
     if (pal) {
@@ -20,6 +20,18 @@ int main() {
         CHECK(pal->region == Region::Pal);
         CHECK(pal->frame_rate == 50);
         CHECK(find_version_by_boot(pal->serial, pal->boot_sha1) == pal);
+    }
+    // Going Commando's three releases: two of them boot SCUS_972.68, told apart by its bytes.
+    const GameVersion* gc = find_version("rac2/ntsc");
+    const GameVersion* gc2 = find_version("rac2-ntsc2");
+    const GameVersion* gc_pal = find_version("rac2/pal");
+    CHECK(gc && gc2 && gc_pal);
+    if (gc && gc2 && gc_pal) {
+        CHECK(gc->serial == gc2->serial && gc->boot_sha1 != gc2->boot_sha1);
+        CHECK(find_version_by_boot(gc2->serial, gc2->boot_sha1) == gc2);
+        CHECK(find_version_by_boot(gc->serial, gc->boot_sha1) == gc);
+        CHECK(gc2->region == Region::NtscU && gc2->frame_rate == 60);
+        CHECK(gc_pal->region == Region::Pal && gc_pal->frame_rate == 50);
     }
     const GameVersion* rac4 = find_version("rac4/ntsc");
     CHECK(rac4 != nullptr && rac4->game == Game::Rac4 && rac4->frame_rate == 60);

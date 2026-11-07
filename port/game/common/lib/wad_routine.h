@@ -2,7 +2,7 @@
  * Copyright (c) 2026 the OpenRAC contributors
  *
  * A game's WAD decompressor routine, for the games whose host C replaces it
- * (rac2-ntsc/host/wad.c, rac4-ntsc/host/wad.c): each binds the routine's
+ * (rac2/host/wad.c, rac4-ntsc/host/wad.c): each binds the routine's
  * address to a two-line function that calls this one with its name.
  *
  * The retail routine checks the "WAD" header at its first argument, streams

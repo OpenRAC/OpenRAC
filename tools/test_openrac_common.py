@@ -354,6 +354,16 @@ class GamesTests(TempDir):
             finally:
                 os.chdir(here)
 
+    def test_a_shared_source_is_the_checkout_of_the_version_it_shares(self):
+        manifest = self.dir / "games/rac9/game.json"
+        data = json.loads(manifest.read_text())
+        data["versions"]["pal"] = {"serial": "SCES_999.99", "source": {"shared": "ntsc", "checkout": "~/other"}}
+        manifest.write_text(json.dumps(data))
+        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "", "OPENRAC_SOURCE_RAC9_PAL": "/ignored"}):
+            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), Path(os.path.expanduser("~/y")))
+        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "/mine"}):
+            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), Path("/mine"))
+
     def test_source_checkout_is_none_without_a_source_even_with_the_variable(self):
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_NTSC": "/elsewhere"}):
             self.assertIsNone(games.source_checkout("rac8", "ntsc", self.dir))

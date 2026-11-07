@@ -131,9 +131,8 @@ pub fn switch(install: &Path, game: &str, version: &str) -> Result<(), String> {
 /// set-up replaces the one before, as it always has.
 pub fn before_set_up(config: &Config, catalog: &Catalog, game: &str, image: &Path) -> Result<(), String> {
     let Some(install) = config.install_dir.as_deref().filter(|_| config.developer) else { return Ok(()) };
-    let Some(serial) = discs::serial_of(image) else { return Ok(()) };
-    let Some(version) = catalog.games.iter().flat_map(|g| &g.versions).find(|v| v.serial == serial && v.game == game)
-    else {
+    let Some(id) = discs::identity_of(image) else { return Ok(()) };
+    let Some(version) = catalog.version_of_disc(Some(game), &id.serial, id.version.as_deref()) else {
         return Ok(());
     };
     match install::state(install, game).extracted {

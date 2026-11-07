@@ -189,8 +189,6 @@ void func_L03_002ADCA0(void) {
         *(float *)(*(unsigned char **)(g + 0x2290) + 0xF4) = *(float *)(g + 0x6B0);
 }
 
-INCLUDE_ASM("asm/levels", func_L03_0038AB30);
-
 
 extern float func_002AA2E8(float *, float, float);
 extern void func_002AA3A8(float *, float *, float, float, float, float);
@@ -424,7 +422,6 @@ void func_L03_002D84F0(int x) {
 }
 
 
-INCLUDE_ASM("asm/levels", func_L03_002ECF08);
 
 
 ASM_FUNC("asm/levels", func_L03_002EFB60);
@@ -518,7 +515,7 @@ void func_L03_00326458(Moby *object)
 }
 
 
-INCLUDE_ASM("asm/levels", func_L03_00329EF0);
+/* func_L03_00329EF0 is defined in L03_002AB5C8-region.c. */
 
 
 /* func_L03_00339128 is defined in L03_00339128-qcopy.c. */
@@ -606,7 +603,6 @@ void func_L03_00393228(unsigned char *a0) {
 
 int func_L03_003A4978(unsigned char *p) { return p[0x20] == 1; }
 
-INCLUDE_ASM("asm/levels", func_L03_003C1BF0);
 
 
 float func_L03_003C5AB8(unsigned char *);

@@ -1,3 +1,34 @@
+/* 6 November 2026, round 7: unchanged best, 680/680, 0/28, 6 rows. Setting 0x106 in a local
+ * next to w (both moved by update_equiv_regs after sched1) gives retail's la/0x4410/0x106 order
+ * and v1, but 0x8000 is then issued in the same sched1 cycle as t[1]'s store, so 0xE loses a2
+ * (0xE t0, 0x30003 t2; 6 rows). Tied or worse: s2 as a top-level local (6), p or q reused for
+ * the final packet (25-30), w reused for 0x106 (107), 0xE as an early local (72), t[1] moved
+ * before t[0] or the cursor store (12-17), 0x4410 literal with 0x106 local (15; hill-climb 13).
+ */
+/* 6 November 2026, round 3: unchanged, 680/680, 0/28, 6 rows (0x106 before the
+ * D_001A6480 la). Automatic hill-climb over the order of the final packet block
+ * (s2 assignment, cursor store, t[0..9]; ~550 compiles, two seeds, also with t[8]
+ * through a local) never went below 6 rows. Moving w = 0x4410 to four earlier
+ * places ties; reusing s for s2 gives 132 rows. Original best C retained.
+ */
+/* 6 November 2026: USA v1.01 recheck, game -O2 -G8 -ffunction-sections:
+ * 680/680 bytes, 0/28 placements, first +0x1F4; seven instruction rows differ
+ * after ignoring relocation immediates. The older five-row measurement is historical.
+ * New: grouping the final packet or its 0x4410 store grows to 688 bytes; grouping
+ * its first store, 0x106 store, coordinates or state-base assignment worsens allocation.
+ * Moving the actual 0x106 store before 0x4410, before the header or after coordinates
+ * gives 15, 22 or 44 differing rows. RAC1's active setup_render_target donor in
+ * src/game/render/framebuf.c confirms the packet structure; its literal 0x4410 and
+ * unsigned draw-environment view give 17 rows here. Original best C retained.
+ * Reopen with a source-supported reason for the state address to precede 0x106
+ * while preserving the packet constants' allocation; no linked build was run.
+ */
+/* 5 November 2026: retained reconstruction, not linked or counted.
+ * Retain the actual int return and pointer/signed-short inputs of func_00125F20.
+ * The measured 680-byte USA near miss still differs in packet constant/address scheduling; no false call contract is used to close it.
+ * Earlier measurements below describe earlier sources or toolchains.
+ */
+#include "common.h"
 /* Closer C3, 1 November 2026: 680/680, 5 rows, plain -O2 -G8. 0xE and 0x8000 share a2 only when 0x8000 is born at least one
  * insn after t[1]'s store dies (a gap of none conflicts in local-alloc), and sched1 issues 0x8000 in the first free ALU slot,
  * so retail has one more ALU insn in the block's first six cycles than we do. t[6] = 0x106 written in the block gives that
@@ -14,7 +45,7 @@ extern DrawState D_001A6480[];
 extern s32 D_001B22A8[] MACRO_ADDR;
 extern long D_001A7470;
 extern void func_00282A88();
-extern void func_00125F20(s32, s32, s32, s32, s32, s32);
+extern int func_00125F20(void *, short, short, short, short, short);
 
 void func_00285030(s32 tw, s32 th, s32 tbp, s32 mode) {
     DrawState *s = D_001A6480;
@@ -49,7 +80,7 @@ void func_00285030(s32 tw, s32 th, s32 tbp, s32 mode) {
     p = (u8 *)D_001B22A8[0];
     q = (long *)(p + 0x10);
     D_001B22A8[0] = (s32)q;
-    func_00125F20((s32)q, s->h164, s->h160, s->h162, 3, 0);
+    func_00125F20(q, s->h164, s->h160, s->h162, 3, 0);
     ((TexBits *)(p + 0x10))->lo = s->h166;
     if (mode == 0) {
         q[2] = s->h16E | ((long)(s->h16C & 0xF) << 24);

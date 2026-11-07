@@ -14,7 +14,7 @@ each project.
 |---|---|---|---|---|---|---|
 | [`games/rac1`](../games/rac1) | rac1-decomp | https://github.com/OpenRAC/rac1-decomp | main | `1d8228cc0c81` | 2026-11-03 | GPL-3.0 (third-party parts keep theirs) |
 | [`games/rac1/ntsc`](../games/rac1/ntsc) | Lombyte | https://github.com/lombyte-project/Lombyte | main | `d29807486aeb` | 2026-10-31 | GPL-3.0 (GPL-2.0 and newlib parts keep theirs) |
-| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/OpenRAC/rac2-decomp | master | `f9e8de4b0ec2` | 2026-11-04 | GPL-3.0 |
+| [`games/rac2/ntsc`](../games/rac2/ntsc) | rac2-decomp | https://github.com/OpenRAC/rac2-decomp | master | `93ac3849711f` | 2026-11-06 | GPL-3.0 |
 | [`games/rac3/ntsc`](../games/rac3/ntsc) | rac3-uya-decomp | https://github.com/OpenRAC/rac3-uya-decomp | main | `bfd8278e8c73` | 2026-10-07 | GPL-3.0 |
 | [`games/rac4/ntsc`](../games/rac4/ntsc) | rac-deadlocked-decomp | https://github.com/OpenRAC/rac-deadlocked-decomp | main | `dedfcd416a1b` | 2026-10-05 | MIT (GPL libgcc, newlib libm) |
 | [`games/rac5/ntsc`](../games/rac5/ntsc) | rac5-sm-decomp | https://github.com/OpenRAC/rac5-sm-decomp | master | `57b025248ac0` | 2026-10-18 | GPL-3.0 |
@@ -95,6 +95,10 @@ Everything else is exactly as it was at that commit.
   rebuilt to rac1-decomp's structure, so it was imported afresh at that commit.
 - `ports/pal-functional/` (platypet2217-star's RAC2Decomp, MIT) comes along unchanged; it is
   not part of the matching sources or progress.
+- The same tree builds the PAL release and v2.00 (rac2-decomp's `--version pal` and `us2`:
+  `src/pal/`, `src/us2/`, `config/pal/`, `config/us2/`). `rac2/pal` and `rac2/ntsc2` in game.json
+  name this tree (`"dir"`) and share its source (`"shared": "ntsc"`): they are not synced on their
+  own, and a sync of rac2/ntsc records its commit for them too.
 
 **rac5/ntsc**
 - Nothing changed: imported as the project's commit, whole. It already states the sourcing

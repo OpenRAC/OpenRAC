@@ -64,7 +64,6 @@ void func_L00_003FFA70(char *arg)
 
 /* func_L00_003FFBA0 is defined in L00_003FFBA0-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_004003F0);
 
 /* func_L00_004005B0 is matched in L00_004005B0-g8.c (a -G8 unit built with -frac2-qcopy
    -frac2-qcopy-barrier). */
@@ -226,9 +225,7 @@ extern void func_0035F450(int a, int b, void *c, int d);
 
 /* func_L00_00407E38 is defined in L00_00407E38-g8.c. */
 
-
-INCLUDE_ASM("asm/levels", func_L00_00408E58);
-
+/* func_L00_00408E58 is defined in L00_003FFA70-reaction-g8.c. */
 
 /* shared native body of family af5b3bc3a678ed5c */
 void func_L00_00409420(char *object)

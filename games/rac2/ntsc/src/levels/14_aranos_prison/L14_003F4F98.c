@@ -1047,9 +1047,16 @@ void func_L14_004308D0(void *position, int texture, int color, int mode,
 
 /* func_L14_00430B70 is defined in L14_00430B70-visual.c. */
 
-INCLUDE_ASM("asm/levels", func_L14_00430E08);
+/* func_L14_00430E08 is defined in L14_00430B70-visual.c. */
 
-INCLUDE_ASM("asm/levels", func_L14_004321C0);
+/* Distinct no-op entries: the first is called directly, the second by the moby table. */
+void func_L14_004321C0(void *object)
+{
+}
+
+void func_L14_004321C8(void *object)
+{
+}
 
 extern void func_002A7750(void *, int, int);
 extern int func_002A7820(int, int);

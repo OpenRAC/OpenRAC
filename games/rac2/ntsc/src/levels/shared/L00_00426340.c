@@ -217,7 +217,6 @@ void func_L00_00426680(char *self)
 }
 
 
-INCLUDE_ASM("asm/levels", func_L00_00426C78);
 
 void func_L00_00427008(char *self)
 {
@@ -781,7 +780,10 @@ int func_L00_0042A460(char *a0)
     return 0;
 }
 
-INCLUDE_ASM("asm/levels", func_L00_0042A4E8);
+/* Distinct empty callbacks, each independently entered from dispatch data. */
+void func_L00_0042A4E8(void) {}
+void func_L00_0042A4F0(void) {}
+void func_L00_0042A4F8(void) {}
 
 /* clears the word at +0x20 and the halfword at +0x26 of the table entry selected by the
    index argument. */

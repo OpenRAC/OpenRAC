@@ -479,6 +479,9 @@ def correct_level_entries(rows: list[tuple]) -> list[tuple]:
             if lv not in texts:
                 texts[lv] = levels.level_text(levels.DUMP / levels.level_dir(lv))
             base, data = texts[lv]
+            if name in levels.FUNCTION_DELAY_SLOTS and \
+                    levels.words(data[a - base + n - 8:a - base + n - 4]) != (JR_RA,):
+                raise ValueError(f"{name}: level {lv} has no return before its delay slot")
             keys.add((levels.fingerprint(data[a - base:a - base + n], a), n))
         if len(keys) != 1:
             raise ValueError(f"{name}: corrected level copies differ")
@@ -561,18 +564,274 @@ def correct_boot_splits(boot: list[tuple]) -> list[tuple]:
     return out
 
 
+def split_release_rows(boot: list[tuple], rows: list[tuple]) -> tuple[list[tuple], list[tuple]]:
+    """Apply levels.RELEASE_FUNCTION_SPLITS to the boot's rows and their level copies.
+
+    A row of the old size becomes its parts, each checked at every place: it closes on
+    `jr $ra`, what lies between two parts is zeros, and the level copies of a part share
+    one fingerprint. A row already split passes. Anything else fails before writing."""
+    names = {r[0] for r in boot} | {r[0] for r in rows}
+
+    def parts_of(name, size):
+        spec = levels.RELEASE_FUNCTION_SPLITS.get(name)
+        if not spec or size == spec[1][0][2]:
+            return None
+        if size != spec[0]:
+            raise ValueError(f"{name}: {size} bytes, expected {spec[0]} or {spec[1][0][2]}")
+        if names & {part for part, _, _ in spec[1][1:]}:
+            raise ValueError(f"{name}: merged row already has a child identity")
+        return spec[1]
+
+    def closed(name, parts, address, read):
+        end = address
+        for _, offset, length in parts:
+            if any(read(end, address + offset - end)):
+                raise ValueError(f"{name}: non-zero bytes between two parts")
+            if levels.words(read(address + offset + length - 8, 4)) != (JR_RA,):
+                raise ValueError(f"{name}: part at +{offset:#x} does not close on a return")
+            end = address + offset + length
+
+    new_boot = []
+    for name, a, n in boot:
+        parts = parts_of(name, n)
+        if parts is None:
+            new_boot.append((name, a, n))
+            continue
+        closed(name, parts, a, levels.boot_bytes)
+        new_boot.extend((part, a + offset, length) for part, offset, length in parts)
+    new_rows = []
+    for row in rows:
+        name, kind, size, _, places = row
+        parts = parts_of(name, size)
+        if parts is None:
+            new_rows.append(row)
+            continue
+        keys = [set() for _ in parts]
+        for lv, a in places:
+            base, data = levels.level_text(levels.DUMP / levels.level_dir(lv))
+            read = lambda p, n: data[p - base:p - base + n]
+            closed(name, parts, a, read)
+            for key, (_, offset, length) in zip(keys, parts):
+                key.add(levels.fingerprint(read(a + offset, length), a + offset))
+        if any(len(key) != 1 for key in keys):
+            raise ValueError(f"{name}: split copies differ")
+        for key, (part, offset, length) in zip(keys, parts):
+            new_rows.append((part, kind, length, next(iter(key)), [(lv, a + offset) for lv, a in places]))
+    return new_boot, new_rows
+
+
+def split_release_places(rows: list[tuple]) -> list[tuple]:
+    """Apply levels.RELEASE_PLACE_SPLITS: regroup a row's places by the word that differs.
+
+    A place holding neither measured word fails; a row already split passes."""
+    names, out = {r[0] for r in rows}, []
+    kind_of = lambda places: "level" if len({lv for lv, _ in places}) == 1 else "shared"
+    for row in rows:
+        name, _, size, fp, places = row
+        if name not in levels.RELEASE_PLACE_SPLITS:
+            out.append(row)
+            continue
+        offset, kept_word, child, child_word = levels.RELEASE_PLACE_SPLITS[name]
+        groups = {kept_word: [], child_word: []}
+        for lv, a in places:
+            base, data = levels.level_text(levels.DUMP / levels.level_dir(lv))
+            word = levels.words(data[a - base + offset:a - base + offset + 4])[0]
+            if word not in groups:
+                raise ValueError(f"{name}: level {lv} holds neither measured word")
+            groups[word].append((lv, a))
+        kept, moved = groups[kept_word], groups[child_word]
+        if not moved:
+            out.append(row)
+            continue
+        if not kept or child in names:
+            raise ValueError(f"{name}: unexpected place split")
+        out.append((name, kind_of(kept), size, fp, kept))
+        out.append((child, kind_of(moved), size, fp, moved))
+    return out
+
+
+def merge_release_rows(boot: list[tuple], rows: list[tuple]) -> tuple[list[tuple], list[tuple]]:
+    """Apply levels.RELEASE_ROW_MERGES: the kept row takes the places of rows that are the same function.
+
+    Every merged place must hold the kept row's size, fingerprint and constants
+    (levels.cross_identity), and no level may hold two copies. A merged row that is a
+    boot function gives its boot entry to the kept name, after the same checks of the
+    boot's copy; the kept name may not be a boot function already. A merge already
+    applied passes; anything else fails before a catalogue is written."""
+    by_name = {r[0]: r for r in rows}
+    in_boot = {n: (a, s) for n, a, s in boot}
+    merged, retired, renamed = {}, set(), {}
+
+    def body(lv, a, size):
+        base, data = levels.level_text(levels.DUMP / levels.level_dir(lv))
+        return data[a - base:a - base + size]
+
+    for kept, others in levels.RELEASE_ROW_MERGES.items():
+        present = [other for other in others if other in by_name]
+        if not present:
+            if any(other in in_boot for other in others):
+                raise ValueError(f"{kept}: a merged row's boot entry is left without its row")
+            continue
+        if kept not in by_name:
+            raise ValueError(f"{kept}: rows to merge but no kept row")
+        name, kind, size, fp, places = by_name[kept]
+        constants = levels.cross_identity(body(*places[0], size))
+        places = list(places)
+        for other in present:
+            _, _, other_size, other_fp, other_places = by_name[other]
+            if (other_size, other_fp) != (size, fp):
+                raise ValueError(f"{other}: not the size and fingerprint of {kept}")
+            for lv, a in other_places:
+                copy = body(lv, a, size)
+                if levels.fingerprint(copy, a) != fp or levels.cross_identity(copy) != constants:
+                    raise ValueError(f"{other}: level {lv} is not the body of {kept}")
+            if other in in_boot:
+                if kept in in_boot or kept in renamed.values():
+                    raise ValueError(f"{other}: {kept} is a boot function already")
+                a, n = in_boot[other]
+                copy = levels.boot_bytes(a, size)
+                if n != size or levels.fingerprint(copy, a) != fp or levels.cross_identity(copy) != constants:
+                    raise ValueError(f"{other}: the boot's copy is not the body of {kept}")
+                renamed[other] = kept
+                kind = "boot"
+            places += other_places
+        if len({lv for lv, _ in places}) != len(places):
+            raise ValueError(f"{kept}: two merged copies in one level")
+        if kind != "boot":
+            kind = "level" if len(places) == 1 else "shared"
+        merged[kept] = (name, kind, size, fp, sorted(places))
+        retired.update(present)
+    return ([(renamed.get(n, n), a, s) for n, a, s in boot],
+            [merged.get(r[0], r) for r in rows if r[0] not in retired])
+
+
+def realign_release_places(boot: list[tuple], rows: list[tuple]) -> list[tuple]:
+    """Apply levels.RELEASE_PLACE_RUNS: give a stretch's bodies to the rows whose copies they are.
+
+    A new place must hold the row's own code: its words equal the row's places outside the
+    stretch's levels wherever those places agree with each other (constants the fingerprint
+    hides are compared; words that differ from level to level are not), and each `jal`
+    reaches the function the same call reaches there. The new places may not overlap another
+    row's, and they must cover every non-zero word of the places they replace and of the
+    rows the stretch retires. A stretch already in place passes; anything else fails before
+    a catalogue is written."""
+    out = list(rows)
+    for key, (bases, run, retired) in levels.RELEASE_PLACE_RUNS.items():
+        index = {r[0]: i for i, r in enumerate(out)}
+        if key not in index:
+            continue
+        texts = {}
+
+        def read(lv, a, n):
+            if lv not in texts:
+                texts[lv] = levels.level_text(levels.DUMP / levels.level_dir(lv))
+            base, data = texts[lv]
+            if not base <= a or a + n > base + len(data):
+                raise ValueError(f"{key}: level {lv} place {a:08X} outside EE text")
+            return data[a - base:a - base + n]
+
+        target, sizes = {}, {}
+        for name, offset, size in run:
+            for lv, start in bases.items():
+                n = name[lv] if isinstance(name, dict) else name
+                if n not in index:
+                    raise ValueError(f"{n}: realigned row is not in the catalogue")
+                if out[index[n]][2] != size:
+                    raise ValueError(f"{n}: {out[index[n]][2]} bytes, expected {size}")
+                if lv in target.setdefault(n, {}):
+                    raise ValueError(f"{n}: two places in level {lv}")
+                target[n][lv], sizes[n] = start + offset, size
+        present = [n for n in retired if n in index]
+        done = all(dict(out[index[n]][4]).get(lv) == a for n, pl in target.items() for lv, a in pl.items())
+        if done == bool(present):
+            raise ValueError(f"{key}: stretch partly realigned")
+        for n in present:
+            if any(lv not in bases for lv, _ in out[index[n]][4]):
+                raise ValueError(f"{n}: retired row has a place outside the stretch's levels")
+
+        new = [r for r in out if r[0] not in retired]
+        for i, (name, kind, size, fp, places) in enumerate(new):
+            if name in target:
+                moved = dict(places)
+                moved.update(target[name])
+                places = sorted(moved.items())
+                if kind != "boot":
+                    kind = "level" if len(places) == 1 else "shared"
+                new[i] = (name, kind, size, fp, places)
+        resident = {a: n for n, a, _ in boot if a < levels.LEVEL_BASE}
+        at = {}
+        for name, _, _, _, places in new:
+            for lv, a in places:
+                at[(lv, a)] = name
+
+        def callee(lv, pc, word):
+            t = ((pc + 4) & 0xF0000000) | ((word & 0x3FFFFFF) << 2)
+            return at.get((lv, t), resident.get(t) if t < levels.LEVEL_BASE else None)
+
+        for name, pl in target.items():
+            size = sizes[name]
+            old = out[index[name]][4]
+            others = [(lv, a) for lv, a in old if lv not in bases]
+            if not others:
+                raise ValueError(f"{name}: no place outside the stretch's levels to compare with")
+            ref_lv, ref_a = others[0]
+            ref = levels.words(read(ref_lv, ref_a, size))
+            varies = [any(levels.words(read(lv, a, size))[k] != w for lv, a in others[1:])
+                      for k, w in enumerate(ref)]
+            ref_fp = levels.fingerprint(read(ref_lv, ref_a, size), ref_a)
+            for lv, a in sorted(pl.items()):
+                body = read(lv, a, size)
+                if levels.fingerprint(body, a) != ref_fp:
+                    raise ValueError(f"{name}: level {lv} place {a:08X} is another function")
+                for k, (w, r) in enumerate(zip(levels.words(body), ref)):
+                    if r >> 26 == 3 and w >> 26 == 3:
+                        mine, theirs = callee(lv, a + 4 * k, w), callee(ref_lv, ref_a + 4 * k, r)
+                        if mine != theirs or (mine is None and w != r):
+                            raise ValueError(f"{name}: level {lv} place {a:08X} calls {mine}, "
+                                             f"level {ref_lv} calls {theirs}")
+                    elif w != r and not varies[k]:
+                        raise ValueError(f"{name}: level {lv} place {a:08X} differs at +{4 * k:#x}")
+
+        for lv in bases:
+            extents = sorted((a, a + sizes[n]) for n, pl in target.items() for l2, a in pl.items() if l2 == lv)
+            if any(b > c for (_, b), (c, _) in zip(extents, extents[1:])):
+                raise ValueError(f"{key}: level {lv} realigned places overlap")
+            inside = lambda p: any(a <= p < b for a, b in extents)
+            for name, _, size, _, places in new:
+                if lv in target.get(name, ()):
+                    continue
+                for l2, a in places:
+                    if l2 == lv and any(a < e and s < a + size for s, e in extents):
+                        raise ValueError(f"{name}: level {lv} place {a:08X} overlaps the stretch")
+            vacated = [(a, out[index[n]][2]) for n in present for l2, a in out[index[n]][4] if l2 == lv]
+            vacated += [(a, sizes[n]) for n in target for l2, a in out[index[n]][4]
+                        if l2 == lv and lv in target[n]]
+            for a, size in vacated:
+                for k, w in enumerate(levels.words(read(lv, a, size))):
+                    if w and not inside(a + 4 * k):
+                        raise ValueError(f"{key}: level {lv} word {a + 4 * k:08X} would lose its row")
+        out = new
+    return out
+
+
 def refresh_entries() -> None:
     """Repair measured extents in an existing release catalogue, retaining identities.
 
-    This does not realign releases, revisit callee correspondences or promote C.
-    The normal carry remains the full cross-release alignment operation.
+    This does not realign releases, revisit callee correspondences or promote C: the only
+    places it moves are the measured stretches of levels.RELEASE_PLACE_RUNS, and the only rows
+    it folds together are those of levels.RELEASE_ROW_MERGES. The normal carry remains the
+    full cross-release alignment operation.
     """
     boot = []
-    for name, a, n in correct_boot_splits(levels.read_boot_functions()):
+    for name, a, n in levels.split_boot_rows(correct_boot_splits(levels.read_boot_functions())):
         if not levels.function_residue(name, n):
             a, n = levels.function_extent(name, a, n)
             boot.append((name, a, n))
-    rows = correct_level_entries(levels.read_catalogue())
+    rows = levels.split_identities(correct_level_entries(levels.split_level_rows(levels.read_catalogue())))
+    boot, rows = split_release_rows(boot, rows)
+    rows = split_release_places(rows)
+    rows = realign_release_places(boot, rows)
+    boot, rows = merge_release_rows(boot, rows)
     # Validate both catalogues completely before writing either output.
     write_catalogues(boot, rows)
     print(f"entry repairs: {len(boot)} boot functions, {len(rows)} level rows; identities retained")
