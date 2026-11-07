@@ -443,7 +443,7 @@ vec3 probe_surface(vec4 texel, vec3 original) {
 // OPENRAC_UPSCALED_TEXTURE_COLOURS_SOURCE
 
 void main() {
-#ifdef OPENRAC_HERO_FUR
+#if defined(OPENRAC_HERO_FUR) && !defined(OPENRAC_SOLID)
     if (fur_shell_reject(hero_fur_map, v_uv, v_hero_fur)) discard;
 #endif
     v_fog = v_fog_w.x / v_fog_w.y;
