@@ -123,9 +123,13 @@ class Carry:
 
     def address(self, address: int, level: int | None, why: str) -> int | None:
         """PAL v2.00's address (in LEVEL's program, or the executable's) in the release."""
-        programs = ([f"{level:02d}"] if level is not None else []) + ["boot"]
-        if level is None or address < MAIN:
-            programs = ["boot"] + [p for p in programs if p != "boot"]
+        if level is not None and address >= MAIN:
+            # The level's own main segment: the executable's names there are another program's.
+            programs = [f"{level:02d}"]
+        elif level is not None:
+            programs = ["boot", f"{level:02d}"]
+        else:
+            programs = ["boot"]
         for prog in programs:
             hit = self.by_address.get((prog, address))
             if hit is not None:
