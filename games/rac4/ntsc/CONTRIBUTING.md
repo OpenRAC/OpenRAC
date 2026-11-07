@@ -89,7 +89,22 @@ python3 tools/gen_progress_report.py --check       # what CI runs
 its address, with relocatable fields masked (jump targets, the immediate of
 `lui`, and of loads, stores and adds that are not stack-relative). This is
 **not** a link-time comparison: a function that calls or reads the wrong symbol
-can still pass, so check calls and globals by eye.
+can still pass, and so can one whose struct offsets, small constants or pointer
+steps differ (`p += 4` on an `s32 *` moves 16 bytes where retail moves 4).
+
+`tools/strict_check.py` checks what the mask hides. It reads the same objects and
+uses their relocations instead of a mask: every word without a relocation must
+equal retail, and every `jal`, `%hi`/`%lo` pair and `$gp` access must resolve to
+the address the symbol's name gives (or, for the object's own `.rodata`, to the
+same bytes in retail). Run it after the audit:
+
+```
+venv/bin/python tools/strict_check.py         # every func_ in build/obj/; exits 1 on a failure
+venv/bin/python tools/strict_check.py -v      # also list the functions that pass
+```
+
+Calls from one level's overlay function into a function named after another
+level are not checkable by name and are left out.
 
 ### How code is compiled (`tools/cc.sh`)
 
@@ -144,7 +159,7 @@ addresses only, never a substitute for source).
    `venv/bin/python tools/diff_func.py func_XXXXXXXX` shows your function next to
    retail, word by word. `tools/try_variants.py` compiles several source forms of
    one function in a single run (see its docstring; `EXTRA="..."` passes flags).
-5. **When it matches**, rerun `tools/audit_matches.py`, then
+5. **When it matches**, rerun `tools/audit_matches.py` and `tools/strict_check.py`, then
    `python3 tools/gen_progress_report.py` and commit the regenerated
    `progress/report.json` together with your source. CI fails if the report
    disagrees with `src/`.
@@ -206,7 +221,8 @@ identifiers, file names or directory names from any other source (see
 ## 5. Pull requests and commits
 
 - Small, focused commits: one function or one tool change.
-- Run the build, the audit and `gen_progress_report.py --check` before pushing.
+- Run the build, the audit, `tools/strict_check.py` and `gen_progress_report.py --check`
+  before pushing.
 - Commit messages: a short summary line, then an optional body. Add
   `Co-Authored-By:` for anyone (or any tool) who helped, and nothing else
   tool-specific: no session links.
