@@ -83,6 +83,11 @@ or transfer, desktop folder opening/scanning and self-updating are not enabled.
 The host reports these limits to the shared UI. Unsupported commands fail
 explicitly rather than simulating successful operations.
 
+During gameplay, the on-screen options button opens the same touch drawer as
+Android. Under Touch controls, change action/classic buttons, button size and
+camera speed, or choose Edit the on-screen buttons to drag the controls. The
+game pauses during editing; Done saves the layout and returns to the game.
+
 ## Checks and release
 
 `.github/workflows/ios.yml` runs memory/lifecycle tests on macOS, cross-compiles
