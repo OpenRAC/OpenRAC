@@ -50,7 +50,7 @@ Metal has no triangle fans, 8-bit indices or unnormalised float inputs from inte
 them are refused (`GL_INVALID_ENUM`, then `GL_INVALID_OPERATION`), as no renderer uses them.
 
 Some operations are refused with `GL_INVALID_OPERATION` until they are done with draws: a copy
-between integer formats, a scaled or flipped blit of stencil, a resolve of depth, and part of one
+between integer formats, a scaled or flipped blit of stencil, a resolve of part of depth, and part of one
 multisampled image copied into another. GL itself refuses a multisampled blit that scales or, from
 a multisampled image, converts.
 

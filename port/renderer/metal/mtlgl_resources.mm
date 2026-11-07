@@ -866,8 +866,8 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
 
 }  // namespace
 
-// Copies of one size and format and resolves of colour; other blits drawn. A scaled, flipped or
-// converting blit of stencil, a resolve of depth and part of one multisampled image copied into
+// Copies of one size and format and resolves; other blits drawn. A scaled, flipped or converting
+// blit of stencil, a resolve of part of depth and part of one multisampled image copied into
 // another are GL_INVALID_OPERATION (README.md).
 void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx0, GLint dy0,
                             GLint dx1, GLint dy1, GLbitfield mask, GLenum filter) {
@@ -905,7 +905,25 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
                            && static_cast<NSUInteger>(h) == src.height && src.height == dst.height;
         if (src.sampleCount > dst.sampleCount) {
             if (is_depth(src.pixelFormat)) {
-                fail(kGlInvalidOperation);
+                if (!whole) {
+                    fail(kGlInvalidOperation);
+                    return;
+                }
+                end_encoders();
+                MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
+                auto resolve = [&](MTLRenderPassAttachmentDescriptor* a) {
+                    a.texture = src;
+                    a.loadAction = MTLLoadActionLoad;
+                    a.storeAction = MTLStoreActionStoreAndMultisampleResolve;
+                    a.resolveTexture = dst;
+                };
+                if ((mask & GL_DEPTH_BUFFER_BIT) != 0) {
+                    resolve(d.depthAttachment);
+                }
+                if (stencil && src.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
+                    resolve(d.stencilAttachment);
+                }
+                [[commands() renderCommandEncoderWithDescriptor:d] endEncoding];
                 return;
             }
             // Part of an image is resolved whole into a scratch one, then copied.

@@ -126,8 +126,9 @@ GLuint framebuffer(GLuint colour, int side, GLenum depth = 0) {
     return name;
 }
 
-// A multisampled colour renderbuffer's framebuffer, bound for drawing and reading.
-GLuint multisampled(int side) {
+// A multisampled colour renderbuffer's framebuffer, with a depth and stencil one if asked, bound
+// for drawing and reading.
+GLuint multisampled(int side, bool depth = false) {
     GLuint buffer = 0, name = 0;
     glGenRenderbuffers(1, &buffer);
     glBindRenderbuffer(GL_RENDERBUFFER, buffer);
@@ -135,6 +136,12 @@ GLuint multisampled(int side) {
     glGenFramebuffers(1, &name);
     glBindFramebuffer(GL_FRAMEBUFFER, name);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, buffer);
+    if (depth) {
+        glGenRenderbuffers(1, &buffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, buffer);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, side, side);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, buffer);
+    }
     CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     return name;
 }
@@ -412,6 +419,37 @@ void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.
          auto out = pixels();
          out.back() = static_cast<std::uint8_t>(error & 0xFF);
          return out;
+     }},
+    // renderer.cpp's depth for probe coverage, from a multisampled frame: a triangle's depth and
+    // stencil resolved, then red drawn behind it and green where it set stencil.
+    {"depth and stencil resolve",
+     [] {
+         const GLuint from = multisampled(kSide, true);
+         glClearDepth(1.0);
+         glClearStencil(0);
+         glClear(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+         glEnable(GL_DEPTH_TEST);
+         glDepthFunc(GL_ALWAYS);
+         glEnable(GL_STENCIL_TEST);
+         glStencilFunc(GL_ALWAYS, 1, 0xFF);
+         glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, 0x1E01 /* GL_REPLACE */);
+         program_of(kColourFragment);
+         draw({-1, -1, -0.5f, 0, 0, 0, 1, 0.83f, -0.71f, -0.5f, 0, 0, 0, 1, -0.37f, 0.9f, -0.5f, 0, 0, 0, 1});
+         const GLuint into = target(GL_DEPTH24_STENCIL8);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+                           GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         glStencilFunc(GL_ALWAYS, 0, 0xFF);
+         glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
+         glDepthFunc(GL_LESS);
+         quad(0, 1, 0, 0);
+         glStencilFunc(GL_EQUAL, 1, 0xFF);
+         glDepthFunc(GL_ALWAYS);
+         quad(0, 0, 1, 0);
+         glDisable(GL_STENCIL_TEST);
+         glDisable(GL_DEPTH_TEST);
+         return pixels();
      }},
     {"scaled multisampled blit",
      [] {
