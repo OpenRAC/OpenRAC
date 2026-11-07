@@ -78,24 +78,28 @@ int openrac_lib_scePad2GetState(int socket) { /* scePad2GetState */
 
 /* libvib. Profile byte: bit 0 small motor (on/off), bit 1 large motor (0..255). Motor data is
  * packed in that order: 1 bit, then 8 bits (rac2's pad poll sends (large << 1) | small). */
-enum { VIB_SMALL = 1, VIB_LARGE = 2 };
+enum {
+    VIB_SMALL = 1,
+    VIB_LARGE = 2
+};
 
 int openrac_lib_sceVibGetProfile(int socket, gaddr profile) { /* sceVibGetProfile */
     (void)socket;
-    *(uint8_t *)G(profile) = VIB_SMALL | VIB_LARGE;
+    *(uint8_t*)G(profile) = VIB_SMALL | VIB_LARGE;
     return 1;
 }
 
 /* Unpacks the motor data by the profile and passes it on. */
-int openrac_lib_sceVibSetActParam(int socket, int profile_size, gaddr profile, int data_size,
-                                  gaddr data) { /* sceVibSetActParam */
-    const uint8_t act = profile_size > 0 ? *(const uint8_t *)G(profile) : 0;
+int openrac_lib_sceVibSetActParam(
+    int socket, int profile_size, gaddr profile, int data_size, gaddr data
+) { /* sceVibSetActParam */
+    const uint8_t act = profile_size > 0 ? *(const uint8_t*)G(profile) : 0;
     uint32_t bits = 0;
     unsigned at = 0;
     int small = 0, large = 0, n;
 
     for (n = 0; n < data_size && n < 4; n++) {
-        bits |= (uint32_t)((const uint8_t *)G(data))[n] << (8 * n);
+        bits |= (uint32_t)((const uint8_t*)G(data))[n] << (8 * n);
     }
     if (act & VIB_SMALL) {
         small = (int)(bits & 1u);
