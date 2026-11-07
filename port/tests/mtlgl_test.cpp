@@ -304,6 +304,80 @@ void main() {
     return pixels();
 }
 
+constexpr const char* kHash = R"(
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+vec4 hashed(uint seed) {
+    uint h = hash(uint(gl_FragCoord.x) + 16u * uint(gl_FragCoord.y) + 256u * seed);
+    return vec4(h & 255u, (h >> 8u) & 255u, (h >> 16u) & 255u, h >> 24u) / 255.0;
+}
+)";
+
+// Three layers of colours of every byte, each blended over the last as the sky's shells are.
+std::vector<std::uint8_t> blended(GLenum format) {
+    framebuffer(texture(format, kSide), kSide);
+    clear_to(0, 0, 0, 0);
+    const GLuint program = program_of(std::format(R"(#version 410 core
+{}
+uniform int seed;
+layout(location = 0) out vec4 result;
+void main() {{ result = hashed(uint(seed)); }}
+)",
+                                                  kHash)
+                                          .c_str());
+    glEnable(GL_BLEND);
+    const GLenum factors[3][2] = {{GL_ONE, GL_ZERO}, {GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA}, {GL_ONE, GL_ONE}};
+    for (GLuint seed = 0; seed < 3; ++seed) {
+        glUniform1i(glGetUniformLocation(program, "seed"), static_cast<GLint>(seed));
+        glBlendFuncSeparate(factors[seed][0], factors[seed][1], GL_ONE, GL_ZERO);
+        quad(0, 0, 0, 0);
+    }
+    glDisable(GL_BLEND);
+    if (format == GL_RGBA8) {
+        return pixels();
+    }
+    std::vector<std::uint8_t> out(kSide * kSide * 4 * sizeof(float) + 1);
+    glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_FLOAT, out.data());
+    out.back() = static_cast<std::uint8_t>(glGetError() & 0xFF);
+    return out;
+}
+
+// A quad leaning away, its colour (s, t, q, w): each pixel `value` of the interpolated stq.
+std::vector<std::uint8_t> perspective(const char* value, GLuint image = 0) {
+    target();
+    glBindTexture(GL_TEXTURE_2D, image);
+    program_of(std::format(R"(#version 410 core
+in vec4 v_colour;
+uniform sampler2D image;
+layout(location = 0) out vec4 result;
+vec4 bits(float f) {{
+    uint v = floatBitsToUint(f);
+    return vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
+}}
+void main() {{
+    vec3 stq = v_colour.xyz;
+    result = {};
+}}
+)",
+                           value)
+                   .c_str(),
+               R"(#version 410 core
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec4 colour;
+out vec4 v_colour;
+void main() {
+    v_colour = colour;
+    gl_Position = vec4(position, 1) * colour.w;
+}
+)");
+    draw({-1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f,  1, -1, 0, 3.7f, 0.1f, 0.9f, 1.1f, 1, 1, 0, 2.9f, 5.3f, 0.3f, 7.9f,
+          -1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f,  1, 1, 0, 2.9f, 5.3f, 0.3f, 7.9f, -1, 1, 0, 0.3f, 4.1f, 0.7f, 5.3f});
+    return pixels();
+}
+
 // Quadrants drawn at the far plane with LESS, GREATER, EQUAL and NOTEQUAL against the bound
 // framebuffer's depth.
 std::vector<std::uint8_t> depth_tested() {
@@ -337,6 +411,26 @@ const Case kCases[] = {
          program_of(kColourFragment);
          draw({-0.9f, -0.93f, 0, 1, 1, 1, 1, 0.71f, -0.2f, 0, 1, 1, 1, 1, -0.33f, 0.87f, 0, 1, 1, 1, 1,
                0.5f, 0.5f, 0, 1, 0, 0, 1, 0.75f, 0.5f, 0, 1, 0, 0, 1, 0.5f, 0.75f, 0, 1, 0, 0, 1});
+         return pixels();
+     }},
+    // Eight triangles meeting at a pixel's centre, their shared edges through pixel centres, so that
+    // each of those pixels shows which triangle the fill rule gives it.
+    {"edges through pixel centres",
+     [] {
+         target();
+         program_of(kColourFragment);
+         draw({-0.0625f, -0.0625f, 0, 0.125f, 0, 0, 1,     -1.0625f, -1.0625f, 0, 0.125f, 0, 0, 1,
+               -0.0625f, -1.0625f, 0, 0.125f, 0, 0, 1,     -0.0625f, -0.0625f, 0, 0.25f, 1, 0, 1,
+               -0.0625f, -1.0625f, 0, 0.25f, 1, 0, 1,      0.9375f, -1.0625f, 0, 0.25f, 1, 0, 1,
+               -0.0625f, -0.0625f, 0, 0.375f, 0, 0.25f, 1, 0.9375f, -1.0625f, 0, 0.375f, 0, 0.25f, 1,
+               0.9375f, -0.0625f, 0, 0.375f, 0, 0.25f, 1,  -0.0625f, -0.0625f, 0, 0.5f, 1, 0.25f, 1,
+               0.9375f, -0.0625f, 0, 0.5f, 1, 0.25f, 1,    0.9375f, 0.9375f, 0, 0.5f, 1, 0.25f, 1,
+               -0.0625f, -0.0625f, 0, 0.625f, 0, 0.5f, 1,  0.9375f, 0.9375f, 0, 0.625f, 0, 0.5f, 1,
+               -0.0625f, 0.9375f, 0, 0.625f, 0, 0.5f, 1,   -0.0625f, -0.0625f, 0, 0.75f, 1, 0.5f, 1,
+               -0.0625f, 0.9375f, 0, 0.75f, 1, 0.5f, 1,    -1.0625f, 0.9375f, 0, 0.75f, 1, 0.5f, 1,
+               -0.0625f, -0.0625f, 0, 0.875f, 0, 0.75f, 1, -1.0625f, 0.9375f, 0, 0.875f, 0, 0.75f, 1,
+               -1.0625f, -0.0625f, 0, 0.875f, 0, 0.75f, 1, -0.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,
+               -1.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,      -1.0625f, -1.0625f, 0, 1, 1, 0.75f, 1});
          return pixels();
      }},
     {"multisampled edges resolved", [] { return resolved_edges(GL_RGBA8); }},
@@ -474,6 +568,23 @@ void main() {
          quad(0, 0, 0, 0);
          return pixels();
      }},
+    {"blending", [] { return blended(GL_RGBA8); }},
+    {"half float blending", [] { return blended(GL_RGBA16F); }},
+    {"perspective varying", [] { return perspective("bits(stq.x)"); }},
+    {"perspective quotient", [] { return perspective("bits(stq.y / stq.z)"); }},
+    {"perspective texture",
+     [] {
+         std::vector<std::uint8_t> texels(64 * 64 * 4);
+         for (std::size_t i = 0; i < texels.size(); ++i) {
+             texels[i] = static_cast<std::uint8_t>((i * 2654435761u) >> 13);
+         }
+         const GLuint image = texture(GL_RGBA8, 64);
+         glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 64, GL_RGBA, GL_UNSIGNED_BYTE, texels.data());
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+         return perspective("texture(image, stq.xy / stq.z)", image);
+     },
+     true},
     {"depth", [] { return depths(false); }},
     {"clamped depth", [] { return depths(true); }},
     {"linear texture",
