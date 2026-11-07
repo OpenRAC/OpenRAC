@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Name globals and functions instead of literal addresses
+From: Flavius <Flavius256@icloud.com>
+Date: Sun, 18 Oct 2026 07:06:30 +0000
+Subject: named addresses
+
+Name globals and functions instead of literal addresses.
 
 The port relocates a global or function to each level's copy by its name. A literal address,
 or one from the PAL decompilation, is read as is and lands in the wrong copy.
@@ -43,6 +45,8 @@ or one from the PAL decompilation, is read as is and lands in the wrong copy.
   message. Translated, the Orxon nanotech vendor set the bolts to an unrelated word less 4000 (a
   player saw -3), the maximum health was not raised, and the timer's 0xB4 went into another
   unrelated word. Not rebuilt.
+
+Co-authored-by: Lynder063 <lynderjekokot@gmail.com>
 ---
  .../hero/update_hero_motion_for_current_state.c   |  3 +--
  src/overlays/l10/mobys/nanotech_upgrade_vendor.c  | 15 +++++++--------

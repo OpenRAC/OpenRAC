@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Set a new effect record's colour before its first draw
+From: =?UTF-8?q?Kry=C5=A1tof=20Malinda?= <krystofmalinda@protonmail.com>
+Date: Mon, 2 Nov 2026 09:15:17 +0000
+Subject: effect colour
+
+Set a new effect record's colour before its first draw.
 
 The record is drawn once with what the stack held before func_002ED368 sets its colour and
 alpha (+0x30, +0x38). Retail's stack held 0x001A0000 and 0x001C0000 there at every spawn of a

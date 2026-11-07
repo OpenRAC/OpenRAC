@@ -12,7 +12,7 @@ After an update, check that file against the project's version.
 <!-- Written by tools/sources.py save; do not edit. -->
 | Patch | What |
 |---|---|
-| [0001-Run-the-build-tools-from-inside-OpenRAC.patch](0001-Run-the-build-tools-from-inside-OpenRAC.patch) | Run the build tools from inside OpenRAC |
+| [0001-tools-inside-openrac.patch](0001-tools-inside-openrac.patch) | Co-authored-by: Flavius <Flavius256@icloud.com>. |
 
 Files under [files/](files) (copied as they are):
 

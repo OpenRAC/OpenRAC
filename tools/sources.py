@@ -169,15 +169,25 @@ def do_edit(tree: Tree) -> None:
           f"(one commit per patch, its message the reason), then `tools/sources.py save {tree.key}`.")
 
 
-def subject(patch: Path) -> str:
+def summary(patch: Path) -> str:
+    """The first sentence of the patch's message, else its subject."""
     text = patch.read_text(encoding="utf-8", errors="replace")
-    found = re.search(r"^Subject: (?:\[PATCH[^\]]*\] )?(.+(?:\n [^\n]+)*)", text, re.M)
-    return " ".join(found.group(1).split()) if found else patch.stem
+    found = re.search(r"^Subject: (?:\[PATCH[^\]]*\] )?([^\n]+(?:\n [^\n]+)*)\n(?:[\w-]+: [^\n]*\n)*\n(.*?)\n---\n", text, re.M | re.S)
+    if not found:
+        return patch.stem
+    body = " ".join(found.group(2).split())
+    return body.split(". ")[0].rstrip(".") + "." if body else " ".join(found.group(1).split())
+
+
+def short_name(patch: Path) -> str:
+    """NNNN-<subject in lower case>.patch: short, readable names whatever case the subject has."""
+    number, _, rest = patch.stem.partition("-")
+    return f"{number}-{re.sub(r'[^a-z0-9]+', '-', rest.lower()).strip('-')}.patch"
 
 
 def write_readme(tree: Tree) -> None:
     """Rewrite the list of patches and files between the markers of the folder's README.md."""
-    rows = [f"| [{p.name}]({p.name}) | {subject(p)} |" for p in tree.patch_list()]
+    rows = [f"| [{p.name}]({p.name}) | {summary(p)} |" for p in tree.patch_list()]
     block = [BEGIN, "<!-- Written by tools/sources.py save; do not edit. -->", "| Patch | What |", "|---|---|", *rows]
     if tree.file_list():
         block += ["", "Files under [files/](files) (copied as they are):", ""]
@@ -200,6 +210,9 @@ def do_save(tree: Tree) -> None:
     base = state.get("edit")
     if not base:
         sys.exit(f"{tree.key} is not being edited: `tools/sources.py edit {tree.key}` first")
+    gitdir = Path(tree.git("rev-parse", "--absolute-git-dir"))
+    if (gitdir / "rebase-apply").exists() or (gitdir / "rebase-merge").exists():
+        sys.exit(f"{tree.rel} is in the middle of git am or a rebase: finish it (--continue) first, then save")
     if tree.run("status", "--porcelain", "--untracked-files=no").stdout.strip():
         sys.exit(f"{tree.rel} has changes not committed: commit them (each commit is one patch) and save again")
     tree.patches.mkdir(parents=True, exist_ok=True)
@@ -209,6 +222,8 @@ def do_save(tree: Tree) -> None:
                    "-o", str(tree.patches), f"{base}..HEAD")
     if out.returncode:
         sys.exit(out.stderr)
+    for patch in tree.patch_list():
+        patch.rename(patch.with_name(short_name(patch)))
     write_readme(tree)
     tree.git("checkout", "-q", "--detach", base)
     tree.git("branch", "-q", "-D", BRANCH)

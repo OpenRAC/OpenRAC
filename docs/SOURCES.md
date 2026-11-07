@@ -1,9 +1,7 @@
 # Where the code comes from
 
-OpenRAC brings the games' decompilation projects together. Each one is included
-as a git submodule: the project's own repository at one commit, with OpenRAC's
-few changes kept beside it as readable patches. The original repositories
-remain the record of who wrote what. [CREDITS.md](../CREDITS.md) lists the people behind
+Each game's decompilation is a git submodule: the project's own repository
+at one commit, with OpenRAC's few changes kept beside it as patches. [CREDITS.md](../CREDITS.md) lists the people behind
 each project.
 
 <!-- sources:begin -->
@@ -19,94 +17,57 @@ each project.
 | [`games/rac6/ntsc`](../games/rac6/ntsc) | rac-sac-decomp | https://github.com/OpenRAC/rac-sac-decomp | main | `4e38d3d88f62` | 2026-10-21 | GPL-3.0 |
 <!-- sources:end -->
 
-The full commit hashes are in each `games/<game>/game.json` under `source`.
-rac1/pal follows the [Veradictus fork](https://github.com/Veradictus/rac1-decomp)'s
-`main`: upstream plus work waiting to be merged there, so its commit may not
-exist upstream yet.
+Full hashes are in each `games/<game>/game.json` under `source`. rac1/pal
+follows the [Veradictus fork](https://github.com/Veradictus/rac1-decomp)'s
+`main`, so its commit may not be upstream yet.
 
-## How a project sits in OpenRAC
+## How it works
 
-Each project is a [git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
-at `games/<game>/<version>`, pinned to the commit in the table. Nothing is
-committed inside it. OpenRAC's own changes to it live beside it, in
-`games/<game>/<version>-patches/`:
+Each project is a git submodule at `games/<game>/<version>`. Nothing is
+committed inside it. OpenRAC's changes are in `games/<game>/<version>-patches/`:
 
-```
-games/rac1/
-├── pal/                 the submodule: rac1-decomp as it is upstream
-└── pal-patches/
-    ├── README.md        what the folder holds, and the list of patches
-    ├── 0001-Run-the-tools-from-inside-OpenRAC.patch
-    ├── 0002-...patch    one change each, with its reason in the message
-    └── files/           OpenRAC's own files, copied into the tree as they are
-```
+- `0001-Some-change.patch`: one change per file, with the reason in its message.
+- `files/`: OpenRAC's own files, copied in as they are.
+- `README.md`: the list of patches.
 
-A patch is an ordinary `git format-patch` file: open it to read what it
-changes and why. `files/` holds whole files the project does not have
-(functional C, the port's symbol lists, a helper for one machine). rac5/ntsc
-has no patches folder: OpenRAC uses it unchanged.
-
-After a clone, or a pull that moved a pin or a patch:
+After a clone or a pull:
 
 ```sh
-git submodule update --init --depth 1     # or clone with --recurse-submodules
-python3 tools/sources.py apply            # put OpenRAC's changes in place
+git submodule update --init --depth 1
+python3 tools/sources.py apply
 ```
 
-`apply` leaves the changes in each submodule's working tree, so `git status`
-inside one shows exactly what OpenRAC changes. `unapply` takes them out
-again, `status` shows where each project is.
+`unapply` removes the changes again, `status` shows each project.
 
 ## Where a change goes
 
-- **A change to the decompilation itself** (a match, a name, a header, a
-  build fix): make it in that project's repository, as a pull request there.
-  OpenRAC picks it up with the next `update`. A pull request to OpenRAC that
-  edits a submodule cannot carry it.
-- **A change only OpenRAC needs** (a path inside OpenRAC, C written so the
-  port's translation reads it, a removal request): a patch in the
-  `-patches/` folder, with its reason. Offer it to the project when it would
-  help there too, and drop the patch once the project has it.
-- **A file only OpenRAC needs**: `files/` in the `-patches/` folder.
+- **A change to the decomp** (a match, a name, a build fix): a pull request
+  in the decomp's own repository. OpenRAC gets it with the next `update`.
+- **A change only OpenRAC needs**: a patch, with its reason.
 
 ## Changing a patch
 
 ```sh
-python3 tools/sources.py edit rac1/pal    # the patches become commits in games/rac1/pal
-cd games/rac1/pal
-# work with git: commit a new change, git commit --amend, git rebase -i ...
-cd -
-python3 tools/sources.py save rac1/pal    # the commits are written back as the patches
+python3 tools/sources.py edit rac1/pal   # the patches become commits in games/rac1/pal
+# in games/rac1/pal: commit, amend or rebase as usual; one commit = one patch
+python3 tools/sources.py save rac1/pal   # the commits become patches again
 ```
 
-Each commit is one patch, its first line the patch's name and its message
-the reason. `save` rewrites the folder's patches and their list in its
-README, and puts the submodule back at its pin with the changes applied.
-Commit the `-patches/` folder. A file in `files/` is edited in place, then
-`apply` copies it.
+Then commit the `-patches/` folder.
 
-## Bringing in later work
+## Updating a project
 
 ```sh
-python3 tools/sources.py update rac1/ntsc          # to the tip of its branch
-python3 tools/sources.py update rac1/ntsc <commit> # or to one commit
+python3 tools/sources.py update rac1/ntsc            # to the tip of its branch
+python3 tools/sources.py update rac1/ntsc <commit>   # or to one commit
 ```
 
-`update` fetches the project, rebases the patches onto the new commit and
-writes them back, moves the submodule's pin and records the commit in
-`game.json`. Where the project changed the same lines, git stops as in any
-rebase: resolve it in the submodule, `git rebase --continue`, then
-`python3 tools/sources.py save <version>`. A patch the project has taken
-drops out on its own. Versions that share a tree (rac1/pal1 and rac1/jp
-with rac1/pal, rac2/pal and rac2/ntsc2 with rac2/ntsc) record the same
-commit.
-
-After updating rac2/ntsc, write the port's copy of the names its build
-derives again from a build of that commit
+This moves the submodule, rebases the patches and writes the new commit to
+`game.json`. On a conflict, fix it in the submodule, run
+`git rebase --continue`, then `save`. Check the new commit against the
+[sourcing policy](policy/SOURCING.md) and commit it as `chore(import)`.
+After updating rac2/ntsc, also redo the port's name list
 ([port/game/rac2-ntsc](../port/game/rac2-ntsc/README.md#building-and-running)).
-Before committing an update, check the new commit against the
-[sourcing policy](policy/SOURCING.md), including the removal requests, and
-commit it as one `chore(import)` commit per project, naming the new commit.
 
 ## Other projects OpenRAC builds on
 

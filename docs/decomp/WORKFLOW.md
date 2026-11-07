@@ -470,7 +470,7 @@ from frontbin "donor" functions with the donor's flags
 
 The OpenRAC rule is in [SOURCING.md, "Credit"](../policy/SOURCING.md#credit).
 Where each game's code was imported from, and how later work is brought in, is
-in [docs/SOURCES.md](../SOURCES.md#bringing-in-later-work).
+in [docs/SOURCES.md](../SOURCES.md#updating-a-project).
 
 ## 7. Practices worth sharing
 

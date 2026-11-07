@@ -1,10 +1,14 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Run the build tools from inside OpenRAC
+From: Lynder063 <lynderjekokot@gmail.com>
+Date: Fri, 9 Oct 2026 13:50:23 +0000
+Subject: tools inside openrac
+
+Run the build tools from inside OpenRAC.
 
 tools/docker/run.sh mounts all of OpenRAC and can use rac1/pal's local image; tools/cc.sh
 finds Wine or wibo; tools/setup_asm.sh hashes with python3 (macOS has no sha1sum).
+
+Co-authored-by: Flavius <Flavius256@icloud.com>
 ---
  tools/cc.sh         | 28 +++++++++++++++++++++++-----
  tools/docker/run.sh | 15 ++++++++++++++-

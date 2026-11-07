@@ -8,8 +8,9 @@ OpenRAC/
 │   ├── rac1/               Ratchet & Clank (2002)
 │   │   ├── game.json       discs, checksums, what is decompiled, where it came from
 │   │   ├── pal/            SCES_509.16, submodule of rac1-decomp
-│   │   ├── pal-patches/    OpenRAC's changes to it, applied by tools/sources.py
-│   │   └── ntsc/           SCUS_971.99, submodule of Lombyte (and ntsc-patches/)
+│   │   ├── pal-patches/    OpenRAC's changes to pal/
+│   │   ├── ntsc/           SCUS_971.99, submodule of Lombyte
+│   │   └── ntsc-patches/   OpenRAC's changes to ntsc/
 │   ├── rac2/ntsc/          Going Commando, SCUS_972.68 v1.01, from rac2-decomp
 │   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
 │   ├── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
@@ -37,10 +38,8 @@ OpenRAC/
 
 ## The rules that keep it organised
 
-**Each game version is its own project.** It is a git submodule at
-`games/<game>/<version>/` (or the `dir` its `game.json` entry names), with
-OpenRAC's patches to it in `games/<game>/<version>-patches/`
-([SOURCES.md](SOURCES.md)). It has
+**Each game version is its own project**, a git submodule with OpenRAC's
+patches beside it ([SOURCES.md](SOURCES.md)). It has
 its own README, license, build, tools and docs. Work from inside that
 directory: its paths are relative to it, and its build never reaches into
 another game. Its own docs decide how a match is proven there. rac1's two
@@ -73,7 +72,7 @@ what readers see.
 | A helper two or more Python tools need | `tools/openrac_common/`, with a test beside the others in `tools/test_openrac_common.py` |
 | A decision or rule for everyone | `docs/policy/`, and `CONTRIBUTING.md` if it changes how people work |
 | Restructure work: claiming a package, reporting it | its row in [docs/restructure/PROGRESS.md](restructure/PROGRESS.md) |
-| Decompiled code, a symbol map, a game's build change | that project's own repository (a pull request there); a change only OpenRAC needs is a patch in `games/<game>/<version>-patches/` ([SOURCES.md](SOURCES.md)) |
+| Decompiled code, a symbol map, a game's build change | a pull request in that project's own repository; if only OpenRAC needs it, a patch ([SOURCES.md](SOURCES.md)) |
 | A note about one game | that game's `docs/` |
 | Knowledge that holds across games (a format, a subsystem) | `docs/engine/`, linking the per-game evidence |
 | Matching or compiler knowledge across games | `docs/decomp/` |

@@ -25,8 +25,8 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 - **Claim before you match** when several people work on rac1/pal at once:
   `python3 tools/claims.py` ([AGENT_WORKFLOW.md](../../games/rac1/pal/docs/AGENT_WORKFLOW.md)).
 - **Imports from a project's own repository** go through
-  `tools/sources.py sync`, are reviewed against the sourcing policy, and are
-  committed as `chore(import)` ([SOURCES.md](../SOURCES.md#bringing-in-later-work)).
+  `tools/sources.py update`, are reviewed against the sourcing policy, and are
+  committed as `chore(import)` ([SOURCES.md](../SOURCES.md#updating-a-project)).
 
 ## Each game's documents
 

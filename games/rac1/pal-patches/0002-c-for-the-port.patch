@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Write the C so the port's translation reads it
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 17 Oct 2026 19:51:29 +0000
+Subject: c for the port
+
+Write the C so the port's translation reads it.
 
 - src/overlays/l07_umbris/taxi_platform.c: the Bombomatic's hit handler names its local
   hit_message, not s16. A local named after a type shadows it, and hostgen writes casts by the
@@ -13,6 +15,8 @@ Subject: Write the C so the port's translation reads it
   only the first base, so the port relocates the others with it.
 - include/callees.h: func_001F9E58 returns int, as its callers read it.
 - config/port_symbols.txt: the pause menu mobys' update under its current name.
+
+Co-authored-by: ReaperOfVeriod <oeps46@gmail.com>
 ---
  config/port_symbols.txt                 |  2 +-
  include/callees.h                       |  2 +-

@@ -20,12 +20,11 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
 <!-- Written by tools/sources.py save; do not edit. -->
 | Patch | What |
 |---|---|
-| [0001-Pass-the-arguments-the-console-left-in-registers.patch](0001-Pass-the-arguments-the-console-left-in-registers.patch) | Pass the arguments the console left in registers |
-| [0002-Drop-parameters-the-retail-code-never-reads.patch](0002-Drop-parameters-the-retail-code-never-reads.patch) | Drop parameters the retail code never reads |
-| [0003-Keep-TEX0-words-64-bits-wide.patch](0003-Keep-TEX0-words-64-bits-wide.patch) | Keep TEX0 words 64 bits wide |
-| [0004-Name-globals-and-functions-instead-of-literal-addres.patch](0004-Name-globals-and-functions-instead-of-literal-addres.patch) | Name globals and functions instead of literal addresses |
-| [0005-Let-a-modded-level-use-more-than-32-MiB.patch](0005-Let-a-modded-level-use-more-than-32-MiB.patch) | Let a modded level use more than 32 MiB |
-| [0006-Name-rac1-decomp-s-licence-as-GPL-3.0.patch](0006-Name-rac1-decomp-s-licence-as-GPL-3.0.patch) | Name rac1-decomp's licence as GPL-3.0 |
+| [0001-register-arguments.patch](0001-register-arguments.patch) | Pass the arguments the console left in registers. |
+| [0002-unused-parameters.patch](0002-unused-parameters.patch) | Drop parameters the retail code never reads. |
+| [0003-tex0-64-bit.patch](0003-tex0-64-bit.patch) | Keep TEX0 words 64 bits wide. |
+| [0004-named-addresses.patch](0004-named-addresses.patch) | Name globals and functions instead of literal addresses. |
+| [0005-big-modded-levels.patch](0005-big-modded-levels.patch) | Let a modded level use more than 32 MiB. |
 
 Files under [files/](files) (copied as they are):
 

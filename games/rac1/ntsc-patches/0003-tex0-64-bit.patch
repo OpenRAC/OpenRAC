@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Keep TEX0 words 64 bits wide
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 17 Oct 2026 01:33:18 +0000
+Subject: tex0 64-bit
+
+Keep TEX0 words 64 bits wide.
 
 A GS TEX0 word is 64 bits. The console's registers keep all of them whatever the C says;
 on a PC an int drops the upper half (palette address, height, colour mode).

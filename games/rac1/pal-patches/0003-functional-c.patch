@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Add functional C the port runs for unmatched functions
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 3 Oct 2026 21:47:04 +0000
+Subject: functional c
+
+Add functional C the port runs for unmatched functions.
 
 Candidate C for functions with no matched C yet, listed in nonmatching/functional.tsv.
 Three are adapted from the NTSC decomp (credited in THIRD_PARTY_NOTICES.md).

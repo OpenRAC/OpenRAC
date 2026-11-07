@@ -44,20 +44,14 @@ launcher (`launcher/`); the decompilations the port is built from live in
 
 ## Decompilation changes
 
-Each game's decompilation under `games/` is a git submodule: that project's
-own repository at one commit ([docs/SOURCES.md](docs/SOURCES.md) lists them).
-OpenRAC's few changes to it are patches beside it, in
-`games/<game>/<version>-patches/`.
+The decomps under `games/` are git submodules of their own repositories
+([docs/SOURCES.md](docs/SOURCES.md)).
 
-- **A decomp change** (a match, a name, a header, the project's own tools):
-  open it as a pull request in that project's repository. It reaches OpenRAC
-  with the next `tools/sources.py update`.
-- **A change the native port needs**: keep it out of the decomp C. Wrap the
-  function in the port instead (`port/game/<program>/`). Where a change inside
-  a tree can't be avoided, it is a patch in the `-patches/` folder with its
-  reason ([how](docs/SOURCES.md#changing-a-patch)).
-- **An update to a newer commit** is one `chore(import)` pull request per
-  project, made with `tools/sources.py update`.
+- **A decomp change** (a match, a name, a build fix): open the pull request
+  in that decomp's repository, not here.
+- **A port change**: don't edit the decomp C. Wrap the function in
+  `port/game/<program>/`. If a change inside a decomp can't be avoided, add a
+  patch with its reason ([how](docs/SOURCES.md#changing-a-patch)).
 
 ## Commits
 

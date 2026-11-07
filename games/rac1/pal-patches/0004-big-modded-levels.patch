@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Let a modded level use more than 32 MiB
+From: ReaperOfVeriod <oeps46@gmail.com>
+Date: Sat, 31 Oct 2026 14:00:46 +0000
+Subject: big modded levels
+
+Let a modded level use more than 32 MiB.
 
 With OPENRAC_HAS_DISC (the port), the level heap checks (CHECK_LEVEL_HEAP) and the expanded
 arena's own file-order moby map (EXPANDED_LEVEL_RAM, true only above 32 MiB of guest RAM, a

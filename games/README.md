@@ -1,13 +1,10 @@
 # Games
 
 One directory per game, and inside it one directory per version (region).
-Each version is a self-contained decompilation project, included as a git
-submodule of its own repository: you build it and work on it from its own
-directory, following its own README ([docs/LAYOUT.md](../docs/LAYOUT.md)).
-OpenRAC's changes to it are readable patches beside it, in
-`<version>-patches/`, put in place by `python3 tools/sources.py apply`
-([docs/SOURCES.md](../docs/SOURCES.md)). A change to the decompilation itself
-goes to its own repository. `games/<game>/game.json` describes the
+Each version is a decompilation project, a git submodule of its own
+repository. Build and work on it from its own directory, following its own
+README ([docs/LAYOUT.md](../docs/LAYOUT.md)). OpenRAC's changes to it are
+patches in `<version>-patches/` ([docs/SOURCES.md](../docs/SOURCES.md)). `games/<game>/game.json` describes the
 game's discs, what each version decompiles, and the project it came from.
 
 <!-- games:begin -->
@@ -42,10 +39,8 @@ Current numbers for every version are in [progress/](../progress/README.md).
    boot checksums (`python3 tools/openrac.py discs --full` prints them for an
    image in `baserom/`), what it decompiles, and the inputs `setup` should
    place.
-2. Add the project as a submodule, `git submodule add --depth 1 <url>
-   games/<game>/<version>` (with `shallow = true` and `ignore = dirty` in
-   `.gitmodules`, as the others), and record its commit in game.json's
-   `source`. Changes only OpenRAC needs go in `games/<game>/<version>-patches/`
-   (`tools/sources.py edit` and `save`).
+2. Add the project: `git submodule add --depth 1 <url> games/<game>/<version>`,
+   with `shallow = true` and `ignore = dirty` in `.gitmodules` like the others,
+   and its commit in game.json's `source`.
 3. Run `python3 tools/openrac.py tables` and commit, as
    `feat(<game>/<version>): ...`.

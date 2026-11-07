@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 15:52:33 +0000
-Subject: Give the glider's matrix inverse a whole 4x4 local
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 7 Nov 2026 15:50:04 +0000
+Subject: glider matrix
+
+Give the glider's matrix inverse a whole 4x4 local.
 
 The glider's update (func_L08_003CDF98, functional C shared by Tabora,
 Dobbo and Grelbin) inverts its moby's matrix in state 0 with

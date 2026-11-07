@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Stop at the last of the 52 sound channel slots
+From: =?UTF-8?q?Kry=C5=A1tof=20Malinda?= <krystofmalinda@protonmail.com>
+Date: Mon, 2 Nov 2026 09:15:17 +0000
+Subject: sound slot limit
+
+Stop at the last of the 52 sound channel slots.
 
 func_002E5A50 returns 52 when no slot is free; retail then writes past the 52 rows.
 The slot is -1 then.

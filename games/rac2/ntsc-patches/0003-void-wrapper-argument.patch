@@ -1,7 +1,9 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Pass the moby through a level's void wrapper
+From: Flavius <Flavius256@icloud.com>
+Date: Tue, 3 Nov 2026 12:01:46 +0000
+Subject: void wrapper argument
+
+Pass the moby through a level's void wrapper.
 
 func_L00_003BAAD0 was declared (void) and left a0 unset; the console's a0 still held the moby.
 ---

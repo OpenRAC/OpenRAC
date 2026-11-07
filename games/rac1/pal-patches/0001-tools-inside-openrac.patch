@@ -1,23 +1,22 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
-Date: Sat, 7 Nov 2026 12:00:00 +0000
-Subject: Run the tools from inside OpenRAC
+From: Lynder063 <lynderjekokot@gmail.com>
+Date: Fri, 9 Oct 2026 13:50:23 +0000
+Subject: tools inside openrac
 
-The tree sits at games/rac1/pal inside OpenRAC. The tools find the editor (OpenRAC's editor/,
-which took over tools/extract), the NTSC decomp (games/rac1/ntsc), the shared toolchains/
-and baserom/, and name their commit scope rac1/pal. The Docker runner mounts all of OpenRAC.
+Run the tools from inside OpenRAC.
+
+The tree sits at games/rac1/pal inside OpenRAC, and the launcher builds it there. The tools
+find the NTSC decomp (games/rac1/ntsc) and the shared toolchains/ and baserom/, and the Docker
+runner mounts all of OpenRAC.
+
+Co-authored-by: Flavius <Flavius256@icloud.com>
 ---
- tools/docker/run.sh   | 10 +++++++++-
- tools/dossier.py      |  4 ++--
- tools/lombyte.py      | 17 ++++++++++++-----
- tools/names.py        |  6 +++---
- tools/old/fcheck.py   |  8 ++++----
- tools/overlay_scan.py |  2 +-
- tools/overlays.py     |  2 +-
- tools/setup_asm.sh    | 41 ++++++++++++++++++++++++++++++-----------
- tools/toolchain.sh    | 37 +++++++++++++++++++++++++++++++++++--
- tools/wave.py         |  8 +++++---
- 10 files changed, 102 insertions(+), 33 deletions(-)
+ tools/docker/run.sh | 10 +++++++++-
+ tools/lombyte.py    | 17 ++++++++++++-----
+ tools/names.py      |  6 +++---
+ tools/setup_asm.sh  | 41 ++++++++++++++++++++++++++++++-----------
+ tools/toolchain.sh  | 37 +++++++++++++++++++++++++++++++++++--
+ 5 files changed, 89 insertions(+), 22 deletions(-)
 
 diff --git a/tools/docker/run.sh b/tools/docker/run.sh
 index ca6a119..ae4b5dc 100644
@@ -44,21 +43,6 @@ index ca6a119..ae4b5dc 100644
  # Wine's "Not enough space".
 -exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$repo:$repo" -w "$repo" "$IMAGE_TO_RUN" "$@"
 +exec $CONTAINER_CLI run --rm --init $tty ${sec_opts[@]+"${sec_opts[@]}"} --platform linux/386 -v "$mount:$mount" -w "$repo" "$IMAGE_TO_RUN" "$@"
-diff --git a/tools/dossier.py b/tools/dossier.py
-index f964301..6594086 100644
---- a/tools/dossier.py
-+++ b/tools/dossier.py
-@@ -309,8 +309,8 @@ def name_lines(row: dict | None) -> list[str]:
- 
- 
- def load_moby_classes() -> dict[int, str]:
--    """oClass -> moby class name, from tools/extract/moby_classes.tsv."""
--    path = ROOT / "tools/extract/moby_classes.tsv"
-+    """oClass -> moby class name, from the OpenRAC editor's moby_classes.tsv."""
-+    path = ROOT.parents[2] / "editor/moby_classes.tsv"
-     if not path.exists():
-         return {}
-     rows = {}
 diff --git a/tools/lombyte.py b/tools/lombyte.py
 index 7f6c5ae..6e42e9b 100644
 --- a/tools/lombyte.py
@@ -132,59 +116,6 @@ index 3d9c991..02b3b73 100644
  RERAC = Path(os.environ.get("RERAC", HOME / "rerac"))
  
  TIERS = ("recovered", "descriptive", "candidate")
-diff --git a/tools/old/fcheck.py b/tools/old/fcheck.py
-index 3f0f06d..51c6127 100644
---- a/tools/old/fcheck.py
-+++ b/tools/old/fcheck.py
-@@ -25,7 +25,7 @@ no states and cannot be checked this way. The first form captures FUNC alone
- when it has no states yet (about a minute).
- 
- Executable functions only for now (func_XXXXXXXX). Needs OpenRAC built
--(cmake --build build/runtime in ~/Projects/OpenRAC) and the PAL disc image.
-+(cmake -S tools/interpreter -B build/interpreter, then build it, in ~/Projects/OpenRAC) and the PAL disc image.
- """
- from __future__ import annotations
- 
-@@ -38,10 +38,10 @@ from pathlib import Path
- 
- ROOT = Path(__file__).resolve().parents[2]
- OPENRAC = Path(__import__("os").environ.get("OPENRAC_ROOT", str(Path.home() / "Projects/RAC/OpenRAC")))
--BOOT = OPENRAC / "build/runtime/openrac-boot"
--FCHECK = OPENRAC / "build/runtime/openrac-fcheck"
-+BOOT = OPENRAC / "build/interpreter/openrac-boot"
-+FCHECK = OPENRAC / "build/interpreter/openrac-fcheck"
- DISC = next((p for p in (OPENRAC / "baserom/SCES_509.16.iso", OPENRAC / "games/rac1/baserom/SCES_509.16.iso") if p.exists()), OPENRAC / "baserom/SCES_509.16.iso")
--HOOKS = OPENRAC / "runtime/games/SCES_509.16.hooks"
-+HOOKS = OPENRAC / "tools/interpreter/games/SCES_509.16.hooks"
- WORK = ROOT / "build-sn/fcheck"
- STATES = WORK / "states"
- # OpenRAC dropped runtime/ with its emulator; the hooks file is kept beside the states.
-diff --git a/tools/overlay_scan.py b/tools/overlay_scan.py
-index 3ee5904..9a63f55 100644
---- a/tools/overlay_scan.py
-+++ b/tools/overlay_scan.py
-@@ -16,7 +16,7 @@ import json, struct, sys
- from collections import defaultdict
- from pathlib import Path
- ROOT = Path(__file__).resolve().parent.parent
--sys.path.insert(0, str(ROOT / "tools/extract"))
-+sys.path.insert(0, str(ROOT.parents[2] / "editor"))  # the OpenRAC editor's readers
- from disc import Disc
- from level import decoded
- from formats import overlay_sections, unpack, span
-diff --git a/tools/overlays.py b/tools/overlays.py
-index a3419a1..9a8ef64 100644
---- a/tools/overlays.py
-+++ b/tools/overlays.py
-@@ -53,7 +53,7 @@ import sys
- from pathlib import Path
- 
- ROOT = Path(__file__).resolve().parent.parent
--sys.path.insert(0, str(ROOT / "tools/extract"))
-+sys.path.insert(0, str(ROOT.parents[2] / "editor"))  # the OpenRAC editor's readers
- 
- ISO = ROOT / "baserom/SCES_509.16.iso"
- ELF = ROOT / "baserom/SCES_509.16"
 diff --git a/tools/setup_asm.sh b/tools/setup_asm.sh
 index 7e4f316..97de4bb 100644
 --- a/tools/setup_asm.sh
@@ -316,43 +247,3 @@ index 0e8d050..07c14dc 100644
    wineserver -p60 2>/dev/null || true
  fi
  
-diff --git a/tools/wave.py b/tools/wave.py
-index b0d7e6b..c830d49 100644
---- a/tools/wave.py
-+++ b/tools/wave.py
-@@ -89,6 +89,8 @@ from concurrent.futures import ThreadPoolExecutor
- from pathlib import Path
- 
- ROOT = Path(__file__).resolve().parent.parent
-+# Inside OpenRAC, commit scopes name the game version first (OpenRAC's CONTRIBUTING.md).
-+SCOPE = "rac1/pal/" if (ROOT.parents[2] / "games/rac1/game.json").exists() else ""
- sys.path.insert(0, str(ROOT / "tools"))
- 
- import claims as shared  # noqa: E402
-@@ -453,7 +455,7 @@ def plan(args, quiet: bool = False) -> None:
- 
- 
- def prompt(name: str, role: str, budget: int) -> str:
--    return (f"You are a {role} worker on {name} in the repository /Users/flavy/Projects/rac1-decomp "
-+    return (f"You are a {role} worker on {name} in the repository {ROOT} "
-             f"(run every command from there). Follow docs/agents/WORKER.md, the rules and the "
-             f"\"{SECTION[role]}\" section; your context is build-sn/try/{name}/CONTEXT.md and "
-             f"your budget is {budget} try_func runs. Work alone: never use the Agent, "
-@@ -844,7 +846,7 @@ def land_exe(args, wave: dict) -> None:
-         docker("python", "tools/gen_progress_report.py", "--no-build")
-         row = rows[name]
-         title = f"{row['symbol']} ({name})" if row["symbol"] else name
--        message = (f"feat({row['unit'].split('/')[0]}): {title} exact match\n\n"
-+        message = (f"feat({SCOPE}{row['unit'].split('/')[0]}): {title} exact match\n\n"
-                    f"Matched by a Sonnet worker in wave {args.name}; full build audited.\n\n{TRAILER}")
-         subprocess.run(["git", "add", str(source.relative_to(ROOT)), "progress/report.json"], cwd=ROOT, check=True)
-         subprocess.run(["git", "commit", "-q", "-m", message], cwd=ROOT, check=True)
-@@ -1269,7 +1271,7 @@ def land_one(args, name: str, candidate: str, source: Path, owner: str) -> str:
-     if elf.exists():
-         docker("python", "tools/gen_progress_report.py", "--no-build")
-     title = f"{known} ({name})" if known else name
--    message = (f"feat(overlays): {title} exact match\n\n"
-+    message = (f"feat({SCOPE}overlays): {title} exact match\n\n"
-                f"Matched by a Sonnet worker in wave {args.name}; checked strictly against "
-                f"{name}'s real address in its level with tools/overlay_check.py "
-                f"(docs/OVERLAYS.md).\n\n{TRAILER}")

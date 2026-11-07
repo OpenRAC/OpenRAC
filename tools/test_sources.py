@@ -87,10 +87,10 @@ class PatchFolderTests(unittest.TestCase):
         git(self.project, "commit", "-q", "-am", "Make b long\n\nThe console's b is 64 bits.")
         self.quiet(sources.do_save, self.tree)
         names = [p.name for p in self.tree.patch_list()]
-        self.assertEqual(names, ["0001-Give-a-its-argument.patch", "0002-Make-b-long.patch"])
+        self.assertEqual(names, ["0001-give-a-its-argument.patch", "0002-make-b-long.patch"])
         self.assertIn("The console's b is 64 bits.", (self.patches / names[1]).read_text())
         readme = (self.patches / "README.md").read_text()
-        self.assertIn("| [0002-Make-b-long.patch](0002-Make-b-long.patch) | Make b long |", readme)
+        self.assertIn("| [0002-make-b-long.patch](0002-make-b-long.patch) | The console's b is 64 bits. |", readme)
         self.assertIn("[`new/ours.txt`](files/new/ours.txt)", readme)
         # Back on the pinned commit with everything applied, and nothing committed inside.
         self.assertEqual(git(self.project, "rev-parse", "HEAD"), self.base)
