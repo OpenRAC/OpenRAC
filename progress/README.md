@@ -6,10 +6,10 @@ are comparable within a game, not between games.
 
 | Game | Version | Code matched | Functions | Fuzzy | Report date |
 |---|---|---:|---:|---:|---|
-| Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,096 / 3,713,096 bytes) | 5,116 / 5,116 | 100.00% | 2026-11-03 |
+| Ratchet & Clank | SCES_509.16 ([`games/rac1`](../games/rac1)) | 100.00% (3,713,584 / 3,713,584 bytes) | 5,118 / 5,118 | 100.00% | 2026-11-06 |
 | Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
-| Ratchet & Clank | SCES_509.16_v1 ([`games/rac1`](../games/rac1)) | 78.20% (2,888,380 / 3,693,664 bytes) | 4,873 / 5,089 | 78.54% | 2026-11-03 |
-| Ratchet & Clank | SCPS_150.37 ([`games/rac1`](../games/rac1)) | 89.57% (3,319,596 / 3,706,260 bytes) | 5,009 / 5,101 | 89.70% | 2026-11-03 |
+| Ratchet & Clank | SCES_509.16_v1 ([`games/rac1`](../games/rac1)) | 100.00% (3,693,664 / 3,693,664 bytes) | 5,082 / 5,082 | 100.00% | 2026-11-06 |
+| Ratchet & Clank | SCPS_150.37 ([`games/rac1`](../games/rac1)) | 100.00% (3,706,260 / 3,706,260 bytes) | 5,101 / 5,101 | 100.00% | 2026-11-06 |
 | Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 94.20% (5,203,520 / 5,524,060 bytes) | 8,355 / 8,527 | 94.20% | 2026-11-06 |
 | Ratchet & Clank: Going Commando | SCES_516.07 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 91.93% (5,237,972 / 5,697,856 bytes) | 8,340 / 8,620 | 91.93% | 2026-11-06 |
 | Ratchet & Clank: Going Commando | SCUS_972.68_v2 ([`games/rac2/ntsc`](../games/rac2/ntsc)) | 92.64% (5,168,092 / 5,578,636 bytes) | 8,354 / 8,586 | 92.64% | 2026-11-06 |
