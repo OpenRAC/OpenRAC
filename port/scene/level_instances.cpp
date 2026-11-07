@@ -587,6 +587,29 @@ std::vector<Instance> LevelScene::resident_scenery(std::size_t k) const {
 }
 
 void LevelScene::move_scenery(const GameScenery& game) {
+    // The terrain's occlusion words from the game's records (GameScenery::terrain_occlusion), once
+    // they differ from the primitives': the cached visible lists are made again.
+    if (!game.terrain_occlusion.empty()) {
+        bool changed = false;
+        for (Model& model : m_models) {
+            for (Primitive& p : model.primitives) {
+                if (p.terrain_fragment >= 0
+                    && static_cast<std::size_t>(p.terrain_fragment)
+                           < game.terrain_occlusion.size()) {
+                    const std::uint16_t word =
+                        game.terrain_occlusion[static_cast<std::size_t>(p.terrain_fragment)];
+                    changed = changed || p.occlusion != word;
+                    p.occlusion = word;
+                }
+            }
+        }
+        if (changed || game.terrain_far != m_terrain_far) {
+            m_terrain_far = game.terrain_far;
+            for (auto& cached : m_pvs_models) {
+                cached.valid = false;
+            }
+        }
+    }
     // How far a matrix entry may be from the loaded one and still be taken for it: the export
     // writes the game's floats, so only a move changes them.
     constexpr float kSame = 1.0e-3f;

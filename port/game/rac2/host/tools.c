@@ -475,6 +475,10 @@ static const openrac_front_end front_end = {
     /* D_001C2740: the 16 directional light sets MobyProc lights each moby with, filled from the
      * gameplay file and changed at run time (set 13 is the bolts' gold, 1.0 0.8 0.0). */
     .light_bank = RAC2_ADDR(0x001C2740u),
+    /* D_001BADC0: the frame's occlusion mask (0x80 bytes). The terrain's, the ties' and MobyProc's
+     * culls copy it to the scratchpad and leave out what the camera's cell cannot see: a tfrag
+     * whose bit (+0x3A) is clear in byte +0x3B, a tie (+0x10, byte +0x11), a moby (+0x36, +0x37). */
+    .occlusion = RAC2_ADDR(0x001BADC0u),
     .start_level_anywhere = 1,
     /* D_001A7BB4: the language, a byte the menus' action type 9 sets (0 English, 2 French, 3 German,
      * 4 Spanish, 5 Italian: the values of the language list's items), read as a word as the text lookup reads it

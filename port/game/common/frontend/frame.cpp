@@ -1232,7 +1232,7 @@ std::optional<std::vector<host::ShrubDraw>> shrub_draws(
 // (GameProfile::scenery_matrices), when the world ran this tick; none for a game that never moves
 // them, or when the words do not point at as many records in memory.
 std::optional<scene::GameScenery> scenery_matrices(
-    std::span<const std::uint8_t> ram, bool world_ran
+    std::span<const std::uint8_t> ram, bool world_ran, const host::GameState& state
 ) {
     const auto words = g->profile->scenery_matrices();
     if (!world_ran || (words[0] == 0 && words[1] == 0)) {
@@ -1268,17 +1268,102 @@ std::optional<scene::GameScenery> scenery_matrices(
             }
         }
     }
+    // What the game's culls of the ties and shrubs test besides their hidden bits (Going Commando's
+    // CullAndBinTieInstances 0x2F1010, CullAndEmitShrubs 0x2E1228): the frame's occlusion mask, the
+    // camera's depth axis and near plane (GameState::moby_view, the view MobyProc reads too) and
+    // the caps on their draw distances, words the level loader sets beside the records' words
+    // (the ties' gp + 0x320C, 0x48 past theirs; the shrubs' gp + 0x30B8, 0x10 past theirs).
+    const auto word_at_address = [&](std::uint32_t address) -> std::optional<std::uint32_t> {
+        const gaddr at = openrac_relocate_data(address);
+        if (address == 0 || at + 4 > ram.size()) {
+            return std::nullopt;
+        }
+        std::uint32_t v;
+        std::memcpy(&v, ram.data() + at, 4);
+        return v;
+    };
+    std::optional<scene::Pvs::Mask> mask;
+    if (occlusion_address() != 0) {
+        if (const gaddr m = openrac_relocate_data(occlusion_address());
+            m + sizeof(scene::Pvs::Mask) <= ram.size()) {
+            mask.emplace();
+            std::memcpy(mask->data(), ram.data() + m, mask->size());
+        }
+    }
+    // Draw distance (settings.h): the game's reach times this; 0 none (Unlimited).
+    const float scale = settings::get().draw_distance_scale();
+    std::uint32_t tie_cap = 0;  // for the log below
+    float shrub_cap = 0.0f;
+    // The depth of a sphere's centre along the view, as the culls take it (the third column of
+    // the view matrix), in game units; none without the view.
+    const auto depth = [&](const float* centre) -> std::optional<float> {
+        if (!state.moby_view) {
+            return std::nullopt;
+        }
+        const auto& a = state.moby_view->depth_axis;
+        const auto& eye = state.camera_position;
+        return a[0] * (centre[0] - eye[0]) + a[1] * (centre[1] - eye[1])
+               + a[2] * (centre[2] - eye[2]);
+    };
+    const float near_plane = state.moby_view ? state.moby_view->near_plane / 1024.0f : 0.0f;
+    // Past `reach` along the view (game units; scaled by Draw distance, none when Unlimited), or
+    // wholly nearer than the near plane: the culls' far and near tests on the sphere (x y z r).
+    const auto beyond = [&](const float* sphere, float reach) {
+        const auto z = depth(sphere);
+        return z && ((scale > 0.0f && *z > reach * scale) || *z + sphere[3] <= near_plane);
+    };
     const std::size_t ties =
         g->level.instances[static_cast<std::size_t>(scene::Layer::Ties)].size();
     if (const gaddr at = table(words[2], ties, 0x20); at != 0) {
         result.tie_spheres.resize(ties);
         result.tie_lights.resize(ties);
         result.tie_hidden.resize(ties);
+        // The cap, in 16-unit steps (lw s1; srl 4): a tie's own distance is its record's byte at
+        // +0x1C in the same steps, and the cull takes the smaller, shifted back (pminw; dsll32 4).
+        const auto cap = words[2] != 0 ? word_at_address(words[2] + 0x48) : std::nullopt;
+        const std::uint32_t cap_steps = cap ? *cap >> 4 : 0;
+        tie_cap = cap_steps << 4;
         for (std::size_t i = 0; i < ties; ++i) {
             const std::uint8_t* r = ram.data() + at + i * 0x20;
             std::memcpy(result.tie_spheres[i].data(), r, 16);
             std::memcpy(&result.tie_lights[i], r + 0x1A, 2);
-            result.tie_hidden[i] = r[0x1E] & 4;
+            // The occlusion bit at +0x10 of the mask's byte at +0x11 (lbu; and with the mask's).
+            const bool occluded =
+                mask && r[0x11] < mask->size() && ((*mask)[r[0x11]] & r[0x10]) == 0;
+            const std::uint32_t steps = std::min<std::uint32_t>(r[0x1C], cap_steps);
+            const bool far =
+                cap_steps != 0 && beyond(result.tie_spheres[i].data(), float(steps << 4));
+            result.tie_hidden[i] = (r[0x1E] & 4) || occluded || far;
+        }
+    }
+    // The terrain's occlusion words: CullAndEmitTfrags (0x2EF480) walks the 0x40-byte tfrag records
+    // from the word at gp + 0x3180 (0x44 before the ties' records' word), as many as gp + 0x3184
+    // says, and leaves out one whose bit at +0x3A is clear in the mask's byte at +0x3B.
+    if (words[2] != 0) {
+        const auto count = word_at_address(words[2] - 0x40);
+        if (count && *count > 0 && *count < 0x10000) {
+            if (const gaddr at = table(words[2] - 0x44, *count, 0x40); at != 0) {
+                // Its far cull (gp + 0x31B0, 0x14 before the ties' records' word), in 1/1024 units
+                // as the records' spheres: past it when the sphere's near side is farther.
+                float far_cull = 0.0f;
+                if (const auto bits = word_at_address(words[2] - 0x14)) {
+                    std::memcpy(&far_cull, &*bits, 4);
+                }
+                result.terrain_occlusion.resize(*count);
+                result.terrain_far.resize(*count);
+                for (std::size_t i = 0; i < *count; ++i) {
+                    const std::uint8_t* r = ram.data() + at + i * 0x40;
+                    result.terrain_occlusion[i] =
+                        static_cast<std::uint16_t>(r[0x3B] << 8 | r[0x3A]);
+                    float s[4];
+                    std::memcpy(s, r, sizeof(s));
+                    const float sphere[4] =
+                        {s[0] / 1024.0f, s[1] / 1024.0f, s[2] / 1024.0f, s[3] / 1024.0f};
+                    const auto z = depth(sphere);
+                    result.terrain_far[i] = far_cull > 0.0f && scale > 0.0f && z
+                                            && *z - sphere[3] > far_cull / 1024.0f * scale;
+                }
+            }
         }
     }
     const std::size_t shrubs =
@@ -1287,12 +1372,59 @@ std::optional<scene::GameScenery> scenery_matrices(
         result.shrub_spheres.resize(shrubs);
         result.shrub_lights.resize(shrubs);
         result.shrub_hidden.resize(shrubs);
+        // The cap, a float; a shrub's own distance is its record's float at +0x10 as the loader
+        // left it, and the cull takes the smaller (pminw on their bits).
+        float cap = 0.0f;
+        if (const auto bits = words[3] != 0 ? word_at_address(words[3] + 0x10) : std::nullopt) {
+            std::memcpy(&cap, &*bits, 4);
+        }
+        shrub_cap = cap;
         for (std::size_t i = 0; i < shrubs; ++i) {
             const std::uint8_t* r = ram.data() + at + i * 0x20;
             std::memcpy(result.shrub_spheres[i].data(), r, 16);
             std::memcpy(&result.shrub_lights[i], r + 0x1E, 2);
-            result.shrub_hidden[i] = r[0x16] & 1;
+            float own;
+            std::memcpy(&own, r + 0x10, 4);
+            const float reach = std::min(own, cap);
+            const bool far = cap > 0.0f && beyond(result.shrub_spheres[i].data(), reach);
+            result.shrub_hidden[i] = (r[0x16] & 1) || far;
         }
+    }
+    // OPENRAC_SCENERY_LOG: what the culls above leave out, every 100 ticks.
+    static const bool& scenery_log = stats::probe(
+        "OPENRAC_SCENERY_LOG", "the ties, shrubs and terrain the game's culls leave out"
+    );
+    if (scenery_log && g->index % 100 == 0) {
+        const auto out = [](const std::vector<std::uint8_t>& v) {
+            return std::count_if(v.begin(), v.end(), [](std::uint8_t b) { return b != 0; });
+        };
+        std::size_t seen_bits = 0, terrain_seen = 0;
+        if (mask) {
+            for (const std::uint8_t b : *mask) {
+                seen_bits += static_cast<std::size_t>(std::popcount(b));
+            }
+        }
+        for (std::size_t i = 0; i < result.terrain_occlusion.size(); ++i) {
+            terrain_seen += (!mask || scene::Pvs::visible(*mask, result.terrain_occlusion[i]))
+                                    && !(i < result.terrain_far.size() && result.terrain_far[i])
+                                ? 1
+                                : 0;
+        }
+        log::info(
+            "scenery {}: mask {} of 1024 bits; ties {} of {} left out; shrubs {} of {} left out; "
+            "terrain {} of {} fragments drawn; caps {} and {:.0f}; draw distance {}%",
+            g->index,
+            seen_bits,
+            out(result.tie_hidden),
+            result.tie_hidden.size(),
+            out(result.shrub_hidden),
+            result.shrub_hidden.size(),
+            terrain_seen,
+            result.terrain_occlusion.size(),
+            tie_cap,
+            shrub_cap,
+            settings::get().draw_distance
+        );
     }
     return result;
 }
@@ -1306,6 +1438,10 @@ TickMobys pose_mobys(
     bool debug
 ) {
     const profiling::Zone trace("Pose mobys");
+    // Draw distance (settings.h) for MobyProc's distance test (host::moby_proc_distance_fade).
+    if (state.moby_view) {
+        state.moby_view->scale = settings::get().draw_distance_scale();
+    }
 
     // The live mobys, by class, each in the pose its animation fields give (scene/moby_pose.h):
     // its joint palette goes to the scene, which skins the class's mesh with it. OPENRAC_ANIM=0
@@ -1892,7 +2028,7 @@ TickMobys pose_mobys(
         water_hands,
         std::move(point_lit),
         shrub_draws(ram, world_ran && !under_menu),
-        scenery_matrices(ram, world_ran && !under_menu)
+        scenery_matrices(ram, world_ran && !under_menu, state)
     };
 }
 

@@ -69,6 +69,9 @@ struct GameState {
         std::array<float, 3> depth_axis{};
         std::int32_t draw_cap = 0;
         float near_plane = 0.0f;
+        // Draw distance (settings.h): the reach times this; 0 none. 1, the game's, tests bit for
+        // bit as MobyProc does.
+        float scale = 1.0f;
     };
 
     std::optional<MobyView> moby_view;

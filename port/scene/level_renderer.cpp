@@ -742,6 +742,7 @@ void LevelScene::release() {
         glDeleteBuffers(1, &model.indices);
     }
     m_pvs_models.clear();
+    m_terrain_far.clear();
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
@@ -914,7 +915,9 @@ void LevelScene::draw_layer(
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
     const bool skip_pvs = pvs_off || shadow_inspection;
     const auto pvs_mask = skip_pvs ? Pvs::all_visible() : m_pvs.follow(cull_camera.position);
-    const bool use_pvs = !skip_pvs && !m_pvs.grid.empty();
+    // A game that gives its own frame mask needs no baked grid (Going Commando's, whose levels
+    // have none exported): Pvs::follow takes the game's there.
+    const bool use_pvs = !skip_pvs && (!m_pvs.grid.empty() || m_pvs.game.has_value());
     const bool gpu = gpu_driven();
     const bool cache_visibility =
         gpu && (state.depth_prepass || state.reuse_prepass_depth)
@@ -1564,7 +1567,11 @@ void LevelScene::draw_layer(
                     cached.rejected = 0;
                     std::vector<std::uint32_t> visible_indices;
                     for (const auto& primitive : *primitives) {
-                        if (!Pvs::visible(pvs_mask, primitive.occlusion)) {
+                        const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
+                        const bool far = primitive.terrain_fragment >= 0
+                                         && fragment < m_terrain_far.size()
+                                         && m_terrain_far[fragment];
+                        if (far || !Pvs::visible(pvs_mask, primitive.occlusion)) {
                             ++cached.rejected;
                             continue;
                         }
@@ -1663,7 +1670,7 @@ void LevelScene::draw_layer(
         stats::gauge(
             name + " primitive passes culled", static_cast<double>(pvs_primitives_rejected)
         );
-        stats::gauge("pvs enabled", !pvs_off && !m_pvs.grid.empty() ? 1 : 0);
+        stats::gauge("pvs enabled", !pvs_off && (!m_pvs.grid.empty() || m_pvs.game) ? 1 : 0);
     }
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);

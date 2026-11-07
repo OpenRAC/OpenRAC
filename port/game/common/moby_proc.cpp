@@ -41,6 +41,32 @@ std::optional<std::uint8_t> moby_proc_distance(
     const std::uint8_t* moby, const renderer::Vec3& eye, const GameState::MobyView& view
 ) {
     using namespace openrac::ps2;
+    if (view.scale != 1.0f) {
+        // Draw distance other than Original (settings.h): the same tests in the host's floats with
+        // the reach scaled (none when Unlimited), and the fade over the scaled reach's last 16
+        // units.
+        float s[4];
+        std::memcpy(s, moby, sizeof(s));
+        std::int16_t dd;
+        std::memcpy(&dd, moby + 0x32, sizeof(dd));
+        const float z = view.depth_axis[0] * (s[0] - eye[0] * 1024.0f)
+                        + view.depth_axis[1] * (s[1] - eye[1] * 1024.0f)
+                        + view.depth_axis[2] * (s[2] - eye[2] * 1024.0f);
+        if (view.near_plane - (s[3] + z) >= 0.0f
+            || std::min<std::int32_t>(dd, view.draw_cap) <= 0) {
+            return std::nullopt;
+        }
+        if (view.scale <= 0.0f) {
+            return std::uint8_t{0x80};
+        }
+        const float reach =
+            static_cast<float>(std::min<std::int32_t>(dd, view.draw_cap)) * 1024.0f * view.scale;
+        const float far = reach - z;
+        if (far < 0.0f) {
+            return std::nullopt;
+        }
+        return static_cast<std::uint8_t>(std::min(static_cast<long>(far) >> 7, 0x80L));
+    }
     u32 sphere[4];
     std::memcpy(sphere, moby, sizeof(sphere));
     std::int16_t distance;
