@@ -378,6 +378,54 @@ void main() {
     return pixels();
 }
 
+// Each pixel, in each channel, shows whether a triangle whose edge passes within 1/128 of its centre
+// at a random angle and w covers it, through a viewport 4096 pixels wider on each side, so that its
+// window coordinates round as the far side of a large window's do.
+std::vector<std::uint8_t> near_edges() {
+    target();
+    glViewport(-4096, -4096, 8192, 8192);
+    const GLuint program = program_of(R"(#version 410 core
+flat in uint v_cell;
+layout(location = 0) out vec4 result;
+void main() {
+    if (uint(gl_FragCoord.x) + 16u * uint(gl_FragCoord.y) != v_cell) discard;
+    result = vec4(1.0);
+}
+)",
+                                      R"(#version 410 core
+uniform int seed;
+flat out uint v_cell;
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+float r(uint i) { return float(hash(i) >> 8u) / 16777216.0; }
+void main() {
+    uint id = uint(gl_VertexID), cell = id / 3u, corner = id % 3u, s = 7919u * cell + 104729u * uint(seed);
+    v_cell = cell;
+    vec2 c = vec2(float(cell % 16u) + 0.5, float(cell / 16u) + 0.5);
+    vec2 n = vec2(r(s) - 0.5, r(s + 4u) - 0.5), d = vec2(-n.y, n.x);
+    vec2 on = c + n * ((r(s + 1u) - 0.5) / 32.0);
+    vec2 p = corner == 0u ? on + d * 16.0 : corner == 1u ? on - d * 16.0 : on - n * 16.0;
+    if (r(s + 2u) < 0.5 && corner < 2u) p = corner == 0u ? on - d * 16.0 : on + d * 16.0;
+    float w = 0.5 + r(s + 3u) * 60.0;
+    gl_Position = vec4(p / 4096.0, 0.0, 1.0) * w;
+}
+)");
+    GLuint array = 0;
+    glGenVertexArrays(1, &array);
+    glBindVertexArray(array);
+    for (GLint seed = 0; seed < 4; ++seed) {
+        glUniform1i(glGetUniformLocation(program, "seed"), seed);
+        glColorMask(seed == 0, seed == 1, seed == 2, seed == 3);
+        glDrawArrays(GL_TRIANGLES, 0, kSide * kSide * 3);
+    }
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDeleteVertexArrays(1, &array);
+    return pixels();
+}
+
 // Quadrants drawn at the far plane with LESS, GREATER, EQUAL and NOTEQUAL against the bound
 // framebuffer's depth.
 std::vector<std::uint8_t> depth_tested() {
@@ -585,6 +633,7 @@ void main() {
          return perspective("texture(image, stq.xy / stq.z)", image);
      },
      true},
+    {"edges near pixel centres", near_edges},
     {"depth", [] { return depths(false); }},
     {"clamped depth", [] { return depths(true); }},
     {"linear texture",
