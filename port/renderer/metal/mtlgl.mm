@@ -113,22 +113,22 @@ void begin_pass(const Target& target, GLbitfield clear) {
             (clear & GL_COLOR_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
         d.colorAttachments[0].clearColor = MTLClearColorMake(
             s.clear_colour[0], s.clear_colour[1], s.clear_colour[2], s.clear_colour[3]);
+        d.colorAttachments[0].storeAction = MTLStoreActionStore;
     }
     if (target.depth != nil) {
         d.depthAttachment.texture = target.depth;
         d.depthAttachment.loadAction =
             (clear & GL_DEPTH_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
         d.depthAttachment.clearDepth = s.clear_depth;
+        // Metal's default store for depth and stencil is DontCare: GL keeps them past the pass.
+        d.depthAttachment.storeAction = MTLStoreActionStore;
         if (target.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
             d.stencilAttachment.texture = target.depth;
             d.stencilAttachment.loadAction =
                 (clear & GL_STENCIL_BUFFER_BIT) != 0 ? MTLLoadActionClear : MTLLoadActionLoad;
             d.stencilAttachment.clearStencil = static_cast<std::uint32_t>(s.clear_stencil) & 0xFF;
+            d.stencilAttachment.storeAction = MTLStoreActionStore;
         }
-    }
-    const bool multisampled = (target.colour != nil ? target.colour : target.depth).sampleCount > 1;
-    if (multisampled) {
-        d.colorAttachments[0].storeAction = MTLStoreActionStore;
     }
     g->pass = [commands() renderCommandEncoderWithDescriptor:d];
     g->pass_target = target;
