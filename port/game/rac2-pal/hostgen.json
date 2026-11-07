@@ -332,6 +332,10 @@
     "../rac2/host"
   ],
   "unit_aliases": {
+    "src/pal/levels/shared/L00_003BEE68-cc.c": {"func_V1_802EE138_1": "func_002835B0", "func_V1_802EE3D0_1": "func_002837E0"},
+    "src/levels/shared/L00_003B9CB8.c": {"func_V1_802EAC30_1": "func_00281450", "func_V1_802EE138_1": "func_002835B0", "func_V1_802EE2E8_1": "func_00283740", "func_V1_802EE3D0_1": "func_002837E0", "func_V1_802EE7A8_1": "func_00283B08", "func_V1_802EE970_1": "func_00283CD0"},
+    "src/levels/shared/L00_003B9CB8-ribbons.c": {"func_V1_802EAC30_1": "func_00281450", "func_V1_802EE138_1": "func_002835B0", "func_V1_802EE2E8_1": "func_00283740", "func_V1_802EE3D0_1": "func_002837E0", "func_V1_802EE7A8_1": "func_00283B08", "func_V1_802EE970_1": "func_00283CD0"},
+    "src/levels/shared/L00_003D37E8.c": {"func_V1_802EAC30_1": "func_00281450", "func_V1_802EE138_1": "func_002835B0", "func_V1_802EE2E8_1": "func_00283740", "func_V1_802EE3D0_1": "func_002837E0", "func_V1_802EE7A8_1": "func_00283B08", "func_V1_802EE970_1": "func_00283CD0"},
     "src/levels/23_damosel_orbit/L23_00416388-scan.c": {
       "func_002F49D0": "func_00283580",
       "func_002F4A00": "func_002835B0",
