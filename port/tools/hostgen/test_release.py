@@ -210,3 +210,39 @@ class Rac1Release(unittest.TestCase):
         self.assertTrue(out.rstrip().endswith("void func_E1_00201000(void) {}"))
         with self.assertRaises(ValueError):
             table.splice("int nothing;\n", "src/a.c", {})
+
+
+class Rac1Carry(unittest.TestCase):
+    """release_rac1.py: rac1-pal's tables in a release's names."""
+
+    def setUp(self):
+        import release_rac1
+        self.mod = release_rac1
+        raw = {"names": {"func_00200000": "func_001FFF00", "func_00200100": "func_V2_00200100",
+                         "func_00200200": "FUN_00201000", "D_00150000": "D_0014FF00"},
+               "how": {"func_00200100": "function: not in the release (marked)",
+                       "func_00200200": "function: the release's check (its counterpart here)",
+                       "D_00150000": "global: the release's check"}}
+
+        class NoMap:
+            def function(self, *a):
+                return None
+
+            def data(self, *a, **k):
+                return None
+        self.c = release_rac1.Carry(release.Release(raw), raw, NoMap(), [], [])
+
+    def test_libraries(self):
+        text = "# head\nfunc_00200000\tgame\tX\thost\nfunc_00200100\tgame\tY\thost\nfunc_00200200\tgame\tZ\twrap\n"
+        out = self.mod.carry_libraries(self.c, text)
+        # The function the release has not, and the one whose callers reach another, are left out.
+        self.assertEqual(out, "# head\nfunc_001FFF00\tgame\tX\thost\n")
+        self.assertEqual(len(self.c.report["dropped"]), 2)
+
+    def test_c_literals(self):
+        text = "x = GREF(int, 0x00150000u); /* 0x00150000 */ y = RAC1_ADDR(0x00150000u);"
+        self.assertEqual(self.mod.carry_c(self.c, text, "t"),
+                         "x = GREF(int, 0x0014FF00u); /* 0x00150000 */ y = RAC1_ADDR(0x00150000u);")
+
+    def test_a_call_reaches_the_counterpart(self):
+        self.assertEqual(self.c.function("func_00200200", "t", calls=True), "func_00201000")
