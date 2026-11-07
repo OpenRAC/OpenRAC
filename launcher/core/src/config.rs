@@ -84,10 +84,14 @@ pub struct Config {
     /// For each game, the time (seconds since 1970) of the newest crash report the player has
     /// dismissed: crashes up to then are seen, and no notice, button or mark is shown for them.
     pub crashes_seen: BTreeMap<String, u64>,
-    /// For developers with more than one disc of a game in the games folder: the version each
+    /// For developers whose launcher knows more than one disc of a game: the version each
     /// game's page plays (`rac1` -> `rac1/ntsc`). Used only with developer tools on
     /// (disc_choice.rs); without one, the disc set up, as for a player.
     pub disc_choice: BTreeMap<String, String>,
+    /// For developers: the image each version was last set up from (`rac1/ntsc` -> the .iso), so
+    /// the disc switch offers that version without a games folder (disc_choice.rs). An image
+    /// moved, deleted or now another disc is not offered.
+    pub disc_images: BTreeMap<String, PathBuf>,
     /// The name online mods show the other players (multiplayer.rs): 3 to 16 letters, digits and
     /// underscores, made up at the first start and changed in Settings. Given to the game as
     /// `OPENRAC_PLAYER_NAME`.
@@ -146,6 +150,7 @@ impl Default for Config {
             play_with_mods: false,
             crashes_seen: BTreeMap::new(),
             disc_choice: BTreeMap::new(),
+            disc_images: BTreeMap::new(),
             multiplayer_name: String::new(),
             multiplayer_key: String::new(),
             progress_cache: None,

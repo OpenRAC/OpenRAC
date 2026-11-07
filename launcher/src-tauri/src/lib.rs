@@ -240,6 +240,9 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
     // The page sends the settings back without the paths the launcher keeps its own files
     // in; they are set again here.
     config.progress_cache = progress_cache(state.config_file.as_deref());
+    // Nor the images the set-ups were made from, which the launcher records (disc_choice.rs) and
+    // a page holding the settings from before would forget.
+    config.disc_images = state.config.lock().unwrap().disc_images.clone();
     config::save(file, &config)?;
     *state.config.lock().unwrap() = config.clone();
 
@@ -997,10 +1000,17 @@ fn install_game(app: AppHandle, state: State<'_, AppState>, game: String, image:
     let config = state.config.lock().unwrap().clone();
     let install_dir = config.install_dir.clone().ok_or("no install folder (Settings)")?;
     let plan = install::plan_extract(&config, &install_dir, &game, &image)?;
-    // A developer's other disc set up before is kept aside, not replaced (disc_choice.rs).
+    // A developer's other disc set up before is kept aside, not replaced, and the image is
+    // remembered as its version's, for the disc switch (disc_choice.rs).
     if config.developer {
         let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
         disc_choice::before_set_up(&config, &catalog, &game, &image)?;
+        let mut current = state.config.lock().unwrap();
+        if let (true, Some(file)) =
+            (disc_choice::remember(&mut current, &catalog, &game, &image), state.config_file.as_deref())
+        {
+            config::save(file, &current)?;
+        }
     }
     state.jobs.start(&plan, config.root.as_deref(), move |event| {
         let _ = match &event {
@@ -1035,7 +1045,8 @@ async fn prepare_disc(app: AppHandle, state: State<'_, AppState>, image: PathBuf
 }
 
 /// The games folder looked through: the games OpenRAC knows among its images, and, for a
-/// developer, the games with more than one of their discs there (disc_choice.rs).
+/// developer, the games the launcher knows more than one disc of, in the games folder or not
+/// (disc_choice.rs).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DiscScan {
@@ -1050,11 +1061,12 @@ fn scan(config: &Config) -> Result<(openrac_launcher_core::catalog::Catalog, Vec
 }
 
 /// The games OpenRAC knows among the images in the player's games folder (none when no folder
-/// is chosen), and the discs a developer can choose between.
+/// is chosen), and the discs a developer can choose between: also without a games folder, from
+/// the images and set-ups of each version (disc_choice.rs).
 #[tauri::command]
 async fn scan_discs(state: State<'_, AppState>) -> Result<DiscScan, String> {
     let config = state.config.lock().unwrap().clone();
-    if config.discs_dir.is_none() || config.root.is_none() {
+    if config.root.is_none() || (config.discs_dir.is_none() && !config.developer) {
         return Ok(DiscScan { found: Vec::new(), choices: Vec::new() });
     }
     tauri::async_runtime::spawn_blocking(move || {

@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Developers only: which of a game's discs the page plays, when the games folder holds more than
-  // one of them (core/src/disc_choice.rs). Play, the levels, saves and logs follow the choice; each
+  // Developers only: which of a game's discs the page plays, when the launcher knows more than one
+  // of them, in the games folder or set up before (core/src/disc_choice.rs). Play, the levels, saves and logs follow the choice; each
   // disc keeps its own set-up, levels and build. A player never sees this, nor any region.
   import type { DiscChoice, GameView } from "$lib/api";
   import { chooseDisc } from "$lib/app.svelte";

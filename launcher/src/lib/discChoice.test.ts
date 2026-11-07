@@ -19,7 +19,9 @@ describe("disc choice", () => {
   });
 
   it("finds a game's choice, and none for a game with one disc", () => {
-    const choices: DiscChoice[] = [{ game: "rac1", versions: ["rac1/pal", "rac1/ntsc"], chosen: "rac1/pal" }];
+    const choices: DiscChoice[] = [
+      { game: "rac1", versions: ["rac1/pal", "rac1/ntsc"], chosen: "rac1/pal", images: {} },
+    ];
     expect(choiceFor(choices, "rac1")?.chosen).toBe("rac1/pal");
     expect(choiceFor(choices, "rac2")).toBeNull();
     expect(choiceFor([], "rac1")).toBeNull();

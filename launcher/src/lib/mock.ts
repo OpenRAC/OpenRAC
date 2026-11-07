@@ -271,6 +271,7 @@ let config: Config = {
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
   crashesSeen: {},
   discChoice: {},
+  discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
   modIndexes: [],
@@ -2591,6 +2592,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
                 game: "rac1",
                 versions,
                 chosen: versions.includes(remembered) ? remembered : (versions[0] ?? remembered),
+                images: Object.fromEntries(found.map((d) => [d.version, d.path])),
               },
             ]
           : [];
