@@ -58,14 +58,17 @@ python3 port/tools/hostgen/release.py build --game port/game/rac2-pal/hostgen.js
     --map build/versionmap/rac2-ntsc--rac2-pal.json
 python3 port/tools/hostgen/release_carry.py --game port/game/rac2-pal/hostgen.json \
     --primary port/game/rac2-ntsc/hostgen.json --source <rac2-decomp> \
-    --map build/versionmap/rac2-ntsc--rac2-pal.json --version pal
+    --map build/versionmap/rac2-ntsc--rac2-pal.json --version pal \
+    --primary-protos port/build/release/games/rac2-ntsc/gen/game_protos.h
 python3 port/tools/hostgen/copycalls.py --source games/rac2/ntsc --version pal \
     --release-table port/game/rac2-pal/release_names.json --out port/game/rac2-pal/call_copies.tsv \
     --data port/game/rac2-pal/data_copies.tsv --config port/game/rac2-pal/hostgen.json \
     --twins port/game/rac2-pal/level_twins.tsv
 ```
 
-and the same for `rac2-ntsc2` (`--version us2`). What each writes:
+and the same for `rac2-ntsc2` (`--version us2`). `--primary-protos` takes a v1.01 build's
+prototypes: without it the host C's signatures for the functions it wraps (`asm.signatures`, the
+ship HUDs among them) are dropped and the release's host C no longer compiles. What each writes:
 
 | File | |
 |---|---|

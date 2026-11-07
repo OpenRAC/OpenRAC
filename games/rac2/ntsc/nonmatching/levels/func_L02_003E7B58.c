@@ -1,3 +1,40 @@
+/* 6 November 2026 (round 11c, prototype audit): every callee prototype agrees with its matched C in src or the established asm prototype; void helpers never write $v0; every int/float/pointer result is read. No correction to test. */
+/* 6 November 2026, Codex round 11: retained C unchanged, 972/972 bytes,
+ * USA v1.01 0/1 places, 11 real instruction differences; final baseline diff
+ * is identical to the initial baseline. 46 candidate checks tested whole-file
+ * scheduling/CSE options and distinct real initialization forms, without
+ * instruction patches or artificial accesses. Counted differences exclude
+ * symbol relocations; rows from unequal-size bodies are not improvement scores.
+ * Three four-color fill loops emit 1012 bytes normally, 980 with unrolling.
+ * Duplicating selected constant packet assignments in both arms of the existing
+ * flip branch (15 subsets) emits 980-1028 bytes. A genuine four-member color
+ * struct ties at 11 rows; a compound-literal assignment emits 988 bytes and
+ * assignment from an initialized local color struct emits 1020. No source
+ * form improves the retained 11-row result. -fno-sched-spec, -fno-cse-follow-jumps,
+ * -fno-cse-skip-blocks, -fno-strength-reduce and -fno-thread-jumps also tie;
+ * -fno-force-mem, -fno-gcse and -fno-rerun-cse-after-loop enlarge the body.
+ * Remaining blocker: color/primitive local-allocation priority and packet-store
+ * scheduling. Reopen on independently evidenced packet initialization/lifetimes,
+ * rather than more permutations of the same scalar assignments.
+ */
+/* 6 November 2026, round 10: unchanged, 11 real rows. -fno-sched-interblock ties (11) on this
+ * and all five earlier forms; -fno-schedule-insns (alone or with it) gives 92. Local-alloc ranks
+ * primitive (2 refs, 4-insn span after sched1) just above colour (7 refs, 30-insn span). Order
+ * searches (~3400 compiles, chained or split colour, band = 0 hoisted) reach colour $v1/primitive
+ * $a0/mode $a1/flags $a2 (best 24 rows), but then band always takes $a0, never retail's $a1: the
+ * primitive store never lands after sched1's band init. */
+/* 6 November 2026, Codex worker: best unchanged, 972/972, 0/1 USA, 11 real
+ * instruction differences, excluding relocations. 148 new variants: all 78
+ * contiguous one-pass groups of the 12 packet-setup statements (best 43 rows),
+ * 24 colour/primitive local initializations with and without one-pass groups,
+ * 16 logical packet-initializer helper variants, six shared complemented-U
+ * lifetime forms, and 24 reuses of band/piece/tile for the earlier real colour
+ * or primitive value. None improves the retained source. Allocator diagnostics
+ * reproduce the baseline object and identify colour/primitive as local allocations
+ * (SI pseudo 104 in a0, DI pseudo 101 in v1); the loop spills already agree.
+ * No donor with the distinctive strip-width/scaling constants was found in the
+ * current RAC1/RAC4 sources. Final baseline check reproduces all 11 differences.
+ */
 /* 6 November 2026, round 9: 972/972, 0/1, 11 real rows (18 before, counting stack-offset
  * rows that the earlier "11" ignored). Writing phase inside the band loop
  * (`float *phase = (float *)(state + 0x60)`) lets gcse hoist it into a late pseudo, so

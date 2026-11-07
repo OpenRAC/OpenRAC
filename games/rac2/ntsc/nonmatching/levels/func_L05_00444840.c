@@ -1,3 +1,60 @@
+/* 6 November 2026, decomp-permuter (40 min, 3 threads, --stack-diffs, retail-byte scorer): no candidate beat the base score 20 (2 rows); best rule-compliant result is the retained C. Setup: /tmp/claude-1000/-home-lynder063-rac2-decomp/lead/work/perm. */
+/* 6 November 2026 (round 11c, prototype audit): every declared callee agrees with its matched C or the established asm prototype (func_L05_00444D60 is void in src/levels/shared/L05_00428350.c:327; func_002AB1F0, func_00282C30, func_00283CE0, func_00282E48, func_002761F8 results are all read). No void/int correction exists for the a1/a2 tie; not rerun. */
+/* 6 November 2026, lead (round 11b): loop-structure probes all stay a1-then-a2 in cc1 -S: exclusion scan as an inline helper, the whole candidate filter as an inline helper, a next-candidate helper returning the cursor, a pointer-walk exclusion, break/goto-next exclusion forms, for/for(;;) outer loops, pos = object + 0x10 at the loop top, and all 12 -frac2-* switches plus 12 scheduler/cse flags. -dL shows loop.c (scan_loop, loop_has_call) substitutes both &target temporaries into the a1/a2 moves in every form. With -fno-schedule-insns and -fno-schedule-insns2 the order is still a1, a2, so both schedulers tie (same priority, weight, class and 7 dependents) and keep the expand order. A pseudo a2 = P that dies there would win sched1 on weight, but local-alloc only replaces P by sp+12 when REG_N_REFS is 2, and flow weights refs by loop depth (P counts 4 inside the loop), so P keeps a register. */
+/* 6 November 2026, lead (round 11): target-before-source and target_y-before-target_x declarations and a (u8 *) object cast tie at 2 rows; `i = 0` folded into the call's last argument gives 142. */
+/* 6 November 2026 (round 11, Codex): baseline reconfirmed with check.py:
+ * 736/736 bytes, USA v1.01 0/4 places, exactly two non-relocation instruction
+ * differences at +0x124/+0x128. No source/profile improvement retained.
+ * New lifetime/API probes: inline screen_delta(const int *, const int *) for
+ * either/both axes stays at two rows. Reusing an int pointer for the parameter
+ * read, excluded-entry read, projected coordinate and subsequent rule/class
+ * reads never fixes the argument order (2-153 rows, 728-744 bytes); reading y
+ * through that pointer also changes the two coordinate-load scheduling rows.
+ * Assigning the actual zero call argument to the scan index changes allocation
+ * throughout the body; assigning it to range or the exclusion index stays at
+ * two rows. Storing real coordinate differences back into the output locals
+ * adds one store per axis (744/752 bytes), so it is not an improvement.
+ * Unsigned coordinate storage with explicit signed subtraction stays at two
+ * rows. Aggregate projection helpers and named union views do not fix the
+ * order; returning y by value from an inline projection wrapper also changes
+ * allocation substantially. All underlying projection calls keep the matched
+ * definition's (position, int *x, int *y, int offset) interface: reversing its
+ * pointer arguments would change behavior and is not a scheduling remedy.
+ * Seventy source variants checked, no hill climb or forbidden steering forms.
+ * Best C below is unchanged; no linked build run (lead owns builds).
+ */
+/* 6 November 2026 (round 10, Antigravity worker): USA v1.01, check.py only: 736/736 bytes, 0/4 places,
+ * exactly 2 differing rows (+0x124 and +0x128). Profile: -O2 -G8 -ffunction-sections -freduce-all-givs.
+ * Haifa scheduler ready-list trace confirms the root mechanism:
+ * In calls.c:expand_call, arguments are emitted in order (a0, a1, a2, a3). In sched1, insn 180 (a1)
+ * and insn 182 (a2) both have latency 1, weight 1, and 1 dependent (call_insn 186).
+ * In sched2, ready list tie-break uses INSN_LUID(tmp) - INSN_LUID(tmp2), preserving a1 before a2.
+ * When `i = 0;` is outside the phony do { ... } while(0) group (Case 2), hard register $a2 is set in block 18,
+ * giving insn 182 an output dependence that boosts a2 over a1 (matching retail lines 74-75: addiu a2,sp,12;
+ * addiu a1,sp,8; daddu a3,zero,zero 100% byte-for-byte). But because NOTE_INSN_LOOP_BEG acts as a sched2
+ * barrier, i = 0 is emitted at clock 19 and range = 40 at clock 20, swapping retail lines 93-94 (a2 before a3).
+ * When both range = 40 and i = 0 are outside the group, loop.c classifies the group as a real loop and
+ * strength-reduces D_L05_002B87F0[i] (114 diffs).
+ * Baseline C below retains retail lines 93-94 (addiu a3,zero,0x28; daddu a2,zero,zero); remaining diff is
+ * solely +0x124 (mine a1, retail a2) and +0x128 (mine a2, retail a1).
+ */
+/* 6 November 2026 (round 10c): still 2 rows. Why no group placement can work:
+ * in sched2, rank_for_schedule breaks the a1/a2/a3 tie by INSN_DEPEND count.
+ * A loop-note barrier insn depends on every earlier insn (all args +1), and a
+ * pre-barrier set of a2 (i = 0) or a3 (range = 40) adds one more to that arg
+ * only. Retail's a2, a1, a3 with a3=40 before a2=0 needs a2 alone boosted
+ * while range = 40 is emitted first, which the barrier forbids; so retail's
+ * a2-first came from sched1 (LUID order), where all three args tie (same
+ * weight, priority and 7 dependents; dumped). Only an unsubstituted
+ * a2 = P with P dying (weight 0) would put a2 first. Tried (about 40
+ * compiles): i = 0 before the call, after the call, after dx, as the
+ * group's first statement (4 rows); range = 40 alone in a group; both
+ * outside (106-130); for/while/do(1)/inverted-test scans inside the group
+ * (3-113); range = 40 as the -1 exit arm (54); groups around the call, dx or
+ * dy (4-24); exclusion and second scan reusing i (2-27); a pos local for
+ * object + 0x10 at four places or assigned in the argument (28-129); goto
+ * outer loop (ori args, 176). A py set in both exclusion arms gives
+ * a2 = P but swaps the target stack slots (6 rows) and is not clean C. */
 /* 6 November 2026, lead: with -freduce-all-givs (2 rows: a1/a2 setup order before the second func_L05_00444D60 call; retail's first call keeps a1-then-a2): no change from int[2]/struct/shared int[4] target locals, pointer temporaries for either argument, a 150-step hill-climb over the 16 local declarations. */
 /* 6 November 2026 (round 6), USA v1.01, check.py only: 736/736 bytes, 0/4
  * places, 7 differing rows. Profile: -O2 -G8 -ffunction-sections (the
@@ -37,6 +94,22 @@
  * check or kind: 6-110 rows). Also no help: -fmove-all-movables,
  * -malign-loops=2, -fno-strength-reduce, for(;;) scans, label-first groups
  * (rotated or multiple entry), table pointer local, int target[2], px/py.
+ * 6 November 2026 (round 9), still 2 rows with -freduce-all-givs. Why the
+ * tie: loop.c (scan_loop, loop_has_call) substitutes both single-use
+ * &target_x/&target_y temporaries into the a1/a2 loads. Both loads then
+ * have equal priority, weight 1 and one dependent, so sched1 keeps the
+ * source order (a1 first) and sched2 copies it. Retail's addiu (not the ori
+ * that combine makes, as in the first call) means a2 was also a frame-address
+ * equivalent. To put a2 first, its load must be "a2 = P" with P dying there
+ * (sched1 weight 0) and P later replaced by sp+12 (update_equiv_regs or
+ * reload). That needs a REG_EQUAL note on P's set, and cse only adds one
+ * when the address was already seen in the same extended block. Tried
+ * (about 55 compiles): py = &target_y at 7 places in the loop, with and
+ * without -fmove-all-movables (4-149 rows; py gets a register and its addiu
+ * moves early). Also tried: a py reused for both calls (combine makes
+ * ori, 7 rows), py - 1 for a1 (hoisted, 69 rows), py read again after the
+ * call (cse folds it, 2-4 rows), an inline grid_position wrapper (2), and
+ * 11 single -f flags (2-114).
  */
 #include "common.h"
 extern void func_L05_00444D60(void *, int *, int *, int);

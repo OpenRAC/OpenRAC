@@ -1,3 +1,28 @@
+/* 6 November 2026, round 10: no gain, retained C still 584/584, 68 rows.
+ * Own-unit flags on this C: -fno-sched-interblock, -fno-rerun-loop-opt,
+ * -fmove-all-movables and pairs tie (the outer loop is phony here);
+ * -fno-schedule-insns 73 rows; -fno-gcse 556 bytes. On the real for-loop
+ * form (596 bytes, 124 rows) the same flags give 592-596 bytes / 122-125
+ * rows, -fno-gcse 576. Loop dump of that form: timer << 16 moves with
+ * savings 2 life 2, but flags & 7, constant 2 and both stack addresses are
+ * cross-block movables that move because maybe_never is 0. Donor search:
+ * only the identical L15 copy (f_0035A218) shares the constants and digit
+ * sequence; RAC1 draw_number callers have a different shape.
+ */
+/* 6 November 2026, follow-up: retained source rechecked at 584/584 bytes,
+ * 0/2 USA v1.01 placements; first difference +0x9C. Counting unequal
+ * instruction words while masking only relocation bits gives 75 differences
+ * (the earlier 68-row score used a different comparison). No source gain.
+ * New controls: contiguous one-pass groups spanning the scale call, point
+ * copy, switch and final copy; index-as-digit-counter with saved point offset
+ * and next index, across those group boundaries (564-604 bytes); combinations
+ * of -fno-gcse with scheduling/loop options; and the sticky-reference profile.
+ * An aligned TImode point copy with -frac2-qcopy -frac2-qcopy-barrier ties
+ * this draft; without the barrier it changes scheduling/size but does not
+ * restore retail's timer-only hoist. qcopy_nc on that copy also ties.
+ * None explains the required loop-entry control flow. The C below and the
+ * INCLUDE_ASM marker remain unchanged; no linked build was run by this worker.
+ */
 /* 6 November 2026, round 5: 584/584 bytes, 0/2 USA v1.01 placements, default
  * flags; 68 compared rows differ (was 101) and the prologue now matches up to
  * +0x9C. Two source changes: `n /= 10` after func_00282CC0 gives retail's

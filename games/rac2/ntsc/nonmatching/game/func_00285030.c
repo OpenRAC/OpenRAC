@@ -1,3 +1,55 @@
+/* 7 November 2026, decomp-permuter: best score 135 (base 225) only by giving 0x106 and 0 one variable (changes meaning); no rule-compliant gain. Setup: /tmp/claude-1000/-home-lynder063-rac2-decomp/lead/work/perm. */
+/* 6 November 2026 (round 11c, prototype audit): func_00282A88() given its established (void *, int) prototype: same 6 rows. func_00125F20 really returns int (src/core/00125E58.c:63), so its unused result stays int. Other callees agree. */
+/* 6 November 2026, round 11b: unchanged best, 680/680, 0/28, 6 rows. No matched sibling uses
+ * func_00125F20 or 0x4410/0x30003; func_00285548 (00284FC0-g8.c, 0x106 packet) style with an
+ * int * cursor gives 43. sched1 -dS: in block 3 0x8000 issues at cycle 6 with t[1]'s store
+ * (one free slot); 0x106 in block fills it but ranks above the la (all packet constants share
+ * one priority, store weight/luid break ties), so it is born before t[0]'s store (t2). Tied:
+ * three separate 0x8000 locals (cse merges), x *= 8 coordinates, t[1]/t[2] swap. Worse:
+ * t[1] before t[0] (14), one store after the if/else (49), 0x4410+0x106 literal (19), 0x106
+ * literal (9), rotated/reversed store runs (11-26), x = 0x8000; x -= ... (688 bytes, 51).
+ */
+/* 6 November 2026, Codex packet-layout pass: unchanged retained C, game -O2 -G8
+ * -ffunction-sections, 680/680 bytes, 0/28 USA places, six real instruction rows.
+ * New controls: a ten-field packet and a tag plus three value/selector pairs both
+ * tie at six (seven with 0x106 in the final block); scalar versus array DrawState
+ * declarations and a two-element dimensions array also tie. Short/unsigned selector
+ * locals tie; signed 32-bit selectors give 7-17 rows. A shared inline emitter for
+ * real value/selector pairs gives 6-33 rows. The 42 adjacent middle-store groups
+ * t[first..last], 1 <= first < last <= 7, with early or in-block 0x106, give
+ * 24-138 rows and sometimes 688 bytes: loop-note barriers disturb the header/base
+ * schedule instead of fixing 0x8000's allocation. No new form improves the retained
+ * six-row source. Remaining: 0xE/0x30003 allocation and 0x8000's early issue.
+ * No linked build or secondary-release check was run; source marker restored.
+ */
+/* 6 November 2026, round 10c: unchanged best, 680/680, 0/28, 6 rows. Unit flags change nothing
+ * on the retained or the t[2]-before-t[1] form: -fno-sched-interblock, -fno-sched-spec,
+ * -fno-expensive-optimizations, -frac2-keep-block-order, -frac2-qcopy (6 each); -fno-schedule-insns
+ * gives 688 bytes; -fstrict-aliasing 125 rows, -fno-gcse 127. Call-as-argument forms of the
+ * func_00125F20 cursor, three cursor spellings of the final packet and s2 set early (merges with s,
+ * 668 bytes) tie or worsen. 0x8000 in an early s32 local stays a global register (51-138 rows).
+ * q[2] stored once after the if/else: 48. With 0x106 in block (7 rows) the sched1 trace shows 0x106
+ * outranks the la by its store-to-load edge, so it issues at cycle 5 beside the header store and
+ * cannot take v1; a 60-step hill-climb of that block stays at 7.
+ */
+/* 6 November 2026, round 10: unchanged best, 680/680, 0/28, 6 rows. Exhaustive GCC 2.95.2 RTL
+ * and scheduler trace analysis identifies the precise compiler conflict:
+ * 1. Setting both 0x4410 and 0x106 in early locals (w and w2) allows reload rematerialization to
+ *    give retail's exact la/0x4410/0x106 schedule (00285224, 00285228, 0028522C) and registers ($v0, $v1).
+ * 2. However, because w and w2 are absent from block 3 during sched1, the ALU unit at cycle 6 is idle
+ *    and eagerly schedules 0x8000 alongside t[1]'s store (insn 309).
+ * 3. This causes 0x8000's extended fake_birth in local-alloc to conflict with 0xE and 0x30003; having
+ *    3 references, 0x8000 takes $a2 first, forcing 0xE to $t0 and 0x30003 to $t2 (6 differing rows).
+ * 4. Emitting 0x106 inside block 3 fills cycle 6 ALU and delays 0x8000 to cycle 8, yielding retail's exact
+ *    $a2, $t0, $a2 allocation, but 0x106 is then scheduled before the la of &D_001A6480 and takes $t2 (7 rows).
+ * 5. Swapping packet stores t[1] and t[2] yielded a 5-diff variant with 0x30003 in $t0, but the
+ *    underlying priority tie between &D_001A6480 and 0x106 remains. Retaining best 680-byte 6-row source.
+ */
+/* 6 November 2026, round 9: unchanged best, 680/680, 0/28, 6 rows. With 0x4410 and 0x106 both in
+ * early locals (retail la/0x4410/0x106 order), a 150-step hill-climb over the final packet order
+ * stayed at 6. Also tied or worse: no s2 (6), s2 declared before t (6), 0xE as an early local (73,
+ * 684 bytes), 0x8000L (39), one shared t for both packets (27-28), w/w2 set after the if (20).
+ */
 /* 6 November 2026, round 7: unchanged best, 680/680, 0/28, 6 rows. Setting 0x106 in a local
  * next to w (both moved by update_equiv_regs after sched1) gives retail's la/0x4410/0x106 order
  * and v1, but 0x8000 is then issued in the same sched1 cycle as t[1]'s store, so 0xE loses a2
@@ -54,6 +106,7 @@ void func_00285030(s32 tw, s32 th, s32 tbp, s32 mode) {
     u8 *p;
     long *q;
     long w;
+    long w2;
 
     tbw = tw - 6;
     if (tbw <= 0) tbw = 1;
@@ -71,6 +124,7 @@ void func_00285030(s32 tw, s32 th, s32 tbp, s32 mode) {
     *(u32 *)(D_001B22A8[0] + 8) = 0;
     *(u32 *)(D_001B22A8[0] + 0xC) = 0x5000000E;
     w = 0x4410;
+    w2 = 0x106;
     {
         long *t = (long *)(D_001B22A8[0] + 0x10);
         D_001B22A8[0] = (s32)t;
@@ -99,7 +153,7 @@ void func_00285030(s32 tw, s32 th, s32 tbp, s32 mode) {
         t[3] = 0x47;
         t[4] = 0x4400000000008001UL;
         t[5] = w;
-        t[6] = 0x106;
+        t[6] = w2;
         t[7] = 0;
         t[8] = (0x8000 - s2->h160 * 8) | ((long)(0x8000 - s2->h162 * 8) << 16);
         t[9] = (s2->h160 * 8 + 0x8000) | ((long)(s2->h162 * 8 + 0x7FF0) << 16);

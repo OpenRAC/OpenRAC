@@ -3,16 +3,16 @@
  "counts": {
   "function: by hand": 3,
   "function: called": 20,
-  "function: changed": 144,
+  "function: changed": 145,
   "function: found": 6,
-  "function: near": 170,
+  "function: near": 174,
   "function: not found": 4,
-  "function: same": 800,
+  "function: same": 818,
   "global: aligned": 11,
   "global: between": 15,
   "global: exact": 137,
   "global: the release's build": 69,
-  "signature: v1.01's": 11
+  "signature: v1.01's": 10
  },
  "functions": {
   "func_001158F8": [
@@ -797,6 +797,11 @@
   ],
   "func_L04_00418A58": [
    "func_L04_0041D5F0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041E4A0",
    "near",
    "from_assembly"
   ],
