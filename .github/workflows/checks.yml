@@ -86,6 +86,19 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Each decomp's pin matches its game.json, and a pull request that moves one also changes
+      # the port's tables made from it (tools/sources.py check).
+      - name: Decomp pins
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            git fetch -q --depth=1 origin "$BASE"
+            python tools/sources.py check --since "$BASE"
+          else
+            python tools/sources.py check
+          fi
+
       # The workflows themselves: actionlint at a fixed version, checked against its SHA-256.
       - name: Workflows
         env:
