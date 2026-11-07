@@ -354,7 +354,11 @@ void MTLGL read_pixels(GLint x, GLint y, GLsizei w, GLsizei h, GLenum format, GL
     }
 }
 
-// A copy between formats is a draw, which this backend does not have yet (README.md).
+namespace {
+void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLint sx1, GLint sy1,
+               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter, NSUInteger level = 0);
+}  // namespace
+
 void MTLGL copy_tex_sub_image(GLenum target, GLint level, GLint xoff, GLint yoff, GLint x, GLint y,
                               GLsizei w, GLsizei h) {
     Texture* t = bound_texture(target);
@@ -373,11 +377,17 @@ void MTLGL copy_tex_sub_image(GLenum target, GLint level, GLint xoff, GLint yoff
     if (cw <= 0 || ch <= 0 || dx < 0 || dy < 0 || level < 0 || level >= static_cast<int>(to.mipmapLevelCount)) {
         return;
     }
+    t->used = g->serial;
     if (from.pixelFormat != to.pixelFormat) {
-        fail(kGlInvalidOperation);
+        if (is_integer(from.pixelFormat) || is_integer(to.pixelFormat)
+            || (to.usage & MTLTextureUsageRenderTarget) == 0) {
+            fail(kGlInvalidOperation);
+            return;
+        }
+        draw_blit(from, to, sx, sy, sx + cw, sy + ch, dx, dy, dx + cw, dy + ch, GL_NEAREST,
+                  static_cast<NSUInteger>(level));
         return;
     }
-    t->used = g->serial;
     [blit() copyFromTexture:from
                 sourceSlice:0
                 sourceLevel:0
@@ -789,7 +799,7 @@ namespace {
 // A scaled, flipped or converting colour blit, drawn: `src` sampled into the destination box,
 // clipped to `dst`.
 void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLint sx1, GLint sy1,
-               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter) {
+               GLint dx0, GLint dy0, GLint dx1, GLint dy1, GLenum filter, NSUInteger level) {
     // Along one axis: the destination's pixels lo..hi inside `size`, and the source's coordinates
     // (0..1) at them, as d0..d1 shows s0..s1.
     struct Axis {
@@ -804,8 +814,8 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
         };
         return hi > lo ? Axis{lo, hi, at(lo), at(hi)} : Axis{0, 0, 0, 0};
     };
-    const Axis x = axis(sx0, sx1, dx0, dx1, dst.width, src.width);
-    const Axis y = axis(sy0, sy1, dy0, dy1, dst.height, src.height);
+    const Axis x = axis(sx0, sx1, dx0, dx1, std::max<NSUInteger>(dst.width >> level, 1), src.width);
+    const Axis y = axis(sy0, sy1, dy0, dy1, std::max<NSUInteger>(dst.height >> level, 1), src.height);
     if (x.hi == x.lo || y.hi == y.lo) {
         return;
     }
@@ -820,6 +830,7 @@ void draw_blit(id<MTLTexture> src, id<MTLTexture> dst, GLint sx0, GLint sy0, GLi
     end_encoders();
     MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
     d.colorAttachments[0].texture = dst;
+    d.colorAttachments[0].level = level;
     d.colorAttachments[0].loadAction = MTLLoadActionLoad;
     d.colorAttachments[0].storeAction = MTLStoreActionStore;
     id<MTLRenderCommandEncoder> pass = [commands() renderCommandEncoderWithDescriptor:d];

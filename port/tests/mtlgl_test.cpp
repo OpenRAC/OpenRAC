@@ -298,6 +298,33 @@ void main() { result = texture(image, v_colour.xy); }
          both.insert(both.end(), level0.begin(), level0.end());
          return both;
      }},
+    {"float frame copied into a byte texture",
+     [] {
+         const GLuint from = framebuffer(texture(0x881A /* GL_RGBA16F */, kSide), kSide);
+         clear_to(0.25f, 1.5f, -0.5f, 0.75f);
+         const GLuint into = target();
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 2, 3, 0, 0, 9, 7);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     }},
+    {"float frame copied into a byte texture's second level",
+     [] {
+         const GLuint from = framebuffer(texture(0x881A /* GL_RGBA16F */, kSide), kSide);
+         clear_to(0.25f, 1.5f, -0.5f, 0.75f);
+         const GLuint into = texture(GL_RGBA8, kSide * 2);
+         glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+         GLuint level = 0;
+         glGenFramebuffers(1, &level);
+         glBindFramebuffer(GL_FRAMEBUFFER, level);
+         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, into, 1);
+         glViewport(0, 0, kSide, kSide);
+         clear_to(0, 0, 0, 0);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
+         glCopyTexSubImage2D(GL_TEXTURE_2D, 1, 2, 3, 0, 0, 9, 7);
+         glBindFramebuffer(GL_FRAMEBUFFER, level);
+         return pixels();
+     }},
     {"scaled multisampled blit",
      [] {
          const GLuint from = multisampled(8);
