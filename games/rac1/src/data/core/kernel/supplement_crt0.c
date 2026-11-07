@@ -4,7 +4,7 @@
 int initsys_kernel_scan_address[2] DATA_SECTION(D_00130408) = {0};
 
 #include "data_inc/D_00130410.refs"
-int initsys_syscall_patch_table[] DATA_SECTION(D_00130410) = {
+int D_00130410[] DATA_SECTION(D_00130410) = {
 #include "data_inc/D_00130410.inc"
 };
 

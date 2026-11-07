@@ -34,7 +34,7 @@ void render_vendor_buy_label_pass(char *unused, int x, int y) {
                     m = 0x528B;
             } else {
                 int cost;
-                if (discount_purchase_pricing[0] != 0) {
+                if (gHavePersuader[0] != 0) {
                     cost = ((struct { WeaponInfoA a[1]; } *)vendor_item_prices)->a[v->slots[v->idx].type].second;
                 } else {
                     cost = ((WeaponInfoA *)(vendor_item_prices + v->slots[v->idx].type * 0x18))->first;

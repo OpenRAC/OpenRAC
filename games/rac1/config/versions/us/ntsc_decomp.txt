@@ -2,4 +2,4 @@
 # its names (tools/names.py ntsc), its report (CI, SCUS_971.99_report) and the carry list
 # (tools/version_sync.py ntsc). tools/ntsc_source.py fetches it into a cache outside the
 # repository; `python3 tools/ntsc_source.py follow` bumps it. Format: url commit
-https://github.com/mateuszklysz/Lombyte 8a5972b31d87a655d7d8d744adc9376441c7dff9
+https://github.com/mateuszklysz/Lombyte 6513252ca63e0c3eb36a26f205cdbb70b2df921d

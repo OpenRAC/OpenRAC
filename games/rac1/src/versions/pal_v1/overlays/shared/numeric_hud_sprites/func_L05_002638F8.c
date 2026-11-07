@@ -106,7 +106,7 @@ int draw_trick_combo_hud(char *a) {
     id = GetIconFrame(0x7558, 1);
     draw_cropped_hud_sprite(id, xa, xb, s16, 0x40, 0x80);
     id2 = GetIconFrame(0x7558, 0);
-    HudSprite(id2, xa, xb, 0x100, 0x40, 0x80);
+    draw_hud_sprite(id2, xa, xb, 0x100, 0x40, 0x80);
     E = (char *)&g_hero;
     t = (unsigned char)E[0x8AE];
     if (scale_ticks(0x78) < t) {

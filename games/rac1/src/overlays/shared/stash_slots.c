@@ -5,7 +5,7 @@
 #include "include_asm.h"
 #include "asm_functions/executable.h"
 
-extern StashBlock stash_slots[];
+extern StashBlock l00_stash_slots[];
 
 // Starts a DMA transfer of size*16 bytes at offset*16 into a slot; -3 bad slot, -1 out of range.
 int send_dma_to_stash_slot(int arg, unsigned int slot, int off, int size) {
@@ -13,13 +13,13 @@ int send_dma_to_stash_slot(int arg, unsigned int slot, int off, int size) {
     int lim;
     if (slot >= 0x40)
         return -3;
-    lim = stash_slots[slot].qwc;
+    lim = l00_stash_slots[slot].qwc;
     if (lim == 0)
         return -3;
     if (lim < off + size)
         return -1;
     req[0] = arg;
-    req[1] = (int)((char *)stash_slots[slot].ram + off * 16);
+    req[1] = (int)((char *)l00_stash_slots[slot].ram + off * 16);
     req[2] = size * 16;
     req[3] = 0;
     sce_sif_set_dma(req, IOP_STASH_FETCH);
@@ -30,7 +30,7 @@ int send_dma_to_stash_slot(int arg, unsigned int slot, int off, int size) {
 int GetStashSlotSize(unsigned int slot) {
     if (slot >= 0x40)
         return -3;
-    return stash_slots[slot].qwc;
+    return l00_stash_slots[slot].qwc;
 }
 // Returns the constant -3.
 int GetStashSlotSize_Tail(void) {

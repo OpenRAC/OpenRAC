@@ -13,7 +13,7 @@ void update_electric_bolt_geometry_and_particles(void *moby) {
     electric_bolt_wave_phase = FastAddRots(electric_bolt_wave_phase, electric_bolt_wave_phase_speed);
     electric_bolt_twist_phase = FastSubRots(electric_bolt_twist_phase, electric_bolt_twist_phase_speed);
     electric_bolt_swell_phase = FastAddRots(electric_bolt_swell_phase, electric_bolt_swell_phase_speed);
-    scale = FastVecDist((char *)moby + 0x10, data + 0x10) * 0.05f;
+    scale = fast_vec_dist((char *)moby + 0x10, data + 0x10) * 0.05f;
     if (flag) {
         electric_bolt_color = 0x7F2040;
     } else {
@@ -117,30 +117,30 @@ void update_electric_bolt_geometry_and_particles(void *moby) {
             FastVecScale(&s[5], &s[0], t);
             build_look_at_matrix(&s[5], &s[5], &s[6], f20);
             build_look_at_matrix(&s[5], &s[5], &s[7], scale);
-            qcopy(&electric_bolt_branch_points[k].p[0], &s[8]);
-            FastVecAdd(&electric_bolt_branch_points[k].p[1], &s[8], &s[5]);
+            qcopy(&l18_electric_bolt_side_arc_points[k].p[0], &s[8]);
+            FastVecAdd(&l18_electric_bolt_side_arc_points[k].p[1], &s[8], &s[5]);
             t = 1.0f;
             for (j = 2; j < 5; j++) {
-                FastVecSub(&s[9], &electric_bolt_branch_points_base[k].p[j - 1], veldin2_camera_pos);
+                FastVecSub(&s[9], &l18_electric_bolt_side_arc_predecessor_view[k].p[j - 1], veldin2_camera_pos);
                 f20 = random_float_between(0.17453292f, 0.959931076f) * t;
                 t = -t;
                 build_look_at_matrix(&s[5], &s[5], &s[9], f20);
-                FastVecAdd((electric_bolt_branch_points[k].p + j), &electric_bolt_branch_points_base[k].p[j - 1],
-                           &s[5]);
+                FastVecAdd((l18_electric_bolt_side_arc_points[k].p + j),
+                           &l18_electric_bolt_side_arc_predecessor_view[k].p[j - 1], &s[5]);
             }
         } else {
             int j;
             for (j = 1; j < 5; j++) {
-                FastVecSub(&d[j], (electric_bolt_branch_points[k].p + j),
-                           &electric_bolt_branch_points_base[k].p[j - 1]);
+                FastVecSub(&d[j], (l18_electric_bolt_side_arc_points[k].p + j),
+                           &l18_electric_bolt_side_arc_predecessor_view[k].p[j - 1]);
                 d[j].f[0] += randf_sym(0.0f, 0.1f);
                 d[j].f[1] += randf_sym(0.0f, 0.1f);
                 d[j].f[2] += randf_sym(0.0f, 0.1f);
             }
-            qcopy(&electric_bolt_branch_points[k].p[0], &s[8]);
+            qcopy(&l18_electric_bolt_side_arc_points[k].p[0], &s[8]);
             for (j = 1; j < 5; j++) {
-                FastVecAdd((electric_bolt_branch_points[k].p + j), &electric_bolt_branch_points_base[k].p[j - 1],
-                           &d[j]);
+                FastVecAdd((l18_electric_bolt_side_arc_points[k].p + j),
+                           &l18_electric_bolt_side_arc_predecessor_view[k].p[j - 1], &d[j]);
             }
             {
                 int x = electric_bolt_branch_peak_ticks[k];
@@ -162,7 +162,7 @@ void update_electric_bolt_geometry_and_particles(void *moby) {
     FastVecScale(&s[5], &s[0], electric_bolt_particle_direction_scale_gp * frame_scale);
     build_look_at_matrix(&s[5], &s[5], &s[6], f20);
     build_look_at_matrix(&s[5], &s[5], &s[7], scale);
-    r = rand_range(1, 8);
+    r = random_int_between(1, 8);
     if (random_integer_below(2))
         r = -r;
     f20 = random_float_between(0.2f, 0.6f);
@@ -170,7 +170,7 @@ void update_electric_bolt_geometry_and_particles(void *moby) {
                 0.0f);
     r = -r;
     spawn_ec290((char *)moby + 0x10, scale_ticks(15), f20 * 0.15f, f20 * 0.5f, 0x307F7F7F, 0, r, &s[5], 0.0f);
-    r = rand_range(1, 8);
+    r = random_int_between(1, 8);
     if (random_integer_below(2))
         r = -r;
     f20 = random_float_between(0.15f, 3.0f);

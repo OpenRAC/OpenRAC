@@ -65,7 +65,7 @@ int load_disc_sectors_into_global_buffer(void) {
     return 1;
 }
 
-extern int disc_table_level_entries[];
+extern int level_archive_disc_extents[];
 extern int pad_globals_base[];
 
 /* As load_disc_sectors_into_global_buffer but the sector number comes from an 8-byte-stride
@@ -83,7 +83,7 @@ int read_file_entry_with_retry(int arg0) {
     hdr.b[1] = cd_read_spindle_speed[0];
     hdr.b[2] = 0;
     hdr.b[3] = 0;
-    entry = &disc_table_level_entries[arg0 * 2];
+    entry = &level_archive_disc_extents[arg0 * 2];
 
     do {
         sce_cd_read(*entry, 5, buf, &hdr);

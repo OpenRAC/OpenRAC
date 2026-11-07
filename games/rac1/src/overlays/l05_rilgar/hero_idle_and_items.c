@@ -38,7 +38,7 @@ typedef struct {
 
 extern int truncate_float_to_s32(float);
 
-extern int rilgar_cinematic_mode MACRO_ADDR;
+extern int game_mode MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern int gameplay_event_frame_count MACRO_ADDR;
 extern int g_current_level_index MACRO_ADDR;
@@ -48,14 +48,14 @@ extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 extern char item_usage[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern short rilgar_hero_run_step_start_frames;
 extern short rilgar_hero_state_f_jump_velocity_keys;
 extern char rilgar_hero_state_d_jump_velocity_keys[];
 extern unsigned char rilgar_hero_run_jump_anim_ids[];
 extern T2C rilgar_attack_records[];
-extern float rilgar_hero_anim_blend_curves[][25];
+extern float level05_hero_animation_blend_curves[][25];
 extern char rilgar_hero_state_12_jump_velocity_keys[];
 extern void *rilgar_water_patches MACRO_ADDR;
 extern int rilgar_water_patch_count MACRO_ADDR;
@@ -84,7 +84,7 @@ int Hero_TryMoveStateL05(int a, int b) {
         if (p->state.control_mode == HERO_MODE_DYING && (a != 0x64 || b != 2))
             return 0;
     }
-    if ((rilgar_cinematic_mode == 2 || rilgar_cinematic_mode == 6) && b != 2)
+    if ((game_mode == 2 || game_mode == 6) && b != 2)
         return 0;
     {
         struct Hero *p = &g_hero;
@@ -134,7 +134,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 request_hero_idle_state_for_vehicle_mode();
@@ -289,18 +289,18 @@ int Hero_TryMoveStateL05(int a, int b) {
             if (p->state.prev_control_mode == HERO_MODE_SWIM) {
                 emit_hero_surface_effect_burst(3, 0xA, 0);
                 if (rilgar_water_patches != 0) {
-                    RippleDisturb(rilgar_water_patches, rilgar_water_patch_count, 0, p->motion.pos.f[0],
-                                  p->motion.pos.f[1], 0.4f, 0.3f);
+                    pool_splash(rilgar_water_patches, rilgar_water_patch_count, 0, p->motion.pos.f[0],
+                                p->motion.pos.f[1], 0.4f, 0.3f);
                 }
             } else if (p->motion.displacement.f[2] < g_frame_time * -0.5f) {
-                int n = truncate_float_to_s32(FastAbsF(p->motion.displacement.f[2]) * 300.0f);
+                int n = truncate_float_to_s32(absolute_float(p->motion.displacement.f[2]) * 300.0f);
                 int v = n;
                 if (n > 0x28)
                     v = 0x28;
                 emit_hero_surface_effect_burst(3, v, 1);
                 if (rilgar_water_patches != 0) {
-                    RippleDisturb(rilgar_water_patches, rilgar_water_patch_count, 0, p->motion.pos.f[0],
-                                  p->motion.pos.f[1], 0.5f, -0.4f);
+                    pool_splash(rilgar_water_patches, rilgar_water_patch_count, 0, p->motion.pos.f[0],
+                                p->motion.pos.f[1], 0.5f, -0.4f);
                 }
                 p->splash_effect_timer = scale_ticks(0x4B);
             }
@@ -372,7 +372,7 @@ int Hero_TryMoveStateL05(int a, int b) {
                     {
                         struct Hero *w = &g_hero;
                         *(float *)(*(char **)&w->moby + 0x54) =
-                            rilgar_hero_anim_blend_curves[w->anim_blend_curve][(w->anim_blend_step)++];
+                            level05_hero_animation_blend_curves[w->anim_blend_curve][(w->anim_blend_step)++];
                     }
                 }
             }
@@ -541,7 +541,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             p->boost_pad_timer = 0;
             p->board_respawn_delay = scale_ticks(0x46);
             p->water_surface_z = p->board_floor_z;
-            n = truncate_float_to_s32(FastAbsF(p->motion.displacement.f[2]) * 300.0f);
+            n = truncate_float_to_s32(absolute_float(p->motion.displacement.f[2]) * 300.0f);
             v = n;
             if (n > 0x28)
                 v = 0x28;
@@ -644,7 +644,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -658,7 +658,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = &g_hero;
@@ -717,7 +717,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -791,7 +791,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
@@ -856,7 +856,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             p->item_use_locked = 1;
             *(int *)&p->grapple_pull_speed = 0;
             p->grapple_pull_ending = 0;
-            p->tether_radius = FastVecDist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
+            p->tether_radius = fast_vec_dist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
             if (b)
                 set_hero_animation(0x30, 1, (float)scale_ticks(5));
             break;
@@ -906,7 +906,7 @@ int Hero_TryMoveStateL05(int a, int b) {
                     q->swing_rope_max_speed = *(float *)(d + 0x2C);
                 q->swing_yaw = fast_atan2(*(float *)(*(char **)&q->swing_target_moby + 0x10) - q->motion.pos.f[0],
                                           *(float *)(*(char **)&q->swing_target_moby + 0x14) - q->motion.pos.f[1]);
-                q->unk9A4 = FastVecDist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
+                q->unk9A4 = fast_vec_dist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
                 q->swing_gravity = g_frame_time_sq * 27.0f;
                 if (q->state.prev_control_mode == HERO_MODE_JUMP) {
                     q->swing_gravity = q->jump_gravity;
@@ -1695,7 +1695,7 @@ int Hero_TryMoveStateL05(int a, int b) {
                 if (b) {
                     set_hero_animation(0x10, 3, -3.0f);
                     *(float *)(*(char **)&q->moby + 0x54) =
-                        rilgar_hero_anim_blend_curves[q->anim_blend_curve][(q->anim_blend_step)++];
+                        level05_hero_animation_blend_curves[q->anim_blend_curve][(q->anim_blend_step)++];
                 }
             }
             break;
@@ -1816,7 +1816,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             {
                 char *v = &g_hero.motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -1848,7 +1848,7 @@ int Hero_TryMoveStateL05(int a, int b) {
             if (b) {
                 set_hero_animation(2, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    rilgar_hero_anim_blend_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    level05_hero_animation_blend_curves[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }

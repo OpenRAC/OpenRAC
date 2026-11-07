@@ -18,7 +18,7 @@ extern int g_current_level_index MACRO_ADDR;
 extern Level14State oltanis_cutscene_state;
 
 /* Attach the callback during the six active phases of this level event. */
-void update_level14_event_moby_effects(void) {
+void update_level14_cutscene_effects(void) {
     void *moby;
     if (g_current_level_index != LEVEL_OLTANIS || oltanis_cutscene_state.state != 0) {
         return;

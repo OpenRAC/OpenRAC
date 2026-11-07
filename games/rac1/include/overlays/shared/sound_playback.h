@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern int Sound_IsPlaying(void *, int);
+extern int func_L00_0028EB98(void *, int);
 extern int Sound_PlayClassSound(int, int, int, int);
 extern int Sound_SetPitchBend(int, int);
 extern void Sound_StopSlot(int);

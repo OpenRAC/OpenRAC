@@ -39,7 +39,7 @@ void draw_vendor_purchase_text(void *m, int x, int y) {
     box.half_y = 6;
     box.style = 1;
     font_print_window_small((void *)&box, 0x80f0f0f0L, msg_string(0x5237), -1);
-    sprintf(text, vendor_quantity_format, vendor_buy_quantity);
+    sprintf(text, vendor_purchase_decimal_format, vendor_buy_quantity);
     if (vendor_buy_quantity >= 100)
         text_x = 0x17;
     else {
@@ -54,7 +54,7 @@ quantity_small:
 quantity_done:
     FontPrintSmall(0xc, 0x32, 0x80f0f0f0L, vendor_quantity_left_label, -1);
     FontPrintSmall(0x40, 0x32, 0x80f0f0f0L, vendor_quantity_right_label, -1);
-    fmt = vendor_quantity_format;
+    fmt = vendor_purchase_decimal_format;
     if (MENU.f40)
         total = vendor_buy_quantity * item_price_table[MENU.rows[MENU.f58].fD0].hA;
     else
@@ -68,8 +68,7 @@ message:
     font_print_window_small((void *)&box, 0x80f0f0f0L, msg_string(message_id), -1);
     return;
 purchase:
-    cost = discount_purchase_pricing ? item_price_table[MENU.rows[MENU.f58].fD0].i4
-                                     : item_price_table[MENU.rows[MENU.f58].fD0].i0;
+    cost = gHavePersuader ? item_price_table[MENU.rows[MENU.f58].fD0].i4 : item_price_table[MENU.rows[MENU.f58].fD0].i0;
     if (gBolts >= cost) {
         FontPrintSmall(6, 6, 0x80f0f0f0L, msg_string(0x5239), -1);
         FontPrintSmall(2, 0x20, 0x80f0f0f0L, msg_string(0x524E), -1);

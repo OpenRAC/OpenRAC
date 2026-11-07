@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void pad_resetState(void);
+extern void func_00217EC0(void);
 extern void process_menu_entry(void *, void *, int);
 extern void request_audio_stream_break(void);
 

@@ -218,7 +218,7 @@ void SkyLevelGeneric___maybe(void) {
             trig_product = trig_product * FastSin(elevation);
             trig_product = trig_product * 50.0f;
             effect->position_y = trig_product;
-            effect->position_z = FastAbsF(FastCos(elevation)) * 50.0f;
+            effect->position_z = absolute_float(FastCos(elevation)) * 50.0f;
             if ((u32)(orbit->azimuth & 0x3F) < 8U) {
                 effect->color = 0x702020F0;
             } else {
@@ -254,7 +254,7 @@ extern f32 D_00160504_2C5A0 SDATA(D_00160504);
 extern struct SkyShellSet *level_sky_effect_data_r3 __asm__("D_0016055C") MACRO_ADDR;
 extern u8 sky_shell_translation_r2[] __asm__("D_00160560") MACRO_ADDR;
 extern struct SkyTransform sky_matrix_r2 __asm__("D_001D9A70");
-extern s32 D_0015EF88 MACRO_ADDR;
+extern s32 depth_buffer_address MACRO_ADDR;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/sky/draw_sky_shells.c, draw_sky_shells. */
 void draw_sky_shells(void) {
@@ -323,7 +323,7 @@ extern int sky_gif_paging_tag MACRO_ADDR;
 extern int g_gs_texture_allocation_start MACRO_ADDR;
 extern int g_gs_texture_allocation_cursor MACRO_ADDR;
 extern int pending_texture_upload_count MACRO_ADDR;
-extern char str_sky_texs[];
+extern char sky_textures_label[];
 
 typedef struct {
     long tag;
@@ -358,7 +358,7 @@ void SetupSkyGifPaging(void) {
     sky_gif_paging_tag = p;
     p += 0x10;
     g_render_packet_cursor = p;
-    ProfileMarker_Begin(str_sky_texs, 1);
+    noop_core_callback_secondary(sky_textures_label, 1);
     s = level_sky_effect_data;
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
     pending_texture_upload_count = 0;
@@ -369,11 +369,11 @@ void SetupSkyGifPaging(void) {
 
 extern int *g_render_packet_cursor_p __asm__("D_00161000") MACRO_ADDR;
 extern int *sky_gif_paging_tag_p __asm__("D_00160570") MACRO_ADDR;
-extern int *sky_gif_paging_start MACRO_ADDR;
+extern int *sky_gif_paging_bypass_tag MACRO_ADDR;
 
 /* DoSkyGifPaging: DoGifPaging's twin (DoGifPaging) for the sky. Pushes
    two 4-word GIF tags (0x20000000 in the first word) onto the g_render_packet_cursor
-   packet, sky_gif_paging_start marking where it started and sky_gif_paging_tag's tag
+   packet, sky_gif_paging_bypass_tag marking where it started and sky_gif_paging_tag's tag
    pointing at the second; in between, when draw_config[1] is set,
    flush_pending_texture_uploads and VU1_texFlush add their own. Then restores
    g_gs_texture_allocation_cursor from g_gs_texture_allocation_start. The first advance goes through a local
@@ -382,7 +382,7 @@ extern int *sky_gif_paging_start MACRO_ADDR;
 void DoSkyGifPaging(void) {
     int *p = g_render_packet_cursor_p;
 
-    sky_gif_paging_start = p;
+    sky_gif_paging_bypass_tag = p;
     p += 4;
     g_render_packet_cursor_p = p;
     sky_gif_paging_tag_p[0] = 0x20000000;
@@ -398,10 +398,10 @@ void DoSkyGifPaging(void) {
     g_render_packet_cursor_p[2] = 0;
     g_render_packet_cursor_p[3] = 0;
     g_render_packet_cursor_p += 4;
-    sky_gif_paging_start[0] = 0x20000000;
-    sky_gif_paging_start[1] = (int)g_render_packet_cursor_p;
-    sky_gif_paging_start[2] = 0;
-    sky_gif_paging_start[3] = 0;
+    sky_gif_paging_bypass_tag[0] = 0x20000000;
+    sky_gif_paging_bypass_tag[1] = (int)g_render_packet_cursor_p;
+    sky_gif_paging_bypass_tag[2] = 0;
+    sky_gif_paging_bypass_tag[3] = 0;
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
 }
 

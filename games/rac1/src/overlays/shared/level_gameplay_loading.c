@@ -61,8 +61,8 @@ typedef struct Q_240398 {
 } Q_240398;
 extern G137C80_240398 disc_table_r __asm__("D_00137C80");
 extern char level_render_state_base_r[] __asm__("D_0013DE6E");
-extern char *D_0015EF54 MACRO_ADDR;
-extern int D_0015EF88[2] MACRO_ADDR;
+extern char *level_archive_base MACRO_ADDR;
+extern int depth_buffer_address[2] MACRO_ADDR;
 extern Q_240398 moby_texture_records_r[] __asm__("D_L00_001AEF40");
 extern int moby_texture_count_r __asm__("D_L00_00160088") MACRO_ADDR;
 extern Rec D_L00_0015FCC0_240398 SDATA(D_L00_0015FCC0);
@@ -73,7 +73,7 @@ extern unsigned char D_L00_0015FCE0_240398 SDATA(D_L00_0015FCE0);
 extern unsigned char g_class_slot_r[] __asm__("D_L00_00197F40");
 extern unsigned int moby_texture_addrs_r[] __asm__("D_L00_00199E00");
 extern int first_class_ids_r[] __asm__("D_L00_00160608");
-extern int D_L00_00160618[];
+extern int second_class_ids[];
 extern int D_L00_00160628_240398 __asm__("D_L00_00160628") MACRO_ADDR;
 extern int D_L00_00160624_240398 __asm__("D_L00_00160624") MACRO_ADDR;
 extern int D_L00_0016062C_240398 __asm__("D_L00_0016062C") MACRO_ADDR;
@@ -156,8 +156,8 @@ char *load_level_texture_bank(char *buf, int *tbl) {
     return buf;
 }
 extern u64 vis_gif_tex_regs_table[];
-extern u64 level_tex0_regs_128a[];
-extern u64 level_tex0_regs_64[];
+extern u64 level_texture_128x128_descriptor[];
+extern u64 level_texture_64x64_descriptor[];
 /* writes GIF viewer setup words for a selected or fallback configuration */
 void SetupVisGifViewer(char *out, int a, int b, u64 c, int d, int idx) {
     u64 x = vis_gif_tex_regs_table[idx * 3];
@@ -174,10 +174,10 @@ void SetupVisGifViewer(char *out, int a, int b, u64 c, int d, int idx) {
         *(u64 *)out = x;
         *(u64 *)(out + 16) = z;
     } else if (idx < -1) {
-        u64 *p = level_tex0_regs_128a;
+        u64 *p = level_texture_128x128_descriptor;
         u64 hi, lo;
         if (idx == -3)
-            p = level_tex0_regs_64;
+            p = level_texture_64x64_descriptor;
         hi = (u64)a << 32;
         lo = (u64)b;
         hi |= 32;
@@ -206,7 +206,7 @@ void SetupVisGifViewer(char *out, int a, int b, u64 c, int d, int idx) {
 INCLUDE_ASM("asm/overlays", func_L00_00240D80);
 INCLUDE_ASM("asm/overlays", func_L00_00240DE0);
 extern int coll_hit_result_a[] __asm__("D_L00_00173F40");
-extern const int *collision_header_entry_table SDATA(collision_header_entry_table);
+extern const int *l00_level_asset_entry_table SDATA(D_L00_0015F6F8);
 
 // Relocates the collision header's offsets into pointers.
 void resolve_level_asset_block_pointers(char *p) {
@@ -221,7 +221,7 @@ void resolve_level_asset_block_pointers(char *p) {
     if (*(int *)(p + 4) != 0) {
         q = (const int *)(p + *(int *)(p + 4));
         cnt = q[0];
-        collision_header_entry_table = q;
+        l00_level_asset_entry_table = q;
         i = 0;
         if (cnt > 0) {
             e = (int *)q + 7;
@@ -470,9 +470,9 @@ extern DiscTable disc_table_r2 __asm__("D_00137C80");
 /* The two pointers at 0x15EF4C and 0x15EF50, as one object. The assembly names the second sound_archive_base; under a
    name of its own its store lands in a branch delay slot where retail has a nop (8 bytes short), so it is
    reached as element 1 of the pair. Nothing else in the project names sound_archive_base. */
-extern char *D_0015EF4C[2] MACRO_ADDR;
+extern char *level_root[2] MACRO_ADDR;
 extern Hero g_hero;
-extern char player_camera[];
+extern char gCameraLvl[];
 extern char moby_animation_slots[];
 extern float frame_scale MACRO_ADDR;
 extern Lvl173F40_422D8 coll_hit_result;
@@ -498,28 +498,28 @@ extern int level_particle_clip_dist MACRO_ADDR;
 extern u8 frame_vu0_micro_program[];
 extern unsigned char level_point_lights[];
 
-extern char level_moby_lights[];
+extern char level_directional_lights[];
 extern char too_many_moby_lights_msg[];
 extern char env_zone_spheres[];
 extern int env_zone_count MACRO_ADDR;
-extern Light env_zone_lights[];
+extern Light l00_gameplay_lights[];
 extern int tfrag_count MACRO_ADDR;
 extern Tfrag *tfrag_records MACRO_ADDR;
 extern int g_game_language MACRO_ADDR;
 extern TextHdr help_popup_state;
 extern Text *help_text_entries MACRO_ADDR;
-extern TieInst *tie_instances MACRO_ADDR;
+extern TieInst *level_tie_instances MACRO_ADDR;
 extern TieInst *tie_instances_end MACRO_ADDR;
 extern TieMtx *level_tie_matrices MACRO_ADDR;
 extern int tie_instance_count MACRO_ADDR;
 extern unsigned char tie_class_slot_by_id[];
 extern TieClass *level_tie_classes[];
-extern ShrubInst *shrub_instances MACRO_ADDR;
+extern ShrubInst *level_shrub_instances MACRO_ADDR;
 extern ShrubInst *shrub_instances_end MACRO_ADDR;
 extern ShrubMtx *shrub_matrices MACRO_ADDR;
 extern unsigned char *shrub_vertex_colors MACRO_ADDR;
 extern int level_shrub_count MACRO_ADDR;
-extern int shrub_vertex_color_dma_ref_tag[];
+extern int shrub_color_buffer_descriptor[];
 extern unsigned char shrub_class_slot_by_id[];
 extern ShrubClass *shrub_class_table[];
 extern Cuboid *camera_descriptors MACRO_ADDR;
@@ -528,8 +528,8 @@ extern SndGlob voice_pool;
 extern Moby *moby_array_start MACRO_ADDR;
 extern Moby *level_mobys_end MACRO_ADDR;
 extern Moby *moby_array_last MACRO_ADDR;
-extern char *moby_spawn_pvar_pool MACRO_ADDR;
-extern short moby_index_by_file_order[];
+extern char *l00_active_moby_pool_end MACRO_ADDR;
+extern short gameplay_moby_index_remap[];
 extern unsigned char checkpoint_level_state_moby_flags[];
 extern unsigned char mission_state[] MACRO_ADDR;
 
@@ -556,7 +556,7 @@ extern void rac1_check_level_heap(u32 cursor, u64 bytes);
 #endif
 extern int level_path_count MACRO_ADDR;
 extern char *level_path_data MACRO_ADDR;
-extern char *level_paths[];
+extern char *toad_paths[];
 extern int level_rail_count MACRO_ADDR;
 extern Spline *level_rails MACRO_ADDR;
 extern char *level_clip_volumes MACRO_ADDR;
@@ -585,7 +585,7 @@ extern char occlusion_moby_mismatch_fmt[];
 extern char occlusion_tfrag_mismatch_msg[];
 extern char occlusion_tie_mismatch_fmt[];
 extern char no_occlusion_data_msg[];
-extern int g_debug_menu[];
+extern int gDebugFreeCamLvl[];
 
 extern short thrown_mine_list[];
 extern short decoy_list[];
@@ -607,7 +607,7 @@ char *load_level_gameplay(int arg0) {
     int expanded_ram;
 #endif
     short *idx =
-        moby_index_by_file_order; /* moby index by file order; a pointer local, so its address is formed at each use */
+        gameplay_moby_index_remap; /* moby index by file order; a pointer local, so its address is formed at each use */
     int tmp; /* scratch int: the level number in the moby loop, a group's offset and end flag in the group loop */
 
     hdr = lvl_resource_buffers.f4;
@@ -629,7 +629,7 @@ char *load_level_gameplay(int arg0) {
     fast_decompress(level_root[1], hdr);
     flush_cache(0);
     FastMemSet(&g_hero, 0, 0x2310);
-    FastMemSet(player_camera, 0, 0x3A0);
+    FastMemSet(gCameraLvl, 0, 0x3A0);
     FastMemSet(moby_animation_slots, 0, 0x180);
     srand(0x4D2);
     if (pal_mode != 0) {
@@ -680,7 +680,7 @@ char *load_level_gameplay(int arg0) {
     VU0_loadMicroProgram(frame_vu0_micro_program);
     FastMemZero16(level_point_lights, 0x100);
     FastMemZero16(level_point_light_data, 0x180);
-    FastMemZero16(level_moby_lights, 0x400);
+    FastMemZero16(level_directional_lights, 0x400);
     {
         char *p = (char *)hdr + hdr->f4;
         int n = *(int *)p;
@@ -691,7 +691,7 @@ char *load_level_gameplay(int arg0) {
             n = 12;
         }
         if (n != 0) {
-            copy_memory_by_alignment_v(level_moby_lights, p, n << 6);
+            copy_memory_by_alignment_v(level_directional_lights, p, n << 6);
         }
     }
     if (hdr->f80 != 0) {
@@ -704,9 +704,9 @@ char *load_level_gameplay(int arg0) {
             int i;
 
             copy_memory_by_alignment_v(env_zone_spheres, p, env_zone_count << 4);
-            copy_memory_by_alignment_v(env_zone_lights, p + (env_zone_count << 4), env_zone_count << 7);
+            copy_memory_by_alignment_v(l00_gameplay_lights, p + (env_zone_count << 4), env_zone_count << 7);
             for (i = 0; i < env_zone_count; i++) {
-                l = &env_zone_lights[i];
+                l = &l00_gameplay_lights[i];
                 if (l->f48 < 0) {
                     l->f48 = 11;
                 }
@@ -770,13 +770,13 @@ char *load_level_gameplay(int arg0) {
         int i;
         int last;
 
-        tie_instances = (TieInst *)mem;
+        level_tie_instances = (TieInst *)mem;
         p += 0x10;
         tie_instance_count = n;
         CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         if (n != 0) {
-            FastMemSet(tie_instances, 0, n << 5);
+            FastMemSet(level_tie_instances, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         level_tie_matrices = (TieMtx *)mem;
@@ -786,9 +786,9 @@ char *load_level_gameplay(int arg0) {
             FastMemSet(level_tie_matrices, 0, tie_instance_count * 0x1C0);
         }
         last = -1;
-        tie_instances_end = tie_instances + tie_instance_count;
+        tie_instances_end = level_tie_instances + tie_instance_count;
         for (i = 0; i < tie_instance_count; i++) {
-            TieInst *inst = tie_instances + i;
+            TieInst *inst = level_tie_instances + i;
             TieMtx *mtx = level_tie_matrices + i;
             int id;
             float scale;
@@ -813,7 +813,7 @@ char *load_level_gameplay(int arg0) {
             inst->f18 = id;
             p += 0x50;
             mtx->f3C = level_tie_classes[inst->f1A]->f40;
-            matrix_mul_vec3(inst, level_tie_classes[inst->f1A]->f30, mtx);
+            transform_vector_by_basis(inst, level_tie_classes[inst->f1A]->f30, mtx);
             scale = FastVecLength(mtx);
             scale = max_float(scale, FastVecLength(mtx->m1));
             inst->fC = level_tie_classes[inst->f1A]->f3C * max_float(scale, FastVecLength(mtx->m2));
@@ -844,13 +844,13 @@ char *load_level_gameplay(int arg0) {
         int last;
         int i;
 
-        shrub_instances = (ShrubInst *)mem;
+        level_shrub_instances = (ShrubInst *)mem;
         p += 0x10;
         level_shrub_count = n;
         CHECK_LEVEL_HEAP(mem, (u64)n << 5);
         mem += n << 5;
         if (n != 0) {
-            FastMemSet(shrub_instances, 0, n << 5);
+            FastMemSet(level_shrub_instances, 0, n << 5);
         }
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
         shrub_matrices = (ShrubMtx *)mem;
@@ -867,10 +867,10 @@ char *load_level_gameplay(int arg0) {
             FastMemSet(shrub_vertex_colors, 0, level_shrub_count * 0x60);
         }
         last = -1;
-        shrub_vertex_color_dma_ref_tag[1] = (int)shrub_vertex_colors;
-        shrub_instances_end = shrub_instances + level_shrub_count;
+        shrub_color_buffer_descriptor[1] = (int)shrub_vertex_colors;
+        shrub_instances_end = level_shrub_instances + level_shrub_count;
         for (i = 0; i < level_shrub_count; i++) {
-            ShrubInst *inst = shrub_instances + i;
+            ShrubInst *inst = level_shrub_instances + i;
             ShrubMtx *mtx = shrub_matrices + i;
             int cls = shrub_class_slot_by_id[*(int *)p];
             float scale;
@@ -934,7 +934,7 @@ char *load_level_gameplay(int arg0) {
             }
             inst->f1C = *(unsigned short *)p;
             p += 0x10;
-            matrix_mul_vec3(inst, shrub_class_table[cls], mtx);
+            transform_vector_by_basis(inst, shrub_class_table[cls], mtx);
             scale = FastVecLength(mtx);
             scale = max_float(scale, FastVecLength(mtx->m1));
             inst->fC = shrub_class_table[cls]->fC * max_float(scale, FastVecLength(mtx->m2));
@@ -1161,7 +1161,7 @@ char *load_level_gameplay(int arg0) {
                 h = *(float *)p;
                 p += 4;
                 if (a != 0) {
-                    float z = ProbeGroundHeight(&m->pos.x, 0, 0.5f);
+                    float z = probe_ground_height(&m->pos.x, 0, 0.5f);
 
                     if (0.0f < z) {
                         m->pos.z = z + h;
@@ -1206,7 +1206,7 @@ char *load_level_gameplay(int arg0) {
         level_mobys_end->state = 0xFF;
         CHECK_LEVEL_HEAP(mem, ((u64)count + (u64)n2) << 8);
         mem += (count + n2) << 8;
-        moby_spawn_pvar_pool = mem;
+        l00_active_moby_pool_end = mem;
         CHECK_LEVEL_HEAP(mem, (u64)n2 << 7);
         mem += n2 << 7;
         mem = (char *)(((u32)mem + 0x3F) & 0xFFFFFFC0);
@@ -1410,7 +1410,7 @@ char *load_level_gameplay(int arg0) {
             FastMemCopy(level_path_data, src, size);
         }
         for (i = 0; i < level_path_count; i++) {
-            level_paths[i] = level_path_data + *(int *)q;
+            toad_paths[i] = level_path_data + *(int *)q;
             q += 4;
         }
     }
@@ -1652,14 +1652,14 @@ char *load_level_gameplay(int arg0) {
             q += n1 * 2;
         }
         bad2 = 1;
-        if (tie_instances_end - tie_instances == n2) {
+        if (tie_instances_end - level_tie_instances == n2) {
             int i;
 
             bad2 = 0;
             for (i = 0; i < n2; i++) {
                 int id = (unsigned short)q[1];
 
-                if (tie_instances[i].f18 != id) {
+                if (level_tie_instances[i].f18 != id) {
                     bad2 = 1;
                 }
                 q += 2;
@@ -1723,7 +1723,7 @@ char *load_level_gameplay(int arg0) {
             int k = 0;
 
             q = &q0[n1 * 2 + 4];
-            for (t = tie_instances; t != tie_instances_end; t++) {
+            for (t = level_tie_instances; t != tie_instances_end; t++) {
                 int id = t->f18;
                 int j;
 
@@ -1750,11 +1750,11 @@ char *load_level_gameplay(int arg0) {
             for (i = 0; i < n2; i++) {
                 int w = q[0];
 
-                tie_instances[i].f18 = ((w >> 3) << 8) | (1 << (w & 7));
+                level_tie_instances[i].f18 = ((w >> 3) << 8) | (1 << (w & 7));
                 q += 2;
             }
         }
-        g_debug_menu[7] = 2;
+        gDebugFreeCamLvl[7] = 2;
     } else {
         Moby *m;
         TieInst *t;
@@ -1764,21 +1764,21 @@ char *load_level_gameplay(int arg0) {
         for (m = moby_array_start; m != moby_array_last; m++) {
             m->occlusion = 0x7F80;
         }
-        for (t = tie_instances; t != tie_instances_end; t++) {
+        for (t = level_tie_instances; t != tie_instances_end; t++) {
             t->f18 = 0x7F80;
         }
         for (i = 0; i < tfrag_count; i++) {
             tfrag_records[i].f3A = 0x7F80;
         }
-        g_debug_menu[7] = 0;
+        gDebugFreeCamLvl[7] = 0;
     }
     Level_ResetGameplayGlobals();
     initialize_hero();
     reset_hero_to_idle();
     setup_level_cameras();
     Camera_UpdateFrame();
-    pad_resetState();
-    Font_EnableColorCodes();
+    reset_pad_history();
+    enable_font_color_codes();
     active_homing_missiles[0] = 0;
     thrown_mine_list[0] = 0;
     decoy_list[0] = 0;
@@ -1859,7 +1859,7 @@ typedef struct {
 extern u8 saved_mission_state[];
 extern s32 mission_death_counts[16];
 extern s32 level_texture_data_base MACRO_ADDR;
-extern char *level_effects_data MACRO_ADDR;
+extern char *effect_texture_data_base MACRO_ADDR;
 extern s32 level_textured_sphere_count MACRO_ADDR;
 extern u32 level_textured_spheres MACRO_ADDR;
 extern u32 level_textured_sphere_textures MACRO_ADDR;
@@ -1881,23 +1881,23 @@ extern s32 shrub_texture_ref_count MACRO_ADDR;
 extern s32 sky_data MACRO_ADDR;
 extern s32 tfrag_texture_ref_count MACRO_ADDR;
 extern s32 tie_texture_ref_count MACRO_ADDR;
-extern u64 level_tex0_regs_128a[3];
-extern u64 level_tex0_regs_64[3];
+extern u64 level_texture_128x128_descriptor[3];
+extern u64 level_texture_64x64_descriptor[3];
 extern u64 level_tex0_regs_128b[3];
 extern Class244110 *moby_class_headers[];
 extern s16 moby_class_ids[];
 extern u8 g_class_slot[];
 extern u32 moby_texture_addrs[];
-extern u8 moby_texture_records[];
-extern s32 swap_moby_class_ids[];
-extern char *swap_moby_class_data[];
+extern u8 moby_texture_table[];
+extern s32 moby_reference_class_ids[];
+extern char *moby_reference_data_bases[];
 extern s32 swap_moby_class_params[];
-extern Q244110 swap_moby_class_headers[];
-extern u16 swap_moby_class_sounds[][16];
-extern s32 particle_texture_vram_table[];
-extern s32 shrub_texture_addrs[];
-extern s32 tfrag_texture_addrs[];
-extern s32 tie_texture_addrs[];
+extern Q244110 l00_moby_reference_texture_slot_maps[];
+extern u16 moby_reference_sound_ids[][16];
+extern s32 particle_texture_ranges[];
+extern s32 shrub_packed_texture_refs[];
+extern s32 tfrag_packed_texture_refs[];
+extern s32 tie_packed_texture_refs[];
 extern char level_overlay_end[];
 extern char sound_slot_out_of_range_msg[];
 extern char class_sound_count_mismatch_fmt[];
@@ -1998,18 +1998,20 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         used = fast_decompress((char *)(src[0x14] + (s32)src), base);
 
         level_texture_data_base = (s32)(base + h->v[0x18]);
-        level_tex0_regs_128a[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) |
-                                    ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
-                                    ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) |
-                                    ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
-        level_tex0_regs_128a[1] = 0x0000FFA0000000E0;
-        level_tex0_regs_128a[2] = 0x0040000400004000;
-        level_tex0_regs_64[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) |
-                                  ((u64)(0x13) << 20) | ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) |
-                                  ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) |
-                                  ((u64)(0) << 51) | ((u64)(0) << 55) | ((u64)(0) << 56) | ((u64)(4) << 61)));
-        level_tex0_regs_64[1] = 0x0000FFA0000000E0;
-        level_tex0_regs_64[2] = 0x0040000400004000;
+        level_texture_128x128_descriptor[0] =
+            (((u64)((g_gs_texture_allocation_base + h->v[0x24]) >> 8) | ((u64)(2) << 14) | ((u64)(0x13) << 20) |
+              ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) |
+              ((u64)((g_gs_texture_allocation_base + h->v[0x25]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) |
+              ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_texture_128x128_descriptor[1] = 0x0000FFA0000000E0;
+        level_texture_128x128_descriptor[2] = 0x0040000400004000;
+        level_texture_64x64_descriptor[0] =
+            (((u64)((g_gs_texture_allocation_base + h->v[0x26]) >> 8) | ((u64)(1) << 14) | ((u64)(0x13) << 20) |
+              ((u64)(6) << 26) | ((u64)(6) << 30) | ((u64)(1) << 34) | ((u64)(0) << 35) |
+              ((u64)((g_gs_texture_allocation_base + h->v[0x27]) >> 8) << 37) | ((u64)(0) << 51) | ((u64)(0) << 55) |
+              ((u64)(0) << 56) | ((u64)(4) << 61)));
+        level_texture_64x64_descriptor[1] = 0x0000FFA0000000E0;
+        level_texture_64x64_descriptor[2] = 0x0040000400004000;
         level_tex0_regs_128b[0] = (((u64)((g_gs_texture_allocation_base + h->v[0x30]) >> 8) | ((u64)(2) << 14) |
                                     ((u64)(0x13) << 20) | ((u64)(7) << 26) | ((u64)(7) << 30) | ((u64)(1) << 34) |
                                     ((u64)(0) << 35) | ((u64)((g_gs_texture_allocation_base + h->v[0x31]) >> 8) << 37) |
@@ -2020,20 +2022,20 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         t1 = (TexRef244110 *)((char *)h + h->v[0xD]);
         tfrag_texture_ref_count = h->v[0xC];
         for (c1 = 0; c1 < tfrag_texture_ref_count; c1++)
-            tfrag_texture_addrs[c1] = level_texture_data_base + t1[c1].offset + (log2dim(t1[c1].kind) << 28);
+            tfrag_packed_texture_refs[c1] = level_texture_data_base + t1[c1].offset + (log2dim(t1[c1].kind) << 28);
         tex = (TexRef244110 *)((char *)h + h->v[0xF]);
         moby_texture_count = h->v[0xE];
         for (c2 = 0; c2 < moby_texture_count; c2++)
             moby_texture_addrs[c2] = level_texture_data_base + tex[c2].offset + (log2dim(tex[c2].kind) << 28);
-        FastMemCopy(moby_texture_records, tex, moby_texture_count * 16);
+        FastMemCopy(moby_texture_table, tex, moby_texture_count * 16);
         t3 = (TexRef244110 *)((char *)h + h->v[0x11]);
         tie_texture_ref_count = h->v[0x10];
         for (c3 = 0; c3 < tie_texture_ref_count; c3++)
-            tie_texture_addrs[c3] = level_texture_data_base + t3[c3].offset + (log2dim(t3[c3].kind) << 28);
+            tie_packed_texture_refs[c3] = level_texture_data_base + t3[c3].offset + (log2dim(t3[c3].kind) << 28);
         t4 = (TexRef244110 *)((char *)h + h->v[0x13]);
         shrub_texture_ref_count = h->v[0x12];
         for (c4 = 0; c4 < shrub_texture_ref_count; c4++)
-            shrub_texture_addrs[c4] = level_texture_data_base + t4[c4].offset + (log2dim(t4[c4].kind) << 28);
+            shrub_packed_texture_refs[c4] = level_texture_data_base + t4[c4].offset + (log2dim(t4[c4].kind) << 28);
 
         initialize_tfrag_render_data(base + h->v[2], (char *)h + h->v[0xD]);
         if (h->v[3])
@@ -2051,7 +2053,7 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         for (sq = 0, p = (char *)h + h->v[0x1E]; sq < moby_class_headers[0]->seq_count; sq++, p += 4) {
             if (*(s32 *)p) {
                 moby_class_headers[0]->seqs[sq] = base + *(s32 *)p;
-                relocateObjectPointers(moby_class_headers[0], sq);
+                relocate_asset_entry_pointers(moby_class_headers[0], sq);
             }
         }
         loaded_swap_moby_class_set = -1;
@@ -2059,12 +2061,12 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         swap_moby_class_block_field_8 = 0;
         moby_class_reference_count = h->v[0x20];
         for (m = 0; m < h->v[0x20]; m++, q += 0x10) {
-            swap_moby_class_ids[m] = *(s32 *)(q + 4);
-            swap_moby_class_data[m] = base + *(s32 *)q;
+            moby_reference_class_ids[m] = *(s32 *)(q + 4);
+            moby_reference_data_bases[m] = base + *(s32 *)q;
             swap_moby_class_params[m] = *(s32 *)(q + 8);
             {
                 s32 o = g_class_slot[*(s32 *)(q + 4)] * 32 + 0x10;
-                qcopy(&swap_moby_class_headers[m], (char *)h + h->v[7] + o);
+                qcopy(&l00_moby_reference_texture_slot_maps[m], (char *)h + h->v[7] + o);
             }
         }
         for (i = 0, q2 = (char *)h + h->v[9]; i < h->v[8]; i++, q2 += 0x20)
@@ -2073,7 +2075,7 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         for (i = 0, q2 = (char *)h + h->v[0xB]; i < h->v[0xA]; i++, q2 += 0x30)
             register_shrub_render_class(base + *(s32 *)q2, (char *)h + h->v[0x13], q2 + 0x10, q2 + 0x20,
                                         *(s32 *)(q2 + 4));
-        level_effects_data = base + h->v[0x1A];
+        effect_texture_data_base = base + h->v[0x1A];
         unpack_point_records((char *)h + h->v[0x17], h->v[0x16]);
         if (h->v[0x28]) {
             relocate_counted_pointer_table(base + h->v[0x28]);
@@ -2126,13 +2128,13 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
             Class244110 *cls = moby_class_headers[ci];
             if (cls == 0) {
                 for (j = 0; j < moby_class_reference_count; j++)
-                    if (swap_moby_class_ids[j] == moby_class_ids[ci])
+                    if (moby_reference_class_ids[j] == moby_class_ids[ci])
                         break;
                 if (j < moby_class_reference_count) {
-                    FastMemSet(swap_moby_class_sounds[j], -1, 0x20);
+                    FastMemSet(moby_reference_sound_ids[j], -1, 0x20);
                     e = tbl + span->off;
                     for (k = 0; k < span->count && k < 15; k++, e += 4)
-                        swap_moby_class_sounds[j][k] = *(u16 *)e;
+                        moby_reference_sound_ids[j][k] = *(u16 *)e;
                 }
             } else {
                 if (span->count != cls->count0D)
@@ -2212,17 +2214,16 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
         ((void (*)())STUB_printf)(
             mem_report_texture_data_fmt,
             (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)((particle_texture_vram_table[1] >> 4) - level_texture_data_base)) *
-                (1.0f / 1024.0f)))));
+                IntToFloat((s32)((particle_texture_ranges[1] >> 4) - level_texture_data_base)) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_particle_vram_fmt,
             (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)((s32)level_effects_data - (particle_texture_vram_table[1] >> 4))) *
+                IntToFloat((s32)((s32)effect_texture_data_base - (particle_texture_ranges[1] >> 4))) *
                 (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_effects_vram_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)((char *)moby_class_headers[0] - level_effects_data)) *
-                                             (1.0f / 1024.0f)))));
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)((char *)moby_class_headers[0] - effect_texture_data_base)) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(mem_report_moby_classes_fmt,
                                   (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_classes[0]) -
                                                                                     (char *)moby_class_headers[0])) *
@@ -2237,32 +2238,34 @@ s32 load_level_archive_resources(s32 full, s32 keep) {
             ((void (*)())STUB_printf)(
                 mem_report_tie_classes_fmt,
                 (((*(f64 (*)(f32))func_00120778)(
-                    IntToFloat((s32)(((char *)tie_instances) - ((char *)level_tie_classes[0]))) * (1.0f / 1024.0f)))));
+                    IntToFloat((s32)(((char *)level_tie_instances) - ((char *)level_tie_classes[0]))) *
+                    (1.0f / 1024.0f)))));
         if (h->v[0xA])
             ((void (*)())STUB_printf)(
                 mem_report_shrub_classes_fmt,
                 (((*(f64 (*)(f32))func_00120778)(
                     IntToFloat((s32)(moby_class_headers[0]->seqs[0] - ((char *)shrub_class_table[0]))) *
                     (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(
-            mem_report_moby_seqs_fmt,
-            (((*(f64 (*)(f32))func_00120778)(
-                IntToFloat((s32)(((char *)tie_instances) - moby_class_headers[0]->seqs[0])) * (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(
-            mem_report_tie_instances_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)shrub_instances) - ((char *)tie_instances))) *
-                                             (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_moby_seqs_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_tie_instances) -
+                                                                                    moby_class_headers[0]->seqs[0])) *
+                                                                   (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(mem_report_tie_instances_fmt,
+                                  (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)level_shrub_instances) -
+                                                                                    ((char *)level_tie_instances))) *
+                                                                   (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_shrub_instances_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(((char *)moby_array_start) - ((char *)shrub_instances))) *
-                                             (1.0f / 1024.0f)))));
+            (((*(f64 (*)(f32))func_00120778)(
+                IntToFloat((s32)(((char *)moby_array_start) - ((char *)level_shrub_instances))) * (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_mobys_fmt,
-            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(moby_spawn_pvar_pool - ((char *)moby_array_start))) *
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(l00_active_moby_pool_end - ((char *)moby_array_start))) *
                                              (1.0f / 1024.0f)))));
-        ((void (*)())STUB_printf)(mem_report_moby_pvars_fmt,
-                                  (((*(f64 (*)(f32))func_00120778)(
-                                      IntToFloat((s32)(level_path_data - moby_spawn_pvar_pool)) * (1.0f / 1024.0f)))));
+        ((void (*)())STUB_printf)(
+            mem_report_moby_pvars_fmt,
+            (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(level_path_data - l00_active_moby_pool_end)) *
+                                             (1.0f / 1024.0f)))));
         ((void (*)())STUB_printf)(
             mem_report_paths_fmt,
             (((*(f64 (*)(f32))func_00120778)(IntToFloat((s32)(particle_pool - level_path_data)) * (1.0f / 1024.0f)))));

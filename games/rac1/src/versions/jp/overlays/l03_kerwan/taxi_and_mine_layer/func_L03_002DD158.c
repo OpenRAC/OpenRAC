@@ -7,7 +7,7 @@ void robot_qwark_update(unsigned char *m) {
     float pos[4] __attribute__((aligned(16)));
     float tmp[4] __attribute__((aligned(16)));
 
-    if (m[0x31] != 0 && FastVecDist(m + 0x10, kerwan_camera_pos) < 26.0f) {
+    if (m[0x31] != 0 && fast_vec_dist(m + 0x10, kerwan_camera_pos) < 26.0f) {
         set_ground_height_band(m);
         m[0x7F] = 21;
     }
@@ -30,8 +30,8 @@ void robot_qwark_update(unsigned char *m) {
         unsigned char *p5 = gSkillPoints;
         if (p5[5] == 0) {
             p5[5] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x542D, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x542D, -1);
         }
         *(u128_DD158 *)pos = *(u128_DD158 *)(m + 0x10);
         pos[2] += 1.0f;
@@ -61,7 +61,7 @@ void robot_qwark_update(unsigned char *m) {
         case 1:
             if (Npc_TryStartDialog(m, (unsigned char *)d)) {
                 menu_item_enabled_9[4] = 1;
-                PlaceMarkerAheadOfMoby(2.7f, m);
+                begin_dialogue_camera_transition(2.7f, m);
                 m[0x20] = 2;
             }
             break;
@@ -87,7 +87,7 @@ void robot_qwark_update(unsigned char *m) {
             add_vectors(tmp, pos, m + 0x10);
             if (random_integer_below(3) == 0) {
                 spawn_effect_particle_with_target_scalar(pos, vel, 0x20202020, 0x7F7F7F, 157500.0f,
-                                                         scale_ticks(rand_range(0x3C, 0x78)));
+                                                         scale_ticks(random_int_between(0x3C, 0x78)));
             }
             break;
     }

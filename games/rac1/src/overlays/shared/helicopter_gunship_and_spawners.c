@@ -93,12 +93,12 @@ struct FallingMobyVars {
     s32 fade_timer; /* 0x24: ticks left */
 };
 
-extern char kerwan_spr_upload_block[];
+extern char textured_grid_scratchpad_index_table[];
 
 /* Draw the textured grid moby: build and upload its DMA packet, draw, then restore the view. */
 void draw_textured_grid(char *moby) {
     build_interpolated_dma_packet(moby);
-    write_spr_dma_channel(kerwan_spr_upload_block, 0x70002800, 0xF8);
+    write_spr_dma_channel(textured_grid_scratchpad_index_table, 0x70002800, 0xF8);
     textured_grid_transform_cells(moby);
     textured_grid_build_gif_packet(moby);
     restore_view_after_textured_grid(moby);
@@ -110,7 +110,7 @@ extern float frame_scale MACRO_ADDR;
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 /* update: follow the parent, blend its color, scale by the wind factor */
-void update_parent_following_effect(Moby *moby) {
+void parent_following_effect_update(Moby *moby) {
     struct ParentFollowEffectVars *p = (struct ParentFollowEffectVars *)moby->pvars;
     float ratio;
     float v;
@@ -126,7 +126,7 @@ void update_parent_following_effect(Moby *moby) {
     qcopy(&moby->pos, *(char **)(p->parent + 0x78) + 0xF0);
     v = p->offset + p->offset_step;
     p->offset = v;
-    fast_add_rotations_cf(&moby->pos, &moby->pos, -v, moby->rot.z, moby->rot.y);
+    AddSphericalOffset(&moby->pos, &moby->pos, -v, moby->rot.z, moby->rot.y);
     moby->rot.x = FastAddRots(moby->rot.x, g_frame_time * 5.235987663269043f);
     ratio = IntToFloat(p->timer);
     ratio = ratio / IntToFloat(p->duration);
@@ -137,17 +137,17 @@ void update_parent_following_effect(Moby *moby) {
     moby->alpha = truncate_float_to_s32_r(ratio * 128.0f);
     moby->scale = moby->scale * (frame_scale * 0.019999981f + 1.0f);
 }
-extern char *kerwan_camera_points MACRO_ADDR;
+extern char *l03_cuboids MACRO_ADDR;
 
 // Builds a random vector and transforms it by the indexed matrix; returns 1 for index -1.
 int sample_random_transformed_point(int idx, float *out) {
     char *mat;
     if (idx != -1) {
-        mat = kerwan_camera_points + idx * 128;
+        mat = l03_cuboids + idx * 128;
         out[0] = random_float_between(-1.0f, 1.0f);
         out[1] = random_float_between(-1.0f, 1.0f);
         out[2] = random_float_between(-1.0f, 1.0f);
-        matrix_mul_vec3(out, out, mat);
+        transform_vector_by_basis(out, out, mat);
         FastVecAdd(out, out, mat + 0x30);
         return 0;
     }
@@ -155,9 +155,9 @@ int sample_random_transformed_point(int idx, float *out) {
 }
 typedef int Q_2c0028 __attribute__((mode(TI)));
 extern char *kerwan_mobys_p __asm__("D_L03_00160058") MACRO_ADDR;
-extern char *D_L03_00160064 MACRO_ADDR;
-extern int D_L03_0015F6B0 MACRO_ADDR;
-extern char spawner_revive_failed_fmt[];
+extern char *kerwan_moby_list MACRO_ADDR;
+extern int kerwan_frame_count MACRO_ADDR;
+extern char spawner_spawn_failure_format[];
 
 typedef struct Spawner {
     u8 pad_00[0x83];
@@ -299,7 +299,7 @@ char *revive_spawner_pooled_child(char *m, float *at, int cls) {
         }
     }
     if (spawned == 0) {
-        STUB_printf(spawner_revive_failed_fmt, kerwan_frame_count, *(s16 *)&spawner_moby->save_id,
+        STUB_printf(spawner_spawn_failure_format, kerwan_frame_count, *(s16 *)&spawner_moby->save_id,
                     spawner_moby->oclass);
     }
     return (char *)spawned;
@@ -357,7 +357,7 @@ extern float g_frame_time_sq MACRO_ADDR;
 
 /* Update of moby Spawner (spawner): counts its living children, takes hits, runs its state machine and spawns Bomb
    children at a point picked by its mode. */
-void ChildSpawnerUpdate(Moby *moby) {
+void bomb_spawner_update(Moby *moby) {
     int used[4];
     Vec4A v30;
     Vec4A v40;
@@ -383,7 +383,7 @@ void ChildSpawnerUpdate(Moby *moby) {
     if (moby == 0)
         return;
     d = (Data_2C0330 *)moby->pvars;
-    if (moby->visible != 0 && FastVecDist(&moby->pos, kerwan_camera_pos) < 28.0f) {
+    if (moby->visible != 0 && fast_vec_dist(&moby->pos, kerwan_camera_pos) < 28.0f) {
         set_ground_height_band(moby);
         moby->shadow_range = 0x16;
     }
@@ -538,7 +538,7 @@ void ChildSpawnerUpdate(Moby *moby) {
         int *u = used;
         libc_memset(u, 0, 0x10);
         while (d->h8A == 0 ? d->count < d->max : d->timer == 0) {
-            Moby_GetJointWorldPos(moby, 0, &v30);
+            moby_point_position(moby, 0, &v30);
             switch (d->b85) {
                 case 0: {
                     float ang;
@@ -557,7 +557,7 @@ void ChildSpawnerUpdate(Moby *moby) {
                     v40.z = 0.0f;
                     clamp_vec_length(&v40, &v40, d->f90);
                     FastVecAdd(&v50, &v30, &v40);
-                    h = ProbeGroundHeight(&v50, 0, 0.5f);
+                    h = probe_ground_height(&v50, 0, 0.5f);
                     if (h != 0.0f) {
                         v50.z = h;
                     }
@@ -577,7 +577,7 @@ void ChildSpawnerUpdate(Moby *moby) {
                     }
                     clamp_vec_length(&v40, &v40, d->f90);
                     FastVecAdd(&v50, &v30, &v40);
-                    h = ProbeGroundHeight(&v50, 0, 0.5f);
+                    h = probe_ground_height(&v50, 0, 0.5f);
                     if (h != 0.0f) {
                         v50.z = h;
                     }
@@ -777,8 +777,8 @@ void bomb_545_update(char *moby) {
                 vec_scale_to_length(t, t, 0.215f);
                 FastVecAdd(pos, pos, t);
                 if (kerwan_coll_hit.moby == 0) {
-                    vec_reflect(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
-                    f0 = vec_length_xy(&kerwan_coll_hit.normal_x);
+                    reflect_vector(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
+                    f0 = vector_length_xy(&kerwan_coll_hit.normal_x);
                     if (fast_atan2(kerwan_coll_hit.normal_z, f0) < 0.6981317f) {
                         if (CollType() == -1) {
                             FastVecScale(&d->velocity, &d->velocity, 0.5f);
@@ -787,8 +787,8 @@ void bomb_545_update(char *moby) {
                         }
                     }
                 } else if (*(short *)(kerwan_coll_hit.moby + 0xA6) != 0x221) {
-                    vec_reflect(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
-                    f0 = vec_length_xy(&kerwan_coll_hit.normal_x);
+                    reflect_vector(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
+                    f0 = vector_length_xy(&kerwan_coll_hit.normal_x);
                     if (fast_atan2(kerwan_coll_hit.normal_z, f0) < 0.6981317f) {
                         if (CollType() == -1) {
                             FastVecScale(&d->velocity, &d->velocity, 1.2f);
@@ -808,8 +808,8 @@ void bomb_545_update(char *moby) {
                 vec_scale_to_length(t, t, 0.015f);
                 FastVecAdd(((char *)&((Moby *)moby)->pos), kerwan_coll_hit.pad30, t);
                 if (kerwan_coll_hit.moby == 0) {
-                    vec_reflect(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
-                    f0 = vec_length_xy(&kerwan_coll_hit.normal_x);
+                    reflect_vector(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
+                    f0 = vector_length_xy(&kerwan_coll_hit.normal_x);
                     if (fast_atan2(kerwan_coll_hit.normal_z, f0) < 0.6981317f) {
                         if (CollType() == -1) {
                             FastVecScale(&d->velocity, &d->velocity, 0.5f);
@@ -818,8 +818,8 @@ void bomb_545_update(char *moby) {
                         }
                     }
                 } else if (*(short *)(kerwan_coll_hit.moby + 0xA6) != 0x221) {
-                    vec_reflect(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
-                    f0 = vec_length_xy(&kerwan_coll_hit.normal_x);
+                    reflect_vector(&d->velocity, &d->velocity, &kerwan_coll_hit.normal_x);
+                    f0 = vector_length_xy(&kerwan_coll_hit.normal_x);
                     if (fast_atan2(kerwan_coll_hit.normal_z, f0) < 0.6981317f) {
                         if (CollType() == -1) {
                             FastVecScale(&d->velocity, &d->velocity, 1.2f);
@@ -860,7 +860,7 @@ void bomb_545_update(char *moby) {
             break;
         }
         case 1: {
-            f0 = ProbeGroundHeight(pos, 0, 0.5f);
+            f0 = probe_ground_height(pos, 0, 0.5f);
             *(int *)&((Moby *)moby)->pos.w = 0;
             ((Moby *)moby)->pos.z = f0 + 0.2f;
             *(VecQuad *)t = *(VecQuad *)&((Moby *)moby)->pos;
@@ -1007,10 +1007,10 @@ typedef struct {
     int segment_b;
     float fraction_b;
 } HWork49_2CDDC8;
-extern int D_L03_001BA8E0[];
+extern int kerwan_moby_killed_bits[];
 extern HPath49_2CDDC8 *kerwan_paths_r[] __asm__("D_L03_001B08B0");
 extern int g_current_level_index_r __asm__("D_0015EE84") MACRO_ADDR;
-extern unsigned char D_0014171B[];
+extern unsigned char help_stats_base[];
 extern float g_frame_scale_sq_r __asm__("D_0015EE64") MACRO_ADDR;
 extern float D_L03_00161A14_2CDDC8 SDATA(D_L03_00161A14);
 extern float D_L03_00161A18_2CDDC8 SDATA(D_L03_00161A18);
@@ -1116,7 +1116,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                 HPath49_2CDDC8 *path = paths[d->activation_path];
                 int i;
                 for (i = 0; i < path->count - 2; i++)
-                    path->points[i].length = FastVecDist(&path->points[i], &path->points[i + 1]);
+                    path->points[i].length = fast_vec_dist(&path->points[i], &path->points[i + 1]);
                 *(HQuad49_2CDDC8 *)m->position = *(HQuad49_2CDDC8 *)path->points;
                 m->state = 1;
                 break;
@@ -1134,7 +1134,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
             d->activation_region = -1;
             find_nearest_path_point(path, m->position, w.projected, &w.segment_a, &w.fraction_a, 0, 999.0f, 5.0f, 0.0f);
             progress = IntToFloat(w.segment_a) * path->points[0].length + w.fraction_a + 2.0f;
-            distance = FastVecDist(m->position, (char *)path + (path->count << 4));
+            distance = fast_vec_dist(m->position, (char *)path + (path->count << 4));
             step = g_frame_time_sq_r * 10.0f;
             if (distance <= d->speed * d->speed / (step + step)) {
                 float speed = d->speed - step;
@@ -1210,7 +1210,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
             m->rotation[2] = SpringTurn(&d->yaw_velocity, m->rotation[2], angle, 0.01f, 0.3f, 0.1f);
             projectile = d->projectile;
             if (!projectile || projectile->class_id != 0x350 || projectile->state == 254 || projectile->state == 253) {
-                Moby_GetJointWorldPos(m, 0, w.movement);
+                moby_point_position(m, 0, w.movement);
                 FastVecSub(w.direction, w.target.position, w.movement);
                 *(HQuad49_2CDDC8 *)w.projected = *(HQuad49_2CDDC8 *)w.direction;
                 matrix_from_basis_rows(w.offset, m->transform);
@@ -1218,14 +1218,14 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                 angle = fast_atan2(w.projected[0], w.projected[1]);
                 d->gun_yaw = SpringTurn(&d->gun_yaw_velocity, d->gun_yaw, angle, g_frame_time_sq_r * 6.2831855f,
                                         g_frame_time_sq_r * 12.566371f, g_frame_time_r * 6.2831855f);
-                angle = -fast_atan2(vec_length_xy(w.projected), w.projected[2]);
+                angle = -fast_atan2(vector_length_xy(w.projected), w.projected[2]);
                 d->gun_pitch = SpringTurn(&d->gun_pitch_velocity, d->gun_pitch, angle, g_frame_time_sq_r * 3.1415927f,
                                           g_frame_time_sq_r * 6.2831855f, g_frame_time_r * 1.5707964f);
-                axis_rotation_2d48(d->gun_yaw_matrix + 4, 2, d->gun_yaw);
-                axis_rotation_2d48(d->gun_pitch_matrix + 4, 2, d->gun_pitch);
+                build_axis_rotation_quaternion(d->gun_yaw_matrix + 4, 2, d->gun_yaw);
+                build_axis_rotation_quaternion(d->gun_pitch_matrix + 4, 2, d->gun_pitch);
                 d->projectile = 0;
             } else {
-                Moby_GetJointWorldPos(m, 0, w.movement);
+                moby_point_position(m, 0, w.movement);
                 FastVecSub(w.direction, d->projectile->position, w.movement);
                 *(HQuad49_2CDDC8 *)w.projected = *(HQuad49_2CDDC8 *)w.direction;
                 matrix_from_basis_rows(w.offset, m->transform);
@@ -1233,24 +1233,24 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                 angle = fast_atan2(w.projected[0], w.projected[1]);
                 d->gun_yaw = SpringTurn(&d->gun_yaw_velocity, d->gun_yaw, angle, g_frame_time_sq_r * 6.2831855f,
                                         g_frame_time_sq_r * 12.566371f, g_frame_time_r * 6.2831855f);
-                angle = -fast_atan2(vec_length_xy(w.projected), w.projected[2]);
+                angle = -fast_atan2(vector_length_xy(w.projected), w.projected[2]);
                 d->gun_pitch = SpringTurn(&d->gun_pitch_velocity, d->gun_pitch, angle, g_frame_time_sq_r * 3.1415927f,
                                           g_frame_time_sq_r * 6.2831855f, g_frame_time_r * 1.5707964f);
-                axis_rotation_2d48(d->gun_yaw_matrix + 4, 2, d->gun_yaw);
-                axis_rotation_2d48(d->gun_pitch_matrix + 4, 2, d->gun_pitch);
+                build_axis_rotation_quaternion(d->gun_yaw_matrix + 4, 2, d->gun_yaw);
+                build_axis_rotation_quaternion(d->gun_pitch_matrix + 4, 2, d->gun_pitch);
             }
             if (point > 0 && point < route->path->count - 1) {
                 float node_distance = vec_distance_xy(&route->path->points[point], w.target.position);
-                if (node_distance < 20.0f && FastAbsF(w.target.position[2] - m->position[2]) < 10.0f &&
-                    node_distance < FastVecDist(&route->path->points[point + 1], w.target.position) &&
+                if (node_distance < 20.0f && absolute_float(w.target.position[2] - m->position[2]) < 10.0f &&
+                    node_distance < fast_vec_dist(&route->path->points[point + 1], w.target.position) &&
                     point < route->path->count - 2)
                     route->index++;
             }
             FastVecSub(w.direction, &route->path->points[point], m->position);
             distance = FastVecLength(w.direction);
             if (distance < d->speed * d->speed / ((g_frame_time_sq_r * 4.0f) * 2.0f) ||
-                FastVecDist(&route->path->points[point], w.target.position) <
-                    FastVecDist(m->position, w.target.position)) {
+                fast_vec_dist(&route->path->points[point], w.target.position) <
+                    fast_vec_dist(m->position, w.target.position)) {
                 d->speed -= g_frame_time_sq_r * 4.0f;
                 if (d->speed < 0)
                     d->speed = 0;
@@ -1259,8 +1259,8 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                 if (g_frame_time_r * 10.0f < d->speed)
                     d->speed = g_frame_time_r * 10.0f;
             }
-            distance = FastVecDist(&route->path->points[point], w.target.position);
-            other_distance = FastVecDist(m->position, w.target.position);
+            distance = fast_vec_dist(&route->path->points[point], w.target.position);
+            other_distance = fast_vec_dist(m->position, w.target.position);
             if (distance < other_distance)
                 vec_scale_to_length(w.direction, w.direction, -d->speed);
             else
@@ -1286,7 +1286,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                     HPath49_2CDDC8 *path = kerwan_paths_r[d->alternate ? d->other_exit_path : d->exit_path];
                     int i;
                     for (i = 0; i < path->count - 2; i++)
-                        path->points[i].length = FastVecDist(&path->points[i], &path->points[i + 1]);
+                        path->points[i].length = fast_vec_dist(&path->points[i], &path->points[i + 1]);
                 }
                 m->previous_state = 3;
                 m->state = 4;
@@ -1318,7 +1318,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
             path = kerwan_paths_r[d->alternate ? d->other_exit_path : d->exit_path];
             find_nearest_path_point(path, m->position, w.projected, &w.segment_b, &w.fraction_b, 0, 999.0f, 5.0f, 0.0f);
             progress = IntToFloat(w.segment_b) * path->points[0].length + w.fraction_b + 2.0f;
-            distance = FastVecDist(m->position, (char *)path + (path->count << 4));
+            distance = fast_vec_dist(m->position, (char *)path + (path->count << 4));
             step = g_frame_time_sq_r * 10.0f;
             if (distance <= d->speed * d->speed / (step + step)) {
                 float speed = d->speed - step;
@@ -1415,7 +1415,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
             int i;
             *(HQuad49_2CDDC8 *)w.movement = 0;
             angle = random_angle_radians();
-            Moby_GetJointWorldPos(m, 4, w.projected);
+            moby_point_position(m, 4, w.projected);
             for (i = 0; i < 4; i++) {
                 w.offset[0] = FastCos(angle) * 1.5f;
                 w.offset[1] = FastSin(angle) * 1.5f;
@@ -1423,7 +1423,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
                 angle = FastAddRots(angle, 1.5707964f);
                 add_vectors(w.hit.direction, w.offset, w.projected);
             }
-            Moby_GetJointWorldPos(m, 5, w.offset);
+            moby_point_position(m, 5, w.offset);
             if (d->child_index != -1) {
                 HMob49_2CDDC8 *child = (HMob49_2CDDC8 *)(kerwan_mobys_p + (d->child_index << 8));
                 ((unsigned char *)child->data)[0x262] = 2;
@@ -1465,7 +1465,7 @@ void HelicopterGunshipUpdate(HMob49_2CDDC8 *m) {
         default:
             break;
     }
-    if (m->nearby && FastVecDist(m->position, kerwan_camera_pos_r) < 40.0f)
+    if (m->nearby && fast_vec_dist(m->position, kerwan_camera_pos_r) < 40.0f)
         set_ground_height_band(m);
     m->position[2] -= D_L03_00161A18_2CDDC8 * FastCos(d->bob);
     d->bob = FastAddRots(d->bob, 6.2831855f / multiply_global_factor(D_L03_00161A14_2CDDC8 * 60.0f));
@@ -1505,11 +1505,11 @@ void handle_blarg_helicopter_hits(char *m) {
                 b = FastSubRots(a, ((Moby *)m)->rot.z);
                 p = FastCos(b) * 0.08726646f;
                 q = FastSin(b) * -0.34906584f;
-                if (FastAbsF(((Moby *)m)->rot.x) < FastAbsF(q)) {
+                if (absolute_float(((Moby *)m)->rot.x) < absolute_float(q)) {
                     ((Moby *)m)->rot.x = q;
                     d->sway_y = 0.0f;
                 }
-                if (FastAbsF(((Moby *)m)->rot.y) < FastAbsF(p)) {
+                if (absolute_float(((Moby *)m)->rot.y) < absolute_float(p)) {
                     ((Moby *)m)->rot.y = p;
                     d->sway_z = 0.0f;
                 }
@@ -1585,11 +1585,11 @@ typedef struct {
 extern char kerwan_coll_hit_point[];
 extern char kerwan_coll_hit_normal[];
 extern Moby *kerwan_coll_hit_moby;
-extern float homing_spark_turn_rate SDATA(homing_spark_turn_rate);
+extern float homing_spark_turn_rate_degrees_gp SDATA(D_L03_00161BB0);
 
 /* Update of moby class 848: a spark that homes on its target moby, sheds particles and an arc when close, and dies on
    a hit. */
-void update_homing_spark_projectile(Moby *moby) {
+void helicopter_spark_update(Moby *moby) {
     Tgt tgt;
     Vec4A v50;
     Hit_2D5B88 hit;
@@ -1626,7 +1626,7 @@ void update_homing_spark_projectile(Moby *moby) {
         case 1:
             vec_set_length_xy(&v90, d, 1.0f);
             d->vel.z = 1.0f;
-            InitDirectionalHitQuery(&hit, moby, 0x10003, 2.0f, &v90);
+            make_hit_descriptor(&hit, moby, 0x10003, 2.0f, &v90);
             vec_set_length_xy(&hit, &hit, 1.0f);
             hit.dir.z = 1.0f;
             hit.dir.w = 5627.9248f;
@@ -1644,16 +1644,16 @@ void update_homing_spark_projectile(Moby *moby) {
             ang = fast_atan2(d->vel.x, d->vel.y);
             if (FastDiffRots(ang, fast_atan2(tgt.pos.x - moby->pos.x, tgt.pos.y - moby->pos.y)) < 1.5707964f) {
                 step_angle_toward_target(&ang, 0, fast_atan2(tgt.pos.x - moby->pos.x, tgt.pos.y - moby->pos.y),
-                                         homing_spark_turn_rate * 0.017453292f * g_frame_time);
-                d->vel.x = FastCos(ang) * vec_length_xy(d);
-                d->vel.y = FastSin(ang) * vec_length_xy(d);
+                                         homing_spark_turn_rate_degrees_gp * 0.017453292f * g_frame_time);
+                d->vel.x = FastCos(ang) * vector_length_xy(d);
+                d->vel.y = FastSin(ang) * vector_length_xy(d);
             }
             FastVecAdd(&moby->pos, &moby->pos, d);
             dist = vec_distance_xy(&moby->pos, &d->target->pos);
             if (snd != 0) {
                 int h = *snd;
                 if (d->target->pos.z - tgt.pos.z < dist) {
-                    if (Sound_IsPlaying(d->target, h) == 0) {
+                    if (voice_is_playing(d->target, h) == 0) {
                         *snd = Moby_PlaySound(0, 4, (int)d->target);
                     }
                 } else {
@@ -1673,7 +1673,7 @@ void update_homing_spark_projectile(Moby *moby) {
                     vD0.y = FastSin(FastAddRots(ang, d->flip ? 1.5707964f : -1.5707964f)) * 0.25f;
                     vD0.z = 0.0f;
                     FastVecAdd(&vE0, &moby->pos, &vD0);
-                    Moby_GetJointWorldPos(d->target, 3 - d->flip, &vA0);
+                    moby_point_position(d->target, 3 - d->flip, &vA0);
                     FastVecSub(&vB0, &vE0, &vA0);
                     FastVecScale(&vC0, &vB0, 2.0f);
                     FastVecAdd(&vC0, &vC0, &vA0);
@@ -1687,10 +1687,12 @@ void update_homing_spark_projectile(Moby *moby) {
                         FastVecAdd(&vF0, &vB0, &vF0);
                         vec_scale_to_length(&vF0, &vF0,
                                             random_float_between(g_frame_time * 5.0f, g_frame_time * 15.0f));
-                        PartType27Spawn(&vA0, &vF0, 0x5F2F4F6F, rand_range(scale_ticks(5), scale_ticks(10)), 50000.0f);
+                        PartType27Spawn(&vA0, &vF0, 0x5F2F4F6F, random_int_between(scale_ticks(5), scale_ticks(10)),
+                                        50000.0f);
                     }
                     vec_scale_to_length(&vB0, &vB0, g_frame_time * 0.5f);
-                    PartType27Spawn(&vA0, &vB0, 0x2F4F7F7F, rand_range(scale_ticks(4), scale_ticks(7)), 400000.0f);
+                    PartType27Spawn(&vA0, &vB0, 0x2F4F7F7F, random_int_between(scale_ticks(4), scale_ticks(7)),
+                                    400000.0f);
                     FastVecScale(&v100, d, multiply_global_factor(6.0f));
                     FastVecAdd(&v100, &v100, &moby->pos);
                     FastVecSub(&v100, &v100, &vD0);
@@ -1710,13 +1712,13 @@ void update_homing_spark_projectile(Moby *moby) {
                             v100.y = random_float_between(-1.0f, 1.0f);
                             v100.z = random_float_between(-1.0f, 1.0f);
                             vF0 = v100;
-                            vec_reflect(&v100, &vB0, kerwan_coll_hit_normal);
+                            reflect_vector(&v100, &vB0, kerwan_coll_hit_normal);
                             vec_scale_to_length(&vF0, &vF0, FastVecLength(&v100) * 0.5f);
                             FastVecAdd(&v100, &v100, &vF0);
                             vec_scale_to_length(&v100, &v100,
                                                 random_float_between(g_frame_time * 3.0f, g_frame_time * 6.0f));
-                            PartType27Spawn(&vA0, &v100, 0x7F2F4F6F, rand_range(scale_ticks(0xF), scale_ticks(0x14)),
-                                            30000.0f);
+                            PartType27Spawn(&vA0, &v100, 0x7F2F4F6F,
+                                            random_int_between(scale_ticks(0xF), scale_ticks(0x14)), 30000.0f);
                         }
                         vec_scale_to_length(&vB0, &vB0, -1.0f);
                         FastVecAdd(&vC0, &vA0, &vB0);
@@ -1789,7 +1791,7 @@ extern int kerwan_game_mode MACRO_ADDR;
 extern unsigned char gCheats[] MACRO_ADDR;
 extern G_2DC848 kerwan_cutscene_state;
 extern unsigned char kerwan_big_head_manipulator[];
-extern float kerwan_cutscene_manipulator_scale SDATA(kerwan_cutscene_manipulator_scale);
+extern float shared_manipulator_attachment_scale SDATA(D_L03_00161C44);
 
 /* Re-arms the matching entry of the level's moby list in mode 2 (attach_big_head_cheat_manipulator with argument 1). */
 void attach_shared_manipulator_to_matching_class_moby(char *a) {
@@ -1801,9 +1803,9 @@ void attach_shared_manipulator_to_matching_class_moby(char *a) {
                 unsigned char *q = kerwan_big_head_manipulator;
                 if (q[1] == 0) {
                     AttachManipulator(moby, 1, q);
-                    *(float *)(q + 0x20) = kerwan_cutscene_manipulator_scale;
-                    *(float *)(q + 0x24) = kerwan_cutscene_manipulator_scale;
-                    *(float *)(q + 0x28) = kerwan_cutscene_manipulator_scale;
+                    *(float *)(q + 0x20) = shared_manipulator_attachment_scale;
+                    *(float *)(q + 0x24) = shared_manipulator_attachment_scale;
+                    *(float *)(q + 0x28) = shared_manipulator_attachment_scale;
                 }
             }
         }
@@ -1814,11 +1816,11 @@ typedef u32 u128 __attribute__((mode(TI), aligned(16)));
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/00291918.c, FUN_L03_002dc310. */
 void fred_1_update(Moby *m) {
     float v[12]; /* unused; sets the frame size */
-    FastVecDist(&m->pos, g_hero.motion.pos.f);
+    fast_vec_dist(&m->pos, g_hero.motion.pos.f);
     FastDiffRots(fast_atan2(g_hero.motion.pos.f[0] - m->pos.x, g_hero.motion.pos.f[1] - m->pos.y), m->rot.z);
     DeleteMoby(m);
 }
-extern void func_L01_002FC890(char *);
+extern void attach_cutscene_fixed_scale_manipulator(char *);
 
 extern char qwark_rilgar_no_region_a_msg[];
 extern char qwark_rilgar_no_region_c_msg[];
@@ -1866,7 +1868,7 @@ void qwark_rilgar_update(char *m) {
     watch_data = (QwarkWatchData *)moby->pvars;
     attach_cutscene_fixed_scale_manipulator(m);
     if (moby->visible != 0) {
-        if (FastVecDist(&moby->pos, kerwan_camera_pos) < 30.0f) {
+        if (fast_vec_dist(&moby->pos, kerwan_camera_pos) < 30.0f) {
             set_ground_height_band(m);
             moby->shadow_range = 0x18;
         }
@@ -1937,7 +1939,7 @@ void qwark_rilgar_update(char *m) {
         s_eye[2] += 1.0f;
         FastVecSub(s_delta, s_target, s_eye);
         yaw = FastSubRots(fast_atan2(s_delta[0], s_delta[1]), moby->rot.z);
-        pitch = -fast_atan2(vec_length_xy(s_delta), s_delta[2]);
+        pitch = -fast_atan2(vector_length_xy(s_delta), s_delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -1952,14 +1954,14 @@ void qwark_rilgar_update(char *m) {
     }
     if (gCheats[0] != 0)
         watch_data->height = 2.75f;
-    EaseManipulatorOffsets(m, (char *)watch_data, 0, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
-    EaseManipulatorOffsets(m, (char *)watch_data + 0x80, 1, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
+    update_joint_animation(m, (char *)watch_data, 0, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
+    update_joint_animation(m, (char *)watch_data + 0x80, 1, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
 }
 
 extern char kerwan_ambient_stream_scaled_table[];
 
 /* moby update: state 0 plays a sound and arms state 1, state 1 registers a draw callback */
-void update_moby_draw_callback(unsigned char *moby) {
+void moby_draw_callback_update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             prepare_scaled_float_table_with_target_byte(kerwan_ambient_stream_scaled_table, 0.6666667f, 0x20);
@@ -1975,7 +1977,7 @@ typedef struct {
     u8 pad[0x454];
     u8 collected[1];
 } LevelCollected;
-extern LevelCollected kerwan_checkpoint_level_state;
+extern LevelCollected l03_save_state;
 extern s32 level_moby_killed[][64];
 extern s32 g_current_level_index MACRO_ADDR;
 /* Rise 4 units at frame speed once the moby's save slot is collected or killed, then hold. */
@@ -1989,7 +1991,7 @@ void garage_door_update(struct Moby *m) {
             target->q = ((Vec4 *)&m->pos)->q;
             id = m->save_id;
             idx = id;
-            if (kerwan_checkpoint_level_state.collected[idx] == 0) {
+            if (l03_save_state.collected[idx] == 0) {
                 if (!((level_moby_killed[g_current_level_index][idx >> 5] >> (id & 0x1F)) & 1))
                     return;
             }
@@ -2011,7 +2013,7 @@ INCLUDE_ASM("asm/overlays", func_L03_002DDED8);
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 /* Falling moby: applies gravity, eases its angles toward the target and fades out until its timer ends. */
-void update_falling_moby(Moby *moby) {
+void falling_moby_update(Moby *moby) {
     float v[4];
     struct FallingMobyVars *d = (struct FallingMobyVars *)moby->pvars;
     d->velocity.z = d->velocity.z - g_frame_time_sq * 9.8f;
@@ -2079,8 +2081,8 @@ void initialize_transform_state_from_level_table(Camera *cam) {
     qcopy(cam->type_data, (char *)cam);
     cam->transition_state = 0;
 }
-extern float gHeroPos[];
-extern float kerwan_camera_view_up_axis[];
+extern float hero_pos[];
+extern float transform_basis_reference_vector[];
 
 /* smooths a direction and rebuilds its orthogonal matrix axes */
 void smooth_transform_orientation_toward_hero(char *m) {
@@ -2090,18 +2092,18 @@ void smooth_transform_orientation_toward_hero(char *m) {
     float *height = (float *)(data + 0x10);
     char *result;
     float angle, t;
-    qcopy(position, gHeroPos);
+    qcopy(position, hero_pos);
     position[2] += height[19];
     result = m + 0x40;
     FastVecSub(direction, position, m + 0x30);
     vec_scale_to_length(direction, direction, 1.0f);
     angle = FastArcSin(FastVecDot(direction, m));
-    t = Camera_SmoothAngle(data, 0.0f, 1.57079637f - angle, *(float *)(data + 4), *(float *)(data + 8),
-                           *(float *)(data + 12));
+    t = rope_spring_turn(data, 0.0f, 1.57079637f - angle, *(float *)(data + 4), *(float *)(data + 8),
+                         *(float *)(data + 12));
     rotate_vector_by_scaled_angle_between_vectors(t, (float *)m, (float *)result, direction, 1);
     vec_scale_to_length(result, m, 1.0f);
     qcopy(m, result);
-    FastVecCross(m + 0x10, m, kerwan_camera_view_up_axis);
+    FastVecCross(m + 0x10, m, transform_basis_reference_vector);
     vec_scale_to_length(m + 0x10, m + 0x10, 1.0f);
     FastVecCross(m + 0x20, m + 0x10, m);
 }

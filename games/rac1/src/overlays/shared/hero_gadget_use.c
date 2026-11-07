@@ -34,7 +34,7 @@
 #include "game/ui/hud.h"
 #include "game/gameplay/freeze.h"
 extern char gSpecialItems[];
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char gSkillPoints[];
 extern Hero g_hero;
 extern char last_weapon_id[];
@@ -100,7 +100,7 @@ extern unsigned char gHaveHeliPack[] NOT_SDA;
 
 extern unsigned char gHaveMorphORay NOT_SDA;
 extern char help_stats_base[] NOT_SDA;
-extern int D_0015EE88[] MACRO_ADDR;
+extern int g_game_language[] MACRO_ADDR;
 extern int hero_slot0_item_8_selected MACRO_ADDR;
 
 extern HeroItemDefView rilgar_item_defs[];
@@ -403,7 +403,7 @@ void apply_hero_item_slot_selection(int i) {
         Sel *g = (Sel *)(&g_hero);
         *(int *)((char *)g + i * 0x50 + 0x10B0) = 3;
         clear_hero_idle_rotation_targets();
-        *(int *)((char *)g + 0x1010) = rand_range(scale_ticks(0x32), scale_ticks(0x5A));
+        *(int *)((char *)g + 0x1010) = random_int_between(scale_ticks(0x32), scale_ticks(0x5A));
         set_hero_item_switch_timer_for_item(*((int *)((char *)&g_hero + 0x20D4) + i));
         set_hero_condition_animation_timer_for_item(*((int *)((char *)&g_hero + 0x20D4) + i));
         if (g->f20A8 != 0) {
@@ -462,8 +462,8 @@ typedef struct {
 extern struct Hero g_hero_r __asm__("D_0013F450");
 extern int rilgar_frame_count_r __asm__("D_L05_0015F6B0") MACRO_ADDR;
 extern CollisionHit_4C558 rilgar_coll_hit_r __asm__("D_L05_00174340") NOT_SDA;
-extern u8 D_L05_00174360[] NOT_SDA;
-extern u8 D_L05_0017AC20[] NOT_SDA;
+extern u8 rilgar_coll_hit_point[] NOT_SDA;
+extern u8 rilgar_hero_bob_attach_euler[] NOT_SDA;
 
 extern void transform_hero_local_offset_to_world_r(float *, float, float, float) __asm__("func_L00_00233EE0");
 extern int coll_line_r(void *, void *, int, void *, int) __asm__("func_L00_001EFFF0");
@@ -484,7 +484,7 @@ void update_hero_movement_and_collision_probes(void) {
         g_hero_r.wall_probe_hit_moby = 0;
         if (probe_hero_forward_collision(0.7f, 4.0f, &g_hero_r.wall_probe_distance)) {
             CollisionHit_4C558 *wall = &rilgar_coll_hit_r;
-            float normal_xy = vec_length_xy(&wall->normal_x);
+            float normal_xy = vector_length_xy(&wall->normal_x);
             g_hero_r.wall_normal_pitch = fast_atan2(wall->normal_z, normal_xy);
             if (wall->moby != 0) {
                 g_hero_r.wall_probe_hit_moby = 1;
@@ -504,7 +504,7 @@ void update_hero_movement_and_collision_probes(void) {
             distance = 20.0f;
             hit = coll_line_r(start, end, 2, g_hero_r.moby, 0);
             if (hit)
-                distance = FastVecDist(start, rilgar_coll_hit_point);
+                distance = fast_vec_dist(start, rilgar_coll_hit_point);
             if (!hit || distance > 3.0f) {
                 for (offset = -0.4f; offset < 0.5f; offset += 0.1f) {
                     transform_hero_local_offset_to_world_r(probe, 1.1f + offset, 0.0f, 0.0f);
@@ -527,13 +527,13 @@ void update_hero_movement_and_collision_probes(void) {
         qcopy(g_hero_r.hoverboard_moby + 0x10, (char *)&g_hero_r + 0x80);
         *(u128_4C558 *)start = 0;
         start[2] = 0.21f;
-        matrix_mul_vec3(start, start, (char *)g_hero_r.moby + 0xc0);
+        transform_vector_by_basis(start, start, (char *)g_hero_r.moby + 0xc0);
         euler_to_matrix(rotation, rilgar_hero_bob_attach_euler);
         transform_vector(start, start, rotation);
         FastVecAdd(g_hero_r.hoverboard_moby + 0x10, g_hero_r.hoverboard_moby + 0x10, start);
         copy_matrix_rotation(moby_rotation, (char *)g_hero_r.moby + 0xc0);
-        sce_vu0_mul_matrix(combined, moby_rotation, rotation);
-        matrix_copy_rows(g_hero_r.hoverboard_moby + 0xc0, combined);
+        multiply_matrix(combined, moby_rotation, rotation);
+        copy_matrix3x4(g_hero_r.hoverboard_moby + 0xc0, combined);
     }
 }
 extern short rilgar_frame_count;
@@ -564,9 +564,9 @@ int try_apply_hero_water_and_ground_transitions(void) {
         } else if (k != 0x12 && k != 3) {
             float lim = 0.2f;
             float r;
-            if (lim < FastAbsF(g->motion.velocity.f[2]) + 0.07f)
-                lim = FastAbsF(g->motion.velocity.f[2]) + 0.07f;
-            r = FastAbsF(g->water_surface_z - (g->motion.pos.f[2] + 0.45f));
+            if (lim < absolute_float(g->motion.velocity.f[2]) + 0.07f)
+                lim = absolute_float(g->motion.velocity.f[2]) + 0.07f;
+            r = absolute_float(g->water_surface_z - (g->motion.pos.f[2] + 0.45f));
             if (r < lim) {
                 int k2 = g->state.control_mode;
                 if (!(k2 == 4 && g->past_jump_apex == 0)) {
@@ -588,8 +588,8 @@ int try_apply_hero_water_and_ground_transitions(void) {
     {
         struct Hero *h = &g_hero;
         float lim2 = 0.27f;
-        if (lim2 < FastAbsF(h->motion.velocity.f[2]) + 0.07f)
-            lim2 = FastAbsF(h->motion.velocity.f[2]) + 0.07f;
+        if (lim2 < absolute_float(h->motion.velocity.f[2]) + 0.07f)
+            lim2 = absolute_float(h->motion.velocity.f[2]) + 0.07f;
         if (h->state.current == 0x12) {
             if (h->past_jump_apex != 0) {
                 if (h->motion.pos.f[2] < h->water_surface_z - 0.7f)
@@ -644,11 +644,11 @@ typedef struct {
     char p14[0x18];
 } Rec2C;
 extern Hero g_hero_h2523C8 __asm__("D_0013F450");
-extern PadState D_0013CA40;
+extern PadState g_controller_state;
 extern int last_weapon_id_r __asm__("D_00141760");
-extern unsigned char D_0013D5C8[];
-extern Rec2C D_L05_0017C188[];
-extern int gadget_double_tap_timer SDATA(gadget_double_tap_timer);
+extern unsigned char item_available[];
+extern Rec2C rilgar_attack_records[];
+extern int hero_item_input_r1_double_press_timer_gp SDATA(D_L05_0015F754);
 
 extern int truncate_float_to_s32(float);
 
@@ -900,7 +900,7 @@ int process_hero_primary_item_input(void) {
                 }
                 if (g_controller_state.held & mask) {
                     if (!get_ammo(-1)) {
-                        if (!Sound_IsPlaying((Moby *)g_hero_h2523C8.items[0].moby, pv->fC)) {
+                        if (!voice_is_playing((Moby *)g_hero_h2523C8.items[0].moby, pv->fC)) {
                             pv->fC = Moby_PlaySound(0, 0, (int)((Moby *)g_hero_h2523C8.items[0].moby));
                         }
                     }
@@ -983,7 +983,7 @@ int process_hero_primary_item_input(void) {
             if (g_hero_h2523C8.race_ammo != 0) {
                 if (help_records_131_count[0] == 0 && usage_stats_entry27_count[0] == 0) {
                     if (++g_hero_h2523C8.help_hint_frames > (int)((float)scale_ticks(0x14) * 60.0f)) {
-                        Help_Request(0x3E81, 0x83);
+                        help_request(0x3E81, 0x83);
                     }
                 }
             }
@@ -1054,7 +1054,7 @@ int process_hero_primary_item_input(void) {
             }
             stats->fDC = stats->fDC | (1 << g_current_level_index_r) | 0x80000000;
             Moby_PlaySound(0, 0, (int)m);
-            Moby_GetJointWorldPos(m, 0, v);
+            moby_point_position(m, 0, v);
             create_rocket_1475_moby(m, v, best, g_hero_h2523C8.motion.rot.f[2], g_hero_h2523C8.motion.rot.f[1]);
         } break;
     }
@@ -1062,8 +1062,8 @@ int process_hero_primary_item_input(void) {
         if (hero_slot_item_id(3) == 3 &&
             g_hero_h2523C8.state.current != HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT &&
             (g_hero_h2523C8.unk308 == 0 || item_available[0x1C] == 0) && g_hero_h2523C8.pack_disabled == 0) {
-            fast_dec_timer(&gadget_double_tap_timer);
-            if (gadget_double_tap_timer != 0) {
+            fast_dec_timer(&hero_item_input_r1_double_press_timer_gp);
+            if (hero_item_input_r1_double_press_timer_gp != 0) {
                 if (g_hero_h2523C8.state.control_mode < 2U || g_hero_h2523C8.state.control_mode == HERO_MODE_CROUCH ||
                     ((g_hero_h2523C8.state.control_mode == HERO_MODE_FALL ||
                       g_hero_h2523C8.state.control_mode == HERO_MODE_JUMP) &&
@@ -1075,7 +1075,7 @@ int process_hero_primary_item_input(void) {
             }
             if ((g_controller_state.pressed & PAD_R1) &&
                 g_hero_h2523C8.state.current != HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT) {
-                gadget_double_tap_timer = scale_ticks(0x1E);
+                hero_item_input_r1_double_press_timer_gp = scale_ticks(0x1E);
             }
         } else if (g_hero_h2523C8.state.current != HERO_STATE_WRENCH_COMBO &&
                    g_hero_h2523C8.state.current != HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT &&
@@ -1090,7 +1090,7 @@ typedef struct {
     int bank;
     int seq;
 } SndPair;
-extern SndPair hoverboard_trick_sounds[];
+extern SndPair l05_hoverboard_trick_animation_frame_bounds[];
 
 extern int select_hero_hoverboard_animation_variant(void);
 
@@ -1114,8 +1114,8 @@ void update_hero_hoverboard_trick_animations(void) {
             int a = ((unsigned char *)h)[0x88F] + 0x69;
             if (((unsigned char *)*(char **)&((struct Hero *)h)->moby)[0x53] != a) {
                 set_hero_animation(a, 2, (float)scale_ticks(5));
-                hero_queue_sequence(hoverboard_trick_sounds[((unsigned char *)h)[0x88F]].bank,
-                                    hoverboard_trick_sounds[((unsigned char *)h)[0x88F]].seq);
+                hero_queue_sequence(l05_hoverboard_trick_animation_frame_bounds[((unsigned char *)h)[0x88F]].bank,
+                                    l05_hoverboard_trick_animation_frame_bounds[((unsigned char *)h)[0x88F]].seq);
             } else if ((float)((struct Hero *)h)->anim_loop_frame - 2.0f < ((struct Hero *)h)->anim_frame) {
                 ((Hero *)h)->tricks_landed[((unsigned char *)h)[0x88F]] = 1;
                 ((struct Hero *)h)->unk6F8 += 1;
@@ -1189,7 +1189,8 @@ void process_hero_race_object_interactions(void) {
                     set_identity_matrix(matrix);
                     matrix_from_basis_rows(matrix, first + 0xC0);
                     transform_vector(delta, delta, matrix);
-                    if (FastAbsF(delta[0]) < 0.5f && FastAbsF(delta[1]) < 2.9f && FastAbsF(delta[2]) < 2.9f) {
+                    if (absolute_float(delta[0]) < 0.5f && absolute_float(delta[1]) < 2.9f &&
+                        absolute_float(delta[2]) < 2.9f) {
                         HERO->boost_pad_timer += **(int **)(first + 0x78);
                         ((Moby *)first)->command = scale_ticks(0x3C);
                         if (HERO->hoverboard_moby != 0)
@@ -1224,7 +1225,8 @@ void process_hero_race_object_interactions(void) {
                             set_identity_matrix(matrix);
                             matrix_from_basis_rows(matrix, second + 0xC0);
                             transform_vector(delta, delta, matrix);
-                            if (FastAbsF(delta[0]) < 2.8f && FastAbsF(delta[1]) < 1.25f && FastAbsF(delta[2]) < 1.5f) {
+                            if (absolute_float(delta[0]) < 2.8f && absolute_float(delta[1]) < 1.25f &&
+                                absolute_float(delta[2]) < 1.5f) {
                                 HERO->boost_pad_timer += **(int **)(second + 0x78);
                                 ((Moby *)second)->command = scale_ticks(0x3C);
                                 if (HERO->hoverboard_moby != 0)
@@ -1243,7 +1245,7 @@ void process_hero_race_object_interactions(void) {
             ap = (int *)(menu_item_enabled_115 + 0x21);
             do {
                 if (*(short *)(third + 0xA6) == 0x1D6 && fast_subtract_rotations_cf(third + 0xBC) != 0 &&
-                    FastVecDist((char *)hero_globals_base + 0xEED, third + 0x10) < 1.5f) {
+                    fast_vec_dist((char *)hero_globals_base + 0xEED, third + 0x10) < 1.5f) {
                     struct Hero *g = HERO;
                     third[0xBC] = scale_ticks(300);
                     if (*(int *)((u8 *)g + 0x10B8) != 0x24) {
@@ -1271,7 +1273,7 @@ extern int g_current_level_index MACRO_ADDR;
 typedef struct {
     float value[5];
 } ScoreWeights;
-extern ScoreWeights hoverboard_trick_multipliers;
+extern ScoreWeights l05_hoverboard_score_multipliers_by_trick_count;
 typedef struct {
     char pad0[0x6D0];
     float angle[3];
@@ -1307,7 +1309,7 @@ void update_hero_hoverboard_trick_score(void) {
     }
     for (i = 0; i < 3; i++) {
         float *a = &G->angle[i];
-        if (FastAbsF(*a) > 3.3161256f) {
+        if (absolute_float(*a) > 3.3161256f) {
             float value = *a;
             if (value > 0.0f) {
                 *a = value - 6.2831855f;
@@ -1337,7 +1339,7 @@ void update_hero_hoverboard_trick_score(void) {
             G->actionCount++;
     }
     {
-        ScoreWeights weights = hoverboard_trick_multipliers;
+        ScoreWeights weights = l05_hoverboard_score_multipliers_by_trick_count;
         G->multiplier = weights.value[G->actionCount];
         G->actionScore =
             truncate_float_to_s32((float)((G->elapsed * 100) / (int)(multiply_global_factor(1.0f) * 60.0f)));
@@ -1384,14 +1386,14 @@ void compute_hero_hoverboard_respawn_transform(float *out, float *rot) {
                 float z1 = *(float *)(v1 + 0x18);
                 float z2 = *(float *)(v2 + 0x18);
                 if (z1 < z2) {
-                    if (FastAbsF(z2 - *(float *)(p + 0x18)) > limit)
+                    if (absolute_float(z2 - *(float *)(p + 0x18)) > limit)
                         goto next_point;
                 } else {
-                    if (FastAbsF(z1 - *(float *)(p + 0x18)) > limit)
+                    if (absolute_float(z1 - *(float *)(p + 0x18)) > limit)
                         goto next_point;
                 }
             }
-            d = vec_distance_xy(gHeroPos, path + i * 16 + 0x10);
+            d = vec_distance_xy(hero_pos, path + i * 16 + 0x10);
             if (d < distance) {
                 distance = d;
                 best = i;
@@ -1402,7 +1404,7 @@ void compute_hero_hoverboard_respawn_transform(float *out, float *rot) {
     qcopy(out, path + best * 16 + 0x10);
     qcopy(tmp, out);
     tmp[2] += 2.0f;
-    out[2] = ProbeGroundHeight(tmp, 0, 0.5f);
+    out[2] = probe_ground_height(tmp, 0, 0.5f);
     clear_u64_value(rot);
     {
         float *a = (float *)(path + best * 16);
@@ -1489,7 +1491,7 @@ void update_hero_hoverboard_race_progress(void) {
         v0[0] = 163.0f;
         v0[1] = 119.0f;
         v0[2] = 80.0f;
-        if (FastVecDist(g_hero.motion.pos.f, v0) < 11.0f) {
+        if (fast_vec_dist(g_hero.motion.pos.f, v0) < 11.0f) {
             if (g_hero.race_path_node < 3 || g_hero.race_path_node > 0x46) {
                 if (g_hero.race_path_node >= 3) {
                     g_hero.race_lap++;
@@ -1501,7 +1503,7 @@ void update_hero_hoverboard_race_progress(void) {
         v1[0] = 223.0f;
         v1[1] = 281.0f;
         v1[2] = 93.0f;
-        if (FastVecDist(g_hero.motion.pos.f, v1) < 7.0f) {
+        if (fast_vec_dist(g_hero.motion.pos.f, v1) < 7.0f) {
             if (g_hero.race_path_node < 0x3B) {
                 g_hero.race_path_node = 0x3B;
             }
@@ -1557,7 +1559,7 @@ void update_hero_hoverboard_race_progress(void) {
                 compute_hero_hoverboard_respawn_transform_r(v0, v1);
                 g_hero.off_course_frames = 0;
                 g_hero.board_air_yaw = v1[2];
-                Hero_ResetToPosition(v0, v1, 0x6B, 1);
+                set_race_camera(v0, v1, 0x6B, 1);
                 if (((Path *)g_hero.race_path) != 0) {
                     int r = select_point_index_by_distance(g_hero.motion.pos.f, (Path *)g_hero.race_path, 0.0f);
 
@@ -1630,8 +1632,8 @@ void update_hero_hoverboard_race_progress(void) {
         if (t >= g_hero.race_time_frames) {
             if (((Flags *)(menu_item_enabled_115_r + 1))->f9 == 0) {
                 ((Flags *)(menu_item_enabled_115_r + 1))->f9 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53DB, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53DB, -1);
             }
         }
         if (d->f28 == -1) {
@@ -1656,10 +1658,10 @@ void update_hero_hoverboard_race_progress(void) {
         }
         moby_pool_4f60_r2[d->f28].f30 = 0xFF;
         if (g_hero.trick_hud_handle != -1) {
-            Hud_SetBarValueById(g_hero.trick_hud_handle, 0);
+            set_animation_parameter(g_hero.trick_hud_handle, 0);
             g_hero.trick_hud_handle = -1;
         }
-        update_resource_counter();
+        decrement_resource_counter();
     } else if (g_current_level_index_r == LEVEL_KALEBO3) {
         if (d->f28 == -1) {
             return;
@@ -1683,10 +1685,10 @@ void update_hero_hoverboard_race_progress(void) {
         }
         moby_pool_4f60_r2[d->f28].f30 = 0xFF;
         if (g_hero.trick_hud_handle != -1) {
-            Hud_SetBarValueById(g_hero.trick_hud_handle, 0);
+            set_animation_parameter(g_hero.trick_hud_handle, 0);
             g_hero.trick_hud_handle = -1;
         }
-        update_resource_counter();
+        decrement_resource_counter();
     }
 }
 extern unsigned char g_hero_race_ammo NOT_SDA;
@@ -1818,7 +1820,7 @@ int hero_pick_help_mode(void) {
         goto L_BAC;
     if (*(int *)(h + 0x1C) == 0)
         goto L_BAC;
-    if (!(1.2217305f < fast_atan2(*(float *)(h + 0x48), vec_length_xy(h + 0x40))))
+    if (!(1.2217305f < fast_atan2(*(float *)(h + 0x48), vector_length_xy(h + 0x40))))
         goto L_BAC;
     g->f8A4 = FastAddRots(fast_atan2(*(float *)(h + 0x40), *(float *)(h + 0x44)), 3.1415927f);
     if (!(FastDiffRots(fast_atan2(g->fE0[0], g->fE0[1]), g->f8A4) < 0.7853982f))
@@ -1832,8 +1834,8 @@ int hero_pick_help_mode(void) {
 
 L_BAC:
     if (((H_9F0 *)(&g_hero))->b257 != 0) {
-        f20 = vec_length_xy(((H_9F0 *)(&g_hero))->f100);
-        if (f20 < vec_length_xy(((H_9F0 *)(&g_hero))->fE0) * 0.25f) {
+        f20 = vector_length_xy(((H_9F0 *)(&g_hero))->f100);
+        if (f20 < vector_length_xy(((H_9F0 *)(&g_hero))->fE0) * 0.25f) {
             Hero_TryMoveStateL05(0x6D, 1);
             return 1;
         }
@@ -1904,7 +1906,7 @@ L_D68:
 L_DEC:
     ok = (((H_9F0 *)(&g_hero))->s30C == 0);
     if (((H_9F0 *)(&g_hero))->b257 != 0) {
-        if (FastAbsF(((H_9F0 *)(&g_hero))->f218 - ((H_9F0 *)(&g_hero))->f2D8) < 0.05f)
+        if (absolute_float(((H_9F0 *)(&g_hero))->f218 - ((H_9F0 *)(&g_hero))->f2D8) < 0.05f)
             ok = 1;
     }
     if (ok == 0)
@@ -1914,11 +1916,11 @@ L_DEC:
     if (!(((H_9F0 *)(&g_hero))->fE0[2] < 0.0f))
         return 0;
     f20 = 1.0471976f;
-    if (f20 < FastAbsF(((H_9F0 *)(&g_hero))->f94)) {
+    if (f20 < absolute_float(((H_9F0 *)(&g_hero))->f94)) {
         Hero_TryMoveStateL05(0x6D, 1);
         return 1;
     }
-    if (f20 < FastAbsF(((H_9F0 *)(&g_hero))->f90)) {
+    if (f20 < absolute_float(((H_9F0 *)(&g_hero))->f90)) {
         Hero_TryMoveStateL05(0x6D, 1);
         return 1;
     }
@@ -1939,8 +1941,8 @@ L_DEC:
             Flags_9F0 *fl = (Flags_9F0 *)gSkillPoints;
             if (fl->f7 == 0) {
                 fl->f7 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53DB, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53DB, -1);
             }
         }
         ((H_9F0 *)(&g_hero))->i714 = 0;
@@ -1964,7 +1966,7 @@ L_DEC:
     }
     return 0;
 }
-extern char rilgar_hoverboard_link_table[];
+extern char hero_hoverboard_animation_link_table[];
 
 // Clears two slots in the game state block and refills them when the flag is set and the mode is 0x15 or 0x16.
 void hero_update_linked_target(void) {
@@ -1976,7 +1978,7 @@ void hero_update_linked_target(void) {
     if (v != 0) {
         if ((unsigned)(g->state.control_mode - 0x15) < 2) {
             *(int *)&g->unk2278 = v;
-            g->unk227C = (int)rilgar_hoverboard_link_table;
+            g->unk227C = (int)hero_hoverboard_animation_link_table;
         }
     }
 }

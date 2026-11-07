@@ -278,7 +278,7 @@ void draw_freeze_message_box(void) {
                 mid = (y + box.anchor_y) >> 1;
                 VU1_addGSregister(0x47, 0x3004B);
                 top = mid - 0x20;
-                HudSprite(GetIconFrame(0x755D, 0), 0xE0, top, 0x40, 0x40, 0x80);
+                draw_hud_sprite(GetIconFrame(0x755D, 0), 0xE0, top, 0x40, 0x40, 0x80);
                 pos = (f32)(mid << 4);
                 angle = (f32)(game_frame_counter % 55) * -6.2831855f / 55.0f;
                 draw_rotated_sprite(4096.0f, pos, pivot, pivot, angle, 0x40, 0x40,
@@ -712,7 +712,7 @@ void update_mode_freeze(void) {
                 mode_freeze_flags &= ~0x40;
                 memory_card_state_field_fc[0] = 0;
                 load_level_zero_preserving_progress(-1);
-                initialize_global_state_entry(0);
+                request_space_load(0);
                 screen_globals_base[0] = 1;
             }
             break;
@@ -725,7 +725,7 @@ void update_mode_freeze(void) {
             if (R.x24 == 0 && (PAD & 0x40)) {
                 memory_card_state_field_fc[0] = 0;
                 load_level_zero_preserving_progress(-1);
-                initialize_global_state_entry(0);
+                request_space_load(0);
                 screen_globals_base[0] = 1;
             }
             break;
@@ -840,10 +840,10 @@ void update_mode_freeze(void) {
                         h3 = g_hero;
                         v = *(int *)(h3 + 0x880);
                         if (v != -1) {
-                            Hud_SetBarValueById(v, 0);
+                            set_animation_parameter(v, 0);
                             *(int *)(h3 + 0x880) = -1;
                         }
-                        update_resource_counter();
+                        decrement_resource_counter();
                         t = scale_game_frame_count(0x1068);
                         if (t < *(int *)(h3 + 0x19C)) {
                             if (g_current_level_index == LEVEL_RILGAR) {
@@ -991,7 +991,7 @@ void update_mode_freeze(void) {
                                 fl |= 0x20;
                                 mode_freeze_flags = fl;
                             }
-                            initialize_global_state_entry(0);
+                            request_space_load(0);
                             screen_globals_base[0] = 1;
                             break;
                         }
@@ -1034,7 +1034,7 @@ void update_mode_freeze(void) {
                             fl |= 0x20;
                             mode_freeze_flags = fl;
                         }
-                        initialize_global_state_entry(0);
+                        request_space_load(0);
                         screen_globals_base[0] = 1;
                         break;
                     }
@@ -1062,7 +1062,7 @@ void update_mode_freeze(void) {
                             fl &= ~4;
                             mode_freeze_flags = fl;
                         }
-                        initialize_global_state_entry(0);
+                        request_space_load(0);
                         screen_globals_base[0] = 1;
                     }
                     if (R.x24 != 0) {
@@ -1099,7 +1099,7 @@ void update_mode_freeze(void) {
                     }
                     if (p8 & 0x20) {
                         load_level_zero_preserving_progress(-1);
-                        initialize_global_state_entry(0);
+                        request_space_load(0);
                         screen_globals_base[0] = 1;
                     }
                     break;

@@ -15,6 +15,6 @@
  * the Windows 2.9-ee-991111b/r4 in the mirrors), not the source.
  */
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011EF28);
+PREBUILT_ASM("asm/prebuilt/core_text", func_0011EF28);
 
-INCLUDE_ASM("asm/nonmatchings/core_text", func_0011F4F8);
+PREBUILT_ASM("asm/prebuilt/core_text", func_0011F4F8);

@@ -25,9 +25,9 @@ u32 cur_cam[4] DATA_SECTION(D_001871C0) = {0};
 
 u32 cam_coll_state[56] DATA_SECTION(D_001871D0) = {0};
 
-short cam_trans_state[112] DATA_SECTION(D_001872B0) = {0};
+short D_001872B0[112] DATA_SECTION(D_001872B0) = {0};
 
-Camera gCameraSlots[48] DATA_SECTION(D_00187510) = {0};
+Camera D_00187510[48] DATA_SECTION(D_00187510) = {0};
 
 Camera backup_cam DATA_SECTION(D_00189310) = {0};
 
@@ -37,7 +37,7 @@ u32 gCamPrevState[160] DATA_SECTION(D_00189750) = {0};
 
 u32 gCamBackupState[160] DATA_SECTION(D_001899D0) = {0};
 
-int gCameraSlotUsed[] DATA_SECTION(D_00189C50) = {
+int D_00189C50[] DATA_SECTION(D_00189C50) = {
 #include "data_inc/D_00189C50.inc"
 };
 

@@ -19,9 +19,9 @@ int draw_selected_item_ammo(char *arg0) {
     } else {
         char *q;
         if (have < 1000) {
-            q = text + sprintf(text, fmt_ammo_have, have);
+            q = text + sprintf(text, ammo_count_decimal_format, have);
         } else {
-            q = text + sprintf(text, fmt_ammo_have_thousands, have / 1000, have % 1000);
+            q = text + sprintf(text, ammo_count_grouped_decimal_format, have / 1000, have % 1000);
         }
         if (total < 1000) {
             sprintf(q, fmt_decimal, total);

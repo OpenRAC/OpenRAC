@@ -22,17 +22,17 @@ void update_moby_proximity_interaction(unsigned char *m) {
         }
         p = (float *)(m + 0x10);
         if (*(short *)(d + 0xC) != 0) {
-            matrix_mul_vec3(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
+            transform_vector_by_basis(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
             FastVecAdd(tmp, tmp, p);
-            if (FastVecDist(tmp, gHeroPos) > 4.1f) {
+            if (fast_vec_dist(tmp, hero_pos) > 4.1f) {
                 *(short *)(d + 0xC) = 0;
             }
         } else {
-            q = gHeroPos;
+            q = hero_pos;
             if (vec_distance_xy(p, q) < 6.0f) {
-                matrix_mul_vec3(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
+                transform_vector_by_basis(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
                 FastVecAdd(tmp, tmp, p);
-                if (FastVecDist(tmp, q) < 4.0f) {
+                if (fast_vec_dist(tmp, q) < 4.0f) {
                     *(short *)(d + 0xC) = 1;
                 }
             }
@@ -46,7 +46,7 @@ void update_moby_proximity_interaction(unsigned char *m) {
                 if (g_current_level_index_m == LEVEL_ORXON && *(unsigned char *)hero_vehicle_mode == 1) {
                     m[0x20] = 0x2A;
                     *(unsigned short *)(m + 0x34) |= 0x41;
-                    StartCutscene(9);
+                    start_scene(9);
                 } else {
                     remove_help_message_for_selector(2);
                     ship_level_exit_requested = 1;
@@ -58,16 +58,16 @@ void update_moby_proximity_interaction(unsigned char *m) {
         if (cinematic_mode != 2) {
             q = gSpecialItems;
             if (q[0x48] == 0 && gHaveMorphORay[7] != 0) {
-                StartCutscene(4);
+                start_scene(4);
                 q[0x48] = 1;
             } else if ((q = gSpecialItems)[0x49] == 0 && level_available_base[8] != 0) {
-                StartCutscene(5);
+                start_scene(5);
                 q[0x49] = 1;
             } else if ((q = gSpecialItems)[0x4A] == 0 && level_available_base[8] != 0) {
                 PlayMovieEntryIfIdle(0xB);
                 q[0x4A] = 1;
             } else if ((q = gSpecialItems)[0x4B] == 0 && level_available_base[8] != 0) {
-                StartCutscene(6);
+                start_scene(6);
                 q[0x4B] = 1;
             } else {
                 m[0x20] = 0;

@@ -11244,3 +11244,26 @@ D_L16_001614AC	rocket_50_spawn_max_pitch_deg	class name from tools/extract/moby_
 D_L00_0017C4C0	cheat_scale_manipulator_giant_clank	class name from tools/extract/moby_classes.tsv, was cheat_scale_manipulator_class_1a3	clash
 func_L11_00317518	count_group_puffoid_mobys_in_states_13_to_17_loop_tail	class name from tools/extract/moby_classes.tsv, was count_group_class_4de_mobys_in_states_13_to_17_loop_tail	clash
 D_L00_0015F684	level_15_mine_77_respawn_flag	class name from tools/extract/moby_classes.tsv, was level_15_class_4d_respawn_flag	clash
+func_00213C78	update_visible_resident_objects	kept: the NTSC decomp holds its name for this symbol	
+func_L01_002F6540	gunship_follow_path	kept: the NTSC decomp holds its name for this symbol	
+func_L12_0030A880	emit_phase_selected_moby_effects	kept: the NTSC decomp holds its name for this symbol	
+D_0010E800	font_vu_program_tag	kept: the NTSC decomp holds its name for this symbol	
+D_0010E810	font_vu_program	kept: the NTSC decomp holds its name for this symbol	
+D_0013CBE0	pad_held	kept: the NTSC decomp holds its name for this symbol	
+D_0013D4AF	menu_item_enabled_19	kept: the NTSC decomp holds its name for this symbol	
+D_0013E130	level_render_state	kept: the NTSC decomp holds its name for this symbol	
+D_0014C290	level_moby_killed	kept: the NTSC decomp holds its name for this symbol	
+D_0014D690	bolt_source_stats	kept: the NTSC decomp holds its name for this symbol	
+D_0015EEDC	invert52	kept: the NTSC decomp holds its name for this symbol	
+D_00161290	surface_height_tiles	kept: the NTSC decomp holds its name for this symbol	
+D_0016130C	decoder_state	kept: the NTSC decomp holds its name for this symbol	
+D_001872B0	cam_trans_state	kept: the NTSC decomp holds its name for this symbol	
+D_0019C2C0	point_lights	kept: the NTSC decomp holds its name for this symbol	
+D_001A0414	selected_level_index	kept: the NTSC decomp holds its name for this symbol	
+D_001D2678	pause_default_action_list	kept: the NTSC decomp holds its name for this symbol	
+D_L00_00173F80	coll_hit_normal	kept: the NTSC decomp holds its name for this symbol	
+D_L00_001CA7C0	vendor_menu	kept: the NTSC decomp holds its name for this symbol	
+D_L01_0016016C	camera_points	kept: the NTSC decomp holds its name for this symbol	
+D_L01_00179910	help_state	kept: the NTSC decomp holds its name for this symbol	
+D_L06_00167500	referencePosition	kept: the NTSC decomp holds its name for this symbol	
+D_L11_0016016C	path_points_14b0	kept: the NTSC decomp holds its name for this symbol	

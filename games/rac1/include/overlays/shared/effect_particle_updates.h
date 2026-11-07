@@ -5,10 +5,10 @@
 
 #include "common.h"
 
-extern void PartType04Spawn(void *, void *, int, int, int, int, int, int);
+extern void func_L00_0026A7F8(void *, void *, int, int, int, int, int, int);
 extern void PartType05Spawn(void *, unsigned char, unsigned char, unsigned char, float, float, int);
 extern void PartType11Spawn(void *, void *, int, int, float, int, int, int, int, float);
-extern void *PartType21Spawn(void *, void *, int, int, int, int, float);
+extern void *func_L00_0026DA50(void *, void *, int, int, int, int, float);
 extern void *PartType23Spawn(void *, float, float, float, int, void *, float, int);
 extern void *PartType27Spawn(void *, void *, int, int, float);
 extern int PartType34Spawn(void *, void *, float, float);

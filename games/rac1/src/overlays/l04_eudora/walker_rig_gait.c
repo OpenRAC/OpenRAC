@@ -149,7 +149,7 @@ void initialize_leg_rig(struct Moby *moby, LegRig_p *rig) {
     transform_scaled_vertex_batch(moby, 6, joints, rig);
     for (k = 0; k < 2; k++) {
         char *p = (char *)rig + k * 0xB0;
-        MobyTransformScaledVertex(moby, ((unsigned char *)p)[0xF0], matrix[0]);
+        build_moby_bone_transform(moby, ((unsigned char *)p)[0xF0], matrix[0]);
         *(int *)(p + 0x104) = 0;
         *(int *)(p + 0xFC) = 0;
         *(float *)(p + 0xF8) = fast_atan2(matrix[1][0], matrix[1][1]);
@@ -210,7 +210,7 @@ typedef struct {
     Vec4f v40; /* 0x40 */
 } StTab;
 
-extern char D_L04_00174040[];
+extern char eudora_coll_hit[];
 
 /* Steers a moby from the arg block: height and push terms, returns 2 when the tilt is past pi/4. */
 int update_leg_rig_height_and_tilt(Moby *m, Steer *a) {
@@ -229,7 +229,7 @@ int update_leg_rig_height_and_tilt(Moby *m, Steer *a) {
     dz = 0.0f;
     n = dz;
     if (a->flags & 4) {
-        h = ProbeGroundHeight(&m->pos, 0, 0.5f);
+        h = probe_ground_height(&m->pos, 0, 0.5f);
         if (m->pos.z < h - 0.05f) {
             dz = m->pos.z - h;
         } else {
@@ -249,9 +249,9 @@ int update_leg_rig_height_and_tilt(Moby *m, Steer *a) {
                 h = probe_leg_rig_ground_height((float *)e);
                 sum += h;
                 if (0.0f < h) {
-                    t = FastAbsF(((StTab *)eudora_coll_hit)->v40.x);
-                    t = t + FastAbsF(((StTab *)eudora_coll_hit)->v40.y);
-                    if (t < FastAbsF(((StTab *)eudora_coll_hit)->v40.z)) {
+                    t = absolute_float(((StTab *)eudora_coll_hit)->v40.x);
+                    t = t + absolute_float(((StTab *)eudora_coll_hit)->v40.y);
+                    if (t < absolute_float(((StTab *)eudora_coll_hit)->v40.z)) {
                         FastVecAdd(push, push, &((StTab *)eudora_coll_hit)->v40);
                         n += 4.0f;
                         dz += h - e->z;
@@ -262,7 +262,7 @@ int update_leg_rig_height_and_tilt(Moby *m, Steer *a) {
             bit <<= 2;
         }
         if (sum == 0.0f) {
-            h = ProbeGroundHeight(&m->pos, 0, 0.5f);
+            h = probe_ground_height(&m->pos, 0, 0.5f);
             if (0.0f < h) {
                 n += 4.0f;
                 dz += h - m->pos.z;
@@ -274,16 +274,16 @@ int update_leg_rig_height_and_tilt(Moby *m, Steer *a) {
             dir[2] = 0.0f;
             FastVecCross(dir, dir, push);
             FastVecCross(dir, dir, push);
-            a->tilt = fast_atan2(vec_length_xy(dir), dir[2]);
+            a->tilt = fast_atan2(vector_length_xy(dir), dir[2]);
         } else {
             a->tilt = 0.0f;
         }
-        if (0.785398f < FastAbsF(a->tilt)) {
+        if (0.785398f < absolute_float(a->tilt)) {
             ret = 2;
         }
         if (a->kind == 0xD && 0.0f < a->ground && (a->mask & 0xF) == 0) {
             t = -fast_atan2(a->f8C[1], a->ground - m->pos.z);
-            if (FastAbsF(t) < 0.5235988f) {
+            if (absolute_float(t) < 0.5235988f) {
                 pinned = 1;
                 dz += a->ground - m->pos.z;
                 a->tilt = t;
@@ -436,11 +436,11 @@ void rig_animate(struct Moby *moby, LegRig_93F08 *rig, int flags) {
         row->legs[0].yaw = FastAddRots(row->legs[0].upper_turn, base_yaw);
         row->legs[0].yaw = FastAddRots(row->legs[0].lower_turn, row->legs[0].yaw);
         if (row->legs[0].manip_b.attached)
-            axis_rotation_2d48(rig->legs[i].manip_b.rot, 2, row->legs[0].upper_turn);
+            build_axis_rotation_quaternion(rig->legs[i].manip_b.rot, 2, row->legs[0].upper_turn);
         if (row->legs[0].manip_a.attached) {
-            axis_rotation_2d48(rig->legs[i].manip_a.rot, 2, row->legs[0].lower_turn);
+            build_axis_rotation_quaternion(rig->legs[i].manip_a.rot, 2, row->legs[0].lower_turn);
             if (flags & mask) {
-                axis_rotation_2d48(tilt, 0, -moby->rot.x);
+                build_axis_rotation_quaternion(tilt, 0, -moby->rot.x);
                 multiply_quaternions(rig->legs[i].manip_a.rot, rig->legs[i].manip_a.rot, tilt);
             }
         }
@@ -479,7 +479,7 @@ int leg_walker_update(Moby *m, char *s, float speed, float ang, float accel) {
     float *f;
 
     if (m->seq != 0xFF) {
-        t = MobyGetFrameValue((struct Moby *)m);
+        t = compute_interpolated_record_value((struct Moby *)m);
     } else {
         t = IntToFloat(m->prev_frame) + animation_start(m->class_slot, m->prev_seq);
     }
@@ -546,7 +546,7 @@ int leg_walker_update(Moby *m, char *s, float speed, float ang, float accel) {
     }
 
     res = update_leg_rig_height_and_tilt_r((char *)m, s);
-    WalkCycleStep((char *)m, s, speed, ang, accel, changed);
+    walker_update_gait((char *)m, s, speed, ang, accel, changed);
 
     if (!(*(unsigned short *)(s + 0xEE) & 4)) {
         rig_probe_setup(m, 0, &a90, (float *)buf, &a94, &a98);
@@ -561,13 +561,13 @@ int leg_walker_update(Moby *m, char *s, float speed, float ang, float accel) {
         buf[2] = buf[2] + *(float *)(s + 0xE8);
         a98 = a98 - *(float *)(s + 0xE8);
         FastVecSub(buf + 4, &m->pos, buf);
-        for (k = 0; k < 8 && coll_capsule(a94, a98, buf, 4, m); k++) {
+        for (k = 0; k < 8 && rig_probe(a94, a98, buf, 4, m); k++) {
             qcopy(buf, eudora_coll_resolved_pos);
             res |= 1;
         }
         FastVecSub(v20, buf, &m->pos);
         FastVecAdd(&m->pos, buf, buf + 4);
-        if (vec_length_xy(v20) < *(float *)(s + 0xC0) * 0.5f)
+        if (vector_length_xy(v20) < *(float *)(s + 0xC0) * 0.5f)
             res |= 2;
     }
 
@@ -595,7 +595,7 @@ int leg_walker_update(Moby *m, char *s, float speed, float ang, float accel) {
                     t = g_frame_time * 0.19f;
                     f = (float *)*pp;
                 }
-                m->anim_speed = inv_frame_scale * FastAbsF(t / f[2]);
+                m->anim_speed = inv_frame_scale * absolute_float(t / f[2]);
                 break;
             }
         }
@@ -689,7 +689,7 @@ void reset_leg_rig_from_animation(struct Moby *m, LegRig *rig) {
     joints[5] = rig->jointB5;
     transform_scaled_vertex_batch(m, 6, joints, rig);
     for (i = 0; i < 2; i++) {
-        MobyTransformScaledVertex(m, rig->legs[i].joint, mtx[0]);
+        build_moby_bone_transform(m, rig->legs[i].joint, mtx[0]);
         rig->legs[i].unk14 = 0;
         rig->legs[i].unkC = 0;
         rig->legs[i].yaw = fast_atan2(mtx[1][0], mtx[1][1]);
@@ -699,7 +699,7 @@ void reset_leg_rig_from_animation(struct Moby *m, LegRig *rig) {
             AttachManipulator(m, rig->legs[i].slot_a, &rig->legs[i].manip_a);
     }
     if (m->seq != 0xFF) {
-        t = MobyGetFrameValue(m);
+        t = compute_interpolated_record_value(m);
     } else {
         t = IntToFloat(m->prev_frame);
         t += animation_start(m->class_slot, m->prev_seq);
@@ -710,7 +710,7 @@ void reset_leg_rig_from_animation(struct Moby *m, LegRig *rig) {
     e = rig->anims;
     for (j = 12; j >= 0; j--, e++) {
         if ((*e)->id == m->prev_seq) {
-            rig->speed = FastAbsF(m->anim_speed * (*e)->rate);
+            rig->speed = absolute_float(m->anim_speed * (*e)->rate);
             rig->unkB7 = eudora_leg_rig_anim_b7_values[12 - j][0];
         }
     }

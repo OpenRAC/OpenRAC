@@ -13,7 +13,7 @@ extern void parse_space_scene_chunk(s32 index);
 extern void register_moby_class(void *, void *, void *, int);
 extern void register_object_render_class(void *, void *, void *, int);
 extern void register_shrub_render_class(void *, void *, void *, void *, int);
-extern void relocateObjectPointers(void *, int);
+extern void func_00203B18(void *, int);
 extern void relocate_sky_definition(void *);
 extern void select_world_object_resource_tables(s32, s32);
 extern int service_level_archive_load(void);

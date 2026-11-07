@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void Hero_ResetToPosition(void *, void *, int, int);
+extern void func_L00_00217718(void *, void *, int, int);
 extern void adjust_hero_pose_targets_from_motion(void);
 extern int allocate_hero_voice_for_entry(int, int);
 extern void compute_hero_reference_tilt_rotation(void *, void *, void *, float, float, float);

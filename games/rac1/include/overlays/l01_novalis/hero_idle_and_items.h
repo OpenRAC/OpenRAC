@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern int Hero_SetMoveState(int, int);
+extern int func_L01_0023D688(int, int);
 extern int handle_hero_gadget_button(void);
 
 #endif /* OVERLAYS_L01_NOVALIS_HERO_IDLE_AND_ITEMS_H */

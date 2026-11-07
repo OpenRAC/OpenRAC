@@ -6,7 +6,7 @@
 #include "common.h"
 
 extern int DefaultVtbl_DeleteMoby(float, int, int);
-extern void HudFrame(void *, int, int, int, int, int);
+extern void func_L00_0023BAB8(void *, int, int, int, int, int);
 extern void Hud_UpdateCounter(void);
 extern void apply_group_entry_adjustment(int);
 extern void decompress_and_relocate_selected_groups(int);

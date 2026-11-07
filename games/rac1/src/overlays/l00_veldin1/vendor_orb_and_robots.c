@@ -92,7 +92,7 @@ void clank_cutscene_trigger_update(M *m) {
                 e->f2c = 3.0f;
             }
             if (e->s24 >= 4 && cinematic_mode != 6)
-                initialize_global_state_entry(1);
+                request_space_load(1);
             break;
         case 2:
             if (cinematic_mode == 2)
@@ -121,10 +121,10 @@ typedef struct HelpTarget {
 } HelpTarget;
 
 /* UpdateMoby_1413: first-update init of the moby state, then each trigger entry in the
- * hero-state table (Ent = 4 ushorts, indexed by the Help_Request slot) is tested and
+ * hero-state table (Ent = 4 ushorts, indexed by the help_request slot) is tested and
  * the matching slot requested when the hero is at the position named by the moby's
  * params; with slots 1 and 2 clear, guard mobys in params[5..8] are checked for being gone. */
-void update_level_help_controller(unsigned char *moby) {
+void Moby1413Update(unsigned char *moby) {
     HelpMoby *help;
     s32 *vars;
     u16 *trig;
@@ -144,17 +144,17 @@ void update_level_help_controller(unsigned char *moby) {
     }
     trig = (u16 *)help_records;
     if (trig[0x18 / 2] == 0)
-        Help_Request(3, 3);
+        help_request(3, 3);
     if (trig[0x3A0 / 2] == 0) {
         if (is_point_inside_clip_volume((void *)&g_hero.motion.pos, vars[4]))
-            Help_Request(0x4E2A, 0x74);
+            help_request(0x4E2A, 0x74);
     }
     {
         u16 *trig2 = (u16 *)help_records;
         if (trig2[0x48 / 2] == 0) {
             if (is_point_inside_clip_volume((void *)&g_hero.motion.pos, vars[0])) {
                 if (*(unsigned short *)(help_stats_base_q + 0x235) == 0)
-                    Help_Request(5, 9);
+                    help_request(5, 9);
             }
         }
     }
@@ -162,12 +162,12 @@ void update_level_help_controller(unsigned char *moby) {
         u16 *trig3 = (u16 *)help_records;
         if (trig3[0x40 / 2] == 0 && *(unsigned short *)usage_stats == 0) {
             if (is_point_inside_clip_volume((void *)&g_hero.motion.pos, vars[1]))
-                Help_Request(4, 8);
+                help_request(4, 8);
         }
     }
     if (((u16 *)help_records)[0] == 0) {
         if (is_point_inside_clip_volume((void *)&g_hero.motion.pos, vars[2]))
-            Help_Request(0, 0);
+            help_request(0, 0);
     }
     {
         u16 *trig4 = (u16 *)help_records;
@@ -188,9 +188,9 @@ void update_level_help_controller(unsigned char *moby) {
             target_moby = (HelpTarget *)((unsigned char *)moby_array_start + (id << 8));
             if (target_moby == 0 || target_moby->state == e || target_moby->state == d) {
                 if (hero_ptr->health.hp < 4)
-                    Help_Request(1, 1);
+                    help_request(1, 1);
                 else
-                    Help_Request(2, 2);
+                    help_request(2, 2);
             }
         }
         target_index_ptr++;
@@ -254,21 +254,21 @@ typedef struct {
     float pos[4];
 } VendHit;
 
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
-extern short D_0015EE64;
+extern unsigned char draw_map51[4] MACRO_ADDR;
+extern short g_frame_scale_sq;
 extern float g_frame_time MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
 extern float veldin1_robot_beam_origin_offset SDATA(veldin1_robot_beam_origin_offset);
-extern int veldin1_robot_beam_sweep_cycles SDATA(veldin1_robot_beam_sweep_cycles);
+extern int veldin_robot_beam_hit_frames SDATA(D_L00_00161CB8);
 extern float veldin1_robot_beam_sweep_angle SDATA(veldin1_robot_beam_sweep_angle);
 extern float g_debug_camera[];
 extern VendHit g_coll_hit_moby;
-extern VendPath *level_paths[];
+extern VendPath *toad_paths[];
 extern float veldin1_zero_vec[] MACRO_ADDR;
 
 extern void update_veldin_robot_damage_and_targeting(void *);
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern float SteerAngleWithVelocity_v(void *, float, void *, float, float, float) __asm__("func_L00_0025CE58");
 
@@ -278,7 +278,7 @@ extern void update_veldin_robot_effects(char *);
 
 /* Vendor (level 0) update: walks a path, turns toward the player, attacks and self-destructs.
    Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/l00/gameplay_vendor_002e0988.c, FUN_L00_002e0b88. */
-extern Hero D_0013F450;
+extern Hero g_hero;
 
 void veldin_robot_enemy_update(Moby *moby) {
     enum {
@@ -308,10 +308,10 @@ void veldin_robot_enemy_update(Moby *moby) {
     target = vars->target;
     manipulator_set_scale(vars->unk120, 2.5f);
     if (draw_map51[3] != 0) {
-        EaseManipulatorOffsets((char *)moby, (char *)vars->unk120, 2, *(float *)&g_frame_scale_sq * 0.03f,
+        update_joint_animation((char *)moby, (char *)vars->unk120, 2, *(float *)&g_frame_scale_sq * 0.03f,
                                *(float *)&g_frame_scale_sq * 0.3f);
     }
-    if (moby->visible != 0 && FastVecDist(&moby->pos, g_debug_camera) < 27.0f) {
+    if (moby->visible != 0 && fast_vec_dist(&moby->pos, g_debug_camera) < 27.0f) {
         set_ground_height_band(moby);
         moby->shadow_range = 0x15;
     }
@@ -333,7 +333,7 @@ void veldin_robot_enemy_update(Moby *moby) {
                     DeleteMoby(moby);
                     return;
                 }
-                qcopy(&moby->pos, &level_paths[vars->pathIdx]->pts[0]);
+                qcopy(&moby->pos, &toad_paths[vars->pathIdx]->pts[0]);
                 moby->state = VELDIN_ROBOT_STATE_WAIT_TO_FOLLOW_PATH;
                 if (moby->prev_seq != 1)
                     MobyBlendAnimation(moby, 1, 0, 5);
@@ -361,13 +361,13 @@ void veldin_robot_enemy_update(Moby *moby) {
             break;
         case VELDIN_ROBOT_STATE_FOLLOW_PATH:
             vel = 0.0f;
-            path = level_paths[vars->pathIdx];
+            path = toad_paths[vars->pathIdx];
             qcopy(&delta, &path->pts[vars->pathPt]);
             SteerAngleWithVelocity_v(&moby->rot.z, fast_atan2(delta.f[0] - moby->pos.x, delta.f[1] - moby->pos.y),
                                      &vars->turnVel, g_frame_time_sq * (12.566371f), g_frame_time_sq * (12.566371f),
                                      g_frame_time * 12.566371f);
             FastVecSub(&dir, &delta, &moby->pos);
-            ApproachWithVelocity_v(FastVecDist(&moby->pos, &path->pts[path->count - 1]), g_frame_time_sq * 8.0f,
+            ApproachWithVelocity_v(fast_vec_dist(&moby->pos, &path->pts[path->count - 1]), g_frame_time_sq * 8.0f,
                                    g_frame_time_sq * 16.0f, g_frame_time * 12.0f, &vel, &vars->speed);
             if (FastVecLength(&dir) < vars->speed + vars->speed) {
                 vars->pathPt++;
@@ -422,7 +422,7 @@ void veldin_robot_enemy_update(Moby *moby) {
             }
             SteerAngleWithVelocity_v(&moby->rot.z, desired_heading, &vars->turnVel, g_frame_time_sq * (1.5707964f),
                                      g_frame_time_sq * (1.5707964f), g_frame_time * 12.566371f);
-            MobyTransformScaledVertex((char *)moby, 0, (char *)mtx);
+            build_moby_bone_transform((char *)moby, 0, (char *)mtx);
             qcopy(&delta, &moby->rot_row0);
             delta.f[2] = 0.0f;
             vec_scale_to_length(&delta, &delta, veldin1_robot_beam_origin_offset);
@@ -439,7 +439,7 @@ void veldin_robot_enemy_update(Moby *moby) {
             query.unk8A = (*(u16 *)&moby->oclass);
             query.dir[2] = 1.0f;
             query.unk88 = 0;
-            if (moby->seq == moby->prev_seq && MobyGetFrameValue(moby) > 1.0f) {
+            if (moby->seq == moby->prev_seq && compute_interpolated_record_value(moby) > 1.0f) {
                 hit = 1;
                 query.flags |= 1;
             }
@@ -463,7 +463,7 @@ void veldin_robot_enemy_update(Moby *moby) {
             }
             set_beam_origin_transform_and_endpoint(moby, mtx, &dir);
             if (moby->anim_flags & 2) {
-                lim = veldin1_robot_beam_sweep_cycles;
+                lim = veldin_robot_beam_hit_frames;
                 if (vars->timer++ == lim) {
                     release_beam_slot_by_id(moby);
                     moby->state = VELDIN_ROBOT_STATE_WAIT_TO_RETURN_TO_FACE_TARGET;
@@ -485,15 +485,15 @@ void veldin_robot_enemy_update(Moby *moby) {
             }
             break;
         case VELDIN_ROBOT_STATE_DAMAGE_KNOCKBACK:
-            if (mine_fall(moby, vars->unk70) & 0x140) {
+            if (step_moby_motion(moby, vars->unk70) & 0x140) {
                 moby->state = VELDIN_ROBOT_STATE_FACE_TARGET;
                 if (moby->prev_seq != 1)
                     MobyBlendAnimation(moby, 1, 0, scale_ticks(10));
             }
             break;
         case VELDIN_ROBOT_STATE_DEATH_KNOCKBACK:
-            if (mine_fall(moby, vars->unk70) & 0x140) {
-                SpawnExplosionFx(moby, &moby->pos, -1, 0.75f, 13.0f);
+            if (step_moby_motion(moby, vars->unk70) & 0x140) {
+                cart_burst(moby, &moby->pos, -1, 0.75f, 13.0f);
                 spawn_moby_break_fragments(moby, 0x7AB, 1, 0x7AB, 1, 4, 0);
                 SpawnBreakFragment((char *)moby, 0x78D, (float *)((Vec4 *)&moby->pos), &moby->rot, 0, 0, 0.0f,
                                    (float *)veldin1_zero_vec, (float *)veldin1_zero_vec, (float *)veldin1_zero_vec);
@@ -598,7 +598,7 @@ void update_veldin_robot_damage_and_targeting(void *mv) {
     }
     if (vars->unk38 != 0) {
         vars->unk38 = 0;
-        vars->unk1DA = scale_ticks(rand_range(0xB4, 0x12C));
+        vars->unk1DA = scale_ticks(random_int_between(0xB4, 0x12C));
     }
     FastDecTimer(&vars->unk1DA);
     anim = vars->unk60;
@@ -620,7 +620,7 @@ void update_veldin_robot_damage_and_targeting(void *mv) {
             vars->unk94 = 0x29;
             m->flags &= ~0x1000;
             v.q = coll->pos.q;
-            HeadingFromVector(&v, &angle, &vars->unk88, &vars->unk8C);
+            trooper_knockback_arc(&v, &angle, &vars->unk88, &vars->unk8C);
             InitKnockback(m, vars->unk70, angle, 0xB, 1, 0);
             vars->unkC0 = 7.0f;
             vars->unkC4 = 16.0f;
@@ -634,7 +634,7 @@ void update_veldin_robot_damage_and_targeting(void *mv) {
             vars->unk88 = veldin1_robot_hit_knock_speed * g_frame_time * 0.35f;
             vars->unk8C = veldin1_robot_hit_knock_lift * g_frame_time * 0.5f;
             v.q = coll->pos.q;
-            HeadingFromVector(&v, &unused, &vars->unk88, &vars->unk8C);
+            trooper_knockback_arc(&v, &unused, &vars->unk88, &vars->unk8C);
             InitKnockback(m, pp, fast_atan2(coll->pos.f[0], coll->pos.f[1]), 8, 1, 0);
             vars->unkC4 = vars->unkC0 = -1.0f;
             m->state = 7;
@@ -647,7 +647,7 @@ void update_veldin_robot_damage_and_targeting(void *mv) {
     m->unkA4 = 0xFF;
     StepColorFade(m, anim);
     if (m->state == 1) {
-        path = level_paths[vars->unk1B4];
+        path = toad_paths[vars->unk1B4];
         FindNearestEligibleMoby(64.0f, (char *)m, &vars->target, 0, 0, path->pts, path->count);
     } else if (m->state != 5) {
         range = veldin1_robot_target_range;
@@ -693,7 +693,7 @@ void update_veldin_robot_effects(char *m) {
 
     vars = (struct VendVars *)((Moby *)m)->pvars;
     pos = &vars->effectPos.x;
-    Moby_GetJointWorldPos(m, 1, pos);
+    moby_point_position(m, 1, pos);
     (&vars->effectPos.x)[2] -= 0.333f;
     random_spherical_offset(vel, 0.005f, 0.03f);
     p = spawn_mode_controlled_rotating_alpha_fade_particle(pos, vel, 0x7F, m);
@@ -718,7 +718,7 @@ void update_veldin_robot_effects(char *m) {
     }
     AddDrawCallback(draw_veldin_robot_effect_quad_r, m);
 }
-extern float veldin1_robot_effect_quad_corners[][4];
+extern float l00_veldin_robot_effect_quad_template_corners[][4];
 
 typedef float W[4] __attribute__((aligned(16)));
 typedef struct {
@@ -761,7 +761,7 @@ void draw_veldin_robot_effect_quad(char *m) {
     t.z3 = 0;
     t.f2 = 1.0f;
     t.f3 = 1.0f;
-    p = veldin1_robot_effect_quad_corners;
+    p = l00_veldin_robot_effect_quad_template_corners;
     qq = q[0];
     for (i = 3; i >= 0; i--) {
         FastVecScale(qq, p, 0.2f);
@@ -770,11 +770,11 @@ void draw_veldin_robot_effect_quad(char *m) {
     }
     draw_world_quad(q, c, 0);
 }
-extern int beam_slot_ids[] MACRO_ADDR;
-extern int beam_slot_states[] MACRO_ADDR;
+extern int beam_slot_id[] MACRO_ADDR;
+extern int beam_slot_state[] MACRO_ADDR;
 
 /* Slot update: state 0 clears the two slot arrays, state 1 services the pending slots. The arrays are MACRO_ADDR (retail loads their addresses unsplit), as the NTSC decomp declares them. */
-void update_beam_slot_controller(unsigned char *m) {
+void beam_slot_controller_update(unsigned char *m) {
     int i;
     int j;
     int n;
@@ -783,8 +783,8 @@ void update_beam_slot_controller(unsigned char *m) {
     switch (m[0x20]) {
         case 0:
             for (j = 0; j < 3; j++) {
-                beam_slot_states[j] = 0;
-                beam_slot_ids[j] = 0;
+                beam_slot_state[j] = 0;
+                beam_slot_id[j] = 0;
             }
             m[0x20] = 1;
             m[0x30] = 0xFF;
@@ -792,14 +792,14 @@ void update_beam_slot_controller(unsigned char *m) {
         case 1:
             n = 0;
             for (i = 0; i < 3; i++) {
-                st = beam_slot_states[i];
+                st = beam_slot_state[i];
                 if (st == 1) {
                 } else if (st == 4) {
                     release_beam_slot(i);
                 } else if (st != 0) {
                     n++;
-                    update_slot_panes_and_effects(beam_slot_ids[i], i);
-                    beam_slot_states[i] = 4;
+                    update_slot_panes_and_effects(beam_slot_id[i], i);
+                    beam_slot_state[i] = 4;
                 }
             }
             if (n != 0) {
@@ -828,7 +828,7 @@ typedef struct {
 } M2;
 
 /* Cutscene effect controller: switch camera targets and spawn a smoke trail at a joint. */
-void update_phase_effect_controller(M2 *m) {
+void phase_effect_controller_update(M2 *m) {
     char buf[16];
     int idx;
     int i, col, h;
@@ -859,18 +859,18 @@ void update_phase_effect_controller(M2 *m) {
                             return;
                         if (scale_ticks(0xDC) < cutscene_state.b)
                             return;
-                        Moby_GetJointWorldPos(p, 0, buf);
+                        moby_point_position(p, 0, buf);
                         draw_trail(buf, buf, veldin1_zero_vec, 120000.0f, 50000.0f);
                         for (i = 0; i < 10; i++) {
-                            col = (rand_range(0x40, 0x80) << 24) | 0x787878;
-                            h = rand_range(0, 4);
+                            col = (random_int_between(0x40, 0x80) << 24) | 0x787878;
+                            h = random_int_between(0, 4);
                             if (random_integer_below(2))
                                 h = -h;
                             q = PartType23Spawn_v(buf, h, veldin1_zero_vec_b, col, 0.75f, 1.0f, 1.03f, 120000.0f);
                             if (q) {
                                 q[3] = 0x44;
                                 r = q + 0x20;
-                                q[8] = rand_range(0, 0xFF);
+                                q[8] = random_int_between(0, 0xFF);
                                 *(short *)(q + 0xA) = scale_ticks(0x3C);
                                 *(int *)(r + 4) = 2;
                                 r[0xA] = col >> 24;

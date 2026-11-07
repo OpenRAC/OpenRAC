@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern float FastAbsF(float input);
+extern float func_001F9B88(float input);
 extern float IntToFloat(int);
 extern float max_float(float, float);
 extern float min_float(float, float);

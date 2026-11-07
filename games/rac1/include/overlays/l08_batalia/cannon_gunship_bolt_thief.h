@@ -5,9 +5,9 @@
 
 #include "common.h"
 
-extern void process_linked_moby_part_hits(void *);
+extern void func_L08_002EAB30(void *);
 extern void request_batalia_cannon_mount(void *);
-extern void spawn_joint_linked_moby_parts(void *);
-extern void update_commando_parts(void *);
+extern void func_L08_002EA930(void *);
+extern void func_L08_002EADF0(void *);
 
 #endif /* OVERLAYS_L08_BATALIA_CANNON_GUNSHIP_BOLT_THIEF_H */

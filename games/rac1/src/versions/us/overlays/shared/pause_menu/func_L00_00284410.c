@@ -49,7 +49,7 @@ void process_unlock_code_input(void) {
         vc = code - 0x3d;
         if (code < 0x25) {
             (item_available)[code] = 1;
-            (discount_purchase_pricing + 5)[code] = 1;
+            (gHavePersuader + 5)[code] = 1;
         } else if ((unsigned)(code - 0x25) < 0x12) {
             unlock_planet(va);
         } else if ((unsigned)vb < 6) {
@@ -59,8 +59,8 @@ void process_unlock_code_input(void) {
             unsigned char *q = gSkillPoints + vc;
             if (!*q) {
                 *q = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53D6, -1);
             }
         }
     } else {

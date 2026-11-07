@@ -88,8 +88,8 @@ void update_bomber_tank_damage_and_aim(Moby *m) {
                             unsigned char *flags = gSkillPoints;
                             if (flags[0xD] == 0) {
                                 flags[0xD] = one;
-                                PlayBankSound(1, 0, 0);
-                                ShowBanner(0x53D6, -1);
+                                allocate_voice_for_bank_entry(1, 0, 0);
+                                queue_dialogue_message(0x53D6, -1);
                             }
                         }
                     }

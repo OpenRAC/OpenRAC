@@ -7,11 +7,11 @@
 #include "asm_functions/executable.h"
 #include "game/math/fastfunc.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 extern unsigned char *fleet_trail_texture_ptr;
 
 // Spawns a Scenery Ship particle at a position with a direction, optionally relative to a parent.
-unsigned char *spawn_trail_particle(char *parent, void *pos, float *vec) {
+unsigned char *spawn_fleet_beam_particle(char *parent, void *pos, float *vec) {
     int r = random_integer_below(5);
     unsigned char a = scale_ticks(r + 2);
     unsigned char b = random_integer_below(0xFF);

@@ -60,12 +60,12 @@ typedef struct {
     Vec4A normal;
 } Coll;
 
-extern PathEl *D_L04_001B0930[];
-extern Coll D_L04_00174040;
+extern PathEl *l04_paths[];
+extern Coll eudora_coll_hit;
 extern char eudora_coll_resolved_pos_r[] __asm__("D_L04_00174070");
-extern char D_0013F450[];
+extern char g_hero[];
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 extern int find_nearest_point_index_xy_r(Moby *, void *, int) __asm__("func_L04_001F2F68");
 
 /* Steering for a moby: pulls it along its path (c->path) and toward its target, pushes it away from the
@@ -94,13 +94,13 @@ void steer_child_moby(Moby **list, int n, Moby *m, Steer *c, float *f) {
     float g;
 
     clear_u64_value(c);
-    d = FastVecDist(&m->pos, &t);
+    d = fast_vec_dist(&m->pos, &t);
     r = 0;
     path = 0;
     flag = 0;
     mob = 0;
     if (c->path != -1) {
-        path = eudora_paths[c->path];
+        path = l04_paths[c->path];
         r = find_nearest_point_index_xy_r(m, &path[1], path[0].n);
         flag = find_closest_polygon_edge_point(&o, &m->pos, &path[1], path[0].n);
         if (flag == 0) {
@@ -134,12 +134,12 @@ void steer_child_moby(Moby **list, int n, Moby *m, Steer *c, float *f) {
     } else {
         if (c->path != -1) {
             k = r;
-            s = FastVecDist(&path[r + 1], &t);
+            s = fast_vec_dist(&path[r + 1], &t);
             j = 0;
             if (r + 1 < path[0].n) {
                 j = r + 1;
             }
-            s2 = FastVecDist(&path[j + 1], &t);
+            s2 = fast_vec_dist(&path[j + 1], &t);
             if (s < s2) {
                 k = j;
                 s = s2;
@@ -148,7 +148,7 @@ void steer_child_moby(Moby **list, int n, Moby *m, Steer *c, float *f) {
             if (j < 0) {
                 j = path[0].n - 1;
             }
-            if (s < FastVecDist(&path[j + 1], &t)) {
+            if (s < fast_vec_dist(&path[j + 1], &t)) {
                 k = j;
             }
             j = 0;
@@ -197,7 +197,7 @@ void steer_child_moby(Moby **list, int n, Moby *m, Steer *c, float *f) {
             if ((*(signed char *)&obj->state) < 0 || m == obj) {
                 continue;
             }
-            s = FastVecDist(&m->pos, &obj->pos);
+            s = fast_vec_dist(&m->pos, &obj->pos);
             if (c->near < s) {
                 continue;
             }
@@ -232,7 +232,7 @@ void steer_child_moby(Moby **list, int n, Moby *m, Steer *c, float *f) {
         if (coll_line(&a, &e, 2, m, 0) != 0) {
             if (eudora_coll_hit.hit > 0 && eudora_coll_hit.z > m->pos.z) {
                 qcopy(&x, &eudora_coll_hit.normal);
-                s = fast_atan2(eudora_coll_hit.normal.z, vec_length_xy(&eudora_coll_hit.normal));
+                s = fast_atan2(eudora_coll_hit.normal.z, vector_length_xy(&eudora_coll_hit.normal));
                 vec_set_length_xy(&x, &x, 1.0f);
                 FastVecScale(&x, &x, f[3]);
                 FastVecAdd(c, c, &x);
@@ -304,7 +304,7 @@ void update_moby_movement_with_sphere_collision(char *a, char *b, char *c, float
     *(float *)(a + 0x48) = FastAddRots(fast_atan2(*(float *)(b + 0x10), *(float *)(b + 0x14)), 3.14159265f);
 }
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 extern int depth_buffer_address MACRO_ADDR;
 /* Draw the Eudora sky shells (rotating in level 4, static elsewhere) and restore GS test and Z. */

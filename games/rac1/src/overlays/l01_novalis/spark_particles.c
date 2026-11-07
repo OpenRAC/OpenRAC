@@ -9,9 +9,9 @@
 
 typedef int u128 __attribute__((mode(TI)));
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
-extern unsigned char *novalis_part_type_textures[];
+extern unsigned char *spark_texture_table[];
 
 /* Spawns a type 6 particle with position, colour, scale and owner. */
 void create_spark_particle(int owner, float *pos, int snd, unsigned char arg, unsigned char idx, unsigned char mode,
@@ -37,7 +37,7 @@ void create_spark_particle(int owner, float *pos, int snd, unsigned char arg, un
                 p->blend = mode;
             }
             p->unk_01 = 0;
-            p->texture = *novalis_part_type_textures[idx];
+            p->texture = *spark_texture_table[idx];
             *(float *)u = x;
             *(float *)(u + 4) = y;
             *(float *)(u + 8) = z;
@@ -55,7 +55,7 @@ void create_spark_particle(int owner, float *pos, int snd, unsigned char arg, un
         }
     }
 }
-extern char *novalis_part_type56_textures;
+extern char *pool_bubble_texture_table;
 
 /* Spawns a particle at a, with a random tint, offset b and scale f. */
 unsigned char *pool_bubble(void *a, void *b, float f) {
@@ -69,14 +69,14 @@ unsigned char *pool_bubble(void *a, void *b, float f) {
         ((struct PartBase *)r)->unk_09 = truncate_float_to_s32(4.0f) + 0x20;
         ((struct PartBase *)r)->blend = 0x48;
         ((struct PartBase *)r)->unk_01 = 0;
-        ((struct PartBase *)r)->texture = *(unsigned char *)novalis_part_type56_textures;
+        ((struct PartBase *)r)->texture = *(unsigned char *)pool_bubble_texture_table;
         ((struct PartBase *)r)->size = f;
         qcopy(((struct PartBase *)r)->data, b);
         ((struct PartBase *)r)->spin = random_integer_below(0x100);
     }
     return r;
 }
-extern char *novalis_part_type57_textures;
+extern char *pool_bubbles_texture_table;
 
 // Spawns a particle at a with offset b, a random tint and scale f, with extra parameter g at +0x34.
 unsigned char *pool_bubbles(void *a, void *b, float f, float g) {
@@ -91,7 +91,7 @@ unsigned char *pool_bubbles(void *a, void *b, float f, float g) {
         ((struct PartBase *)r)->unk_09 = truncate_float_to_s32(12.0f) + 0x20;
         ((struct PartBase *)r)->blend = 0x48;
         ((struct PartBase *)r)->unk_01 = 1;
-        ((struct PartBase *)r)->texture = *(unsigned char *)novalis_part_type57_textures;
+        ((struct PartBase *)r)->texture = *(unsigned char *)pool_bubbles_texture_table;
         ((struct PartBase *)r)->timer = 0x80;
         ((struct PartBase *)r)->size = f * 210000.0f;
         qcopy(q, b);

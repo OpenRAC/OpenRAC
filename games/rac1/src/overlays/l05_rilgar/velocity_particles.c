@@ -7,7 +7,7 @@
 #include "asm_functions/executable.h"
 #include "game/math/fastfunc.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern unsigned char *rilgar_velocity_particle_texture_ptr;
 

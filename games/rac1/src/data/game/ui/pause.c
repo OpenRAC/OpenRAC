@@ -4,10 +4,10 @@
 #include "structs/data/game_ui_pause.h"
 #include "structs/menu.h"
 
-extern u16 pause_weapon_menu_items[];
+extern u16 pause_item_list_entries[];
 extern void update_menu_icon_list();
 extern void draw_menu_icon_list();
-extern u16 gadget_menu_items[];
+extern u16 filtered_menu_item_records[];
 
 u8 map_screen_disc_entries[152] DATA_SECTION(D_001384A0) = {0};
 
@@ -87,19 +87,19 @@ u32 fmt_decimal DATA_SECTION(D_001603A0) =
 #include "data_inc/D_001603A0.inc"
     ;
 
-u32 gold_bolt_marker_y_offset DATA_SECTION(D_001603A4) =
+u32 D_001603A4 DATA_SECTION(D_001603A4) =
 #include "data_inc/D_001603A4.inc"
     ;
 
-u32 fmt_gold_bolt_count_line[] DATA_SECTION(D_001603A8) = {
+u32 D_001603A8[] DATA_SECTION(D_001603A8) = {
 #include "data_inc/D_001603A8.inc"
 };
 
-u32 fmt_ammo_have[] DATA_SECTION(D_001603B8) = {
+u32 D_001603B8[] DATA_SECTION(D_001603B8) = {
 #include "data_inc/D_001603B8.inc"
 };
 
-u32 fmt_ammo_have_thousands[] DATA_SECTION(D_001603C0) = {
+u32 D_001603C0[] DATA_SECTION(D_001603C0) = {
 #include "data_inc/D_001603C0.inc"
 };
 
@@ -107,19 +107,19 @@ u32 fmt_number_thousands[] DATA_SECTION(D_001603D0) = {
 #include "data_inc/D_001603D0.inc"
 };
 
-u32 pause_ring_left_glyph[] DATA_SECTION(D_001603D8) = {
+u32 D_001603D8[] DATA_SECTION(D_001603D8) = {
 #include "data_inc/D_001603D8.inc"
 };
 
-u32 pause_ring_right_glyph[] DATA_SECTION(D_001603E0) = {
+u32 D_001603E0[] DATA_SECTION(D_001603E0) = {
 #include "data_inc/D_001603E0.inc"
 };
 
-u8 menu_side_indicator_left_glyph[] DATA_SECTION(D_001603F0) = {
+u8 D_001603F0[] DATA_SECTION(D_001603F0) = {
 #include "data_inc/D_001603F0.inc"
 };
 
-u8 menu_side_indicator_right_glyph[] DATA_SECTION(D_001603F8) = {
+u8 D_001603F8[] DATA_SECTION(D_001603F8) = {
 #include "data_inc/D_001603F8.inc"
 };
 
@@ -135,7 +135,7 @@ u32 fmt_save_date[] DATA_SECTION(D_00160420) = {
 #include "data_inc/D_00160420.inc"
 };
 
-short setup_strip_pass_words[] DATA_SECTION(D_00160460) = {
+short D_00160460[] DATA_SECTION(D_00160460) = {
 #include "data_inc/D_00160460.inc"
 };
 
@@ -153,7 +153,7 @@ float direction_scaled_z[2] DATA_SECTION(D_00160498) = {0};
 
 u32 item_info_table[2] DATA_SECTION(D_001864D0) = {0};
 
-u32 item_info_table_slot[2] DATA_SECTION(D_001864D8) = {0};
+u32 D_001864D8[2] DATA_SECTION(D_001864D8) = {0};
 
 u32 D_001864E0[] DATA_SECTION(D_001864E0) = {
 #include "data_inc/D_001864E0.inc"
@@ -169,7 +169,7 @@ u32 D_0019C260[4] DATA_SECTION(D_0019C260) = {0};
 
 u32 D_0019C270[20] DATA_SECTION(D_0019C270) = {0};
 
-int selected_level_index DATA_SECTION(D_001A0414) = {0};
+int D_001A0414 DATA_SECTION(D_001A0414) = {0};
 
 int pause_memory_card_state[12] DATA_SECTION(D_001A0418) = {0};
 
@@ -180,40 +180,40 @@ s32 panel_slot_enabled[] DATA_SECTION(D_001CE640) = {
 };
 
 #include "data_inc/D_001CE938.refs"
-u32 pause_menu_screen_a[] DATA_SECTION(D_001CE938) = {
+u32 D_001CE938[] DATA_SECTION(D_001CE938) = {
 #include "data_inc/D_001CE938.inc"
 };
 
 #include "data_inc/D_001CEAC8.refs"
-u32 pause_menu_screen_b[] DATA_SECTION(D_001CEAC8) = {
+u32 D_001CEAC8[] DATA_SECTION(D_001CEAC8) = {
 #include "data_inc/D_001CEAC8.inc"
 };
 
 #include "data_inc/D_001CEB18.refs"
-u32 pause_menu_screen_optional[] DATA_SECTION(D_001CEB18) = {
+u32 D_001CEB18[] DATA_SECTION(D_001CEB18) = {
 #include "data_inc/D_001CEB18.inc"
 };
 
 #include "data_inc/D_001CEFA0.refs"
-u32 gadget_menu_slots_row0[] DATA_SECTION(D_001CEFA0) = {
+u32 D_001CEFA0[] DATA_SECTION(D_001CEFA0) = {
 #include "data_inc/D_001CEFA0.inc"
 };
 
-Item0A gadget_menu_slots_row1[] DATA_SECTION(D_001CEFE0) = {
+Item0A D_001CEFE0[] DATA_SECTION(D_001CEFE0) = {
 #include "data_inc/D_001CEFE0.inc"
 };
 
-Item0A gadget_menu_slots_row2[] DATA_SECTION(D_001CF000) = {
+Item0A D_001CF000[] DATA_SECTION(D_001CF000) = {
 #include "data_inc/D_001CF000.inc"
 };
 
 #include "data_inc/D_001CF020.refs"
-u32 gadget_menu_slots_row3[] DATA_SECTION(D_001CF020) = {
+u32 D_001CF020[] DATA_SECTION(D_001CF020) = {
 #include "data_inc/D_001CF020.inc"
 };
 
 #include "data_inc/D_001CF4A0.refs"
-u32 pause_weapon_menu_slots[] DATA_SECTION(D_001CF4A0) = {
+u32 D_001CF4A0[] DATA_SECTION(D_001CF4A0) = {
 #include "data_inc/D_001CF4A0.inc"
 };
 
@@ -229,13 +229,13 @@ u32 mission_menu_page[] DATA_SECTION(D_001CF9F8) = {
 
 int selected_mission_index[4] DATA_SECTION(D_001CFAD8) = {0};
 
-u16 active_message_menu_items[] DATA_SECTION(D_001CFFC0) = {
+u16 D_001CFFC0[] DATA_SECTION(D_001CFFC0) = {
 #include "data_inc/D_001CFFC0.inc"
 };
 
-int pause_entry_cleared_word[4] DATA_SECTION(D_001D0718) = {0};
+int D_001D0718[4] DATA_SECTION(D_001D0718) = {0};
 
-void *pause_weapon_menu_grid[] DATA_SECTION(D_001D1080) = {
+void *D_001D1080[] DATA_SECTION(D_001D1080) = {
     update_menu_icon_list,
     draw_menu_icon_list,
     0,
@@ -254,7 +254,7 @@ void *pause_weapon_menu_grid[] DATA_SECTION(D_001D1080) = {
     0,
     0,
     0,
-    pause_weapon_menu_items,
+    pause_item_list_entries,
     0,
     0,
     0,
@@ -264,7 +264,7 @@ void *pause_weapon_menu_grid[] DATA_SECTION(D_001D1080) = {
     0,
 };
 
-void *gadget_menu_grid[] DATA_SECTION(D_001D1408) = {
+void *D_001D1408[] DATA_SECTION(D_001D1408) = {
     update_menu_icon_list,
     draw_menu_icon_list,
     0,
@@ -283,7 +283,7 @@ void *gadget_menu_grid[] DATA_SECTION(D_001D1408) = {
     0,
     0,
     0,
-    gadget_menu_items,
+    filtered_menu_item_records,
     0,
     0,
     0,
@@ -311,7 +311,7 @@ u32 reward_menu_page[] DATA_SECTION(D_001D2BF8) = {
 Entry14 cheat_toggle_menu_items[13] DATA_SECTION(D_001D3E90) = {0};
 
 #include "data_inc/D_001D48A8.refs"
-int pause_level_sprite_lists[] DATA_SECTION(D_001D48A8) = {
+int D_001D48A8[] DATA_SECTION(D_001D48A8) = {
 #include "data_inc/D_001D48A8.inc"
 };
 
@@ -321,7 +321,7 @@ struct MenuPage pause_menu_start_page DATA_SECTION(D_001D4948) = {
 };
 
 #include "data_inc/D_001D4B90.refs"
-u32 pause_action_list_pal[] DATA_SECTION(D_001D4B90) = {
+u32 D_001D4B90[] DATA_SECTION(D_001D4B90) = {
 #include "data_inc/D_001D4B90.inc"
 };
 
@@ -345,7 +345,7 @@ u32 save_menu_load_confirm_page[] DATA_SECTION(D_001D5318) = {
 #include "data_inc/D_001D5318.inc"
 };
 
-int menu_preview_slot_enabled[] DATA_SECTION(D_001D53A0) = {
+int D_001D53A0[] DATA_SECTION(D_001D53A0) = {
 #include "data_inc/D_001D53A0.inc"
 };
 
@@ -388,7 +388,7 @@ u32 current_menu_page DATA_SECTION(D_001D5F74) = 0;
 
 u32 D_001D6020[22] DATA_SECTION(D_001D6020) = {0};
 
-int menu_system_help_text_buffer[18] DATA_SECTION(D_001D6078) = {0};
+int D_001D6078[18] DATA_SECTION(D_001D6078) = {0};
 
 u32 preview_resource_ids[22] DATA_SECTION(D_001D60C8) = {0};
 
@@ -416,25 +416,25 @@ Rec38 preview_animation_requests[8] DATA_SECTION(D_001D6250) = {0};
 
 int menu_stream_buffers[10] DATA_SECTION(D_001D6448) = {0};
 
-u16 pause_weapon_menu_items[76] DATA_SECTION(D_001D6470) = {0};
+u16 D_001D6470[76] DATA_SECTION(D_001D6470) = {0};
 
-int pause_weapon_menu_item_field40[16] DATA_SECTION(D_001D6508) = {0};
+int D_001D6508[16] DATA_SECTION(D_001D6508) = {0};
 
-u16 gadget_menu_items[72] DATA_SECTION(D_001D6548) = {0};
+u16 D_001D6548[72] DATA_SECTION(D_001D6548) = {0};
 
-int gadget_menu_item_field40[14] DATA_SECTION(D_001D65D8) = {0};
+int D_001D65D8[14] DATA_SECTION(D_001D65D8) = {0};
 
-int gadget_menu_item_field44[14] DATA_SECTION(D_001D6610) = {0};
+int D_001D6610[14] DATA_SECTION(D_001D6610) = {0};
 
-Out0C galaxy_menu_items[23] DATA_SECTION(D_001D6648) = {0};
+Out0C D_001D6648[23] DATA_SECTION(D_001D6648) = {0};
 
-int scene_state_buffer_2[64] DATA_SECTION(D_001D6760) = {0};
+int D_001D6760[64] DATA_SECTION(D_001D6760) = {0};
 
 int scene_state_buffer_0[792] DATA_SECTION(D_001D6860) = {0};
 
 int scene_state_buffer_1[792] DATA_SECTION(D_001D74C0) = {0};
 
-u32 graphics_setup_dma_packets[] DATA_SECTION(D_001D8120) = {
+u32 D_001D8120[] DATA_SECTION(D_001D8120) = {
 #include "data_inc/D_001D8120.inc"
 };
 
@@ -448,11 +448,11 @@ u32 pal_graphics_setup_packet[] DATA_SECTION(D_001D8250) = {
 #include "data_inc/D_001D8250.inc"
 };
 
-u32 planet_icon_rows[] DATA_SECTION(D_001DE0C0) = {
+u32 D_001DE0C0[] DATA_SECTION(D_001DE0C0) = {
 #include "data_inc/D_001DE0C0.inc"
 };
 
-int map_screen_layer_insets[] DATA_SECTION(D_001DE2E8) = {
+int D_001DE2E8[] DATA_SECTION(D_001DE2E8) = {
 #include "data_inc/D_001DE2E8.inc"
 };
 
@@ -460,7 +460,7 @@ float preview_placements[] DATA_SECTION(D_001E0708) = {
 #include "data_inc/D_001E0708.inc"
 };
 
-int map_gold_bolt_totals[] DATA_SECTION(D_001E0B88) = {
+int D_001E0B88[] DATA_SECTION(D_001E0B88) = {
 #include "data_inc/D_001E0B88.inc"
 };
 

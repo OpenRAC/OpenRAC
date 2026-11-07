@@ -2,6 +2,6 @@
 #include "common.h"
 
 #include "data_inc/D_00152470.refs"
-u32 locale_lconv[] DATA_SECTION(D_00152470) = {
+u32 D_00152470[] DATA_SECTION(D_00152470) = {
 #include "data_inc/D_00152470.inc"
 };

@@ -42,9 +42,9 @@
           "tools/extract",
           "docs/GDSCRIPT_CONVENTIONS.md"
         ],
-        "commit": "1d8228cc0c81da7bc2bdc3e77479ee050e0ef434",
-        "date": "2026-11-03",
-        "imported": "2026-11-03"
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
@@ -323,9 +323,9 @@
         "branch": "main",
         "checkout": "../rac1-decomp",
         "license": "GPL-3.0 (third-party parts keep theirs)",
-        "commit": "1d8228cc0c81da7bc2bdc3e77479ee050e0ef434",
-        "date": "2026-11-03",
-        "imported": "2026-11-03"
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
       },
       "build": {
         "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
@@ -395,9 +395,9 @@
         "branch": "main",
         "checkout": "../rac1-decomp",
         "license": "GPL-3.0 (third-party parts keep theirs)",
-        "commit": "1d8228cc0c81da7bc2bdc3e77479ee050e0ef434",
-        "date": "2026-11-03",
-        "imported": "2026-11-03"
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
       },
       "build": {
         "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",

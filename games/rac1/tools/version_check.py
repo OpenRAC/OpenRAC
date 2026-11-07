@@ -235,6 +235,10 @@ class Table:
             k -= 1
         if k >= 0:
             pa, size, xa = lst[k]
+            # copies with the same fingerprint share a primary address: take the one callers use
+            copies = [r for r in lst[k:k + 8] if r[0] == pa]
+            if len(copies) > 1:
+                _, size, xa = max(copies, key=lambda r: (self.obs[sp][(pa, r[2])], -r[2]))
             if pa <= addr < pa + max(size, 4):
                 return xa + (addr - pa)
         return None
@@ -336,7 +340,7 @@ class Mask(Exception):
     pass
 
 
-def relocate(obj, name, ctx, pal_addr, xlate, x_gp, theirs=None):
+def relocate(obj, name, ctx, pal_addr, xlate, x_gp, theirs=None, x_base=None):
     """(this version's bytes of NAME from OBJ placed at the primary's PAL_ADDR and translated,
     the offsets of masked bytes, the function's size, unresolved names)."""
     import overlay_check as oc
@@ -390,6 +394,9 @@ def relocate(obj, name, ctx, pal_addr, xlate, x_gp, theirs=None):
         if sym["st_info"]["type"] == "STT_SECTION" or (isinstance(sym["st_shndx"], int) and not conv):
             if sec == ".text":
                 return ("text", sym["st_value"])
+            if sec and sec.startswith(".rodata.jtbl_") and sec[len(".rodata."):] in version_jtbl(xlate.v):
+                # a table the translation misses: an earlier table has another length here
+                return ("direct", version_jtbl(xlate.v)[sec[len(".rodata."):]] + sym["st_value"])
             if sec and sec.startswith(".rodata.jtbl_"):
                 return ("abs", named(sec[len(".rodata."):], near) + sym["st_value"])
             raise Mask()
@@ -399,6 +406,13 @@ def relocate(obj, name, ctx, pal_addr, xlate, x_gp, theirs=None):
         kind, val = value_of(sym, near)
         if kind == "direct":
             return (val + addend) & 0xFFFFFFFF
+        if kind == "text" and direct:
+            # a call to code only this version has, defined in this object: through .text
+            toff = val + addend
+            for s in P.symtab.iter_symbols():
+                if (s["st_shndx"] == P.sym["st_shndx"] and s["st_size"] and direct.match(s.name)
+                        and s["st_value"] <= toff < s["st_value"] + s["st_size"]):
+                    return int(direct.match(s.name).group(1), 16) + (toff - s["st_value"])
         pal = owner_offset(val + addend, near) if kind == "text" else val + addend
         x = xlate(ctx, pal & 0xFFFFFFFF)
         if x is None:
@@ -412,7 +426,8 @@ def relocate(obj, name, ctx, pal_addr, xlate, x_gp, theirs=None):
     def put(o, w):
         ours[o:o + 4] = (w & 0xFFFFFFFF).to_bytes(4, "little")
         touched.update(range(o, o + 4))
-    x_base = xlate(ctx, pal_addr)
+    if x_base is None:
+        x_base = xlate(ctx, pal_addr)
     for hi_rel, lo_rel, hi_imm, lo_imm in P.hi_los(orig):
         ho = hi_rel["r_offset"]
         try:
@@ -532,14 +547,17 @@ def check_one(v, table, name, src, entry, show=False):
     # the first place of this version's in a program where the primary has the function too
     # (an entry can be the executable's here and a level's there)
     mine = sorted(entry["places"], key=lambda p: (-1 if p[0] == "boot" else p[0], p[1]))
+    own = name.startswith(f"func_{v.tag}_")     # code only this version has: placed at its own address
+    if src.startswith("src/versions/") and not {p[0] for p in mine} & {p[0] for p in primary_places().get(name, [])}:
+        own = True      # version-specific C of a function this version has only in other programs
     theirs_sp = {p[0] for p in primary_places().get(name, [])}
     sp, xa = next((p for p in mine if p[0] in theirs_sp), mine[0])
     canon = min(primary_places().get(name, [(sp, 0)]), key=lambda p: (-1 if p[0] == "boot" else p[0], p[1]))[0]
-    if sp != canon and not v.primary:
+    if sp != canon and not v.primary and not own and not src.startswith("src/versions/"):
         # the C names its symbols as its canonical place (the executable, or its lowest level) sees
         # them; this version has the code only elsewhere, its copy there is another function
         return "differs", 0.0, f"the code differs at the primary's canonical place ({canon})"
-    pp = [p for p in primary_places().get(name, []) if p[0] == sp]
+    pp = [(sp, xa)] if own else [p for p in primary_places().get(name, []) if p[0] == sp]
     if not pp:
         # the counterpart is not at the same kind of place (an executable function in a level)
         return "nomatch", 0.0, "no place of the primary's in the same program"
@@ -561,7 +579,8 @@ def check_one(v, table, name, src, entry, show=False):
     for obj, _val, size in cands:
         try:
             ours, masked, size, unresolved = relocate(obj, real, sp, pal_addr, table, table.x_gp,
-                                                      code_bytes(v, sp, xa, entry["size"] + 64))
+                                                      code_bytes(v, sp, xa, entry["size"] + 64),
+                                                      x_base=xa if own else None)
         except Exception as ex:          # noqa: BLE001  (an object this tool cannot place)
             best = best or ("nomatch", 0.0, f"{type(ex).__name__}: {ex}")
             continue
@@ -610,7 +629,8 @@ def run(v, only=None, show=False):
     table = Table(v)
     names = c_functions()
     overrides = version_sources(v)
-    asm = original_asm()
+    remnants = version_remnants(v)
+    asm = original_asm() | remnants
     ents = entries_by_name(v) if not v.primary else primary_entries()
     rows = []
     counts = collections.Counter()
@@ -622,7 +642,7 @@ def run(v, only=None, show=False):
         if e is None:
             status, close, note = "absent", 0.0, ""
         elif name in asm and name not in names and name not in overrides:
-            status, close, note = ("asm", 100.0, "") if e["same"] else ("differs", 0.0, "")
+            status, close, note = ("asm", 100.0, "") if e["same"] or name in remnants else ("differs", 0.0, "")
         elif not e["same"] and name not in overrides:
             status, close, note = "differs", 0.0, ""
         else:
@@ -645,7 +665,8 @@ def run(v, only=None, show=False):
         have = {r[0] for r in rows}
         for p in pieces:
             if p in ents and p not in have:
-                piece = "joined" if st in ("match", "asm") and ents[p]["same"] else ("differs" if st != "absent" else st)
+                # version-specific C of the owner was compared over the pieces too
+                piece = "joined" if st in ("match", "asm") and (ents[p]["same"] or owner in overrides) else ("differs" if st != "absent" else st)
                 rows.append((p, "-", piece, fmt_place(canonical_place(ents[p])), ents[p]["size"],
                              100.0 if piece == "joined" else 0.0))
                 counts[piece] += 1
@@ -669,6 +690,25 @@ def version_sources(v):
     """{name: file} of the version-specific C in src/versions/<K>/ (tools/version_src.py)."""
     import version_src
     return {n: str(p.relative_to(ROOT)) for n, p in version_src.overrides(v).items()}
+
+
+@functools.lru_cache(None)
+def version_jtbl(v):
+    """{primary's jump table: its address here}, config/versions/<K>/jtbl.tsv."""
+    path = v.config / "jtbl.tsv"
+    if not path.exists():
+        return {}
+    rows = [l.split("\t") for l in path.read_text().splitlines() if l and not l.startswith("#")]
+    return {name: int(addr, 16) for name, addr in rows}
+
+
+def version_remnants(v):
+    """Dead-strip remnants only this version has (config/versions/<K>/remnants.txt): the leftover
+    tail of a stripped function, original bytes with no C of their own."""
+    path = v.config / "remnants.txt"
+    if not path.exists():
+        return set()
+    return {l.strip() for l in path.read_text().splitlines() if l.strip() and not l.startswith("#")}
 
 
 def map_path(v):

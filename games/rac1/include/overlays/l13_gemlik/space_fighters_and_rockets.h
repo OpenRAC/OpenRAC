@@ -13,7 +13,7 @@ extern void *fire_mine_83_projectile(void *, void *);
 extern void fire_starfighter_homing_rocket(void *, void *);
 extern void process_moby_attachment_damage(void *, void *);
 extern int queue_starfighter_voice_line(void *, void *, int, int);
-extern void *spawn_owner_linked_class_160_moby(void *);
+extern void *func_L13_002E9870(void *);
 extern void update_moby_joint_attachments(void *, void *);
 extern int update_moby_path_following_away_from_hero(void *, void *, int, int);
 extern void update_moby_spring_steering_and_banking(void *, void *, float, float);

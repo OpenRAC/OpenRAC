@@ -145,12 +145,12 @@ extern Order order_2B33E8 __asm__("D_0013E620");
 extern unsigned char help_stats_base_r[] __asm__("D_0014171B");
 extern char player_camera_r[] __asm__("D_L00_00166D80");
 extern char g_debug_camera_r[] __asm__("D_L00_00166EC0");
-extern char D_L00_00173F40[];
-extern float D_L00_00173F68;
-extern float D_L00_0017ADF4;
+extern char coll_hit_result[];
+extern float collision_hit_z;
+extern float weapon_aim_mode1_launch_pitch;
 extern Moby *active_mobies_r[] __asm__("D_L00_001ABD80");
 extern Light level_point_lights_r[] __asm__("D_L00_001803C0");
-extern int D_L00_0015F6A8 MACRO_ADDR;
+extern int cinematic_mode MACRO_ADDR;
 extern int level_frame_counter_r __asm__("D_L00_0015F6B0") MACRO_ADDR;
 extern float g_frame_time_r __asm__("D_0015EE6C") MACRO_ADDR;
 extern int gameplay_event_frame_count_r __asm__("D_0015EFA4") MACRO_ADDR;
@@ -194,7 +194,7 @@ void devastator_update(Moby *m) {
         data->light = -1;
         data->glow = 0;
     }
-    matrix_copy_rows(&rotation, player_camera_r);
+    copy_matrix3x4(&rotation, player_camera_r);
     matrix_from_basis_rows(&inverse, &rotation);
     fast_dec_timer_r(&data->cooldown);
     if (fast_dec_timer_r(&data->target_timer) || (data->target && ((unsigned char)data->target->state & 0x80)))
@@ -220,10 +220,10 @@ void devastator_update(Moby *m) {
                                              multiply_global_factor(240.0f) * 0.017453292f),
                           0x27, -1, 90.0f, 4);
         if (data->target && !data->cooldown && get_ammo(-1)) {
-            float d = FastVecDist(g_debug_camera_r, &data->target->pos) / 100.0f;
+            float d = fast_vec_dist(g_debug_camera_r, &data->target->pos) / 100.0f;
             qcopy(&point, &data->target->pos);
             point.f.z += data->target_height;
-            size = FastAbsF(0.9f - d * 0.57f);
+            size = absolute_float(0.9f - d * 0.57f);
             EffectQueue_Add_r((int)m, 0xFF0FFF0F, size, &point,
                               FastNormalizeAngle(IntToFloat(level_frame_counter_r % scale_ticks(240)) * -360.0f /
                                                  multiply_global_factor(240.0f) * 0.017453292f),
@@ -233,7 +233,7 @@ void devastator_update(Moby *m) {
     if (hero_2B33E8.items[6].locked_on) {
         data->target = hero_2B33E8.items[6].lock_target;
         data->target_timer = scale_ticks(20);
-        data->target_height = coll_hit_point_z - data->target->pos.z;
+        data->target_height = collision_hit_z - data->target->pos.z;
     }
     if (cinematic_mode != 2 && !data->cooldown && !hero_2B33E8.item_use_locked && m->seq < 2 &&
         (input_2B33E8.held & hero_2B33E8.items[0].button_mask) && scale_ticks(22) < hero_2B33E8.items[0].ready_frames) {
@@ -245,7 +245,7 @@ void devastator_update(Moby *m) {
             transform_vector(&velocity, &velocity, &inverse);
         } else {
             velocity.f.x = g_frame_time_r * 10.0f;
-            matrix_mul_vec3(&velocity, &velocity, &hero_2B33E8.basis);
+            transform_vector_by_basis(&velocity, &velocity, &hero_2B33E8.basis);
         }
         if (use_ammo(-1, 1)) {
             best = 0;
@@ -253,7 +253,7 @@ void devastator_update(Moby *m) {
                 yaw = hero_2B33E8.items[6].lock_yaw;
             else
                 yaw = fast_atan2(velocity.f.x, velocity.f.y);
-            pitch = -fast_atan2(vec_length_xy(&velocity), velocity.f.z);
+            pitch = -fast_atan2(vector_length_xy(&velocity), velocity.f.z);
             yaw0 = yaw;
             pitch0 = pitch;
             if (hero_2B33E8.state.current == HERO_STATE_LOOK_RELEASE_WAIT && (hero_2B33E8.moby->flags & 1)) {
@@ -266,7 +266,7 @@ void devastator_update(Moby *m) {
                 if (data->target)
                     height = data->target_height;
             } else {
-                Moby_GetJointWorldPos(m, 0, &launch);
+                moby_point_position(m, 0, &launch);
                 i = 0;
                 o = active_mobies_r[i];
                 while (o) {
@@ -282,13 +282,13 @@ void devastator_update(Moby *m) {
                             float tyaw, tpitch, distance, spread, off;
                             tyaw = fast_atan2(point.f.x - launch.f.x, point.f.y - launch.f.y);
                             tpitch = fast_atan2(vec_distance_xy(&launch, &point), point.f.z - launch.f.z);
-                            distance = FastVecDist(&launch, &point);
+                            distance = fast_vec_dist(&launch, &point);
                             if (distance < 2.5f) {
                                 Moby *cam = hero_2B33E8.moby;
                                 if (FastDiffRots(cam->rot.z, fast_atan2(o->pos.x - hero_2B33E8.motion.pos.f[0],
                                                                         o->pos.y - hero_2B33E8.motion.pos.f[1])) <
                                         1.0471976f &&
-                                    FastAbsF(tpitch) < 0.7853982f) {
+                                    absolute_float(tpitch) < 0.7853982f) {
                                     limit = distance;
                                     pitch = -tpitch;
                                     best = o;
@@ -300,7 +300,7 @@ void devastator_update(Moby *m) {
                                 spread = IntToFloat(order_2B33E8.level) * 0.6981317f;
                                 BuildSphericalOffset(&tmp, distance, yaw, pitch + hero_2B33E8.ground_pitch.f * 0.5f);
                                 FastVecAdd(&tmp, &tmp, &launch);
-                                off = FastArcSin(FastVecDist(&tmp, &point) / (distance + distance));
+                                off = FastArcSin(fast_vec_dist(&tmp, &point) / (distance + distance));
                                 off = off + off;
                                 if (spread + 0.17453292f < off) {
                                     if (r) {
@@ -398,7 +398,7 @@ void devastator_update(Moby *m) {
             b = IntToFloat(data->glow) * 0.8f / (float)scale_ticks(10);
             c = IntToFloat(data->glow) * 0.5f / (float)scale_ticks(10);
         }
-        Moby_GetJointWorldPos(m, 0, &velocity);
+        moby_point_position(m, 0, &velocity);
         velocity.f.x += FastCos(fast_atan2(hero_2B33E8.facing_x, hero_2B33E8.facing_y));
         velocity.f.y += FastSin(fast_atan2(hero_2B33E8.facing_x, hero_2B33E8.facing_y));
         velocity.f.z += 0.3f;
@@ -425,7 +425,7 @@ void devastator_update(Moby *m) {
     }
 }
 
-extern char player_camera[];
+extern char gCameraLvl[];
 extern char help_stats_base[] NOT_SDA;
 extern int gameplay_event_frame_count MACRO_ADDR;
 extern int g_current_level_index MACRO_ADDR;
@@ -454,7 +454,7 @@ void visibomb_update(char *m) {
             int w = g->state.current;
             if (w != 0x72 && w != 0x65 && w != 0x32) {
                 int x;
-                g2 = player_camera;
+                g2 = gCameraLvl;
                 x = *(int *)(g2 + 0x180);
                 if (x == 0 || *(short *)(x + 0x86) != 5) {
                     if (g->grounded_frames != 0) {
@@ -467,7 +467,7 @@ void visibomb_update(char *m) {
                                     (*(unsigned short *)(*(int *)&g->moby + 0x34) & 1)) {
                                     char *v = g2 + 0x350;
                                     f20 = fast_atan2(*(float *)(g2 + 0x350), *(float *)(g2 + 0x354));
-                                    f21 = -fast_atan2(vec_length_xy(v), *(float *)(g2 + 0x358));
+                                    f21 = -fast_atan2(vector_length_xy(v), *(float *)(g2 + 0x358));
                                     vec_scale_to_length(t0, v, 0.3f);
                                     vec_scale_to_length(t1, g2 + 0x370, -0.35f);
                                     FastVecAdd(t0, t0, t1);
@@ -475,8 +475,8 @@ void visibomb_update(char *m) {
                                 } else {
                                     struct Hero *q = &g_hero;
                                     if (q->unk22C8 == 1) {
-                                        f21 =
-                                            fast_atan2(vec_length_xy(&((Moby *)m)->rot_row1), ((Moby *)m)->rot_row1.z);
+                                        f21 = fast_atan2(vector_length_xy(&((Moby *)m)->rot_row1),
+                                                         ((Moby *)m)->rot_row1.z);
                                         BuildSphericalOffset(t0, 0.6f, f20, -f21);
                                         FastVecAdd(t0, t0, &((Moby *)m)->pos);
                                     } else {
@@ -515,11 +515,11 @@ void visibomb_update(char *m) {
 }
 
 extern int moby_array_start MACRO_ADDR;
-extern int linked_moby_trigger_ticks SDATA(linked_moby_trigger_ticks);
-extern int linked_moby_hit_cooldown SDATA(linked_moby_hit_cooldown);
+extern int linked_moby_selection_delay_gp SDATA(D_L00_00161548);
+extern int owned_record_cooldown_gp SDATA(D_L00_00161550);
 
 /* update moby 166 */
-void update_linked_moby_states(char *m) {
+void linked_moby_states_update(char *m) {
     int *p = ((int *)((Moby *)m)->pvars);
     int b;
     char *r;
@@ -530,7 +530,7 @@ void update_linked_moby_states(char *m) {
         case 0:
             ((Moby *)m)->state = 1;
             b = moby_array_start;
-            p[1] = linked_moby_trigger_ticks;
+            p[1] = linked_moby_selection_delay_gp;
             p[2] = 3;
             p[0x20 / 4] = b + (p[4] << 8);
             p[0x24 / 4] = b + (p[5] << 8);
@@ -542,7 +542,7 @@ void update_linked_moby_states(char *m) {
             fast_dec_timer(p + 3);
             if (r != 0 && p[3] == 0) {
                 ((Moby *)m)->hit_slot = 0xFF;
-                p[3] = linked_moby_hit_cooldown;
+                p[3] = owned_record_cooldown_gp;
                 p[2] = p[2] - 1;
                 if (p[2] <= 0) {
                     DeleteMoby((int)m);
@@ -554,7 +554,7 @@ void update_linked_moby_states(char *m) {
                 *(unsigned char *)(*(char **)&p[10] + 0x20) == 0x50 ||
                 *(unsigned char *)(*(char **)&p[11] + 0x20) == 0x50) {
                 if (fast_dec_timer(p + 1)) {
-                    p[1] = linked_moby_trigger_ticks;
+                    p[1] = linked_moby_selection_delay_gp;
                     q = (char **)(p + 8);
                     i = 0;
                     do {
@@ -603,16 +603,16 @@ typedef struct Data_2B4918 {
     float f2C;
 } Data_2B4918;
 
-extern Ids D_L00_00161558;
-extern Ids D_L00_00161560;
-extern float D_L00_001DACE0[][4];
-extern float D_L00_001DAD60[][2];
-extern float D_L00_001DAD20[][4];
+extern Ids joint_beam_alt_joint_ids;
+extern Ids joint_beam_joint_ids;
+extern float joint_beam_quad_a_corners[][4];
+extern float joint_beam_quad_uvs[][2];
+extern float joint_beam_quad_b_corners[][4];
 extern float g_debug_camera_r2[] __asm__("D_L00_00166EC0");
-extern UV D_L00_001DA3B0[];
-extern float D_L00_001D9770[][4];
-extern P3_2B4918 D_L00_001DAD80[];
-extern int D_L00_001DA9D0[];
+extern UV joint_beam_ribbon_uvs[];
+extern float joint_beam_ribbon_model_points[][4];
+extern P3_2B4918 l00_beam_ribbon_world_positions[];
+extern int joint_beam_ribbon_colors[];
 
 extern long GetEffectTex_r(int) __asm__("func_001F4868");
 
@@ -669,7 +669,7 @@ void draw_joint_aligned_beam_effect(Moby *m) {
     idm[3].z = -0.075f;
     idm[3].x = 0.0f;
     idm[3].y = 0.0f;
-    sce_vu0_mul_matrix(res, mtx, idm);
+    multiply_matrix(res, mtx, idm);
     pk.tag[1] = GetEffectTex_r(0xC);
     for (i = 0; i < 4; i++) {
         pk.col[i] = 0x80808080;
@@ -717,16 +717,16 @@ void draw_joint_aligned_beam_effect(Moby *m) {
     for (i = 0; i < 0xC4; i++) {
         FastVecScale(&e, joint_beam_ribbon_model_points[i], data->f20);
         transform_vector(&e, &e, mtx);
-        joint_beam_ribbon_world_verts[i].x = e.x;
-        joint_beam_ribbon_world_verts[i].y = e.y;
-        joint_beam_ribbon_world_verts[i].z = e.z;
+        l00_beam_ribbon_world_positions[i].x = e.x;
+        l00_beam_ribbon_world_positions[i].y = e.y;
+        l00_beam_ribbon_world_positions[i].z = e.z;
         joint_beam_ribbon_uvs[i].v -= 0.025f;
         if (joint_beam_ribbon_uvs[i].v < -7.0f) {
             joint_beam_ribbon_uvs[i].v += 7.0f;
         }
     }
-    draw_env_overlay_mesh(0x94, joint_beam_ribbon_world_verts, joint_beam_ribbon_colors, joint_beam_ribbon_uvs, 1);
-    draw_env_overlay_mesh(0x32, &joint_beam_ribbon_world_verts[0x92], &joint_beam_ribbon_colors[0x92],
+    draw_env_overlay_mesh(0x94, l00_beam_ribbon_world_positions, joint_beam_ribbon_colors, joint_beam_ribbon_uvs, 1);
+    draw_env_overlay_mesh(0x32, &l00_beam_ribbon_world_positions[0x92], &joint_beam_ribbon_colors[0x92],
                           &joint_beam_ribbon_uvs[0x92], 1);
 }
 typedef struct {
@@ -777,14 +777,14 @@ void emit_beam_trail_particles(X *x) {
     l0.f[1] = FastSin(random_angle_radians()) * 0.05f;
     l0.f[2] = 0.0f;
     l0.f[2] = -random_float_between(0.01f, 0.03f);
-    matrix_mul_vec3(&l0, &l0, &x->vC0);
+    transform_vector_by_basis(&l0, &l0, &x->vC0);
     qcopy(&a, &x->v10);
     if (g_hero.state.current == HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT) {
         if ((*(s32 *)&D_L00_0015F6B0_B4F40b) % 3 == 0) {
-            PartType21Spawn(&a, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
+            spawn_burst(&a, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
         }
     } else {
-        PartType21Spawn(&a, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
+        spawn_burst(&a, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
     }
     if (g->f0C) {
         s = FastVecDist_r2(&g->v10, &a) * 0.5f;
@@ -792,7 +792,7 @@ void emit_beam_trail_particles(X *x) {
         for (i = 1; i < 2; i++) {
             vec_scale_to_length_r2(&t, &d, s * (f32)i);
             FastVecAdd_r3(&t, &a, &t);
-            PartType21Spawn(&t, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
+            spawn_burst(&t, &l0, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(10), 1, 10000.0f);
         }
     }
     g->f00 = random_integer_below(scale_ticks(10));
@@ -802,13 +802,13 @@ void emit_beam_trail_particles(X *x) {
     l0.f[1] = 0.0f;
     l0.f[2] = -0.3f;
     l0.f[3] = 1.0f;
-    matrix_mul_vec3(&l0, &l0, &x->vC0);
+    transform_vector_by_basis(&l0, &l0, &x->vC0);
     FastVecAdd_r3(&a, &x->v10, &l0);
     l0.f[3] = 1.0f;
     l0.f[2] = -0.075f;
     l0.f[0] = 0.0f;
     l0.f[1] = 0.0f;
-    matrix_mul_vec3(&l0, &l0, &x->vC0);
+    transform_vector_by_basis(&l0, &l0, &x->vC0);
     l0.f[2] = 0.025f;
     if (g_hero.state.current == HERO_STATE_LAND) {
         col = 0xA0A0A0;
@@ -845,7 +845,7 @@ void emit_beam_trail_particles(X *x) {
 }
 
 /* Spawns a hidden class 0xA7 moby and stores index a in its pvars. */
-char *spawn_indexed_class_a7_moby(int a) {
+char *spawn_thruster_pack_flame(int a) {
     char *m = CreateMoby(0xA7);
     if (m != 0) {
         int *p = ((int *)((Moby *)m)->pvars);
@@ -894,7 +894,7 @@ extern void draw_joint_aligned_beam_effect_r(void) __asm__("func_L00_002B4918");
 
 extern void emit_beam_trail_particles_r(void *) __asm__("func_L00_002B4F40");
 /* Multi-state update for a timed object: random delays from scale_ticks pace the stages, which adjust the step and scale fields of its private block and call the shared callback. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/unclassified_002b2100.c, FUN_L00_002b4198. */
-void update_beam_effect_lifecycle(void *p) {
+void thruster_pack_flame_update(void *p) {
     O_4198 *o = (O_4198 *)p;
     V_4198 *v = o->v;
     s32 flag = 0;
@@ -1038,14 +1038,14 @@ unsigned char *select_blaster_auto_aim_target(int ign, Vec4 *from, float *yaw, f
         a = fast_atan2(tp.f[0] - from->f[0], tp.f[1] - from->f[1]);
         b = fast_atan2(vec_distance_xy(from, &tp), tp.f[2] - from->f[2]);
         dy = FastDiffRots(*yaw, a);
-        d = FastVecDist(from, &tp);
+        d = fast_vec_dist(from, &tp);
         if (bestd < d) {
             continue;
         }
         g = &g_hero;
         BuildSphericalOffset(&w, d, *yaw, *pitch + g->ground_pitch.f * 0.5f);
         FastVecAdd(&w, &w, from);
-        e = FastArcSin(FastVecDist(&w, &tp) / (d + d));
+        e = FastArcSin(fast_vec_dist(&w, &tp) / (d + d));
         e = e + e;
         if (0.15707964f < e) {
             r = GetFlaggedPvarWord(m);
@@ -1189,7 +1189,7 @@ void blaster_update(Moby *m) {
     if (m->prev_seq == 0 && m->prev_frame < 3)
         data->cooldown = scale_ticks(7);
     if (hero_2B33E8.state.current == HERO_STATE_LOOK_RELEASE_WAIT && (hero_2B33E8.moby->flags & 1)) {
-        matrix_copy_rows(&w.rotation, player_camera_r);
+        copy_matrix3x4(&w.rotation, player_camera_r);
         matrix_from_basis_rows(&inverse, &w.rotation);
         velocity.f.z = g_frame_time_r * 40.0f;
         transform_vector(&velocity, &velocity, &inverse);
@@ -1212,14 +1212,14 @@ void blaster_update(Moby *m) {
         }
     } else {
         velocity.f.x = g_frame_time_r * 40.0f;
-        matrix_mul_vec3(&velocity, &velocity, &hero_2B33E8.basis);
-        Moby_GetJointWorldPos(m, 0, &launch);
+        transform_vector_by_basis(&velocity, &velocity, &hero_2B33E8.basis);
+        moby_point_position(m, 0, &launch);
     }
     if (hero_2B33E8.items[6].locked_on)
         yaw = hero_2B33E8.items[6].lock_yaw;
     else
         yaw = fast_atan2(velocity.f.x, velocity.f.y);
-    pitch = -fast_atan2(vec_length_xy(&velocity), velocity.f.z);
+    pitch = -fast_atan2(vector_length_xy(&velocity), velocity.f.z);
     yaw0 = yaw;
     pitch0 = pitch;
     if (hero_2B33E8.state.current != HERO_STATE_LOOK_RELEASE_WAIT) {
@@ -1234,14 +1234,15 @@ void blaster_update(Moby *m) {
     if (target && data->lock == 0) {
         if (get_ammo(-1)) {
             Aim_2B5C98 *r = GetFlaggedPvarWord_r2(target);
-            float d = FastVecDist(g_debug_camera_r, &target->pos) / 50.0f;
+            float d = fast_vec_dist(g_debug_camera_r, &target->pos) / 50.0f;
             float h;
             qcopy(&w.point, &target->pos);
             h = 0.5f;
             if (r)
                 h = r->height;
             w.point.f.z += h;
-            EffectQueue_Add_r2((int)m, 0xFF0FFF0F, FastAbsF(0.9f - d * 0.65f), &w.point, 0.0f, 0x26, -1, 90.0f, 4);
+            EffectQueue_Add_r2((int)m, 0xFF0FFF0F, absolute_float(0.9f - d * 0.65f), &w.point, 0.0f, 0x26, -1, 90.0f,
+                               4);
         }
     }
     if (hero_2B33E8.item_anim_active && hero_2B33E8.state.current != 0x72 && cinematic_mode != 2) {
@@ -1299,11 +1300,12 @@ void blaster_update(Moby *m) {
                     FastVecAdd(&w.spray.v, &velocity, &w.spray.v);
                     vec_scale_to_length(&w.spray.v, &w.spray.v,
                                         random_float_between(g_frame_time_r * 3.0f, g_frame_time_r * 6.0f));
-                    PartType27Spawn(&launch, &w.spray.v, 0x5F2F4F6F, rand_range(scale_ticks(5), scale_ticks(10)),
-                                    10000.0f);
+                    PartType27Spawn(&launch, &w.spray.v, 0x5F2F4F6F,
+                                    random_int_between(scale_ticks(5), scale_ticks(10)), 10000.0f);
                 }
                 vec_scale_to_length(&velocity, &velocity, g_frame_time_r * 0.5f);
-                PartType27Spawn(&launch, &velocity, 0x2F4F7F7F, rand_range(scale_ticks(4), scale_ticks(7)), 200000.0f);
+                PartType27Spawn(&launch, &velocity, 0x2F4F7F7F, random_int_between(scale_ticks(4), scale_ticks(7)),
+                                200000.0f);
             }
             if (m->prev_seq != 4)
                 MobyBlendAnimation(m, 4, 0, scale_ticks(7));
@@ -1355,19 +1357,19 @@ void blaster_update(Moby *m) {
     }
 }
 
-extern int D_L00_0015F40C MACRO_ADDR;
-extern float D_L00_0015F548 MACRO_ADDR;
-extern float D_L00_0015F54C MACRO_ADDR;
-extern float D_L00_0015F550 MACRO_ADDR;
-extern float D_L00_0015F554 MACRO_ADDR;
-extern int D_L00_0015F544 MACRO_ADDR;
-extern int D_L00_0015F545 MACRO_ADDR;
+extern int visibomb_render_override_active MACRO_ADDR;
+extern float level_fog_near_distance MACRO_ADDR;
+extern float level_fog_far_distance MACRO_ADDR;
+extern float level_fog_near_intensity MACRO_ADDR;
+extern float level_fog_far_intensity MACRO_ADDR;
+extern int level_fog_color_red MACRO_ADDR;
+extern int level_fog_color_green MACRO_ADDR;
 extern int level_fog_color_blue_m __asm__("D_L00_0015F546") MACRO_ADDR;
-extern float D_L00_00161040 MACRO_ADDR;
-extern float D_L00_001610A0 MACRO_ADDR;
-extern float D_L00_00160564 MACRO_ADDR;
-extern int D_L00_001600B0 MACRO_ADDR;
-extern int D_L00_0016023C MACRO_ADDR;
+extern float level_tfrag_draw_distance MACRO_ADDR;
+extern float level_tie_draw_distance MACRO_ADDR;
+extern float shrub_draw_distance MACRO_ADDR;
+extern int moby_draw_distance MACRO_ADDR;
+extern int level_particle_clip_dist MACRO_ADDR;
 extern int level_draw_globals_live;
 
 // Saves the camera parameters into a moby and switches the globals to a fixed screen setup.
@@ -1566,11 +1568,11 @@ void update_attached_moby_transform(Moby *m, unsigned char *o) {
     *(float *)(*(unsigned char **)(o + 0x20) + 0x48) = frame_scale * -1.5707964f;
     euler_to_matrix(&b, *(unsigned char **)(o + 0x20) + 0x40);
     copy_matrix_rotation(&c, &m->rot_row0);
-    sce_vu0_mul_matrix(&a, &c, &b);
-    matrix_copy_rows(*(unsigned char **)(o + 0x20) + 0xC0, &a);
+    multiply_matrix(&a, &c, &b);
+    copy_matrix3x4(*(unsigned char **)(o + 0x20) + 0xC0, &a);
     transform_vector(&r, &k, &a);
     FastVecAdd(*(unsigned char **)(o + 0x20) + 0x10, &r, &m->pos);
-    moby_anim_sphere_lerp(*(unsigned char **)(o + 0x20));
+    refresh_moby_spatial_bounds_from_basis(*(unsigned char **)(o + 0x20));
 }
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
@@ -1621,8 +1623,8 @@ void spawn_moby_particle_and_glow_burst(Moby *m, int flag) {
                 B = glow_burst_spark_colors_b;
                 pa = A.v + random_integer_below(6);
                 pb = B.v + random_integer_below(6);
-                a = rand_range(scale_ticks(15), scale_ticks(20));
-                b = rand_range(scale_ticks(25), scale_ticks(30));
+                a = random_int_between(scale_ticks(15), scale_ticks(20));
+                b = random_int_between(scale_ticks(25), scale_ticks(30));
                 PartType11Spawn_v(&m->pos, n, *pa, *pb, a, b, 0, 0, 400000.0f, sc);
             } while (--i);
         }
@@ -1692,7 +1694,7 @@ typedef struct Hit2_2B7430 {
 extern char g_hero_r3[] __asm__("D_0013F450");
 extern char voice_pool_r[] __asm__("D_0013E650");
 extern Hit2_2B7430 *g_coll_hit_moby_r2 __asm__("D_L00_00173F58");
-extern char D_L00_00178000[];
+extern char coll_sphere_moby_hits[];
 extern float frame_scale_r __asm__("D_0015EE60") MACRO_ADDR;
 extern int visibomb_occlusion_skip_flag_r2 __asm__("D_L00_0015F6E8") MACRO_ADDR;
 extern int D_L00_0015F558_2B7430 SDATA(D_L00_0015F558);
@@ -1796,7 +1798,7 @@ void visibomb_missile_update(Moby *m) {
     qcopy(&v20, &m->pos);
     FastVecAdd(&m->pos, &m->pos, &v50);
     if (scale_ticks(0xBB8) - scale_ticks(0x3C) < d->f10) {
-        float t = ProbeGroundHeight(&m->pos, 0, 0.5f) + d->f44;
+        float t = probe_ground_height(&m->pos, 0, 0.5f) + d->f44;
         if (m->pos.z < t) {
             if (g_coll_hit_moby_r2 == 0 || (g_coll_hit_moby_r2->f24 != 0 && g_coll_hit_moby_r2->f24->h46 == 5)) {
                 float s = fast_atan2(d->f4, ApproachValue(&m->pos.z, t, g_frame_time_r * 6.0f));
@@ -1814,10 +1816,10 @@ void visibomb_missile_update(Moby *m) {
     update_attached_moby_transform_r(m, d);
     {
         Moby *skip = m;
-        axis_rotation_2d48(&d->f24->pos, 1,
-                           -(d->f1C * 0.5f + FastAbsF(d->f18 / 3.0f) + (d->f18 - m->rot.x) * 1.1f) * 0.7f);
-        axis_rotation_2d48(&d->f28->pos, 1,
-                           -(d->f1C * 0.5f + FastAbsF(d->f18 / 3.0f) - (d->f18 - m->rot.x) * 1.1f) * 0.7f);
+        build_axis_rotation_quaternion(
+            &d->f24->pos, 1, -(d->f1C * 0.5f + absolute_float(d->f18 / 3.0f) + (d->f18 - m->rot.x) * 1.1f) * 0.7f);
+        build_axis_rotation_quaternion(
+            &d->f28->pos, 1, -(d->f1C * 0.5f + absolute_float(d->f18 / 3.0f) - (d->f18 - m->rot.x) * 1.1f) * 0.7f);
         ev.moby = m;
         ev.flags = 0x830000;
         ev.f1C = 6.0f;
@@ -1840,7 +1842,7 @@ void visibomb_missile_update(Moby *m) {
                 qcopy(&m->pos, &((Hit_2B7430 *)coll_hit_result)->v20);
                 FastVecSub(&v60, &((Hit_2B7430 *)coll_hit_result)->v50, &((Hit_2B7430 *)coll_hit_result)->v60);
                 vec_scale_to_length(&v60, &v60, 1.0f);
-                vec_reflect(&k30, &v50, &((Hit_2B7430 *)coll_hit_result)->v40);
+                reflect_vector(&k30, &v50, &((Hit_2B7430 *)coll_hit_result)->v40);
                 vec_scale_to_length(&k30, &k30, g_frame_time_r + g_frame_time_r);
                 vec_scale_to_length(&k40, &((Hit_2B7430 *)coll_hit_result)->v40, 1.0f);
                 if (d->f2C != -1) {
@@ -1856,7 +1858,7 @@ void visibomb_missile_update(Moby *m) {
                 qcopy(&m->pos, &((Hit_2B7430 *)coll_hit_result)->v20);
                 FastVecSub(&v60, &((Hit_2B7430 *)coll_hit_result)->v50, &((Hit_2B7430 *)coll_hit_result)->v60);
                 vec_scale_to_length(&v60, &v60, 1.0f);
-                vec_reflect(&k30, &v50, &((Hit_2B7430 *)coll_hit_result)->v40);
+                reflect_vector(&k30, &v50, &((Hit_2B7430 *)coll_hit_result)->v40);
                 vec_scale_to_length(&k30, &k30, g_frame_time_r + g_frame_time_r);
                 vec_scale_to_length(&k40, &((Hit_2B7430 *)coll_hit_result)->v40, 1.0f);
                 if (d->f2C != -1) {
@@ -1956,7 +1958,7 @@ int func_L00_002B7EC0_r(char *m, float r) {
                             FastVecSub(&q, e + 0x10, &((Moby *)m)->pos);
                             vec_scale_to_length(&q, &q, 1.5f);
                             PostHitMessage(e, (int)m, 0x10000, &g->motion.pos, &q, 1.0f);
-                            d[4] = scale_ticks(rand_range(5, 0x2D));
+                            d[4] = scale_ticks(random_int_between(5, 0x2D));
                         }
                         d[5] = d[5] + 1;
                     }
@@ -2083,13 +2085,13 @@ void taunter_update(Moby *m) {
     } else {
         o->cnt18 = 0;
     }
-    if (Sound_IsPlaying(m, o->anim) == 0) {
+    if (voice_is_playing(m, o->anim) == 0) {
         b = g_controller_state[0x1A4 / 4] & ((u32)g_hero_r4.items[0].button_mask);
         if ((b != 0 ||
              ((g_controller_state[0x1A0 / 4] & ((u32)g_hero_r4.items[0].button_mask)) != 0 && o->retry >= 0x11)) &&
             g_hero_r4.item_use_locked == 0) {
             if (b != 0) {
-                o->frame = scale_ticks(rand_range(0xF, 0x2D));
+                o->frame = scale_ticks(random_int_between(0xF, 0x2D));
             }
             if (item_usage.cnt < 0xFFFF)
                 item_usage.cnt++;
@@ -2160,11 +2162,11 @@ extern int taunter_effect_spawn_timer MACRO_ADDR;
 extern int taunter_effect_emission_disabled MACRO_ADDR;
 extern float taunter_effect_inv_lifetime MACRO_ADDR;
 extern char taunter_effect_origin_b[] __asm__("D_L00_001615B0") MACRO_ADDR;
-extern short D_L00_00161580;
-extern short D_L00_00161584;
-extern short D_L00_00161588;
+extern short taunter_effect_spawn_interval_frames_gp;
+extern short taunter_effect_travel_distance_gp;
+extern short taunter_effect_travel_speed_gp;
 extern short taunter_effect_alpha_g __asm__("D_L00_0016158C");
-extern short D_L00_001615A8;
+extern short taunter_effect_lifetime_frames;
 
 extern void draw_taunter_effect_quads_b(void) __asm__("func_L00_002B8860");
 /* per-frame update of the ten slot table: spawn one, age the rest, then draw */
@@ -2179,8 +2181,8 @@ void update_taunter_effect_slots(Moby *arg) {
             taunter_effect_slots_b[i].c = 0;
         taunter_effect_reset_pending = 0;
         taunter_effect_spawn_timer = 0;
-        r = truncate_float_to_s32_r(*(float *)&taunter_effect_travel_distance /
-                                    (*(float *)&taunter_effect_travel_speed * g_frame_time));
+        r = truncate_float_to_s32_r(*(float *)&taunter_effect_travel_distance_gp /
+                                    (*(float *)&taunter_effect_travel_speed_gp * g_frame_time));
         *(int *)&taunter_effect_lifetime_frames = r;
         taunter_effect_inv_lifetime = 1.0f / IntToFloat(r);
     }
@@ -2190,7 +2192,7 @@ void update_taunter_effect_slots(Moby *arg) {
             do {
                 p = &taunter_effect_slots_b[i];
                 if (p->c == 0) {
-                    taunter_effect_spawn_timer = scale_ticks(*(int *)&taunter_effect_spawn_interval_frames);
+                    taunter_effect_spawn_timer = scale_ticks(*(int *)&taunter_effect_spawn_interval_frames_gp);
                     av = *(unsigned short *)(&taunter_effect_spawn_timer + 2);
                     p->b = *(unsigned short *)&taunter_effect_alpha_g;
                     p->c = 1;
@@ -2207,10 +2209,10 @@ void update_taunter_effect_slots(Moby *arg) {
             if (FastDecTimer(&p->a) != 0)
                 p->c = 0;
             else
-                p->f += *(float *)&taunter_effect_travel_speed * g_frame_time;
+                p->f += *(float *)&taunter_effect_travel_speed_gp * g_frame_time;
         }
     }
-    Moby_GetJointWorldPos(arg, 0, taunter_effect_origin_b);
+    moby_point_position(arg, 0, taunter_effect_origin_b);
     AddDrawCallback(draw_taunter_effect_quads_b, arg);
 }
 
@@ -2226,10 +2228,10 @@ struct E {
 extern struct E taunter_effect_slots[];
 extern float taunter_effect_origin[] MACRO_ADDR;
 extern float taunter_effect_quad_corners[];
-extern float taunter_effect_start_size SDATA(taunter_effect_start_size);
-extern float taunter_effect_end_size SDATA(taunter_effect_end_size);
+extern float taunter_effect_quad_final_scale_gp SDATA(D_L00_00161598);
+extern float taunter_effect_quad_initial_scale_gp SDATA(D_L00_00161594);
 extern int taunter_effect_alpha SDATA(taunter_effect_alpha);
-extern int taunter_effect_color SDATA(taunter_effect_color);
+extern int taunter_effect_quad_rgb_gp SDATA(D_L00_00161590);
 
 /* Draws ten billboard-lit quads around a moby using the table of offsets. */
 void draw_taunter_effect_quads(Moby *m) {
@@ -2267,10 +2269,11 @@ void draw_taunter_effect_quads(Moby *m) {
             t = IntToFloat(taunter_effect_slots[i].s4) * taunter_effect_inv_lifetime;
             if (t > 1.0f)
                 t = 1.0f;
-            s = taunter_effect_start_size + (taunter_effect_end_size - taunter_effect_start_size) * t;
+            s = taunter_effect_quad_final_scale_gp +
+                (taunter_effect_quad_initial_scale_gp - taunter_effect_quad_final_scale_gp) * t;
             u = (IntToFloat(taunter_effect_alpha) - 0.0f) * t + 0.0f;
             j = truncate_float_to_s32_r(u);
-            pk.col[3] = (taunter_effect_color & 0xFFFFFF) | (j << 24);
+            pk.col[3] = (taunter_effect_quad_rgb_gp & 0xFFFFFF) | (j << 24);
             pk.col[2] = pk.col[3];
             pk.col[1] = pk.col[3];
             pk.col[0] = pk.col[3];
@@ -2318,15 +2321,15 @@ typedef struct Data_2B8AE8 {
 } Data_2B8AE8;
 
 extern float D_L00_001615E0 SDATA(D_L00_001615E0);
-extern float pyrocitor_flame_damping_rate SDATA(pyrocitor_flame_damping_rate);
-extern int pyrocitor_flame_initial_particle_count SDATA(pyrocitor_flame_initial_particle_count);
-extern int pyrocitor_flame_extra_particle_count SDATA(pyrocitor_flame_extra_particle_count);
-extern float pyrocitor_flame_base_length SDATA(pyrocitor_flame_base_length);
-extern float pyrocitor_flame_spread_at_full_length SDATA(pyrocitor_flame_spread_at_full_length);
-extern float pyrocitor_flame_spread_at_zero_length SDATA(pyrocitor_flame_spread_at_zero_length);
-extern int pyrocitor_ammo_use_interval_ticks SDATA(pyrocitor_ammo_use_interval_ticks);
-extern short pyrocitor_light_color_a;
-extern short pyrocitor_light_color_b;
+extern float pyrocitor_flame_maximum_speed_gp SDATA(D_L00_001615E4);
+extern int pyrocitor_flame_primary_particle_count_gp SDATA(D_L00_001615E8);
+extern int pyrocitor_flame_extra_particle_count_gp SDATA(D_L00_001615EC);
+extern float pyrocitor_flame_base_range_gp SDATA(D_L00_001615F0);
+extern float pyrocitor_flame_full_length_random_range_gp SDATA(D_L00_001615F4);
+extern float pyrocitor_flame_zero_length_random_range_gp SDATA(D_L00_001615F8);
+extern int pyrocitor_ammo_use_interval_frames_gp SDATA(D_L00_00161600);
+extern short pyrocitor_light_color_start_x_gp;
+extern short pyrocitor_light_color_end_x_gp;
 extern Light_2B8AE8 level_point_lights[];
 extern V_2B8AE8 veldin1_zero_vec MACRO_ADDR;
 extern f32 g_frame_time_sq MACRO_ADDR;
@@ -2363,7 +2366,7 @@ void pyrocitor_update(Moby *moby) {
     Moby *other;
 
     update_pyrocitor_usage_and_cleanup((unsigned char *)moby);
-    Moby_GetJointWorldPos(moby, 0, &pos);
+    moby_point_position(moby, 0, &pos);
     switch (moby->state) {
         case 0:
             v->light = -1;
@@ -2375,7 +2378,7 @@ void pyrocitor_update(Moby *moby) {
                 moby->state = 2;
             if (moby->seq != 0)
                 break;
-            if (MobyGetFrameValue(moby) > 10.0f &&
+            if (compute_interpolated_record_value(moby) > 10.0f &&
                 ((*(PadState *)g_controller_state).held & (*(Hero *)&g_hero).items[0].button_mask) &&
                 moby->prev_seq != 1)
                 MobyBlendAnimation(moby, 1, 0, scale_ticks(5));
@@ -2408,16 +2411,16 @@ void pyrocitor_update(Moby *moby) {
             }
             break;
         case 3:
-            if (!Sound_IsPlaying(moby, v->voice))
+            if (!voice_is_playing(moby, v->voice))
                 v->voice = Moby_PlaySound(1, 4, (int)moby);
             if (v->light != -1 && moby->state == 3) {
                 dir.q = 0;
                 dir.f.x = 2.0f;
                 dir.f.z = 2.0f;
-                matrix_mul_vec3((V4 *)&dir, (V4 *)&dir, (V4 *)&(*(Hero *)&g_hero).basis);
+                transform_vector_by_basis((V4 *)&dir, (V4 *)&dir, (V4 *)&(*(Hero *)&g_hero).basis);
                 FastVecAdd(&level_point_lights[v->light].pos, &(*(Hero *)&g_hero).motion.pos, &dir);
                 level_point_lights[v->light].pos.f.w = 7.5f;
-                lerp_vector(&scratch, &pyrocitor_light_color_a, &pyrocitor_light_color_b,
+                lerp_vector(&scratch, &pyrocitor_light_color_start_x_gp, &pyrocitor_light_color_end_x_gp,
                             FastSin(((f32)((*(int *)&level_frame_counter) % 120) / 120.0f) * 6.28318f - 3.14159f) *
                                     0.5f +
                                 0.5f);
@@ -2432,38 +2435,39 @@ void pyrocitor_update(Moby *moby) {
             if (hero_current_state == 1 && (moby->flags & 1)) {
                 vec_scale_to_length(&scratch, player_camera_up_axis, -1.0f);
                 FastVecAdd(&scratch, &scratch, player_camera_up_axis - 0x230);
-                vec_scale_to_length(&dir, player_camera_up_axis - 0x20, pyrocitor_flame_base_length + speed + 0.75f);
+                vec_scale_to_length(&dir, player_camera_up_axis - 0x20, pyrocitor_flame_base_range_gp + speed + 0.75f);
                 FastVecAdd(&endpoint, &dir, &scratch);
             } else {
                 qcopy(&scratch, &pos);
-                vec_scale_to_length(&dir, &(*(Hero *)&g_hero).facing_x, pyrocitor_flame_base_length + speed + 0.75f);
+                vec_scale_to_length(&dir, &(*(Hero *)&g_hero).facing_x, pyrocitor_flame_base_range_gp + speed + 0.75f);
                 FastVecAdd(&endpoint, &dir, &pos);
             }
             if (coll_line(&(*(Hero *)&g_hero).motion.body_center, &scratch, 2, 0, 0)) {
                 length = 0.0f;
             } else if (coll_line(&scratch, &endpoint, 2, 0, 0)) {
-                length = FastVecDist(&scratch, collision_hit_point) - 0.75f;
+                length = fast_vec_dist(&scratch, collision_hit_point) - 0.75f;
                 if (length < 0.0f)
                     length = 0.0f;
             } else {
-                length = pyrocitor_flame_base_length + speed;
+                length = pyrocitor_flame_base_range_gp + speed;
             }
             accel = spin_particle_speed_decay * g_frame_time_sq;
-            damping = pyrocitor_flame_damping_rate * g_frame_time;
+            damping = pyrocitor_flame_maximum_speed_gp * g_frame_time;
             ApproachWithVelocity_v(length, 1.0f, accel, damping, &pos_out, &vel_out);
             vec_scale_to_length(&dir, &dir, vel_out);
             {
                 s32 initial_count, extra;
-                initial_count = pyrocitor_flame_initial_particle_count;
-                extra = pyrocitor_flame_extra_particle_count;
+                initial_count = pyrocitor_flame_primary_particle_count_gp;
+                extra = pyrocitor_flame_extra_particle_count_gp;
                 if (length < 4.0f || (moby->flags & 1))
                     initial_count = 1;
                 for (i = 0; i < extra + initial_count; i++) {
-                    rand_vec((float *)&random_vec, 0.0f,
-                             ((pyrocitor_flame_spread_at_full_length - pyrocitor_flame_spread_at_zero_length) *
-                                  (length / (pyrocitor_flame_base_length + speed)) +
-                              pyrocitor_flame_spread_at_zero_length) *
-                                 g_frame_time);
+                    random_vector(
+                        (float *)&random_vec, 0.0f,
+                        ((pyrocitor_flame_full_length_random_range_gp - pyrocitor_flame_zero_length_random_range_gp) *
+                             (length / (pyrocitor_flame_base_range_gp + speed)) +
+                         pyrocitor_flame_zero_length_random_range_gp) *
+                            g_frame_time);
                     FastVecAdd(&random_vec, &random_vec, &dir);
                     FastVecScale(&particle_pos, &dir, random_float_between(0.0f, 1.0f));
                     FastVecAdd(&particle_pos, &particle_pos, &scratch);
@@ -2478,7 +2482,7 @@ void pyrocitor_update(Moby *moby) {
             }
             particle_pos.q = 0;
             particle_pos.f.x = -0.3f;
-            matrix_mul_vec3((V4 *)&random_vec, (V4 *)&particle_pos, (V4 *)&(*(Hero *)&g_hero).basis);
+            transform_vector_by_basis((V4 *)&random_vec, (V4 *)&particle_pos, (V4 *)&(*(Hero *)&g_hero).basis);
             FastVecAdd(&random_vec, &random_vec, &pos);
             hit.moby = moby;
             hit.flags = 0x10000;
@@ -2492,17 +2496,17 @@ void pyrocitor_update(Moby *moby) {
             hit.type = 5;
             coll_sphere_mobys_v(&random_vec, 0.42f, 5, (*(Hero *)&g_hero).moby, &hit);
             particle_pos.f.x = -0.8f;
-            matrix_mul_vec3((V4 *)&random_vec, (V4 *)&particle_pos, (V4 *)&(*(Hero *)&g_hero).basis);
+            transform_vector_by_basis((V4 *)&random_vec, (V4 *)&particle_pos, (V4 *)&(*(Hero *)&g_hero).basis);
             FastVecAdd(&random_vec, &random_vec, &pos);
             coll_sphere_mobys_v(&random_vec, 0.42f, 5, (*(Hero *)&g_hero).moby, &hit);
             if (FastDecTimer(&v->spark)) {
                 v->spark = truncate_float_to_s32(multiply_global_factor(random_float_between(10.0f, 30.0f)));
-                rand_vec((float *)&random_vec, 0.0f, g_frame_time + g_frame_time);
+                random_vector((float *)&random_vec, 0.0f, g_frame_time + g_frame_time);
                 FastVecScale(&particle_pos, &dir, random_float_between(0.5f, 0.1f));
                 FastVecAdd(&particle_pos, &particle_pos, &random_vec);
                 spawn_color_decaying_effect_particle(&scratch, &particle_pos, gold_weapon_purchased.level);
             }
-            if ((*(int *)&level_frame_counter) % scale_ticks(pyrocitor_ammo_use_interval_ticks) == 0)
+            if ((*(int *)&level_frame_counter) % scale_ticks(pyrocitor_ammo_use_interval_frames_gp) == 0)
                 use_ammo(-1, 1);
             ready = get_ammo(-1);
             if (FastDecTimer(&v->timer)) {
@@ -2583,20 +2587,20 @@ void update_pyrocitor_usage_and_cleanup(unsigned char *m) {
     }
     v->wait = 0;
     if (g_hero_r5[0x20B4] >= 3)
-        Help_Request(0x4E24, 0x4E);
+        help_request(0x4E24, 0x4E);
 }
 extern char screen_globals_base[];
-extern int pyrocitor_flame_particle_texture SDATA(pyrocitor_flame_particle_texture);
-extern float pyrocitor_flame_particle_drift SDATA(pyrocitor_flame_particle_drift);
-extern float pyrocitor_flame_particle_start_w SDATA(pyrocitor_flame_particle_start_w);
-extern float pyrocitor_flame_particle_end_w SDATA(pyrocitor_flame_particle_end_w);
-extern int pyrocitor_flame_particle_start_color_a SDATA(pyrocitor_flame_particle_start_color_a);
-extern int pyrocitor_flame_particle_start_color_b SDATA(pyrocitor_flame_particle_start_color_b);
-extern int pyrocitor_flame_particle_end_color_a SDATA(pyrocitor_flame_particle_end_color_a);
-extern int pyrocitor_flame_particle_end_color_b SDATA(pyrocitor_flame_particle_end_color_b);
-extern int pyrocitor_flame_particle_time_min SDATA(pyrocitor_flame_particle_time_min);
-extern int pyrocitor_flame_particle_time_max SDATA(pyrocitor_flame_particle_time_max);
-extern int pyrocitor_flame_particle_count SDATA(pyrocitor_flame_particle_count);
+extern int pyrocitor_spark_lookup_index_and_flags_gp SDATA(D_L00_001615FC);
+extern float pyrocitor_spark_random_vector_magnitude_scale_gp SDATA(D_L00_00161608);
+extern float pyrocitor_spark_direction_vector_w_gp SDATA(D_L00_0016160C);
+extern float pyrocitor_spark_random_vector_w_gp SDATA(D_L00_00161610);
+extern int pyrocitor_spark_initial_color_start_gp SDATA(D_L00_00161614);
+extern int pyrocitor_spark_initial_color_end_gp SDATA(D_L00_00161618);
+extern int pyrocitor_spark_second_color_start_gp SDATA(D_L00_0016161C);
+extern int pyrocitor_spark_second_color_end_gp SDATA(D_L00_00161620);
+extern int pyrocitor_spark_random_frame_count_min_gp SDATA(D_L00_00161624);
+extern int pyrocitor_spark_random_frame_count_max_gp SDATA(D_L00_00161628);
+extern int pyrocitor_spark_burst_count_gp SDATA(D_L00_0016162C);
 
 extern void InitDirectionalHitQuery_v(char *arg, int a, int b, void *src, float scale) __asm__("func_L00_0025A8C0");
 extern void coll_sphere_mobys_v(void *, float, int, void *, void *) __asm__("func_L00_001F2BE8");
@@ -2632,29 +2636,31 @@ void update_pyrocitor_flame_effect_slots(char *m) {
             type = *(short *)(o + 0xA);
             if (type == 10) {
                 int j;
-                for (j = 0; j < pyrocitor_flame_particle_count; j++) {
+                for (j = 0; j < pyrocitor_spark_burst_count_gp; j++) {
                     int c1;
                     int c2;
                     int c3;
                     int c4;
                     qcopy(qv, src);
-                    rand_vec(v2, 0.0f, pyrocitor_flame_particle_drift * g_frame_time);
-                    *(float *)(qv + 0xC) = pyrocitor_flame_particle_start_w;
+                    random_vector(v2, 0.0f, pyrocitor_spark_random_vector_magnitude_scale_gp * g_frame_time);
+                    *(float *)(qv + 0xC) = pyrocitor_spark_direction_vector_w_gp;
                     v2[2] = g_frame_time * 4.0f;
-                    v2[3] = pyrocitor_flame_particle_end_w;
-                    c1 = FastTweenColor(pyrocitor_flame_particle_start_color_a, pyrocitor_flame_particle_start_color_b,
+                    v2[3] = pyrocitor_spark_random_vector_w_gp;
+                    c1 = FastTweenColor(pyrocitor_spark_initial_color_start_gp, pyrocitor_spark_initial_color_end_gp,
                                         random_float_between(0.0f, 1.0f));
                     swap_packed_color_channels(c1, q[0x10]);
-                    c2 = FastTweenColor(pyrocitor_flame_particle_end_color_a, pyrocitor_flame_particle_end_color_b,
+                    c2 = FastTweenColor(pyrocitor_spark_second_color_start_gp, pyrocitor_spark_second_color_end_gp,
                                         random_float_between(0.0f, 1.0f));
                     swap_packed_color_channels(c2, q[0x10]);
-                    c3 = truncate_float_to_s32_r(multiply_global_factor(random_float_between(
-                        (float)pyrocitor_flame_particle_time_min, (float)pyrocitor_flame_particle_time_max)));
-                    c4 = truncate_float_to_s32_r(multiply_global_factor(random_float_between(
-                        (float)pyrocitor_flame_particle_time_min, (float)pyrocitor_flame_particle_time_max)));
-                    rand_vec(v3, 0.0f, f20 + f20);
+                    c3 = truncate_float_to_s32_r(
+                        multiply_global_factor(random_float_between((float)pyrocitor_spark_random_frame_count_min_gp,
+                                                                    (float)pyrocitor_spark_random_frame_count_max_gp)));
+                    c4 = truncate_float_to_s32_r(
+                        multiply_global_factor(random_float_between((float)pyrocitor_spark_random_frame_count_min_gp,
+                                                                    (float)pyrocitor_spark_random_frame_count_max_gp)));
+                    random_vector(v3, 0.0f, f20 + f20);
                     FastVecAdd(v3, v3, (o + 0x10));
-                    PartType02Spawn(v3, qv, v2, c1, c2, 0xA, c3, c4, pyrocitor_flame_particle_texture);
+                    PartType02Spawn(v3, qv, v2, c1, c2, 0xA, c3, c4, pyrocitor_spark_lookup_index_and_flags_gp);
                 }
             } else if (type < 2) {
                 *(int *)(base - (-(i * 4))) = 0;
@@ -2743,9 +2749,9 @@ typedef struct Light_2B9AD8 {
 
 extern Voice voice_pool_r2[] __asm__("D_0013E650");
 extern unsigned char hero_globals_base_r2[] __asm__("D_0013E633");
-extern unsigned short D_00141E70[];
-extern unsigned short D_00141A18[];
-extern float D_L00_0017AFBC;
+extern unsigned short tesla_claw_help_shown_count[];
+extern unsigned short usage_stats_entry26_count[];
+extern float held_weapon_tesla_walloper_factor;
 extern int D_L00_00161660_2B9AD8 SDATA(D_L00_00161660);
 extern char player_camera_matrix_r[] __asm__("D_L00_001670D0");
 extern Light_2B9AD8 level_point_lights_r3[] __asm__("D_L00_001803C0");
@@ -2805,7 +2811,8 @@ void tesla_claw_update(Moby *m) {
                     if (2.0943f < FastDiffRots(((Hero *)g_hero_r3)->motion.rot.f[2],
                                                fast_atan2(s->target->pos.x - ((Hero *)g_hero_r3)->motion.pos.f[0],
                                                           s->target->pos.y - ((Hero *)g_hero_r3)->motion.pos.f[1])) ||
-                        !s->target->visible || 20.0f < FastVecDist(&s->target->pos, &((Hero *)g_hero_r3)->motion.pos)) {
+                        !s->target->visible ||
+                        20.0f < fast_vec_dist(&s->target->pos, &((Hero *)g_hero_r3)->motion.pos)) {
                         s->target = 0;
                         s->lock = 0;
                     }
@@ -2815,7 +2822,7 @@ void tesla_claw_update(Moby *m) {
                                                fast_atan2(s->target2->pos.x - ((Hero *)g_hero_r3)->motion.pos.f[0],
                                                           s->target2->pos.y - ((Hero *)g_hero_r3)->motion.pos.f[1])) ||
                         !s->target2->visible ||
-                        20.0f < FastVecDist(&s->target2->pos, &((Hero *)g_hero_r3)->motion.pos)) {
+                        20.0f < fast_vec_dist(&s->target2->pos, &((Hero *)g_hero_r3)->motion.pos)) {
                         s->target2 = 0;
                         s->lock2 = 0;
                     }
@@ -2860,24 +2867,24 @@ void tesla_claw_update(Moby *m) {
                     t.f.x = 1.2f;
                     t.f.y = 0.0f;
                     t.f.z = 0.0f;
-                    matrix_mul_vec3(&t, &t, player_camera_matrix_r);
+                    transform_vector_by_basis(&t, &t, player_camera_matrix_r);
                     s->pos.f.z = t.f.z + m->pos.z;
                     s->pos.f.x = t.f.x + ((Hero *)g_hero_r3)->motion.pos.f[0];
                     s->pos.f.y = t.f.y + ((Hero *)g_hero_r3)->motion.pos.f[1];
                     t.f.x = s->reach;
                     t.f.y = 0.0f;
                     t.f.z = 0.0f;
-                    matrix_mul_vec3(&t, &t, player_camera_matrix_r);
+                    transform_vector_by_basis(&t, &t, player_camera_matrix_r);
                     FastVecAdd(&s->tip, &s->pos, &t);
                 } else if (((Hero *)g_hero_r3)->unk22C8 == 1) {
-                    Moby_GetJointWorldPos(m, 0, &s->pos);
+                    moby_point_position(m, 0, &s->pos);
                     t.f.x = 0.0f;
                     t.f.y = -s->reach;
                     t.f.z = 0.0f;
-                    matrix_mul_vec3(&t, &t, &m->rot_row0);
+                    transform_vector_by_basis(&t, &t, &m->rot_row0);
                     FastVecAdd(&s->tip, &s->pos, &t);
                 } else {
-                    Moby_GetJointWorldPos(m, 0, &s->pos);
+                    moby_point_position(m, 0, &s->pos);
                     vec_scale_to_length(&s->tip, g_hero_r3 + 0x640, s->reach);
                     FastVecAdd(&s->tip, &s->pos, &s->tip);
                 }
@@ -2909,7 +2916,7 @@ void tesla_claw_update(Moby *m) {
                 Sound_StopSlot(s->sound);
         }
         s->sound = -1;
-    } else if (!Sound_IsPlaying(m, s->sound)) {
+    } else if (!voice_is_playing(m, s->sound)) {
         s->sound = Moby_PlaySound_r3(4, 4, m);
     }
     if (!s->target || s->target->state == 0xFE || s->target->state == 0xFD || !(s->target->flags & 0x1000))
@@ -2996,7 +3003,7 @@ void tesla_claw_update(Moby *m) {
         qzero(&t);
         t.f.x = 2.0f;
         t.f.z = 2.0f;
-        matrix_mul_vec3(&t, &t, g_hero_r3 + 0x640);
+        transform_vector_by_basis(&t, &t, g_hero_r3 + 0x640);
         level_point_lights_r3[s->light].pos.f.x = ((Hero *)g_hero_r3)->motion.pos.f[0] + t.f.x;
         level_point_lights_r3[s->light].pos.f.y = ((Hero *)g_hero_r3)->motion.pos.f[1] + t.f.y;
         level_point_lights_r3[s->light].pos.f.z = ((Hero *)g_hero_r3)->motion.pos.f[2] + t.f.z;
@@ -3019,7 +3026,7 @@ typedef struct {
 } __attribute__((aligned(16))) V2b9310;
 extern int tesla_beam_start_pending SDATA(tesla_beam_start_pending);
 extern int tesla_beam_reset_word SDATA(tesla_beam_reset_word);
-extern int tesla_beam_initial_frames SDATA(tesla_beam_initial_frames);
+extern int tesla_beam_initial_frame_count_gp SDATA(D_L00_001616F4);
 extern int tesla_beam_scaled_initial_frame_count MACRO_ADDR;
 extern int beam_arc_outer_color SDATA(beam_arc_outer_color);
 extern float tesla_beam_length SDATA(tesla_beam_length);
@@ -3035,7 +3042,7 @@ extern short beam_arc_bolt_params_4[] MACRO_ADDR;
 extern short beam_arc_bolt_params_5[] MACRO_ADDR;
 extern short beam_arc_bolt_params_6[] MACRO_ADDR;
 extern short beam_arc_bolt_params_7[] MACRO_ADDR;
-extern V2b9310 tesla_beam_points_base[];
+extern V2b9310 l00_tesla_beam_previous_point_window[];
 extern V2b9310 tesla_beam_points[];
 extern int tesla_beam_point_state_a[];
 extern V2b9310 tesla_beam_point_vectors[];
@@ -3056,13 +3063,13 @@ void initialize_tesla_claw_beam(char *moby) {
     }
     (tesla_beam_start_pending) = 0;
     (tesla_beam_reset_word) = 0;
-    tesla_beam_scaled_initial_frame_count = scale_ticks((tesla_beam_initial_frames));
+    tesla_beam_scaled_initial_frame_count = scale_ticks((tesla_beam_initial_frame_count_gp));
     (beam_arc_outer_color) = 0x7F2020;
     FastVecSub(&d, &((struct TeslaClawBeamVars *)data)->end, data);
     vec_scale_to_length(&step, &d, (tesla_beam_length) / 20.0f);
     qcopy(tesla_beam_points, &((struct TeslaClawBeamVars *)data)->start);
     for (i = 1; i < 20; i++) {
-        FastVecAdd(&tesla_beam_points[i], &tesla_beam_points_base[i], &step);
+        FastVecAdd(&tesla_beam_points[i], &l00_tesla_beam_previous_point_window[i], &step);
         tesla_beam_point_state_a[i] = 0;
         clear_u64_value(&tesla_beam_point_vectors[i]);
         tesla_beam_point_state_b[i] = 0;

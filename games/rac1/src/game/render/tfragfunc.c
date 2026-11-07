@@ -30,8 +30,8 @@ __asm__(".align 4");
 
 extern int tfrag_lod_dists_raw[3];
 extern float fog_params;
-extern float tfrag_lod_blend_matrix[4][4];
-extern int func_001FA898(float);
+extern float tfrag_range_coefficients[4][4];
+extern int truncate_float_to_s32(float);
 
 /* SetTfragDists(void): the three LOD distances as fixed point (x1024), and
    the matrix mapping distance to the two blend weights. The store order is
@@ -50,24 +50,24 @@ void SetTfragDists(void) {
     c = tfrag_render_ranges[2] * fog_params;
     ab = 1.0f / (a - b);
     bc = 1.0f / (b - c);
-    FastMemZero16(tfrag_lod_blend_matrix, 0x40);
-    tfrag_lod_blend_matrix[0][0] = ab * 0.5f;
-    tfrag_lod_blend_matrix[0][1] = -ab;
-    tfrag_lod_blend_matrix[1][0] = bc * 0.5f;
-    tfrag_lod_blend_matrix[1][1] = -bc;
-    tfrag_lod_blend_matrix[2][0] = b * ab * -0.5f;
-    tfrag_lod_blend_matrix[2][1] = a * ab;
-    tfrag_lod_blend_matrix[3][0] = c * bc * -0.5f;
-    tfrag_lod_blend_matrix[3][1] = b * bc;
-    tfrag_lod_blend_matrix[1][3] = b;
-    tfrag_lod_blend_matrix[0][3] = a;
+    FastMemZero16(tfrag_range_coefficients, 0x40);
+    tfrag_range_coefficients[0][0] = ab * 0.5f;
+    tfrag_range_coefficients[0][1] = -ab;
+    tfrag_range_coefficients[1][0] = bc * 0.5f;
+    tfrag_range_coefficients[1][1] = -bc;
+    tfrag_range_coefficients[2][0] = b * ab * -0.5f;
+    tfrag_range_coefficients[2][1] = a * ab;
+    tfrag_range_coefficients[3][0] = c * bc * -0.5f;
+    tfrag_range_coefficients[3][1] = b * bc;
+    tfrag_range_coefficients[1][3] = b;
+    tfrag_range_coefficients[0][3] = a;
 }
 
 extern int g_render_packet_cursor MACRO_ADDR;
 extern int tfrag_tex_dma_tag_slot MACRO_ADDR;
 extern int max_tfrag_texture_dma_size MACRO_ADDR;
 extern int g_gs_texture_allocation_cursor MACRO_ADDR;
-extern char str_tfrag_texture_overflow[];
+extern char tfrag_texture_overflow_message[];
 
 /* DmaTfragTextures: the tfrag twin of DmaShrubTextures,
    which also warns "tfrag texture overflow" past 0x400000 bytes and keeps
@@ -87,7 +87,7 @@ void DmaTfragTextures(void) {
         size = build_tfrag_texture_dma(g_gs_texture_allocation_cursor);
         VU1_texFlush();
         if (size > 0x400000) {
-            STUB_printf(str_tfrag_texture_overflow);
+            STUB_printf(tfrag_texture_overflow_message);
         }
         if (max_tfrag_texture_dma_size < size) {
             max_tfrag_texture_dma_size = size;
@@ -109,10 +109,10 @@ typedef struct {
     short b;
 } TexRemap;
 
-extern TexChunk tfrag_gif_chunk_list[];
-extern TexRemap tfrag_tex_remap_table[];
+extern TexChunk tfrag_gif_patch_groups[];
+extern TexRemap tfrag_gif_texture_remaps[];
 
-/* Walk the null-terminated chunk list at tfrag_gif_chunk_list; for every 0x50-byte
+/* Walk the null-terminated chunk list at tfrag_gif_patch_groups; for every 0x50-byte
    record in each chunk, look up the remap entry indexed by the byte at
    +0x23 and patch its two nonzero halves into the low 14 bits of the
    words at +0x00 and +0x30. */
@@ -124,12 +124,12 @@ void PatchTfragGifs(void) {
     int i;
     int n;
 
-    c = tfrag_gif_chunk_list;
+    c = tfrag_gif_patch_groups;
     while (c->items != 0) {
         n = c->count;
         r = c->items;
         for (i = 0; i < n; i++) {
-            e = &tfrag_tex_remap_table[*(unsigned char *)(r + 0x23)];
+            e = &tfrag_gif_texture_remaps[*(unsigned char *)(r + 0x23)];
             if (e->a != 0) {
                 *(int *)r = (*(int *)r & 0xFFFFC000) | e->a;
             }
@@ -143,8 +143,8 @@ void PatchTfragGifs(void) {
 }
 
 extern int g_gs_texture_allocation_start MACRO_ADDR;
-extern char str_tfrag_texs[];
-extern char str_tfrag_draw[];
+extern char tfrag_textures_callback_label[];
+extern char tfrag_draw_callback_label[];
 extern char tfrag_dma_block[];
 
 extern void DmaTfragTextures(void);
@@ -158,23 +158,23 @@ void DrawTfrag(void) {
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
     p += 0x10;
     g_render_packet_cursor = p;
-    ProfileMarker_Begin(str_tfrag_texs, 1);
+    noop_core_callback_secondary(tfrag_textures_callback_label, 1);
     set_identity_matrix(m);
     FastVecScale(m[3], camera_position, -1024.0f);
     m[3][3] = 1.0f;
-    sce_vu0_mul_matrix(m, camera_position - 0x100, m);
+    multiply_matrix(m, camera_position - 0x100, m);
     write_vif_unpack_packet(5, m, 4);
     write_vif_unpack_packet(0x14D, m, 4);
     if (draw_config[4] != 0) {
         flush_cache(0);
         TfragProc();
     }
-    ProfileMarker_Begin(str_tfrag_draw, 2);
+    noop_core_callback_secondary(tfrag_draw_callback_label, 2);
     DmaTfragTextures();
     if (draw_config[4] != 0) {
         write_dma_channel(tfrag_dma_block, 0x3000, 0x40);
     }
-    ProfileMarker_End(str_tfrag_draw, 2);
+    noop_core_callback(tfrag_draw_callback_label, 2);
 }
 
 /* The last function in the object: retail pads to 16 bytes after it

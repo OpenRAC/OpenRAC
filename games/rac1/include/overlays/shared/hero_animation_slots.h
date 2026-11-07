@@ -6,7 +6,7 @@
 #include "common.h"
 
 extern int Hero_CanUseGadget(void);
-extern void Hero_OnKilled(void);
+extern void func_L00_00211908(void);
 extern void apply_hero_motion_and_resolve_collisions(void);
 extern void apply_hero_rotation_offset(float, float, float);
 extern void build_scaled_hero_move_impulse(float, float);

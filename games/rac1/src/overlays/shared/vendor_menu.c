@@ -65,7 +65,7 @@ void decompress_and_relocate_vendor_moby_assets(void) {
         int e = *p++;
         if (e) {
             *(int *)(base + 0x48 + i * 4) = vendor_menu[6] + e;
-            relocateObjectPointers(base, i);
+            relocate_asset_entry_pointers(base, i);
         }
     }
 }
@@ -230,9 +230,9 @@ typedef struct {
     f32 y;
     f32 z;
 } VendorCam_pv;
-extern VendorCam_pv player_camera;
-extern s32 vendor_exit_requested MACRO_ADDR;
-extern s32 vendor_intro_active MACRO_ADDR;
+extern VendorCam_pv gCameraLvl;
+extern s32 l00_vendor_close_pending MACRO_ADDR;
+extern s32 l00_vendor_opening_countdown_active MACRO_ADDR;
 extern f32 vendor_item_spin_angle MACRO_ADDR;
 extern s32 vendor_buy_quantity MACRO_ADDR;
 extern s32 gBolts MACRO_ADDR;
@@ -270,9 +270,9 @@ void open_vendor_menu(VendorMoby_pv *m) {
     if (m == 0) {
         m = CreateMoby(0xB);
         *(s16 *)((char *)m + 0x32) = 0x40;
-        *(f32 *)((char *)m + 0x10) = player_camera.x + *(f32 *)&vendor_camera_eye_local_offset;
-        *(f32 *)((char *)m + 0x14) = player_camera.y;
-        *(f32 *)((char *)m + 0x18) = player_camera.z - vendor_camera_eye_local_offset_z;
+        *(f32 *)((char *)m + 0x10) = gCameraLvl.x + *(f32 *)&vendor_camera_eye_local_offset;
+        *(f32 *)((char *)m + 0x14) = gCameraLvl.y;
+        *(f32 *)((char *)m + 0x18) = gCameraLvl.z - vendor_camera_eye_local_offset_z;
         clear_u64_value(&m->rot);
         m->rot.f[2] = 3.1415927f;
         moby_build_matrix(m);
@@ -285,8 +285,8 @@ void open_vendor_menu(VendorMoby_pv *m) {
     VP.f44 = 0;
     VP.f48 = VP.title_text = VP.item_text = -1;
     VP.cursor = 0;
-    vendor_exit_requested = 0;
-    vendor_intro_active = 0;
+    l00_vendor_close_pending = 0;
+    l00_vendor_opening_countdown_active = 0;
     VP.f5C = 0;
     vendor_buy_quantity = 0;
     vendor_item_spin_angle = 0;
@@ -331,7 +331,7 @@ void open_vendor_menu(VendorMoby_pv *m) {
         hp[0x20AC] = 1;
         hp[0x20A5] = 1;
     }
-    HeroSetObjectFlags();
+    set_hero_item_moby_flag_bit0();
     if (VP.mode != 0) {
         MobySetAnimation(m, 3, 0);
     } else {
@@ -339,15 +339,15 @@ void open_vendor_menu(VendorMoby_pv *m) {
     }
     m->f58 = frame_scale * 0.5f;
     if (VP.mode == 0) {
-        matrix_mul_vec3(&VP.eye, &vendor_camera_eye_local_offset, VP.moby + 0xC0);
+        transform_vector_by_basis(&VP.eye, &vendor_camera_eye_local_offset, VP.moby + 0xC0);
         FastVecAdd(&VP.eye, &VP.eye, VP.moby + 0x10);
         VP.look.f[2] = FastAddRots(*(f32 *)(VP.moby + 0x48), 3.1415927f);
-        CameraScript(&VP.eye, &VP.look, 1, 0, 0);
+        jet_mount(&VP.eye, &VP.look, 1, 0, 0);
         set_camera_position(&VP.eye);
         set_camera_rotation(&VP.look);
     }
     v = &level_moby_lights_14_direction;
-    matrix_mul_vec3(v, &vendor_light_local_direction, VP.moby + 0xC0);
+    transform_vector_by_basis(v, &vendor_light_local_direction, VP.moby + 0xC0);
     qcopy(v - 1, &vendor_light_color);
     v += 2;
     qzero(v);
@@ -378,7 +378,7 @@ extern int skip_frame MACRO_ADDR;
 extern int cinematic_mode SDATA(cinematic_mode);
 extern unsigned char g_hero_field_20a5[] NOT_SDA;
 
-extern char vendor_close_hero_local_offset;
+extern char vendor_close_hero_local_offset_gp;
 
 /* Leaves the vendor screen: releases two handles, resets state, repositions the hero and restores the game state.
    Adapted from Lombyte's project (GPL-3.0) for PAL: src/overlays/shared/unclassified_00295100.c, FUN_L00_0029ab70. */
@@ -405,28 +405,29 @@ void close_vendor_menu(int exit_cutscene_completed) {
     Vec4A euler_rotation;
     VendorMenuState *vendor_state_base = (VendorMenuState *)vendor_menu;
     if (vendor_state_base->hud_bar_54 != -1)
-        Hud_SetBarValueById(vendor_state_base->hud_bar_54, 0);
+        set_animation_parameter(vendor_state_base->hud_bar_54, 0);
     if (vendor_state_base->hud_bar_50 != -1)
-        Hud_SetBarValueById(vendor_state_base->hud_bar_50, 0);
+        set_animation_parameter(vendor_state_base->hud_bar_50, 0);
     vendor_state_base->hud_bar_54 = -1;
     vendor_state_base->hud_bar_50 = -1;
-    update_resource_counter();
+    decrement_resource_counter();
     skip_frame = 1;
     cinematic_mode = 0;
     HeroEnterMoveState(HERO_STATE_IDLE, 1);
     g_hero_field_20a5[0] = 0;
-    HeroClearObjectFlags();
+    update_hero_item_moby_flags();
     if (vendor_state_base->unk40 == 0) {
-        matrix_mul_vec3(&world_position, &vendor_close_hero_local_offset, (char *)vendor_state_base->moby + 0xC0);
+        transform_vector_by_basis(&world_position, &vendor_close_hero_local_offset_gp,
+                                  (char *)vendor_state_base->moby + 0xC0);
         FastVecAdd(&world_position, &world_position, (char *)vendor_state_base->moby + 0x10);
         euler_rotation.x = 0.0f;
         euler_rotation.y = 0.0f;
         euler_rotation.z = FastAddRots(*(float *)((char *)vendor_state_base->moby + 0x48), 3.1415927f);
         if (exit_cutscene_completed == 0) {
-            Hero_ResetToPosition(&world_position, &euler_rotation, 0, 0);
-            CameraScript2(2);
+            set_race_camera(&world_position, &euler_rotation, 0, 0);
+            jet_end_mount(2);
         } else {
-            Hero_ResetToPosition(&world_position, &euler_rotation, 0, 1);
+            set_race_camera(&world_position, &euler_rotation, 0, 1);
         }
     }
     {
@@ -498,10 +499,10 @@ typedef struct {
     s32 count;
     u8 pad214[0xC];
 } Vendor_29a6b0;
-extern s32 vendor_item_cutscene_index[];
+extern s32 vendor_exit_cutscene_ids_by_item[];
 extern Vendor_29a6b0 vendor_menu_r3 __asm__("D_L00_001CA7C0");
 extern s32 level_white_fade_level SDATA(level_white_fade_level);
-extern s32 vendor_exit_cutscene_local_offset SDATA(vendor_exit_cutscene_local_offset);
+extern s32 vendor_exit_cutscene_local_offset_gp SDATA(D_L00_001611B0);
 struct S16_29ad08 {
     char pad[0x5A];
     s16 mode;
@@ -526,7 +527,7 @@ void start_vendor_exit_cutscene(void) {
     s32 *selected;
     s16 mode;
 
-    CameraScript2(2);
+    jet_end_mount(2);
     if ((u16)(cd_read_state.mode - 6) >= 2)
         cd_read_state.mode = 5;
     g = &vendor_menu_r3;
@@ -535,7 +536,7 @@ void start_vendor_exit_cutscene(void) {
     g->f0 = 3;
     g->f4 = 0;
     vec = (f32 *)((char *)g + 0xC0);
-    matrix_mul_vec3(vec, &(vendor_exit_cutscene_local_offset), g->moby + 0xC0);
+    transform_vector_by_basis(vec, &(vendor_exit_cutscene_local_offset_gp), g->moby + 0xC0);
     moby = (Moby *)g->moby;
     FastVecAdd(vec, vec, (char *)moby + 0x10);
     *(f32 *)((char *)g + 0xC8) += 2.0f;
@@ -546,14 +547,14 @@ void start_vendor_exit_cutscene(void) {
     FastMemSet(&cutscene_state, 0, 0x1C0);
     FastMemSet(hero_scale_manipulator, 0, 0x40);
     VU1_syncChain(1);
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     selected = (s32 *)((char *)g + 0x48);
     offset = lvl_vu_chain_buffer_size - 0x40000;
     lvl_vu_chain_buffer_size = offset;
     index = vendor_menu_r3.f48;
     cutscene_state.x58 = lvl_resource_buffers.x4 + offset;
     cutscene_state.x5c = lvl_resource_buffers.x8 + offset;
-    item = vendor_item_cutscene_index[index];
+    item = vendor_exit_cutscene_ids_by_item[index];
     gFadeLvl = 0;
     (level_white_fade_level) = 0;
     if (g_hero.items[0].item_id != 0 && index != g_hero.items[0].item_id)
@@ -572,11 +573,11 @@ void start_vendor_exit_cutscene(void) {
         sce_gs_sync_v(0);
         mode = cd_read_state.mode;
     }
-    Music_ContinueStreamIfReady();
+    continue_audio_stream_if_ready();
 }
-extern short vendor_exit_hero_local_offset;
+extern short vendor_exit_hero_local_offset_gp;
 
-/* The 0x28-byte record at vendor_menu: the actor it follows is at +0x28. */
+/* The 0x28-byte record at D_L00_001CA7C0: the actor it follows is at +0x28. */
 typedef struct VendorExitActor {
     u8 pad_00[0x10];
     Vec4f pos; /* 0x10: position, added to the spawn point */
@@ -601,15 +602,15 @@ void restore_hero_after_vendor_exit_cutscene(void) {
     cinematic_mode = 0;
     HeroEnterMoveState(HERO_STATE_IDLE, 1);
     g_hero_field_20a5[0] = 0;
-    HeroClearObjectFlags();
+    update_hero_item_moby_flags();
     vendor_state_base = (VendorExitState *)vendor_menu;
-    matrix_mul_vec3(&world_position, &vendor_exit_hero_local_offset, vendor_state_base->actor->basis);
+    transform_vector_by_basis(&world_position, &vendor_exit_hero_local_offset_gp, vendor_state_base->actor->basis);
     FastVecAdd(&world_position, &world_position, &vendor_state_base->actor->pos);
     *(int *)&euler_rotation.x = 0;
     *(int *)&euler_rotation.y = 0;
     euler_rotation.z = FastAddRots(vendor_state_base->actor->yaw, -1.5707964f);
-    Hero_ResetToPosition(&world_position, &euler_rotation, 0, 1);
-    update_resource_counter();
+    set_race_camera(&world_position, &euler_rotation, 0, 1);
+    decrement_resource_counter();
     mode_block = (MusicModeBlock *)(&cd_read_state);
     if (!(mode_block->mode >= 6 && mode_block->mode <= 7))
         mode_block->mode = 5;
@@ -710,9 +711,9 @@ extern Rec item_defs[] __attribute__((section(".data")));
 extern A vendor_item_slot1_placement_offset[];
 extern A vendor_item_slot1_placement[];
 extern B vendor_item_slot2_placement[];
-extern short vendor_selected_item_local_offset;
+extern short vendor_selected_item_local_offset_gp;
 extern int vendor_selection_changed __attribute__((section(".sdata")));
-extern unsigned char discount_purchase_pricing[] __attribute__((section(".data")));
+extern unsigned char gHavePersuader[] __attribute__((section(".data")));
 
 #define GG g
 #define P (GG->obj)
@@ -743,17 +744,17 @@ void initialize_vendor_selected_item_mobys(void) {
     InitMobyInstance(P + 0x100, cls);
     *(short *)(P + 0x132) = 0x40;
     *(int *)(P + 0x194) = 0;
-    FastVecAdd(v, &vendor_selected_item_local_offset, &vendor_item_slot1_placement_offset[TA]);
+    FastVecAdd(v, &vendor_selected_item_local_offset_gp, &vendor_item_slot1_placement_offset[TA]);
     if (TB == 0) {
         v[2] += vendor_item_slot1_placement_offset[TA].c;
-        if (discount_purchase_pricing[0]) {
+        if (gHavePersuader[0]) {
             v[2] += vendor_item_slot1_placement_offset[TA].c;
         }
     }
     g2 = (S *)vendor_menu;
 #undef GG
 #define GG g2
-    matrix_mul_vec3(P + 0x110, v, GG->cam + 0xC0);
+    transform_vector_by_basis(P + 0x110, v, GG->cam + 0xC0);
     FastVecAdd(P + 0x110, P + 0x110, GG->cam + 0x10);
     q = vendor_item_slot1_placement;
     *(float *)(P + 0x140) = q[TA].d0;
@@ -888,8 +889,8 @@ void update_vendor_purchase(void) {
                 vendor_quantity_adjustable = 1;
             }
         } else {
-            pr1 = discount_purchase_pricing[0] ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
-                                               : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
+            pr1 = gHavePersuader[0] ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
+                                    : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
             if (gBolts < pr1) {
                 Moby_PlaySound(2, 0, vendor_menu_r4.cam);
             }
@@ -973,9 +974,8 @@ void update_vendor_purchase(void) {
                                ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].hA * vendor_buy_quantity
                                : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].h8 * vendor_buy_quantity;
                 } else {
-                    cost = discount_purchase_pricing[0]
-                               ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
-                               : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
+                    cost = gHavePersuader[0] ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
+                                             : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
                 }
                 if (gBolts < cost && weapon_ammo_counts[vendor_menu_r4.e[vendor_menu_r4.idx].item] >=
                                          item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].hE) {
@@ -1012,9 +1012,8 @@ void update_vendor_purchase(void) {
                         Moby_PlaySound(0, 0, vendor_menu_r4.cam);
                     }
                 } else {
-                    price = discount_purchase_pricing[0]
-                                ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
-                                : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
+                    price = gHavePersuader[0] ? item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f4
+                                              : item_price_table[vendor_menu_r4.e[vendor_menu_r4.idx].item].f0;
                     if (gBolts >= price) {
                         handle_vendor_auxiliary_moby_event(2);
                         grant_inventory_item(vendor_menu_r4.e[vendor_menu_r4.idx].item, 1);
@@ -1025,7 +1024,7 @@ void update_vendor_purchase(void) {
                         gBolts = gBolts - price;
                         build_vendor_menu_rows(vendor_menu_r4.f40 != 0);
                         if (vendor_menu_r4.f50 != -1)
-                            Hud_SetBarValueById(vendor_menu_r4.f50, 0);
+                            set_animation_parameter(vendor_menu_r4.f50, 0);
                         vendor_menu_r4.f50 = -1;
                         if (vendor_menu_r4.e[vendor_menu_r4.idx].sel == 1) {
                             vendor_menu_r4.f50 =
@@ -1191,7 +1190,7 @@ typedef struct {
 } HeroD;
 
 extern PadD g_controller_state;
-extern UpdD g_debug_menu;
+extern UpdD gDebugFreeCamLvl;
 extern Slot30D vendor_item_slot3_placement[];
 extern Vec4 vendor_saved_camera_basis[3];
 extern u8 vendor_profile_mark_after_mobys[];

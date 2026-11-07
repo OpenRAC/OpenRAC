@@ -157,7 +157,7 @@ void blend_hero_slot3_mapped_animation_pair(int id, int arg, float t) {
     }
 }
 
-/* Picks at random (rand_range) one of the entries whose seq is ID
+/* Picks at random (func_L00_00258BC8) one of the entries whose seq is ID
    in the mode's sequence table (see lookup_hero_slot3_animation_key) and returns 1 with
    its key and argument bytes in *KEY and *ARG; with no match, *KEY = 1
    and it returns 0. `tbl - -n` keeps retail's index-first addu, which
@@ -191,7 +191,7 @@ int select_hero_slot3_animation_pair(int id, int *key, int *arg) {
         }
     }
     if (count != 0) {
-        e = tbl - -list[rand_range(0, count - 1)];
+        e = tbl - -list[random_int_between(0, count - 1)];
         *key = e->key;
         *arg = e->unk3;
         return 1;
@@ -226,10 +226,10 @@ void sync_hero_slot3_animation_speed(void) {
         *(float *)(*(char **)&base->items[3].moby2 + 0x58) = base->anim_speed;
     }
 }
-extern short *hero_mapped_moby_seq_pairs;
+extern short *key_value_pair_tables;
 /* searches a terminated key/value list */
 int lookup_s16_pair_value(int key, int *out) {
-    short *base = hero_mapped_moby_seq_pairs;
+    short *base = key_value_pair_tables;
     short *p;
     if (!base)
         return 0;
@@ -328,9 +328,9 @@ void sync_hero_mapped_moby_animation_frames(void) {
     obj->id[1] = obj->model->banks[obj->bank[1]]->ids[obj->seq[1]];
 }
 
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 extern char hero_anim_slot_positions[];
-extern short hero_anim_blend_presets;
+extern short hero_blend_curve_frame_counts;
 
 extern int truncate_float_to_s32(float);
 extern void clear_hero_queued_animation(void);
@@ -392,7 +392,7 @@ void set_hero_animation(int a0, int a1, float t) {
     *(unsigned char *)(obj + 0x7C) = *(unsigned char *)(*(int *)(*(int *)(obj + 0x24) + o + 0x48) + 0x11);
     g3->anim_changing = 1;
     if (t < 0.0f) {
-        t = *(int *)((char *)&hero_anim_blend_presets + g3->anim_blend_curve * 4);
+        t = *(int *)((char *)&hero_blend_curve_frame_counts + g3->anim_blend_curve * 4);
     }
     if (g3->vehicle_mode == 0) {
         blend_hero_slot3_mapped_animation_pair(a0, a1, t);
@@ -562,7 +562,7 @@ void advance_hero_animation(void) {
     sync_hero_slot3_animation_speed();
     sync_hero_mapped_moby_animation_speed();
     prev = ((Hero *)g_hero)->anim_frame;
-    ((Hero *)g_hero)->anim_frame = MobyGetFrameValue(m);
+    ((Hero *)g_hero)->anim_frame = compute_interpolated_record_value(m);
     if (prev <= ((Hero *)g_hero)->anim_frame)
         ((Hero *)g_hero)->anim_frame_delta = ((Hero *)g_hero)->anim_frame - prev;
     else
@@ -673,7 +673,7 @@ typedef struct {
    Each of the three stages takes its own pointer to the block: retail
    re-forms the address from the saved %hi after the loop and again
    before the last test. */
-void HeroSetObjectFlags(void) {
+void set_hero_item_moby_flag_bit0(void) {
     Hero *base = (Hero *)g_hero;
     struct Hero *tail;
     struct Hero *last;
@@ -708,14 +708,14 @@ void HeroSetObjectFlags(void) {
         }
     }
 }
-/* Undoes HeroSetObjectFlags: clears bit 0 of the flags (0x34) of the
+/* Undoes set_hero_item_moby_flag_bit0: clears bit 0 of the flags (0x34) of the
    objects at g_hero + 0xA88, in the seven pairs at +0x1090, at
    +0x118C and (when +0x20A4 is 1) at +0x1624. Then it flags with 0x41
    the objects at +0x1180, +0x1184 and +0x118C while the short at +0x22D8
    is set, and the first pair's first object when +0x20AF is set, or
    +0x20AE is set in mode 8 (+0x10B8). Each stage takes a fresh pointer to the
    block, as retail re-forms it from the saved %hi before each one. */
-void HeroClearObjectFlags(void) {
+void update_hero_item_moby_flags(void) {
     Hero *base = (Hero *)g_hero;
     struct Hero *blk2;
     struct Hero *blk3;
@@ -873,7 +873,7 @@ int resolve_hero_gravity_mode(void) {
    in state 0x3E with the short at +0x30E clear, else by +H along the
    vector at +0x290. That one is named from the symbol, not the base
    local: retail forms it with its own lui. */
-void HeroMoveDownAlongNormal(float *dst, float *src, float h) {
+void add_hero_gravity_offset(float *dst, float *src, float h) {
     Hero *base = (Hero *)g_hero;
     float d[4] __attribute__((aligned(16)));
 
@@ -925,11 +925,11 @@ void transform_hero_local_offset_to_world(float *out, float x, float y, float z)
     FastVecAdd(out, out, base + 0x80);
 }
 // Wrapper that negates float argument
-void HeroMoveDownAlongNormal(float *dst, float *src, float h);
+void add_hero_gravity_offset(float *dst, float *src, float h);
 
-/* Moves SRC up by H along the hero's surface normal into DST: HeroMoveDownAlongNormal with the distance negated. */
+/* Moves SRC up by H along the hero's surface normal into DST: add_hero_gravity_offset with the distance negated. */
 void offset_hero_position_against_gravity(float *dst, float *src, float h) {
-    HeroMoveDownAlongNormal(dst, src, -h);
+    add_hero_gravity_offset(dst, src, -h);
 }
 
 /* Moves SRC by R into DST along the current animation's heading (+0x48
@@ -967,7 +967,7 @@ void add_hero_forward_offset(float *dst, float *src, float r) {
    (0, 0, DZ) taken through the rotation euler_to_matrix builds from the
    angles at +0x40 of the object at +0x2080. The switch gives retail's
    case tree. */
-void HeroOffsetAlongViewZ(float *dst, float *src, float dz) {
+void add_hero_up_offset(float *dst, float *src, float dz) {
     Hero *base = (Hero *)g_hero;
     float m[16] __attribute__((aligned(16)));
     float off[4] __attribute__((aligned(16)));
@@ -1013,7 +1013,7 @@ void gravity_flatten(float *dst, float *src) {
     }
 }
 
-/* The xy length (vec_length_xy) of V. In view modes 1 and 2
+/* The xy length (func_001F9CE8) of V. In view modes 1 and 2
    (g_hero + 0x20B3) V is first taken through the inverse of the
    rotation euler_to_matrix builds from the angles at +0x40 of the object
    at +0x2080 (matrix_from_basis_rows transposes it); other modes give 0. The
@@ -1026,13 +1026,13 @@ float gravity_length_xy(float *v) {
 
     switch (base->gravity_mode) {
         case 0:
-            return vec_length_xy(v);
+            return vector_length_xy(v);
         case 1:
         case 2:
             euler_to_matrix(m, *(char **)&base->moby + 0x40);
             matrix_from_basis_rows(inv, m);
             transform_vector(out, v, inv);
-            return vec_length_xy(out);
+            return vector_length_xy(out);
     }
     return 0.0f;
 }
@@ -1137,7 +1137,7 @@ float predict_hero_trajectory_z(float *pos, float *vel, int *steps, float step) 
 }
 
 /* Returns fast_atan2 (handwritten, apparently an atan2) of V's z
-   and its xy length (vec_length_xy): V's pitch. In view modes 1 and 2
+   and its xy length (func_001F9CE8): V's pitch. In view modes 1 and 2
    (g_hero + 0x20B3) V is first transformed by the matrix at +0x40,
    in an aligned stack copy; any other mode gives 0. The switch gives
    retail's case tree. */
@@ -1147,12 +1147,12 @@ float compute_gravity_relative_vector_inclination(float *v) {
 
     switch (base->gravity_mode) {
         case 0:
-            return fast_atan2(v[2], vec_length_xy(v));
+            return fast_atan2(v[2], vector_length_xy(v));
         case 1:
         case 2:
             qcopy(tmp, v);
             transform_vector(tmp, tmp, base->inv_rot_matrix);
-            return fast_atan2(tmp[2], vec_length_xy(tmp));
+            return fast_atan2(tmp[2], vector_length_xy(tmp));
     }
     return 0.0f;
 }
@@ -1164,7 +1164,7 @@ typedef struct {
 extern AmmoInfo item_price_table[];
 extern int g_hero_equipped_item_id;
 extern int weapon_ammo_counts[];
-extern int weapon_ammo_used[];
+extern int weapon_ammo_used_counts[];
 /* takes amount from the weapon's ammo (the current weapon for -1): 1 when taken or the weapon has no ammo limit, 0
    when there is too little */
 int use_ammo(int id, int amount) {
@@ -1177,7 +1177,7 @@ int use_ammo(int id, int amount) {
     if (weapon_ammo_counts[id] < amount)
         return 0;
     weapon_ammo_counts[id] -= amount;
-    weapon_ammo_used[id] += amount;
+    weapon_ammo_used_counts[id] += amount;
     return 1;
 }
 INCLUDE_ASM("asm/overlays", func_L00_00234674);
@@ -1297,7 +1297,7 @@ void update_hero_attachment(void) {
     if (!mode) {
         return;
     }
-    plat = moby_get_ride_transform(((Hero *)g_hero)->platform_moby);
+    plat = get_moby_pvars_link(((Hero *)g_hero)->platform_moby);
     if (plat == 0) {
         return;
     }
@@ -1355,7 +1355,7 @@ void update_hero_attachment(void) {
     clear_u64_value(&v20);
     clear_u64_value(&v30);
     if (amt != 0.0f) {
-        sB4 = vec_length_xy(&((Hero *)g_hero)->attached_moby_move);
+        sB4 = vector_length_xy(&((Hero *)g_hero)->attached_moby_move);
         sB0 = ((Hero *)g_hero)->attached_moby_move.f[2];
         if (!(plat->i3C & 2)) {
             ApproachValue(&sB0, 0.0f, g_frame_time_sq * 25.0f * amt);
@@ -1432,7 +1432,7 @@ void update_hero_attachment(void) {
 /* Calls resolve_point_path_segment_clearance with the id at g_hero + 0x22DA, the vector
    at +0x80 (as both pointers) and the float at +0x234; when it returns
    nonzero, sets the short at +0x1F6 to 4. */
-void Hero_ConstrainToPath(void) {
+void resolve_hero_pending_path_clearance(void) {
     Hero *base = (Hero *)g_hero;
 
     if (resolve_point_path_segment_clearance(base->path_constrain_pending, &base->motion, &base->motion,
@@ -1484,7 +1484,7 @@ void animate_hero_slot4_and_slot5_visuals(void) {
             if (!g_hero_r2.unk1D90.attached)
                 AttachManipulator(m2, 0, &g_hero_r2.unk1D90.anim_joint);
             else
-                axis_rotation_2d48(&g_hero_r2.unk1D90.quat, 0, g_hero_r2.unk22F0);
+                build_axis_rotation_quaternion(&g_hero_r2.unk1D90.quat, 0, g_hero_r2.unk22F0);
         }
     }
 }
@@ -1588,18 +1588,18 @@ extern char source_bone4_joints_class1b1[];
 extern char source_bone4_pose_buffer[];
 extern char source_bone4_joints_default[];
 
-/* Places moby MOBY from matrix ID (MobyTransformScaledVertex: translation row to +0x10,
-   matrix_copy_rows of the matrix to +0xC0), updates it (moby_anim_sphere_lerp), starts its sequence
+/* Places moby MOBY from matrix ID (build_moby_bone_transform: translation row to +0x10,
+   copy_matrix3x4 of the matrix to +0xC0), updates it (refresh_moby_spatial_bounds_from_basis), starts its sequence
    table for pack_pose (Sonic Summoner: source_bone4_joints_class1b1 with 6,
    others source_bone4_joints_default with 0), then clears +0x50 / +0x54 and points
    +0x68 / +0x6C at source_bone4_pose_buffer. The four tail stores are in the order retail's schedule needs. */
 void configure_moby_from_source_bone4(int id, char *moby) {
     float m[16] __attribute__((aligned(16)));
 
-    MobyTransformScaledVertex(id, 4, m);
+    build_moby_bone_transform(id, 4, m);
     qcopy(moby + 0x10, &m[12]);
-    matrix_copy_rows(moby + 0xC0, m);
-    moby_anim_sphere_lerp(moby);
+    copy_matrix3x4(moby + 0xC0, m);
+    refresh_moby_spatial_bounds_from_basis(moby);
     if (*(short *)(moby + 0xA6) == 0x1B1) {
         pack_pose(source_bone4_joints_class1b1, source_bone4_pose_buffer, *(void **)(moby + 0x24), 6, id);
     } else {
@@ -1613,7 +1613,7 @@ void configure_moby_from_source_bone4(int id, char *moby) {
 
 /* Probes 0.75 behind the position at g_hero + 0x80 along the first
    matrix row (+0x0), half a unit up, for the ground height
-   (ProbeGroundHeight). If that is within 0.3 of the position's z, records
+   (probe_ground_height). If that is within 0.3 of the position's z, records
    the old position as the target (request_hero_target_pose, with the float at
    +0x98) and moves the position onto the probe. */
 void try_reposition_hero_on_nearby_ground(void) {
@@ -1624,9 +1624,9 @@ void try_reposition_hero_on_nearby_ground(void) {
     FastVecScale(candidate_ground_position.f, hero_base->rot_matrix, -0.75f);
     FastVecAdd(candidate_ground_position.f, candidate_ground_position.f, hero_base->motion.pos.f);
     candidate_ground_position.f[2] += 0.5f;
-    h = ProbeGroundHeight(candidate_ground_position.f, 0, 0.5f);
+    h = probe_ground_height(candidate_ground_position.f, 0, 0.5f);
     candidate_ground_position.f[2] = h;
-    if (FastAbsF(hero_base->motion.pos.f[2] - h) > 0.3f) {
+    if (absolute_float(hero_base->motion.pos.f[2] - h) > 0.3f) {
         return;
     }
     request_hero_target_pose(hero_base->motion.pos.f, 1, hero_base->motion.rot.f[2]);

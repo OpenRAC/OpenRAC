@@ -68,14 +68,14 @@ ASM_FUNC("asm/handwritten/core_text", func_0011DA80);
 
 LINKER_REMNANT("asm/remnants/core_text", func_0011DA90);
 
-extern int initsys_syscall_patch_table[];
+extern int syscall_table_address_init_bindings[];
 extern int initsys_kernel_scan_address;
 
 /* InitSystemCallTableAddress (libkernl.a:initsys.o): patches two kernel
    entry points found by scanning for known function bodies
    (FindAddress = find_address, matching kCopy = kCopy and a
    second reference routine, kFindAddress) into the two descriptors of
-   initsys_syscall_patch_table (kFindAddress/initsys_set_syscall, called once per descriptor),
+   syscall_table_address_init_bindings (kFindAddress/initsys_set_syscall, called once per descriptor),
    then records where the two scans converge (they start from the same
    base and offset by different constants, and are each advanced by 4
    bytes -- whichever trails -- until they land on the same address) in
@@ -85,8 +85,8 @@ void InitSystemCallTableAddress(void) {
     unsigned int a, b;
     int p1, p2;
 
-    initsys_set_syscall(initsys_syscall_patch_table[0], initsys_syscall_patch_table[1]);
-    initsys_set_syscall(initsys_syscall_patch_table[2], initsys_syscall_patch_table[3]);
+    initsys_set_syscall(syscall_table_address_init_bindings[0], syscall_table_address_init_bindings[1]);
+    initsys_set_syscall(syscall_table_address_init_bindings[2], syscall_table_address_init_bindings[3]);
 
     p1 = find_address(0x80000000, 0x80080000, (void *)kFindAddress);
     p2 = find_address(0x80000000, 0x80080000, (void *)kCopy);

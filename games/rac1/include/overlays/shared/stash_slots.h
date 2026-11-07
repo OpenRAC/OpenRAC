@@ -1,7 +1,7 @@
 #ifndef OVERLAYS_SHARED_STASH_SLOTS_H
 #define OVERLAYS_SHARED_STASH_SLOTS_H
 
-/* Functions defined in src/overlays/shared/stash_slots.c. */
+/* Functions defined in src/overlays/shared/l00_stash_slots.c. */
 
 #include "common.h"
 

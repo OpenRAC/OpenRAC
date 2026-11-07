@@ -156,7 +156,7 @@ void Hero_ApplyMotionCollisionL02(void) {
     vec_scale_to_length(start, plane.f, magnitude);
     motion_player = (Hero *)((char *)position - 0x110);
     motion_player->motion.speed_xy = FastVecLength(position);
-    magnitude = vec_length_xy(position);
+    magnitude = vector_length_xy(position);
     work.q = *(Q_222D18 *)position;
     motion_player->motion.flat_speed = magnitude;
     motion_player->motion.forward_speed = forward_component(work.f);
@@ -295,8 +295,8 @@ void hero_update_hop_velocity(void) {
         if (state == 0x2D) {
             x = g_hero.motion.rot.f[2];
             g_hero.motion.yaw_error =
-                SpringAngle(&x, g_hero.motion.move_yaw, &g_hero.motion.yaw_rate, 0, g_frame_scale_sq * 0.018f,
-                            g_frame_scale_sq * 0.2f, g_frame_time * 7.330383f);
+                spring_angle(&x, g_hero.motion.move_yaw, &g_hero.motion.yaw_rate, 0, g_frame_scale_sq * 0.018f,
+                             g_frame_scale_sq * 0.2f, g_frame_time * 7.330383f);
             a = FastSubRots(x, g_hero.motion.rot.f[2]);
             rotate_hero_about_fixed_local_pivot(0.0f, 0.0f, a);
         } else {
@@ -308,7 +308,7 @@ void hero_update_hop_velocity(void) {
         if (g_hero.target_speed < aridia_hero_speed_bands_field_18[0] * g_frame_time * 0.2f) {
             if (g_hero.state.control_mode == HERO_MODE_FALL) {
                 d = g_hero.stickless_decel;
-                speed = vec_length_xy(&g_hero.motion.velocity);
+                speed = vector_length_xy(&g_hero.motion.velocity);
                 ApproachValue(&speed, 0.0f, d);
                 vec_set_length_xy(g_hero.motion.velocity.f, g_hero.motion.velocity.f, speed);
                 return;
@@ -333,10 +333,10 @@ typedef struct {
     char p14[0x18];
 } Rec2C;
 extern Hero g_hero_h22F568 __asm__("D_0013F450");
-extern PadState D_0013CA40;
+extern PadState g_controller_state;
 extern int last_weapon_id_r __asm__("D_00141760");
-extern unsigned char D_0013D5C8[];
-extern Rec2C D_L02_0017C2A8[];
+extern unsigned char item_available[];
+extern Rec2C aridia_attack_records[];
 extern int D_L02_0015F754 SDATA(D_L02_0015F754);
 
 extern int truncate_float_to_s32(float);
@@ -573,7 +573,7 @@ int process_hero_item_action_input(void) {
                 }
                 if (g_controller_state.held & mask) {
                     if (!get_ammo(-1)) {
-                        if (!Sound_IsPlaying((Moby *)g_hero_h22F568.items[0].moby, pv->fC)) {
+                        if (!voice_is_playing((Moby *)g_hero_h22F568.items[0].moby, pv->fC)) {
                             pv->fC = Moby_PlaySound(0, 0, (int)((Moby *)g_hero_h22F568.items[0].moby));
                         }
                     }

@@ -6,12 +6,12 @@
 #include "common.h"
 
 extern void HeroAttachManipulators(void *);
-extern void HeroClearObjectFlags(void);
-extern void HeroMoveDownAlongNormal(void *, void *, float);
-extern void HeroOffsetAlongViewZ(void *, void *, float);
-extern void HeroSetObjectFlags(void);
+extern void func_L00_00233950(void);
+extern void func_L00_00233D50(void *, void *, float);
+extern void func_L00_00234090(void *, void *, float);
+extern void func_L00_00233868(void);
 extern void HeroStartSequenceInBank(int, int);
-extern void Hero_ConstrainToPath(void);
+extern void func_L00_00235040(void);
 extern int add_ammo(int, int);
 extern void add_hero_forward_offset(void *, void *, float);
 extern void advance_hero_animation(void);

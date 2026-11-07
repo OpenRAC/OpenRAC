@@ -104,11 +104,11 @@ void draw_ship_hud(char *moby) {
         if (*(float *)(b + 0x15FC) < *(float *)(b + 0x1600) * 0.25f) {
             int cnt = ((HelpTab *)help_records)->r[0x58].count;
             if (cnt == 0) {
-                Help_Request(0x2AFF, 0x58);
+                help_request(0x2AFF, 0x58);
             } else if (cnt < 2) {
                 *(int *)(d + 0x11C) += 1;
                 if (*(int *)(d + 0x11C) > scale_ticks(0x708)) {
-                    Help_Request(0x2AFF, 0x58);
+                    help_request(0x2AFF, 0x58);
                 }
             }
         } else if (*(int *)(d + 0x11C) != 0) {
@@ -129,13 +129,13 @@ void draw_ship_hud(char *moby) {
         unsigned char *g2 = g_hero;
         if ((g2[0x15F6] < 5 && ((HelpTab *)help_records)->r[0x57].count == 0) ||
             (g2[0x15F6] == 0 && ((HelpTab *)help_records)->r[0x57].count < 2 && *(int *)(d + 0x120) == 0)) {
-            Help_Request(0x2AFE, 0x57);
+            help_request(0x2AFE, 0x57);
             *(int *)(d + 0x120) = scale_ticks(0x4B0);
         }
     }
     if (((HelpTab *)help_records)->r[0x56].count == 0) {
         if ((*(int *)(d + 0x128))++ > scale_ticks(0xE10)) {
-            Help_Request(0x2AFD, 0x56);
+            help_request(0x2AFD, 0x56);
         }
     }
     if (*(unsigned char *)(moby + 0x20) == 8) {
@@ -145,7 +145,7 @@ void draw_ship_hud(char *moby) {
         unsigned char *h = g_hero;
         f = *(float *)(h + 0x15FC) - *(float *)(d + 0xF0);
         f *= 0.2f;
-        q = FastAbsF(f);
+        q = absolute_float(f);
         if (q > 1.0f)
             f /= q;
         *(float *)(d + 0xF0) += f;

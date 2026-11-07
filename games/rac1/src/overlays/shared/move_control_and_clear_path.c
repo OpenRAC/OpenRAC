@@ -43,10 +43,10 @@ int count_active_moby_group_members(int i, int st) {
     int n = 0;
     O_26e008 *o;
 
-    if (novalis_moby_groups[i] == 0) {
+    if (l01_moby_index_lists_by_group[i] == 0) {
         return 0;
     }
-    p = novalis_moby_groups[i];
+    p = l01_moby_index_lists_by_group[i];
     do {
         o = (O_26e008 *)(((*p & 0x7FFF) << 8) + (int)novalis_mobys);
         if (o->state >= 0 && (st == -1 || (unsigned char)o->state != st)) {
@@ -60,8 +60,8 @@ INCLUDE_ASM("asm/overlays", func_L01_0026EFDC);
 extern char *novalis_mobys MACRO_ADDR;
 
 // Set byte 0xBC of each entry in a negative-terminated index list.
-void MobyGroup_SetByteBC(int i, int v) {
-    unsigned short *t = novalis_moby_groups[i];
+void alert_group_e81e0(int i, int v) {
+    unsigned short *t = l01_moby_index_lists_by_group[i];
     unsigned short *p;
     if (t != 0) {
         p = t;
@@ -75,7 +75,7 @@ extern int novalis_mobys_m __asm__("D_L01_00160058") MACRO_ADDR;
 // Walks a list of moby indices and sets the state byte of each one that is non-negative.
 void set_moby_list_state(int list, int state) {
     unsigned short *p;
-    unsigned short *q = (unsigned short *)novalis_moby_groups[list];
+    unsigned short *q = (unsigned short *)l01_moby_index_lists_by_group[list];
     if (q != 0) {
         p = q;
         do {
@@ -264,7 +264,7 @@ typedef struct {
 extern GG fx_cutscene;
 
 /* Places the marker at a moby's position offset along its heading by scale. */
-void PlaceMarkerAheadOfMoby(float scale, char *moby) {
+void begin_dialogue_camera_transition(float scale, char *moby) {
     fx_cutscene.f = 1;
     qcopy(fx_cutscene.p, moby + 0x10);
     fx_cutscene.p[0] += FastCos(*(float *)(moby + 0x48)) * scale;

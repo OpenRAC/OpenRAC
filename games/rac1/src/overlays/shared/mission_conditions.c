@@ -78,14 +78,14 @@ typedef struct {
     f32 z;
     s32 flag;
 } MapPoint;
-extern MapPoint D_0013D6B8[];
+extern MapPoint level_object_states[];
 extern unsigned char item_available[];
 
 /* mission status from the flags of map points 20, 22 and 24 and item flag 2: 1, 2 or 0 */
 int GetMapPointMissionStatus(void) {
-    if (race_gates[20].flag && !race_gates[24].flag)
+    if (level_object_states[20].flag && !level_object_states[24].flag)
         return 1;
-    if (race_gates[24].flag && item_available[2] && !race_gates[22].flag)
+    if (level_object_states[24].flag && item_available[2] && !level_object_states[22].flag)
         return 2;
     return 0;
 }

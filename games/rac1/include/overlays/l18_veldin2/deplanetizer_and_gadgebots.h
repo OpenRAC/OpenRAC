@@ -7,7 +7,7 @@
 
 extern int count_group_gadgebot_1906_mobys_not_in_state_8(int);
 extern int launch_first_idle_group_gadgebot_1906_moby(int, void *, void *, float);
-extern void mark_class_0630_moby_and_child_for_removal(void *);
-extern void set_group_class_0630_moby_byte_bc(int, int);
+extern void func_L18_002FBD40(void *);
+extern void func_L18_002FBCE8(int, int);
 
 #endif /* OVERLAYS_L18_VELDIN2_DEPLANETIZER_AND_GADGEBOTS_H */

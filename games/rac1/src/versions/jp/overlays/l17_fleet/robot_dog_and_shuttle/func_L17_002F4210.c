@@ -1,4 +1,4 @@
-void update_fleet_camera_box_watcher(char *moby) {
+void fleet_camera_box_watcher_update(char *moby) {
     int off;
     char *d = *(char **)(moby + 0x78);
     int st;
@@ -34,8 +34,8 @@ void update_fleet_camera_box_watcher(char *moby) {
                        is_point_inside_clip_volume(h + 0x80, *(int *)(d + 0x68))) {
                 if (gSkillPoints[0x1C] == 0) {
                     gSkillPoints[0x1C] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x542D, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x542D, -1);
                 }
             }
             break;
@@ -52,13 +52,13 @@ void update_fleet_camera_box_watcher(char *moby) {
                 *(int *)(d + 0x74) += 1;
             }
             n = *(int *)(d + 0x70) + 1;
-            wrap = fleet_mobys + (n << 8) < fleet_mobys_end;
+            wrap = fleet_mobys + (n << 8) < fleet_moby_array_end;
             *(int *)(d + 0x70) = n;
             if (!wrap) {
                 if (*(int *)(d + 0x74) == 0 && sk[0x1B] == 0) {
                     sk[0x1B] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x542D, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x542D, -1);
                 }
                 *(int *)(d + 0x70) = 0;
                 *(int *)(d + 0x74) = 0;
@@ -116,21 +116,23 @@ void update_fleet_camera_box_watcher(char *moby) {
             }
             if (*(int *)(d + 0xC) > *(int *)(d + 0x38) && tgt != -1 &&
                 ((unsigned int)*(int *)(hero_globals_base + 0x2EA9) < 2 || *(int *)(hero_globals_base + 0x2EA9) == 9) &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHologuise != 0) {
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHologuise != 0) {
                 *(int *)(d + 0x38) = scale_ticks(0x708);
                 if (*(int *)(help_stats_base + 0x739) >= 0) {
-                    Help_Request(0x3A9A, 0x7D);
+                    help_request(0x3A9A, 0x7D);
                 }
                 *(int *)(d + 0x30) = tgt;
                 *(int *)(d + 0xC) = 0;
             }
         skip1:
             if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, *(int *)(d + 0x20)) &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHeliPack[2] == 0) {
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHeliPack[2] == 0) {
                 int w = *(int *)(help_stats_base + 0x761);
                 mask = 1 << g_current_level_index;
                 if (!(w & mask)) {
-                    Help_Request(0x3A9D, 0x82);
+                    help_request(0x3A9D, 0x82);
                 }
             }
             tgt = -1;
@@ -151,8 +153,9 @@ void update_fleet_camera_box_watcher(char *moby) {
                 *(int *)(d + 0x30) = -1;
             }
             if (scale_ticks(0xE10) < *(int *)(d + 0x2C) && tgt != -1 && hero_is_in_special_state() &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHeliPack[2] != 0) {
-                Help_Request(0x4E2E, 0x78);
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHeliPack[2] != 0) {
+                help_request(0x4E2E, 0x78);
                 *(int *)(d + 0x30) = tgt;
                 *(int *)(d + 0x2C) = 0;
             }
@@ -164,9 +167,9 @@ void update_fleet_camera_box_watcher(char *moby) {
                 is_point_inside_clip_volume(hero_globals_base + 0xE9D, *(int *)(d + 0x3C))) {
                 clear_active_help_record();
                 if (*(int *)(help_stats_base + 0x7A9) >= 0) {
-                    Help_Request(0x4268, 0x8B);
+                    help_request(0x4268, 0x8B);
                 }
-                if (fleet_help_popup_state[0] != 0 || fleet_help_popup_state[9] != -1) {
+                if (fleet_help_request_gate_state[0] != 0 || fleet_help_request_gate_state[9] != -1) {
                     *(int *)(d + 0x50) = 0;
                     *(unsigned char *)(moby + 0x20) = 2;
                     *(int *)(d + 0x5C) = scale_ticks(0xB4);
@@ -179,7 +182,7 @@ void update_fleet_camera_box_watcher(char *moby) {
             set_follow_camera_blend_output_flags();
             set_follow_camera_angle_blend_from_position((int)(fleet_camera_points + (*(int *)(d + 0x44) << 7) + 0x30),
                                                         0.02617994f, 0.0f);
-            cam = fleet_player_camera;
+            cam = l17_camera;
             f = fast_atan2(
                 *(float *)(fleet_camera_points + ((*(int *)(d + 0x44) << 7) + 0x30)) - *(float *)(cam + 0x140),
                 *(float *)(fleet_camera_points + ((*(int *)(d + 0x44) << 7) + 0x34)) - *(float *)(cam + 0x144));
@@ -195,7 +198,7 @@ void update_fleet_camera_box_watcher(char *moby) {
                 char *cam;
                 set_follow_camera_angle_blend_from_position(
                     (int)(fleet_camera_points + (*(int *)(d + 0x40) << 7) + 0x30), 0.02617994f, 0.0f);
-                cam = fleet_player_camera;
+                cam = l17_camera;
                 f = fast_atan2(
                     *(float *)(fleet_camera_points + ((*(int *)(d + 0x40) << 7) + 0x30)) - *(float *)(cam + 0x140),
                     *(float *)(fleet_camera_points + ((*(int *)(d + 0x40) << 7) + 0x34)) - *(float *)(cam + 0x144));

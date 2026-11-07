@@ -185,7 +185,7 @@ extern BufE9EC8 coll_output;
 extern unsigned char image_clear_buffer[];
 extern unsigned char coll_output_aux_buffer[];
 extern unsigned char moby_grids[];
-extern unsigned char moby_slot_bitmap[];
+extern unsigned char moby_grid_block_bitmap[];
 extern DisplayE9EC8 view_context;
 extern int fog_color_red MACRO_ADDR;
 extern int fog_color_green MACRO_ADDR;
@@ -203,7 +203,7 @@ extern unsigned char frame_vu0_micro_program[];
 extern unsigned char point_lights[];
 extern unsigned char point_light_data[];
 extern unsigned char dir_lights[];
-extern char str_too_many_dir_lights[];
+extern char too_many_directional_lights_message[];
 extern int tfrag_render_record_count MACRO_ADDR;
 extern Ent40E9EC8 *tfrag_render_records MACRO_ADDR;
 extern int tie_count MACRO_ADDR;
@@ -305,7 +305,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr) {
     coll_output.x10 = 0;
     coll_output.x14 = 0;
     FastMemZero16(moby_grids, 0x10000);
-    FastMemZero16(moby_slot_bitmap, 0x60);
+    FastMemZero16(moby_grid_block_bitmap, 0x60);
 
     c = (unsigned char *)hdr + hdr->x0;
     view_context.x23C = *(int *)c;
@@ -340,7 +340,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr) {
     n = *(int *)lc;
     lc += 0x10;
     if (n >= 12) {
-        STUB_printf(str_too_many_dir_lights);
+        STUB_printf(too_many_directional_lights_message);
         n = 12;
     }
     if (n != 0) {
@@ -404,7 +404,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr) {
         sh->x18 = (short)id;
         sc += 0x50;
         sd->m[3].w = object_render_classes[sh->cls]->x40;
-        matrix_mul_vec3(sh, object_render_classes[sh->cls]->x30, sd);
+        transform_vector_by_basis(sh, object_render_classes[sh->cls]->x30, sd);
         s = FastVecLength(sd);
         len1 = FastVecLength(r1);
         s = max_float(s, len1);
@@ -512,7 +512,7 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr) {
         td->m[0].w = (int)(((unsigned int)bl << 16) | (unsigned int)g | (unsigned int)r);
         tie->x1C = *(unsigned short *)tc;
         tc += 0x10;
-        matrix_mul_vec3(tie, shrub_render_classes[cls], td);
+        transform_vector_by_basis(tie, shrub_render_classes[cls], td);
         s = FastVecLength(td);
         len1 = FastVecLength(t1);
         s = max_float(s, len1);
@@ -580,8 +580,8 @@ unsigned char *initialize_level_render_state(LevelHeaderE9EC8 *hdr) {
         *(int *)(st + 0x1C) = 0;
     }
     ResetDrawGlobals();
-    pad_resetState();
-    Font_EnableColorCodes();
+    reset_pad_history();
+    enable_font_color_codes();
     world_update_time = 0;
     gFade = 1.0f;
     return p;
@@ -671,39 +671,39 @@ extern s64 intro_overlay_tex0_r __asm__("D_0015F048") MACRO_ADDR;
 extern s32 intro_overlay_timer_r __asm__("D_0015F058") MACRO_ADDR;
 extern s32 help_msg_data_r __asm__("D_0015F060") MACRO_ADDR;
 extern s32 help_offset_table_r __asm__("D_0015F064") MACRO_ADDR;
-extern s32 D_0015F560 MACRO_ADDR;
+extern s32 level_texture_payload_address MACRO_ADDR;
 extern TextEntry *help_msgs_r __asm__("D_0015F780") MACRO_ADDR;
-extern s32 D_00160000 MACRO_ADDR;
-extern s32 D_00160008 MACRO_ADDR;
-extern s32 D_001604CC MACRO_ADDR;
-extern s32 D_001604EC MACRO_ADDR;
-extern s32 D_00160F94 MACRO_ADDR;
-extern s32 D_0016100C MACRO_ADDR;
-extern s32 D_0016104C MACRO_ADDR;
-extern s32 D_00161064 MACRO_ADDR;
-extern u8 D_001862E0[];
-extern u8 D_00186410[];
+extern s32 resident_moby_class_count MACRO_ADDR;
+extern s32 resident_indexed_texture_count MACRO_ADDR;
+extern s32 registered_shrub_render_class_count MACRO_ADDR;
+extern s32 shrub_render_texture_definition_count MACRO_ADDR;
+extern s32 tfrag_texture_definition_count MACRO_ADDR;
+extern s32 current_vu_chain MACRO_ADDR;
+extern s32 registered_object_render_class_count MACRO_ADDR;
+extern s32 object_render_texture_definition_count MACRO_ADDR;
+extern u8 moby_class_472_sound_defs[];
+extern u8 level_init_cleared_block[];
 extern SoundBanks render_sequence_r __asm__("D_0018CC20");
-extern LoadState D_001941C0;
+extern LoadState level_resource_buffers;
 extern u8 coll_output_aux_buffer_r[] __asm__("D_00194280");
 extern HelpState g_help_state_r __asm__("D_001997D0");
-extern u64 D_0019E7C0[];
-extern MobyClass *D_001B3580[];
-extern u8 D_001B3E40[];
-extern s32 D_001B5D00[];
+extern u64 special_material_template[];
+extern MobyClass *moby_class_resources[];
+extern u8 resident_class_slot_by_id[];
+extern s32 moby_texture_lookup_table[];
 extern s32 resident_class_original_field_2c_r[] __asm__("D_001B6500");
-extern u8 D_001B6C00[];
-extern s32 D_001D8840[];
-extern s32 D_001E0C00[];
-extern s32 D_001E2900[];
+extern u8 resident_class_material_maps[];
+extern s32 shrub_render_texture_lookup_table[];
+extern s32 tfrag_texture_size_table[];
+extern s32 object_render_texture_lookup_table[];
 
 extern void queue_dma_transfer_r(s32) __asm__("func_001EB300");
 
 extern s32 initialize_level_render_state_r(u8 *) __asm__("func_001E9EC8");
 
-extern void func_00217628(u8 *, s32, s32);
+extern void start_audio_stream_read(u8 *, s32, s32);
 extern unsigned int Load_r(s32, s32, s32) __asm__("func_002176C8");
-extern void func_00217748(s32);
+extern void update_audio_stream_until_idle(s32);
 
 /* Loads the space-transition wad to 0x1400000 and unpacks it at the level arena: textures and
    their tables, the three kinds of moby classes, sound and help text tables, the loading image;
@@ -736,7 +736,7 @@ void transition_load_wad(void) {
     s64 u;
     intro_overlay_timer_r = 0;
     i = 0;
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     InitMemSlots();
     current_vu_chain = 0x100000;
     g_gs_texture_allocation_base_r = 0x2C0000;
@@ -774,7 +774,7 @@ void transition_load_wad(void) {
     tex = (new_var2 = (WadTex *)(((u8 *)hdr) + hdr->x3C));
     if ((resident_indexed_texture_count = hdr->n38) > 0) {
         do {
-            resident_indexed_texture_addrs[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
+            moby_texture_lookup_table[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
             k++;
         } while (k < resident_indexed_texture_count);
     }
@@ -782,7 +782,7 @@ void transition_load_wad(void) {
     tex = (new_var2 = (WadTex *)(((u8 *)hdr) + hdr->x44));
     if ((object_render_texture_definition_count = hdr->n40) > 0) {
         do {
-            object_render_texture_addrs[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
+            object_render_texture_lookup_table[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
             k++;
         } while (k < object_render_texture_definition_count);
     }
@@ -790,7 +790,7 @@ void transition_load_wad(void) {
     tex = (new_var2 = (WadTex *)(((u8 *)hdr) + hdr->x4C));
     if ((shrub_render_texture_definition_count = hdr->n48) > 0) {
         do {
-            shrub_render_texture_addrs[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
+            shrub_render_texture_lookup_table[k] = (((s32)base) + tex[k].offset) + (log2dim(tex[k].x4) << 28);
             k++;
         } while (k < shrub_render_texture_definition_count);
     }
@@ -887,7 +887,7 @@ extern char *help_msgs SDATA(help_msgs);
    indexes into help_msg_data, past its 8-byte header, and keeps the
    header's first word in help_msg_count. Both table pointers are MACRO_ADDR
    (one register each), and the index goes first in the addition. */
-void queue_dma_transfer(int arg0) {
+void load_help_message_group(int arg0) {
     int *entry = (int *)(arg0 * 4 + help_offset_table);
     int off = *entry;
     char *p = (char *)(help_msg_data + off);
@@ -1046,7 +1046,7 @@ void update_gameplay_frame(void) {
                 0x60;
         }
         if (pad0_pressed_r[0] & 0x840) {
-            initialize_transfer_command();
+            enter_main_menu();
         }
         sound_update();
     } else if (g_game_mode_r == 3) {
@@ -1107,7 +1107,7 @@ void Transition_DefaultDraw(s32 *arg0) {
     }
     FastMemSet(occl_visibility, -1, 0x80);
     Transition_UpdateMovieCamera_r2();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     prune_moby_references();
     ResetGsRegisters();
     font_state = -1;
@@ -1181,11 +1181,11 @@ void Transition_DefaultDraw(s32 *arg0) {
 
 extern char voice_pool[];
 
-extern int D_0015F694 MACRO_ADDR;
+extern int bank_sound_count MACRO_ADDR;
 
 /* The older register residual was the split load of bank_sound_count; read
    through a MACRO_ADDR alias it is retail's one-register load. */
-int is_active_state_entry(int arg0, int arg1) {
+int is_voice_active(int arg0, int arg1) {
     if (arg0 >= 0) {
         char *p = voice_pool + arg0 * 0x70;
         if (*(short *)(p + 0x7E) == arg1 + bank_sound_count) {
@@ -1227,15 +1227,15 @@ typedef struct {
     s32 f3C;
 } TransferState_BB48;
 
-extern s32 D_0015EE84 MACRO_ADDR;
-extern s32 D_0015EEE8 MACRO_ADDR;
-extern WadHeader_BB48 *volatile D_001941C8[];
+extern s32 g_current_level_index MACRO_ADDR;
+extern s32 playback_mode MACRO_ADDR;
+extern WadHeader_BB48 *volatile vu1_chain_buffer_2[];
 extern DiscTable disc_table_BB48 __asm__("D_00137C80");
-extern WadHeader_BB48 *D_0015EF4C MACRO_ADDR;
-extern s32 D_0015F690 MACRO_ADDR;
-extern s32 D_0015F6FC MACRO_ADDR;
+extern WadHeader_BB48 *level_root MACRO_ADDR;
+extern s32 space_load_pending MACRO_ADDR;
+extern s32 space_load_in_progress MACRO_ADDR;
 extern s32 dma_index_BB48 __asm__("D_0015EE88") MACRO_ADDR;
-extern SoundCue_BB48 D_001863B0[];
+extern SoundCue_BB48 transition_sound_cues[];
 extern TransferState_BB48 transfer_BB48 __asm__("D_0018CC20");
 extern s32 game_mode_BB48 __asm__("D_0015F6E8") MACRO_ADDR;
 extern f32 sequence_BB48 __asm__("D_0015F53C") MACRO_ADDR;
@@ -1247,7 +1247,7 @@ extern s32 pal_mode_BB48 __asm__("D_0015EE80") MACRO_ADDR;
 extern s32 tex_start_BB48 __asm__("D_0015EF78") MACRO_ADDR;
 extern s32 tex_cursor_BB48 __asm__("D_0015EF74") MACRO_ADDR;
 extern volatile s32 tex_base_BB48 __asm__("D_0015EF8C") MACRO_ADDR;
-extern s32 D_0015F538 MACRO_ADDR;
+extern s32 game_frame_counter MACRO_ADDR;
 
 extern void transition_load_wad_BB48(void) __asm__("func_001EABE8");
 extern s32 Load(u8 *dst, s32 sector, s32 size);
@@ -1352,7 +1352,7 @@ void transition_do_transition(void) {
             continue;
         stop:
             if (is_active_BB48(transition_sound_cues[i].voice, transition_sound_cues[i].sound) != 0) {
-                sound_KillChannel(transition_sound_cues[i].voice);
+                release_voice_slot(transition_sound_cues[i].voice);
             }
             transition_sound_cues[i].voice = -1;
         }

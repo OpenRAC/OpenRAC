@@ -63,7 +63,7 @@ extern void prepare_scaled_float_table_with_target_byte_v(void *, int, float) __
 extern char umbris_ambient_stream_scaled_table[];
 
 /* Umbris ambient stream moby: sets up its table, then queues the audio stream. */
-void AmbientStreamL07Update(unsigned char *moby) {
+void moby_draw_registration_update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             moby[0x20] = 1;
@@ -110,7 +110,7 @@ void timed_activation_pads_update(unsigned char *moby) {
         p = &g_hero;
         if (p->air_frames.s == 0)
             flag = (unsigned char *)p->ground_moby == moby;
-        if (0.7853982f < FastAbsF(((Moby *)moby)->rot.y)) {
+        if (0.7853982f < absolute_float(((Moby *)moby)->rot.y)) {
             if (vec_distance_xy(moby + 0x10, (char *)&p->motion.pos) < 2.0f) {
                 if (p->state.current == 0x11) {
                     if (p->anim_frame < 7.0f) {
@@ -118,9 +118,9 @@ void timed_activation_pads_update(unsigned char *moby) {
                         set_identity_matrix(q);
                         matrix_from_basis_rows(q, moby + 0xC0);
                         transform_vector(o, o, q);
-                        if (FastAbsF(o[0]) < 0.6f) {
-                            if (FastAbsF(o[1]) < 0.6f) {
-                                if (FastAbsF(o[2]) < 0.957f)
+                        if (absolute_float(o[0]) < 0.6f) {
+                            if (absolute_float(o[1]) < 0.6f) {
+                                if (absolute_float(o[2]) < 0.957f)
                                     flag = 1;
                             }
                         }
@@ -148,7 +148,7 @@ void timed_activation_pads_update(unsigned char *moby) {
     switch (((Moby *)moby)->state) {
         case 0:
             set_moby_color(moby, 0x80, 0x80, 0x80);
-            MobyGroup_SetByteBC(((Moby *)moby)->group, 0);
+            alert_group_e81e0(((Moby *)moby)->group, 0);
             set_moby_list_state(((Moby *)moby)->group, 1);
             break;
         case 1:
@@ -162,7 +162,7 @@ void timed_activation_pads_update(unsigned char *moby) {
                 on = 1;
                 set_moby_color(moby, 0, 0xFF, 0);
                 d->active = on;
-                MobyGroup_SetByteBC(((Moby *)moby)->group, 0);
+                alert_group_e81e0(((Moby *)moby)->group, 0);
                 ((Moby *)moby)->command = on;
                 Moby_PlaySound_r(3, 0, (int)moby);
                 set_moby_list_state(((Moby *)moby)->group, 2);
@@ -292,7 +292,7 @@ void door_update(u8 *moby) {
             vectors[5] = data->dir.y;
             vectors[6] = data->dir.z;
             *(quadword *)vectors = *(quadword *)(vectors + 4);
-            matrix_mul_vec3(vectors, vectors, moby + 0xc0);
+            transform_vector_by_basis(vectors, vectors, moby + 0xc0);
             vec_scale_to_length_v(data->open_speed * g_frame_time, vectors + 4, vectors);
             FastVecAdd(moby + 0x10, moby + 0x10, vectors + 4);
             data->travel -= data->open_speed * g_frame_time;
@@ -333,7 +333,7 @@ void door_update(u8 *moby) {
                 *(quadword *)vectors = *(quadword *)(vectors + 4);
                 distance = FastVecLength(vectors);
                 vec_scale_to_length_v(-(data->close_speed * g_frame_time), vectors, vectors);
-                matrix_mul_vec3(vectors + 4, vectors, moby + 0xc0);
+                transform_vector_by_basis(vectors + 4, vectors, moby + 0xc0);
                 FastVecAdd(moby + 0x10, moby + 0x10, vectors + 4);
                 data->travel += data->close_speed * g_frame_time;
                 if (!(distance < data->travel))
@@ -419,7 +419,7 @@ void bridge_update(u8 *moby) {
             vectors[5] = data->dir.y;
             vectors[6] = data->dir.z;
             *(quadword *)vectors = *(quadword *)(vectors + 4);
-            matrix_mul_vec3(vectors, vectors, moby + 0xc0);
+            transform_vector_by_basis(vectors, vectors, moby + 0xc0);
             vec_scale_to_length_v(data->open_speed * g_frame_time, vectors + 4, vectors);
             FastVecAdd(moby + 0x10, moby + 0x10, vectors + 4);
             data->travel -= data->open_speed * g_frame_time;
@@ -458,7 +458,7 @@ void bridge_update(u8 *moby) {
                 *(quadword *)vectors = *(quadword *)(vectors + 4);
                 distance = FastVecLength(vectors);
                 vec_scale_to_length_v(-(data->close_speed * g_frame_time), vectors, vectors);
-                matrix_mul_vec3(vectors + 4, vectors, moby + 0xc0);
+                transform_vector_by_basis(vectors + 4, vectors, moby + 0xc0);
                 FastVecAdd(moby + 0x10, moby + 0x10, vectors + 4);
                 data->travel += data->close_speed * g_frame_time;
                 if (distance < data->travel) {

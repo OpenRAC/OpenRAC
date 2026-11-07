@@ -94,7 +94,7 @@ void DrawFleetHud(char *moby) {
     h = (char *)&g_hero;
     f = *(float *)(h + 0x15FC) - *(float *)(d + 0xF0);
     f *= 0.2f;
-    q = FastAbsF(f);
+    q = absolute_float(f);
     if (q > 1.0f)
         f /= q;
     *(float *)(d + 0xF0) += f;

@@ -85,7 +85,7 @@ typedef struct {
 } M;
 
 /* Shows the moby during a cinematic step; flips it and reflects its height when the boss camera resets. */
-void update_moby_scene_visibility_and_height_reflection(M *moby) {
+void deplanetizer_gun_update(M *moby) {
     switch (moby->state) {
         case 0:
             moby->state = 1;
@@ -217,15 +217,16 @@ void rocket_tank_update(M1454 *m) {
             update_rocket_tank_path_movement_v(m);
             ApproachValue(&d->f130, 30.0f, g_frame_time * 6.0f);
             d->f134 = FastAddRots(d->f134, g_frame_time * 6.2831855f);
-            if (IsFrameWithinWindow((char *)m, 4.0f) || IsFrameWithinWindow((char *)m, 10.0f)) {
+            if (is_value_within_interpolated_window((char *)m, 4.0f) ||
+                is_value_within_interpolated_window((char *)m, 10.0f)) {
                 float v[4];
                 float w[4];
                 float s;
-                if (MobyGetFrameValue(m) < 7.0f) {
-                    Moby_GetJointWorldPos(m, 1, w);
+                if (compute_interpolated_record_value(m) < 7.0f) {
+                    moby_point_position(m, 1, w);
                     s = rocket_tank_shot_speed;
                 } else {
-                    Moby_GetJointWorldPos(m, 2, w);
+                    moby_point_position(m, 2, w);
                     s = *(float *)&rocket_tank_shot_speed_b;
                 }
                 s *= g_frame_time;
@@ -317,7 +318,7 @@ void update_rocket_tank_damage_and_aim(void *mv) {
         }
         a = FastSin(d->aim_phase) * 0.08726646f;
         a = FastAddRots(fast_atan2(v[0], v[1]), a);
-        b = -fast_atan2(vec_length_xy(v), v[2]);
+        b = -fast_atan2(vector_length_xy(v), v[2]);
         if (b > 0.34906584f) {
             b = 0.34906584f;
         } else if (b < -0.7853982f) {
@@ -333,14 +334,14 @@ void update_rocket_tank_damage_and_aim(void *mv) {
         SteerAngleWithVelocity(&d->turret_pitch, &d->turret_pitch_vel, 0.0f, g_frame_time_sq * 12.566371f,
                                g_frame_time_sq * 12.566371f, g_frame_time * 9.424778f);
     }
-    axis_rotation_2d48(v, 1, d->turret_pitch);
-    axis_rotation_2d48(&d->turret_rot, 2, FastSubRots(d->turret_yaw, ((Moby *)m)->rot.z));
+    build_axis_rotation_quaternion(v, 1, d->turret_pitch);
+    build_axis_rotation_quaternion(&d->turret_rot, 2, FastSubRots(d->turret_yaw, ((Moby *)m)->rot.z));
     multiply_quaternions(&d->turret_rot, v, &d->turret_rot);
     StepColorFade(m, &d->color_fade);
 }
 extern int *veldin2_paths[];
-extern float rocket_tank_path_speed SDATA(rocket_tank_path_speed);
-extern float rocket_tank_child_anim_ref_speed SDATA(rocket_tank_child_anim_ref_speed);
+extern float rocket_tank_path_target_speed_gp SDATA(D_L18_00162508);
+extern float rocket_tank_attached_moby_speed_reference_gp SDATA(D_L18_00162510);
 extern float g_frame_time_g __asm__("D_0015EE6C") MACRO_ADDR;
 
 /* Turns and drives the rocket tank toward its next path point, picking a new one on arrival. */
@@ -354,19 +355,19 @@ void update_rocket_tank_path_movement(char *m) {
     ang = fast_atan2(t[0] - ((Moby *)m)->pos.x, t[1] - ((Moby *)m)->pos.y);
     SteerAngleWithVelocity((float *)(m + 0x48), &d->turn_vel, ang, g_frame_time_sq * 3.1415927f,
                            g_frame_time_sq * 3.1415927f, g_frame_time * 6.2831855f);
-    f = rocket_tank_path_speed * g_frame_time;
+    f = rocket_tank_path_target_speed_gp * g_frame_time;
     if (FastDiffRots(ang, ((Moby *)m)->rot.z) > 0.2617994f) {
         f = g_frame_time_g;
     }
     ApproachValue(&d->speed, f, g_frame_time_sq);
     z = 0.0f;
     vec_scale_to_length(v, m + 0xC0, d->speed);
-    move_4318((int)m, (int)v, 0.5f, 0.5f, z, 0);
-    if (FastVecDist(m + 0x10, t) < 1.0f) {
+    MoveMobyWithCollision((int)m, (int)v, 0.5f, 0.5f, z, 0);
+    if (fast_vec_dist(m + 0x10, t) < 1.0f) {
         int k = random_integer_below(*veldin2_paths[d->path_id] - 1) + 1;
         d->path_index = (d->path_index + k) % *veldin2_paths[d->path_id];
     }
-    sc = d->speed / (rocket_tank_child_anim_ref_speed * g_frame_time);
+    sc = d->speed / (rocket_tank_attached_moby_speed_reference_gp * g_frame_time);
     if (sc > 2.0f)
         sc = 2.0f;
     else if (sc < z)

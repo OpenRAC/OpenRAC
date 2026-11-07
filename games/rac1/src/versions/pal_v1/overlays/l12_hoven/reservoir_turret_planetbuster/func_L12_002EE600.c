@@ -1,11 +1,11 @@
-void update_hoven_help_and_dialogue(char *m) {
+void HovenChallengeUpdate(char *m) {
     int *d = *(int **)(m + 0x78);
     if (count_active_moby_group_members(d[3], -1) == 0) {
         unsigned char *s = gSkillPoints;
         if (s[0x14] == 0) {
             s[0x14] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53D6, -1);
         }
     }
     {
@@ -20,7 +20,7 @@ void update_hoven_help_and_dialogue(char *m) {
             }
             *(unsigned int *)(h + 0x36C) = *(unsigned int *)(h + 0x36C) | (1 << g_current_level_index_e) | 0x80000000;
             if (is_point_inside_clip_volume(q + 0x80, d[0])) {
-                Help_Request(0x2EE3, 0x6D);
+                help_request(0x2EE3, 0x6D);
             }
         }
     }
@@ -54,7 +54,7 @@ void update_hoven_help_and_dialogue(char *m) {
                     int b = scale_ticks(0x708);
                     char *k = help_records;
                     if (*(unsigned short *)(k + 0x370) * a + b < d[1]) {
-                        Help_Request(0x2EE4, 0x6E);
+                        help_request(0x2EE4, 0x6E);
                     }
                 }
             }
@@ -63,7 +63,7 @@ void update_hoven_help_and_dialogue(char *m) {
     if (gHaveHeliPack_e[2] != 0) {
         char *k = help_records;
         if (*(unsigned short *)(k + 0x1F0) == 0) {
-            Help_Request(0x2EE0, 0x3E);
+            help_request(0x2EE0, 0x3E);
         }
     }
 }

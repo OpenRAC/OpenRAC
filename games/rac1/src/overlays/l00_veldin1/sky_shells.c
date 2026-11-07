@@ -18,7 +18,7 @@
 #include "game/system/space.h"
 #include "overlays/l00_veldin1/sky_particles.h"
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 extern int depth_buffer_address MACRO_ADDR;
 
 extern void b8f8_a(void) __asm__("func_L00_0028B8F8");
@@ -152,13 +152,13 @@ void apply_level_specific_cutscene_moby_effects(void) {
         if (src != 0) {
             for (n = 0; n < 4; n++) {
                 clear_u64_value(v);
-                Moby_GetJointWorldPos(src, n % 2, buf);
+                moby_point_position(src, n % 2, buf);
                 a = random_angle_radians();
                 b = random_angle_radians();
                 BuildSphericalOffset(v, random_float_between(g_frame_time * 0.7f, g_frame_time * 2.2f), a, b);
                 r = scale_ticks(0xC);
                 spawn_effect_particle_with_target_scalar_v(buf, v, 0x80808080, 0x808080,
-                                                           rand_range(r, scale_ticks(0x23)), 147000.0f);
+                                                           random_int_between(r, scale_ticks(0x23)), 147000.0f);
             }
         }
     }

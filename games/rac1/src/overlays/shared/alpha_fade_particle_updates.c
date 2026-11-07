@@ -19,7 +19,7 @@
 #include "overlays/shared/moby_frame_packet.h"
 #include "overlays/shared/weapon_hud_and_counters.h"
 #include "core/libc/printf_rand.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern Hero g_hero;
 extern char g_hero_body_center[];
 extern char g_hero_platform_carry[];
@@ -174,7 +174,7 @@ void update_moving_resizing_height_snapped_alpha_fade_particle(struct PartBase *
     q[3] += *(float *)(v + 0x10);
     (*(char *)&m->spin)++;
     if (*(float **)(v + 0x14) != 0) {
-        if (FastAbsF(q[6] - **(float **)(v + 0x14)) < 0.2f) {
+        if (absolute_float(q[6] - **(float **)(v + 0x14)) < 0.2f) {
             q[6] = **(float **)(v + 0x14) + 0.02f;
         }
     }
@@ -245,7 +245,7 @@ void update_expanding_rotating_alpha_fade_particle(ExpandRotParticle *p) {
     motion->floor_z += motion->gravity;
     p->spin = truncate_float_to_s32(motion->floor_z);
     if (motion->target != 0) {
-        if (FastAbsF(p->pos.z - *motion->target) < 0.2f) {
+        if (absolute_float(p->pos.z - *motion->target) < 0.2f) {
             p->pos.z = *motion->target + 0.02f;
         }
     }
@@ -309,7 +309,7 @@ void update_color_tween_particle(struct PartBase *m) {
     struct PartType48Data *v = (struct PartType48Data *)m->data;
     *(char *)&m->spin += v->spin_speed;
     FastVecAdd(&m->pos, &m->pos, &v->vel);
-    m->color = FastTweenColor(v->color1, v->color2, FastAbsF(IntToFloat(m->timer) * v->inv_timer - 1.0f));
+    m->color = FastTweenColor(v->color1, v->color2, absolute_float(IntToFloat(m->timer) * v->inv_timer - 1.0f));
     if (FastDecTimer(&m->timer)) {
         KillPart(m);
     }
@@ -347,7 +347,7 @@ void update_timed_line_collision_particle(O00271d20 *o) {
         o->xa = 0;
     }
 }
-extern unsigned char *part_type50_textures;
+extern unsigned char *l00_height_culled_particle_texture_refs;
 extern float height_culled_particle_growth SDATA(height_culled_particle_growth);
 extern float g_frame_time MACRO_ADDR;
 
@@ -359,7 +359,7 @@ void update_moving_height_culled_particle(struct PartBase *m) {
     }
     FastVecAdd(&m->pos, &m->pos, v);
     m->spin += v[0x14];
-    if (m->texture == *part_type50_textures) {
+    if (m->texture == *l00_height_culled_particle_texture_refs) {
         m->size += height_culled_particle_growth * g_frame_time * 210000.0f;
     }
     if (m->pos.f[2] < *(float *)(v + 0x10)) {
@@ -628,7 +628,7 @@ void update_moby_point_attached_particle(P_2726d8 *p) {
     sc = q->xC * random_float_between(0.5f, 1.0f);
     save = p->f2C;
     qcopy(&t, &p->pos);
-    Moby_GetJointWorldPos(p->q.owner, q->x4, &p->pos);
+    moby_point_position(p->q.owner, q->x4, &p->pos);
     FastVecSub(&t, &t, &p->pos);
     r2 = random_float_between(-0.021f, 0.021f);
     if (FastVecLength(&t) < 0.0625f) {
@@ -789,7 +789,7 @@ void update_color_tween_emitter_particle(struct PartBase *p) {
             if (FastDecTimer(&p->timer)) {
                 KillPart(p);
             }
-            c = gHeroPos;
+            c = hero_pos;
             if (vec_distance_xy(&p->pos, c) < 0.3f) {
                 g = (struct Hero *)(c - 0x80);
                 if (g->motion.pos.f[2] < p->pos.f[2] + 1.2f) {
@@ -827,13 +827,14 @@ void update_color_tween_emitter_particle(struct PartBase *p) {
 extern unsigned char *part_type_textures[];
 
 /* spawns particle type 0x3B from a position, colour index and flags */
-unsigned char *PartType59Spawn(float f, void *pos, int a1, unsigned char a2, int idx, int flag, int s, int mode) {
+unsigned char *spawn_timed_hero_relative_particle(float f, void *pos, int a1, unsigned char a2, int idx, int flag,
+                                                  int s, int mode) {
     unsigned char *r = create_part(0x3B);
     if (r != 0) {
         char *v = (unsigned char *)((struct PartBase *)r)->data;
         *(int *)(v + 0x10) = mode;
         if (mode == 1) {
-            FastVecSub(v, pos, gHeroPos);
+            FastVecSub(v, pos, hero_pos);
         }
         qcopy(&((struct PartBase *)r)->pos, pos);
         ((struct PartBase *)r)->color = a1;
@@ -856,7 +857,7 @@ unsigned char *PartType59Spawn(float f, void *pos, int a1, unsigned char a2, int
 void update_timed_hero_relative_particle(struct PartBase *m) {
     char *v = (char *)m->data;
     if (*(int *)(v + 0x10) == 1) {
-        FastVecAdd(&m->pos, gHeroPos, v);
+        FastVecAdd(&m->pos, hero_pos, v);
     }
     if (FastDecTimer(&m->timer)) {
         KillPart(m);
@@ -1010,7 +1011,7 @@ void update_moby_point_attached_alpha_pulse_particle(P_p *p) {
     }
     p->w4 = (p->w4 & 0xFFFFFF) + (truncate_float_to_s32(e->f4 * 256.0f) << 24);
     e->f14 += (1.0f - e->f14) * (frame_scale * 0.175f);
-    Moby_GetJointWorldPos(e->m, e->hE, a);
+    moby_point_position(e->m, e->hE, a);
     FastVecSub(v, g_debug_camera, a);
     vec_scale_to_length(v, v, e->f14);
     FastVecAdd(p->pos, a, v);
@@ -1088,7 +1089,7 @@ struct EmberParticle {
     struct EmberMotion m; /* 0x20 */
 };
 
-extern unsigned char *part_type64_textures;
+extern unsigned char *l00_gravity_floor_burst_particle_texture_refs;
 
 /* Spawns a type-64 particle at pos moving with vel, sprite size chosen by distance to the hero. */
 unsigned char *spawn_gravity_floor_burst_particle(void *pos, void *vel, float scale, int life, float f1, int col,
@@ -1098,14 +1099,14 @@ unsigned char *spawn_gravity_floor_burst_particle(void *pos, void *vel, float sc
     if (r != 0) {
         u = &r->m;
         qcopy(&r->pos, pos);
-        if (vec_distance_xy(gHeroPos, pos) < 80.0f) {
+        if (vec_distance_xy(hero_pos, pos) < 80.0f) {
             r->unk9 = truncate_float_to_s32(1.0f) + 0x30;
         } else {
             r->unk9 = truncate_float_to_s32(1.0f) + 0x20;
         }
         r->blend = big ? 0x48 : 0x44;
         r->unk1 = 0;
-        r->tex = part_type64_textures[1];
+        r->tex = l00_gravity_floor_burst_particle_texture_refs[1];
         r->color = col;
         r->size = scale * 210000.0f;
         r->spin = (int)random_float_between(0.0f, 255.0f);
@@ -1149,7 +1150,7 @@ void update_gravity_floor_burst_particle(struct EmberParticle *p) {
         m->vel.f[2] *= random_float_between(-1.0f, -1.5f);
         f = p->size;
         f *= 0.5f;
-        n = rand_range(scale_ticks(0x3C), scale_ticks(0x78));
+        n = random_int_between(scale_ticks(0x3C), scale_ticks(0x78));
         spawn_shrinking_effect_particle_with_gravity_and_secondary_spawns(&p->pos, &m->vel, p->color, m->color2, f, n,
                                                                           0, p->tex, p->blend);
     } else {
@@ -1159,7 +1160,7 @@ void update_gravity_floor_burst_particle(struct EmberParticle *p) {
         m->vel.f[2] *= random_float_between(-0.5f, -1.0f);
         f = p->size;
         f *= 0.25f;
-        n = rand_range(scale_ticks(0x1E), scale_ticks(0x3C));
+        n = random_int_between(scale_ticks(0x1E), scale_ticks(0x3C));
         spawn_shrinking_effect_particle_with_gravity_and_secondary_spawns(&p->pos, &m->vel, p->color, m->color2, f, n,
                                                                           0, p->tex, p->blend);
     }
@@ -1182,7 +1183,7 @@ void update_gravity_floor_burst_particle(struct EmberParticle *p) {
             t.q = p->pos.q;
             t.f[2] -= 1.5f;
             f = random_float_between(420000.0f, 630000.0f);
-            n = rand_range(scale_ticks(0x5A), scale_ticks(0x96));
+            n = random_int_between(scale_ticks(0x5A), scale_ticks(0x96));
             mine_debris(&t, &m->vel, c1, c2, f, n, 3);
         }
     }
@@ -1420,7 +1421,7 @@ void update_mode_controlled_orbiting_trail_particle(char *m) {
     euler_to_matrix((vv + 12), (vv + 8));
     transform_vector((vv + 4), (vv + 4), (vv + 12));
     FastVecAdd(vv, vv, (vv + 4));
-    matrix_mul_vec3(vv, vv, r->iC + 0xC0);
+    transform_vector_by_basis(vv, vv, r->iC + 0xC0);
     FastVecAdd(q, q, vv);
     t = FastAddRots(r->unk10, g_frame_time * 0.9599311f);
     u = g_frame_time * 4.3633232f;
@@ -1442,8 +1443,8 @@ void update_randomized_moby_point_attached_particle(char *m) {
     }
     a = *(float *)(p + 8) * random_float_between(0.05f, 1.0f);
     b = *(float *)(m + 0x2C);
-    Moby_GetJointWorldPos(*(void **)(m + 0x30), p[4], &((struct PartBase *)m)->pos);
-    MobyTransformScaledVertex(*(void **)(m + 0x30), p[4], v);
+    moby_point_position(*(void **)(m + 0x30), p[4], &((struct PartBase *)m)->pos);
+    build_moby_bone_transform(*(void **)(m + 0x30), p[4], v);
     f = IntToFloat(p[5]);
     f = (random_float_between(-f, f) / 100.0f - 1.0f) * *(float *)(p + 0xC);
     vec_scale_to_length(v2, v, f);
@@ -1478,7 +1479,7 @@ unsigned char *spawn_mode_controlled_rotating_alpha_fade_particle(void *a, void 
         r->size = random_float_between(8000.0f, 50000.0f);
         r->spin = random_integer_below(0x100);
         r->texture = *part_type69_textures;
-        x = scale_ticks(rand_range(10, 30));
+        x = scale_ticks(random_int_between(10, 30));
         r->timer = x;
         t = IntToFloat((short)x);
         v->moby = (struct Moby *)d;
@@ -1576,7 +1577,7 @@ void update_three_phase_motion_alpha_fade_particle(struct PartBase *m) {
     float f;
     if (level_frame_counter & 1)
         (*(char *)&m->spin)++;
-    f = FastVecDist(&m->pos, g_hero_body_center);
+    f = fast_vec_dist(&m->pos, g_hero_body_center);
     if (f < 5.0f) {
         char *t = *(char **)(v + 0x18);
         if (0.0f < *(float *)(t + 8)) {
@@ -1765,7 +1766,7 @@ void update_damped_moby_relative_color_size_tween_particle(struct PartBase *m) {
         *(float *)(s + 0x10) = u[0];
         *(float *)(s + 0x14) = u[1];
         *(float *)(s + 0x18) = u[2];
-        matrix_mul_vec3(w, u, *(char **)(s + 0xC) + 0xC0);
+        transform_vector_by_basis(w, u, *(char **)(s + 0xC) + 0xC0);
         FastVecAdd(&m->pos, *(char **)(s + 0xC) + 0x10, w);
     } else {
         KillPart(m);
@@ -1788,7 +1789,7 @@ void update_gravity_damped_resizing_particle(struct PartBase *m) {
     *(char *)&m->spin += v[0x12];
     FastVecAdd(&m->pos, &m->pos, v);
     *(float *)(v + 8) -= g_frame_scale_sq * 0.003f;
-    t = vec_length_xy(v);
+    t = vector_length_xy(v);
     s = ((t * 0.97f - 1.0f) * frame_scale + 1.0f) / t;
     *(float *)((char *)m + 0x20) *= s;
     *(float *)(v + 4) *= s;
@@ -1888,7 +1889,7 @@ unsigned char *spawn_proximity_corrected_size_alpha_tween_particle(void *pos, in
     return m;
 }
 
-extern float proximity_particle_side_offset SDATA(proximity_particle_side_offset);
+extern float proximity_correction_length_gp SDATA(D_L00_0016030C);
 
 /* Copy an xyz vector and clear the w word. */
 static __inline__ void vcopy_276940(float *d, float *s) {
@@ -1933,7 +1934,7 @@ void update_proximity_corrected_size_alpha_tween_particle(char *m) {
         FastVecSub(d, *(char **)(v + 0x18) + 0x10, p);
         if (d[0] <= 2.0f && d[1] <= 2.0f) {
             FastVecCross(e, d, hero_gravity_dir);
-            vec_scale_to_length(e, e, proximity_particle_side_offset);
+            vec_scale_to_length(e, e, proximity_correction_length_gp);
             FastVecAdd(p, p, e);
             if (d[0] <= 0.5f && d[1] <= 0.5f) {
                 vec_scale_to_length(a, d, 0.03f);
@@ -2014,7 +2015,7 @@ typedef struct {
 } Out;
 extern Tab disc_table;
 extern Out level_menu_system;
-extern int misc_animations_stash_comment;
+extern int misc_animation_stash_tag;
 extern int lvl_load_scratch_buffer;
 extern int Load(int, int, int);
 
@@ -2027,7 +2028,7 @@ void load_misc_animations_into_stash(void) {
         int sz = disc_table.e[i].n << 7;
         if (sz) {
             Load(h, disc_table.e[i].a, disc_table.e[i].n);
-            level_menu_system.o[i] = Stash_SendData(h, sz, sz, (int)&misc_animations_stash_comment);
+            level_menu_system.o[i] = Stash_SendData(h, sz, sz, (int)&misc_animation_stash_tag);
         }
     }
 }

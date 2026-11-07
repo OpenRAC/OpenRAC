@@ -18,7 +18,7 @@
 #include "overlays/l05_rilgar/hero_idle_and_items.h"
 #include "overlays/shared/moby_ground_collision.h"
 #include "game/moby/mobyutil.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern unsigned char g_hero[] NOT_SDA;
 
 extern unsigned char g_hero[] NOT_SDA;
@@ -148,7 +148,8 @@ void HeroL05_ProcessContactType(void) {
     {
         char *g = g_hero;
         if (GB(0x12EC) != 0 && GW(0x2084) != 0x7F) {
-            if (FastAbsF(GF(0x2F0) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F0) - GF(0x88) > 0.0f && GF(0x108) < 0.0f) {
+            if (absolute_float(GF(0x2F0) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F0) - GF(0x88) > 0.0f &&
+                GF(0x108) < 0.0f) {
                 exit_hero_vehicle_mode_if_mode_three();
                 Hero_TryMoveStateL05(HERO_STATE_SINK, 1);
                 return;
@@ -158,7 +159,7 @@ void HeroL05_ProcessContactType(void) {
     {
         char *g = g_hero;
         if (GB(0x12E6) != 0 && GW(0x2084) != 0x68 && GW(0x2084) != 0x7B) {
-            if (FastAbsF(GF(0x2F4) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F4) - GF(0x88) > 0.0f) {
+            if (absolute_float(GF(0x2F4) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F4) - GF(0x88) > 0.0f) {
                 if ((GW(0x2084) != 0x69 || GH(0x41E) != 0) && GF(0x108) < 0.0f) {
                     exit_hero_vehicle_mode_if_mode_three();
                     if (GW(0x22A8) != 0) {
@@ -174,9 +175,10 @@ void HeroL05_ProcessContactType(void) {
     {
         char *g = g_hero;
         if (GB(0x12EB) != 0 && GW(0x2084) != 0x7B) {
-            if (FastAbsF(GF(0x2F4) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F4) - GF(0x88) > 0.0f && GF(0x108) < 0.0f) {
+            if (absolute_float(GF(0x2F4) - (GF(0x88) + 0.25f)) < 1.0f && GF(0x2F4) - GF(0x88) > 0.0f &&
+                GF(0x108) < 0.0f) {
                 if ((unsigned)(GB(0x20A4) - 1) < 2) {
-                    Hero_OnKilled();
+                    hero_respawn();
                     return;
                 }
                 exit_hero_vehicle_mode_if_mode_three();
@@ -277,7 +279,7 @@ void HeroL05_GroundProbe(void) {
         if (is_moby_in_class_range_500_to_540(rilgar_coll_hit.moby)) {
             g_hero_r.on_flagged_ground_moby = 1;
             if ((u32)(g_hero_r.state.control_mode - 0x15) < 2) {
-                HeroMoveDownAlongNormal((u8 *)&rilgar_coll_hit.point, (u8 *)&rilgar_coll_hit.point, 1.0f);
+                add_hero_gravity_offset((u8 *)&rilgar_coll_hit.point, (u8 *)&rilgar_coll_hit.point, 1.0f);
             }
         }
         p = GetFlaggedPvarWord(rilgar_coll_hit.moby);
@@ -288,7 +290,7 @@ void HeroL05_GroundProbe(void) {
     if (rilgar_coll_hit.unk1C > 0) {
         qcopy((u8 *)&g_hero_r + 0x2A0, &rilgar_coll_hit.point);
         g_hero_r.ground_z.f = rilgar_coll_hit.point.f[2];
-        g_hero_r.ground_distance = FastVecDist((u8 *)&g_hero_r + 0x80, ((u8 *)&g_hero_r + 0x2A0));
+        g_hero_r.ground_distance = fast_vec_dist((u8 *)&g_hero_r + 0x80, ((u8 *)&g_hero_r + 0x2A0));
         g_hero_r.ground_moby = (struct Moby *)rilgar_coll_hit.moby;
         sceVu0Normalize((u8 *)&g_hero_r + 0x270, (u8 *)&rilgar_coll_hit.normal.f[0]);
         g_hero_r.ground_slope.f = compute_gravity_relative_vector_inclination((u8 *)&rilgar_coll_hit.normal.f[0]);
@@ -364,7 +366,7 @@ d1:
         if (coll_line(&v30, &v0, 0x22, (s32)g_hero_r.moby, 0)) {
             f = rilgar_coll_hit.point.f[2] - g_hero_r.ground_z.f;
             g_hero_r.unk2C0.f[i] = f;
-            if (0.4f < FastAbsF(f)) {
+            if (0.4f < absolute_float(f)) {
                 g_hero_r.unk2C0.f[i] = 0.0f;
             }
             sceVu0Normalize(&v60, (u8 *)&rilgar_coll_hit.normal.f[0]);
@@ -383,8 +385,8 @@ d1:
     }
 }
 
-extern float D_0015EE64 MACRO_ADDR;
-extern short D_0015EE60;
+extern float g_frame_scale_sq MACRO_ADDR;
+extern short frame_scale;
 extern char rilgar_coll_resolved_pos[];
 
 /* Camera collision step: moves the camera by a delta, probing 8 times, returns -1 if it moved too far. */
@@ -404,7 +406,7 @@ int Camera_MoveWithCollision(int mode) {
     qcopy(saved, &a->motion.pos);
     clear_u64_value(tmp);
     if (a->path_constrain_pending != 0) {
-        Hero_ConstrainToPath();
+        resolve_hero_pending_path_clearance();
         a->path_constrain_pending = 0;
     }
     m = a->state.control_mode;
@@ -416,17 +418,17 @@ int Camera_MoveWithCollision(int mode) {
         int c = a->gravity_mode;
         if (c != 0 || a->unk1F8 != 0) {
             if (c == 1 || a->unk1F8 != 0 || (unsigned)(m - 0x15) < 2) {
-                HeroOffsetAlongViewZ(tmp, tmp, 0.6f);
+                add_hero_up_offset(tmp, tmp, 0.6f);
             } else {
-                HeroMoveDownAlongNormal(tmp, tmp, -a->capsule_bottom);
+                add_hero_gravity_offset(tmp, tmp, -a->capsule_bottom);
             }
         } else {
             tmp[2] = a->capsule_bottom;
         }
     }
-    FastVecAdd(gHeroPos, gHeroPos, tmp);
+    FastVecAdd(hero_pos, hero_pos, tmp);
     r = 0x24;
-    if (*(int *)(gHeroPos + 0x2004) == 0x7F)
+    if (*(int *)(hero_pos + 0x2004) == 0x7F)
         r = 0xD24;
     for (i = 0; i < 8; i++) {
         a = (struct Hero *)g_hero;
@@ -449,12 +451,12 @@ int Camera_MoveWithCollision(int mode) {
                 float t = a->capsule_top - a->capsule_bottom;
                 if (t < 0.05f)
                     t = 0.05f;
-                if ((coll_capsule(a->capsule_radius, t, &a->motion.pos, r, *(void **)&a->moby) |
+                if ((rig_probe(a->capsule_radius, t, &a->motion.pos, r, *(void **)&a->moby) |
                      coll_sphere_hero_groups(a->capsule_radius, &a->motion.pos)) == 0)
                     break;
             }
         }
-        p = gHeroPos;
+        p = hero_pos;
         qcopy(p, rilgar_coll_resolved_pos);
         qcopy(p + 0x180, rilgar_coll_resolved_pos + 0x10);
         qcopy(p + 0x190, rilgar_coll_resolved_pos - 0x10);
@@ -462,7 +464,7 @@ int Camera_MoveWithCollision(int mode) {
         *(unsigned char *)(p + 0x257) = 1;
         *(int *)(p + 0x23C) = *(int *)(rilgar_coll_resolved_pos - 0x18);
     }
-    b = gHeroPos;
+    b = hero_pos;
     FastVecSub(b, b, tmp);
     FastVecSub(d, b, saved);
     len = FastVecLength(d);
@@ -488,7 +490,7 @@ int Camera_MoveWithCollision(int mode) {
     }
     return 1;
 }
-extern char *rilgar_coll_hit_moby;
+extern char *collision_hit_moby;
 extern float g_frame_time MACRO_ADDR;
 
 extern void HeroL05_GroundProbe(void);
@@ -543,7 +545,7 @@ void integrate_hero_motion_with_collisions(void) {
         work.f[2] += 0.5f;
         FastVecAdd(plane.f, work.f, (char *)position + 0x60);
         if (coll_line(position, plane.f, 2, 0, 0)) {
-            char *hit = rilgar_coll_hit_moby;
+            char *hit = collision_hit_moby;
 
             if (!hit || *(short *)(hit + 0xA6) == 0x1F6 || *(short *)(hit + 0xA6) == 0x59F) {
                 player = (Hero *)g_hero;
@@ -552,7 +554,7 @@ void integrate_hero_motion_with_collisions(void) {
                     float limit;
 
                     position = player->motion.velocity.f;
-                    length = vec_length_xy(position);
+                    length = vector_length_xy(position);
                     limit = player->capsule_radius - 0.02f;
                     if (limit < length)
                         vec_set_length_xy(position, position, limit);
@@ -620,7 +622,7 @@ void integrate_hero_motion_with_collisions(void) {
     vec_scale_to_length(vertical, plane.f, magnitude);
     motion_player = (Hero *)((char *)delta - 0x110);
     motion_player->motion.speed_xy = FastVecLength(delta);
-    motion_player->motion.flat_speed = vec_length_xy(delta);
+    motion_player->motion.flat_speed = vector_length_xy(delta);
     work.q = *(Q *)delta;
     motion_player->motion.forward_speed = forward_component(work.f);
     if (motion_player->motion.forward_speed < 0.0f)

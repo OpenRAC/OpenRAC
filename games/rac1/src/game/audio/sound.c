@@ -104,7 +104,7 @@ extern void calculate_voice_distance_volume_v(void *, float, float, float) __asm
 /* Set a voice's volume from its distance to the camera using its near/far range. */
 void calculate_voice_volume(void *arg0, int arg1) {
     char *s = (char *)arg0;
-    float v = FastVecDist(arg1, camera_position);
+    float v = fast_vec_dist(arg1, camera_position);
     float *p = *(float **)(s + 0x8);
     calculate_voice_distance_volume_v(p, v, p[0], p[1]);
 }
@@ -121,7 +121,7 @@ void calculate_voice_pan(void *arg0, void *arg1, void *arg2) {
 
     FastVecSub(v, arg1, camera_position_a);
     transform_vector(v, v, arg2);
-    t = clamp_float(vec_length_xy(v) - 1.0f, 0.0f, 1.0f);
+    t = clamp_float(vector_length_xy(v) - 1.0f, 0.0f, 1.0f);
     truncate_float_to_s32(-fast_arc_tan(v[0], v[1]) * 180.0f * t * 0.31830987f);
 }
 
@@ -247,13 +247,13 @@ typedef struct {
 
 extern VoiceRuntimeState_DD68 voice_pool_DD68 __asm__("D_0013E650");
 extern f32 water_level_DD68[] __asm__("D_0013F740");
-extern s32 D_001873D4[];
+extern s32 use_alt_fog[];
 extern u8 camera_position_DD68[] __asm__("D_00187180");
 extern char camera_rows_DD68[] __asm__("D_00187390");
-extern s32 D_0015F6E8 MACRO_ADDR;
-extern s32 D_0015F6C8 MACRO_ADDR;
-extern s32 D_0015F6F0 MACRO_ADDR;
-extern f32 D_0015EE6C MACRO_ADDR;
+extern s32 g_game_mode MACRO_ADDR;
+extern s32 boot_level_active MACRO_ADDR;
+extern s32 world_update_time MACRO_ADDR;
+extern f32 g_frame_time MACRO_ADDR;
 
 extern void snd_ResetStateAndFlush_DD68() __asm__("func_0012EC40");
 
@@ -429,7 +429,8 @@ s32 func_0022DD68_r(void) {
 
         if (voice_pool_DD68.voices[slot_index].moby != 0 && !(voice_pool_DD68.voices[slot_index].flags & 8)) {
             if (voice_pool_DD68.voices[slot_index].flags & 0x40) {
-                matrix_mul_vec3(&direction, &voice_pool_DD68.voices[slot_index].position_offset, &moby->rotation);
+                transform_vector_by_basis(&direction, &voice_pool_DD68.voices[slot_index].position_offset,
+                                          &moby->rotation);
                 FastVecAdd(&direction, &direction, &moby->position);
                 FastVecSub(&relative_velocity, &direction, &voice_pool_DD68.voices[slot_index].position);
                 qcopy(&voice_pool_DD68.voices[slot_index].position, &direction);
@@ -645,7 +646,7 @@ int load_audio_bank_by_location(void *arg0) {
 __asm__(".section .text\n\tnop\n\tnop\n\tnop\n");
 
 /* Stop a voice slot: free a queued one at once, else mark it for stopping (idx < 0: no-op). */
-void sound_KillChannel(int idx) {
+void release_voice_slot(int idx) {
     if (idx >= 0) {
         char *e = voice_pool + idx * 0x70;
         unsigned char st = *(unsigned char *)(e + 0x74);
@@ -706,8 +707,8 @@ typedef struct {
     u8 pad10[0x60];
 } VoicePositionRecord;
 extern VoicePool voice_pool_r __asm__("D_0013E650");
-extern Hero D_0013F450;
-extern VoicePositionRecord D_0013E6E0[];
+extern Hero g_hero;
+extern VoicePositionRecord voice_positions[];
 extern u8 D_0013E6C0_2EB08[] __asm__("D_0013E6C0");
 
 extern s32 calculate_voice_volume_r(VoiceSlot *, Vec4 *) __asm__("func_0022DB00");
@@ -838,7 +839,7 @@ return_result:
 }
 
 /* Starts entry idx of the sound bank arg2 points at; the same shape as
-   its siblings PlayBankSound and allocate_voice_for_group_entry. */
+   its siblings allocate_voice_for_bank_entry and allocate_voice_for_group_entry. */
 int Moby_PlaySound(int idx, int arg1, int arg2) {
     char *p;
     char *tbl;
@@ -870,7 +871,7 @@ int Moby_PlaySound(int idx, int arg1, int arg2) {
 extern char *level_sound_defs MACRO_ADDR;
 
 /* Play bank sound idx on a free voice owned by arg2; return the voice slot or -1. */
-int PlayBankSound(int idx, int arg1, int arg2) {
+int allocate_voice_for_bank_entry(int idx, int arg1, int arg2) {
     int h;
 
     if (idx >= bank_sound_count) {
@@ -994,7 +995,7 @@ void sound_StopAllSounds(void) {
 }
 
 /* Sound library callback: store the returned handle at arg1 when arg1 is set. */
-void SoundBank_StoreHandle(int arg0, long arg1) {
+void store_sound_bank_handle_callback(int arg0, long arg1) {
     int *p = (int *)(int)arg1;
     if (p != 0) {
         *p = arg0;

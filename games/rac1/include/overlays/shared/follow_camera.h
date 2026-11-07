@@ -5,8 +5,8 @@
 
 #include "common.h"
 
-extern void Cam_SetDistanceGoal(float, float, int);
-extern void Cam_SetEyeOffset(int, float, float);
+extern void func_L00_002E9900(float, float, int);
+extern void func_L00_002E99A0(int, float, float);
 extern void clear_follow_camera_volume_if_current(void *);
 extern void draw_active_beam_slots(void);
 extern void emit_hydrodisplacer_effect(void *);

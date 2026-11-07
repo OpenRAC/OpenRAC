@@ -8,7 +8,7 @@
 
 typedef int u128 __attribute__((mode(TI)));
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 extern unsigned char *batalia_part_type49_textures;
 
 // Spawns a particle of the given kind at pos with velocity vel.

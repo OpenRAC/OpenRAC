@@ -7,7 +7,7 @@
 
 extern char camera_pos[];
 extern int moby_killed[];
-extern unsigned short *novalis_moby_groups[];
+extern unsigned short *D_L01_001ABFC0[];
 extern char *novalis_paths[];
 extern float novalis_player_camera_yaw;
 extern char novalis_saved_moby_bytes[];

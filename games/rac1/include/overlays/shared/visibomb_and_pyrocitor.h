@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void spawn_indexed_class_a7_moby(int);
+extern void func_L00_002B5428(int);
 extern void terminate_visibomb_missile(void *, void *);
 
 #endif /* OVERLAYS_SHARED_VISIBOMB_AND_PYROCITOR_H */

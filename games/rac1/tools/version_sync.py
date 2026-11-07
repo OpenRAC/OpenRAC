@@ -184,9 +184,9 @@ def ntsc():
     import ntsc_source
     v = versions.get("us")
     sub = ntsc_source.path()
-    if not (sub / "scripts/gen_progress_report.py").exists():
+    if not (sub / "scripts/progress-report.py").exists():
         sys.exit(f"{sub} is not a checkout of the NTSC decomp (tools/ntsc_source.py)")
-    subprocess.run([sys.executable, "scripts/gen_progress_report.py"], cwd=sub, check=True,
+    subprocess.run([sys.executable, "scripts/progress-report.py"], cwd=sub, check=True,
                    stdout=subprocess.DEVNULL)
     rep = json.loads((sub / "build/progress/report.json").read_text())
     import re

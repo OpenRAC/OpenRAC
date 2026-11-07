@@ -54,13 +54,13 @@ struct SkidMcMarxVars {
     u8 pad_10[0x10];
     char *dialogue_name; /* 0x20 */
     u8 pad_24[0x1C];
-    u8 body_manip[0x64]; /* 0x40: EaseManipulatorOffsets block for the body */
+    u8 body_manip[0x64]; /* 0x40: update_joint_animation_fn block for the body */
     f32 body_pitch; /* 0xA4 */
     f32 body_yaw; /* 0xA8 */
     u8 pad_AC[0x4];
     f32 unk_B0; /* 0xB0: set to 2.75 by the cheat */
     u8 pad_B4[0xC];
-    u8 head_manip[0x68]; /* 0xC0: EaseManipulatorOffsets block for the head */
+    u8 head_manip[0x68]; /* 0xC0: update_joint_animation_fn block for the head */
     f32 head_yaw; /* 0x128 */
     u8 pad_12C[0x3E];
     s16 blink_timer; /* 0x16A */
@@ -139,7 +139,7 @@ typedef struct Node_2E21F8 {
 
 extern Hero hero_globals_base_r __asm__("D_0013E633");
 extern unsigned char help_stats_base[];
-extern unsigned char discount_purchase_pricing[];
+extern unsigned char gHavePersuader[];
 extern unsigned char gHaveHeliPack[];
 extern char skids_agent_dialogue_name[];
 extern short skids_agent_prop_offset;
@@ -150,7 +150,7 @@ extern Warp talk_camera_r __asm__("D_L02_0016CEE0");
 extern float g_frame_time_sq MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern float g_frame_scale_sq MACRO_ADDR;
-extern char *aridia_scene_points MACRO_ADDR;
+extern char *l02_cuboids MACRO_ADDR;
 extern unsigned char gCheats[] MACRO_ADDR;
 extern float aridia_fade_level MACRO_ADDR;
 
@@ -168,7 +168,7 @@ void skids_agent_update(Moby *m) {
     attach_big_head_cheat_manipulator_to_matching_moby(m);
     switch (m->state) {
         case 0:
-            if (discount_purchase_pricing[0xA] != 0)
+            if (gHavePersuader[0xA] != 0)
                 goto del;
             d->f20 = skids_agent_dialogue_name;
             m->state = 1;
@@ -188,7 +188,7 @@ void skids_agent_update(Moby *m) {
                 d->fC = 3.7f;
             }
             if (Npc_TryStartDialog(m, d) != 0) {
-                PlaceMarkerAheadOfMoby(2.2f, m);
+                begin_dialogue_camera_transition(2.2f, m);
                 m->state = 2;
             } else if (gHaveHeliPack[3] == 0 &&
                        vec_distance_xy(((float *)&m->pos),
@@ -200,7 +200,7 @@ void skids_agent_update(Moby *m) {
                     period = 600;
                     elapsed -= stats->f72 * period;
                     if (elapsed > (int)((float)scale_ticks(18) * 60.0f) || stats->f72 * period == 0) {
-                        Help_Request(0x7D4, 0xE);
+                        help_request(0x7D4, 0xE);
                     } else if (scale_ticks(gameplay_event_frame_count) / 600 > stats->f72) {
                         stats->f72 = scale_ticks(gameplay_event_frame_count) / 600;
                     }
@@ -230,7 +230,7 @@ void skids_agent_update(Moby *m) {
                 if (d->f4 == 0) {
                     jet_clear_persistent(m->mission);
                     if (d->f150 != -1) {
-                        char *t = aridia_scene_points + (d->f150 << 7);
+                        char *t = l02_cuboids + (d->f150 << 7);
                         jet_reset_camera(t + 0x30, t + 0x70);
                     }
                 } else if (d->f4 == 2) {
@@ -249,7 +249,7 @@ void skids_agent_update(Moby *m) {
                 if (w->f4A == 0) {
                     vec_scale_to_length(w->pos, ((char *)&m->rot_row0), 2.5f);
                     FastVecAdd(w->pos, w->pos, ((float *)&m->pos));
-                    w->pos[2] = ProbeGroundHeight(w->pos, 0, 0.5f);
+                    w->pos[2] = probe_ground_height(w->pos, 0, 0.5f);
                     clear_u64_value(w->rot);
                     w->rot[2] = FastAddRots(m->rot.z, 3.14159f);
                     w->f4A = 1;
@@ -263,10 +263,9 @@ void skids_agent_update(Moby *m) {
         case 3:
             ApproachWithVelocity(&d->f180, &d->f184, 1.0f, g_frame_time_sq * 0.1f, g_frame_time_sq * 0.25f,
                                  g_frame_time * 0.5f);
-            lerp_vector(v0, aridia_scene_points + (d->f158 << 7) + 0x30, aridia_scene_points + (d->f15C << 7) + 0x30,
-                        d->f180);
+            lerp_vector(v0, l02_cuboids + (d->f158 << 7) + 0x30, l02_cuboids + (d->f15C << 7) + 0x30, d->f180);
             {
-                Node_2E21F8 *t = (Node_2E21F8 *)aridia_scene_points;
+                Node_2E21F8 *t = (Node_2E21F8 *)l02_cuboids;
                 qcopy(v2, t[d->f158].f70);
                 qcopy(v3, t[d->f15C].f70);
             }
@@ -281,7 +280,7 @@ void skids_agent_update(Moby *m) {
                 ApproachValue(&d->f17C, 1.0f, 0.1f);
                 if (d->f17C == 1.0f) {
                     m->state = 4;
-                    CameraScript2(0);
+                    jet_end_mount(0);
                 }
             }
             aridia_fade_level = d->f17C;
@@ -300,10 +299,10 @@ void skids_agent_update(Moby *m) {
             break;
     }
     if (d->f178 != 0) {
-        Moby_GetJointWorldPos(m, 2, ((float *)&d->f178->pos));
-        MobyTransformScaledVertex(m, 2, v0);
-        matrix_copy_rows(((char *)&d->f178->rot_row0), v0);
-        matrix_mul_vec3(v4, &skids_agent_prop_offset, ((char *)&d->f178->rot_row0));
+        moby_point_position(m, 2, ((float *)&d->f178->pos));
+        build_moby_bone_transform(m, 2, v0);
+        copy_matrix3x4(((char *)&d->f178->rot_row0), v0);
+        transform_vector_by_basis(v4, &skids_agent_prop_offset, ((char *)&d->f178->rot_row0));
         FastVecAdd(((float *)&d->f178->pos), ((float *)&d->f178->pos), v4);
         moby_build_matrix(d->f178);
     }
@@ -349,7 +348,7 @@ void skids_agent_update(Moby *m) {
         v1[2] += 1.0f;
         FastVecSub(v2, v0, v1);
         yaw = FastSubRots(fast_atan2(v2[0], v2[1]), m->rot.z);
-        pitch = -fast_atan2(vec_length_xy(v2), v2[2]);
+        pitch = -fast_atan2(vector_length_xy(v2), v2[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -410,11 +409,11 @@ void SkidMcMarxAridiaUpdate(char *m) {
                 d->talk_range = 2.5f;
             }
             if (Npc_TryStartDialog(m, ((char *)d))) {
-                PlaceMarkerAheadOfMoby(2.5f, m);
+                begin_dialogue_camera_transition(2.5f, m);
                 ((Moby *)m)->state = 2;
             }
             if (d->dialog_result == 2) {
-                Help_Request(0x7D0, 0xA);
+                help_request(0x7D0, 0xA);
                 grant_inventory_item(0x1E, 1);
                 jet_clear_persistent(((Moby *)m)->mission);
                 jet_reset_camera(&g_hero.motion.pos, &g_hero.motion.rot);
@@ -440,7 +439,7 @@ void SkidMcMarxAridiaUpdate(char *m) {
                 vec_scale_to_length(w + 0x10, m + 0xC0, 2.5f);
                 FastVecAdd(w + 0x10, w + 0x10, m + 0x10);
                 *(float *)(w + 0x18) += 10.0f;
-                *(float *)(w + 0x18) = ProbeGroundHeight(w + 0x10, 0, 0.5f);
+                *(float *)(w + 0x18) = probe_ground_height(w + 0x10, 0, 0.5f);
                 clear_u64_value(w + 0x20);
                 *(float *)(w + 0x28) = FastAddRots(((Moby *)m)->rot.z, 3.14159f);
                 *(unsigned char *)(w + 0x4A) = 1;
@@ -488,7 +487,7 @@ void SkidMcMarxAridiaUpdate(char *m) {
         s_eye[2] += 2.0f;
         FastVecSub(s_delta, s_target, s_eye);
         yaw = FastSubRots(fast_atan2(s_delta[0], s_delta[1]), ((Moby *)m)->rot.z);
-        pitch = -fast_atan2(vec_length_xy(s_delta), s_delta[2]);
+        pitch = -fast_atan2(vector_length_xy(s_delta), s_delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -506,7 +505,7 @@ void SkidMcMarxAridiaUpdate(char *m) {
     EaseManipulatorOffsets_r2(m, d->body_manip, 0, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
     EaseManipulatorOffsets_r2(m, d->head_manip, 1, rate * g_frame_scale_sq, head_rate * g_frame_scale_sq);
 }
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char *aridia_mobys MACRO_ADDR;
 
 /* Three-state controller (data+0x180): 0 waits for its trigger, 1 runs timed effects until released, then moves the
@@ -543,11 +542,11 @@ void update_skid_mcmarx_relocation_sequence(char *moby) {
     float yaw;
     char *table;
     if (data->state == 1) {
-        if (is_point_inside_clip_volume(gHeroPos, data->clip_volume) == 0) {
+        if (is_point_inside_clip_volume(hero_pos, data->clip_volume) == 0) {
             data->state = 0;
-            Hud_SetBarValueById(data->hud_bar_a, 0);
+            set_animation_parameter(data->hud_bar_a, 0);
             data->hud_bar_a = -1;
-            Hud_SetBarValueById(data->hud_bar_b, 0);
+            set_animation_parameter(data->hud_bar_b, 0);
             data->hud_bar_b = -1;
             return;
         }
@@ -557,10 +556,10 @@ void update_skid_mcmarx_relocation_sequence(char *moby) {
             return;
         data->state = 2;
         FadeToBlack(scale_ticks(0x10));
-        Hud_SetBarValueById(data->hud_bar_a, 0);
+        set_animation_parameter(data->hud_bar_a, 0);
         data->hud_bar_a = -1;
-        Hud_SetBarValueById(data->hud_bar_b, 0);
-        table = aridia_scene_points;
+        set_animation_parameter(data->hud_bar_b, 0);
+        table = l02_cuboids;
         entry_off = data->entry_index << 7;
         mobys = table;
         data->hud_bar_b = -1;
@@ -572,7 +571,7 @@ void update_skid_mcmarx_relocation_sequence(char *moby) {
         fx_pos[1] += FastSin(m->rot.z) * 1.5f;
         clear_u64_value(fx_rot);
         fx_rot[2] = FastAddRots(m->rot.z, 3.1415927f);
-        Hero_ResetToPosition(fx_pos, fx_rot, 0, 1);
+        set_race_camera(fx_pos, fx_rot, 0, 1);
         {
             int i0 = data->slot_a;
             int i1 = data->slot_b;
@@ -584,7 +583,7 @@ void update_skid_mcmarx_relocation_sequence(char *moby) {
             data->unk08 = 1;
         }
     } else if (data->state == 0) {
-        if (is_point_inside_clip_volume(gHeroPos, data->clip_volume) != 0) {
+        if (is_point_inside_clip_volume(hero_pos, data->clip_volume) != 0) {
             data->state = 1;
             data->hud_bar_b =
                 queue_animation_update(0x15, 0x7D0, initialize_numeric_hud_timer_and_base_dimensions,
@@ -621,11 +620,11 @@ void liftcar_platform_update(struct Moby *moby) {
 
     FastVecScale(&delta, &moby->pos, -1.0f);
     qcopy(&old_rot, &moby->rot);
-    Moby_GetJointWorldPos(driver, 0, &pos);
+    moby_point_position(driver, 0, &pos);
     qcopy(&moby->pos, &pos);
     switch (moby->state) {
         case 0:
-            MobyTransformScaledVertex(driver, 0, joint_mtx);
+            build_moby_bone_transform(driver, 0, joint_mtx);
             moby->rot.z = fast_atan2(joint_mtx[0], joint_mtx[1]);
             moby->state = 1;
             MobyBlendAnimation(driver, 3, 0, 0);
@@ -663,7 +662,7 @@ void liftcar_platform_update(struct Moby *moby) {
             break;
         case 2:
         case 4:
-            MobyTransformScaledVertex(driver, 0, joint_mtx);
+            build_moby_bone_transform(driver, 0, joint_mtx);
             moby->rot.z = fast_atan2(joint_mtx[0], joint_mtx[1]);
             if (vec_distance_xy(&moby->pos, &g_hero.motion.pos) < 1.5f && g_hero.motion.pos.f[2] < moby->pos.z - 1.5f) {
                 driver->anim_speed = 0.0f;
@@ -712,16 +711,16 @@ void liftcar_platform_update(struct Moby *moby) {
     FastVecAdd(&delta, &delta, &moby->pos);
     update_entity_matrix(data->entity_matrix, &delta, &old_rot, &moby->rot);
 }
-extern int D_L02_0015F6E8 MACRO_ADDR;
+extern int aridia_ocean_clip_culling_override MACRO_ADDR;
 
-extern char aridia_ocean_zone0_part[];
-extern char aridia_ocean_zone2_part[];
-extern char aridia_ocean_zone1_part0[];
+extern char aridia_ocean_first_clip_draw_data[];
+extern char aridia_ocean_last_clip_draw_data[];
+extern char aridia_ocean_middle_clip_first_draw_data[];
 extern char aridia_ocean_zone1_part1[];
 extern char aridia_ocean_zone1_part2[];
 extern char aridia_ocean_zone1_part3[];
-extern char aridia_ocean_zone1_part4[];
-extern char aridia_ocean_frame_state[];
+extern char aridia_ocean_middle_clip_last_draw_data[];
+extern char aridia_ocean_animated_frame_packet[];
 
 extern void prepare_scaled_table_on_stack_r(void) __asm__("func_L02_002A59D8");
 
@@ -733,22 +732,23 @@ void func_L02_002EB480_r(Moby *m) __asm__("func_L02_002EB480");
 void func_L02_002EB480_r(Moby *m) {
     int *d = (int *)m->pvars;
 
-    begin_animated_frame_rendering(0.0f, 260080.0f, 255.0f, 0.0f, 15, 15, 25, 30, 40, 64, aridia_ocean_frame_state);
+    begin_animated_frame_rendering(0.0f, 260080.0f, 255.0f, 0.0f, 15, 15, 25, 30, 40, 64,
+                                   aridia_ocean_animated_frame_packet);
     if (aridia_ocean_clip_culling_override != 0 ||
         (d[0] != -1 && is_point_inside_clip_volume(aridia_camera_pos, d[0]))) {
-        RefreshPointLight_r(aridia_ocean_zone0_part);
+        RefreshPointLight_r(aridia_ocean_first_clip_draw_data);
     }
     if (aridia_ocean_clip_culling_override != 0 ||
         (d[1] != -1 && is_point_inside_clip_volume(aridia_camera_pos, d[1]))) {
-        RefreshPointLight_r(aridia_ocean_zone1_part0);
+        RefreshPointLight_r(aridia_ocean_middle_clip_first_draw_data);
         RefreshPointLight_r(aridia_ocean_zone1_part1);
         RefreshPointLight_r(aridia_ocean_zone1_part2);
         RefreshPointLight_r(aridia_ocean_zone1_part3);
-        RefreshPointLight_r(aridia_ocean_zone1_part4);
+        RefreshPointLight_r(aridia_ocean_middle_clip_last_draw_data);
     }
     if (aridia_ocean_clip_culling_override != 0 ||
         (d[2] != -1 && is_point_inside_clip_volume(aridia_camera_pos, d[2]))) {
-        RefreshPointLight_r(aridia_ocean_zone2_part);
+        RefreshPointLight_r(aridia_ocean_last_clip_draw_data);
     }
     prepare_scaled_table_on_stack_r();
 }
@@ -780,7 +780,7 @@ typedef struct {
 } LevelFx;
 extern short D_L02_00161FE8_ED358 SDATA(D_L02_00161FE8);
 extern short D_L02_00161FEC_ED358 SDATA(D_L02_00161FEC);
-extern s32 D_L02_00161FF0 MACRO_ADDR;
+extern s32 shard_debris_head_color MACRO_ADDR;
 extern f32 g_frame_time_sq_r __asm__("D_0015EE70") MACRO_ADDR;
 extern LevelFx D_L02_001B2980_ED358 __asm__("D_L02_001B2980");
 extern void DeleteMoby_r(struct Moby *) __asm__("func_0020D678");
@@ -793,7 +793,7 @@ extern void fast_dec_timer_r(s32 *) __asm__("func_001F9908");
 
 /* Shard debris update: drifts along its velocity, sheds particle trails and expires when its timer runs out.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l02/gameplay/vendor/002ebf20.c, FUN_L02_002ebf20. */
-void update_shard_debris(struct Moby *m) {
+void rocket_launcher_projectile_update(struct Moby *m) {
     ShardVars *v = (ShardVars *)m->pvars;
     Vec4f p, back, half, jit;
     u8 *q;
@@ -810,7 +810,7 @@ void update_shard_debris(struct Moby *m) {
     }
     FastVecAdd(&m->pos, &m->pos, &v->vel);
     ApproachValue_r(&v->vel.z, 0.0f, (*(f32 *)&D_L02_00161FE8_ED358) * g_frame_time_sq_r);
-    m->rot.y = 1.5707964f - fast_atan2(vec_length_xy(&v->vel), v->vel.z);
+    m->rot.y = 1.5707964f - fast_atan2(vector_length_xy(&v->vel), v->vel.z);
     qcopy(&p, &m->pos);
     FastVecScale(&half, &v->vel, 0.5f);
     FastVecScale(&back, &v->vel, -0.1f);
@@ -824,7 +824,7 @@ void update_shard_debris(struct Moby *m) {
             q[9] = truncate_float_to_s32_r(4.0f) - 0x80;
         }
         FastVecAdd(&p, &p, &half);
-        rand_vec(&jit, 0.5f, 1.5f);
+        random_vector(&jit, 0.5f, 1.5f);
         FastVecAdd(&p, &p, &jit);
     }
     q = PartType44Spawn(&m->pos, &back, scale_ticks(6), shard_debris_head_color >> 24,
@@ -856,7 +856,7 @@ char *spawn_projectile_moby(char *src, void *pos, float *dir) {
         *(short *)&((Moby *)moby)->flags = *(unsigned short *)(src + 0x34);
         qcopy(moby + 0x10, pos);
         ((Moby *)moby)->rot.z = fast_atan2(dir[0], dir[1]);
-        ((Moby *)moby)->rot.y = fast_atan2(vec_length_xy(dir), dir[2]);
+        ((Moby *)moby)->rot.y = fast_atan2(vector_length_xy(dir), dir[2]);
         moby[0x20] = 1;
         data = (struct ProjectileVars *)((Moby *)moby)->pvars;
         qcopy(&data->dir, dir);
@@ -887,7 +887,7 @@ extern unsigned char invert52[4] MACRO_ADDR;
 extern unsigned char opt_cam_invert[4] MACRO_ADDR;
 
 /* UpdateMoby_1324: tutorial hint triggers around the player */
-void update_tutorial_hint_triggers(unsigned char *moby) {
+void TutorialHintUpdate(unsigned char *moby) {
     int *data = ((int *)((Moby *)moby)->pvars);
     ((Moby *)moby)->update_dist = 0xFF;
 
@@ -905,7 +905,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
                 }
             }
             if (count >= 2) {
-                Help_Request(0x4E25, 0x4F);
+                help_request(0x4E25, 0x4F);
             }
         }
     }
@@ -926,8 +926,8 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
                 unsigned char *q = menu_item_enabled_115 + 1;
                 if (q[1] == 0) {
                     q[1] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x53DB, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x53DB, -1);
                 }
             }
             break;
@@ -944,7 +944,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
                     if (f[0x10] != 0 && ((int *)(help_stats_base + 0xD875))[lvl] >= 6) {
                         int t = scale_ticks(gameplay_event_frame_count) - item_usage_entry36_last_time * 600;
                         if (scale_ticks(0x4650) < t) {
-                            Help_Request(0x7D2, 0xC);
+                            help_request(0x7D2, 0xC);
                         }
                     }
                 }
@@ -959,13 +959,13 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
         if (usage_stats_entry8_count < 3) {
             char *b = help_stats_base + 0x34D;
             if (!(*(unsigned int *)(b + 0x264) & (1 << g_current_level_index))) {
-                Help_Request(0x4E22, 0x4C);
+                help_request(0x4E22, 0x4C);
             }
         }
         if (invert52[0] != 0 && opt_cam_invert[0] != 0) {
             char *b = help_stats_base + 0x34D;
             if (!(*(unsigned int *)(b + 0x3B4) & (1 << g_current_level_index))) {
-                Help_Request(0x4E2C, 0x76);
+                help_request(0x4E2C, 0x76);
             }
         } else {
             char *b = help_stats_base + 0x34D;
@@ -981,7 +981,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
                 if (saved_mission_state[g_current_level_index][lvl] != 0xFF) {
                     unsigned char *f = menu_item_enabled_115 + 0xB9;
                     if (f[0x10] == 0 && (float)((int *)(help_stats_base + 0xD875))[lvl] >= 3.0f) {
-                        Help_Request(0x7D3, 0xD);
+                        help_request(0x7D3, 0xD);
                     }
                 }
             }
@@ -1002,7 +1002,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
             }
             if (data[0xC] >= 2) {
                 if (is_point_inside_clip_volume(hero_globals_base + 0xE9D, data[7]) != 0) {
-                    Help_Request(0x7D6, 0x10);
+                    help_request(0x7D6, 0x10);
                 }
             }
         }
@@ -1013,7 +1013,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
             char *b = help_stats_base + 0x34D;
             int t = scale_ticks(gameplay_event_frame_count) - *(unsigned short *)(b + 0x8A) * 600;
             if ((int)(scale_ticks(0x12) * 60.0f) < t || *(unsigned short *)(b + 0x8A) * 600 == 0) {
-                Help_Request(0x7D7, 0x11);
+                help_request(0x7D7, 0x11);
             } else {
                 int n = scale_ticks(gameplay_event_frame_count) / 600;
                 if (*(unsigned short *)(b + 0x8A) < n) {
@@ -1028,7 +1028,7 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
         if (*(unsigned short *)(b + 0x90) != 0) {
             int t = scale_ticks(gameplay_event_frame_count) - *(unsigned short *)(b + 0x92) * 600;
             if ((int)(scale_ticks(0x12) * 60.0f) < t || *(unsigned short *)(b + 0x92) * 600 == 0) {
-                Help_Request(0x7D8, 0x12);
+                help_request(0x7D8, 0x12);
             } else {
                 int n = scale_ticks(gameplay_event_frame_count) / 600;
                 if (*(unsigned short *)(b + 0x92) < n) {
@@ -1058,11 +1058,11 @@ void update_tutorial_hint_triggers(unsigned char *moby) {
                 char *p = *(char **)&h->ground_moby;
                 if (p != 0 && *(short *)(p + 0xA6) == 0x267) {
                     if (v == 0) {
-                        Help_Request(0x7DB, 0x46);
+                        help_request(0x7DB, 0x46);
                     } else if (*(unsigned short *)(b + 0x238) == 0) {
                         data[0x14]++;
                         if (scale_ticks(600) < data[0x14]) {
-                            Help_Request(0x7DC, 0x47);
+                            help_request(0x7DC, 0x47);
                         }
                     }
                 }
@@ -1167,7 +1167,7 @@ extern int truncate_float_to_s32_r2(float) __asm__("func_001FA898");
 
 /* Level 02 moby update (class 1479): state 0 sets up, states 1 and 2 emit particle bursts from two parameter
  * blocks in sdata (a timed burst loop, then one burst), state 3 deletes the moby. */
-void update_smoke_vent(Moby *m) {
+void smoke_vent_update(Moby *m) {
     V_2F0458 vec;
     V_2F0458 A;
     V_2F0458 B;
@@ -1191,7 +1191,7 @@ void update_smoke_vent(Moby *m) {
                     random_float_between((float)D_L02_0016219C_2F0458, (float)D_L02_001621A0_2F0458)));
                 cnt = random_integer_below(7) ? 1 : random_integer_below(5) + 5;
                 for (i = 0; i < cnt; i++) {
-                    rand_vec(&C, 0.0f, D_L02_00162168_2F0458 * g_frame_time_r);
+                    random_vector(&C, 0.0f, D_L02_00162168_2F0458 * g_frame_time_r);
                     vec_scale_to_length(
                         &A, &*(V_2F0458 *)&m->rot_row0,
                         D_L02_00162158_2F0458 *
@@ -1280,7 +1280,7 @@ void update_smoke_vent(Moby *m) {
                     random_float_between((float)D_L02_001621EC_2F0458, (float)D_L02_001621F0_2F0458)));
                 cnt = random_integer_below(7) ? 1 : random_integer_below(5) + 5;
                 for (i = 0; i < cnt; i++) {
-                    rand_vec(&C, 0.0f, D_L02_001621B8_2F0458 * g_frame_time_r);
+                    random_vector(&C, 0.0f, D_L02_001621B8_2F0458 * g_frame_time_r);
                     vec_scale_to_length(
                         &A, &*(V_2F0458 *)&m->rot_row0,
                         D_L02_001621A8_2F0458 *
@@ -1358,11 +1358,11 @@ struct Manip_F9E50;
 struct GifEntry_F9E50;
 struct AnimSeq_F9E50;
 
-extern char D_L02_00167300[];
+extern char aridia_player_camera[];
 
 /* Sets the vendor camera mode; mode 3 also aims it from the hero's position.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l02/gameplay/vendor/002ebf20.c, FUN_L02_002f8a18. */
-void set_vendor_camera_mode(int mode, int arg) {
+void set_active_camera_mode(int mode, int arg) {
     char *g = aridia_player_camera;
     char *cam = *(char **)(g + 0x180);
     char *d = *(char **)(cam + 0x70);

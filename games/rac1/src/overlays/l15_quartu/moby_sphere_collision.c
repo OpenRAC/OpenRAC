@@ -32,7 +32,7 @@ int move_moby_with_sphere_collision(struct Moby *obj, u128 *delta, int flags, fl
         if (coll_sphere_v(&probe, radius, mask | 4, obj) == 0) {
             break;
         }
-        if (fast_atan2(quartu_coll_hit.normal.f[2], vec_length_xy(&quartu_coll_hit.normal.f[0])) > 0.5235988f) {
+        if (fast_atan2(quartu_coll_hit.normal.f[2], vector_length_xy(&quartu_coll_hit.normal.f[0])) > 0.5235988f) {
             qcopy(&obj->pos, quartu_coll_hit.pushed.f);
             obj->pos.z -= step;
             pushed |= 1;

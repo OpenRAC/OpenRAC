@@ -52,7 +52,7 @@ extern char level_resource_buffers[];
 /* Start level `level`: pick its two load parameters from the level
    table in disc_table (the alternate set while pal_mode is set), stop
    sound and wait for the loader (memcard_update_state) to go idle, then load it
-   (Movie_Play) and reset the display state. */
+   (play_mpeg_movie) and reset the display state. */
 void start_level(int level) {
     int a;
     int b;
@@ -90,7 +90,7 @@ void start_level(int level) {
         char *g = level_resource_buffers;
         t = *(int *)(g + 0x1C);
     }
-    Movie_Play(b, a, t + 0x100000, t + 0x400000, 0);
+    play_mpeg_movie(b, a, t + 0x100000, t + 0x400000, 0);
     sce_cd_sync_s(0);
     sce_gs_sync_v(0);
     wait_for_graphics_pipeline_idle(0, 0);
@@ -104,7 +104,7 @@ void start_level(int level) {
 
 /* Pad state, as far as this function reads it. */
 
-extern s32 D_0015EE88 MACRO_ADDR;
+extern s32 g_game_language MACRO_ADDR;
 
 extern struct DiscTable disc_table_r __asm__("D_00137C80");
 
@@ -128,27 +128,27 @@ typedef struct {
     s32 bank;
 } SoundSlot;
 
-extern s32 D_0015F6C8 MACRO_ADDR;
-extern u8 D_00161380[];
-extern u8 D_00165530[];
-extern s32 D_0015F538 MACRO_ADDR;
+extern s32 boot_level_active MACRO_ADDR;
+extern u8 menu_state_frame_count[];
+extern u8 startlevel_clear_end[];
+extern s32 game_frame_counter MACRO_ADDR;
 extern s32 g_game_mode_r __asm__("D_0015F6E8") MACRO_ADDR;
-extern s32 D_0015F05C MACRO_ADDR;
+extern s32 startlevel_code_addr MACRO_ADDR;
 extern s32 decode_mode_r __asm__("D_0015EFD8") MACRO_ADDR;
 extern s32 pal_mode_r __asm__("D_0015EE80") MACRO_ADDR;
-extern s32 D_0015EE84 MACRO_ADDR;
-extern u8 D_0024272F[];
-extern struct PadState D_0013CA40;
-extern s32 D_00139478[];
-extern s32 D_00139480[];
-extern char D_001E79C0[];
-extern SoundSlot D_00186200[];
-extern SoundSlot D_001862E0[];
-extern SoundSlot *D_0015F714 MACRO_ADDR;
-extern s32 D_0015F710 MACRO_ADDR;
-extern u8 D_0016044C[] MACRO_ADDR;
-extern s32 D_0015F6E4 MACRO_ADDR;
-extern u8 D_0013E130[];
+extern s32 g_current_level_index MACRO_ADDR;
+extern u8 image_end_round_16k[];
+extern struct PadState g_controller_state;
+extern s32 intro_movie_disc_entry_ntsc[];
+extern s32 intro_movie_disc_entry_pal[];
+extern char str_loading_sound_bank[];
+extern SoundSlot startlevel_sound_defs[];
+extern SoundSlot moby_class_472_sound_defs[];
+extern SoundSlot *level_sound_defs MACRO_ADDR;
+extern s32 level_sound_def_count MACRO_ADDR;
+extern u8 requested_video_mode[] MACRO_ADDR;
+extern s32 space_load_level MACRO_ADDR;
+extern u8 level_render_state[];
 
 extern void SetBackgroundColor_r(s32, u64, u64) __asm__("func_001FB448");
 
@@ -180,7 +180,7 @@ void startlevel(void) {
 
     boot_level_active = 1;
     InitOnce();
-    initialize_streaming_state();
+    reset_gs_texture_allocation();
     for (i = 0; i < startlevel_clear_end - menu_state_frame_count; i++) {
         menu_state_frame_count[i] = 0;
     }
@@ -189,7 +189,7 @@ void startlevel(void) {
     fade = 0x80;
     VU1_initChain();
     DMAC_VIF1_Enable();
-    clear_dma_queue_entry();
+    reset_draw_config();
     game_frame_counter = 0;
     sce_gs_sync_v(0);
     g_game_mode_r = 0;

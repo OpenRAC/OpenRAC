@@ -299,8 +299,8 @@ int mpeg_system_header(void *arg0) {
     return 1;
 }
 
-extern char pes_optional_field_bits[];
-extern char pes_pack_header_field_flag_msg[];
+extern char pes_header_skip_bit_counts[];
+extern char invalid_pack_header_field_message[];
 
 struct PES_BS {
     unsigned char pad_0[0x18];
@@ -337,7 +337,7 @@ int mpeg_pes_packet(int arg0, struct PES_BS *bs, struct PES_HDR *hdr) {
 
     ctx = arg0;
     hdr->unk28 = (int)bs->stamp;
-    tbl = *(struct PES_TBL *)pes_optional_field_bits;
+    tbl = *(struct PES_TBL *)pes_header_skip_bit_counts;
     sysbit_get(bs, 0x18);
     hdr->unk0 = (long)sysbit_get(bs, 8) << 0x20;
     hdr->unk8 = sysbit_get(bs, 0x10);
@@ -402,7 +402,7 @@ int mpeg_pes_packet(int arg0, struct PES_BS *bs, struct PES_HDR *hdr) {
                 sysbit_get(bs, 0x20);
             }
             if (a2 == v5) {
-                _Error_a(ctx, pes_pack_header_field_flag_msg);
+                _Error_a(ctx, invalid_pack_header_field_message);
                 return 0;
             }
             if (a3 == v5) {
@@ -492,7 +492,7 @@ void sce_mpeg_init(void) {
 /* memset returns its pointer: the unused return moves the first temporary
    after the call from $v0 to $v1. */
 extern void *libc_memset_p(void *, int, unsigned int) __asm__("func_001153FC");
-extern char mpeg_create_work_area_too_small_msg[];
+extern char mpeg_work_area_too_small_message[];
 extern void mpeg_work_area_init(void *, int, int);
 extern unsigned int reserve_aligned_buffer_space(void *, char *, unsigned int, unsigned int);
 extern void mpeg_clear_once(void *);
@@ -532,7 +532,7 @@ int sce_mpeg_create(void *arg0, void *workarea, int size) {
     avail = (unsigned int)size - ((unsigned int)aligned - wa);
 
     if (avail < 0x10C0) {
-        _Error(aligned, mpeg_create_work_area_too_small_msg);
+        _Error(aligned, mpeg_work_area_too_small_message);
         return 0;
     }
 
@@ -779,7 +779,7 @@ void mpeg_work_area_reset_to_mark(void *arg0) {
     *(int *)(p + 0x8) = *(int *)(p + 0xC);
 }
 
-extern char mpeg_work_area_size_too_small_msg[];
+extern char work_area_too_small_message[];
 
 /* Bump allocator out of a region {base, size, used}: round `used` up to
    `align`, reserve `size` bytes, and hand back the aligned offset. On
@@ -801,7 +801,7 @@ unsigned int reserve_aligned_buffer_space(void *arg0, char *r, unsigned int size
         *(unsigned int *)(r + 0x8) = end;
         return aligned;
     }
-    _Error(arg0, mpeg_work_area_size_too_small_msg);
+    _Error(arg0, work_area_too_small_message);
     return 0;
 }
 
@@ -811,7 +811,7 @@ extern int mpeg_decode_or_skip(void *, int, int);
    format's arguments on untouched in $a1-$a3, so it is called here
    without a prototype, with the value the "%08x" reports. */
 extern void _errMessage();
-extern char mpeg_image_buffer_unaligned_msg[];
+extern char image_buffer_alignment_error_format[];
 
 /*
  * _getpic (libmpeg.a:mpeg.o): fetch and start decoding one picture.
@@ -838,7 +838,7 @@ int mpeg_getpic(void *arg0) {
 
     *(int *)inner = 0;
     if ((*(int *)(inner + 0xD8) & 0x3F) != 0) {
-        _errMessage(inner, mpeg_image_buffer_unaligned_msg, *(int *)(inner + 0xD8));
+        _errMessage(inner, image_buffer_alignment_error_format, *(int *)(inner + 0xD8));
         return -1;
     }
     *(int *)(inner + 0x820) = 0;
@@ -1207,11 +1207,11 @@ int mpeg_set_frame_size(void *arg0, int arg1, int arg2) {
     return 1;
 }
 
-extern char mpeg_vertical_size_too_large_msg[];
+extern char vertical_size_limit_error_message[];
 
 extern void mpeg_set_default_qm(void *, int, int);
-extern char mpeg_default_intra_qm[];
-extern char mpeg_default_non_intra_qm[];
+extern char default_intra_quantiser_matrix[];
+extern char default_non_intra_quantiser_matrix[];
 
 extern void mpeg_init_seq(void *);
 
@@ -1244,7 +1244,7 @@ void _sequenceHeader(void *arg0) {
     mid = (v >> 8) & 0xFFF;
     *(unsigned int *)(s + 0x128) = mid;
     if (mid >= 0xAF1) {
-        _Error(s, mpeg_vertical_size_too_large_msg);
+        _Error(s, vertical_size_limit_error_message);
     }
 
     v = _nextBit(s, 0x1E);
@@ -1258,7 +1258,7 @@ void _sequenceHeader(void *arg0) {
         send_ipu_command(s, 0x50000000);
         wait_ipu_idle(s);
     } else {
-        mpeg_set_default_qm(s, 0x50000000, (int)mpeg_default_intra_qm);
+        mpeg_set_default_qm(s, 0x50000000, (int)default_intra_quantiser_matrix);
     }
 
     flag = _nextBit(s, 1);
@@ -1268,7 +1268,7 @@ void _sequenceHeader(void *arg0) {
         send_ipu_command(s, 0x58000000);
         wait_ipu_idle(s);
     } else {
-        mpeg_set_default_qm(s, 0x58000000, (int)mpeg_default_non_intra_qm);
+        mpeg_set_default_qm(s, 0x58000000, (int)default_non_intra_quantiser_matrix);
     }
 
     _extensionAndUserData(s);
@@ -1397,8 +1397,8 @@ void mpeg_set_default_qm(void *arg, int cmd, int addr) {
     dispatch_mpeg_callback(*(void **)(mp + 0x858), cb);
 }
 
-extern char mpeg_chroma_format_not_420_msg[];
-extern char mpeg_unsupported_profile_level_msg[];
+extern char unsupported_chroma_format_message[];
+extern char unsupported_profile_level_message[];
 
 /*
  * _sequenceExtension (libmpeg.a:init.o): ISO/IEC 13818-2 6.2.2.3
@@ -1434,7 +1434,7 @@ void _sequenceExtension(void *arg0) {
 
     *(unsigned int *)(s + 0x140) = chroma_format;
     if (chroma_format != 1) {
-        _Error(s, mpeg_chroma_format_not_420_msg);
+        _Error(s, unsupported_chroma_format_message);
     }
 
     progressive = (v1 >> 19) & 1;
@@ -1445,7 +1445,7 @@ void _sequenceExtension(void *arg0) {
     vbv_ext = v2 >> 8;
 
     if (profile != 0x48 && profile != 0x58 && profile != 0x44) {
-        _Error(s, mpeg_unsupported_profile_level_msg);
+        _Error(s, unsupported_profile_level_message);
     }
 
     *(int *)(s + 0x124) = (h_ext << 12) | (*(int *)(s + 0x124) & 0xFFF);

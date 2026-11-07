@@ -34,7 +34,7 @@ typedef struct {
 } TopThreadContext;
 
 extern int top_thread_semaphore;
-extern char top_thread_bad_request_message[];
+extern char thread_command_error_message[];
 
 extern int kprintf(const char *, ...);
 
@@ -60,7 +60,7 @@ void topThread(void *arg0) {
                 SuspendThread(ctx->entries[i].id);
                 break;
             default:
-                kprintf(top_thread_bad_request_message);
+                kprintf(thread_command_error_message);
                 break;
         }
     }
@@ -152,13 +152,13 @@ ASM_FUNC("asm/handwritten/core_text", func_00119678);
 
 LINKER_REMNANT("asm/remnants/core_text", func_00119710);
 
-extern int deci2_open_work_area;
+extern int deci2_open_workspace;
 /* Deci2Call (syscall 0x7C) returns the result; the file's later
    `extern void Deci2Call(int, void *)` drops it, hence the alias. */
 extern int Deci2Call_ret(int, void *) __asm__("func_00118E90");
 
 /* libkernel sceDeci2Open(protocol, opt, handler): Deci2Call(1, {protocol,
-   opt, handler, uncached &deci2_open_work_area}). Returning the call's value is
+   opt, handler, uncached &deci2_open_workspace}). Returning the call's value is
    what gives retail's schedule (tag complete before the stores, the &buf
    move ahead of the $ra save); the void spelling is 30/68. */
 /* sceDeci2Open: returns Deci2Call's int result (Deci2Call is
@@ -170,7 +170,7 @@ int sceDeci2Open(unsigned short arg0, void *arg1, void *arg2) {
     buf[0] = arg0;
     buf[1] = (unsigned int)arg1;
     buf[2] = (unsigned int)arg2;
-    buf[3] = (unsigned int)&deci2_open_work_area | 0x20000000;
+    buf[3] = (unsigned int)&deci2_open_workspace | 0x20000000;
     return Deci2Call_ret(1, buf);
 }
 

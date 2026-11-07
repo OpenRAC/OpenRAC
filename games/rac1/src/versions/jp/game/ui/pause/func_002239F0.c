@@ -11,13 +11,13 @@ int ObtainAllGoldWeaponsMenu(char *arg0) {
     x = 0x18;
     y = 4;
     SetupGifPaging(0);
-    HudSprite(GetIconFrame(0xE99A, 6), 4, y + 8, 0x10, 0x10, 0x80);
+    draw_hud_sprite(GetIconFrame(0xE99A, 6), 4, y + 8, 0x10, 0x10, 0x80);
     buf.x = x;
     buf.y = y;
     font_print_window_regular(&buf, 0x80FFA888L, msg_string(0x51D8), -1);
     y = (short)buf.fE + 0x10;
     buf.y = y;
-    HudSprite(GetIconFrame(0xE99A, 6), 4, y + 8, 0x10, 0x10, 0x80);
+    draw_hud_sprite(GetIconFrame(0xE99A, 6), 4, y + 8, 0x10, 0x10, 0x80);
     font_print_window_regular(&buf, 0x80FFA888L, msg_string(0x51D9), -1);
     DoGifPaging();
     return 2;

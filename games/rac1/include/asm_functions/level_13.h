@@ -5,7 +5,6 @@
 
 #include "common.h"
 
-extern void initialize_gemlik_trail(void *);
-extern void update_attached_rocket(void *);
+extern void func_L13_00306EF0(void *);
 
 #endif /* ASM_FUNCTIONS_LEVEL_13_H */

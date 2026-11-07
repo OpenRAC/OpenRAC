@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern float Camera_SmoothAngle(void *, float, float, float, float, float);
+extern float func_L00_001EB6A8(void *, float, float, float, float, float);
 extern void Camera_UpdateFrame(void);
 extern void SwitchCamera(void *);
 extern int UpdateAllCamerasLvl(void);

@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern int Help_Request(int, int);
+extern int func_L00_00203F20(int, int);
 extern void Hero_SetTiltSpringParams(float, float);
 extern float adjust_hero_animation_speed_for_target_frame(float, float, float, float);
 extern void apply_hero_and_item_scale_sequence(void);

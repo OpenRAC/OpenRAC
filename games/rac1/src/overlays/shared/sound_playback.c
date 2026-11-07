@@ -14,7 +14,7 @@
 #include "game/math/fastfunc.h"
 #include "game/system/space.h"
 #include "game/moby/mobyutil.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char hero_vehicle_mode[];
 extern char gSpecialItems[];
 extern Hero g_hero;
@@ -28,7 +28,7 @@ struct ShipPickupVars {
 };
 
 /* Returns 1 if sound slot i belongs to owner a and is starting or playing. */
-int Sound_IsPlaying(int a, int i) {
+int voice_is_playing(int a, int i) {
     if (i >= 0) {
         char *p = voice_pool + i * 0x70;
         if (*(int *)(p + 0x88) == a) {
@@ -96,15 +96,15 @@ int play_voice(int a, int b, int c, int d) {
 }
 extern char voice_pool[];
 
-extern unsigned char grouped_voice_level_rows[];
+extern unsigned char l00_grouped_voice_definition_offsets_by_level[];
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 extern int grouped_voice_definition_base_index MACRO_ADDR;
 
 /* Starts a sound bank entry chosen by (a0, a1, a2) offset from a
-   level-specific table row, the same shape as PlayBankSound. */
+   level-specific table row, the same shape as allocate_voice_for_bank_entry. */
 int request_grouped_voice(int a0, int a1, int a2, int a3, int a4) {
-    int idx =
-        grouped_voice_level_rows[g_current_level_index_m] + a0 * 4 + a1 * 2 + a2 + grouped_voice_definition_base_index;
+    int idx = l00_grouped_voice_definition_offsets_by_level[g_current_level_index_m] + a0 * 4 + a1 * 2 + a2 +
+              grouped_voice_definition_base_index;
     int h;
 
     if (idx >= level_sound_slot_count) {
@@ -189,17 +189,17 @@ void update_moby_proximity_interaction(unsigned char *m) {
         }
         p = (float *)(m + 0x10);
         if (d->near_entry != 0) {
-            matrix_mul_vec3(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
+            transform_vector_by_basis(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
             FastVecAdd(tmp, tmp, p);
-            if (FastVecDist(tmp, &g_hero.motion.pos) > 4.1f) {
+            if (fast_vec_dist(tmp, &g_hero.motion.pos) > 4.1f) {
                 d->near_entry = 0;
             }
         } else {
             q = &g_hero.motion.pos;
             if (vec_distance_xy(p, q) < 6.0f) {
-                matrix_mul_vec3(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
+                transform_vector_by_basis(tmp, ship_entry_point_offsets + ship_index[0] * 16, m + 0xC0);
                 FastVecAdd(tmp, tmp, p);
-                if (FastVecDist(tmp, q) < 4.0f) {
+                if (fast_vec_dist(tmp, q) < 4.0f) {
                     d->near_entry = 1;
                 }
             }
@@ -213,7 +213,7 @@ void update_moby_proximity_interaction(unsigned char *m) {
                 if (g_current_level_index_m == LEVEL_ORXON && g_hero.vehicle_mode == 1) {
                     ((Moby *)m)->state = 0x2A;
                     ((Moby *)m)->flags |= 0x41;
-                    StartCutscene(9);
+                    start_scene(9);
                 } else {
                     remove_help_message_for_selector(2);
                     ship_level_exit_requested = 1;
@@ -225,16 +225,16 @@ void update_moby_proximity_interaction(unsigned char *m) {
         if (cinematic_mode != 2) {
             q = gSpecialItems;
             if (q[0x48] == 0 && gHaveMorphORay[7] != 0) {
-                StartCutscene(4);
+                start_scene(4);
                 q[0x48] = 1;
             } else if ((q = gSpecialItems)[0x49] == 0 && level_available_base[8] != 0) {
-                StartCutscene(5);
+                start_scene(5);
                 q[0x49] = 1;
             } else if ((q = gSpecialItems)[0x4A] == 0 && level_available_base[8] != 0) {
                 PlayMovieEntryIfIdle(0xB);
                 q[0x4A] = 1;
             } else if ((q = gSpecialItems)[0x4B] == 0 && level_available_base[8] != 0) {
-                StartCutscene(6);
+                start_scene(6);
                 q[0x4B] = 1;
             } else {
                 ((Moby *)m)->state = 0;

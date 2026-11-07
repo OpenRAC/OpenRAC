@@ -14,7 +14,7 @@ typedef unsigned int Q_50B88 __attribute__((mode(TI), aligned(16)));
 /* Rotates a point (in place) about a unit axis by angle using a Rodrigues-style matrix: skew = cross-product matrix of
    axis, sin_part = sin*skew, cos_part = (1-cos)*skew^2; cos_part is then reused as the identity matrix.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l03/math/rotations/rotate_point_about_axis.c, FUN_L03_0024fba8. */
-void RotatePointAboutAxis(Q_50B88 *axis, Q_50B88 *point, float angle) {
+void axis_angle_rotation_to_euler(Q_50B88 *axis, Q_50B88 *point, float angle) {
     float axis_v[4] __attribute__((aligned(16)));
     float point_v[4] __attribute__((aligned(16)));
     float skew[4][4] __attribute__((aligned(16)));
@@ -41,7 +41,7 @@ void RotatePointAboutAxis(Q_50B88 *axis, Q_50B88 *point, float angle) {
     skew[1][3] = 0.0f;
     skew[2][3] = 0.0f;
     skew[3][3] = 0.0f;
-    sce_vu0_mul_matrix(skew_sq, skew, skew);
+    multiply_matrix(skew_sq, skew, skew);
     matrix4_scale(cos_part, skew_sq, 1.0f - FastCos(angle));
     matrix4_scale(sin_part, skew, FastSin(angle));
     matrix4_add(sin_part, sin_part, cos_part);

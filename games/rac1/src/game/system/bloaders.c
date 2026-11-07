@@ -92,8 +92,8 @@ void LoadPifAsPSMT8H(void *arg0, void *arg1, int tbp, int cbp) {
 extern int disc_table[];
 extern int Load(void *, int, int);
 
-extern int D_0015EF88 MACRO_ADDR;
-extern long D_0015EFC8 MACRO_ADDR;
+extern int depth_buffer_address MACRO_ADDR;
+extern long debug_font_pif_header MACRO_ADDR;
 
 /*
  * LoadDebugFont: forwards the disc_table[2]/[3] stream position to

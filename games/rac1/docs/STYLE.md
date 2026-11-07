@@ -87,6 +87,7 @@ Do not:
 | `INCLUDE_ASM` | Not matched in C yet. |
 | `ASM_FUNC` | Original assembly. It stays assembly. |
 | `LINKER_REMNANT` | Linker leftovers. They stay assembly. |
+| `PREBUILT_ASM` | Code from Sony's prebuilt libraries, not built from source. It stays assembly. |
 | `STRUCT_OFFSET` | A raw offset whose field is not known yet. |
 
 ## Format

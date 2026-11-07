@@ -1,11 +1,11 @@
-void update_path_following_moby(char *m) {
+void path_following_moby_update(char *m) {
     float a[4];
     float b[4];
     char *d = *(char **)(m + 0x78);
     char *pos = m + 0x10;
     int *t;
     qcopy(a, pos);
-    t = (int *)batalia_path_table[*(int *)d];
+    t = (int *)l08_paths[*(int *)d];
     switch (*(unsigned char *)(m + 0x20)) {
         case 0:
             if (*(int *)d == -1) {
@@ -13,8 +13,8 @@ void update_path_following_moby(char *m) {
                 return;
             }
             {
-                float l0 = FastVecDist((char *)t + 0x10, (char *)t + 0x20);
-                FastVecDist((char *)t + 0x10, (char *)t + (*t << 4));
+                float l0 = fast_vec_dist((char *)t + 0x10, (char *)t + 0x20);
+                fast_vec_dist((char *)t + 0x10, (char *)t + (*t << 4));
                 *(float *)(d + 8) = batalia_path_mover_speed * g_frame_time / l0;
                 *(float *)(d + 4) = *(float *)(d + 4) * (float)*t;
                 *(float *)(d + 0xC) = randf_sym(0.0f, 5.0f);
@@ -24,7 +24,7 @@ void update_path_following_moby(char *m) {
             /* fall through */
         case 1: {
             float f;
-            SamplePathAt(t, 1, m + 0x10, (float *)(m + 0x40), 0, *(float *)(d + 4));
+            sample_camera_path(t, 1, m + 0x10, (float *)(m + 0x40), 0, *(float *)(d + 4));
             *(float *)(m + 0x44) = *(float *)(m + 0x44) * 0.5f;
             *(float *)(m + 0x18) = *(float *)(m + 0x18) + *(float *)(d + 0xC);
             *(float *)(d + 4) = *(float *)(d + 4) + *(float *)(d + 8);
@@ -44,7 +44,7 @@ void update_path_following_moby(char *m) {
             *(float *)(d + 0x18) = *(float *)(d + 0x18) - g_frame_time_sq * c15;
             dd = FastAddRots(*(float *)(m + 0x40), g);
             *(float *)(m + 0x40) = *(float *)(m + 0x40) + dd;
-            *(float *)(m + 0x44) = -fast_atan2(vec_length_xy(v), *(float *)(d + 0x18));
+            *(float *)(m + 0x44) = -fast_atan2(vector_length_xy(v), *(float *)(d + 0x18));
             FastVecAdd(pos, pos, v);
             if (*(float *)(m + 0x18) < c10) {
                 DeleteMoby(m);
@@ -68,8 +68,8 @@ void update_path_following_moby(char *m) {
     if (MobyGetHitMessage(m, 0x10000, 0) != 0 && *(unsigned char *)(m + 0x20) != 2) {
         if (hero_current_state == 0x32 && gSkillPoints[0xC] == 0) {
             gSkillPoints[0xC] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53D6, -1);
         }
         FastVecSub(b, m + 0x10, a);
         qcopy(d + 0x10, b);

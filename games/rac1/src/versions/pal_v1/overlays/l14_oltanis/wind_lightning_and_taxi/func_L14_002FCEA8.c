@@ -2,7 +2,7 @@ void qwark_oltanis_update(char *m) {
     char *d = *(char **)(m + 0x78);
     attach_big_head_cheat_manipulator_to_matching_moby(m);
     if (*(unsigned char *)(m + 0x31) != 0) {
-        if (FastVecDist(m + 0x10, oltanis_camera_pos) < 28.0f) {
+        if (fast_vec_dist(m + 0x10, oltanis_camera_pos) < 28.0f) {
             set_ground_height_band(m);
             m[0x7F] = 0x16;
         }
@@ -28,7 +28,7 @@ void qwark_oltanis_update(char *m) {
             break;
         }
         case 1:
-            if (*(unsigned char *)(d + 8) == 1 && is_point_inside_clip_volume(gHeroPos, *(int *)(d + 0x40)) != 0) {
+            if (*(unsigned char *)(d + 8) == 1 && is_point_inside_clip_volume(hero_pos, *(int *)(d + 0x40)) != 0) {
                 if ((help_stats_base_r + 0xAA35)[*(unsigned char *)(m + 0xB0) + (g_current_level_index_m << 4)] !=
                     0xFF) {
                     char *t;
@@ -42,7 +42,7 @@ void qwark_oltanis_update(char *m) {
                 *(float *)(d + 0xC) = 1.7f;
             }
             if (Npc_TryStartDialog(m, d) != 0) {
-                PlaceMarkerAheadOfMoby(3.0f, m);
+                begin_dialogue_camera_transition(3.0f, m);
                 m[0x20] = 2;
             }
             break;
@@ -53,9 +53,9 @@ void qwark_oltanis_update(char *m) {
             if (*(short *)(d + 4) != 3 && *(short *)(d + 4) != 4)
                 break;
             if (*(short *)(d + 4) == 4) {
-                ShowBanner(0x53DD, -1);
+                queue_dialogue_message(0x53DD, -1);
             } else {
-                ShowBanner(0x36B3, -1);
+                queue_dialogue_message(0x36B3, -1);
             }
             grant_inventory_item(0x20, 1);
             mark_elevator_collected(oltanis_mobys_r + (*(int *)(d + 0x44) << 8));
@@ -77,7 +77,7 @@ void qwark_oltanis_update(char *m) {
         float sy = 0.3f;
         int doit = 0;
         if (*(unsigned char *)(m + 0x53) == 0) {
-            char *g = gHeroPos;
+            char *g = hero_pos;
             char *a_;
             doit = 1;
             if (vec_distance_xy(m + 0x10, g) < 8.0f &&
@@ -120,7 +120,7 @@ void qwark_oltanis_update(char *m) {
             w[2] = w[2] + 1.0f;
             FastVecSub(u, b, w);
             f20 = FastSubRots(fast_atan2(u[0], u[1]), *(float *)(m + 0x48));
-            f2 = -fast_atan2(vec_length_xy(u), u[2]);
+            f2 = -fast_atan2(vector_length_xy(u), u[2]);
             if (f20 > 1.5707964f)
                 f20 = 1.5707964f;
             else if (f20 < -1.5707964f)
@@ -135,7 +135,7 @@ void qwark_oltanis_update(char *m) {
         }
         if (gCheats[0] != 0)
             *(float *)(d + 0xF0) = 2.75f;
-        EaseManipulatorOffsets(m, d + 0x80, 0, sx * g_frame_scale_sq, sy * g_frame_scale_sq);
-        EaseManipulatorOffsets(m, d + 0x100, 1, sx * g_frame_scale_sq, sy * g_frame_scale_sq);
+        update_joint_animation(m, d + 0x80, 0, sx * g_frame_scale_sq, sy * g_frame_scale_sq);
+        update_joint_animation(m, d + 0x100, 1, sx * g_frame_scale_sq, sy * g_frame_scale_sq);
     }
 }

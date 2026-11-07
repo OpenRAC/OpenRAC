@@ -1,4 +1,4 @@
-void MorphorayUpdate(Moby *m) {
+void morphoray_update(Moby *m) {
     Vq v0;
     Vq v[3];
     Vq mt[4];
@@ -20,7 +20,7 @@ void MorphorayUpdate(Moby *m) {
         morphoray_light_fade_timer_r = 0;
     }
     near = 1;
-    if (m->prev_seq == 0 && MobyGetFrameValue(m) < 6.0f) {
+    if (m->prev_seq == 0 && compute_interpolated_record_value(m) < 6.0f) {
         near = 0;
     }
     FastDecTimer(&p->timer);
@@ -46,14 +46,14 @@ void MorphorayUpdate(Moby *m) {
         if (p->timer == 0) {
             p->timer = scale_ticks(15);
         }
-        Moby_GetJointWorldPos(m, 0, p);
+        moby_point_position(m, 0, p);
         if (((Hero *)g_hero_r)->state.current == HERO_STATE_LOOK) {
             HeroEnterMoveState(HERO_STATE_LOOK_RELEASE_WAIT, 1);
         }
         *(u128_2BDAF0 *)&v0 = 0;
         if (((Hero *)g_hero_r)->state.current == HERO_STATE_LOOK_RELEASE_WAIT &&
             (*(unsigned short *)((char *)((Hero *)g_hero_r)->moby + 0x34) & 1)) {
-            matrix_copy_rows(v, player_camera_r);
+            copy_matrix3x4(v, player_camera_r);
             matrix_from_basis_rows(mt, v);
             v0.z = 1.0f;
             transform_vector(&v0, &v0, mt);
@@ -61,10 +61,10 @@ void MorphorayUpdate(Moby *m) {
             FastVecScale(&v0, &m->rot_row1, -1.0f);
         } else {
             v0.x = 1.0f;
-            matrix_mul_vec3(&v0, &v0, ((Hero *)g_hero_r)->basis[0].f);
+            transform_vector_by_basis(&v0, &v0, ((Hero *)g_hero_r)->basis[0].f);
         }
         p->yaw = fast_atan2(v0.x, v0.y);
-        p->pitch = fast_atan2(vec_length_xy(&v0), v0.z);
+        p->pitch = fast_atan2(vector_length_xy(&v0), v0.z);
         *(u128_2BDAF0 *)&v[0] = *(u128_2BDAF0 *)p->pos;
         hit = select_morphoray_target_and_adjust_aim_r(m, &v[0], &p->yaw, &p->pitch);
         fast_dec_timer(&p->delay);
@@ -106,8 +106,8 @@ void MorphorayUpdate(Moby *m) {
             if (g_current_level_index_r == LEVEL_RILGAR && p->target->oclass == MOBY_CLASS_EXTERMITANK &&
                 ((Skill_2BDAF0 *)gSkillPoints_r)->f8 == 0) {
                 ((Skill_2BDAF0 *)gSkillPoints_r)->f8 = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53D6, -1);
             }
             spawn_morphoray_chicken(p->target);
             p->target = 0;
@@ -125,7 +125,7 @@ void MorphorayUpdate(Moby *m) {
             ((Light *)level_point_lights_r)[morphoray_light_slot_r].pos[2] = v[1].z;
             ((Light *)level_point_lights_r)[morphoray_light_slot_r].radius = 7.5f;
         }
-        if (Sound_IsPlaying(m, morphoray_beam_voice_r) == 0) {
+        if (voice_is_playing(m, morphoray_beam_voice_r) == 0) {
             morphoray_beam_voice_r = Moby_PlaySound_r(0, 4, m);
         }
     } else {

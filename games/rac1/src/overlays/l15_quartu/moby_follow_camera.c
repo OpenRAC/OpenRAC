@@ -8,12 +8,12 @@
 #include "asm_functions/level_15.h"
 
 extern char hero_globals_base[];
-extern char *quartu_camera_descriptors MACRO_ADDR;
+extern char *moby_slot_entry_table MACRO_ADDR;
 extern char *quartu_camera_moby;
 
 /* Runs the moby follow camera when the camera is free and in vehicle mode 2; returns -1. */
 int dispatch_moby_follow_camera_update(char *moby) {
-    char *entry = quartu_camera_descriptors + (*(short *)(moby + 0x84) << 5);
+    char *entry = moby_slot_entry_table + (*(short *)(moby + 0x84) << 5);
     char *other = quartu_camera_moby;
     char *sub = *(char **)(entry + 0x1C);
     if (*(short *)(other + 0x86) == 0 && *(short *)(sub + 0x20) >= 0 && (unsigned char)hero_globals_base[0x2EC1] == 2) {

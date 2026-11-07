@@ -470,7 +470,7 @@ int map_filter_l09_2(void) {
     return menu_item_enabled_57 != 0;
 }
 
-extern unsigned char D_0013D4E0 NOT_SDA;
+extern unsigned char menu_item_enabled_68 NOT_SDA;
 /* The recorded C was right; the two ps2eeas nops were the only
    residual. */
 int map_filter_l10_0(int arg0, float unused1, float unused2, float arg1) {
@@ -589,7 +589,7 @@ int map_filter_l12_0(void *arg0, int arg1, float unused1, float unused2, float a
 }
 
 /* Map filter that always returns 1. */
-int MenuL12_IsAlwaysActive1(void) {
+int map_filter_l12_1(void) {
     return 1;
 }
 
@@ -650,8 +650,8 @@ int map_filter_l18_0(void) {
 }
 
 extern int level_map_selection[];
-extern int max_map_coverage_size[];
-extern void DebugEnter_Nop(void);
+extern int max_coverage_save_result_by_level[];
+extern void noop_memory_callback(void);
 
 extern void downsample_map_coverage(void *dst);
 
@@ -664,11 +664,11 @@ extern int g_current_level_index MACRO_ADDR;
 
 /* Read a sector into arg0 from the open file (level_map_selection slot state) or
    clear it when none is open, and track the largest read per slot in
-   max_map_coverage_size. Adapted from Lombyte's project (GPL-3.0) for PAL. */
+   max_coverage_save_result_by_level. Adapted from Lombyte's project (GPL-3.0) for PAL. */
 void save_map_coverage(int arg0) {
     int n;
 
-    DebugEnter_Nop();
+    noop_memory_callback();
     if (level_map_selection[0xA] == 0) {
         FastMemSet((void *)arg0, 0, 0x800);
         return;
@@ -677,8 +677,8 @@ void save_map_coverage(int arg0) {
     if (n == -1) {
         downsample_map_coverage((void *)arg0);
     }
-    if (max_map_coverage_size[g_current_level_index] < n) {
-        max_map_coverage_size[g_current_level_index] = n;
+    if (max_coverage_save_result_by_level[g_current_level_index] < n) {
+        max_coverage_save_result_by_level[g_current_level_index] = n;
     }
 }
 
@@ -688,10 +688,10 @@ extern void expand_map_coverage(void *, unsigned char *);
 
 /* Load a saved map coverage chunk, decoding it as compressed or plain by its first bit. */
 void load_map_chunk(void *arg0, unsigned char *arg1, int arg2) {
-    /* DebugEnter_Nop is empty in retail and takes no arguments; $4/$5/$6
+    /* noop_memory_callback is empty in retail and takes no arguments; $4/$5/$6
        still hold our own incoming arguments across it, which is why retail
        saves them into $16-$18 rather than reloading. */
-    DebugEnter_Nop();
+    noop_memory_callback();
     if (!map_coverage_active[0]) {
         return;
     }
@@ -840,12 +840,12 @@ LINKER_REMNANT("asm/remnants/text", func_00208858);
 
 /* Bit counts of the 16 nibbles. */
 
-extern NibbleBits nibble_popcount_table;
+extern NibbleBits map_coverage_nibble_contribution_table;
 extern unsigned char *map_coverage_buffer;
 
 /* Condenses map_coverage_buffer's 0x200 rows of 64 bytes (two 4-bit samples
    each) into a 1-bit image at arg0: every four rows the per-column
-   bit counts (nibble_popcount_table is the nibble popcount table, copied onto the
+   bit counts (map_coverage_nibble_contribution_table is the nibble popcount table, copied onto the
    stack) are summed, and a column with 8 or more set bits becomes a
    set bit, packed eight columns to a byte. The first byte is then
    flagged with 0x02 and bit 0 cleared. */
@@ -857,7 +857,7 @@ void downsample_map_coverage(void *arg0) {
     unsigned char *out;
     int i, j, k, m;
 
-    bits = nibble_popcount_table;
+    bits = map_coverage_nibble_contribution_table;
     src = map_coverage_buffer;
     out = dst;
     for (i = 0; i < 0x200; i++) {
@@ -886,7 +886,7 @@ void downsample_map_coverage(void *arg0) {
     dst[0] = (dst[0] & 0xFE) | 2;
 }
 
-extern char menu_item_price_fmt[]; /* "%d" */
+extern char menu_item_decimal_format[]; /* "%d" */
 extern char menu_token_error_text[]; /* "error" */
 extern char vendor_item_prices[];
 extern int sprintf_3(void *, char *, int) __asm__("func_00116248");
@@ -922,7 +922,7 @@ void FormatMenuItemText(int bank, unsigned char *dst) {
     src++;
     if (*src == 'b') {
         char *t2 = (char *)level_map_selection;
-        sprintf_3(buf, menu_item_price_fmt,
+        sprintf_3(buf, menu_item_decimal_format,
                   *(int *)(vendor_item_prices + *(short *)(*(char **)(t2 + 0x20) + bank * 0x28 + 0xC) * 0x18));
     } else {
         sprintf_2(buf, menu_token_error_text);
@@ -991,7 +991,7 @@ typedef struct {
 
 extern int marker_half_size MACRO_ADDR;
 
-extern char D_0019A4E8[];
+extern char hud_state[];
 
 /* Draw the level's map markers inside the given screen rectangle, scaled by map zoom. */
 void draw_map_markers(int left, int top, int right, int bottom) {
@@ -1012,8 +1012,8 @@ void draw_map_markers(int left, int top, int right, int bottom) {
             continue;
         }
         if (m->icon == -1) {
-            draw_hud_rect_blended(sx - marker_half_size, sy - marker_half_size, sx + marker_half_size,
-                                  sy + marker_half_size, m->sub, 1);
+            append_screen_rect_packet(sx - marker_half_size, sy - marker_half_size, sx + marker_half_size,
+                                      sy + marker_half_size, m->sub, 1);
         } else {
             int tex = GetIconFrame(m->icon, m->sub);
             int *st = level_map_selection;
@@ -1035,22 +1035,22 @@ void draw_map_markers(int left, int top, int right, int bottom) {
     }
 }
 
-extern int level_object_index_ranges[];
+extern int level_object_index_boundaries[];
 extern void *menu_action_messages[];
-extern char race_gates[];
+extern char level_object_states[];
 
 /* Copies three floats (+0x10, +0x14, +0x48) of each of level
    g_current_level_index's objects in menu_action_messages into the 16-byte slots at
-   race_gates; the index range is level_object_index_ranges[i]..[i + 1]. Binding the
+   level_object_states; the index range is level_object_index_boundaries[i]..[i + 1]. Binding the
    two bases to locals in retail's order orders their %hi halves. */
 void copy_level_object_positions(void) {
     int i = g_current_level_index;
     if ((unsigned int)i < 0x13) {
-        int start = level_object_index_ranges[i];
-        int end = level_object_index_ranges[i + 1];
+        int start = level_object_index_boundaries[i];
+        int end = level_object_index_boundaries[i + 1];
         if (start < end) {
             void **sbase = menu_action_messages;
-            char *dbase = race_gates;
+            char *dbase = level_object_states;
             float *dst = (float *)(dbase + start * 16);
             void **src = &sbase[start];
             start = end - start;
@@ -1070,7 +1070,7 @@ void copy_level_object_positions(void) {
 }
 
 /* Empty debug hook; retail calls it but it does nothing. */
-void DebugEnter_Nop(void) {
+void noop_memory_callback(void) {
 }
 
 /* Sign of the 2D cross product (x2-x0,y2-y0) x (x1-x0,y1-y0): true when

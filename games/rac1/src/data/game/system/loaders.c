@@ -63,9 +63,9 @@ u32 class_material_maps[96] DATA_SECTION(D_001CBF60) = {0};
 
 u16 class_runtime_indices[400] DATA_SECTION(D_001CC0E0) = {0};
 
-Pair_2F00 particle_texture_ranges[128] DATA_SECTION(D_001CDD00) = {0};
+Pair_2F00 D_001CDD00[128] DATA_SECTION(D_001CDD00) = {0};
 
-u32 particle_texture_data[80] DATA_SECTION(D_001CE500) = {0};
+u32 D_001CE500[80] DATA_SECTION(D_001CE500) = {0};
 
 u16 shrub_render_class_ids[64] DATA_SECTION(D_001D83C0) = {0};
 

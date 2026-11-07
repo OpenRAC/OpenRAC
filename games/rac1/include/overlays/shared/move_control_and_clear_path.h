@@ -5,9 +5,9 @@
 
 #include "common.h"
 
-extern void MobyGroup_SetByteBC(int, int);
+extern void func_L01_0026F040(int, int);
 extern void MoveCtl_Init(void *);
-extern void PlaceMarkerAheadOfMoby(float, void *);
+extern void func_L01_00279398(float, void *);
 extern int check_scaled_vector_bsphere(void *, float);
 extern int compute_clear_path_point_mask(float, void *, int, int, void *);
 extern int count_active_moby_group_members(int, int);

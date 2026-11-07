@@ -2,17 +2,17 @@
 #include "common.h"
 
 extern char __malloc_av_[];
-extern void *__malloc_av_last_remainder[];
+extern void *malloc_split_remainder_bin_head[];
 extern char D_0012FC70[];
 
-void *__malloc_av_last_remainder[] DATA_SECTION(D_0012F890) = {
+void *D_0012F890[] DATA_SECTION(D_0012F890) = {
     __malloc_av_,
     __malloc_av_,
 };
 
 void *D_0012F898[] DATA_SECTION(D_0012F898) = {
-    __malloc_av_last_remainder,
-    __malloc_av_last_remainder,
+    malloc_split_remainder_bin_head,
+    malloc_split_remainder_bin_head,
 };
 
 void *D_0012FC78[] DATA_SECTION(D_0012FC78) = {

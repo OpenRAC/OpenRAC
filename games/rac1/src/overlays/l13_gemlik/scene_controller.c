@@ -86,14 +86,14 @@ typedef struct Cam {
 
 extern int gemlik_game_mode_r __asm__("D_L13_0015F6A8") MACRO_ADDR;
 extern Moby *gemlik_moby_array_start_r __asm__("D_L13_00160058") MACRO_ADDR;
-extern Anim *D_L13_0016016C MACRO_ADDR;
-extern float D_L13_0015F4FC MACRO_ADDR;
-extern int D_L13_0015F504 MACRO_ADDR;
-extern unsigned char D_L13_0015FD08[] MACRO_ADDR;
-extern unsigned char D_001414F5[] NOT_SDA;
+extern Anim *gemlik_scene_points MACRO_ADDR;
+extern float gemlik_fade_level MACRO_ADDR;
+extern int gemlik_scripted_camera_active MACRO_ADDR;
+extern unsigned char gemlik_mission_group_state[] MACRO_ADDR;
+extern unsigned char g_hero_field_20a5[] NOT_SDA;
 
 /* Update function for moby class 1353 on level 13: runs the state machine in moby->state. */
-void update_gemlik_scene_controller(Moby *moby) {
+void gemlik_scene_controller_update(Moby *moby) {
     MobyData *data = (MobyData *)moby->pvars;
 
     switch (moby->state) {
@@ -105,7 +105,7 @@ void update_gemlik_scene_controller(Moby *moby) {
             if (((Flags *)gSpecialItems)->f64 == 0) {
                 ((Flags *)gSpecialItems)->f64 = 1;
                 moby->state = 2;
-                StartCutscene(0);
+                start_scene(0);
             } else {
                 moby->state = 3;
             }
@@ -127,7 +127,7 @@ void update_gemlik_scene_controller(Moby *moby) {
                             e->flags |= 0x41;
                         }
                         moby->state = 5;
-                        StartCutscene(1);
+                        start_scene(1);
                     }
                 } else {
                     moby->state = 7;
@@ -149,7 +149,7 @@ void update_gemlik_scene_controller(Moby *moby) {
             if (data->f8 != -1 && data->f10 != -1) {
                 Moby *e = &gemlik_moby_array_start_r[data->f10];
                 qcopy_nc(&e->pos, gemlik_scene_points[data->f8].f30);
-                Hero_ResetToPosition(gemlik_scene_points[data->f8].f30, gemlik_scene_points[data->f8].f70, 0, 1);
+                set_race_camera(gemlik_scene_points[data->f8].f30, gemlik_scene_points[data->f8].f70, 0, 1);
                 g_hero_field_20a5[0] = 1;
                 ((MobyData *)e->pvars)->f7C = 0.99f;
                 gemlik_fade_level = 0.99f;
@@ -174,15 +174,15 @@ void update_gemlik_scene_controller(Moby *moby) {
                 Moby *e = &gemlik_moby_array_start_r[data->f10];
                 e->flags |= 2;
             }
-            Hero_ResetToPosition(gemlik_scene_points[data->f8].f30, gemlik_scene_points[data->f8].f70, 0x72, 1);
+            set_race_camera(gemlik_scene_points[data->f8].f30, gemlik_scene_points[data->f8].f70, 0x72, 1);
             ((Flags *)gSpecialItems)->f66 = 1;
             if (data->f20 != -1) {
                 Moby *e = &gemlik_moby_array_start_r[data->f20];
                 e->flags |= 0x41;
             }
-            MusicRequestTrack(0, 5);
+            request_music_track(0, 5);
             moby->state = 8;
-            StartCutscene(2);
+            start_scene(2);
             break;
         case 8:
             if (gemlik_game_mode_r != 2) {
@@ -192,7 +192,7 @@ void update_gemlik_scene_controller(Moby *moby) {
             break;
         case 9:
             if (gemlik_game_mode_r != 2) {
-                StartCutscene(3);
+                start_scene(3);
                 moby->state = 10;
             }
             break;
@@ -256,7 +256,7 @@ extern int gemlik_moby_array_start_m __asm__("D_L13_00160058") MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 /* Follows its target moby along a path: snaps to the nearest path point, then walks the path segments. */
-void update_moby_path_follower(char *m) {
+void moby_path_follower_update(char *m) {
     int *d = ((int *)((Moby *)m)->pvars);
     char *path;
     char *pth;
@@ -271,7 +271,7 @@ void update_moby_path_follower(char *m) {
             path = walker_paths[d[1]];
             for (i = 0; i < *(int *)path; i++) {
                 *(float *)(path + (i << 4) + 0x1C) =
-                    FastVecDist(path + (i * 16 + 0x10), path + ((i + 1) % *(int *)path * 16 + 0x10));
+                    fast_vec_dist(path + (i * 16 + 0x10), path + ((i + 1) % *(int *)path * 16 + 0x10));
             }
         }
         d[2] = 0;
@@ -305,7 +305,7 @@ void update_moby_path_follower(char *m) {
             if (d[2] < *(int *)pth - 1) {
                 int k = compute_advanced_moby_path_position(m, pth, m + 0x10, d[2], 1, frame_scale * 0.25f);
                 d[2] = k;
-                ((float *)d)[3] = FastVecDist(m + 0x10, pth + (k * 16 + 0x10));
+                ((float *)d)[3] = fast_vec_dist(m + 0x10, pth + (k * 16 + 0x10));
             } else {
                 m[0x20] = 3;
             }
@@ -321,27 +321,27 @@ typedef struct {
     char pad34[0x14C];
     int target;
 } L13Action;
-extern L13Action gemlik_cutscene_action;
+extern L13Action l13_cutscene_target_effect_controller;
 
 // Initializes the moby and invokes its selected level action.
-void update_cutscene_target_effects(unsigned char *moby) {
+void SparksTriggerL13_Update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             moby[0x30] = 0xFF;
             moby[0x20] = 1;
             break;
         case 1:
-            if (gemlik_game_mode == 2 && gemlik_cutscene_action.state == 2) {
-                cutscene_set_camera_target(gemlik_cutscene_action.target);
+            if (gemlik_game_mode == 2 && l13_cutscene_target_effect_controller.state == 2) {
+                cutscene_set_camera_target(l13_cutscene_target_effect_controller.target);
             }
             break;
     }
 }
-extern int gemlik_moby_array_start MACRO_ADDR;
+extern int moby_base MACRO_ADDR;
 
 /* Records the classes of the tracked mobys, then removes this moby once too few of them are left.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l13/gameplay/vendor/003058a8.c, FUN_L13_0030be60. */
-void remove_moby_when_tracked_count_below_threshold(struct Moby *m) {
+void tracked_group_watcher_update(struct Moby *m) {
     int *d = (int *)m->pvars;
     if (m->state == 0) {
         int *ids = d + 4;
@@ -349,7 +349,7 @@ void remove_moby_when_tracked_count_below_threshold(struct Moby *m) {
         char *base;
         int i;
         m->state = 1;
-        base = (char *)gemlik_moby_array_start;
+        base = (char *)moby_base;
         for (i = 0; i < 8; i++) {
             unsigned char *o = (unsigned char *)(base + (ids[i] << 8));
             if (o != 0 && o[0x20] != 0xFE && o[0x20] != 0xFD)
@@ -362,7 +362,7 @@ void remove_moby_when_tracked_count_below_threshold(struct Moby *m) {
     } else if (m->state == 1) {
         int *ids = d + 4;
         int *cls = d + 12;
-        char *base = (char *)gemlik_moby_array_start;
+        char *base = (char *)moby_base;
         int n = 0;
         int i;
         for (i = 0; i < 8; i++) {
@@ -384,7 +384,7 @@ void remove_moby_when_tracked_count_below_threshold(struct Moby *m) {
 }
 
 /* Spawns a class 0x660 moby at position, scaled and owned by owner. */
-char *spawn_scaled_owned_moby(char *owner, void *position, float scale) {
+char *spawn_hit_proxy(char *owner, void *position, float scale) {
     char *moby = CreateMoby(0x660);
     if (moby != 0) {
         char *data = ((char *)((Moby *)moby)->pvars);
@@ -406,7 +406,7 @@ char *spawn_scaled_owned_moby(char *owner, void *position, float scale) {
 }
 
 /* updates the moby: deletes it when its owner is gone, else copies the owner's effect data and marks it */
-void forward_moby_hits_to_owner(char *moby) {
+void hit_proxy_update(char *moby) {
     struct HitProxyVars *data = (struct HitProxyVars *)((Moby *)moby)->pvars;
     char *owner = data->owner;
     char *p;
@@ -443,7 +443,7 @@ struct SpawnPoisonVesselEffectMobyVars {
     f32 unk_1C;
 };
 
-char *spawn_poison_vessel_effect_moby(void *a, void *b, int c, int d) {
+char *spawn_poison_vessel_fragment(void *a, void *b, int c, int d) {
     unsigned char *m = (unsigned char *)CreateMoby(0x662);
     if (m != 0) {
         char *data;
@@ -452,7 +452,7 @@ char *spawn_poison_vessel_effect_moby(void *a, void *b, int c, int d) {
         ((Moby *)m)->update_dist = 0xFF;
         ((Moby *)m)->draw_dist = 0xFF;
         ((Moby *)m)->visible = 1;
-        ((Moby *)m)->alpha = rand_range(0x40, 0x80);
+        ((Moby *)m)->alpha = random_int_between(0x40, 0x80);
         set_moby_color(m, 0x20, 0x60, 0x10);
         qcopy(m + 0x10, a);
         qcopy(data, b);
@@ -494,10 +494,10 @@ extern float moby_spark_second_batch_discarded_velocity_w_initializer_gp
     SDATA(moby_spark_second_batch_discarded_velocity_w_initializer_gp);
 extern float moby_spark_second_batch_acceleration_w_initializer_gp
     SDATA(moby_spark_second_batch_acceleration_w_initializer_gp);
-extern int gemlik_spark1_start_color SDATA(gemlik_spark1_start_color);
-extern int gemlik_spark1_end_color SDATA(gemlik_spark1_end_color);
-extern int gemlik_spark2_start_color SDATA(gemlik_spark2_start_color);
-extern int gemlik_spark2_end_color SDATA(gemlik_spark2_end_color);
+extern int moby_spark_first_batch_initial_word_gp SDATA(D_L13_00161F98);
+extern int moby_spark_first_batch_second_word_gp SDATA(D_L13_00161F9C);
+extern int moby_spark_second_batch_initial_word_gp SDATA(D_L13_00161FA0);
+extern int moby_spark_second_batch_second_word_gp SDATA(D_L13_00161FA4);
 extern float moby_spark_first_batch_frame_count_base_gp SDATA(moby_spark_first_batch_frame_count_base_gp);
 extern float moby_spark_first_batch_second_frame_count_base_gp SDATA(moby_spark_first_batch_second_frame_count_base_gp);
 extern float moby_spark_first_batch_third_frame_count_base_gp SDATA(moby_spark_first_batch_third_frame_count_base_gp);
@@ -507,7 +507,7 @@ extern float moby_spark_first_batch_vertical_acceleration_base_gp
 
 extern float g_frame_time_sq MACRO_ADDR;
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 typedef struct SparkData {
     f32 dir_x; /* 0x00 */
@@ -522,7 +522,7 @@ typedef struct SparkData {
 } SparkData;
 
 /* Gemlik moby update (class 1634): two particle bursts around the moby, then movement and expiry. */
-void update_moby_motion_and_emit_sparks(char *moby) {
+void poison_vessel_fragment_update(char *moby) {
     SparkData *data = (SparkData *)((struct Moby *)moby)->pvars;
     Vec4 old_pos, position, velocity, acceleration, second_pos;
     float f20, deg;
@@ -565,8 +565,9 @@ void update_moby_motion_and_emit_sparks(char *moby) {
             t = random_float_between(moby_spark_first_batch_third_frame_count_base_gp,
                                      moby_spark_first_batch_third_frame_count_base_gp * 1.20000005f);
             third_spark_frame_count = truncate_float_to_s32(multiply_global_factor(t));
-            PartType02Spawn(&position, &velocity, &acceleration, gemlik_spark1_start_color, gemlik_spark1_end_color,
-                            spark_frame_count, second_spark_frame_count, third_spark_frame_count, -1);
+            PartType02Spawn(&position, &velocity, &acceleration, moby_spark_first_batch_initial_word_gp,
+                            moby_spark_first_batch_second_word_gp, spark_frame_count, second_spark_frame_count,
+                            third_spark_frame_count, -1);
         }
         velocity.f[3] = moby_spark_second_batch_discarded_velocity_w_initializer_gp;
         acceleration.f[3] = moby_spark_second_batch_acceleration_w_initializer_gp;
@@ -604,8 +605,9 @@ void update_moby_motion_and_emit_sparks(char *moby) {
             r = random_float_between(moby_spark_second_batch_third_frame_count_base_gp,
                                      moby_spark_second_batch_third_frame_count_base_gp * 1.20000005f);
             third_spark_frame_count = truncate_float_to_s32(multiply_global_factor(r));
-            PartType02Spawn(&second_pos, &velocity, &acceleration, gemlik_spark2_start_color, gemlik_spark2_end_color,
-                            spark_frame_count, second_spark_frame_count, third_spark_frame_count, -1);
+            PartType02Spawn(&second_pos, &velocity, &acceleration, moby_spark_second_batch_initial_word_gp,
+                            moby_spark_second_batch_second_word_gp, spark_frame_count, second_spark_frame_count,
+                            third_spark_frame_count, -1);
         }
     }
 
@@ -639,10 +641,10 @@ extern void spawn_explosion_v(void *, void *, void *, float, float, int, int, in
 extern int g_current_level_index MACRO_ADDR;
 
 extern int level_moby_killed[][64] NOT_SDA;
-extern int gemlik_moby_killed_bits[];
+extern int blarg_ship_destroyed_save_id_bits[];
 extern float gemlik_zero_vec[] MACRO_ADDR;
 
-/* UpdateMoby_1805: deletes itself if its bit is set in level_moby_killed. State 0 moves to state 1; state 1 takes a
+/* UpdateMoby_1805: deletes itself if its bit is set in D_0014C290. State 0 moves to state 1; state 1 takes a
    hit's value
  * (at +0x2C) off the float at data + 0x20 and moves to state 2 when it falls short; state 2 sets the bit and spawns
  * SpawnBreakFragment effects for types 0x709 to 0x70C, twice. */
@@ -690,8 +692,8 @@ void blarg_ship_1805_update(void *moby) {
                     unsigned char *t = (unsigned char *)gSkillPoints;
                     if (t[0x16] == 0) {
                         t[0x16] = r;
-                        PlayBankSound(1, 0, 0);
-                        ShowBanner(0x53DB, -1);
+                        allocate_voice_for_bank_entry(1, 0, 0);
+                        queue_dialogue_message(0x53DB, -1);
                     }
                 }
             }
@@ -699,7 +701,7 @@ void blarg_ship_1805_update(void *moby) {
             spawn_proximity_gated_bolts(moby);
             level_moby_killed[g_current_level_index][(short)((Moby *)m)->save_id >> 5] |=
                 1 << (((Moby *)m)->save_id & 0x1F);
-            gemlik_moby_killed_bits[(short)((Moby *)m)->save_id >> 5] |= 1 << (((Moby *)m)->save_id & 0x1F);
+            blarg_ship_destroyed_save_id_bits[(short)((Moby *)m)->save_id >> 5] |= 1 << (((Moby *)m)->save_id & 0x1F);
             for (n = 0; n < 2; n++) {
                 for (k = 0x709; k < 0x70D; k++) {
                     qzero(tmp);

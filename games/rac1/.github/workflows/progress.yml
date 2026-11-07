@@ -57,7 +57,18 @@ jobs:
           else
             rm -f build/progress/fuzzy_scores.json
           fi
-          python3 scripts/gen_progress_report.py
+          python3 scripts/progress-report.py
+          # its report holds negative function addresses since 6513252c, which objdiff rejects
+          python3 - <<'PY'
+          import json
+          path = "build/progress/report.json"
+          report = json.load(open(path))
+          for unit in report["units"]:
+              for function in unit.get("functions", []):
+                  if function.get("address", "0").startswith("-"):
+                      function["address"] = "0"
+          json.dump(report, open(path, "w"), indent=2)
+          PY
 
       - name: Validate the reports with objdiff
         run: |

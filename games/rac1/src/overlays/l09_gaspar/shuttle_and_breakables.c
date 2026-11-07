@@ -65,7 +65,7 @@ int advance_shuttle_along_path(struct Moby *moby) {
     Vec4 puff;
     int done = 0;
 
-    path = (PathNodes *)gaspar_paths[vars->path];
+    path = (PathNodes *)l09_paths[vars->path];
     vars->lag += (0.0f - vars->lag) * 0.005f;
     qcopy(&target, &path->node[vars->node]);
     target.f[2] += vars->speed * (gaspar_shuttle_climb_scale);
@@ -81,23 +81,23 @@ int advance_shuttle_along_path(struct Moby *moby) {
     interpolate_rotation_angle(&moby->rot.y, moby->rot.y, 0.0f, 0.02f);
     if (vars->dir > 0) {
         f32 v;
-        if (FastVecDist(&target, &moby->pos) < vars->speed + vars->speed) {
+        if (fast_vec_dist(&target, &moby->pos) < vars->speed + vars->speed) {
             vars->node++;
             if (vars->node == path->count)
                 done = 1;
         }
-        d = FastVecDist(&moby->pos, &path->node[path->count - 1]);
+        d = fast_vec_dist(&moby->pos, &path->node[path->count - 1]);
         v = 0.0f;
         ApproachWithVelocity_v(d, g_frame_time_sq * 3.0f, g_frame_time_sq * 3.0f, g_frame_time * 10.0f, &v,
                                &vars->speed);
     } else {
         f32 v;
-        if (FastVecDist(&target, &moby->pos) < vars->speed + vars->speed) {
+        if (fast_vec_dist(&target, &moby->pos) < vars->speed + vars->speed) {
             vars->node--;
             if (vars->node == -1)
                 done = 1;
         }
-        d = FastVecDist(&moby->pos, &path->node[0]);
+        d = fast_vec_dist(&moby->pos, &path->node[0]);
         v = 0.0f;
         ApproachWithVelocity_v(d, g_frame_time_sq * 3.0f, g_frame_time_sq * 3.0f, g_frame_time * 10.0f, &v,
                                &vars->speed);
@@ -105,7 +105,7 @@ int advance_shuttle_along_path(struct Moby *moby) {
     if (path->node[vars->node].f[3] == 42.0f)
         vars->yaw_offset = 0.0f;
     vars->spin = FastAddRots(vars->spin, vars->speed);
-    axis_rotation_2d48(vars->unk70, 0, vars->spin);
+    build_axis_rotation_quaternion(vars->unk70, 0, vars->spin);
     if (vec_distance_xy(&moby->pos, &path->node[path->count - 1]) > 8.0f &&
         vec_distance_xy(&moby->pos, &path->node[0]) > 8.0f && !random_integer_below(7)) {
         qcopy(&puff, &moby->pos);

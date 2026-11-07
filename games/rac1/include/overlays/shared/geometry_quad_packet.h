@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void draw_geometry_quad_5188(void *, void *, void *, int, int);
+extern void func_L02_0020BF88(void *, void *, void *, int, int);
 
 #endif /* OVERLAYS_SHARED_GEOMETRY_QUAD_PACKET_H */

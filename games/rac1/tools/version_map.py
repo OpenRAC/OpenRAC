@@ -34,6 +34,7 @@ Names, sizes, hashes and addresses only: no bytes.
 """
 import argparse
 import collections
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -97,7 +98,7 @@ def pair(v):
             by_name.setdefault(name, ov.fingerprint(b))
         for i, (addr, size, b) in enumerate(mine):
             name, method, sim = result.get(i, (None, None, None))
-            rows.append((program, addr, size, ov.fingerprint(b), name, method, sim))
+            rows.append((program, addr, size, ov.fingerprint(b), name, method, sim, bytes(b)))
         print(f"  {v.key} {program}: {len(mine)} functions, {len(result)} paired", flush=True)
     return rows
 
@@ -172,6 +173,34 @@ def catalogue(v, rows):
         e["name"] = c if c is not None and claim[c][1] == id(e) else own
         if e["name"] != c:
             e["counterpart_of_name"] = c
+    out = merged(v, out)
+    # Left without a name, but the same code at the primary's own address: that function, not a
+    # look-alike (a 4-byte dead-strip remnant's fingerprint is not unique).
+    taken = {e["name"] for e in out}
+    at_addr = {addr: name for addr, _, name, _ in primary_functions()[0]}
+    for e in out:
+        c = at_addr.get(e["key"][1]) if e["kind"] == "exe" and e["name"] == own_name(v, e) else None
+        if c is not None and c not in taken and pfp.get(c) == e["fp"]:
+            e.update(name=c, counterpart=c, method="address", sim=1.0, same=True)
+            e.pop("counterpart_of_name", None)
+            taken.add(c)
+    # Or the same bytes, offsets included, as a primary function nothing has claimed: fingerprints
+    # mask the offsets, so two handwritten one-liners on different globals collide.
+    free = {}
+    for addr, size, name, b in primary_functions()[0]:
+        if name not in taken:
+            free.setdefault(bytes(b), name)
+    v_bytes = {}
+    for r in rows:
+        if r[0] == "boot":
+            v_bytes[r[1]] = r[7]
+    for e in out:
+        if e["kind"] == "exe" and e["name"] == own_name(v, e) and e["counterpart"] is not None:
+            c = free.get(bytes(v_bytes.get(e["key"][1], b"")))
+            if c is not None and c not in taken:
+                e.update(name=c, counterpart=c, method="bytes", sim=1.0, same=True)
+                e.pop("counterpart_of_name", None)
+                taken.add(c)
     return out
 
 
@@ -194,6 +223,27 @@ def primary_catalogue():
             continue
         out.append({"name": name, "kind": kind, "size": int(size), "fp": fp, "places": pl,
                     "counterpart": name, "method": "fingerprint", "sim": 1.0, "same": True})
+    return out
+
+
+def merged(v, out):
+    """config/versions/<K>/merge.tsv: one function the split cut in pieces (it stops at the first
+    `jr`, though a branch runs past it). name, then the pieces in address order, as named here."""
+    path = v.config / "merge.tsv"
+    if not path.exists():
+        return out
+    by_name = {e["name"]: e for e in out}
+    for line in path.read_text().splitlines():
+        if not line or line.startswith("#"):
+            continue
+        name, pieces = line.split("\t")
+        head, *tails = [by_name[p] for p in pieces.split()]
+        fp = hashlib.sha1("".join(e["fp"] for e in [head, *tails]).encode()).hexdigest()[:16]
+        head.update(name=name, counterpart=name, method="merged", sim=0.0, same=False, fp=fp,
+                    size=head["size"] + sum(e["size"] for e in tails))
+        head.pop("counterpart_of_name", None)
+        dropped = {id(e) for e in tails}
+        out = [e for e in out if id(e) not in dropped]
     return out
 
 

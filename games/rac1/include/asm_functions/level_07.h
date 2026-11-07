@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void homing_mine_update(void *);
+extern void func_L07_0031A410(void *);
 extern void process_snagglebeast_damage(void *, void *, void *);
 extern void start_sharkigator_death_knockback(void *, void *, void *);
 extern void start_sharkigator_hit_knockback(void *, void *, void *);

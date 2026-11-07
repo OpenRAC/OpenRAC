@@ -36,9 +36,10 @@ __asm__(".include \"include/labels.inc\"\n");
 
 #endif /* !defined(M2CTX) && !defined(PERMUTER) && !defined(SKIP_ASM) */
 
-/* Original assembly and linker leftovers are included verbatim. Their
+/* Original assembly, linker leftovers and code from Sony's prebuilt libraries are included verbatim. Their
    distinct names let the progress report count them separately from C. */
 #define ASM_FUNC(FOLDER, NAME) INCLUDE_ASM(FOLDER, NAME)
 #define LINKER_REMNANT(FOLDER, NAME) INCLUDE_ASM(FOLDER, NAME)
+#define PREBUILT_ASM(FOLDER, NAME) INCLUDE_ASM(FOLDER, NAME)
 
 #endif /* INCLUDE_ASM_H */

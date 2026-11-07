@@ -33,8 +33,8 @@ u32 level_start_cleared_state[96] DATA_SECTION(D_001AADC0) = {0};
 
 u32 moby_grids[8552] DATA_SECTION(D_001B7A60) = {0};
 
-u32 moby_slot_bitmap[24] DATA_SECTION(D_001C7A60) = {0};
+u32 D_001C7A60[24] DATA_SECTION(D_001C7A60) = {0};
 
-u32 str_too_many_dir_lights[] DATA_SECTION(D_001E79D8) = {
+u32 D_001E79D8[] DATA_SECTION(D_001E79D8) = {
 #include "data_inc/D_001E79D8.inc"
 };

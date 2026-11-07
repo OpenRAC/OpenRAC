@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void DebugEnter_Nop(void);
+extern void func_00209040(void);
 extern void FormatMenuItemText(int, void *);
 extern int Menu_RunStateHandler(void);
 extern void copy_level_object_positions(void);
