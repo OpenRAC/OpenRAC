@@ -249,6 +249,9 @@ id<MTLBlitCommandEncoder> blit();
 // A copy encoder for writing `texture`: the upload command buffer's while nothing this frame has
 // used it, so its render passes stay whole, else blit()'s.
 id<MTLBlitCommandEncoder> blit_for(Texture& texture);
+// Clears every level of the new renderable `texture` as Apple's OpenGL starts a new image, ahead of
+// any upload to it.
+void zero(id<MTLTexture> texture);
 // Commits the frame's commands, waiting for the GPU when `wait`.
 void submit(bool wait);
 

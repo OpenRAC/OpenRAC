@@ -465,6 +465,9 @@ void MTLGL tex_image_2d(GLenum target, GLint level, GLint internal, GLsizei w, G
             || old.pixelFormat != f.pixel) {
             t->texture = make_texture(f, w, h, 1, 1);
             t->used = 0;
+            if (pixels == nullptr) {
+                zero(t->texture);
+            }
         }
         t->internal = static_cast<GLenum>(internal);
     } else {
@@ -788,6 +791,7 @@ void MTLGL renderbuffer_storage_multisample(GLenum, GLsizei samples, GLenum form
         }
     }
     r->texture = make_texture(f, w, h, 1, count);
+    zero(r->texture);
 }
 
 void MTLGL renderbuffer_storage(GLenum target, GLenum format, GLsizei w, GLsizei h) {

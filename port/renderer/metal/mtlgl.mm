@@ -48,18 +48,71 @@ id<MTLBlitCommandEncoder> blit() {
     return g->blit;
 }
 
-id<MTLBlitCommandEncoder> blit_for(Texture& texture) {
-    if (texture.used == g->serial) {
-        return blit();
-    }
+id<MTLCommandBuffer> uploads() {
     if (g->uploads == nil) {
         g->uploads = [g->queue commandBuffer];
         // Its place on the queue is taken now, before the frame's command buffer, which takes
         // its own at commit.
         [g->uploads enqueue];
-        g->upload_blit = [g->uploads blitCommandEncoder];
+    }
+    return g->uploads;
+}
+
+id<MTLBlitCommandEncoder> blit_for(Texture& texture) {
+    if (texture.used == g->serial) {
+        return blit();
+    }
+    if (g->upload_blit == nil) {
+        g->upload_blit = [uploads() blitCommandEncoder];
     }
     return g->upload_blit;
+}
+
+void zero(id<MTLTexture> texture) {
+    [g->upload_blit endEncoding];
+    g->upload_blit = nil;
+    const MTLPixelFormat f = texture.pixelFormat;
+    const bool depth = f == MTLPixelFormatDepth32Float || f == MTLPixelFormatDepth32Float_Stencil8;
+    for (NSUInteger level = 0; level < texture.mipmapLevelCount; ++level) {
+        MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
+        MTLRenderPassAttachmentDescriptor* a = depth ? d.depthAttachment : d.colorAttachments[0];
+        a.texture = texture;
+        a.level = level;
+        a.loadAction = MTLLoadActionClear;
+        a.storeAction = MTLStoreActionStore;
+        d.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0);
+        if (f == MTLPixelFormatDepth32Float_Stencil8) {
+            d.stencilAttachment.texture = texture;
+            d.stencilAttachment.level = level;
+            d.stencilAttachment.loadAction = MTLLoadActionClear;
+            d.stencilAttachment.storeAction = MTLStoreActionStore;
+        }
+        [[uploads() renderCommandEncoderWithDescriptor:d] endEncoding];
+        // Apple's OpenGL starts depth at all ones, a NaN that passes only LESS, LEQUAL and
+        // NOTEQUAL. A render pass may not clear to it, a fragment's NaN is written as 0 and its
+        // infinity as 1, and a depth image has no colour view, so it is copied in, which a
+        // multisampled image does not take: that keeps the clear's 1.
+        if (depth && texture.sampleCount == 1) {
+            const NSUInteger w = std::max<NSUInteger>(texture.width >> level, 1);
+            const NSUInteger h = std::max<NSUInteger>(texture.height >> level, 1);
+            id<MTLBuffer> ones = [g->device newBufferWithLength:w * h * 4 options:MTLResourceStorageModeShared];
+            std::memset(ones.contents, 0xFF, w * h * 4);
+            id<MTLBlitCommandEncoder> copy = [uploads() blitCommandEncoder];
+            [copy copyFromBuffer:ones
+                       sourceOffset:0
+                  sourceBytesPerRow:w * 4
+                sourceBytesPerImage:w * h * 4
+                         sourceSize:MTLSizeMake(w, h, 1)
+                          toTexture:texture
+                   destinationSlice:0
+                   destinationLevel:level
+                  destinationOrigin:MTLOriginMake(0, 0, 0)
+                            options:f == MTLPixelFormatDepth32Float_Stencil8
+                                        ? MTLBlitOptionDepthFromDepthStencil
+                                        : MTLBlitOptionNone];
+            [copy endEncoding];
+        }
+    }
 }
 
 void submit(bool wait) {

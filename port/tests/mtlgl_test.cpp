@@ -304,6 +304,24 @@ void main() {
     return pixels();
 }
 
+// Quadrants drawn at the far plane with LESS, GREATER, EQUAL and NOTEQUAL against the bound
+// framebuffer's depth.
+std::vector<std::uint8_t> depth_tested() {
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    program_of(kColourFragment);
+    const GLenum tests[4] = {GL_LESS, GL_GREATER, GL_EQUAL, GL_NOTEQUAL};
+    for (int i = 0; i < 4; ++i) {
+        const float x = static_cast<float>(i % 2) - 1, y = static_cast<float>(i / 2) - 1;
+        glDepthFunc(tests[i]);
+        draw({x, y, 1, 1, 0, 0, 1, x + 1, y, 1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1,
+              x, y, 1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1, x, y + 1, 1, 1, 0, 0, 1});
+    }
+    glDepthMask(GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    return pixels();
+}
+
 const Case kCases[] = {
     {"gradient",
      [] {
@@ -404,6 +422,56 @@ void main() {
          glBindVertexArray(array);
          glDrawArrays(GL_POINTS, 0, kSide * kSide);
          glDeleteVertexArrays(1, &array);
+         return pixels();
+     }},
+    // New images, given no texels, read before anything is drawn.
+    {"new byte texture",
+     [] {
+         framebuffer(texture(GL_RGBA8, kSide), kSide);
+         return pixels();
+     }},
+    {"new half float texture",
+     [] {
+         framebuffer(texture(GL_RGBA16F, kSide), kSide);
+         std::vector<std::uint8_t> out(kSide * kSide * 4 * sizeof(float) + 1);
+         glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_FLOAT, out.data());
+         out.back() = static_cast<std::uint8_t>(glGetError() & 0xFF);
+         return out;
+     }},
+    {"new multisampled image resolved",
+     [] {
+         const GLuint frame = multisampled(kSide);
+         const GLuint into = framebuffer(texture(GL_RGBA8, kSide), kSide);
+         glBindFramebuffer(GL_READ_FRAMEBUFFER, frame);
+         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+         glBindFramebuffer(GL_FRAMEBUFFER, into);
+         return pixels();
+     }},
+    {"new depth image tested",
+     [] {
+         target(GL_DEPTH_COMPONENT32F);
+         return depth_tested();
+     }},
+    {"new depth texture",
+     [] {
+         GLuint depth = 0;
+         glGenTextures(1, &depth);
+         glBindTexture(GL_TEXTURE_2D, depth);
+         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, kSide, kSide, 0, GL_DEPTH_COMPONENT,
+                      GL_FLOAT, nullptr);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+         target();
+         program_of(R"(#version 410 core
+uniform sampler2D image;
+layout(location = 0) out vec4 result;
+void main() {
+    uint v = floatBitsToUint(texelFetch(image, ivec2(gl_FragCoord.xy), 0).r);
+    result = vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
+}
+)");
+         glBindTexture(GL_TEXTURE_2D, depth);
+         quad(0, 0, 0, 0);
          return pixels();
      }},
     {"depth", [] { return depths(false); }},
