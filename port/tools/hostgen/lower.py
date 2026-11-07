@@ -71,6 +71,8 @@ HOSTGEN_ASM = "openrac_hostgen_asm"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
+ARG_SLOTS = 8  # the EE's integer argument registers, $a0-$t3
+
 HOST_MATH = {
     "fabsf", "fabs", "sqrtf", "sqrt", "sinf", "sin", "cosf", "cos", "tanf", "tan", "asinf", "asin",
     "acosf", "acos", "atanf", "atan", "atan2f", "atan2", "floorf", "floor", "ceilf", "ceil", "powf",
@@ -144,6 +146,7 @@ class _Fn:
     # sit in, as the console's compiler inlined it there.
     home: str | None = None
     static: bool = False                             # a static definition (Unit._ps2)
+    arg_area: str | None = None                      # the frame field holding the EE's argument save area
 
     @property
     def code(self) -> str:
@@ -771,6 +774,17 @@ class Unit:
             for p, n in zip(params, names):
                 if p["id"] in fn.memory:
                     prologue.append(f"    {self._mem_text(p['id'])} = {n};")
+            if fn.arg_area is not None:
+                # The EE's argument save area (_next_arg): the doublewords its callers pass (_area_args).
+                if not names:
+                    raise Unsupported("__builtin_next_arg with no named parameter")
+                slots = self._area_slots(fn.sig)
+                area = f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fn.arg_area}))"
+                prologue.append(
+                    f"    {{ __builtin_va_list ap_; __builtin_va_start(ap_, {names[-1]}); "
+                    f"for (int k_ = 0; k_ < {slots}; k_++) "
+                    f"GREF(uint64_t, {area} + (gaddr)(8 * k_)) = __builtin_va_arg(ap_, uint64_t); "
+                    f"__builtin_va_end(ap_); }}")
         for vid, var in fn.statics.items():
             d = self.decls[vid]
             loc = d.get("loc", {})
@@ -2799,6 +2813,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == "__builtin_next_arg":
+            return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
         if sym in ("memcpy", "memmove", "memset") and (f is None or (f.unit is None and sym not in self.program.host)):
             # The C library's, which the game declares by name without defining it (its own copies
@@ -2953,8 +2969,58 @@ class Unit:
                     out.append(self._cast_to("0", p))
         if sig.variadic:
             extra = {id(a) for a in ints[ni:] + floats[nf:]}
-            out += [self.rv(a) for a in args if id(a) in extra]
+            rest = [a for a in args if id(a) in extra]
+            f = self.program.lookup(self.unit, sym)
+            if (f is not None and getattr(f, "arg_area", False) and f.unit is not None and sym not in self.program.host
+                    and sym not in self.program.wrap):
+                out += self._area_args(sym, rest, ARG_SLOTS - ni)
+            else:
+                out += [self.rv(a) for a in rest]
         return out
+
+    def _area_args(self, sym: str, args: list, slots: int) -> list[str]:
+        """The variable arguments of a call to a function that reaches them as the EE's argument save area
+        (program.py uses_arg_area): each the doubleword its register held, a 32-bit value sign-extended as
+        the EE keeps one, and zeros for the registers the call does not set, so the callee's va_arg reads
+        exactly SLOTS doublewords (_arg_area), as the assembly's calls and the dispatcher pass them."""
+        if len(args) > slots:
+            raise Unsupported(f"call to {sym} with variable arguments on the stack, past the argument registers")
+        out = []
+        for a in args:
+            t = self.ty(a)
+            c = self.cls(t)
+            if c in ("float", "double"):
+                raise Unsupported(f"call to {sym} with a floating-point variable argument")
+            if c not in ("int", "ptr"):
+                raise Unsupported(f"call to {sym} with a variable argument of type {t}")
+            v = self.rv(a)
+            out.append(f"(uint64_t)({v})" if self._wide(t) else f"(uint64_t)(int64_t)(int32_t)({v})")
+        return out + ["(uint64_t)0"] * (slots - len(args))
+
+    def _next_arg(self, result_t: ctype.Type) -> str:
+        """__builtin_next_arg(last) in a variadic definition: on the EE the address past the last named
+        argument's slot in the save area GCC spills the argument registers to, where the stack arguments
+        begin. The C steps back from it to the first unnamed register's doubleword and passes the area on
+        (`(char *)__builtin_next_arg(id) - 0x38`). Here the area is a frame field of the doublewords the
+        host's variable arguments carry (one per register past the named ones; _area_args), filled on
+        entry, and the builtin is its end."""
+        fn = self.fn
+        if fn is None or not fn.sig.variadic:
+            raise Unsupported("__builtin_next_arg outside a variadic function")
+        slots = self._area_slots(fn.sig)
+        if slots <= 0:
+            raise Unsupported("__builtin_next_arg with every argument register named")
+        if fn.arg_area is None:
+            fn.arg_area = f"openrac_arg_area_{len(fn.frame)}"
+            fn.frame.append((fn.arg_area, ctype.Arr(ctype.Base("unsigned long long"), slots)))
+        end = (f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fn.arg_area}) + "
+               f"(gaddr){slots * 8})")
+        return self._cast_to(end, result_t) if self.cls(result_t) != "ptr" else f"(gaddr){end}"
+
+    def _area_slots(self, sig) -> int:
+        """How many argument registers ($a0-$t3) a variadic function's named parameters leave: the
+        doublewords of its save area. A float parameter goes in a float register."""
+        return ARG_SLOTS - sum(1 for p in sig.params if self.sig_cls(p) != "float")
 
     def _as_param(self, a: dict, p: ctype.Type) -> str:
         c = self.cls(p)
