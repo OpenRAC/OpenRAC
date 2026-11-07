@@ -23,6 +23,14 @@ struct ProbeActivation {
     Float3 environment{0.1f, 0.1f, 0.1f};
 };
 
+struct ProbeLookRegion {
+    Float3 minimum{}, maximum{};
+    float feather = 0;
+    float diffuse_gain = 1;
+};
+
+inline constexpr unsigned kProbeLookRegions = 12;
+
 // Selects floor-based gameplay analysis or one complete scene allocation.
 enum class BakeStrategy {
     Gameplay,  // Floor-seeded local GI and reflection captures.
@@ -34,6 +42,8 @@ struct LevelBakeProfile {
     BakeStrategy strategy = BakeStrategy::Gameplay;  // Gameplay analysis is the normal level path.
     EnvironmentBakeSettings environment;
     ProbeActivation activation;
+    std::vector<ProbeLookRegion> look_regions;
+    std::vector<BakeAreaEmitter> area_lights;
     Float3 sparse_spacing{256, 256, 256};
     Float3 dense_spacing{4, 4, 4};
     unsigned map_resolution = 6;

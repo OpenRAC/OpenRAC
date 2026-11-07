@@ -17,6 +17,7 @@ void DebugCamera::apply(renderer::FrameInput& input, const CameraDebugFrame& fra
     }
     const auto& settings = frame.settings;
     const bool inspection = settings.enabled && settings.mode == CameraDebugMode::CullingInspection;
+    input.keep_pvs_history = !settings.enabled || inspection;
     input.culling_camera.reset();
     // Preserve the live gameplay or cutscene camera before replacing the displayed view.
     if (inspection) {
@@ -28,6 +29,14 @@ void DebugCamera::apply(renderer::FrameInput& input, const CameraDebugFrame& fra
             const auto& view = input.camera.view;
             m_fly.yaw = std::atan2(-view[6], -view[2]);
             m_fly.pitch = std::asin(std::clamp(-view[10], -1.0f, 1.0f));
+        }
+        if (frame.placement && frame.placement->level == level
+            && frame.placement->serial != m_placement_serial) {
+            const auto& pose = *frame.placement;
+            m_fly.position = pose.position;
+            m_fly.yaw = std::atan2(pose.forward[1], pose.forward[0]);
+            m_fly.pitch = std::atan2(pose.forward[2], std::hypot(pose.forward[0], pose.forward[1]));
+            m_placement_serial = pose.serial;
         }
         m_fly.speed = settings.speed;
         // A suspended window must not jump the free camera on resuming.

@@ -22,6 +22,102 @@
           "bake_intensity": 6
         }
       }
+    },
+    {
+      "id": "green-fixture-lens",
+      "match": {"model": "moby_1664.glb", "material_slot": 1, "texture_path": "textures/moby_0219.png"},
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 50,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "green-fixture-rim",
+      "match": {"model": "moby_1664.glb", "material_slot": 0, "texture_path": "textures/moby_0218.png"},
+      "set": {
+        "emission": {
+          "runtime_intensity": 1,
+          "bake_intensity": 50,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "computer-screen-wide",
+      "match": {"model": "shrub_251.glb", "material_slot": 0},
+      "set": {
+        "emission": {
+          "runtime_intensity": 2.76,
+          "bake_intensity": 0.22,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "computer-screen-small",
+      "match": {"model": "shrub_249.glb", "material_slot": 0},
+      "set": {
+        "emission": {
+          "runtime_intensity": 2.76,
+          "bake_intensity": 0.22,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "orange-lamp-lower",
+      "match": {"model": "shrub_275.glb", "material_slot": 2},
+      "set": {
+        "surface": {"diffuse_scale": 0.25},
+        "emission": {
+          "runtime_intensity": 2.25,
+          "bake_intensity": 0.3,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "orange-lamp-upper",
+      "match": {"model": "shrub_275.glb", "material_slot": 9},
+      "set": {
+        "surface": {"diffuse_scale": 0.25},
+        "emission": {
+          "runtime_intensity": 2.25,
+          "bake_intensity": 0.3,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "alien-growth-body",
+      "match": {"model": "shrub_304.glb", "material_slot": 0},
+      "set": {
+        "emission": {
+          "runtime_intensity": 2.46,
+          "bake_intensity": 0.17,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
+    },
+    {
+      "id": "alien-growth-edge",
+      "match": {"model": "shrub_304.glb", "material_slot": 1},
+      "set": {
+        "emission": {
+          "runtime_intensity": 2.46,
+          "bake_intensity": 0.17,
+          "vertex_colour": true,
+          "use_base_texture": true
+        }
+      }
     }
   ]
 }

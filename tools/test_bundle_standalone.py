@@ -285,6 +285,10 @@ class Bundle(unittest.TestCase):
                         "port/enhanced/lighting/profiles/rac1-ntsc/material-overrides.json",
                         "port/enhanced/lighting/profiles/rac1-ntsc/level_01/probe-bake.json"):
                 self.assertTrue((out / rel).is_file(), rel)
+            aridia = Path(bundle.PROBE_PROFILES) / "rac1-ntsc/level_02"
+            for name in ("emission-textures.json", "emission-masks/red-ring-mask.png"):
+                rel = aridia / name
+                self.assertEqual((out / rel).read_bytes(), (bundle.ROOT / rel).read_bytes())
             self.assertFalse(list(out.rglob("test_*.py")))
             for name in ('bake_all.py', 'bake_level.py', 'seed_regions.py', 'native_coordinator.py'):
                 self.assertFalse((out / "port/enhanced/tools/baker" / name).exists())

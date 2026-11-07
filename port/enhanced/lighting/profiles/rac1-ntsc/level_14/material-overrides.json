@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "oltanis-alley-lamp-lens",
+      "match": {
+        "model": "shrub_543.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0034.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/alley-lamp-emission.png",
+          "runtime_intensity": 1.2,
+          "bake_intensity": 30
+        }
+      }
+    },
+    {
+      "id": "oltanis-blue-rings",
+      "match": {
+        "layer": "tie",
+        "texture_path": "textures/tie_0113.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 0.72,
+          "bake_intensity": 0.35
+        }
+      }
+    }
+  ]
+}

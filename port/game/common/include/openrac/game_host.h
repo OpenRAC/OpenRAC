@@ -626,6 +626,8 @@ typedef struct openrac_game_play {
     /* Clears the flags of a level's mission state that `flags` names: 1 done, 0 not. NULL for a game
      * without it. */
     int (*mission_state_clear)(int level, const uint8_t* flags);
+    /* Whether the destination is playing its landing scene. NULL when unsupported. */
+    int (*landing)(int level);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)

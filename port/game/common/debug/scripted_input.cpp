@@ -14,6 +14,9 @@
 
 namespace openrac::frontend::debug_overlay {
 namespace {
+// SDL reserves the preceding IDs for mouse events synthesized from touch and pen.
+constexpr SDL_MouseID kScriptMouse = SDL_PEN_MOUSEID - 1;
+
 // Individual modifier bits preserve the other key if left and right variants are both held.
 SDL_Keymod modifier(SDL_Keycode key) {
     switch (key) {
@@ -56,6 +59,7 @@ void push_pointer(const ScriptedInput& input, SDL_WindowID window) {
     if (input.action == ScriptedAction::Wheel) {
         event.type = SDL_EVENT_MOUSE_WHEEL;
         event.wheel.windowID = window;
+        event.wheel.which = kScriptMouse;
         event.wheel.y = input.x;
         SDL_PushEvent(&event);
         return;
@@ -64,6 +68,7 @@ void push_pointer(const ScriptedInput& input, SDL_WindowID window) {
     s.script_pointer = ImVec2{input.x, input.y};
     event.type = SDL_EVENT_MOUSE_MOTION;
     event.motion.windowID = window;
+    event.motion.which = kScriptMouse;
     event.motion.x = input.x;
     event.motion.y = input.y;
     SDL_PushEvent(&event);
@@ -74,6 +79,7 @@ void push_pointer(const ScriptedInput& input, SDL_WindowID window) {
 
     event = {};
     event.button.windowID = window;
+    event.button.which = kScriptMouse;
     event.button.button = input.button;
     event.button.clicks = 1;
     event.button.x = input.x;
@@ -316,7 +322,37 @@ void run_script(std::uint64_t frame, int held) {
     }
 }
 
-// Override backend host-cursor polling only while explicit diagnostic input owns the pointer.
+void release_scripted_pointer(const SDL_Event& event) {
+    if (!s.script_pointer) {
+        return;
+    }
+    switch (event.type) {
+        case SDL_EVENT_MOUSE_MOTION:
+            if (event.motion.which != kScriptMouse) {
+                s.script_pointer.reset();
+            }
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (event.button.which != kScriptMouse) {
+                s.script_pointer.reset();
+                // The SDL backend queues button state without updating its position.
+                if (ImGui::GetCurrentContext()) {
+                    ImGui::GetIO().AddMousePosEvent(event.button.x, event.button.y);
+                }
+            }
+            break;
+        case SDL_EVENT_MOUSE_WHEEL:
+            if (event.wheel.which != kScriptMouse) {
+                s.script_pointer.reset();
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+// Keep the app-local position between scripted events until the user takes the mouse.
 void refresh_scripted_pointer() {
     if (s.script_pointer) {
         ImGui::GetIO().AddMousePosEvent(s.script_pointer->x, s.script_pointer->y);

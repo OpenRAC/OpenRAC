@@ -116,6 +116,7 @@ enum class Var : std::uint16_t {
     Keys,
     LauncherVersion,
     Log,
+    MeatProxyReview,
     Menu,
     MobyLog,
     MobySphereCullOff,

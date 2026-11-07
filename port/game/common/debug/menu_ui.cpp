@@ -696,7 +696,7 @@ void menu_closed() {
     s.drawer_controller_at = 0.0f;
     if (s.shot_when_shut) {
         s.shot_when_shut = false;
-        s.shot_path = shot_name(s.tick);
+        s.shot_tick = s.tick;
     }
 }
 

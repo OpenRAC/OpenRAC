@@ -14,6 +14,19 @@ and replaces stale data only after a successful bake. `--dry-run` lists validate
 override transport or encoding. Source inputs are retained by level export. Missing inputs or a
 required water profile need a fresh export.
 
+For emissive review, look up a saved task against the level exports:
+
+```sh
+openrac-enhanced-baker --inspect-emissive-task EXPORTS REVIEW.json TASK_ID > picks.json
+python label_emissive_capture.py picks.json capture.png labelled.svg
+```
+
+The report samples 81 rays through the saved NTSC camera and orders the material hits by
+distance from the screen centre. It includes stable model and slot selectors, texture hashes,
+and matching bindings in the current level. The labelled capture uses the same camera and
+the uncropped game picture. The lookup uses exported geometry, including initial moby
+placements, so confirm animated or scripted surfaces in the rendered capture.
+
 ## Source layout
 
 | Location | Responsibility |
@@ -57,6 +70,8 @@ collision queries extend interior ceilings without including outdoor overhangs. 
 requires a supported floor connection. Coverage is merged, partitioned and fitted to playable
 footprints before whole-grid alignment and individual-probe relocation. Partitioning preserves
 coverage and blend borders; higher density can require more regions.
+An authored region can set `"fit_to_floor": false` to retain coverage in a shaft or other
+space without a walkable floor.
 
 The default transport uses 256 primary rays and 256 independent emitter samples per probe.
 Finite emitters use multiple importance sampling with primary and bounce rays. Authored normals
