@@ -13,9 +13,12 @@
 #include <format>
 #include <string_view>
 
+#include "common/log.h"
 #include "renderer/metal/mtlgl_internal.h"
 
 namespace openrac::mtlgl::detail {
+
+using namespace openrac::gl;
 
 namespace {
 
@@ -777,7 +780,7 @@ id<MTLRenderPipelineState> pipeline_of(Program& p, const Target& t, const Inputs
     NSError* error = nil;
     id<MTLRenderPipelineState> pipeline = [g->device newRenderPipelineStateWithDescriptor:d error:&error];
     if (pipeline == nil) {
-        std::fprintf(stderr, "metal: a pipeline: %s\n", error.localizedDescription.UTF8String);
+        log::warn("metal: a pipeline: {}", error.localizedDescription.UTF8String);
     }
     p.pipelines.emplace(std::move(key), pipeline);
     return pipeline;

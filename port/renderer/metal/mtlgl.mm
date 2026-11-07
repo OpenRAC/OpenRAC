@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstring>
 #include <format>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -17,6 +18,9 @@
 
 namespace openrac::mtlgl::detail {
 
+using namespace openrac::gl;
+
+std::unique_ptr<Context> context;
 Context* g = nullptr;
 
 void fail(GLenum error) {
@@ -846,7 +850,8 @@ bool open(const Config& config, std::string& error) {
         return false;
     }
 
-    g = new Context;
+    context = std::make_unique<Context>();
+    g = context.get();
     g->device = device;
     g->queue = [device newCommandQueue];
     g->flip = pipeline;
@@ -878,7 +883,7 @@ void close() {
     if (g->view != nullptr) {
         SDL_Metal_DestroyView(g->view);
     }
-    delete g;
+    context.reset();
     g = nullptr;
 }
 

@@ -15,6 +15,8 @@
 
 namespace openrac::mtlgl::detail {
 
+using namespace openrac::gl;
+
 Format format_of(GLenum internal) {
     switch (internal) {
         case GL_RGBA8:

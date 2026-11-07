@@ -28,7 +28,10 @@
 
 namespace openrac::mtlgl::detail {
 
-using namespace openrac::gl;
+using gl::GLbitfield, gl::GLboolean, gl::GLchar, gl::GLenum, gl::GLfloat, gl::GLint, gl::GLintptr,
+    gl::GLsizei, gl::GLsizeiptr, gl::GLuint, gl::glClipControl;
+using gl::GL_ALWAYS, gl::GL_BACK, gl::GL_CCW, gl::GL_FILL, gl::GL_FLOAT, gl::GL_FUNC_ADD, gl::GL_KEEP,
+    gl::GL_LESS, gl::GL_LINEAR, gl::GL_NO_ERROR, gl::GL_ONE, gl::GL_REPEAT, gl::GL_ZERO;
 namespace wgl = openrac::renderer::world::gl;
 
 inline constexpr GLenum kGlInvalidEnum = 0x0500;
