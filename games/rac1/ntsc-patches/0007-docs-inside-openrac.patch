@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 3 Oct 2026 22:05:40 +0000
+Subject: docs inside openrac
+
+Point the docs to OpenRAC's own rules.
+
+Inside OpenRAC commits follow OpenRAC's Conventional Commits, so the docs say not to install
+the commit-msg hook here.
+---
+ CONTRIBUTING.md                      | 5 ++++-
+ docs/contributing/commit-messages.md | 6 ++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 3b03aa2..d5b193c 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -246,7 +246,10 @@ and the mismatch you cannot classify. More tips:
+ - The tracked [`.pre-commit-config.yaml`](.pre-commit-config.yaml) runs the
+   usual file checks (JSON/YAML validity, large files, shebang modes); install
+   it with `pre-commit install` or `prek install` if you use either.
+-- Enable the commit-message hook once per checkout (optional but handy):
++- Enable the commit-message hook once per checkout (optional but handy).
++  Not inside OpenRAC: there the hook would reject OpenRAC's
++  `type(scope): summary` subjects and strip its credit trailers, and
++  `.git/hooks` belongs to the whole repository.
+ 
+   ```sh
+   ln -sf ../../scripts/commit-msg.py .git/hooks/commit-msg
+diff --git a/docs/contributing/commit-messages.md b/docs/contributing/commit-messages.md
+index 7ec6255..bfcf396 100644
+--- a/docs/contributing/commit-messages.md
++++ b/docs/contributing/commit-messages.md
+@@ -1,5 +1,11 @@
+ # Commit message standard
+ 
++> Inside OpenRAC, commits follow the repository's Conventional Commits,
++> `type(rac1/ntsc): summary` ([CONTRIBUTING.md](../../../../CONTRIBUTING.md#commits)).
++> The guidance below on what a good summary and body say still applies; do not
++> install the `commit-msg` hook described below inside OpenRAC, where it would
++> reject those subjects.
++
+ Every commit subject uses one shape:
+ 
+ ```

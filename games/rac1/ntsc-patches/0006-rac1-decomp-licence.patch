@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 24 Oct 2026 04:15:13 +0000
+Subject: rac1 decomp licence
+
+Name rac1-decomp's licence as GPL-3.0.
+
+rac1-decomp is GPL-3.0; the credit said MIT.
+---
+ scripts/overlay-extract.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/overlay-extract.py b/scripts/overlay-extract.py
+index 6478b16..936d537 100644
+--- a/scripts/overlay-extract.py
++++ b/scripts/overlay-extract.py
+@@ -11,7 +11,7 @@ Writes only gitignored files under config/us/overlays/ (docs/build/overlays.md):
+ 
+ Every level is checked against config/overlays/us/level-NN.json and a pinned
+ SHA-256 before anything is written. Nothing from the disc goes into Git.
+-Methods from rac1-decomp tools/overlay_dump.py and overlay_asm.py (MIT).
++Methods from rac1-decomp tools/overlay_dump.py and overlay_asm.py (GPL-3.0).
+ """
+ from __future__ import annotations
+ 

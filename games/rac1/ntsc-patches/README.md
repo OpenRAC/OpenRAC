@@ -14,6 +14,8 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
   as NTSC-U's `func_0020C4F8` (hostgen.json "aliases"); 45 files declare it bare.
 - `src/ui/menus/confirm_prompt_input.c`: C for `FUN_00221ab8`, the memory card prompt's Yes/No
   input, which splat has as a text gap (rac1-decomp's `Menu_ConfirmPromptInput`, the same 148 bytes).
+- `README.md`: Lombyte's README as OpenRAC keeps it, with the NTSC decomp named as OpenRAC names
+  it (a patch would carry the old line).
 - `host/`: a runner that builds the project on an Apple Silicon Mac under rac1/pal's Wine.
 
 <!-- patches:begin -->
@@ -25,9 +27,12 @@ The files are OpenRAC's own, read only by the port or by OpenRAC:
 | [0003-tex0-64-bit.patch](0003-tex0-64-bit.patch) | Keep TEX0 words 64 bits wide. |
 | [0004-named-addresses.patch](0004-named-addresses.patch) | Name globals and functions instead of literal addresses. |
 | [0005-big-modded-levels.patch](0005-big-modded-levels.patch) | Let a modded level use more than 32 MiB. |
+| [0006-rac1-decomp-licence.patch](0006-rac1-decomp-licence.patch) | Name rac1-decomp's licence as GPL-3.0. |
+| [0007-docs-inside-openrac.patch](0007-docs-inside-openrac.patch) | Point the docs to OpenRAC's own rules. |
 
 Files under [files/](files) (copied as they are):
 
+- [`README.md`](files/README.md)
 - [`config/us/port_aliases.h`](files/config/us/port_aliases.h)
 - [`config/us/port_symbols.txt`](files/config/us/port_symbols.txt)
 - [`host/README.md`](files/host/README.md)

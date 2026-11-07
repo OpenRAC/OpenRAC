@@ -1,0 +1,477 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 24 Oct 2026 04:15:13 +0000
+Subject: lombyte licence
+
+Credit Lombyte as GPL-3.0.
+
+Lombyte is GPL-3.0; the comments said MIT.
+---
+ src/core/00117108.c                     | 2 +-
+ src/core/0011B588.c                     | 2 +-
+ src/core/0011BAF0.c                     | 2 +-
+ src/core/0011C8B0.c                     | 2 +-
+ src/core/0011CF78.c                     | 2 +-
+ src/core/0011D140.c                     | 2 +-
+ src/core/0011E0D8.c                     | 2 +-
+ src/core/0011E360.c                     | 2 +-
+ src/core/0011E4E0.c                     | 2 +-
+ src/core/0011E938.c                     | 2 +-
+ src/core/0011ED60.c                     | 4 ++--
+ src/core/00124C98.c                     | 2 +-
+ src/core/001253A8.c                     | 2 +-
+ src/core/00127040.c                     | 2 +-
+ src/core/00127888.c                     | 2 +-
+ src/core/00129450.c                     | 4 ++--
+ src/core/0012BB60.c                     | 2 +-
+ src/core/0012C508.c                     | 2 +-
+ src/core/0012DD60.c                     | 2 +-
+ src/core/0012F070.c                     | 2 +-
+ src/core/0012FB80.c                     | 2 +-
+ src/core/0012FEC0.c                     | 2 +-
+ src/core/00130E20.c                     | 2 +-
+ src/core/001313C8.c                     | 2 +-
+ src/game/002A0430.c                     | 2 +-
+ src/levels/shared/L00_00426340.c        | 2 +-
+ src/levels/shared/L03_002AB5C8.c        | 2 +-
+ src/levels/shared/L03_003C5B28.c        | 2 +-
+ src/pal/game/002A7650-cc-g8.c           | 2 +-
+ src/pal/levels/shared/L00_00431AA0-cc.c | 2 +-
+ src/pal/levels/shared/L03_002B8C28-cc.c | 2 +-
+ src/us2/levels/shared/L00_0042DA48-cc.c | 2 +-
+ 32 files changed, 34 insertions(+), 34 deletions(-)
+
+diff --git a/src/core/00117108.c b/src/core/00117108.c
+index 636bc82..b9ddda8 100644
+--- a/src/core/00117108.c
++++ b/src/core/00117108.c
+@@ -8,7 +8,7 @@
+ 
+ /* Source: newlib / dlmalloc. */
+ 
+-/* _malloc_trim_r, newlib mallocr.c's malloc_trim, adapted from Lombyte (MIT)
++/* _malloc_trim_r, newlib mallocr.c's malloc_trim, adapted from Lombyte (GPL-3.0)
+  * src/sdk/library/malloc_trim_r.c and re-pointed at the RAC2 globals. The unit
+  * saves $s0..$s4 and $ra in TImode slots (`sq` in 16-byte slots, descending
+  * order), so it is built with the -mastra-quad-saves profile like the rest of
+diff --git a/src/core/0011B588.c b/src/core/0011B588.c
+index 6299b33..17c5534 100644
+--- a/src/core/0011B588.c
++++ b/src/core/0011B588.c
+@@ -37,7 +37,7 @@ ASM_FUNC("asm/core", func_0011B658);
+ ASM_FUNC("asm/core", func_0011B6C0);
+ 
+ /* rac1-decomp src/core/00119328.c: func_001194C8 */
+-/* topThread: kernel service dispatcher. Adapted from Lombyte (MIT) for PAL. */
++/* topThread: kernel service dispatcher. Adapted from Lombyte (GPL-3.0) for PAL. */
+ void func_0011B728(void *arg0) {
+     TopThreadContext *ctx = (TopThreadContext *)arg0;
+     int i;
+diff --git a/src/core/0011BAF0.c b/src/core/0011BAF0.c
+index dbf3b9b..4be03f6 100644
+--- a/src/core/0011BAF0.c
++++ b/src/core/0011BAF0.c
+@@ -146,7 +146,7 @@ void func_0011BB38(int event, int param, TtyHandlerState *ti) {
+ }
+ 
+ /* rac1-decomp src/core/00119868.c: func_00119AA8 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/sdk/debug/sce_tty_write.c, sceTtyWrite. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/debug/sce_tty_write.c, sceTtyWrite. */
+ s32 func_0011BCD0(s8 *text, s32 text_len) {
+     s32 written_count; /* characters consumed -> return value */
+     s32 remaining; /* countdown, hits -1 after len+1 tests */
+diff --git a/src/core/0011C8B0.c b/src/core/0011C8B0.c
+index 3643d5d..9e905ab 100644
+--- a/src/core/0011C8B0.c
++++ b/src/core/0011C8B0.c
+@@ -183,7 +183,7 @@ void func_0011CBC0(int arg0) {
+ }
+ 
+ /* rac1-decomp src/core/00119D88.c: func_0011AA90 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/sdk/rpc/sce_sif_send_cmd.c, _sceSifSendCmd. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/rpc/sce_sif_send_cmd.c, _sceSifSendCmd. */
+ s32 func_0011CBE8(u32 packet, s32 mode, SifCmd *cmd, s32 size, u32 src, u32 dst, s32 dst_size) {
+     SifDma tags[2];
+     s32 num;
+diff --git a/src/core/0011CF78.c b/src/core/0011CF78.c
+index bc43d53..e7b5317 100644
+--- a/src/core/0011CF78.c
++++ b/src/core/0011CF78.c
+@@ -57,7 +57,7 @@ extern s32_1B4C8 func_0011CD20();
+ /* rac1-decomp src/core/00119D88.c: func_0011AE20 */
+ /* sceSifInitRpc: once, set up the RPC tables and command handlers, then
+    tell the IOP (SIF register 0x80000002) and wait for it. Adapted from
+-   Lombyte (MIT) for PAL. */
++   Lombyte (GPL-3.0) for PAL. */
+ void func_0011CF78(int mode) {
+     int *packet;
+ 
+diff --git a/src/core/0011D140.c b/src/core/0011D140.c
+index a20cec5..dc3afb1 100644
+--- a/src/core/0011D140.c
++++ b/src/core/0011D140.c
+@@ -294,7 +294,7 @@ void func_0011D3A0(void *bind, void *data) {
+ /* rac1-decomp src/core/00119D88.c: func_0011B2F8 */
+       /* WaitSema */
+ 
+-/* sceSifBindRpc. Adapted from Lombyte (MIT) for PAL. */
++/* sceSifBindRpc. Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0011D450(void *client, int arg1, int arg2) {
+     BindClient *arg0 = client;
+     int sema_param[6];
+diff --git a/src/core/0011E0D8.c b/src/core/0011E0D8.c
+index b712285..b4ce778 100644
+--- a/src/core/0011E0D8.c
++++ b/src/core/0011E0D8.c
+@@ -99,7 +99,7 @@ extern char r1_D_00158080[];
+ extern int r1_func_0011B4C8();
+ 
+ /* rac1-decomp src/core/00119D88.c: func_0011BF80 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/sdk/library/sceopen.c, sceOpen. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/sceopen.c, sceOpen. */
+ s32 func_0011E0D8(const u8 *path, s32 flags, ...)
+ {
+     struct SemaphoreParameters semaphore_parameters;
+diff --git a/src/core/0011E360.c b/src/core/0011E360.c
+index f785793..d062d8a 100644
+--- a/src/core/0011E360.c
++++ b/src/core/0011E360.c
+@@ -57,7 +57,7 @@ extern int r1_func_0011B4C8();
+ extern int r1_func_0011BC40_arg(int) __asm__("func_0011DD98");
+ 
+ /* rac1-decomp src/core/00119D88.c: func_0011C208 */
+-/* sceClose: close a SIF file handle, adapted from Lombyte (MIT) for PAL. */
++/* sceClose: close a SIF file handle, adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0011E360(unsigned int fd) {
+     CloseSema sema;
+     int result;
+diff --git a/src/core/0011E4E0.c b/src/core/0011E4E0.c
+index a0654d1..92497a6 100644
+--- a/src/core/0011E4E0.c
++++ b/src/core/0011E4E0.c
+@@ -104,7 +104,7 @@ extern s32 r1_func_00118C80_1C5C0(s32) __asm__("r1_func_00118C80");
+ extern void r1_func_0011AD70(void *, s32);
+ 
+ /* rac1-decomp src/core/00119D88.c: func_0011C5C0 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/sdk/library/sceRead.c, sceRead. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/sdk/library/sceRead.c, sceRead. */
+ s32 func_0011E4E0(s32 fd, void *buffer, s32 length)
+ {
+     struct FsReadRequest *request;
+diff --git a/src/core/0011E938.c b/src/core/0011E938.c
+index 0151422..e8e3972 100644
+--- a/src/core/0011E938.c
++++ b/src/core/0011E938.c
+@@ -102,7 +102,7 @@ int func_0011EAC8(void) {
+ }
+ 
+ /* rac1-decomp src/core/0011CCE0.c: func_0011CE70 */
+-/* _sceSifLoadModuleBuffer. Adapted from Lombyte (MIT) for PAL. */
++/* _sceSifLoadModuleBuffer. Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0011EB00(int arg0, int arg1, int arg2, void *out) {
+     int *arg3 = out;
+     int var_2_18;
+diff --git a/src/core/0011ED60.c b/src/core/0011ED60.c
+index 432377d..fd98472 100644
+--- a/src/core/0011ED60.c
++++ b/src/core/0011ED60.c
+@@ -95,7 +95,7 @@ extern int r1_func_00118EB0(void);
+ 
+ /* rac1-decomp src/core/0011D0D0.c: func_0011D0D0 */
+ /* sceSifResetIop: like sceSifRebootIop (func_0011EED8) but with a caller
+-   -supplied argument string and reboot mode. Adapted from Lombyte (MIT)
++   -supplied argument string and reboot mode. Adapted from Lombyte (GPL-3.0)
+    for PAL. */
+ s32 func_0011ED60(const char *arg, s32 mode) {
+     SifDmaData dma;
+@@ -140,7 +140,7 @@ int func_0011EEA0(void) {
+ 
+ /* rac1-decomp src/core/0011D0D0.c: func_0011D248 */
+ /* sceSifRebootIop: reset the IOP with "rom0:UDNL " + img (at most 80
+-   characters). Adapted from Lombyte (MIT) for PAL. */
++   characters). Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0011EED8(char *img) {
+     char *prefix = r1_D_00152A60;
+     char param[80];
+diff --git a/src/core/00124C98.c b/src/core/00124C98.c
+index 2652326..5b2bc01 100644
+--- a/src/core/00124C98.c
++++ b/src/core/00124C98.c
+@@ -315,7 +315,7 @@ extern int r1_func_00120FD0();
+ 
+ /* rac1-decomp src/core/001208E8.c: func_00121490 */
+ /* libcdvd disk-ready query (the sceCdDiskReady pattern): take the S-command semaphore, bind the 0x8000059A server once, send mode and return the server's status word. Mode 8 reports -1 on failure, every other mode 6.
+-   Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00121190.c, FUN_00121190. */
++   Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00121190.c, FUN_00121190. */
+ s32 func_001250E8(s32 mode) {
+     s32 response;
+     s32 spin;
+diff --git a/src/core/001253A8.c b/src/core/001253A8.c
+index a2d0c0c..87365b1 100644
+--- a/src/core/001253A8.c
++++ b/src/core/001253A8.c
+@@ -216,7 +216,7 @@ int func_001256D8(CdClock *out) {
+ /* rac1-decomp src/core/00121750.c: func_00121B78 */
+   /* SetGsCrt */
+ 
+-/* sceGsResetGraph. Adapted from Lombyte (MIT) for PAL. */
++/* sceGsResetGraph. Adapted from Lombyte (GPL-3.0) for PAL. */
+ void func_001257D0(short mode, short inter, short out, short ff) {
+     sceGsGParam *gp;
+ 
+diff --git a/src/core/00127040.c b/src/core/00127040.c
+index 0a90d0e..1f7e477 100644
+--- a/src/core/00127040.c
++++ b/src/core/00127040.c
+@@ -51,7 +51,7 @@ extern int r1_D_00132EA8;
+ extern int func_00127508(int, int, int, int);
+ 
+ /* rac1-decomp src/core/00123168.c: func_001233E8 */
+-/* sceDmaPutEnv. Adapted from Lombyte (MIT) for PAL. */
++/* sceDmaPutEnv. Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_00127040(void *arg0) {
+     sceDmaEnv *env = arg0;
+     unsigned int ctrl;
+diff --git a/src/core/00127888.c b/src/core/00127888.c
+index ddf4983..53fe29a 100644
+--- a/src/core/00127888.c
++++ b/src/core/00127888.c
+@@ -85,7 +85,7 @@ int func_00127888(int fd, void *buf, int nbyte) {
+ }
+ 
+ /* rac1-decomp src/core/001236F0.c: func_00123D48 */
+-/* sceMcWrite: copies the unaligned lead of the buffer into the request, sends RPC 6. Adapted from Lombyte (MIT) for PAL: src/sdk/storage/memory_card/sce_mc_write.c, sceMcWrite. */
++/* sceMcWrite: copies the unaligned lead of the buffer into the request, sends RPC 6. Adapted from Lombyte (GPL-3.0) for PAL: src/sdk/storage/memory_card/sce_mc_write.c, sceMcWrite. */
+ int func_001279A0(int fd, unsigned char *buffer, int size) {
+     int rpc_result;
+     unsigned int i;
+diff --git a/src/core/00129450.c b/src/core/00129450.c
+index cbd88d5..de2b4ca 100644
+--- a/src/core/00129450.c
++++ b/src/core/00129450.c
+@@ -136,7 +136,7 @@ int func_00129450(void *arg0, int mbAddr, int arg2, int mbType, int motionType,
+ }
+ 
+ /* libmpeg. func_001296A0 is rac1-decomp src/core/00125630.c func_00125880
+-   (_getAllRefs) and func_00129DA8 is Lombyte (MIT) src/assembly/sdk/library/
++   (_getAllRefs) and func_00129DA8 is Lombyte (GPL-3.0) src/assembly/sdk/library/
+    _getRef0.c; both keep RAC2's position relative to RAC1 (RAC2 = RAC1 + 0x3E20)
+    at the same sizes. Every field offset below was re-measured against RAC2's
+    own accesses, not inherited:
+@@ -524,7 +524,7 @@ void func_0012B198(int arg0) {
+ }
+ 
+ /* rac1-decomp src/core/00125630.c: func_001273A0 */
+-/* _waitBdecOut (libmpeg). Adapted from Lombyte (MIT) for PAL. */
++/* _waitBdecOut (libmpeg). Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0012B1C0(void *arg0) {
+     MpegDec *d = arg0;
+     int cb1[8];
+diff --git a/src/core/0012BB60.c b/src/core/0012BB60.c
+index 68c25ad..2f9180f 100644
+--- a/src/core/0012BB60.c
++++ b/src/core/0012BB60.c
+@@ -55,7 +55,7 @@ typedef struct {
+ extern void func_0012C008(int *, int, int, int, int);
+ 
+ /* rac1-decomp src/core/00125630.c: func_00127D40 */
+-/* Decodes one macroblock's modes and motion vectors through the IPU VLC engine (libmpeg _decMB0). Adapted from Lombyte (MIT) for PAL: sdk/library/_decMB0.c, _decMB0. */
++/* Decodes one macroblock's modes and motion vectors through the IPU VLC engine (libmpeg _decMB0). Adapted from Lombyte (GPL-3.0) for PAL: sdk/library/_decMB0.c, _decMB0. */
+ int func_0012BB60(void *arg0, int *arg1, int *arg2, int *arg3, void *arg4, void *arg5, void *arg6) {
+     MbDec *d = arg0;
+     int *mb = arg4;
+diff --git a/src/core/0012C508.c b/src/core/0012C508.c
+index d490cbf..51ca6b9 100644
+--- a/src/core/0012C508.c
++++ b/src/core/0012C508.c
+@@ -35,7 +35,7 @@ extern void func_0012C788(void *, int);
+ extern int func_0012C878(void *, int);
+ 
+ /* rac1-decomp src/core/00125630.c: func_001286E8 */
+-/* _ipuVdec (libmpeg). Adapted from Lombyte (MIT) for PAL. */
++/* _ipuVdec (libmpeg). Adapted from Lombyte (GPL-3.0) for PAL. */
+ short func_0012C508(int arg0, int tbl) {
+     MpegVdec *d = (MpegVdec *)arg0;
+     int i;
+diff --git a/src/core/0012DD60.c b/src/core/0012DD60.c
+index c5305a0..44a5ee9 100644
+--- a/src/core/0012DD60.c
++++ b/src/core/0012DD60.c
+@@ -1,7 +1,7 @@
+ #include "common.h"
+ 
+ /* _dispRefImageField, the field-picture twin of _dispRefImage: adapted from
+-   Lombyte (MIT) src/sdk/library/disprefimagefield.c. The unit saves $s0..$s6
++   Lombyte (GPL-3.0) src/sdk/library/disprefimagefield.c. The unit saves $s0..$s6
+    and $ra in 16-byte slots while the stores stay `sd`, the same profile as the
+    neighbouring func_0012D808, so it is built with `sdk -O2 -g2 -gstabs`.
+    Lombyte's names map to RAC2 as: _getPtsDtsFlags = func_0012DAC0,
+diff --git a/src/core/0012F070.c b/src/core/0012F070.c
+index 35ad673..8e69d60 100644
+--- a/src/core/0012F070.c
++++ b/src/core/0012F070.c
+@@ -81,7 +81,7 @@ int func_0012F070(void *arg0) {
+ 
+ /* rac1-decomp src/core/0012AC80.c: func_0012B2C0 */
+ /* Parse one MPEG-2 PES packet header from the bit stream into hdr (libmpeg _PES_packet).
+-   Adapted from Lombyte (MIT) for PAL: src/sdk/library/_PES_packet.c, _PES_packet. */
++   Adapted from Lombyte (GPL-3.0) for PAL: src/sdk/library/_PES_packet.c, _PES_packet. */
+ int func_0012F0E0(int arg0, struct PES_BS *bs, struct PES_HDR *hdr) {
+     struct PES_TBL tbl;
+     int ctx;
+diff --git a/src/core/0012FB80.c b/src/core/0012FB80.c
+index 29919f6..b057820 100644
+--- a/src/core/0012FB80.c
++++ b/src/core/0012FB80.c
+@@ -131,7 +131,7 @@ int func_0012FBF0(void *arg0) {
+ /* rac1-decomp src/core/0012AC80.c: func_0012BF40 */
+ /* _decodeOrSkipFrame (libmpeg): sibling of func_0012FEC0
+    (_decodeOrSkipField), for the frame-picture path. Adapted from
+-   Lombyte (MIT) for PAL. */
++   Lombyte (GPL-3.0) for PAL. */
+ int func_0012FD60(void *arg0, int arg1, int arg2) {
+     Wrapper *w = (Wrapper *)arg0;
+     Obj40 *p = w->obj;
+diff --git a/src/core/0012FEC0.c b/src/core/0012FEC0.c
+index 3e509b5..2889a8b 100644
+--- a/src/core/0012FEC0.c
++++ b/src/core/0012FEC0.c
+@@ -47,7 +47,7 @@ extern int r1_func_00129690();
+ extern void r1_func_00129600();
+ 
+ /* rac1-decomp src/core/0012AC80.c: func_0012C0A0 */
+-/* _decodeOrSkipField (libmpeg). Adapted from Lombyte (MIT) for PAL. */
++/* _decodeOrSkipField (libmpeg). Adapted from Lombyte (GPL-3.0) for PAL. */
+ int func_0012FEC0(void *handle, int arg1, int arg2)
+ {
+   struct MpegHandle *arg0 = handle;
+diff --git a/src/core/00130E20.c b/src/core/00130E20.c
+index 1918f50..1a31340 100644
+--- a/src/core/00130E20.c
++++ b/src/core/00130E20.c
+@@ -31,7 +31,7 @@ void func_00130E20(unsigned int chcr) {
+ }
+ 
+ /* rac1-decomp src/core/0012CC90.c: func_0012D068 */
+-/* sceIpuInit: reset the IPU, load its two fixed FIFO command tables, reset again. Adapted from Lombyte (MIT) for PAL: src/sdk/dma/sce_ipu_init.c, sceIpuInit. */
++/* sceIpuInit: reset the IPU, load its two fixed FIFO command tables, reset again. Adapted from Lombyte (GPL-3.0) for PAL: src/sdk/dma/sce_ipu_init.c, sceIpuInit. */
+ void func_00130E88(void) {
+     r1_func_0012D000(1);
+     *IPU_CTRL = 0x40000000;
+diff --git a/src/core/001313C8.c b/src/core/001313C8.c
+index e5a019e..e52cea6 100644
+--- a/src/core/001313C8.c
++++ b/src/core/001313C8.c
+@@ -23,7 +23,7 @@ typedef union {
+ } ieee_double_shape_type;
+ 
+ /* rac1-decomp src/core/00116070.c: func_001161B0 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/math/classify_float_bits.c, ClassifyDoubleNaN. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/math/classify_float_bits.c, ClassifyDoubleNaN. */
+ s32 func_001313C8(f64 x) {
+     s32 hx;
+     s32 lx;
+diff --git a/src/game/002A0430.c b/src/game/002A0430.c
+index d44e3f3..94bb748 100644
+--- a/src/game/002A0430.c
++++ b/src/game/002A0430.c
+@@ -14,7 +14,7 @@ void func_002A0430(unsigned int index)
+ void func_002A0468(unsigned long long *command_words, unsigned long long upper_field, unsigned long long middle_field, unsigned long long low_field, unsigned long long tail_field);
+ 
+ /* rac1-decomp src/game/mobyfunc.c: func_0020E340 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/commands/pack_render_command_fields.c, PackRenderCommandFields. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/commands/pack_render_command_fields.c, PackRenderCommandFields. */
+ void func_002A0468(unsigned long long *command_words, unsigned long long upper_field,
+                              unsigned long long middle_field, unsigned long long low_field, unsigned long long tail_field) {
+     int command_word_index;
+diff --git a/src/levels/shared/L00_00426340.c b/src/levels/shared/L00_00426340.c
+index ceebba9..8896e0a 100644
+--- a/src/levels/shared/L00_00426340.c
++++ b/src/levels/shared/L00_00426340.c
+@@ -597,7 +597,7 @@ extern char * r1_D_L10_0015F050 MACRO_ADDR;
+ extern char *r1_D_L10_0015F050 MACRO_ADDR;
+ 
+ /* rac1-decomp src/overlays/shared/vendor_00299AF0.c: func_L10_002F6E10 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
+ void func_L00_00429020(int i) {
+     unsigned char *q;
+     q = *(unsigned char **)(r1_D_L10_0015F050 + i * 0x20 + 0x1C);
+diff --git a/src/levels/shared/L03_002AB5C8.c b/src/levels/shared/L03_002AB5C8.c
+index fa46d58..8e85f95 100644
+--- a/src/levels/shared/L03_002AB5C8.c
++++ b/src/levels/shared/L03_002AB5C8.c
+@@ -407,7 +407,7 @@ void func_L03_002BC430(void) {
+ #undef HOP_SAVED
+ 
+ /* rac1-decomp src/overlays/shared/camera_001FC308.c: func_L02_001FC308 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/001fc008.c, FUN_L02_001fc008. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/001fc008.c, FUN_L02_001fc008. */
+ void func_L03_002D84F0(int x) {
+     int i;
+ 
+diff --git a/src/levels/shared/L03_003C5B28.c b/src/levels/shared/L03_003C5B28.c
+index 55bdf17..77ed749 100644
+--- a/src/levels/shared/L03_003C5B28.c
++++ b/src/levels/shared/L03_003C5B28.c
+@@ -685,7 +685,7 @@ extern S_r0043AC40 r1_D_L02_00167680;
+ extern void r1_func_L02_002FBB48();
+ 
+ /* rac1-decomp src/overlays/shared/vendor_002A5218.c: func_L02_002FBB10 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002ec308.c, FUN_L02_002fa6d8. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002ec308.c, FUN_L02_002fa6d8. */
+ void func_L03_0043AC40(void) {
+     r1_D_L02_00167680_FBB10.a = 0;
+     r1_D_L02_00167680_FBB10.b = 0;
+diff --git a/src/pal/game/002A7650-cc-g8.c b/src/pal/game/002A7650-cc-g8.c
+index 746df40..ee88c30 100644
+--- a/src/pal/game/002A7650-cc-g8.c
++++ b/src/pal/game/002A7650-cc-g8.c
+@@ -4,7 +4,7 @@
+ void func_002A0468(unsigned long long *command_words, unsigned long long upper_field, unsigned long long middle_field, unsigned long long low_field, unsigned long long tail_field);
+ 
+ /* rac1-decomp src/game/mobyfunc.c: func_0020E340 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/rendering/commands/pack_render_command_fields.c, PackRenderCommandFields. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/commands/pack_render_command_fields.c, PackRenderCommandFields. */
+ void func_002A0468(unsigned long long *command_words, unsigned long long upper_field, unsigned long long middle_field, unsigned long long low_field, unsigned long long tail_field);
+ 
+ 
+diff --git a/src/pal/levels/shared/L00_00431AA0-cc.c b/src/pal/levels/shared/L00_00431AA0-cc.c
+index 3d7c93a..5e70cf0 100644
+--- a/src/pal/levels/shared/L00_00431AA0-cc.c
++++ b/src/pal/levels/shared/L00_00431AA0-cc.c
+@@ -82,7 +82,7 @@ extern char * r1_D_L10_0015F050 MACRO_ADDR;
+ extern char *r1_D_L10_0015F050 MACRO_ADDR;
+ 
+ /* rac1-decomp src/overlays/shared/vendor_00299AF0.c: func_L10_002F6E10 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
+ /* rac1-decomp src/overlays/shared/rocket_and_path_camera.c: func_L00_004290C0 */
+ /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a78. */
+ int func_L00_004290C0(char *moby, char *unused);
+diff --git a/src/pal/levels/shared/L03_002B8C28-cc.c b/src/pal/levels/shared/L03_002B8C28-cc.c
+index 7bed4d1..97b9a5f 100644
+--- a/src/pal/levels/shared/L03_002B8C28-cc.c
++++ b/src/pal/levels/shared/L03_002B8C28-cc.c
+@@ -171,7 +171,7 @@ void func_PAL_L03_002B8C28(void) {
+ #undef HOP_SAVED
+ 
+ /* rac1-decomp src/overlays/shared/camera_001FC308.c: func_L02_001FC308 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/001fc008.c, FUN_L02_001fc008. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/001fc008.c, FUN_L02_001fc008. */
+ /* Emits two particle groups scaled by the object's transformed basis length. */
+ /* func_L03_00329EF0 is defined in L03_002AB5C8-region.c. */
+ 
+diff --git a/src/us2/levels/shared/L00_0042DA48-cc.c b/src/us2/levels/shared/L00_0042DA48-cc.c
+index 590d8d1..3da8fd6 100644
+--- a/src/us2/levels/shared/L00_0042DA48-cc.c
++++ b/src/us2/levels/shared/L00_0042DA48-cc.c
+@@ -82,7 +82,7 @@ extern char * r1_D_L10_0015F050 MACRO_ADDR;
+ extern char *r1_D_L10_0015F050 MACRO_ADDR;
+ 
+ /* rac1-decomp src/overlays/shared/vendor_00299AF0.c: func_L10_002F6E10 */
+-/* Adapted from Lombyte (MIT) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
++/* Adapted from Lombyte (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a50. */
+ /* rac1-decomp src/overlays/shared/rocket_and_path_camera.c: func_L00_004290C0 */
+ /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002e3de8.c, FUN_L10_002f5a78. */
+ int func_L00_004290C0(char *moby, char *unused);

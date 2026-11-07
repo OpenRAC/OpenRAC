@@ -1,0 +1,82 @@
+<p align="center">
+  <img src="assets/lombyte-logo.png" alt="Lombyte" width="135">
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/lombyte-title-dark.svg">
+    <img src="assets/lombyte-title-light.svg" alt="Lombyte Project, Ratchet and Clank Decompilation" height="62">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://bytematch.dev/lombyte-project/Lombyte"><img src="https://img.shields.io/badge/bytematch-Progress-de812f?style=flat-square&logo=hackthebox&logoColor=de812f&labelColor=0d1117" alt="bytematch progress"></a>
+  <a href="https://discord.gg/XVdFrwKuw"><img src="https://img.shields.io/badge/Discord-Community-5865F2?style=flat-square&logo=discord&logoColor=5865F2&labelColor=0d1117" alt="Community Discord"></a>
+  <a href="docs/build/building.md"><img src="https://img.shields.io/badge/Build-Guide-c3cbd8?style=flat-square&logo=gnubash&logoColor=c3cbd8&labelColor=0d1117" alt="Build guide"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributing-Guide-c3cbd8?style=flat-square&logo=github&logoColor=c3cbd8&labelColor=0d1117" alt="Contributing guide"></a>
+</p>
+<p align="center">
+    A work-in-progress, byte-matching decompilation of Ratchet &amp; Clank (2002) for PlayStation 2.<br>
+    Reconstructing the original game code in readable C.
+</p>
+
+> [!WARNING]
+> Lombyte does not include game data, executables, disc images, or proprietary toolchains.<br>
+> A legitimately obtained copy of the **USA / NTSC-U** release (`SCUS_971.99`) is required.
+
+<h3>Decompilation progress</h3>
+
+<p align="center">
+  <a href="https://bytematch.dev/lombyte-project/Lombyte">
+    <img src="https://raw.githubusercontent.com/lombyte-project/lombyte/progress/decomp_map.svg" alt="Lombyte decompilation progress" width="100%">
+  </a>
+</p>
+
+<h3>Supported version</h3>
+
+| Game                   | Platform      | Region       | Boot executable |
+| ---------------------- | ------------- | ------------ | --------------- |
+| Ratchet & Clank (2002) | PlayStation 2 | USA / NTSC-U | `SCUS_971.99`   |
+
+Expected SHA-256 of the boot executable:
+
+```text
+e050581032e4bb3f20341307da5b69b76f1574910519155380ea771e55c3c0c9
+```
+
+Only this release is targeted; other releases and the PlayStation 3 remaster are not supported.
+
+<h3>Contributing</h3>
+
+Help with matching C, names, types and docs: [CONTRIBUTING.md](CONTRIBUTING.md).
+<p align="center">
+  <a href="https://lombyte-project.github.io/namingdesk">
+    <img src="assets/naming-desk-card.svg" alt="Open the Naming Desk" width="100%">
+  </a>
+</p>
+
+<h4>Quick setup</h4>
+
+```sh
+git clone https://github.com/lombyte-project/lombyte.git && cd lombyte
+./setup.sh --iso /path/to/your-ratchet-and-clank-usa.iso
+```
+
+Windows, macOS and other options: [docs/build/building.md](docs/build/building.md#quick-setup).
+
+Work-in-progress C is also welcome when it preserves the matching baseline. Do not submit game images, extracted game data, or proprietary compiler binaries.
+
+<h3>Credits</h3>
+
+- [objdiff](https://github.com/encounter/objdiff) — object-level comparison.
+- [splat](https://github.com/ethteck/splat) and [spimdisasm](https://github.com/Decompollaborate/spimdisasm) — executable splitting and disassembly.
+- [Himuro](https://github.com/Mikompilation/Himuro) — PS2 decompilation research and reference EE-GCC toolchain work used by Lombyte's matching compiler profiles.
+- The NTSC decomp and [OpenRAC/rac1-decomp](https://github.com/OpenRAC/rac1-decomp) — reference for function logic.
+- [re-rac/rerac](https://github.com/re-rac/rerac) — reference for symbols.
+- The PS2 reverse-engineering and decompilation communities for the tools and research that make matching projects possible.
+
+<h3>License</h3>
+
+Repository code is distributed under the [GNU General Public License v3.0](LICENSE). Code reconstructed from third-party binaries belongs to its copyright holders; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The Lombyte emblem in [`assets/`](assets) is the project's original artwork.
