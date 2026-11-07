@@ -947,6 +947,27 @@ void log_tick_state(
         state.fog_near_f,
         state.fog_far_f
     );
+    if (state.moby_view) {
+        // How many of the live mobys MobyProc's distance test leaves undrawn, and fades.
+        std::size_t culled = 0, fading = 0;
+        for (const host::LiveMoby& m : state.mobys) {
+            if (m.address + 0x100 > ram.size()) {
+                continue;
+            }
+            const auto fade = g->profile->moby_distance_fade(ram.data() + m.address, state);
+            culled += fade ? 0 : 1;
+            fading += fade && *fade < 0x80 ? 1 : 0;
+        }
+        log::info(
+            "  moby draw cap {} units, near plane {:.0f}: {} of {} mobys beyond their draw "
+            "distance, {} fading",
+            state.moby_view->draw_cap,
+            state.moby_view->near_plane,
+            culled,
+            state.mobys.size(),
+            fading
+        );
+    }
     static const std::optional<std::uint64_t> fx_dump = env_frame(env::Var::FxDump);
     if (fx_dump && g->index >= *fx_dump && g->index < *fx_dump + 100) {
         for (const renderer::EffectQuad& e : g->effects) {

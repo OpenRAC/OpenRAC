@@ -670,8 +670,9 @@ openrac_add_test(water_interactions LIBS openrac_game_rac1_profile)
 # Going Commando's profile, one for its three discs (game/rac2/profile.cpp), for rac2's programs.
 add_library(openrac_game_rac2_profile STATIC game/rac2/profile.cpp)
 target_include_directories(openrac_game_rac2_profile PRIVATE runtime/include)
-target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer)
+target_link_libraries(openrac_game_rac2_profile PUBLIC openrac_scene_renderer openrac_game_moby_proc)
 openrac_warnings(openrac_game_rac2_profile)
+openrac_add_test(rac2_moby_view LIBS openrac_game_rac2_profile)
 
 # Tests are registered through openrac_add_test (cmake/Tests.cmake), which makes the program
 # <subject>_test and the ctest test <subject>; a program that runs under more names gets them with
