@@ -20408,28 +20408,6 @@
     "v": false
    }
   },
-  "func_L20_0039F968": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "char",
-       "q": []
-      },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L20_003E6728": {
    "asm": true,
    "inherits": false,

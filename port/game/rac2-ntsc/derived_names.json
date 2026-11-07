@@ -1,7 +1,7 @@
 {
  "about": "Names and the addresses the decompilation's own build derived for them from the retail bytes. Written by port/tools/hostgen/derived.py; do not edit.",
  "source": {
-  "commit": "2b48e097f4ed8905c61bd7b71a160e5400fe48a8",
+  "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
   "program": "boot",
   "table": "build/boot/placed.json"
  },

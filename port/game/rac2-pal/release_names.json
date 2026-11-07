@@ -1,7 +1,7 @@
 {
  "about": "The release view of the decompilation: each v1.01 address name and the release's name for it, and the values the release's build derived, in those names. Written by port/tools/hostgen/release.py build; do not edit.",
  "source": {
-  "commit": "2b48e097f4ed8905c61bd7b71a160e5400fe48a8",
+  "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
   "version": "pal",
   "table": "build/pal/*/placed.json"
  },
@@ -22,7 +22,7 @@
   "global: the release's build": 12396,
   "global: the release's build (a level's)": 308,
   "global: the release's own": 103,
-  "global: versionmap (exact)": 366,
+  "global: versionmap (exact)": 364,
   "function: v1.01's definition of one the release does not have": 584,
   "short name: left as it is": 223,
   "short name: the release's build": 1041,
@@ -451,14 +451,12 @@
   "D_001A6E90": "D_001A6F10",
   "D_001A7000": "D_001A7080",
   "D_001A7040": "D_001A70C0",
-  "D_001A7064": "D_001A70E4",
   "D_001A7080": "D_001A7100",
   "D_001A70C0": "D_001A7140",
   "D_001A7100": "D_001A7180",
   "D_001A7110": "D_001A7190",
   "D_001A713F": "D_001A71BF",
   "D_001A7140": "D_001A71C0",
-  "D_001A7164": "D_001A71E4",
   "D_001A7180": "D_001A7200",
   "D_001A71C0": "D_001A7240",
   "D_001A71C4": "D_001A7244",
@@ -28840,7 +28838,7 @@
   "src/levels/20_yeedil/L20_002DEBE0-decider.c": {
    "func_L20_002DEBE0": "func_V1_L20_002DEBE0"
   },
-  "src/levels/20_yeedil/L20_0039C448.c": {
+  "src/levels/20_yeedil/L20_0039F968-g8.c": {
    "func_L20_0039F968": "func_V1_L20_0039F968"
   },
   "src/levels/20_yeedil/L20_004499E8-g8.c": {

@@ -5,7 +5,7 @@
   "function: called": 20,
   "function: changed": 145,
   "function: found": 6,
-  "function: near": 174,
+  "function: near": 175,
   "function: not found": 4,
   "function: same": 818,
   "global: aligned": 11,
@@ -404,6 +404,11 @@
    "func_L00_002BA750",
    "near",
    "from_assembly"
+  ],
+  "func_L00_002D24E8": [
+   "func_L00_002D29E8",
+   "near",
+   "ps2_float"
   ],
   "func_L00_002D4A38": [
    "func_L00_002D4F60",

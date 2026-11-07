@@ -196,6 +196,7 @@ wrong profile with extra operations or knowingly false prototypes.
 | Whole GPR save area uses sq/lq | -mastra-quad-saves | func_00119BC8, func_00115F28, func_00115C90 |
 | Quad slots: `sd $ra` below `sq $s0` | -mastra-quad-saves -frac2-narrow-saves-below, `register_precision(ra, 64)` | func_L01_00324550, func_L08_00389B68 |
 | 8-byte slots, but a TImode-held saved GPR gets `sq` in a 16-byte slot below them | -frac2-wide-saves-below | func_L02_00411D18 |
+| Reduced giv start `x*16 + (i*400 + (D-16))`, not flattened | -frac2-mult-add-no-flatten | func_L20_0039F968 |
 | Copy of a zero set in the same block stays a register copy | -frac2-keep-block-zero-copy | func_002F7320 |
 | A volatile asm ends the forward delay-slot search past later loads | -frac2-sticky-volatile-refs | func_L00_002A9460 |
 | Branch slot setting `$fp` annulled (`bnel`), retail `bne`; no frame pointer | -frac2-frame-pointer-liveness | func_L07_0040EC08, func_L04_00414698 |
@@ -416,6 +417,26 @@ game-compiler units of `src/` (the three releases' C) compile to the same assemb
 Forced on in every one of them, it changes only func_L02_00411D18 and none of 11,949 other
 functions in 8,628 other units (144 SDK units use another compiler).
 
+func_L20_0039F968 (996 bytes, one place in USA v1.01) shifts a history row with
+`qcopy_nc(&D[i][h], &D[i][h - 1])`. Retail starts the source cursor as `D-16; i*400 + (D-16);
+last*16 + that`. loop.c reduces both cursors to givs whose start emit_iv_add_mult builds with
+expand_mult_add (expmed.c), which folds the tree `last*16 + ((i*400 + -16) + D)`. In this
+Cygnus-based tree fold runs the CYGNUS LOCAL reduce_expression_tree_depth on every PLUS while
+-fschedule-insns is on, so the start becomes `(last*16 + i*400) + (D-16)`: 10 rows differ at
++0xC8..+0xF8. SN's "GNU C version 2.95.2 SN BUILD v2.73a" cc1 (FSF 2.95.2, which has no CYGNUS
+LOCAL code) builds the same giv (its loop dump matches) but emits retail's nested sum; Sony's
+991111a/-01/b-r4 cc1 flatten like ours. Only that observable output was used.
+[mult_add_no_flatten.py](../tools/compiler/transformers/mult_add_no_flatten.py) adds
+`-frac2-mult-add-no-flatten`: the fold calls inside expand_mult_add run with
+flag_schedule_insns clear, so the flattening is skipped there and nowhere else. Without the
+switch all 8,733 game-compiler units of `src/` compile to the same assembly as before. Forced
+on in every one of them, no unit changes; across the 1,139 `nonmatching/` notes (two profiles each) it
+changes only func_L20_0039F968 and two others (func_L00_00395428, func_L00_003C48D0), both
+further from retail (253 -> 271 and 138 -> 141 differing rows, lengths unchanged). Skipping
+the flattening in every fold instead changes one matched unit (func_L30_00382FB8), so the
+switch is limited to expand_mult_add. The witness has a unit of its own,
+`src/levels/20_yeedil/L20_0039F968-g8.c`.
+
 func_002F7320 (132 bytes, 28 places) starts `daddu $t1,$zero,$zero ... daddu $a3,$t1,$zero`
 for `int result = 0; int i = result;`. Stock cse folds that copy to `move $a3,$0`: CONST_INT
 costs 0 and a pseudo 1. With the copy alive, result=0 has a dependent, sched1 moves it ahead
@@ -439,6 +460,12 @@ adds `-frac2-sticky-volatile-refs`: the MEM and ASM_OPERANDS cases of
 mark_referenced_resources keep the flag set. Forced on in every game unit it changes none of
 8,510 others. The mark_set_resources half of the same upstream change is not applied: forced
 on it also changes matched func_00132498 (0 of 1 places).
+7 November 2026, round 9: the set-side `|=` alone (env probe in mark_set_resources) makes
+func_00131DE8 match (1 of 1 in us, pal, us2) but, forced on in all 8,734 game units, changes only
+that unit and matched func_00132498 (1 -> 0 of 1): sched2 puts the hoisted
+`lui $s0,%hi(D_001A7578)` before the plain D_001A74D0 and volatile D_001A74D8 stores, and retail
+fills the `b` slot with it past the volatile store. func_00132498 reads no SIF field; dropping
+its volatile D_001A74D8 gives 0 of 1 with or without the rule. Not landed.
 
 func_L07_0040EC08 (952 bytes, 1 place in each USA release) and func_L04_00414698 (6,032 bytes, 2
 places in each) differ from stock cc1 in one opcode each: retail fills a branch slot with a set of
@@ -1622,6 +1649,7 @@ oracle, and a same-size draft screen is not a match or current progress.
 | Null-pointer-check pass | [test_no_null_pointer_checks.py](../tests/test_no_null_pointer_checks.py) |
 | Width-ordered quad saves | [test_narrow_saves_below.py](../tests/test_narrow_saves_below.py) |
 | 16-byte slots for TImode GPR saves | [test_wide_saves_below.py](../tests/test_wide_saves_below.py), [wide_saves_below.c](../tests/fixtures/wide_saves_below.c) |
+| Unflattened giv start | [test_mult_add_no_flatten.py](../tests/test_mult_add_no_flatten.py), [mult_add_no_flatten.c](../tests/fixtures/mult_add_no_flatten.c) |
 | Masks/sign seed | [test_dli_masks.py](../tests/test_dli_masks.py) |
 | Inline li.d into GPRs | [test_inline_li_d.py](../tests/test_inline_li_d.py) |
 | Hazard labels | [test_hazard_labels.py](../tests/test_hazard_labels.py), [hazard_labels.s](../tests/fixtures/hazard_labels.s) |
