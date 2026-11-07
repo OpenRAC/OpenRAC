@@ -137,6 +137,8 @@ namespace {
 id<MTLLibrary> library_of(Program& p, const std::string& source) {
     MTLCompileOptions* options = [MTLCompileOptions new];
     options.languageVersion = MTLLanguageVersion2_4;
+    // OpenGL's shaders round as written; fast math changes the last bit of colours.
+    options.fastMathEnabled = NO;
     NSError* error = nil;
     id<MTLLibrary> library = [g->device newLibraryWithSource:@(source.c_str())
                                                      options:options
