@@ -751,6 +751,23 @@ int run_selection(const Selection& chosen, const char* executable_path) {
     return openrac::test::result();
 }
 
+// The most pixels of a frame that differ from OpenGL's by more than `channel`.
+std::size_t worst_pixels_beyond(const Frames& a, const Frames& b, int channel) {
+    std::size_t worst = 0;
+    for (std::size_t frame = 0; frame < std::min(a.size(), b.size()); ++frame) {
+        std::size_t beyond = 0;
+        for (std::size_t at = 0; at + 4 <= std::min(a[frame].size(), b[frame].size()); at += 4) {
+            bool over = false;
+            for (std::size_t c = 0; c < 4; ++c) {
+                over |= std::abs(int{a[frame][at + c]} - int{b[frame][at + c]}) > channel;
+            }
+            beyond += over ? 1 : 0;
+        }
+        worst = std::max(worst, beyond);
+    }
+    return worst;
+}
+
 // --opengl-frames FILE writes the compatibility scenarios' frames as OpenGL draws them;
 // --against-opengl FILE draws them on this process's API (Metal) and requires the same bytes. Two
 // processes, since a process opens one API.
@@ -795,6 +812,12 @@ int run_against_opengl(const std::filesystem::path& path, bool save, const char*
         return 1;
     }
     constexpr std::size_t kFrameBytes = std::size_t{kWidth} * kHeight * 4;
+    // Apple's OpenGL runs on Metal, so the two agree exactly. AMD's OpenGL (R9 M370X) filters
+    // textures in eighths of a level, moving channels by up to 5, and resolves a triangle edge
+    // through a pixel centre otherwise in up to 2 pixels a frame (tools/remote-mac.sh measures it).
+    const std::string_view renderer =
+        reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
+    const bool apple = renderer.starts_with("Apple");
     for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
         Frames theirs;
         for (std::size_t frame = 0; frame < kFrames; ++frame) {
@@ -809,7 +832,9 @@ int run_against_opengl(const std::filesystem::path& path, bool save, const char*
             difference.worst_fraction,
             difference.worst_channel
         );
-        CHECK(difference.same_shape && difference.worst_channel == 0);
+        CHECK(difference.same_shape);
+        CHECK(apple ? difference.worst_channel == 0
+                    : worst_pixels_beyond(drawn[0][index], theirs, 5) <= 2);
     }
     return openrac::test::result();
 }
