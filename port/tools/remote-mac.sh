@@ -50,7 +50,8 @@ if [ -n "$data" ]; then
 fi
 
 # On the other Mac: each test as ctest runs it (the _metal ones in Cocoa windows with Metal's API
-# validation; 77 is a skip), then the game. The GPU line of each log says which GPU it ran on.
+# validation; 77 is a skip), then the game. The GPU line of each log says which GPU it ran on, as
+# does the overlay in the *_overlay_ shots.
 # ssh hands the other Mac's shell one command line: each argument is quoted for it.
 q() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
 ssh "$host" "sh -s $(q "$remote") $(q "$frames") $(q "$(basename "$app")") $(q "$tests") $(q "${data:+yes}")" <<'EOF' | tee "$results/summary.txt"
@@ -76,6 +77,7 @@ if [ -n "$data" ]; then
     game="$app/Contents/MacOS/$(defaults read "$PWD/$app/Contents/Info" CFBundleExecutable)"
     for api in metal desktop; do
         OPENRAC_GL_API=$api MTL_DEBUG_LAYER=1 OPENRAC_SHOT=300:out/shots/${api}_ \
+            OPENRAC_OVERLAY=frame,renderer OPENRAC_OVERLAY_SHOT=300:out/shots/${api}_overlay_ \
             "$game" --data "$PWD/data" --window --frames "$frames" --skip-movies > "out/game_$api.log" 2>&1
         echo "game on $api: exit $?, $(grep -m1 'graphics:' "out/game_$api.log" | sed 's/.*graphics: //')"
         grep -m1 'could not be used' "out/game_$api.log" || true

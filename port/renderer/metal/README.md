@@ -93,7 +93,9 @@ API validation, in hidden Cocoa windows: SDL's offscreen driver has no Metal.
 
 [tools/remote-mac.sh](../../tools/remote-mac.sh) sends a build to another Mac over ssh, runs the
 Metal tests there and the game on both APIs, and brings the logs and screenshots back to
-`build/remote/<host>/`. For an Intel Mac, from `port/`:
+`build/remote/<host>/`: `shots/<api>_<tick>.png` the game's frames, `shots/<api>_overlay_<tick>.png`
+the window with the debug overlay, whose Renderer section names the GPU and the API. For an Intel
+Mac, from `port/`:
 
 1. On that Mac: System Settings, General, Sharing, Remote Login on; stay logged in at its screen
    (the tests open windows).
