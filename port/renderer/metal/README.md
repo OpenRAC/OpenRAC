@@ -22,7 +22,7 @@ column by column from the first, each column fused: that is written out.
 
 Division follows the OpenGL beside it (`shader_translate.cpp`). Apple's divides as `fast::divide`
 does, not exactly. AMD's multiplies by a constant divisor's rounded reciprocal, so that is written
-out; `fast::divide` there would fold the reciprocal into an earlier multiply by a constant. Four
+out; `fast::divide` there would fold the reciprocal into an earlier multiply by a constant. Some
 differences remain, each found by bits written out of a shader on both APIs:
 
 - AMD's OpenGL divides by a variable as fast math does. Metal does so only with fast math for
@@ -37,6 +37,9 @@ differences remain, each found by bits written out of a shader on both APIs:
   channel may differ by 1. No function of Metal's sample gives OpenGL's: between texels 0 and 255,
   weights 28/256 and 29/256 both come out an eighth above a step on Metal (223.125 and 231.125
   eighths), and OpenGL rounds one up and the other down (224 and 231).
+- AMD's OpenGL gives a pixel whose centre is on an edge to the other triangle than Metal does,
+  interpolates with other low bits (every varying in `mtlgl_test`, by about 1,900 in the last
+  place, up to 8,171), and leaves a new image as its memory held it.
 - Apple's OpenGL folds a chain of multiplies by constants into one (`a * 200.0 * (1.0 / 255.0)`
   is `a * (200.0 / 255.0)`); Metal multiplies in the written order. The renderers' shaders fold
   such constants themselves.
@@ -105,7 +108,10 @@ GPUs. OpenGL turns z into window depth as `z / w * 0.5 + 0.5`, which Metal round
 given z as it is and a depth range of 0.5 to 1, and Metal clips or clamps depth to 0..1 before
 that range. So a depth-tested draw is drawn twice (`mtlgl_draw.mm`'s `depth_form`): with -z and a
 range of 0.5 to 0 for the far half, with z as it is for the near one; with depth clamped, each
-draw drops the other half's fragments. Depth then comes out bit for bit as OpenGL's.
+draw drops the other half's fragments. Depth then comes out bit for bit as OpenGL's. That is on
+Apple's GPUs: an AMD one draws nothing given a range of 0.5 to 0, so there a draw keeps
+`(z + w) * 0.5`: on an R9 M370X, `mtlgl_test`'s depths then differ from its OpenGL's for 181 points
+in 256, by up to 674 in the last place where depth nears 0.
 
 What remains is which pixels a triangle covers: an Apple GPU covers a pixel whose centre is
 within about a thousandth of a pixel of an edge, or on it, as the z of the edge's ends says, and

@@ -158,10 +158,14 @@ id<MTLLibrary> library_of(Program& p, const std::string& source) {
 // the far half exactly, which with reversed depth is all but the space within twice the near plane,
 // and clamps z beyond the far plane to 0 as GL_DEPTH_CLAMP does; given z as it is and 0.5 to 1, the
 // near half. Both in one draw, as amplified copies, would move triangles' edges on Apple's GPUs.
-// Clamped depth clips neither half away, so there the fragment stage keeps each half's own. The
-// first draw's form; a depth-tested one has the next form's draw too.
+// Clamped depth clips neither half away, so there the fragment stage keeps each half's own. An
+// AMD GPU draws nothing given a range from 0.5 to 0, so off Apple's GPUs a depth-tested draw keeps
+// (z + w) * 0.5. The first draw's form; a form of 2 or more has the next form's draw too.
 int depth_form(const State& s) {
-    return s.clip_zero_to_one ? 1 : !s.depth_test ? 0 : s.depth_clamp ? 4 : 2;
+    if (s.clip_zero_to_one) {
+        return 1;
+    }
+    return !s.depth_test || ![g->device supportsFamily:MTLGPUFamilyApple1] ? 0 : s.depth_clamp ? 4 : 2;
 }
 
 id<MTLFunction> function_of(Program& p, id<MTLLibrary> library, const std::string& entry, int form) {
