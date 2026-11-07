@@ -731,15 +731,14 @@ void menu_window(const Shown& shown) {
         soft_shadow(list, at, b, dp(12.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
         list->PopClipRect();
         // The launcher's panel, lit a little from above: the theme's coal with a glow of the
-        // accent along its top, or a game's own tinted ground (palettes.json accents' --menu-*).
-        const bool own = (ui().menu_top >> 24) != 0;
+        // game's colour along its top (--glow), as the launcher's page under its bar.
         panel_fill(
             list,
             at,
             b,
-            own ? ui().menu_top : ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
-            own ? ui().menu_bottom : ui().ink_deep,
-            own ? ui().menu_glow : ui_colors::mix(ui().panel_hi, ui().amber, 0.08f),
+            ui_colors::mix(ui().panel, ui().panel_hi, 0.6f),
+            ui().ink_deep,
+            ui_colors::mix(ui().panel_hi, ui().glow, 0.08f),
             dp(160.0f),
             dp(12.0f)
         );

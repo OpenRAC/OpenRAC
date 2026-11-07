@@ -25,9 +25,9 @@ constexpr Color rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_
 // app.css's tokens the menu (the drawer, the desktop's bar and window) draws with, under their
 // names there. A game's accent (the launcher's palettes.json) sets the bar's and the accent's.
 struct Colors {
-    Color ink_deep = rgba(0x0b, 0x0b, 0x0b);    // --ink-deep: under everything; a switch's track
-    Color panel = rgba(0x19, 0x19, 0x19);       // --panel: the drawer
-    Color panel_hi = rgba(0x20, 0x20, 0x20);    // --panel-hi: its cards
+    Color ink_deep = rgba(0x14, 0x12, 0x0e);    // --ink-deep: under everything; a switch's track
+    Color panel = rgba(0x24, 0x22, 0x1e);       // --panel: the drawer
+    Color panel_hi = rgba(0x2c, 0x2a, 0x26);    // --panel-hi: its cards
     Color brand = rgba(0xd6, 0xa0, 0x20);       // --brand: small labels
     Color bar_top = rgba(0xe5, 0xa0, 0x13);     // --bar-top, --bar-bottom: the bar's
     Color bar_bottom = rgba(0xcd, 0x83, 0x00);  //   gradient (the menu draws none now)
@@ -44,13 +44,10 @@ struct Colors {
     Color line_strong = rgba(255, 255, 255, 41);  // --line-strong
     Color err = rgba(0xff, 0x8a, 0x7a);           // --err: Quit
     // Control fills (launcher/docs/STYLE.md): no border; the menu's controls sit on a panel.
-    Color control_card = rgba(0x24, 0x24, 0x24);     // --control-card
-    Color control_card_hi = rgba(0x2c, 0x2c, 0x2c);  // --control-card-hi: under the pointer
-    // A game's own ground for the menu's window (palettes.json accents: tinted with its colour);
-    // none (alpha 0) keeps the theme's coal with an accent glow at the top.
-    Color menu_top = rgba(0, 0, 0, 0);     // --menu-top
-    Color menu_bottom = rgba(0, 0, 0, 0);  // --menu-bottom
-    Color menu_glow = rgba(0, 0, 0, 0);    // --menu-glow
+    Color control_card = rgba(0x2e, 0x2c, 0x28);     // --control-card
+    Color control_card_hi = rgba(0x36, 0x34, 0x30);  // --control-card-hi: under the pointer
+    // --glow: the light along the menu window's top, the game's colour (palettes.json accents).
+    Color glow = rgba(0xf5, 0xc0, 0x40);
 };
 
 // `text` read over the defaults: NAME=#RRGGBB or NAME=#RRGGBBAA pairs, comma-separated, each NAME

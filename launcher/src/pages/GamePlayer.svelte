@@ -576,8 +576,16 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse 90% 80% at 50% 20%, transparent 20%, rgba(14, 16, 22, 0.7) 100%),
-      linear-gradient(180deg, rgba(14, 16, 22, 0.3) 0%, rgba(14, 16, 22, 0.65) 100%);
+      radial-gradient(
+        ellipse 90% 80% at 50% 20%,
+        transparent 20%,
+        color-mix(in srgb, var(--ink) 70%, transparent) 100%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--ink) 30%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 65%, transparent) 100%
+      );
   }
 
   /* :global: a component's root (JobProgress) carries no class of this page's, and would stay

@@ -8,14 +8,14 @@
 
 :root {
   /* The site's @theme colours. */
-  --ink: #121212;
-  --ink-deep: #0b0b0b;
+  --ink: #1c1a16;
+  --ink-deep: #14120e;
   /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
-  --panel: #191919;
-  --panel-hi: #202020;
+  --panel: #24221e;
+  --panel-hi: #2c2a26;
   /* The game list beside the page and Android's rail: darker than the page, but not black; a
      theme with a black of its own (OLED) sets its own. */
-  --rail: #0d0d0d;
+  --rail: #161410;
   /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
      wear stripes. */
   --card: var(--panel);
@@ -47,20 +47,15 @@
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
   /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy and no edge.
-     On the page (#121212) a control is #191919; on a card (#191919) it is #242424. A card sets
+     On the page (#1c1a16) a control is #24221e; on a card (#24221e) it is #2e2c28. A card sets
      --control from the card pair; a theme (palettes.json) sets both pairs. */
-  --control: #191919;
-  --control-hi: #242424;
-  --control-card: #242424;
-  --control-card-hi: #2c2c2c;
-  /* A game's own coal (palettes.json accents: Going Commando's a little blue), worn by the
-     OpenRAC theme only (the rule after :root); another theme keeps its own surfaces. */
-  --tint-panel: #191919;
-  --tint-panel-hi: #202020;
-  --tint-control: #191919;
-  --tint-control-hi: #242424;
-  --tint-control-card: #242424;
-  --tint-control-card-hi: #2c2c2c;
+  --control: #24221e;
+  --control-hi: #2e2c28;
+  --control-card: #2e2c28;
+  --control-card-hi: #363430;
+  /* The light under the bar (the rule on body::after): the picked game's colour (palettes.json
+     accents), the gold for Ratchet & Clank. Every game wears the launcher's own colours. */
+  --glow: #f5c040;
   /* On or picked: a gold tint on the page's black, with gold text. */
   --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
@@ -69,7 +64,7 @@
   --coal-stripes-hi: repeating-linear-gradient(35deg, #252525 0 20px, #1f1f1f 20px 40px) fixed;
   /* States. The site has none; these sit with its palette. */
   --ok: #8fd694;
-  /* Its own amber, not var(--amber): a game's accent (themes.ts) changes that one. */
+  /* Its own amber, not var(--amber), which a theme could one day change. */
   --warn: #f5c040;
   --err: #ff8a7a;
   --info: var(--lav);
@@ -103,64 +98,35 @@
   color-scheme: dark;
 }
 
-/* The OpenRAC theme wears the picked game's coal (--tint-*); a theme's own surfaces, set on the
-   root's style (palettes.ts), win over this. */
-html:not([data-theme]),
-html[data-theme="openrac"] {
-  --panel: var(--tint-panel);
-  --panel-hi: var(--tint-panel-hi);
-  --control: var(--tint-control);
-  --control-hi: var(--tint-control-hi);
-  --control-card: var(--tint-control-card);
-  --control-card-hi: var(--tint-control-card-hi);
-}
-
-/* The accent's colours as colours, so that they ease from one game's to the next (App.svelte) rather
-   than jump. */
-@property --bar-top {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #e5a013;
-}
-
-@property --bar-bottom {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #cd8300;
-}
-
-@property --bar-stripe {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #c99222;
-}
-
-@property --bar-stripe-alt {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #bd8619;
-}
-
-@property --amber {
+/* The picked game's colour as a colour, so that the light under the bar eases from one game's to
+   the next (App.svelte) rather than jumps. */
+@property --glow {
   syntax: "<color>";
   inherits: true;
   initial-value: #f5c040;
 }
 
-@property --gold {
-  syntax: "<color>";
-  inherits: true;
-  initial-value: #ffe08f;
+html {
+  transition: --glow var(--slow) var(--ease);
 }
 
-html {
-  transition:
-    --bar-top var(--slow) var(--ease),
-    --bar-bottom var(--slow) var(--ease),
-    --bar-stripe var(--slow) var(--ease),
-    --bar-stripe-alt var(--slow) var(--ease),
-    --amber var(--slow) var(--ease),
-    --gold var(--slow) var(--ease);
+/* The light under the bar: the picked game's colour, soft, over the whole window (screen blend, so
+   it only lightens). The page starts lit and darkens downwards, as under a lamp. OLED keeps its
+   black. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: var(--nav-top) 0 0 var(--nav-left);
+  z-index: 15;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(90% 620px at 50% 0, color-mix(in srgb, var(--glow) 13%, transparent), transparent 72%),
+    radial-gradient(60% 380px at 50% 0, color-mix(in srgb, var(--glow) 7%, transparent), transparent 70%);
+}
+
+html[data-theme="oled"] body::after {
+  content: none;
 }
 
 /* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */

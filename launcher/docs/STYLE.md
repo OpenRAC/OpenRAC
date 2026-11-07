@@ -9,29 +9,40 @@ follows the same rules.
 
 ## In short
 
-- One accent: gold (`--amber`), or the picked game's own (`palettes.json`
-  `accents`). No second accent colour.
+- One look for every game: the gold (`--amber`) and warm coals below (user
+  decision). A game keeps only its picture, its card gradient, its title's
+  typeface and the light under the bar, in its own colour (`--glow`, the only
+  key of its `palettes.json` `accents`). No second accent colour.
 - No grey, no brown and no white mix as a fill (`rgb(255 255 255 / …)`). The
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
-- The page is a near black (`--ink` `#121212`, `--ink-deep` `#0b0b0b`), never
+- The page is a warm coal (`--ink` `#1c1a16`, `--ink-deep` `#14120e`), never
   navy and never pure black: text on a black page glares and blurs for many
-  eyes (halation; user decision), so the launcher starts where dark themes do
-  (Material's `#121212`), one step lighter than the site's page. The game list
-  beside it and Android's rail are darker than the page: `--rail` `#0d0d0d`.
-  Pure black is the OLED theme's alone.
+  eyes (halation; user decision), so the launcher sits at a dimmed dark
+  theme's lightness, a little warmer than grey so it goes with the gold
+  (OKLCH chroma 0.008, the gold's hue). The game list beside it and Android's
+  rail are darker than the page: `--rail` `#161410`. Pure black is the OLED
+  theme's alone.
+- The light under the bar: a soft glow of `--glow` (the picked game's colour,
+  gold for Ratchet & Clank) laid over the window from the bar down
+  (`body::after` in app.css: two radial gradients, 13 % and 7 %, screen
+  blend, so it only lightens), fading out by about two thirds down. It eases
+  from game to game. The OLED theme has none. The game's menu window has the
+  same light along its top (8 %, see below).
+- The bar's shadow is light (1 px down, 6 px blur, 18 %): a deeper one reads as
+  a black band under the bar.
 - Text is an off white (`--text` `#e6e6eb`, about 15:1 on the page), not a
   near white: more contrast than that only tires the eyes.
-- Cards and panels have no border and no stripes: a flat `#191919`
-  (`--panel`, `--card`), `#202020` when hovered or open (`--panel-hi`,
+- Cards and panels have no border and no stripes: a flat `#24221e`
+  (`--panel`, `--card`), `#2c2a26` when hovered or open (`--panel-hi`,
   `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
   decision): only the bar's buttons wear stripes.
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have no edge or border (user decision: gold
   edges looked bad). The fill alone sets a control apart.
 - Contrast rule: a control is one step lighter than what is behind it, in the
-  blacks and coals only, never navy: `#191919` on the page (`#242424` under
-  the pointer), `#242424` on a `#191919` card (`#2c2c2c`). See "Control
+  blacks and coals only, never navy: `#24221e` on the page (`#2e2c28` under
+  the pointer), `#2e2c28` on a `#24221e` card (`#363430`). See "Control
   fills" below.
 - Switches: the track is a track (`--ink-deep`, a dim knob); on, it takes the gold tint of a control that is on (`--on-fill`) and a
   gold knob. Never a solid gold track: a list of switches that are on would be
@@ -56,7 +67,7 @@ follows the same rules.
 - Anything you can tap is at least 40 px tall (44 px on Android); fields on
   Android use 16 px text.
 - The header bar: gold stripes (35°, 20 px, `#c99222` then `#bd8619`), the
-  logo and the version badge dark, whatever the accent. Its buttons (the tabs
+  logo and the version badge dark, for every game. Its buttons (the tabs
   Games, Mods, Develop, Settings; the site and Discord icons at the right; a
   job; an update) continue the bar's stripes in coal (`--coal-stripes`:
   `#181818` on `#121212`, laid on the window so they line up with the bar's),
@@ -67,34 +78,39 @@ follows the same rules.
   same, without icons.
 - A big main button over the game (the drawer's Resume) is the bar's own gold
   (`--bar-stripe`), a shade deeper than `--amber`, so it does not glare.
+- A game's title box on its page is the launcher's own: `--panel` at 92 % over
+  the picture, the title in `--gold`, the year and the notes in `--amber`, and
+  the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).
+  The site's own card colours (navy boxes, lavender text) are not used.
 
 ## Colours
 
 `src/app.css`, on `:root`, with the site's names (its `@theme` in
 `src/app/globals.css`):
 
-| Token                                    | Value                            | Use                                             |
-| ---------------------------------------- | -------------------------------- | ----------------------------------------------- |
-| `--ink`                                  | `#121212`                        | the page                                        |
-| `--ink-deep`                             | `#0b0b0b`                        | badges, tracks, job output, the darkest parts   |
-| `--rail`                                 | `#0d0d0d`                        | the game list beside the page, Android's rail   |
-| `--panel`                                | `#191919`                        | cards and panels (`--card`)                     |
-| `--panel-hi`                             | `#202020`                        | a card under the pointer or open (`--card-hi`)  |
-| `--brand`                                | `#d6a020`                        | section numbers, small labels                   |
-| `--amber`                                | `#f5c040`                        | the main button, links, focus rings, what is on |
-| `--gold`                                 | `#ffe08f`                        | headings, numbers                               |
-| `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`  | secondary text, from most to least prominent    |
-| `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/.16` | lines between rows; never round a control       |
-| `--text`, `--body`                       | `#e6e6eb`, `#cacad3`             | text, neutral so the gold is the only accent    |
-| `--control`, `--control-hi`              | `#191919`, `#242424`             | plain controls on the page                      |
-| `--control-card`, `--control-card-hi`    | `#242424`, `#2c2c2c`             | plain controls on a card                        |
-| `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink | a control that is on or picked                  |
-| `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above         | the bar's buttons                               |
-| `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                      | cards; controls; badges                         |
-| `--bar-stripe`, `--bar-stripe-alt`       | `#c99222`, `#bd8619`             | the header bar's stripes                        |
-| `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`             | text on gold (desktop: `--ink-deep`)            |
-| `--bar-name`                             | `#000`                           | the logo on the bar (desktop: `--ink-deep`)     |
-| `--on-game`                              | `#fff`                           | text on a game's colours or picture             |
+| Token                                    | Value                                | Use                                                   |
+| ---------------------------------------- | ------------------------------------ | ----------------------------------------------------- |
+| `--ink`                                  | `#1c1a16`                            | the page                                              |
+| `--ink-deep`                             | `#14120e`                            | badges, tracks, job output, the darkest parts         |
+| `--rail`                                 | `#161410`                            | the game list beside the page, Android's rail         |
+| `--panel`                                | `#24221e`                            | cards and panels (`--card`)                           |
+| `--panel-hi`                             | `#2c2a26`                            | a card under the pointer or open (`--card-hi`)        |
+| `--glow`                                 | `#f5c040` (a game's own: its accent) | the light under the bar and along the game menu's top |
+| `--brand`                                | `#d6a020`                            | section numbers, small labels                         |
+| `--amber`                                | `#f5c040`                            | the main button, links, focus rings, what is on       |
+| `--gold`                                 | `#ffe08f`                            | headings, numbers                                     |
+| `--lav`, `--soft`, `--dim`               | `#d4d4de`, `#b4b4bf`, `#8b8b98`      | secondary text, from most to least prominent          |
+| `--line`, `--line-strong`                | `rgb(255 255 255 / .09)`, `/.16`     | lines between rows; never round a control             |
+| `--text`, `--body`                       | `#e6e6eb`, `#cacad3`                 | text, neutral so the gold is the only accent          |
+| `--control`, `--control-hi`              | `#24221e`, `#2e2c28`                 | plain controls on the page                            |
+| `--control-card`, `--control-card-hi`    | `#2e2c28`, `#363430`                 | plain controls on a card                              |
+| `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink     | a control that is on or picked                        |
+| `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above             | the bar's buttons                                     |
+| `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                          | cards; controls; badges                               |
+| `--bar-stripe`, `--bar-stripe-alt`       | `#c99222`, `#bd8619`                 | the header bar's stripes                              |
+| `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`                 | text on gold (desktop: `--ink-deep`)                  |
+| `--bar-name`                             | `#000`                               | the logo on the bar (desktop: `--ink-deep`)           |
+| `--on-game`                              | `#fff`                               | text on a game's colours or picture                   |
 
 The site has no status colours; the launcher adds `--ok` (`#8fd694`), `--warn`
 (amber) and `--err` (`#ff8a7a`), used only in pills and messages. The theme is
@@ -104,8 +120,7 @@ These are the "OpenRAC" theme. The other themes (Settings → General: Gruvbox,
 OLED black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by
 `src/lib/palettes.ts` and the core (`core/src/theme.rs`). A theme sets the
 page, panel, control, text, line and status tokens, never the
-accent (`--amber`, `--gold`, `--brand`, the bar's): that stays gold, or on
-Android the picked game's. So a colour that should follow the theme uses a
+accent (`--amber`, `--gold`, `--brand`, the bar's): that stays gold. So a colour that should follow the theme uses a
 token, such as `color-mix(in srgb, var(--ink-deep) 75%, transparent)` for a
 shade over a picture, not a fixed `rgb()`.
 
@@ -123,9 +138,9 @@ navy (user decision), no brown, no mid grey.
 
 | Surface                         | Fill      | Control on it        |
 | ------------------------------- | --------- | -------------------- |
-| page (`--ink`)                  | `#121212` | `#191919`, `#242424` |
-| card, panel, drawer (`--panel`) | `#191919` | `#242424`, `#2c2c2c` |
-| card in the game (`--panel-hi`) | `#202020` | `#242424`, `#2c2c2c` |
+| page (`--ink`)                  | `#1c1a16` | `#24221e`, `#2e2c28` |
+| card, panel, drawer (`--panel`) | `#24221e` | `#2e2c28`, `#363430` |
+| card in the game (`--panel-hi`) | `#2c2a26` | `#2e2c28`, `#363430` |
 
 In code, `--control` / `--control-hi` is the fill on the page, and
 `--control-card` / `--control-card-hi` the fill on a card: any surface filled
@@ -133,17 +148,6 @@ with `--card` or `--card-hi` sets `--control: var(--control-card)` (and
 `-hi`) for what is inside it. Each theme in `palettes.json` sets both pairs
 from its own colours (one step lighter than the page and than its cards;
 Gruvbox's controls sit darker, in its own `#1d2021`, as its page is lighter).
-
-On the OpenRAC theme, a game's accent may tint the coals with its bar colour:
-each accent sets `--tint-panel`, `--tint-panel-hi`, `--tint-control`,
-`--tint-control-hi`, `--tint-control-card` and `--tint-control-card-hi`
-(`base` holds the plain coals). The app uses them only while the theme is
-OpenRAC (`html[data-theme="openrac"]`); another theme keeps its own colours.
-Each tint keeps the lightness of the plain coal it replaces (OKLCH: the same L,
-chroma 0.012, the hue of the game's bar colour), so a tinted card is as dark
-as Ratchet & Clank's and the accent stands out on it just as much: Going
-Commando's `#202020` becomes `#1a2125`. Never tint by mixing the bar colour in,
-which also lightens the coal.
 
 The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands; its page is already
@@ -157,11 +161,9 @@ left (no gold tint, which reads brown on dark). Key hints and the "Paused while
 open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
 coal stripes continuing the bar's (which drift slowly), gold text, no edge.
 
-The game's window ground is the theme's coal with a glow of the accent at its
-top (Ratchet & Clank). Another game's accent (`palettes.json` `accents`) sets
-its own ground instead: `--menu-top`, `--menu-bottom` and `--menu-glow`, the
-coal tinted a little with its bar colour, so Going Commando's window goes with
-its blue bar. The window's right side has the bar's stripes, barely visible,
+The game's window ground is the theme's coal with a glow of the game's colour
+along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
+on the coal. The window's right side has the bar's stripes, barely visible,
 in its top left corner only, fading out down and to the right.
 
 ## Logo
@@ -174,8 +176,7 @@ ears stick out above.
 
 - Header bar: the whole logo in `--bar-name`, the version beside it.
 - Header bar under 560 px: the mark.
-- Android's rail and the first run's welcome: the mark in `--amber`, so it
-  follows the picked game's accent.
+- Android's rail and the first run's welcome: the mark in `--amber`.
 
 ## Type
 

@@ -201,9 +201,10 @@
     background: repeating-linear-gradient(35deg, var(--bar-stripe) 0 20px, var(--bar-stripe-alt) 20px 40px);
     border-bottom: 1px solid rgb(0 0 0 / 0.3);
     color: var(--bar-name);
+    /* A light shadow: a deep one read as a black band under the bar on the page. */
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.35),
-      0 4px 24px rgb(0 0 0 / 0.45);
+      0 1px 6px rgb(0 0 0 / 0.18);
   }
 
   button {
@@ -607,7 +608,7 @@
     overflow-y: auto;
   }
 
-  /* The logo's mark in the picked game's accent, as wide as the rail's destinations: the rail has
+  /* The logo's mark in the gold, as wide as the rail's destinations: the rail has
      no room for the name. */
   :global(html[data-platform="android"]) .brand {
     flex: none;

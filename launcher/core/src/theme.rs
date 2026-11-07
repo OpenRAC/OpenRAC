@@ -1,4 +1,4 @@
-//! The launcher's colours for the game: the theme picked in Settings and the picked game's accent,
+//! The launcher's colours for the game: the theme picked in Settings and the picked game's light,
 //! as the launcher wears them, handed to the game's options drawer, so that it looks
 //! like the launcher it was started from (port/game/common/ui_colors.h). The colours
 //! are src/lib/palettes.json's, the file the launcher's pages read.
@@ -27,9 +27,7 @@ const DRAWER: &[&str] = &[
     "--err",
     "--control-card",
     "--control-card-hi",
-    "--menu-top",
-    "--menu-bottom",
-    "--menu-glow",
+    "--glow",
 ];
 
 /// The variable the game reads them from: `name=#rrggbb[aa]` pairs, comma-separated, each name
@@ -42,19 +40,13 @@ pub fn ui_colors(theme: &str, game: Option<&str>) -> String {
     let data: serde_json::Value = serde_json::from_str(PALETTES).unwrap_or_default();
     let palette =
         data["palettes"].as_array().and_then(|all| all.iter().find(|p| p["id"] == theme)).map(|p| &p["colors"]);
+    // A game's accent is only the light along the menu's top (--glow); the rest is the theme's.
     let accent = game.map(|game| &data["accents"][game]);
-    // The OpenRAC theme (or an unknown one) sets no surfaces of its own.
-    let own_theme = palette.is_none_or(|colors| colors.as_object().is_none_or(|c| c.is_empty()));
     DRAWER
         .iter()
         .filter_map(|token| {
-            // The OpenRAC theme wears the game's own coal (its accent's --tint-*, as app.css does);
-            // another theme keeps its own surfaces.
-            let tint = format!("--tint-{}", token.trim_start_matches('-'));
-            let tinted = own_theme.then(|| accent.and_then(|a| a[tint.as_str()].as_str())).flatten();
-            let value = tinted.or_else(|| {
-                [accent, palette, Some(&data["base"])].into_iter().flatten().find_map(|colors| colors[*token].as_str())
-            })?;
+            let value =
+                [accent, palette, Some(&data["base"])].into_iter().flatten().find_map(|colors| colors[*token].as_str())?;
             Some(format!("{}={}", token.trim_start_matches('-'), hex(value)?))
         })
         .collect::<Vec<_>>()
@@ -89,32 +81,27 @@ mod tests {
     #[test]
     fn hands_the_game_the_theme_and_the_accent() {
         let own = ui_colors("openrac", None);
-        // All but the menu's own ground, which only a game's accent sets.
-        assert_eq!(own.split(',').count(), DRAWER.len() - 3, "{own}");
-        assert_eq!(color(&own, "menu-top"), None);
-        assert_eq!(color(&own, "panel"), Some("#191919"));
+        assert_eq!(own.split(',').count(), DRAWER.len(), "{own}");
+        assert_eq!(color(&own, "panel"), Some("#24221e"));
+        assert_eq!(color(&own, "control-card"), Some("#2e2c28"));
         assert_eq!(color(&own, "line"), Some("#ffffff17"));
         assert_eq!(color(&own, "amber"), Some("#f5c040"));
+        assert_eq!(color(&own, "glow"), Some("#f5c040"));
         // A theme sets its own; what it leaves is the launcher's.
         let nord = ui_colors("nord", None);
         assert_eq!(color(&nord, "panel"), Some("#3b4252"));
         assert_eq!(color(&nord, "amber"), Some("#f5c040"));
-        assert_eq!(color(&own, "control-card"), Some("#242424"));
         assert_eq!(color(&nord, "control-card"), Some("#434c5e"));
         assert_eq!(ui_colors("no-such", None), own);
-        // The game's accent; Ratchet & Clank's is the launcher's own.
-        let rac3 = ui_colors("nord", Some("rac3"));
-        assert_eq!(color(&rac3, "amber"), Some("#ffd23f"));
+        // A game's accent is only its light; its bar, gold and coal are the launcher's, on any theme.
         let rac2 = ui_colors("openrac", Some("rac2"));
-        assert_eq!(color(&rac2, "menu-top"), Some("#181e22"));
-        // Going Commando's coal, on the OpenRAC theme only.
-        assert_eq!(color(&rac2, "panel-hi"), Some("#1a2125"));
-        assert_eq!(color(&ui_colors("nord", Some("rac2")), "panel-hi"), Some("#434c5e"));
-        // The bar's stripes and ink too, for the game's menu bar (debug/menu_window.cpp).
-        assert_eq!(color(&own, "bar-stripe"), Some("#c99222"));
-        assert_eq!(color(&rac3, "bar-stripe-alt"), Some("#d7ac27"));
-        assert_eq!(color(&rac3, "bar-ink"), Some("#2a2000"));
-        assert_eq!(color(&rac3, "panel"), Some("#3b4252"));
+        assert_eq!(color(&rac2, "glow"), Some("#31b6e8"));
+        assert_eq!(color(&rac2, "amber"), Some("#f5c040"));
+        assert_eq!(color(&rac2, "panel"), Some("#24221e"));
+        assert_eq!(color(&rac2, "bar-stripe"), Some("#c99222"));
+        let rac4 = ui_colors("nord", Some("rac4"));
+        assert_eq!(color(&rac4, "glow"), Some("#ff6b61"));
+        assert_eq!(color(&rac4, "panel"), Some("#3b4252"));
         assert_eq!(ui_colors("openrac", Some("rac1")), own);
     }
 

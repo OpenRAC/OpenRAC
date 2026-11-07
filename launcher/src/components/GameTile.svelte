@@ -8,7 +8,7 @@
   import { regionLabel } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
-  import { accentStyle, themeStyle } from "$lib/themes";
+  import { themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
 
   /** `selected`: the game picked last, whose colour the launcher wears (themes.ts accent). It is
@@ -75,13 +75,7 @@
         {/if}
       </div>
       {#if offers}
-        <button
-          class="act"
-          class:primary={next.primary}
-          data-pad-skip
-          style={accentStyle(game.id)}
-          onclick={() => void playerAct(v, next)}
-        >
+        <button class="act" class:primary={next.primary} data-pad-skip onclick={() => void playerAct(v, next)}>
           <Icon name={next.icon} size={18} />{next.kind === "set-up" ? "Set up" : next.label}
         </button>
       {/if}
