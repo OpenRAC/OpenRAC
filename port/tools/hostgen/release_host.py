@@ -4,7 +4,8 @@
 """A game's shared host C in one release's function names, for that release's build.
 
 The shared host C (port/game/rac2/host) is written with the primary release's names
-(`func_0027F538`); another release's table (`host/rac2_names.tsv`, written by release_carry.py)
+(`func_0027F538`); another release's table (`host/<game>_names.tsv`: rac2's written by release_carry.py, rac1's by
+release_rac1.py)
 gives each its name there. A macro per name would chain: v1.01's `func_0028E458` is the release's
 `func_0028ECD8`, which is itself one of v1.01's names the host C uses. So the build compiles copies
 written in one pass, every name once (cmake/Games.cmake), and hostgen reads the host C so too.
@@ -32,9 +33,19 @@ def read_names(path: Path) -> dict[str, str]:
     return out
 
 
+# A function the version's table leaves out (rac1.h, `#if !RAC1_OMIT(func_...)`): the table names it
+# as the shared C does, so the name inside stays.
+OMITTED = re.compile(r"\bRAC1_OMIT\(\s*\w+\s*\)")
+
+
 def rename(text: str, names: dict[str, str]) -> str:
     """TEXT with each name of NAMES written as the release's, in one pass (no name is renamed twice)."""
-    return TOKEN.sub(lambda m: names.get(m.group(0), m.group(0)), text) if names else text
+    if not names:
+        return text
+    parts = OMITTED.split(text)
+    kept = OMITTED.findall(text)
+    out = [TOKEN.sub(lambda m: names.get(m.group(0), m.group(0)), p) for p in parts]
+    return "".join(x for pair in zip(out, kept + [""]) for x in pair)
 
 
 def main(argv: list[str] | None = None) -> int:

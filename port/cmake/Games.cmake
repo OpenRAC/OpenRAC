@@ -243,7 +243,9 @@ function(openrac_add_game config)
       # Another release of one decompilation (hostgen.json "release"): the shared C in the
       # release's function names, written in one pass from its table (tools/hostgen/release_host.py).
       string(JSON release_table ERROR_VARIABLE no_release GET "${json}" release table)
-      if(NOT no_release AND EXISTS "${config_dir}/host/rac2_names.tsv")
+      string(JSON release_game GET "${json}" game)
+      set(release_names "${config_dir}/host/${release_game}_names.tsv")
+      if(NOT no_release AND EXISTS "${release_names}")
         set(renamed_dir "${gen}/host_shared")
         set(renamed "")
         foreach(file IN LISTS shared_host)
@@ -253,8 +255,8 @@ function(openrac_add_game config)
         add_custom_command(
           OUTPUT ${renamed}
           COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/release_host.py"
-                  --names "${config_dir}/host/rac2_names.tsv" --out "${renamed_dir}" ${shared_host}
-          DEPENDS ${shared_host} "${config_dir}/host/rac2_names.tsv" "${hostgen_dir}/release_host.py"
+                  --names "${release_names}" --out "${renamed_dir}" ${shared_host}
+          DEPENDS ${shared_host} "${release_names}" "${hostgen_dir}/release_host.py"
           COMMENT "release_host: ${id}'s shared host C"
           VERBATIM)
         set(shared_host ${renamed})
