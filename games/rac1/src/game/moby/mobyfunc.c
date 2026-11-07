@@ -140,7 +140,7 @@ typedef struct {
 
 /* InitMobyInstance: clears the 0x100-byte moby, fills its defaults (class
    byte from resident_class_slot_by_id[oClass], colours, its slot index from the moby
-   array base resident_object_pool), flags a class with no resident_moby_class_data entry, then
+   array base resident_object_pool), flags a class with no moby_class_updates entry, then
    copies the class record moby_class_resources[class] (or marks the moby dead when
    there is none) and applies the animation-sequence rules after
    update_moby_animation_state. The moby is a real struct so its non-byte stores are "in
@@ -175,7 +175,7 @@ void InitMobyInstance(void *arg0, int oClass) {
     m->unk7D = 0xFF;
     m->unkA1 = 0x7F;
     m->unkA3 = 0x80;
-    m->unk74 = resident_moby_class_data[m->oClass];
+    m->unk74 = moby_class_updates[m->oClass];
     if (m->unk74 == 0) {
         m->flags |= 2;
     }
@@ -281,7 +281,7 @@ void update_moby_voice(unsigned char *s) {
         if (*(unsigned char **)(e + 0x88) != s) {
             s[0x7D] = 0xFF;
         } else if (*(short *)(e + 0x7E) != s[0x7C]) {
-            sound_KillChannel(id);
+            release_voice_slot(id);
             s[0x7D] = 0xFF;
         }
     } else if (s[0x7C] != 0xFF) {
@@ -297,7 +297,7 @@ LINKER_REMNANT("asm/remnants/text", func_0020D828);
    is starting, else blended between the current and previous frames by
    that factor. Written `frame > prevFrame` so the two bytes load in
    retail's order; prevFrameData is read before the first call. */
-float MobyGetFrameValue(Moby *m) {
+float compute_interpolated_record_value(Moby *m) {
     int fd;
 
     if (m->seq != 0xFF) {
@@ -373,7 +373,7 @@ void DetachManipulator(void *arg0, void *arg1) {
 extern int moby_render_slots[];
 
 /* Returns the render slot holding moby v, or claims a free one; -1 if all 16 are taken. */
-int find_or_allocate_id_slot(int v) {
+int find_or_allocate_moby_render_slot(int v) {
     int i = 0;
     int *p = moby_render_slots;
     do {
@@ -410,7 +410,7 @@ void prune_moby_references(void) {
 /* Scale the single vertex block at arg2+0x30 by the object's 0x2C field
    in 1/1024 units, then run it through the two per-object transforms at
    arg0+0xC0 and arg0+0x10. 0x3A800000 is exactly 2^-10. */
-void MobyTransformScaledVertex(char *arg0, int arg1, char *arg2) {
+void build_moby_bone_transform(char *arg0, int arg1, char *arg2) {
     char buf[0x40];
     int n;
     char *v;
@@ -422,7 +422,7 @@ void MobyTransformScaledVertex(char *arg0, int arg1, char *arg2) {
     v = arg2 + 0x30;
     FastVecScale(v, v, s);
     copy_matrix_rotation(buf, arg0 + 0xC0);
-    sce_vu0_mul_matrix(arg2, buf, arg2);
+    multiply_matrix(arg2, buf, arg2);
     FastVecAdd(v, v, arg0 + 0x10);
 }
 
@@ -439,7 +439,7 @@ void transform_scaled_vertex_batch(char *arg0, int arg1, void *arg2, char *arg3)
         do {
             FastVecScale(v, v, s);
             n--;
-            matrix_mul_vec3(v, v, arg0 + 0xC0);
+            transform_vector_by_basis(v, v, arg0 + 0xC0);
             FastVecAdd(v, v, arg0 + 0x10);
             v += 0x10;
         } while (n != 0);
@@ -548,7 +548,7 @@ void PatchMobyGifs(void) {
 }
 
 extern int g_hero_moby NOT_SDA;
-extern float shadow_light_dir[] NOT_SDA;
+extern float resident_packed_direction[] NOT_SDA;
 
 /* Sets the shadow light direction from the light direction at the hero. */
 void update_resident_packed_direction(void) {
@@ -557,14 +557,14 @@ void update_resident_packed_direction(void) {
 
     get_moby_light_direction((void *)g_hero_moby, buf);
     a = fast_arc_tan(buf[0], buf[1]);
-    shadow_light_dir[0] = FastCos(a) * 0.14f;
-    shadow_light_dir[1] = FastSin(a) * 0.14f;
-    shadow_light_dir[2] = -0.99f;
+    resident_packed_direction[0] = FastCos(a) * 0.14f;
+    resident_packed_direction[1] = FastSin(a) * 0.14f;
+    resident_packed_direction[2] = -0.99f;
 }
 
 extern int graphics_setup_dma_chain_enabled MACRO_ADDR;
 extern int graphics_setup_tag_slot MACRO_ADDR;
-extern char graphics_setup_profile_label[];
+extern char moby_shadow_callback_label[];
 extern char graphics_setup_command_stream[];
 
 /* The same splice as DmaMobyTextures, around build_shadow_command_stream/submit_graphics_setup_command_stream,
@@ -603,7 +603,7 @@ void configure_graphics_setup_dma_chain(void) {
     p[1] = g_render_packet_cursor;
     p[2] = 0;
     p[3] = 0;
-    ProfileMarker_End(graphics_setup_profile_label, 8);
+    noop_core_callback(moby_shadow_callback_label, 8);
 }
 
 extern char normal_lut[];
@@ -639,15 +639,15 @@ void RestoreMobyClassDists(void) {
 extern unsigned short moby_vu1_data_qwc NOT_SDA;
 
 extern int font_state MACRO_ADDR;
-extern char moby_vu0_micro_program[];
+extern char moby_draw_vu0_micro_program[];
 extern int g_gs_texture_allocation_start MACRO_ADDR;
-extern char draw_mobys_profile_label[];
+extern char moby_texture_label[];
 extern int moby_anim_head MACRO_ADDR;
 extern int vu1_chain_limit MACRO_ADDR;
 
 /* DrawMobysSetup(void). What an older note here called a dead
-   `&draw_mobys_profile_label` and an unexplained `li $5,1` are the arguments of the
-   profiling marker ProfileMarker_Begin. The packet pointer goes through a
+   `&moby_texture_label` and an unexplained `li $5,1` are the arguments of the
+   profiling marker noop_core_callback_secondary. The packet pointer goes through a
    local advanced in place, as in DrawShrubs. VU1_addGSregister's second
    parameter being `long` is what orders its arguments like retail. */
 void DrawMobysSetup(void) {
@@ -655,14 +655,14 @@ void DrawMobysSetup(void) {
 
     VU1_addDataRef(moby_vu1_data, moby_vu1_data_qwc);
     font_state = 6;
-    VU0_loadMicroProgram(moby_vu0_micro_program);
+    VU0_loadMicroProgram(moby_draw_vu0_micro_program);
     VU1_addGSregister(0x47, 0x5360B);
     p = g_render_packet_cursor;
     moby_texture_tag_slot = p;
     g_gs_texture_allocation_cursor = g_gs_texture_allocation_start;
     p += 0x10;
     g_render_packet_cursor = p;
-    ProfileMarker_Begin(draw_mobys_profile_label, 1);
+    noop_core_callback_secondary(moby_texture_label, 1);
     graphics_setup_tag_slot = 0;
     vu1_chain_limit = vu1_chain_safe_end - 0x10000;
     moby_anim_head = render_packet_end;
@@ -681,24 +681,24 @@ void DrawMobyList(int arg0, int arg1) {
 extern void DmaMobyTextures(void);
 extern void ProcessMobyAnimData(void);
 
-extern char moby_texture_dma_profile_label[];
-extern char draw_mobys_cleanup_profile_label[];
+extern char moby_draw_callback_label[];
+extern char moby_skin_callback_label[];
 extern int moby_word_fill_table_bytes MACRO_ADDR;
 
 /* DrawMobysCleanUp. The empty profiling markers take (void *, int);
    DmaMobyTextures and apply_moby_word_fill_table take nothing. With the arguments
-   right, draw_mobys_cleanup_profile_label is a plain array, not MACRO_ADDR. */
+   right, moby_skin_callback_label is a plain array, not MACRO_ADDR. */
 void DrawMobysCleanUp(void) {
-    ProfileMarker_Begin(moby_texture_dma_profile_label, 3);
+    noop_core_callback_secondary(moby_draw_callback_label, 3);
     DmaMobyTextures();
-    ProfileMarker_End(moby_texture_dma_profile_label, 5);
+    noop_core_callback(moby_draw_callback_label, 5);
     if (draw_config[10] != 0) {
         ProcessMobyAnimData();
         if (moby_word_fill_table_bytes != 0) {
             apply_moby_word_fill_table();
         }
     }
-    ProfileMarker_End(draw_mobys_cleanup_profile_label, 3);
+    noop_core_callback(moby_skin_callback_label, 3);
     if (draw_config[10] != 0 && graphics_setup_tag_slot != 0) {
         configure_graphics_setup_dma_chain();
     }

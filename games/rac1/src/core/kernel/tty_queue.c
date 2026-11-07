@@ -93,10 +93,10 @@ typedef struct {
 
 extern void kprintf(const char *, ...);
 
-extern char tty_packet_too_large_msg[];
-extern char tty_receive_error_msg[];
-extern char tty_send_error_msg[];
-extern char tty_wlen_error_msg[];
+extern char tty_packet_size_error_message[];
+extern char tty_receive_error_message[];
+extern char tty_send_error_format[];
+extern char tty_pending_send_bytes_error_format[];
 
 /* sceTtyHandler: the DECI2 event callback (1/2 read, 3 write, 4 write done). */
 void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
@@ -107,7 +107,7 @@ void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
         case 2:
             if (param != 0) {
                 if ((unsigned int)(ti->rlen + param) > 0x140) {
-                    kprintf(tty_packet_too_large_msg);
+                    kprintf(tty_packet_size_error_message);
                 }
                 {
                     int off = ti->rlen;
@@ -115,7 +115,7 @@ void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
                     n = isceDeci2ExRecv(ti->sock, ti->rbuf + off, param);
                 }
                 if (n < 0) {
-                    kprintf(tty_receive_error_msg);
+                    kprintf(tty_receive_error_message);
                 }
                 ti->rlen += n;
             } else {
@@ -132,7 +132,7 @@ void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
             int w = isceDeci2ExSend(ti->sock, ti->wbuf, ti->wlen);
 
             if (w < 0) {
-                kprintf(tty_send_error_msg, w);
+                kprintf(tty_send_error_format, w);
                 ti->busy = 0;
             } else {
                 ti->wbuf += w;
@@ -142,7 +142,7 @@ void sceTtyHandler(int event, int param, TtyHandlerState *ti) {
         }
         case 4:
             if (ti->wlen != 0) {
-                kprintf(tty_wlen_error_msg, ti->wlen);
+                kprintf(tty_pending_send_bytes_error_format, ti->wlen);
             }
             ti->busy = 0;
             break;
@@ -245,7 +245,7 @@ typedef struct {
 } TtyState2;
 
 extern TtyState2 tty_info_t __asm__("D_00154B50");
-extern TtyQueue *tty_info_queue;
+extern TtyQueue *tty_read_input_queues;
 
 /* sceTtyRead: block for each byte until the handler queues one; stop
    after a newline. */
@@ -253,7 +253,7 @@ int sceTtyRead(char *buf, int len) {
     int i;
 
     for (i = 0; i < len; i++) {
-        while (((volatile TtyQueue *)tty_info_queue)->count == 0) {
+        while (((volatile TtyQueue *)tty_read_input_queues)->count == 0) {
         }
         {
             TtyState2 *t = &tty_info_t;

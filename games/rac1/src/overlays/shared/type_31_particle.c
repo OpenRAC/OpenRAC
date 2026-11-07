@@ -5,7 +5,7 @@
 #include "include_asm.h"
 #include "asm_functions/executable.h"
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 // Spawns a particle (type 0x31) with given vectors, colour source and flags.
 void create_type_31_part(int a, int *b, int *c, float *d, int e) {

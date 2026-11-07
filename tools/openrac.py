@@ -58,13 +58,17 @@ def checksums(path: Path, full: bool) -> dict:
     return out
 
 
-def known_discs() -> dict[str, tuple[dict, str, dict]]:
-    """serial -> (game, version name, version)."""
-    return {v["serial"]: (g, name, v) for g, name, v in games.versions()}
+def known_discs() -> dict[str, list[tuple[dict, str, dict]]]:
+    """serial -> [(game, version name, version)]: two releases can share a serial (Ratchet &
+    Clank's PAL v1.00 and v2.00 both boot SCES_509.16), told apart by their checksums."""
+    out: dict[str, list[tuple[dict, str, dict]]] = {}
+    for g, name, v in games.versions():
+        out.setdefault(v["serial"], []).append((g, name, v))
+    return out
 
 
 def scan(full: bool = False) -> dict[str, Path]:
-    """serial -> the image in baserom/ whose checksums match game.json; prints what it finds."""
+    """'game/version' -> the image in baserom/ whose checksums match game.json; prints what it finds."""
     known, found = known_discs(), {}
     images = sorted(p for p in BASEROM.glob("*") if p.is_file() and p.suffix.lower() == ".iso")
     if not images:
@@ -74,19 +78,22 @@ def scan(full: bool = False) -> dict[str, Path]:
         if serial not in known:
             print(f"{iso.name}: {'not a PS2 disc' if serial is None else serial + ', not a disc OpenRAC knows'}")
             continue
-        game, name, version = known[serial]
-        want, got = version["disc"], checksums(iso, full)
+        got = checksums(iso, full)
         # A checksum game.json does not record yet (rac5's CRC32 and MD5) is not compared.
-        bad = [k for k, v in got.items() if k in want and want[k] != v]
-        label = f"{game['title']} ({version['region']}, {serial})"
+        differing = [(game, name, version, [k for k, v in got.items() if k in version["disc"] and version["disc"][k] != v])
+                     for game, name, version in known[serial]]
+        game, name, version, bad = min(differing, key=lambda d: len(d[3]))
+        label = f"{game['title']} ({version['region']}, {serial}"
+        label += f", disc v{version['disc']['version']})" if len(known[serial]) > 1 else ")"
         if bad:
             print(f"{iso.name}: {label}, but {', '.join(bad)} differ from games/{game['id']}/game.json")
             continue
         print(f"{iso.name}: {label}, {'all checksums' if full else 'size and SHA-1'} match")
-        found[serial] = iso
-    for serial, (game, name, version) in known.items():
-        if serial not in found:
-            print(f"missing: {game['title']} ({version['region']}, {serial}) for {games.version_dir(game, name)}")
+        found[f"{game['id']}/{name}"] = iso
+    for serial, releases in known.items():
+        for game, name, version in releases:
+            if f"{game['id']}/{name}" not in found:
+                print(f"missing: {game['title']} ({version['region']}, {serial}) for {games.version_dir(game, name)}")
     return found
 
 
@@ -149,7 +156,7 @@ def setup(only: list[str]) -> None:
         if only and key not in only:
             continue
         inputs = version.get("inputs", [])
-        iso = found.get(version["serial"])
+        iso = found.get(key)
         if not inputs:
             print(f"{key}: nothing to place ({version.get('setup', 'no build yet')})")
             continue

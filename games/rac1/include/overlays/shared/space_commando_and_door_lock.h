@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void SetTableEntryFlagIfKind18(void *);
+extern void func_L06_00317770(void *);
 extern void draw_pulsing_timer_display(void);
 extern void set_moby_state_two(void *);
 extern void *spawn_spinning_moby_fragment(void *, void *, void *);

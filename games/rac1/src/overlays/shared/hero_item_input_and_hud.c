@@ -42,7 +42,7 @@ extern MoveUsageTable usage_stats;
 extern unsigned char item_available[];
 extern int gBolts MACRO_ADDR;
 extern int gameplay_event_frame_count MACRO_ADDR;
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 extern int quick_swap_item MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 extern float g_frame_scale_sq MACRO_ADDR;
@@ -52,14 +52,14 @@ extern float veldin1_hero_fall_state_height MACRO_ADDR;
 extern int timed_hud_visible MACRO_ADDR;
 extern int hero_run_step_start_frames_1 MACRO_ADDR;
 extern int veldin1_hero_double_tap_timer SDATA(veldin1_hero_double_tap_timer);
-extern S166D80 player_camera;
+extern S166D80 gCameraLvl;
 extern float camera_yaw;
 extern int level_render_setup_packet_default;
 extern HeroBoneScalars D_L00_0017A780;
 extern HeroIdleFidget idle_fidgets[];
 extern HeroItemDefView item_defs[];
 extern HeroAttackRecord attack_records[];
-extern HeroSpeedBands hero_speed_bands;
+extern HeroSpeedBands hero_speed_steps;
 
 extern void stick_target_v(int, float) __asm__("func_L00_00211F80");
 
@@ -259,7 +259,8 @@ void hero_update_transitions(void) {
                                 if (fast_dec_timer(&g_hero.slot3_anim_timer)) {
                                     if (0.55850536f > D_L00_0017A780.f258 && D_L00_0017A780.f254 < 0.34906584f &&
                                         g_hero.items[3].state == 2) {
-                                        g_hero.slot3_anim_timer = rand_range(scale_ticks(0x6E), scale_ticks(0x10E));
+                                        g_hero.slot3_anim_timer =
+                                            random_int_between(scale_ticks(0x6E), scale_ticks(0x10E));
                                         blend_hero_slot3_animation_pair();
                                     }
                                 }
@@ -420,13 +421,13 @@ void hero_update_transitions(void) {
                     case HERO_STATE_DYING_SPEED_LIMITED:
                     case HERO_STATE_DYING_ZERO_HEALTH:
                         if (g_hero.anim_flags & 2) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case HERO_STATE_SINK:
                         if (g_hero.state_timer > scale_ticks(0xDC)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -747,9 +748,9 @@ void hero_update_transitions(void) {
                                         HeroEnterMoveState(HERO_STATE_JUMP, 1);
                                         break;
                                     }
-                                    if (g_hero.target_speed > hero_speed_bands.fC &&
+                                    if (g_hero.target_speed > hero_speed_steps.fC &&
                                         FastDiffRots(g_hero.motion.move_yaw, g_hero.motion.rot.f[2]) < 1.0471976f &&
-                                        hero_speed_bands.f18 * g_frame_time * 0.85f < g_hero.motion.flat_speed) {
+                                        hero_speed_steps.f18 * g_frame_time * 0.85f < g_hero.motion.flat_speed) {
                                         HeroEnterMoveState(HERO_STATE_RUN_JUMP, 1);
                                         break;
                                     }
@@ -773,7 +774,7 @@ void hero_update_transitions(void) {
                             break;
                         }
                         if (g_hero.on_ice_ground != 0 && g_hero.state.current == HERO_STATE_RUN_CLEAR_VELOCITY_Z) {
-                            float len = vec_length_xy(g_hero.motion.displacement.f);
+                            float len = vector_length_xy(g_hero.motion.displacement.f);
                             if (g_hero.stick_magnitude < 0.17f &&
                                 (((unsigned char *)g_hero.moby)[0x53] == 0x37 ||
                                  (((unsigned char *)g_hero.moby)[0x53] == hero_idle_sequence(0) &&
@@ -859,7 +860,7 @@ void hero_update_transitions(void) {
                             break;
                         } else if (g_hero.state.current == HERO_STATE_RUN_CLEAR_VELOCITY_Z) {
                             if (g_controller_state.no_direction != 0) {
-                                if (vec_length_xy(g_hero.motion.velocity.f) < g_frame_time * 0.05f &&
+                                if (vector_length_xy(g_hero.motion.velocity.f) < g_frame_time * 0.05f &&
                                     g_hero.ground_slope.f < 0.08726646f) {
                                     if (HeroEnterMoveState(HERO_STATE_IDLE, 0)) {
                                         set_hero_animation(hero_idle_sequence(0), 0, scale_ticks(0x11));
@@ -885,7 +886,7 @@ void hero_update_transitions(void) {
                             }
                         } else if (g_hero.state.current == 0x73) {
                             if (g_controller_state.no_direction != 0) {
-                                if (vec_length_xy(g_hero.motion.velocity.f) < g_frame_time * 3.2f) {
+                                if (vector_length_xy(g_hero.motion.velocity.f) < g_frame_time * 3.2f) {
                                     if (HeroEnterMoveState(HERO_STATE_IDLE, 0)) {
                                         set_hero_animation(hero_idle_sequence(0), 0, scale_ticks(0x11));
                                     }
@@ -938,28 +939,28 @@ void hero_update_transitions(void) {
                         }
                         if (g_hero.sink_surface_z - 1.2f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0xAA)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case HERO_STATE_HEIGHT_OR_TIMEOUT_RESPAWN_WAIT:
                         if (g_hero.sink_surface_z - 1.2f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0x96)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case HERO_STATE_DEATH_DESCENT:
                         if (g_hero.sink_surface_z - 1.2f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0x64)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
                     case 125:
                         if (g_hero.sink_surface_z - 0.8f > g_hero.motion.pos.f[2] ||
                             g_hero.state_timer > scale_ticks(0x96)) {
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -981,13 +982,13 @@ void hero_update_transitions(void) {
                             break;
                         }
                         g_hero.unk1F8 = scale_ticks(0x28);
-                        if (FastAbsF(g_hero.motion.rot.f[1]) > 0.7853982f ||
-                            FastAbsF(g_hero.motion.rot.f[0]) > 0.7853982f) {
+                        if (absolute_float(g_hero.motion.rot.f[1]) > 0.7853982f ||
+                            absolute_float(g_hero.motion.rot.f[0]) > 0.7853982f) {
                             g_hero.ledge_probe_cooldown = scale_ticks(0x28);
                         }
                         if (g_hero.grounded_frames != 0 && g_hero.on_magnet_ground == 0 &&
-                            FastAbsF(g_hero.motion.rot.f[1]) < 0.7853982f &&
-                            FastAbsF(g_hero.motion.rot.f[0]) < 0.7853982f) {
+                            absolute_float(g_hero.motion.rot.f[1]) < 0.7853982f &&
+                            absolute_float(g_hero.motion.rot.f[0]) < 0.7853982f) {
                             HeroEnterMoveState(HERO_STATE_RUN, 1);
                             break;
                         }
@@ -1232,8 +1233,8 @@ void hero_update_transitions(void) {
                                     m[0xBC] = 1;
                                 }
                             }
-                            len = vec_length_xy(g_hero.motion.displacement.f);
-                            if (len < vec_length_xy(g_hero.motion.velocity.f) * 0.5f || grab || g_hero.unk5BE != 0) {
+                            len = vector_length_xy(g_hero.motion.displacement.f);
+                            if (len < vector_length_xy(g_hero.motion.velocity.f) * 0.5f || grab || g_hero.unk5BE != 0) {
                                 int ok = 1;
 
                                 if (g_current_level_index != LEVEL_KALEBO3) {
@@ -1288,7 +1289,7 @@ void hero_update_transitions(void) {
                                 v0[0] = 342.0f;
                                 v0[1] = 111.1f;
                                 v0[2] = 42.0f;
-                                if (FastVecDist(g_hero.motion.pos.f, v0) < 7.0f) {
+                                if (fast_vec_dist(g_hero.motion.pos.f, v0) < 7.0f) {
                                     go = 0;
                                     g_hero.move_lock_timer = scale_ticks(0x64);
                                 }
@@ -1400,8 +1401,8 @@ void hero_update_transitions(void) {
                                         qcopy(v0, g_hero.motion.pos.f);
                                         sp28 = g_hero.rail_segment;
                                         sp2C = g_hero.rail_seg_frac;
-                                        if (Spline_AdvanceByDistance((int *)g_hero.rail_spline, v0, &sp28, &sp2C,
-                                                                     g_hero.rail_spline_loops, t)) {
+                                        if (sample_path((int *)g_hero.rail_spline, v0, &sp28, &sp2C,
+                                                        g_hero.rail_spline_loops, t)) {
                                             FastVecScale(v1, g_hero.motion.displacement.f, scale_ticks(0x30));
                                             FastVecAdd(v0, g_hero.motion.pos.f, v1);
                                         }
@@ -1509,7 +1510,7 @@ void hero_update_transitions(void) {
                                 break;
                             }
                             if (g_hero.motion.velocity.f[2] < 0.0f) {
-                                if (FastAbsF(g_hero.motion.pos.f[2] - g_hero.rail_point.f[2]) < 0.3f) {
+                                if (absolute_float(g_hero.motion.pos.f[2] - g_hero.rail_point.f[2]) < 0.3f) {
                                     HeroEnterMoveState(HERO_STATE_GRIND, 1);
                                 }
                             }
@@ -1617,7 +1618,7 @@ void hero_update_transitions(void) {
                         break;
                     case HERO_STATE_SLIP:
                         if (scale_ticks(0x12C) < g_hero.state_timer) {
-                            Hero_OnKilled();
+                            hero_respawn();
                         }
                         if (g_hero.on_slip_ground != 0) {
                             break;
@@ -1753,7 +1754,7 @@ void hero_update_transitions(void) {
                                                                  g_hero.motion.displacement.f[2] >= 0.0f))) ||
                             g_hero.state_timer > scale_ticks(0x78)) {
                         respawn:
-                            Hero_OnKilled();
+                            hero_respawn();
                             return;
                         }
                         break;
@@ -1841,7 +1842,7 @@ void hero_update_transitions(void) {
                             configure_hero_point_effect_emission(0.016f, 0.002f, 5, 2, 0, 1);
                             break;
                         }
-                        if (g_hero.target_speed > hero_speed_bands.fC &&
+                        if (g_hero.target_speed > hero_speed_steps.fC &&
                             FastDiffRots(g_hero.motion.move_yaw, g_hero.motion.rot.f[2]) < 1.5707964f) {
                             if (g_hero.on_ice_ground != 0 || g_hero.wading != 0) {
                                 HeroEnterMoveState(HERO_STATE_RUN, 1);
@@ -1856,7 +1857,7 @@ void hero_update_transitions(void) {
                             configure_hero_point_effect_emission(0.016f, 0.002f, 5, 2, 1, 0);
                             break;
                         }
-                        if (hero_speed_bands.fC < g_hero.target_speed) {
+                        if (hero_speed_steps.fC < g_hero.target_speed) {
                             if (g_hero.on_ice_ground != 0 || g_hero.wading != 0) {
                                 HeroEnterMoveState(HERO_STATE_RUN, 1);
                                 break;
@@ -2085,7 +2086,7 @@ void hero_update_transitions(void) {
                                     (return_hero_animation_id_unchanged(moby[0x52]) == 8 ||
                                      return_hero_animation_id_unchanged(moby[0x52]) == 9) &&
                                     moby[0x52] == moby[0x53] &&
-                                    hero_speed_bands.f18 * g_frame_time * 0.1f > g_hero.target_speed &&
+                                    hero_speed_steps.f18 * g_frame_time * 0.1f > g_hero.target_speed &&
                                     g_frame_time * 2.5f > g_hero.motion.flat_speed) {
                                     float sp = (float)scale_ticks(9) / g_hero.anim_speed;
                                     if ((float)scale_ticks(0xA) < sp) {
@@ -2112,9 +2113,9 @@ void hero_update_transitions(void) {
                             if (g_hero.on_slip_ground == 0 && g_hero.move_lock_timer == 0) {
                                 if (pad_pressed_within(0x40, scale_ticks(8), 0)) {
                                     if (g_hero.air_frames.s < scale_ticks(4)) {
-                                        if (g_hero.target_speed > hero_speed_bands.fC &&
+                                        if (g_hero.target_speed > hero_speed_steps.fC &&
                                             FastDiffRots(g_hero.motion.move_yaw, g_hero.motion.rot.f[2]) < 1.0471976f &&
-                                            hero_speed_bands.f18 * g_frame_time * 0.85f < g_hero.motion.flat_speed) {
+                                            hero_speed_steps.f18 * g_frame_time * 0.85f < g_hero.motion.flat_speed) {
                                             HeroEnterMoveState(HERO_STATE_RUN_JUMP, 1);
                                             break;
                                         }
@@ -2196,7 +2197,7 @@ void hero_update_transitions(void) {
                                         g_hero.can_double_jump != 0 && scale_ticks(0xE) < g_hero.state_timer &&
                                         (g_hero.past_jump_apex == 0 ||
                                          (g_hero.ground_distance > 0.7f &&
-                                          FastAbsF(gravity_z(g_hero.motion.velocity.f)) < g_frame_time * 5.8f))) {
+                                          absolute_float(gravity_z(g_hero.motion.velocity.f)) < g_frame_time * 5.8f))) {
                                         HeroEnterMoveState(HERO_STATE_DOUBLE_JUMP, 1);
                                     } else if (item_available[2] != 0 && hero_slot_item_id(3) != 4 &&
                                                g_hero.pack_disabled == 0 && (g_controller_state.held & PAD_CROSS) &&
@@ -2388,7 +2389,7 @@ void hero_update_transitions(void) {
                         if (scale_ticks(1) < g_hero.rail_land_frames) {
                             g_hero.unk2284 = 0;
                             stick_target_v(0, 1.0f);
-                            if (g_hero.target_speed > hero_speed_bands.fC && g_hero.stick_magnitude > 0.5f &&
+                            if (g_hero.target_speed > hero_speed_steps.fC && g_hero.stick_magnitude > 0.5f &&
                                 g_hero.on_slip_ground == 0 && g_hero.move_lock_timer == 0 &&
                                 FastDiffRots(g_hero.motion.move_yaw, g_hero.motion.rot.f[2]) < 1.5707964f) {
                                 HeroEnterMoveState(HERO_STATE_VEHICLE_MODE_1_RUN, 1);
@@ -2479,7 +2480,7 @@ void hero_update_transitions(void) {
                         break;
                     case HERO_STATE_VEHICLE_MODE_1_SLIP:
                         if (scale_ticks(0x12C) < g_hero.state_timer) {
-                            Hero_OnKilled();
+                            hero_respawn();
                         }
                         if (g_hero.on_slip_ground != 0) {
                             break;
@@ -2700,8 +2701,8 @@ void hero_update_transitions(void) {
                             int fr;
 
                             g_hero.rail_land_frames = scale_ticks(1);
-                            player_camera.f160 = 0.15f;
-                            player_camera.f168 = scale_ticks(0x1E);
+                            gCameraLvl.f160 = 0.15f;
+                            gCameraLvl.f168 = scale_ticks(0x1E);
                             fr = truncate_float_to_s32(g_hero.jump_land_anim_frame) + 3;
                             if (g_hero.anim_frame < g_hero.target_anim_frame) {
                                 set_hero_animation(moby[0x53], fr, scale_ticks(6));
@@ -2737,8 +2738,8 @@ void hero_update_transitions(void) {
                         if (g_hero.rail_land_frames == 1) {
                             qcopy(v0, g_hero.motion.pos.f);
                             v0[2] = g_hero.ground_z.f + 0.2f;
-                            spawn_class_593_moby((int)((unsigned char *)g_hero.moby), v0, scale_ticks(0x19), 2.0f,
-                                                 g_frame_time * 15.0f, 40.0f);
+                            spawn_giant_clank_hit_sphere((int)((unsigned char *)g_hero.moby), v0, scale_ticks(0x19),
+                                                         2.0f, g_frame_time * 15.0f, 40.0f);
                         }
                         if (g_hero.rail_land_frames != 0 && g_hero.move_lock_timer == 0) {
                             if (pad_pressed_within(0x40, scale_ticks(4), 0)) {
@@ -2752,7 +2753,7 @@ void hero_update_transitions(void) {
                         if (scale_ticks(1) < g_hero.rail_land_frames) {
                             g_hero.unk2284 = 0;
                             stick_target_v(0, 1.0f);
-                            if (g_hero.target_speed > hero_speed_bands.fC && g_hero.stick_magnitude > 0.5f &&
+                            if (g_hero.target_speed > hero_speed_steps.fC && g_hero.stick_magnitude > 0.5f &&
                                 g_hero.move_lock_timer == 0 &&
                                 FastDiffRots(g_hero.motion.move_yaw, g_hero.motion.rot.f[2]) < 1.5707964f) {
                                 HeroEnterMoveState(0x5B, 1);
@@ -2907,7 +2908,7 @@ void hero_update_transitions(void) {
                         break;
                     case HERO_STATE_VEHICLE_MODE_3_SLIP:
                         if (scale_ticks(0x12C) < g_hero.state_timer) {
-                            Hero_OnKilled();
+                            hero_respawn();
                         }
                         if (g_hero.on_slip_ground != 0) {
                             break;

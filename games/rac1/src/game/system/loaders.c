@@ -180,9 +180,9 @@ s32 upload_mip_texture(MipTexture *tex, u64 *regs) {
 LINKER_REMNANT("asm/remnants/text", func_00202EF8);
 
 extern int particle_texture_range_count MACRO_ADDR;
-extern char particle_texture_data[];
+extern char resident_lookup_payload[];
 extern int particle_texture_ptrs[];
-extern Pair_2F00 particle_texture_ranges[];
+extern Pair_2F00 resident_particle_texture_ranges[];
 
 /* ParseParticleTexs */
 void ParseParticleTexs(int *hdr, int base, int *list, int count) {
@@ -194,18 +194,18 @@ void ParseParticleTexs(int *hdr, int base, int *list, int count) {
 
     for (i = 0; i < n; i++, p++) {
         if (*p == 0)
-            particle_texture_ptrs[i] = (int)particle_texture_data;
+            particle_texture_ptrs[i] = (int)resident_lookup_payload;
         else
-            particle_texture_ptrs[i] = *p - (off - (int)particle_texture_data);
+            particle_texture_ptrs[i] = *p - (off - (int)resident_lookup_payload);
     }
-    copy_memory_aligned(particle_texture_data, (char *)hdr + off, size);
+    copy_memory_aligned(resident_lookup_payload, (char *)hdr + off, size);
     for (particle_texture_range_count = 0; particle_texture_range_count < count; particle_texture_range_count++) {
         int a = base + *list++;
         int b = *list++;
         int c = base + *list++;
         int d = *list++;
-        particle_texture_ranges[particle_texture_range_count].a = (a << 4) + b;
-        particle_texture_ranges[particle_texture_range_count].b = (c << 4) + log2dim(d);
+        resident_particle_texture_ranges[particle_texture_range_count].a = (a << 4) + b;
+        resident_particle_texture_ranges[particle_texture_range_count].b = (c << 4) + log2dim(d);
     }
 }
 
@@ -218,7 +218,7 @@ typedef struct {
     short u;
     short v;
 } LoadPoint;
-extern LoadPoint D_0018D540[];
+extern LoadPoint effect_texture_definitions[];
 extern short log2dim_s(int) __asm__("func_001F9968");
 
 /* Unpack count point records (x, y, u, v words, 12.4 fixed point for
@@ -272,7 +272,7 @@ typedef struct {
     char *unk1C;
     struct SkyShellL *shells[1]; /* 0x20 */
 } SkyDefL;
-extern SkyDefL *D_0016055C MACRO_ADDR;
+extern SkyDefL *level_sky_effect_data MACRO_ADDR;
 
 /* Relocates the sky definition s just loaded (its pointers are offsets
    from s) and makes it the current one (level_sky_effect_data): the page table and
@@ -701,7 +701,7 @@ void upload_texture_images(int base, int count, Chunk *list) {
 
 /* Makes animation sequence idx of the class at cls (its seqs[] at +0x48) absolute: the pointer at
    +0x14 and the frame pointer table at +0x1C (count at +0x10) become base + offset. */
-void relocateObjectPointers(MobyClass *cls, int idx) {
+void relocate_asset_entry_pointers(MobyClass *cls, int idx) {
     AnimSeq *obj;
     int *p;
     int i;
@@ -773,7 +773,7 @@ typedef struct {
     s32 nested_tables[1];
 } ResidentClassRenderHeader;
 extern u8 resident_class_slot_by_id_r[] __asm__("D_001B3E40");
-extern MaterialMap D_001B6C00[];
+extern MaterialMap resident_class_material_maps[];
 extern void build_indexed_resident_render_packet_r(ResidentRenderPacket *, void *, s32, s32, s32, s32,
                                                    s32) __asm__("func_002035B0");
 extern void SetUpVisGifViewer_r(ResidentRenderPacket *packet, s32 draw_high, s32 draw_shift, s32 material_base,
@@ -1470,7 +1470,7 @@ void initialize_tfrag_render_data(FontHdr *hdr, char *tbl) {
 
 extern int disc_table[];
 extern char D_1FF7FF0[];
-extern int Stream_SubmitRead(int, int, int);
+extern int submit_audio_stream_io_request(int, int, int);
 
 /* Starts the disc read of the level chunk into the top of memory below D_1FF7FF0, sized from the
    disc table, and returns 1. */
@@ -1480,7 +1480,7 @@ int load_level_chunk_from_disc(void) {
 
     level_root = (int *)(((int)D_1FF7FF0 - want) & -0x10);
     *level_root = 0x60;
-    Stream_SubmitRead((int)level_root + *level_root, hdr[0x13E], hdr[0x13F]);
+    submit_audio_stream_io_request((int)level_root + *level_root, hdr[0x13E], hdr[0x13F]);
     return 1;
 }
 
@@ -1495,10 +1495,10 @@ struct LevelArchiveHeader {
 };
 
 extern struct DiscTable disc_table_r __asm__("D_00137C80");
-extern s16 D_0013E156[];
-extern s32 D_0015EE58 MACRO_ADDR;
-extern u32 D_0015EE5C MACRO_ADDR;
-extern s32 D_0015EE80 MACRO_ADDR;
+extern s16 ship_index[];
+extern s32 cd_read_spindle_speed MACRO_ADDR;
+extern u32 sound_bank_handle MACRO_ADDR;
+extern s32 pal_mode MACRO_ADDR;
 /* The load's state is one small-data object: the stage at its start is reached in one
    instruction (through $gp in a delay slot), the members behind it never are. */
 struct LevelArchiveLoad {
@@ -1508,13 +1508,13 @@ struct LevelArchiveLoad {
     u8 *sound; /* sound_archive_base */
     u8 *level; /* level_archive_base */
 };
-extern struct LevelArchiveLoad D_0015EF48 MACRO_ADDR;
-extern s32 D_0015EFBC MACRO_ADDR;
-extern s32 D_0015EFC0 MACRO_ADDR;
+extern struct LevelArchiveLoad level_archive_load_state MACRO_ADDR;
+extern s32 cd_read_wait_frames MACRO_ADDR;
+extern s32 cd_read_slowdown_applied MACRO_ADDR;
 extern u8 D_1FF8000_04C60[] __asm__("D_1FF8000");
-extern void func_0022F090();
+extern void store_sound_bank_handle_callback();
 
-extern void func_0012E4F8();
+extern void snd_StopAllSounds();
 extern s32 Stream_SubmitRead_r(void *, u32, u32) __asm__("func_002175C8");
 
 extern s32 sce_cd_get_error_r() __asm__("func_00121930");
@@ -1640,8 +1640,8 @@ s32 service_level_archive_load(void) {
             }
             shared_header = level_archive_load_state.shared;
             sound_bank_handle = 0xFFFFFFFFU;
-            snd_BankLoadFromEE_CB(shared_header->sound_bank_offset + (s32)shared_header, (s32)SoundBank_StoreHandle,
-                                  (u32)&sound_bank_handle);
+            snd_BankLoadFromEE_CB(shared_header->sound_bank_offset + (s32)shared_header,
+                                  (s32)store_sound_bank_handle_callback, (u32)&sound_bank_handle);
             level_archive_load_state.stage = level_archive_load_state.stage + 1;
             break;
         case 7:
@@ -1707,10 +1707,10 @@ struct TransferState {
 };
 
 extern struct TransferState render_sequence_t __asm__("D_0018CC20") NOT_SDA;
-extern struct GlobalIndex D_0013E130;
-extern struct Hero D_0013F450;
+extern struct GlobalIndex level_render_state;
+extern struct Hero g_hero;
 extern int g_game_mode MACRO_ADDR;
-extern int D_00160588[];
+extern int cutscene_moby_ids_by_content_variant[];
 
 /* update_world_object_animation: relocate the model record loaded for the
    current chunk (render_sequence+0x58) and hook each of its parts to a moby,
@@ -1756,7 +1756,7 @@ void update_world_object_animation(void *arg0) {
         endp = (int)rec + sp[0];
         sp = (int *)((unsigned char *)sp + 4);
         if (g_game_mode == 6 && i == 0 && id == 0x215) {
-            id = D_00160588[level_render_state.slot];
+            id = cutscene_moby_ids_by_content_variant[level_render_state.slot];
         }
         mob = render_sequence_t.slots[i];
         if (mob == 0) {
@@ -1795,7 +1795,7 @@ extern void update_world_object_animation(void *);
 extern int render_sequence NOT_SDA;
 extern int vu1_chain_buffer_2 NOT_SDA;
 
-extern int D_0016100C MACRO_ADDR;
+extern int current_vu_chain MACRO_ADDR;
 
 /* parse_space_scene_chunk(int): run update_world_object_animation on chunk index's slot,
    with the chunk's value as the current one meanwhile. The slot address is

@@ -12,7 +12,7 @@ extern char cheat_scale_manipulator_class_555[];
 extern char coll_hit_moby_record[];
 extern int dialogue_entry_ids[];
 extern int dialogue_entry_level_starts[];
-extern int gCameraSlotUsedLvl[];
+extern int D_L00_00169990[];
 extern int glove_of_doom_ring[];
 extern char hero_scale_manipulator[];
 extern int level_item_ids[];

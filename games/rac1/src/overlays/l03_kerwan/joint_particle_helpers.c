@@ -20,7 +20,7 @@ typedef struct {
 } G_2DC848;
 extern G_2DC848 kerwan_cutscene_state;
 // Emits four randomized particles while the active level event is in its trigger range.
-void emit_level3_state5_moby_effects(void) {
+void emit_cutscene_sparks(void) {
     float position[4], direction[4];
     char *g;
     char *moby;
@@ -41,14 +41,14 @@ void emit_level3_state5_moby_effects(void) {
         float a, b, size;
         int lo, hi, value;
         clear_u64_value(direction);
-        Moby_GetJointWorldPos(moby, i % 2, position);
+        moby_point_position(moby, i % 2, position);
         a = random_angle_radians();
         b = random_angle_radians();
         size = random_float_between(g_frame_time * 0.7f, g_frame_time * 2.2f);
         BuildSphericalOffset(direction, size, a, b);
         lo = scale_ticks(12);
         hi = scale_ticks(35);
-        value = rand_range(lo, hi);
+        value = random_int_between(lo, hi);
         spawn_effect_particle_with_target_scalar_v(position, direction, 0x80808080, 0x808080, value, 147000.0f);
     }
 }

@@ -63,16 +63,16 @@ s32 DrawItemsMenu(ItemsMenu *menu) {
     font_print_right_v(0xC8, 0x1D, 0x80FFA888L, msg_string_r3(0x4F50), -1);
     font_print_right_v(0xC8, 0x36, 0x80FFA888L, msg_string_r3(0x4F51), -1);
     font_print_right_v(0xC8, 0x54, 0x80FFA888L, msg_string_r3(0x4F52), -1);
-    collected_count = count_nonzero_entries_up_to_40();
+    collected_count = count_gold_bolts();
     sprintf(text_buffer, fmt_decimal, collected_count);
     font_print_right_large(add_offset((*(s32 *)&text_shadow_x), 0xF0), add_offset((*(s32 *)&text_shadow_y), 0x1D),
                            0x80000000L, text_buffer, -1);
     font_print_right_large(0xF0, 0x1D, 0x80FFA888L, text_buffer, -1);
-    sprintf(text_buffer, fmt_decimal, count_nonzero_entries_up_to_10() * 4);
+    sprintf(text_buffer, fmt_decimal, count_gold_weapons() * 4);
     font_print_right_large(add_offset((*(s32 *)&text_shadow_x), 0xF0), add_offset((*(s32 *)&text_shadow_y), 0x36),
                            0x80000000L, text_buffer, -1);
     font_print_right_large(0xF0, 0x36, 0x80FFA888L, text_buffer, -1);
-    sprintf(text_buffer, fmt_decimal, compute_clamped_count_difference());
+    sprintf(text_buffer, fmt_decimal, count_unspent_gold_bolts());
     font_print_right_large(add_offset((*(s32 *)&text_shadow_x), 0xF0), add_offset((*(s32 *)&text_shadow_y), 0x54),
                            0x80000000L, text_buffer, -1);
     font_print_right_large(0xF0, 0x54, 0x80FFA888L, text_buffer, -1);

@@ -10,7 +10,7 @@
 typedef int u128 __attribute__((mode(TI)));
 extern unsigned char *batalia_span_particle_textures_ptr;
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 // Spawns a particle at a position with a color and scale chosen by kind.
 void spawn_span_particle(float *pos, int kind, float *vec, float scale) {

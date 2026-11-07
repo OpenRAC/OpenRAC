@@ -7,6 +7,6 @@
 
 extern int is_moby_in_state_five(void *);
 extern void *spawn_moby_with_random_yaw(void *, void *, int);
-extern int spawn_ship_projectile(void *, void *, int, void *, float, int);
+extern int func_L11_0030A748(void *, void *, int, void *, float, int);
 
 #endif /* OVERLAYS_L11_POKITARU_RESORT_OWNER_AND_WATER_H */

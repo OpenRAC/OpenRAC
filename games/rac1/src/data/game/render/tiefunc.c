@@ -31,6 +31,6 @@ u32 tie_light_data2[] DATA_SECTION(D_001E4700) = {
 #include "data_inc/D_001E4700.inc"
 };
 
-u32 str_tie_texture_overflow[] DATA_SECTION(D_001E8D80) = {
+u32 D_001E8D80[] DATA_SECTION(D_001E8D80) = {
 #include "data_inc/D_001E8D80.inc"
 };

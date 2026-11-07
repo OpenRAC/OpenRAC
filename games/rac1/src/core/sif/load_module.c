@@ -17,12 +17,12 @@
 
 extern int sceSifBindRpc();
 
-extern int lf_bind_state;
+extern int sif_load_module_bind_status;
 extern char lf_rpc_client[];
 extern char lf_rpc_buffer[];
 extern char lf_iop_version[];
 
-/* _lf_bind (libkernl.a eeloadfile.o): unless already bound (lf_bind_state
+/* _lf_bind (libkernl.a eeloadfile.o): unless already bound (sif_load_module_bind_status
  * >= 0), bind the IOP loadfile RPC server (sceSifBindRpc, 0x80000006),
  * busy-waiting 0x100000 counts between tries until its server pointer
  * (+0x24) is set; a failed bind returns -1. Then mark it bound, call
@@ -35,7 +35,7 @@ extern char lf_iop_version[];
 int lf_bind(void) {
     int i;
 
-    if (lf_bind_state >= 0)
+    if (sif_load_module_bind_status >= 0)
         goto done;
 
     for (;;) {
@@ -45,7 +45,7 @@ int lf_bind(void) {
             return -1;
 
         if (*(int *)(slot + 0x24) != 0) {
-            lf_bind_state = 0;
+            sif_load_module_bind_status = 0;
             if (sif_call_rpc(slot, 0xFF, 0, 0, 0, lf_rpc_buffer, 4, 0, 0) < 0)
                 return 0xFFFEFFFF;
             memcpy(lf_iop_version, lf_rpc_buffer, 4);
@@ -60,7 +60,7 @@ done:
     return 0;
 }
 
-extern int lf_expected_version;
+extern int sif_load_module_version_reference;
 
 /* Twin of fs_version_mismatch on a different slot/handle pair. */
 int lf_version_mismatch(void) {
@@ -68,8 +68,8 @@ int lf_version_mismatch(void) {
     char *slot = lf_iop_version;
     int r = 0;
 
-    if (libc_memcmp(slot, buf, 4) != 0 && libc_memcmp(slot, lf_expected_version, 4) != 0) {
-        r = libc_memcmp(buf, lf_expected_version, 4) != 0;
+    if (libc_memcmp(slot, buf, 4) != 0 && libc_memcmp(slot, sif_load_module_version_reference, 4) != 0) {
+        r = libc_memcmp(buf, sif_load_module_version_reference, 4) != 0;
     }
     return r;
 }

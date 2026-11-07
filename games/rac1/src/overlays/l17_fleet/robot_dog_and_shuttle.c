@@ -37,7 +37,7 @@
 #include "asm_functions/level_08.h"
 #include "overlays/l17_fleet/hero_idle_and_items.h"
 #include "overlays/shared/moby_drops_and_death.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char hero_control_mode[];
 extern char hero_current_state[];
 extern char saved_mission_state[];
@@ -123,7 +123,7 @@ struct FleetCraftVars {
     u32 unk_94; /* 0x94 */
     s32 unk_98; /* 0x98 */
     u8 pad_9C[0x14];
-    Vec4A hero_pos; /* 0xB0: hero position last frame */
+    Vec4A hero_position; /* 0xB0: hero position last frame */
 };
 
 typedef int q128_2F1558 __attribute__((mode(TI)));
@@ -170,7 +170,7 @@ extern char hero_globals_base[];
 extern float g_frame_time_sq MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern void InitKnockback_v(float, void *, void *, int, int, int) __asm__("func_L00_0025D5B0");
 
@@ -209,7 +209,7 @@ void update_robot_dog_hit_reaction_and_target_detection(Moby *moby, int arg) {
         d->f170 = -1.0f;
         d->f174 = -1.0f;
         *(q128_2F1558 *)tmp = *(q128_2F1558 *)q->pos;
-        HeadingFromVector(tmp, &ang, &d->f138, &d->f13C);
+        trooper_knockback_arc(tmp, &ang, &d->f138, &d->f13C);
         if (q != 0 && q->moby != 0 && q->moby->oclass == 0x63) {
             ang = fast_atan2(d->f1F0 - moby->pos.x, d->f1F4 - moby->pos.y);
         }
@@ -225,7 +225,7 @@ void update_robot_dog_hit_reaction_and_target_detection(Moby *moby, int arg) {
     if (FindNearestEligibleMoby(128.0f, (char *)moby, d->v180, 0, 0, 0, 0) == 2) {
         return;
     }
-    if (FastVecDist(&moby->pos, d->v1B0) < 64.0f) {
+    if (fast_vec_dist(&moby->pos, d->v1B0) < 64.0f) {
         ang2 = fast_atan2(d->v180[0] - moby->pos.x, d->v180[1] - moby->pos.y);
         yaw = FastDiffRots(moby->rot.z, ang2);
         qcopy(tmp, &moby->pos);
@@ -253,7 +253,7 @@ int move_robot_dog_toward_position(char *moby, float *target, float speed) {
     tmp[0] = FastCos(((Moby *)moby)->rot.z) * data->speed;
     tmp[1] = FastSin(((Moby *)moby)->rot.z) * data->speed;
     tmp[2] = -(g_frame_time * 0.5f);
-    move_4318((int)moby, (int)tmp, 0.5f, 0.5f, 0.0f, 0);
+    MoveMobyWithCollision((int)moby, (int)tmp, 0.5f, 0.5f, 0.0f, 0);
     return vec_distance_xy(moby + 0x10, target) < 0.2f;
 }
 
@@ -281,7 +281,7 @@ int cancel_suck_cannon_suction_and_set_state_12(char *a) {
 }
 extern float g_frame_scale_sq MACRO_ADDR;
 
-/* The turret's eased part (EaseManipulatorOffsets's second argument) and where it sits in the moby's data. */
+/* The turret's eased part (update_joint_animation_fn's second argument) and where it sits in the moby's data. */
 typedef struct {
     char pad0[0x64];
     float pitch;
@@ -306,7 +306,7 @@ void update_robot_dog_aim_joint(char *moby) {
     tmp[2] += 0.5f;
     FastVecSub(v, &g_hero.motion.body_center, tmp);
     yaw = FastSubRots(fast_atan2(v[0], v[1]), ((Moby *)moby)->rot.z);
-    pitch = -fast_atan2(vec_length_xy(v), v[2]);
+    pitch = -fast_atan2(vector_length_xy(v), v[2]);
     if (yaw > 1.0471976f) {
         yaw = 1.0471976f;
     } else if (yaw < -1.0471976f) {
@@ -319,7 +319,7 @@ void update_robot_dog_aim_joint(char *moby) {
     }
     d->part.pitch = pitch;
     d->part.yaw = yaw;
-    EaseManipulatorOffsets(moby, (char *)&d->part, 0, accel * g_frame_scale_sq, speed * g_frame_scale_sq);
+    update_joint_animation(moby, (char *)&d->part, 0, accel * g_frame_scale_sq, speed * g_frame_scale_sq);
 }
 
 extern void draw_three_moby_effect_quads(char *);
@@ -404,7 +404,7 @@ void update_robot_dog_glow_effects(unsigned char *moby) {
         }
         ((struct Moby *)moby)->glow_color = FastTweenColor(((struct Moby *)moby)->glow_color, color, 0.1f);
         for (i = 0; i < 3; i++) {
-            Moby_GetJointWorldPos(moby, i + 1, &data->glow_pos[i]);
+            moby_point_position(moby, i + 1, &data->glow_pos[i]);
         }
         AddDrawCallback(draw_three_moby_effect_quads, moby);
     }
@@ -421,15 +421,15 @@ void draw_three_moby_effect_quads(char *m) {
     }
 }
 
-extern short fleet_ripple_pair_vertex_counts;
-extern short fleet_ripple_pair_vertex_bufs;
-extern short fleet_ripple_pair_uv_bufs;
-extern short fleet_ripple_pair_color_bufs;
-extern int fleet_ripple_pair_template_verts SDATA(fleet_ripple_pair_template_verts);
-extern short fleet_ripple_pair_template_uvs;
-extern int fleet_ripple_pair_alpha_fix SDATA(fleet_ripple_pair_alpha_fix);
-extern int fleet_ripple_pair_texture SDATA(fleet_ripple_pair_texture);
-extern int fleet_ripple_pair_alpha SDATA(fleet_ripple_pair_alpha);
+extern short ripple_pair_vertex_counts;
+extern short ripple_pair_world_vertex_tables;
+extern short ripple_pair_scrolled_uv_tables;
+extern short ripple_pair_colour_tables;
+extern int ripple_pair_template_vertex_tables SDATA(D_L17_001622B0);
+extern short ripple_pair_template_uv_tables;
+extern int ripple_pair_alpha_1_fix SDATA(D_L17_001622C8);
+extern int ripple_pair_effect_texture_id SDATA(D_L17_001622CC);
+extern int ripple_pair_vertex_alpha SDATA(D_L17_001622D0);
 extern float fleet_ripple_pair_wavelength SDATA(fleet_ripple_pair_wavelength);
 extern float fleet_ripple_pair_wave_period SDATA(fleet_ripple_pair_wave_period);
 extern float fleet_ripple_pair_wave_height SDATA(fleet_ripple_pair_wave_height);
@@ -444,7 +444,7 @@ typedef struct {
 typedef struct {
     P2 p[2];
 } T4;
-extern T4 fleet_ripple_pair_uv_scroll_factors;
+extern T4 ripple_pair_uv_scroll_factors;
 
 /* Builds the two rippling vertex strips around the moby (template points moved to its position, z waved by distance
    from the centre), then draws them twice with scrolled texture coordinates. */
@@ -457,49 +457,49 @@ void draw_moby_radial_ripple_mesh_pair(char *moby) {
     int i, j, uv_strip_index, uv_vertex_index, draw_strip_index;
 
     scale = IntToFloat(fleet_frame_count) * (fleet_ripple_pair_uv_scroll_speed * g_frame_time);
-    VU1_addGSregister(6, GetEffectTex(fleet_ripple_pair_texture));
-    VU1_addGSregister(0x42, ((long)fleet_ripple_pair_alpha_fix << 32) | 0x44);
+    VU1_addGSregister(6, GetEffectTex(ripple_pair_effect_texture_id));
+    VU1_addGSregister(0x42, ((long)ripple_pair_alpha_1_fix << 32) | 0x44);
     VU1_addGSregister(8, 0);
     VU1_addGSregister(0x14, ((long)0xFF90 << 32) | 0x260);
     ripple_vars->f0 = ripple_vars->f4;
     ripple_vars->f4 = FastAddRots(ripple_vars->f4, 360.0f / multiply_global_factor(fleet_ripple_pair_wave_period) *
                                                        0.017453292f * g_frame_time);
     get_moby_color(moby, &r, &g, &b);
-    color = (fleet_ripple_pair_alpha << 24) | (b << 16) | (g << 8) | r;
+    color = (ripple_pair_vertex_alpha << 24) | (b << 16) | (g << 8) | r;
     for (i = 0; i < 2; i++) {
-        for (j = 0; j < ((int *)&fleet_ripple_pair_vertex_counts)[i]; j++) {
-            int *template_vertex_array_slot = &fleet_ripple_pair_template_verts + i;
+        for (j = 0; j < ((int *)&ripple_pair_vertex_counts)[i]; j++) {
+            int *template_vertex_array_slot = &ripple_pair_template_vertex_tables + i;
             float *p = (float *)(*template_vertex_array_slot + j * 12);
             float t = fleet_ripple_pair_wave_height *
-                      FastSin(FastAddRots(FastNormalizeAngle(fast_fmod(vec_length(p[0] * p[0] + p[1] * p[1]),
+                      FastSin(FastAddRots(FastNormalizeAngle(fast_fmod(square_root(p[0] * p[0] + p[1] * p[1]),
                                                                        fleet_ripple_pair_wavelength) *
                                                              6.2831855f / fleet_ripple_pair_wavelength),
                                           ripple_vars->f4));
-            *(float *)(j * 12 + ((int *)&fleet_ripple_pair_vertex_bufs)[i]) = p[0] + moby_obj->pos.x;
-            *(float *)(j * 12 + ((int *)&fleet_ripple_pair_vertex_bufs)[i] + 4) = p[1] + moby_obj->pos.y;
-            *(float *)(j * 12 + ((int *)&fleet_ripple_pair_vertex_bufs)[i] + 8) = p[2] + moby_obj->pos.z + t;
-            *(int *)(j * 4 + ((int *)&fleet_ripple_pair_color_bufs)[i]) = color;
+            *(float *)(j * 12 + ((int *)&ripple_pair_world_vertex_tables)[i]) = p[0] + moby_obj->pos.x;
+            *(float *)(j * 12 + ((int *)&ripple_pair_world_vertex_tables)[i] + 4) = p[1] + moby_obj->pos.y;
+            *(float *)(j * 12 + ((int *)&ripple_pair_world_vertex_tables)[i] + 8) = p[2] + moby_obj->pos.z + t;
+            *(int *)(j * 4 + ((int *)&ripple_pair_colour_tables)[i]) = color;
         }
     }
     for (i = 0; i < 2; i++) {
         for (uv_strip_index = 0; uv_strip_index < 2; uv_strip_index++) {
-            for (uv_vertex_index = 0; uv_vertex_index < ((int *)&fleet_ripple_pair_vertex_counts)[uv_strip_index];
+            for (uv_vertex_index = 0; uv_vertex_index < ((int *)&ripple_pair_vertex_counts)[uv_strip_index];
                  uv_vertex_index++) {
-                T4 uv_scroll_factors = fleet_ripple_pair_uv_scroll_factors;
-                *(float *)(uv_vertex_index * 8 + ((int *)&fleet_ripple_pair_uv_bufs)[uv_strip_index]) =
-                    *(float *)(uv_vertex_index * 8 + ((int *)&fleet_ripple_pair_template_uvs)[uv_strip_index]) +
+                T4 uv_scroll_factors = ripple_pair_uv_scroll_factors;
+                *(float *)(uv_vertex_index * 8 + ((int *)&ripple_pair_scrolled_uv_tables)[uv_strip_index]) =
+                    *(float *)(uv_vertex_index * 8 + ((int *)&ripple_pair_template_uv_tables)[uv_strip_index]) +
                     fast_fmod(scale * uv_scroll_factors.p[i].v[0], 1.0f);
-                *(float *)(uv_vertex_index * 8 + ((int *)&fleet_ripple_pair_uv_bufs)[uv_strip_index] + 4) =
-                    *(float *)(uv_vertex_index * 8 + ((int *)&fleet_ripple_pair_template_uvs)[uv_strip_index] + 4) +
+                *(float *)(uv_vertex_index * 8 + ((int *)&ripple_pair_scrolled_uv_tables)[uv_strip_index] + 4) =
+                    *(float *)(uv_vertex_index * 8 + ((int *)&ripple_pair_template_uv_tables)[uv_strip_index] + 4) +
                     fast_fmod(scale * uv_scroll_factors.p[i].v[1], 1.0f);
             }
         }
         font_queue_vu_state();
         for (draw_strip_index = 0; draw_strip_index < 2; draw_strip_index++) {
-            draw_env_overlay_mesh(((int *)&fleet_ripple_pair_vertex_counts)[draw_strip_index],
-                                  ((int *)&fleet_ripple_pair_vertex_bufs)[draw_strip_index],
-                                  ((int *)&fleet_ripple_pair_color_bufs)[draw_strip_index],
-                                  (void *)((int *)&fleet_ripple_pair_uv_bufs)[draw_strip_index], 1);
+            draw_env_overlay_mesh(((int *)&ripple_pair_vertex_counts)[draw_strip_index],
+                                  ((int *)&ripple_pair_world_vertex_tables)[draw_strip_index],
+                                  ((int *)&ripple_pair_colour_tables)[draw_strip_index],
+                                  (void *)((int *)&ripple_pair_scrolled_uv_tables)[draw_strip_index], 1);
         }
     }
 }
@@ -508,23 +508,23 @@ typedef struct {
     float y;
     float z;
 } RingPt;
-extern RingPt fleet_ripple_ring_template_verts[];
-extern RingPt fleet_ripple_ring_vertices[];
-extern int fleet_ripple_ring_colors[];
-extern float fleet_ripple_ring_template_uvs[][2];
-extern float fleet_ripple_ring_uvs[][2];
-extern int fleet_ripple_ring_vertex_count[1] SDATA(D_L17_00162300);
-extern int fleet_ripple_ring_vertex_buf[1] SDATA(D_L17_00162320);
-extern int fleet_ripple_ring_uv_buf[1] SDATA(D_L17_00162328);
-extern int fleet_ripple_ring_color_buf[1] SDATA(D_L17_00162330);
-extern int fleet_ripple_ring_alpha_fix SDATA(fleet_ripple_ring_alpha_fix);
-extern int fleet_ripple_ring_texture SDATA(fleet_ripple_ring_texture);
-extern int fleet_ripple_ring_alpha SDATA(fleet_ripple_ring_alpha);
+extern RingPt l17_ripple_ring_template_vertices[];
+extern RingPt l17_ripple_ring_world_vertices[];
+extern int ring_vertex_colors[];
+extern float ring_template_uvs[][2];
+extern float ring_scrolled_uvs[][2];
+extern int ring_ripple_vertex_counts[1] SDATA(D_L17_00162300);
+extern int ring_ripple_world_vertex_tables[1] SDATA(D_L17_00162320);
+extern int ring_ripple_scrolled_uv_tables[1] SDATA(D_L17_00162328);
+extern int ring_ripple_colour_tables[1] SDATA(D_L17_00162330);
+extern int ring_ripple_alpha_1_fix SDATA(D_L17_00162334);
+extern int ring_ripple_effect_texture_id SDATA(D_L17_00162338);
+extern int ring_ripple_vertex_alpha SDATA(D_L17_0016233C);
 extern float ring_ripple_radial_phase_distance_scale_gp SDATA(ring_ripple_radial_phase_distance_scale_gp);
 extern float ring_ripple_phase_period_gp SDATA(ring_ripple_phase_period_gp);
 extern float ring_ripple_z_amplitude_gp SDATA(ring_ripple_z_amplitude_gp);
 extern float ring_ripple_uv_scroll_rate_gp SDATA(ring_ripple_uv_scroll_rate_gp);
-extern T4 fleet_ripple_ring_uv_scroll_factors;
+extern T4 ring_ripple_uv_scroll_factors;
 
 /* Builds the rippling 89-point ring around the moby (template points moved to its position, z waved by distance from
    the centre), then draws it twice with scrolled texture coordinates. */
@@ -537,58 +537,58 @@ void draw_ripple_ring(char *moby) {
     int i, j, n, k;
 
     scale = IntToFloat(fleet_frame_count) * (ring_ripple_uv_scroll_rate_gp * g_frame_time);
-    VU1_addGSregister(6, GetEffectTex(fleet_ripple_ring_texture));
-    VU1_addGSregister(0x42, ((long)fleet_ripple_ring_alpha_fix << 32) | 0x44);
+    VU1_addGSregister(6, GetEffectTex(ring_ripple_effect_texture_id));
+    VU1_addGSregister(0x42, ((long)ring_ripple_alpha_1_fix << 32) | 0x44);
     VU1_addGSregister(8, 0);
     VU1_addGSregister(0x14, ((long)0xFF90 << 32) | 0x260);
     d->f0 = d->f4;
     d->f4 =
         FastAddRots(d->f4, 360.0f / multiply_global_factor(ring_ripple_phase_period_gp) * 0.017453292f * g_frame_time);
     get_moby_color(moby, &r, &g, &b);
-    color = (fleet_ripple_ring_alpha << 24) | (b << 16) | (g << 8) | r;
-    for (i = 0; i < fleet_ripple_ring_vertex_count[0]; i++) {
-        RingPt *p = &fleet_ripple_ring_template_verts[i];
+    color = (ring_ripple_vertex_alpha << 24) | (b << 16) | (g << 8) | r;
+    for (i = 0; i < ring_ripple_vertex_counts[0]; i++) {
+        RingPt *p = &l17_ripple_ring_template_vertices[i];
         float w = ring_ripple_z_amplitude_gp *
-                  FastSin(FastAddRots(FastNormalizeAngle(fast_fmod(vec_length(p->x * p->x + p->y * p->y),
+                  FastSin(FastAddRots(FastNormalizeAngle(fast_fmod(square_root(p->x * p->x + p->y * p->y),
                                                                    ring_ripple_radial_phase_distance_scale_gp) *
                                                          6.2831855f / ring_ripple_radial_phase_distance_scale_gp),
                                       d->f4));
-        fleet_ripple_ring_vertices[i].x = p->x + ((Moby *)moby)->pos.x;
-        fleet_ripple_ring_vertices[i].y = p->y + ((Moby *)moby)->pos.y;
-        fleet_ripple_ring_vertices[i].z = p->z + ((Moby *)moby)->pos.z + w;
-        fleet_ripple_ring_colors[i] = color;
+        l17_ripple_ring_world_vertices[i].x = p->x + ((Moby *)moby)->pos.x;
+        l17_ripple_ring_world_vertices[i].y = p->y + ((Moby *)moby)->pos.y;
+        l17_ripple_ring_world_vertices[i].z = p->z + ((Moby *)moby)->pos.z + w;
+        ring_vertex_colors[i] = color;
     }
     for (j = 0; j < 2; j++) {
-        for (n = 0; n < fleet_ripple_ring_vertex_count[0]; n++) {
-            t = fleet_ripple_ring_uv_scroll_factors;
-            fleet_ripple_ring_uvs[n][0] = fleet_ripple_ring_template_uvs[n][0] + fast_fmod(scale * t.p[j].v[0], 1.0f);
-            fleet_ripple_ring_uvs[n][1] = fleet_ripple_ring_template_uvs[n][1] + fast_fmod(scale * t.p[j].v[1], 1.0f);
+        for (n = 0; n < ring_ripple_vertex_counts[0]; n++) {
+            t = ring_ripple_uv_scroll_factors;
+            ring_scrolled_uvs[n][0] = ring_template_uvs[n][0] + fast_fmod(scale * t.p[j].v[0], 1.0f);
+            ring_scrolled_uvs[n][1] = ring_template_uvs[n][1] + fast_fmod(scale * t.p[j].v[1], 1.0f);
         }
         font_queue_vu_state();
         for (k = 0; k < 1; k++) {
-            draw_env_overlay_mesh(fleet_ripple_ring_vertex_count[k], fleet_ripple_ring_vertex_buf[k],
-                                  fleet_ripple_ring_color_buf[k], (void *)fleet_ripple_ring_uv_buf[k], 1);
+            draw_env_overlay_mesh(ring_ripple_vertex_counts[k], ring_ripple_world_vertex_tables[k],
+                                  ring_ripple_colour_tables[k], (void *)ring_ripple_scrolled_uv_tables[k], 1);
         }
     }
 }
-extern float fleet_light_ring_vertices[];
-extern float fleet_light_ring_template_verts[];
-extern int fleet_light_ring_colors[];
-extern float fleet_light_ring_template_uvs[][2];
-extern float fleet_light_ring_uvs[][2];
+extern float radial_ripple_world_vertices[];
+extern float radial_ripple_template_vertices[];
+extern int radial_ripple_colours[];
+extern float radial_ripple_template_uvs[][2];
+extern float radial_ripple_scrolled_uvs[][2];
 
 typedef struct {
     float prev;
     float angle;
 } RingVars;
-extern UvScrollFactors fleet_light_ring_uv_scroll_factors;
-extern int fleet_light_ring_vertex_count[1] SDATA(D_L17_001623C0);
-extern int fleet_light_ring_vertex_buf[1] SDATA(D_L17_001623E0);
-extern int fleet_light_ring_uv_buf[1] SDATA(D_L17_001623E8);
-extern int fleet_light_ring_color_buf[1] SDATA(D_L17_001623F0);
-extern int fleet_light_ring_alpha_fix SDATA(fleet_light_ring_alpha_fix);
-extern int fleet_light_ring_texture SDATA(fleet_light_ring_texture);
-extern int fleet_light_ring_alpha SDATA(fleet_light_ring_alpha);
+extern UvScrollFactors radial_ripple_uv_scroll_factors;
+extern int radial_ripple_vertex_counts[1] SDATA(D_L17_001623C0);
+extern int radial_ripple_world_vertex_tables[1] SDATA(D_L17_001623E0);
+extern int radial_ripple_scrolled_uv_tables[1] SDATA(D_L17_001623E8);
+extern int radial_ripple_colour_tables[1] SDATA(D_L17_001623F0);
+extern int radial_ripple_alpha_1_fix SDATA(D_L17_001623F4);
+extern int radial_ripple_effect_texture_id SDATA(D_L17_001623F8);
+extern int radial_ripple_vertex_alpha SDATA(D_L17_001623FC);
 extern float fleet_light_ring_wavelength SDATA(fleet_light_ring_wavelength);
 extern float fleet_light_ring_wave_period SDATA(fleet_light_ring_wave_period);
 extern float fleet_light_ring_wave_height SDATA(fleet_light_ring_wave_height);
@@ -612,8 +612,8 @@ void DrawLightRing(char *moby) {
     UvScrollFactors *v_scroll_factors;
     float *output_vertex;
     scale = IntToFloat(fleet_frame_count) * (fleet_light_ring_uv_scroll_speed * g_frame_time);
-    VU1_addGSregister(6, GetEffectTex(fleet_light_ring_texture));
-    VU1_addGSregister(0x42, ((long)fleet_light_ring_alpha_fix << 32) | 0x44);
+    VU1_addGSregister(6, GetEffectTex(radial_ripple_effect_texture_id));
+    VU1_addGSregister(0x42, ((long)radial_ripple_alpha_1_fix << 32) | 0x44);
     VU1_addGSregister(8, 0);
     VU1_addGSregister(0x14, 0xFF9000000260L);
     data->prev = data->angle;
@@ -622,46 +622,46 @@ void DrawLightRing(char *moby) {
     get_moby_color(moby, &r, &g, &b);
     /* The second float of each pair in t: p->f[0] is t.f[1], p->f[2] is t.f[3]. */
     v_scroll_factors = (UvScrollFactors *)&uv_scroll_factors.f[1];
-    color = (fleet_light_ring_alpha << 24) | (b << 16) | (g << 8) | r;
-    output_vertex = fleet_light_ring_vertices;
+    color = (radial_ripple_vertex_alpha << 24) | (b << 16) | (g << 8) | r;
+    output_vertex = radial_ripple_world_vertices;
     do {
-        float *template_vertex = &fleet_light_ring_template_verts[i * 3];
+        float *template_vertex = &radial_ripple_template_vertices[i * 3];
         float x = template_vertex[0];
         float y = template_vertex[1];
-        float rad = vec_length(x * x + y * y);
+        float rad = square_root(x * x + y * y);
         float radial_phase_input = fast_fmod(rad, fleet_light_ring_wavelength);
         float w = FastNormalizeAngle(radial_phase_input * 6.2831855f / fleet_light_ring_wavelength);
         float z = FastSin(FastAddRots(w, data->angle));
         output_vertex[0] = template_vertex[0] + ((Moby *)moby)->pos.x;
-        *(float *)((char *)fleet_light_ring_vertices + 4 + output_vertex_byte_offset) =
+        *(float *)((char *)radial_ripple_world_vertices + 4 + output_vertex_byte_offset) =
             template_vertex[1] + ((Moby *)moby)->pos.y;
         output_vertex[2] = template_vertex[2] + ((Moby *)moby)->pos.z + fleet_light_ring_wave_height * z;
-        fleet_light_ring_colors[i] = color;
+        radial_ripple_colours[i] = color;
         i++;
         output_vertex_byte_offset += 12;
         output_vertex += 3;
     } while (i < 45);
     for (j = 0; j < 2; j++) {
         for (uv_vertex_index = 0; uv_vertex_index < 45; uv_vertex_index++) {
-            uv_scroll_factors = fleet_light_ring_uv_scroll_factors;
-            fleet_light_ring_uvs[uv_vertex_index][0] =
-                fleet_light_ring_template_uvs[uv_vertex_index][0] + fast_fmod(scale * uv_scroll_factors.f[j * 2], 1.0f);
-            fleet_light_ring_uvs[uv_vertex_index][1] =
-                fleet_light_ring_template_uvs[uv_vertex_index][1] + fast_fmod(scale * v_scroll_factors->f[j * 2], 1.0f);
+            uv_scroll_factors = radial_ripple_uv_scroll_factors;
+            radial_ripple_scrolled_uvs[uv_vertex_index][0] =
+                radial_ripple_template_uvs[uv_vertex_index][0] + fast_fmod(scale * uv_scroll_factors.f[j * 2], 1.0f);
+            radial_ripple_scrolled_uvs[uv_vertex_index][1] =
+                radial_ripple_template_uvs[uv_vertex_index][1] + fast_fmod(scale * v_scroll_factors->f[j * 2], 1.0f);
         }
         font_queue_vu_state();
         for (k = 0; k < 1; k++) {
-            draw_env_overlay_mesh(fleet_light_ring_vertex_count[k], fleet_light_ring_vertex_buf[k],
-                                  fleet_light_ring_color_buf[k], (void *)fleet_light_ring_uv_buf[k], 1);
+            draw_env_overlay_mesh(radial_ripple_vertex_counts[k], radial_ripple_world_vertex_tables[k],
+                                  radial_ripple_colour_tables[k], (void *)radial_ripple_scrolled_uv_tables[k], 1);
         }
     }
 }
 
 extern unsigned char help_stats_base[] NOT_SDA;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
-extern LevelState fleet_moby_collected;
+extern LevelState l17_save_id_collection_state;
 typedef int u128_2F3450 __attribute__((mode(TI)));
-extern int fleet_moby_killed_bits[];
+extern int shuttle_travel_completion_bits[];
 extern char *fleet_camera_points MACRO_ADDR;
 
 extern float shuttle_scale_near SDATA(shuttle_scale_near);
@@ -710,7 +710,7 @@ void shuttle_1448_update(unsigned char *m) {
     v->timer += 1;
     switch (((Moby *)m)->state) {
         case 0:
-            if (fleet_moby_collected.collected[(short)((Moby *)m)->save_id] != 0 ||
+            if (l17_save_id_collection_state.collected[(short)((Moby *)m)->save_id] != 0 ||
                 (*(int *)(level_moby_killed +
                           (((short)((Moby *)m)->save_id >> 5) * 4 + (g_current_level_index_m << 8))) >>
                  (((Moby *)m)->save_id & 0x1F)) &
@@ -787,13 +787,13 @@ void shuttle_1448_update(unsigned char *m) {
                 clear_u64_value(rot);
                 rot[2] = fast_atan2(b[0] - a[0], b[1] - a[1]);
                 rot[1] = -fast_atan2(vec_distance_xy(a, b), b[2] - a[2]);
-                CameraScript(a, rot, 2, scale_ticks(300), 0);
+                jet_mount(a, rot, 2, scale_ticks(300), 0);
                 set_selected_object_float_triplets(0.001f, 1.0f, 1.0f, 0.001f, 1.0f, 1.0f);
                 set_camera_position(a);
                 set_camera_rotation(rot);
-                Hero_ResetToPosition(fleet_camera_points + (v->cut << 7) + 0x30,
-                                     fleet_camera_points + (v->cut << 7) + 0x70, 0x72, 0);
-            } else if (fleet_moby_collected.collected[(short)((Moby *)m)->save_id] != 0 ||
+                set_race_camera(fleet_camera_points + (v->cut << 7) + 0x30, fleet_camera_points + (v->cut << 7) + 0x70,
+                                0x72, 0);
+            } else if (l17_save_id_collection_state.collected[(short)((Moby *)m)->save_id] != 0 ||
                        (*(int *)(level_moby_killed +
                                  (((short)((Moby *)m)->save_id >> 5) * 4 + (g_current_level_index_m << 8))) >>
                         (((Moby *)m)->save_id & 0x1F)) &
@@ -833,11 +833,11 @@ void shuttle_1448_update(unsigned char *m) {
                 FastVecAdd(b, b, a);
                 clear_u64_value(rot);
                 rot[2] = FastAddRots(((Moby *)m)->rot.z, 3.1415927f);
-                Hero_ResetToPosition(b, rot, 0, 0);
-                CameraScript2(0);
+                set_race_camera(b, rot, 0, 0);
+                jet_end_mount(0);
                 *(int *)(level_moby_killed + (((short)((Moby *)m)->save_id >> 5) * 4 +
                                               (g_current_level_index_m << 8))) |= 1 << (((Moby *)m)->save_id & 0x1F);
-                fleet_moby_killed_bits[(short)((Moby *)m)->save_id >> 5] |= 1 << (((Moby *)m)->save_id & 0x1F);
+                shuttle_travel_completion_bits[(short)((Moby *)m)->save_id >> 5] |= 1 << (((Moby *)m)->save_id & 0x1F);
             }
             break;
         case 3:
@@ -937,7 +937,7 @@ int update_shuttle_travel_and_camera(char *moby, int idx) {
     set_camera_position(pos);
     {
         char *base = fleet_camera_points + (d->e84 << 7);
-        Hero_ResetToPosition(base + 0x30, base + 0x70, 0x72, 0);
+        set_race_camera(base + 0x30, base + 0x70, 0x72, 0);
     }
     if (i3 > 0) {
         ang = fast_atan2(c3->p[i3].x - c3->p[i3 - 1].x, c3->p[i3].y - c3->p[i3 - 1].y);
@@ -976,18 +976,18 @@ LINKER_REMNANT("asm/overlays", func_L17_002F4208);
 extern int fast_dec_timer_i(int *) __asm__("func_001F9908");
 
 extern char *fleet_mobys MACRO_ADDR;
-extern char *fleet_mobys_end MACRO_ADDR;
+extern char *fleet_moby_array_end MACRO_ADDR;
 extern char fleet_camera_box_missing_ids_msg[];
-extern int fleet_help_popup_state[];
+extern int fleet_help_request_gate_state[];
 extern unsigned char gHaveHologuise NOT_SDA;
 extern int g_current_level_index MACRO_ADDR;
-extern char fleet_player_camera[];
+extern char l17_camera[];
 extern unsigned char gSkillPoints[];
 extern unsigned char gHaveHeliPack[] NOT_SDA;
 
 /* Update for moby class 1470: watches camera boxes around the hero, gives skill points and help messages, and turns
    the camera. */
-void update_fleet_camera_box_watcher(char *moby) {
+void fleet_camera_box_watcher_update(char *moby) {
     int off;
     struct FleetCameraBoxVars *d = (struct FleetCameraBoxVars *)((Moby *)moby)->pvars;
     int st;
@@ -1024,8 +1024,8 @@ void update_fleet_camera_box_watcher(char *moby) {
                        is_point_inside_clip_volume(&h->motion.pos, d->skill_box_c)) {
                 if (gSkillPoints[0x1C] == 0) {
                     gSkillPoints[0x1C] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x53DB, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x53DB, -1);
                 }
             }
             break;
@@ -1042,13 +1042,13 @@ void update_fleet_camera_box_watcher(char *moby) {
                 d->scan_count += 1;
             }
             n = d->scan_index + 1;
-            wrap = fleet_mobys + (n << 8) < fleet_mobys_end;
+            wrap = fleet_mobys + (n << 8) < fleet_moby_array_end;
             d->scan_index = n;
             if (!wrap) {
                 if (d->scan_count == 0 && sk[0x1B] == 0) {
                     sk[0x1B] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x53DB, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x53DB, -1);
                 }
                 d->scan_index = 0;
                 d->scan_count = 0;
@@ -1106,10 +1106,11 @@ void update_fleet_camera_box_watcher(char *moby) {
             if (d->dwell_a > d->cooldown && tgt != -1 &&
                 ((unsigned int)((struct Hero *)((char *)&hero_globals_base + 0xE1D))->state.control_mode < 2 ||
                  ((struct Hero *)((char *)&hero_globals_base + 0xE1D))->state.control_mode == 9) &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHologuise != 0) {
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHologuise != 0) {
                 d->cooldown = scale_ticks(0x708);
                 if (*(int *)(help_stats_base + 0x739) >= 0) {
-                    Help_Request(0x3A9A, 0x7D);
+                    help_request(0x3A9A, 0x7D);
                 }
                 d->last_target = tgt;
                 d->dwell_a = 0;
@@ -1117,11 +1118,12 @@ void update_fleet_camera_box_watcher(char *moby) {
         skip1:
             if (is_point_inside_clip_volume(&((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos,
                                             d->box_b[0]) &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHeliPack[2] == 0) {
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHeliPack[2] == 0) {
                 int w = *(int *)(help_stats_base + 0x761);
                 mask = 1 << g_current_level_index;
                 if (!(w & mask)) {
-                    Help_Request(0x3A9D, 0x82);
+                    help_request(0x3A9D, 0x82);
                 }
             }
             tgt = -1;
@@ -1144,8 +1146,9 @@ void update_fleet_camera_box_watcher(char *moby) {
                 d->last_target = -1;
             }
             if (scale_ticks(0xE10) < d->dwell_b && tgt != -1 && hero_is_in_special_state() &&
-                fleet_help_popup_state[0] == 0 && fleet_help_popup_state[9] == -1 && gHaveHeliPack[2] != 0) {
-                Help_Request(0x4E2E, 0x78);
+                fleet_help_request_gate_state[0] == 0 && fleet_help_request_gate_state[9] == -1 &&
+                gHaveHeliPack[2] != 0) {
+                help_request(0x4E2E, 0x78);
                 d->last_target = tgt;
                 d->dwell_b = 0;
             }
@@ -1158,9 +1161,9 @@ void update_fleet_camera_box_watcher(char *moby) {
                                             d->camera_box)) {
                 clear_active_help_record();
                 if (*(int *)(help_stats_base + 0x7A9) >= 0) {
-                    Help_Request(0x4268, 0x8B);
+                    help_request(0x4268, 0x8B);
                 }
-                if (fleet_help_popup_state[0] != 0 || fleet_help_popup_state[9] != -1) {
+                if (fleet_help_request_gate_state[0] != 0 || fleet_help_request_gate_state[9] != -1) {
                     d->unk_50 = 0;
                     ((Moby *)moby)->state = 2;
                     d->turn_timer = scale_ticks(0xB4);
@@ -1173,7 +1176,7 @@ void update_fleet_camera_box_watcher(char *moby) {
             set_follow_camera_blend_output_flags();
             set_follow_camera_angle_blend_from_position((int)(fleet_camera_points + (d->turn_to_a << 7) + 0x30),
                                                         0.02617994f, 0.0f);
-            cam = fleet_player_camera;
+            cam = l17_camera;
             f = fast_atan2(*(float *)(fleet_camera_points + ((d->turn_to_a << 7) + 0x30)) - *(float *)(cam + 0x140),
                            *(float *)(fleet_camera_points + ((d->turn_to_a << 7) + 0x34)) - *(float *)(cam + 0x144));
             if (FastDiffRots(*(float *)(cam + 0x158), f) < 0.034906585f) {
@@ -1188,7 +1191,7 @@ void update_fleet_camera_box_watcher(char *moby) {
                 char *cam;
                 set_follow_camera_angle_blend_from_position((int)(fleet_camera_points + (d->turn_to_b << 7) + 0x30),
                                                             0.02617994f, 0.0f);
-                cam = fleet_player_camera;
+                cam = l17_camera;
                 f = fast_atan2(*(float *)(fleet_camera_points + ((d->turn_to_b << 7) + 0x30)) - *(float *)(cam + 0x140),
                                *(float *)(fleet_camera_points + ((d->turn_to_b << 7) + 0x34)) -
                                    *(float *)(cam + 0x144));
@@ -1210,7 +1213,7 @@ extern struct {
 } D_L17_0016D1E0;
 
 // Update moby: on first tick set state 1 and 0xFF at 0x30; later dispatch through a table.
-void update_fleet_guarded_moby_effects(unsigned char *m) {
+void Moby750SparkTriggerUpdate(unsigned char *m) {
     switch (m[0x20]) {
         case 0:
             m[0x30] = 0xFF;
@@ -1233,17 +1236,17 @@ void update_fleet_guarded_moby_effects(unsigned char *m) {
 typedef int u128_2F4E30 __attribute__((mode(TI)));
 
 extern float fleet_view_params_field_a4;
-extern float fleet_backdrop_beam_widths[];
-extern float fleet_backdrop_beam_uvs[];
-extern int fleet_backdrop_beam_textures[];
+extern float backdrop_scrolling_quad_start_half_widths[];
+extern float backdrop_scrolling_quad_base_uv_coordinates[];
+extern int backdrop_scrolling_quad_texture_indices[];
 extern float fleet_backdrop_beam_uv_scroll[];
 extern float frame_delta_time MACRO_ADDR;
-extern float fleet_backdrop_glow_sizes[];
-extern float fleet_backdrop_glow_angles[];
-extern int fleet_backdrop_glow_colors_from[];
-extern int fleet_backdrop_glow_colors_to[];
-extern float fleet_backdrop_glow_color_blend[];
-extern int fleet_backdrop_beam_color SDATA(fleet_backdrop_beam_color);
+extern float backdrop_quad_side_lengths[];
+extern float backdrop_quad_uv_rotation_angles[];
+extern int backdrop_quad_color_blend_source_colors[];
+extern int backdrop_quad_color_blend_target_colors[];
+extern float backdrop_quad_color_blend_factors[];
+extern int backdrop_scrolling_quad_color SDATA(D_L17_00162438);
 extern short fleet_backdrop_beam_scroll_speeds;
 
 typedef struct {
@@ -1277,23 +1280,23 @@ void draw_fleet_backdrop_quads(char *moby) {
         FastVecSub(&vv[0], &data->anchor, fleet_camera_pos);
         FastVecSub(&vv[1], pos, fleet_camera_pos);
         FastVecCross(&vv[0], &vv[0], vb);
-        vec_scale_to_length(&vv[0], &vv[0], fleet_backdrop_beam_widths[i]);
+        vec_scale_to_length(&vv[0], &vv[0], backdrop_scrolling_quad_start_half_widths[i]);
         FastVecCross(&vv[1], &vv[1], vb);
         vec_scale_to_length(&vv[1], &vv[1], data->width);
         *(long *)&pkt.q[4] = 0x0000FF9000000260LL;
         *(long *)&pkt.q[6] = 0x0000008000000048LL;
         *(long *)&pkt.q[0] = 0;
-        pkt.col[3] = fleet_backdrop_beam_color;
-        pkt.col[2] = fleet_backdrop_beam_color;
-        pkt.col[1] = fleet_backdrop_beam_color;
-        pkt.col[0] = fleet_backdrop_beam_color;
+        pkt.col[3] = backdrop_scrolling_quad_color;
+        pkt.col[2] = backdrop_scrolling_quad_color;
+        pkt.col[1] = backdrop_scrolling_quad_color;
+        pkt.col[0] = backdrop_scrolling_quad_color;
         {
             float *qu = &pkt.uv[0];
             float *qv = &pkt.uv[1];
             int m;
             for (m = 0; m < 4; m++) {
-                qu[m * 2] = fleet_backdrop_beam_uvs[m * 2];
-                qv[m * 2] = fleet_backdrop_beam_uvs[m * 2 + 1];
+                qu[m * 2] = backdrop_scrolling_quad_base_uv_coordinates[m * 2];
+                qv[m * 2] = backdrop_scrolling_quad_base_uv_coordinates[m * 2 + 1];
             }
         }
         FastVecSub(&vv[3], &data->anchor, &vv[0]);
@@ -1304,10 +1307,10 @@ void draw_fleet_backdrop_quads(char *moby) {
         pkt.m[2] = vv[3];
         FastVecAdd(&vv[3], pos, &vv[1]);
         pkt.m[3] = vv[3];
-        *(long *)&pkt.q[2] = GetEffectTex(fleet_backdrop_beam_textures[i]);
+        *(long *)&pkt.q[2] = GetEffectTex(backdrop_scrolling_quad_texture_indices[i]);
         for (j = 0; j < 4; j++) {
-            pu[j * 2] = fleet_backdrop_beam_uvs[j * 2] + fleet_backdrop_beam_uv_scroll[i];
-            pv[j * 2] = fleet_backdrop_beam_uvs[j * 2 + 1];
+            pu[j * 2] = backdrop_scrolling_quad_base_uv_coordinates[j * 2] + fleet_backdrop_beam_uv_scroll[i];
+            pv[j * 2] = backdrop_scrolling_quad_base_uv_coordinates[j * 2 + 1];
         }
         fleet_backdrop_beam_uv_scroll[i] +=
             *(float *)((char *)&fleet_backdrop_beam_scroll_speeds + i * 4) * frame_delta_time;
@@ -1315,8 +1318,8 @@ void draw_fleet_backdrop_quads(char *moby) {
     }
     *(long *)&pkt.q[2] = GetEffectTex(0x2F);
     for (k = 0; k < 5; k++) {
-        float s = fleet_backdrop_glow_sizes[k];
-        float ang = fleet_backdrop_glow_angles[k];
+        float s = backdrop_quad_side_lengths[k];
+        float ang = backdrop_quad_uv_rotation_angles[k];
         float x = data->far_pos.x - s * 0.5f;
         float z;
         ((float *)&pkt)[0] = x;
@@ -1344,8 +1347,8 @@ void draw_fleet_backdrop_quads(char *moby) {
         pkt.uv[6] = FastSin(FastAddRots(ang, 1.5707964f)) * 0.5f + 0.5f;
         pkt.uv[7] = FastCos(FastAddRots(ang, 1.5707964f)) * 0.5f + 0.5f;
         {
-            int c = FastTweenColor(fleet_backdrop_glow_colors_from[k], fleet_backdrop_glow_colors_to[k],
-                                   fleet_backdrop_glow_color_blend[k]);
+            int c = FastTweenColor(backdrop_quad_color_blend_source_colors[k],
+                                   backdrop_quad_color_blend_target_colors[k], backdrop_quad_color_blend_factors[k]);
             pkt.col[3] = c;
             pkt.col[2] = c;
             pkt.col[1] = c;
@@ -1358,17 +1361,17 @@ void draw_fleet_backdrop_quads(char *moby) {
 
 extern void draw_fleet_backdrop_quads(char *);
 
-extern float D_L17_0015F718 MACRO_ADDR;
+extern float fleet_hero_fall_state_height MACRO_ADDR;
 typedef int u128 __attribute__((mode(TI)));
 extern float fleet_backdrop_bend_length SDATA(fleet_backdrop_bend_length);
 extern float fleet_backdrop_base_length SDATA(fleet_backdrop_base_length);
 extern float fleet_backdrop_length_divisor SDATA(fleet_backdrop_length_divisor);
-extern float fleet_backdrop_glow_spin_speeds[];
+extern float backdrop_quad_uv_rotation_rate_factors[];
 extern float fleet_backdrop_glow_blend_dir[];
-extern float fleet_backdrop_glow_blend_speeds[];
+extern float backdrop_quad_color_blend_rates[];
 
 // Fleet moby update: sets up a path on first tick, then animates its scrolling and bounce values.
-void update_fleet_backdrop_animation(unsigned char *moby) {
+void fleet_backdrop_animation_update(unsigned char *moby) {
     struct Moby *mby = (struct Moby *)moby;
     struct FleetBackdropVars *moby_pvars = (struct FleetBackdropVars *)mby->pvars;
     float offset_accumulator[4];
@@ -1390,7 +1393,7 @@ done:
     if (mby->state == 0) {
         mby->state = 1;
         for (i = 0; i < 5; i++) {
-            fleet_backdrop_glow_angles[i] = (float)i * 25.0f;
+            backdrop_quad_uv_rotation_angles[i] = (float)i * 25.0f;
         }
         qcopy(&moby_pvars->anchor, &mby->pos);
         BuildSphericalOffset(offset_accumulator,
@@ -1406,20 +1409,21 @@ done:
         moby_pvars->far_pos.x -= 300.0f;
     } else {
         for (i = 0; i < 5; i++) {
-            fleet_backdrop_glow_color_blend[i] +=
-                fleet_backdrop_glow_blend_speeds[i] * fleet_backdrop_glow_blend_dir[i] * frame_delta_time;
-            if (1.0f < fleet_backdrop_glow_color_blend[i]) {
-                fleet_backdrop_glow_color_blend[i] = 1.0f;
+            backdrop_quad_color_blend_factors[i] +=
+                backdrop_quad_color_blend_rates[i] * fleet_backdrop_glow_blend_dir[i] * frame_delta_time;
+            if (1.0f < backdrop_quad_color_blend_factors[i]) {
+                backdrop_quad_color_blend_factors[i] = 1.0f;
                 fleet_backdrop_glow_blend_dir[i] = -1.0f;
             }
-            if (fleet_backdrop_glow_color_blend[i] < 0.0f) {
-                fleet_backdrop_glow_color_blend[i] = 0.0f;
+            if (backdrop_quad_color_blend_factors[i] < 0.0f) {
+                backdrop_quad_color_blend_factors[i] = 0.0f;
                 fleet_backdrop_glow_blend_dir[i] = 1.0f;
             }
         }
         for (i = 0; i < 5; i++) {
-            fleet_backdrop_glow_angles[i] = FastAddRots(fleet_backdrop_glow_angles[i],
-                                                        fleet_backdrop_glow_spin_speeds[i] * 0.1f * frame_delta_time);
+            backdrop_quad_uv_rotation_angles[i] =
+                FastAddRots(backdrop_quad_uv_rotation_angles[i],
+                            backdrop_quad_uv_rotation_rate_factors[i] * 0.1f * frame_delta_time);
         }
         for (i = 0; i < 2; i++) {
             fleet_backdrop_beam_uv_scroll[i] += ((float *)&fleet_backdrop_beam_scroll_speeds)[i] * frame_delta_time;
@@ -1434,8 +1438,8 @@ done:
     }
 }
 
-extern char fleet_blarg_ship_gun_offset_alt[];
-extern char fleet_blarg_ship_gun_offset[];
+extern char blarg_ship_positive_y_launch_offset[];
+extern char blarg_ship_negative_y_launch_offset[];
 extern float fleet_blarg_ship_shot_speed SDATA(fleet_blarg_ship_shot_speed);
 
 /* UpdateMoby 1843: a flying fleet craft that circles, follows a path, strafes the player and fires. */
@@ -1499,7 +1503,7 @@ void blarg_ship_1843_update(unsigned char *moby) {
             FastAddRots(moby_pvars->angle, moby_pvars->angle_step);
             update_moby_path_transform(moby);
             if (((Moby *)moby)->state == 2) {
-                SpawnExplosionFx(moby, &((Moby *)moby)->pos, -1, 2.0f, 13.0f);
+                cart_burst(moby, &((Moby *)moby)->pos, -1, 2.0f, 13.0f);
                 if (random_integer_below(2)) {
                     spawn_ship_pickup((char *)&((Moby *)moby)->pos, 0xE0);
                 } else {
@@ -1510,8 +1514,8 @@ void blarg_ship_1843_update(unsigned char *moby) {
                 ((Moby *)moby)->collision = 0;
                 ((Moby *)moby)->flags |= 1;
             } else if (((Moby *)moby)->visible == 0) {
-                if (FastVecDist(&((Moby *)moby)->pos,
-                                &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos) < 32.0f) {
+                if (fast_vec_dist(&((Moby *)moby)->pos,
+                                  &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos) < 32.0f) {
                     ((Moby *)moby)->state = 3;
                     ((Moby *)moby)->collision = 0;
                     ((Moby *)moby)->flags |= 1;
@@ -1522,8 +1526,8 @@ void blarg_ship_1843_update(unsigned char *moby) {
             qcopy(scratch_vector, &((Moby *)moby)->pos);
             scratch_vector[3] = 3.0f;
             if (FastBSphereCheck((char *)&((Moby *)moby)->pos, 512.0f) == -1) {
-                if (FastVecDist(&((Moby *)moby)->pos,
-                                &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos) > 32.0f) {
+                if (fast_vec_dist(&((Moby *)moby)->pos,
+                                  &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos) > 32.0f) {
                     moby_pvars->dwell += 1;
                     if (scale_ticks(60) < moby_pvars->dwell) {
                         ((Moby *)moby)->state = 1;
@@ -1553,8 +1557,8 @@ void blarg_ship_1843_update(unsigned char *moby) {
             }
             euler_rotation_basis(rotation_basis_row0, clamped_euler_angles);
             FastVecSub(hero_position_delta, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos,
-                       &moby_pvars->hero_pos);
-            qcopy(&moby_pvars->hero_pos, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos);
+                       &moby_pvars->hero_position);
+            qcopy(&moby_pvars->hero_position, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos);
             FastVecAdd(&((Moby *)moby)->pos, &((Moby *)moby)->pos, hero_position_delta);
             offset_angle = FastAddRots(0.7853982f, (float)moby_pvars->quadrant * 1.5707964f);
             vec_scale_to_length(scratch_vector, rotation_basis_row1, FastSin(offset_angle) * 8.0f);
@@ -1581,7 +1585,7 @@ void blarg_ship_1843_update(unsigned char *moby) {
                 if (((Moby *)moby)->visible) {
                     moby_pvars->unk_98 += 1;
                 }
-                if (FastVecDist(movement_target_position, &((Moby *)moby)->pos) < 2.0f) {
+                if (fast_vec_dist(movement_target_position, &((Moby *)moby)->pos) < 2.0f) {
                     ((Moby *)moby)->command = 0;
                 } else if (scale_ticks(120) < moby_pvars->unk_98) {
                     ((Moby *)moby)->command = 0;
@@ -1595,7 +1599,7 @@ void blarg_ship_1843_update(unsigned char *moby) {
                 ang = fast_atan2(hero_relative_position[0], hero_relative_position[1]);
                 SteerAngleWithVelocity(yaw, &moby_pvars->yaw_vel, ang, g_frame_time_sq * 12.566371f,
                                        g_frame_time_sq * 12.566371f, g_frame_time * 12.566371f);
-                ang = -fast_atan2(vec_length_xy(hero_relative_position), hero_relative_position[2]);
+                ang = -fast_atan2(vector_length_xy(hero_relative_position), hero_relative_position[2]);
                 SteerAngleWithVelocity(pitch, &moby_pvars->pitch_vel, ang, g_frame_time_sq * 12.566371f,
                                        g_frame_time_sq * 12.566371f, g_frame_time * 12.566371f);
                 if (fleet_frame_count % 10 == 0) {
@@ -1604,20 +1608,20 @@ void blarg_ship_1843_update(unsigned char *moby) {
                     vec_scale_to_length(sB0, hero_position_delta, *(float *)&moby_pvars->unk_94);
                     FastVecAdd(sB0, sB0, tgt);
                     if (fleet_frame_count % 20 == 0) {
-                        matrix_mul_vec3(sA0, fleet_blarg_ship_gun_offset_alt, &((Moby *)moby)->rot_row0);
+                        transform_vector_by_basis(sA0, blarg_ship_positive_y_launch_offset, &((Moby *)moby)->rot_row0);
                     } else {
-                        matrix_mul_vec3(sA0, fleet_blarg_ship_gun_offset, &((Moby *)moby)->rot_row0);
+                        transform_vector_by_basis(sA0, blarg_ship_negative_y_launch_offset, &((Moby *)moby)->rot_row0);
                     }
                     FastVecAdd(sA0, sA0, (float *)&((Moby *)moby)->pos);
                     FastVecSub(firing_target_delta, sB0, sA0);
                     vec_scale_to_length(firing_direction, firing_target_delta,
                                         fleet_blarg_ship_shot_speed * g_frame_time);
                     FastVecAdd(firing_direction, firing_direction, hero_position_delta);
-                    firing_moby = spawn_class_3f9_moby((int)moby, firing_direction, sA0, 128.0f, -1.0f, 10.0f);
+                    firing_moby = spawn_blarg_ship_shot((int)moby, firing_direction, sA0, 128.0f, -1.0f, 10.0f);
                     if (firing_moby) {
                         FastVecSub(firing_direction, firing_direction, hero_position_delta);
                         *(float *)(firing_moby + 0x44) =
-                            -fast_atan2(vec_length_xy(firing_direction), firing_direction[2]);
+                            -fast_atan2(vector_length_xy(firing_direction), firing_direction[2]);
                         *(float *)(firing_moby + 0x48) = fast_atan2(firing_direction[0], firing_direction[1]);
                     }
                 }
@@ -1630,10 +1634,10 @@ void blarg_ship_1843_update(unsigned char *moby) {
             break;
         case BLARG_SHIP_BURST_AND_DEACTIVATE:
             FastVecSub(scratch_vector, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos,
-                       &moby_pvars->hero_pos);
-            qcopy(&moby_pvars->hero_pos, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos);
+                       &moby_pvars->hero_position);
+            qcopy(&moby_pvars->hero_position, &((struct Hero *)((char *)&hero_globals_base + 0xE1D))->motion.pos);
             FastVecAdd(&((Moby *)moby)->pos, &((Moby *)moby)->pos, scratch_vector);
-            SpawnExplosionFx(moby, &((Moby *)moby)->pos, -1, 2.0f, 13.0f);
+            cart_burst(moby, &((Moby *)moby)->pos, -1, 2.0f, 13.0f);
             if (random_integer_below(2)) {
                 spawn_ship_pickup((char *)&((Moby *)moby)->pos, 0xE0);
             } else {
@@ -1737,7 +1741,7 @@ extern void *SpawnBreakFragment_v(char *src, int cls, float *pos, void *mat, int
 extern float fleet_zero_vec[] MACRO_ADDR;
 
 /* Update moby 1876: waits for a trigger, then plays an effect and finishes. */
-void update_hit_triggered_fragment_and_placement_spawner(unsigned char *m) {
+void breakaway_prop_update(unsigned char *m) {
     enum { HIT_EFFECT_INITIALIZE = 0, HIT_EFFECT_WAIT_FOR_HIT = 1, HIT_EFFECT_EMIT_AND_REMOVE = 2 };
     int flag = 0;
     struct HitMessage *hit_result = (struct HitMessage *)MobyGetHitMessage(m, 0x10000, 0);
@@ -1806,12 +1810,12 @@ void compute_reflection_sphere_map_uvs(int n, V3 *b, V3 *a, int unused, float *o
         out[i * 2 + 1] = (r.v.y / len + 0.5f) * 4.0f;
     }
 }
-extern char fleet_reflection_strips_uvs[];
-extern short fleet_reflection_strips_vertex_counts;
-extern short fleet_reflection_strips_vertices;
-extern short fleet_reflection_strips_unused_bufs;
-extern short fleet_reflection_strips_normals;
-extern short fleet_reflection_strips_colors;
+extern char reflection_strip_uv_buffer[];
+extern short reflection_strip_pair0_vertex_counts;
+extern short reflection_strip_pair0_position_tables;
+extern short reflection_strip_pair0_unused_pair_tables;
+extern short reflection_strip_pair0_direction_tables;
+extern short reflection_strip_pair0_colour_tables;
 
 // Sets up draw state, then draws two entries from five parallel int tables.
 void draw_reflection_strips(void) {
@@ -1822,22 +1826,23 @@ void draw_reflection_strips(void) {
     VU1_addGSregister(8, 0);
     VU1_addGSregister(0x14, 0xFF9000000260L);
     font_queue_vu_state();
-    p = (float *)fleet_reflection_strips_uvs;
+    p = (float *)reflection_strip_uv_buffer;
     for (i = 0; i < 2; i++) {
-        compute_reflection_sphere_map_uvs(
-            ((int *)&fleet_reflection_strips_vertex_counts)[i], ((int *)&fleet_reflection_strips_normals)[i],
-            ((int *)&fleet_reflection_strips_vertices)[i], ((int *)&fleet_reflection_strips_unused_bufs)[i], p);
-        draw_env_overlay_mesh(((int *)&fleet_reflection_strips_vertex_counts)[i],
-                              ((int *)&fleet_reflection_strips_vertices)[i],
-                              ((int *)&fleet_reflection_strips_colors)[i], p, 1);
+        compute_reflection_sphere_map_uvs(((int *)&reflection_strip_pair0_vertex_counts)[i],
+                                          ((int *)&reflection_strip_pair0_direction_tables)[i],
+                                          ((int *)&reflection_strip_pair0_position_tables)[i],
+                                          ((int *)&reflection_strip_pair0_unused_pair_tables)[i], p);
+        draw_env_overlay_mesh(((int *)&reflection_strip_pair0_vertex_counts)[i],
+                              ((int *)&reflection_strip_pair0_position_tables)[i],
+                              ((int *)&reflection_strip_pair0_colour_tables)[i], p, 1);
     }
 }
-extern char fleet_reflection_strip_uvs[];
-extern short fleet_reflection_strip_vertex_count;
-extern short fleet_reflection_strip_vertices;
-extern short fleet_reflection_strip_unused_bufs;
-extern short fleet_reflection_strip_normals;
-extern short fleet_reflection_strip_colors;
+extern char reflection_sphere_map_uv_buffer[];
+extern short reflection_strip0_vertex_counts;
+extern short reflection_strip0_position_tables;
+extern short reflection_strip0_unused_pair_tables;
+extern short reflection_strip0_direction_tables;
+extern short reflection_strip0_colour_tables;
 
 // Sets up draw state, then draws one entry from five parallel int tables.
 void draw_reflection_strip(void) {
@@ -1848,14 +1853,14 @@ void draw_reflection_strip(void) {
     VU1_addGSregister(8, 0);
     VU1_addGSregister(0x14, 0xFF9000000260L);
     font_queue_vu_state();
-    p = (float *)fleet_reflection_strip_uvs;
+    p = (float *)reflection_sphere_map_uv_buffer;
     for (i = 0; i < 1; i++) {
         compute_reflection_sphere_map_uvs(
-            ((int *)&fleet_reflection_strip_vertex_count)[i], (V3 *)((int *)&fleet_reflection_strip_normals)[i],
-            (V3 *)((int *)&fleet_reflection_strip_vertices)[i], ((int *)&fleet_reflection_strip_unused_bufs)[i], p);
-        draw_env_overlay_mesh(((int *)&fleet_reflection_strip_vertex_count)[i],
-                              ((int *)&fleet_reflection_strip_vertices)[i], ((int *)&fleet_reflection_strip_colors)[i],
-                              p, 1);
+            ((int *)&reflection_strip0_vertex_counts)[i], (V3 *)((int *)&reflection_strip0_direction_tables)[i],
+            (V3 *)((int *)&reflection_strip0_position_tables)[i], ((int *)&reflection_strip0_unused_pair_tables)[i], p);
+        draw_env_overlay_mesh(((int *)&reflection_strip0_vertex_counts)[i],
+                              ((int *)&reflection_strip0_position_tables)[i],
+                              ((int *)&reflection_strip0_colour_tables)[i], p, 1);
     }
 }
 /* Computes a per-vertex 2D sphere-map texture coordinate from position and normal arrays. */

@@ -1,5 +1,5 @@
 extern char D_J_L03_001DC860[];
-void update_moby_draw_callback(unsigned char *moby) {
+void moby_draw_callback_update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             prepare_scaled_float_table_with_target_byte(D_J_L03_001DC860, 0.6666667f, 0x20);

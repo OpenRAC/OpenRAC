@@ -75,11 +75,16 @@ export function isPlaying(v: VersionView): boolean {
 const action = (v: VersionView, id: string): ActionView | null =>
   v.actions.find((a) => a.id === id && a.thisPlatform) ?? null;
 
-/** The image of GAME in the player's games folder, if it holds one: a developer's chosen one
- *  when the folder holds more than one of its discs. */
-export function foundDisc(game: string) {
-  const chosen = choiceFor(app.discChoices, game)?.chosen;
-  return app.discs.find((d) => d.game === game && (!chosen || d.version === chosen)) ?? null;
+/** The image of GAME to set it up from: the one in the player's games folder, if it holds one;
+ *  a developer's chosen disc when the launcher knows more than one, from the games folder or the
+ *  image it was set up from before. */
+export function foundDisc(game: string): { path: string; inFolder: boolean } | null {
+  const choice = choiceFor(app.discChoices, game);
+  const chosen = choice?.chosen;
+  const found = app.discs.find((d) => d.game === game && (!chosen || d.version === chosen));
+  if (found) return { path: found.path, inFolder: true };
+  const picked = choice ? choice.images[choice.chosen] : undefined;
+  return picked ? { path: picked, inFolder: false } : null;
 }
 
 const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
@@ -220,7 +225,7 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
         : planned
           ? "This game cannot be played yet. You can set your disc up now, ready for when it can."
           : found
-            ? `Found in your games folder: ${fileName(found.path)}`
+            ? `${found.inFolder ? "Found in your games folder" : "Your disc image"}: ${fileName(found.path)}`
             : "Choose the image (.iso or .chd) of your own disc. OpenRAC never downloads a game.",
       primary: !planned,
       status: planned ? "Not playable yet" : "Not set up",

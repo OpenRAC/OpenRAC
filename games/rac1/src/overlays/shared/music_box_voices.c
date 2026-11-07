@@ -40,14 +40,14 @@ typedef struct {
 extern int play_voice_r(int, int, void *, int) __asm__("func_L00_0028F0B0");
 
 extern char camera_pos_r[] __asm__("D_L01_001672C0");
-extern Row_0031AD00 *D_L01_0015F6D4 MACRO_ADDR;
-extern char D_0013E650[];
+extern Row_0031AD00 *novalis_level_sound_slots MACRO_ADDR;
+extern char voice_pool[];
 extern char voice_positions_r[] __asm__("D_0013E6E0");
 
 /* Sound box update: while the listener is inside the box's outer radius keeps the box's sound playing (restarting it
    on its timer) at a volume that falls off outside the unit box, placed at the nearest point of the box; outside,
    stops it. */
-void update_box_positional_voice(Moby_0031AD00 *m) {
+void update_box_emitter(Moby_0031AD00 *m) {
     float d[4];
     float r[4];
     float b[4];
@@ -64,13 +64,13 @@ void update_box_positional_voice(Moby_0031AD00 *m) {
     r[2] = m->radius;
     FastVecSub(d, camera_pos_r, m->pos);
     d[3] = 0;
-    matrix_mul_vec3(b, d, m->mtx);
-    matrix_mul_vec3(c, r, m->mtx);
+    transform_vector_by_basis(b, d, m->mtx);
+    transform_vector_by_basis(c, r, m->mtx);
     outer = FastVecLength(c);
     inner = FastVecLength(b);
     if (inner < outer) {
         flags = 0x10;
-        if (FastAbsF(b[0]) <= 1.0f && FastAbsF(b[1]) <= 1.0f && FastAbsF(b[2]) <= 1.0f) {
+        if (absolute_float(b[0]) <= 1.0f && absolute_float(b[1]) <= 1.0f && absolute_float(b[2]) <= 1.0f) {
             vol = novalis_level_sound_slots[p->cls].fC;
         } else {
             if (b[0] > 1.0f) {
@@ -107,7 +107,7 @@ void update_box_positional_voice(Moby_0031AD00 *m) {
         }
         if (p->handle != -1) {
             Sound_SetPitchBend(p->handle, vol);
-            matrix_mul_vec3(d, b, m->f10);
+            transform_vector_by_basis(d, b, m->f10);
             FastVecAdd(d, d, m->pos);
             qcopy(voice_positions_r + p->handle * 0x70, d);
         }
@@ -123,17 +123,17 @@ void update_box_positional_voice(Moby_0031AD00 *m) {
     }
 }
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 /* reverb box sound update: starts or stops the sound as the listener enters or leaves the box */
-void update_requested_state_from_box_position(char *moby) {
+void update_reverb_box_emitter(char *moby) {
     float a[4];
     float b[4];
     unsigned char *data = *(unsigned char **)(moby + 8);
     FastVecSub(a, &g_hero.motion.pos, moby + 0x40);
     a[3] = 0;
-    matrix_mul_vec3(b, a, moby + 0x50);
-    if (FastAbsF(b[0]) <= 1.0f && FastAbsF(b[1]) <= 1.0f && FastAbsF(b[2]) <= 1.0f) {
+    transform_vector_by_basis(b, a, moby + 0x50);
+    if (absolute_float(b[0]) <= 1.0f && absolute_float(b[1]) <= 1.0f && absolute_float(b[2]) <= 1.0f) {
         float t = (b[0] + 1.0f) * 0.5f;
         int v = truncate_float_to_s32(IntToFloat(*(int *)(data + 4)) * t);
         int w = *(int *)(data + 4);
@@ -153,7 +153,7 @@ void update_requested_state_from_box_position(char *moby) {
 extern char voice_positions[];
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_0030b618.c, FUN_L01_0031a078. */
-void update_listener_following_voice(int a0) {
+void update_listener_emitter(int a0) {
     char *p = *(char **)(a0 + 8);
     int n = *(int *)(p + 4);
     char *r;
@@ -174,14 +174,14 @@ void update_listener_following_voice(int a0) {
 }
 
 /* sound instance update: fade/stop test against a listener distance */
-void update_music_box_exit_trigger(int *moby) {
+void update_music_switch_emitter(int *moby) {
     float v[8];
     int *p = (int *)moby[2];
     if (((unsigned *)p)[3] != 0xFFFFFFFF) {
         FastVecSub(v, &g_hero.motion.pos, (char *)moby + 0x40);
         v[3] = 0;
-        matrix_mul_vec3(v + 4, v, (char *)moby + 0x50);
-        if (FastAbsF(v[4]) <= 1.0f && FastAbsF(v[5]) <= 1.0f && FastAbsF(v[6]) <= 1.0f) {
+        transform_vector_by_basis(v + 4, v, (char *)moby + 0x50);
+        if (absolute_float(v[4]) <= 1.0f && absolute_float(v[5]) <= 1.0f && absolute_float(v[6]) <= 1.0f) {
             p[2] = 1;
             return;
         }
@@ -192,9 +192,9 @@ void update_music_box_exit_trigger(int *moby) {
             if (s[6] == -1)
                 s[6] = s[7];
             if (v[4] > 0) {
-                MusicRequestTrack(p[1], s[7]);
+                request_music_track(p[1], s[7]);
             } else {
-                MusicRequestTrack(p[0], s[6]);
+                request_music_track(p[0], s[6]);
             }
             p[2] = 0;
         }

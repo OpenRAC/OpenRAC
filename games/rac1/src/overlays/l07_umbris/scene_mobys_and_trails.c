@@ -46,7 +46,7 @@ extern s32 umbris_indicator_states[];
 extern struct Moby *level_mobys MACRO_ADDR;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l07/gameplay/entities/0030cd20.c, FUN_L07_0031a9e8. */
-void update_moby_offset_motion(struct Moby *moby) {
+void MovingMobyL07_Update(struct Moby *moby) {
     struct L07MovingVars *vars = (struct L07MovingVars *)moby->pvars;
     struct Moby *target;
     Vec4 next;
@@ -109,7 +109,7 @@ void update_moby_offset_motion(struct Moby *moby) {
             start.f[1] = vars->destination.y;
             start.f[2] = vars->destination.z;
             next.q = start.q;
-            matrix_mul_vec3(&next, &next, &moby->rot_row0);
+            transform_vector_by_basis(&next, &next, &moby->rot_row0);
             vec_scale_to_length(&start, &next, vars->destination.w * g_frame_time);
             FastVecAdd(&moby->pos, &moby->pos, &start);
             time = vars->home.w - vars->destination.w * g_frame_time;
@@ -148,7 +148,7 @@ void update_moby_offset_motion(struct Moby *moby) {
             next.q = start.q;
             distance = FastVecLength(&next);
             vec_scale_to_length(&next, &next, -(vars->speed * g_frame_time));
-            matrix_mul_vec3(&start, &next, &moby->rot_row0);
+            transform_vector_by_basis(&start, &next, &moby->rot_row0);
             FastVecAdd(&moby->pos, &moby->pos, &start);
             time = vars->home.w + vars->speed * g_frame_time;
             vars->home.w = time;
@@ -192,7 +192,7 @@ extern float g_frame_time MACRO_ADDR;
 extern EaseMoby1C7C0 *level_mobys_ease __asm__("D_L07_00160058") MACRO_ADDR;
 
 // UpdateMoby_1133: state machine that eases a value toward targets while the linked moby is alive.
-void update_swing_gate(EaseMoby1C7C0 *moby) {
+void Moby1133Update(EaseMoby1C7C0 *moby) {
     EaseData1C7C0 *d = moby->data;
     EaseMoby1C7C0 *o;
     float v, w;
@@ -295,22 +295,22 @@ typedef struct {
     char pad10[0x8];
 } Ent;
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 
 extern int Spline_AdvanceByDistance_v(void *, void *, int *, float *, float, int) __asm__("func_L00_0025E860");
 
-extern char D_L07_00211DE0[];
-extern char D_L07_00211E20[];
-extern char D_L07_00211E40[];
-extern char D_L07_00211E68[];
-extern char D_L07_00211E98[];
+extern char equalizer_ammo_spawner_missing_trigger_message[];
+extern char ammo_spawner_deleted_fmt[];
+extern char equalizer_ammo_spawn_counts_format[];
+extern char ammo_spawner_place_fmt[];
+extern char equalizer_ammo_batch_reduced_format[];
 extern Path *umbris_paths_r[] __asm__("D_L07_001B0830");
-extern char D_L07_001C43B0[];
+extern char l07_ammo_spawner_scaling_rows[];
 extern int D_L07_00161D30_31E6B0 SDATA(D_L07_00161D30);
 extern Moby256_31E6B0 *level_mobys_r __asm__("D_L07_00160058") MACRO_ADDR;
 
 // Update for moby class 1142 on level 07: measures its path once, then places sparks for the listed counters.
-void update_equalizer_ammo_spawner(SparkMoby *moby) {
+void equalizer_ammo_spawner_update(SparkMoby *moby) {
     SparkVars *d = moby->vars;
     float vec[3];
     int ia;
@@ -329,11 +329,11 @@ void update_equalizer_ammo_spawner(SparkMoby *moby) {
         }
         bad = 0;
         if (d->vol == -1) {
-            STUB_printf(ammo_spawner_missing_link_fmt);
+            STUB_printf(equalizer_ammo_spawner_missing_trigger_message);
             bad = 1;
         }
         if (d->path == -1) {
-            STUB_printf(ammo_spawner_missing_link_fmt);
+            STUB_printf(equalizer_ammo_spawner_missing_trigger_message);
             bad = 1;
         }
         if (bad) {
@@ -345,7 +345,7 @@ void update_equalizer_ammo_spawner(SparkMoby *moby) {
         for (j = 0; j < umbris_paths_r[d->path]->count; j++) {
             int nj = (j + 1) % umbris_paths_r[d->path]->count;
             umbris_paths_r[d->path]->nodes[j].len =
-                FastVecDist(&umbris_paths_r[d->path]->nodes[j], &umbris_paths_r[d->path]->nodes[nj]);
+                fast_vec_dist(&umbris_paths_r[d->path]->nodes[j], &umbris_paths_r[d->path]->nodes[nj]);
             d->total = d->total + umbris_paths_r[d->path]->nodes[j].len;
         }
         moby->state = 1;
@@ -359,7 +359,7 @@ void update_equalizer_ammo_spawner(SparkMoby *moby) {
         for (i = 0; (&D_L07_00161D30_31E6B0)[i] != -1; i++) {
             k = (&D_L07_00161D30_31E6B0)[i];
             have = IntToFloat(((int *)weapon_ammo_counts)[k]);
-            max = IntToFloat(((Ent *)umbris_item_price_table)[k].max);
+            max = IntToFloat(((Ent *)l07_ammo_spawner_scaling_rows)[k].max);
             ratio = have / max;
             at = random_float_between(0.0f, d->total);
             if (d->lo / 100.0f <= ratio && ratio < d->hi / 100.0f) {
@@ -378,7 +378,7 @@ void update_equalizer_ammo_spawner(SparkMoby *moby) {
                 if (q != 0) {
                     m = q;
                 }
-                STUB_printf(ammo_spawner_count_fmt, n, m);
+                STUB_printf(equalizer_ammo_spawn_counts_format, n, m);
                 if (n > 0) {
                     near = 12.0f;
                     step = 10.0f;
@@ -402,7 +402,7 @@ void update_equalizer_ammo_spawner(SparkMoby *moby) {
                         at = at + random_float_between(d->total / step, 2.0f);
                         if (rem < m) {
                             m = rem;
-                            STUB_printf(ammo_spawner_remainder_fmt, rem);
+                            STUB_printf(equalizer_ammo_batch_reduced_format, rem);
                         }
                     } while (rem > 0);
                 }
@@ -422,7 +422,7 @@ extern char umbris_cutscene_state_c[] __asm__("D_L07_0016C960");
 extern float umbris_zero_vec[] MACRO_ADDR;
 
 // Runs the effect spawner: waits for the level flag, then emits sparks at four joints of a target moby.
-void update_scene_moby_effect_bursts(struct Moby *m) {
+void cutscene_effects_update(struct Moby *m) {
     int state = m->state;
     int a;
     int k;
@@ -457,11 +457,11 @@ void update_scene_moby_effect_bursts(struct Moby *m) {
             if (k != 0) {
                 mob = (char *)((L07SparkState *)S)->arr[k];
                 for (i = 0; i < 4; i++) {
-                    Moby_GetJointWorldPos(mob, i, buf);
+                    moby_point_position(mob, i, buf);
                     for (j = 9; j >= 0; j--) {
                         float d = random_float_between(20000.0f, 200000.0f);
-                        int col = (rand_range(0x20, 0x80) << 24) | 0x7F7F7F;
-                        int v = rand_range(0, 4);
+                        int col = (random_int_between(0x20, 0x80) << 24) | 0x7F7F7F;
+                        int v = random_int_between(0, 4);
                         char *p;
                         char *q;
                         if (random_integer_below(2) != 0)
@@ -469,7 +469,7 @@ void update_scene_moby_effect_bursts(struct Moby *m) {
                         p = PartType23Spawn_v(buf, v, umbris_zero_vec, col, 0.6f, 1.0f, 1.01f, d);
                         if (p != 0) {
                             q = p + 0x20;
-                            *(short *)(p + 0xA) = scale_ticks(rand_range(0x3C, 0x5A));
+                            *(short *)(p + 0xA) = scale_ticks(random_int_between(0x3C, 0x5A));
                             *(int *)(q + 4) = 2;
                             *(char *)(q + 0xA) = col >> 24;
                             *(char *)(q + 0xB) = *(unsigned char *)(p + 0xA);
@@ -598,13 +598,13 @@ void seashell_update(unsigned char *m) {
 }
 
 extern char umbris_cutscene_state[];
-extern float umbris_scene_trail_speed SDATA(umbris_scene_trail_speed);
-extern float umbris_scene_trail_core_size SDATA(umbris_scene_trail_core_size);
-extern float umbris_scene_trail_glow_size SDATA(umbris_scene_trail_glow_size);
+extern float scene_trail_velocity_length SDATA(D_L07_00161D68);
+extern float scene_trail_second_spawn_particle_value SDATA(D_L07_00161D70);
+extern float scene_trail_first_spawn_particle_value SDATA(D_L07_00161D6C);
 
 /* Level moby state machine: UpdateMoby_1789: spawn state then position three points.
  * Matched using lever: g - (-(idx * 4)) + 0x178 fixes addu operand order. */
-void update_scene_moby_trails(unsigned char *moby) {
+void Moby1789Update(unsigned char *moby) {
     switch (moby[0x20]) {
         case 0:
             moby[0x30] = 0xFF;
@@ -623,21 +623,24 @@ void update_scene_moby_trails(unsigned char *moby) {
                     if (s == 2)
                         idx = 4;
                     o = *(char **)(g - (-(idx * 4)) + 0x178);
-                    Moby_GetJointWorldPos(o, 0, a0);
-                    Moby_GetJointWorldPos(o, 3, b0);
+                    moby_point_position(o, 0, a0);
+                    moby_point_position(o, 3, b0);
                     FastVecSub(c0, a0, b0);
-                    vec_scale_to_length(c0, c0, umbris_scene_trail_speed);
-                    draw_trail(a0, a0, c0, umbris_scene_trail_glow_size, umbris_scene_trail_core_size);
-                    Moby_GetJointWorldPos(o, 1, a1);
-                    Moby_GetJointWorldPos(o, 4, b1);
+                    vec_scale_to_length(c0, c0, scene_trail_velocity_length);
+                    draw_trail(a0, a0, c0, scene_trail_first_spawn_particle_value,
+                               scene_trail_second_spawn_particle_value);
+                    moby_point_position(o, 1, a1);
+                    moby_point_position(o, 4, b1);
                     FastVecSub(c1, a1, b1);
-                    vec_scale_to_length(c1, c1, umbris_scene_trail_speed);
-                    draw_trail(a1, a1, c1, umbris_scene_trail_glow_size, umbris_scene_trail_core_size);
-                    Moby_GetJointWorldPos(o, 2, a2);
-                    Moby_GetJointWorldPos(o, 5, b2);
+                    vec_scale_to_length(c1, c1, scene_trail_velocity_length);
+                    draw_trail(a1, a1, c1, scene_trail_first_spawn_particle_value,
+                               scene_trail_second_spawn_particle_value);
+                    moby_point_position(o, 2, a2);
+                    moby_point_position(o, 5, b2);
                     FastVecSub(c2, a2, b2);
-                    vec_scale_to_length(c2, c2, umbris_scene_trail_speed);
-                    draw_trail(a2, a2, c2, umbris_scene_trail_glow_size, umbris_scene_trail_core_size);
+                    vec_scale_to_length(c2, c2, scene_trail_velocity_length);
+                    draw_trail(a2, a2, c2, scene_trail_first_spawn_particle_value,
+                               scene_trail_second_spawn_particle_value);
                 }
             }
             break;

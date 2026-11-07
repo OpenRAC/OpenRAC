@@ -115,7 +115,7 @@ void render_capture_scrolling_text(char *text, s32 start_x, s32 start_y, f32 sca
     }
 }
 
-extern int status_message_text_ids[];
+extern int scrolling_status_message_ids[];
 
 extern void render_capture_scrolling_text(char *, int, int, float);
 
@@ -130,7 +130,7 @@ void update_scrolling_status_message(void) {
     if (libc_strlen(*(char **)(v + 0x2C)) - *(int *)(v + 0x44) / 20 > 0) {
         *(int *)(v + 0x44) += 2;
     } else {
-        set_scrolling_status_message(msg_string(status_message_text_ids[random_integer_below(0x18)]));
+        set_scrolling_status_message(msg_string(scrolling_status_message_ids[random_integer_below(0x18)]));
     }
     w = vendor_state;
     render_capture_scrolling_text(*(char **)(w + 0x2C), -*(int *)(w + 0x44), 8, 2.0f);
@@ -139,26 +139,26 @@ void update_scrolling_status_message(void) {
 }
 
 extern int capture_moby_pass_enabled MACRO_ADDR;
-extern int capture_moby_list;
+extern int capture_effect_source_address;
 
 /* Draws the capture framebuffer rect and its moby list when enabled. */
 void render_capture_effect_pass(void) {
     draw_framebuffer_rect(0, 0, 0x200, 0x80, 0x200, 0x80, 0);
     if (capture_moby_pass_enabled == 1) {
-        DrawMobyList(capture_moby_list, 1);
+        DrawMobyList(capture_effect_source_address, 1);
     }
 }
 
-extern char fmt_thousands_grouped_int[];
-extern char fmt_plain_int[];
+extern char thousands_grouped_integer_format[];
+extern char plain_integer_format[];
 /* Unprototyped: the two call sites pass different argument counts. */
 
 /* Formats a number into a string, with a thousands separator from 1000 up. */
 void format_scaled_display_value(void *arg0, int arg1) {
     if (arg1 >= 1000) {
-        sprintf(arg0, fmt_thousands_grouped_int, arg1 / 1000, arg1 % 1000);
+        sprintf(arg0, thousands_grouped_integer_format, arg1 / 1000, arg1 % 1000);
     } else {
-        sprintf(arg0, fmt_plain_int, arg1);
+        sprintf(arg0, plain_integer_format, arg1);
     }
 }
 
@@ -219,7 +219,7 @@ void render_vendor_item_icon_strip_pass(void) {
                 } else {
                     itemIcon = GetIconFrame(itemIconId, 0);
                 }
-                HudSprite(itemIcon, itemX, 6, 0x30, 0x30, 0x80);
+                draw_hud_sprite(itemIcon, itemX, 6, 0x30, 0x30, 0x80);
                 itemX += 0x38;
                 itemIndex += 1;
             } while (itemIndex < vendor_state_ui.slotCount);
@@ -254,7 +254,7 @@ void render_vendor_item_icon_strip_pass(void) {
                 displayIcon = GetIconFrame(displayIconId, 0);
             }
             i += 1;
-            HudSprite(displayIcon, x, 6, 0x30, 0x30, 0x80808080);
+            draw_hud_sprite(displayIcon, x, 6, 0x30, 0x30, 0x80808080);
             x += 0x38;
         } while (i < 9);
     }
@@ -309,13 +309,13 @@ void render_vendor_item_details_pass(void) {
         font_print_right_small(0x76, 0x65, 0x80F0F0F0L, buf, -1);
         if (vendor_state_m.f40 != 0) {
             w = measure_text_width_regular((unsigned char *)buf, -1);
-            draw_hud_rect_blended(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
-            draw_hud_rect_blended(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
-            draw_hud_rect_blended(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
-            draw_hud_rect_blended(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
-            draw_hud_rect_blended(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
-            draw_hud_rect_blended(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
-            draw_hud_rect_blended(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
+            append_screen_rect_packet(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
+            append_screen_rect_packet(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
+            append_screen_rect_packet(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
+            append_screen_rect_packet(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
+            append_screen_rect_packet(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
+            append_screen_rect_packet(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
+            append_screen_rect_packet(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
             format_scaled_display_value(buf, vendor_state_m.f40
                                                  ? vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].d
                                                  : vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].c);
@@ -328,13 +328,13 @@ void render_vendor_item_details_pass(void) {
         font_print_right_small(0x76, 0x65, item_available_b[0x23] ? 0x80808080L : 0x80F0F0F0L, buf, -1);
         if (item_available_b[0x23] != 0) {
             w = measure_text_width_regular((unsigned char *)buf, -1);
-            draw_hud_rect_blended(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
-            draw_hud_rect_blended(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
-            draw_hud_rect_blended(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
-            draw_hud_rect_blended(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
-            draw_hud_rect_blended(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
-            draw_hud_rect_blended(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
-            draw_hud_rect_blended(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
+            append_screen_rect_packet(0x75 - w, 0x6D, 0x7B, 0x70, 0x20959544L, 0);
+            append_screen_rect_packet(0x76 - w, 0x6D, 0x7A, 0x70, 0x30959544L, 0);
+            append_screen_rect_packet(0x77 - w, 0x6D, 0x79, 0x70, 0x40959544L, 0);
+            append_screen_rect_packet(0x78 - w, 0x6D, 0x78, 0x70, 0x50959544L, 0);
+            append_screen_rect_packet(0x79 - w, 0x6D, 0x77, 0x70, 0x60959544L, 0);
+            append_screen_rect_packet(0x7A - w, 0x6D, 0x76, 0x70, 0x70959544L, 0);
+            append_screen_rect_packet(0x7B - w, 0x6D, 0x75, 0x70, 0x80959544L, 0);
             format_scaled_display_value(buf, item_available_b[0x23]
                                                  ? vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].b
                                                  : vendor_item_prices_p[vendor_state_m.slots[vendor_state_m.idx].id].a);
@@ -369,7 +369,7 @@ typedef struct {
 extern int weapon_ammo_counts[];
 extern int gBolts MACRO_ADDR;
 extern char vendor_item_prices[];
-extern unsigned char discount_purchase_pricing[];
+extern unsigned char gHavePersuader[];
 extern void libc_memset(void *, int, int);
 
 /* Draws the vendor's buy label and price for the selected slot. */
@@ -409,7 +409,7 @@ void render_vendor_buy_label_pass(char *unused, int x, int y) {
                     m = 0x5239;
             } else {
                 int cost;
-                if (discount_purchase_pricing[0] != 0) {
+                if (gHavePersuader[0] != 0) {
                     cost = ((struct { WeaponInfoA a[1]; } *)vendor_item_prices)->a[v->slots[v->idx].type].second;
                 } else {
                     cost = ((WeaponInfoA *)(vendor_item_prices + v->slots[v->idx].type * 0x18))->first;
@@ -742,7 +742,7 @@ extern int truncate_float_to_s32_i(float) __asm__("func_001FA898");
 /* Index of the zone whose box (in 1/1024 units, 0x800 deep) holds the
    point and whose 4x4 cell mask at +0x1E has the point's cell set, or
    -1. Cells are sized and offset by the grid in surface_height_grid. */
-int FindZoneAtPoint(float x, float y, float z) {
+int find_zone_at_point(float x, float y, float z) {
     int ix = truncate_float_to_s32_i(x * 1024.0f);
     int iy = truncate_float_to_s32_i(y * 1024.0f);
     int iz = truncate_float_to_s32_i(z * 1024.0f);
@@ -803,7 +803,7 @@ typedef struct {
 extern SurfaceHeightTile *surface_height_tiles_r __asm__("D_00161290") MACRO_ADDR;
 extern SurfaceHeightGrid surface_height_grid_r __asm__("D_001E69E0");
 extern s32 surface_height_layer SDATA(surface_height_layer);
-extern s32 FindZoneAtPoint(f32, f32, f32);
+extern s32 find_zone_at_point(f32, f32, f32);
 extern s32 truncate_float_to_s32_r2(f32) __asm__("func_001FA898");
 
 extern void fast_vec_normalize_r(f32 *, f32 *, f32) __asm__("func_001F9DC0");
@@ -826,7 +826,7 @@ s32 sample_surface_height_map(f32 *height, f32 *normal, f32 x, f32 y, f32 z) {
     f32 weight_x;
     f32 weight_y;
 
-    tile_index = FindZoneAtPoint(x, y, z);
+    tile_index = find_zone_at_point(x, y, z);
     if (tile_index < 0) {
         return 0;
     }
@@ -911,7 +911,7 @@ typedef struct {
     char b[0x10];
 } Cfg16;
 
-extern Cfg16 attachment_vertex_indices NOT_SDA;
+extern Cfg16 attachment_point_indices NOT_SDA;
 
 struct UpdateInstanceAttachmentPointsAndLengthsVars {
     u8 pad_00[0x10];
@@ -923,7 +923,7 @@ struct UpdateInstanceAttachmentPointsAndLengthsVars {
 };
 
 /* Run the four-vertex transform over the block hanging off arg0+0x78
-   with a fresh copy of the attachment_vertex_indices parameters (a plain struct
+   with a fresh copy of the attachment_point_indices parameters (a plain struct
    assignment: at alignment 1 this compiler expands the 16 bytes as
    unaligned ldl/ldr + sdl/sdr pairs, which is retail's shape -- same
    idiom as copy_text_to_shared_buffer), then record the two resulting lengths at
@@ -934,7 +934,7 @@ void update_instance_attachment_points_and_lengths(char *arg0) {
     Cfg16 cfg;
     char *p = ((char *)((Moby *)arg0)->pvars);
 
-    cfg = attachment_vertex_indices;
+    cfg = attachment_point_indices;
     transform_scaled_vertex_batch(arg0, 4, &cfg, p);
     FastVecSub(a, &((struct UpdateInstanceAttachmentPointsAndLengthsVars *)p)->unk_10, p);
     FastVecSub(b, &((struct UpdateInstanceAttachmentPointsAndLengthsVars *)p)->unk_20, p);

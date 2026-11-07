@@ -61,15 +61,15 @@ extern s32 truncate_float_to_s32(f32);
 
 extern s32 frame_size[];
 extern s32 pal_mode MACRO_ADDR;
-extern char aridia_hud_counter_format[];
+extern char hud_counter_decimal_format[];
 extern s32 aridia_hud_counter_open_steps SDATA(aridia_hud_counter_open_steps);
 extern s32 aridia_hud_counter_text_fade_steps SDATA(aridia_hud_counter_text_fade_steps);
-extern s32 aridia_hud_counter_left_x SDATA(aridia_hud_counter_left_x);
-extern s32 aridia_hud_counter_right_x SDATA(aridia_hud_counter_right_x);
-extern s32 aridia_hud_counter_color_from SDATA(aridia_hud_counter_color_from);
-extern s32 aridia_hud_counter_color_to SDATA(aridia_hud_counter_color_to);
-extern s32 aridia_hud_counter_panel_width SDATA(aridia_hud_counter_panel_width);
-extern s32 aridia_hud_counter_wide_panel_width SDATA(aridia_hud_counter_wide_panel_width);
+extern s32 l02_hud_counter_left_anchor_x SDATA(D_L02_0015FA1C);
+extern s32 l02_hud_counter_right_anchor_x SDATA(D_L02_0015FA20);
+extern s32 l02_hud_counter_text_fade_start_color SDATA(D_L02_0015FA28);
+extern s32 l02_hud_counter_text_fade_end_color SDATA(D_L02_0015FA2C);
+extern s32 l02_hud_counter_narrow_bar_width SDATA(D_L02_0015FA30);
+extern s32 l02_hud_counter_wide_bar_width SDATA(D_L02_0015FA34);
 
 /* Draws the counter: a stretched bar behind the icon and the count, on whichever side of the screen it sits.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l02/ui/text/0023ccc8.c, FUN_L02_0023cda8. */
@@ -99,9 +99,9 @@ s32 draw_hud_counter(HudElem *m) {
     hud_screen_position(m, &x, &y);
     left = x < 0x101;
     if (left) {
-        x = (aridia_hud_counter_left_x);
+        x = (l02_hud_counter_left_anchor_x);
     } else {
-        x = (aridia_hud_counter_right_x);
+        x = (l02_hud_counter_right_anchor_x);
     }
     bottom = frame_size[0];
     y = pal_mode != 0 ? bottom - 0x2A : bottom - 0x32;
@@ -117,21 +117,21 @@ s32 draw_hud_counter(HudElem *m) {
     } else if (shade < 0.0f) {
         shade = 0.0f;
     }
-    sprintf(text, aridia_hud_counter_format, m->unk74);
+    sprintf(text, hud_counter_decimal_format, m->unk74);
     alpha = truncate_float_to_s32((f32)truncate_float_to_s32(grow * 128.0f) * 0.7f);
     if (m->unk08 < 10) {
-        len = (aridia_hud_counter_panel_width);
+        len = (l02_hud_counter_narrow_bar_width);
     } else {
-        len = (aridia_hud_counter_wide_panel_width);
+        len = (l02_hud_counter_wide_bar_width);
     }
     px = x;
     bar = px + 4;
     width = truncate_float_to_s32((f32)len * grow);
     if (left) {
         frame = GetIconFrame(0x7580, 1);
-        HudSprite(frame, px - 0x1C, y, 0x20, 0x20, alpha);
+        draw_hud_sprite(frame, px - 0x1C, y, 0x20, 0x20, alpha);
         frame = GetIconFrame(0x7580, 0);
-        HudSprite(frame, bar, y, width, 0x20, alpha);
+        draw_hud_sprite(frame, bar, y, width, 0x20, alpha);
         frame = GetIconFrame(0x7580, 1);
         draw_hud_sprite_flipped(frame, bar + width, y, 0x20, 0x20, alpha);
     } else {
@@ -139,16 +139,16 @@ s32 draw_hud_counter(HudElem *m) {
         draw_hud_sprite_flipped(frame, bar, y, 0x20, 0x20, alpha);
         px = bar - width;
         frame = GetIconFrame(0x7580, 0);
-        HudSprite(frame, px, y, width, 0x20, alpha);
+        draw_hud_sprite(frame, px, y, width, 0x20, alpha);
         frame = GetIconFrame(0x7580, 1);
-        HudSprite(frame, px - 0x20, y, 0x20, 0x20, alpha);
+        draw_hud_sprite(frame, px - 0x20, y, 0x20, 0x20, alpha);
     }
     if (left) {
-        HudFrame(m, m->icon, x, y, 0, 0x80);
+        hud_frame(m, m->icon, x, y, 0, 0x80);
     } else {
-        HudFrame(m, m->icon, x - 0x16, y, 0, 0x80);
+        hud_frame(m, m->icon, x - 0x16, y, 0, 0x80);
     }
-    bright = FastTweenColor((aridia_hud_counter_color_from), (aridia_hud_counter_color_to), shade);
+    bright = FastTweenColor((l02_hud_counter_text_fade_start_color), (l02_hud_counter_text_fade_end_color), shade);
     dark = FastTweenColor(0, 0x80000000, shade);
     if (left) {
         font_print_right(x + 0x43, y + 9, dark, text, -1);
@@ -160,7 +160,7 @@ s32 draw_hud_counter(HudElem *m) {
     return m->w;
 }
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 
 extern int depth_buffer_address MACRO_ADDR;
 /* Draws the Aridia sky shells and sets the GS test and depth registers. */

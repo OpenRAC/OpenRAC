@@ -674,6 +674,7 @@ class Unit:
             if d.get("name"):
                 self.local_names[d["name"]] = f"{cname(own)}__{d['name']}"
                 self.local_names[f"openrac_td_{d['name']}"] = f"openrac_td_{cname(own)}__{d['name']}"
+        consts_before = dict(self.enum_consts)
         try:
             hoisted = []
             for d in local_types:
@@ -691,6 +692,9 @@ class Unit:
             report.status = "stub"
             report.reason = str(e)
             del self.inline_copies[copies_before:]  # the copies of helpers it called go with it
+            # Its hoisted enumerators go with it too: another function's `enum { X = 0 }` that was
+            # left to share this one's X must write its own.
+            self.enum_consts = consts_before
             unused = " ".join(f"(void){n};" for n in names)
             ret_canon = self.canon(sig_t.ret)
             ret = "" if self.cls(sig_t.ret) == "void" else (
@@ -1963,9 +1967,12 @@ class Unit:
             level = int(unit_level.group(1))
             moved = self.program.level_data.get(level, {})
             placed = moved.get(symbol)
-            if placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol):
+            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol)
+                    and symbol not in getattr(self.program, "level_names", {})):
                 # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
-                # 0x001B1B5C, the moby table's base): where this level's build put that datum.
+                # 0x001B1B5C, the moby table's base): where this level's build put that datum. Not
+                # a name a level's build derived (ref_L00_00424F98_00): its address is that
+                # level's already, and the executable's datum there is another.
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:

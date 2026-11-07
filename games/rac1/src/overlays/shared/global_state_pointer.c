@@ -6,6 +6,6 @@
 extern int debug_overlay_mode;
 
 // Returns the value of a global data pointer
-int get_global_state_pointer(void) {
+int GetDebugOverlayMode(void) {
     return debug_overlay_mode;
 }

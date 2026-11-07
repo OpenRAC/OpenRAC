@@ -116,7 +116,7 @@ void HeroL18_UpdateStateFlags(void) {
         if (p->selector_3 != 0) {
             t = p->state.current;
             if (t != 0x68 && t != 0x7B) {
-                if (FastAbsF(p->sink_surface_z - (p->motion.pos.f[2] + 0.25f)) < 1.0f) {
+                if (absolute_float(p->sink_surface_z - (p->motion.pos.f[2] + 0.25f)) < 1.0f) {
                     if (0.0f < p->sink_surface_z - p->motion.pos.f[2]) {
                         if (p->state.current != HERO_STATE_JUMP_FROM_RESPAWN_WAIT || p->past_jump_apex != 0) {
                             if (p->motion.displacement.f[2] < 0.0f) {
@@ -138,11 +138,11 @@ void HeroL18_UpdateStateFlags(void) {
         struct Hero *p = &g_hero;
         if (p->selector_11 != 0) {
             if (p->state.current != HERO_STATE_HEIGHT_OR_TIMEOUT_RESPAWN_WAIT) {
-                if (FastAbsF(p->sink_surface_z - (p->motion.pos.f[2] + 0.25f)) < 1.0f) {
+                if (absolute_float(p->sink_surface_z - (p->motion.pos.f[2] + 0.25f)) < 1.0f) {
                     if (0.0f < p->sink_surface_z - p->motion.pos.f[2]) {
                         if (p->motion.displacement.f[2] < 0.0f) {
                             if ((unsigned)(p->vehicle_mode - 1) < 2) {
-                                Hero_OnKilled();
+                                hero_respawn();
                             } else {
                                 exit_hero_vehicle_mode_if_mode_three();
                                 HeroL18_SetMoveState(HERO_STATE_HEIGHT_OR_TIMEOUT_RESPAWN_WAIT, 1);
@@ -169,11 +169,11 @@ typedef struct {
 } T_210ce8;
 extern Hero g_hero;
 extern s32 veldin2_cinematic_mode MACRO_ADDR;
-extern T_210ce8 veldin2_moby_hits[];
+extern T_210ce8 l18_moby_hurt_response_records[];
 extern s32 g_current_level_index MACRO_ADDR;
 
 extern s32 hero_hit_count MACRO_ADDR;
-extern u8 gHeroPos[];
+extern u8 hero_pos[];
 extern f32 g_frame_time MACRO_ADDR;
 extern u8 hero_velocity[];
 s32 truncate_float_to_s32(f32);
@@ -208,7 +208,7 @@ s32 HeroL18_TryTakeHit(s32 arg) {
     if (m[0xA4] == 0xFF) {
         return 0;
     }
-    tbl = &veldin2_moby_hits[m[0xA4]];
+    tbl = &l18_moby_hurt_response_records[m[0xA4]];
     if (tbl->p34 != m) {
         return 0;
     }
@@ -243,7 +243,7 @@ s32 HeroL18_TryTakeHit(s32 arg) {
             flag = 1;
         }
     } else if (tbl->p20 != 0) {
-        FastVecSub(&v, gHeroPos, tbl->p20 + 0x10);
+        FastVecSub(&v, hero_pos, tbl->p20 + 0x10);
     } else {
         v.f[0] = FastCos(FastAddRots(g_hero.motion.rot.f[2], 3.1415927f));
         v.f[1] = FastSin(FastAddRots(g_hero.motion.rot.f[2], 3.1415927f));
@@ -311,7 +311,7 @@ s32 HeroL18_TryTakeHit(s32 arg) {
         case 2:
             if ((tbl->i24 & 4) || g_hero.vehicle_hp <= 0) {
                 HeroL18_SetMoveState(0x5D, 1);
-                remove_tracked_class_5f3_moby();
+                remove_giant_clank_charged_blast();
                 if (g_hero.air_frames.s == 0) {
                     hero_knockback(&v, flag, g_frame_time * 7.0f, g_frame_time * 3.5f);
                     break;

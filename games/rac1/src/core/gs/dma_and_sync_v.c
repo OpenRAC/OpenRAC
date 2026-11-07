@@ -182,9 +182,9 @@ typedef struct {
     unsigned int rbmsk;
 } sceDmaEnv;
 extern unsigned char dma_sts_channel_codes[];
-extern unsigned char dma_std_channel_codes[];
-extern unsigned char dma_mfd_channel_codes[];
-extern sceDmaEnv dma_current_env;
+extern unsigned char dma_std_control_encodings[];
+extern unsigned char dma_mfd_control_encodings[];
+extern sceDmaEnv dma_last_applied_environment;
 
 /* sceDmaPutEnv. Adapted from Lombyte's project (GPL-3.0) for PAL. */
 int sceDmaPutEnv(void *arg0) {
@@ -213,8 +213,8 @@ int sceDmaPutEnv(void *arg0) {
         return -4;
     }
     ctrl = (ctrl & ~0x30) | (dma_sts_channel_codes[env->sts] << 4);
-    ctrl = (ctrl & ~0xC0) | (dma_std_channel_codes[env->std] << 6);
-    ctrl = (ctrl & ~0xC) | (dma_mfd_channel_codes[env->mfd] << 2);
+    ctrl = (ctrl & ~0xC0) | (dma_std_control_encodings[env->std] << 6);
+    ctrl = (ctrl & ~0xC) | (dma_mfd_control_encodings[env->mfd] << 2);
     if (env->rcyc != 0) {
         ctrl |= 2;
         ctrl = (ctrl & ~0x300) | ((env->rcyc - 1) << 8);
@@ -230,7 +230,7 @@ int sceDmaPutEnv(void *arg0) {
     *(volatile unsigned int *)0x1000E030 = sqwc;
     *(volatile unsigned int *)0x1000E050 = rbor;
     *(volatile unsigned int *)0x1000E040 = rbsr;
-    dma_current_env = *env;
+    dma_last_applied_environment = *env;
     return 0;
 }
 

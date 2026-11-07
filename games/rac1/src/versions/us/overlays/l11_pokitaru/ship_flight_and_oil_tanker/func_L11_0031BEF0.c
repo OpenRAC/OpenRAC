@@ -1,4 +1,4 @@
-void update_moby_list_empty_dialogue_trigger(char *moby) {
+void cleared_group_dialogue_update(char *moby) {
     int *data = *(int **)(moby + 0x78);
     if (data[0] == -1) {
         DeleteMoby(moby);
@@ -6,8 +6,8 @@ void update_moby_list_empty_dialogue_trigger(char *moby) {
         unsigned char *g = gSkillPoints;
         if (g[0x13] == 0) {
             g[0x13] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53D6, -1);
         }
     }
 }

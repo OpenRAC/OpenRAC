@@ -56,7 +56,7 @@ void update_gameplay_frame(void) {
                 0x60;
         }
         if (pad0_pressed_r[0] & 0x840) {
-            initialize_transfer_command();
+            enter_main_menu();
         }
         sound_update();
     } else if (g_game_mode_r == 3) {

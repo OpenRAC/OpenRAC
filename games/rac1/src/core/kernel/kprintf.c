@@ -39,31 +39,31 @@ int kputchar(int c) {
     return c;
 }
 
-extern int deci2_putchar_count;
-extern char deci2_putchar_buffer[];
+extern int deci2_buffered_byte_count;
+extern char deci2_output_buffer[];
 
 /* deci2Putchar (libkernl.a:kprintf.o): the kprintf hook used for the
-   deci2 debug console. Buffers characters into deci2_putchar_buffer (a 0x80-byte
-   line buffer) counted by deci2_putchar_count, flushing (kputs) and
+   deci2 debug console. Buffers characters into deci2_output_buffer (a 0x80-byte
+   line buffer) counted by deci2_buffered_byte_count, flushing (kputs) and
    resetting the count once it reaches 0x7E; on '\n' it also flushes
    immediately (appending the '\n' first) instead of just buffering it. */
 void deci2Putchar(int c) {
-    int count = deci2_putchar_count;
+    int count = deci2_buffered_byte_count;
 
     if (count >= 0x7E) {
-        deci2_putchar_count = 0;
-        deci2_putchar_buffer[0x7F] = 0;
-        kputs(deci2_putchar_buffer);
-        count = deci2_putchar_count;
+        deci2_buffered_byte_count = 0;
+        deci2_output_buffer[0x7F] = 0;
+        kputs(deci2_output_buffer);
+        count = deci2_buffered_byte_count;
     }
     if (c == 0xA) {
-        deci2_putchar_count = 0;
-        deci2_putchar_buffer[count] = c;
-        deci2_putchar_buffer[count + 1] = 0;
-        kputs(deci2_putchar_buffer);
+        deci2_buffered_byte_count = 0;
+        deci2_output_buffer[count] = c;
+        deci2_output_buffer[count + 1] = 0;
+        kputs(deci2_output_buffer);
     } else {
-        deci2_putchar_count = count + 1;
-        deci2_putchar_buffer[count] = c;
+        deci2_buffered_byte_count = count + 1;
+        deci2_output_buffer[count] = c;
     }
 }
 
@@ -122,7 +122,7 @@ extern void kprintf(const char *, ...);
    The magnitude is checked, then rescaled, in nested `if (v < 0.1)
    { while (v < 0.1) ... }`: retail keeps a separate 0.1 for each. Its
    three format strings and its constants open this object's .rodata
-   (printfloat_mantissa_format-printfloat_mantissa_scale), followed by _printf's jump table
+   (significand_format-printfloat_mantissa_scale), followed by _printf's jump table
    (jtbl_001528B0): the strings are literals so that the table lands
    16-aligned at its retail address (config/core_rodata.txt). */
 void printfloat(double v) {
@@ -456,7 +456,7 @@ extern int add_dmac_handler(int, void *, int);
 extern void enable_dmac_atomic(int);
 extern void sif_cmd_intr_handler(void);
 extern unsigned char sif_cmd_receive_buffer[];
-extern unsigned char sif_cmd_scratch_buffer[];
+extern unsigned char sif_cmd_send_buffer[];
 extern CmdData sif_cmd_data;
 extern Hnd sif_system_handlers[];
 extern CmdPkt sif_init_packet;
@@ -471,7 +471,7 @@ void sceSifInitCmd(void) {
     }
     sif_cmd_init_done = 1;
     t6 = (unsigned)sif_cmd_receive_buffer | 0x20000000;
-    t5 = (unsigned)sif_cmd_scratch_buffer | 0x20000000;
+    t5 = (unsigned)sif_cmd_send_buffer | 0x20000000;
     sif_cmd_data.a0 = (void *)t6;
     sif_cmd_data.a1 = (void *)t5;
     sif_cmd_data.a2 = 0;
@@ -572,7 +572,7 @@ typedef struct {
     u32 f8;
     u32 fC;
 } SifDma;
-extern u32 sif_cmd_data_iop_buffer[];
+extern u32 sif_command_dma_destination[];
 extern void sceSifWriteBackDCache(void *addr, s32 size);
 extern s32 sce_sif_set_dma();
 extern s32 i_sce_sif_set_dma();
@@ -603,7 +603,7 @@ s32 sif_send_cmd_common(u32 packet, s32 mode, SifCmd *cmd, s32 size, u32 src, u3
         cmd->f4 = 0;
         cmd->f0_8 = 0;
     }
-    addr0 = sif_cmd_data_iop_buffer[0];
+    addr0 = sif_command_dma_destination[0];
     tags[num].f0 = (u32)cmd;
     tags[num].f4 = addr0;
     tags[num].f8 = size;
@@ -664,8 +664,8 @@ typedef struct {
 } SifRpcData;
 
 extern int RpcCommandState NOT_SDA;
-extern char sif_rpc_packet_table[];
-extern char sif_rpc_rdata_table[];
+extern char sif_rpc_request_packets[];
+extern char sif_rpc_reply_packets[];
 extern char sif_rpc_client_table[];
 extern SifRpcData sif_rpc_data_d __asm__("D_00156900");
 extern int disable_interrupts(void); /* DI */
@@ -693,11 +693,11 @@ void sceSifInitRpc(int mode) {
     enable_interrupts();
     sceSifInitCmd();
     disable_interrupts();
-    sif_rpc_data_d.pkt_table = (void *)((unsigned int)sif_rpc_packet_table | 0x20000000);
+    sif_rpc_data_d.pkt_table = (void *)((unsigned int)sif_rpc_request_packets | 0x20000000);
     sif_rpc_data_d.pkt_table_len = 32;
     sif_rpc_data_d.unk0C = 0;
     sif_rpc_data_d.unk10 = 0;
-    sif_rpc_data_d.rdata_table = (void *)((unsigned int)sif_rpc_rdata_table | 0x20000000);
+    sif_rpc_data_d.rdata_table = (void *)((unsigned int)sif_rpc_reply_packets | 0x20000000);
     sif_rpc_data_d.rdata_table_len = 32;
     sif_rpc_data_d.client_table = (void *)((unsigned int)sif_rpc_client_table | 0x20000000);
     sif_rpc_data_d.client_table_len = 32;
@@ -711,7 +711,7 @@ void sceSifInitRpc(int mode) {
     if (sce_sif_get_reg(0x80000002)) {
         return;
     }
-    packet = (int *)(sif_rpc_packet_table + 64);
+    packet = (int *)(sif_rpc_request_packets + 64);
     packet[3] = 1;
     sceSifSendCmd(0x80000002, (int)packet, 16, 0, 0, 0);
     while (sceSifGetSreg(0) == 0) {
@@ -1188,14 +1188,14 @@ int sce_sif_check_stat_rpc(void *arg0) {
 LINKER_REMNANT("asm/remnants/core_text", func_0011B6F8);
 
 extern int create_semaphore(void *);
-extern int fs_iob_sema;
-extern int fs_iob_sema_2;
+extern int fio_iob_sema;
+extern int fio_async_table_sema;
 
 /*
- * One-shot init: if fs_iob_sema is still -1, fill a semaphore descriptor
+ * One-shot init: if fio_iob_sema is still -1, fill a semaphore descriptor
  * (the kernel's SemaParam: initCount [2] = 1, maxCount [1] = 1, option
  * [5] = 0) and create two semaphores from it via create_semaphore
- * (CreateSema), storing them into fs_iob_sema and fs_iob_sema_2.
+ * (CreateSema), storing them into fio_iob_sema and fio_async_table_sema.
  *
  * Under 2.9-ee the store order decides which store lands in the first
  * call's delay slot: written initCount, maxCount, option it is exact
@@ -1204,19 +1204,19 @@ extern int fs_iob_sema_2;
  */
 void fs_iob_sema_make(void) {
     int buf[8];
-    if (fs_iob_sema == -1) {
+    if (fio_iob_sema == -1) {
         buf[2] = 1;
         buf[1] = 1;
         buf[5] = 0;
-        fs_iob_sema = create_semaphore(buf);
-        fs_iob_sema_2 = create_semaphore(buf);
+        fio_iob_sema = create_semaphore(buf);
+        fio_async_table_sema = create_semaphore(buf);
     }
 }
 
-extern char fs_iob_table[];
+extern char fio_iob[];
 
 /*
- * Claim the first free slot of the 32-entry, 0x10-byte table fs_iob_table
+ * Claim the first free slot of the 32-entry, 0x10-byte table fio_iob
  * -- the table fs_get_iob below indexes -- under the
  * wait_semaphore/signal_semaphore lock (WaitSema/SignalSema). A slot is free
  * when its +4 word is zero; claiming it writes 0x10000000 there and
@@ -1225,22 +1225,22 @@ extern char fs_iob_table[];
  *
  * Exact under 2.9-ee with the C that 2.95.3 compiled one instruction
  * short: retail spends a third callee-saved register ($17 holds
- * %hi(fs_iob_sema) for the whole function), which is 2.9-ee's allocation;
+ * %hi(fio_iob_sema) for the whole function), which is 2.9-ee's allocation;
  * 2.95.3 parked the %hi in $4 instead.
  */
 void *fs_new_iob(void) {
     char *p;
 
     fs_iob_sema_make();
-    wait_semaphore(fs_iob_sema);
-    for (p = fs_iob_table; p < fs_iob_table + 0x200; p += 0x10) {
+    wait_semaphore(fio_iob_sema);
+    for (p = fio_iob; p < fio_iob + 0x200; p += 0x10) {
         if (*(int *)(p + 0x4) == 0) {
             *(int *)(p + 0x4) = 0x10000000;
-            signal_semaphore(fs_iob_sema);
+            signal_semaphore(fio_iob_sema);
             return p;
         }
     }
-    signal_semaphore(fs_iob_sema);
+    signal_semaphore(fio_iob_sema);
     return 0;
 }
 
@@ -1251,13 +1251,13 @@ void *fs_new_iob(void) {
 void *fs_get_iob(unsigned int arg0) {
     void *ret;
     fs_iob_sema_make();
-    wait_semaphore(fs_iob_sema);
+    wait_semaphore(fio_iob_sema);
     if (arg0 >= 0x20) {
-        signal_semaphore(fs_iob_sema);
+        signal_semaphore(fio_iob_sema);
         return 0;
     }
-    ret = &fs_iob_table[arg0 * 0x10];
-    signal_semaphore(fs_iob_sema);
+    ret = &fio_iob[arg0 * 0x10];
+    signal_semaphore(fio_iob_sema);
     return ret;
 }
 
@@ -1298,8 +1298,8 @@ typedef struct {
     u8 b[0x40];
 } __attribute__((packed)) FsStat;
 
-extern volatile s32 fs_async_semaphores[];
-extern u32 fs_receive_bank[];
+extern volatile s32 fio_async_semas[];
+extern u32 sif_file_completion_bank_index[];
 extern s32 fs_double_buffered[];
 extern u8 fs_receive_buffers[];
 extern void *libc_memcpy(void *, const void *, u32);
@@ -1316,7 +1316,7 @@ void fs_receive_handler(s32 *arg) {
     u8 *pkt;
     u8 *base;
     u8 *d;
-    u32 *bank = fs_receive_bank;
+    u32 *bank = sif_file_completion_bank_index;
     s32 idx;
     s32 i;
     s64 ret;
@@ -1380,8 +1380,8 @@ void fs_receive_handler(s32 *arg) {
         ret = (s32)semaphore;
         h.ret.v = (s32)semaphore;
         for (i = 0; i < 32; i++) {
-            if (((s32 *)fs_async_semaphores)[i] == ret) {
-                fs_async_semaphores[i] = -1;
+            if (((s32 *)fio_async_semas)[i] == ret) {
+                fio_async_semas[i] = -1;
                 break;
             }
         }
@@ -1390,39 +1390,39 @@ void fs_receive_handler(s32 *arg) {
     i_signal_semaphore(h.ret.v);
 }
 
-extern int fs_call_sema;
+extern int fio_wait_sema;
 extern int create_semaphore(void *);
 
 void fs_call_sema_init(void) {
     int buf[8];
-    if (fs_call_sema == -1) {
+    if (fio_wait_sema == -1) {
         buf[5] = 0;
         buf[2] = 1;
         buf[1] = 1;
-        fs_call_sema = create_semaphore(buf);
+        fio_wait_sema = create_semaphore(buf);
     }
 }
 
 extern void fs_call_sema_init(void);
-extern int fs_call_sema NOT_SDA;
+extern int fio_wait_sema NOT_SDA;
 
 int fs_call_sema_wait(void) {
     fs_call_sema_init();
-    wait_semaphore(fs_call_sema);
+    wait_semaphore(fio_wait_sema);
     return 0;
 }
 
 /* A tail jump with the argument load in its delay slot (`lui / j /
    lw`), as 2.9-ee, which builds this SDK object, emits it. */
 void fs_call_sema_signal(void) {
-    signal_semaphore(fs_call_sema);
+    signal_semaphore(fio_wait_sema);
 }
 
 ASM_FUNC("asm/handwritten/core_text", func_0011BC80);
 
 /* CD/DVD init step: install the two RPC-side handlers, bind the RPC server
  * at 0x80000001 (retrying until it has an address), clear the 32-slot table
- * fs_iob_table, then send command 0xFF and copy back the reply word and the
+ * fio_iob, then send command 0xFF and copy back the reply word and the
  * flag that says whether the reply was 2. Returns 0 on success, -1 when the
  * bind failed, 0xFFFEFFFF when the RPC failed. */
 struct RpcCb {
@@ -1430,10 +1430,10 @@ struct RpcCb {
     void *data;
 };
 extern struct RpcCb fs_user_callback;
-extern char fs_receive_handler_data[];
-extern char fs_rpc_client[];
-extern char fs_rpc_receive_buffer[];
-extern char *fs_receive_buffer_addrs[];
+extern char fs_receive_interrupt_handler_data[];
+extern char fio_rpc_client[];
+extern char fio_rpc_result[];
+extern char *fs_init_completion_buffer_addresses[];
 extern char FsResetBuffer[];
 extern int FsResetState;
 extern void fs_receive_handler();
@@ -1453,46 +1453,46 @@ s32 sceFsInit(void) {
     fs_user_callback.cb = 0;
     rq->data = 0;
     r = disable_interrupts();
-    sceSifAddCmdHandler(0x80000011, (int)fs_receive_handler, (int)fs_receive_handler_data);
+    sceSifAddCmdHandler(0x80000011, (int)fs_receive_handler, (int)fs_receive_interrupt_handler_data);
     sceSifAddCmdHandler(0x80000013, (int)fs_user_callback_handler, (int)rq);
     if (r != 0) {
         enable_interrupts();
     }
     for (;;) {
-        r = sceSifBindRpc(fs_rpc_client, 0x80000001, 0);
+        r = sceSifBindRpc(fio_rpc_client, 0x80000001, 0);
         if (r < 0) {
             return -1;
         }
-        if (*(s32 *)(fs_rpc_client + 0x24) != 0) {
+        if (*(s32 *)(fio_rpc_client + 0x24) != 0) {
             break;
         }
         for (i = 0x100000; i != -1; i--) {
         }
     }
     fs_iob_sema_make();
-    wait_semaphore(fs_iob_sema);
-    for (p = fs_iob_table; p < fs_iob_table + 0x200; p += 0x10) {
+    wait_semaphore(fio_iob_sema);
+    for (p = fio_iob; p < fio_iob + 0x200; p += 0x10) {
         *(s32 *)(p + 4) = 0;
     }
-    signal_semaphore(fs_iob_sema);
-    fs_receive_buffer_addrs[0] = fs_receive_buffers;
-    fs_receive_buffer_addrs[1] = fs_receive_buffers + 0x440;
-    r = sif_call_rpc(fs_rpc_client, 0xFF, 0, fs_receive_buffer_addrs, 8, fs_rpc_receive_buffer, 8, 0, 0);
+    signal_semaphore(fio_iob_sema);
+    fs_init_completion_buffer_addresses[0] = fs_receive_buffers;
+    fs_init_completion_buffer_addresses[1] = fs_receive_buffers + 0x440;
+    r = sif_call_rpc(fio_rpc_client, 0xFF, 0, fs_init_completion_buffer_addresses, 8, fio_rpc_result, 8, 0, 0);
     if (r < 0) {
         return (s32)0xFFFEFFFF;
     }
-    *(struct W4 *)FsResetBuffer = *(struct W4 *)((u32)fs_rpc_receive_buffer | 0x20000000);
-    w = *(struct W4 *)((u32)(fs_rpc_receive_buffer + 4) | 0x20000000);
+    *(struct W4 *)FsResetBuffer = *(struct W4 *)((u32)fio_rpc_result | 0x20000000);
+    w = *(struct W4 *)((u32)(fio_rpc_result + 4) | 0x20000000);
     fs_double_buffered[0] = (*(s32 *)&w == 2);
     FsResetState = 1;
     return 0;
 }
 
 extern char FsResetBuffer[];
-extern int fs_expected_version;
+extern int server_version_record_address;
 
 /* Three-way compare-and-confirm: the slot FsResetBuffer has to agree with
-   the scratch buffer sif_lib_version_string, then with the handle fs_expected_version, and
+   the scratch buffer sif_lib_version_string, then with the handle server_version_record_address, and
    finally the two of those with each other. Only the last comparison's
    result is reported, as a 0/1.
 
@@ -1505,8 +1505,8 @@ int fs_version_mismatch(void) {
     char *slot = FsResetBuffer;
     int r = 0;
 
-    if (libc_memcmp(slot, buf, 4) != 0 && libc_memcmp(slot, fs_expected_version, 4) != 0) {
-        r = libc_memcmp(buf, fs_expected_version, 4) != 0;
+    if (libc_memcmp(slot, buf, 4) != 0 && libc_memcmp(slot, server_version_record_address, 4) != 0) {
+        r = libc_memcmp(buf, server_version_record_address, 4) != 0;
     }
     return r;
 }
@@ -1662,8 +1662,8 @@ typedef struct {
 } CloseSema;
 
 extern CloseState fs_rpc_send_buffer;
-extern char fs_rpc_receive_buffer[];
-extern char fs_rpc_client[];
+extern char fio_rpc_result[];
+extern char fio_rpc_client[];
 extern int wait_semaphore(int);
 extern int sif_call_rpc();
 extern int fs_call_sema_wait_arg(int) __asm__("func_0011BC40");
@@ -1689,21 +1689,21 @@ int sceClose(unsigned int fd) {
     }
     state->handle = iob->handle;
     sema.maxCount = 1;
-    state->slot = ((char *)iob - fs_iob_table) >> 4;
+    state->slot = ((char *)iob - fio_iob) >> 4;
     sema.initialCount = 0;
     sema.option = 0;
     sid = create_semaphore(&sema);
     state->sema = sid;
     state->result = (int)&result;
     state->size = 4;
-    rpcResult = sif_call_rpc(fs_rpc_client, 1, 0, state, 0x14, fs_rpc_receive_buffer, 4, 0, 0);
+    rpcResult = sif_call_rpc(fio_rpc_client, 1, 0, state, 0x14, fio_rpc_result, 4, 0, 0);
     if (rpcResult < 0) {
         delete_semaphore(sid);
         fs_call_sema_signal();
         return -11;
     }
     iob->active = 0;
-    rpcResult = *(int *)((unsigned int)fs_rpc_receive_buffer | 0x20000000);
+    rpcResult = *(int *)((unsigned int)fio_rpc_result | 0x20000000);
     fs_call_sema_signal();
     if (rpcResult == 0) {
         delete_semaphore(sid);
@@ -1735,7 +1735,7 @@ struct SemaphoreParameters2 {
     u32 option;
 };
 extern struct FsSeekRequest fs_rpc_send_buffer_r2 __asm__("D_00156980");
-extern volatile s32 fs_async_semaphores[];
+extern volatile s32 fio_async_semas[];
 extern s32 fs_iob_sema_2_r[] __asm__("D_0012FDA4");
 struct SifClient {
     u8 pad[0x28];
@@ -1784,7 +1784,7 @@ s32 sceLseek(s32 fd, s32 offset, s32 origin) {
     if ((s16)flags & 0x8000) {
         wait_semaphore(fs_iob_sema_2_r[0]);
         for (async_index = 0; async_index < 32; async_index++) {
-            volatile s32 *async_semaphores = fs_async_semaphores;
+            volatile s32 *async_semaphores = fio_async_semas;
 
             async_slot = async_semaphores + async_index;
             if (*async_slot == -1) {
@@ -1870,7 +1870,7 @@ s32 sceRead(s32 fd, void *buffer, s32 length) {
     if ((s16)flags & 0x8000) {
         wait_semaphore(fs_iob_sema_2_r[0]);
         for (async_index = 0; async_index < 32; async_index++) {
-            volatile s32 *async_semaphores = fs_async_semaphores;
+            volatile s32 *async_semaphores = fio_async_semas;
 
             async_slot = async_semaphores + async_index;
             if (*async_slot == -1) {
@@ -1966,7 +1966,7 @@ s32 sceWrite(s32 fd, u8 *buffer, s32 length) {
     if ((s16)flags & 0x8000) {
         wait_semaphore(fs_iob_sema_2_r[0]);
         for (async_index = 0; async_index < 32; async_index++) {
-            volatile s32 *async_semaphores = fs_async_semaphores;
+            volatile s32 *async_semaphores = fio_async_semas;
 
             async_slot = async_semaphores + async_index;
             if (*async_slot == -1) {

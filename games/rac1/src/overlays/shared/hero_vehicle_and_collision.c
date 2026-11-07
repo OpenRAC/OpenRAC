@@ -63,7 +63,7 @@ void update_hero_motion_and_collision_probes(void) {
         g_hero_r.wall_probe_hit_moby = 0;
         if (probe_hero_forward_collision_v(&g_hero_r.wall_probe_distance, 0.7f, 4.0f)) {
             g_hero_r.wall_normal_pitch =
-                fast_atan2(coll_hit_result.normal.f[2], vec_length_xy(&coll_hit_result.normal.f[0]));
+                fast_atan2(coll_hit_result.normal.f[2], vector_length_xy(&coll_hit_result.normal.f[0]));
             if (coll_hit_result.moby != 0) {
                 g_hero_r.wall_probe_hit_moby = 1;
                 if (is_moby_in_class_range_500_to_540(coll_hit_result.moby)) {
@@ -85,7 +85,7 @@ void update_hero_motion_and_collision_probes(void) {
             dist = 20.0f;
             hit = coll_line_r(&first, &second, 2, g_hero_r.moby, 0);
             if (hit != 0) {
-                dist = FastVecDist(&first, &coll_hit_result.point);
+                dist = fast_vec_dist(&first, &coll_hit_result.point);
                 if (!(3.0f < dist)) {
                     return;
                 }
@@ -123,7 +123,7 @@ typedef struct {
 extern struct PadState g_controller_state_r __asm__("D_0013CA40");
 extern Entry70_2215c8_21D50 D_L00_001799F0_21D50[] __asm__("D_L00_001799F0");
 extern short D_L00_0015F6A8_21D50 SDATA(D_L00_0015F6A8);
-extern u8 D_0013D5EA NOT_SDA;
+extern u8 gHaveBoltGrabber NOT_SDA;
 extern f32 g_frame_time_r __asm__("D_0015EE6C") MACRO_ADDR;
 
 extern s32 fast_dec_timer_r(s32 *) __asm__("func_001F9908");
@@ -273,7 +273,7 @@ skip:
         }
     }
     if (g_hero_r.motion.pos.f[2] < 1.0f) {
-        Hero_OnKilled();
+        hero_respawn();
     }
 }
 extern unsigned char hero_globals_base[] NOT_SDA;
@@ -390,7 +390,7 @@ void select_hero_grapple_swing_target(void) {
         g = (Hero *)g_hero;
         if (3.0f < g->motion.pos.f[2] - m->pos.z)
             continue;
-        if (q->f20 != 0.0f && q->f20 < FastVecDist(&g->motion.pos, &m->pos))
+        if (q->f20 != 0.0f && q->f20 < fast_vec_dist(&g->motion.pos, &m->pos))
             continue;
         k = g->state.current;
         a14 = 0.7853982f;
@@ -450,7 +450,7 @@ int select_hero_grapple_target(void) {
     Hero *hero_target_check_base;
     Hero *hero_angle_state_base;
     Hero *gb;
-    char *hero_pos;
+    char *hero_position;
     Hero *hero_target_output_base;
     Hero *hero_target_result_base;
     struct Moby *candidate_moby;
@@ -479,7 +479,7 @@ int select_hero_grapple_target(void) {
             continue;
         if (candidate_data->max_range != 0.0f &&
             candidate_data->max_range <
-                FastVecDist((char *)&((Hero *)g_hero)->motion.pos, (char *)&candidate_moby->pos))
+                fast_vec_dist((char *)&((Hero *)g_hero)->motion.pos, (char *)&candidate_moby->pos))
             continue;
         hero_angle_state_base = (Hero *)g_hero;
         k = hero_angle_state_base->state.current;
@@ -500,12 +500,13 @@ int select_hero_grapple_target(void) {
                                                      target_elevation_angle_limit);
         if (out != 0)
             continue;
-        hero_pos = (char *)&gb->motion.pos;
-        if (vec_distance_xy(hero_pos, (char *)&candidate_moby->pos) < 4.0f)
+        hero_position = (char *)&gb->motion.pos;
+        if (vec_distance_xy(hero_position, (char *)&candidate_moby->pos) < 4.0f)
             continue;
         if (candidate_moby->visible == 0)
             target_score += 10.0f;
-        if (candidate_data->clip_volume >= 0 && is_point_inside_clip_volume(hero_pos, candidate_data->clip_volume) != 0)
+        if (candidate_data->clip_volume >= 0 &&
+            is_point_inside_clip_volume(hero_position, candidate_data->clip_volume) != 0)
             continue;
         if (target_score < bestd) {
             bestd = target_score;
@@ -551,7 +552,7 @@ extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 extern char item_usage[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 extern int veldin1_look_stat_timer SDATA(veldin1_look_stat_timer);
 extern short hero_run_step_start_frames;
 extern short hero_state_f_jump_velocity_keys;
@@ -624,14 +625,14 @@ int HeroEnterMoveState(int a, int b) {
             struct Hero *p = (struct Hero *)g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 set_hero_idle_state_for_vehicle_mode();
                 return 1;
             }
             qcopy(&p->motion.momentum, &p->motion.resolved_velocity);
-            if (p->on_ice_ground != 0 && vec_length_xy(&p->motion.momentum) > g_frame_time * 0.5f) {
+            if (p->on_ice_ground != 0 && vector_length_xy(&p->motion.momentum) > g_frame_time * 0.5f) {
                 HeroEnterMoveState(HERO_STATE_RUN_CLEAR_VELOCITY_Z, 1);
                 return 0;
             }
@@ -784,15 +785,15 @@ int HeroEnterMoveState(int a, int b) {
             if (p->state.prev_control_mode == HERO_MODE_SWIM) {
                 emit_hero_surface_effect_burst(3, 0xA, 0);
                 if (water_patches != 0) {
-                    RippleDisturb(water_patches, water_patch_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.4f,
-                                  0.3f);
+                    pool_splash(water_patches, water_patch_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.4f,
+                                0.3f);
                 }
             } else if (p->motion.displacement.f[2] < g_frame_time * -0.5f) {
-                int n = truncate_float_to_s32(FastAbsF(p->motion.displacement.f[2]) * 300.0f);
+                int n = truncate_float_to_s32(absolute_float(p->motion.displacement.f[2]) * 300.0f);
                 emit_hero_surface_effect_burst(3, n < 0x28 ? n : 0x28, 1);
                 if (water_patches != 0) {
-                    RippleDisturb(water_patches, water_patch_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.5f,
-                                  -0.4f);
+                    pool_splash(water_patches, water_patch_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.5f,
+                                -0.4f);
                 }
                 p->splash_effect_timer = scale_ticks(0x4B);
             }
@@ -993,7 +994,7 @@ int HeroEnterMoveState(int a, int b) {
             struct Hero *p = (struct Hero *)g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -1008,7 +1009,7 @@ int HeroEnterMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = (struct Hero *)g_hero;
@@ -1091,7 +1092,7 @@ int HeroEnterMoveState(int a, int b) {
             struct Hero *p = (struct Hero *)g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -1169,7 +1170,7 @@ int HeroEnterMoveState(int a, int b) {
             struct Hero *p = (struct Hero *)g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
@@ -1234,7 +1235,7 @@ int HeroEnterMoveState(int a, int b) {
             p->item_use_locked = 1;
             *(int *)&p->grapple_pull_speed = 0;
             p->grapple_pull_ending = 0;
-            p->tether_radius = FastVecDist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
+            p->tether_radius = fast_vec_dist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
             if (b)
                 set_hero_animation(0x30, 1, (float)scale_ticks(5));
             break;
@@ -1284,7 +1285,7 @@ int HeroEnterMoveState(int a, int b) {
                     q->swing_rope_max_speed = *(float *)(d + 0x2C);
                 q->swing_yaw = fast_atan2(q->swing_target_moby->pos.x - q->motion.pos.f[0],
                                           q->swing_target_moby->pos.y - q->motion.pos.f[1]);
-                q->unk9A4 = FastVecDist(&q->motion.pos, &q->swing_target_moby->pos);
+                q->unk9A4 = fast_vec_dist(&q->motion.pos, &q->swing_target_moby->pos);
                 q->swing_gravity = g_frame_time_sq * 27.0f;
                 if (q->state.prev_control_mode == HERO_MODE_JUMP) {
                     q->swing_gravity = q->jump_gravity;
@@ -1347,7 +1348,7 @@ int HeroEnterMoveState(int a, int b) {
             p->unk5B8 = 0;
             p->unk5BC = 0;
             p->rail_jump_queued = 0;
-            Spline_AdvanceByDistance(p->rail_spline, (char *)&out, (char *)&i, (char *)&f, p->rail_spline_loops, 1.0f);
+            sample_path(p->rail_spline, (char *)&out, (char *)&i, (char *)&f, p->rail_spline_loops, 1.0f);
             FastVecSub(&d, &out, &p->motion.pos);
             if (0.001f < FastVecLength(&d)) {
                 vec_scale_to_length(&d, &d, 1.0f);
@@ -1386,8 +1387,8 @@ int HeroEnterMoveState(int a, int b) {
             t = p->rail_candidate_frac;
             i = p->follow_path_segment;
             f = t;
-            Spline_AdvanceByDistance(*(int *)&p->follow_path_spline, (char *)&out, (char *)&i, (char *)&f,
-                                     p->rail_candidate_kind, 1.0f);
+            sample_path(*(int *)&p->follow_path_spline, (char *)&out, (char *)&i, (char *)&f, p->rail_candidate_kind,
+                        1.0f);
             FastVecSub(&d, &out, &p->motion.pos);
             if (0.001f < FastVecLength(&d)) {
                 vec_scale_to_length(&d, &d, 1.0f);
@@ -1714,7 +1715,7 @@ int HeroEnterMoveState(int a, int b) {
                         u->unk48C += h;
                         u->jump_gravity = g_frame_time_sq * 14.0f;
                         d = (Vec4A){331.0f, 104.0f, 145.0f};
-                        if (FastVecDist(&u->motion.pos, &d) < 10.0f) {
+                        if (fast_vec_dist(&u->motion.pos, &d) < 10.0f) {
                             h = 0.7f;
                             u->unk430 += h;
                             u->jump_height_start += h;
@@ -2474,11 +2475,11 @@ int HeroEnterMoveState(int a, int b) {
                 struct Hero *q = (struct Hero *)g_hero;
                 q->state.control_mode = HERO_MODE_RUN;
                 q->unk2284 = 0;
-                q->ground_speed = vec_length_xy(&q->motion.resolved_velocity);
+                q->ground_speed = vector_length_xy(&q->motion.resolved_velocity);
                 if (q->state.prev == HERO_STATE_STOP)
                     q->ground_speed = 0.0f;
                 if (q->state.prev_control_mode == HERO_MODE_IDLE)
-                    q->ground_speed = vec_length_xy(&q->motion.momentum);
+                    q->ground_speed = vector_length_xy(&q->motion.momentum);
                 q->unk3B8 = 0;
                 if (b)
                     set_hero_animation(2, 0, (float)scale_ticks(8));
@@ -2597,7 +2598,7 @@ int HeroEnterMoveState(int a, int b) {
             struct Hero *p = (struct Hero *)g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->unk3B8 = 0;
             if (b)
                 set_hero_animation(3, 0x12, (float)scale_ticks(8));
@@ -2679,7 +2680,7 @@ int HeroEnterMoveState(int a, int b) {
             {
                 char *v = &((struct Hero *)g_hero)->motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -2968,7 +2969,7 @@ collision_mode:
     return 0;
 }
 
-extern float coll_hit_point_z;
+extern float collision_hit_z;
 extern int level_frame_counter MACRO_ADDR;
 
 #define F(o) (*(float *)(p + (o)))
@@ -2999,10 +3000,10 @@ int try_enter_hero_water_state(void) {
             }
         } else if (I(0x208C) != 0x12 && I(0x208C) != 3) {
             t = 0.2f;
-            if (t < FastAbsF(F(0xE8)) + 0.07f) {
-                t = FastAbsF(F(0xE8)) + 0.07f;
+            if (t < absolute_float(F(0xE8)) + 0.07f) {
+                t = absolute_float(F(0xE8)) + 0.07f;
             }
-            if (FastAbsF(F(0x2F0) - (F(0x88) + 0.45f)) < t) {
+            if (absolute_float(F(0x2F0) - (F(0x88) + 0.45f)) < t) {
                 if (I(0x208C) != 4 || ((struct Hero *)p)->past_jump_apex != 0) {
                     if (0.8f < F(0x22A4) && F(0x108) < 0.0f) {
                         r = 1;
@@ -3019,8 +3020,8 @@ int try_enter_hero_water_state(void) {
     }
     p = g_hero;
     t = 0.27f;
-    if (t < FastAbsF(F(0xE8)) + 0.07f) {
-        t = FastAbsF(F(0xE8));
+    if (t < absolute_float(F(0xE8)) + 0.07f) {
+        t = absolute_float(F(0xE8));
     }
     if (I(0x2084) == 0x12) {
         if (((struct Hero *)p)->past_jump_apex != 0) {
@@ -3041,7 +3042,7 @@ int try_enter_hero_water_state(void) {
             int s = CollType();
             u->ground_type = s;
             if ((short)s == 0) {
-                v1[2] = coll_hit_point_z - 0.01f;
+                v1[2] = collision_hit_z - 0.01f;
                 if (coll_line(v1, v2, 2, *(int *)&u->moby, 0) == 0) {
                     HeroEnterMoveState(HERO_STATE_SWIM_IDLE, 1);
                     return 1;
@@ -3068,7 +3069,7 @@ void update_hero_water_height_and_bobbing(void) {
             u->unk694 = 0.0f;
         } else {
             u->unk694 = u->unk694 - (g_frame_scale_sq * 0.005f * u->unk690 + frame_scale * 0.045f * u->unk694);
-            if (FastAbsF(u->unk690) < 0.001f && u->unk694 < 0.0001f) {
+            if (absolute_float(u->unk690) < 0.001f && u->unk694 < 0.0001f) {
                 u->unk694 = 0.0f;
             }
         }
@@ -3357,7 +3358,7 @@ int process_hero_equipped_item_input(void) {
                 }
                 if (g_controller_state_p228770.held & mask) {
                     if (!get_ammo(-1)) {
-                        if (!Sound_IsPlaying(g_hero_h228770.items[0].moby, pv->fC)) {
+                        if (!voice_is_playing(g_hero_h228770.items[0].moby, pv->fC)) {
                             pv->fC = Moby_PlaySound(0, 0, (int)g_hero_h228770.items[0].moby);
                         }
                     }
@@ -3491,8 +3492,8 @@ int try_start_hero_jump(void *a0, int a1) {
 struct T {
     float lo, hi, c, d;
 };
-extern struct T hero_speed_bands[];
-extern short hero_run_step_switch_frames;
+extern struct T hero_speed_steps[];
+extern short l00_hero_speed_step_animation_frame_offsets;
 
 /* updates the hero's walk/run animation speed and gait step */
 void update_hero_animation_for_movement_speed(void) {
@@ -3514,30 +3515,30 @@ void update_hero_animation_for_movement_speed(void) {
         float *hp;
         if (scale_ticks(4) < p->step_frames && p->run_start_blending == 0) {
             idx = p->state.step;
-            flag = p->ground_speed < hero_speed_bands[idx].lo * g_frame_time;
-            if (flag || hero_speed_bands[idx].hi * g_frame_time < p->ground_speed) {
+            flag = p->ground_speed < hero_speed_steps[idx].lo * g_frame_time;
+            if (flag || hero_speed_steps[idx].hi * g_frame_time < p->ground_speed) {
                 if (scale_ticks(4) < p->step_frames && p->run_start_blending == 0) {
                     old = p->state.step;
                     if (flag) {
                         float kk = g_frame_time;
-                        if (p->ground_speed < hero_speed_bands[old].lo * kk) {
+                        if (p->ground_speed < hero_speed_steps[old].lo * kk) {
                             struct Hero *pd;
                             struct T *td;
                             do {
-                                td = hero_speed_bands;
+                                td = hero_speed_steps;
                                 pd = (struct Hero *)g_hero;
                                 pd->state.step -= 1;
                             } while (p->ground_speed < td[pd->state.step].lo * kk);
                         }
                     } else {
                         float kk = g_frame_time;
-                        hp = &hero_speed_bands[0].hi;
+                        hp = &hero_speed_steps[0].hi;
                         if (hp[old * 4] * kk < p->ground_speed) {
                             float *hq;
                             struct Hero *pu;
                             do {
                                 pu = (struct Hero *)g_hero;
-                                hq = &hero_speed_bands[0].hi;
+                                hq = &hero_speed_steps[0].hi;
                                 pu->state.step += 1;
                             } while (hq[pu->state.step * 4] * kk < p->ground_speed);
                         }
@@ -3559,7 +3560,7 @@ void update_hero_animation_for_movement_speed(void) {
                         int e1 = *(unsigned char *)(o + 0x51);
                         unsigned char *a = tb->e[k];
                         unsigned char *c = tb->e[j];
-                        int tv = *(int *)((char *)&hero_run_step_switch_frames + n * 4 + old * 8);
+                        int tv = *(int *)((char *)&l00_hero_speed_step_animation_frame_offsets + n * 4 + old * 8);
                         int rr = ((e1 * a[0x10]) / c[0x10] + tv) % a[0x10];
                         set_hero_animation(k, rr, (float)scale_ticks(8));
                     }

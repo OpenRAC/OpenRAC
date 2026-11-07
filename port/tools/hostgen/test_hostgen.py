@@ -2116,6 +2116,48 @@ class Places(unittest.TestCase):
                           (out / "levels" / "shared" / "L01_002A7248.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
+        # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
+        # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
+        # __gp, which only the level's build derives under the plain name. Unresolved, the whole
+        # function was a stub that never wrote the stick, and the right stick turned nothing. The
+        # level's own address stands, not the executable's datum there as the level moved it
+        # (0x001B1580 is level 0's ref_L00_00424F98_00; the executable's D_001B1580 is elsewhere).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_00424F98-g8.c").write_text(
+                "#define SDATA(sym) __asm__(#sym \"__gp\")\n"
+                "extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03);\n"
+                "extern int ref_L00_00424F98_00 SDATA(ref_L00_00424F98_00);\n"
+                "void func_L00_00424F98(float *y) {\n"
+                "    ref_L00_00424F98_00 = 0;\n"
+                "    *y = 1.0f / ref_L00_00424F98_03;\n"
+                "}\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_00424F98\tshared\t4\tfingerprint\t2\t00:00424F98,01:004281A8\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "levels": {"ref_L00_00424F98_03": [0, "0x001b14c4"],
+                           "ref_L00_00424F98_00": [0, "0x001b1580"]},
+                "level_data": {"0": {"D_001B1580": "0x001b18c0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_00424F98-g8.c").read_text()
+            self.assertNotIn("Not translated", text)
+            self.assertIn("OPENRAC_LDATA(0, 0x001B14C4u)", text)
+            self.assertIn("OPENRAC_LDATA(0, 0x001B1580u)", text)
+            self.assertNotIn("0x001B18C0u", text)
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_data_label_with_an_offset_is_the_symbol_plus_it(self):
         # rac1/ntsc's l16 00214598.c: extern f32 D_L16_0017C224[] __asm__("D_L16_0017C218+12").
         with tempfile.TemporaryDirectory() as tmp:
@@ -2656,6 +2698,9 @@ class Preparation(unittest.TestCase):
         self.assertEqual(program.data_address("ref_L00_003A7AF0_00"), 0x001B286C)
         self.assertEqual(program.data_level("ref_L00_003A7AF0_00"), 0)
         self.assertIsNone(program.data_address("ref_L00_00000000_00"))
+        # Its $gp view (common.h's SDATA labels it name__gp) is the same global.
+        self.assertEqual(program.data_address("ref_L00_003A7AF0_00__gp"), 0x001B286C)
+        self.assertEqual(program.data_level("ref_L00_003A7AF0_00__gp"), 0)
 
     def test_a_level_build_derived_callee_is_the_function_at_that_place(self):
         # ref_L02_003CC7B0_01, a callee a level's build derived, sits where the catalogue has

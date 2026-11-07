@@ -14,7 +14,7 @@
 #include "asm_functions/shared_levels.h"
 extern Hero g_hero;
 
-extern CameraSystem player_camera;
+extern CameraSystem gCameraLvl;
 
 extern Camera gCameraSlotsLvl[];
 
@@ -25,7 +25,7 @@ extern CameraDef *camera_descriptors MACRO_ADDR;
 
 /* Initialises the camera slot tables and the camera state from the hero's transform. */
 void setup_level_cameras(void) {
-    CameraSystem *g = &player_camera;
+    CameraSystem *g = &gCameraLvl;
     CameraSystem *g1;
     CameraFollow *q;
     Vec4 *p1;
@@ -39,9 +39,9 @@ void setup_level_cameras(void) {
     gCamPostUpdCountLvl = 0;
     for (k = 0; k < 48; k++) {
         gCameraSlotsLvl[k].hard_cut = 0;
-        gCameraSlotUsedLvl[k] = 0;
+        level_camera_present_flags[k] = 0;
     }
-    g1 = &player_camera;
+    g1 = &gCameraLvl;
     base = &g_hero;
     q = &g1->follow;
     p1 = &g1->follow.up;
@@ -90,7 +90,7 @@ void setup_level_cameras(void) {
             el->priority = r->priority;
             el->activation = r->activation;
             h = e->id;
-            gCameraSlotUsedLvl[i] = 1;
+            level_camera_present_flags[i] = 1;
             el->id = h;
             el->type = find_camera_table_index_by_id((short)h);
             i++;
@@ -98,8 +98,8 @@ void setup_level_cameras(void) {
     }
     init_camera_system();
     {
-        CamBlend *b = &player_camera.blend;
-        s32 *u = player_camera.unk380;
+        CamBlend *b = &gCameraLvl.blend;
+        s32 *u = gCameraLvl.unk380;
         b->phase = 0;
         u[0] = 0;
         u[3] = 0;

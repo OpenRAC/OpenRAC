@@ -7,7 +7,7 @@
 #include "enums/level.h"
 #include "game/render/vuchain.h"
 
-extern int D_0015EE84 MACRO_ADDR;
+extern int g_current_level_index MACRO_ADDR;
 extern int depth_buffer_address MACRO_ADDR;
 
 // Level init: pick a setup by mode, then issue two draw commands.

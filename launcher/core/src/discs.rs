@@ -232,6 +232,27 @@ pub(crate) mod tests {
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
+    #[test]
+    fn finds_ratchet_and_clanks_pal_v1_and_japanese_discs_as_versions_of_their_own() {
+        let tmp = std::env::temp_dir().join(format!("openrac-discs-rac1-{}", std::process::id()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        // Both PAL releases boot SCES_509.16; v1.00 says so in its VER. The Japanese disc has its own serial.
+        image(&tmp.join("a.iso"), "BOOT2 = cdrom0:\\SCES_509.16;1 \r\nVER = 1.00 \r\nVMODE = PAL \r\n");
+        image(&tmp.join("b.iso"), "BOOT2 = cdrom0:\\SCES_509.16;1 \r\nVER = 2.00 \r\nVMODE = PAL \r\n");
+        image(&tmp.join("c.iso"), "BOOT2 = cdrom0:\\SCPS_150.37;1 \r\nVER = 1.02 \r\nVMODE = NTSC \r\n");
+        image(&tmp.join("d.iso"), "BOOT2 = cdrom0:\\SCUS_971.99;1 \r\nVER = 1.00 \r\nVMODE = NTSC \r\n");
+        // A release of the serial that no version here is.
+        image(&tmp.join("e.iso"), "BOOT2 = cdrom0:\\SCES_509.16;1 \r\nVER = 3.00 \r\n");
+        let catalog = crate::catalog::load(&checkout()).unwrap();
+        let found: Vec<(String, String)> = scan(&tmp, &catalog)
+            .into_iter()
+            .map(|f| (f.version, f.path.file_name().unwrap().to_string_lossy().into_owned()))
+            .collect();
+        let want = [("rac1/pal1", "a.iso"), ("rac1/pal", "b.iso"), ("rac1/jp", "c.iso"), ("rac1/ntsc", "d.iso")];
+        assert_eq!(found, want.map(|(v, p)| (v.to_string(), p.to_string())));
+        std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
     /// A real image, where this checkout has one (baserom/ is the contributor's own, never in git).
     #[test]
     fn reads_a_real_image() {
@@ -245,7 +266,10 @@ pub(crate) mod tests {
     fn finds_the_games_it_knows_whatever_their_files_are_called() {
         let tmp = std::env::temp_dir().join(format!("openrac-discs-{}", std::process::id()));
         std::fs::create_dir_all(tmp.join("PS2").join("Ratchet")).unwrap();
-        image(&tmp.join("PS2").join("Ratchet").join("my backup (1).iso"), "BOOT2 = cdrom0:\\SCES_509.16;1\r\n");
+        image(
+            &tmp.join("PS2").join("Ratchet").join("my backup (1).iso"),
+            "BOOT2 = cdrom0:\\SCES_509.16;1\r\nVER = 2.00\r\n",
+        );
         image(&tmp.join("another game.ISO"), "BOOT2 = cdrom0:\\SLES_123.45;1\r\n");
         let chd = crate::chd::tests::chd_of(&image_data("BOOT2 = cdrom0:\\SCUS_971.99;1\r\n"), 8 * SECTOR as u32);
         std::fs::write(tmp.join("Ratchet & Clank (USA).chd"), chd).unwrap();

@@ -17,13 +17,13 @@ typedef struct StrFile {
 
 /* No recovered name. Stores its two arguments in the object (first argument at offset 4)
  * and returns 1. */
-int set_state_fields(StrFile *f, int first, int second) {
+int mpeg_cd_stream_open(StrFile *f, int first, int second) {
     f->first = first;
     f->second = second;
     return 1;
 }
 /* No recovered name. Nothing to free, returns 1. */
-int get_state_callback_result(StrFile *f) {
+int mpeg_cd_stream_close(StrFile *f) {
     return 1;
 }
 

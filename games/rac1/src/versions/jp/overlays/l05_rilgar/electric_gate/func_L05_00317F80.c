@@ -1,4 +1,4 @@
-void update_hoverboard_girl(Moby *moby) {
+void hoverboard_girl_update(Moby *moby) {
     HGState *state = (HGState *)moby->pvars;
     HGVec target_position;
     HGVec head_position;
@@ -33,7 +33,7 @@ void update_hoverboard_girl(Moby *moby) {
         case 1:
             if ((*(Hero *)(hero_globals_base + 0xE1D)).state.current != 0x1D) {
                 if (update_npc_dialogue(moby, state) != 0) {
-                    begin_dialogue_camera_transition(2.0f, moby);
+                    begin_dialogue_camera_transition_fn(2.0f, moby);
                     moby->state = 3;
                 }
                 if (state->dialogue_state == 3) {
@@ -41,7 +41,7 @@ void update_hoverboard_girl(Moby *moby) {
                     state->dialogue_state = 2;
                     state->dialogue_state_frame = frame_number;
                     moby->command = 0;
-                    set_race_camera(&race_camera_vectors[0], &race_camera_vectors[1], 0, 1);
+                    set_race_camera_fn(&race_camera_vectors[0], &race_camera_vectors[1], 0, 1);
                     qcopy(&((HGVec *)(hero_globals_base + 0x2B1D))[0], &race_camera_vectors[2]);
                     qcopy(&((HGVec *)(hero_globals_base + 0x2B1D))[1], &race_camera_vectors[3]);
                     (*(Hero *)(hero_globals_base + 0xE1D)).item_use_locked = 1;
@@ -49,7 +49,7 @@ void update_hoverboard_girl(Moby *moby) {
                 }
             }
             if (moby->command == 1) {
-                set_race_camera(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
+                set_race_camera_fn(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
                 set_race_camera_mode(0, 8);
                 if ((*(unsigned char *)(special_items_base + 0x13B)) == 0) {
                     state->previous_dialogue_state = state->dialogue_state;
@@ -61,13 +61,13 @@ void update_hoverboard_girl(Moby *moby) {
             }
             if (moby->command == 2) {
                 set_race_camera_mode(0, 8);
-                set_race_camera(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
+                set_race_camera_fn(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
                 moby->command = 0;
             }
             if (moby->command == 3) {
                 set_race_camera_mode(0, 8);
                 moby->command = 0;
-                set_race_camera(&race_camera_vectors[0], &race_camera_vectors[1], 0, 1);
+                set_race_camera_fn(&race_camera_vectors[0], &race_camera_vectors[1], 0, 1);
                 qcopy(&((HGVec *)(hero_globals_base + 0x2B1D))[0], &race_camera_vectors[2]);
                 qcopy(&((HGVec *)(hero_globals_base + 0x2B1D))[1], &race_camera_vectors[3]);
             }
@@ -88,10 +88,10 @@ void update_hoverboard_girl(Moby *moby) {
                 moby->state = 1;
                 if (state->previous_dialogue_state == 4) {
                     (*(unsigned char *)(special_items_base + 0x13B)) = 1;
-                    queue_dialogue_message(0x1395, scale_frame_count(300));
+                    queue_dialogue_message_fn(0x1395, scale_frame_count(300));
                     if (menu_item_enabled_115[0xA] != 0) {
                         func_0022EE28_x(1, 0, 0);
-                        queue_dialogue_message(0x542D, -1);
+                        queue_dialogue_message_fn(0x542D, -1);
                     }
                     func_0020BFC8_x(0, -1);
                 }
@@ -99,7 +99,7 @@ void update_hoverboard_girl(Moby *moby) {
             break;
         default:
             if (moby->command != 0) {
-                set_race_camera(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
+                set_race_camera_fn(&race_camera_vectors[2], &race_camera_vectors[3], 0, 1);
                 moby->command = 0;
             }
             break;
@@ -144,7 +144,7 @@ void update_hoverboard_girl(Moby *moby) {
         head_position.component[2] += 1.0f;
         subtract_vector(&direction, &target_position, &head_position);
         yaw = signed_angle_difference(angle_from_xy(direction.component[0], direction.component[1]), moby->rot.z);
-        pitch = -angle_from_xy(vector_length_xy(&direction), direction.component[2]);
+        pitch = -angle_from_xy(vector_length_xy_fn(&direction), direction.component[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -182,11 +182,11 @@ void update_hoverboard_girl(Moby *moby) {
         update_hoverboard_girl_boobs_animation_r(moby, state);
         if ((gCheats[0]) != 0)
             state->joints[0].target_scale = 2.75f;
-        update_joint_animation(moby, &state->joints[0], 0, rotation_step * frame_scale_sq,
-                               rotation_limit * frame_scale_sq);
+        update_joint_animation_fn(moby, &state->joints[0], 0, rotation_step * frame_scale_sq,
+                                  rotation_limit * frame_scale_sq);
         {
             float fs = frame_scale_sq;
-            update_joint_animation(moby, &state->joints[1], 1, rotation_step * fs, rotation_limit * fs);
+            update_joint_animation_fn(moby, &state->joints[1], 1, rotation_step * fs, rotation_limit * fs);
         }
     }
 }

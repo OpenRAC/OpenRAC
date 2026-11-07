@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void compute_interpolated_record_value_cf(void *, void *, void *, int, float, float, float);
+extern void func_L03_002D5650(void *, void *, void *, int, float, float, float);
 
 #endif /* OVERLAYS_L03_KERWAN_TAXI_AND_MINE_LAYER_H */

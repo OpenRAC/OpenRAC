@@ -50,7 +50,7 @@ int hero_get_gadget_anim_id(int a) {
 }
 typedef int u128 __attribute__((mode(TI)));
 
-extern Hero D_0013F450;
+extern Hero g_hero;
 extern float g_frame_scale_sq MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
@@ -148,8 +148,8 @@ void hero_update_hop_movement(void) {
         if (state == 0x2D) {
             x = g_hero.motion.rot.f[2];
             g_hero.motion.yaw_error =
-                SpringAngle(&x, g_hero.motion.move_yaw, &g_hero.motion.yaw_rate, 0, g_frame_scale_sq * 0.018f,
-                            g_frame_scale_sq * 0.2f, g_frame_time * 7.330383f);
+                spring_angle(&x, g_hero.motion.move_yaw, &g_hero.motion.yaw_rate, 0, g_frame_scale_sq * 0.018f,
+                             g_frame_scale_sq * 0.2f, g_frame_time * 7.330383f);
             a = FastSubRots(x, g_hero.motion.rot.f[2]);
             rotate_hero_about_fixed_local_pivot(0.0f, 0.0f, a);
         } else {
@@ -163,7 +163,7 @@ void hero_update_hop_movement(void) {
                 d = g_hero.stickless_decel;
                 if (g_hero.on_ice_ground)
                     d = g_frame_time_sq * 0.17f;
-                speed = vec_length_xy(&g_hero.motion.velocity);
+                speed = vector_length_xy(&g_hero.motion.velocity);
                 ApproachValue(&speed, 0.0f, d);
                 vec_set_length_xy(g_hero.motion.velocity.f, g_hero.motion.velocity.f, speed);
                 return;

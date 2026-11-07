@@ -1,4 +1,4 @@
-void update_moby_list_clear_notification(unsigned char *moby) {
+void SkillPointUpdate(unsigned char *moby) {
     int *d = *(int **)(moby + 0x78);
     unsigned v;
     int i;
@@ -6,8 +6,8 @@ void update_moby_list_clear_notification(unsigned char *moby) {
         if (count_active_moby_group_members(d[0], -1) == 0) {
             if (gSkillPoints[0x17] == 0) {
                 gSkillPoints[0x17] = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x542D, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x542D, -1);
             }
         }
     }

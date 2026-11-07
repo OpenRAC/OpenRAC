@@ -41,8 +41,8 @@ int PatchIsNeeded(void) {
     return ((cur >> 13) & 7) == 0;
 }
 
-extern int osd_syscall_patch_table[];
-extern char osd_kernel_patch_code[];
+extern int exec_ps2_syscall_patch_pairs[];
+extern char exec_ps2_patch_data[];
 extern int PatchIsNeeded(void);
 
 typedef struct {
@@ -51,8 +51,8 @@ typedef struct {
 } SysEnt;
 
 /* When PatchIsNeeded says so, installs the kernel entries of the
-   {num, fn} table at osd_syscall_patch_table (the third through osd_get_syscall_entry) and
-   copies 0x7A8 bytes of osd_kernel_patch_code to 0x80074000. Indexing the table in
+   {num, fn} table at exec_ps2_syscall_patch_pairs (the third through osd_get_syscall_entry) and
+   copies 0x7A8 bytes of exec_ps2_patch_data to 0x80074000. Indexing the table in
    the loop keeps its base live, so the argument loads keep source
    order. */
 void InitExecPS2(void) {
@@ -62,9 +62,9 @@ void InitExecPS2(void) {
     if (PatchIsNeeded() == 0) {
         return;
     }
-    t = (SysEnt *)osd_syscall_patch_table;
+    t = (SysEnt *)exec_ps2_syscall_patch_pairs;
     osd_set_syscall(t[0].num, t[0].fn);
-    osd_kernel_copy((int)0x80074000, osd_kernel_patch_code, 0x7A8);
+    osd_kernel_copy((int)0x80074000, exec_ps2_patch_data, 0x7A8);
     flush_cache(0);
     flush_cache(2);
     osd_set_syscall(t[1].num, t[1].fn);

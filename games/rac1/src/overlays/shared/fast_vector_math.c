@@ -54,10 +54,10 @@ float step_rotation_toward_target(float a, float b, float c) {
     if (!(r > 0.0f)) {
         c = -c;
     }
-    if (c > FastAbsF(r)) {
-        c = FastAbsF(r);
-    } else if (c < -FastAbsF(r)) {
-        c = -FastAbsF(r);
+    if (c > absolute_float(r)) {
+        c = absolute_float(r);
+    } else if (c < -absolute_float(r)) {
+        c = -absolute_float(r);
     }
     return FastAddRots(a, c);
 }

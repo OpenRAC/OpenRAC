@@ -171,16 +171,16 @@ void update_hero_vehicle_attachments_and_effects(void) {
             }
         }
         if ((*(unsigned short *)(G_HERO->moby + 0x34) ^ 1) & 1) {
-            Moby_GetJointWorldPos(G_HERO->moby, 7, buf);
+            moby_point_position(G_HERO->moby, 7, buf);
             qcopy(G_HERO->glow_pos, buf);
             enqueue_hero_glow_draw_callback_once();
             if (G_HERO->unk1624 != 0) {
-                MobyTransformScaledVertex(G_HERO->moby, 7, &buf[4]);
+                build_moby_bone_transform(G_HERO->moby, 7, &buf[4]);
                 qcopy_nc(G_HERO->unk1624 + 0x10, &buf[16]);
-                matrix_copy_rows(G_HERO->unk1624 + 0xC0, &buf[4]);
+                copy_matrix3x4(G_HERO->unk1624 + 0xC0, &buf[4]);
                 *(u128_E7B8 *)off = 0;
                 off[2] = 0.0257f;
-                matrix_mul_vec3(off, off, G_HERO->unk1624 + 0xC0);
+                transform_vector_by_basis(off, off, G_HERO->unk1624 + 0xC0);
                 *(float *)(G_HERO->unk1624 + 0x18) -= off[2];
                 moby_build_matrix((struct Moby *)G_HERO->unk1624);
                 k = 1.7f;
@@ -238,14 +238,14 @@ void update_hero_vehicle_attachments_and_effects(void) {
             }
         }
         if (G_HERO->unk1620 != 0) {
-            MobyTransformScaledVertex(G_HERO->moby, 5, buf);
+            build_moby_bone_transform(G_HERO->moby, 5, buf);
             qcopy_nc(G_HERO->unk1620 + 0x10, &buf[12]);
             moby_build_matrix((struct Moby *)G_HERO->unk1620);
             clear_u64_value(&buf[16]);
             buf[18] = -G_HERO->rot[2];
             euler_to_matrix(rm, &buf[16]);
-            sce_vu0_mul_matrix(buf, buf, rm);
-            matrix_copy_rows(G_HERO->unk1620 + 0xC0, buf);
+            multiply_matrix(buf, buf, rm);
+            copy_matrix3x4(G_HERO->unk1620 + 0xC0, buf);
             *(long *)(G_HERO->unk1620 + 0x38) = *(long *)(G_HERO->moby + 0x38);
             if (G_HERO->state_current == 0x4F) {
                 if (((unsigned char *)G_HERO->unk1620)[0x53] != 1) {
@@ -297,7 +297,7 @@ void update_hero_vehicle_attachments_and_effects(void) {
         }
         *(int *)(G_HERO->moby + 0x90) = FastTweenColor(*(int *)(G_HERO->moby + 0x90), color, 0.1f);
         for (i = 0; i < 3; i++) {
-            Moby_GetJointWorldPos(G_HERO->moby, i, G_HERO->joint_pos + i * 0x10);
+            moby_point_position(G_HERO->moby, i, G_HERO->joint_pos + i * 0x10);
         }
         c20 = 0x30;
         r18 = *(unsigned char *)(G_HERO->moby + 0x92);
@@ -423,7 +423,7 @@ void adjust_hero_velocity_from_collision_probes(int arg) {
     a0.z = a0.z + sa;
     qcopy(&a1, r);
     a1.z = a1.z + sa * 0.3f;
-    if (arg != 0 || vec_length_xy(r + 0x60) < 0.01f) {
+    if (arg != 0 || vector_length_xy(r + 0x60) < 0.01f) {
         G98 *gg = (G98 *)(r - 0x80);
         u.x = FastCos(gg->ang) * sb;
         u.y = FastSin(gg->ang) * sb;
@@ -434,7 +434,7 @@ void adjust_hero_velocity_from_collision_probes(int arg) {
     } else {
         qcopy(&u, r + 0x60);
         u.z = 0.0f;
-        FastVecScale(&u, &u, sb / vec_length_xy(&u));
+        FastVecScale(&u, &u, sb / vector_length_xy(&u));
         qcopy(&w, &u);
         FastVecScale(&w, &w, 1.4f);
     }
@@ -453,7 +453,7 @@ void adjust_hero_velocity_from_collision_probes(int arg) {
         if (coll_line(&a0, &u, 4, *(int *)&g2->moby, 0) != 0) {
             char *q = blarg_coll_hit;
             if (*(int *)(q + 0x1C) > 0) {
-                f = fast_atan2(*(float *)(q + 0x48), vec_length_xy(q + 0x40));
+                f = fast_atan2(*(float *)(q + 0x48), vector_length_xy(q + 0x40));
             }
         }
     }
@@ -495,15 +495,15 @@ s32 HeroL06_ResolveCollisionStep(s32 mode) {
     qcopy(&old, &g_hero_r2.motion.pos.q);
     clear_u64_value(&v);
     if (g_hero_r2.path_constrain_pending != 0) {
-        Hero_ConstrainToPath();
+        resolve_hero_pending_path_clearance();
         g_hero_r2.path_constrain_pending = 0;
     }
     if (g_hero_r2.state.control_mode != HERO_MODE_SWIM) {
         if (g_hero_r2.gravity_mode != 0 || g_hero_r2.unk1F8 != 0) {
             if (g_hero_r2.gravity_mode == 1 || g_hero_r2.unk1F8 != 0) {
-                HeroOffsetAlongViewZ(&v, &v, 0.6f);
+                add_hero_up_offset(&v, &v, 0.6f);
             } else {
-                HeroMoveDownAlongNormal(&v, &v, -g_hero_r2.capsule_bottom);
+                add_hero_gravity_offset(&v, &v, -g_hero_r2.capsule_bottom);
             }
         } else {
             v.f[2] = g_hero_r2.capsule_bottom;
@@ -572,7 +572,7 @@ typedef struct {
     u8 pad4[0x70 - 4];
 } Entry70_2348d0;
 extern struct PadState g_controller_state;
-extern Entry70_2348d0 blarg_idle_fidgets_field_60[];
+extern Entry70_2348d0 l06_hero_countdown_records[];
 extern short level_game_mode_q_r __asm__("D_L06_0015F6A8");
 extern u8 gHaveBoltGrabber NOT_SDA;
 extern f32 g_frame_time MACRO_ADDR;
@@ -659,7 +659,7 @@ void update_hero_timers_and_spatial_state(void) {
         }
     }
     for (i = 0; i < 5; i++) {
-        fast_dec_timer(&blarg_idle_fidgets_field_60[i].w0);
+        fast_dec_timer(&l06_hero_countdown_records[i].w0);
     }
     g_hero_r3.current_path_dist = 9999.0f;
     if (g_hero_r3.air_frames.s != 0 && gravity_z(&g_hero_r3.motion.velocity) < 0.0f) {
@@ -709,7 +709,7 @@ skip:
         }
     }
     if (g_hero_r3.motion.pos.f[2] < 1.0f) {
-        Hero_OnKilled();
+        hero_respawn();
     }
 }
 

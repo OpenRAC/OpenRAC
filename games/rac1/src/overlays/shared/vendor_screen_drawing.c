@@ -55,9 +55,9 @@ extern int vendor_menu[];
 #define MENU (*(DMenu *)D_L00_001CA7C0)
 extern Row item_price_table[] NOT_SDA;
 extern int weapon_ammo_counts[] NOT_SDA;
-extern unsigned char discount_purchase_pricing NOT_SDA;
+extern unsigned char gHavePersuader NOT_SDA;
 extern int gBolts MACRO_ADDR;
-extern char vendor_quantity_format[];
+extern char vendor_purchase_decimal_format[];
 extern int vendor_buy_quantity MACRO_ADDR;
 extern char vendor_quantity_left_label[];
 extern char vendor_quantity_right_label[];
@@ -104,7 +104,7 @@ void draw_vendor_purchase_text(void *m, int x, int y) {
     box.half_y = 6;
     box.style = 1;
     font_print_window_small((void *)&box, 0x80f0f0f0L, msg_string(0x523C), -1);
-    sprintf(text, vendor_quantity_format, vendor_buy_quantity);
+    sprintf(text, vendor_purchase_decimal_format, vendor_buy_quantity);
     if (vendor_buy_quantity >= 100)
         text_x = 0x17;
     else {
@@ -119,7 +119,7 @@ quantity_small:
 quantity_done:
     FontPrintSmall(0xc, 0x32, 0x80f0f0f0L, vendor_quantity_left_label, -1);
     FontPrintSmall(0x40, 0x32, 0x80f0f0f0L, vendor_quantity_right_label, -1);
-    fmt = vendor_quantity_format;
+    fmt = vendor_purchase_decimal_format;
     if (MENU.f40)
         total = vendor_buy_quantity * item_price_table[MENU.rows[MENU.f58].fD0].hA;
     else
@@ -133,8 +133,7 @@ message:
     font_print_window_small((void *)&box, 0x80f0f0f0L, msg_string(message_id), -1);
     return;
 purchase:
-    cost = discount_purchase_pricing ? item_price_table[MENU.rows[MENU.f58].fD0].i4
-                                     : item_price_table[MENU.rows[MENU.f58].fD0].i0;
+    cost = gHavePersuader ? item_price_table[MENU.rows[MENU.f58].fD0].i4 : item_price_table[MENU.rows[MENU.f58].fD0].i0;
     if (gBolts >= cost) {
         FontPrintSmall(6, 6, 0x80f0f0f0L, msg_string(0x523E), -1);
         FontPrintSmall(2, 0x20, 0x80f0f0f0L, msg_string(0x5239), -1);
@@ -144,7 +143,7 @@ purchase:
     }
 }
 
-extern float vendor_inset_quad_margins[][4];
+extern float vendor_quad_inset_parameters[][4];
 
 // draws five glass quads around a moby's joints
 void draw_vendor_inset_quads(char *m) {
@@ -169,13 +168,13 @@ void draw_vendor_inset_quads(char *m) {
         FastVecSub(A, P[1], P[0]);
         FastVecSub(B, P[2], P[0]);
         f = FastVecLength(A);
-        vec_scale_to_length(E, A, vendor_inset_quad_margins[i][0]);
+        vec_scale_to_length(E, A, vendor_quad_inset_parameters[i][0]);
         FastVecAdd(C, C, E);
-        vec_scale_to_length(A, A, f - vendor_inset_quad_margins[i][2] * 2.0f);
+        vec_scale_to_length(A, A, f - vendor_quad_inset_parameters[i][2] * 2.0f);
         f = FastVecLength(B);
-        vec_scale_to_length(E, B, vendor_inset_quad_margins[i][1]);
+        vec_scale_to_length(E, B, vendor_quad_inset_parameters[i][1]);
         FastVecAdd(C, C, E);
-        vec_scale_to_length(B, B, f - vendor_inset_quad_margins[i][3] * 2.0f);
+        vec_scale_to_length(B, B, f - vendor_quad_inset_parameters[i][3] * 2.0f);
         FastVecAdd(E, C, A);
         FastVecAdd(E, E, B);
         project_graphics_bounds_float(C, E, &g[0], &g[1], &g[2], &g[3]);
@@ -266,8 +265,8 @@ struct Quad {
     int a, b, c, d;
 };
 extern struct Quad vendor_hologram_cone_quads[];
-extern float vendor_hologram_cone_vertices[][4];
-extern float vendor_hologram_cone_uvs[][2];
+extern float vendor_hologram_vertex_offsets[][4];
+extern float vendor_hologram_vertex_uvs[][2];
 extern int vendor_hologram_cone_colors[];
 extern int vendor_menu[];
 extern float vendor_screen_uv_scroll SDATA(vendor_screen_uv_scroll);
@@ -292,14 +291,16 @@ void draw_vendor_hologram_cone(void) {
     s.hdr[0] = 0;
     s.hdr[1] = GetEffectTex(0x18);
     for (i = 0; i < 4; i++) {
-        matrix_mul_vec3(v[0], vendor_hologram_cone_vertices[vendor_hologram_cone_quads[i].a],
-                        (char *)vendor_menu[7] + 0xC0);
-        matrix_mul_vec3(v[1], vendor_hologram_cone_vertices[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)],
-                        (char *)vendor_menu[7] + 0xC0);
-        matrix_mul_vec3(v[2], vendor_hologram_cone_vertices[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)],
-                        (char *)vendor_menu[7] + 0xC0);
-        matrix_mul_vec3(v[3], vendor_hologram_cone_vertices[vendor_hologram_cone_quads[i].d],
-                        (char *)vendor_menu[7] + 0xC0);
+        transform_vector_by_basis(v[0], vendor_hologram_vertex_offsets[vendor_hologram_cone_quads[i].a],
+                                  (char *)vendor_menu[7] + 0xC0);
+        transform_vector_by_basis(
+            v[1], vendor_hologram_vertex_offsets[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)],
+            (char *)vendor_menu[7] + 0xC0);
+        transform_vector_by_basis(
+            v[2], vendor_hologram_vertex_offsets[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)],
+            (char *)vendor_menu[7] + 0xC0);
+        transform_vector_by_basis(v[3], vendor_hologram_vertex_offsets[vendor_hologram_cone_quads[i].d],
+                                  (char *)vendor_menu[7] + 0xC0);
         s.pos[0][0] = *(float *)((char *)vendor_menu[7] + 0x10) + v[0][0];
         s.pos[0][1] = *(float *)((char *)vendor_menu[7] + 0x14) + v[0][1];
         s.pos[0][2] = *(float *)((char *)vendor_menu[7] + 0x18) + v[0][2];
@@ -316,16 +317,16 @@ void draw_vendor_hologram_cone(void) {
         s.col[1] = vendor_hologram_cone_colors[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)];
         s.col[2] = vendor_hologram_cone_colors[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)];
         s.col[3] = vendor_hologram_cone_colors[vendor_hologram_cone_quads[i].d];
-        s.uv[0][0] = vendor_hologram_cone_uvs[vendor_hologram_cone_quads[i].a][0];
-        s.uv[0][1] = vendor_hologram_cone_uvs[vendor_hologram_cone_quads[i].a][1] + vendor_screen_uv_scroll;
-        s.uv[1][0] = vendor_hologram_cone_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)][0];
-        s.uv[1][1] = vendor_hologram_cone_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)][1] +
+        s.uv[0][0] = vendor_hologram_vertex_uvs[vendor_hologram_cone_quads[i].a][0];
+        s.uv[0][1] = vendor_hologram_vertex_uvs[vendor_hologram_cone_quads[i].a][1] + vendor_screen_uv_scroll;
+        s.uv[1][0] = vendor_hologram_vertex_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)][0];
+        s.uv[1][1] = vendor_hologram_vertex_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 4)][1] +
                      vendor_screen_uv_scroll;
-        s.uv[2][0] = vendor_hologram_cone_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)][0];
-        s.uv[2][1] = vendor_hologram_cone_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)][1] +
+        s.uv[2][0] = vendor_hologram_vertex_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)][0];
+        s.uv[2][1] = vendor_hologram_vertex_uvs[*(int *)((char *)vendor_hologram_cone_quads + i * 16 + 8)][1] +
                      vendor_screen_uv_scroll;
-        s.uv[3][0] = vendor_hologram_cone_uvs[vendor_hologram_cone_quads[i].d][0];
-        s.uv[3][1] = vendor_hologram_cone_uvs[vendor_hologram_cone_quads[i].d][1] + vendor_screen_uv_scroll;
+        s.uv[3][0] = vendor_hologram_vertex_uvs[vendor_hologram_cone_quads[i].d][0];
+        s.uv[3][1] = vendor_hologram_vertex_uvs[vendor_hologram_cone_quads[i].d][1] + vendor_screen_uv_scroll;
         draw_world_quad(&s, 0, 1);
     }
 }
@@ -360,7 +361,7 @@ typedef struct {
     s32 f30;
     char pad2[0xC];
 } A02b0_tab;
-/* The four floats this function sets in player_camera. */
+/* The four floats this function sets in gCameraLvl. */
 typedef struct {
     char pad[0x350];
     f32 f350;
@@ -377,26 +378,26 @@ typedef struct {
     s32 size;
 } A02b0_disc;
 
-extern s32 D_L00_0015F6BC MACRO_ADDR;
+extern s32 skip_frame MACRO_ADDR;
 extern char vendor_menu_r[] __asm__("D_L00_001CA7C0");
-extern s32 D_L00_0015F4F4 MACRO_ADDR;
-extern s32 D_L00_0015F4F8 MACRO_ADDR;
-extern s32 D_L00_0016128C MACRO_ADDR;
-extern s32 D_L00_0016124C MACRO_ADDR;
-extern s32 D_L00_00161F34 MACRO_ADDR;
-extern s16 D_001517D8[];
-extern u32 D_0013E604[];
-extern u32 D_0015EF84 MACRO_ADDR;
-extern char D_00137C80[];
-extern u128_2A1540 D_L00_00166ED0[];
-extern u128_2A1540 D_L00_00166080[];
-extern u128_2A1540 D_L00_001670E0[];
-extern u128_2A1540 D_L00_001670F0[];
+extern s32 debug_profiler_color MACRO_ADDR;
+extern s32 rendered_frame_count MACRO_ADDR;
+extern s32 lvl_vu_chain_buffer_size MACRO_ADDR;
+extern s32 vendor_auxiliary_moby_load_pending MACRO_ADDR;
+extern s32 vendor_selection_changed MACRO_ADDR;
+extern s16 cd_read_active[];
+extern u32 frame_size[];
+extern u32 draw_buffer_address MACRO_ADDR;
+extern char disc_table[];
+extern u128_2A1540 camera_rotation[];
+extern u128_2A1540 vendor_saved_camera_basis[];
+extern u128_2A1540 camera_lateral_axis[];
+extern u128_2A1540 player_camera_up_axis[];
 extern u128_2A1540 player_camera_matrix_r[] __asm__("D_L00_001670D0");
-extern char D_L00_00166D80[];
-extern A02b0_tab D_L00_001C92F0[];
+extern char gCameraLvl[];
+extern A02b0_tab vendor_item_slot2_placement[];
 
-extern s32 func_00217628(void *, s32, s32);
+extern s32 start_audio_stream_read(void *, s32, s32);
 
 extern void DrawMobyList_r(void *, s32) __asm__("func_0020E180");
 extern void draw_vendor_hologram_cone_r(void) __asm__("func_L00_002A11E8");
@@ -448,13 +449,13 @@ void draw_vendor_screen(void) {
                     vendor_saved_camera_basis[2] = s[2];
                     qzero(s);
                 }
-                qzero(player_camera_side_axis);
+                qzero(camera_lateral_axis);
                 qzero(player_camera_up_axis);
-                ((A02b0_mtx *)player_camera)->f350 = 1.0f;
-                ((A02b0_mtx *)player_camera)->f364 = 1.0f;
-                ((A02b0_mtx *)player_camera)->f378 = 1.0f;
-                ((A02b0_mtx *)player_camera)->f37C = 1.0f;
-                BuildViewMatrices();
+                ((A02b0_mtx *)gCameraLvl)->f350 = 1.0f;
+                ((A02b0_mtx *)gCameraLvl)->f364 = 1.0f;
+                ((A02b0_mtx *)gCameraLvl)->f378 = 1.0f;
+                ((A02b0_mtx *)gCameraLvl)->f37C = 1.0f;
+                update_camera_view_matrices();
             } else {
                 vendor_saved_camera_basis[0] = player_camera_matrix_r[0];
                 vendor_saved_camera_basis[1] = player_camera_matrix_r[1];
@@ -493,7 +494,7 @@ void draw_vendor_screen(void) {
     }
     append_draw_buffer_upload_packets(((A02b0_obj *)vendor_menu_r)->f10, draw_buffer_address, frame_size[0] << 11);
     SetupGifPaging(0);
-    BuildViewMatrices();
+    update_camera_view_matrices();
     ResetGsRegisters();
     DrawMobysSetup();
     InitMobyClassDists();

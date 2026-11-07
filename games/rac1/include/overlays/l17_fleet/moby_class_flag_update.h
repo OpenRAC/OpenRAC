@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void update_moby_class_flags_and_link(int, int, int, int);
+extern void func_L17_00254B40(int, int, int, int);
 
 #endif /* OVERLAYS_L17_FLEET_MOBY_CLASS_FLAG_UPDATE_H */

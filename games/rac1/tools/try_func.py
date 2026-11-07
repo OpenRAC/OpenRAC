@@ -67,7 +67,7 @@ CC29_01 = Path("toolchain/ee-gcc-2.9-991111-01/bin/ee-gcc")
 EE29_01_SOURCES = ee29_01_sources() if CC29_01.is_file() else set()
 CFLAGS = ["-O2", "-G2", "-Iinclude", "-Wa,-I,."] + os.environ.get("TRY_CFLAGS", "").split()  # extra flags for experiments
 BASEROM = "baserom/SCES_509.16"
-STUB = re.compile(r'^\s*(?:INCLUDE_ASM|ASM_FUNC)\([^)]*\b(func_[0-9A-Fa-f]{8})\)')
+STUB = re.compile(r'^\s*(?:INCLUDE_ASM|ASM_FUNC|PREBUILT_ASM)\([^)]*\b(func_[0-9A-Fa-f]{8})\)')
 SIZE = re.compile(r"nonmatching\s+(func_[0-9A-Fa-f]{8}),\s*(0x[0-9A-Fa-f]+)")
 
 

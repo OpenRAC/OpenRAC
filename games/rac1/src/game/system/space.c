@@ -112,7 +112,7 @@ typedef struct {
     long gs[4];        /* 0x70 */
 } Quad_FBE0;
 
-extern char quad_default_uvs[];
+extern char unit_quad_texture_coordinates[];
 
 extern int g_game_mode MACRO_ADDR;
 
@@ -123,13 +123,13 @@ typedef struct {
     short set;
 } FlareCfg;
 extern FlareCfg level_render_state;
-extern float light_flare_corners[][4][4];
+extern float light_flare_corner_offsets[][4][4];
 
 /* Draws a light flare quad at arg0's position (+0x00; the matrix is at
    +0xC0) when bsphere_check_alpha finds it on screen, with the alpha it
    returns. In g_game_mode mode 6 with flare set 3, the flare fades as
-   level_render_state's level passes scale_game_frame_count(150), and its depth comes from
-   ProbeGroundHeight. The corners are light_flare_corners[set]. */
+   D_0013E130's level passes scale_game_frame_count(150), and its depth comes from
+   probe_ground_height. The corners are light_flare_corner_offsets[set]. */
 void draw_light_flare(char *arg0) {
     float a[4];
     Quad_FBE0 q;
@@ -153,18 +153,18 @@ void draw_light_flare(char *arg0) {
     q.gs[2] = 0xFF9000000260;
     q.gs[3] = 0x8000000044;
     q.gs[0] = 0;
-    FastMemCopy(q.uv, quad_default_uvs, 0x20);
+    FastMemCopy(q.uv, unit_quad_texture_coordinates, 0x20);
     FastVecScale(b, arg0, 1.0f / 1024.0f);
     z = *(float *)(arg0 + 0x18) + 0.1f;
     if (g_game_mode == 6) {
-        z = ProbeGroundHeight(arg0 + 0x10, 0, 0.5f) + 0.1f;
+        z = probe_ground_height(arg0 + 0x10, 0, 0.5f) + 0.1f;
     }
     for (i = 0; i < 4; i++) {
         float *v;
 
         q.rgba[i] = ((alpha >> 1) << 24) | 0x808080;
         v = q.v[i];
-        matrix_mul_vec3(v, light_flare_corners[level_render_state.set][i], arg0 + 0xC0);
+        transform_vector_by_basis(v, light_flare_corner_offsets[level_render_state.set][i], arg0 + 0xC0);
         FastVecAdd(v, v, arg0 + 0x10);
         v[2] = z;
     }
@@ -183,7 +183,7 @@ extern int space_load_in_progress_m __asm__("D_0015F6FC") MACRO_ADDR;
 extern int space_load_pending SDATA(space_load_pending);
 
 /* Requests a switch to level arg0 and flags the load as pending. */
-void initialize_global_state_entry(int arg0) {
+void request_space_load(int arg0) {
     space_load_level = arg0;
     space_load_pending = 1;
     space_load_in_progress_m = 1;
@@ -212,18 +212,18 @@ typedef struct {
 } LevelRenderState;
 
 extern LevelRenderState level_render_state_2F4C8 __asm__("D_0013E130");
-extern f32 D_001D9C20[4][2] NOT_SDA;
-extern QuadOffset D_001D9C40[8] NOT_SDA;
-extern QuadOffset D_001D9CC0[2] NOT_SDA;
-extern QuadOffset D_001D9CE0[2] NOT_SDA;
-extern QuadOffset D_001D9D00[10] NOT_SDA;
-extern short D_001605C0;
+extern f32 resident_effect_quad_uvs[4][2] NOT_SDA;
+extern QuadOffset resident_effect_quad_offsets[8] NOT_SDA;
+extern QuadOffset resident_effect_quad_offsets_variant1[2] NOT_SDA;
+extern QuadOffset resident_effect_quad_offsets_variant2[2] NOT_SDA;
+extern QuadOffset resident_effect_quad_corners[10] NOT_SDA;
+extern short resident_effect_quad_counts;
 
 void func_001F9C30_2F4C8(float, void *, void *) __asm__("func_001F9C30");
 
 long func_001F4868_2F4C8(int) __asm__("func_001F4868");
 
-/* Resident effect quads: picks the row table by level_render_state's
+/* Resident effect quads: picks the row table by D_0013E130's
    content_variant, builds a textured GS quad, and for each row of
    resident_effect_quad_counts[variant] scales the four corners by the object's brightness
    and the row size, offsets them by the row, the player's matrix and the
@@ -263,7 +263,7 @@ void DrawResidentEffectQuads(struct Moby *m) {
             quad.colors[k] = col;
             func_001F9C30_2F4C8(s, &quad.positions[k], &resident_effect_quad_corners[k]);
             FastVecAdd(&quad.positions[k], &quad.positions[k], &tbl[i]);
-            matrix_mul_vec3(&quad.positions[k], &quad.positions[k], level_render_state_2F4C8.player + 0xC0);
+            transform_vector_by_basis(&quad.positions[k], &quad.positions[k], level_render_state_2F4C8.player + 0xC0);
             FastVecAdd(&quad.positions[k], &quad.positions[k], &v);
         }
         draw_world_quad_packet(&quad, 0, 0);
@@ -282,10 +282,10 @@ typedef struct {
 } TrailState;
 extern TrailState trail_state_2F738 __asm__("D_0013E130");
 
-extern float D_001D9DA0[4][2];
+extern float warp_texture_coordinates[4][2];
 extern unsigned int trail_color_a_2F738[][2] __asm__("D_001D9DC0");
 extern unsigned int trail_color_b_2F738[][2] __asm__("D_001D9DC4");
-extern short D_001605D0;
+extern short warp_trail_widths;
 
 /* Returns trail point n of ring t. */
 static __inline__ Vec4 *trail_at_2F738(int t, int n) {
@@ -409,8 +409,8 @@ void build_resident_indexed_texture_warp_meshes(int unused) {
 }
 
 extern long resident_quad_texture MACRO_ADDR;
-extern float resident_quad_level_scales[];
-extern float resident_quad_corners[][4];
+extern float resident_quad_scale_by_level[];
+extern float resident_quad_base_positions[][4];
 extern short resident_quad_pos;
 extern int g_current_level_index_m __asm__("D_0015EE84") MACRO_ADDR;
 
@@ -426,12 +426,12 @@ void draw_resident_textured_quad(void) {
     q.gs[1] = resident_quad_texture;
     q.gs[2] = 0xFF9000000260;
     q.gs[3] = 0x8000000044;
-    FastMemCopy(q.uv, quad_default_uvs, 0x20);
+    FastMemCopy(q.uv, unit_quad_texture_coordinates, 0x20);
     if ((unsigned)g_current_level_index_m < LEVEL_COUNT)
-        s = resident_quad_level_scales[g_current_level_index_m];
+        s = resident_quad_scale_by_level[g_current_level_index_m];
     for (i = 0; i < 4; i++) {
         q.rgba[i] = 0x80808080;
-        FastVecScale(q.v[i], resident_quad_corners[i], s);
+        FastVecScale(q.v[i], resident_quad_base_positions[i], s);
         FastVecAdd(q.v[i], q.v[i], &resident_quad_pos);
     }
     draw_world_quad_packet(&q, 0, 0);
@@ -573,8 +573,8 @@ extern s32 render_sequence_slots[];
 extern struct LevelProjectionState view_context;
 extern struct CommonArchiveMemory level_resource_buffers;
 extern LevelFrame_CP warp_trail_colors[] NOT_SDA;
-extern LevelFrame_u128 sky_shell_scroll_dirs[] NOT_SDA;
-extern f32 sky_shell_base_rot_z_by_mode[] NOT_SDA;
+extern LevelFrame_u128 level_render_motion_vectors_by_mode[] NOT_SDA;
+extern f32 level_render_depth_by_mode[] NOT_SDA;
 extern f32 cam_mode_min_fov[] NOT_SDA;
 extern u8 level_available[20] NOT_SDA;
 
@@ -695,9 +695,10 @@ void update_level_gameplay_frame(void) {
         FastVecScale(&first_position, &D_00160600_gp, scale);
         FastVecAdd(&D_001605F0_gp, &D_001605F0_gp, &first_position);
     }
-    FastVecScale(sky_shell_translation, &sky_shell_scroll_dirs[((*(LevelFrame_LRS *)&level_render_state)).mode],
+    FastVecScale(sky_shell_translation,
+                 &level_render_motion_vectors_by_mode[((*(LevelFrame_LRS *)&level_render_state)).mode],
                  (f32)(((*(LevelFrame_LGS *)&render_sequence)).time - scale_game_frame_count(0x78)) * 20.0f * scale);
-    sky_shell_base_rot_z = sky_shell_base_rot_z_by_mode[((*(LevelFrame_LRS *)&level_render_state)).mode];
+    sky_shell_base_rot_z = level_render_depth_by_mode[((*(LevelFrame_LRS *)&level_render_state)).mode];
     for (object_index = 0; object_index < ((*(LevelFrame_LGS *)&render_sequence)).count; object_index++) {
         object = (((LevelFrame_LRO **)render_sequence_slots))[object_index];
         for (subframe = 0; subframe < 2; subframe++) {
@@ -731,8 +732,8 @@ void update_level_gameplay_frame(void) {
             refresh_moby_spatial_bounds(object);
             object->selected_a = object->model->count - 1;
             object->selected_b = object->model->count - 1;
-            MobyTransformScaledVertex(object, 1, &first_transform);
-            MobyTransformScaledVertex(object, 2, &second_transform);
+            build_moby_bone_transform(object, 1, &first_transform);
+            build_moby_bone_transform(object, 2, &second_transform);
             ((*(LevelFrame_LRS *)&level_render_state)).history_index =
                 (((*(LevelFrame_LRS *)&level_render_state)).history_index + 1) & 0x1F;
             if (((*(LevelFrame_LRS *)&level_render_state)).history_count < 0x20) {
@@ -794,7 +795,7 @@ extern s32 render_sequence_time[];
 
 extern s64 GetEffectTex_r(s32) __asm__("func_001F4868");
 
-extern s32 func_001FA898(f32);
+extern s32 truncate_float_to_s32(f32);
 
 extern void draw_rotated_sprite_v(f32, f32, f32, f32, s32, s32, s64, f32) __asm__("func_00200E38");
 
@@ -815,7 +816,7 @@ void render_level_frame(void) {
     struct LevelDisplayState *display_state;
     s64 texture;
     append_gif_transfer_packet();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     prune_moby_references();
     ResetGsRegisters();
     saved_projection_scale = view_context.projection_scale;
@@ -824,11 +825,11 @@ void render_level_frame(void) {
         view_context.projection_scale = 0.63f;
     }
     UpdateViewContext();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     draw_sky_shells();
     view_context.projection_scale = saved_projection_scale;
     UpdateViewContext();
-    BuildViewMatrices();
+    update_camera_view_matrices();
     if (level_render_state_r2.mode == 4) {
         SetupGifPaging(1);
         draw_resident_textured_quad();
@@ -875,7 +876,7 @@ void render_level_frame(void) {
     PatchMobyGifs();
 }
 
-extern float flare_spark_offsets[][6][4];
+extern float spark_spawn_points_by_variant[][6][4];
 extern float g_frame_time MACRO_ADDR;
 
 /* Spawns six particles around a moby: random velocity and a position taken from the flare corner table, transformed by the moby's matrices. Adapted from Lombyte's project (GPL-3.0) for PAL: src/rendering/effects/fun_0022f5b0.c, FUN_0022f5b0. */
@@ -895,8 +896,8 @@ void emit_six_spark_effects(char *m, float z) {
         vel[3] = 0.4f;
         qcopy(vel2, vel);
         vel2[3] = 0.6f;
-        qcopy(pos, flare_spark_offsets[level_render_state.set][i]);
-        matrix_mul_vec3(pos, pos, m + 0xC0);
+        qcopy(pos, spark_spawn_points_by_variant[level_render_state.set][i]);
+        transform_vector_by_basis(pos, pos, m + 0xC0);
         FastVecAdd(pos, pos, m + 0x10);
         a = scale_game_frame_count(4);
         b = scale_game_frame_count(4);
@@ -1200,7 +1201,7 @@ void update_resident_gameplay_state(void) {
                 if (resident_data_001517D0.unk5A != 6 && resident_data_001517D0.unk5A != 7) {
                     resident_data_001517D0.unk5A = 5;
                 }
-                calculate_dma_transfer_address();
+                select_level_vu_chain();
                 resident_data_0018CEB0[0] = 0.63f;
                 UpdateViewContext();
                 /* Retail releases the attachment once per sequence object, even when that object is null. */
@@ -1250,8 +1251,8 @@ void update_resident_gameplay_state(void) {
             resident_data_0018CEB0[0] = keyframe_angles[3];
             UpdateViewContext();
             qcopy(&resident_data_00187040.position, &keyframe->position);
-            matrix_mul_vec3(&resident_data_00187040.position, &resident_data_00187040.position,
-                            resident_data_0013E130.player->transform);
+            transform_vector_by_basis(&resident_data_00187040.position, &resident_data_00187040.position,
+                                      resident_data_0013E130.player->transform);
             FastVecAdd(&resident_data_00187040.position, &resident_data_00187040.position,
                        &resident_data_0013E130.player->position);
             segment_angle = FastAddRots(keyframe_angles[2], resident_data_0013E130.player->rotation.components[2]);
@@ -1287,7 +1288,8 @@ void update_resident_gameplay_state(void) {
                              1.0f - object->blend);
                 FastVecScale(&scratch_vectors[1], animation_positions + object->next_frame * 16, object->blend);
                 FastVecAdd(&object->position, &scratch_vectors[0], &scratch_vectors[1]);
-                matrix_mul_vec3(&object->position, &object->position, resident_data_0013E130.player->transform);
+                transform_vector_by_basis(&object->position, &object->position,
+                                          resident_data_0013E130.player->transform);
                 FastVecAdd(&object->position, &object->position, &resident_data_0013E130.player->position);
                 object->rotation.components[2] = resident_data_0013E130.player->rotation.components[2];
                 object->cached_selector = 0xFF;
@@ -1499,8 +1501,8 @@ void update_resident_gameplay_state(void) {
                                 path->p[path_point_index + 1].components[0] - path->p[path_point_index].components[0],
                                 path->p[path_point_index + 1].components[1] - path->p[path_point_index].components[1]),
                             segment_angle);
-                        if (maximum_turn < FastAbsF(path->p[path_point_index].components[3])) {
-                            maximum_turn = FastAbsF(path->p[path_point_index].components[3]);
+                        if (maximum_turn < absolute_float(path->p[path_point_index].components[3])) {
+                            maximum_turn = absolute_float(path->p[path_point_index].components[3]);
                         }
                     }
                     segment_angle = fast_arc_tan(
@@ -1514,7 +1516,7 @@ void update_resident_gameplay_state(void) {
                     for (point_index = 0; point_index < path->point_count; point_index++) {
                         path->p[point_index].components[3] *= turn_scale;
                     }
-                    resident_data_0013E130.path_segment_length = FastVecDist(&path->p[0], &path->p[1]);
+                    resident_data_0013E130.path_segment_length = fast_vec_dist(&path->p[0], &path->p[1]);
                     resident_data_0013E130.path_progress = 0.0f;
                     resident_data_0013E130.speed = 0.0f;
                     resident_data_0013E130.trail = 0;
@@ -1621,16 +1623,16 @@ void update_resident_gameplay_state(void) {
                         if (resident_data_0013E130.history_count < 0x20) {
                             resident_data_0013E130.history_count++;
                         }
-                        matrix_mul_vec3(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
-                                        &resident_data_001D9D40[resident_data_0013E130.content_variant].a,
-                                        resident_data_0013E130.player->transform);
+                        transform_vector_by_basis(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
+                                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].a,
+                                                  resident_data_0013E130.player->transform);
                         FastVecAdd(&resident_data_0013E130.trailA[resident_data_0013E130.trail],
                                    &resident_data_0013E130.trailA[resident_data_0013E130.trail],
                                    &resident_data_0013E130.player->position);
                         resident_data_0013E130.trailA[resident_data_0013E130.trail].components[3] = 1.0f;
-                        matrix_mul_vec3(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
-                                        &resident_data_001D9D40[resident_data_0013E130.content_variant].b,
-                                        resident_data_0013E130.player->transform);
+                        transform_vector_by_basis(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
+                                                  &resident_data_001D9D40[resident_data_0013E130.content_variant].b,
+                                                  resident_data_0013E130.player->transform);
                         FastVecAdd(&resident_data_0013E130.trailB[resident_data_0013E130.trail],
                                    &resident_data_0013E130.trailB[resident_data_0013E130.trail],
                                    &resident_data_0013E130.player->position);
@@ -1648,8 +1650,9 @@ void update_resident_gameplay_state(void) {
                     ResidentRenderObject *p = resident_data_0013E130.player;
                     ResidentRenderObject *scratch_vectors = resident_data_0013E130.companion_a;
                     qcopy(&scratch_vectors->rotation, &p->rotation);
-                    matrix_mul_vec3(&scratch_vectors->position,
-                                    &resident_data_001DA010[resident_data_0013E130.content_variant], p->transform);
+                    transform_vector_by_basis(&scratch_vectors->position,
+                                              &resident_data_001DA010[resident_data_0013E130.content_variant],
+                                              p->transform);
                 }
                 FastVecAdd(&resident_data_0013E130.companion_a->position, &resident_data_0013E130.companion_a->position,
                            &resident_data_0013E130.player->position);
@@ -1658,8 +1661,9 @@ void update_resident_gameplay_state(void) {
                     ResidentRenderObject *scratch_vectors = resident_data_0013E130.companion_b;
                     ResidentRenderObject *p = resident_data_0013E130.player;
                     qcopy(&scratch_vectors->rotation, &p->rotation);
-                    matrix_mul_vec3(&scratch_vectors->position,
-                                    &resident_data_001DA040[resident_data_0013E130.content_variant], p->transform);
+                    transform_vector_by_basis(&scratch_vectors->position,
+                                              &resident_data_001DA040[resident_data_0013E130.content_variant],
+                                              p->transform);
                 }
                 FastVecAdd(&resident_data_0013E130.companion_b->position, &resident_data_0013E130.companion_b->position,
                            &resident_data_0013E130.player->position);
@@ -1802,14 +1806,14 @@ struct CommonArchiveMemory;
 extern struct DiscTable disc_table;
 extern u64 special_material_template[3];
 extern s32 resident_indexed_texture_count MACRO_ADDR;
-extern s32 resident_indexed_texture_addrs[];
+extern s32 moby_texture_lookup_table[];
 extern s32 resident_moby_class_count MACRO_ADDR;
 extern s32 level_texture_payload_address MACRO_ADDR;
 extern char resident_indexed_textures[0x1000];
 extern u8 point_lights[];
 extern u8 point_light_data[];
 extern char dir_lights[];
-extern u8 default_dir_lights[];
+extern u8 default_directional_light_template[];
 extern u8 *resident_object_pool MACRO_ADDR;
 extern u8 *moby_instance_end MACRO_ADDR;
 extern u8 *g_moby_vars MACRO_ADDR;
@@ -1825,9 +1829,9 @@ extern short resident_quad_start_pos;
 extern u8 level_init_cleared_block[];
 extern u8 level_init_cleared_block2[];
 
-extern s32 Stream_SubmitRead(void *buf, u32 lsn, u32 sectors);
+extern s32 submit_audio_stream_io_request(void *buf, u32 lsn, u32 sectors);
 
-extern void SoundBank_StoreHandle();
+extern void store_sound_bank_handle_callback();
 #define sequence (*(f32 *)&D_0015F53C)
 #define D_001413D0 ((s32 *)&D_001414D0)
 #define current_vu_chain_r (*(s32 *)((u8 *)&D_00160000 + 0x100C))
@@ -1870,7 +1874,6 @@ extern void SoundBank_StoreHandle();
 #define init_view_context ((void (*)(void))func_001F3008)
 #define update_view_context ((void (*)(void))func_001F3140)
 #define vu1_init_chain func_002348E8
-#define submit_audio_stream_io_request func_002175C8
 #define scale_game_frames ((s32 (*)(s32))func_001F98C0)
 #define fade_to_black func_001F4E08
 #define sceCdSync ((s32 (*)(s32))func_00120F30)
@@ -1981,7 +1984,7 @@ void initialize_level_runtime(void) {
     gs_texture_allocation_cursor = texture_cursor;
     D_001941C0_q.unk18 = (s32)allocation_cursor;
     gs_texture_allocation_start = texture_cursor;
-    D_00160588 = texture_packet[0];
+    cutscene_moby_ids_by_content_variant = texture_packet[0];
     clear_blocks_16(point_lights, 0x100);
     clear_blocks_16(point_light_data, 0x180);
     clear_blocks_16(dir_lights, 0x400);
@@ -2062,7 +2065,7 @@ void play_level_transition_movie(int id) {
     }
     voice_pool[0x6B] |= 8;
     buf = level_resource_buffer_base;
-    Movie_Play(sector, size, (buf + 0x3F) & ~0x3F, (buf + 0x300000 + 0x3F) & ~0x3F, g_game_language);
+    play_mpeg_movie(sector, size, (buf + 0x3F) & ~0x3F, (buf + 0x300000 + 0x3F) & ~0x3F, g_game_language);
     sce_gs_sync_v(0);
     wait_for_graphics_pipeline_idle(0, 0);
     sceGsSyncVCallback(vsync_callback);
@@ -2072,7 +2075,7 @@ void play_level_transition_movie(int id) {
 
 extern int *g_render_packet_cursor MACRO_ADDR;
 extern int g_screen_extent[];
-extern char textured_quad_giftag[];
+extern char loading_quad_packet_header_template[];
 
 typedef union {
     struct {
@@ -2109,7 +2112,7 @@ void append_scrolling_textured_quad(int x, int y, int w, int h, unsigned long rg
     g_render_packet_cursor[3] = 0x50000007;
     base = g_render_packet_cursor;
     g_render_packet_cursor = base + 4;
-    qcopy(base + 4, textured_quad_giftag);
+    qcopy(base + 4, loading_quad_packet_header_template);
     p = (long *)(base + 8);
     g_render_packet_cursor = base + 8;
     p[0] = tex;
@@ -2138,7 +2141,7 @@ struct CommonArchiveMemory {
 
 extern s32 wait_for_graphics_pipeline_idle_r(s32 a0, s32 a1) __asm__("func_00120858");
 
-extern s32 Stream_SubmitRead(void *a0, u32 a1, u32 a2);
+extern s32 submit_audio_stream_io_request(void *a0, u32 a1, u32 a2);
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/textbin/fun_00231878.c, prepare_loading_slide_textures. */
 void prepare_loading_slide_textures(s32 language_index, s32 first_slide, s32 second_slide, u64 *shared_texture,
@@ -2158,8 +2161,9 @@ void prepare_loading_slide_textures(s32 language_index, s32 first_slide, s32 sec
     second_output = second_texture;
     archive_memory = &level_resource_buffers;
     upload_index = 0;
-    Stream_SubmitRead((void *)(archive_memory->archive_base + 0x100000),
-                      disc_table.loading_slides[language_index].sector, disc_table.loading_slides[language_index].size);
+    submit_audio_stream_io_request((void *)(archive_memory->archive_base + 0x100000),
+                                   disc_table.loading_slides[language_index].sector,
+                                   disc_table.loading_slides[language_index].size);
     sce_cd_sync_s(0);
     flush_cache(0);
     fast_decompress(archive_memory->archive_base + 0x100000, archive_memory->archive_base);
@@ -2342,7 +2346,7 @@ typedef struct {
     int pad0[4];
     unsigned int f10;
 } Blk4200;
-extern Blk4200 D_00194200;
+extern Blk4200 coll_output;
 typedef struct {
     unsigned char pad0[8];
     unsigned char f8;
@@ -2577,9 +2581,9 @@ extern Vec4 *environment_mesh_positions SDATA(environment_mesh_positions);
 extern IndexedQuad *environment_mesh_quads SDATA(environment_mesh_quads);
 extern CameraSystem gCamera_r __asm__("D_00187040");
 extern FloatVector4 camera_position_r __asm__("D_00187180");
-extern Vec4 env_map_world_positions[];
-extern float env_map_uvs[][2];
-extern float env_map_saved_uvs[][2];
+extern Vec4 environment_mapping_transformed_vertex_positions[];
+extern float environment_mapping_vertex_uvs[][2];
+extern float environment_mapping_saved_vertex_uvs[][2];
 extern u64 GetEffectTex_r2(int) __asm__("func_001F4868");
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/rendering/render_environment_mapped_object.c, render_environment_mapped_object. */
@@ -2626,9 +2630,9 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
     colors[2] = color;
     colors[1] = color;
     colors[0] = color;
-    MobyTransformScaledVertex(object, 0, object_transform);
-    if (g_game_mode != 0 || (FastAbsF(gCamera_r.pos.f[0] - object->position_x) < 16.0f &&
-                             FastAbsF(gCamera_r.pos.f[1] - object->position_y) < 16.0f)) {
+    build_moby_bone_transform(object, 0, object_transform);
+    if (g_game_mode != 0 || (absolute_float(gCamera_r.pos.f[0] - object->position_x) < 16.0f &&
+                             absolute_float(gCamera_r.pos.f[1] - object->position_y) < 16.0f)) {
         mapping_enabled = 1;
     }
     if (g_game_mode == 6 && ship_substate_r[0] == 4) {
@@ -2639,8 +2643,10 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
         fast_dec_timer(&(env_map_blend_timer));
         transition_fraction = IntToFloat((env_map_blend_timer)) / IntToFloat(scale_game_frame_count(0x3C));
         for (element_index = 0; element_index < vertex_count; element_index++) {
-            transform_vector(&env_map_world_positions[element_index], &positions[element_index], object_transform);
-            FastVecSub(view_direction, &env_map_world_positions[element_index], camera_position_r);
+            transform_vector(&environment_mapping_transformed_vertex_positions[element_index],
+                             &positions[element_index], object_transform);
+            FastVecSub(view_direction, &environment_mapping_transformed_vertex_positions[element_index],
+                       camera_position_r);
             fast_vec_normalize(view_direction, view_direction, 1.0f);
             transform_vector(normal, &normals[element_index], object_transform);
             fast_vec_normalize(normal, normal, 0.1f);
@@ -2648,17 +2654,19 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
             FastVecSub(reflection, view_direction, reflection);
             fast_vec_normalize(reflection, reflection, 1.0f);
             reflection[2] += 1.0f;
-            sphere_denominator = vec_length(reflection[2] * 2.0f) * 2.0f;
+            sphere_denominator = square_root(reflection[2] * 2.0f) * 2.0f;
             if ((environment_mapping_uv_refresh_state) == 1 || (env_map_blend_timer) == 0) {
-                env_map_uvs[element_index][0] = reflection[0] / sphere_denominator + 0.5f;
-                env_map_uvs[element_index][1] = reflection[1] / sphere_denominator + 0.5f;
+                environment_mapping_vertex_uvs[element_index][0] = reflection[0] / sphere_denominator + 0.5f;
+                environment_mapping_vertex_uvs[element_index][1] = reflection[1] / sphere_denominator + 0.5f;
             } else {
                 coordinate = reflection[0] / sphere_denominator + 0.5f;
-                env_map_uvs[element_index][0] =
-                    coordinate + (env_map_saved_uvs[element_index][0] - coordinate) * transition_fraction;
+                environment_mapping_vertex_uvs[element_index][0] =
+                    coordinate +
+                    (environment_mapping_saved_vertex_uvs[element_index][0] - coordinate) * transition_fraction;
                 coordinate = reflection[1] / sphere_denominator + 0.5f;
-                env_map_uvs[element_index][1] =
-                    coordinate + (env_map_saved_uvs[element_index][1] - coordinate) * transition_fraction;
+                environment_mapping_vertex_uvs[element_index][1] =
+                    coordinate +
+                    (environment_mapping_saved_vertex_uvs[element_index][1] - coordinate) * transition_fraction;
             }
         }
         if ((environment_mapping_uv_refresh_state) == 1) {
@@ -2668,13 +2676,17 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
         if ((env_map_was_active) == 1) {
             (env_map_was_active) = 0;
             for (element_index = 0; element_index < vertex_count; element_index++) {
-                env_map_saved_uvs[element_index][0] = env_map_uvs[element_index][0];
-                env_map_saved_uvs[element_index][1] = env_map_uvs[element_index][1];
-                transform_vector(&env_map_world_positions[element_index], &positions[element_index], object_transform);
+                environment_mapping_saved_vertex_uvs[element_index][0] =
+                    environment_mapping_vertex_uvs[element_index][0];
+                environment_mapping_saved_vertex_uvs[element_index][1] =
+                    environment_mapping_vertex_uvs[element_index][1];
+                transform_vector(&environment_mapping_transformed_vertex_positions[element_index],
+                                 &positions[element_index], object_transform);
             }
         } else {
             for (element_index = 0; element_index < vertex_count; element_index++) {
-                transform_vector(&env_map_world_positions[element_index], &positions[element_index], object_transform);
+                transform_vector(&environment_mapping_transformed_vertex_positions[element_index],
+                                 &positions[element_index], object_transform);
             }
         }
         (env_map_blend_timer) = scale_game_frame_count(0x3C);
@@ -2683,9 +2695,9 @@ void render_environment_mapped_object(EnvironmentMappedObject *object) {
         for (corner_index = 0; corner_index < 4; corner_index++) {
             int vertex_index = indexed_quads[element_index].corners[corner_index].vertex_index;
 
-            qcopy(&quad_positions[corner_index], &env_map_world_positions[vertex_index]);
-            texture_coordinates[corner_index][0] = env_map_uvs[vertex_index][0];
-            texture_coordinates[corner_index][1] = env_map_uvs[vertex_index][1];
+            qcopy(&quad_positions[corner_index], &environment_mapping_transformed_vertex_positions[vertex_index]);
+            texture_coordinates[corner_index][0] = environment_mapping_vertex_uvs[vertex_index][0];
+            texture_coordinates[corner_index][1] = environment_mapping_vertex_uvs[vertex_index][1];
         }
         draw_world_quad_packet(quad_positions, 0, 0);
     }

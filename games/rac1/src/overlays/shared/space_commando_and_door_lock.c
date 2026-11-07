@@ -190,7 +190,7 @@ void blarg_space_commando_update(struct Moby *moby) {
     process_blarg_space_commando_hits(moby);
     target = vars->target;
     Manipulator_ApplyScale_v(moby, 1, vars->unk420, 2.5f);
-    if (moby->visible != 0 && FastVecDist(&moby->pos, &blarg_camera_pos) < 27.0f) {
+    if (moby->visible != 0 && fast_vec_dist(&moby->pos, &blarg_camera_pos) < 27.0f) {
         set_ground_height_band(moby);
         moby->shadow_range = 0x15;
     }
@@ -276,7 +276,7 @@ void blarg_space_commando_update(struct Moby *moby) {
                 b.f[0] = FastCos(moby->rot.z) * dist;
                 b.f[1] = FastSin(moby->rot.z) * dist;
                 b.f[2] = 0.0f;
-                move_w(moby, &vars->ctl, &b, &c, 1.0f);
+                MobySteerToward(moby, &vars->ctl, &b, &c, 1.0f);
             }
             break;
         case 2:
@@ -336,7 +336,7 @@ void blarg_space_commando_update(struct Moby *moby) {
             Moby_GetJointWorldPos_r(moby, 0, &a);
             qcopy(&b, &moby->pos);
             b.f[2] += 0.3f;
-            cur_frame = MobyGetFrameValue(moby);
+            cur_frame = compute_interpolated_record_value(moby);
             if (g_hero.vehicle_mode == 1 && cur_frame < 9.0f) {
                 moby->anim_speed = D_L06_0016205C_FF000;
             }
@@ -375,10 +375,9 @@ void blarg_space_commando_update(struct Moby *moby) {
             a.f[0] = 2.0f * FastCos(moby->rot.z);
             a.f[1] = 2.0f * FastSin(moby->rot.z);
             a.f[2] = 0.0f;
-            move_w(moby, &vars->ctl, &a, &b, 1.0f);
+            MobySteerToward(moby, &vars->ctl, &a, &b, 1.0f);
             resolve_point_path_segment_xy_clearance_v(vars->path, &moby->pos, &moby->pos, 0.75f);
-            if (SegmentCrossPolyline(vars->path, &moby->pos, &target->pos, &c) != 0 &&
-                FastVecDist(&moby->pos, &c) < 0.8f) {
+            if (path_8808(vars->path, &moby->pos, &target->pos, &c) != 0 && fast_vec_dist(&moby->pos, &c) < 0.8f) {
                 near = 1;
             }
             if (vars->unk188 == 0) {
@@ -399,7 +398,7 @@ void blarg_space_commando_update(struct Moby *moby) {
             Moby_GetJointWorldPos_r(moby, 0, &a);
             qcopy(&b, &moby->pos);
             b.f[2] += 1.5f;
-            frame = MobyGetFrameValue(moby);
+            frame = compute_interpolated_record_value(moby);
             if (frame >= 9.0f && frame <= 15.0f) {
                 c.f[0] = FastCos(moby->rot.z);
                 c.f[1] = FastSin(moby->rot.z);
@@ -427,10 +426,10 @@ void blarg_space_commando_update(struct Moby *moby) {
             a.f[2] = 0.0f;
             if (FastDiffRots(moby->rot.z, fast_atan2(vars->home.f[0] - moby->pos.x, vars->home.f[1] - moby->pos.y)) <
                 0.7853982f) {
-                move_w(moby, &vars->ctl, &a, &b, 1.0f);
+                MobySteerToward(moby, &vars->ctl, &a, &b, 1.0f);
                 resolve_point_path_segment_xy_clearance_v(vars->path, &moby->pos, &moby->pos, 0.75f);
             }
-            if (FastVecDist(&vars->home, &moby->pos) < 1.0f) {
+            if (fast_vec_dist(&vars->home, &moby->pos) < 1.0f) {
                 moby->state = 1;
                 if (moby->prev_seq != 0) {
                     MobyBlendAnimation(moby, 0, 0, scale_ticks(20));
@@ -438,7 +437,7 @@ void blarg_space_commando_update(struct Moby *moby) {
             }
             break;
         case 15:
-            hit = mine_fall(moby, &vars->vel);
+            hit = step_moby_motion(moby, &vars->vel);
             if (hit & 0x40) {
                 moby->state = 1;
                 if (moby->prev_seq != 0) {
@@ -449,7 +448,7 @@ void blarg_space_commando_update(struct Moby *moby) {
             }
             break;
         case 16:
-            if (mine_fall(moby, &vars->vel) & 0x160) {
+            if (step_moby_motion(moby, &vars->vel) & 0x160) {
                 s32 none;
 
                 qcopy(&a, &moby->pos);
@@ -523,8 +522,8 @@ void process_blarg_space_commando_hits(char *m) {
         if (g_current_level_index == LEVEL_ORXON && t != 0 && t->source != 0 && *(short *)(t->source + 0xA6) == 0x31A &&
             gSkillPoints[0x11] == 0) {
             gSkillPoints[0x11] = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53DB, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53DB, -1);
         }
         f = d->health - dt;
         d->health = f;
@@ -625,7 +624,7 @@ void process_blarg_space_commando_hits(char *m) {
         if (FindNearestEligibleMoby(d->sight_range, m, q, 0, 0, e + 4, *e) != 2) {
             if (d->sight_range < vec_distance_xy(&d->sight_pos, d->home_pos)) {
                 d->mode = 2;
-            } else if (3.0f < FastAbsF(((Moby *)m)->pos.z - d->home_z)) {
+            } else if (3.0f < absolute_float(((Moby *)m)->pos.z - d->home_z)) {
                 d->mode = 2;
             }
         }
@@ -643,9 +642,9 @@ void initialize_blarg_space_commando_beam(Moby *m) {
     char *d = ((char *)m->pvars);
     float v[4];
     int i;
-    ProbeGroundHeight(&m->pos, 0, 0.5f);
+    probe_ground_height(&m->pos, 0, 0.5f);
     vec_scale_to_length(&((struct SpaceCommandoVars *)d)->beam_dir, blarg_coll_hit_normal, 1.0f);
-    Moby_GetJointWorldPos(m, 0, &((struct SpaceCommandoVars *)d)->muzzle_pos);
+    moby_point_position(m, 0, &((struct SpaceCommandoVars *)d)->muzzle_pos);
     ((struct SpaceCommandoVars *)d)->muzzle_z = m->pos.z;
     for (i = 0; i < 16; i++) {
         float f = IntToFloat(i) * 0.0625f - 0.5f;
@@ -779,7 +778,7 @@ extern s32 space_commando_beam_outer_color_a SDATA(space_commando_beam_outer_col
 extern s32 space_commando_beam_outer_color_b SDATA(space_commando_beam_outer_color_b);
 extern s32 space_commando_beam_inner_color_a SDATA(space_commando_beam_inner_color_a);
 extern s32 space_commando_beam_inner_color_b SDATA(space_commando_beam_inner_color_b);
-extern f32 space_commando_beam_uvs[4][2];
+extern f32 beam_quad_corner_uvs[4][2];
 
 extern u64 GetEffectTex_v(s32) __asm__("func_001F4868");
 
@@ -817,8 +816,8 @@ void DrawBeam(char *moby) {
     pk[0].tag[3] = regs;
     set_identity_matrix(mat);
     do {
-        space_commando_beam_uvs[1][1] = space_commando_beam_uvs[3][1];
-        space_commando_beam_uvs[3][1] = random_float_between(0.0f, 0.2f);
+        beam_quad_corner_uvs[1][1] = beam_quad_corner_uvs[3][1];
+        beam_quad_corner_uvs[3][1] = random_float_between(0.0f, 0.2f);
         for (j = 0; j < 4; j++) {
             v = pk[0].pos[j];
             off = (i + j / 2) * 16;
@@ -837,10 +836,10 @@ void DrawBeam(char *moby) {
                 pk[0].col[j] = FastTweenColor_r(*(f32 *)(data + off + 0x23C), (space_commando_beam_outer_color_a),
                                                 (space_commando_beam_outer_color_b));
             }
-            pk[0].uv[j][0] = space_commando_beam_uvs[j][0];
-            pk[0].uv[j][1] = space_commando_beam_uvs[j][1];
-            pk[1].uv[j][0] = space_commando_beam_uvs[j][0];
-            pk[1].uv[j][1] = space_commando_beam_uvs[j][1];
+            pk[0].uv[j][0] = beam_quad_corner_uvs[j][0];
+            pk[0].uv[j][1] = beam_quad_corner_uvs[j][1];
+            pk[1].uv[j][0] = beam_quad_corner_uvs[j][0];
+            pk[1].uv[j][1] = beam_quad_corner_uvs[j][1];
         }
         draw_world_quad(pk, mat, 0);
         for (j = 0; j < 4; j++) {
@@ -917,7 +916,7 @@ void spawn_blarg_space_commando_beam_sparks(char *moby) {
 }
 
 extern float g_frame_time_sq MACRO_ADDR;
-extern float spinning_fragment_scale SDATA(spinning_fragment_scale);
+extern float spinning_fragment_scale_factor_gp SDATA(D_L06_00162110);
 
 /* A falling spinning moby's per-frame velocities, the moby's pvars block. */
 typedef struct FallingSpinVars {
@@ -926,11 +925,11 @@ typedef struct FallingSpinVars {
 } FallingSpinVars;
 
 // Per-frame update: drift a moby and its rotation toward the data vectors, delete when timer ends.
-void update_falling_spinning_moby(char *moby) {
+void falling_spinning_moby_update(char *moby) {
     struct Moby *m = (struct Moby *)moby;
     FallingSpinVars *data;
     float vertical_velocity_decrement = g_frame_time_sq * 15.0f;
-    m->scale = m->pclass->scale * spinning_fragment_scale;
+    m->scale = m->pclass->scale * spinning_fragment_scale_factor_gp;
     data = (FallingSpinVars *)m->pvars;
     data->vel.z -= vertical_velocity_decrement;
     FastVecAdd(&m->pos.x, &m->pos.x, &data->vel.x);
@@ -960,7 +959,7 @@ char *spawn_spinning_moby_fragment(int unused, char *pa, char *pb) {
     *(u128 *)b = *(u128 *)pb;
     m = (Moby *)mk_a(rnd_a(random_float_between(1085.0f, 1089.0f)));
     if (m != 0) {
-        m->scale = *(float *)(*(char **)&m->pclass + 0x24) * spinning_fragment_scale;
+        m->scale = *(float *)(*(char **)&m->pclass + 0x24) * spinning_fragment_scale_factor_gp;
         m->update_dist = 0xFF;
         m->draw_dist = 0x7E;
         m->visible = 1;
@@ -976,15 +975,15 @@ char *spawn_spinning_moby_fragment(int unused, char *pa, char *pb) {
     return (char *)m;
 }
 extern int blarg_frame_count MACRO_ADDR;
-extern short blarg_timer_display_x;
-extern short blarg_timer_display_y;
-extern short blarg_timer_pulse_color_a;
-extern short blarg_timer_pulse_color_b;
-extern short blarg_timer_frame_y0_offset;
-extern short blarg_timer_frame_y1_offset;
-extern short blarg_timer_frame_x0_offset;
-extern short blarg_timer_frame_x1_offset;
-extern short blarg_timer_frame_alpha;
+extern short timer_text_center_x_gp;
+extern short timer_text_y_gp;
+extern short timer_text_color_at_zero_blend_gp;
+extern short timer_text_color_at_unit_blend_gp;
+extern short timer_frame_x_addend_gp;
+extern short timer_frame_y_addend_gp;
+extern short timer_frame_left_x_addend_gp;
+extern short timer_frame_right_x_addend_gp;
+extern short timer_frame_fill_high_byte_gp;
 
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
@@ -997,17 +996,16 @@ void draw_pulsing_timer_display(char *moby) {
     float v;
     int col;
 
-    DrawUIFrame(W(blarg_timer_frame_y0_offset) + W(blarg_timer_display_y),
-                W(blarg_timer_frame_y1_offset) + W(blarg_timer_display_y),
-                W(blarg_timer_frame_x0_offset) + W(blarg_timer_display_x),
-                W(blarg_timer_frame_x1_offset) + W(blarg_timer_display_x), W(blarg_timer_frame_alpha));
+    DrawUIFrame(W(timer_frame_x_addend_gp) + W(timer_text_y_gp), W(timer_frame_y_addend_gp) + W(timer_text_y_gp),
+                W(timer_frame_left_x_addend_gp) + W(timer_text_center_x_gp),
+                W(timer_frame_right_x_addend_gp) + W(timer_text_center_x_gp), W(timer_frame_fill_high_byte_gp));
     v = FastSin(IntToFloat(blarg_frame_count % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
     if (v > 1.0f) {
         v = 1.0f;
     } else if (v < 0.0f) {
         v = 0.0f;
     }
-    col = FastTweenColor(W(blarg_timer_pulse_color_a), W(blarg_timer_pulse_color_b), v);
+    col = FastTweenColor(W(timer_text_color_at_zero_blend_gp), W(timer_text_color_at_unit_blend_gp), v);
     buf[0] = 0x30;
     buf[1] = data->frames / scale_ticks(0xE10) + 0x30;
     buf[2] = 0x3A;
@@ -1016,7 +1014,7 @@ void draw_pulsing_timer_display(char *moby) {
     buf[5] = 0x3A;
     buf[6] = data->frames % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
     buf[7] = truncate_float_to_s32_r((float)random_integer_below(10)) + 0x30;
-    FontPrintCenterLarge(W(blarg_timer_display_x), W(blarg_timer_display_y), col, (int)buf, 8);
+    FontPrintCenterLarge(W(timer_text_center_x_gp), W(timer_text_y_gp), col, (int)buf, 8);
 }
 // Sets offset 0x20 to 2
 void set_moby_state_two(char *arg) {
@@ -1024,7 +1022,7 @@ void set_moby_state_two(char *arg) {
 }
 /* Draws a spinning 4-quad textured cage plus a fading inner quad around the moby (data at moby+0x78: scale at 0x24, uv
    scroll at 0x1C, fade at 0x20; both advance 0.01 per call and wrap at 1.0): corners come from the level tables
-   door_lock_glow_corner_vertices/ECB0/ECF8/ED20 rotated by a matrix built from referencePosition+0x158, each quad
+   door_lock_glow_corner_vertices/ECB0/ECF8/ED20 rotated by a matrix built from D_L06_00167500+0x158, each quad
    submitted with draw_world_quad. Written from the asm alone (no NTSC draft); the packet layout (pos 0x00, colour
    0x40, uv 0x50, tags 0x70) follows its stores. Nothing unchecked. */
 typedef struct {
@@ -1066,10 +1064,14 @@ void draw_bot_door_lock_glow(char *o) {
     pk.tag[0] = 0;
     pk.tag[1] = GetEffectTex_v(0x18);
     for (i = 0; i < 4; i++) {
-        matrix_mul_vec3(v[0], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][0] * 16, mat);
-        matrix_mul_vec3(v[1], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][1] * 16, mat);
-        matrix_mul_vec3(v[2], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][2] * 16, mat);
-        matrix_mul_vec3(v[3], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][3] * 16, mat);
+        transform_vector_by_basis(v[0], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][0] * 16,
+                                  mat);
+        transform_vector_by_basis(v[1], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][1] * 16,
+                                  mat);
+        transform_vector_by_basis(v[2], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][2] * 16,
+                                  mat);
+        transform_vector_by_basis(v[3], door_lock_glow_corner_vertices + door_lock_glow_quad_corner_indices[i][3] * 16,
+                                  mat);
         pk.pos[0][0] = ((Moby *)o)->pos.x + v[0][0] * *(float *)(data + 0x24);
         pk.pos[0][1] = ((Moby *)o)->pos.y + v[0][1] * *(float *)(data + 0x24);
         pk.pos[0][2] = ((Moby *)o)->pos.z + v[0][2];
@@ -1133,10 +1135,10 @@ void draw_bot_door_lock_glow(char *o) {
     axis[0] = 0.0f;
     axis[1] = 0.0f;
     euler_rotation_basis(mat, axis);
-    matrix_mul_vec3(v[0], w[0], mat);
-    matrix_mul_vec3(v[1], w[1], mat);
-    matrix_mul_vec3(v[2], w[2], mat);
-    matrix_mul_vec3(v[3], w[3], mat);
+    transform_vector_by_basis(v[0], w[0], mat);
+    transform_vector_by_basis(v[1], w[1], mat);
+    transform_vector_by_basis(v[2], w[2], mat);
+    transform_vector_by_basis(v[3], w[3], mat);
     pk.pos[0][0] = ((Moby *)o)->pos.x + v[0][0];
     pk.pos[0][1] = ((Moby *)o)->pos.y + v[0][1];
     pk.pos[0][2] = ((Moby *)o)->pos.z + v[0][2];
@@ -1193,11 +1195,11 @@ void activate_bot_door_lock_target(unsigned char *a, unsigned char *m) {
 void activate_bot_door_lock_target(unsigned char *a, unsigned char *m);
 typedef int OvlQuad_p __attribute__((mode(TI)));
 extern void draw_bot_door_lock_glow(char *);
-extern float bot_door_lock_bob_height SDATA(bot_door_lock_bob_height);
-extern float bot_door_lock_bob_period SDATA(bot_door_lock_bob_period);
-extern float bot_door_lock_pulse_period SDATA(bot_door_lock_pulse_period);
-extern float bot_door_lock_glow_amplitude SDATA(bot_door_lock_glow_amplitude);
-extern float bot_door_lock_fade_max SDATA(bot_door_lock_fade_max);
+extern float bot_door_lock_number_bob_amplitude_gp SDATA(D_L06_0016236C);
+extern float bot_door_lock_number_bob_period_gp SDATA(D_L06_00162370);
+extern float bot_door_lock_color_pulse_period_gp SDATA(D_L06_00162374);
+extern float bot_door_lock_number_color_pulse_amplitude_gp SDATA(D_L06_00162378);
+extern float bot_door_lock_max_effect_horizontal_scale_gp SDATA(D_L06_0016237C);
 extern unsigned char hero_vehicle_mode NOT_SDA;
 extern int draw_map51 MACRO_ADDR;
 extern unsigned char saved_mission_state[];
@@ -1234,7 +1236,7 @@ void bot_door_lock_update(Moby *moby) {
 
     if (data->id[0] == -1)
         return;
-    data->f10 = FastAddRots(data->f10, (360.0f / (bot_door_lock_pulse_period)) * 0.017453292f * g_frame_time);
+    data->f10 = FastAddRots(data->f10, (360.0f / (bot_door_lock_color_pulse_period_gp)) * 0.017453292f * g_frame_time);
     *(unsigned int *)&moby->glow_color =
         ((unsigned int (*)(float, int, int))FastTweenColor)((FastCos(data->f10) + 1.0f) * 0.5f, 0x80464646, 0x80828282);
     switch ((unsigned char)*(char *)&moby->state) {
@@ -1243,32 +1245,33 @@ void bot_door_lock_update(Moby *moby) {
             data->f6 = random_angle_radians();
             data->f10 = random_angle_radians();
             moby->state = 1;
-            data->f9 = (bot_door_lock_fade_max);
+            data->f9 = (bot_door_lock_max_effect_horizontal_scale_gp);
             return;
         case 1:
             *(OvlQuad_p *)pos = *(OvlQuad_p *)&moby->pos;
             pos[2] += 2.75f;
-            if (FastVecDist(((float *)&blarg_camera_pos), &moby->pos) < 32.0f) {
-                float lim = (bot_door_lock_fade_max);
+            if (fast_vec_dist(((float *)&blarg_camera_pos), &moby->pos) < 32.0f) {
+                float lim = (bot_door_lock_max_effect_horizontal_scale_gp);
                 data->f9 += g_frame_time + g_frame_time;
                 if (lim < data->f9)
                     data->f9 = lim;
-            } else if (36.0f < FastVecDist(((float *)&blarg_camera_pos), &moby->pos)) {
+            } else if (36.0f < fast_vec_dist(((float *)&blarg_camera_pos), &moby->pos)) {
                 data->f9 -= g_frame_time + g_frame_time;
                 if (data->f9 < 0.0f)
                     data->f9 = 0.0f;
             }
             if (0.0f < data->f9) {
                 AddDrawCallback((void *)draw_bot_door_lock_glow, moby);
-                data->f6 = FastAddRots(data->f6, (360.0f / (bot_door_lock_bob_period)) * 0.017453292f * g_frame_time);
-                pos[2] += (bot_door_lock_bob_height)*FastCos(data->f6);
-                value = truncate_float_to_s32((bot_door_lock_glow_amplitude)*FastCos(data->f10));
+                data->f6 = FastAddRots(data->f6,
+                                       (360.0f / (bot_door_lock_number_bob_period_gp)) * 0.017453292f * g_frame_time);
+                pos[2] += (bot_door_lock_number_bob_amplitude_gp)*FastCos(data->f6);
+                value = truncate_float_to_s32((bot_door_lock_number_color_pulse_amplitude_gp)*FastCos(data->f10));
                 color_channels = (value / 2 + 120) * 0x100 | 0x20000000U;
                 color_channels = or_blue_channel_p(value / 3 + 13, color_channels);
                 color = color_channels | (value + 150U);
                 if (hero_vehicle_mode == 1) {
                     if (data->cnt < 10) {
-                        PartType41Spawn(pos, moby, data->cnt + 2, color, 0x7f, 4, 0xff, 0.5f);
+                        draw_number(pos, moby, data->cnt + 2, color, 0x7f, 4, 0xff, 0.5f);
                     } else {
                         if (*(unsigned char *)&draw_map51) {
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
@@ -1277,14 +1280,14 @@ void bot_door_lock_update(Moby *moby) {
                             offset[1] = FastSin(angle) * 0.15f;
                             offset[2] = 0.0f;
                             add_vectors(result, offset, pos);
-                            PartType41Spawn(offset, moby, data->cnt / 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
+                            draw_number(offset, moby, data->cnt / 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
                             offset[0] = FastCos(angle) * -0.4f;
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
                             offset[1] = FastSin(angle) * -0.4f;
                             offset[2] = 0.0f;
                             add_vectors(result, offset, pos);
-                            PartType41Spawn(offset, moby, data->cnt % 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
+                            draw_number(offset, moby, data->cnt % 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
                         } else {
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
                             offset[0] = FastCos(angle) * -0.4f;
@@ -1292,14 +1295,14 @@ void bot_door_lock_update(Moby *moby) {
                             offset[1] = FastSin(angle) * -0.4f;
                             offset[2] = 0.0f;
                             add_vectors(result, offset, pos);
-                            PartType41Spawn(offset, moby, data->cnt / 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
+                            draw_number(offset, moby, data->cnt / 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
                             offset[0] = FastCos(angle) * 0.15f;
                             angle = FastAddRots(moby->rot.z, 1.5707964f);
                             offset[1] = FastSin(angle) * 0.15f;
                             offset[2] = 0.0f;
                             add_vectors(result, offset, pos);
-                            PartType41Spawn(offset, moby, data->cnt % 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
+                            draw_number(offset, moby, data->cnt % 10 + 2, color, 0x7f, 4, 0xff, 0.5f);
                         }
                     }
                 }
@@ -1329,7 +1332,7 @@ void bot_door_lock_update(Moby *moby) {
 extern float blarg_zero_vec[] MACRO_ADDR;
 
 /* Update: waits for a positive value, then spawns effects and a child moby and deletes itself. */
-void update_hit_triggered_moby_breakup(Moby *moby) {
+void prop_breakup_update(Moby *moby) {
     struct HitMessage *p;
     int f;
     float z;
@@ -1378,7 +1381,7 @@ void update_hit_triggered_moby_breakup(Moby *moby) {
 extern void draw_projected_fading_quad(char *);
 
 /* UpdateMoby: state 0 deletes, state 1 draws and times out */
-void update_timed_sprite_effect(Moby *m) {
+void timed_sprite_effect_update(Moby *m) {
     float *d = ((float *)m->pvars);
     switch ((unsigned char)*(char *)&m->state) {
         case 0:
@@ -1483,11 +1486,11 @@ void draw_projected_fading_quad(char *moby) {
     draw_geometry_quad_5188_v(corners, uvs, colors, texture, 1);
     VU1_addGSregister(0x47, 0x5360B);
 }
-extern char *blarg_camera_descriptors MACRO_ADDR;
+extern char *target_reference_table MACRO_ADDR;
 
 // If the moby's kind is 0x12, set a flag in the table entry it indexes.
-void SetTableEntryFlagIfKind18(char *moby) {
+void release_moby_camera_control(char *moby) {
     if (*(short *)(moby + 0x86) == 0x12) {
-        *(int *)(*(char **)(blarg_camera_descriptors + *(short *)(moby + 0x84) * 32 + 0x1C) + 0x50) = 1;
+        *(int *)(*(char **)(target_reference_table + *(short *)(moby + 0x84) * 32 + 0x1C) + 0x50) = 1;
     }
 }

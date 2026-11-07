@@ -30,6 +30,8 @@ ASM_MARK = "openrac_asm_"
 
 # A data symbol given as an asm label with a constant offset (`D_L16_0017C218+12`).
 _SYMBOL_OFFSET = re.compile(r"^\s*([A-Za-z_]\w*)\s*([+-])\s*(0[xX][0-9A-Fa-f]+|\d+)\s*$")
+# The suffix of a global's $gp view (common.h's SDATA): the same global under another label.
+_GP_VIEW = "__gp"
 
 # Helpers whose bodies are the decompilation's inline assembly
 # (include/common.h): the runtime has host versions (guest.h).
@@ -256,6 +258,10 @@ class Program:
                 text = offset.group(3)
                 n = int(text, 16) if text[:2] in ("0x", "0X") else int(text, 10)
                 return (base + n if offset.group(2) == "+" else base - n) & 0xFFFFFFFF
+        if symbol.endswith(_GP_VIEW):
+            # A $gp view of a global (common.h's SDATA, `__asm__("ref_L00_00424F98_03__gp")`) is
+            # the global: a level's derived name has its address only under its own name.
+            return self.data_address(symbol.removesuffix(_GP_VIEW))
         return None
 
     def data_level(self, symbol: str) -> int | None:
@@ -263,6 +269,8 @@ class Program:
         offset = _SYMBOL_OFFSET.match(symbol)
         if offset:
             symbol = offset.group(1)
+        if symbol.endswith(_GP_VIEW) and symbol not in self.level_names:
+            symbol = symbol.removesuffix(_GP_VIEW)
         if symbol in self.level_names and self.level_names[symbol][0] >= 0:
             return self.level_names[symbol][0]
         for pattern in self.data_names:
@@ -833,7 +841,10 @@ def best_declaration(sigs: list[Signature]) -> Signature:
 def read_places(path: Path, program: Program) -> int:
     """Each level function's address in each level that has it
     (config/overlays/functions.tsv of rac1/pal: name, kind, size,
-    fingerprint, levels, places as level:address,...)."""
+    fingerprint, levels, places as level:address,...; or a release's catalogue,
+    config/versions/<key>/functions.tsv: name, kind, size, fingerprint, counterpart,
+    method, similarity, same, places, whose executable places, boot:address, are the
+    name's own)."""
     if not path.exists():
         return 0
     count = 0
@@ -843,10 +854,11 @@ def read_places(path: Path, program: Program) -> int:
         cols = line.split("\t")
         if len(cols) < 6:
             continue
+        column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
         places = []
-        for item in cols[5].split(","):
+        for item in cols[column].split(","):
             level, _, addr = item.partition(":")
-            if level and addr:
+            if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
         if places:
             program.places[cols[0]] = places

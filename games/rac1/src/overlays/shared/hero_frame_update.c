@@ -17,7 +17,7 @@
 extern Hero g_hero;
 
 /* Per-frame driver: validates the cursor, then runs each update pass in order. */
-void HeroL03_FrameUpdate(void) {
+void update_hero_frame_pipeline(void) {
     struct Hero *g = &g_hero;
     if (g->motion.pos.f[0] < 2.0f || g->motion.pos.f[1] < 2.0f || g->motion.pos.f[0] > 1022.0f ||
         g->motion.pos.f[1] > 1022.0f) {

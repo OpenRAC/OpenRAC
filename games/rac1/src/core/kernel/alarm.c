@@ -26,9 +26,9 @@ int alarm_kCopy(int *dst, int *src, unsigned int nbytes) {
 
 ASM_FUNC("asm/handwritten/core_text", func_0011DE28);
 
-extern int alarm_syscall_patch_table[];
-extern char alarm_kernel_patch_code[];
-extern char alarm_scratchpad_patch_code[];
+extern int alarm_syscall_patch_pairs[];
+extern char alarm_kernel_patch_payload[];
+extern char alarm_call_trampoline_payload[];
 
 typedef struct {
     int a;
@@ -56,10 +56,10 @@ void InitAlarm(void) {
         return;
     }
 
-    t = alarm_syscall_patch_table;
+    t = alarm_syscall_patch_pairs;
     alarm_set_syscall(t[0], t[1]);
-    alarm_kernel_copy((void *)0x80076000, alarm_kernel_patch_code, 0x740);
-    alarm_kernel_copy((void *)0x82000, alarm_scratchpad_patch_code, 0x28);
+    alarm_kernel_copy((void *)0x80076000, alarm_kernel_patch_payload, 0x740);
+    alarm_kernel_copy((void *)0x82000, alarm_call_trampoline_payload, 0x28);
     flush_cache(0);
     flush_cache(2);
     alarm_set_syscall(t[2], t[3]);

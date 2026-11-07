@@ -42,9 +42,9 @@
           "tools/extract",
           "docs/GDSCRIPT_CONVENTIONS.md"
         ],
-        "commit": "1d8228cc0c81da7bc2bdc3e77479ee050e0ef434",
-        "date": "2026-11-03",
-        "imported": "2026-11-03"
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
@@ -285,6 +285,150 @@
             }
           ]
         }
+      }
+    },
+    "pal1": {
+      "dir": "games/rac1",
+      "region": "PAL (Europe)",
+      "serial": "SCES_509.16",
+      "bytematch": "OpenRAC/rac1-decomp",
+      "bytematch_version": "SCES_509.16_v1",
+      "decomp_version": "pal_v1",
+      "disc": {
+        "file": "SCES_509.16_v1.00.iso",
+        "volume": "RATCHETANDCLANK",
+        "version": "1.00",
+        "video": "PAL",
+        "size": 4213997568,
+        "crc32": "62afd5d4",
+        "md5": "936047108ef15e65b95ef473bbd80194",
+        "sha1": "b0dfbd8eac0d84f173b6fc25d8a02a5ff22c652f",
+        "sha256": "501a1e628973339480312843ee264704c66a2c4df7bb2b4b42cb7d645b39b2b4",
+        "files": 3,
+        "contents": "9f31b11769f5dd08f0ec961327664bd7122ecc9f3f7df2ae2962f7136e28e637"
+      },
+      "boot": {
+        "file": "SCES_509.16",
+        "size": 1381764,
+        "crc32": "d0b3f101",
+        "md5": "c42067dbff692106a24050987ebf1076",
+        "sha1": "553a7f6c2c7a004d384d77b7139accbc52242149",
+        "sha256": "ccab33621adc7a6adf19d8d7690d3f29e9a59c5f80507910e8a7a3afaeb7f7e5"
+      },
+      "target": "PAL disc v1.00's boot executable SCES_509.16 and its 19 level programs, built from the same tree as v2.00 (tools/version_build.py --version pal_v1): every function checked against its bytes, with src/versions/pal_v1/ where the release's code differs.",
+      "source": {
+        "shared": "pal",
+        "name": "rac1-decomp",
+        "repo": "https://github.com/OpenRAC/rac1-decomp",
+        "branch": "main",
+        "checkout": "../rac1-decomp",
+        "license": "GPL-3.0 (third-party parts keep theirs)",
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
+      },
+      "build": {
+        "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
+        "readme": "games/rac1/docs/VERSIONS.md"
+      },
+      "progress": {
+        "report": "games/rac1/progress/pal_v1/report.json",
+        "format": "objdiff",
+        "note": "The boot executable and all 19 level programs, counted with the primary's rules (config/versions/pal_v1/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/pal_v1/, builds its bytes (tools/version_check.py)."
+      },
+      "inputs": [],
+      "setup": "in games/rac1: python3 tools/versions.py dump --version pal_v1 (baserom/SCES_509.16_v1.00.iso), then python3 tools/version_build.py --version pal_v1 (docs/VERSIONS.md; bash tools/docker/run.sh <command> on a Mac)",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "games/rac1/baserom/pal_v1/SCES_509.16",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "games/rac1/baserom/pal_v1/overlays/level_*",
+            "format": "rac1-level"
+          }
+        ],
+        "matched": {
+          "kind": "objdiff",
+          "report": "games/rac1/progress/pal_v1/report.json",
+          "names": "games/rac1/config/names.tsv"
+        },
+        "setup": "python3 tools/versions.py dump --version pal_v1 in games/rac1"
+      }
+    },
+    "jp": {
+      "dir": "games/rac1",
+      "region": "NTSC-J (Japan)",
+      "serial": "SCPS_150.37",
+      "bytematch": "OpenRAC/rac1-decomp",
+      "bytematch_version": "SCPS_150.37",
+      "decomp_version": "jp",
+      "disc": {
+        "file": "SCPS_150.37.iso",
+        "volume": "RATCHETANDCLANK",
+        "version": "1.02",
+        "video": "NTSC",
+        "size": 1807187968,
+        "crc32": "24ecbbcb",
+        "md5": "d52141b6b229282ede00585c6168ca44",
+        "sha1": "70485d9e9617cfb9c21f999c176f45144aa97289",
+        "sha256": "e1ef4b23df593f469f1be60a946a61899c67b6204e2bf0cd93c66a6c2c92faeb",
+        "files": 3,
+        "contents": "596ff13dad450a1ce2bea91e8e3da026617875286272a726511a1132b817e331"
+      },
+      "boot": {
+        "file": "SCPS_150.37",
+        "size": 1390884,
+        "crc32": "69fc9c44",
+        "md5": "abf8ad28259238727925a7bdb3459e27",
+        "sha1": "0df83877d53e19d69ec82038e2aaa227f643178f",
+        "sha256": "75422066e9a6e8f5f3fa135658196dbb46df4903532acfa52a8a8ec0f3af8ab6"
+      },
+      "target": "The Japanese release's boot executable SCPS_150.37 and its 19 level programs, built from the same tree as PAL v2.00 (tools/version_build.py --version jp): every function checked against its bytes, with src/versions/jp/ where the release's code differs.",
+      "source": {
+        "shared": "pal",
+        "name": "rac1-decomp",
+        "repo": "https://github.com/OpenRAC/rac1-decomp",
+        "branch": "main",
+        "checkout": "../rac1-decomp",
+        "license": "GPL-3.0 (third-party parts keep theirs)",
+        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
+        "date": "2026-11-05",
+        "imported": "2026-11-06"
+      },
+      "build": {
+        "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
+        "readme": "games/rac1/docs/VERSIONS.md"
+      },
+      "progress": {
+        "report": "games/rac1/progress/jp/report.json",
+        "format": "objdiff",
+        "note": "The boot executable and all 19 level programs, counted with the primary's rules (config/versions/jp/functions.tsv): a function is finished when the shared C, or this release's own definition in src/versions/jp/, builds its bytes (tools/version_check.py)."
+      },
+      "inputs": [],
+      "setup": "in games/rac1: python3 tools/versions.py dump --version jp (baserom/SCPS_150.37.iso), then python3 tools/version_build.py --version jp (docs/VERSIONS.md; bash tools/docker/run.sh <command> on a Mac)",
+      "xmap": {
+        "code": [
+          {
+            "program": "boot",
+            "path": "games/rac1/baserom/jp/SCPS_150.37",
+            "format": "elf"
+          },
+          {
+            "program": "level",
+            "glob": "games/rac1/baserom/jp/overlays/level_*",
+            "format": "rac1-level"
+          }
+        ],
+        "matched": {
+          "kind": "objdiff",
+          "report": "games/rac1/progress/jp/report.json",
+          "names": "games/rac1/config/names.tsv"
+        },
+        "setup": "python3 tools/versions.py dump --version jp in games/rac1"
       }
     }
   }

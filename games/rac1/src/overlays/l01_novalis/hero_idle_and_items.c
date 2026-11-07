@@ -48,7 +48,7 @@ extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 extern char item_usage[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 extern int novalis_look_stat_timer SDATA(novalis_look_stat_timer);
 extern short novalis_hero_step_anim_modes;
 extern short novalis_hero_state_f_jump_velocity_keys;
@@ -56,11 +56,11 @@ extern char novalis_hero_state_d_jump_velocity_keys[];
 extern char novalis_hero_state_12_jump_velocity_keys[];
 extern unsigned char novalis_hero_run_jump_land_anim_by_frame[];
 extern T2C novalis_attack_records[];
-extern float novalis_hero_anim_time_curves[][25];
+extern float level_01_hero_animation_blend_curves[][25];
 
 /* Puts the hero into move state A (with its animation when B is set); returns 0 when the change is refused (level 01
    build). */
-int Hero_SetMoveState(int a, int b) {
+int l01_hero_set_state(int a, int b) {
     int old2088;
     char *moby;
     int old20A7;
@@ -119,7 +119,7 @@ int Hero_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 request_hero_idle_state_for_vehicle_mode();
@@ -127,7 +127,7 @@ int Hero_SetMoveState(int a, int b) {
             }
             qcopy(&p->motion.momentum, &p->motion.resolved_velocity);
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
-                Hero_SetMoveState(HERO_STATE_SLIP, 1);
+                l01_hero_set_state(HERO_STATE_SLIP, 1);
                 return 0;
             }
             {
@@ -272,15 +272,15 @@ int Hero_SetMoveState(int a, int b) {
             if (p->state.prev_control_mode == HERO_MODE_SWIM) {
                 emit_hero_surface_effect_burst(3, 0xA, 0);
                 if (pool_draw_tiles != 0) {
-                    RippleDisturb(pool_draw_tiles, pool_draw_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.4f,
-                                  0.3f);
+                    pool_splash(pool_draw_tiles, pool_draw_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.4f,
+                                0.3f);
                 }
             } else if (p->motion.displacement.f[2] < g_frame_time * -0.5f) {
-                int n = truncate_float_to_s32(FastAbsF(p->motion.displacement.f[2]) * 300.0f);
+                int n = truncate_float_to_s32(absolute_float(p->motion.displacement.f[2]) * 300.0f);
                 emit_hero_surface_effect_burst(3, n < 0x28 ? n : 0x28, 1);
                 if (pool_draw_tiles != 0) {
-                    RippleDisturb(pool_draw_tiles, pool_draw_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.5f,
-                                  -0.4f);
+                    pool_splash(pool_draw_tiles, pool_draw_count, 0, p->motion.pos.f[0], p->motion.pos.f[1], 0.5f,
+                                -0.4f);
                 }
                 p->splash_effect_timer = scale_ticks(0x4B);
             }
@@ -350,7 +350,7 @@ int Hero_SetMoveState(int a, int b) {
                     {
                         struct Hero *w = &g_hero;
                         *(float *)(*(char **)&w->moby + 0x54) =
-                            novalis_hero_anim_time_curves[w->anim_blend_curve][(w->anim_blend_step)++];
+                            level_01_hero_animation_blend_curves[w->anim_blend_curve][(w->anim_blend_step)++];
                     }
                 }
             }
@@ -458,7 +458,7 @@ int Hero_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -472,7 +472,7 @@ int Hero_SetMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = &g_hero;
@@ -492,7 +492,7 @@ int Hero_SetMoveState(int a, int b) {
                 struct Hero *s = &g_hero;
                 s->rand_timer.range = 0x68;
                 if (s->on_slip_ground != 0 && s->frames_off_ground.s == 0) {
-                    Hero_SetMoveState(HERO_STATE_SLIP, 1);
+                    l01_hero_set_state(HERO_STATE_SLIP, 1);
                     return 0;
                 }
             }
@@ -531,7 +531,7 @@ int Hero_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -564,13 +564,13 @@ int Hero_SetMoveState(int a, int b) {
             p->unk2284 = 0;
             qcopy(&p->motion.momentum, &p->motion.resolved_velocity);
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
-                Hero_SetMoveState(HERO_STATE_SLIP, 1);
+                l01_hero_set_state(HERO_STATE_SLIP, 1);
                 return 0;
             }
             if (try_start_hero_item_idle_animation())
                 return 0;
             if (get_hero_idle_animation_index(0) == 0x54) {
-                if (Hero_SetMoveState(HERO_STATE_IDLE, 0)) {
+                if (l01_hero_set_state(HERO_STATE_IDLE, 0)) {
                     set_hero_animation(get_hero_idle_animation_index(0), 0, (float)scale_ticks(0x12));
                 }
                 return 0;
@@ -605,11 +605,11 @@ int Hero_SetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
-                Hero_SetMoveState(HERO_STATE_SLIP, 1);
+                l01_hero_set_state(HERO_STATE_SLIP, 1);
                 return 0;
             }
             {
@@ -1333,7 +1333,7 @@ int Hero_SetMoveState(int a, int b) {
                 if (b) {
                     set_hero_animation(0x10, 3, -3.0f);
                     *(float *)(*(char **)&q->moby + 0x54) =
-                        novalis_hero_anim_time_curves[q->anim_blend_curve][(q->anim_blend_step)++];
+                        level_01_hero_animation_blend_curves[q->anim_blend_curve][(q->anim_blend_step)++];
                 }
             }
             break;
@@ -1343,7 +1343,7 @@ int Hero_SetMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
-                Hero_SetMoveState(HERO_STATE_VEHICLE_MODE_3_SLIP, 1);
+                l01_hero_set_state(HERO_STATE_VEHICLE_MODE_3_SLIP, 1);
                 return 0;
             }
             if (b)
@@ -1385,13 +1385,13 @@ int Hero_SetMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
-                Hero_SetMoveState(HERO_STATE_VEHICLE_MODE_3_SLIP, 1);
+                l01_hero_set_state(HERO_STATE_VEHICLE_MODE_3_SLIP, 1);
                 return 0;
             }
             {
                 char *v = &g_hero.motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -1423,7 +1423,7 @@ int Hero_SetMoveState(int a, int b) {
             if (b) {
                 set_hero_animation(2, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    novalis_hero_anim_time_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    level_01_hero_animation_blend_curves[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }
@@ -1585,10 +1585,10 @@ typedef struct {
     int f10;
     char p14[0x18];
 } Rec2C;
-extern Hero D_0013F450;
-extern PadState D_0013CA40;
+extern Hero g_hero;
+extern PadState g_controller_state;
 extern int last_weapon_id_r __asm__("D_00141760");
-extern unsigned char D_0013D5C8[];
+extern unsigned char item_available[];
 extern Rec2C novalis_attack_records_r[] __asm__("D_L01_0017C128");
 extern int r1_double_tap_timer SDATA(r1_double_tap_timer);
 
@@ -1644,13 +1644,13 @@ int handle_hero_gadget_button(void) {
                         launch_hero_wrench();
                         break;
                     }
-                    Hero_SetMoveState(HERO_STATE_CROUCH_SWING, 1);
+                    l01_hero_set_state(HERO_STATE_CROUCH_SWING, 1);
                     break;
                 }
                 if (g_hero.unk308 == 1) {
-                    Hero_SetMoveState(HERO_STATE_ATTACK_RECORD_FRAME_EXIT_WAIT, 1);
+                    l01_hero_set_state(HERO_STATE_ATTACK_RECORD_FRAME_EXIT_WAIT, 1);
                 } else {
-                    Hero_SetMoveState(HERO_STATE_WRENCH_COMBO, 1);
+                    l01_hero_set_state(HERO_STATE_WRENCH_COMBO, 1);
                 }
                 break;
             }
@@ -1673,13 +1673,13 @@ int handle_hero_gadget_button(void) {
                     if ((g_hero.past_jump_apex == 0 && g_hero.ground_distance > 0.1f) ||
                         (g_hero.past_jump_apex != 0 && g_hero.ground_distance > 0.57f) ||
                         (g_hero.state.current == HERO_STATE_LAND && g_hero.ground_distance > 0.57f)) {
-                        Hero_SetMoveState(HERO_STATE_WRENCH_SLAM, 1);
+                        l01_hero_set_state(HERO_STATE_WRENCH_SLAM, 1);
                         break;
                     }
                     if (g_hero.on_slip_ground != 0) {
                         break;
                     }
-                    Hero_SetMoveState(HERO_STATE_WRENCH_COMBO, 1);
+                    l01_hero_set_state(HERO_STATE_WRENCH_COMBO, 1);
                     break;
                 }
             }
@@ -1694,7 +1694,7 @@ int handle_hero_gadget_button(void) {
                         }
                         if (g_hero.anim_frame >= (float)rec->f10 && (g_controller_state.held & (PAD_R2 | PAD_R1)) &&
                             pad_pressed_within(mask, scale_ticks(0xF), 0)) {
-                            Hero_SetMoveState(HERO_STATE_CROUCH_SWING, 1);
+                            l01_hero_set_state(HERO_STATE_CROUCH_SWING, 1);
                             break;
                         }
                     }
@@ -1719,13 +1719,13 @@ int handle_hero_gadget_button(void) {
                     break;
                 }
                 if (g_controller_state.held & (PAD_R2 | PAD_R1)) {
-                    Hero_SetMoveState(HERO_STATE_CROUCH_SWING, 1);
+                    l01_hero_set_state(HERO_STATE_CROUCH_SWING, 1);
                     break;
                 }
                 if (g_hero.unk308 == 1) {
-                    Hero_SetMoveState(HERO_STATE_ATTACK_RECORD_FRAME_EXIT_WAIT, 1);
+                    l01_hero_set_state(HERO_STATE_ATTACK_RECORD_FRAME_EXIT_WAIT, 1);
                 } else {
-                    Hero_SetMoveState(HERO_STATE_WRENCH_COMBO, 1);
+                    l01_hero_set_state(HERO_STATE_WRENCH_COMBO, 1);
                 }
             }
             break;
@@ -1782,7 +1782,7 @@ int handle_hero_gadget_button(void) {
                 }
                 if (g_controller_state.held & mask) {
                     if (!get_ammo(-1)) {
-                        if (!Sound_IsPlaying((Moby *)g_hero.items[0].moby, pv->fC)) {
+                        if (!voice_is_playing((Moby *)g_hero.items[0].moby, pv->fC)) {
                             pv->fC = Moby_PlaySound(0, 0, (int)((Moby *)g_hero.items[0].moby));
                         }
                     }
@@ -1813,7 +1813,7 @@ int handle_hero_gadget_button(void) {
                         if (g_hero.state.control_mode == HERO_MODE_CROUCH ||
                             g_hero.state.control_mode == HERO_MODE_IDLE || g_hero.state.current == HERO_STATE_STOP ||
                             (g_hero.state.control_mode == HERO_MODE_RUN && g_hero.stick_magnitude < 0.7f)) {
-                            Hero_SetMoveState(HERO_STATE_ANIMATION_RECOVERY_WITH_JUMP_CANCEL, 1);
+                            l01_hero_set_state(HERO_STATE_ANIMATION_RECOVERY_WITH_JUMP_CANCEL, 1);
                         } else {
                             start_equipped_item_animation();
                         }
@@ -1834,7 +1834,7 @@ int handle_hero_gadget_button(void) {
 
                     if (pad_pressed_within(mask, t <= n ? t : n, &out[2])) {
                         if (((Moby *)g_hero.items[0].moby) != 0) {
-                            Hero_SetMoveState(HERO_STATE_HELD_ITEM_ATTACK, 1);
+                            l01_hero_set_state(HERO_STATE_HELD_ITEM_ATTACK, 1);
                             if (((Moby *)g_hero.items[0].moby) != 0) {
                                 Moby_PlaySound(0, 0, (int)((Moby *)g_hero.items[0].moby));
                             }
@@ -1860,7 +1860,7 @@ int handle_hero_gadget_button(void) {
                     ((g_hero.state.control_mode == HERO_MODE_FALL || g_hero.state.control_mode == HERO_MODE_JUMP) &&
                      g_hero.grounded_frames != 0)) {
                     if ((g_controller_state.held & PAD_R1) && (g_controller_state.pressed & PAD_R1)) {
-                        Hero_SetMoveState(HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT, 1);
+                        l01_hero_set_state(HERO_STATE_DELAYED_JUMP_OR_R1_REPEAT_EXIT_WAIT, 1);
                     }
                 }
             }

@@ -20,23 +20,23 @@
 extern void scePrintf();
 
 /* sceCdRead: queue one CD/DVD read request (lba, sectors, buffer, mode)
- * in the request block at cd_read_request and start it through the RPC
+ * in the request block at native_cd_read_request and start it through the RPC
  * sif_call_rpc. Returns 1 when the RPC was accepted, 0 otherwise.
  * The volatile state clears precede the semaphore read; the verified
  * GNU 2.10-ee profile fills SignalSema's call slot with that word load.
  * Sector size by mode->datapattern: 1 -> 0x918, 2 -> 0x924, else 0x800. */
 
 extern int cd_read_mode_flags NOT_SDA;
-extern char cd_read_request[];
-extern char cd_read_reply_buffer[];
-extern int cd_read_status NOT_SDA;
-extern char cd_read_call_msg[];
-extern char cd_read_end_msg[];
+extern char native_cd_read_request[];
+extern char native_cd_read_completion_buffer[];
+extern int native_cd_read_response NOT_SDA;
+extern char native_cd_read_submit_debug_message[];
+extern char native_cd_read_queued_debug_message[];
 extern volatile int cd_callback_num;
 extern void sceSifWriteBackDCache(void *, int);
 
 int sce_cd_read(int lba, int sectors, void *buf, unsigned char *mode) {
-    char *req = cd_read_request;
+    char *req = native_cd_read_request;
     int size;
     int r;
 
@@ -55,8 +55,8 @@ int sce_cd_read(int lba, int sectors, void *buf, unsigned char *mode) {
     req[0xC] = mode[0];
     req[0xD] = mode[1];
     req[0xE] = mode[2];
-    *(void **)(req + 0x10) = cd_read_reply_buffer;
-    *(void **)(req + 0x14) = &cd_read_status;
+    *(void **)(req + 0x10) = native_cd_read_completion_buffer;
+    *(void **)(req + 0x14) = &native_cd_read_response;
 
     switch (mode[2]) {
         case 1:
@@ -71,28 +71,29 @@ int sce_cd_read(int lba, int sectors, void *buf, unsigned char *mode) {
             break;
     }
 
-    cd_read_status = 0;
+    native_cd_read_response = 0;
     if ((*(volatile int *)&cd_read_mode_flags & 2) == 0) {
         sceSifWriteBackDCache(buf, size);
     }
-    sceSifWriteBackDCache(cd_read_reply_buffer, 0x90);
+    sceSifWriteBackDCache(native_cd_read_completion_buffer, 0x90);
     sceSifWriteBackDCache(req, 0x18);
-    sceSifWriteBackDCache(&cd_read_status, 4);
-    if (cd_debug_level > 0) {
-        scePrintf(cd_read_call_msg);
+    sceSifWriteBackDCache(&native_cd_read_response, 4);
+    if (cd_debug > 0) {
+        scePrintf(native_cd_read_submit_debug_message);
     }
 
     cd_callback_num = 1;
-    *(volatile int *)&cd_ncmd_busy = 1;
-    r = sif_call_rpc(cd_ncmd_rpc_client, 1, 1, req, 0x18, 0, 0, (void *)cd_read_end_callback, cd_read_reply_buffer);
+    *(volatile int *)&cd_read_pending = 1;
+    r = sif_call_rpc(cd_ncmd_client, 1, 1, req, 0x18, 0, 0, (void *)cd_read_end_callback,
+                     native_cd_read_completion_buffer);
     if (r < 0) {
         cd_callback_num = 0;
-        *(volatile int *)&cd_ncmd_busy = 0;
+        *(volatile int *)&cd_read_pending = 0;
         signal_semaphore(*(volatile int *)&cd_ncmd_sema);
         return 0;
     }
-    if (cd_debug_level > 0) {
-        scePrintf(cd_read_end_msg);
+    if (cd_debug > 0) {
+        scePrintf(native_cd_read_queued_debug_message);
     }
     return 1;
 }
@@ -110,11 +111,11 @@ int sce_cd_get_error(void) {
     if (cd_scmd_prechk(3) == 0) {
         return -1;
     }
-    if (sif_call_rpc(cd_scmd_rpc_client, 4, 0, 0, 0, &cd_scmd_recv_buffer, 4, 0, 0) < 0) {
+    if (sif_call_rpc(cd_scmd_client, 4, 0, 0, 0, &cd_scmd_result, 4, 0, 0) < 0) {
         signal_semaphore(cd_scmd_sema);
         return -1;
     }
-    r = *(int *)((unsigned int)&cd_scmd_recv_buffer | 0x20000000);
+    r = *(int *)((unsigned int)&cd_scmd_result | 0x20000000);
     signal_semaphore(cd_scmd_sema);
     return r;
 }
@@ -122,7 +123,7 @@ int sce_cd_get_error(void) {
 extern volatile int cd_callback_num;
 
 /* sceCdBreak, sibling of sce_cd_get_error: S-command 0x1E, RPC 0x16 on
-   cd_scmd_rpc_client under the cd_scmd_sema semaphore, with the cd_callback_num busy flag
+   cd_scmd_client under the cd_scmd_sema semaphore, with the cd_callback_num busy flag
    set around it; returns the reply word read uncached. The volatile flag
    and semaphore reads stay out of the delay slots, where reorg never puts
    a volatile access (this module sees its globals as volatile, as
@@ -137,19 +138,19 @@ int sce_cd_break(void) {
         return 0;
     }
     cd_callback_num = 8;
-    if (sif_call_rpc(cd_scmd_rpc_client, 0x16, 0, 0, 0, &cd_scmd_recv_buffer, 4, 0, 0) < 0) {
+    if (sif_call_rpc(cd_scmd_client, 0x16, 0, 0, 0, &cd_scmd_result, 4, 0, 0) < 0) {
         signal_semaphore(*(volatile int *)&cd_scmd_sema);
         cd_callback_num = 0;
         return 0;
     }
     cd_callback_num = 0;
-    r = *(int *)((unsigned int)&cd_scmd_recv_buffer | 0x20000000);
+    r = *(int *)((unsigned int)&cd_scmd_result | 0x20000000);
     signal_semaphore(*(volatile int *)&cd_scmd_sema);
     return r;
 }
 
-extern char cd_read_clock_msg_1[];
-extern char cd_read_clock_msg_2[];
+extern char cd_read_clock_before_rpc_debug_message[];
+extern char cd_read_clock_after_copy_debug_message[];
 typedef struct {
     char b[8];
 } CdClock;
@@ -163,18 +164,18 @@ int sce_cd_read_clock(CdClock *out) {
     if (cd_scmd_prechk(0xF) == 0) {
         return 0;
     }
-    if (cd_debug_level > 0) {
-        scePrintf(cd_read_clock_msg_1);
+    if (cd_debug > 0) {
+        scePrintf(cd_read_clock_before_rpc_debug_message);
     }
-    if (sif_call_rpc(cd_scmd_rpc_client, 1, 0, 0, 0, &cd_scmd_recv_buffer, 0x10, 0, 0) < 0) {
+    if (sif_call_rpc(cd_scmd_client, 1, 0, 0, 0, &cd_scmd_result, 0x10, 0, 0) < 0) {
         signal_semaphore(cd_scmd_sema);
         return 0;
     }
-    *out = *(CdClock *)(((unsigned int)&cd_scmd_recv_buffer + 4) | 0x20000000);
-    if (cd_debug_level > 0) {
-        scePrintf(cd_read_clock_msg_2);
+    *out = *(CdClock *)(((unsigned int)&cd_scmd_result + 4) | 0x20000000);
+    if (cd_debug > 0) {
+        scePrintf(cd_read_clock_after_copy_debug_message);
     }
-    r = *(int *)((unsigned int)&cd_scmd_recv_buffer | 0x20000000);
+    r = *(int *)((unsigned int)&cd_scmd_result | 0x20000000);
     signal_semaphore(cd_scmd_sema);
     return r;
 }

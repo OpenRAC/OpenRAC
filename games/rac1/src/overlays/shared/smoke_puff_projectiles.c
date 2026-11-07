@@ -32,7 +32,7 @@ extern struct Moby *CreateMoby_r(int oclass) __asm__("func_0020D348");
 extern float g_frame_time_r __asm__("D_0015EE6C") MACRO_ADDR;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002aee30.c, FUN_L04_002aee30. */
-struct Moby *spawn_class_b8_projectile(struct Moby *owner, void *pos, void *dir, int life) {
+struct Moby *spawn_blarg_trooper_projectile(struct Moby *owner, void *pos, void *dir, int life) {
     struct Moby *m;
     ShotVars_B0068 *vars;
     OvlQuad_B0068 pos_q;
@@ -60,7 +60,7 @@ struct Moby *spawn_class_b8_projectile(struct Moby *owner, void *pos, void *dir,
         vars->unk14 = 0;
         vars->time = life;
         vars->time_max = life;
-        vars->hero_dist = FastVecDist(&m->pos, &g_hero_r.motion.pos);
+        vars->hero_dist = fast_vec_dist(&m->pos, &g_hero_r.motion.pos);
         vars->unk24 = 0;
         vars->unk28 = 0;
         if (owner->oclass == 0xFF) {
@@ -114,7 +114,7 @@ extern u8 eudora_coll_hit_normal[];
    starts moving away from the hero within 3 units, dies off the arena, and on a hit (probing for its owner's targets
    until the timer runs out) bursts into five sparks and is removed.
    Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002aee30.c, FUN_L04_002af058. */
-void update_class_b8_projectile(struct Moby *m) {
+void blarg_trooper_projectile_update(struct Moby *m) {
     Vec4 old;
     CollisionProbe pr;
     Vec4 push;
@@ -130,7 +130,7 @@ void update_class_b8_projectile(struct Moby *m) {
         range = 128.0f;
     if ((g_current_level_index) == 12)
         range = 100.0f;
-    d = FastVecDist(&m->pos, &g_hero.motion.pos);
+    d = fast_vec_dist(&m->pos, &g_hero.motion.pos);
     qcopy(&old, &m->pos);
     FastVecAdd(&m->pos, &m->pos, &v->dir);
     if (v->unk28 == 0 && v->unk24 != 0 && v->hero_dist < d && d < 3.0f) {
@@ -182,35 +182,36 @@ void update_class_b8_projectile(struct Moby *m) {
             r.f[1] = random_float_between(-1.0f, 1.0f);
             r.f[2] = random_float_between(-1.0f, 1.0f);
             push.q = r.q;
-            vec_reflect(&r, v, eudora_coll_hit_normal);
+            reflect_vector(&r, v, eudora_coll_hit_normal);
             vec_scale_to_length(&push, &push, FastVecLength(&r) * 0.5f);
             FastVecAdd(&push, &r, &push);
             vec_scale_to_length(&push, &push, random_float_between(g_frame_time * 3.0f, g_frame_time * 6.0f));
-            PartType27Spawn(&m->pos, &push, 0x7F2F4F6F, rand_range(scale_ticks(10), scale_ticks(15)), 30000.0f);
+            PartType27Spawn(&m->pos, &push, 0x7F2F4F6F, random_int_between(scale_ticks(10), scale_ticks(15)), 30000.0f);
         }
     }
     DeleteMoby(m);
 }
 
-extern char eudora_puff_segment_points[];
-extern float eudora_segment_puff_size_scale SDATA(eudora_segment_puff_size_scale);
+extern char moby_segment_puff_local_endpoint_table[];
+extern float moby_segment_puff_scale_multiplier SDATA(D_L04_00161940);
 
 /* Builds two direction vectors from a table and relative to a moby, then hands them to the L04 effect spawner. */
 void spawn_moby_table_segment_puffs(char *a, int i, int j, int k) {
     float v0[4], v10[4];
     char *pi, *pj;
-    pi = eudora_puff_segment_points + i * 16;
+    pi = moby_segment_puff_local_endpoint_table + i * 16;
     qcopy(v0, pi);
     v0[3] = 1.0f;
-    matrix_mul_vec3(v0, v0, a + 0xC0);
+    transform_vector_by_basis(v0, v0, a + 0xC0);
     FastVecAdd(v0, v0, a + 0x10);
-    pj = eudora_puff_segment_points + j * 16;
+    pj = moby_segment_puff_local_endpoint_table + j * 16;
     qcopy(v10, pj);
     v10[3] = 1.0f;
-    matrix_mul_vec3(v10, v10, a + 0xC0);
+    transform_vector_by_basis(v10, v10, a + 0xC0);
     FastVecAdd(v10, v10, a + 0x10);
-    spawn_smoke_puff_trail_with_endpoint_bursts(a, v0, v10, k, *(float *)(pi + 0xC) * eudora_segment_puff_size_scale,
-                                                *(float *)(pj + 0xC) * eudora_segment_puff_size_scale);
+    spawn_smoke_puff_trail_with_endpoint_bursts(a, v0, v10, k,
+                                                *(float *)(pi + 0xC) * moby_segment_puff_scale_multiplier,
+                                                *(float *)(pj + 0xC) * moby_segment_puff_scale_multiplier);
 }
 extern int eudora_puff_count_a SDATA(eudora_puff_count_a);
 extern int eudora_puff_count_b SDATA(eudora_puff_count_b);

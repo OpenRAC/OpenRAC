@@ -411,7 +411,7 @@ typedef struct {
 } V_2D19E8;
 extern T_2D19E8 D_L00_001EA1B0_2D19E8 __asm__("D_L00_001EA1B0");
 extern s32 g_current_level_index_r __asm__("D_0015EE84") MACRO_ADDR;
-extern s32 D_L00_0015F678 MACRO_ADDR;
+extern s32 current_moby_mission_complete MACRO_ADDR;
 extern short D_L00_00161998_2D19E8 SDATA(D_L00_00161998);
 extern short D_L00_0016199C_2D19E8 SDATA(D_L00_0016199C);
 extern short D_L00_001619A0_2D19E8 SDATA(D_L00_001619A0);
@@ -452,8 +452,8 @@ void func_L00_002D19E8_r(u8 *a) {
             func_L00_00261478_2D19E8(a, *(s32 *)&((struct CrateVars *)b)->attach_moby, a + 0x10, a + 0x40, &v30, &v40);
             FastVecSub(&v20, &v30, a + 0x10);
         }
-        if (g_current_level_index_r == LEVEL_QUARTU && FastAbsF(((Moby *)a)->pos.x - 166.0f) < 6.0f &&
-            FastAbsF(((Moby *)a)->pos.y - 193.0f) < 6.0f) {
+        if (g_current_level_index_r == LEVEL_QUARTU && absolute_float(((Moby *)a)->pos.x - 166.0f) < 6.0f &&
+            absolute_float(((Moby *)a)->pos.y - 193.0f) < 6.0f) {
             s32 save = current_moby_mission_complete;
             current_moby_mission_complete = 0;
             SetDeathBits(a, 0x100, -1);
@@ -560,7 +560,7 @@ extern int crate_break_sound_frame MACRO_ADDR;
 extern int crate_break_effect_frame MACRO_ADDR;
 extern int free_moby_slot_count MACRO_ADDR;
 extern char hero_globals_base[];
-extern f32 player_camera[];
+extern f32 gCameraLvl[];
 extern char crate_debris_piece_offsets[];
 extern char crate_debris_piece_rotations[];
 extern float g_frame_time MACRO_ADDR;
@@ -694,8 +694,7 @@ void break_crate(void *mv, int a1, int av) {
         e0 = 0;
     }
 
-    f = fast_atan2(((Cam140 *)player_camera)->x - ((Moby *)m)->pos.x,
-                   ((Cam140 *)player_camera)->y - ((Moby *)m)->pos.y);
+    f = fast_atan2(((Cam140 *)gCameraLvl)->x - ((Moby *)m)->pos.x, ((Cam140 *)gCameraLvl)->y - ((Moby *)m)->pos.y);
     f = FastSubRots(f, ((Moby *)m)->rot.z);
     f21 = f + 3.1415925f;
     f21 = FastNormalizeAngle((float)truncate_float_to_s32(f21 / 1.57f) * 1.57f);
@@ -705,7 +704,7 @@ void break_crate(void *mv, int a1, int av) {
 
     {
         for (k = 0; k < n; k++) {
-            matrix_mul_vec3(v70, crate_debris_piece_offsets + k * 16, v30);
+            transform_vector_by_basis(v70, crate_debris_piece_offsets + k * 16, v30);
             FastVecAdd(v70, v70, &((Moby *)m)->pos);
             qcopy(v80, crate_debris_piece_rotations + k * 16);
             v80[2] = FastAddRots(v80[2], v20[2]);
@@ -730,7 +729,7 @@ void break_crate(void *mv, int a1, int av) {
         v70[2] = random_float_between(0.0f, 1.0f);
         FastVecAdd(v70, v70, &((Moby *)m)->pos);
         f = random_float_between(6.0f, 12.0f) * g_frame_time;
-        rand_vec(v60, f, f);
+        random_vector(v60, f, f);
         if (v60[2] < 0.0f)
             v60[2] = -v60[2];
         f = random_angle_radians();
@@ -783,10 +782,10 @@ void break_crate(void *mv, int a1, int av) {
                 q2 = tB0 + random_integer_below(6);
                 a = scale_ticks(0xF);
                 b = scale_ticks(0x14);
-                c1 = rand_range(a, b);
+                c1 = random_int_between(a, b);
                 dd = scale_ticks(0x19);
                 ee = scale_ticks(0x1E);
-                c2 = rand_range(dd, ee);
+                c2 = random_int_between(dd, ee);
                 PartType11Spawn_v(v60, v80, *q1, *q2, c1, c2, 0, 4e5f, 0, f20);
             }
         }
@@ -857,8 +856,8 @@ void update_crate_stack_motion(Moby *a) {
         if (a->state != 0) {
             g = &((struct Hero *)g_hero)->motion.pos;
             FastVecSub(v3, g, &a->pos);
-            matrix_mul_vec3(v3, v3, &a->rot_row0);
-            if (FastAbsF(v3[0]) < 0.55f && FastAbsF(v3[1]) < 0.55f && v3[2] < 0 &&
+            transform_vector_by_basis(v3, v3, &a->rot_row0);
+            if (absolute_float(v3[0]) < 0.55f && absolute_float(v3[1]) < 0.55f && v3[2] < 0 &&
                 (b = g - 0x80, -(*(float *)(b + 0x220) + *(float *)(b + 0x234)) < v3[2]) &&
                 (a->state == 1 || a->state == 5)) {
                 break_crate(a, a->oclass == MOBY_CLASS_OOM_OOM_BOX, 0);
@@ -878,14 +877,14 @@ void update_crate_stack_motion(Moby *a) {
                 if (*(int *)&o->below == 0) {
                     x1 = o->motion.w - dt * 10.0f;
                     o->motion.w = x1;
-                    t = ApproachValue(&o->attach_lift, 0.0f, FastAbsF(x1));
+                    t = ApproachValue(&o->attach_lift, 0.0f, absolute_float(x1));
                     if (t == 0.0f)
                         o->motion.w = 0.0f;
                 } else {
                     x2 = o->motion.w - dt * 10.0f;
                     o->motion.w = x2;
                     y = *(float *)(*(char **)(o->below + 0x78) + 0xF4) + 1.0f;
-                    t = ApproachValue(&o->attach_lift, y, FastAbsF(x2));
+                    t = ApproachValue(&o->attach_lift, y, absolute_float(x2));
                     if (t == 0.0f)
                         o->motion.w = 0;
                 }
@@ -896,7 +895,7 @@ void update_crate_stack_motion(Moby *a) {
                 qcopy(v5, &a->pos);
                 qcopy(v6, &a->rot);
                 transform_attachment_pose((int)a, o->attach_moby, v4, &o->attach_rot.x, &a->pos.x, &a->rot.x);
-                if (*(int *)(moby_get_ride_transform(o->attach_moby) + 0x3C) & 4) {
+                if (*(int *)(get_moby_pvars_link(o->attach_moby) + 0x3C) & 4) {
                     qcopy(&o->attach_pos, v4);
                     o->attach_pos.z = o->attach_pos.z - o->attach_lift;
                 }
@@ -993,8 +992,8 @@ void veldin_ship_draw(u8 *m) {
         (u64)(s64)G_DC | ((u64)(s64)G_E0 << 2) | ((u64)(s64)G_E4 << 4) | ((u64)(s64)G_E8 << 6) | ((u64)(s64)G_EC << 32);
     quad.texture[0] = 0;
     quad.colors[0] = quad.colors[1] = quad.colors[2] = quad.colors[3] = G_F4;
-    if (FastAbsF(player_camera[80] - ((Moby *)m)->pos.x) < 16.0f &&
-        FastAbsF(player_camera[81] - ((Moby *)m)->pos.y) < 16.0f)
+    if (absolute_float(gCameraLvl[80] - ((Moby *)m)->pos.x) < 16.0f &&
+        absolute_float(gCameraLvl[81] - ((Moby *)m)->pos.y) < 16.0f)
         active = 1;
     if (active || ((Moby *)m)->state == 1) {
         ((Moby *)m)->command = 1;
@@ -1012,7 +1011,7 @@ void veldin_ship_draw(u8 *m) {
             FastVecSub(&c, &b, &c);
             vec_scale_to_length(&c, &c, 1.0f);
             c.z += 1.0f;
-            len = vec_length(c.z + c.z);
+            len = square_root(c.z + c.z);
             len += len;
             if (((Moby *)m)->state == 1 || *(s32 *)(vars + 0x40) == 0) {
                 ship_reflection_uvs[i][0] = c.x / len + 0.5f;
@@ -1083,7 +1082,7 @@ void veldin_ship_update(M2d1e80 *m) {
         m->vis = 1;
         m->flags &= 0xFFFE;
     }
-    MobyTransformScaledVertex(m, 0, v);
+    build_moby_bone_transform(m, 0, v);
     if (m->vis)
         AddDrawCallback_r(veldin_ship_draw_r, m);
 }
@@ -1120,7 +1119,7 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position) {
     float *anchor_ptr = anchor;
 
     *(u128_2D3608 *)anchor_ptr = *(u128_2D3608 *)position;
-    matrix_copy_rows(rotation, player_camera_r);
+    copy_matrix3x4(rotation, player_camera_r);
     matrix_from_basis_rows(inverse, rotation);
     target = (*(struct Moby **)&carrier->frame);
     if (target == 0)
@@ -1128,7 +1127,7 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position) {
     output = (float *)target->pvars;
     *(u128_2D3608 *)direction = 0;
     direction[0] = 1.0f;
-    matrix_mul_vec3(direction, direction, ((struct Hero *)g_hero)->basis);
+    transform_vector_by_basis(direction, direction, ((struct Hero *)g_hero)->basis);
     {
         Hero *h = (Hero *)g_hero;
         anchor_ptr[0] = FastCos(FastAddRots(-0.361968011f, fast_atan2(h->facing_x, h->facing_y))) * 0.859039009f;
@@ -1147,7 +1146,7 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position) {
             hit = 0;
             FastSubRots(((Moby *)h->moby)->rot.z, fast_atan2(launch[0], launch[1]));
             heading = fast_atan2(launch[0], launch[1]);
-            pitch = fast_atan2(vec_length_xy(launch), launch[2]);
+            pitch = fast_atan2(vector_length_xy(launch), launch[2]);
             if (0.593411922f < pitch)
                 pitch = 0.593411922f;
             if (pitch < -1.39626336f)
@@ -1155,7 +1154,7 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position) {
             BuildSphericalOffset(launch, (((PadState *)(pad_globals_base_r + 0x2460))->held & 5) ? 3.5f : 2.5f, heading,
                                  pitch);
             qcopy(origin_copy, player_camera_r + 0x140);
-            length = vec_length_xy(launch);
+            length = vector_length_xy(launch);
             {
                 float z = launch[2];
                 if (length != 0.0f) {
@@ -1164,8 +1163,8 @@ void decoy_glove_aim_throw(int collision_arg, Moby *carrier, float *position) {
                     value = z / 0.00999999978f;
                 }
             }
-            fall_time = vec_length(g_frame_time_sq_r * 9.0f *
-                                   ((((PadState *)(pad_globals_base_r + 0x2460))->held & 5) ? 3.5f : 2.5f) * 0.5f);
+            fall_time = square_root(g_frame_time_sq_r * 9.0f *
+                                    ((((PadState *)(pad_globals_base_r + 0x2460))->held & 5) ? 3.5f : 2.5f) * 0.5f);
             distance = (fall_time + fall_time) * fall_time * (1.0f - value) / (g_frame_time_sq_r * 9.0f);
             vertical = value * distance;
             if (0.0f < distance) {
@@ -1226,8 +1225,8 @@ void decoy_glove_update(unsigned char *moby) {
     *(u128_D3B20 *)va = 0;
     va[1] = -0.19f;
     va[2] = -0.11f;
-    Moby_GetJointWorldPos(moby, 0, vb);
-    MobyTransformScaledVertex(moby, 0, vd);
+    moby_point_position(moby, 0, vb);
+    build_moby_bone_transform(moby, 0, vd);
     transform_vector(vc, va, vd);
     FastVecAdd(&d->pos, vb, vc);
 
@@ -1427,21 +1426,21 @@ void draw_metal_detector_trail(Moby *moby) {
         }
     }
 }
-extern unsigned char metal_detector_dig_counts[];
+extern unsigned char buried_bolt_states[];
 /* increments the selected packed nibble, saturating at fifteen */
 void increment_metal_detector_collection_counter(Moby *moby) {
     int row = g_current_level_index;
     if (row < 20) {
         int index = moby->command - 1;
         if (index & 1) {
-            unsigned char *p = metal_detector_dig_counts + (index / 2 + row * 16);
+            unsigned char *p = buried_bolt_states + (index / 2 + row * 16);
             unsigned int value = *p;
             int n = (value & 15) + 1;
             if (n >= 16)
                 n = 15;
             *p = (value & 240) | n;
         } else {
-            unsigned char *p = metal_detector_dig_counts + (index / 2 + row * 16);
+            unsigned char *p = buried_bolt_states + (index / 2 + row * 16);
             unsigned int value = *p;
             int n = (value >> 4) + 1;
             if (n >= 16)
@@ -1479,10 +1478,10 @@ typedef struct TargetVars {
 /* The pad state g_controller_state. */
 
 extern char g_hero_r[] __asm__("D_0013F450");
-extern u8 D_0013E650[];
-extern u8 D_0013CA40[];
-extern u128_2D4398 D_L00_001E14B0;
-extern u8 D_L00_001E14C0[];
+extern u8 voice_pool[];
+extern u8 g_controller_state[];
+extern u128_2D4398 metal_detector_manipulator;
+extern u8 metal_detector_manipulator_rot[];
 extern f32 D_L00_00161A20_2D4398 SDATA(D_L00_00161A20);
 extern f32 D_L00_00161A24_2D4398 SDATA(D_L00_00161A24);
 extern s32 D_L00_001619EC_2D4398 SDATA(D_L00_001619EC);
@@ -1494,7 +1493,7 @@ extern f32 D_L00_00161A10_2D4398 SDATA(D_L00_00161A10);
 
 extern void Moby_GetJointWorldPos_r(struct Moby *, s32, void *) __asm__("func_L00_00250800");
 
-extern void func_001E9768(void *, void *);
+extern void Profile_Mark(void *, void *);
 
 extern s32 voice_2D4398(s32, s32, void *) __asm__("func_0022ED80");
 
@@ -1571,8 +1570,8 @@ void metal_detector_update(struct Moby *moby) {
                                  ((Hero *)g_hero_r)->metal_detector_target->pos.y - vars->pos.f[1]);
                 yaw = FastSubRots(yaw, ((Hero *)g_hero_r)->motion.rot.f[2]);
                 pitch = FastSubRots(pitch, -1.5707964f);
-                abs_yaw = FastAbsF(yaw);
-                abs_pitch = FastAbsF(pitch);
+                abs_yaw = absolute_float(yaw);
+                abs_pitch = absolute_float(pitch);
                 lim = D_L00_00161A20_2D4398 * 0.017453292f;
                 if (lim < abs_yaw) {
                     yaw /= abs_yaw;
@@ -1597,7 +1596,7 @@ void metal_detector_update(struct Moby *moby) {
                 m[3][1] = zero;
                 m[3][0] = zero;
                 m[3][3] = one;
-                MobyTransformScaledVertex(moby, 2, m2);
+                build_moby_bone_transform(moby, 2, m2);
                 vec_scale_to_length(m2[0], m2[0], one);
                 vec_scale_to_length(m2[1], m2[1], one);
                 vec_scale_to_length(m2[2], m2[2], one);
@@ -1606,15 +1605,15 @@ void metal_detector_update(struct Moby *moby) {
                 m3[3][1] = zero;
                 m3[3][0] = zero;
                 m3[3][3] = one;
-                sce_vu0_mul_matrix(m4, m3, m);
-                MatrixToQuaternion(u, m4);
+                multiply_matrix(m4, m3, m);
+                matrix_to_quaternion(u, m4);
             } else {
                 *(u128_2D4398 *)w = 0;
                 build_quaternion_from_axis_rotations(u, w);
             }
             qcopy(&vars->unk30, v);
-            quat_nlerp(metal_detector_manipulator_rot, metal_detector_manipulator_rot, u, 0.1f);
-            MobyTransformScaledVertex(moby, 3, w);
+            quaternion_nlerp(metal_detector_manipulator_rot, metal_detector_manipulator_rot, u, 0.1f);
+            build_moby_bone_transform(moby, 3, w);
             qcopy(&vars->unk30, w);
             if (((PadState *)g_controller_state)->pressed & 0x20) {
                 vars->unk24 = 0;
@@ -1623,7 +1622,7 @@ void metal_detector_update(struct Moby *moby) {
             if ((((PadState *)g_controller_state)->held & 0x20) &&
                 ((Hero *)g_hero_r)->items[0].ready_frames > scale_ticks(0xF)) {
                 if (((Hero *)g_hero_r)->detector_target_dist < 10.0f) {
-                    if (Sound_IsPlaying(moby, vars->voice2) == 0 && vars->voice2 == -1) {
+                    if (voice_is_playing(moby, vars->voice2) == 0 && vars->voice2 == -1) {
                         vars->voice2 = voice_2D4398(1, 4, moby);
                     }
                     if (vars->voice2 != -1) {
@@ -1647,7 +1646,7 @@ void metal_detector_update(struct Moby *moby) {
                             w[0] = random_float_between(1.0f, 10.0f) * g_frame_time_r;
                             w[1] = random_float_between(-10.0f, 10.0f) * g_frame_time_r;
                             w[2] = random_float_between(1.0f, 12.0f) * g_frame_time_r;
-                            matrix_mul_vec3(w, w, (Hero *)g_hero_r);
+                            transform_vector_by_basis(w, w, (Hero *)g_hero_r);
                             {
                                 Vec4f *q = &((Hero *)g_hero_r)->metal_detector_target->pos;
 
@@ -1818,7 +1817,7 @@ extern s16 scale_ticks_r(int) __asm__("func_001F9850");
 extern int truncate_float_to_s32_r_r(float) __asm__("func_001FA898");
 
 /* moby class 639 update: runs its state machine and eases its tracked values toward their targets */
-void update_animated_point_light_moby(Moby *m) {
+void explosion_light_update(Moby *m) {
     struct PointLightVars *o;
     Vx tp;
     Vx t2;
@@ -1919,7 +1918,7 @@ void update_animated_point_light_moby(Moby *m) {
             }
             if (o->flags & 0x400000) {
                 if (*(unsigned char **)&o->follow != 0) {
-                    matrix_mul_vec3(v19, v19, *(unsigned char **)&o->follow + 0xC0);
+                    transform_vector_by_basis(v19, v19, *(unsigned char **)&o->follow + 0xC0);
                 }
             }
             FastVecAdd(v21, v20, v19);
@@ -2195,8 +2194,8 @@ typedef struct Data_5AC0 {
 } Data_5AC0;
 
 extern float horny_toad_scale SDATA(horny_toad_scale);
-extern float horny_toad_arrive_distance SDATA(horny_toad_arrive_distance);
-extern float horny_toad_attack_anim_start_frame SDATA(horny_toad_attack_anim_start_frame);
+extern float horny_toad_target_approach_distance_threshold_gp SDATA(D_L00_00161A50);
+extern float horny_toad_target_animation_start_index_gp SDATA(D_L00_00161A54);
 extern short horny_toad_move_params;
 extern Path_5AC0 *level_paths_r3[] __asm__("D_L00_001B0830");
 
@@ -2221,7 +2220,7 @@ void horny_toad_update(Moby *moby) {
     data = (Data_5AC0 *)moby->pvars;
     process_horny_toad_hit_reaction(moby);
     tgt = data->tgt;
-    if (moby->visible != 0 && FastVecDist((*(Vec_5AC0 *)&moby->pos), g_debug_camera) < 26.0f) {
+    if (moby->visible != 0 && fast_vec_dist((*(Vec_5AC0 *)&moby->pos), g_debug_camera) < 26.0f) {
         set_ground_height_band(moby);
         moby->shadow_range = 0x15;
     }
@@ -2323,7 +2322,7 @@ void horny_toad_update(Moby *moby) {
         }
         case 5:
             if (moby->prev_seq != 4) {
-                int n = rand_range(0, 5);
+                int n = random_int_between(0, 5);
                 if (moby->prev_seq != 4)
                     MobyBlendAnimation(moby, 4, n, scale_ticks(10));
                 moby->anim_speed = random_float_between(0.92f, 1.08f);
@@ -2337,13 +2336,14 @@ void horny_toad_update(Moby *moby) {
             }
             break;
         case 6:
-            if (move_horny_toad_toward_position((unsigned char *)moby, data->f180, 0.5f) < horny_toad_arrive_distance &&
+            if (move_horny_toad_toward_position((unsigned char *)moby, data->f180, 0.5f) <
+                    horny_toad_target_approach_distance_threshold_gp &&
                 FastDiffRots(moby->rot.z, fast_atan2((*(Vec_5AC0 *)&tgt->pos)[0] - (*(Vec_5AC0 *)&moby->pos)[0],
                                                      (*(Vec_5AC0 *)&tgt->pos)[1] - (*(Vec_5AC0 *)&moby->pos)[1])) <
                     0.17453292f) {
                 moby->state = 7;
                 if (moby->prev_seq != 5)
-                    MobyBlendAnimation(moby, 5, (int)horny_toad_attack_anim_start_frame, scale_ticks(10));
+                    MobyBlendAnimation(moby, 5, (int)horny_toad_target_animation_start_index_gp, scale_ticks(10));
             } else if (data->f1C4 == 2) {
                 moby->state = 8;
                 if (moby->prev_seq != 4)
@@ -2351,7 +2351,7 @@ void horny_toad_update(Moby *moby) {
             }
             break;
         case 7:
-            if (IsFrameWithinWindow(moby, 34.0f) != 0) {
+            if (is_value_within_interpolated_window(moby, 34.0f) != 0) {
                 collect_mobies_in_sphere_at_moby_point(moby, 0.333f, 1.0f, 1.0f, 0, 1, 0, 1, 0);
             } else if (moby->anim_flags & 2) {
                 if (data->f1C4 == 2) {
@@ -2415,14 +2415,14 @@ void horny_toad_update(Moby *moby) {
             break;
         }
         case 11:
-            if (mine_fall(moby, data->f70) & 0x140) {
+            if (step_moby_motion(moby, data->f70) & 0x140) {
                 moby->state = 5;
                 if (moby->prev_seq != 1)
                     MobyBlendAnimation(moby, 1, 0, scale_ticks(10));
             }
             break;
         case 12:
-            if (mine_fall(moby, data->f70) & 0x140) {
+            if (step_moby_motion(moby, data->f70) & 0x140) {
                 Moby_PlaySound_v(7, 0, (int)moby);
                 spawn_color_swapped_explosion_burst(moby, (*(Vec_5AC0 *)&moby->pos), -1, 0.75f, 10.0f);
                 DeleteMoby(moby);
@@ -2431,7 +2431,7 @@ void horny_toad_update(Moby *moby) {
             break;
     }
     if (moby->state != 11 && moby->state != 12 && moby->state != 9) {
-        ApproachValue_r(ProbeGroundHeight((*(Vec_5AC0 *)&moby->pos), 0, 0.5f), g_frame_time * 7.0f,
+        ApproachValue_r(probe_ground_height((*(Vec_5AC0 *)&moby->pos), 0, 0.5f), g_frame_time * 7.0f,
                         &(*(Vec_5AC0 *)&moby->pos)[2]);
         if (moby->state != 4) {
             resolve_point_path_segment_xy_clearance_v(data->f1E0, 0.25f, (*(Vec_5AC0 *)&moby->pos),
@@ -2454,8 +2454,8 @@ void horny_toad_update(Moby *moby) {
 
 extern void InitKnockback_v(void *, void *, int, int, int, float) __asm__("func_L00_0025D5B0");
 
-extern float D_L00_00161A58 SDATA(D_L00_00161A58);
-extern float D_L00_00161A5C SDATA(D_L00_00161A5C);
+extern float l00_horny_toad_knockback_landing_animation_frame SDATA(D_L00_00161A58);
+extern float l00_horny_toad_knockback_apex_animation_frame SDATA(D_L00_00161A5C);
 
 /* Veldin level code: per-frame step of a moby's state 0x20 (retail process_horny_toad_hit_reaction, 0x364 bytes).
  * Runs a sub-state machine on a[0x20] (3, 5, 8, 10, 12); when a[0x20] is 12 or the sweep finds
@@ -2539,13 +2539,13 @@ void process_horny_toad_hit_reaction(void *a0) {
         ((Moby *)a)->flags &= 0xEFFF;
 
         vec = *(Vx *)&b->unk_10;
-        HeadingFromVector(&vec, &t18, d + 0x88, d + 0x8C);
+        trooper_knockback_arc(&vec, &t18, d + 0x88, d + 0x8C);
         f20 = t18;
         r2 = random_integer_below(2);
         InitKnockback_v(a, q1, r2 + 6, 1, 0, f20);
         {
-            float c0 = D_L00_00161A5C;
-            float c4 = D_L00_00161A58;
+            float c0 = l00_horny_toad_knockback_apex_animation_frame;
+            float c4 = l00_horny_toad_knockback_landing_animation_frame;
             *(float *)(d + 0xC0) = c0;
             *(float *)(d + 0xC4) = c4;
         }
@@ -2605,7 +2605,7 @@ float move_horny_toad_toward_position(unsigned char *m, float *t, float vel) {
     v = (struct Data_5AC0 *)((Moby *)m)->pvars;
     ang = fast_atan2(t[0] - ((Moby *)m)->pos.x, t[1] - ((Moby *)m)->pos.y);
     z = ((Moby *)m)->pos.z;
-    d = FastVecDist(m + 0x10, t);
+    d = fast_vec_dist(m + 0x10, t);
     if (2.0f < d)
         ang = FastAddRots(ang, v->f1FC);
     if (((Moby *)m)->seq != ((Moby *)m)->prev_seq)
@@ -2621,7 +2621,7 @@ float move_horny_toad_toward_position(unsigned char *m, float *t, float vel) {
     vec[1] = FastSin(v->unk_278) * v->f1F8;
     vec[2] = 0.0f;
     vec[2] = v->unk_270 - g_frame_time_sq * 10.0f;
-    move_4318((int)m, (int)vec, 0.5f, 0.5f, 0.0f, 0x10);
+    MoveMobyWithCollision((int)m, (int)vec, 0.5f, 0.5f, 0.0f, 0x10);
     w = ((Moby *)m)->pos.z - z;
     lim = g_frame_time * 4.0f;
     v->unk_270 = w;
@@ -2636,7 +2636,7 @@ float move_horny_toad_toward_position(unsigned char *m, float *t, float vel) {
 /* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
    calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
    they came (retail touches none of a1, a2 and $f12 before its call). */
-int CarriedMoby_UpdateState9(Moby *a, void *p, void *t, float h) {
+int process_suck_cannon_suction_and_update_moby_state(Moby *a, void *p, void *t, float h) {
     int r = process_moby_suck_cannon_suction(a, p, t, h);
     if (r == 0) {
         if (a->state == 9)
@@ -2673,13 +2673,13 @@ typedef struct {
     f32 key;
 } KeyRow;
 typedef struct {
-    s32 table; /* -1, or an index into level_paths */
+    s32 table; /* -1, or an index into toad_paths */
     f32 key;
 } KeyVars;
-extern KillFlags D_L00_001BA960;
-extern KillFlags D_L00_001BB5C0;
-extern u8 D_L00_0015FD48[] MACRO_ADDR;
-extern u8 D_0014C150[][16];
+extern KillFlags current_level_state;
+extern KillFlags checkpoint_level_state;
+extern u8 mission_state[] MACRO_ADDR;
+extern u8 saved_mission_state[][16];
 void func_L00_002D6CE0_r(Moby *m) __asm__("func_L00_002D6CE0");
 
 /* Kills a live moby: marks it in the level's spawn tables, starts its death sound and clears its key out of the shared
@@ -2761,7 +2761,7 @@ void update_infobot_slot_path_motion(Obj_6e38 *o, Path_6e38 *path, s32 p) {
     find_nearest_path_point(path, &o->v[0], &w, &idx, &t, 0, 999.0f, 5.0f, 0.0f);
     d = IntToFloat(idx) * path->a[0].f[3] + t;
     w_ = d + 2.0f;
-    l = FastVecDist(&o->v[0], (void *)((char *)path + path->n * 16));
+    l = fast_vec_dist(&o->v[0], (void *)((char *)path + path->n * 16));
     s = g_frame_time_sq * 16.0f;
     c = st->v60;
     if (l <= (c * c) / (s + s)) {
@@ -2895,16 +2895,16 @@ extern void DeleteMoby_v(void) __asm__("func_0020D678");
 
 extern s32 truncate_float_to_s32(f32);
 
-extern Path *level_paths[];
+extern Path *toad_paths[];
 extern u8 level_available[];
-extern Player gHeroPos;
+extern Player hero_pos;
 extern s32 cinematic_mode MACRO_ADDR;
 /* Store each path segment's length in the w of its start point. */
 static inline void measure_path(Path *path) {
     s32 j;
 
     for (j = 0; j < path->count - 2; j++) {
-        path->pts[j].v.w = FastVecDist(&path->pts[j], &path->pts[j + 1]);
+        path->pts[j].v.w = fast_vec_dist(&path->pts[j], &path->pts[j + 1]);
     }
 }
 /* Moby update for an Infobot. */
@@ -2960,9 +2960,9 @@ void infobot_update(struct Moby *moby) {
                 if (infobot->slots[i] == -1) {
                     continue;
                 }
-                measure_path(level_paths[infobot->slots[i]]);
+                measure_path(toad_paths[infobot->slots[i]]);
             }
-            MPOS(moby)->q = level_paths[infobot->slots[0]]->pts[0].q;
+            MPOS(moby)->q = toad_paths[infobot->slots[0]]->pts[0].q;
             infobot->seg = 0;
             moby->state = 3;
             break;
@@ -2989,7 +2989,7 @@ void infobot_update(struct Moby *moby) {
                 ((void (*)(struct Moby *))DeleteMoby_v)(moby);
                 return;
             }
-            if (FastVecDist(&gHeroPos, &moby->pos) < range && gHeroPos.active != 0) {
+            if (fast_vec_dist(&hero_pos, &moby->pos) < range && hero_pos.active != 0) {
                 moby->state = 8;
             }
             break;
@@ -3013,13 +3013,13 @@ void infobot_update(struct Moby *moby) {
             moby->rot.x = ((f32 (*)(f32, f32, f32, f32, f32, f32 *))SpringTurn)(
                 moby->rot.x, 0.0f, g_frame_time_sq * 1.0471976f, g_frame_time_sq * 2.0943952f,
                 g_frame_time * 1.5707964f, &infobot->spin[0]);
-            if (FastVecDist(&((Camera *)g_hero)->target, &moby->pos) < 8.0f) {
+            if (fast_vec_dist(&((Camera *)g_hero)->target, &moby->pos) < 8.0f) {
                 moby->state = 4;
                 set_moby_dialogue_record_value(moby, 1);
             }
             break;
         case 4:
-            update_infobot_slot_path_motion(moby, level_paths[infobot->slots[infobot->seg]], 3);
+            update_infobot_slot_path_motion(moby, toad_paths[infobot->slots[infobot->seg]], 3);
             update_infobot_particle_effect((char *)moby);
             if (moby->state != 4) {
                 infobot->seg++;
@@ -3050,18 +3050,18 @@ void infobot_update(struct Moby *moby) {
             }
             moby->state = 6;
             infobot->attach = -1;
-            MPOS(moby)->q = level_paths[infobot->path]->pts[0].q;
-            moby->rot.z = fast_atan2(level_paths[infobot->path]->pts[1].v.x - level_paths[infobot->path]->pts[0].v.x,
-                                     level_paths[infobot->path]->pts[1].v.y - level_paths[infobot->path]->pts[0].v.y);
-            measure_path(level_paths[infobot->path]);
+            MPOS(moby)->q = toad_paths[infobot->path]->pts[0].q;
+            moby->rot.z = fast_atan2(toad_paths[infobot->path]->pts[1].v.x - toad_paths[infobot->path]->pts[0].v.x,
+                                     toad_paths[infobot->path]->pts[1].v.y - toad_paths[infobot->path]->pts[0].v.y);
+            measure_path(toad_paths[infobot->path]);
             break;
         case 6:
-            path = level_paths[infobot->path];
+            path = toad_paths[infobot->path];
             pos = (Vec *)&moby->pos;
             update_infobot_particle_effect((char *)moby);
             find_nearest_path_point(path, pos, &point, &segment, &fraction, 0, 999.0f, 5.0f, 0.0f);
             end = IntToFloat(segment) * path->pts[0].v.w + fraction + 2.0f;
-            distance = FastVecDist(pos, &path->pts[path->count - 1]);
+            distance = fast_vec_dist(pos, &path->pts[path->count - 1]);
             accel = g_frame_time_sq * 16.0f;
             speed = infobot->speed;
             if (distance <= speed * speed / (accel + accel)) {
@@ -3113,7 +3113,7 @@ void infobot_update(struct Moby *moby) {
                 g_frame_time * 1.5707964f, &infobot->spin[0]);
             break;
         case 7: {
-            Path *p = level_paths[infobot->path];
+            Path *p = toad_paths[infobot->path];
             update_infobot_particle_effect((char *)moby);
             infobot->sway = infobot->sway + g_frame_time;
             if (1.0f < infobot->sway) {
@@ -3129,7 +3129,7 @@ void infobot_update(struct Moby *moby) {
                 &infobot->spin[2]);
             FastVecAdd(&step, &offset, &p->pts[p->count - 1]);
             MPOS(moby)->q = step.q;
-            if (FastVecDist(&gHeroPos, &p->pts[p->count - 1]) < 2.0f && gHeroPos.active != 0) {
+            if (fast_vec_dist(&hero_pos, &p->pts[p->count - 1]) < 2.0f && hero_pos.active != 0) {
                 moby->state = 8;
             }
             moby->rot.y = ((f32 (*)(f32, f32, f32, f32, f32, f32 *))SpringTurn)(
@@ -3149,7 +3149,7 @@ void infobot_update(struct Moby *moby) {
             }
             moby->state = 9;
             if (infobot->msg0 != -1) {
-                StartCutscene(infobot->msg0);
+                start_scene(infobot->msg0);
             }
             break;
         case 9:
@@ -3166,7 +3166,7 @@ void infobot_update(struct Moby *moby) {
                 break;
             }
             if (infobot->msg2 != -1) {
-                StartCutscene(infobot->msg2);
+                start_scene(infobot->msg2);
             }
             moby->state = 11;
             break;
@@ -3279,9 +3279,10 @@ void update_infobot_particle_effect(char *o) {
         }
         f = IntToFloat(scale_ticks(0xFF) - p->c[i]);
         f = f / (float)scale_ticks(0xFF);
-        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, FastAbsF(0.5f - f));
+        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, absolute_float(0.5f - f));
         if (cinematic_mode != 2) {
-            PartType59Spawn(d, col, truncate_float_to_s32_r_r(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
+            spawn_timed_hero_relative_particle(d, col, truncate_float_to_s32_r_r(p->a[i]) & 0xFF, 0x35, 1, 2, 0,
+                                               p->d[i]);
         }
         FastVecAdd(d, d, e);
     }
@@ -3326,12 +3327,12 @@ typedef struct {
     Q *q;
 } P;
 extern Vec4f smoke_particle_unit_positions_r[] __asm__("D_L00_001CBAE0");
-extern u8 smoke_particle_matrix_select[];
-extern s16 smoke_particle_timer[];
+extern u8 l00_smoke_fire_particle_facing_flip_flags[];
+extern s16 l00_smoke_fire_particle_fade_in_timers[];
 extern float smoke_fire_emitted_particle_position_spread_gp SDATA(smoke_fire_emitted_particle_position_spread_gp);
 extern float smoke_fire_emitted_particle_random_scalar_upper_bound_gp
     SDATA(smoke_fire_emitted_particle_random_scalar_upper_bound_gp);
-extern int smoke_fire_particles_per_frame SDATA(smoke_fire_particles_per_frame);
+extern int smoke_fire_emission_attempts_per_update_gp SDATA(D_L00_00161A8C);
 extern int smoke_fire_emitted_particle_sign_randomized_sample_min_gp
     SDATA(smoke_fire_emitted_particle_sign_randomized_sample_min_gp);
 extern int smoke_fire_emitted_particle_sign_randomized_sample_max_gp
@@ -3380,16 +3381,16 @@ void particle_spawner_smoke_fire_update(P *p) {
             for (i = s; i < e; i++) {
                 r = random_integer_below(2);
                 smoke_particle_unit_positions_r[i].w = 1.0f;
-                smoke_particle_matrix_select[i] = r;
+                l00_smoke_fire_particle_facing_flip_flags[i] = r;
                 reset_smoke_fire_spawner_particle(p, i);
-                smoke_particle_timer[i] = 0;
+                l00_smoke_fire_particle_fade_in_timers[i] = 0;
             }
             j = e;
             e = e + q->extra;
             for (i = j; i < e; i++) {
                 r = random_integer_below(2);
                 smoke_particle_unit_positions_r[i].w = 1.0f;
-                smoke_particle_matrix_select[i] = r;
+                l00_smoke_fire_particle_facing_flip_flags[i] = r;
                 func_L00_002D9208_D83D8(p, i);
             }
             level_cuboids[q->idx].w = 1.0f;
@@ -3403,7 +3404,7 @@ void particle_spawner_smoke_fire_update(P *p) {
             if (FastBSphereCheck(&v, (smoke_fire_far_culling_distance_gp)) < 0)
                 return;
             if (q->flag42 && vec_distance_xy(&g_debug_camera_r2, &p->pos) < 128.0f) {
-                for (e = 0; e < (smoke_fire_particles_per_frame); e++) {
+                for (e = 0; e < (smoke_fire_emission_attempts_per_update_gp); e++) {
                     a.x = randf_sym(0.0f, 1.0f);
                     a.y = randf_sym(0.0f, 1.0f);
                     a.z = 1.0f;
@@ -3414,14 +3415,14 @@ void particle_spawner_smoke_fire_update(P *p) {
                     a.y = randf_sym(0.0f, g_frame_time * 0.25f);
                     a.z = q->f20 * g_frame_time;
                     f = random_float_between(q->f24, q->f28);
-                    col = rand_range(q->h2C, q->h2E) << 24 | (smoke_fire_emitted_particle_base_color_gp);
-                    r = rand_range((smoke_fire_emitted_particle_sign_randomized_sample_min_gp),
-                                   (smoke_fire_emitted_particle_sign_randomized_sample_max_gp));
+                    col = random_int_between(q->h2C, q->h2E) << 24 | (smoke_fire_emitted_particle_base_color_gp);
+                    r = random_int_between((smoke_fire_emitted_particle_sign_randomized_sample_min_gp),
+                                           (smoke_fire_emitted_particle_sign_randomized_sample_max_gp));
                     ent = PartType23Spawn_v(&b, r, (smoke_fire_emitted_particle_position_spread_gp), 1.0f, &a,
                                             (smoke_fire_emitted_particle_random_scalar_upper_bound_gp), col, f);
                     if (ent) {
                         sub = &ent->sub;
-                        ent->h0A = scale_ticks_r(rand_range(q->x30, q->x34));
+                        ent->h0A = scale_ticks_r(random_int_between(q->x30, q->x34));
                         sub->x04 = 3;
                         sub->b0A = col >> 24;
                         sub->b0B = ent->h0A;
@@ -3470,19 +3471,19 @@ extern float smoke_scroll_offset MACRO_ADDR;
 extern float smoke_particle_timer_ticks_inv MACRO_ADDR;
 extern float smoke_particle_aux_ticks_inv MACRO_ADDR;
 extern unsigned short smoke_particle_aux_ticks SDATA(smoke_particle_aux_ticks);
-extern int D_L00_00161A68 SDATA(D_L00_00161A68);
+extern int smoke_fire_particle_steady_alpha_gp SDATA(D_L00_00161A68);
 extern float k_smoke_alpha_scale SDATA(k_smoke_alpha_scale);
 extern u8 smoke_quad_vertex_alpha_mask[4] SDATA(D_L00_00161A70);
 extern u8 smoke_mesh_vertex_alpha_mask[8] SDATA(D_L00_00161A78);
-extern int smoke_cube_face_vertex_indices[][4];
-extern float smoke_particle_mesh_vertex_positions[][4];
-extern float smoke_particle_mesh_uv_v_column[];
-extern float smoke_particle_mesh_uv_u_column[];
-extern float smoke_particle_quad_positions[][4];
-extern float smoke_particle_quad_uvs[];
-extern float smoke_box_vertex_positions[][4];
-extern float smoke_box_uv_v_column[];
-extern float smoke_box_uv_u_column[];
+extern int smoke_fire_mesh_quad_vertex_indices[][4];
+extern float smoke_fire_mesh_particle_local_positions[][4];
+extern float smoke_fire_mesh_particle_v_coordinates[];
+extern float smoke_fire_mesh_particle_u_coordinates[];
+extern float smoke_fire_particle_quad_local_positions[][4];
+extern float smoke_fire_particle_quad_texture_coordinates[];
+extern float smoke_fire_base_mesh_local_positions[][4];
+extern float smoke_fire_base_mesh_v_coordinates[];
+extern float smoke_fire_base_mesh_u_coordinates[];
 
 void draw_smoke_fire_spawner(P *spawner) {
     Vec4 position, up;
@@ -3529,7 +3530,7 @@ void draw_smoke_fire_spawner(P *spawner) {
     for (i = q->start; i < end; i++) {
         phase = smoke_particle_scroll[i] - smoke_particle_scroll_speed[i] * frame_scale;
         smoke_particle_scroll[i] = phase;
-        transform = smoke_particle_matrix_select[i] ? flipped : front;
+        transform = l00_smoke_fire_particle_facing_flip_flags[i] ? flipped : front;
         if (phase <= -8.0f) {
             smoke_particle_scroll[i] = phase + 8.0f;
         }
@@ -3537,36 +3538,36 @@ void draw_smoke_fire_spawner(P *spawner) {
         width = smoke_particle_speed_a[i];
         height = smoke_particle_speed_b[i];
         if (((u8 *)smoke_particle_is_mesh)[i]) {
-            rows = smoke_cube_face_vertex_indices;
+            rows = smoke_fire_mesh_quad_vertex_indices;
             quad.primitive = 0x8000000044L;
             one = 1.0f;
             for (k = 2; k < 4; k++) {
                 for (j = 0; j < 4; j++) {
                     index = rows[k][j];
-                    vertex = smoke_particle_mesh_vertex_positions[index];
+                    vertex = smoke_fire_mesh_particle_local_positions[index];
                     quad.positions[j].f[0] = vertex[0];
                     quad.positions[j].f[1] = vertex[1] * width;
                     quad.positions[j].f[2] = vertex[2] * height;
                     quad.positions[j].f[3] = one;
                     transform_vector((Vec4f *)&quad.positions[j], (Vec4f *)&quad.positions[j], transform);
                     quad.texture_coordinates[j][0] =
-                        smoke_particle_mesh_uv_u_column[index * 2] + smoke_particle_scroll[i];
-                    quad.texture_coordinates[j][1] = smoke_particle_mesh_uv_v_column[index * 2];
+                        smoke_fire_mesh_particle_u_coordinates[index * 2] + smoke_particle_scroll[i];
+                    quad.texture_coordinates[j][1] = smoke_fire_mesh_particle_v_coordinates[index * 2];
                     quad.colors[j] = mesh_alpha * smoke_mesh_vertex_alpha_mask[index] | mesh_color;
                 }
                 draw_world_quad(&quad, 0, 0);
             }
         } else {
-            if (smoke_particle_timer[i]) {
-                FastDecTimer(&smoke_particle_timer[i]);
+            if (l00_smoke_fire_particle_fade_in_timers[i]) {
+                FastDecTimer(&l00_smoke_fire_particle_fade_in_timers[i]);
                 alpha = truncate_float_to_s32(
-                    (1.0f - IntToFloat(smoke_particle_timer[i]) * smoke_particle_timer_ticks_inv) *
+                    (1.0f - IntToFloat(l00_smoke_fire_particle_fade_in_timers[i]) * smoke_particle_timer_ticks_inv) *
                     k_smoke_alpha_scale);
             } else if (smoke_particle_life_timer[i]) {
                 if (FastDecTimer(&smoke_particle_life_timer[i])) {
                     reset_smoke_fire_spawner_particle(spawner, i);
                     alpha = 0;
-                    smoke_particle_matrix_select[i] = random_integer_below(2);
+                    l00_smoke_fire_particle_facing_flip_flags[i] = random_integer_below(2);
                 } else {
                     alpha = truncate_float_to_s32(IntToFloat(smoke_particle_life_timer[i]) *
                                                   smoke_particle_aux_ticks_inv * k_smoke_alpha_scale);
@@ -3575,23 +3576,24 @@ void draw_smoke_fire_spawner(P *spawner) {
                 if (FastDecTimer(&smoke_particle_start_delay[i])) {
                     smoke_particle_life_timer[i] = smoke_particle_aux_ticks;
                 }
-                alpha = D_L00_00161A68;
+                alpha = smoke_fire_particle_steady_alpha_gp;
             }
             alpha <<= 24;
             quad.primitive = 0x8000000048L;
             one = 1.0f;
             for (particle_quad_vertex_index = 0; particle_quad_vertex_index < 4; particle_quad_vertex_index++) {
                 quad.positions[particle_quad_vertex_index].f[0] =
-                    smoke_particle_quad_positions[particle_quad_vertex_index][0];
+                    smoke_fire_particle_quad_local_positions[particle_quad_vertex_index][0];
                 quad.positions[particle_quad_vertex_index].f[1] =
-                    smoke_particle_quad_positions[particle_quad_vertex_index][1] * width;
+                    smoke_fire_particle_quad_local_positions[particle_quad_vertex_index][1] * width;
                 quad.positions[particle_quad_vertex_index].f[2] =
-                    smoke_particle_quad_positions[particle_quad_vertex_index][2] * height;
+                    smoke_fire_particle_quad_local_positions[particle_quad_vertex_index][2] * height;
                 quad.positions[particle_quad_vertex_index].f[3] = one;
                 quad.texture_coordinates[particle_quad_vertex_index][0] =
-                    smoke_particle_quad_uvs[particle_quad_vertex_index * 2] - smoke_particle_scroll[i];
+                    smoke_fire_particle_quad_texture_coordinates[particle_quad_vertex_index * 2] -
+                    smoke_particle_scroll[i];
                 quad.texture_coordinates[particle_quad_vertex_index][1] =
-                    smoke_particle_quad_uvs[particle_quad_vertex_index * 2 + 1];
+                    smoke_fire_particle_quad_texture_coordinates[particle_quad_vertex_index * 2 + 1];
                 quad.colors[particle_quad_vertex_index] =
                     alpha * smoke_quad_vertex_alpha_mask[particle_quad_vertex_index] | q->col;
                 transform_vector((Vec4f *)&quad.positions[particle_quad_vertex_index],
@@ -3607,15 +3609,15 @@ void draw_smoke_fire_spawner(P *spawner) {
     if (q->flag42 == 0) {
         for (k = 0; k < 6; k++) {
             for (j = 0; j < 4; j++) {
-                index = smoke_cube_face_vertex_indices[k][j];
-                vertex = smoke_box_vertex_positions[index];
+                index = smoke_fire_mesh_quad_vertex_indices[k][j];
+                vertex = smoke_fire_base_mesh_local_positions[index];
                 quad.positions[j].f[0] = vertex[0];
                 quad.positions[j].f[1] = vertex[1] * q->f48;
                 quad.positions[j].f[2] = vertex[2] * q->f4C;
                 quad.positions[j].f[3] = 1.0f;
                 transform_vector((Vec4f *)&quad.positions[j], (Vec4f *)&quad.positions[j], facing);
-                quad.texture_coordinates[j][0] = smoke_box_uv_u_column[index * 2] + smoke_scroll_offset;
-                quad.texture_coordinates[j][1] = smoke_box_uv_v_column[index * 2];
+                quad.texture_coordinates[j][0] = smoke_fire_base_mesh_u_coordinates[index * 2] + smoke_scroll_offset;
+                quad.texture_coordinates[j][1] = smoke_fire_base_mesh_v_coordinates[index * 2];
                 quad.colors[j] = smoke_mesh_vertex_alpha_mask[index] * 0xFF000000 | mesh_color;
             }
             draw_world_quad(&quad, 0, 0);
@@ -3656,8 +3658,8 @@ extern float smoke_particle_scroll_speed_r[] __asm__("D_L00_001D4780");
 extern s16 smoke_particle_life_timer_r[] __asm__("D_L00_001D63A0");
 extern u8 smoke_particle_is_mesh_r[] __asm__("D_L00_001D3010");
 extern s16 smoke_particle_start_delay_r[] __asm__("D_L00_001D6D00");
-extern u16 D_L00_00161448[] MACRO_ADDR;
-extern int D_L00_00161444 MACRO_ADDR;
+extern u16 smoke_particle_timer_ticks[] MACRO_ADDR;
+extern int smoke_particle_stagger_ticks MACRO_ADDR;
 
 void func_L00_002D90A0_r(P_2D90A0 *m, int i) __asm__("func_L00_002D90A0");
 

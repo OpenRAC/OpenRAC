@@ -25,24 +25,24 @@ typedef struct {
     int f10;
     char p14[0x4C - 0x14];
 } R_2afd00;
-extern char novalis_vendor_screen_state[];
+extern char vendor_screen_state_storage[];
 extern char fx_cutscene[];
 extern char novalis_hero_scale_manipulator[];
-extern int novalis_scene_buffer_offsets[];
-extern int novalis_vendor_scene_chunk_ids[];
+extern int vendor_relocation_offsets[];
+extern int level_table_pair_indices[];
 extern R_2afd00 novalis_item_defs[];
 extern int novalis_skip_frame MACRO_ADDR;
 extern int novalis_game_mode MACRO_ADDR;
 extern float novalis_fade_level MACRO_ADDR;
 extern int relocated_address_base MACRO_ADDR;
 extern int novalis_white_fade_level SDATA(novalis_white_fade_level);
-extern char novalis_vendor_screen_anchor_offset;
+extern char vendor_camera_local_position_offset;
 
 /* Opens the vendor screen for moby m in level lvl: sets up its camera, resets the screen state and runs it until it
    closes. */
 void initialize_vendor_screen(char *m, int lvl) {
     struct Hero *g = &g_hero;
-    char *s = novalis_vendor_screen_state;
+    char *s = vendor_screen_state_storage;
     char *c = fx_cutscene;
     char *sc;
     char *c2;
@@ -56,30 +56,30 @@ void initialize_vendor_screen(char *m, int lvl) {
     snd_FlushSoundCommands();
     novalis_skip_frame = 1;
     FastMemSet(s, 0, 0x220);
-    *(int *)novalis_vendor_screen_state = 3;
+    *(int *)vendor_screen_state_storage = 3;
     novalis_game_mode = 5;
     *(int *)(s + 4) = 0;
     *(char **)(s + 0x28) = m;
     sc = s + 0xC0;
     reset_hud_and_suspend_weapon_updates();
     clear_active_help_record();
-    Hero_SetMoveState(100, 1);
+    l01_hero_set_state(100, 1);
     g->item_use_locked = 1;
     g->unk20A5 = 1;
-    HeroSetObjectFlags();
-    matrix_mul_vec3(sc, &novalis_vendor_screen_anchor_offset, m + 0xC0);
+    set_hero_item_moby_flag_bit0();
+    transform_vector_by_basis(sc, &vendor_camera_local_position_offset, m + 0xC0);
     FastVecAdd(sc, sc, m + 0x10);
-    *(float *)(s + 0xC8) = ProbeGroundHeight(sc, 0, 0.5f);
+    *(float *)(s + 0xC8) = probe_ground_height(sc, 0, 0.5f);
     clear_u64_value(s + 0xB0);
     *(float *)(s + 0xB8) = FastAddRots(*(float *)(m + 0x48), -1.5707964f);
     euler_rotation_basis(s + 0x80, s + 0xB0);
     FastMemSet(c, 0, 0x1C0);
     FastMemSet(novalis_hero_scale_manipulator, 0, 0x40);
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     n = relocated_address_base + (int)0xFFFC0000;
-    *(int *)(c + 0x58) = novalis_scene_buffer_offsets[1] + n;
-    r = novalis_vendor_scene_chunk_ids[lvl];
-    *(int *)(c + 0x5C) = novalis_scene_buffer_offsets[2] + n;
+    *(int *)(c + 0x58) = vendor_relocation_offsets[1] + n;
+    r = level_table_pair_indices[lvl];
+    *(int *)(c + 0x5C) = vendor_relocation_offsets[2] + n;
     novalis_fade_level = 1.0f;
     relocated_address_base = n;
     novalis_white_fade_level = 0;
@@ -97,5 +97,5 @@ void initialize_vendor_screen(char *m, int lvl) {
     c2 = fx_cutscene;
     g2 = &g_hero;
     update_item_tint_from_hero(*(int *)(c2 + 0x17C), *(int *)&g2->moby);
-    Music_ContinueStreamIfReady();
+    continue_audio_stream_if_ready();
 }

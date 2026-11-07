@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern int AdvanceMobyPath(char *);
+extern int func_L05_0031AB08(char *);
 extern char *FindMobyByDataId(void *, int);
 extern void add_moby_frames_for_group_proximity(void *);
 extern void apply_moby_position_and_rotation_wobble(char *);

@@ -44,7 +44,7 @@ void request_audio_stream_break(void) {
 typedef struct {
     char b[4];
 } StreamHdr;
-extern StreamHdr stream_read_mode_template;
+extern StreamHdr cd_read_request_mode_template;
 /* MACRO_ADDR for retail's one-register lbu; the explicit size 4 (over
    -G2) is what keeps the assembler from expanding it through $gp. */
 extern unsigned char cd_read_spindle_speed[4] MACRO_ADDR;
@@ -52,8 +52,8 @@ extern int cd_read_wait_frames MACRO_ADDR;
 extern int cd_read_slowdown_applied MACRO_ADDR;
 
 /* Start a CD stream read of arg2 sectors from arg1 into arg0 at the current spindle speed. */
-int Stream_SubmitRead(int arg0, int arg1, int arg2) {
-    StreamHdr hdr = stream_read_mode_template;
+int submit_audio_stream_io_request(int arg0, int arg1, int arg2) {
+    StreamHdr hdr = cd_read_request_mode_template;
 
     hdr.b[1] = cd_read_spindle_speed[0];
     cd_read_wait_frames = 0;
@@ -62,7 +62,7 @@ int Stream_SubmitRead(int arg0, int arg1, int arg2) {
     return 1;
 }
 
-extern char load_file_start_failed_string[];
+extern char cd_read_start_failure_message[];
 
 /* Start a stream: refuse if one is already running (+0x8) or the length
    is zero, otherwise hand the request to snd_StreamSafeCdRead with the header
@@ -79,7 +79,7 @@ int start_audio_stream_read(int arg0, int arg1, int arg2) {
         return 0;
     }
     if (snd_StreamSafeCdRead(arg1, arg2, arg0, d + 0x30) == 0) {
-        STUB_printf(load_file_start_failed_string);
+        STUB_printf(cd_read_start_failure_message);
         raise_kernel_trap();
         return 0;
     }
@@ -279,7 +279,7 @@ void music_primary_start_callback(int arg0, long arg1) {
     }
 }
 
-extern char sound_handle_in_use_message[];
+extern char sound_handle_id_conflict_diagnostic[];
 
 /* `*p = arg0` happens on the 0xFFFFFFFF path too (the older decode made
    it conditional), and D_001E8C60's message is printed. */
@@ -287,7 +287,7 @@ void set_sound_handle_id(int arg0, long arg1) {
     short *p = (short *)(int)arg1;
     if (p != 0) {
         if (*(unsigned int *)p != 0xFFFFFFFF) {
-            STUB_printf(sound_handle_in_use_message);
+            STUB_printf(sound_handle_id_conflict_diagnostic);
         } else {
             *(int *)p = arg0;
             if (arg0 == 0) {
@@ -360,15 +360,15 @@ typedef struct {
 extern s32 menu_help_hud_item SDATA(menu_help_hud_item);
 extern s32 world_update_time SDATA(world_update_time);
 extern s32 world_update_time_far __asm__("D_0015F6F0") MACRO_ADDR;
-extern s32 menu_entry_trigger_state[];
-extern Suffixes menu_time_suffixes;
-extern char menu_entry_find_token[];
-extern char menu_time_value_format[];
+extern s32 menu_entry_context[];
+extern Suffixes menu_bolt_threshold_thousands_separators;
+extern char help_text_integer_placeholder[];
+extern char bolt_threshold_number_format[];
 extern s32 g_game_language MACRO_ADDR;
 extern Weapon vendor_item_prices[];
 extern s32 gBolts MACRO_ADDR;
 
-extern u8 D_0013D5C8[];
+extern u8 item_available[];
 extern u8 items_acquired[];
 extern u8 gSpecialItems[];
 
@@ -402,8 +402,8 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
             e = (MenuItem *)(menu->unk3C + n * 0x1C);
             menu->unk8 = *(u8 *)&e->unk10 & 1;
             if (flags & 4) {
-                menu_entry_trigger_state[2] = (s32)arg0;
-                menu_entry_trigger_state[3] = (s32)menu;
+                menu_entry_context[2] = (s32)arg0;
+                menu_entry_context[3] = (s32)menu;
                 if (e->unk4 & 0x4000) {
                     noop_callback_n((s16)(e->unk4 ^ 0x4000));
                 } else {
@@ -417,22 +417,22 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
     if (menu->unk36 == -1) {
         return;
     }
-    menu_entry_trigger_state[5] = e->unk0;
+    menu_entry_context[5] = e->unk0;
     kind = e->unk8;
     if (kind == 6) {
-        sfx = menu_time_suffixes;
+        sfx = menu_bolt_threshold_thousands_separators;
         libc_strcpy((Cfg13 *)((char *)0x70000000), msg_string(e->unk0));
-        p = find_substring(((char *)0x70000000), menu_entry_find_token);
+        p = find_substring(((char *)0x70000000), help_text_integer_placeholder);
         if (p != 0) {
             p[1] = 's';
         }
         t = vendor_item_prices[e->unkA].unk14;
-        sprintf(num, menu_time_value_format, t / 1000, sfx.s[g_game_language % 6], t % 1000);
+        sprintf(num, bolt_threshold_number_format, t / 1000, sfx.s[g_game_language % 6], t % 1000);
         sprintf(buf, ((char *)0x70000000), num);
     } else {
         sprintf(buf, msg_string(e->unk0));
     }
-    if (menu_entry_trigger_state[5] != 0) {
+    if (menu_entry_context[5] != 0) {
         copy_text_to_shared_buffer(buf);
     } else if (menu_help_hud_item != -1) {
         remove_hud_item(menu_help_hud_item);
@@ -459,10 +459,10 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
             ok = gSpecialItems[e->unkA] != 0;
             break;
         case 5:
-            ok = !(compute_clamped_count_difference() < e->unkA);
+            ok = !(count_unspent_gold_bolts() < e->unkA);
             break;
         case 6:
-            ok = gBolts >= vendor_item_prices[e->unkA].unk14 && compute_clamped_count_difference() >= 4;
+            ok = gBolts >= vendor_item_prices[e->unkA].unk14 && count_unspent_gold_bolts() >= 4;
             break;
         default:
             ok = 0;
@@ -485,7 +485,7 @@ void process_menu_entry(void *arg0, Menu *menu, s32 arg2) {
 extern char g_controller_state[];
 
 /* Clear the controller state's pending input fields. */
-void pad_resetState(void) {
+void reset_pad_history(void) {
     char *p = g_controller_state;
     *(short *)(p + 0x18E) = 0;
     *(int *)(p + 0x190) = 0;
@@ -493,7 +493,7 @@ void pad_resetState(void) {
 
 LINKER_REMNANT("asm/remnants/text", func_00217ED8);
 
-extern int pad_socket_param NOT_SDA;
+extern int controller_socket_params NOT_SDA;
 
 extern void sce_pad2_init_v(int) __asm__("func_00124B88");
 
@@ -506,14 +506,14 @@ typedef struct {
 
 /* Init the pad library and open controller ports 0 and 1. */
 void init_pads(void) {
-    PadSocketParam *p = (PadSocketParam *)&pad_socket_param;
+    PadSocketParam *p = (PadSocketParam *)&controller_socket_params;
 
     sce_dbc_init();
     sce_pad2_init_v(0);
-    pad_socket_param = 2;
+    controller_socket_params = 2;
     p->slot = 0;
     ((struct PadState *)g_controller_state)->socket = sce_pad2_create_socket(p, g_controller_state);
-    pad_socket_param = 2;
+    controller_socket_params = 2;
     p->slot = 1;
     ((struct PadState *)g_controller_state)->profile_state = 0;
     ((struct PadState *)g_controller_state)->device_state = 0;

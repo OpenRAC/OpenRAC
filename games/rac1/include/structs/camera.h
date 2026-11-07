@@ -36,7 +36,7 @@ typedef struct {
     f32 z;
 } CameraVec3;
 
-/* One camera slot, 0xA0 bytes: gCameraSlots[48] (D_00187510; level code
+/* One camera slot, 0xA0 bytes: camera_selection_records[48] (D_00187510; level code
    D_L00_00167250). setup_level_cameras fills one per row of the level's camera
    table (gCameraDefs). */
 typedef struct Camera {
@@ -209,7 +209,7 @@ CAMERA_AT(CamBlend, orbit, 0x70);
 CAMERA_SIZE(CamBlend, 0xE0);
 
 /* The camera block, 0x3A0 bytes: gCamera (D_00187040; level 00
-   D_L00_00166D80, player_camera). transition.c clears it on a level load. */
+   D_L00_00166D80, gCameraLvl). transition.c clears it on a level load. */
 typedef struct CameraSystem {
     u8 pad000[0x40];
     f32 view_matrix[4][4];     /* 0x040 the renderer's view matrix (draw.c) */

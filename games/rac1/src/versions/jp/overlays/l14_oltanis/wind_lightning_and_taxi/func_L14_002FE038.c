@@ -1,4 +1,4 @@
-void update_enemy_fighter_921(Moby *m) {
+void rocket_strike_fighter_update(Moby *m) {
     Vec_2FE038 vt;
     Vec_2FE038 vb;
     Jet *d = (struct Jet *)m->pvars;
@@ -20,12 +20,12 @@ void update_enemy_fighter_921(Moby *m) {
                 fighter_skill_hit_count_r2 = fighter_skill_hit_count_r2 + 1;
                 if (fighter_skill_hit_count_r2 >= 3 && ((Skill_2FE038 *)gSkillPoints_r)->f18 == 0) {
                     ((Skill_2FE038 *)gSkillPoints_r)->f18 = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x542D, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x542D, -1);
                 }
             }
             m->state = 3;
-            SpawnExplosionFx(m, (*(Vec_2FE038 *)&m->pos), -1, 5.0f, 13.0f);
+            cart_burst(m, (*(Vec_2FE038 *)&m->pos), -1, 5.0f, 13.0f);
             m->flags |= 0x41;
             m->collision = 0;
             if (d->f6C != -1 && ((VoicePoolRow *)(voice_pool_r + d->f6C * 0x70))->owner == m &&
@@ -147,7 +147,7 @@ void update_enemy_fighter_921(Moby *m) {
             break;
     }
     spawn_moby_exhaust_puffs_r(m);
-    if (m->state != 0 && m->state != 3 && m->state != 1 && Sound_IsPlaying(m, d->f6C) == 0) {
+    if (m->state != 0 && m->state != 3 && m->state != 1 && voice_is_playing(m, d->f6C) == 0) {
         d->f6C = Moby_PlaySound_r4(0, 4, m);
     }
 }

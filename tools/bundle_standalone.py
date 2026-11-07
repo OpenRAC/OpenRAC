@@ -91,7 +91,7 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
 # The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-rac1-jp")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)

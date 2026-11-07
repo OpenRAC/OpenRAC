@@ -14,8 +14,8 @@ extern void draw_quarter_turn_textured_quads(float, float, float, float, unsigne
 extern void emit_type_74_particles_from_moby_joints(void *, void *);
 extern void project_world_point_to_screen_pixels(void *, void *, void *, int);
 extern void queue_oil_tanker_front_texture_2b_batches(int);
-extern int spawn_class_3f1_moby(void *, void *, void *, float, float);
-extern char *spawn_class_3f9_moby(int owner, float *dir, float *pos, float size, float len, float z);
+extern int func_L11_00309C18(void *, void *, void *, float, float);
+extern char *func_L11_0030A318(int owner, float *dir, float *pos, float size, float len, float z);
 extern int test_linked_moby_turn_trigger(void *);
 extern void update_moby_hit_stats_and_state(void *);
 extern void update_moby_path_transform(void *);

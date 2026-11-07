@@ -1,4 +1,4 @@
-void update_batalia_item_triggers_and_help(char *m) {
+void Moby1349Update(char *m) {
     VData *data = *(VData **)(m + 0x78);
     int elapsed;
     int time;
@@ -15,8 +15,8 @@ void update_batalia_item_triggers_and_help(char *m) {
                 data->state = 0;
             } else if (is_point_inside_clip_volume(&hero_p.motion.pos, data->fourth) && unl_p[0xB] == 0) {
                 unl_p[0xB] = 1;
-                PlayBankSound(1, 0, 0);
-                ShowBanner(0x53D6, -1);
+                allocate_voice_for_bank_entry(1, 0, 0);
+                queue_dialogue_message(0x53D6, -1);
             }
             break;
     }
@@ -24,7 +24,7 @@ void update_batalia_item_triggers_and_help(char *m) {
         if (is_point_inside_clip_volume(&hero_p.motion.pos, data->first)) {
             elapsed = scale_ticks(gameplay_event_frame_count) - HR[48].best * 600;
             if ((int)((float)scale_ticks(18) * 60.0f) < elapsed || HR[48].best * 600 == 0) {
-                Help_Request(8000, 0x30);
+                help_request(8000, 0x30);
             } else {
                 time = scale_ticks(gameplay_event_frame_count) / 600;
                 if (HR[48].best < time)
@@ -37,7 +37,7 @@ void update_batalia_item_triggers_and_help(char *m) {
             if (HR[49].count != 0) {
                 elapsed = scale_ticks(gameplay_event_frame_count) - HR[49].best * 600;
                 if ((int)((float)scale_ticks(18) * 60.0f) < elapsed || HR[49].best * 600 == 0) {
-                    Help_Request(8001, 0x31);
+                    help_request(8001, 0x31);
                 } else {
                     time = scale_ticks(gameplay_event_frame_count) / 600;
                     if (HR[49].best < time)
@@ -56,7 +56,7 @@ void update_batalia_item_triggers_and_help(char *m) {
         if (is_point_inside_clip_volume(&hero_p.motion.pos, data->second) && level_available_base[7] != 0) {
             elapsed = scale_ticks(gameplay_event_frame_count) - HR[50].best * 600;
             if ((int)((float)scale_ticks(18) * 60.0f) < elapsed || HR[50].best * 600 == 0) {
-                Help_Request(8002, 0x32);
+                help_request(8002, 0x32);
             } else {
                 time = scale_ticks(gameplay_event_frame_count) / 600;
                 if (HR[50].best < time)
@@ -70,7 +70,7 @@ void update_batalia_item_triggers_and_help(char *m) {
             if (HR[112].count != 0) {
                 elapsed = scale_ticks(gameplay_event_frame_count) - HR[112].best * 600;
                 if ((int)((float)scale_ticks(18) * 60.0f) < elapsed || HR[112].best * 600 == 0) {
-                    Help_Request(8005, 0x70);
+                    help_request(8005, 0x70);
                 } else {
                     time = scale_ticks(gameplay_event_frame_count) / 600;
                     if (HR[112].best < time)

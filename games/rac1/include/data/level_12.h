@@ -7,6 +7,6 @@
 
 extern float hoven_camera_yaw;
 extern short hoven_look_stat_timer;
-extern char *hoven_paths[];
+extern char *D_L12_001B0C30[];
 
 #endif /* DATA_LEVEL_12_H */

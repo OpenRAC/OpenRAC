@@ -126,7 +126,7 @@ void initialize_level_transition_with_audio(int a) {
     FastMemSet(&cutscene_state_s, 0, 0x1C0);
     FastMemSet(hero_scale_manipulator, 0, 0x40);
     FastMemSet(cheat_scale_manipulator, 0, 0x40);
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     u = lvl_vu_chain_buffer_size - 0x60000;
     cutscene_state_s.x58 = D_L00_00173F00_s.x4 + u;
     cutscene_state_s.x5c = D_L00_00173F00_s.x8 + u;
@@ -136,7 +136,7 @@ void initialize_level_transition_with_audio(int a) {
     level_white_fade_level = 0;
     HeroEnterMoveState(100, 2);
     g_hero_field_20a5[0] = 1;
-    HeroSetObjectFlags();
+    set_hero_item_moby_flag_bit0();
     level_render_state_s.x0->flags |= 1;
     for (o = level_mobys_end; o->st != 0xFF; o++) {
         if (!(o->st & 0x80) && (o->type == 0x4A || o->type == 0xCB))
@@ -185,7 +185,7 @@ void initialize_level_transition_with_audio(int a) {
         sound_update();
         sce_gs_sync_v(0);
     }
-    Music_ContinueStreamIfReady();
+    continue_audio_stream_if_ready();
 }
 extern char g_hero[] NOT_SDA;
 extern int skip_frame SDATA(skip_frame);
@@ -218,7 +218,7 @@ extern char lvl_resource_buffers[];
 extern char cutscene_state[];
 extern int pal_mode MACRO_ADDR;
 extern int memcard_last_save_slot MACRO_ADDR;
-extern short level_transition_ticks_by_variant;
+extern short transition_sequence_positions;
 
 /* start a ship-travel transition to the given destination, setting up the flight path and timing Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/gameplay_space_0028e8a0.c, FUN_L00_0028ed58. */
 void prepare_target_level_transition(int dest) {
@@ -232,7 +232,7 @@ void prepare_target_level_transition(int dest) {
     level_white_fade_level = 0;
     *(int *)(g + 0x20) = 0;
     *(short *)(g + 0x24) = -1;
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     base = lvl_vu_chain_buffer_size_base[1] - 0x60000;
     q = (int *)lvl_resource_buffers;
     h = cutscene_state;
@@ -246,7 +246,7 @@ void prepare_target_level_transition(int dest) {
         initialize_level_transition_with_audio(8);
         if (pal_mode)
             d = 0x50;
-        v = scale_ticks(((int *)&level_transition_ticks_by_variant)[*(short *)(g + 0x26)]);
+        v = scale_ticks(((int *)&transition_sequence_positions)[*(short *)(g + 0x26)]);
         *(int *)(h + 0x34) = v;
         t = v / d;
         *(int *)(h + 0x3C) = t;
@@ -279,7 +279,7 @@ extern struct {
 extern int lvl_vu_chain_buffer_size_r __asm__("D_L00_0016128C") MACRO_ADDR;
 extern int g_current_level_index MACRO_ADDR;
 extern u8 level_available_base NOT_SDA;
-extern u8 menu_item_enabled_92[];
+extern u8 level_14_entry_transition_gate[];
 
 void initialize_level_transition_with_audio(s32);
 
@@ -299,7 +299,7 @@ void prepare_level_entry_transition(void) {
     }
     if (m != 0) {
         if (m == 0xE) {
-            if (menu_item_enabled_92[0] == 0)
+            if (level_14_entry_transition_gate[0] == 0)
                 goto out;
         }
         if (m < 0x14)
@@ -313,7 +313,7 @@ in:
     cinematic_mode = 6;
     gFadeLvl = 1.0f;
     level_render_state_r.x20 = 0;
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     u = lvl_vu_chain_buffer_size_r - 0x60000;
     D_L00_0016C960_901A8.x58 = D_L00_00173F00_901A8.x4 + u;
     D_L00_0016C960_901A8.x5c = D_L00_00173F00_901A8.x8_c + u;
@@ -386,7 +386,7 @@ void build_variant_effect_quads(unsigned char *quad_source) {
             quad.colors[k] = col;
             FastVecScale_v(quad_scale, &quad.positions[k], &variant_effect_quad_corners[k]);
             FastVecAdd(&quad.positions[k], &quad.positions[k], &selected_quad_offsets[i]);
-            matrix_mul_vec3(&quad.positions[k], &quad.positions[k], level_render_state_r2.p0 + 0xC0);
+            transform_vector_by_basis(&quad.positions[k], &quad.positions[k], level_render_state_r2.p0 + 0xC0);
             FastVecAdd(&quad.positions[k], &quad.positions[k], &quad_source_translation);
         }
         draw_world_quad(&quad, 0, 0);

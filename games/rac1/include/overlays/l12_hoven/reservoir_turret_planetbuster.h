@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void *spawn_rocket(void *, void *, void *, int, float, float, float);
+extern void *func_L12_002EE068(void *, void *, void *, int, float, float, float);
 
 #endif /* OVERLAYS_L12_HOVEN_RESERVOIR_TURRET_PLANETBUSTER_H */

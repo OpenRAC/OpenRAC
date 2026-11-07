@@ -189,6 +189,11 @@ def gather(args):
     table = Table(version / "host" / "rac1_version.h")
     sources = sorted(p for d in shared_dirs(version) for p in d.glob("*.[ch]"))
     keys, loose = used(sources, table.omitted())
+    if (version / "host" / "rac1_names.tsv").is_file():
+        # A release of games/rac1's own decompilation (port/tools/hostgen/release_rac1.py): its
+        # function names are host/rac1_names.tsv's, written in one pass (release_host.py); the
+        # table holds the addresses.
+        keys = {k: v for k, v in keys.items() if k.startswith("RAC1_ADDR_")}
     return version, table, keys, loose
 
 

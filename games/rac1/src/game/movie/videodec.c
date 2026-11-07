@@ -121,13 +121,13 @@ typedef struct MoviePutSpans {
     unsigned char *second;
     int secondSize;
 } MoviePutSpans;
-extern MovieFourBytes mpeg_sequence_end_code;
+extern MovieFourBytes video_dec_flush_code;
 
 extern void movie_end_put(void *, int) __asm__("func_0023DFE0");
 
 /* videoDecFlush(VideoDec *) */
 int videoDecFlush(VideoDec *dec) {
-    MovieFourBytes marker = mpeg_sequence_end_code;
+    MovieFourBytes marker = video_dec_flush_code;
     MoviePutSpans spans;
     videoDecBeginPut(dec, &spans.first, &spans.firstSize, &spans.second, &spans.secondSize);
     if (spans.firstSize + spans.secondSize < 4)
@@ -177,7 +177,7 @@ typedef struct MovieFrameState {
     int pending;
     int count;
 } MovieFrameState;
-extern char str_mpeg_get_picture_error[], str_decode_thread_aborted[];
+extern char mpeg_get_picture_decode_error_message[], decode_thread_aborted_message[];
 
 extern int sce_mpeg_get_picture(void *, void *, int);
 extern int sce_mpeg_is_end(void *);
@@ -189,13 +189,13 @@ int sceMpegGetPicture(VideoDec *dec) {
         char *frame;
         if (videoDecGetState(dec) == 1) {
             result = -1;
-            STUB_printf(str_decode_thread_aborted);
+            STUB_printf(decode_thread_aborted_message);
             break;
         }
         while ((frame = voBufGetData(decoder_state + 0xD9168)) == 0)
             switchThread();
         if (sce_mpeg_get_picture(dec, frame, 0x340) < 0)
-            ErrMessage(str_mpeg_get_picture_error);
+            ErrMessage(mpeg_get_picture_decode_error_message);
         {
             char *ringState;
             if (dec->f08 == 0) {

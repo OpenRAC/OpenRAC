@@ -81,7 +81,7 @@ void scan_hero_input_sequences(void) {
                 int t = gCheats[i] == 0;
                 selector_available[i] = 1;
                 gCheats[i] = t;
-                ShowBanner(t ? 0x4FBF : 0x4FC0, -1);
+                queue_dialogue_message(t ? 0x4FBF : 0x4FC0, -1);
                 break;
             }
         }

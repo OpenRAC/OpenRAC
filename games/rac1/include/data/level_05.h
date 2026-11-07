@@ -7,7 +7,7 @@
 
 extern unsigned char rilgar_big_head_manipulator[];
 extern char rilgar_camera_pos[];
-extern char *rilgar_paths[];
+extern char *D_L05_001B0CB0[];
 extern float rilgar_player_camera_yaw;
 extern short rilgar_usage_event_timer;
 

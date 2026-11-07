@@ -44,7 +44,7 @@ typedef struct {
     s32 label_text;
     s32 pad4[2];
 } LevelMapMarkerText;
-extern LevelMapMarkerText level_map_labels[19];
+extern LevelMapMarkerText D_001DE0C4[19];
 extern LevelMapMarker level_map_markers[20];
 struct MapIcon;
 struct MapMarker;
@@ -136,7 +136,7 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
     SetupGifPaging(0);
     VU1_addGSregister(0x42, 0x8000000044);
     VU1_addGSregister(0x47, 0x4B);
-    draw_hud_rect_blended(0, 0, 0x200, 0x1C0, 0x80000000, 0);
+    append_screen_rect_packet(0, 0, 0x200, 0x1C0, 0x80000000, 0);
     texture_index = GetIconFrame(0xE99A, 0xE);
     screen_width_subpixels = (right - left) * 16;
     screen_height_subpixels = (bottom - top) * 16;
@@ -161,18 +161,18 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
         if (availability == 3 ||
             (availability == 2 && game_frame_counter % (scale_game_frame_count(0x16) + scale_game_frame_count(8)) <
                                       scale_game_frame_count(0x16))) {
-            HudSprite(GetIconFrame(0xE99A, 0xC), marker_x - 5, marker_y - 5, 10, 10, 0x80);
+            draw_hud_sprite(GetIconFrame(0xE99A, 0xC), marker_x - 5, marker_y - 5, 10, 10, 0x80);
         }
         if (level_index == level_map_selection.level) {
             label_x = marker_x + level_map_markers[level_index].label_offset_x;
             label_y = marker_y + level_map_markers[level_index].label_offset_y;
             label_direction[1] = level_map_markers[level_index].label_offset_y;
             label_direction[0] = level_map_markers[level_index].label_offset_x;
-            direction_length = vec_length_xy(label_direction) * 1000.0f;
+            direction_length = vector_length_xy(label_direction) * 1000.0f;
             line_fraction = direction_length - 8000;
             line_start_x = label_x + (marker_x - label_x) * line_fraction / direction_length;
             line_start_y = label_y + (marker_y - label_y) * line_fraction / direction_length;
-            label_text = msg_string(level_map_labels[level_index].label_text);
+            label_text = msg_string(D_001DE0C4[level_index].label_text);
             text_width = measure_text_width_regular(label_text, -1);
             if (level_map_markers[level_index].label_offset_x <= -1) {
                 line_end_x = label_x - text_width;
@@ -186,7 +186,7 @@ void draw_level_selection_map(s32 left, s32 right, s32 top, s32 bottom) {
             draw_hud_rect(line_start_x, line_start_y, label_x, label_y, 0x80F0F0F0, 0);
             draw_hud_rect(label_x, label_y, line_end_x, label_y, 0x80F0F0F0, 0);
             FontPrintLarge(text_x, label_y - (map_label_text_y_offset), 0x80F0F0F0, label_text, -1);
-            HudSprite(GetIconFrame(0xE99A, 0xD), marker_x - 10, marker_y - 10, 20, 20, 0x80);
+            draw_hud_sprite(GetIconFrame(0xE99A, 0xD), marker_x - 10, marker_y - 10, 20, 20, 0x80);
         }
     }
     DoGifPaging();
@@ -264,8 +264,8 @@ void *msg_string(int id) {
 
 LINKER_REMNANT("asm/remnants/text", func_001FE580);
 
-extern int D_0015EF1D MACRO_ADDR;
-extern int D_0015EF1C MACRO_ADDR;
+extern int gHelpDeskText MACRO_ADDR;
+extern int gHelpDeskVoice MACRO_ADDR;
 #define D_0015EF1D_b (*(unsigned char *)&gHelpDeskText)
 #define D_0015EF1C_b (*(unsigned char *)&gHelpDeskVoice)
 
@@ -290,7 +290,7 @@ void link_localized_display_text(void) {
     ((HelpState *)g_help_state)->state = 1;
     ((HelpState *)g_help_state)->x04 = 0;
     if (D_0015EF1D_b || D_0015EF1C_b) {
-        PlayBankSound(0, 1, 0);
+        allocate_voice_for_bank_entry(0, 1, 0);
     }
 
     idx = ((HelpState *)g_help_state)->pad[6];
@@ -494,7 +494,7 @@ void Help_Update(void) {
             } else if (HS.timer >= 4) {
                 id = help_msgs[HS.msg].unk_08;
                 if (id != -1 && id == cd_read_state.unk54 - 0x7530 && cd_read_state.unk5A == 3) {
-                    Music_ContinueStreamIfReady();
+                    continue_audio_stream_if_ready();
                 }
                 HS.state = 5;
                 HS.timer = 0;

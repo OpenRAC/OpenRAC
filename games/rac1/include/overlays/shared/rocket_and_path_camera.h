@@ -7,7 +7,7 @@
 
 extern void activate_descriptor(int);
 extern int check_descriptor_hero_trigger(void *);
-extern void *create_rocket(void *, float, void *, int, int, int);
+extern void *func_L10_002CD578(void *, float, void *, int, int, int);
 extern void emit_moby_sprite_particles(void *);
 extern void spawn_type_52_particle_near_moby(char *moby);
 

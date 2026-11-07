@@ -39,7 +39,7 @@ extern struct SifClientDataStartSound sound_command_client_r __asm__("D_0015ECC0
 extern struct SifClientDataStartSound sound_stream_client_r __asm__("D_0015ECE8");
 extern short snd_batch_command_buffers;
 extern short snd_batch_free_bytes;
-extern s32 snd_batch_free_bytes_1 MACRO_ADDR;
+extern s32 snd_batch1_free_bytes_macro MACRO_ADDR;
 extern short snd_stream_buffers;
 extern short snd_batch_return_buffers;
 extern short snd_cd_callback_pending;
@@ -103,7 +103,7 @@ s32 snd_StartSoundSystem(void) {
     *(s32 *)snd_command_buffer2 = 0;
     sound_read_work_r.read_error = 0;
     (*(s32 *)&snd_batch_free_bytes) = 0xFFC;
-    snd_batch_free_bytes_1 = 0xFFC;
+    snd_batch1_free_bytes_macro = 0xFFC;
     command_arg = (s32)(u32)&sound_read_work_r.read_active;
     return snd_SendIOPCommandAndWait(0, 4, &command_arg);
 }
@@ -124,7 +124,7 @@ extern short snd_batch_command_buffers; /* int *count[2] */
 extern short snd_stream_buffers; /* struct SndCommand *cmd[2] */
 extern short snd_batch_return_buffers; /* int *reply[2] */
 extern short snd_batch_index; /* current buffer */
-extern short GlobalTableStatus;
+extern short snd_batches_held;
 extern short snd_cd_callback_pending; /* CD read pending */
 extern short snd_cd_callback_fn; /* CD read callback */
 extern short snd_return_callback; /* abort callback */
@@ -186,7 +186,7 @@ int snd_FlushSoundCommands(void) {
         }
     }
     if (SDA_I(snd_current_buffer) == 0) {
-        if (*SND_COUNT[SDA_I(snd_batch_index)] != 0 && SDA_I(GlobalTableStatus) == 0) {
+        if (*SND_COUNT[SDA_I(snd_batch_index)] != 0 && SDA_I(snd_batches_held) == 0) {
             snd_SendCurrentBatch();
         }
     }
@@ -480,7 +480,7 @@ int snd_SendIOPCommandAndWait(int cmd, int size, void *arg) {
     while (snd_GotReturns() == 0) {
     }
     result = snd_sync_buffer_w[1];
-    if (*((int **)&snd_batch_command_buffers)[*(int *)&snd_batch_index] != 0 && *(int *)&GlobalTableStatus == 0) {
+    if (*((int **)&snd_batch_command_buffers)[*(int *)&snd_batch_index] != 0 && *(int *)&snd_batches_held == 0) {
         snd_SendCurrentBatch();
     }
     return result;
@@ -515,7 +515,7 @@ void func_0012E820_r(int cmd, int size, unsigned char *data, int cb, long cb_dat
     unsigned char *p;
 
     held = 0;
-    if (*(int *)&GlobalTableStatus == 0 && *(int *)&snd_current_buffer == 0 && size == 0 && cb == 0) {
+    if (*(int *)&snd_batches_held == 0 && *(int *)&snd_current_buffer == 0 && size == 0 && cb == 0) {
         snd_PrepareReturnBuffer_s(snd_sync_buffer_w, 1);
         while (sce_sif_check_stat_rpc(&sound_command_client) != 0) {
             func_00116078_p(snd_non_idle_error_string);
@@ -532,8 +532,8 @@ void func_0012E820_r(int cmd, int size, unsigned char *data, int cb, long cb_dat
     }
     while (*((int **)&snd_batch_command_buffers)[*(int *)&snd_batch_index] == 0x100 ||
            ((int *)&snd_batch_free_bytes)[*(int *)&snd_batch_index] < need) {
-        if (*(int *)&GlobalTableStatus != 0) {
-            *(int *)&GlobalTableStatus = 0;
+        if (*(int *)&snd_batches_held != 0) {
+            *(int *)&snd_batches_held = 0;
             held = 1;
         }
         snd_FlushSoundCommands();
@@ -547,7 +547,7 @@ void func_0012E820_r(int cmd, int size, unsigned char *data, int cb, long cb_dat
         func_00116078_p(snd_no_wait_continuing_string, tries);
     }
     if (held != 0) {
-        *(int *)&GlobalTableStatus = 1;
+        *(int *)&snd_batches_held = 1;
     }
     p = (unsigned char *)((int **)&snd_batch_command_buffers)[*(int *)&snd_batch_index] -
         (((int *)&snd_batch_free_bytes)[*(int *)&snd_batch_index] - 0x1000);
@@ -622,7 +622,7 @@ void snd_SendCurrentBatch(void) {
 
 /* snd_UnkFunction_0012eaf0 */
 void snd_reenable_command_flush(void) {
-    *(int *)&GlobalTableStatus = 1;
+    *(int *)&snd_batches_held = 1;
 }
 
 /*
@@ -634,7 +634,7 @@ void snd_reenable_command_flush(void) {
  */
 /* snd_UnkFunction_0012eb00 */
 void snd_reset_state_and_flush_commands(void) {
-    *(int *)&GlobalTableStatus = 0;
+    *(int *)&snd_batches_held = 0;
     snd_FlushSoundCommands();
 }
 

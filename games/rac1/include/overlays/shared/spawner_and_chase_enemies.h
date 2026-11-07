@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern int spawn_class_4ea_projectile(void *, void *, void *, int);
+extern int func_L09_00308F58(void *, void *, void *, int);
 
 #endif /* OVERLAYS_SHARED_SPAWNER_AND_CHASE_ENEMIES_H */

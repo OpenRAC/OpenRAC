@@ -16,12 +16,12 @@ extern void *_impure_ptr NOT_SDA;
 
 LINKER_REMNANT("asm/remnants/core_text", func_001144D0);
 
-extern char locale_lconv[];
+extern char lconv[];
 
 /* arg0 unused: retail loads it into $a0 for this call too but the
    function body never reads it. */
 void *_localeconv_r(void *arg0) {
-    return locale_lconv;
+    return lconv;
 }
 
 LINKER_REMNANT("asm/remnants/core_text", func_001144E8);

@@ -99,7 +99,7 @@ extern char race_gates_base[];
 extern s32 level_frame_counter MACRO_ADDR;
 /* Start an NPC's dialog when the hero is close and facing it; returns nonzero if it started. */
 int Npc_TryStartDialog(char *p, char *q) {
-    extern float FastVecDist(void *, void *);
+    extern float fast_vec_dist(void *, void *);
     extern s32 get_dialogue_entry(void *);
     struct Hero *g = &g_hero;
     char *x;
@@ -123,7 +123,7 @@ int Npc_TryStartDialog(char *p, char *q) {
         return 0;
     if (*(unsigned char *)(q + 8) == 0xFF)
         return 0;
-    f0 = FastVecDist(p + 0x10, &g->motion.pos);
+    f0 = fast_vec_dist(p + 0x10, &g->motion.pos);
     f = *(float *)(q + 0xC);
     f = f + f;
     if (f < f0)
@@ -174,7 +174,7 @@ int Npc_TryStartDialog(char *p, char *q) {
         remove_hud_item(bolt_hud_item);
         h4 = *(short *)(e + 4);
         bolt_hud_item = -1;
-        StartCutscene(h4);
+        start_scene(h4);
         return 1;
     }
     if (hud_keep_visible(bolt_hud_item, 0xA)) {
@@ -250,8 +250,8 @@ typedef struct {
     u16 f06;
     s16 f08;
 } P002668a0;
-extern E002668a0 race_gates[];
-extern P002668a0 *dialogue_entry_scripts[];
+extern E002668a0 level_object_states[];
+extern P002668a0 *l00_moby_dialogue_entry_lists[];
 extern s32 level_frame_counter MACRO_ADDR;
 extern s32 get_dialogue_entry_r(void *) __asm__("func_L00_00267618");
 
@@ -267,16 +267,16 @@ s32 DialogRequest_Init(void *p, u8 *out_p) {
     if (i == -1) {
         return -1;
     }
-    if (dialogue_entry_scripts[i] == 0) {
+    if (l00_moby_dialogue_entry_lists[i] == 0) {
         return -1;
     }
     out->f09 = 1;
     out->f38 = level_frame_counter;
     out->f04 = -1;
     out->f36 = 0;
-    q = dialogue_entry_scripts[i];
+    q = l00_moby_dialogue_entry_lists[i];
     out->f3C = (u32)q;
-    if (race_gates[i].d != 0 && q->f08 == 0) {
+    if (level_object_states[i].d != 0 && q->f08 == 0) {
         out->f36 = q->f06;
     }
     out->f08 = ((u8 *)out->f3C)[out->f36 * 0x1C + (k = 0x10)] & 1;

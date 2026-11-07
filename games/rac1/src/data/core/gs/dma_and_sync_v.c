@@ -17,10 +17,10 @@ u8 dma_sts_channel_codes[] DATA_SECTION(D_00153520) = {
 #include "data_inc/D_00153520.inc"
 };
 
-u8 dma_std_channel_codes[] DATA_SECTION(D_00153530) = {
+u8 D_00153530[] DATA_SECTION(D_00153530) = {
 #include "data_inc/D_00153530.inc"
 };
 
-u8 dma_mfd_channel_codes[] DATA_SECTION(D_00153540) = {
+u8 D_00153540[] DATA_SECTION(D_00153540) = {
 #include "data_inc/D_00153540.inc"
 };

@@ -37,7 +37,7 @@ LINKER_REMNANT("asm/overlays", func_L03_0024FA90);
 
 /* Set up a jump arc in p[5..7] for distance a and height b under the gravity in p[4]. */
 void trooper_set_knockback(float *p, float a, float b) {
-    float root = vec_length((b + b) * p[4]);
+    float root = square_root((b + b) * p[4]);
     float x = (root + root) / p[4];
     p[7] = root;
     p[6] = (a + a) / x;
@@ -55,7 +55,7 @@ static inline int game_frames(int n) {
 static inline int rand_ticks(int lo, int hi) {
     int a = game_frames(lo);
     int b = game_frames(hi);
-    return rand_range(a, b);
+    return random_int_between(a, b);
 }
 /* Return a random value within plus or minus spread. */
 static inline float rand_jitter(float spread) {
@@ -69,7 +69,7 @@ static inline float rand_speed(void) {
 }
 /* Return a random spin step from 0 to 3. */
 static inline int rand_spin(void) {
-    int s = rand_range(0, 3);
+    int s = random_int_between(0, 3);
     return s;
 }
 /* Return 0 or 1 at random. */
@@ -105,6 +105,6 @@ void emit_radial_particle_burst(char *moby, float *position, void *extra) {
         n = rand_ticks(20, 60);
         if (extra)
             add_vectors(tmp, vec, extra);
-        PartType21Spawn(p, vec, 0x4F007FFF, 0x1FFFFFFF, n, 1, 10000.0f);
+        spawn_burst(p, vec, 0x4F007FFF, 0x1FFFFFFF, n, 1, 10000.0f);
     }
 }

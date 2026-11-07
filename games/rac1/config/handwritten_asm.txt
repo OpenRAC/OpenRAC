@@ -131,6 +131,7 @@ core_text/func_00126FB0
 core_text/func_00127080
 core_text/func_001271A0
 core_text/func_001272B8
+core_text/func_00127318
 core_text/func_0012A418
 core_text/func_0012A718
 core_text/func_0012D868

@@ -5,7 +5,7 @@
 #include "include_asm.h"
 #include "data/level_13.h"
 
-extern char *D_L13_00160058 MACRO_ADDR;
+extern char *moby_base MACRO_ADDR;
 
 // Sets flag/bit fields on every moby in a zero-terminated index list.
 void jet_group_state(int idx, int a, int b, int c) {
@@ -14,7 +14,7 @@ void jet_group_state(int idx, int a, int b, int c) {
         short *p = list;
         do {
             int off = (*(unsigned short *)p & 0x7FFF) << 8;
-            struct Moby *m = (struct Moby *)((char *)(off + (int)gemlik_moby_array_start));
+            struct Moby *m = (struct Moby *)((char *)(off + (int)moby_base));
             if (*(char *)&m->state >= 0) {
                 if (a != -1) {
                     if (a)

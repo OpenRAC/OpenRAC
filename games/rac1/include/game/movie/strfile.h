@@ -5,8 +5,8 @@
 
 #include "common.h"
 
-extern int get_state_callback_result(void *);
+extern int func_0023CE28(void *);
 extern int read_cd_stream_sectors(void *, int, int, int);
-extern int set_state_fields(void *, int, int);
+extern int func_0023CE18(void *, int, int);
 
 #endif /* GAME_MOVIE_STRFILE_H */

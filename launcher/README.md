@@ -10,9 +10,10 @@ editing. It is OpenRAC's version of
 [OpenGOAL's launcher](https://github.com/open-goal/launcher) for Jak and
 Daxter. Nothing here emulates the console.
 
-It covers all six games: Ratchet & Clank (PAL and NTSC-U), Going Commando, Up
+It covers all six games: Ratchet & Clank (PAL and NTSC-U, and PAL v1.00 and
+Japan's disc, which it finds but cannot play yet), Going Commando, Up
 Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Only
-Ratchet & Clank (PAL and NTSC-U) is playable today. The others can be browsed, and set
+Ratchet & Clank (PAL v2.00 and NTSC-U) is playable today. The others can be browsed, and set
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 

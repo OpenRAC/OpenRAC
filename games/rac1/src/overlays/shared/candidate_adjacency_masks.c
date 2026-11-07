@@ -45,7 +45,7 @@ INCLUDE_ASM("asm/overlays", func_L05_0028AADC);
 
 /* Build a symmetric adjacency bitmask over a table's entries from pairwise tests. */
 void build_symmetric_adjacency_masks(int *list, int n, int idx) {
-    char *t = rilgar_paths[idx];
+    char *t = l05_paths[idx];
     int i, j, k, found;
     {
         int c;

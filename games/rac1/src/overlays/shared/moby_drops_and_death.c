@@ -198,7 +198,7 @@ void SetDeathBits(unsigned char *m, int flags, int arg) {
         f |= 2;
     }
     if (g_hero.state.current == HERO_STATE_PACK_LONG_JUMP &&
-        FastVecDist(&g_hero.motion, &((struct Moby *)m)->pos) < 4.0f) {
+        fast_vec_dist(&g_hero.motion, &((struct Moby *)m)->pos) < 4.0f) {
         f |= 2;
     }
     cnt = free_moby_slot_count;

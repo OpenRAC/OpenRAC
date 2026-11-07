@@ -333,7 +333,7 @@ fn is_rac2(serial: &str) -> bool {
 }
 
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
-    if serial.contains("509.16") || serial.contains("971.99") {
+    if serial.contains("509.16") || serial.contains("971.99") || serial.contains("150.37") {
         if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
             return Some(name.to_string());
         }

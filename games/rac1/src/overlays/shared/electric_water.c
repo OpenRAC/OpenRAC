@@ -35,7 +35,7 @@
 #include "overlays/shared/sentrybot.h"
 #include "overlays/l15_quartu/gates_helicopters_ultramechs.h"
 #include "overlays/shared/effect_particle_updates.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char gSpecialItems[];
 extern int level_moby_killed[];
 extern char saved_mission_state[];
@@ -90,7 +90,7 @@ typedef struct {
 } Light;
 
 extern Hero g_hero;
-extern char gHeroPos[];
+extern char hero_pos[];
 extern unsigned char voice_pool[];
 extern unsigned char *quartu_moby_array MACRO_ADDR;
 extern char *quartu_cuboids MACRO_ADDR;
@@ -103,7 +103,7 @@ extern unsigned char quartu_checkpoint_level_state_moby_flags[];
 extern int level_moby_killed[];
 extern int quartu_moby_killed[];
 extern char quartu_lights[];
-extern unsigned char quartu_fog_color_red[] MACRO_ADDR;
+extern unsigned char l15_fog_color[] MACRO_ADDR;
 extern unsigned char quartu_fog_color_green[] MACRO_ADDR;
 extern unsigned char quartu_fog_color_blue[] MACRO_ADDR;
 extern float quartu_fog_near_distance MACRO_ADDR;
@@ -186,7 +186,7 @@ void electric_water_update(unsigned char *m) {
     unsigned short save_id;
     float distance, theta, phi, radius;
 
-    if (moby->state != 0 && is_point_inside_clip_volume(gHeroPos, vars->active_area) == 0) {
+    if (moby->state != 0 && is_point_inside_clip_volume(hero_pos, vars->active_area) == 0) {
         if (vars->owner != 0) {
             RELEASE_2D7C00(vars);
         }
@@ -239,7 +239,7 @@ void electric_water_update(unsigned char *m) {
                 }
             }
             for (area = 0; area < 12; area++) {
-                if (is_point_inside_clip_volume(gHeroPos, vars->water_areas[area]) != 0) {
+                if (is_point_inside_clip_volume(hero_pos, vars->water_areas[area]) != 0) {
                     inside = 1;
                     break;
                 }
@@ -252,7 +252,7 @@ void electric_water_update(unsigned char *m) {
                 }
             } else {
                 for (lamp = 0; lamp < 3; lamp++) {
-                    int v = rand_range(0x40, 0x7F);
+                    int v = random_int_between(0x40, 0x7F);
                     if (vars->lamps[lamp] != -1) {
                         set_moby_color(MOBYP_2D7C00(vars->lamps[lamp]), v, v, v);
                     }
@@ -267,8 +267,8 @@ void electric_water_update(unsigned char *m) {
                         continue;
                     }
                     if (best != 0) {
-                        distance = FastVecDist(CUBP_2D7C00(best[0]) + 0x30, gHeroPos);
-                        if (!(FastVecDist(CUBP_2D7C00(line[0]) + 0x30, gHeroPos) < distance)) {
+                        distance = fast_vec_dist(CUBP_2D7C00(best[0]) + 0x30, hero_pos);
+                        if (!(fast_vec_dist(CUBP_2D7C00(line[0]) + 0x30, hero_pos) < distance)) {
                             continue;
                         }
                     }
@@ -283,7 +283,7 @@ void electric_water_update(unsigned char *m) {
                         }
                     }
                     if (length >= 2) {
-                        line = (int *)((rand_range(0, length - 2) << 2) + (int)best);
+                        line = (int *)((random_int_between(0, length - 2) << 2) + (int)best);
                         vars->bolt_start = *(Q_2D7C00 *)(CUB_2D7C00(line[0]) + 0x30);
                         vars->bolt_aim = vars->bolt_end = *(Q_2D7C00 *)(CUB_2D7C00(line[1]) + 0x30);
                         if (vars->light == -1) {
@@ -316,12 +316,12 @@ void electric_water_update(unsigned char *m) {
                     vars->saved_fog[1] = quartu_fog_far_distance;
                     vars->saved_fog[2] = quartu_fog_near_intensity;
                     vars->saved_fog[3] = quartu_fog_far_intensity;
-                    vars->saved_fog_color[0] = quartu_fog_color_red[0];
+                    vars->saved_fog_color[0] = l15_fog_color[0];
                     vars->saved_fog_color[1] = quartu_fog_color_green[0];
                     vars->saved_fog_color[2] = quartu_fog_color_blue[0];
                 }
                 vars->shock_count = vars->shock_count + 1;
-                quartu_fog_color_red[0] = 0x7F;
+                l15_fog_color[0] = 0x7F;
                 quartu_fog_color_green[0] = 0x7F;
                 quartu_fog_color_blue[0] = 0x7F;
                 quartu_fog_far_distance = 131072.0f;
@@ -356,7 +356,7 @@ void electric_water_update(unsigned char *m) {
                     quartu_fog_far_distance = vars->saved_fog[1];
                     quartu_fog_near_intensity = vars->saved_fog[2];
                     quartu_fog_far_intensity = vars->saved_fog[3];
-                    quartu_fog_color_red[0] = vars->saved_fog_color[0];
+                    l15_fog_color[0] = vars->saved_fog_color[0];
                     quartu_fog_color_green[0] = vars->saved_fog_color[1];
                     quartu_fog_color_blue[0] = vars->saved_fog_color[2];
                 }
@@ -384,10 +384,10 @@ void electric_water_update(unsigned char *m) {
                 }
                 vars->owner = nearest;
             }
-            if (Sound_IsPlaying(vars->owner, vars->voice0) == 0) {
+            if (voice_is_playing(vars->owner, vars->voice0) == 0) {
                 vars->voice0 = Sound_PlayClassSound(0, 5, vars->owner, 0x28F);
             }
-            if (moby->state == ELECTRIC_WATER_ON && Sound_IsPlaying(vars->owner, vars->voice1) == 0) {
+            if (moby->state == ELECTRIC_WATER_ON && voice_is_playing(vars->owner, vars->voice1) == 0) {
                 vars->voice1 = Sound_PlayClassSound(1, 5, vars->owner, 0x28F);
             }
             if (FastDecTimer(&vars->off_timer) != 0 && moby->state == ELECTRIC_WATER_OFF) {
@@ -476,7 +476,7 @@ void electric_water_update(unsigned char *m) {
     }
 
     {
-        char *pos = gHeroPos;
+        char *pos = hero_pos;
         Hero *g = (Hero *)(pos - 0x80);
         for (level_area = 0; level_area < 4; level_area++) {
             if (is_point_inside_clip_volume(pos, vars->water_level_areas[level_area]) != 0 &&
@@ -490,15 +490,15 @@ void electric_water_update(unsigned char *m) {
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 extern int quartu_frame_count MACRO_ADDR;
-extern short electric_water_timer_x;
-extern short electric_water_timer_y;
-extern short electric_water_timer_color_from;
-extern short electric_water_timer_color_to;
-extern short electric_water_timer_frame_y0;
-extern short electric_water_timer_frame_y1;
-extern short electric_water_timer_frame_x0;
-extern short electric_water_timer_frame_x1;
-extern short electric_water_timer_frame_alpha;
+extern short electric_water_countdown_text_x;
+extern short electric_water_countdown_text_y;
+extern short electric_water_countdown_text_color_start;
+extern short electric_water_countdown_text_color_end;
+extern short electric_water_countdown_frame_x_offset;
+extern short electric_water_countdown_frame_y_offset;
+extern short electric_water_countdown_frame_left_x_offset;
+extern short electric_water_countdown_frame_right_x_offset;
+extern short electric_water_countdown_frame_color;
 #define W(x) (*(int *)&(x))
 
 /* Draws the level timer as "H:MM:SS.t" text with a pulsing colour. */
@@ -508,17 +508,18 @@ void draw_electric_water_countdown(char *moby) {
     float v;
     int col;
 
-    DrawUIFrame(W(electric_water_timer_frame_y0) + W(electric_water_timer_y),
-                W(electric_water_timer_frame_y1) + W(electric_water_timer_y),
-                W(electric_water_timer_frame_x0) + W(electric_water_timer_x),
-                W(electric_water_timer_frame_x1) + W(electric_water_timer_x), W(electric_water_timer_frame_alpha));
+    DrawUIFrame(W(electric_water_countdown_frame_x_offset) + W(electric_water_countdown_text_y),
+                W(electric_water_countdown_frame_y_offset) + W(electric_water_countdown_text_y),
+                W(electric_water_countdown_frame_left_x_offset) + W(electric_water_countdown_text_x),
+                W(electric_water_countdown_frame_right_x_offset) + W(electric_water_countdown_text_x),
+                W(electric_water_countdown_frame_color));
     v = FastSin(IntToFloat(quartu_frame_count % 60) / 60.0f * 6.28318f) * 3.0f + 0.5f;
     if (v > 1.0f) {
         v = 1.0f;
     } else if (v < 0.0f) {
         v = 0.0f;
     }
-    col = FastTweenColor(W(electric_water_timer_color_from), W(electric_water_timer_color_to), v);
+    col = FastTweenColor(W(electric_water_countdown_text_color_start), W(electric_water_countdown_text_color_end), v);
     buf[0] = 0x30;
     buf[1] = data->frames / scale_ticks(0xE10) + 0x30;
     buf[2] = 0x3A;
@@ -527,7 +528,7 @@ void draw_electric_water_countdown(char *moby) {
     buf[5] = 0x3A;
     buf[6] = data->frames % scale_ticks(0x3C) / scale_ticks(6) + 0x30;
     buf[7] = truncate_float_to_s32_r((float)random_integer_below(10)) + 0x30;
-    FontPrintCenterLarge(W(electric_water_timer_x), W(electric_water_timer_y), col, (int)buf, 8);
+    FontPrintCenterLarge(W(electric_water_countdown_text_x), W(electric_water_countdown_text_y), col, (int)buf, 8);
 }
 extern int electric_water_bolt_init_requested SDATA(electric_water_bolt_init_requested);
 extern float electric_water_bolt_initial_length_scale SDATA(electric_water_bolt_initial_length_scale);
@@ -537,13 +538,13 @@ extern short electric_water_mirror_bolt_height_phase;
 extern int quartu_beam_arc_outer_color SDATA(quartu_beam_arc_outer_color);
 extern int electric_water_bolt_initial_frame_count SDATA(electric_water_bolt_initial_frame_count);
 extern short electric_water_side_arc_regrow_delays_r[] __asm__("D_L15_00161D50") MACRO_ADDR;
-extern short electric_water_side_arc_regrow_delays_1[] MACRO_ADDR;
-extern short electric_water_side_arc_regrow_delays_2[] MACRO_ADDR;
-extern short electric_water_side_arc_regrow_delays_3[] MACRO_ADDR;
+extern short second_side_arc_reset_frame_count[] MACRO_ADDR;
+extern short third_side_arc_reset_frame_count[] MACRO_ADDR;
+extern short fourth_side_arc_reset_frame_count[] MACRO_ADDR;
 extern short electric_water_side_arc_fade_ticks_r[] __asm__("D_L15_00161D58") MACRO_ADDR;
-extern short electric_water_side_arc_fade_ticks_1[] MACRO_ADDR;
-extern short electric_water_side_arc_fade_ticks_2[] MACRO_ADDR;
-extern short electric_water_side_arc_fade_ticks_3[] MACRO_ADDR;
+extern short second_side_arc_fade_peak_timer_value[] MACRO_ADDR;
+extern short third_side_arc_fade_peak_timer_value[] MACRO_ADDR;
+extern short fourth_side_arc_fade_peak_timer_value[] MACRO_ADDR;
 extern short electric_water_side_arc_timers[] MACRO_ADDR;
 extern int electric_water_bolt_initial_scaled_frame_count MACRO_ADDR;
 extern int electric_water_bolt_reset_word SDATA(electric_water_bolt_reset_word);
@@ -578,12 +579,12 @@ void initialize_electric_water_bolt_effect(char *m) {
             electric_water_side_arc_timers[j] = -1;
         electric_water_side_arc_regrow_delays_r[0] = 8;
         electric_water_side_arc_fade_ticks_r[0] = 4;
-        electric_water_side_arc_regrow_delays_1[0] = 4;
-        electric_water_side_arc_fade_ticks_1[0] = 2;
-        electric_water_side_arc_fade_ticks_2[0] = 4;
-        electric_water_side_arc_regrow_delays_2[0] = 8;
-        electric_water_side_arc_regrow_delays_3[0] = 4;
-        electric_water_side_arc_fade_ticks_3[0] = 2;
+        second_side_arc_reset_frame_count[0] = 4;
+        second_side_arc_fade_peak_timer_value[0] = 2;
+        third_side_arc_fade_peak_timer_value[0] = 4;
+        third_side_arc_reset_frame_count[0] = 8;
+        fourth_side_arc_reset_frame_count[0] = 4;
+        fourth_side_arc_fade_peak_timer_value[0] = 2;
         (*(int *)&electric_water_bolt_wave_phase) = 0;
         (*(int *)&electric_water_mirror_bolt_phase) = 0;
         (*(int *)&electric_water_mirror_bolt_height_phase) = 0;
@@ -608,34 +609,34 @@ typedef struct {
 
 extern char hero_globals_base[];
 extern char hero_gravity_dir_r[] __asm__("D_0013F6E0");
-extern float electric_water_bolt_wave_point_phase SDATA(electric_water_bolt_wave_point_phase);
-extern float electric_water_bolt_wave_amp_start SDATA(electric_water_bolt_wave_amp_start);
-extern float electric_water_bolt_wave_amp_end SDATA(electric_water_bolt_wave_amp_end);
-extern float electric_water_bolt_wave_speed SDATA(electric_water_bolt_wave_speed);
-extern float electric_water_mirror_bolt_phase_speed SDATA(electric_water_mirror_bolt_phase_speed);
-extern float electric_water_mirror_bolt_point_phase SDATA(electric_water_mirror_bolt_point_phase);
-extern float electric_water_mirror_bolt_height_amp SDATA(electric_water_mirror_bolt_height_amp);
-extern float electric_water_mirror_bolt_side_amp SDATA(electric_water_mirror_bolt_side_amp);
-extern float electric_water_mirror_bolt_height_speed SDATA(electric_water_mirror_bolt_height_speed);
-extern float electric_water_mirror_bolt_height_point_phase SDATA(electric_water_mirror_bolt_height_point_phase);
-extern float electric_water_bolt_jitter_center SDATA(electric_water_bolt_jitter_center);
-extern float electric_water_bolt_jitter_range SDATA(electric_water_bolt_jitter_range);
+extern float electric_water_bolt_height_wave_point_phase_step_gp SDATA(D_L15_00161C88);
+extern float electric_water_bolt_height_wave_start_amplitude_gp SDATA(D_L15_00161C8C);
+extern float electric_water_bolt_height_wave_end_amplitude_gp SDATA(D_L15_00161C90);
+extern float electric_water_bolt_height_wave_frame_phase_step_gp SDATA(D_L15_00161C98);
+extern float electric_water_bolt_paired_path_frame_phase_decrement_gp SDATA(D_L15_00161CA0);
+extern float electric_water_bolt_paired_path_point_phase_step_gp SDATA(D_L15_00161CA4);
+extern float electric_water_bolt_paired_path_height_amplitude_gp SDATA(D_L15_00161CA8);
+extern float electric_water_bolt_paired_path_lateral_amplitude_gp SDATA(D_L15_00161CAC);
+extern float electric_water_bolt_paired_height_frame_phase_step_gp SDATA(D_L15_00161CB4);
+extern float electric_water_bolt_paired_height_point_phase_step_gp SDATA(D_L15_00161CB8);
+extern float electric_water_bolt_height_jitter_lower_bound_gp SDATA(D_L15_00161CCC);
+extern float electric_water_bolt_height_jitter_upper_bound_gp SDATA(D_L15_00161CD0);
 extern short quartu_beam_arc_outer_color_r __asm__("D_L15_00161CE0");
-extern float electric_water_spark_speed SDATA(electric_water_spark_speed);
-extern float electric_water_bolt_wander_blend SDATA(electric_water_bolt_wander_blend);
+extern float electric_water_bolt_particle_motion_length_scale_gp SDATA(D_L15_00161D10);
+extern float electric_water_bolt_random_step_blend_factor_gp SDATA(D_L15_00161D18);
 extern float frame_scale MACRO_ADDR;
 extern V_2d8fa0 electric_water_bolt_points_base[];
 extern V_2d8fa0 electric_water_bolt_points_r2[2][20] __asm__("D_L15_001D3A20");
 extern V_2d8fa0 electric_water_mirror_bolt_side_offsets[];
 extern float electric_water_bolt_wave_offsets[];
 extern float electric_water_mirror_bolt_height_offsets[];
-extern H_2d8fa0 electric_water_side_arc_points_base[];
+extern H_2d8fa0 l15_electric_water_side_arc_predecessor_points[];
 extern P_2d8fa0 electric_water_side_arc_points_r[] __asm__("D_L15_001D3E80");
 extern short first_side_arc_fade_level_r[] __asm__("D_L15_00161D48") MACRO_ADDR;
 extern short electric_water_side_arc_regrow_delays[] MACRO_ADDR;
 extern short electric_water_side_arc_fade_ticks[] MACRO_ADDR;
 extern float quartu_camera_pos_r[] __asm__("D_L15_00167440");
-extern float D_L15_0015F660[] MACRO_ADDR;
+extern float quartu_zero_vec[] MACRO_ADDR;
 
 /* Quartu arc emitter: rebuilds the 20-point bolt and its mirror between the data block's end points, regrows or
    jitters four side arcs, then spawns three particles. */
@@ -651,12 +652,12 @@ void update_electric_water_bolt_effect(Moby *moby) {
     int r;
 
     *(float *)&electric_water_bolt_wave_phase =
-        FastAddRots(*(float *)&electric_water_bolt_wave_phase, electric_water_bolt_wave_speed);
-    *(float *)&electric_water_mirror_bolt_phase =
-        FastSubRots(*(float *)&electric_water_mirror_bolt_phase, electric_water_mirror_bolt_phase_speed);
-    *(float *)&electric_water_mirror_bolt_height_phase =
-        FastAddRots(*(float *)&electric_water_mirror_bolt_height_phase, electric_water_mirror_bolt_height_speed);
-    scale = FastVecDist(&data->a, &data->c) * 0.05f;
+        FastAddRots(*(float *)&electric_water_bolt_wave_phase, electric_water_bolt_height_wave_frame_phase_step_gp);
+    *(float *)&electric_water_mirror_bolt_phase = FastSubRots(*(float *)&electric_water_mirror_bolt_phase,
+                                                              electric_water_bolt_paired_path_frame_phase_decrement_gp);
+    *(float *)&electric_water_mirror_bolt_height_phase = FastAddRots(
+        *(float *)&electric_water_mirror_bolt_height_phase, electric_water_bolt_paired_height_frame_phase_step_gp);
+    scale = fast_vec_dist(&data->a, &data->c) * 0.05f;
     if (flag) {
         *(int *)&quartu_beam_arc_outer_color_r = 0x7F2040;
     } else {
@@ -675,11 +676,13 @@ void update_electric_water_bolt_effect(Moby *moby) {
         float len0;
         float a;
         float b;
-        f21 = electric_water_bolt_wave_amp_start +
-              (electric_water_bolt_wave_amp_end - electric_water_bolt_wave_amp_start) * (IntToFloat(i) * 0.05f);
+        f21 = electric_water_bolt_height_wave_start_amplitude_gp +
+              (electric_water_bolt_height_wave_end_amplitude_gp - electric_water_bolt_height_wave_start_amplitude_gp) *
+                  (IntToFloat(i) * 0.05f);
         f21 = f21 * FastSin(normalize_angle(*(float *)&electric_water_bolt_wave_phase +
-                                            (float)i * electric_water_bolt_wave_point_phase));
-        f21 = f21 + randf_sym(electric_water_bolt_jitter_center, electric_water_bolt_jitter_range);
+                                            (float)i * electric_water_bolt_height_wave_point_phase_step_gp));
+        f21 = f21 + randf_sym(electric_water_bolt_height_jitter_lower_bound_gp,
+                              electric_water_bolt_height_jitter_upper_bound_gp);
         electric_water_bolt_points_r2[0][i].f[2] =
             electric_water_bolt_points_r2[0][i].f[2] - electric_water_bolt_wave_offsets[i];
         electric_water_bolt_wave_offsets[i] = f21;
@@ -687,7 +690,7 @@ void update_electric_water_bolt_effect(Moby *moby) {
         b = random_angle_radians();
         BuildSphericalOffset(&s[1], scale, a, b);
         s[1].f[2] = s[1].f[2] * 0.5f;
-        lerp_vector(&s[2], &s[3], &s[1], electric_water_bolt_wander_blend);
+        lerp_vector(&s[2], &s[3], &s[1], electric_water_bolt_random_step_blend_factor_gp);
         len0 = FastVecLength(&s[2]);
         if (len0 == 0.0f) {
             qcopy(&electric_water_bolt_points_r2[0][i], &electric_water_bolt_points_r2[0][i - 1]);
@@ -720,16 +723,16 @@ void update_electric_water_bolt_effect(Moby *moby) {
             float ang;
             float m;
             g = normalize_angle(*(float *)&electric_water_mirror_bolt_phase +
-                                (float)i * electric_water_mirror_bolt_point_phase);
-            h = electric_water_mirror_bolt_height_amp *
+                                (float)i * electric_water_bolt_paired_path_point_phase_step_gp);
+            h = electric_water_bolt_paired_path_height_amplitude_gp *
                 FastSin(normalize_angle(*(float *)&electric_water_mirror_bolt_height_phase +
-                                        (float)i * electric_water_mirror_bolt_height_point_phase));
+                                        (float)i * electric_water_bolt_paired_height_point_phase_step_gp));
             qcopy(&electric_water_bolt_points_r2[1][i], &electric_water_bolt_points_r2[0][i]);
             h = h * FastSin(g) + randf_sym(0.0f, 0.1f);
             electric_water_bolt_points_r2[1][i].f[2] = electric_water_bolt_points_r2[1][i].f[2] + h;
             electric_water_mirror_bolt_height_offsets[i] = h;
             ang = FastAddRots(fast_atan2(s[1].f[0], s[1].f[1]), 1.5707964f);
-            m = electric_water_mirror_bolt_side_amp * FastCos(g);
+            m = electric_water_bolt_paired_path_lateral_amplitude_gp * FastCos(g);
             s[4].f[0] = FastCos(ang) * m;
             s[4].f[1] = FastSin(ang) * m;
             s[4].f[2] = 0.0f;
@@ -770,18 +773,18 @@ void update_electric_water_bolt_effect(Moby *moby) {
             FastVecAdd(&electric_water_side_arc_points_r[k].p[1], &s[8], &s[5]);
             t = 1.0f;
             for (j = 2; j < 5; j++) {
-                FastVecSub(&s[9], &electric_water_side_arc_points_base[k].p[j - 1], quartu_camera_pos_r);
+                FastVecSub(&s[9], &l15_electric_water_side_arc_predecessor_points[k].p[j - 1], quartu_camera_pos_r);
                 f20 = random_float_between(0.17453292f, 0.959931076f) * t;
                 t = -t;
                 build_look_at_matrix(&s[5], &s[5], &s[9], f20);
                 FastVecAdd((electric_water_side_arc_points_r[k].p + j),
-                           &electric_water_side_arc_points_base[k].p[j - 1], &s[5]);
+                           &l15_electric_water_side_arc_predecessor_points[k].p[j - 1], &s[5]);
             }
         } else {
             int j;
             for (j = 1; j < 5; j++) {
                 FastVecSub(&d[j], (electric_water_side_arc_points_r[k].p + j),
-                           &electric_water_side_arc_points_base[k].p[j - 1]);
+                           &l15_electric_water_side_arc_predecessor_points[k].p[j - 1]);
                 d[j].f[0] += randf_sym(0.0f, 0.1f);
                 d[j].f[1] += randf_sym(0.0f, 0.1f);
                 d[j].f[2] += randf_sym(0.0f, 0.1f);
@@ -789,7 +792,7 @@ void update_electric_water_bolt_effect(Moby *moby) {
             qcopy(&electric_water_side_arc_points_r[k].p[0], &s[8]);
             for (j = 1; j < 5; j++) {
                 FastVecAdd((electric_water_side_arc_points_r[k].p + j),
-                           &electric_water_side_arc_points_base[k].p[j - 1], &d[j]);
+                           &l15_electric_water_side_arc_predecessor_points[k].p[j - 1], &d[j]);
             }
             {
                 int x = electric_water_side_arc_fade_ticks[k];
@@ -808,10 +811,10 @@ void update_electric_water_bolt_effect(Moby *moby) {
     }
     scale = randf_sym(0.52359879f, 1.04719758f);
     f20 = random_float_between(-0.52359879f, 1.04719758f);
-    FastVecScale(&s[5], &s[0], electric_water_spark_speed * frame_scale);
+    FastVecScale(&s[5], &s[0], electric_water_bolt_particle_motion_length_scale_gp * frame_scale);
     build_look_at_matrix(&s[5], &s[5], &s[6], f20);
     build_look_at_matrix(&s[5], &s[5], &s[7], scale);
-    r = rand_range(1, 8);
+    r = random_int_between(1, 8);
     if (random_integer_below(2))
         r = -r;
     f20 = random_float_between(0.2f, 0.6f);
@@ -819,7 +822,7 @@ void update_electric_water_bolt_effect(Moby *moby) {
                     r, &s[5], 0.0f);
     r = -r;
     PartType53Spawn(&data->a, scale_ticks(15), f20 * 0.15f, f20 * 0.5f, 0x307F7F7F, 0, r, &s[5], 0.0f);
-    r = rand_range(1, 8);
+    r = random_int_between(1, 8);
     if (random_integer_below(2))
         r = -r;
     f20 = random_float_between(0.15f, 3.0f);
@@ -832,15 +835,15 @@ extern int first_side_arc_fade_level MACRO_ADDR;
 extern int second_side_arc_fade_level MACRO_ADDR;
 extern int third_side_arc_fade_level MACRO_ADDR;
 extern int fourth_side_arc_fade_level MACRO_ADDR;
-extern short quartu_beam_arc_tex_scroll_speed;
-extern short quartu_beam_arc_tex_scroll;
-extern short quartu_beam_arc_main_inner_alpha;
-extern short quartu_beam_arc_main_outer_alpha;
+extern short l15_electric_water_bolt_draw_accumulator_decrement_rate;
+extern short l15_electric_water_bolt_draw_wrapped_accumulator;
+extern short l15_electric_water_first_bolt_path_first_pass_alpha;
+extern short l15_electric_water_first_bolt_path_second_pass_alpha;
 extern short quartu_beam_arc_main_half_width;
 extern short quartu_beam_arc_main_outer_half_width;
 extern short quartu_beam_arc_main_end_extension;
-extern short quartu_beam_arc_second_inner_alpha;
-extern short quartu_beam_arc_second_outer_alpha;
+extern short l15_electric_water_second_bolt_path_first_pass_alpha;
+extern short l15_electric_water_second_bolt_path_second_pass_alpha;
 extern short quartu_beam_arc_bolt_half_width;
 extern short quartu_beam_arc_bolt_outer_half_width;
 extern short quartu_beam_arc_second_end_extension;
@@ -851,17 +854,20 @@ extern void draw_electric_water_bolt_start_quads(char *);
 
 // Scrolls a wrapping coordinate, refreshes the two path curves and four colour curves, then runs the follow-up.
 void draw_electric_water_bolt_effect(char *moby) {
-    float v = F(quartu_beam_arc_tex_scroll) - F(quartu_beam_arc_tex_scroll_speed) * frame_scale;
-    F(quartu_beam_arc_tex_scroll) = v;
+    float v = F(l15_electric_water_bolt_draw_wrapped_accumulator) -
+              F(l15_electric_water_bolt_draw_accumulator_decrement_rate) * frame_scale;
+    F(l15_electric_water_bolt_draw_wrapped_accumulator) = v;
     if (v <= -8.0f) {
-        F(quartu_beam_arc_tex_scroll) = v + 8.0f;
+        F(l15_electric_water_bolt_draw_wrapped_accumulator) = v + 8.0f;
     }
-    draw_beam_and_arc_two_pass_quads(electric_water_bolt_points, W(quartu_beam_arc_main_inner_alpha),
-                                     W(quartu_beam_arc_main_outer_alpha), 0x14, F(quartu_beam_arc_main_half_width),
-                                     F(quartu_beam_arc_main_outer_half_width), F(quartu_beam_arc_main_end_extension));
-    draw_beam_and_arc_two_pass_quads(electric_water_bolt_points + 0x140, W(quartu_beam_arc_second_inner_alpha),
-                                     W(quartu_beam_arc_second_outer_alpha), 0x14, F(quartu_beam_arc_bolt_half_width),
-                                     F(quartu_beam_arc_bolt_outer_half_width), F(quartu_beam_arc_second_end_extension));
+    draw_beam_and_arc_two_pass_quads(electric_water_bolt_points, W(l15_electric_water_first_bolt_path_first_pass_alpha),
+                                     W(l15_electric_water_first_bolt_path_second_pass_alpha), 0x14,
+                                     F(quartu_beam_arc_main_half_width), F(quartu_beam_arc_main_outer_half_width),
+                                     F(quartu_beam_arc_main_end_extension));
+    draw_beam_and_arc_two_pass_quads(
+        electric_water_bolt_points + 0x140, W(l15_electric_water_second_bolt_path_first_pass_alpha),
+        W(l15_electric_water_second_bolt_path_second_pass_alpha), 0x14, F(quartu_beam_arc_bolt_half_width),
+        F(quartu_beam_arc_bolt_outer_half_width), F(quartu_beam_arc_second_end_extension));
     draw_beam_and_arc_two_pass_quads(electric_water_side_arc_points, *(short *)&first_side_arc_fade_level,
                                      *(short *)&first_side_arc_fade_level, 5, F(quartu_beam_arc_bolt_half_width),
                                      F(quartu_beam_arc_bolt_outer_half_width), 0.2f);
@@ -888,9 +894,9 @@ typedef struct {
     UV2d8e48 uv[4];
     long unk70, tex, unk80, unk88;
 } Q2d8e48;
-extern short D_L15_00161D2C;
-extern short D_L15_00161D34;
-extern short D_L15_00161D38;
+extern short l15_electric_water_bolt_start_first_quad_color;
+extern short l15_electric_water_bolt_start_first_quad_base_scale;
+extern short l15_electric_water_bolt_start_second_quad_base_scale;
 /* FAKEMATCH: second views of these globals. */
 extern V2d8e48 D_L15_00167440 __asm__("D_L15_00167440") NOT_SDA;
 extern V2d8e48 D_L15_001D39C0[] __asm__("D_L15_001D39C0") NOT_SDA;
@@ -921,12 +927,12 @@ void draw_electric_water_bolt_start_quads(char *mv) {
     FastVecCross(&mat[1], &mat[0], hero_gravity_dir_r);
     vec_scale_to_length(&mat[1], &mat[1], -1.0f);
     FastVecCross(&mat[2], &mat[1], &mat[0]);
-    c = *(unsigned int *)&electric_water_glow_core_color;
+    c = *(unsigned int *)&l15_electric_water_bolt_start_first_quad_color;
     quad.color[3] = c;
     quad.color[2] = c;
     quad.color[1] = c;
     quad.color[0] = c;
-    s = *(float *)&electric_water_glow_core_size + randf_sym(0.0f, 0.025f);
+    s = *(float *)&l15_electric_water_bolt_start_first_quad_base_scale + randf_sym(0.0f, 0.025f);
     for (i = 0; i < 4; i++) {
         vmul_2d8e48(s, &quad.corner[i], &electric_water_glow_quad_corners[i]);
         transform_vector(&quad.corner[i], &quad.corner[i], &mat[0]);
@@ -939,7 +945,7 @@ void draw_electric_water_bolt_start_quads(char *mv) {
     quad.color[2] = c;
     quad.color[1] = c;
     quad.color[0] = c;
-    s = *(float *)&electric_water_glow_halo_size + randf_sym(0.0f, 0.05f);
+    s = *(float *)&l15_electric_water_bolt_start_second_quad_base_scale + randf_sym(0.0f, 0.05f);
     for (i = 0; i < 4; i++) {
         vmul_2d8e48(s, &quad.corner[i], &electric_water_glow_quad_corners[i]);
         transform_vector(&quad.corner[i], &quad.corner[i], &mat[0]);
@@ -966,7 +972,7 @@ extern void SpawnExplosionFx_v(void *, void *, float, float, int) __asm__("func_
 extern void spawn_moby_point_offset_particle_v(void *, float, int, float) __asm__("func_L07_0029C6A8");
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/entities/002d6810.c, FUN_L15_002e4380. */
-void update_spinning_projectile(unsigned char *m) {
+void sentrybot_projectile_update(unsigned char *m) {
     char *d = ((char *)((Moby *)m)->pvars);
     float next[4];
     char col[0x30];
@@ -979,7 +985,7 @@ void update_spinning_projectile(unsigned char *m) {
         return;
     ((Moby *)m)->rot.x = FastAddRots(((Moby *)m)->rot.x, g_frame_time * 6.2831855f);
     FastVecAdd(next, m + 0x10, d);
-    InitDirectionalHitQuery(col, m, 1, 2.0f, d);
+    make_hit_descriptor(col, m, 1, 2.0f, d);
     *(short *)(col + 0x1A) = ((Moby *)m)->oclass;
     if (coll_line(m + 0x10, next, 0, m, col) != 0 || coll_sphere_v(m + 0x10, 0, m, 0.3f) != 0 ||
         fast_dec_timer(&((struct SpinningProjectileVars *)d)->timer) != 0) {
@@ -999,7 +1005,7 @@ void update_spinning_projectile(unsigned char *m) {
 }
 
 // Spawns a moby of class 0x3A6 aimed along a direction, copying position and flags from the caller.
-char *spawn_class_3a6_moby(char *src, float *v, char *pos) {
+char *spawn_sentrybot_projectile(char *src, float *v, char *pos) {
     char *m = CreateMoby(0x3A6);
     if (m != 0) {
         char *p;
@@ -1017,14 +1023,14 @@ char *spawn_class_3a6_moby(char *src, float *v, char *pos) {
         ((struct Moby *)m)->alpha = 0x30;
         ((Moby *)m)->flags |= 0x200;
         ((Moby *)m)->rot.z = fast_atan2(v[0], v[1]);
-        ((Moby *)m)->rot.y = -fast_atan2(vec_length_xy(v), v[2]);
+        ((Moby *)m)->rot.y = -fast_atan2(vector_length_xy(v), v[2]);
         moby_build_matrix(m);
         spawn_source_attached_fading_effect_particle(m, 0x600040FF, 0x80, -1, 170000.0f);
     }
     return m;
 }
 
-extern char quartu_collected_flags_base[];
+extern char l15_save_state[];
 extern int g_current_level_index MACRO_ADDR;
 extern int quartu_moby_killed[];
 
@@ -1059,7 +1065,7 @@ void underwater_ring_update(unsigned char *moby) {
     int near_parent = 0;
 
     if ((unsigned char)(((Moby *)moby)->state - 1) < 2) {
-        FastVecSub(delta, moby + 0x10, gHeroPos);
+        FastVecSub(delta, moby + 0x10, hero_pos);
         if (FastVecLength(delta) < vars->distance) {
             matrix_from_basis_rows(matrix, moby + 0xC0);
             transform_vector(delta, delta, matrix);
@@ -1070,8 +1076,8 @@ void underwater_ring_update(unsigned char *moby) {
     switch (((Moby *)moby)->state) {
         case 0:
             if (vars->initialized == 0) {
-                Moby_GetJointWorldPos(moby, 0, delta);
-                vars->distance = FastVecDist(moby + 0x10, delta);
+                moby_point_position(moby, 0, delta);
+                vars->distance = fast_vec_dist(moby + 0x10, delta);
                 vars->notified_count = 0;
                 vars->parent = moby;
                 get_first_moby_in_group(&child, ((Moby *)moby)->group, 0, 0);
@@ -1097,7 +1103,7 @@ void underwater_ring_update(unsigned char *moby) {
         case 1:
         case 2:
             save_id = ((Moby *)moby)->save_id;
-            save_byte = (unsigned char *)quartu_collected_flags_base;
+            save_byte = (unsigned char *)l15_save_state;
             save_byte -= -(short)save_id;
             if (save_byte[0x454] != 0 ||
                 ((((int)*(unsigned int *)(((((short)save_id >> 5) << 2) + (g_current_level_index << 8)) +
@@ -1234,17 +1240,17 @@ void codebot_update(unsigned char *moby) {
                 break;
             case CODEBOT_CHECK_HERO_PROXIMITY:
                 update_collectible_sprite_effect(moby);
-                if (FastVecDist(&m->pos, &g_hero.motion.pos.q) < 3.0f) {
+                if (fast_vec_dist(&m->pos, &g_hero.motion.pos.q) < 3.0f) {
                     if (((HeroStateWord *)&g_hero)->current != 0x32) {
                         m->flags |= 0x41;
-                        StartCutscene(1);
+                        start_scene(1);
                         m->state = 2;
                     }
                 }
                 break;
             case CODEBOT_RECORD_COLLECTION:
                 if (quartu_game_mode != 2) {
-                    ShowBanner(0x426A, -1);
+                    queue_dialogue_message(0x426A, -1);
                     quartu_dialogue_message_duration = scale_ticks(0xB4);
                     collection_flags = gSpecialItems;
                     collection_flags[2] = 1;
@@ -1261,7 +1267,7 @@ void codebot_update(unsigned char *moby) {
 }
 #include "structs/pad.h"
 extern Hero g_hero_r __asm__("D_0013F450");
-extern PadState D_0013CA40;
+extern PadState g_controller_state;
 
 extern Moby *quartu_moby_array_m __asm__("D_L15_00160058") MACRO_ADDR;
 extern int quartu_help_message_selector MACRO_ADDR;
@@ -1339,8 +1345,8 @@ void giant_clank_pad_update(char *m) {
                 restore_saved_hero_moby_and_clear_vehicle_mode();
                 MobySetAnimation(other, 0, 0);
                 if (g_current_level_index == LEVEL_QUARTU) {
-                    StartCutscene(9);
-                    MusicRequestTrack(0, 5);
+                    start_scene(9);
+                    request_music_track(0, 5);
                 }
                 return;
             }
@@ -1356,25 +1362,25 @@ void giant_clank_pad_update(char *m) {
                 }
             }
             *(u128_2EE458 *)V = *(u128_2EE458 *)(m + 0x10);
-            f = ProbeGroundHeight(V, 0, 0.5f);
+            f = probe_ground_height(V, 0, 0.5f);
             V[2] = f + 0.1f;
             if (g_current_level_index == LEVEL_QUARTU)
                 jet_reset_camera(V, m + 0x40);
-            Hero_ResetToPosition(V, m + 0x40, 0, 1);
+            set_race_camera(V, m + 0x40, 0, 1);
             o3 = (char *)other->pclass;
             other->collision = *(int *)(o3 + 0x10);
             other->visible = 1;
             other->flags = other->flags & 0xFFFE;
             enter_hero_vehicle_mode(2, 0x5A, (char *)other);
             if (g_current_level_index == LEVEL_QUARTU) {
-                StartCutscene(8);
+                start_scene(8);
                 *(u128_2EE458 *)g_hero_r.saved_pos_rot = *(u128_2EE458 *)&g_hero_r.motion.pos;
                 *(u128_2EE458 *)(g_hero_r.saved_pos_rot + 0x10) = *(u128_2EE458 *)&g_hero_r.motion.rot;
-                MusicRequestTrack(2, 4);
+                request_music_track(2, 4);
                 return;
             }
             if (g_current_level_index == LEVEL_VELDIN2) {
-                StartCutscene(6);
+                start_scene(6);
                 *(u128_2EE458 *)g_hero_r.saved_pos_rot = *(u128_2EE458 *)&g_hero_r.motion.pos;
                 *(u128_2EE458 *)(g_hero_r.saved_pos_rot + 0x10) = *(u128_2EE458 *)&g_hero_r.motion.rot;
                 m[0x20] = 3;

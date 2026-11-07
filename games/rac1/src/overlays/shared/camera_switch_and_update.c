@@ -19,7 +19,7 @@ extern Hero g_hero;
 extern Camera gCameraSlotsLvl[];
 extern CameraDef *camera_descriptors MACRO_ADDR;
 extern CameraType gCameraTypesLvl[];
-extern DebugFreeCam g_debug_menu;
+extern DebugFreeCam gDebugFreeCamLvl;
 
 /* Level copy of ExecuteCamPostUpdFuncs: runs the gCamPostUpdCountLvl callbacks queued in
  * gCamPostUpdFuncsLvl, in order (count re-read after each call), then empties the queue. */
@@ -63,7 +63,7 @@ LINKER_REMNANT("asm/overlays", func_L00_001EB5B0);
 /* Cam_InterpValues for angles: steers vel toward the angle to (the shortest way round, from
    the current angle from), clamps the step to max when max is set, and returns the angle plus vel
    through FastAddRots. Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay/camera/init_camera_system.c, FUN_L00_001eb328. */
-float Camera_SmoothAngle(float *vel, float from, float to, float stiffness, float damping, float max) {
+float rope_spring_turn(float *vel, float from, float to, float stiffness, float damping, float max) {
     float t = FastSubRots(to, from);
     *vel = *vel + (stiffness * t - damping * *vel);
     if (max != 0.0f) {
@@ -72,18 +72,18 @@ float Camera_SmoothAngle(float *vel, float from, float to, float stiffness, floa
         else if (*vel < -max)
             *vel = -max;
     }
-    if (*vel > FastAbsF(t))
-        *vel = FastAbsF(t);
-    else if (*vel < -FastAbsF(t))
-        *vel = -FastAbsF(t);
+    if (*vel > absolute_float(t))
+        *vel = absolute_float(t);
+    else if (*vel < -absolute_float(t))
+        *vel = -absolute_float(t);
     return FastAddRots(from, *vel);
 }
-extern CameraSystem player_camera;
+extern CameraSystem gCameraLvl;
 
 /* Lets any eligible camera take over from the current one: sets the current camera's
    transition_state to 1 and clears its handoff_state. */
 void initialize_camera_record_handoff_defaults(void) {
-    CameraSystem *g = &player_camera;
+    CameraSystem *g = &gCameraLvl;
     g->current->transition_state = 1;
     g->current->handoff_state = 0;
 }
@@ -91,7 +91,7 @@ void initialize_camera_record_handoff_defaults(void) {
 extern u8 gCamPrevStateLvl[];
 
 extern s32 truncate_float_to_s32(f32);
-extern s32 D_0015EE84 MACRO_ADDR;
+extern s32 g_current_level_index MACRO_ADDR;
 
 /* Switches the active camera to next_camera: picks the blend from the old camera's transition_state and the new one's info->blend_kind (1 eased, 5 orbit, 3/6 hand-off), then installs it and swaps the state buffers. Level copy of switch_active_camera_record. Adapted from Lombyte's project (GPL-3.0) for PAL: src/textbin/fun_001ebf10.c, switch_active_camera_record. */
 void SwitchCamera(Camera *next_camera) {
@@ -106,7 +106,7 @@ void SwitchCamera(Camera *next_camera) {
     s32 previous_transition_state;
 
     info = camera_descriptors[next_camera->def_index].info;
-    previous_camera = player_camera.current;
+    previous_camera = gCameraLvl.current;
     previous_transition_state = previous_camera->transition_state;
     if (info != 0) {
         blend_kind = info->blend_kind;
@@ -116,27 +116,27 @@ void SwitchCamera(Camera *next_camera) {
     } else if (previous_transition_state == 2 || blend_kind == 1 || blend_kind == 5) {
         if (blend_kind == 1) {
             mode_one_duration = next_camera->blend_time;
-            player_camera.blend.next_kind = 0;
+            gCameraLvl.blend.next_kind = 0;
             if (mode_one_duration > 0.0f) {
-                player_camera.blend.lerp.pos_rate_cfg = mode_one_duration;
-                player_camera.blend.lerp.rot_rate_cfg = mode_one_duration;
+                gCameraLvl.blend.lerp.pos_rate_cfg = mode_one_duration;
+                gCameraLvl.blend.lerp.rot_rate_cfg = mode_one_duration;
             } else {
-                player_camera.blend.lerp.pos_rate_cfg = 0.018f;
-                player_camera.blend.lerp.rot_rate_cfg = 0.018f;
+                gCameraLvl.blend.lerp.pos_rate_cfg = 0.018f;
+                gCameraLvl.blend.lerp.rot_rate_cfg = 0.018f;
             }
         } else if (blend_kind == 5) {
             transition_duration = next_camera->blend_time;
-            player_camera.blend.next_kind = 2;
+            gCameraLvl.blend.next_kind = 2;
             if (transition_duration > 0.0f) {
-                player_camera.blend.orbit.frames = truncate_float_to_s32(transition_duration);
+                gCameraLvl.blend.orbit.frames = truncate_float_to_s32(transition_duration);
             } else {
-                player_camera.blend.orbit.frames = 40;
+                gCameraLvl.blend.orbit.frames = 40;
             }
         }
-        if (player_camera.blend.phase == 0) {
-            player_camera.blend.phase = 1;
+        if (gCameraLvl.blend.phase == 0) {
+            gCameraLvl.blend.phase = 1;
         } else {
-            player_camera.blend.phase = 2;
+            gCameraLvl.blend.phase = 2;
         }
     } else if (previous_transition_state == 3 || previous_transition_state == 5 || blend_kind == 3 || blend_kind == 6) {
         qcopy(&next_camera->pos, &previous_camera->pos);
@@ -146,22 +146,22 @@ void SwitchCamera(Camera *next_camera) {
         next_camera->handoff_state = 2;
         if (previous_camera->transition_state == 5 || blend_kind == 6) {
             handoff_duration = next_camera->blend_time;
-            player_camera.blend.next_kind = 0;
+            gCameraLvl.blend.next_kind = 0;
             if (handoff_duration > 0.0f) {
-                player_camera.blend.lerp.pos_rate_cfg = handoff_duration;
-                player_camera.blend.lerp.rot_rate_cfg = handoff_duration;
+                gCameraLvl.blend.lerp.pos_rate_cfg = handoff_duration;
+                gCameraLvl.blend.lerp.rot_rate_cfg = handoff_duration;
             } else {
-                player_camera.blend.lerp.pos_rate_cfg = 0.018f;
-                player_camera.blend.lerp.rot_rate_cfg = 0.018f;
+                gCameraLvl.blend.lerp.pos_rate_cfg = 0.018f;
+                gCameraLvl.blend.lerp.rot_rate_cfg = 0.018f;
                 if (g_current_level_index == LEVEL_NOVALIS) {
-                    player_camera.blend.lerp.pos_rate_cfg = 0.01f;
-                    player_camera.blend.lerp.rot_rate_cfg = 0.01f;
+                    gCameraLvl.blend.lerp.pos_rate_cfg = 0.01f;
+                    gCameraLvl.blend.lerp.rot_rate_cfg = 0.01f;
                 }
             }
-            if (player_camera.blend.phase == 0) {
-                player_camera.blend.phase = 1;
+            if (gCameraLvl.blend.phase == 0) {
+                gCameraLvl.blend.phase = 1;
             } else {
-                player_camera.blend.phase = 2;
+                gCameraLvl.blend.phase = 2;
             }
         }
     } else {
@@ -172,17 +172,17 @@ void SwitchCamera(Camera *next_camera) {
     previous_camera->transition_state = 0;
     previous_camera->handoff_state = 0;
     previous_camera->hard_cut = 0;
-    player_camera.previous = previous_camera;
+    gCameraLvl.previous = previous_camera;
     FastMemCopy(gCamPrevStateLvl, gCamPrevStateLvl - 0x280, 0x280);
-    player_camera.previous->state_buf = gCamPrevStateLvl;
-    player_camera.current = next_camera;
+    gCameraLvl.previous->state_buf = gCamPrevStateLvl;
+    gCameraLvl.current = next_camera;
     next_camera->state_buf = gCamPrevStateLvl - 0x280;
-    player_camera.frames = 0;
+    gCameraLvl.frames = 0;
     Camera_runSetupToNewCam(next_camera);
     BackupCurrentCam();
     /* The callbacks run before this flag is read; previous_position is updated either way. */
-    if (g_debug_menu.active == 0) {
-        qcopy(&player_camera.pos, &next_camera->pos);
+    if (gDebugFreeCamLvl.active == 0) {
+        qcopy(&gCameraLvl.pos, &next_camera->pos);
     }
     previous_position = &next_camera->prev_pos.x;
     previous_position[0] = next_camera->pos.x;
@@ -197,7 +197,7 @@ extern void Camera_RunQueuedCallbacks(void);
    for the best eligible camera (switching to it when one is found), the update hook, prev_pos,
    then the post-update queue. */
 int UpdateAllCamerasLvl(void) {
-    Camera *best = player_camera.current;
+    Camera *best = gCameraLvl.current;
     int i;
     int found = 0;
     void (*fn)(Camera *);
@@ -207,7 +207,7 @@ int UpdateAllCamerasLvl(void) {
     /* jal lands on the exit-hook wrapper: catalogue fold, docs/kb/refactor-camera.md section 1 */
     Camera_runSetupToNewCam(best);
     for (i = 0; i < 0x30; i++) {
-        if (gCameraSlotUsedLvl[i] != 0) {
+        if (level_camera_present_flags[i] != 0) {
             Camera *slot = &gCameraSlotsLvl[i];
             if (slot != best && Camera_ActivationCheckPriority(slot, best) != 0) {
                 best = slot;
@@ -241,20 +241,20 @@ void Camera_CaptureHeroRelativeView(void) {
     float b[4];
     float c[4];
     struct Hero *g = &g_hero;
-    CamBlend *d = &player_camera.blend;
+    CamBlend *d = &gCameraLvl.blend;
 
     vec_scale_to_length(a, *(char **)&g->moby + 0xC0, 1.0f);
     vec_scale_to_length(b, *(char **)&g->moby + 0xD0, 1.0f);
     vec_scale_to_length(c, *(char **)&g->moby + 0xE0, 1.0f);
     qcopy(&d->orbit.fwd, a);
     qcopy(&d->orbit.up, c);
-    Camera_Pos2Polar3d(&d->orbit.yaw, &d->orbit.pos, &g->motion.pos, a, b, c);
+    compute_camera_angles(&d->orbit.yaw, &d->orbit.pos, &g->motion.pos, a, b, c);
     qcopy(&d->orbit.rot, &d->orbit.saved_rot);
 }
 /* The final mode store goes through this alias, as in start_camera_blend: written
    through camera_blend_phase itself, gcse keeps the entry's %hi alive in a saved
    register across the calls, where retail rebuilds it. */
-extern short D_L00_00166FF0 NOT_SDA;
+extern short camera_blend_phase NOT_SDA;
 
 extern void Camera_CaptureHeroRelativeView(void);
 
@@ -263,7 +263,7 @@ extern void Camera_CaptureHeroRelativeView(void);
    and kind takes next_kind: the lerp resets for kind 0, the orbit frame count advances otherwise.
    Level copy of start_camera_blend. */
 void Camera_CaptureTransform(Camera *from) {
-    CamBlend *r = &player_camera.blend;
+    CamBlend *r = &gCameraLvl.blend;
     char local0[16];
     char local1[16];
     char local2[16];
@@ -284,9 +284,9 @@ void Camera_CaptureTransform(Camera *from) {
             vec_scale_to_length(local0, *(char **)&g->moby + 0xC0, 1.0f);
             vec_scale_to_length(local1, *(char **)&g->moby + 0xD0, 1.0f);
             vec_scale_to_length(local2, *(char **)&g->moby + 0xE0, 1.0f);
-            Camera_Pos2Polar3d(&r->orbit.yaw, &from->pos,
-                               &(*(Camera **)((char *)r - 0xF0))->pos, /* player_camera.current */
-                               local0, local1, local2);
+            compute_camera_angles(&r->orbit.yaw, &from->pos,
+                                  &(*(Camera **)((char *)r - 0xF0))->pos, /* gCameraLvl.current */
+                                  local0, local1, local2);
             extract_matrix_rotation_quaternion(&r->orbit.rot, from);
             qcopy(&r->orbit.saved_rot, &r->orbit.rot);
         }
@@ -333,10 +333,10 @@ extern int gCamSphereMaskLvl_w __asm__("D_L00_0015F05C") MACRO_ADDR;
 extern int D_L00_0015F05C_g SDATA(D_L00_0015F05C);
 
 /* Level copy of refresh_camera_control_flags: the sphere mask is 0x14 (0x34 in hero states 0x11/0x12
-   or mode 0x73, back to 0x14 below the water height player_camera.pos.f[2]), the line mask is 0xB4 |
+   or mode 0x73, back to 0x14 below the water height gCameraLvl.pos.f[2]), the line mask is 0xB4 |
    follow.coll_bits, with the coll_bits set from the hero's ground selectors. */
 void Camera_PickCollisionMasksLvl(void) {
-    CameraFollow *d = &player_camera.follow;
+    CameraFollow *d = &gCameraLvl.follow;
 
     D_L00_0015F05C_g = 0x14;
     {
@@ -348,7 +348,7 @@ void Camera_PickCollisionMasksLvl(void) {
     {
         unsigned char *g = (unsigned char *)(&g_hero);
         if (*(int *)(g + 0x208C) != 0x11) {
-            if (*(float *)(g + 0x2F0) < player_camera.pos.f[2]) {
+            if (*(float *)(g + 0x2F0) < gCameraLvl.pos.f[2]) {
                 gCamSphereMaskLvl_w = 0x14;
             }
         }
@@ -393,7 +393,7 @@ INCLUDE_ASM("asm/overlays", func_L00_001ED380);
 INCLUDE_ASM("asm/overlays", func_L00_001ED3D4);
 extern int cinematic_mode MACRO_ADDR;
 extern int vendor_menu_field_40;
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern void Camera_PickCollisionMasksLvl(void);
 
@@ -414,12 +414,12 @@ void Camera_UpdateFrame(void) {
             return;
         }
         {
-            CamBlend *b = &player_camera.blend;
+            CamBlend *b = &gCameraLvl.blend;
             b->phase = 0;
             b->kind = 0;
         }
     }
-    c = &player_camera;
+    c = &gCameraLvl;
     c->frames++;
     advance_timed_camera_control();
     Camera_PickCollisionMasksLvl();
@@ -432,7 +432,7 @@ void Camera_UpdateFrame(void) {
     if (c->blend.phase == 3) {
         update_camera_blend((char *)target);
     } else {
-        DebugFreeCam *st = &g_debug_menu;
+        DebugFreeCam *st = &gDebugFreeCamLvl;
         if (st->active != 0) {
             goto frozen;
         }
@@ -442,18 +442,18 @@ void Camera_UpdateFrame(void) {
         qcopy(&c->matrix[2], &target->basis[2]);
     }
     {
-        DebugFreeCam *st = &g_debug_menu;
+        DebugFreeCam *st = &gDebugFreeCamLvl;
         if (st->active == 0) {
-            copy_matrix_rotation(m, player_camera.matrix);
-            matrix_to_euler(m, &player_camera.rot);
+            copy_matrix_rotation(m, gCameraLvl.matrix);
+            matrix_to_euler(m, &gCameraLvl.rot);
         }
     }
 frozen:
-    v = player_camera.shake;
+    v = gCameraLvl.shake;
     apply_camera_shake((char *)&v[0], 0);
     apply_camera_shake((char *)&v[1], 1);
     update_camera_underwater_flag();
-    update_camera_environment_from_regions((char *)v - 0x20); /* &player_camera.pos */
+    update_camera_environment_from_regions((char *)v - 0x20); /* &gCameraLvl.pos */
     if (draw_map51[0] != 0) {
         FastVecCross((char *)v + 0x200, (char *)v + 0x210, (char *)v + 0x1F0); /* matrix[1] = matrix[2] x matrix[0] */
     }
@@ -471,12 +471,12 @@ int find_camera_table_index_by_id(int key) {
 }
 extern Camera *find_camera_record_by_id(int);
 
-extern char gCamCurStateLvl[];
+extern char active_camera_saved_state_storage[];
 
-/* Camera id 0 becomes the current camera with a hard cut: its state buffer is gCamCurStateLvl,
+/* Camera id 0 becomes the current camera with a hard cut: its state buffer is active_camera_saved_state_storage,
    its activate hook runs, the backup is taken, and the follow position is reset to the hero. */
 void init_camera_system(void) {
-    CameraSystem *g = &player_camera;
+    CameraSystem *g = &gCameraLvl;
     float *s, *d, *t, *u;
     Camera *a;
     if (g->current != 0) {
@@ -486,7 +486,7 @@ void init_camera_system(void) {
     }
     g->current = find_camera_record_by_id(0);
     g->current->hard_cut = 1;
-    g->current->state_buf = gCamCurStateLvl;
+    g->current->state_buf = active_camera_saved_state_storage;
     g->blend.phase = 0;
     update_camera_tracking_state();
     Camera_runSetupToNewCam(g->current);
@@ -505,7 +505,7 @@ void init_camera_system(void) {
     u[2] = t[2];
 }
 
-/* Inverse of Camera_Pos2Polar3d: out = origin + the point at polar (yaw, pitch, distance). */
+/* Inverse of compute_camera_angles: out = origin + the point at polar (yaw, pitch, distance). */
 void compute_position_from_spherical_offset(float *out, float *polar, void *origin) {
     out[0] = polar[2] * FastCos(polar[1]) * FastCos(polar[0]);
     out[1] = polar[2] * FastCos(polar[1]) * FastSin(polar[0]);
@@ -521,7 +521,7 @@ int compute_spherical_offset_from_positions(float *polar, float *pos, float *ori
     W v;
     float t;
     FastVecSub_3(v, pos, origin);
-    polar[1] = fast_atan2(vec_length_xy(v), v[2]);
+    polar[1] = fast_atan2(vector_length_xy(v), v[2]);
     t = fast_atan2(v[0], v[1]);
     FastSubRots(t, polar[0]);
     polar[0] = t;
@@ -532,14 +532,14 @@ extern void FastVecSub_3(float *, float *, float *) __asm__("func_001F9BF0");
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 extern int coll_sphere_v(void *, int, void *, float) __asm__("func_L00_001F10E0");
-extern W coll_resolved_pos;
+extern W coll_hit_position;
 extern int gCamSphereMaskLvl SDATA(gCamSphereMaskLvl);
 
 /* moves the camera position a toward a target in steps, stopping each step on collision. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/gameplay_camera_001eb188.c, FUN_L00_001ed6a8. */
 void resolve_camera_movement_collisions(float *pos, float r) {
     W d;
     W v;
-    Camera *o = player_camera.current;
+    Camera *o = gCameraLvl.current;
     float *src = &o->prev_pos.x;
     int n, i, j;
     struct Hero *base;
@@ -550,8 +550,8 @@ void resolve_camera_movement_collisions(float *pos, float r) {
     v[2] = src[2];
     ((int *)v)[3] = 0;
     if (o->snap != 0) {
-        if (g_debug_menu.active == 0) {
-            qcopy(&player_camera.pos, pos);
+        if (gDebugFreeCamLvl.active == 0) {
+            qcopy(&gCameraLvl.pos, pos);
         }
         o->snap = 0;
         return;
@@ -561,21 +561,21 @@ void resolve_camera_movement_collisions(float *pos, float r) {
     divide_vector_xyz(d, d, IntToFloat(n));
     qcopy(pos, v);
     for (i = 0; i < n; i++) {
-        q = coll_resolved_pos;
+        q = coll_hit_position;
         FastVecAdd(pos, pos, d);
         base = &g_hero;
         for (j = 0; j < 6 && coll_sphere_v(pos, gCamSphereMaskLvl, *(void **)&base->moby, r); j++) {
             qcopy(pos, q);
             {
-                Camera *t = player_camera.current;
+                Camera *t = gCameraLvl.current;
                 if (t->hit_wall == 0) {
                     t->hit_wall = 1;
                 }
             }
         }
     }
-    if (g_debug_menu.active == 0) {
-        qcopy(&player_camera.pos, pos);
+    if (gDebugFreeCamLvl.active == 0) {
+        qcopy(&gCameraLvl.pos, pos);
     }
 }
 LINKER_REMNANT("asm/overlays", func_L00_001EDBF8);

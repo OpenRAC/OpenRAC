@@ -5,7 +5,7 @@
 
 #include "common.h"
 
-extern void PartType41Spawn(void *, void *, int, unsigned int, int, int, int, float);
+extern void func_L01_00286530(void *, void *, int, unsigned int, int, int, int, float);
 extern int advance_path_node_index(void *);
 extern void compute_path_node_tangent(void *, void *, int, float, float);
 extern float compute_sampled_spline_path_lengths(float, float, void *, int, void *);

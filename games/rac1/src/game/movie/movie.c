@@ -26,7 +26,7 @@ extern int initAll(int, int, int);
 extern int read_mpeg(char *, char *, int *);
 extern void termAll(void);
 /* No recovered name. Sets movie globals, runs initialization and playback, then clears them. */
-int Movie_Play(int a, int b, int c, char *state, int e) {
+int play_mpeg_movie(int a, int b, int c, char *state, int e) {
     decoder_buffer_address = c;
     decoder_state = state;
     movie_play_step = 0;
@@ -176,7 +176,7 @@ void switchThread(void) {
 /* isAudioOK -- true when the audio decoder at offset 0xD9100 of the movie state holds 0x1000
  * bytes or more. */
 int isAudioOK(void) {
-    return is_state_field_large(decoder_state + 0xD9100);
+    return audio_dec_is_preset(decoder_state + 0xD9100);
 }
 struct AudioDecoderState {
     char pad0[0xD90F8];
@@ -194,7 +194,7 @@ struct AudioDecoderThreadArgs {
     int gs_tag;
     char pad24[0xC];
 };
-extern int movie_decoder_thread_id MACRO_ADDR;
+extern int decoder_thread MACRO_ADDR;
 extern char movie_open_error_text[];
 extern char gp_base[] MACRO_ADDR;
 extern void sce_mpeg_init(void);
@@ -207,7 +207,7 @@ extern int videoCallback();
 extern int pcmCallback();
 /* initAll(int, int, int) */
 int initAll(int stream_source, int source_mode, int callback_context) {
-    struct AudioDecoderThreadArgs decoder_thread;
+    struct AudioDecoderThreadArgs decoder_thread_args;
     int thread_id;
     int opened;
     *((volatile int *)0x1000E000) |= 3;
@@ -223,16 +223,16 @@ int initAll(int stream_source, int source_mode, int callback_context) {
     videoDecSetStream(((char *)decoder_state) + 0xD9048, 3, callback_context, pcmCallback, decoder_state);
     voBufCreate(((char *)decoder_state) + 0xD9168, (decoder_buffer_address & 0x0FFFFFFF) | 0x20000000,
                 decoder_buffer_address + 0x1A0000, 2);
-    decoder_thread.stack = ((char *)decoder_state) + 0xD2040;
-    decoder_thread.entry = videoDecMain;
-    decoder_thread.stack_size = 0x4000;
-    decoder_thread.priority = 1;
-    decoder_thread.gp = gp_base;
-    decoder_thread.gs_tag = 0;
-    thread_id = create_thread(&decoder_thread);
-    movie_decoder_thread_id = thread_id;
+    decoder_thread_args.stack = ((char *)decoder_state) + 0xD2040;
+    decoder_thread_args.entry = videoDecMain;
+    decoder_thread_args.stack_size = 0x4000;
+    decoder_thread_args.priority = 1;
+    decoder_thread_args.gp = gp_base;
+    decoder_thread_args.gs_tag = 0;
+    thread_id = create_thread(&decoder_thread_args);
+    decoder_thread = thread_id;
     start_thread(thread_id, ((char *)decoder_state) + 0xD9048);
-    if (set_state_fields(((char *)decoder_state) + 0xD9040, stream_source, source_mode) == 0) {
+    if (mpeg_cd_stream_open(((char *)decoder_state) + 0xD9040, stream_source, source_mode) == 0) {
         opened = 0;
         STUB_printf(movie_open_error_text);
     } else {
@@ -259,7 +259,7 @@ void termAll(void) {
     remove_intc_handler(2, *(int *)(decoder_state + 0xD90FC));
     videoDecDelete(decoder_state + 0xD9048);
     audioDecDelete(decoder_state + 0xD9100);
-    get_state_callback_result(decoder_state + 0xD9040);
+    mpeg_cd_stream_close(decoder_state + 0xD9040);
     sce_cd_sync_s(0);
     *(volatile unsigned int *)0x1000E000 &= ~2u;
 }

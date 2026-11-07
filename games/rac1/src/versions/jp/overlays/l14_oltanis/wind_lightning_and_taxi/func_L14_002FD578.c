@@ -1,4 +1,4 @@
-void update_enemy_fighter(struct Moby *moby) {
+void enemy_fighter_update(struct Moby *moby) {
     Jet908Vars *data = (Jet908Vars *)moby->pvars;
     int hit = MobyGetHitMessage_r(moby, 0x800000, 0);
     int index;
@@ -11,7 +11,7 @@ void update_enemy_fighter(struct Moby *moby) {
             if (fighter_skill_hit_count_r > 2 && D_0013D510_FD578.flag == 0) {
                 D_0013D510_FD578.flag = 1;
                 PlayBankSound_r(1, 0, 0);
-                ShowBanner(0x542D, -1);
+                queue_dialogue_message(0x542D, -1);
             }
         }
         moby->state = 2;

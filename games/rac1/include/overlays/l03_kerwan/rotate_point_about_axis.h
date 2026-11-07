@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern void RotatePointAboutAxis(void *, void *, float);
+extern void func_L03_00250B88(void *, void *, float);
 
 #endif /* OVERLAYS_L03_KERWAN_ROTATE_POINT_ABOUT_AXIS_H */

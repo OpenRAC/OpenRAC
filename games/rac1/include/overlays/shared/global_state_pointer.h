@@ -5,6 +5,6 @@
 
 #include "common.h"
 
-extern int get_global_state_pointer(void);
+extern int func_L00_002016D0(void);
 
 #endif /* OVERLAYS_SHARED_GLOBAL_STATE_POINTER_H */

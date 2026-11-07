@@ -107,7 +107,7 @@ void sky_particles_update(void) {
             b = IntToFloat((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
             e->f10 = FastCos(a) * FastSin(b) * 50.0f;
             e->f14 = FastSin(a) * FastSin(b) * 50.0f;
-            e->f18 = FastAbsF(FastCos(b)) * 50.0f;
+            e->f18 = absolute_float(FastCos(b)) * 50.0f;
             if ((e->hC & 0x3F) < 8) {
                 e->w4 = 0x702020F0;
             } else {
@@ -257,7 +257,7 @@ void draw_four_sky_shells_with_animated_particles(void) {
             b = IntToFloat((h[1] & 0xFFF) - 0x800) * 0.0015339808f;
             s->x = FastCos(a) * FastSin(b) * 50.0f;
             s->y = FastSin(a) * FastSin(b) * 50.0f;
-            s->z = FastAbsF(FastCos(b)) * 50.0f;
+            s->z = absolute_float(FastCos(b)) * 50.0f;
             if ((s->c.h.a & 0x3F) < 8)
                 s->color = 0x702020F0;
             else
@@ -376,7 +376,7 @@ typedef struct {
 } Sys;
 extern Sys *sky_data_r __asm__("D_L00_001605DC") MACRO_ADDR;
 extern short sky_star_colors;
-extern short sky_pair_particle_colors;
+extern short sky_type2_base_colors;
 extern u8 sky_shell_matrix_r[] __asm__("D_L00_001BDB70");
 extern u8 sky_pair_particle_positions[];
 
@@ -425,7 +425,7 @@ void draw_three_sky_shells_with_three_particle_types(void) {
                 p->type = 2;
                 {
                     s32 paletteOffset = k * 4;
-                    u32 *paletteWord = (u32 *)(paletteOffset + (char *)&sky_pair_particle_colors);
+                    u32 *paletteWord = (u32 *)(paletteOffset + (char *)&sky_type2_base_colors);
                     void *source = k * 16 + sky_pair_particle_positions;
                     void *destination = &p->f10;
                     p->col = *paletteWord;
@@ -494,7 +494,7 @@ void draw_three_sky_shells_with_three_particle_types(void) {
             {
                 s32 rr = func_001160D8() >> 16;
                 u32 x;
-                x = (((u32 *)&sky_pair_particle_colors))[p2->u.c.c0];
+                x = (((u32 *)&sky_type2_base_colors))[p2->u.c.c0];
                 x += (rr & 0xF00) << 8;
                 x += (rr & 0xF0) << 4;
                 x += rr & 0xF;
@@ -801,8 +801,8 @@ typedef struct {
 } S_28b1a0;
 extern S_28b1a0 *sky_data_r3 __asm__("D_L00_001605DC") MACRO_ADDR;
 extern unsigned char sky_shell_matrix_r2[] __asm__("D_L00_001BDB70") NOT_SDA;
-extern short D_L00_00160580;
-extern q_28b1a0 D_L00_001605E0 MACRO_ADDR;
+extern short sky_shell_rotation_phase_step;
+extern q_28b1a0 sky_shell_origin MACRO_ADDR;
 
 /* Per-entry update of a table of up to five entries (a switch on the index): each entry gets its own tilt, scale and turn speed, and its matrix is rebuilt every frame. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/unclassified_00288ec0.c, FUN_L00_0028b1a0. */
 void SkyShellsEntryUpdate(void) {

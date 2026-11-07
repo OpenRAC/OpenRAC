@@ -17,8 +17,8 @@ u8 map_icon_flag1000_width[] DATA_SECTION(D_0015FE50) = {
 
 TexSlot pending_texture_uploads[64] DATA_SECTION(D_0018D140) = {0};
 
-int map_slot_use[16] DATA_SECTION(D_001A0468) = {0};
+int D_001A0468[16] DATA_SECTION(D_001A0468) = {0};
 
-u32 str_no_map_available[] DATA_SECTION(D_001E8398) = {
+u32 D_001E8398[] DATA_SECTION(D_001E8398) = {
 #include "data_inc/D_001E8398.inc"
 };

@@ -38,9 +38,9 @@ typedef struct {
     u8 pad[12];
     Vec4 points[1];
 } SegmentPath;
-extern SegmentPath *level_paths[];
+extern SegmentPath *toad_paths[];
 
-extern int SegmentCrossPolyline(int, void *, void *, void *);
+extern int path_8808(int, void *, void *, void *);
 
 struct MobyBound;
 
@@ -52,9 +52,9 @@ extern int active_play_frame_count MACRO_ADDR;
 extern int game_clock_ticks[] MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
-extern char bolt_bonus_x5_debug_message[];
-extern char bolt_bonus_multiplier_debug_format[];
-extern char bolt_bonus_divisor_debug_format[];
+extern char bolt_drop_scale_five_message[];
+extern char bolt_drop_integer_scale_format[];
+extern char bolt_drop_float_scale_format[];
 
 /* Per-moby effect update: builds a short vector set from the moby's
    0x10 vector and calls the helper chain for each queued unit. */
@@ -111,10 +111,10 @@ void spawn_randomized_bolt_drop(Moby *a, int b, int c, int flags, int idx) {
             }
             if (m < 0x96) {
                 if (m < 0x5B) {
-                    STUB_printf(bolt_bonus_x5_debug_message);
+                    STUB_printf(bolt_drop_scale_five_message);
                     n *= 5;
                 } else {
-                    STUB_printf(bolt_bonus_multiplier_debug_format, (0xBE - m) / 20);
+                    STUB_printf(bolt_drop_integer_scale_format, (0xBE - m) / 20);
                     n *= (0xBE - m) / 20;
                 }
                 if (challenge_mode) {
@@ -126,10 +126,10 @@ void spawn_randomized_bolt_drop(Moby *a, int b, int c, int flags, int idx) {
                 }
             } else if (m >= 0x12D) {
                 if (m >= 0x160) {
-                    STUB_printf(bolt_bonus_divisor_debug_format, 0x3FB99999A0000000L);
+                    STUB_printf(bolt_drop_float_scale_format, 0x3FB99999A0000000L);
                     n /= 10;
                 } else {
-                    STUB_printf(bolt_bonus_divisor_debug_format, IntToFloat(0x168 - m) / 20.0f);
+                    STUB_printf(bolt_drop_float_scale_format, IntToFloat(0x168 - m) / 20.0f);
                     n *= (0x168 - m) / 80;
                 }
                 if (n <= 0) {
@@ -236,7 +236,7 @@ void spawn_randomized_bolt_drop(Moby *a, int b, int c, int flags, int idx) {
         if (idx >= 0) {
             f12 = g_frame_time_sq * 10.8f * -0.5f;
             f13 = s20[2] - f12;
-            f14 = s10[2] - level_paths[idx]->points[0].f[2];
+            f14 = s10[2] - toad_paths[idx]->points[0].f[2];
             lim = 120.0f;
             rv = solve_quadratic_equation(&t70, &t74, f12, f13, f14);
             if (1.0f <= (float)rv) {
@@ -248,7 +248,7 @@ void spawn_randomized_bolt_drop(Moby *a, int b, int c, int flags, int idx) {
             }
             FastVecScale(s40, s20, lim);
             FastVecAdd(s40, s40, &a->pos);
-            rv = SegmentCrossPolyline(idx, &a->pos, s40, s50);
+            rv = path_8808(idx, &a->pos, s40, s50);
             FastVecSub(s40, s50, s10);
             s40[2] = 0.0f;
             vec_scale_to_length(s60, s40, 0.25f);
@@ -314,7 +314,7 @@ struct WanderState {
     f32 home_x; /* 0x00: home point */
     f32 home_y; /* 0x04 */
     u8 pad_08[0x8];
-    f32 unk_10; /* 0x10: passed to MoveKeepingOverGround */
+    f32 unk_10; /* 0x10: passed to move_moby_xy_with_collision_constraints */
     f32 speed; /* 0x14: step length per frame */
     f32 turn_rate; /* 0x18 */
     f32 max_dist; /* 0x1C: max distance from home */
@@ -336,7 +336,7 @@ void update_object_wander_movement(Moby *moby, struct WanderState *d, float a, f
     if (d->wandering == 0) {
         pos = (char *)&moby->pos;
         d->heading = d->heading + randf_sym(0.7853982f, 2.6179938f);
-        d->timer = rand_range(d->timer_min, d->timer_max);
+        d->timer = random_int_between(d->timer_min, d->timer_max);
         d->wandering = 1;
     } else {
         step_angle_toward_target(&moby->rot.z, 0, d->heading, d->turn_rate);
@@ -347,13 +347,13 @@ void update_object_wander_movement(Moby *moby, struct WanderState *d, float a, f
     qcopy(v, pos);
     v[0] = v[0] + FastCos(moby->rot.z) * d->speed;
     v[1] = v[1] + FastSin(moby->rot.z) * d->speed;
-    r = MoveKeepingOverGround(moby, pos, v, 0, a, d->unk_10, b, 0.5235988f);
-    moby->pos.z = ProbeGroundHeight(pos, 0, 0.5f);
+    r = move_moby_xy_with_collision_constraints(moby, pos, v, 0, a, d->unk_10, b, 0.5235988f);
+    moby->pos.z = probe_ground_height(pos, 0, 0.5f);
     dist = vec_distance_xy(pos, &d->home_x);
     if (r == 0 || d->max_dist < dist) {
         d->heading = fast_atan2(d->home_x - moby->pos.x, d->home_y - moby->pos.y);
         t = scale_ticks(0x1E);
-        d->timer = rand_range(t, scale_ticks(0x5A));
+        d->timer = random_int_between(t, scale_ticks(0x5A));
         d->wandering = 1;
     } else {
         char *g = &g_hero.motion.pos;
@@ -429,8 +429,8 @@ s32 test_path_segment_strict_crossing(s32 path_index, Vec4 *start, Vec4 *end) {
     return 0;
 }
 
-/* Tests whether segment a-b crosses polyline level_paths[idx]; writes the nearest crossing to c. */
-int SegmentCrossPolyline(int idx, void *a, void *b, void *c) {
+/* Tests whether segment a-b crosses polyline toad_paths[idx]; writes the nearest crossing to c. */
+int path_8808(int idx, void *a, void *b, void *c) {
     float v[4], w[4], z[4], t[4], u[4];
     float best;
     float zero;
@@ -449,7 +449,7 @@ int SegmentCrossPolyline(int idx, void *a, void *b, void *c) {
     z[2] = 1.0f;
     best = 1.0f;
     FastVecSub(t, (char *)level_paths_r[idx] + 0x10, a);
-    matrix_mul_vec3(t, t, v);
+    transform_vector_by_basis(t, t, v);
     prev = t;
     cur = u;
     if (i < level_paths_r[idx]->count) {
@@ -457,7 +457,7 @@ int SegmentCrossPolyline(int idx, void *a, void *b, void *c) {
         zero = 0.0f;
         do {
             FastVecSub(cur, (char *)level_paths_r[idx] + offset, a);
-            matrix_mul_vec3(cur, cur, v);
+            transform_vector_by_basis(cur, cur, v);
             if (t[3] != zero || u[3] != zero) {
                 if (u[1] * t[1] < 0.0f) {
                     float x = (t[0] - u[0]) / (t[1] - u[1]) * -u[1] + u[0];
@@ -502,8 +502,8 @@ s32 resolve_point_path_segment_xy_clearance(f32 distance, s32 path_index, Vec4 *
 
     found = 0;
     qcopy_nc(&working, point);
-    for (i = 0; i < level_paths[path_index]->count - 1; i++) {
-        entry = &level_paths[path_index];
+    for (i = 0; i < toad_paths[path_index]->count - 1; i++) {
+        entry = &toad_paths[path_index];
         if ((*entry)->points[i].f[3] == 0.0f && (*entry)->points[i + 1].f[3] == 0.0f)
             continue;
         FastVecSub_r2(&difference, &working, &(*entry)->points[i]);
@@ -512,7 +512,7 @@ s32 resolve_point_path_segment_xy_clearance(f32 distance, s32 path_index, Vec4 *
         segment.i[2] = 0;
         vec_scale_to_length_r2(&scaled_segment, &segment, 1.0f);
         FastVecCross_r(&cross, &difference, &scaled_segment);
-        if (distance < FastAbsF(cross.f[2]))
+        if (distance < absolute_float(cross.f[2]))
             continue;
         {
             f32 segment_length = FastVecLength_r2(&segment);
@@ -599,7 +599,7 @@ s32 resolve_point_path_segment_clearance(f32 distance, s32 path_index, Vec4 *poi
                 FastVecSub_r3(&segment, &segment, &scaled_cross);
                 vec_scale_to_length_r3(1.0f, &scaled_segment, &segment);
                 FastVecCross_r2(&cross, &difference, &scaled_segment);
-                segment_length = FastAbsF(FastVecDot_r(&cross, height_axis));
+                segment_length = absolute_float(FastVecDot_r(&cross, height_axis));
                 if (distance < segment_length)
                     goto next_segment_262030;
                 segment_length = FastVecLength_r3(&segment);
@@ -675,7 +675,7 @@ void compose_target_euler_rotation(char *a, float x, float y, float z) {
     in[2] = z;
     euler_to_matrix(t, in);
     euler_to_matrix(u, a + 0x40);
-    sce_vu0_mul_matrix(u, u, t);
+    multiply_matrix(u, u, t);
     matrix_to_euler(u, a + 0x40);
 }
 typedef int q_263680 __attribute__((mode(TI)));
@@ -824,7 +824,7 @@ struct ManipState {
 /* Eases a moby's per-axis offsets toward zero and applies them and its scale to the held object, resetting when
    settled.
    Adapted from Lombyte's project (GPL-3.0) for PAL: src/overlays/shared/gameplay_state_00261968.c, FUN_L00_002628d8. */
-void EaseManipulatorOffsets(int m, struct ManipState *p, int c, float fa, float fb) {
+void update_joint_animation(int m, struct ManipState *p, int c, float fa, float fb) {
     unsigned char *o = *(unsigned char **)&p->target;
     float f;
     if (!o) {
@@ -836,7 +836,8 @@ void EaseManipulatorOffsets(int m, struct ManipState *p, int c, float fa, float 
         *(int *)&p->target = m;
     }
     if (p->goal[0] == 0.0f && p->goal[1] == 0.0f && p->goal[2] == 0.0f && p->goal_scale == 1.0f &&
-        FastAbsF(p->euler[0]) < 0.005f && FastAbsF(p->euler[1]) < 0.005f && FastAbsF(p->euler[2]) < 0.005f) {
+        absolute_float(p->euler[0]) < 0.005f && absolute_float(p->euler[1]) < 0.005f &&
+        absolute_float(p->euler[2]) < 0.005f) {
         if (p->attached)
             DetachManipulator(m, p);
         return;
@@ -874,26 +875,26 @@ void update_moby_rotation_oscillation(float *o, float *a, float *b, float r, flo
 }
 
 /* Set a to b plus the spherical offset built from r, y and z. */
-void fast_add_rotations_cf(void *a, void *b, float r, float y, float z) {
+void AddSphericalOffset(void *a, void *b, float r, float y, float z) {
     typedef float W[4] __attribute__((aligned(16)));
     W v;
     BuildSphericalOffset(v, r, y, z);
     FastVecAdd(a, v, b);
 }
-extern void ShowBanner(int arg0, int arg1);
-extern char planet_unlock_message_ids[];
+extern void queue_dialogue_message(int arg0, int arg1);
+extern char l00_planet_unlock_dialogue_message_ids[];
 typedef struct {
     int v[19];
 } Tbl;
 
 // Shows the banner message for planet index a (clamped to the table), copying the table locally.
 void queue_planet_unlock_message(int a) {
-    Tbl t = *(Tbl *)planet_unlock_message_ids;
+    Tbl t = *(Tbl *)l00_planet_unlock_dialogue_message_ids;
     if (a < 0)
         a = 0;
     if (a > 18)
         a = 18;
-    ShowBanner(t.v[a], scale_ticks(0x49C));
+    queue_dialogue_message(t.v[a], scale_ticks(0x49C));
 }
 LINKER_REMNANT("asm/overlays", func_L00_00264130);
 extern struct Hero g_hero;
@@ -924,7 +925,7 @@ struct Moby *select_auto_aim_target_moby(void *ignore, Vec4 *pos_in, Vec4 *dir_i
     pos.q = pos_in->q;
     dir.q = dir_in->q;
     *yaw = fast_atan2(dp->f[0], dp->f[1]);
-    *pitch = -fast_atan2(vec_length_xy(dp), dp->f[2]);
+    *pitch = -fast_atan2(vector_length_xy(dp), dp->f[2]);
 
     for (m = suck_moby_list; m != 0; m = m->next) {
         MobyBound *b;
@@ -941,11 +942,11 @@ struct Moby *select_auto_aim_target_moby(void *ignore, Vec4 *pos_in, Vec4 *dir_i
             continue;
         t_yaw = fast_atan2(target.f[0] - pp->f[0], target.f[1] - pp->f[1]);
         t_pitch = fast_atan2(vec_distance_xy(pp, &target), target.f[2] - pp->f[2]);
-        dist = FastVecDist(pp, &target);
+        dist = fast_vec_dist(pp, &target);
         if (dist < 7.5f &&
             FastDiffRots(g_hero.moby->rot.z, fast_atan2(m->pos.x - g_hero.motion.pos.f[0],
                                                         m->pos.y - g_hero.motion.pos.f[1])) < 1.0471976f &&
-            FastAbsF(t_pitch) < 1.0471976f) {
+            absolute_float(t_pitch) < 1.0471976f) {
             *pitch = -t_pitch;
             *yaw = t_yaw;
             return m;
@@ -954,7 +955,7 @@ struct Moby *select_auto_aim_target_moby(void *ignore, Vec4 *pos_in, Vec4 *dir_i
             continue;
         func_00215C00_64140(&probe, dist, *yaw, *pitch + g_hero.ground_pitch.f * 0.5f);
         FastVecAdd(&probe, &probe, pp);
-        ang = FastArcSin(FastVecDist(&probe, &target) / (dist + dist));
+        ang = FastArcSin(fast_vec_dist(&probe, &target) / (dist + dist));
         ang = ang + ang;
         if (max_angle < ang && b) {
             f32 radius = IntToFloat(b->size << 3) * 0.125f;
@@ -993,7 +994,7 @@ typedef struct {
     char pad[0x140];
     V pos;
 } S166D;
-extern S166D player_camera;
+extern S166D gCameraLvl;
 extern V collision_hit_point;
 
 /* spawns impact sparks at a point on the ground near the camera. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/gameplay_entities_002630b8.c, FUN_L00_002634f8. */
@@ -1004,7 +1005,7 @@ void spawn_ground_contact_effect_particle(V *v) {
     k = (height_map_max_height - height_map_min_height) * 0.00390625f;
     t = *v;
     f = ground_height_at(&t) + k;
-    b = &player_camera;
+    b = &gCameraLvl;
     t.f[2] = f;
     if (f < b->pos.f[2] + 5.0f) {
         u = t;
@@ -1012,7 +1013,7 @@ void spawn_ground_contact_effect_particle(V *v) {
         if (coll_line(&t, &u, 0x12, 0, 0)) {
             FastVecSub(&d, &collision_hit_point, &b->pos);
             spawn_timed_effect_particle((char *)&collision_hit_point,
-                                        (unsigned char)(int)(vec_length_xy(&d) / 60.0f * 191.0f + 64.0f));
+                                        (unsigned char)(int)(vector_length_xy(&d) / 60.0f * 191.0f + 64.0f));
         }
     }
 }
@@ -1101,7 +1102,7 @@ void cutscene_set_camera_target(struct Moby *m) {
     s32 w24;
     Effect *effect;
     if (m->oclass == MOBY_CLASS_INFOBOT && m != 0) {
-        MobyTransformScaledVertex(m, 0, vectors);
+        build_moby_bone_transform(m, 0, vectors);
         fraction = FastVecLength(vectors) / 1.026f;
         if (1.0f < fraction)
             fraction = 1.0f;
@@ -1156,7 +1157,7 @@ void cutscene_set_camera_target(struct Moby *m) {
         }
     }
 }
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 /* Sets a moby's three float fields to x, running its setup call first when it has a flag byte; without the global flag
    only runs DetachManipulator on a flagged moby. */
@@ -1237,23 +1238,23 @@ void draw_trail(void *p0, void *p1, void *vel, float a, float b) {
     }
 }
 extern int banner_display_ticks MACRO_ADDR;
-extern char banner_text_buffer[];
+extern char l00_dialogue_message_text_buffer[];
 
 /* Shows message arg0 in the on-screen text box for arg1 ticks. */
-void ShowBanner(int arg0, int arg1) {
+void queue_dialogue_message(int arg0, int arg1) {
     if (arg1 == -1) {
         arg1 = scale_ticks(0xB4);
     }
-    libc_strcpy(banner_text_buffer, msg_string(arg0));
+    libc_strcpy(l00_dialogue_message_text_buffer, msg_string(arg0));
     banner_display_ticks = arg1;
 }
-extern char banner_text_buffer[] NOT_SDA;
+extern char l00_dialogue_message_text_buffer[] NOT_SDA;
 
-/* Like ShowBanner, but draws message a with parameter b. */
+/* Like queue_dialogue_message_fn, but draws message a with parameter b. */
 void queue_formatted_dialogue_message(int a, int b, int c) {
     if (c == -1)
         c = scale_ticks(0xB4);
-    sprintf(banner_text_buffer, msg_string(a), b);
+    sprintf(l00_dialogue_message_text_buffer, msg_string(a), b);
     banner_display_ticks = c;
 }
 extern float veldin1_zero_vec[] MACRO_ADDR;
@@ -1336,7 +1337,7 @@ void *SpawnBreakFragment(char *src, int cls, float *pos, void *mat, int a8, int 
         }
         if (FastVecLength(v11) == 0.0f) {
             float g = g_frame_time;
-            rand_vec(t, g * 3.1415927f, g * 6.2831855f);
+            random_vector(t, g * 3.1415927f, g * 6.2831855f);
             qcopy(&d->velocity, t);
         } else {
             qcopy(&d->velocity, v11);
@@ -1357,8 +1358,8 @@ void *SpawnBreakFragment(char *src, int cls, float *pos, void *mat, int a8, int 
 }
 extern int timed_hud_frames_left MACRO_ADDR;
 extern int timed_hud_visible MACRO_ADDR;
-extern short D_L00_00161F04;
-extern short D_L00_00161F08;
+extern short timed_hud_handle;
+extern short timed_hud_visibility_gate;
 
 /* Per-frame update for the countdown timed_hud_frames_left. */
 void update_timed_hud_visibility(void) {

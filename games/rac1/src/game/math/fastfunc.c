@@ -94,7 +94,7 @@ ASM_FUNC("asm/handwritten/text", func_001F9B50);
 
 ASM_FUNC("asm/handwritten/text", func_001F9B70);
 
-float FastAbsF(float arg0) {
+float absolute_float(float arg0) {
     return __builtin_fabsf(arg0);
 }
 
@@ -188,7 +188,7 @@ ASM_FUNC("asm/handwritten/text", func_001FA460);
 /*
  * Reverted (size mismatch: 28 vs retail's 32). Semantics certain: a
  * plain 3-quadword (48-byte) copy --
- *   void matrix_copy_rows(void *arg0, void *arg1) {
+ *   void copy_matrix3x4(void *arg0, void *arg1) {
  *       *(unsigned long long *)((char *)arg0 + 0x00) = *(unsigned long long *)((char *)arg1 + 0x00);
  *       *(unsigned long long *)((char *)arg0 + 0x10) = *(unsigned long long *)((char *)arg1 + 0x10);
  *       *(unsigned long long *)((char *)arg0 + 0x20) = *(unsigned long long *)((char *)arg1 + 0x20);

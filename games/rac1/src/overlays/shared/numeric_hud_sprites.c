@@ -319,7 +319,7 @@ int draw_trick_combo_hud(char *a) {
     id = GetIconFrame(0x7558, 1);
     draw_cropped_hud_sprite(id, xa, xb, s16, 0x40, 0x80);
     id2 = GetIconFrame(0x7558, 0);
-    HudSprite(id2, xa, xb, 0x100, 0x40, 0x80);
+    draw_hud_sprite(id2, xa, xb, 0x100, 0x40, 0x80);
     E = &g_hero;
     t = (unsigned char)*(char *)&E->off_course_frames;
     if (scale_ticks(0x78) < t) {
@@ -340,7 +340,7 @@ extern int rilgar_hud_release_count SDATA(rilgar_hud_release_count);
 // Releases the held hud element if any, clears a flag and bumps a counter.
 void hud_release_held_element(void) {
     if (animation_parameter_target_id != -1) {
-        Hud_SetBarValueById(animation_parameter_target_id, 0);
+        set_animation_parameter(animation_parameter_target_id, 0);
         animation_parameter_target_id = -1;
     }
     rilgar_hud_hold_active = 0;
@@ -476,7 +476,7 @@ int draw_hud_progress_and_rank(char *e) {
     }
     draw_stretchable_ui_frame(px - 0x18, py, *(int *)&(rilgar_counter_frame_width), 0x20, 0x60);
     w = GetIconFrame(0x7558, 2);
-    HudSprite(w, px, py, 0x20, 0x20, 0x80);
+    draw_hud_sprite(w, px, py, 0x20, 0x20, 0x80);
     print_text_with_texture_3_v(px + 0x29, py + 8, 0x80000000L, buf + 0x40, -1);
     h2 = (char *)&g_hero;
     if (*(unsigned char *)(h2 + 0x8CE) != 0)

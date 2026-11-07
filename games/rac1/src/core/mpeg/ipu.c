@@ -152,8 +152,8 @@ void set_d4_chcr_ipuinit(unsigned int chcr) {
 typedef unsigned int u128 __attribute__((mode(TI), aligned(16)));
 
 extern void set_d4_chcr_ipuinit(unsigned int chcr);
-extern volatile u128 ipu_init_quant_matrices[];
-extern u128 ipu_init_vq_clut[];
+extern volatile u128 ipu_default_quantization_matrices[];
+extern u128 ipu_default_vq_table[];
 
 #define IPU_CMD ((volatile unsigned int *)0x10002000)
 #define IPU_CTRL ((volatile int *)0x10002010)
@@ -168,22 +168,22 @@ void sce_ipu_init(void) {
     *IPU_CMD = 0;
     while (*IPU_CTRL < 0) {
     }
-    *IPU_IN_FIFO = ipu_init_quant_matrices[0];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[1];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[2];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[3];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
-    *IPU_IN_FIFO = ipu_init_quant_matrices[4];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[0];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[1];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[2];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[3];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[4];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[4];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[4];
+    *IPU_IN_FIFO = ipu_default_quantization_matrices[4];
     *IPU_CMD = 0x50000000;
     while (*IPU_CTRL < 0) {
     }
     *IPU_CMD = 0x58000000;
     while (*IPU_CTRL < 0) {
     }
-    *IPU_IN_FIFO = ipu_init_vq_clut[0];
-    *IPU_IN_FIFO = ipu_init_vq_clut[1];
+    *IPU_IN_FIFO = ipu_default_vq_table[0];
+    *IPU_IN_FIFO = ipu_default_vq_table[1];
     *IPU_CMD = 0x60000000;
     while (*IPU_CTRL < 0) {
     }
@@ -216,17 +216,17 @@ extern int sceOpen(void *, int);
 
 extern void sceClose(int);
 extern signed char RomNameStateData[];
-extern char scf_romver_path[], scf_romver_open_failed_msg[], scf_romver_read_failed_msg[];
+extern char scf_romver_path[], rom_version_open_error_message[], rom_version_read_error_message[];
 
 char *scf_read_romver(void) {
     int fd;
     if (RomNameStateData[0] == 0) {
         fd = sceOpen(scf_romver_path, 1);
         if (fd == -1) {
-            scePrintf(scf_romver_open_failed_msg, RomNameStateData);
+            scePrintf(rom_version_open_error_message, RomNameStateData);
         }
         if (sceRead(fd, RomNameStateData, 0xE) == -1) {
-            scePrintf(scf_romver_read_failed_msg);
+            scePrintf(rom_version_read_error_message);
         }
         sceClose(fd);
     }
@@ -283,17 +283,17 @@ int sce_scf_get_language(void) {
 
 LINKER_REMNANT("asm/remnants/core_text", func_0012D3E0);
 
-extern short scf_t10k_time_zone NOT_SDA;
+extern short t10k_time_zone NOT_SDA;
 
 /* `r` assigned in both arms and returned once: a direct `return
-   scf_t10k_time_zone;` loads straight into $v0 and moves the address to $v1. */
+   t10k_time_zone;` loads straight into $v0 and moves the address to $v1. */
 int sce_scf_get_time_zone(void) {
     unsigned int local;
     unsigned int bits;
     int r;
 
     if (scf_is_t10k() != 0) {
-        r = scf_t10k_time_zone;
+        r = t10k_time_zone;
     } else {
         get_osd_config_param(&local);
         bits = (local >> 13) & 7;
@@ -308,7 +308,7 @@ int sce_scf_get_time_zone(void) {
 
 LINKER_REMNANT("asm/remnants/core_text", func_0012D440);
 
-extern unsigned char scf_t10k_summer_time[];
+extern unsigned char t10k_summer_time_setting[];
 
 /* One return, and GetOsdConfigParam2 returns int. */
 int sce_scf_get_summer_time(void) {
@@ -316,7 +316,7 @@ int sce_scf_get_summer_time(void) {
     int r;
 
     if (scf_is_t10k() != 0) {
-        r = scf_t10k_summer_time[0];
+        r = t10k_summer_time_setting[0];
     } else {
         get_osd_config_param(buf);
         if (((*(unsigned int *)buf >> 13) & 7) == 0) {

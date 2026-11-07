@@ -45,14 +45,14 @@ extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 extern char item_usage[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern short quartu_hero_step_anim_modes;
 extern short quartu_hero_state_f_jump_velocity_keys;
 extern char quartu_hero_state_d_jump_velocity_keys[];
 extern unsigned char quartu_hero_run_jump_land_anim_by_frame[];
 extern T2C quartu_attack_records[];
-extern float quartu_hero_anim_time_curves[][25];
+extern float hero_hurt_animation_blend_samples[][25];
 extern char quartu_hero_state_12_jump_velocity_keys[];
 extern void *quartu_pool_draw_tiles MACRO_ADDR;
 extern int quartu_pool_draw_count MACRO_ADDR;
@@ -118,7 +118,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 set_hero_state_for_vehicle_mode();
@@ -246,18 +246,18 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             if (p->state.prev_control_mode == HERO_MODE_SWIM) {
                 emit_hero_surface_effect_burst(3, 0xA, 0);
                 if (quartu_pool_draw_tiles != 0) {
-                    RippleDisturb(quartu_pool_draw_tiles, quartu_pool_draw_count, 0, p->motion.pos.f[0],
-                                  p->motion.pos.f[1], 0.4f, 0.3f);
+                    pool_splash(quartu_pool_draw_tiles, quartu_pool_draw_count, 0, p->motion.pos.f[0],
+                                p->motion.pos.f[1], 0.4f, 0.3f);
                 }
             } else if (p->motion.displacement.f[2] < g_frame_time * -0.5f) {
-                int n = truncate_float_to_s32(FastAbsF(p->motion.displacement.f[2]) * 300.0f);
+                int n = truncate_float_to_s32(absolute_float(p->motion.displacement.f[2]) * 300.0f);
                 int v = n;
                 if (n > 0x28)
                     v = 0x28;
                 emit_hero_surface_effect_burst(3, v, 1);
                 if (quartu_pool_draw_tiles != 0) {
-                    RippleDisturb(quartu_pool_draw_tiles, quartu_pool_draw_count, 0, p->motion.pos.f[0],
-                                  p->motion.pos.f[1], 0.5f, -0.4f);
+                    pool_splash(quartu_pool_draw_tiles, quartu_pool_draw_count, 0, p->motion.pos.f[0],
+                                p->motion.pos.f[1], 0.5f, -0.4f);
                 }
                 p->splash_effect_timer = scale_ticks(0x4B);
             }
@@ -329,7 +329,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
                     {
                         struct Hero *w = &g_hero;
                         *(float *)(*(char **)&w->moby + 0x54) =
-                            quartu_hero_anim_time_curves[w->anim_blend_curve][(w->anim_blend_step)++];
+                            hero_hurt_animation_blend_samples[w->anim_blend_curve][(w->anim_blend_step)++];
                     }
                 }
             }
@@ -434,7 +434,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -448,7 +448,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = &g_hero;
@@ -507,7 +507,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -581,7 +581,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
@@ -646,7 +646,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             p->item_use_locked = 1;
             *(int *)&p->grapple_pull_speed = 0;
             p->grapple_pull_ending = 0;
-            p->tether_radius = FastVecDist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
+            p->tether_radius = fast_vec_dist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
             if (b)
                 set_hero_animation(0x30, 1, (float)scale_ticks(5));
             break;
@@ -696,7 +696,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
                     q->swing_rope_max_speed = *(float *)(d + 0x2C);
                 q->swing_yaw = fast_atan2(*(float *)(*(char **)&q->swing_target_moby + 0x10) - q->motion.pos.f[0],
                                           *(float *)(*(char **)&q->swing_target_moby + 0x14) - q->motion.pos.f[1]);
-                q->unk9A4 = FastVecDist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
+                q->unk9A4 = fast_vec_dist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
                 q->swing_gravity = g_frame_time_sq * 27.0f;
                 if (q->state.prev_control_mode == HERO_MODE_JUMP) {
                     q->swing_gravity = q->jump_gravity;
@@ -1467,7 +1467,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
                 if (b) {
                     set_hero_animation(0x10, 3, -3.0f);
                     *(float *)(*(char **)&q->moby + 0x54) =
-                        quartu_hero_anim_time_curves[q->anim_blend_curve][(q->anim_blend_step)++];
+                        hero_hurt_animation_blend_samples[q->anim_blend_curve][(q->anim_blend_step)++];
                 }
             }
             break;
@@ -1572,7 +1572,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->unk3B8 = 0;
             if (b)
                 set_hero_animation(3, 0x12, (float)scale_ticks(8));
@@ -1598,7 +1598,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             if (b) {
                 set_hero_animation(6, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    quartu_hero_anim_time_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    hero_hurt_animation_blend_samples[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }
@@ -1655,7 +1655,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             {
                 char *v = &g_hero.motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -1687,7 +1687,7 @@ int HeroQuartu_TrySetMoveState(int a, int b) {
             if (b) {
                 set_hero_animation(2, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    quartu_hero_anim_time_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    hero_hurt_animation_blend_samples[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }

@@ -16,16 +16,16 @@ void magnetboots_update(Moby *m) {
             emit_moby_sprite_particles(m);
             if (vec_distance_xy(&m->pos, g_hero_r + 0x80) < 3.0f) {
                 char *h = g_hero_r;
-                if (FastAbsF(m->pos.z - *(float *)(h + 0x88)) < 2.0f && *(int *)(h + 0x22A8) != 0) {
+                if (absolute_float(m->pos.z - *(float *)(h + 0x88)) < 2.0f && *(int *)(h + 0x22A8) != 0) {
                     m->flags |= 0x41;
-                    StartCutscene(2);
+                    start_scene(2);
                     m->state = 2;
                 }
             }
             break;
         case 2:
             if (orxon_cinematic_mode_r != 2) {
-                ShowBanner(0x271B, -1);
+                queue_dialogue_message(0x271B, -1);
                 dialogue_message_duration_r = 0xB4;
                 grant_inventory_item(0x1C, 1);
                 if (*(int *)(d + 4) != -1) {

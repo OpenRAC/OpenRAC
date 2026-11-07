@@ -31,7 +31,7 @@
 #include "game/system/memcard.h"
 #include "overlays/shared/music_track_requests.h"
 #include "overlays/l16_kalebo3/test_dummies_and_conveyors.h"
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char gSkillPoints[];
 extern Hero g_hero;
 extern char help_records[];
@@ -140,7 +140,7 @@ void gadgetron_ceo_update(Moby *m) {
     L16ChallengeActivation *activation = (L16ChallengeActivation *)d->activation;
     float rate, head_rate;
     int tracking;
-    if (m->visible && FastVecDist(&m->pos, kalebo3_camera_pos) < 28.0f) {
+    if (m->visible && fast_vec_dist(&m->pos, kalebo3_camera_pos) < 28.0f) {
         set_ground_height_band(m);
         m->shadow_range = 22;
     }
@@ -164,7 +164,7 @@ void gadgetron_ceo_update(Moby *m) {
             if (((L16ChallengePlayer *)((char *)&hero_globals_base_challenge + 0xE1D))->state != 29 &&
                 Npc_TryStartDialog(m, (char *)d + 0x20)) {
                 m->rot.z = d->initial_yaw;
-                PlaceMarkerAheadOfMoby(3.5f, m);
+                begin_dialogue_camera_transition(3.5f, m);
                 m->state = 2;
             }
             if (!gHaveMorphORay[9] && vec_distance_xy(&g_hero.motion.pos, &m->pos) < 3.5f) {
@@ -176,7 +176,7 @@ void gadgetron_ceo_update(Moby *m) {
                 elapsed -= *(unsigned short *)(statistics + 0x43A) * period;
                 if (elapsed > (int)((float)scale_ticks(18) * 60.0f) ||
                     *(unsigned short *)(statistics + 0x43A) * period == 0) {
-                    Help_Request(0x3E83, 0x87);
+                    help_request(0x3E83, 0x87);
                 } else if (scale_ticks(gameplay_event_frame_count) / 600 > *(unsigned short *)(statistics + 0x43A)) {
                     *(unsigned short *)(statistics + 0x43A) = scale_ticks(gameplay_event_frame_count) / 600;
                 }
@@ -191,7 +191,7 @@ void gadgetron_ceo_update(Moby *m) {
                 activation->pending = pending;
                 m->command = 0;
                 pose = gadgetron_ceo_hero_and_camera_pose;
-                Hero_ResetToPosition(pose, pose + 0x10, 0, 1);
+                set_race_camera(pose, pose + 0x10, 0, 1);
                 camera = g_hero.saved_pos_rot;
                 qcopy(camera, pose + 0x20);
                 qcopy(camera + 0x10, pose + 0x30);
@@ -231,8 +231,8 @@ void gadgetron_ceo_update(Moby *m) {
                 unsigned char *flags = gSkillPoints;
                 if (!flags[0x1A]) {
                     flags[0x1A] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x53DB, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x53DB, -1);
                 }
                 if (race_best_records_challenge[1] < 4500)
                     race_best_records_challenge[1] = player->points;
@@ -244,7 +244,7 @@ void gadgetron_ceo_update(Moby *m) {
             event = m->command;
             if (event == 1) {
                 m->state = event;
-                Hero_ResetToPosition(gadgetron_ceo_hero_return_pose, gadgetron_ceo_hero_return_pose + 0x10, 0, 1);
+                set_race_camera(gadgetron_ceo_hero_return_pose, gadgetron_ceo_hero_return_pose + 0x10, 0, 1);
                 m->command = 0;
                 if (!race_gates_base[0xA]) {
                     int pending;
@@ -260,7 +260,7 @@ void gadgetron_ceo_update(Moby *m) {
             }
             if (m->command == 2) {
                 m->state = 1;
-                Hero_ResetToPosition(gadgetron_ceo_hero_return_pose, gadgetron_ceo_hero_return_pose + 0x10, 0, 1);
+                set_race_camera(gadgetron_ceo_hero_return_pose, gadgetron_ceo_hero_return_pose + 0x10, 0, 1);
                 m->command = 0;
                 restore_gadgetron_ceo_non_challenge_environment((char *)m);
             }
@@ -268,7 +268,7 @@ void gadgetron_ceo_update(Moby *m) {
                 char *camera;
                 char *pose = gadgetron_ceo_hero_and_camera_pose;
                 m->command = 0;
-                Hero_ResetToPosition(pose, pose + 0x10, 0, 1);
+                set_race_camera(pose, pose + 0x10, 0, 1);
                 camera = g_hero.saved_pos_rot;
                 qcopy(camera, pose + 0x20);
                 qcopy(camera + 0x10, pose + 0x30);
@@ -318,7 +318,7 @@ void gadgetron_ceo_update(Moby *m) {
         scratch.eye[2] += 1.0f;
         FastVecSub(scratch.delta, scratch.target, scratch.eye);
         yaw = FastSubRots(fast_atan2(scratch.delta[0], scratch.delta[1]), m->rot.z);
-        pitch = -fast_atan2(vec_length_xy(scratch.delta), scratch.delta[2]);
+        pitch = -fast_atan2(vector_length_xy(scratch.delta), scratch.delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -355,7 +355,7 @@ void activate_gadgetron_ceo_challenge_environment(char *moby) {
     }
     *(float *)&kalebo3_hero_fall_state_height = 74.0f;
     challenge_set_layout_param(76.0f);
-    MusicRequestTrack(2, 6);
+    request_music_track(2, 6);
 }
 
 // Resets the moby's two arrays of handles, then starts the follow-up effect.
@@ -374,11 +374,11 @@ void restore_gadgetron_ceo_non_challenge_environment(char *moby) {
         p++;
     }
     challenge_set_layout_param(100.0f);
-    MusicRequestTrack(0, 8);
+    request_music_track(0, 8);
 }
 
 /* update: a two-state trigger on the player's state */
-void update_two_region_trigger_latch(char *moby) {
+void clip_volume_dialogue_trigger_update(char *moby) {
     struct TwoRegionTriggerVars *data = (struct TwoRegionTriggerVars *)((Moby *)moby)->pvars;
     switch (data->state) {
         case 0: {
@@ -398,8 +398,8 @@ void update_two_region_trigger_latch(char *moby) {
                 unsigned char *f = gSkillPoints;
                 if (f[0x19] == 0) {
                     f[0x19] = 1;
-                    PlayBankSound(1, 0, 0);
-                    ShowBanner(0x53DB, -1);
+                    allocate_voice_for_bank_entry(1, 0, 0);
+                    queue_dialogue_message(0x53DB, -1);
                 }
             }
             break;
@@ -436,7 +436,7 @@ typedef struct {
 
 /* Update of a path walker: keeps its sound alive, follows the path behind its owner and jumps ahead while unobserved.
    */
-void update_path_walker(unsigned char *m) {
+void path_walker_update(unsigned char *m) {
     float old[4], rotation[4], trial[4];
     char *path;
     L16WalkerData *d;
@@ -445,7 +445,7 @@ void update_path_walker(unsigned char *m) {
     d = ((L16WalkerData *)((Moby *)m)->pvars);
     path = kalebo3_path_table[d->path_index];
     if (((*(unsigned short *)&((Moby *)m)->oclass ^ 1) & 1) != 0) {
-        if (Sound_IsPlaying(m, d->sound) == 0) {
+        if (voice_is_playing(m, d->sound) == 0) {
             d->sound = Moby_PlaySound(0, 4, (int)m);
         } else {
             playing = 1;
@@ -530,7 +530,7 @@ void update_path_walker(unsigned char *m) {
     }
 }
 typedef int u128 __attribute__((mode(TI)));
-extern int path_walker_particle_color_start SDATA(path_walker_particle_color_start);
+extern int l16_path_walker_particle_initial_color SDATA(D_L16_00161F58);
 extern int path_walker_particle_color_end SDATA(path_walker_particle_color_end);
 extern float path_walker_particle_movement_velocity_scale SDATA(path_walker_particle_movement_velocity_scale);
 extern float path_walker_particle_random_velocity_scale SDATA(path_walker_particle_random_velocity_scale);
@@ -548,9 +548,9 @@ void emit_path_walker_particle(unsigned char *m, void *v) {
         return;
     if ((kalebo3_frame_count & 1) != (((int)m >> 8) & 1))
         return;
-    if (!(FastVecDist(m + 0x10, kalebo3_camera_pos) < 75.0f))
+    if (!(fast_vec_dist(m + 0x10, kalebo3_camera_pos) < 75.0f))
         return;
-    r = FastVecDist(m + 0x10, input);
+    r = fast_vec_dist(m + 0x10, input);
     FastVecScale(out, m + 0xC0, path_walker_particle_movement_velocity_scale * r);
     size = path_walker_particle_random_velocity_scale;
     size *= g_frame_time;
@@ -562,7 +562,7 @@ void emit_path_walker_particle(unsigned char *m, void *v) {
     FastVecAdd(velocity, velocity, out);
     final_size = path_walker_particle_target_scalar_scale;
     final_size *= 210000.0f;
-    spawn_effect_particle_with_target_scalar(offset, velocity, path_walker_particle_color_start,
+    spawn_effect_particle_with_target_scalar(offset, velocity, l16_path_walker_particle_initial_color,
                                              path_walker_particle_color_end, final_size, scale_ticks(0x23));
 }
 
@@ -634,7 +634,7 @@ extern char kalebo3_cutscene_state[];
 typedef float W[4] __attribute__((aligned(16)));
 
 /* Waits one tick, then pushes two pairs of the player's points apart along their difference. */
-void update_paired_joint_particle_trails(char *moby) {
+void SparkRingEmitterUpdate(char *moby) {
     W a, b, c, d, e, f;
     float k1 = 0.075f, k2 = 20000.0f, k3 = 1000.0f;
     float j1 = 0.075f, j2 = 20000.0f, j3 = 1000.0f;
@@ -648,13 +648,13 @@ void update_paired_joint_particle_trails(char *moby) {
                 char *g = kalebo3_cutscene_state;
                 if (*(int *)(g + 0x30) == 0) {
                     char *p = *(char **)(g + 0x184);
-                    Moby_GetJointWorldPos(p, 6, a);
-                    Moby_GetJointWorldPos(p, 4, c);
+                    moby_point_position(p, 6, a);
+                    moby_point_position(p, 4, c);
                     FastVecSub(e, a, c);
                     vec_scale_to_length(e, e, k1);
                     draw_trail(a, a, e, k2, k3);
-                    Moby_GetJointWorldPos(p, 7, b);
-                    Moby_GetJointWorldPos(p, 5, d);
+                    moby_point_position(p, 7, b);
+                    moby_point_position(p, 5, d);
                     FastVecSub(f, b, d);
                     vec_scale_to_length(f, f, j1);
                     draw_trail(b, b, f, j2, j3);
@@ -677,7 +677,7 @@ typedef struct {
     float speed;
     int particle;
 } L16PlatformData;
-extern char *kalebo3_level_cylinders MACRO_ADDR;
+extern char *elevator_reference_transform_table MACRO_ADDR;
 extern float elevator_height_offset SDATA(elevator_height_offset);
 extern float elevator_height_acceleration SDATA(elevator_height_acceleration);
 extern short elevator_max_speed;
@@ -699,15 +699,15 @@ void ElevatorPlatformUpdate(Moby *m) {
                 motion.q = 0;
                 motion.v[2] = 1.0f;
                 d->particle = -1;
-                matrix_mul_vec3(motion.v, motion.v, kalebo3_level_cylinders + (d->joint << 7));
-                d->goal = motion.v[2] + *(float *)(kalebo3_level_cylinders + d->joint * 0x80 + 0x38);
-                m->pos.z =
-                    motion.v[2] + *(float *)(kalebo3_level_cylinders + d->joint * 0x80 + 0x38) + elevator_height_offset;
+                transform_vector_by_basis(motion.v, motion.v, elevator_reference_transform_table + (d->joint << 7));
+                d->goal = motion.v[2] + *(float *)(elevator_reference_transform_table + d->joint * 0x80 + 0x38);
+                m->pos.z = motion.v[2] + *(float *)(elevator_reference_transform_table + d->joint * 0x80 + 0x38) +
+                           elevator_height_offset;
                 m->command = 1;
                 m->state = 2;
                 break;
             case 2:
-                if (Sound_IsPlaying(m, d->particle)) {
+                if (voice_is_playing(m, d->particle)) {
                     Sound_StopSlot(d->particle);
                     d->particle = -1;
                 }
@@ -718,10 +718,11 @@ void ElevatorPlatformUpdate(Moby *m) {
                     } else {
                         motion.v[2] = 1.0f;
                     }
-                    transform_vector(motion.v, motion.v, kalebo3_level_cylinders + (d->joint << 7));
-                    motion.v[2] = motion.v[2] + *(float *)(kalebo3_level_cylinders + d->joint * 0x80 + 0x38) +
+                    transform_vector(motion.v, motion.v, elevator_reference_transform_table + (d->joint << 7));
+                    motion.v[2] = motion.v[2] +
+                                  *(float *)(elevator_reference_transform_table + d->joint * 0x80 + 0x38) +
                                   elevator_height_offset;
-                    if (FastAbsF(g_hero.motion.pos.f[2] - motion.v[2]) < 1.0f) {
+                    if (absolute_float(g_hero.motion.pos.f[2] - motion.v[2]) < 1.0f) {
                         m->command = (m->command + 1) & 1;
                         d->goal = motion.v[2];
                         d->speed = 0.0f;
@@ -737,8 +738,8 @@ void ElevatorPlatformUpdate(Moby *m) {
                         motion.v[2] = 1.0f;
                     }
                     m->command = (m->command + 1) & 1;
-                    transform_vector(motion.v, motion.v, kalebo3_level_cylinders + (d->joint << 7));
-                    d->goal = motion.v[2] + *(float *)(kalebo3_level_cylinders + d->joint * 0x80 + 0x38) +
+                    transform_vector(motion.v, motion.v, elevator_reference_transform_table + (d->joint << 7));
+                    d->goal = motion.v[2] + *(float *)(elevator_reference_transform_table + d->joint * 0x80 + 0x38) +
                               elevator_height_offset;
                     d->speed = 0.0f;
                     m->state = 3;
@@ -748,8 +749,9 @@ void ElevatorPlatformUpdate(Moby *m) {
                 float *hero_position = g_hero.motion.pos.f;
                 float speed;
 
-                if (vec_distance_xy(hero_position, kalebo3_level_cylinders + (d->joint << 7) + 0x30) > 2.25f ||
-                    FastAbsF(m->pos.z - hero_position[2] - 2.0f) > 1.0f || m->pos.z < d->goal) {
+                if (vec_distance_xy(hero_position, elevator_reference_transform_table + (d->joint << 7) + 0x30) >
+                        2.25f ||
+                    absolute_float(m->pos.z - hero_position[2] - 2.0f) > 1.0f || m->pos.z < d->goal) {
                     speed = ApproachWithVelocity(
                         &m->pos.z, &d->speed, d->goal, elevator_height_acceleration * g_frame_time_sq,
                         elevator_height_acceleration * g_frame_time_sq, *(float *)&elevator_max_speed * g_frame_time);
@@ -763,10 +765,10 @@ void ElevatorPlatformUpdate(Moby *m) {
                 motion.v[2] = speed;
                 update_entity_matrix((char *)d->basis, motion.v, &m->rot, &m->rot);
                 if (motion.v[2] != 0.0f) {
-                    if (!Sound_IsPlaying(m, d->particle)) {
+                    if (!voice_is_playing(m, d->particle)) {
                         d->particle = Moby_PlaySound(0, 4, (int)m);
                     }
-                } else if (Sound_IsPlaying(m, d->particle)) {
+                } else if (voice_is_playing(m, d->particle)) {
                     Sound_StopSlot(d->particle);
                     d->particle = -1;
                 }
@@ -786,10 +788,10 @@ void ElevatorPlatformUpdate(Moby *m) {
     }
 }
 
-extern float elevator_ring_uvs[][2];
-extern short elevator_max_speed, elevator_ring_color_start, elevator_ring_color_end;
-extern short elevator_ring_alpha_blend_b_selector, elevator_ring_alpha_blend_a_selector,
-    elevator_ring_alpha_blend_c_selector, elevator_ring_alpha_blend_d_selector;
+extern float elevator_ring_quad_uvs[][2];
+extern short elevator_max_speed, l16_elevator_ring_tint_start_color, l16_elevator_ring_tint_end_color;
+extern short l16_elevator_ring_blend_color_b_selector, l16_elevator_ring_blend_color_a_selector,
+    l16_elevator_ring_blend_alpha_selector, D_L16_00161F98;
 extern short elevator_ring_half_height, elevator_ring_outer_radius, elevator_ring_segment_angle_degrees;
 typedef float L16RingVector[4] __attribute__((aligned(16)));
 typedef struct {
@@ -820,7 +822,7 @@ void DrawRingStack(char *m) {
     L16RingMatrix matrix;
     struct DrawRingStackVars *d = (struct DrawRingStackVars *)((Moby *)m)->pvars;
     int bound_index = (d->unk_A0) << 7;
-    char *entry = (char *)(bound_index + (int)kalebo3_level_cylinders);
+    char *entry = (char *)(bound_index + (int)elevator_reference_transform_table);
     float translation = (d->unk_B8);
     float lower = (*(float *)((char *)entry + 0x38));
     float half = (*(float *)((char *)entry + 0x28));
@@ -834,20 +836,20 @@ void DrawRingStack(char *m) {
     int i, j, sign, period;
     lower = lower - half;
     lower += translation;
-    color = FastTweenColor((*(int *)&elevator_ring_color_start), (*(int *)&elevator_ring_color_end),
-                           FastAbsF((d->unk_B0)) / ((*(float *)&elevator_max_speed) * g_frame_time));
+    color = FastTweenColor((*(int *)&l16_elevator_ring_tint_start_color), (*(int *)&l16_elevator_ring_tint_end_color),
+                           absolute_float((d->unk_B0)) / ((*(float *)&elevator_max_speed) * g_frame_time));
     copy_matrix_rotation(&matrix, m + 0xC0);
     qcopy(matrix.position, m + 16);
     matrix.position[2] = lower;
     matrix.position[3] = 1.0f;
     packet.texture = GetEffectTex(14);
     packet.flags = 0xFF9000000260L;
-    packet.mode = (long)(*(int *)&elevator_ring_alpha_blend_a_selector) |
-                  ((long)(*(int *)&elevator_ring_alpha_blend_b_selector) << 2) |
-                  ((long)(*(int *)&elevator_ring_alpha_blend_c_selector) << 4) |
-                  ((long)(*(int *)&elevator_ring_alpha_blend_d_selector) << 6) | 0x8000000000L;
+    packet.mode = (long)(*(int *)&l16_elevator_ring_blend_color_a_selector) |
+                  ((long)(*(int *)&l16_elevator_ring_blend_color_b_selector) << 2) |
+                  ((long)(*(int *)&l16_elevator_ring_blend_alpha_selector) << 4) |
+                  ((long)(*(int *)&l16_elevator_ring_blend_color_d_selector) << 6) | 0x8000000000L;
     packet.zero = 0;
-    uv = elevator_ring_uvs;
+    uv = elevator_ring_quad_uvs;
     point = packet.position;
     v = &packet.uv[0].v;
     u = &packet.uv[0].u;
@@ -950,7 +952,7 @@ void gadgetron_sign_update(unsigned char *moby_bytes) {
 extern char *find_group_morphoray_chicken_moby_in_state_6(int);
 
 /* Repositions a target at random intervals while the hero is in the clip volume. */
-void update_target_reposition_cycle(char *moby) {
+void chicken_relocator_update(char *moby) {
     char *g = &g_hero.motion.pos;
     char *data = ((char *)((Moby *)moby)->pvars);
     char *target;
@@ -962,7 +964,7 @@ void update_target_reposition_cycle(char *moby) {
     switch ((unsigned char)moby[0x20]) {
         case 0:
             moby[0x20] = 1;
-            ((struct RepositionCycleVars *)data)->timer = scale_ticks(rand_range(0xB4, 0x168));
+            ((struct RepositionCycleVars *)data)->timer = scale_ticks(random_int_between(0xB4, 0x168));
             break;
         case 1:
             if (vec_distance_xy(g, target + 0x10) > 3.0f) {
@@ -970,7 +972,7 @@ void update_target_reposition_cycle(char *moby) {
                     if (fast_dec_timer(&((struct RepositionCycleVars *)data)->timer)) {
                         moby[0x20] = 2;
                         request_target_reposition(target);
-                        ((struct RepositionCycleVars *)data)->timer = scale_ticks(rand_range(0xB4, 0x168));
+                        ((struct RepositionCycleVars *)data)->timer = scale_ticks(random_int_between(0xB4, 0x168));
                     }
                 }
             }
@@ -988,7 +990,7 @@ void update_target_reposition_cycle(char *moby) {
                         if (other != 0) {
                             qcopy(pos, target + 0x10);
                             pos[2] += 1.0f;
-                            pos[2] = ProbeGroundHeight(pos, 0, 0.5f);
+                            pos[2] = probe_ground_height(pos, 0, 0.5f);
                             reposition_moby_with_collision_check(other, pos);
                         }
                     }
@@ -1047,21 +1049,21 @@ void compute_level16_reflection_map_coordinates(int n, Vec3f *p1, Vec3f *p2, int
         out[i * 2 + 1] = (t[1] / len + 0.5f) * 2.0f;
     }
 }
-extern short envmap_a_vertex_counts;
-extern short envmap_a_vertex_bufs;
-extern int envmap_a_unused_bufs SDATA(envmap_a_unused_bufs);
-extern int envmap_a_normal_bufs SDATA(envmap_a_normal_bufs);
-extern int envmap_a_color_bufs SDATA(envmap_a_color_bufs);
+extern short reflection_mesh_trio_vertex_counts;
+extern short reflection_mesh_trio_position_tables;
+extern int reflection_mesh_trio_unused_pair_tables SDATA(D_L16_00161FD0);
+extern int reflection_mesh_trio_direction_tables SDATA(D_L16_00161FE0);
+extern int reflection_mesh_trio_colour_tables SDATA(D_L16_00161FF0);
 extern char envmap_a_bounding_spheres[][16];
 extern char envmap_a_uvs[];
 
 /* Sets up the draw state, then draws the three entries of the level's table. */
 void env_map_a_draw(void) {
-    int *a = (int *)&envmap_a_vertex_counts;
-    int *b = (int *)&envmap_a_vertex_bufs;
-    int *c = &envmap_a_unused_bufs;
-    int *d = &envmap_a_normal_bufs;
-    int *e = &envmap_a_color_bufs;
+    int *a = (int *)&reflection_mesh_trio_vertex_counts;
+    int *b = (int *)&reflection_mesh_trio_position_tables;
+    int *c = &reflection_mesh_trio_unused_pair_tables;
+    int *d = &reflection_mesh_trio_direction_tables;
+    int *e = &reflection_mesh_trio_colour_tables;
     int i;
 
     VU1_addGSregister(6, GetEffectTex(0x29));
@@ -1084,7 +1086,7 @@ extern L16SingleSphere_2e8e80 envmap_a_bounding_spheres_r[] __asm__("D_L16_001DC
 extern void EnvMapA_Draw_r(void *) __asm__("func_L16_002EA1B8");
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l16/gameplay_vendor_002e3190.c, FUN_L16_002e8e80. */
-void update_level16_three_mesh_render_state(unsigned char *m) {
+void reflection_mesh_trio_update(unsigned char *m) {
     int i, j;
     float maxx, maxy, maxz, minx, miny, minz;
     float p[4];
@@ -1098,9 +1100,9 @@ void update_level16_three_mesh_render_state(unsigned char *m) {
                 minx = miny = minz = 1024.0f;
                 {
                     int k;
-                    for (k = 0; k < ((int *)&envmap_a_vertex_counts)[i]; k++) {
+                    for (k = 0; k < ((int *)&reflection_mesh_trio_vertex_counts)[i]; k++) {
                         float x, y, z;
-                        verts = ((float **)&envmap_a_vertex_bufs)[i] + k * 3;
+                        verts = ((float **)&reflection_mesh_trio_position_tables)[i] + k * 3;
                         x = verts[0];
                         if (x > maxx)
                             maxx = x;
@@ -1126,13 +1128,13 @@ void update_level16_three_mesh_render_state(unsigned char *m) {
                     sphere->y = (maxy + miny) * 0.5f;
                     sphere->z = (maxz + minz) * 0.5f;
                 }
-                for (j = 0; j < ((int *)&envmap_a_vertex_counts)[i]; j++) {
+                for (j = 0; j < ((int *)&reflection_mesh_trio_vertex_counts)[i]; j++) {
                     float dist;
                     out = (float *)(envmap_a_bounding_spheres_r + i);
-                    p[0] = ((float **)&envmap_a_vertex_bufs)[i][j * 3 + 0];
-                    p[1] = ((float **)&envmap_a_vertex_bufs)[i][j * 3 + 1];
-                    p[2] = ((float **)&envmap_a_vertex_bufs)[i][j * 3 + 2];
-                    dist = FastVecDist(p, out);
+                    p[0] = ((float **)&reflection_mesh_trio_position_tables)[i][j * 3 + 0];
+                    p[1] = ((float **)&reflection_mesh_trio_position_tables)[i][j * 3 + 1];
+                    p[2] = ((float **)&reflection_mesh_trio_position_tables)[i][j * 3 + 2];
+                    dist = fast_vec_dist(p, out);
                     if (dist > out[3])
                         out[3] = dist;
                 }
@@ -1145,21 +1147,21 @@ void update_level16_three_mesh_render_state(unsigned char *m) {
             break;
     }
 }
-extern int envmap_b_vertex_counts SDATA(envmap_b_vertex_counts);
-extern int envmap_b_vertex_bufs SDATA(envmap_b_vertex_bufs);
-extern int envmap_b_unused_bufs SDATA(envmap_b_unused_bufs);
-extern int envmap_b_normal_bufs SDATA(envmap_b_normal_bufs);
-extern int envmap_b_color_bufs SDATA(envmap_b_color_bufs);
+extern int single_reflection_mesh_vertex_counts SDATA(D_L16_00162000);
+extern int single_reflection_mesh_position_tables SDATA(D_L16_00162020);
+extern int single_reflection_mesh_unused_pair_tables SDATA(D_L16_00162028);
+extern int single_reflection_mesh_direction_tables SDATA(D_L16_00162030);
+extern int single_reflection_mesh_colour_tables SDATA(D_L16_00162038);
 extern char envmap_b_bound_spheres_draw[][16] __asm__("D_L16_00162040") MACRO_ADDR;
 extern char envmap_b_uvs[];
 
 /* Sets up the draw state, then draws the one entry of the level's table. */
 void draw_level16_visible_single_reflection_mesh(void) {
-    int *a = &envmap_b_vertex_counts;
-    int *b = &envmap_b_vertex_bufs;
-    int *c = &envmap_b_unused_bufs;
-    int *d = &envmap_b_normal_bufs;
-    int *e = &envmap_b_color_bufs;
+    int *a = &single_reflection_mesh_vertex_counts;
+    int *b = &single_reflection_mesh_position_tables;
+    int *c = &single_reflection_mesh_unused_pair_tables;
+    int *d = &single_reflection_mesh_direction_tables;
+    int *e = &single_reflection_mesh_colour_tables;
     int i;
     char (*p)[16] = envmap_b_bound_spheres_draw;
 
@@ -1184,7 +1186,7 @@ extern L16SingleSphere envmap_b_bound_spheres_bounds[] __asm__("D_L16_00162040")
 extern void draw_level16_visible_single_reflection_mesh(void);
 
 /* Compute bounding spheres for one mesh and register their renderer. */
-void update_level16_single_mesh_render_state(unsigned char *m) {
+void reflection_mesh_update(unsigned char *m) {
     int i, j;
     float maxx, maxy, maxz, minx, miny, minz;
     float p[4];
@@ -1231,7 +1233,7 @@ void update_level16_single_mesh_render_state(unsigned char *m) {
                     p[0] = ((float **)&envmap_b_vertex_bufs_bounds)[i][j * 3 + 0];
                     p[1] = ((float **)&envmap_b_vertex_bufs_bounds)[i][j * 3 + 1];
                     p[2] = ((float **)&envmap_b_vertex_bufs_bounds)[i][j * 3 + 2];
-                    dist = FastVecDist(p, out);
+                    dist = fast_vec_dist(p, out);
                     if (dist > out[3])
                         out[3] = dist;
                 }
@@ -1247,19 +1249,19 @@ void update_level16_single_mesh_render_state(unsigned char *m) {
 }
 extern char envmap_c_bounding_spheres[][16];
 extern char envmap_c_uvs[];
-extern short envmap_c_vertex_counts;
-extern short envmap_c_vertex_bufs;
-extern int envmap_c_unused_bufs SDATA(envmap_c_unused_bufs);
-extern int envmap_c_normal_bufs SDATA(envmap_c_normal_bufs);
-extern int envmap_c_color_bufs SDATA(envmap_c_color_bufs);
+extern short reflection_mesh_pair_vertex_counts;
+extern short reflection_mesh_pair_position_tables;
+extern int reflection_mesh_pair_unused_pair_tables SDATA(D_L16_00162060);
+extern int reflection_mesh_pair_direction_tables SDATA(D_L16_00162068);
+extern int reflection_mesh_pair_colour_tables SDATA(D_L16_00162070);
 
 // Sets up the draw state, then draws the two entries of the level's table.
 void draw_level16_visible_textured_batches(void) {
-    int *a = (int *)&envmap_c_vertex_counts;
-    int *b = (int *)&envmap_c_vertex_bufs;
-    int *c = &envmap_c_unused_bufs;
-    int *d = &envmap_c_normal_bufs;
-    int *e = &envmap_c_color_bufs;
+    int *a = (int *)&reflection_mesh_pair_vertex_counts;
+    int *b = (int *)&reflection_mesh_pair_position_tables;
+    int *c = &reflection_mesh_pair_unused_pair_tables;
+    int *d = &reflection_mesh_pair_direction_tables;
+    int *e = &reflection_mesh_pair_colour_tables;
     int i;
 
     VU1_addGSregister(6, GetEffectTex(0x29));
@@ -1282,7 +1284,7 @@ void func_001F49B0_EAD58(int arg0, int arg1) __asm__("func_001F49B0");
 extern L16SingleSphere_2e98e0 envmap_c_bounding_spheres_r[] __asm__("D_L16_001DF580");
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l16/gameplay_vendor_002e3190.c, FUN_L16_002e98e0. */
-void update_level16_two_mesh_render_state(unsigned char *m) {
+void reflection_mesh_pair_update(unsigned char *m) {
     int i, j;
     float maxx, maxy, maxz, minx, miny, minz;
     float p[4];
@@ -1296,9 +1298,9 @@ void update_level16_two_mesh_render_state(unsigned char *m) {
                 minx = miny = minz = 1024.0f;
                 {
                     int k;
-                    for (k = 0; k < ((int *)&envmap_c_vertex_counts)[i]; k++) {
+                    for (k = 0; k < ((int *)&reflection_mesh_pair_vertex_counts)[i]; k++) {
                         float x, y, z;
-                        verts = ((float **)&envmap_c_vertex_bufs)[i] + k * 3;
+                        verts = ((float **)&reflection_mesh_pair_position_tables)[i] + k * 3;
                         x = verts[0];
                         if (x > maxx)
                             maxx = x;
@@ -1324,13 +1326,13 @@ void update_level16_two_mesh_render_state(unsigned char *m) {
                     sphere->y = (maxy + miny) * 0.5f;
                     sphere->z = (maxz + minz) * 0.5f;
                 }
-                for (j = 0; j < ((int *)&envmap_c_vertex_counts)[i]; j++) {
+                for (j = 0; j < ((int *)&reflection_mesh_pair_vertex_counts)[i]; j++) {
                     float dist;
                     out = (float *)(envmap_c_bounding_spheres_r + i);
-                    p[0] = ((float **)&envmap_c_vertex_bufs)[i][j * 3 + 0];
-                    p[1] = ((float **)&envmap_c_vertex_bufs)[i][j * 3 + 1];
-                    p[2] = ((float **)&envmap_c_vertex_bufs)[i][j * 3 + 2];
-                    dist = FastVecDist(p, out);
+                    p[0] = ((float **)&reflection_mesh_pair_position_tables)[i][j * 3 + 0];
+                    p[1] = ((float **)&reflection_mesh_pair_position_tables)[i][j * 3 + 1];
+                    p[2] = ((float **)&reflection_mesh_pair_position_tables)[i][j * 3 + 2];
+                    dist = fast_vec_dist(p, out);
                     if (dist > out[3])
                         out[3] = dist;
                 }
@@ -1344,12 +1346,12 @@ void update_level16_two_mesh_render_state(unsigned char *m) {
             break;
     }
 }
-extern short envmap_d_vertex_counts[1];
-extern short envmap_d_vertex_bufs[1];
-extern short envmap_d_unused_bufs[1];
-extern short envmap_d_normal_bufs[1];
-extern short envmap_d_color_bufs[1];
-extern char envmap_d_uvs[];
+extern short reflection_mesh_batch_vertex_counts[1];
+extern short reflection_mesh_batch_position_tables[1];
+extern short reflection_mesh_batch_unused_pair_tables[1];
+extern short reflection_mesh_batch_direction_tables[1];
+extern short reflection_mesh_batch_colour_tables[1];
+extern char level16_reflection_mesh_coordinate_scratch[];
 /* Sets up the draw state then runs both per-slot calls over three entries. */
 void draw_level16_reflection_mesh_batch(void) {
     int i;
@@ -1359,11 +1361,13 @@ void draw_level16_reflection_mesh_batch(void) {
     VU1_addGSregister(0x14, 0xFF9000000260L);
     font_queue_vu_state();
     for (i = 0; i < 3; i++) {
-        compute_level16_reflection_map_coordinates(((int *)envmap_d_vertex_counts)[i], ((int *)envmap_d_normal_bufs)[i],
-                                                   ((int *)envmap_d_vertex_bufs)[i], ((int *)envmap_d_unused_bufs)[i],
-                                                   envmap_d_uvs);
-        draw_env_overlay_mesh(((int *)envmap_d_vertex_counts)[i], ((int *)envmap_d_vertex_bufs)[i],
-                              ((int *)envmap_d_color_bufs)[i], envmap_d_uvs, 1);
+        compute_level16_reflection_map_coordinates(
+            ((int *)reflection_mesh_batch_vertex_counts)[i], ((int *)reflection_mesh_batch_direction_tables)[i],
+            ((int *)reflection_mesh_batch_position_tables)[i], ((int *)reflection_mesh_batch_unused_pair_tables)[i],
+            level16_reflection_mesh_coordinate_scratch);
+        draw_env_overlay_mesh(
+            ((int *)reflection_mesh_batch_vertex_counts)[i], ((int *)reflection_mesh_batch_position_tables)[i],
+            ((int *)reflection_mesh_batch_colour_tables)[i], level16_reflection_mesh_coordinate_scratch, 1);
     }
 }
 void env_map_a_draw(void);
@@ -1371,12 +1375,12 @@ typedef struct {
     float x, y, z, radius;
 } L16SingleSphere_2ea128;
 void func_001F49B0_EB5A0(int arg0, int arg1) __asm__("func_001F49B0");
-extern short envmap_e_vertex_counts;
-extern short envmap_e_vertex_bufs;
+extern short reflection_mesh_trio_b_vertex_counts;
+extern short reflection_mesh_trio_b_position_tables;
 extern L16SingleSphere_2ea128 envmap_e_bounding_spheres[];
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/l16/gameplay_vendor_002e3190.c, FUN_L16_002ea128. */
-void update_level16_three_mesh_bounds_and_callback(unsigned char *m) {
+void reflection_mesh_trio_b_update(unsigned char *m) {
     int i, j;
     float maxx, maxy, maxz, minx, miny, minz;
     float p[4];
@@ -1390,9 +1394,9 @@ void update_level16_three_mesh_bounds_and_callback(unsigned char *m) {
                 minx = miny = minz = 1024.0f;
                 {
                     int k;
-                    for (k = 0; k < ((int *)&envmap_e_vertex_counts)[i]; k++) {
+                    for (k = 0; k < ((int *)&reflection_mesh_trio_b_vertex_counts)[i]; k++) {
                         float x, y, z;
-                        verts = ((float **)&envmap_e_vertex_bufs)[i] + k * 3;
+                        verts = ((float **)&reflection_mesh_trio_b_position_tables)[i] + k * 3;
                         x = verts[0];
                         if (x > maxx)
                             maxx = x;
@@ -1418,13 +1422,13 @@ void update_level16_three_mesh_bounds_and_callback(unsigned char *m) {
                     sphere->y = (maxy + miny) * 0.5f;
                     sphere->z = (maxz + minz) * 0.5f;
                 }
-                for (j = 0; j < ((int *)&envmap_e_vertex_counts)[i]; j++) {
+                for (j = 0; j < ((int *)&reflection_mesh_trio_b_vertex_counts)[i]; j++) {
                     float dist;
                     out = (float *)(envmap_e_bounding_spheres + i);
-                    p[0] = ((float **)&envmap_e_vertex_bufs)[i][j * 3 + 0];
-                    p[1] = ((float **)&envmap_e_vertex_bufs)[i][j * 3 + 1];
-                    p[2] = ((float **)&envmap_e_vertex_bufs)[i][j * 3 + 2];
-                    dist = FastVecDist(p, out);
+                    p[0] = ((float **)&reflection_mesh_trio_b_position_tables)[i][j * 3 + 0];
+                    p[1] = ((float **)&reflection_mesh_trio_b_position_tables)[i][j * 3 + 1];
+                    p[2] = ((float **)&reflection_mesh_trio_b_position_tables)[i][j * 3 + 2];
+                    dist = fast_vec_dist(p, out);
                     if (dist > out[3])
                         out[3] = dist;
                 }

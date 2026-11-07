@@ -70,7 +70,7 @@ void draw_snagglebeast_sphere_quad_strips(char *moby, int arg2, float fa, float 
     quad.primitive = prim;
     quad.reserved = 0;
     spin = IntToFloat(umbris_frame_count + arg2) * fa;
-    Moby_GetJointWorldPos(moby, 9, v90);
+    moby_point_position(moby, 9, v90);
     qcopy(vA0, v90);
     vA0[2] = vA0[2] - (fb - 0.8f);
     quad.uv[0][0] = split_float_fraction(&vB0, spin * -0.01f);

@@ -37,9 +37,9 @@ typedef struct {
     s32 ox;
     s32 oy;
 } ScreenInfo;
-extern u8 D_00187180[];
+extern u8 camera_position[];
 extern ScreenInfo g_screen_extent_r __asm__("D_0013E600");
-extern LensFlare D_00187400;
+extern LensFlare effect_ribbon;
 
 extern s32 truncate_float_to_s32(f32) __asm__("func_001FA898");
 
@@ -72,7 +72,7 @@ void draw_lens_flare(void) {
     if (effect_ribbon.intensity <= 0.0f) {
         return;
     }
-    dist = FastVecDist(camera_position, effect_ribbon.moby->pos);
+    dist = fast_vec_dist(camera_position, effect_ribbon.moby->pos);
     ctr[0] = IntToFloat(g_screen_extent_r.cx);
     ctr[1] = IntToFloat(g_screen_extent_r.cy);
     project_to_screen(scr, effect_ribbon.moby->pos);
@@ -93,13 +93,13 @@ void draw_lens_flare(void) {
         } else if (fade < 0.0f) {
             fade = 0.0f;
         }
-        fx = FastAbsF(d[0]) / ctr[0] * -5.0f + 5.5f;
+        fx = absolute_float(d[0]) / ctr[0] * -5.0f + 5.5f;
         if (fx > 1.0f) {
             fx = 1.0f;
         } else if (fx < 0.0f) {
             fx = 0.0f;
         }
-        fy = FastAbsF(d[1]) / ctr[1] * -5.0f + 5.5f;
+        fy = absolute_float(d[1]) / ctr[1] * -5.0f + 5.5f;
         if (fy > 1.0f) {
             fy = 1.0f;
         } else if (fy < 0.0f) {

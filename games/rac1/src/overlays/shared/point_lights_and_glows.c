@@ -53,7 +53,7 @@ void glow_quads_draw(char *moby) {
     pk.l[2] = 0xFF9000000260L;
     pk.l[0] = 5;
     pk.l[3] = 0x8000000048L;
-    MobyTransformScaledVertex(moby, 0, (char *)m);
+    build_moby_bone_transform(moby, 0, (char *)m);
     sc = 4.0f;
     build_look_at_matrix(m[0], m[0], m[1], -0.34906584f);
     FastVecCross(m[1], m[0], m[2]);
@@ -156,10 +156,10 @@ void glow_quads_draw(char *moby) {
     draw_world_quad(q, m, 1);
 }
 typedef int ti_23e008 __attribute__((mode(TI)));
-extern float D_0015EE60 MACRO_ADDR;
+extern float frame_scale MACRO_ADDR;
 
-extern unsigned char *func_L00_00272F00(float *, int, float, float, float, int, int, int, void *);
-extern int func_001FA898(float);
+extern unsigned char *PartType53Spawn(float *, int, float, float, float, int, int, int, void *);
+extern int truncate_float_to_s32(float);
 /* Spawns a burst of directed particles with randomised speeds from the frame time. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/unclassified_0023db30.c, FUN_L00_0023e008. */
 void emit_moby_particle_pairs(void *p) {
     ti_23e008 dir[1];
@@ -167,7 +167,7 @@ void emit_moby_particle_pairs(void *p) {
     float pos[4] __attribute__((aligned(16)));
     int i;
     unsigned char *r;
-    Moby_GetJointWorldPos(p, 0, pos);
+    moby_point_position(p, 0, pos);
     for (i = 3; i >= 0; i--) {
         float s = random_float_between(0.15f, 0.5f);
         int k = random_integer_below(2);
@@ -193,7 +193,7 @@ void emit_moby_particle_pairs(void *p) {
 
 extern unsigned char level_point_lights[];
 extern float level_draw_frame_load MACRO_ADDR;
-extern char level_point_light_link_buffers[];
+extern char l00_point_light_slot_buffers[];
 
 /* Allocates a free point-light slot, fills in position, radius, color and intensity, returns its index or -1. */
 int allocate_packed_color_point_light_slot(float *pos, float radius, float intensity, int color) {
@@ -223,7 +223,7 @@ int allocate_packed_color_point_light_slot(float *pos, float radius, float inten
     *(float *)(e + 0xC) = intensity;
     FastMemZero16(s, 0x30);
     *(int *)(s + 0x10) = 1;
-    *(int *)(s + 0xC) = (int)(level_point_light_link_buffers + i * 0x400);
+    *(int *)(s + 0xC) = (int)(l00_point_light_slot_buffers + i * 0x400);
     return i;
 }
 typedef unsigned int u128_pt __attribute__((mode(TI)));

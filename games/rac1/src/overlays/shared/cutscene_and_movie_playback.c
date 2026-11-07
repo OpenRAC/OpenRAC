@@ -91,7 +91,7 @@ struct P {
     char pad2[0x1A0 - 0x110];
     int busy;
 };
-extern int controller_idle_frames SDATA(controller_idle_frames);
+extern int controller_idle_frames_gp SDATA(D_L00_001610B0);
 extern int level_frame_counter MACRO_ADDR;
 extern int gameplay_event_frame_count MACRO_ADDR;
 extern int current_moby_mission_complete MACRO_ADDR;
@@ -101,14 +101,14 @@ extern int active_play_frame_count MACRO_ADDR;
 void update_game_frame_and_idle_counters(void) {
     if (g_controller_state.busy != 0 || g_controller_state.c != 0.0f || g_controller_state.d != 0.0f ||
         g_controller_state.a != 0.0f || g_controller_state.b != 0.0f) {
-        (controller_idle_frames) = 0;
+        (controller_idle_frames_gp) = 0;
     } else {
-        (controller_idle_frames)++;
+        (controller_idle_frames_gp)++;
     }
     level_frame_counter++;
     gameplay_event_frame_count++;
     if (current_moby_mission_complete) {
-        if ((controller_idle_frames) < (int)((float)scale_ticks(15) * 60.0f)) {
+        if ((controller_idle_frames_gp) < (int)((float)scale_ticks(15) * 60.0f)) {
             active_play_frame_count++;
         }
     }
@@ -154,11 +154,11 @@ typedef struct {
     unsigned int w4C;
 } HitS;
 
-extern CfgS g_debug_menu;
+extern CfgS gDebugFreeCamLvl;
 extern char pad_globals_base[];
 
 extern int cinematic_mode MACRO_ADDR;
-extern int D_0015EFB4 MACRO_ADDR;
+extern int mode_freeze_flags MACRO_ADDR;
 extern int cinematic_mode_frames MACRO_ADDR;
 extern int level_menu_system_field_f0;
 extern int g_current_level_index MACRO_ADDR;
@@ -180,14 +180,14 @@ extern void Profile_Mark_b(void) __asm__("func_001E9768");
 void handle_pause_input(void) {
     int lvl, area, noctl, special;
     unsigned char *r;
-    if (g_debug_menu.wEC) {
-        if (--g_debug_menu.wEC == 0)
-            g_debug_menu.w8 = 0x10;
+    if (gDebugFreeCamLvl.wEC) {
+        if (--gDebugFreeCamLvl.wEC == 0)
+            gDebugFreeCamLvl.w8 = 0x10;
     }
-    if ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)) {
-        ((PadS *)(&g_controller_state))->w1A4 = ~g_debug_menu.wA0 & ((PadS *)(&g_controller_state))->w1A0;
-        ((PadS *)(&g_controller_state))->w1A8 = ~((PadS *)(&g_controller_state))->w1A0 & g_debug_menu.wA0;
-        g_debug_menu.wA0 = ((PadS *)(&g_controller_state))->w1A0 & ~0x200;
+    if ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)) {
+        ((PadS *)(&g_controller_state))->w1A4 = ~gDebugFreeCamLvl.wA0 & ((PadS *)(&g_controller_state))->w1A0;
+        ((PadS *)(&g_controller_state))->w1A8 = ~((PadS *)(&g_controller_state))->w1A0 & gDebugFreeCamLvl.wA0;
+        gDebugFreeCamLvl.wA0 = ((PadS *)(&g_controller_state))->w1A0 & ~0x200;
     }
     lvl = cinematic_mode;
     if (lvl == 0 && (mode_freeze_flags & 0x401) && cinematic_mode_frames >= 8 && g_hero.state.current != 0x1D) {
@@ -235,11 +235,11 @@ void handle_pause_input(void) {
         PauseAllSounds(0);
         return;
     }
-    if (!(g_debug_menu.w8 & 0x10) && cinematic_mode_frames >= 8 && (((PadS *)(&g_controller_state))->w1A4 & 0x500) &&
-        g_hero.state.control_mode != 0x16 && g_hero.state.current != 0x72 && g_hero.state.current != 0x32 &&
-        g_hero.state.current != 0x1D && !g_hero.fall_fade_pending && g_hero.health.hp &&
-        ((AreaS *)memory_card_state)->wDC < 3 && ((AreaS *)memory_card_state)->wE4 < 0 && lvl == 0 && !special &&
-        !g_debug_menu.wEC) {
+    if (!(gDebugFreeCamLvl.w8 & 0x10) && cinematic_mode_frames >= 8 &&
+        (((PadS *)(&g_controller_state))->w1A4 & 0x500) && g_hero.state.control_mode != 0x16 &&
+        g_hero.state.current != 0x72 && g_hero.state.current != 0x32 && g_hero.state.current != 0x1D &&
+        !g_hero.fall_fade_pending && g_hero.health.hp && ((AreaS *)memory_card_state)->wDC < 3 &&
+        ((AreaS *)memory_card_state)->wE4 < 0 && lvl == 0 && !special && !gDebugFreeCamLvl.wEC) {
         PauseAllSounds(10);
         return;
     }
@@ -277,28 +277,31 @@ void handle_pause_input(void) {
             return;
         }
     }
-    if ((g_debug_menu.w8 & 2) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
+    if ((gDebugFreeCamLvl.w8 & 2) || ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
         reset_frame_counters();
-    if ((g_debug_menu.w8 & 2) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
+    if ((gDebugFreeCamLvl.w8 & 2) ||
+        ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
         count_expired_mobys();
         update_visible_resident_objects();
         enqueue_voice_request();
         update_ambience_target_cycle();
     }
     Profile_Mark_a(level_profile_mark_after_mobys, 3);
-    if ((g_debug_menu.w8 & 1) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
+    if ((gDebugFreeCamLvl.w8 & 1) || ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
         coordinate_hero_frame_update();
     Profile_Mark_a(level_profile_mark_after_hero, 7);
-    if ((g_debug_menu.w8 & 4) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
+    if ((gDebugFreeCamLvl.w8 & 4) ||
+        ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
         UpdateParts();
         update_glints();
     }
     Profile_Mark_a(level_profile_mark_after_parts, 5);
-    if ((g_debug_menu.w8 & 8) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
+    if ((gDebugFreeCamLvl.w8 & 8) ||
+        ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200))) {
         Camera_UpdateFrame();
-    } else if (g_debug_menu.w14) {
+    } else if (gDebugFreeCamLvl.w14) {
         update_debug_camera();
-        if (g_debug_menu.w14 == 2)
+        if (gDebugFreeCamLvl.w14 == 2)
             update_hero_from_debug_camera();
     }
     Profile_Mark_a(level_profile_mark_after_camera, 8);
@@ -308,17 +311,17 @@ void handle_pause_input(void) {
     update_resident_packed_direction();
     update_hud_elements(1);
     Help_Update();
-    if ((g_debug_menu.w8 & 2) || ((g_debug_menu.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
+    if ((gDebugFreeCamLvl.w8 & 2) || ((gDebugFreeCamLvl.w8 & 0x10) && (((PadS *)(&g_controller_state))->w1A4 & 0x200)))
         update_game_frame_and_idle_counters();
-    if (g_debug_menu.w18 == 2)
+    if (gDebugFreeCamLvl.w18 == 2)
         Profile_Mark_b();
-    if (g_debug_menu.w18 == 3)
+    if (gDebugFreeCamLvl.w18 == 3)
         Profile_Mark_b();
-    if (g_debug_menu.w18 == 4)
+    if (gDebugFreeCamLvl.w18 == 4)
         Profile_Mark_b();
-    if (g_debug_menu.w18 == 5)
+    if (gDebugFreeCamLvl.w18 == 5)
         Profile_Mark_b();
-    if (g_debug_menu.w18 == 6)
+    if (gDebugFreeCamLvl.w18 == 6)
         Profile_Mark_b();
 }
 typedef struct {
@@ -340,7 +343,7 @@ extern char cutscene_state[];
 extern char extra_scale_manipulator[];
 
 extern int lvl_resource_buffers[];
-extern unsigned char player_camera[];
+extern unsigned char gCameraLvl[];
 extern char *active_scene_trigger_target;
 extern char *level_menu_system_target;
 
@@ -352,7 +355,7 @@ typedef struct {
 } Vd;
 
 // Sets up the vendor screen state from the requested entry and runs it until the screen closes.
-void StartCutscene(int arg) {
+void start_scene(int arg) {
     struct Hero *d;
     Obj *p;
     char *h;
@@ -367,7 +370,7 @@ void StartCutscene(int arg) {
         return;
     d = &g_hero;
     if (d->health.hp == 0) {
-        Hero_OnKilled();
+        hero_respawn();
         return;
     }
     music_Pause(0);
@@ -392,12 +395,12 @@ void StartCutscene(int arg) {
     clear_active_help_record();
     *(float *)&gFadeLvl = one;
     cinematic_mode = 2;
-    cutscene_state[0x4B] = player_camera[0x394];
-    *(int *)(player_camera + 0x394) = 0;
+    cutscene_state[0x4B] = gCameraLvl[0x394];
+    *(int *)(gCameraLvl + 0x394) = 0;
     level_white_fade_level = 0;
     HeroEnterMoveState(0x64, 2);
     *(char *)&d->unk20A5 = 1;
-    HeroSetObjectFlags();
+    set_hero_item_moby_flag_bit0();
     if (active_scene_trigger_target != 0)
         *(unsigned short *)(active_scene_trigger_target + 0x34) |= 1;
     if (level_menu_system_target != 0)
@@ -421,7 +424,7 @@ void StartCutscene(int arg) {
     }
     q = cutscene_state;
     *(short *)(q + 0x46) = -3;
-    ((int (*)(void))Music_ContinueStreamIfReady)();
+    ((int (*)(void))continue_audio_stream_if_ready)();
     ((int (*)(int))start_cutscene_chunk_read)(1);
     for (i = 0; *(short *)(q + 0x46) < i; i--) {
         sce_gs_sync_v(0);
@@ -487,7 +490,7 @@ void finish_cutscene(void) {
     if ((unsigned short)(h->x5a - 6) >= 2)
         h->x5a = 5;
     skip_frame = 1;
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
     FadeToBlack(12);
     reset_frame_counters();
     hero_control_mode_11_flag = cutscene_state_c.x4b;
@@ -509,20 +512,20 @@ void finish_cutscene(void) {
     }
     p = &g_hero.motion.pos;
     HeroEnterMoveState(HERO_STATE_IDLE, 1);
-    g = ProbeGroundHeight(p, 0, 0.5f);
+    g = probe_ground_height(p, 0, 0.5f);
     if (2.0f < g) {
         p -= 0x80;
-        if (FastAbsF(*(float *)(p + 0x88) - g) < 4.5f)
+        if (absolute_float(*(float *)(p + 0x88) - g) < 4.5f)
             *(float *)(p + 0x88) = g;
     }
     b = (char *)&g_hero;
     b[0x20A5] = 0;
-    HeroClearObjectFlags();
+    update_hero_item_moby_flags();
     if (cutscene_state_c.x4a) {
-        f = ProbeGroundHeight(cutscene_state_c.v, 0, 0.5f);
-        if (2.0f < f && FastAbsF(cutscene_state_c.v[2] - f) < 2.0f)
+        f = probe_ground_height(cutscene_state_c.v, 0, 0.5f);
+        if (2.0f < f && absolute_float(cutscene_state_c.v[2] - f) < 2.0f)
             cutscene_state_c.v[2] = f;
-        Hero_ResetToPosition(cutscene_hero_pos, cutscene_hero_pos + 0x10, 0, 1);
+        set_race_camera(cutscene_hero_pos, cutscene_hero_pos + 0x10, 0, 1);
     }
     if (active_scene_trigger.a)
         active_scene_trigger.a->flags &= ~1;
@@ -543,7 +546,7 @@ void finish_cutscene(void) {
 extern char render_view_params[];
 extern unsigned char gCheats[] MACRO_ADDR;
 extern char g_debug_camera[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 extern float big_head_cutscene_camera_pullback SDATA(big_head_cutscene_camera_pullback);
 
 typedef struct CutsceneCamKey {
@@ -731,7 +734,7 @@ typedef struct {
     s16 h40;
     s16 pad42;
     s16 h44;
-    s16 h46; /* 0x46: PAL reads its Music_ContinueStreamIfReady frame here (US: 0x48) */
+    s16 h46; /* 0x46: PAL reads its continue_audio_stream_if_ready frame here (US: 0x48) */
     s16 h48; /* 0x48: frame at which FUN_00215b10 runs */
     char pad4A[0xA];
     CutsceneCameraKey *f54;
@@ -790,7 +793,7 @@ void update_cutscene_playback(void) {
         gFadeLvl_r = 0.0f;
     }
     if (cs->f34 >= cs->h46) {
-        Music_ContinueStreamIfReady();
+        continue_audio_stream_if_ready();
     }
     done = cs->f34 >= cs->h40;
     if (cs->f34 >= scale_ticks(0x12) && gFadeLvl_r == 0.0f) {
@@ -871,7 +874,7 @@ void PlayMovieEntryIfIdle(int idx) {
     }
     base = &g_hero;
     if (base->health.hp == 0) {
-        Hero_OnKilled();
+        hero_respawn();
     } else if (base->fall_fade_pending == 0) {
         prepare_movie_playback(b, a, g_game_language);
     }
@@ -919,10 +922,10 @@ typedef struct {
     int buf1;
 } MovieLoad;
 extern MovieLoad queued_movie_request_m __asm__("D_L00_00161108") MACRO_ADDR;
-extern int D_0015EF78[6] MACRO_ADDR;
+extern int g_gs_texture_allocation_start[6] MACRO_ADDR;
 extern int level_texture_data_base MACRO_ADDR;
 extern int movie_work_buffer;
-extern char movie_gs_overflow_message[];
+extern char mpeg_memory_alloc_error_format[];
 
 /* sets up a movie load, then uploads image data from the level buffer to GS memory in two runs of strips */
 void prepare_movie_playback(int sector, int size, int arg2) {
@@ -967,7 +970,7 @@ void prepare_movie_playback(int sector, int size, int arg2) {
         wait_for_graphics_pipeline_idle(0, 0);
     }
     if (gs_addr > 0x400000) {
-        STUB_printf(movie_gs_overflow_message, gs_addr - 0x400000);
+        STUB_printf(mpeg_memory_alloc_error_format, gs_addr - 0x400000);
         raise_kernel_trap();
     }
 }
@@ -1049,8 +1052,8 @@ void play_queued_movie(void) {
         }
         memcard_update_state();
     }
-    Movie_Play(queued_movie_request, movie_request_source_mode, (movie_request_decoder_buffer + 0x3F) & ~0x3F,
-               (movie_request_decoder_state + 0x3F) & ~0x3F, movie_request_audio_context);
+    play_mpeg_movie(queued_movie_request, movie_request_source_mode, (movie_request_decoder_buffer + 0x3F) & ~0x3F,
+                    (movie_request_decoder_state + 0x3F) & ~0x3F, movie_request_audio_context);
     sce_cd_sync_s(0);
     movie_exit_to_gameplay();
 }
@@ -1107,7 +1110,7 @@ void end_slideshow(void) {
     cinematic_mode = 0;
     skip_frame = 1;
     gFadeLvl = 0;
-    calculate_dma_transfer_address();
+    select_level_vu_chain();
 }
 extern void end_slideshow(void);
 

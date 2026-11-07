@@ -43,14 +43,14 @@ extern int pal_mode MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
 
 extern char item_usage[];
-extern unsigned char D_0015EEB4[4] MACRO_ADDR;
+extern unsigned char draw_map51[4] MACRO_ADDR;
 
 extern short oltanis_hero_run_step_start_frames;
 extern short oltanis_hero_state_f_jump_velocity_keys;
 extern char oltanis_hero_state_d_jump_velocity_keys[];
 extern unsigned char oltanis_hero_run_jump_anim_ids[];
 extern T2C oltanis_attack_records[];
-extern float oltanis_hero_anim_blend_curves[][25];
+extern float level14_hero_animation_blend_curves[][25];
 
 /* Puts the hero into move state A (with its animation when B is set); returns 0 when the change is refused (level 14
    build). */
@@ -114,14 +114,14 @@ int Hero_TryMoveStateL14(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_IDLE;
             p->unk2284 = 0;
-            p->unk1010 = rand_range(scale_ticks(0x32), scale_ticks(0x64));
+            p->unk1010 = random_int_between(scale_ticks(0x32), scale_ticks(0x64));
             clear_hero_idle_rotation_targets();
             if (p->vehicle_mode != 0) {
                 request_hero_idle_state_for_vehicle_mode();
                 return 1;
             }
             qcopy(&p->motion.momentum, &p->motion.resolved_velocity);
-            if (p->on_ice_ground != 0 && vec_length_xy(&p->motion.momentum) > g_frame_time * 0.5f) {
+            if (p->on_ice_ground != 0 && vector_length_xy(&p->motion.momentum) > g_frame_time * 0.5f) {
                 Hero_TryMoveStateL14(HERO_STATE_RUN_CLEAR_VELOCITY_Z, 1);
                 return 0;
             }
@@ -243,7 +243,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.displacement);
+            p->ground_speed = vector_length_xy(&p->motion.displacement);
             p->state.step = 0;
             p->unk3B8 = 0;
             p->run_start_blending = 0;
@@ -258,7 +258,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
             if (p->state.prev_control_mode != HERO_MODE_JUMP && p->state.prev2_control_mode != HERO_MODE_JUMP) {
-                p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+                p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             }
             {
                 struct Hero *q = &g_hero;
@@ -338,7 +338,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_RUN;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             p->item_use_locked = 1;
             if (p->vehicle_mode == 0)
                 cancel_hero_item_animation();
@@ -405,7 +405,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             struct Hero *p = &g_hero;
             p->state.control_mode = HERO_MODE_CROUCH;
             p->unk2284 = 0;
-            p->ground_speed = vec_length_xy(&p->motion.resolved_velocity);
+            p->ground_speed = vector_length_xy(&p->motion.resolved_velocity);
             if (g_frame_time * 7.0f < p->ground_speed)
                 p->ground_speed = g_frame_time * 7.0f;
             if (p->on_slip_ground != 0 && p->frames_off_ground.s == 0) {
@@ -470,7 +470,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             p->item_use_locked = 1;
             *(int *)&p->grapple_pull_speed = 0;
             p->grapple_pull_ending = 0;
-            p->tether_radius = FastVecDist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
+            p->tether_radius = fast_vec_dist(&p->motion.pos, *(char **)&p->grapple_target + 0x10);
             if (b)
                 set_hero_animation(0x30, 1, (float)scale_ticks(5));
             break;
@@ -520,7 +520,7 @@ int Hero_TryMoveStateL14(int a, int b) {
                     q->swing_rope_max_speed = *(float *)(d + 0x2C);
                 q->swing_yaw = fast_atan2(*(float *)(*(char **)&q->swing_target_moby + 0x10) - q->motion.pos.f[0],
                                           *(float *)(*(char **)&q->swing_target_moby + 0x14) - q->motion.pos.f[1]);
-                q->unk9A4 = FastVecDist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
+                q->unk9A4 = fast_vec_dist(&q->motion.pos, *(char **)&q->swing_target_moby + 0x10);
                 q->swing_gravity = g_frame_time_sq * 27.0f;
                 if (q->state.prev_control_mode == HERO_MODE_JUMP) {
                     q->swing_gravity = q->jump_gravity;
@@ -582,7 +582,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             p->rail_jump_queued = 0;
             seg = p->rail_segment;
             t = p->rail_seg_frac;
-            Spline_AdvanceByDistance(*(int **)&p->rail_spline, pos, &seg, &t, p->rail_spline_loops, 1.0f);
+            sample_path(*(int **)&p->rail_spline, pos, &seg, &t, p->rail_spline_loops, 1.0f);
             FastVecSub(vec, pos, &p->motion.pos);
             if (0.001f < FastVecLength(vec)) {
                 vec_scale_to_length(vec, vec, 1.0f);
@@ -835,7 +835,7 @@ int Hero_TryMoveStateL14(int a, int b) {
                         vec[0] = 331.0f;
                         vec[1] = 104.0f;
                         vec[2] = 145.0f;
-                        if (FastVecDist(&u->motion.pos, vec) < 10.0f) {
+                        if (fast_vec_dist(&u->motion.pos, vec) < 10.0f) {
                             k = 0.7f;
                             u->unk430 = u->unk430 + k;
                             u->jump_height_start = u->jump_height_start + k;
@@ -1366,7 +1366,7 @@ int Hero_TryMoveStateL14(int a, int b) {
                 if (b) {
                     set_hero_animation(0x10, 3, -3.0f);
                     *(float *)(*(char **)&q->moby + 0x54) =
-                        oltanis_hero_anim_blend_curves[q->anim_blend_curve][(q->anim_blend_step)++];
+                        level14_hero_animation_blend_curves[q->anim_blend_curve][(q->anim_blend_step)++];
                 }
             }
             break;
@@ -1424,7 +1424,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             {
                 char *v = &g_hero.motion.resolved_velocity;
                 char *g;
-                float r = vec_length_xy(v);
+                float r = vector_length_xy(v);
                 g = v - 0x110;
                 *(float *)(g + 0x194) = r;
                 if (g_frame_time * 1.5f < r)
@@ -1456,7 +1456,7 @@ int Hero_TryMoveStateL14(int a, int b) {
             if (b) {
                 set_hero_animation(2, 3, -3.0f);
                 *(float *)(*(char **)&p->moby + 0x54) =
-                    oltanis_hero_anim_blend_curves[p->anim_blend_curve][(p->anim_blend_step)++];
+                    level14_hero_animation_blend_curves[p->anim_blend_curve][(p->anim_blend_step)++];
             }
             break;
         }

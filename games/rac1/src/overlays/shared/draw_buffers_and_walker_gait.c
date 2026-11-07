@@ -102,9 +102,9 @@ void reset_walker_gait_helpers(char *a) {
     for (i = 0; i < 2; i++) {
         char *p = a + i * 0xB0;
         if (((unsigned char *)p)[0x161] != 0)
-            axis_rotation_2d48(p + 0x170, 2, 0.0f);
+            build_axis_rotation_quaternion(p + 0x170, 2, 0.0f);
         if (((unsigned char *)p)[0x121] != 0)
-            axis_rotation_2d48(p + 0x130, 2, 0.0f);
+            build_axis_rotation_quaternion(p + 0x130, 2, 0.0f);
         *(int *)(p + 0x104) = 0;
         *(int *)(p + 0xFC) = 0;
     }
@@ -118,7 +118,7 @@ float compute_walker_time_to_landing(char *a, char *b) {
     float d = c * c + (s + s) * gap;
     float res;
     if (d > 0.0f) {
-        d = vec_length(d);
+        d = square_root(d);
         if (d <= c) {
             res = c - d;
         } else {
@@ -187,12 +187,12 @@ extern int truncate_float_to_s32(float);
 
 extern float g_frame_time MACRO_ADDR;
 extern float inv_frame_scale MACRO_ADDR;
-extern int walker_state_anim_slots[];
-extern char str_walker_jump_dist_fmt[];
+extern int walker_gait_animation_index_by_state[];
+extern char walker_jump_distance_debug_format[];
 
 /* Steps the walk cycle state machine: picks the next walk, run, turn, jump or landing sequence from speed, heading and
    foot height. */
-void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, float accel) {
+void walker_update_gait(Moby *m, WalkData *d, int flags, float speed, float ang, float accel) {
     float vec[4];
 
     switch (d->bB7) {
@@ -240,7 +240,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
         case 9:
         case 10:
         case 11: {
-            int idx = walker_state_anim_slots[d->bB7];
+            int idx = walker_gait_animation_index_by_state[d->bB7];
             if (m->anim_speed < 0.25f && FastDiffRots(m->rot.z, ang) < 0.09239978f && speed < g_frame_time * 0.19f) {
                 MobyBlendAnimation(m, d->bB0, 0, 10);
                 reset_walker_gait_helpers((char *)d);
@@ -248,7 +248,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
             } else if (m->seq == d->anim[idx]->id) {
                 float t = (d->anim[7]->f08 + d->anim[0]->f08) * 0.375f;
                 if (speed > t && d->fC0 > t && !(d->bB6 & 0x3A)) {
-                    float cur = MobyGetFrameValue(m);
+                    float cur = compute_interpolated_record_value(m);
                     int r1 = truncate_float_to_s32(d->anim[idx]->f48 - cur + d->anim[idx]->f10) %
                              truncate_float_to_s32(d->anim[idx]->f10);
                     int r2 = truncate_float_to_s32(d->anim[idx]->f4C - cur + d->anim[idx]->f10) %
@@ -307,7 +307,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
                         } else {
                             FastVecAdd(vec, vec, d->m30);
                         }
-                        h = ProbeGroundHeight(vec, 0, 0.5f);
+                        h = probe_ground_height(vec, 0, 0.5f);
                         d->fE4 = h;
                         switch (d->bB7) {
                             case 1:
@@ -782,7 +782,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
                             FastVecAdd(vec, vec, d->m30);
                         }
                         vec[2] += 1.0f;
-                        d->fE4 = ProbeGroundHeight(vec, 0, 0.5f);
+                        d->fE4 = probe_ground_height(vec, 0, 0.5f);
                     }
                 }
             }
@@ -799,12 +799,12 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
         case 15:
             if (flags & 0x30) {
                 float dist = vec_distance_xy(&m->pos, d->v60);
-                STUB_printf(str_walker_jump_dist_fmt, dist);
+                STUB_printf(walker_jump_distance_debug_format, dist);
                 d->fD8 = jump_speed_4318((float *)&m->pos, d->v60, 0, d->fC0, -d->fDC);
                 d->uEE |= 4;
                 d->f6C = fast_atan2(d->v60[0] - m->pos.x, d->v60[1] - m->pos.y);
             }
-            if (MobyGetFrameValue(m) >= d->anim[11]->f0C + d->anim[11]->f10 - m->anim_speed) {
+            if (compute_interpolated_record_value(m) >= d->anim[11]->f0C + d->anim[11]->f10 - m->anim_speed) {
                 MobyBlendAnimation(m, d->bB3, 0, 10);
                 reset_walker_gait_helpers((char *)d);
                 d->bB7 = 0x10;
@@ -828,13 +828,13 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
             break;
         case 14:
             if (flags & 0x30) {
-                float dist = FastVecDist(&m->pos, d->v60);
-                STUB_printf(str_walker_jump_dist_fmt, dist);
+                float dist = fast_vec_dist(&m->pos, d->v60);
+                STUB_printf(walker_jump_distance_debug_format, dist);
                 d->fD8 = jump_speed_4318((float *)&m->pos, d->v60, 0, d->fC0, -d->fDC);
                 d->uEE |= 4;
                 d->f6C = fast_atan2(d->v60[0] - m->pos.x, d->v60[1] - m->pos.y);
             }
-            if (MobyGetFrameValue(m) >= d->anim[9]->f0C + d->anim[9]->f10 - m->anim_speed) {
+            if (compute_interpolated_record_value(m) >= d->anim[9]->f0C + d->anim[9]->f10 - m->anim_speed) {
                 MobyBlendAnimation(m, d->bB3, 0, 10);
                 reset_walker_gait_helpers((char *)d);
                 d->bB7 = 0x10;
@@ -942,7 +942,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
                 vec[2] = 0.0f;
                 FastVecAdd(vec, vec, d->m10);
                 vec[2] += 1.0f;
-                d->fE4 = ProbeGroundHeight(vec, 0, 0.5f);
+                d->fE4 = probe_ground_height(vec, 0, 0.5f);
             }
             break;
         case 19:
@@ -963,7 +963,7 @@ void WalkCycleStep(Moby *m, WalkData *d, int flags, float speed, float ang, floa
                 vec[2] = 0.0f;
                 FastVecAdd(vec, vec, d->m10);
                 vec[2] += 1.0f;
-                d->fE4 = ProbeGroundHeight(vec, 0, 0.5f);
+                d->fE4 = probe_ground_height(vec, 0, 0.5f);
             }
             break;
     }

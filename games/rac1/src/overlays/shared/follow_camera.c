@@ -33,7 +33,7 @@
 #include "overlays/shared/follow_camera_angle_blend.h"
 extern char g_hero[];
 extern u8 hero_gravity_dir[];
-extern char gHeroPos[];
+extern char hero_pos[];
 extern char g_controller_state[];
 extern float g_controller_state_analog;
 extern char g_hero_moby[];
@@ -130,15 +130,15 @@ void emit_hydrodisplacer_effect(Moby *m) {
     struct Hero *pad;
     float f;
     if (fast_dec_timer(&d->spawn_timer)) {
-        Moby_GetJointWorldPos(m, 0, a);
+        moby_point_position(m, 0, a);
         f = random_float_between(g_frame_time, g_frame_time * 3.0f);
         vec_scale_to_length(b, &m->rot_row1, -f);
         pad = (struct Hero *)g_hero;
         b[0] += pad->motion.displacement.f[0] * 0.8f;
         b[1] += pad->motion.displacement.f[1] * 0.8f;
         b[2] += pad->motion.displacement.f[2] + random_float_between(g_frame_time * -0.5f, g_frame_time + g_frame_time);
-        PartType35Spawn(a, b, 2, rand_range(0x5A, 0x78));
-        d->spawn_timer = rand_range(scale_ticks(5), scale_ticks(0xF));
+        PartType35Spawn(a, b, 2, random_int_between(0x5A, 0x78));
+        d->spawn_timer = random_int_between(scale_ticks(5), scale_ticks(0xF));
     }
 }
 extern u8 *moby_array_start_r __asm__("D_L00_00160098") MACRO_ADDR;
@@ -175,7 +175,7 @@ void end_hydrodisplacer_interaction(char *a) {
     if (*(unsigned char *)(a + 0x20) == 4) {
         scripted_camera_move_active = 0;
         gFadeLvl = 0;
-        CameraScript2(3);
+        jet_end_mount(3);
     }
     if (((struct Hero *)g_hero)->state.control_mode == 0x13) {
         HeroEnterMoveState(HERO_STATE_IDLE, 1);
@@ -209,13 +209,13 @@ typedef struct {
     s16 h;
 } M_2e03a0_2e03a0;
 extern f32 g_frame_time MACRO_ADDR;
-extern u8 pilots_helmet_no_cutscene_msg[];
-extern u8 pilots_helmet_already_owned_msg[];
-extern u8 pilots_helmet_no_moby_msg[];
-extern u8 pilots_helmet_collected_msg[];
+extern u8 pilots_helmet_missing_cutscene_format[];
+extern u8 pilots_helmet_already_owned_message[];
+extern u8 pilots_helmet_missing_segment_switch_format[];
+extern u8 pilots_helmet_acquired_message[];
 extern s32 cinematic_mode MACRO_ADDR;
 extern s32 banner_display_ticks MACRO_ADDR;
-extern u16 help_records_52_count[];
+extern u16 pilots_helmet_help_record[];
 extern E_2e03a0_2e03a0 *moby_array_start SDATA(moby_array_start);
 typedef struct {
     u8 pad[0x454];
@@ -244,9 +244,9 @@ void pilots_helmet_update(M_2e03a0_2e03a0 *m) {
         case 0:
             initialize_moby_particle_effect(m);
             if (p->fa_2e03a0 == -1)
-                STUB_printf(pilots_helmet_no_cutscene_msg, m->h);
+                STUB_printf(pilots_helmet_missing_cutscene_format, m->h);
             if (item_available[7]) {
-                STUB_printf(pilots_helmet_already_owned_msg);
+                STUB_printf(pilots_helmet_already_owned_message);
                 DeleteMoby(m);
                 return;
             }
@@ -255,15 +255,15 @@ void pilots_helmet_update(M_2e03a0_2e03a0 *m) {
             break;
         case 1:
             emit_moby_color_cycling_particles_r(m);
-            g = gHeroPos;
+            g = hero_pos;
             if (vec_distance_xy((char *)m + 0x10, g) < 3.0f) {
                 g -= 0x80;
-                if (FastAbsF(m->z - *(f32 *)(g + 0x88)) < 2.0f && *(s32 *)(g + 0x22A8)) {
+                if (absolute_float(m->z - *(f32 *)(g + 0x88)) < 2.0f && *(s32 *)(g + 0x22A8)) {
                     m->fl |= 0x41;
                     if (p->fa_2e03a0 != -1)
-                        StartCutscene(p->fa_2e03a0);
+                        start_scene(p->fa_2e03a0);
                     else
-                        STUB_printf(pilots_helmet_no_cutscene_msg, m->h);
+                        STUB_printf(pilots_helmet_missing_cutscene_format, m->h);
                     m->state = 2;
                 }
             }
@@ -271,12 +271,12 @@ void pilots_helmet_update(M_2e03a0_2e03a0 *m) {
         case 2:
             if (cinematic_mode == 2)
                 return;
-            STUB_printf(pilots_helmet_collected_msg);
-            ShowBanner(0x232A, -1);
+            STUB_printf(pilots_helmet_acquired_message);
+            queue_dialogue_message(0x232A, -1);
             banner_display_ticks = 0xB4;
             grant_inventory_item(7, 1);
-            if (help_records_52_count[0] == 0)
-                Help_Request(0x2328, 0x34);
+            if (pilots_helmet_help_record[0] == 0)
+                help_request(0x2328, 0x34);
             if (p->b != -1) {
                 current_level_state.arr[(moby_array_start)[p->b].h] = (moby_array_start)[p->b].b0 + 2;
                 if ((moby_array_start)[p->b].b0 == 0xFF ||
@@ -286,7 +286,7 @@ void pilots_helmet_update(M_2e03a0_2e03a0 *m) {
                     checkpoint_level_state.arr[(moby_array_start)[p->b].h] = (moby_array_start)[p->b].b0 + 2;
                 }
             } else {
-                STUB_printf(pilots_helmet_no_moby_msg, m->h);
+                STUB_printf(pilots_helmet_missing_segment_switch_format, m->h);
             }
             if (m->b0 != 0xFF)
                 jet_clear_persistent(m->b0);
@@ -301,7 +301,7 @@ void pilots_helmet_update(M_2e03a0_2e03a0 *m) {
 }
 extern float g_debug_camera[];
 
-extern int func_001FA898(float);
+extern int truncate_float_to_s32(float);
 extern unsigned char *PartType59Spawn_v(float f, void *pos, int a1, unsigned char a2, int idx, int flag, int s,
                                         int mode) __asm__("func_L00_00273E08");
 
@@ -343,91 +343,91 @@ void emit_moby_color_cycling_particles(char *p) {
         t++;
         g = IntToFloat(scale_ticks(255) - m->t[j]);
         g = g / (float)scale_ticks(255);
-        c = FastTweenColor(0x4040FFFF, 0x1040FFFF, FastAbsF(0.5f - g));
+        c = FastTweenColor(0x4040FFFF, 0x1040FFFF, absolute_float(0.5f - g));
         k = truncate_float_to_s32(*a++);
         PartType59Spawn_v(m->c[j], v, c, k, 0x35, 1, 2, 0);
         j++;
         FastVecAdd(v, v, &v[4]);
     }
 }
-extern s32 beam_slot_states[] MACRO_ADDR;
-extern s32 beam_strand_wave_phase[] MACRO_ADDR;
-extern s32 beam_strand_twist_phase[] MACRO_ADDR;
-extern s32 beam_strand_sway_phase[] MACRO_ADDR;
-extern s32 beam_origin_light_slots[] MACRO_ADDR;
-extern s32 beam_tip_light_slots[] MACRO_ADDR;
-extern s32 beam_light_flags[] MACRO_ADDR;
-extern s32 beam_spark_style[] MACRO_ADDR;
+extern s32 beam_slot_state[] MACRO_ADDR;
+extern s32 beam_amplitude_phase[] MACRO_ADDR;
+extern s32 beam_twist_phase[] MACRO_ADDR;
+extern s32 beam_swell_phase[] MACRO_ADDR;
+extern s32 beam_endpoint_light[] MACRO_ADDR;
+extern s32 beam_tip_light[] MACRO_ADDR;
+extern s32 beam_endpoint_effect_flags[] MACRO_ADDR;
+extern s32 beam_endpoint_spark_tag_mode[] MACRO_ADDR;
 extern s32 beam_texture_scroll[] MACRO_ADDR;
-extern s32 beam_slot_ids[] MACRO_ADDR;
+extern s32 beam_slot_id[] MACRO_ADDR;
 
 /* Adapted from Lombyte's project (GPL-3.0) for PAL by OpenRAC's tools/port.py: src/overlays/shared/gameplay_vendor_002df730.c, FUN_L00_002e1f28. */
 s32 register_beam_slot(s32 id, s32 a, s32 b) {
     s32 i, j;
     for (i = 0; i < 3; i++) {
-        if (beam_slot_ids[i] == id)
+        if (beam_slot_id[i] == id)
             return 1;
     }
     for (j = 0; j < 3; j++) {
-        if (beam_slot_ids[j] == 0) {
-            beam_slot_ids[j] = id;
-            beam_strand_wave_phase[j] = 0;
-            beam_strand_twist_phase[j] = 0;
-            beam_strand_sway_phase[j] = 0;
-            beam_origin_light_slots[j] = -1;
-            beam_tip_light_slots[j] = -1;
-            beam_light_flags[j] = a;
-            beam_spark_style[j] = b;
+        if (beam_slot_id[j] == 0) {
+            beam_slot_id[j] = id;
+            beam_amplitude_phase[j] = 0;
+            beam_twist_phase[j] = 0;
+            beam_swell_phase[j] = 0;
+            beam_endpoint_light[j] = -1;
+            beam_tip_light[j] = -1;
+            beam_endpoint_effect_flags[j] = a;
+            beam_endpoint_spark_tag_mode[j] = b;
             beam_texture_scroll[j] = 0;
-            beam_slot_states[j] = 1;
+            beam_slot_state[j] = 1;
             return 1;
         }
     }
     return 0;
 }
 
-extern int beam_slot_states[];
-extern int beam_tip_light_slots[];
-extern int beam_origin_light_slots[];
-extern int beam_slot_ids[];
+extern int beam_slot_state[];
+extern int beam_tip_light[];
+extern int beam_endpoint_light[];
+extern int beam_slot_id[];
 
 // releases the slot owning the given id and its two handles; returns 1 if found
 int release_beam_slot_by_id(int id) {
     unsigned int i;
     for (i = 0; (int)i < 3; i++) {
-        if (beam_slot_ids[i] == id) {
-            beam_slot_states[i] = 0;
-            beam_slot_ids[i] = 0;
-            if (beam_origin_light_slots[i] != -1) {
-                release_point_light_slot(beam_origin_light_slots[i]);
-                beam_origin_light_slots[i] = -1;
+        if (beam_slot_id[i] == id) {
+            beam_slot_state[i] = 0;
+            beam_slot_id[i] = 0;
+            if (beam_endpoint_light[i] != -1) {
+                release_point_light_slot(beam_endpoint_light[i]);
+                beam_endpoint_light[i] = -1;
             }
-            if (beam_tip_light_slots[i] != -1) {
-                release_point_light_slot(beam_tip_light_slots[i]);
-                beam_tip_light_slots[i] = -1;
+            if (beam_tip_light[i] != -1) {
+                release_point_light_slot(beam_tip_light[i]);
+                beam_tip_light[i] = -1;
             }
             return 1;
         }
     }
     return 0;
 }
-extern int beam_slot_states[] MACRO_ADDR;
-extern int beam_origin_light_slots[] MACRO_ADDR;
-extern int beam_tip_light_slots[] MACRO_ADDR;
-extern int beam_slot_ids[] MACRO_ADDR;
+extern int beam_slot_state[] MACRO_ADDR;
+extern int beam_endpoint_light[] MACRO_ADDR;
+extern int beam_tip_light[] MACRO_ADDR;
+extern int beam_slot_id[] MACRO_ADDR;
 /* Frees one slot: clears its two state words and releases its two handles. MACRO_ADDR arrays, as the NTSC decomp declares them. */
 void release_beam_slot(int i) {
     int v;
-    v = beam_origin_light_slots[i];
-    beam_slot_states[i] = 0;
-    beam_slot_ids[i] = 0;
+    v = beam_endpoint_light[i];
+    beam_slot_state[i] = 0;
+    beam_slot_id[i] = 0;
     if (v != -1) {
         release_point_light_slot(v);
-        beam_origin_light_slots[i] = -1;
+        beam_endpoint_light[i] = -1;
     }
-    if (beam_tip_light_slots[i] != -1) {
-        release_point_light_slot(beam_tip_light_slots[i]);
-        beam_tip_light_slots[i] = -1;
+    if (beam_tip_light[i] != -1) {
+        release_point_light_slot(beam_tip_light[i]);
+        beam_tip_light[i] = -1;
     }
 }
 typedef struct {
@@ -436,19 +436,19 @@ typedef struct {
 typedef struct {
     unsigned char b[0x10];
 } Q002E3640;
-extern B002E3640 beam_origin_transforms[];
+extern B002E3640 beam_transforms[];
 extern Q002E3640 beam_endpoints[];
 
 /* Finds the slot holding handle id, advances its state word and stores the 0x40-byte matrix and the vector for it. */
 int set_beam_origin_transform_and_endpoint(int id, void *src, void *v) {
     int i;
     for (i = 0; i < 3; i++) {
-        if (id == beam_slot_ids[i]) {
-            if (beam_slot_states[i] == 1)
-                beam_slot_states[i] = 2;
-            else if (beam_slot_states[i] == 4)
-                beam_slot_states[i] = 3;
-            FastMemCopy(&beam_origin_transforms[i], src, 0x40);
+        if (id == beam_slot_id[i]) {
+            if (beam_slot_state[i] == 1)
+                beam_slot_state[i] = 2;
+            else if (beam_slot_state[i] == 4)
+                beam_slot_state[i] = 3;
+            FastMemCopy(&beam_transforms[i], src, 0x40);
             qcopy(&beam_endpoints[i], v);
             return 1;
         }
@@ -494,7 +494,7 @@ extern End beam_origin_transforms_translation_r[] __asm__("D_L00_001E70A0");
 extern Q_2E3700 beam_endpoints_r[] __asm__("D_L00_001E7130");
 extern Q_2E3700 beam_tip_positions_r[] __asm__("D_L00_001E7160");
 extern Pt beam_strand_points_r[][20] __asm__("D_L00_001E7190");
-extern Snd D_L00_001803C0[];
+extern Snd level_point_lights[];
 extern char veldin1_zero_vec_r[] __asm__("D_L00_0015F660") MACRO_ADDR;
 extern int beam_slot_states_r[] __asm__("D_L00_00161CC8") MACRO_ADDR;
 extern float beam_strand_wave_phase_r[] __asm__("D_L00_00161CD8") MACRO_ADDR;
@@ -606,7 +606,7 @@ void update_slot_panes_and_effects(int unused, int idx) {
         vel.f[3] = one;
         vel.f[0] = r * FastCos(a);
         vel.f[1] = r * FastSin(a);
-        matrix_mul_vec3(&vel, &vel, &beam_origin_transforms_r[idx]);
+        transform_vector_by_basis(&vel, &vel, &beam_origin_transforms_r[idx]);
         spawn_mode_controlled_rotating_alpha_fade_particle_r(beam_origin_transforms_r[idx].v30, &vel, 0x7F,
                                                              beam_slot_ids_r[idx]);
         if (random_integer_below(3) == 0) {
@@ -681,7 +681,7 @@ typedef struct {
 } Pane;
 extern float beam_texture_scroll_f[] __asm__("D_L00_00161D48") MACRO_ADDR;
 extern float frame_scale MACRO_ADDR;
-extern Pane beam_strand_points[];
+extern Pane beam_strands[];
 
 extern void draw_beam_endpoint_quads_with_glow(int, int);
 extern void draw_beam_strand_with_glow(int, int, void *, int, int, int);
@@ -695,7 +695,7 @@ void draw_active_beam_slots(char *m) {
         float f;
         int a, b;
         int k, k1;
-        if (beam_slot_ids[i] == 0 || beam_slot_states[i] < 2)
+        if (beam_slot_id[i] == 0 || beam_slot_state[i] < 2)
             continue;
         k = i << 1;
         k1 = k + 1;
@@ -703,18 +703,18 @@ void draw_active_beam_slots(char *m) {
         beam_texture_scroll_f[i] = f;
         if (f <= -8.0f)
             beam_texture_scroll_f[i] = f + 8.0f;
-        draw_beam_endpoint_quads_with_glow(beam_slot_ids[i], i);
+        draw_beam_endpoint_quads_with_glow(beam_slot_id[i], i);
         a = d[1] + 0x28;
         b = d[0] + 0x28;
-        draw_beam_strand_with_glow(a, b, &beam_strand_points[k], 0x80, 0x40, i);
-        draw_beam_strand_with_glow(a, b, &beam_strand_points[k1], 0x30, 0x10, i);
+        draw_beam_strand_with_glow(a, b, &beam_strands[k], 0x80, 0x40, i);
+        draw_beam_strand_with_glow(a, b, &beam_strands[k1], 0x30, 0x10, i);
     }
 }
 
 typedef struct {
     Vec4 a, b, c, d;
 } Tbl;
-extern Tbl beam_origin_transforms_field_10[];
+extern Tbl l00_beam_strand_axis_and_origin_slots[];
 extern long GetEffectTex_v(int) __asm__("func_001F4868");
 
 /* Builds the two blend quads from the slot tables and draws them along the
@@ -772,7 +772,7 @@ void draw_beam_strand_with_glow(int texture_id, int glow_texture_id, void *point
     quads[0].texture_coordinates[2][1] = zero;
     quads[0].texture_coordinates[3][1] = 1.0f;
     half_width = 0.6f;
-    if (((struct Moby *)beam_slot_ids[slot])->oclass == MOBY_CLASS_PLASMABOT_28)
+    if (((struct Moby *)beam_slot_id[slot])->oclass == MOBY_CLASS_PLASMABOT_28)
         half_width = 0.3f;
     width.q = 0;
     glow_width.q = 0;
@@ -781,14 +781,14 @@ void draw_beam_strand_with_glow(int texture_id, int glow_texture_id, void *point
     width.f[2] = half_width;
     glow_width.f[3] = 1.0f;
 
-    qcopy(&basis[0], &beam_origin_transforms_field_10[slot].a);
-    FastVecSub((float *)&basis[1], g_debug_camera, (float *)&beam_origin_transforms_field_10[slot].c);
+    qcopy(&basis[0], &l00_beam_strand_axis_and_origin_slots[slot].a);
+    FastVecSub((float *)&basis[1], g_debug_camera, (float *)&l00_beam_strand_axis_and_origin_slots[slot].c);
     FastVecScale(&basis[1], &basis[1], 1.0f);
     FastVecCross(&basis[2], &basis[1], &basis[0]);
     vec_scale_to_length(&basis[2], &basis[2], 1.0f);
     FastVecCross(&basis[0], &basis[2], &basis[1]);
-    qcopy(&basis[3], &beam_origin_transforms_field_10[slot].c);
-    qcopy(&transform[3], &beam_origin_transforms_field_10[slot].c);
+    qcopy(&basis[3], &l00_beam_strand_axis_and_origin_slots[slot].c);
+    qcopy(&transform[3], &l00_beam_strand_axis_and_origin_slots[slot].c);
     FastVecSub((float *)&direction, (float *)&beam_endpoints[slot], (float *)&transform[3]);
     vec_scale_to_length(&transform[0], &direction, 1.0f);
     FastVecCross(&transform[1], &transform[0], (char *)&hero_gravity_dir);
@@ -850,7 +850,7 @@ void draw_beam_strand_with_glow(int texture_id, int glow_texture_id, void *point
         qcopy(&quads[0].positions[1], &quads[0].positions[3]);
         qcopy(&quads[1].positions[0], &quads[1].positions[2]);
         qcopy(&quads[1].positions[1], &quads[1].positions[3]);
-        taper = CubicInterpolate(-1.0f, zero, 1.0f, zero, IntToFloat(i) / IntToFloat(20));
+        taper = cubic_hermite_scalar(-1.0f, zero, 1.0f, zero, IntToFloat(i) / IntToFloat(20));
         scroll = beam_texture_scroll_f[slot];
         quads[0].texture_coordinates[0][0] = scroll + zero;
         quads[0].texture_coordinates[0][1] = zero;
@@ -878,9 +878,9 @@ typedef struct {
     f32 v[4];
     u8 pad[0x30];
 } T_e3388;
-extern T_e3388 beam_origin_transforms_translation[];
+extern T_e3388 beam_origins[];
 extern f32 beam_tip_positions[][4];
-extern f32 beam_glow_quad_corners[4][4];
+extern f32 beam_endpoint_quad_local_vertices[4][4];
 extern u8 g_debug_camera_r[] __asm__("D_L00_00166EC0");
 
 s64 GetEffectTex_v(s32) __asm__("func_001F4868");
@@ -897,7 +897,7 @@ void draw_beam_endpoint_quads_with_glow(s32 unused, s32 idx) {
     s32 i;
     s32 j;
 
-    qcopy(d, &beam_origin_transforms_translation[idx]);
+    qcopy(d, &beam_origins[idx]);
     d[3] = 1.0f;
     FastVecSub(a, g_debug_camera_r, d);
     vec_scale_to_length(a, a, 1.0f);
@@ -925,7 +925,7 @@ void draw_beam_endpoint_quads_with_glow(s32 unused, s32 idx) {
     e[1] = randf_sym(0.0f, 0.05f);
     e[2] = randf_sym(0.0f, 0.05f);
     for (i = 0; i < 4; i++) {
-        FastVecScale(q.v[i], beam_glow_quad_corners[i], s);
+        FastVecScale(q.v[i], beam_endpoint_quad_local_vertices[i], s);
         transform_vector(q.v[i], q.v[i], a);
         FastVecAdd(q.v[i], q.v[i], e);
     }
@@ -936,7 +936,7 @@ void draw_beam_endpoint_quads_with_glow(s32 unused, s32 idx) {
     q.col[1] = 0x607F4040;
     q.col[0] = 0x607F4040;
     for (j = 0; j < 4; j++) {
-        FastVecScale(q.v[j], beam_glow_quad_corners[j], s * 3.0f);
+        FastVecScale(q.v[j], beam_endpoint_quad_local_vertices[j], s * 3.0f);
         transform_vector(q.v[j], q.v[j], a);
     }
     draw_world_quad(&q, 0, 0);
@@ -953,7 +953,7 @@ void draw_beam_endpoint_quads_with_glow(s32 unused, s32 idx) {
     q.col[1] = -1;
     q.col[0] = -1;
     for (i = 0; i < 4; i++) {
-        FastVecScale(q.v[i], beam_glow_quad_corners[i], s);
+        FastVecScale(q.v[i], beam_endpoint_quad_local_vertices[i], s);
         transform_vector(q.v[i], q.v[i], a);
         FastVecAdd(q.v[i], q.v[i], e);
     }
@@ -964,7 +964,7 @@ void draw_beam_endpoint_quads_with_glow(s32 unused, s32 idx) {
     q.col[1] = 0x607F4040;
     q.col[0] = 0x607F4040;
     for (i = 0; i < 4; i++) {
-        FastVecScale(q.v[i], beam_glow_quad_corners[i], s * 3.0f);
+        FastVecScale(q.v[i], beam_endpoint_quad_local_vertices[i], s * 3.0f);
         transform_vector(q.v[i], q.v[i], a);
     }
     draw_world_quad(&q, 0, 0);
@@ -978,16 +978,16 @@ typedef struct {
     int i70;
     float f74;
 } D_2e;
-extern int *level_paths[];
-extern float pterodactyl_path_speed SDATA(pterodactyl_path_speed);
-extern float pterodactyl_scale_factor SDATA(pterodactyl_scale_factor);
+extern int *toad_paths[];
+extern float pterodactyl_path_speed_gp SDATA(D_L00_00161D68);
+extern float pterodactyl_scale_multiplier_gp SDATA(D_L00_00161D6C);
 
 extern void SamplePathAt_v(int *, float, int, void *, float *, int) __asm__("func_00215CA8");
 
 /* Path-following moby update: start a run along its path in state 0, then step along the path each frame and pick an animation when the flag is set. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/gameplay_vendor_002df730.c, FUN_L00_002e3a88. */
 void pterodactyl_update(unsigned char *m) {
     D_2e *d = ((D_2e *)((Moby *)m)->pvars);
-    int *p = level_paths[d->path];
+    int *p = toad_paths[d->path];
     float y;
     switch (((Moby *)m)->state) {
         case 0:
@@ -996,14 +996,14 @@ void pterodactyl_update(unsigned char *m) {
                 return;
             }
             {
-                float a = FastVecDist(p + 4, p + 8);
-                float b = FastVecDist(p + 4, p + *p * 4);
-                d->f74 = pterodactyl_path_speed * g_frame_time / a;
-                d->i70 = FastAbsF(a - b) < 0.1f;
+                float a = fast_vec_dist(p + 4, p + 8);
+                float b = fast_vec_dist(p + 4, p + *p * 4);
+                d->f74 = pterodactyl_path_speed_gp * g_frame_time / a;
+                d->i70 = absolute_float(a - b) < 0.1f;
             }
             d->f6C = d->f68 * (float)*p;
             ((Moby *)m)->state = 1;
-            ((Moby *)m)->scale *= pterodactyl_scale_factor;
+            ((Moby *)m)->scale *= pterodactyl_scale_multiplier_gp;
             ((Moby *)m)->update_dist = 0xFF;
             /* fall through */
         case 1:
@@ -1029,8 +1029,8 @@ void pterodactyl_update(unsigned char *m) {
 
 // Grass moby update: plays an animation when the player is near and leaves.
 void red_plant_update(Moby *m) {
-    if (FastVecDist(gHeroPos, &m->pos) < 1.0f) {
-        if (FastVecLength(gHeroPos + 0x80) > g_frame_time + g_frame_time) {
+    if (fast_vec_dist(hero_pos, &m->pos) < 1.0f) {
+        if (FastVecLength(hero_pos + 0x80) > g_frame_time + g_frame_time) {
             if (m->prev_seq != 1) {
                 MobyBlendAnimation(m, 1, 0, scale_ticks(6));
             }
@@ -1052,7 +1052,7 @@ extern float coll_hit_normal[] NOT_SDA;
 
 /* Update of an effect-group moby: state machine over its life, then it steers a sprite along its path and bounces it
    off surfaces. */
-void robot_arm_update(Moby *m) {
+void tumbling_part_update(Moby *m) {
     struct RobotArmVars *d = (struct RobotArmVars *)m->pvars;
     float a20[4];
     float a30[12];
@@ -1078,7 +1078,7 @@ void robot_arm_update(Moby *m) {
             }
             break;
         case 2:
-            matrix_mul_vec3(a20, d->offset, &m->rot_row0);
+            transform_vector_by_basis(a20, d->offset, &m->rot_row0);
             FastVecAdd(a20, a20, &m->pos);
             if (d->flags & 2) {
                 spawn_color_swapped_explosion_burst(m, a20, -1, d->radius * 0.5f, 0.0f);
@@ -1099,15 +1099,15 @@ void robot_arm_update(Moby *m) {
     }
     s23 = (char *)&d->spin;
     euler_rotation_basis(a30, s23);
-    matrix_mul_vec3(a20, d->offset, &m->rot_row0);
+    transform_vector_by_basis(a20, d->offset, &m->rot_row0);
     multiply_matrix3x3(&m->rot_row0, a30, &m->rot_row0);
-    matrix_mul_vec3(a60, d->offset, &m->rot_row0);
+    transform_vector_by_basis(a60, d->offset, &m->rot_row0);
     FastVecSub(a70, a60, a20);
     FastVecSub(&m->pos.x, &m->pos.x, a70);
     FastVecAdd(&m->pos, &m->pos, &d->velocity);
     r = d->radius;
     d->velocity.z = d->velocity.z - d->gravity;
-    matrix_mul_vec3(a80, d->offset, &m->rot_row0);
+    transform_vector_by_basis(a80, d->offset, &m->rot_row0);
     FastVecAdd(a80, a80, &m->pos);
     if (coll_sphere_s(a80, r, 0, m)) {
         float f21, f20;
@@ -1116,7 +1116,7 @@ void robot_arm_update(Moby *m) {
         f21 = FastVecLength(&d->velocity);
         f20 = FastVecDot(&d->velocity, q);
         if (f20 < 0.0f) {
-            vec_reflect(&d->velocity, &d->velocity, q);
+            reflect_vector(&d->velocity, &d->velocity, q);
             vec_scale_to_length(aD0, q, f20 * 0.5f);
             FastVecAdd(&d->velocity, &d->velocity, aD0);
             vec_scale_to_length(&d->velocity, &d->velocity, f21);
@@ -1129,8 +1129,8 @@ void robot_arm_update(Moby *m) {
     }
 }
 // copies a vector out of the game block into the second argument
-void Cam_GetHeroPosition(char *a, void *out) {
-    qcopy(out, gHeroPos);
+void follow_camera_hero_target(char *a, void *out) {
+    qcopy(out, hero_pos);
 }
 typedef struct {
     float f[4];
@@ -1138,7 +1138,7 @@ typedef struct {
 extern int find_camera_collision_volume_for_point_q(VQ *, float) __asm__("func_L00_001EE530");
 
 extern int level_spheres MACRO_ADDR;
-extern char coll_resolved_pos[];
+extern char coll_hit_position[];
 
 /* Computes two adjusted points from a moby's lookup entry and its direction vector; returns 1 on success. Adapted from Lombyte's project (GPL-3.0) for PAL: overlays/shared/gameplay_vendor_002df730.c, FUN_L00_002e4180. */
 int compute_follow_camera_radial_collision_positions(VQ *p, float r) {
@@ -1157,7 +1157,7 @@ int compute_follow_camera_radial_collision_positions(VQ *p, float r) {
         FastVecSub(d.f, p->f, (float *)c);
         l = FastVecLength(e);
         inv = 1.0f / FastVecLength(&d);
-        v = coll_resolved_pos;
+        v = coll_hit_position;
         FastVecScale(v, &d, (l + r) * inv);
         FastVecScale(v - 0x10, &d, l * inv);
         FastVecAdd(v, v, c);
@@ -1180,7 +1180,7 @@ int test_follow_camera_point_in_collision_volume(VS *a) {
 typedef float VQ_2E5770[4] __attribute__((aligned(16)));
 extern char camera_view[];
 extern char collision_hit_point_a[] __asm__("D_L00_00173F60");
-extern void Cam_GetHeroPosition(char *, void *);
+extern void follow_camera_hero_target(char *, void *);
 
 /* build the two edge vectors of a moving box from the game vector and clip them */
 int compute_follow_camera_ground_aware_target_position(void *out, int flag) {
@@ -1190,10 +1190,10 @@ int compute_follow_camera_ground_aware_target_position(void *out, int flag) {
     char *g = camera_view;
 
     if (base->frames_off_ground.s == 0) {
-        Cam_GetHeroPosition(*(char **)(g - 0x10), out);
+        follow_camera_hero_target(*(char **)(g - 0x10), out);
         return 1;
     }
-    Cam_GetHeroPosition(*(char **)(g - 0x10), a);
+    follow_camera_hero_target(*(char **)(g - 0x10), a);
     f = base->ground_distance;
     if (f >= 30.0f || flag == 0) {
         FastVecScale(d, g + 0x30, 0.2f);
@@ -1247,14 +1247,14 @@ void follow_camera_reset(Camera *m) {
     FastVecScale(c, g, *(float *)(r + 0x30));
     FastVecAdd(p + 0x90, c, q);
 }
-extern void Cam_GetHeroPosition(char *, void *);
+extern void follow_camera_hero_target(char *, void *);
 
 /* angle between a direction and an axis, signed */
 float compute_follow_camera_signed_target_angle(char *a, float f) {
     float v0[4], v1[4], v2[4], v3[4];
     float r, len;
     char *g = camera_view;
-    Cam_GetHeroPosition(a, v0);
+    follow_camera_hero_target(a, v0);
     FastVecScale(v1, g + 0x20, f);
     FastVecAdd(v1, v1, v0);
     FastVecSub(v2, v1, (float *)(a + 0x30));
@@ -1322,7 +1322,7 @@ typedef struct {
 } Vq __attribute__((aligned(16)));
 extern char *g_current_follow_cam;
 
-extern void Cam_GetHeroPosition(char *, void *);
+extern void follow_camera_hero_target(char *, void *);
 
 /* OUT = the axis at camera_view_vertical_axis scaled by the component along it of (hero position + F * the camera up
    axis
@@ -1331,7 +1331,7 @@ void compute_follow_camera_offset_target_up_projection(void *out, float f) {
     Vq t0, t1;
     char *b = (char *)&g_current_follow_cam + 0x10;
     FastVecScale(&t0, b + 0x20, f);
-    Cam_GetHeroPosition(g_current_follow_cam, &t1);
+    follow_camera_hero_target(g_current_follow_cam, &t1);
     FastVecAdd(&t0, &t0, &t1);
     FastVecScale(out, b + 0x30, FastVecDot(b + 0x30, &t0));
 }
@@ -1339,21 +1339,21 @@ extern void compute_follow_camera_offset_target_up_projection(void *out, float f
 
 extern float camera_view_field_dc;
 extern int follow_cam_view_blend_time SDATA(follow_cam_view_blend_time);
-extern short follow_cam_mode2_blend_time;
-extern short follow_cam_mode1_blend_time;
+extern short follow_camera_ground_aware_focus_transition_frames_gp;
+extern short l00_follow_camera_ground_focus_exit_transition_frames_gp;
 extern int follow_cam_high_jump_move_time SDATA(follow_cam_high_jump_move_time);
-extern float follow_cam_high_jump_distance SDATA(follow_cam_high_jump_distance);
-extern int follow_cam_mode3_move_time SDATA(follow_cam_mode3_move_time);
-extern short follow_cam_jump_blend_time;
-extern short follow_cam_return_blend_time;
-extern float follow_cam_mode3_distance SDATA(follow_cam_mode3_distance);
-extern int follow_cam_double_jump_move_time SDATA(follow_cam_double_jump_move_time);
-extern short follow_cam_double_jump_blend_time;
-extern int follow_cam_double_jump_exit_time SDATA(follow_cam_double_jump_exit_time);
-extern float follow_cam_double_jump_distance SDATA(follow_cam_double_jump_distance);
+extern float follow_camera_blend_out_focus_offset_gp SDATA(D_L00_00161E18);
+extern int follow_camera_project_hero_focus_blend_base_frames_gp SDATA(D_L00_00161E1C);
+extern short follow_camera_focus_blend_transition_frames_gp;
+extern short l00_follow_camera_post_blend_focus_transition_frames_gp;
+extern float follow_camera_project_hero_focus_offset_gp SDATA(D_L00_00161E28);
+extern int follow_camera_hold_focus_blend_base_frames_gp SDATA(D_L00_00161E2C);
+extern short follow_camera_hold_focus_transition_frames_gp;
+extern int follow_camera_hold_focus_exit_base_frames_gp SDATA(D_L00_00161E34);
+extern float follow_camera_hold_focus_blend_offset_gp SDATA(D_L00_00161E38);
 extern int follow_cam_wrench_slam_move_time SDATA(follow_cam_wrench_slam_move_time);
-extern short follow_cam_slam_recover_time;
-extern float follow_cam_wrench_slam_distance SDATA(follow_cam_wrench_slam_distance);
+extern short follow_camera_continue_projected_focus_transition_frames_gp;
+extern float follow_camera_projected_focus_blend_offset_gp SDATA(D_L00_00161E4C);
 
 typedef struct {
     float v00[4];
@@ -1373,7 +1373,7 @@ typedef struct {
 } CamAttach;
 
 /* camera attach mode transitions: picks the next state from the player's state and arms its timers */
-void follow_cam_update_mode(char *m) {
+void CamAttach_UpdateMode(char *m) {
     char *d = *(char **)(m + 0x70);
     CamAttach *e = (CamAttach *)(d + 0x40);
     char *q;
@@ -1385,20 +1385,20 @@ void follow_cam_update_mode(char *m) {
         if (p0->state.control_mode == HERO_MODE_FALL) {
             e->prev = e->state;
             e->state = 1;
-            e->timer = follow_cam_mode1_blend_time;
+            e->timer = l00_follow_camera_ground_focus_exit_transition_frames_gp;
             e->invTimer = 1.0f / IntToFloat(e->timer);
         } else {
             struct Hero *p1 = (struct Hero *)g_hero;
             if (p1->state.current == 0xF && camera_view_field_dc == 0.0f) {
                 e->prev = e->state;
                 e->state = 3;
-                e->moveTimer = scale_ticks(follow_cam_mode3_move_time);
+                e->moveTimer = scale_ticks(follow_camera_project_hero_focus_blend_base_frames_gp);
                 e->invMove = 1.0f / IntToFloat(e->moveTimer);
-                e->timer = follow_cam_jump_blend_time;
+                e->timer = follow_camera_focus_blend_transition_frames_gp;
                 inv = 1.0f / IntToFloat(e->timer);
-                e->dist = follow_cam_mode3_distance;
+                e->dist = follow_camera_project_hero_focus_offset_gp;
                 e->hit = 0;
-                x = follow_cam_mode3_distance;
+                x = follow_camera_project_hero_focus_offset_gp;
                 e->invTimer = inv;
                 compute_follow_camera_offset_target_up_projection(e->v30, x);
                 qcopy(e->v20, e->v10);
@@ -1407,7 +1407,7 @@ void follow_cam_update_mode(char *m) {
                 if (p2->state.current == 0xC && camera_view_field_dc == 0.0f) {
                     e->prev = e->state;
                     e->state = 8;
-                    e->timer = follow_cam_double_jump_blend_time;
+                    e->timer = follow_camera_hold_focus_transition_frames_gp;
                     e->invTimer = 1.0f / IntToFloat(e->timer);
                 } else {
                     struct Hero *p3 = (struct Hero *)g_hero;
@@ -1416,11 +1416,11 @@ void follow_cam_update_mode(char *m) {
                         e->state = 6;
                         e->moveTimer = scale_ticks(follow_cam_high_jump_move_time);
                         e->invMove = 1.0f / IntToFloat(e->moveTimer);
-                        e->timer = follow_cam_jump_blend_time;
+                        e->timer = follow_camera_focus_blend_transition_frames_gp;
                         inv = 1.0f / IntToFloat(e->timer);
-                        e->dist = follow_cam_high_jump_distance;
+                        e->dist = follow_camera_blend_out_focus_offset_gp;
                         e->hit = 0;
-                        x = follow_cam_high_jump_distance;
+                        x = follow_camera_blend_out_focus_offset_gp;
                         e->invTimer = inv;
                         compute_follow_camera_offset_target_up_projection(e->v30, x);
                         qcopy(e->v20, e->v10);
@@ -1430,13 +1430,13 @@ void follow_cam_update_mode(char *m) {
                             camera_view_field_dc == 0.0f) {
                             e->prev = e->state;
                             e->state = 5;
-                            e->moveTimer = scale_ticks(follow_cam_double_jump_move_time);
+                            e->moveTimer = scale_ticks(follow_camera_hold_focus_blend_base_frames_gp);
                             e->invMove = 1.0f / IntToFloat(e->moveTimer);
-                            e->timer = follow_cam_double_jump_blend_time;
+                            e->timer = follow_camera_hold_focus_transition_frames_gp;
                             inv = 1.0f / IntToFloat(e->timer);
-                            e->dist = follow_cam_double_jump_distance;
+                            e->dist = follow_camera_hold_focus_blend_offset_gp;
                             e->hit = 0;
-                            x = follow_cam_double_jump_distance;
+                            x = follow_camera_hold_focus_blend_offset_gp;
                             e->invTimer = inv;
                             compute_follow_camera_offset_target_up_projection(e->v30, x);
                             qcopy(e->v20, e->v10);
@@ -1445,7 +1445,7 @@ void follow_cam_update_mode(char *m) {
                             if (p5->state.control_mode == HERO_MODE_JUMP && camera_view_field_dc == 0.0f) {
                                 e->prev = e->state;
                                 e->state = 2;
-                                e->timer = follow_cam_mode2_blend_time;
+                                e->timer = follow_camera_ground_aware_focus_transition_frames_gp;
                                 e->invTimer = 1.0f / IntToFloat(e->timer);
                             }
                         }
@@ -1461,10 +1461,10 @@ void follow_cam_update_mode(char *m) {
         e->state = 9;
         e->moveTimer = scale_ticks(follow_cam_wrench_slam_move_time);
         r = 1.0f / IntToFloat(e->moveTimer);
-        y = follow_cam_wrench_slam_distance;
+        y = follow_camera_projected_focus_blend_offset_gp;
         e->hit = 0;
         e->timer = 0;
-        x = follow_cam_wrench_slam_distance;
+        x = follow_camera_projected_focus_blend_offset_gp;
         e->invTimer = 1.0f;
         e->dist = y;
         e->invMove = r;
@@ -1486,11 +1486,11 @@ void follow_cam_update_mode(char *m) {
             e->state = 6;
             e->moveTimer = scale_ticks(follow_cam_high_jump_move_time);
             e->invMove = 1.0f / IntToFloat(e->moveTimer);
-            e->timer = follow_cam_jump_blend_time;
+            e->timer = follow_camera_focus_blend_transition_frames_gp;
             inv = 1.0f / IntToFloat(e->timer);
-            e->dist = follow_cam_high_jump_distance;
+            e->dist = follow_camera_blend_out_focus_offset_gp;
             e->hit = 0;
-            x = follow_cam_high_jump_distance;
+            x = follow_camera_blend_out_focus_offset_gp;
             e->invTimer = inv;
             compute_follow_camera_offset_target_up_projection(e->v30, x);
             qcopy(e->v20, e->v10);
@@ -1499,7 +1499,7 @@ void follow_cam_update_mode(char *m) {
         if (p->state.control_mode == HERO_MODE_FALL) {
             e->prev = e->state;
             e->state = 1;
-            e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+            e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
             e->invTimer = 1.0f / IntToFloat(e->timer);
             return;
         }
@@ -1508,12 +1508,12 @@ void follow_cam_update_mode(char *m) {
         if (hero_control_mode == HERO_MODE_FALL) {
             e->prev = 4;
             e->state = 1;
-            e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+            e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
             e->invTimer = 1.0f / IntToFloat(e->timer);
         } else {
             e->prev = 4;
             e->state = 0;
-            e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+            e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
             e->invTimer = 1.0f / IntToFloat(e->timer);
         }
         return;
@@ -1523,11 +1523,11 @@ void follow_cam_update_mode(char *m) {
         e->state = 6;
         e->moveTimer = scale_ticks(follow_cam_high_jump_move_time);
         e->invMove = 1.0f / IntToFloat(e->moveTimer);
-        e->timer = follow_cam_jump_blend_time;
+        e->timer = follow_camera_focus_blend_transition_frames_gp;
         inv = 1.0f / IntToFloat(e->timer);
-        e->dist = follow_cam_high_jump_distance;
+        e->dist = follow_camera_blend_out_focus_offset_gp;
         e->hit = 0;
-        x = follow_cam_high_jump_distance;
+        x = follow_camera_blend_out_focus_offset_gp;
         e->invTimer = inv;
         compute_follow_camera_offset_target_up_projection(e->v30, x);
         qcopy(e->v20, e->v10);
@@ -1536,28 +1536,28 @@ void follow_cam_update_mode(char *m) {
     if (e->state == 5 && hero_current_state == 0xC) {
         e->prev = e->state;
         e->state = 8;
-        e->timer = follow_cam_double_jump_blend_time;
+        e->timer = follow_camera_hold_focus_transition_frames_gp;
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
     if (e->state == 8 && hero_current_state != 0xC) {
         e->prev = e->state;
         e->state = 0;
-        e->timer = scale_ticks(follow_cam_double_jump_exit_time);
+        e->timer = scale_ticks(follow_camera_hold_focus_exit_base_frames_gp);
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
     if (e->state == 6 && hero_current_state != 0xB) {
         e->prev = e->state;
         e->state = 0;
-        e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+        e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
     if ((e->state == 3 || e->state == 5) && hero_control_mode != HERO_MODE_JUMP) {
         e->prev = e->state;
         e->state = 0;
-        e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+        e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
@@ -1574,7 +1574,7 @@ void follow_cam_update_mode(char *m) {
         to_one:
             e->prev = e->state;
             e->state = 1;
-            e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+            e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
             r = 1.0f / IntToFloat(e->timer);
             t = follow_cam_view_blend_time;
             e->invTimer = r;
@@ -1587,33 +1587,33 @@ void follow_cam_update_mode(char *m) {
     if (e->state == 9 && hero_current_state != 0x14) {
         e->prev = e->state;
         e->state = 0xA;
-        e->timer = follow_cam_slam_recover_time;
+        e->timer = follow_camera_continue_projected_focus_transition_frames_gp;
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
     if (e->state == 0xA && FastDecTimer(&e->moveTimer)) {
         e->prev = e->state;
         e->state = 0;
-        e->timer = scale_ticks(*(int *)&follow_cam_return_blend_time);
+        e->timer = scale_ticks(*(int *)&l00_follow_camera_post_blend_focus_transition_frames_gp);
         e->invTimer = 1.0f / IntToFloat(e->timer);
         return;
     }
     if (e->state == 5 && hero_current_state == 0x10) {
         e->prev = e->state;
         e->state = 0;
-        e->timer = scale_ticks(follow_cam_double_jump_exit_time);
+        e->timer = scale_ticks(follow_camera_hold_focus_exit_base_frames_gp);
         e->invTimer = 1.0f / IntToFloat(e->timer);
     }
 }
-extern float follow_cam_target_angle_min SDATA(follow_cam_target_angle_min);
-extern float follow_cam_target_angle_max SDATA(follow_cam_target_angle_max);
-extern float follow_cam_slam_target_lerp SDATA(follow_cam_slam_target_lerp);
+extern float follow_camera_ground_focus_angle_lower_bound_gp SDATA(D_L00_00161DE0);
+extern float follow_camera_ground_focus_angle_upper_bound_gp SDATA(D_L00_00161DDC);
+extern float follow_camera_projected_focus_blend_fraction_gp SDATA(D_L00_00161E50);
 extern void lerp_vector_v(float, void *, void *, void *) __asm__("func_001F9C08");
 
 extern int compute_follow_camera_ground_aware_target_position_r(void *, int) __asm__("func_L00_002E5770");
 
 /* per-frame state machine that eases a moby's attach pose toward the camera block's vector */
-void follow_cam_focus_velocity(char *m, float *v2) {
+void CamAttach_EasePose(char *m, float *v2) {
     float cam[4];
     float tmp[4];
     char *d;
@@ -1627,7 +1627,7 @@ void follow_cam_focus_velocity(char *m, float *v2) {
     int flag;
     g = (CameraFollow *)camera_view;
     d = *(char **)(m + 0x70);
-    Cam_GetHeroPosition(m, cam);
+    follow_camera_hero_target(m, cam);
     pad = (struct Hero *)g_hero;
     e = (struct FollowCamTarget *)(d + 0x40);
     if (pad->state.current == HERO_STATE_FATAL_FALL) {
@@ -1648,13 +1648,13 @@ void follow_cam_focus_velocity(char *m, float *v2) {
     switch (e->mode) {
         case 2:
             padb = (struct Hero *)g_hero;
-            if (padb->state.current == 0x11 ||
-                (padb->past_jump_apex != 0 && padb->ground_distance > 0.2f &&
-                 ((y = compute_follow_camera_signed_target_angle(m, e->eye_height)) < follow_cam_target_angle_min ||
-                  follow_cam_target_angle_max < y))) {
+            if (padb->state.current == 0x11 || (padb->past_jump_apex != 0 && padb->ground_distance > 0.2f &&
+                                                ((y = compute_follow_camera_signed_target_angle(m, e->eye_height)) <
+                                                     follow_camera_ground_focus_angle_lower_bound_gp ||
+                                                 follow_camera_ground_focus_angle_upper_bound_gp < y))) {
                 int v;
                 e->mode = 1;
-                v = *(unsigned short *)&follow_cam_mode1_blend_time;
+                v = *(unsigned short *)&l00_follow_camera_ground_focus_exit_transition_frames_gp;
                 e->blend_frames = v;
                 e->blend_rate = 1.0f / IntToFloat((short)v);
             }
@@ -1673,9 +1673,9 @@ void follow_cam_focus_velocity(char *m, float *v2) {
                 }
             }
             if (flag != 0) {
-                if (FastAbsF(g->up_target.f[0] - g->up_target_prev.f[0]) > 0.001f ||
-                    FastAbsF(g->up_target.f[1] - g->up_target_prev.f[1]) > 0.001f ||
-                    FastAbsF(g->up_target.f[2] - g->up_target_prev.f[2]) > 0.001f) {
+                if (absolute_float(g->up_target.f[0] - g->up_target_prev.f[0]) > 0.001f ||
+                    absolute_float(g->up_target.f[1] - g->up_target_prev.f[1]) > 0.001f ||
+                    absolute_float(g->up_target.f[2] - g->up_target_prev.f[2]) > 0.001f) {
                     x = FastVecDot(cam, &g->up_target);
                     FastVecScale(v2, &g->up_target, x);
                     FastVecSub((char *)e, cam, v2);
@@ -1722,7 +1722,7 @@ void follow_cam_focus_velocity(char *m, float *v2) {
                 } else {
                     int v;
                     e->mode = 4;
-                    v = *(unsigned short *)&follow_cam_return_blend_time;
+                    v = *(unsigned short *)&l00_follow_camera_post_blend_focus_transition_frames_gp;
                     e->blend_frames = v;
                     e->blend_rate = 1.0f / IntToFloat((short)v);
                 }
@@ -1739,7 +1739,7 @@ void follow_cam_focus_velocity(char *m, float *v2) {
             x = FastVecDot(cam, &g->up_target);
             FastVecScale(v2, &g->up_target, x);
             FastVecSub((char *)e, cam, v2);
-            lerp_vector_v(follow_cam_slam_target_lerp, v2, v2, &e->unk_20);
+            lerp_vector_v(follow_camera_projected_focus_blend_fraction_gp, v2, v2, &e->unk_20);
             break;
         case 4:
         default:
@@ -1787,7 +1787,7 @@ int compute_follow_camera_target_position(char *m, void *a, void *b, int k) {
             FastVecAdd(b, a, p);
             break;
         case 1:
-            Cam_GetHeroPosition(m, buf);
+            follow_camera_hero_target(m, buf);
             FastVecAdd(b, a, buf);
             break;
         case 2:
@@ -1799,13 +1799,13 @@ int compute_follow_camera_target_position(char *m, void *a, void *b, int k) {
 }
 
 extern void interpolate_follow_camera_position(char *m, float *out, float *in, float a, float b, float c);
-extern float follow_cam_position_stiffness SDATA(follow_cam_position_stiffness);
-extern float follow_cam_position_damping SDATA(follow_cam_position_damping);
-extern float follow_cam_attach_position_stiffness SDATA(follow_cam_attach_position_stiffness);
-extern float follow_cam_attach_position_damping SDATA(follow_cam_attach_position_damping);
+extern float follow_camera_position_default_stiffness_gp SDATA(D_L00_00161DF8);
+extern float follow_camera_position_default_damping_gp SDATA(D_L00_00161DFC);
+extern float follow_camera_position_transition_end_stiffness_gp SDATA(D_L00_00161E00);
+extern float follow_camera_position_transition_end_damping_gp SDATA(D_L00_00161E04);
 
 // Camera blend: compute interpolated camera vector from current mode.
-void Cam_UpdateOffsetBlend(char *m, float *in) {
+void follow_camera_transition(char *m, float *in) {
     char *p = *(char **)(m + 0x70);
     struct FollowCamTarget *q = (struct FollowCamTarget *)(p + 0x40);
     float v[4];
@@ -1819,12 +1819,13 @@ void Cam_UpdateOffsetBlend(char *m, float *in) {
     compute_follow_camera_target_position(m, in, v, q->mode);
     t = q->mode;
     if (t == 3 || t == 5 || t == 6 || t == 7 || t == 1) {
-        x = follow_cam_attach_position_stiffness +
-            (follow_cam_position_stiffness - follow_cam_attach_position_stiffness) * s;
-        y = follow_cam_attach_position_damping + (follow_cam_position_damping - follow_cam_attach_position_damping) * s;
+        x = follow_camera_position_transition_end_stiffness_gp +
+            (follow_camera_position_default_stiffness_gp - follow_camera_position_transition_end_stiffness_gp) * s;
+        y = follow_camera_position_transition_end_damping_gp +
+            (follow_camera_position_default_damping_gp - follow_camera_position_transition_end_damping_gp) * s;
     } else {
-        x = follow_cam_position_stiffness;
-        y = follow_cam_position_damping;
+        x = follow_camera_position_default_stiffness_gp;
+        y = follow_camera_position_default_damping_gp;
     }
     interpolate_follow_camera_position(m, &q->unk_90.f[0], v, x, y, 0.0f);
 }
@@ -2169,13 +2170,13 @@ typedef struct {
     s32 i2000;
 } L_y;
 #define hero74 (*(Hero *)D_0013F450)
-extern char player_camera[];
+extern char gCameraLvl[];
 #define player_camera_y ((A_y *)D_L00_00166D80)
 
 #define D_0013C940_y (*(C_y *)g_controller_state)
-#define D_0013F3D0_y (*(L_y *)gHeroPos)
+#define D_0013F3D0_y (*(L_y *)D_0013F4D0)
 extern u8 *coll_sphere_moby_hits[];
-#define D_0013CAE0_y ((s32 *)pad_held)
+#define D_0013CAE0_y ((s32 *)D_0013CBE0)
 #define g6F10 ((f32 *)D_L00_00166F10)
 extern float follow_cam_turn_blend_weight MACRO_ADDR;
 #define g40 D_L00_0015F040
@@ -2199,15 +2200,15 @@ extern short follow_camera_vehicle_collision_probe_scale_gp;
 extern void set_follow_camera_angle_blend_from_direction(void *, float, float);
 extern void follow_camera_start_slide(void);
 extern void follow_camera_set_height(float, float);
-extern void Cam_SetDistanceGoal(float, float, int);
-extern void Cam_SetEyeOffset(int, float, float);
+extern void follow_camera_set_distance(float, float, int);
+extern void follow_camera_set_offset_scale(int, float, float);
 extern void set_follow_camera_flag_226(void);
 extern void set_follow_camera_orbit_clamp_mode(int);
 extern void follow_camera_set_lateral_spring(float, float);
 extern void set_follow_camera_angle_blend_from_position(int, float, float);
 
 /* Per-frame hero-driven tweaks of the type-0 follow camera O: swings behind the hero on event 0xD (unk2284), picks
-   orbit distance and height for the vehicle and control modes, runs the player-camera hook table (player_camera),
+   orbit distance and height for the vehicle and control modes, runs the player-camera hook table (gCameraLvl),
    looks toward a nearby flagged moby, then times the look-ahead easing (h12/h14/h16) from the recent heading
    changes, writing the blend weight into follow_cam_turn_blend_weight. */
 void follow_camera_apply_overrides(O_y *o) {
@@ -2256,7 +2257,7 @@ void follow_camera_apply_overrides(O_y *o) {
     if (hero74.vehicle_mode == 1) {
         if (s->i0 == 0) {
             q = (S40_y *)((u8 *)o->m + 0x40);
-            Cam_SetDistanceGoal(3.0f, 0.003f, 1);
+            follow_camera_set_distance(3.0f, 0.003f, 1);
             if (flag == 0) {
                 q->fB0 = 1.0f;
                 follow_camera_set_height(1.0f, 0.003f);
@@ -2266,8 +2267,8 @@ void follow_camera_apply_overrides(O_y *o) {
     }
     if (hero74.vehicle_mode == 2) {
         if (s->i10 < 2) {
-            Cam_SetEyeOffset(0, g68, 0.005f);
-            Cam_SetDistanceGoal(g6C, 0.003f, 1);
+            follow_camera_set_offset_scale(0, g68, 0.005f);
+            follow_camera_set_distance(g6C, 0.003f, 1);
             follow_camera_set_height(g70, 0.003f);
         }
         set_follow_camera_flag_226();
@@ -2291,7 +2292,7 @@ void follow_camera_apply_overrides(O_y *o) {
         if ((s8)a->p25C[0x20] < 0) {
             a->p25C = 0;
         } else {
-            if (0.3f <= FastAbsF(D_0013C940_y.f100) || 0.3f <= FastAbsF(D_0013C940_y.f104)) {
+            if (0.3f <= absolute_float(D_0013C940_y.f100) || 0.3f <= absolute_float(D_0013C940_y.f104)) {
                 a->i260 = 0;
             }
             x = &player_camera_y[0];
@@ -2380,7 +2381,7 @@ extern float follow_cam_min_eye_distance SDATA(follow_cam_min_eye_distance);
 
 // camera type 0 snap: puts the camera behind the hero, pulls it in along the line of sight, then builds its axes
 void rebuild_follow_camera_pose(int snap) {
-    CameraSystem *cams = (CameraSystem *)player_camera;
+    CameraSystem *cams = (CameraSystem *)gCameraLvl;
     Camera *cam = (Camera *)(*(char **)&cams->current);
     char *track = (char *)&cams->follow; /* the followed hero: position at 0, up vector at 0x30 */
     char *data = *(char **)&cam->state_buf;
@@ -2400,8 +2401,8 @@ void rebuild_follow_camera_pose(int snap) {
         part[2] = orbit->height;
         part[3] = 0.0f;
         mask = 0x94;
-        matrix_copy_rows(basis, hero);
-        matrix_mul_vec3(offset, part, &target->moby->rot_row0);
+        copy_matrix3x4(basis, hero);
+        transform_vector_by_basis(offset, part, &target->moby->rot_row0);
         FastVecAdd(&cam->pos, target, offset);
         FastVecScale(rise, &target->moby->rot_row2, target->eye_height);
         FastVecAdd(eye, target, rise);
@@ -2424,7 +2425,7 @@ void rebuild_follow_camera_pose(int snap) {
                 qcopy(start, eye);
                 for (i = 0; i < 3; i++) {
                     if (coll_sphere(radius, eye, 4, 0)) {
-                        qcopy(eye, coll_resolved_pos);
+                        qcopy(eye, coll_hit_position);
                     } else if (i == 0) {
                         radius += 0.25f;
                     } else {
@@ -2666,7 +2667,7 @@ extern int D_L00_00161DF4_2E8210 SDATA(D_L00_00161DF4);
 extern float follow_cam_turn_blend_weight_r __asm__("D_L00_0015F040") MACRO_ADDR;
 extern float follow_cam_setting_value_r2 __asm__("D_L00_0015F044") MACRO_ADDR;
 extern int gCamSphereMaskBaseLvl_r2 __asm__("D_L00_0015F060") MACRO_ADDR;
-extern Ctl *D_L00_00166F04;
+extern Ctl *camera_cross_axis_ptr;
 
 extern void reset_follow_camera_state_from_position_r(Camera *) __asm__("func_L00_002E80A8");
 extern void follow_camera_reset_r(Camera *) __asm__("func_L00_002E58E0");
@@ -2840,7 +2841,7 @@ int update_follow_camera_orbit_after_collision(unsigned char *m, void *b, int c,
         return d;
     }
     dist = FastVecLength(A);
-    if (g_hero_r2.vehicle_mode != 2 && FastAbsF(g_controller_state_analog) > 0.05f && d) {
+    if (g_hero_r2.vehicle_mode != 2 && absolute_float(g_controller_state_analog) > 0.05f && d) {
         dist -= (follow_cam_collision_pull_in_speed)*frame_scale;
         B->unk_34 = func_001F9850_E85E8(0x884);
     }
@@ -3021,7 +3022,7 @@ int func_L00_002E8AC8_r(Camera *m, float *pos, int unused, float sa, float sb) {
     qcopy(b, coll_resolved_pos_r2);
     FastVecAdd(e, d->v90, c);
     dist = resolve_level_path_segment_point(w, a, d->v90, e, 0.0f);
-    lim = FastVecDist(d->v90, w) / (c[11] - q[12]);
+    lim = fast_vec_dist(d->v90, w) / (c[11] - q[12]);
     lim = (D_L00_00161DA8_2E8AC8 + (f21 - D_L00_00161DA8_2E8AC8) * lim) * 0.75f;
     if (dist < lim) {
         res = 1;
@@ -3031,7 +3032,7 @@ int func_L00_002E8AC8_r(Camera *m, float *pos, int unused, float sa, float sb) {
             FastVecSub(t, o, pos);
             FastVecAdd(a, collision_hit_point_a, t);
             dist = resolve_level_path_segment_point(w, a, d->v90, e, 0.0f);
-            lim = FastVecDist(d->v90, w) / (c[11] - q[12]);
+            lim = fast_vec_dist(d->v90, w) / (c[11] - q[12]);
             lim = (D_L00_00161DA8_2E8AC8 + (f21 - D_L00_00161DA8_2E8AC8) * lim) * 0.75f;
             if (dist < lim) {
                 compute_follow_camera_collision_delta_r(m, u, w, a, o, lim - dist, sa);
@@ -3041,7 +3042,7 @@ int func_L00_002E8AC8_r(Camera *m, float *pos, int unused, float sa, float sb) {
                     FastVecSub(t, o, pos);
                     FastVecAdd(a, collision_hit_point_a, t);
                     dist = resolve_level_path_segment_point(w, a, d->v90, e, 0.0f);
-                    lim = FastVecDist(d->v90, w) / (c[11] - q[12]);
+                    lim = fast_vec_dist(d->v90, w) / (c[11] - q[12]);
                     lim = (D_L00_00161DA8_2E8AC8 + (f21 - D_L00_00161DA8_2E8AC8) * lim) * 0.75f;
                     if (dist < lim) {
                         compute_follow_camera_collision_delta_r(m, u, w, a, o, lim - dist, sa);
@@ -3110,10 +3111,10 @@ int resolve_follow_camera_orbit_path_collisions(char *m) {
                 if (adjust_follow_camera_orbit_probe_for_collisions(m, v1, i, f22, f20) != 0) {
                     ret = 1;
                     if (base->vehicle_mode != 2) {
-                        if (FastAbsF(*(float *)(&g_controller_state_analog)) > 0.05f) {
+                        if (absolute_float(*(float *)(&g_controller_state_analog)) > 0.05f) {
                             FastVecSub(w, t, u);
                             vec_scale_to_length(w, w, 1.0f);
-                            if (FastAbsF(FastVecDot(camera_view_vertical_axis, w)) < 0.75f) {
+                            if (absolute_float(FastVecDot(camera_view_vertical_axis, w)) < 0.75f) {
                                 int snd = scale_ticks(0x884);
                                 float lim = follow_cam_min_eye_distance;
                                 *(float *)(s18 + 0x30) += follow_cam_collision_pull_in_speed * frame_scale;
@@ -3258,7 +3259,7 @@ void follow_camera_avoid_mobies(int mi) {
             vec_scale_to_length(&planar_moby_direction, &planar_moby_direction, 1.0f);
             f = FastVecDot(&planar_moby_direction, orbit_state);
             f = FastArcSin(f / (((CamB *)orbit_state)->f2C - collision->f30));
-            if (FastAbsF(1.5707964f - f) < 0.43633232f) {
+            if (absolute_float(1.5707964f - f) < 0.43633232f) {
                 FastVecCross(&orbit_side_direction, orbit_state, base + 0x30);
                 vec_scale_to_length(&orbit_side_direction, &orbit_side_direction, 1.0f);
                 if (0.0f < FastVecDot(&orbit_side_direction, &moby_offset_or_camera_endpoint)) {
@@ -3308,7 +3309,7 @@ dec:
         }
     }
     f = IntToFloat(collision->h34);
-    collision->f30 = CosineInterpolate(0.0f, collision->f30, f / IntToFloat(scale_ticks(2000)));
+    collision->f30 = cosine_interpolate(0.0f, collision->f30, f / IntToFloat(scale_ticks(2000)));
     goto move;
 slow:
     retraction_timer_or_below_hold_threshold = collision->h34;
@@ -3441,7 +3442,7 @@ INCLUDE_ASM("asm/overlays", func_L00_002E98B8);
 /* Requests orbit distance X for the hero camera (g_current_follow_cam, only while its id is 0): sets the request flag
    at
    +0x3C of the orbit block (+0x130), the goal at +0x40, the rate Y at +0x48 and, when FLAG, the default at +0x58. */
-void Cam_SetDistanceGoal(float x, float y, int flag) {
+void follow_camera_set_distance(float x, float y, int flag) {
     char *p = g_current_follow_cam;
     if (*(short *)(p + 0x86) == 0) {
         struct FollowCamOrbit *q = (struct FollowCamOrbit *)(*(char **)(p + 0x70) + 0x130);
@@ -3476,7 +3477,7 @@ extern char *follow_cam_defaults_ptr;
 
 /* Sets the follow camera's offset (relative to its current one if add) and scale, unless the camera is locked.
    Adapted from Lombyte's project (GPL-3.0) for PAL: src/overlays/shared/gameplay/vendor/002df730.c, FUN_L00_002e84f0. */
-void Cam_SetEyeOffset(int add, float a, float b) {
+void follow_camera_set_offset_scale(int add, float a, float b) {
     char *p = g_current_follow_cam;
     if (*(short *)(p + 0x86) == 0) {
         struct FollowCamTarget *q = (struct FollowCamTarget *)(*(char **)(p + 0x70) + 0x40);
@@ -3588,14 +3589,14 @@ float update_follow_camera_angle_blend_from_direction(char *a0, float *a1, float
         sign = 1.0f;
     }
     r = FastSubRots(3.1415927f, ang);
-    if (lim != z2 && lim < FastAbsF(r)) {
+    if (lim != z2 && lim < absolute_float(r)) {
         return r;
     }
     t = r / 1.5707964f;
     if (t > 1.0f) {
         t = 1.0f;
     }
-    *(float *)(q + 0x1C) = CubicInterpolate(-1.0f, 0.0f, 1.0f, 0.0f, t) * sign;
+    *(float *)(q + 0x1C) = cubic_hermite_scalar(-1.0f, 0.0f, 1.0f, 0.0f, t) * sign;
     return r;
 }
 extern float update_follow_camera_angle_blend_from_direction(char *, float *, float);
@@ -3633,9 +3634,9 @@ typedef struct {
     float f24;
 } S_2E9E60;
 extern float g_controller_state_analog_r[] __asm__("D_0013CB40");
-extern int D_0015EEE0 MACRO_ADDR;
-extern int D_0015EEDC MACRO_ADDR;
-extern int D_0015EFA4 MACRO_ADDR;
+extern int opt_cam_invert MACRO_ADDR;
+extern int invert52 MACRO_ADDR;
+extern int gameplay_event_frame_count MACRO_ADDR;
 extern f32 D_L00_0015F044_2E9E60 SDATA(D_L00_0015F044);
 extern s32 D_L00_00161E5C_2E9E60 SDATA(D_L00_00161E5C);
 extern s32 D_L00_00161E60_2E9E60 SDATA(D_L00_00161E60);
@@ -3757,7 +3758,7 @@ void follow_camera_turn_and_pitch(int mi, float a, float b) {
     zero = 0.0f;
     if (b == zero) {
         sel = follow_camera_pitch_input_return_step_limit;
-    } else if (!(FastAbsF(b) < FastAbsF(turn_pitch_state->turn_rate))) {
+    } else if (!(absolute_float(b) < absolute_float(turn_pitch_state->turn_rate))) {
         sel = follow_camera_pitch_input_tracking_step_limit;
     } else if (zero < b && zero < turn_pitch_state->turn_rate) {
         sel = follow_camera_pitch_input_return_step_limit;
@@ -3782,8 +3783,8 @@ void follow_camera_turn_and_pitch(int mi, float a, float b) {
     FastVecCross(axis, p, turn_pitch_vector->vec.f);
     vec_scale_to_length(axis, axis, 1.0f);
     b = fast_atan2(e, b);
-    abs_ang = FastAbsF(b);
-    if (abs_ang < FastAbsF(lim) && sel == follow_camera_pitch_input_return_step_limit) {
+    abs_ang = absolute_float(b);
+    if (abs_ang < absolute_float(lim) && sel == follow_camera_pitch_input_return_step_limit) {
         turn_pitch_state->turn_rate = b / 0.69813168f;
     }
     if (b < lim) {
@@ -3863,7 +3864,7 @@ void follow_camera_build_view(int a_) {
     q40 = q + 0x40;
     q20 = q + 0x20;
     if (q40[0xC4] == 0xB) {
-        FastVecSub((float *)p, (float *)gHeroPos, (float *)(p + 0x30));
+        FastVecSub((float *)p, (float *)hero_pos, (float *)(p + 0x30));
         p10 = p + 0x10;
         vec_scale_to_length(p, p, 1.0f);
         p20 = p + 0x20;
@@ -3920,7 +3921,7 @@ void follow_camera_build_view(int a_) {
                 x = x + x;
                 t = x * 0.2617994f + t;
             }
-            h = Camera_SmoothAngle(q20 + 0x18, *(float *)(q20 + 0x14), t, 0.005f, 0.2f, 0.0f);
+            h = rope_spring_turn(q20 + 0x18, *(float *)(q20 + 0x14), t, 0.005f, 0.2f, 0.0f);
             *(float *)(q20 + 0x14) = h;
             e = FastSubRots(e, h);
             if (1.2217305f < e) {
@@ -3944,11 +3945,11 @@ void follow_camera_build_view(int a_) {
     FastVecCross(p20, p10, p);
 }
 
-extern void Cam_SetDistanceGoal(float, float, int);
-extern float follow_cam_distance_stiffness SDATA(follow_cam_distance_stiffness);
-extern float follow_cam_distance_damping SDATA(follow_cam_distance_damping);
-extern float follow_cam_pull_back_stiffness SDATA(follow_cam_pull_back_stiffness);
-extern float follow_cam_pull_back_damping SDATA(follow_cam_pull_back_damping);
+extern void follow_camera_set_distance(float, float, int);
+extern float orbit_distance_default_stiffness_gp SDATA(D_L00_00161DBC);
+extern float orbit_distance_default_damping_gp SDATA(D_L00_00161DC0);
+extern float orbit_distance_pull_back_stiffness_gp SDATA(D_L00_00161DE4);
+extern float orbit_distance_pull_back_damping_gp SDATA(D_L00_00161DE8);
 typedef struct PullBackBlock {
     s32 unk00; /* 0x00 */
     s16 h4; /* 0x04: nonzero while pulled back */
@@ -3983,7 +3984,7 @@ void follow_camera_pull_back(char *camera_object, float *x, float *y) {
     if (pull_back_state->h6 == 0 &&
         ((pull_back_state->h4 != 0 && g->side_dist == 0.0f &&
           FastVecDot(*(char **)g_hero_moby + 0xC0, camera_object) <= -0.3f) ||
-         (FastAbsF(g->side_dist) > 0.0001f && FastVecDot(&g->hero_delta_side, camera_object) <= -0.3f))) {
+         (absolute_float(g->side_dist) > 0.0001f && FastVecDot(&g->hero_delta_side, camera_object) <= -0.3f))) {
         pull_back_state->h4 = scale_ticks(0x78);
         k = g->side_dist * 14.2857f;
         if (k > 1.0f)
@@ -3994,22 +3995,24 @@ void follow_camera_pull_back(char *camera_object, float *x, float *y) {
         interpolated_pull_back_value = reference_distance + (pull_back_target - reference_distance) * k;
         if (current_distance < interpolated_pull_back_value)
             pull_back_state->f8 = interpolated_pull_back_value;
-        Cam_SetDistanceGoal(pull_back_state->f8, 0.003f, 0);
-        *x = follow_cam_distance_stiffness + (follow_cam_pull_back_stiffness - follow_cam_distance_stiffness) * k;
-        *y = follow_cam_distance_damping + (follow_cam_pull_back_damping - follow_cam_distance_damping) * k;
+        follow_camera_set_distance(pull_back_state->f8, 0.003f, 0);
+        *x = orbit_distance_default_stiffness_gp +
+             (orbit_distance_pull_back_stiffness_gp - orbit_distance_default_stiffness_gp) * k;
+        *y = orbit_distance_default_damping_gp +
+             (orbit_distance_pull_back_damping_gp - orbit_distance_default_damping_gp) * k;
     } else {
         if (pull_back_state->h4 != 0) {
             pull_back_state->h4 = 0;
             pull_back_state->f8 = reference_orbit_state->unk58;
         }
-        *x = follow_cam_distance_stiffness;
-        *y = follow_cam_distance_damping;
+        *x = orbit_distance_default_stiffness_gp;
+        *y = orbit_distance_default_damping_gp;
     }
 }
-extern float follow_cam_pitch_stiffness SDATA(follow_cam_pitch_stiffness);
-extern float follow_cam_pitch_damping SDATA(follow_cam_pitch_damping);
-extern float follow_cam_yaw_stiffness SDATA(follow_cam_yaw_stiffness);
-extern float follow_cam_yaw_damping SDATA(follow_cam_yaw_damping);
+extern float orbit_pitch_spring_stiffness_gp SDATA(D_L00_00161DCC);
+extern float orbit_pitch_spring_damping_gp SDATA(D_L00_00161DD0);
+extern float orbit_yaw_spring_stiffness_gp SDATA(D_L00_00161DC4);
+extern float orbit_yaw_spring_damping_gp SDATA(D_L00_00161DC8);
 extern void follow_camera_pull_back(char *, float *, float *);
 
 /* Aims a camera rig at its target: updates yaw/pitch smoothing and clamps roll. */
@@ -4044,7 +4047,7 @@ void follow_camera_orbit(int arg) {
     y = FastArcSin(e1 / x);
     h = FastVecDot(p140, up);
     r = FastArcSin(h / bc);
-    i = Camera_SmoothAngle(d + 0x154, r, y, follow_cam_pitch_stiffness, follow_cam_pitch_damping, 0.0f);
+    i = rope_spring_turn(d + 0x154, r, y, orbit_pitch_spring_stiffness_gp, orbit_pitch_spring_damping_gp, 0.0f);
     FastVecScale(t0, up, e1);
     FastVecSub(t1, (char *)p130, t0);
     FastVecScale(t2, up, h);
@@ -4053,7 +4056,7 @@ void follow_camera_orbit(int arg) {
     x = FastVecLength(t1);
     x = x * FastVecLength(t3);
     r = 1.5707964f - FastArcSin(e / x);
-    x = Camera_SmoothAngle(d + 0x150, 0.0f, r, follow_cam_yaw_stiffness, follow_cam_yaw_damping, 0.0f);
+    x = rope_spring_turn(d + 0x150, 0.0f, r, orbit_yaw_spring_stiffness_gp, orbit_yaw_spring_damping_gp, 0.0f);
     FastVecCross(t4, t3, up);
     s = (FastVecDot(t4, t1) >= 0.0f) ? 1.0f : -1.0f;
     base2 = camera_view;
@@ -4068,9 +4071,9 @@ void follow_camera_orbit(int arg) {
     len = FastVecLength(p140);
     if (len != 0.0f) {
         x = 1.5707964f - FastArcSin(e / len);
-        if (FastAbsF(x) < 0.2617994f) {
+        if (absolute_float(x) < 0.2617994f) {
             FastVecCross(t8, p140, fw);
-            build_look_at_matrix(p140, p140, t8, FastSubRots(0.2617994f, FastAbsF(x)));
+            build_look_at_matrix(p140, p140, t8, FastSubRots(0.2617994f, absolute_float(x)));
             p130->unk_28 = 0.0f;
             p130->unk_20 = 0.0f;
             p130->unk_24 = 0.0f;

@@ -117,7 +117,7 @@ int sceGsSetDefStoreImage(SdStoreImage *sp, short sbp, short sbw, short spsm, sh
 }
 
 extern void scePrintf(void *);
-extern char gs_exec_load_image_dma_timeout_msg[];
+extern char gs_load_image_dma_timeout_message[];
 
 typedef struct {
     long q[12];
@@ -135,7 +135,7 @@ int sceGsExecLoadImage(GsLoadImage *src, void *dst) {
 
     while (*(volatile unsigned int *)0x1000A000 & 0x100) {
         if (count++ > 0x1000000) {
-            scePrintf(gs_exec_load_image_dma_timeout_msg);
+            scePrintf(gs_load_image_dma_timeout_message);
             return -1;
         }
     }
@@ -150,7 +150,7 @@ int sceGsExecLoadImage(GsLoadImage *src, void *dst) {
 
     while (*(volatile unsigned int *)0x1000A000 & 0x100) {
         if (count++ > 0x1000000) {
-            scePrintf(gs_exec_load_image_dma_timeout_msg);
+            scePrintf(gs_load_image_dma_timeout_message);
             return -1;
         }
     }

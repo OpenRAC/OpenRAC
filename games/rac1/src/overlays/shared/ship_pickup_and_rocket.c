@@ -32,8 +32,8 @@ struct ShipRocketVars {
 
 typedef unsigned int u128_7d50 __attribute__((mode(TI)));
 extern int gemlik_dma_packet_cursor MACRO_ADDR;
-extern u128_7d50 gemlik_2d_prim_giftag;
-extern u128_7d50 gemlik_2d_vertex_giftag;
+extern u128_7d50 l13_transformed_2d_primitive_setup_template;
+extern u128_7d50 l13_transformed_2d_vertex_header_template;
 extern int g_screen_extent[];
 
 extern int truncate_float_to_s32(float);
@@ -57,7 +57,7 @@ void emit_transformed_2d_vertex_packet(short *pts, int n, float x0, float y0, un
     {
         char *t1 = (char *)gemlik_dma_packet_cursor;
         gemlik_dma_packet_cursor = (int)(t1 + 0x10);
-        qcopy((void *)gemlik_dma_packet_cursor, &gemlik_2d_prim_giftag);
+        qcopy((void *)gemlik_dma_packet_cursor, &l13_transformed_2d_primitive_setup_template);
         *(short *)(t1 + 0x10) = -0x7FFF;
     }
     {
@@ -69,7 +69,7 @@ void emit_transformed_2d_vertex_packet(short *pts, int n, float x0, float y0, un
     {
         char *t3 = (char *)gemlik_dma_packet_cursor;
         gemlik_dma_packet_cursor = (int)(t3 + 0x10);
-        qcopy((void *)gemlik_dma_packet_cursor, &gemlik_2d_vertex_giftag);
+        qcopy((void *)gemlik_dma_packet_cursor, &l13_transformed_2d_vertex_header_template);
         *(short *)(t3 + 0x10) = n - 0x8000;
     }
     *(u128_7d50 *)rot = 0;
@@ -140,7 +140,7 @@ unsigned char *spawn_ship_pickup(char *position, int moby_class) {
 }
 #include "structs/hero.h"
 extern Hero g_hero;
-extern struct Moby *gemlik_moby_array_start MACRO_ADDR;
+extern struct Moby *moby_base MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR;
 extern int gemlik_coll_hit_moby __attribute__((section(".data")));
 
@@ -178,7 +178,7 @@ void ShipPickupUpdate(char *moby) {
             break;
         case 2: {
             int target_index = vars[0];
-            int target_base = (int)gemlik_moby_array_start;
+            int target_base = (int)moby_base;
             struct Moby *target = (struct Moby *)(target_base + target_index * 0x100);
             if (target != 0 && target->state != 0xfe && target->state != 0xfd && vars[1] != -1 &&
                 target->state != vars[1]) {
@@ -213,7 +213,7 @@ void ShipPickupUpdate(char *moby) {
                 ((Moby *)moby)->pos.z = 20.0f;
             if (1003.0f < ((Moby *)moby)->pos.z)
                 ((Moby *)moby)->pos.z = 1003.0f;
-            Moby_GetJointWorldPos(moby, 0, position);
+            moby_point_position(moby, 0, position);
             ((Moby *)moby)->scale +=
                 (*(float *)(*(char **)&((struct Moby *)moby)->pclass + 0x24) - ((Moby *)moby)->scale) * 0.1f;
             if (coll_sphere(2.0f, position, 1, moby) && gemlik_coll_hit_moby != 0) {
@@ -225,7 +225,7 @@ void ShipPickupUpdate(char *moby) {
                 *(unsigned char *)(hero_moby + 0x20) != 0xfd) {
                 short cls = *(short *)(hero_moby + 0xa6);
                 if (cls == 0x4da || cls == 0x45 || cls == 0x563)
-                    distance = FastVecDist((void *)(hero_moby + 0x10), &((struct Moby *)moby)->pos);
+                    distance = fast_vec_dist((void *)(hero_moby + 0x10), &((struct Moby *)moby)->pos);
             }
             if (hit || distance < 4.0f) {
                 cls = ((Moby *)moby)->oclass;
@@ -254,7 +254,7 @@ void ShipPickupUpdate(char *moby) {
                 ((struct Moby *)moby)->state = 5;
                 break;
             } else if (distance < 40.0f && (((Moby *)moby)->visible) != 0) {
-                float step = 0.8f / vec_length(distance);
+                float step = 0.8f / square_root(distance);
                 FastVecSub(direction, (void *)(hero_moby + 0x10), &((struct Moby *)moby)->pos);
                 vec_scale_to_length(direction, direction, step);
                 FastVecAdd(&((struct Moby *)moby)->pos, &((struct Moby *)moby)->pos, direction);
@@ -300,7 +300,7 @@ frame_tail:
 }
 
 // Spawns an effect moby attached to a target and positioned from a source.
-unsigned char *spawn_ship_rocket(char *src, char *pos, char *target, char *vec, int arg, float scale) {
+unsigned char *spawn_fighter_jet_rocket(char *src, char *pos, char *target, char *vec, int arg, float scale) {
     unsigned char *moby = CreateMoby(0x127);
     if (moby != 0) {
         struct ShipRocketVars *data = (struct ShipRocketVars *)((Moby *)moby)->pvars;
@@ -364,12 +364,12 @@ typedef struct Tex {
 extern float SteerAngleWithVelocity_v(float *, float, float *, float, float, float) __asm__("func_L00_0025CE58");
 
 extern float g_frame_time_r __asm__("D_0015EE6C") MACRO_ADDR;
-extern float D_0015EE70 MACRO_ADDR;
-extern Tex D_L13_001B2680;
-extern Vec4A D_L13_001741E0;
+extern float g_frame_time_sq MACRO_ADDR;
+extern Tex gemlik_part_type_textures;
+extern Vec4A fighter_jet_rocket_explosion_effect_vector;
 
 /* Update for the rocket: smoke trail, steering toward its target, collision and expiry. */
-void update_ship_rocket(Moby *m) {
+void fighter_jet_rocket_update(Moby *m) {
     Rocket *d = *(void **)&m->pvars;
     Vec4A old;
     Vec4A hitpos;
@@ -406,9 +406,9 @@ void update_ship_rocket(Moby *m) {
         }
         *(Q_2E8040 *)&dir = 0;
         dir.z = 0.02f;
-        matrix_mul_vec3(&dir, &dir, &*(Vec4A *)&m->rot_row0);
+        transform_vector_by_basis(&dir, &dir, &*(Vec4A *)&m->rot_row0);
         build_look_at_matrix(&dir, &dir, &*(Vec4A *)&m->rot_row0, random_angle_radians());
-        p = PartType21Spawn(&tmp, &dir, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(5), 1, 20000.0f);
+        p = spawn_burst(&tmp, &dir, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(5), 1, 20000.0f);
         if (p != 0) {
             p[3] = 0x48;
         }
@@ -418,7 +418,7 @@ void update_ship_rocket(Moby *m) {
         d->target = 0;
     }
     if (d->target != 0 && d->target->oclass == d->target_uid && d->target->state != 0xFE && d->target->state != 0xFD &&
-        FastVecDist(&d->tpos, &*(Vec4A *)&d->target->pos) < 3.0f) {
+        fast_vec_dist(&d->tpos, &*(Vec4A *)&d->target->pos) < 3.0f) {
         m->rot.z = fast_atan2(d->target->pos.x - m->pos.x, d->target->pos.y - m->pos.y);
         m->rot.y =
             -fast_atan2(vec_distance_xy(&*(Vec4A *)&m->pos, &*(Vec4A *)&d->target->pos), d->target->pos.z - m->pos.z);
@@ -437,9 +437,9 @@ void update_ship_rocket(Moby *m) {
         DeleteMoby(m);
         return;
     }
-    Moby_GetJointWorldPos(m, 1, &hitpos);
+    moby_point_position(m, 1, &hitpos);
     if (coll_line(&old, &hitpos, 0, d->owner, 0) != 0) {
-        qcopy(&tmp, &gemlik_coll_hit_point);
+        qcopy(&tmp, &fighter_jet_rocket_explosion_effect_vector);
         spawn_explosion(m, d, &tmp, 2.0f, 10.0f, 10, 3, 0x10, 4.0f, 2.0f, 9.0f, 1.0f, 0, 20.0f, 0, 1, -1, 0);
         DeleteMoby(m);
         return;
@@ -457,11 +457,11 @@ typedef struct {
     Level13VendorItem *item;
 } Level13VendorRecord;
 extern Moby *gemlik_player_camera;
-extern Level13VendorRecord *gemlik_camera_descriptors MACRO_ADDR;
+extern Level13VendorRecord *l13_vendor_item_records MACRO_ADDR;
 /* marks a vendor item for the current moby class */
 void flag_vendor_item(int index) {
     Moby *m = gemlik_player_camera;
-    Level13VendorRecord *rec = (Level13VendorRecord *)(index * 32 + (int)gemlik_camera_descriptors);
+    Level13VendorRecord *rec = (Level13VendorRecord *)(index * 32 + (int)l13_vendor_item_records);
     Level13VendorItem *item = rec->item;
     if (m->unk86 == 0x13)
         item->field39 = 1;

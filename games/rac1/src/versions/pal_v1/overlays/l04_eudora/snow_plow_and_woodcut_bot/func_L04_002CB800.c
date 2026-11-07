@@ -12,8 +12,8 @@ void snow_plow_update(VehicleMoby *m) {
     sub = (VehicleSub *)d->motion;
     if (state == 0) {
         if (sub->path_id != -1) {
-            s32 *path = eudora_paths[sub->path_id];
-            if (FastVecDist((char *)path + 0x10, (char *)path + (*path << 4)) < 0.5f)
+            s32 *path = l04_paths[sub->path_id];
+            if (fast_vec_dist((char *)path + 0x10, (char *)path + (*path << 4)) < 0.5f)
                 --*path;
         } else {
             STUB_printf(eudora_snow_plow_no_path_msg, m->cls,
@@ -53,14 +53,14 @@ void snow_plow_update(VehicleMoby *m) {
                 break;
             }
             case 1:
-                MobySpringTurn(m, &d->turn_velocity, eudora_scene_points[d->selected].angle,
-                               g_frame_time_sq * 1.0471976f, g_frame_time_sq * 3.1415927f, g_frame_time * 3.1415927f);
-                if (vec_distance_xy(&m->pos, &eudora_scene_points[d->selected].pos) < 1.0f &&
-                    FastDiffRots(m->rot.f[2], eudora_scene_points[d->selected].angle) < 0.17453292f) {
+                MobySpringTurn(m, &d->turn_velocity, l04_cuboids[d->selected].angle, g_frame_time_sq * 1.0471976f,
+                               g_frame_time_sq * 3.1415927f, g_frame_time * 3.1415927f);
+                if (vec_distance_xy(&m->pos, &l04_cuboids[d->selected].pos) < 1.0f &&
+                    FastDiffRots(m->rot.f[2], l04_cuboids[d->selected].angle) < 0.17453292f) {
                     d->phase = 2;
                     d->phase_timer = scale_ticks(300);
                 }
-                FastVecSub(&delta, &eudora_scene_points[d->selected].pos, &m->pos);
+                FastVecSub(&delta, &l04_cuboids[d->selected].pos, &m->pos);
                 vec_scale_to_length(&delta, &delta, g_frame_time * 3.0f);
                 FastVecAdd(&m->pos, &m->pos, &delta);
                 break;
@@ -116,7 +116,7 @@ void snow_plow_update(VehicleMoby *m) {
             case 0:
             case 14:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 0, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 0, d->angle0);
                 break;
             case 19:
             case 20:
@@ -125,14 +125,14 @@ void snow_plow_update(VehicleMoby *m) {
             case 32:
             case 89:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 2, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 2, d->angle0);
                 break;
             case 22:
             case 27:
                 d->angle0 = FastAddRots(d->angle0, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix0 + 0x10, 2, d->angle0);
+                build_axis_rotation_quaternion(d->matrix0 + 0x10, 2, d->angle0);
                 d->angle1 = FastAddRots(d->angle1, g_frame_time * 12.566371f);
-                axis_rotation_2d48(d->matrix1 + 0x10, 2, d->angle1);
+                build_axis_rotation_quaternion(d->matrix1 + 0x10, 2, d->angle1);
                 break;
         }
     }
@@ -144,24 +144,24 @@ void snow_plow_update(VehicleMoby *m) {
                 delta.quad = 0;
                 delta.f[0] = 0.5f;
                 delta.f[2] = -5.0f;
-                matrix_mul_vec3(&delta, &delta, m->matrix);
+                transform_vector_by_basis(&delta, &delta, m->matrix);
                 FastVecAdd(&other->pos, &m->pos, &delta);
                 qcopy(&other->rot, &m->rot);
                 other->rot.f[1] = FastAddRots(other->rot.f[1], 1.5707964f);
                 MobyAnimAdvance(other);
                 moby_build_matrix(other);
-                moby_anim_sphere_lerp(other);
+                refresh_moby_spatial_bounds_from_basis(other);
                 other->flags |= 6;
                 break;
             case 0x1EE:
                 delta.quad = 0;
                 delta.f[2] = -2.0f;
-                matrix_mul_vec3(&delta, &delta, m->matrix);
+                transform_vector_by_basis(&delta, &delta, m->matrix);
                 FastVecAdd(&other->pos, &m->pos, &delta);
                 qcopy(&other->rot, &m->rot);
                 MobyAnimAdvance(other);
                 moby_build_matrix(other);
-                moby_anim_sphere_lerp(other);
+                refresh_moby_spatial_bounds_from_basis(other);
                 other->flags |= 6;
                 break;
         }
@@ -169,8 +169,8 @@ void snow_plow_update(VehicleMoby *m) {
     if (MobyGetHitMessage(m, 0x210000, 0)) {
         if (++eudora_skill_snow_plow_hits >= 10 && gSkillPoints.flag == 0) {
             gSkillPoints.flag = 1;
-            PlayBankSound(1, 0, 0);
-            ShowBanner(0x53D6, -1);
+            allocate_voice_for_bank_entry(1, 0, 0);
+            queue_dialogue_message(0x53D6, -1);
         }
         switch ((s16)((u16)m->cls - 0x1D2)) {
             case 19:
@@ -216,12 +216,12 @@ void snow_plow_update(VehicleMoby *m) {
                     VehicleArr_2CB800 none;
                     VehicleQuery query2;
                     clear_u64_value(none);
-                    Moby_GetJointWorldPos(m, 0, &delta);
+                    moby_point_position(m, 0, &delta);
                     FastVecAdd(&delta, &delta, offset);
-                    SpawnExplosionFx(m, &delta, -1, 1.0f, 13.0f);
-                    Moby_GetJointWorldPos(m, 1, &delta);
+                    cart_burst(m, &delta, -1, 1.0f, 13.0f);
+                    moby_point_position(m, 1, &delta);
                     FastVecAdd(&delta, &delta, offset);
-                    SpawnExplosionFx(m, &delta, -1, 1.0f, 13.0f);
+                    cart_burst(m, &delta, -1, 1.0f, 13.0f);
                     FastVecAdd(&delta, offset, &m->pos);
                     spawn_explosion(m, none, &delta, 0.0f, 0.0f, 20, 5, 4, 2, 1, 100000, 3, -1, 15, 1, 1, -1, 0);
                     Moby_PlaySound(1, 0, (s32)m);

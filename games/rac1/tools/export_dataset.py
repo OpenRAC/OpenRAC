@@ -136,7 +136,7 @@ def declared_names(item):
         return {m.group(0)} if m else set()
     if s.startswith("#"):
         return set()
-    if re.match(r"\s*(INCLUDE_ASM|INCLUDE_RODATA|ASM_FUNC|LINKER_REMNANT|__asm__)\b", s):
+    if re.match(r"\s*(INCLUDE_ASM|INCLUDE_RODATA|ASM_FUNC|LINKER_REMNANT|PREBUILT_ASM|__asm__)\b", s):
         return set()
     s = re.sub(r"__asm__\s*\([^)]*\)|__attribute__\s*\(\(.*?\)\)|\b(MACRO_ADDR|NOT_SDA)\b",
                " ", s, flags=re.S)

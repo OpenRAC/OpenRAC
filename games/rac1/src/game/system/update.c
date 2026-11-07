@@ -20,7 +20,7 @@ extern char camera_position[];
 extern void truncate_float_to_s32(float);
 
 /* Empty debug profiler hook. */
-void DebugProfiler_Hook(void) {
+void noop_graphics_callback(void) {
 }
 
 #include "structs/vector.h"
@@ -116,12 +116,12 @@ void project_graphics_bounds_float(Vec4 *a, Vec4 *b, float *w, float *h, float *
 
 LINKER_REMNANT("asm/remnants/text", func_00239180);
 
-extern char str_scrolling_status_fmt[];
+extern char scrolling_status_message_format[];
 
 /* Formats arg0 into the scrolling status message and resets its offset. */
 void set_scrolling_status_message(int arg0) {
     char *b = vendor_state;
-    sprintf(*(int *)(b + 0x2C), str_scrolling_status_fmt, arg0);
+    sprintf(*(int *)(b + 0x2C), scrolling_status_message_format, arg0);
     *(int *)(b + 0x44) = 0;
 }
 
@@ -141,10 +141,10 @@ typedef struct {
 } Cam;
 extern s32 queued_dialogue_id;
 extern s16 dialogue_playback_phase NOT_SDA;
-extern u8 D_0015EEB0[] MACRO_ADDR;
-extern s32 resident_stream_resume_frames_s4 SDATA(resident_stream_resume_frames_s4);
-extern s32 resident_stream_resume_frames_s5 SDATA(resident_stream_resume_frames_s5);
-extern s32 resident_stream_resume_frames_s6 SDATA(resident_stream_resume_frames_s6);
+extern u8 gCheats[] MACRO_ADDR;
+extern s32 resident_dialogue_after_completion_wait_thresholds SDATA(D_00161130);
+extern s32 resident_dialogue_after_start_wait_thresholds SDATA(D_00161138);
+extern s32 resident_dialogue_before_timed_idle_restore_thresholds SDATA(D_00161140);
 extern s32 resident_dialogue_started MACRO_ADDR;
 extern s32 resident_stream_pending MACRO_ADDR;
 extern BossVars vendor_state_r __asm__("D_001E66C0");
@@ -203,10 +203,11 @@ void update_resident_dialogue_animation_state(Moby *m) {
             }
             break;
         case 4:
-            if (IsFrameWithinWindow(m, ((&resident_stream_resume_frames_s4))[vendor_state_r.pick]) != 0 &&
+            if (is_value_within_interpolated_window(
+                    m, ((&resident_dialogue_after_completion_wait_thresholds))[vendor_state_r.pick]) != 0 &&
                 resident_stream_pending != 0) {
                 resident_stream_pending = 0;
-                Music_ContinueStreamIfReady();
+                continue_audio_stream_if_ready();
             }
             if (m->anim_flags & 2) {
                 if (m->prev_seq != 2) {
@@ -217,10 +218,11 @@ void update_resident_dialogue_animation_state(Moby *m) {
             }
             break;
         case 5:
-            if (IsFrameWithinWindow(m, ((&resident_stream_resume_frames_s5))[vendor_state_r.pick]) != 0 &&
+            if (is_value_within_interpolated_window(
+                    m, ((&resident_dialogue_after_start_wait_thresholds))[vendor_state_r.pick]) != 0 &&
                 resident_stream_pending != 0) {
                 resident_stream_pending = 0;
-                Music_ContinueStreamIfReady();
+                continue_audio_stream_if_ready();
             }
             if (m->anim_flags & 2) {
                 if (m->prev_seq != 2) {
@@ -231,10 +233,11 @@ void update_resident_dialogue_animation_state(Moby *m) {
             }
             break;
         case 6:
-            if (IsFrameWithinWindow(m, ((&resident_stream_resume_frames_s6))[vendor_state_r.pick]) != 0 &&
+            if (is_value_within_interpolated_window(
+                    m, ((&resident_dialogue_before_timed_idle_restore_thresholds))[vendor_state_r.pick]) != 0 &&
                 resident_stream_pending != 0) {
                 resident_stream_pending = 0;
-                Music_ContinueStreamIfReady();
+                continue_audio_stream_if_ready();
             }
             if (m->anim_flags & 2) {
                 if (m->prev_seq != 2) {

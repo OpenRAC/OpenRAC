@@ -121,13 +121,13 @@ struct HoverDummyVars {
     u8 pad_2A;
     u8 unk_2B; /* 0x2B */
     u8 pad_2C[0x34];
-    u8 manip_a[0x68]; /* 0x60: EaseManipulatorOffsets 0 */
+    u8 manip_a[0x68]; /* 0x60: update_joint_animation_fn 0 */
     f32 rate_a; /* 0xC8 */
     u8 pad_CC[0x14];
-    u8 manip_b[0x64]; /* 0xE0: EaseManipulatorOffsets 2 */
+    u8 manip_b[0x64]; /* 0xE0: update_joint_animation_fn 2 */
     f32 rate_b; /* 0x144 */
     u8 pad_148[0x18];
-    u8 manip_c[0x68]; /* 0x160: EaseManipulatorOffsets 1 */
+    u8 manip_c[0x68]; /* 0x160: update_joint_animation_fn 1 */
     f32 rate_c; /* 0x1C8 */
     u8 pad_1CC[0x14];
     u8 manip_d[0x68]; /* 0x1E0 */
@@ -141,7 +141,7 @@ struct HoverDummyVars {
     f32 unk_2B4; /* 0x2B4 */
     f32 target_speed; /* 0x2B8 */
     f32 speed; /* 0x2BC */
-    char *path_table; /* 0x2C0 */
+    char *l11_paths; /* 0x2C0 */
     f32 turn_vel; /* 0x2C4 */
     f32 vertical_vel; /* 0x2C8 */
     s32 unk_2CC; /* 0x2CC */
@@ -293,10 +293,10 @@ typedef struct {
     float unk30[4];
     float normal[4];
 } L16SparkHit;
-extern L16SparkHit D_L16_001742C0;
+extern L16SparkHit kalebo3_coll_hit;
 extern char *kalebo3_part_type23_textures;
 extern char hero_globals_base[];
-extern char D_L16_0015F660[] MACRO_ADDR;
+extern char kalebo3_zero_vec[] MACRO_ADDR;
 extern float g_frame_time MACRO_ADDR, g_frame_time_sq MACRO_ADDR;
 
 extern float SpringAngle_spark(void *, void *, float, float, float, float, int) __asm__("func_L00_0025CCF0");
@@ -304,7 +304,7 @@ extern float SpringAngle_spark(void *, void *, float, float, float, float, int) 
 extern void spawn_explosion_v(void *, void *, void *, float, float, int, int, int, float, float, float, int, float,
                               float, int, int, int, int) __asm__("func_L00_0025F4A8");
 /* Advance a homing spark, emit its trail, and test its collision or impact state. */
-void HomingSparkUpdate(Moby *m) {
+void homing_projectile_update(Moby *m) {
     L16SparkVector desired, previous, velocity, random;
     L16SparkQuery query;
     struct HomingSparkVars *d = (struct HomingSparkVars *)m->pvars;
@@ -352,9 +352,9 @@ void HomingSparkUpdate(Moby *m) {
                             0.0f);
             random.quad = 0;
             random.f[2] = 0.02f;
-            matrix_mul_vec3(random.f, random.f, matrix);
+            transform_vector_by_basis(random.f, random.f, matrix);
             build_look_at_matrix(random.f, random.f, matrix, random_angle_radians());
-            PartType21Spawn(previous.f, random.f, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(5), 1, 20000.0f);
+            spawn_burst(previous.f, random.f, 0x4F007FFF, 0x1FFFFFFF, scale_ticks(5), 1, 20000.0f);
             qcopy(previous.f, position);
             FastVecAdd(position, position, desired.f);
             if (m->pos.x < 2.0f || m->pos.y < 2.0f || m->pos.z < 2.0f)
@@ -424,7 +424,7 @@ enum GrindrailTriggerState {
 };
 
 /* Rocket update: wait for the hero in its clip volume, fly the path once, then hide and reset. */
-void update_path_following_rocket(unsigned char *moby) {
+void path_following_rocket_update(unsigned char *moby) {
     struct Moby *m = (struct Moby *)moby;
     RocketPathData *data = (RocketPathData *)m->pvars;
     char *path = kalebo3_path_table[data->path_index];
@@ -434,7 +434,7 @@ void update_path_following_rocket(unsigned char *moby) {
                 DeleteMoby(m);
                 break;
             }
-            data->step = data->speed * g_frame_time / FastVecDist(path + 0x10, path + 0x20);
+            data->step = data->speed * g_frame_time / fast_vec_dist(path + 0x10, path + 0x20);
             m->state = 1;
             m->update_dist = 100;
             m->command = 0;
@@ -455,11 +455,11 @@ void update_path_following_rocket(unsigned char *moby) {
                 m->update_dist = 0xFF;
                 m->state = 3;
             } else {
-                SamplePathAt((int *)path, 0, &m->pos, &m->rot.x, 0, data->progress.f);
+                sample_camera_path((int *)path, 0, &m->pos, &m->rot.x, 0, data->progress.f);
             }
             if (m->command)
                 m->collision = 0;
-            if (!Sound_IsPlaying(m, data->sound)) {
+            if (!voice_is_playing(m, data->sound)) {
                 data->sound = Moby_PlaySound_i(0, 4, m);
             }
             if (data->triggered == 0 && vec_distance_xy(&m->pos, &((struct Hero *)g_hero)->motion.pos) < 7.0f) {
@@ -480,7 +480,7 @@ void update_path_following_rocket(unsigned char *moby) {
                 if (FastBSphereCheck((char *)pos, 64.0f) == -1) {
                     m->command = 0;
                     data->progress.i = 0;
-                    SamplePathAt((int *)path, 0, &m->pos, &m->rot.x, 0, data->progress.f);
+                    sample_camera_path((int *)path, 0, &m->pos, &m->rot.x, 0, data->progress.f);
                     m->visible = 1;
                     m->flags &= ~1;
                     m->collision = m->pclass->collision;
@@ -580,7 +580,7 @@ typedef struct {
 } L16FallingMoby;
 
 /* Update a thrown bomb: fly and bounce off what it hits and off the ground, rest, then burst. */
-void update_thrown_bomb(L16FallingMoby *m) {
+void thrown_bomb_update(L16FallingMoby *m) {
     float previous[4], normal[4];
     L16FallingData *d = m->data;
 
@@ -594,14 +594,14 @@ void update_thrown_bomb(L16FallingMoby *m) {
             if (coll_line(previous, m->position, 5, d->owner, 0)) {
                 vec_scale_to_length(normal, kalebo3_coll_hit.normal, 1.0f);
                 if (FastVecDot(normal, d->velocity) < 0.0f) {
-                    vec_reflect(d->velocity, d->velocity, normal);
+                    reflect_vector(d->velocity, d->velocity, normal);
                     FastVecScale(d->velocity, d->velocity, 0.25f);
                 }
             }
             if (coll_sphere(0.333f, m->position, 2, 0)) {
                 vec_scale_to_length(normal, kalebo3_coll_hit.normal, 0.333f);
                 if (FastVecDot(normal, d->velocity) < 0.0f) {
-                    vec_reflect(d->velocity, d->velocity, normal);
+                    reflect_vector(d->velocity, d->velocity, normal);
                     FastVecScale(d->velocity, d->velocity, 0.25f);
                 }
                 qcopy(m->position, kalebo3_coll_hit.position);
@@ -659,23 +659,23 @@ unsigned char *spawn_thrown_bomb(int a, void *pos, float *dir, int c, float f) {
     }
     return moby;
 }
-extern void initialize_moby_sprite_effect(char *);
+extern void initialize_spinning_sprite_effect(char *);
 
-extern void emit_moby_sprite_effect_particles(char *);
+extern void draw_spinning_sprite_effect_sprites(char *);
 extern float g_frame_time MACRO_ADDR;
 
 /* updates the moby: initialises in state 0, then runs its motion in state 1 */
-void update_spinning_moby_sprite_effect(unsigned char *m) {
+void spinning_sprite_effect_update(unsigned char *m) {
     struct Moby *moby = (struct Moby *)m;
     enum { MOBY_STATE_INITIALIZE = 0, MOBY_STATE_SPIN_AND_DRAW_SPRITES = 1 };
     switch (moby->state) {
         case MOBY_STATE_INITIALIZE: {
             float ground_height;
             float vertical_distance_to_ground;
-            initialize_moby_sprite_effect((char *)moby);
+            initialize_spinning_sprite_effect((char *)moby);
             moby->scale = moby->scale * 0.9f;
-            ground_height = ProbeGroundHeight(&moby->pos, 0, 0.5f);
-            vertical_distance_to_ground = FastAbsF(ground_height - moby->pos.z);
+            ground_height = probe_ground_height(&moby->pos, 0, 0.5f);
+            vertical_distance_to_ground = absolute_float(ground_height - moby->pos.z);
             if (vertical_distance_to_ground < 1.0f) {
                 moby->pos.z = ground_height + 0.9f;
             }
@@ -684,13 +684,13 @@ void update_spinning_moby_sprite_effect(unsigned char *m) {
         }
         case MOBY_STATE_SPIN_AND_DRAW_SPRITES:
             moby->rot.z = FastAddRots(moby->rot.z, g_frame_time * 4.1887903f);
-            emit_moby_sprite_effect_particles((char *)moby);
+            draw_spinning_sprite_effect_sprites((char *)moby);
             break;
     }
 }
 
 // Initialises the per-moby data block with random values, tick scalars and constants.
-void initialize_moby_sprite_effect(char *moby) {
+void initialize_spinning_sprite_effect(char *moby) {
     struct SpriteEffectVars *data = (struct SpriteEffectVars *)((Moby *)moby)->pvars;
     float *f = (float *)((char *)data);
     int *p;
@@ -724,7 +724,7 @@ typedef struct {
 extern int truncate_float_to_s32_r(float) __asm__("func_001FA898");
 
 /* Emit four camera-facing glow particles at the moby, cycling their spin and colour timers. */
-void emit_moby_sprite_effect_particles(char *m) {
+void draw_spinning_sprite_effect_sprites(char *m) {
     L16SpriteData *p = ((L16SpriteData *)((Moby *)m)->pvars);
     float d[4] __attribute__((aligned(16)));
     float e[4] __attribute__((aligned(16)));
@@ -750,8 +750,8 @@ void emit_moby_sprite_effect_particles(char *m) {
         }
         f = IntToFloat(scale_ticks(0xFF) - p->c[i]);
         f = f / (float)scale_ticks(0xFF);
-        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, FastAbsF(0.5f - f));
-        PartType59Spawn(d, col, truncate_float_to_s32_r(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
+        col = FastTweenColor(0x4040FFFF, 0x1040FFFF, absolute_float(0.5f - f));
+        spawn_timed_hero_relative_particle(d, col, truncate_float_to_s32_r(p->a[i]) & 0xFF, 0x35, 1, 2, 0, p->d[i]);
         FastVecAdd(d, d, e);
     }
 }
@@ -824,14 +824,14 @@ void update_conveyor_group_voice(unsigned char *m) {
     do {
         char *other = kalebo3_moby_array + (((unsigned short)*p & 0x7FFF) << 8);
         if (*(short *)(other + 0xA6) == 0x1D7) {
-            float dist = FastVecDist(kalebo3_camera_pos, other + 0x10);
+            float dist = fast_vec_dist(kalebo3_camera_pos, other + 0x10);
             if (dist < best) {
                 nearest = other;
                 best = dist;
             }
         }
     } while (*p++ >= 0);
-    if (FastVecDist(nearest + 0x10, kalebo3_camera_pos) < 64.0f) {
+    if (fast_vec_dist(nearest + 0x10, kalebo3_camera_pos) < 64.0f) {
         int idx = d->sound_slot;
         char *slot;
         if (idx >= 0) {
@@ -1142,11 +1142,11 @@ void test_dummy_update(unsigned char *moby) {
             } else {
                 qcopy(position_or_delta.f, dummy_data->target);
             }
-            if (IsFrameWithinWindow(moby, 15.0f) && dummy_data->child) {
+            if (is_value_within_interpolated_window(moby, 15.0f) && dummy_data->child) {
                 float speed = test_dummy_bomb_horizontal_launch_speed * g_frame_time;
                 float gravity = g_frame_time_sq * 10.0f;
-                position_or_delta.f[2] = ProbeGroundHeight(position_or_delta.f, 0, 0.5f);
-                Moby_GetJointWorldPos(dummy_data->child, 0, position_or_direction.f);
+                position_or_delta.f[2] = probe_ground_height(position_or_delta.f, 0, 0.5f);
+                moby_point_position(dummy_data->child, 0, position_or_direction.f);
                 FastVecSub(launch_velocity.f, position_or_delta.f, position_or_direction.f);
                 launch_velocity.f[2] = 0.0f;
                 vec_scale_to_length(launch_velocity.f, launch_velocity.f, speed);
@@ -1160,7 +1160,7 @@ void test_dummy_update(unsigned char *moby) {
                     MobyBlendAnimation(moby, 23, 0, scale_ticks(30));
                 }
             }
-            if (MobyGetFrameValue(moby) < 15.0f) {
+            if (compute_interpolated_record_value(moby) < 15.0f) {
                 position_or_direction.quad = *(u128 *)&((struct Moby *)moby)->pos;
                 move_test_dummy_toward_position_and_heading(
                     moby, position_or_direction.f,
@@ -1186,7 +1186,7 @@ void test_dummy_update(unsigned char *moby) {
                 FastVecSub(position_or_delta.f, path + (dummy_data->node * 16 + 16), position);
                 ClampVectorLength(position_or_delta.f, test_dummy_path_movement_speed_limit_gp * g_frame_time);
                 FastVecAdd(position, position, position_or_delta.f);
-                Moby_GetJointWorldPos(moby, test_dummy_hold_joint, position_or_direction.f);
+                moby_point_position(moby, test_dummy_hold_joint, position_or_direction.f);
                 MobySphereHitDirectional((int)moby, 0.333f, position_or_direction.f, 1, 1.0f, 1.0f, 0, 1, 0);
                 g = (struct Hero *)g_hero;
                 if (kalebo3_coll_hit_moby == *(char **)&g->moby && g->invulnerable_frames == 0) {
@@ -1251,7 +1251,7 @@ void test_dummy_update(unsigned char *moby) {
             }
             if (dummy_data->child) {
                 char *slots;
-                Moby_GetJointWorldPos(dummy_data->child, 0, position_or_delta.f);
+                moby_point_position(dummy_data->child, 0, position_or_delta.f);
                 slots = dummy_data->slots;
                 position_or_direction.f[0] = FastCos(fast_atan2(position_or_delta.f[0] - ((struct Moby *)moby)->pos.x,
                                                                 position_or_delta.f[1] - ((struct Moby *)moby)->pos.y));
@@ -1261,7 +1261,7 @@ void test_dummy_update(unsigned char *moby) {
                 effect_slots_fire(slots, position_or_delta.f, position_or_direction.f, test_dummy_spray_range_gp);
                 position_or_direction.f[3] = 5627.925f;
                 position_or_direction.f[2] = 1.0f;
-                InitDirectionalHitQuery(&fx, moby, 0x10001, 1.0f, position_or_direction.f);
+                make_hit_descriptor(&fx, moby, 0x10001, 1.0f, position_or_direction.f);
                 fx.kind = 5;
                 fx.enabled = 1;
                 fx.cls = *(unsigned short *)&((Moby *)moby)->oclass;
@@ -1300,7 +1300,7 @@ void test_dummy_update(unsigned char *moby) {
                                kalebo3_zero_vec);
             qcopy(position_or_delta.f, position);
             position_or_delta.f[2] += 1.2f;
-            SpawnExplosionFx(moby, position_or_delta.f, -1, 0.5f, 10.0f);
+            cart_burst(moby, position_or_delta.f, -1, 0.5f, 10.0f);
             SetDeathBits(moby, 0, -1);
             Moby_PlaySound_i(7, 0, moby);
             dummy_data->lives--;
@@ -1448,9 +1448,9 @@ void update_test_dummy_damage_and_respawn(void *moby) {
     m->opacity = 255;
     StepColorFade(m, d->reaction);
     if (d->child) {
-        Moby_GetJointWorldPos(m, test_dummy_hold_joint, d->child->position);
-        MobyTransformScaledVertex((char *)m, test_dummy_hold_joint, (char *)matrix);
-        matrix_copy_rows(d->child->matrix[0], matrix);
+        moby_point_position(m, test_dummy_hold_joint, d->child->position);
+        build_moby_bone_transform((char *)m, test_dummy_hold_joint, (char *)matrix);
+        copy_matrix3x4(d->child->matrix[0], matrix);
         vec_scale_to_length(d->child->matrix[0], d->child->matrix[0], 1.0f);
         vec_scale_to_length(d->child->matrix[1], d->child->matrix[1], 1.0f);
         vec_scale_to_length(d->child->matrix[2], d->child->matrix[2], 1.0f);
@@ -1605,7 +1605,7 @@ void draw_test_dummy_group_glows(L16BeamMoby *moby) {
 }
 
 extern int Moby_PlaySound_i(int, int, void *) __asm__("func_0022ED80");
-extern void set_class_056b_collision_enabled(void *, int);
+extern void set_wall_button_blocker_collision(void *, int);
 
 extern int g_current_level_index MACRO_ADDR;
 extern float D_L16_0015EE6C SDATA(D_L16_0015EE6C);
@@ -1622,7 +1622,7 @@ void wall_button_update(char *m) {
                 (*(unsigned char *)((char *)(m) + (0xBC))) = 1;
                 (*(unsigned char *)((char *)(m) + (0x20))) = 2;
                 if ((d->unk_60) != -1) {
-                    set_class_056b_collision_enabled(kalebo3_moby_array + ((d->unk_60) << 8), 0);
+                    set_wall_button_blocker_collision(kalebo3_moby_array + ((d->unk_60) << 8), 0);
                 }
             } else
                 (*(unsigned char *)((char *)(m) + (0x20))) = 1;
@@ -1643,7 +1643,7 @@ void wall_button_update(char *m) {
                 (d->glow_phase) = 1.5707964f;
                 Moby_PlaySound_i(0, 0, m);
                 if ((d->unk_60) != -1)
-                    set_class_056b_collision_enabled(kalebo3_moby_array + ((d->unk_60) << 8), 0);
+                    set_wall_button_blocker_collision(kalebo3_moby_array + ((d->unk_60) << 8), 0);
                 if ((d->unk_64) > 0)
                     (d->timer) = scale_ticks((d->unk_64));
             }
@@ -1662,7 +1662,7 @@ void wall_button_update(char *m) {
                     (*(unsigned char *)((char *)(m) + (0x20))) = 1;
                     (d->glow_phase) = 1.5707964f;
                     if ((d->unk_60) != -1) {
-                        set_class_056b_collision_enabled(kalebo3_moby_array + ((d->unk_60) << 8), 1);
+                        set_wall_button_blocker_collision(kalebo3_moby_array + ((d->unk_60) << 8), 1);
                     }
                 } else if ((d->timer) < scale_ticks(90))
                     (d->glow_phase) = FastAddRots((d->glow_phase), (D_L16_0015EE6C) * 25.132742f);
@@ -1673,14 +1673,14 @@ void wall_button_update(char *m) {
     (*(unsigned char *)((char *)(m) + (0xA4))) = 255;
 }
 extern void initialize_linked_pair_group_r(void *) __asm__("func_L16_002D0990");
-extern int is_linked_pair_effect_enabled(void *);
+extern int is_linked_pair_ribbon_enabled(void *);
 extern void draw_linked_pair_group_ribbons(char *);
 extern int Moby_PlaySound_i(int, int, void *) __asm__("func_0022ED80");
 
 extern char hero_globals_base[];
 
 /* Updates a moby: waits for trigger, registers a draw callback and a sound handle. */
-void update_linked_pair_effect(char *moby) {
+void linked_pair_ribbons_update(char *moby) {
     int *data = ((int *)((Moby *)moby)->pvars);
     if ((((Moby *)moby)->flags & 2) == 0) {
         unsigned char state = *(char *)&((Moby *)moby)->state;
@@ -1692,10 +1692,10 @@ void update_linked_pair_effect(char *moby) {
                 }
                 break;
             case 1:
-                if (is_linked_pair_effect_enabled(moby) != 0) {
+                if (is_linked_pair_ribbon_enabled(moby) != 0) {
                     data[2] = state;
                     AddDrawCallback(draw_linked_pair_group_ribbons, moby);
-                    if (Sound_IsPlaying(moby, data[3]) == 0) {
+                    if (voice_is_playing(moby, data[3]) == 0) {
                         data[3] = Moby_PlaySound_i(0, 4, moby);
                     }
                 } else if (data[2] != 0) {
@@ -1748,7 +1748,7 @@ int find_linked_pair_partner_by_height(char *arg) {
     for (;; p++) {
         other = (L16HeightPeer *)(kalebo3_moby_array + ((*(unsigned short *)p & 0x7FFF) << 8));
         if (0x228 == other->type && m != other) {
-            if (FastAbsF(other->position[2] - m->position[2]) < 0.1f)
+            if (absolute_float(other->position[2] - m->position[2]) < 0.1f)
                 return (int)other;
         }
         if (*p < 0)
@@ -1756,7 +1756,7 @@ int find_linked_pair_partner_by_height(char *arg) {
     }
 }
 // Returns 0 if any moby in the list at m[0x21] has type 0x222 and a nonzero byte at 0xBC, else 1.
-int is_linked_pair_effect_enabled(void *mv) {
+int is_linked_pair_ribbon_enabled(void *mv) {
     unsigned char *m = mv;
     unsigned short *p = (unsigned short *)kalebo3_moby_groups[m[0x21]];
     if (p == 0)
@@ -1798,7 +1798,7 @@ void draw_linked_pair_group_ribbons(char *arg) {
     }
 }
 extern float linked_pair_ribbon_uvs[][2];
-extern float linked_pair_ribbon_points[][4];
+extern float linked_pair_ribbon_vertex_positions[][4];
 extern float linked_pair_ribbon_origin_z_offset SDATA(linked_pair_ribbon_origin_z_offset);
 extern float linked_pair_ribbon_pass_z_step SDATA(linked_pair_ribbon_pass_z_step);
 extern int linked_pair_ribbon_texture_id SDATA(linked_pair_ribbon_texture_id);
@@ -1835,7 +1835,7 @@ void draw_linked_pair_ribbons(char *moby, char *partner) {
         packet.uv[corner].u = linked_pair_ribbon_uvs[corner][0];
         packet.uv[corner].v = linked_pair_ribbon_uvs[corner][1];
         packet.color[corner] = color;
-        qcopy(packet.point[corner], linked_pair_ribbon_points[corner]);
+        qcopy(packet.point[corner], linked_pair_ribbon_vertex_positions[corner]);
     }
     for (pass = 0; pass < 4; pass++) {
         draw_world_quad(&packet, frame[0], 0);
@@ -1930,7 +1930,7 @@ struct AccumulateMobyFramesInGroupBoundsVars {
     u16 unk_2F6;
 };
 
-void accumulate_moby_frames_in_group_bounds(char *moby) {
+void collect_hoverboard_dummy_boosts(char *moby) {
     struct AccumulateMobyFramesInGroupBoundsVars *data =
         (struct AccumulateMobyFramesInGroupBoundsVars *)((Moby *)moby)->pvars;
     struct Hero *g = (struct Hero *)g_hero;
@@ -1965,7 +1965,7 @@ void accumulate_moby_frames_in_group_bounds(char *moby) {
                     set_identity_matrix(m);
                     matrix_from_basis_rows(m, l1 + 0xC0);
                     transform_vector(v, v, m);
-                    if (FastAbsF(v[0]) < 0.5f && FastAbsF(v[1]) < 2.5f && FastAbsF(v[2]) < 2.5f) {
+                    if (absolute_float(v[0]) < 0.5f && absolute_float(v[1]) < 2.5f && absolute_float(v[2]) < 2.5f) {
                         data->unk_2F6 += scale_ticks(0x78);
                         data->unk_2DC = scale_ticks(0x3C);
                     }
@@ -1984,7 +1984,7 @@ void accumulate_moby_frames_in_group_bounds(char *moby) {
                     set_identity_matrix(m);
                     matrix_from_basis_rows(m, l2 + 0xC0);
                     transform_vector(v, v, m);
-                    if (FastAbsF(v[0]) < 2.8f && FastAbsF(v[1]) < 1.4f && FastAbsF(v[2]) < 0.5f) {
+                    if (absolute_float(v[0]) < 2.8f && absolute_float(v[1]) < 1.4f && absolute_float(v[2]) < 0.5f) {
                         data->unk_2F6 += scale_ticks(0x78);
                         data->unk_2DC = scale_ticks(0x3C);
                     }
@@ -2000,7 +2000,7 @@ void prepare_hoverboard_dummy_path_jump(char *moby) {
     struct HoverDummyVars *data = (struct HoverDummyVars *)((Moby *)moby)->pvars;
     if (data->vertical_vel <= 0.0f) {
         int idx = data->unk_2F4;
-        char *tab = data->path_table;
+        char *tab = data->l11_paths;
         int off = idx * 16;
         if (*(float *)(tab + off + 0x1C) == 1.0f) {
             while (1) {
@@ -2008,11 +2008,11 @@ void prepare_hoverboard_dummy_path_jump(char *moby) {
                 if (*(float *)(tab + off + 0x1C) == 2.0f)
                     break;
                 idx = offset_path_index(tab, idx, 1, 1);
-                tab = data->path_table;
+                tab = data->l11_paths;
                 off = idx * 16;
             }
             data->unk_2F0 = idx;
-            qcopy(&data->path_pos, data->path_table + (short)idx * 16 + 0x10);
+            qcopy(&data->path_pos, data->l11_paths + (short)idx * 16 + 0x10);
             data->unk_2E4 = 1;
         }
     }
@@ -2024,7 +2024,7 @@ typedef struct {
 extern float g_frame_scale_sq MACRO_ADDR;
 extern float g_frame_time_sq MACRO_ADDR;
 extern float SpringAngle_v(void *, void *, int, float, float, float, float) __asm__("func_L00_0025CCF0");
-extern void func_L00_00237B70(void *, int, int, int);
+extern void DefaultVtbl_DeleteMoby(void *, int, int, int);
 
 typedef struct {
     char pad0[0x268];
@@ -2078,14 +2078,14 @@ void update_hoverboard_dummy_jump_animation_and_pitch(Moby *m) {
             (float)scale_ticks(27) < duration) {
             short sequence;
             int chosen;
-            chosen = rand_range(0, 3) + 1;
+            chosen = random_int_between(0, 3) + 1;
             d->sequence = chosen;
             sequence = chosen;
             DefaultVtbl_DeleteMoby(m, sequence, 3, scale_ticks(7));
         }
         if (d->sequence != -1) {
             if (m->seq == m->prev_seq) {
-                float frame = MobyGetFrameValue(m);
+                float frame = compute_interpolated_record_value(m);
                 if (frame > 7.0f && frame < 20.0f && duration != 0.0f) {
                     float speed = 30.0f / duration;
                     if (speed > 1.7f)
@@ -2108,7 +2108,7 @@ void update_hoverboard_dummy_jump_animation_and_pitch(Moby *m) {
         if (m->seq == m->prev_seq && m->seq == 5 && duration != 0.0f) {
             float remaining;
             remaining = 50.0f;
-            remaining -= MobyGetFrameValue(m);
+            remaining -= compute_interpolated_record_value(m);
             remaining /= duration;
             m->anim_speed = remaining;
         }
@@ -2131,7 +2131,7 @@ typedef struct {
     char pad150[8];
     float yaw;
 } L16RacePlayer;
-extern L16RacePlayer kalebo3_player_camera;
+extern L16RacePlayer l16_camera;
 
 extern int kalebo3_hoverboard_races_finished SDATA(kalebo3_hoverboard_races_finished);
 extern int hoverboard_dummy_spray_initial_color SDATA(hoverboard_dummy_spray_initial_color);
@@ -2160,7 +2160,7 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
             ((Moby *)m)->update_dist = 24;
             ((Moby *)m)->flags |= 0x41;
             path = kalebo3_path_table[d->path_index];
-            d->path_table = path;
+            d->l11_paths = path;
             copy_hoverboard_dummy_path_node((Level16VendorVectorMoby *)m, 0, pos);
             qcopy(&((Moby *)m)->pos, pos);
             qcopy(&d->start_pos, &((Moby *)m)->pos);
@@ -2218,7 +2218,7 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
 
                 d->unk_2F2 = count;
                 if (scale_ticks(240) < timer) {
-                    L16RacePlayer *player = &kalebo3_player_camera;
+                    L16RacePlayer *player = &l16_camera;
 
                     if (FastDiffRots(fast_atan2(((Moby *)m)->pos.x - player->position[0],
                                                 ((Moby *)m)->pos.y - player->position[1]),
@@ -2253,7 +2253,7 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
             }
             ((Moby *)m)->hit_slot = 255;
             advance_hoverboard_dummy_path_node((char *)m);
-            accumulate_moby_frames_in_group_bounds((char *)m);
+            collect_hoverboard_dummy_boosts((char *)m);
             prepare_hoverboard_dummy_path_jump((char *)m);
             if (d->unk_2E4 != 0) {
                 (d->unk_2E4)++;
@@ -2263,15 +2263,15 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
                     while (i < d->unk_2F0) {
                         char *path;
 
-                        next = offset_path_index(d->path_table, i, 1, 1);
-                        path = d->path_table;
+                        next = offset_path_index(d->l11_paths, i, 1, 1);
+                        path = d->l11_paths;
                         distance += vec_distance_xy(path + (i * 16 + 16), path + (next * 16 + 16));
                         i = next;
                     }
                     {
                         short last = d->unk_2F0;
                         short first = d->unk_2F4;
-                        char *path = d->path_table;
+                        char *path = d->l11_paths;
                         float rise =
                             *(float *)(path - (-(last * 16)) + 0x18) - *(float *)(path - (-(first * 16)) + 0x18);
 
@@ -2308,11 +2308,11 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
                     }
                 }
             }
-            z = ProbeGroundHeight(&d->start_pos, 0, 0.5f);
+            z = probe_ground_height(&d->start_pos, 0, 0.5f);
             gap = d->start_pos.z - z;
             if (gap > 0.0f || d->vertical_vel > 0.0f) {
                 d->vertical_vel -= g_frame_time_sq * 21.0f;
-            } else if (FastAbsF(gap) < 0.5f) {
+            } else if (absolute_float(gap) < 0.5f) {
                 d->vertical_vel = 0.0f;
                 d->start_pos.z = z;
                 d->unk_2E4 = 0;
@@ -2376,7 +2376,7 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
             ((Moby *)m)->pos.z += FastSin(d->bob_phase) * 0.08f;
             FastVecSub(ahead, &((Moby *)m)->pos, &d->ahead_ref);
             qcopy(&d->ahead_ref, &((Moby *)m)->pos);
-            Moby_GetJointWorldPos(m, (kalebo3_frame_count & 1) | 4, impact);
+            moby_point_position(m, (kalebo3_frame_count & 1) | 4, impact);
             angle = random_angle_radians();
             scale = g_frame_time * 0.25f;
             vec_scale_to_length(spray, &((Moby *)m)->rot_row2, scale * FastCos(angle));
@@ -2386,19 +2386,19 @@ void test_dummy_on_hoverboard_update(unsigned char *m) {
             qcopy(spray, ahead);
             spray[3] = 120000.0f;
             if (*(short *)&d->unk_2F6 == 0) {
-                int ticks = rand_range(scale_ticks(10), scale_ticks(13));
+                int ticks = random_int_between(scale_ticks(10), scale_ticks(13));
 
-                PartType04Spawn(impact, spray, hoverboard_dummy_spray_initial_color, hoverboard_dummy_spray_final_color,
-                                ticks, 15, 15, 1);
+                spawn_effect(impact, spray, hoverboard_dummy_spray_initial_color, hoverboard_dummy_spray_final_color,
+                             ticks, 15, 15, 1);
             } else {
                 int ticks;
 
                 FastVecScale(dust, ahead, 0.92f);
-                ticks = rand_range(scale_ticks(15), scale_ticks(18));
-                PartType04Spawn(impact, dust, 0x5032F0D2, hoverboard_dummy_spray_final_color, ticks, 30, 20, 1);
-                ticks = rand_range(scale_ticks(8), scale_ticks(17));
-                PartType21Spawn(impact, spray, hoverboard_dummy_spray_initial_color, hoverboard_dummy_spray_final_color,
-                                ticks, 1, 15000.0f);
+                ticks = random_int_between(scale_ticks(15), scale_ticks(18));
+                spawn_effect(impact, dust, 0x5032F0D2, hoverboard_dummy_spray_final_color, ticks, 30, 20, 1);
+                ticks = random_int_between(scale_ticks(8), scale_ticks(17));
+                spawn_burst(impact, spray, hoverboard_dummy_spray_initial_color, hoverboard_dummy_spray_final_color,
+                            ticks, 1, 15000.0f);
             }
             break;
     }
@@ -2448,7 +2448,7 @@ void *set_door_647_group_activation_and_find_nearest(int index, int secondary) {
         moby = kalebo3_moby_array + ((*(unsigned short *)p & 0x7FFF) << 8);
         if (((Moby *)moby)->oclass != MOBY_CLASS_DOOR_647)
             continue;
-        d = FastVecDist(kalebo3_camera_pos, &((Moby *)moby)->pos);
+        d = fast_vec_dist(kalebo3_camera_pos, &((Moby *)moby)->pos);
         if (d < distance) {
             distance = d;
             nearest = moby;
@@ -2477,7 +2477,7 @@ void *activate_door_647_group_and_find_nearest(int index, int secondary) {
         moby = kalebo3_moby_array + ((*(unsigned short *)p & 0x7FFF) << 8);
         if (((Moby *)moby)->oclass != MOBY_CLASS_DOOR_647)
             continue;
-        d = FastVecDist(kalebo3_camera_pos, &((Moby *)moby)->pos);
+        d = fast_vec_dist(kalebo3_camera_pos, &((Moby *)moby)->pos);
         data = ((int *)((Moby *)moby)->pvars);
         if (d < distance) {
             distance = d;
@@ -2540,7 +2540,7 @@ void *find_nearest_test_dummy_door(int index, void *position) {
         moby = kalebo3_moby_array + ((*(unsigned short *)p & 0x7FFF) << 8);
         if (((struct Moby *)moby)->oclass != MOBY_CLASS_TEST_DUMMY_DOOR)
             continue;
-        d = FastVecDist(position, &((struct Moby *)moby)->pos);
+        d = fast_vec_dist(position, &((struct Moby *)moby)->pos);
         if (d < distance) {
             distance = d;
             nearest = moby;
@@ -2578,7 +2578,7 @@ typedef struct {
     int trigger, helper, path, hidden, pose, camera, objective, pad1, pad2, timer;
 } L16SceneData;
 /* Drive a triggered scene, player pose and objective completion. */
-void update_triggered_group_objective(char *m) {
+void test_dummy_challenge_update(char *m) {
     enum {
         SCENE_STATE_INITIALIZE = 0,
         SCENE_STATE_WAIT_FOR_TRIGGER = 1,
@@ -2616,7 +2616,7 @@ void update_triggered_group_objective(char *m) {
             moby->state = 2;
             if (scene_data->camera >= 0)
                 *(unsigned short *)(player + 0x225A) = *(unsigned short *)&scene_data->camera;
-            CameraScript(kalebo3_camera_pos, kalebo3_camera_pos + 0x10, 1, 0, 0);
+            jet_mount(kalebo3_camera_pos, kalebo3_camera_pos + 0x10, 1, 0, 0);
             helper = activate_door_647_group_and_find_nearest(scene_data->helper, 0);
             goto notify;
         }
@@ -2644,9 +2644,9 @@ void update_triggered_group_objective(char *m) {
             moby->visible = 1;
             moby->state = 4;
             moby->flags &= 0xFFFE;
-            CameraScript2(3);
-            Hero_ResetToPosition(kalebo3_level_cuboids_m + (scene_data->pose << 7) + 0x30,
-                                 kalebo3_level_cuboids_m + (scene_data->pose << 7) + 0x70, 0, 1);
+            jet_end_mount(3);
+            set_race_camera(kalebo3_level_cuboids_m + (scene_data->pose << 7) + 0x30,
+                            kalebo3_level_cuboids_m + (scene_data->pose << 7) + 0x70, 0, 1);
             MobySphereHitDirectional((int)m, 5.0f, kalebo3_level_cuboids_m + (scene_data->pose << 7) + 0x30, 0x10000,
                                      50.0f, 1.0f, 0, 1, 0);
             ((L16ObjectiveEntry *)(gSpecialItems + scene_data->objective))->complete = 1;
@@ -2690,7 +2690,7 @@ void compute_triggered_scene_path_pose(char *moby, void *out1, float *out2) {
     char *tbl = kalebo3_path_table[data->path_index];
     FastVecSub(v, &((struct Hero *)g_hero)->motion.pos, entry + 0x30);
     v[3] = 0;
-    matrix_mul_vec3(v, v, entry + 0x40);
+    transform_vector_by_basis(v, v, entry + 0x40);
     ApproachWithVelocity_v((v[1] + 1.0f) * 0.5f, g_frame_time_sq, g_frame_time_sq, g_frame_time + g_frame_time,
                            &data->progress, &data->progress_vel);
     lerp_vector(out1, tbl + 0x10, tbl + 0x20, data->progress);
@@ -2700,7 +2700,7 @@ void compute_triggered_scene_path_pose(char *moby, void *out1, float *out2) {
 }
 
 // Update moby 800: waits for a trigger value, then plays an effect and deletes itself.
-void update_moby_hit_triggered_removal(char *moby) {
+void Moby800Update(char *moby) {
     int flag = 0;
     struct HitMessage *p = (struct HitMessage *)MobyGetHitMessage(moby, 0x10000, 0);
     switch (*(unsigned char *)(moby + 0x20)) {
@@ -2722,11 +2722,11 @@ void update_moby_hit_triggered_removal(char *moby) {
             break;
     }
 }
-extern float kalebo3_challenge_layout_value SDATA(kalebo3_challenge_layout_value);
+extern float challenge_layout_param SDATA(D_L16_00161D34);
 
 // Store float to global (gp-relative)
 void challenge_set_layout_param(float f) {
-    kalebo3_challenge_layout_value = f;
+    challenge_layout_param = f;
 }
 
 /* Play the moby's sound and switch it from state 1 to state 7. */
@@ -2837,8 +2837,8 @@ void help_desk_lady_update(Moby *moby) {
             if (kalebo3_game_mode != 2) {
                 char *player;
                 moby->state = 1;
-                Hero_ResetToPosition(help_desk_hero_reset_pose, help_desk_hero_reset_pose + 4, 0, 1);
-                Help_Request(0x3E82, 0x84);
+                set_race_camera(help_desk_hero_reset_pose, help_desk_hero_reset_pose + 4, 0, 1);
+                help_request(0x3E82, 0x84);
                 grant_inventory_item(0x21, 1);
                 jet_clear_persistent(moby->mission);
                 player = &((struct Hero *)((char *)&hero_globals_base_watch + 0xE1D))->motion.pos;
@@ -2899,7 +2899,7 @@ void help_desk_lady_update(Moby *moby) {
         scratch.eye[2] += 1.5f;
         FastVecSub(scratch.delta, scratch.target, scratch.eye);
         yaw = FastSubRots(fast_atan2(scratch.delta[0], scratch.delta[1]), moby->rot.z);
-        pitch = -fast_atan2(vec_length_xy(scratch.delta), scratch.delta[2]);
+        pitch = -fast_atan2(vector_length_xy(scratch.delta), scratch.delta[2]);
         if (yaw > 1.5707964f)
             yaw = 1.5707964f;
         else if (yaw < -1.5707964f)
@@ -2919,7 +2919,7 @@ void help_desk_lady_update(Moby *moby) {
 }
 
 /* UpdateMoby: on the first tick scales two data floats by 0.25 into the moby and sets its state. */
-void initialize_moby_rotation_scales(Moby *moby) {
+void wall_button_blocker_update(Moby *moby) {
     float *d = ((float *)moby->pvars);
     if (moby->state == 0) {
         vec_scale_to_length(&moby->rot_row1, &moby->rot_row1, d[0] * 0.25f);
@@ -2930,7 +2930,7 @@ void initialize_moby_rotation_scales(Moby *moby) {
     }
 }
 // Level 16's moby 0x56B: takes its target from its class record, or clears it.
-void set_class_056b_collision_enabled(void *moby, int on) {
+void set_wall_button_blocker_collision(void *moby, int on) {
     if (((struct Moby *)moby)->oclass == 0x56B) {
         if (on != 0) {
             ((struct Moby *)moby)->collision = *(int *)(*(char **)&((struct Moby *)moby)->pclass + 0x10);
@@ -3096,7 +3096,7 @@ void CratePlatformUpdate(L16CrateMoby *m) {
                 if (d->mode == 1) {
                     MobySetAnimation(m, 0, 0);
                 } else {
-                    d->child = spawn_floating_mine(m, m->position);
+                    d->child = spawn_bolt_thief_mine(m, m->position);
                     update_linked_moby_position(m);
                     MobySetAnimation(m, 2, 0);
                 }
@@ -3168,8 +3168,8 @@ void CratePlatformUpdate(L16CrateMoby *m) {
             }
             break;
         case 6:
-            if (mine_fall(m, d->knock) & 3) {
-                SpawnExplosionFx(m, m->position, -1, 1.0f, 13.0f);
+            if (step_moby_motion(m, d->knock) & 3) {
+                cart_burst(m, m->position, -1, 1.0f, 13.0f);
                 DeleteMoby(m);
                 return;
             }
@@ -3197,7 +3197,7 @@ int advance_bolt_thief_path(char *moby) {
         path = kalebo3_path_table_path54[data->path_b];
     else
         path = kalebo3_path_table_path54[data->path_a];
-    r = Spline_AdvanceByDistance(path, pos, (float *)&data->spline_seg, &data->spline_t, 0, t);
+    r = sample_path(path, pos, (float *)&data->spline_seg, &data->spline_t, 0, t);
     Spring(&((Moby *)moby)->pos.x, &data->pos_vel.x, pos[0], *(float *)&kalebo3_path_spring_stiffness,
            *(float *)&kalebo3_path_spring_damping, 0.0f);
     Spring(&((Moby *)moby)->pos.y, &data->pos_vel.y, pos[1], *(float *)&kalebo3_path_spring_stiffness,
@@ -3205,8 +3205,8 @@ int advance_bolt_thief_path(char *moby) {
     Spring(&((Moby *)moby)->pos.z, &data->pos_vel.z, pos[2], *(float *)&kalebo3_path_spring_stiffness,
            *(float *)&kalebo3_path_spring_damping, 0.0f);
     FastVecSub(delta, pos, &((Moby *)moby)->pos);
-    if (FastAbsF(delta[0]) > 0.01f) {
-        if (FastAbsF(delta[1]) > 0.01f) {
+    if (absolute_float(delta[0]) > 0.01f) {
+        if (absolute_float(delta[1]) > 0.01f) {
             MobySpringTurn_v(moby, fast_atan2(delta[0], delta[1]), &data->turn_vel,
                              *(float *)&kalebo3_path_spring_stiffness, *(float *)&kalebo3_path_spring_damping, 0.0f);
         }
@@ -3216,12 +3216,12 @@ int advance_bolt_thief_path(char *moby) {
 
 extern void SelectNearestTargetSlot(void *);
 extern void prepare_taxi_departure_path(char *);
-extern void request_moby_help_message(char *);
+extern void request_taxi_destination_help_message(char *);
 
 extern void SamplePathAt_r(float, int *, int, void *, float *, int) __asm__("func_00215CA8");
-extern int Path_AdvanceProgress(char *);
+extern int advance_taxi_path(char *);
 extern void transfer_moby_placement_to_linked_moby(void *);
-extern void apply_moby_wobble(char *);
+extern void apply_taxi_wobble(char *);
 extern void transform_moby_table_entry_vectors(char *);
 typedef struct {
     char pad00[0x30];
@@ -3262,9 +3262,9 @@ void PathPickup_Update(char *moby) {
                 FastVecSub(v70, &g->motion, &((Moby *)moby)->pos);
                 v70[3] = 0;
                 transform_vector(v70, v70, v30);
-                if (FastAbsF(v70[1]) < 1.2f) {
+                if (absolute_float(v70[1]) < 1.2f) {
                     prepare_taxi_departure_path(moby);
-                    request_moby_help_message(moby);
+                    request_taxi_destination_help_message(moby);
                     if ((pad0_pressed & 0x10) && kalebo3_help_message_selector == 8) {
                         ((Moby *)moby)->state = 3;
                         m = FindMobyByDataId(moby, d->spawn_id);
@@ -3298,7 +3298,7 @@ void PathPickup_Update(char *moby) {
             }
             break;
         case 4:
-            if (Path_AdvanceProgress(moby)) {
+            if (advance_taxi_path(moby)) {
                 *(int *)&d->progress = 0;
                 *(int *)&d->progress_vel = 0;
                 ((Moby *)moby)->state = 5;
@@ -3312,7 +3312,7 @@ void PathPickup_Update(char *moby) {
             tab = kalebo3_level_cuboids;
             qcopy(qa, tab[s].position);
             qcopy(v60, tab[s].direction);
-            SamplePathAt(d->path, 0, v30, v50, 0, (float)*d->path);
+            sample_camera_path(d->path, 0, v30, v50, 0, (float)*d->path);
             lerp_vector(&d->pos, v30, v40, d->progress);
             d->rot.y = FastAddRots(FastSubRots(v60[1], v50[1]) * d->progress, v50[1]);
             d->rot.z = FastAddRots(FastSubRots(v60[2], v50[2]) * d->progress, v50[2]);
@@ -3335,16 +3335,16 @@ void PathPickup_Update(char *moby) {
             }
             break;
     }
-    apply_moby_wobble(moby);
+    apply_taxi_wobble(moby);
     if (((Moby *)moby)->state >= 3 && ((Moby *)moby)->state <= 5) {
         g2 = (struct Hero *)g_hero;
         g2->jump_lock_timer = 2;
         g2->unk1F4 = 2;
         transform_moby_table_entry_vectors((char *)&((Moby *)moby)->bsphere);
-        if (Sound_IsPlaying(moby, d->unk_AA) == 0) {
+        if (voice_is_playing(moby, d->unk_AA) == 0) {
             d->unk_AA = Moby_PlaySound_i(0, 4, moby);
         }
-    } else if (Sound_IsPlaying(moby, d->unk_AA) != 0) {
+    } else if (voice_is_playing(moby, d->unk_AA) != 0) {
         h = d->unk_AA;
         if (h != -1) {
             e = voice_pool + h * 0x70;
@@ -3357,7 +3357,7 @@ void PathPickup_Update(char *moby) {
     FastVecSub(v20, &((Moby *)moby)->pos, v00);
     update_entity_matrix(d->matrix, v20, v10, &((Moby *)moby)->rot);
 }
-extern unsigned char D_0013D5C8[];
+extern unsigned char item_available[];
 
 /* picks the nearest target slot and sets the moby's state */
 void SelectNearestTargetSlot(void *moby_v) {
@@ -3369,7 +3369,7 @@ void SelectNearestTargetSlot(void *moby_v) {
     char *g;
     data->slot = -1;
     for (i = 0; i < 3; i++) {
-        if (FastVecDist(&moby->pos, kalebo3_level_cuboids_m + (list[i] << 7) + 0x30) < 1.0f) {
+        if (fast_vec_dist(&moby->pos, kalebo3_level_cuboids_m + (list[i] << 7) + 0x30) < 1.0f) {
             data->slot = i;
         }
     }
@@ -3417,7 +3417,7 @@ void prepare_taxi_departure_path(char *moby) {
             break;
     }
     p = *(char **)&d->path;
-    r = FastVecDist(p + 0x10, p + 0x20);
+    r = fast_vec_dist(p + 0x10, p + 0x20);
     a = g_frame_time * 20.0f;
     b = g_frame_time_sq * 5.0f;
     inv = 1.0f / (r * (float)*d->path);
@@ -3449,17 +3449,17 @@ void transfer_moby_placement_to_linked_moby(void *moby_v) {
 extern float ApproachWithVelocity_v(float, float, float, float, float *, float *) __asm__("func_00214D88");
 
 /* Ease the moby's path progress toward 1 and sample its path point; return 1 at the end. */
-int Path_AdvanceProgress(char *m) {
+int advance_taxi_path(char *m) {
     struct PathVehicleVars *d = (struct PathVehicleVars *)((Moby *)m)->pvars;
     int *path;
     ApproachWithVelocity_v(1.0f, d->accel, d->accel, d->accel_rate, &d->progress, &d->progress_vel);
     path = d->path;
-    SamplePathAt(path, 0, &d->pos, &d->rot.x, 0, d->progress * (float)(*path - 1));
+    sample_camera_path(path, 0, &d->pos, &d->rot.x, 0, d->progress * (float)(*path - 1));
     return d->progress >= 1.0f;
 }
 
 /* Show the help message picked by the moby's message index. */
-void request_moby_help_message(char *moby) {
+void request_taxi_destination_help_message(char *moby) {
     switch (*(short *)(((char *)((Moby *)moby)->pvars) + 0xAE)) {
         case 0:
             try_set_help_message(8, 0x3E89);
@@ -3494,7 +3494,7 @@ typedef struct {
 } L16WobbleData;
 
 /* Bob and sway the moby around its saved position with three sine phases, clamped to 10 degrees. */
-void apply_moby_wobble(char *moby_arg) {
+void apply_taxi_wobble(char *moby_arg) {
     struct Moby *moby = (struct Moby *)moby_arg;
     L16WobbleData *data = (L16WobbleData *)moby->pvars;
     float wobble_phase, wobble_value, wobble_phase_step;
@@ -3523,7 +3523,7 @@ void apply_moby_wobble(char *moby_arg) {
         moby->rot.y = -0.17453292f;
 }
 
-extern char path_seven_point_local_offsets[];
+extern char table_entry_source_vectors[];
 
 /* Move the moby's 7-point path into world space by its matrix and hand its index to the hero. */
 void transform_moby_table_entry_vectors(char *a) {
@@ -3535,7 +3535,8 @@ void transform_moby_table_entry_vectors(char *a) {
             int i;
             struct Hero *g;
             for (i = 0; i < 7; i++) {
-                matrix_mul_vec3(p + 0x10 + i * 16, path_seven_point_local_offsets + i * 16, &((Moby *)a)->rot_row0);
+                transform_vector_by_basis(p + 0x10 + i * 16, table_entry_source_vectors + i * 16,
+                                          &((Moby *)a)->rot_row0);
                 FastVecAdd(p + 0x10 + i * 16, p + 0x10 + i * 16, &((Moby *)a)->pos);
             }
             g = (struct Hero *)g_hero;
@@ -3543,15 +3544,15 @@ void transform_moby_table_entry_vectors(char *a) {
         }
     }
 }
-extern float grindrail_gate_trigger_box[];
-extern int grindrail_gate_command_ticks SDATA(grindrail_gate_command_ticks);
-extern int grindrail_gate_glow_color_start SDATA(grindrail_gate_glow_color_start);
-extern int grindrail_gate_glow_color_end SDATA(grindrail_gate_glow_color_end);
+extern float grindrail_gate_local_trigger_bounds[];
+extern int l16_grindrail_gate_command_duration_frames SDATA(D_L16_00161E98);
+extern int l16_grindrail_gate_glow_bright_color SDATA(D_L16_00161E9C);
+extern int l16_grindrail_gate_glow_dim_color SDATA(D_L16_00161EA0);
 extern int FastTweenColor_v(float, int, int) __asm__("func_001FA8A8");
 extern int Moby_PlaySound_r2(int, int, void *) __asm__("func_0022ED80");
 
 /* Moves the moby through its trigger states and checks its local bounds. */
-void update_grindrail_gate(unsigned char *m) {
+void grindrail_gate_update(unsigned char *m) {
     enum {
         GRINDRAIL_GATE_INITIALIZE = 0,
         GRINDRAIL_GATE_CHECK_HERO_BOUNDS = 1,
@@ -3567,7 +3568,7 @@ void update_grindrail_gate(unsigned char *m) {
 
     glow_cycle_phase = IntToFloat(kalebo3_frame_count % period) / IntToFloat(period);
     gate_moby->glow_color = FastTweenColor_v(FastSin(glow_cycle_phase * 6.28318f - 3.14159f) * 0.5f + 0.5f,
-                                             grindrail_gate_glow_color_start, grindrail_gate_glow_color_end);
+                                             l16_grindrail_gate_glow_bright_color, l16_grindrail_gate_glow_dim_color);
     switch (gate_moby->state) {
         case GRINDRAIL_GATE_INITIALIZE:
             gate_moby->state = 1;
@@ -3575,19 +3576,19 @@ void update_grindrail_gate(unsigned char *m) {
             break;
         case GRINDRAIL_GATE_CHECK_HERO_BOUNDS:
             hero_position = &((struct Hero *)g_hero)->motion.pos;
-            if (FastVecDist(&gate_moby->pos, hero_position) < 16.0f) {
+            if (fast_vec_dist(&gate_moby->pos, hero_position) < 16.0f) {
                 matrix_from_basis_rows(pos, &gate_moby->rot_row0);
                 FastVecSub(hero_offset_from_gate, hero_position, &gate_moby->pos);
                 transform_vector(hero_offset_from_gate, hero_offset_from_gate, pos);
-                if (grindrail_gate_trigger_box[0] < hero_offset_from_gate[0] &&
-                    hero_offset_from_gate[0] < grindrail_gate_trigger_box[1] &&
-                    grindrail_gate_trigger_box[2] < hero_offset_from_gate[1] &&
-                    hero_offset_from_gate[1] < grindrail_gate_trigger_box[3] &&
-                    grindrail_gate_trigger_box[4] < hero_offset_from_gate[2] &&
-                    hero_offset_from_gate[2] < grindrail_gate_trigger_box[5]) {
+                if (grindrail_gate_local_trigger_bounds[0] < hero_offset_from_gate[0] &&
+                    hero_offset_from_gate[0] < grindrail_gate_local_trigger_bounds[1] &&
+                    grindrail_gate_local_trigger_bounds[2] < hero_offset_from_gate[1] &&
+                    hero_offset_from_gate[1] < grindrail_gate_local_trigger_bounds[3] &&
+                    grindrail_gate_local_trigger_bounds[4] < hero_offset_from_gate[2] &&
+                    hero_offset_from_gate[2] < grindrail_gate_local_trigger_bounds[5]) {
                     gate_moby->command = 1;
                     gate_moby->state = 2;
-                    command_timer->timer = scale_ticks(grindrail_gate_command_ticks);
+                    command_timer->timer = scale_ticks(l16_grindrail_gate_command_duration_frames);
                     Moby_PlaySound_r2(1, 0, gate_moby);
                 }
             }
@@ -3601,14 +3602,14 @@ void update_grindrail_gate(unsigned char *m) {
     }
 }
 extern float bounds_trigger_box[];
-extern int bounds_trigger_command_ticks SDATA(bounds_trigger_command_ticks);
-extern int bounds_trigger_glow_color_start SDATA(bounds_trigger_glow_color_start);
-extern int bounds_trigger_glow_color_end SDATA(bounds_trigger_glow_color_end);
+extern int l16_local_bounds_trigger_command_timeout_frames SDATA(D_L16_00161EA4);
+extern int l16_local_bounds_trigger_dim_glow_color SDATA(D_L16_00161EA8);
+extern int l16_local_bounds_trigger_bright_glow_color SDATA(D_L16_00161EAC);
 extern int FastTweenColor_v(float, int, int) __asm__("func_001FA8A8");
 extern int Moby_PlaySound_r3(int, int, void *) __asm__("func_0022ED80");
 
 /* Moves the moby through its trigger states and checks its local bounds. */
-void update_local_bounds_command_trigger(unsigned char *m) {
+void local_bounds_command_trigger_update(unsigned char *m) {
     struct Moby *trigger_moby = (struct Moby *)m;
     struct CommandTimerVars *command_timer = (struct CommandTimerVars *)trigger_moby->pvars;
     char *bounds_check_position;
@@ -3617,8 +3618,9 @@ void update_local_bounds_command_trigger(unsigned char *m) {
     float glow_cycle_phase;
     int period = scale_ticks(30);
     glow_cycle_phase = IntToFloat(kalebo3_frame_count % period) / IntToFloat(period);
-    trigger_moby->glow_color = FastTweenColor_v(FastSin(glow_cycle_phase * 6.28318f - 3.14159f) * 0.5f + 0.5f,
-                                                bounds_trigger_glow_color_start, bounds_trigger_glow_color_end);
+    trigger_moby->glow_color =
+        FastTweenColor_v(FastSin(glow_cycle_phase * 6.28318f - 3.14159f) * 0.5f + 0.5f,
+                         l16_local_bounds_trigger_dim_glow_color, l16_local_bounds_trigger_bright_glow_color);
     switch (trigger_moby->state) {
         case GRINDRAIL_TRIGGER_INITIALIZE:
             trigger_moby->state = 1;
@@ -3626,7 +3628,7 @@ void update_local_bounds_command_trigger(unsigned char *m) {
             break;
         case GRINDRAIL_TRIGGER_CHECK_LOCAL_BOUNDS:
             bounds_check_position = &((struct Hero *)g_hero)->motion.pos;
-            if (FastVecDist(&trigger_moby->pos, bounds_check_position) < 16.0f) {
+            if (fast_vec_dist(&trigger_moby->pos, bounds_check_position) < 16.0f) {
                 matrix_from_basis_rows(pos, &trigger_moby->rot_row0);
                 FastVecSub(bounds_check_offset_from_trigger, bounds_check_position, &trigger_moby->pos);
                 bounds_check_offset_from_trigger[3] = 0.0f;
@@ -3640,7 +3642,7 @@ void update_local_bounds_command_trigger(unsigned char *m) {
                     Moby_PlaySound_r3(1, 0, trigger_moby);
                     trigger_moby->command = 1;
                     trigger_moby->state = 2;
-                    command_timer->timer = scale_ticks(bounds_trigger_command_ticks);
+                    command_timer->timer = scale_ticks(l16_local_bounds_trigger_command_timeout_frames);
                 }
             }
             break;
@@ -3679,12 +3681,12 @@ void grindrail_button_update(unsigned char *m) {
                 if (vec_distance_xy(&button_moby->pos, g) < 4.0f) {
                     base = g - 0x80;
                     if (*(int *)(base + 0x2084) == 0x28 && *(int *)(base + 0x5A8) != -1) {
-                        matrix_mul_vec3(button_offset_from_hero, &grindrail_button_local_offset,
-                                        &button_moby->rot_row0);
+                        transform_vector_by_basis(button_offset_from_hero, &grindrail_button_local_offset,
+                                                  &button_moby->rot_row0);
                         FastVecAdd(button_offset_from_hero, button_offset_from_hero, &button_moby->pos);
                         FastVecSub(button_offset_from_hero, button_offset_from_hero, g);
-                        matrix_mul_vec3(button_offset_from_hero, button_offset_from_hero, g - 0x40);
-                        if (FastAbsF(button_offset_from_hero[1]) < 0.1f) {
+                        transform_vector_by_basis(button_offset_from_hero, button_offset_from_hero, g - 0x40);
+                        if (absolute_float(button_offset_from_hero[1]) < 0.1f) {
                             if ((button_offset_from_hero[0] > 0.0f && *(int *)(base + 0x5A8) == 3) ||
                                 (button_offset_from_hero[0] < 0.0f && *(int *)(base + 0x5A8) == 2)) {
                                 activate_grindrail_button_r(m);
@@ -3750,7 +3752,7 @@ void chomper_update(char *m) {
     struct ChomperVars *chomper_data = (struct ChomperVars *)chomper_moby->pvars;
     update_chomper_hit_reaction_and_target(chomper_moby);
     Manipulator_ApplyScale(2.1f, (int)chomper_moby, 1, &chomper_data->manip[0]);
-    if (chomper_moby->visible != 0 && FastVecDist(&chomper_moby->pos, kalebo3_camera_pos) < 29.0f) {
+    if (chomper_moby->visible != 0 && fast_vec_dist(&chomper_moby->pos, kalebo3_camera_pos) < 29.0f) {
         set_ground_height_band(chomper_moby);
         chomper_moby->shadow_range = 23;
     }
@@ -3797,10 +3799,10 @@ void chomper_update(char *m) {
                 fast_atan2(chomper_data->target.x - chomper_moby->pos.x, chomper_data->target.y - chomper_moby->pos.y);
             SteerAngleWithVelocity(yaw, &chomper_data->turn_vel, angle, g_frame_time_sq * 12.566371f,
                                    g_frame_time_sq * 12.566371f, g_frame_time * 12.566371f);
-            if (IsFrameWithinWindow(chomper_moby, 13.0f)) {
+            if (is_value_within_interpolated_window(chomper_moby, 13.0f)) {
                 collect_mobies_in_sphere_at_moby_point_v(chomper_moby, 0, 1, 0.333f, 1.0f, 1.0f, 0, 1, 0);
             } else if ((chomper_moby->anim_flags & 2) &&
-                       FastVecDist(&chomper_moby->pos, &chomper_data->target) > 1.5f) {
+                       fast_vec_dist(&chomper_moby->pos, &chomper_data->target) > 1.5f) {
                 chomper_moby->state = CHOMPER_APPROACH_TARGET;
                 if (chomper_moby->prev_seq != 0)
                     MobyBlendAnimation(chomper_moby, 0, 0, scale_ticks(20));
@@ -3822,8 +3824,8 @@ void chomper_update(char *m) {
             }
             break;
         case CHOMPER_KNOCKBACK:
-            if (mine_fall(chomper_moby, chomper_data->carry) & 0x140) {
-                SpawnExplosionFx(chomper_moby, &chomper_moby->pos, 6, 0.5f, 13.0f);
+            if (step_moby_motion(chomper_moby, chomper_data->carry) & 0x140) {
+                cart_burst(chomper_moby, &chomper_moby->pos, 6, 0.5f, 13.0f);
                 SetDeathBits(chomper_moby, 0, -1);
                 DeleteMoby(chomper_moby);
             }
@@ -3906,7 +3908,7 @@ void update_chomper_hit_reaction_and_target(void *chomper_instance) {
         pursuit_data->timer = g_frame_time * 2.0f;
         chomper_moby->flags &= ~0x1000;
         *(u128 *)scratch = *(u128 *)&hit->unk_10;
-        HeadingFromVector(scratch, scratch + 4, &pursuit_data->jump_speed, &pursuit_data->turn_speed);
+        trooper_knockback_arc(scratch, scratch + 4, &pursuit_data->jump_speed, &pursuit_data->turn_speed);
         InitKnockback_v(chomper_moby, pursuit_data->knock, 5, 1, 0, scratch[4]);
         pursuit_data->f170 = 8.0f;
         pursuit_data->f174 = 16.0f;
@@ -3923,7 +3925,7 @@ void update_chomper_hit_reaction_and_target(void *chomper_instance) {
                                   (void *)(reaction_kind_or_path_address + 0x10),
                                   *(int *)reaction_kind_or_path_address) != 2) {
         if (vec_distance_xy(pursuit_data->home, pursuit_data->target) > 16.0f ||
-            FastAbsF(chomper_moby->position[2] - pursuit_data->target[2]) > 3.0f) {
+            absolute_float(chomper_moby->position[2] - pursuit_data->target[2]) > 3.0f) {
             pursuit_data->i1C4 = 2;
         }
     }
@@ -3949,14 +3951,14 @@ float move_chomper_toward_position(void *m_v, void *t_v) {
     a = FastAddRots(a, d->unk_1F8);
     oldz = m->pos.z;
     vel = 0.0f;
-    dist = FastVecDist(&m->pos, t);
+    dist = fast_vec_dist(&m->pos, t);
     SteerAngleWithVelocity(&m->rot.z, &d->turn_vel, a, g_frame_time_sq * 12.566371f, g_frame_time_sq * 12.566371f,
                            g_frame_time * 12.566371f);
     ApproachWithVelocity_r(&vel, dist, g_frame_time_sq * 8.0f, g_frame_time_sq * 12.0f, g_frame_time * 4.0f,
                            &d->unk_204);
     vec_scale_to_length(vec, &m->rot_row0, d->unk_204);
     vec[2] = d->unk_208 - g_frame_time_sq * 10.0f;
-    move_4318(m, vec, 0.5f, 0.5f, 0.0f, 0x10);
+    MoveMobyWithCollision(m, vec, 0.5f, 0.5f, 0.0f, 0x10);
     resolve_point_path_segment_xy_clearance(0.333f, *(void **)&d->path, &m->pos, &m->pos);
     d->unk_208 = oldz - m->pos.z;
     return dist;

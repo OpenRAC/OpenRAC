@@ -10,7 +10,7 @@ extern int acquire_menu_stream_buffer(int);
 extern void clear_scene_state_buffers(void);
 extern void *create_menu_preview_moby(int);
 extern int delete_moby(int);
-extern void initialize_transfer_command(void);
+extern void func_00219E60(void);
 extern void load_level_zero_preserving_progress(int);
 extern void render_level_effects_and_screen_sprites(void);
 extern void reset_active_camera_position_and_basis(void);

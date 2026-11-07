@@ -12,6 +12,6 @@ extern void audioDecEndPut(void *, int);
 extern void audioDecReset(void *);
 extern void audioDecSend(void *);
 extern void audioDecStart(void *);
-extern int is_state_field_large(void *);
+extern int func_0023C2B0(void *);
 
 #endif /* GAME_MOVIE_AUDIODEC_H */

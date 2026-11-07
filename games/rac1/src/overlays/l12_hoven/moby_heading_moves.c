@@ -23,15 +23,15 @@ s32 move_moby_along_heading(struct Moby *m, void *ctl) {
     qcopy(&ahead, &m->pos);
     ahead.f[0] += FastCos(m->rot.z) * 100.0f;
     ahead.f[1] += FastSin(m->rot.z) * 100.0f;
-    return move_w(m, ctl, &ahead, &out, 1.0f);
+    return MobySteerToward(m, ctl, &ahead, &out, 1.0f);
 }
 
 /* tests whether a point lies within height, distance and heading limits of a moby */
 int test_point_within_moby_limits(char *a, float *b, float x, float y, float z) {
-    float d = FastAbsF(b[2] - *(float *)(a + 0x18));
+    float d = absolute_float(b[2] - *(float *)(a + 0x18));
     if (d > y)
         return 0;
-    if (FastVecDist(b, a + 0x10) > x)
+    if (fast_vec_dist(b, a + 0x10) > x)
         return 0;
     if (!(0.0f < z))
         return 1;
@@ -47,13 +47,13 @@ int test_point_within_moby_limits(char *a, float *b, float x, float y, float z) 
 /* Attach child to a bone of parent: copy its position and basis, and mirror the parent's draw flag. */
 void update_moby_bone_attachment(unsigned char *parent, unsigned char *child, int mode) {
     char workspace[0x40];
-    MobyTransformScaledVertex(parent, mode, workspace);
+    build_moby_bone_transform(parent, mode, workspace);
     qcopy(child + 0x10, workspace + 0x30);
     MobyAnimAdvance(child);
     moby_build_matrix(child);
-    matrix_copy_rows(child + 0xC0, workspace);
+    copy_matrix3x4(child + 0xC0, workspace);
     normalize_vector_triplet(child + 0xC0);
-    moby_anim_sphere_lerp(child);
+    refresh_moby_spatial_bounds_from_basis(child);
     if (*(unsigned short *)(parent + 0x34) & 1)
         *(unsigned short *)(child + 0x34) |= 0x41;
     else
@@ -67,9 +67,9 @@ void cache_consecutive_point_distances(int idx) {
     int i;
     if (idx == -1)
         return;
-    p = hoven_paths[idx];
+    p = l12_paths[idx];
     for (i = 0; i < *(int *)p - 1; i++) {
         int o = i * 16;
-        *(float *)(p + o + 0x1C) = FastVecDist(p + (o + 0x10), p + (((i + 1) % *(int *)p) * 16 + 0x10));
+        *(float *)(p + o + 0x1C) = fast_vec_dist(p + (o + 0x10), p + (((i + 1) % *(int *)p) * 16 + 0x10));
     }
 }
