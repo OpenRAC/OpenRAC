@@ -85,10 +85,10 @@
           ],
           "names": "games/rac1/pal/config/names.tsv"
         },
-        "setup": "python3 tools/openrac.py setup rac1/pal, then python3 tools/overlays.py dump in games/rac1"
+        "setup": "python3 tools/openrac.py setup rac1/pal, then python3 tools/overlays.py dump in games/rac1/pal"
       },
       "port": {
-        "root": "games/rac1",
+        "root": "games/rac1/pal",
         "gp": "0x166D00",
         "catalogue": "games/rac1/pal/config/overlays/functions.tsv",
         "report": "games/rac1/pal/progress/report.json",
@@ -346,7 +346,7 @@
           "report": "games/rac1/pal/progress/pal_v1/report.json",
           "names": "games/rac1/pal/config/names.tsv"
         },
-        "setup": "python3 tools/versions.py dump --version pal_v1 in games/rac1"
+        "setup": "python3 tools/versions.py dump --version pal_v1 in games/rac1/pal"
       }
     },
     "jp": {
@@ -417,7 +417,7 @@
           "report": "games/rac1/pal/progress/jp/report.json",
           "names": "games/rac1/pal/config/names.tsv"
         },
-        "setup": "python3 tools/versions.py dump --version jp in games/rac1"
+        "setup": "python3 tools/versions.py dump --version jp in games/rac1/pal"
       }
     }
   }
