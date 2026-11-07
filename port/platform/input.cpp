@@ -528,6 +528,38 @@ void Input::play_rumble() {
     const float seconds =
         m_rumble_ns != 0 ? static_cast<float>(now - m_rumble_ns) / 1'000'000'000.0f : 0.0f;
     m_rumble_ns = now;
+
+    // Where each port plays now: the player's gamepad; for player 1 playing on the screen's own
+    // pad, the device's vibrator, if the player keeps it on. A port whose controller changed
+    // starts from rest, and the controller it left stops, unless another port plays on it now (a
+    // gamepad moved from port 2 to port 1 keeps shaking for port 1).
+    std::array<SDL_Gamepad*, kPadPorts> now_on{};
+    std::array<bool, kPadPorts> vibrator_on{};
+    for (int port = 0; port < kPadPorts; ++port) {
+        const auto p = static_cast<std::size_t>(port);
+        const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
+        now_on[p] = gamepad(port);
+        vibrator_on[p] = now_on[p] == nullptr && port == 0 && tuning.phone && m_touch.visible()
+                         && tuning.strength > 0;
+    }
+    for (std::size_t p = 0; p < m_rumble.size(); ++p) {
+        Rumble& r = m_rumble[p];
+        if (r.gamepad == now_on[p] && r.vibrator == vibrator_on[p]) {
+            continue;
+        }
+        const bool kept = std::find(now_on.begin(), now_on.end(), r.gamepad) != now_on.end();
+        if (r.gamepad != nullptr && !kept) {
+            SDL_RumbleGamepad(r.gamepad, 0, 0, 0);
+            SDL_RumbleGamepadTriggers(r.gamepad, 0, 0, 0);
+        }
+        if (r.vibrator && m_vibrator != nullptr) {
+            SDL_StopHapticRumble(m_vibrator);
+        }
+        r = Rumble{};
+        r.gamepad = now_on[p];
+        r.vibrator = vibrator_on[p];
+    }
+
     for (int port = 0; port < kPadPorts; ++port) {
         const auto p = static_cast<std::size_t>(port);
         const RumbleTuning& tuning = m_bindings[p].tuning.rumble;
@@ -535,25 +567,8 @@ void Input::play_rumble() {
         const MotorCommand command =
             motors.ns != 0 && now - motors.ns < kMotorHoldNs ? motors.command : MotorCommand{};
         Rumble& r = m_rumble[p];
-
-        // Where it plays: the player's gamepad; for player 1 playing on the screen's own pad, the
-        // device's vibrator, if the player keeps it on.
-        SDL_Gamepad* g = gamepad(port);
-        const bool vibrator =
-            g == nullptr && port == 0 && tuning.phone && m_touch.visible() && tuning.strength > 0;
-        if (g != r.gamepad || vibrator != r.vibrator) {
-            // Another controller: the last one stops, and this one starts from rest.
-            if (r.gamepad != nullptr) {
-                SDL_RumbleGamepad(r.gamepad, 0, 0, 0);
-                SDL_RumbleGamepadTriggers(r.gamepad, 0, 0, 0);
-            }
-            if (r.vibrator && m_vibrator != nullptr) {
-                SDL_StopHapticRumble(m_vibrator);
-            }
-            r = Rumble{};
-            r.gamepad = g;
-            r.vibrator = vibrator;
-        }
+        SDL_Gamepad* g = r.gamepad;
+        const bool vibrator = r.vibrator;
         const RumbleOutput out = r.shaper.step(command, seconds, tuning);
         const bool renew = !out.silent() && now - r.sent_ns >= kRumbleRenewNs;
         if (!rumble_changed(out, r.sent) && !renew) {
@@ -562,7 +577,8 @@ void Input::play_rumble() {
         if (g != nullptr) {
             SDL_RumbleGamepad(g, rumble_word(out.low), rumble_word(out.high), kRumbleMs);
             // Only pads with motors in their triggers take it; the others answer false.
-            if (tuning.triggers || !r.sent.silent()) {
+            const bool triggers_were = r.sent.left_trigger > 0.0f || r.sent.right_trigger > 0.0f;
+            if (tuning.triggers || triggers_were) {
                 SDL_RumbleGamepadTriggers(
                     g, rumble_word(out.left_trigger), rumble_word(out.right_trigger), kRumbleMs
                 );
