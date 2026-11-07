@@ -94,38 +94,40 @@ void program(const char* name, std::string_view vertex, std::string_view fragmen
         CHECK(false);
         return;
     }
-    MslProgram msl;
-    if (!openrac::mtlgl::translate_program(spirv, msl, log)) {
-        std::fprintf(stderr, "%s: %s\n", name, log.c_str());
-        CHECK(false);
-        return;
-    }
-    if (spirv.default_binding >= 0) {
-        CHECK(has_buffer(msl, spirv.default_binding));
-    }
-    for (const auto& block : spirv.blocks) {
-        CHECK(has_buffer(msl, block.binding));
-    }
-    for (const auto& block : spirv.storage) {
-        CHECK(has_buffer(msl, block.binding));
-    }
-    for (const auto& uniform : spirv.uniforms) {
-        if (uniform.sampler) {
-            const auto* slot = texture(msl, uniform.binding);
-            CHECK(slot != nullptr);
-            if (slot != nullptr) {
-                const bool texel_buffer = uniform.kind == openrac::vkgl::SamplerKind::Buffer;
-                CHECK((slot->sampler >= 0) != texel_buffer);
+    for (const bool apple : {false, true}) {
+        MslProgram msl;
+        if (!openrac::mtlgl::translate_program(spirv, apple, msl, log)) {
+            std::fprintf(stderr, "%s: %s\n", name, log.c_str());
+            CHECK(false);
+            return;
+        }
+        if (spirv.default_binding >= 0) {
+            CHECK(has_buffer(msl, spirv.default_binding));
+        }
+        for (const auto& block : spirv.blocks) {
+            CHECK(has_buffer(msl, block.binding));
+        }
+        for (const auto& block : spirv.storage) {
+            CHECK(has_buffer(msl, block.binding));
+        }
+        for (const auto& uniform : spirv.uniforms) {
+            if (uniform.sampler) {
+                const auto* slot = texture(msl, uniform.binding);
+                CHECK(slot != nullptr);
+                if (slot != nullptr) {
+                    const bool texel_buffer = uniform.kind == openrac::vkgl::SamplerKind::Buffer;
+                    CHECK((slot->sampler >= 0) != texel_buffer);
+                }
             }
         }
-    }
-    for (const bool clip : {false, true}) {
-        if (compute.empty()) {
-            CHECK(msl.vertex.find("gl_Position.y = -(") != std::string::npos);
-            CHECK(metal_compiles(name, msl.vertex, msl.vertex_entry, clip));
-            CHECK(metal_compiles(name, msl.fragment, msl.fragment_entry, clip));
-        } else {
-            CHECK(metal_compiles(name, msl.compute, msl.compute_entry, clip));
+        for (const bool clip : {false, true}) {
+            if (compute.empty()) {
+                CHECK(msl.vertex.find("gl_Position.y = -(") != std::string::npos);
+                CHECK(metal_compiles(name, msl.vertex, msl.vertex_entry, clip));
+                CHECK(metal_compiles(name, msl.fragment, msl.fragment_entry, clip));
+            } else {
+                CHECK(metal_compiles(name, msl.compute, msl.compute_entry, clip));
+            }
         }
     }
 }

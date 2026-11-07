@@ -55,7 +55,8 @@ struct MslProgram {
     std::array<std::uint32_t, 3> workgroup{1, 1, 1};  // A compute program's threads a group.
 };
 
-// Translates a program glslang compiled. False, with SPIRV-Cross's words in `log`, when it cannot.
-bool translate_program(const vkgl::CompiledProgram& spirv, MslProgram& out, std::string& log);
+// Translates a program glslang compiled, dividing as the OpenGL of an `apple` GPU or of an AMD one
+// does. False, with SPIRV-Cross's words in `log`, when it cannot.
+bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log);
 
 }  // namespace openrac::mtlgl

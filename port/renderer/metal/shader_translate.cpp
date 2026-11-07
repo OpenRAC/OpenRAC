@@ -92,8 +92,37 @@ private:
     std::uint32_t m_samplers = 0;
 };
 
-std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& code) {
-    auto compiler = std::make_unique<CompilerMSL>(code);
+// Apple's OpenGL divides as fast::divide does, not exactly as `/` does without fast math. AMD's
+// multiplies by a constant's rounded reciprocal, which fast::divide there folds into an earlier
+// multiply (README.md).
+class Translator : public CompilerMSL {
+public:
+    Translator(const std::vector<std::uint32_t>& code, bool apple) : CompilerMSL(code), m_apple(apple) {}
+
+protected:
+    void emit_instruction(const spirv_cross::Instruction& instr) override {
+        if (static_cast<spv::Op>(instr.op) != spv::OpFDiv) {
+            CompilerMSL::emit_instruction(instr);
+            return;
+        }
+        const std::uint32_t* ops = stream(instr);
+        if (m_apple || !maybe_get<spirv_cross::SPIRConstant>(ops[3])) {
+            emit_binary_func_op(ops[0], ops[1], ops[2], ops[3], "fast::divide");
+            return;
+        }
+        emit_op(ops[0], ops[1],
+                spirv_cross::join(to_enclosed_unpacked_expression(ops[2]), " * (1.0 / ",
+                                  to_enclosed_unpacked_expression(ops[3]), ")"),
+                should_forward(ops[2]));
+        inherit_expression_dependencies(ops[1], ops[2]);
+    }
+
+private:
+    bool m_apple;
+};
+
+std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& code, bool apple) {
+    auto compiler = std::make_unique<Translator>(code, apple);
     CompilerMSL::Options options;
     options.platform = CompilerMSL::Options::macOS;
     options.set_msl_version(kMslMajor, kMslMinor);
@@ -107,7 +136,7 @@ std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& cod
 
 }  // namespace
 
-bool translate_program(const vkgl::CompiledProgram& spirv, MslProgram& out, std::string& log) {
+bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log) {
     out = MslProgram{};
     try {
         struct Stage {
@@ -126,7 +155,7 @@ bool translate_program(const vkgl::CompiledProgram& spirv, MslProgram& out, std:
         }
         Slots slots;
         for (Stage& stage : stages) {
-            stage.compiler = make_compiler(stage.code);
+            stage.compiler = make_compiler(stage.code, apple);
             slots.assign(*stage.compiler);
         }
         if (const std::string why = slots.overflow(); !why.empty()) {

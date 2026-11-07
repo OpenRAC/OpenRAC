@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <format>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -208,12 +209,39 @@ std::vector<std::uint8_t> resolved_edges(GLenum format) {
     return out;
 }
 
+// Each pixel the bits of `quotient` of its own a and b in [1, 2), so that every rounding shows.
+std::vector<std::uint8_t> divided(const char* quotient) {
+    target();
+    program_of(std::format(R"(#version 410 core
+layout(location = 0) out vec4 result;
+uint hash(uint i) {{
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}}
+void main() {{
+    uint h = hash(uint(gl_FragCoord.x) + 16u * uint(gl_FragCoord.y)), h2 = hash(h);
+    float a = uintBitsToFloat(0x3f800000u | (h >> 9u));
+    float b = uintBitsToFloat(0x3f800000u | (h2 >> 9u));
+    uint v = floatBitsToUint({});
+    result = vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
+}}
+)",
+                           quotient)
+                   .c_str());
+    quad(0, 0, 0, 0);
+    return pixels();
+}
+
 struct Case {
     const char* name;
     std::vector<std::uint8_t> (*run)();
     // AMD's OpenGL filters in eighths of a level, so channels may differ by 1 there; Apple's
     // OpenGL runs on Metal and agrees exactly.
     bool filtered = false;
+    // AMD's OpenGL divides by a variable as fast math does, which Metal does only with fast math
+    // throughout (README.md): checked on Apple's GPUs alone.
+    bool divides = false;
 };
 
 const Case kCases[] = {
@@ -259,6 +287,8 @@ void main() {
          quad(0, 0, 0, 0);
          return pixels();
      }},
+    {"divide", [] { return divided("a / b"); }, false, true},
+    {"divide by a constant", [] { return divided("a * 200.0 / 255.0"); }},
     {"linear texture",
      [] {
          target();
@@ -823,7 +853,7 @@ void main() { result = colour + v_tint; }
         std::printf("%s on %s: OpenGL error 0x%02X, Metal 0x%02X; %d channels differ, by up to %d\n",
                     kCases[i].name, renderer.c_str(), a.back(), b.back(), differ, worst);
         CHECK(a.back() == b.back());
-        CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0));
+        CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0) || (kCases[i].divides && !apple));
     }
     return openrac::test::result();
 }

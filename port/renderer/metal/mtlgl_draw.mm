@@ -182,7 +182,7 @@ void MTLGL link_program(GLuint name) {
     *p = Program{};
     p->shaders = std::move(shaders);
     if (!vkgl::compile_program(vs, fs, p->compiled, p->log, cs)
-        || !translate_program(p->compiled, p->msl, p->log)) {
+        || !translate_program(p->compiled, [g->device supportsFamily:MTLGPUFamilyApple1], p->msl, p->log)) {
         return;
     }
     if (cs.empty()) {

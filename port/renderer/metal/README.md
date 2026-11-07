@@ -18,6 +18,18 @@ API, and its forms cannot drift apart.
 Programs compile without fast math, but with a multiply fused into a later add even across
 statements, as Apple's and AMD's OpenGL compile them (`mtlgl_draw.mm`).
 
+Division follows the OpenGL beside it (`shader_translate.cpp`). Apple's divides as `fast::divide`
+does, not exactly. AMD's multiplies by a constant divisor's rounded reciprocal, so that is written
+out; `fast::divide` there would fold the reciprocal into an earlier multiply by a constant. Two
+differences remain, each found by bits written out of a shader on both APIs:
+
+- AMD's OpenGL divides by a variable as fast math does. Metal does so only with fast math for
+  the whole program, which other operations then round differently, so the quotient's last bit
+  may differ there.
+- Apple's OpenGL folds a chain of multiplies by constants into one (`a * 200.0 * (1.0 / 255.0)`
+  is `a * (200.0 / 255.0)`); Metal multiplies in the written order. The renderers' shaders fold
+  such constants themselves.
+
 - [shader_translate.h](shader_translate.h), [.cpp](shader_translate.cpp): a compiled program as
   MSL, with the Metal slot of each of its bindings. The comment at the top of the header gives the
   conventions: rows flipped in the vertex stage so viewports and reads keep GL's numbers, depth by
