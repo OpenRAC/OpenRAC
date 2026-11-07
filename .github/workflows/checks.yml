@@ -34,14 +34,14 @@ concurrency:
 
 jobs:
   # A pull request's scope (docs_only), and on every event the parts the Linux port job is built
-  # in: one for what the games share, one per game (port/game/*/hostgen.json "game").
+  # in: one for what the games share, one per game program (port/game/*/hostgen.json "id").
   scope:
     name: Which checks run
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
-      port_games: ${{ steps.parts.outputs.port_games }}
+      port_programs: ${{ steps.parts.outputs.port_programs }}
       port_parts: ${{ steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -52,10 +52,10 @@ jobs:
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, pathlib
-          games = sorted({json.loads(path.read_text())["game"]
-                          for path in pathlib.Path("port/game").glob("*/hostgen.json")})
-          print("port_games=" + json.dumps(games))
-          print("port_parts=" + json.dumps(["common", *games]))
+          programs = sorted(json.loads(path.read_text())["id"]
+                            for path in pathlib.Path("port/game").glob("*/hostgen.json"))
+          print("port_programs=" + json.dumps(programs))
+          print("port_parts=" + json.dumps(["common", *programs]))
           PY
       - id: scope
         if: github.event_name == 'pull_request'
@@ -292,9 +292,11 @@ jobs:
   # enhanced rendering compiled out, in parts, each on its own runner so that none outgrows the time
   # limit with a cold cache. "common" builds everything but the games' programs
   # (OPENRAC_PORT_GAMES_IN_ALL=OFF) and runs every test without a game-* label, exercising the
-  # compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer. Each game's part
-  # builds that game's programs (port/game/*/hostgen.json "game") and runs its tests, labelled
-  # game-<game> (port/cmake/Games.cmake). Every test runs in exactly one part.
+  # compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer. Each program's part
+  # (port/game/*/hostgen.json "id": rac1-pal, rac2-ntsc...) builds openrac-<id> and runs its tests,
+  # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
+  # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
+  # exactly one part.
   port-part:
     name: Port / Linux (${{ matrix.part }})
     needs: scope
@@ -307,7 +309,7 @@ jobs:
         part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
     env:
       PART: ${{ matrix.part }}
-      PORT_GAMES: ${{ needs.scope.outputs.port_games }}
+      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
@@ -319,7 +321,7 @@ jobs:
           python-version: "3.12"
       # Each key's prefix is no other job's: "checks-port" was the start of every other port
       # job's key, and restored their objects, built with other options, when it had none. One key
-      # per part, so that one game's objects never evict another's.
+      # per part, so that one program's objects never evict another's.
       - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-release-${{ matrix.part }}
@@ -356,14 +358,7 @@ jobs:
           if [ "$PART" = common ]; then
             cmake --build --preset release
           else
-            # The programs of every version of this game.
-            targets=$(python3 -c 'import json, pathlib, sys
-          games = (json.loads(path.read_text()) for path in sorted(pathlib.Path("game").glob("*/hostgen.json")))
-          print(" ".join("openrac-" + game["id"] for game in games if game["game"] == sys.argv[1]))' "$PART")
-            echo "building $targets"
-            test -n "$targets"
-            # One word per program: split on purpose.
-            cmake --build --preset release --target $targets
+            cmake --build --preset release --target "openrac-$PART"
           fi
 
       # Run once: the configuration is the same in every part.
@@ -384,12 +379,12 @@ jobs:
                       'fsr3_frame', 'probe_bake'}
           assert not names & enhanced, names & enhanced
           # Every game label is a part's: no test is left out of every part.
-          games = set(json.loads(os.environ['PORT_GAMES']))
+          programs = set(json.loads(os.environ['PORT_PROGRAMS']))
           for test in tests:
               labels = [label for prop in test.get('properties', []) if prop['name'] == 'LABELS'
                         for label in prop['value'] if label.startswith('game-')]
               assert len(labels) <= 1, (test['name'], labels)
-              assert all(label[len('game-'):] in games for label in labels), (test['name'], labels)
+              assert all(label[len('game-'):] in programs for label in labels), (test['name'], labels)
           PY
 
       - name: Tests

@@ -223,12 +223,12 @@ function(openrac_add_game config)
   # Every call through a known code address passes its arguments as the function there takes them,
   # by position (Windows x64) as well as by kind (tools/hostgen/abicheck.py), and the game's host C
   # declares the game functions it calls or replaces as game_protos.h has them.
-  # Labelled with its game (game-rac1, game-rac2...): CI runs a game's tests in that game's job
-  # (.github/workflows/checks.yml, port).
+  # Labelled with its program (game-rac1-pal, game-rac2-ntsc...): CI runs a program's tests in that
+  # program's job (.github/workflows/checks.yml, port-part).
   string(JSON game_name GET "${json}" game)
   add_test(NAME ${id}_call_abi COMMAND "${Python3_EXECUTABLE}" "${hostgen_dir}/abicheck.py" "${gen}"
            --host "${config_dir}/host")
-  set_tests_properties(${id}_call_abi PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${game_name})
+  set_tests_properties(${id}_call_abi PROPERTIES SKIP_RETURN_CODE 77 LABELS game-${id})
 
   # The game: generated C, and the game's own host C if it has any.
   file(GLOB host CONFIGURE_DEPENDS "${config_dir}/host/*.c")
@@ -418,7 +418,7 @@ function(openrac_add_game config)
     openrac_warnings(${target})
   endforeach()
   # OPENRAC_PORT_GAMES_IN_ALL off: the game is built only when named (CI builds the rest of the
-  # port in one job and each game in its own).
+  # port in one job and each program in its own).
   if(NOT OPENRAC_PORT_GAMES_IN_ALL)
     set_target_properties(openrac_${target_id}_game ${targets} PROPERTIES EXCLUDE_FROM_ALL ON)
   endif()

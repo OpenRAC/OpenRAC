@@ -447,7 +447,7 @@ if(OPENRAC_PORT_GAMES)
     add_test(NAME ${version}_host_table
              COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/hostnames.py" check
                      "${PROJECT_SOURCE_DIR}/game/${version}")
-    set_tests_properties(${version}_host_table PROPERTIES LABELS game-rac1)
+    set_tests_properties(${version}_host_table PROPERTIES LABELS game-${version})
   endforeach()
   # NTSC-U's own C (hand.tsv's rows) against the US code: every call and global the C reaches is
   # one the retail function reaches, or allow.tsv says why not (port/game/rac1-ntsc/README.md).
@@ -459,7 +459,7 @@ if(OPENRAC_PORT_GAMES)
   add_test(NAME rac1-ntsc_hand_xcheck
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/xcheck.py" check
                    "${PROJECT_SOURCE_DIR}/game/rac1-ntsc" --gen "${CMAKE_BINARY_DIR}/games/rac1-ntsc/gen" ${xcheck_args})
-  set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1)
+  set_tests_properties(rac1-ntsc_hand_xcheck PROPERTIES SKIP_RETURN_CODE 77 LABELS game-rac1-ntsc)
   add_test(NAME xcheck_tool
            COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/tools/versionmap/test_xcheck.py")
   add_test(NAME ntsc_twins_tool
