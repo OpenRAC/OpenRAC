@@ -1,8 +1,0 @@
-#ifndef LOMBYTE_RNC_RENDERING_TFRAGS_LIGHT_TFRAGS_H
-#define LOMBYTE_RNC_RENDERING_TFRAGS_LIGHT_TFRAGS_H
-
-#include "types.h"
-
-void light_tfrags(void *) __asm__("FUN_00234f98");
-
-#endif /* LOMBYTE_RNC_RENDERING_TFRAGS_LIGHT_TFRAGS_H */

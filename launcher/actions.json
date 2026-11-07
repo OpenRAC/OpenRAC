@@ -93,7 +93,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/README.md"
+        "docs": "games/rac1/pal/README.md"
       },
       {
         "id": "build",
@@ -109,8 +109,8 @@
           "inputs",
           "toolchains"
         ],
-        "artifact": "games/rac1/build-sn/rac1.elf",
-        "docs": "games/rac1/README.md"
+        "artifact": "games/rac1/pal/build-sn/rac1.elf",
+        "docs": "games/rac1/pal/README.md"
       },
       {
         "id": "editor-preview",
@@ -149,7 +149,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac1/docs/WORKFLOW.md"
+        "docs": "games/rac1/pal/docs/WORKFLOW.md"
       },
       {
         "id": "editor-extract",
@@ -855,7 +855,7 @@
       {
         "id": "build-merged",
         "label": "Build from the merged tree",
-        "description": "Links NTSC-U's boot executable and 19 level programs from the merged games/rac1 tree's compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
+        "description": "Links NTSC-U's boot executable and 19 level programs from the PAL tree's (games/rac1/pal) compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
         "kind": "build",
         "state": "unverified",
         "program": "{python}",

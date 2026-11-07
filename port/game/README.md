@@ -1,12 +1,12 @@
 # The games
 
 Each game version the port builds is a directory here, named as its
-decompilation is under `games/` (`games/rac1` is `rac1-pal`). The build
+decompilation is under `games/` (`games/rac1/pal` is `rac1-pal`). The build
 makes `openrac-<id>` for every one whose decompilation is present:
 
 | Directory | Game | Decompilation | Entry (`main`) | Library table |
 |---|---|---|---|---|
-| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
+| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1/pal` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
 | [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); plays, like rac1-pal |
 | [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/ntsc` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
 | rac2-pal | Going Commando (PAL, *Locked and Loaded*) | `games/rac2/ntsc` through its release view ([rac2](rac2/README.md)): `src/` and `src/pal`, PAL's catalogues | `func_00131B48` (v1.01's crt0 `func_00131AE8` at PAL's address) | rac2-ntsc's, carried by `release_carry.py` |

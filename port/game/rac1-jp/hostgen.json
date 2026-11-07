@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank (NTSC-J)",
   "game": "rac1",
   "serial": "SCPS_150.37",
-  "source": "games/rac1",
+  "source": "games/rac1/pal",
   "frame_rate": 60,
   "entry": "func_0012DB18",
   "sources": [

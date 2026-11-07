@@ -32,9 +32,7 @@
         "name": "rac5-sm-decomp",
         "repo": "https://github.com/OpenRAC/rac5-sm-decomp",
         "branch": "master",
-        "checkout": "../rac5-decomp",
         "license": "GPL-3.0",
-        "exclude": [],
         "commit": "57b025248ac032e0e98ba35cb3541c7146e41ad1",
         "date": "2026-10-18",
         "imported": "2026-10-18"

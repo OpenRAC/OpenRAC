@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """A Ratchet & Clank release's port, carried from PAL v2.00's (port/game/rac1-pal).
 
-rac1-decomp builds PAL v1.00 and NTSC-J from PAL v2.00's C (games/rac1/docs/VERSIONS.md), so a
+rac1-decomp builds PAL v1.00 and NTSC-J from PAL v2.00's C (games/rac1/pal/docs/VERSIONS.md), so a
 release's port is rac1-pal's read through the release view (release.py, its "release" table):
 every address name of the decompilation renamed to the release's address, the release's own
 definitions spliced into their shared files. What the port itself knows by PAL v2.00's names and

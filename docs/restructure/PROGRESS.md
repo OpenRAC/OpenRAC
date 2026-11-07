@@ -217,7 +217,7 @@ included, and what was left undone.
 | Work | Touches | Waits for it |
 |---|---|---|
 | The level loader and moby pool | `port/CMakeLists.txt`, rac1's `libraries.tsv`, `port/game/rac1/host/`, `port/game/rac1/differences.json`, its tests | The moby pool landed in [c712c679](https://github.com/OpenRAC/OpenRAC/commit/c712c679): P0-03, P1-01 and P1-03 branch from it or later. The level loader's further work still holds P2-03, P2-04, P2-05, P3-02, P3-06 |
-| The next rac1 source sync (symbol renames) | `games/rac1/`, and in its wake rac1's tables, `hand/`, `host/`, the script binding | P2-03, P3-02, P3-06 |
+| The next rac1 source sync (symbol renames) | `games/rac1/pal/`, and in its wake rac1's tables, `hand/`, `host/`, the script binding | P2-03, P3-02, P3-06 |
 | The PAL campaign (backfill, fixes) | `port/game/rac1*`, now and then `frontend.cpp` and `main.cpp` | the phase 2 splits of `game/common` need a short announced freeze each |
 | Launcher releases | `launcher/src-tauri/src/lib.rs`, `api.ts`, `mock.ts` | P1-07 rebases on the day it lands; P2-12 after a release |
 

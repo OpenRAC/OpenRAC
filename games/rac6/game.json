@@ -32,9 +32,7 @@
         "name": "rac-sac-decomp",
         "repo": "https://github.com/OpenRAC/rac-sac-decomp",
         "branch": "main",
-        "checkout": "../rac-sac-decomp",
         "license": "GPL-3.0",
-        "exclude": [],
         "commit": "4e38d3d88f62f0366274e83643866d232a91f378",
         "date": "2026-10-21",
         "imported": "2026-10-24"

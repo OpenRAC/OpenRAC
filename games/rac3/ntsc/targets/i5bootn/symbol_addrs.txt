@@ -1,1 +1,0 @@
-// i5bootn: named symbols for splat (NAME = 0xADDR;)

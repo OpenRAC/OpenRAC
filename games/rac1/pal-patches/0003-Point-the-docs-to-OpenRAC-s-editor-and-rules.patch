@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Mateusz=20K=C5=82ysz?= <mateuszklysz@icloud.com>
+Date: Sat, 7 Nov 2026 12:00:00 +0000
+Subject: Point the docs to OpenRAC's editor and rules
+
+---
+ README.md                              |  2 +-
+ docs/OVERLAYS.md                       |  2 +-
+ docs/agents/AGENT_WORKFLOW.md          |  2 +-
+ docs/agents/LLM_DECOMP_INSTRUCTIONS.md |  4 ++++
+ docs/agents/SIBLING_DECOMPS.md         |  6 +++++-
+ docs/reference/ASSETS.md               | 10 +++++-----
+ 6 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/README.md b/README.md
+index d965e6d..1860a43 100644
+--- a/README.md
++++ b/README.md
+@@ -113,7 +113,7 @@ This project builds upon years of dedicated reverse-engineering research and too
+ - **[Lombyte](https://github.com/mateuszklysz/Lombyte)** by mateuszklysz – Matching decompilation of the NTSC build of *Ratchet & Clank*. Invaluable reference for function pairing, struct definitions, and symbol names ([`docs/agents/SIBLING_DECOMPS.md`](docs/agents/SIBLING_DECOMPS.md)).
+ - **[ReRAC](https://github.com/re-rac/rerac)** by the ReRAC team – Native PC port of the US release. Essential documentation of formats (mobys, models, collision), symbol names ([`config/names.tsv`](config/names.tsv)), and overlay mechanics ([`docs/OVERLAYS.md`](docs/OVERLAYS.md)).
+ - **[rac3-uya-decomp](https://github.com/OpenRAC/rac3-uya-decomp)** by vetusmagnus – Matching decompilation of *Ratchet & Clank: Up Your Arsenal*. Foundation for SN Systems compiler flag discoveries and build setup.
+-- **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd – Ratchet & Clank PS2 modding tools and asset format specifications ([`tools/extract/README.md`](tools/extract/README.md)).
++- **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd – Ratchet & Clank PS2 modding tools and asset format specifications ([OpenRAC's `editor/README.md`](../../../editor/README.md)).
+ - **Decompilation Tooling & Ecosystem**:
+   - [splat](https://github.com/ethteck/splat) & [spimdisasm](https://github.com/Decompollaborate/spimdisasm) – Binary splitting and MIPS disassembly.
+   - [m2c](https://github.com/matt-kempster/m2c) & [asm-differ](https://github.com/simonlindholm/asm-differ) – Assembly-to-C translation and diffing.
+diff --git a/docs/OVERLAYS.md b/docs/OVERLAYS.md
+index d76a200..91e7396 100644
+--- a/docs/OVERLAYS.md
++++ b/docs/OVERLAYS.md
+@@ -196,7 +196,7 @@ with its roles (`UpdateMoby_<oClass>`, `InitCamera_<id>`, ...,
+ executable ones. A function with many roles is a generic one (an empty
+ `Exit`, a class that reuses another's update). An update function gets
+ the moby in `$a0`. `tools/dossier.py` puts the role in `CONTEXT.md` in
+-words, with the class's name from `tools/extract/moby_classes.tsv`
++words, with the class's name from `editor/moby_classes.tsv` (OpenRAC's top level)
+ ("update function of moby class 726 (novalis_elevator) on levels 01, 03,
+ 13").
+ 
+diff --git a/docs/agents/AGENT_WORKFLOW.md b/docs/agents/AGENT_WORKFLOW.md
+index d892004..60986b0 100644
+--- a/docs/agents/AGENT_WORKFLOW.md
++++ b/docs/agents/AGENT_WORKFLOW.md
+@@ -321,7 +321,7 @@ the linker-remnant list have since taken many of them out of the pool.
+ ## When to stop, and the backfill
+ 
+ A function that stopped is not owed another round at the same tier. OpenRAC's
+-`docs/workflow/BACKFILL.md` has the whole procedure; what it says for this project:
++`docs/port/BACKFILL.md` has the whole procedure; what it says for this project:
+ 
+ - **Not a function**: it reads a register it never sets, branches outside its own bytes, or has
+   no `jr $31`. A piece of its neighbour: join it (`config/overlays/joined.tsv`), write no C. 120
+diff --git a/docs/agents/LLM_DECOMP_INSTRUCTIONS.md b/docs/agents/LLM_DECOMP_INSTRUCTIONS.md
+index 4e642c3..9d1b042 100644
+--- a/docs/agents/LLM_DECOMP_INSTRUCTIONS.md
++++ b/docs/agents/LLM_DECOMP_INSTRUCTIONS.md
+@@ -104,6 +104,10 @@ bash tools/docker/run.sh python3 tools/gen_progress_report.py --no-build
+ ```
+ 
+ #### Step 8: Git Atomic Commit & Push
++
++> **Inside OpenRAC:** commit as `feat(rac1/pal): <FunctionName> (func_XXXXXXXX) exact match`
++> (OpenRAC's CONTRIBUTING.md), keep `progress/report.json` in the same commit, and do
++> **not** push: the maintainer publishes (OpenRAC's CONTRIBUTING.md).
+ 1. Inspect git status:
+ ```bash
+ git status
+diff --git a/docs/agents/SIBLING_DECOMPS.md b/docs/agents/SIBLING_DECOMPS.md
+index da74d2f..5b73a5e 100644
+--- a/docs/agents/SIBLING_DECOMPS.md
++++ b/docs/agents/SIBLING_DECOMPS.md
+@@ -4,7 +4,11 @@ Other projects decompile or reimplement Ratchet & Clank games. Lombyte
+ and the NTSC decomp match the US build of this game, and the NTSC decomp has mapped per-file
+ compiler flags; ReRAC documents what the code does; rac3-uya-decomp
+ mapped retail's flags for a later game and works with this project. None is part of this build.
+-Clone them next to this repository:
++
++Inside OpenRAC, Lombyte is [games/rac1/ntsc](../../../ntsc/README.md) and
++rac3-uya-decomp is [games/rac3/ntsc](../../../../rac3/ntsc/README.md); the tools find
++Lombyte there. ReRAC is still cloned next to OpenRAC. In a standalone
++checkout, clone them next to this repository:
+ 
+ ```sh
+ git clone https://github.com/re-rac/rerac ~/Projects/rerac
+diff --git a/docs/reference/ASSETS.md b/docs/reference/ASSETS.md
+index e8efac1..c3e7702 100644
+--- a/docs/reference/ASSETS.md
++++ b/docs/reference/ASSETS.md
+@@ -1,6 +1,6 @@
+ # Asset formats
+ 
+-What the extractor ([tools/extract](../../tools/extract/README.md)) knows
++What the extractor (OpenRAC's [editor](../../../../../editor/README.md)) knows
+ about the data on the PAL disc (`SCES_509.16` v2.00), and the evidence for
+ each piece. This file describes formats and measured metadata only; it
+ contains no game data.
+@@ -31,7 +31,7 @@ contains no game data.
+   were checked against the PAL disc (see "Mobys", "Moby classes" and
+   "Collision").
+ - **[Lombyte](https://github.com/mateuszklysz/Lombyte)** (GPL-3.0): the moby class
+-  names the editor shows (`tools/extract/moby_classes.tsv`), which it joins
++  names the editor shows (`editor/moby_classes.tsv`), which it joins
+   from each level's class dispatch table and Wrench's class names.
+ - **[Replanetizer](https://github.com/RatchetModding/Replanetizer)** by
+   RatchetModding contributors (GPL-3.0-or-later). It reads the PS3 HD
+@@ -343,12 +343,12 @@ extracted.
+ 
+ The Godot scenes keep every field a packer needs: the transform, plus
+ node metadata for the fields that differ from the value most instances
+-store (`tools/extract/mobys.py`, `USUAL`).
++store (`editor/mobys.py`, `USUAL`).
+ 
+ ### Moby classes
+ 
+ The layouts are ReRAC's (`docs/formats/moby_rac1.md` §1–§2 and its
+-corrections); `tools/extract/moby_class.py` reads them.
++corrections); `editor/moby_class.py` reads them.
+ 
+ - **Class table:** core index +0x18, 32-byte entries: the core offset of
+   the class blob, the class number, two unknown words and 16 texture slots
+@@ -425,7 +425,7 @@ show them textured and standing on their placements.
+ ### Moby skeletons and animations
+ 
+ ReRAC traced these in the game's animation evaluator (`fun_0020e0e0`) and
+-per-tick step (`fun_0020d580`); `tools/extract/moby_anim.py` reads them.
++per-tick step (`fun_0020d580`); `editor/moby_anim.py` reads them.
+ 
+ - **Skeleton** (class +0x14): one matrix per joint, four rows of four
+   floats. Rows 0–2 are the images of the axes and row 3 the translation,

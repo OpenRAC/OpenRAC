@@ -1,8 +1,0 @@
-#ifndef LOMBYTE_RNC_OVERLAY_SHARED_WEAPONS_SUCKCANNON_H
-#define LOMBYTE_RNC_OVERLAY_SHARED_WEAPONS_SUCKCANNON_H
-
-#include "types.h"
-
-void *get_moby_suck_cannon_record(void *) __asm__("FUN_L00_002db890");
-
-#endif /* LOMBYTE_RNC_OVERLAY_SHARED_WEAPONS_SUCKCANNON_H */

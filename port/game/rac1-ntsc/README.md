@@ -115,8 +115,9 @@ otherwise.
    not tried. hostgen's report lists 97 calls short of an argument
    (filled with 0): each is a call in the NTSC decomp's C that relies on
    a register the C does not set; fix them in its C as
-   [OPENRAC_PATCHES.md](../../../games/rac1/ntsc/OPENRAC_PATCHES.md)
-   records, worst first.
+   the patches in
+   [games/rac1/ntsc-patches](../../../games/rac1/ntsc-patches/README.md)
+   do, worst first.
 3. **The shared code's PAL addresses.** The viewer's address tables and two
    words in the front end have NTSC-U values now; `debug_menu.cpp` and
    `options_menu.cpp` are still PAL's and only act for `rac1-pal`. The

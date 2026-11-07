@@ -592,8 +592,8 @@ PAL-US `compare` shows only what is new. All are compared again with
   (0x313854), 16 ticks later. The wide route `11-jet-fighter` leaves `hs` and
   `mb` out from c=100.
 
-Port bugs these comparisons found and fixed (OPENRAC_PATCHES.md has each US
-edit): Eudora's walker gait read time 0 (`FUN_L04_002927d0`); the Oltanis,
+Port bugs these comparisons found and fixed (games/rac1/ntsc-patches has
+each US edit): Eudora's walker gait read time 0 (`FUN_L04_002927d0`); the Oltanis,
 Kalebo III and Batalia hero updates were stubs (an assembler label with an
 offset); spawns through PAL's name for `create_moby`, `func_0020D348_m`, went
 nowhere; `draw_mobys` read the moby list through literal addresses, so the

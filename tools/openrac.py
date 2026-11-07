@@ -160,6 +160,12 @@ def setup(only: list[str]) -> None:
         if not inputs:
             print(f"{key}: nothing to place ({version.get('setup', 'no build yet')})")
             continue
+        tree = ROOT / games.version_dir(game, name)
+        if not (tree / ".git").exists():
+            # Placing files in an empty submodule directory would stop git from checking it out.
+            print(f"{key}: skipped, {tree.relative_to(ROOT).as_posix()} is not checked out "
+                  "(git submodule update --init --depth 1, then python3 tools/sources.py apply)")
+            continue
         for item in inputs:
             dest = ROOT / item["path"]
             if item["from"] == "toolchains":

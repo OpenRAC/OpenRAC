@@ -42,6 +42,23 @@ launcher (`launcher/`); the decompilations the port is built from live in
   [docs/decomp](docs/decomp/README.md): work from the game's directory, and
   let its checks have the last word.
 
+## Decompilation changes
+
+Each game's decompilation under `games/` is a git submodule: that project's
+own repository at one commit ([docs/SOURCES.md](docs/SOURCES.md) lists them).
+OpenRAC's few changes to it are patches beside it, in
+`games/<game>/<version>-patches/`.
+
+- **A decomp change** (a match, a name, a header, the project's own tools):
+  open it as a pull request in that project's repository. It reaches OpenRAC
+  with the next `tools/sources.py update`.
+- **A change the native port needs**: keep it out of the decomp C. Wrap the
+  function in the port instead (`port/game/<program>/`). Where a change inside
+  a tree can't be avoided, it is a patch in the `-patches/` folder with its
+  reason ([how](docs/SOURCES.md#changing-a-patch)).
+- **An update to a newer commit** is one `chore(import)` pull request per
+  project, made with `tools/sources.py update`.
+
 ## Commits
 
 [Conventional Commits](https://www.conventionalcommits.org/):
@@ -99,5 +116,5 @@ The rules above apply the same way. On top of them, an assistant:
   open windows on your screen and take long to review;
 - reports what it checked as it is, failures included;
 - follows a game's own agent docs where there are some (rac1/pal's
-  [docs/AGENT_WORKFLOW.md](games/rac1/docs/AGENT_WORKFLOW.md), run from
-  `games/rac1`; the `AGENTS.md` of rac2, rac5 and rac6).
+  [docs/AGENT_WORKFLOW.md](games/rac1/pal/docs/AGENT_WORKFLOW.md), run from
+  `games/rac1/pal`; the `AGENTS.md` of rac2, rac5 and rac6).

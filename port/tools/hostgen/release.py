@@ -417,7 +417,7 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter) ->
 
 # ---------------------------------------------------------------- Ratchet & Clank's releases
 
-# rac1-decomp (games/rac1/docs/VERSIONS.md) builds PAL v1.00 and NTSC-J from PAL v2.00's C. Each
+# rac1-decomp (games/rac1/pal/docs/VERSIONS.md) builds PAL v1.00 and NTSC-J from PAL v2.00's C. Each
 # release's catalogue (config/versions/<key>/functions.tsv) names every function by its PAL v2.00
 # counterpart, or func_<tag>_... for code only it has, with its places; its own definitions
 # (src/versions/<key>/) stand in for the shared ones where its code differs; and its check

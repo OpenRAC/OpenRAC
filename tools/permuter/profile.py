@@ -7,7 +7,7 @@ A profile is data. Its keys:
 
   name        "rac3/pal": what the command line takes
   checkout    [game, version] for openrac_common.games.source_checkout: where the sister project
-              is ($OPENRAC_SOURCE_<GAME>_<VERSION>, else game.json's "checkout")
+              is ($OPENRAC_SOURCE_<GAME>_<VERSION>, else its submodule under games/)
   env         variables the commands need, used only where the environment does not set them
   python      interpreters to try for the project's own tools, the first that exists wins
   sources     globs of the C files that may hold the function (its definition or INCLUDE_ASM)

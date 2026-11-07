@@ -1,0 +1,13 @@
+# The decompilations under games/ are git submodules with OpenRAC's patches beside them
+# (docs/SOURCES.md). This checks out each at the commit OpenRAC pins, with LF line endings on
+# every system (the patches are LF), and applies the patches.
+name: Decompilation sources
+description: Check out the games' submodules and apply OpenRAC's patches to them
+runs:
+  using: composite
+  steps:
+    - name: Submodules and patches
+      shell: bash
+      run: |
+        git -c core.autocrlf=false submodule update --init --depth 1 --jobs 4
+        "$(command -v python3 || command -v python)" tools/sources.py apply

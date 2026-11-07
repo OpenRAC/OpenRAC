@@ -153,7 +153,7 @@ conflicts and duplicate declarations.
   review-correction rate, to decide whether to scale up.
 
 **Where:** changes go to rac1-decomp through its usual PRs, then sync into
-`games/rac1`.
+`games/rac1/pal`.
 
 ## 4. Put the ReRAC conversion to use (port)
 
