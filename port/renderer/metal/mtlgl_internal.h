@@ -141,8 +141,8 @@ struct Program {
     vkgl::CompiledProgram compiled;
     MslProgram msl;
     id<MTLLibrary> vertex, fragment;
-    // Each stage's function by the clip control constant: [clip_zero_to_one][fragment].
-    id<MTLFunction> functions[2][2];
+    // Each stage's function: [depth_form][fragment].
+    id<MTLFunction> functions[3][2];
     std::vector<std::uint8_t> uniforms;  // the default block
     std::vector<GLint> units;            // by uniform: a sampler's texture unit
     std::vector<GLuint> block_bindings;  // by block: its GL uniform buffer binding

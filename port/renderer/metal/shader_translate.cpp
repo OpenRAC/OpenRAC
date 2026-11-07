@@ -162,6 +162,35 @@ std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& cod
     return compiler;
 }
 
+// Adds kFarHalfConstant's depth and viewport after SPIRV-Cross's flip of y, the stage's last word.
+void far_half(std::string& source) {
+    const std::string flip = ".gl_Position.y);    // Invert Y-axis for Metal";
+    const std::size_t end = source.find(flip);
+    if (end == std::string::npos) {
+        return;
+    }
+    const std::size_t line = source.rfind('\n', end) + 1;
+    const std::size_t start = source.find_first_not_of(' ', line);
+    const std::string indent = source.substr(line, start - line);
+    const std::string out = source.substr(start, source.find(".gl_Position.y = -(", start) - start);
+    const std::string p = out + ".gl_Position";
+    source.insert(end + flip.size(),
+                  std::format("\n{0}{1}.openrac_viewport = 0;\n"
+                              "{0}if (openrac_far_half) {{\n"
+                              "{0}    {1}.openrac_viewport = {2}.w == 1.0 ? 1 : 0;\n"
+                              "{0}    {2}.z = {2}.w == 1.0 ? ({2}.z + {2}.w) * 0.5 : -{2}.z;\n"
+                              "{0}}}",
+                              indent, out, p));
+    const std::size_t member = source.find('\n', source.find("gl_Position [[position")) + 1;
+    source.insert(member, "    uint openrac_viewport [[viewport_array_index]];\n");
+    const std::string metal = "using namespace metal;\n";
+    source.insert(source.find(metal) + metal.size(),
+                  std::format("constant bool openrac_far_half_ [[function_constant({})]];\n"
+                              "constant bool openrac_far_half = is_function_constant_defined(openrac_far_half_)"
+                              " && openrac_far_half_;\n",
+                              kFarHalfConstant));
+}
+
 }  // namespace
 
 bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log) {
@@ -197,6 +226,9 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
             stage.source = std::string(stage.exact ? "#pragma clang fp contract(off)\n" : "#pragma clang fp contract(fast)\n") +
                            stage.compiler->compile();
             stage.entry = stage.compiler->get_cleansed_entry_point_name("main", stage.model);
+            if (stage.model == spv::ExecutionModelVertex) {
+                far_half(stage.source);
+            }
         }
         if (!spirv.compute.empty()) {
             for (std::uint32_t i = 0; i < 3; ++i) {

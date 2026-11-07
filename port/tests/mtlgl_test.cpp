@@ -245,6 +245,65 @@ struct Case {
     bool amd_differs = false;
 };
 
+// Each point's pixel holds the bits of its window depth, most of them as far off as the game's
+// reversed depth puts the world (mtlgl_draw.mm's depth_form), a quarter anywhere from beyond the
+// far plane to half way to the near one.
+std::vector<std::uint8_t> depths(bool clamp) {
+    GLuint depth = 0;
+    glGenTextures(1, &depth);
+    glBindTexture(GL_TEXTURE_2D, depth);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, kSide, kSide, 0, GL_DEPTH_COMPONENT, GL_FLOAT,
+                 nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    framebuffer(texture(GL_RGBA8, kSide), kSide);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depth, 0);
+    glClearDepth(0.0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS);
+    if (clamp) {
+        glEnable(GL_DEPTH_CLAMP);
+    }
+    program_of(R"(#version 410 core
+layout(location = 0) out vec4 result;
+void main() { result = vec4(1.0); }
+)",
+               R"(#version 410 core
+uint hash(uint i) {
+    i = i * 747796405u + 2891336453u;
+    i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
+    return i ^ (i >> 22u);
+}
+float r(uint i) { return float(hash(i) >> 8u) / 16777216.0; }
+void main() {
+    uint id = uint(gl_VertexID);
+    float w = 1.0 + r(2u * id) * 999.0;
+    float z = id % 4u == 0u ? r(2u * id + 1u) * 1.2 - 1.2 : r(2u * id + 1u) * 0.1 - 1.0;
+    gl_Position = vec4((float(id % 16u) + 0.5) / 8.0 - 1.0, (float(id / 16u) + 0.5) / 8.0 - 1.0, z, 1.0) * w;
+}
+)");
+    GLuint array = 0;
+    glGenVertexArrays(1, &array);
+    glBindVertexArray(array);
+    glDrawArrays(GL_POINTS, 0, kSide * kSide);
+    glDeleteVertexArrays(1, &array);
+    glDisable(GL_DEPTH_CLAMP);
+    glDisable(GL_DEPTH_TEST);
+    target();
+    program_of(R"(#version 410 core
+uniform sampler2D image;
+layout(location = 0) out vec4 result;
+void main() {
+    uint v = floatBitsToUint(texelFetch(image, ivec2(gl_FragCoord.xy), 0).r);
+    result = vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
+}
+)");
+    glBindTexture(GL_TEXTURE_2D, depth);
+    quad(0, 0, 0, 0);
+    return pixels();
+}
+
 const Case kCases[] = {
     {"gradient",
      [] {
@@ -347,6 +406,8 @@ void main() {
          glDeleteVertexArrays(1, &array);
          return pixels();
      }},
+    {"depth", [] { return depths(false); }},
+    {"clamped depth", [] { return depths(true); }},
     {"linear texture",
      [] {
          target();

@@ -9,7 +9,10 @@
 // Rows: Vulkan and OpenGL put a framebuffer's row 0 at NDC y = -1, Metal at +1. The vertex stage
 // negates y, so that row 0 stays where GL draws it and viewports, scissors, reads and copies keep
 // their numbers (as vkgl.h does for Vulkan). Depth: the SPIR-V already maps GL's -w..w to 0..w,
-// unless the clip control function constant says the shader's z is 0..w already.
+// unless the clip control function constant says the shader's z is 0..w already. The far half
+// constant (kFarHalfConstant, false when not given) then sends a vertex with w 1 to viewport 1 with
+// z mapped to 0..w after all, and any other to viewport 0 with z negated (mtlgl_draw.mm's
+// depth_form).
 //
 // Slots: Metal binds by kind (buffer, texture, sampler) where GL and SPIR-V bind by number. The
 // program's bindings are given Metal slots in the order met, the same in both stages, and the
@@ -36,6 +39,8 @@ inline constexpr std::uint32_t kMslMinor = 4;
 inline constexpr std::uint32_t kVertexBufferBase = 16;
 // MTLGPUFamilyMac2's samplers a stage may bind.
 inline constexpr std::uint32_t kMaxSamplers = 16;
+// The vertex stage's function constant for the far half's depth.
+inline constexpr std::uint32_t kFarHalfConstant = 901;
 
 struct MslTexture {
     int binding = -1;
