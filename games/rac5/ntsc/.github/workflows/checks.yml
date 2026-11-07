@@ -8,8 +8,8 @@ jobs:
   tools:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
       - name: Synthetic ISO and ELF tests
@@ -24,7 +24,7 @@ jobs:
           python tools/bytematch_estimate.py --check
       - name: Upload ByteMatch report from master
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: SCUS_976.15_report
           path: build/bytematch/SCUS_976.15/report.json
