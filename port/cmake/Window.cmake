@@ -881,6 +881,11 @@ if(OPENRAC_VULKAN)
       "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
   endif()
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME texture_filter_metal COMMAND texture_filter_test)
+  set_tests_properties(texture_filter_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;OPENRAC_ENHANCED=0;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 
 # The embedded sources' headers (openrac_embed_shaders) are private to their libraries.
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
