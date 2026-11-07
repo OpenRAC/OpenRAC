@@ -33,7 +33,7 @@
   "places": "config/versions/pal_v1/functions.tsv",
   "split_places": "split_places.tsv",
   "symbols": [
-    "../../port/game/rac1-pal1/port_symbols.txt"
+    "../../../port/game/rac1-pal1/port_symbols.txt"
   ],
   "libraries": "libraries.tsv",
   "host_shared": [

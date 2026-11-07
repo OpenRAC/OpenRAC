@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -424,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             out_lines.append(f"{new} = 0x{n.group(4).upper()};{m.group(2)}")
         name = Path(table_name).name
         (game / name).write_text("\n".join(out_lines) + "\n")
-        symbols.append(f"../../port/game/{game.name}/{name}")
+        symbols.append(os.path.relpath(game.resolve() / name, source))  # read relative to the source
     new_cfg["symbols"] = symbols
     (game / "hostgen.json").write_text(json.dumps(new_cfg, indent=2) + "\n")
     # libraries.tsv, split_places.tsv
