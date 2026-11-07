@@ -186,6 +186,27 @@ vertex float4 clear_vertex(uint id [[vertex_id]], constant float& depth [[buffer
 fragment float4 clear_fragment(constant float4& colour [[buffer(0)]]) {
     return colour;
 }
+// Apple's OpenGL resolves as the samples' floats summed in order, then scaled; Metal's own resolve
+// rounds their average differently.
+fragment float4 resolve_fragment(float4 at [[position]], texture2d_ms<float> from [[texture(0)]]) {
+    const uint2 p = uint2(at.xy);
+    float4 sum = 0.0;
+    for (uint i = 0; i < from.get_num_samples(); ++i) {
+        sum += from.read(p, i);
+    }
+    return sum * (1.0 / from.get_num_samples());
+}
+// AMD's OpenGL rounds the average of 8-bit colour toward zero as a float, then to the nearest
+// byte: a half rounds down, but for 127.5, which is 0.5 exactly.
+fragment float4 resolve_bytes(float4 at [[position]], texture2d_ms<float> from [[texture(0)]]) {
+    const uint2 p = uint2(at.xy);
+    float4 sum = 0.0;
+    for (uint i = 0; i < from.get_num_samples(); ++i) {
+        sum += round(from.read(p, i) * 255.0);
+    }
+    const float4 average = sum / from.get_num_samples();
+    return select(ceil(average - 0.5), float4(128.0), average == 127.5) / 255.0;
+}
 )";
 
 void make_default_framebuffer(int width, int height) {
@@ -711,7 +732,9 @@ bool open(const Config& config, std::string& error) {
         return false;
     }
     NSError* failure = nil;
-    id<MTLLibrary> library = [device newLibraryWithSource:@(kFlipSource) options:nil error:&failure];
+    MTLCompileOptions* exact = [MTLCompileOptions new];
+    exact.fastMathEnabled = NO;
+    id<MTLLibrary> library = [device newLibraryWithSource:@(kFlipSource) options:exact error:&failure];
     if (library == nil) {
         error = std::format("the present shader: {}", failure.localizedDescription.UTF8String);
         return false;

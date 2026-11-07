@@ -937,13 +937,26 @@ void MTLGL blit_framebuffer(GLint sx0, GLint sy0, GLint sx1, GLint sy1, GLint dx
                 t.usage = MTLTextureUsageRenderTarget;
                 resolved = [g->device newTextureWithDescriptor:t];
             }
+            __strong id<MTLRenderPipelineState>& pipeline = g->blits[src.pixelFormat | NSUInteger{1} << 24];
+            if (pipeline == nil) {
+                MTLRenderPipelineDescriptor* p = [MTLRenderPipelineDescriptor new];
+                p.vertexFunction = [g->library newFunctionWithName:@"flip_vertex"];
+                const bool bytes = src.pixelFormat == MTLPixelFormatRGBA8Unorm
+                                   && ![g->device supportsFamily:MTLGPUFamilyApple1];
+                p.fragmentFunction = [g->library newFunctionWithName:bytes ? @"resolve_bytes" : @"resolve_fragment"];
+                p.colorAttachments[0].pixelFormat = src.pixelFormat;
+                pipeline = [g->device newRenderPipelineStateWithDescriptor:p error:nil];
+            }
             end_encoders();
             MTLRenderPassDescriptor* d = [MTLRenderPassDescriptor renderPassDescriptor];
-            d.colorAttachments[0].texture = src;
-            d.colorAttachments[0].loadAction = MTLLoadActionLoad;
-            d.colorAttachments[0].storeAction = MTLStoreActionStoreAndMultisampleResolve;
-            d.colorAttachments[0].resolveTexture = resolved;
-            [[commands() renderCommandEncoderWithDescriptor:d] endEncoding];
+            d.colorAttachments[0].texture = resolved;
+            d.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+            d.colorAttachments[0].storeAction = MTLStoreActionStore;
+            id<MTLRenderCommandEncoder> pass = [commands() renderCommandEncoderWithDescriptor:d];
+            [pass setRenderPipelineState:pipeline];
+            [pass setFragmentTexture:src atIndex:0];
+            [pass drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+            [pass endEncoding];
             if (whole) {
                 return;
             }

@@ -42,8 +42,10 @@ with Vulkan. The header gives the conventions.
   them), samplers, buffers, framebuffers, multisampled renderbuffers, `glReadPixels` (RGBA8, and
   RGBA16F as floats or bytes), `glCopyTexSubImage2D` (a copy between float or normalised formats
   is drawn) and `glBlitFramebuffer` (a scaled, flipped or converting blit of colour, integers or depth is
-  drawn). A buffer updated while the GPU may still read it is copied
-  first, so nothing waits for the GPU.
+  drawn). A colour resolve is drawn too, rounding as the OpenGL beside it does: Apple's sums
+  the samples' floats in order and scales the sum, AMD's rounds the average of 8-bit colour
+  toward zero as a float before rounding it to a byte. A buffer updated while the GPU may still
+  read it is copied first, so nothing waits for the GPU.
 - [mtlgl_draw.mm](mtlgl_draw.mm): shaders and programs (linked by `vkgl::compile_program`, then
   translated and compiled for Metal), uniforms, vertex arrays and draws, with their pipeline,
   depth/stencil and sampler states cached. An input the vertex array does not feed reads GL's

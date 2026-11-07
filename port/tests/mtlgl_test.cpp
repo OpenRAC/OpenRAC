@@ -128,11 +128,11 @@ GLuint framebuffer(GLuint colour, int side, GLenum depth = 0) {
 
 // A multisampled colour renderbuffer's framebuffer, with a depth and stencil one if asked, bound
 // for drawing and reading.
-GLuint multisampled(int side, bool depth = false) {
+GLuint multisampled(int side, bool depth = false, GLenum colour = GL_RGBA8) {
     GLuint buffer = 0, name = 0;
     glGenRenderbuffers(1, &buffer);
     glBindRenderbuffer(GL_RENDERBUFFER, buffer);
-    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_RGBA8, side, side);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, colour, side, side);
     glGenFramebuffers(1, &name);
     glBindFramebuffer(GL_FRAMEBUFFER, name);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, buffer);
@@ -186,6 +186,28 @@ std::vector<std::uint8_t> scaled_depth_blit(GLenum depth, GLenum filter = GL_NEA
     return pixels();
 }
 
+// Pixels on the edges average samples of different colours, each a whole byte, so that only the
+// resolve's rounding differs. Half floats are read as floats' bytes.
+std::vector<std::uint8_t> resolved_edges(GLenum format) {
+    const GLuint frame = multisampled(kSide, false, format);
+    glViewport(0, 0, kSide, kSide);
+    clear_to(0, 0.2f, 0.8f, 1);
+    program_of(kColourFragment);
+    draw({-0.9f, -0.93f, 0, 0.2f, 0.6f, 1, 1, 0.71f, -0.2f, 0, 0.2f, 0.6f, 1, 1, -0.33f, 0.87f, 0, 0.2f, 0.6f, 1, 1,
+          0.5f, 0.1f, 0, 1, 0.4f, 0.2f, 1, 0.97f, 0.43f, 0, 1, 0.4f, 0.2f, 1, 0.21f, 0.79f, 0, 1, 0.4f, 0.2f, 1});
+    const GLuint into = framebuffer(texture(format, kSide), kSide);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, frame);
+    glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, into);
+    if (format == GL_RGBA8) {
+        return pixels();
+    }
+    std::vector<std::uint8_t> out(kSide * kSide * 4 * sizeof(float) + 1);
+    glReadPixels(0, 0, kSide, kSide, GL_RGBA, GL_FLOAT, out.data());
+    out.back() = static_cast<std::uint8_t>(glGetError() & 0xFF);
+    return out;
+}
+
 struct Case {
     const char* name;
     std::vector<std::uint8_t> (*run)();
@@ -211,6 +233,8 @@ const Case kCases[] = {
                0.5f, 0.5f, 0, 1, 0, 0, 1, 0.75f, 0.5f, 0, 1, 0, 0, 1, 0.5f, 0.75f, 0, 1, 0, 0, 1});
          return pixels();
      }},
+    {"multisampled edges resolved", [] { return resolved_edges(GL_RGBA8); }},
+    {"multisampled half float edges resolved", [] { return resolved_edges(GL_RGBA16F); }},
     // Each pixel's bytes are the bits of a multiply and an add written as two statements.
     {"multiply then add",
      [] {
