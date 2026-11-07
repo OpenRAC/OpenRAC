@@ -12,10 +12,11 @@
 
 namespace {
 int drains = 0;
+
 void drain() {
     ++drains;
 }
-}
+}  // namespace
 
 int main() {
     CHECK(SDL_Init(SDL_INIT_EVENTS));
