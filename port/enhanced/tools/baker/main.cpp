@@ -95,7 +95,7 @@ void usage() {
         << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
         << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
         << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
-        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 256 --bounces 3 --seed 1\n"
+        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 128 --bounces 2 --seed 1\n"
         << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
         << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
         << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"

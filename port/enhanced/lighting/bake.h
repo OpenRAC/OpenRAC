@@ -126,8 +126,8 @@ struct BakeSettings {
     float terrain_vertex_albedo_strength =
         kTerrainVertexAlbedoStrength;  // Fraction of authored terrain tint to retain.
     // Each probe pairs this many primary directions with independent emitter samples.
-    std::uint32_t rays_per_probe = 256;
-    std::uint32_t bounces = 3;
+    std::uint32_t rays_per_probe = 128;  // 256 adds under 1% median probe difference
+    std::uint32_t bounces = 2;           // a third bounce changes probes by 0.4% median
     std::uint32_t seed = 1;
     float ray_bias = 0.002f;  // game world units
     float distance_exponent = 32;
