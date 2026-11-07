@@ -58,9 +58,10 @@ std::optional<std::uint8_t> fade_at(
 
 void reads_each_programs_view() {
     const host::GameProfile& profile = host::game_profile("rac2-ntsc");
-    for (const Program& p : {Program{-1, 0x001B5570, 0x001B9040, 0x001B1B64},
-                             Program{1, 0x001B96F0, 0x001BD9C0, 0x001B2564},
-                             Program{24, 0x001B88F0, 0x001BCBC0, 0x001B17A4}}) {
+    for (const Program& p :
+         {Program{-1, 0x001B5570, 0x001B9040, 0x001B1B64},
+          Program{1, 0x001B96F0, 0x001BD9C0, 0x001B2564},
+          Program{24, 0x001B88F0, 0x001BCBC0, 0x001B17A4}}) {
         const auto ram = memory(p, 960);
         const host::GameState state = profile.read_state(ram, p.level);
         CHECK(state.moby_view.has_value());
@@ -84,8 +85,8 @@ void culls_past_the_distance_and_the_cap() {
     CHECK(fade_at(profile, state, 56.0f, 64) == std::uint8_t{0x40});  // the last 16 units fade
     CHECK(!fade_at(profile, state, 65.0f, 64));                       // past +0x32
     CHECK(fade_at(profile, state, 900.0f, 4000) == std::uint8_t{0x80});
-    CHECK(!fade_at(profile, state, 970.0f, 4000));                    // past the cap
-    CHECK(!fade_at(profile, state, -5.0f, 64));                       // behind the eye
+    CHECK(!fade_at(profile, state, 970.0f, 4000));  // past the cap
+    CHECK(!fade_at(profile, state, -5.0f, 64));     // behind the eye
     // The cap lowered (every level has a routine that sets 144 for a while): culled sooner.
     ram = memory(boot, 144);
     state = profile.read_state(ram, -1);

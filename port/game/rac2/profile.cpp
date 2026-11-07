@@ -11,7 +11,6 @@
 // (release_carry.json). It defines game_profile() for openrac-rac2-ntsc, -pal and -ntsc2.
 
 #include "game/common/profile.h"
-#include "game/common/moby_proc.h"
 
 #include <algorithm>
 #include <array>
@@ -25,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "game/common/moby_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
 
