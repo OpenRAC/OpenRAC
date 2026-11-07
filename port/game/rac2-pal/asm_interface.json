@@ -6404,37 +6404,6 @@
     "v": false
    }
   },
-  "func_00284318": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_00284458_10": {
    "asm": false,
    "inherits": false,
@@ -7495,23 +7464,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_002A1280": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "p": {
-      "b": "L00_0037F7E8_u8",
-      "q": []
-     },
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
