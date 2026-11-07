@@ -792,6 +792,13 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
 
+/* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
+ * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
+ * moby packets would have gone. The strips the game sent before it, after the world's marker (its
+ * draw callback lists run between the ties and the mobys), are drawn before the shrubs and mobys,
+ * as the console drew them (renderer::EffectStrip::before_mobys). */
+#define OPENRAC_WORLD_MOBYS_MARKER 0x4D57u
+
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
 

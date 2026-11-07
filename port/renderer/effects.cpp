@@ -44,23 +44,35 @@ unsigned offscreen_texture(std::uint64_t tex0_bits, std::uint32_t tbp) {
 
 using namespace gl;
 
-bool liquid_strip(std::uint64_t alpha, std::uint64_t test) {
+bool test_writes_z(std::uint64_t test) {
     // A TEST whose alpha test never passes and keeps only the colour writes no Z: a layer over
     // the picture, not a surface (Oltanis's ice, the first of its passes, drawn from callback
     // list 1 after the mobys).
     const gs::Test t = gs::Test::decode(test);
-    const bool writes_z =
-        !(t.ate && t.atst == gs::AlphaTest::Never
-          && (t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly));
-    return (alpha & 0xFF) == 0x64 && ((alpha >> 32) & 0xFF) > 0x60 && writes_z;
+    return !(
+        t.ate && t.atst == gs::AlphaTest::Never
+        && (t.afail == gs::AlphaFail::FbOnly || t.afail == gs::AlphaFail::RgbOnly)
+    );
+}
+
+bool liquid_strip(std::uint64_t alpha, std::uint64_t test) {
+    return (alpha & 0xFF) == 0x64 && ((alpha >> 32) & 0xFF) > 0x60 && test_writes_z(test);
+}
+
+bool liquid_pass_strip(const EffectStrip& strip) {
+    // A strip sent before the world's mobys is drawn where the game drew it, with the liquids:
+    // Dobbo's water (ALPHA 0x44, TEST 0x5310B, from the draw callback list after the ties), drawn
+    // after the mobys, covered the Dynamo's platforms over it.
+    return strip.before_mobys || liquid_strip(strip.alpha, strip.test);
 }
 
 bool EffectRenderer::draws(const EffectStrip& strip) const {
+    const bool liquid = liquid_pass_strip(strip);
     switch (m_part) {
         case EffectPart::Liquids:
-            return liquid_strip(strip.alpha, strip.test);
+            return liquid;
         case EffectPart::Rest:
-            return !liquid_strip(strip.alpha, strip.test);
+            return !liquid;
         case EffectPart::All:
             break;
     }

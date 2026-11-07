@@ -153,6 +153,11 @@ int func_002A4E68(gaddr a0, gaddr a1, int a2, int a3) {
     (void)a1;
     (void)a3;
     mark_drawn_mobys(a0, a2);
+    /* The world's mobys come after the draw callback lists DrawFrame runs after the ties and the
+     * shrubs (func_0027CEE0, func_0027CF58): what those drew goes before them (a level's water). */
+    if (a2 < 0) {
+        put_marker((uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+    }
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
     if (openrac_game_mobys_drawn(a0, a2)) {
         put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);

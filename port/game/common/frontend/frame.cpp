@@ -28,6 +28,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -281,6 +282,10 @@ std::vector<std::uint8_t> direct_packets(
     // Each context's FRAME width in pixels, as the list sets it (the picture's until it does).
     std::array<std::uint32_t, 2> frame_width{512, 512};
     std::size_t image_left = 0;  // IMAGE data a tag announced that runs on into the next DIRECT
+    // The strips so far at the world's marker and at the world's mobys' (OPENRAC_WORLD_MOBYS_MARKER):
+    // the ones between were sent from the draw callback lists before the mobys.
+    const std::size_t strips_at_start = strips != nullptr ? strips->size() : 0;
+    std::optional<std::size_t> strips_at_world, strips_at_mobys;
     std::size_t direct_at = 0;   // where the DIRECT being read starts in the 2D data
     const auto track_direct = [&](const std::uint8_t* d, std::size_t size) {
         std::size_t p = 0;
@@ -313,6 +318,13 @@ std::vector<std::uint8_t> direct_packets(
                     std::memcpy(&address, d + p + 8, 8);
                     switch (address & 0xFF) {
                         case 0x7F:
+                            if ((value >> 48) == renderer::GifInterpreter::kWorldMarker
+                                && !strips_at_world) {
+                                strips_at_world = strips->size();
+                            }
+                            if ((value >> 48) == OPENRAC_WORLD_MOBYS_MARKER && !strips_at_mobys) {
+                                strips_at_mobys = strips->size();
+                            }
                             if ((value >> 48) == renderer::GifInterpreter::kMobyMarker
                                 && texture_mobys != nullptr) {
                                 // Mobys drawn while the frame is a buffer narrower than the
@@ -560,6 +572,7 @@ std::vector<std::uint8_t> direct_packets(
                 strip.clamp = gs.clamp;
                 strip.alpha = gs.alpha;
                 strip.test = gs.test;
+                strip.z_masked = gs.zbuf_seen && ((gs.zbuf >> 32) & 1) != 0;
                 strip.surface = surface;
                 strip.uv_motion = uv_motion;
                 static const bool& strip_fog_off = stats::probe(
@@ -611,6 +624,14 @@ std::vector<std::uint8_t> direct_packets(
                 );
             }
             strip_tag = false;
+        }
+    }
+    // A game that marks its world's mobys (rac2/host/render.c): the strips between the world's
+    // marker and theirs were drawn before the mobys.
+    if (strips != nullptr && strips_at_mobys) {
+        const std::size_t from = strips_at_world.value_or(strips_at_start);
+        for (std::size_t i = from; i < *strips_at_mobys && i < strips->size(); ++i) {
+            (*strips)[i].before_mobys = true;
         }
     }
     return gif;
@@ -2236,6 +2257,23 @@ void choose_repeat_frame(int level, bool debug) {
             k.strips.front().tex0,
             k.strips.front().alpha
         );
+        // The ones sent before the world's mobys (EffectStrip::before_mobys), drawn with the
+        // liquids, by their GS state.
+        std::map<std::tuple<std::uint64_t, std::uint64_t, bool>, int> early;
+        for (const auto& st : k.strips) {
+            if (st.before_mobys) {
+                ++early[{st.alpha, st.test, st.z_masked}];
+            }
+        }
+        for (const auto& [state, count] : early) {
+            log::info(
+                "    {} strips before the mobys: ALPHA {:#x} TEST {:#x}{}",
+                count,
+                std::get<0>(state),
+                std::get<1>(state),
+                std::get<2>(state) ? ", depth masked" : ""
+            );
+        }
     }
 }
 

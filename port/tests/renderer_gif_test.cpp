@@ -596,6 +596,16 @@ void blend_weights() {
     CHECK(liquid_strip(0x8000000064ull, 0x5360B));   // Z written where As >= 0x60
     CHECK(!liquid_strip(0x8000000064ull, 0x513F1));  // NEVER, FB_ONLY: no Z
     CHECK(!liquid_strip(0x4000000064ull, 0x5360B));  // FIX 0x40: not drawn solid
+    // A blended strip goes with the liquids when the game sent it before the world's mobys
+    // (Dobbo's water), and with the other effects when not.
+    EffectStrip water;
+    water.alpha = 0x3200000044ull;
+    water.test = 0x5310B;
+    CHECK(!liquid_pass_strip(water));
+    water.before_mobys = true;
+    CHECK(liquid_pass_strip(water));
+    CHECK(test_writes_z(0x5310B));   // GEQUAL 0x10, RGB_ONLY: Z where the test passes
+    CHECK(!test_writes_z(0x513F1));  // NEVER, FB_ONLY: the lists' additive glows, colour only
 }
 
 }  // namespace
