@@ -833,8 +833,10 @@ int run_against_opengl(const std::filesystem::path& path, bool save, const char*
             difference.worst_channel
         );
         CHECK(difference.same_shape);
-        CHECK(apple ? difference.worst_channel == 0
-                    : worst_pixels_beyond(drawn[0][index], theirs, 5) <= 2);
+        CHECK(
+            apple ? difference.worst_channel == 0
+                  : worst_pixels_beyond(drawn[0][index], theirs, 5) <= 2
+        );
     }
     return openrac::test::result();
 }
@@ -842,8 +844,9 @@ int run_against_opengl(const std::filesystem::path& path, bool save, const char*
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 3 && (std::string_view(argv[1]) == "--opengl-frames"
-                      || std::string_view(argv[1]) == "--against-opengl")) {
+    if (argc == 3
+        && (std::string_view(argv[1]) == "--opengl-frames"
+            || std::string_view(argv[1]) == "--against-opengl")) {
         return run_against_opengl(argv[2], std::string_view(argv[1]) == "--opengl-frames", argv[0]);
     }
     const auto chosen = selection(argc, argv);

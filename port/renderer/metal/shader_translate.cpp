@@ -32,7 +32,9 @@ public:
             }
         }
         for (const Resource& r : resources.sampled_images) {
-            texture(binding_of(compiler, r), compiler.get_type(r.type_id).image.dim != spv::DimBuffer);
+            texture(
+                binding_of(compiler, r), compiler.get_type(r.type_id).image.dim != spv::DimBuffer
+            );
         }
         for (const Resource& r : resources.storage_images) {
             texture(binding_of(compiler, r), false);
@@ -62,8 +64,11 @@ public:
     // Returns why the slots do not fit Metal's, or nothing.
     std::string overflow() const {
         if (m_out.buffers.size() > kVertexBufferBase) {
-            return std::format("{} blocks, more than Metal's {} below the vertex buffers",
-                               m_out.buffers.size(), kVertexBufferBase);
+            return std::format(
+                "{} blocks, more than Metal's {} below the vertex buffers",
+                m_out.buffers.size(),
+                kVertexBufferBase
+            );
         }
         if (m_samplers > kMaxSamplers) {
             return std::format("{} samplers, more than Metal's {}", m_samplers, kMaxSamplers);
@@ -101,7 +106,9 @@ private:
 class Translator : public CompilerMSL {
 public:
     Translator(const std::vector<std::uint32_t>& code, bool apple, bool exact)
-        : CompilerMSL(code), m_apple(apple), m_exact(exact) {}
+        : CompilerMSL(code),
+          m_apple(apple),
+          m_exact(exact) {}
 
 protected:
     void emit_instruction(const spirv_cross::Instruction& instr) override {
@@ -126,10 +133,17 @@ protected:
             emit_binary_func_op(ops[0], ops[1], ops[2], ops[3], "fast::divide");
             return;
         }
-        emit_op(ops[0], ops[1],
-                spirv_cross::join(to_enclosed_unpacked_expression(ops[2]), " * (1.0 / ",
-                                  to_enclosed_unpacked_expression(ops[3]), ")"),
-                should_forward(ops[2]));
+        emit_op(
+            ops[0],
+            ops[1],
+            spirv_cross::join(
+                to_enclosed_unpacked_expression(ops[2]),
+                " * (1.0 / ",
+                to_enclosed_unpacked_expression(ops[3]),
+                ")"
+            ),
+            should_forward(ops[2])
+        );
         inherit_expression_dependencies(ops[1], ops[2]);
     }
 
@@ -141,15 +155,17 @@ private:
 bool invariant(const std::vector<std::uint32_t>& code) {
     for (std::size_t i = 5; i < code.size(); i += code[i] >> 16) {
         const auto op = static_cast<spv::Op>(code[i] & 0xffff);
-        if ((op == spv::OpDecorate && code[i + 2] == spv::DecorationInvariant) ||
-            (op == spv::OpMemberDecorate && code[i + 3] == spv::DecorationInvariant)) {
+        if ((op == spv::OpDecorate && code[i + 2] == spv::DecorationInvariant)
+            || (op == spv::OpMemberDecorate && code[i + 3] == spv::DecorationInvariant)) {
             return true;
         }
     }
     return false;
 }
 
-std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& code, bool apple, bool exact) {
+std::unique_ptr<CompilerMSL> make_compiler(
+    const std::vector<std::uint32_t>& code, bool apple, bool exact
+) {
     auto compiler = std::make_unique<Translator>(code, apple, exact);
     CompilerMSL::Options options;
     options.platform = CompilerMSL::Options::macOS;
@@ -163,9 +179,12 @@ std::unique_ptr<CompilerMSL> make_compiler(const std::vector<std::uint32_t>& cod
 }
 
 std::string constant(const char* name, std::uint32_t index) {
-    return std::format("constant bool {0}_ [[function_constant({1})]];\n"
-                       "constant bool {0} = is_function_constant_defined({0}_) && {0}_;\n",
-                       name, index);
+    return std::format(
+        "constant bool {0}_ [[function_constant({1})]];\n"
+        "constant bool {0} = is_function_constant_defined({0}_) && {0}_;\n",
+        name,
+        index
+    );
 }
 
 void declare(std::string& source, const std::string& what) {
@@ -186,10 +205,16 @@ void far_half(std::string& source) {
     const std::string indent = source.substr(line, start - line);
     const std::string out = source.substr(start, source.find(".gl_Position.y = -(", start) - start);
     const std::string p = out + ".gl_Position";
-    source.insert(end + flip.size(),
-                  std::format("\n{0}{1}.openrac_z = {2}.z / {2}.w;\n"
-                              "{0}{2}.z = openrac_far_half ? -{2}.z : {2}.z;",
-                              indent, out, p));
+    source.insert(
+        end + flip.size(),
+        std::format(
+            "\n{0}{1}.openrac_z = {2}.z / {2}.w;\n"
+            "{0}{2}.z = openrac_far_half ? -{2}.z : {2}.z;",
+            indent,
+            out,
+            p
+        )
+    );
     const std::size_t member = source.find('\n', source.find("gl_Position [[position")) + 1;
     source.insert(member, "    float openrac_z [[user(openrac_z)]];\n");
     declare(source, constant("openrac_far_half", kFarHalfConstant));
@@ -204,19 +229,32 @@ void clamped_half(std::string& source) {
     } else {
         source.insert(source.find("\nfragment ") + 1, "struct main0_in\n{\n" + input + "};\n\n");
         const std::size_t parameters = source.find('(', source.find("\nfragment ")) + 1;
-        source.insert(parameters, source[parameters] == ')' ? "main0_in in [[stage_in]]" : "main0_in in [[stage_in]], ");
+        source.insert(
+            parameters,
+            source[parameters] == ')' ? "main0_in in [[stage_in]]" : "main0_in in [[stage_in]], "
+        );
     }
     const std::size_t body = source.find("\n{\n", source.find("\nfragment ")) + 3;
-    source.insert(body, "    if (openrac_clamped && (openrac_far_half ? in.openrac_z > 0.0 : in.openrac_z <= 0.0))\n"
-                        "    {\n"
-                        "        discard_fragment();\n"
-                        "    }\n");
-    declare(source, constant("openrac_far_half", kFarHalfConstant) + constant("openrac_clamped", kClampedConstant));
+    source.insert(
+        body,
+        "    if (openrac_clamped && (openrac_far_half ? in.openrac_z > 0.0 : in.openrac_z <= "
+        "0.0))\n"
+        "    {\n"
+        "        discard_fragment();\n"
+        "    }\n"
+    );
+    declare(
+        source,
+        constant("openrac_far_half", kFarHalfConstant)
+            + constant("openrac_clamped", kClampedConstant)
+    );
 }
 
 }  // namespace
 
-bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log) {
+bool translate_program(
+    const vkgl::CompiledProgram& spirv, bool apple, MslProgram& out, std::string& log
+) {
     out = MslProgram{};
     try {
         struct Stage {
@@ -227,16 +265,24 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
             std::unique_ptr<CompilerMSL> compiler;
             bool exact = false;
         };
+
         std::vector<Stage> stages;
         if (!spirv.compute.empty()) {
-            stages.push_back({spirv.compute, spv::ExecutionModelGLCompute, out.compute, out.compute_entry, {}});
+            stages.push_back(
+                {spirv.compute, spv::ExecutionModelGLCompute, out.compute, out.compute_entry, {}}
+            );
         } else {
-            stages.push_back({spirv.vertex, spv::ExecutionModelVertex, out.vertex, out.vertex_entry, {}});
-            stages.push_back({spirv.fragment, spv::ExecutionModelFragment, out.fragment, out.fragment_entry, {}});
+            stages.push_back(
+                {spirv.vertex, spv::ExecutionModelVertex, out.vertex, out.vertex_entry, {}}
+            );
+            stages.push_back(
+                {spirv.fragment, spv::ExecutionModelFragment, out.fragment, out.fragment_entry, {}}
+            );
         }
         Slots slots;
         for (Stage& stage : stages) {
-            stage.exact = apple && stage.model == spv::ExecutionModelVertex && invariant(stage.code);
+            stage.exact =
+                apple && stage.model == spv::ExecutionModelVertex && invariant(stage.code);
             stage.compiler = make_compiler(stage.code, apple, stage.exact);
             slots.assign(*stage.compiler);
         }
@@ -246,8 +292,11 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
         }
         for (Stage& stage : stages) {
             slots.bind(*stage.compiler, stage.model);
-            stage.source = std::string(stage.exact ? "#pragma clang fp contract(off)\n" : "#pragma clang fp contract(fast)\n") +
-                           stage.compiler->compile();
+            stage.source = std::string(
+                               stage.exact ? "#pragma clang fp contract(off)\n"
+                                           : "#pragma clang fp contract(fast)\n"
+                           )
+                           + stage.compiler->compile();
             stage.entry = stage.compiler->get_cleansed_entry_point_name("main", stage.model);
             if (stage.model == spv::ExecutionModelVertex) {
                 far_half(stage.source);
@@ -257,7 +306,8 @@ bool translate_program(const vkgl::CompiledProgram& spirv, bool apple, MslProgra
         }
         if (!spirv.compute.empty()) {
             for (std::uint32_t i = 0; i < 3; ++i) {
-                out.workgroup[i] = stages[0].compiler->get_execution_mode_argument(spv::ExecutionModeLocalSize, i);
+                out.workgroup[i] =
+                    stages[0].compiler->get_execution_mode_argument(spv::ExecutionModeLocalSize, i);
             }
         }
         slots.into(out);

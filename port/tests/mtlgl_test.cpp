@@ -49,7 +49,8 @@ void main() {
 
 GLuint program_of(const char* fragment, const char* vertex = kColourVertex) {
     const GLuint program = glCreateProgram();
-    for (const auto& [type, source] : {std::pair{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}) {
+    for (const auto& [type, source] :
+         {std::pair{GL_VERTEX_SHADER, vertex}, {GL_FRAGMENT_SHADER, fragment}}) {
         const GLuint shader = glCreateShader(type);
         glShaderSource(shader, 1, &source, nullptr);
         glCompileShader(shader);
@@ -70,13 +71,23 @@ void draw(std::initializer_list<float> vertices) {
     glBindVertexArray(array);
     glGenBuffers(1, &buffer);
     glBindBuffer(GL_ARRAY_BUFFER, buffer);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(vertices.size() * sizeof(float)),
-                 std::data(vertices), GL_STATIC_DRAW);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(vertices.size() * sizeof(float)),
+        std::data(vertices),
+        GL_STATIC_DRAW
+    );
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), nullptr);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * sizeof(float),
-                          reinterpret_cast<const void*>(3 * sizeof(float)));
+    glVertexAttribPointer(
+        1,
+        4,
+        GL_FLOAT,
+        GL_FALSE,
+        7 * sizeof(float),
+        reinterpret_cast<const void*>(3 * sizeof(float))
+    );
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 7));
     glDeleteBuffers(1, &buffer);
     glDeleteVertexArrays(1, &array);
@@ -84,8 +95,8 @@ void draw(std::initializer_list<float> vertices) {
 
 // The whole target at depth z in one colour.
 void quad(float z, float r, float g, float b) {
-    draw({-1, -1, z, r, g, b, 1, 1, -1, z, r, g, b, 1, 1, 1, z, r, g, b, 1,
-          -1, -1, z, r, g, b, 1, 1, 1, z, r, g, b, 1, -1, 1, z, r, g, b, 1});
+    draw({-1, -1, z, r, g, b, 1, 1, -1, z, r, g, b, 1, 1,  1, z, r, g, b, 1,
+          -1, -1, z, r, g, b, 1, 1, 1,  z, r, g, b, 1, -1, 1, z, r, g, b, 1});
 }
 
 constexpr const char* kColourFragment = R"(#version 410 core
@@ -99,8 +110,17 @@ GLuint texture(GLenum internal, int side) {
     glGenTextures(1, &name);
     glBindTexture(GL_TEXTURE_2D, name);
     const bool integer = internal == kRgba32ui;
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(internal), side, side, 0,
-                 integer ? kRgbaInteger : GL_RGBA, integer ? kUnsignedInt : GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        static_cast<GLint>(internal),
+        side,
+        side,
+        0,
+        integer ? kRgbaInteger : GL_RGBA,
+        integer ? kUnsignedInt : GL_UNSIGNED_BYTE,
+        nullptr
+    );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     return name;
@@ -118,10 +138,12 @@ GLuint framebuffer(GLuint colour, int side, GLenum depth = 0) {
         glGenRenderbuffers(1, &buffer);
         glBindRenderbuffer(GL_RENDERBUFFER, buffer);
         glRenderbufferStorage(GL_RENDERBUFFER, depth, side, side);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER,
-                                  depth == GL_DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT
-                                                               : GL_DEPTH_ATTACHMENT,
-                                  GL_RENDERBUFFER, buffer);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            depth == GL_DEPTH24_STENCIL8 ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT,
+            GL_RENDERBUFFER,
+            buffer
+        );
     }
     CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     glViewport(0, 0, side, side);
@@ -142,7 +164,9 @@ GLuint multisampled(int side, bool depth = false, GLenum colour = GL_RGBA8) {
         glGenRenderbuffers(1, &buffer);
         glBindRenderbuffer(GL_RENDERBUFFER, buffer);
         glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, side, side);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, buffer);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, buffer
+        );
     }
     CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
     return name;
@@ -195,8 +219,9 @@ std::vector<std::uint8_t> resolved_edges(GLenum format) {
     glViewport(0, 0, kSide, kSide);
     clear_to(0, 0.2f, 0.8f, 1);
     program_of(kColourFragment);
-    draw({-0.9f, -0.93f, 0, 0.2f, 0.6f, 1, 1, 0.71f, -0.2f, 0, 0.2f, 0.6f, 1, 1, -0.33f, 0.87f, 0, 0.2f, 0.6f, 1, 1,
-          0.5f, 0.1f, 0, 1, 0.4f, 0.2f, 1, 0.97f, 0.43f, 0, 1, 0.4f, 0.2f, 1, 0.21f, 0.79f, 0, 1, 0.4f, 0.2f, 1});
+    draw({-0.9f,  -0.93f, 0, 0.2f, 0.6f, 1,    1, 0.71f, -0.2f, 0, 0.2f, 0.6f, 1,    1,
+          -0.33f, 0.87f,  0, 0.2f, 0.6f, 1,    1, 0.5f,  0.1f,  0, 1,    0.4f, 0.2f, 1,
+          0.97f,  0.43f,  0, 1,    0.4f, 0.2f, 1, 0.21f, 0.79f, 0, 1,    0.4f, 0.2f, 1});
     const GLuint into = framebuffer(texture(format, kSide), kSide);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, frame);
     glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_COLOR_BUFFER_BIT, GL_NEAREST);
@@ -213,7 +238,9 @@ std::vector<std::uint8_t> resolved_edges(GLenum format) {
 // Each pixel the bits of `quotient` of its own a and b in [1, 2), so that every rounding shows.
 std::vector<std::uint8_t> divided(const char* quotient) {
     target();
-    program_of(std::format(R"(#version 410 core
+    program_of(
+        std::format(
+            R"(#version 410 core
 layout(location = 0) out vec4 result;
 uint hash(uint i) {{
     i = i * 747796405u + 2891336453u;
@@ -228,8 +255,10 @@ void main() {{
     result = vec4(v & 255u, (v >> 8u) & 255u, (v >> 16u) & 255u, v >> 24u) / 255.0;
 }}
 )",
-                           quotient)
-                   .c_str());
+            quotient
+        )
+            .c_str()
+    );
     quad(0, 0, 0, 0);
     return pixels();
 }
@@ -254,8 +283,17 @@ std::vector<std::uint8_t> depths(bool clamp) {
     GLuint depth = 0;
     glGenTextures(1, &depth);
     glBindTexture(GL_TEXTURE_2D, depth);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, kSide, kSide, 0, GL_DEPTH_COMPONENT, GL_FLOAT,
-                 nullptr);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_DEPTH_COMPONENT32F,
+        kSide,
+        kSide,
+        0,
+        GL_DEPTH_COMPONENT,
+        GL_FLOAT,
+        nullptr
+    );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     framebuffer(texture(GL_RGBA8, kSide), kSide);
@@ -267,11 +305,12 @@ std::vector<std::uint8_t> depths(bool clamp) {
     if (clamp) {
         glEnable(GL_DEPTH_CLAMP);
     }
-    program_of(R"(#version 410 core
+    program_of(
+        R"(#version 410 core
 layout(location = 0) out vec4 result;
 void main() { result = vec4(1.0); }
 )",
-               R"(#version 410 core
+        R"(#version 410 core
 uint hash(uint i) {
     i = i * 747796405u + 2891336453u;
     i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
@@ -284,7 +323,8 @@ void main() {
     float z = id % 4u == 0u ? r(2u * id + 1u) * 2.4 - 1.2 : r(2u * id + 1u) * 0.1 - 1.0;
     gl_Position = vec4((float(id % 16u) + 0.5) / 8.0 - 1.0, (float(id / 16u) + 0.5) / 8.0 - 1.0, z, 1.0) * w;
 }
-)");
+)"
+    );
     GLuint array = 0;
     glGenVertexArrays(1, &array);
     glBindVertexArray(array);
@@ -320,11 +360,12 @@ std::vector<std::uint8_t> halves(bool clamp) {
     }
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-    program_of(R"(#version 410 core
+    program_of(
+        R"(#version 410 core
 layout(location = 0) out vec4 result;
 void main() { result = vec4(1.0 / 255.0); }
 )",
-               R"(#version 410 core
+        R"(#version 410 core
 uint hash(uint i) {
     i = i * 747796405u + 2891336453u;
     i = ((i >> ((i >> 28u) + 4u)) ^ i) * 277803737u;
@@ -337,7 +378,8 @@ void main() {
     vec2 corners[3] = vec2[3](vec2(-3.0, -3.0), vec2(7.0, -3.0), vec2(-3.0, 7.0));
     gl_Position = vec4(corners[id % 3u], r(2u * id + 1u) * 3.0 - 1.5, 1.0) * w;
 }
-)");
+)"
+    );
     GLuint array = 0;
     glGenVertexArrays(1, &array);
     glBindVertexArray(array);
@@ -366,16 +408,21 @@ vec4 hashed(uint seed) {
 std::vector<std::uint8_t> blended(GLenum format) {
     framebuffer(texture(format, kSide), kSide);
     clear_to(0, 0, 0, 0);
-    const GLuint program = program_of(std::format(R"(#version 410 core
+    const GLuint program = program_of(
+        std::format(
+            R"(#version 410 core
 {}
 uniform int seed;
 layout(location = 0) out vec4 result;
 void main() {{ result = hashed(uint(seed)); }}
 )",
-                                                  kHash)
-                                          .c_str());
+            kHash
+        )
+            .c_str()
+    );
     glEnable(GL_BLEND);
-    const GLenum factors[3][2] = {{GL_ONE, GL_ZERO}, {GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA}, {GL_ONE, GL_ONE}};
+    const GLenum factors[3][2] =
+        {{GL_ONE, GL_ZERO}, {GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA}, {GL_ONE, GL_ONE}};
     for (GLuint seed = 0; seed < 3; ++seed) {
         glUniform1i(glGetUniformLocation(program, "seed"), static_cast<GLint>(seed));
         glBlendFuncSeparate(factors[seed][0], factors[seed][1], GL_ONE, GL_ZERO);
@@ -395,7 +442,9 @@ void main() {{ result = hashed(uint(seed)); }}
 std::vector<std::uint8_t> perspective(const char* value, GLuint image = 0) {
     target();
     glBindTexture(GL_TEXTURE_2D, image);
-    program_of(std::format(R"(#version 410 core
+    program_of(
+        std::format(
+            R"(#version 410 core
 in vec4 v_colour;
 uniform sampler2D image;
 layout(location = 0) out vec4 result;
@@ -408,9 +457,10 @@ void main() {{
     result = {};
 }}
 )",
-                           value)
-                   .c_str(),
-               R"(#version 410 core
+            value
+        )
+            .c_str(),
+        R"(#version 410 core
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec4 colour;
 out vec4 v_colour;
@@ -418,9 +468,11 @@ void main() {
     v_colour = colour;
     gl_Position = vec4(position, 1) * colour.w;
 }
-)");
-    draw({-1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f,  1, -1, 0, 3.7f, 0.1f, 0.9f, 1.1f, 1, 1, 0, 2.9f, 5.3f, 0.3f, 7.9f,
-          -1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f,  1, 1, 0, 2.9f, 5.3f, 0.3f, 7.9f, -1, 1, 0, 0.3f, 4.1f, 0.7f, 5.3f});
+)"
+    );
+    draw({-1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f, 1,  -1, 0, 3.7f, 0.1f, 0.9f, 1.1f,
+          1,  1,  0, 2.9f, 5.3f, 0.3f, 7.9f, -1, -1, 0, 0.1f, 0.2f, 1.3f, 1.3f,
+          1,  1,  0, 2.9f, 5.3f, 0.3f, 7.9f, -1, 1,  0, 0.3f, 4.1f, 0.7f, 5.3f});
     return pixels();
 }
 
@@ -430,7 +482,8 @@ void main() {
 std::vector<std::uint8_t> near_edges() {
     target();
     glViewport(-4096, -4096, 8192, 8192);
-    const GLuint program = program_of(R"(#version 410 core
+    const GLuint program = program_of(
+        R"(#version 410 core
 flat in uint v_cell;
 layout(location = 0) out vec4 result;
 void main() {
@@ -438,7 +491,7 @@ void main() {
     result = vec4(1.0);
 }
 )",
-                                      R"(#version 410 core
+        R"(#version 410 core
 uniform int seed;
 flat out uint v_cell;
 uint hash(uint i) {
@@ -458,7 +511,8 @@ void main() {
     float w = 0.5 + r(s + 3u) * 60.0;
     gl_Position = vec4(p / 4096.0, 0.0, 1.0) * w;
 }
-)");
+)"
+    );
     GLuint array = 0;
     glGenVertexArrays(1, &array);
     glBindVertexArray(array);
@@ -482,8 +536,8 @@ std::vector<std::uint8_t> depth_tested() {
     for (int i = 0; i < 4; ++i) {
         const float x = static_cast<float>(i % 2) - 1, y = static_cast<float>(i / 2) - 1;
         glDepthFunc(tests[i]);
-        draw({x, y, 1, 1, 0, 0, 1, x + 1, y, 1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1,
-              x, y, 1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1, x, y + 1, 1, 1, 0, 0, 1});
+        draw({x, y, 1, 1, 0, 0, 1, x + 1, y,     1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1,
+              x, y, 1, 1, 0, 0, 1, x + 1, y + 1, 1, 1, 0, 0, 1, x,     y + 1, 1, 1, 0, 0, 1});
     }
     glDepthMask(GL_TRUE);
     glDisable(GL_DEPTH_TEST);
@@ -495,16 +549,17 @@ const Case kCases[] = {
      [] {
          target();
          program_of(kColourFragment);
-         draw({-1, -1, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1,
-               -1, -1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 0.5f});
+         draw({-1, -1, 0, 1, 0, 0, 1, 1, -1, 0, 0, 1, 0, 1, 1,  1, 0, 0, 0, 1, 1,
+               -1, -1, 0, 1, 0, 0, 1, 1, 1,  0, 0, 0, 1, 1, -1, 1, 0, 1, 1, 1, 0.5f});
          return pixels();
      }},
     {"edges",
      [] {
          target();
          program_of(kColourFragment);
-         draw({-0.9f, -0.93f, 0, 1, 1, 1, 1, 0.71f, -0.2f, 0, 1, 1, 1, 1, -0.33f, 0.87f, 0, 1, 1, 1, 1,
-               0.5f, 0.5f, 0, 1, 0, 0, 1, 0.75f, 0.5f, 0, 1, 0, 0, 1, 0.5f, 0.75f, 0, 1, 0, 0, 1});
+         draw({-0.9f,  -0.93f, 0, 1, 1, 1, 1, 0.71f, -0.2f, 0, 1, 1, 1, 1,
+               -0.33f, 0.87f,  0, 1, 1, 1, 1, 0.5f,  0.5f,  0, 1, 0, 0, 1,
+               0.75f,  0.5f,   0, 1, 0, 0, 1, 0.5f,  0.75f, 0, 1, 0, 0, 1});
          return pixels();
      }},
     // Eight triangles meeting at a pixel's centre, their shared edges through pixel centres, so that
@@ -513,21 +568,31 @@ const Case kCases[] = {
      [] {
          target();
          program_of(kColourFragment);
-         draw({-0.0625f, -0.0625f, 0, 0.125f, 0, 0, 1,     -1.0625f, -1.0625f, 0, 0.125f, 0, 0, 1,
-               -0.0625f, -1.0625f, 0, 0.125f, 0, 0, 1,     -0.0625f, -0.0625f, 0, 0.25f, 1, 0, 1,
-               -0.0625f, -1.0625f, 0, 0.25f, 1, 0, 1,      0.9375f, -1.0625f, 0, 0.25f, 1, 0, 1,
-               -0.0625f, -0.0625f, 0, 0.375f, 0, 0.25f, 1, 0.9375f, -1.0625f, 0, 0.375f, 0, 0.25f, 1,
-               0.9375f, -0.0625f, 0, 0.375f, 0, 0.25f, 1,  -0.0625f, -0.0625f, 0, 0.5f, 1, 0.25f, 1,
-               0.9375f, -0.0625f, 0, 0.5f, 1, 0.25f, 1,    0.9375f, 0.9375f, 0, 0.5f, 1, 0.25f, 1,
-               -0.0625f, -0.0625f, 0, 0.625f, 0, 0.5f, 1,  0.9375f, 0.9375f, 0, 0.625f, 0, 0.5f, 1,
-               -0.0625f, 0.9375f, 0, 0.625f, 0, 0.5f, 1,   -0.0625f, -0.0625f, 0, 0.75f, 1, 0.5f, 1,
-               -0.0625f, 0.9375f, 0, 0.75f, 1, 0.5f, 1,    -1.0625f, 0.9375f, 0, 0.75f, 1, 0.5f, 1,
-               -0.0625f, -0.0625f, 0, 0.875f, 0, 0.75f, 1, -1.0625f, 0.9375f, 0, 0.875f, 0, 0.75f, 1,
-               -1.0625f, -0.0625f, 0, 0.875f, 0, 0.75f, 1, -0.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,
-               -1.0625f, -0.0625f, 0, 1, 1, 0.75f, 1,      -1.0625f, -1.0625f, 0, 1, 1, 0.75f, 1});
+         draw({-0.0625f, -0.0625f, 0,        0.125f,   0,        0,        1,        -1.0625f,
+               -1.0625f, 0,        0.125f,   0,        0,        1,        -0.0625f, -1.0625f,
+               0,        0.125f,   0,        0,        1,        -0.0625f, -0.0625f, 0,
+               0.25f,    1,        0,        1,        -0.0625f, -1.0625f, 0,        0.25f,
+               1,        0,        1,        0.9375f,  -1.0625f, 0,        0.25f,    1,
+               0,        1,        -0.0625f, -0.0625f, 0,        0.375f,   0,        0.25f,
+               1,        0.9375f,  -1.0625f, 0,        0.375f,   0,        0.25f,    1,
+               0.9375f,  -0.0625f, 0,        0.375f,   0,        0.25f,    1,        -0.0625f,
+               -0.0625f, 0,        0.5f,     1,        0.25f,    1,        0.9375f,  -0.0625f,
+               0,        0.5f,     1,        0.25f,    1,        0.9375f,  0.9375f,  0,
+               0.5f,     1,        0.25f,    1,        -0.0625f, -0.0625f, 0,        0.625f,
+               0,        0.5f,     1,        0.9375f,  0.9375f,  0,        0.625f,   0,
+               0.5f,     1,        -0.0625f, 0.9375f,  0,        0.625f,   0,        0.5f,
+               1,        -0.0625f, -0.0625f, 0,        0.75f,    1,        0.5f,     1,
+               -0.0625f, 0.9375f,  0,        0.75f,    1,        0.5f,     1,        -1.0625f,
+               0.9375f,  0,        0.75f,    1,        0.5f,     1,        -0.0625f, -0.0625f,
+               0,        0.875f,   0,        0.75f,    1,        -1.0625f, 0.9375f,  0,
+               0.875f,   0,        0.75f,    1,        -1.0625f, -0.0625f, 0,        0.875f,
+               0,        0.75f,    1,        -0.0625f, -0.0625f, 0,        1,        1,
+               0.75f,    1,        -1.0625f, -0.0625f, 0,        1,        1,        0.75f,
+               1,        -1.0625f, -1.0625f, 0,        1,        1,        0.75f,    1});
          return pixels();
      },
-     false, true},
+     false,
+     true},
     {"multisampled edges resolved", [] { return resolved_edges(GL_RGBA8); }},
     {"multisampled half float edges resolved", [] { return resolved_edges(GL_RGBA16F); }},
     // Each pixel keeps the samples its mask names.
@@ -550,7 +615,8 @@ void main() {
          glBindFramebuffer(GL_FRAMEBUFFER, into);
          return pixels();
      },
-     false, true},
+     false,
+     true},
     // Each pixel's bytes are the bits of a multiply and an add written as two statements.
     {"multiply then add",
      [] {
@@ -582,12 +648,13 @@ void main() {
     {"invariant vertex stage",
      [] {
          target();
-         const GLuint program = program_of(R"(#version 410 core
+         const GLuint program = program_of(
+             R"(#version 410 core
 flat in uint v_bits;
 layout(location = 0) out vec4 result;
 void main() { result = vec4(v_bits & 255u, (v_bits >> 8u) & 255u, (v_bits >> 16u) & 255u, v_bits >> 24u) / 255.0; }
 )",
-                                           R"(#version 410 core
+             R"(#version 410 core
 invariant gl_Position;
 uniform mat4 m;
 flat out uint v_bits;
@@ -602,9 +669,25 @@ void main() {
     v_bits = floatBitsToUint((m * vec4(r(n * 3u), r(n * 3u + 1u), r(n * 3u + 2u), 1.0))[id % 4u]);
     gl_Position = vec4((float(id % 16u) + 0.5) / 8.0 - 1.0, (float(id / 16u) + 0.5) / 8.0 - 1.0, 0, 1);
 }
-)");
-         const float m[16] = {1.27f, 0.17f, -0.468f, 0.47f, 0.03f, 1.62f, 0.354f, -0.35f,
-                              0.65f, -0.53f, 0.81f, -0.81f, -16.0f, -11.8f, -150.2f, 150.25f};
+)"
+         );
+         const float m[16] =
+             {1.27f,
+              0.17f,
+              -0.468f,
+              0.47f,
+              0.03f,
+              1.62f,
+              0.354f,
+              -0.35f,
+              0.65f,
+              -0.53f,
+              0.81f,
+              -0.81f,
+              -16.0f,
+              -11.8f,
+              -150.2f,
+              150.25f};
          glUniformMatrix4fv(glGetUniformLocation(program, "m"), 1, GL_FALSE, m);
          GLuint array = 0;
          glGenVertexArrays(1, &array);
@@ -636,7 +719,8 @@ void main() {
          glBindFramebuffer(GL_FRAMEBUFFER, into);
          return pixels();
      },
-     false, true},
+     false,
+     true},
     {"new depth image tested",
      [] {
          target(GL_DEPTH_COMPONENT32F);
@@ -647,8 +731,17 @@ void main() {
          GLuint depth = 0;
          glGenTextures(1, &depth);
          glBindTexture(GL_TEXTURE_2D, depth);
-         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, kSide, kSide, 0, GL_DEPTH_COMPONENT,
-                      GL_FLOAT, nullptr);
+         glTexImage2D(
+             GL_TEXTURE_2D,
+             0,
+             GL_DEPTH_COMPONENT32F,
+             kSide,
+             kSide,
+             0,
+             GL_DEPTH_COMPONENT,
+             GL_FLOAT,
+             nullptr
+         );
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
          target();
@@ -664,7 +757,8 @@ void main() {
          quad(0, 0, 0, 0);
          return pixels();
      },
-     false, true},
+     false,
+     true},
     {"blending", [] { return blended(GL_RGBA8); }},
     {"half float blending", [] { return blended(GL_RGBA16F); }},
     {"perspective varying", [] { return perspective("bits(stq.x)"); }, false, true},
@@ -681,7 +775,8 @@ void main() {
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
          return perspective("texture(image, stq.xy / stq.z)", image);
      },
-     true, true},
+     true,
+     true},
     {"edges near pixel centres", near_edges, false, true},
     {"depth", [] { return depths(false); }, false, true},
     {"clamped depth", [] { return depths(true); }, false, true},
@@ -691,9 +786,9 @@ void main() {
      [] {
          target();
          const GLuint image = texture(GL_RGBA8, 3);
-         const std::uint8_t texels[36] = {255, 0, 0, 255, 0, 255, 0, 200, 0, 0, 255, 255,
-                                          17, 99, 3, 0, 250, 250, 250, 255, 64, 32, 16, 8,
-                                          1, 2, 3, 4, 128, 129, 130, 131, 0, 255, 0, 255};
+         const std::uint8_t texels[36] = {255, 0,  0, 255, 0,   255, 0,   200, 0,  0,   255, 255,
+                                          17,  99, 3, 0,   250, 250, 250, 255, 64, 32,  16,  8,
+                                          1,   2,  3, 4,   128, 129, 130, 131, 0,  255, 0,   255};
          glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
          glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 3, 3, GL_RGBA, GL_UNSIGNED_BYTE, texels);
          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -704,8 +799,9 @@ uniform sampler2D image;
 layout(location = 0) out vec4 result;
 void main() { result = texture(image, v_colour.xy); }
 )");
-         draw({-1, -1, 0, -0.1f, -0.2f, 0, 0, 1, -1, 0, 1.1f, -0.2f, 0, 0, 1, 1, 0, 1.1f, 0.9f, 0, 0,
-               -1, -1, 0, -0.1f, -0.2f, 0, 0, 1, 1, 0, 1.1f, 0.9f, 0, 0, -1, 1, 0, -0.1f, 0.9f, 0, 0});
+         draw({-1, -1, 0, -0.1f, -0.2f, 0, 0, 1,  -1, 0, 1.1f,  -0.2f, 0, 0,
+               1,  1,  0, 1.1f,  0.9f,  0, 0, -1, -1, 0, -0.1f, -0.2f, 0, 0,
+               1,  1,  0, 1.1f,  0.9f,  0, 0, -1, 1,  0, -0.1f, 0.9f,  0, 0});
          return pixels();
      },
      true},
@@ -785,7 +881,9 @@ void main() { result = texture(image, v_colour.xy); }
     {"clears of a texture's two levels",
      [] {
          const GLuint image = texture(GL_RGBA8, kSide * 2);
-         glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+         glTexImage2D(
+             GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
+         );
          const GLuint first = framebuffer(image, kSide);
          clear_to(0.9f, 0.1f, 0.3f, 1.0f);
          GLuint second = 0;
@@ -815,7 +913,9 @@ void main() { result = texture(image, v_colour.xy); }
          const GLuint from = framebuffer(texture(0x881A /* GL_RGBA16F */, kSide), kSide);
          clear_to(0.25f, 1.5f, -0.5f, 0.75f);
          const GLuint into = texture(GL_RGBA8, kSide * 2);
-         glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+         glTexImage2D(
+             GL_TEXTURE_2D, 1, GL_RGBA8, kSide, kSide, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr
+         );
          GLuint level = 0;
          glGenFramebuffers(1, &level);
          glBindFramebuffer(GL_FRAMEBUFFER, level);
@@ -828,7 +928,8 @@ void main() { result = texture(image, v_colour.xy); }
          return pixels();
      }},
     {"scaled depth blit", [] { return scaled_depth_blit(GL_DEPTH_COMPONENT24); }},
-    {"scaled depth blit of depth and stencil", [] { return scaled_depth_blit(GL_DEPTH24_STENCIL8); }},
+    {"scaled depth blit of depth and stencil",
+     [] { return scaled_depth_blit(GL_DEPTH24_STENCIL8); }},
     {"filtered depth blit", [] { return scaled_depth_blit(GL_DEPTH_COMPONENT24, GL_LINEAR); }},
     {"scaled integer blit",
      [] {
@@ -910,11 +1011,22 @@ void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.
          glStencilFunc(GL_ALWAYS, 1, 0xFF);
          glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, 0x1E01 /* GL_REPLACE */);
          program_of(kColourFragment);
-         draw({-1, -1, -0.5f, 0, 0, 0, 1, 0.83f, -0.71f, -0.5f, 0, 0, 0, 1, -0.37f, 0.9f, -0.5f, 0, 0, 0, 1});
+         draw({-1, -1, -0.5f, 0,      0,    0,     1, 0.83f, -0.71f, -0.5f, 0,
+               0,  0,  1,     -0.37f, 0.9f, -0.5f, 0, 0,     0,      1});
          const GLuint into = target(GL_DEPTH24_STENCIL8);
          glBindFramebuffer(GL_READ_FRAMEBUFFER, from);
-         glBlitFramebuffer(0, 0, kSide, kSide, 0, 0, kSide, kSide, GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
-                           GL_NEAREST);
+         glBlitFramebuffer(
+             0,
+             0,
+             kSide,
+             kSide,
+             0,
+             0,
+             kSide,
+             kSide,
+             GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT,
+             GL_NEAREST
+         );
          glBindFramebuffer(GL_FRAMEBUFFER, into);
          glStencilFunc(GL_ALWAYS, 0, 0xFF);
          glStencilOpSeparate(GL_FRONT_AND_BACK, GL_KEEP, GL_KEEP, GL_KEEP);
@@ -927,8 +1039,7 @@ void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.
          glDisable(GL_DEPTH_TEST);
          return pixels();
      }},
-    {"scaled multisampled blit",
-     [] {
+    {"scaled multisampled blit", [] {
          const GLuint from = multisampled(8);
          clear_to(1, 0, 0, 1);
          const GLuint into = target();
@@ -941,7 +1052,9 @@ void main() { result = vec4(texelFetch(image, ivec2(gl_FragCoord.xy), 0)) / 255.
 
 // Each case's pixels drawn through `api`, and its renderer's name; empty when no window of it
 // opens.
-std::vector<std::vector<std::uint8_t>> draw_cases(openrac::platform::GlApi api, std::string& renderer) {
+std::vector<std::vector<std::uint8_t>> draw_cases(
+    openrac::platform::GlApi api, std::string& renderer
+) {
     openrac::platform::Platform sdl(openrac::platform::kVideo);
     openrac::platform::WindowConfig config;
     config.width = kSide;
@@ -1006,7 +1119,6 @@ int main() {
     pixel_store(GL_PACK_ALIGNMENT, 4);
     read_pixels(4, 2, 2, 1, GL_RGBA, GL_UNSIGNED_BYTE, corner);
     CHECK(corner[0] == 255 && corner[4] == 0);
-
 
     read_pixels(0, 0, 1, 1, GL_RGBA, GL_FLOAT, pixels.data());
     CHECK(get_error() == 0x0500);  // GL_INVALID_ENUM
@@ -1147,7 +1259,8 @@ int main() {
     const auto draw_arrays = proc<PFN_glDrawArrays>("glDrawArrays");
     const auto viewport = proc<PFN_glViewport>("glViewport");
 
-    const char* sources[2] = {R"(#version 410 core
+    const char* sources[2] =
+        {R"(#version 410 core
 layout(location = 0) in vec2 position;
 layout(location = 1) in vec4 tint;
 out vec4 v_tint;
@@ -1156,7 +1269,7 @@ void main() {
     gl_Position = vec4(position, 0, 1);
 }
 )",
-                              R"(#version 410 core
+         R"(#version 410 core
 uniform vec4 colour;
 in vec4 v_tint;
 layout(location = 0) out vec4 result;
@@ -1217,7 +1330,9 @@ void main() { result = colour + v_tint; }
         for (int x = 0; x < 4; ++x) {
             const std::uint8_t* p = &drawn[(y * 4 + x) * 4];
             const bool inside = x < 2 && y < 2;
-            CHECK(p[0] == (inside ? 255 : 0) && p[1] == 0 && p[2] == 0 && p[3] == (inside ? 255 : 0));
+            CHECK(
+                p[0] == (inside ? 255 : 0) && p[1] == 0 && p[2] == 0 && p[3] == (inside ? 255 : 0)
+            );
         }
     }
 
@@ -1248,8 +1363,15 @@ void main() { result = colour + v_tint; }
             differ += d != 0 ? 1 : 0;
             worst = std::max(worst, d);
         }
-        std::printf("%s on %s: OpenGL error 0x%02X, Metal 0x%02X; %d channels differ, by up to %d\n",
-                    kCases[i].name, renderer.c_str(), a.back(), b.back(), differ, worst);
+        std::printf(
+            "%s on %s: OpenGL error 0x%02X, Metal 0x%02X; %d channels differ, by up to %d\n",
+            kCases[i].name,
+            renderer.c_str(),
+            a.back(),
+            b.back(),
+            differ,
+            worst
+        );
         CHECK(a.back() == b.back());
         CHECK(worst <= (kCases[i].filtered && !apple ? 1 : 0) || (kCases[i].amd_differs && !apple));
     }

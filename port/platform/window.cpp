@@ -531,9 +531,9 @@ bool Window::open_metal(const WindowConfig& config, std::string& error) {
     // The caller's gl::load fails on one missing function, after the window is open and cannot
     // fall back; a Metal that is not whole yet is found here.
     std::string missing;
-#define OPENRAC_METAL_CHECK(ret, name, params)          \
-    if (mtlgl::get_proc(#name) == nullptr) {            \
-        missing += missing.empty() ? #name : " " #name; \
+#define OPENRAC_METAL_CHECK(ret, name, params)                                                     \
+    if (mtlgl::get_proc(#name) == nullptr) {                                                       \
+        missing += missing.empty() ? #name : " " #name;                                            \
     }
     OPENRAC_GL_FUNCTIONS(OPENRAC_METAL_CHECK)
 #undef OPENRAC_METAL_CHECK
@@ -552,8 +552,11 @@ bool Window::open_metal(const WindowConfig& config, std::string& error) {
     log::header(std::format("graphics  {}, Metal", m_gl_renderer), false);
     if (config.display > 0 && config.mode == DisplayMode::Windowed) {
         if (const SDL_DisplayID id = display_id(config.display)) {
-            SDL_SetWindowPosition(m_window, static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id)),
-                                  static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id)));
+            SDL_SetWindowPosition(
+                m_window,
+                static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id)),
+                static_cast<int>(SDL_WINDOWPOS_CENTERED_DISPLAY(id))
+            );
         }
     }
     if (config.mode != DisplayMode::Windowed) {
