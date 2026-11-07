@@ -93,6 +93,8 @@ game pauses during editing; Done saves the layout and returns to the game.
 The launcher reads connected extended gamepads through Apple's GameController
 framework, including DualSense and Xbox controllers, and forwards the same
 button events as Android to the shared `launcher/src/lib/pad.ts` navigation.
+The UIKit root is a `GCEventViewController` with controller UI interaction
+disabled, so inputs reach the profiles instead of WebKit's responder chain.
 It does not require a touch to activate WebKit's Gamepad API.
 
 | Control | Launcher action |

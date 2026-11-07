@@ -7,6 +7,7 @@
 #import "ios/prepare.h"
 #include "platform/ios.h"
 
+#import <GameController/GameController.h>
 #import <UIKit/UIKit.h>
 
 namespace {
@@ -33,7 +34,7 @@ bool prepared(NSURL* folder, NSDictionary* engine) {
 
 }  // namespace
 
-@interface OpenRACImportController : UIViewController
+@interface OpenRACImportController : GCEventViewController
 @property(nonatomic, strong) NSURL* destination;
 @property(nonatomic, strong) NSDictionary* engine;
 @property(nonatomic) BOOL ready;
@@ -46,6 +47,8 @@ bool prepared(NSURL* folder, NSDictionary* engine) {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    // Route controller input to GCController profiles instead of WebKit's responder chain.
+    self.controllerUserInteractionEnabled = NO;
     __weak OpenRACImportController* weakSelf = self;
     self.view = openrac_launcher_view(
         self,
