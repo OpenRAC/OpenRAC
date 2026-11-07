@@ -393,15 +393,32 @@ const GameAddresses kRac1NtscLevels[19] = {
     {0x001677C0, 0x001679D0, 0x0016D440, 0x0015FFDC, 0x0015FFE0, 0.756f, 0x001611B8, 0x001611D0},  // 18
 };
 
+}  // namespace openrac::game::rac1
+
+#include "game/rac1/profile_rac1-jp.h"
+#include "game/rac1/profile_rac1-pal1.h"
+
+namespace openrac::game::rac1 {
+
 const GameAddresses& rac1_addresses(std::string_view game, int level) {
-    const bool ntsc = game == "rac1-ntsc";
-    const std::span<const GameAddresses> levels =
-        ntsc ? std::span<const GameAddresses>(kRac1NtscLevels)
-             : std::span<const GameAddresses>(kRac1PalLevels);
+    // Each disc's tables: PAL v2.00's above, NTSC-U's, and the two releases built from PAL v2.00's C
+    // (profile_rac1-pal1.h, profile_rac1-jp.h, written by port/tools/hostgen/release_rac1.py).
+    const GameAddresses* boot = &kRac1Pal;
+    std::span<const GameAddresses> levels(kRac1PalLevels);
+    if (game == "rac1-ntsc") {
+        boot = &kRac1Ntsc;
+        levels = kRac1NtscLevels;
+    } else if (game == "rac1-pal1") {
+        boot = &kRac1Pal1;
+        levels = kRac1Pal1Levels;
+    } else if (game == "rac1-jp") {
+        boot = &kRac1Jp;
+        levels = kRac1JpLevels;
+    }
     if (level >= 0 && static_cast<std::size_t>(level) < levels.size()) {
         return levels[level];
     }
-    return ntsc ? kRac1Ntsc : kRac1Pal;
+    return *boot;
 }
 
 const GameAddresses& rac1_pal_addresses(std::span<const std::uint8_t> ram) {
