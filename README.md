@@ -86,6 +86,16 @@ Test and report bugs, decompile functions, or work on the launcher, the port or 
 
 **Start here:** [Developer guide](docs/DEVELOPING.md) · [Contributing](CONTRIBUTING.md) · [Sourcing policy](docs/policy/SOURCING.md) · [All docs](docs/README.md)
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=openrac%2Fopenrac&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=openrac/openrac&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=openrac/openrac&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=openrac/openrac&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Credits and license
 
 OpenRAC brings several decompilation projects together.
