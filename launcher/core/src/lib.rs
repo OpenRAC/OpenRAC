@@ -107,6 +107,12 @@ pub fn under(root: &Path, rel: &str) -> PathBuf {
         .fold(root.to_path_buf(), |path, part| path.join(part))
 }
 
+/// The SHA-256 of `bytes`, as lowercase hex.
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes).iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// The program a build made at `path` (absolute, without `.exe` off Windows). On macOS a windowed
 /// program is an application bundle named by its title, in a folder named after the program:
 /// `<folder>/apps/<name>/<title>.app` (port/cmake/MacApp.cmake). The program is the bundle's

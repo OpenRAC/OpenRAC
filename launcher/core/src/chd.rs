@@ -106,7 +106,13 @@ impl<F: Read + Seek> ChdImage<F> {
         if chd.header().has_parent() {
             return Err("this CHD image needs its parent CHD; unpack it with chdman first".into());
         }
-        let refs: Vec<_> = chd.metadata_refs().filter(|m| KnownMetadata::is_cdrom(m.metatag())).collect();
+        let mut refs = Vec::new();
+        for m in chd.metadata_refs() {
+            let m = m.map_err(|e| format!("this CHD image's track list: {e}"))?;
+            if KnownMetadata::is_cdrom(m.metatag()) {
+                refs.push(m);
+            }
+        }
         let cd = if refs.is_empty() {
             None
         } else {

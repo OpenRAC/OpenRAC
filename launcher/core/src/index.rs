@@ -16,7 +16,6 @@ use std::path::{Path, PathBuf};
 
 use base64::Engine;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::mod_error::{ModAction, ModError, ModErrorKind};
 use crate::remote::Fetch;
@@ -428,7 +427,7 @@ struct State {
 
 /// A file name for an index's URL in the cache.
 fn cache_name(url: &str) -> String {
-    let hash = format!("{:x}", Sha256::digest(url.as_bytes()));
+    let hash = crate::sha256_hex(url.as_bytes());
     hash[..16].to_string()
 }
 
