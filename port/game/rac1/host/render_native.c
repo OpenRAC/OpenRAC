@@ -146,6 +146,8 @@ static void mark_drawn_mobys(gaddr first, int count) {
     ty *= opened;
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(RAC1_ADDR(0x00160030u)));
+    /* As far as the window draws mobys (openrac_game_draw_distance): a drawn moby stays active. */
+    const float scale = openrac_game_draw_distance();
     const uint8_t* groups = G(OPENRAC_DATA(RAC1_ADDR(0x001940C0u)));
     for (gaddr m = first; count < 0 || m != end; m += 0x100) {
         /* At most 4096 mobys in the console's arena, as before; an expanded one holds more. */
@@ -174,7 +176,15 @@ static void mark_drawn_mobys(gaddr first, int count) {
             if (distance > max_distance) {
                 distance = max_distance;  // pminw with the global draw distance
             }
-            drawn = moby_in_view(d, rows, r, (float)distance, tx, ty, wider);
+            /* Draw distance: the reach times its factor; Unlimited, any depth (a moby with no draw
+             * distance stays undrawn). */
+            /* Above Original, a quarter farther than the window draws it, so that one barely in
+             * view at the far end is already active. */
+            const float reach = scale > 1.0f   ? (float)distance * scale * 1.25f
+                                : scale > 0.0f ? (float)distance * scale
+                                : distance > 0 ? 3.0e38f
+                                               : (float)distance;
+            drawn = moby_in_view(d, rows, r, reach, tx, ty, wider);
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);
     }

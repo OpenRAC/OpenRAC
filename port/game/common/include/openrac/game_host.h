@@ -794,6 +794,13 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
 
+/* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
+ * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
+ * moby packets would have gone. The strips the game sent before it, after the world's marker (its
+ * draw callback lists run between the ties and the mobys), are drawn before the shrubs and mobys,
+ * as the console drew them (renderer::EffectStrip::before_mobys). */
+#define OPENRAC_WORLD_MOBYS_MARKER 0x4D57u
+
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
 
@@ -855,6 +862,12 @@ float openrac_game_picture_wider(void);
  * at least 1: the frame's view tests open by as much, so that what the wider view shows is not
  * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
 float openrac_game_view_opened(void);
+
+/* The player's Draw distance as a factor of the game's (settings.h draw_distance): 1 at Original,
+ * 4 at 400%, 0 Unlimited; 1 without a window. The moby renderers' drawn flag (+0x31) takes it, so
+ * that a moby the window draws farther away is drawn to the game too, which keeps it active (the
+ * moby loop updates a drawn moby whatever its update distance). */
+float openrac_game_draw_distance(void);
 
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The

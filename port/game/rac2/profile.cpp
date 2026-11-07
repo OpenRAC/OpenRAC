@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "game/common/moby_proc.h"
 #include "openrac/guest.h"
 #include "renderer/math.h"
 
@@ -37,6 +38,11 @@ namespace {
 //   the rows (what the function scales by 1024 for the view context).
 // - view_context: UpdateFog (func_00279FF0): the block UpdateViewContext fills.
 // - moby_first, moby_end: CreateMoby (func_0029EFD0) walks the spawned mobys between them.
+//
+// MobyProc (func_002A4E68; each level's copy, level 1's func_L01_0030DB30) reads the same block:
+// the camera block 0x370 before camera_rows (lqc2 its +0x140, the eye, and its rows +0x00..+0x20,
+// the view matrix), the near plane at view_context + 0xA0, and its cap on a moby's draw distance,
+// the word 0x10 past moby_end (lw s7 from $gp; checked in every program of USA v1.01).
 struct Addresses {
     std::uint32_t camera_rows;
     std::uint32_t view_context;
@@ -45,6 +51,8 @@ struct Addresses {
 };
 
 constexpr std::uint32_t kEyeBeforeRows = 0x230;
+constexpr std::uint32_t kViewBeforeRows = 0x370;
+constexpr std::uint32_t kMobyCapPastEnd = 0x10;
 
 // One disc's addresses: the engine's globals by program, and the executable's words the profile
 // reads (each named where the profile reads it, below).
@@ -271,6 +279,19 @@ host::GameState read_game_state(
     s.left = vec3(ram, a.camera_rows + 0x10);
     s.up = vec3(ram, a.camera_rows + 0x20);
 
+    // What MobyProc tests each moby's distance against (host::moby_proc_distance_fade): the view
+    // matrix's third column, the near plane and the cap. Every level's loader sets the cap to 960
+    // units (Oozla's at 0x2F6404), and a routine every level has lowers it to 144 for a while and
+    // puts 960 back (Oozla's at 0x386C98 and 0x386DB0), so it is read each tick.
+    host::GameState::MobyView moby_view;
+    const std::uint32_t view = a.camera_rows - kViewBeforeRows;
+    for (int i = 0; i < 3; ++i) {
+        moby_view.depth_axis[static_cast<std::size_t>(i)] = at<float>(ram, view + 0x08 + 0x10 * i);
+    }
+    moby_view.near_plane = at<float>(ram, a.view_context + 0xA0);
+    moby_view.draw_cap = at<std::int32_t>(ram, a.moby_end + kMobyCapPastEnd);
+    s.moby_view = moby_view;
+
     // The view context as in Ratchet & Clank: the tangents, the focal lengths, UpdateFog's fog
     // (func_00279FF0 writes these offsets) and the level's background colour.
     const float tx = at<float>(ram, a.view_context + 0xB0);
@@ -342,6 +363,12 @@ constexpr std::array kEssentialMobys{
     3291,  // a crate's ammo pickup, flying to the hero (0xCDB)
 };
 
+// The Electrolyzer puzzles' boards: the controller (0x896, func_L02_003C26F0), the gates (0xA24),
+// platforms (0xA55) and rotators (0x873) its group holds, and the board's other pieces, every one
+// of them only in the levels with a controller. The game parks each board out of sight (Barlow's
+// at z 31 under its floor) and its pieces' draw distances (64, 128) keep them out of view there.
+constexpr std::array kBoardMobys{2163, 2198, 2596, 2645, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
+
 bool essential_moby(int class_id) {
     return std::find(kEssentialMobys.begin(), kEssentialMobys.end(), class_id)
            != kEssentialMobys.end();
@@ -360,6 +387,14 @@ public:
         std::span<const std::uint8_t> ram, std::uint32_t moby
     ) const override {
         return read_live_moby(ram, moby, release_);
+    }
+
+    // MobyProc leaves a moby past its draw distance (+0x32, at most the level's cap) undrawn and
+    // fades it over the last 16 units, as Ratchet & Clank's does.
+    std::optional<std::uint8_t> moby_distance_fade(
+        const std::uint8_t* moby, const host::GameState& state
+    ) const override {
+        return host::moby_proc_distance_fade(moby, state);
     }
 
     bool sends_display_list() const override { return true; }
@@ -445,6 +480,11 @@ public:
     // The gameplay subjects enhanced lighting gives its GI-coloured rim (port/enhanced/README.md,
     // Gameplay rim lighting); held items and the hero's attachments are added by the frontend.
     bool gameplay_essential(int class_id) const override { return essential_moby(class_id); }
+
+    // An Electrolyzer board keeps the game's draw distance at every Draw distance (kBoardMobys).
+    bool keeps_game_draw_distance(int class_id) const override {
+        return std::find(kBoardMobys.begin(), kBoardMobys.end(), class_id) != kBoardMobys.end();
+    }
 
     // Game state 2 is a level's scene (host/tools.c STATE_SCENE, which skip_cutscenes ends).
     std::optional<std::uint32_t> cutscene_mode() const override { return 2; }

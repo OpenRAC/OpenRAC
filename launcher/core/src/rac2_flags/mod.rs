@@ -18,6 +18,48 @@ pub enum Place {
     Byte { chunk: i32, level: Option<usize>, offset: usize, on: u8 },
     /// One bit of a byte.
     Bit { chunk: i32, level: Option<usize>, offset: usize, bit: u8 },
+    /// A moby's count in its level's chunk 3005 (`D_0019B4A8 + level * 0x400`): three bits, the low
+    /// nibble of byte `uid >> 1` for an even `uid`, the high one for an odd one, which the game
+    /// raises (up to 7) when the moby is done: an enemy killed, a crate broken, a puzzle solved.
+    /// Set when non-zero; setting writes 1 to a count of 0, clearing writes 0 (bit 3 of the nibble,
+    /// not part of the count, is left as it is).
+    Count { level: usize, uid: u16 },
+    /// Several places written together, as the game writes them at one event; the first says
+    /// whether the flag is on.
+    All(&'static [Place]),
+}
+
+/// The chunk of a level's moby counts ([`Place::Count`]).
+pub const MOBY_COUNTS: i32 = 3005;
+/// The chunk of a level's object-group states: bit 7 of byte `group` is the group done
+/// (`func_002A0430`).
+pub const GROUP_STATES: i32 = 3004;
+
+/// A level's moby count ([`Place::Count`]).
+pub(crate) const fn count(level: usize, uid: u16) -> Place {
+    Place::Count { level, uid }
+}
+
+/// A level's object group done (bit 7 of byte `group` of chunk 3004).
+pub(crate) const fn group_done(level: usize, group: usize) -> Place {
+    Place::Bit { chunk: GROUP_STATES, level: Some(level), offset: group, bit: 7 }
+}
+
+/// One of the Electrolyzer puzzle boards (class 2198, `func_L02_003C26F0`, the same code in levels
+/// 2, 3, 4, 9, 12, 17, 20 and 30). Solved (its state 8), a board raises its own moby count and,
+/// when it belongs to an object group, marks the group done; at the level start it shows itself
+/// solved, and sets off again what it is linked to, while that count is non-zero. `places` are
+/// those two, then what the linked moby saves when it is set off; clearing them all puts the
+/// board, and what it opens, back as they were before it was solved.
+pub(crate) const fn electrolyzer(
+    id: &'static str,
+    level: usize,
+    name: &'static str,
+    description: &'static str,
+    places: &'static [Place],
+    confidence: Confidence,
+) -> Flag {
+    Flag { id, level: Some(level), name, description, place: Place::All(places), confidence }
 }
 
 /// How sure the place and meaning are.

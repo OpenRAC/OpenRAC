@@ -332,7 +332,7 @@ void func_00300A00(char *object, int flags, float a, float b, float c, float d, 
 /* func_00300F58 is defined in 00300F58-g8.c. */
 
 
-INCLUDE_ASM("asm/game", func_00301F18);
+/* func_00301F18 is defined in 00301F18-qcopy.c. */
 
 int func_003022A0(char *obj, char *obj2, float x, float y)
 {
@@ -378,7 +378,7 @@ int func_00302440(char *obj, char *obj2)
 
 
 
-INCLUDE_ASM("asm/game", func_00302848);
+/* func_00302848 uses the $gp profile in 00300618-g8.c. */
 
 /* func_00302A20 uses the quadword-copy profile in 00300618-qcopy.c. */
 

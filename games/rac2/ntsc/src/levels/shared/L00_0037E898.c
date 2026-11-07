@@ -315,7 +315,6 @@ void func_L00_003827C0(void)
 
 /* func_L00_00382F28 is defined in L00_0037E898-g8.c. */
 
-INCLUDE_ASM("asm/levels", func_L00_00383B90);
 
 
 /* func_L00_00384248 is defined in L00_0037E898-trail-g8.c. */
@@ -585,8 +584,6 @@ void func_L00_0038AA40(char *p)
 
 /* func_L00_0038AAD0 is defined in L00_0038AAD0.c. */
 
-
-INCLUDE_ASM("asm/levels", func_L00_0038B208);
 
 extern void *D_L00_001BF218;
 

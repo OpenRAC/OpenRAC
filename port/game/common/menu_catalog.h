@@ -62,6 +62,7 @@ enum class Id : std::uint8_t {
     Msaa,
     Anisotropy,
     SceneryDetail,
+    DrawDistance,
     FrameRate,
     FrameCap,
     VSync,

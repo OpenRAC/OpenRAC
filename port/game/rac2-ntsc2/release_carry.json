@@ -3,11 +3,11 @@
  "counts": {
   "function: by hand": 3,
   "function: called": 22,
-  "function: changed": 98,
+  "function: changed": 100,
   "function: found": 2,
-  "function: near": 49,
+  "function: near": 52,
   "function: not found": 2,
-  "function: same": 970,
+  "function: same": 989,
   "global: aligned": 7,
   "global: between": 17,
   "global: exact": 101,
@@ -349,6 +349,11 @@
    "func_L04_004188B8",
    "near",
    "host C"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041B020",
+   "near",
+   "from_assembly"
   ],
   "func_L05_0041DF58": [
    "func_L05_0041F478",

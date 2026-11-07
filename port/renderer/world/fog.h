@@ -25,6 +25,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 
 namespace openrac::renderer::world {
 
@@ -62,6 +63,16 @@ struct WorldFog {
 // The four floats the shaders read (WorldView.fog_params): slope, offset,
 // lower clamp (far intensity), upper clamp (near intensity).
 std::array<float, 4> fog_params(const WorldFog& fog);
+
+// The same four floats for the GameState's fog (the level scene's shaders, which clamp with
+// clamp(F, lower, upper)), or none when no vertex can be fogged. The programs clamp F with the far
+// intensity last: the terrain program as max(min(F, near), far), the moby program as
+// min(max(F, far), 255). Both are clamp(F, far, max(near, far)): a near intensity under the far
+// one fogs nothing nearer than the far depth at more than the far intensity, and a far intensity
+// of 255 fogs nothing (Going Commando's Electrolyzer puzzles set near 100, far 255).
+std::optional<std::array<float, 4>> scene_fog_params(
+    float near_dist, float far_dist, float near_intensity, float far_intensity
+);
 
 // The tie program's per-instance F (TieProc, ReRAC's reading: cf20 and cf24
 // from UpdateViewContext, depth * cf20 + cf24 clamped between the

@@ -1,3 +1,35 @@
+/* 7 November 2026: released from the medium-tier reservation (#152) as a documented near miss after its final round. Final state: 740/740, 3 words with the owner-allowed shared scratch type (0x1D0 frame matches; c2.z/c3.z/c2.y store order: sched1 has five free memory slots after the last call and only four stores that may fill them). */
+/* 7 November 2026, round 14: unchanged, 3 real words (c2.z/c3.z/c2.y at +0x224/+0x230/
+ * +0x238). The 64-byte scratch type is now allowed (owner ruling: shared with the matched
+ * func_L30_0041B848); frame 0x1D0 as retail. Re-measured: sched2 has h ready at t33, so at
+ * t34 both h stores and the 1.0 stores are ready and it picks by sched1 order; retail's
+ * order needs the h stores ahead of c1.w/c2.y in sched1. sched1 has h at t31 and five
+ * memory slots t26-t30 (t25 is issue-bound), but only four stores (c1.y, c0.y, c3.w,
+ * c0.w) may come first. Four order climbs (about 3000 compiles each, plain, named h and
+ * h/nh forms) stop at 3. The L30 do-while loop with explicit vertex/corner pointers gives
+ * identical code. The only no-op copy (corner giv init r192 = r190, deleted by reload)
+ * crosses the loop calls, so sched1 hoists it to t4; a $1-based init would anchor it
+ * after the call but moves addiu s2 into block 2. h computed before the last call takes
+ * f21 (wrong allocation). */
+/* 6 November 2026, round 12: unchanged, 3 real words. sched1 ready lists show t25 is
+ * issue-bound (2 issues: sq clear + mul), not memory-bound, so retail needs one more
+ * pre-reload issue before t28 (e.g. a copy reload deletes, or a register zero with
+ * memory-typed sq). A TI zero variable, chained or looped clears are all folded back to
+ * const 0 by cse. No temp-slot shape found for the 48 bytes: designated/compound-literal
+ * corners store in place but clear with memset (BLKmode); an inline MakeCorner returning
+ * the union adds temps plus ld/sd copies (frame 0x240); an inline SetCorner(ptr) costs
+ * callee-saved regs (frame 0x1F0). Also no gain: pointer/early out init loops, h = -h
+ * in place (ties h and -h to one register), cast TI clears on a float[4][4]. */
+/* 6 November 2026, round 10: frame now 0x1D0 like retail; 3 real words left (c2.y/c2.z/c3.z
+ * store order at +0x224/+0x230/+0x238). The offset vector is the first member of the same
+ * 64-byte scratch type func_L30_0041B848 uses ({angles; rotation[3]}, angles reused as the
+ * size offset); its rotation[3] puts the corners at sp+0x120 as in retail. rotation is unused
+ * here, so this needs a ruling before src/. sched1 model: 2 issues/cycle, one memory unit;
+ * ties go by priority, then REG_DEAD weight (the last use of 1.0 is picked first), then
+ * LUID. h is ready at t31 and slots t26-t30 hold five stores; retail holds four, so one
+ * memory op is still missing. Store-order climbs (120 + 110 + 250 steps, with clears and a
+ * named h), -fno-sched-interblock/-fno-sched-spec and do/while groups (748 bytes) gain nothing. */
+/* 6 November 2026, round 9: unchanged, 3 real words (c2.y/c2.z/c3.z store order). sched1 has h ready only at t31 and four early stores to fill t26-t30, so one 1.0 store is forced at t30; retail needs one more memory op before reload. 170-step climb with a corrected metric (frame offset +0x30 masked), chained clears, corner copies and -fno-regmove/-fno-caller-saves stay at 3. The 0x1A0/0x1D0 frame gap closes only with an unused 48-byte local (rejected as padding). */
 /* 6 November 2026, round 5: corner-store order 3 words off (was 5);
  * USA v1.01 default -O2 -G0 -ffunction-sections, 740/740, 0/6 places.
  * A hill-climb over the corner field stores (same values, clears first)
@@ -75,7 +107,8 @@ void func_L04_0040DCA8(B781AimQuad *position, int texture, int color, int flags,
     B971Packet packet;
     float tmp[2];
     float transform[4][4] __attribute__((aligned(16)));
-    float offset[4];
+    /* scratch type shared with func_L30_0041B848, allowed by owner ruling */
+    struct { float angles[4]; float rotation[3][4]; } scratch;
     Corner corners[4];
     float c, sn;
     float *out;
@@ -106,8 +139,8 @@ void func_L04_0040DCA8(B781AimQuad *position, int texture, int color, int flags,
     func_00282DD8(transform[1], transform[0], D_0018A0E0);
     func_00282F20(transform[1], transform[1], 1.0f);
     func_00282DD8(transform[2], transform[1], transform[0]);
-    func_00282D30(offset, transform[0], size);
-    func_00282CC0(transform[3], transform[3], offset);
+    func_00282D30(scratch.angles, transform[0], size);
+    func_00282CC0(transform[3], transform[3], scratch.angles);
     corners[0].bits = 0; corners[1].bits = 0; corners[2].bits = 0; corners[3].bits = 0;
     corners[0].f[1] = -1;
     corners[3].f[2] = -(1 - skew * 0.3f);

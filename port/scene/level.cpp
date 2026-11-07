@@ -461,10 +461,21 @@ std::optional<std::uint32_t> load_model(
                 out.shell = std::atoi(node.name + 4);
             }
             if (node.name != nullptr && std::strncmp(node.name, "Terrain_", 8) == 0) {
+                // Terrain_MMM, or Terrain_cN_MMM for a streamed chunk's (editor/godot.py
+                // chunk_terrain).
+                const char* at = node.name + 8;
+                long chunk = 0;
+                if (*at == 'c') {
+                    char* after = nullptr;
+                    chunk = std::strtol(at + 1, &after, 10);
+                    at = after != at + 1 && *after == '_' ? after + 1 : node.name;
+                }
                 char* end = nullptr;
-                const long fragment = std::strtol(node.name + 8, &end, 10);
-                if (end != node.name + 8 && *end == 0 && fragment >= 0 && fragment < 1000000) {
+                const long fragment = std::strtol(at, &end, 10);
+                if (at != node.name && end != at && *end == 0 && fragment >= 0 && fragment < 1000000
+                    && chunk >= 0 && chunk < 16) {
                     out.terrain_fragment = static_cast<int>(fragment);
+                    out.terrain_chunk = static_cast<int>(chunk);
                 }
             }
             model.primitives.push_back(out);

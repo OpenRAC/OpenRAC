@@ -195,8 +195,11 @@ wrong profile with extra operations or knowingly false prototypes.
 | libgcc `_eh.o` (L_eh): preserve the frame at final calls and place the exception-return stub correctly | sdk profile with -fexceptions, as GCC's libgcc Makefile builds _eh.o (rac3-decomp builds its copy the same way) | func_00120A30, func_001208E8; paired throw/rethrow func_00120F00 and func_001210E0 |
 | Whole GPR save area uses sq/lq | -mastra-quad-saves | func_00119BC8, func_00115F28, func_00115C90 |
 | Quad slots: `sd $ra` below `sq $s0` | -mastra-quad-saves -frac2-narrow-saves-below, `register_precision(ra, 64)` | func_L01_00324550, func_L08_00389B68 |
+| 8-byte slots, but a TImode-held saved GPR gets `sq` in a 16-byte slot below them | -frac2-wide-saves-below | func_L02_00411D18 |
+| Reduced giv start `x*16 + (i*400 + (D-16))`, not flattened | -frac2-mult-add-no-flatten | func_L20_0039F968 |
 | Copy of a zero set in the same block stays a register copy | -frac2-keep-block-zero-copy | func_002F7320 |
 | A volatile asm ends the forward delay-slot search past later loads | -frac2-sticky-volatile-refs | func_L00_002A9460 |
+| Branch slot setting `$fp` annulled (`bnel`), retail `bne`; no frame pointer | -frac2-frame-pointer-liveness | func_L07_0040EC08, func_L04_00414698 |
 | Two-word truncation cannot fill return slot | -mastra-split-trunc-slot | func_0012E8C8 |
 | SDK unit: a volatile access or sign extension fills a `jal`/`jr` slot | -Wa,--r5900-swap-branch-slots | func_001253A8, func_0012E378, func_0011C000 |
 | Arguments spilled and branch to common epilogue | Measured -O0 unit, not an invented varargs helper | func_001175F0 |
@@ -366,9 +369,9 @@ Two variadic level functions mix widths in quad slots: func_L01_00324550 (132 by
 11 places; `sd $ra,0x200` below `sq $s0,0x210`) and func_L08_00389B68 (264 bytes, 4 places;
 `sd $ra,0x0` below `sq $s0,0x10`), each restoring `lq $s0` before `ld $ra`. A scan of every
 catalogue prologue finds one other frame mixing `sq` and `sd` GPR saves, func_L02_00411D18
-(`sq $s2` in a 16-byte slot below 8-byte ones), which this rule does not cover. The stock EE
-attribute `register_precision(ra, 64)` on the prototype narrows the `$ra` save to `sd`, but
-the save loop still gives `$ra` the top slot.
+(`sq $s2` in a 16-byte slot below 8-byte ones), which `-frac2-wide-saves-below` covers
+(below). The stock EE attribute `register_precision(ra, 64)` on the prototype narrows the
+`$ra` save to `sd`, but the save loop still gives `$ra` the top slot.
 [narrow_saves_below.py](../tools/compiler/transformers/narrow_saves_below.py) adds
 `-frac2-narrow-saves-below`: with `-mastra-quad-saves` the loop walks the registers saved at
 the slot's full width first, then the narrower ones, so the narrower save sits below. A frame
@@ -377,6 +380,62 @@ without `-mastra-quad-saves` the option has no effect. Forced on in every game u
 none of 7,572 (144 SDK units use another compiler). `register_precision` sets the mode for the
 rest of the unit, so each function has a file of its own. The attribute is an inference from
 the save widths, not a recovered source line.
+
+func_L02_00411D18 (1,928 bytes, one place in each of USA v1.01, v2.00 and PAL) holds a TImode
+value in `$s2` across calls. Retail saves it with `sq $s2,0x620` below `sd $s0,0x630`,
+`sd $s1,0x638` and `$s3`..`$ra` at 0x640..0x670, with `$f20`/`$f21` at 0x680/0x688 in a
+0x690-byte frame, and restores in register order (`ld $s0`, `ld $s1`, `lq $s2`, `ld $s3` ...).
+It is the only one of 7,980 framed retail functions that holds TImode in a saved GPR. Without
+`-mastra-quad-saves` every GPR slot is 8 bytes, but save_restore_insns saves a register in the
+widest mode the function writes it in, so stock cc1 gives a 0x680 frame and `sq $s2,0x630` in an
+8-byte slot. `sq` ignores the low four address bits, so that store overwrites `$s3`'s save.
+[wide_saves_below.py](../tools/compiler/transformers/wide_saves_below.py) adds
+`-frac2-wide-saves-below`. In a unit without `-mastra-quad-saves`, a saved GPR whose save is
+wider than the slot then takes a 16-byte slot at the bottom of the GPR save area. The other
+GPRs keep 8-byte slots above it in register order, and compute_frame_size adds 8 bytes for
+each such register. The switch keys on the mode of the save, never on a function. **The layout
+is inferred from this one witness.** Retail has no frame with two or more wide GPR saves, so
+their order is not evidenced: the switch places them upwards from the bottom in register
+order. A frame whose only GPR saves are wide is not evidenced either.
+
+The frame size fixes the arg-pointer offsets during reload, before the prologue scans the save
+modes, so the switch computes its mask while reload runs too. It reads the insns, whose pseudos
+alter_reg has already renumbered to their hard registers (through `reg_renumber` for any it has
+not), and adds the modes `mips_reg_mode` and `register_precision` give. The mask from the last
+call before reload completes is kept for the rest of the function; that call is the one
+verify_initial_elim_offsets checks against the offsets reload used. If the prologue then finds a
+save wider than its slot, cc1 stops with an error instead of emitting an overlapping store. A
+build that takes no mask during reload, as an earlier private patch did, gives the fixture's
+stack-argument function a 48-byte frame (32 without the switch) but still reads the arguments at
+32 and 40 (`$sp`), in the save area; `tests/test_wide_saves_below.py` fails on it.
+`mips_reg_mode` stays widened for the rest of a unit, with or without the switch: a later
+function that saves `$s2` saves it with `sq` too. So the witness has a unit of its own,
+`src/levels/02_maktar_nebula/L02_00411D18.c`, which all three releases link. With
+`-mastra-quad-saves` every slot is already 16 bytes and the switch does nothing, so it leaves
+that switch and `-frac2-narrow-saves-below` unchanged. Without the switch, all 8,629
+game-compiler units of `src/` (the three releases' C) compile to the same assembly as before.
+Forced on in every one of them, it changes only func_L02_00411D18 and none of 11,949 other
+functions in 8,628 other units (144 SDK units use another compiler).
+
+func_L20_0039F968 (996 bytes, one place in USA v1.01) shifts a history row with
+`qcopy_nc(&D[i][h], &D[i][h - 1])`. Retail starts the source cursor as `D-16; i*400 + (D-16);
+last*16 + that`. loop.c reduces both cursors to givs whose start emit_iv_add_mult builds with
+expand_mult_add (expmed.c), which folds the tree `last*16 + ((i*400 + -16) + D)`. In this
+Cygnus-based tree fold runs the CYGNUS LOCAL reduce_expression_tree_depth on every PLUS while
+-fschedule-insns is on, so the start becomes `(last*16 + i*400) + (D-16)`: 10 rows differ at
++0xC8..+0xF8. SN's "GNU C version 2.95.2 SN BUILD v2.73a" cc1 (FSF 2.95.2, which has no CYGNUS
+LOCAL code) builds the same giv (its loop dump matches) but emits retail's nested sum; Sony's
+991111a/-01/b-r4 cc1 flatten like ours. Only that observable output was used.
+[mult_add_no_flatten.py](../tools/compiler/transformers/mult_add_no_flatten.py) adds
+`-frac2-mult-add-no-flatten`: the fold calls inside expand_mult_add run with
+flag_schedule_insns clear, so the flattening is skipped there and nowhere else. Without the
+switch all 8,733 game-compiler units of `src/` compile to the same assembly as before. Forced
+on in every one of them, no unit changes; across the 1,139 `nonmatching/` notes (two profiles each) it
+changes only func_L20_0039F968 and two others (func_L00_00395428, func_L00_003C48D0), both
+further from retail (253 -> 271 and 138 -> 141 differing rows, lengths unchanged). Skipping
+the flattening in every fold instead changes one matched unit (func_L30_00382FB8), so the
+switch is limited to expand_mult_add. The witness has a unit of its own,
+`src/levels/20_yeedil/L20_0039F968-g8.c`.
 
 func_002F7320 (132 bytes, 28 places) starts `daddu $t1,$zero,$zero ... daddu $a3,$t1,$zero`
 for `int result = 0; int i = result;`. Stock cse folds that copy to `move $a3,$0`: CONST_INT
@@ -401,6 +460,41 @@ adds `-frac2-sticky-volatile-refs`: the MEM and ASM_OPERANDS cases of
 mark_referenced_resources keep the flag set. Forced on in every game unit it changes none of
 8,510 others. The mark_set_resources half of the same upstream change is not applied: forced
 on it also changes matched func_00132498 (0 of 1 places).
+7 November 2026, round 9: the set-side `|=` alone (env probe in mark_set_resources) makes
+func_00131DE8 match (1 of 1 in us, pal, us2) but, forced on in all 8,734 game units, changes only
+that unit and matched func_00132498 (1 -> 0 of 1): sched2 puts the hoisted
+`lui $s0,%hi(D_001A7578)` before the plain D_001A74D0 and volatile D_001A74D8 stores, and retail
+fills the `b` slot with it past the volatile store. func_00132498 reads no SIF field; dropping
+its volatile D_001A74D8 gives 0 of 1 with or without the rule. Not landed.
+
+func_L07_0040EC08 (952 bytes, 1 place in each USA release) and func_L04_00414698 (6,032 bytes, 2
+places in each) differ from stock cc1 in one opcode each: retail fills a branch slot with a set of
+`$fp` from the branch target without annulling it (`bne`, slots `lw $fp,0x50($sp)` and
+`addiu $fp,$s7,0x10`), stock annuls it (`bnel`). Neither function keeps a frame pointer; `$fp`
+holds an ordinary value. The EE tree's flow.c still treats HARD_FRAME_POINTER_REGNUM as always
+live after reload: mark_regs_live_at_end marks it live at the end, mark_set_1 never kills it,
+mark_used_regs gives it no REG_DEAD note, insn_dead_p never deletes a set of it, and
+haifa-sched.c's attach_deaths gives it no REG_DEAD note after sched2. reorg's
+mark_target_live_regs (resource.c) starts from those live sets and notes; when
+find_dead_or_set_registers' budget (one conditional branch) runs out before the fall-through
+path sets `$fp`, `$fp` stays live there and the slot must be annulled. GCC 2.95 has John Wehle's
+change of 2 June 1999 (gcc/ChangeLog: "Only give FRAME_POINTER_REGNUM and
+HARD_FRAME_POINTER_REGNUM special treatment if reload hasn't run or the frame pointer is
+needed"). [frame_pointer_liveness.py](../tools/compiler/transformers/frame_pointer_liveness.py)
+adds `-frac2-frame-pointer-liveness`, which puts that condition, `! reload_completed ||
+frame_pointer_needed`, on the five flow.c tests and attach_deaths. Checked against
+gcc-core-2.95.tar.gz from ftp.gnu.org (flow.c 2276, 2965/2968, 3278/3281, 3740/3746, 3923/3926;
+haifa-sched.c 4633/4636): with the condition substituted, the five functions equal 2.95's token
+for token. The exceptions are an extra pair of parentheses and 2.95's ASM_OPERANDS case in
+mark_used_regs, which belongs to another change and is not added. sched.c, also in the
+ChangeLog entry, is not built for the r5900. Without the switch, stock and patched cc1 give
+identical assembly for every one of the 8,628 game-compiler units of `src/` in the three
+releases (144 SDK units use another compiler). Forced on in all of them, it changes none of
+their 11,949 functions. Among the retained drafts, forced on, it changes the two witnesses
+(`bnel` to `bne`, nothing else), func_002BA0E0 and func_L02_003FDDE8; in the last two, flow2
+now deletes a dead set of `$fp` (insn_dead_p). A REG_DEAD note on an insn that reorg moves into
+a delay slot is erased (emit_delay_sequence), so the option only matters where the last use of
+`$fp` stays out of a slot.
 
 Patch 0057 enables `-mastra-split-trunc-slot`: split `truncdisi2` after reload and
 before scheduling so its second shift can fill the return slot. `func_0012E8C8`
@@ -1191,6 +1285,16 @@ Implementations: [gcse_unsplit_edges.py](../tools/compiler/transformers/gcse_uns
 inferences from retail and comparison with GCC 2.95, not the recovered original
 patches. A lone lui at a branch target is not a unique signature of edge splitting.
 
+**6 November 2026, round 9 (not adopted):** three Lombyte sce-991111b candidates were
+env-gated in cc1 and swept over all 8595 non-SDK units and all 1206 near-miss files
+(-G0/-G8, labels renumbered). 0060 (no ADDRESS base for the static-chain/struct-value
+registers): 0 units change; one near miss moves (func_002BA0E0, 285 to 273 real rows, still
+1476/1472 bytes), and cc1 crashes on nonmatching/levels/func_L04_00441100.c. 0061 (unshared
+stack MEMs): 0 units, 0 near misses. 0065 (unsplit gcse edges by default): 33 matched units
+change (11 functions in three releases, e.g. L04_002E04A8.c), so it stays opt-in; it moves no
+listed near miss. The 13 scheduler/gcse near misses (func_00342BE8 ... func_L06_00382608)
+under 7 profiles at -G0/-G8 are unchanged by all three.
+
 Both Cygnus passes that run before cse (delete_null_pointer_checks and cygnus_merge_blocks,
 one "CYGNUS LOCAL law" block) start with find_basic_blocks, which puts a
 `(use (const_int 0))` after a call that ends a block. When cse then threads a branch past the
@@ -1243,6 +1347,11 @@ occur within a function and is not a function-boundary detector.
 retain two measured cleared-history exemptions: a0 to f0 before cvt.s.w f0,f0,
 and zero to f0 before c.lt.s f12,f0. Eight first-transfer witnesses split four
 requiring a nop and four not. A distance-two producer rule failed `func_002A7878`.
+Both apply only to an mtc1 appended to an empty history (function or section
+start). The retail survey: no nop only at function entry (`f_002EF240` in 28 level
+programs, boot `0x00283CE0`, handwritten `0x00129218`/`2C0`/`368`); after a branch slot
+gas fills with a nop the a0 pair keeps it (`func_L00_002E2958`, 27 programs), and the
+zero pair keeps it at all 147 label sites. `tests/test_mtc1_exemption.py`.
 
 Ten original no-nop sites in `0x00283C28`, `0x002A677C`, `0x002E0408`,
 `0x002E0558` can also be reproduced with explicit instruction ordering; ISA
@@ -1539,6 +1648,8 @@ oracle, and a same-size draft screen is not a match or current progress.
 | Inheritance into non-spill registers | [test_reload_reg_used_guard.py](../tests/test_reload_reg_used_guard.py) |
 | Null-pointer-check pass | [test_no_null_pointer_checks.py](../tests/test_no_null_pointer_checks.py) |
 | Width-ordered quad saves | [test_narrow_saves_below.py](../tests/test_narrow_saves_below.py) |
+| 16-byte slots for TImode GPR saves | [test_wide_saves_below.py](../tests/test_wide_saves_below.py), [wide_saves_below.c](../tests/fixtures/wide_saves_below.c) |
+| Unflattened giv start | [test_mult_add_no_flatten.py](../tests/test_mult_add_no_flatten.py), [mult_add_no_flatten.c](../tests/fixtures/mult_add_no_flatten.c) |
 | Masks/sign seed | [test_dli_masks.py](../tests/test_dli_masks.py) |
 | Inline li.d into GPRs | [test_inline_li_d.py](../tests/test_inline_li_d.py) |
 | Hazard labels | [test_hazard_labels.py](../tests/test_hazard_labels.py), [hazard_labels.s](../tests/fixtures/hazard_labels.s) |

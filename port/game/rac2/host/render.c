@@ -86,6 +86,17 @@ void func_002E3940(int shell) {
  * group mask at +0x36 against the table indexed by +0x37, the hidden bits of the mode at +0x34, the
  * bounding sphere against the draw distance (+0x32, at most the global one) and the view.
  */
+/* The Electrolyzer boards' classes (game/rac2/profile.cpp kBoardMobys). */
+static int board_moby(int class_id) {
+    static const int kBoard[] = {2163, 2198, 2596, 2645, 2809, 2810, 2811, 2812, 2813, 2819, 2894};
+    for (size_t i = 0; i < sizeof(kBoard) / sizeof(kBoard[0]); ++i) {
+        if (kBoard[i] == class_id) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void mark_drawn_mobys(gaddr first, int count) {
     float eye[3], block[12], rows[12], tx, ty;
     memcpy(eye, G(OPENRAC_DATA(CAMERA_EYE)), sizeof(eye));
@@ -115,6 +126,7 @@ static void mark_drawn_mobys(gaddr first, int count) {
     const float kx = sqrtf(1.0f + tx * tx), ky = sqrtf(1.0f + ty * ty);
     const gaddr end = first + (gaddr)count * 0x100u;
     const int max_distance = GREF(int, OPENRAC_DATA(MOBY_MAX_DISTANCE));
+    const float scale = openrac_game_draw_distance();
     const uint8_t* groups = G(OPENRAC_DATA(MOBY_GROUPS));
     for (gaddr m = first; (count < 0 || m != end) && m - first < 0x100u * 4096u; m += 0x100) {
         uint8_t* b = G(m);
@@ -141,7 +153,19 @@ static void mark_drawn_mobys(gaddr first, int count) {
             const float z = d[0] * rows[0] + d[1] * rows[1] + d[2] * rows[2];
             const float x = d[0] * rows[4] + d[1] * rows[5] + d[2] * rows[6];
             const float y = d[0] * rows[8] + d[1] * rows[9] + d[2] * rows[10];
-            drawn = z <= (float)distance && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
+            /* As far as the window draws it (openrac_game_draw_distance): the active list
+             * (func_002A08A0) takes a drawn moby whatever its update distance (+0x30), so what is
+             * seen farther away moves too. A moby with no draw distance stays undrawn. */
+            /* An Electrolyzer board's piece keeps the game's distance (game/rac2/profile.cpp
+             * kBoardMobys): the game parks the boards out of sight within reach of a longer one. */
+            /* Above Original, a quarter farther than the window draws it, so that one barely in
+             * view at the far end is already active. */
+            const float own = board_moby(*(int16_t*)(b + 0xAA)) ? 1.0f
+                              : scale > 1.0f                    ? scale * 1.25f
+                                                                : scale;
+            const int near_only = own <= 0.0f && distance > 0;
+            drawn = (near_only || z <= (float)distance * (own > 0.0f ? own : 1.0f))
+                    && z + r > 32.0f / 1024.0f && fabsf(x) - r * kx <= tx * z
                     && fabsf(y) - r * ky <= ty * z;
         }
         b[0x31] = (uint8_t)(drawn ? 1 : 0);
@@ -153,6 +177,11 @@ int func_002A4E68(gaddr a0, gaddr a1, int a2, int a3) {
     (void)a1;
     (void)a3;
     mark_drawn_mobys(a0, a2);
+    /* The world's mobys come after the draw callback lists DrawFrame runs after the ties and the
+     * shrubs (func_0027CEE0, func_0027CF58): what those drew goes before them (a level's water). */
+    if (a2 < 0) {
+        put_marker((uint64_t)OPENRAC_WORLD_MOBYS_MARKER << 48);
+    }
     openrac_game_draw(OPENRAC_DRAW_MOBYS);
     if (openrac_game_mobys_drawn(a0, a2)) {
         put_marker((0x4D42ull << 48) | ((uint64_t)(a2 & 0xFFFF) << 32) | (uint32_t)a0);

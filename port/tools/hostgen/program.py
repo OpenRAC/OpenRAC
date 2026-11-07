@@ -91,6 +91,9 @@ class Function:
     # 32-bit result 64-bit where one of them is "returns_64"
     returns: tuple = ()
     wide_result: bool = False   # its result was made 64-bit so (widen_returns): sig.ret is the 64-bit type
+    # a variadic definition whose C reaches its variable arguments through __builtin_next_arg (uses_arg_area):
+    # the EE's save area of argument doublewords, which its callers fill on the host (lower.py)
+    arg_area: bool = False
 
 
 @dataclass
@@ -625,6 +628,20 @@ def widen_forwarded(program: Program) -> list[str]:
 RESULT32 = {"int", "signed int", "signed", "unsigned int", "unsigned", "gaddr"}
 
 
+def uses_arg_area(decl: dict) -> bool:
+    """A variadic definition that reaches its variable arguments as the console's register save area
+    (`(char *)__builtin_next_arg(last) - 0x38`, forwarded to a function that walks it): GCC for the EE
+    stores the argument registers past the named ones there as doublewords, followed by the stack
+    arguments, and the C reads or passes on that memory rather than using va_arg."""
+    stack = [decl]
+    while stack:
+        n = stack.pop()
+        if n.get("kind") == "DeclRefExpr" and (n.get("referencedDecl") or {}).get("name") == "__builtin_next_arg":
+            return True
+        stack.extend(n.get("inner", ()))
+    return False
+
+
 def returned_calls(decl: dict, by_id: dict) -> tuple:
     """The functions (symbols) whose result a definition's `return` statements hand back as it is: the value is a
     direct call's result, through parentheses and conversions that are no instruction on the EE (between 32-bit
@@ -810,7 +827,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                 if not from_main and not decl.get("_file", "").endswith(".c"):
                     # A static function from a header is translated in every unit that has it.
                     pass
-                program.statics[(unit, sym)] = Function(sym, sig, unit, static=True, tail=tail)
+                program.statics[(unit, sym)] = Function(sym, sig, unit, static=True, tail=tail,
+                                                         arg_area=sig.variadic and uses_arg_area(decl))
                 continue
             f = program.functions.get(sym)
             if f is not None and f.unit is not None and f.unit != unit:
@@ -819,7 +837,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
             declared = f.declared if f else []
             program.functions[sym] = Function(sym, sig, unit, asm=f.asm if f else False, declared=declared, tail=tail,
                                               forwards=forwarded_params(decl, by_id),
-                                              returns=returned_calls(decl, by_id))
+                                              returns=returned_calls(decl, by_id),
+                                              arg_area=sig.variadic and uses_arg_area(decl))
         else:
             f = program.functions.get(sym)
             if f is None:
@@ -975,7 +994,7 @@ def merge(into: Program, part: Program) -> list[str]:
                 continue
             declared = have.declared + f.declared
             into.functions[sym] = Function(sym, f.sig, f.unit, asm=have.asm, declared=declared, tail=f.tail,
-                                           forwards=f.forwards, returns=f.returns)
+                                           forwards=f.forwards, returns=f.returns, arg_area=f.arg_area)
         else:
             have.declared.extend(f.declared)
             if have.unit is None and have.declared:

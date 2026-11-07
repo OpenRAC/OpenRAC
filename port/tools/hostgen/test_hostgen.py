@@ -769,6 +769,36 @@ class Translate(unittest.TestCase):
         """})
         self.assertEqual(out, ["15"])
 
+    def test_the_argument_save_area_is_forwarded(self):
+        # Going Commando's text popups (func_L01_00324550) and its GIF packet helper
+        # (func_L08_00389B68): a variadic function passes `__builtin_next_arg(last) - N` on, the
+        # register save area where GCC for the EE spills the unnamed argument registers as
+        # doublewords, and the callee walks it eight bytes a slot. A 32-bit value is sign-extended,
+        # a 64-bit one is whole, and the registers the call leaves unset read as zero.
+        out = self.run_program({"a.c": """
+            int walk(int *p) {
+                int s = 0;
+                while (p[0] != -1) { s = s * 10 + p[0]; p += 2; }
+                return s;
+            }
+            int show(int id, ...) {
+                return id * 1000 + walk((int *)((char *)__builtin_next_arg(id) - 0x38));
+            }
+            void words(int a, int b, ...) {
+                u32 *p = (u32 *)((char *)__builtin_next_arg(b) - 0x30);
+                int i;
+                for (i = 0; i < 12; i++) test_print((int)p[i]);
+            }
+            int test_main(void) {
+                test_print(show(4, 1, 2, 3, -1));
+                test_print(show(5, -1));
+                words(0, 0, 7, (u64)0x8000000044ULL, (short)-2, (u32)0x80000000u);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["4123", "5000", "7", "0", "68", "128", "-2", "-1",
+                               str(-0x80000000), "-1", "0", "0", "0", "0"])
+
     def test_a_local_of_an_unnamed_enum(self):
         # newlib's _vfprintf_r: enum { OCT, DEC, HEX } base; an int, its constants usable.
         out = self.run_program({"a.c": """
@@ -3893,6 +3923,27 @@ class GlobalViewTest(unittest.TestCase):
         self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_001A7390_base"), "D_001A7390")
         # A number after it is a datum of the build's own.
         self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_L00_001B1B00_1"), "D_L00_001B1B00_1")
+
+
+class StaleExports(unittest.TestCase):
+    """A Windows program's list of exports for the part against the program built without the disc."""
+
+    def test_the_list_fits_or_says_what_is_stale(self):
+        import asmext
+        from types import SimpleNamespace
+
+        program = SimpleNamespace(functions={"func_00100000": None, "func_00100010": None})
+        fits = "EXPORTS\n  func_00100010\n  openrac_asmx_func_00100000 DATA\n  openrac_vu0 DATA\n"
+        self.assertEqual(asmext.stale_exports(fits, ["func_00100000"], program), [])
+        # A sync gave func_00100010 C and the part fills it no more; a level function went away.
+        stale = "EXPORTS\n  func_L09_003FB780\n  openrac_asmx_func_00100000 DATA\n" \
+                "  openrac_asmx_func_00100010 DATA\n"
+        self.assertEqual(asmext.stale_exports(stale, ["func_00100000"], program), [
+            "openrac_asmx_func_00100010: no such slot in the program",
+            "func_L09_003FB780: no such function in the program"])
+        # A function the part fills now that the list leaves out: the part's own link stops.
+        self.assertEqual(asmext.stale_exports(fits, ["func_00100000", "func_00100010"], program),
+                         ["openrac_asmx_func_00100010: the part fills it, the list leaves it out"])
 
 
 if __name__ == "__main__":

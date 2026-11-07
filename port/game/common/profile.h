@@ -69,6 +69,9 @@ struct GameState {
         std::array<float, 3> depth_axis{};
         std::int32_t draw_cap = 0;
         float near_plane = 0.0f;
+        // Draw distance (settings.h): the reach times this; 0 none. 1, the game's, tests bit for
+        // bit as MobyProc does.
+        float scale = 1.0f;
     };
 
     std::optional<MobyView> moby_view;
@@ -236,8 +239,9 @@ public:
     // Commando's mobys carry tie and shrub groups (the Maktar lamps' heads turn,
     // func_L00_00323958) and zero the matrices of the ones they remove. 0: drawn as loaded. The
     // third: the word that points at the ties' 32-byte records (bounding sphere at +0, the point
-    // lights' list at +0x1A), for the ties a point light reaches; the fourth the shrubs' 32-byte
-    // records (bounding-sphere centre at +0, the point lights' list at +0x1E); 0 for none.
+    // lights' list at +0x1A, +0x1E bit 2 hidden), for the ties a point light reaches and the ones
+    // the game hides; the fourth the shrubs' 32-byte records (bounding-sphere centre at +0, +0x16
+    // bit 0 hidden, the point lights' list at +0x1E); 0 for none.
     virtual std::array<std::uint32_t, 4> scenery_matrices() const { return {0, 0, 0, 0}; }
 
     // Whether the world's depth is precise (renderer/precise_depth.h): reversed Z in a 32-bit float
@@ -283,6 +287,11 @@ public:
 
     // Returns whether this class is a gameplay subject, rather than scenery or an effect.
     virtual bool gameplay_essential(int /*class_id*/) const { return false; }
+
+    // Whether a moby class keeps the game's own draw distance whatever Draw distance says: one the
+    // game parks out of sight and shows only by its distance (Going Commando's Electrolyzer
+    // boards).
+    virtual bool keeps_game_draw_distance(int /*class_id*/) const { return false; }
 
     // The value of the game's mode word (openrac_game_mode) while a real-time cutscene plays in a
     // level, which enhanced motion blur takes the cutscene's tuning for; none for a game without
