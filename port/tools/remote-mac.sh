@@ -51,7 +51,9 @@ fi
 
 # On the other Mac: each test as ctest runs it (the _metal ones in Cocoa windows with Metal's API
 # validation; 77 is a skip), then the game. The GPU line of each log says which GPU it ran on.
-ssh "$host" sh -s "$remote" "$frames" "$(basename "$app")" "$tests" "${data:+yes}" <<'EOF' | tee "$results/summary.txt"
+# ssh hands the other Mac's shell one command line: each argument is quoted for it.
+q() { printf "'%s'" "$(printf %s "$1" | sed "s/'/'\\\\''/g")"; }
+ssh "$host" "sh -s $(q "$remote") $(q "$frames") $(q "$(basename "$app")") $(q "$tests") $(q "${data:+yes}")" <<'EOF' | tee "$results/summary.txt"
 set -u
 cd "$HOME/$1"
 frames=$2; app=$3; tests=$4; data=$5
