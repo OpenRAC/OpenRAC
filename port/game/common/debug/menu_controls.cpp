@@ -721,6 +721,22 @@ ControlsRow controls_row(Id id) {
         case Id::PadBackground:
             r.on = tuning.background;
             break;
+        case Id::RumbleStrength:
+            r.value = tuning.rumble.strength == 0 ? std::string("Off")
+                                                  : std::format("{}%", tuning.rumble.strength);
+            r.can_lower = tuning.rumble.strength > 0;
+            r.can_raise = tuning.rumble.strength < 200;
+            break;
+        case Id::RumbleStyle:
+            r.value =
+                tuning.rumble.style == platform::RumbleStyle::Classic ? "Classic" : "Enhanced";
+            break;
+        case Id::RumbleTriggers:
+            r.on = tuning.rumble.triggers;
+            break;
+        case Id::RumblePhone:
+            r.on = tuning.rumble.phone;
+            break;
         case Id::ControlsReset:
             r.label = w.confirm_reset ? std::string("Press again to reset")
                       : w.global      ? std::string("Reset every game's controls")
@@ -776,6 +792,34 @@ void controls_act(Id id, int by) {
         case Id::PadBackground:
             if (writable(*store)) {
                 store->set(scope(), key_for("pad_background"), tuning.background ? "0" : "1");
+            }
+            break;
+        case Id::RumbleStrength:
+            if (writable(*store)) {
+                // In tens: off, 10% .. 200%.
+                const int strength = std::clamp(tuning.rumble.strength + 10 * by, 0, 200);
+                store->set(scope(), key_for("pad_rumble"), std::to_string(strength));
+            }
+            break;
+        case Id::RumbleStyle:
+            if (writable(*store)) {
+                store->set(
+                    scope(),
+                    key_for("pad_rumble_style"),
+                    tuning.rumble.style == platform::RumbleStyle::Classic ? "enhanced" : "classic"
+                );
+            }
+            break;
+        case Id::RumbleTriggers:
+            if (writable(*store)) {
+                store->set(
+                    scope(), key_for("pad_rumble_triggers"), tuning.rumble.triggers ? "0" : "1"
+                );
+            }
+            break;
+        case Id::RumblePhone:
+            if (writable(*store)) {
+                store->set(scope(), key_for("pad_rumble_phone"), tuning.rumble.phone ? "0" : "1");
             }
             break;
         case Id::PlayersReset:

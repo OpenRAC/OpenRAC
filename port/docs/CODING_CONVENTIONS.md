@@ -1295,7 +1295,7 @@ reads `~`).
 The modules form layers. A module includes and links only modules at or below its own layer:
 
 ```
-common  <  runtime  <  platform, assets, audio, media  <  renderer (gl, vulkan)
+common  <  runtime  <  platform, assets, audio, media  <  renderer (gl, vulkan, metal)
         <  scene  <  enhanced  <  host (game/common)  <  game/<id>  <  apps (viewer, extractor, tools)
 ```
 

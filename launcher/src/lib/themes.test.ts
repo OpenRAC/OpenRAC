@@ -6,8 +6,10 @@ import {
   THEMES,
   accentProperties,
   applyAccent,
+  GAME_COLORS,
   storedAccent,
   theme,
+  storedGameColors,
   themeStyle,
 } from "./themes";
 
@@ -27,7 +29,7 @@ describe("themes", () => {
 
   it("writes the site's custom properties", () => {
     const style = themeStyle("rac1");
-    expect(style).toContain("--bd: #747669");
+    expect(style).toContain("--tx: var(--gold)");
     expect(style).toContain("--title-font: var(--font-brand)");
   });
 
@@ -36,27 +38,22 @@ describe("themes", () => {
     expect(accentProperties(null)).toEqual([]);
     for (const id of Object.keys(THEMES).filter((id) => id !== "rac1")) {
       expect(ACCENTS[id], `no accent for ${id}`).toBeDefined();
-      const names = accentProperties(id).map(([name]) => name);
-      expect(names.sort()).toEqual([...ACCENT_PROPERTIES].sort());
+      expect(accentProperties(id).map(([name]) => name)).toEqual(["--glow"]);
+      expect(GAME_COLORS[id], `no game colours for ${id}`).toBeDefined();
     }
   });
 
-  it("keeps a main button's text readable on its accent (4.5:1)", () => {
-    const luminance = (hex: string) => {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-      const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-      return 0.2126 * lin(r ?? 0) + 0.7152 * lin(g ?? 0) + 0.0722 * lin(b ?? 0);
-    };
-    const contrast = (a: string, b: string) => {
-      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-      return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
-    };
-    for (const [id, a] of Object.entries(ACCENTS)) {
-      const ink = a["--bar-ink-deep"] ?? "";
-      for (const bar of [a["--bar-top"] ?? "", a["--bar-bottom"] ?? ""]) {
-        expect(contrast(ink, bar), `${id}: ${ink} on ${bar}`).toBeGreaterThanOrEqual(4.5);
-      }
-    }
+  it("gives an accent only the light under the bar, so every game wears the launcher's gold", () => {
+    for (const a of Object.values(ACCENTS)) expect(Object.keys(a)).toEqual(["--glow"]);
+  });
+
+  it("adds a game's own bar, gold and coal with Game colours on", () => {
+    const names = accentProperties("rac2", true).map(([name]) => name);
+    expect(names).toContain("--glow");
+    expect(names).toContain("--amber");
+    expect(names).toContain("--bar-stripe");
+    expect(names).toContain("--tint-panel");
+    expect(accentProperties("rac1", true)).toEqual([]);
   });
 
   it("keeps the accent's game for the next start's first paint", () => {
@@ -68,17 +65,23 @@ describe("themes", () => {
     } as Storage;
     const props = new Map<string, string>();
     const root = {
+      dataset: {} as DOMStringMap,
       style: {
         setProperty: (k: string, v: string) => props.set(k, v),
         removeProperty: (k: string) => props.delete(k),
       },
     } as unknown as HTMLElement;
 
-    applyAccent("rac2", root);
+    applyAccent("rac2", false, root);
     expect(storedAccent()).toBe("rac2");
+    expect([...props.keys()]).toEqual(["--glow"]);
+
+    applyAccent("rac2", true, root);
+    expect(storedGameColors()).toBe(true);
     expect([...props.keys()].sort()).toEqual([...ACCENT_PROPERTIES].sort());
 
-    applyAccent(null, root);
+    applyAccent(null, false, root);
+    expect(storedGameColors()).toBe(false);
     expect(storedAccent()).toBeNull();
     expect(props.size).toBe(0);
   });

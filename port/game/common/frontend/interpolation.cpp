@@ -319,15 +319,20 @@ void capture_frame(const FramePresentation& output) {
         const auto writing = std::chrono::steady_clock::now();
         const std::string path = shots().prefix + std::to_string(output.tick)
                                  + (first ? std::string() : "_b" + std::to_string(between_index))
-                                 + ".png";
+                                 + (output.enhanced_graphics ? "_enhanced" : "") + ".png";
         // As the screen shows it: the frame's alpha is what the GS blends wrote, not a picture's
         // coverage, and a viewer that shows it draws the sky full of the effects' blotches.
         std::vector<std::uint8_t> pixels = renderer::read_rgba(shown, width, height);
         for (std::size_t i = 3; i < pixels.size(); i += 4) {
             pixels[i] = 0xFF;
         }
-        scene::write_png(path, width, height, pixels);
-        log::info("frame {} written to {}", output.tick, path);
+        scene::write_png_later(
+            path,
+            width,
+            height,
+            std::move(pixels),
+            std::format("frame {} written to {}", output.tick, path)
+        );
         shot_time += std::chrono::steady_clock::now() - writing;
     }
 }
@@ -467,7 +472,10 @@ void draw_overlay(const FramePresentation& output) {
          output.picker_palette,
          output.picker_level,
          output.tick,
-         output.picker_layers}
+         output.picker_layers,
+         output.freecam,
+         output.camera_level,
+         output.enhanced_graphics}
     );
 }
 

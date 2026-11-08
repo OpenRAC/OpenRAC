@@ -3,4 +3,9 @@
 /**
  * A file game.json describes by name and checksums (the disc image, the boot executable).
  */
-export type FileSpec = { file: string, size: number | null, sha1: string | null, };
+export type FileSpec = { file: string, size: number | null, sha1: string | null, 
+/**
+ * The disc's version, as its `SYSTEM.CNF` says it (`VER = 2.00`): what tells two releases of
+ * one serial apart (Going Commando's v1.01 and v2.00 both boot `SCUS_972.68`).
+ */
+version: string | null, };

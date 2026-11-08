@@ -1,7 +1,13 @@
-//! For developers only: when the games folder holds more than one disc of a game (PAL and NTSC-U),
+//! For developers only: when the launcher knows more than one disc of a game (PAL and NTSC-U),
 //! which of them the game's page plays. A player never sees this: without developer tools on, or
-//! with one disc of a game, nothing here applies and the launcher picks the disc as it always has
-//! (the one set up, else the first found; `playerVersion` in `src/lib/player.svelte.ts`).
+//! with one known disc of a game, nothing here applies and the launcher picks the disc as it
+//! always has (the one set up, else the first found; `playerVersion` in `src/lib/player.svelte.ts`).
+//!
+//! The discs a developer's launcher knows ([`known`]) are those in the games folder, the images
+//! each version was set up from (`disc_images` in the settings, [`remember`]) while they are still
+//! there and still that disc, and every version with a set-up in the install folder, the one in
+//! place or one kept aside. So the switch works without a games folder, for discs picked one at
+//! a time.
 //!
 //! Each version keeps what is its own. The levels, the build, the mods, the memory card and the
 //! logs already have a folder or a name per version; only what the set-up copies from the disc
@@ -16,6 +22,7 @@
 //!     iso_data/rac1@pal/      PAL's set-up, kept for when PAL is chosen again
 //! ```
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -28,15 +35,19 @@ use crate::install;
 /// The folders of a game's set-up that hold one version at a time (OpenGOAL's layout).
 const SET_UP: [&str; 3] = ["iso_data", "decompiler_out", "out"];
 
-/// A game with more than one of its discs in the games folder, for a developer to pick from.
+/// A game the launcher knows more than one disc of, for a developer to pick from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, ts_rs::TS)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscChoice {
     pub game: String,
-    /// The versions found (`rac1/pal`, `rac1/ntsc`), in the catalogue's order.
+    /// The versions known (`rac1/pal`, `rac1/ntsc`), in the catalogue's order.
     pub versions: Vec<String>,
     /// The one the game's page plays.
     pub chosen: String,
+    /// The image of each version whose image is known (the games folder's, else the one it was
+    /// set up from), to set it up from when it has no set-up; a version known only by its set-up
+    /// has none.
+    pub images: BTreeMap<String, PathBuf>,
 }
 
 /// The version of `game` whose disc is set up now (its `buildinfo.json`).
@@ -45,27 +56,76 @@ fn set_up_version(config: &Config, game: &str) -> Option<String> {
     install::state(dir, game).extracted.map(|b| b.version)
 }
 
+/// `version` has a set-up in `install`: the one in place, or one kept aside ([`kept`]).
+fn has_set_up(install: &Path, game: &str, version: &str) -> bool {
+    let is = |dir: &Path| install::build_info(dir).is_some_and(|b| b.version == version);
+    is(&install::data_dir(install, game).join("iso_data").join(game)) || is(&kept(install, "iso_data", game, version))
+}
+
+/// The version `image` is, as the catalogue knows it (`None`: not there, or not a disc it knows).
+fn version_of_image(catalog: &Catalog, game: &str, image: &Path) -> Option<String> {
+    let id = discs::identity_of(image)?;
+    catalog.version_of_disc(Some(game), &id.serial, id.version.as_deref()).map(|v| v.key.clone())
+}
+
+/// Every disc of `game` the launcher knows, by version in the catalogue's order, with its image
+/// when one is known: one found in the games folder (`found`), else the one the version was set
+/// up from (`disc_images`) while it is still that disc; a version with a set-up and neither is
+/// known without an image.
+pub fn known(config: &Config, catalog: &Catalog, found: &[FoundDisc], game: &str) -> Vec<(String, Option<PathBuf>)> {
+    let Some(entry) = catalog.games.iter().find(|g| g.id == game) else { return Vec::new() };
+    let mut out = Vec::new();
+    for v in &entry.versions {
+        let image = found.iter().find(|f| f.version == v.key).map(|f| f.path.clone()).or_else(|| {
+            config
+                .disc_images
+                .get(&v.key)
+                .filter(|path| path.is_file() && version_of_image(catalog, game, path).as_deref() == Some(&v.key))
+                .cloned()
+        });
+        let set_up = || config.install_dir.as_deref().is_some_and(|dir| has_set_up(dir, game, &v.key));
+        if image.is_some() || set_up() {
+            out.push((v.key.clone(), image));
+        }
+    }
+    out
+}
+
 /// The games a developer can switch discs for: developer tools on, and at least two versions of
-/// the game among the discs found. The choice remembered in the settings when it is still found,
-/// else the disc set up, else the first found: what the launcher plays without a choice.
+/// the game among the discs known ([`known`]). The choice remembered in the settings when it is
+/// still known, else the disc set up, else the first known: what the launcher plays without a
+/// choice.
 pub fn choices(config: &Config, catalog: &Catalog, found: &[FoundDisc]) -> Vec<DiscChoice> {
     if !config.developer {
         return Vec::new();
     }
     let mut out = Vec::new();
     for game in &catalog.games {
-        let versions: Vec<String> =
-            game.versions.iter().filter(|v| found.iter().any(|f| f.version == v.key)).map(|v| v.key.clone()).collect();
-        if versions.len() < 2 {
+        let discs = known(config, catalog, found, &game.id);
+        if discs.len() < 2 {
             continue;
         }
+        let versions: Vec<String> = discs.iter().map(|(v, _)| v.clone()).collect();
         let pick = |key: Option<&str>| key.filter(|k| versions.iter().any(|v| v == k)).map(str::to_string);
         let chosen = pick(config.disc_choice.get(&game.id).map(String::as_str))
             .or_else(|| pick(set_up_version(config, &game.id).as_deref()))
             .unwrap_or_else(|| versions[0].clone());
-        out.push(DiscChoice { game: game.id.clone(), versions, chosen });
+        let images = discs.into_iter().filter_map(|(v, image)| Some((v, image?))).collect();
+        out.push(DiscChoice { game: game.id.clone(), versions, chosen, images });
     }
     out
+}
+
+/// A developer set `game` up from `image`: remembers it as the image of the version it is, so the
+/// disc switch knows that disc without a games folder. Off for players. Returns whether `config`
+/// changed (the caller saves it).
+pub fn remember(config: &mut Config, catalog: &Catalog, game: &str, image: &Path) -> bool {
+    if !config.developer {
+        return false;
+    }
+    let Some(version) = version_of_image(catalog, game, image) else { return false };
+    let image = std::fs::canonicalize(image).unwrap_or_else(|_| image.to_path_buf());
+    config.disc_images.insert(version, image.clone()) != Some(image)
 }
 
 /// Plays `version`'s disc for its game from now on: refused unless that choice is offered
@@ -75,7 +135,7 @@ pub fn choose(config: &mut Config, catalog: &Catalog, found: &[FoundDisc], versi
     let v = catalog.version(version).ok_or_else(|| format!("no version {version}"))?;
     let offered = choices(config, catalog, found);
     if !offered.iter().any(|c| c.game == v.game && c.versions.iter().any(|k| k == version)) {
-        return Err(format!("{version} cannot be chosen: developer tools are off or its disc is not found"));
+        return Err(format!("{version} cannot be chosen: developer tools are off or its disc is not known"));
     }
     if let Some(install) = config.install_dir.as_deref() {
         switch(install, &v.game, version)?;
@@ -131,9 +191,8 @@ pub fn switch(install: &Path, game: &str, version: &str) -> Result<(), String> {
 /// set-up replaces the one before, as it always has.
 pub fn before_set_up(config: &Config, catalog: &Catalog, game: &str, image: &Path) -> Result<(), String> {
     let Some(install) = config.install_dir.as_deref().filter(|_| config.developer) else { return Ok(()) };
-    let Some(serial) = discs::serial_of(image) else { return Ok(()) };
-    let Some(version) = catalog.games.iter().flat_map(|g| &g.versions).find(|v| v.serial == serial && v.game == game)
-    else {
+    let Some(id) = discs::identity_of(image) else { return Ok(()) };
+    let Some(version) = catalog.version_of_disc(Some(game), &id.serial, id.version.as_deref()) else {
         return Ok(());
     };
     match install::state(install, game).extracted {
@@ -211,9 +270,18 @@ mod tests {
         assert_eq!(install::state(install, "rac1").extracted.unwrap().version, "rac1/ntsc");
         assert!(!kept(install, "iso_data", "rac1", "rac1/ntsc").exists());
 
-        // A choice whose disc went from the folder is not used.
+        // Both are set up now: still offered with one disc, or none, left in the folder.
         let only_pal = [disc("rac1/pal", "SCES_509.16")];
+        assert_eq!(choices(&config, &catalog, &only_pal)[0].versions, ["rac1/pal", "rac1/ntsc"]);
+        assert_eq!(choices(&config, &catalog, &[])[0].chosen, "rac1/ntsc");
+
+        // A choice whose disc is not known any more is not used.
+        let fresh = tempfile::tempdir().unwrap();
+        let config = Config { install_dir: Some(fresh.path().into()), ..config };
         assert!(choices(&config, &catalog, &only_pal).is_empty());
+        let other = [disc("rac1/pal", "SCES_509.16"), disc("rac1/ntsc", "SCUS_971.99")];
+        let config = Config { disc_choice: [("rac1".into(), "rac1/gone".into())].into(), ..config };
+        assert_eq!(choices(&config, &catalog, &other)[0].chosen, "rac1/pal");
     }
 
     #[test]
@@ -265,6 +333,82 @@ mod tests {
         before_set_up(&developer, &catalog, "rac1", &image).unwrap();
         assert!(install::state(&install, "rac1").extracted.is_none());
         assert!(kept(&install, "iso_data", "rac1", "rac1/pal").join("disc.iso").is_file());
+    }
+
+    /// No games folder: a version set up before and kept aside, and the one set up now, are two
+    /// known discs, and switching between them needs no folder and no image.
+    #[test]
+    fn set_ups_alone_offer_the_switch() {
+        let catalog = crate::catalog::load(&checkout()).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path();
+        set_up(install, "rac1/pal", "SCES_509.16");
+        switch(install, "rac1", "rac1/ntsc").unwrap();
+        set_up(install, "rac1/ntsc", "SCUS_971.99");
+        let mut config = Config { developer: true, install_dir: Some(install.into()), ..Config::default() };
+        assert_eq!(config.discs_dir, None);
+
+        let offered = choices(&config, &catalog, &[]);
+        assert_eq!(offered.len(), 1, "{offered:?}");
+        assert_eq!(offered[0].versions, ["rac1/pal", "rac1/ntsc"]);
+        assert_eq!(offered[0].chosen, "rac1/ntsc", "the disc set up is the default");
+        assert!(offered[0].images.is_empty(), "known by their set-ups only");
+
+        choose(&mut config, &catalog, &[], "rac1/pal").unwrap();
+        assert_eq!(played(install), "rac1/pal");
+        assert_eq!(choices(&config, &catalog, &[])[0].chosen, "rac1/pal");
+        choose(&mut config, &catalog, &[], "rac1/ntsc").unwrap();
+        assert_eq!(played(install), "rac1/ntsc");
+
+        // One set-up is one disc: nothing to switch between.
+        let dir = tempfile::tempdir().unwrap();
+        set_up(dir.path(), "rac1/pal", "SCES_509.16");
+        let one = Config { developer: true, install_dir: Some(dir.path().into()), ..Config::default() };
+        assert!(choices(&one, &catalog, &[]).is_empty());
+    }
+
+    /// The image a developer picked to set a second version up is known while it is there and is
+    /// still that disc; a player's pick is not remembered.
+    #[test]
+    fn a_picked_image_is_a_known_disc_while_it_is_there() {
+        let catalog = crate::catalog::load(&checkout()).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let install = dir.path().join("install");
+        let image = dir.path().join("picked.iso");
+        crate::discs::tests::image(&image, "BOOT2 = cdrom0:\\SCUS_971.99;1\r\nVER = 1.00\r\n");
+        set_up(&install, "rac1/pal", "SCES_509.16");
+
+        let mut player = Config { install_dir: Some(install.clone()), ..Config::default() };
+        assert!(!remember(&mut player, &catalog, "rac1", &image));
+        assert!(player.disc_images.is_empty());
+
+        let mut config = Config { developer: true, ..player };
+        assert!(remember(&mut config, &catalog, "rac1", &image));
+        assert!(!remember(&mut config, &catalog, "rac1", &image), "already remembered");
+        let offered = choices(&config, &catalog, &[]);
+        assert_eq!(offered.len(), 1, "{offered:?}");
+        assert_eq!(offered[0].versions, ["rac1/pal", "rac1/ntsc"]);
+        assert_eq!(offered[0].chosen, "rac1/pal");
+        assert_eq!(offered[0].images.get("rac1/ntsc"), config.disc_images.get("rac1/ntsc"));
+        choose(&mut config, &catalog, &[], "rac1/ntsc").unwrap();
+        assert!(install::state(&install, "rac1").extracted.is_none(), "left to set up from the image");
+
+        // The games folder's image of a version comes first.
+        let folder = [disc("rac1/ntsc", "SCUS_971.99")];
+        let offered = choices(&config, &catalog, &folder);
+        assert_eq!(offered[0].images.get("rac1/ntsc"), Some(&folder[0].path));
+
+        // Overwritten by another disc, or gone: not known any more.
+        crate::discs::tests::image(&image, "BOOT2 = cdrom0:\\SCES_509.16;1\r\nVER = 2.00\r\n");
+        assert!(choices(&config, &catalog, &[]).is_empty());
+        std::fs::remove_file(&image).unwrap();
+        assert!(choices(&config, &catalog, &[]).is_empty());
+        assert!(choose(&mut config, &catalog, &[], "rac1/ntsc").is_err());
+
+        // A file that is no disc is not remembered.
+        let junk = dir.path().join("junk.iso");
+        std::fs::write(&junk, b"no disc").unwrap();
+        assert!(!remember(&mut config, &catalog, "rac1", &junk));
     }
 
     #[test]

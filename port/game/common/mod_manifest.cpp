@@ -156,6 +156,14 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
         }
         s.party = word == "own" ? 1 : 2;
     }
+    if (const json::Value& games = v["games"]; !games.is_null()) {
+        if (!id_list(games, "games", s.games, error) || s.games.empty()) {
+            error = std::format(
+                "setting \"{}\": \"games\" must list one or more of the mod's games", s.key
+            );
+            return false;
+        }
+    }
     std::string type;
     if (!text(v, "type", true, type, error)) {
         return false;
@@ -611,6 +619,16 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
                 error = std::format("setting \"{}\" is declared twice", s.key);
                 return false;
             }
+            for (const std::string& game : s.games) {
+                if (!m.games.contains(game)) {
+                    error = std::format(
+                        "setting \"{}\": \"games\" names {}, which \"games\" of the mod does not",
+                        s.key,
+                        game
+                    );
+                    return false;
+                }
+            }
             m.settings.push_back(std::move(s));
         }
     }
@@ -696,12 +714,24 @@ bool parse_list(std::string_view source, std::vector<ListEntry>& out, std::strin
     return true;
 }
 
-std::map<std::string, SettingValue> resolve_settings(const Manifest& manifest,
-                                                     const std::map<std::string, json::Value>& written,
-                                                     std::vector<std::string>& notes) {
+bool setting_for_game(const Setting& s, std::string_view game) {
+    return s.games.empty() || game.empty()
+           || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
+}
+
+std::map<std::string, SettingValue> resolve_settings(
+    const Manifest& manifest,
+    const std::map<std::string, json::Value>& written,
+    std::vector<std::string>& notes,
+    std::string_view game
+) {
     std::map<std::string, SettingValue> out;
     for (const Setting& s : manifest.settings) {
         SettingValue value = s.fallback;
+        if (!setting_for_game(s, game)) {
+            out[s.key] = value;  // not for this game: its default, whatever the list says
+            continue;
+        }
         if (auto it = written.find(s.key); it != written.end()) {
             if (!value_of(s, it->second, value)) {
                 value = s.fallback;

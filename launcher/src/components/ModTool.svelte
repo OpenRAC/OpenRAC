@@ -179,6 +179,7 @@
   .crumb {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 6px 4px;
     border-radius: 6px;
     color: var(--amber);
@@ -192,7 +193,9 @@
     min-height: 420px;
     border: 0;
     border-radius: 12px;
-    background: var(--panel);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   /* Android: the crumbs (40px) and the gap above the frame; the rest of the screen is the page's. */

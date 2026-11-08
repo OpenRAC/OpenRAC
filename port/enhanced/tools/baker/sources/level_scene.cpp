@@ -15,6 +15,7 @@
 #include "assets/disc/wad.h"
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/tools/baker/sources/liquids.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/tools/baker/sources/scene_geometry.h"
@@ -281,6 +282,9 @@ BakeSceneExport export_probe_scene(
     }
     include_receivers(level, out);
     export_proxy_emitters(level, out);
+    if (!level.dir.empty()) {
+        out.scene.area_emitters = load_level_bake_profile(level.dir, level.overrides).area_lights;
+    }
     out.scene_hash = probe_scene_hash(level, out, light_set, liquid_source);
     return out;
 }

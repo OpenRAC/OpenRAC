@@ -1,0 +1,637 @@
+#version 460
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+//
+// Probe transport on the GPU, one thread per probe: the CPU baker's paths (bake.cpp
+// ProbeWork::sample, bake_transport.cpp radiance) with the same random sequences, so a probe's
+// rays match Embree's up to float rounding. Integration into texels stays on the CPU.
+#extension GL_EXT_ray_query : require
+
+layout(local_size_x = 32) in;
+
+struct Material {
+    vec4 diffuse;       // linear rgb, diffuse_scale
+    vec4 uv01;          // u0 v0 u1 v1
+    vec4 uv2;           // u2 v2, texture (int bits), alpha cutoff
+    vec4 multiplier[3]; // GS multipliers per vertex
+    ivec4 extra;        // terrain record or -1, emission record or -1, emitter index or -1, -
+};
+
+struct Terrain {
+    vec4 colour[3];  // authored terrain colours
+};
+
+struct Emission {
+    vec4 emission;      // linear radiance, contrast
+    vec4 colour[3];     // emission vertex colours
+    ivec4 flags;        // emission texture, vertex colour (0/1), -, -
+    vec4 scale;         // surface emission scale, -, -, -
+};
+
+struct Emitter {
+    vec4 normal_area;   // unit normal, area
+    uvec4 kind_source;  // 0 triangle / 1 point / 2 rectangle, source index, -, -
+    vec4 weights;       // cumulative, selection probability, area pdf, -
+};
+
+struct AreaLight {
+    vec4 position;
+    vec4 axis_u;
+    vec4 axis_v;
+    vec4 radiance;
+};
+
+struct Rectangle {
+    vec4 position;
+    vec4 normal;
+    vec4 dual_u;
+    vec4 dual_v;
+    vec4 radiance;
+    vec4 area_pdf;
+};
+
+struct PointLight {
+    vec4 position;
+    vec4 intensity;
+};
+
+struct Sun {
+    vec4 to_sun;        // unit direction toward the sun, primary (1/0)
+    vec4 irradiance;
+};
+
+struct TextureInfo {
+    uint offset, width, height, pad;
+};
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT scene;
+layout(std430, set = 0, binding = 1) readonly buffer Positions { float positions[]; };
+layout(std430, set = 0, binding = 2) readonly buffer Materials { Material materials[]; };
+layout(std430, set = 0, binding = 3) readonly buffer Sources { uint sources[]; };
+layout(std430, set = 0, binding = 4) readonly buffer Terrains { Terrain terrains[]; };
+layout(std430, set = 0, binding = 5) readonly buffer Emissions { Emission emissions[]; };
+layout(std430, set = 0, binding = 6) readonly buffer Emitters { Emitter emitters[]; };
+layout(std430, set = 0, binding = 7) readonly buffer AreaLights { AreaLight area_lights[]; };
+layout(std430, set = 0, binding = 8) readonly buffer Rectangles { Rectangle rectangles[]; };
+layout(std430, set = 0, binding = 9) readonly buffer Points { PointLight points[]; };
+layout(std430, set = 0, binding = 10) readonly buffer Suns { Sun suns[]; };
+layout(std430, set = 0, binding = 11) readonly buffer Textures { TextureInfo textures[]; };
+layout(std430, set = 0, binding = 12) readonly buffer Texels { uint texels[]; };
+layout(std430, set = 0, binding = 13) readonly buffer Sky { vec4 sky[]; };
+layout(std430, set = 0, binding = 14) readonly buffer Primary { vec4 primary[]; };  // z, radius, angle
+layout(std430, set = 0, binding = 15) readonly buffer Origins { vec4 origins[]; };
+layout(std430, set = 0, binding = 16) writeonly buffer Rays { vec4 rays[]; };          // 2 per ray
+layout(std430, set = 0, binding = 17) writeonly buffer Lights { vec4 lights[]; };      // 2 per sample
+layout(std430, set = 0, binding = 19) readonly buffer Pairs { vec4 pairs[]; };       // 2 per pair
+layout(std430, set = 0, binding = 18) readonly buffer Params {
+    vec4 environment;        // uniform fallback rgb, use level sky (0/1)
+    vec4 primary_colour;     // primary directional colour, sky weight
+    vec4 sunlight_scale;     // rgb, sky intensity
+    vec4 albedo;             // terrain vertex albedo (0/1), strength, ray bias, -
+    uvec4 counts;            // rays per probe, bounces, seed, emitter count
+    uvec4 more;              // sun count, rectangle count, sky width, sky height
+    vec4 emission_weight;    // total emitter weight
+    uvec4 groups;            // first source of geometry 1, -, -, -
+} params;
+
+layout(push_constant) uniform Push {
+    uint first_probe;  // the volume's index of origins[0], for the probes' seeds
+    uint count;
+    float max_distance;  // the grid's stored visibility cap
+    uint pair_count;     // placement: paired directions
+    float cap;           // placement: clearance cap, 0 for no clearance rays
+} push;
+
+const float kPi = 3.14159265358979323846;
+#define kInfinity uintBitsToFloat(0x7f800000u)
+
+// ---- Random: the CPU's 32-bit LCG, 24-bit fractions ----
+float next(inout uint state) {
+    state = state * 1664525u + 1013904223u;
+    return float(state >> 8) / 16777216.0;
+}
+
+// ---- Geometry ----
+vec3 vertex(uint source, uint corner) {
+    const uint base = source * 9u + corner * 3u;
+    return vec3(positions[base], positions[base + 1u], positions[base + 2u]);
+}
+
+struct Hit {
+    bool found;
+    float t;
+    float u, v;
+    uint source;
+    vec3 origin, direction;
+    float near, far;  // the traced interval, far = t on a hit
+};
+
+// ---- Textures and materials (bake_material.cpp) ----
+vec4 texel(uint offset) {
+    return unpackUnorm4x8(texels[offset]);
+}
+
+void taps(uint texture_id, Material m, float u, float v, out uint offsets[4], out float weights[4]) {
+    const TextureInfo info = textures[texture_id];
+    const float s = m.uv01.x * (1.0 - u - v) + m.uv01.z * u + m.uv2.x * v;
+    const float t = m.uv01.y * (1.0 - u - v) + m.uv01.w * u + m.uv2.y * v;
+    const float x = (s - floor(s)) * float(info.width) - 0.5;
+    const float y = (t - floor(t)) * float(info.height) - 0.5;
+    const int ix = int(floor(x)), iy = int(floor(y));
+    const float tx = x - floor(x), ty = y - floor(y);
+    const int w = int(info.width), h = int(info.height);
+    uint k = 0u;
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 2; ++i) {
+            const uint px = uint((ix + i + w) % w);
+            const uint py = uint((iy + j + h) % h);
+            offsets[k] = info.offset + py * info.width + px;
+            weights[k] = (i == 1 ? tx : 1.0 - tx) * (j == 1 ? ty : 1.0 - ty);
+            ++k;
+        }
+    }
+}
+
+float linear_colour(float value) {
+    return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4);
+}
+
+float opacity(uint source, float u, float v) {
+    const Material m = materials[source];
+    const float modulation = m.multiplier[0].w * (1.0 - u - v) + m.multiplier[1].w * u + m.multiplier[2].w * v;
+    const int texture_id = floatBitsToInt(m.uv2.z);
+    if (texture_id < 0) {
+        return clamp(modulation, 0.0, 1.0);
+    }
+    uint offsets[4];
+    float weights[4];
+    taps(uint(texture_id), m, u, v, offsets, weights);
+    float filtered = 0.0;
+    for (uint k = 0u; k < 4u; ++k) {
+        filtered += texel(offsets[k]).a * weights[k];
+    }
+    return clamp(modulation * filtered, 0.0, 1.0);
+}
+
+// The material colour path with a texture tint and the authored-terrain switch.
+vec4 material(Material m, int terrain, float u, float v, vec3 tint, bool use_terrain) {
+    const bool authored = use_terrain && params.albedo.x > 0.5 && terrain >= 0 && params.albedo.y > 0.0;
+    vec3 authored_tint = vec3(1.0);
+    if (authored) {
+        const Terrain c = terrains[terrain];
+        const vec3 interpolated = c.colour[0].rgb * (1.0 - u - v) + c.colour[1].rgb * u + c.colour[2].rgb * v;
+        authored_tint = mix(vec3(1.0), interpolated, params.albedo.y);
+    }
+    vec4 value = vec4(m.diffuse.rgb, 1.0);
+    value *= m.multiplier[0] * (1.0 - u - v) + m.multiplier[1] * u + m.multiplier[2] * v;
+    const int texture_id = floatBitsToInt(m.uv2.z);
+    if (texture_id < 0) {
+        for (int c = 0; c < 3; ++c) {
+            const float f = clamp(tint[c], 0.0, 1.0);
+            value[c] = authored ? linear_colour(clamp(value[c] * authored_tint[c] * f, 0.0, 1.0))
+                                : value[c] * linear_colour(f);
+        }
+    } else {
+        uint offsets[4];
+        float weights[4];
+        taps(uint(texture_id), m, u, v, offsets, weights);
+        vec4 filtered = vec4(0.0);
+        for (uint k = 0u; k < 4u; ++k) {
+            const vec4 t = texel(offsets[k]);
+            for (int c = 0; c < 3; ++c) {
+                const float f = authored ? clamp(t[c] * tint[c], 0.0, 1.0)
+                                         : linear_colour(clamp(t[c] * tint[c], 0.0, 1.0));
+                filtered[c] += f * weights[k];
+            }
+            filtered.a += t.a * weights[k];
+        }
+        for (int c = 0; c < 4; ++c) {
+            const float product = value[c] * filtered[c];
+            value[c] = product;
+            if (authored && c < 3) {
+                value[c] = linear_colour(clamp(product * authored_tint[c], 0.0, 1.0));
+            }
+        }
+    }
+    value.rgb = clamp(value.rgb * m.diffuse.w, vec3(0.0), vec3(1.0));
+    value.a = clamp(value.a, 0.0, 1.0);
+    return value;
+}
+
+vec3 bake_emission(uint source, float u, float v) {
+    const Material base = materials[source];
+    const Emission e = emissions[base.extra.y];
+    Material m;
+    m.diffuse = vec4(1.0, 1.0, 1.0, 1.0);
+    m.uv01 = base.uv01;
+    m.uv2 = vec4(base.uv2.xy, intBitsToFloat(e.flags.x), 0.0);
+    m.multiplier[0] = vec4(1.0);
+    m.multiplier[1] = vec4(1.0);
+    m.multiplier[2] = vec4(1.0);
+    m.extra = ivec4(-1);
+    vec3 tint = vec3(1.0);
+    if (e.flags.y != 0) {
+        tint = e.colour[0].rgb * (1.0 - u - v) + e.colour[1].rgb * u + e.colour[2].rgb * v;
+    }
+    vec4 radiance = material(m, -1, u, v, tint, false);
+    const float contrast = e.emission.w;
+    if (contrast > 1.0) {
+        const float luminance = radiance.r * 0.2126 + radiance.g * 0.7152 + radiance.b * 0.0722;
+        const float gain = pow(max(luminance, 0.0) / 0.18, contrast - 1.0);
+        radiance.rgb *= gain;
+    }
+    return e.emission.rgb * radiance.rgb;
+}
+
+// ---- Ray queries: alpha-tested candidates, like Embree's filter ----
+uint source_of(uint geometry, uint primitive) {
+    return sources[(geometry == 0u ? 0u : params.groups.x) + primitive];
+}
+
+Hit trace(vec3 origin, vec3 direction, float near, float far) {
+    rayQueryEXT query;
+    rayQueryInitializeEXT(query, scene, gl_RayFlagsNoneEXT, 0xFF, origin, near, direction, far);
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            const uint source = source_of(
+                rayQueryGetIntersectionGeometryIndexEXT(query, false),
+                rayQueryGetIntersectionPrimitiveIndexEXT(query, false)
+            );
+            const vec2 b = rayQueryGetIntersectionBarycentricsEXT(query, false);
+            if (opacity(source, b.x, b.y) >= materials[source].uv2.w) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    Hit hit;
+    hit.origin = origin;
+    hit.direction = direction;
+    hit.near = near;
+    hit.found = rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT;
+    hit.t = far;
+    hit.u = 0.0;
+    hit.v = 0.0;
+    hit.source = 0u;
+    if (hit.found) {
+        hit.t = rayQueryGetIntersectionTEXT(query, true);
+        const vec2 b = rayQueryGetIntersectionBarycentricsEXT(query, true);
+        hit.u = b.x;
+        hit.v = b.y;
+        hit.source = source_of(
+            rayQueryGetIntersectionGeometryIndexEXT(query, true),
+            rayQueryGetIntersectionPrimitiveIndexEXT(query, true)
+        );
+    }
+    hit.far = hit.t;
+    return hit;
+}
+
+bool occluded(vec3 origin, vec3 direction, float near, float far) {
+    rayQueryEXT query;
+    rayQueryInitializeEXT(
+        query, scene, gl_RayFlagsTerminateOnFirstHitEXT, 0xFF, origin, near, direction, far
+    );
+    while (rayQueryProceedEXT(query)) {
+        if (rayQueryGetIntersectionTypeEXT(query, false) == gl_RayQueryCandidateIntersectionTriangleEXT) {
+            const uint source = source_of(
+                rayQueryGetIntersectionGeometryIndexEXT(query, false),
+                rayQueryGetIntersectionPrimitiveIndexEXT(query, false)
+            );
+            const vec2 b = rayQueryGetIntersectionBarycentricsEXT(query, false);
+            if (opacity(source, b.x, b.y) >= materials[source].uv2.w) {
+                rayQueryConfirmIntersectionEXT(query);
+            }
+        }
+    }
+    return rayQueryGetIntersectionTypeEXT(query, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+}
+
+// ---- Emitters (bake_emitters.cpp) ----
+struct LightSample {
+    vec3 direction;
+    vec3 radiance;
+    float pdf;
+    bool delta;
+};
+
+LightSample no_light() {
+    LightSample s;
+    s.direction = vec3(0.0);
+    s.radiance = vec3(0.0);
+    s.pdf = 0.0;
+    s.delta = false;
+    return s;
+}
+
+float mis(float sampled_pdf, float competing_pdf) {
+    if (competing_pdf <= 0.0) {
+        return 1.0;
+    }
+    if (sampled_pdf <= 0.0) {
+        return 0.0;
+    }
+    const float scale = max(sampled_pdf, competing_pdf);
+    const float a = sampled_pdf / scale, b = competing_pdf / scale;
+    return a * a / (a * a + b * b);
+}
+
+void weight_light(inout LightSample s, float direction_pdf) {
+    if (!s.delta) {
+        s.radiance *= mis(s.pdf, direction_pdf);
+    }
+}
+
+LightSample sample_light(vec3 origin, float bias, inout uint state) {
+    const uint count = params.counts.w;
+    if (count == 0u) {
+        return no_light();
+    }
+    const float choice = next(state) * params.emission_weight.x;
+    // upper_bound: the first emitter whose cumulative weight exceeds the choice.
+    uint low = 0u, high = count;
+    while (low < high) {
+        const uint middle = (low + high) / 2u;
+        if (choice < emitters[middle].weights.x) {
+            high = middle;
+        } else {
+            low = middle + 1u;
+        }
+    }
+    const uint index = min(low, count - 1u);
+    const Emitter emitter = emitters[index];
+    const float probability = emitter.weights.y;
+    LightSample s = no_light();
+    if (emitter.kind_source.x == 2u) {
+        const AreaLight light = area_lights[emitter.kind_source.y];
+        const float u = 2.0 * next(state) - 1.0;
+        const float v = 2.0 * next(state) - 1.0;
+        const vec3 position = light.position.xyz + light.axis_u.xyz * u + light.axis_v.xyz * v;
+        const vec3 delta = position - origin;
+        const float squared = dot(delta, delta);
+        const float distance = sqrt(squared);
+        if (distance <= 4.0 * bias) {
+            return s;
+        }
+        const vec3 direction = delta / distance;
+        const float cosine = max(0.0, -dot(emitter.normal_area.xyz, direction));
+        if (cosine <= 0.0 || occluded(origin, direction, bias, distance - 2.0 * bias)) {
+            return s;
+        }
+        const float weight = cosine * emitter.normal_area.w / (squared * probability);
+        s.direction = direction;
+        s.radiance = light.radiance.rgb * weight;
+        s.pdf = 1.0 / weight;
+        return s;
+    }
+    if (emitter.kind_source.x == 1u) {
+        const PointLight light = points[emitter.kind_source.y];
+        const vec3 delta = light.position.xyz - origin;
+        const float squared = dot(delta, delta);
+        const float distance = sqrt(squared);
+        if (distance <= 4.0 * bias) {
+            return s;
+        }
+        const vec3 direction = delta / distance;
+        if (occluded(origin, direction, bias, distance - 2.0 * bias)) {
+            return s;
+        }
+        s.direction = direction;
+        s.radiance = light.intensity.rgb / (squared * probability);
+        s.delta = true;
+        return s;
+    }
+    const uint source = emitter.kind_source.y;
+    const float pdf_area = probability / emitter.normal_area.w;
+    const float root = sqrt(next(state));
+    const float u = root * (1.0 - next(state));
+    const float v = root - u;
+    const vec3 position = vertex(source, 0u) * (1.0 - u - v) + vertex(source, 1u) * u + vertex(source, 2u) * v;
+    const vec3 delta = position - origin;
+    const float squared = dot(delta, delta);
+    const float distance = sqrt(squared);
+    if (distance <= 4.0 * bias || opacity(source, u, v) < materials[source].uv2.w) {
+        return s;
+    }
+    const vec3 direction = delta / distance;
+    const float cosine = abs(dot(emitter.normal_area.xyz, direction));
+    if (cosine <= 0.0 || occluded(origin, direction, bias, distance - 2.0 * bias)) {
+        return s;
+    }
+    s.direction = direction;
+    s.radiance = bake_emission(source, u, v) * (cosine / (squared * pdf_area))
+                 * emissions[materials[source].extra.y].scale.x;
+    s.pdf = squared * pdf_area / cosine;
+    return s;
+}
+
+vec3 mesh_emission(Hit hit, float direction_pdf) {
+    if (!hit.found) {
+        return vec3(0.0);
+    }
+    const Material m = materials[hit.source];
+    if (m.extra.y < 0 || m.extra.z < 0) {
+        return vec3(0.0);
+    }
+    const Emitter emitter = emitters[m.extra.z];
+    const float cosine = abs(dot(emitter.normal_area.xyz, hit.direction));
+    if (cosine == 0.0) {
+        return vec3(0.0);
+    }
+    const float pdf = emitter.weights.z * hit.t * hit.t / cosine;
+    const float weight = mis(direction_pdf, pdf) * emissions[m.extra.y].scale.x;
+    return bake_emission(hit.source, hit.u, hit.v) * weight;
+}
+
+vec3 rectangle_emission(Hit hit, float direction_pdf) {
+    vec3 result = vec3(0.0);
+    for (uint i = 0u; i < params.more.y; ++i) {
+        const Rectangle light = rectangles[i];
+        const float cosine = -dot(light.normal.xyz, hit.direction);
+        if (cosine <= 0.0) {
+            continue;
+        }
+        const vec3 delta = light.position.xyz - hit.origin;
+        const float distance = -dot(light.normal.xyz, delta) / cosine;
+        if (distance < hit.near || distance > hit.far) {
+            continue;
+        }
+        const vec3 local = hit.direction * distance - delta;
+        if (abs(dot(local, light.dual_u.xyz)) > 1.0 || abs(dot(local, light.dual_v.xyz)) > 1.0) {
+            continue;
+        }
+        const float pdf = light.area_pdf.x * distance * distance / cosine;
+        result += light.radiance.rgb * mis(direction_pdf, pdf);
+    }
+    return result;
+}
+
+// ---- Sky (sample_bake_environment) ----
+vec3 environment(vec3 direction) {
+    if (params.environment.w < 0.5 || params.more.z == 0u) {
+        return params.environment.rgb;
+    }
+    direction = normalize(direction);
+    const uint width = params.more.z, height = params.more.w;
+    float longitude = atan(direction.x, direction.y) / (2.0 * kPi);
+    longitude -= floor(longitude);
+    const float x = longitude * float(width) - 0.5;
+    const float y = clamp(
+        acos(clamp(direction.z, -1.0, 1.0)) / kPi * float(height) - 0.5, 0.0, float(height - 1u)
+    );
+    const int ix = int(floor(x)), iy = int(floor(y));
+    const float fx = x - floor(x), fy = y - float(iy);
+    vec3 result = vec3(0.0);
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 2; ++i) {
+            const uint sx = uint((ix + i + int(width)) % int(width));
+            const uint sy = min(uint(iy + j), height - 1u);
+            const float weight = (i == 1 ? fx : 1.0 - fx) * (j == 1 ? fy : 1.0 - fy) * params.sunlight_scale.w;
+            result += sky[sy * width + sx].rgb * weight;
+        }
+    }
+    return params.primary_colour.w * result + (1.0 - params.primary_colour.w) * params.primary_colour.rgb;
+}
+
+// ---- Transport (bake_transport.cpp radiance) ----
+vec3 hemisphere(vec3 n, inout uint state) {
+    const float u = next(state);
+    const float angle = 2.0 * kPi * next(state);
+    const float r = sqrt(u), z = sqrt(1.0 - u);
+    const vec3 tangent = normalize(cross(abs(n.z) < 0.99 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0), n));
+    const vec3 bitangent = cross(n, tangent);
+    return tangent * (r * cos(angle)) + bitangent * (r * sin(angle)) + n * z;
+}
+
+vec3 radiance(Hit hit, inout uint state) {
+    const float bias = params.albedo.z;
+    vec3 direction = hit.direction;
+    vec3 result = vec3(0.0);
+    vec3 throughput = vec3(1.0);
+    float direction_pdf = 1.0 / (4.0 * kPi);
+    for (uint bounce = 0u; bounce <= params.counts.y; ++bounce) {
+        result += throughput * (mesh_emission(hit, direction_pdf) + rectangle_emission(hit, direction_pdf));
+        if (!hit.found) {
+            result += throughput * environment(direction);
+            break;
+        }
+        if (bounce == params.counts.y) {
+            break;
+        }
+        // bounce_surface: two-sided geometric normal facing the ray.
+        const vec3 a = vertex(hit.source, 0u), b = vertex(hit.source, 1u), c = vertex(hit.source, 2u);
+        vec3 normal = normalize(cross(b - a, c - a));
+        if (dot(normal, direction) > 0.0) {
+            normal = -normal;
+        }
+        const vec3 position = hit.origin + direction * hit.t;
+        const Material m = materials[hit.source];
+        const vec4 albedo = material(m, m.extra.x, hit.u, hit.v, vec3(1.0), true);
+        const vec3 lifted = position + normal * bias;
+        if (params.counts.w > 0u) {
+            LightSample light = sample_light(lifted, bias, state);
+            const float cosine = max(0.0, dot(normal, light.direction));
+            weight_light(light, cosine / kPi);
+            result += throughput * albedo.rgb * light.radiance * cosine / kPi;
+        }
+        for (uint i = 0u; i < params.more.x; ++i) {
+            const Sun sun = suns[i];
+            const float cosine = max(0.0, dot(normal, sun.to_sun.xyz));
+            if (cosine <= 0.0 || occluded(lifted, sun.to_sun.xyz, bias, kInfinity)) {
+                continue;
+            }
+            const vec3 correction = sun.to_sun.w > 0.5 ? params.sunlight_scale.rgb : vec3(1.0);
+            result += throughput * albedo.rgb * sun.irradiance.rgb * correction * cosine / kPi;
+        }
+        throughput *= albedo.rgb;
+        direction = hemisphere(normal, state);
+        direction_pdf = max(0.0, dot(normal, direction)) / kPi;
+        hit = trace(lifted, direction, bias, kInfinity);
+    }
+    return result;
+}
+
+#ifdef OPENRAC_PLACEMENT
+// ---- Placement (bake_transport.cpp crossing_parity/classify, bake_alignment.cpp clearance) ----
+bool crossing_parity(vec3 position, vec3 ray, float bias, inout float nearest, inout vec3 exit_direction) {
+    bool odd = false;
+    float near = bias;
+    for (uint crossings = 0u;; ++crossings) {
+        const Hit hit = trace(position, ray, near, kInfinity);
+        if (!hit.found || crossings >= 4096u) {
+            break;
+        }
+        odd = !odd;
+        if (hit.t < nearest) {
+            nearest = hit.t;
+            exit_direction = ray;
+        }
+        // nextafter toward infinity of a positive finite value.
+        near = uintBitsToFloat(floatBitsToUint(hit.t + bias) + 1u);
+    }
+    return odd;
+}
+
+void main() {
+    const uint local = gl_GlobalInvocationID.x;
+    if (local >= push.count) {
+        return;
+    }
+    const vec3 position = origins[local].xyz;
+    const float bias = params.albedo.z;
+    float nearest = kInfinity;
+    vec3 exit_direction = vec3(0.0);
+    uint inside = 0u;
+    for (uint i = 0u; i < push.pair_count; ++i) {
+        const bool forward = crossing_parity(position, pairs[2u * i].xyz, bias, nearest, exit_direction);
+        const bool reverse = crossing_parity(position, pairs[2u * i + 1u].xyz, bias, nearest, exit_direction);
+        inside += forward && reverse ? 1u : 0u;
+    }
+    float clearance = push.cap;
+    if (push.cap > 0.0) {
+        const float margin = 2.0 * bias;
+        for (uint i = 0u; i < 2u * push.pair_count; ++i) {
+            const vec3 direction = pairs[i].xyz;
+            const Hit hit = trace(position - direction * margin, direction, bias, push.cap + margin);
+            if (hit.found) {
+                clearance = min(clearance, max(0.0, hit.t - margin));
+            }
+        }
+    }
+    rays[2u * local] = vec4(exit_direction, nearest);
+    rays[2u * local + 1u] = vec4(float(inside), clearance, 0.0, 0.0);
+}
+#else
+void main() {
+    const uint local = gl_GlobalInvocationID.x;
+    if (local >= push.count) {
+        return;
+    }
+    const uint probe = push.first_probe + local;
+    const vec3 origin = origins[local].xyz;
+    const uint rays_per_probe = params.counts.x;
+    const float bias = params.albedo.z;
+    uint state = params.counts.z ^ (probe * 747796405u);
+    const float rotation = next(state) * 2.0 * kPi;
+    uint emission_state = params.counts.z ^ (probe * 747796405u) ^ 0x9e3779b9u;
+    if (params.counts.w > 0u) {
+        for (uint i = 0u; i < rays_per_probe; ++i) {
+            LightSample light = sample_light(origin, bias, emission_state);
+            weight_light(light, 1.0 / (4.0 * kPi));
+            const uint at = (local * rays_per_probe + i) * 2u;
+            lights[at] = vec4(light.direction, 0.0);
+            lights[at + 1u] = vec4(light.radiance, 0.0);
+        }
+    }
+    for (uint i = 0u; i < rays_per_probe; ++i) {
+        const vec4 base = primary[i];
+        const float angle = base.z + rotation;
+        const vec3 direction = vec3(base.y * cos(angle), base.y * sin(angle), base.x);
+        const Hit hit = trace(origin, direction, bias, kInfinity);
+        const float distance = min(hit.t, push.max_distance);
+        const vec3 light = radiance(hit, state);
+        const uint at = (local * rays_per_probe + i) * 2u;
+        rays[at] = vec4(direction, distance);
+        rays[at + 1u] = vec4(light, 0.0);
+    }
+}
+#endif

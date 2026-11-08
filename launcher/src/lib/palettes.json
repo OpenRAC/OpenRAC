@@ -3,57 +3,48 @@
     "The launcher's colours, read by the launcher (palettes.ts, themes.ts) and by its core, which",
     "hands them to the game for its drawer (core/src/theme.rs, OPENRAC_UI_COLORS). base: app.css's own",
     "(:root, a test keeps them equal); palettes: the themes of Settings, General; accents: a game's own",
-    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's)."
+    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's). game_colors: a game's",
+    "bar, gold and coal (--tint-*), worn instead of the launcher's when Settings, General, Game colours is on."
   ],
   "base": {
-    "--ink": "#181820",
-    "--ink-deep": "#12121a",
-    "--panel": "#1d1d28",
-    "--panel-hi": "#22222f",
-    "--brand": "#d58a00",
-    "--amber": "#ffb443",
-    "--gold": "#ffd08a",
-    "--soft": "#aab6dc",
-    "--dim": "#8f9ac4",
-    "--line": "rgb(156 161 212 / 0.22)",
-    "--line-strong": "rgb(156 161 212 / 0.35)",
-    "--text": "#e8f0ff",
+    "--ink": "#1c1a16",
+    "--ink-deep": "#14120e",
+    "--panel": "#24221e",
+    "--panel-hi": "#2c2a26",
+    "--rail": "#161410",
+    "--brand": "#d6a020",
+    "--amber": "#f5c040",
+    "--gold": "#ffe08f",
+    "--soft": "#b4b4bf",
+    "--dim": "#8b8b98",
+    "--line": "rgb(255 255 255 / 0.09)",
+    "--line-strong": "rgb(255 255 255 / 0.16)",
+    "--text": "#e6e6eb",
     "--bar-top": "#e5a013",
     "--bar-bottom": "#cd8300",
     "--bar-stripe": "#c99222",
     "--bar-stripe-alt": "#bd8619",
     "--bar-ink": "#2a1800",
     "--bar-ink-deep": "#1b1206",
-    "--err": "#ff8a7a"
+    "--err": "#ff8a7a",
+    "--control": "#24221e",
+    "--control-hi": "#2e2c28",
+    "--control-card": "#2e2c28",
+    "--control-card-hi": "#363430",
+    "--glow": "#f5c040",
+    "--tint-panel": "#24221e",
+    "--tint-panel-hi": "#2c2a26",
+    "--tint-control": "#24221e",
+    "--tint-control-hi": "#2e2c28",
+    "--tint-control-card": "#2e2c28",
+    "--tint-control-card-hi": "#363430"
   },
   "palettes": [
     {
       "id": "openrac",
       "name": "OpenRAC",
       "colors": {},
-      "swatch": ["#181820", "#22222f", "#e8f0ff"]
-    },
-    {
-      "id": "gruvbox",
-      "name": "Gruvbox",
-      "colors": {
-        "--ink": "#282828",
-        "--ink-deep": "#1d2021",
-        "--panel": "#32302f",
-        "--panel-hi": "#3c3836",
-        "--text": "#fbf1c7",
-        "--body": "#ebdbb2",
-        "--lav": "#83a598",
-        "--soft": "#d5c4a1",
-        "--dim": "#a89984",
-        "--line": "rgb(168 153 132 / 0.22)",
-        "--line-strong": "rgb(168 153 132 / 0.36)",
-        "--line-field": "rgb(168 153 132 / 0.6)",
-        "--ok": "#b8bb26",
-        "--warn": "#fabd2f",
-        "--err": "#fb4934"
-      },
-      "swatch": ["#282828", "#3c3836", "#ebdbb2"]
+      "swatch": ["#1c1a16", "#2c2a26", "#e6e6eb"]
     },
     {
       "id": "oled",
@@ -61,6 +52,7 @@
       "colors": {
         "--ink": "#000000",
         "--ink-deep": "#000000",
+        "--rail": "#000000",
         "--panel": "#0b0b0f",
         "--panel-hi": "#15151c",
         "--text": "#f4f6ff",
@@ -69,7 +61,11 @@
         "--dim": "#8a93b4",
         "--line": "rgb(160 165 200 / 0.22)",
         "--line-strong": "rgb(160 165 200 / 0.36)",
-        "--line-field": "rgb(160 165 200 / 0.6)"
+        "--line-field": "rgb(160 165 200 / 0.6)",
+        "--control": "#121212",
+        "--control-hi": "#1e1e1e",
+        "--control-card": "#161616",
+        "--control-card-hi": "#202020"
       },
       "swatch": ["#000000", "#15151c", "#f4f6ff"]
     },
@@ -79,6 +75,7 @@
       "colors": {
         "--ink": "#2e3440",
         "--ink-deep": "#242933",
+        "--rail": "#242933",
         "--panel": "#3b4252",
         "--panel-hi": "#434c5e",
         "--text": "#eceff4",
@@ -91,7 +88,11 @@
         "--line-field": "rgb(216 222 233 / 0.6)",
         "--ok": "#a3be8c",
         "--warn": "#ebcb8b",
-        "--err": "#e8858e"
+        "--err": "#e8858e",
+        "--control": "#3b4252",
+        "--control-hi": "#434c5e",
+        "--control-card": "#434c5e",
+        "--control-card-hi": "#4c566a"
       },
       "swatch": ["#2e3440", "#434c5e", "#eceff4"]
     },
@@ -101,6 +102,7 @@
       "colors": {
         "--ink": "#181825",
         "--ink-deep": "#11111b",
+        "--rail": "#11111b",
         "--panel": "#1e1e2e",
         "--panel-hi": "#29293d",
         "--text": "#cdd6f4",
@@ -113,12 +115,33 @@
         "--line-field": "rgb(147 153 178 / 0.6)",
         "--ok": "#a6e3a1",
         "--warn": "#f9e2af",
-        "--err": "#f38ba8"
+        "--err": "#f38ba8",
+        "--control": "#1e1e2e",
+        "--control-hi": "#29293d",
+        "--control-card": "#29293d",
+        "--control-card-hi": "#313244"
       },
       "swatch": ["#181825", "#29293d", "#cdd6f4"]
     }
   ],
   "accents": {
+    "rac2": {
+      "--glow": "#31b6e8"
+    },
+    "rac3": {
+      "--glow": "#ffd23f"
+    },
+    "rac4": {
+      "--glow": "#ff6b61"
+    },
+    "rac5": {
+      "--glow": "#7aa8ff"
+    },
+    "rac6": {
+      "--glow": "#5cc8fa"
+    }
+  },
+  "game_colors": {
     "rac2": {
       "--bar-top": "#1799ca",
       "--bar-bottom": "#1487b3",
@@ -128,7 +151,13 @@
       "--bar-ink-deep": "#03141f",
       "--amber": "#31b6e8",
       "--gold": "#a3def5",
-      "--brand": "#0e5e7c"
+      "--brand": "#0e5e7c",
+      "--tint-panel": "#1d2327",
+      "--tint-panel-hi": "#242b30",
+      "--tint-control": "#1d2327",
+      "--tint-control-hi": "#262d32",
+      "--tint-control-card": "#262d32",
+      "--tint-control-card-hi": "#2e353a"
     },
     "rac3": {
       "--bar-top": "#ffd84a",
@@ -139,7 +168,13 @@
       "--bar-ink-deep": "#1c1500",
       "--amber": "#ffd23f",
       "--gold": "#ffe9a3",
-      "--brand": "#e9b30c"
+      "--brand": "#e9b30c",
+      "--tint-panel": "#24221c",
+      "--tint-panel-hi": "#2c2a24",
+      "--tint-control": "#24221c",
+      "--tint-control-hi": "#2e2c26",
+      "--tint-control-card": "#2e2c26",
+      "--tint-control-card-hi": "#36342d"
     },
     "rac4": {
       "--bar-top": "#f25a5a",
@@ -150,7 +185,13 @@
       "--bar-ink-deep": "#1f0303",
       "--amber": "#ff6b61",
       "--gold": "#ffb8b2",
-      "--brand": "#e23c3c"
+      "--brand": "#e23c3c",
+      "--tint-panel": "#28201f",
+      "--tint-panel-hi": "#302827",
+      "--tint-control": "#28201f",
+      "--tint-control-hi": "#322a29",
+      "--tint-control-card": "#322a29",
+      "--tint-control-card-hi": "#3a3231"
     },
     "rac5": {
       "--bar-top": "#6aa0ff",
@@ -161,7 +202,13 @@
       "--bar-ink-deep": "#020c24",
       "--amber": "#7aa8ff",
       "--gold": "#c2d6ff",
-      "--brand": "#3f78f0"
+      "--brand": "#3f78f0",
+      "--tint-panel": "#1f2229",
+      "--tint-panel-hi": "#272a31",
+      "--tint-control": "#1f2229",
+      "--tint-control-hi": "#292c32",
+      "--tint-control-card": "#292c32",
+      "--tint-control-card-hi": "#31343a"
     },
     "rac6": {
       "--bar-top": "#38bdf8",
@@ -172,7 +219,13 @@
       "--bar-ink-deep": "#01131f",
       "--amber": "#5cc8fa",
       "--gold": "#bae6fd",
-      "--brand": "#0ea5e9"
+      "--brand": "#0ea5e9",
+      "--tint-panel": "#1d2327",
+      "--tint-panel-hi": "#242b30",
+      "--tint-control": "#1d2327",
+      "--tint-control-hi": "#262d32",
+      "--tint-control-card": "#262d32",
+      "--tint-control-card-hi": "#2e353a"
     }
   }
 }

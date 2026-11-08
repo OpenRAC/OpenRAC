@@ -315,6 +315,41 @@ void apply_profile(const std::filesystem::path& path, LevelBakeProfile& profile)
             bake.surface_emission_regions = read_surface_emission_regions(value);
         } else if (key == "surface_emission_scale") {
             bake.surface_emission_scale = number(value, 0, 1e6);
+        } else if (key == "area_lights") {
+            if (!value.is_array() || value.items().size() > 64) {
+                fail("area_lights must be an array of at most 64 rectangles");
+            }
+            profile.area_lights.clear();
+            for (const auto& light : value.items()) {
+                profile.area_lights.push_back(
+                    {vector(light["position"], -1e6),
+                     vector(light["axis_u"], -1e6),
+                     vector(light["axis_v"], -1e6),
+                     vector(light["radiance"], 0)}
+                );
+            }
+        } else if (key == "look_regions") {
+            if (!value.is_array() || value.items().size() > kProbeLookRegions) {
+                fail("look_regions must be an array of at most 12 boxes");
+            }
+            profile.look_regions.clear();
+            for (const auto& box : value.items()) {
+                const auto& bounds = box["bounds"];
+                if (bounds.items().size() != 6) {
+                    fail("look region bounds require six coordinates");
+                }
+                ProbeLookRegion region;
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    region.minimum[axis] = number(bounds[axis], -1e6, 1e6);
+                    region.maximum[axis] = number(bounds[axis + 3], -1e6, 1e6);
+                    if (region.maximum[axis] <= region.minimum[axis]) {
+                        fail("look region bounds must have positive extent");
+                    }
+                }
+                region.feather = number(box["feather"], .01, 256);
+                region.diffuse_gain = number(box["diffuse_gain"], 0, 2);
+                profile.look_regions.push_back(region);
+            }
         } else if (key == "sky_intensity") {
             bake.sky_intensity = number(value, 0, 1e6);
         } else if (key == "sky_weight") {
@@ -417,7 +452,7 @@ LevelBakeProfile load_level_bake_profile(
 
 bool bake_identity_supported(std::string_view game, std::string_view version) {
     return (game == "rac1" && (version == "pal" || version == "ntsc"))
-           || (game == "rac2" && version == "ntsc");
+           || (game == "rac2" && (version == "ntsc" || version == "pal" || version == "ntsc2"));
 }
 
 bool bake_identity_supported(std::string_view game_version) {

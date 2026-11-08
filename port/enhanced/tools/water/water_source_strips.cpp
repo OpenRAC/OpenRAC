@@ -18,13 +18,14 @@ struct Layout {
     double height;       // Rest-height offset, rounded to float32 like authored initialisation.
     Point scale;         // Per-axis scale after rest-height decoding.
     Point translation;   // Per-axis world-space translation.
+    bool translate;
 };
 
 // Validates component positions before any source pointer is followed.
 Layout layout(const json::Value& table) {
     const auto stride = integer(table["vertex_stride"], 4096);
     (void)point(table["position_offsets"]);
-    Layout result{stride, {}, false, 0, 0, {1, 1, 1}, {}};
+    Layout result{stride, {}, false, 0, 0, {1, 1, 1}, {}, false};
 
     // Component offsets must denote complete float32 values inside each vertex record.
     for (unsigned axis = 0; axis < 3; ++axis) {
@@ -55,6 +56,7 @@ Layout layout(const json::Value& table) {
     // Unspecified translation preserves the authored world origin.
     if (!table["translation"].is_null()) {
         result.translation = point(table["translation"]);
+        result.translate = true;
     }
 
     return result;
@@ -87,6 +89,13 @@ Point vertex(const Image& image, std::size_t at, const Layout& layout) {
         if (!std::isfinite(result[axis]) || std::abs(result[axis]) >= 100'000) {
             throw std::runtime_error("water source transform exceeds coordinate limits");
         }
+        if (layout.translate) {
+            // Match the guest's float32 addition so baked mesh keys match the live strip.
+            const auto rounded = static_cast<float>(result[axis]);
+            result[axis] = std::abs(rounded) > std::abs(result[axis])
+                               ? std::nextafter(rounded, 0.0f)
+                               : rounded;
+        }
     }
 
     return result;
@@ -113,10 +122,13 @@ void append_strip(
     Surface& result,
     const Image& image,
     std::size_t record,
+    std::size_t vertices_address,
     const json::Value& table,
     const Layout& layout
 ) {
-    const auto pointer = image.word(record + integer(table["pointer_offset"], 4096));
+    const auto pointer = vertices_address
+                             ? vertices_address
+                             : image.word(record + integer(table["pointer_offset"], 4096));
     const auto count = image.word(record + integer(table["count_offset"], 4096));
 
     // A strip cannot allocate arbitrary geometry from a corrupt source count.
@@ -155,6 +167,7 @@ Surface strips(const Image& image, const json::Value& table) {
          "count",
          "record_stride",
          "pointer_offset",
+         "vertices_address",
          "count_offset",
          "vertex_stride",
          "position_offsets",
@@ -166,6 +179,9 @@ Surface strips(const Image& image, const json::Value& table) {
     const auto address = integer(table["address"], image.bytes.size());
     const auto count = integer(table["count"], 64);
     const auto stride = integer(table["record_stride"], 4096);
+    const bool direct = !table["vertices_address"].is_null();
+    const auto vertices_address =
+        direct ? integer(table["vertices_address"], image.bytes.size()) : 0;
     const auto vertex_layout = layout(table);
 
     // Whole record spans are validated before following any embedded pointer.
@@ -175,7 +191,8 @@ Surface strips(const Image& image, const json::Value& table) {
 
     // Embedded pointer and count fields must fit their own records, not neighbouring records.
     if (stride < sizeof(std::uint32_t)
-        || integer(table["pointer_offset"], stride) > stride - sizeof(std::uint32_t)
+        || (direct && (!vertices_address || count != 1 || !table["pointer_offset"].is_null()))
+        || (!direct && integer(table["pointer_offset"], stride) > stride - sizeof(std::uint32_t))
         || integer(table["count_offset"], stride) > stride - sizeof(std::uint32_t)) {
         throw std::runtime_error("water source pointer fields exceed record stride");
     }
@@ -191,7 +208,9 @@ Surface strips(const Image& image, const json::Value& table) {
 
     // Records belonging to one source merge art layers into one physical body.
     for (std::size_t index = 0; index < count; ++index) {
-        append_strip(result, image, address + index * stride, table, vertex_layout);
+        append_strip(
+            result, image, address + index * stride, vertices_address, table, vertex_layout
+        );
     }
 
     return result;

@@ -58,13 +58,17 @@ def checksums(path: Path, full: bool) -> dict:
     return out
 
 
-def known_discs() -> dict[str, tuple[dict, str, dict]]:
-    """serial -> (game, version name, version)."""
-    return {v["serial"]: (g, name, v) for g, name, v in games.versions()}
+def known_discs() -> dict[str, list[tuple[dict, str, dict]]]:
+    """serial -> [(game, version name, version)]: two releases can share a serial (Ratchet &
+    Clank's PAL v1.00 and v2.00 both boot SCES_509.16), told apart by their checksums."""
+    out: dict[str, list[tuple[dict, str, dict]]] = {}
+    for g, name, v in games.versions():
+        out.setdefault(v["serial"], []).append((g, name, v))
+    return out
 
 
 def scan(full: bool = False) -> dict[str, Path]:
-    """serial -> the image in baserom/ whose checksums match game.json; prints what it finds."""
+    """'game/version' -> the image in baserom/ whose checksums match game.json; prints what it finds."""
     known, found = known_discs(), {}
     images = sorted(p for p in BASEROM.glob("*") if p.is_file() and p.suffix.lower() == ".iso")
     if not images:
@@ -74,19 +78,22 @@ def scan(full: bool = False) -> dict[str, Path]:
         if serial not in known:
             print(f"{iso.name}: {'not a PS2 disc' if serial is None else serial + ', not a disc OpenRAC knows'}")
             continue
-        game, name, version = known[serial]
-        want, got = version["disc"], checksums(iso, full)
+        got = checksums(iso, full)
         # A checksum game.json does not record yet (rac5's CRC32 and MD5) is not compared.
-        bad = [k for k, v in got.items() if k in want and want[k] != v]
-        label = f"{game['title']} ({version['region']}, {serial})"
+        differing = [(game, name, version, [k for k, v in got.items() if k in version["disc"] and version["disc"][k] != v])
+                     for game, name, version in known[serial]]
+        game, name, version, bad = min(differing, key=lambda d: len(d[3]))
+        label = f"{game['title']} ({version['region']}, {serial}"
+        label += f", disc v{version['disc']['version']})" if len(known[serial]) > 1 else ")"
         if bad:
             print(f"{iso.name}: {label}, but {', '.join(bad)} differ from games/{game['id']}/game.json")
             continue
         print(f"{iso.name}: {label}, {'all checksums' if full else 'size and SHA-1'} match")
-        found[serial] = iso
-    for serial, (game, name, version) in known.items():
-        if serial not in found:
-            print(f"missing: {game['title']} ({version['region']}, {serial}) for {games.version_dir(game, name)}")
+        found[f"{game['id']}/{name}"] = iso
+    for serial, releases in known.items():
+        for game, name, version in releases:
+            if f"{game['id']}/{name}" not in found:
+                print(f"missing: {game['title']} ({version['region']}, {serial}) for {games.version_dir(game, name)}")
     return found
 
 
@@ -149,9 +156,15 @@ def setup(only: list[str]) -> None:
         if only and key not in only:
             continue
         inputs = version.get("inputs", [])
-        iso = found.get(version["serial"])
+        iso = found.get(key)
         if not inputs:
             print(f"{key}: nothing to place ({version.get('setup', 'no build yet')})")
+            continue
+        tree = ROOT / games.version_dir(game, name)
+        if not (tree / ".git").exists():
+            # Placing files in an empty submodule directory would stop git from checking it out.
+            print(f"{key}: skipped, {tree.relative_to(ROOT).as_posix()} is not checked out "
+                  "(git submodule update --init --depth 1, then python3 tools/sources.py apply)")
             continue
         for item in inputs:
             dest = ROOT / item["path"]
@@ -305,13 +318,48 @@ def game_table() -> str:
     return "\n".join(out) + "\n"
 
 
+def region(version: dict) -> str:
+    """A version's region without its gloss: "NTSC-U" for "NTSC-U (North America)"."""
+    return version["region"].split(" (")[0]
+
+
+def decomp_rows(game: dict) -> list[tuple[str, dict, list[str]]]:
+    """(folder, source, version names) for each decomp of GAME: its own decomp (every version
+    built from it), then each version with a decomp of its own (rac1's NTSC decomp)."""
+    rows = []
+    if game.get(games.DECOMP):
+        shared = [n for n, v in game["versions"].items() if (v.get("source") or {}).get("shared") == games.DECOMP]
+        rows.append((games.decomp_dir(game), game[games.DECOMP], shared))
+    rows += [(games.version_dir(game, n), v["source"], [n]) for n, v in game["versions"].items()
+             if v.get("source") and not v["source"].get("shared")]
+    return rows
+
+
 def source_table() -> str:
-    out = ["| Directory | Project | Repository | Branch | Commit | Its date | License |", "|---|---|---|---|---|---|---|"]
-    for game, name, v in games.versions():
-        s = v.get("source")
-        if s:
-            out.append(f"| [`{games.version_dir(game, name)}`]({games.version_dir(game, name)}) | {s['name']} | {s['repo']} | "
-                       f"{s['branch']} | `{s['commit'][:12]}` | {s['date']} | {s['license']} |")
+    out = ["| Game | Decomp (repository) | Versions it holds | Folder | Pinned at |", "|---|---|---|---|---|"]
+    for game in games.load_all():
+        for where, s, names in decomp_rows(game):
+            held = ", ".join(f"{region(game['versions'][n])} `{game['versions'][n]['serial']}`" for n in names)
+            out.append(f"| {game['title']} | [{s['name']}]({s['repo']}) ({s['branch']}) | {held} | "
+                       f"[`{where}`]({where}) | `{s['commit'][:12]}` ({s['date']}) |")
+    return "\n".join(out) + "\n"
+
+
+def versions_table(game: dict) -> str:
+    """games/<game>/README.md's table: each version, its disc, the decomp it is built from (a folder
+    beside the README) and the port's program for it (port/game/<game>-<version>/)."""
+    out = ["| Version | Disc | Serial | Decomp | Port |", "|---|---|---|---|---|"]
+    for name, v in game["versions"].items():
+        source = v.get("source") or {}
+        rel = games.decomp_dir(game) if source.get("shared") == games.DECOMP else games.version_dir(game, name)
+        named = game[games.DECOMP] if source.get("shared") == games.DECOMP else source
+        folder = Path(rel).name
+        decomp = f"[{folder}/]({folder}/README.md) ([{named['name']}]({named['repo']}))" if source else "–"
+        port = f"{game['id']}-{name}"
+        built = (f"[`port/game/{port}/`](../../port/game/{port}/)" if (ROOT / "port/game" / port).is_dir()
+                 else "not built yet")
+        disc = f"{v['region']}, disc v{v['disc']['version']}" if v.get("disc", {}).get("version") else v["region"]
+        out.append(f"| `{game['id']}/{name}` | {disc} | `{v['serial']}` | {decomp} | {built} |")
     return "\n".join(out) + "\n"
 
 
@@ -326,7 +374,14 @@ def short_title(game: dict, name: str) -> str:
     title = game["title"]
     for series in ("Ratchet & Clank: ", "Ratchet: "):
         title = title.removeprefix(series)
-    return f"{title} ({name.upper()})" if len(game["versions"]) > 1 else title
+    if len(game["versions"]) == 1:
+        return title
+    version = game["versions"][name]
+    serial = version.get("serial")
+    if serial and "disc" in version and sum(v.get("serial") == serial for v in game["versions"].values()) > 1:
+        # Two releases of one serial (Going Commando's v1.01 and v2.00): told apart by the disc's version.
+        return f"{title} ({version['disc']['video']} v{version['disc']['version']})"
+    return f"{title} ({name.upper()})"
 
 
 def progress_box(versions) -> str:
@@ -345,9 +400,10 @@ def progress_box(versions) -> str:
         # The NTSC decomp is shown as its project, at the workspace owner's request.
         label = "Lombyte Project" if (game["id"], name) == ("rac1", "ntsc") else source.get("name")
         project = f'<a href="{source["repo"]}">{label}</a>' if source.get("repo") else "–"
+        bytematch_version = v.get("bytematch_version", v["serial"])
         query = urlencode({"mode": "shield", "label": "", "measure": "matched_code_percent",
-                           "version": v["serial"], "color": "ffb443", "style": "flat-square"})
-        badge = (f'<a href="https://bytematch.dev/{slug}/{v["serial"]}">'
+                           "version": bytematch_version, "color": "ffb443", "style": "flat-square"})
+        badge = (f'<a href="https://bytematch.dev/{slug}/{bytematch_version}">'
                  f'<img src="https://bytematch.dev/{slug}.svg?{query.replace("&", "&amp;")}" '
                  f'alt="{title}: code decompiled"></a>')
         rows.append(f'  <tr><td>{title.replace("&", "&amp;")}</td><td>{project}</td>'
@@ -368,15 +424,18 @@ def tables() -> None:
     made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(), "sources": source_table(),
             "badges": progress_box(games.versions()),
             "progress": render(rows, dates=False, badges=True) if summary.exists() else None}
-    for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md", ROOT / "docs/SOURCES.md"):
+    docs = [ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md", ROOT / "docs/SOURCES.md"]
+    docs += [GAMES / game["id"] / "README.md" for game in games.load_all()]
+    for doc in docs:
         if not doc.exists():
             continue
         text, depth = doc.read_text(encoding="utf-8"), len(doc.relative_to(ROOT).parts) - 1
-        for name, table in made.items():
+        own = {"versions": versions_table(games.load(doc.parent.name))} if doc.parent.parent == GAMES else {}
+        for name, table in {**made, **own}.items():
             begin, end = f"<!-- {name}:begin -->", f"<!-- {name}:end -->"
             if table is None or begin not in text or end not in text:
                 continue
-            if depth:
+            if depth and name != "versions":
                 table = table.replace("](games/", "](" + "../" * depth + "games/")
             head, rest = text.split(begin, 1)
             text = head + begin + "\n" + GENERATED + table + end + rest.split(end, 1)[1]
@@ -389,7 +448,9 @@ def progress_badge(version: dict, measure: str, label: str) -> str | None:
     slug = version.get("bytematch")
     if not slug:
         return None
-    serial = version["serial"]
+    # ByteMatch's id for the version: its serial, unless two releases share one (Going Commando's
+    # v2.00 is SCUS_972.68_v2 beside v1.01's SCUS_972.68).
+    serial = version.get("bytematch_version", version["serial"])
     query = urlencode({"mode": "shield", "label": label, "measure": measure, "version": serial})
     return f"[![{label}](https://bytematch.dev/{slug}.svg?{query})](https://bytematch.dev/{slug}/{serial})"
 
@@ -402,7 +463,7 @@ def render(rows, dates: bool = True, badges: bool = False) -> str:
            "|---|---|---:|---:|---:|" + ("---|" if dates else "")]
     for game, name, version, m in rows:
         where = f"[`{games.version_dir(game, name)}`]({games.version_dir(game, name)})" if version.get("source") else "not started"
-        label = f"{version['serial']} ({where})"
+        label = f"{version.get('bytematch_version', version['serial'])} ({where})"
         if m is None:
             code, fns, fuzzy, date = "–", "–", "–", " – " if dates else ""
         elif "missing" in m:

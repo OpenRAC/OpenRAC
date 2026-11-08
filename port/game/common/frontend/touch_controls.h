@@ -21,4 +21,8 @@ namespace openrac::frontend::touch_controls {
 // default, or 1 Classic), the game's context, the accent.
 void update(platform::TouchPad& touch, int style);
 
+// While a movie Start skips plays (program/movie.cpp): the "cutscene" set, its skip button, over the
+// game's context (the intro logos play before the game reports one).
+void set_movie(bool skippable);
+
 }  // namespace openrac::frontend::touch_controls

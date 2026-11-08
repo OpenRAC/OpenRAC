@@ -77,6 +77,13 @@ const char* library_name() {
 #endif
 }
 
+// A library is replaced, not written over: macOS kills a process that loads a file it has loaded
+// before with other bytes (its code signature is cached by file).
+void copy_library(const fs::path& from, const fs::path& to) {
+    fs::remove(to);
+    fs::copy_file(from, to);
+}
+
 // Installs test-<which> into `plugins`: its library copied in, its manifest.
 void install(
     const fs::path& plugins,
@@ -89,7 +96,7 @@ void install(
 ) {
     const fs::path dir = plugins / ("test-" + which);
     fs::create_directories(dir / "lib");
-    fs::copy_file(built, dir / "lib" / library_name(), fs::copy_options::overwrite_existing);
+    copy_library(built, dir / "lib" / library_name());
     write(
         dir / "openrac-mod.json",
         R"({"format": 2, "id": "test-)" + which + R"(", "name": "Test", "version": "1.0.0",
@@ -486,7 +493,7 @@ void purist_and_no_list(const fs::path& plugins) {
 
 // The library's id must be its manifest's.
 void a_library_of_another_id(const fs::path& plugins) {
-    fs::copy_file(OPENRAC_TEST_MOD_A, plugins / "test-b" / "lib" / library_name(), fs::copy_options::overwrite_existing);
+    copy_library(OPENRAC_TEST_MOD_A, plugins / "test-b" / "lib" / library_name());
     write(plugins / "plugins.json", R"({"format": 1, "mods": [{"id": "test-b"}]})");
     CHECK(mods::load(host(plugins)) == "none (1 not loaded: plugins/status.json)");
     CHECK(status_of(plugins, "test-b").second.find("its library is mod \"test-a\"") != std::string::npos);
@@ -505,7 +512,7 @@ void an_installed_launchers_layout(const fs::path& root) {
     const fs::path mod = plugins / "test-a";
     const fs::path lib = fs::path("lib") / mods::platform_key() / library_name();
     fs::create_directories(mod / lib.parent_path());
-    fs::copy_file(OPENRAC_TEST_MOD_A, mod / lib, fs::copy_options::overwrite_existing);
+    copy_library(OPENRAC_TEST_MOD_A, mod / lib);
     write(
         mod / "openrac-mod.json",
         R"({"format": 2, "id": "test-a", "name": "Test", "version": "1.0.0",
@@ -1520,6 +1527,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
         return loop != 0 ? 5 : 3;
     };
+    play.hero_moby = [] {
+        return std::uint32_t{0x1000};
+    };
+    h.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        std::string line = "joints " + std::to_string(moby) + " " + std::to_string(count);
+        for (int i = 0; i < count; ++i) {
+            line += " " + std::to_string(joints[i].joint);
+        }
+        g_motion.push_back(line);
+    };
     play.hero_sound_stop = [](int voice) {
         g_motion.push_back("hero stop " + std::to_string(voice));
     };
@@ -1574,8 +1591,11 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     play.hero_update_hook = "Test_Other";
     g_loads = 2;
     g_records.clear();
+    g_motion.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9501, 9551}));
+    // The pose needs the hook; the joints do not (two, too many, none).
+    CHECK((g_records == std::vector<int>{9501, 9551, 9640, 9641, 9650}));
+    CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
     CHECK(mods::props_drawn().empty());
     CHECK(mods::haze_drawn().empty());
     CHECK(mods::hud_texts().empty());

@@ -19,7 +19,7 @@ hostgen stops instead of writing a program whose functions are stubs.
     python3 port/tools/hostgen/derived.py --game port/game/rac2-ntsc/hostgen.json \\
         --source <a built rac2-decomp checkout>        # write the table again
     python3 port/tools/hostgen/derived.py --game port/game/rac2-ntsc/hostgen.json \\
-        --source games/rac2/ntsc --check               # does it cover what the C uses?
+        --source games/rac2/decomp --check               # does it cover what the C uses?
 
 The table also lists the names the C uses that the build derived no value for (in
 functions its build leaves as assembly), so a check, and hostgen, can tell a table that

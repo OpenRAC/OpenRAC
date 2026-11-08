@@ -133,11 +133,16 @@ class UnitTests(unittest.TestCase):
 OLD_IDENTITIES = {
     ("rac1", "pal"): ("PAL", "PAL v2.00", "SCES_509.16", 1388100, "79956931bd62fafd8d20fa2eae796dbaf2e15e83"),
     ("rac1", "ntsc"): ("NTSC-U", "NTSC-U v1.00", "SCUS_971.99", 1383028, "72fd1de379dafd8f243dceeb3be50980f3fd3cd5"),
+    ("rac1", "pal1"): ("PAL", "PAL v1.00", "SCES_509.16", 1381764, "553a7f6c2c7a004d384d77b7139accbc52242149"),
+    ("rac1", "jp"): ("NTSC-J", "NTSC-J v1.02", "SCPS_150.37", 1390884, "0df83877d53e19d69ec82038e2aaa227f643178f"),
     ("rac2", "ntsc"): ("NTSC-U", "NTSC-U v1.01", "SCUS_972.68", 2618684, "bacda860cbd6723142e86db56f197e47e728970f"),
+    ("rac2", "pal"): ("PAL", "PAL v1.00", "SCES_516.07", 2878084, "cb59ce5396ddebb8aa539b0847f8bf66d6a47fe0"),
+    ("rac2", "ntsc2"): ("NTSC-U", "NTSC-U v2.00", "SCUS_972.68", 2621256, "4124a79c1e5a1ceb56f514df0dbbc11f072af56f"),
     ("rac3", "ntsc"): ("NTSC-U", "NTSC-U v1.00", "SCUS_973.53", 771008, "601012bb03ef1213ad1253baebae8a071b8a7df7"),
+    ("rac3", "pal"): ("PAL", "PAL v1.00", "SCES_524.56", 771648, "e3a8f37d6033b007a80f63dfbfca9afe24f27a47"),
     ("rac4", "ntsc"): ("NTSC-U", "NTSC-U v1.00", "SCUS_974.65", 1692216, "aa91b1c3b9b1a244320c47580b77342ef9856e95"),
 }
-OLD_VERSIONS = {"rac1": ("pal", "ntsc"), "rac2": ("ntsc",), "rac3": ("ntsc",), "rac4": ("ntsc",)}
+OLD_VERSIONS = {"rac1": ("pal", "ntsc", "pal1", "jp"), "rac2": ("ntsc", "pal", "ntsc2"), "rac3": ("ntsc", "pal"), "rac4": ("ntsc",)}
 FIELDS = ("region", "label", "executable", "executable_size", "executable_sha1")
 
 
@@ -155,17 +160,20 @@ class DiscIdentityTests(unittest.TestCase):
                 self.assertEqual(tuple(getattr(version, f) for f in FIELDS), OLD_IDENTITIES[key])
         self.assertEqual((disc.PAL.key, disc.PAL.gameplay, disc.PAL.normal_table), ("pal", "gameplay_ntsc", 0x165600))
         self.assertEqual((disc.NTSC.key, disc.NTSC.gameplay, disc.NTSC.normal_table), ("ntsc", "gameplay_ntsc", 0x165500))
-        self.assertEqual([v.level_header for v in wads.VERSIONS], [0x60, 0x60, 0xc68])
+        # PAL v1.00 and the Japanese release: where their copies of func_0020DFF8 form the table.
+        self.assertEqual((disc.PAL1.key, disc.PAL1.gameplay, disc.PAL1.normal_table), ("pal1", "gameplay_ntsc", 0x165480))
+        self.assertEqual((disc.JP.key, disc.JP.gameplay, disc.JP.normal_table), ("jp", "gameplay_ntsc", 0x165600))
+        self.assertEqual([v.level_header for v in wads.VERSIONS], [0x60, 0x60, 0x60, 0x60, 0x60, 0xc68])
 
     def test_games_versions_are_the_old_ones(self):
         self.assertEqual(games.VERSIONS, OLD_VERSIONS)
-        self.assertEqual(list(games.VERSIONS["rac1"]), ["pal", "ntsc"])
+        self.assertEqual(list(games.VERSIONS["rac1"]), ["pal", "ntsc", "pal1", "jp"])
 
     def test_unknown_games_and_versions(self):
         with self.assertRaises(FileNotFoundError):
             util.disc_identity("rac9", "pal")
         with self.assertRaises(KeyError):
-            util.disc_identity("rac2", "pal")
+            util.disc_identity("rac2", "jp")
 
 
 if __name__ == "__main__":

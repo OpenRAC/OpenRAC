@@ -1,0 +1,859 @@
+{
+ "about": "What the carry from rac1-pal rests on besides the release's check and the same instructions of the same code (port/tools/hostgen/release_rac1.py): functions by another kind of evidence, addresses by versionmap's between or guess, and what the release has no counterpart of, left out.",
+ "functions": {
+  "func_00118A40": {
+   "as": "func_0011873C",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00118A40"
+  },
+  "func_0011D700": {
+   "as": "func_0011D3D4",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0011D700"
+  },
+  "func_001EBB48": {
+   "as": "func_001EB698",
+   "how": "function: carried (the release's own C for it)",
+   "for": "roots"
+  },
+  "func_001F7680": {
+   "as": "func_L00_001FC108",
+   "how": "function: only in other programs here",
+   "for": "shared host C"
+  },
+  "func_001F7680__game": {
+   "as": "func_L00_001FC108__game",
+   "how": "function: only in other programs here",
+   "for": "shared host C"
+  },
+  "func_001FBE80": {
+   "as": "func_001FB780",
+   "how": "function: carried (the release's own C for it)",
+   "for": "spilled_locals"
+  },
+  "func_001FD3E8": {
+   "as": "func_001FC8F0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_001FD3E8__game": {
+   "as": "func_001FC8F0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209DC0": {
+   "as": "func_00208E40",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209DC0__hooked": {
+   "as": "func_00208E40__hooked",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209E68": {
+   "as": "func_00208ED0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00209E68"
+  },
+  "func_0020BD70": {
+   "as": "func_0020AA18",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0020BD70"
+  },
+  "func_0020BFC8": {
+   "as": "func_0020AC70",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_002181F0": {
+   "as": "func_00216E20",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_002181F0"
+  },
+  "func_0021B298": {
+   "as": "func_00219E20",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021B298"
+  },
+  "func_0021BB90": {
+   "as": "func_0021A6F0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021BB90"
+  },
+  "func_0021C840": {
+   "as": "func_0021B350",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021C840"
+  },
+  "func_00224C30": {
+   "as": "func_002234E0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00224C30__game": {
+   "as": "func_002234E0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00227C78": {
+   "as": "func_002264C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00227C78"
+  },
+  "func_00227DB0": {
+   "as": "func_00226608",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00227DB0"
+  },
+  "func_00230A90": {
+   "as": "func_0022F288",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00230A90__game": {
+   "as": "func_0022F288__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_0023B670": {
+   "as": "func_00239EC8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00217718": {
+   "as": "func_L00_00216B70",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00217718__game": {
+   "as": "func_L00_00216B70__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00222B80": {
+   "as": "func_L00_00221FD8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00222B80__game": {
+   "as": "func_L00_00221FD8__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_002422D8": {
+   "as": "func_L00_00241528",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_002422D8__hooked": {
+   "as": "func_L00_00241528__hooked",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_002465F8": {
+   "as": "func_L00_00245810",
+   "how": "function: carried (the release's own C for it)",
+   "for": "roots"
+  },
+  "func_L00_0025F4A8": {
+   "as": "func_L00_0025E060",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_0025F4A8__game": {
+   "as": "func_L00_0025E060__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00277A88": {
+   "as": "func_L00_00276560",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00277A88__game": {
+   "as": "func_L00_00276560__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00299250": {
+   "as": "func_L00_00297920",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_00299B68": {
+   "as": "func_L00_002981E8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_0029CDE0": {
+   "as": "func_L00_0029B420",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_0029CDE0"
+  },
+  "func_L00_002A6A38": {
+   "as": "func_L00_002A5150",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002A6A38"
+  },
+  "func_L00_002AEDD0": {
+   "as": "func_L00_002AD4D8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002AEDD0"
+  },
+  "func_L00_002B4340": {
+   "as": "func_L00_002B2A00",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002B4340"
+  },
+  "func_L00_002B7430": {
+   "as": "func_L00_002B5AE8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002B7430"
+  },
+  "func_L00_002BDAF0": {
+   "as": "func_L00_002BC190",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002BDAF0"
+  },
+  "func_L00_002C5688": {
+   "as": "func_L00_002C3D28",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002C5688"
+  },
+  "func_L00_002C9578": {
+   "as": "func_L00_002C7BC0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_002CABC0": {
+   "as": "func_L00_002C9188",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002CABC0"
+  },
+  "func_L01_0023D688": {
+   "as": "func_L01_0023CB00",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L01_0023D688__game": {
+   "as": "func_L01_0023CB00__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L01_002F5800": {
+   "as": "func_L01_002F3D58",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_002F5800"
+  },
+  "func_L01_002F8B00": {
+   "as": "func_L01_002F7058",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_002F8B00"
+  },
+  "func_L01_00309078": {
+   "as": "func_L01_003075D0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_00309078"
+  },
+  "func_L02_0022BE40": {
+   "as": "func_L02_0022B290",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L02_0022BE40__game": {
+   "as": "func_L02_0022B290__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L02_002D5250": {
+   "as": "func_L02_002D3780",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002D5250"
+  },
+  "func_L02_002E21F8": {
+   "as": "func_L02_002E06F0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002E21F8"
+  },
+  "func_L02_002E2D88": {
+   "as": "func_L02_002E1280",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002E2D88"
+  },
+  "func_L02_002ED8F0": {
+   "as": "func_L02_002EBDE8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002ED8F0"
+  },
+  "func_L02_002EE250": {
+   "as": "func_L02_002EC748",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002EE250"
+  },
+  "func_L02_002EFCC8": {
+   "as": "func_L02_002EE1C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002EFCC8"
+  },
+  "func_L03_00216D38": {
+   "as": "func_L03_002161B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L03_00216D38__game": {
+   "as": "func_L03_002161B0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L03_002DD158": {
+   "as": "func_L03_002DB6C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L03_002DD158"
+  },
+  "func_L03_002E08E8": {
+   "as": "func_L03_002DEE50",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L03_002E08E8"
+  },
+  "func_L04_002CB800": {
+   "as": "func_L04_002C9D48",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L04_002CB800"
+  },
+  "func_L04_002E2DF0": {
+   "as": "func_L04_002E1338",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L04_002E2DF0"
+  },
+  "func_L04_002E4458": {
+   "as": "func_L04_002E29A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L04_002E4458"
+  },
+  "func_L05_0024D680": {
+   "as": "func_L05_0024CAD0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L05_0024D680__game": {
+   "as": "func_L05_0024CAD0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L05_0030DED8": {
+   "as": "func_L05_0030C410",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L05_0030DED8"
+  },
+  "func_L05_00317F80": {
+   "as": "func_L05_00316448",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L05_00317F80"
+  },
+  "func_L06_00235E08": {
+   "as": "func_L06_00235200",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L06_00235E08__game": {
+   "as": "func_L06_00235200__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L06_002FAE58": {
+   "as": "func_L06_002F9350",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L06_002FAE58"
+  },
+  "func_L06_003010E0": {
+   "as": "func_L06_002FF5D8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L06_003010E0"
+  },
+  "func_L07_00315528": {
+   "as": "func_L07_00313A78",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L07_00315528"
+  },
+  "func_L08_00231228": {
+   "as": "func_L08_002306A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L08_00231228__game": {
+   "as": "func_L08_002306A0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L08_002DFBC0": {
+   "as": "func_L08_002DE178",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L08_002DFBC0"
+  },
+  "func_L08_002EB770": {
+   "as": "func_L08_002E9CC8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L08_002EB770"
+  },
+  "func_L08_00308A00": {
+   "as": "func_L08_00306E70",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L08_00308A00"
+  },
+  "func_L09_00301C38": {
+   "as": "func_L09_003001B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L09_00301C38"
+  },
+  "func_L09_0030BF88": {
+   "as": "func_L09_0030A4A8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L09_0030BF88"
+  },
+  "func_L10_00299818": {
+   "as": "func_L10_00297F90",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L10_00299818"
+  },
+  "func_L10_00299D18": {
+   "as": "func_L10_00298490",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L10_00299D18"
+  },
+  "func_L11_0024E240": {
+   "as": "func_L11_0024D6B8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L11_0024E240__game": {
+   "as": "func_L11_0024D6B8__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L11_0030C728": {
+   "as": "func_L11_0030AC88",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L11_0030C728"
+  },
+  "func_L11_0030F4F8": {
+   "as": "func_L11_0030D9B8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L11_0030F4F8"
+  },
+  "func_L11_003146E0": {
+   "as": "func_L11_00312BC0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L11_003146E0"
+  },
+  "func_L11_0031BEF0": {
+   "as": "func_L11_0031A3B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L11_0031BEF0"
+  },
+  "func_L12_002407C0": {
+   "as": "func_L12_0023FC38",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L12_002407C0__game": {
+   "as": "func_L12_0023FC38__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L12_002EE600": {
+   "as": "func_L12_002ECBB0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L12_002EE600"
+  },
+  "func_L12_0030A7A8": {
+   "as": "func_L12_00308CF8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L12_0030A7A8"
+  },
+  "func_L13_002B6288": {
+   "as": "func_L13_002B4A00",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_002B6288"
+  },
+  "func_L13_002BC2D8": {
+   "as": "func_L13_002BA990",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_002BC2D8"
+  },
+  "func_L13_002D0298": {
+   "as": "func_L13_002CE8E8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_002D0298"
+  },
+  "func_L13_00309330": {
+   "as": "func_L13_003077C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_00309330"
+  },
+  "func_L13_0030E280": {
+   "as": "func_L13_0030C6E0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_0030E280"
+  },
+  "func_L14_002306C8": {
+   "as": "func_L14_0022FB40",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L14_002306C8__game": {
+   "as": "func_L14_0022FB40__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L14_002EFD38": {
+   "as": "func_L14_002EE288",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002EFD38"
+  },
+  "func_L14_002FCEA8": {
+   "as": "func_L14_002FB3D0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FCEA8"
+  },
+  "func_L14_002FD578": {
+   "as": "func_L14_002FBAA0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FD578"
+  },
+  "func_L14_002FE038": {
+   "as": "func_L14_002FC560",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FE038"
+  },
+  "func_L14_00300468": {
+   "as": "func_L14_002FE990",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_00300468"
+  },
+  "func_L14_00306BE0": {
+   "as": "func_L14_00305108",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_00306BE0"
+  },
+  "func_L14_00309C48": {
+   "as": "func_L14_00308170",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_00309C48"
+  },
+  "func_L15_00217348": {
+   "as": "func_L15_002167A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L15_00217348__game": {
+   "as": "func_L15_002167A0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L15_002EE458": {
+   "as": "func_L15_002EC998",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L15_002EE458"
+  },
+  "func_L16_0021EA88": {
+   "as": "func_L16_0021DF00",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L16_0021EA88__game": {
+   "as": "func_L16_0021DF00__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L16_002E7C70": {
+   "as": "func_L16_002E6118",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L16_002E7C70"
+  },
+  "func_L16_002E8680": {
+   "as": "func_L16_002E6B18",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L16_002E8680"
+  },
+  "func_L17_0021ED38": {
+   "as": "func_L17_0021E090",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L17_0021ED38__game": {
+   "as": "func_L17_0021E090__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L17_002EEB08": {
+   "as": "func_L17_002EC940",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L17_002EEB08"
+  },
+  "func_L17_002F3450": {
+   "as": "func_L17_002F1268",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L17_002F3450"
+  },
+  "func_L17_002F4210": {
+   "as": "func_L17_002F1FF8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L17_002F4210"
+  },
+  "func_L18_002284E0": {
+   "as": "func_L18_00227938",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L18_002284E0__game": {
+   "as": "func_L18_00227938__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L18_002F2AE0": {
+   "as": "func_L18_002F1020",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L18_002F2AE0"
+  },
+  "func_L18_002F3710": {
+   "as": "func_L18_002F1C40",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L18_002F3710"
+  },
+  "func_L18_002F4050": {
+   "as": "func_L18_002F2520",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L18_002F4050"
+  }
+ },
+ "addresses": {
+  "00:0x001BB610": {
+   "as": "0x001BB280",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L00_0x001BB610u"
+  },
+  "03:0x001DC460": {
+   "as": "0x001DC0A0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L03_0x001DC460u"
+  },
+  "07:0x001D36C0": {
+   "as": "0x001D3300",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L07_0x001D36C0u"
+  },
+  "0x001300E8": {
+   "as": "0x0012FFE8",
+   "how": "versionmap (between)",
+   "for": "host/tlbtrap.c"
+  },
+  "0x0013E610": {
+   "as": "0x0013E510",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0013E610u"
+  },
+  "0x0013E614": {
+   "as": "0x0013E514",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0013E614u"
+  },
+  "0x0014C150": {
+   "as": "0x0014C050",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x0014C150u"
+  },
+  "0x001595C0": {
+   "as": "0x001594C0",
+   "how": "versionmap (between)",
+   "for": "host/tlbtrap.c"
+  },
+  "0x001597E8": {
+   "as": "0x001596E8",
+   "how": "versionmap (between)",
+   "for": "host/tlbtrap.c"
+  },
+  "0x0015ED28": {
+   "as": "0x0015EC28",
+   "how": "versionmap (between)",
+   "for": "host/crt0.c"
+  },
+  "0x0015EEE0": {
+   "as": "0x0015EDE0",
+   "how": "global: the release's check (a level's)",
+   "for": "shared host C RAC1_ADDR_0x0015EEE0u"
+  },
+  "0x0015F000": {
+   "as": "0x0015EF00",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0015F000u"
+  },
+  "0x00187394": {
+   "as": "0x00187214",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x00187394u"
+  },
+  "0x001ABD80": {
+   "as": "0x001AB980",
+   "how": "versionmap (between)",
+   "for": "expanded_target_table_addresses"
+  },
+  "0x001C7AC0": {
+   "as": "0x001C76C0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x001C7AC0u"
+  },
+  "0x001C7C80": {
+   "as": "0x001C7880",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x001C7C80u"
+  },
+  "0x001CE100": {
+   "as": "0x001CDD00",
+   "how": "global: versionmap (exact)",
+   "for": "profile executable"
+  },
+  "0x001CE720": {
+   "as": "0x001CE320",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001CE720u"
+  },
+  "0x001CF538": {
+   "as": "0x001CF138",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001CF538u"
+  },
+  "0x001D29D0": {
+   "as": "0x001D25D0",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D29D0u"
+  },
+  "0x001D4B08": {
+   "as": "0x001D4708",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4B08u"
+  },
+  "0x001D4B9C": {
+   "as": "0x001D479C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4B9Cu"
+  },
+  "0x001D4BE8": {
+   "as": "0x001D47E8",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4BE8u"
+  },
+  "0x001D4CC0": {
+   "as": "0x001D48C0",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4CC0u"
+  },
+  "0x001D4D48": {
+   "as": "0x001D4948",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4D48u"
+  },
+  "0x001D4DE8": {
+   "as": "0x001D49E8",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4DE8u"
+  },
+  "0x001D4E38": {
+   "as": "0x001D4A38",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4E38u"
+  },
+  "0x001D4F18": {
+   "as": "0x001D4B18",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4F18u"
+  },
+  "0x001D4F40": {
+   "as": "0x001D4B40",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4F40u"
+  },
+  "13:0x00161F18": {
+   "as": "0x00161E08",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F18u"
+  },
+  "13:0x00161F1C": {
+   "as": "0x00161E0C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F1Cu"
+  },
+  "13:0x00161F20": {
+   "as": "0x00161E10",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F20u"
+  },
+  "13:0x00161F24": {
+   "as": "0x00161E14",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F24u"
+  },
+  "13:0x00161F28": {
+   "as": "0x00161E18",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F28u"
+  },
+  "13:0x00161F2C": {
+   "as": "0x00161E1C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F2Cu"
+  },
+  "13:0x00161F30": {
+   "as": "0x00161E20",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F30u"
+  },
+  "13:0x00161F34": {
+   "as": "0x00161E24",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F34u"
+  },
+  "13:0x00161F38": {
+   "as": "0x00161E28",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F38u"
+  },
+  "13:0x00161F3C": {
+   "as": "0x00161E2C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F3Cu"
+  },
+  "14:0x001E9FA0": {
+   "as": "0x001E9BE0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L14_0x001E9FA0u"
+  }
+ },
+ "dropped": {
+  "00:001FEE50": "split_places func_001F9878: no place in the release",
+  "01:00220CE0": "split_places func_001F9878: no place in the release",
+  "02:0020FE08": "split_places func_001F9878: no place in the release",
+  "03:001F8738": "split_places func_001F9878: no place in the release",
+  "04:001F1838": "split_places func_001F9878: no place in the release",
+  "05:0022DB08": "split_places func_001F9878: no place in the release",
+  "06:00216EE8": "split_places func_001F9878: no place in the release",
+  "07:00226C08": "split_places func_001F9878: no place in the release",
+  "08:002118E0": "split_places func_001F9878: no place in the release",
+  "10:001F2438": "split_places func_001F9878: no place in the release",
+  "11:00230738": "split_places func_001F9878: no place in the release",
+  "12:00221CA0": "split_places func_001F9878: no place in the release",
+  "13:0020A8B8": "split_places func_001F9878: no place in the release",
+  "14:002123F0": "split_places func_001F9878: no place in the release",
+  "15:001F8508": "split_places func_001F9878: no place in the release",
+  "16:001FD638": "split_places func_001F9878: no place in the release",
+  "17:001FBF38": "split_places func_001F9878: no place in the release",
+  "18:00207BB8": "split_places func_001F9878: no place in the release",
+  "func_001165B8": "libraries.tsv func_001165B8: not in the release",
+  "func_00116948": "libraries.tsv func_00116948: not in the release"
+ },
+ "counts": {
+  "functions": 125,
+  "addresses": 40,
+  "dropped": 20
+ }
+}

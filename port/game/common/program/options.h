@@ -26,6 +26,8 @@ struct Options {
     bool keep_going = true;
     bool window = false;
     bool skip_movies = false;  // development probes; not movie-playback validation
+    bool unlock_all_weapons = false;
+    bool unlock_all_gadgets = false;
     fs::path levels;           // the extracted levels the window draws (level_00, ...)
     fs::path
         mods;  // levels edited in Godot and packed (editor/pack.py), read in place of the disc's

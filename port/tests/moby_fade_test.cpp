@@ -162,10 +162,20 @@ void the_last_16_units() {
         {9286.5f * 1024.0f, 5217.6f * 1024.0f, 235.1f * 1024.0f, 1.08f * 1024.0f};
     place(moby, far_side, 64);
     CHECK(!game::rac1::moby_distance_fade(moby, state));
-    // No sphere yet: drawn whole.
+    // A sphere never built (all zero) is a point at the origin, as MobyProc reads it: Hrugis
+    // Cloud's turret arms (class 0x134F, draw distance 0x1FF), seen from the start of the level.
+    state.camera_position = {425.0f, 470.0f, 503.0f};
+    state.forward = {1.0f, 0.0f, 0.0f};
+    state.moby_view = host::GameState::MobyView{{1.0f, 0.0f, 0.0f}, 960, 0.1f * 1024.0f};
     const float none[4] = {};
-    place(moby, none, 64);
-    CHECK(game::rac1::moby_distance_fade(moby, state) == std::uint8_t{0x80});
+    place(moby, none, 0x1FF);
+    CHECK(!asmc_moby_proc(moby, state.camera_position, *state.moby_view));
+    CHECK(!game::rac1::moby_distance_fade(moby, state));
+    // Looking back at the origin, it is past the draw distance.
+    state.forward = {-0.53f, -0.58f, -0.62f};
+    state.moby_view->depth_axis = state.forward;
+    CHECK(!asmc_moby_proc(moby, state.camera_position, *state.moby_view));
+    CHECK(!game::rac1::moby_distance_fade(moby, state));
 }
 }  // namespace
 

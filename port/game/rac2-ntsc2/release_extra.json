@@ -1,0 +1,11 @@
+{
+  "about": "This release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
+  "unit_aliases": {
+    "src/game/002A0430.c": {
+      "func_V1_002A2450": {
+        "is": "func_002A3288",
+        "why": "v1.01's func_002A2450 (the blend pose a moby's animation change caches, called by func_002A7470) is rac2-decomp's func_US2_002A3288 (src/us2/game/002A3288.c, assembly), which the release table could not pair: 816 and 822 instructions, 99.2% the same with operands masked (six inserted, three changed). Without it the pose cache is never written and the hero's pose (func_L00_003181C0) reads garbage on Oozla"
+      }
+    }
+  }
+}

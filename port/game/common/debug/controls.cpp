@@ -359,7 +359,7 @@ void water_controls() {
     }
     ImGui::EndDisabled();
     if (!enhanced::water_available()) {
-        ImGui::TextDisabled("A valid Novalis water bake is required.");
+        ImGui::TextDisabled("A valid water bake is required.");
     }
 }
 

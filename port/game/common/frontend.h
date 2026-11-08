@@ -184,6 +184,9 @@ std::string walk_state();
 // left sticks (x, y each).
 bool pad(int port, std::uint16_t* buttons, std::uint8_t analog[4]);
 
+// The game's motor commands for a port's pad (openrac_game_set_motors), for the input to play.
+void set_motors(int port, bool small, std::uint8_t large);
+
 // With the player's responsive_controls setting, reads the pads again just before the game's next
 // tick runs (the end of program::vsync, after its wait): the tick reads the sticks and buttons as
 // they are when it starts, not as they were when the last tick ended. Nothing else of the input

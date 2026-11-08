@@ -23,6 +23,7 @@
 
 #if defined(OPENRAC_FRONTEND) && defined(OPENRAC_MOVIES)
 #include "frontend.h"
+#include "game/common/frontend/touch_controls.h"
 #include "media/movie.h"
 #include "platform/audio.h"
 #include "settings.h"
@@ -120,6 +121,13 @@ int play_movie(uint32_t lsn, uint32_t bytes, int channel, int start_skips) {
         precise_wait::until(g_next_frame);
         g_frame++;
     };
+
+    // The touch pad shows its skip button while Start skips the movie.
+    struct TouchSkip {
+        explicit TouchSkip(bool on) { frontend::touch_controls::set_movie(on); }
+
+        ~TouchSkip() { frontend::touch_controls::set_movie(false); }
+    } touch_skip(start_skips != 0);
 
     for (std::uint64_t blank = 0;; ++blank) {
         if (output) {

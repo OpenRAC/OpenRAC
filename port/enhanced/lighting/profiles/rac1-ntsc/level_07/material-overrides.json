@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "umbris-arena-green-ring",
+      "match": {
+        "model": "tie_1454.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0010.png"
+      },
+      "set": {
+        "emission": {
+          "bake_intensity": 100
+        }
+      }
+    }
+  ]
+}

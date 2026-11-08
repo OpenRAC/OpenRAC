@@ -131,6 +131,13 @@ struct EffectStrip {
     bool fogged = false;
     std::array<float, 4> fog{};
     std::uint32_t fog_colour = 0;
+    // Sent before the world's mobys (OPENRAC_WORLD_MOBYS_MARKER), from a draw callback list the
+    // game runs between the ties and the mobys: drawn with the liquids, before the shrubs and the
+    // mobys, writing depth only where the list shows the chip writes it (before_mobys_writes_z).
+    bool before_mobys = false;
+    // The list set ZBUF before the strip: with ZMSK (z_masked), or without (z_written).
+    bool z_masked = false;
+    bool z_written = false;
 };
 
 // A textured quad of the 2D layer the game drew through one of its 2D routines (rac1:
@@ -200,6 +207,8 @@ struct FrameInput {
     Camera camera;
     // Opt-in developer inspection: render from camera, but retain visibility from this camera.
     std::optional<Camera> culling_camera;
+    // Detached views can leave the baked PVS grid without inheriting gameplay's last cell.
+    bool keep_pvs_history = true;
     // Opt-in culling preview: 0 for the main camera, 1-4 for near-to-far shadow cascades.
     std::optional<unsigned> culling_inspection;
     // The frame's world effect quads, in the order the game drew them.

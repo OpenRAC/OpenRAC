@@ -464,9 +464,7 @@
           >
         {/if}
         {#if shows("gameplay") && mods.some((m) => m.enabled && !isEnhanced(m.id))}
-          <button class="small ghost" onclick={() => void share()}
-            ><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button
-          >
+          <button class="small" onclick={() => void share()}><Icon name="globe" size={14} />{T.DEPS.shareSetup}</button>
         {/if}
         {#if hasSources && shows("gameplay")}
           {#if pending > 1}
@@ -474,7 +472,7 @@
               ><Icon name="refresh" size={14} />{T.PANEL.updateAll(pending)}</button
             >
           {/if}
-          <button class="small ghost" disabled={checking} onclick={() => void checkUpdates()}
+          <button class="small" disabled={checking} onclick={() => void checkUpdates()}
             >{#if checking}<span class="spinner"></span>{:else}<Icon name="refresh" size={14} />{/if}{T.PANEL
               .checkUpdates}</button
           >
@@ -517,6 +515,8 @@
 
       {#if listError}
         <Reason text={listError} tone="err" />
+      {:else if !loaded}
+        <!-- Still reading the list: nothing yet, rather than "no mods" for a moment. -->
       {:else if mods.length === 0}
         {#if shows("gameplay")}<p class="empty">{T.PANEL.empty}</p>{/if}
       {:else}
@@ -738,7 +738,9 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }
@@ -805,6 +807,7 @@
     border: 0;
     border-radius: var(--radius-sm);
     background: transparent;
+    box-shadow: none;
     color: var(--text);
     text-align: left;
     font-weight: 400;
@@ -812,7 +815,7 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .open:hover:not(:disabled) {
-      background: var(--panel-hi);
+      background: var(--control);
     }
 
     :global(html:where(:not([data-input="pad"]))) .open:hover .go {
@@ -822,7 +825,9 @@
 
   .open:active:not(:disabled) {
     transform: none;
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .words {

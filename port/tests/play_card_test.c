@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 the OpenRAC contributors */
 /* A game started from code (rac1/host/play.c's start, PAL's table) after the title's Load and Quit:
  * the card record the Load page left must not make the game's own save path write the player's
- * save<N>.bin. memcard_Save (func_0020BFC8, games/rac1/src/game/system/memcard.c) saves only when
+ * save<N>.bin. memcard_Save (func_0020BFC8, games/rac1/decomp/src/game/system/memcard.c) saves only when
  * the record names a card in use (+0xC8 not -1) and a save number (+0x14 not below 0), and keeps
  * a save pending in +0xFC; its check is copied here, as the game makes it. */
 #include <stdio.h>

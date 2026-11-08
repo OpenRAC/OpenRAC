@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "textures": [
+    {
+      "output": "alley-lamp-emission.png",
+      "mask": "alley-lamp-mask.png",
+      "mode": "solid",
+      "colour": [
+        255,
+        148,
+        43
+      ]
+    }
+  ]
+}

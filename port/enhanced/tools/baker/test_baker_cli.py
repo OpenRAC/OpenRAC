@@ -679,7 +679,7 @@ class BakerCli(unittest.TestCase):
                 level.rename(exports/f'level_{index:02}')
                 manifest_path = exports/f'level_{index:02}'/'manifest.json'
                 manifest = json.loads(manifest_path.read_text())
-                manifest['level'] = 2  # No level-specific liquid inputs are needed by this box fixture.
+                manifest['level'] = 8  # This synthetic scene has no water tables or emission textures.
                 manifest_path.write_text(json.dumps(manifest))
                 (exports/f'level_{index:02}'/'probe-bake.json').write_text(json.dumps({
                     'version': 1, 'regions': {'enabled': False, 'interior_lighting': False}}))

@@ -385,6 +385,7 @@ Float3 oct_decode(Float2 uv) {
 }
 
 void update_probe_gutters(ProbeVolume& v) {
+    v.encoded_irradiance.clear();  // the maps change; a cached encoding would be stale
     const auto n = static_cast<std::size_t>(v.grid.map_resolution), side = n + 2;
 
     for (std::size_t p = 0; p < v.probes.size(); ++p) {
@@ -483,7 +484,8 @@ static std::optional<ProbeSample> sample_probe_grid(
             continue;
         }
 
-        const auto delta = subtract(receiver, v.position(index));
+        const auto position = v.position(index);
+        const auto delta = subtract(receiver, position);
         const float distance = std::sqrt(dot(delta, delta));
 
         if (distance > 1e-6f) {
@@ -502,7 +504,7 @@ static std::optional<ProbeSample> sample_probe_grid(
         // Filtered distance moments can mix floor hits with sky. Keep probes
         // behind the receiver plane from lighting its front, with a small
         // smooth tolerance for coplanar probes and floating-point error.
-        const float side = dot(subtract(v.position(index), p), n);
+        const float side = dot(subtract(position, p), n);
         float facing = std::clamp((side + 0.1f) / 0.1f, 0.0f, 1.0f);
         facing = facing * facing * (3 - 2 * facing);
         weight *= facing;
@@ -522,7 +524,9 @@ static std::optional<ProbeSample> sample_probe_grid(
             }
         }
 
-        const auto e = map_sample<3, true>(v.irradiance, v.grid, index, n);
+        const auto e = v.encoded_irradiance.size() == v.irradiance.size()
+                           ? map_sample(v.encoded_irradiance, v.grid, index, n)
+                           : map_sample<3, true>(v.irradiance, v.grid, index, n);
 
         for (std::size_t c = 0; c < 3; ++c) {
             out.irradiance[c] += std::pow(e[c], kProbeIrradianceGamma * 0.5f) * weight;
@@ -620,9 +624,9 @@ float probe_boundary_weight(const ProbeGrid& grid, Float3 p) {
 
     for (unsigned axis = 0; axis < 3; ++axis) {
         const float coordinate = p[axis] / grid.spacing[axis];
-        edge = std::min(
-            edge, std::min(coordinate, static_cast<float>(grid.dimensions[axis] - 1) - coordinate)
-        );
+        const float upper = static_cast<float>(grid.dimensions[axis] - 1) - coordinate;
+        // A taller top apron lets surfaces leave a local grid without a visible horizontal seam.
+        edge = std::min(edge, std::min(coordinate, upper * (axis == 2 ? .5f : 1.f)));
     }
 
     edge = std::clamp(edge, 0.0f, 1.0f);
@@ -753,6 +757,13 @@ ProbeVolume decode_probes(std::span<const std::uint8_t> bytes) {
     volume.colour_format = ProbeTextureFormat::R11G11B10;
     volume.depth_format = ProbeDepthFormat::Moments;
     volume.validate();
+    volume.encoded_irradiance.resize(volume.irradiance.size());
+
+    for (std::size_t i = 0; i < volume.irradiance.size(); ++i) {
+        for (unsigned c = 0; c < 3; ++c) {
+            volume.encoded_irradiance[i][c] = encode_probe_irradiance(volume.irradiance[i][c]);
+        }
+    }
 
     return volume;
 }

@@ -3,6 +3,7 @@
 in vec3 v_world;
 #endif
 in vec3 v_water_rest;
+flat in vec2 v_water_art_axis;
 uniform samplerBuffer water_bodies;
 uniform sampler2D water_coast_map;
 uniform sampler2D water_wave_map;
@@ -209,7 +210,9 @@ vec3 effect_material(vec3 painted) {
         }
 #endif
     }
-    if (chosen<0) return painted;
+    // Pixels off every body stay in the quad: dFdx below is undefined once a neighbour has returned.
+    const bool outside=chosen<0;
+    if(outside) chosen=0;
     vec4 origin=texelFetch(water_bodies,chosen*5);
     vec4 u=texelFetch(water_bodies,chosen*5+1),v=texelFetch(water_bodies,chosen*5+2);
     vec4 plane=texelFetch(water_bodies,chosen*5+3);
@@ -257,7 +260,12 @@ vec3 effect_material(vec3 painted) {
     if(water_fine_strength>0.) {
         vec2 dpdx=dFdx(v_water_rest.xy),dpdy=dFdy(v_water_rest.xy);
         vec2 texture_uv=v_stq.xy/v_stq.z;
-        vec2 axis=water_art_direction(dpdx,dpdy,dFdx(texture_uv),dFdy(texture_uv),flow.xy);
+        // Still pools share a ripple direction and phase across their authored triangles.
+        vec2 axis=vec2(1,0);
+        if(dot(flow.xy,flow.xy)>1e-8) {
+            axis=dot(v_water_art_axis,v_water_art_axis)>.5?v_water_art_axis
+                :water_art_direction(dpdx,dpdy,dFdx(texture_uv),dFdy(texture_uv),flow.xy);
+        }
         float painted_weight=.9+.1*clamp(dot(painted,vec3(.2126,.7152,.0722)),0.,1.);
         // Include the maximum flow-phase stretch in the filter footprint.
         vec2 filter_dx=abs(dpdx)+1.5*abs(dFdx(wave.yz));
@@ -424,5 +432,9 @@ vec3 effect_material(vec3 painted) {
     lit=mix(lit,vec3(.65,.8,.85)*illumination,foam_weight);
     water_background_weight*=1.-foam_weight;
     water_radiance=max(lit,vec3(0));
+    if(outside) {
+        water_composite_active=false;
+        return painted;
+    }
     return probe_display(water_radiance);
 }

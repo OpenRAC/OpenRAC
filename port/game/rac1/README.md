@@ -1,7 +1,7 @@
 # Ratchet & Clank: the port's host C, one copy for every disc
 
 The port's own host C for Ratchet & Clank, compiled into each version's
-program (`openrac-rac1-pal`, `openrac-rac1-ntsc`): the overlay hook and the
+program (`openrac-rac1-pal`, `openrac-rac1-ntsc`, `openrac-rac1-pal1`, `openrac-rac1-jp`): the overlay hook and the
 direct start, the native 2D and world hand-off, the collision kernels, the
 hardware routines, the variants of folded functions. A fix written here
 holds for every disc, so the player's disc decides nothing but its own
@@ -11,7 +11,15 @@ addresses.
 port/game/rac1/host/*.c          the shared C, with games/rac1's names
 port/game/rac1-pal/host/         rac1_version.h: PAL's names and addresses (its own: nothing renamed)
 port/game/rac1-ntsc/host/        rac1_version.h: NTSC-U's names and addresses; C only NTSC-U needs
+port/game/rac1-pal1/host/        PAL v1.00's: rac1_names.tsv (names) and rac1_version.h (addresses)
+port/game/rac1-jp/host/          NTSC-J's, the same way
 ```
+
+PAL v1.00 and NTSC-J are built from games/rac1's own C (rac1-decomp's other releases), so their
+names are games/rac1's at other addresses: a macro per name would chain, and their tables rename
+the shared C's function names in one pass (`host/rac1_names.tsv`, release_host.py, cmake/Games.cmake)
+and keep only the addresses in `rac1_version.h`. Both are written by
+[release_rac1.py](../../tools/hostgen/release_rac1.py) ([rac1-pal1/README.md](../rac1-pal1/README.md)).
 
 A version takes the shared C with `"host_shared": ["../rac1/host"]` in its
 `hostgen.json` ([cmake/Games.cmake](../../cmake/Games.cmake)). Each file
@@ -52,7 +60,8 @@ display list shown) is rac1's, and the host asks it through rac1's profile
 | File | |
 |---|---|
 | `game_state.h`, `game_state.cpp` | the address tables, one per disc for the boot program and one per level program, and the reads (`read_game_state`, `read_live_moby`, `moby_beyond_draw_distance`, `shown_chain`), in `openrac::game::rac1` |
-| `profile.cpp` | the two discs' profiles over those tables, with each executable's addresses of the hero's shadow directions and record, and `host::game_profile()`: `rac1-ntsc` is NTSC-U, any other id PAL |
+| `profile.cpp` | the discs' profiles over those tables, with each executable's addresses of the hero's shadow directions and record, and `host::game_profile()`: `rac1-ntsc` is NTSC-U, `rac1-pal1` PAL v1.00, `rac1-jp` NTSC-J, any other id PAL |
+| `profile_rac1-pal1.h`, `profile_rac1-jp.h` | PAL v1.00's and NTSC-J's tables, carried from PAL's by release_rac1.py |
 
 Both versions' programs link them as `openrac_game_rac1_profile`
 ([cmake/Window.cmake](../../cmake/Window.cmake)), as do the viewer and its tests, which call the

@@ -179,7 +179,7 @@ files. Script mods and data packs work there as elsewhere.
 | `name`, `version` | yes | `version` is `MAJOR.MINOR.PATCH` with an optional `-suffix` |
 | `author`, `description`, `license`, `homepage` | no | shown in the launcher; `homepage` only if `https://` |
 | `api` | yes, with `plugin` | `MAJOR.MINOR`: the interface's version the mod was built against |
-| `games` | yes | at least one game, each with at least one version |
+| `games` | yes | at least one game, each with at least one version. Several games: one mod for each of them (below) |
 | `plugin` | no | platform → path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`, `android-arm64`. Without it the mod is data only (not used yet: section 10) |
 | `hooks` | no | the hook points the mod takes, each by its id (`rac1.player.take_damage`) or an alias (`Hero_TakeDamage`; section 4). The launcher shows which mods share one; the port warns about a hook a mod takes but does not list; `package_mod.py` refuses one the SDK's table (`bindings/<game>.ids.lock`) does not have |
 | `settings` | no | the mod's settings (below) |
@@ -211,6 +211,10 @@ value the player saved is never replaced. The port and the mod read the raw valu
 so a mod treats a value that is still `${player_name}` as unset and falls back to
 `OPENRAC_PLAYER_NAME`. It is the only placeholder.
 
+A setting of a mod for several games may say `"games": ["rac1"]`, the games of
+the mod's it is for: the launcher shows it in those games only, and the port gives
+it its default in the others (`resolve_settings`), whatever the list says.
+
 A `keybind` names keys by where they are, as the web's `KeyboardEvent.code`
 does (`KeyW`, `Space`, `ShiftLeft`, `Digit1`, `ArrowUp`), mouse buttons
 (`MouseLeft`, `MouseRight`, `MouseMiddle`, `MouseBack`, `MouseForward`) and
@@ -232,6 +236,18 @@ out what a party does not compare, the same list, so applying one always makes t
 
 A value that is missing, of the wrong type or out of range is the default
 (the port logs it). Settings count from the game's next start.
+
+### A mod for several games
+
+A mod whose `games` names several games is one mod: one manifest, one release
+(each platform's archive holds one library with every game's code), installed in
+each game's `plugins/` from the same link. The port checks the game and disc as
+for any mod, and gives the mod `openrac_api.game`, by which its load picks that
+game's code. Its `hooks` name each game's hook points by id (an id names its game;
+the launcher and the port count only the running game's), and a setting it cannot
+honour in a game says which games it is for (above). openrac-mods'
+[docs/MULTI_GAME.md](https://github.com/OpenRAC/openrac-mods/blob/master/docs/MULTI_GAME.md)
+lays out such a mod's sources.
 
 ### Data packs in a party
 
@@ -294,6 +310,9 @@ An action needs `id`, `icon` and `press` (`cross`, `circle`, `square`,
 - `then`: buttons added 50 ms later, for a combo. A quick tap still plays it.
 - `size`: `large`, `medium` or `small`.
 - `side`: `arc` (right thumb), `left` (above the stick), `top` or `hint`.
+- `at`: its own arc place, `0` to `7`, so it stays put across contexts. The
+  game's sets give each button one place (cross 0, circle 1, triangle 2,
+  R1 3 and 5, square 4). Without `at` it takes the next free place.
 - `when`: shown only while this hint is up, in the `hint` places unless
   `side` says otherwise.
 - `instead`: with `when`, takes this button's place and size while the hint
@@ -317,9 +336,19 @@ a hint after 3, and the buttons wait until no finger is on them.
 
 A native mod does not have to take a game hook point. Common host callbacks such as
 `openrac_api.on_pad` and `openrac_api.on_tick_boundary` are independent of the
-per-game hook catalogue. RAC2 therefore supports native callback-only mods even
-while its game hook catalogue is empty; trying to take a RAC2 game hook is still
-refused, and script mods still require a RAC2 script binding.
+per-game hook catalogue, and work in every game.
+
+**Each game has its own table.** rac1's hook points are below. Ratchet & Clank:
+Going Commando's are `rac2.<area>.<name>`, in
+[sdk/bindings/rac2.json](../../sdk/bindings/rac2.json) (its lock
+`rac2.ids.lock`), with `hook` rows in `port/game/rac2-ntsc/libraries.tsv` and
+the same functions' rows in `rac2-pal` and `rac2-ntsc2` (the names
+`release_carry.py` pairs them by), the C header `openrac/games/rac2.h` and the
+script binding `port/game/rac2/script_binding.c`; they are anchored on the
+NTSC-U v1.01 disc. A rac2 hook point that does a rac1 one's job keeps its
+`<area>.<name>` (`rac1.player.take_damage`, `rac2.player.take_damage`), so a mod
+for both games reads alike in each (section 3, "A mod for several games").
+`gen_binding.py` with no game named writes every table's files.
 
 A hook point is declared in a disc's `libraries.tsv`, in the `port` column:
 
@@ -576,7 +605,7 @@ OPENRAC_MOD_EXPORT void openrac_mod_unload(void);                        /* opti
 | `developer_menu_set_label(mod, action, label)` (1.10) | update an item's label from the owning mod's tick-boundary callback |
 | `data_dir(mod)`, `save_slot_current()` (1.11) | a folder of the mod's own for its files, beside the memory cards (`mod-data/<id>/`); the memory card slot the game in progress saves into, -1 for none |
 | `hero_set_pose(mod, &pose)` (1.12) | for the mod that has taken the hero's whole update (Ratchet & Clank: `rac1.player.update`, `Hero_Update`, `void()`), from its replacement, which does not call the original: the hero put in `pose` (an `openrac_pose`, as `hero_pose` gives it): his place, rotation (all three, z the yaw) and velocity (units a second) into his motion record and his matrices; a new `seq` started through the game's own `set_hero_animation` (the pose's `frame` its first key, blended in over 4 ticks), `anim_speed` his animation's speed; then what the update does after his movement to show him (his animation moved on, `update_hero_moby`, `update_hero_world_matrices`, `update_hero_equipped_items`, `begin_draw_frame`). With `OPENRAC_POSE_ON_GROUND` or `OPENRAC_POSE_IN_AIR` in the pose's flags, the ground fields the game's follow camera reads (his height above the ground, frames off it, past a jump's top) are set to match, so the camera follows him as on foot; on the ground, a jump, flip, fall or wrench slam state he kept becomes idle (state 0, as `hero_pose` then reports), since the camera keeps a mode of its own for each of them. His looping sounds from a state (the helipack's, a slide's) stop, as on a change of his control mode. The state machine, ledges, rails, the voice and the body's easing do not run: the mod moves him by its own rules. Another mod, or outside a level: `OPENRAC_HOOK_UNKNOWN` |
-| `hero_set_joints(mod, joints, count)` (1.12) | from the same replacement: the hero's joints turned and moved on top of his animation (`openrac_joint_offset`: the joint, a unit quaternion composed after the animation's own turn, a translation in his model's units), as the game's joint modifiers compose; the list replaces the last one and stays until the next call, 0 takes it off (at most `OPENRAC_JOINT_OFFSETS_MAX`). His drawing, shadow and what he carries follow. `OPENRAC_HOOK_UNKNOWN` outside a level or for a mod without the hook |
+| `hero_set_joints(mod, joints, count)` (1.12) | from any mod (to SDK 1.14.0 only from the same replacement): the hero's joints turned and moved on top of his animation (`openrac_joint_offset`: the joint, a unit quaternion composed after the animation's own turn, a translation in his model's units), as the game's joint modifiers compose; the list replaces the mod's last one and stays until the next call, 0 takes it off (at most `OPENRAC_JOINT_OFFSETS_MAX`, for all mods together); every mod's apply together, each mod's composed after those of the mods that set theirs first (the lock-strafe mod's hip twist beside a mod's riding stance). His drawing, shadow and what he carries follow. `OPENRAC_HOOK_UNKNOWN` outside a level, or, to SDK 1.14.0, for a mod without the hook |
 | `collision_triangles(lo, hi, out, max)` (1.12) | the collision triangles in the box [lo, hi] (`openrac_collision_triangle`: corners, unit normal, the face's collision byte, `OPENRAC_COLLISION_LEVEL` or the moby's slot): the level's collision tree as port/game/rac1/host/collision.c decodes it, cell by cell (z, y, x), each cell's faces in the game's order, then the collision meshes of the mobys on the moby grid under the box whose bounding sphere meets it, by slot, where they are now; how many there are (more than `max`: the rest left out). It reads the game's memory only: no query of the game's runs, nothing the kernels keep (the stamp, the hit log, the vector registers) changes. A box is cut to 1024 units each way; the mobys' primitives (spheres and capsules on joints) are not triangles and are left out |
 | `prop_create(mod, mesh_path)`, `prop_pose(mod, id, &pose)`, `prop_hide(mod, id, hidden)`, `prop_remove(mod, id)` (1.12) | a prop: a `.glb` of the mod's folder, read as an assets `classes.json` mesh is (`scene::load_model`), drawn by the renderer each frame among the level's mobys (OpenGL and Vulkan alike), lit as a moby, at a pose of a 4 by 4 matrix (`OPENRAC_PROP_MATRIX`) or a place, unit quaternion and scale, tinted and blended (alpha or added) with `OPENRAC_PROP_TINT`; not a moby: the game never sees it. At most `OPENRAC_PROPS_MAX` (256) for all mods, hidden until posed, gone with its level (`prop_pose` then answers `OPENRAC_HOOK_UNKNOWN`). The first prop of a mesh the level was read without has the front end read the level's scenery again with it (a hitch, once); the meshes asked for are read with every level after |
 | `sound_load(mod, path)`, `sound_play(mod, sound, volume, pitch, loop)`, `sound_set(mod, voice, volume, pitch)`, `sound_stop(mod, voice)` (1.12) | a `.wav` (PCM 8 to 32 bits or float, mono or stereo, read by the port) or `.ogg` (Vorbis, through stb_vorbis, which the port already has with stb_image) of the mod's folder, decoded whole (`OPENRAC_SOUNDS_MAX`, 64, a mod); a voice of it (`OPENRAC_SOUND_VOICES_MAX`, 16, for all mods; 0 for none) mixed after the game's sounds and streams at the sound effects' master volume (group 0: the Options page's Sound volume, as the game lowers it under its menus), its volume and pitch (its speed: 2 an octave up) changed while it plays, looped or once, stopped (only the mod that played it can change or stop a voice). No sound output (no window): `sound_load` answers `OPENRAC_HOOK_UNKNOWN` |
@@ -943,6 +972,15 @@ platform whose version is above the installed one (for a data pack with no
 releases, a newer commit on its branch), and offers **Update** on the mod's
 row. A pinned mod (**Keep this version**) is never offered one. An update
 installs as a reinstall does: the mod's place, on/off and settings are kept.
+
+**GitHub's limit.** Without a login GitHub's API answers 60 requests an hour
+from one network, and reading a repository costs three (its releases, the
+commit, the file tree). The launcher keeps each API answer for five minutes
+(`remote::ApiCache`), so a check and **Update all** on a repository of many
+mods read it once; manifests come from raw.githubusercontent.com and archives
+from github.com, which the limit does not count. A `GH_TOKEN` or `GITHUB_TOKEN`
+in the launcher's environment is sent to the API (5,000 an hour); it is never
+stored or shown. When the limit is spent, the Mods tab says so and when it lifts.
 
 ### Mod codes
 

@@ -186,17 +186,28 @@ function clearAside(el: HTMLElement) {
 const glide = typeof matchMedia === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
 let repeating = false;
 
+function markFocus(el: HTMLElement | null) {
+  document.querySelector("[data-pad-focus]")?.removeAttribute("data-pad-focus");
+  el?.setAttribute("data-pad-focus", "");
+}
+
 function show(el: HTMLElement) {
   if (!el.closest('[role="dialog"], [role="menu"]')) lastOnPage = el;
   parked = false;
   clearAside(el);
   el.focus({ preventScroll: true });
+  markFocus(el);
   // app.css gives the focus a margin, so its ring is not cut by the edge it scrolls to.
   el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: glide && !repeating ? "smooth" : "auto" });
   note(el);
 }
 
 function current(items: HTMLElement[]): HTMLElement | null {
+  // WebKit may decline programmatic DOM focus or leave it on the preceding control.
+  if (document.documentElement.dataset.input === "pad") {
+    const marked = items.find((el) => el.hasAttribute("data-pad-focus"));
+    if (marked) return marked;
+  }
   const active = document.activeElement;
   return active instanceof HTMLElement && items.includes(active) ? active : null;
 }
@@ -260,7 +271,7 @@ function move(dir: Direction) {
     from = still;
   }
   // A range, and a list to pick from, move their value sideways.
-  const sideways = (dir === "left" || dir === "right") && from === document.activeElement;
+  const sideways = (dir === "left" || dir === "right") && from === current(items);
   if (sideways && from instanceof HTMLInputElement && from.type === "range") {
     if (dir === "left") from.stepDown();
     else from.stepUp();
@@ -362,10 +373,9 @@ function accept() {
     return;
   }
   if (el instanceof HTMLSelectElement) {
-    // Android's list opens in a window of its own, which the controller moves through; a desktop's
-    // is the system's menu, which the controller cannot reach (Gamepad API): A takes the next
-    // choice there, as right does.
-    if (gamepadApi) {
+    // Android forwards controller keys to its native picker. On desktop and iOS the system
+    // picker cannot receive our navigation events: A takes the next choice, as right does.
+    if (!nativePicker) {
       step(el, 1);
       return;
     }
@@ -438,7 +448,9 @@ export function back(): boolean {
 
 /** LB and RB: the tab before or after the one open. */
 function tab(step: number) {
-  const tabs = [...document.querySelectorAll<HTMLElement>("header nav .tab")];
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>("header nav .tab")].filter(
+    (tab) => !tab.disabled && visible(tab),
+  );
   if (!tabs.length || scope() !== document.body) return;
   const at = tabs.findIndex((t) => t.classList.contains("on"));
   const next = tabs[(at + step + tabs.length) % tabs.length];
@@ -532,11 +544,12 @@ function act(button: PadButton) {
  *  the mouse moved or pressed brings them back. */
 function usingPad(on: boolean) {
   const mode = on ? "pad" : "pointer";
+  if (!on) markFocus(null);
   if (document.documentElement.dataset.input !== mode) document.documentElement.dataset.input = mode;
 }
 
-/** Whether the controller is read with the Gamepad API (a desktop), not handed over by Android. */
-let gamepadApi = false;
+/** Whether the host forwards controller keys to a native select picker (Android). */
+let nativePicker = false;
 
 /** What else shows A's press (ripple.ts on Android); set by startPad. */
 let onPress: (el: HTMLElement) => void = () => undefined;
@@ -651,12 +664,16 @@ export function pollGamepads(
 
 /**
  * Starts reading the controller. `home` is what B does once nothing is open (back to the games);
- * true when it did something. `readGamepads`: read controllers with the Gamepad API (a desktop's;
- * Android's come from its activity).
+ * true when it did something. Desktop reads the Gamepad API; Android and iOS send native events.
+ * Only Android forwards controller keys to a native select picker.
  */
-export function startPad(home: () => boolean, readGamepads: boolean, press?: (el: HTMLElement) => void) {
+export function startPad(
+  home: () => boolean,
+  options: { readGamepads: boolean; nativePicker?: boolean; press?: (el: HTMLElement) => void },
+) {
+  const { readGamepads, press } = options;
   backHome = home;
-  gamepadApi = readGamepads;
+  nativePicker = options.nativePicker ?? false;
   if (press) onPress = press;
   const w = window as unknown as {
     __openracPad?: typeof padEvent;
@@ -681,7 +698,10 @@ export function startPad(home: () => boolean, readGamepads: boolean, press?: (el
   // The focus follows what is focused another way (the mouse, a dialog's own first control), and
   // stays on something whatever goes away (keep).
   document.addEventListener("focusin", (e) => {
-    if (e.target instanceof HTMLElement && e.target.matches(FOCUSABLE) && usable(e.target)) note(e.target);
+    if (e.target instanceof HTMLElement && e.target.matches(FOCUSABLE) && usable(e.target)) {
+      note(e.target);
+      if (document.documentElement.dataset.input === "pad") markFocus(e.target);
+    }
   });
   new MutationObserver(schedule).observe(document.body, {
     childList: true,

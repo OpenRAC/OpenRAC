@@ -107,8 +107,8 @@ interface RawAction {
 interface RawVersion {
   region?: string;
   serial?: string;
-  disc?: { file: string; size?: number; sha1?: string };
-  boot?: { file: string; size?: number; sha1?: string };
+  disc?: { file: string; size?: number; sha1?: string; version?: string };
+  boot?: { file: string; size?: number; sha1?: string; version?: string };
   inputs?: { from: string; path: string; target?: string }[];
   target?: string;
   setup?: string;
@@ -261,6 +261,7 @@ let config: Config = {
   layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
+  gameColors: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gameColors"),
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
@@ -272,6 +273,7 @@ let config: Config = {
   playWithMods: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("mods"),
   crashesSeen: {},
   discChoice: {},
+  discImages: {},
   multiplayerName: "BraveLombax42",
   multiplayerKey: "0123456789abcdef0123456789abcdef",
   modIndexes: [],
@@ -524,8 +526,22 @@ function library(): Library {
           region: v.region ?? "",
           serial: v.serial ?? "",
           dir: `games/${g.id}/${name}`,
-          disc: v.disc ? { file: v.disc.file, size: v.disc.size ?? null, sha1: v.disc.sha1 ?? null } : null,
-          boot: v.boot ? { file: v.boot.file, size: v.boot.size ?? null, sha1: v.boot.sha1 ?? null } : null,
+          disc: v.disc
+            ? {
+                file: v.disc.file,
+                size: v.disc.size ?? null,
+                sha1: v.disc.sha1 ?? null,
+                version: v.disc.version ?? null,
+              }
+            : null,
+          boot: v.boot
+            ? {
+                file: v.boot.file,
+                size: v.boot.size ?? null,
+                sha1: v.boot.sha1 ?? null,
+                version: v.boot.version ?? null,
+              }
+            : null,
           inputs: (v.inputs ?? []).map((i) => ({ from: i.from, path: i.path, target: i.target ?? null })),
           target: v.target ?? null,
           setup: v.setup ?? null,
@@ -1997,7 +2013,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       lines.splice(
         2 + n,
         0,
-        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/pal/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
+        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/decomp/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
       );
     }
   }
@@ -2578,6 +2594,7 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
                 game: "rac1",
                 versions,
                 chosen: versions.includes(remembered) ? remembered : (versions[0] ?? remembered),
+                images: Object.fromEntries(found.map((d) => [d.version, d.path])),
               },
             ]
           : [];
@@ -2805,6 +2822,9 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<string | null>(null);
     case "plugins_list":
       return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
+    case "player_name_used":
+      // A mod that uses the Multiplayer name is on, unless ?nomods.
+      return delay(!query.has("nomods"));
     case "plugins_status":
       return delay<PluginStatus | null>(mockPluginStatus());
     case "plugins_set_enabled":

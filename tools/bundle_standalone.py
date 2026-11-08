@@ -81,7 +81,7 @@ MODS = ("editor-extract", "editor-preview", "editor-import", "editor-open", "edi
 KEEP = PLAY + MODS
 # The versions whose program still needs code from the player's disc, so no installer can carry it:
 # the player builds it, with tools/build_game.py. Version -> port game.
-PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc"}
+PLAYER_BUILDS = {"rac2/ntsc": "rac2-ntsc", "rac2/pal": "rac2-pal", "rac2/ntsc2": "rac2-ntsc2"}
 # Where a checkout's folders for version <game>/<version> go in the carried copy, longest first:
 # the levels the port draws, the level editor's projects, and the packed levels.
 MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("assets/levels/", "levels"),
@@ -91,13 +91,13 @@ MOD_FOLDERS = (("{root}/assets/port/", "port"), ("assets/port/", "port"), ("asse
 # the program looks without --levels.
 LEVELS_ROOT = "{data}/port"
 # The programs carried when the build has them; the first is required.
-GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc")
+GAMES = ("openrac-rac1-pal", "openrac-rac1-ntsc", "openrac-rac1-pal1", "openrac-rac1-jp")
 # The tools carried beside them when the build has them: the enhanced lighting's probe baker
 # (tools/build_port.py --probe-baker), Embree built into it, including its interior inference stage.
 TOOLS = ("openrac-enhanced-baker",)
 # The games a Windows installer carries built without the disc, with a kit and Zig's Clang and lld
 # to build what is missing on the player's computer (tools/asm_part.py), as an APK does. Version -> port game.
-WINDOWS_PARTS = {"rac2/ntsc": "rac2-ntsc"}
+WINDOWS_PARTS = {"rac2/ntsc": "rac2-ntsc", "rac2/pal": "rac2-pal", "rac2/ntsc2": "rac2-ntsc2"}
 # Where the copy keeps that Zig (tools/asm_part.py ZIG_PROGRAM).
 PART_ZIG = "tools/part-zig"
 # What a Windows program built against MSVC's libraries imports and Windows does not always have:
@@ -403,7 +403,8 @@ def main() -> int:
     proc.run([sys.executable, ROOT / "editor/gamedata.py", "--export-layouts",
               out / "editor/pvar_layouts.json"])
     files.copy_tree(ROOT / PROBE_PROFILES, out / PROBE_PROFILES,
-                    lambda rel: rel.suffix == ".json")
+                    lambda rel: rel.suffix == ".json"
+                    or (rel.suffix == ".png" and rel.parent.name == "emission-masks"))
     files.copy_tree(ROOT / WATER_PROFILES, out / WATER_PROFILES,
                     lambda rel: rel.name in {"water-boundaries.json", "ocean-profile.json"})
     for manifest in sorted((ROOT / "games").glob("*/game.json")):

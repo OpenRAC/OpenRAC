@@ -8,9 +8,9 @@
   },
   "environment_probes": {
     "enabled": true,
-    "resolution": 128,
+    "resolution": 64,
     "maximum_probes": 512,
-    "filter_samples": 128,
+    "filter_samples": 64,
     "spacing": 24,
     "box_distance": 64
   },
@@ -18,9 +18,9 @@
   "sky_weight": 0.3,
   "terrain_vertex_albedo": true,
   "dense_spacing": [
-    2.6666666666666665,
-    2.6666666666666665,
-    2.6666666666666665
+    4,
+    4,
+    4
   ],
   "sunlight_direction": [
     0.7774236798286438,

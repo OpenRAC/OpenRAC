@@ -17,7 +17,7 @@ inline constexpr unsigned kEnvironmentFirstMip = 1;
 // Per-level capture safety limit, not a placement target; disabled until a level opts in.
 struct EnvironmentBakeSettings {
     bool enabled = false;
-    unsigned resolution = 128, maximum_probes = kEnvironmentProbeLimit, filter_samples = 128;
+    unsigned resolution = 64, maximum_probes = kEnvironmentProbeLimit, filter_samples = 64;
     float spacing = 24, box_distance = 64, normal_bias = .5f, view_bias = .5f;
     float minimum_capture_spacing = 6;
     float minimum_space_area = 4;  // World units squared required for an independent open patch.

@@ -1,0 +1,1323 @@
+{
+ "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
+ "counts": {
+  "function: by hand": 3,
+  "function: called": 20,
+  "function: changed": 145,
+  "function: found": 6,
+  "function: near": 175,
+  "function: not found": 4,
+  "function: same": 818,
+  "global: aligned": 11,
+  "global: between": 15,
+  "global: exact": 137,
+  "global: the release's build": 69,
+  "signature: v1.01's": 10
+ },
+ "functions": {
+  "func_001158F8": [
+   "func_001158F8",
+   "found",
+   "signature"
+  ],
+  "func_00124418": [
+   "func_00124418",
+   "called",
+   "signature"
+  ],
+  "func_00125D98": [
+   "func_00125D98",
+   "called",
+   "signature"
+  ],
+  "func_00126108": [
+   "func_00126108",
+   "called",
+   "signature"
+  ],
+  "func_00126288": [
+   "func_00126288",
+   "called",
+   "signature"
+  ],
+  "func_00126470": [
+   "func_00126470",
+   "called",
+   "signature"
+  ],
+  "func_00126730": [
+   "func_00126730",
+   "called",
+   "signature"
+  ],
+  "func_00126DC0": [
+   "func_00126DC0",
+   "called",
+   "signature"
+  ],
+  "func_00127348": [
+   "func_00127348",
+   "called",
+   "signature"
+  ],
+  "func_00128F50": [
+   "func_00128F50",
+   "called",
+   "signature"
+  ],
+  "func_00131430": [
+   "func_00131430",
+   "found",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_0026EDE8": [
+   "func_0026EC50",
+   "changed",
+   "host C 0x0026EDE8"
+  ],
+  "func_0026F710": [
+   "func_0026F578",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F718": [
+   "func_0026F580",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F730": [
+   "FUN_0026F598",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F750": [
+   "FUN_0026F5B8",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F7A0": [
+   "FUN_0026F608",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F7B8": [
+   "func_0026F620",
+   "changed",
+   "level_hooks"
+  ],
+  "func_00273B70": [
+   "func_00273A10",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0027F640": [
+   "func_0027FB48",
+   "by hand",
+   "host C"
+  ],
+  "func_0027FC70": [
+   "func_00280A30",
+   "called",
+   "host C"
+  ],
+  "func_0028E458": [
+   "func_0028ECD8",
+   "changed",
+   "host C"
+  ],
+  "func_00290C60": [
+   "func_002914E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_00293CA8": [
+   "func_002945B8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_00298E08": [
+   "func_002997A0",
+   "changed",
+   "host C"
+  ],
+  "func_0029B658": [
+   "func_0029BFF0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0029C4C0": [
+   "func_0029CE58",
+   "changed",
+   "RAC2_K PAUSE_LIST_OFFSET"
+  ],
+  "func_0029CB58": [
+   "func_0029D4F0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0029CB80": [
+   "func_0029D518",
+   "changed",
+   "from_assembly"
+  ],
+  "func_002A05A8": [
+   "func_002A0F68",
+   "near",
+   "ps2_float"
+  ],
+  "func_002A7470": [
+   "func_002A7E68",
+   "near",
+   "calls_as func_L09_00404BF0"
+  ],
+  "func_002AB8C0": [
+   "func_002AC3C0",
+   "near",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_002B4C18": [
+   "func_002B57D0",
+   "found",
+   "from_assembly"
+  ],
+  "func_002BE278": [
+   "func_002BEF58",
+   "near",
+   "from_assembly"
+  ],
+  "func_002BF728": [
+   "func_002C0428",
+   "near",
+   "from_assembly"
+  ],
+  "func_002C02F0": [
+   "func_002C0FF0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_002C2A88": [
+   "func_002C3798",
+   "near",
+   "from_assembly"
+  ],
+  "func_002C56B0": [
+   "func_002C63D0",
+   "near",
+   "from_assembly"
+  ],
+  "func_002C5B70": [
+   "func_002C6890",
+   "near",
+   "from_assembly"
+  ],
+  "func_002CB950": [
+   "func_002CC7B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_002D0FA0": [
+   "func_002D1EB0",
+   "near",
+   "from_assembly"
+  ],
+  "func_002D58A0": [
+   "func_002D6478",
+   "near",
+   "RAC2_K OPTIONS_LIST_OFFSET"
+  ],
+  "func_002D6F38": [
+   "func_002D7B68",
+   "near",
+   "from_assembly"
+  ],
+  "func_002DC900": [
+   "func_002DD5F8",
+   "changed",
+   "host C 0x002DC908"
+  ],
+  "func_002FAE68": [
+   "func_002FBEB4",
+   "near",
+   "from_assembly"
+  ],
+  "func_00302470": [
+   "func_00303578",
+   "near",
+   "from_assembly"
+  ],
+  "func_0030E8A8": [
+   "func_0030FCE8",
+   "near",
+   "from_assembly"
+  ],
+  "func_00310A40": [
+   "func_00311E78",
+   "changed",
+   "from_assembly"
+  ],
+  "func_003136D0": [
+   "func_00314B5C",
+   "near",
+   "host C"
+  ],
+  "func_0032C2E8": [
+   "func_0032DB00",
+   "near",
+   "from_assembly"
+  ],
+  "func_003369A8": [
+   "func_00338688",
+   "near",
+   "from_assembly"
+  ],
+  "func_00336A78": [
+   "func_00338770",
+   "near",
+   "host C"
+  ],
+  "func_00338040": [
+   "func_00339DC8",
+   "near",
+   "from_assembly"
+  ],
+  "func_003387A0": [
+   "func_0033A528",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0033AF48": [
+   "func_0033CE70",
+   "changed",
+   "host C"
+  ],
+  "func_0033B050": [
+   "func_0033CF78",
+   "changed",
+   "host C"
+  ],
+  "func_0033C2D8": [
+   "func_0033E160",
+   "near",
+   "host C"
+  ],
+  "func_0033C378": [
+   "func_0033E248",
+   "near",
+   "host C"
+  ],
+  "func_0033C468": [
+   "func_0033E338",
+   "near",
+   "RAC2_K TEXT_PAGE_TOGGLE"
+  ],
+  "func_0033C738": [
+   "func_0033E608",
+   "near",
+   "RAC2_K TEXT_WIDESCREEN"
+  ],
+  "func_00341540": [
+   "func_003435C0",
+   "changed",
+   "host C"
+  ],
+  "func_00341610": [
+   "func_00343690",
+   "near",
+   "RAC2_K PAUSE_LIST_WHICH"
+  ],
+  "func_00341A68": [
+   "func_00343AD0",
+   "changed",
+   "host C"
+  ],
+  "func_00341A88": [
+   "func_00343AF0",
+   "changed",
+   "RAC2_K LIST_ORIGIN"
+  ],
+  "func_00341C20": [
+   "func_00343C88",
+   "changed",
+   "RAC2_K LIST_TITLE_TEXT"
+  ],
+  "func_00342118": [
+   "func_00344180",
+   "changed",
+   "RAC2_K TITLE_ICON_SHEET"
+  ],
+  "func_00342380": [
+   "func_003443E8",
+   "changed",
+   "host C"
+  ],
+  "func_00343798": [
+   "func_003457F0",
+   "near",
+   "from_assembly"
+  ],
+  "func_003489E8": [
+   "func_0034ABB0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0034E4F8": [
+   "func_003506E0",
+   "changed",
+   "host C"
+  ],
+  "func_0034EF58": [
+   "func_00351140",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002A5480": [
+   "func_L00_002A5310",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002A7E60": [
+   "func_L00_002A7D48",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002B0528": [
+   "func_L00_002B0420",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002B1308": [
+   "func_L00_002B1200",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002B4458": [
+   "func_L00_002B4380",
+   "changed",
+   "unit_aliases src/levels/shared/L13_002C5760.c"
+  ],
+  "func_L00_002B7718": [
+   "func_L00_002B7688",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002BA7D8": [
+   "func_L00_002BA750",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_002D24E8": [
+   "func_L00_002D29E8",
+   "near",
+   "ps2_float"
+  ],
+  "func_L00_002D4A38": [
+   "func_L00_002D4F60",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002F46C8": [
+   "func_L00_002F5D28",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_002F7568": [
+   "func_L00_002F8C60",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003046D0": [
+   "func_L00_003062B0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00321878": [
+   "func_L00_00323918",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00326200": [
+   "func_L00_003282B0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0032A258": [
+   "func_L00_0032C328",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0033BA68": [
+   "func_L00_0033DE50",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00364EE8": [
+   "func_L00_003676D8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0036FA68": [
+   "func_L00_00372508",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0037E5F0": [
+   "func_L00_00381328",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0037F7E8": [
+   "func_L00_00382620",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003AB388": [
+   "func_L00_003AEB58",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003ADEA0": [
+   "func_L00_003B16B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_003B9310": [
+   "func_L00_003BCEB8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_003D1B50": [
+   "func_L00_003D5AB8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003DBF50": [
+   "func_L00_003E0120",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003DC1C0": [
+   "func_L00_003E0390",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003DC3E0": [
+   "func_L00_003E05B0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003DD2B8": [
+   "func_L00_003E1488",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003DD6A8": [
+   "func_L00_003E1878",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_003E2180": [
+   "func_L00_003E6400",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003EC078": [
+   "func_L00_003F0390",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_003FCA40": [
+   "func_L00_004012A0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_003FE310": [
+   "func_L00_00402B98",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003FF890": [
+   "func_L00_004041C0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_00401668": [
+   "func_L00_00405F98",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_00410430": [
+   "func_L00_00415238",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00410D20": [
+   "func_L01_004186E8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_004117B8": [
+   "func_L00_00416638",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00411F48": [
+   "func_L00_00416DC8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00419C98": [
+   "func_L00_0041EF38",
+   "found",
+   "from_assembly"
+  ],
+  "func_L00_00424F98": [
+   "func_L00_0042A488",
+   "near",
+   "host C"
+  ],
+  "func_L00_00438E68": [
+   "func_L00_0043E770",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_002A8C48": [
+   "func_L01_002A8B30",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L01_002AE128": [
+   "func_L01_002AE010",
+   "changed",
+   "unit_aliases src/levels/08_tabora/L08_002CB6E8.c"
+  ],
+  "func_L01_002C2CF0": [
+   "func_L01_002C2EE8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_00397A28": [
+   "func_L01_0039AE48",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_00397EB0": [
+   "func_L01_0039B2D0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L01_003B5878": [
+   "func_L01_003B93E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_003C9D00": [
+   "func_L01_003CDDC8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_003CEB00": [
+   "func_L01_003D2C38",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_003D9830": [
+   "func_L01_003DDD18",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_003FFFE8": [
+   "func_L01_00404E70",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_00412E00": [
+   "func_L01_00418218",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L01_00416C08": [
+   "func_L01_0041C0D8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_0041C890": [
+   "func_L01_004220F8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_0032B468": [
+   "func_L02_0032D5F8",
+   "near",
+   "unit_aliases src/levels/11_joba/L11_00449330.c"
+  ],
+  "func_L02_003CB090": [
+   "func_L02_003CEF50",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_003CE8B0": [
+   "func_L02_003D2898",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_003E77E0": [
+   "func_L02_003EBBD0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_003EB8F8": [
+   "func_L02_003EFD50",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_003F9C10": [
+   "func_L02_003FE328",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_004012A0": [
+   "func_L02_00405BE0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_00422270": [
+   "func_L02_00427320",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_0042E988": [
+   "func_L02_00433ED0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_0042ED48": [
+   "func_L02_00434290",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_0043F4C8": [
+   "func_L02_00444F60",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_0043FA98": [
+   "func_L02_00445550",
+   "near",
+   "from_assembly"
+  ],
+  "func_L03_0038A6D8": [
+   "func_L03_0038D7B8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L03_003C4240": [
+   "func_L03_003C8250",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L03_003C4578": [
+   "func_L03_003C8588",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L03_003C7018": [
+   "func_L03_003CB058",
+   "changed",
+   "host C"
+  ],
+  "func_L03_00425108": [
+   "func_L03_0042A6B0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_002DCE78": [
+   "func_L04_002DCE68",
+   "near",
+   "unit_aliases src/levels/08_tabora/L08_002CB6E8.c"
+  ],
+  "func_L04_002E04A8": [
+   "func_L04_002E04A0",
+   "near",
+   "calls_as"
+  ],
+  "func_L04_0031D630": [
+   "func_L04_0031F198",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00362768": [
+   "func_L04_00364B90",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00362940": [
+   "func_L04_00364D88",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_003B3168": [
+   "func_L04_003B6250",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_003C6FE8": [
+   "func_L04_003CA650",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L04_003F6008": [
+   "func_L04_003FA170",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_003F9078": [
+   "func_L04_003FD250",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00400EE0": [
+   "func_L04_00405268",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_0040AD28": [
+   "func_L04_0040F2B0",
+   "near",
+   "host C"
+  ],
+  "func_L04_00411298": [
+   "func_L04_004158F0",
+   "near",
+   "host C"
+  ],
+  "func_L04_00412EC0": [
+   "func_L04_00417578",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00417308": [
+   "func_L04_0041BC68",
+   "near",
+   "host C"
+  ],
+  "func_L04_00418A58": [
+   "func_L04_0041D5F0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041E4A0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_00432258": [
+   "func_L04_00437198",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L04_00456748": [
+   "func_L04_0045C388",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L04_0046CFB8": [
+   "func_L04_00473240",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L05_0037D6E8": [
+   "func_L05_0037FEB0",
+   "near",
+   "unit_aliases src/levels/15_gorn/L15_00315428-g8.c"
+  ],
+  "func_L05_003CD598": [
+   "func_L05_003D1248",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_00416918": [
+   "func_L05_0041B5E8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L05_0041C4E8": [
+   "func_L05_004212A8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_0041D800": [
+   "func_L05_004225D0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_0041DF58": [
+   "func_L05_00422CA8",
+   "near",
+   "host C"
+  ],
+  "func_L05_0041ED18": [
+   "func_L05_00423A68",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L05_004247C8": [
+   "func_L05_0042A078",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L05_00426348": [
+   "func_L05_0042BD38",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_004268E8": [
+   "func_L05_0042C2E8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_00426E70": [
+   "func_L05_0042C880",
+   "near",
+   "from_assembly"
+  ],
+  "func_L06_00396268": [
+   "func_L13_00360CC0",
+   "found",
+   "more_places func_L00_00354DF8"
+  ],
+  "func_L06_003E4F08": [
+   "func_L06_003E8568",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L06_003FDA08": [
+   "func_L06_004015F0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L06_0042B868": [
+   "func_L06_0042FC88",
+   "near",
+   "from_assembly"
+  ],
+  "func_L06_00443DE0": [
+   "func_L06_00448968",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L06_00457920": [
+   "func_L06_0045CA40",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L06_0047AC68": [
+   "func_L06_00480660",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L07_003EE708": [
+   "func_L07_003F2B70",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L07_003F8908": [
+   "func_L07_003FD168",
+   "near",
+   "from_assembly"
+  ],
+  "func_L07_00409300": [
+   "func_L07_0040E128",
+   "near",
+   "from_assembly"
+  ],
+  "func_L07_00410B48": [
+   "func_L07_00415A80",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L07_00416510": [
+   "func_L07_0041B7E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_002CB6E8": [
+   "func_L08_002CB6E0",
+   "near",
+   "calls_as"
+  ],
+  "func_L08_0039DBE8": [
+   "func_L08_003A0D28",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_0039E000": [
+   "func_L08_003A1140",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_0041EBF8": [
+   "func_L08_00423EA0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_00435A78": [
+   "func_L08_0043B690",
+   "near",
+   "from_assembly"
+  ],
+  "func_L09_002F8FD8": [
+   "func_L09_002FAA98",
+   "near",
+   "from_assembly"
+  ],
+  "func_L09_00404B90": [
+   "func_L09_00409AC8",
+   "near",
+   "calls_as"
+  ],
+  "func_L09_00404BF0": [
+   "func_L09_00409B48",
+   "near",
+   "calls_as"
+  ],
+  "func_L09_00404F90": [
+   "func_L09_00409F00",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L10_00418D88": [
+   "func_L10_0041DB38",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L10_00421790": [
+   "func_L10_00426618",
+   "near",
+   "host C"
+  ],
+  "func_L11_0030F060": [
+   "func_L11_00310B38",
+   "near",
+   "from_assembly"
+  ],
+  "func_L11_0043A810": [
+   "func_L11_0043FDB8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L11_00445990": [
+   "func_L11_0044B3B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L11_00445DF8": [
+   "func_L11_0044B820",
+   "near",
+   "from_assembly"
+  ],
+  "func_L11_00447360": [
+   "func_L11_0044CDF0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L11_00448908": [
+   "func_L11_0044E398",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L11_00449330": [
+   "func_L11_0044EDC0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L12_002B85E0": [
+   "func_L12_002B8478",
+   "changed",
+   "unit_aliases src/levels/12_todano/L12_002CF7B0-decider.c"
+  ],
+  "func_L12_002CF7B0": [
+   "func_L12_002CFA90",
+   "near",
+   "calls_as"
+  ],
+  "func_L12_00388090": [
+   "func_L12_0038AD50",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L12_00389F80": [
+   "func_L12_0038CD10",
+   "near",
+   "from_assembly"
+  ],
+  "func_L12_003B5240": [
+   "func_L12_003B8918",
+   "near",
+   "from_assembly"
+  ],
+  "func_L12_00402B48": [
+   "func_L12_004075B8",
+   "near",
+   "calls_as"
+  ],
+  "func_L12_00420838": [
+   "func_L12_00425BE0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L12_00427C58": [
+   "func_L12_0042D200",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L13_002C5760": [
+   "func_L13_002C56D8",
+   "near",
+   "calls_as"
+  ],
+  "func_L13_00306F38": [
+   "func_L13_00308A88",
+   "near",
+   "from_assembly"
+  ],
+  "func_L14_00304588": [
+   "func_L14_00306108",
+   "near",
+   "from_assembly"
+  ],
+  "func_L14_003E4BA0": [
+   "func_L14_003E8FB8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L14_00423B30": [
+   "func_L14_004290A8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L15_0042E1B0": [
+   "func_L15_004334B0",
+   "near",
+   "host C"
+  ],
+  "func_L16_00413850": [
+   "func_L16_00418A20",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L16_0041EBE8": [
+   "func_L16_00424028",
+   "near",
+   "from_assembly"
+  ],
+  "func_L16_004364B0": [
+   "func_L16_0043BEF0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L18_003FB708": [
+   "func_L18_003FF850",
+   "near",
+   "calls_as"
+  ],
+  "func_L18_00428AE8": [
+   "func_L18_0042D7E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L18_00437BA8": [
+   "func_L18_0043CE90",
+   "near",
+   "from_assembly"
+  ],
+  "func_L19_0042B058": [
+   "func_L19_00430C78",
+   "near",
+   "from_assembly"
+  ],
+  "func_L20_0039DF18": [
+   "func_L20_003A0E60",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L20_00444CA8": [
+   "func_L20_0044A780",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L20_00445738": [
+   "func_L20_0044B238",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L20_00446E70": [
+   "func_L20_0044C970",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_002B70F8": [
+   "func_L22_002B6F90",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_002BF1B0": [
+   "func_L22_002BF0A8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_0039CDC0": [
+   "func_L22_003A00C0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_0039D198": [
+   "func_L22_003A0498",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003A5018": [
+   "func_L22_003A83A8",
+   "near",
+   "host C"
+  ],
+  "func_L22_003A5BD8": [
+   "func_L22_003A8F68",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003A6230": [
+   "func_L22_003A95C8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_003F45D8": [
+   "func_L22_003F8A68",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_003F5580": [
+   "func_L22_003F9A10",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FB310": [
+   "func_L22_003FFB00",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FB9B8": [
+   "func_L22_004001E8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FBBF0": [
+   "func_L22_00400420",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FC048": [
+   "func_L22_00400890",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_003FC870": [
+   "func_L22_004010B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FD2D8": [
+   "func_L22_00401BA0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003FD958": [
+   "func_L22_00402258",
+   "near",
+   "from_assembly"
+  ],
+  "func_L23_002C38B0": [
+   "func_L23_002C37A8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L23_003BF9B0": [
+   "func_L23_003C3258",
+   "near",
+   "from_assembly"
+  ],
+  "func_L23_003C1B58": [
+   "func_L23_003C5480",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L23_0041DA48": [
+   "func_L23_00422D10",
+   "changed",
+   "host C"
+  ],
+  "func_L24_003EFA38": [
+   "func_L24_003F4500",
+   "near",
+   "from_assembly"
+  ],
+  "func_L26_003DC048": [
+   "func_L26_003E03D0",
+   "near",
+   "from_assembly"
+  ]
+ },
+ "globals": {
+  "boot:00146B44": [
+   "00146BC4",
+   "between",
+   "host C 0x00146B44"
+  ],
+  "boot:00152C18": [
+   "00152C98",
+   "between",
+   "profile boot 0x00152C18"
+  ],
+  "boot:00152C2E": [
+   "00152CAE",
+   "between",
+   "rac2_addresses.h"
+  ],
+  "boot:00152C30": [
+   "00152CB0",
+   "between",
+   "profile boot 0x00152C30"
+  ],
+  "boot:00152C64": [
+   "00152CE4",
+   "between",
+   "host C 0x00152C64"
+  ],
+  "boot:00152C68": [
+   "00152CE8",
+   "between",
+   "host C 0x00152C68"
+  ],
+  "boot:002652B0": [
+   "00265030",
+   "between",
+   "RAC2_K HELP_8"
+  ],
+  "ref_L00_00290B48_00": [
+   "003581A7",
+   "its value plus what the C adds",
+   "formed_as"
+  ]
+ },
+ "level_hooks": {
+  "carried": 27,
+  "count": 32,
+  "from": "0026F578",
+  "to": "0026F678"
+ },
+ "unpaired": {
+  "func_002C0CC0": "from_assembly",
+  "func_L00_00389E18": "from_assembly",
+  "func_L02_003FE1B0": "from_assembly",
+  "func_L11_00443CE0": "from_assembly"
+ }
+}

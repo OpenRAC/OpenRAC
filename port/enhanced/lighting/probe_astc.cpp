@@ -5,7 +5,9 @@
 #include "enhanced/lighting/probe_astc.h"
 
 #include <algorithm>
+#include <array>
 #include <astcenc_internal.h>
+#include <bit>
 #include <cmath>
 #include <numeric>
 #include <optional>
@@ -19,16 +21,16 @@ namespace {
 // Maximum paired-border error in linear RGB, relative to source luminance.
 constexpr double kSeamRelativeTolerance = .005;
 
-// Evaluates the pinned HDR endpoint and interpolated-weight model for physical-block checks.
-Tile symbolic_pixels(const block_size_descriptor& bsd, const symbolic_compressed_block& scb) {
-    const auto& mode = bsd.get_block_mode(scb.block_mode);
-    const auto& di = bsd.get_decimation_info(mode.decimation_mode);
+using EndpointColours = std::array<Float3, 65>;
+
+// Decodes the colour of every interpolation weight for the block's first endpoint pair.
+EndpointColours endpoint_colours(const symbolic_compressed_block& scb) {
     bool hdr = false, alpha = false;
     vint4 a, b;
     unpack_color_endpoints(
         ASTCENC_PRF_HDR_RGB_LDR_A, scb.color_formats[0], scb.color_values[0], hdr, alpha, a, b
     );
-    std::array<Float3, 65> colours;
+    EndpointColours colours;
 
     for (int w = 0; w <= 64; w++) {
         auto value = asr<6>(a * vint4(64 - w) + b * vint4(w) + vint4(32));
@@ -36,20 +38,7 @@ Tile symbolic_pixels(const block_size_descriptor& bsd, const symbolic_compressed
         colours[w] = {decoded.lane<0>(), decoded.lane<1>(), decoded.lane<2>()};
     }
 
-    Tile out;
-
-    for (unsigned p = 0; p < 64; p++) {
-        int weight = 8;
-
-        for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
-            weight +=
-                di.texel_weight_contribs_int_tr[i][p] * scb.weights[di.texel_weights_tr[i][p]];
-        }
-
-        out[p] = colours[weight >> 4];
-    }
-
-    return out;
+    return colours;
 }
 
 // Exact paired equality supplies the first, zero-tolerance fitting pass.
@@ -124,6 +113,101 @@ struct AstcFitter {
         kSeamRelativeTolerance;       // Current exact or relaxed fitting pass.
     AstcInterpolation interpolation;  // Immutable descriptor-derived moves, reused across tiles.
     SeamBudget active_seam_budget;    // Derived from this worker's current tile, never shared.
+
+    // Weight searches keep their endpoints, so the last decoded endpoint pair and its derived
+    // per-weight tables are reused. The tables hold the same values the direct evaluation computes.
+    struct EndpointCache {
+        bool valid = false;
+        std::uint8_t format = 0;
+        std::array<std::uint8_t, 8> values{};
+        EndpointColours colours{};
+        std::array<std::array<double, 3>, 65> linear{};  // SeamBudget::linear per channel
+        std::array<bool, 65> finite{};                   // all three channels finite
+        std::array<std::array<float, 65>, 64> error{};   // squared error per texel and weight
+        std::array<std::uint64_t, 65> error_known{};     // texel bits filled in error
+    } endpoint_cache;
+
+    // Interpolated weight index per texel for the last candidate; a new candidate usually
+    // differs in a few stored weights, so only the texels reading those weights are recomputed.
+    struct IndexCache {
+        int decimation = -1;
+        std::array<std::uint8_t, 64> weights{};
+        std::array<std::uint8_t, 64> index{};
+        std::array<std::uint64_t, 64> texels{};  // texels reading each stored weight
+    } index_cache;
+
+    // A new tile changes the error table, so it starts with an empty cache.
+    void reset_endpoint_cache() { endpoint_cache.valid = false; }
+
+    // Same integer sums as the decoder, so a cached index equals a recomputed one.
+    const std::array<std::uint8_t, 64>& texel_indices(
+        const decimation_info& di, int decimation, const symbolic_compressed_block& candidate
+    ) {
+        auto& cache = index_cache;
+        std::uint64_t dirty = ~std::uint64_t{0};
+
+        if (cache.decimation == decimation) {
+            dirty = 0;
+
+            for (unsigned i = 0; i < di.weight_count; ++i) {
+                if (cache.weights[i] != candidate.weights[i]) {
+                    dirty |= cache.texels[i];
+                }
+            }
+        } else {
+            cache.decimation = decimation;
+            cache.texels.fill(0);
+
+            for (unsigned p = 0; p < 64; p++) {
+                for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
+                    cache.texels[di.texel_weights_tr[i][p]] |= std::uint64_t{1} << p;
+                }
+            }
+        }
+
+        std::copy_n(candidate.weights, di.weight_count, cache.weights.begin());
+
+        for (; dirty; dirty &= dirty - 1) {
+            const auto p = static_cast<unsigned>(std::countr_zero(dirty));
+            int weight = 8;
+
+            for (unsigned i = 0; i < di.texel_weight_count[p]; i++) {
+                weight += di.texel_weight_contribs_int_tr[i][p]
+                          * candidate.weights[di.texel_weights_tr[i][p]];
+            }
+
+            cache.index[p] = static_cast<std::uint8_t>(weight >> 4);
+        }
+
+        return cache.index;
+    }
+
+    // Same endpoint bytes decode to the same colours, so the cache never changes a result.
+    EndpointCache& endpoint_tables(const symbolic_compressed_block& scb) {
+        auto& cache = endpoint_cache;
+        const auto* values = scb.color_values[0];
+
+        if (!cache.valid || cache.format != scb.color_formats[0]
+            || !std::equal(cache.values.begin(), cache.values.end(), values)) {
+            cache.colours = endpoint_colours(scb);
+            cache.format = scb.color_formats[0];
+            std::copy(values, values + 8, cache.values.begin());
+
+            for (unsigned w = 0; w <= 64; ++w) {
+                cache.finite[w] = true;
+
+                for (unsigned c = 0; c < 3; ++c) {
+                    cache.linear[w][c] = SeamBudget::linear(cache.colours[w][c]);
+                    cache.finite[w] = cache.finite[w] && std::isfinite(cache.colours[w][c]);
+                }
+            }
+
+            cache.error_known.fill(0);
+            cache.valid = true;
+        }
+
+        return cache;
+    }
 
     // Retains source texel order when comparing decoded candidate colour errors.
     float tile_error(const Tile& input, const Tile& output) {
@@ -215,25 +299,72 @@ struct AstcFitter {
         const block_size_descriptor& bsd,
         const symbolic_compressed_block& candidate
     ) {
-        const auto output = symbolic_pixels(bsd, candidate);
+        auto& tables = endpoint_tables(candidate);
+        const auto& mode = bsd.get_block_mode(candidate.block_mode);
+        const auto& di = bsd.get_decimation_info(mode.decimation_mode);
+        const auto& index = texel_indices(di, mode.decimation_mode, candidate);
 
-        if (!active_seam_budget.accepts(output, seam_relative_tolerance)) {
-            return;
-        }
+        // Same test as SeamBudget::accepts, read from the per-weight tables.
+        for (unsigned p = 0; p < 64; p++) {
+            const unsigned source = gutter_source(p);
 
-        for (const auto& p : output) {
-            for (float c : p) {
-                if (!std::isfinite(c)) {
+            if (seam_relative_tolerance == 0) {
+                if (tables.colours[index[p]] != tables.colours[index[source]]) {
                     return;
                 }
+
+                continue;
+            }
+
+            if (source == p) {
+                continue;
+            }
+
+            const auto& a = tables.linear[index[p]];
+            const auto& b = tables.linear[index[source]];
+            double ratio = 0;
+
+            for (unsigned c = 0; c < 3; c++) {
+                if (!std::isfinite(a[c]) || !std::isfinite(b[c])) {
+                    return;
+                }
+
+                ratio = std::max(ratio, std::abs(a[c] - b[c]) / active_seam_budget.scale[p]);
+            }
+
+            if (ratio > seam_relative_tolerance) {
+                return;
             }
         }
 
-        const float value = tile_error(input, output);
+        for (unsigned p = 0; p < 64; p++) {
+            if (!tables.finite[index[p]]) {
+                return;
+            }
+        }
+
+        // Same terms in the same texel order as tile_error.
+        float value = 0;
+
+        for (unsigned p = 0; p < 64; p++) {
+            const unsigned w = index[p];
+            const std::uint64_t bit = std::uint64_t{1} << p;
+
+            if (!(tables.error_known[w] & bit)) {
+                tables.error[p][w] = squared_colour_error(input[p], tables.colours[w]);
+                tables.error_known[w] |= bit;
+            }
+
+            value += tables.error[p][w];
+        }
 
         if (value < best.error) {
             best.block = candidate;
-            best.output = output;
+
+            for (unsigned p = 0; p < 64; p++) {
+                best.output[p] = tables.colours[index[p]];
+            }
+
             best.error = value;
         }
     }
@@ -659,6 +790,7 @@ struct AstcEncoder::Impl : AstcFitter {
         // A preceding failed fit must not leave a reused worker in its temporary exact-only pass.
         seam_relative_tolerance = kSeamRelativeTolerance;
         active_seam_budget.set(input);
+        reset_endpoint_cache();
         const auto block = stock_block(input);
 
         // Standard encoding is sufficient when its physical gutter pairs already meet the budget.

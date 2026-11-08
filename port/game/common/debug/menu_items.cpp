@@ -186,6 +186,8 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kAnisotropy);
         case Id::SceneryDetail:
             return row_choice(kSceneryDetail);
+        case Id::DrawDistance:
+            return row_choice(kDrawDistance);
         case Id::FrameRate:
             return row_choice(kFrameRate);
         case Id::FrameCap:
@@ -370,6 +372,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:
@@ -415,6 +421,10 @@ Item item(Id id, std::uint8_t where) {
         case Id::ObjectViewer:
             it.shown = s.developer;
             it.on = s.object_viewer.open;
+            return it;
+        case Id::MeatProxyReview:
+            it.shown = s.developer;
+            it.on = s.meat_proxy_review;
             return it;
         case Id::LevelSelect:
             it.shown = s.developer;
@@ -532,6 +542,9 @@ bool act(Id id, int by) {
             return false;
         case Id::SceneryDetail:
             change_setting(kSceneryDetail, by);
+            return false;
+        case Id::DrawDistance:
+            change_setting(kDrawDistance, by);
             return false;
         case Id::FrameRate:
             change_setting(kFrameRate, by);
@@ -692,6 +705,10 @@ bool act(Id id, int by) {
         case Id::TriggerPoint:
         case Id::FaceButtons:
         case Id::PadBackground:
+        case Id::RumbleStrength:
+        case Id::RumbleStyle:
+        case Id::RumbleTriggers:
+        case Id::RumblePhone:
         case Id::ConnectedControllers:
         case Id::PlayersReset:
         case Id::PlayerOne:
@@ -730,6 +747,9 @@ bool act(Id id, int by) {
                 set_picker_enabled(true);
             }
             return false;
+        case Id::MeatProxyReview:
+            s.meat_proxy_review = !s.meat_proxy_review;
+            return s.meat_proxy_review;
         case Id::LevelSelect:
             press(SDLK_F1);
             return true;

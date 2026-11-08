@@ -30,6 +30,8 @@ ASM_MARK = "openrac_asm_"
 
 # A data symbol given as an asm label with a constant offset (`D_L16_0017C218+12`).
 _SYMBOL_OFFSET = re.compile(r"^\s*([A-Za-z_]\w*)\s*([+-])\s*(0[xX][0-9A-Fa-f]+|\d+)\s*$")
+# The suffix of a global's $gp view (common.h's SDATA): the same global under another label.
+_GP_VIEW = "__gp"
 
 # Helpers whose bodies are the decompilation's inline assembly
 # (include/common.h): the runtime has host versions (guest.h).
@@ -89,6 +91,9 @@ class Function:
     # 32-bit result 64-bit where one of them is "returns_64"
     returns: tuple = ()
     wide_result: bool = False   # its result was made 64-bit so (widen_returns): sig.ret is the 64-bit type
+    # a variadic definition whose C reaches its variable arguments through __builtin_next_arg (uses_arg_area):
+    # the EE's save area of argument doublewords, which its callers fill on the host (lower.py)
+    arg_area: bool = False
 
 
 @dataclass
@@ -129,6 +134,11 @@ class Program:
     # callers form that one, and it pairs with the copies. symbol -> entry; and symbol -> (size, places),
     # for its calls of the level hooks.
     executable_entries: dict[str, int] = field(default_factory=dict)
+    # The executable catalogue's entry corrections: a name's address -> the function's entry there.
+    executable_entry_at: dict[int, int] = field(default_factory=dict)
+    # Where the decompilation's own build linked each function name its C uses (hostgen.json
+    # "derived", derived.py): name -> address, read where it is not the address the name states.
+    derived_code: dict[str, int] = field(default_factory=dict)
     level_twins: dict[str, tuple[int, list[tuple[int, int]]]] = field(default_factory=dict)
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
@@ -183,8 +193,18 @@ class Program:
         if named and named[0][0] < 0 and symbol in self.executable_entries:
             # Named after the address of the leftovers in front of it: entered at the catalogue's.
             named = [(-1, self.executable_entries[symbol])]
+        elif (named and named[0][0] < 0 and named[0][1] in self.executable_entry_at
+              and re.search(r"[0-9A-Fa-f]{8}$", symbol)):
+            # The catalogue's name of a function entered after a fill word: entered at its entry.
+            named = [(-1, self.executable_entry_at[named[0][1]])]
         if not named and symbol in self.symbols:
             named = [(-1, self.symbols[symbol])]
+        elif named and named[0][0] < 0 and self.derived_code.get(symbol, named[0][1]) != named[0][1]:
+            # Where the build linked the name, not the address it states: a family-qualified name
+            # states the primary release's (USA v2.00's F081de6c9_FUN_00335FC8 is its 0x00336DD0),
+            # and a catalogue name of a function entered after a fill word its row's start (PAL's
+            # func_00128A48 is scePad2Read's entry, 0x00128A50).
+            named = [(-1, self.derived_code[symbol])]
         if symbol not in self.places and named:
             # Another spelling of the same function (func_L00_00256F14 for the catalogue's
             # FUN_L00_00256f14) has the catalogue's places in the other levels.
@@ -256,6 +276,10 @@ class Program:
                 text = offset.group(3)
                 n = int(text, 16) if text[:2] in ("0x", "0X") else int(text, 10)
                 return (base + n if offset.group(2) == "+" else base - n) & 0xFFFFFFFF
+        if symbol.endswith(_GP_VIEW):
+            # A $gp view of a global (common.h's SDATA, `__asm__("ref_L00_00424F98_03__gp")`) is
+            # the global: a level's derived name has its address only under its own name.
+            return self.data_address(symbol.removesuffix(_GP_VIEW))
         return None
 
     def data_level(self, symbol: str) -> int | None:
@@ -263,6 +287,8 @@ class Program:
         offset = _SYMBOL_OFFSET.match(symbol)
         if offset:
             symbol = offset.group(1)
+        if symbol.endswith(_GP_VIEW) and symbol not in self.level_names:
+            symbol = symbol.removesuffix(_GP_VIEW)
         if symbol in self.level_names and self.level_names[symbol][0] >= 0:
             return self.level_names[symbol][0]
         for pattern in self.data_names:
@@ -370,6 +396,11 @@ class Program:
         # A function of level 0's program spelled without its level (rac2's C calls func_003100D8,
         # level 0's CreateMoby): no such address in the executable, so level 0's place.
         for overlay, address in places if self.bare_names_in_level_0 else ():
+            # Not when the executable has a function there (its catalogue's start, still without C
+            # until the assembly stage): USA v2.00's func_002CB038, the title's New Game page, is
+            # not level 0's function at that address.
+            if overlay == -1 and address in self.executable_starts:
+                continue
             other = self.by_place.get((0, address)) if overlay == -1 else None
             if other is not None:
                 return other
@@ -617,6 +648,20 @@ def widen_forwarded(program: Program) -> list[str]:
 RESULT32 = {"int", "signed int", "signed", "unsigned int", "unsigned", "gaddr"}
 
 
+def uses_arg_area(decl: dict) -> bool:
+    """A variadic definition that reaches its variable arguments as the console's register save area
+    (`(char *)__builtin_next_arg(last) - 0x38`, forwarded to a function that walks it): GCC for the EE
+    stores the argument registers past the named ones there as doublewords, followed by the stack
+    arguments, and the C reads or passes on that memory rather than using va_arg."""
+    stack = [decl]
+    while stack:
+        n = stack.pop()
+        if n.get("kind") == "DeclRefExpr" and (n.get("referencedDecl") or {}).get("name") == "__builtin_next_arg":
+            return True
+        stack.extend(n.get("inner", ()))
+    return False
+
+
 def returned_calls(decl: dict, by_id: dict) -> tuple:
     """The functions (symbols) whose result a definition's `return` statements hand back as it is: the value is a
     direct call's result, through parentheses and conversions that are no instruction on the EE (between 32-bit
@@ -802,7 +847,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                 if not from_main and not decl.get("_file", "").endswith(".c"):
                     # A static function from a header is translated in every unit that has it.
                     pass
-                program.statics[(unit, sym)] = Function(sym, sig, unit, static=True, tail=tail)
+                program.statics[(unit, sym)] = Function(sym, sig, unit, static=True, tail=tail,
+                                                         arg_area=sig.variadic and uses_arg_area(decl))
                 continue
             f = program.functions.get(sym)
             if f is not None and f.unit is not None and f.unit != unit:
@@ -811,7 +857,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
             declared = f.declared if f else []
             program.functions[sym] = Function(sym, sig, unit, asm=f.asm if f else False, declared=declared, tail=tail,
                                               forwards=forwarded_params(decl, by_id),
-                                              returns=returned_calls(decl, by_id))
+                                              returns=returned_calls(decl, by_id),
+                                              arg_area=sig.variadic and uses_arg_area(decl))
         else:
             f = program.functions.get(sym)
             if f is None:
@@ -833,7 +880,10 @@ def best_declaration(sigs: list[Signature]) -> Signature:
 def read_places(path: Path, program: Program) -> int:
     """Each level function's address in each level that has it
     (config/overlays/functions.tsv of rac1/pal: name, kind, size,
-    fingerprint, levels, places as level:address,...)."""
+    fingerprint, levels, places as level:address,...; or a release's catalogue,
+    config/versions/<key>/functions.tsv: name, kind, size, fingerprint, counterpart,
+    method, similarity, same, places, whose executable places, boot:address, are the
+    name's own)."""
     if not path.exists():
         return 0
     count = 0
@@ -843,10 +893,11 @@ def read_places(path: Path, program: Program) -> int:
         cols = line.split("\t")
         if len(cols) < 6:
             continue
+        column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
         places = []
-        for item in cols[5].split(","):
+        for item in cols[column].split(","):
             level, _, addr = item.partition(":")
-            if level and addr:
+            if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
         if places:
             program.places[cols[0]] = places
@@ -882,12 +933,20 @@ def read_call_copies(path: Path, program: Program) -> int:
         row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
         program.call_copies[(caller, callee)] = row
         program.call_copies[(caller, row[0], row[3])] = row
+        if row[4]:
+            # The executable's copy's own target, which an assembly translation of the executable's
+            # copy calls (call_copy's exe_target).
+            program.call_copies.setdefault((caller, "exe", row[4]), row)
     return len(program.call_copies)
 
 
-def call_copy(program: Program, caller: str | None, callee: str):
+def call_copy(program: Program, caller: str | None, callee: str, exe_target: int | None = None):
     """call_copies.tsv's row for this call, by the callee's name or, when the C calls it by another
-    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place."""
+    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place. exe_target: the jal's target in the
+    executable's copy, for an assembly translation of it, which reaches the row by that too: USA
+    v2.00's func_002B5B38 calls its own func_US2_002E8010 there, while every level's copy calls
+    v1.01's func_002E71B8 (the level start's cutscene); called as the executable's, a level ran code
+    no level's program holds."""
     rows = getattr(program, "call_copies", None)
     if not rows or caller is None:
         return None
@@ -897,6 +956,8 @@ def call_copy(program: Program, caller: str | None, callee: str):
             row = rows.get((caller, overlay, address))
             if row is not None:
                 break
+    if row is None and exe_target is not None:
+        row = rows.get((caller, "exe", exe_target))
     return row
 
 
@@ -963,7 +1024,7 @@ def merge(into: Program, part: Program) -> list[str]:
                 continue
             declared = have.declared + f.declared
             into.functions[sym] = Function(sym, f.sig, f.unit, asm=have.asm, declared=declared, tail=f.tail,
-                                           forwards=f.forwards, returns=f.returns)
+                                           forwards=f.forwards, returns=f.returns, arg_area=f.arg_area)
         else:
             have.declared.extend(f.declared)
             if have.unit is None and have.declared:

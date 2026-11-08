@@ -28,6 +28,8 @@
 #include "enhanced/tools/baker/probe_device.h"
 #include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/tools/baker/sources/emission_prepare.h"
+#include "enhanced/tools/baker/sources/emission_review.h"
+#include "enhanced/tools/baker/sources/emission_textures.h"
 #include "enhanced/tools/baker/sources/interior_prepare.h"
 #include "enhanced/tools/baker/sources/interior_sources.h"
 #include "enhanced/tools/baker/sources/interior_stage.h"
@@ -72,6 +74,7 @@ float real(const std::string& text) {
 void usage() {
     std::cout
         << "Offline enhanced lighting bake (no game window)\n"
+        << "openrac-enhanced-baker --inspect-emissive-task LEVELS_DIR REVIEW_JSON TASK_ID\n"
         << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
         << "  --jobs N --memory-mib N\n"
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
@@ -80,6 +83,7 @@ void usage() {
         << "openrac-enhanced-baker --infer-interiors INPUT.json OUTPUT.json [SPACING]\n"
         << "openrac-enhanced-baker --prepare-level-interiors LEVEL_DIR GAMEPLAY.bin OUTPUT_DIR\n"
         << "openrac-enhanced-baker --prepare-level-emission LEVEL_DIR CATALOG.json DEFAULTS.json\n"
+        << "openrac-enhanced-baker --print-emission-fingerprint LEVEL_DIR PROFILES_DIR\n"
         << "  --threads N (optional emission hashing worker budget)\n"
         << "openrac-enhanced-baker --decode-water LEVEL_DIR\n"
         << "openrac-enhanced-baker --bake-pokitaru-coast LEVEL_DIR X Y SIZE CELL\n"
@@ -91,7 +95,7 @@ void usage() {
         << "  --batch-output DIR (prepare once, then read one JSON region plan on stdin)\n"
         << "  --prepare-interiors GAMEPLAY.bin (prepare interiors inside the batch process)\n"
         << "  --resume (with --batch-output: keep the grids a stopped bake verified)\n"
-        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 256 --bounces 3 --seed 1\n"
+        << "  --spacing 128 (or X,Y,Z) --resolution 6 --rays 128 --bounces 2 --seed 1\n"
         << "  --tracy-wait SECONDS (wait up to 120 seconds for a Tracy capture)\n"
         << "  --threads 0 (all CPU threads; 1 for serial baking, same quality)\n"
         << "  --light-set 0 --environment 0.1 (uniform fallback radiance)\n"
@@ -211,7 +215,21 @@ void water_command(int argc, char** argv) {
 // Dispatches native enhanced-baker stages and reports failures at the command-line boundary.
 int main(int argc, char** argv) {
     try {
+        if (argc == 4 && std::string_view(argv[1]) == "--print-emission-fingerprint") {
+            std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';
+            return 0;
+        }
         profiling::thread_name("Enhanced bake");
+
+        if (argc > 1 && std::string_view(argv[1]) == "--inspect-emissive-task") {
+            if (argc != 5) {
+                throw std::runtime_error(
+                    "--inspect-emissive-task requires LEVELS_DIR REVIEW_JSON TASK_ID"
+                );
+            }
+            inspect_emissive_task(argv[2], argv[3], argv[4], std::cout);
+            return 0;
+        }
 
         // One native process admits multiple levels while Python supplies preparation and plans.
         if (argc == 2 && std::string_view(argv[1]) == "--coordinate-levels") {

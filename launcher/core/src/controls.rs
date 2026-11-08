@@ -217,6 +217,31 @@ const TUNING: &[Tuning] = &[
         words: &[],
         default: "1",
     },
+    Tuning { key: "pad_rumble", label: "Vibration strength", low: 0, high: 200, words: &[], default: "100" },
+    Tuning {
+        key: "pad_rumble_style",
+        label: "Vibration style",
+        low: 0,
+        high: 0,
+        words: &["enhanced", "classic"],
+        default: "enhanced",
+    },
+    Tuning {
+        key: "pad_rumble_triggers",
+        label: "Vibration in the triggers",
+        low: 0,
+        high: 1,
+        words: &[],
+        default: "0",
+    },
+    Tuning {
+        key: "pad_rumble_phone",
+        label: "Vibrate the phone with touch controls",
+        low: 0,
+        high: 1,
+        words: &[],
+        default: "1",
+    },
 ];
 
 /// The players' keys, in the global file only, and their defaults (port/platform/players.h).

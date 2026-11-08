@@ -136,18 +136,23 @@ class Committed(unittest.TestCase):
     the copy written again from a build of that commit)."""
 
     def test_rac2_covers_its_c(self):
-        config = REPO / "port" / "game" / "rac2-ntsc" / "hostgen.json"
-        cfg = json.loads(config.read_text())
-        source = REPO / cfg["source"]
-        if not (source / "src").is_dir():
-            self.skipTest("no games/rac2/ntsc")
-        table = json.loads((config.parent / cfg["derived"]["table"]).read_text())
-        self.assertEqual(derived.uncovered(source, cfg, table), [])
+        # v1.01's table, and each other release's (its release table, release.py, in its names).
+        for game in ("rac2-ntsc", "rac2-pal", "rac2-ntsc2"):
+            config = REPO / "port" / "game" / game / "hostgen.json"
+            cfg = json.loads(config.read_text())
+            source = REPO / cfg["source"]
+            if not (source / "src").is_dir():
+                self.skipTest("no games/rac2/decomp")
+            table = json.loads((config.parent / cfg["derived"]["table"]).read_text())
+            with self.subTest(game=game):
+                self.assertEqual(derived.uncovered(source, cfg, table), [])
 
-    def test_only_rac2_has_one(self):
+    def test_only_rac2_and_rac3_have_one(self):
+        # rac3-ntsc's is its release table (release_rac3.py): the values of rac3-decomp's names
+        # that state no address of their own.
         games = sorted(p.parent.name for p in (REPO / "port" / "game").glob("*/hostgen.json")
                        if "derived" in json.loads(p.read_text()))
-        self.assertEqual(games, ["rac2-ntsc"])
+        self.assertEqual(games, ["rac2-ntsc", "rac2-ntsc2", "rac2-pal", "rac3-ntsc"])
 
 
 if __name__ == "__main__":

@@ -133,6 +133,17 @@ Two controls may share a pad input: both press. The Controls tab marks them.
 | `pad_trigger_threshold` | about `13`, `1` to `100` (percent) | How far a trigger goes before it holds its button |
 | `pad_face_buttons` | `position`, `labels` | `labels`: a pad marked Nintendo's way (A on the right) is read by its marks, so the button marked A is `PadSouth` |
 | `pad_background` | `0` (default), `1` | `1`: the controllers count while another window has the keyboard (the game alt-tabbed or minimised) |
+| `pad_rumble` | `100`, `0` (off) to `200` (percent) | Vibration strength |
+| `pad_rumble_style` | `enhanced`, `classic` | `enhanced`: tuned for modern controllers (below); `classic`: the game's raw values |
+| `pad_rumble_triggers` | `0`, `1` | `1`: also vibrate the triggers (Xbox One and later) |
+| `pad_rumble_phone` | `1`, `0` | With touch controls (Android), vibrate the phone |
+
+Vibration comes from the game itself. Going Commando and Deadlocked set the
+DualShock 2 motors through their pad library, and the port passes the
+values on. Ratchet & Clank never uses its motors, so it does not vibrate,
+just like on the PS2. `enhanced` ([rumble.h](../../port/platform/rumble.h))
+adds a short spin-up and fade to each motor and a stronger start for very
+short pulses. If the game stops sending, the pad stops within 0.25 s.
 
 The settings apply to the controller's own stick before anything reads it,
 so a stick bound to another stick or to a button is tuned the same way. The

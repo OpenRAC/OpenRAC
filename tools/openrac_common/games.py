@@ -53,38 +53,57 @@ def versions(root: Path | str | None = None) -> list[tuple[dict, str, dict]]:
 
 
 def version_dir(game: dict, name: str) -> str:
-    """Version NAME's directory, relative to the top of OpenRAC: its "dir" in game.json (rac1's
-    PAL tree is the merged games/rac1), else games/<game>/<version>."""
+    """Version NAME's directory, relative to the top of OpenRAC: its "dir" in game.json (the game's
+    decompilation, games/<game>/decomp, for a version built from it), else games/<game>/<version>."""
     return game["versions"][name].get("dir", f"games/{game['id']}/{name}")
 
 
+# The "shared" value of a version built from its game's decompilation (game.json "decomp"), the one
+# repository that holds every version of the game: rac1-decomp at games/rac1/decomp, and so on.
+DECOMP = "decomp"
+
+
+def decomp_dir(game: dict) -> str | None:
+    """The game's decompilation, relative to the top of OpenRAC (games/<game>/decomp), or None when
+    the game has none of its own (every version then has its own source, or none)."""
+    decomp = game.get(DECOMP)
+    return decomp.get("dir", f"games/{game['id']}/{DECOMP}") if decomp else None
+
+
 def source_variable(game_id: str, version_name: str) -> str:
-    """The environment variable that names a version's sister checkout, overriding game.json:
-    OPENRAC_SOURCE_<GAME>_<VERSION> in capitals (OPENRAC_SOURCE_RAC1_PAL for rac1's PAL tree)."""
+    """The environment variable that names another checkout of a version's source project, used
+    instead of its submodule: OPENRAC_SOURCE_<GAME>_<VERSION> in capitals (OPENRAC_SOURCE_RAC1_PAL;
+    the game's decompilation as a whole: OPENRAC_SOURCE_RAC1_DECOMP)."""
     return f"OPENRAC_SOURCE_{game_id}_{version_name}".upper()
 
 
 def source_checkout(game_id: str, version_name: str, root: Path | str | None = None) -> Path | None:
-    """Where version VERSION_NAME of game GAME_ID has its sister project checked out, or None when
-    its game.json names no source project.
-
-    The rule, decided by the maintainers: the variable source_variable names, when it is set and not
-    empty, else the "checkout" path of the version's "source" in game.json. game.json writes it
-    relative to the top of OpenRAC ("../rac1-decomp": the sister project cloned beside OpenRAC), so
-    it holds on every machine whatever the folder above is called; ~ is expanded too. The variable
-    is for a machine that keeps the project elsewhere. Neither is checked to exist: the caller says
-    what is missing. Raises FileNotFoundError for a game OpenRAC does not have and KeyError for a
-    version it does not have."""
-    source = load(game_id, root)["versions"][version_name].get("source")
+    """Where version VERSION_NAME of game GAME_ID has its source project checked out, or None when
+    its game.json names no source project: the variable source_variable names, when it is set and
+    not empty (a full clone kept elsewhere), else the version's directory, a git submodule of OpenRAC
+    (docs/SOURCES.md). A version built from the game's decompilation ("shared": "decomp", every
+    version of rac1-decomp, rac2-decomp and the others) gives that tree: the version's own variable,
+    else the game's (OPENRAC_SOURCE_<GAME>_DECOMP), else games/<game>/decomp. One built from
+    another version's tree ("shared": that version) gives that version's. Not checked to exist: the
+    caller says what is missing. Raises FileNotFoundError for a game OpenRAC does not have and
+    KeyError for a version it does not have."""
+    game = load(game_id, root)
+    source = game["versions"][version_name].get("source")
     if not source:
         return None
+    top = Path(root) if root is not None else repo_root()
+    if source.get("shared") == DECOMP:
+        # The version's own variable first, then the tree's, then any other version's of the same
+        # tree (OPENRAC_SOURCE_RAC1_PAL, from before the tree had a folder of its own, still names it).
+        sharing = [n for n, v in game["versions"].items() if (v.get("source") or {}).get("shared") == DECOMP]
+        for name in [version_name, DECOMP, *sharing]:
+            override = os.environ.get(source_variable(game_id, name))
+            if override:
+                return Path(override)
+        return top / decomp_dir(game)
+    if source.get("shared"):
+        return source_checkout(game_id, source["shared"], root)
     override = os.environ.get(source_variable(game_id, version_name))
-
-    # The variable wins; it is taken as given.
     if override:
         return Path(override)
-
-    # A relative path in game.json is written from the top of OpenRAC, not from where the tool runs.
-    checkout = Path(os.path.expanduser(source["checkout"]))
-    top = Path(root) if root is not None else repo_root()
-    return checkout if checkout.is_absolute() else (top / checkout).resolve()
+    return top / version_dir(game, version_name)

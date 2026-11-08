@@ -1,0 +1,215 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "aridia-green-ship-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 55,
+        "texture_path": "textures/terrain_0040.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-green-terrain-grid-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 64,
+        "texture_path": "textures/terrain_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-green-terrain-strip-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 24,
+        "texture_path": "textures/terrain_0039.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-low-fixture-lights",
+      "match": {
+        "model": "tie_1411.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 140
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-shaft-lights",
+      "match": {
+        "model": "tie_628.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 140
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-column-light-panels",
+      "match": {
+        "model": "tie_1415.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0089.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-column-light-trim",
+      "match": {
+        "model": "tie_1415.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-blue-column-light",
+      "match": {
+        "model": "tie_603.glb",
+        "material_slot": 3,
+        "texture_path": "textures/tie_0089.png"
+      },
+      "set": {
+        "emission": {
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-green-fixture-lights",
+      "match": {
+        "model": "tie_1414.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 2.25,
+          "bake_intensity": 15
+        }
+      }
+    },
+    {
+      "id": "aridia-small-green-fixture-lights",
+      "match": {
+        "model": "tie_1412.glb",
+        "material_slot": 0,
+        "texture_path": "textures/tie_0042.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 2.25,
+          "bake_intensity": 15
+        }
+      }
+    },
+    {
+      "id": "aridia-yellow-fixture-lights",
+      "match": {
+        "model": "tie_626.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0039.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/yellow-light-emission.png",
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-cyan-floor-light",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 65,
+        "texture_path": "textures/terrain_0058.png"
+      },
+      "set": {
+        "emission": {
+          "vertex_colour": true,
+          "runtime_intensity": 1.5,
+          "bake_intensity": 10
+        }
+      }
+    },
+    {
+      "id": "aridia-red-ring",
+      "match": {
+        "model": "tie_596.glb",
+        "material_slot": 4,
+        "texture_path": "textures/tie_0090.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/red-ring-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 30
+        }
+      }
+    },
+    {
+      "id": "aridia-lower-red-ring",
+      "match": {
+        "model": "tie_597.glb",
+        "material_slot": 1,
+        "texture_path": "textures/tie_0090.png"
+      },
+      "set": {
+        "emission": {
+          "texture": "materials/level/textures/red-ring-emission.png",
+          "runtime_intensity": 1,
+          "bake_intensity": 30
+        }
+      }
+    }
+  ]
+}

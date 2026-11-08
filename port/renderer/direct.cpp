@@ -95,6 +95,7 @@ void GifInterpreter::clear() {
     m_vertices.clear();
     m_draws.clear();
     m_hud_side = 0;
+    m_hud_stretch = false;
     m_whole = false;
     m_error.clear();
 }
@@ -345,7 +346,7 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
             } else if ((value >> 48) == kFrameMarker) {
                 draw_frame_snapshot();
             } else if ((value >> 48) == kHudSideMarker) {
-                hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu));
+                hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu), (value & kHudStretch) != 0);
             } else if ((value >> 48) == kWholeMarker) {
                 m_whole = (value & 1u) != 0;
                 m_state_dirty = true;
@@ -615,7 +616,7 @@ bool frame_pixel(std::uint32_t base, std::uint32_t width, int x, int y, int& fra
     return frame_y < g_draw_buffer_lines;
 }
 
-void GifInterpreter::hud_side(int side) {
+void GifInterpreter::hud_side(int side, bool stretch) {
     // Past the middle third on each side: what is across the middle is no side's. The triangles
     // are the frame's only: what the HUD draws off-screen goes with the sprite that shows it.
     // Triangles that overlap are one element and move together, or a long panel would come apart
@@ -685,6 +686,23 @@ void GifInterpreter::hud_side(int side) {
         for (std::size_t i = 0; i < triangles.size(); ++i) {
             const auto& e = extent[static_cast<std::size_t>(root(static_cast<int>(i)))];
             const float mid = (e.first + e.second) / 2.0f;
+            if (m_hud_stretch && e.first < -kMiddle && e.second > kMiddle) {
+                // A frame round the screen. A small part (a glyph, a corner) goes out whole by
+                // where it is, so it keeps its shape; a long one (an edge, a bar's fill) by each
+                // corner, so it grows to the sides. The line is a little wider than the middle
+                // third: a bar ends at a box on the middle, and both its corners there stay.
+                constexpr float kStretchMiddle = 64.0f / 256.0f;
+                const Triangle& t = triangles[i];
+                const float centre = (t.left + t.right) / 2.0f;
+                const bool whole = t.right - t.left < kMiddle;
+                for (std::uint32_t k = t.first; k < t.first + 3; ++k) {
+                    const float x = whole ? centre : m_vertices[k].x;
+                    if (std::abs(x) >= kStretchMiddle) {
+                        m_vertices[k].x += x < 0.0f ? -move : move;
+                    }
+                }
+                continue;
+            }
             if (std::abs(mid) < kMiddle) {
                 continue;
             }
@@ -694,6 +712,7 @@ void GifInterpreter::hud_side(int side) {
         }
     }
     m_hud_side = side;
+    m_hud_stretch = stretch;
     m_hud_side_first = static_cast<std::uint32_t>(m_vertices.size());
 }
 
@@ -1834,8 +1853,13 @@ void DirectRenderer::use_program(bool masked) {
 
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
-    // target. The program first: every uniform below is set for this draw.
+    // target. The program first: every uniform below is set for this draw. Apple's OpenGL on AMD
+    // GPUs ignores gl_SampleMask, so there, where Metal shares its pictures, a pixel is discarded.
+#if defined(__APPLE__)
+    const bool masked = false;
+#else
     const bool masked = s.target == 0 && render_state.target.resolve_framebuffer != 0;
+#endif
     if (masked != m_masked) {
         use_program(masked);
     }

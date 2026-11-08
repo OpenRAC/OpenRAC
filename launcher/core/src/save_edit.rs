@@ -7,10 +7,13 @@
 //!
 //! # The format
 //!
-//! Both rac1 discs (PAL `SCES_509.16`, US `SCUS_971.99`) write the same file: their descriptor
-//! tables (PAL `D_001A05C0` / `D_001A08C0`, US `0x1A04C0` / `0x1A07C0`) list the same chunks with
-//! the same ids and sizes, in the same order; only the addresses differ. So one decoder serves both,
-//! picked by the card's serial ([`edits_serial`]).
+//! All of rac1's discs (PAL `SCES_509.16`, v2.00 and v1.00, US `SCUS_971.99`, Japan `SCPS_150.37`)
+//! write the same file: their descriptor tables (PAL `D_001A05C0` / `D_001A08C0`, PAL v1.00
+//! `0x1A0440` / `0x1A0740`, US `0x1A04C0` / `0x1A07C0`, Japan `0x1A03C0` / `0x1A06C0`; 47 global and
+//! 11 level chunks) list the same chunks with the same ids and sizes, in the same order, and add
+//! up to the same section sizes (0x1530, 0xaa4); only the addresses differ. Read from each disc's
+//! executable, not run on the Japanese game. So one decoder serves all, picked by the card's
+//! serial ([`edits_serial`]).
 //!
 //! `saveN.bin` is the game's `memcard_MakeWholeSave` (US `src/storage/memory_card/
 //! memcard_make_whole_save.c`; PAL `src/game/memcard.c`):
@@ -641,7 +644,7 @@ pub fn can_land(p: usize) -> bool {
 /// Whether the editor knows the saves of the game with this disc serial: both Ratchet & Clank
 /// discs, which write the same format.
 pub fn edits_serial(serial: &str) -> bool {
-    matches!(serial, "SCES_509.16" | "SCUS_971.99")
+    matches!(serial, "SCES_509.16" | "SCUS_971.99" | "SCPS_150.37")
 }
 
 fn i32_at(b: &[u8], i: usize) -> i32 {
@@ -1150,9 +1153,11 @@ pub fn write_save(
 /// the macOS bundle's folder) and the bundle's own name.
 fn program_marks(serial: &str) -> &'static [&'static str] {
     match serial {
-        "SCES_509.16" => &["openrac-rac1-pal", "Ratchet & Clank (PAL)"],
+        "SCES_509.16" => &["openrac-rac1-pal", "openrac-rac1-pal1", "Ratchet & Clank (PAL)"],
         "SCUS_971.99" => &["openrac-rac1-ntsc", "Ratchet & Clank (NTSC)"],
-        "SCUS_972.68" => &["openrac-rac2-ntsc", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCPS_150.37" => &["openrac-rac1-jp", "Ratchet & Clank (Japan)"],
+        "SCUS_972.68" => &["openrac-rac2-ntsc", "openrac-rac2-ntsc2", "Ratchet & Clank - Going Commando (NTSC)"],
+        "SCES_516.07" => &["openrac-rac2-pal", "Ratchet & Clank - Going Commando (PAL)"],
         _ => &[],
     }
 }

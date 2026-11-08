@@ -26,7 +26,7 @@ the regression runs: [REGRESSION.md](REGRESSION.md).
   format only ([levels-format](#7-when-the-export-changes)). For a test that
   needs fresh levels, export to a scratch folder under `build/` instead of
   overwriting the player's:
-  `python3 editor/extract.py port games/rac1/baserom/SCES_509.16.iso build/NAME --level N`
+  `python3 editor/extract.py port games/rac1/decomp/baserom/SCES_509.16.iso build/NAME --level N`
   (writes level N plus the title world 99 and the flight world 98, which a
   direct start needs; about half a minute). Delete it afterwards.
 - **The data folder** (`--data`) is the launcher's install:
@@ -35,7 +35,7 @@ the regression runs: [REGRESSION.md](REGRESSION.md).
 
 ## 2. The run line
 
-From `games/rac1`:
+From `games/rac1/decomp`:
 
 ```sh
 D="$HOME/Library/Application Support/dev.openrac.launcher/active/rac1/data"

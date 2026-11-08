@@ -1241,6 +1241,25 @@ int (*g_sound_set)(std::uint32_t, float, float) = nullptr;
 void (*g_sound_stop)(std::uint32_t) = nullptr;
 void (*g_joint_offsets)(std::uint32_t, const openrac_joint_offset*, int) = nullptr;
 
+// The hero's joint offsets each mod set (hero_set_joints), in the order the mods first set theirs:
+// all of them go to the hero together, each mod's composed after the ones before it, so two mods
+// that turn his joints do not undo each other.
+struct JointSet {
+    const openrac_mod* mod = nullptr;
+    std::vector<openrac_joint_offset> joints;
+};
+
+std::vector<JointSet> g_joint_sets;
+
+// Hands every mod's joint offsets to the hero at `moby` (none: his own animation alone).
+void apply_joint_sets(std::uint32_t moby) {
+    std::vector<openrac_joint_offset> all;
+    for (const JointSet& s : g_joint_sets) {
+        all.insert(all.end(), s.joints.begin(), s.joints.end());
+    }
+    g_joint_offsets(moby, all.empty() ? nullptr : all.data(), static_cast<int>(all.size()));
+}
+
 // The mod holding the game's camera (camera_set), and the heat haze patches each mod drew, of a
 // level load, behind a lock: the front end reads them on its own thread.
 const openrac_mod* g_camera_mod = nullptr;
@@ -1280,17 +1299,42 @@ int api_hero_set_pose(openrac_mod* mod, const openrac_pose* pose) {
     return g_play->hero_set_pose(&p) != 0 ? OPENRAC_HOOK_OK : OPENRAC_HOOK_UNKNOWN;
 }
 
+// Any mod may turn the hero's joints (ports before took them only from the holder of his update
+// hook): its offsets replace its own last ones and are composed with the other mods' (g_joint_sets).
 int api_hero_set_joints(openrac_mod* mod, const openrac_joint_offset* joints, int count) {
     if (mod == nullptr || g_play == nullptr || g_play->hero_moby == nullptr
-        || g_joint_offsets == nullptr || !holds_hook(mod, g_play->hero_update_hook) || count < 0
-        || count > OPENRAC_JOINT_OFFSETS_MAX || (count > 0 && joints == nullptr)) {
+        || g_joint_offsets == nullptr || count < 0 || count > OPENRAC_JOINT_OFFSETS_MAX
+        || (count > 0 && joints == nullptr)) {
         return OPENRAC_HOOK_UNKNOWN;
     }
     const std::uint32_t moby = g_play->hero_moby();
     if (moby == 0) {
         return OPENRAC_HOOK_UNKNOWN;
     }
-    g_joint_offsets(moby, joints, count);
+    auto it = std::find_if(g_joint_sets.begin(), g_joint_sets.end(), [&](const JointSet& s) {
+        return s.mod == mod;
+    });
+    if (count == 0) {
+        if (it != g_joint_sets.end()) {
+            g_joint_sets.erase(it);
+        }
+    } else {
+        if (it == g_joint_sets.end()) {
+            it = g_joint_sets.insert(g_joint_sets.end(), JointSet{mod, {}});
+        }
+        it->joints.assign(joints, joints + count);
+    }
+    std::size_t total = 0;
+    for (const JointSet& s : g_joint_sets) {
+        total += s.joints.size();
+    }
+    if (total > OPENRAC_JOINT_OFFSETS_MAX) {
+        // More than the hero takes in all: this mod's last call is undone.
+        std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; });
+        apply_joint_sets(moby);
+        return OPENRAC_HOOK_UNKNOWN;
+    }
+    apply_joint_sets(moby);
     return OPENRAC_HOOK_OK;
 }
 
@@ -1984,6 +2028,12 @@ void reset_play() {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         g_hud.clear();
     }
+    if (!g_joint_sets.empty()) {
+        g_joint_sets.clear();
+        if (g_joint_offsets != nullptr) {
+            g_joint_offsets(0, nullptr, 0);
+        }
+    }
     touch::clear();
     stop_hero_voices(nullptr);
     if (g_camera_mod != nullptr && g_play != nullptr && g_play->camera_set != nullptr) {
@@ -2041,6 +2091,16 @@ void drop_figures(const openrac_mod* mod) {
     {
         const std::lock_guard<std::mutex> lock(g_hud_lock);
         std::erase_if(g_hud, [&](const HudTexts& h) { return h.mod == mod; });
+    }
+    if (std::erase_if(g_joint_sets, [&](const JointSet& s) { return s.mod == mod; }) != 0
+        && g_joint_offsets != nullptr) {
+        const std::uint32_t moby =
+            g_play != nullptr && g_play->hero_moby != nullptr ? g_play->hero_moby() : 0;
+        if (g_joint_sets.empty() || moby == 0) {
+            g_joint_offsets(0, nullptr, 0);
+        } else {
+            apply_joint_sets(moby);
+        }
     }
     stop_hero_voices(mod);
     if (g_camera_mod == mod) {

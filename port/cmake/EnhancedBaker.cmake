@@ -26,6 +26,8 @@ if(OPENRAC_PROBE_BAKER)
     enhanced/tools/baker/sources/emission_audit.cpp
     enhanced/tools/baker/sources/emission_catalog.cpp
     enhanced/tools/baker/sources/emission_prepare.cpp
+    enhanced/tools/baker/sources/emission_review.cpp
+    enhanced/tools/baker/sources/emission_textures.cpp
     enhanced/tools/baker/sources/interior_inputs.cpp
     enhanced/tools/baker/sources/interior_prepare.cpp
     enhanced/tools/baker/sources/interior_sources.cpp

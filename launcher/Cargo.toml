@@ -4,7 +4,8 @@
 # Tauri commands over `core`. See docs/ARCHITECTURE.md.
 [workspace]
 resolver = "2"
-members = ["core", "src-tauri"]
+members = ["core", "ios", "src-tauri"]
+default-members = ["core", "src-tauri"]
 
 [workspace.package]
 version = "1.0.2"
@@ -12,8 +13,8 @@ edition = "2021"
 publish = false
 
 [workspace.dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 
 # No LTO across crates (Rust's default, thin LTO inside each one): the launcher is a window around
 # a web page, its speed is the WebView's, and a release links in a fraction of the time (macOS links
@@ -37,4 +38,3 @@ bitreader = { opt-level = 3 }
 
 [patch.crates-io]
 zip = { git = "https://github.com/zip-rs/zip2", tag = "v4.6.1" }
-

@@ -50,6 +50,15 @@ uniform vec4 light_sets[64];
 // from the lights to it, for the record moby_light.x / 256 - 1 names. Going Commando's moby
 // program gives it no back light.
 uniform vec4 moby_point_lights[64];
+
+// MobyProc's scaling of a cross-faded light direction by VRSQRT of its squared length. A zero
+// direction (a light set with no lights, as the page menus' set 14 is until a menu fills it) stays
+// zero: the VU's reciprocal root of 0 is its largest float, and 0 times it is 0 on the console.
+// GLSL's normalize gives NaN there, and min(NaN, 2) lit the whole moby at the clamp.
+vec3 vu_unit(vec3 v) {
+    float d = dot(v, v);
+    return d > 0.0 ? v * inversesqrt(d) : vec3(0.0);
+}
 // The game's eight point lights as it holds them (colour, falloff; position, reach), added to the
 // terrain's colours when terrain_point_lit is set (Going Commando).
 uniform int terrain_point_lit;
@@ -224,8 +233,8 @@ void main() {
         if (t > 0.0) {
             ca = mix(ca, light_sets[s1], t);
             cb = mix(cb, light_sets[s1 + 2], t);
-            da = normalize(mix(da, light_sets[s1 + 1].xyz, t));
-            db = normalize(mix(db, light_sets[s1 + 3].xyz, t));
+            da = vu_unit(mix(da, light_sets[s1 + 1].xyz, t));
+            db = vu_unit(mix(db, light_sets[s1 + 3].xyz, t));
         }
         vec3 nw = normalize(normal_model * n);
         float fa = dot(-da, nw);

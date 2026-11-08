@@ -119,7 +119,7 @@ NTSC = REPO / "port" / "game" / "rac1-ntsc"
 SDK_HEADER = REPO / "sdk" / "include" / "openrac" / "games" / "rac1.h"
 OUT = REPO / "sdk" / "catalogue" / "rac1"
 PVARS_HEADER = "moby_pvars.h"
-# The decompilation's headers the struct layouts are read from (games/rac1/include).
+# The decompilation's headers the struct layouts are read from (games/rac1/decomp/include).
 TYPE_HEADERS = ("common.h", "vector.h", "moby.h", "hero.h", "pad.h", "records.h", "structs.h")
 CLASSES_FORMAT = 1  # classes.json: raised only when a field changes meaning or goes
 KEYWORDS = {"if", "while", "for", "switch", "return", "sizeof", "do", "else", "case"}
@@ -707,7 +707,7 @@ def render_md(cat: dict) -> str:
         "one class. A mod that takes a shared function sees every class it serves, so it tells them apart by",
         f"the moby's class number: **`{cls['type']} {cls['name']}` at +{cls['offset']:#x}** of the moby",
         f"(`*(int16_t*)(api->memory + moby + {cls['offset']:#x})`, struct Moby in",
-        "[games/rac1/include/moby.h](../../../games/rac1/include/moby.h)).",
+        "[games/rac1/decomp/include/moby.h](../../../games/rac1/decomp/include/moby.h)).",
         "",
         "| The update functions | |", "|---|---:|",
         *[f"| {_SRC[k]} | {v} |" for k, v in src.items()],
@@ -719,7 +719,7 @@ def render_md(cat: dict) -> str:
         f"| without C in the port (stubs) | {hs.get('needs_c', 0)} |",
         "",
         f"{n['classes_with_pvar_struct']} classes have a typed pvar struct ({n['pvar_structs']} structs): the",
-        "Wrench-derived ones of [moby_pvars.h](../../../games/rac1/include/moby_pvars.h), and those the update",
+        "Wrench-derived ones of [moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h), and those the update",
         "function's own C reads its pvars as (a struct of the C gives the part of the pvars that C names,",
         "so its size is a lower bound).",
         "",
@@ -759,7 +759,7 @@ def render_md(cat: dict) -> str:
     out += ["## Update functions", "",
             "One row per function. **Classes**: the classes it updates (more than one: filter on the class",
             f"field, +{cls['offset']:#x}). **Levels**: where its code is placed. **C**: where the port gets its C",
-            "(decomp: games/rac1/src; candidate: nonmatching/; hand: the port's own; assembly: translated from",
+            "(decomp: games/rac1/decomp/src; candidate: nonmatching/; hand: the port's own; assembly: translated from",
             "its instructions). **Hook**: the hook point, or the name proposed for one and what it needs.",
             "**Calls**: the game functions its C calls that are not engine maths helpers, first ten.", "",
             "| Function | Name | Classes | Levels | C | Signature | Hook | Pvars | Calls |",

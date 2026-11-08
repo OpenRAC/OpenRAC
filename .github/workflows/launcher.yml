@@ -38,6 +38,8 @@ on:
       - "editor/**"
       - "games/rac1/**"
       - "games/rac2/**"
+      - ".gitmodules"
+      - ".github/actions/decomp-sources/**"
       - "tools/asm_part.py"
       - "tools/bundle_standalone.py"
       - "tools/build_game.py"
@@ -60,7 +62,9 @@ permissions:
 
 concurrency:
   group: launcher-${{ github.ref }}
-  cancel-in-progress: true
+  # develop and master finish the build in progress (it publishes their dev release); the newest
+  # push waits behind it. Other branches still cancel an older run.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/master' }}
 
 jobs:
   # A branch build's version, worked out once for every build and the rolling release. Each used to
@@ -85,7 +89,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Fedora's row runs in Fedora itself; the others on the runner.
     container: ${{ matrix.container }}
-    timeout-minutes: 60
+    # A row's own limit where its build is longer (timeout, below), else an hour.
+    timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
       NAME: ${{ matrix.name }}
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -106,8 +111,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Every game's programs, Going Commando's three among them, with link-time optimisation
+          # on a four-core runner: with a cold compiler cache the build alone is about two hours
+          # (half its compiles were done when an hour's limit stopped it, 2026-11-07). A warm cache
+          # takes it under half an hour. The programs are built here and not in jobs of their own:
+          # tools/bundle_standalone.py and tools/asm_part.py read them in the build's own folder.
           - name: windows
             os: windows-latest
+            timeout: 180
             python: x86_64-pc-windows-msvc
             python_sha256: 11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a
             tauri: build
@@ -168,8 +179,12 @@ jobs:
           # APK, signed with the launcher's own key when the repository has it (the
           # ANDROID_KEYSTORE secrets: updates install only over an APK of the same key), else
           # with the runner's debug key; the device tests are in port/android/README.md.
+          # Every game's libraries, twice each (the game's and its windowless checks'): with a cold
+          # compiler cache about an hour and a quarter (four fifths done at an hour, 2026-11-07);
+          # tools/build_android.py builds and collects them in one folder.
           - name: android
             os: ubuntu-latest
+            timeout: 120
             targets: aarch64-linux-android
             tauri: android build --apk --target aarch64 --debug
             files: launcher/src-tauri/gen/android/app/build/outputs/apk/*/debug/OpenRAC*.apk*
@@ -190,6 +205,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         if: matrix.name != 'fedora'
         with:
@@ -227,7 +243,7 @@ jobs:
             !port/build/**/*.o
             !port/build/**/*.obj
             !port/build/**/*.pdb
-          key: port-${{ matrix.name }}-h${{ hashFiles('games/rac1/src/**', 'games/rac1/include/**', 'games/rac1/config/**', 'games/rac1/ntsc/src/**', 'games/rac1/ntsc/include/**', 'games/rac1/ntsc/config/**', 'games/rac2/**', 'port/game/**', 'port/tools/hostgen/*.py', 'port/tools/hostgen/include/**', 'port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json') }}
+          key: port-${{ matrix.name }}-h${{ hashFiles('games/rac1/decomp/src/**', 'games/rac1/decomp/include/**', 'games/rac1/decomp/config/**', 'games/rac1/ntsc-decomp/src/**', 'games/rac1/ntsc-decomp/include/**', 'games/rac1/ntsc-decomp/config/**', 'games/rac2/**', 'port/game/**', 'port/tools/hostgen/*.py', 'port/tools/hostgen/include/**', 'port/**/CMakeLists.txt', 'port/cmake/**', 'port/CMakePresets.json') }}
           restore-keys: |
             port-${{ matrix.name }}-h
 
@@ -328,12 +344,14 @@ jobs:
         run: |
           # Windows also carries Going Commando built without the disc, as the APK does: the player's
           # computer builds what is missing with the Zig it carries (the next step, tools/asm_part.py).
-          games="rac1-pal rac1-ntsc"
-          if [ "$NAME" = windows ]; then games="$games rac2-ntsc"; fi
-          python tools/build_port.py $games --preset standalone --probe-baker || {
+          # --require-baker: a baker that cannot be built (Embree) fails here with its reason, not
+          # later as a copy without openrac-enhanced-baker.
+          games="rac1-pal rac1-ntsc rac1-pal1 rac1-jp"
+          if [ "$NAME" = windows ]; then games="$games rac2-ntsc rac2-pal rac2-ntsc2"; fi
+          python tools/build_port.py $games --preset standalone --require-baker || {
             echo "::warning::building again with a fresh configuration"
             rm -rf port/build/standalone/CMakeCache.txt port/build/standalone/CMakeFiles
-            python tools/build_port.py $games --preset standalone --probe-baker
+            python tools/build_port.py $games --preset standalone --require-baker
           }
 
       - name: Zig and the kit for Going Commando's part (Windows)
@@ -353,16 +371,19 @@ jobs:
           zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[3])
           PY
           echo "PART_ZIG=$RUNNER_TEMP/zig/$name" >> "$GITHUB_ENV"
-          python tools/asm_part.py kit rac2-ntsc --build port/build/standalone --out "$RUNNER_TEMP/kit" \
-            --windows-zig "$RUNNER_TEMP/zig/$name"
-          OPENRAC_PART_ZIG="$RUNNER_TEMP/zig/$name/zig.exe" python tools/asm_part.py check rac2-ntsc \
-            --kit "$RUNNER_TEMP/kit" --out "$RUNNER_TEMP/kit-check"
+          # Going Commando's three discs, each its own program and kit.
+          for game in rac2-ntsc rac2-pal rac2-ntsc2; do
+            python tools/asm_part.py kit $game --build port/build/standalone --out "$RUNNER_TEMP/kit-$game" \
+              --windows-zig "$RUNNER_TEMP/zig/$name"
+            OPENRAC_PART_ZIG="$RUNNER_TEMP/zig/$name/zig.exe" python tools/asm_part.py check $game \
+              --kit "$RUNNER_TEMP/kit-$game" --out "$RUNNER_TEMP/kit-check-$game"
+          done
 
       - name: A Python for the tools
         if: matrix.name != 'android'
         run: |
           file="cpython-${PYTHON_VERSION}+${PYTHON_RELEASE}-${PYTHON}-install_only_stripped.tar.gz"
-          curl -sSfL -o "$RUNNER_TEMP/python.tar.gz" \
+          curl -sSfL --retry 5 --retry-delay 5 -o "$RUNNER_TEMP/python.tar.gz" \
             "https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_RELEASE}/${file}"
           python - "$RUNNER_TEMP/python.tar.gz" "$PYTHON_SHA256" <<'PY'
           import hashlib, sys
@@ -376,7 +397,10 @@ jobs:
         if: matrix.name != 'android'
         run: |
           part=()
-          if [ "$NAME" = windows ]; then part=(--asm-part-kit "$RUNNER_TEMP/kit" --part-zig "$PART_ZIG"); fi
+          if [ "$NAME" = windows ]; then
+            part=(--part-zig "$PART_ZIG")
+            for game in rac2-ntsc rac2-pal rac2-ntsc2; do part+=(--asm-part-kit "$RUNNER_TEMP/kit-$game"); done
+          fi
           python tools/bundle_standalone.py "$COPY" --game-build port/build/standalone \
             --python "$RUNNER_TEMP/python/python" "${part[@]}"
           # Its own Python runs its own tools, and the game starts far enough to say what it is.
@@ -405,9 +429,11 @@ jobs:
           # Going Commando is carried, with what builds its part from the player's disc: the copy's
           # own tools run the kit's check with the copy's own Zig.
           if [ "$NAME" = windows ]; then
-            "$COPY/port/build/release/openrac-rac2-ntsc.exe" --help || true
-            "$py" "$COPY/tools/asm_part.py" check rac2-ntsc --kit "$COPY/port/asm-part/rac2-ntsc" \
-              --out "$RUNNER_TEMP/copy-check"
+            for game in rac2-ntsc rac2-pal rac2-ntsc2; do
+              "$COPY/port/build/release/openrac-$game.exe" --help || true
+              "$py" "$COPY/tools/asm_part.py" check $game --kit "$COPY/port/asm-part/$game" \
+                --out "$RUNNER_TEMP/copy-check-$game"
+            done
             for dll in msvcp140.dll msvcp140_2.dll vcruntime140.dll vcruntime140_1.dll; do
               [ -f "$COPY/port/build/release/$dll" ] || { echo "the copy carries no $dll"; exit 1; }
             done
@@ -451,7 +477,10 @@ jobs:
           }
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
+                     libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
                      libopenrac-python.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
@@ -594,7 +623,10 @@ jobs:
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
-                     libopenrac-rac1-ntsc-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
+                     libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
+                     libopenrac-rac2-pal.so libopenrac-rac2-pal-cli.so \
+                     libopenrac-rac2-ntsc2.so libopenrac-rac2-ntsc2-cli.so \
                      libopenrac-zig.so libSDL3.so libc++_shared.so libopenrac-python.so \
                      libpython3.13.so libhook_impl.so libmain_hook.so libfile_redirect_hook.so \
                      libgsl_alloc_hook.so libopenrac_launcher_lib.so; do

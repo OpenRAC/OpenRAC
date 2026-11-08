@@ -362,6 +362,83 @@ void test_quick_tap() {
     pump(input);
 }
 
+// What a virtual gamepad's motors were last told.
+struct Felt {
+    Uint16 low = 0;
+    Uint16 high = 0;
+    int calls = 0;
+};
+
+Felt g_felt;
+
+SDL_JoystickID attach_rumble(const char* name) {
+    SDL_VirtualJoystickDesc desc;
+    SDL_INIT_INTERFACE(&desc);
+    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
+    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+    desc.name = name;
+    desc.Rumble = [](void*, Uint16 low, Uint16 high) {
+        g_felt.low = low;
+        g_felt.high = high;
+        ++g_felt.calls;
+        return true;
+    };
+    return SDL_AttachVirtualJoystick(&desc);
+}
+
+// The game's motor commands reach the player's gamepad, stop when the game stops renewing them,
+// follow the player's strength, and a pad unplugged while it shakes is let go.
+void test_rumble() {
+    Input input;
+    play_in_background(input);
+    const SDL_JoystickID a = attach_rumble("Rumble pad");
+    pump(input);
+    g_felt = {};
+    input.set_motors(0, {true, 255});
+    input.update();
+    CHECK(g_felt.calls >= 1);
+    CHECK(g_felt.low > 0xC000);
+    CHECK(g_felt.high > 0x8000);
+    CHECK(input.motors(0) == (openrac::platform::MotorCommand{true, 255}));
+    // Held: the pad is not told again every frame, only when it changes or to renew it.
+    input.set_motors(0, {true, 255});
+    input.update();
+    input.set_motors(0, {true, 255});
+    input.update();
+    const int steady = g_felt.calls;
+    input.set_motors(0, {true, 255});
+    input.update();
+    CHECK(g_felt.calls <= steady + 1);
+    // The game stops asking: within a few frames past the hold, the motors are at rest.
+    SDL_Delay(250);
+    for (int i = 0; i < 40; ++i) {
+        input.update();
+        SDL_Delay(16);
+    }
+    CHECK(g_felt.low == 0 && g_felt.high == 0);
+    CHECK(input.rumble_output(0).silent());
+    // Off: nothing reaches the pad.
+    Bindings bindings = input.bindings(0);
+    bindings.tuning.rumble.strength = 0;
+    input.set_bindings({bindings, input.bindings(1)});
+    input.set_motors(0, {true, 255});
+    input.update();
+    CHECK(g_felt.low == 0 && g_felt.high == 0);
+    bindings.tuning.rumble.strength = 100;
+    input.set_bindings({bindings, input.bindings(1)});
+    // Unplugged while it shakes: nothing is sent to it, and the port starts afresh.
+    input.set_motors(0, {false, 200});
+    input.update();
+    CHECK(g_felt.low > 0);
+    SDL_DetachVirtualJoystick(a);
+    pump(input);
+    input.set_motors(0, {false, 200});
+    input.update();
+    input.stop_rumble();
+    CHECK(input.rumble_output(0).silent());
+}
+
 }  // namespace
 
 int main() {
@@ -379,6 +456,7 @@ int main() {
     test_hold_back_held();
     test_unfocused();
     test_quick_tap();
+    test_rumble();
     SDL_Quit();
     return openrac::test::result();
 }

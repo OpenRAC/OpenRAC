@@ -16,6 +16,7 @@
 #include "renderer/gl.h"
 #include "renderer/precise_depth.h"
 #include "renderer/render_opt.h"
+#include "renderer/world/fog.h"
 #include "renderer/world/gl_world.h"
 #include "renderer/world/gs_pass.h"
 #include "renderer_shaders.h"
@@ -741,6 +742,8 @@ void LevelScene::release() {
         glDeleteBuffers(1, &model.indices);
     }
     m_pvs_models.clear();
+    m_terrain_far.clear();
+    m_terrain_chunk = -1;
     m_cpu_indices.clear();
     // Nothing to choose from until the next level (choose_scenery).
     m_scenery = {};
@@ -757,17 +760,15 @@ void LevelScene::release() {
 void LevelScene::set_fog(
     const std::array<float, 3>& colour, float near_depth, float far_depth, float near_f, float far_f
 ) {
-    // UpdateViewContext's terms (renderer/world/fog.h): F = depth x slope + offset, clamped to
-    // [far F, near F]. Equal depths or no fog asked for (both F 255) leave it off.
-    const float range = far_depth - near_depth;
-    if (!(range > 0.0f) || (near_f >= 255.0f && far_f >= 255.0f)) {
+    // UpdateViewContext's terms, clamped as the programs clamp them (renderer/world/fog.h). Equal
+    // depths or a fog that fogs nothing (far F 255) leave it off.
+    const auto params = renderer::world::scene_fog_params(near_depth, far_depth, near_f, far_f);
+    if (!params) {
         m_fog_colour = {colour[0], colour[1], colour[2], 0.0f};
         return;
     }
-    const float slope = (far_f - near_f) / range;
-    const float offset = (near_f * far_depth - far_f * near_depth) / range;
     m_fog_colour = {colour[0], colour[1], colour[2], 1.0f};
-    m_fog_params = {slope, offset, std::min(near_f, far_f), std::max(near_f, far_f)};
+    m_fog_params = *params;
 }
 
 bool LevelScene::batches_opaque_colour() const {
@@ -914,8 +915,14 @@ void LevelScene::draw_layer(
         stats::probe("OPENRAC_PVS_OFF", "Profiling reference: disable baked camera visibility");
     // Shadow casters can lie outside the gameplay camera's baked visibility set.
     const bool skip_pvs = pvs_off || shadow_inspection;
-    const auto pvs_mask = skip_pvs ? Pvs::all_visible() : m_pvs.follow(cull_camera.position);
-    const bool use_pvs = !skip_pvs && !m_pvs.grid.empty();
+    // A game that gives its own frame mask needs no baked grid (Going Commando's, whose levels
+    // have none exported): Pvs::follow takes the game's there.
+    const bool use_pvs = !skip_pvs && (!m_pvs.grid.empty() || m_pvs.game.has_value());
+    auto pvs_mask = Pvs::all_visible();
+    if (use_pvs) {
+        pvs_mask = input.keep_pvs_history ? m_pvs.follow(cull_camera.position)
+                                          : m_pvs.select(cull_camera.position);
+    }
     const bool gpu = gpu_driven();
     const bool cache_visibility =
         gpu && (state.depth_prepass || state.reuse_prepass_depth)
@@ -1565,7 +1572,17 @@ void LevelScene::draw_layer(
                     cached.rejected = 0;
                     std::vector<std::uint32_t> visible_indices;
                     for (const auto& primitive : *primitives) {
-                        if (!Pvs::visible(pvs_mask, primitive.occlusion)) {
+                        const auto fragment = static_cast<std::size_t>(primitive.terrain_fragment);
+                        // Another streamed chunk than the game's: not drawn (move_scenery).
+                        if (primitive.terrain_fragment >= 0 && m_terrain_chunk >= 0
+                            && primitive.terrain_chunk != m_terrain_chunk) {
+                            ++cached.rejected;
+                            continue;
+                        }
+                        const bool far = primitive.terrain_fragment >= 0
+                                         && fragment < m_terrain_far.size()
+                                         && m_terrain_far[fragment];
+                        if (far || !Pvs::visible(pvs_mask, primitive.occlusion)) {
                             ++cached.rejected;
                             continue;
                         }
@@ -1664,7 +1681,7 @@ void LevelScene::draw_layer(
         stats::gauge(
             name + " primitive passes culled", static_cast<double>(pvs_primitives_rejected)
         );
-        stats::gauge("pvs enabled", !pvs_off && !m_pvs.grid.empty() ? 1 : 0);
+        stats::gauge("pvs enabled", !pvs_off && (!m_pvs.grid.empty() || m_pvs.game) ? 1 : 0);
     }
     if (cut) {
         glDisable(GL_CLIP_DISTANCE0);

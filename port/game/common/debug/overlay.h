@@ -25,6 +25,7 @@
 #include <filesystem>
 #include <format>
 #include <imgui.h>
+#include <optional>
 #include <set>
 #include <span>
 #include <string>
@@ -60,6 +61,12 @@ constexpr std::array<const char*, kSectionCount> kSectionNames =
 
 // Developer menu and renderer-panel controls share the same opt-in camera settings.
 void camera_tools_controls();
+void place_review_camera(int level, scene::Vec3 position, scene::Vec3 forward);
+void meat_proxy_review_window(const Shown& shown);
+
+inline renderer::Vec3 camera_forward(const renderer::Camera& camera) {
+    return {-camera.view[2], -camera.view[6], -camera.view[10]};
+}
 
 // The pad's buttons by bit (active low in the report).
 constexpr std::array<const char*, 16> kButtonNames =
@@ -232,6 +239,7 @@ struct State {
     int material_slot = -1;              // Pending click-picker material.
     std::string material_error;          // Persistent edit/save diagnostics.
     bool enhanced_settings = false;  // Independent Enhanced Settings window.
+    bool meat_proxy_review = false;
     ControlsMenu controls;           // the menu's Controls tab
     bool inspector = false;      // the moby inspector window is open
     bool labels = false;         // the mobys' classes written in the picture
@@ -250,7 +258,7 @@ struct State {
     std::uint32_t used_pages = 0;             // the 4 KB pages holding data, in all the cells
 
     // Screenshots of the window, with the overlay.
-    std::string shot_path;         // write the next frame there
+    std::optional<std::uint64_t> shot_tick;  // write the next frame under this tick's name
     std::uint64_t shot_every = 0;  // OPENRAC_OVERLAY_SHOT=N:PREFIX
     std::string shot_prefix;       // the start of their file names
     std::uint64_t shot_from = 0;   // OPENRAC_SHOT_FROM: the first tick written
@@ -426,7 +434,7 @@ void inspector_window();
 
 // Draws the game section: the level, the hero, the camera, the pad, the calls to functions without
 // C, and the probes' switches. Defined in debug/game.cpp.
-void game_section();
+void game_section(const Shown& shown);
 
 // Returns the folder the shaders are read again from: OPENRAC_SHADER_DIR when it is set, otherwise
 // the port folder the build read them from (common/stats.h), empty when none was built in.
@@ -443,14 +451,9 @@ void shaders_section();
 // Defined in debug_overlay.cpp.
 void set_visible(bool on);
 
-// Returns the file name for a screenshot of the window at `tick`: in the working folder; on
-// Android, whose apps run in "/" (not writable), in the app's own files (HOME, which the launcher
-// sets), the folder made when it is missing. Defined in debug_overlay.cpp.
-std::string shot_name(std::uint64_t tick);
-
 // ---- The touch handling, the drawer, the menus and their controls ----
 
-// Says whether the drawer is offered: always on Android, elsewhere when OPENRAC_DRAWER=1. With it
+// Says whether the drawer is offered: always on Android/iOS, elsewhere when OPENRAC_DRAWER=1. With it
 // the menus are the drawer's and the panel has no keys to name. Defined in debug/touch.cpp.
 bool drawer_possible();
 
@@ -572,6 +575,7 @@ Result<const char*> read_scripted_action(const char*, ScriptedInput&);
 // Delivers due held/drag actions only inside the game, without moving the operating system cursor.
 void refresh_scripted_pointer();
 void run_script(std::uint64_t frame, int held);
+void release_scripted_pointer(const SDL_Event& event);
 // Initial inline actions, or an explicit @file whose append-only actions are polled only in diagnostics.
 void configure_scripted_input(std::string_view text);
 // Inspect the click selection without borrowing game graphics objects or moving its camera.

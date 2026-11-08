@@ -38,9 +38,23 @@ enum class EffectPart : std::uint8_t {
     Rest,     // the strips that are not, then every quad
 };
 
+// Whether a strip drawn under TEST writes Z: not when its alpha test never passes and its AFAIL
+// keeps only the colour.
+bool test_writes_z(std::uint64_t test);
+
 // A strip drawn as a solid surface: ALPHA 0x64 ((Cs - Cd) FIX + Cd) with FIX above 0x60, under a
 // TEST that writes Z.
 bool liquid_strip(std::uint64_t alpha, std::uint64_t test);
+
+// Whether a strip sent before the world's mobys writes Z, as far as its list shows: a solid one
+// (liquid_strip), or one whose list set ZBUF without ZMSK or alpha-tests what it draws (Dobbo's
+// water, TEST 0x5310B). Not when ZBUF masks it, its TEST writes none, or the list gave neither
+// (Oozla's additive water shine, ALPHA 0x48, TEST 0x513F0: Z there cut the bolts' glows in half).
+bool before_mobys_writes_z(const EffectStrip& strip);
+
+// A strip the liquids' pass draws: a solid one (liquid_strip), or one the game sent before the
+// world's mobys (EffectStrip::before_mobys), drawn where the game drew it.
+bool liquid_pass_strip(const EffectStrip& strip);
 
 // A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
 struct EffectMesh {

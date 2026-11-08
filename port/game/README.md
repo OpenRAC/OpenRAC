@@ -1,16 +1,19 @@
 # The games
 
 Each game version the port builds is a directory here, named as its
-decompilation is under `games/` (`games/rac1` is `rac1-pal`). The build
+decompilation is under `games/` (`games/rac1/decomp` is `rac1-pal`). The build
 makes `openrac-<id>` for every one whose decompilation is present:
 
 | Directory | Game | Decompilation | Entry (`main`) | Library table |
 |---|---|---|---|---|
-| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
-| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); plays, like rac1-pal |
-| [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/ntsc` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
-| rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/ntsc` (without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own) | not known yet | empty |
-| rac4-ntsc | Deadlocked (NTSC-U) | `games/rac4/ntsc` | not known yet | its libc, from `config/libc.tsv` |
+| [rac1-pal](rac1-pal/README.md) | Ratchet & Clank (PAL) | `games/rac1/decomp` | `func_0012DB18` | complete, from [the survey](../../docs/port/RAC1_PAL_SURVEY.md) |
+| [rac1-ntsc](rac1-ntsc/README.md) | Ratchet & Clank (NTSC-U) | `games/rac1/ntsc-decomp` | `FUN_0012d9d8` | carried from rac1-pal's ([versionmap](../tools/versionmap/README.md)); plays, like rac1-pal |
+| [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/decomp` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
+| rac2-pal | Going Commando (PAL, *Locked and Loaded*) | `games/rac2/decomp` through its release view ([rac2](rac2/README.md)): `src/` and `src/pal`, PAL's catalogues | `func_00131B48` (v1.01's crt0 `func_00131AE8` at PAL's address) | rac2-ntsc's, carried by `release_carry.py` |
+| rac2-ntsc2 | Going Commando (USA v2.00, Greatest Hits) | `games/rac2/decomp` through its release view: `src/` and `src/us2` | `func_00131AE8` | rac2-ntsc's, carried |
+| rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/decomp` through its NTSC-U view (`src/` and `src/us`, renamed to NTSC-U's addresses by `release_names.json`, from rac3-decomp's `config/us/map.tsv` and `config/us/names.tsv`: [release_rac3.py](../tools/hostgen/release_rac3.py)); without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own | not known yet | empty |
+| rac3-pal | Up Your Arsenal (PAL) | `games/rac3/decomp` as it is, in PAL's own names (`src/boot_elf`, `src/frontbin`; no release table); without `i5bootn`; the menu, `frontbin`, as a group of its own; the NTSC-U drafts only where PAL's code is the same (`candidates_left_out` names the rest) | not known yet | empty |
+| rac4-ntsc | Deadlocked (NTSC-U) | `games/rac4/decomp` | not known yet | its libc, from `config/libc.tsv` |
 
 Everything else is shared: game memory and the guest contract
 ([runtime](../runtime)), the translator ([hostgen](../tools/hostgen/README.md)),
@@ -129,4 +132,6 @@ data word).
 4. If its levels load their own programs (overlays), give it an overlay hook
    as rac1 does ([rac1/host/boot.c](rac1/host/boot.c)).
 
-A new game version is a new directory with these files; the build finds it.
+A new game version is a new directory with these files; the build finds it. A release that a
+decompilation builds from another release's C (Going Commando's PAL and v2.00) reads it through a
+release view instead of names of its own ([rac2](rac2/README.md)).

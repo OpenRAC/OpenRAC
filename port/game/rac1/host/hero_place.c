@@ -23,11 +23,12 @@
  * Invulnerability is the game's own count, the hurt hero's blinking one (Hero.invulnerable_frames,
  * +0x1C0), down a tick.
  */
+#include "hero_place.h"
+
 #include <math.h>
 
-#include "hero_place.h"
 #include "openrac/host_env.h"
-#include "pose_anim.h"
+#include "openrac/pose_anim.h"
 #include "rac1.h"
 
 #define LEVEL_MODE OPENRAC_LDATA(0, RAC1_LADDR(00, 0x0015F6A8u))

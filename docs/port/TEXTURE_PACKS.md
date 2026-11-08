@@ -15,7 +15,9 @@ gives the game (`--data`) and the game id is the port's:
 |---|---|
 | Ratchet & Clank (PAL) | `rac1-pal` |
 | Ratchet & Clank (NTSC-U) | `rac1-ntsc` |
-| Going Commando (NTSC-U) | `rac2-ntsc` |
+| Going Commando (USA v1.01) | `rac2-ntsc` |
+| Going Commando (USA v2.00) | `rac2-ntsc2` |
+| Going Commando (Europe) | `rac2-pal` |
 
 Every `.png` in it or in its sub-folders whose name is a texture's hash is
 used; other files are left alone, and the folders are only for you. The

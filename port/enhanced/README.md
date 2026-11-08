@@ -153,7 +153,7 @@ surfaces within a brightness cap. It needs valid probe coverage, adds no samples
 leaves emission, diagnostics, UI and blended effects unchanged. Ratchet, attachments, pickups,
 crates, enemies, NPCs and tool targets use the class list in `port/game/rac1/gameplay_lighting.h`;
 Going Commando's identified ones (Ratchet, the vendor, crates, the ammo pickup) are its profile's
-(`port/game/rac2-ntsc/profile.cpp`).
+(`port/game/rac2/profile.cpp`).
 Enhanced Settings toggles it; Advanced saves live strength/falloff controls. Higher falloff
 narrows the edge. Reflections stay separate from diffuse texture/vertex tint, including chrome
 overlays such as Clank's, keeping dark materials readable.

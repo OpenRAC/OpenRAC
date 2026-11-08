@@ -9,8 +9,12 @@
 //! bit `id & 7`. Scene ids are numbered by level (the first id of each level's scenes is the table at
 //! 0x1AD030: Smolg 137, Damosel 143, Grelbin 150, Yeedil 155). Each flag names the function that
 //! reads it in `launcher/docs/RAC2_SAVE_FORMAT.md`, "Advanced: progress flags, Smolg to the Museum".
+//!
+//! The Electrolyzer puzzles ([`super::electrolyzer`]) are also the board's moby count (chunk 3005)
+//! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
+//! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{Confidence, Flag, Place};
+use super::{count, electrolyzer, Confidence, Flag, Place};
 
 /// A story byte (chunk 5): set is 1, as the game writes it.
 const fn story(offset: usize) -> Place {
@@ -40,6 +44,15 @@ pub const FLAGS: &[Flag] = &[
         place: scene(137),
         confidence: Confidence::FromCode,
     },
+    electrolyzer(
+        "smolg-electrolyzer",
+        17,
+        "Electrolyzer puzzle solved",
+        "The board that powers the lift beside it (moby 32). Off, the lift waits and the board can be \
+         played again.",
+        &[count(17, 32)],
+        Confidence::Proven,
+    ),
     // Damosel (18)
     Flag {
         id: "damosel-hypnomatic-part",
@@ -90,6 +103,16 @@ pub const FLAGS: &[Flag] = &[
         place: scene(154),
         confidence: Confidence::FromCode,
     },
+    // Yeedil (20)
+    electrolyzer(
+        "yeedil-electrolyzer",
+        20,
+        "Electrolyzer puzzle solved",
+        "The board that powers the lift beside it (moby 26). Off, the lift waits and the board can be \
+         played again.",
+        &[count(20, 26)],
+        Confidence::Proven,
+    ),
     // Damosel Orbit (23)
     Flag {
         id: "damosel-orbit-battle-won",

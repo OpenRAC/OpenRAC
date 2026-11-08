@@ -12,7 +12,7 @@
 #ifndef SDATA
 #define SDATA(symbol) __asm__(#symbol)
 #endif
-/* functional: high. Checked against the US assembly (games/rac1/ntsc/build/baseline/config/us/expected/asm/assembly/textbin/fun_001fa328/FUN_001fa328.s):
+/* functional: high. Checked against the US assembly (games/rac1/ntsc-decomp/build/baseline/config/us/expected/asm/assembly/textbin/fun_001fa328/FUN_001fa328.s):
  * lqc2 of src into vf4..vf6 and of b into vf1..vf3 before anything is stored, mula/madda/madd per column,
  * sqc2 of vf1..vf3 to out. Both inputs are copied first, as the VU reads all of them before it writes, so
  * out may alias src or b. */

@@ -1300,7 +1300,6 @@ mod tests {
         drop(held);
         assert!(ChangeLock::take(dir.path()).is_ok());
     }
-    use sha2::{Digest, Sha256};
     use std::cell::RefCell;
     use std::collections::HashMap;
 
@@ -1360,7 +1359,7 @@ mod tests {
     }
 
     fn sha(bytes: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     /// Publishes mod `id` in OpenRAC/rac1-mods under its own tag, as the repository's workflow does,
@@ -1407,7 +1406,7 @@ mod tests {
             version: "pal",
             platform: Some(here()),
             fetch,
-            hosts: remote::Hosts { api: API.into(), raw: RAW.into() },
+            hosts: remote::Hosts { api: API.into(), raw: RAW.into(), ..Default::default() },
         }
     }
 
@@ -2174,7 +2173,7 @@ mod tests {
         w.write_all(script.to_string().as_bytes()).unwrap();
         w.start_file("repo-abc/swap/main.luau", o).unwrap();
         w.write_all(b"-- hello").unwrap();
-        fx.put(&format!("{API}/repos/OpenRAC/rac1-mods/zipball/{commit}"), w.finish().unwrap().into_inner());
+        fx.put(&format!("https://github.com/OpenRAC/rac1-mods/archive/{commit}.zip"), w.finish().unwrap().into_inner());
         let m = SetMod {
             id: "swap".into(),
             version: "1.0.0".into(),

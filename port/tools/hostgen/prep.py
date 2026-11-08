@@ -594,7 +594,8 @@ def own_records(text: str, tag: str) -> str:
         while at < len(text) and depth:
             depth += (text[at] == "{") - (text[at] == "}")
             at += 1
-        name = re.match(r"\s*(\w+)\s*;", text[at:])
+        # `} V4;`, or with attributes first (`} __attribute__((aligned(16))) V4;`, rac3's)
+        name = re.match(r"\s*(?:__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)\s*)*(\w+)\s*;", text[at:])
         if name:
             names.append(name.group(1))
     names += [m.group(1) for m in _RECORD_TAG.finditer(text)]
@@ -864,11 +865,29 @@ def apply_decomp_workarounds(rel: str, text: str) -> str:
     return text
 
 
+def readable_names(aliases: dict[str, str], release) -> dict[str, list[str]]:
+    """The primary release's address name -> the readable names that stand for it (ALIASES' values
+    are the release's names; RELEASE names the primary's)."""
+    if not aliases:
+        return {}
+    if getattr(release, "_readable", None) is None or release._readable[0] is not aliases:
+        by_new: dict[str, list[str]] = {}
+        for readable, address in aliases.items():
+            by_new.setdefault(address, []).append(readable)
+        primary: dict[str, list[str]] = {}
+        names = {v: k for k, v in release.names.items()}
+        for new, readable in by_new.items():
+            primary[names.get(new, new)] = readable
+        release._readable = (aliases, primary)
+    return release._readable[1]
+
+
 def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
               candidates: dict[str, str] | None = None, used: set[str] | None = None,
               drafts: tuple[str, set[str]] | None = None, prefix: str = "",
               aliases: dict[str, str] | None = None, long_long_128: set[str] | None = None,
-              overrides: dict[str, str] | None = None, overridden: set[str] | None = None) -> int:
+              overrides: dict[str, str] | None = None, overridden: set[str] | None = None,
+              release=None) -> int:
     """Prepares every C file under src into dst; only rewrites what changed.
     aliases (readable name -> address name) are written as their address names first (unalias).
     candidates (function name -> C) replace their assembly stubs (use_candidates);
@@ -877,15 +896,24 @@ def copy_tree(src: Path, dst: Path, patterns=("*.c", "*.h", "*.inc"),
     macro, the files it applies to, named from the decompilation's top with prefix as src's own
     name) has those files' own drafts read (use_draft). long_long_128 (files named as drafts'
     are) has their own `long long` read as the 128-bit integer it is there (widen_long_long),
-    before the candidates and overrides, which are C written for the port, go in."""
+    before the candidates and overrides, which are C written for the port, go in. release
+    (release.Release) writes another release's names for the address names (release.py)."""
     count = 0
     for pattern in patterns:
         for path in src.rglob(pattern):
             out = dst / path.relative_to(src)
             rel = (Path(prefix) / path.relative_to(src)).as_posix()
             text = path.read_text(encoding="utf-8", errors="surrogateescape")
+            if release is not None and (release.splices.get(rel) or release.gone) and path.suffix == ".c":
+                # The release's own definitions where its code differs (release.py), first: they are
+                # the release's C, which every later step reads as it reads the shared C.
+                text = release.splice(text, rel, readable_names(aliases or {}, release))
             if long_long_128 and rel in long_long_128:
                 text = widen_long_long(text)
+            if release is not None:
+                # Another release's names for every address name (release.py), before anything reads
+                # them; the aliases' names are the release's already.
+                text = release.text(text, rel)
             text = prepare(unalias(text, aliases or {}))
             if candidates and path.suffix == ".c":
                 text = use_candidates(text, candidates, used if used is not None else set())

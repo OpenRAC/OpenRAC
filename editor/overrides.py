@@ -98,7 +98,7 @@ PACK_FORMAT = 1
 MAP_PACK_FORMAT = 3  # map packs must be refused by builds that only replace campaign levels
 DESTINATION_PACK_FORMAT = 4  # separate worlds, never merged into campaign level files
 GAME = "rac1"  # the game of a pack whose manifest does not say
-VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc (games.VERSIONS for every game)
+VERSIONS = tuple(v.key for v in disc.VERSIONS)  # Ratchet & Clank's discs: pal, ntsc, pal1, jp (games.VERSIONS for every game)
 LEVELS_FORMAT = FORMAT
 # The oldest levels format whose models a pack's models are drawn with: 2 gave the mobys their
 # metal packets and chrome and glass maps; 3 only added classes, 4 the clamped textures' samplers (a

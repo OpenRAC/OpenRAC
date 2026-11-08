@@ -472,6 +472,17 @@ uint32_t openrac_game_effect_quad_marker(void) {
     });
 }
 
+float openrac_game_draw_distance(void) {
+    return c_boundary::call("openrac_game_draw_distance", 1.0f, [&]() -> float {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            return settings::get().draw_distance_scale();
+        }
+#endif
+        return 1.0f;
+    });
+}
+
 float openrac_game_view_opened(void) {
     return c_boundary::call("openrac_game_view_opened", 1.0f, [&]() -> float {
 #ifdef OPENRAC_FRONTEND
@@ -724,6 +735,21 @@ void openrac_game_pad_after_mods(int port, uint8_t* report, int size) {
         (void)port;
         (void)report;
         (void)size;
+    });
+}
+
+void openrac_game_set_motors(int port, int small, int large) {
+    c_boundary::call("openrac_game_set_motors", [&] {
+#ifdef OPENRAC_FRONTEND
+        if (g_window) {
+            frontend::set_motors(
+                port, small != 0, static_cast<std::uint8_t>(std::clamp(large, 0, 255))
+            );
+        }
+#endif
+        (void)port;
+        (void)small;
+        (void)large;
     });
 }
 
