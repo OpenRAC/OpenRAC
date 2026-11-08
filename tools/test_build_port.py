@@ -2,6 +2,7 @@
 python3 -m unittest discover -s tools"""
 
 import contextlib
+import hashlib
 import os
 import io
 import tempfile
@@ -310,6 +311,63 @@ class ProbeBaker(unittest.TestCase):
                 build_port.fetch_embree(Path(tmp))
         self.assertEqual(len(calls), build_port.EMBREE_TRIES)
         self.assertEqual(sleep.call_count, build_port.EMBREE_TRIES - 1)
+
+    def test_require_baker_fails_without_embrees_license(self):
+        run = mock.Mock(return_value=mock.Mock(returncode=0))
+        err = io.StringIO()
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "read_cache", return_value={}), \
+                mock.patch.object(build_port, "prepare", return_value=({}, Path("cmake"), None)), \
+                mock.patch.object(build_port, "build_embree", return_value=Path("/b/embree")), \
+                mock.patch.object(build_port, "copy_licenses", side_effect=build_port.BuildError("no LICENSE.txt")), \
+                mock.patch.object(build_port, "write_stamp"), \
+                mock.patch.object(build_port.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            self.assertEqual(build_port.main(["rac1-pal", "--require-baker"]), 1)
+            self.assertEqual(build_port.main(["rac1-pal", "--probe-baker"]), 0)
+        self.assertIn("error: no LICENSE.txt", err.getvalue())
+        self.assertIn("warning: no LICENSE.txt", err.getvalue())
+
+    def fetch(self, answers):
+        """fetch_embree into a temporary folder, urlopen answering ANSWERS in turn (an exception
+        to raise, or the bytes of the body); the result or the BuildError, and the sleeps."""
+        answers = list(answers)
+
+        def urlopen(url, timeout):
+            answer = answers.pop(0)
+            if isinstance(answer, BaseException):
+                raise answer
+            return contextlib.nullcontext(io.BytesIO(answer))
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(build_port.urllib.request, "urlopen", urlopen), \
+                mock.patch.object(build_port.time, "sleep") as sleep, \
+                mock.patch.object(build_port, "EMBREE_SHA256", hashlib.sha256(b"good").hexdigest()), \
+                mock.patch.object(build_port.tarfile, "open", side_effect=build_port.BuildError("unpacked")), \
+                contextlib.redirect_stdout(io.StringIO()):
+            try:
+                build_port.fetch_embree(Path(tmp))
+                result = None
+            except build_port.BuildError as e:
+                result = e
+            leftover = sorted(p.name for p in Path(tmp).iterdir())
+        return result, sleep.call_count, answers, leftover
+
+    def test_a_cut_transfer_and_a_wrong_body_are_tried_again(self):
+        cut = build_port.http.client.IncompleteRead(b"go")
+        result, sleeps, left, files = self.fetch([cut, b"html error page", b"good"])
+        # The good archive is kept and then unpacked (mocked to stop there).
+        self.assertEqual(str(result), "unpacked")
+        self.assertEqual((sleeps, left), (2, []))
+        self.assertIn(f"embree-{build_port.EMBREE_VERSION}.tar.gz", files)
+        self.assertNotIn(f"embree-{build_port.EMBREE_VERSION}.part", files)
+
+    def test_a_download_that_never_works_says_why_and_leaves_no_part(self):
+        result, sleeps, _, files = self.fetch([b"bad"] * build_port.EMBREE_TRIES)
+        self.assertIn("did not download (SHA-256", str(result))
+        self.assertEqual(sleeps, build_port.EMBREE_TRIES - 1)
+        self.assertEqual(files, [])
 
     def test_an_intel_mac_builds_the_rest_and_succeeds(self):
         # The whole command line, its tools mocked: the game and the extractor are configured and

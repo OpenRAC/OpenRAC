@@ -56,6 +56,7 @@ the preset says. Standard library only.
 """
 
 import argparse
+import http.client
 import json
 import os
 import platform
@@ -236,20 +237,23 @@ def fetch_embree(dest: Path) -> Path:
         part = archive.with_suffix(".part")
         wait = EMBREE_RETRY_WAIT
         for attempt in range(1, EMBREE_TRIES + 1):
+            # A cut transfer is an HTTPException (IncompleteRead), not an OSError; a short or wrong
+            # body without an error is caught by its SHA-256. Each is tried again.
             try:
                 with urllib.request.urlopen(EMBREE_URL, timeout=120) as response, part.open("wb") as out:
                     shutil.copyfileobj(response, out)
+                got = digest.sha256(part)
+                problem = None if got == EMBREE_SHA256 else f"SHA-256 {got}, not {EMBREE_SHA256}"
+            except (OSError, http.client.HTTPException) as e:
+                problem = str(e) or type(e).__name__
+            if problem is None:
                 break
-            except OSError as e:
-                if attempt == EMBREE_TRIES:
-                    raise BuildError(f"Embree's source did not download ({e})") from e
-                say(f"Embree's download failed ({e}); trying again in {wait:g} s")
-                time.sleep(wait)
-                wait *= 2
-        got = digest.sha256(part)
-        if got != EMBREE_SHA256:
-            part.unlink()
-            raise BuildError(f"Embree's source archive has SHA-256 {got}, not {EMBREE_SHA256}")
+            part.unlink(missing_ok=True)
+            if attempt == EMBREE_TRIES:
+                raise BuildError(f"Embree's source did not download ({problem})")
+            say(f"Embree's download failed ({problem}); trying again in {wait:g} s")
+            time.sleep(wait)
+            wait *= 2
         part.replace(archive)
     source = dest / f"embree-{EMBREE_VERSION}"
     if not (source / "CMakeLists.txt").is_file():
@@ -739,7 +743,10 @@ def main(argv: list[str] | None = None) -> int:
         try:
             copy_licenses(build)
         except (BuildError, OSError) as e:
-            print(f"warning: {e}", file=sys.stderr, flush=True)
+            # A baker passed on without Embree's license breaks its terms: CI stops there.
+            print(f"{'error' if args.require_baker else 'warning'}: {e}", file=sys.stderr, flush=True)
+            if args.require_baker:
+                return 1
         say(f"built {(build / (BAKER + suffix)).relative_to(ROOT).as_posix()}")
     return 0
 
