@@ -263,6 +263,31 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   add_library(openrac_glslang INTERFACE)
   target_link_libraries(openrac_glslang INTERFACE glslang SPIRV glslang-default-resource-limits)
 
+  # ---- Metal: the renderer's own API on Apple's systems (renderer/metal/README.md) ----
+  # SPIRV-Cross (Apache-2.0) turns the SPIR-V glslang makes of the renderer's GLSL into Metal's
+  # shading language, so that Metal draws from the same shader sources as OpenGL and Vulkan.
+  option(OPENRAC_METAL "Build the Metal renderer (OPENRAC_GL_API=metal)" ${APPLE})
+  if(OPENRAC_METAL)
+    FetchContent_Declare(spirv_cross
+      GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
+      GIT_TAG vulkan-sdk-1.4.350.1
+      GIT_SHALLOW TRUE
+      ${openrac_sdl_options}
+    )
+    set(SPIRV_CROSS_CLI OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_HLSL OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_CPP OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_REFLECT OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_C_API OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_ENABLE_UTIL OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_SHARED OFF CACHE BOOL "" FORCE)
+    set(SPIRV_CROSS_SKIP_INSTALL ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(spirv_cross)
+    add_library(openrac_spirv_cross INTERFACE)
+    target_link_libraries(openrac_spirv_cross INTERFACE spirv-cross-msl spirv-cross-glsl spirv-cross-core)
+  endif()
+
   # macOS: MoltenVK's library, copied into each application bundle's Contents/Frameworks, where
   # the window opens it (platform/window.cpp): a player needs nothing installed. Homebrew's
   # (brew install molten-vk) or the Vulkan SDK's. Without it the game still opens a system's
