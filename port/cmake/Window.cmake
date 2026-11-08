@@ -248,6 +248,7 @@ add_library(openrac_renderer STATIC
   renderer/effects_colour.cpp renderer/effects_draw.cpp
   renderer/framebuffer.cpp
   enhanced/renderer/agx.cpp
+  enhanced/renderer/bloom.cpp
   enhanced/renderer/gtao.cpp
   enhanced/renderer/compute_graph.cpp
   enhanced/renderer/gtao_depth.cpp
@@ -279,6 +280,9 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/surface_normal.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/upscaled_texture_colours.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/agx.frag"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_downsample.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_upsample.comp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/bloom_composite.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_common.glsl"
   "${CMAKE_CURRENT_SOURCE_DIR}/enhanced/renderer/shaders/gtao_evaluate.comp"
@@ -1148,6 +1152,18 @@ if(OPENRAC_VULKAN)
   target_link_libraries(agx_test PRIVATE openrac_renderer_vulkan)
   add_test(NAME agx_vulkan COMMAND agx_test --expect-on)
   set_tests_properties(agx_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+
+# Standard multi-resolution Gaussian bloom: compatibility bypass plus Vulkan spread test.
+openrac_add_test(bloom SOURCES enhanced/tests/bloom_test.cpp LIBS openrac_renderer openrac_platform)
+set_tests_properties(bloom PROPERTIES SKIP_RETURN_CODE 77
+  ENVIRONMENT "OPENRAC_GL_API=desktop;OPENRAC_ENHANCED=1")
+if(OPENRAC_VULKAN AND OPENRAC_ENHANCED_RENDERING)
+  target_compile_definitions(bloom_test PRIVATE OPENRAC_VULKAN=1)
+  target_link_libraries(bloom_test PRIVATE openrac_renderer_vulkan)
+  add_test(NAME bloom_vulkan COMMAND bloom_test --expect-on)
+  set_tests_properties(bloom_vulkan PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
 endif()
 
