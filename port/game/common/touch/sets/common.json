@@ -99,7 +99,7 @@
       "dpad": true,
       "actions": [
         { "id": "ok", "icon": "ok", "press": ["cross"], "at": 0, "size": "large" },
-        { "id": "other", "icon": "circle", "press": ["circle"], "at": 1 },
+        { "id": "yes", "icon": "yes", "press": ["circle"], "at": 1 },
         { "id": "back", "icon": "back", "press": ["triangle"], "at": 2 },
         { "id": "resume", "icon": "pause", "press": ["start"], "side": "top" },
         { "id": "prev", "icon": "prev", "press": ["l1"], "at": 3, "size": "small", "when": "slots", "side": "arc" },
@@ -120,7 +120,7 @@
       "dpad": true,
       "actions": [
         { "id": "ok", "icon": "ok", "press": ["cross"], "at": 0, "size": "large" },
-        { "id": "other", "icon": "circle", "press": ["circle"], "at": 1 },
+        { "id": "yes", "icon": "yes", "press": ["circle"], "at": 1 },
         { "id": "back", "icon": "back", "press": ["triangle"], "at": 2 }
       ]
     },
