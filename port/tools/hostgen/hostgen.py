@@ -1165,8 +1165,26 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     if cfg.get("executable_functions"):
-        program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
-                                                                                strip=True) if len(row) >= 2}
+        rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
+        program.executable_starts = {int(row[1], 16) for row in rows}
+        # A row whose name states an address before its entry (an alignment or fill word in front,
+        # the catalogue's entry corrections: func_00128A48, entered at 0x00128A50) is entered there,
+        # as the decompilation's build links it, and the entry's own spelling is that function
+        # (PAL's func_002E7968, a callback its C takes, is its func_PAL_002E7964). Another
+        # release's catalogue names what it shares by v1.01's names (func_0027C878 at 0x0027CD60),
+        # so there only the rows of its own names (func_PAL_..., func_US2_...) state its addresses;
+        # its build's values (below) cover the shared names its C uses.
+        own = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})" if RELEASE is None
+                         else r"(?:func|FUN)_(?!L\d\d_)[A-Z][A-Z0-9]*_([0-9A-Fa-f]{8})")
+        for row in rows:
+            m = own.fullmatch(row[0])
+            if m is not None and int(m.group(1), 16) != int(row[1], 16):
+                program.executable_entry_at[int(m.group(1), 16)] = int(row[1], 16)
+    table = derived.resolve(source, args.game.parent, cfg)
+    if table is not None and table.suffix == ".json":
+        for name, value in json.loads(table.read_text(encoding="utf-8")).get("values", {}).items():
+            if isinstance(value, str) and re.fullmatch(r"(?:F[0-9a-f]{8}_)?(?:func|FUN)_[0-9A-Fa-f]{8}", name):
+                program.derived_code[name] = int(value, 0)
     if cfg.get("level_twins"):
         read_level_twins(args.game.parent / cfg["level_twins"], program)
     short_names = cfg.get("level_short_names")

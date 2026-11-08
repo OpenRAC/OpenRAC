@@ -784,6 +784,13 @@ def main(argv: list[str] | None = None) -> int:
         for key, rows in json.loads(extra.read_text()).items():
             if key == "from_assembly":
                 new_cfg["from_assembly"] = list(dict.fromkeys(new_cfg.get("from_assembly", []) + list(rows)))
+            elif key == "unit_aliases":
+                # unit -> {the name its C calls, in the release's names: {"is": the release's
+                # function, "why": the evidence}}: a v1.01 function the release table could not
+                # pair (marked func_V1_), whose release copy the decompilation names on its own.
+                units = new_cfg.setdefault("unit_aliases", {})
+                for unit, names in rows.items():
+                    units.setdefault(unit, {}).update({name: row["is"] for name, row in names.items()})
     if args.primary_protos:
         add_signatures(p, new_cfg, cfg, (primary / "libraries.tsv").read_text(), args.primary_protos.read_text())
     args.game.write_text(json.dumps(new_cfg, indent=2) + "\n")

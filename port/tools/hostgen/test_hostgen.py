@@ -2740,6 +2740,48 @@ class Preparation(unittest.TestCase):
         program.level_names = {"ref_L02_003CC7B0_01": (2, 0x002F3158)}
         self.assertEqual(program.code_places("ref_L02_003CC7B0_01"), program.code_places("func_00283CF0"))
 
+    def test_a_family_name_is_where_the_build_put_it(self):
+        # Going Commando's F<hash>_FUN_ names state v1.01's address; another release's build puts
+        # the function elsewhere (USA v2.00's F081de6c9_FUN_00335FC8 is its func_00336DD0).
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^(?:F[0-9a-f]{8}_)?(?:func|FUN)_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.derived_code = {"F081de6c9_FUN_00335FC8": 0x00336DD0, "func_00128A48": 0x00128A50,
+                                "func_00112380": 0x00112380}
+        self.assertEqual(program.code_places("F081de6c9_FUN_00335FC8"), [(-1, 0x00336DD0)])
+        # A catalogue name the build linked to its entry, after a fill word, is entered there.
+        self.assertEqual(program.code_places("func_00128A48"), [(-1, 0x00128A50)])
+        self.assertEqual(program.code_places("func_00112380"), [(-1, 0x00112380)])
+        self.assertEqual(program.code_places("func_00112390"), [(-1, 0x00112390)])
+
+    def test_a_catalogue_name_is_entered_at_its_entry(self):
+        # PAL's pad poll calls scePad2Read by its catalogue name, func_00128A48, entered after a
+        # fill word at 0x00128A50, the libraries' row: the call is the port's function. And the
+        # entry's own spelling (func_002E7968, a callback PAL's C takes) is the function there, not
+        # level 0's copy of another at that address.
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.executable_entry_at = {0x00128A48: 0x00128A50, 0x002E7964: 0x002E7968}
+        program.host = {"func_00128A50"}
+        program.functions["func_00128A48"] = hostgen.Function(
+            "func_00128A48", hostgen.Signature(ctype.Base("int"), (), False, False), "src/core/00128898.c")
+        program.functions["func_002E7964"] = hostgen.Function(
+            "func_002E7964", hostgen.Signature(ctype.Base("int"), (), False, False), "src/pal/game/002E7964.c")
+        program.places["func_0027CD60"] = [(0, 0x002E7968)]
+        program.bare_names_in_level_0 = True
+        program.index_places()
+        self.assertEqual(program.code_places("func_00128A48"), [(-1, 0x00128A50)])
+        self.assertEqual(program.canonical("func_00128A48"), "func_00128A50")
+        self.assertEqual(program.canonical("func_002E7968"), "func_002E7964")
+        # A bare name is level 0's function at that address only where the executable starts none:
+        # v2.00's func_002CB038 (assembly, no C yet) is not level 0's func_L00_002CB038.
+        program.places["func_L00_002CB038"] = [(0, 0x002CB038)]
+        program.functions["func_L00_002CB038"] = hostgen.Function(
+            "func_L00_002CB038", hostgen.Signature(ctype.Base("int"), (), False, False), "src/levels/shared/L00_x.c")
+        program.index_places()
+        self.assertEqual(program.canonical("func_002CB038"), "func_L00_002CB038")
+        program.executable_starts = {0x002CB038}
+        self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
+
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
         src = ('extern float func_A(int),func_B(float), *D_C;\n'

@@ -52,6 +52,9 @@ import derived as derived_mod  # noqa: E402
 
 # An address name: func_, FUN_ or D_, a release tag, a level, eight digits; a suffix after it stays.
 NAME = re.compile(r"(?<![\w])(func|FUN|D)_(?:(?!L\d\d_)([A-Z][A-Z0-9]{0,3})_)?(?:L(\d\d)_)?([0-9A-Fa-f]{8})(?![0-9A-Za-z])")
+# A level's file: its level's number (src/levels/01_oozla/..., src/pal/levels/shared/L00_...), as
+# hostgen's program.py reads it.
+UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 # A short name: six digits, or kseg0's 80 and six (an address in the program of the file's level).
 SHORT = re.compile(r"(?<![\w])func_(80)?([0-9A-F]{6})(?![0-9A-Za-z_])")
 # Either, for a file with short names of its own.
@@ -122,6 +125,12 @@ class Release:
         # Where a name is gone, when only in some of the tree (rac3: one PAL name can be a function
         # of the executable and of the front end, gone in one only): name -> directory prefixes.
         self.gone_in: dict[str, list[str]] = table.get("gone_in", {})
+        # A level file's eight-digit names of its own level's functions (read_level_local).
+        self.level_local: dict[tuple[int, int], str] = {}
+        self.exe_starts: set[int] = set()
+        self.level_base = 0
+        # The release's level catalogue: a function's name there -> {level: its place}.
+        self.release_places: dict[str, dict[int, int]] = {}
 
     @classmethod
     def load(cls, path: Path) -> "Release":
@@ -190,18 +199,90 @@ class Release:
             return m.group(0)
         return "FUN" + new[4:] if m.group(1) == "FUN" and new.startswith("func_") else new
 
+    def read_level_local(self, source: Path, version: str) -> None:
+        """The catalogues, for a level file's eight-digit names of functions of its own level
+        (`func_00312B68` in an Oozla file is level 1's copy of func_002A9640 there, as hostgen reads
+        it: Program.level_short_name). The table renames an eight-digit name as the executable's
+        address it states, which in a level file is another function, or none."""
+        us, rel = RELEASES["us"], RELEASES[version]
+        boot, levels = source / us["config"] / "boot/functions.tsv", source / us["config"] / "levels/functions.tsv"
+        r_levels = source / rel["config"] / "levels/functions.tsv"
+        if not boot.is_file() or not levels.is_file() or not r_levels.is_file():
+            return
+        self.exe_starts = {address for _, address, _ in read_boot(boot)}
+        self.level_base = us["level_base"]
+        for name, _, _, places in read_levels(levels):
+            for place in places:
+                self.level_local.setdefault(place, name)
+        for name, _, _, places in read_levels(r_levels):
+            row = self.release_places.setdefault(name, {})
+            for level, address in places:
+                row.setdefault(level, address)
+
+    def _level_name(self, level: int, word: str) -> str | None:
+        """WORD, an eight-digit name in a file of LEVEL, as the release's place of the primary's
+        function of that level there, spelled with its level (func_L01_00314908: hostgen reads it
+        as that level's function at that place, as it reads the primary's name), or None when it
+        is not one or the release's catalogue has no place for it there."""
+        m = re.fullmatch(r"func_([0-9A-F]{8})((?:_\w+)?)", word)
+        if m is None:
+            return None
+        address = int(m.group(1), 16)
+        if address < self.level_base or address in self.exe_starts:
+            return None
+        name = self.level_local.get((level, address))
+        if name is None:
+            return None
+        place = self.release_places.get(name, {}).get(level)
+        if place is None:
+            # A function the release has under its own name: where the table puts it in that level.
+            new = NAME.fullmatch(self.name(name))
+            if new is None or new.group(2) or new.group(3) is None or int(new.group(3)) != level:
+                return None
+            place = int(new.group(4), 16)
+        # A suffix of its own keeps it apart from the level's name of the same place, which a file
+        # can declare too with other types (func_002BEB90 and func_L01_002BEB90 in L01_002A7248.c).
+        return f"func_L{level:02d}_{place:08X}{m.group(2) or '_local'}"
+
     def text(self, text: str, unit: str | None = None) -> str:
         """A file's text in the release's names: every address name, in code, strings (assembler
         names) and comments alike, and the unit's own short names."""
         own = self.units.get(unit or "", {})
-        if not own:
+        found = UNIT_LEVEL.search(unit or "") if self.level_local else None
+        level = int(found.group(1)) if found else None
+        exe_unit = level is None and unit is not None and UNIT_LEVEL.search(unit) is None
+        if not own and level is None and not (exe_unit and SHORT.search(text)):
             return NAME.sub(self._one, text)
+
+        # The unit's table marks v1.01's definitions here of functions the release has as its own
+        # (func_V1_...), so they are not defined twice; the file's other mentions of a function it
+        # defines (func_002CAA58 calls func_002CA070 in the same file) are calls of the release's
+        # function, as in any other file. A mark of a name the file does not define stays whole.
+        definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
+                       if any(f"_{DEAD}_" in v for v in own.values()) else [])
+        defined = {m.start(1) for m in definitions}
+        defines = {m.group(1) for m in definitions}
 
         # One pass, so that a name the unit's table gives (already the release's) is not renamed again.
         def one(m: re.Match) -> str:
             word = m.group(0)
             if word in own:
-                return own[word]
+                new = own[word]
+                if (f"_{DEAD}_" in new and word in defines and m.start() not in defined
+                        and (named := NAME.fullmatch(word))):
+                    other = self._one(named)
+                    if other != word and f"_{DEAD}_" not in other:
+                        return other
+                return new
+            local = self._level_name(level, word) if level is not None else None
+            if local is not None:
+                return local
+            short = SHORT.fullmatch(word) if exe_unit else None
+            if short is not None and short.group(1) is None:
+                # Six digits in a file of the executable: the executable's address (hostgen reads
+                # func_2802E0 there as func_002802E0), renamed as that name is.
+                new = self.name(f"func_00{short.group(2)}")
+                return new if new != f"func_00{short.group(2)}" else word
             named = NAME.fullmatch(word)
             return self._one(named) if named else word
         return ANY.sub(one, text)
@@ -216,6 +297,8 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
     if not path.is_file():
         raise FileNotFoundError(f"{cfg.get('id')}: no release table {path}: write it with port/tools/hostgen/release.py build")
     table = Release.load(path)
+    if r.get("version") in RELEASES:
+        table.read_level_local(source, r["version"])
     if r.get("splice"):
         table.read_splices(source, r["splice"], RAC1_RELEASES.get(r["version"], {}).get("tag"))
     return table

@@ -25,16 +25,34 @@
        "q": []
       },
       "q": []
-     },
+     }
+    ],
+    "v": false
+   }
+  },
+  "F15a8b7f0_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
      {
-      "b": "int",
+      "p": {
+       "b": "char",
+       "q": []
+      },
       "q": []
      }
     ],
     "v": false
    }
   },
-  "F0e7bb6a8_FUN_00283788": {
+  "F213135aa_FUN_00282DD8": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -70,8 +88,111 @@
     "v": false
    }
   },
+  "F213135aa_FUN_002833F0": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F250fbfa4_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F250fbfa4_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F2d5993bb_FUN_00282A60": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "F391de845_FUN_002E45C8": {
-   "asm": false,
+   "asm": true,
    "inherits": false,
    "new": false,
    "sig": {
@@ -104,6 +225,186 @@
     "v": false
    }
   },
+  "F3c007b59_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F3c007b59_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F500f9762_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F6df9730c_FUN_00282B50": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "int",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F6eb4f363_FUN_002BF728": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "float",
+      "q": []
+     },
+     {
+      "b": "float",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F7cacd225_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "short",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "F7cacd225_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "F8411efa9_FUN_00283410": {
    "asm": true,
    "inherits": false,
@@ -127,10 +428,6 @@
        "b": "float",
        "q": []
       },
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -160,10 +457,6 @@
        "b": "char",
        "q": []
       },
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -244,7 +537,7 @@
     "ps": [
      {
       "p": {
-       "b": "Moby_2A75E0",
+       "b": "void",
        "q": []
       },
       "q": []
@@ -254,6 +547,20 @@
       "q": []
      }
     ],
+    "v": false
+   }
+  },
+  "FUN_002CB038": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [],
     "v": false
    }
   },
@@ -418,6 +725,33 @@
     "v": false
    }
   },
+  "FUN_00338F18_1": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "FUN_00339678": {
    "asm": true,
    "inherits": false,
@@ -448,6 +782,33 @@
     "v": false
    }
   },
+  "FUN_00339678_1": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "FUN_0033BF90": {
    "asm": true,
    "inherits": false,
@@ -464,6 +825,47 @@
        "b": "void",
        "q": []
       },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "FUN_0033BF90_1": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "int",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "FUN_0033BF90_2": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
       "q": []
      }
     ],
@@ -621,6 +1023,28 @@
     "v": false
    }
   },
+  "FUN_0034DBE0": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "FUN_L00_002BA8E0": {
    "asm": true,
    "inherits": false,
@@ -702,36 +1126,6 @@
        "b": "char",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "FUN_L01_003EB1D0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "u8",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -926,7 +1320,361 @@
     "v": false
    }
   },
-  "FUN_L22_0039E1F0": {
+  "Fa03721e9_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fa2a84657_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fa2a84657_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "unsigned char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fb5729173_FUN_00283C80": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "float",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "float",
+      "q": []
+     },
+     {
+      "b": "float",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fb77d67f1_FUN_00282948": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fb77d67f1_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fbdd4a4aa_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc10c1216_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc10c1216_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc3cb9262_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc3cb9262_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc40b1162_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fc40b1162_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fccb147a4_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fd1c348f5_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fd1c348f5_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fdb046c5d_FUN_00282DD8": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -952,15 +1700,98 @@
       "q": []
      },
      {
-      "b": "int",
+      "p": {
+       "b": "void",
+       "q": []
+      },
       "q": []
-     },
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fe617c30b_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
      {
-      "b": "int",
+      "p": {
+       "b": "char",
+       "q": []
+      },
       "q": []
-     },
+     }
+    ],
+    "v": false
+   }
+  },
+  "Fe617c30b_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
      {
-      "b": "int",
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Ff4dd22f3_FUN_00282978": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "Ff4dd22f3_FUN_002B9180": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
       "q": []
      }
     ],
@@ -990,10 +1821,6 @@
        "b": "char",
        "q": []
       },
-      "q": []
-     },
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -2911,39 +3738,6 @@
     "v": false
    }
   },
-  "func_0012F950": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "p": {
-       "b": "void",
-       "q": []
-      },
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_0012FAE8": {
    "asm": false,
    "inherits": true,
@@ -3287,53 +4081,6 @@
     "v": false
    }
   },
-  "func_00132A10": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_00132BC0": {
    "asm": true,
    "inherits": false,
@@ -3423,41 +4170,6 @@
     },
     "pr": true,
     "ps": [],
-    "v": false
-   }
-  },
-  "func_00133710": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "void",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     },
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
     "v": false
    }
   },
@@ -5691,25 +6403,6 @@
     "v": false
    }
   },
-  "func_0028E680": {
-   "asm": true,
-   "inherits": false,
-   "new": true,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_0028E7A0": {
    "asm": false,
    "inherits": true,
@@ -5768,25 +6461,6 @@
        "b": "void",
        "q": []
       },
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
-  "func_002907C0": {
-   "asm": true,
-   "inherits": false,
-   "new": true,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
       "q": []
      }
     ],
@@ -5914,6 +6588,35 @@
     "ps": [
      {
       "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_00294E98": {
+   "asm": false,
+   "inherits": true,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "short",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
       "q": []
      }
     ],
@@ -7954,6 +8657,20 @@
     "v": false
    }
   },
+  "func_002CB038": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [],
+    "v": false
+   }
+  },
   "func_002CBD68": {
    "asm": false,
    "inherits": true,
@@ -9398,25 +10115,6 @@
     "v": false
    }
   },
-  "func_00310208": {
-   "asm": true,
-   "inherits": false,
-   "new": true,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_00311838": {
    "asm": true,
    "inherits": false,
@@ -9516,20 +10214,6 @@
       "q": []
      }
     ],
-    "v": false
-   }
-  },
-  "func_0032AF58": {
-   "asm": true,
-   "inherits": false,
-   "new": true,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [],
     "v": false
    }
   },
@@ -11282,6 +11966,25 @@
     "v": false
    }
   },
+  "func_0034DBE0": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_0034F200": {
    "asm": false,
    "inherits": true,
@@ -11744,7 +12447,7 @@
      "b": "int",
      "q": []
     },
-    "pr": true,
+    "pr": false,
     "ps": [],
     "v": false
    }
@@ -12333,7 +13036,7 @@
     "v": false
    }
   },
-  "func_L00_002EEAE0": {
+  "func_L00_002EEAB0_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -12355,7 +13058,29 @@
     "v": false
    }
   },
-  "func_L00_002EEBC8": {
+  "func_L00_002EEAE0_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_L00_002EEBC8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -12515,7 +13240,7 @@
     "v": false
    }
   },
-  "func_L00_002EF6D8": {
+  "func_L00_002EF6D8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -15975,7 +16700,7 @@
     "v": false
    }
   },
-  "func_L01_002A9698": {
+  "func_L01_002A9698_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16044,7 +16769,7 @@
     "v": false
    }
   },
-  "func_L01_002D7548": {
+  "func_L01_002D7548_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16070,7 +16795,7 @@
     "v": false
    }
   },
-  "func_L01_002E3DE8": {
+  "func_L01_002E3DE8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16092,7 +16817,7 @@
     "v": false
    }
   },
-  "func_L01_002E49E0": {
+  "func_L01_002E49E0_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16121,7 +16846,7 @@
     "v": false
    }
   },
-  "func_L01_002E5250": {
+  "func_L01_002E5250_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16253,6 +16978,25 @@
     "v": false
    }
   },
+  "func_L01_00326B98_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_L01_00338AA8": {
    "asm": true,
    "inherits": false,
@@ -16289,7 +17033,7 @@
     "v": false
    }
   },
-  "func_L01_00372E60": {
+  "func_L01_00372E60_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16692,6 +17436,36 @@
     "v": false
    }
   },
+  "func_L01_003EB1D0_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "u8",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_L01_00401540": {
    "asm": true,
    "inherits": false,
@@ -16839,7 +17613,7 @@
     "v": false
    }
   },
-  "func_L02_002F29C8": {
+  "func_L02_002F29C8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -16861,7 +17635,7 @@
     "v": false
    }
   },
-  "func_L02_002F2E88": {
+  "func_L02_002F2E88_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -17995,7 +18769,7 @@
     "v": false
    }
   },
-  "func_L03_002F0678": {
+  "func_L03_002F0678_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -18434,7 +19208,7 @@
     "v": false
    }
   },
-  "func_L04_0030F6E8": {
+  "func_L04_0030F6E8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -19744,7 +20518,29 @@
     "v": false
    }
   },
-  "func_L05_003074B0": {
+  "func_L05_00307008_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "u8",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_L05_003074B0_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -19780,7 +20576,7 @@
     "v": false
    }
   },
-  "func_L05_0037AAD0": {
+  "func_L05_0037AAD0_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -19876,6 +20672,39 @@
    }
   },
   "func_L05_0037E150": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "u8",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "u8",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "float",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_L05_0037E150_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -21579,6 +22408,35 @@
     "v": false
    }
   },
+  "func_L09_002EB978_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_L09_002F9B28": {
    "asm": true,
    "inherits": false,
@@ -22164,7 +23022,7 @@
     "v": false
    }
   },
-  "func_L10_00309508": {
+  "func_L10_00309508_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -22186,7 +23044,7 @@
     "v": false
    }
   },
-  "func_L10_00309EB8": {
+  "func_L10_00309EB8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -22205,7 +23063,7 @@
     "v": false
    }
   },
-  "func_L10_0030A0F8": {
+  "func_L10_0030A0F8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -22234,7 +23092,7 @@
     "v": false
    }
   },
-  "func_L10_003559E8": {
+  "func_L10_003559E8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -22264,7 +23122,7 @@
     "v": false
    }
   },
-  "func_L10_0037C8E0": {
+  "func_L10_0037C8E0_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -22498,6 +23356,28 @@
     },
     "pr": true,
     "ps": [],
+    "v": false
+   }
+  },
+  "func_L11_00300E80_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "char",
+       "q": []
+      },
+      "q": []
+     }
+    ],
     "v": false
    }
   },
@@ -23612,6 +24492,35 @@
     "v": false
    }
   },
+  "func_L13_002F9D80_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_L13_00307BE0": {
    "asm": true,
    "inherits": false,
@@ -24054,7 +24963,30 @@
     "v": false
    }
   },
-  "func_L16_00315338": {
+  "func_L16_002E9338_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "float",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "float",
+      "q": []
+     },
+     {
+      "b": "float",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_L16_00315338_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -24084,7 +25016,7 @@
     "v": false
    }
   },
-  "func_L16_00333410": {
+  "func_L16_00333410_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -24473,7 +25405,7 @@
     "v": false
    }
   },
-  "func_L17_002EF8D8": {
+  "func_L17_002EF8D8_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -24605,7 +25537,7 @@
     "v": false
    }
   },
-  "func_L18_0030A738": {
+  "func_L18_0030A738_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -24901,7 +25833,7 @@
     "v": false
    }
   },
-  "func_L19_002EC100": {
+  "func_L19_002EC100_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -25284,6 +26216,42 @@
     "v": false
    }
   },
+  "func_L22_002F4918_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
   "func_L22_0039E1F0": {
    "asm": true,
    "inherits": false,
@@ -25317,6 +26285,47 @@
        "b": "ProjectileObject",
        "q": []
       },
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     },
+     {
+      "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_L22_0039E1F0_local": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "void",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "p": {
+       "b": "void",
+       "q": []
+      },
+      "q": []
+     },
+     {
+      "b": "int",
       "q": []
      },
      {
@@ -26335,7 +27344,7 @@
     "v": false
    }
   },
-  "func_L26_002EF228": {
+  "func_L26_002EF228_local": {
    "asm": true,
    "inherits": false,
    "new": false,
@@ -27778,6 +28787,28 @@
      },
      {
       "b": "int",
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "func_V1_L02_004114A0": {
+   "asm": false,
+   "inherits": true,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "p": {
+       "b": "u8",
+       "q": []
+      },
       "q": []
      }
     ],
