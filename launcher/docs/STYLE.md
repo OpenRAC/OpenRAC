@@ -254,7 +254,10 @@ game's full picture; Android's game tiles show `<name>-tile.webp`, the picture
 again after a picture is added or replaced. `python3 scripts/media.py still RECORDING GAME
 --at S` writes a picture and its thumbnail from a frame of a recording of
 your own play. `node scripts/steam_art.mjs` makes Steam's pictures of the launcher
-(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes.
+(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes;
+`bash scripts/steam_game_art.sh` (ffmpeg) makes each game's own, for its entry
+from the game's page (`src-tauri/steam/games/<game>/`), from its picture and its
+name in Orbitron, after a game's picture changes.
 
 The band shows no moving clip: one was planned (an animated WebP under the
 picture), and taken out on 2026-10-20 with the old `*-gameplay.gif` files,

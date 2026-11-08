@@ -52,16 +52,24 @@ pub struct Target {
     pub name: String,
     /// What the entry hands the launcher; empty for the launcher itself.
     pub options: String,
+    /// The entry comes with its library pictures (a cover at least): one added without them, by
+    /// a launcher from before a game had its own, is shown as to update, which puts them.
+    pub pictures: bool,
 }
 
 impl Target {
     pub fn launcher() -> Target {
-        Target { name: NAME.into(), options: String::new() }
+        Target { name: NAME.into(), options: String::new(), pictures: false }
     }
 
     /// The game `id` (`rac1-pal`) under its `title`.
     pub fn game(title: &str, id: &str) -> Target {
-        Target { name: title.into(), options: crate::shortcut::play_options(id) }
+        Target { name: title.into(), options: crate::shortcut::play_options(id), pictures: false }
+    }
+
+    /// The same entry, which comes with its library pictures.
+    pub fn with_pictures(self) -> Target {
+        Target { pictures: true, ..self }
     }
 
     fn is_launcher(&self) -> bool {
@@ -285,10 +293,18 @@ fn state_of(user: &Path, program: &Path, target: &Target) -> State {
     };
     // An entry that turned the Desktop Layout off in the launcher's window is updated too.
     let desktop = matches!(get(fields, "AllowDesktopConfig"), Some(Value::Int(1)));
+    // And one that should have its pictures and has no cover (added before it had them).
+    let pictured = !target.pictures
+        || matches!(get(fields, "appid"), Some(Value::Int(id)) if has_cover(&user.join("config/grid"), *id));
     match get(fields, "Exe") {
-        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop => State::Added,
+        Some(Value::Text(exe)) if exe == quoted(program).as_bytes() && desktop && pictured => State::Added,
         _ => State::Outdated,
     }
+}
+
+/// Whether Steam has a cover for the entry `id`: ours, or one the player chose, in any format.
+fn has_cover(grid: &Path, id: u32) -> bool {
+    ["png", "jpg", "jpeg", "webp"].iter().any(|ext| grid.join(format!("{id}p.{ext}")).exists())
 }
 
 /// The first Steam of `roots` that is there.
@@ -997,6 +1013,38 @@ mod tests {
         let file = parse(&out).unwrap();
         let Some(Value::Map(entries)) = get(&file, "shortcuts") else { panic!("no list") };
         assert_eq!(entries.len(), 1);
+    }
+
+    #[test]
+    fn a_game_added_without_its_pictures_is_to_update_and_gets_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let roots = [dir.path().to_path_buf()];
+        let user = steam(dir.path());
+        let program = Path::new("/opt/OpenRAC.AppImage");
+        let before = Target::game("Ratchet & Clank (PAL)", "rac1-pal");
+        let now = before.clone().with_pictures();
+
+        // A launcher from before the games had pictures: the icon alone.
+        assert_eq!(add_for(&roots, program, &before, &NO_ART), Ok(State::Added));
+        assert_eq!(state_for(&roots, program, &now), State::Outdated);
+        assert_eq!(add_for(&roots, program, &now, &ART), Ok(State::Added));
+        let entries = entries_of(&user.join("config/shortcuts.vdf"));
+        assert_eq!(entries.len(), 1, "updated in place");
+        let Value::Map(fields) = &entries[0].1 else { panic!("not a map") };
+        let Some(Value::Int(id)) = get(fields, "appid") else { panic!("no id") };
+        let grid = user.join("config/grid");
+        for (name, bytes) in [(format!("{id}p.jpg"), "cover"), (format!("{id}_hero.jpg"), "hero")] {
+            assert_eq!(std::fs::read_to_string(grid.join(&name)).unwrap(), bytes, "{name}");
+        }
+        assert_eq!(std::fs::read_to_string(grid.join(format!("{id}_icon.png"))).unwrap(), "icon", "the first kept");
+
+        // A cover the player chose counts as one.
+        std::fs::remove_file(grid.join(format!("{id}p.jpg"))).unwrap();
+        assert_eq!(state_for(&roots, program, &now), State::Outdated);
+        std::fs::write(grid.join(format!("{id}p.png")), b"mine").unwrap();
+        assert_eq!(state_for(&roots, program, &now), State::Added);
+        // The launcher's own entry asks for no pictures to be Added.
+        assert_eq!(add(&roots, program, &NO_ART), Ok(State::Added));
     }
 
     #[test]
