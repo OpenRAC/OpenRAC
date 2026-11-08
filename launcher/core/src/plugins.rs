@@ -661,10 +661,7 @@ pub struct SettingView {
 /// Whether a hook point the manifest lists is `game`'s: an id of another of the mod's games
 /// (`rac2.player.take_damage` while rac1 runs) is not.
 pub fn hook_for_game(m: &Manifest, hook: &str, game: &str) -> bool {
-    match hook.split_once('.') {
-        Some((g, _)) if g != game && m.games.contains_key(g) => false,
-        _ => true,
-    }
+    !matches!(hook.split_once('.'), Some((g, _)) if g != game && m.games.contains_key(g))
 }
 
 /// Fills each keybind's `conflicts`: the other keybinds of its group that share one of its binds.
