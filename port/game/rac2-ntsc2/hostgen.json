@@ -389,6 +389,9 @@
     },
     "src/levels/shared/L02_003C43F0.c": {
       "FUN_001234F0": "func_001234F0"
+    },
+    "src/game/002A0430.c": {
+      "func_V1_002A2450": "func_002A3288"
     }
   },
   "small_copies_own_data": 32,

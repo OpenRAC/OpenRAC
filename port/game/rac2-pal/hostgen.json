@@ -396,6 +396,9 @@
     },
     "src/levels/shared/L02_003C43F0.c": {
       "FUN_001234F0": "func_001234F0"
+    },
+    "src/levels/shared/L00_002B5A88-qcopy.c": {
+      "func_V1_L00_002B55F0_1": "func_L00_002B5518"
     }
   },
   "small_copies_own_data": 32,
