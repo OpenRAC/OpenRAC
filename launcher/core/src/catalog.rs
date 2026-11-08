@@ -524,6 +524,7 @@ mod tests {
                 "rac2/pal",
                 "rac2/ntsc2",
                 "rac3/ntsc",
+                "rac3/pal",
                 "rac4/ntsc",
                 "rac5/ntsc",
                 "rac6/ntsc"
@@ -537,6 +538,8 @@ mod tests {
         let pal = catalog.version_of_disc(None, "SCES_516.07", None).map(|v| v.key.as_str());
         assert_eq!(pal, Some("rac2/pal"));
         assert!(catalog.version_of_disc(Some("rac1"), "SCES_516.07", None).is_none());
+        let uya_pal = catalog.version_of_disc(None, "SCES_524.56", Some("1.00")).map(|v| v.key.as_str());
+        assert_eq!(uya_pal, Some("rac3/pal"));
         // Ratchet & Clank's PAL v1.00 and v2.00 boot the same serial; the disc's VER tells them apart.
         let rac1 =
             |disc_version| catalog.version_of_disc(Some("rac1"), "SCES_509.16", disc_version).map(|v| v.key.as_str());

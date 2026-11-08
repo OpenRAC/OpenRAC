@@ -12,9 +12,8 @@ primary target, and NTSC-U (`SCUS-973.53`) is built from the same C
 | Version | Disc | Serial | Decomp | Port |
 |---|---|---|---|---|
 | `rac3/ntsc` | NTSC-U (North America), disc v1.00 | `SCUS_973.53` | [decomp/](decomp/README.md) ([rac3-decomp](https://github.com/OpenRAC/rac3-decomp)) | [`port/game/rac3-ntsc/`](../../port/game/rac3-ntsc/) |
+| `rac3/pal` | PAL (Europe), disc v1.00 | `SCES_524.56` | [decomp/](decomp/README.md) ([rac3-decomp](https://github.com/OpenRAC/rac3-decomp)) | [`port/game/rac3-pal/`](../../port/game/rac3-pal/) |
 <!-- versions:end -->
-
-PAL, `SCES-524.56`, is in the decomp but not yet a version of OpenRAC: the port does not build it.
 
 ## In this folder
 
@@ -23,6 +22,12 @@ PAL, `SCES-524.56`, is in the decomp but not yet a version of OpenRAC: the port 
 | [game.json](game.json) | the discs, their checksums, and the decomp's pinned commit |
 | [decomp/](decomp/README.md) | [rac3-decomp](https://github.com/OpenRAC/rac3-decomp), our decomp (git submodule, branch `master`): PAL and NTSC-U |
 | `decomp-patches/` | OpenRAC-only changes to `decomp/`, each with its reason (none yet) |
+
+The port's code for PAL is in [port/game/rac3-pal/](../../port/game/rac3-pal/). It reads the
+decomp's C as it is, since the decomp names everything by PAL's addresses: no release table is
+needed. Of the NTSC-U drafts in `decomp/nonmatching/functional.tsv` it reads only those whose PAL
+code is the same as NTSC-U's (`config/us/map.tsv`); `hostgen.json`'s `candidates_left_out` names
+the others.
 
 The port's code for NTSC-U is in [port/game/rac3-ntsc/](../../port/game/rac3-ntsc/). It reads
 the decomp's C, written with PAL's addresses, in NTSC-U's: `release_names.json` there renames

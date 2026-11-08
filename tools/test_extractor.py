@@ -174,7 +174,7 @@ class ExtractTests(unittest.TestCase):
 
     def test_every_real_build_is_known(self):
         serials = extractor.builds()
-        for serial in ("SCES_509.16", "SCUS_971.99", "SCPS_150.37", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCUS_974.65"):
+        for serial in ("SCES_509.16", "SCUS_971.99", "SCPS_150.37", "SCUS_972.68", "SCES_516.07", "SCUS_973.53", "SCES_524.56", "SCUS_974.65"):
             self.assertIn(serial, serials)
             for _game, _name, version in serials[serial]:
                 self.assertEqual(len(version["boot"]["sha1"]), 40)
