@@ -13,8 +13,6 @@ export interface Palette {
   colors: Record<string, string>;
   /** What Settings shows of it: the page, a panel and the text (the first two app.css's for "openrac"). */
   swatch: [string, string, string];
-  /** false: no light under the bar or along the game menu's top (OLED keeps its black; app.css). */
-  light?: false;
 }
 
 /** The themes, from palettes.json, which the launcher's core reads too: it hands the game the one

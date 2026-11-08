@@ -174,8 +174,8 @@ html[data-game-colors][data-theme="openrac"] {
 }
 
 /* The light under the bar: the picked game's colour, soft, over the whole window (screen blend, so
-   it only lightens). The page starts lit and darkens downwards, as under a lamp. OLED keeps its
-   black. */
+   it only lightens). The page starts lit and darkens downwards, as under a lamp; on every theme,
+   OLED too. */
 body::after {
   content: "";
   position: fixed;
@@ -186,10 +186,6 @@ body::after {
   background:
     radial-gradient(90% 620px at 50% 0, color-mix(in srgb, var(--glow) 13%, transparent), transparent 72%),
     radial-gradient(60% 380px at 50% 0, color-mix(in srgb, var(--glow) 7%, transparent), transparent 70%);
-}
-
-html[data-theme="oled"] body::after {
-  content: none;
 }
 
 /* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */

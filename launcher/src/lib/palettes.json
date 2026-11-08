@@ -3,8 +3,7 @@
     "The launcher's colours, read by the launcher (palettes.ts, themes.ts) and by its core, which",
     "hands them to the game for its drawer (core/src/theme.rs, OPENRAC_UI_COLORS). base: app.css's own",
     "(:root, a test keeps them equal); palettes: the themes of Settings, General; accents: a game's own",
-    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's). A palette with",
-    "\"light\": false has no light in the game's colour (OLED). game_colors: a game's",
+    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's). game_colors: a game's",
     "bar, gold and coal (--tint-*), worn instead of the launcher's when Settings, General, Game colours is on."
   ],
   "base": {
@@ -77,7 +76,6 @@
     {
       "id": "oled",
       "name": "OLED black",
-      "light": false,
       "colors": {
         "--ink": "#000000",
         "--ink-deep": "#000000",

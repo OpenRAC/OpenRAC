@@ -39,25 +39,22 @@ pub const ENV: &str = "OPENRAC_UI_COLORS";
 /// its coal too.
 pub fn ui_colors(theme: &str, game: Option<&str>, game_colors: bool) -> String {
     let data: serde_json::Value = serde_json::from_str(PALETTES).unwrap_or_default();
-    let theme = data["palettes"].as_array().and_then(|all| all.iter().find(|p| p["id"] == theme));
-    let palette = theme.map(|p| &p["colors"]);
+    let palette =
+        data["palettes"].as_array().and_then(|all| all.iter().find(|p| p["id"] == theme)).map(|p| &p["colors"]);
     // The launcher's own theme sets no surfaces, so a game's coal (--tint-*) shows only on it.
     let own_theme = palette.is_none_or(|colors| colors.as_object().is_none_or(|c| c.is_empty()));
     let accent = game.map(|game| &data["accents"][game]);
     let colors = game.filter(|_| game_colors).map(|game| &data["game_colors"][game]);
-    // A theme without the light (OLED keeps its black) lights the menu in its own panel colour.
-    let unlit = theme.is_some_and(|p| p["light"] == false);
     DRAWER
         .iter()
         .filter_map(|token| {
-            let key = if unlit && *token == "--glow" { "--panel-hi" } else { token };
-            let tint = format!("--tint-{}", key.trim_start_matches('-'));
+            let tint = format!("--tint-{}", token.trim_start_matches('-'));
             let tinted = colors.filter(|_| own_theme).and_then(|c| c[tint.as_str()].as_str());
             let value = tinted.or_else(|| {
                 [accent, colors, palette, Some(&data["base"])]
                     .into_iter()
                     .flatten()
-                    .find_map(|colors| colors[key].as_str())
+                    .find_map(|colors| colors[*token].as_str())
             })?;
             Some(format!("{}={}", token.trim_start_matches('-'), hex(value)?))
         })
@@ -115,9 +112,8 @@ mod tests {
         assert_eq!(color(&rac4, "glow"), Some("#ff6b61"));
         assert_eq!(color(&rac4, "panel"), Some("#3b4252"));
         assert_eq!(ui_colors("openrac", Some("rac1"), false), own);
-        // OLED has no light: the menu's top is its own panel colour, whatever the game.
-        let oled = ui_colors("oled", Some("rac4"), false);
-        assert_eq!(color(&oled, "glow"), color(&oled, "panel-hi"));
+        // OLED has the light too.
+        assert_eq!(color(&ui_colors("oled", Some("rac4"), false), "glow"), Some("#ff6b61"));
     }
 
     #[test]

@@ -27,8 +27,7 @@ follows the same rules.
   gold for Ratchet & Clank) laid over the window from the bar down
   (`body::after` in app.css: two radial gradients, 13 % and 7 %, screen
   blend, so it only lightens), fading out by about two thirds down. It eases
-  from game to game. The OLED theme has none, in the launcher and in the game
-  (`"light": false` in palettes.json). The game's menu window has the
+  from game to game, on every theme (OLED too, user decision). The game's menu window has the
   same light along its top (8 %, see below).
 - The bar's shadow is light (1 px down, 6 px blur, 18 %): a deeper one reads as
   a black band under the bar.
