@@ -212,8 +212,13 @@ Linux and macOS with Renderer set to Vulkan (Advanced, `Config.renderer`),
 start, or the build has no Vulkan renderer, the game logs why and draws with
 OpenGL (`port/platform/window.cpp`). It applies from the game's next start.
 On macOS it runs on MoltenVK, which each game's application bundle carries
-(`port/cmake/MacApp.cmake`). Android keeps its own choice under Graphics
-(`src-tauri/src/android.rs`).
+(`port/cmake/MacApp.cmake`). On macOS only, Renderer also offers Metal:
+`OPENRAC_GL_API=metal`, the port's Metal renderer (`port/renderer/metal`),
+which likewise draws with OpenGL where Metal cannot start. A settings file
+that says `metal` on another system plays with Vulkan
+(`config::renderer_for`), and Enhanced graphics, Vulkan only, plays with
+Vulkan over it. OpenGL sets nothing. Android keeps its own choice under
+Graphics (`src-tauri/src/android.rs`).
 
 Each version's levels have a folder of their own under one root, since the
 versions of a game share its data folder: `assets/port/<game>/<version>` in a

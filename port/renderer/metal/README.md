@@ -98,6 +98,9 @@ there is no Metal device.
 
 ## Choosing it
 
+The launcher's Settings (Advanced, Renderer) offers Metal on macOS only and plays with it as
+`OPENRAC_GL_API=metal` (`launcher/core/src/actions.rs`); Vulkan stays the default.
+
 `OPENRAC_GL_API=metal` (`platform/window.cpp`). The window opens a Metal window and reaches mtlgl
 through `platform::metal_backend()`, which the platform declares and
 [mtlgl_backend.cpp](mtlgl_backend.cpp) defines, so the platform never includes the renderer. Its

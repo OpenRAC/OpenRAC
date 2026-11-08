@@ -62,11 +62,13 @@ pub struct Config {
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
     /// What the game draws with on Windows, Linux and macOS: "vulkan" (the default), the port's
-    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries), or
-    /// "opengl" (OpenGL 4.1). Where Vulkan cannot start, the game draws with OpenGL
-    /// (port/platform/window.cpp). Not used on Android, which keeps its own choice
+    /// Vulkan renderer (OPENRAC_GL_API=vulkan; on macOS the MoltenVK its bundle carries),
+    /// "opengl" (OpenGL 4.1), or, on macOS only, "metal", the port's Metal renderer
+    /// (OPENRAC_GL_API=metal, port/renderer/metal). Where Vulkan or Metal cannot start, the game
+    /// draws with OpenGL (port/platform/window.cpp); "metal" on any other system plays as
+    /// "vulkan" (renderer_for). Not used on Android, which keeps its own choice
     /// (src-tauri/src/android.rs).
-    #[ts(type = "\"opengl\" | \"vulkan\"")]
+    #[ts(type = "\"opengl\" | \"vulkan\" | \"metal\"")]
     pub renderer: String,
     /// HDR output (port docs/port/HDR.md): "off" (default) or "on", given to each game's start
     /// (OPENRAC_HDR) over the game's own setting. On: HDR when the system has the display in HDR
@@ -186,6 +188,18 @@ pub fn hdr_mode(value: &str) -> &'static str {
     }
 }
 
+/// The renderer Play starts the game with on `platform`, from Settings' `renderer`: "vulkan",
+/// "opengl", or "metal" on macOS only. Metal anywhere else (a settings file carried over from a
+/// Mac) is Vulkan, the default; anything unknown is OpenGL, as it always was.
+pub fn renderer_for(renderer: &str, platform: crate::actions::Platform) -> &'static str {
+    match renderer {
+        "vulkan" => "vulkan",
+        "metal" if platform == crate::actions::Platform::Macos => "metal",
+        "metal" => "vulkan",
+        _ => "opengl",
+    }
+}
+
 /// Writes `config` to `path` through a temporary file, so a crash never
 /// leaves half a file behind.
 pub fn save(path: &Path, config: &Config) -> Result<(), String> {
@@ -271,6 +285,23 @@ mod tests {
         assert_eq!(load(&path).renderer, "vulkan");
         save(&path, &Config { renderer: "opengl".into(), ..Config::default() }).unwrap();
         assert_eq!(load(&path).renderer, "opengl");
+        save(&path, &Config { renderer: "metal".into(), ..Config::default() }).unwrap();
+        assert_eq!(load(&path).renderer, "metal");
+    }
+
+    /// Metal only on macOS: a Mac's "metal" plays with Vulkan on any other system.
+    #[test]
+    fn metal_is_for_macos_only() {
+        use crate::actions::Platform;
+        assert_eq!(renderer_for("metal", Platform::Macos), "metal");
+        for platform in [Platform::Windows, Platform::Linux, Platform::Android, Platform::Ios] {
+            assert_eq!(renderer_for("metal", platform), "vulkan", "{platform:?}");
+        }
+        for platform in [Platform::Macos, Platform::Windows, Platform::Linux] {
+            assert_eq!(renderer_for("vulkan", platform), "vulkan");
+            assert_eq!(renderer_for("opengl", platform), "opengl");
+            assert_eq!(renderer_for("glide", platform), "opengl");
+        }
     }
 
     /// HDR is Off or On: anything else reads as Off.
