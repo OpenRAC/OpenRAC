@@ -254,11 +254,26 @@ class Release:
         if not own and level is None and not (exe_unit and SHORT.search(text)):
             return NAME.sub(self._one, text)
 
+        # The unit's table marks v1.01's definitions here of functions the release has as its own
+        # (func_V1_...), so they are not defined twice; the file's other mentions of a function it
+        # defines (func_002CAA58 calls func_002CA070 in the same file) are calls of the release's
+        # function, as in any other file. A mark of a name the file does not define stays whole.
+        definitions = ([m for m in DEFINED.finditer(text)] + [m for m in INCLUDED.finditer(text)]
+                       if any(f"_{DEAD}_" in v for v in own.values()) else [])
+        defined = {m.start(1) for m in definitions}
+        defines = {m.group(1) for m in definitions}
+
         # One pass, so that a name the unit's table gives (already the release's) is not renamed again.
         def one(m: re.Match) -> str:
             word = m.group(0)
             if word in own:
-                return own[word]
+                new = own[word]
+                if (f"_{DEAD}_" in new and word in defines and m.start() not in defined
+                        and (named := NAME.fullmatch(word))):
+                    other = self._one(named)
+                    if other != word and f"_{DEAD}_" not in other:
+                        return other
+                return new
             local = self._level_name(level, word) if level is not None else None
             if local is not None:
                 return local
