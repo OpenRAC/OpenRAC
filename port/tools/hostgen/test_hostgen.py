@@ -2740,6 +2740,25 @@ class Preparation(unittest.TestCase):
         text = prep.use_candidates(out, {"func_0022F4C0": both}, set())
         self.assertEqual(text.count("void func_0022F4C8(char *m)"), 1)
 
+    def test_a_readable_name_defined_again_takes_its_address_name(self):
+        # rac1-decomp's loaders.c (f911d6e4): under OPENRAC_HOSTGEN it #undefs a readable name and
+        # defines it again from the block's first base; its uses become the address name, so the
+        # new definition has to be that name too.
+        # A readable name defined over its own address with no #undef (a cast for its calls)
+        # stays a macro of that name.
+        aliases = {"class_resource_ids": "D_001CBE40", "compressed_class_resources": "D_001CBEA0",
+                   "is_point_inside_clip_volume": "func_00215570"}
+        src = ('extern int class_resource_ids[];\n'
+               '#undef compressed_class_resources\n'
+               '#define compressed_class_resources ((int *)((char *)class_resource_ids + 0x60))\n'
+               'int f(int i) { return compressed_class_resources[i]; }\n'
+               '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n')
+        out = prep.unalias(src, aliases)
+        self.assertIn('#undef D_001CBEA0\n'
+                      '#define D_001CBEA0 ((int *)((char *)class_resource_ids + 0x60))\n'
+                      'int f(int i) { return D_001CBEA0[i]; }\n'
+                      '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n', out)
+
     def test_carried_names_become_the_address_names_of_their_values(self):
         # Going Commando keeps rac1-decomp's names (rac1's addresses) for what it has not named;
         # its build's table of derived values says where each is in this game, macro bodies too.
