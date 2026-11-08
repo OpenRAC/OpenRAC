@@ -594,7 +594,8 @@ def own_records(text: str, tag: str) -> str:
         while at < len(text) and depth:
             depth += (text[at] == "{") - (text[at] == "}")
             at += 1
-        name = re.match(r"\s*(\w+)\s*;", text[at:])
+        # `} V4;`, or with attributes first (`} __attribute__((aligned(16))) V4;`, rac3's)
+        name = re.match(r"\s*(?:__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)\s*)*(\w+)\s*;", text[at:])
         if name:
             names.append(name.group(1))
     names += [m.group(1) for m in _RECORD_TAG.finditer(text)]

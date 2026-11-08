@@ -215,14 +215,15 @@ def read_drafts(config_dir: Path, cfg: dict) -> tuple[str, set[str]] | None:
     return drafts["guard"], units - {""}
 
 
-def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
+def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None) -> dict[str, str]:
     """Candidate C for functions the decompilation still has as assembly
     (hostgen.json "candidates": a table in the decompilation, one
     "name<TAB>file" line each, the file relative to the decompilation; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
-    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet."""
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet.
+    FILES, when given, gets each candidate's file (relative to the decompilation)."""
     table = cfg.get("candidates")
     left_out = cfg.get("candidates_left_out", {})
     if not table or not (source / table).is_file():
@@ -238,6 +239,8 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
+            if files is not None:
+                files[name.strip()] = rel.strip()
     return out
 
 
@@ -1034,14 +1037,17 @@ def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict
     aliases, the "long long 128" names, and the overrides that define no function of their name."""
     # The port's own C for hand-written assembly first; a decompilation's
     # candidate for the same function stands aside.
-    decomp = read_candidates(source, cfg)
+    files: dict[str, str] = {}
+    decomp = read_candidates(source, cfg, files)
     if RELEASE is not None:
         # The decompilation's own candidates name the primary's addresses; the port's (hand/) are
         # the release's already. Renamed apart, before the two are put together: a name of one
         # spelling can be another function in each (rac1 PAL v1.00's func_001F9F30 is PAL v2.00's
         # func_001FA5C8).
-        texts = {id(c): RELEASE.text(c) for c in decomp.values()}
-        decomp = {RELEASE.name(name): texts[id(c)] for name, c in decomp.items()}
+        # A candidate's file is a unit of the release table: names of its own there (rac3's front
+        # end, a program of its own) are its file's.
+        texts = {id(c): RELEASE.text(c, files.get(name)) for name, c in decomp.items()}
+        decomp = {RELEASE.text(name, files.get(name)): texts[id(c)] for name, c in decomp.items()}
     candidates = {**decomp, **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
