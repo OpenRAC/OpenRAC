@@ -344,12 +344,14 @@ jobs:
         run: |
           # Windows also carries Going Commando built without the disc, as the APK does: the player's
           # computer builds what is missing with the Zig it carries (the next step, tools/asm_part.py).
+          # --require-baker: a baker that cannot be built (Embree) fails here with its reason, not
+          # later as a copy without openrac-enhanced-baker.
           games="rac1-pal rac1-ntsc rac1-pal1 rac1-jp"
           if [ "$NAME" = windows ]; then games="$games rac2-ntsc rac2-pal rac2-ntsc2"; fi
-          python tools/build_port.py $games --preset standalone --probe-baker || {
+          python tools/build_port.py $games --preset standalone --require-baker || {
             echo "::warning::building again with a fresh configuration"
             rm -rf port/build/standalone/CMakeCache.txt port/build/standalone/CMakeFiles
-            python tools/build_port.py $games --preset standalone --probe-baker
+            python tools/build_port.py $games --preset standalone --require-baker
           }
 
       - name: Zig and the kit for Going Commando's part (Windows)
