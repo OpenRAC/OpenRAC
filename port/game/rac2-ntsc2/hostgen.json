@@ -290,7 +290,7 @@
   "names": {
     "code": [
       "^func_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$",
-      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})$",
+      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})(?:_\\w*)?$",
       "^F[0-9a-f]{8}_(?:FUN|func)_(?P<addr>[0-9A-Fa-f]{8})$"
     ],
     "data": [
