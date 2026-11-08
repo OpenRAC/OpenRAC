@@ -692,6 +692,15 @@
    "Vendor_MenuUpdate": "rac1.vendor.menu_update",
    "Weapon_TakeAmmo": "rac1.weapon.take_ammo",
    "msg_string": "rac1.text.msg_string"
+  },
+  "rac2": {
+   "Hero_ApproachSpeed": "rac2.player.approach_speed",
+   "Hero_NanotechSteps": "rac2.player.nanotech_steps",
+   "Hero_TakeDamage": "rac2.player.take_damage",
+   "Level_Load": "rac2.level.load",
+   "Moby_GetHitMessage": "rac2.combat.get_hit",
+   "Moby_RecordDeath": "rac2.moby.record_death",
+   "Weapon_TakeAmmo": "rac2.weapon.take_ammo"
   }
  }
 }

@@ -1,0 +1,10 @@
+# The hook points' ids of rac2, by sdk/tools/gen_binding.py: id, anchor (the function's place
+# on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
+# and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
+rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
+rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660,func_L00_00305570
+rac2.moby.record_death	ntsc:002A6C58	Moby_RecordDeath,func_002A6C58,func_002A7650,func_002A7AA8
+rac2.player.approach_speed	ntsc:L00:002B41B8	Hero_ApproachSpeed,func_L00_002B40E0,func_L00_002B41B8,func_L00_002B42C0
+rac2.player.nanotech_steps	ntsc:L00:002D5E30	Hero_NanotechSteps,func_L00_002D5E30,func_L00_002D61D0,func_L00_002D6380
+rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func_L00_002A4EF8
+rac2.weapon.take_ammo	ntsc:L00:002D3F30	Weapon_TakeAmmo,func_L00_002D3F30,func_L00_002D42D0,func_L00_002D4458

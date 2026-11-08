@@ -95,19 +95,28 @@ def hook_names(game: str, bindings: Path | None = None) -> frozenset[str] | None
 
 def _check_hooks(hooks, games, errors: list[str], bindings: Path | None = None) -> None:
     """"hooks": the hook points the mod takes, each by its stable id (rac1.player.take_damage) or an
-    alias (Hero_TakeDamage). One of the mod's games must have it, when this SDK has that game's table."""
+    alias (Hero_TakeDamage). An id names its game, which must be one of the mod's and have it; an
+    alias must be a hook point of one of the mod's games, and a mod for several games names each by
+    its id (two games may share a name). A game this SDK has no table of is not checked."""
     if hooks is None:
         return
     if not isinstance(hooks, list) or not all(isinstance(h, str) and (HOOK_NAME.match(h) or HOOK_ID.match(h))
                                                for h in hooks):
         errors.append("hooks: a list of hook points, by id (rac1.player.take_damage) or alias (Hero_TakeDamage)")
         return
-    tables = [hook_names(g, bindings) for g in (games if isinstance(games, dict) else {})]
-    known = [t for t in tables if t is not None]
-    if not known:
-        return
+    games = games if isinstance(games, dict) else {}
+    tables = {g: hook_names(g, bindings) for g in games}
     for h in hooks:
-        if not any(h in t for t in known):
+        game = h.split(".", 1)[0] if HOOK_ID.match(h) else None
+        if game is not None and game in games:
+            if tables[game] is not None and h not in tables[game]:
+                errors.append(f"hooks: {h} is not a hook point of {game} (docs/reference/hooks-{game}.md)")
+            continue
+        if len(games) > 1:
+            errors.append(f"hooks: {h}: a mod for several games names its hook points by id (<game>.<area>.<name>)")
+            continue
+        known = [t for t in tables.values() if t is not None]
+        if known and not any(h in t for t in known):
             errors.append(f"hooks: {h} is not a hook point of {', '.join(sorted(games))} (docs/reference/hooks-<game>.md)")
 
 
@@ -366,6 +375,13 @@ def check_manifest(m, root: Path | None = None, bindings: Path | None = None) ->
     for s in settings if isinstance(settings, list) else []:
         if isinstance(s, dict) and s.get("multiplayer", "own") not in ("own", "host"):
             errors.append(f"setting {s.get('key')}: multiplayer is own or host")
+        # "games": the games it is for, of the mod's; the launcher shows it for those only and the
+        # port gives it its default elsewhere (docs/port/MODS.md, section 3).
+        if isinstance(s, dict) and "games" in s:
+            only = s["games"]
+            if (not isinstance(only, list) or not only
+                    or not all(isinstance(g, str) and isinstance(games, dict) and g in games for g in only)):
+                errors.append(f"setting {s.get('key')}: games is a list of the mod's games")
     _check_refs("requires", m.get("requires", []), errors, True)
     _check_refs("conflicts", m.get("conflicts", []), errors, False)
     load = m.get("load", {})

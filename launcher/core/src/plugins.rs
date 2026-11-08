@@ -157,12 +157,22 @@ pub struct SettingSpec {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub multiplayer: Option<String>,
+    /// The games it is for, of the mod's (a mod for several games, docs/port/MODS.md section 3):
+    /// shown for those only, and the port gives it its default in the others. Empty: every game.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(as = "Option<Vec<String>>", optional)]
+    pub games: Vec<String>,
 }
 
 impl SettingSpec {
     /// A keybind's most binds.
     pub fn most_binds(&self) -> usize {
         self.binds.unwrap_or(2) as usize
+    }
+
+    /// Whether it is for `game` (its `games` empty or naming it).
+    pub fn for_game(&self, game: &str) -> bool {
+        self.games.is_empty() || self.games.iter().any(|g| g == game)
     }
 }
 
@@ -354,6 +364,11 @@ impl Manifest {
         }
         if self.games.is_empty() || self.games.values().any(Vec::is_empty) {
             return Err("it names no game, or a game with no disc".into());
+        }
+        for s in &self.settings {
+            if let Some(g) = s.games.iter().find(|g| !self.games.contains_key(g.as_str())) {
+                return Err(format!("its setting {:?} is for {g}, which is not one of its games", s.key));
+            }
         }
         match self.kind.as_str() {
             "" | "native" | "script" => {}
@@ -643,6 +658,12 @@ pub struct SettingView {
     pub conflicts: Vec<String>,
 }
 
+/// Whether a hook point the manifest lists is `game`'s: an id of another of the mod's games
+/// (`rac2.player.take_damage` while rac1 runs) is not.
+pub fn hook_for_game(m: &Manifest, hook: &str, game: &str) -> bool {
+    !matches!(hook.split_once('.'), Some((g, _)) if g != game && m.games.contains_key(g))
+}
+
 /// Fills each keybind's `conflicts`: the other keybinds of its group that share one of its binds.
 pub fn mark_conflicts(settings: &mut [SettingView]) {
     let binds: Vec<Vec<String>> = settings
@@ -765,6 +786,7 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
         let mut settings: Vec<SettingView> = m
             .settings
             .iter()
+            .filter(|spec| spec.for_game(game))
             .map(|spec| SettingView {
                 spec: spec.clone(),
                 value: entry.settings.get(&spec.key).and_then(|v| check_value(spec, v)).unwrap_or(spec.default.clone()),
@@ -773,9 +795,11 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
             .collect();
         mark_conflicts(&mut settings);
         // By permanent id (hook_ids.rs): one mod may name a hook point by its name, another by its id.
+        // A mod for several games names each game's by id: another game's are not this one's.
         let shared_hooks = m
             .hooks
             .iter()
+            .filter(|hook| hook_for_game(&m, hook, game))
             .filter_map(|hook| {
                 let hid = crate::hook_ids::id(game, hook);
                 let with: Vec<String> = mods
@@ -784,7 +808,9 @@ pub fn list(dir: &Path, game: &str, version: &str) -> Result<Vec<PluginView>, St
                     .filter(|(e, other)| {
                         e.id != entry.id
                             && e.enabled
-                            && other.as_ref().is_ok_and(|o| o.hooks.iter().any(|h| crate::hook_ids::id(game, h) == hid))
+                            && other.as_ref().is_ok_and(|o| {
+                                o.hooks.iter().any(|h| hook_for_game(o, h, game) && crate::hook_ids::id(game, h) == hid)
+                            })
                     })
                     .map(|(e, other)| other.as_ref().map_or(e.id.clone(), |o| o.name.clone()))
                     .collect();
@@ -2008,6 +2034,41 @@ mod tests {
 
         std::fs::write(dir.join(LIST), r#"{"format": 2, "mods": []}"#).unwrap();
         assert!(list(dir, "rac1", "pal").unwrap_err().contains("newer format"));
+    }
+
+    #[test]
+    fn a_mod_for_several_games() {
+        // One folder per game's plugins/, the same mod in each: each game shows its own settings
+        // and shares only its own hook points (openrac-mods docs/MULTI_GAME.md).
+        let both = json!({"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]});
+        let settings = json!([
+            {"key": "count", "name": "Count", "type": "float", "default": 1.0, "games": ["rac1"]},
+            {"key": "damage", "name": "Damage", "type": "float", "default": 1.0},
+        ]);
+        let hooks = json!(["rac1.player.take_damage", "rac2.player.take_damage"]);
+        for (game, version, keys) in [("rac1", "pal", vec!["count", "damage"]), ("rac2", "ntsc2", vec!["damage"])] {
+            let tmp = tempfile::tempdir().unwrap();
+            let dir = tmp.path();
+            installed_mod(dir, "both", json!({"games": both, "settings": settings, "hooks": hooks}));
+            installed_mod(dir, "other", json!({"games": both, "hooks": ["rac2.player.take_damage"]}));
+            std::fs::write(
+                dir.join(LIST),
+                r#"{"format": 1, "mods": [{"id": "both", "enabled": true}, {"id": "other", "enabled": true}]}"#,
+            )
+            .unwrap();
+            let views = list(dir, game, version).unwrap();
+            let v = view(&views, "both");
+            assert_eq!(v.state, "ready", "{game}: {}", v.reason);
+            assert_eq!(v.settings.iter().map(|s| s.spec.key.as_str()).collect::<Vec<_>>(), keys, "{game}");
+            let shared: Vec<&str> = v.shared_hooks.iter().map(|h| h.hook.as_str()).collect();
+            assert_eq!(shared, if game == "rac2" { vec!["rac2.player.take_damage"] } else { vec![] }, "{game}");
+        }
+        let m: Manifest = serde_json::from_value(manifest(
+            "bad",
+            json!({"settings": [{"key": "n", "name": "N", "type": "bool", "default": false, "games": ["rac2"]}]}),
+        ))
+        .unwrap();
+        assert!(m.validate().unwrap_err().contains("not one of its games"));
     }
 
     #[test]
