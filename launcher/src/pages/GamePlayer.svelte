@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   // A game's page. One main button, always in the same place,
   // says the next thing to do (set up from your disc, build, play); what is done
   // less often is in the menu beside it. Below: the saves and, beside them, Help
@@ -221,7 +222,7 @@
     if (playGodot?.runnable) {
       items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
     }
-    if (extract && extract.state !== "planned" && !onAndroid) {
+    if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
       // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
       items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
     }
@@ -335,6 +336,7 @@
                     role="switch"
                     class="switch"
                     checked={withMods}
+                    disabled={!supports(app.info, "mods")}
                     onchange={(e) => void setWithMods(e.currentTarget.checked)}
                   /></label
                 >

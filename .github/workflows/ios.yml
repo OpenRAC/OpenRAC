@@ -24,9 +24,40 @@ jobs:
       - name: Native memory and suspension tests
         run: |
           cmake -S port -B build/ios-host -G Ninja -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
-          cmake --build build/ios-host --target runtime_test expanded_memory_test ios_memory_test mobile_lifecycle_test --parallel 3
-          ctest --test-dir build/ios-host -R '^(runtime|expanded_memory|ios_memory|mobile_lifecycle)$' --output-on-failure
+          cmake --build build/ios-host --target runtime_test expanded_memory_test ios_memory_test mobile_lifecycle_test ios_controller_test --parallel 3
+          ctest --test-dir build/ios-host -R '^(runtime|expanded_memory|ios_memory|mobile_lifecycle|ios_controller)$' --output-on-failure
       - name: Compile the iOS runtime and window without a game
         run: |
           cmake -S port -B build/ios-sdk -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
           cmake --build build/ios-sdk --target openrac_runtime openrac_platform --parallel 3
+  launcher:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/launcher-toolchain
+        with:
+          cache-key: checks-ios-launcher
+          targets: aarch64-apple-ios
+          components: clippy, rustfmt
+      - name: Adapter tests and iOS static library
+        working-directory: launcher
+        run: |
+          cargo test -p openrac-launcher-ios --locked
+          cargo clippy -p openrac-launcher-ios --all-targets --locked -- -D warnings
+          cargo build -p openrac-launcher-ios --target aarch64-apple-ios --release --locked
+      - name: Catalogue configuration and icon generation
+        run: |
+          python3 -m unittest discover -s port/ios -p test_bundle.py
+          swift port/ios/make_assets.swift launcher/src-tauri/icons/icon.png build/ios-icons/Assets.xcassets
+      - name: Pinned Python headers for the native application checks
+        run: |
+          mkdir -p build/ios-python
+          curl --fail --location --retry 3 https://github.com/beeware/Python-Apple-support/releases/download/3.14-b14/Python-3.14-iOS-support.b14.tar.gz -o build/ios-python/python.tar.gz
+          echo '703ff822529f46edcbcd8b88096b2544f6990f3109ad38b4b4b61bb489a7c1ee  build/ios-python/python.tar.gz' | shasum -a 256 -c -
+          tar -xf build/ios-python/python.tar.gz -C build/ios-python
+      - name: Compile the UIKit, Files, WebKit and CPython bridges
+        run: |
+          xcrun clang++ -fsyntax-only -std=c++20 -fobjc-arc -target arm64-apple-ios17.0 -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" -Iport -Ilauncher/ios/include -Ibuild/ios-python/Python.xcframework/ios-arm64/Python.framework/Headers '-DOPENRAC_IOS_GAME="rac1-ntsc"' port/ios/bootstrap.mm port/ios/launcher.mm port/ios/prepare.mm port/ios/controller.mm port/ios/save_transfer.mm

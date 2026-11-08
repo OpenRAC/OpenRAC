@@ -399,6 +399,20 @@ html[data-input="pad"] :focus {
   scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
 }
 
+/* iOS keeps an explicit controller target even when WebKit declines DOM focus. White stays
+   visible on every game's accent; the dark border separates it from the selected game's ring. */
+html[data-platform="ios"][data-input="pad"] :focus:not([data-pad-focus]) {
+  outline: none;
+}
+
+html[data-platform="ios"][data-input="pad"] [data-pad-focus] {
+  outline: 4px solid var(--on-game);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 8px var(--ink-deep);
+  scroll-margin: 20px;
+  scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
+}
+
 /* A press dims the button and pushes it in a little (a controller's A too, pad.ts); on a touch
    screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
 button:active:not(:disabled),

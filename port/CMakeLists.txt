@@ -231,6 +231,7 @@ endif()
 openrac_warnings(openrac_runtime)
 
 openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS openrac_runtime)
+openrac_add_test(ios_controller INCLUDES "${PROJECT_SOURCE_DIR}")
 openrac_add_test(expanded_memory SOURCES tests/expanded_memory_test.cpp LIBS openrac_runtime)
 if(APPLE AND NOT OPENRAC_IOS)
   # Run the existing guest contract checks against iOS's Mach aliases as well as POSIX shared memory.

@@ -5,9 +5,14 @@
 //
 // Adding a command: the Rust function, its name in generate_handler!, a
 // wrapper and its types here, and a case in mock.ts (docs/ARCHITECTURE.md).
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { confirm, open } from "@tauri-apps/plugin-dialog";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event";
+import { confirm as tauriConfirm, open as tauriOpen } from "@tauri-apps/plugin-dialog";
+import { onIOS, iosInvoke, iosListen, iosOpen, iosConfirm } from "./ios";
+const invoke: typeof tauriInvoke = onIOS ? iosInvoke : tauriInvoke;
+const listen: typeof tauriListen = onIOS ? (iosListen as typeof tauriListen) : tauriListen;
+const open: typeof tauriOpen = onIOS ? (iosOpen as typeof tauriOpen) : tauriOpen;
+const confirm: typeof tauriConfirm = onIOS ? iosConfirm : tauriConfirm;
 import { REPO_URL } from "./links";
 import type { BackgroundStatus } from "./progress";
 import type { ActionArea } from "./generated/ActionArea";
@@ -121,7 +126,7 @@ import type { UpdateItem } from "./generated/UpdateItem";
 import type { UpdatePlan } from "./generated/UpdatePlan";
 import type { UpdateRun } from "./generated/UpdateRun";
 
-export const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const inTauri = onIOS || (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window);
 
 /** Whether a user agent is Android's WebView. WebKitGTK on a Linux tablet or handheld (a mobile
  *  chassis) says "Linux; like Android 4.4" to get websites' mobile pages: that is a desktop. */
@@ -214,6 +219,7 @@ export type { Hold, LastUpdate, Orphan, UpdateItem, UpdatePlan, UpdateRun };
 
 /** What the app says about itself (src-tauri/src/lib.rs, AppInfo). */
 export interface AppInfo {
+  capabilities?: Partial<Record<import("./capabilities").Capability, boolean>>;
   version: string;
   platform: Platform;
   /** Where launcher.json lives. */
@@ -740,6 +746,7 @@ export async function pickMemoryCard(title: string, dir: string | null): Promise
  *  the app's cache first (pick_zip). */
 export async function pickSavesFile(title: string): Promise<string | null> {
   if (!inTauri) return "/home/you/Downloads/OpenRAC saves SCES_509.16 2026-11-02.zip";
+  if (onIOS) return iosInvoke<string | null>("pick_saves_file");
   if (onAndroid) return call<string | null>("pick_zip");
   const picked = await open({
     directory: false,
@@ -782,7 +789,7 @@ export async function onDrop(
   handler: (paths: string[]) => void,
   hovering: (over: boolean) => void = () => undefined,
 ): Promise<() => void> {
-  if (!inTauri) return () => undefined;
+  if (!inTauri || onIOS) return () => undefined;
   const { getCurrentWebview } = await import("@tauri-apps/api/webview");
   return getCurrentWebview().onDragDropEvent((event) => {
     if (event.payload.type === "drop") handler(event.payload.paths);

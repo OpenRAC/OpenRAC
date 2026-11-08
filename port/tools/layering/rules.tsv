@@ -53,12 +53,13 @@ module	game/*/	game/*
 module	viewer/	viewer
 module	extract/	extract
 module	android/	android
+module	ios/	ios
 module	tools/	tools
 module	tests/	tests
 
 # The layers, lowest first. sdk is the mod SDK's C ABI (sdk/include/openrac), a contract that
 # depends on nothing. game/common is the host program; viewer, extract, tools (hostgen's harness),
-# android (the app's glue) and tests are the programs.
+# android and ios (the apps' glue) and tests are the programs.
 layer	0	sdk common
 layer	1	runtime
 layer	2	platform assets audio media
@@ -67,7 +68,7 @@ layer	4	scene
 layer	5	enhanced
 layer	6	game/common
 layer	7	game/*
-layer	8	viewer extract tools android tests
+layer	8	viewer extract tools android ios tests
 
 # Edges within a layer. audio plays the sound formats assets reads; media's movies carry PSS audio
 # that assets decodes. The world renderers and the Vulkan backend build on renderer's GL-shaped
@@ -78,7 +79,7 @@ allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
 allow	renderer/metal	renderer renderer/vulkan renderer/world
-allow	tests	viewer extract
+allow	tests	viewer extract ios
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).
 # platform -> renderer/vulkan: the window opens the Vulkan backend itself; no package yet.

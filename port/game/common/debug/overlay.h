@@ -453,7 +453,7 @@ void set_visible(bool on);
 
 // ---- The touch handling, the drawer, the menus and their controls ----
 
-// Says whether the drawer is offered: always on Android, elsewhere when OPENRAC_DRAWER=1. With it
+// Says whether the drawer is offered: always on Android/iOS, elsewhere when OPENRAC_DRAWER=1. With it
 // the menus are the drawer's and the panel has no keys to name. Defined in debug/touch.cpp.
 bool drawer_possible();
 

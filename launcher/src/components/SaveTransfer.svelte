@@ -23,6 +23,7 @@
     slotLine,
   } from "$lib/saveTransfer";
   import { onMount } from "svelte";
+  import { onIOS } from "$lib/ios";
   import { SvelteSet } from "svelte/reactivity";
 
   let {
@@ -119,7 +120,9 @@
     {/if}
 
     {#if mode === "export"}
-      <p class="muted lead">{TRANSFER.exportLead}</p>
+      <p class="muted lead">
+        {onIOS ? "Creates one OpenRAC saves file to share with another device or save in Files." : TRANSFER.exportLead}
+      </p>
       <div class="choices" role="radiogroup" aria-label="What to export">
         <label class="choice">
           <input type="radio" name="export-pick" checked={pick === null} onchange={() => (pick = null)} />
@@ -189,7 +192,7 @@
           {#if working}<span class="spinner"></span>{:else}<Icon
               name={mode === "export" ? "upload" : "download"}
               size={16}
-            />{/if}{mode === "export" ? TRANSFER.exportButton : TRANSFER.importButton}
+            />{/if}{mode === "export" ? (onIOS ? "Share…" : TRANSFER.exportButton) : TRANSFER.importButton}
         </button>
       {/if}
     </div>

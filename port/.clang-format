@@ -6,7 +6,7 @@
 #   clang-format -i FILE           apply it
 #   clang-format --dry-run -Werror FILE...   check it (prints nothing when clean)
 ---
-Language: Cpp
+# Shared defaults cover C++ and the iOS Objective-C++ bridge.
 BasedOnStyle: LLVM
 Standard: c++20
 

@@ -1,0 +1,17 @@
+[package]
+name = "openrac-launcher-ios"
+description = "Native iOS C ABI adapter over the shared OpenRAC launcher core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+openrac-launcher-core = { path = "../core" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
