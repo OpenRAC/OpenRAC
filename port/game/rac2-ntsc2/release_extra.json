@@ -7,5 +7,8 @@
         "why": "v1.01's func_002A2450 (the blend pose a moby's animation change caches, called by func_002A7470) is rac2-decomp's func_US2_002A3288 (src/us2/game/002A3288.c, assembly), which the release table could not pair: 816 and 822 instructions, 99.2% the same with operands masked (six inserted, three changed). Without it the pose cache is never written and the hero's pose (func_L00_003181C0) reads garbage on Oozla"
       }
     }
+  },
+  "from_assembly": {
+    "func_002F5FB8": "rac2-decomp fd4ca62 matched it in src/game/002F5220.c with ref_L00_002F5FB8_* externs, references into level 0's memory that hostgen does not place; the port takes it from the retail assembly (without this it has neither, and the menu loop calls a stub)"
   }
 }
