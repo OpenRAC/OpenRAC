@@ -1065,6 +1065,16 @@ pub fn move_mod(dir: &Path, game: &str, version: &str, id: &str, up: bool) -> Re
 /// player never set the value, and a mod treats it as unset.
 pub const PLAYER_NAME: &str = "${player_name}";
 
+/// Whether a mod that is on in `dir` uses the launcher's Multiplayer name: one of its string
+/// settings defaults to [`PLAYER_NAME`] (the multiplayer mod's name, for one). Settings shows
+/// the name only then.
+pub fn uses_player_name(dir: &Path) -> bool {
+    read_list(dir).unwrap_or_default().iter().filter(|e| e.enabled).any(|e| {
+        read_manifest(&dir.join(&e.id))
+            .is_ok_and(|m| m.settings.iter().any(|s| s.kind == "string" && s.default == PLAYER_NAME))
+    })
+}
+
 /// Shows the placeholder default of string settings as `player_name` (the launcher's Multiplayer
 /// name), in the default and in a value that still is the placeholder. A value the player set is
 /// left as it is.
@@ -2260,6 +2270,31 @@ mod tests {
         let mut views = list(dir, "rac1", "pal").unwrap();
         show_player_name(&mut views, "SwiftRobot42");
         assert_eq!(views[0].settings[0].value, json!("SwiftRobot42"));
+    }
+
+    #[test]
+    fn the_multiplayer_name_is_used_only_by_a_mod_that_is_on() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path();
+        assert!(!uses_player_name(dir), "no mods");
+        installed_mod(
+            dir,
+            "mp",
+            json!({"settings": [{"key": "name", "name": "Name", "type": "string", "default": "${player_name}"}]}),
+        );
+        installed_mod(dir, "other", json!({"settings": [{"key": "x", "name": "X", "type": "string", "default": ""}]}));
+        std::fs::write(
+            dir.join(LIST),
+            r#"{"format": 1, "mods": [{"id": "mp", "enabled": false}, {"id": "other", "enabled": true}]}"#,
+        )
+        .unwrap();
+        assert!(!uses_player_name(dir), "installed but off");
+        set_enabled(dir, "rac1", "pal", "mp", true).unwrap();
+        assert!(uses_player_name(dir));
+        set_enabled(dir, "rac1", "pal", "other", false).unwrap();
+        assert!(uses_player_name(dir), "the other mod plays no part");
+        set_enabled(dir, "rac1", "pal", "mp", false).unwrap();
+        assert!(!uses_player_name(dir));
     }
 
     fn zip_of(path: &Path, files: &[(&str, &[u8])]) {

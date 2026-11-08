@@ -424,6 +424,8 @@ export const api = {
     call<ResetDone>("reset_apply", { version, reset, withEdits }),
   /** A game's native mods (core/src/plugins.rs) for its disc `version` ("pal"), in load order. */
   pluginsList: (game: string, version: string) => call<PluginView[]>("plugins_list", { game, version }),
+  /** Whether a mod that is on in one of `games` uses the Multiplayer name (core plugins.rs). */
+  playerNameUsed: (games: string[]) => call<boolean>("player_name_used", { games }),
   pluginsSetEnabled: (game: string, version: string, id: string, enabled: boolean) =>
     call<PluginView[]>("plugins_set_enabled", { game, version, id, enabled }),
   pluginsMove: (game: string, version: string, id: string, up: boolean) =>

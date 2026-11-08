@@ -2821,6 +2821,9 @@ export async function mockCall(command: string, args: Record<string, unknown> = 
       return delay<string | null>(null);
     case "plugins_list":
       return delay<PluginView[]>(mockPlugins.map((p) => ({ ...p })));
+    case "player_name_used":
+      // A mod that uses the Multiplayer name is on, unless ?nomods.
+      return delay(!query.has("nomods"));
     case "plugins_status":
       return delay<PluginStatus | null>(mockPluginStatus());
     case "plugins_set_enabled":
