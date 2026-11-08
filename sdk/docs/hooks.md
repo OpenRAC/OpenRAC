@@ -86,8 +86,9 @@ it), and does not call the original: it runs its own physics on
 him) and puts him where it worked out with `hero_set_pose`, which also starts
 his animation's sequences through the game's own and does what the update does
 to show him (his moby, what he holds, his drawing); `hero_set_joints` turns his
-joints on top of that animation (a riding stance). Only the mod holding the
-hook point may set his pose. Props (`prop_create` with a `.glb` of the mod's)
+joints on top of that animation (a riding stance; any mod may turn joints, and
+every mod's turns apply together). Only the mod holding the hook point may set
+his pose. Props (`prop_create` with a `.glb` of the mod's)
 and the mod's own sounds (`sound_load` with a `.wav` or `.ogg`) go with it:
 
 ```cpp

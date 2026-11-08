@@ -366,8 +366,18 @@ static void motion_frame(void) {
         s_record(9620 + s_api->hero_sound_play(s_mod, 26, 0));
         s_record(9630 + s_api->hero_sound_play(s_mod, 0, 1));
     } else if (s_frames == 2) {
+        openrac_joint_offset joints[2];
         s_record(9500 + -s_api->hero_set_pose(s_mod, &pose));
         s_record(9550 + -s_api->prop_pose(s_mod, s_prop, &where));
+        /* The joints, from a mod that no longer holds the hero's update: taken all the same. */
+        memset(joints, 0, sizeof joints);
+        joints[0].joint = 1;
+        joints[0].rotation[3] = 1.0f;
+        joints[1].joint = 2;
+        joints[1].rotation[3] = 1.0f;
+        s_record(9640 + -s_api->hero_set_joints(s_mod, joints, 2));
+        s_record(9640 + -s_api->hero_set_joints(s_mod, joints, OPENRAC_JOINT_OFFSETS_MAX + 1));
+        s_record(9650 + -s_api->hero_set_joints(s_mod, NULL, 0));
     }
 }
 
