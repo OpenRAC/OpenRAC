@@ -123,6 +123,23 @@ def slot(sym: str) -> str:
     return f"openrac_asmx_{cname(sym)}"
 
 
+def stale_exports(text: str, external: list[str], program: Program) -> list[str]:
+    """Where a Windows program's list of exports for the part (tools/asm_part.py exports, written
+    from the disc) no longer fits PROGRAM built without the disc, whose EXTERNAL functions the part
+    fills: a slot the part fills that the list leaves out or one the program no longer has, and a
+    function the list exports that the program no longer has. Either stops the Windows link of the
+    program or of the part. Empty when the list fits."""
+    entries = {line.split()[0] for line in text.splitlines()[1:] if line.strip()}
+    listed = {e for e in entries if e.startswith("openrac_asmx_")}
+    slots = {slot(s) for s in external}
+    functions = {cname(s) for s in program.functions}
+    out = [f"{e}: the part fills it, the list leaves it out" for e in sorted(slots - listed)]
+    out += [f"{e}: no such slot in the program" for e in sorted(listed - slots)]
+    out += [f"{e}: no such function in the program" for e in sorted(entries)
+            if e.startswith("func_") and e not in functions]
+    return out
+
+
 def own_name(sym: str) -> str:
     return f"openrac_asmd_{cname(sym)}"
 

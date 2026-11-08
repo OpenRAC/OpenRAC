@@ -5,7 +5,7 @@
 
     python3 port/tools/hostgen/no_c.py --game port/game/rac1-pal/hostgen.json \\
         --gen port/build/release/games/rac1-pal/gen --source games/rac1 \\
-        --exe games/rac1/baserom/SCES_509.16 --dump games/rac1/baserom/overlays \\
+        --exe games/rac1/decomp/baserom/SCES_509.16 --dump games/rac1/decomp/baserom/overlays \\
         --out port/game/rac1-pal/no_c.tsv
 
 hostgen's report lists the functions the decompilation has no C for (its stubs) and those

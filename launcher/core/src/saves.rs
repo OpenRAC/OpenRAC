@@ -141,7 +141,7 @@ pub fn data_home() -> PathBuf {
     if let Some(home) = TEST_DATA_HOME.with(|cell| cell.borrow().clone()) {
         return home;
     }
-    if cfg!(target_os = "macos") {
+    if cfg!(any(target_os = "macos", target_os = "ios")) {
         return dirs_home().join("Library/Application Support/OpenRAC");
     }
     // Windows: %LOCALAPPDATA%\openrac, whatever folder the game was started in (at its start,
@@ -325,18 +325,20 @@ pub fn rac2_planet(level: u32) -> Option<&'static str> {
     RAC2_PLANETS.iter().find(|(id, _)| *id == level).map(|(_, name)| *name)
 }
 
-/// Whether `serial` is Going Commando's NTSC-U disc, whose save records the launcher reads.
-fn is_rac2_ntsc(serial: &str) -> bool {
-    serial.contains("972.68")
+/// Whether `serial` is a Going Commando disc, whose save records the launcher reads: v1.01 and
+/// v2.00 (`SCUS_972.68`) and the PAL release (`SCES_516.07`), whose save tables are the same
+/// (`save_edit_rac2::edits_serial`).
+fn is_rac2(serial: &str) -> bool {
+    serial.contains("972.68") || serial.contains("516.07")
 }
 
 pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
-    if serial.contains("509.16") || serial.contains("971.99") {
+    if serial.contains("509.16") || serial.contains("971.99") || serial.contains("150.37") {
         if let Some(&name) = RAC1_PLANETS.get(planet_id as usize) {
             return Some(name.to_string());
         }
     }
-    if is_rac2_ntsc(serial) {
+    if is_rac2(serial) {
         if let Some((_, name)) = RAC2_PLANETS.iter().find(|(id, _)| *id == planet_id) {
             return Some(name.to_string());
         }
@@ -347,7 +349,7 @@ pub fn get_planet_name(serial: &str, planet_id: u32) -> Option<String> {
 /// The save record whose first word is the bolt count: Ratchet & Clank's 1 (gBolts); Going
 /// Commando's 39 (its global save table at 0x00256138 puts g_boltCount, 0x001A79F8, there).
 fn bolts_record(serial: &str) -> i32 {
-    if is_rac2_ntsc(serial) {
+    if is_rac2(serial) {
         39
     } else {
         1
@@ -971,6 +973,8 @@ mod tests {
         assert_eq!(get_planet_name("SCUS_972.68", 1).as_deref(), Some("Oozla"));
         assert_eq!(get_planet_name("SCUS_972.68", 30).as_deref(), Some("Insomniac Museum"));
         assert_eq!(get_planet_name("SCUS_972.68", 21).as_deref(), Some("Planet #21"));
+        assert_eq!(get_planet_name("SCES_516.07", 1).as_deref(), Some("Oozla"));
+        assert_eq!(bolts_record("SCES_516.07"), 39);
         // Ratchet & Clank reads its own record 1, never Going Commando's 39.
         assert_eq!(parse_save_gameplay_info(&data, bolts_record("SCES_509.16")).bolts, None);
     }

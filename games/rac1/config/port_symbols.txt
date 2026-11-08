@@ -1,3 +1,0 @@
-// Symbols the native port needs that the matching build names otherwise (OpenRAC port/game/rac1-pal/hostgen.json "symbols").
-// The pause menu mobys' update, which pause.c stores by its old name; its C is func_0023B578 now.
-D_0023B578 = 0x0023B578;

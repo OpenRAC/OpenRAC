@@ -219,6 +219,16 @@ int rac1_figure_owned(gaddr moby) {
     return 0;
 }
 
+int rac1_figure_alive(gaddr moby) {
+    (void)moby;
+    return 0;
+}
+
+int rac1_player_shot(gaddr moby) {
+    (void)moby;
+    return 0;
+}
+
 /* The metal detector's word: nothing digs here. */
 void rac1_metal_detect(gaddr moby) {
     (void)moby;

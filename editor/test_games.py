@@ -53,6 +53,8 @@ class TableTests(unittest.TestCase):
         self.assertTrue(RAC2.world_lighting and not RAC2.lighting)
         self.assertFalse(RAC1.world_lighting or RAC3.world_lighting or RAC4.world_lighting)
         self.assertEqual(wads.RAC2_NTSC.normal_table, 0x238F00)
+        # Where func_002F0468 forms it in the PAL and v2.00 executables.
+        self.assertEqual((wads.RAC2_PAL.normal_table, wads.RAC2_NTSC2.normal_table), (0x238F00, 0x238E80))
         self.assertEqual((wads.RAC3_NTSC.normal_table, wads.RAC4_NTSC.normal_table), (0, 0))
 
     def test_records_lay_out_their_fields(self):
@@ -72,8 +74,8 @@ class TableTests(unittest.TestCase):
         self.assertEqual(RAC3.level_name(1), "Veldin")
         self.assertEqual(RAC4.level_name(42), "Catacrom Graveyard (multiplayer)")
         self.assertEqual(RAC4.level_name(99), "Level 99")
-        self.assertTrue(games.known("rac1", "pal") and games.known("rac3", "ntsc"))
-        self.assertFalse(games.known("rac3", "pal") or games.known("rac9", "ntsc"))
+        self.assertTrue(games.known("rac1", "pal") and games.known("rac3", "ntsc") and games.known("rac3", "pal"))
+        self.assertFalse(games.known("rac4", "pal") or games.known("rac9", "ntsc"))
         self.assertEqual(games.title("rac4"), "Ratchet: Deadlocked")
         self.assertEqual(games.of(object()), RAC1)
 

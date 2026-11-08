@@ -177,6 +177,8 @@ struct FramePresentation {
     std::vector<renderer::Mat4> picker_palette;
     int picker_level = -1;
     unsigned picker_layers = 0;
+    bool freecam = false;     // Set by the renderer when it applies freecam to this frame.
+    int camera_level = -1;    // Level that supplied the rendered camera.
     std::uint64_t tick = 0;   // Submitted window-frame number, including interpolation metadata.
 
     int window_width = 0;   // Drawable window extent, read on the window thread.
@@ -192,6 +194,7 @@ struct FramePresentation {
     Box box{};              // Picture rectangle in the window.
 
     bool first = false;         // First displayed frame for this game tick.
+    bool enhanced_graphics = false;
     bool dump_draws = false;    // Draw diagnostics captured before graphics ownership transfers.
     bool measure_cost = false;  // Enables the deliberately blocking frame-cost diagnostic.
     double scene_seconds = 0;   // Snapshot interpolation and pose upload time.

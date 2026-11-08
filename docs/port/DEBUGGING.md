@@ -27,7 +27,10 @@ the window's own resolution. Until it is first shown nothing of it exists
 | F5 | pause or resume the game |
 | F6 | run one tick, then pause again |
 | F7 / F8 | slower / faster: the game at 1/2, 1/4, 1/8, 1/16 of its speed |
-| F12 | write the window as it is shown to `openrac_window_<tick>.png` in the working directory |
+| F12 | write the window without notification cards to `openrac_window_<tick>.png` in the working directory |
+
+Screenshots taken with Enhanced graphics enabled add `_enhanced` before `.png`. This applies
+to F12, menu screenshots, `OPENRAC_SHOT`, and `OPENRAC_OVERLAY_SHOT`.
 
 F5 to F8 and F12 work whether the overlay is shown or not. What the port says
 over the game comes as notifications, cards that drop in at the top of the
@@ -213,7 +216,7 @@ locations up each frame.
 
 The tools that put a run where the bug is, without playing there. A game offers them through
 `openrac_game_tools` and its front end ([game_host.h](../../port/game/common/include/openrac/game_host.h));
-Going Commando has them all ([host/tools.c](../../port/game/rac2-ntsc/host/tools.c)). Ratchet & Clank
+Going Commando has them all ([host/tools.c](../../port/game/rac2/host/tools.c)). Ratchet & Clank
 has the level start (below) and its own words for the rest ([RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md)).
 Frames count from control: the first tick of 30 in a row with the game in play.
 
@@ -357,13 +360,13 @@ same variables, so a new variable gets a row in both.
 
 | Variable | Value | What it does | Read in |
 | --- | --- | --- | --- |
-| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe`, `picker` | Shows the overlay from the start (`0`: not). The section names open those sections; `inspect` selects the hero and opens the moby inspector, `labels` names the mobys in the picture, `memview` opens the memory viewer, `wireframe` draws the frame in lines, `picker` enables click selection and its JSON report. | `port/game/common/debug_overlay.cpp` |
-| `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_OVERLAY` | `1`, or a list of `frame`, `renderer`, `memory`, `mobys`, `game`, `shaders`, `all`, `inspect`, `labels`, `memview`, `wireframe`, `picker`, `meat-proxy-review` | Shows the overlay from the start (`0`: off). Section names open those sections. `inspect` selects the hero and opens the moby inspector, `labels` names the mobys, `memview` opens the memory viewer, `wireframe` draws in lines, and `picker` enables click selection and its JSON report. With developer mode, `meat-proxy-review` opens the independent review window. Used alone, it keeps the F3 overlay closed. | `port/game/common/debug_overlay.cpp` |
+| `OPENRAC_OVERLAY_SHOT` | `N:PREFIX` | With the overlay shown: every `N` ticks, the window with the overlay and without notification cards to `PREFIX<tick>.png`, from `OPENRAC_SHOT_FROM` on; while paused one more, `PREFIX<tick>_held.png`. (`OPENRAC_SHOT` writes the game's frame without the overlay.) | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_KEYS` | `FRAME[+HELD]:KEY,...` | Keys and clicks by script, put in the window's event queue at those window frames, as `OPENRAC_PRESS` presses pad buttons. `KEY` is SDL's name of a key (`F3`, `F5`, `Return`) or `click@X,Y`, a left click at that place of the window (in the window's own units, not pixels). `+HELD`: that many pictures later while the game is paused at `FRAME`, where frames do not count. An event is read on the frame after it was put. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_LAUNCHER_VERSION` | text | Set by the launcher for bake tasks; records the running launcher's version in probe logs. Unset CLI runs report unknown. | `port/enhanced/tools/baker/pipeline/pipeline_events.cpp` |
 | `OPENRAC_MENU` | a tab's name | The menu open on that tab from the start (`graphics`, `enhanced`, `game`, `controls`, `developer`), for screenshots of it. | `port/game/common/debug_overlay.cpp` |
 | `OPENRAC_DRAWER` | any (set) | The menu in the drawer, as on Android, in place of the desktop's bar of tabs. | `port/game/common/debug/touch.cpp` |
-| `OPENRAC_GL_API` | `es`, `desktop`, `vulkan` | The kind of OpenGL context: `es` asks for OpenGL ES 3.2, what Android draws with (the default there), and runs the renderer's ES path on a desktop driver; `desktop` the 4.1 core profile (the default elsewhere); `vulkan` the renderer's GL carried out on Vulkan 1.3 (`port/renderer/vulkan`; on macOS through MoltenVK). Where Vulkan cannot start, the log says why and the game draws with OpenGL. | `port/platform/window.cpp` |
+| `OPENRAC_GL_API` | `es`, `desktop`, `vulkan`, `metal` | The kind of OpenGL context: `es` asks for OpenGL ES 3.2, what Android draws with (the default there), and runs the renderer's ES path on a desktop driver; `desktop` the 4.1 core profile (the default elsewhere); `vulkan` the renderer's GL carried out on Vulkan 1.3 (`port/renderer/vulkan`; on macOS through MoltenVK). `metal` the same on Metal (`port/renderer/metal`; macOS builds with `OPENRAC_METAL`); where Metal cannot start, or lacks a GL function the renderer loads, the log says why and the game draws with OpenGL (not Vulkan, which on macOS is MoltenVK on the same Metal). Where Vulkan cannot start, the log says why and the game draws with OpenGL. | `port/platform/window.cpp` |
 | `OPENRAC_HDR` | `off`, `on` | HDR for this run, over the settings file's `hdr` ([HDR.md](HDR.md)). Set by the launcher's Settings > HDR. | `port/game/common/main.cpp` |
 | `OPENRAC_HDR_FRAME` | `1` | Vulkan: draws the HDR float frame without an HDR screen and logs how much is above white, to compare with the normal frame ([HDR.md](HDR.md)). | `port/game/common/frontend/scene_frame.cpp` |
 | `OPENRAC_VULKAN_VALIDATION` | `1` | With `OPENRAC_GL_API=vulkan`: Khronos' validation layer, where it is installed, its messages in the log. On macOS it needs a Vulkan loader (Homebrew's `vulkan-loader` and `vulkan-validationlayers`, with `VK_LAYER_PATH` set), which is then opened in place of the bundle's MoltenVK. | `port/renderer/vulkan/vkgl.cpp`, `port/platform/window.cpp` |
@@ -414,6 +417,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_AUDIO_TICKED` | any (set) | No sound device: the game's sounds advance by one tick's samples each tick (rendered and dropped) and streams are read when they start, so what the game gets back from the sound engine lands on the same tick however fast the run goes, and `port/tools/regress`'s runs repeat. | `port/game/common/main.cpp` |
 | `OPENRAC_CONTROL_FRAMES` | `N` (decimal) | The run ends `N` window frames after the player gets control (a route's length in `port/tools/regress`). Unset means never. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_DEBUG_MENU` | `N` (decimal frame) | Opens the developer menu by script at window frame `N` (or later), if the menu is available: `OPENRAC_DEVELOPER` on, and the boot program (title and main menu) loaded. Unset means never. | `port/game/common/debug_menu.cpp` |
+| `OPENRAC_MEAT_PROXY_REVIEW` | path | JSON queue for the Meat Proxy Review window. Defaults to `meat-proxy-review.json` in the system temp folder. | `port/game/common/debug/review_queue.cpp` |
 | `OPENRAC_DEVELOPER` | `1` | Turns the launcher's developer mode on. The value matters: unset, empty or `0` is off; anything else is on. Without it the menus are the game's own. | `port/game/common/debug_menu.cpp` |
 
 ### Screenshots and dumps
@@ -445,6 +449,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_FRAME_LOG` | `FROM-TO` or `N` (decimal) | For ticks in that range, logs what each drew: draw flags, camera, 2D bytes, quad, effect and moby counts. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_FUR_VIEW` | `0` (default) to `3` | With enhanced rendering on, starts with a Ratchet fur diagnostic: 1 the coverage mask, 2 the groom directions, 3 the detail normals (the drawer's Enhanced graphics > Diagnostics > Ratchet fur view). | `port/game/common/main.cpp` |
 | `OPENRAC_CAM_LOG` | any (set) | Each drawn frame, logs the camera position, forward and up vectors. | `port/game/common/frontend/frame.cpp` |
+| `OPENRAC_SCENERY_LOG` | any (set) | Every 100 ticks, logs what Going Commando's culls leave out of the scenery: the occlusion mask's bits for the camera's cell, how many ties and shrubs are left out (their hidden bits, the mask, their draw distances at most the level's caps), how many terrain fragments are drawn, the caps read and the Draw distance setting. Once a level, without it, the log says where the visibility comes from and the caps. | `port/game/common/frontend/frame.cpp` |
 | `OPENRAC_PACING` | any (set) | Each frame shown, logs when (ms), how far between ticks it is (alpha), whether it is a tick or in-between frame, the refresh interval and the draw cost. | `port/game/common/frontend/interpolation.cpp` |
 | `OPENRAC_FPS` | any (set) | Every 300 frames, logs the frames per second over that span. | `port/game/common/program/vsync.cpp` |
 | `OPENRAC_HITCH` | any (set) | Logs each frame that took more than 1.25 times the frame time, with its duration in ms. | `port/game/common/program/vsync.cpp` |
@@ -462,6 +467,8 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_HIT_LOG` | any (set) | Prints each hit sphere with a template, and the mobys it listed, on stderr. | `port/game/rac1/host/collision.c` |
 | `OPENRAC_ITEMS_DEBUG` | `1` (not `0`) | Prints what the hero and each co-op figure hold, the pieces made, the classes decoded and the shots fired or kept from hitting, on stderr. | `port/game/rac1/host/figure_items.c`, `figure_shots.c` |
 | `OPENRAC_ANIM_TRACE` | any (set) | Prints each co-op figure's animation as it is posed (its seq, blend target, key, next key, time and speed before and after, and what was done: run, blend, blending, snap) on stderr, one `ATRACE F` line each; the multiplayer mod prints the poses it sends, receives and shows beside them. | `port/game/rac1/host/play.c` |
+| `OPENRAC_PLAY_TRACE` | `WHAT,...` | Going Commando: runs the mods' play calls without a mod and prints what they see on stderr (`PTRACE` lines): each change of the phase, the level and the program loads, and the hero's pose every 120 frames. `figure` makes a co-op figure once the hero plays and poses it as the hero was 30 frames before, 2 units aside; `capture` takes the save 300 frames into play and checks it (and writes it to `OPENRAC_PLAY_TRACE_SAVE` when that names a file); `travel=N` leaves for level N 600 frames into play; `start=FILE` starts that save from the title, `start=N` a new game in level N. | `port/game/rac2/host/play.c` |
+| `OPENRAC_PLAY_TRACE_SAVE` | file path | The file `OPENRAC_PLAY_TRACE`'s `capture` writes the save it took to. | `port/game/rac2/host/play.c` |
 | `OPENRAC_COLL_TRACE` | any (set) | Counts collision queries and hits by kind (line, sphere, capsule, sphere-mobys, hero-groups, boot line) and prints the totals on stderr every 2000 queries. | `port/game/rac1/host/collision.c` |
 | `OPENRAC_COLL_CHECK` | `1`, or `N` | Runs every collision query twice: as `collision.c` computes it and as the retail kernel's own instructions do (hostgen asmc translates them from the disc into `asm_shadows.c`, never committed; floats through `ps2float.h`). Prints each query whose result, memory written, pose cache or hit registers (vf2.w, vf25..vf29) differ, and a tally every 5000 queries and at exit. `N` > 1 also compares all of RAM every Nth query. The game keeps `collision.c`'s result. Slow; for checking only. | `port/game/rac1/host/collision_check.c` |
 | `OPENRAC_COLL_CHECK_PRINT` | number (400) | How many differing queries `OPENRAC_COLL_CHECK` prints per kind. | `port/game/rac1/host/collision_check.c` |
@@ -483,6 +490,8 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_PROBE_SKY` | `level` or `uniform` | The sky the probe bake must have been made with, in place of the bake profile's. Any other value leaves the GI off, with the reason in the log. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_SKY_INTENSITY` | a number, 0 or more | The sky intensity the probe bake must have been made with, in place of the bake profile's. A value that is not wholly a finite number of 0 or more leaves the GI off, with the reason in the log. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_VK_UNIFORM_REUSE_OFF` | any (set; unset for the optimised path) | Vulkan profiling reference: redundant uniform writes dirty the default block; ordinary uniform descriptors include each upload offset. Default uses byte comparisons, dynamic uniform offsets and bounded per-frame descriptor reuse. Set before startup. | `port/renderer/vulkan/vkgl_internal.h` |
+| `OPENRAC_GPU_BAKE` | any (set; unset for off) | The probe baker traces probe rays and probe placement rays on the GPU (Vulkan ray query) instead of Embree. Without a device that supports ray queries it logs why and uses Embree. | `port/enhanced/lighting/bake.cpp`, `port/enhanced/lighting/gpu_transport.cpp` |
+| `OPENRAC_GPU_BAKE_CHECK` | any (set; unset for off) | With `OPENRAC_GPU_BAKE`, the baker also traces every 16th probe on the CPU and logs how far the GPU result differs. | `port/enhanced/lighting/bake.cpp` |
 | `OPENRAC_GPU_BREADCRUMBS` | `0` disables | Record Vulkan render-graph progress on supported GPUs for device-loss reports. Default on. | `port/renderer/vulkan/gpu_breadcrumbs.cpp` |
 | `OPENRAC_GPU_MARKERS` | any (set; unset for off) | Names timed GPU passes in AMD RGP and other Vulkan profilers. Requires configuring with `-DOPENRAC_GPU_MARKERS=ON` (default OFF) and active stats collection, such as `--debug-dump`. Label lookup and Vulkan label calls are compiled out otherwise. | `port/renderer/vulkan/vkgl_commands.cpp`, `port/renderer/vulkan/vkgl_device.cpp` |
 | `OPENRAC_GPU_PASS_TIMING` | any (set; unset for off) | Vulkan: every section timed on the GPU ends the render pass it falls in, at its start and its end, so that a tile-based GPU (Mali, Adreno, Apple) times it; otherwise its timestamps lie inside one pass and read about zero. Each split stores and loads the attachments again, so the frame is slower while it is on. Without it, a recording splits one frame in ten on a tile-based GPU by itself (stats::set_pass_sampling). | `port/renderer/vulkan/vkgl.cpp` |
@@ -526,7 +535,7 @@ These variables are read by `openrac-<game>` at run time. Unless said otherwise,
 | `OPENRAC_EARLY_LIGHTING_OFF` | any (set) | Reference: full-resolution GI and cascades; takes effect when the level is loaded again. | `port/enhanced/viewer/early_lighting.cpp` |
 | `OPENRAC_SUN_SHADOWS` | `0`: off; otherwise on in gameplay | Four sun cascades (nearest 2048, others 1024), 256-unit range, filtered comparisons. Fully shadowed primary and directional fill retain 10%; GI stays independent. Suppresses stencil shadows. See [sun shadows](../../port/enhanced/docs/RAC1_SUN_SHADOW.md). | `port/game/common/frontend/world.cpp` |
 | `OPENRAC_PROBE_RAYS` | integer, default `1024` | Expected bake ray budget for activation. Must match the ray budget used by the bake. | `port/enhanced/viewer/probe_lighting.cpp` |
-| `OPENRAC_PROBE_VIEW` | `original`, `combined`, `indirect`, `direct`, `coverage` | Comparison view (default combined). Coverage is green for a usable sample and magenta for fallback. Requires a valid bake. | `port/enhanced/viewer/probe_lighting.cpp` |
+| `OPENRAC_PROBE_VIEW` | `original`, `combined`, `indirect`, `direct`, `coverage` | Comparison view (default combined). Coverage uses green for dense probes, blue for coarse probes, and magenta where neither can be sampled. Mixed coverage blends green and blue. Requires a valid bake. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_BACKLIGHT` | `1` | Adds original artistic back-light factors to experimental direct lighting. Default off to match the Lambertian bake. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_PROBE_SPHERES` | `1` or `xray` | Actual probe positions: cyan valid, gold relocated valid, magenta invalid. `1` is depth-tested within five grid spacings; `xray` shows hidden portions translucently within ten spacings. Status colours, independent of irradiance. | `port/enhanced/viewer/probe_lighting.cpp` |
 | `OPENRAC_UI_REPLAY` | any (set) | Replays the game's own GS packets for the 2D layer instead of drawing its quads natively, for comparing. | `port/game/common/frontend/world.cpp` |
@@ -670,6 +679,8 @@ and resource lifetime, see [GPU rendering](RAC1_GPU_DRIVEN.md).
 Open **Developer > Freecam**, or the **Freecam** section under **Renderer** in F3,
 and select **Enable Freecam**. **Free look** is the default mode: renderer culling,
 PVS, scenery draw distances and sun cascades follow the free camera.
+Outside the baked PVS grid, Free Look uses frustum culling without reusing
+the gameplay camera's last visibility mask.
 
 Use W/S to move along the view direction, A/D to strafe, E up, Q down, and Shift
 for four times the selected speed. Ctrl reduces speed to one-quarter and takes
@@ -706,3 +717,43 @@ back to **Free look** makes culling follow the camera again.
 restores ordinary camera behavior. Poses reset on level travel and these developer
 settings are not saved. Freecam can show only geometry the game has submitted;
 it cannot revive inactive mobys or effects already culled by the game.
+
+While freecam is active, the F3 **Game** section shows the camera used for the
+rendered picture. **Copy freecam JSON** copies the position and forward vector
+for a review task's `camera` field.
+
+## Meat Proxy Review
+
+Enable `OPENRAC_DEVELOPER=1` and open **Developer > Meat Proxy Review**.
+Use `OPENRAC_OVERLAY=meat-proxy-review` to open the window on startup. Set
+`OPENRAC_MEAT_PROXY_REVIEW` to choose a queue file. The default is
+`meat-proxy-review.json` in the system temp folder. Use a unique, stable ID for each task. Camera position is
+world XYZ, and forward is a nonzero XYZ direction with Z up. The optional `game`
+field limits the queue to the named game build.
+
+```json
+{
+  "game": "rac1-ntsc",
+  "tasks": [
+    {
+      "id": "kerwan-roboshack",
+      "title": "Al's RoboShack",
+      "description": "Compare the interior lighting with classic mode.",
+      "level": 3,
+      "camera": {"position": [263.98, 97.26, 56.5], "forward": [0, 0.994, -0.108]}
+    }
+  ],
+  "reviews": {}
+}
+```
+
+**Open view** uses the current level if it is already playable, or travels to the
+requested level, skips the ship flight and landing, then enables freecam. The review window stays open so you can
+record a verdict while looking at the scene.
+**Save current camera** replaces the selected task's position and facing with
+the rendered camera in that task's level, including freecam when it is active.
+**Yay**, **Nay**, and **Save feedback** write the selected task's feedback and
+verdict under its ID in `reviews` in the same JSON file. Use **Reload JSON** after
+editing the task list externally. **Delete task** removes the selected task and
+its saved feedback after confirmation. Run a test session without a memory card if you
+want to keep review travel separate from normal play.

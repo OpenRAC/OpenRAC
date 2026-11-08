@@ -1,0 +1,24 @@
+{
+  "about": "What port/tools/hostgen/release_rac1.py needs of this release besides the decompilation: its ids, and the facts each one is read from.",
+  "id": "rac1-jp",
+  "version": "jp",
+  "title": "Ratchet & Clank (NTSC-J)",
+  "label": "NTSC-J v1.02",
+  "serial": "SCPS_150.37",
+  "serial_text": "SCPS-15037",
+  "frame_rate": 60,
+  "gp": "0x00166D00",
+  "main": "0x0015F000",
+  "top": "0x00250000",
+  "save_folder": "BISCPS-15037RATCHET",
+  "omit": {
+    "func_00201AF0": "draw_bootImage: NTSC-J's catalogue (config/versions/jp/functions.tsv) has no counterpart of it, so the shared C's wrapper of it is left out.",
+    "func_001F75D0": "FontPrintWindow in the small font: NTSC-J has no counterpart of it (its catalogue's func_J_001F8688 is a second copy of the large font's), so the shared C's replacement is left out."
+  },
+  "defines_extra": {
+    "RAC1_FONT_PRINT_WINDOW": [
+      "func_001F81F8",
+      "FontPrintWindow as NTSC-J's own C calls it: its font_print_window_regular (src/versions/jp/game/render/draw/func_001F7560.c) draws with func_J_001F81F8, its own routine, not PAL v2.00's func_001F7070."
+    ]
+  }
+}

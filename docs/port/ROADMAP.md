@@ -24,7 +24,7 @@ as the port's own C; hostgen's report lists what is left. Known bugs are in
 [KNOWN_ISSUES.md](KNOWN_ISSUES.md).
 
 The sequels build the same way, each from its decompilation
-(`openrac-rac2-ntsc`, `-rac3-ntsc`, `-rac4-ntsc`). What they still need
+(`openrac-rac2-ntsc`, `-rac3-ntsc`, `-rac3-pal`, `-rac4-ntsc`). What they still need
 before they run is in [port/game](../../port/game/README.md): their `main`
 and their library tables.
 

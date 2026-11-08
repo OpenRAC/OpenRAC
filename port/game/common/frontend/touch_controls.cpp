@@ -4,6 +4,7 @@
 #include "game/common/frontend/touch_controls.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <mutex>
 #include <string_view>
@@ -54,6 +55,8 @@ struct State {
     int candidate_frames = 0;
     std::vector<Hint> hints;
 };
+
+std::atomic<bool> g_movie{false};
 
 State& state() {
     static State s;
@@ -108,6 +111,9 @@ void load(State& s, const mods::touch::Snapshot& mod) {
 // The game's context now, and its hints.
 std::string game_context(std::vector<std::string>& hints) {
     hints.clear();
+    if (g_movie.load(std::memory_order_relaxed)) {
+        return "cutscene";
+    }
     if (openrac_game_touch == nullptr) {
         return "default";
     }
@@ -194,6 +200,10 @@ void update(platform::TouchPad& touch, int style) {
     const bool arc = style == 0 && !actions.empty();
     touch.set_style(arc ? platform::TouchStyle::Arc : platform::TouchStyle::Classic);
     touch.set_actions(std::move(actions), std::move(up), dpad);
+}
+
+void set_movie(bool skippable) {
+    g_movie.store(skippable, std::memory_order_relaxed);
 }
 
 }  // namespace openrac::frontend::touch_controls

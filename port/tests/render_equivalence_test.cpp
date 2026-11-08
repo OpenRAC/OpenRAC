@@ -751,9 +751,104 @@ int run_selection(const Selection& chosen, const char* executable_path) {
     return openrac::test::result();
 }
 
+// The most pixels of a frame that differ from OpenGL's by more than `channel`.
+std::size_t worst_pixels_beyond(const Frames& a, const Frames& b, int channel) {
+    std::size_t worst = 0;
+    for (std::size_t frame = 0; frame < std::min(a.size(), b.size()); ++frame) {
+        std::size_t beyond = 0;
+        for (std::size_t at = 0; at + 4 <= std::min(a[frame].size(), b[frame].size()); at += 4) {
+            bool over = false;
+            for (std::size_t c = 0; c < 4; ++c) {
+                over |= std::abs(int{a[frame][at + c]} - int{b[frame][at + c]}) > channel;
+            }
+            beyond += over ? 1 : 0;
+        }
+        worst = std::max(worst, beyond);
+    }
+    return worst;
+}
+
+// --opengl-frames FILE writes the compatibility scenarios' frames as OpenGL draws them;
+// --against-opengl FILE draws them on this process's API (Metal) and requires the same bytes. Two
+// processes, since a process opens one API.
+int run_against_opengl(const std::filesystem::path& path, bool save, const char* executable_path) {
+    openrac::test::GlContext context;
+    std::string error;
+    if (!context.open(error, kWidth, kHeight)) {
+        std::printf("SKIP: no window: %s\n", error.c_str());
+        return openrac::test::kSkip;
+    }
+    const auto executable = openrac::test::baseline_executable_checksum(executable_path);
+    if (!executable) {
+        std::fprintf(stderr, "cannot identify the equivalence executable\n");
+        return 1;
+    }
+    const std::string identity =
+        std::format("opengl-frames/{}/{}/{}/{}", *executable, kWidth, kHeight, kFrames);
+    const render::SceneSize size = test_size();
+    const openrac::scene::LevelData level = render::make_level(size);
+    use_enhanced(false);
+
+    Baselines drawn;
+    for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+        drawn[0][index] = draw_run({level, size, false}, render::kScenarios[index], error);
+        CHECK(drawn[0][index].size() == kFrames);
+    }
+    // A frame of the clear colour alone would match any API's.
+    CHECK(!drawn[0][0].empty() && drawn_share(drawn[0][0].front()) > 0.05);
+    if (save) {
+        CHECK(openrac::test::write_render_baseline(path, identity, flatten(drawn, {false})));
+        return openrac::test::result();
+    }
+    // Where OpenGL drew nothing (no window for it), there is nothing to compare with.
+    if (!std::filesystem::exists(path)) {
+        std::printf("SKIP: no OpenGL frames\n");
+        return openrac::test::kSkip;
+    }
+    const auto expected = flatten(drawn, {false});
+    const auto opengl = openrac::test::read_render_baseline(path, identity, expected.size());
+    if (opengl.empty()) {
+        std::fprintf(stderr, "missing or stale OpenGL frames; run render_equivalence_opengl\n");
+        return 1;
+    }
+    constexpr std::size_t kFrameBytes = std::size_t{kWidth} * kHeight * 4;
+    // Apple's OpenGL runs on Metal, so the two agree exactly. AMD's OpenGL (R9 M370X) filters
+    // textures in eighths of a level, moving channels by up to 5, and resolves a triangle edge
+    // through a pixel centre otherwise in up to 2 pixels a frame (tools/remote-mac.sh measures it).
+    const std::string_view renderer =
+        reinterpret_cast<const char*>(openrac::gl::glGetString(openrac::gl::GL_RENDERER));
+    const bool apple = renderer.starts_with("Apple");
+    for (std::size_t index = 0; index < render::kScenarios.size(); ++index) {
+        Frames theirs;
+        for (std::size_t frame = 0; frame < kFrames; ++frame) {
+            const auto at = opengl.begin()
+                            + static_cast<std::ptrdiff_t>((index * kFrames + frame) * kFrameBytes);
+            theirs.emplace_back(at, at + static_cast<std::ptrdiff_t>(kFrameBytes));
+        }
+        const Difference difference = compare(drawn[0][index], theirs);
+        std::printf(
+            "%s: %.4f of a frame's pixels differ from OpenGL's, by up to %d\n",
+            std::string(render::kScenarios[index].name).c_str(),
+            difference.worst_fraction,
+            difference.worst_channel
+        );
+        CHECK(difference.same_shape);
+        CHECK(
+            apple ? difference.worst_channel == 0
+                  : worst_pixels_beyond(drawn[0][index], theirs, 5) <= 2
+        );
+    }
+    return openrac::test::result();
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 3
+        && (std::string_view(argv[1]) == "--opengl-frames"
+            || std::string_view(argv[1]) == "--against-opengl")) {
+        return run_against_opengl(argv[2], std::string_view(argv[1]) == "--opengl-frames", argv[0]);
+    }
     const auto chosen = selection(argc, argv);
     if (!chosen) {
         std::fprintf(

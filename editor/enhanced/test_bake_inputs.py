@@ -52,8 +52,16 @@ class BakeInputs(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in (root/"bake-inputs").iterdir()), ["gameplay.bin"])
             self.assertEqual((root/"bake-inputs/gameplay.bin").read_bytes(), b"gc gameplay")
 
+    def test_going_commandos_three_discs_keep_their_gameplay(self):
+        for version in ("ntsc", "pal", "ntsc2"):
+            level = SimpleNamespace(game="rac2", version=version, id=9, stored={}, gameplay=b"gc gameplay")
+            with tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                write_bake_inputs(level, root)
+                self.assertEqual((root/"bake-inputs/gameplay.bin").read_bytes(), b"gc gameplay", version)
+
     def test_other_levels_and_versions_are_unchanged(self):
-        for game, version, level_id in [("rac2", "pal", 9), ("rac3", "ntsc", 3), ("rac1", "unknown", 3)]:
+        for game, version, level_id in [("rac2", "jp", 9), ("rac3", "ntsc", 3), ("rac1", "unknown", 3)]:
             level = SimpleNamespace(game=game, version=version, id=level_id)
             with tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)

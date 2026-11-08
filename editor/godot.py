@@ -407,7 +407,7 @@ class LevelWriter:
         rotation_order XYZ makes the Inspector show the game's own Euler
         angles (R = Rz * Ry * Rx); the transform itself is exact either way.
         """
-        # The class names and update functions are Ratchet & Clank's (moby_classes.tsv, games/rac1):
+        # The class names and update functions are Ratchet & Clank's (moby_classes.tsv, games/rac1/decomp):
         # another game's class numbers mean other classes.
         names = moby_class_names() if self.fmt.class_names else {}
         logic = moby_logic(self.level.id) if self.fmt.class_names else {}

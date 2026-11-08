@@ -55,4 +55,4 @@ Where a claim could not be checked, it says so.
 | Frame pacing and settings | [SETTINGS.md](SETTINGS.md), [DEBUGGING.md](DEBUGGING.md) |
 | Mods, the SDK, hook points | [MODS.md](MODS.md), [sdk/docs/](../../sdk/docs/README.md) |
 | Playing the port by script | [RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md), [REGRESSION.md](REGRESSION.md) |
-| The game's own knowledge | [games/rac1](../../games/rac1), [docs/engine](../engine/README.md) |
+| The game's own knowledge | [games/rac1/decomp](../../games/rac1/decomp), [docs/engine](../engine/README.md) |

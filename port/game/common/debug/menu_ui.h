@@ -27,8 +27,24 @@ namespace openrac::frontend::debug_overlay {
 // The launcher's colours, as the launcher started the game with them.
 const ui_colors::Colors& ui();
 
-// A row or button held down: the launcher's accent, faint over the card.
+// A row or button held down or under the pointer: the launcher's --control-card-hi, a neutral lift.
 ImU32 pressed_fill();
+// A plain button's fill in place of a border: the launcher's --control-card, as the menu's
+// controls sit on a panel.
+ImU32 control_fill();
+// The rounded rectangle [a, b] in the launcher's stripes: bands of `one` and `two`, 20 px each at
+// 35 degrees, a band of `one` starting at `origin` (the screen's corner for a card; the bar's own
+// for its buttons, so their stripes continue the bar's).
+void striped_rect(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    float round,
+    ImU32 one,
+    ImU32 two,
+    ImVec2 origin,
+    float alpha = 1.0f
+);
 
 // The launcher's transitions: what changes eases to its new state over `seconds`; `id` is ImGui's.
 float tween(ImGuiID id, float target, float seconds);
@@ -50,7 +66,8 @@ float slide(float at, bool open);
 // read. Set by add_menu_fonts.
 struct MenuFonts {
     ImFont* body = nullptr;    // Inter, the rows
-    ImFont* strong = nullptr;  // Inter SemiBold, the tabs and buttons
+    ImFont* strong = nullptr;  // Inter SemiBold, the buttons
+    ImFont* bar = nullptr;     // Inter Medium, the bar's tabs and chips (as thin as the logo)
     ImFont* head = nullptr;    // Orbitron, the headings
     ImFont* title = nullptr;   // Orbitron, larger: the open tab's name over its rows
     ImFont* small = nullptr;   // Inter SemiBold, smaller: a section's kicker, the version
@@ -69,8 +86,24 @@ void draw_logo(ImDrawList* list, ImVec2 left_middle, ImU32 mark, ImU32 name);
 // The focus ring a gamepad or the keyboard moves, around the item just drawn.
 void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round);
 
-// The launcher's main button's fill: its gradient and a highlight along the top; darker as `held`.
+// The main button's fill: the bar's gold stripes; darker as `held`.
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held);
+// A panel's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a glow
+// of `glow` along its top `glow_depth` pixels, rounded at `corners`.
+void panel_fill(
+    ImDrawList* list,
+    ImVec2 a,
+    ImVec2 b,
+    ImU32 top,
+    ImU32 bottom,
+    ImU32 glow,
+    float glow_depth,
+    float round,
+    ImDrawFlags corners = ImDrawFlags_None
+);
+// The light along a panel's top: its card coal with 8 % of the game's colour (--glow), as the
+// launcher's page under its bar; more looks odd on the coal.
+ImU32 panel_glow();
 
 // An arrow as the launcher draws one, pointing `dx` (-1, 1) or, with `dx` 0, `dy` (1 down, -1 up).
 void arrow(ImDrawList* list, ImVec2 tip, float dx, float dy, ImU32 ink);

@@ -85,21 +85,28 @@ fn check_game(game: &str) -> Result<&str, String> {
     }
 }
 
+/// What the extractor wrote in `iso_data` (`buildinfo.json`): the disc a set-up was made from.
+/// Read from `iso_data/<game>`, or from a set-up kept aside (`iso_data/<game>@<version>`,
+/// disc_choice.rs).
+pub fn build_info(iso_data: &Path) -> Option<BuildInfo> {
+    let text = std::fs::read_to_string(iso_data.join("buildinfo.json")).ok()?;
+    serde_json::from_str::<Vec<BuildInfo>>(&text).ok()?.into_iter().next()
+}
+
 pub fn state(install: &Path, game: &str) -> InstallState {
     let dir = data_dir(install, game);
-    let extracted = std::fs::read_to_string(dir.join("iso_data").join(game).join("buildinfo.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<Vec<BuildInfo>>(&text).ok())
-        .and_then(|list| list.into_iter().next());
+    let extracted = build_info(&dir.join("iso_data").join(game));
     let filled = |sub: &str| std::fs::read_dir(dir.join(sub).join(game)).is_ok_and(|mut d| d.next().is_some());
     InstallState { decompiled: filled("decompiler_out"), compiled: filled("out"), extracted, dir }
 }
 
-/// The disc image the extractor kept for `serial`, if this game was set up from that version.
-pub fn disc_image(install: &Path, game: &str, serial: &str) -> Option<PathBuf> {
+/// The disc image the extractor kept for version `version` (`rac1/pal`), if this game was set up
+/// from that version: by the version, not the serial, which two releases can share (Going
+/// Commando's v1.01 and v2.00).
+pub fn disc_image(install: &Path, game: &str, version: &str) -> Option<PathBuf> {
     let state = state(install, game);
     let image = state.dir.join("iso_data").join(game).join("disc.iso");
-    (state.extracted?.serial == serial && image.is_file()).then_some(image)
+    (state.extracted?.version == version && image.is_file()).then_some(image)
 }
 
 /// The job that extracts and validates `image` for `game`: OpenGOAL's
@@ -261,15 +268,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let install = dir.path();
         assert_eq!(state(install, "rac1").extracted, None);
-        assert_eq!(disc_image(install, "rac1", "SCES_509.16"), None);
+        assert_eq!(disc_image(install, "rac1", "rac1/pal"), None);
 
         extracted(install, "rac1", "SCES_509.16");
         let got = state(install, "rac1");
         assert_eq!(got.extracted.as_ref().unwrap().serial, "SCES_509.16");
         assert_eq!(got.extracted.as_ref().unwrap().elf_sha1, "ab");
         assert!(!got.decompiled && !got.compiled);
-        assert!(disc_image(install, "rac1", "SCES_509.16").is_some());
-        assert_eq!(disc_image(install, "rac1", "SCUS_971.99"), None);
+        assert!(disc_image(install, "rac1", "rac1/pal").is_some());
+        assert_eq!(disc_image(install, "rac1", "rac1/ntsc"), None);
 
         let keep = data_dir(install, "rac1").join("saves");
         std::fs::create_dir_all(&keep).unwrap();

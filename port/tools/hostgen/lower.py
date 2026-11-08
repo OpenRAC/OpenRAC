@@ -51,6 +51,8 @@ HW_RANGES = [(0x10000000, 0x12002000)]  # EE registers, VU memory, GS registers
 LEVEL_RELOCATE = (0x0015F000, 0x00400000)
 # A level function's name, with its level: rac1/pal's func_L05_..., the NTSC decomp's FUN_L05_....
 LEVEL_NAME = re.compile(r"(?:func|FUN)_L(\d\d)_")
+# A function name with a suffix after its address: a per-caller alias of that function (rac3).
+CALLER_ALIAS = re.compile(r"(func_[0-9A-Fa-f]{8})_\w+$")
 # A call_copies row with an executable target: the executable's call, else the level copy's.
 _EXE_OR_COPY = "(openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? "
 UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
@@ -71,6 +73,8 @@ HOSTGEN_ASM = "openrac_hostgen_asm"
 
 # C library maths functions on plain values, called by the host's name when
 # the game uses them without defining them.
+ARG_SLOTS = 8  # the EE's integer argument registers, $a0-$t3
+
 HOST_MATH = {
     "fabsf", "fabs", "sqrtf", "sqrt", "sinf", "sin", "cosf", "cos", "tanf", "tan", "asinf", "asin",
     "acosf", "acos", "atanf", "atan", "atan2f", "atan2", "floorf", "floor", "ceilf", "ceil", "powf",
@@ -144,6 +148,7 @@ class _Fn:
     # sit in, as the console's compiler inlined it there.
     home: str | None = None
     static: bool = False                             # a static definition (Unit._ps2)
+    arg_area: str | None = None                      # the frame field holding the EE's argument save area
 
     @property
     def code(self) -> str:
@@ -674,6 +679,7 @@ class Unit:
             if d.get("name"):
                 self.local_names[d["name"]] = f"{cname(own)}__{d['name']}"
                 self.local_names[f"openrac_td_{d['name']}"] = f"openrac_td_{cname(own)}__{d['name']}"
+        consts_before = dict(self.enum_consts)
         try:
             hoisted = []
             for d in local_types:
@@ -691,6 +697,9 @@ class Unit:
             report.status = "stub"
             report.reason = str(e)
             del self.inline_copies[copies_before:]  # the copies of helpers it called go with it
+            # Its hoisted enumerators go with it too: another function's `enum { X = 0 }` that was
+            # left to share this one's X must write its own.
+            self.enum_consts = consts_before
             unused = " ".join(f"(void){n};" for n in names)
             ret_canon = self.canon(sig_t.ret)
             ret = "" if self.cls(sig_t.ret) == "void" else (
@@ -767,6 +776,17 @@ class Unit:
             for p, n in zip(params, names):
                 if p["id"] in fn.memory:
                     prologue.append(f"    {self._mem_text(p['id'])} = {n};")
+            if fn.arg_area is not None:
+                # The EE's argument save area (_next_arg): the doublewords its callers pass (_area_args).
+                if not names:
+                    raise Unsupported("__builtin_next_arg with no named parameter")
+                slots = self._area_slots(fn.sig)
+                area = f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fn.arg_area}))"
+                prologue.append(
+                    f"    {{ __builtin_va_list ap_; __builtin_va_start(ap_, {names[-1]}); "
+                    f"for (int k_ = 0; k_ < {slots}; k_++) "
+                    f"GREF(uint64_t, {area} + (gaddr)(8 * k_)) = __builtin_va_arg(ap_, uint64_t); "
+                    f"__builtin_va_end(ap_); }}")
         for vid, var in fn.statics.items():
             d = self.decls[vid]
             loc = d.get("loc", {})
@@ -1650,6 +1670,13 @@ class Unit:
         own = self.program.grouped(self.unit, sym)
         if own != sym and own in self.program.functions:
             return own  # the unit's group (a separate program) has its own
+        alias = CALLER_ALIAS.match(sym) if self.program.group_of(self.unit) else None
+        if alias:
+            # A per-caller alias of a function (rac3's `func_003AE240_003B3910`, another declaration
+            # of one function) in a group's unit: the group's function at that place, if it has one.
+            own = self.program.grouped(self.unit, alias.group(1))
+            if own in self.program.functions:
+                return own
         sym = self.program.canonical(sym)
         f = self.program.functions.get(sym)
         if f is None or (f.unit is None and sym not in self.program.host):
@@ -1953,6 +1980,12 @@ class Unit:
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")
+        formed_level = getattr(self.program, "formed_as", {}).get(symbol or "") if named and not code else None
+        if formed_level is not None:
+            # A level's datum the code only forms with something added (hostgen.json "formed_as",
+            # func_L00_002D5E30's D_L00_00262260, formed as the table + 2): the sum, as that level
+            # has it, less what was added.
+            return f"(OPENRAC_LDATA({int(named.group(1))}, {hexaddr(formed_level)}) - {hexaddr(formed_level - address)})"
         if (named and not code and int(named.group(2), 16) != address
                 and (self._shared_level() is not None or UNIT_LEVEL.search(self.unit))):
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
@@ -1963,9 +1996,12 @@ class Unit:
             level = int(unit_level.group(1))
             moved = self.program.level_data.get(level, {})
             placed = moved.get(symbol)
-            if placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol):
+            if (placed is None and not re.fullmatch(rf"D_(?:L\d\d_)?{address:08X}", symbol)
+                    and symbol not in getattr(self.program, "level_names", {})):
                 # Another name of the executable's datum (r1_D_L01_00160058 and D_L02_001B359C are
-                # 0x001B1B5C, the moby table's base): where this level's build put that datum.
+                # 0x001B1B5C, the moby table's base): where this level's build put that datum. Not
+                # a name a level's build derived (ref_L00_00424F98_00): its address is that
+                # level's already, and the executable's datum there is another.
                 placed = moved.get(f"D_{address:08X}")
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
             if placed is not None and low <= placed < high:
@@ -2008,6 +2044,13 @@ class Unit:
         else:
             level = self._shared_level()
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
+            placed = self.program.level_data.get(level, {}).get(symbol) if level is not None and symbol else None
+            if placed is not None and low <= placed < high and not code:
+                # A level function written with another program's address for the datum: v1.01's
+                # executable function that a release has only in its levels (USA v2.00's
+                # func_L00_00362138, v1.01's func_002E71B8) says the executable's D_001B87C0, which
+                # level 0's build put at 0x001BCA40. 0x001B87C0 of level 0 is another datum.
+                address, addr = placed, hexaddr(placed)
             copies = self._copies_in_one_program()
             if copies is not None and low <= address < high:
                 # Copies of this function in one program, each on its own globals: the one the
@@ -2792,6 +2835,8 @@ class Unit:
             return f"{BUILTINS[sym]}({', '.join(self.rv(a) for a in args)})"
         if sym == HOSTGEN_ASM:
             raise Unsupported("inline assembly Clang cannot read")
+        if sym == "__builtin_next_arg":
+            return self._next_arg(result_t)
         f = self.program.lookup(self.unit, sym)
         if sym in ("memcpy", "memmove", "memset") and (f is None or (f.unit is None and sym not in self.program.host)):
             # The C library's, which the game declares by name without defining it (its own copies
@@ -2946,8 +2991,58 @@ class Unit:
                     out.append(self._cast_to("0", p))
         if sig.variadic:
             extra = {id(a) for a in ints[ni:] + floats[nf:]}
-            out += [self.rv(a) for a in args if id(a) in extra]
+            rest = [a for a in args if id(a) in extra]
+            f = self.program.lookup(self.unit, sym)
+            if (f is not None and getattr(f, "arg_area", False) and f.unit is not None and sym not in self.program.host
+                    and sym not in self.program.wrap):
+                out += self._area_args(sym, rest, ARG_SLOTS - ni)
+            else:
+                out += [self.rv(a) for a in rest]
         return out
+
+    def _area_args(self, sym: str, args: list, slots: int) -> list[str]:
+        """The variable arguments of a call to a function that reaches them as the EE's argument save area
+        (program.py uses_arg_area): each the doubleword its register held, a 32-bit value sign-extended as
+        the EE keeps one, and zeros for the registers the call does not set, so the callee's va_arg reads
+        exactly SLOTS doublewords (_arg_area), as the assembly's calls and the dispatcher pass them."""
+        if len(args) > slots:
+            raise Unsupported(f"call to {sym} with variable arguments on the stack, past the argument registers")
+        out = []
+        for a in args:
+            t = self.ty(a)
+            c = self.cls(t)
+            if c in ("float", "double"):
+                raise Unsupported(f"call to {sym} with a floating-point variable argument")
+            if c not in ("int", "ptr"):
+                raise Unsupported(f"call to {sym} with a variable argument of type {t}")
+            v = self.rv(a)
+            out.append(f"(uint64_t)({v})" if self._wide(t) else f"(uint64_t)(int64_t)(int32_t)({v})")
+        return out + ["(uint64_t)0"] * (slots - len(args))
+
+    def _next_arg(self, result_t: ctype.Type) -> str:
+        """__builtin_next_arg(last) in a variadic definition: on the EE the address past the last named
+        argument's slot in the save area GCC spills the argument registers to, where the stack arguments
+        begin. The C steps back from it to the first unnamed register's doubleword and passes the area on
+        (`(char *)__builtin_next_arg(id) - 0x38`). Here the area is a frame field of the doublewords the
+        host's variable arguments carry (one per register past the named ones; _area_args), filled on
+        entry, and the builtin is its end."""
+        fn = self.fn
+        if fn is None or not fn.sig.variadic:
+            raise Unsupported("__builtin_next_arg outside a variadic function")
+        slots = self._area_slots(fn.sig)
+        if slots <= 0:
+            raise Unsupported("__builtin_next_arg with every argument register named")
+        if fn.arg_area is None:
+            fn.arg_area = f"openrac_arg_area_{len(fn.frame)}"
+            fn.frame.append((fn.arg_area, ctype.Arr(ctype.Base("unsigned long long"), slots)))
+        end = (f"(frame_ + (gaddr)offsetof(struct openrac_frame_{fn.name}, {fn.arg_area}) + "
+               f"(gaddr){slots * 8})")
+        return self._cast_to(end, result_t) if self.cls(result_t) != "ptr" else f"(gaddr){end}"
+
+    def _area_slots(self, sig) -> int:
+        """How many argument registers ($a0-$t3) a variadic function's named parameters leave: the
+        doublewords of its save area. A float parameter goes in a float register."""
+        return ARG_SLOTS - sum(1 for p in sig.params if self.sig_cls(p) != "float")
 
     def _as_param(self, a: dict, p: ctype.Type) -> str:
         c = self.cls(p)

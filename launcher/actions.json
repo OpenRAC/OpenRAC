@@ -93,7 +93,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/README.md"
+        "docs": "games/rac1/decomp/README.md"
       },
       {
         "id": "build",
@@ -109,8 +109,8 @@
           "inputs",
           "toolchains"
         ],
-        "artifact": "games/rac1/build-sn/rac1.elf",
-        "docs": "games/rac1/README.md"
+        "artifact": "games/rac1/decomp/build-sn/rac1.elf",
+        "docs": "games/rac1/decomp/README.md"
       },
       {
         "id": "editor-preview",
@@ -149,7 +149,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac1/docs/WORKFLOW.md"
+        "docs": "games/rac1/decomp/docs/WORKFLOW.md"
       },
       {
         "id": "editor-extract",
@@ -807,7 +807,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
       },
       {
@@ -830,7 +830,7 @@
           "inputs",
           "docker"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Run once on macOS."
       },
       {
@@ -849,13 +849,13 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
       },
       {
         "id": "build-merged",
         "label": "Build from the merged tree",
-        "description": "Links NTSC-U's boot executable and 19 level programs from the merged games/rac1 tree's compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
+        "description": "Links NTSC-U's boot executable and 19 level programs from the PAL tree's (games/rac1/decomp) compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
         "kind": "build",
         "state": "unverified",
         "program": "{python}",
@@ -889,7 +889,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md"
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md"
       },
       {
         "id": "editor-extract",
@@ -1530,6 +1530,1044 @@
         ]
       }
     ],
+    "rac1/pal1": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your PAL v1.00 disc into Godot 4 projects, one per level, in assets/levels/rac1/pal1. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/pal1",
+          "--split"
+        ],
+        "output": "assets/levels/rac1/pal1",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/pal1",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac1/pal1",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/pal1/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac1/pal1/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/pal1/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/pal1/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac1/pal1/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/pal1/level_{level}/project.godot",
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/pal1/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac1/pal1/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/pal1/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your PAL v1.00 disc into the form the game draws: the worlds behind the menus and all 19 levels, in assets/port/rac1/pal1, beside the other discs'. About a minute and 1 GB, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac1/pal1",
+          "--replace"
+        ],
+        "output": "assets/port/rac1/pal1",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac1/pal1/levels-4.json",
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "port-levels-visibility",
+        "label": "Add the levels' visibility",
+        "description": "Adds the game's own record of what can be seen from each spot to levels read before OpenRAC kept it, so the game draws only what you can see. A few seconds, from your PAL v1.00 disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/occlusion.py",
+          "{disc}",
+          "assets/port/rac1/pal1"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "assets/port/rac1/pal1/visibility-1.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/viewer/README.md"
+      },
+      {
+        "id": "port-levels-check",
+        "label": "Check the levels",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/pal1",
+          "--mods",
+          "{data}/mods/pal1",
+          "--check-levels"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "makes": "assets/port/rac1/pal1/verified-4.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Run it from the desktop app. The game is built by tools/build_port.py rac1-pal1."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF, with their skeletons and animations) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac1/pal1",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack, checked against the game's skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac1/pal1",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. The file you chose is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/pal1",
+          "--levels",
+          "{root}/assets/port/rac1/pal1"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game for this disc is playable."
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in Godot look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "preview",
+          "{data}/mods/pal1",
+          "--projects",
+          "assets/levels/rac1/pal1"
+        ],
+        "output": "assets/levels/rac1/pal1",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "preview",
+          "--projects",
+          "assets/levels/rac1/pal1",
+          "--undo"
+        ],
+        "output": "assets/levels/rac1/pal1",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-pal1",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md",
+        "todo": "tools/build_port.py builds the version of the disc set up (rac1-pal1). Run it from the desktop app on each platform."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-pal1",
+          "--disc",
+          "{disc}",
+          "--clean",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md"
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac1/pal1",
+          "--output-dir",
+          "{data}/probes/pal1",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/pal1",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Run from the desktop app on each platform. Built from PAL v2.00's C through the release view (port/game/rac1-pal1/README.md); not played by a person yet.",
+        "program": "{artifact}",
+        "requires": [
+          "artifact"
+        ],
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/pal1"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac1-pal1/README.md",
+        "todo": "Built by port-build. The Mods page runs overrides-stack first, which writes {data}/mods/pal1. Not run from the desktop app yet.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/pal1",
+          "--mods",
+          "{data}/mods/pal1"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-pal1.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/pal1/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
+      }
+    ],
+    "rac1/jp": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your Japanese disc into Godot 4 projects, one per level, in assets/levels/rac1/jp. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/jp",
+          "--split"
+        ],
+        "output": "assets/levels/rac1/jp",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac1/jp",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac1/jp",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/jp/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac1/jp/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/jp/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/jp/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac1/jp/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/jp/level_{level}/project.godot",
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac1/jp/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac1/jp/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac1/jp/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your Japanese disc into the form the game draws: the worlds behind the menus and all 19 levels, in assets/port/rac1/jp, beside the other discs'. About a minute and 1 GB, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac1/jp",
+          "--replace"
+        ],
+        "output": "assets/port/rac1/jp",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac1/jp/levels-4.json",
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "port-levels-visibility",
+        "label": "Add the levels' visibility",
+        "description": "Adds the game's own record of what can be seen from each spot to levels read before OpenRAC kept it, so the game draws only what you can see. A few seconds, from your Japanese disc, once.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/occlusion.py",
+          "{disc}",
+          "assets/port/rac1/jp"
+        ],
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "makes": "assets/port/rac1/jp/visibility-1.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/viewer/README.md"
+      },
+      {
+        "id": "port-levels-check",
+        "label": "Check the levels",
+        "description": "The game reads every level and active mod scenery override as it will when you play, without opening its window, and says which file it cannot draw. A few seconds. Play waits for the base level check: a level that is missing or cut short would be a black world.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--levels",
+          "{root}/assets/port/rac1/jp",
+          "--mods",
+          "{data}/mods/jp",
+          "--check-levels"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "makes": "assets/port/rac1/jp/verified-4.json",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Run it from the desktop app. The game is built by tools/build_port.py rac1-jp."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF, with their skeletons and animations) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac1/jp",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack, checked against the game's skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac1/jp",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. The file you chose is never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/jp",
+          "--levels",
+          "{root}/assets/port/rac1/jp"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/levels-4.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game for this disc is playable."
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in Godot look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "preview",
+          "{data}/mods/jp",
+          "--projects",
+          "assets/levels/rac1/jp"
+        ],
+        "output": "assets/levels/rac1/jp",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "preview",
+          "--projects",
+          "assets/levels/rac1/jp",
+          "--undo"
+        ],
+        "output": "assets/levels/rac1/jp",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md"
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles the decompiled game for this computer with the compilers it finds (on Windows, Visual Studio's C++ tools, Clang and Ninja). A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-jp",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md",
+        "todo": "tools/build_port.py builds the version of the disc set up (rac1-jp). Run it from the desktop app on each platform."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles the game again from the start, keeping the decompilation and disc it was built from. The launcher does this after an update, when the game was built by an older OpenRAC. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac1-jp",
+          "--disc",
+          "{disc}",
+          "--clean",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "port/README.md"
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares enhanced water, interior lighting, bounced light and reflections from your extracted levels. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac1/jp",
+          "--output-dir",
+          "{data}/probes/jp",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/jp",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The native baker decodes profile-driven source tables, schedules levels, verifies outputs and installs the bake without Python."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Run from the desktop app on each platform. Built from PAL v2.00's C through the release view (port/game/rac1-jp/README.md); not played by a person yet.",
+        "program": "{artifact}",
+        "requires": [
+          "artifact"
+        ],
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/jp"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
+      },
+      {
+        "id": "play-edited",
+        "label": "Play with your edits",
+        "description": "The game with your mods: the levels you packed and the overrides packs you switched on (textures, models), read in place of the disc's. Without any it plays the disc's.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "docs": "port/game/rac1-jp/README.md",
+        "todo": "Built by port-build. The Mods page runs overrides-stack first, which writes {data}/mods/jp. Not run from the desktop app yet.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac1/jp",
+          "--mods",
+          "{data}/mods/jp"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac1-jp.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac1/jp/verified-4.json",
+            "from": "a check of the levels (Check the levels)"
+          }
+        ]
+      }
+    ],
     "rac2/ntsc": [
       {
         "id": "tests",
@@ -1548,7 +2586,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac2/ntsc/CONTRIBUTING.md"
+        "docs": "games/rac2/decomp/CONTRIBUTING.md"
       },
       {
         "id": "setup",
@@ -1565,7 +2603,7 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
       },
       {
@@ -1584,7 +2622,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
       },
       {
@@ -2027,14 +3065,1000 @@
     ],
     "rac2/pal": [
       {
+        "id": "tests",
+        "label": "Run rac2's checks",
+        "description": "The tool tests, the catalogue and layout check, and whether the progress report matches src/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "games/rac2/decomp/docs/VERSIONS.md"
+      },
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Reads the boot executable and the 27 level programs from your disc (baserom/SCES_516.07.iso).",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/levels.py",
+          "dump",
+          "--version",
+          "pal"
+        ],
+        "requires": [
+          "python",
+          "inputs"
+        ],
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
+        "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
+      },
+      {
+        "id": "build",
+        "label": "Build the PS2 program",
+        "description": "Rebuilds the PAL release's boot program and its 27 level programs with the C linked in (the C of src/ and src/pal/), and compares every loaded byte with retail.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build.py",
+          "all",
+          "--version",
+          "pal"
+        ],
+        "requires": [
+          "python",
+          "inputs",
+          "toolchains"
+        ],
+        "docs": "games/rac2/decomp/docs/VERSIONS.md",
+        "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/pal",
+          "--split"
+        ],
+        "output": "assets/levels/rac2/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/pal",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac2/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/pal/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac2/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/pal. A few minutes and a few GB, once; read again when an update changes their format.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac2/pal",
+          "--replace"
+        ],
+        "output": "assets/port/rac2/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac2/pal/levels-20.json",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac2/pal",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack for this game, checked against its skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac2/pal",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's."
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/pal",
+          "--levels",
+          "{root}/assets/port/rac2/pal"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-pal), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-pal in port/ built the program (2026-10-27)."
+      },
+      {
+        "id": "port-part",
+        "label": "Build the game from your disc",
+        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/asm_part.py",
+          "build",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--out",
+          "{data}/asm-part"
+        ],
+        "makes": "{data}/asm-part/libopenrac-rac2-pal-part.so",
+        "cwd": ".",
+        "platforms": [
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac2/pal",
+          "--output-dir",
+          "{data}/probes/pal",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 18, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-pal",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
+      },
+      {
         "id": "play",
         "label": "Play",
-        "description": "Going Commando's European release as a native PC program. Only its files are read so far: the disc is recognised and extracted, and nothing is built from it yet.",
+        "description": "Going Commando as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the levels read from your disc. It boots, plays a new game or a save, and every planet and ship flight can be reached; much is still to fix.",
         "kind": "play",
         "area": "port",
-        "state": "planned",
-        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
-        "todo": "Needs rac2/ntsc to get past the first level load, then a PAL function map (tools/versions.py) and port/game/rac2-pal, as rac1 has for its PAL release."
+        "state": "unverified",
+        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-pal --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/pal"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-pal.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/pal/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
+      }
+    ],
+    "rac2/ntsc2": [
+      {
+        "id": "tests",
+        "label": "Run rac2's checks",
+        "description": "The tool tests, the catalogue and layout check, and whether the progress report matches src/ (no disc needed).",
+        "kind": "check",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tests"
+        ],
+        "requires": [
+          "python"
+        ],
+        "docs": "games/rac2/decomp/docs/VERSIONS.md"
+      },
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Reads the boot executable and the 27 level programs from your disc (baserom/SCUS_972.68_v2.00.iso).",
+        "kind": "setup",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/levels.py",
+          "dump",
+          "--version",
+          "us2"
+        ],
+        "requires": [
+          "python",
+          "inputs"
+        ],
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
+        "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
+      },
+      {
+        "id": "build",
+        "label": "Build the PS2 program",
+        "description": "Rebuilds the v2.00 release's boot program and its 27 level programs with the C linked in (the C of src/ and src/us2/), and compares every loaded byte with retail.",
+        "kind": "build",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build.py",
+          "all",
+          "--version",
+          "us2"
+        ],
+        "requires": [
+          "python",
+          "inputs",
+          "toolchains"
+        ],
+        "docs": "games/rac2/decomp/docs/VERSIONS.md",
+        "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into Godot 4 projects, one per level, in assets/levels/rac2/ntsc2. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/ntsc2",
+          "--split"
+        ],
+        "output": "assets/levels/rac2/ntsc2",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac2/ntsc2",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac2/ntsc2",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac2/ntsc2/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac2/ntsc2/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac2/ntsc2/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "port-levels",
+        "label": "Get the levels ready",
+        "description": "Reads the levels from your disc into the form the game draws, and texture and model packs are made from: all 27 levels and the four ship flights, in assets/port/rac2/ntsc2. A few minutes and a few GB, once; read again when an update changes their format.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac2/ntsc2",
+          "--replace"
+        ],
+        "output": "assets/port/rac2/ntsc2",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac2/ntsc2/levels-20.json",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac2/ntsc2",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack for this game, checked against its skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack for Going Commando (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's."
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/ntsc2",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+      },
+      {
+        "id": "port-build",
+        "label": "Build the game",
+        "description": "Compiles Going Commando's decompiled C for this computer (openrac-rac2-ntsc2), with the code still in assembly read from your disc. A few minutes the first time; later builds redo only what changed.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--probe-baker"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app. --disc {disc}: hostgen reads the boot executable straight from the disc image (the functions still in assembly are translated from it), as for Ratchet & Clank; without it the program has no retail code and exits at once. --probe-baker: the enhanced lighting's baker, as Ratchet & Clank's build makes it. From a shell on macOS, cmake --build --preset release --target openrac-rac2-ntsc2 in port/ built the program (2026-10-27)."
+      },
+      {
+        "id": "port-part",
+        "label": "Build the game from your disc",
+        "description": "Translates the part of Going Commando's code that is still in assembly from your disc and compiles it on this device, into the game's data folder. A few minutes, once for each new app version that changes the game; nothing is downloaded.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/asm_part.py",
+          "build",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--out",
+          "{data}/asm-part"
+        ],
+        "makes": "{data}/asm-part/libopenrac-rac2-ntsc2-part.so",
+        "cwd": ".",
+        "platforms": [
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it on a device. An Android launcher's copy (tools/bundle_standalone.py --android) writes it to a folder named by what it is built from (its kit and hostgen, bundle_standalone.py part_tag) and Play waits for it there; the APK carries the kit (tools/asm_part.py kit) and Clang and lld from Zig's static AArch64 release (tools/build_android.py ZIG_FILES)."
+      },
+      {
+        "id": "probe-bake",
+        "label": "Prepare the enhanced lighting",
+        "description": "Prepares interior lighting, bounced light and reflections from your extracted levels, for Enhanced graphics. Native workers share CPU and memory budgets; verified cached levels are reused.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{artifact}",
+        "args": [
+          "--bake-all",
+          "--levels-dir",
+          "{root}/assets/port/rac2/ntsc2",
+          "--output-dir",
+          "{data}/probes/ntsc2",
+          "--jobs",
+          "0",
+          "--update"
+        ],
+        "output": "{data}/probes/ntsc2",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-enhanced-baker.exe",
+        "needs": [
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ],
+        "docs": "port/enhanced/lighting/README.md",
+        "todo": "The same baker as Ratchet & Clank's: Going Commando's exports carry their gameplay copy from format 18, whose environment transitions and moby placements seed the local lighting (port/enhanced/lighting/profiles/rac2)."
+      },
+      {
+        "id": "port-rebuild",
+        "label": "Rebuild the game from scratch",
+        "description": "Deletes everything built before and compiles Going Commando again from the start, keeping the decompilation and disc it was built from. The launcher offers this when the game was built from an older checkout. A few minutes.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "tools/build_port.py",
+          "rac2-ntsc2",
+          "--disc",
+          "{disc}",
+          "--clean"
+        ],
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "port/game/rac2-ntsc/README.md"
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "Going Commando as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the levels read from your disc. It boots, plays a new game or a save, and every planet and ship flight can be reached; much is still to fix.",
+        "kind": "play",
+        "area": "port",
+        "state": "unverified",
+        "warning": "Going Commando is early and unstable: every level runs, but expect wrong graphics, missing effects and crashes.",
+        "docs": "port/game/rac2-ntsc/README.md",
+        "todo": "Run it from the desktop app on each platform. From a shell on macOS, openrac-rac2-ntsc2 --data <set-up folder> --levels <the export> --window boots, plays a new game and loads saves, and its --level tour ran all 27 levels to control (2026-11-02, port/game/rac2-ntsc/README.md). There is no --check-levels for this game yet, so Play waits for the export's own stamp. On Android the APK carries it built without the disc, and port-part builds the rest from the player's disc first.",
+        "program": "{artifact}",
+        "args": [
+          "--data",
+          "{data}",
+          "--window",
+          "--levels",
+          "{root}/assets/port/rac2/ntsc2"
+        ],
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "artifact"
+        ],
+        "artifact": "port/build/release/openrac-rac2-ntsc2.exe",
+        "needs": [
+          {
+            "path": "{data}/iso_data/rac2/buildinfo.json",
+            "from": "your disc set up (Set up from your disc)"
+          },
+          {
+            "path": "assets/port/rac2/ntsc2/levels-20.json",
+            "from": "the levels (Get the levels ready)"
+          }
+        ]
       }
     ],
     "rac3/ntsc": [
@@ -2062,7 +4086,7 @@
         "description": "rac3's pre-PR check (prints OK).",
         "kind": "check",
         "state": "planned",
-        "docs": "games/rac3/ntsc/CONTRIBUTING.md",
+        "docs": "games/rac3/decomp/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
       },
       {
@@ -2351,6 +4375,320 @@
         "todo": "openrac-rac3-ntsc builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac3-ntsc/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
       }
     ],
+    "rac3/pal": [
+      {
+        "id": "setup",
+        "label": "Set up",
+        "description": "Unpacks frontbin.elf, boot_elf.elf and i5bootn.elf from your disc with Wrench, then splits them into assembly.",
+        "kind": "setup",
+        "state": "planned",
+        "docs": "games/rac3/README.md",
+        "todo": "Needs Wrench and wibo (downloaded into build/rac3/ by the README's steps) and a venv with tools/requirements.txt: a launcher 'Download helpers' action could fetch both, pinned. Then tools/setup_asm.py --target all."
+      },
+      {
+        "id": "build",
+        "label": "Build the PS2 program",
+        "description": "Builds the three programs and checks them byte for byte (prints MATCH).",
+        "kind": "build",
+        "state": "planned",
+        "docs": "games/rac3/README.md",
+        "todo": "tools/build.py --target all --toolchain {root}/toolchains/eegcc_2.95.3_sn_v1.36 --runner <wibo>, with the venv's Python; needs the wibo setting."
+      },
+      {
+        "id": "pr-check",
+        "label": "Check before a pull request",
+        "description": "rac3's pre-PR check (prints OK).",
+        "kind": "check",
+        "state": "planned",
+        "docs": "games/rac3/decomp/CONTRIBUTING.md",
+        "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into Godot 4 projects, one per level, in assets/levels/rac3/pal. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet, and the game is not playable yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac3/pal",
+          "--split"
+        ],
+        "output": "assets/levels/rac3/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its Godot project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "godot",
+          "{disc}",
+          "assets/levels/rac3/pal",
+          "--split",
+          "--again"
+        ],
+        "output": "assets/levels/rac3/pal",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "docs": "editor/README.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in Godot",
+        "description": "Opens one extracted level in Godot's player, to fly around it. This is Godot showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac3/pal/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "assets/levels/rac3/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac3/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into Godot",
+        "description": "Has Godot read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac3/pal/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "assets/levels/rac3/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac3/pal/level_{level}/project.godot",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in Godot",
+        "description": "Opens one level in the Godot editor, to look around it, and its models and textures. Edits are not packed back into Up Your Arsenal yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{godot}",
+        "args": [
+          "--path",
+          "assets/levels/rac3/pal/level_{level}",
+          "-e"
+        ],
+        "output": "assets/levels/rac3/pal/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "godot",
+          "artifact"
+        ],
+        "artifact": "assets/levels/rac3/pal/level_{level}/project.godot",
+        "detached": true,
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "port-levels",
+        "label": "Read the levels for packs",
+        "description": "Reads its 51 levels (the single-player ones and the multiplayer maps) from your disc into the layout texture and model packs are made from, in assets/port/rac3/pal. A few minutes and a few GB, once. The game is not playable yet: this is for making packs.",
+        "kind": "build",
+        "area": "port",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/extract.py",
+          "port",
+          "{disc}",
+          "assets/port/rac3/pal",
+          "--replace"
+        ],
+        "output": "assets/port/rac3/pal",
+        "cwd": ".",
+        "platforms": [
+          "linux",
+          "macos",
+          "windows",
+          "android"
+        ],
+        "requires": [
+          "disc",
+          "python"
+        ],
+        "artifact": "assets/port/rac3/pal/levels-4.json",
+        "docs": "editor/README.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (editor/README.md, \"The later games\")."
+      },
+      {
+        "id": "assets-export",
+        "label": "Export models and textures",
+        "description": "Writes a level's models (glTF) or textures (PNG) to a folder of their own, to open in Blender or an image editor. A few seconds.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "export",
+          "{root}/assets/port/rac3/pal",
+          "{data}/exports/level_{level}-{option}",
+          "--level",
+          "{level}",
+          "--what",
+          "{option}",
+          "--unique"
+        ],
+        "output": "{data}/exports",
+        "options": [
+          "mobys",
+          "textures",
+          "scenery",
+          "terrain",
+          "all"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac3/pal/levels-4.json",
+            "from": "the levels (Read the levels for packs)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "assets-import",
+        "label": "Import your edits",
+        "description": "Reads an export you edited back: what changed becomes an overrides pack for this game, checked against its skeletons and texture shapes. Your levels and the export are never changed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/assets.py",
+          "import",
+          "{path}",
+          "--levels",
+          "{root}/assets/port/rac3/pal",
+          "--into",
+          "{data}/overrides"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac3/pal/levels-4.json",
+            "from": "the levels (Read the levels for packs)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's, on this game's levels."
+      },
+      {
+        "id": "overrides-add",
+        "label": "Add an overrides pack",
+        "description": "Copies a pack for Up Your Arsenal (a .zip or a folder with openrac-mod.json) into the game's mods, after checking it. Its textures and models are kept for when the game can be played.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "add",
+          "{path}",
+          "--into",
+          "{data}/overrides"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. The same command as Ratchet & Clank's."
+      },
+      {
+        "id": "overrides-stack",
+        "label": "Put the mods together",
+        "description": "Puts the overrides packs that are on, in their order, into one folder, as the game will read them once it is playable. A pack for another game is left out and listed.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "editor/overrides.py",
+          "stack",
+          "--into",
+          "{data}/overrides",
+          "--out",
+          "{data}/mods/pal",
+          "--levels",
+          "{root}/assets/port/rac3/pal"
+        ],
+        "cwd": ".",
+        "requires": [
+          "python"
+        ],
+        "needs": [
+          {
+            "path": "assets/port/rac3/pal/levels-4.json",
+            "from": "the levels (Read the levels for packs)"
+          }
+        ],
+        "docs": "editor/MODDING.md",
+        "todo": "Run it from the desktop app. Nothing reads the stack until the game is playable."
+      },
+      {
+        "id": "play",
+        "label": "Play",
+        "description": "The game as a native PC program: its decompiled C built for this computer, drawn by OpenRAC's own renderer, with the assets from your disc.",
+        "kind": "play",
+        "area": "port",
+        "state": "planned",
+        "docs": "port/game/README.md",
+        "todo": "openrac-rac3-pal builds from this version's decompilation (port/, cmake --preset release); before it runs it needs the game's main in port/game/rac3-pal/hostgen.json and its library table (port/game/README.md). rac1/pal is furthest along."
+      }
+    ],
     "rac4/ntsc": [
       {
         "id": "setup-asm",
@@ -2369,7 +4707,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Run once; check whether it needs the project's venv first."
       },
       {
@@ -2390,7 +4728,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Nothing is linked yet in rac4: the build writes objects to build/obj, so there is no executable to play."
       },
       {
@@ -2410,7 +4748,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Uses the project's own venv (venv/): add an action that creates it, or run with {python} once the requirements are known."
       },
       {
@@ -2427,7 +4765,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac4/ntsc/README.md"
+        "docs": "games/rac4/decomp/README.md"
       },
       {
         "id": "editor-extract",
@@ -2732,8 +5070,8 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac5/ntsc/README.md",
-        "todo": "Runs from games/rac5/ntsc with the image placed in its baserom/ (python3 tools/openrac.py setup rac5/ntsc)."
+        "docs": "games/rac5/decomp/README.md",
+        "todo": "Runs from games/rac5/decomp with the image placed in its baserom/ (python3 tools/openrac.py setup rac5/ntsc)."
       },
       {
         "id": "tests",
@@ -2752,7 +5090,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac5/ntsc/README.md"
+        "docs": "games/rac5/decomp/README.md"
       },
       {
         "id": "repo-check",
@@ -2767,7 +5105,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac5/ntsc/LEGAL.md"
+        "docs": "games/rac5/decomp/LEGAL.md"
       },
       {
         "id": "editor-extract",
@@ -2777,7 +5115,7 @@
         "area": "editor",
         "state": "planned",
         "docs": "editor/README.md",
-        "todo": "Size Matters keeps its levels in SNR2 .REL modules (games/rac5/ntsc/docs/REL-FORMAT.md); the editor reads none of them yet."
+        "todo": "Size Matters keeps its levels in SNR2 .REL modules (games/rac5/decomp/docs/REL-FORMAT.md); the editor reads none of them yet."
       },
       {
         "id": "play",
@@ -2807,8 +5145,8 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac6/ntsc/README.md",
-        "todo": "Runs from games/rac6/ntsc with the image placed in its baserom/ (python3 tools/openrac.py setup rac6/ntsc)."
+        "docs": "games/rac6/decomp/README.md",
+        "todo": "Runs from games/rac6/decomp with the image placed in its baserom/ (python3 tools/openrac.py setup rac6/ntsc)."
       },
       {
         "id": "tests",
@@ -2827,7 +5165,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac6/ntsc/README.md"
+        "docs": "games/rac6/decomp/README.md"
       },
       {
         "id": "repo-check",
@@ -2842,7 +5180,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac6/ntsc/LEGAL.md"
+        "docs": "games/rac6/decomp/LEGAL.md"
       },
       {
         "id": "editor-extract",

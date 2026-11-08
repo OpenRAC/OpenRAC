@@ -1,0 +1,208 @@
+{
+  "id": "rac1-pal1",
+  "title": "Ratchet & Clank (PAL v1.00)",
+  "game": "rac1",
+  "serial": "SCES_509.16",
+  "source": "games/rac1/decomp",
+  "frame_rate": 50,
+  "entry": "func_0012D9D8",
+  "sources": [
+    "src"
+  ],
+  "skip": [
+    "src/data",
+    "src/libgcc",
+    "src/versions"
+  ],
+  "long_long_128": {
+    "except_objects": "config/core_text.objects",
+    "except_compilers": [
+      "ee29"
+    ]
+  },
+  "includes": [
+    "include",
+    "src"
+  ],
+  "defines": [
+    "OPENRAC_HAS_DISC=1"
+  ],
+  "aliases": [
+    "include/names.h"
+  ],
+  "places": "config/versions/pal_v1/functions.tsv",
+  "split_places": "split_places.tsv",
+  "symbols": [
+    "../../../port/game/rac1-pal1/port_symbols.txt"
+  ],
+  "libraries": "libraries.tsv",
+  "host_shared": [
+    "../rac1/host"
+  ],
+  "overlay_hook": true,
+  "relocate": [
+    1437440,
+    2424832
+  ],
+  "expanded_target_table_addresses": [
+    "0x001AB980"
+  ],
+  "returns_64": [
+    "func_001F43B8",
+    "func_001FA210",
+    "func_001FF4E0"
+  ],
+  "spilled_locals": {
+    "func_001FB780": [
+      "c1"
+    ]
+  },
+  "ps2_float": [
+    "func_001FA210"
+  ],
+  "level_hooks": [
+    "func_001E92E8",
+    "func_001E92F0",
+    "func_001E92F8",
+    "func_001E9300",
+    "func_001E9308",
+    "func_001E9310",
+    "func_001E9318",
+    "func_001E9320",
+    "func_001E9328",
+    "func_001E9330",
+    "func_001E9338",
+    "func_001E9340",
+    "func_001E9350",
+    "func_001E9358",
+    "func_001E9360",
+    "func_001E9368",
+    "func_001E9370",
+    "func_001E9378"
+  ],
+  "roots": [
+    "func_0012D9D8",
+    "func_001EB698",
+    "func_L00_00245810"
+  ],
+  "host_functions": [
+    "rac1_expanded_ram",
+    "rac1_check_level_heap",
+    "rac1_update_expanded_moby_grid",
+    "openrac_game_moby_colour",
+    "func_001F70B0",
+    "func_001F7120",
+    "func_0020AF10",
+    "openrac_sqrt",
+    "openrac_rsqrt",
+    "openrac_game_trap",
+    "func_00232FE8",
+    "func_001F98F8",
+    "func_001F9910",
+    "func_00239EC8",
+    "func_00233910",
+    "func_001F7860",
+    "func_001F84D4",
+    "func_001F8B20",
+    "func_00210F00",
+    "func_002111B0",
+    "func_00211220",
+    "func_00212860",
+    "func_00211300",
+    "func_00217710",
+    "func_00227250",
+    "func_00227518",
+    "func_00227890",
+    "func_002279E0",
+    "func_00228030",
+    "func_002280A8",
+    "func_002286F8",
+    "func_00229E40",
+    "func_0022A0F0",
+    "func_0022B1F8",
+    "func_0022B438",
+    "func_0022B6B0",
+    "func_00233AC0",
+    "func_002346E8",
+    "func_00234858",
+    "func_00234AA8",
+    "func_002356F8",
+    "func_00236BD0",
+    "func_00236E80",
+    "func_0020C9F0",
+    "func_00228540",
+    "func_00232E18",
+    "func_00235290",
+    "func_00116078",
+    "func_00119DA0",
+    "func_0011A390",
+    "func_0011A3C8",
+    "func_001F75C8",
+    "func_001F7740",
+    "func_001F7800",
+    "func_001F7E14",
+    "func_001F7E94",
+    "func_001F7ED4",
+    "func_0022BAA4",
+    "func_0022BBF0",
+    "func_0022BD18",
+    "func_L00_001FCDD8",
+    "func_L00_001FE288",
+    "func_L00_0028C028",
+    "func_L00_00294AA8",
+    "func_002104B0",
+    "func_L00_00252DF0",
+    "func_00116248",
+    "func_001EF968",
+    "func_L00_001EFBF0",
+    "func_L00_001F0CE0",
+    "func_L00_001F1920",
+    "func_L00_001F27E8",
+    "func_L00_001F30F0",
+    "func_00125180",
+    "func_001251E8",
+    "func_00125218",
+    "func_0020E8E0",
+    "func_L00_002518F8",
+    "func_00224670",
+    "func_00224828",
+    "func_00224918"
+  ],
+  "candidates": "nonmatching/functional.tsv",
+  "hand": "hand/hand.tsv",
+  "overrides": "hand/overrides.tsv",
+  "asm": {
+    "enabled": true,
+    "dirs": [],
+    "retail": {
+      "exe": "baserom/pal_v1/SCES_509.16",
+      "dump": "baserom/pal_v1/overlays"
+    },
+    "gp": "0x00166C00",
+    "in_place": [
+      "func_001EF8C8"
+    ],
+    "shadows": {
+      "coll_line": "func_L00_001EFBF0",
+      "coll_line_boot": "func_001EF968",
+      "coll_sphere": "func_L00_001F0CE0",
+      "coll_capsule": "func_L00_001F1920",
+      "coll_sphere_mobys": "func_L00_001F27E8",
+      "coll_hero_groups": "func_L00_001F30F0"
+    }
+  },
+  "release": {
+    "version": "pal_v1",
+    "table": "release_names.json",
+    "splice": "src/versions/pal_v1"
+  },
+  "names": {
+    "code": [
+      "^func_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$",
+      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})$"
+    ],
+    "data": [
+      "^(?:D|func)_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$"
+    ]
+  }
+}

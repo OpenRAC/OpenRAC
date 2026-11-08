@@ -43,6 +43,7 @@ import asmc  # noqa: E402
 import asmext  # noqa: E402
 import clangast  # noqa: E402
 import derived  # noqa: E402
+import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
@@ -197,7 +198,9 @@ def read_aliases(source: Path, cfg: dict) -> dict[str, str]:
         if path.suffix == ".json":
             out.update(prep.read_carried_aliases(path.read_text(encoding="utf-8", errors="surrogateescape")))
         else:
-            out.update(prep.read_aliases(prep.read_alias_header(path)))
+            # A readable name for an address name: in another release, for the release's name (the
+            # carried names above are the release's already).
+            out.update({k: in_release(v) for k, v in prep.read_aliases(prep.read_alias_header(path)).items()})
     return out
 
 
@@ -212,14 +215,15 @@ def read_drafts(config_dir: Path, cfg: dict) -> tuple[str, set[str]] | None:
     return drafts["guard"], units - {""}
 
 
-def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
+def read_candidates(source: Path, cfg: dict, files: dict[str, str] | None = None) -> dict[str, str]:
     """Candidate C for functions the decompilation still has as assembly
     (hostgen.json "candidates": a table in the decompilation, one
     "name<TAB>file" line each, the file relative to the decompilation; lines
     starting with # are comments). A missing table means none: the
     decompilation decides what it offers. Each is C that does what the retail
     function does without matching its bytes; the matching build never sees it.
-    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet."""
+    hostgen.json "candidates_left_out" (name -> why) names those that cannot be read yet.
+    FILES, when given, gets each candidate's file (relative to the decompilation)."""
     table = cfg.get("candidates")
     left_out = cfg.get("candidates_left_out", {})
     if not table or not (source / table).is_file():
@@ -235,6 +239,8 @@ def read_candidates(source: Path, cfg: dict) -> dict[str, str]:
             if path not in texts:
                 texts[path] = path.read_text(encoding="utf-8", errors="surrogateescape")
             out[name.strip()] = texts[path]
+            if files is not None:
+                files[name.strip()] = rel.strip()
     return out
 
 
@@ -1016,13 +1022,33 @@ def warn_of_uncovered_names(derived_table: Path | None, source: Path, cfg: dict,
               f"--game {args.game} --source <it>.", file=sys.stderr)
 
 
+# Another release's view of the decompilation (hostgen.json "release", release.py): its names
+# for every address name, applied to every file prepared and every table of the decompilation read.
+RELEASE: "release.Release | None" = None
+
+
+def in_release(name: str) -> str:
+    return RELEASE.name(name) if RELEASE is not None else name
+
+
 def read_replacements(args: argparse.Namespace, cfg: dict, source: Path) -> dict:
     """The port's own C that stands in for the decompilation's: what is read, as a dict of
     candidates (functions the decompilation has no C for), overrides (functions it matches),
     aliases, the "long long 128" names, and the overrides that define no function of their name."""
     # The port's own C for hand-written assembly first; a decompilation's
     # candidate for the same function stands aside.
-    candidates = {**read_candidates(source, cfg), **read_hand(args.game.parent, cfg)}
+    files: dict[str, str] = {}
+    decomp = read_candidates(source, cfg, files)
+    if RELEASE is not None:
+        # The decompilation's own candidates name the primary's addresses; the port's (hand/) are
+        # the release's already. Renamed apart, before the two are put together: a name of one
+        # spelling can be another function in each (rac1 PAL v1.00's func_001F9F30 is PAL v2.00's
+        # func_001FA5C8).
+        # A candidate's file is a unit of the release table: names of its own there (rac3's front
+        # end, a program of its own) are its file's.
+        texts = {id(c): RELEASE.text(c, files.get(name)) for name, c in decomp.items()}
+        decomp = {RELEASE.text(name, files.get(name)): texts[id(c)] for name, c in decomp.items()}
+    candidates = {**decomp, **read_hand(args.game.parent, cfg)}
     # A candidate for a function the port writes itself (libraries.tsv host rows, "host_functions")
     # is not read: the port's version replaces the function, and what the candidate's file defines
     # besides is dead (rac1/pal's DIntr, func_0011D960, keeps the interrupt enable bit in a global
@@ -1063,7 +1089,7 @@ def prepare_sources(args: argparse.Namespace, cfg: dict, source: Path, root: Pat
         if (source / d).is_dir():
             prep.copy_tree(source / d, root / d, candidates=replacements["candidates"], used=used, drafts=drafts,
                            prefix=d, aliases=replacements["aliases"], long_long_128=replacements["long_long_128"],
-                           overrides=replacements["overrides"], overridden=overridden)
+                           overrides=replacements["overrides"], overridden=overridden, release=RELEASE)
     return used, overridden
 
 
@@ -1101,6 +1127,9 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     Raises ValueError for a hook point libraries.tsv spells wrongly."""
     if cfg.get("places"):
         read_places(source / cfg["places"], program)
+        if RELEASE is not None:
+            program.places = {in_release(k): v for k, v in program.places.items()}
+            program.sizes = {in_release(k): v for k, v in program.sizes.items()}
     if cfg.get("split_places"):
         read_split_places(args.game.parent / cfg["split_places"], program)
     if cfg.get("call_copies"):
@@ -1136,8 +1165,26 @@ def configure_program(program: Program, args: argparse.Namespace, cfg: dict, sou
     program.returns_64 = set(cfg.get("returns_64", []))
     program.keep_spent_arguments = bool(cfg.get("keep_spent_arguments"))
     if cfg.get("executable_functions"):
-        program.executable_starts = {int(row[1], 16) for row in tables.read_tsv(source / cfg["executable_functions"],
-                                                                                strip=True) if len(row) >= 2}
+        rows = [row for row in tables.read_tsv(source / cfg["executable_functions"], strip=True) if len(row) >= 2]
+        program.executable_starts = {int(row[1], 16) for row in rows}
+        # A row whose name states an address before its entry (an alignment or fill word in front,
+        # the catalogue's entry corrections: func_00128A48, entered at 0x00128A50) is entered there,
+        # as the decompilation's build links it, and the entry's own spelling is that function
+        # (PAL's func_002E7968, a callback its C takes, is its func_PAL_002E7964). Another
+        # release's catalogue names what it shares by v1.01's names (func_0027C878 at 0x0027CD60),
+        # so there only the rows of its own names (func_PAL_..., func_US2_...) state its addresses;
+        # its build's values (below) cover the shared names its C uses.
+        own = re.compile(r"(?:func|FUN)_([0-9A-Fa-f]{8})" if RELEASE is None
+                         else r"(?:func|FUN)_(?!L\d\d_)[A-Z][A-Z0-9]*_([0-9A-Fa-f]{8})")
+        for row in rows:
+            m = own.fullmatch(row[0])
+            if m is not None and int(m.group(1), 16) != int(row[1], 16):
+                program.executable_entry_at[int(m.group(1), 16)] = int(row[1], 16)
+    table = derived.resolve(source, args.game.parent, cfg)
+    if table is not None and table.suffix == ".json":
+        for name, value in json.loads(table.read_text(encoding="utf-8")).get("values", {}).items():
+            if isinstance(value, str) and re.fullmatch(r"(?:F[0-9a-f]{8}_)?(?:func|FUN)_[0-9A-Fa-f]{8}", name):
+                program.derived_code[name] = int(value, 0)
     if cfg.get("level_twins"):
         read_level_twins(args.game.parent / cfg["level_twins"], program)
     short_names = cfg.get("level_short_names")
@@ -1225,9 +1272,18 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
 def port_host_text(args: argparse.Namespace, cfg: dict) -> str:
     """The port's own C for the game (its host/, and its game's shared one, rac1's ../rac1/host):
     what it calls keeps the signature it calls it by."""
-    host_dirs = [args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"]
-    return "".join(p.read_text(errors="replace") for d in host_dirs if d.is_dir()
-                   for p in sorted(d.glob("*.c")))
+    own_dir, shared_dir = args.game.parent / "host", args.game.parent.parent / str(cfg.get("game", "")) / "host"
+    own = "".join(p.read_text(errors="replace") for p in sorted(own_dir.glob("*.c"))) if own_dir.is_dir() else ""
+    shared = "".join(p.read_text(errors="replace") for p in sorted(shared_dir.glob("*.c"))) if shared_dir.is_dir() else ""
+    if RELEASE is not None:
+        # The shared C is written with the primary release's names; this release's table
+        # (host/<game>_names.tsv) renames them, as its build does (release_host.py). The release's
+        # own host C is in its names already.
+        import release_host
+        names = own_dir / f"{cfg.get('game', '')}_names.tsv"
+        if names.is_file():
+            shared = release_host.rename(shared, release_host.read_names(names))
+    return own + shared
 
 
 def translate_from_assembly(program: Program, args: argparse.Namespace, cfg: dict, source: Path) -> tuple[dict, dict, list[str]]:
@@ -1281,6 +1337,20 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
         if p.startswith("overrides:"):
             print(f"hostgen: warning: {p}", file=sys.stderr)
     asm_files = asmc.write_files(out, cfg, asm_results, cfg.get("title", cfg.get("name", "")), asm_stage)
+    # A build without the disc knows the slots the part fills: the Windows program's list of
+    # exports for the part, written from the disc, must still name the same (asmext.stale_exports).
+    interface = (cfg.get("asm") or {}).get("interface_path")
+    if asm_stage is not None and asm_stage.external and asm_stage.translator is None and interface:
+        exports = Path(interface).parent / "asm_part_exports.def"
+        stale = asmext.stale_exports(exports.read_text(), asm_stage.external, asm_stage.program) \
+            if exports.is_file() else []
+        for problem in stale[:20]:
+            print(f"hostgen: {exports.name}: {problem}", file=sys.stderr)
+        if stale:
+            print(f"hostgen: {exports}: {len(stale)} entries no longer fit this program; write it again "
+                  f"with the disc: python3 tools/asm_part.py exports {args.game.resolve().parent.name} "
+                  "--disc <image> --kit <Windows kit> --out <dir>", file=sys.stderr)
+            return None
     extra["asm"] = asm_stage
     (out / "units.txt").write_text("".join(generated_name(u) + "\n" for u in units)
                                    + "".join(f + "\n" for f in asm_files))
@@ -1321,10 +1391,16 @@ class SortedPickler(pickle._Pickler):
 
 
 def main(argv: list[str] | None = None) -> int:
+    global RELEASE
     args = parse_arguments(argv)
     cfg = load_config(args.game)
     apply_assembly_options(cfg, args)
     source = args.source.resolve()
+    try:
+        RELEASE = release.configured(source, args.game.resolve().parent, cfg)
+    except FileNotFoundError as e:
+        print(f"hostgen: error: {e}", file=sys.stderr)
+        return 1
     out = args.out.resolve()
     try:
         derived_table = add_derived_names(cfg, args, source)

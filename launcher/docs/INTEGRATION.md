@@ -212,8 +212,13 @@ Linux and macOS with Renderer set to Vulkan (Advanced, `Config.renderer`),
 start, or the build has no Vulkan renderer, the game logs why and draws with
 OpenGL (`port/platform/window.cpp`). It applies from the game's next start.
 On macOS it runs on MoltenVK, which each game's application bundle carries
-(`port/cmake/MacApp.cmake`). Android keeps its own choice under Graphics
-(`src-tauri/src/android.rs`).
+(`port/cmake/MacApp.cmake`). On macOS only, Renderer also offers Metal:
+`OPENRAC_GL_API=metal`, the port's Metal renderer (`port/renderer/metal`),
+which likewise draws with OpenGL where Metal cannot start. A settings file
+that says `metal` on another system plays with Vulkan
+(`config::renderer_for`), and Enhanced graphics, Vulkan only, plays with
+Vulkan over it. OpenGL sets nothing. Android keeps its own choice under
+Graphics (`src-tauri/src/android.rs`).
 
 Each version's levels have a folder of their own under one root, since the
 versions of a game share its data folder: `assets/port/<game>/<version>` in a
@@ -238,9 +243,9 @@ The per-version actions carry their own `todo`s; in short:
 - **rac1/pal**: `setup-asm` and `build` run `tools/setup_asm.sh` and
   `tools/build_sn.sh` directly (since 2026-10-09; they ran in the project's
   Docker image before). Check this against the project's own
-  [CONTAINERS.md](../../games/rac1/docs/CONTAINERS.md), which says every
+  [CONTAINERS.md](../../games/rac1/decomp/docs/CONTAINERS.md), which says every
   build runs in the container on Linux and macOS, before marking them
-  connected. Confirm the artifact and how a mismatch shows (exit code). Mind [BUILD_FIDELITY.md](../../games/rac1/docs/BUILD_FIDELITY.md):
+  connected. Confirm the artifact and how a mismatch shows (exit code). Mind [BUILD_FIDELITY.md](../../games/rac1/decomp/docs/BUILD_FIDELITY.md):
   the launcher runs the build; it never changes how it builds.
 - **rac1/ntsc**: `setup.sh` downloads and builds its toolchains (long; Linux,
   WSL, or Docker on macOS); `make elf`, `verify-baseline.sh`, `make iso`.

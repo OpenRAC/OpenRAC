@@ -318,8 +318,7 @@ mod tests {
     }
 
     fn sha(bytes: &[u8]) -> String {
-        use sha2::Digest;
-        format!("{:x}", sha2::Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     fn manifest(id: &str, version: &str, requires: &[&str]) -> String {
@@ -391,7 +390,7 @@ mod tests {
             version: "pal",
             platform: Some("linux-x86_64"),
             fetch: hub,
-            hosts: remote::Hosts { api: API.into(), raw: RAW.into() },
+            hosts: remote::Hosts { api: API.into(), raw: RAW.into(), ..Default::default() },
         }
     }
 
@@ -461,6 +460,28 @@ mod tests {
         .unwrap();
         assert!(result.failed.is_none());
         assert!(!remote::read_sources(dir.path()).mods["base-mod"].auto);
+    }
+
+    /// Mods of one repository installed together share its list of releases (remote::Cached): it
+    /// is read once, not once per mod. Each release's commit and files are still read.
+    #[test]
+    fn mods_of_one_repository_read_its_releases_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let mut hub = Hub::default();
+        let ids = ["a-mod", "b-mod", "c-mod", "d-mod"];
+        let install = ids.iter().map(|id| release(&mut hub, id, "1.0.0", &[], false)).collect();
+        let plan = InstallPlan { install, ..Default::default() };
+        let cache = remote::ApiCache::new(std::time::Duration::from_secs(60));
+        let fetch = remote::Cached { inner: &hub, cache: &cache };
+        let c = remote::Context { fetch: &fetch, ..ctx(dir.path(), &hub) };
+        let result = apply(&c, &plan, &opts(data.path(), None), |_| {}).unwrap();
+        assert!(result.failed.is_none(), "{:?}", result.failed);
+        assert_eq!(result.done, ids);
+        let asked = hub.asked.borrow();
+        let count = |part: &str| asked.iter().filter(|u| u.starts_with(API) && u.contains(part)).count();
+        assert_eq!(count("/releases?"), 1, "{asked:#?}");
+        assert_eq!(count("/commits/") + count("/git/trees/"), 2 * ids.len());
     }
 
     #[test]

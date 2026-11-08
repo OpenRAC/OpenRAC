@@ -80,6 +80,7 @@ enum {
     MOBY_ANIM_TIME = 0x54,
     MOBY_ANIM_SPEED = 0x58,
     MOBY_UPDATE = 0x74,
+    MOBY_COLLISION_OFF = 0x98,
     MOBY_HIT = 0xA4,
     MOBY_OCLASS = 0xA6,
     MOBY_MISSION = 0xB0,
@@ -132,12 +133,13 @@ static int killing; /* rac1_world_moby_kill's DeleteMoby under way */
 static float eyes_xyz[EYES_MAX * 3];
 static int eyes_count;
 
-/* The stand-in: whether one is on, and what it put aside. */
+/* The stand-in: whether one is on, and what it put aside; the figure made solid for it. */
 static struct {
     int on;
     uint8_t motion[3][16];
     gaddr moby;
     int32_t state;
+    gaddr solid;
 } stand;
 
 static int in_level(void) {
@@ -453,6 +455,15 @@ void rac1_world_stand_in(const float position[3], gaddr moby) {
     stand.state = GREF(int32_t, HERO_STATE);
     if (moby != 0) {
         GREF(gaddr, HERO_MOBY) = moby;
+        /* A figure is solid only for this update, as the hero is: an enemy's beam, shot or blast
+         * (the collision queries, which look for the hero's moby where it stands) finds it. Not for
+         * a player's own shots, which would stop at the figure (play.c: it is solid for nothing
+         * else). */
+        if (rac1_figure_alive(moby) && !rac1_player_shot(rac1_updating_moby())) {
+            stand.solid = moby;
+            GREF(int32_t, moby + MOBY_COLLISION_OFF) =
+                GREF(int32_t, stand.moby + MOBY_COLLISION_OFF);
+        }
     }
     rac1_hero_guard_begin();
 }
@@ -476,6 +487,10 @@ void rac1_stand_in_end(gaddr updated) {
         memcpy(G(HERO + offsets[i]), stand.motion[i], 16);
     }
     GREF(gaddr, HERO_MOBY) = stand.moby;
+    if (stand.solid != 0) {
+        GREF(int32_t, stand.solid + MOBY_COLLISION_OFF) = -1;
+        stand.solid = 0;
+    }
     stand.on = 0;
     /* A script's hold that was for the player standing in: this game's hero goes on. Not a hero at
      * no health, whom the game keeps down (a dying state refuses a new one, hero_down.c): nothing
@@ -623,6 +638,8 @@ int rac1_moby_eyes(const float** xyz) {
     return in_level() ? eyes_count : 0;
 }
 
+static void hit_tell(gaddr victim, gaddr record);
+
 /* A hit record written to `victim` by the call just made (its index set, the record new or
  * changed), told to the mods; taken back when they say so. */
 static void hit_written(gaddr victim, uint8_t before, const uint8_t* old) {
@@ -634,6 +651,20 @@ static void hit_written(gaddr victim, uint8_t before, const uint8_t* old) {
     if (index == before && memcmp(old, G(record), HIT_SIZE) == 0) {
         return; /* refused: a fresher hit stands */
     }
+    hit_tell(victim, record);
+}
+
+/* A hit record the collision queries wrote to `victim` (collision.c: a line's or a sphere's
+ * template), told to the mods as a posted one is. */
+void rac1_world_hit_recorded(gaddr victim) {
+    const uint8_t index = GREF(uint8_t, victim + MOBY_HIT);
+    if (index == 0xFF || index >= 64 || !main_context()) {
+        return;
+    }
+    hit_tell(victim, HIT_RING + (gaddr)index * HIT_SIZE);
+}
+
+static void hit_tell(gaddr victim, gaddr record) {
     /* A figure's shot hits nothing here: the shooter's game tells its hits (figure_items.c). */
     if (rac1_figure_owned(rac1_updating_moby())
         || rac1_figure_owned(GREF(gaddr, record + HIT_ATTACKER))) {

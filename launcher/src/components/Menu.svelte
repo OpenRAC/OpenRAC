@@ -156,8 +156,7 @@
     height: 44px;
     padding: 0;
     justify-content: center;
-    background: rgb(0 0 0 / 0.45);
-    border-color: rgb(255 255 255 / 0.22);
+    background: var(--control);
   }
 
   .list {
@@ -168,8 +167,11 @@
     color: inherit;
     flex-direction: column;
     padding: 6px;
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    /* No frame (STYLE.md): the browser draws a popover with a border of the text's colour. */
+    border: 0;
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-sm);
   }
@@ -184,18 +186,19 @@
     border: 0;
     border-radius: 7px;
     background: none;
+    box-shadow: none;
     padding: 9px 12px;
     font-weight: 500;
     white-space: nowrap;
   }
 
   .list button:focus-visible {
-    background: rgb(255 255 255 / 0.08);
+    background: var(--control);
   }
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .list button:hover {
-      background: rgb(255 255 255 / 0.08);
+      background: var(--control);
     }
   }
 

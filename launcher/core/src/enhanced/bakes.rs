@@ -5,7 +5,6 @@
 use super::{BAKE_ACTION, NO_BAKER_HERE, SHIPS_BAKER};
 use serde::Serialize;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 const STAMP: &str = "openrac-bake.json";
@@ -29,7 +28,7 @@ pub struct BakeStatus {
 
 fn sha256(path: &Path) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
-    Some(format!("{:x}", Sha256::digest(&bytes)))
+    Some(crate::sha256_hex(&bytes))
 }
 
 /// What `baker` makes of `level` (`--print-profile`):
@@ -69,7 +68,7 @@ fn baker_profile(baker: &Path, level: &Path) -> Option<String> {
 
 /// Current native bake stamps must match the resolved transport profile exactly.
 fn made_by(stamp: &Value, profile: &str) -> bool {
-    let digest = format!("{:x}", Sha256::digest(profile.as_bytes()));
+    let digest = crate::sha256_hex(profile.as_bytes());
     stamp["version"] == 5 && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
@@ -162,13 +161,32 @@ fn prepared_ocean(level: &Path) -> bool {
 
 /// The bake status of the levels in `levels` against the bakes in `probes`, made by `baker`.
 pub fn bake_status(levels: &Path, probes: &Path, baker: &Path, profiles: &Path, version: &str) -> BakeStatus {
+    let game = version.split_once('/').map(|(game, _)| game).unwrap_or(version);
     let version = version.replace('/', "-");
-    bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level| {
-        if lighting_profile_needs_refresh(profiles, &version, level) {
+    bake_status_on(levels, probes, baker, SHIPS_BAKER, &|level, stamp| {
+        if lighting_profile_needs_refresh(profiles, &version, level)
+            || !prepared_emission(level, baker, profiles, game, &version, stamp)
+        {
             return None;
         }
         baker_profile(baker, level)
     })
+}
+
+// Detect added or removed recipes directly. Only an existing recipe needs a baker query.
+fn prepared_emission(level: &Path, baker: &Path, profiles: &Path, game: &str, version: &str, stamp: &Value) -> bool {
+    let previous = stamp["emission_textures_sha256"].as_str();
+    let Some(name) = level.file_name() else { return false };
+    let version = profiles.join(version);
+    let has_recipe = [profiles.join(game), version.join(name), version]
+        .iter()
+        .any(|path| path.join("emission-textures.json").is_file());
+    if !has_recipe || previous.is_none() {
+        return !has_recipe && previous.is_none();
+    }
+    crate::detect::quiet(baker).arg("--print-emission-fingerprint").arg(level).arg(profiles).output().ok().is_some_and(
+        |output| output.status.success() && previous == Some(String::from_utf8_lossy(&output.stdout).trim()),
+    )
 }
 
 // Predict the baker's tracked profile refresh without touching the export.
@@ -195,7 +213,7 @@ fn bake_status_on(
     probes: &Path,
     baker: &Path,
     ships_baker: bool,
-    profile: &dyn Fn(&Path) -> Option<String>,
+    profile: &dyn Fn(&Path, &Value) -> Option<String>,
 ) -> BakeStatus {
     let mut out = BakeStatus::default();
     let has_baker = baker.is_file();
@@ -233,7 +251,7 @@ fn bake_status_on(
                 && verified_bake(&baked, s["reflections"] == Value::Bool(true))
                 && prepared_water(&entry.path(), &manifest)
                 && prepared_ocean(&entry.path())
-                && profile(&entry.path()).is_some_and(|p| made_by(s, &p))
+                && profile(&entry.path(), s).is_some_and(|p| made_by(s, &p))
         });
         if current {
             out.ready += 1;
@@ -364,6 +382,23 @@ mod tests {
     }
 
     #[test]
+    fn added_or_removed_emission_recipes_make_a_bake_stale() {
+        let temp = tempfile::tempdir().unwrap();
+        let profiles = temp.path();
+        let level = profiles.join("level_02");
+        let shipped = profiles.join("rac1-ntsc/level_02");
+        std::fs::create_dir_all(&shipped).unwrap();
+        let recipe = shipped.join("emission-textures.json");
+        let ready =
+            |stamp| prepared_emission(&level, &profiles.join("unused-baker"), profiles, "rac1", "rac1-ntsc", stamp);
+        assert!(ready(&Value::Null));
+        std::fs::write(&recipe, "{}").unwrap();
+        assert!(!ready(&Value::Null));
+        std::fs::remove_file(recipe).unwrap();
+        assert!(!ready(&serde_json::json!({"emission_textures_sha256": "previous"})));
+    }
+
+    #[test]
     fn missing_or_empty_reflections_are_not_ready() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
@@ -420,7 +455,7 @@ mod tests {
         let profile = "current profile";
         for version in [1, 2, 3, 4] {
             let stamp = serde_json::json!({"version":version,
-                "baker_profile_sha256":format!("{:x}",Sha256::digest(profile.as_bytes()))});
+                "baker_profile_sha256":crate::sha256_hex(profile.as_bytes())});
             assert!(!made_by(&stamp, profile));
         }
     }
@@ -508,9 +543,9 @@ mod tests {
         std::fs::write(baked.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
         let stamp = serde_json::json!({"version":5,
             "manifest_sha256": sha256(&level.join("manifest.json")), "profile_sha256":null,
-            "baker_profile_sha256":format!("{:x}",Sha256::digest(b"profile"))});
+            "baker_profile_sha256":crate::sha256_hex(b"profile")});
         std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
-        let status = || bake_status_on(&levels, &probes, &baker, true, &|_| Some("profile".to_owned()));
+        let status = || bake_status_on(&levels, &probes, &baker, true, &|_, _| Some("profile".to_owned()));
         assert_eq!(status().ready, 1);
         let authoring = level.join("lighting-environments.json");
         std::fs::write(&authoring, "{}").unwrap();
@@ -563,7 +598,7 @@ mod tests {
         }
         std::fs::create_dir_all(levels.join("textures")).unwrap();
         // The fake baker's profile is its file's text.
-        let profile = |_: &Path| std::fs::read_to_string(root.join("baker")).ok();
+        let profile = |_: &Path, _: &Value| std::fs::read_to_string(root.join("baker")).ok();
         let status = || bake_status_on(&levels, &probes, &baker, true, &profile);
         let none = status();
         assert_eq!((none.available, none.levels, none.ready), (false, 3, 0));
@@ -575,8 +610,8 @@ mod tests {
             std::fs::write(dir.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
             let text = serde_json::json!({
                 "version": 5,
-                "manifest_sha256": format!("{:x}", Sha256::digest(manifest.as_bytes())),
-                "baker_profile_sha256": format!("{:x}", Sha256::digest(b"baker")),
+                "manifest_sha256": crate::sha256_hex(manifest.as_bytes()),
+                "baker_profile_sha256": crate::sha256_hex(b"baker"),
             });
             std::fs::write(dir.join(STAMP), text.to_string()).unwrap();
         };
@@ -598,7 +633,7 @@ mod tests {
         std::fs::write(&baker, "another baker").unwrap();
         assert_eq!(status().ready, 0);
         // Another build of the same baker (its file differs, its profile does not): kept.
-        let same = |_: &Path| Some("baker".to_string());
+        let same = |_: &Path, _: &Value| Some("baker".to_string());
         assert_eq!(bake_status_on(&levels, &probes, &baker, true, &same).ready, 1);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -635,19 +670,19 @@ mod tests {
                 std::fs::create_dir_all(levels.join("level_00")).unwrap();
                 std::fs::write(levels.join("level_00").join("manifest.json"), "level_00").unwrap();
             }
-            let here = bake_status_on(&levels, &probes, &baker, false, &|_| None);
+            let here = bake_status_on(&levels, &probes, &baker, false, &|_, _| None);
             assert!(!here.available && here.no_baker_here, "{here:?}");
             assert_eq!(here.why, NO_BAKER_HERE);
             assert_eq!(here.levels, usize::from(ready));
             // Elsewhere the existing reasons are kept.
-            let elsewhere = bake_status_on(&levels, &probes, &baker, true, &|_| None);
+            let elsewhere = bake_status_on(&levels, &probes, &baker, true, &|_, _| None);
             assert!(!elsewhere.available && !elsewhere.no_baker_here);
             let why = if ready { "this build of the game has no probe baker" } else { "the levels are not ready yet" };
             assert_eq!(elsewhere.why, why);
         }
         // A baker that is there anyway (built by hand) is used.
         std::fs::write(&baker, "baker").unwrap();
-        let built = bake_status_on(&levels, &probes, &baker, false, &|_| None);
+        let built = bake_status_on(&levels, &probes, &baker, false, &|_, _| None);
         assert!(built.available && !built.no_baker_here && built.why.is_empty(), "{built:?}");
         let _ = std::fs::remove_dir_all(&root);
     }

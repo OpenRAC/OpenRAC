@@ -1,0 +1,282 @@
+# This release's copy of port/game/rac2-ntsc/libraries.tsv, written by port/tools/hostgen/release_carry.py:
+# the same rows by this release's names (release_carry.json says how each was paired); do not edit.
+# The primary's notes follow.
+# The libraries Ratchet & Clank: Going Commando (NTSC-U) calls, by entry point, and what the port
+# does with each: the same columns and port values as port/game/rac1-pal/libraries.tsv.
+# A host row binds an entry point to the replacement of that name every game shares
+# (port/game/common/libraries.tsv), or, with a signature of its own, to this game's host C
+# (port/game/rac2/host, shared by the three discs). Names come from the decompilation's symbol_addrs/usa/symbol_addrs.txt
+# where it has them; the kernel's system-call wrappers are identified by the call number each
+# loads into $v1 (ps2tek's EE kernel table). Entry points not here run from their C, or from
+# their assembly (hostgen.json "asm").
+#
+# symbol	library	name	port	notes	signature (optional)
+func_00131AE8	boot	rac2NativeEntry	host	crt0 at the ELF entry: _InitSys, FlushCache(0), main(argc, argv) without the PS2 thread and heap syscalls	int (void)
+func_00115340	libc	memcmp	host	symbol_addrs.txt name
+func_001153D4	libc	memcpy	host	symbol_addrs.txt name
+func_00115484	libc	memset	host	symbol_addrs.txt name
+func_00115544	libc	strcmp	host	symbol_addrs.txt name
+func_00115690	libc	strcpy	host	symbol_addrs.txt name
+func_001157AC	libc	strlen	host	symbol_addrs.txt name
+func_00115AC0	libc	strncpy	host	symbol_addrs.txt name
+func_0011A820	kernel	SetGsCrt	host	symbol_addrs.txt name
+func_0011A840	kernel	Exit	host	syscall wrapper 0x04 (_Exit)
+func_0011A900	kernel	AddIntcHandler	host	syscall wrapper 0x10
+func_0011A910	kernel	AddIntcHandler	host	syscall wrapper 0x10, second entry
+func_0011A920	kernel	RemoveIntcHandler	host	symbol_addrs.txt name
+func_0011A930	kernel	AddDmacHandler	host	syscall wrapper 0x12
+func_0011A940	kernel	AddDmacHandler2	host	syscall wrapper 0x12, second entry with the handler argument
+func_0011A950	kernel	RemoveDmacHandler	host	symbol_addrs.txt name
+func_0011A960	kernel	EnableIntc	host	syscall wrapper 0x14 (_EnableIntc)
+func_0011A970	kernel	DisableIntc	host	syscall wrapper 0x15 (_DisableIntc)
+func_0011A980	kernel	EnableDmac	host	syscall wrapper 0x16 (_EnableDmac)
+func_0011A990	kernel	DisableDmac	host	syscall wrapper 0x17 (_DisableDmac)
+func_0011A9A0	kernel	SetAlarm	host	symbol_addrs.txt name
+func_0011A9C0	kernel	EnableIntc	host	syscall wrapper -0x1a (_iEnableIntc)
+func_0011A9D0	kernel	DisableIntc	host	syscall wrapper -0x1b (_iDisableIntc)
+func_0011A9E0	kernel	EnableDmac	host	syscall wrapper -0x1c (_iEnableDmac)
+func_0011A9F0	kernel	DisableDmac	host	syscall wrapper -0x1d (_iDisableDmac)
+func_0011AA20	kernel	CreateThread	host	symbol_addrs.txt name
+func_0011AA30	kernel	DeleteThread	host	symbol_addrs.txt name
+func_0011AA40	kernel	StartThread	host	symbol_addrs.txt name
+func_0011AA70	kernel	TerminateThread	host	symbol_addrs.txt name
+func_0011AA80	kernel	TerminateThread	host	syscall wrapper -0x26 (iTerminateThread)
+func_0011AAB0	kernel	ChangeThreadPriority	host	symbol_addrs.txt name
+func_0011AAC0	kernel	ChangeThreadPriority	host	syscall wrapper -0x2a (iChangeThreadPriority)
+func_0011AAD0	kernel	RotateThreadReadyQueue	host	symbol_addrs.txt name
+func_0011AAE0	kernel	RotateThreadReadyQueue	host	syscall wrapper -0x2c (_iRotateThreadReadyQueue)
+func_0011AB10	kernel	GetThreadId	host	symbol_addrs.txt name
+func_0011AB20	kernel	ReferThreadStatus	host	symbol_addrs.txt name
+func_0011AB30	kernel	ReferThreadStatus	host	syscall wrapper -0x31 (iReferThreadStatus)
+func_0011AB40	kernel	SleepThread	host	symbol_addrs.txt name
+func_0011AB50	kernel	WakeupThread	host	symbol_addrs.txt name
+func_0011AB60	kernel	WakeupThread	host	syscall wrapper -0x34 (_iWakeupThread)
+func_0011AB90	kernel	SuspendThread	host	symbol_addrs.txt name
+func_0011ABA0	kernel	SuspendThread	host	syscall wrapper -0x38 (_iSuspendThread)
+func_0011AC00	kernel	EndOfHeap	host	symbol_addrs.txt name
+func_0011AC20	kernel	CreateSema	host	symbol_addrs.txt name
+func_0011AC30	kernel	DeleteSema	host	symbol_addrs.txt name
+func_0011AC40	kernel	SignalSema	host	symbol_addrs.txt name
+func_0011AC50	kernel	SignalSema	host	syscall wrapper -0x43 (iSignalSema)
+func_0011AC60	kernel	WaitSema	host	symbol_addrs.txt name
+func_0011AC70	kernel	PollSema	host	symbol_addrs.txt name
+func_0011AC80	kernel	PollSema	host	syscall wrapper -0x46 (iPollSema)
+func_0011ACC0	kernel	SetOsdConfigParam	host	symbol_addrs.txt name
+func_0011ACD0	kernel	GetOsdConfigParam	host	symbol_addrs.txt name
+func_0011AE70	kernel	EnableCache	host	symbol_addrs.txt name
+func_0011AEA0	kernel	FlushCache	host	symbol_addrs.txt name
+func_0011AED0	kernel	FlushCache	host	syscall wrapper -0x68 (iFlushCache)
+func_0011AEF0	kernel	sceSifStopDma	host	symbol_addrs.txt name
+func_0011AF30	kernel	GetOsdConfigParam2	host	symbol_addrs.txt name
+func_0011AF60	kernel	GsPutIMR	host	symbol_addrs.txt name
+func_0011AF70	kernel	GsPutIMR	host	syscall wrapper -0x71 (iGsPutIMR)
+func_0011AF90	kernel	SetVSyncFlag	host	symbol_addrs.txt name
+func_0011AFA0	kernel	SetSyscall	host	syscall wrapper 0x74
+func_0011AFC0	kernel	sceSifDmaStat	host	symbol_addrs.txt name
+func_0011AFD0	kernel	sceSifDmaStat	host	syscall wrapper -0x76 (isceSifDmaStat)
+func_0011AFE0	kernel	sceSifSetDma	host	symbol_addrs.txt name
+func_0011AFF0	kernel	sceSifSetDma	host	syscall wrapper -0x77 (isceSifSetDma)
+func_0011B000	kernel	sceSifSetDChain	host	symbol_addrs.txt name
+func_0011B010	kernel	sceSifSetDChain	host	syscall wrapper -0x78 (isceSifSetDChain)
+func_0011B020	kernel	sceSifSetReg	host	symbol_addrs.txt name
+func_0011B030	kernel	sceSifGetReg	host	symbol_addrs.txt name
+func_0011B050	kernel	Deci2Call	host	symbol_addrs.txt name
+func_0011B080	kernel	GetMemorySize	host	symbol_addrs.txt name
+func_0011B090	kernel	_InitTLB	host	symbol_addrs.txt name
+func_0011D450	sif	sceSifBindRpc	host	symbol_addrs.txt name
+func_0011D620	sif	sceSifCallRpc	host	symbol_addrs.txt name
+func_0011D810	sif	sceSifCheckStatRpc	host	symbol_addrs.txt name
+func_0011EED8	sif	sceSifRebootIop	host	symbol_addrs.txt name
+func_0011EFF0	kernel	Copy	host	syscall wrapper 0x5a
+func_0011F038	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_0011F048	kernel	SetSyscall	host	syscall wrapper 0x74
+func_0011F120	kernel	_SetTLBEntry	host	syscall wrapper 0x56
+func_0011F700	kernel	FindAddress	host	symbol_addrs.txt name
+func_0011F818	kernel	SetSyscall	host	syscall wrapper 0x74
+func_0011F868	kernel	SetSyscall	host	syscall wrapper 0x74
+func_0011F878	kernel	Copy	host	syscall wrapper 0x5a
+func_0011F8C0	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_0011FA50	kernel	SetSyscall	host	syscall wrapper 0x74
+func_0011FA60	kernel	Copy	host	syscall wrapper 0x5a
+func_0011FAA8	kernel	GetEntryAddress	host	syscall wrapper 0x5b
+func_00121AB8	libgcc	__muldi3	host	symbol_addrs.txt name
+func_00121B20	libgcc	__udivdi3	host	symbol_addrs.txt name
+func_001220F0	libgcc	__umoddi3	host	symbol_addrs.txt name
+func_00124E08	cdvd	sceCdInit	host	symbol_addrs.txt name
+func_001250E8	cdvd	sceCdDiskReady	host	symbol_addrs.txt name
+func_001252E0	cdvd	sceCdMmode	host	symbol_addrs.txt name
+func_001253A8	cdvd	sceCdRead	host	symbol_addrs.txt name
+func_001256D8	cdvd	sceCdReadClock	host	symbol_addrs.txt name
+func_001257D0	graph	sceGsResetGraph	host	symbol_addrs.txt name
+func_001282A8	dbc	sceDbcInit	host	symbol_addrs.txt name
+func_00124418	vu	sceGsResetPath	host	resets VU1/VIF1/GIF (VU0 FBRST, then VIF and GIF reset writes); the native renderer has no paths to reset
+func_001244B8	vu	sceGsSyncPath	host	symbol_addrs.txt WaitGsPathsIdle: polls the DMA, VIF1 and GIF status; native hand-offs are synchronous
+func_001158F8	libc	strncmp	host	same instructions as rac4's strncmp (relocations masked)
+func_0011B1E8	fileio	sceWrite	host	same instructions as rac4's (libkernl glue.o write)
+func_0011B3D0	kernel	SyncDCache	host	interrupt-safe range wrapper around _sceSDC (0x0011B328)
+func_0011B500	kernel	InvalidDCache	host	interrupt-safe range wrapper around _sceIDC (0x0011B458)
+func_0011B588	kernel	DisableIntc	host	interrupt-safe wrapper around _DisableIntc (syscall 0x15)
+func_0011B5F0	kernel	EnableIntc	host	interrupt-safe wrapper around _EnableIntc (syscall 0x14)
+func_0011B658	kernel	DisableDmac	host	interrupt-safe wrapper around _DisableDmac (syscall 0x17)
+func_0011B6C0	kernel	EnableDmac	host	interrupt-safe wrapper around _EnableDmac (syscall 0x16)
+func_0011CF78	sif	sceSifInitRpc	host	same instructions as rac1-pal's and rac4's
+func_0011E0A0	fileio	sceFsReset	host	same instructions as rac1-pal's
+func_0011E0D8	fileio	rac2SceOpen	host	same instructions as rac1-pal's sceOpen; declared variadic, so bound in host/io.c	int (char *, int, ...)
+func_0011E360	fileio	sceClose	host	same instructions as rac1-pal's
+func_0011E4E0	fileio	sceRead	host	same instructions as rac1-pal's
+func_0011E7A0	sif	sceSifInitIopHeap	host	same instructions as rac1-pal's and rac4's
+func_0011ED08	sif	sceSifLoadModuleBuffer	host	same instructions as rac1-pal's
+func_0011EEA0	sif	sceSifSyncIop	host	same instructions as rac1-pal's
+func_0011F5E0	kernel	DIntr	host	same instructions as rac1-pal's
+func_0011F628	kernel	EIntr	host	same instructions as rac1-pal's
+func_0011FC48	libgcc	__main	host	the host runs no global constructors for the game: it has none
+func_001234F0	libgcc	__extendsfdf2	host	same instructions as rac1-pal's
+func_00124B88	cdvd	sceCdSync	host	same instructions as rac1-pal's
+func_00125588	cdvd	sceCdGetError	host	same instructions as rac1-pal's and rac4's
+func_00125620	cdvd	sceCdBreak	host	same instructions as rac1-pal's and rac4's
+func_00125A20	graph	sceGsSetDefDispEnv	host	same instructions as rac1-pal's and rac4's
+func_00125D98	graph	sceGsPutDispEnv	host	same instructions as rac1-pal's and rac4's; the catalogue starts it 4 bytes early, at the fill word
+func_00126108	graph	sceGsPutDrawEnv	host	same instructions as rac1-pal's and rac4's; catalogue place 0x00126104
+func_001261F0	graph	sceGsSyncV	host	same instructions as rac1-pal's and rac4's
+func_00126288	graph	sceGsSetDefLoadImage	host	same instructions as rac1-pal's; catalogue place 0x00126284
+func_00126470	graph	sceGsSetDefStoreImage	host	same instructions as rac1-pal's; catalogue place 0x0012646C
+func_001265B0	graph	sceGsExecLoadImage	host	same instructions as rac1-pal's and rac4's
+func_00126730	graph	sceGsExecStoreImage	host	same instructions as rac1-pal's; catalogue place 0x0012672C
+func_00126DC0	graph	sceGsSyncVCallback	host	same instructions as rac1-pal's and rac4's; catalogue place 0x00126DBC
+func_00126F60	dma	sceDmaReset	host	same instructions as rac1-pal's and rac4's
+func_00127220	dma	rac2DmaSend	host	same instructions as rac1-pal's sceDmaSend (catalogue place 0x00127218); host/dma.c leaves the end tag's CHCR for the game's VIF1 handler	void (unsigned int, unsigned int)
+func_00127348	mc	sceMcInit	host	same instructions as rac1-pal's
+func_00127508	mc	sceMcOpen	host	same instructions as rac1-pal's
+func_00127630	mc	sceMcMkdir	host	same instructions as rac1-pal's
+func_00127668	mc	sceMcClose	host	same instructions as rac1-pal's
+func_00127720	mc	sceMcSeek	host	same instructions as rac1-pal's
+func_00127888	mc	sceMcRead	host	same instructions as rac1-pal's
+func_001279A0	mc	sceMcWrite	host	same instructions as rac1-pal's
+func_00127B88	mc	sceMcSync	host	same instructions as rac1-pal's and rac4's
+func_00127CC0	mc	sceMcGetInfo	host	same instructions as rac1-pal's and rac4's
+func_00127E48	mc	sceMcGetDir	host	same instructions as rac1-pal's
+func_00127F98	mc	sceMcFormat	host	same instructions as rac1-pal's sceMcFormat (and its sceMcUnformat; the library's order decides)
+func_00128068	mc	sceMcDelete	host	same instructions as rac1-pal's
+func_00128180	mc	sceMcUnformat	host	same instructions as rac1-pal's sceMcUnformat (and its sceMcFormat; the library's order decides)
+func_001288C0	pad2	scePad2Init	host	same instructions as rac1-pal's
+func_00128900	pad2	scePad2CreateSocket	host	same instructions as rac1-pal's
+func_00128A50	pad2	scePad2Read	host	same instructions as rac1-pal's
+func_00128B28	pad2	scePad2GetButtonProfile	host	same instructions as rac1-pal's
+func_00128C18	pad2	scePad2GetState	host	same instructions as rac1-pal's
+func_00128F50	vib	sceVibGetProfile	host	same instructions as rac1-pal's
+func_00128FD0	vib	sceVibSetActParam	host	the motors the pad poll (func_002B85F8) sends each read, packed by the profile sceVibGetProfile gave; played by the window (lib/pad.c)
+# sceVu0RotMatrixZ, X and Y (func_00129218, func_001292C0, func_00129368) run from the disc's own
+# instructions (hostgen.json "asm"): the shared replacement (common/lib/vu0.c) takes its sine and cosine
+# from the host's libm, whose last bit differs between macOS and glibc, and level starts built the
+# camera from them (g_cameraState, 0x1B5200: 1 ulp apart on the Mac and Linux). The library's own
+# polynomial on VU0 is the console's, and the same on every host.
+func_00131A98	scf	sceScfGetLocalTimefromRTC	host	same instructions as rac1-pal's and rac4's
+func_00132028	989snd	snd_Pump	host	symbol_addrs.txt snd_Pump: the answers of the batch the IOP has, the disc read's end (the common snd_FlushSoundCommands), then the next batch: host/sound.c	int (void)
+func_00133250	989snd	snd_InitVAGStreamingEx	host	same opening as rac4's
+func_001334B8	989snd	snd_StreamSafeCdRead	host	same opening as rac4's: sector, count, destination
+func_00133580	989snd	snd_StreamSafeCdSync	host	symbol_addrs.txt snd_CheckLoadInProgress; sceCdSync (0x00124B88) when no stream plays
+func_00133640	989snd	snd_StreamSafeCdBreak	host	symbol_addrs.txt CdStopRead; queues the stream stop, then sceCdBreak (0x00125620)
+func_00133688	989snd	snd_StreamSafeCdGetError	host	symbol_addrs.txt CdGetLoadStatus; the stream's error, else sceCdGetError (0x00125588)
+func_001336D0	989snd	snd_StreamSafeCdCallback	host	same opening as rac4's; installs the callback or forwards to sceCdCallback (0x001245D0); catalogue place 0x001336C0
+func_0027BEB8	graphics	StartFrameList	wrap	the frame's first packets: a picture written straight to the frame buffer is drawn after them (host/picture.c)
+func_00131CB8	boot	ParseBin	wrap	copies a level's program in: from then on, level code addresses mean that level's (host/level.c)
+func_0029E308	game	WadDecompress	host	the WAD decompressor (hand-written assembly): its result, the bytes written, is what the level loader sizes the moby area from	int (int, int)
+# The sound library's wrappers each send one command, the same number as in Ratchet & Clank's.
+func_00133350	game	snd_PlayVAGStreamTwoParts_CB	host	command 0x2C: a stream, its handle told to the callback: host/sound.c	int (int, int, int, int, int, int, int, int, int, int, int, long long)
+func_00132498	game	snd_BankLoadByLoc_CB	host	a bank by sector and offset, its handle told to the callback: host/sound.c	void (int, int, int, long long)
+func_001325E8	989snd	snd_BankLoadFromEE_CB	host	a bank in EE memory; the level loader waits for its callback (func_002EAAA8)
+func_00132828	989snd	snd_ResolveBankXREFS	host	command 8
+func_00132858	989snd	snd_UnloadBank	host	command 6
+func_00132888	989snd	snd_SetMasterVolume	host	command 9
+func_00132938	989snd	snd_SetPlaybackMode	host	command 0xB
+func_00132A70	989snd	snd_StopSound	host	command 0x15
+func_00132AC8	989snd	snd_StopAllSounds	host	command 0x18
+func_00132AF8	989snd	snd_PauseAllSoundsInGroup	host	command 0x16
+func_00132B28	989snd	snd_ContinueAllSoundsInGroup	host	command 0x17
+func_00132B58	989snd	snd_SoundIsStillPlaying_CB	host	command 0x19
+func_00133310	989snd	snd_StopAllStreams	host	command 0x34
+func_001333D0	989snd	snd_PauseVAGStream	host	command 0x2D
+func_00133400	989snd	snd_ContinueVAGStream	host	command 0x2E
+func_00133430	989snd	snd_GetVAGStreamTimeRemaining_CB	host	command 0x32
+func_00133460	989snd	snd_IsVAGStreamBuffered_CB	host	command 0x4F
+func_00133490	989snd	snd_StreamSafeCheckCDIdle	host	command 0x36
+func_00133750	989snd	snd_PreAllocReverbWorkArea	host	command 0x51
+func_00133788	989snd	snd_AutoReverb	host	command 0x10
+func_00133890	989snd	snd_ResetMovieSound	host	command 0x3D
+func_001338F0	989snd	snd_StartMovieSound	host	command 0x3E
+func_00133930	989snd	snd_UpdateMovieADPCM	host	command 0x5A
+func_00133960	989snd	snd_GetMovieNAX	host	command 0x5B
+func_00132318	989snd	snd_BankLoadByLoc	host	command 3 on the loader client: a bank by sector and offset, its handle returned; the matched C waits with FlushCache for an IOP reply no one writes (Maktar's arena, func_L00_0032D208)	unsigned int (int, int)
+func_001326D8	game	snd_BankLoadFromIOP	host	a bank sent to the IOP's memory, its handle returned: host/sound.c	int (int)
+func_0027F920	draw	FontPrint	wrap	a string, glyph by glyph: its quads are marked as glyphs (host/ui2d.c), drawn from the font's distance field
+func_0027FCB0	draw	FontPrintScaled	wrap	func_0027F2A8 at a scale, with float positions: its quads are marked as glyphs (host/ui2d.c)
+func_0027E698	draw	DrawGlyphQuad	wrap	the 2D layer's textured quad: drawn natively (host/ui2d.c)
+func_0027E820	draw	DrawTexturedQuad2d	wrap	the 2D layer's quad with float corners: a glyph drawn natively (host/ui2d.c)
+func_0034F240	hud	DrawHudWidgets	wrap	the HUD's widgets (weapon, ammunition, health, bolts): with "HUD: Edges" two markers have the window draw them out at the sides of a wider picture (host/hud.c)
+func_0034BA50	hud	DrawHudPanel	wrap	the top middle panel: with "HUD: Edges" it stays in the middle (host/hud.c)
+func_L05_0041F478	hud	ShipHud5	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L10_00422CA8	hud	ShipHud10	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L15_0042F6D0	hud	ShipHud15	wrap	the ship level's own HUD, a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)	int (void)
+func_L22_003A6448	hud	ClankHud22	wrap	Giant Clank's fight HUD, a callback of func_0029B758: with "HUD: Edges" its panels go to the sides (host/hud.c)
+func_L23_0041EF48	hud	ClankHud23	wrap	Giant Clank's fight HUD, a callback of func_0029B758: with "HUD: Edges" its panels go to the sides (host/hud.c)
+func_L04_0040C228	hud	RaceHudStart	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_L04_004127A8	hud	RaceHud	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_L04_004188B8	hud	RaceHudEnd	wrap	the hoverbike race's own HUD (Barlow and Joba), a callback of func_0029B758: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_L03_003C8620	hud	CraneHud	wrap	the crane's own HUD on Endako, a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_00290920	hud	MeterHud	wrap	the meter func_00290010 shows for a while (the Thermanator's), a callback of func_0029B7C0: with "HUD: Edges" two markers have the window draw it out at the sides of a wider picture (host/hud.c)
+func_0028ECC0	hud	UpdateHud	wrap	the level HUD's slots: with the player's "HUD: Edges" the elements anchored left or right are drawn out at the sides of a picture wider than the game's (host/hud.c)
+func_0028F0D0	hud	HudSprite	wrap	a HUD texture as a sprite: drawn natively (host/ui2d.c)
+func_0028F540	hud	HudBarSprite	wrap	a HUD texture as a sprite, a texel a pixel: drawn natively (host/ui2d.c)
+func_0028F700	hud	HudSpriteFine	wrap	a HUD texture as a sprite, in 16ths of a pixel: drawn natively (host/ui2d.c)
+func_0028F8E0	hud	HudSpriteColour	wrap	func_0028EE98 in a colour: drawn natively (host/ui2d.c)
+func_0028FAE0	hud	HudTextureSprite	wrap	a sprite of a given texture: drawn natively (host/ui2d.c)
+func_0028FC78	hud	HudRotatedSprite	wrap	a rotated sprite: drawn natively (host/ui2d.c)
+func_0028FFF0	hud	HudSpriteRect	wrap	a HUD texture as a sprite with explicit texel corners: drawn natively (host/ui2d.c)
+func_0027D488	draw	ExecuteDrawCallbacks	wrap	a draw callback list's run: in a picture wider than the game's, the view tests the callbacks make are opened by as much (host/wide_view.c)
+func_0027D550	draw	ExecuteDrawCallbacks2	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D5C8	draw	ExecuteDrawCallbacks3	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D690	draw	ExecuteDrawCallbacks4	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_0027D758	draw	ExecuteDrawCallbacks5	wrap	a draw callback list's run, as func_0027CE18 (host/wide_view.c)
+func_00284768	draw	FastBSphereCheck	wrap	the bounding sphere view test: while a draw callback list runs, against the picture's sides (host/wide_view.c)
+func_0028F2C0	hud	HudGradientSprite	wrap	a HUD texture as a sprite with a colour a corner: drawn natively (host/ui2d.c)
+func_0027EB28	draw	DrawRotatedSprite	wrap	a turned textured quad about a pivot: drawn natively (host/ui2d.c)
+func_0027EFA0	draw	DrawRingSegment	wrap	a ring's segment, a colour a corner and the texture's wrap: drawn natively (host/ui2d.c)
+func_0027E4D0	draw	DrawFlatBox	wrap	a box of flat colour (the pages' frames): drawn natively (host/ui2d.c)
+func_003144C8	moby	NanotechBallUpdate	wrap	the nanotech cluster's update: its sphere test runs against the picture's sides (host/wide_view.c)
+func_L00_004264A8	camera	FollowCameraReadStick	wrap	the follow camera's stick read: notes the camera, for the picture's late camera latch (host/camera_latch.c)
+func_002E5720	sound	ResetSoundState	wrap	the sound's reset, which gives the mixer the Sound page's values: the remembered ones go in first (host/options.c)
+func_0027F0A8	draw	DrawShadedBox	wrap	a box shaded from left to right, untextured: drawn natively (host/ui2d.c)
+func_L00_002E7920	game	func_L08_002F2C48	host	the fourth draw callback list's register, only in levels 8, 9, 19 and 30, folded with func_0027CFD0 by the catalogue (split_places.tsv, host/callback_lists.c)	void (unsigned int, unsigned int)
+func_002899F8	text	TextById	wrap	the text of an id: the title's 16:9 page is the port's Video page, so its name is "Video" there (host/options.c)
+func_0033D320	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
+func_0033D3C0	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)
+func_002D6508	menu	OptionsPageEnter	wrap	the title's Options page as it opens (its list given its items): in the developer mode the list also has Planets, which opens the port's level select in the 16:9 page's panel (host/options.c)
+func_00342450	menu	PauseListItems	wrap	the pause menu's lists' items: the Options list's are a copy with a Video row after Camera (host/options.c)	void (unsigned int, int, int, int)
+func_00342520	menu	PauseListShow	wrap	shows one of the pause menu's lists: the Options list has a ninth row, with the rows closer (host/options.c)	void (unsigned int, int)
+func_00342B30	options	OptionsListDraw	wrap	the pause list's panel, whose art has no ninth row: drawn in two clipped parts for it
+func_0033D5D8	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 row is not reached, and the copy the Options list's Video row opens shows the port's Video rows, which move as the title's (host/options.c)
+func_0033D780	menu	CameraPageDraw	wrap	the pause menu's Camera page: its three camera rows, or the Video rows drawn in the panel for the Options list's Video row (host/options.c)
+func_0029BF58	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)
+func_L16_00430F58	game	func_L16_0042FB10	host	a place the catalogue folds into func_L00_00424BB8 although its code stores to other fields (split_places.tsv, host/variants.c)	void (float, float)
+# Hook points for mods (docs/port/MODS.md, section 4; sdk/bindings/rac2.json gives each its id).
+func_L00_002A4EF8	player	Hero_TakeDamage	hook	Takes a hit's points from the hero's health (the hero at 0x189E20 on NTSC-U, health at +0x24CC), after the armour's scale; the hero's state machine calls it for each hit. A hook point for mods; the game's C with none.
+func_002AA4A8	combat	Moby_GetHitMessage	hook	The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads. A hook point for mods; the game's C with none.
+func_L00_002D42D0	weapon	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. A hook point for mods; the game's C with none.
+func_002A7AA8	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods; the game's C with none.
+func_L00_00304660	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
+func_L00_002B42C0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
+func_L00_002D61D0	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.
+func_00288D30	item	Item_Give	hook	Gives the player item id (GiveInventoryItem): nothing when owned already; else its owned and new bytes, its starting ammo, the vendor list and the quick select. A hook point for mods; the game's C with none.
+func_002AE620	planet	Planet_Unlock	hook	Puts a level on the ship's map (MarkLevelAvailable); every level load calls it for its own level too. A hook point for mods; the game's C with none.
+func_L01_003D01F8	moby	Moby_DynamoPickup_Update	hook	Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. A hook point for mods; the game's C with none.
+func_L01_003D42B0	moby	Moby_TractorBeamSeller_Update	hook	Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte. A hook point for mods; the game's C with none.
+func_L01_004179C0	moby	Moby_BoxBreakerPickup_Update	hook	Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it. A hook point for mods; the game's C with none.
+func_L04_004362F0	moby	Moby_ThermanatorSeller_Update	hook	Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte. A hook point for mods; the game's C with none.
+func_L04_00457DD8	moby	Moby_ThermanatorArea_Update	hook	Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area. A hook point for mods; the game's C with none.
+func_L03_003F2000	moby	Moby_SwingshotArea_Update	hook	Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area. A hook point for mods; the game's C with none.
+func_L08_0040FF80	moby	Moby_GliderPickup_Update	hook	Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte. A hook point for mods; the game's C with none.
+func_L11_00463368	moby	Moby_LevitatorSeller_Update	hook	Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte. A hook point for mods; the game's C with none.
+func_L11_003F9A50	moby	Moby_ChargeBootsRider_Update	hook	Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned. A hook point for mods; the game's C with none.
+func_L04_0041B020	moby	Moby_RaceController_Update	hook	The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map. A hook point for mods; the game's C with none.
+func_L18_003FA510	moby	Moby_MapperReturn_Update	hook	Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned. A hook point for mods; the game's C with none.
+func_L18_00441C08	moby	Moby_HypnomaticMaker_Update	hook	Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte. A hook point for mods; the game's C with none.

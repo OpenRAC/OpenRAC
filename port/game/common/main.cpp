@@ -82,7 +82,10 @@
 #include "scene/moby_pose.h"
 #include "settings.h"
 #endif
-#if defined(OPENRAC_ANDROID_ACTIVITY)
+#if defined(OPENRAC_IOS)
+#include "platform/ios.h"
+#endif
+#if defined(OPENRAC_ANDROID_ACTIVITY) || defined(OPENRAC_IOS)
 // The game as Android's activity loads it (libopenrac-<id>.so): main is SDL_main, which SDL's
 // activity calls with the arguments the launcher gave it. The executable beside it
 // (libopenrac-<id>-cli.so) keeps its main.
@@ -523,6 +526,16 @@ bool has_virtual_sector_mappings(const fs::path& mount) {
 }  // namespace
 
 int main(int argc, char** argv) {
+#if defined(OPENRAC_IOS)
+    auto ios_arguments = openrac::platform::ios_arguments();
+    std::vector<char*> ios_argv;
+    for (auto& argument : ios_arguments) {
+        ios_argv.push_back(argument.data());
+    }
+    argc = static_cast<int>(ios_argv.size());
+    ios_argv.push_back(nullptr);
+    argv = ios_argv.data();
+#endif
     profiling::thread_name("Game");
 #if defined(_WIN32)
     // Windows sleeps in steps of 15.6 ms unless a program asks for 1 ms: the wait for the next

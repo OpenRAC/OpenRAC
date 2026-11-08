@@ -80,6 +80,9 @@ struct ProbeVolume {
         ProbeTextureFormat::R11G11B10;  // Stored colour plane format.
     // Encoded depth retains local mean/spread with FP32 per-probe decoding ranges.
     ProbeDepthFormat depth_format = ProbeDepthFormat::Moments;
+    // encode_probe_irradiance of every irradiance texel, kept by offline decoding so CPU sampling
+    // need not recompute it per read; empty otherwise. Never stored.
+    std::vector<Float3> encoded_irradiance;
     // Returns the bounded byte sizes of colour, depth, relocation, spread and ranges.
     std::array<std::size_t, 5> plane_sizes() const;
     std::size_t atlas_rows() const;

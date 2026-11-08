@@ -769,6 +769,36 @@ class Translate(unittest.TestCase):
         """})
         self.assertEqual(out, ["15"])
 
+    def test_the_argument_save_area_is_forwarded(self):
+        # Going Commando's text popups (func_L01_00324550) and its GIF packet helper
+        # (func_L08_00389B68): a variadic function passes `__builtin_next_arg(last) - N` on, the
+        # register save area where GCC for the EE spills the unnamed argument registers as
+        # doublewords, and the callee walks it eight bytes a slot. A 32-bit value is sign-extended,
+        # a 64-bit one is whole, and the registers the call leaves unset read as zero.
+        out = self.run_program({"a.c": """
+            int walk(int *p) {
+                int s = 0;
+                while (p[0] != -1) { s = s * 10 + p[0]; p += 2; }
+                return s;
+            }
+            int show(int id, ...) {
+                return id * 1000 + walk((int *)((char *)__builtin_next_arg(id) - 0x38));
+            }
+            void words(int a, int b, ...) {
+                u32 *p = (u32 *)((char *)__builtin_next_arg(b) - 0x30);
+                int i;
+                for (i = 0; i < 12; i++) test_print((int)p[i]);
+            }
+            int test_main(void) {
+                test_print(show(4, 1, 2, 3, -1));
+                test_print(show(5, -1));
+                words(0, 0, 7, (u64)0x8000000044ULL, (short)-2, (u32)0x80000000u);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["4123", "5000", "7", "0", "68", "128", "-2", "-1",
+                               str(-0x80000000), "-1", "0", "0", "0", "0"])
+
     def test_a_local_of_an_unnamed_enum(self):
         # newlib's _vfprintf_r: enum { OCT, DEC, HEX } base; an int, its constants usable.
         out = self.run_program({"a.c": """
@@ -1944,6 +1974,26 @@ class Places(unittest.TestCase):
                 if executable:
                     self.assertIn("openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x00200000u", text)
 
+    def test_a_call_copy_row_answers_the_executables_own_target(self):
+        # USA v2.00's func_002B5B38, translated from the executable, calls its own func_002E8010
+        # where every level's copy calls v1.01's func_002E71B8 (func_L00_00362138 there).
+        import re
+        from program import Program, call_copy, read_call_copies
+        program = Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calls.tsv"
+            path.write_text("func_002B5B38\tfunc_L00_00362138\t0\t0032C858\t984\t00362138\t002E8010\n"
+                            "func_002B5B38\tfunc_L00_00370E08\t0\t0032C858\t984\t00370E08\t00000000\n")
+            read_call_copies(path, program)
+        row = (0, 0x0032C858, 984, 0x00362138, 0x002E8010)
+        # An assembly translation's jal, by its target in the executable's copy.
+        self.assertEqual(call_copy(program, "func_002B5B38", "func_002E8010", 0x002E8010), row)
+        self.assertEqual(call_copy(program, "func_002B5B38", "func_L00_00362138"), row)
+        # C that names the executable's function keeps it: there it is a twin of the levels'.
+        self.assertIsNone(call_copy(program, "func_002B5B38", "func_002E8010"))
+        self.assertIsNone(call_copy(program, "func_002B5B38", "func_002F6220", 0x002F6220))
+
     def test_an_executable_function_the_levels_carry_keeps_its_address(self):
         import re
         from program import Program
@@ -1955,6 +2005,31 @@ class Places(unittest.TestCase):
                          [(-1, 0x001E94E8), (0, 0x001EB1B0), (1, 0x0020CD30)])
         self.assertEqual(program.code_places("func_L00_001EB0B0"), [(0, 0x001EB0B0), (1, 0x0020CCB0)])
         self.assertEqual(program.code_places("func_00112380"), [(-1, 0x00112380)])
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_function_takes_its_levels_place_of_a_global(self):
+        # USA v2.00's func_L00_00362138 is v1.01's func_002E71B8, whose C says the executable's
+        # D_001B87C0: level 0's build put that datum at 0x001BCA40 (the derived table's level_data).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "a.c").write_text(
+                "extern int D_001B87C0;\n"
+                "int func_L00_00420000(void) { return D_001B87C0; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_00420000\tshared\t4\tfingerprint\t2\t00:00420000,01:00430000\n")
+            (root / "derived.json").write_text(json.dumps({
+                "values": {"D_001B87C0": "0x001b87c0"}, "level_data": {"0": {"D_001B87C0": "0x001bca40"}}}))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "derived.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_LDATA(0, 0x001BCA40u)", (out / "game" / "a.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_shared_level_data_uses_the_games_relocation_range(self):
@@ -2114,6 +2189,48 @@ class Places(unittest.TestCase):
                                            "--jobs", "1", "--quiet"]), 0)
             self.assertIn("OPENRAC_LDATA(1, 0x001B255Cu)",
                           (out / "levels" / "shared" / "L01_002A7248.c").read_text())
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_the_gp_view_of_a_level_derived_global_is_that_global(self):
+        # Going Commando's follow camera stick read (func_L00_00424F98, L00_00424F98-g8.c) says
+        # `extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03)`: the label is the name with
+        # __gp, which only the level's build derives under the plain name. Unresolved, the whole
+        # function was a stub that never wrote the stick, and the right stick turned nothing. The
+        # level's own address stands, not the executable's datum there as the level moved it
+        # (0x001B1580 is level 0's ref_L00_00424F98_00; the executable's D_001B1580 is elsewhere).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "levels" / "shared").mkdir(parents=True)
+            (src / "src" / "levels" / "shared" / "L00_00424F98-g8.c").write_text(
+                "#define SDATA(sym) __asm__(#sym \"__gp\")\n"
+                "extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03);\n"
+                "extern int ref_L00_00424F98_00 SDATA(ref_L00_00424F98_00);\n"
+                "void func_L00_00424F98(float *y) {\n"
+                "    ref_L00_00424F98_00 = 0;\n"
+                "    *y = 1.0f / ref_L00_00424F98_03;\n"
+                "}\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_00424F98\tshared\t4\tfingerprint\t2\t00:00424F98,01:004281A8\n")
+            (root / "names.json").write_text(json.dumps({
+                "values": {},
+                "levels": {"ref_L00_00424F98_03": [0, "0x001b14c4"],
+                           "ref_L00_00424F98_00": [0, "0x001b1580"]},
+                "level_data": {"0": {"D_001B1580": "0x001b18c0"}},
+            }))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "names.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            text = (out / "levels" / "shared" / "L00_00424F98-g8.c").read_text()
+            self.assertNotIn("Not translated", text)
+            self.assertIn("OPENRAC_LDATA(0, 0x001B14C4u)", text)
+            self.assertIn("OPENRAC_LDATA(0, 0x001B1580u)", text)
+            self.assertNotIn("0x001B18C0u", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_data_label_with_an_offset_is_the_symbol_plus_it(self):
@@ -2656,6 +2773,9 @@ class Preparation(unittest.TestCase):
         self.assertEqual(program.data_address("ref_L00_003A7AF0_00"), 0x001B286C)
         self.assertEqual(program.data_level("ref_L00_003A7AF0_00"), 0)
         self.assertIsNone(program.data_address("ref_L00_00000000_00"))
+        # Its $gp view (common.h's SDATA labels it name__gp) is the same global.
+        self.assertEqual(program.data_address("ref_L00_003A7AF0_00__gp"), 0x001B286C)
+        self.assertEqual(program.data_level("ref_L00_003A7AF0_00__gp"), 0)
 
     def test_a_level_build_derived_callee_is_the_function_at_that_place(self):
         # ref_L02_003CC7B0_01, a callee a level's build derived, sits where the catalogue has
@@ -2664,6 +2784,48 @@ class Preparation(unittest.TestCase):
         program.places = {"func_00283CF0": [(2, 0x002F3158), (0, 0x002F00A0)]}
         program.level_names = {"ref_L02_003CC7B0_01": (2, 0x002F3158)}
         self.assertEqual(program.code_places("ref_L02_003CC7B0_01"), program.code_places("func_00283CF0"))
+
+    def test_a_family_name_is_where_the_build_put_it(self):
+        # Going Commando's F<hash>_FUN_ names state v1.01's address; another release's build puts
+        # the function elsewhere (USA v2.00's F081de6c9_FUN_00335FC8 is its func_00336DD0).
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^(?:F[0-9a-f]{8}_)?(?:func|FUN)_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.derived_code = {"F081de6c9_FUN_00335FC8": 0x00336DD0, "func_00128A48": 0x00128A50,
+                                "func_00112380": 0x00112380}
+        self.assertEqual(program.code_places("F081de6c9_FUN_00335FC8"), [(-1, 0x00336DD0)])
+        # A catalogue name the build linked to its entry, after a fill word, is entered there.
+        self.assertEqual(program.code_places("func_00128A48"), [(-1, 0x00128A50)])
+        self.assertEqual(program.code_places("func_00112380"), [(-1, 0x00112380)])
+        self.assertEqual(program.code_places("func_00112390"), [(-1, 0x00112390)])
+
+    def test_a_catalogue_name_is_entered_at_its_entry(self):
+        # PAL's pad poll calls scePad2Read by its catalogue name, func_00128A48, entered after a
+        # fill word at 0x00128A50, the libraries' row: the call is the port's function. And the
+        # entry's own spelling (func_002E7968, a callback PAL's C takes) is the function there, not
+        # level 0's copy of another at that address.
+        program = hostgen.Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        program.executable_entry_at = {0x00128A48: 0x00128A50, 0x002E7964: 0x002E7968}
+        program.host = {"func_00128A50"}
+        program.functions["func_00128A48"] = hostgen.Function(
+            "func_00128A48", hostgen.Signature(ctype.Base("int"), (), False, False), "src/core/00128898.c")
+        program.functions["func_002E7964"] = hostgen.Function(
+            "func_002E7964", hostgen.Signature(ctype.Base("int"), (), False, False), "src/pal/game/002E7964.c")
+        program.places["func_0027CD60"] = [(0, 0x002E7968)]
+        program.bare_names_in_level_0 = True
+        program.index_places()
+        self.assertEqual(program.code_places("func_00128A48"), [(-1, 0x00128A50)])
+        self.assertEqual(program.canonical("func_00128A48"), "func_00128A50")
+        self.assertEqual(program.canonical("func_002E7968"), "func_002E7964")
+        # A bare name is level 0's function at that address only where the executable starts none:
+        # v2.00's func_002CB038 (assembly, no C yet) is not level 0's func_L00_002CB038.
+        program.places["func_L00_002CB038"] = [(0, 0x002CB038)]
+        program.functions["func_L00_002CB038"] = hostgen.Function(
+            "func_L00_002CB038", hostgen.Signature(ctype.Base("int"), (), False, False), "src/levels/shared/L00_x.c")
+        program.index_places()
+        self.assertEqual(program.canonical("func_002CB038"), "func_L00_002CB038")
+        program.executable_starts = {0x002CB038}
+        self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
 
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.
@@ -3834,6 +3996,39 @@ class CopyCalls(unittest.TestCase):
         # Code that matches nowhere (a false fold) gives the executable no targets at all.
         self.assertIsNone(copycalls.exe_copy(exe, 0x2DC900, 16, (0x24020001,) * 4))
 
+    def test_a_hook_call_of_a_function_the_release_has_only_in_its_levels(self):
+        # USA v2.00's func_L00_00361D08 is v1.01's func_002E6D88: where v1.01's executable copy calls
+        # the hook 0x0026F748, the level copies call their own HeroSetState. The hook's name in the
+        # release (func_0026F750) gets the copies' call at that place.
+        import copycalls
+        import release
+        jal = lambda target: 0x0C000000 | (target >> 2)  # noqa: E731
+        exe_words = (0x27BDFFE0, jal(0x0026F748), 0x24040061, 0x03E00008)
+        level = (0x27BDFFE0, jal(0x002C4560), 0x24040061, 0x03E00008)
+        stub = (release.JR_RA, 0x0000102D)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "boot.tsv").write_text("func_0026F748\t0026F748\t8\nfunc_002E6D88\t002E6D88\t16\n")
+            exe = [(0x0026F748, struct.pack("<2I", *stub)), (0x002E6D88, struct.pack("<4I", *exe_words))]
+
+            class Layout:
+                primary = {"func_L00_00361D08": "func_002E6D88"}
+                primary_boot = root / "boot.tsv"
+                primary_exe = root / "exe"
+
+                @staticmethod
+                def name(n):
+                    return {"func_0026F748": "func_0026F750"}.get(n, n)
+            Layout.primary_exe.write_bytes(b"")
+            old = copycalls.elf_sections
+            copycalls.elf_sections = lambda path: exe
+            try:
+                self.assertEqual(copycalls.primary_hooks(Layout, "func_L00_00361D08", 16, level),
+                                 [("func_0026F750", 1)])
+                self.assertEqual(copycalls.primary_hooks(Layout, "func_L00_00362138", 16, level), [])
+            finally:
+                copycalls.elf_sections = old
+
     def test_call_expression(self):
         from program import call_copy_expr
         self.assertEqual(call_copy_expr((0, 0x3E4948, 28, 0x3A6C30, 0)),
@@ -3848,6 +4043,27 @@ class GlobalViewTest(unittest.TestCase):
         self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_001A7390_base"), "D_001A7390")
         # A number after it is a datum of the build's own.
         self.assertEqual(lower.GLOBAL_VIEW.sub(r"\1", "D_L00_001B1B00_1"), "D_L00_001B1B00_1")
+
+
+class StaleExports(unittest.TestCase):
+    """A Windows program's list of exports for the part against the program built without the disc."""
+
+    def test_the_list_fits_or_says_what_is_stale(self):
+        import asmext
+        from types import SimpleNamespace
+
+        program = SimpleNamespace(functions={"func_00100000": None, "func_00100010": None})
+        fits = "EXPORTS\n  func_00100010\n  openrac_asmx_func_00100000 DATA\n  openrac_vu0 DATA\n"
+        self.assertEqual(asmext.stale_exports(fits, ["func_00100000"], program), [])
+        # A sync gave func_00100010 C and the part fills it no more; a level function went away.
+        stale = "EXPORTS\n  func_L09_003FB780\n  openrac_asmx_func_00100000 DATA\n" \
+                "  openrac_asmx_func_00100010 DATA\n"
+        self.assertEqual(asmext.stale_exports(stale, ["func_00100000"], program), [
+            "openrac_asmx_func_00100010: no such slot in the program",
+            "func_L09_003FB780: no such function in the program"])
+        # A function the part fills now that the list leaves out: the part's own link stops.
+        self.assertEqual(asmext.stale_exports(fits, ["func_00100000", "func_00100010"], program),
+                         ["openrac_asmx_func_00100010: the part fills it, the list leaves it out"])
 
 
 if __name__ == "__main__":

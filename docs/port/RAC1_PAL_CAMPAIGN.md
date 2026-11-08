@@ -20,7 +20,7 @@ The configured parent workspace contains two independent Git repositories:
 
 `OPENRAC_RAC1_PAL_SOURCE` in `port/build/release/CMakeCache.txt` points to the
 sibling `rac1-decomp/`. Check that binding at startup. Editing the imported
-`games/rac1/` does not change this local build. On a different machine,
+`games/rac1/decomp/` does not change this local build. On a different machine,
 use the actual configured source path and its instructions.
 
 Before editing, read both repositories' instructions, inspect their Git
@@ -1520,7 +1520,7 @@ this is a playthrough. `OPENRAC_GUARD` (BUGFIX_GUIDE) finds who writes a corrupt
 
 ### Every level's start without a missing function, 2026-10-14 continuation
 
-Workers per `games/rac1/docs/AGENT_WORKFLOW.md` (Opus on functions over 1 KB through
+Workers per `games/rac1/decomp/docs/AGENT_WORKFLOW.md` (Opus on functions over 1 KB through
 `wave.py long`, one function each; Sonnet and Haiku on small ones), each told to end at
 `equiv.py` FUNCTIONAL when not EXACT. In `rac1-decomp` (branch `feat/port-backfill`):
 

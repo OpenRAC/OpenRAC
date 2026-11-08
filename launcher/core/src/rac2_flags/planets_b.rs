@@ -6,8 +6,12 @@
 //! Every place here is a byte of the story chunk (5) or a bit of the cinematics chunk (43) that
 //! the level's own code reads; the functions are named in `launcher/docs/RAC2_SAVE_FORMAT.md`
 //! ("Levels 9 to 16").
+//!
+//! The Electrolyzer puzzles ([`super::electrolyzer`]) are also the board's moby count (chunk 3005)
+//! and object group (chunk 3004) in the level's section; they are in `RAC2_SAVE_FORMAT.md`,
+//! "Advanced: Electrolyzer puzzles (L-7)".
 
-use super::{Confidence, Flag, Place};
+use super::{count, electrolyzer, group_done, Confidence, Flag, Place};
 
 /// A byte of the story chunk (0x001395B8), set to `on`.
 const fn story(offset: usize, on: u8) -> Place {
@@ -69,6 +73,16 @@ pub const FLAGS: &[Flag] = &[
         place: cinematic(768),
         confidence: Confidence::Proven,
     },
+    electrolyzer(
+        "dobbo-electrolyzer",
+        9,
+        "Electrolyzer puzzle solved",
+        "The board that is the Hrugis Cloud coordinates seller's task (moby 182), with the seller's \
+         own note that it is done (story byte 0x1F). Off, the board can be played again and the \
+         seller waits for it.",
+        &[count(9, 182), group_done(9, 5), story(0x1F, 1)],
+        Confidence::Proven,
+    ),
     // Hrugis Cloud (10)
     ship("hrugis-challenge-1", 10, "Ship challenge 1 won", 0x66, Confidence::Proven),
     ship("hrugis-challenge-2", 10, "Ship challenge 2 won", 0x67, Confidence::Proven),
@@ -96,6 +110,16 @@ pub const FLAGS: &[Flag] = &[
     arena("joba-arena-11", "Arena: The Impossible Challenge!", 70, Confidence::FromCode),
     arena("joba-arena-12", "Arena: Damage Avoidance: Don't Get Hit by Megapede!", 72, Confidence::FromCode),
     arena("joba-arena-13", "Arena: Timed Cage Match: Kill 100 Enemies in 100 Seconds", 75, Confidence::FromCode),
+    // Todano (12)
+    electrolyzer(
+        "todano-electrolyzer",
+        12,
+        "Electrolyzer puzzle solved",
+        "The board that powers the dam's lift (moby 665). Off, the lift does not run and the board can \
+         be played again.",
+        &[count(12, 665), group_done(12, 1)],
+        Confidence::Proven,
+    ),
     // Gorn (15)
     ship("gorn-challenge-1", 15, "Ship challenge 1 won", 0x6B, Confidence::Proven),
     ship("gorn-challenge-2", 15, "Ship challenge 2 won", 0x6C, Confidence::Proven),

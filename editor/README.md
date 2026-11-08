@@ -5,17 +5,18 @@ own world as an additional ship destination, keeping the original planets.
 It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
-`SCES_509.16` v2.00, or NTSC-U, `SCUS_971.99` v1.00) into a Godot 4 project.
+`SCES_509.16` v2.00 or v1.00, NTSC-U, `SCUS_971.99` v1.00, or Japan, `SCPS_150.37`
+v1.02) into a Godot 4 project.
 Godot is the map editor: open a level, move, add or delete objects, and save.
-For RAC1 PAL and NTSC-U, `extract.py pack` turns supported scene edits back
+For RAC1 PAL v2.00 and NTSC-U, `extract.py pack` turns supported scene edits back
 into mod files without writing to the disc. The launcher's Mods page can
 extract, open, pack, and run those edits. Later games are still early access:
 their levels can be exported for inspection, but packing edits back into those
 games is not supported yet.
 
 It sits at the top of OpenRAC because it serves all four games. It reads
-Ratchet & Clank's PAL and NTSC-U discs in full, and Going Commando's, Up
-Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
+Ratchet & Clank's four discs in full, and Going Commando's three
+discs and Up Your Arsenal's and Deadlocked's NTSC-U discs in early access: their levels,
 textures and models, to look at and to make texture and model packs from
 ([The later games](#the-later-games-early-access)).
 
@@ -30,31 +31,41 @@ You need:
 - Godot 4, tested with 4.7.2. On macOS its command is
   `/Applications/Godot.app/Contents/MacOS/Godot`; below it is `godot`.
 - An ISO image of your own disc, placed at the top of OpenRAC as
-  `baserom/SCES_509.16.iso` (PAL) or `baserom/SCUS_971.99.iso` (NTSC-U)
+  `baserom/SCES_509.16.iso` (PAL), `baserom/SCUS_971.99.iso` (NTSC-U),
+  `baserom/SCES_509.16_v1.00.iso` (PAL v1.00) or `baserom/SCPS_150.37.iso` (Japan)
   ([baserom/README.md](../baserom/README.md)). `baserom/` is ignored by git.
-  The commands below name the PAL image; every one of them reads the NTSC-U
-  image the same way.
+  The commands below name the PAL image; every one of them reads the other
+  discs' images the same way.
 
 The RAC1 PAL build only needs the executable from that image
-([games/rac1/README.md](../games/rac1/README.md)).
+([games/rac1/decomp/README.md](../games/rac1/decomp/README.md)).
 The extractor reads the whole image, and it stops unless the executable
-inside is PAL v2.00's or NTSC-U v1.00's (its name in `SYSTEM.CNF`, its size
+inside is one of the four discs' (its name in `SYSTEM.CNF`, its size
 and SHA-1, which it reads from the version's entry in
 [games/rac1/game.json](../games/rac1/game.json), as it does for the later games'
 discs from theirs).
 
-## The two discs
+## The four discs
 
-Both discs keep their levels the same way, so every reader serves both;
-what differs is one table per version in [disc.py](disc.py) (`VERSIONS`;
-the executable's name, size and SHA-1 come from `games/rac1/game.json`):
+All four discs keep their levels the same way, so every reader serves all of
+them; what differs is one table per version in [disc.py](disc.py) (`VERSIONS`;
+the executable's name, size and SHA-1 come from `games/rac1/game.json`). PAL
+v1.00 and v2.00 boot the same file name, `SCES_509.16`, so the reader tells
+them apart by the executable's size and SHA-1.
 
-| | PAL v2.00 | NTSC-U v1.00 |
-|---|---|---|
-| Executable | `SCES_509.16` | `SCUS_971.99` |
-| Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same |
-| Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc |
-| (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) |
+| | PAL v2.00 | NTSC-U v1.00 | PAL v1.00 | Japan v1.02 |
+|---|---|---|---|---|
+| Executable | `SCES_509.16` | `SCUS_971.99` | `SCES_509.16` (1,381,764 bytes) | `SCPS_150.37` |
+| Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same | the same | the same |
+| Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc | `gameplay_ntsc` (inferred) | `gameplay_ntsc` (inferred; 100 sectors in level 0 against the PAL copy's 210) |
+| (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) | 0x165480 (the same values) | 0x165600 (the same values) |
+
+The table's address is where `func_0020DFF8` forms it in each executable (its
+copy in PAL v1.00 is at 0x20CCB0, in the Japanese one at 0x20EEF0); the
+2,048 bytes there are PAL's. The gameplay copy of the two newer discs is read
+from the shared source and was not run on a console: no native program plays
+them yet, so only the extraction is checked (all 21 levels of each disc read
+without an error, and both place the same number of meshes in every level).
 
 The NTSC-U side follows ReRAC's disc layout (`docs/formats/disc_layout.md`)
 and the NTSC decomp's `load_level_gameplay`, which loads the NTSC copy
@@ -187,7 +198,7 @@ class is and what runs it, in its tooltip in the Scene dock and as metadata:
 |---|---|
 | `rc1_class`, `rc1_class_name` | the class number and name |
 | `rc1_update` | the function the game calls for each moby of the class, every frame |
-| `rc1_source` | where that function is in the decompilation ([games/rac1](../games/rac1)), and the tooltip says whether it is C there yet |
+| `rc1_source` | where that function is in the decompilation ([games/rac1/decomp](../games/rac1/decomp)), and the tooltip says whether it is C there yet |
 
 That function is the moby's behaviour: an enemy's attack pattern, a crate
 breaking, a vendor's menu. It is C in the decompilation, and the native port
@@ -198,7 +209,7 @@ behaviour is changed by a mod through the mod SDK, on the port's hook points
 ([BEHAVIOUR.md](BEHAVIOUR.md), `sdk/catalogue/rac1/`) names each class's update
 function, its hook point and its pvar fields. The table comes from the
 decompilation's `config/overlays/names.tsv` (its `UpdateMoby_<class>` roles),
-per level, so it is only written when `games/rac1` is in the checkout.
+per level, so it is only written when `games/rac1/decomp` is in the checkout.
 
 ## Pack your edits
 
@@ -469,7 +480,7 @@ To edit a level:
     `rc1_spawn_flags` (0), `rc1_draw_distance` and `rc1_update_distance`
     (64), `rc1_mode_bits` (32), `rc1_occlusion` (1), `rc1_light` (0),
     `rc1_unknown_74` (-1), and a few unknown fields
-    ([ASSETS.md](../games/rac1/docs/ASSETS.md#mobys)).
+    ([ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#mobys)).
 - Textures are ordinary PNGs. Editing one changes every mesh that uses it.
 
 Run a level (F6) to fly around it:
@@ -511,8 +522,8 @@ variables, `rc1_pvar_index`):
   exponent packs as a float, any other as an integer; the list keeps its
   length (blocks are not resized).
 - `rc1_pv_<field>`: the fields the decompilation names, typed (the classes'
-  `struct update<class>` in games/rac1's
-  [moby_pvars.h](../games/rac1/include/moby_pvars.h), 19 classes, and the
+  `struct update<class>` in games/rac1/decomp's
+  [moby_pvars.h](../games/rac1/decomp/include/moby_pvars.h), 19 classes, and the
   header every camera block starts with: `rc1_pv_sphere`, `_cuboid`,
   `_cylinder`, `_path` name the volumes and path the camera's region test
   uses, `rc1_pv_activation` when it switches on). Camera classes 3, 14, 17,
@@ -905,13 +916,13 @@ Approximations:
   to the sky at run time are not included.
 
 Not yet extracted: low-detail moby meshes, audio (the Mods page's Audio tab exports
-it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
+it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/decomp/docs/ASSETS.md) describes
 the formats and the evidence for them.
 
 ## The later games (early access)
 
-Going Commando (`SCUS_972.68` v1.01), Up Your Arsenal (`SCUS_973.53`) and
-Deadlocked (`SCUS_974.65`), NTSC-U. Their levels are the first game's
+Going Commando (`SCUS_972.68` v1.01 and v2.00, `SCES_516.07` v1.00), Up Your
+Arsenal (`SCUS_973.53` NTSC-U and `SCES_524.56` PAL) and Deadlocked (`SCUS_974.65`, NTSC-U). Their levels are the first game's
 format with a few differences, read by the same readers through a table of
 what each game changes ([games.py](games.py); the formats, and what was
 checked on each disc, are in
@@ -930,7 +941,11 @@ python3 editor/assets.py import build/uya-export --levels assets/port/rac3/ntsc 
 ```
 
 The disc is told apart by the executable `SYSTEM.CNF` boots, as for the
-first game. A level is numbered as the game numbers it (its level header's
+first game; Going Commando's v1.01 and v2.00 both boot `SCUS_972.68` and are
+told apart by its size and SHA-1 (`wads.identify`). Its three discs hold the
+same table of contents layout and the same levels but for a few files, and go
+through the same readers: only the executable's normal table moves (v2.00's is
+at `0x238E80`). A level is numbered as the game numbers it (its level header's
 number), so the folders have gaps: Going Commando 0–20, 22–26 and 30 (the
 Insomniac Museum); Up Your Arsenal 1–55 but for 15, 25, 37 and 38;
 Deadlocked 0–74 with its multiplayer maps and split-screen copies. The
@@ -1015,7 +1030,7 @@ The decoders accept only the layouts found on these discs and raise
 - **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd and
   contributors (GPL-3.0-or-later). Most of what the extractor knows about
   terrain, ties, shrubs, the sky, textures and placements comes from
-  reading its source. [ASSETS.md](../games/rac1/docs/ASSETS.md#sources-and-credits)
+  reading its source. [ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#sources-and-credits)
   lists which files each format came from. What the later games change
   (their table of contents, level headers and level data, the instance
   records, the tie and moby headers, Deadlocked's swizzle, skeletons and
@@ -1029,7 +1044,7 @@ The decoders accept only the layouts found on these discs and raise
   class format (packets, vertex cache, skinning slots, normals, the
   untextured faces, skeletons and animation sequences), and the collision
   block and the meaning of its surface bytes
-  ([ASSETS.md](../games/rac1/docs/ASSETS.md#collision)).
+  ([ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#collision)).
 - **[Lombyte](https://github.com/lombyte-project/Lombyte)** (GPL-3.0): the moby
   class names on the labels (`moby_classes.tsv`, see its header).
 - **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,

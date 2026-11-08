@@ -240,6 +240,9 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
     // The page sends the settings back without the paths the launcher keeps its own files
     // in; they are set again here.
     config.progress_cache = progress_cache(state.config_file.as_deref());
+    // Nor the images the set-ups were made from, which the launcher records (disc_choice.rs) and
+    // a page holding the settings from before would forget.
+    config.disc_images = state.config.lock().unwrap().disc_images.clone();
     config::save(file, &config)?;
     *state.config.lock().unwrap() = config.clone();
 
@@ -997,10 +1000,17 @@ fn install_game(app: AppHandle, state: State<'_, AppState>, game: String, image:
     let config = state.config.lock().unwrap().clone();
     let install_dir = config.install_dir.clone().ok_or("no install folder (Settings)")?;
     let plan = install::plan_extract(&config, &install_dir, &game, &image)?;
-    // A developer's other disc set up before is kept aside, not replaced (disc_choice.rs).
+    // A developer's other disc set up before is kept aside, not replaced, and the image is
+    // remembered as its version's, for the disc switch (disc_choice.rs).
     if config.developer {
         let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
         disc_choice::before_set_up(&config, &catalog, &game, &image)?;
+        let mut current = state.config.lock().unwrap();
+        if let (true, Some(file)) =
+            (disc_choice::remember(&mut current, &catalog, &game, &image), state.config_file.as_deref())
+        {
+            config::save(file, &current)?;
+        }
     }
     state.jobs.start(&plan, config.root.as_deref(), move |event| {
         let _ = match &event {
@@ -1035,7 +1045,8 @@ async fn prepare_disc(app: AppHandle, state: State<'_, AppState>, image: PathBuf
 }
 
 /// The games folder looked through: the games OpenRAC knows among its images, and, for a
-/// developer, the games with more than one of their discs there (disc_choice.rs).
+/// developer, the games the launcher knows more than one disc of, in the games folder or not
+/// (disc_choice.rs).
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DiscScan {
@@ -1045,16 +1056,35 @@ struct DiscScan {
 
 fn scan(config: &Config) -> Result<(openrac_launcher_core::catalog::Catalog, Vec<FoundDisc>), String> {
     let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
-    let found = config.discs_dir.as_deref().map(|dir| discs::scan(dir, &catalog)).unwrap_or_default();
+    let mut found = config.discs_dir.as_deref().map(|dir| discs::scan(dir, &catalog)).unwrap_or_default();
+    // A developer's checkout keeps its discs in `baserom/` (and each game's `games/<game>/baserom/`):
+    // those count too, after the games folder's, so the disc switch sees them without one.
+    if config.developer {
+        let root = config.root()?;
+        let mut dirs = vec![root.join("baserom")];
+        if let Ok(games) = std::fs::read_dir(root.join("games")) {
+            let mut games: Vec<_> = games.flatten().map(|e| e.path().join("baserom")).collect();
+            games.sort();
+            dirs.extend(games);
+        }
+        for dir in dirs.iter().filter(|d| d.is_dir()) {
+            for disc in discs::scan(dir, &catalog) {
+                if !found.iter().any(|f| f.version == disc.version) {
+                    found.push(disc);
+                }
+            }
+        }
+    }
     Ok((catalog, found))
 }
 
 /// The games OpenRAC knows among the images in the player's games folder (none when no folder
-/// is chosen), and the discs a developer can choose between.
+/// is chosen), and the discs a developer can choose between: also without a games folder, from
+/// the images and set-ups of each version (disc_choice.rs).
 #[tauri::command]
 async fn scan_discs(state: State<'_, AppState>) -> Result<DiscScan, String> {
     let config = state.config.lock().unwrap().clone();
-    if config.discs_dir.is_none() || config.root.is_none() {
+    if config.root.is_none() || (config.discs_dir.is_none() && !config.developer) {
         return Ok(DiscScan { found: Vec::new(), choices: Vec::new() });
     }
     tauri::async_runtime::spawn_blocking(move || {
@@ -1550,6 +1580,20 @@ async fn plugins_list(state: State<'_, AppState>, game: String, version: String)
     .await
 }
 
+/// Whether a mod that is on in one of `games` uses the Multiplayer name (Settings shows the
+/// field only then).
+#[tauri::command]
+async fn player_name_used(state: State<'_, AppState>, games: Vec<String>) -> Result<bool, String> {
+    let Some(install) = state.config.lock().unwrap().install_dir.clone() else {
+        return Ok(false);
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        games.iter().any(|g| plugins::uses_player_name(&plugins::dir(&install, g)))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// The launcher's Multiplayer name, for the mod settings that default to it (empty when invalid).
 fn player_name(state: &State<'_, AppState>) -> String {
     let name = state.config.lock().unwrap().multiplayer_name.clone();
@@ -1658,12 +1702,14 @@ fn with_remote<T>(
     version: &str,
     work: impl FnOnce(&remote::Context) -> T,
 ) -> T {
+    // GitHub's API answers are shared for a few minutes (remote::ApiCache): a look for updates and
+    // the updates of a repository's several mods read it once.
     #[cfg(target_os = "android")]
-    let fetch = android::KotlinFetch { app: app.clone() };
+    let fetch = remote::Cached::shared(android::KotlinFetch { app: app.clone() });
     #[cfg(not(target_os = "android"))]
     let fetch = {
         let _ = app;
-        remote::Curl
+        remote::Cached::shared(remote::Curl)
     };
     work(&remote::Context {
         dir,
@@ -1885,11 +1931,11 @@ async fn plugins_status(state: State<'_, AppState>, game: String) -> Result<Opti
 /// What fetches for the mod hub: curl, or on Android the Kotlin side's download.
 fn hub_fetch(app: &AppHandle) -> Box<dyn remote::Fetch> {
     #[cfg(target_os = "android")]
-    return Box::new(android::KotlinFetch { app: app.clone() });
+    return Box::new(remote::Cached::shared(android::KotlinFetch { app: app.clone() }));
     #[cfg(not(target_os = "android"))]
     {
         let _ = app;
-        Box::new(remote::Curl)
+        Box::new(remote::Cached::shared(remote::Curl))
     }
 }
 
@@ -2755,6 +2801,7 @@ pub fn run() {
             editor_state,
             reset_apply,
             plugins_list,
+            player_name_used,
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,

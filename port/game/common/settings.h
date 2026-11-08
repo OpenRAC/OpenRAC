@@ -153,6 +153,15 @@ struct Settings {
     // scene::LevelScene::choose_scenery; levels exported before it have no shrub limits). Both draw
     // each one at its most detailed LOD.
     bool original_lod = false;
+    // Draw distance: how far the game's own culls reach, in percent of the game's (100, Original:
+    // each moby's, tie's and shrub's own distance, at most the level's caps; 400 the default); 0
+    // Unlimited, no distance limit. What the game hides by its visibility mask or a bit of its
+    // records stays hidden at any setting. Applied to the mobys of both games and to Going
+    // Commando's ties, shrubs and terrain (rac1's ties and shrubs follow Scenery detail).
+    int draw_distance = 400;
+
+    // The draw distance's factor: 1 at Original, 0 Unlimited.
+    float draw_distance_scale() const { return static_cast<float>(draw_distance) / 100.0f; }
 
     int anisotropy_samples(bool enhanced) const {
         return anisotropy ? anisotropy : enhanced ? 4 : 1;
@@ -263,6 +272,8 @@ inline constexpr int kFrameCapMax = 1000;
 inline constexpr int kRenderScales[] = {50, 75, 100, 125, 150, 200};
 inline constexpr int kSampleCounts[] = {1, 2, 4, 8, 16};
 inline constexpr int kAnisotropies[] = {1, 2, 4, 8, 16};
+// Draw distance's steps, in percent of the game's; 0 is Unlimited, the last.
+inline constexpr int kDrawDistances[] = {100, 150, 200, 400, 0};  // 400 the default
 
 // What the drawer offers for the on-screen pad's size and camera speed, in percent; a file may
 // hold any whole number between the first and the last.

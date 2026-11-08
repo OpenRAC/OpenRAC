@@ -74,7 +74,7 @@
     // and that first one goes on at once too (a first start, or another game than the kept one).
     const game = app.version?.split("/")[0] ?? null;
     if (!app.config && !game) return;
-    applyAccent(game);
+    applyAccent(game, app.config?.gameColors ?? false);
     const root = document.documentElement;
     if ("starting" in root.dataset)
       requestAnimationFrame(() => requestAnimationFrame(() => delete root.dataset.starting));

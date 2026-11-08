@@ -1,0 +1,16 @@
+{
+  "about": "This release's own additions to the carried hostgen.json (release_carry.py merges them): each with why.",
+  "from_assembly": {
+    "func_0034A870": "src/pal/game/0034A870-cc.c declares its last callee, func_PAL_0034ABB0, void where its definition returns int: the inherited result does not compile",
+    "func_002CBD80": "src/pal/game/002CBD80-g8.c declares func_PAL_0034ABB0 void too (as above)",
+    "func_L00_0037BEC8": "src/pal/levels/shared/L00_0037BEC8-g8.c dispatches through a computed goto (goto *D_0026DBE0[...]), which hostgen does not translate"
+  },
+  "unit_aliases": {
+    "src/levels/shared/L00_002B5A88-qcopy.c": {
+      "func_V1_L00_002B55F0_1": {
+        "is": "func_L00_002B5518",
+        "why": "rac2-decomp's func_PAL_L00_002B5518 (src/pal/levels/shared/L00_002B5518-cc.c) is its PAL copy of func_L00_002B55F0, which the release table could not pair (the C calls it by its _1 spelling, which the release's build gave no value); call_copies.tsv pairs this caller's call with it in every level (func_L00_002B59B0 -> func_L00_002B5518 at level 0). Without it the hero's position history copies a stale ring entry over his position every tick and he falls to 0,0,0"
+      }
+    }
+  }
+}

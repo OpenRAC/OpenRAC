@@ -5,6 +5,7 @@
 #include <cmath>
 #include <map>
 #include <tuple>
+#include <unordered_map>
 
 #include "enhanced/lighting/environment_bake.h"
 
@@ -34,6 +35,76 @@ std::optional<float> height(const GameplayTriangle& t, Float2 p) {
 
     return u * a[2] + v * b[2] + (1 - u - v) * c[2];
 }
+
+// XY buckets over collision triangles: a vertical line through p can only meet the triangles
+// listed under p's bucket. Candidates come in increasing index order, as a full scan visits them.
+class Columns {
+public:
+    explicit Columns(std::span<const GameplayTriangle> triangles) : m_triangles(triangles) {
+        for (unsigned i = 0; i < triangles.size(); ++i) {
+            const auto& v = triangles[i].vertices;
+            float low[2] = {v[0][0], v[0][1]}, high[2] = {v[0][0], v[0][1]};
+
+            for (const auto& p : v) {
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    low[axis] = std::min(low[axis], p[axis]);
+                    high[axis] = std::max(high[axis], p[axis]);
+                }
+            }
+
+            // height() accepts points a little outside the triangle (barycentric slack).
+            const float margin = .001f * std::max(high[0] - low[0], high[1] - low[1]) + .001f;
+            const int x0 = cell(low[0] - margin), x1 = cell(high[0] + margin);
+            const int y0 = cell(low[1] - margin), y1 = cell(high[1] + margin);
+
+            if (!std::isfinite(low[0] + low[1] + high[0] + high[1])
+                || std::int64_t{x1 - x0 + 1} * (y1 - y0 + 1) > 1024) {
+                m_wide.push_back(i);
+                continue;
+            }
+
+            for (int x = x0; x <= x1; ++x) {
+                for (int y = y0; y <= y1; ++y) {
+                    m_buckets[key(x, y)].push_back(i);
+                }
+            }
+        }
+    }
+
+    // Calls visit(triangle) for each candidate under p in index order until visit returns true.
+    template <class Visit>
+    void each(Float2 p, const Visit& visit) const {
+        static const std::vector<unsigned> kNone;
+        const auto found = m_buckets.find(key(cell(p[0]), cell(p[1])));
+        const auto& local = found == m_buckets.end() ? kNone : found->second;
+        auto a = local.begin();
+        auto b = m_wide.begin();
+
+        while (a != local.end() || b != m_wide.end()) {
+            const bool take_local = b == m_wide.end() || (a != local.end() && *a < *b);
+            const auto index = take_local ? *a++ : *b++;
+
+            if (visit(m_triangles[index])) {
+                return;
+            }
+        }
+    }
+
+private:
+    static constexpr float kCell = 8;
+
+    static int cell(float value) {
+        return static_cast<int>(std::floor(std::clamp(value / kCell, -1.e8f, 1.e8f)));
+    }
+
+    static std::uint64_t key(int x, int y) {
+        return (std::uint64_t{static_cast<std::uint32_t>(x)} << 32) | static_cast<std::uint32_t>(y);
+    }
+
+    std::span<const GameplayTriangle> m_triangles;
+    std::unordered_map<std::uint64_t, std::vector<unsigned>> m_buckets;
+    std::vector<unsigned> m_wide;  // too large to bucket; merged into every query
+};
 
 // Only nearly horizontal authored collision faces define a swimming plane; waterfalls do not.
 std::map<Key, Float3> water_cells(std::span<const GameplayTriangle> triangles, float spacing) {
@@ -96,12 +167,12 @@ unsigned bank(std::span<const EnvironmentFloorSample> floors, Float3 p) {
 }
 
 // Find the nearest actual basin floor; missing bathymetry must not invent underwater receivers.
-std::optional<float> bottom(std::span<const GameplayTriangle> triangles, Float3 p) {
+std::optional<float> bottom(const Columns& triangles, Float3 p) {
     std::optional<float> result;
 
-    for (const auto& t : triangles) {
+    triangles.each({p[0], p[1]}, [&](const GameplayTriangle& t) {
         if (t.swimmable) {
-            continue;
+            return false;
         }
 
         const auto z = height(t, {p[0], p[1]});
@@ -109,7 +180,9 @@ std::optional<float> bottom(std::span<const GameplayTriangle> triangles, Float3 
         if (z && *z < p[2] - .1f && *z >= p[2] - 64 && (!result || *z > *result)) {
             result = z;
         }
-    }
+
+        return false;
+    });
 
     return result;
 }
@@ -232,36 +305,38 @@ void append_wading(
 
 // Keep sealed rooms beneath a basin dry even when their XY footprints overlap water collision.
 void classify_land(
-    std::span<const GameplayTriangle> triangles,
+    const Columns& triangles,
     std::vector<EnvironmentFloorSample>& floors,
     const std::function<bool(Float3)>& wet_mask,
     float minimum_swim_depth
 ) {
     // Classify existing reachable basin floors before attempting any spatial merges.
     for (auto& floor : floors) {
-        for (const auto& t : triangles) {
+        triangles.each({floor.position[0], floor.position[1]}, [&](const GameplayTriangle& t) {
             if (!t.swimmable) {
-                continue;
+                return false;
             }
 
             const auto z = height(t, {floor.position[0], floor.position[1]});
 
             if (z && floor.position[2] <= *z - minimum_swim_depth) {
                 if (wet_mask && !wet_mask({floor.position[0], floor.position[1], *z})) {
-                    continue;
+                    return false;
                 }
 
                 const auto basin = bottom(triangles, {floor.position[0], floor.position[1], *z});
 
                 if (!basin || floor.position[2] < *basin - .25f) {
-                    continue;  // A sealed room beneath a basin is not automatically underwater.
+                    return false;  // A sealed room beneath a basin is not automatically underwater.
                 }
 
                 floor.water_height = *z;
                 floor.underwater = true;
-                break;
+                return true;
             }
-        }
+
+            return false;
+        });
     }
 }
 
@@ -343,7 +418,8 @@ void append_swimming_surfaces(
         region = std::max(region, floor.region + 1);
     }
 
-    classify_land(triangles, floors, wet_mask, minimum_swim_depth);
+    const Columns columns(triangles);
+    classify_land(columns, floors, wet_mask, minimum_swim_depth);
 
     while (!cells.empty()) {
         const auto pool = take_pool(cells, land);
@@ -353,7 +429,7 @@ void append_swimming_surfaces(
 
             // Reuse bathymetry across wading classification and both swimming layers.
             for (auto surface : pool.points) {
-                points.push_back({surface, bottom(triangles, surface)});
+                points.push_back({surface, bottom(columns, surface)});
             }
 
             append_wading(points, land[pool.shore], region, minimum_swim_depth, floors);

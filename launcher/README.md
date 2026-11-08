@@ -10,9 +10,10 @@ editing. It is OpenRAC's version of
 [OpenGOAL's launcher](https://github.com/open-goal/launcher) for Jak and
 Daxter. Nothing here emulates the console.
 
-It covers all six games: Ratchet & Clank (PAL and NTSC-U), Going Commando, Up
+It covers all six games: Ratchet & Clank (PAL and NTSC-U, and PAL v1.00 and
+Japan's disc, which it finds but cannot play yet), Going Commando, Up
 Your Arsenal, Deadlocked, Size Matters and Secret Agent Clank. Only
-Ratchet & Clank (PAL and NTSC-U) is playable today. The others can be browsed, and set
+Ratchet & Clank (PAL v2.00 and NTSC-U) is playable today. The others can be browsed, and set
 up, built and checked where their projects support it. Each game's Play
 button says what is still missing.
 
@@ -28,9 +29,9 @@ It is a [Tauri 2](https://tauri.app/) app. Rust does every file and process
 operation (`core/` and `src-tauri/`); Svelte 5 draws the UI (`src/`), styled
 after [openrac.dev](https://openrac.dev).
 
-| Games                                                                                 | A game                                                                                           |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| ![The games: one tile each, with what can be done next](docs/screenshots/library.jpg) | ![A game: the main button, its menu, save files and the level editor](docs/screenshots/game.jpg) |
+| A game                                                                                      | Mods                                                                          |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ![A game: its main button, the set-up steps, its saves and help](docs/screenshots/game.jpg) | ![The Mods tab: get mods, add one, switch them on](docs/screenshots/mods.jpg) |
 
 ## Read first
 
@@ -205,7 +206,8 @@ the packs: on or off, order, remove, add a `.zip` or folder, or drop one on
 the page. With the **Mods** switch under Play on, Play first combines the packed
 levels with the packs that are on ([editor/MODDING.md](../editor/MODDING.md)).
 
-Going Commando, Up Your Arsenal and Deadlocked (NTSC-U) are early access.
+Going Commando (any of its three discs: USA v1.01, USA v2.00 and Europe's),
+Up Your Arsenal and Deadlocked (NTSC-U) are early access.
 Their levels open in Godot and **Models and textures** works, but edits are
 not packed back. Their packs wait in Your mods
 ([editor/README.md](../editor/README.md#the-later-games-early-access)). Up
@@ -227,7 +229,8 @@ sizes, and the details of the checks.
 You need:
 
 - Node 20+;
-- Yarn, the version in `package.json`, through Corepack (`corepack enable`);
+- Yarn, the version in `package.json`, through Corepack (`corepack enable`; on Node 25 and later, run
+  `npm install --global corepack` first);
 - Rust stable. On Windows, use Rust's MSVC toolchain. If your default is GNU,
   run `rustup override set stable-x86_64-pc-windows-msvc` in this folder.
 - On Linux, Tauri's system libraries. On Debian and Ubuntu:

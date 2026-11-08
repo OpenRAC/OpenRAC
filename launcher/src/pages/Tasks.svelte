@@ -206,7 +206,7 @@
   }
 
   .job.failed {
-    border-color: color-mix(in srgb, var(--err) 45%, transparent);
+    background: color-mix(in srgb, var(--err) 8%, var(--panel));
   }
 
   .mark {
@@ -216,7 +216,7 @@
     display: grid;
     place-items: center;
     border-radius: 50%;
-    border: 1px solid var(--line-strong);
+    background: var(--ink-deep);
     color: var(--soft);
   }
 
@@ -268,6 +268,7 @@
     height: 100%;
     border-radius: 999px;
     background: var(--amber);
+    box-shadow: none;
     transition: width 0.4s;
   }
 
@@ -305,7 +306,6 @@
     max-height: 280px;
     overflow: auto;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     font-family: var(--font-mono);

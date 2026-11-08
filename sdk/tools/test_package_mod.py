@@ -187,6 +187,24 @@ class ManifestRules(unittest.TestCase):
             self.assertIsNone(pm.hook_names("rac2", Path(d)))
 
 
+    def test_a_mod_for_several_games(self):
+        # Each game's hook points by id, checked against that game's table; aliases only for one game.
+        both = {"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]}
+        self.assertEqual(pm.check_manifest(changed(games=both, hooks=["rac1.player.take_damage",
+                                                                       "rac2.player.take_damage"])), [])
+        self.assertIn("is not a hook point of rac2",
+                      " ".join(pm.check_manifest(changed(games=both, hooks=["rac2.player.turn_to_heading"]))))
+        self.assertIn("by id", " ".join(pm.check_manifest(changed(games=both, hooks=["Hero_TakeDamage"]))))
+        # A rac2 id in a mod that is not for rac2 is no hook point of its game.
+        self.assertTrue(pm.check_manifest(changed(hooks=["rac2.player.take_damage"])))
+
+    def test_a_setting_for_some_games(self):
+        both = {"rac1": ["pal"], "rac2": ["ntsc"]}
+        setting = {"key": "count", "name": "Count", "type": "bool", "default": False}
+        self.assertEqual(pm.check_manifest(changed(games=both, hooks=[], settings=[dict(setting, games=["rac1"])])), [])
+        for only in ([], ["rac3"], "rac1", [1]):
+            self.assertTrue(pm.check_manifest(changed(games=both, hooks=[], settings=[dict(setting, games=only)])), only)
+
 class Archives(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

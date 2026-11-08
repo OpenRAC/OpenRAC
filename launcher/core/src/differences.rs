@@ -116,8 +116,11 @@ pub fn parse(text: &str) -> Result<DifferenceFile, String> {
         if d.name.trim().is_empty() || d.original.trim().is_empty() || d.port.trim().is_empty() {
             return Err(at("name, original and port are all needed"));
         }
-        if d.discs.is_empty() || d.discs.iter().any(|v| v != "pal" && v != "ntsc") {
-            return Err(at("discs are pal, ntsc or both"));
+        // A game's versions (games/<game>/game.json): Going Commando's USA v2.00 is ntsc2; Ratchet &
+        // Clank's PAL v1.00 is pal1 and its Japanese release jp.
+        if d.discs.is_empty() || d.discs.iter().any(|v| !matches!(v.as_str(), "pal" | "ntsc" | "ntsc2" | "pal1" | "jp"))
+        {
+            return Err(at("discs are pal, ntsc, ntsc2, pal1 or jp"));
         }
         match (d.kind, &d.setting) {
             (Kind::Fix, None) => return Err(at("a fix needs a setting")),
@@ -371,7 +374,10 @@ mod tests {
         assert!(parse(&entry(r#""kind": "guard", "setting": {"key": "fix_a", "default": true}"#)).is_err());
         assert!(parse(&entry(r#""kind": "fix", "setting": {"key": "wide", "default": true}"#)).is_err());
         assert!(parse(&entry(r#""kind": "other""#)).is_err());
-        assert!(parse(&entry(r#""kind": "port", "discs": ["jp"]"#)).is_err());
+        // The versions of the game's own game.json are discs; anything else is a typo.
+        let on = |discs: &str| parse(&entry(r#""kind": "port""#).replace(r#"["pal"]"#, discs));
+        assert!(on(r#"["pal1", "jp", "ntsc2", "ntsc"]"#).is_ok());
+        assert!(on(r#"["xx"]"#).is_err() && on("[]").is_err());
     }
 
     #[test]

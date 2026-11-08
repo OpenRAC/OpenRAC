@@ -3,10 +3,11 @@
   "title": "Ratchet & Clank: Going Commando (NTSC-U)",
   "game": "rac2",
   "serial": "SCUS_972.68",
-  "source": "games/rac2/ntsc",
+  "source": "games/rac2/decomp",
   "frame_rate": 60,
   "entry": "func_00131AE8",
   "ps2_float": [
+    "func_L00_002D24E8",
     "func_002702C8", "func_00283CE0", "func_L05_00442880",
     "func_00282890", "func_002828B8", "func_002828C8", "func_002828F0", "func_00282900",
     "func_00282928", "func_00282938", "func_00282948", "func_00282978", "func_002829A8",
@@ -58,7 +59,7 @@
     "symbol_addrs/usa/symbol_addrs.txt"
   ],
   "bare_names_in_level_0": true,
-  "formed_as": {"ref_L00_00290B48_00": "0x00355FBF"},
+  "formed_as": {"ref_L00_00290B48_00": "0x00355FBF", "D_001F0000": "0x001F2638", "D_L00_00262260": "0x00262262"},
   "global_views": true,
   "candidates_left_out": {
     "func_L03_003CA4B0": "includes common.h after its unit's own qcopy",
@@ -92,7 +93,7 @@
   "names": {
     "code": [
       "^func_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{6,8})(?:_\\w*)?$",
-      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})$",
+      "^FUN_(?:L(?P<overlay>\\d\\d)_)?(?P<addr>[0-9A-Fa-f]{8})(?:_\\w*)?$",
       "^F[0-9a-f]{8}_(?:FUN|func)_(?P<addr>[0-9A-Fa-f]{8})$"
     ],
     "data": [
@@ -106,7 +107,11 @@
   ],
   "libraries": "libraries.tsv",
   "overlay_hook": true,
+  "host_shared": ["../rac2/host"],
   "unit_aliases": {
+    "src/levels/shared/L00_003B9CB8.c": {"func_802EAC30_1": "func_00280B90", "func_802EE138_1": "func_00282CF0", "func_802EE2E8_1": "func_00282E80", "func_802EE3D0_1": "func_00282F20", "func_802EE7A8_1": "func_00283248", "func_802EE970_1": "func_00283410"},
+    "src/levels/shared/L00_003B9CB8-ribbons.c": {"func_802EAC30_1": "func_00280B90", "func_802EE138_1": "func_00282CF0", "func_802EE2E8_1": "func_00282E80", "func_802EE3D0_1": "func_00282F20", "func_802EE7A8_1": "func_00283248", "func_802EE970_1": "func_00283410"},
+    "src/levels/shared/L00_003D37E8.c": {"func_802EAC30_1": "func_00280B90", "func_802EE138_1": "func_00282CF0", "func_802EE2E8_1": "func_00282E80", "func_802EE3D0_1": "func_00282F20", "func_802EE7A8_1": "func_00283248", "func_802EE970_1": "func_00283410"},
     "src/levels/23_damosel_orbit/L23_00416388-scan.c": {"func_002F3A80": "func_00282CC0", "func_002F3AB0": "func_00282CF0", "func_002F3AF0": "func_00282D30", "func_002F3BB0": "func_00282DD8", "func_002F3D60": "func_00282F20", "func_0032A1C8": "func_002AFFD8"},
     "src/levels/11_joba/L11_00449330.c": {"func_31EA58": "func_002A7A00", "func_002F1F70": "func_00282CC0", "func_0032B468": "func_L02_0032B468", "func_003144D8": "func_0029F338"},
     "src/levels/shared/L04_00417308.c": {"func_345860": "func_L04_00456860"},
@@ -231,6 +236,7 @@
     "func_L02_00456AC0",
     "func_L04_0033CB08",
     "func_L04_003A02A0",
+    "func_L04_00419918",
     "func_L05_00416918",
     "func_L06_00443DE0",
     "func_L07_00338D20",
@@ -605,7 +611,11 @@
     "signatures": {
       "F391de845_FUN_002E45C8": "int (void *, float, float, float)",
       "func_00283B98_10": "float (float, float)",
-      "func_0028EA58": "int (int, int, int, int, int, void *)"
+      "func_0028EA58": "int (int, int, int, int, int, void *)",
+      "func_L04_0040AD28": "void (void)",
+      "func_L04_00411298": "void (void)",
+      "func_L04_00417308": "void (void)",
+      "func_L03_003C7018": "void (void)"
     },
     "results_before_calls": true,
     "vu0_programs": {"0xC80": "rac2_vu0_cosine", "0xC90": "rac2_vu0_sine", "0xD18": "rac2_vu0_rotation_rows"},

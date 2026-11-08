@@ -1,23 +1,15 @@
 EXPORTS
   func_00115200
   func_00115484
-  func_00115690
   func_001157AC
   func_00115AC0
-  func_00115CF0
   func_00115D48
   func_00115DA8
   func_00115E28
   func_00115F28
   func_00115F78
   func_001163B0
-  func_001163E0
-  func_001175F0
-  func_00117650
-  func_00117848
   func_00117CA0
-  func_00118460
-  func_00118548
   func_0011AC50
   func_0011ACD0
   func_0011AE70
@@ -26,8 +18,6 @@ EXPORTS
   func_0011B8D8
   func_0011CF78
   func_0011D450
-  func_0011D620
-  func_0011D810
   func_0011E0A0
   func_0011E7A0
   func_0011E828
@@ -67,9 +57,6 @@ EXPORTS
   func_001265B0
   func_00126DC0
   func_00126F60
-  func_001282A8
-  func_001288C0
-  func_00128900
   func_0012E890
   func_0012E8C8
   func_0012EA70
@@ -84,9 +71,7 @@ EXPORTS
   func_00131400
   func_001315E0
   func_00131628
-  func_00131CA8
   func_00132028
-  func_00132AF8
   func_00132B28
   func_00132C48
   func_00132DF0
@@ -100,6 +85,7 @@ EXPORTS
   func_0026FEB8
   func_0026FF08
   func_002703B0
+  func_00272198
   func_00272368
   func_00273318
   func_00273730
@@ -114,14 +100,11 @@ EXPORTS
   func_00277F48
   func_00278870
   func_00278E78
-  func_00279BD8
-  func_00279D18
   func_0027A9F0
   func_0027AB40
   func_0027B440
   func_0027B858
   func_0027B948
-  func_0027BD70
   func_0027C4A8
   func_0027C520
   func_0027C540
@@ -132,20 +115,11 @@ EXPORTS
   func_0027CFD0
   func_0027D098
   func_0027D330
-  func_0027DDC0
-  func_0027DE50
-  func_0027E018
-  func_0027E4A8
   func_0027EAE8
   func_0027EB88
-  func_0027F110
-  func_0027F120
-  func_0027F128
   func_0027F1D8
-  func_0027F2A8
   func_0027F538
   func_0027F5B8
-  func_0027F640
   func_0027FAA8
   func_0027FB40
   func_0027FBD8
@@ -168,21 +142,17 @@ EXPORTS
   func_002829D8
   func_00282A28
   func_00282A60
-  func_00282AB0
   func_00282C10
   func_00282C30
   func_00282C48
   func_00282C68
-  func_00282C78
   func_00282C88
   func_00282C90
-  func_00282C98
   func_00282CC0
   func_00282CD8
   func_00282CF0
   func_00282D08
   func_00282D30
-  func_00282D90
   func_00282DB0
   func_00282DF0
   func_00282E20
@@ -220,14 +190,12 @@ EXPORTS
   func_00283C80
   func_00283CE0
   func_00283CF0
-  func_00283D00
   func_00283D38
   func_00283DB8
   func_00284000
   func_00284E18
   func_00284E80
   func_00284EA8
-  func_00284F40
   func_00284FC0
   func_00285338
   func_00285548
@@ -254,11 +222,9 @@ EXPORTS
   func_0028AB70
   func_0028B338
   func_0028B3D0
-  func_0028B5D0
   func_0028B740
   func_0028B7A8
   func_0028BA88
-  func_0028BCA0
   func_0028E588
   func_0028E640
   func_0028E868
@@ -304,7 +270,6 @@ EXPORTS
   func_0029B658
   func_0029B758
   func_0029CC50
-  func_0029CC98
   func_0029CD48
   func_0029D050
   func_0029D0E0
@@ -322,10 +287,8 @@ EXPORTS
   func_0029F840
   func_0029F978
   func_0029F9F0
-  func_0029FB20
   func_0029FC20
   func_0029FCC0
-  func_0029FD48
   func_002A01C8
   func_002A01F0
   func_002A0220
@@ -342,10 +305,10 @@ EXPORTS
   func_002A0F48
   func_002A10E8
   func_002A3DB8
-  func_002A3F10
   func_002A677C
   func_002A68A8
   func_002A6C58
+  func_002A7398
   func_002A7470
   func_002A75E0
   func_002A7750
@@ -358,9 +321,7 @@ EXPORTS
   func_002A7940
   func_002A7988
   func_002A7A00
-  func_002A7AA8
   func_002A7CA0
-  func_002A7EA0
   func_002A8240
   func_002A8508
   func_002A8598
@@ -393,7 +354,6 @@ EXPORTS
   func_002AA898
   func_002AAA00
   func_002AAE98
-  func_002AAFA0
   func_002AB028
   func_002AB168
   func_002AB1F0
@@ -408,7 +368,6 @@ EXPORTS
   func_002ABBB8
   func_002AC728
   func_002AC9F8
-  func_002ACA50
   func_002ACAD0
   func_002ACB48
   func_002ACBC8
@@ -417,7 +376,6 @@ EXPORTS
   func_002ACE78
   func_002ACEC0
   func_002ACF68
-  func_002AD0B0
   func_002AD0E0
   func_002AD6F0
   func_002AD7B8
@@ -440,10 +398,8 @@ EXPORTS
   func_002B0A68
   func_002B0C28
   func_002B0CE0
-  func_002B0D70
   func_002B0ED8
   func_002B1C20
-  func_002B3670
   func_002B37E8
   func_002B3868
   func_002B38B8
@@ -462,11 +418,8 @@ EXPORTS
   func_002B67E0
   func_002B68C8
   func_002B6D28
-  func_002B72E8
-  func_002B7320
   func_002B7B18
   func_002B7CE0
-  func_002B8108
   func_002B8548
   func_002B9000
   func_002B9030
@@ -475,19 +428,14 @@ EXPORTS
   func_002BAA28
   func_002BBCB0
   func_002BCB00
-  func_002BCF18
-  func_002BD8B0
   func_002BDCE8
   func_002BE278
   func_002BFB38
-  func_002C16C0
-  func_002C19D8
   func_002C2210
   func_002C2FD8
   func_002C3150
   func_002C36D0
   func_002C65A0
-  func_002C6DD8
   func_002C94C8
   func_002C96F8
   func_002C9828
@@ -496,11 +444,9 @@ EXPORTS
   func_002C9E60
   func_002CA790
   func_002CA8A8
-  func_002CE5D0
   func_002D3D88
   func_002D5B38
   func_002D5E70
-  func_002D68D8
   func_002D8EC0
   func_002DE550
   func_002DE618
@@ -520,7 +466,6 @@ EXPORTS
   func_002E5CF8
   func_002E5DA0
   func_002E5E58
-  func_002E5F40
   func_002E64A0
   func_002E7018
   func_002E7090
@@ -528,12 +473,8 @@ EXPORTS
   func_002E7248
   func_002E9268
   func_002EA8E8
-  func_002EB1E0
-  func_002EB7E8
-  func_002EBAA8
   func_002EC408
   func_002ECB70
-  func_002ED578
   func_002ED688
   func_002EEBC8
   func_002EED08
@@ -552,12 +493,10 @@ EXPORTS
   func_002F5D40
   func_002F5EF8
   func_002F5FB8
-  func_002F73A8
   func_002F8178
   func_002F8768
   func_002F88D8
   func_002FADB0
-  func_002FB1A0
   func_002FC010
   func_002FC070
   func_002FC138
@@ -581,7 +520,6 @@ EXPORTS
   func_002FEE70
   func_002FF0D8
   func_002FF288
-  func_002FF300
   func_002FF450
   func_00300190
   func_00300248
@@ -596,14 +534,8 @@ EXPORTS
   func_00302470
   func_00308408
   func_00308600
-  func_0030CAD0
-  func_0030CCD0
   func_00312B70
   func_00312D58
-  func_00316B40
-  func_00316DA0
-  func_0031C720
-  func_0031E528
   func_003202E8
   func_00325C50
   func_00325DA0
@@ -614,12 +546,6 @@ EXPORTS
   func_00327B40
   func_003285C0
   func_00329CB8
-  func_0032A978
-  func_0032ABC0
-  func_0032ACF0
-  func_0032AF50
-  func_0032B598
-  func_0032B7D0
   func_0032C700
   func_0032D758
   func_0032DA58
@@ -662,7 +588,6 @@ EXPORTS
   func_00338A58
   func_00338AD8
   func_00338F50
-  func_003399B0
   func_003427C0
   func_00342978
   func_00342F70
@@ -670,7 +595,6 @@ EXPORTS
   func_00343068
   func_003435C8
   func_00343638
-  func_0034E4B8
   func_00350A78
   func_00350B70
   func_L00_002A3B80
@@ -789,17 +713,10 @@ EXPORTS
   func_L00_002D5EB8
   func_L00_002D6418
   func_L00_002D6900
-  func_L00_002D6998
-  func_L00_002D6B70
   func_L00_002D6BA8
   func_L00_002D7938
-  func_L00_002E2C30
-  func_L00_002E3340
-  func_L00_002E3520
   func_L00_002E36F8
   func_L00_002E3898
-  func_L00_002E3A68
-  func_L00_002E9100
   func_L00_002E9210
   func_L00_002EA668
   func_L00_002EBE88
@@ -807,12 +724,10 @@ EXPORTS
   func_L00_002EC970
   func_L00_002EE290
   func_L00_002EE4D8
-  func_L00_002EF548
   func_L00_002F0DA8
   func_L00_002F3488
   func_L00_002F3490
   func_L00_002F34A0
-  func_L00_002F5890
   func_L00_002F6B90
   func_L00_002F7298
   func_L00_002FBF60
@@ -828,7 +743,6 @@ EXPORTS
   func_L00_0030C710
   func_L00_0030DD70
   func_L00_00310048
-  func_L00_0031AA28
   func_L00_0031BE88
   func_L00_0031C998
   func_L00_0031CDD0
@@ -846,19 +760,16 @@ EXPORTS
   func_L00_00323F28
   func_L00_00323F70
   func_L00_00324120
-  func_L00_00324F18
   func_L00_003252A8
   func_L00_003252C8
-  func_L00_00325300
   func_L00_00325600
   func_L00_00325FC8
   func_L00_00326048
   func_L00_00326110
   func_L00_00326200
-  func_L00_003263D0
   func_L00_00326620
   func_L00_003266D8
-  func_L00_00326950
+  func_L00_003268E8
   func_L00_003294F0
   func_L00_00329520
   func_L00_00329E90
@@ -871,15 +782,12 @@ EXPORTS
   func_L00_0032B2A8
   func_L00_0032EF10
   func_L00_0032F038
-  func_L00_00333F90
   func_L00_00338D28
   func_L00_0033AA40
   func_L00_0033C0D0
   func_L00_0033E220
-  func_L00_0033EC48
   func_L00_00340560
   func_L00_00340898
-  func_L00_00341410
   func_L00_003417B8
   func_L00_00341820
   func_L00_00341FA8
@@ -888,8 +796,6 @@ EXPORTS
   func_L00_003672F8
   func_L00_00367720
   func_L00_0036FA68
-  func_L00_00373F48
-  func_L00_0037B750
   func_L00_0037B7B0
   func_L00_0037E640
   func_L00_0037E668
@@ -898,33 +804,12 @@ EXPORTS
   func_L00_0037F7E8
   func_L00_0037FA90
   func_L00_003827C0
-  func_L00_00383B90
-  func_L00_00384070
-  func_L00_00384248
-  func_L00_00384678
-  func_L00_00384C20
-  func_L00_00384CA8
-  func_L00_00384D40
-  func_L00_00384E08
-  func_L00_00384F28
-  func_L00_00385040
-  func_L00_003851A0
   func_L00_003883B8
   func_L00_00388490
   func_L00_0038DE70
   func_L00_0038E880
   func_L00_0038F178
   func_L00_0038F3D8
-  func_L00_00390E10
-  func_L00_00390FF8
-  func_L00_00395240
-  func_L00_003A2138
-  func_L00_003A2258
-  func_L00_003A2408
-  func_L00_003A25D8
-  func_L00_003A2BB8
-  func_L00_003A2C60
-  func_L00_003A9798
   func_L00_003AB9C0
   func_L00_003ABEC0
   func_L00_003AC8E8
@@ -932,11 +817,6 @@ EXPORTS
   func_L00_003ACC88
   func_L00_003ADCD8
   func_L00_003ADEA0
-  func_L00_003AE550
-  func_L00_003B0AB0
-  func_L00_003B0B20
-  func_L00_003B0CE8
-  func_L00_003B14D0
   func_L00_003B8138
   func_L00_003B8E58
   func_L00_003B9170
@@ -948,16 +828,8 @@ EXPORTS
   func_L00_003C3A70
   func_L00_003C3D90
   func_L00_003C48D0
-  func_L00_003C4F78
-  func_L00_003C5310
   func_L00_003C58E8
   func_L00_003C5B18
-  func_L00_003C94D8
-  func_L00_003C9978
-  func_L00_003D1D28
-  func_L00_003D2A00
-  func_L00_003D2C00
-  func_L00_003D3388
   func_L00_003D5320
   func_L00_003DB0A8
   func_L00_003DC1C0
@@ -969,12 +841,10 @@ EXPORTS
   func_L00_003E3890
   func_L00_003E4948
   func_L00_003E5BD8
-  func_L00_003E6778
   func_L00_003E6F48
   func_L00_003F1DC8
   func_L00_003F3A88
   func_L00_003F71E8
-  func_L00_003F8280
   func_L00_003FCA40
   func_L00_003FD178
   func_L00_004028C0
@@ -988,29 +858,17 @@ EXPORTS
   func_L00_00412088
   func_L00_00412230
   func_L00_00412FF8
-  func_L00_00413358
   func_L00_00414350
   func_L00_00415A38
-  func_L00_00418140
-  func_L00_004181A8
-  func_L00_00418230
   func_L00_004195C8
   func_L00_00419C98
   func_L00_0041A490
   func_L00_0041A500
   func_L00_0041A5C0
   func_L00_0041ABB8
-  func_L00_0041AD40
-  func_L00_0041B840
   func_L00_0041BAE8
   func_L00_0041E958
-  func_L00_0041EE58
-  func_L00_0041FC20
-  func_L00_004200F0
-  func_L00_00420310
-  func_L00_00426478
   func_L00_00427290
-  func_L00_004282F0
   func_L00_00429020
   func_L00_0042B6A8
   func_L00_0042B6C8
@@ -1033,7 +891,6 @@ EXPORTS
   func_L01_00321178
   func_L01_00322288
   func_L01_00323310
-  func_L01_00324410
   func_L01_00324550
   func_L01_003245E0
   func_L01_003246D0
@@ -1057,7 +914,6 @@ EXPORTS
   func_L01_0042A6F0
   func_L01_004480C8
   func_L02_002EF968
-  func_L02_002F1658
   func_L02_002F1FB8
   func_L02_0031E9E8
   func_L02_00321C30
@@ -1123,7 +979,6 @@ EXPORTS
   func_L03_0038A6D8
   func_L03_0038AB30
   func_L03_0038B238
-  func_L03_0038B390
   func_L03_0038B408
   func_L03_0038B4E8
   func_L03_0038B5D8
@@ -1132,40 +987,39 @@ EXPORTS
   func_L03_003E4148
   func_L03_00419A60
   func_L03_00419B90
-  func_L03_00419BD8
   func_L03_0042B6F8
   func_L03_0043AC40
-  func_L04_002DAD10
   func_L04_0032F1D8
   func_L04_0032F340
   func_L04_0032F62C
   func_L04_00343498
   func_L04_00347AB8
-  func_L04_00362768
   func_L04_0039FEF0
   func_L04_003A02A0
   func_L04_00400AB0
   func_L04_00400D48
   func_L04_00407078
   func_L04_0040A1D0
+  func_L04_0040A268
+  func_L04_0040A310
   func_L04_0040A3B8
+  func_L04_0040A5C0
+  func_L04_0040A958
   func_L04_0040AC30
   func_L04_0040BA68
   func_L04_0040BD50
-  func_L04_0040BED0
   func_L04_0040C0C0
   func_L04_0040C880
-  func_L04_0040DCA8
   func_L04_0040DF90
   func_L04_0040E248
   func_L04_0040EF50
-  func_L04_0040F8F0
+  func_L04_0040F5D0
+  func_L04_00410518
   func_L04_00410788
   func_L04_00410E48
   func_L04_00410F10
-  func_L04_00412C58
+  func_L04_00412308
   func_L04_00412E38
-  func_L04_004135B8
   func_L04_00413A38
   func_L04_00414698
   func_L04_00415EA8
@@ -1174,6 +1028,10 @@ EXPORTS
   func_L04_00416E38
   func_L04_00417028
   func_L04_00417308
+  func_L04_00418A58
+  func_L04_00418BF0
+  func_L04_004195E0
+  func_L04_00419918
   func_L04_00423178
   func_L04_00432530
   func_L04_00456860
@@ -1193,7 +1051,6 @@ EXPORTS
   func_L05_0037B948
   func_L05_0037C160
   func_L05_0037CEB8
-  func_L05_003D1E60
   func_L05_00415EE8
   func_L05_00416E08
   func_L05_00416EC0
@@ -1201,11 +1058,7 @@ EXPORTS
   func_L05_00417088
   func_L05_0041ED18
   func_L05_00424780
-  func_L05_00424990
   func_L05_00424C88
-  func_L05_004276E8
-  func_L05_0042B2C0
-  func_L05_0042BB10
   func_L05_0042E4E8
   func_L05_00446E28
   func_L05_00447F10
@@ -1213,18 +1066,11 @@ EXPORTS
   func_L06_003FE178
   func_L06_00444D00
   func_L06_0047A408
-  func_L07_00379180
   func_L07_003E7380
   func_L07_003EBBE8
   func_L07_003EECE0
   func_L07_003EEE28
-  func_L07_003F4C18
   func_L07_003F65E8
-  func_L07_0040EFC8
-  func_L07_0040F0D0
-  func_L07_0040F760
-  func_L07_0040FA90
-  func_L07_004106B8
   func_L07_00416510
   func_L08_002F2C48
   func_L08_002F5CB8
@@ -1237,20 +1083,10 @@ EXPORTS
   func_L08_003391C0
   func_L08_00339220
   func_L08_0033CD18
-  func_L08_0034A078
   func_L08_0036EFC8
   func_L08_0036F030
   func_L08_0037E6D8
   func_L08_00389B68
-  func_L08_003C63F0
-  func_L08_003C6528
-  func_L08_003C66F0
-  func_L08_003C67B8
-  func_L08_003C6AB0
-  func_L08_003CD708
-  func_L08_003CDB38
-  func_L08_003CDB78
-  func_L08_003DB4E8
   func_L08_0041E4F8
   func_L08_0041E630
   func_L08_0041E790
@@ -1264,9 +1100,9 @@ EXPORTS
   func_L09_003364E0
   func_L09_0033E658
   func_L09_003EAF60
-  func_L09_003FB780
   func_L09_00403080
   func_L09_004081F0
+  func_L10_00418D88
   func_L10_004190F0
   func_L10_004191E8
   func_L10_00419348
@@ -1297,26 +1133,19 @@ EXPORTS
   func_L16_004051A8
   func_L16_00405818
   func_L16_00406080
-  func_L16_00410CC0
-  func_L16_00412F48
   func_L16_00413850
   func_L16_00414038
-  func_L16_00416EB8
-  func_L16_00417788
   func_L16_0041ECF8
   func_L16_004364B0
   func_L18_002E42F8
   func_L18_00303A58
-  func_L18_003044B8
   func_L18_003F9EF0
   func_L18_00426F28
   func_L18_00427130
   func_L18_004271C0
   func_L18_00428100
   func_L18_00428138
-  func_L18_004283F0
   func_L18_00428AE8
-  func_L18_0043FFF8
   func_L19_0042A860
   func_L19_0042AF70
   func_L20_004450D8
@@ -1361,7 +1190,6 @@ EXPORTS
   func_L23_003C1B58
   func_L23_00418650
   func_L23_0041C6B0
-  func_L23_0041D9B0
   func_L23_004234C0
   func_L24_003EFA38
   func_L30_0040C270
@@ -1369,18 +1197,14 @@ EXPORTS
   game_F391de845_FUN_002E45C8
   game_F6eb4f363_FUN_002BF728
   openrac_asmx_func_00115250 DATA
-  openrac_asmx_func_00115E28 DATA
-  openrac_asmx_func_00115E38 DATA
   openrac_asmx_func_00117650 DATA
   openrac_asmx_func_00117848 DATA
   openrac_asmx_func_00117CA0 DATA
   openrac_asmx_func_001182B8 DATA
-  openrac_asmx_func_001185E8 DATA
   openrac_asmx_func_0011B0B0 DATA
   openrac_asmx_func_0011CDA0 DATA
   openrac_asmx_func_0011CEC8 DATA
   openrac_asmx_func_0011DDD8 DATA
-  openrac_asmx_func_0011FB98 DATA
   openrac_asmx_func_0011FC68 DATA
   openrac_asmx_func_00120528 DATA
   openrac_asmx_func_001205E0 DATA
@@ -1398,8 +1222,6 @@ EXPORTS
   openrac_asmx_func_00123D30 DATA
   openrac_asmx_func_001240C8 DATA
   openrac_asmx_func_00124540 DATA
-  openrac_asmx_func_001246E0 DATA
-  openrac_asmx_func_001248B8 DATA
   openrac_asmx_func_00127B18 DATA
   openrac_asmx_func_001290E0 DATA
   openrac_asmx_func_00129120 DATA
@@ -1429,24 +1251,11 @@ EXPORTS
   openrac_asmx_func_0012DF18 DATA
   openrac_asmx_func_0012E238 DATA
   openrac_asmx_func_0012E538 DATA
-  openrac_asmx_func_0012EB30 DATA
-  openrac_asmx_func_0012F950 DATA
   openrac_asmx_func_00130004 DATA
   openrac_asmx_func_00130250 DATA
-  openrac_asmx_func_00130A90 DATA
   openrac_asmx_func_001310C0 DATA
-  openrac_asmx_func_00131430 DATA
-  openrac_asmx_func_00131628 DATA
   openrac_asmx_func_00131DE8 DATA
-  openrac_asmx_func_00132978 DATA
-  openrac_asmx_func_00132A10 DATA
-  openrac_asmx_func_00132BC0 DATA
-  openrac_asmx_func_00133710 DATA
-  openrac_asmx_func_001337F0 DATA
-  openrac_asmx_func_00133820 DATA
-  openrac_asmx_func_00133850 DATA
   openrac_asmx_func_0026EDE8 DATA
-  openrac_asmx_func_00272540 DATA
   openrac_asmx_func_00272550 DATA
   openrac_asmx_func_00273B70 DATA
   openrac_asmx_func_00281154 DATA
@@ -1467,18 +1276,13 @@ EXPORTS
   openrac_asmx_func_00282DD8 DATA
   openrac_asmx_func_00282DD8_2 DATA
   openrac_asmx_func_00282DD8_7 DATA
-  openrac_asmx_func_00288D40 DATA
   openrac_asmx_func_0028B950 DATA
-  openrac_asmx_func_0028DE18 DATA
   openrac_asmx_func_0028EA58 DATA
-  openrac_asmx_func_0028FF58 DATA
   openrac_asmx_func_00290C60 DATA
   openrac_asmx_func_00293CA8 DATA
   openrac_asmx_func_0029B658 DATA
-  openrac_asmx_func_0029B848 DATA
   openrac_asmx_func_0029CB58 DATA
   openrac_asmx_func_0029CB80 DATA
-  openrac_asmx_func_0029CEC8 DATA
   openrac_asmx_func_0029CFB0 DATA
   openrac_asmx_func_0029D9D0 DATA
   openrac_asmx_func_0029FD48 DATA
@@ -1489,58 +1293,33 @@ EXPORTS
   openrac_asmx_func_002A90C8 DATA
   openrac_asmx_func_002AA738 DATA
   openrac_asmx_func_002ACE78 DATA
-  openrac_asmx_func_002B0A08 DATA
-  openrac_asmx_func_002B4068 DATA
   openrac_asmx_func_002B4C18 DATA
-  openrac_asmx_func_002B80B8 DATA
-  openrac_asmx_func_002B8530 DATA
   openrac_asmx_func_002BA048 DATA
   openrac_asmx_func_002BB100 DATA
-  openrac_asmx_func_002BC510 DATA
-  openrac_asmx_func_002BCA10 DATA
   openrac_asmx_func_002BE278 DATA
-  openrac_asmx_func_002BF520 DATA
   openrac_asmx_func_002BF728 DATA
-  openrac_asmx_func_002C0200 DATA
   openrac_asmx_func_002C02F0 DATA
-  openrac_asmx_func_002C0C78 DATA
   openrac_asmx_func_002C0CC0 DATA
-  openrac_asmx_func_002C14E0 DATA
-  openrac_asmx_func_002C1DB8 DATA
-  openrac_asmx_func_002C1E58 DATA
-  openrac_asmx_func_002C29A8 DATA
   openrac_asmx_func_002C2A88 DATA
   openrac_asmx_func_002C3150 DATA
-  openrac_asmx_func_002C3B10 DATA
   openrac_asmx_func_002C3D80 DATA
   openrac_asmx_func_002C3F88 DATA
-  openrac_asmx_func_002C5070 DATA
-  openrac_asmx_func_002C5408 DATA
   openrac_asmx_func_002C56B0 DATA
   openrac_asmx_func_002C5B70 DATA
-  openrac_asmx_func_002C64E0 DATA
-  openrac_asmx_func_002C7628 DATA
-  openrac_asmx_func_002C8350 DATA
   openrac_asmx_func_002CB8A0 DATA
   openrac_asmx_func_002CB950 DATA
   openrac_asmx_func_002D0FA0 DATA
-  openrac_asmx_func_002D2188 DATA
   openrac_asmx_func_002D3FA0 DATA
   openrac_asmx_func_002D4948 DATA
   openrac_asmx_func_002D5B58 DATA
-  openrac_asmx_func_002D6230 DATA
   openrac_asmx_func_002D6F38 DATA
   openrac_asmx_func_002D9008 DATA
   openrac_asmx_func_002DC3C8 DATA
-  openrac_asmx_func_002DF630 DATA
   openrac_asmx_func_002E1228 DATA
   openrac_asmx_func_002E182C DATA
   openrac_asmx_func_002E25C0 DATA
   openrac_asmx_func_002E45C8 DATA
   openrac_asmx_func_002E46C0 DATA
-  openrac_asmx_func_002E7338 DATA
-  openrac_asmx_func_002EBC70 DATA
-  openrac_asmx_func_002EEBB0 DATA
   openrac_asmx_func_002EF480 DATA
   openrac_asmx_func_002F1010 DATA
   openrac_asmx_func_002F1E60 DATA
@@ -1557,34 +1336,17 @@ EXPORTS
   openrac_asmx_func_002FA270 DATA
   openrac_asmx_func_002FAE68 DATA
   openrac_asmx_func_002FC748 DATA
-  openrac_asmx_func_002FF0D8 DATA
   openrac_asmx_func_00300AA8 DATA
   openrac_asmx_func_00302470 DATA
-  openrac_asmx_func_00308768 DATA
-  openrac_asmx_func_00308778 DATA
   openrac_asmx_func_0030E8A8 DATA
-  openrac_asmx_func_0030F410 DATA
   openrac_asmx_func_00310010 DATA
   openrac_asmx_func_00310A40 DATA
-  openrac_asmx_func_00316E08 DATA
-  openrac_asmx_func_0031A098 DATA
-  openrac_asmx_func_0031BCC8 DATA
-  openrac_asmx_func_0031D350 DATA
-  openrac_asmx_func_0031E6D8 DATA
-  openrac_asmx_func_00326A10 DATA
-  openrac_asmx_func_00326CA8 DATA
-  openrac_asmx_func_00327038 DATA
-  openrac_asmx_func_0032A130 DATA
-  openrac_asmx_func_0032A140 DATA
   openrac_asmx_func_0032C2E8 DATA
-  openrac_asmx_func_0032F3D0 DATA
   openrac_asmx_func_0032F598 DATA
-  openrac_asmx_func_0032FDC0 DATA
-  openrac_asmx_func_00330150 DATA
-  openrac_asmx_func_003334B0 DATA
   openrac_asmx_func_003351B0 DATA
   openrac_asmx_func_00335870 DATA
   openrac_asmx_func_00335918 DATA
+  openrac_asmx_func_00335D30
   openrac_asmx_func_00335D80 DATA
   openrac_asmx_func_00335DA0 DATA
   openrac_asmx_func_003360F8 DATA
@@ -1601,7 +1363,6 @@ EXPORTS
   openrac_asmx_func_0033AF48 DATA
   openrac_asmx_func_0033AF48_1 DATA
   openrac_asmx_func_0033AF48_2 DATA
-  openrac_asmx_func_0033B538 DATA
   openrac_asmx_func_00342BE8 DATA
   openrac_asmx_func_00343798 DATA
   openrac_asmx_func_003489E8 DATA
@@ -1621,8 +1382,6 @@ EXPORTS
   openrac_asmx_func_L00_002D6FD8 DATA
   openrac_asmx_func_L00_002D7938 DATA
   openrac_asmx_func_L00_002D9D48 DATA
-  openrac_asmx_func_L00_002E2958 DATA
-  openrac_asmx_func_L00_002E30B8 DATA
   openrac_asmx_func_L00_002E36F8 DATA
   openrac_asmx_func_L00_002E3898 DATA
   openrac_asmx_func_L00_002E3BA0 DATA
@@ -1679,7 +1438,6 @@ EXPORTS
   openrac_asmx_func_L00_00364EE8 DATA
   openrac_asmx_func_L00_00367720 DATA
   openrac_asmx_func_L00_0036FA68 DATA
-  openrac_asmx_func_L00_00373F48 DATA
   openrac_asmx_func_L00_003769C0 DATA
   openrac_asmx_func_L00_0037B6F0 DATA
   openrac_asmx_func_L00_0037B750 DATA
@@ -1691,41 +1449,22 @@ EXPORTS
   openrac_asmx_func_L00_0037F7E8 DATA
   openrac_asmx_func_L00_003827C0 DATA
   openrac_asmx_func_L00_00382BF0 DATA
-  openrac_asmx_func_L00_00383B90 DATA
-  openrac_asmx_func_L00_00384248 DATA
-  openrac_asmx_func_L00_00384678 DATA
   openrac_asmx_func_L00_00388790 DATA
   openrac_asmx_func_L00_00389E18 DATA
   openrac_asmx_func_L00_0038E880 DATA
-  openrac_asmx_func_L00_00390FF8 DATA
-  openrac_asmx_func_L00_00398810 DATA
-  openrac_asmx_func_L00_003A1580 DATA
-  openrac_asmx_func_L00_003A8940 DATA
   openrac_asmx_func_L00_003A91A0 DATA
-  openrac_asmx_func_L00_003A98E8 DATA
   openrac_asmx_func_L00_003AB388 DATA
-  openrac_asmx_func_L00_003AB9C0 DATA
   openrac_asmx_func_L00_003ABEC0 DATA
   openrac_asmx_func_L00_003ACCF8 DATA
   openrac_asmx_func_L00_003ADA30 DATA
   openrac_asmx_func_L00_003ADCD8 DATA
   openrac_asmx_func_L00_003ADEA0 DATA
-  openrac_asmx_func_L00_003AE900 DATA
-  openrac_asmx_func_L00_003B0DA0 DATA
-  openrac_asmx_func_L00_003B39D0 DATA
-  openrac_asmx_func_L00_003B4560 DATA
   openrac_asmx_func_L00_003B7190 DATA
   openrac_asmx_func_L00_003B9310 DATA
   openrac_asmx_func_L00_003BCDC0 DATA
   openrac_asmx_func_L00_003C3D90 DATA
   openrac_asmx_func_L00_003C48D0 DATA
-  openrac_asmx_func_L00_003C4F78 DATA
-  openrac_asmx_func_L00_003C5310 DATA
-  openrac_asmx_func_L00_003C94D8 DATA
-  openrac_asmx_func_L00_003C9978 DATA
   openrac_asmx_func_L00_003D1B50 DATA
-  openrac_asmx_func_L00_003D1D28 DATA
-  openrac_asmx_func_L00_003D3388 DATA
   openrac_asmx_func_L00_003D5320 DATA
   openrac_asmx_func_L00_003DBF50 DATA
   openrac_asmx_func_L00_003DC1C0 DATA
@@ -1733,43 +1472,32 @@ EXPORTS
   openrac_asmx_func_L00_003DC3E0 DATA
   openrac_asmx_func_L00_003DD2B8 DATA
   openrac_asmx_func_L00_003DD6A8 DATA
-  openrac_asmx_func_L00_003DDEC8 DATA
   openrac_asmx_func_L00_003E2180 DATA
   openrac_asmx_func_L00_003E4948 DATA
   openrac_asmx_func_L00_003E5BD8 DATA
-  openrac_asmx_func_L00_003E6030 DATA
   openrac_asmx_func_L00_003E6F48 DATA
   openrac_asmx_func_L00_003EC078 DATA
   openrac_asmx_func_L00_003ECB38 DATA
   openrac_asmx_func_L00_003F3A88 DATA
   openrac_asmx_func_L00_003F6308 DATA
   openrac_asmx_func_L00_003F71E8 DATA
-  openrac_asmx_func_L00_003FA858 DATA
   openrac_asmx_func_L00_003FCA40 DATA
   openrac_asmx_func_L00_003FE310 DATA
   openrac_asmx_func_L00_003FE8D0 DATA
   openrac_asmx_func_L00_003FF890 DATA
-  openrac_asmx_func_L00_004003F0 DATA
   openrac_asmx_func_L00_00401668 DATA
-  openrac_asmx_func_L00_004096B0 DATA
   openrac_asmx_func_L00_0040B2C0 DATA
   openrac_asmx_func_L00_0040B330 DATA
-  openrac_asmx_func_L00_0040B398 DATA
   openrac_asmx_func_L00_00410430 DATA
   openrac_asmx_func_L00_00410D20 DATA
   openrac_asmx_func_L00_004117B8 DATA
   openrac_asmx_func_L00_00411F48 DATA
-  openrac_asmx_func_L00_00413358 DATA
   openrac_asmx_func_L00_00414350 DATA
   openrac_asmx_func_L00_00415A38 DATA
-  openrac_asmx_func_L00_00418230 DATA
   openrac_asmx_func_L00_004195C8 DATA
   openrac_asmx_func_L00_00419C98 DATA
-  openrac_asmx_func_L00_0041A5C0 DATA
-  openrac_asmx_func_L00_0041EE58 DATA
   openrac_asmx_func_L00_00421A98 DATA
   openrac_asmx_func_L00_00424070 DATA
-  openrac_asmx_func_L00_00424BB8 DATA
   openrac_asmx_func_L00_00427290 DATA
   openrac_asmx_func_L00_00428CE0 DATA
   openrac_asmx_func_L00_00429020 DATA
@@ -1785,20 +1513,16 @@ EXPORTS
   openrac_asmx_func_L01_002F1588 DATA
   openrac_asmx_func_L01_002F1F70 DATA
   openrac_asmx_func_L01_003042AC DATA
-  openrac_asmx_func_L01_0031B300 DATA
-  openrac_asmx_func_L01_00324550 DATA
   openrac_asmx_func_L01_003377C8 DATA
   openrac_asmx_func_L01_00367F78 DATA
   openrac_asmx_func_L01_00397A28 DATA
   openrac_asmx_func_L01_00397EB0 DATA
   openrac_asmx_func_L01_00398938 DATA
   openrac_asmx_func_L01_00398A90 DATA
-  openrac_asmx_func_L01_00398B50 DATA
   openrac_asmx_func_L01_003A6638 DATA
   openrac_asmx_func_L01_003B5878 DATA
   openrac_asmx_func_L01_003C9D00 DATA
   openrac_asmx_func_L01_003CEB00 DATA
-  openrac_asmx_func_L01_003D6B00 DATA
   openrac_asmx_func_L01_003D9830 DATA
   openrac_asmx_func_L01_003E9CF8 DATA
   openrac_asmx_func_L01_003FFFE8 DATA
@@ -1817,22 +1541,16 @@ EXPORTS
   openrac_asmx_func_L02_003CE9A8 DATA
   openrac_asmx_func_L02_003E2150 DATA
   openrac_asmx_func_L02_003E77E0 DATA
-  openrac_asmx_func_L02_003E91F0 DATA
   openrac_asmx_func_L02_003EB8F8 DATA
   openrac_asmx_func_L02_003F9AF0 DATA
   openrac_asmx_func_L02_003F9B70 DATA
   openrac_asmx_func_L02_003F9C10 DATA
-  openrac_asmx_func_L02_003FB000 DATA
   openrac_asmx_func_L02_003FDDE8 DATA
   openrac_asmx_func_L02_003FE1B0 DATA
   openrac_asmx_func_L02_003FE250 DATA
-  openrac_asmx_func_L02_003FE768 DATA
   openrac_asmx_func_L02_003FE8B8 DATA
-  openrac_asmx_func_L02_003FF6E8 DATA
   openrac_asmx_func_L02_004012A0 DATA
   openrac_asmx_func_L02_00401480 DATA
-  openrac_asmx_func_L02_00410F68 DATA
-  openrac_asmx_func_L02_00411D18 DATA
   openrac_asmx_func_L02_00422270 DATA
   openrac_asmx_func_L02_00422720 DATA
   openrac_asmx_func_L02_0042E988 DATA
@@ -1841,24 +1559,17 @@ EXPORTS
   openrac_asmx_func_L02_0043FA98 DATA
   openrac_asmx_func_L02_00456AC0 DATA
   openrac_asmx_func_L03_002D84F0 DATA
-  openrac_asmx_func_L03_002ECF08 DATA
   openrac_asmx_func_L03_00384340 DATA
   openrac_asmx_func_L03_0038A6D8 DATA
   openrac_asmx_func_L03_0038AA20 DATA
-  openrac_asmx_func_L03_0038AB30 DATA
   openrac_asmx_func_L03_003C4240 DATA
   openrac_asmx_func_L03_003C4578 DATA
-  openrac_asmx_func_L03_003C5668 DATA
   openrac_asmx_func_L03_003C7018 DATA
-  openrac_asmx_func_L03_003CA4B0 DATA
   openrac_asmx_func_L03_003E3A00 DATA
-  openrac_asmx_func_L03_003F6BA8 DATA
   openrac_asmx_func_L03_00408068 DATA
-  openrac_asmx_func_L03_0041B848 DATA
   openrac_asmx_func_L03_00421930 DATA
   openrac_asmx_func_L03_00425108 DATA
   openrac_asmx_func_L03_0043AC40 DATA
-  openrac_asmx_func_L04_0030C948 DATA
   openrac_asmx_func_L04_0030EDE0 DATA
   openrac_asmx_func_L04_0031D630 DATA
   openrac_asmx_func_L04_0033C420 DATA
@@ -1879,30 +1590,22 @@ EXPORTS
   openrac_asmx_func_L04_003EDD40 DATA
   openrac_asmx_func_L04_003F6008 DATA
   openrac_asmx_func_L04_003F9078 DATA
-  openrac_asmx_func_L04_003FB990 DATA
-  openrac_asmx_func_L04_003FBEF8 DATA
   openrac_asmx_func_L04_00400AB0 DATA
   openrac_asmx_func_L04_00400D48 DATA
   openrac_asmx_func_L04_00400EE0 DATA
-  openrac_asmx_func_L04_00402D90 DATA
   openrac_asmx_func_L04_00407F80 DATA
   openrac_asmx_func_L04_0040A5C0 DATA
   openrac_asmx_func_L04_0040ACC8 DATA
   openrac_asmx_func_L04_0040AD28 DATA
-  openrac_asmx_func_L04_0040BA68 DATA
-  openrac_asmx_func_L04_0040C368 DATA
   openrac_asmx_func_L04_0040C880 DATA
-  openrac_asmx_func_L04_0040D148 DATA
-  openrac_asmx_func_L04_0040DF90 DATA
-  openrac_asmx_func_L04_00410788 DATA
   openrac_asmx_func_L04_00411298 DATA
   openrac_asmx_func_L04_00412EC0 DATA
-  openrac_asmx_func_L04_00414698 DATA
   openrac_asmx_func_L04_00415EA8 DATA
   openrac_asmx_func_L04_00416E38 DATA
   openrac_asmx_func_L04_00417028 DATA
   openrac_asmx_func_L04_00417308 DATA
   openrac_asmx_func_L04_00418A58 DATA
+  openrac_asmx_func_L04_00419918 DATA
   openrac_asmx_func_L04_00422A00 DATA
   openrac_asmx_func_L04_00432258 DATA
   openrac_asmx_func_L04_00441100 DATA
@@ -1910,7 +1613,6 @@ EXPORTS
   openrac_asmx_func_L04_00459408 DATA
   openrac_asmx_func_L04_0046CD68 DATA
   openrac_asmx_func_L04_0046CFB8 DATA
-  openrac_asmx_func_L05_0033CD40 DATA
   openrac_asmx_func_L05_0037AA88 DATA
   openrac_asmx_func_L05_0037AC00 DATA
   openrac_asmx_func_L05_0037CE08 DATA
@@ -1927,8 +1629,6 @@ EXPORTS
   openrac_asmx_func_L05_00426348 DATA
   openrac_asmx_func_L05_004268E8 DATA
   openrac_asmx_func_L05_00426E70 DATA
-  openrac_asmx_func_L05_00427238 DATA
-  openrac_asmx_func_L05_0042AFE0 DATA
   openrac_asmx_func_L05_0042B2C0 DATA
   openrac_asmx_func_L05_0042E4E8 DATA
   openrac_asmx_func_L05_0042F4E8 DATA
@@ -1943,42 +1643,25 @@ EXPORTS
   openrac_asmx_func_L06_00444D00 DATA
   openrac_asmx_func_L06_004576C8 DATA
   openrac_asmx_func_L06_00457920 DATA
-  openrac_asmx_func_L06_0045BE30 DATA
   openrac_asmx_func_L06_0047AC68 DATA
-  openrac_asmx_func_L06_0047C1D0 DATA
   openrac_asmx_func_L07_00338D20 DATA
   openrac_asmx_func_L07_003791E8 DATA
   openrac_asmx_func_L07_003EE708 DATA
-  openrac_asmx_func_L07_003F3E80 DATA
-  openrac_asmx_func_L07_003F4578 DATA
-  openrac_asmx_func_L07_003F4CC0 DATA
   openrac_asmx_func_L07_003F68F0 DATA
   openrac_asmx_func_L07_003F8908 DATA
   openrac_asmx_func_L07_003F90E8 DATA
   openrac_asmx_func_L07_00409300 DATA
-  openrac_asmx_func_L07_0040EC08 DATA
   openrac_asmx_func_L07_00410B48 DATA
   openrac_asmx_func_L07_00416510 DATA
   openrac_asmx_func_L08_002F2D10 DATA
-  openrac_asmx_func_L08_00339220 DATA
-  openrac_asmx_func_L08_00389B68 DATA
   openrac_asmx_func_L08_0039DBE8 DATA
   openrac_asmx_func_L08_0039E000 DATA
-  openrac_asmx_func_L08_003C5940 DATA
-  openrac_asmx_func_L08_003C67B8 DATA
-  openrac_asmx_func_L08_003C6AB0 DATA
-  openrac_asmx_func_L08_003CD708 DATA
-  openrac_asmx_func_L08_003CDB78 DATA
   openrac_asmx_func_L08_003D0010 DATA
-  openrac_asmx_func_L08_003DB518 DATA
   openrac_asmx_func_L08_003F76C0 DATA
   openrac_asmx_func_L08_0041D808 DATA
   openrac_asmx_func_L08_0041E4F8 DATA
-  openrac_asmx_func_L08_0041E790 DATA
   openrac_asmx_func_L08_0041EBF8 DATA
   openrac_asmx_func_L08_004207D0 DATA
-  openrac_asmx_func_L08_00424FF8 DATA
-  openrac_asmx_func_L08_00429560 DATA
   openrac_asmx_func_L08_00435A78 DATA
   openrac_asmx_func_L09_002F8FD8 DATA
   openrac_asmx_func_L09_0033E658 DATA
@@ -1986,8 +1669,6 @@ EXPORTS
   openrac_asmx_func_L09_003F65E0 DATA
   openrac_asmx_func_L09_003F8960 DATA
   openrac_asmx_func_L09_003F9040 DATA
-  openrac_asmx_func_L09_003FB780 DATA
-  openrac_asmx_func_L09_003FB9F8 DATA
   openrac_asmx_func_L09_003FD460 DATA
   openrac_asmx_func_L09_00403080 DATA
   openrac_asmx_func_L09_00403100 DATA
@@ -1996,9 +1677,7 @@ EXPORTS
   openrac_asmx_func_L09_00406C68 DATA
   openrac_asmx_func_L09_00408250 DATA
   openrac_asmx_func_L10_0037CC20 DATA
-  openrac_asmx_func_L10_0039DA48 DATA
   openrac_asmx_func_L10_00418D88 DATA
-  openrac_asmx_func_L10_00419188 DATA
   openrac_asmx_func_L10_00423780 DATA
   openrac_asmx_func_L10_004239A0 DATA
   openrac_asmx_func_L11_0030ED58 DATA
@@ -2011,7 +1690,6 @@ EXPORTS
   openrac_asmx_func_L11_00443CE0 DATA
   openrac_asmx_func_L11_00443D78 DATA
   openrac_asmx_func_L11_00444400 DATA
-  openrac_asmx_func_L11_004456A0 DATA
   openrac_asmx_func_L11_00445990 DATA
   openrac_asmx_func_L11_00445DF8 DATA
   openrac_asmx_func_L11_00447360 DATA
@@ -2034,24 +1712,17 @@ EXPORTS
   openrac_asmx_func_L13_00389848 DATA
   openrac_asmx_func_L13_0040D930 DATA
   openrac_asmx_func_L13_0040DFC0 DATA
-  openrac_asmx_func_L13_0041A550 DATA
   openrac_asmx_func_L13_0041AD00 DATA
   openrac_asmx_func_L13_00422CB8 DATA
   openrac_asmx_func_L13_004267B0 DATA
-  openrac_asmx_func_L13_0043E8C0 DATA
   openrac_asmx_func_L14_00304588 DATA
   openrac_asmx_func_L14_003DE908 DATA
   openrac_asmx_func_L14_003E4BA0 DATA
   openrac_asmx_func_L14_00423B30 DATA
-  openrac_asmx_func_L14_00430E08 DATA
-  openrac_asmx_func_L14_004321C0 DATA
   openrac_asmx_func_L15_00430168 DATA
   openrac_asmx_func_L16_003D6D00 DATA
   openrac_asmx_func_L16_004051A8 DATA
   openrac_asmx_func_L16_00405818 DATA
-  openrac_asmx_func_L16_00410E40 DATA
-  openrac_asmx_func_L16_00411368 DATA
-  openrac_asmx_func_L16_00412560 DATA
   openrac_asmx_func_L16_00413850 DATA
   openrac_asmx_func_L16_00414038 DATA
   openrac_asmx_func_L16_0041EBE8 DATA
@@ -2060,13 +1731,10 @@ EXPORTS
   openrac_asmx_func_L17_003E4860 DATA
   openrac_asmx_func_L18_002E42F8 DATA
   openrac_asmx_func_L18_00303A58 DATA
-  openrac_asmx_func_L18_003170F8 DATA
   openrac_asmx_func_L18_003F9EF0 DATA
-  openrac_asmx_func_L18_00426AB0 DATA
   openrac_asmx_func_L18_00427B48 DATA
   openrac_asmx_func_L18_00428100 DATA
   openrac_asmx_func_L18_00428338 DATA
-  openrac_asmx_func_L18_00428428 DATA
   openrac_asmx_func_L18_00428AE8 DATA
   openrac_asmx_func_L18_00432598 DATA
   openrac_asmx_func_L18_004325D8 DATA
@@ -2074,11 +1742,8 @@ EXPORTS
   openrac_asmx_func_L18_0043FFF8 DATA
   openrac_asmx_func_L19_00412140 DATA
   openrac_asmx_func_L19_0042B058 DATA
-  openrac_asmx_func_L20_00310E38 DATA
   openrac_asmx_func_L20_0039BEC8 DATA
   openrac_asmx_func_L20_0039DF18 DATA
-  openrac_asmx_func_L20_0039F268 DATA
-  openrac_asmx_func_L20_0039F968 DATA
   openrac_asmx_func_L20_003E6728 DATA
   openrac_asmx_func_L20_004441D8 DATA
   openrac_asmx_func_L20_00444CA8 DATA
@@ -2112,19 +1777,13 @@ EXPORTS
   openrac_asmx_func_L23_002C38B0 DATA
   openrac_asmx_func_L23_003BF9B0 DATA
   openrac_asmx_func_L23_003C1B58 DATA
-  openrac_asmx_func_L23_0041D398 DATA
   openrac_asmx_func_L24_003EFA38 DATA
-  openrac_asmx_func_L25_00373EE0 DATA
   openrac_asmx_func_L26_003DC048 DATA
   openrac_asmx_func_L26_003DC128 DATA
-  openrac_asmx_func_L30_0032AAF0 DATA
   openrac_asmx_func_L30_003848B8 DATA
-  openrac_asmx_func_L30_0040B6B0 DATA
   openrac_asmx_func_L30_0040B9D8 DATA
   openrac_asmx_func_L30_004185E0 DATA
   openrac_asmx_func_L30_0041B848 DATA
-  openrac_asmx_game_D_00115E38 DATA
-  openrac_asmx_game_D_00115E38_1 DATA
   openrac_asmx_game_F213135aa_FUN_00282DD8 DATA
   openrac_asmx_game_F391de845_FUN_002E45C8 DATA
   openrac_asmx_game_F6eb4f363_FUN_002BF728 DATA
@@ -2132,37 +1791,26 @@ EXPORTS
   openrac_asmx_game_r1_func_0011AD70 DATA
   openrac_asmx_game_r1_func_0012A418 DATA
   openrac_asmx_game_ref_00131D98_00 DATA
-  openrac_asmx_game_ref_0031A158_00 DATA
   openrac_asmx_game_ref_L00_002D71A0_00 DATA
-  openrac_asmx_game_ref_L00_002D71A0_01 DATA
   openrac_asmx_game_ref_L00_00300048_03 DATA
   openrac_asmx_game_ref_L00_003D4548_06 DATA
   openrac_asmx_game_ref_L00_003DBF50_12 DATA
   openrac_asmx_game_ref_L00_003DC3E0_03 DATA
   openrac_asmx_game_ref_L00_003DD2B8_17 DATA
-  openrac_asmx_game_ref_L00_003DD6A8_41 DATA
   openrac_asmx_game_ref_L00_003E2E80_02 DATA
   openrac_asmx_game_ref_L00_003E9930_07 DATA
   openrac_asmx_game_ref_L00_003EBC68_02 DATA
   openrac_asmx_game_ref_L00_003EBC68_06 DATA
-  openrac_asmx_game_ref_L00_003FEAC8_03 DATA
   openrac_asmx_game_ref_L00_0040B330_00 DATA
-  openrac_asmx_game_ref_L00_00410430_02 DATA
-  openrac_asmx_game_ref_L00_00417868_01 DATA
   openrac_asmx_game_ref_L00_00428EB0_01 DATA
   openrac_asmx_game_ref_L00_0042B688_00 DATA
   openrac_asmx_game_ref_L01_002E1680_02 DATA
   openrac_asmx_game_ref_L03_0038A6D8_00 DATA
-  openrac_asmx_game_ref_L03_0038AA20_00 DATA
   openrac_asmx_game_ref_L04_003A0008_01 DATA
   openrac_asmx_game_ref_L04_003A19E8_00 DATA
   openrac_asmx_game_ref_L04_00400D48_02 DATA
   openrac_asmx_game_ref_L04_0040BED0_08 DATA
-  openrac_asmx_game_ref_L04_00418A58_05 DATA
-  openrac_asmx_game_ref_L04_00418A58_09 DATA
-  openrac_asmx_game_ref_L04_00418A58_12 DATA
   openrac_asmx_game_ref_L04_00432258_07 DATA
-  openrac_asmx_game_ref_L05_00430318_01 DATA
   openrac_asmx_game_ref_L08_0039E000_05 DATA
   openrac_asmx_game_ref_L08_0041EBF8_00 DATA
   openrac_asmx_game_ref_L12_004081F8_00 DATA
@@ -2187,7 +1835,6 @@ EXPORTS
   openrac_guest_last_fn DATA
   openrac_guest_nearest
   openrac_guest_sp DATA
-  openrac_hook_in_copy
   openrac_ps2_add
   openrac_ps2_ftoi
   openrac_ps2_itof

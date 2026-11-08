@@ -272,7 +272,7 @@ typedef struct openrac_front_end {
 extern const openrac_front_end* openrac_game_front_end;
 
 /* What the developer tools need of a game (docs/port/DEBUGGING.md, Going anywhere, game/common/
- * program/tools.cpp), when a game installs it (rac2: port/game/rac2-ntsc/host/tools.c). NULL: the
+ * program/tools.cpp), when a game installs it (rac2: port/game/rac2/host/tools.c). NULL: the
  * tools' switches do nothing. Every call on the game's thread, at a vertical blank; a member a game
  * has not got is NULL. */
 typedef struct openrac_game_tools {
@@ -626,6 +626,8 @@ typedef struct openrac_game_play {
     /* Clears the flags of a level's mission state that `flags` names: 1 done, 0 not. NULL for a game
      * without it. */
     int (*mission_state_clear)(int level, const uint8_t* flags);
+    /* Whether the destination is playing its landing scene. NULL when unsupported. */
+    int (*landing)(int level);
 } openrac_game_play;
 
 #define OPENRAC_GAME_CAMERA_END_EASED (-1)
@@ -792,6 +794,13 @@ void openrac_game_effect_quad(const openrac_game_quad* quad);
 #define OPENRAC_EFFECT_QUAD_MARKER 0x4551u
 uint32_t openrac_game_effect_quad_marker(void);
 
+/* Where the game's moby renderer draws the world's mobys, for the display list: the game puts
+ * (OPENRAC_WORLD_MOBYS_MARKER << 48) in it with an A+D write to the NOP register where the world's
+ * moby packets would have gone. The strips the game sent before it, after the world's marker (its
+ * draw callback lists run between the ties and the mobys), are drawn before the shrubs and mobys,
+ * as the console drew them (renderer::EffectStrip::before_mobys). */
+#define OPENRAC_WORLD_MOBYS_MARKER 0x4D57u
+
 /* World-space explosion; optional visual water response, with no gameplay side effects. */
 void openrac_game_water_explosion(const float position[3], float radius, float strength);
 
@@ -853,6 +862,12 @@ float openrac_game_picture_wider(void);
  * at least 1: the frame's view tests open by as much, so that what the wider view shows is not
  * culled. 1 at 100%, below it, and while the setting does not apply (cutscenes, the debug camera). */
 float openrac_game_view_opened(void);
+
+/* The player's Draw distance as a factor of the game's (settings.h draw_distance): 1 at Original,
+ * 4 at 400%, 0 Unlimited; 1 without a window. The moby renderers' drawn flag (+0x31) takes it, so
+ * that a moby the window draws farther away is drawn to the game too, which keeps it active (the
+ * moby loop updates a drawn moby whatever its update distance). */
+float openrac_game_draw_distance(void);
 
 /* A game fix's flag, by its setting key (port/game/<game>/differences.json, kind "fix";
  * game/common/fixes.h): nonzero while the port's fix is on, 0 for the console's behaviour. The
@@ -925,6 +940,10 @@ extern int openrac_game_start_level;
 
 int openrac_game_pad(int port, uint16_t* buttons, uint8_t analog[4]);
 
+/* The game's DualShock 2 motor values: small on (nonzero) or off, large speed 0..255. Sent by the
+ * pad library replacements each time the game reads the pad; the window plays them. */
+void openrac_game_set_motors(int port, int small, int large);
+
 /* The mods' pad callbacks (game/common/mods.h, docs/port/MODS.md): each report scePad2Read fills,
  * `size` bytes at `report`, before the game reads it. Null while no mod asked for one. */
 extern void (*openrac_game_pad_report_hook)(int port, uint8_t* report, int size);
@@ -940,7 +959,7 @@ int openrac_game_pad_through_mods(int port, uint16_t* buttons, uint8_t analog[4]
 gaddr openrac_game_text(int id);
 
 /* The port's settings as rows (options_menu.h), for a game whose options page is its own host C
- * (Going Commando: rac2-ntsc/host/options.c) rather than the front end's widgets: how many rows;
+ * (Going Commando: rac2/host/options.c) rather than the front end's widgets: how many rows;
  * a row's name and value now as the game's text (the language of openrac_front_end.language, its
  * accented letters at the font's codes), each cut to `size` bytes with its end; a row moved by
  * `by` (1 the next value, -1 the one before), saved and applied as the overlay's menus do; and one

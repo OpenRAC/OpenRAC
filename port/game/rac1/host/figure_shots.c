@@ -867,6 +867,22 @@ int rac1_figure_owned(gaddr moby) {
     return 0;
 }
 
+int rac1_player_shot(gaddr moby) {
+    if (moby == 0) {
+        return 0;
+    }
+    const int32_t oclass = GREF(int16_t, moby + MOBY_OCLASS);
+    if (oclass == CLASS_VISIBOMB_MISSILE || oclass == CLASS_DRONE) {
+        return 1;
+    }
+    for (size_t i = 0; i < sizeof OWNED / sizeof OWNED[0]; ++i) {
+        if (OWNED[i].oclass == oclass) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 /* SendRadialMessageToMobys: a figure's blast sends none. */
 void func_L00_0025BA50(
     gaddr source,

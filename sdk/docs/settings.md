@@ -37,6 +37,10 @@ from the game's next start.
 The launcher shows a switch for `bool`, a segmented control or a list for
 `choice`, "press a key" buttons for `keybind`, and a field for the others.
 
+A mod for several games ([manifest](manifest.md#a-mod-for-several-games)) may
+give a setting `"games": ["rac1"]`, the games it is for: the launcher shows it
+there only, and the mod gets its default in the others.
+
 ## Key bindings
 
 A `keybind` (interface 1.2: `"api": "1.2"`) holds up to two inputs as

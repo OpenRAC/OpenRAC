@@ -20,7 +20,7 @@ never counted as a match.
 | Counted in the progress report | yes | never |
 | Read by | the matching build and the port | the port only |
 
-`games/rac1` has this in place (321 functions listed on 2026-10-13); the
+`games/rac1/decomp` has this in place (321 functions listed on 2026-10-13); the
 port reads the list through `port/game/rac1-pal/hostgen.json` ("candidates").
 A decompilation without the list yet should add the same two paths, not a new
 scheme.
@@ -417,7 +417,7 @@ analysis, from what hostgen already wrote, without running the game:
 cmake --build --preset release            # in port/: hostgen writes gen/report.json
 python3 port/tools/hostgen/priority.py --game port/game/rac1-pal/hostgen.json \
     --gen port/build/release/games/rac1-pal/gen \
-    --dump games/rac1/baserom/overlays --exe games/rac1/baserom/SCES_509.16 \
+    --dump games/rac1/decomp/baserom/overlays --exe games/rac1/decomp/baserom/SCES_509.16 \
     --out build/priority/rac1-pal.md
 python3 -m unittest port/tools/hostgen/test_priority.py   # its test (no Clang)
 ```
@@ -472,4 +472,4 @@ no tier left, or the port needs it now              -> functional C, with its co
 
 The measurements behind this page are in the commit history of 2026-10-12
 (the compiler comparison, the small-function sweep and its joins) and in
-[games/rac1/docs/NONMATCHING.md](../../games/rac1/docs/NONMATCHING.md).
+[games/rac1/decomp/docs/NONMATCHING.md](../../games/rac1/decomp/docs/NONMATCHING.md).

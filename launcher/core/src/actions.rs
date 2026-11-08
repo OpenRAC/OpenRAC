@@ -167,6 +167,8 @@ pub enum Platform {
     Windows,
     /// The Android launcher (docs/port/ANDROID.md): it plays from the copy it carries.
     Android,
+    /// iPhone and iPad: local preparation and an engine carried in the signed application.
+    Ios,
 }
 
 impl Platform {
@@ -177,6 +179,8 @@ impl Platform {
             Platform::Macos
         } else if cfg!(target_os = "android") {
             Platform::Android
+        } else if cfg!(target_os = "ios") {
+            Platform::Ios
         } else {
             Platform::Linux
         }
@@ -188,6 +192,7 @@ impl Platform {
             Platform::Macos => "macOS",
             Platform::Windows => "Windows",
             Platform::Android => "Android",
+            Platform::Ios => "iOS",
         }
     }
 }
@@ -564,7 +569,10 @@ impl Action {
         // Settings, "Theme": the game's options drawer wears the launcher's colours (theme.rs).
         if self.kind == Kind::Play {
             let game = ctx.version.map(|v| v.game.as_str());
-            env.push((crate::theme::ENV.to_string(), crate::theme::ui_colors(&ctx.config.theme, game)));
+            env.push((
+                crate::theme::ENV.to_string(),
+                crate::theme::ui_colors(&ctx.config.theme, game, ctx.config.game_colors),
+            ));
         }
         // Settings, "Multiplayer name": the name online mods show the other players
         // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.
@@ -578,15 +586,16 @@ impl Action {
         if self.kind == Kind::Play && ctx.config.detailed_game_log {
             env.push(("OPENRAC_LOG".to_string(), "verbose".to_string()));
         }
-        // Settings, "Renderer" (Windows, Linux and macOS, where it runs on the MoltenVK the game's
-        // bundle carries): the port's Vulkan renderer, which draws with OpenGL instead where
-        // Vulkan cannot start (port/platform/window.cpp). Android keeps its own choice
-        // (src-tauri/src/android.rs).
-        if self.kind == Kind::Play
-            && ctx.config.renderer == "vulkan"
-            && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos)
-        {
-            env.push(("OPENRAC_GL_API".to_string(), "vulkan".to_string()));
+        // Settings, "Renderer" (Windows, Linux and macOS): the port's Vulkan renderer (on macOS
+        // on the MoltenVK the game's bundle carries), or on macOS its Metal renderer; either
+        // draws with OpenGL instead where it cannot start (port/platform/window.cpp). OpenGL sets
+        // nothing. Metal on another system plays with Vulkan (config::renderer_for). Android
+        // keeps its own choice (src-tauri/src/android.rs).
+        if self.kind == Kind::Play && matches!(ctx.platform, Platform::Windows | Platform::Linux | Platform::Macos) {
+            let renderer = crate::config::renderer_for(&ctx.config.renderer, ctx.platform);
+            if renderer != "opengl" {
+                env.push(("OPENRAC_GL_API".to_string(), renderer.to_string()));
+            }
         }
         // Settings, "HDR": Off or On, over the game's own for this start.
         if self.kind == Kind::Play {
@@ -605,7 +614,11 @@ impl Action {
                         crate::enhanced::play_additions(&text, Path::new(&data), &v.name)
                     {
                         for (key, value) in more_env {
-                            if !env.iter().any(|(k, _)| *k == key) {
+                            if key == "OPENRAC_GL_API" {
+                                // Enhanced graphics is Vulkan only: it wins over Settings' Metal.
+                                env.retain(|(k, _)| *k != key);
+                                env.push((key, value));
+                            } else if !env.iter().any(|(k, _)| *k == key) {
                                 env.push((key, value));
                             }
                         }
@@ -1082,6 +1095,16 @@ mod tests {
         let on_mac = Context { platform: Platform::Macos, ..ctx(&vulkan) };
         let plan = play.plan(&on_mac).unwrap();
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
+        // Metal on macOS only; elsewhere a Mac's "metal" plays with Vulkan.
+        let metal = Config { renderer: "metal".into(), ..installed.clone() };
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "metal".to_string())), "{:?}", plan.env);
+        for platform in [Platform::Windows, Platform::Linux] {
+            let plan = play.plan(&Context { platform, ..ctx(&metal) }).unwrap();
+            assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
+        }
+        let on_android = Context { platform: Platform::Android, ..ctx(&metal) };
+        assert!(!play.plan(&on_android).unwrap().env.iter().any(|(k, _)| k == "OPENRAC_GL_API"));
         // Android keeps its own renderer, unless Enhanced graphics is on: then Vulkan and the
         // probe bakes, as on the desktops.
         let on_android = Context { platform: Platform::Android, ..ctx(&vulkan) };
@@ -1093,6 +1116,10 @@ mod tests {
         assert!(plan.env.contains(&("OPENRAC_GL_API".to_string(), "vulkan".to_string())), "{:?}", plan.env);
         let probes = crate::enhanced::probes_dir(&data, "pal").display().to_string();
         assert!(plan.args.ends_with(&["--probes".to_string(), probes]), "{:?}", plan.args);
+        // Enhanced graphics is Vulkan only, so it wins over Settings' Metal on a Mac.
+        let plan = play.plan(&Context { platform: Platform::Macos, ..ctx(&metal) }).unwrap();
+        let apis: Vec<_> = plan.env.iter().filter(|(k, _)| k == "OPENRAC_GL_API").collect();
+        assert_eq!(apis, [&("OPENRAC_GL_API".to_string(), "vulkan".to_string())], "{:?}", plan.env);
         std::fs::remove_file(&file).unwrap();
     }
 

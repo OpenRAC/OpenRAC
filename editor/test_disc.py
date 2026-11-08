@@ -12,7 +12,7 @@ import unittest
 from unittest import mock
 
 import disc
-from disc import LEVEL_COUNT, LEVEL_HEADER_SIZE, NTSC, PAL, SECTOR, VERSIONS, Disc, Version
+from disc import JP, LEVEL_COUNT, LEVEL_HEADER_SIZE, NTSC, PAL, PAL1, SECTOR, VERSIONS, Disc, Version
 from formats import FormatError
 
 GROUPS = ((0x08, 2, "pictures", "sectors"), (0x18, 2, "audio", "lba"))
@@ -114,6 +114,22 @@ class VersionTests(unittest.TestCase):
         self.assertEqual((ranges["gameplay_ntsc"]["lba"], ranges["gameplay_pal"]["lba"]), (15, 25))
         self.assertEqual(ranges[d.version.gameplay]["lba"], 15)
 
+    def test_two_releases_of_one_serial_are_told_apart_by_their_executable(self):
+        # PAL v1.00 and v2.00 both boot SCES_509.16: the size says which, the SHA-1 where sizes agree.
+        old, new, same = b"\x7fELF v1", b"\x7fELF v2 longer", b"\x7fELF v3"
+        one = version("one", "SCES_000.01", old, "gameplay_ntsc")
+        two = version("two", "SCES_000.01", new, "gameplay_ntsc")
+        twin = version("twin", "SCES_000.01", same, "gameplay_ntsc")  # one's size, another SHA-1
+        for exe, want in ((old, one), (new, two)):
+            d = self.open({"SYSTEM.CNF": cnf("SCES_000.01"), "SCES_000.01": exe}, (one, two))
+            self.assertEqual(d.version, want)
+            self.assertEqual(d.executable(), exe)
+        d = self.open({"SYSTEM.CNF": cnf("SCES_000.01"), "SCES_000.01": same}, (one, twin))
+        self.assertEqual(d.version, twin)
+        d = self.open({"SYSTEM.CNF": cnf("SCES_000.01"), "SCES_000.01": b"\x7fELF v9"}, (one, two))
+        with self.assertRaises(FormatError):
+            d.version
+
     def test_without_system_cnf_the_executable_on_the_disc_decides(self):
         d = self.open({A.executable: EXE_A})
         self.assertEqual(d.version, A)
@@ -207,14 +223,21 @@ class IsoChecksTests(unittest.TestCase):
 
 
 class KnownVersionTests(unittest.TestCase):
-    def test_the_two_discs(self):
-        self.assertEqual(VERSIONS, (PAL, NTSC))
+    def test_the_four_discs(self):
+        self.assertEqual(VERSIONS, (PAL, NTSC, PAL1, JP))
         self.assertEqual([(v.key, v.executable, v.gameplay) for v in VERSIONS],
-                         [("pal", "SCES_509.16", "gameplay_ntsc"), ("ntsc", "SCUS_971.99", "gameplay_ntsc")])
+                         [("pal", "SCES_509.16", "gameplay_ntsc"), ("ntsc", "SCUS_971.99", "gameplay_ntsc"),
+                          ("pal1", "SCES_509.16", "gameplay_ntsc"), ("jp", "SCPS_150.37", "gameplay_ntsc")])
         # games/rac1/game.json holds the same executables' sizes and SHA-1s.
         self.assertEqual((PAL.executable_size, PAL.executable_sha1), (1388100, "79956931bd62fafd8d20fa2eae796dbaf2e15e83"))
         self.assertEqual((NTSC.executable_size, NTSC.executable_sha1), (1383028, "72fd1de379dafd8f243dceeb3be50980f3fd3cd5"))
+        self.assertEqual((PAL1.executable_size, PAL1.executable_sha1), (1381764, "553a7f6c2c7a004d384d77b7139accbc52242149"))
+        self.assertEqual((JP.executable_size, JP.executable_sha1), (1390884, "0df83877d53e19d69ec82038e2aaa227f643178f"))
         self.assertEqual((PAL.normal_table, NTSC.normal_table), (0x165600, 0x165500))
+        self.assertEqual((PAL1.normal_table, JP.normal_table), (0x165480, 0x165600))
+        # Two releases share an executable name; sizes tell them apart.
+        self.assertEqual(PAL.executable, PAL1.executable)
+        self.assertNotEqual(PAL.executable_size, PAL1.executable_size)
         for v in VERSIONS:
             self.assertEqual((v.toc_lba, v.toc_size, v.level_table), (1500, 0x2960, 0x28c8))
             self.assertEqual(v.level_table + LEVEL_COUNT * 8, v.toc_size)

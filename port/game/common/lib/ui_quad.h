@@ -3,7 +3,7 @@
 
 /*
  * The 2D layer's quads drawn natively, what every game's wrapped draw routines share (rac1/host/
- * ui2d.c, rac2-ntsc/host/ui2d.c): a quad goes to the window as a record (openrac_game_ui_quad) with
+ * ui2d.c, rac2/host/ui2d.c): a quad goes to the window as a record (openrac_game_ui_quad) with
  * the corners and texel coordinates its packet would have held, and the display list gets a marker
  * in its place, so the window draws it where it came.
  */

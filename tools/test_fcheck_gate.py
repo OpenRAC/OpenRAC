@@ -193,13 +193,11 @@ class DecompRootTests(unittest.TestCase):
         with mock.patch.dict(os.environ, env):
             self.assertEqual(g.decomp_root(), Path("/source"))
 
-    def test_else_game_json(self):
+    def test_else_the_submodule(self):
         with mock.patch.dict(os.environ):
             os.environ.pop("OPENRAC_DECOMP", None)
             os.environ.pop("OPENRAC_SOURCE_RAC1_PAL", None)
-            # game.json writes it from the top of OpenRAC ("../rac1-decomp").
-            checkout = g.games.load("rac1", g.ROOT)["versions"]["pal"]["source"]["checkout"]
-            self.assertEqual(g.decomp_root(), (Path(g.ROOT) / os.path.expanduser(checkout)).resolve())
+            self.assertEqual(g.decomp_root(), Path(g.ROOT) / "games/rac1/decomp")
 
 if __name__ == "__main__":
     unittest.main()

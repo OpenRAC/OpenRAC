@@ -545,7 +545,8 @@ export async function refresh() {
   const discs = ++discsSeq;
   let scan: { found: FoundDisc[]; choices: DiscChoice[] } = { found: [], choices: [] };
   try {
-    if (app.config.discsDir) scan = await api.scanDiscs();
+    // A developer's disc switch also draws on the discs set up without a games folder.
+    if (app.config.discsDir || app.config.developer) scan = await api.scanDiscs();
   } catch {
     // A folder that went away: the game pages ask for an image as before.
   }

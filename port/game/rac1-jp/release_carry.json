@@ -1,0 +1,460 @@
+{
+ "about": "What the carry from rac1-pal rests on besides the release's check and the same instructions of the same code (port/tools/hostgen/release_rac1.py): functions by another kind of evidence, addresses by versionmap's between or guess, and what the release has no counterpart of, left out.",
+ "functions": {
+  "func_001EBB48": {
+   "as": "func_001EC0E8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "roots"
+  },
+  "func_001F75D0": {
+   "as": "func_001F86F8",
+   "how": "function: the release's check (its counterpart here)",
+   "for": "shared host C"
+  },
+  "func_001FBE80": {
+   "as": "func_001FCFA8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "spilled_locals"
+  },
+  "func_001FD3E8": {
+   "as": "func_001FE568",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_001FD3E8__game": {
+   "as": "func_001FE568__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00209E68": {
+   "as": "func_0020AD90",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00209E68"
+  },
+  "func_0021B298": {
+   "as": "func_0021C180",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021B298"
+  },
+  "func_0021BB90": {
+   "as": "func_0021CA48",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021BB90"
+  },
+  "func_0021C840": {
+   "as": "func_0021D6A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021C840"
+  },
+  "func_0021D7A0": {
+   "as": "func_0021E600",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021D7A0"
+  },
+  "func_0021F118": {
+   "as": "func_0021FF30",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_0021F118"
+  },
+  "func_00220160": {
+   "as": "func_00220F78",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_00220160"
+  },
+  "func_00224C30": {
+   "as": "func_002259C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_00224C30__game": {
+   "as": "func_002259C0__game",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_0023B670": {
+   "as": "func_0023C268",
+   "how": "function: carried (the release's own C for it)",
+   "for": "shared host C"
+  },
+  "func_L00_0029CDE0": {
+   "as": "func_L00_0029DB58",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_0029CDE0"
+  },
+  "func_L00_002A6A38": {
+   "as": "func_L00_002A75F0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002A6A38"
+  },
+  "func_L00_002BDAF0": {
+   "as": "func_L00_002BE6A8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002BDAF0"
+  },
+  "func_L00_002E74B0": {
+   "as": "func_L00_002E8068",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L00_002E74B0"
+  },
+  "func_L01_002F5800": {
+   "as": "func_L01_002F63B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_002F5800"
+  },
+  "func_L01_002F8B00": {
+   "as": "func_L01_002F96B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_002F8B00"
+  },
+  "func_L01_00309078": {
+   "as": "func_L01_00309C28",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L01_00309078"
+  },
+  "func_L02_002ED8F0": {
+   "as": "func_L02_002EE4A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002ED8F0"
+  },
+  "func_L02_002EE250": {
+   "as": "func_L02_002EEE00",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002EE250"
+  },
+  "func_L02_002EFCC8": {
+   "as": "func_L02_002F0878",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L02_002EFCC8"
+  },
+  "func_L03_002DD158": {
+   "as": "func_L03_002DDD10",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L03_002DD158"
+  },
+  "func_L03_002E08E8": {
+   "as": "func_L03_002E14A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L03_002E08E8"
+  },
+  "func_L04_002CB800": {
+   "as": "func_L04_002CC438",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L04_002CB800"
+  },
+  "func_L04_002E2DF0": {
+   "as": "func_L04_002E3A28",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L04_002E2DF0"
+  },
+  "func_L05_00317F80": {
+   "as": "func_L05_00318B30",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L05_00317F80"
+  },
+  "func_L06_002FAE58": {
+   "as": "func_L06_002FB990",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L06_002FAE58"
+  },
+  "func_L08_002DFBC0": {
+   "as": "func_L08_002E0770",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L08_002DFBC0"
+  },
+  "func_L08_00308A00": {
+   "as": "func_L08_003095B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L08_00308A00"
+  },
+  "func_L09_00301C38": {
+   "as": "func_L09_00302870",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L09_00301C38"
+  },
+  "func_L10_00299D18": {
+   "as": "func_L10_0029A8D0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L10_00299D18"
+  },
+  "func_L11_0031BEF0": {
+   "as": "func_L11_0031CAA0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L11_0031BEF0"
+  },
+  "func_L12_002EE600": {
+   "as": "func_L12_002EF230",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L12_002EE600"
+  },
+  "func_L13_002BC2D8": {
+   "as": "func_L13_002BCE90",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_002BC2D8"
+  },
+  "func_L13_0030E280": {
+   "as": "func_L13_0030EE38",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L13_0030E280"
+  },
+  "func_L14_002FCEA8": {
+   "as": "func_L14_002FDA58",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FCEA8"
+  },
+  "func_L14_002FD578": {
+   "as": "func_L14_002FE128",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FD578"
+  },
+  "func_L14_002FE038": {
+   "as": "func_L14_002FEBE8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_002FE038"
+  },
+  "func_L14_00306BE0": {
+   "as": "func_L14_00307790",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_00306BE0"
+  },
+  "func_L14_00309C48": {
+   "as": "func_L14_0030A7F8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L14_00309C48"
+  },
+  "func_L16_002E7C70": {
+   "as": "func_L16_002E88A0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L16_002E7C70"
+  },
+  "func_L16_002E8680": {
+   "as": "func_L16_002E92B0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L16_002E8680"
+  },
+  "func_L17_002EEB08": {
+   "as": "func_L17_002EF6C0",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L17_002EEB08"
+  },
+  "func_L17_002F4210": {
+   "as": "func_L17_002F4DC8",
+   "how": "function: carried (the release's own C for it)",
+   "for": "libraries.tsv func_L17_002F4210"
+  }
+ },
+ "addresses": {
+  "00:0x001BB610": {
+   "as": "0x001BB410",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L00_0x001BB610u"
+  },
+  "03:0x001DC460": {
+   "as": "0x001DC860",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L03_0x001DC460u"
+  },
+  "07:0x001D36C0": {
+   "as": "0x001D3AC0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L07_0x001D36C0u"
+  },
+  "0x0013E610": {
+   "as": "0x0013E610",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0013E610u"
+  },
+  "0x0013E614": {
+   "as": "0x0013E614",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0013E614u"
+  },
+  "0x0014C150": {
+   "as": "0x0014C150",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x0014C150u"
+  },
+  "0x0015ED28": {
+   "as": "0x0015ED28",
+   "how": "versionmap (between)",
+   "for": "host/crt0.c"
+  },
+  "0x0015EEE0": {
+   "as": "0x0015EEE0",
+   "how": "global: the release's check (a level's)",
+   "for": "shared host C RAC1_ADDR_0x0015EEE0u"
+  },
+  "0x0015F000": {
+   "as": "0x0015F000",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x0015F000u"
+  },
+  "0x00187394": {
+   "as": "0x00187394",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x00187394u"
+  },
+  "0x001ABD80": {
+   "as": "0x001ABB80",
+   "how": "versionmap (between)",
+   "for": "expanded_target_table_addresses"
+  },
+  "0x001C7AC0": {
+   "as": "0x001C78C0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x001C7AC0u"
+  },
+  "0x001C7C80": {
+   "as": "0x001C7A80",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_0x001C7C80u"
+  },
+  "0x001CE100": {
+   "as": "0x001CDF00",
+   "how": "global: versionmap (exact)",
+   "for": "profile executable"
+  },
+  "0x001CE720": {
+   "as": "0x001CE520",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001CE720u"
+  },
+  "0x001CF538": {
+   "as": "0x001CF338",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001CF538u"
+  },
+  "0x001D29D0": {
+   "as": "0x001D27D0",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D29D0u"
+  },
+  "0x001D4B08": {
+   "as": "0x001D4908",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4B08u"
+  },
+  "0x001D4B9C": {
+   "as": "0x001D499C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4B9Cu"
+  },
+  "0x001D4BE8": {
+   "as": "0x001D49E8",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4BE8u"
+  },
+  "0x001D4CC0": {
+   "as": "0x001D4AC0",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4CC0u"
+  },
+  "0x001D4D48": {
+   "as": "0x001D4B48",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4D48u"
+  },
+  "0x001D4DE8": {
+   "as": "0x001D4BE8",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4DE8u"
+  },
+  "0x001D4E38": {
+   "as": "0x001D4C38",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4E38u"
+  },
+  "0x001D4F18": {
+   "as": "0x001D4D18",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4F18u"
+  },
+  "0x001D4F40": {
+   "as": "0x001D4D40",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_0x001D4F40u"
+  },
+  "13:0x00161F18": {
+   "as": "0x00161F08",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F18u"
+  },
+  "13:0x00161F1C": {
+   "as": "0x00161F0C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F1Cu"
+  },
+  "13:0x00161F20": {
+   "as": "0x00161F10",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F20u"
+  },
+  "13:0x00161F24": {
+   "as": "0x00161F14",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F24u"
+  },
+  "13:0x00161F28": {
+   "as": "0x00161F18",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F28u"
+  },
+  "13:0x00161F2C": {
+   "as": "0x00161F1C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F2Cu"
+  },
+  "13:0x00161F30": {
+   "as": "0x00161F20",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F30u"
+  },
+  "13:0x00161F34": {
+   "as": "0x00161F24",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F34u"
+  },
+  "13:0x00161F38": {
+   "as": "0x00161F28",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F38u"
+  },
+  "13:0x00161F3C": {
+   "as": "0x00161F2C",
+   "how": "versionmap (between)",
+   "for": "shared host C RAC1_ADDR_L13_0x00161F3Cu"
+  },
+  "14:0x001E9FA0": {
+   "as": "0x001EA3A0",
+   "how": "global: versionmap (exact)",
+   "for": "shared host C RAC1_ADDR_L14_0x001E9FA0u"
+  }
+ },
+ "dropped": {
+  "00:001FEE50": "split_places func_001F9878: no place in the release",
+  "01:00220CE0": "split_places func_001F9878: no place in the release",
+  "02:0020FE08": "split_places func_001F9878: no place in the release",
+  "03:001F8738": "split_places func_001F9878: no place in the release",
+  "04:001F1838": "split_places func_001F9878: no place in the release",
+  "05:0022DB08": "split_places func_001F9878: no place in the release",
+  "06:00216EE8": "split_places func_001F9878: no place in the release",
+  "07:00226C08": "split_places func_001F9878: no place in the release",
+  "08:002118E0": "split_places func_001F9878: no place in the release",
+  "10:001F2438": "split_places func_001F9878: no place in the release",
+  "11:00230738": "split_places func_001F9878: no place in the release",
+  "12:00221CA0": "split_places func_001F9878: no place in the release",
+  "13:0020A8B8": "split_places func_001F9878: no place in the release",
+  "14:002123F0": "split_places func_001F9878: no place in the release",
+  "15:001F8508": "split_places func_001F9878: no place in the release",
+  "16:001FD638": "split_places func_001F9878: no place in the release",
+  "17:001FBF38": "split_places func_001F9878: no place in the release",
+  "18:00207BB8": "split_places func_001F9878: no place in the release",
+  "func_001F75D0": "libraries.tsv func_001F75D0: not in the release (its callers reach FUN_001F86F8)",
+  "func_00201AF0": "shared host C: not in the release",
+  "func_00201AF0__game": "shared host C: not in the release"
+ },
+ "counts": {
+  "functions": 48,
+  "addresses": 37,
+  "dropped": 21
+ }
+}

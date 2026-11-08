@@ -46,7 +46,8 @@ struct TouchAction {
     std::uint16_t then = 0;   // added kThenDelayMs after the press
     TouchSize size = TouchSize::Medium;
     TouchSide side = TouchSide::Arc;
-    std::string when;     // a hint that must be up for it to show; empty: always
+    int at = -1;       // its own arc place (0 to 7), the same in every context; -1: the next free
+    std::string when;  // a hint that must be up for it to show; empty: always
     std::string instead;  // with `when`: the action whose place (and size) it takes meanwhile
     bool toggle = false;
     bool wide = false;   // a pill wider than high, for a wide icon

@@ -22,4 +22,9 @@ group?: string,
  * What it is to a multiplayer party (interface 1.14): `own` (each player's), `host` (the
  * host's rules bring it); absent: it must match the host's.
  */
-multiplayer?: string, };
+multiplayer?: string, 
+/**
+ * The games it is for, of the mod's (a mod for several games, docs/port/MODS.md section 3):
+ * shown for those only, and the port gives it its default in the others. Empty: every game.
+ */
+games?: Array<string>, };

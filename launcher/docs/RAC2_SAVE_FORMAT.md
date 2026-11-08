@@ -67,7 +67,8 @@ chunk:   s32 id, u32 size, size bytes, zero padding to 4
 | 1005, 1010, 1011 |      |                              | deaths, help log and its position                                             |
 
 Per level (table 0x00256368): 3001 visited (u8, 0x1A7BE8), 3002 the map (2048), 3003 platinum
-bolts found (u8[4], 0x19B278, `g_platinumBoltFlags`), 3004 missions (16), 3005 (1024), 3007 (12),
+bolts found (u8[4], 0x19B278, `g_platinumBoltFlags`), 3004 object-group states (16, 0x19B2E8),
+3005 moby counts (1024, 0x19B4A8: below, "Electrolyzer puzzles"), 3007 (12),
 4002, 4005 (64), 4007, 4008.
 
 The progress block (chunk 39, 0x1A79F8):
@@ -221,7 +222,7 @@ level's object data and are not named. Siberius has no constant use of chunk 5 i
 `rac2_flags/planets_b.rs`. Found by reading every access to chunk 5 (0x1395B8) and chunk 43
 (0x139768) in the levels' own code: in the split assembly (`rac2-decomp/build/<level>/asm`) the
 accesses are `lui 0x14` plus a negative offset or a register based on `%lo(D_1395B8)`, so each
-byte's index is exact; the C in `games/rac2/ntsc/src/levels/<level>` then says what the code
+byte's index is exact; the C in `games/rac2/decomp/src/levels/<level>` then says what the code
 does with it.
 
 **Load proofs** (box1, hidden, scratch settings and cards, port binary of L-2's round, format 20
@@ -294,6 +295,72 @@ states (chunk 3004), and the bits of scenes under 32 and from 169 (no one planet
 group yet). Dobbo Orbit, Ship Shack, Wupash Nebula and the Museum have no constant-indexed story
 byte or scene read in their own code. Space combat results (Feltzin 0x61..0x64, Hrugis 0x66..0x69,
 Gorn 0x6B..0x6E) are counts, written by those levels, not flags.
+
+## Advanced: Electrolyzer puzzles (L-7)
+
+Each planet's Electrolyzer puzzles, one flag a board, in the planet files of `rac2_flags/` (made by
+`rac2_flags::electrolyzer`). Clearing one puts the board back unsolved and undoes what solving it
+saved for the thing it opens, so the puzzle can be played again (asked for after Dobbo's could not
+be replayed: the Dobbo flags before it were only the coordinate sellers').
+
+**Where the game keeps a solved board.** The board is class 2198, `func_L02_003C26F0`, the same
+code in levels 2, 3, 4, 9, 12, 17, 20 and 30 (`moby-dispatch.tsv`). It keeps no story byte of its
+own. When solved (its state 8) it
+
+1. raises its moby count: `D_0019B4A8[(uid >> 1) + level * 0x400]`, three bits of a nibble per moby
+   id (`uid`, moby +0xB2), the low nibble for an even id and the high one for an odd one, up to 7.
+   This array is the per-level chunk **3005** (the per-level save table at 0x00256368 lists
+   `{0x19B4A8, 1024, 3005}`); it is the same count the game raises when an enemy dies or a crate
+   breaks (`func_002A6C58`), whose bit 3 is not part of it;
+2. marks its object group done, `func_002A0430(moby +0xB0)`: bit 7 of chunk **3004**'s byte `group`
+   (`D_0019B2E8[group + level * 16]`), when the board has a group (255 is none);
+3. sets off its one or two linked mobys (pvar +0x10, +0x14): `func_L00_003294F0(moby, 1)` sets bit 2
+   of moby +0xBE, which `func_002B38B8` reads.
+
+At the level start (state 0) the board reads only its count (and the level's own, unsaved
+`D_L02_0021F4F0` table): non-zero, it goes straight to state 5 (solved) and sets off its linked
+mobys again; zero, it goes to state 1, ready to play. The linked mobys then do what they do when set
+off, and some of them save it: those places are the flag's too.
+
+**The boards** (moby ids and links read from RAM dumps of `--level N` runs, the moby table at the
+pointer 0x18AA38, 0x100 bytes a moby; "nearest" is from the hero's start):
+
+| Planet        | Flag                     | Board (uid, group) | Linked moby                                                                                                                                                                                                                    | Places                                                                                        |
+| ------------- | ------------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Maktar Nebula | Electrolyzer puzzle 1    | 593, group 6       | two class 2736 platforms (`func_L02_003EA4E0`); their pvar +4 is 1, so set off they also store chunk 5 byte 3 and autosave (`func_0029B3E0`)                                                                                   | 3005 byte 296 high, 3004 byte 6 bit 7, chunk 5 byte 3                                         |
+| Maktar Nebula | Electrolyzer puzzle 2    | 40, group 9        | two class 2736 platforms, pvar +4 0                                                                                                                                                                                            | 3005 byte 20 low, 3004 byte 9 bit 7                                                           |
+| Endako        | Electrolyzer puzzle 1    | 217                | the factory door, class 2467 (`func_L03_003CC238`): opens while set off                                                                                                                                                        | 3005 byte 108 high                                                                            |
+| Endako        | Electrolyzer puzzle 2, 3 | 437, 466           | class 2377 (`func_L03_003C6A28`): a control the hero takes over, live only once set off                                                                                                                                        | 3005 byte 218 high; byte 233 low                                                              |
+| Endako        | Electrolyzer puzzle 4    | 20                 | class 2568 (`func_L03_003D19C8`): set off, asks for scene 50 unless chunk 5 byte 7 is set; the scene's end (`func_L03_003D2018`) sets byte 7                                                                                   | 3005 byte 10 low, chunk 43 byte 0x32 bit 2 (scene 50), chunk 5 byte 7                         |
+| Barlow        | Electrolyzer puzzle      | 561                | class 3725 (`func_L04_00441178`) stores chunk 5 byte 0x0F; class 4439 (`func_L04_00455520`), watching it, marks its group 7 done, plays scene 56 and removes itself                                                            | 3005 byte 280 high, chunk 5 byte 0x0F, 3004 byte 7 bit 7, chunk 43 byte 0x3B bit 0 (scene 56) |
+| Dobbo         | Electrolyzer puzzle      | 182, group 5       | the Hrugis Cloud coordinates seller, class 3600 (`func_L09_00408478`): after his first scene (scene 95, chunk 43 bit 767) he waits in state 3 until set off, then stores chunk 5 byte 0x1F and offers the sale (scene 96 next) | 3005 byte 91 low, 3004 byte 5 bit 7, chunk 5 byte 0x1F                                        |
+| Todano        | Electrolyzer puzzle      | 665, group 1       | the dam's lift, class 4056 (`func_L12_0041EA18`): runs only while set off                                                                                                                                                      | 3005 byte 332 high, 3004 byte 1 bit 7                                                         |
+| Smolg         | Electrolyzer puzzle      | 32                 | a lift, class 2215 (`func_L17_003C3330`, `needsTrigger`)                                                                                                                                                                       | 3005 byte 16 low                                                                              |
+| Yeedil        | Electrolyzer puzzle      | 26                 | a lift, class 4675 (`func_L20_00446FA8`): moves only while set off                                                                                                                                                             | 3005 byte 13 low                                                                              |
+
+The Museum (level 30) has the board's code but no level section in the save. No other code stores the
+story bytes above: a scan of every level's and the executable's disassembly for `lui 0x14` plus
+their offsets (-0x6A45, -0x6A41, -0x6A39, -0x6A29) finds only these stores.
+
+**Proof** (Mac, hidden, port binary of f571b4b47 and its format data). For each board, a `--level N`
+run (`OPENRAC_DIRECT`) with `OPENRAC_WRITE` holding the board's count at 1 (and its group bit and
+the linked mobys' story bytes) from frame 1, so the level starts with them as a load leaves them,
+against the same run without; a RAM dump at frame 2400. With the count every board started solved
+(state 5) and its linked mobys were set off (+0xBE bit 2); without it every board was in state 1
+and nothing was set off. The save chunks of the two dumps (every chunk of both save tables, less
+the clocks) differ only in the places of the table: Dobbo's seller and the Todano lift set off,
+Barlow's watcher gone (state 253) with scene 56's bit and group 7 set, Endako's 2568 asking for
+scene 50 (its bit set). The rest of the differences are left out: Maktar's first board's platforms
+autosave, which writes the level map (chunks 3002 and 15) and chunk 5 +0xA7 bit 2; with Todano's
+group 1 done, members of the group set bit 3 of their own nibbles (not counts). A save edited by
+the editor writes the same bytes (`an_electrolyzer_puzzle_is_reset_with_what_it_opened`). Loading a
+card from the title was not scripted on the Mac (the title presses of L-6b did not reach the load
+there), so the proof is of the level start, which is what a load ends in.
+
+**To replay Dobbo's puzzle**: Advanced, Dobbo, clear "Electrolyzer puzzle solved", write, then
+load the save (the save must not be on Dobbo while Dobbo is loaded in a running game). The board
+plays again; the seller waits for it if his first scene was seen, and "Hrugis Cloud coordinates
+offered" (scene 96, chunk 43 bit 768) cleared too sends him back to before the offer.
 
 ## The advanced fields
 

@@ -1,0 +1,1377 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 3 Oct 2026 21:47:04 +0000
+Subject: register arguments
+
+Pass the arguments the console left in registers.
+
+The C relied on a register still holding a value at a call (a0-a3, $f12-$f15) or on a
+function's result left in $v0/$f0. On the console that works; translated by hostgen for the
+port, the callee gets 0 or a stale value. Each function now takes and passes what the retail
+code passes. Same registers, no move added, so the PS2 build is unchanged.
+
+- get_help_message_text (FUN_001fdd10): the message id is a parameter, passed on to the index
+  search. The C took no argument and relied on the id still in a0; translated, every message was
+  message 0's (the title menu showed a weapon tip). Commit 0a6feb65.
+- setup_level_cameras (FUN_L00_001ed358): clear_vector and normalize_vector_xyz declared with
+  __asm__("func_001F99F8") and __asm__("FUN_001f9bf8"). The plain names are no symbol of this
+  build; the retail code calls those two (jal at 0x1ED408 and 0x1ED428).
+- FUN_L00_001ed630: takes (a, b, c) and passes b, c to subtract_vector_xyz. The C took one
+  argument and called the subtraction with one; the retail code leaves the caller's a1 and a2 in
+  place for it, and every caller passes them.
+- FUN_L00_002e48a0: takes the scale as a second (float) parameter and passes it to the first
+  FUN_001f9a68. The C dropped it; the retail code passes the caller's $f12 on. Translated, the
+  scale came out as 0.
+- refresh_point_light (FUN_00201f58): detach_point_light and create_point_light declared with
+  their s32 parameter, and the light index passed to the first. The C called
+  detach_point_light() with nothing and relied on a0 still holding the index (the retail code
+  moves it to s0 only for the second call, in the first jal's delay slot). The call goes through
+  each level's own copy (a folded wrapper), so translated it went through a K&R pointer with no
+  argument: on Aridia (level 2) the light code read a host address as a game one and the program
+  stopped.
+- transform_scaled_vertex_batch (FUN_0020cd48): func_002106F8 declared with its four parameters,
+  and object, count, point_indices, cursor passed. The C called it with (void) and relied on
+  a0-a3 still holding the caller's arguments (the jal at 0x20CD7C, its delay slot a float
+  multiply); translated, the callee got four zeros and built no point table. Checked against
+  config/us/expected/asm/rendering/geometry/transform_scaled_vertex_batch/FUN_0020cd48.s, not
+  rebuilt.
+- FUN_L00_00262cf0: takes (a, b, scale, yaw, pitch) and passes the three floats to
+  build_spherical_offset. The C took two arguments and called the offset builder with only the
+  buffer; the retail code leaves the caller's $f12-$f14 in place for it (jal at 0x27B530 with no
+  float setup), and every caller passes them. Translated, the offset came out from zero scale
+  and angles.
+- FUN_L00_0023e838: detach_point_light declared with its int parameter, and i passed. The C
+  called detach_point_light() with nothing and relied on a0 still holding i (the retail jal
+  FUN_00201f88 has daddu $16, $4, $0 in its delay slot and a0 untouched); translated, the light
+  index was 0.
+- force_help_message (FUN_002151d8): try_set_help_message declared with (s32, s32) and passed
+  owner, message_id. The C called it with nothing and relied on a0/a1 still holding them (jal
+  FUN_00215130 with the arguments untouched); translated, the owner and message were 0. Checked
+  against the assembly, not rebuilt.
+- get_occlusion_grid_from_pair (FUN_001f2768): returns s32, the result of the last
+  parse_occlusion_grid; the first call passes the first cell's x, y, z. The C returned void and
+  called the first lookup with no arguments (a0-a2 left in place, delay slot nop);
+  build_occlusion_visibility reads the result as the grid pointer. Checked against the assembly,
+  not rebuilt.
+- FUN_L14_002b5730: FUN_L00_0025d808 declared with its six parameters and passed the caller's
+  f12. The retail code leaves $f12 in place for the call; the C passed five arguments and the
+  float was 0. Same registers, no move added.
+- is_value_within_interpolated_window (FUN_00214cc8): compute_interpolated_record_value declared
+  with its pointer parameter, and anim passed. The C called it with nothing and relied on a0
+  still holding anim (the retail jal FUN_0020c9e0 follows daddu $16, $4, $0, a0 untouched);
+  translated, the keyframe record was read from a stale register.
+- clamp_voice_position_to_collision (FUN_0022c5a8): random_spherical_offset declared with its
+  s32 first parameter, and position passed. The C called it with the two floats only and relied
+  on a0 still holding position (the retail jal FUN_00213358 has daddu $16, $4, $0 in its delay
+  slot, a0 untouched); translated, the offset was written to a stale pointer. Checked against
+  build/baseline/config/us/expected/asm/audio/sound/fun_0022c5a8/FUN_0022c5a8.s, not rebuilt.
+- FUN_L00_0020d540: takes slot and passes it to FUN_L00_0020d498. The C took no argument and
+  called the slot lookup with nothing; the retail jal FUN_L00_0020d498
+  (config/us/overlays/asm/FUN_L00_0020d540.s) leaves the caller's a0 in place, and the one
+  caller passes the slot index. Same registers, no move added. Not rebuilt.
+- resolve_camera_surface_height (FUN_002135f0): sample_surface_height_map declared with its
+  second (s32) parameter and optional_output passed to it. The C dropped it; the retail code
+  leaves the caller's a1 in place (it is saved to s1 first, and jal follows with a1 untouched),
+  so the callee fills the normal there. Translated, the normal pointer was 0 and the normal
+  never written.
+- FUN_L00_002336e8: takes (out, in, x) and passes out, in, -x to FUN_L00_002334d0. The C took
+  one argument and called with one; the retail code negates $f12 and jumps with a0 and a1
+  untouched (neg.s in the delay slot of the jal). Translated, both vector pointers were 0.
+- FUN_L00_0025da70: returns the float of FUN_001f9b80 or FUN_001f9b48 (declared float). The C
+  returned void; the retail code leaves that result in $f0, and FUN_L00_0025dcd8 and
+  FUN_L00_0025df68 read it as the distance.
+- FUN_L00_0024f3e0: FUN_L00_0024f190 called as advance_moby_animation_blend (its definition in
+  the same file, with its two parameters) and a0, a1 passed. The C called it with nothing; the
+  retail code passes its own a0 and a1 (the second is the animation state the callee works on).
+  Translated, the state pointer was 0.
+- FUN_L00_00263ac8 (level 0's copy, the one attach_manipulator is called from):
+  attach_manipulator declared with its three parameters, and (void *)owner_moby, slot_index,
+  manipulator passed. The C called it with nothing and relied on a0-a2 still holding the
+  caller's arguments (jal FUN_0020cb10 at 0x263AFC, delay slot nop, daddu $16, $6, $0 at entry
+  and no move before the call); translated, the manipulator was attached to a stale owner. Same
+  registers, no move added. Checked against
+  build/overlay-asm/level_00/split/f00263AC8/FUN_L00_00263ac8.s, not rebuilt.
+- extract_matrix_rotation_quaternion (FUN_002144d8): copy_matrix_rotation declared with its
+  second (s32) parameter and passed destination_matrix. The C called it with the buffer alone;
+  the retail code leaves the caller's a1 in $5 for it, and FUN_001fa298 reads its source from
+  there (a copy of the destination matrix into the scratch buffer). Translated, the source was
+  0.
+- FUN_L01_002b8288 (water ripple wrapper): takes (a, b, x, y, radius, amount) and passes the
+  four floats on to FUN_L00_002a3ec8 after the 0 mode. The C took two arguments and called the
+  ripple with three; the retail code is jal FUN_L00_002a3ec8 with only daddu $6, $0, $0 in the
+  delay slot, leaving the caller's $f12-$f15 in place (its callers in rocket.c and
+  taxi_platform.c pass them). Translated, every ripple had zero position, radius and strength.
+  Checked against the assembly, not rebuilt.
+- FUN_L00_0020f160 (hero hand-matrix smoothing): takes (arg, entry) and passes entry to
+  copy_matrix3x4_alt (FUN_001fa2b8) as its source. The C took one argument and called the
+  48-byte copy with only its destination; the retail code leaves the caller's a1 (its only
+  caller, FUN_L00_0020f580, passes D_0013FE10 + index * 0x40 there) in place for the jal at
+  0x20F1B4 and never touches it before. Translated, the copy read its source from a 0. Checked
+  against build/overlay-asm/level_00/split/f0020F160/FUN_L00_0020f160.s, not rebuilt.
+- FUN_L00_0020fca8 (removes Ratchet's hand items): the item's update pointer takes the moby and
+  is called as item_moby->fn(item_moby). The C called it with no argument; the retail code loads
+  the moby into $4 before the jalr, so the update gets it. Translated, the update (the wrench's,
+  FUN_L00_002a84c8) got a garbage moby and the pause menu's Weapons page crashed once the menu's
+  hooks reached this function (957f9ffb).
+- FUN_L00_00236458 (the air meter's update, its stars): takes the HUD element e and passes it to
+  FUN_L00_00235ea0. The C took no argument and called the counter update with nothing; the
+  retail code (config/us/overlays/asm/FUN_L00_00236458.s) does jal FUN_L00_00235ea0 first thing
+  with a0 untouched (delay slot nop), and the HUD loop (FUN_L00_0023ac78) calls the element's
+  update with the element in a0. Translated, the element was 0 and its value pointer was read
+  from game address 0xC: on Pokitaru (level 11) the game stopped at 0x05550555 as soon as
+  Ratchet dived. Same registers, no move added. Not rebuilt.
+- FUN_L07_00281ef8: takes (id, idx, a, b) and passes idx, a, b to FUN_L00_002591d0. The C took
+  one argument and called the group lookup with only &current; the retail jal FUN_L00_002591d0
+  at 0x281F08 (delay slot daddu $4, $29, $0) leaves the caller's a1-a3 in place, and the taxi
+  platform passes (m, group, 1, 0). Translated, every lookup was of group 0 with both flags
+  clear (46,848 calls on Umbris in a regression run). PAL's matched func_L07_00282EB0 already
+  does this. Not rebuilt.
+- FUN_L02_002a40d0: takes the scale as a second (float) parameter and passes it on to
+  FUN_L02_002a4058. The retail code only sets a1 to 0x80 in the delay slot of the jal at
+  0x2A40D8 and leaves the caller's $f12 in place (electric_gate.c passes 1.0); translated, the
+  table was scaled by 0. PAL's func_L02_002A52B0 already does this. Not rebuilt.
+- FUN_L04_002927d0: takes (moby, rig, t) and passes t to walker_gait_mask (FUN_L00_002a13f0,
+  declared (int *, float)). The C passed rig where the mask takes its float; retail leaves the
+  caller's $f12 in place for the jal at 0x29280C (both callers declare the float) and the mask
+  never reads a1. PAL's LegRig_GetAnimMode already does this. Not rebuilt.
+- FUN_L09_0021e560, FUN_L09_0021e8c0: the strip builder takes (tex0, tex1, fraction) and passes
+  fraction to FUN_L02_0024fca0 (declared with its seventh, float parameter); FUN_L09_0021e8c0's
+  unused float is that fraction, passed on. Neither function touches $f12 before its jal
+  (0x21E690, 0x21E90C), so the caller's float reaches the interpolation; translated, it was 0.
+  Not rebuilt.
+- video_dec_end_put (FUN_0023cc10): takes (video_dec, bytes) and passes bytes to vi_buf_end_put
+  (declared (s32, s32)). Retail only adds 0x48 to a0 in the delay slot of the jal at 0x23CC18
+  and leaves a1 in place; both callers pass the count. Translated, the buffer was advanced by 0
+  bytes. Not rebuilt.
+- FUN_L00_002ea7a0: takes the camera as its parameter and passes it to FUN_L00_002e9ef0. The C
+  took nothing and called the reset with nothing; retail leaves the caller's a0 in place for the
+  jal at 0x2EA7E4, and FUN_L00_002e9ef0 reads p + 0x70. Not rebuilt.
+- the grab-check wrappers FUN_L00_002cadc0, FUN_L00_002d56e0, FUN_L01_002efa88,
+  FUN_L01_002f1c78, FUN_L02_002d61c0, FUN_L06_002ea5e0, FUN_L11_00316160, FUN_L12_002e16b8,
+  FUN_L17_002efea8, FUN_L18_002d6108, FUN_L18_002fcbb0: each takes (moby, pos, target) and
+  passes pos, target to FUN_L00_002db8f8 (a _pt declaration with its three parameters). Each
+  wrapper only moves a0 to s0 in the jal's delay slot and leaves the caller's a1, a2 in place
+  (every level copy checked), and FUN_L00_002db8f8 reads both. PAL's matched copies
+  (func_L00_002CC210 and the others) already pass them. Not rebuilt.
+- FUN_L01_002efaf8, FUN_L02_002d6210, FUN_L06_002ea6a8, FUN_L11_00316210, FUN_L12_002e1758,
+  FUN_L18_002d6190: each takes (moby, quad) and passes quad to FUN_L00_002dbb20. As above, for
+  the second argument (a1), which FUN_L00_002dbb20 reads. Not rebuilt.
+- FUN_L00_002da218 (a carried moby's class hook 4, the placing): takes (moby, b) and passes b to
+  the hook. The C took one argument; the retail code
+  (build/overlay-asm/level_00/split/f002DA218/FUN_L00_002da1e0.s) never touches a1 before its
+  jalr, and its one caller (FUN_L00_002dc9f0, a moby flying into the Suck Cannon) passes the
+  cannon's muzzle there, where the hook (FUN_L00_002dbb20) puts the moby. Translated, the hook
+  got a stale register for its position. Same registers, no move added. Not rebuilt (PAL's
+  func_L00_002DB6C8 with the same change builds EXACT).
+- FUN_L00_002cadc0, FUN_L00_002d56e0, FUN_L01_002efaf8, FUN_L01_002f1c78, FUN_L02_002d61c0,
+  FUN_L06_002ea6a8, FUN_L11_00316210, FUN_L12_002e1758, FUN_L17_002efea8, FUN_L18_002d6190,
+  FUN_L18_002fcbb0 (the Suck Cannon hooks of its targets' classes): each takes (moby, position,
+  target, float height) and passes all four to its callee, declared so (FUN_L00_002db8f8_h,
+  FUN_L00_002dbb20_h). The catalogue folds each class's grab, place and fire wrappers into one
+  name, and each copy calls its own of FUN_L00_002db8f8, FUN_L00_002dbb20 and the fire
+  FUN_L00_002dbc30 (moby, velocity, target, height); the retail code touches none of a1, a2 and
+  $f12 before its jal (e.g. build/overlay-asm/level_06/split/f002EA6A8/FUN_L06_002ea6a8.s). The
+  port runs each copy's own callee (hostgen, openrac_call_in_copy), so the fire got a stale
+  target and height from the C that took two or three. Same registers, no move added. Not
+  rebuilt (PAL's same change to its eleven builds EXACT).
+- hud_update_counter (FUN_L00_00235ea0): its __asm__ label on a declaration of its own before
+  the old-style definition, not after the parameter declaration. void f(e) HudElem *e
+  __asm__(".."); labels the parameter, which Clang refuses, so hostgen left the whole file out.
+  Same symbol, same instructions; not rebuilt.
+---
+ .../sound/clamp_voice_position_to_collision.c |  4 +-
+ src/camera/resolve_camera_surface_height.c    |  4 +-
+ .../extract_matrix_rotation_quaternion.c      |  4 +-
+ .../is_value_within_interpolated_window.c     |  4 +-
+ src/movies/decoder/video_dec_end_put.c        | 11 ++--
+ src/overlays/l02/mobys/sand_shark.c           |  7 ++-
+ src/overlays/l04/mobys/leg_walker.c           |  7 ++-
+ .../l07/mobys/matches_first_moby_in_group.c   | 10 ++--
+ .../l09/draw_level09_textured_surfaces.c      | 20 ++++---
+ src/overlays/l11/mobys/puffoid.c              | 19 +++---
+ src/overlays/l12/mobys/hoven_anklebiter.c     | 18 +++---
+ src/overlays/l14/mobys/minibomber.c           |  4 +-
+ src/overlays/l17/mobys/robot_dog.c            | 11 ++--
+ src/overlays/l18/mobys/gadgebot.c             | 11 ++--
+ src/overlays/l18/mobys/mine.c                 | 19 +++---
+ .../shared/camera/follow_camera_springs.c     |  9 +--
+ .../shared/camera/hero_aligned_camera.c       | 11 ++--
+ .../shared/camera/init_camera_system.c        |  8 +--
+ src/overlays/shared/enemies/frog.c            | 19 +++---
+ .../shared/enemies/ground_melee_enemy.c       | 11 ++--
+ src/overlays/shared/enemies/horny_toad.c      | 11 ++--
+ src/overlays/shared/enemies/large_amoeboid.c  | 19 +++---
+ .../shared/game/queue_planet_unlock_message.c |  8 +--
+ src/overlays/shared/hero/hero_switch_item.c   | 14 ++---
+ src/overlays/shared/hero/set_hero_animation.c |  8 +--
+ .../mobys/allocate_moby_animation_slot.c      |  2 +-
+ .../mobys/select_auto_aim_target_moby.c       |  4 +-
+ .../shared/mobys/suck_cannon_methods.c        | 11 ++--
+ src/overlays/shared/props/pool_set_scale.c    |  8 +--
+ .../rendering/build_interpolated_dma_packet.c |  9 +--
+ .../rendering/effects/glow_quads_draw.c       |  4 +-
+ .../rendering/effects/spawn_explosion.c       |  6 +-
+ src/overlays/shared/ui/hud/hud_keep_visible.c | 10 ++--
+ .../draw_moby_oscillating_textured_quads.c    | 11 ++--
+ .../shared/weapons/morphoray_chicken.c        | 11 ++--
+ src/rendering/lights/refresh_point_light.c    |  6 +-
+ .../occlusion/get_occlusion_grid_from_pair.c  | 58 +++++++++----------
+ .../packets/transform_scaled_vertex_batch.c   |  4 +-
+ src/ui/help/force_help_message.c              |  4 +-
+ src/ui/help/get_help_message_text.c           | 10 ++--
+ 40 files changed, 234 insertions(+), 195 deletions(-)
+
+diff --git a/src/audio/sound/clamp_voice_position_to_collision.c b/src/audio/sound/clamp_voice_position_to_collision.c
+index c554b8d..009c9c3 100644
+--- a/src/audio/sound/clamp_voice_position_to_collision.c
++++ b/src/audio/sound/clamp_voice_position_to_collision.c
+@@ -7,12 +7,12 @@ extern s32  collision_line() __asm__("func_001EFA68");
+ extern void fast_vec_add() __asm__("func_001F9A10");
+ extern void fast_vec_sub() __asm__("func_001F9A28");
+ extern void fast_vec_scale(s32, s32, f32) __asm__("func_001F9A68");
+-extern void random_spherical_offset(f32, f32) __asm__("func_00213358");
++extern void random_spherical_offset(s32, f32, f32) __asm__("func_00213358");
+ 
+ void clamp_voice_position_to_collision(s32 position) __asm__("FUN_0022c5a8");
+ 
+ void clamp_voice_position_to_collision(s32 position) {
+-    random_spherical_offset(0.5f, 6.0f);
++    random_spherical_offset(position, 0.5f, 6.0f);
+     fast_vec_add(position, position, camera_position);
+     if (collision_line(camera_position, position, 0x82, sound_probe_ignore[0], 0) != 0) {
+         fast_vec_sub(position, D_00194120, camera_position);
+diff --git a/src/camera/resolve_camera_surface_height.c b/src/camera/resolve_camera_surface_height.c
+index 1b5f366..1baafb7 100644
+--- a/src/camera/resolve_camera_surface_height.c
++++ b/src/camera/resolve_camera_surface_height.c
+@@ -14,7 +14,7 @@ struct CameraProbePosition {
+ extern f32  absolute_float(f32) __asm__("func_001F99C0");
+ extern void set_vector_unit_z(s32) __asm__("FUN_001f9a00");
+ extern f32  vector_distance_xy(struct CameraProbePosition *, s32 *) __asm__("FUN_001f9b80");
+-extern s32  sample_surface_height_map(f32 *, f32, f32, f32) __asm__("func_00239F58");
++extern s32  sample_surface_height_map(f32 *, s32, f32, f32, f32) __asm__("func_00239F58");
+ 
+ f32 resolve_camera_surface_height(struct CameraProbePosition *position,
+                                   s32 optional_output) __asm__("FUN_002135f0");
+@@ -23,7 +23,7 @@ f32 resolve_camera_surface_height(struct CameraProbePosition *position, s32 opti
+     f32 surface_height;
+     if (occl_cell_count != 0) {
+         surface_height = position->z;
+-        if (sample_surface_height_map(&surface_height, position->x, position->y, surface_height) !=
++        if (sample_surface_height_map(&surface_height, optional_output, position->x, position->y, surface_height) !=
+             0) {
+             return surface_height;
+         }
+diff --git a/src/math/rotations/extract_matrix_rotation_quaternion.c b/src/math/rotations/extract_matrix_rotation_quaternion.c
+index c49ec19..ab15657 100644
+--- a/src/math/rotations/extract_matrix_rotation_quaternion.c
++++ b/src/math/rotations/extract_matrix_rotation_quaternion.c
+@@ -1,6 +1,6 @@
+ #include "types.h"
+ 
+-extern s32 copy_matrix_rotation() __asm__("func_001FA298");
++extern s32 copy_matrix_rotation(void *, s32) __asm__("func_001FA298");
+ extern s32 copy_matrix3x4() __asm__("func_001FA2B8");
+ extern s32 matrix_to_quaternion() __asm__("func_00214260");
+ void       extract_matrix_rotation_quaternion(s32 output_quaternion,
+@@ -11,7 +11,7 @@ void extract_matrix_rotation_quaternion(s32 output_quaternion, s32 destination_m
+     u8 *temporary_rotation_matrix;
+ 
+     temporary_rotation_matrix = sp_slot;
+-    copy_matrix_rotation(temporary_rotation_matrix);
++    copy_matrix_rotation(temporary_rotation_matrix, destination_matrix);
+     /* Fakematch: the single-iteration do/while wrappers compile to plain
+        calls but select retail's callee-saved register roles. */
+     do {
+diff --git a/src/mobys/animation/is_value_within_interpolated_window.c b/src/mobys/animation/is_value_within_interpolated_window.c
+index d27136f..090160e 100644
+--- a/src/mobys/animation/is_value_within_interpolated_window.c
++++ b/src/mobys/animation/is_value_within_interpolated_window.c
+@@ -6,7 +6,7 @@ struct InterpolatedAnim {
+     f32 unk5C;
+ };
+ 
+-extern f32 compute_interpolated_record_value() __asm__("func_0020C9E0");
++extern f32 compute_interpolated_record_value(void *) __asm__("func_0020C9E0");
+ extern f32 round_float_to_decimal_places(s32, f32) __asm__("func_00214C48");
+ s32        is_value_within_interpolated_window(struct InterpolatedAnim *anim,
+                                                f32                      value) __asm__("FUN_00214cc8");
+@@ -17,7 +17,7 @@ s32 is_value_within_interpolated_window(struct InterpolatedAnim *anim, f32 thres
+     f32 rounded_value_overshoot;
+     s32 threshold_within_window;
+ 
+-    interp_value = compute_interpolated_record_value();
++    interp_value = compute_interpolated_record_value(anim);
+     rounded_value_overshoot = round_float_to_decimal_places(4, interp_value - threshold);
+     window = round_float_to_decimal_places(4, anim->unk58 * anim->unk5C);
+     threshold_within_window = 0;
+diff --git a/src/movies/decoder/video_dec_end_put.c b/src/movies/decoder/video_dec_end_put.c
+index 311dbe8..bb572c7 100644
+--- a/src/movies/decoder/video_dec_end_put.c
++++ b/src/movies/decoder/video_dec_end_put.c
+@@ -1,10 +1,11 @@
+ #include "types.h"
+ 
+-extern s32 vi_buf_end_put() __asm__("FUN_0023bf18");
+-void       video_dec_end_put(s32 video_dec) __asm__("FUN_0023cc10");
++extern s32 vi_buf_end_put(s32, s32) __asm__("FUN_0023bf18");
++void       video_dec_end_put(s32 video_dec, s32 bytes) __asm__("FUN_0023cc10");
+ 
+-void video_dec_end_put(s32 video_dec) {
+-    vi_buf_end_put(video_dec + 0x48);
++/* The byte count goes through untouched: retail only adds 0x48 to $a0 in the jal's delay slot. */
++void video_dec_end_put(s32 video_dec, s32 bytes) {
++    vi_buf_end_put(video_dec + 0x48, bytes);
+ }
+ 
+-extern void func_0023CC10(s32 video_dec) __attribute__((alias("FUN_0023cc10")));
++extern void func_0023CC10(s32 video_dec, s32 bytes) __attribute__((alias("FUN_0023cc10")));
+diff --git a/src/overlays/l02/mobys/sand_shark.c b/src/overlays/l02/mobys/sand_shark.c
+index 45bd66f..45de89b 100644
+--- a/src/overlays/l02/mobys/sand_shark.c
++++ b/src/overlays/l02/mobys/sand_shark.c
+@@ -1351,10 +1351,11 @@ void handle_sand_shark_damage_and_targeting(unsigned char *moby) {
+ extern char  D_L02_0015FFD8_c __asm__("D_L02_0015FFD8");
+ extern void *store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
+ 
+-void *handle_sand_shark_suck_cannon_storage(struct Moby *moby) __asm__("FUN_L02_002d6210");
++extern void *FUN_L00_002dbb20_pt(void *, void *) __asm__("FUN_L00_002dbb20");
++void *handle_sand_shark_suck_cannon_storage(struct Moby *moby, void *quad) __asm__("FUN_L02_002d6210");
+ 
+-void *handle_sand_shark_suck_cannon_storage(struct Moby *moby) {
+-    void *helper_result = store_moby_in_suck_cannon(moby);
++void *handle_sand_shark_suck_cannon_storage(struct Moby *moby, void *quad) {
++    void *helper_result = FUN_L00_002dbb20_pt(moby, quad);
+     if (helper_result) {
+         int spawner_moby_index;
+         moby->state = 9;
+diff --git a/src/overlays/l04/mobys/leg_walker.c b/src/overlays/l04/mobys/leg_walker.c
+index e2e857a..ac28dbe 100644
+--- a/src/overlays/l04/mobys/leg_walker.c
++++ b/src/overlays/l04/mobys/leg_walker.c
+@@ -124,9 +124,10 @@ void initialize_leg_rig(struct Moby *moby, LegRig *rig) {
+ }
+ /* Ported from rac1-decomp (src/overlays/l04_eudora/vuchain_00293490.c: func_L04_00293990), where it is exact; names translated to the US level program. */
+ 
+-extern int walker_gait_mask(int *a, char *b) __asm__("FUN_L00_002a13f0");
++extern int walker_gait_mask(int *a, float t) __asm__("FUN_L00_002a13f0");
+ 
+-int FUN_L04_002927d0(char *moby, char *rig) {
++/* The phase t (the caller's $f12) goes through untouched to the gait mask. */
++int FUN_L04_002927d0(char *moby, char *rig, float t) {
+     int **record_cursor = (int **)(rig + 0x70);
+     int  *found = 0;
+     int   i;
+@@ -137,7 +138,7 @@ int FUN_L04_002927d0(char *moby, char *rig) {
+     }
+     if (found == 0)
+         return (unsigned char)rig[0xB6];
+-    return walker_gait_mask(found, rig);
++    return walker_gait_mask(found, t);
+ }
+ /* Ported from rac1-decomp src/overlays/l04_eudora/vuchain_00293490.c (func_L04_002939E8) */
+ 
+diff --git a/src/overlays/l07/mobys/matches_first_moby_in_group.c b/src/overlays/l07/mobys/matches_first_moby_in_group.c
+index c1f3999..e9d6bd5 100644
+--- a/src/overlays/l07/mobys/matches_first_moby_in_group.c
++++ b/src/overlays/l07/mobys/matches_first_moby_in_group.c
+@@ -5,13 +5,13 @@
+ /* Test whether the current moby identifier matches the requested one. */
+ /* Ported from rac1-decomp (src/overlays/l07/mobyutil_00282EB0.c: func_L07_00282EB0), where it is exact; names translated to the US level program. */
+ 
+-extern void get_first_moby_in_group(int *) __asm__("FUN_L00_002591d0");
++extern void get_first_moby_in_group(int *, int, int, int) __asm__("FUN_L00_002591d0");
+ 
+-/* Returns whether the current id equals id. */
+-int matches_first_moby_in_group(int id) __asm__("FUN_L07_00281ef8");
++/* Returns whether the current id equals id; the lookup arguments pass straight through from the caller. */
++int matches_first_moby_in_group(int id, int idx, int a, int b) __asm__("FUN_L07_00281ef8");
+ 
+-int matches_first_moby_in_group(int id) {
++int matches_first_moby_in_group(int id, int idx, int a, int b) {
+     int current;
+-    get_first_moby_in_group(&current);
++    get_first_moby_in_group(&current, idx, a, b);
+     return current == id;
+ }
+diff --git a/src/overlays/l09/draw_level09_textured_surfaces.c b/src/overlays/l09/draw_level09_textured_surfaces.c
+index 3f1cfb9..bcc9e0b 100644
+--- a/src/overlays/l09/draw_level09_textured_surfaces.c
++++ b/src/overlays/l09/draw_level09_textured_surfaces.c
+@@ -24,7 +24,7 @@ extern char *texture_vertices __asm__("D_L09_0015F420") MACRO_ADDR;
+ extern char  level09_strip_texture_entry_table[] __asm__("D_L09_0016D300");
+ extern long  level09_strip_texture_transfer_packet[] __asm__("D_L09_00161FC0");
+ extern long  get_effect_texture(int) __asm__("FUN_001f44b8");
+-extern void  FUN_L02_0024fca0(void *, void *, void *, void *, void *, int);
++extern void  FUN_L02_0024fca0(void *, void *, void *, void *, void *, int, float);
+ 
+ typedef struct {
+     char           unused[8];
+@@ -34,10 +34,11 @@ typedef struct {
+ } TextureEntry;
+ 
+ /* Queues the GS packet for one texture (tex0 == tex1), or builds the strip between two texture entries and queues it. */
+-void queue_level09_strip_texture_packets(int first_texture_index,
+-                                         int second_texture_index) __asm__("FUN_L09_0021e560");
++void queue_level09_strip_texture_packets(int   first_texture_index,
++                                         int   second_texture_index,
++                                         float fraction) __asm__("FUN_L09_0021e560");
+ 
+-void queue_level09_strip_texture_packets(int first_texture_index, int second_texture_index) {
++void queue_level09_strip_texture_packets(int first_texture_index, int second_texture_index, float fraction) {
+     if (first_texture_index == second_texture_index) {
+         int  *packet;
+         long *words;
+@@ -73,7 +74,8 @@ void queue_level09_strip_texture_packets(int first_texture_index, int second_tex
+                          texture_vertices + (a_second << 4),
+                          texture_vertices + (b_first << 4),
+                          texture_vertices + (b_second << 4),
+-                         0x1000);
++                         0x1000,
++                         fraction);
+         PACKET_CURSOR[0] = 0x10000006;
+         PACKET_CURSOR[1] = 0;
+         PACKET_CURSOR[2] = 0;
+@@ -129,17 +131,17 @@ typedef struct {
+ extern char level09_scrolling_strip_gs_setup_packet[] __asm__("D_L09_0016EAA0");
+ extern int *D_L09_001611C0;
+ extern void FUN_L01_0021fa98(int, int, int, int, int, int);
+-extern void queue_level09_strip_texture_packets(int, int) __asm__("FUN_L09_0021e560");
++extern void queue_level09_strip_texture_packets(int, int, float) __asm__("FUN_L09_0021e560");
+ extern int *D_L09_001611B8[] MACRO_ADDR;
+ void        draw_level09_scrolling_textured_strips(char *list,
+                                                    int   count,
+-                                                   float unused,
++                                                   float fraction,
+                                                    long  first_texture_index,
+                                                    long  second_texture_index) __asm__("FUN_L09_0021e8c0");
+ 
+ void draw_level09_scrolling_textured_strips(
+ 
+-    char *list, int count, float unused, long first_texture_index, long second_texture_index) {
++    char *list, int count, float fraction, long first_texture_index, long second_texture_index) {
+     int   i;
+     int   j;
+     int   strip_vertex_index;
+@@ -147,7 +149,7 @@ void draw_level09_scrolling_textured_strips(
+     int   idx;
+     float first_scroll_offset;
+     float second_scroll_offset;
+-    queue_level09_strip_texture_packets(first_texture_index, second_texture_index);
++    queue_level09_strip_texture_packets(first_texture_index, second_texture_index, fraction);
+     D_L09_001611B8[2][0] = 0x30000009;
+     D_L09_001611B8[2][1] = (int)level09_scrolling_strip_gs_setup_packet;
+     D_L09_001611B8[2][2] = 0;
+diff --git a/src/overlays/l11/mobys/puffoid.c b/src/overlays/l11/mobys/puffoid.c
+index 22bfadd..d9173f3 100644
+--- a/src/overlays/l11/mobys/puffoid.c
++++ b/src/overlays/l11/mobys/puffoid.c
+@@ -978,13 +978,13 @@ s32 is_moby_in_bob_target_exclusion_state(const u8 *moby) {
+     return 0;
+ }
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *) __asm__("FUN_L00_002db8f8");
+ 
+ /* Grabbed check: while held, park the moby in state 0x14 (remembering its state) unless it cannot be grabbed; restore the saved state once released. */
+-int process_puffoid_suck_cannon_suction(struct Moby *moby) __asm__("FUN_L11_00316160");
++int process_puffoid_suck_cannon_suction(struct Moby *moby, void *pos, void *target) __asm__("FUN_L11_00316160");
+ 
+-int process_puffoid_suck_cannon_suction(struct Moby *moby) {
+-    int grab_check_result = process_moby_suck_cannon_suction(moby);
++int process_puffoid_suck_cannon_suction(struct Moby *moby, void *pos, void *target) {
++    int grab_check_result = process_moby_suck_cannon_suction(moby, pos, target);
+     if (grab_check_result != 0) {
+         if (moby->state == 2 || moby->state == 4 || moby->state == 5 || moby->state == 6 ||
+             moby->state == 0xE || moby->state == 0xF || moby->state == 0x10 ||
+@@ -1004,12 +1004,15 @@ int process_puffoid_suck_cannon_suction(struct Moby *moby) {
+ 
+ /* Ported from rac1-decomp (src/overlays/l11_pokitaru/vendor_00312BD8.c: func_L11_00317680), where it is exact; names translated to the US level program. */
+ 
+-extern void *store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
++extern void *store_moby_in_suck_cannon(void *, void *, void *, float) __asm__("FUN_L00_002dbb20");
+ 
+-void *moby_park_state_on_find(struct Moby *arg) __asm__("FUN_L11_00316210");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++void *moby_park_state_on_find(struct Moby *arg, void *quad, void *target, float h) __asm__("FUN_L11_00316210");
+ 
+-void *moby_park_state_on_find(struct Moby *suction_moby) {
+-    void *found = store_moby_in_suck_cannon(suction_moby);
++void *moby_park_state_on_find(struct Moby *suction_moby, void *quad, void *target, float h) {
++    void *found = store_moby_in_suck_cannon(suction_moby, quad, target, h);
+     if (found != 0) {
+         unsigned char state = suction_moby->state;
+         if (state != 0x14) {
+diff --git a/src/overlays/l12/mobys/hoven_anklebiter.c b/src/overlays/l12/mobys/hoven_anklebiter.c
+index 927e232..f988501 100644
+--- a/src/overlays/l12/mobys/hoven_anklebiter.c
++++ b/src/overlays/l12/mobys/hoven_anklebiter.c
+@@ -24,13 +24,14 @@
+ extern int  process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
+ extern void FUN_L01_0026e090(int, int);
+ 
+-int process_hoven_anklebiter_suck_cannon_suction(struct Moby *moby) __asm__("FUN_L12_002e16b8");
++extern int FUN_L00_002db8f8_pt(void *, void *, void *) __asm__("FUN_L00_002db8f8");
++int process_hoven_anklebiter_suck_cannon_suction(struct Moby *moby, void *pos, void *target) __asm__("FUN_L12_002e16b8");
+ 
+-int process_hoven_anklebiter_suck_cannon_suction(struct Moby *moby) {
++int process_hoven_anklebiter_suck_cannon_suction(struct Moby *moby, void *pos, void *target) {
+     int active;
+     if (moby->state == 9 || moby->state == 11 || moby->state == 13)
+         return 0;
+-    active = process_moby_suck_cannon_suction(moby);
++    active = FUN_L00_002db8f8_pt(moby, pos, target);
+     if (active) {
+         if (moby->group != 0xFF)
+             FUN_L01_0026e090(moby->group, 1);
+@@ -41,13 +42,16 @@ int process_hoven_anklebiter_suck_cannon_suction(struct Moby *moby) {
+     return active;
+ }
+ 
+-extern int store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
++extern int store_moby_in_suck_cannon(void *, void *, void *, float) __asm__("FUN_L00_002dbb20");
+ 
+ /* Suck cannon store method: state 8 while the suck cannon holds the moby, back to 1 when it lets go. */
+-int store_hoven_anklebiter_in_suck_cannon(struct Moby *a) __asm__("FUN_L12_002e1758");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int store_hoven_anklebiter_in_suck_cannon(struct Moby *a, void *quad, void *target, float h) __asm__("FUN_L12_002e1758");
+ 
+-int store_hoven_anklebiter_in_suck_cannon(struct Moby *carried_moby) {
+-    int suck_cannon_store_result = store_moby_in_suck_cannon(carried_moby);
++int store_hoven_anklebiter_in_suck_cannon(struct Moby *carried_moby, void *quad, void *target, float h) {
++    int suck_cannon_store_result = store_moby_in_suck_cannon(carried_moby, quad, target, h);
+     if (suck_cannon_store_result == 0) {
+         if (carried_moby->state == 0x8)
+             carried_moby->state = 1;
+diff --git a/src/overlays/l14/mobys/minibomber.c b/src/overlays/l14/mobys/minibomber.c
+index c5de548..c25dbfd 100644
+--- a/src/overlays/l14/mobys/minibomber.c
++++ b/src/overlays/l14/mobys/minibomber.c
+@@ -806,7 +806,7 @@ extern float FUN_L00_0025b8c0_5730(
+ 
+ extern void steer_5730(char *moby, float *vel, float target, float k, float d, float max) __asm__("FUN_L00_00258278");
+ 
+-extern int FUN_L00_0025d808_5730() __asm__("FUN_L00_0025d808");
++extern int FUN_L00_0025d808_5730(char *tab, float *out, int a, int b, int c, float d) __asm__("FUN_L00_0025d808");
+ 
+ int advance_minibomber_along_path(struct Moby *moby,
+                                   char        *path,
+@@ -838,7 +838,7 @@ int advance_minibomber_along_path(struct Moby *moby,
+                                   float heading_velocity_limit) {
+     float path_target_position[3];
+     int   path_sample_result = FUN_L00_0025d808_5730(
+-        path, path_target_position, segment_index_address, segment_distance_address, 0);
++        path, path_target_position, segment_index_address, segment_distance_address, 0, path_step_distance);
+     FUN_L00_0025b8c0_5730(&moby->pos.x,
+                           position_easing_velocity,
+                           path_target_position[0],
+diff --git a/src/overlays/l17/mobys/robot_dog.c b/src/overlays/l17/mobys/robot_dog.c
+index 7978ebf..cfdf6bd 100644
+--- a/src/overlays/l17/mobys/robot_dog.c
++++ b/src/overlays/l17/mobys/robot_dog.c
+@@ -707,12 +707,15 @@ int move_robot_dog_toward_position(struct Moby *moby, float *target, float speed
+ 
+ /* Ported from rac1-decomp (src/overlays/l17_fleet/vendor_002F1558.c: func_L17_002F19B8), where it is exact; names translated to the US level program. */
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+-int enemy_stun_update(struct Moby *moby) __asm__("FUN_L17_002efea8");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int enemy_stun_update(struct Moby *moby, void *pos, void *target, float h) __asm__("FUN_L17_002efea8");
+ 
+-int enemy_stun_update(struct Moby *moby) {
+-    int suction_status = process_moby_suck_cannon_suction(moby);
++int enemy_stun_update(struct Moby *moby, void *pos, void *target, float h) {
++    int suction_status = process_moby_suck_cannon_suction(moby, pos, target, h);
+     if (suction_status) {
+         moby->state = 12;
+     } else if (moby->state == 12) {
+diff --git a/src/overlays/l18/mobys/gadgebot.c b/src/overlays/l18/mobys/gadgebot.c
+index d34e730..dd68895 100644
+--- a/src/overlays/l18/mobys/gadgebot.c
++++ b/src/overlays/l18/mobys/gadgebot.c
+@@ -634,13 +634,16 @@ void draw_group_gadgebot_joint_glows(struct Moby *moby) {
+     }
+ }
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+-int update_moby_suck_cannon_state(struct Moby *a) __asm__("FUN_L18_002fcbb0");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int update_moby_suck_cannon_state(struct Moby *a, void *pos, void *target, float h) __asm__("FUN_L18_002fcbb0");
+ 
+ /* Method: holds the gadgebot in state 7 while the suck cannon pulls it, and puts it back to state 2 when it lets go. */
+-int update_moby_suck_cannon_state(struct Moby *moby) {
+-    int suction_result = process_moby_suck_cannon_suction(moby);
++int update_moby_suck_cannon_state(struct Moby *moby, void *pos, void *target, float h) {
++    int suction_result = process_moby_suck_cannon_suction(moby, pos, target, h);
+     if (suction_result == 0) {
+         if (moby->state == 0x7)
+             moby->state = 0x2;
+diff --git a/src/overlays/l18/mobys/mine.c b/src/overlays/l18/mobys/mine.c
+index 482c910..feb4d1d 100644
+--- a/src/overlays/l18/mobys/mine.c
++++ b/src/overlays/l18/mobys/mine.c
+@@ -365,13 +365,13 @@ void update_mine_detonation(unsigned char *moby) {
+ }
+ /* Pauses the moby in state 4 while the check holds, restoring its old state after. */
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *) __asm__("FUN_L00_002db8f8");
+ 
+-int update_moby_state_pause(struct Moby *moby) __asm__("FUN_L18_002d6108");
++int update_moby_state_pause(struct Moby *moby, void *pos, void *target) __asm__("FUN_L18_002d6108");
+ 
+-int update_moby_state_pause(struct Moby *moby) {
++int update_moby_state_pause(struct Moby *moby, void *pos, void *target) {
+     char *moby_vars = (char *)moby->pvars;
+-    int   state_pause_result = process_moby_suck_cannon_suction(moby);
++    int   state_pause_result = process_moby_suck_cannon_suction(moby, pos, target);
+     if (state_pause_result != 0) {
+         unsigned char current_state = moby->state;
+         if ((unsigned)(current_state - 3) < 2) {
+@@ -396,12 +396,15 @@ int update_moby_state_pause(struct Moby *moby) {
+ /* Switch to state four while active, then restore the saved state. */
+ /* Ported from rac1-decomp (src/overlays/l18/vendor_002A8400.c: func_L18_002D7580), where it is exact; names translated to the US level program. */
+ 
+-extern int store_moby_in_suck_cannon(struct Moby *) __asm__("FUN_L00_002dbb20");
++extern int store_moby_in_suck_cannon(struct Moby *, void *, void *, float) __asm__("FUN_L00_002dbb20");
+ 
+-int moby_hold_state_while_active(struct Moby *moby) __asm__("FUN_L18_002d6190");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int moby_hold_state_while_active(struct Moby *moby, void *quad, void *target, float h) __asm__("FUN_L18_002d6190");
+ 
+-int moby_hold_state_while_active(struct Moby *moby) {
+-    int active = store_moby_in_suck_cannon(moby);
++int moby_hold_state_while_active(struct Moby *moby, void *quad, void *target, float h) {
++    int active = store_moby_in_suck_cannon(moby, quad, target, h);
+     if (active != 0) {
+         moby->state = 4;
+     } else if (moby->state == 4) {
+diff --git a/src/overlays/shared/camera/follow_camera_springs.c b/src/overlays/shared/camera/follow_camera_springs.c
+index afa25dc..e5745a0 100644
+--- a/src/overlays/shared/camera/follow_camera_springs.c
++++ b/src/overlays/shared/camera/follow_camera_springs.c
+@@ -86,7 +86,7 @@ extern void  FUN_001f9a68_c3(void *, void *, float) __asm__("FUN_001f9a68");
+ extern int   FUN_001f96f8_c(int) __asm__("FUN_001f96f8");
+ extern void  FUN_001f9a10_c(void *, void *, void *) __asm__("FUN_001f9a10");
+ extern void  FUN_001f9a68_c(void *, void *, float) __asm__("FUN_001f9a68");
+-extern void  vcopy_2e48a0(void *, void *) __asm__("FUN_001f9a68");
++extern void  vcopy_2e48a0(void *, void *, float) __asm__("FUN_001f9a68");
+ extern int   FUN_001f9770_c2(void *) __asm__("FUN_001f9770");
+ extern void  FUN_L00_002e48a0_c(void *out, float f) __asm__("FUN_L00_002e48a0");
+ extern int   FUN_001f96f8_c2(int) __asm__("FUN_001f96f8");
+@@ -813,12 +813,13 @@ void apply_follow_camera_translation(char *camera) {
+     }
+ }
+ 
+-void compute_follow_camera_offset_target_up_projection(void *out) __asm__("FUN_L00_002e48a0");
++/* s (in $f12, every caller passes it) scales g + 0x20 in the first call. */
++void compute_follow_camera_offset_target_up_projection(void *out, float s) __asm__("FUN_L00_002e48a0");
+ 
+-void compute_follow_camera_offset_target_up_projection(void *out_target_up_projection) {
++void compute_follow_camera_offset_target_up_projection(void *out_target_up_projection, float s) {
+     V4    offset_target_position, hero_position;
+     char *camera_view = D_L00_00166E10;
+-    vcopy_2e48a0(offset_target_position, camera_view + 0x20);
++    vcopy_2e48a0(offset_target_position, camera_view + 0x20, s);
+     follow_camera_hero_target(*(int *)(camera_view - 0x10), hero_position);
+     fast_vec_add(offset_target_position, offset_target_position, hero_position);
+     fast_vec_scale(out_target_up_projection,
+diff --git a/src/overlays/shared/camera/hero_aligned_camera.c b/src/overlays/shared/camera/hero_aligned_camera.c
+index 33e1c24..17291aa 100644
+--- a/src/overlays/shared/camera/hero_aligned_camera.c
++++ b/src/overlays/shared/camera/hero_aligned_camera.c
+@@ -120,7 +120,7 @@ extern void  FUN_001f9a68_2ea488(void *, void *, f32) __asm__("FUN_001f9a68");
+ extern void  FUN_001f9a28_2ea488(void *, void *, void *) __asm__("FUN_001f9a28");
+ extern f32   FUN_001f9af0_2ea488(void *) __asm__("FUN_001f9af0");
+ extern void  init_camera_system(void) __asm__("FUN_L00_001ed280");
+-extern void  FUN_L00_002e9ef0_v(void) __asm__("FUN_L00_002e9ef0");
++extern void  FUN_L00_002e9ef0_v(char *) __asm__("FUN_L00_002e9ef0");
+ extern float FUN_001f9ab0_2ea810(void *, void *) __asm__("FUN_001f9ab0");
+ extern void  FUN_001f9a68_2ea810(void *, void *, float) __asm__("FUN_001f9a68");
+ extern void  FUN_001f9a28_2ea810(void *, void *, void *) __asm__("FUN_001f9a28");
+@@ -521,11 +521,12 @@ tail:
+     return 0;
+ }
+ 
+-/* Sets s to 1 (2 if set), resets l00_camera, calls 002e9ef0, allocates a voice for its p. */
++/* Sets s to 1 (2 if set), resets l00_camera, calls 002e9ef0 on the caller's camera (its a0, passed
++ * through untouched), allocates a voice for its p. */
+ /* Ported from rac1-decomp (src/overlays/shared/vendor_002EB0D8.c: func_L00_002EBC50), where it is exact; names translated to the US level program. */
+-void initialize_hero_aligned_camera_mode(void) __asm__("FUN_L00_002ea7a0");
++void initialize_hero_aligned_camera_mode(char *camera) __asm__("FUN_L00_002ea7a0");
+ 
+-void initialize_hero_aligned_camera_mode(void) {
++void initialize_hero_aligned_camera_mode(char *camera) {
+     LevelCamera *shared_camera_globals = &l00_camera;
+     LevelCamera *camera_globals;
+     if (shared_camera_globals->unk270 == 0)
+@@ -536,7 +537,7 @@ void initialize_hero_aligned_camera_mode(void) {
+     camera_globals->unk273 = 0;
+     camera_globals->unk294 = 0.05f;
+     camera_globals->unk288 = 0.05f;
+-    FUN_L00_002e9ef0_v();
++    FUN_L00_002e9ef0_v(camera);
+     if (camera_globals->unk254 != 0)
+         allocate_voice_for_target_entry(0, 0, camera_globals->unk254);
+ }
+diff --git a/src/overlays/shared/camera/init_camera_system.c b/src/overlays/shared/camera/init_camera_system.c
+index 8d4aa55..9ab8145 100644
+--- a/src/overlays/shared/camera/init_camera_system.c
++++ b/src/overlays/shared/camera/init_camera_system.c
+@@ -293,15 +293,15 @@ void compute_position_from_spherical_offset(float *output_position,
+ 
+ typedef float W[4] __attribute__((aligned(16)));
+ 
+-extern void subtract_vector_xyz(float *) __asm__("FUN_001f9a28");
++extern void subtract_vector_xyz(float *, float *, float *) __asm__("FUN_001f9a28");
+ 
+ /* Fills a from a subtract_vector_xyz result: two fast_arc_tan angles and its length. */
+-int compute_spherical_offset_from_positions(float *angles_and_distance) __asm__("FUN_L00_001ed630");
++int compute_spherical_offset_from_positions(float *angles_and_distance, float *b, float *c) __asm__("FUN_L00_001ed630");
+ 
+-int compute_spherical_offset_from_positions(float *angles_and_distance) {
++int compute_spherical_offset_from_positions(float *angles_and_distance, float *b, float *c) {
+     W     difference_vector;
+     float xy_angle;
+-    subtract_vector_xyz(difference_vector);
++    subtract_vector_xyz(difference_vector, b, c);
+     angles_and_distance[1] =
+         fast_arc_tan(vector_length_xy(difference_vector), difference_vector[2]);
+     xy_angle = fast_arc_tan(difference_vector[0], difference_vector[1]);
+diff --git a/src/overlays/shared/enemies/frog.c b/src/overlays/shared/enemies/frog.c
+index fad54aa..7745554 100644
+--- a/src/overlays/shared/enemies/frog.c
++++ b/src/overlays/shared/enemies/frog.c
+@@ -886,12 +886,13 @@ void spawn_moby_death_effect_burst(char *moby) {
+     }
+ }
+ 
++extern int FUN_L00_002db8f8_pt(void *, void *, void *) __asm__("FUN_L00_002db8f8");
+ /* Grabbed check: while FUN_L00_002db8f8 holds the moby, park it in state 0x10 (remembering the state it came from)
+    unless it is in a state that cannot be grabbed; once released, drop it back to state 8. */
+-int update_moby_grab_state(struct Moby *moby) __asm__("FUN_L06_002ea5e0");
++int update_moby_grab_state(struct Moby *moby, void *pos, void *target) __asm__("FUN_L06_002ea5e0");
+ 
+-int update_moby_grab_state(struct Moby *moby) {
+-    int grab_check_result = process_moby_suck_cannon_suction(moby);
++int update_moby_grab_state(struct Moby *moby, void *pos, void *target) {
++    int grab_check_result = FUN_L00_002db8f8_pt(moby, pos, target);
+     if (grab_check_result != 0) {
+         if (moby->state == 8 || moby->state == 9 || moby->state == 0xC || moby->state == 0xD ||
+             moby->state == 0x10) {
+@@ -912,10 +913,14 @@ int update_moby_grab_state(struct Moby *moby) {
+ }
+ 
+ /* Ported from rac1-decomp (src/overlays/shared/vendor_002D9548.c: func_L06_002EBAD8), where it is exact; names translated to the US level program. */
+-int update_moby_suck_cannon_storage_state(unsigned char *moby) __asm__("FUN_L06_002ea6a8");
+-
+-int update_moby_suck_cannon_storage_state(unsigned char *moby) {
+-    int suck_cannon_store_result = store_moby_in_suck_cannon(moby);
++extern int FUN_L00_002dbb20_h(void *, void *, void *, float) __asm__("FUN_L00_002dbb20");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int update_moby_suck_cannon_storage_state(unsigned char *moby, void *quad, void *target, float h) __asm__("FUN_L06_002ea6a8");
++
++int update_moby_suck_cannon_storage_state(unsigned char *moby, void *quad, void *target, float h) {
++    int suck_cannon_store_result = FUN_L00_002dbb20_h(moby, quad, target, h);
+     if (suck_cannon_store_result != 0) {
+         if (moby[0x20] != 0x10) {
+             moby[0xBC] = moby[0x20];
+diff --git a/src/overlays/shared/enemies/ground_melee_enemy.c b/src/overlays/shared/enemies/ground_melee_enemy.c
+index a0eaad5..518ffaf 100644
+--- a/src/overlays/shared/enemies/ground_melee_enemy.c
++++ b/src/overlays/shared/enemies/ground_melee_enemy.c
+@@ -155,13 +155,16 @@ typedef struct {
+     s32  f;
+ } T6;
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+ /* Moby state 7 while FUN_L00_002db8f8 reports a hit, back to 1 when it stops. */
+-int moby_hold_state_if_grabbed(struct Moby *a) __asm__("FUN_L01_002f1c78");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int moby_hold_state_if_grabbed(struct Moby *a, void *pos, void *target, float h) __asm__("FUN_L01_002f1c78");
+ 
+-int moby_hold_state_if_grabbed(struct Moby *suction_moby) {
+-    int suction_result = process_moby_suck_cannon_suction(suction_moby);
++int moby_hold_state_if_grabbed(struct Moby *suction_moby, void *pos, void *target, float h) {
++    int suction_result = process_moby_suck_cannon_suction(suction_moby, pos, target, h);
+     if (suction_result == 0) {
+         if (suction_moby->state == 0x7)
+             suction_moby->state = 1;
+diff --git a/src/overlays/shared/enemies/horny_toad.c b/src/overlays/shared/enemies/horny_toad.c
+index 40a8df6..86c42d6 100644
+--- a/src/overlays/shared/enemies/horny_toad.c
++++ b/src/overlays/shared/enemies/horny_toad.c
+@@ -608,13 +608,16 @@ float move_horny_toad_toward_position(unsigned char *moby,
+ }
+ 
+ /* Suck cannon methods of the horny toad. */
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+ /* Moby state 9 while FUN_L00_002db8f8 reports a hit, back to 5 when it stops. */
+-int process_suck_cannon_suction_and_update_moby_state(char *a) __asm__("FUN_L00_002d56e0");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int process_suck_cannon_suction_and_update_moby_state(char *a, void *pos, void *target, float h) __asm__("FUN_L00_002d56e0");
+ 
+-int process_suck_cannon_suction_and_update_moby_state(char *moby) {
+-    int suction_result = process_moby_suck_cannon_suction(moby);
++int process_suck_cannon_suction_and_update_moby_state(char *moby, void *pos, void *target, float h) {
++    int suction_result = process_moby_suck_cannon_suction(moby, pos, target, h);
+     if (suction_result == 0) {
+         if (MOBY(moby)->state == 0x9)
+             moby[0x20] = 0x5;
+diff --git a/src/overlays/shared/enemies/large_amoeboid.c b/src/overlays/shared/enemies/large_amoeboid.c
+index f384d47..008304d 100644
+--- a/src/overlays/shared/enemies/large_amoeboid.c
++++ b/src/overlays/shared/enemies/large_amoeboid.c
+@@ -152,7 +152,7 @@ extern f32  D_0015ED70;
+ extern void add_random_offset_to_vector_xyz(void *, f32) __asm__("FUN_L00_0025f8e0");
+ extern f32  FUN_00220e20(f32) __asm__("FUN_001f96b0");
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *) __asm__("FUN_L00_002db8f8");
+ 
+ void large_amoeboid_update(unsigned char *moby) __asm__("FUN_L01_002edca0");
+ 
+@@ -1023,10 +1023,10 @@ void spawn_amoeboid_burst_sparks(unsigned char *moby, f32 *mode) {
+ 
+ /* Ported from rac1-decomp (src/overlays/shared/vendor_002B90A8.c: func_L01_002F0E60), where it is exact; names translated to the US level program. */
+ 
+-int process_amoeboid_suck_cannon_suction(struct Moby *moby) __asm__("FUN_L01_002efa88");
++int process_amoeboid_suck_cannon_suction(struct Moby *moby, void *pos, void *target) __asm__("FUN_L01_002efa88");
+ 
+-int process_amoeboid_suck_cannon_suction(struct Moby *moby) {
+-    int suction_result = process_moby_suck_cannon_suction(moby);
++int process_amoeboid_suck_cannon_suction(struct Moby *moby, void *pos, void *target) {
++    int suction_result = process_moby_suck_cannon_suction(moby, pos, target);
+     if (suction_result != 0) {
+         if (moby->oclass != 0x362) {
+             return 0;
+@@ -1042,13 +1042,16 @@ int process_amoeboid_suck_cannon_suction(struct Moby *moby) {
+ }
+ 
+ /* Suck cannon methods of the amoeboids. */
+-extern int store_moby_in_suck_cannon(void *) __asm__("FUN_L00_002dbb20");
++extern int store_moby_in_suck_cannon(void *, void *, void *, float) __asm__("FUN_L00_002dbb20");
+ 
+ /* Moby state 0xE while FUN_L00_002dbb20 reports a hit, back to 1 when it stops. */
+-int moby_hold_state_if_found(struct Moby *a) __asm__("FUN_L01_002efaf8");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int moby_hold_state_if_found(struct Moby *a, void *quad, void *target, float h) __asm__("FUN_L01_002efaf8");
+ 
+-int moby_hold_state_if_found(struct Moby *target_moby) {
+-    int suck_cannon_store_result = store_moby_in_suck_cannon(target_moby);
++int moby_hold_state_if_found(struct Moby *target_moby, void *quad, void *target, float h) {
++    int suck_cannon_store_result = store_moby_in_suck_cannon(target_moby, quad, target, h);
+     if (suck_cannon_store_result == 0) {
+         if (target_moby->state == 0xe)
+             target_moby->state = 1;
+diff --git a/src/overlays/shared/game/queue_planet_unlock_message.c b/src/overlays/shared/game/queue_planet_unlock_message.c
+index f15f473..84e1247 100644
+--- a/src/overlays/shared/game/queue_planet_unlock_message.c
++++ b/src/overlays/shared/game/queue_planet_unlock_message.c
+@@ -4,12 +4,12 @@
+ #include "rnc/math/fast_math.h"
+ #include "rnc/overlay/shared/mobys/select_auto_aim_target_moby.h"
+ 
+-void build_spherical_offset(void *) __asm__("FUN_00214db0");
+-void FUN_L00_00262cf0(void *a, void *b);
++void build_spherical_offset(void *, f32, f32, f32) __asm__("FUN_00214db0");
++void FUN_L00_00262cf0(void *a, void *b, f32 scale, f32 yaw, f32 pitch);
+ 
+-void FUN_L00_00262cf0(void *destination, void *base_vector) {
++void FUN_L00_00262cf0(void *destination, void *base_vector, f32 scale, f32 yaw, f32 pitch) {
+     char spherical_offset[16];
+-    build_spherical_offset(spherical_offset);
++    build_spherical_offset(spherical_offset, scale, yaw, pitch);
+     fast_vec_add(destination, spherical_offset, base_vector);
+ }
+ 
+diff --git a/src/overlays/shared/hero/hero_switch_item.c b/src/overlays/shared/hero/hero_switch_item.c
+index 0b0876f..3adb2c0 100644
+--- a/src/overlays/shared/hero/hero_switch_item.c
++++ b/src/overlays/shared/hero/hero_switch_item.c
+@@ -436,12 +436,12 @@ s32 is_hero_slot_item_id_5_to_7(int slot_index) {
+     return (u32)(FUN_L00_0020d498_u(slot_index) - 5) < 3;
+ }
+ 
+-int FUN_L00_0020d498_0020d540() __asm__("FUN_L00_0020d498");
+-/* True when hero_slot_item_id returns 0x1C or 0x1D. */
+-int is_hero_slot_item_id_28_or_29(void) __asm__("FUN_L00_0020d540");
++int FUN_L00_0020d498_0020d540(int) __asm__("FUN_L00_0020d498");
++/* True when hero_slot_item_id(slot) returns 0x1C or 0x1D. */
++int is_hero_slot_item_id_28_or_29(int slot) __asm__("FUN_L00_0020d540");
+ 
+-int is_hero_slot_item_id_28_or_29(void) {
+-    return (unsigned)(FUN_L00_0020d498_0020d540() - 0x1c) < 2;
++int is_hero_slot_item_id_28_or_29(int slot) {
++    return (unsigned)(FUN_L00_0020d498_0020d540(slot) - 0x1c) < 2;
+ }
+ 
+ /* True when hero.state.control_mode is 0x11/0x12 or state.current is 0x6A, 0x75, 0x76 or 0x82. */
+@@ -1812,7 +1812,7 @@ typedef struct {
+     char          pad[0x20];
+     unsigned char t;
+     char          pad2[0x74 - 0x21];
+-    void (*fn)(void);
++    void (*fn)(void *);
+ } O;
+ 
+ void clear_hero_item_slot(int i, int respawn_threshold) __asm__("FUN_L00_0020fca8");
+@@ -1828,7 +1828,7 @@ void clear_hero_item_slot(int i, int respawn_threshold) {
+             item_moby = (O *)pre_removal_slot_owner->items[0].moby;
+             pre_removal_slot_owner->items[0].state = 3;
+             if (item_moby && item_moby->t != 0xfe && item_moby->t != 0xfd && item_moby->fn)
+-                item_moby->fn();
++                item_moby->fn(item_moby);
+         }
+     }
+     slot_owner = (struct Hero *)(((char *)&hero) + i * sizeof(struct HeroItemSlot));
+diff --git a/src/overlays/shared/hero/set_hero_animation.c b/src/overlays/shared/hero/set_hero_animation.c
+index a6fdbf4..4577825 100644
+--- a/src/overlays/shared/hero/set_hero_animation.c
++++ b/src/overlays/shared/hero/set_hero_animation.c
+@@ -1014,12 +1014,12 @@ void transform_hero_local_offset_to_world(float *transformed_world_position,
+         transformed_world_position, transformed_world_position, &hero_transform_state->motion.pos);
+ }
+ 
+-void FUN_L00_002334d0_002336e8(float) __asm__("FUN_L00_002334d0");
++void FUN_L00_002334d0_002336e8(float *, float *, float) __asm__("FUN_L00_002334d0");
+ /* Calls FUN_L00_002334d0 with -x. */
+-void offset_hero_position_against_gravity(float x) __asm__("FUN_L00_002336e8");
++void offset_hero_position_against_gravity(float *out, float *in, float x) __asm__("FUN_L00_002336e8");
+ 
+-void offset_hero_position_against_gravity(float x) {
+-    FUN_L00_002334d0_002336e8(-x);
++void offset_hero_position_against_gravity(float *out, float *in, float x) {
++    FUN_L00_002334d0_002336e8(out, in, -x);
+ }
+ 
+ typedef unsigned int u128_00233708 __attribute__((mode(TI), aligned(16)));
+diff --git a/src/overlays/shared/mobys/allocate_moby_animation_slot.c b/src/overlays/shared/mobys/allocate_moby_animation_slot.c
+index 2572059..a847dff 100644
+--- a/src/overlays/shared/mobys/allocate_moby_animation_slot.c
++++ b/src/overlays/shared/mobys/allocate_moby_animation_slot.c
+@@ -295,7 +295,7 @@ void initialize_moby_animation_blend(A  *source,
+     destination->f2c = 1.0f / (f32)step_divisor;
+     destination->i24 = 0;
+     if (update_immediately)
+-        advance_moby_animation_blend_passthrough();
++        advance_moby_animation_blend(source, (unsigned char *)destination);
+ }
+ 
+ /* FUN_L00_0024f440: builds an animation frame packet in out from frame
+diff --git a/src/overlays/shared/mobys/select_auto_aim_target_moby.c b/src/overlays/shared/mobys/select_auto_aim_target_moby.c
+index 8509398..99430a7 100644
+--- a/src/overlays/shared/mobys/select_auto_aim_target_moby.c
++++ b/src/overlays/shared/mobys/select_auto_aim_target_moby.c
+@@ -337,7 +337,7 @@ void cutscene_set_camera_target(u8 *moby) {
+ }
+ 
+ extern unsigned char l00_manipulator_attachment_enabled __asm__("D_0015EDB7");
+-void                 attach_manipulator() __asm__("FUN_0020cb10");
++void                 attach_manipulator(void *owner, int slot_index, void *manip) __asm__("FUN_0020cb10");
+ void                 detach_manipulator() __asm__("FUN_0020cb88");
+ /* While D_0015EDB7 is set attaches the manipulator, sets floats 0x20..0x28 to x; else detaches. */
+ void FUN_L00_00263ac8(float x, int a, int b, unsigned char *p);
+@@ -345,7 +345,7 @@ void FUN_L00_00263ac8(float x, int a, int b, unsigned char *p);
+ void FUN_L00_00263ac8(float x, int owner_moby, int slot_index, unsigned char *manipulator) {
+     if (l00_manipulator_attachment_enabled) {
+         if (manipulator[1] == 0)
+-            attach_manipulator();
++            attach_manipulator((void *)owner_moby, slot_index, manipulator);
+         *(float *)(manipulator + 0x20) = x;
+         *(float *)(manipulator + 0x24) = x;
+         *(float *)(manipulator + 0x28) = x;
+diff --git a/src/overlays/shared/mobys/suck_cannon_methods.c b/src/overlays/shared/mobys/suck_cannon_methods.c
+index 1f5c44a..a454cd6 100644
+--- a/src/overlays/shared/mobys/suck_cannon_methods.c
++++ b/src/overlays/shared/mobys/suck_cannon_methods.c
+@@ -40,13 +40,16 @@ int launch_suck_cannon_projectile_and_sync_moby_state(struct Moby *moby,
+     return projectile_launch_result;
+ }
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+ /* Moby state 9 while FUN_L00_002db8f8 reports a hit, back to 1 when it stops. */
+-int update_moby_suck_cannon_state(struct Moby *a) __asm__("FUN_L02_002d61c0");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int update_moby_suck_cannon_state(struct Moby *a, void *pos, void *target, float h) __asm__("FUN_L02_002d61c0");
+ 
+-int update_moby_suck_cannon_state(struct Moby *moby) {
+-    int suction_result = process_moby_suck_cannon_suction(moby);
++int update_moby_suck_cannon_state(struct Moby *moby, void *pos, void *target, float h) {
++    int suction_result = process_moby_suck_cannon_suction(moby, pos, target, h);
+     if (suction_result == 0) {
+         if (moby->state == 0x9)
+             moby->state = 1;
+diff --git a/src/overlays/shared/props/pool_set_scale.c b/src/overlays/shared/props/pool_set_scale.c
+index 94071b6..c8122bd 100644
+--- a/src/overlays/shared/props/pool_set_scale.c
++++ b/src/overlays/shared/props/pool_set_scale.c
+@@ -132,12 +132,12 @@ void update_animated_offset_pairs(float *offset_animation_state) {
+     }
+ }
+ 
+-extern void pool_splash(void *, int, int) __asm__("FUN_L00_002a3ec8");
++extern void pool_splash(void *, int, int, float, float, float, float) __asm__("FUN_L00_002a3ec8");
+ 
+-void pool_ripple(void *a, int b) __asm__("FUN_L01_002b8288");
++void pool_ripple(void *a, int b, float x, float y, float radius, float amount) __asm__("FUN_L01_002b8288");
+ 
+-void pool_ripple(void *records_base, int record_count) {
+-    pool_splash(records_base, record_count, 0);
++void pool_ripple(void *records_base, int record_count, float x, float y, float radius, float amount) {
++    pool_splash(records_base, record_count, 0, x, y, radius, amount);
+ }
+ 
+ f32 D_L05_001CAFE0[1] __attribute__((section(".data"))) = {0};
+diff --git a/src/overlays/shared/rendering/build_interpolated_dma_packet.c b/src/overlays/shared/rendering/build_interpolated_dma_packet.c
+index 3ba1cf3..86d8a18 100644
+--- a/src/overlays/shared/rendering/build_interpolated_dma_packet.c
++++ b/src/overlays/shared/rendering/build_interpolated_dma_packet.c
+@@ -61,7 +61,7 @@ extern s32 scaled_table_header_leading_word_gp __asm__("D_L02_001612A0") __attri
+ 
+ extern float scaled_table_source[] __asm__("D_L02_001CB500");
+ 
+-extern void FUN_L02_002a4058_u(char *arg, int val) __asm__("FUN_L02_002a4058");
++extern void FUN_L02_002a4058_u(char *arg, int val, float scale) __asm__("FUN_L02_002a4058");
+ 
+ extern void      FUN_L02_0024fca0(void *, void *, void *, void *, void *, int, float);
+ extern char      level02_camera_view_state[] __asm__("D_L02_0016D040");
+@@ -105,10 +105,11 @@ void prepare_scaled_float_table_with_target_byte(char *value_target, int val, fl
+ 
+ /* Ported from rac1-decomp (src/overlays/shared/vendor_002A5218.c: func_L02_002A52B0), where it is exact; names translated to the US level program. */
+ 
+-void prepare_scaled_table_with_byte_128(char *value_target) __asm__("FUN_L02_002a40d0");
++/* The scale it was given goes through untouched (the caller's $f12). */
++void prepare_scaled_table_with_byte_128(char *value_target, float scale) __asm__("FUN_L02_002a40d0");
+ 
+-void prepare_scaled_table_with_byte_128(char *value_target) {
+-    FUN_L02_002a4058_u(value_target, 0x80);
++void prepare_scaled_table_with_byte_128(char *value_target, float scale) {
++    FUN_L02_002a4058_u(value_target, 0x80, scale);
+ }
+ #define PACKET_CURSOR    (l02_packet.words)
+ #define TEXTURE_CURSOR   (gs_texture_allocation.cursor)
+diff --git a/src/overlays/shared/rendering/effects/glow_quads_draw.c b/src/overlays/shared/rendering/effects/glow_quads_draw.c
+index c4fb7c8..55ae9dc 100644
+--- a/src/overlays/shared/rendering/effects/glow_quads_draw.c
++++ b/src/overlays/shared/rendering/effects/glow_quads_draw.c
+@@ -345,12 +345,12 @@ int allocate_colored_effect_slot(u128 *position,
+ }
+ 
+ extern char D_L00_001804C0[];
+-void        detach_point_light() __asm__("FUN_00201f88");
++void        detach_point_light(int) __asm__("FUN_00201f88");
+ /* Detaches the point light and clears entry i of point_lights and D_L00_001804C0. */
+ void release_point_light_slot(int i) __asm__("FUN_L00_0023e838");
+ 
+ void release_point_light_slot(int i) {
+-    detach_point_light();
++    detach_point_light(i);
+     fast_mem_zero16(&point_lights[i], 32);
+     fast_mem_zero16(D_L00_001804C0 + i * 48, 48);
+ }
+diff --git a/src/overlays/shared/rendering/effects/spawn_explosion.c b/src/overlays/shared/rendering/effects/spawn_explosion.c
+index d88309b..791529c 100644
+--- a/src/overlays/shared/rendering/effects/spawn_explosion.c
++++ b/src/overlays/shared/rendering/effects/spawn_explosion.c
+@@ -258,7 +258,7 @@ typedef struct {
+     float x, y, z, w_0025da70;
+ } __attribute__((aligned(16))) Vec4_0025da70;
+ 
+-void FUN_L00_0025da70(u128_0025da70 *first_point,
++float FUN_L00_0025da70(u128_0025da70 *first_point,
+                       u128_0025da70 *second_point,
+ 
+                       float z_difference_threshold) {
+@@ -268,9 +268,9 @@ void FUN_L00_0025da70(u128_0025da70 *first_point,
+     *(u128_0025da70 *)pa = *first_point;
+     *(u128_0025da70 *)pb = *second_point;
+     if (0.0f < z_difference_threshold && absolute_float(pa->z - pb->z) < z_difference_threshold) {
+-        vector_distance_xy(pa, pb);
++        return vector_distance_xy(pa, pb);
+     } else {
+-        fast_vec_dist(pa, pb);
++        return fast_vec_dist(pa, pb);
+     }
+ }
+ 
+diff --git a/src/overlays/shared/ui/hud/hud_keep_visible.c b/src/overlays/shared/ui/hud/hud_keep_visible.c
+index ee1dd30..2a2a0f4 100644
+--- a/src/overlays/shared/ui/hud/hud_keep_visible.c
++++ b/src/overlays/shared/ui/hud/hud_keep_visible.c
+@@ -203,8 +203,8 @@ s32 hud_keep_visible(s32 key, s32 val) {
+ 
+ extern void update_hud_animation_frame(void *) __asm__("FUN_L00_0023aaa8");
+ 
+-void hud_update_counter(e) HudElem *e __asm__("FUN_L00_00235ea0");
+-
++void hud_update_counter() __asm__("FUN_L00_00235ea0");
++void hud_update_counter(e) HudElem *e;
+ {
+     unsigned char *c = e->cnt;
+     int            v;
+@@ -365,14 +365,14 @@ void       hud_update_counter() __asm__("FUN_L00_00235ea0");
+ 
+ /* Moves every other star by its velocity and bounces it off a box whose size
+  * depends on the star index. */
+-void hud_update_particles(void) __asm__("FUN_L00_00236458");
++void hud_update_particles(HudElem *e) __asm__("FUN_L00_00236458");
+ 
+-void hud_update_particles(void) {
++void hud_update_particles(HudElem *e) {
+     Star *hud_star;
+     int   i;
+     float boundary_inset, hx, hy, nhx, nhy;
+ 
+-    hud_update_counter();
++    hud_update_counter(e);
+     hud_star = &l00_hud_star_particles[D_L00_0015F3F8 % 2];
+     i = D_L00_0015F3F8 % 2;
+     for (; i < 100; i += 2, hud_star += 2) {
+diff --git a/src/overlays/shared/weapons/draw_moby_oscillating_textured_quads.c b/src/overlays/shared/weapons/draw_moby_oscillating_textured_quads.c
+index 4537e7c..d4e1bd9 100644
+--- a/src/overlays/shared/weapons/draw_moby_oscillating_textured_quads.c
++++ b/src/overlays/shared/weapons/draw_moby_oscillating_textured_quads.c
+@@ -119,13 +119,14 @@ void draw_moby_oscillating_textured_quads(M_2acbf0_002acbf0 *moby) {
+ 
+ #include "rnc/math/vector.h"
+ 
+-/* Calls the optional function reached through the moby pointer at +0x24; 1 when it is null. */
+-int invoke_optional_moby_callback_or_return_one(char *moby) __asm__("FUN_L00_002da218");
++/* Calls the optional function reached through the moby pointer at +0x24; 1 when it is null.
++   The function places the moby at b (the retail code leaves the caller's a1 in place for it). */
++int invoke_optional_moby_callback_or_return_one(char *moby, void *b) __asm__("FUN_L00_002da218");
+ 
+-int invoke_optional_moby_callback_or_return_one(char *moby) {
+-    int (*fn)(char *) = *(int (**)(char *))(*(char **)(((char *)MOBY(moby)->pclass) + 0x2C) + 0x4);
++int invoke_optional_moby_callback_or_return_one(char *moby, void *b) {
++    int (*fn)(char *, void *) = *(int (**)(char *, void *))(*(char **)(((char *)MOBY(moby)->pclass) + 0x2C) + 0x4);
+     if (fn != 0) {
+-        return fn(moby);
++        return fn(moby, b);
+     }
+     return 1;
+ }
+diff --git a/src/overlays/shared/weapons/morphoray_chicken.c b/src/overlays/shared/weapons/morphoray_chicken.c
+index c2cd905..a9d6d5c 100644
+--- a/src/overlays/shared/weapons/morphoray_chicken.c
++++ b/src/overlays/shared/weapons/morphoray_chicken.c
+@@ -189,7 +189,7 @@ float          feather_radius_min __asm__("D_L00_00161868") = 0;
+ float          feather_radius_max __asm__("D_L00_0016186C") = 0.35f;
+ extern char    D_L00_00177F00[];
+ 
+-extern int process_moby_suck_cannon_suction(void *) __asm__("FUN_L00_002db8f8");
++extern int process_moby_suck_cannon_suction(void *, void *, void *, float) __asm__("FUN_L00_002db8f8");
+ 
+ extern char *get_moby_suck_cannon_record(char *) __asm__("FUN_L00_002db890");
+ extern int   launch_suck_cannon_projectile(char *, int, int, float) __asm__("FUN_L00_002dbc30");
+@@ -811,10 +811,13 @@ void morphoray_chicken_update(Moby *chicken_moby) {
+ 
+ /* Moby state 5 while FUN_L00_002db8f8 reports a hit, back to 1 when it stops. */
+ 
+-int moby_set_state_from_check(struct Moby *a) __asm__("FUN_L00_002cadc0");
++/* One of a class's Suck Cannon hooks (grab, place or fire), which the catalogue folds: each copy
++   calls its own one, the fire with (moby, velocity, target, height), so the arguments go on as
++   they came (retail touches none of a1, a2 and $f12 before its call). */
++int moby_set_state_from_check(struct Moby *a, void *pos, void *target, float h) __asm__("FUN_L00_002cadc0");
+ 
+-int moby_set_state_from_check(struct Moby *checked_moby) {
+-    int suction_result = process_moby_suck_cannon_suction(checked_moby);
++int moby_set_state_from_check(struct Moby *checked_moby, void *pos, void *target, float h) {
++    int suction_result = process_moby_suck_cannon_suction(checked_moby, pos, target, h);
+     if (suction_result == 0) {
+         if (checked_moby->state == 5)
+             checked_moby->state = 1;
+diff --git a/src/rendering/lights/refresh_point_light.c b/src/rendering/lights/refresh_point_light.c
+index edc41a3..4addbe9 100644
+--- a/src/rendering/lights/refresh_point_light.c
++++ b/src/rendering/lights/refresh_point_light.c
+@@ -1,10 +1,10 @@
+ #include "types.h"
+ 
+-extern s32 create_point_light() __asm__("FUN_00201ba8");
+-extern s32 detach_point_light() __asm__("FUN_00201f88");
++extern s32 create_point_light(s32) __asm__("FUN_00201ba8");
++extern s32 detach_point_light(s32) __asm__("FUN_00201f88");
+ void       refresh_point_light(s32 point_light_index) __asm__("FUN_00201f58");
+ 
+ void refresh_point_light(s32 point_light_index) {
+-    detach_point_light();
++    detach_point_light(point_light_index);
+     create_point_light(point_light_index);
+ }
+diff --git a/src/rendering/occlusion/get_occlusion_grid_from_pair.c b/src/rendering/occlusion/get_occlusion_grid_from_pair.c
+index a172261..4f3e27f 100644
+--- a/src/rendering/occlusion/get_occlusion_grid_from_pair.c
++++ b/src/rendering/occlusion/get_occlusion_grid_from_pair.c
+@@ -1,43 +1,37 @@
+ #include "types.h"
++extern s32 parse_occlusion_grid(s32, s32, s32) __asm__("FUN_001f2690");
++s32 get_occlusion_grid_from_pair(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5,
++                                 f32 fparg0) __asm__("FUN_001f2768");
+ 
+-extern s32 parse_occlusion_grid() __asm__("FUN_001f2690");
+-void       get_occlusion_grid_from_pair(s32 first_grid_x,
+-                                        s32 first_grid_y,
+-                                        s32 first_grid_z,
+-                                        s32 second_grid_x,
+-                                        s32 second_grid_y,
+-                                        s32 second_grid_z,
+-                                        f32 grid_axis_fraction) __asm__("FUN_001f2768");
++s32 get_occlusion_grid_from_pair(s32 first_grid_x, s32 first_grid_y, s32 first_grid_z, s32 second_grid_x, s32 second_grid_y, s32 second_grid_z,
++                                 f32 fparg0) {
++    s32 var_4_25;
++    s32 var_5_26;
++    s32 var_6_28;
++    s32 ret;
+ 
+-void get_occlusion_grid_from_pair(s32 first_grid_x,
+-                                  s32 first_grid_y,
+-                                  s32 first_grid_z,
+-                                  s32 second_grid_x,
+-                                  s32 second_grid_y,
+-                                  s32 second_grid_z,
+-
+-                                  f32 grid_axis_fraction) {
+-    s32 fallback_grid_x;
+-    s32 fallback_grid_y;
+-    s32 fallback_grid_z;
+-
+-    if (grid_axis_fraction < 0.5f) {
+-        if (parse_occlusion_grid() == 0) {
+-            fallback_grid_x = second_grid_x;
+-            fallback_grid_y = second_grid_y;
+-            fallback_grid_z = second_grid_z;
++    if (fparg0 < 0.5f) {
++        ret = parse_occlusion_grid(first_grid_x, first_grid_y, first_grid_z);
++        if (ret == 0) {
++            var_4_25 = second_grid_x;
++            var_5_26 = second_grid_y;
++            var_6_28 = second_grid_z;
+             goto block_5;
+         }
+-    } else if (parse_occlusion_grid(second_grid_x, second_grid_y, second_grid_z) == 0) {
+-        fallback_grid_x = first_grid_x;
+-        fallback_grid_y = first_grid_y;
+-        fallback_grid_z = first_grid_z;
+-    block_5:
+-        parse_occlusion_grid(fallback_grid_x, fallback_grid_y, fallback_grid_z);
++    } else {
++        ret = parse_occlusion_grid(second_grid_x, second_grid_y, second_grid_z);
++        if (ret == 0) {
++            var_4_25 = first_grid_x;
++            var_5_26 = first_grid_y;
++            var_6_28 = first_grid_z;
++        block_5:
++            ret = parse_occlusion_grid(var_4_25, var_5_26, var_6_28);
++        }
+     }
++    return ret;
+ }
+ 
+-extern void func_001F2768(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, f32 fparg0)
++extern s32 func_001F2768(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, f32 fparg0)
+     __attribute__((alias("FUN_001f2768")));
+ 
+ /* Recovered original symbol name. */
+diff --git a/src/rendering/packets/transform_scaled_vertex_batch.c b/src/rendering/packets/transform_scaled_vertex_batch.c
+index 157a5bd..2147efe 100644
+--- a/src/rendering/packets/transform_scaled_vertex_batch.c
++++ b/src/rendering/packets/transform_scaled_vertex_batch.c
+@@ -8,7 +8,7 @@ struct VertexBatch {
+ extern void fast_vec_add(void *arg0, void *arg1, void *arg2) __asm__("func_001F9A10");
+ extern void fast_vec_scale(void *arg0, void *arg1, f32 arg2) __asm__("func_001F9A68");
+ extern void transform_vector_by_basis(void *arg0, void *arg1, void *arg2) __asm__("func_001F9CF8");
+-extern void func_002106F8(void);
++extern void func_002106F8(struct VertexBatch *object, s32 count, s32 point_indices, u8 *cursor);
+ 
+ void transform_scaled_vertex_batch(struct VertexBatch *object,
+                                    s32                 count,
+@@ -23,7 +23,7 @@ void transform_scaled_vertex_batch(struct VertexBatch *render_instance,
+     f32 scale;
+ 
+     scale = *(f32 *)((u8 *)render_instance + 0x2C) * 0.0009765625f;
+-    func_002106F8();
++    func_002106F8(render_instance, count, point_indices, cursor);
+     if (count > 0) {
+         do {
+             fast_vec_scale(cursor, cursor, scale);
+diff --git a/src/ui/help/force_help_message.c b/src/ui/help/force_help_message.c
+index cece000..7c83509 100644
+--- a/src/ui/help/force_help_message.c
++++ b/src/ui/help/force_help_message.c
+@@ -3,14 +3,14 @@
+ 
+ extern s32 get_help_message_text() __asm__("func_001FDD10");
+ extern s32 copy_text_to_shared_buffer() __asm__("FUN_001ff658");
+-extern s32 try_set_help_message() __asm__("FUN_00215130");
++extern s32 try_set_help_message(s32, s32) __asm__("FUN_00215130");
+ 
+ s32 force_help_message(s32 owner, s32 message_id) __asm__("FUN_002151d8");
+ 
+ s32 force_help_message(s32 help_message_selector, s32 message_id) {
+     s32 help_message_status;
+ 
+-    help_message_status = try_set_help_message();
++    help_message_status = try_set_help_message(help_message_selector, message_id);
+     if (help_message_status == 0) {
+         if (message_id != 0) {
+             copy_text_to_shared_buffer(get_help_message_text(message_id));
+diff --git a/src/ui/help/get_help_message_text.c b/src/ui/help/get_help_message_text.c
+index 0a2de00..c6bf5cd 100644
+--- a/src/ui/help/get_help_message_text.c
++++ b/src/ui/help/get_help_message_text.c
+@@ -2,13 +2,13 @@
+ 
+ extern void *help_msgs __asm__("D_0015F6A0");
+ extern char  s_paradox_this_message_does_not[] __asm__("D_00199968");
+-extern s32   find_help_message_index() __asm__("func_001fdca0");
++extern s32   find_help_message_index(s32 id) __asm__("func_001fdca0");
+ 
+-s32 get_help_message_text(void) __asm__("FUN_001fdd10");
++s32 get_help_message_text(s32 id) __asm__("FUN_001fdd10");
+ 
+-s32 get_help_message_text(void) {
++s32 get_help_message_text(s32 id) {
+     s32 index;
+-    index = find_help_message_index();
++    index = find_help_message_index(id);
+     if (index >= 0) {
+         return *(s32 *)((u8 *)help_msgs + (index * 16));
+     }
+@@ -19,4 +19,4 @@ s32 get_help_message_text(void) {
+ char s_paradox_this_message_does_not[] __asm__("D_00199968") =
+     "Paradox: This message does not exist";
+ 
+-extern s32 func_001FDD10(void) __attribute__((alias("FUN_001fdd10")));
++extern s32 func_001FDD10(s32 id) __attribute__((alias("FUN_001fdd10")));

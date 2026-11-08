@@ -1160,6 +1160,16 @@ void pair_code(
     };
     std::uint32_t call_slot = 0;
     bool call = false;
+    // A branch-likely's delay slot runs only when the branch is taken: the code after the slot is
+    // reached with the registers as they were before it. Going Commando's func_L00_0032A258
+    // (beql $v0, $zero, ...; lui $v0, %hi(D_001AA380)) goes on to use $v0 as a call's result
+    // (sw $s7, 0x64($v0)); taken for the lui's, that formed 0x001B0064 the same in Tabora's and
+    // Dobbo's programs (func_L00_00324D18 0x001B0000 the same way), so level 8's glider constants
+    // there (func_L08_003CD708's yaw scale, Dobbo's 0x001AFF54) were read unmoved in Dobbo, and
+    // the first turn of the stick sent the hero to -3e37.
+    Registers annulled{};
+    std::uint32_t likely_from = 0;
+    bool likely = false;
     for (std::uint32_t i = 0; i + 4 <= size; i += 4) {
         if (call && i == call_slot + 4) {
             forget_call();
@@ -1173,6 +1183,14 @@ void pair_code(
             std::memcpy(r.known, known, sizeof(known));
             std::memcpy(r.whole, whole, sizeof(whole));
             pending = false;
+        }
+        if (likely && i == likely_from + 8) {
+            std::memcpy(ve, annulled.ve, sizeof(ve));
+            std::memcpy(vl, annulled.vl, sizeof(vl));
+            std::memcpy(origin, annulled.origin, sizeof(origin));
+            std::memcpy(known, annulled.known, sizeof(known));
+            std::memcpy(whole, annulled.whole, sizeof(whole));
+            likely = false;
         }
         if (auto t = at_target.find(i); t != at_target.end()) {
             for (int r = 0; r < 32; ++r) {
@@ -1199,6 +1217,17 @@ void pair_code(
                 pending = true;
                 pending_from = i;
                 pending_target = static_cast<std::uint32_t>(target);
+            }
+            const std::uint32_t bt = (we >> 16) & 31;
+            if ((op >= 0x14 && op <= 0x17) || (op == 0x01 && (bt & 0x0E) == 0x02)
+                || (op == 0x11 && (bt & 2) != 0)) {
+                std::memcpy(annulled.ve, ve, sizeof(ve));
+                std::memcpy(annulled.vl, vl, sizeof(vl));
+                std::memcpy(annulled.origin, origin, sizeof(origin));
+                std::memcpy(annulled.known, known, sizeof(known));
+                std::memcpy(annulled.whole, whole, sizeof(whole));
+                likely_from = i;
+                likely = true;
             }
         }
         const std::uint32_t rs = (we >> 21) & 31, rt = (we >> 16) & 31;

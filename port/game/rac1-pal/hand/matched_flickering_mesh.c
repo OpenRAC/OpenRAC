@@ -108,7 +108,7 @@ void draw_flickering_mesh_effect(M45 *moby) {
                 angle0=normalize_angle(wave+phase0+data->wave_u*x+data->wave2_v*y);
                 angle1=normalize_angle(wave+phase1+data->wave_v*y+data->wave2_u*x);
                 shape=FastSin(theta);
-                shape=vec_length(shape);
+                shape=square_root(shape);
                 drop*=shape;
                 drop*=1.0f-y;
                 sway0=FastCos(angle0);
@@ -170,7 +170,7 @@ void draw_flickering_mesh_effect(M45 *moby) {
                     pwidth=data->width*0.5f;
                     px=random_float_between(-1.0f,1.0f)*data->particle_range;
                     pfraction=random_float_between(0.0f,px);
-                    vec_scale_to_length(&scratch[2],&side_step[0],-(data->particle_offset+vec_length(FastCos(pfraction*3.1415927f))*data->particle_height));
+                    vec_scale_to_length(&scratch[2],&side_step[0],-(data->particle_offset+square_root(FastCos(pfraction*3.1415927f))*data->particle_height));
                     vec_scale_to_length(&scratch[1],&step,pfraction*pwidth);
                     FastVecAdd(&scratch[1],&scratch[1],&moby->position);
                     FastVecAdd(&scratch[1],&scratch[1],&scratch[2]);
@@ -192,10 +192,10 @@ void draw_flickering_mesh_effect(M45 *moby) {
                     c1=(data->puff_c1[3]<<24)|(data->puff_c1[2]<<16)|(data->puff_c1[1]<<8)|data->puff_c1[0];
                     fwidth=data->width*0.5f;
                     fsize=random_float_between(data->puff_size0,data->puff_size1);
-                    flife=scale_ticks(rand_range(data->puff_life0,data->puff_life1));
+                    flife=scale_ticks(random_int_between(data->puff_life0,data->puff_life1));
                     ffraction=random_float_between(-1.0f,one)*data->puff_range;
                     ffraction=random_float_between(-ffraction,ffraction);
-                    fshape=vec_length(FastCos(ffraction*3.1415927f));
+                    fshape=square_root(FastCos(ffraction*3.1415927f));
                     vec_scale_to_length(&scratch[2],&side_step[0],-(data->puff_offset+fshape*data->puff_height));
                     vec_scale_to_length(&scratch[1],&step,ffraction*fwidth);
                     FastVecAdd(&scratch[1],&scratch[1],&moby->position);
@@ -209,8 +209,8 @@ void draw_flickering_mesh_effect(M45 *moby) {
                 }
             }
             if (data->sound_index!=-1) {
-                sound=&batalia_lights[data->sound_index];
-                if (FastVecDist(&data->sound_position,&sound->position)<data->sound_speed*frame_scale) {
+                sound=&l08_point_light_slots[data->sound_index];
+                if (fast_vec_dist(&data->sound_position,&sound->position)<data->sound_speed*frame_scale) {
                     sx=(random_float_between(-(int)data->sound_range_x,data->sound_range_x)+data->width)*0.5f;
                     sy=(random_float_between(-(int)data->sound_range_y,data->sound_range_y)+data->height)*0.5f;
                     vec_scale_to_length(&scratch[0],&step,sx);

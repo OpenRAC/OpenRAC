@@ -547,7 +547,7 @@ std::unique_ptr<renderer::EffectMaterial> make_water(
     const auto ocean = directory / "ocean.wave";
     const auto path = std::filesystem::exists(ocean) ? ocean : directory / "water.bin";
     if (!std::filesystem::exists(path)) {
-        log::info("Novalis enhanced water needs a local water.bin bake beside manifest.json");
+        log::info("Enhanced water needs a local water bake beside manifest.json");
         return {};
     }
     try {

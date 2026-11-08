@@ -33,19 +33,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
 
 jobs:
+  # What a pull request needs (tools/ci_scope.py: the jobs and the port's parts its files can
+  # affect), and on every event all the parts the Linux port job is built in: one for what the
+  # games share, one per game program (port/game/*/hostgen.json "id"). A push runs everything.
   scope:
     name: Which checks run
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
+      launcher: ${{ steps.scope.outputs.launcher }}
+      pages: ${{ steps.scope.outputs.pages }}
+      port: ${{ steps.scope.outputs.port }}
+      enhanced: ${{ steps.scope.outputs.enhanced }}
+      port_programs: ${{ steps.parts.outputs.port_programs }}
+      port_parts: ${{ steps.scope.outputs.port_parts || steps.parts.outputs.port_parts }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
+      - id: parts
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, pathlib
+          programs = sorted(json.loads(path.read_text())["id"]
+                            for path in pathlib.Path("port/game").glob("*/hostgen.json"))
+          print("port_programs=" + json.dumps(programs))
+          print("port_parts=" + json.dumps(["common", *programs]))
+          PY
       - id: scope
+        if: github.event_name == 'pull_request'
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -63,9 +81,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+
+      # Each decomp's pin matches its game.json, and a pull request that moves one also changes
+      # the port's tables made from it (tools/sources.py check).
+      - name: Decomp pins
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            git fetch -q --depth=1 origin "$BASE"
+            python tools/sources.py check --since "$BASE"
+          else
+            python tools/sources.py check
+          fi
 
       # The workflows themselves: actionlint at a fixed version, checked against its SHA-256.
       - name: Workflows
@@ -74,7 +106,7 @@ jobs:
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
           archive="$RUNNER_TEMP/actionlint.tar.gz"
-          curl -sSfL -o "$archive" \
+          curl -sSfL --retry 5 --retry-delay 5 -o "$archive" \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "$ACTIONLINT_SHA256  $archive" | sha256sum -c -
           tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
@@ -143,15 +175,15 @@ jobs:
         run: python tools/shared.py check
 
       - name: rac1/pal progress report is current with its source
-        working-directory: games/rac1
+        working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac4 progress report is current with its source
-        working-directory: games/rac4/ntsc
+        working-directory: games/rac4/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac1/ntsc tools
-        working-directory: games/rac1/ntsc
+        working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
           # (the versions requirements.txt pins).
@@ -160,7 +192,7 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
-        working-directory: games/rac2/ntsc
+        working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
           python -m pip install "$(grep '^rabbitizer==' requirements.txt)"
@@ -169,13 +201,13 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
-        working-directory: games/rac5/ntsc
+        working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
-        working-directory: games/rac6/ntsc
+        working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
@@ -185,7 +217,7 @@ jobs:
   # backslashes, files are checked out with CRLF and the Unix-only tests are left out.
   launcher:
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.launcher != 'false' }}
     name: Launcher / ${{ matrix.system }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -203,6 +235,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/launcher-toolchain
         with:
           cache-key: checks-launcher-${{ matrix.os }}
@@ -249,7 +282,7 @@ jobs:
   launcher-android:
     name: Launcher / Pages (lint, unit tests, Android layout)
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.pages != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -260,11 +293,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version: "26.13.0"
           package-manager-cache: false
-      - run: corepack enable
+      - run: npm install --global corepack@0.36.0 && corepack enable
       - uses: ./.github/actions/yarn-cache
       - name: The launcher's packages
         run: yarn install --immutable
@@ -275,32 +309,47 @@ jobs:
       - name: Android pages
         run: yarn test:android
 
-  # The native port (port/): hostgen's tests, then the whole port built with
-  # Clang and system SDL3, with enhanced rendering compiled out. Exercise
-  # the compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer.
-  port:
-    name: Port / Linux
+  # The native port (port/): hostgen's tests, then the port built with Clang and system SDL3, with
+  # enhanced rendering compiled out, in parts, each on its own runner so that none outgrows the time
+  # limit with a cold cache. "common" builds everything but the games' programs
+  # (OPENRAC_PORT_GAMES_IN_ALL=OFF) and runs every test without a game-* label, exercising the
+  # compatibility OpenGL/ES and core Vulkan paths on Mesa's software renderer. Each program's part
+  # (port/game/*/hostgen.json "id": rac1-pal, rac2-ntsc...) builds openrac-<id> and runs its tests,
+  # labelled game-<id> (port/cmake/Games.cmake). One part per program, not per game: Going
+  # Commando's three programs in one job took 53 minutes with a cold cache. Every test runs in
+  # exactly one part.
+  port-part:
+    name: Port / Linux (${{ matrix.part }})
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port_parts != '[]' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON(needs.scope.outputs.port_parts) }}
     env:
+      PART: ${{ matrix.part }}
+      PORT_PROGRAMS: ${{ needs.scope.outputs.port_programs }}
       MESA_SHADER_CACHE_DIR: /tmp/openrac-mesa
       MESA_SHADER_CACHE_MAX_SIZE: 1G
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
       # Each key's prefix is no other job's: "checks-port" was the start of every other port
-      # job's key, and restored their objects, built with other options, when it had none.
+      # job's key, and restored their objects, built with other options, when it had none. One key
+      # per part, so that one program's objects never evict another's.
       - uses: ./.github/actions/compiler-cache
         with:
-          key: checks-port-release
+          key: checks-port-release-${{ matrix.part }}
           max-size: 1G
       - uses: ./.github/actions/mesa-cache
+        if: matrix.part == 'common'
         with:
           variant: ubuntu-release
       - name: Compilers, SDL3 and software Vulkan
@@ -311,10 +360,12 @@ jobs:
 
       - uses: ./.github/actions/port-build-cache
         with:
-          variant: ubuntu-compatibility
+          variant: ubuntu-compatibility-${{ matrix.part }}
           preset: release
+          hostgen: ${{ matrix.part != 'common' }}
 
       - name: hostgen and build cache regressions
+        if: matrix.part == 'common'
         run: |
           python -m unittest discover -s port/tools/hostgen -v
           # This job installs both Clang and ccache, so the real cache fixture runs here.
@@ -324,14 +375,21 @@ jobs:
       - name: Build
         working-directory: port
         run: |
-          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF
-          cmake --build --preset release
+          cmake --preset release -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_PROBE_BAKER=OFF \
+            -DOPENRAC_PORT_GAMES_IN_ALL=OFF
+          if [ "$PART" = common ]; then
+            cmake --build --preset release
+          else
+            cmake --build --preset release --target "openrac-$PART"
+          fi
 
+      # Run once: the configuration is the same in every part.
       - name: Verify compatibility build configuration
+        if: matrix.part == 'common'
         working-directory: port
         run: |
           python3 - <<'PY'
-          import json, pathlib, subprocess
+          import json, os, pathlib, subprocess
           cache = pathlib.Path('build/release/CMakeCache.txt').read_text().splitlines()
           assert 'OPENRAC_ENHANCED_RENDERING:BOOL=OFF' in cache
           assert 'OPENRAC_PROBE_BAKER:BOOL=OFF' in cache
@@ -342,26 +400,54 @@ jobs:
                       'hero_shadow_vulkan', 'sun_shadow_vulkan', 'shadow_scroll_vulkan',
                       'fsr3_frame', 'probe_bake'}
           assert not names & enhanced, names & enhanced
+          # Every game label is a part's: no test is left out of every part.
+          programs = set(json.loads(os.environ['PORT_PROGRAMS']))
+          for test in tests:
+              labels = [label for prop in test.get('properties', []) if prop['name'] == 'LABELS'
+                        for label in prop['value'] if label.startswith('game-')]
+              assert len(labels) <= 1, (test['name'], labels)
+              assert all(label[len('game-'):] in programs for label in labels), (test['name'], labels)
           PY
 
       - name: Tests
         working-directory: port
         env:
           SDL_VIDEO_DRIVER: offscreen
-        run: ctest --preset release --parallel 2 --stop-on-failure
+        run: |
+          if [ "$PART" = common ]; then
+            ctest --preset release --parallel 2 --stop-on-failure -LE '^game-'
+          else
+            ctest --preset release --parallel 2 --stop-on-failure --no-tests=error -L "^game-$PART\$"
+          fi
+
+  # One check for every part (what branch protection requires).
+  port:
+    name: Port / Linux
+    needs: [scope, port-part]
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every part
+        env:
+          RESULT: ${{ needs.port-part.result }}
+          PARTS: ${{ needs.scope.outputs.port_parts }}
+        # Skipped only when the pull request needs no part.
+        run: test "$RESULT" = success || { test "$RESULT" = skipped && test "$PARTS" = "[]"; }
 
   # Full enhanced Vulkan coverage and the offline Embree baker, separately from
   # the compatibility build above. The preset explicitly compiles enhanced code in.
   port-vulkan-enhanced-build:
     name: Port / Enhanced Vulkan build
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.enhanced != 'false' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-enhanced
@@ -421,14 +507,15 @@ jobs:
   port-vulkan-enhanced-tests:
     name: Port / Enhanced Vulkan tests (${{ matrix.group }})
     needs: port-vulkan-enhanced-build
-    # On a push scope is skipped, which skips this job too unless it asks for the build alone.
+    # It asks for the build alone: the build's own condition covers scope.
     if: ${{ !cancelled() && needs.port-vulkan-enhanced-build.result == 'success' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        group: [vulkan, equivalence, cpu, baker]
+        # cpu and baker take half a minute each: one runner for both.
+        group: [vulkan, equivalence, cpu-baker]
     env:
       SDL_VIDEO_DRIVER: x11
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -440,6 +527,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/mesa-cache
         if: matrix.group == 'vulkan' || matrix.group == 'equivalence'
         with:
@@ -461,7 +549,9 @@ jobs:
           mkdir -p port/build
           tar -C port/build -xzf "$RUNNER_TEMP/openrac-enhanced-tests.tar.gz"
           test "$(cat port/build/enhanced/ci-workspace.txt)" = "$(pwd -P)"
-          xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$TEST_GROUP"
+          for group in ${TEST_GROUP//-/ }; do
+            xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced "$group"
+          done
       - name: Measure Vulkan shard contention
         if: github.event_name == 'workflow_dispatch' && inputs.time-vulkan-shards && matrix.group == 'vulkan'
         run: xvfb-run -a python3 tools/ci_port_tests.py port/build/enhanced timing
@@ -478,7 +568,11 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.port-vulkan-enhanced-build.result }}
           TEST_RESULT: ${{ needs.port-vulkan-enhanced-tests.result }}
-        run: test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
+          NEEDED: ${{ needs.scope.outputs.enhanced }}
+        # Skipped only when the pull request does not touch what the enhanced build reads.
+        run: |
+          if [ "$NEEDED" = false ]; then test "$BUILD_RESULT" = skipped; exit; fi
+          test "$BUILD_RESULT" = success && test "$TEST_RESULT" = success
 
   # The native port on Fedora (the release players run): the program built as the launcher's
   # "Build the game" builds it (tools/build_port.py), against the system's SDL3, Clang and CMake,
@@ -487,7 +581,7 @@ jobs:
   port-fedora:
     name: Port / Fedora
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: ubuntu-26.04
     container: registry.fedoraproject.org/fedora:44
     timeout-minutes: 60
@@ -507,6 +601,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
 
       - uses: ./.github/actions/compiler-cache
         with:
@@ -552,7 +647,7 @@ jobs:
   port-windows:
     name: Port / Windows
     needs: scope
-    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' }}
+    if: ${{ !cancelled() && needs.scope.outputs.docs_only != 'true' && needs.scope.outputs.port != 'false' }}
     runs-on: windows-latest
     timeout-minutes: 60
     env:
@@ -562,6 +657,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -585,4 +681,3 @@ jobs:
 
       - name: hostgen's tests
         run: python -m unittest discover -s port/tools/hostgen -v
-

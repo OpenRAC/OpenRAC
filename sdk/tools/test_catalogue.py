@@ -100,11 +100,11 @@ def inputs(**changes) -> Inputs:
         names_tsv=NAMES_TSV, functions_tsv=FUNCTIONS_TSV,
         names_h={"TestUpdate": "func_L00_00100000", "Quiet": "func_00100700", "FastVecAdd": "func_001F9BD8",
                  "SpinHelper": "func_L00_00100300"},
-        sources=[("games/rac1/src/a.c", SHARED)],
-        candidates={"func_L00_00100500": "games/rac1/nonmatching/functional/b.c"},
-        extra_sources=[("games/rac1/nonmatching/functional/b.c", CANDIDATE)],
+        sources=[("games/rac1/decomp/src/a.c", SHARED)],
+        candidates={"func_L00_00100500": "games/rac1/decomp/nonmatching/functional/b.c"},
+        extra_sources=[("games/rac1/decomp/nonmatching/functional/b.c", CANDIDATE)],
         libraries_pal=LIBRARIES_PAL, libraries_ntsc=LIBRARIES_NTSC, split_places=SPLIT,
-        headers=[("games/rac1/include/moby.h", HEADER)], pvars_header=("games/rac1/include/moby_pvars.h", PVARS),
+        headers=[("games/rac1/decomp/include/moby.h", HEADER)], pvars_header=("games/rac1/decomp/include/moby_pvars.h", PVARS),
         class_names={10: "bolt", 11: "big_bolt", 20: "thing"}, api={"FastVecAdd": "out = a + b"}, sdk_header=SDK)
     values.update(changes)
     return Inputs(**values)
@@ -158,7 +158,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(f["classes"], [10, 11])
         self.assertEqual(f["levels"], [0, 1, 2])  # where its code is, from functions.tsv
         self.assertEqual(f["split"], {"func_L00_00100010": [2]})
-        self.assertEqual(f["source"], {"kind": "decomp", "file": "games/rac1/src/a.c", "defined_as": "TestUpdate"})
+        self.assertEqual(f["source"], {"kind": "decomp", "file": "games/rac1/decomp/src/a.c", "defined_as": "TestUpdate"})
         self.assertEqual(f["signature"], "void(u32)")
         self.assertEqual(f["hook"]["status"], "needs_hook_row")
         self.assertEqual(f["hook"]["proposed"], "Moby_Bolt_Update")  # after its first named class
@@ -204,7 +204,7 @@ class BuildTests(unittest.TestCase):
         self.assertEqual(header["fields"][1], {"offset": 4, "declared_offset": None, "type": "f32", "name": "speed",
                                                "comment": "how fast it goes"})
         ours = structs["TestVars"]
-        self.assertEqual((ours["size"], ours["file"], ours["classes"]), (8, "games/rac1/src/a.c", [10, 11]))
+        self.assertEqual((ours["size"], ours["file"], ours["classes"]), (8, "games/rac1/decomp/src/a.c", [10, 11]))
         self.assertEqual(ours["fields"][0]["comment"], "frames left")
         thing = next(c for c in self.cat["classes"] if c["id"] == 20)
         self.assertEqual(thing["pvars"], ["update20"])  # the header's, and the candidate C reads the same

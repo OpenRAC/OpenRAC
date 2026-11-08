@@ -909,7 +909,7 @@ class Translator:
                 # function of three pointers): the registers, as for a call through an address.
                 return self.indirect(hook, target if at is None else at)
             callee = f"GFN({fn_type}, {hook})"
-        elif (call_copy := program_call_copy(self.program, self.unit.fn.code, sym)) is not None:
+        elif (call_copy := program_call_copy(self.program, self.unit.fn.code, sym, target)) is not None:
             # A jal that differs between this function's places (call_copies.tsv): the running copy's.
             # Through the registers: the copy's own function may take more than the name's.
             self.unit.fn.uses_self = True

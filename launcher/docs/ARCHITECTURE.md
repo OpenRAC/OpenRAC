@@ -555,3 +555,22 @@ file picker, the game's activity, the GPU driver packages. It always plays
 from the copy it carries, unpacked from the APK by `OpenracSetup.kt`; Play
 starts the game's activity instead of a program, and the updater is the
 desktop's only (`capabilities/updater.json`).
+
+## iOS host
+
+`launcher/ios` (`openrac-launcher-ios`) is the C ABI adapter for the signed iOS
+application. It depends on `core`; `core` has no dependency on this adapter or
+on UIKit, WebKit or Python. Desktop builds use the workspace's default members
+(`core`, `src-tauri`), so they do not produce the iOS static library.
+
+The same Svelte UI selects its transport in `src/lib/api.ts`. `src/lib/ios.ts`
+sends plain JSON to the native WebKit bridge and receives the same job events.
+The host reports optional capabilities in `app_info`; existing hosts keep their
+features, while unsupported iOS actions are disabled rather than promised.
+
+`port/ios` owns UIKit, Files access, embedded CPython and the handover to SDL's
+native game. Its generated `ios-bundle.json` describes the engine actually
+linked into the app, with disc and boot metadata read from `games/*/game.json`.
+Only importers explicitly registered in `port/ios/engines.json` may run. The
+current app links one engine, Ratchet & Clank NTSC-U. Showing the other games
+in the shared catalogue does not mean their native iOS engines are included.

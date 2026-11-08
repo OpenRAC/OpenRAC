@@ -181,6 +181,17 @@ if(TARGET openrac_renderer_vulkan AND TARGET openrac_viewer_lib)
     LABELS render-equivalence ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
   set_property(TEST ${vulkan_seed_tests} APPEND PROPERTY FIXTURES_REQUIRED render_equivalence_caches)
+  # render_equivalence_metal  the compatibility scenarios on Metal, byte for byte as OpenGL draws
+  #                           them in render_equivalence_opengl (hidden Cocoa windows)
+  if(OPENRAC_METAL)
+    set(opengl_frames "${CMAKE_CURRENT_BINARY_DIR}/test-cache/opengl-frames.bin")
+    add_test(NAME render_equivalence_opengl COMMAND render_equivalence_test --opengl-frames "${opengl_frames}")
+    add_test(NAME render_equivalence_metal COMMAND render_equivalence_test --against-opengl "${opengl_frames}")
+    set_tests_properties(render_equivalence_opengl PROPERTIES FIXTURES_SETUP opengl_frames
+      SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=desktop;SDL_VIDEO_DRIVER=cocoa")
+    set_tests_properties(render_equivalence_metal PROPERTIES FIXTURES_REQUIRED opengl_frames
+      SKIP_RETURN_CODE 77 ENVIRONMENT "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+  endif()
   if(OPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS)
     # Start the longest runnable tests first on a runner with no timing history.
     set_tests_properties(render_equivalence_prepare_vulkan PROPERTIES COST 90)

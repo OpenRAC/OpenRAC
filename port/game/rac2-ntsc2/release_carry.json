@@ -1,0 +1,541 @@
+{
+ "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
+ "counts": {
+  "function: by hand": 3,
+  "function: called": 22,
+  "function: changed": 100,
+  "function: found": 2,
+  "function: near": 52,
+  "function: not found": 2,
+  "function: same": 989,
+  "global: aligned": 7,
+  "global: between": 17,
+  "global: exact": 101,
+  "global: the release's build": 107,
+  "signature: v1.01's": 11
+ },
+ "functions": {
+  "func_001158F8": [
+   "func_001158F8",
+   "called",
+   "signature"
+  ],
+  "func_00124418": [
+   "func_00124418",
+   "called",
+   "signature"
+  ],
+  "func_00125D98": [
+   "func_00125D98",
+   "called",
+   "signature"
+  ],
+  "func_00126108": [
+   "func_00126108",
+   "called",
+   "signature"
+  ],
+  "func_00126288": [
+   "func_00126288",
+   "called",
+   "signature"
+  ],
+  "func_00126470": [
+   "func_00126470",
+   "called",
+   "signature"
+  ],
+  "func_00126730": [
+   "func_00126730",
+   "called",
+   "signature"
+  ],
+  "func_00126DC0": [
+   "func_00126DC0",
+   "called",
+   "signature"
+  ],
+  "func_00127348": [
+   "func_00127348",
+   "called",
+   "signature"
+  ],
+  "func_00128F50": [
+   "func_00128F50",
+   "called",
+   "signature"
+  ],
+  "func_00131430": [
+   "func_00131430",
+   "found",
+   "unit_aliases src/levels/14_aranos_prison/L14_003F4F98.c"
+  ],
+  "func_0026EDE8": [
+   "func_0026EDE8",
+   "changed",
+   "host C 0x0026EDE8"
+  ],
+  "func_0026F718": [
+   "func_0026F718",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F730": [
+   "FUN_0026F730",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F750": [
+   "FUN_0026F750",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F7A0": [
+   "FUN_0026F7A0",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0026F7B8": [
+   "func_0026F7B8",
+   "changed",
+   "level_hooks"
+  ],
+  "func_0027C878": [
+   "func_0027CED8",
+   "near",
+   "host C"
+  ],
+  "func_0027F640": [
+   "func_0027FCB0",
+   "by hand",
+   "host C"
+  ],
+  "func_0027FC70": [
+   "func_00280B20",
+   "called",
+   "host C"
+  ],
+  "func_002900B8": [
+   "func_00290920",
+   "near",
+   "host C"
+  ],
+  "func_0029B658": [
+   "func_0029C448",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0029C4C0": [
+   "func_0029D2F8",
+   "changed",
+   "RAC2_K PAUSE_LIST_OFFSET"
+  ],
+  "func_0029CB58": [
+   "func_0029D990",
+   "changed",
+   "from_assembly"
+  ],
+  "func_002B4C18": [
+   "func_002B5B38",
+   "changed",
+   "from_assembly"
+  ],
+  "func_002CB950": [
+   "func_002CC908",
+   "near",
+   "from_assembly"
+  ],
+  "func_002D0FA0": [
+   "func_002D1F28",
+   "near",
+   "from_assembly"
+  ],
+  "func_002D58A0": [
+   "func_002D6508",
+   "changed",
+   "RAC2_K OPTIONS_LIST_OFFSET"
+  ],
+  "func_002D6F38": [
+   "func_002D7BA0",
+   "near",
+   "from_assembly"
+  ],
+  "func_002DC900": [
+   "func_002DD630",
+   "changed",
+   "host C 0x002DC908"
+  ],
+  "func_002FAE68": [
+   "func_002FBCEC",
+   "near",
+   "from_assembly"
+  ],
+  "func_003136D0": [
+   "func_003144C8",
+   "changed",
+   "host C"
+  ],
+  "func_003369A8": [
+   "func_003377B0",
+   "near",
+   "from_assembly"
+  ],
+  "func_00336A78": [
+   "func_003378A0",
+   "near",
+   "host C"
+  ],
+  "func_00338040": [
+   "func_00338F18",
+   "near",
+   "from_assembly"
+  ],
+  "func_003387A0": [
+   "func_00339678",
+   "changed",
+   "from_assembly"
+  ],
+  "func_0033AF48": [
+   "func_0033BF90",
+   "changed",
+   "host C"
+  ],
+  "func_0033B050": [
+   "func_0033C098",
+   "changed",
+   "host C"
+  ],
+  "func_0033C2D8": [
+   "func_0033D320",
+   "changed",
+   "host C"
+  ],
+  "func_0033C378": [
+   "func_0033D3C0",
+   "changed",
+   "host C"
+  ],
+  "func_0033C468": [
+   "func_0033D4B0",
+   "changed",
+   "RAC2_K TEXT_PAGE_TOGGLE"
+  ],
+  "func_0033C590": [
+   "func_0033D5D8",
+   "changed",
+   "host C"
+  ],
+  "func_0033C738": [
+   "func_0033D780",
+   "changed",
+   "RAC2_K TEXT_WIDESCREEN"
+  ],
+  "func_00341540": [
+   "func_00342450",
+   "changed",
+   "host C"
+  ],
+  "func_00341610": [
+   "func_00342520",
+   "changed",
+   "RAC2_K PAUSE_OPTIONS_ROWS"
+  ],
+  "func_00341A68": [
+   "func_00342978",
+   "changed",
+   "host C"
+  ],
+  "func_00341A88": [
+   "func_00342998",
+   "changed",
+   "RAC2_K LIST_ORIGIN"
+  ],
+  "func_00341C20": [
+   "func_00342B30",
+   "changed",
+   "RAC2_K LIST_TITLE_TEXT"
+  ],
+  "func_00342380": [
+   "func_00343290",
+   "changed",
+   "host C"
+  ],
+  "func_00343798": [
+   "func_003446B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_003489E8": [
+   "func_00349728",
+   "near",
+   "from_assembly"
+  ],
+  "func_0034E4F8": [
+   "func_0034F240",
+   "changed",
+   "host C"
+  ],
+  "func_L00_002BA7D8": [
+   "func_L00_002BA8E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L00_00326200": [
+   "func_L00_00327478",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_0037F7E8": [
+   "func_L00_00380C50",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_003D1B50": [
+   "func_L00_003D2FA0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L00_00438E68": [
+   "func_L00_0043A470",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_002A8C48": [
+   "func_L01_002A8D48",
+   "near",
+   "from_assembly"
+  ],
+  "func_L01_003FFFE8": [
+   "func_L01_00401540",
+   "near",
+   "from_assembly"
+  ],
+  "func_L02_003E77E0": [
+   "func_L02_003E8D50",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L02_003F9C10": [
+   "func_L02_003FB1B0",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L03_003C7018": [
+   "func_L03_003C8620",
+   "changed",
+   "host C"
+  ],
+  "func_L04_002E04A8": [
+   "func_L04_002E06B0",
+   "near",
+   "calls_as"
+  ],
+  "func_L04_0031D630": [
+   "func_L04_0031E208",
+   "near",
+   "from_assembly"
+  ],
+  "func_L04_0040AD28": [
+   "func_L04_0040C228",
+   "near",
+   "host C"
+  ],
+  "func_L04_00411298": [
+   "func_L04_004127A8",
+   "changed",
+   "host C"
+  ],
+  "func_L04_00417308": [
+   "func_L04_004188B8",
+   "near",
+   "host C"
+  ],
+  "func_L04_00419918": [
+   "func_L04_0041B020",
+   "near",
+   "from_assembly"
+  ],
+  "func_L05_0041DF58": [
+   "func_L05_0041F478",
+   "near",
+   "host C"
+  ],
+  "func_L05_0041ED18": [
+   "func_L05_00420238",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L06_00396268": [
+   "func_L13_0035FA58",
+   "found",
+   "more_places func_L00_00354DF8"
+  ],
+  "func_L07_00409300": [
+   "func_L07_0040A6A8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_002CB6E8": [
+   "func_L08_002CB8F0",
+   "near",
+   "calls_as"
+  ],
+  "func_L08_0041EBF8": [
+   "func_L08_004201E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L08_00435A78": [
+   "func_L08_004370E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L09_002F8FD8": [
+   "func_L09_002F9B28",
+   "near",
+   "from_assembly"
+  ],
+  "func_L10_00421790": [
+   "func_L10_00422CA8",
+   "near",
+   "host C"
+  ],
+  "func_L11_0030F060": [
+   "func_L11_0030FC28",
+   "near",
+   "from_assembly"
+  ],
+  "func_L12_002B85E0": [
+   "func_L12_002B86E8",
+   "changed",
+   "unit_aliases src/levels/12_todano/L12_002CF7B0-decider.c"
+  ],
+  "func_L12_002CF7B0": [
+   "func_L12_002CF9E0",
+   "changed",
+   "calls_as"
+  ],
+  "func_L12_003B5240": [
+   "func_L12_003B6518",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L13_002C5760": [
+   "func_L13_002C58E8",
+   "near",
+   "calls_as"
+  ],
+  "func_L13_00306F38": [
+   "func_L13_00307BE0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L14_00304588": [
+   "func_L14_00305238",
+   "near",
+   "from_assembly"
+  ],
+  "func_L15_0042E1B0": [
+   "func_L15_0042F6D0",
+   "near",
+   "host C"
+  ],
+  "func_L19_0042B058": [
+   "func_L19_0042C4E0",
+   "near",
+   "from_assembly"
+  ],
+  "func_L20_00445738": [
+   "func_L20_00446C80",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L20_00446E70": [
+   "func_L20_004483B8",
+   "changed",
+   "from_assembly"
+  ],
+  "func_L22_002BF1B0": [
+   "func_L22_002BF2B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L22_003A5018": [
+   "func_L22_003A6448",
+   "changed",
+   "host C"
+  ],
+  "func_L23_002C38B0": [
+   "func_L23_002C39B8",
+   "near",
+   "from_assembly"
+  ],
+  "func_L23_0041DA48": [
+   "func_L23_0041EF48",
+   "changed",
+   "host C"
+  ]
+ },
+ "globals": {
+  "boot:00138280": [
+   "00138280",
+   "between",
+   "host C 0x00138280"
+  ],
+  "boot:00146B44": [
+   "00146B44",
+   "between",
+   "host C 0x00146B44"
+  ],
+  "boot:00152C18": [
+   "00152C18",
+   "between",
+   "profile boot 0x00152C18"
+  ],
+  "boot:00152C26": [
+   "00152C26",
+   "between",
+   "host C 0x00152C26"
+  ],
+  "boot:00152C2E": [
+   "00152C2E",
+   "between",
+   "rac2_addresses.h"
+  ],
+  "boot:00152C30": [
+   "00152C30",
+   "between",
+   "profile boot 0x00152C30"
+  ],
+  "boot:00152C64": [
+   "00152C64",
+   "between",
+   "host C 0x00152C64"
+  ],
+  "boot:00152C68": [
+   "00152C68",
+   "between",
+   "host C 0x00152C68"
+  ],
+  "boot:002652B0": [
+   "00265270",
+   "between",
+   "RAC2_K HELP_8"
+  ],
+  "ref_L00_00290B48_00": [
+   "00356D07",
+   "its value plus what the C adds",
+   "formed_as"
+  ]
+ },
+ "level_hooks": {
+  "carried": 26,
+  "count": 32,
+  "from": "0026F718",
+  "to": "0026F818"
+ },
+ "unpaired": {
+  "func_L02_003FE1B0": "from_assembly",
+  "func_L11_00443CE0": "from_assembly"
+ }
+}

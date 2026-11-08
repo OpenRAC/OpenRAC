@@ -110,7 +110,7 @@ void test_estimator_weights() {
         std::abs(emission_mis_weight(1e-100, 1e100) + emission_mis_weight(1e100, 1e-100) - 1)
         < .00001f
     );
-    CHECK(BakeSettings{}.rays_per_probe == 256);
+    CHECK(BakeSettings{}.rays_per_probe == 128);
     CHECK(emission_mis_weight(0, 1) == 0);
     CHECK(emission_mis_weight(1, 0) == 1);
     EmissionSample point{{0, 0, 1}, {1, 2, 3}, 0, true};

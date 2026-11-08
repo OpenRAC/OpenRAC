@@ -93,8 +93,8 @@ void configure() {
     // one), "inspect" selects the hero and opens the inspector, "labels" names the mobys in view,
     // "memview" opens the memory viewer.
     if (const std::optional<std::string_view> v = env::value(env::Var::Overlay); v && *v != "0") {
-        s.wanted = true;
         const std::string list(*v);
+        s.wanted = list != "meat-proxy-review";
         const auto has = [&](const char* word) {
             std::size_t at = 0;
             const std::size_t n = std::strlen(word);
@@ -119,6 +119,7 @@ void configure() {
         }
         s.labels = has("labels");
         s.object_viewer.open = s.developer && has("object-viewer");
+        s.meat_proxy_review = s.developer && has("meat-proxy-review");
         set_picker_enabled(has("picker") || s.object_viewer.open);
         s.wireframe = has("wireframe");
         s.memory_viewer = has("memview");
@@ -209,6 +210,9 @@ void launcher_style(ImGuiStyle& style) {
         return v;
     };
     const ui_colors::Colors& u = ui();
+    // Plain controls sit on a panel: the launcher's --control-card (launcher/docs/STYLE.md).
+    const ui_colors::Color control = u.control_card;
+    const ui_colors::Color control_hi = u.control_card_hi;
     ImVec4* colors = style.Colors;
     colors[ImGuiCol_Text] = c(u.text);
     colors[ImGuiCol_TextDisabled] = c(u.dim);
@@ -216,9 +220,9 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
     colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
     colors[ImGuiCol_Border] = c(u.line);
-    colors[ImGuiCol_FrameBg] = c(u.ink_deep);
-    colors[ImGuiCol_FrameBgHovered] = c(ui_colors::mix(u.ink_deep, u.amber, 0.12f));
-    colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.ink_deep, u.amber, 0.22f));
+    colors[ImGuiCol_FrameBg] = c(control);
+    colors[ImGuiCol_FrameBgHovered] = c(control_hi);
+    colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.panel, u.amber, 0.18f));
     colors[ImGuiCol_TitleBg] = c(u.ink_deep);
     colors[ImGuiCol_TitleBgActive] = c(u.panel_hi);
     colors[ImGuiCol_TitleBgCollapsed] = c(u.ink_deep, 0.8f);
@@ -228,11 +232,11 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ScrollbarGrabHovered] = c(u.dim);
     colors[ImGuiCol_ScrollbarGrabActive] = c(u.soft);
     colors[ImGuiCol_CheckMark] = c(u.amber);
-    colors[ImGuiCol_SliderGrab] = c(u.brand);
-    colors[ImGuiCol_SliderGrabActive] = c(u.amber);
-    colors[ImGuiCol_Button] = c(u.panel_hi);
-    colors[ImGuiCol_ButtonHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.22f));
-    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
+    colors[ImGuiCol_SliderGrab] = c(u.amber);
+    colors[ImGuiCol_SliderGrabActive] = c(u.gold);
+    colors[ImGuiCol_Button] = c(control);
+    colors[ImGuiCol_ButtonHovered] = c(control_hi);
+    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel, u.amber, 0.22f));
     colors[ImGuiCol_Header] = c(ui_colors::mix(u.panel_hi, u.amber, 0.14f));
     colors[ImGuiCol_HeaderHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
     colors[ImGuiCol_HeaderActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
@@ -242,12 +246,12 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ResizeGrip] = c(u.line);
     colors[ImGuiCol_ResizeGripHovered] = c(u.amber, 0.6f);
     colors[ImGuiCol_ResizeGripActive] = c(u.amber);
-    colors[ImGuiCol_Tab] = c(u.ink_deep);
+    colors[ImGuiCol_Tab] = c(control);
     colors[ImGuiCol_TabHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
-    colors[ImGuiCol_TabSelected] = c(u.panel_hi);
-    colors[ImGuiCol_TabSelectedOverline] = c(u.amber);
-    colors[ImGuiCol_TabDimmed] = c(u.ink_deep);
-    colors[ImGuiCol_TabDimmedSelected] = c(u.panel_hi);
+    colors[ImGuiCol_TabSelected] = c(ui_colors::mix(u.panel, u.amber, 0.15f));
+    colors[ImGuiCol_TabSelectedOverline] = c(u.amber, 0.0f);
+    colors[ImGuiCol_TabDimmed] = c(control);
+    colors[ImGuiCol_TabDimmedSelected] = c(ui_colors::mix(u.panel, u.amber, 0.10f));
     colors[ImGuiCol_PlotLines] = c(u.soft);
     colors[ImGuiCol_PlotLinesHovered] = c(u.amber);
     colors[ImGuiCol_PlotHistogram] = c(u.brand);
@@ -271,15 +275,20 @@ void style_and_font() {
     style = ImGuiStyle();
     ImGui::StyleColorsDark();
     launcher_style(style);
+    // The launcher's corners: 12 px for windows and panels, 6 px for frames, tabs and grabs. No
+    // borders: a fill sets each apart (the site's STYLE.md).
     style.WindowRounding = 12.0f;
-    style.ChildRounding = 8.0f;
-    style.PopupRounding = 8.0f;
+    style.ChildRounding = 12.0f;
+    style.PopupRounding = 12.0f;
     style.FrameRounding = 6.0f;
     style.GrabRounding = 6.0f;
-    style.ScrollbarRounding = 8.0f;
+    style.ScrollbarRounding = 6.0f;
     style.TabRounding = 6.0f;
-    style.WindowBorderSize = 1.0f;
-    style.PopupBorderSize = 1.0f;
+    style.WindowBorderSize = 0.0f;
+    style.ChildBorderSize = 0.0f;
+    style.PopupBorderSize = 0.0f;
+    style.FrameBorderSize = 0.0f;
+    style.TabBorderSize = 0.0f;
     style.WindowPadding = ImVec2(12.0f, 10.0f);
     style.FramePadding = ImVec2(8.0f, 4.0f);
     style.ItemSpacing = ImVec2(8.0f, 5.0f);
@@ -515,7 +524,7 @@ void panel(const Shown& shown) {
             text_coloured(kRed, "PAUSED");
         }
         if (ImGui::Button(keys ? "screenshot (F12)" : "screenshot")) {
-            s.shot_path = shot_name(s.tick);
+            s.shot_tick = s.tick;
         }
         ImGui::SameLine();
         bool dumping = stats::dumping();
@@ -554,7 +563,7 @@ void panel(const Shown& shown) {
             mobys_section();
         }
         if (header(kGame, "Game")) {
-            game_section();
+            game_section(shown);
         }
         if (header(kShaders, "Shaders")) {
             shaders_section();
@@ -566,13 +575,26 @@ void panel(const Shown& shown) {
     ImGui::End();
 }
 
-// The window as it is now, overlay included, to a PNG (the back buffer, before the swap). False
-// when it could not be written.
-bool write_window(const std::string& path, int width, int height) {
-    using namespace openrac::gl;
-    if (width <= 0 || height <= 0) {
-        return false;
+// A screenshot's file: in the working folder; on Android, whose apps run in "/" (not writable),
+// in the app's own files (HOME, which the launcher sets).
+std::string shot_name(std::uint64_t tick, bool enhanced) {
+    const std::string name =
+        std::format("openrac_window_{}{}.png", tick, enhanced ? "_enhanced" : "");
+#if defined(__ANDROID__)
+    if (const std::optional<std::string> home = env::system_variable("HOME");
+        home && !home->empty()) {
+        std::error_code ignored;
+        const std::filesystem::path dir = std::filesystem::path(*home) / "screenshots";
+        std::filesystem::create_directories(dir, ignored);
+        return (dir / name).string();
     }
+#endif
+    return name;
+}
+
+// The window as it is now, overlay included (the back buffer, before the swap), top row first.
+std::vector<std::uint8_t> read_window(int width, int height) {
+    using namespace openrac::gl;
     std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -587,7 +609,15 @@ bool write_window(const std::string& path, int width, int height) {
     for (std::size_t i = 3; i < flipped.size(); i += 4) {
         flipped[i] = 0xFF;
     }
-    if (scene::write_png(path, width, height, flipped)) {
+    return flipped;
+}
+
+// The window to a PNG. False when it could not be written.
+bool write_window(const std::string& path, int width, int height) {
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+    if (scene::write_png(path, width, height, read_window(width, height))) {
         s.message = "window written to " + path;
         log::info("{}", s.message);
         return true;
@@ -602,22 +632,6 @@ bool write_window(const std::string& path, int width, int height) {
 void set_visible(bool on) {
     s.visible = on;
     stats::set_enabled(stats::Client::Overlay, on);
-}
-
-// A screenshot's file: in the working folder; on Android, whose apps run in "/" (not writable),
-// in the app's own files (HOME, which the launcher sets).
-std::string shot_name(std::uint64_t tick) {
-    const std::string name = std::format("openrac_window_{}.png", tick);
-#if defined(__ANDROID__)
-    if (const std::optional<std::string> home = env::system_variable("HOME");
-        home && !home->empty()) {
-        std::error_code ignored;
-        const std::filesystem::path dir = std::filesystem::path(*home) / "screenshots";
-        std::filesystem::create_directories(dir, ignored);
-        return (dir / name).string();
-    }
-#endif
-    return name;
 }
 
 void request() {
@@ -660,16 +674,17 @@ void toggle_drawer() {
 }
 
 bool visible() {
-    return s.visible || s.enhanced_settings;
+    return s.visible || s.enhanced_settings || s.meat_proxy_review;
 }
 
 bool wants_cursor() {
-    return s.menu_open || s.menu_at > 0.0f || s.visible || s.enhanced_settings
-           || s.object_viewer.open || picker_enabled() || s.touch_editing;
+    return s.menu_open || s.menu_at > 0.0f || visible() || s.object_viewer.open || picker_enabled()
+           || s.touch_editing;
 }
 
 bool event(const SDL_Event& e) {
     configure();
+    release_scripted_pointer(e);
     // A press awaited for a binding (the Controls tab): the controllers' presses are the
     // capture's, not the menu's. The keyboard does nothing either (no menu key, no Enter on
     // another row, no Android Back, which a controller's B may be), but Esc gives the capture up. Key releases still reach the menu, so a key
@@ -821,7 +836,7 @@ bool event(const SDL_Event& e) {
                 s.stretch = std::max(s.stretch / 2.0, 1.0);
                 return true;
             case SDLK_F12:
-                s.shot_path = shot_name(s.tick);
+                s.shot_tick = s.tick;
                 return true;
             // The menu, open at its Controls tab (debug/menu_controls.cpp).
             case SDLK_F13:
@@ -834,9 +849,7 @@ bool event(const SDL_Event& e) {
                 break;
         }
     }
-    if (!(s.visible || s.enhanced_settings || s.object_viewer.open || picker_enabled()
-          || s.menu_open)
-        || !s.initialised) {
+    if (!(visible() || s.object_viewer.open || picker_enabled() || s.menu_open) || !s.initialised) {
         return false;
     }
     ImGui_ImplSDL3_ProcessEvent(&e);
@@ -864,7 +877,8 @@ bool event(const SDL_Event& e) {
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
         case SDL_EVENT_TEXT_INPUT:
-            return io.WantTextInput || (s.object_viewer.open && io.WantCaptureKeyboard);
+            return io.WantTextInput
+                   || ((s.object_viewer.open || s.meat_proxy_review) && io.WantCaptureKeyboard);
         default:
             return false;
     }
@@ -969,8 +983,7 @@ void draw(const Shown& shown) {
     const bool badge = s.paused || s.stretch != 1.0 || notifications_pending() || capture_busy()
                        || !mods::play_notice().empty();
     const bool menu_out = s.menu_open || s.menu_at > 0.0f || s.shot_when_shut || s.touch_editing;
-    if (!(s.visible || s.enhanced_settings || picker_enabled() || badge || menu_out
-          || !s.shot_path.empty())
+    if (!(visible() || picker_enabled() || badge || menu_out || s.shot_tick)
         || shown.window == nullptr || !initialise(shown.window)) {
         s.drew_last_frame = false;
         return;
@@ -1015,6 +1028,7 @@ void draw(const Shown& shown) {
     refresh_scripted_pointer();
     ImGui::NewFrame();
     enhanced_settings_window();
+    meat_proxy_review_window(shown);
     material_settings_window();
     controls_frame();
     if (s.visible) {
@@ -1035,15 +1049,8 @@ void draw(const Shown& shown) {
     picker_overlay(shown);
     object_viewer_window(shown);
     status_notifications();
-    draw_notifications();
-    ImGui::Render();
-    if (s.gl_subset) {
-        renderer::ui::imgui_gl::render(ImGui::GetDrawData());
-    } else {
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    }
-    renderer::gl_stats::reset_binds();
 
+    std::string scripted_shot;
     const stats::Frame* last = stats::history(0);
     const bool tick_frame = last == nullptr || last->kind != stats::FrameKind::Between;
     if (s.shot_every > 0 && tick_frame && s.tick % s.shot_every == 0 && s.tick >= s.shot_from && s.shots < 10000) {
@@ -1053,21 +1060,48 @@ void draw(const Shown& shown) {
         held = s.paused ? held + 1 : 0;
         if (written != s.tick || held == 5) {
             written = s.tick;
-            write_window(std::format("{}{}{}.png", s.shot_prefix, s.tick, held == 5 ? "_held" : ""), shown.window_width,
-                         shown.window_height);
+            scripted_shot = std::format(
+                "{}{}{}{}.png",
+                s.shot_prefix,
+                s.tick,
+                held == 5 ? "_held" : "",
+                shown.enhanced_graphics ? "_enhanced" : ""
+            );
             s.shots++;
         }
     }
-    if (!s.shot_path.empty()) {
-        const bool saved = write_window(s.shot_path, shown.window_width, shown.window_height);
+    if (!s.shot_tick && scripted_shot.empty()) {
+        draw_notifications();
+    }
+    ImGui::Render();
+    if (s.gl_subset) {
+        renderer::ui::imgui_gl::render(ImGui::GetDrawData());
+    } else {
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+    renderer::gl_stats::reset_binds();
+
+    if (!scripted_shot.empty()) {
+        s.message = "window written to " + scripted_shot;
+        scene::write_png_later(
+            scripted_shot,
+            shown.window_width,
+            shown.window_height,
+            read_window(shown.window_width, shown.window_height),
+            s.message
+        );
+    }
+    if (s.shot_tick) {
+        const std::string path = shot_name(*s.shot_tick, shown.enhanced_graphics);
+        const bool saved = write_window(path, shown.window_width, shown.window_height);
         notify({
             .title = saved ? "Screenshot saved" : "The screenshot could not be saved",
-            .text = s.shot_path,
-            .folder = saved ? s.shot_path : std::string(),
+            .text = path,
+            .folder = saved ? path : std::string(),
             .tone = saved ? Tone::Done : Tone::Error,
             .seconds = saved ? 3.0 : 8.0,
         });
-        s.shot_path.clear();
+        s.shot_tick.reset();
     }
 }
 

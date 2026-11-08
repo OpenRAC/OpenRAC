@@ -30,6 +30,20 @@ std::array<float, 4> fog_params(const WorldFog& fog) {
     return {t.slope, t.offset, fog.far_intensity, fog.near_intensity};
 }
 
+std::optional<std::array<float, 4>> scene_fog_params(
+    float near_dist, float far_dist, float near_intensity, float far_intensity
+) {
+    const float range = far_dist - near_dist;
+    if (!(range > 0.0f) || far_intensity >= 255.0f) {
+        return std::nullopt;
+    }
+    const float slope = (far_intensity - near_intensity) / range;
+    const float offset = (near_intensity * far_dist - far_intensity * near_dist) / range;
+    return std::array<float, 4>{
+        slope, offset, far_intensity, std::max(near_intensity, far_intensity)
+    };
+}
+
 std::uint32_t tie_fog_value(float depth, const WorldFog& fog) {
     using namespace vu;
     const std::uint32_t dn = bits(fog.near_dist);

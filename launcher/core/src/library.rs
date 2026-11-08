@@ -56,7 +56,7 @@ fn version_status(root: &std::path::Path, config: &Config, version: &Version) ->
     let mut status = status::version_status(root, version);
     if status.disc.state != DiscState::Found {
         let installed =
-            config.install_dir.as_deref().and_then(|dir| install::disc_image(dir, &version.game, &version.serial));
+            config.install_dir.as_deref().and_then(|dir| install::disc_image(dir, &version.game, &version.key));
         if let Some(image) = installed {
             status.disc.state = DiscState::Found;
             status.disc.message = "set up from your disc".into();
@@ -262,7 +262,18 @@ mod tests {
     #[test]
     fn every_game_the_editor_reads_offers_it() {
         let editable = editable_versions();
-        for key in ["rac1/pal", "rac1/ntsc", "rac2/ntsc", "rac3/ntsc", "rac4/ntsc"] {
+        for key in [
+            "rac1/pal",
+            "rac1/ntsc",
+            "rac1/pal1",
+            "rac1/jp",
+            "rac2/ntsc",
+            "rac2/pal",
+            "rac2/ntsc2",
+            "rac3/ntsc",
+            "rac3/pal",
+            "rac4/ntsc",
+        ] {
             assert!(editable.iter().any(|k| k == key), "{key} is not editable: {editable:?}");
         }
         let config = Config { root: Some(checkout()), ..Config::default() };
@@ -331,10 +342,17 @@ mod tests {
     /// its enhanced lighting bake.
     #[test]
     fn going_commandos_play_and_bake_are_for_players() {
+        // The same for each of its three discs: one path whatever the disc.
+        for key in ["rac2/ntsc", "rac2/pal", "rac2/ntsc2"] {
+            going_commandos_play_and_bake(key);
+        }
+    }
+
+    fn going_commandos_play_and_bake(key: &str) {
         let action_of = |config: &Config, id: &str| {
             let library = library(config).unwrap();
-            let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == "rac2/ntsc");
-            version.expect("rac2/ntsc").actions.iter().find(|a| a.id == id).cloned()
+            let version = library.games.iter().flat_map(|g| &g.versions).find(|v| v.version.key == key);
+            version.expect(key).actions.iter().find(|a| a.id == id).cloned()
         };
         let player = Config { root: Some(checkout()), ..Config::default() };
         let bake = action_of(&player, "probe-bake").expect("a player has Going Commando's bake");

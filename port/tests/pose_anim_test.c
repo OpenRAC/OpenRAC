@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
-/* A posed moby's animation (rac1/host/pose_anim.h), against a moby that animates as the game's do
+/* A posed moby's animation (openrac/pose_anim.h), against a moby that animates as the game's do
  * (its time to the next key on by its speed times the key's length each tick, round the seq):
  * - a new seq is blended into, a blend plays on at its own speed, a moby far from the pose is put
  *   there;
@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../game/rac1/host/pose_anim.h"
+#include "openrac/pose_anim.h"
 
 #define CHECK(c)                                                                                   \
     do {                                                                                           \

@@ -1576,6 +1576,27 @@ static void line_mobys(
     }
 }
 
+/* The mobys a query wrote a hit record to, told to the mods once it is done (world.c): the kernels
+ * write the records themselves, never through PostHitMessage or record_moby_hit, so a mod would
+ * not hear of a weapon's or an attack's hit otherwise. Noted only while a mod listens. */
+#define HIT_NOTES 64
+static gaddr g_hit_notes[HIT_NOTES];
+static int g_hit_note_count;
+
+static void note_hit(gaddr moby) {
+    if (openrac_game_moby_hit == NULL) {
+        return;
+    }
+    for (int i = 0; i < g_hit_note_count; ++i) {
+        if (g_hit_notes[i] == moby) {
+            return;
+        }
+    }
+    if (g_hit_note_count < HIT_NOTES) {
+        g_hit_notes[g_hit_note_count++] = moby;
+    }
+}
+
 /* A hit record for the moby a line with a template hit (moby +0xA4 indexes the record), unless the
  * record it has for it already carries more damage. The point is the hit register, w zero. */
 static void hit_record(const Ctx* x, gaddr moby, gaddr tmpl, V3 point, int32_t index) {
@@ -1594,6 +1615,7 @@ static void hit_record(const Ctx* x, gaddr moby, gaddr tmpl, V3 point, int32_t i
     memmove(G(r + 0x10), G(tmpl), 0x24);
     U32(r + 0x34) = moby;
     S32(r + 0x38) = index;
+    note_hit(moby);
 }
 
 static int coll_line(const Ctx* x, gaddr pa, gaddr pb, uint32_t fl, gaddr ignore, gaddr tmpl) {
@@ -2312,6 +2334,7 @@ static int host_sphere_mobys(float a0, gaddr a1, int a2, gaddr a3, gaddr a4) {
                 U32(rec + 0x34) = m;
                 S8(m + 0xA4) = (int8_t)i;
                 U32(out + 0x14) = (i + 1) & 0x3F;
+                note_hit(m);
             }
         }
         result = (int)((cursor - x->list) >> 2);
@@ -2465,7 +2488,19 @@ int rac1_coll_host(int kind, const RacCollArgs* a) {
 }
 
 static inline int coll_run(int kind, const RacCollArgs* a) {
-    return rac1_coll_checking() ? rac1_coll_check(kind, a) : rac1_coll_host(kind, a);
+    g_hit_note_count = 0;
+    const int result = rac1_coll_checking() ? rac1_coll_check(kind, a) : rac1_coll_host(kind, a);
+    /* After the query (and its check), so a hit a mod takes back is not a difference. */
+    if (g_hit_note_count > 0) {
+        gaddr notes[HIT_NOTES];
+        const int count = g_hit_note_count;
+        memcpy(notes, g_hit_notes, sizeof(gaddr) * (size_t)count);
+        g_hit_note_count = 0;
+        for (int i = 0; i < count; ++i) {
+            rac1_world_hit_recorded(notes[i]);
+        }
+    }
+    return result;
 }
 
 /* The executable's line query: its own globals, or with a level loaded (where retail runs the level's

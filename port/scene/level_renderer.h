@@ -56,6 +56,21 @@ struct GameScenery {
     // The same of the shrubs (their records' +0 and +0x1E).
     std::vector<std::array<float, 4>> shrub_spheres;
     std::vector<std::uint16_t> shrub_lights;
+    // Per tie and per shrub, nonzero where the game has hidden it in its record: a tie's +0x1E bit
+    // 2, a shrub's +0x16 bit 0, which Going Commando's TieProc (0x2F133C) and ShrubProc
+    // (0x2E15B0) test to leave it undrawn. Empty: none hidden.
+    // Going Commando's frontend also leaves out the ones its culls leave undrawn this tick: a tie
+    // whose occlusion bit the frame's mask clears, and a tie or shrub past its draw distance (at
+    // most the level's cap; under "Scenery detail: Full" the cap alone).
+    std::vector<std::uint8_t> tie_hidden;
+    std::vector<std::uint8_t> shrub_hidden;
+    // Each terrain fragment's occlusion word, in the game's fragment order (its tfrag records'
+    // +0x3B byte and +0x3A bit), for a game whose frame mask stands in for a baked grid
+    // (LevelScene::set_game_pvs). Empty: the words as loaded.
+    std::vector<std::uint16_t> terrain_occlusion;
+    // Per terrain fragment, nonzero where it is past the terrain's far cull this tick (the
+    // level's, 960 units, times Draw distance). Empty: none.
+    std::vector<std::uint8_t> terrain_far;
 };
 
 class LevelScene {
@@ -154,8 +169,8 @@ public:
     // (GameProfile::scenery_matrices), one per instance as loaded in each layer's order, the
     // matrix's first three columns and its translation; empty: drawn as loaded. An instance the
     // game moved leaves its layer and is drawn with the mobys (add_moved_scenery) where the game
-    // puts it; one whose matrix the game zeroed is not drawn. A layer is grouped again only when
-    // the set of moved instances changes.
+    // puts it; one whose matrix the game zeroed, or that its record hides, is not drawn. A layer
+    // is grouped again only when the set of moved instances changes.
     // A tie that a point light reaches (its list) is lit again with it each tick, as the game does.
     void move_scenery(const GameScenery& scenery);
 
@@ -680,6 +695,10 @@ private:
     // in the sorted index buffer and turning each fragment into another draw.
     std::vector<std::uint32_t> m_cpu_indices;
     std::vector<PvsModel> m_pvs_models;
+    // The terrain fragments past the game's far cull this tick (GameScenery::terrain_far).
+    std::vector<std::uint8_t> m_terrain_far;
+    // The terrain chunk the game's records are (move_scenery); -1 every chunk.
+    int m_terrain_chunk = -1;
     std::array<CameraCulling, kLayerCount> m_camera_culling{};
     // Each model's copy in material order, for the opaque pass of the static layers (upload); a
     // model of one primitive, or one only live mobys use, is its own.

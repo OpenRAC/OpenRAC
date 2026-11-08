@@ -1,24 +1,52 @@
 # The runner's own Clang may be older than Visual Studio's C++ library accepts, so LLVM's release
 # is fetched at a fixed version and checked against its SHA-256. Its installer is unpacked, not
-# run: nothing is installed over what the runner has.
+# run: nothing is installed over what the runner has. The installer is cached, and a failed
+# download is tried again, so one bad request to GitHub's release storage does not fail the job.
 name: Clang (Windows)
 description: LLVM at a fixed version, checked and unpacked; sets OPENRAC_CLANG and puts it on PATH
 runs:
   using: composite
   steps:
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/llvm-installer
+        key: llvm-installer-21.1.4-win64
+
     - shell: pwsh
       env:
         LLVM_VERSION: "21.1.4"
         LLVM_SHA256: 8e39f8051cd10a163c1fab304f16d8e16a9c0f5e94b59d08853bbab630bd65dd
       run: |
         $ProgressPreference = "SilentlyContinue"
-        $installer = Join-Path $env:RUNNER_TEMP "llvm.exe"
+        $ErrorActionPreference = "Stop"
+        $folder = Join-Path $env:RUNNER_TEMP "llvm-installer"
+        New-Item -ItemType Directory -Force $folder | Out-Null
+        $installer = Join-Path $folder "LLVM-${env:LLVM_VERSION}-win64.exe"
         $release = "https://github.com/llvm/llvm-project/releases/download"
-        Invoke-WebRequest "$release/llvmorg-${env:LLVM_VERSION}/LLVM-${env:LLVM_VERSION}-win64.exe" -OutFile $installer
-        $sha256 = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
-        if ($sha256 -ne $env:LLVM_SHA256) { throw "LLVM ${env:LLVM_VERSION}: its SHA-256 is $sha256" }
+        $url = "$release/llvmorg-${env:LLVM_VERSION}/LLVM-${env:LLVM_VERSION}-win64.exe"
+
+        function Test-Installer {
+          if (-not (Test-Path $installer)) { return $false }
+          $sha256 = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLower()
+          if ($sha256 -eq $env:LLVM_SHA256) { return $true }
+          $size = (Get-Item $installer).Length
+          Write-Host "LLVM ${env:LLVM_VERSION}: got $size bytes with SHA-256 $sha256"
+          Remove-Item $installer
+          return $false
+        }
+
+        $delay = 5
+        for ($attempt = 1; -not (Test-Installer); $attempt++) {
+          if ($attempt -gt 5) { throw "LLVM ${env:LLVM_VERSION}: no good download from $url" }
+          if ($attempt -gt 1) { Start-Sleep -Seconds $delay; $delay *= 2 }
+          Write-Host "Downloading $url (try $attempt)"
+          try { Invoke-WebRequest $url -OutFile $installer } catch { Write-Host "Download failed: $_" }
+        }
+
+        $7z = (Get-Command 7z -ErrorAction SilentlyContinue).Source
+        if (-not $7z) { $7z = Join-Path $env:ProgramFiles "7-Zip\7z.exe" }
         $llvm = Join-Path $env:RUNNER_TEMP "llvm"
-        7z x $installer "-o$llvm" -y | Out-Null
+        & $7z x $installer "-o$llvm" -y | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "7z could not unpack LLVM's installer" }
         "OPENRAC_CLANG=$llvm\bin\clang.exe" >> $env:GITHUB_ENV
         "$llvm\bin" >> $env:GITHUB_PATH

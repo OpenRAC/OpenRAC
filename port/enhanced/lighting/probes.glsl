@@ -348,7 +348,7 @@ ivec3 probe_choose_regions(vec3 p) {
             int id = int(texelFetch(probe_region_masks, 1 + slot).r);
             vec3 step = probe_regions[id * 3 + 1].xyz;
             vec3 c = probe_local(p - probe_regions[id * 3].xyz,vec2(probe_regions[id*3+1].w,probe_regions[id*3+2].w)) / step;
-            vec3 edge = min(c, probe_regions[id * 3 + 2].xyz - 1.0 - c);
+            vec3 edge = min(c, (probe_regions[id * 3 + 2].xyz - 1.0 - c) * vec3(1.0, 1.0, 0.5));
             float influence = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z)));
             float score = influence / (step.x * step.y * step.z);
             if (score > scores.x || (score > 0.0 && score == scores.x && id < best.x)) {
@@ -372,7 +372,9 @@ ivec3 probe_choose_regions(vec3 p) {
     return best;
 }
 
-bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradiance) {
+bool sample_probe_irradiance(
+    vec3 p, vec3 n, vec3 surface_bias, out vec3 irradiance, out float dense_weight
+) {
     vec3 locals = vec3(0.0);
     float total = 0.0;
     float confidence = 0.0;
@@ -409,7 +411,7 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
             continue;
         }
         vec3 coordinate = probe_local(p - origin,frame) / spacing;
-        vec3 edge = min(coordinate, dimensions - 1.0 - coordinate);
+        vec3 edge = min(coordinate, (dimensions - 1.0 - coordinate) * vec3(1.0, 1.0, 0.5));
         float boundary = smoothstep(0.0, 1.0, min(edge.x, min(edge.y, edge.z))) * weight;
         // Zero-influence borders cannot contribute even when their probes are valid.
         if (boundary <= 0.0) {
@@ -425,6 +427,7 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
             total += blend;
         }
     }
+    dense_weight = min(total, 1.0);
     if (total >= 1.0) {
         irradiance = locals / total;
         return true;
@@ -445,11 +448,17 @@ bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradia
     if (total > 0.0) {
         if (!base_valid) {
             irradiance = locals / total;
+            dense_weight = 1.0;
             return true;
         }
-        irradiance = mix(irradiance, locals / total, min(total, 1.0));
+        irradiance = mix(irradiance, locals / total, dense_weight);
     }
     return base_valid;
+}
+
+bool sample_probe_irradiance(vec3 p, vec3 n, vec3 surface_bias, out vec3 irradiance) {
+    float dense_weight;
+    return sample_probe_irradiance(p, n, surface_bias, irradiance, dense_weight);
 }
 
 // Reference/fixture entry point retains the original normal-only bias.

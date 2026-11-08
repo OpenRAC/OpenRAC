@@ -153,6 +153,14 @@ class WadDiscTests(unittest.TestCase):
         wrong = wads.Version("rac2", "ntsc", "NTSC-U", "test", GC.executable, len(EXE), "0" * 40, 0x60)
         with mock.patch.object(wads, "VERSIONS", (wrong,)), self.assertRaisesRegex(FormatError, "SHA-1"):
             wads.identify(d)
+        # Two releases of one serial (Going Commando's v1.01 and v2.00): the executable says which.
+        with mock.patch.object(wads, "VERSIONS", (wrong, GC)):
+            self.assertEqual(wads.identify(d), GC)
+        other_size = wads.Version("rac2", "ntsc2", "NTSC-U", "test", GC.executable, len(EXE) + 4, GC.executable_sha1, 0x60)
+        with mock.patch.object(wads, "VERSIONS", (other_size, GC)):
+            self.assertEqual(wads.identify(d), GC)
+        with mock.patch.object(wads, "VERSIONS", (other_size,)), self.assertRaisesRegex(FormatError, "executable"):
+            wads.identify(d)
 
     def test_walk_wants_iso_9660_version_1_with_2048_byte_blocks(self):
         for fmt, offset, value in (("<H", 16 * SECTOR + 128, 4096), ("B", 16 * SECTOR + 6, 2)):

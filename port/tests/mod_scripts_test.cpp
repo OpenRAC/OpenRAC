@@ -191,6 +191,10 @@ openrac.log("sandbox fine on", openrac.game, openrac.version, openrac.api)
     CHECK(mods::scripts::state_count() == 0);
 }
 
+// The budget the other cases run with: they test what a script does, not how fast, and the
+// default 2 ms of wall time is sometimes over by a script's first frame.
+constexpr double kBudgetMs = 1000.0;
+
 void the_budget(const fs::path& plugins) {
     mods::scripts::set_budget_ms(20.0);
     // At load: the mod does not load.
@@ -219,7 +223,7 @@ end)
     CHECK(stopped.second.find("time budget") != std::string::npos);
     CHECK(add(1) == 2);  // falls through now
     mods::reset();
-    mods::scripts::set_budget_ms(2.0);
+    mods::scripts::set_budget_ms(kBudgetMs);
 }
 
 void an_error_is_the_mods(const fs::path& plugins) {
@@ -405,6 +409,7 @@ void refused_without_a_binding(const fs::path& plugins) {
 
 int main() {
     runtime::Memory::create();
+    mods::scripts::set_budget_ms(kBudgetMs);
     const fs::path dir = fs::temp_directory_path() / ("openrac_mod_scripts_test_" + std::to_string(std::rand()));
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
