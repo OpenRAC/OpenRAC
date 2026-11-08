@@ -1,4 +1,0 @@
-# Functions with the same code in PAL v2.00 and NTSC-U, matched on one side only (tools/version_sync.py ntsc).
-# to the NTSC decomp: our C builds the NTSC-U bytes and the NTSC decomp has not matched it (a pull request
-# there); from the NTSC decomp: matched there, not here. Names, places and directions only.
-# name	direction	NTSC decomp name	NTSC-U place

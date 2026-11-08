@@ -1,0 +1,32 @@
+# Public iOS checks deliberately need neither a retail disc nor Apple signing credentials.
+name: iOS
+on:
+  pull_request:
+    paths: ['port/**', 'editor/**', 'launcher/**', 'tools/build_ios.py', '.github/workflows/ios.yml']
+  push:
+    branches: [develop, '**/ios-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  runtime:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build tools
+        run: brew install cmake ninja
+      - name: Native memory and suspension tests
+        run: |
+          cmake -S port -B build/ios-host -G Ninja -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
+          cmake --build build/ios-host --target runtime_test expanded_memory_test ios_memory_test mobile_lifecycle_test --parallel 3
+          ctest --test-dir build/ios-host -R '^(runtime|expanded_memory|ios_memory|mobile_lifecycle)$' --output-on-failure
+      - name: Compile the iOS runtime and window without a game
+        run: |
+          cmake -S port -B build/ios-sdk -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
+          cmake --build build/ios-sdk --target openrac_runtime openrac_platform --parallel 3

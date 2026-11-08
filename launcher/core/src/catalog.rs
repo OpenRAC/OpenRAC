@@ -155,8 +155,8 @@ struct RawGame {
 
 #[derive(Deserialize)]
 struct RawVersion {
-    /// Where the version's tree lives, when not games/<game>/<version> (rac1's PAL tree is the
-    /// merged games/rac1 itself).
+    /// Where the version's tree lives, when not games/<game>/<version> (rac1's PAL v1.00 and Japanese
+    /// releases are built from games/rac1/decomp).
     #[serde(default)]
     dir: Option<String>,
     #[serde(default)]
@@ -548,7 +548,7 @@ mod tests {
         assert_eq!(ntsc, Some("rac1/ntsc"));
         let pal = catalog.version("rac1/pal").unwrap();
         assert_eq!(pal.serial, "SCES_509.16");
-        assert_eq!(pal.dir, "games/rac1");
+        assert_eq!(pal.dir, "games/rac1/decomp");
         assert!(pal.disc.as_ref().is_some_and(|d| d.size.is_some() && d.sha1.is_some()));
     }
 

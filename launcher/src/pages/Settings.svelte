@@ -759,11 +759,10 @@
     gap: 20px;
     align-items: center;
     padding: 24px;
-    border-radius: 30px;
+    border-radius: var(--radius);
     background:
       radial-gradient(80% 90% at 80% 0, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
       var(--panel);
-    border: 1px solid var(--line);
   }
 
   /* The logo's mark in the accent, beside the welcome that names it. */
@@ -811,21 +810,19 @@
     align-items: center;
     gap: 8px;
     padding: 6px 12px 6px 6px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
-    background: var(--panel);
+    border-radius: var(--radius-sm);
+    background: var(--control);
     color: var(--soft);
     font-size: 0.8125rem;
     font-weight: 600;
     transition:
-      border-color var(--fast) var(--ease),
+      background var(--fast) var(--ease),
       color var(--fast) var(--ease);
   }
 
   .themes button.on {
-    border-color: var(--amber);
-    color: var(--text);
-    box-shadow: 0 0 0 1px var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .swatch {
@@ -903,7 +900,9 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-size: 0.8125rem;
   }
@@ -944,9 +943,10 @@
     align-items: center;
     gap: 10px;
     padding: 12px 14px 12px 20px;
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
+    border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
     font-size: 0.875rem;
     animation: bar-in var(--medium) var(--ease) both;

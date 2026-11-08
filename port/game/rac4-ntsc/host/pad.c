@@ -18,7 +18,12 @@ static struct {
     unsigned char align[6]; /* each SetActDirect byte's motor, 0xFF none */
 } pads[2];
 
-enum { ACT_SMALL = 0, ACT_LARGE = 1, ACT_COUNT = 2, ACT_NONE = 0xFF };
+enum {
+    ACT_SMALL = 0,
+    ACT_LARGE = 1,
+    ACT_COUNT = 2,
+    ACT_NONE = 0xFF
+};
 
 static int opened(int port, int slot) {
     return port >= 0 && port < 2 && slot == 0 && pads[port].open;
@@ -133,7 +138,7 @@ int func_0013BF40(int port, int slot, int values) { /* scePadSetActDirect */
     if (values == 0 || !connected(port, slot)) {
         return 0;
     }
-    const unsigned char *data = G((gaddr)values);
+    const unsigned char* data = G((gaddr)values);
     int small = 0, large = 0;
     for (int i = 0; i < 6; i++) {
         if (pads[port].align[i] == ACT_SMALL) {

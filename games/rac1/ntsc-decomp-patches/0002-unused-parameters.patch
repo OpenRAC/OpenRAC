@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sun, 18 Oct 2026 21:18:00 +0000
+Subject: unused parameters
+
+Drop parameters the retail code never reads.
+
+Each of these declared a parameter that the retail code never reads (it writes the register
+first, or never touches it), so its callers looked one argument short to hostgen.
+
+- FUN_L09_002efda8: the unused float angle parameter is gone. The function never reads it (no
+  $f12 in the retail code); the one caller passes two arguments, and each call was reported as
+  short of one.
+- FUN_L16_002a0dc0: the unused float unused parameter is gone. The retail code writes $f12
+  (neg.s $f12, $f13 at 0x2A0E8C) before it reads it; callers pass five arguments.
+- relocate_asset_entry_pointers (FUN_002032e0): the unused third parameter (s32 on) is gone. The
+  function reads only a0 and a1 (it sets a1 to 0 for its loop); every caller passes two, and
+  each of 8 call sites was reported as short of one.
+- transition_default_draw (FUN_001eb410): takes no parameter. The C had an unused_parameter;
+  retail never reads a0 before it loads it (0x1EB42C), and transition_do_transition calls it
+  with nothing.
+- FUN_L00_002e83c0 (the camera lock): the unused second parameter is gone. The retail code
+  writes a1 (lui $5, %hi(D_L00_0015EF50)) before it reads it; its callers pass one argument.
+- FUN_002166e8, FUN_00205278, FUN_00204790: the unused parameters are gone ((void)). None of the
+  three reads its argument registers (each writes a0/a1 first, or never touches them); callers
+  that pass something are unaffected. The port's host/scene_start.c calls FUN_00204790 with
+  nothing now.
+---
+ src/audio/streaming/request_audio_stream_break.c        | 4 ++--
+ src/game/transitions/transition_default_draw.c          | 4 ++--
+ src/overlays/l09/mobys/turret_base.c                    | 4 ++--
+ src/overlays/shared/camera/follow_camera_set_distance.c | 4 ++--
+ src/overlays/shared/enemies/armed_transport_rocket.c    | 7 ++-----
+ src/ui/map/slots/pick_map_slot_to_evict.c               | 4 ++--
+ src/world/loaders/relocate_asset_entry_pointers.c       | 5 ++---
+ src/world/update_world_object_animation.c               | 4 ++--
+ 8 files changed, 16 insertions(+), 20 deletions(-)
+
+diff --git a/src/audio/streaming/request_audio_stream_break.c b/src/audio/streaming/request_audio_stream_break.c
+index 34f885f..ea4f8ef 100644
+--- a/src/audio/streaming/request_audio_stream_break.c
++++ b/src/audio/streaming/request_audio_stream_break.c
+@@ -4,9 +4,9 @@
+ #include "rnc/audio/music/music_stream_state.h"
+ 
+ extern s32 snd_stream_safe_cd_break() __asm__("func_0012EEA8");
+-void       request_audio_stream_break(s32 unused_parameter) __asm__("FUN_002166e8");
++void       request_audio_stream_break(void) __asm__("FUN_002166e8");
+ 
+-void request_audio_stream_break(s32 unused_parameter) {
++void request_audio_stream_break(void) {
+     if (music_stream_state.read_state != 0) {
+         snd_stream_safe_cd_break();
+         music_stream_state.break_requested = 1;
+diff --git a/src/game/transitions/transition_default_draw.c b/src/game/transitions/transition_default_draw.c
+index 0e20f78..3485a52 100644
+--- a/src/game/transitions/transition_default_draw.c
++++ b/src/game/transitions/transition_default_draw.c
+@@ -51,9 +51,9 @@ extern s32                      light_tfrags() __asm__("func_00234F98");
+ extern s32                      patch_tie_texture_fields() __asm__("func_00235780");
+ extern s32                      draw_ties_1() __asm__("func_002358C8");
+ extern s32                      light_ties() __asm__("func_00237370");
+-void transition_default_draw(s32 *unused_parameter) __asm__("FUN_001eb410");
++void transition_default_draw(void) __asm__("FUN_001eb410");
+ 
+-void transition_default_draw(s32 *unused_parameter) {
++void transition_default_draw(void) {
+     s32 language_overlay_index;
+ 
+     if (level_sky_effect_data == 0 || level_sky_effect_data->unk4 != 0) {
+diff --git a/src/overlays/l09/mobys/turret_base.c b/src/overlays/l09/mobys/turret_base.c
+index a36e19e..658810b 100644
+--- a/src/overlays/l09/mobys/turret_base.c
++++ b/src/overlays/l09/mobys/turret_base.c
+@@ -11,9 +11,9 @@
+ 
+ typedef unsigned int u128_ee380 __attribute__((mode(TI)));
+ char *
+-spawn_turret_base(struct Moby *owner, void *position, float angle) __asm__("FUN_L09_002efda8");
++spawn_turret_base(struct Moby *owner, void *position) __asm__("FUN_L09_002efda8");
+ 
+-char *spawn_turret_base(struct Moby *source_moby, void *position, float angle) {
++char *spawn_turret_base(struct Moby *source_moby, void *position) {
+     u128_ee380 position_copy;
+     void      *copy = &position_copy;
+     char      *moby;
+diff --git a/src/overlays/shared/camera/follow_camera_set_distance.c b/src/overlays/shared/camera/follow_camera_set_distance.c
+index 1358182..2188802 100644
+--- a/src/overlays/shared/camera/follow_camera_set_distance.c
++++ b/src/overlays/shared/camera/follow_camera_set_distance.c
+@@ -75,9 +75,9 @@ s32 clear_follow_camera_volume_if_current(s32 id) {
+     return 0;
+ }
+ 
+-int try_select_follow_camera_volume(int candidate_object, int unused) __asm__("FUN_L00_002e83c0");
++int try_select_follow_camera_volume(int candidate_object) __asm__("FUN_L00_002e83c0");
+ 
+-int try_select_follow_camera_volume(int candidate_object, int unused) {
++int try_select_follow_camera_volume(int candidate_object) {
+     void      *current_camera = current_follow_cam;
+     C842e83c0 *camera_state;
+     u8         x;
+diff --git a/src/overlays/shared/enemies/armed_transport_rocket.c b/src/overlays/shared/enemies/armed_transport_rocket.c
+index 538e972..19c6e8c 100644
+--- a/src/overlays/shared/enemies/armed_transport_rocket.c
++++ b/src/overlays/shared/enemies/armed_transport_rocket.c
+@@ -123,16 +123,13 @@ char *spawn_armed_transport_rocket(char *owner,
+                                    char *initial_movement_vector,
+                                    void *pos,
+                                    void *vel,
+-                                   int   blend_duration_ticks,
+-                                   float unused) __asm__("FUN_L16_002a0dc0");
++                                   int   blend_duration_ticks) __asm__("FUN_L16_002a0dc0");
+ 
+ char *spawn_armed_transport_rocket(char *spawning_moby,
+                                    char *initial_movement_vector,
+                                    void *spawn_position,
+                                    void *target_position,
+-                                   int   blend_duration_ticks,
+-
+-                                   float unused) {
++                                   int   blend_duration_ticks) {
+     char *spawned_moby = (char *)create_moby(0x32);
+     char *moby_data;
+     float initial_movement_length, x, random_angle_radians, y;
+diff --git a/src/ui/map/slots/pick_map_slot_to_evict.c b/src/ui/map/slots/pick_map_slot_to_evict.c
+index 6da9d60..84241c0 100644
+--- a/src/ui/map/slots/pick_map_slot_to_evict.c
++++ b/src/ui/map/slots/pick_map_slot_to_evict.c
+@@ -5,9 +5,9 @@
+ extern s32 SubtractIntegerWithClamp(s32 value);
+ extern s32 find_id_in_terminated_table(s32 id) __asm__("func_00205220");
+ 
+-s32 pick_map_slot_to_evict(s32 unused_arg0, s32 unused_arg1) __asm__("FUN_00205278");
++s32 pick_map_slot_to_evict(void) __asm__("FUN_00205278");
+ 
+-s32 pick_map_slot_to_evict(s32 unused_arg0, s32 unused_arg1) {
++s32 pick_map_slot_to_evict(void) {
+     s64 max;
+     s32 selected_level_lookup_result;
+     s64 delta;
+diff --git a/src/world/loaders/relocate_asset_entry_pointers.c b/src/world/loaders/relocate_asset_entry_pointers.c
+index 30d15c7..47bc88e 100644
+--- a/src/world/loaders/relocate_asset_entry_pointers.c
++++ b/src/world/loaders/relocate_asset_entry_pointers.c
+@@ -1,10 +1,9 @@
+ #include "types.h"
+ 
+ void relocate_asset_entry_pointers(u8 *table_container,
+-                                   s32 animation_index,
+-                                   s32 on) __asm__("FUN_002032e0");
++                                   s32 animation_index) __asm__("FUN_002032e0");
+ 
+-void relocate_asset_entry_pointers(u8 *table_container, s32 animation_index, s32 on) {
++void relocate_asset_entry_pointers(u8 *table_container, s32 animation_index) {
+     u8 *animation_table_lookup_base = table_container;
+     u8 *selected_table_base;
+     u32 optional_data_offset;
+diff --git a/src/world/update_world_object_animation.c b/src/world/update_world_object_animation.c
+index 31d7b86..11f5f6a 100644
+--- a/src/world/update_world_object_animation.c
++++ b/src/world/update_world_object_animation.c
+@@ -78,11 +78,11 @@ struct TransferState {
+ extern struct TransferState D_0018CB20_lui __asm__("D_0018CB20") NOT_SDA;
+ extern int                  cutscene_moby_ids_by_content_variant[] __asm__("D_00160488");
+ extern int                  decompress_wad(int, int) __asm__("FUN_0020b618");
+-void                        update_world_object_animation(void *unused_arg) __asm__("FUN_00204790");
++void                        update_world_object_animation(void) __asm__("FUN_00204790");
+ 
+ extern s32 game_mode_macro __asm__("D_0015F604") MACRO_ADDR;
+ 
+-void update_world_object_animation(void *unused_arg) {
++void update_world_object_animation(void) {
+     struct ModelRec *rec;
+     struct Moby     *mob;
+     int             *cp;

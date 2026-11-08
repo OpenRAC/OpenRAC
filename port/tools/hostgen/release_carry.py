@@ -687,8 +687,8 @@ def addresses_header(p: Pairing, primary: str, version: str) -> str:
         out.append(line)
     text = ("/* Written by port/tools/hostgen/release_carry.py from rac2-ntsc's rac2_addresses.h. Do not edit. */\n"
             + "\n".join(out) + "\n")
-    return text.replace("(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt)",
-                        "(games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt), at this release's addresses "
+    return text.replace("(games/rac2/decomp/symbol_addrs/usa/symbol_addrs.txt)",
+                        "(games/rac2/decomp/symbol_addrs/usa/symbol_addrs.txt), at this release's addresses "
                         "(port/tools/hostgen/release_carry.py)")
 
 

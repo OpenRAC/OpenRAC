@@ -22,7 +22,7 @@ functions serve 1167 class roles**, and 78 of them serve more than
 one class. A mod that takes a shared function sees every class it serves, so it tells them apart by
 the moby's class number: **`s16 oclass` at +0xa6** of the moby
 (`*(int16_t*)(api->memory + moby + 0xa6)`, struct Moby in
-[games/rac1/include/moby.h](../../../games/rac1/include/moby.h)).
+[games/rac1/decomp/include/moby.h](../../../games/rac1/decomp/include/moby.h)).
 
 | The update functions | |
 |---|---:|
@@ -36,7 +36,7 @@ the moby's class number: **`s16 oclass` at +0xa6** of the moby
 | without C in the port (stubs) | 0 |
 
 226 classes have a typed pvar struct (151 structs): the
-Wrench-derived ones of [moby_pvars.h](../../../games/rac1/include/moby_pvars.h), and those the update
+Wrench-derived ones of [moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h), and those the update
 function's own C reads its pvars as (a struct of the C gives the part of the pvars that C names,
 so its size is a lower bound).
 
@@ -728,7 +728,7 @@ NTSC decomp's symbol for the function, under the same name.
 
 One row per function. **Classes**: the classes it updates (more than one: filter on the class
 field, +0xa6). **Levels**: where its code is placed. **C**: where the port gets its C
-(decomp: games/rac1/src; candidate: nonmatching/; hand: the port's own; assembly: translated from
+(decomp: games/rac1/decomp/src; candidate: nonmatching/; hand: the port's own; assembly: translated from
 its instructions). **Hook**: the hook point, or the name proposed for one and what it needs.
 **Calls**: the game functions its C calls that are not engine maths helpers, first ten.
 
@@ -1457,7 +1457,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### AmmoPickup_6720
 
-0x2c bytes; in [games/rac1/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/src/overlays/shared/vendor_002C12B0.c); classes: 204 devestator_ammo, 213 tesla_claw_ammo, 214 pyrocitor_ammo, 222 visibomb_ammo, 223 glove_of_doom_ammo, 225 mine_glove_ammo, 226 bomb_glove_ammo, 1006 blaster_ammo, 1438 ryno_ammo, 1447 drone_device_ammo, 1449 decoy_ammo.
+0x2c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c); classes: 204 devestator_ammo, 213 tesla_claw_ammo, 214 pyrocitor_ammo, 222 visibomb_ammo, 223 glove_of_doom_ammo, 225 mine_glove_ammo, 226 bomb_glove_ammo, 1006 blaster_ammo, 1438 ryno_ammo, 1447 drone_device_ammo, 1449 decoy_ammo.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1471,7 +1471,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### AreaVars_2f2eb8_F4290
 
-0x20 bytes; in [games/rac1/src/overlays/shared/vendor_002B90A8.c](../../../games/rac1/src/overlays/shared/vendor_002B90A8.c); classes: 605.
+0x20 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B90A8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B90A8.c); classes: 605.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1481,7 +1481,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### BlobVars
 
-0x28 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 1510.
+0x28 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 1510.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1492,7 +1492,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### BlobVarsP
 
-0x50 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 212 asteroid, 1412 asteroid.
+0x50 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 212 asteroid, 1412 asteroid.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1509,7 +1509,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Bob_9e88
 
-0x14 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002EBD00.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002EBD00.c); classes: 1263, 1393.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002EBD00.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002EBD00.c); classes: 1263, 1393.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1521,7 +1521,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### BreakableVars_31B318
 
-0x10 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1113, 1114, 1115, 1116.
+0x10 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1113, 1114, 1115, 1116.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1530,7 +1530,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### BubbleVars
 
-0x20 bytes; in [games/rac1/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/src/overlays/shared/vendor_002C6B30.c); classes: 1886 spawner_egg.
+0x20 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c); classes: 1886 spawner_egg.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1544,7 +1544,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CapVars
 
-0x90 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 701 falling_rock.
+0x90 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 701 falling_rock.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1563,7 +1563,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CarrierVars
 
-0x198 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 666 stationary_ship.
+0x198 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 666 stationary_ship.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1585,7 +1585,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CarrierVars_2C8DB8
 
-0x58 bytes; in [games/rac1/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/src/overlays/shared/vendor_002C12B0.c); classes: 229 glove_of_doom.
+0x58 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c); classes: 229 glove_of_doom.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1595,7 +1595,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CarrierVars_2c26c8
 
-0x5c bytes; in [games/rac1/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/src/overlays/shared/vendor_002C12B0.c); classes: 192 bomb_glove.
+0x5c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c); classes: 192 bomb_glove.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1606,7 +1606,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Class908Vars_FD578
 
-0x8c bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 908 jet.
+0x8c bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 908 jet.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1624,7 +1624,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CrateVars
 
-0x100 bytes; in [games/rac1/src/overlays/shared/vendor_002C96D0.c](../../../games/rac1/src/overlays/shared/vendor_002C96D0.c); classes: 500 bolt_crate, 501 nanotech_crate, 502 metal_crate, 505 oom_oom_box, 511 ammo_crate.
+0x100 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C96D0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C96D0.c); classes: 500 bolt_crate, 501 nanotech_crate, 502 metal_crate, 505 oom_oom_box, 511 ammo_crate.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1644,7 +1644,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### CreatureVars_4318
 
-0x290 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_00312BD8.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_00312BD8.c); classes: 1246 puffoid.
+0x290 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_00312BD8.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_00312BD8.c); classes: 1246 puffoid.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1683,7 +1683,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_2B7430
 
-0x4c bytes; in [games/rac1/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/src/overlays/shared/vendor_002B33E8.c); classes: 172 visibomb_missile.
+0x4c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c); classes: 172 visibomb_missile.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1704,7 +1704,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_2D9EA0
 
-0x80 bytes; in [games/rac1/src/overlays/shared/vendor_002D9438.c](../../../games/rac1/src/overlays/shared/vendor_002D9438.c); classes: 806 nanotech_ball.
+0x80 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D9438.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D9438.c); classes: 806 nanotech_ball.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1726,7 +1726,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_2E0630
 
-0x274 bytes; in [games/rac1/src/overlays/l10_orxon/vendor_00296BD8.c](../../../games/rac1/src/overlays/l10_orxon/vendor_00296BD8.c); classes: 1196 screamer.
+0x274 bytes; in [games/rac1/decomp/src/overlays/l10_orxon/vendor_00296BD8.c](../../../games/rac1/decomp/src/overlays/l10_orxon/vendor_00296BD8.c); classes: 1196 screamer.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1762,7 +1762,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_2E1568
 
-0x274 bytes; in [games/rac1/src/overlays/l10_orxon/vendor_00296BD8.c](../../../games/rac1/src/overlays/l10_orxon/vendor_00296BD8.c); classes: 1199.
+0x274 bytes; in [games/rac1/decomp/src/overlays/l10_orxon/vendor_00296BD8.c](../../../games/rac1/decomp/src/overlays/l10_orxon/vendor_00296BD8.c); classes: 1199.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1803,7 +1803,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_30AE90
 
-0x100 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1075 pokitaru_boat.
+0x100 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1075 pokitaru_boat.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1834,7 +1834,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### D_3126A8
 
-0xd0 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/src/overlays/l07_umbris/vendor_002CE470.c); classes: 1069.
+0xd0 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c); classes: 1069.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1865,7 +1865,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_0030FCC0
 
-0xb0 bytes; in [games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 844 drain_cover.
+0xb0 bytes; in [games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 844 drain_cover.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1885,7 +1885,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2B33E8
 
-0x20 bytes; in [games/rac1/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/src/overlays/shared/vendor_002B33E8.c); classes: 157 devastator.
+0x20 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c); classes: 157 devastator.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1898,7 +1898,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2B5368
 
-0x80 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002B2020.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002B2020.c); classes: 29 blarg_turret.
+0x80 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002B2020.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002B2020.c); classes: 29 blarg_turret.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1914,7 +1914,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2B5938
 
-0x190 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002ACCC0.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002ACCC0.c); classes: 31 minibomber.
+0x190 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002ACCC0.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002ACCC0.c); classes: 31 minibomber.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1953,7 +1953,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2B5C98
 
-0x18 bytes; in [games/rac1/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/src/overlays/shared/vendor_002B33E8.c); classes: 168 blaster.
+0x18 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c); classes: 168 blaster.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1964,7 +1964,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2B9AD8
 
-0x4c bytes; in [games/rac1/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/src/overlays/shared/vendor_002B33E8.c); classes: 177 tesla_claw.
+0x4c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c); classes: 177 tesla_claw.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -1988,7 +1988,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2C0330
 
-0x130 bytes; in [games/rac1/src/overlays/shared/vendor_00292AC0.c](../../../games/rac1/src/overlays/shared/vendor_00292AC0.c); classes: 455 spawner.
+0x130 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_00292AC0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_00292AC0.c); classes: 455 spawner.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2019,7 +2019,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2C56B0
 
-0xd8 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 111 blarg_space_fighter.
+0xd8 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 111 blarg_space_fighter.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2041,7 +2041,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2C74B8
 
-0x24 bytes; in [games/rac1/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/src/overlays/shared/vendor_002C12B0.c); classes: 208 swingshot.
+0x24 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c); classes: 208 swingshot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2052,7 +2052,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2D9F08
 
-0x120 bytes; in [games/rac1/src/overlays/shared/vendor_002A5218.c](../../../games/rac1/src/overlays/shared/vendor_002A5218.c); classes: 615 tresspasser_pad.
+0x120 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002A5218.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002A5218.c); classes: 615 tresspasser_pad.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2078,7 +2078,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2DD170
 
-0xb8 bytes; in [games/rac1/src/overlays/l02_aridia/vendor_002A59D8.c](../../../games/rac1/src/overlays/l02_aridia/vendor_002A59D8.c); classes: 651 elevator.
+0xb8 bytes; in [games/rac1/decomp/src/overlays/l02_aridia/vendor_002A59D8.c](../../../games/rac1/decomp/src/overlays/l02_aridia/vendor_002A59D8.c); classes: 651 elevator.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2091,7 +2091,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E0E50
 
-0x18 bytes; in [games/rac1/src/overlays/shared/vendor_002D9438.c](../../../games/rac1/src/overlays/shared/vendor_002D9438.c); classes: 1251 hydrodisplacer.
+0x18 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D9438.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D9438.c); classes: 1251 hydrodisplacer.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2104,7 +2104,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E2A38
 
-0x1c bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002E0258.c); classes: 441, 442, 443, 445, 448, 449, 450, 451, 464, 465.
+0x1c bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c); classes: 441, 442, 443, 445, 448, 449, 450, 451, 464, 465.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2115,7 +2115,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E39E0
 
-0x234 bytes; in [games/rac1/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/src/overlays/shared/vendor_002C6B30.c); classes: 193.
+0x234 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c); classes: 193.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2163,7 +2163,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E4168
 
-0x264 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002E0258.c); classes: 452 bolt_thief.
+0x264 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c); classes: 452 bolt_thief.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2189,7 +2189,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E7FC8
 
-0x184 bytes; in [games/rac1/src/overlays/l12_hoven/vendor_002C0310.c](../../../games/rac1/src/overlays/l12_hoven/vendor_002C0310.c); classes: 282 miner.
+0x184 bytes; in [games/rac1/decomp/src/overlays/l12_hoven/vendor_002C0310.c](../../../games/rac1/decomp/src/overlays/l12_hoven/vendor_002C0310.c); classes: 282 miner.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2208,7 +2208,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2E9358
 
-0x14 bytes; in [games/rac1/src/overlays/l15_quartu/vendor_0029C1D0.c](../../../games/rac1/src/overlays/l15_quartu/vendor_0029C1D0.c); classes: 1257 poison_vessel.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l15_quartu/vendor_0029C1D0.c](../../../games/rac1/decomp/src/overlays/l15_quartu/vendor_0029C1D0.c); classes: 1257 poison_vessel.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2220,7 +2220,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2EC3E8
 
-0x510 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 610.
+0x510 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 610.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2240,7 +2240,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2F69D0
 
-0x160 bytes; in [games/rac1/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1028.
+0x160 bytes; in [games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1028.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2256,7 +2256,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2FC140
 
-0x40 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 730 agnogg_ship_front, 731 agnogg_ship_back, 790 ship_rear.
+0x40 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 730 agnogg_ship_front, 731 agnogg_ship_back, 790 ship_rear.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2274,7 +2274,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_2FDA70
 
-0xa0 bytes; in [games/rac1/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1061.
+0xa0 bytes; in [games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1061.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2298,7 +2298,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_304e00
 
-0x88 bytes; in [games/rac1/src/overlays/l12_hoven/vendor_002EDAA0.c](../../../games/rac1/src/overlays/l12_hoven/vendor_002EDAA0.c); classes: 1269 mine.
+0x88 bytes; in [games/rac1/decomp/src/overlays/l12_hoven/vendor_002EDAA0.c](../../../games/rac1/decomp/src/overlays/l12_hoven/vendor_002EDAA0.c); classes: 1269 mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2313,7 +2313,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_3071B0
 
-0x44 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1395.
+0x44 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1395.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2328,7 +2328,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_308368
 
-0x110 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1417 blarg_heavy_interceptor.
+0x110 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1417 blarg_heavy_interceptor.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2360,7 +2360,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_30D8E8
 
-0x20 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/src/overlays/l07_umbris/vendor_002CE470.c); classes: 902 water, 941 water, 943 water, 944 water, 948 water, 949 water, 950 water, 951, 952 water, 953, 954 water, 955 water, 958 water, 961, 962, 967, 968, 969, 970, 971.
+0x20 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c); classes: 902 water, 941 water, 943 water, 944 water, 948 water, 949 water, 950 water, 951, 952 water, 953, 954 water, 955 water, 958 water, 961, 962, 967, 968, 969, 970, 971.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2375,7 +2375,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_30DBF8
 
-0x10 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1156.
+0x10 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1156.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2386,7 +2386,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_3DF8
 
-0x240 bytes; in [games/rac1/src/overlays/shared/vendor_002D3DF8.c](../../../games/rac1/src/overlays/shared/vendor_002D3DF8.c); classes: 252 scoutbot.
+0x240 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D3DF8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D3DF8.c); classes: 252 scoutbot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2418,7 +2418,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_5AC0
 
-0x278 bytes; in [games/rac1/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/src/overlays/shared/vendor_002D1168.c); classes: 749 horny_toad.
+0x278 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D1168.c); classes: 749 horny_toad.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2451,7 +2451,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_DBF68
 
-0x170 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002B9438.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002B9438.c); classes: 333 blarg_bombthrower.
+0x170 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002B9438.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002B9438.c); classes: 333 blarg_bombthrower.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2490,7 +2490,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Data_dfd10
 
-0x3c bytes; in [games/rac1/src/overlays/shared/vendor_002B2A28.c](../../../games/rac1/src/overlays/shared/vendor_002B2A28.c); classes: 403.
+0x3c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B2A28.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B2A28.c); classes: 403.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2509,7 +2509,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### DebrisVars_0CFA8
 
-0x20 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/src/overlays/l07_umbris/vendor_002CE470.c); classes: 882 bomb.
+0x20 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c); classes: 882 bomb.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2521,7 +2521,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### DebrisVars_2f8530
 
-0x2c bytes; in [games/rac1/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/src/overlays/shared/vendor_002F7700.c); classes: 200, 201, 205, 206, 207, 210, 696 rock, 697 rock, 698 rock, 1806, 1807.
+0x2c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002F7700.c); classes: 200, 201, 205, 206, 207, 210, 696 rock, 697 rock, 698 rock, 1806, 1807.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2536,7 +2536,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### DoorVars
 
-0x10 bytes; in [games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 93 gate, 434 platform_booster.
+0x10 bytes; in [games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 93 gate, 434 platform_booster.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2547,7 +2547,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### DoorVars_e9648
 
-0x14 bytes; in [games/rac1/src/overlays/l10_orxon/vendor_002E30F8.c](../../../games/rac1/src/overlays/l10_orxon/vendor_002E30F8.c); classes: 1421 gate_1.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l10_orxon/vendor_002E30F8.c](../../../games/rac1/decomp/src/overlays/l10_orxon/vendor_002E30F8.c); classes: 1421 gate_1.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2559,7 +2559,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### EmitterVars_165B8
 
-0x14 bytes; in [games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 855.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 855.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2571,7 +2571,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### FlickerLightVars_2F8560
 
-0x158 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 671.
+0x158 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 671.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2597,7 +2597,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### FloatMineVars_ff640
 
-0x1c bytes; in [games/rac1/src/overlays/shared/vendor_002B2A28.c](../../../games/rac1/src/overlays/shared/vendor_002B2A28.c); classes: 933 mine.
+0x1c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B2A28.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B2A28.c); classes: 933 mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2609,7 +2609,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### FlyerVars_2FF040
 
-0x10 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 922 rocket.
+0x10 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 922 rocket.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2620,7 +2620,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### GateVars_16378
 
-0x18 bytes; in [games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 852, 853.
+0x18 bytes; in [games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c](../../../games/rac1/decomp/src/overlays/l05_rilgar/vendor_0030EB68.c); classes: 852, 853.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2633,7 +2633,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### GloveVars_2DD8
 
-0x60 bytes; in [games/rac1/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/src/overlays/shared/vendor_002C12B0.c); classes: 190 mine_glove.
+0x60 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C12B0.c); classes: 190 mine_glove.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2645,7 +2645,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### GuideVars_gd
 
-0x16c bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 909 big_al.
+0x16c bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 909 big_al.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2662,7 +2662,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### GunshipVars
 
-0x290 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002E0258.c); classes: 444.
+0x290 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c); classes: 444.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2675,7 +2675,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### HoverVars
 
-0x18 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 695 water_lily.
+0x18 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 695 water_lily.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2686,7 +2686,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Infobot
 
-0xc4 bytes; in [games/rac1/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/src/overlays/shared/vendor_002D1168.c); classes: 750 infobot.
+0xc4 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D1168.c); classes: 750 infobot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2711,7 +2711,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Jet_2FE038
 
-0xa8 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 921 jet.
+0xa8 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 921 jet.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2737,7 +2737,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L07MovingVars
 
-0x40 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_0031BDB8.c](../../../games/rac1/src/overlays/l07_umbris/vendor_0031BDB8.c); classes: 1128.
+0x40 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_0031BDB8.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_0031BDB8.c); classes: 1128.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2754,7 +2754,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L11GateVars
 
-0x14 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_00312BD8.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_00312BD8.c); classes: 1248.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_00312BD8.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_00312BD8.c); classes: 1248.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2766,7 +2766,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L11TiltVars_10058
 
-0x64 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1178 seesaw_platform.
+0x64 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1178 seesaw_platform.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2776,7 +2776,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L14BoltVars
 
-0x28 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 681.
+0x28 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 681.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2787,7 +2787,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L14LiftVars
 
-0x220 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 557 shuttle.
+0x220 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 557 shuttle.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2812,7 +2812,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L14MineVars
 
-0x8c bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 643 mine.
+0x8c bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002E0538.c); classes: 643 mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2827,7 +2827,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### L14RacerVars
 
-0x1d0 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002ACCC0.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002ACCC0.c); classes: 211 plasmabot.
+0x1d0 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002ACCC0.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002ACCC0.c); classes: 211 plasmabot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2845,7 +2845,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### LiftVars
 
-0xb8 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 703 piston_platform, 715 piston_platform_2, 877 elevator_with_button.
+0xb8 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 703 piston_platform, 715 piston_platform_2, 877 elevator_with_button.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2864,7 +2864,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MineVars
 
-0x70 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 627 mine.
+0x70 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 627 mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2875,7 +2875,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MineVars_c8e0
 
-0x70 bytes; in [games/rac1/src/overlays/shared/vendor_002CF2C0.c](../../../games/rac1/src/overlays/shared/vendor_002CF2C0.c); classes: 1511 lamp.
+0x70 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002CF2C0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002CF2C0.c); classes: 1511 lamp.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2891,7 +2891,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Mine_p
 
-0x80 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1110 homing_mine.
+0x80 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1110 homing_mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2905,7 +2905,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Missile
 
-0x34 bytes; in [games/rac1/src/overlays/shared/vendor_002C99E0.c](../../../games/rac1/src/overlays/shared/vendor_002C99E0.c); classes: 1034 rocket.
+0x34 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C99E0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C99E0.c); classes: 1034 rocket.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2919,7 +2919,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MissileVars_089d0
 
-0x38 bytes; in [games/rac1/src/overlays/shared/vendor_002C99E0.c](../../../games/rac1/src/overlays/shared/vendor_002C99E0.c); classes: 1009.
+0x38 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C99E0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C99E0.c); classes: 1009.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2935,7 +2935,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Moby1068Vars
 
-0x424 bytes; in [games/rac1/src/overlays/shared/vendor_002FF000.c](../../../games/rac1/src/overlays/shared/vendor_002FF000.c); classes: 1068 blarg_space_commando.
+0x424 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002FF000.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002FF000.c); classes: 1068 blarg_space_commando.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2963,7 +2963,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Moby52Vars_2C6B30
 
-0x284 bytes; in [games/rac1/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/src/overlays/shared/vendor_002C6B30.c); classes: 52 seeker.
+0x284 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c); classes: 52 seeker.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -2988,7 +2988,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MobyData_2B94B0
 
-0x30 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002B9438.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002B9438.c); classes: 152.
+0x30 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002B9438.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002B9438.c); classes: 152.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3002,7 +3002,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MobyData_2F6F20
 
-0x20 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/src/overlays/l07_umbris/vendor_002CE470.c); classes: 436.
+0x20 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_002CE470.c); classes: 436.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3017,7 +3017,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MobyData_30CAE0
 
-0x80 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_0030CAE0.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_0030CAE0.c); classes: 1353.
+0x80 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_0030CAE0.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_0030CAE0.c); classes: 1353.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3034,7 +3034,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MovingMobyVars
 
-0x20 bytes; in [games/rac1/src/overlays/shared/vendor_00298BB8.c](../../../games/rac1/src/overlays/shared/vendor_00298BB8.c); classes: 196 door, 197 door, 1958 underwater_door.
+0x20 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_00298BB8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_00298BB8.c); classes: 196 door, 197 door, 1958 underwater_door.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3046,7 +3046,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### MovingVars_ZZ
 
-0x2c bytes; in [games/rac1/src/overlays/l15_quartu/vendor_0029C1D0.c](../../../games/rac1/src/overlays/l15_quartu/vendor_0029C1D0.c); classes: 67.
+0x2c bytes; in [games/rac1/decomp/src/overlays/l15_quartu/vendor_0029C1D0.c](../../../games/rac1/decomp/src/overlays/l15_quartu/vendor_0029C1D0.c); classes: 67.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3061,7 +3061,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Obj_3091B0
 
-0x40 bytes; in [games/rac1/src/overlays/shared/vendor_002D3DF8.c](../../../games/rac1/src/overlays/shared/vendor_002D3DF8.c); classes: 1400.
+0x40 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D3DF8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D3DF8.c); classes: 1400.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3070,7 +3070,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PathCarrierVars
 
-0x30 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 613 water_current.
+0x30 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 613 water_current.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3083,7 +3083,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PathFlyerVars_00309c08
 
-0xd0 bytes; in [games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1766 shuttle.
+0xd0 bytes; in [games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1766 shuttle.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3098,7 +3098,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PathJunctionVars
 
-0x28 bytes; in [games/rac1/src/overlays/l18_veldin2/vendor_002A8400.c](../../../games/rac1/src/overlays/l18_veldin2/vendor_002A8400.c); classes: 582.
+0x28 bytes; in [games/rac1/decomp/src/overlays/l18_veldin2/vendor_002A8400.c](../../../games/rac1/decomp/src/overlays/l18_veldin2/vendor_002A8400.c); classes: 582.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3110,7 +3110,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PickupVars_015F8
 
-0x1c bytes; in [games/rac1/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/src/overlays/shared/vendor_002F7700.c); classes: 805 spawn_point.
+0x1c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002F7700.c); classes: 805 spawn_point.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3123,7 +3123,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PortalVars_002E2DF0
 
-0x8 bytes; in [games/rac1/src/overlays/l04_eudora/vendor_002CB800.c](../../../games/rac1/src/overlays/l04_eudora/vendor_002CB800.c); classes: 1120 suck_cannon.
+0x8 bytes; in [games/rac1/decomp/src/overlays/l04_eudora/vendor_002CB800.c](../../../games/rac1/decomp/src/overlays/l04_eudora/vendor_002CB800.c); classes: 1120 suck_cannon.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3132,7 +3132,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### PsyData_311648
 
-0x1e4 bytes; in [games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1231 psytcopus.
+0x1e4 bytes; in [games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c](../../../games/rac1/decomp/src/overlays/l11_pokitaru/vendor_002CC828.c); classes: 1231 psytcopus.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3154,7 +3154,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Pv_30F318
 
-0x68 bytes; in [games/rac1/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/src/overlays/shared/vendor_002F7700.c); classes: 1818 sandmouse.
+0x68 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002F7700.c); classes: 1818 sandmouse.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3172,7 +3172,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### QuestGiverVars_hg
 
-0x1f8 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 890 helga.
+0x1f8 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 890 helga.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3191,7 +3191,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### RailLiftVars_DE088
 
-0xa8 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 1012 taxi.
+0xa8 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 1012 taxi.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3210,7 +3210,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### RailTaxiVars_D4560
 
-0xe8 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 816 taxi.
+0xe8 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 816 taxi.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3232,7 +3232,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### RailVars_F7700
 
-0x74 bytes; in [games/rac1/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/src/overlays/shared/vendor_002F7700.c); classes: 679.
+0x74 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002F7700.c); classes: 679.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3244,7 +3244,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Ray_2BDAF0
 
-0x50 bytes; in [games/rac1/src/overlays/shared/vendor_002BA7C8.c](../../../games/rac1/src/overlays/shared/vendor_002BA7C8.c); classes: 185 morphoray.
+0x50 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002BA7C8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002BA7C8.c); classes: 185 morphoray.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3263,7 +3263,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### RocketVars_D5790
 
-0x28 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 833.
+0x28 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 833.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3276,7 +3276,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Rocket_2C27B0
 
-0x3c bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 82 rocket.
+0x3c bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002C2638.c); classes: 82 rocket.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3292,7 +3292,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SaleVars_2e1ac0
 
-0x44 bytes; in [games/rac1/src/overlays/shared/vendor_002B90A8.c](../../../games/rac1/src/overlays/shared/vendor_002B90A8.c); classes: 304 gold_weapon_case, 1456 gold_bomb_glove, 1457 gold_pyrocitor, 1458 gold_blaster, 1459 gold_glove_of_doom, 1460 gold_mine_glove, 1461 gold_devastator, 1462 gold_decoy_glove, 1463 gold_tesla_claw, 1464 gold_suck_cannon, 1465 gold_morphoray.
+0x44 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B90A8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B90A8.c); classes: 304 gold_weapon_case, 1456 gold_bomb_glove, 1457 gold_pyrocitor, 1458 gold_blaster, 1459 gold_glove_of_doom, 1460 gold_mine_glove, 1461 gold_devastator, 1462 gold_decoy_glove, 1463 gold_tesla_claw, 1464 gold_suck_cannon, 1465 gold_morphoray.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3302,7 +3302,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### ShardVars_ED358
 
-0x14 bytes; in [games/rac1/src/overlays/l02_aridia/vendor_002E21F8.c](../../../games/rac1/src/overlays/l02_aridia/vendor_002E21F8.c); classes: 1208 constructorbot.
+0x14 bytes; in [games/rac1/decomp/src/overlays/l02_aridia/vendor_002E21F8.c](../../../games/rac1/decomp/src/overlays/l02_aridia/vendor_002E21F8.c); classes: 1208 constructorbot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3311,7 +3311,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### ShotVars
 
-0x2c bytes; in [games/rac1/src/overlays/shared/vendor_002B0068.c](../../../games/rac1/src/overlays/shared/vendor_002B0068.c); classes: 184.
+0x2c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B0068.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B0068.c); classes: 184.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3327,7 +3327,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### ShotVars_307ba8_09118
 
-0x2c bytes; in [games/rac1/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/src/overlays/shared/vendor_002C6B30.c); classes: 1258.
+0x2c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C6B30.c); classes: 1258.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3343,7 +3343,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### ShotVars_ece00
 
-0x20 bytes; in [games/rac1/src/overlays/l12_hoven/vendor_002EDAA0.c](../../../games/rac1/src/overlays/l12_hoven/vendor_002EDAA0.c); classes: 409 rocket.
+0x20 bytes; in [games/rac1/decomp/src/overlays/l12_hoven/vendor_002EDAA0.c](../../../games/rac1/decomp/src/overlays/l12_hoven/vendor_002EDAA0.c); classes: 409 rocket.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3355,7 +3355,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SnapperVars_91A8
 
-0x1f0 bytes; in [games/rac1/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1048 alien_snapper.
+0x1f0 bytes; in [games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c](../../../games/rac1/decomp/src/overlays/l06_blarg/vendor_002B5990.c); classes: 1048 alien_snapper.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3403,7 +3403,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Spark_2288
 
-0x30 bytes; in [games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1193.
+0x30 bytes; in [games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c](../../../games/rac1/decomp/src/overlays/l14_oltanis/vendor_002FF358.c); classes: 1193.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3416,7 +3416,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SpawnerVars
 
-0xc bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 815 beehive.
+0xc bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 815 beehive.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3425,7 +3425,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SpinnerVars_D5220
 
-0x30 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 825 robo_shack_sign.
+0x30 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 825 robo_shack_sign.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3433,7 +3433,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SteamVars
 
-0x10 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 700.
+0x10 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 700.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3445,7 +3445,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwarmPathFollower
 
-0x30 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 621.
+0x30 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 621.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3456,7 +3456,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwarmVars
 
-0xac bytes; in [games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 86.
+0xac bytes; in [games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 86.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3472,7 +3472,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwarmVars_2EAF48
 
-0x180 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 463.
+0x180 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 463.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3486,7 +3486,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwarmVars_EA0A8
 
-0x140 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002E0258.c); classes: 462 shrub.
+0x140 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002E0258.c); classes: 462 shrub.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3501,7 +3501,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwayVars
 
-0xc bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 705 fan.
+0xc bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002FABE8.c); classes: 705 fan.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3511,7 +3511,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SweepData_306DD8
 
-0x18 bytes; in [games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1206.
+0x18 bytes; in [games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1206.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3524,7 +3524,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwingGateVars
 
-0x24 bytes; in [games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 468, 469.
+0x24 bytes; in [games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c](../../../games/rac1/decomp/src/overlays/l08_batalia/vendor_002EAF48.c); classes: 468, 469.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3537,7 +3537,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwitchFollowerVars_C7BD8
 
-0x8 bytes; in [games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 432 eudora_bridge, 1052 bridge.
+0x8 bytes; in [games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c](../../../games/rac1/decomp/src/overlays/l04_eudora/vendor_0029FCF0.c); classes: 432 eudora_bridge, 1052 bridge.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3546,7 +3546,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### SwooperVars_31AAB0
 
-0xb0 bytes; in [games/rac1/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1112 mine.
+0xb0 bytes; in [games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c](../../../games/rac1/decomp/src/overlays/l07_umbris/vendor_00313D28.c); classes: 1112 mine.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3565,7 +3565,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Talk_2EE7E8
 
-0x58 bytes; in [games/rac1/src/overlays/l15_quartu/vendor_002EDB50.c](../../../games/rac1/src/overlays/l15_quartu/vendor_002EDB50.c); classes: 1469.
+0x58 bytes; in [games/rac1/decomp/src/overlays/l15_quartu/vendor_002EDB50.c](../../../games/rac1/decomp/src/overlays/l15_quartu/vendor_002EDB50.c); classes: 1469.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3582,7 +3582,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### TriggerVars_2f5200
 
-0x80 bytes; in [games/rac1/src/overlays/shared/vendor_002CF2C0.c](../../../games/rac1/src/overlays/shared/vendor_002CF2C0.c); classes: 258.
+0x80 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002CF2C0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002CF2C0.c); classes: 258.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3595,7 +3595,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### TrooperVars_CB280
 
-0x170 bytes; in [games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 578 mine_layer.
+0x170 bytes; in [games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c](../../../games/rac1/decomp/src/overlays/l03_kerwan/vendor_002CB280.c); classes: 578 mine_layer.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3633,7 +3633,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### TurnerVars
 
-0x28 bytes; in [games/rac1/src/overlays/l02_aridia/vendor_002A59D8.c](../../../games/rac1/src/overlays/l02_aridia/vendor_002A59D8.c); classes: 735 rocket_door1, 736 rocket_door2.
+0x28 bytes; in [games/rac1/decomp/src/overlays/l02_aridia/vendor_002A59D8.c](../../../games/rac1/decomp/src/overlays/l02_aridia/vendor_002A59D8.c); classes: 735 rocket_door1, 736 rocket_door2.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3644,7 +3644,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### TurretVars
 
-0x70 bytes; in [games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1201 turret.
+0x70 bytes; in [games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c](../../../games/rac1/decomp/src/overlays/l09_gaspar/vendor_002C2B08.c); classes: 1201 turret.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3664,7 +3664,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### V_9D48
 
-0x50 bytes; in [games/rac1/src/overlays/l18_veldin2/vendor_002F9D48.c](../../../games/rac1/src/overlays/l18_veldin2/vendor_002F9D48.c); classes: 1563.
+0x50 bytes; in [games/rac1/decomp/src/overlays/l18_veldin2/vendor_002F9D48.c](../../../games/rac1/decomp/src/overlays/l18_veldin2/vendor_002F9D48.c); classes: 1563.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3675,7 +3675,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars
 
-0x1c bytes; in [games/rac1/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/src/overlays/shared/vendor_002B33E8.c); classes: 175 taunter.
+0x1c bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c); classes: 175 taunter.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3688,7 +3688,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars_00309078
 
-0x70 bytes; in [games/rac1/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/src/overlays/shared/vendor_002F7700.c); classes: 1134 gold_bolt.
+0x70 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002F7700.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002F7700.c); classes: 1134 gold_bolt.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3702,7 +3702,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars_2CABC0
 
-0x80 bytes; in [games/rac1/src/overlays/shared/vendor_002C96D0.c](../../../games/rac1/src/overlays/shared/vendor_002C96D0.c); classes: 270 morphoray_chicken.
+0x80 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002C96D0.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002C96D0.c); classes: 270 morphoray_chicken.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3720,7 +3720,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars_2D4398
 
-0x40 bytes; in [games/rac1/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/src/overlays/shared/vendor_002D1168.c); classes: 585 metal_detector.
+0x40 bytes; in [games/rac1/decomp/src/overlays/shared/vendor_002D1168.c](../../../games/rac1/decomp/src/overlays/shared/vendor_002D1168.c); classes: 585 metal_detector.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3736,7 +3736,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars_309330
 
-0x404 bytes; in [games/rac1/src/overlays/l13_gemlik/vendor_002EBD00.c](../../../games/rac1/src/overlays/l13_gemlik/vendor_002EBD00.c); classes: 1262 blarg_space_commando.
+0x404 bytes; in [games/rac1/decomp/src/overlays/l13_gemlik/vendor_002EBD00.c](../../../games/rac1/decomp/src/overlays/l13_gemlik/vendor_002EBD00.c); classes: 1262 blarg_space_commando.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3761,7 +3761,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vars_F8B00
 
-0x200 bytes; in [games/rac1/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/src/overlays/l01_novalis/vendor_002BA898.c); classes: 688 bomber_jet.
+0x200 bytes; in [games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c](../../../games/rac1/decomp/src/overlays/l01_novalis/vendor_002BA898.c); classes: 688 bomber_jet.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3788,7 +3788,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### Vec4
 
-0x10 bytes; in [games/rac1/include/vector.h](../../../games/rac1/include/vector.h); classes: 353 gate, 997 garage_door.
+0x10 bytes; in [games/rac1/decomp/include/vector.h](../../../games/rac1/decomp/include/vector.h); classes: 353 gate, 997 garage_door.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3798,7 +3798,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update1111
 
-0x30 bytes, declared 0x30; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 1111 ocean_pokitaru.
+0x30 bytes, declared 0x30; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 1111 ocean_pokitaru.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3817,7 +3817,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update1135
 
-0x50 bytes, declared 0x50; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 1135 teleporter.
+0x50 bytes, declared 0x50; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 1135 teleporter.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -3844,7 +3844,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update114
 
-0x2f0 bytes, declared 0x2e0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 114 resort_owner.
+0x2f0 bytes, declared 0x2e0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 114 resort_owner.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4013,7 +4013,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update1455
 
-0x210 bytes, declared 0x200 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 1455 gadgetron_ceo.
+0x210 bytes, declared 0x200 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 1455 gadgetron_ceo.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4126,7 +4126,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update282
 
-0x1a0 bytes; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 282 miner.
+0x1a0 bytes; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 282 miner.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4211,7 +4211,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update298
 
-0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 298 fred_pokitaru.
+0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 298 fred_pokitaru.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4303,7 +4303,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update328
 
-0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 328 edwina.
+0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 328 edwina.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4388,7 +4388,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update613
 
-0x30 bytes, declared 0x30; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 613 water_current.
+0x30 bytes, declared 0x30; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 613 water_current.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4407,7 +4407,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update726
 
-0xd0 bytes, declared 0xd0; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 726 novalis_elevator.
+0xd0 bytes, declared 0xd0; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 726 novalis_elevator.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4429,7 +4429,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update750
 
-0xd0 bytes, declared 0xd0; in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 750 infobot.
+0xd0 bytes, declared 0xd0; in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 750 infobot.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4488,7 +4488,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update774
 
-0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 774 the_plumber.
+0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 774 the_plumber.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4584,7 +4584,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update786
 
-0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 786 skids_agent.
+0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 786 skids_agent.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4676,7 +4676,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update788
 
-0x1c0 bytes, declared 0x1b0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 788 skid_mcmarx.
+0x1c0 bytes, declared 0x1b0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 788 skid_mcmarx.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4776,7 +4776,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update851
 
-0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 851 qwark_oltanis.
+0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 851 qwark_oltanis.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4872,7 +4872,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update90
 
-0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 90 bob.
+0x1a0 bytes, declared 0x190 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 90 bob.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -4964,7 +4964,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update909
 
-0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 909 big_al.
+0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 909 big_al.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -5060,7 +5060,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update914
 
-0x60 bytes, declared 0x50 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 914 robot_qwark.
+0x60 bytes, declared 0x50 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 914 robot_qwark.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -5072,7 +5072,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update918
 
-0x290 bytes, declared 0x280 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 918 hoverboard_girl.
+0x290 bytes, declared 0x280 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 918 hoverboard_girl.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|
@@ -5097,7 +5097,7 @@ Wrench and are not all checked against the game: a struct whose sizes disagree i
 
 ### update924
 
-0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/include/moby_pvars.h](../../../games/rac1/include/moby_pvars.h); classes: 924 sam.
+0x1b0 bytes, declared 0x1a0 (sizes disagree); in [games/rac1/decomp/include/moby_pvars.h](../../../games/rac1/decomp/include/moby_pvars.h); classes: 924 sam.
 
 | Offset | Type | Name | Comment |
 |---|---|---|---|

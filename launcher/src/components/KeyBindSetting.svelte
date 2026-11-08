@@ -180,8 +180,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--text);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    background: var(--control);
     border-bottom-width: 3px;
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -194,7 +193,8 @@
 
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .cap:hover {
-      border-color: var(--amber);
+      background: var(--on-fill);
+      color: var(--amber);
     }
 
     :global(html:where(:not([data-input="pad"]))) .clear:hover {
@@ -204,6 +204,7 @@
 
   .cap.empty {
     background: transparent;
+    box-shadow: none;
     border-style: dashed;
     border-bottom-width: 1px;
   }
@@ -213,12 +214,13 @@
     font-weight: 500;
     color: var(--bar-ink);
     background: var(--amber);
-    border-color: var(--amber);
+    box-shadow: none;
+    background: var(--on-fill);
     animation: pulse 1.2s ease-in-out infinite;
   }
 
   .cap.clash {
-    border-color: var(--amber);
+    background: var(--on-fill);
     color: var(--amber);
   }
 
@@ -236,8 +238,7 @@
     font-size: 0.9375rem;
     line-height: 1;
     color: var(--soft);
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
+    background: var(--control);
     border-left: none;
     border-bottom-width: 3px;
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;

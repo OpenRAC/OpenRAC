@@ -98,7 +98,9 @@
     gap: 10px;
     padding: 8px 10px 8px 12px;
     border-radius: var(--radius-sm);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     font-size: 0.8125rem;
     color: var(--body);
   }
@@ -128,14 +130,14 @@
     gap: 8px;
     min-width: 0;
     padding: 0 10px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--panel);
+    border-radius: var(--radius-sm);
+    background: var(--control);
     color: var(--soft);
   }
 
   .find:focus-within {
-    border-color: var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .find input {
@@ -143,6 +145,7 @@
     min-width: 0;
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 9px 0;
     color: var(--text);
     outline: none;
@@ -155,6 +158,7 @@
   .clear {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 4px;
     color: var(--soft);
   }
@@ -162,11 +166,8 @@
   .kinds {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 3px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--panel);
+    /* Filter chips, each on its own: no strip joining them. */
+    gap: 6px;
   }
 
   .kinds button {
@@ -174,7 +175,7 @@
     align-items: center;
     gap: 6px;
     border: 0;
-    background: none;
+    background: var(--control);
     padding: 6px 12px;
     font-size: 0.8125rem;
     font-weight: 600;
@@ -188,9 +189,8 @@
   }
 
   .kinds button.on {
-    background: var(--panel-hi);
+    background: var(--on-fill);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .kinds button.on b {

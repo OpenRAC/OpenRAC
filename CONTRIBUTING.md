@@ -42,6 +42,17 @@ launcher (`launcher/`); the decompilations the port is built from live in
   [docs/decomp](docs/decomp/README.md): work from the game's directory, and
   let its checks have the last word.
 
+## Decompilation changes
+
+The decomps under `games/` are git submodules of their own repositories
+([docs/SOURCES.md](docs/SOURCES.md)).
+
+- **A decomp change** (a match, a name, a build fix): open the pull request
+  in that decomp's repository, not here.
+- **A port change**: don't edit the decomp C. Wrap the function in
+  `port/game/<program>/`. If a change inside a decomp can't be avoided, add a
+  patch with its reason ([how](docs/SOURCES.md#changing-a-patch)).
+
 ## Commits
 
 [Conventional Commits](https://www.conventionalcommits.org/):
@@ -99,5 +110,5 @@ The rules above apply the same way. On top of them, an assistant:
   open windows on your screen and take long to review;
 - reports what it checked as it is, failures included;
 - follows a game's own agent docs where there are some (rac1/pal's
-  [docs/AGENT_WORKFLOW.md](games/rac1/docs/AGENT_WORKFLOW.md), run from
-  `games/rac1`; the `AGENTS.md` of rac2, rac5 and rac6).
+  [docs/AGENT_WORKFLOW.md](games/rac1/decomp/docs/AGENT_WORKFLOW.md), run from
+  `games/rac1/decomp`; the `AGENTS.md` of rac2, rac5 and rac6).

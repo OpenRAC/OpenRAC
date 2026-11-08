@@ -38,7 +38,7 @@ You need:
   discs' images the same way.
 
 The RAC1 PAL build only needs the executable from that image
-([games/rac1/README.md](../games/rac1/README.md)).
+([games/rac1/decomp/README.md](../games/rac1/decomp/README.md)).
 The extractor reads the whole image, and it stops unless the executable
 inside is one of the four discs' (its name in `SYSTEM.CNF`, its size
 and SHA-1, which it reads from the version's entry in
@@ -198,7 +198,7 @@ class is and what runs it, in its tooltip in the Scene dock and as metadata:
 |---|---|
 | `rc1_class`, `rc1_class_name` | the class number and name |
 | `rc1_update` | the function the game calls for each moby of the class, every frame |
-| `rc1_source` | where that function is in the decompilation ([games/rac1](../games/rac1)), and the tooltip says whether it is C there yet |
+| `rc1_source` | where that function is in the decompilation ([games/rac1/decomp](../games/rac1/decomp)), and the tooltip says whether it is C there yet |
 
 That function is the moby's behaviour: an enemy's attack pattern, a crate
 breaking, a vendor's menu. It is C in the decompilation, and the native port
@@ -209,7 +209,7 @@ behaviour is changed by a mod through the mod SDK, on the port's hook points
 ([BEHAVIOUR.md](BEHAVIOUR.md), `sdk/catalogue/rac1/`) names each class's update
 function, its hook point and its pvar fields. The table comes from the
 decompilation's `config/overlays/names.tsv` (its `UpdateMoby_<class>` roles),
-per level, so it is only written when `games/rac1` is in the checkout.
+per level, so it is only written when `games/rac1/decomp` is in the checkout.
 
 ## Pack your edits
 
@@ -480,7 +480,7 @@ To edit a level:
     `rc1_spawn_flags` (0), `rc1_draw_distance` and `rc1_update_distance`
     (64), `rc1_mode_bits` (32), `rc1_occlusion` (1), `rc1_light` (0),
     `rc1_unknown_74` (-1), and a few unknown fields
-    ([ASSETS.md](../games/rac1/docs/ASSETS.md#mobys)).
+    ([ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#mobys)).
 - Textures are ordinary PNGs. Editing one changes every mesh that uses it.
 
 Run a level (F6) to fly around it:
@@ -522,8 +522,8 @@ variables, `rc1_pvar_index`):
   exponent packs as a float, any other as an integer; the list keeps its
   length (blocks are not resized).
 - `rc1_pv_<field>`: the fields the decompilation names, typed (the classes'
-  `struct update<class>` in games/rac1's
-  [moby_pvars.h](../games/rac1/include/moby_pvars.h), 19 classes, and the
+  `struct update<class>` in games/rac1/decomp's
+  [moby_pvars.h](../games/rac1/decomp/include/moby_pvars.h), 19 classes, and the
   header every camera block starts with: `rc1_pv_sphere`, `_cuboid`,
   `_cylinder`, `_path` name the volumes and path the camera's region test
   uses, `rc1_pv_activation` when it switches on). Camera classes 3, 14, 17,
@@ -916,7 +916,7 @@ Approximations:
   to the sky at run time are not included.
 
 Not yet extracted: low-detail moby meshes, audio (the Mods page's Audio tab exports
-it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/docs/ASSETS.md) describes
+it: [AUDIO_MODDING.md](AUDIO_MODDING.md)), video and each level's code overlay. [ASSETS.md](../games/rac1/decomp/docs/ASSETS.md) describes
 the formats and the evidence for them.
 
 ## The later games (early access)
@@ -1030,7 +1030,7 @@ The decoders accept only the layouts found on these discs and raise
 - **[Wrench](https://github.com/chaoticgd/wrench)** by chaoticgd and
   contributors (GPL-3.0-or-later). Most of what the extractor knows about
   terrain, ties, shrubs, the sky, textures and placements comes from
-  reading its source. [ASSETS.md](../games/rac1/docs/ASSETS.md#sources-and-credits)
+  reading its source. [ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#sources-and-credits)
   lists which files each format came from. What the later games change
   (their table of contents, level headers and level data, the instance
   records, the tie and moby headers, Deadlocked's swizzle, skeletons and
@@ -1044,7 +1044,7 @@ The decoders accept only the layouts found on these discs and raise
   class format (packets, vertex cache, skinning slots, normals, the
   untextured faces, skeletons and animation sequences), and the collision
   block and the meaning of its surface bytes
-  ([ASSETS.md](../games/rac1/docs/ASSETS.md#collision)).
+  ([ASSETS.md](../games/rac1/decomp/docs/ASSETS.md#collision)).
 - **[Lombyte](https://github.com/lombyte-project/Lombyte)** (GPL-3.0): the moby
   class names on the labels (`moby_classes.tsv`, see its header).
 - **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,

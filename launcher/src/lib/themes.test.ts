@@ -27,7 +27,7 @@ describe("themes", () => {
 
   it("writes the site's custom properties", () => {
     const style = themeStyle("rac1");
-    expect(style).toContain("--bd: #747669");
+    expect(style).toContain("--tx: var(--gold)");
     expect(style).toContain("--title-font: var(--font-brand)");
   });
 
@@ -41,22 +41,8 @@ describe("themes", () => {
     }
   });
 
-  it("keeps a main button's text readable on its accent (4.5:1)", () => {
-    const luminance = (hex: string) => {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-      const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-      return 0.2126 * lin(r ?? 0) + 0.7152 * lin(g ?? 0) + 0.0722 * lin(b ?? 0);
-    };
-    const contrast = (a: string, b: string) => {
-      const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-      return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
-    };
-    for (const [id, a] of Object.entries(ACCENTS)) {
-      const ink = a["--bar-ink-deep"] ?? "";
-      for (const bar of [a["--bar-top"] ?? "", a["--bar-bottom"] ?? ""]) {
-        expect(contrast(ink, bar), `${id}: ${ink} on ${bar}`).toBeGreaterThanOrEqual(4.5);
-      }
-    }
+  it("gives an accent only the light under the bar, so every game wears the launcher's gold", () => {
+    expect(ACCENT_PROPERTIES).toEqual(["--glow"]);
   });
 
   it("keeps the accent's game for the next start's first paint", () => {

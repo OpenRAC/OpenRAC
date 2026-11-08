@@ -349,7 +349,8 @@
 
   /* A file held over the page: the panel it lands in says so. */
   .add.dropping {
-    border-color: var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
     border-style: dashed;
   }
 
@@ -433,7 +434,6 @@
     padding: 12px 16px 4px;
     border-radius: var(--radius-sm);
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     animation: rise var(--medium) var(--ease) both;
   }
 

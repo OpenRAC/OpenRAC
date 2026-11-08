@@ -6,7 +6,7 @@ The gate for backfilled (functional) C: a function counts as done only when
 fcheck says SAME on real calls of the retail game; one fcheck cannot reach is
 "unchecked", never done (docs/port/BACKFILL.md).
 
-  /opt/homebrew/bin/python3 tools/fcheck_gate.py run                   PAL: check every row of games/rac1/nonmatching/functional.tsv
+  /opt/homebrew/bin/python3 tools/fcheck_gate.py run                   PAL: check every row of games/rac1/decomp/nonmatching/functional.tsv
   /opt/homebrew/bin/python3 tools/fcheck_gate.py run --only func_001F7E98 ...
   /opt/homebrew/bin/python3 tools/fcheck_gate.py report [--strict]     summary of the verdicts already in the tables
   /opt/homebrew/bin/python3 tools/fcheck_gate.py us                    US: record "unchecked (no US oracle)" in port/game/rac1-ntsc/hand/fcheck.tsv
@@ -18,7 +18,7 @@ rac2 ("Game profiles" below) drives rac2-decomp's own tools/fcheck.py over the b
 menu pages and New Game up to the first level's load) and every level (New Game into the level,
 played a while: a function is captured in its own levels, three at most); its states and work files are in the
 ignored build/fcheck/rac2-ntsc/; the compiler runs through $RAC2_LINUX; the checkout is
-$OPENRAC_SOURCE_RAC2_NTSC, else games/rac2/game.json's.
+$OPENRAC_SOURCE_RAC2_NTSC, else its submodule, games/rac2/decomp.
 
 `run` reads the backfill table and drives rac1-decomp's tools/fcheck.py (test-only: it runs the retail
 code in the interpreter build of OpenRAC, openrac-fcheck, and compares what
@@ -55,7 +55,7 @@ Environment: OPENRAC_ROOT is the OpenRAC checkout that has build/interpreter/
 openrac-fcheck and openrac-boot built (cmake -S tools/interpreter -B build/interpreter) (default: the checkout holding this script);
 OPENRAC_DECOMP is rac1-decomp's checkout, when set; else the gate finds it as every
 tool finds a sister checkout (openrac_common.games.source_checkout): in
-OPENRAC_SOURCE_RAC1_PAL, else at the "checkout" games/rac1/game.json names for pal.
+OPENRAC_SOURCE_RAC1_PAL, else in its submodule, games/rac1/decomp.
 Headless only: fcheck opens no window.
 
   python3 -m unittest tools/test_fcheck_gate.py
@@ -75,7 +75,7 @@ from pathlib import Path
 from openrac_common import digest, games, paths, proc, tables
 
 ROOT = paths.repo_root()
-PAL_TABLE = ROOT / "games/rac1/nonmatching/functional.tsv"
+PAL_TABLE = ROOT / "games/rac1/decomp/nonmatching/functional.tsv"
 US_TABLE = ROOT / "port/game/rac1-ntsc/hand/hand.tsv"
 # The port's own C for PAL: hostgen places a hand row before a candidate of the same name, so a
 # functional.tsv row that is also here is not the C the port runs (its verdict says so).
@@ -167,7 +167,7 @@ def csum(path: Path) -> str:
 def decomp_root() -> Path:
     """rac1-decomp's checkout: $OPENRAC_DECOMP when set and not empty, else rac1/pal's sister
     checkout by the rule every tool follows (games.source_checkout: $OPENRAC_SOURCE_RAC1_PAL, else
-    game.json's checkout). OPENRAC_DECOMP is kept, and wins, because the gate's users and
+    the submodule games/rac1/decomp). OPENRAC_DECOMP is kept, and wins, because the gate's users and
     docs/port/BACKFILL.md already name it."""
     override = os.environ.get("OPENRAC_DECOMP")
     if override:

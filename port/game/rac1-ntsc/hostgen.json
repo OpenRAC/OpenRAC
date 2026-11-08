@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank (NTSC-U)",
   "game": "rac1",
   "serial": "SCUS_971.99",
-  "source": "games/rac1/ntsc",
+  "source": "games/rac1/ntsc-decomp",
   "frame_rate": 60,
   "entry": "FUN_0012d9d8",
   "sources": [
@@ -28,7 +28,6 @@
     "LOMBYTE_MOBY_UPDATE_H",
     "MOBY_CALL_UPDATE(update,moby)=do { if (update) (update)(moby); } while (0)"
   ],
-  "aliases": ["config/us/port_aliases.h"],
   "symbols": [
     "config/us/symbol_addrs.txt",
     "config/us/port_symbols.txt"

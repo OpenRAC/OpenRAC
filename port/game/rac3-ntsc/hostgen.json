@@ -3,18 +3,19 @@
   "title": "Ratchet & Clank: Up Your Arsenal (NTSC-U)",
   "game": "rac3",
   "serial": "SCUS_973.53",
-  "source": "games/rac3/ntsc",
+  "source": "games/rac3/decomp",
   "frame_rate": 60,
   "entry": null,
   "sources": [
-    "src"
+    "src/boot_elf",
+    "src/frontbin",
+    "src/us/boot_elf",
+    "src/us/frontbin"
   ],
   "skip": [
-    "src/libgcc",
-    "src/i5bootn",
     "src/boot_elf/core/libgcc",
-    "src/boot_elf/text/3C65C8.c",
-    "src/frontbin/3C0E08.c"
+    "src/boot_elf/text/3C6718.c",
+    "src/frontbin/3C6360.c"
   ],
   "includes": [
     "include",
@@ -22,9 +23,7 @@
     "."
   ],
   "defines": [],
-  "symbols": [
-    "symbol_addrs.txt"
-  ],
+  "symbols": [],
   "libraries": "libraries.tsv",
   "roots": [],
   "groups": [
@@ -32,6 +31,33 @@
       "path": "src/frontbin",
       "suffix": "frontbin",
       "overlay": 100
+    },
+    {
+      "path": "src/us/frontbin",
+      "suffix": "frontbin",
+      "overlay": 100
     }
-  ]
+  ],
+  "derived": {
+    "table": "release_names.json"
+  },
+  "release": {
+    "version": "us",
+    "table": "release_names.json"
+  },
+  "candidates": "nonmatching/functional.tsv",
+  "candidates_left_out": {
+    "func_00385A98": "Clang cannot read it: it calls func_0038DF00, which it does not declare",
+    "func_0038D5B0": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+    "func_003EE310": "Clang cannot read it: it calls func_003EDBE0 with an argument its declaration does not take",
+    "func_0039F348": "Clang cannot read it: a K&R definition under an assembler name (`expected ';' at end of declaration`)",
+    "func_003A2028": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_003A1AD0'",
+    "func_003A7480": "Clang cannot read it: it calls func_003A6F28, which it does not declare",
+    "func_003AAA00": "Clang cannot read it in the NTSC-U view: use of undeclared identifier 'func_11F940'",
+    "func_003ABA48": "Clang cannot read it in the NTSC-U view: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+    "func_003AFFA8": "Clang cannot read it: use of undeclared identifier 'func_11F940'",
+    "func_003ABBE8": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+    "func_003B0FF0": "Clang cannot read it: too many arguments to function call, expected single argument 'arg0', have 5 arguments",
+    "func_003C5A98": "Clang cannot read it: too many arguments to function call, expected 1, have 3"
+  }
 }

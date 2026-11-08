@@ -2,8 +2,8 @@
 
 The native program of Ratchet & Clank's Japanese release (`SCPS_150.37`, NTSC-J v1.02, 60 Hz),
 built from the same C as PAL v2.00's ([rac1-pal](../rac1-pal/README.md)): rac1-decomp builds this
-release from that C, with its own definitions in `games/rac1/src/versions/jp/` where its code
-differs ([games/rac1/docs/VERSIONS.md](../../../games/rac1/docs/VERSIONS.md)). Its text and fonts are its own
+release from that C, with its own definitions in `games/rac1/decomp/src/versions/jp/` where its code
+differs ([games/rac1/decomp/docs/VERSIONS.md](../../../games/rac1/decomp/docs/VERSIONS.md)). Its text and fonts are its own
 (Japanese): NTSC-J changed the font routines, so the shared host C's FontPrintWindow replacement
 calls this release's own routine (`RAC1_FONT_PRINT_WINDOW` in `host/rac1_version.h`) and leaves out
 the small font's, which this release has no counterpart of, as it leaves out the loading
@@ -29,7 +29,7 @@ written by two tools from a built checkout of rac1-decomp:
 python3 port/tools/hostgen/version_relocs.py --source <rac1-decomp> --version jp --out build/relocs-jp
 python3 port/tools/versionmap/versionmap.py build rac1/pal rac1/jp --out build/versionmap/rac1-pal--rac1-jp.json \
     --entries port/game/rac1-pal/libraries.tsv --entries port/game/rac1/host/hand.c
-python3 port/tools/hostgen/release.py build --game port/game/rac1-jp/hostgen.json --source games/rac1 \
+python3 port/tools/hostgen/release.py build --game port/game/rac1-jp/hostgen.json --source games/rac1/decomp \
     --relocs build/relocs-jp --map build/versionmap/rac1-pal--rac1-jp.json
 python3 port/tools/hostgen/release_rac1.py --game port/game/rac1-jp --primary port/game/rac1-pal \
     --map build/versionmap/rac1-pal--rac1-jp.json

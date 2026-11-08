@@ -2,8 +2,19 @@
   "id": "rac5",
   "title": "Ratchet & Clank: Size Matters",
   "year": 2008,
+  "decomp": {
+    "dir": "games/rac5/decomp",
+    "name": "rac5-sm-decomp",
+    "repo": "https://github.com/OpenRAC/rac5-sm-decomp",
+    "branch": "master",
+    "license": "GPL-3.0",
+    "commit": "57b025248ac032e0e98ba35cb3541c7146e41ad1",
+    "date": "2026-10-18",
+    "imported": "2026-10-18"
+  },
   "versions": {
     "ntsc": {
+      "dir": "games/rac5/decomp",
       "region": "NTSC-U (North America)",
       "serial": "SCUS_976.15",
       "bytematch": "OpenRAC/rac5-sm-decomp",
@@ -24,24 +35,23 @@
       "inputs": [
         {
           "from": "disc",
-          "path": "games/rac5/ntsc/baserom/SCUS_976.15.iso"
+          "path": "games/rac5/decomp/baserom/SCUS_976.15.iso"
         }
       ],
-      "setup": "in games/rac5/ntsc: python3 tools/disc.py verify baserom/SCUS_976.15.iso, then python3 -m unittest discover -s tests and python3 tools/check_repository.py (its README)",
+      "setup": "in games/rac5/decomp: python3 tools/disc.py verify baserom/SCUS_976.15.iso, then python3 -m unittest discover -s tests and python3 tools/check_repository.py (its README)",
       "source": {
+        "shared": "decomp",
         "name": "rac5-sm-decomp",
         "repo": "https://github.com/OpenRAC/rac5-sm-decomp",
         "branch": "master",
-        "checkout": "../rac5-decomp",
         "license": "GPL-3.0",
-        "exclude": [],
         "commit": "57b025248ac032e0e98ba35cb3541c7146e41ad1",
         "date": "2026-10-18",
         "imported": "2026-10-18"
       },
       "build": {
         "host": "Python 3.12 for the tools, on any system; no qualified compiler yet",
-        "readme": "games/rac5/ntsc/README.md"
+        "readme": "games/rac5/decomp/README.md"
       }
     }
   }

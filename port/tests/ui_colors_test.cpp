@@ -13,7 +13,7 @@ using namespace openrac::ui_colors;
 
 void reads_the_launchers_colours() {
     const Colors own;
-    CHECK(own.panel == rgba(0x1d, 0x1d, 0x28));
+    CHECK(own.panel == rgba(0x24, 0x22, 0x1e));
     const Colors nord = parse("panel=#3b4252,line=#d8dee938,amber=#FFD23F");
     CHECK(nord.panel == rgba(0x3b, 0x42, 0x52));
     CHECK(nord.line == rgba(0xd8, 0xde, 0xe9, 0x38));

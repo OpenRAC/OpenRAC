@@ -313,7 +313,7 @@ export const api = {
       option: inputs.option ?? null,
     }),
   cancelJob: (id: number) => call<null>("cancel_job", { id }),
-  /** A file or folder in the checkout, relative to it (`games/rac1/README.md`). Android opens no
+  /** A file or folder in the checkout, relative to it (`games/rac1/decomp/README.md`). Android opens no
    *  app's own files: a document there is read on GitHub, and a folder cannot be shown. */
   openPath: (path: string) =>
     onAndroid

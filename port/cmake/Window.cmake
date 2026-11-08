@@ -14,6 +14,12 @@
 include_guard(GLOBAL)
 include(Dependencies)
 
+if(NOT OPENRAC_IOS AND NOT WIN32)
+  openrac_add_test(mobile_lifecycle SOURCES tests/mobile_lifecycle_test.cpp platform/pump.cpp
+    INCLUDES . DEFINITIONS OPENRAC_IOS=1 LIBS openrac_common openrac_sdl3)
+  set_tests_properties(mobile_lifecycle PROPERTIES TIMEOUT 10)
+endif()
+
 # GLSL sources become C++ string constants in <name>_shaders.h / .cpp under
 # the build directory: namespace <namespace>::shaders, one constant per file,
 # named after it (direct.frag -> direct_frag). Shaders are part of the
@@ -208,8 +214,27 @@ if(OPENRAC_VULKAN)
   target_link_libraries(openrac_platform PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_platform PRIVATE OPENRAC_VULKAN=1)
 endif()
+
+# ---- renderer/metal (renderer/metal/README.md) ----
+# Its shaders are the Vulkan backend's SPIR-V, made by its glslang, as MSL.
+if(OPENRAC_METAL AND NOT OPENRAC_VULKAN)
+  message(FATAL_ERROR "OPENRAC_METAL needs OPENRAC_VULKAN: its shaders are compiled by the Vulkan backend's glslang")
+endif()
+if(OPENRAC_METAL)
+  add_library(openrac_renderer_metal STATIC
+    renderer/metal/mtlgl.mm renderer/metal/mtlgl_draw.mm renderer/metal/mtlgl_resources.mm
+    renderer/metal/shader_translate.cpp renderer/metal/mtlgl_backend.cpp)
+  target_link_libraries(openrac_renderer_metal
+    PUBLIC openrac_renderer_vulkan openrac_sdl3 "-framework Metal" "-framework QuartzCore" "-framework OpenGL"
+           "-framework Foundation"
+    PRIVATE openrac_spirv_cross)
+  target_compile_options(openrac_renderer_metal PRIVATE $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>)
+  openrac_warnings(openrac_renderer_metal)
+  target_link_libraries(openrac_platform PRIVATE openrac_renderer_metal)
+  target_compile_definitions(openrac_platform PRIVATE OPENRAC_METAL=1)
+endif()
 # macOS: the menu bar's name and menus (platform/macos_app.mm).
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   target_sources(openrac_platform PRIVATE platform/macos_app.mm)
   target_link_libraries(openrac_platform PRIVATE "-framework Cocoa")
 endif()
@@ -784,7 +809,7 @@ include(EnhancedBaker)
 add_executable(openrac-viewer viewer/main.cpp)
 target_link_libraries(openrac-viewer PRIVATE openrac_viewer_lib openrac_game_rac1_profile openrac_platform)
 openrac_warnings(openrac-viewer)
-if(APPLE)
+if(APPLE AND NOT OPENRAC_IOS)
   include(MacApp)
   openrac_macos_app(openrac-viewer NAME "OpenRAC Viewer" ID dev.openrac.viewer
     ICON "${PROJECT_SOURCE_DIR}/../launcher/src-tauri/icons/icon.icns")
@@ -862,6 +887,11 @@ if(OPENRAC_VULKAN)
       "OPENRAC_GL_API=vulkan;OPENRAC_ENHANCED=1;OPENRAC_VULKAN_VALIDATION=1")
   endif()
 endif()
+if(OPENRAC_METAL)
+  add_test(NAME texture_filter_metal COMMAND texture_filter_test)
+  set_tests_properties(texture_filter_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;OPENRAC_ENHANCED=0;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
+endif()
 
 # The embedded sources' headers (openrac_embed_shaders) are private to their libraries.
 openrac_add_test(renderer_shader INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
@@ -870,6 +900,20 @@ set_tests_properties(renderer_shader PROPERTIES SKIP_RETURN_CODE 77)
 if(OPENRAC_VULKAN)
   target_compile_definitions(renderer_shader_test PRIVATE OPENRAC_VULKAN=1)
   target_link_libraries(renderer_shader_test PRIVATE openrac_renderer_vulkan)
+endif()
+# metal_shader  every program the game builds, translated to MSL and compiled by the Metal device
+#               (tests/metal_shader_test.mm)
+if(OPENRAC_METAL)
+  openrac_add_test(metal_shader SOURCES tests/metal_shader_test.mm
+                   INCLUDES "${CMAKE_CURRENT_BINARY_DIR}/generated"
+                   LIBS openrac_renderer_metal openrac_scene_renderer)
+  target_compile_options(metal_shader_test PRIVATE -fobjc-arc)
+  set_tests_properties(metal_shader PROPERTIES SKIP_RETURN_CODE 77)
+  # mtlgl          the GL core on Metal without a window: clears and reads; then the same calls
+  #                in a hidden window on OpenGL and on Metal, read back (tests/mtlgl_test.cpp)
+  openrac_add_test(mtlgl LIBS openrac_renderer_metal openrac_renderer openrac_platform)
+  set_tests_properties(mtlgl PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "SDL_VIDEO_DRIVER=cocoa;MTL_DEBUG_LAYER=1")
 endif()
 
 # Written out: its test passes the program an argument, which openrac_add_test has no option for.
@@ -939,6 +983,25 @@ if(OPENRAC_VULKAN)
   endif()
   set_tests_properties(${openrac_vulkan_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
     "OPENRAC_GL_API=vulkan;OPENRAC_VULKAN_VALIDATION=1")
+endif()
+# And on the Metal renderer (renderer/metal/mtlgl.h), with Metal's API validation. Where Metal
+# cannot open, the window falls back to OpenGL and these repeat the tests above. SDL's offscreen
+# driver has no Metal, so these open hidden Cocoa windows.
+if(OPENRAC_METAL)
+  add_test(NAME renderer_direct_metal COMMAND renderer_direct_test)
+  add_test(NAME renderer_shader_metal COMMAND renderer_shader_test)
+  add_test(NAME touch_overlay_metal COMMAND touch_overlay_test)
+  add_test(NAME imgui_gl_metal COMMAND imgui_gl_test)
+  add_test(NAME overlay_draw_metal COMMAND overlay_draw_test)
+  add_test(NAME viewer_metal COMMAND viewer_test "${CMAKE_CURRENT_BINARY_DIR}/viewer_test_level_metal")
+  set(openrac_metal_tests renderer_direct_metal renderer_shader_metal touch_overlay_metal imgui_gl_metal
+      overlay_draw_metal viewer_metal)
+  if(TARGET world_gl_smoke_test)
+    add_test(NAME world_gl_smoke_metal COMMAND world_gl_smoke_test)
+    list(APPEND openrac_metal_tests world_gl_smoke_metal)
+  endif()
+  set_tests_properties(${openrac_metal_tests} PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT
+    "OPENRAC_GL_API=metal;MTL_DEBUG_LAYER=1;SDL_VIDEO_DRIVER=cocoa")
 endif()
 
 # Spatial GTAO: plane invariance, contact occlusion, deterministic frames and MSAA depth resolve.

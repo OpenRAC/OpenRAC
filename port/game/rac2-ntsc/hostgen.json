@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank: Going Commando (NTSC-U)",
   "game": "rac2",
   "serial": "SCUS_972.68",
-  "source": "games/rac2/ntsc",
+  "source": "games/rac2/decomp",
   "frame_rate": 60,
   "entry": "func_00131AE8",
   "ps2_float": [

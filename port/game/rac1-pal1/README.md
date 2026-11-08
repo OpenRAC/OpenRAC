@@ -2,8 +2,8 @@
 
 The native program of Ratchet & Clank's first PAL pressing (`SCES_509.16`, disc v1.00), built
 from the same C as PAL v2.00's ([rac1-pal](../rac1-pal/README.md)): rac1-decomp builds this
-release from that C, with its own definitions in `games/rac1/src/versions/pal_v1/` where its code
-differs ([games/rac1/docs/VERSIONS.md](../../../games/rac1/docs/VERSIONS.md)). The two PAL discs
+release from that C, with its own definitions in `games/rac1/decomp/src/versions/pal_v1/` where its code
+differs ([games/rac1/decomp/docs/VERSIONS.md](../../../games/rac1/decomp/docs/VERSIONS.md)). The two PAL discs
 boot the same file name; the launcher tells them apart by the executable's size and SHA-1.
 
 ```sh

@@ -1,8 +1,8 @@
 # Going Commando: one port for three discs
 
 The port builds a program for each release rac2-decomp builds, from the same C
-(`games/rac2/ntsc`, the mirror of rac2-decomp: `src/`, and `src/pal/`, `src/us2/` for the
-releases' own functions; games/rac2/ntsc/docs/VERSIONS.md):
+(`games/rac2/decomp`, the mirror of rac2-decomp: `src/`, and `src/pal/`, `src/us2/` for the
+releases' own functions; games/rac2/decomp/docs/VERSIONS.md):
 
 | Program | Disc | Serial | Its folder |
 |---|---|---|---|
@@ -46,7 +46,7 @@ instruction of the same code) where its C does not. A name with neither is not g
 marked (`func_V1_...`, `D_V1_...`) and what uses it is a stub, or the release's own assembly.
 Then the release's port is v1.01's on the release's addresses, and every rule of hostgen holds.
 
-To write the tables again (after a sync of games/rac2/ntsc), with a checkout of rac2-decomp at
+To write the tables again (after a sync of games/rac2/decomp), with a checkout of rac2-decomp at
 the synced commit built for v1.01 and the release (`tools/build.py all`, `--version pal`,
 `--version us2`; `tools/carry.py --version pal|us2` for `build/<version>/carry.json`, restoring
 its catalogues), the dumps of the three discs in its `baserom/`, and versionmap's map:
@@ -60,7 +60,7 @@ python3 port/tools/hostgen/release_carry.py --game port/game/rac2-pal/hostgen.js
     --primary port/game/rac2-ntsc/hostgen.json --source <rac2-decomp> \
     --map build/versionmap/rac2-ntsc--rac2-pal.json --version pal \
     --primary-protos port/build/release/games/rac2-ntsc/gen/game_protos.h
-python3 port/tools/hostgen/copycalls.py --source games/rac2/ntsc --version pal \
+python3 port/tools/hostgen/copycalls.py --source games/rac2/decomp --version pal \
     --release-table port/game/rac2-pal/release_names.json --out port/game/rac2-pal/call_copies.tsv \
     --data port/game/rac2-pal/data_copies.tsv --config port/game/rac2-pal/hostgen.json \
     --twins port/game/rac2-pal/level_twins.tsv

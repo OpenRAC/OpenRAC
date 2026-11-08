@@ -5,8 +5,19 @@
   "titles": {
     "pal": "Ratchet: Gladiator"
   },
+  "decomp": {
+    "dir": "games/rac4/decomp",
+    "name": "rac4-decomp",
+    "repo": "https://github.com/OpenRAC/rac4-decomp",
+    "branch": "main",
+    "license": "MIT (GPL libgcc, newlib libm)",
+    "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
+    "date": "2026-10-05",
+    "imported": "2026-10-04"
+  },
   "versions": {
     "ntsc": {
+      "dir": "games/rac4/decomp",
       "region": "NTSC-U (North America)",
       "serial": "SCUS_974.65",
       "bytematch": "OpenRAC/rac4-decomp",
@@ -33,31 +44,30 @@
       "inputs": [
         {
           "from": "boot",
-          "path": "games/rac4/ntsc/baserom/SCUS_974.65"
+          "path": "games/rac4/decomp/baserom/SCUS_974.65"
         },
         {
           "from": "toolchains",
-          "path": "games/rac4/ntsc/toolchain"
+          "path": "games/rac4/decomp/toolchain"
         }
       ],
-      "setup": "in games/rac4/ntsc: bash tools/setup_asm.sh, bash tools/docker/run.sh bash tools/build.sh, then venv/bin/python tools/audit_matches.py (its README; toolchains/README.md for the compilers)",
+      "setup": "in games/rac4/decomp: bash tools/setup_asm.sh, bash tools/docker/run.sh bash tools/build.sh, then venv/bin/python tools/audit_matches.py (its README; toolchains/README.md for the compilers)",
       "source": {
-        "name": "rac-deadlocked-decomp",
-        "repo": "https://github.com/OpenRAC/rac-deadlocked-decomp",
+        "shared": "decomp",
+        "name": "rac4-decomp",
+        "repo": "https://github.com/OpenRAC/rac4-decomp",
         "branch": "main",
-        "checkout": "../rac4-decomp",
         "license": "MIT (GPL libgcc, newlib libm)",
-        "exclude": [],
         "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
         "date": "2026-10-05",
         "imported": "2026-10-04"
       },
       "build": {
         "host": "macOS or Linux through Docker (rac1/pal's linux/386 image with Wine); SN ProDG toolchain you supply",
-        "readme": "games/rac4/ntsc/README.md"
+        "readme": "games/rac4/decomp/README.md"
       },
       "progress": {
-        "report": "games/rac4/ntsc/progress/report.json",
+        "report": "games/rac4/decomp/progress/report.json",
         "format": "objdiff",
         "note": "Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once."
       },
@@ -65,7 +75,7 @@
         "code": [
           {
             "program": "boot",
-            "path": "games/rac4/ntsc/baserom/SCUS_974.65.elf",
+            "path": "games/rac4/decomp/baserom/SCUS_974.65.elf",
             "format": "elf"
           },
           {
@@ -76,9 +86,9 @@
         ],
         "matched": {
           "kind": "objdiff",
-          "report": "games/rac4/ntsc/progress/report.json"
+          "report": "games/rac4/decomp/progress/report.json"
         },
-        "setup": "bash tools/setup_asm.sh in games/rac4/ntsc, and wrenchbuild unpack baserom/SCUS_974.65.iso -o build/rac4/wrench_out -g dl -r us"
+        "setup": "bash tools/setup_asm.sh in games/rac4/decomp, and wrenchbuild unpack baserom/SCUS_974.65.iso -o build/rac4/wrench_out -g dl -r us"
       }
     }
   }
