@@ -1974,6 +1974,26 @@ class Places(unittest.TestCase):
                 if executable:
                     self.assertIn("openrac_guest_overlay() == OPENRAC_OVERLAY_EXE ? (gaddr)0x00200000u", text)
 
+    def test_a_call_copy_row_answers_the_executables_own_target(self):
+        # USA v2.00's func_002B5B38, translated from the executable, calls its own func_002E8010
+        # where every level's copy calls v1.01's func_002E71B8 (func_L00_00362138 there).
+        import re
+        from program import Program, call_copy, read_call_copies
+        program = Program()
+        program.code_names = [re.compile(r"^func_(?:L(?P<overlay>\d\d)_)?(?P<addr>[0-9A-Fa-f]{8})$")]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "calls.tsv"
+            path.write_text("func_002B5B38\tfunc_L00_00362138\t0\t0032C858\t984\t00362138\t002E8010\n"
+                            "func_002B5B38\tfunc_L00_00370E08\t0\t0032C858\t984\t00370E08\t00000000\n")
+            read_call_copies(path, program)
+        row = (0, 0x0032C858, 984, 0x00362138, 0x002E8010)
+        # An assembly translation's jal, by its target in the executable's copy.
+        self.assertEqual(call_copy(program, "func_002B5B38", "func_002E8010", 0x002E8010), row)
+        self.assertEqual(call_copy(program, "func_002B5B38", "func_L00_00362138"), row)
+        # C that names the executable's function keeps it: there it is a twin of the levels'.
+        self.assertIsNone(call_copy(program, "func_002B5B38", "func_002E8010"))
+        self.assertIsNone(call_copy(program, "func_002B5B38", "func_002F6220", 0x002F6220))
+
     def test_an_executable_function_the_levels_carry_keeps_its_address(self):
         import re
         from program import Program
@@ -1985,6 +2005,31 @@ class Places(unittest.TestCase):
                          [(-1, 0x001E94E8), (0, 0x001EB1B0), (1, 0x0020CD30)])
         self.assertEqual(program.code_places("func_L00_001EB0B0"), [(0, 0x001EB0B0), (1, 0x0020CCB0)])
         self.assertEqual(program.code_places("func_00112380"), [(-1, 0x00112380)])
+
+    @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
+    def test_a_level_function_takes_its_levels_place_of_a_global(self):
+        # USA v2.00's func_L00_00362138 is v1.01's func_002E71B8, whose C says the executable's
+        # D_001B87C0: level 0's build put that datum at 0x001BCA40 (the derived table's level_data).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "game"
+            (src / "src" / "game").mkdir(parents=True)
+            (src / "src" / "game" / "a.c").write_text(
+                "extern int D_001B87C0;\n"
+                "int func_L00_00420000(void) { return D_001B87C0; }\n")
+            (src / "functions.tsv").write_text(
+                "func_L00_00420000\tshared\t4\tfingerprint\t2\t00:00420000,01:00430000\n")
+            (root / "derived.json").write_text(json.dumps({
+                "values": {"D_001B87C0": "0x001b87c0"}, "level_data": {"0": {"D_001B87C0": "0x001bca40"}}}))
+            (root / "hostgen.json").write_text(json.dumps({
+                "sources": ["src"], "includes": [], "places": "functions.tsv",
+                "symbols": [str(root / "derived.json")], "relocate": [0x1A7C80, 0x500000],
+            }))
+            out = root / "gen"
+            self.assertEqual(hostgen.main(["--game", str(root / "hostgen.json"),
+                                           "--source", str(src), "--out", str(out),
+                                           "--jobs", "1", "--quiet"]), 0)
+            self.assertIn("OPENRAC_LDATA(0, 0x001BCA40u)", (out / "game" / "a.c").read_text())
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_shared_level_data_uses_the_games_relocation_range(self):
@@ -3950,6 +3995,39 @@ class CopyCalls(unittest.TestCase):
         self.assertEqual(copycalls.exe_copy(exe, 0x2DC900, 16, level)[1], jal(0x27C660))
         # Code that matches nowhere (a false fold) gives the executable no targets at all.
         self.assertIsNone(copycalls.exe_copy(exe, 0x2DC900, 16, (0x24020001,) * 4))
+
+    def test_a_hook_call_of_a_function_the_release_has_only_in_its_levels(self):
+        # USA v2.00's func_L00_00361D08 is v1.01's func_002E6D88: where v1.01's executable copy calls
+        # the hook 0x0026F748, the level copies call their own HeroSetState. The hook's name in the
+        # release (func_0026F750) gets the copies' call at that place.
+        import copycalls
+        import release
+        jal = lambda target: 0x0C000000 | (target >> 2)  # noqa: E731
+        exe_words = (0x27BDFFE0, jal(0x0026F748), 0x24040061, 0x03E00008)
+        level = (0x27BDFFE0, jal(0x002C4560), 0x24040061, 0x03E00008)
+        stub = (release.JR_RA, 0x0000102D)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "boot.tsv").write_text("func_0026F748\t0026F748\t8\nfunc_002E6D88\t002E6D88\t16\n")
+            exe = [(0x0026F748, struct.pack("<2I", *stub)), (0x002E6D88, struct.pack("<4I", *exe_words))]
+
+            class Layout:
+                primary = {"func_L00_00361D08": "func_002E6D88"}
+                primary_boot = root / "boot.tsv"
+                primary_exe = root / "exe"
+
+                @staticmethod
+                def name(n):
+                    return {"func_0026F748": "func_0026F750"}.get(n, n)
+            Layout.primary_exe.write_bytes(b"")
+            old = copycalls.elf_sections
+            copycalls.elf_sections = lambda path: exe
+            try:
+                self.assertEqual(copycalls.primary_hooks(Layout, "func_L00_00361D08", 16, level),
+                                 [("func_0026F750", 1)])
+                self.assertEqual(copycalls.primary_hooks(Layout, "func_L00_00362138", 16, level), [])
+            finally:
+                copycalls.elf_sections = old
 
     def test_call_expression(self):
         from program import call_copy_expr
