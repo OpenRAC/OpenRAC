@@ -1548,6 +1548,7 @@ EXPORTS
   openrac_asmx_func_00133850 DATA
   openrac_asmx_func_0026EDE8 DATA
   openrac_asmx_func_0026F7A8 DATA
+  openrac_asmx_func_0026F7E0 DATA
   openrac_asmx_func_00272560 DATA
   openrac_asmx_func_00273B80 DATA
   openrac_asmx_func_00278880 DATA
@@ -2401,6 +2402,7 @@ EXPORTS
   openrac_asmx_game_ref_L22_003A3C70_00 DATA
   openrac_asmx_game_ref_L22_00415A48_00 DATA
   openrac_asmx_game_ref_L26_003DC048_01 DATA
+  openrac_asmx_game_ref_US2_0029CD18_00 DATA
   openrac_asmx_game_ref_US2_L08_004201E0_00 DATA
   openrac_call_in_copy
   openrac_code_formed

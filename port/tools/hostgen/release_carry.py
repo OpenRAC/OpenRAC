@@ -293,12 +293,13 @@ def carry_list(p: Pairing, names: list[str], why: str) -> list[str]:
     return out
 
 
-def level_hooks(p: Pairing, carried: list[str]) -> list[str]:
+def level_hooks(p: Pairing, carried: list[str], primary: list[str] = ()) -> list[str]:
     """The release's level hooks: the empty functions of its executable each level's program fills.
     They are alike, so the calls that reach them, not their order, say which is which; the release
     has more of them (PAL: 33 for 31). All the 8-byte functions of the run that holds the carried
-    ones, in address order."""
-    rows = sorted((a, s, n) for n, a, s in ((p.table.name(n), a, s) for n, a, s in p.r_boot))
+    ones, in address order, each named by its address: the hooks' names are paired by their callers
+    (release.pair_stubs), so the catalogue's name of a row can be another hook's."""
+    rows = sorted((a, s, rel.core("func", None, a)) for n, a, s in p.r_boot)
     at = {n: i for i, (_, _, n) in enumerate(rows)}
     found = sorted(at[n] for n in carried if n in at)
     if not found:
@@ -309,6 +310,11 @@ def level_hooks(p: Pairing, carried: list[str]) -> list[str]:
     while last + 1 < len(rows) and rows[last + 1][1] == 8 and rows[last][0] + 8 == rows[last + 1][0]:
         last += 1
     hooks = [n for a, s, n in rows[first:last + 1] if s == 8]
+    # A hook the catalogue has no row for (USA v2.00's 0x0026F7A8 and PAL's 0x0026F610, v1.01's
+    # func_0026F7A0, in the gap its catalogue keeps from v1.01's): v1.01's hooks in the release's
+    # names, where the release's build placed them.
+    named = {p.table.name(n) for n in primary}
+    hooks = sorted(set(hooks) | {n for n in named if re.fullmatch(r"func_[0-9A-F]{8}", n)})
     p.report["level_hooks"] = {"from": f"{rows[first][0]:08X}", "to": f"{rows[last][0]:08X}", "count": len(hooks),
                                "carried": len(found)}
     return hooks
@@ -395,7 +401,8 @@ def carry_config(p: Pairing, cfg: dict, version: str) -> dict:
             units[unit] = row
     out["unit_aliases"] = units
     out["relocate"] = [info["level_base"], cfg["relocate"][1]]
-    out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"))
+    out["level_hooks"] = level_hooks(p, carry_list(p, cfg.get("level_hooks", []), "level_hooks"),
+                                     cfg.get("level_hooks", []))
     out["host_functions"] = carry_list(p, cfg.get("host_functions", []), "host_functions")
     out["from_assembly"] = carry_list(p, cfg.get("from_assembly", []), "from_assembly")
     out["roots"] = carry_list(p, cfg.get("roots", []), "roots")

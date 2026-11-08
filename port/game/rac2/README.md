@@ -97,3 +97,17 @@ Measured from the programs, not assumed (release_carry.json has each):
 - **USA v2.00** has v1.01's layout with its fixes: the same menu objects as PAL's (larger), its own
   text ids, 1,117 functions of its own.
 - In all three the moby, hero, camera and view records are the same, read by the same code.
+- **The level hooks** (the empty functions each level fills, rac2-ntsc's README) moved: v1.01's
+  `0x0026F710` to `0x0026F808` are USA v2.00's `0x0026F718` on (one more after `0x0026F7D8`) and
+  PAL's `0x0026F580` on (two more). They are alike, and rac2-decomp's catalogues pair them by
+  order, which puts v1.01's `func_0026F748` (the hero's state change) on another hook in both.
+  release.py pairs them by their callers instead (`pair_stubs`: every v1.01 function that calls a
+  hook and has one function of the release of the same shape calls the release's hook at the same
+  place); the release's own C keeps its catalogue's spelling (the per-file names).
+- **Executable functions the release has only in its levels.** USA v2.00 changed some of v1.01's
+  executable functions (its `func_US2_002E8010`, `func_US2_002F6220`) and kept v1.01's code in the
+  levels (`func_L00_00362138`, `func_L00_00361D08`: the level start's cutscene). In a level only
+  the level's copy exists: an assembly translation of the executable's caller reaches it through
+  call_copies.tsv's row by the executable's own target, a hook call in its C through a row
+  copycalls.py writes under the hook's name, and its globals are where each level's build put them
+  (`level_data`), not the executable's addresses its C says.

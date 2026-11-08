@@ -42,9 +42,10 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import struct
 import subprocess
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -99,6 +100,100 @@ def read_levels(path: Path) -> list[tuple[str, str, int, list[tuple[int, int]]]]
         places = [(int(p[:2]), int(p[3:], 16)) for p in cols[5].split(",") if p]
         rows.append((cols[0], cols[1], int(cols[2]), places))
     return rows
+
+
+EXECUTABLES = {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}
+JR_RA = 0x03E00008
+# The delay slots of an empty function: nothing, or a zero result (daddu $v0, $zero, $zero).
+EMPTY_SLOTS = (0x00000000, 0x0000102D)
+
+
+def elf_segments(path: Path) -> list[tuple[int, bytes]]:
+    """The loaded segments of an executable: (address, bytes)."""
+    data = path.read_bytes()
+    table, count = struct.unpack_from("<I", data, 28)[0], struct.unpack_from("<H", data, 44)[0]
+    out = []
+    for i in range(count):
+        kind, offset, vaddr, _, size = struct.unpack_from("<5I", data, table + i * 32)
+        if kind == 1:
+            out.append((vaddr, data[offset:offset + size]))
+    return out
+
+
+def _word(segments: list[tuple[int, bytes]], address: int) -> int | None:
+    for start, data in segments:
+        if start <= address and address + 4 <= start + len(data):
+            return struct.unpack_from("<I", data, address - start)[0]
+    return None
+
+
+def _shape(segments: list[tuple[int, bytes]], address: int, size: int) -> tuple[int, ...] | None:
+    """A function's instructions with their immediates and jump targets left out: the same code
+    built at other addresses has the same shape."""
+    out = []
+    for k in range(0, size, 4):
+        w = _word(segments, address + k)
+        if w is None:
+            return None
+        op = w >> 26
+        out.append(op << 26 if op in (2, 3) else w if op == 0 else w & 0xFFFF0000)
+    return tuple(out)
+
+
+def _jals(segments: list[tuple[int, bytes]], address: int, size: int, targets: set[int]) -> list[tuple[int, int]]:
+    out = []
+    for k in range(0, size, 4):
+        w = _word(segments, address + k)
+        if w is not None and w >> 26 == 3 and (t := (w & 0x03FFFFFF) << 2) in targets:
+            out.append((k, t))
+    return out
+
+
+def pair_stubs(us_exe: list[tuple[int, bytes]], r_exe: list[tuple[int, bytes]],
+               us_boot: list[tuple[str, int, int]], r_boot: list[tuple[str, int, int]]) -> dict[str, int]:
+    """v1.01's empty 8-byte functions (the level hooks each level's program fills) -> the release's
+    address of the same hook. The hooks are alike, so the catalogues can pair them only by kind and
+    order, and they do not hold: USA v2.00 has its hooks 8 bytes on and one more in the second run,
+    PAL its 0x190 bytes back and two more, so the catalogues' func_0026F748 (the hero's state change)
+    is another hook in both. The calls say which is which: every function of v1.01 that calls a hook
+    and has one function of the release's executable of the same shape (the same instructions,
+    immediates and targets aside) calls the release's hook at the same place. A hook with no such
+    call takes its place in the run between two that have, where both moved alike."""
+    def stubs(segments, rows):
+        return {a: (_word(segments, a), _word(segments, a + 4)) for _, a, s in rows
+                if s == 8 and _word(segments, a) == JR_RA and _word(segments, a + 4) in EMPTY_SLOTS}
+    us_stubs, r_stubs = stubs(us_exe, us_boot), stubs(r_exe, r_boot)
+    by_shape: dict[tuple, list[int]] = defaultdict(list)
+    for _, a, s in r_boot:
+        if (sh := _shape(r_exe, a, s)) is not None:
+            by_shape[sh].append(a)
+    votes: dict[int, Counter] = defaultdict(Counter)
+    for _, a, s in us_boot:
+        calls = _jals(us_exe, a, s, set(us_stubs))
+        if not calls:
+            continue
+        same = by_shape.get(_shape(us_exe, a, s), [])
+        if len(same) != 1:
+            continue
+        theirs = dict(_jals(r_exe, same[0], s, set(r_stubs)))
+        for k, t in calls:
+            if k in theirs:
+                votes[t][theirs[k]] += 1
+    paired = {h: next(iter(c)) for h, c in votes.items() if len(c) == 1}
+    claimed = Counter(paired.values())
+    paired = {h: r for h, r in paired.items() if claimed[r] == 1 and r_stubs[r] == us_stubs[h]}
+    known = sorted(paired)
+    for h in sorted(set(us_stubs) - set(paired)):
+        before = [k for k in known if k < h]
+        after = [k for k in known if k > h]
+        if not before or not after:
+            continue
+        a, b = before[-1], after[0]
+        r = paired[a] + (h - a)
+        if b - a == paired[b] - paired[a] and r in r_stubs and r_stubs[r] == us_stubs[h] \
+                and r not in paired.values():
+            paired[h] = r
+    return {f"func_{h:08X}": r for h, r in sorted(paired.items())}
 
 
 def placed_values(build: Path) -> dict[str, dict[str, int]]:
@@ -306,7 +401,7 @@ def configured(source: Path, config_dir: Path, cfg: dict) -> Release | None:
 
 # ---------------------------------------------------------------- building the table
 
-def build(source: Path, version: str, versionmap: Path | None, uses: Counter) -> dict:
+def build(source: Path, version: str, versionmap: Path | None, uses: Counter, pair_hooks: bool = True) -> dict:
     us, rel = RELEASES["us"], RELEASES[version]
     tag = rel["tag"]
     evidence: Counter = Counter()
@@ -349,6 +444,17 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter) ->
             new = core("func", None, address + stated(name) - us_entry[name])
             evidence["function: carried (same code)"] += 1
         names[name] = new
+    # The level hooks by their callers (pair_stubs), over the catalogues' pairing by order.
+    hooks: dict[str, int] = {}
+    us_exe_path = source / us["baserom"] / EXECUTABLES["us"]
+    r_exe_path = source / rel["baserom"] / EXECUTABLES[version]
+    if pair_hooks and us_exe_path.is_file() and r_exe_path.is_file():
+        hooks = pair_stubs(elf_segments(us_exe_path), elf_segments(r_exe_path), us_boot, r_boot)
+        for hook, address in hooks.items():
+            new = core("func", None, address)
+            if names.get(hook, hook) != new:
+                names[hook] = new
+                evidence["function: a level hook, by its callers (not the catalogue's)"] += 1
     # Functions of the levels (and executable functions the levels hold only).
     for name, kind, _, places in r_levels:
         if name in names:
@@ -500,7 +606,7 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter) ->
             evidence["function: another spelling of a function with two v1.01 names"] += 1
     return {"names": dict(sorted((k, v) for k, v in names.items() if k != v)), "evidence": dict(sorted(evidence.items())),
             "r_values": r_values, "us_values": us_values, "r_levels": r_levels, "us_levels": us_levels,
-            "r_boot": r_boot, "us_boot": us_boot, "plain": plain, "absent": absent}
+            "r_boot": r_boot, "us_boot": us_boot, "plain": plain, "absent": absent, "hooks": hooks}
 
 
 # ---------------------------------------------------------------- Ratchet & Clank's releases
@@ -749,6 +855,15 @@ def units(source: Path, version: str, release: Release, parts: dict, sources: li
                 if name in parts["absent"] and f"_{DEAD}_" not in release.name(name):
                     out.setdefault(rel, {})[name] = name.replace("func_", f"func_{DEAD}_", 1)
                     evidence["function: v1.01's definition of one the release does not have"] += 1
+            if mine:
+                # The release's own C was built against its catalogue: a v1.01 hook name there is the
+                # hook its catalogue gave the name (PAL's func_PAL_00310BE8 calls func_0026F770 at
+                # 0x0026F5D8), which pair_stubs pairs with another of v1.01's: the name the table
+                # gives it without the pairing.
+                for hook, old in parts.get("catalogue_hooks", {}).items():
+                    if old != release.name(hook) and re.search(rf"(?<![\w]){hook}(?![0-9A-Za-z])", text):
+                        out.setdefault(rel, {})[hook] = old
+                        evidence["function: a hook named as the release's catalogue does"] += 1
             if unit_level is None:
                 continue
             found = {m.group(0) for m in SHORT.finditer(text)}
@@ -781,6 +896,9 @@ def derived_values(parts: dict, release: Release, level_base: int) -> dict:
     """The derived table (derived.py's form) in the release's names: every value the release's build
     gave, the executable's as values, a level's where it moved."""
     values = {release.name(k): v for k, v in parts["r_values"].get("boot", {}).items()}
+    # A hook's value in the release's build is where its catalogue put the name, not the hook's.
+    for hook, address in parts.get("hooks", {}).items():
+        values[release.name(hook)] = address
     for k, v in parts["plain"].items():
         values.setdefault(k, v)
     # A named global only levels' C uses (g_pHeroMoby): one value in every level below the levels'
@@ -878,6 +996,10 @@ def main(argv: list[str] | None = None) -> int:
         source_note = {"commit": None, "version": version, "table": "version_relocs.py (rac1-decomp's tools/version_check.py)"}
     else:
         parts = build(source, version, args.map, uses)
+        if parts["hooks"]:
+            # What the catalogues alone name each hook, for the release's own C (units).
+            unpaired = build(source, version, args.map, uses, pair_hooks=False)["names"]
+            parts["catalogue_hooks"] = {h: unpaired.get(h, h) for h in parts["hooks"]}
         release = Release({"names": parts["names"]})
         unit_names, unit_evidence = units(source, version, release, parts, cfg.get("sources", ["src"]))
         release.units = unit_names

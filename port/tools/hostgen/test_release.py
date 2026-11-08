@@ -151,6 +151,48 @@ class Building(unittest.TestCase):
             self.assertIn("func_00200030", parts["absent"])
 
 
+class Hooks(unittest.TestCase):
+    """pair_stubs: the level hooks by the calls that reach them, not by their order."""
+
+    @staticmethod
+    def segment(base: int, words: list[int]) -> list[tuple[int, bytes]]:
+        return [(base, b"".join(w.to_bytes(4, "little") for w in words))]
+
+    def test_the_callers_say_which_hook(self):
+        jr, nop, zero = release.JR_RA, 0, 0x0000102D
+
+        def jal(t):
+            return (3 << 26) | (t >> 2)
+
+        def li_a0(v):
+            return 0x24040000 | v
+        # v1.01: hooks at 0x100 (a result), 0x108, 0x110 and 0x118 (none); callers at 0x200.
+        us = self.segment(0x100, [jr, zero, jr, nop, jr, nop, jr, nop] + [0] * 56
+                          + [li_a0(1), jal(0x100), nop, li_a0(2), jal(0x108), nop, jr, nop]
+                          + [li_a0(3), jal(0x118), nop, jr, nop, 0, 0, 0])
+        us_boot = [("func_00000100", 0x100, 8), ("func_00000108", 0x108, 8), ("func_00000110", 0x110, 8),
+                   ("func_00000118", 0x118, 8), ("func_00000200", 0x200, 32), ("func_00000220", 0x220, 20)]
+        # The release: one more hook first, so each is 8 bytes on; its catalogue pairs them by
+        # address (func_00000108 at 0x108), which is another hook.
+        rel = self.segment(0x100, [jr, nop, jr, zero, jr, nop, jr, nop, jr, nop] + [0] * 54
+                           + [li_a0(1), jal(0x108), nop, li_a0(2), jal(0x110), nop, jr, nop]
+                           + [li_a0(3), jal(0x120), nop, jr, nop, 0, 0, 0])
+        r_boot = [("func_00000100", 0x100, 8), ("func_00000108", 0x108, 8), ("func_00000110", 0x110, 8),
+                  ("func_00000118", 0x118, 8), ("func_X_00000120", 0x120, 8), ("func_00000200", 0x200, 32),
+                  ("func_00000220", 0x220, 20)]
+        pairs = release.pair_stubs(us, rel, us_boot, r_boot)
+        # 0x110 has no caller: between 0x108 and 0x118, which both moved 8 bytes on.
+        self.assertEqual(pairs, {"func_00000100": 0x108, "func_00000108": 0x110,
+                                 "func_00000110": 0x118, "func_00000118": 0x120})
+
+    def test_a_hook_of_another_kind_is_not_paired(self):
+        jr, nop, zero = release.JR_RA, 0, 0x0000102D
+        us = self.segment(0x100, [jr, zero] + [0] * 62 + [(3 << 26) | (0x100 >> 2), nop, jr, nop])
+        rel = self.segment(0x100, [jr, nop] + [0] * 62 + [(3 << 26) | (0x100 >> 2), nop, jr, nop])
+        boot = [("func_00000100", 0x100, 8), ("func_00000200", 0x200, 16)]
+        self.assertEqual(release.pair_stubs(us, rel, boot, boot), {})
+
+
 class Carried(unittest.TestCase):
     def test_the_hook_run(self):
         table = release.Release({"names": {"func_0026F720": "func_0026F588", "func_0026F728": "func_0026F590"}})

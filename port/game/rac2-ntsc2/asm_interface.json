@@ -4398,6 +4398,20 @@
     "v": false
    }
   },
+  "func_0026F7E0": {
+   "asm": true,
+   "inherits": false,
+   "new": true,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [],
+    "v": false
+   }
+  },
   "func_00272560": {
    "asm": true,
    "inherits": false,
@@ -30593,6 +30607,25 @@
        "b": "s8",
        "q": []
       },
+      "q": []
+     }
+    ],
+    "v": false
+   }
+  },
+  "ref_US2_0029CD18_00": {
+   "asm": true,
+   "inherits": false,
+   "new": false,
+   "sig": {
+    "f": {
+     "b": "int",
+     "q": []
+    },
+    "pr": true,
+    "ps": [
+     {
+      "b": "int",
       "q": []
      }
     ],

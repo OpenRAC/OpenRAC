@@ -2044,6 +2044,13 @@ class Unit:
         else:
             level = self._shared_level()
             low, high = getattr(self.program, "relocate", None) or LEVEL_RELOCATE
+            placed = self.program.level_data.get(level, {}).get(symbol) if level is not None and symbol else None
+            if placed is not None and low <= placed < high and not code:
+                # A level function written with another program's address for the datum: v1.01's
+                # executable function that a release has only in its levels (USA v2.00's
+                # func_L00_00362138, v1.01's func_002E71B8) says the executable's D_001B87C0, which
+                # level 0's build put at 0x001BCA40. 0x001B87C0 of level 0 is another datum.
+                address, addr = placed, hexaddr(placed)
             copies = self._copies_in_one_program()
             if copies is not None and low <= address < high:
                 # Copies of this function in one program, each on its own globals: the one the
