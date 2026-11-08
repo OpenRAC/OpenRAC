@@ -139,11 +139,8 @@
     display: flex;
     align-self: flex-start;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--panel);
+    /* Each tab a button of its own, with room between: no strip joining them. */
+    gap: 6px;
   }
 
   .tabs button {
@@ -151,7 +148,7 @@
     align-items: center;
     gap: 8px;
     border: 0;
-    background: none;
+    background: var(--control);
     padding: 8px 18px;
     font-size: 0.875rem;
     font-weight: 600;
@@ -162,9 +159,8 @@
   }
 
   .tabs button.on {
-    background: var(--panel-hi);
+    background: var(--on-fill);
     color: var(--amber);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
 
   .tabs button:focus-visible {
@@ -180,7 +176,7 @@
   .busy {
     min-width: 20px;
     padding: 0 6px;
-    border-radius: 999px;
+    border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--warn) 22%, transparent);
     color: var(--warn);
     font-size: 0.75rem;

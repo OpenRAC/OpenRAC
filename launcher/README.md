@@ -29,9 +29,9 @@ It is a [Tauri 2](https://tauri.app/) app. Rust does every file and process
 operation (`core/` and `src-tauri/`); Svelte 5 draws the UI (`src/`), styled
 after [openrac.dev](https://openrac.dev).
 
-| Games                                                                                 | A game                                                                                           |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| ![The games: one tile each, with what can be done next](docs/screenshots/library.jpg) | ![A game: the main button, its menu, save files and the level editor](docs/screenshots/game.jpg) |
+| A game                                                                                      | Mods                                                                          |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| ![A game: its main button, the set-up steps, its saves and help](docs/screenshots/game.jpg) | ![The Mods tab: get mods, add one, switch them on](docs/screenshots/mods.jpg) |
 
 ## Read first
 

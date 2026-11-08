@@ -47,7 +47,7 @@ const std::string& graphics_line() {
 class PanelStyle {
 public:
     explicit PanelStyle(ImVec2 padding) {
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(16.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(12.0f));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, padding);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -113,8 +113,17 @@ void controller_panel(float left, float right_inset) {
     if (ImGui::Begin("OpenRAC controller settings", nullptr, flags)) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         const ImVec2 b(a.x + size.x, a.y + size.y);
-        list->AddRectFilled(a, b, ui_colors::fade(ui().panel, ease), dp(16.0f));
-        list->AddRect(a, b, ui_colors::fade(ui().line, ease), dp(16.0f));
+        // The drawer's ground: its coal, lit along the top in the game's colour.
+        panel_fill(
+            list,
+            a,
+            b,
+            ui_colors::fade(ui().panel, ease),
+            ui_colors::fade(ui().panel, ease),
+            ui_colors::fade(panel_glow(), ease),
+            dp(160.0f),
+            dp(12.0f)
+        );
         // Header: title and a close button (B also closes it).
         ImFont* head = menu_fonts.head;
         list->AddText(
@@ -133,7 +142,6 @@ void controller_panel(float left, float right_inset) {
         const ImVec2 c(b.x - close * 0.5f - dp(10.0f), a.y + header * 0.5f);
         const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
         list->AddCircleFilled(c, close * 0.5f, ui_colors::mix(ui().panel_hi, pressed_fill(), held));
-        list->AddCircle(c, close * 0.5f, ui().line_strong);
         const float k = dp(6.0f);
         list->AddLine(ImVec2(c.x - k, c.y - k), ImVec2(c.x + k, c.y + k), ui().soft, dp(1.6f));
         list->AddLine(ImVec2(c.x + k, c.y - k), ImVec2(c.x - k, c.y + k), ui().soft, dp(1.6f));
@@ -230,8 +238,18 @@ void drawer(const Shown& shown) {
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + viewport->Size.y);
             back->PushClipRect(top, bottom, false);
-            back->AddRectFilled(top, bottom, ui().panel, dp(16.0f), ImDrawFlags_RoundCornersRight);
-            back->AddRect(top, bottom, ui().line, dp(16.0f), ImDrawFlags_RoundCornersRight);
+            // The panel lit from above in the game's colour, as the window on a desktop.
+            panel_fill(
+                back,
+                top,
+                bottom,
+                ui().panel,
+                ui().panel,
+                panel_glow(),
+                dp(160.0f),
+                dp(12.0f),
+                ImDrawFlags_RoundCornersRight
+            );
             back->PopClipRect();
         }
         {
@@ -239,8 +257,17 @@ void drawer(const Shown& shown) {
             ImDrawList* front = ImGui::GetForegroundDrawList();
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + header);
-            front->AddRectFilled(
-                top, bottom, ui().panel, dp(16.0f), ImDrawFlags_RoundCornersTopRight
+            // The same light as the panel under it, so the header does not cut it off.
+            panel_fill(
+                front,
+                top,
+                bottom,
+                ui().panel,
+                ui().panel,
+                panel_glow(),
+                dp(160.0f),
+                dp(12.0f),
+                ImDrawFlags_RoundCornersTopRight
             );
             // A hairline under it once rows have scrolled beneath, fading in as they do.
             const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
@@ -261,9 +288,8 @@ void drawer(const Shown& shown) {
             const ImVec2 pill_a(
                 pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
             );
-            // A chip, as the launcher's: its deepest ink, a hairline, soft text.
-            front->AddRectFilled(pill_a, pill_b, ui().ink_deep, (pill_b.y - pill_a.y) * 0.5f);
-            front->AddRect(pill_a, pill_b, ui().line, (pill_b.y - pill_a.y) * 0.5f);
+            // A badge, as the launcher's: on the darkest black, soft text, 6 px corners, no edge.
+            front->AddRectFilled(pill_a, pill_b, ui().ink_deep, dp(6.0f));
             front->AddText(ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)), ui().soft, state);
         }
 
@@ -367,13 +393,12 @@ bool bar_button(const char* label, float width, bool primary = false) {
     const bool pressed =
         ImGui::InvisibleButton(label, ImVec2(width, height), ImGuiButtonFlags_EnableNav);
     ImDrawList* list = ImGui::GetWindowDrawList();
-    const float round = dp(12.0f);
+    const float round = dp(6.0f);
     const float held = tween(item_part("held"), ImGui::IsItemActive() ? 1.0f : 0.0f, kFast);
     if (primary) {
         primary_fill(list, a, b, round, held);
     } else {
-        list->AddRectFilled(a, b, ui_colors::mix(ui().panel_hi, pressed_fill(), held), round);
-        list->AddRect(a, b, ui().line_strong, round);
+        list->AddRectFilled(a, b, ui_colors::mix(control_fill(), pressed_fill(), held), round);
     }
     focus_ring(
         list,
@@ -414,7 +439,8 @@ void touch_edit_bar() {
         ImVec2(0.5f, 0.5f)
     );
     ImGui::SetNextWindowSize(ImVec2(width, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(16.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, dp(12.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(dp(14.0f), dp(12.0f)));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, dp(10.0f)));
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(ui().panel));
@@ -498,7 +524,7 @@ void touch_edit_bar() {
     }
     ImGui::End();
     ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar(4);
 }
 
 }  // namespace openrac::frontend::debug_overlay

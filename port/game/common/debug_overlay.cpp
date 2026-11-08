@@ -210,6 +210,9 @@ void launcher_style(ImGuiStyle& style) {
         return v;
     };
     const ui_colors::Colors& u = ui();
+    // Plain controls sit on a panel: the launcher's --control-card (launcher/docs/STYLE.md).
+    const ui_colors::Color control = u.control_card;
+    const ui_colors::Color control_hi = u.control_card_hi;
     ImVec4* colors = style.Colors;
     colors[ImGuiCol_Text] = c(u.text);
     colors[ImGuiCol_TextDisabled] = c(u.dim);
@@ -217,9 +220,9 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
     colors[ImGuiCol_PopupBg] = c(u.panel, 0.98f);
     colors[ImGuiCol_Border] = c(u.line);
-    colors[ImGuiCol_FrameBg] = c(u.ink_deep);
-    colors[ImGuiCol_FrameBgHovered] = c(ui_colors::mix(u.ink_deep, u.amber, 0.12f));
-    colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.ink_deep, u.amber, 0.22f));
+    colors[ImGuiCol_FrameBg] = c(control);
+    colors[ImGuiCol_FrameBgHovered] = c(control_hi);
+    colors[ImGuiCol_FrameBgActive] = c(ui_colors::mix(u.panel, u.amber, 0.18f));
     colors[ImGuiCol_TitleBg] = c(u.ink_deep);
     colors[ImGuiCol_TitleBgActive] = c(u.panel_hi);
     colors[ImGuiCol_TitleBgCollapsed] = c(u.ink_deep, 0.8f);
@@ -229,11 +232,11 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ScrollbarGrabHovered] = c(u.dim);
     colors[ImGuiCol_ScrollbarGrabActive] = c(u.soft);
     colors[ImGuiCol_CheckMark] = c(u.amber);
-    colors[ImGuiCol_SliderGrab] = c(u.brand);
-    colors[ImGuiCol_SliderGrabActive] = c(u.amber);
-    colors[ImGuiCol_Button] = c(u.panel_hi);
-    colors[ImGuiCol_ButtonHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.22f));
-    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
+    colors[ImGuiCol_SliderGrab] = c(u.amber);
+    colors[ImGuiCol_SliderGrabActive] = c(u.gold);
+    colors[ImGuiCol_Button] = c(control);
+    colors[ImGuiCol_ButtonHovered] = c(control_hi);
+    colors[ImGuiCol_ButtonActive] = c(ui_colors::mix(u.panel, u.amber, 0.22f));
     colors[ImGuiCol_Header] = c(ui_colors::mix(u.panel_hi, u.amber, 0.14f));
     colors[ImGuiCol_HeaderHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
     colors[ImGuiCol_HeaderActive] = c(ui_colors::mix(u.panel_hi, u.amber, 0.38f));
@@ -243,12 +246,12 @@ void launcher_style(ImGuiStyle& style) {
     colors[ImGuiCol_ResizeGrip] = c(u.line);
     colors[ImGuiCol_ResizeGripHovered] = c(u.amber, 0.6f);
     colors[ImGuiCol_ResizeGripActive] = c(u.amber);
-    colors[ImGuiCol_Tab] = c(u.ink_deep);
+    colors[ImGuiCol_Tab] = c(control);
     colors[ImGuiCol_TabHovered] = c(ui_colors::mix(u.panel_hi, u.amber, 0.26f));
-    colors[ImGuiCol_TabSelected] = c(u.panel_hi);
-    colors[ImGuiCol_TabSelectedOverline] = c(u.amber);
-    colors[ImGuiCol_TabDimmed] = c(u.ink_deep);
-    colors[ImGuiCol_TabDimmedSelected] = c(u.panel_hi);
+    colors[ImGuiCol_TabSelected] = c(ui_colors::mix(u.panel, u.amber, 0.15f));
+    colors[ImGuiCol_TabSelectedOverline] = c(u.amber, 0.0f);
+    colors[ImGuiCol_TabDimmed] = c(control);
+    colors[ImGuiCol_TabDimmedSelected] = c(ui_colors::mix(u.panel, u.amber, 0.10f));
     colors[ImGuiCol_PlotLines] = c(u.soft);
     colors[ImGuiCol_PlotLinesHovered] = c(u.amber);
     colors[ImGuiCol_PlotHistogram] = c(u.brand);
@@ -272,15 +275,20 @@ void style_and_font() {
     style = ImGuiStyle();
     ImGui::StyleColorsDark();
     launcher_style(style);
+    // The launcher's corners: 12 px for windows and panels, 6 px for frames, tabs and grabs. No
+    // borders: a fill sets each apart (the site's STYLE.md).
     style.WindowRounding = 12.0f;
-    style.ChildRounding = 8.0f;
-    style.PopupRounding = 8.0f;
+    style.ChildRounding = 12.0f;
+    style.PopupRounding = 12.0f;
     style.FrameRounding = 6.0f;
     style.GrabRounding = 6.0f;
-    style.ScrollbarRounding = 8.0f;
+    style.ScrollbarRounding = 6.0f;
     style.TabRounding = 6.0f;
-    style.WindowBorderSize = 1.0f;
-    style.PopupBorderSize = 1.0f;
+    style.WindowBorderSize = 0.0f;
+    style.ChildBorderSize = 0.0f;
+    style.PopupBorderSize = 0.0f;
+    style.FrameBorderSize = 0.0f;
+    style.TabBorderSize = 0.0f;
     style.WindowPadding = ImVec2(12.0f, 10.0f);
     style.FramePadding = ImVec2(8.0f, 4.0f);
     style.ItemSpacing = ImVec2(8.0f, 5.0f);

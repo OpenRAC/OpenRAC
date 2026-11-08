@@ -147,16 +147,14 @@ void draw_card(
     const float circle = dp(34.0f);
     const float h = std::max(circle, l.height) + pad * 2.0f;
     const ImVec2 b(a.x + width, a.y + h);
-    const float round = std::min(h * 0.5f, dp(24.0f));
+    const float round = std::min(h * 0.5f, dp(12.0f));
     const ImU32 tone = tone_colour(n.tone);
     soft_shadow(list, a, b, round, dp(18.0f), dp(6.0f), 12, 0.035f * alpha);
-    // Background and border.
+    // A card: its fill, no border.
     list->AddRectFilled(a, b, ui_colors::fade(ui().panel, 0.97f * alpha), round);
-    list->AddRect(a, b, ui_colors::fade(ui().line_strong, alpha), round);
-    // Icon in its ring.
+    // Icon on a tint of its tone.
     const ImVec2 c(a.x + pad + circle * 0.5f, a.y + h * 0.5f);
     list->AddCircleFilled(c, circle * 0.5f, ui_colors::fade(tone, 0.16f * alpha));
-    list->AddCircle(c, circle * 0.5f, ui_colors::fade(tone, 0.55f * alpha), 0, dp(1.2f));
     mark(list, c, circle * 0.5f, n.tone, ui_colors::fade(tone, alpha));
     // Text.
     const float x = a.x + pad + circle + dp(12.0f);
