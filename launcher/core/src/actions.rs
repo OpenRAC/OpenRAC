@@ -574,6 +574,18 @@ impl Action {
                 crate::theme::ui_colors(&ctx.config.theme, game, ctx.config.game_colors),
             ));
         }
+        // Settings, "Save folder": the game keeps its memory card in the player's own folder
+        // (`--cards`, port/game/common/program/options.cpp), the one the save manager reads too.
+        // Only for the port's own program (it takes --data); Android keeps its files in one place.
+        if self.kind == Kind::Play && !matches!(ctx.platform, Platform::Android) && args.iter().any(|a| a == "--data") {
+            if let (Some(v), Some(dir)) = (ctx.version, ctx.config.save_dir.as_deref()) {
+                let theirs = args.iter().any(|a| a == "--cards" || a == "--no-card");
+                if !dir.as_os_str().is_empty() && !v.serial.is_empty() && !theirs {
+                    let card = crate::saves::card_dir_in(Some(dir), &v.serial);
+                    args.extend(["--cards".to_string(), card.display().to_string()]);
+                }
+            }
+        }
         // Settings, "Multiplayer name": the name online mods show the other players
         // (multiplayer.rs); one that is not valid is left out, and the mod uses its own.
         if self.kind == Kind::Play && crate::multiplayer::is_valid(&ctx.config.multiplayer_name) {
@@ -1057,6 +1069,19 @@ mod tests {
         assert!(added.args.iter().any(|a| a == "--destinations"));
         assert!(!added.args.iter().any(|a| a == "--map"));
         assert!(!map_play.plan(&ctx(&installed)).unwrap().args.iter().any(|a| a == "--destinations"));
+        // Settings, "Save folder": unset, the game's own default card; set, its card in that folder.
+        assert!(!plan.args.iter().any(|a| a == "--cards"), "{:?}", plan.args);
+        let synced = Config { save_dir: Some("/sync/openrac".into()), ..installed.clone() };
+        let plan = play.plan(&ctx(&synced)).unwrap();
+        let serial = ctx(&synced).version.unwrap().serial.clone();
+        let card = Path::new("/sync/openrac").join(&serial).display().to_string();
+        let at = plan.args.iter().position(|a| a == "--cards").expect("--cards");
+        assert_eq!(plan.args[at + 1], card, "{:?}", plan.args);
+        // Not on Android, and not twice over an action's own.
+        assert!(!play.plan(&Context { platform: Platform::Android, ..ctx(&synced) }).unwrap().args.contains(&card));
+        let mut own = play.clone();
+        own.args.extend(["--cards".to_string(), "/elsewhere".to_string()]);
+        assert_eq!(own.plan(&ctx(&synced)).unwrap().args.iter().filter(|a| *a == "--cards").count(), 1);
         // Settings, "Detailed game logs": the game's verbose log.
         let detailed = Config { detailed_game_log: true, ..installed.clone() };
         let plan = play.plan(&ctx(&detailed)).unwrap();

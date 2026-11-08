@@ -39,6 +39,13 @@ installDir: string | null,
  */
 discsDir: string | null, 
 /**
+ * The player's own folder for the games' memory cards (their saves): a folder per disc
+ * serial in it, as in the default `<data home>/memcard`, so one folder can be synced
+ * (Syncthing, a cloud drive). Unset: the default. Given to each game's start as `--cards`
+ * (saves.rs `card_dir_in`); not on Android, which keeps its files in its own place.
+ */
+saveDir: string | null, 
+/**
  * The first-run setup was finished (or skipped).
  */
 setupComplete: boolean, 

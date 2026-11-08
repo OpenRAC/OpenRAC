@@ -47,6 +47,7 @@
     "docker",
     "discsDir",
     "installDir",
+    "saveDir",
     "layout",
     "theme",
     "gameColors",
@@ -225,6 +226,10 @@
   /** The games folder is looked through when it is saved; what it holds shows on the Games page. */
   const gamesFolder = (path: string): Promise<Check> =>
     Promise.resolve({ ok: true, version: null, message: `Disc images (.iso) are looked for in ${path}` });
+
+  /** The save folder only has to be a place to write; the games make a folder per disc in it. */
+  const saveFolder = (path: string): Promise<Check> =>
+    Promise.resolve({ ok: true, version: null, message: `Saves are kept in ${path}/<disc serial>` });
 
   async function save(finish: boolean) {
     saving = true;
@@ -410,6 +415,17 @@
           bind:value={draft.installDir}
           detail={draft.developer}
           check={installFolder}
+        />
+        <!-- The games' memory cards, in a folder the player can sync (Syncthing, a cloud drive). The
+             saves already made are copied there when it is saved (save_config); Play gives the
+             game --cards. Empty: the default, beside the games' settings. -->
+        <PathField
+          label="Save folder"
+          hint="Where your games keep their saves, for example a folder you sync between computers. Your saves are copied there when you save. Empty: the default."
+          folder
+          bind:value={draft.saveDir}
+          detail
+          check={saveFolder}
         />
       </section>
     {:else}

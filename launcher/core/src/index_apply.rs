@@ -123,7 +123,7 @@ pub fn backup_saves(data_home: &Path, serial: &str, now: u64) -> Result<Option<P
     if serial.is_empty() || serial.contains(['/', '\\']) || serial.contains("..") {
         return Err(format!("{serial:?} is not a disc's serial"));
     }
-    let card = data_home.join("memcard").join(serial);
+    let card = crate::saves::card_root_in(data_home).join(serial);
     if !card.is_dir() {
         return Ok(None);
     }

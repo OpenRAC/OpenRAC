@@ -112,9 +112,72 @@ pub struct GameSaveStatus {
     pub backups: Vec<SaveBackupInfo>,
 }
 
-/// Returns the host directory where OpenRAC stores memory cards for the given serial.
+/// The player's own save folder (Settings, `Config::save_dir`), as the app last set it: what
+/// [`get_memcard_dir`] answers from, for the save manager's every page.
+static CARD_ROOT: std::sync::RwLock<Option<PathBuf>> = std::sync::RwLock::new(None);
+
+/// Sets the player's own save folder, or with `None` goes back to the default. The app calls it
+/// when the settings are read and each time they are saved.
+pub fn set_card_root(dir: Option<PathBuf>) {
+    *CARD_ROOT.write().unwrap_or_else(|e| e.into_inner()) = dir.filter(|d| !d.as_os_str().is_empty());
+}
+
+#[cfg(test)]
+thread_local! {
+    /// The save folder `custom_card_root()` answers on this test's thread instead of the app's.
+    static TEST_CARD_ROOT: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` with `custom_card_root()` answering `dir` on the calling thread; tests only.
+#[cfg(test)]
+pub fn with_card_root<T>(dir: &Path, f: impl FnOnce() -> T) -> T {
+    TEST_CARD_ROOT.with(|cell| *cell.borrow_mut() = Some(dir.to_path_buf()));
+    let result = f();
+    TEST_CARD_ROOT.with(|cell| *cell.borrow_mut() = None);
+    result
+}
+
+/// The player's own save folder, if one is set.
+pub fn custom_card_root() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(dir) = TEST_CARD_ROOT.with(|cell| cell.borrow().clone()) {
+        return Some(dir);
+    }
+    CARD_ROOT.read().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+/// The folder that holds every game's memory card: the player's own, or `<data_home>/memcard`.
+pub fn card_root_in(data_home: &Path) -> PathBuf {
+    custom_card_root().unwrap_or_else(|| data_home.join("memcard"))
+}
+
+/// A game's memory card folder under the save folder `save_dir` (the settings' own, or `None`
+/// for the default under the data home).
+pub fn card_dir_in(save_dir: Option<&Path>, serial: &str) -> PathBuf {
+    match save_dir.filter(|d| !d.as_os_str().is_empty()) {
+        Some(dir) => dir.join(serial),
+        None => data_home().join("memcard").join(serial),
+    }
+}
+
+/// Returns the host directory where OpenRAC stores memory cards for the given serial: the
+/// player's own save folder if one is set, else the default under the data home.
 pub fn get_memcard_dir(serial: &str) -> PathBuf {
-    data_home().join("memcard").join(serial)
+    card_root_in(&data_home()).join(serial)
+}
+
+/// A new save folder's first use: copies the cards in `from` (the folder used until now) into
+/// `to` that `to` does not have yet, so the player's saves come along; nothing in `to` is
+/// replaced and `from` is left as it was. Returns how many files were copied.
+pub fn copy_cards(from: &Path, to: &Path) -> Result<usize, String> {
+    if !from.is_dir() || from == to {
+        return Ok(0);
+    }
+    // A folder inside the one it copies from would be copied into itself without end.
+    if to.starts_with(from) {
+        return Err(format!("The save folder can't be inside {}, the one your saves are in now.", from.display()));
+    }
+    copy_missing(from, to)
 }
 
 #[cfg(test)]
@@ -925,6 +988,40 @@ mod tests {
         assert!(!install.join("memcard").exists() && !install.join("settings").exists());
         assert!(install.join("active/rac1/keep").is_file());
         assert_eq!(migrate_install_saves(install, home), Ok(0));
+    }
+
+    /// The player's own save folder: the save manager reads the cards there, a folder per serial,
+    /// and its first use copies the saves over without replacing one it has.
+    #[test]
+    fn a_save_folder_of_the_players_holds_the_cards() {
+        let (home, sync) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let (home, sync) = (home.path(), sync.path().join("OpenRAC saves"));
+        with_data_home(home, || {
+            assert_eq!(get_memcard_dir("SCES_509.16"), home.join("memcard/SCES_509.16"));
+            with_card_root(&sync, || {
+                assert_eq!(get_memcard_dir("SCES_509.16"), sync.join("SCES_509.16"));
+                assert_eq!(card_root_in(home), sync);
+            });
+            assert_eq!(card_dir_in(Some(&sync), "SCUS_971.99"), sync.join("SCUS_971.99"));
+            assert_eq!(card_dir_in(None, "SCUS_971.99"), home.join("memcard/SCUS_971.99"));
+        });
+
+        let from = home.join("memcard");
+        for (path, text) in [("SCES_509.16/card/save0.bin", "mine"), ("SCES_509.16/card/save1.bin", "old")] {
+            fs::create_dir_all(from.join(path).parent().unwrap()).unwrap();
+            fs::write(from.join(path), text).unwrap();
+        }
+        fs::create_dir_all(sync.join("SCES_509.16/card")).unwrap();
+        fs::write(sync.join("SCES_509.16/card/save1.bin"), "synced from the other computer").unwrap();
+        assert_eq!(copy_cards(&from, &sync), Ok(1));
+        assert_eq!(fs::read_to_string(sync.join("SCES_509.16/card/save0.bin")).unwrap(), "mine");
+        assert_eq!(
+            fs::read_to_string(sync.join("SCES_509.16/card/save1.bin")).unwrap(),
+            "synced from the other computer"
+        );
+        assert!(from.join("SCES_509.16/card/save0.bin").is_file(), "the old folder stays");
+        assert_eq!(copy_cards(&home.join("none"), &sync), Ok(0));
+        assert!(copy_cards(&from, &from.join("inside")).is_err());
     }
 
     /// Windows keeps the data in %LOCALAPPDATA%\openrac, as the port's data_home does.

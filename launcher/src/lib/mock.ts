@@ -245,6 +245,7 @@ let config: Config = {
   // ?setup opens the first-run screen.
   setupComplete: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("setup"),
   installDir: "/home/you/.local/share/dev.openrac.launcher",
+  saveDir: null,
   // ?discs: a games folder is chosen.
   discsDir: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("discs")
     ? "/home/you/Games/PS2"
