@@ -11,7 +11,7 @@
 using namespace openrac::assets;
 
 int main() {
-    CHECK(versions().size() == 9);
+    CHECK(versions().size() == 10);
     const GameVersion* pal = find_version("rac1-pal");
     CHECK(pal != nullptr);
     if (pal) {
@@ -42,6 +42,14 @@ int main() {
         CHECK(find_version_by_boot(gc->serial, gc->boot_sha1) == gc);
         CHECK(gc2->region == Region::NtscU && gc2->frame_rate == 60);
         CHECK(gc_pal->region == Region::Pal && gc_pal->frame_rate == 50);
+    }
+    // Up Your Arsenal's PAL disc, rac3-decomp's own target, at 50 Hz.
+    const GameVersion* uya_pal = find_version("rac3-pal");
+    CHECK(uya_pal != nullptr);
+    if (uya_pal) {
+        CHECK(uya_pal->game == Game::Rac3 && uya_pal->serial == "SCES_524.56");
+        CHECK(uya_pal->region == Region::Pal && uya_pal->frame_rate == 50);
+        CHECK(find_version_by_boot(uya_pal->serial, uya_pal->boot_sha1) == uya_pal);
     }
     const GameVersion* rac4 = find_version("rac4/ntsc");
     CHECK(rac4 != nullptr && rac4->game == Game::Rac4 && rac4->frame_rate == 60);

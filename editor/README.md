@@ -922,7 +922,7 @@ the formats and the evidence for them.
 ## The later games (early access)
 
 Going Commando (`SCUS_972.68` v1.01 and v2.00, `SCES_516.07` v1.00), Up Your
-Arsenal (`SCUS_973.53`) and Deadlocked (`SCUS_974.65`, both NTSC-U). Their levels are the first game's
+Arsenal (`SCUS_973.53` NTSC-U and `SCES_524.56` PAL) and Deadlocked (`SCUS_974.65`, NTSC-U). Their levels are the first game's
 format with a few differences, read by the same readers through a table of
 what each game changes ([games.py](games.py); the formats, and what was
 checked on each disc, are in
