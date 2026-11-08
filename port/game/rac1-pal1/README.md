@@ -26,7 +26,7 @@ written by two tools from a built checkout of rac1-decomp:
 python3 port/tools/hostgen/version_relocs.py --source <rac1-decomp> --version pal_v1 --out build/relocs-pal_v1
 python3 port/tools/versionmap/versionmap.py build rac1/pal rac1/pal1 --out build/versionmap/rac1-pal--rac1-pal1.json \
     --entries port/game/rac1-pal/libraries.tsv --entries port/game/rac1/host/hand.c
-python3 port/tools/hostgen/release.py build --game port/game/rac1-pal1/hostgen.json --source games/rac1 \
+python3 port/tools/hostgen/release.py build --game port/game/rac1-pal1/hostgen.json --source games/rac1/decomp \
     --relocs build/relocs-pal_v1 --map build/versionmap/rac1-pal--rac1-pal1.json
 python3 port/tools/hostgen/release_rac1.py --game port/game/rac1-pal1 --primary port/game/rac1-pal \
     --map build/versionmap/rac1-pal--rac1-pal1.json
