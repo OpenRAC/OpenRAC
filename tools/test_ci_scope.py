@@ -6,7 +6,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
-from ci_scope import docs_only, plan
+from ci_scope import docs_only, ios_plan, plan, pushed_paths
 
 
 class CiScopeTest(unittest.TestCase):
@@ -97,3 +97,44 @@ class PlanTest(unittest.TestCase):
         from pathlib import Path
         from ci_scope import shared_game_dirs
         self.assertIn("rac1-pal", shared_game_dirs(Path(__file__).resolve().parent.parent))
+
+
+class IosPlanTest(unittest.TestCase):
+    def check(self, paths, port, launcher):
+        self.assertEqual(ios_plan(paths, {"rac1"}), {"ios_port": port, "ios_launcher": launcher},
+                         paths)
+
+    def test_a_push_or_the_workflow_runs_both(self):
+        for paths in (None, [".github/workflows/ios.yml"], ["tools/ci_scope.py"]):
+            self.check(paths, True, True)
+
+    def test_unrelated_files_run_neither(self):
+        for path in ("launcher/src/App.svelte", "port/game/rac2-ntsc/host/x.c", "port/android/x.cpp",
+                     "port/tools/hostgen/hostgen.py", "port/renderer/README.md", "editor/mobys.py",
+                     "docs/port/IOS.md", ".github/workflows/checks.yml"):
+            self.check([path], False, False)
+
+    def test_the_port_side(self):
+        for path in ("port/runtime/memory.cpp", "port/game/common/main.cpp", "port/game/rac1/profile.cpp",
+                     "port/platform/bindings.cpp", "port/enhanced/lighting/profiles/rac1-pal/a.json",
+                     "games/rac1/game.json", "launcher/src-tauri/tauri.conf.json"):
+            self.check([path], True, False)
+
+    def test_the_launcher_side(self):
+        for path in ("launcher/ios/src/lib.rs", "launcher/core/src/lib.rs", "launcher/Cargo.lock",
+                     ".github/actions/launcher-toolchain/action.yml", "launcher/src/lib/palettes.json"):
+            self.check([path], False, True)
+
+    def test_files_both_read(self):
+        for path in ("port/ios/launcher.mm", "port/platform/ios.h",
+                     "port/game/rac2/differences.json", "launcher/src-tauri/icons/icon.png"):
+            self.check([path], True, True)
+
+    def test_a_push_is_scoped_by_its_diff(self):
+        with patch("ci_scope.subprocess.check_output", return_value=b"port/ios/a.mm\0docs/x.md\0") as output:
+            self.assertEqual(pushed_paths("before"), ["port/ios/a.mm", "docs/x.md"])
+            self.assertIn("before", output.call_args.args[0])
+        with patch("ci_scope.subprocess.check_output", side_effect=subprocess.CalledProcessError(1, "git")):
+            self.assertIsNone(pushed_paths("before"))
+        with patch("ci_scope.subprocess.check_output", return_value=b""):
+            self.assertIsNone(pushed_paths("before"))

@@ -1,63 +1,178 @@
-# Public iOS checks deliberately need neither a retail disc nor Apple signing credentials.
-name: iOS
+# The iPhone and iPad build's public checks (docs/port/IOS.md), on macOS: they need neither a
+# retail disc nor Apple signing credentials. "Port / iOS" runs the runtime's memory, suspension and
+# controller tests on the Mac and cross-compiles the runtime and window for iOS without a game.
+# "Launcher / iOS" tests and cross-compiles the Rust adapter (launcher/ios), checks the bundle's
+# catalogue and icons, and compiles the UIKit, Files, WebKit and CPython bridges (port/ios/*.mm)
+# against the iOS SDK.
+#
+# macOS minutes are dear, so a run starts only for the files below, and the `scope` job then
+# runs only the job those files can affect (tools/ci_scope.py ios): a push by the files it
+# changes, a pull request by its merge commit's. A change to this workflow or to that script
+# runs both.
+#
+# Every action is pinned to a commit, as in launcher.yml.
+name: ios
+
 on:
-  pull_request:
-    paths: ['port/**', 'editor/**', 'launcher/**', 'tools/build_ios.py', '.github/workflows/ios.yml']
   push:
-    branches: [develop, '**/ios-*']
+    branches: [master, develop]
+    paths: &paths
+      - "port/**"
+      - "!port/android/**"
+      - "!port/tools/**"
+      - "!port/**/*.md"
+      - "games/*/game.json"
+      - "launcher/ios/**"
+      - "launcher/core/**"
+      - "launcher/Cargo.toml"
+      - "launcher/Cargo.lock"
+      - "launcher/package.json"
+      - "launcher/src/lib/palettes.json"
+      - "launcher/src-tauri/icons/**"
+      - "launcher/src-tauri/tauri.conf.json"
+      - "tools/ci_scope.py"
+      - ".github/actions/compiler-cache/**"
+      - ".github/actions/launcher-toolchain/**"
+      - ".github/actions/yarn-cache/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths: *paths
   workflow_dispatch:
+
 permissions:
   contents: read
+
+# New PR pushes and develop merges supersede old runs; master's all finish, as in checks.yml.
 concurrency:
   group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
+
 jobs:
-  runtime:
+  scope:
+    name: Which iOS checks run
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    outputs:
+      port: ${{ steps.scope.outputs.ios_port }}
+      launcher: ${{ steps.scope.outputs.ios_launcher }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      # A pull request: the base branch's copy of the script decides, so that one changing it runs
+      # both jobs. A push: the pushed copy, by what changed since the branch's previous commit.
+      # Empty outputs (a manual run, a new branch, a base copy without `ios`, a failed git call)
+      # run both.
+      - id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            script="$RUNNER_TEMP/openrac-ci-scope.py"
+            git show HEAD^1:tools/ci_scope.py > "$script" || exit 0
+          elif [ "$EVENT" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+              && git fetch -q --no-tags --depth=1 origin "$BEFORE"; then
+            script=tools/ci_scope.py
+            export PUSH_BEFORE="$BEFORE"
+          else
+            exit 0
+          fi
+          python3 "$script" ios || true
+
+  port:
+    name: Port / iOS
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.port != 'false' }}
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build tools
-        run: brew install cmake ninja
+      - uses: ./.github/actions/compiler-cache
+        with:
+          key: ios-port
+          max-size: 1G
+      # The image has CMake; Ninja only when it is missing (a second `brew install` of a tool the
+      # image installed another way fails to link it).
+      - name: CMake and Ninja
+        run: |
+          for tool in cmake ninja; do
+            command -v "$tool" >/dev/null || brew install "$tool"
+          done
+          cmake --version | head -1
+          ninja --version
+
       - name: Native memory and suspension tests
         run: |
-          cmake -S port -B build/ios-host -G Ninja -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
-          cmake --build build/ios-host --target runtime_test expanded_memory_test ios_memory_test mobile_lifecycle_test ios_controller_test --parallel 3
-          ctest --test-dir build/ios-host -R '^(runtime|expanded_memory|ios_memory|mobile_lifecycle|ios_controller)$' --output-on-failure
+          cmake -S port -B build/ios-host -G Ninja -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF \
+            -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
+          cmake --build build/ios-host --parallel 3 \
+            --target runtime_test expanded_memory_test ios_memory_test mobile_lifecycle_test ios_controller_test
+          ctest --test-dir build/ios-host -R '^(runtime|expanded_memory|ios_memory|mobile_lifecycle|ios_controller)$' \
+            --output-on-failure --no-tests=error
+
       - name: Compile the iOS runtime and window without a game
         run: |
-          cmake -S port -B build/ios-sdk -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
+          cmake -S port -B build/ios-sdk -G Ninja -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DOPENRAC_PORT_GAMES=OFF \
+            -DOPENRAC_ENHANCED_RENDERING=OFF -DOPENRAC_STATIC_SDL=ON -DOPENRAC_VULKAN=OFF -DOPENRAC_VULKAN_APPLE_DEFAULT=ON
           cmake --build build/ios-sdk --target openrac_runtime openrac_platform --parallel 3
+
   launcher:
+    name: Launcher / iOS
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.launcher != 'false' }}
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      # BeeWare's Python Apple Support (docs/port/IOS.md), for the CPython bridge's headers.
+      PYTHON_APPLE: https://github.com/beeware/Python-Apple-support/releases/download/3.14-b14/Python-3.14-iOS-support.b14.tar.gz
+      PYTHON_APPLE_SHA256: 703ff822529f46edcbcd8b88096b2544f6990f3109ad38b4b4b61bb489a7c1ee
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/launcher-toolchain
         with:
-          cache-key: checks-ios-launcher
+          cache-key: ios-launcher
           targets: aarch64-apple-ios
           components: clippy, rustfmt
+
       - name: Adapter tests and iOS static library
         working-directory: launcher
         run: |
           cargo test -p openrac-launcher-ios --locked
           cargo clippy -p openrac-launcher-ios --all-targets --locked -- -D warnings
           cargo build -p openrac-launcher-ios --target aarch64-apple-ios --release --locked
+
       - name: Catalogue configuration and icon generation
         run: |
           python3 -m unittest discover -s port/ios -p test_bundle.py
           swift port/ios/make_assets.swift launcher/src-tauri/icons/icon.png build/ios-icons/Assets.xcassets
+
       - name: Pinned Python headers for the native application checks
         run: |
           mkdir -p build/ios-python
-          curl --fail --location --retry 3 https://github.com/beeware/Python-Apple-support/releases/download/3.14-b14/Python-3.14-iOS-support.b14.tar.gz -o build/ios-python/python.tar.gz
-          echo '703ff822529f46edcbcd8b88096b2544f6990f3109ad38b4b4b61bb489a7c1ee  build/ios-python/python.tar.gz' | shasum -a 256 -c -
+          curl -sSfL --retry 5 --retry-delay 5 -o build/ios-python/python.tar.gz "$PYTHON_APPLE"
+          echo "$PYTHON_APPLE_SHA256  build/ios-python/python.tar.gz" | shasum -a 256 -c -
           tar -xf build/ios-python/python.tar.gz -C build/ios-python
+
+      # Every bridge in port/ios, so that a new one is checked without a change here.
       - name: Compile the UIKit, Files, WebKit and CPython bridges
         run: |
-          xcrun clang++ -fsyntax-only -std=c++20 -fobjc-arc -target arm64-apple-ios17.0 -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" -Iport -Ilauncher/ios/include -Ibuild/ios-python/Python.xcframework/ios-arm64/Python.framework/Headers '-DOPENRAC_IOS_GAME="rac1-ntsc"' port/ios/bootstrap.mm port/ios/launcher.mm port/ios/prepare.mm port/ios/controller.mm port/ios/save_transfer.mm
+          shopt -s nullglob
+          bridges=(port/ios/*.mm)
+          [ ${#bridges[@]} -gt 0 ] || { echo "::error::no port/ios/*.mm"; exit 1; }
+          headers=build/ios-python/Python.xcframework/ios-arm64/Python.framework/Headers
+          [ -f "$headers/Python.h" ] || { echo "::error::$PYTHON_APPLE has no $headers/Python.h"; exit 1; }
+          xcrun clang++ -fsyntax-only -std=c++20 -fobjc-arc -target arm64-apple-ios17.0 \
+            -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" -Iport -Ilauncher/ios/include -I"$headers" \
+            '-DOPENRAC_IOS_GAME="rac1-ntsc"' "${bridges[@]}"

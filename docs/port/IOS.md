@@ -146,6 +146,9 @@ the iOS runtime/window without a game, tests and cross-compiles the Rust adapter
 and compiles the UIKit/WebKit/Python bridge against the iOS SDK. It needs no
 retail image, Apple certificate or signing secret. Full engine builds need the
 contributor's private disc; gameplay verification remains a separate device step.
+The workflow starts only for the files its jobs read, and runs `Port / iOS` or
+`Launcher / iOS` only when a push's or pull request's files can affect it
+(`tools/ci_scope.py ios`).
 
 Before release, check physical iPhone/iPad startup, Files import, touch/gamepad
 input, sound, saves, suspend/resume and sustained gameplay. Source tests, an
