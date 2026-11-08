@@ -88,6 +88,15 @@ class Layout:
         self.baserom = source / info["baserom"]
         self.exe = self.baserom / {"us": "SCUS_972.68", "pal": "SCES_516.07", "us2": "SCUS_972.68"}[version]
         self.name = release.Release.load(table).name if table else (lambda n: n)
+        # v1.01's name of each of the release's names, and v1.01's executable and catalogue, for the
+        # hook calls of v1.01's executable functions the release has only in its levels (primary_hooks).
+        self.primary = {}
+        if table and version != "us":
+            us = release.RELEASES["us"]
+            for old, new in release.Release.load(table).names.items():
+                self.primary.setdefault(new, old)
+            self.primary_boot = source / us["config"] / "boot/functions.tsv"
+            self.primary_exe = source / us["baserom"] / release.EXECUTABLES["us"]
 
     def lines(self, path: Path) -> list[str]:
         """A catalogue's lines with its names in the release's names."""
@@ -148,8 +157,46 @@ def rows(source: Path, layout: "Layout | None" = None) -> list[tuple[str, str, i
                 name = names.get((level, t)) if t is not None else None
                 if name is not None and name not in found:
                     found[name] = (level, address, t, exe_target or 0)
+        if own_exe is None and copies:
+            for hook, i in primary_hooks(layout, caller, size, copies[0][2]):
+                level, address, w = copies[0]
+                if hook not in found and (t := jal_target(w[i])) is not None:
+                    found[hook] = (level, address, t, 0)
         for name, (level, address, target, exe_target) in sorted(found.items()):
             out.append((caller, name, level, address, size, target, exe_target))
+    return out
+
+
+def primary_hooks(layout: "Layout", caller: str, size: int, level: tuple[int, ...]) -> list[tuple[str, int]]:
+    """A release's level function that is v1.01's executable function (USA v2.00's func_L00_00361D08,
+    the level start's cutscene, is v1.01's func_002E6D88): where v1.01's executable copy calls a
+    level hook (an empty function each level fills), the levels' copies call their own function. The
+    C names the hook, which a function of the executable reaches through its level copy's call
+    (openrac_hook_in_copy); here there is no executable copy, so the hook's name gets the row of the
+    copies' call at that place: (the hook's name in the release, the word's index)."""
+    primary = layout.primary.get(caller)
+    if primary is None or not hasattr(layout, "primary_exe") or not layout.primary_exe.is_file():
+        return []
+    if not hasattr(layout, "_primary"):
+        import release
+        layout._primary = ({n: a for n, a, _ in release.read_boot(layout.primary_boot)},
+                           elf_sections(layout.primary_exe))
+        boot = release.read_boot(layout.primary_boot)
+        layout._primary_stubs = {a for _, a, z in boot if z == 8
+                                 and words(layout._primary[1], a, 8) is not None
+                                 and words(layout._primary[1], a, 8)[0] == release.JR_RA
+                                 and words(layout._primary[1], a, 8)[1] in release.EMPTY_SLOTS}
+    entries, exe = layout._primary
+    if primary not in entries:
+        return []
+    code = exe_copy(exe, entries[primary], size, level)
+    if code is None:
+        return []
+    out = []
+    for i, w in enumerate(code):
+        t = jal_target(w)
+        if t is not None and t in layout._primary_stubs:
+            out.append((layout.name(f"func_{t:08X}"), i))
     return out
 
 
@@ -190,6 +237,12 @@ def twins(source: Path, layout: "Layout | None" = None) -> list[tuple[str, int, 
         name, entry, size = cols[0], int(cols[1], 16), int(cols[2])
         code = words(exe, entry, size & ~3)
         if code is None or size < 8 or name in {row[0] for row in by_size.get(size, [])}:
+            continue
+        import release
+        if size == 8 and code[0] == release.JR_RA and code[1] in release.EMPTY_SLOTS:
+            # An empty function (a level hook): its catalogue name is another hook's where the
+            # hooks were paired by their callers (release.pair_stubs), and every level's empty
+            # functions have its words.
             continue
         mine = [masked(w) for w in code]
         places: list[tuple[int, int]] = []
