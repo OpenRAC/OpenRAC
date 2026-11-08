@@ -415,7 +415,7 @@ follows ReRAC's idea and says so in
 | Shadows | Jak 2: normal / extended | on / off | no | **later**: the port has no shadow renderer yet |
 | Presets | no | original / enhanced / custom | no | **later**, when there are enough graphics settings to group |
 | PS2 parity switches (particles, actor visibility, envmap, hi-res sky) | yes | no | no | **never** as such: they undo OpenGOAL's own enhancements, which the port does not have |
-| Renderer choice | parsed, unused | `WGPU_BACKEND` | no | **never**: one renderer, OpenGL 4.1 |
+| Renderer choice | parsed, unused | `WGPU_BACKEND` | the launcher's Settings, Advanced: Vulkan (the default), OpenGL 4.1, and on macOS Metal (`OPENRAC_GL_API`, [DEBUGGING.md](DEBUGGING.md)); not in the game's own menus | **had**, in the launcher |
 
 ### Input
 
