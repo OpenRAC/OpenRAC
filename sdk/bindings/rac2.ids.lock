@@ -2,8 +2,22 @@
 # on the first disc) and every alias it has had. It only grows: an id is never removed or reused,
 # and an alias once given stays (docs/port/MODS.md, section 4). Regenerated, never edited.
 rac2.combat.get_hit	ntsc:002A9640	Moby_GetHitMessage,func_002A9640,func_002AA0A8,func_002AA4A8
+rac2.item.give	ntsc:00288308	Item_Give,func_00288308,func_00288C20,func_00288D30
 rac2.level.load	ntsc:L00:00303990	Level_Load,func_L00_00303990,func_L00_00304660,func_L00_00305570
+rac2.moby.box_breaker_pickup.update	ntsc:L01:00416440	Moby_BoxBreakerPickup_Update,func_L01_00416440
+rac2.moby.charge_boots_rider.update	ntsc:L11:003F8510	Moby_ChargeBootsRider_Update,func_L11_003F8510
+rac2.moby.dynamo_pickup.update	ntsc:L01:003CEDA0	Moby_DynamoPickup_Update,func_L01_003CEDA0
+rac2.moby.glider_pickup.update	ntsc:L08:0040E9B8	Moby_GliderPickup_Update,func_L08_0040E9B8
+rac2.moby.hypnomatic_maker.update	ntsc:L18:00440718	Moby_HypnomaticMaker_Update,func_L18_00440718
+rac2.moby.levitator_seller.update	ntsc:L11:004618C0	Moby_LevitatorSeller_Update,func_L11_004618C0
+rac2.moby.mapper_return.update	ntsc:L18:003F90A0	Moby_MapperReturn_Update,func_L18_003F90A0
+rac2.moby.race_controller.update	ntsc:L04:00419918	Moby_RaceController_Update,func_L04_00419918
 rac2.moby.record_death	ntsc:002A6C58	Moby_RecordDeath,func_002A6C58,func_002A7650,func_002A7AA8
+rac2.moby.swingshot_area.update	ntsc:L03:003F09C0	Moby_SwingshotArea_Update,func_L03_003F09C0
+rac2.moby.thermanator_area.update	ntsc:L04:00456628	Moby_ThermanatorArea_Update,func_L04_00456628
+rac2.moby.thermanator_seller.update	ntsc:L04:00434BB0	Moby_ThermanatorSeller_Update,func_L04_00434BB0
+rac2.moby.tractor_beam_seller.update	ntsc:L01:003D2E50	Moby_TractorBeamSeller_Update,func_L01_003D2E50
+rac2.planet.unlock	ntsc:002AD7B8	Planet_Unlock,func_002AD7B8,func_002AE318,func_002AE620
 rac2.player.approach_speed	ntsc:L00:002B41B8	Hero_ApproachSpeed,func_L00_002B40E0,func_L00_002B41B8,func_L00_002B42C0
 rac2.player.nanotech_steps	ntsc:L00:002D5E30	Hero_NanotechSteps,func_L00_002D5E30,func_L00_002D61D0,func_L00_002D6380
 rac2.player.take_damage	ntsc:L00:002A4EF8	Hero_TakeDamage,func_L00_002A4D58,func_L00_002A4EF8

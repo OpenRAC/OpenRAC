@@ -697,9 +697,23 @@
    "Hero_ApproachSpeed": "rac2.player.approach_speed",
    "Hero_NanotechSteps": "rac2.player.nanotech_steps",
    "Hero_TakeDamage": "rac2.player.take_damage",
+   "Item_Give": "rac2.item.give",
    "Level_Load": "rac2.level.load",
+   "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
+   "Moby_ChargeBootsRider_Update": "rac2.moby.charge_boots_rider.update",
+   "Moby_DynamoPickup_Update": "rac2.moby.dynamo_pickup.update",
    "Moby_GetHitMessage": "rac2.combat.get_hit",
+   "Moby_GliderPickup_Update": "rac2.moby.glider_pickup.update",
+   "Moby_HypnomaticMaker_Update": "rac2.moby.hypnomatic_maker.update",
+   "Moby_LevitatorSeller_Update": "rac2.moby.levitator_seller.update",
+   "Moby_MapperReturn_Update": "rac2.moby.mapper_return.update",
+   "Moby_RaceController_Update": "rac2.moby.race_controller.update",
    "Moby_RecordDeath": "rac2.moby.record_death",
+   "Moby_SwingshotArea_Update": "rac2.moby.swingshot_area.update",
+   "Moby_ThermanatorArea_Update": "rac2.moby.thermanator_area.update",
+   "Moby_ThermanatorSeller_Update": "rac2.moby.thermanator_seller.update",
+   "Moby_TractorBeamSeller_Update": "rac2.moby.tractor_beam_seller.update",
+   "Planet_Unlock": "rac2.planet.unlock",
    "Weapon_TakeAmmo": "rac2.weapon.take_ammo"
   }
  }
