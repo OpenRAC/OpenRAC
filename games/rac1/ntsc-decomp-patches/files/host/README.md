@@ -30,7 +30,7 @@ the Wine file system and enters it with `chroot`.
 
 ## Recipe
 
-From `games/rac1/ntsc`, with Docker (OrbStack or Docker Desktop):
+From `games/rac1/ntsc-decomp`, with Docker (OrbStack or Docker Desktop):
 
 ```sh
 python3 ../../../tools/openrac.py setup rac1/ntsc     # config/us/SCUS_971.99 from your disc

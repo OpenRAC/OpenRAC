@@ -1,6 +1,6 @@
 # OpenRAC's changes to Lombyte
 
-Applied to [Lombyte](https://github.com/lombyte-project/Lombyte) (`games/rac1/ntsc`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
+Applied to [Lombyte](https://github.com/lombyte-project/Lombyte) (`games/rac1/ntsc-decomp`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
 
 Each patch says what it changes and why; most make C that relied on a register explicit, so
 that hostgen translates it as the console runs it. The PS2 build is unchanged by them.

@@ -6,7 +6,7 @@ Subject: tools inside openrac
 Run the tools from inside OpenRAC.
 
 The tree sits at games/rac1/decomp inside OpenRAC, and the launcher builds it there. The tools
-find the NTSC decomp (games/rac1/ntsc) and the shared toolchains/ and baserom/, and the Docker
+find the NTSC decomp (games/rac1/ntsc-decomp) and the shared toolchains/ and baserom/, and the Docker
 runner mounts all of OpenRAC.
 
 Co-authored-by: Flavius <Flavius256@icloud.com>
@@ -54,7 +54,7 @@ index 7f6c5ae..6e42e9b 100644
 -Lombyte is looked for in $LOMBYTE, else ~/Projects/Lombyte, else the
 -pinned checkout tools/ntsc_source.py fetches (python3 tools/ntsc_source.py fetch).
 +Lombyte is looked for in $LOMBYTE, else next to this tree inside OpenRAC
-+(games/rac1/ntsc), else ~/Projects/Lombyte, else the pinned checkout
++(games/rac1/ntsc-decomp), else ~/Projects/Lombyte, else the pinned checkout
 +tools/ntsc_source.py fetches (python3 tools/ntsc_source.py fetch).
  """
  from __future__ import annotations
@@ -64,11 +64,11 @@ index 7f6c5ae..6e42e9b 100644
  
  
 -LOMBYTE = Path(os.environ["LOMBYTE"]) if os.environ.get("LOMBYTE") else _default_lombyte()
-+# Inside OpenRAC, Lombyte is this game's other region, games/rac1/ntsc, and
++# Inside OpenRAC, Lombyte is this game's other region, games/rac1/ntsc-decomp, and
 +# OpenRAC keeps a copy of the report its CI publishes (tools/openrac.py progress --fetch).
 +OPENRAC = ROOT.parents[2] if (ROOT.parents[2] / "games/rac1/game.json").exists() else None
 +LOMBYTE = (Path(os.environ["LOMBYTE"]) if os.environ.get("LOMBYTE")
-+           else ROOT.parent / "ntsc" if OPENRAC else _default_lombyte())
++           else ROOT.parent / "ntsc-decomp" if OPENRAC else _default_lombyte())
  MAP = ROOT / "build-sn/lombyte_ntsc_pal_map.json"
  US_MAP = ROOT / "config/overlays/us_map.tsv"
  US_EXE_DELTA = 0xFF080      # SCUS-97199: vram - file offset of its one loaded segment
@@ -94,7 +94,7 @@ index 3d9c991..02b3b73 100644
  
    NTSC       the NTSC decompilation (~/Projects/NTSC)
 -  LOMBYTE   Lombyte, the US decompilation (~/Projects/Lombyte)
-+  LOMBYTE   Lombyte, the US decompilation (games/rac1/ntsc inside OpenRAC, else ~/Projects/Lombyte)
++  LOMBYTE   Lombyte, the US decompilation (games/rac1/ntsc-decomp inside OpenRAC, else ~/Projects/Lombyte)
    RERAC     ReRAC, the PC port, for its Ghidra name tables (~/Projects/rerac)
  
  Missing sources are skipped with a warning; the rows they gave are then
@@ -112,7 +112,7 @@ index 3d9c991..02b3b73 100644
  HOME = Path.home() / "Projects"
  NTSC = Path(os.environ.get("NTSC", HOME / "NTSC"))
 -LOMBYTE = Path(os.environ.get("LOMBYTE", HOME / "Lombyte"))
-+LOMBYTE = LOMBYTE_TREE        # $LOMBYTE, games/rac1/ntsc inside OpenRAC, or ~/Projects/Lombyte
++LOMBYTE = LOMBYTE_TREE        # $LOMBYTE, games/rac1/ntsc-decomp inside OpenRAC, or ~/Projects/Lombyte
  RERAC = Path(os.environ.get("RERAC", HOME / "rerac"))
  
  TIERS = ("recovered", "descriptive", "candidate")

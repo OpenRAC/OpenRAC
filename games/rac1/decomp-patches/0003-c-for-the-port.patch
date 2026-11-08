@@ -56,7 +56,7 @@ index 158ebce..70afa19 100644
              L = d.d / ds;
              d.d -= L * ds;
 -# 505 "/Users/flavy/Projects/OpenRAC/games/rac1/ntsc/src/sdk/library/_dtoa_r.c"
-+# 505 "games/rac1/ntsc/src/sdk/library/_dtoa_r.c"
++# 505 "games/rac1/ntsc-decomp/src/sdk/library/_dtoa_r.c"
              *s++ = '0' + (s32)L;
              if (i == ilim) {
                  d.d += d.d;

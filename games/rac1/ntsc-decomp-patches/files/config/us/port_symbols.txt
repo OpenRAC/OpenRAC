@@ -1,7 +1,7 @@
 // Names the NTSC decomp's C uses for a function in some files without the label it gives it in
 // others (`add_vector_xyz` in one file, `add_vector_xyz(...) __asm__("FUN_001f9a10")` in many).
 // The native port (port/game/rac1-ntsc/hostgen.json "symbols") needs each at its address. Each address is the one the labelled declarations agree on
-// (OpenRAC's addition, games/rac1/ntsc-patches).
+// (OpenRAC's addition, games/rac1/ntsc-decomp-patches).
 add_vector_xyz = 0x001F9A10; // 221 of 221 labelled declarations
 advance_moby_animation = 0x0020D580; // 12 of 12 labelled declarations
 allocate_voice_for_target_entry = 0x0022DA68; // 150 of 150 labelled declarations

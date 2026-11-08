@@ -1,4 +1,4 @@
-/* OpenRAC's addition (games/rac1/ntsc-patches): the confirm prompt's input, the update of the memory
+/* OpenRAC's addition (games/rac1/ntsc-decomp-patches): the confirm prompt's input, the update of the memory
  * card pages' Yes/No prompt (overwrite a save, ...). The splat config has its first 0x38 bytes as a
  * text gap (text_gap_00221ab8_after_fun_00221a88) and the rest as FUN_00221af0; the retail function
  * is the 148 bytes from 0x221AB8 (rac1-decomp's Menu_ConfirmPromptInput, func_00222B00, the same

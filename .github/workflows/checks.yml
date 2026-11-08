@@ -183,7 +183,7 @@ jobs:
         run: python tools/gen_progress_report.py --check
 
       - name: rac1/ntsc tools
-        working-directory: games/rac1/ntsc
+        working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
           # (the versions requirements.txt pins).

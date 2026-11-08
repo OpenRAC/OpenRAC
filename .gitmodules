@@ -7,8 +7,8 @@
 	branch = main
 	shallow = true
 	ignore = dirty
-[submodule "games/rac1/ntsc"]
-	path = games/rac1/ntsc
+[submodule "games/rac1/ntsc-decomp"]
+	path = games/rac1/ntsc-decomp
 	url = https://github.com/lombyte-project/Lombyte.git
 	branch = main
 	shallow = true

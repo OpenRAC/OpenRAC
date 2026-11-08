@@ -174,6 +174,7 @@
         "sha256": "e050581032e4bb3f20341307da5b69b76f1574910519155380ea771e55c3c0c9"
       },
       "target": "The boot executable SCUS_971.99 and the 19 level programs, as per-function units.",
+      "dir": "games/rac1/ntsc-decomp",
       "source": {
         "name": "Lombyte",
         "repo": "https://github.com/lombyte-project/Lombyte",
@@ -185,7 +186,7 @@
       },
       "build": {
         "host": "Linux or WSL; macOS through ./setup.sh --docker; toolchains downloaded and built by setup.sh",
-        "readme": "games/rac1/ntsc/README.md"
+        "readme": "games/rac1/ntsc-decomp/README.md"
       },
       "progress": {
         "report": "progress/sources/rac1-ntsc.json",
@@ -199,24 +200,24 @@
       "inputs": [
         {
           "from": "disc",
-          "path": "games/rac1/ntsc/dumps/SCUS_971.99.iso"
+          "path": "games/rac1/ntsc-decomp/dumps/SCUS_971.99.iso"
         },
         {
           "from": "boot",
-          "path": "games/rac1/ntsc/config/us/SCUS_971.99"
+          "path": "games/rac1/ntsc-decomp/config/us/SCUS_971.99"
         }
       ],
-      "setup": "in games/rac1/ntsc: ./setup.sh --elf config/us/SCUS_971.99 (Linux or WSL; add --docker on macOS), then make elf",
+      "setup": "in games/rac1/ntsc-decomp: ./setup.sh --elf config/us/SCUS_971.99 (Linux or WSL; add --docker on macOS), then make elf",
       "xmap": {
         "code": [
           {
             "program": "boot",
-            "path": "games/rac1/ntsc/config/us/SCUS_971.99",
+            "path": "games/rac1/ntsc-decomp/config/us/SCUS_971.99",
             "format": "elf"
           },
           {
             "program": "level",
-            "glob": "games/rac1/ntsc/config/us/overlays/level_*",
+            "glob": "games/rac1/ntsc-decomp/config/us/overlays/level_*",
             "format": "rac1-level"
           }
         ],
@@ -228,18 +229,18 @@
         "setup": "python3 tools/openrac.py setup rac1/ntsc, then the project's setup.sh, which extracts the level overlays"
       },
       "port": {
-        "root": "games/rac1/ntsc",
-        "sources": "games/rac1/ntsc/src",
+        "root": "games/rac1/ntsc-decomp",
+        "sources": "games/rac1/ntsc-decomp/src",
         "include": [
-          "games/rac1/ntsc/include"
+          "games/rac1/ntsc-decomp/include"
         ],
         "defines": [
           "MATCHING_DECOMP",
           "BUILD_US_VERSION"
         ],
         "gp": "0x166C00",
-        "catalogue": "games/rac1/ntsc/config/overlays/us/functions.tsv",
-        "symbols": "games/rac1/ntsc/config/us/symbol_addrs.txt",
+        "catalogue": "games/rac1/ntsc-decomp/config/overlays/us/functions.tsv",
+        "symbols": "games/rac1/ntsc-decomp/config/us/symbol_addrs.txt",
         "shared_headers": [
           "types.h",
           "qcopy.h",

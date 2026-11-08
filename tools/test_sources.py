@@ -117,7 +117,8 @@ class DecompTreeTests(unittest.TestCase):
         game = {"id": "g", "decomp": {"dir": "games/g/decomp", **source}, "versions": {
             "pal": {"dir": "games/g/decomp", "source": {"shared": "decomp", **source}},
             "ntsc": {"dir": "games/g/decomp", "source": {"shared": "decomp", **source}},
-            "jp": {"source": {**source, "name": "other", "commit": "b" * 40}}}}
+            "jp": {"source": {**source, "name": "other", "commit": "b" * 40}},
+            "us": {"dir": "games/g/us-decomp", "source": {**source, "name": "third", "commit": "d" * 40}}}}
         (self.root / "games/g/game.json").write_text(json.dumps(game))
         patcher = mock.patch.object(sources, "ROOT", self.root)
         patcher.start()
@@ -125,13 +126,19 @@ class DecompTreeTests(unittest.TestCase):
 
     def test_the_tree_is_the_games_and_its_patches_beside_it(self):
         found = sources.trees(self.root)
-        self.assertEqual(list(found), ["g/decomp", "g/jp"])
+        self.assertEqual(list(found), ["g/decomp", "g/jp", "g/us-decomp"])
+        self.assertEqual(sources.chosen(["g/jp"])[0].rel, "games/g/jp")
         tree = found["g/decomp"]
         self.assertEqual((tree.rel, tree.patches), ("games/g/decomp", self.root / "games/g/decomp-patches"))
         self.assertEqual(len(tree.sharing()), 2)
 
     def test_a_version_names_its_tree(self):
         self.assertEqual([t.key for t in sources.chosen(["g/pal", "g/decomp", "g/ntsc"])], ["g/decomp"])
+
+    def test_a_third_party_decomp_is_named_by_its_folder_or_its_version(self):
+        tree = sources.trees(self.root)["g/us-decomp"]
+        self.assertEqual((tree.rel, tree.patches), ("games/g/us-decomp", self.root / "games/g/us-decomp-patches"))
+        self.assertEqual([t.key for t in sources.chosen(["g/us", "g/us-decomp"])], ["g/us-decomp"])
 
     def test_record_brings_every_version_along(self):
         tree = sources.trees(self.root)["g/decomp"]
