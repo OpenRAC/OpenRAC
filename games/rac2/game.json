@@ -11,9 +11,9 @@
     "repo": "https://github.com/OpenRAC/rac2-decomp",
     "branch": "master",
     "license": "GPL-3.0",
-    "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
-    "date": "2026-11-07",
-    "imported": "2026-11-07"
+    "commit": "d29456d68f7a1390be34fb4798149954cf05100d",
+    "date": "2026-11-08",
+    "imported": "2026-11-08"
   },
   "versions": {
     "ntsc": {
@@ -47,9 +47,9 @@
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
-        "date": "2026-11-07",
-        "imported": "2026-11-07"
+        "commit": "d29456d68f7a1390be34fb4798149954cf05100d",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
@@ -117,9 +117,9 @@
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
-        "date": "2026-11-07",
-        "imported": "2026-11-07"
+        "commit": "d29456d68f7a1390be34fb4798149954cf05100d",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
@@ -188,9 +188,9 @@
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
-        "date": "2026-11-07",
-        "imported": "2026-11-07"
+        "commit": "d29456d68f7a1390be34fb4798149954cf05100d",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",

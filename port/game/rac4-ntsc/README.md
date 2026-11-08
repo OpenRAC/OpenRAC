@@ -77,6 +77,9 @@ not establish that the front end has started correctly.
 
 ## Register-forwarding wrappers
 
+`skip` also leaves out `src/pal`: rac4-decomp's PAL C (since 4a7372f5), under PAL's names and
+addresses, which is not this disc's code.
+
 The 35 game files listed in `skip` have matching C definitions that omit
 incoming registers or results used by the retail callers. They are translated
 from their instructions for the host; the matching source stays unchanged.

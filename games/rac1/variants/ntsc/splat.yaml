@@ -1,13 +1,14 @@
 # NTSC-U's boot executable (SCUS_971.99) split by splat, for the merged tree's NTSC-U build
 # (tools/versions.py; games/rac1/VERSIONS.md): PAL's config/splat.yaml with NTSC-U's section
-# offsets and addresses. Run from games/rac1/decomp: python -m splat split versions/ntsc/splat.yaml
-# (tools/versions.py asm does it). Output: versions/ntsc/asm/, ignored like PAL's asm/.
+# offsets and addresses. Paths are from games/rac1/decomp (base_path): run from there,
+# python -m splat split ../variants/ntsc/splat.yaml (tools/versions.py build does it). Output:
+# build-sn/ntsc-splat/asm/, which the decomp ignores like all of build-sn/.
 name: rac1-ntsc
 sha1: 72fd1de379dafd8f243dceeb3be50980f3fd3cd5
 options:
   basename: SCUS_971.99
   target_path: baserom/SCUS_971.99
-  base_path: ../..
+  base_path: ../../decomp
   compiler: EEGCC
   generate_asm_macros_files: False
   disassemble_all: True
@@ -15,14 +16,14 @@ options:
   create_c_files: False
   find_file_boundaries: True
   platform: ps2
-  asm_path: versions/ntsc/asm
-  src_path: versions/ntsc/src
+  asm_path: build-sn/ntsc-splat/asm
+  src_path: build-sn/ntsc-splat/src
   build_path: build-sn/ntsc-splat
   ld_script_path: build-sn/ntsc-splat/SCUS_971.99.ld
   undefined_funcs_auto_path: build-sn/ntsc-splat/undefined_funcs_auto.txt
   undefined_syms_auto_path: build-sn/ntsc-splat/undefined_syms_auto.txt
   extensions_path: tools/splat_ext
-  asset_path: versions/ntsc/assets
+  asset_path: build-sn/ntsc-splat/assets
 
 segments:
   - name: core

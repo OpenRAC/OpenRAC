@@ -1,17 +1,17 @@
 {
  "about": "How release_carry.py paired what the primary release's port names: what rests on less than the same code, and what it found nowhere.",
  "counts": {
-  "function: by hand": 3,
+  "function: by hand": 12,
   "function: called": 22,
-  "function: changed": 100,
+  "function: changed": 102,
   "function: found": 2,
-  "function: near": 52,
+  "function: near": 54,
   "function: not found": 2,
-  "function: same": 989,
-  "global: aligned": 7,
-  "global: between": 17,
-  "global: exact": 101,
-  "global: the release's build": 107,
+  "function: same": 1004,
+  "global: aligned": 8,
+  "global: between": 18,
+  "global: exact": 103,
+  "global: the release's build": 109,
   "signature: v1.01's": 11
  },
  "functions": {
@@ -134,6 +134,11 @@
    "func_0029D990",
    "changed",
    "from_assembly"
+  ],
+  "func_002A6C58": [
+   "func_002A7AA8",
+   "near",
+   "libraries.tsv Moby_RecordDeath"
   ],
   "func_002B4C18": [
    "func_002B5B38",
@@ -275,10 +280,20 @@
    "changed",
    "host C"
   ],
+  "func_L00_002A4EF8": [
+   "func_L00_002A4EF8",
+   "changed",
+   "libraries.tsv Hero_TakeDamage"
+  ],
   "func_L00_002BA7D8": [
    "func_L00_002BA8E0",
    "near",
    "from_assembly"
+  ],
+  "func_L00_00303990": [
+   "func_L00_00304660",
+   "changed",
+   "libraries.tsv Level_Load"
   ],
   "func_L00_00326200": [
    "func_L00_00327478",
@@ -305,10 +320,25 @@
    "near",
    "from_assembly"
   ],
+  "func_L01_003CEDA0": [
+   "func_L01_003D01F8",
+   "by hand",
+   "libraries.tsv Moby_DynamoPickup_Update"
+  ],
+  "func_L01_003D2E50": [
+   "func_L01_003D42B0",
+   "by hand",
+   "libraries.tsv Moby_TractorBeamSeller_Update"
+  ],
   "func_L01_003FFFE8": [
    "func_L01_00401540",
    "near",
    "from_assembly"
+  ],
+  "func_L01_00416440": [
+   "func_L01_004179C0",
+   "by hand",
+   "libraries.tsv Moby_BoxBreakerPickup_Update"
   ],
   "func_L02_003E77E0": [
    "func_L02_003E8D50",
@@ -353,7 +383,12 @@
   "func_L04_00419918": [
    "func_L04_0041B020",
    "near",
-   "from_assembly"
+   "libraries.tsv Moby_RaceController_Update"
+  ],
+  "func_L04_00434BB0": [
+   "func_L04_004362F0",
+   "by hand",
+   "libraries.tsv Moby_ThermanatorSeller_Update"
   ],
   "func_L05_0041DF58": [
    "func_L05_0041F478",
@@ -380,6 +415,11 @@
    "near",
    "calls_as"
   ],
+  "func_L08_0040E9B8": [
+   "func_L08_0040FF80",
+   "by hand",
+   "libraries.tsv Moby_GliderPickup_Update"
+  ],
   "func_L08_0041EBF8": [
    "func_L08_004201E0",
    "near",
@@ -404,6 +444,16 @@
    "func_L11_0030FC28",
    "near",
    "from_assembly"
+  ],
+  "func_L11_003F8510": [
+   "func_L11_003F9A50",
+   "by hand",
+   "libraries.tsv Moby_ChargeBootsRider_Update"
+  ],
+  "func_L11_004618C0": [
+   "func_L11_00463368",
+   "by hand",
+   "libraries.tsv Moby_LevitatorSeller_Update"
   ],
   "func_L12_002B85E0": [
    "func_L12_002B86E8",
@@ -439,6 +489,16 @@
    "func_L15_0042F6D0",
    "near",
    "host C"
+  ],
+  "func_L18_003F90A0": [
+   "func_L18_003FA510",
+   "by hand",
+   "libraries.tsv Moby_MapperReturn_Update"
+  ],
+  "func_L18_00440718": [
+   "func_L18_00441C08",
+   "by hand",
+   "libraries.tsv Moby_HypnomaticMaker_Update"
   ],
   "func_L19_0042B058": [
    "func_L19_0042C4E0",

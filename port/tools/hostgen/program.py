@@ -94,6 +94,7 @@ class Function:
     # a variadic definition whose C reaches its variable arguments through __builtin_next_arg (uses_arg_area):
     # the EE's save area of argument doublewords, which its callers fill on the host (lower.py)
     arg_area: bool = False
+    calls: tuple = ()           # the functions its definition calls by name (direct_calls)
 
 
 @dataclass
@@ -706,6 +707,54 @@ def returned_calls(decl: dict, by_id: dict) -> tuple:
     return tuple(out)
 
 
+def direct_calls(decl: dict, by_id: dict) -> tuple:
+    """The functions (symbols) a definition calls by name, in the order first called."""
+    body = next((c for c in decl.get("inner", ()) if c.get("kind") == "CompoundStmt"), None)
+    out = []
+    stack = [body] if body is not None else []
+    while stack:
+        n = stack.pop()
+        if n.get("kind") == "CallExpr" and n.get("inner"):
+            callee = n["inner"][0]
+            while callee.get("kind") in ("ImplicitCastExpr", "ParenExpr") and callee.get("inner"):
+                callee = callee["inner"][0]
+            ref = callee.get("referencedDecl") or {}
+            d = by_id.get(ref.get("id")) if callee.get("kind") == "DeclRefExpr" and ref.get("kind") == "FunctionDecl" else None
+            if d is not None and d.get("storageClass") != "static" and symbol_of(d) not in out:
+                out.append(symbol_of(d))
+        stack.extend(reversed(n.get("inner", ())))
+    return tuple(out)
+
+
+def callers_of_unprototyped(program: Program) -> list[str]:
+    """A definition that calls, by name, a function of another unit (or of none) whose signature has no form in
+    the shared prototypes (prototype(): a record by value, as a parameter or the result) cannot be translated: its
+    unit has no declaration of the callee, since game_protos.h leaves it out, and the decompilation's own
+    declaration of it may be the call as the binary makes it rather than the definition (rac4's 00120378.c declares
+    func_001263F0 `void (s32, s32)`, the result's hidden pointer first, where the definition returns the struct).
+    Such a definition is left to its assembly, as a "from_assembly" row would leave it (settle_signatures), and so
+    are those that in turn call it, when it has no shared prototype either. The port's own host and wrapped
+    functions keep their C. Returns the names left to the assembly."""
+    moved = []
+    again = True
+    while again:
+        again = False
+        for sym, f in sorted(program.functions.items()):
+            if f.unit is None or f.static or sym in program.host or sym in program.wrap:
+                continue
+            for c in f.calls:
+                g = program.functions.get(c)
+                if g is None or g is f or g.unit == f.unit or c in program.host:
+                    continue
+                if prototype(g, program.typedefs) is None:
+                    program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
+                    program.from_assembly.add(sym)
+                    moved.append(sym)
+                    again = True
+                    break
+    return sorted(moved)
+
+
 def widen_returns(program: Program) -> list[str]:
     """A definition with a 32-bit result that returns the result of a "returns_64" function as it is (returned_calls)
     returns 64 bits itself: on the EE the callee's register is the caller's result, all its bits, whatever type the C
@@ -858,7 +907,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
             program.functions[sym] = Function(sym, sig, unit, asm=f.asm if f else False, declared=declared, tail=tail,
                                               forwards=forwarded_params(decl, by_id),
                                               returns=returned_calls(decl, by_id),
-                                              arg_area=sig.variadic and uses_arg_area(decl))
+                                              arg_area=sig.variadic and uses_arg_area(decl),
+                                              calls=direct_calls(decl, by_id))
         else:
             f = program.functions.get(sym)
             if f is None:
@@ -1024,7 +1074,8 @@ def merge(into: Program, part: Program) -> list[str]:
                 continue
             declared = have.declared + f.declared
             into.functions[sym] = Function(sym, f.sig, f.unit, asm=have.asm, declared=declared, tail=f.tail,
-                                           forwards=f.forwards, returns=f.returns, arg_area=f.arg_area)
+                                           forwards=f.forwards, returns=f.returns, arg_area=f.arg_area,
+                                           calls=f.calls)
         else:
             have.declared.extend(f.declared)
             if have.unit is None and have.declared:

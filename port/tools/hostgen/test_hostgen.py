@@ -173,6 +173,32 @@ class Translate(unittest.TestCase):
                 self.assertEqual(out, ["200000", "4040c8", "4040c8", "305419896",
                                        "200000", "292424", "292424", "305419896"])
 
+    def test_a_caller_of_another_units_record_by_value_function_is_left_to_its_assembly(self):
+        # The shared prototypes have no form for a record by value, so a.c's generated C would call
+        # func_00100000 and func_00100040 undeclared (rac4's net/01EB8488.c, core/00120378.c): its two
+        # callers are left to their assembly (stubs, with no assembly here), and so is the caller of
+        # the one that takes a record itself. b.c's own call to its function stays C.
+        out = self.run_program({"a.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p);
+            Pair func_00100040(int x);
+            int func_00100100(int x) { Pair p; p.a = x; p.b = 1; return func_00100000(p); }
+            int func_00100140(int x) { return func_00100040(x).a; }
+            int func_00100180(Pair p) { return func_00100000(p) + 1; }
+            int func_001001C0(Pair p) { return func_00100180(p); }
+            int test_main(void) { test_print(func_00100240(4)); return 0; }
+        """, "b.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p) { return p.a + p.b; }
+            Pair func_00100040(int x) { Pair p; p.a = x; p.b = x; return p; }
+            int func_00100240(int x) { Pair p; p.a = x; p.b = 2; return func_00100000(p); }
+        """})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["unprototyped_callers"],
+                         ["func_00100100", "func_00100140", "func_00100180", "func_001001C0"])
+        self.assertNotIn("int func_00100100(", self.last_generated)
+        self.assertIn("int func_00100240(", self.last_generated)
+
     def test_globals_structs_and_pointer_arithmetic(self):
         out = self.run_program({"a.c": """
             typedef struct Node { struct Node *next; short id; char pad; float f; s64 big; int arr[3]; } Node;
@@ -2739,6 +2765,25 @@ class Preparation(unittest.TestCase):
         both = 'void func_0022F4C0(void) {}\nvoid func_0022F4C8(char *m) {}\n'
         text = prep.use_candidates(out, {"func_0022F4C0": both}, set())
         self.assertEqual(text.count("void func_0022F4C8(char *m)"), 1)
+
+    def test_a_readable_name_defined_again_takes_its_address_name(self):
+        # rac1-decomp's loaders.c (f911d6e4): under OPENRAC_HOSTGEN it #undefs a readable name and
+        # defines it again from the block's first base; its uses become the address name, so the
+        # new definition has to be that name too.
+        # A readable name defined over its own address with no #undef (a cast for its calls)
+        # stays a macro of that name.
+        aliases = {"class_resource_ids": "D_001CBE40", "compressed_class_resources": "D_001CBEA0",
+                   "is_point_inside_clip_volume": "func_00215570"}
+        src = ('extern int class_resource_ids[];\n'
+               '#undef compressed_class_resources\n'
+               '#define compressed_class_resources ((int *)((char *)class_resource_ids + 0x60))\n'
+               'int f(int i) { return compressed_class_resources[i]; }\n'
+               '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n')
+        out = prep.unalias(src, aliases)
+        self.assertIn('#undef D_001CBEA0\n'
+                      '#define D_001CBEA0 ((int *)((char *)class_resource_ids + 0x60))\n'
+                      'int f(int i) { return D_001CBEA0[i]; }\n'
+                      '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n', out)
 
     def test_carried_names_become_the_address_names_of_their_values(self):
         # Going Commando keeps rac1-decomp's names (rac1's addresses) for what it has not named;

@@ -8,9 +8,9 @@
     "repo": "https://github.com/OpenRAC/rac5-sm-decomp",
     "branch": "master",
     "license": "GPL-3.0",
-    "commit": "57b025248ac032e0e98ba35cb3541c7146e41ad1",
-    "date": "2026-10-18",
-    "imported": "2026-10-18"
+    "commit": "6da0c82366fc42c4ed3205539af23e570e09add1",
+    "date": "2026-11-08",
+    "imported": "2026-11-08"
   },
   "versions": {
     "ntsc": {
@@ -45,9 +45,9 @@
         "repo": "https://github.com/OpenRAC/rac5-sm-decomp",
         "branch": "master",
         "license": "GPL-3.0",
-        "commit": "57b025248ac032e0e98ba35cb3541c7146e41ad1",
-        "date": "2026-10-18",
-        "imported": "2026-10-18"
+        "commit": "6da0c82366fc42c4ed3205539af23e570e09add1",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "Python 3.12 for the tools, on any system; no qualified compiler yet",

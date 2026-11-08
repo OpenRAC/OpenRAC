@@ -1,7 +1,7 @@
 {
  "about": "The release view of the decompilation: each v1.01 address name and the release's name for it, and the values the release's build derived, in those names. Written by port/tools/hostgen/release.py build; do not edit.",
  "source": {
-  "commit": "173d138380932324604963d53fe0e761098ac311",
+  "commit": "f911d6e4b9711071f0daaad95b4a04c2c8aa3c61",
   "version": "pal_v1",
   "table": "version_relocs.py (rac1-decomp's tools/version_check.py)"
  },
@@ -16,7 +16,7 @@
   "function: the release's check (its counterpart here)": 4,
   "function: the release's own": 11,
   "function: versionmap (same)": 29,
-  "global: no value (marked)": 806,
+  "global: no value (marked)": 805,
   "global: the release's check": 7522,
   "global: the release's check (a level's)": 97,
   "global: the release's own": 65,
@@ -21785,7 +21785,6 @@
   "FUN_L02_002d5c88": "global: no value (marked)",
   "FUN_L02_002d85b8": "global: no value (marked)",
   "FUN_L02_002d8910": "global: no value (marked)",
-  "FUN_L02_002d93e8": "global: no value (marked)",
   "FUN_L02_002da938": "global: no value (marked)",
   "FUN_L02_002dae88": "global: no value (marked)",
   "FUN_L02_002df948": "global: no value (marked)",
