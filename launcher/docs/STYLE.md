@@ -117,8 +117,8 @@ The site has no status colours; the launcher adds `--ok` (`#8fd694`), `--warn`
 (amber) and `--err` (`#ff8a7a`), used only in pills and messages. The theme is
 dark only, as the site is.
 
-These are the "OpenRAC" theme. The other themes (Settings → General: Gruvbox,
-OLED black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by
+These are the "OpenRAC" theme. The other themes (Settings → General: OLED
+black, Nord, Catppuccin Mocha) live in `src/lib/palettes.json`, read by
 `src/lib/palettes.ts` and the core (`core/src/theme.rs`). A theme sets the
 page, panel, control, text, line and status tokens, never the
 accent (`--amber`, `--gold`, `--brand`, the bar's): that stays gold. So a colour that should follow the theme uses a
@@ -147,8 +147,7 @@ In code, `--control` / `--control-hi` is the fill on the page, and
 `--control-card` / `--control-card-hi` the fill on a card: any surface filled
 with `--card` or `--card-hi` sets `--control: var(--control-card)` (and
 `-hi`) for what is inside it. Each theme in `palettes.json` sets both pairs
-from its own colours (one step lighter than the page and than its cards;
-Gruvbox's controls sit darker, in its own `#1d2021`, as its page is lighter).
+from its own colours (one step lighter than the page and than its cards).
 
 The site's lighter home bands (`#111111`, with darker card stripes on them)
 have no place in the launcher, which has no such bands; its page is already

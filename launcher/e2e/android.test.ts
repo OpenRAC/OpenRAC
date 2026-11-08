@@ -314,9 +314,9 @@ describe("A controller", () => {
     await open("page=settings");
     await page.getByRole("radio", { name: "OpenRAC" }).focus();
     await press("right");
-    expect(await focused()).toBe("Gruvbox");
+    expect(await focused()).toBe("OLED black");
     await press("accept");
-    await expect(page.getByRole("radio", { name: "Gruvbox" }).getAttribute("aria-checked")).resolves.toBe("true");
+    await expect(page.getByRole("radio", { name: "OLED black" }).getAttribute("aria-checked")).resolves.toBe("true");
   });
 
   it("moves through a menu's items", async () => {
