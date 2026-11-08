@@ -72,6 +72,49 @@ typedef void (*openrac_rac2_Hero_ApproachSpeed)(float up, float down);
 #define OPENRAC_RAC2_SIG_Hero_NanotechSteps "i32(u32,u32,u32)"
 typedef int32_t (*openrac_rac2_Hero_NanotechSteps)(uint32_t a0, uint32_t a1, uint32_t count);
 
+/* Item_Give (func_00288308, rac2.item.give): Gives the player item id (GiveInventoryItem): nothing
+ * when it is owned already; else its owned and new bytes, its starting ammo, the vendor's list and
+ * the quick select. NPCs, pickups, arena prizes, purchases and the start's items go through it; a
+ * few places set the owned bytes themselves. Rac1's GiveItem. */
+#define OPENRAC_RAC2_HOOK_Item_Give "Item_Give"
+#define OPENRAC_RAC2_SIG_Item_Give "void(i32)"
+typedef void (*openrac_rac2_Item_Give)(int32_t id);
+
+/* Planet_Unlock (func_002AD7B8, rac2.planet.unlock): Puts a level on the ship's map
+ * (MarkLevelAvailable); every level load calls it for the level loaded too. Rac1's UnlockPlanet. */
+#define OPENRAC_RAC2_HOOK_Planet_Unlock "Planet_Unlock"
+#define OPENRAC_RAC2_SIG_Planet_Unlock "void(i32)"
+typedef void (*openrac_rac2_Planet_Unlock)(int32_t level);
+
+
+/* The givers' updates of NTSC-U v1.01 (rac2.moby.<name>.update), each void(u32 moby): their
+ * replacements see the moby; the other discs have none of them yet. */
+#define OPENRAC_RAC2_HOOK_Moby_DynamoPickup_Update "Moby_DynamoPickup_Update"
+#define OPENRAC_RAC2_SIG_Moby_DynamoPickup_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_TractorBeamSeller_Update "Moby_TractorBeamSeller_Update"
+#define OPENRAC_RAC2_SIG_Moby_TractorBeamSeller_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_BoxBreakerPickup_Update "Moby_BoxBreakerPickup_Update"
+#define OPENRAC_RAC2_SIG_Moby_BoxBreakerPickup_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_ThermanatorSeller_Update "Moby_ThermanatorSeller_Update"
+#define OPENRAC_RAC2_SIG_Moby_ThermanatorSeller_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_ThermanatorArea_Update "Moby_ThermanatorArea_Update"
+#define OPENRAC_RAC2_SIG_Moby_ThermanatorArea_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_SwingshotArea_Update "Moby_SwingshotArea_Update"
+#define OPENRAC_RAC2_SIG_Moby_SwingshotArea_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_GliderPickup_Update "Moby_GliderPickup_Update"
+#define OPENRAC_RAC2_SIG_Moby_GliderPickup_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_LevitatorSeller_Update "Moby_LevitatorSeller_Update"
+#define OPENRAC_RAC2_SIG_Moby_LevitatorSeller_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_ChargeBootsRider_Update "Moby_ChargeBootsRider_Update"
+#define OPENRAC_RAC2_SIG_Moby_ChargeBootsRider_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_RaceController_Update "Moby_RaceController_Update"
+#define OPENRAC_RAC2_SIG_Moby_RaceController_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_MapperReturn_Update "Moby_MapperReturn_Update"
+#define OPENRAC_RAC2_SIG_Moby_MapperReturn_Update "void(u32)"
+#define OPENRAC_RAC2_HOOK_Moby_HypnomaticMaker_Update "Moby_HypnomaticMaker_Update"
+#define OPENRAC_RAC2_SIG_Moby_HypnomaticMaker_Update "void(u32)"
+typedef void (*openrac_rac2_Moby_Update)(uint32_t moby);
+
 /* Takes a hook point by its name here, its signature and a replacement of its type; the original
  * is written to `original` (OPENRAC_HOOK_OK, or the reason). Only during openrac_mod_load. */
 #define OPENRAC_RAC2_HOOK(api, mod, point, replacement, original)                                  \

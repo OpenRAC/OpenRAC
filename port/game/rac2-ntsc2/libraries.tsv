@@ -266,3 +266,5 @@ func_002A7AA8	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience
 func_L00_00304660	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
 func_L00_002B42C0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
 func_L00_002D61D0	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.
+func_00288D30	item	Item_Give	hook	Gives the player item id (GiveInventoryItem): nothing when owned already; else its owned and new bytes, its starting ammo, the vendor list and the quick select. A hook point for mods; the game's C with none.
+func_002AE620	planet	Planet_Unlock	hook	Puts a level on the ship's map (MarkLevelAvailable); every level load calls it for its own level too. A hook point for mods; the game's C with none.
