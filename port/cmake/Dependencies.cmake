@@ -51,6 +51,12 @@ else()
     set(SDL_SHARED OFF CACHE BOOL "" FORCE)
     set(SDL_STATIC ON CACHE BOOL "" FORCE)
   endif()
+  if(OPENRAC_IOS)
+    # iOS uses Apple's GameController backend; camera capture and raw Bluetooth HID
+    # are unused and would make the Store binary reference protected user APIs.
+    set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+    set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+  endif()
   set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
   set(SDL_TESTS OFF CACHE BOOL "" FORCE)
   set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
