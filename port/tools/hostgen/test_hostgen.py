@@ -2772,6 +2772,15 @@ class Preparation(unittest.TestCase):
         self.assertEqual(program.code_places("func_00128A48"), [(-1, 0x00128A50)])
         self.assertEqual(program.canonical("func_00128A48"), "func_00128A50")
         self.assertEqual(program.canonical("func_002E7968"), "func_002E7964")
+        # A bare name is level 0's function at that address only where the executable starts none:
+        # v2.00's func_002CB038 (assembly, no C yet) is not level 0's func_L00_002CB038.
+        program.places["func_L00_002CB038"] = [(0, 0x002CB038)]
+        program.functions["func_L00_002CB038"] = hostgen.Function(
+            "func_L00_002CB038", hostgen.Signature(ctype.Base("int"), (), False, False), "src/levels/shared/L00_x.c")
+        program.index_places()
+        self.assertEqual(program.canonical("func_002CB038"), "func_L00_002CB038")
+        program.executable_starts = {0x002CB038}
+        self.assertEqual(program.canonical("func_002CB038"), "func_002CB038")
 
     def test_each_declarator_keeps_its_own_assembler_name(self):
         # Batalia: several names in one extern statement each reach their own symbol, not the first's.

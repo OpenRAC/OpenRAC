@@ -396,6 +396,11 @@ class Program:
         # A function of level 0's program spelled without its level (rac2's C calls func_003100D8,
         # level 0's CreateMoby): no such address in the executable, so level 0's place.
         for overlay, address in places if self.bare_names_in_level_0 else ():
+            # Not when the executable has a function there (its catalogue's start, still without C
+            # until the assembly stage): USA v2.00's func_002CB038, the title's New Game page, is
+            # not level 0's function at that address.
+            if overlay == -1 and address in self.executable_starts:
+                continue
             other = self.by_place.get((0, address)) if overlay == -1 else None
             if other is not None:
                 return other
