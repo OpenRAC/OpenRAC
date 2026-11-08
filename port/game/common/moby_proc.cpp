@@ -125,10 +125,12 @@ std::optional<std::uint8_t> moby_proc_distance_fade(
         || !std::isfinite(sphere[3])) {
         return std::nullopt;
     }
-    // No sphere yet (a moby not built since it was made): nothing to go by.
-    if (sphere[0] == 0.0f && sphere[1] == 0.0f && sphere[2] == 0.0f && sphere[3] == 0.0f) {
-        return std::uint8_t{0x80};
-    }
+    // A moby whose sphere was never built (all zero: the moby loop's matrix step never ran on it)
+    // is tested as MobyProc tests it, as a point at the origin, which no camera in a level sees
+    // within a moby's draw distance. Going Commando's Hrugis Cloud turrets each place two class
+    // 0x134F mobys of scale 16 at their arms (func_L10_00417CE0); nothing updates them but their
+    // copied rows and position, so the console never draws them. Drawn whole, they showed as
+    // giant orange boxes turning with the turrets.
     const auto& eye = state.camera_position;
     if (state.moby_view) {
         const auto pass = moby_proc_distance(moby, eye, *state.moby_view);
