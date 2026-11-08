@@ -10,12 +10,18 @@ set(OPENRAC_IOS_MOLTENVK_FRAMEWORK "" CACHE PATH "iOS MoltenVK.framework, not th
 set(OPENRAC_IOS_PYTHON_XCFRAMEWORK "" CACHE PATH "Python 3.14 iOS XCFramework for local disc preparation")
 set(OPENRAC_IOS_LAUNCHER_LIBRARY "" CACHE FILEPATH "iOS launcher Rust adapter, built for aarch64-apple-ios")
 
+option(OPENRAC_IOS_STORE_ARTWORK "Use original OpenRAC catalogue illustrations in Store bundles" OFF)
+
 function(openrac_ios_app target)
+  set(artwork_args)
+  if(OPENRAC_IOS_STORE_ARTWORK)
+    list(APPEND artwork_args --store-artwork)
+  endif()
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/ios/bundle.py" "${PROJECT_SOURCE_DIR}/ios/engines.json" "${PROJECT_SOURCE_DIR}/../launcher/package.json")
   execute_process(COMMAND "${Python3_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/ios/bundle.py"
     --root "${PROJECT_SOURCE_DIR}/.." --target "${OPENRAC_IOS_GAME}"
-    --store-url "${OPENRAC_IOS_STORE_URL}" --output "${CMAKE_BINARY_DIR}/ios-bundle.json"
+    --store-url "${OPENRAC_IOS_STORE_URL}" ${artwork_args} --output "${CMAKE_BINARY_DIR}/ios-bundle.json"
     COMMAND_ERROR_IS_FATAL ANY)
   file(READ "${CMAKE_BINARY_DIR}/ios-bundle.json" bundle_config)
   string(JSON ios_version GET "${bundle_config}" version)

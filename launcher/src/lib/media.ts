@@ -21,20 +21,26 @@ const GAME_THUMB: Record<string, string> = {
   rac6: "/img/sac-thumb.webp",
 };
 
+/** Store bundles use original OpenRAC illustrations; desktop/dev keeps its existing artwork. */
+function storeArt(game: string): string | null {
+  const host = typeof window === "undefined" ? null : (window as Window & { __OPENRAC_STORE_ARTWORK__?: boolean });
+  return host?.__OPENRAC_STORE_ARTWORK__ && Object.hasOwn(GAME_ART, game) ? `/img/store/${game}.svg` : null;
+}
+
 /** A game's thumbnail, or null. */
 export function gameThumb(game: string): string | null {
-  return GAME_THUMB[game] ?? null;
+  return storeArt(game) ?? GAME_THUMB[game] ?? null;
 }
 
 /** A game's picture, or null for a game without one (its tile then shows its colours). */
 export function gameArt(game: string): string | null {
-  return GAME_ART[game] ?? null;
+  return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
 /** A game's picture as Android's Games tab shows it: 1280 wide (scripts/media.py thumbs), where
  *  the picture itself can be 3840 and take a moment to decode each time the tab opens. */
 export function gameTileArt(game: string): string | null {
-  return GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
+  return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
 // The tiles' pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds

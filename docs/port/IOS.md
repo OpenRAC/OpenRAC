@@ -74,7 +74,7 @@ are retained, and existing saves are preserved. Keep the app open during import.
 Legacy `Documents/data` installations are moved into the active game folder
 when it has no existing installation. Prepared desktop data is accepted by the
 import backend as well. The public bundle contains code, libraries, notices and
-the desktop catalogue's thumbnails, tiles and game-page backgrounds. Retail discs and extracted gameplay
+the catalogue illustrations selected for the build. Retail discs and extracted gameplay
 data must remain outside the application bundle and Git.
 
 The current iOS host supports native play, local disc preparation, game fixes,
@@ -152,3 +152,28 @@ input, sound, saves, suspend/resume and sustained gameplay. Source tests, an
 unsigned build, a signed device installation, a Store upload and Apple approval
 are separate pieces of evidence. Keep the project's licenses and credits, and
 ensure Store descriptions, declarations and screenshots match the tested build.
+
+## App Store preparation
+
+Use `--store-artwork` (CMake: `OPENRAC_IOS_STORE_ARTWORK=ON`) for a Store bundle.
+This keeps the shared launcher layout and the full catalogue, but uses the six
+original geometric OpenRAC illustrations in `launcher/public/img/store` instead
+of the desktop game's thumbnails/backgrounds. The packaging step omits the
+other `img` files and refuses stale desktop pictures in the output bundle.
+Use a fresh build bundle when changing artwork modes. Desktop and development
+builds keep their existing pictures by default.
+
+The Store build must contain neither a retail image nor prepared game data,
+saves, private signing material or test fixtures. Sign it with an App Store
+profile that includes Extended Virtual Addressing; development provisioning is
+not a distribution build. The application version follows the launcher package,
+and `--build-number` must be unused on App Store Connect.
+
+Privacy policy: [PRIVACY-IOS.md](PRIVACY-IOS.md). Account contacts, signing secrets,
+Apple API responses, certificates/profiles and local release packages stay outside
+Git. FR/EN listing text should state the supported NTSC-U engine, user-provided
+disc requirement, English UI, and unavailable future engines. Catalogue entries
+without an included native engine cannot start setup on iOS.
+
+Verify archive contents/signatures, Apple validation and processing separately.
+An uploaded or `VALID` build is not a submitted review or a public Store release.

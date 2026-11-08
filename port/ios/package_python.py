@@ -2,6 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Package signed extraction code; never copy a checkout's game data into the app."""
 from pathlib import Path
+import json
 import plistlib
 import shutil
 
@@ -57,11 +58,25 @@ def install(app, framework, root):
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file, target)
     # Keep the shared launcher's artwork, including the game-page backgrounds used on desktop.
-    shutil.copytree(root / "launcher/dist", app / "launcher-dist", dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("mock-*.js"))
+    store_artwork = json.loads((app.parent / "ios-bundle.json").read_text()).get("storeArtwork", False)
+    install_launcher(app, root, store_artwork)
     shutil.copy2(app.parent / "ios-bundle.json", app / "ios-bundle.json")
     (tools / "STANDALONE").write_text("OpenRAC's bundled disc preparation tools. No game data.\n")
     forbidden = {".iso", ".chd", ".elf", ".glb", ".wad", ".vag"}
     for file in app.rglob("*"):
         if file.is_file() and (file.suffix.lower() in forbidden or file.name == "SCUS_971.99"):
             raise RuntimeError(f"Game data must never be packaged: {file.relative_to(app)}")
+
+
+def install_launcher(app, root, store_artwork=False):
+    dist = root / "launcher/dist"
+    def ignored_art(directory, names):
+        hidden = {name for name in names if name.startswith("mock-") and name.endswith(".js")}
+        if store_artwork and Path(directory) == dist / "img":
+            hidden.update(name for name in names if name != "store")
+        return hidden
+    shutil.copytree(dist, app / "launcher-dist", dirs_exist_ok=True, ignore=ignored_art)
+    if store_artwork:
+        pictures = app / "launcher-dist/img"
+        if any(file.is_file() and "store" not in file.relative_to(pictures).parts for file in pictures.rglob("*")):
+            raise RuntimeError("Store artwork requires a fresh launcher-dist: prior desktop images remain in the build bundle.")

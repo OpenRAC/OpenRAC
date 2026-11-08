@@ -3,6 +3,7 @@
 import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
+import { onIOS } from "./ios";
 import {
   acceptWarning,
   app,
@@ -210,6 +211,18 @@ export function playerState(game: GameView, v: VersionView): PlayerState {
       job: installing,
       status: "Setting up…",
       tone: "warn",
+    };
+  }
+  if (onIOS && !play) {
+    return {
+      ...base,
+      kind: "unavailable",
+      label: "Not available on iOS",
+      icon: "play",
+      hint: "This iOS version does not include an engine for this game.",
+      disabled: true,
+      status: "Not available on iOS",
+      tone: "info",
     };
   }
   if (!setUp) {

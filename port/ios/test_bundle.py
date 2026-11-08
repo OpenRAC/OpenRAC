@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from bundle import configuration
+from package_python import install_launcher
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,6 +25,31 @@ class BundleTests(unittest.TestCase):
             configuration(ROOT, "unknown-engine")
         with self.assertRaises(ValueError):
             configuration(ROOT, "rac1-ntsc", "https://example.com/update")
+
+    def test_store_artwork_is_explicit_and_omits_desktop_images(self):
+        self.assertFalse(configuration(ROOT, "rac1-ntsc")["storeArtwork"])
+        self.assertTrue(configuration(ROOT, "rac1-ntsc", store_artwork=True)["storeArtwork"])
+        root = Path(tempfile.mkdtemp(prefix="openrac-store-art-"))
+        dist = root / "launcher/dist"
+        (dist / "img/store").mkdir(parents=True)
+        (dist / "assets").mkdir()
+        (dist / "img/rac1-thumb.webp").write_bytes(b"desktop image fixture")
+        (dist / "img/store/rac1.svg").write_text("<svg/>")
+        (dist / "assets/app.js").write_text("app")
+        (dist / "assets/mock-test.js").write_text("mock")
+        app = root / "store.app"
+        install_launcher(app, root, True)
+        self.assertFalse((app / "launcher-dist/img/rac1-thumb.webp").exists())
+        self.assertTrue((app / "launcher-dist/img/store/rac1.svg").is_file())
+        self.assertTrue((app / "launcher-dist/assets/app.js").is_file())
+        self.assertFalse((app / "launcher-dist/assets/mock-test.js").exists())
+        # A previously built desktop/dev bundle must not silently retain game photographs.
+        (app / "launcher-dist/img/stale.webp").write_bytes(b"stale fixture")
+        with self.assertRaisesRegex(RuntimeError, "prior desktop images"):
+            install_launcher(app, root, True)
+        dev = root / "dev.app"
+        install_launcher(dev, root, False)
+        self.assertTrue((dev / "launcher-dist/img/rac1-thumb.webp").is_file())
 
     def test_catalogue_changes_need_no_ios_constant_changes(self):
         root = Path(tempfile.mkdtemp(prefix="openrac-bundle-"))

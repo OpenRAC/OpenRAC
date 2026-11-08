@@ -41,6 +41,10 @@ beforeEach(async () => {
           let value = request.command === "pick_saves_file" ? "/private/imports/saves.zip" : await mock.mockCall(request.command, request.args);
           if (request.command === "app_info") value = { ...value, platform: "ios", standalone: true,
             capabilities: { mods: false, saveEditing: false, saveTransfer: true, openFolders: false, folderScan: false, updates: false } };
+          if (["library", "sync_progress_from_web"].includes(request.command)) for (const game of value.games) {
+            if (game.id !== "rac1") for (const version of game.versions)
+              for (const action of version.actions) action.thisPlatform = false;
+          }
           if (request.command === "get_config") value = { ...value, checkUpdates: false, checkModUpdates: false, autoUpdateMods: false };
           window.__openracReply(request.id, true, value);
         } catch (error) {
@@ -147,4 +151,26 @@ it("opens Files and previews a save before an explicit import confirmation", asy
   await dialog.getByRole("button", { name: "Import", exact: true }).click();
   await dialog.waitFor({ state: "hidden" });
   expect(await commands()).toEqual(["pick_saves_file", "preview_save_import", "import_saves"]);
+});
+
+it("keeps future games visible without offering an unsupported iOS disc import", async () => {
+  await page.locator('.list .entry[data-key="rac2"]').click();
+  const action = page.locator(".go .big");
+  await action.waitFor();
+  expect(await action.textContent()).toContain("Not available on iOS");
+  expect(await action.isDisabled()).toBe(true);
+  expect(await page.getByRole("button", { name: "Set up from your disc", exact: true }).count()).toBe(0);
+  expect(await page.locator(".list .entry").count()).toBe(6);
+});
+
+it("renders the Store catalogue without requesting desktop game pictures", async () => {
+  await page.addInitScript("window.__OPENRAC_STORE_ARTWORK__ = true");
+  const pictures: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/img/")) pictures.push(request.url());
+  });
+  await page.reload();
+  await page.locator('.list .entry img[src="/img/store/rac1.svg"]').waitFor();
+  expect(await page.locator('.list .entry img[src^="/img/store/"]').count()).toBe(6);
+  expect(pictures.some((url) => url.endsWith(".webp"))).toBe(false);
 });

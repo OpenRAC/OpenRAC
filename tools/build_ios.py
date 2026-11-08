@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--game", default="rac1-ntsc", help="Registered iOS engine target")
     parser.add_argument("--store-url", default="", help="Optional App Store HTTPS page")
     parser.add_argument("--build-number", default="1")
+    parser.add_argument("--store-artwork", action="store_true", help="Use original OpenRAC art and omit desktop game pictures")
     parser.add_argument("--team", default="")
     parser.add_argument("--bundle-id", default="dev.openrac.launcher.ios")
     parser.add_argument("--jobs", type=int, default=6)
@@ -50,6 +51,7 @@ def main():
         f"-DOPENRAC_IOS_LAUNCHER_LIBRARY={library.resolve()}",
         f"-DOPENRAC_{args.game.upper().replace(chr(45), chr(95))}_RETAIL_IMAGE={args.disc.resolve()}",
         f"-DOPENRAC_IOS_GAME={args.game}", f"-DOPENRAC_IOS_STORE_URL={args.store_url}",
+        f"-DOPENRAC_IOS_STORE_ARTWORK={'ON' if args.store_artwork else 'OFF'}",
         f"-DOPENRAC_IOS_BUILD_NUMBER={args.build_number}", f"-DOPENRAC_IOS_TEAM={args.team}", f"-DOPENRAC_IOS_BUNDLE_ID={args.bundle_id}",
     ], check=True)
     subprocess.run(["cmake", "--build", str(args.build_dir.resolve()), "--target", f"openrac-{args.game}",

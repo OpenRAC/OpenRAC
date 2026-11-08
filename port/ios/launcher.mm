@@ -347,9 +347,15 @@ UIView* openrac_launcher_view(
     [config setURLSchemeHandler:bridge forURLScheme:@"openrac-app"];
     [config.userContentController addScriptMessageHandler:bridge name:@"openrac"];
     [config.userContentController
-        addUserScript:[[WKUserScript alloc] initWithSource:@"window.__OPENRAC_IOS__=true"
-                                             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-                                          forMainFrameOnly:YES]];
+        addUserScript:
+            [[WKUserScript alloc]
+                  initWithSource:[NSString stringWithFormat:@"window.__OPENRAC_IOS__=true;window.__"
+                                                            @"OPENRAC_STORE_ARTWORK__=%@",
+                                                            [bundle[@"storeArtwork"] boolValue]
+                                                                ? @"true"
+                                                                : @"false"]
+                   injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                forMainFrameOnly:YES]];
     WKWebView* web = [[WKWebView alloc] initWithFrame:owner.view.bounds configuration:config];
     web.navigationDelegate = bridge;
     web.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
