@@ -1,1 +1,26 @@
-{ "contexts": {} }
+{
+  "contexts": {
+    "ship": {
+      "replace": true,
+      "extends": "base",
+      "actions": [
+        { "id": "fire", "icon": "crosshair", "press": ["cross"], "at": 0, "size": "large" },
+        { "id": "missile", "icon": "missile", "press": ["circle"], "at": 1 },
+        { "id": "boost", "icon": "boost", "press": ["square"], "at": 4, "size": "large" },
+        { "id": "roll_left", "icon": "prev", "press": ["l1"], "at": 3, "size": "small" },
+        { "id": "roll_right", "icon": "next", "press": ["r1"], "at": 5, "size": "small" }
+      ]
+    },
+    "map": {
+      "replace": true,
+      "extends": "base",
+      "actions": [
+        { "id": "planet", "icon": "planet", "press": ["cross"], "at": 0, "size": "large" },
+        { "id": "fly", "icon": "ship", "press": ["circle"], "at": 1 },
+        { "id": "back", "icon": "back", "press": ["triangle"], "at": 2 },
+        { "id": "prev", "icon": "prev", "press": ["l1"], "at": 3, "size": "small" },
+        { "id": "next", "icon": "next", "press": ["r1"], "at": 5, "size": "small" }
+      ]
+    }
+  }
+}
