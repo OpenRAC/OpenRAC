@@ -407,7 +407,7 @@ openrac_add_c_test(scene_actors NO_STRICT_ALIASING WRAPV
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 # The shared rac1 host C's posed mobys' animation (a co-op figure, a moby the host drives).
-openrac_add_c_test(pose_anim MATH)
+openrac_add_c_test(pose_anim MATH INCLUDES game/common/include)
 
 # The shared rac1 host C's level digest, what two games sharing a level must agree on.
 openrac_add_c_test(sim_digest)

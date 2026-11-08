@@ -54,7 +54,7 @@
 
 #include "openrac/games/rac1_save.h"
 #include "openrac/host_env.h"
-#include "pose_anim.h"
+#include "openrac/pose_anim.h"
 #include "rac1.h"
 
 #define LEVELS 19
