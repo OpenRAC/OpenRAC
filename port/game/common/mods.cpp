@@ -1525,7 +1525,7 @@ bool load_one(const fs::path& folder, const Candidate& c, std::unique_ptr<openra
     mod->version = c.manifest.version_text;
     mod->manifest = c.manifest;
     std::vector<std::string> notes;
-    mod->settings = resolve_settings(c.manifest, c.entry.settings, notes);
+    mod->settings = resolve_settings(c.manifest, c.entry.settings, notes, g_host->game);
     for (const std::string& n : notes) {
         log::warn("mod {}: {}", mod->id, n);
     }

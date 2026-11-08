@@ -179,7 +179,7 @@ files. Script mods and data packs work there as elsewhere.
 | `name`, `version` | yes | `version` is `MAJOR.MINOR.PATCH` with an optional `-suffix` |
 | `author`, `description`, `license`, `homepage` | no | shown in the launcher; `homepage` only if `https://` |
 | `api` | yes, with `plugin` | `MAJOR.MINOR`: the interface's version the mod was built against |
-| `games` | yes | at least one game, each with at least one version |
+| `games` | yes | at least one game, each with at least one version. Several games: one mod for each of them (below) |
 | `plugin` | no | platform → path inside the mod. Platforms: `macos-arm64`, `macos-x86_64`, `linux-x86_64`, `linux-aarch64`, `windows-x86_64`, `windows-arm64`, `android-arm64`. Without it the mod is data only (not used yet: section 10) |
 | `hooks` | no | the hook points the mod takes, each by its id (`rac1.player.take_damage`) or an alias (`Hero_TakeDamage`; section 4). The launcher shows which mods share one; the port warns about a hook a mod takes but does not list; `package_mod.py` refuses one the SDK's table (`bindings/<game>.ids.lock`) does not have |
 | `settings` | no | the mod's settings (below) |
@@ -211,6 +211,10 @@ value the player saved is never replaced. The port and the mod read the raw valu
 so a mod treats a value that is still `${player_name}` as unset and falls back to
 `OPENRAC_PLAYER_NAME`. It is the only placeholder.
 
+A setting of a mod for several games may say `"games": ["rac1"]`, the games of
+the mod's it is for: the launcher shows it in those games only, and the port gives
+it its default in the others (`resolve_settings`), whatever the list says.
+
 A `keybind` names keys by where they are, as the web's `KeyboardEvent.code`
 does (`KeyW`, `Space`, `ShiftLeft`, `Digit1`, `ArrowUp`), mouse buttons
 (`MouseLeft`, `MouseRight`, `MouseMiddle`, `MouseBack`, `MouseForward`) and
@@ -232,6 +236,18 @@ out what a party does not compare, the same list, so applying one always makes t
 
 A value that is missing, of the wrong type or out of range is the default
 (the port logs it). Settings count from the game's next start.
+
+### A mod for several games
+
+A mod whose `games` names several games is one mod: one manifest, one release
+(each platform's archive holds one library with every game's code), installed in
+each game's `plugins/` from the same link. The port checks the game and disc as
+for any mod, and gives the mod `openrac_api.game`, by which its load picks that
+game's code. Its `hooks` name each game's hook points by id (an id names its game;
+the launcher and the port count only the running game's), and a setting it cannot
+honour in a game says which games it is for (above). openrac-mods'
+[docs/MULTI_GAME.md](https://github.com/OpenRAC/openrac-mods/blob/master/docs/MULTI_GAME.md)
+lays out such a mod's sources.
 
 ### Data packs in a party
 
@@ -320,9 +336,19 @@ a hint after 3, and the buttons wait until no finger is on them.
 
 A native mod does not have to take a game hook point. Common host callbacks such as
 `openrac_api.on_pad` and `openrac_api.on_tick_boundary` are independent of the
-per-game hook catalogue. RAC2 therefore supports native callback-only mods even
-while its game hook catalogue is empty; trying to take a RAC2 game hook is still
-refused, and script mods still require a RAC2 script binding.
+per-game hook catalogue, and work in every game.
+
+**Each game has its own table.** rac1's hook points are below. Ratchet & Clank:
+Going Commando's are `rac2.<area>.<name>`, in
+[sdk/bindings/rac2.json](../../sdk/bindings/rac2.json) (its lock
+`rac2.ids.lock`), with `hook` rows in `port/game/rac2-ntsc/libraries.tsv` and
+the same functions' rows in `rac2-pal` and `rac2-ntsc2` (the names
+`release_carry.py` pairs them by), the C header `openrac/games/rac2.h` and the
+script binding `port/game/rac2/script_binding.c`; they are anchored on the
+NTSC-U v1.01 disc. A rac2 hook point that does a rac1 one's job keeps its
+`<area>.<name>` (`rac1.player.take_damage`, `rac2.player.take_damage`), so a mod
+for both games reads alike in each (section 3, "A mod for several games").
+`gen_binding.py` with no game named writes every table's files.
 
 A hook point is declared in a disc's `libraries.tsv`, in the `port` column:
 
