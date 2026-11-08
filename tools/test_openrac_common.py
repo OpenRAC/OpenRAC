@@ -607,6 +607,26 @@ class ProcTests(TempDir):
         done = proc.run([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'ok \\xff')"], capture=True)
         self.assertEqual(done.stdout, "ok \ufffd")
 
+    def test_brief_lines_keep_errors_and_shorten_compiles(self):
+        lines = ["-- The C compiler identification is Clang", "[1/100] Building C object a.o",
+                 "[5/100] Building CXX object b.o", "[11/100] hostgen: rac2-pal", "x.c:1:2: error: e",
+                 "FAILED: a.o", "[100/100] Linking CXX executable openrac"]
+        self.assertEqual(list(proc.brief_lines(lines)), [
+            "[  1%] 1/100 steps", "[11/100] hostgen: rac2-pal", "x.c:1:2: error: e", "FAILED: a.o",
+            "[100/100] Linking CXX executable openrac", "(1 CMake status lines left out: OPENRAC_BUILD_LOG=brief)"])
+
+    def test_run_brief_only_under_the_variable(self):
+        code = "print('-- status'); print('[1/2] Building C object a.o'); print('kept'); raise SystemExit(2)"
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"OPENRAC_BUILD_LOG": "brief"}), contextlib.redirect_stdout(out):
+            done = proc.run([sys.executable, "-c", code], check=False, brief=True)
+        self.assertEqual(done.returncode, 2)
+        self.assertEqual(out.getvalue().splitlines(),
+                         ["[ 50%] 1/2 steps", "kept", "(1 CMake status lines left out: OPENRAC_BUILD_LOG=brief)"])
+        with mock.patch.dict(os.environ, {"OPENRAC_BUILD_LOG": "brief"}), contextlib.redirect_stdout(io.StringIO()), \
+                self.assertRaises(subprocess.CalledProcessError):
+            proc.run([sys.executable, "-c", code], brief=True)
+
     @unittest.skipUnless(shutil.which("git"), "git is not installed")
     def test_git_reads_and_fcheck_gates_commit(self):
         repo = self.dir / "repo"

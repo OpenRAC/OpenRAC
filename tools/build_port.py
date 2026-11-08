@@ -299,7 +299,7 @@ def build_embree(cmake: str, env: dict[str, str], compilers: tuple[str, str, str
     build = [cmake, "--build", str(work), "--parallel", str(build_jobs())]
     for command in (configure, build, [cmake, "--install", str(work)]):
         say("> " + " ".join(f'"{part}"' if " " in part else part for part in command))
-        if subprocess.run(command, cwd=EMBREE_DIR, env=env).returncode != 0:
+        if proc.run(command, cwd=EMBREE_DIR, env=env, check=False, brief=True).returncode != 0:
             raise BuildError(f"Embree did not build ({Path(command[0]).name} {command[1]})")
     # Its license and the notices of what it carries (SSE2NEON on ARM), for whoever passes the
     # baker on (licenses(), tools/bundle_standalone.py).
@@ -728,7 +728,7 @@ def main(argv: list[str] | None = None) -> int:
     for command in commands(str(cmake), args.preset, build, names, source, cache, compilers, python, more,
                             disc, kept, defines):
         say("> " + " ".join(f'"{part}"' if " " in part else part for part in command))
-        status = subprocess.run(command, cwd=PORT, env=env).returncode
+        status = proc.run(command, cwd=PORT, env=env, check=False, brief=True).returncode
         if status != 0:
             print(f"error: the build stopped ({Path(command[0]).name} {command[1]} exited with {status})",
                   file=sys.stderr, flush=True)
