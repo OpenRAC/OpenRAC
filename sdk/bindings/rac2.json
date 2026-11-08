@@ -151,9 +151,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L01_003CEDA0"
+        "ntsc": "func_L01_003CEDA0",
+        "pal": "func_L01_003D2EF0",
+        "ntsc2": "func_L01_003D01F8"
       },
-      "about": "Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte."
     },
     {
       "id": "rac2.moby.tractor_beam_seller.update",
@@ -163,9 +165,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L01_003D2E50"
+        "ntsc": "func_L01_003D2E50",
+        "pal": "func_L01_003D7098",
+        "ntsc2": "func_L01_003D42B0"
       },
-      "about": "Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte."
     },
     {
       "id": "rac2.moby.box_breaker_pickup.update",
@@ -175,9 +179,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L01_00416440"
+        "ntsc": "func_L01_00416440",
+        "pal": "func_L01_0041B900",
+        "ntsc2": "func_L01_004179C0"
       },
-      "about": "Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it."
     },
     {
       "id": "rac2.moby.thermanator_seller.update",
@@ -187,9 +193,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L04_00434BB0"
+        "ntsc": "func_L04_00434BB0",
+        "pal": "func_L04_00439C28",
+        "ntsc2": "func_L04_004362F0"
       },
-      "about": "Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte."
     },
     {
       "id": "rac2.moby.thermanator_area.update",
@@ -199,9 +207,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L04_00456628"
+        "ntsc": "func_L04_00456628",
+        "pal": "func_L04_0045C268",
+        "ntsc2": "func_L04_00457DD8"
       },
-      "about": "Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area."
     },
     {
       "id": "rac2.moby.swingshot_area.update",
@@ -211,9 +221,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L03_003F09C0"
+        "ntsc": "func_L03_003F09C0",
+        "pal": "func_L03_003F5090",
+        "ntsc2": "func_L03_003F2000"
       },
-      "about": "Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area."
     },
     {
       "id": "rac2.moby.glider_pickup.update",
@@ -223,9 +235,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L08_0040E9B8"
+        "ntsc": "func_L08_0040E9B8",
+        "pal": "func_L08_004137E8",
+        "ntsc2": "func_L08_0040FF80"
       },
-      "about": "Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte."
     },
     {
       "id": "rac2.moby.levitator_seller.update",
@@ -235,9 +249,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L11_004618C0"
+        "ntsc": "func_L11_004618C0",
+        "pal": "func_L11_004676D0",
+        "ntsc2": "func_L11_00463368"
       },
-      "about": "Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte."
     },
     {
       "id": "rac2.moby.charge_boots_rider.update",
@@ -247,9 +263,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L11_003F8510"
+        "ntsc": "func_L11_003F8510",
+        "pal": "func_L11_003FCA30",
+        "ntsc2": "func_L11_003F9A50"
       },
-      "about": "Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned."
     },
     {
       "id": "rac2.moby.race_controller.update",
@@ -259,9 +277,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L04_00419918"
+        "ntsc": "func_L04_00419918",
+        "pal": "func_L04_0041E4A0",
+        "ntsc2": "func_L04_0041B020"
       },
-      "about": "The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map."
     },
     {
       "id": "rac2.moby.mapper_return.update",
@@ -271,9 +291,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L18_003F90A0"
+        "ntsc": "func_L18_003F90A0",
+        "pal": "func_L18_003FD180",
+        "ntsc2": "func_L18_003FA510"
       },
-      "about": "Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned."
     },
     {
       "id": "rac2.moby.hypnomatic_maker.update",
@@ -283,9 +305,11 @@
         "moby"
       ],
       "symbols": {
-        "ntsc": "func_L18_00440718"
+        "ntsc": "func_L18_00440718",
+        "pal": "func_L18_00445BB0",
+        "ntsc2": "func_L18_00441C08"
       },
-      "about": "Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet."
+      "about": "Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte."
     }
   ]
 }

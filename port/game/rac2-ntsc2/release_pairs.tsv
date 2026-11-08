@@ -1,2 +1,11 @@
 # Pairs release_carry.py takes as they are: v1.01 function, this release's (in the release's names), the evidence.
 func_0027F640	func_0027FCB0	FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808
+func_L01_003CEDA0	func_L01_003D01F8	rac2-decomp's func_US2_L01_003D01F8 (src/us2/levels/01_oozla/L01_003D01F8.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L01_003D2E50	func_L01_003D42B0	rac2-decomp's func_US2_L01_003D42B0 (src/us2/levels/01_oozla/L01_003D42B0-sw.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L01_00416440	func_L01_004179C0	rac2-decomp's func_US2_L01_004179C0 (src/us2/levels/01_oozla/L01_004179C0-g8.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L04_00434BB0	func_L04_004362F0	rac2-decomp's func_US2_L04_004362F0 (src/us2/levels/04_barlow/L04_004362F0-sw-g8.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L08_0040E9B8	func_L08_0040FF80	rac2-decomp's func_US2_L08_0040FF80 (src/us2/levels/08_tabora/L08_0040FF80.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L11_004618C0	func_L11_00463368	rac2-decomp's func_US2_L11_00463368 (src/us2/levels/11_joba/L11_00463368-sw.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L11_003F8510	func_L11_003F9A50	rac2-decomp's func_US2_L11_003F9A50 (src/us2/levels/11_joba/L11_003F9A50-sw.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L18_003F90A0	func_L18_003FA510	rac2-decomp's func_US2_L18_003FA510 (src/us2/levels/18_damosel/L18_003FA510-sw-g8.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes
+func_L18_00440718	func_L18_00441C08	rac2-decomp's func_US2_L18_00441C08 (src/us2/levels/18_damosel/L18_00441C08-sw-g8.c), its USA v2.00 copy: the same C with this release's constants and calls, built to the release's bytes

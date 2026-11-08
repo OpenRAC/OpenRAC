@@ -1,2 +1,13 @@
 # Pairs release_carry.py takes as they are: v1.01 function, this release's (in the release's names), the evidence.
 func_0027F640	func_0027FB48	FontPrintScaled: between func_0027F5B8 and func_0027F980 as in v1.01; the same calls in order (func_00283CE0 x3, func_0027E1A0 x3, func_00283CE0) after a new first call of func_002FC560; 832 bytes for 808
+func_L01_003CEDA0	func_L01_003D2EF0	rac2-decomp's func_PAL_L01_003D2EF0 (src/pal/levels/01_oozla/L01_003D2EF0.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L01_003D2E50	func_L01_003D7098	rac2-decomp's func_PAL_L01_003D7098 (src/pal/levels/01_oozla/L01_003D7098.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L01_00416440	func_L01_0041B900	rac2-decomp's func_PAL_L01_0041B900 (src/pal/levels/01_oozla/L01_0041B900-cc-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L04_00434BB0	func_L04_00439C28	rac2-decomp's func_PAL_L04_00439C28 (src/pal/levels/04_barlow/L04_00439C28-sale-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L04_00456628	func_L04_0045C268	rac2-decomp's func_PAL_L04_0045C268 (src/pal/levels/04_barlow/L04_0045B130.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L03_003F09C0	func_L03_003F5090	rac2-decomp's func_PAL_L03_003F5090 (src/pal/levels/03_endako/L03_003F5090-help-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L08_0040E9B8	func_L08_004137E8	rac2-decomp's func_PAL_L08_004137E8 (src/pal/levels/08_tabora/L08_004137E8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L11_004618C0	func_L11_004676D0	rac2-decomp's func_PAL_L11_004676D0 (src/pal/levels/11_joba/L11_004676D0-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L11_003F8510	func_L11_003FCA30	rac2-decomp's func_PAL_L11_003FCA30 (src/pal/levels/11_joba/L11_003FCA30-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L18_003F90A0	func_L18_003FD180	rac2-decomp's func_PAL_L18_003FD180 (src/pal/levels/18_damosel/L18_003FD180-sw-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
+func_L18_00440718	func_L18_00445BB0	rac2-decomp's func_PAL_L18_00445BB0 (src/pal/levels/18_damosel/L18_00445BB0-cc-g8.c), its PAL copy: the same C with this release's constants and calls, built to the release's bytes
