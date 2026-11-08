@@ -161,6 +161,7 @@ pub fn title(id: &str) -> String {
         "rac2-pal" => "Going Commando (PAL)".into(),
         "rac2-ntsc2" => "Going Commando (NTSC-U v2.00)".into(),
         "rac3-ntsc" => "Up Your Arsenal (NTSC-U)".into(),
+        "rac3-pal" => "Up Your Arsenal (PAL)".into(),
         "rac4-ntsc" => "Deadlocked (NTSC-U)".into(),
         other => other.into(),
     }

@@ -271,6 +271,7 @@ mod tests {
             "rac2/pal",
             "rac2/ntsc2",
             "rac3/ntsc",
+            "rac3/pal",
             "rac4/ntsc",
         ] {
             assert!(editable.iter().any(|k| k == key), "{key} is not editable: {editable:?}");
