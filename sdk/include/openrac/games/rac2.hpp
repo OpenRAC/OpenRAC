@@ -83,7 +83,7 @@ struct Planet_Unlock {
     using fn = void (*)(int32_t);
 };
 
-// Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte.
 struct Moby_DynamoPickup_Update {
     static constexpr const char* id = "rac2.moby.dynamo_pickup.update";
     static constexpr const char* name = "Moby_DynamoPickup_Update";
@@ -91,7 +91,7 @@ struct Moby_DynamoPickup_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte.
 struct Moby_TractorBeamSeller_Update {
     static constexpr const char* id = "rac2.moby.tractor_beam_seller.update";
     static constexpr const char* name = "Moby_TractorBeamSeller_Update";
@@ -99,7 +99,7 @@ struct Moby_TractorBeamSeller_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it.
 struct Moby_BoxBreakerPickup_Update {
     static constexpr const char* id = "rac2.moby.box_breaker_pickup.update";
     static constexpr const char* name = "Moby_BoxBreakerPickup_Update";
@@ -107,7 +107,7 @@ struct Moby_BoxBreakerPickup_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte.
 struct Moby_ThermanatorSeller_Update {
     static constexpr const char* id = "rac2.moby.thermanator_seller.update";
     static constexpr const char* name = "Moby_ThermanatorSeller_Update";
@@ -115,7 +115,7 @@ struct Moby_ThermanatorSeller_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area.
 struct Moby_ThermanatorArea_Update {
     static constexpr const char* id = "rac2.moby.thermanator_area.update";
     static constexpr const char* name = "Moby_ThermanatorArea_Update";
@@ -123,7 +123,7 @@ struct Moby_ThermanatorArea_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area.
 struct Moby_SwingshotArea_Update {
     static constexpr const char* id = "rac2.moby.swingshot_area.update";
     static constexpr const char* name = "Moby_SwingshotArea_Update";
@@ -131,7 +131,7 @@ struct Moby_SwingshotArea_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte.
 struct Moby_GliderPickup_Update {
     static constexpr const char* id = "rac2.moby.glider_pickup.update";
     static constexpr const char* name = "Moby_GliderPickup_Update";
@@ -139,7 +139,7 @@ struct Moby_GliderPickup_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte.
 struct Moby_LevitatorSeller_Update {
     static constexpr const char* id = "rac2.moby.levitator_seller.update";
     static constexpr const char* name = "Moby_LevitatorSeller_Update";
@@ -147,7 +147,7 @@ struct Moby_LevitatorSeller_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned.
 struct Moby_ChargeBootsRider_Update {
     static constexpr const char* id = "rac2.moby.charge_boots_rider.update";
     static constexpr const char* name = "Moby_ChargeBootsRider_Update";
@@ -155,7 +155,7 @@ struct Moby_ChargeBootsRider_Update {
     using fn = void (*)(uint32_t);
 };
 
-// The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map.
 struct Moby_RaceController_Update {
     static constexpr const char* id = "rac2.moby.race_controller.update";
     static constexpr const char* name = "Moby_RaceController_Update";
@@ -163,7 +163,7 @@ struct Moby_RaceController_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned.
 struct Moby_MapperReturn_Update {
     static constexpr const char* id = "rac2.moby.mapper_return.update";
     static constexpr const char* name = "Moby_MapperReturn_Update";
@@ -171,7 +171,7 @@ struct Moby_MapperReturn_Update {
     using fn = void (*)(uint32_t);
 };
 
-// Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+// Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte.
 struct Moby_HypnomaticMaker_Update {
     static constexpr const char* id = "rac2.moby.hypnomatic_maker.update";
     static constexpr const char* name = "Moby_HypnomaticMaker_Update";

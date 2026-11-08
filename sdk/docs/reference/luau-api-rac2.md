@@ -131,7 +131,7 @@ type Planet_UnlockFn = (level: number) -> ()
 
 ### `Moby_DynamoPickup_UpdateFn`
 
-rac2.moby.dynamo_pickup.update (Moby_DynamoPickup_Update) void(u32): Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.dynamo_pickup.update (Moby_DynamoPickup_Update) void(u32): Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte.
 
 ```lua
 type Moby_DynamoPickup_UpdateFn = (moby: number) -> ()
@@ -139,7 +139,7 @@ type Moby_DynamoPickup_UpdateFn = (moby: number) -> ()
 
 ### `Moby_TractorBeamSeller_UpdateFn`
 
-rac2.moby.tractor_beam_seller.update (Moby_TractorBeamSeller_Update) void(u32): Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.tractor_beam_seller.update (Moby_TractorBeamSeller_Update) void(u32): Oozla's Megacorp scientist (class 2766): sells the Tractor Beam (item 46) for its record's price; tests item 46's owned byte.
 
 ```lua
 type Moby_TractorBeamSeller_UpdateFn = (moby: number) -> ()
@@ -147,7 +147,7 @@ type Moby_TractorBeamSeller_UpdateFn = (moby: number) -> ()
 
 ### `Moby_BoxBreakerPickup_UpdateFn`
 
-rac2.moby.box_breaker_pickup.update (Moby_BoxBreakerPickup_Update) void(u32): Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.box_breaker_pickup.update (Moby_BoxBreakerPickup_Update) void(u32): Oozla's Box Breaker pickup (class 4688): removes itself while item 50 is owned, else gives it.
 
 ```lua
 type Moby_BoxBreakerPickup_UpdateFn = (moby: number) -> ()
@@ -155,7 +155,7 @@ type Moby_BoxBreakerPickup_UpdateFn = (moby: number) -> ()
 
 ### `Moby_ThermanatorSeller_UpdateFn`
 
-rac2.moby.thermanator_seller.update (Moby_ThermanatorSeller_Update) void(u32): Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.thermanator_seller.update (Moby_ThermanatorSeller_Update) void(u32): Barlow's inventor (class 3390): sells the Thermanator (item 39); tests item 39's owned byte.
 
 ```lua
 type Moby_ThermanatorSeller_UpdateFn = (moby: number) -> ()
@@ -163,7 +163,7 @@ type Moby_ThermanatorSeller_UpdateFn = (moby: number) -> ()
 
 ### `Moby_ThermanatorArea_UpdateFn`
 
-rac2.moby.thermanator_area.update (Moby_ThermanatorArea_Update) void(u32): Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.thermanator_area.update (Moby_ThermanatorArea_Update) void(u32): Barlow's level start: with item 39 owned and the area's story byte (+0x12 of 0x1395B8) clear, starts the hero in the Thermanator's area.
 
 ```lua
 type Moby_ThermanatorArea_UpdateFn = (moby: number) -> ()
@@ -171,7 +171,7 @@ type Moby_ThermanatorArea_UpdateFn = (moby: number) -> ()
 
 ### `Moby_SwingshotArea_UpdateFn`
 
-rac2.moby.swingshot_area.update (Moby_SwingshotArea_Update) void(u32): Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.swingshot_area.update (Moby_SwingshotArea_Update) void(u32): Endako's level start: with item 13 owned and the area's story byte (+0x0D of 0x1395B8) clear, starts the hero in the Swingshot's area.
 
 ```lua
 type Moby_SwingshotArea_UpdateFn = (moby: number) -> ()
@@ -179,7 +179,7 @@ type Moby_SwingshotArea_UpdateFn = (moby: number) -> ()
 
 ### `Moby_GliderPickup_UpdateFn`
 
-rac2.moby.glider_pickup.update (Moby_GliderPickup_Update) void(u32): Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.glider_pickup.update (Moby_GliderPickup_Update) void(u32): Tabora's Glider (class 3675): after its scene gives item 21; tests item 21's owned byte.
 
 ```lua
 type Moby_GliderPickup_UpdateFn = (moby: number) -> ()
@@ -187,7 +187,7 @@ type Moby_GliderPickup_UpdateFn = (moby: number) -> ()
 
 ### `Moby_LevitatorSeller_UpdateFn`
 
-rac2.moby.levitator_seller.update (Moby_LevitatorSeller_Update) void(u32): Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.levitator_seller.update (Moby_LevitatorSeller_Update) void(u32): Joba's shady salesman (class 3733): sells the Levitator (item 8); tests item 8's owned byte.
 
 ```lua
 type Moby_LevitatorSeller_UpdateFn = (moby: number) -> ()
@@ -195,7 +195,7 @@ type Moby_LevitatorSeller_UpdateFn = (moby: number) -> ()
 
 ### `Moby_ChargeBootsRider_UpdateFn`
 
-rac2.moby.charge_boots_rider.update (Moby_ChargeBootsRider_Update) void(u32): Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.charge_boots_rider.update (Moby_ChargeBootsRider_Update) void(u32): Joba's hoverbike race rider (class 2940): after the race's scene gives the Charge Boots (item 54) while they are not owned.
 
 ```lua
 type Moby_ChargeBootsRider_UpdateFn = (moby: number) -> ()
@@ -203,7 +203,7 @@ type Moby_ChargeBootsRider_UpdateFn = (moby: number) -> ()
 
 ### `Moby_RaceController_UpdateFn`
 
-rac2.moby.race_controller.update (Moby_RaceController_Update) void(u32): The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.race_controller.update (Moby_RaceController_Update) void(u32): The hoverbike race's controller of Barlow and Joba (class 3004): on Joba gives the Charge Boots (item 54) while they are not owned; on Barlow puts Feltzin on the map.
 
 ```lua
 type Moby_RaceController_UpdateFn = (moby: number) -> ()
@@ -211,7 +211,7 @@ type Moby_RaceController_UpdateFn = (moby: number) -> ()
 
 ### `Moby_MapperReturn_UpdateFn`
 
-rac2.moby.mapper_return.update (Moby_MapperReturn_Update) void(u32): Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.mapper_return.update (Moby_MapperReturn_Update) void(u32): Damosel's return from the Giant Clank battle (class 3841): gives the Mapper (item 5) while it is not owned.
 
 ```lua
 type Moby_MapperReturn_UpdateFn = (moby: number) -> ()
@@ -219,7 +219,7 @@ type Moby_MapperReturn_UpdateFn = (moby: number) -> ()
 
 ### `Moby_HypnomaticMaker_UpdateFn`
 
-rac2.moby.hypnomatic_maker.update (Moby_HypnomaticMaker_Update) void(u32): Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte. NTSC-U v1.01 only: the other discs' copy has no C of its own yet.
+rac2.moby.hypnomatic_maker.update (Moby_HypnomaticMaker_Update) void(u32): Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte.
 
 ```lua
 type Moby_HypnomaticMaker_UpdateFn = (moby: number) -> ()

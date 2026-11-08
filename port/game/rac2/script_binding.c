@@ -251,7 +251,7 @@ static const openrac_script_point k_points[21] = {
     {"rac2.moby.hypnomatic_maker.update", "void(u32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Moby_HypnomaticMaker_Update_links, k_Moby_HypnomaticMaker_Update_thunks, S9_call},
 };
 
-static const openrac_script_alias k_aliases[59] = {
+static const openrac_script_alias k_aliases[83] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
@@ -300,17 +300,41 @@ static const openrac_script_alias k_aliases[59] = {
     {"func_L00_00304660", "rac2.level.load"},
     {"func_L00_00305570", "rac2.level.load"},
     {"func_L01_003CEDA0", "rac2.moby.dynamo_pickup.update"},
+    {"func_L01_003D01F8", "rac2.moby.dynamo_pickup.update"},
     {"func_L01_003D2E50", "rac2.moby.tractor_beam_seller.update"},
+    {"func_L01_003D2EF0", "rac2.moby.dynamo_pickup.update"},
+    {"func_L01_003D42B0", "rac2.moby.tractor_beam_seller.update"},
+    {"func_L01_003D7098", "rac2.moby.tractor_beam_seller.update"},
     {"func_L01_00416440", "rac2.moby.box_breaker_pickup.update"},
+    {"func_L01_004179C0", "rac2.moby.box_breaker_pickup.update"},
+    {"func_L01_0041B900", "rac2.moby.box_breaker_pickup.update"},
     {"func_L03_003F09C0", "rac2.moby.swingshot_area.update"},
+    {"func_L03_003F2000", "rac2.moby.swingshot_area.update"},
+    {"func_L03_003F5090", "rac2.moby.swingshot_area.update"},
     {"func_L04_00419918", "rac2.moby.race_controller.update"},
+    {"func_L04_0041B020", "rac2.moby.race_controller.update"},
+    {"func_L04_0041E4A0", "rac2.moby.race_controller.update"},
     {"func_L04_00434BB0", "rac2.moby.thermanator_seller.update"},
+    {"func_L04_004362F0", "rac2.moby.thermanator_seller.update"},
+    {"func_L04_00439C28", "rac2.moby.thermanator_seller.update"},
     {"func_L04_00456628", "rac2.moby.thermanator_area.update"},
+    {"func_L04_00457DD8", "rac2.moby.thermanator_area.update"},
+    {"func_L04_0045C268", "rac2.moby.thermanator_area.update"},
     {"func_L08_0040E9B8", "rac2.moby.glider_pickup.update"},
+    {"func_L08_0040FF80", "rac2.moby.glider_pickup.update"},
+    {"func_L08_004137E8", "rac2.moby.glider_pickup.update"},
     {"func_L11_003F8510", "rac2.moby.charge_boots_rider.update"},
+    {"func_L11_003F9A50", "rac2.moby.charge_boots_rider.update"},
+    {"func_L11_003FCA30", "rac2.moby.charge_boots_rider.update"},
     {"func_L11_004618C0", "rac2.moby.levitator_seller.update"},
+    {"func_L11_00463368", "rac2.moby.levitator_seller.update"},
+    {"func_L11_004676D0", "rac2.moby.levitator_seller.update"},
     {"func_L18_003F90A0", "rac2.moby.mapper_return.update"},
+    {"func_L18_003FA510", "rac2.moby.mapper_return.update"},
+    {"func_L18_003FD180", "rac2.moby.mapper_return.update"},
     {"func_L18_00440718", "rac2.moby.hypnomatic_maker.update"},
+    {"func_L18_00441C08", "rac2.moby.hypnomatic_maker.update"},
+    {"func_L18_00445BB0", "rac2.moby.hypnomatic_maker.update"},
 };
 
 static const char* const k_discs[] = {"ntsc", "pal", "ntsc2"};
@@ -320,7 +344,7 @@ static const openrac_script_field k_fields[1] = {
 
 static const openrac_script_binding k_binding = {
     "rac2", 3, k_discs, 21, k_points, 0, k_fields, NULL,
-    59, k_aliases,
+    83, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
