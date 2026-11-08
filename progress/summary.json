@@ -109,15 +109,15 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_973.53",
     "progress": {
-      "matched_code": 164764,
-      "total_code": 12838776,
-      "matched_functions": 1292,
-      "total_functions": 31316,
-      "fuzzy_percent": 1.28,
-      "date": "2026-10-07",
-      "percent": 1.28
+      "matched_code": 751972,
+      "total_code": 7508980,
+      "matched_functions": 6401,
+      "total_functions": 16222,
+      "fuzzy_percent": 10.73,
+      "date": "2026-11-06",
+      "percent": 10.01
     },
-    "note": "The committed report is from 2026-10-01. At bfd8278, tools/pr_check.py --target all counts frontbin 1,800 of 1,867 entries final (1,419 functions in C), boot_elf 2,265 of 2,809 (1,580 in C) and i5bootn 191 of 199 (35 in C); the level programs are counted but not compiled yet."
+    "note": "rac3-decomp's NTSC-U report (SCUS_973.53_report): a C function counts as final only when every NTSC-U program that has it builds it from C (docs/versions.md, The counts)."
   },
   "rac4/ntsc": {
     "title": "Ratchet: Deadlocked",

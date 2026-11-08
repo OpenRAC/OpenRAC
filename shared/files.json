@@ -94,7 +94,7 @@
     {
       "what": "splat's label macros, as patched for SN's ee-as",
       "copies": [
-        "games/rac3/ntsc/include/labels.inc",
+        "games/rac3/decomp/include/labels.inc",
         "games/rac4/decomp/include/labels.inc"
       ]
     },

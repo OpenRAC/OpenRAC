@@ -19,10 +19,10 @@
 	branch = master
 	shallow = true
 	ignore = dirty
-[submodule "games/rac3/ntsc"]
-	path = games/rac3/ntsc
-	url = https://github.com/OpenRAC/rac3-uya-decomp.git
-	branch = main
+[submodule "games/rac3/decomp"]
+	path = games/rac3/decomp
+	url = https://github.com/OpenRAC/rac3-decomp.git
+	branch = master
 	shallow = true
 	ignore = dirty
 [submodule "games/rac4/decomp"]

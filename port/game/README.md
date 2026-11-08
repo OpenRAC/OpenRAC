@@ -11,7 +11,7 @@ makes `openrac-<id>` for every one whose decompilation is present:
 | [rac2-ntsc](rac2-ntsc/README.md) | Going Commando (NTSC-U) | `games/rac2/decomp` (`src/`, with level placements from `config/levels/functions.tsv`) | `func_00131AE8` (its crt0, the port's own; `main` is `func_00131D98`) | from its symbol table and byte comparison with rac1-pal's and rac4's; reaches its main menu with a further-along decompilation |
 | rac2-pal | Going Commando (PAL, *Locked and Loaded*) | `games/rac2/decomp` through its release view ([rac2](rac2/README.md)): `src/` and `src/pal`, PAL's catalogues | `func_00131B48` (v1.01's crt0 `func_00131AE8` at PAL's address) | rac2-ntsc's, carried by `release_carry.py` |
 | rac2-ntsc2 | Going Commando (USA v2.00, Greatest Hits) | `games/rac2/decomp` through its release view: `src/` and `src/us2` | `func_00131AE8` | rac2-ntsc's, carried |
-| rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/decomp` (without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own) | not known yet | empty |
+| rac3-ntsc | Up Your Arsenal (NTSC-U) | `games/rac3/decomp` through its NTSC-U view (`src/` and `src/us`, renamed to NTSC-U's addresses by `release_names.json`, from rac3-decomp's `config/us/map.tsv` and `config/us/names.tsv`: [release_rac3.py](../tools/hostgen/release_rac3.py)); without `i5bootn`, the online program; the menu, `frontbin`, as a group of its own | not known yet | empty |
 | rac4-ntsc | Deadlocked (NTSC-U) | `games/rac4/decomp` | not known yet | its libc, from `config/libc.tsv` |
 
 Everything else is shared: game memory and the guest contract

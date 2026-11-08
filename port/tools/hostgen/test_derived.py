@@ -147,10 +147,12 @@ class Committed(unittest.TestCase):
             with self.subTest(game=game):
                 self.assertEqual(derived.uncovered(source, cfg, table), [])
 
-    def test_only_rac2_has_one(self):
+    def test_only_rac2_and_rac3_have_one(self):
+        # rac3-ntsc's is its release table (release_rac3.py): the values of rac3-decomp's names
+        # that state no address of their own.
         games = sorted(p.parent.name for p in (REPO / "port" / "game").glob("*/hostgen.json")
                        if "derived" in json.loads(p.read_text()))
-        self.assertEqual(games, ["rac2-ntsc", "rac2-ntsc2", "rac2-pal"])
+        self.assertEqual(games, ["rac2-ntsc", "rac2-ntsc2", "rac2-pal", "rac3-ntsc"])
 
 
 if __name__ == "__main__":

@@ -4086,7 +4086,7 @@
         "description": "rac3's pre-PR check (prints OK).",
         "kind": "check",
         "state": "planned",
-        "docs": "games/rac3/ntsc/CONTRIBUTING.md",
+        "docs": "games/rac3/decomp/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
       },
       {

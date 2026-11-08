@@ -13,7 +13,7 @@ are comparable within a game, not between games.
 | Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/decomp`](../games/rac2/decomp)) | 94.20% (5,203,520 / 5,524,060 bytes) | 8,355 / 8,527 | 94.20% | 2026-11-06 |
 | Ratchet & Clank: Going Commando | SCES_516.07 ([`games/rac2/decomp`](../games/rac2/decomp)) | 91.93% (5,237,972 / 5,697,856 bytes) | 8,340 / 8,620 | 91.93% | 2026-11-06 |
 | Ratchet & Clank: Going Commando | SCUS_972.68_v2 ([`games/rac2/decomp`](../games/rac2/decomp)) | 92.64% (5,168,092 / 5,578,636 bytes) | 8,354 / 8,586 | 92.64% | 2026-11-06 |
-| Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/ntsc`](../games/rac3/ntsc)) | 1.28% (164,764 / 12,838,776 bytes) | 1,292 / 31,316 | 1.28% | 2026-10-07 |
+| Ratchet & Clank: Up Your Arsenal | SCUS_973.53 ([`games/rac3/decomp`](../games/rac3/decomp)) | 10.01% (751,972 / 7,508,980 bytes) | 6,401 / 16,222 | 10.73% | 2026-11-06 |
 | Ratchet: Deadlocked | SCUS_974.65 ([`games/rac4/decomp`](../games/rac4/decomp)) | 0.51% (26,572 / 5,175,440 bytes) | 243 / 15,056 | 0.51% | 2026-10-05 |
 | Ratchet & Clank: Size Matters | SCUS_976.15 ([`games/rac5/decomp`](../games/rac5/decomp)) | – | – | – | – |
 | Ratchet & Clank: Secret Agent Clank | SCUS_976.23 ([`games/rac6/decomp`](../games/rac6/decomp)) | – | – | – | – |
@@ -27,5 +27,5 @@ are comparable within a game, not between games.
 - **rac2/ntsc**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
 - **rac2/pal**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
 - **rac2/ntsc2**: Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail.
-- **rac3/ntsc**: The committed report is from 2026-10-01. At bfd8278, tools/pr_check.py --target all counts frontbin 1,800 of 1,867 entries final (1,419 functions in C), boot_elf 2,265 of 2,809 (1,580 in C) and i5bootn 191 of 199 (35 in C); the level programs are counted but not compiled yet.
+- **rac3/ntsc**: rac3-decomp's NTSC-U report (SCUS_973.53_report): a C function counts as final only when every NTSC-U program that has it builds it from C (docs/versions.md, The counts).
 - **rac4/ntsc**: Functions are compared one by one with most 16-bit immediates masked (symbols, struct offsets and small constants are not checked), and nothing is linked yet, so this is a looser proof than the other games'. Overlay code identical to resident code is counted once.
