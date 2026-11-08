@@ -381,7 +381,7 @@ jobs:
         if: matrix.name != 'android'
         run: |
           file="cpython-${PYTHON_VERSION}+${PYTHON_RELEASE}-${PYTHON}-install_only_stripped.tar.gz"
-          curl -sSfL -o "$RUNNER_TEMP/python.tar.gz" \
+          curl -sSfL --retry 5 --retry-delay 5 -o "$RUNNER_TEMP/python.tar.gz" \
             "https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_RELEASE}/${file}"
           python - "$RUNNER_TEMP/python.tar.gz" "$PYTHON_SHA256" <<'PY'
           import hashlib, sys

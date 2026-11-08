@@ -37,7 +37,10 @@
 #define RAC2_ADDR_0x001A7BACu 0x001A7BB4u /* the release's build */
 #define RAC2_ADDR_0x001A7BB1u 0x001A7BB9u /* the release's build */
 #define RAC2_ADDR_0x001A7BB4u 0x001A7BBCu /* the release's build */
+#define RAC2_ADDR_0x001A8C60u 0x001A8C60u /* rac2-decomp's v2.00 symbol table (symbol_addrs/usa-v2) */
+#define RAC2_ADDR_0x001A8C64u 0x001A8C64u /* rac2-decomp's v2.00 symbol table (symbol_addrs/usa-v2) */
 #define RAC2_ADDR_0x001A8CFCu 0x001A8D04u /* the release's build */
+#define RAC2_ADDR_0x001AA0F8u 0x001AA0F8u /* rac2-decomp's v2.00 symbol table (symbol_addrs/usa-v2) */
 #define RAC2_ADDR_0x001ADE00u 0x001ADDD8u /* the release's build */
 #define RAC2_ADDR_0x001ADE20u 0x001ADDF8u /* the release's build */
 #define RAC2_ADDR_0x001ADE28u 0x001ADE00u /* the release's build */
@@ -60,6 +63,7 @@
 #define RAC2_ADDR_0x001B1890u 0x001B1810u /* the release's build */
 #define RAC2_ADDR_0x001B1894u 0x001B1814u /* the release's build */
 #define RAC2_ADDR_0x001B1B74u 0x001B1AF4u /* the release's build */
+#define RAC2_ADDR_0x001B1D48u 0x001B1CC8u /* the release's build */
 #define RAC2_ADDR_0x001B1D90u 0x001B1D10u /* the release's build */
 #define RAC2_ADDR_0x001B1D98u 0x001B1D18u /* the release's build */
 #define RAC2_ADDR_0x001B20F0u 0x001B2070u /* the release's build */
