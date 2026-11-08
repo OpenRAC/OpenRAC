@@ -493,8 +493,9 @@ struct GpuTransport::Impl {
         }
 
         const auto* range = ranges.data();
-        submit([&](VkCommandBuffer c) { vkCmdBuildAccelerationStructuresKHR(c, 1, &info, &range); }
-        );
+        submit([&](VkCommandBuffer c) {
+            vkCmdBuildAccelerationStructuresKHR(c, 1, &info, &range);
+        });
         return handle;
     }
 
@@ -891,7 +892,7 @@ struct GpuTransport::Impl {
     }
 };
 
-GpuTransport::GpuTransport(std::unique_ptr<Impl> impl) : m_impl(std::move(impl)) {}
+GpuTransport::GpuTransport(Key, std::unique_ptr<Impl> impl) : m_impl(std::move(impl)) {}
 
 GpuTransport::~GpuTransport() {
     log::info(
@@ -918,7 +919,7 @@ std::unique_ptr<GpuTransport> GpuTransport::create(
     impl->build_acceleration();
     impl->build_pipeline();
     log::info("GPU probe bake on {}", impl->name);
-    return std::unique_ptr<GpuTransport>(new GpuTransport(std::move(impl)));
+    return std::make_unique<GpuTransport>(Key{}, std::move(impl));
 }
 
 const std::string& GpuTransport::device_name() const {

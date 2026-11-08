@@ -22,9 +22,17 @@ struct GpuPlacement {
 
 // Uploads one prepared scene and traces probe rays; integration into texels stays on the CPU.
 class GpuTransport {
+    struct Impl;
+
+    // Only create() can make one; the key keeps the constructor usable by std::make_unique.
+    struct Key {
+        explicit Key() = default;
+    };
+
 public:
     // Null when no Vulkan device has ray queries; the reason goes to the log.
     static std::unique_ptr<GpuTransport> create(const Scene& scene, const BakeSettings& settings);
+    GpuTransport(Key, std::unique_ptr<Impl> impl);
     ~GpuTransport();
     GpuTransport(const GpuTransport&) = delete;
     GpuTransport& operator=(const GpuTransport&) = delete;
@@ -48,8 +56,6 @@ public:
     const std::string& device_name() const;
 
 private:
-    struct Impl;
-    explicit GpuTransport(std::unique_ptr<Impl> impl);
     std::unique_ptr<Impl> m_impl;
 };
 }  // namespace openrac::lighting::bake_detail

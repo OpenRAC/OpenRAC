@@ -265,8 +265,8 @@ void append_pool(
 
                 if (found != cells.end()
                     && (underwater
-                        || std::abs(floors[id].position[2] - floors[found->second].position[2]) <= 2
-                    )) {
+                        || std::abs(floors[id].position[2] - floors[found->second].position[2])
+                               <= 2)) {
                     floors[id].neighbours.push_back(found->second);
                     floors[found->second].neighbours.push_back(id);
                 }

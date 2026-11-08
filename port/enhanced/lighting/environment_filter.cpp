@@ -111,7 +111,8 @@ std::vector<HalfVectorTerms> half_vector_terms(float roughness, std::span<const 
 
     for (const auto sample : samples) {
         const float cosine = std::sqrt((1 - sample[1]) / (1 + (alpha * alpha - 1) * sample[1]));
-        const float sine = std::sqrt(std::max(0.f, 1 - cosine * cosine)), angle = 2 * kPi * sample[0];
+        const float sine = std::sqrt(std::max(0.f, 1 - cosine * cosine)),
+                    angle = 2 * kPi * sample[0];
         terms.push_back({sine, cosine, std::cos(angle), std::sin(angle)});
     }
 
