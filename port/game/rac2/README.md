@@ -80,6 +80,7 @@ ship HUDs among them) are dropped and the release's host C no longer compiles. W
 | `../rac2/profile_<id>.h` | the profile's table for the disc |
 | `release_carry.json` | what rests on less than the same code: functions paired as changed, `near` or `called`, globals between moved neighbours, and what was found nowhere |
 | `release_pairs.tsv`, `release_constants.tsv` | the few pairs and constants checked by hand, with the instructions that show them |
+| `release_extra.json` | by hand: additions release_carry.py merges into hostgen.json, each with why (`from_assembly`; `unit_aliases`, a v1.01 function a file calls that the release table could not pair, as the release's own: `{"is": ..., "why": ...}`) |
 
 `asm_interface.json` (the build without the disc) is written as rac2-ntsc's is, with the release's
 dumps (`--retail-exe`, `--retail-dump`).
