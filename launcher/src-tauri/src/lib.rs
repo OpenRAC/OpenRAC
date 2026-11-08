@@ -240,10 +240,24 @@ fn save_config(state: State<'_, AppState>, mut config: Config) -> Result<Config,
     // The page sends the settings back without the paths the launcher keeps its own files
     // in; they are set again here.
     config.progress_cache = progress_cache(state.config_file.as_deref());
+    // Another save folder: the saves in the one used until now come along (copied, never
+    // replacing one there), before anything reads or writes the new one.
+    use openrac_launcher_core::saves;
+    config.save_dir = config.save_dir.take().filter(|dir| !dir.as_os_str().is_empty());
+    let was = state.config.lock().unwrap().save_dir.clone();
+    if config.save_dir != was {
+        let home = saves::data_home();
+        let from = was.clone().unwrap_or_else(|| home.join("memcard"));
+        let to = config.save_dir.clone().unwrap_or_else(|| home.join("memcard"));
+        let copied = saves::copy_cards(&from, &to)?;
+        launcher_log::line(&format!("saves: {copied} files copied from {} to {}", from.display(), to.display()));
+    }
+
     // Nor the images the set-ups were made from, which the launcher records (disc_choice.rs) and
     // a page holding the settings from before would forget.
     config.disc_images = state.config.lock().unwrap().disc_images.clone();
     config::save(file, &config)?;
+    saves::set_card_root(config.save_dir.clone());
     *state.config.lock().unwrap() = config.clone();
 
     let discord = state.discord.clone();
@@ -2957,6 +2971,8 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let config_file = app.path().app_config_dir().ok().map(|dir| dir.join("launcher.json"));
     let mut config = config_file.as_deref().map(config::load).unwrap_or_default();
     config.progress_cache = progress_cache(config_file.as_deref());
+    // Settings, "Save folder": where the save manager reads the cards, as Play gives the game.
+    openrac_launcher_core::saves::set_card_root(config.save_dir.clone());
     settle_install_dir(app, &mut config, config_file.as_deref());
     // The first start (or a settings file from before it): a made-up multiplayer name, kept.
     if openrac_launcher_core::multiplayer::settle(&mut config) {

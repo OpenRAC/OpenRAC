@@ -31,6 +31,11 @@ pub struct Config {
     /// knows (discs.rs): with it nobody picks an image by hand.
     #[serde(default)]
     pub discs_dir: Option<PathBuf>,
+    /// The player's own folder for the games' memory cards (their saves): a folder per disc
+    /// serial in it, as in the default `<data home>/memcard`, so one folder can be synced
+    /// (Syncthing, a cloud drive). Unset: the default. Given to each game's start as `--cards`
+    /// (saves.rs `card_dir_in`); not on Android, which keeps its files in its own place.
+    pub save_dir: Option<PathBuf>,
     /// The first-run setup was finished (or skipped).
     pub setup_complete: bool,
     /// The version the launcher showed last (`rac1/pal`).
@@ -136,6 +141,7 @@ impl Default for Config {
             docker: None,
             install_dir: None,
             discs_dir: None,
+            save_dir: None,
             developer: false,
             save_editor_advanced: false,
             setup_complete: false,
