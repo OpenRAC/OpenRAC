@@ -86,17 +86,17 @@
    "level_hooks"
   ],
   "func_0026F730": [
-   "func_0026F598",
+   "FUN_0026F598",
    "changed",
    "level_hooks"
   ],
   "func_0026F750": [
-   "func_0026F5B8",
+   "FUN_0026F5B8",
    "changed",
    "level_hooks"
   ],
   "func_0026F7A0": [
-   "func_0026F608",
+   "FUN_0026F608",
    "changed",
    "level_hooks"
   ],
@@ -1309,8 +1309,8 @@
   ]
  },
  "level_hooks": {
-  "carried": 30,
-  "count": 31,
+  "carried": 27,
+  "count": 32,
   "from": "0026F578",
   "to": "0026F678"
  },

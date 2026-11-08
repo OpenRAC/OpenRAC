@@ -6,13 +6,14 @@
   "table": "build/pal/*/placed.json"
  },
  "evidence": {
-  "function: another spelling of a function with two v1.01 names": 613,
+  "function: a level hook, by its callers (not the catalogue's)": 35,
+  "function: another spelling of a function with two v1.01 names": 622,
   "function: by its own name": 2,
   "function: carried (same code)": 5037,
   "function: no value (marked)": 1752,
-  "function: not in the release (marked)": 2900,
+  "function: not in the release (marked)": 2891,
   "function: the release's build": 56,
-  "function: the release's build (a changed function's address)": 537,
+  "function: the release's build (a changed function's address)": 534,
   "function: the release's build (a level's)": 282,
   "function: the release's build (a level's, the release's function there)": 94,
   "function: the release's own": 3571,
@@ -23,7 +24,8 @@
   "global: the release's build (a level's)": 308,
   "global: the release's own": 103,
   "global: versionmap (exact)": 364,
-  "function: v1.01's definition of one the release does not have": 584,
+  "function: a hook named as the release's catalogue does": 56,
+  "function: v1.01's definition of one the release does not have": 581,
   "short name: left as it is": 223,
   "short name: the release's build": 1041,
   "short name: v1.01's build, the same function's place here": 211
@@ -13869,36 +13871,36 @@
   "func_0026EB98": "func_0026EA00",
   "func_0026EC58": "func_0026EAC0",
   "func_0026EDE8": "func_V1_0026EDE8",
-  "func_0026F710": "func_V1_0026F710",
-  "func_0026F718": "func_V1_0026F718",
-  "func_0026F720": "func_0026F588",
-  "func_0026F728": "func_0026F590",
-  "func_0026F730": "FUN_0026F5A0",
-  "func_0026F738": "func_0026F5A0",
-  "func_0026F740": "func_0026F5A8",
-  "func_0026F748": "func_0026F5B0",
-  "func_0026F750": "func_V1_0026F750",
-  "func_0026F758": "func_0026F5C0",
-  "func_0026F760": "func_0026F5C8",
-  "func_0026F768": "func_0026F5D0",
-  "func_0026F770": "func_0026F5D8",
-  "func_0026F778": "func_0026F5E0",
-  "func_0026F780": "func_0026F5E8",
-  "func_0026F788": "func_0026F5F0",
-  "func_0026F790": "func_0026F5F8",
-  "func_0026F798": "func_0026F600",
+  "func_0026F710": "FUN_0026F580",
+  "func_0026F718": "func_0026F588",
+  "func_0026F720": "func_0026F590",
+  "func_0026F728": "func_0026F598",
+  "func_0026F730": "func_0026F5A0",
+  "func_0026F738": "func_0026F5A8",
+  "func_0026F740": "func_0026F5B0",
+  "func_0026F748": "func_0026F5B8",
+  "func_0026F750": "func_0026F5C0",
+  "func_0026F758": "func_0026F5C8",
+  "func_0026F760": "func_0026F5D0",
+  "func_0026F768": "func_0026F5D8",
+  "func_0026F770": "func_0026F5E0",
+  "func_0026F778": "func_0026F5E8",
+  "func_0026F780": "func_0026F5F0",
+  "func_0026F788": "func_0026F5F8",
+  "func_0026F790": "func_0026F600",
+  "func_0026F798": "func_0026F608",
   "func_0026F7A0": "func_0026F610",
-  "func_0026F7B0": "func_V1_0026F7B0",
-  "func_0026F7B8": "func_V1_0026F7B8",
-  "func_0026F7C0": "func_0026F628",
-  "func_0026F7C8": "func_0026F630",
-  "func_0026F7D0": "func_0026F638",
-  "func_0026F7D8": "func_0026F640",
-  "func_0026F7E0": "func_0026F648",
-  "func_0026F7E8": "func_0026F650",
-  "func_0026F7F0": "func_0026F658",
-  "func_0026F7F8": "func_0026F660",
-  "func_0026F800": "func_0026F668",
+  "func_0026F7B0": "FUN_0026F620",
+  "func_0026F7B8": "func_0026F628",
+  "func_0026F7C0": "func_0026F630",
+  "func_0026F7C8": "func_0026F638",
+  "func_0026F7D0": "func_0026F640",
+  "func_0026F7D8": "func_0026F648",
+  "func_0026F7E0": "func_0026F650",
+  "func_0026F7E8": "func_0026F658",
+  "func_0026F7F0": "func_0026F660",
+  "func_0026F7F8": "func_0026F668",
+  "func_0026F800": "func_0026F670",
   "func_0026F808": "FUN_0026F678",
   "func_0026F810": "func_0026F680",
   "func_0026FC78": "func_0026FAE8",
@@ -14246,7 +14248,7 @@
   "func_00288FB8": "func_002898E8",
   "func_00289020": "func_00289950",
   "func_00289178": "FUN_00289AA8",
-  "func_00289AA0": "func_V1_00289AA0",
+  "func_00289AA0": "FUN_0028A468",
   "func_00289AA8": "func_V1_00289AA8",
   "func_00289FC8": "func_0028A990",
   "func_0028A030": "func_0028A9F8",
@@ -15704,7 +15706,7 @@
   "func_002FEE70": "func_002FFEC8",
   "func_002FEF40": "func_L05_00300088",
   "func_002FF0D8": "func_V1_002FF0D8",
-  "func_002FF288": "func_V1_002FF288",
+  "func_002FF288": "FUN_00300300",
   "func_002FF290": "func_00300308",
   "func_002FF300": "func_00300378",
   "func_002FF3F8": "func_00300470",
@@ -16384,7 +16386,7 @@
   "func_00338808": "func_0033A590",
   "func_00338810": "FUN_0033A5F0",
   "func_00338830": "func_L20_0033A9E8",
-  "func_00338A58": "func_V1_00338A58",
+  "func_00338A58": "FUN_0033A930",
   "func_00338A60": "func_0033A938",
   "func_00338AD8": "FUN_0033A9B0",
   "func_00338F50": "FUN_0033AE40",
@@ -16523,7 +16525,7 @@
   "func_003415B8": "FUN_00343638",
   "func_00341610": "func_V1_00341610",
   "func_00341760": "func_V1_00341760",
-  "func_003417C8": "func_V1_003417C8",
+  "func_003417C8": "FUN_00343830",
   "func_003417D0": "func_V1_003417D0",
   "func_003418C0": "FUN_00343928",
   "func_00341A48": "func_00343AB0",
@@ -22545,11 +22547,11 @@
   "func_PAL_0026EC50": "func_0026EC50",
   "func_PAL_0026F578": "func_0026F578",
   "func_PAL_0026F580": "func_0026F580",
-  "func_PAL_0026F598": "func_0026F598",
-  "func_PAL_0026F5B8": "func_0026F5B8",
-  "func_PAL_0026F608": "func_0026F608",
+  "func_PAL_0026F598": "FUN_0026F598",
+  "func_PAL_0026F5B8": "FUN_0026F5B8",
+  "func_PAL_0026F608": "FUN_0026F608",
   "func_PAL_0026F620": "func_0026F620",
-  "func_PAL_0026F670": "func_0026F670",
+  "func_PAL_0026F670": "FUN_0026F670",
   "func_PAL_0026F678": "func_0026F678",
   "func_PAL_0026FCB8": "func_0026FCB8",
   "func_PAL_00270D50": "func_00270D50",
@@ -27227,9 +27229,7 @@
    "func_00272368": "func_V1_00272368"
   },
   "src/game/0026EA00.c": {
-   "func_0026F730": "func_V1_0026F730",
-   "func_0026F7A0": "func_V1_0026F7A0",
-   "func_0026F808": "func_V1_0026F808"
+   "func_0026F7A0": "func_V1_0026F7A0"
   },
   "src/game/00271130-qcopy.c": {
    "func_00271130": "func_V1_00271130"
@@ -27625,7 +27625,6 @@
    "func_003387A0": "func_V1_003387A0"
   },
   "src/game/00338A60.c": {
-   "func_00338F50": "func_V1_00338F50",
    "func_00339320": "func_V1_00339320",
    "func_00339590": "func_V1_00339590"
   },
@@ -29622,6 +29621,110 @@
   },
   "src/levels/shared/L22_003FBBF0-particles-g8.c": {
    "func_L22_003FBBF0": "func_V1_L22_003FBBF0"
+  },
+  "src/pal/game/00272208-qcopy.c": {
+   "func_0026F7C0": "func_0026F628"
+  },
+  "src/pal/game/002CBD80-g8.c": {
+   "func_0026F7C8": "func_0026F630",
+   "func_0026F7D0": "func_0026F638",
+   "func_0026F7D8": "func_0026F640",
+   "func_0026F7E0": "func_0026F648",
+   "func_0026F7E8": "func_0026F650",
+   "func_0026F7F0": "func_0026F658",
+   "func_0026F7F8": "func_0026F660"
+  },
+  "src/pal/game/002CE0B0.c": {
+   "func_0026F7D0": "func_0026F638",
+   "func_0026F7D8": "func_0026F640",
+   "func_0026F7E0": "func_0026F648",
+   "func_0026F7E8": "func_0026F650",
+   "func_0026F7F0": "func_0026F658",
+   "func_0026F7F8": "func_0026F660"
+  },
+  "src/pal/game/002D5FF0.c": {
+   "func_0026F7D0": "func_0026F638",
+   "func_0026F7D8": "func_0026F640"
+  },
+  "src/pal/game/002E7B78-cc-g8.c": {
+   "func_0026F720": "func_0026F588",
+   "func_0026F728": "func_0026F590",
+   "func_0026F748": "func_0026F5B0"
+  },
+  "src/pal/game/002E8030-qcopy.c": {
+   "func_0026F758": "func_0026F5C0",
+   "func_0026F780": "func_0026F5E8"
+  },
+  "src/pal/game/002EA0B0-flags.c": {
+   "func_0026F718": "func_V1_0026F718",
+   "func_0026F720": "func_0026F588",
+   "func_0026F790": "func_0026F5F8",
+   "func_0026F798": "func_0026F600"
+  },
+  "src/pal/game/002EBA30-flags.c": {
+   "func_0026F790": "func_0026F5F8"
+  },
+  "src/pal/game/002F6208-g8.c": {
+   "func_0026F728": "func_0026F590",
+   "func_0026F758": "func_0026F5C0",
+   "func_0026F780": "func_0026F5E8"
+  },
+  "src/pal/game/002F90E8-open-g8.c": {
+   "func_0026F720": "func_0026F588",
+   "func_0026F728": "func_0026F590"
+  },
+  "src/pal/game/002F96D8-g16.c": {
+   "func_0026F780": "func_0026F5E8"
+  },
+  "src/pal/game/002F9898-sw.c": {
+   "func_0026F748": "func_0026F5B0"
+  },
+  "src/pal/game/003096D0-sw.c": {
+   "func_0026F800": "func_0026F668"
+  },
+  "src/pal/game/0030A9D8-g8.c": {
+   "func_0026F738": "func_0026F5A0",
+   "func_0026F740": "func_0026F5A8",
+   "func_0026F760": "func_0026F5C8",
+   "func_0026F768": "func_0026F5D0"
+  },
+  "src/pal/game/0030D834-sw.c": {
+   "func_0026F760": "func_0026F5C8",
+   "func_0026F768": "func_0026F5D0"
+  },
+  "src/pal/game/0030F2B0-sw.c": {
+   "func_0026F748": "func_0026F5B0"
+  },
+  "src/pal/game/00310BE8-sw.c": {
+   "func_0026F770": "func_0026F5D8"
+  },
+  "src/pal/game/00310BE8-sw2.c": {
+   "func_0026F770": "func_0026F5D8"
+  },
+  "src/pal/game/003164C0-sw.c": {
+   "func_0026F730": "FUN_0026F5A0",
+   "func_0026F738": "func_0026F5A0",
+   "func_0026F740": "func_0026F5A8",
+   "func_0026F748": "func_0026F5B0",
+   "func_0026F758": "func_0026F5C0",
+   "func_0026F760": "func_0026F5C8",
+   "func_0026F768": "func_0026F5D0"
+  },
+  "src/pal/game/00317310-port.c": {
+   "func_0026F760": "func_0026F5C8"
+  },
+  "src/pal/game/00320D00-pickup-g8.c": {
+   "func_0026F748": "func_0026F5B0"
+  },
+  "src/pal/game/0033423C-sw.c": {
+   "func_0026F760": "func_0026F5C8",
+   "func_0026F768": "func_0026F5D0"
+  },
+  "src/pal/game/00335118-g8.c": {
+   "func_0026F780": "func_0026F5E8"
+  },
+  "src/pal/game/00350E98.c": {
+   "func_0026F790": "func_0026F5F8"
   },
   "src/pal/levels/01_oozla/L01_003D1FD0.c": {
    "func_3120A8": "func_313DF8",
@@ -32825,7 +32928,12 @@
   "F9e2cd219_FUN_002ACF68": "0x002adac8",
   "F9e2cd219_FUN_00305310": "0x00306590",
   "F9e2cd219_FUN_00307AD0": "0x00308d98",
-  "FUN_0026F5A0": "0x0026f5a0",
+  "FUN_0026F580": "0x0026f580",
+  "FUN_0026F598": "0x0026f598",
+  "FUN_0026F5B8": "0x0026f5b8",
+  "FUN_0026F608": "0x0026f608",
+  "FUN_0026F620": "0x0026f620",
+  "FUN_0026F670": "0x0026f670",
   "FUN_0026F678": "0x0026f678",
   "FUN_00270FC0": "0x00270fc0",
   "FUN_00272208": "0x00272208",
@@ -32836,6 +32944,7 @@
   "FUN_00280A30": "0x00280a30",
   "FUN_00286288": "0x00286288",
   "FUN_00289730": "0x00289730",
+  "FUN_0028A468": "0x0028a468",
   "FUN_0028ACC0": "0x0028acc0",
   "FUN_0028B038": "0x0028b038",
   "FUN_0028C418": "0x0028c418",
@@ -32938,6 +33047,7 @@
   "FUN_002F6208": "0x002f6208",
   "FUN_002FA330": "0x002fa330",
   "FUN_002FEC30": "0x002fec30",
+  "FUN_00300300": "0x00300300",
   "FUN_00301178": "0x00301178",
   "FUN_00303548": "0x00303548",
   "FUN_00307900": "0x00307900",
@@ -32960,6 +33070,7 @@
   "FUN_0033A4A0": "0x0033a4a0",
   "FUN_0033A528": "0x0033a528",
   "FUN_0033A5F0": "0x0033a5f0",
+  "FUN_0033A930": "0x0033a930",
   "FUN_0033A9B0": "0x0033a9b0",
   "FUN_0033AE40": "0x0033ae40",
   "FUN_0033B218": "0x0033b218",
@@ -33008,6 +33119,7 @@
   "FUN_003435D0": "0x003435d0",
   "FUN_003435D8": "0x003435d8",
   "FUN_00343638": "0x00343638",
+  "FUN_00343830": "0x00343830",
   "FUN_00343928": "0x00343928",
   "FUN_00343AF0": "0x00343af0",
   "FUN_00343C88": "0x00343c88",
@@ -33322,6 +33434,7 @@
   "func_001208E8": "0x001208e8",
   "func_00120A30": "0x00120a30",
   "func_00120B38": "0x00120b38",
+  "func_00120BC8": "0x00120bc8",
   "func_00120BD0": "0x00120bd0",
   "func_001212C8": "0x001212c8",
   "func_00121AB8": "0x00121ab8",
@@ -33565,7 +33678,9 @@
   "func_0026F5C8": "0x0026f5c8",
   "func_0026F5D0": "0x0026f5d0",
   "func_0026F5D8": "0x0026f5d8",
+  "func_0026F5E0": "0x0026f5e0",
   "func_0026F5E8": "0x0026f5e8",
+  "func_0026F5F0": "0x0026f5f0",
   "func_0026F5F8": "0x0026f5f8",
   "func_0026F600": "0x0026f600",
   "func_0026F608": "0x0026f608",
@@ -33579,6 +33694,7 @@
   "func_0026F650": "0x0026f650",
   "func_0026F658": "0x0026f658",
   "func_0026F660": "0x0026f660",
+  "func_0026F668": "0x0026f668",
   "func_0026F670": "0x0026f670",
   "func_0026FAE8": "0x0026fae8",
   "func_0026FCB8": "0x0026fcb8",
@@ -35055,6 +35171,7 @@
   "func_00339B88": "0x00339b88",
   "func_00339BF8": "0x00339bf8",
   "func_0033A248": "0x0033a248",
+  "func_0033A590": "0x0033a590",
   "func_0033A598": "0x0033a598",
   "func_0033A938": "0x0033a938",
   "func_0033AE48": "0x0033ae48",
@@ -154535,11 +154652,6 @@
   "func_V1_0026EA00",
   "func_V1_0026EAC8",
   "func_V1_0026EDE8",
-  "func_V1_0026F710",
-  "func_V1_0026F718",
-  "func_V1_0026F750",
-  "func_V1_0026F7B0",
-  "func_V1_0026F7B8",
   "func_V1_0026FE48",
   "func_V1_00270EE0",
   "func_V1_00271958",
@@ -154560,7 +154672,6 @@
   "func_V1_00286738",
   "func_V1_00287BD8",
   "func_V1_00287D20",
-  "func_V1_00289AA0",
   "func_V1_00289AA8",
   "func_V1_0028DF80",
   "func_V1_0028E458",
@@ -154929,7 +155040,6 @@
   "func_V1_002FB998",
   "func_V1_002FE5A0",
   "func_V1_002FF0D8",
-  "func_V1_002FF288",
   "func_V1_002FF698",
   "func_V1_002FF9F8",
   "func_V1_002FFB68",
@@ -155184,7 +155294,6 @@
   "func_V1_00337E30",
   "func_V1_00337E98",
   "func_V1_00338398",
-  "func_V1_00338A58",
   "func_V1_00339008",
   "func_V1_00339078",
   "func_V1_003395F8",
@@ -155260,7 +155369,6 @@
   "func_V1_00341540",
   "func_V1_00341610",
   "func_V1_00341760",
-  "func_V1_003417C8",
   "func_V1_003417D0",
   "func_V1_00341A68",
   "func_V1_00341C90",
