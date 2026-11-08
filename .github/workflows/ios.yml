@@ -1,16 +1,8 @@
-# The iPhone and iPad build's public checks (docs/port/IOS.md), on macOS: they need neither a
-# retail disc nor Apple signing credentials. "Port / iOS" runs the runtime's memory, suspension and
-# controller tests on the Mac and cross-compiles the runtime and window for iOS without a game.
-# "Launcher / iOS" tests and cross-compiles the Rust adapter (launcher/ios), checks the bundle's
-# catalogue and icons, and compiles the UIKit, Files, WebKit and CPython bridges (port/ios/*.mm)
-# against the iOS SDK.
-#
-# macOS minutes are dear, so a run starts only for the files below, and the `scope` job then
-# runs only the job those files can affect (tools/ci_scope.py ios): a push by the files it
-# changes, a pull request by its merge commit's. A change to this workflow or to that script
-# runs both.
-#
-# Every action is pinned to a commit, as in launcher.yml.
+# iPhone and iPad checks on macOS (docs/port/IOS.md). No disc or Apple signing needed.
+# Port / iOS: runtime tests, then the runtime built for iOS without a game.
+# Launcher / iOS: the Rust adapter, bundle tests, icons, and the port/ios/*.mm bridges.
+# macOS minutes are costly: the workflow starts only for the paths below, and the scope job
+# picks the jobs a change can affect (tools/ci_scope.py ios).
 name: ios
 
 on:
@@ -42,7 +34,7 @@ on:
 permissions:
   contents: read
 
-# New PR pushes and develop merges supersede old runs; master's all finish, as in checks.yml.
+# As in checks.yml: new runs cancel old ones, except on master.
 concurrency:
   group: ios-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' }}
@@ -60,10 +52,8 @@ jobs:
         with:
           fetch-depth: 2
           persist-credentials: false
-      # A pull request: the base branch's copy of the script decides, so that one changing it runs
-      # both jobs. A push: the pushed copy, by what changed since the branch's previous commit.
-      # Empty outputs (a manual run, a new branch, a base copy without `ios`, a failed git call)
-      # run both.
+      # PRs use the base branch's script (as checks.yml does). Pushes diff against the old commit.
+      # No answer means both jobs run.
       - id: scope
         env:
           EVENT: ${{ github.event_name }}
@@ -100,8 +90,7 @@ jobs:
         with:
           key: ios-port
           max-size: 1G
-      # The image has CMake; Ninja only when it is missing (a second `brew install` of a tool the
-      # image installed another way fails to link it).
+      # Install only what is missing: brew fails on a tool the image installed another way.
       - name: CMake and Ninja
         run: |
           for tool in cmake ninja; do
@@ -133,7 +122,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     env:
-      # BeeWare's Python Apple Support (docs/port/IOS.md), for the CPython bridge's headers.
+      # Python headers for the CPython bridge (docs/port/IOS.md).
       PYTHON_APPLE: https://github.com/beeware/Python-Apple-support/releases/download/3.14-b14/Python-3.14-iOS-support.b14.tar.gz
       PYTHON_APPLE_SHA256: 703ff822529f46edcbcd8b88096b2544f6990f3109ad38b4b4b61bb489a7c1ee
     steps:
@@ -165,7 +154,7 @@ jobs:
           echo "$PYTHON_APPLE_SHA256  build/ios-python/python.tar.gz" | shasum -a 256 -c -
           tar -xf build/ios-python/python.tar.gz -C build/ios-python
 
-      # Every bridge in port/ios, so that a new one is checked without a change here.
+      # All bridges, so new ones are checked too.
       - name: Compile the UIKit, Files, WebKit and CPython bridges
         run: |
           shopt -s nullglob

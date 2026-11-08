@@ -7,7 +7,7 @@ the launcher's jobs when it changes only port/, the port's jobs when it changes 
 and builds of the games it does not touch. A release carried from another (a hostgen.json with
 "release": rac1-pal1, rac1-jp, rac2-ntsc2, rac2-pal) is built in a pull request only when its
 own folder changes. Anything unclear (a workflow, this file, a failed git call) checks everything.
-`ci_scope.py ios` answers the same for the iOS workflow's two jobs (ios_plan), for a push too.
+`ci_scope.py ios` does the same for the iOS jobs, for pushes too.
 """
 
 import json
@@ -41,7 +41,7 @@ def changed_paths(base):
 
 
 def pushed_paths(before):
-    """The files a push changes since BEFORE, or None when that cannot be told."""
+    """Files changed since BEFORE, or None on error."""
     try:
         diff = subprocess.check_output(
             ["git", "diff", "--no-renames", "--name-only", "-z", before, "HEAD", "--"])
@@ -146,12 +146,9 @@ def plan(paths, known, shared=frozenset()):
             "enhanced": enhanced, "port_parts": ordered}
 
 
-# What the iOS workflow reads (.github/workflows/ios.yml): a change to it, or to this file, runs both
-# of its jobs.
+# A change here runs both iOS jobs.
 IOS_EVERYTHING = (".github/workflows/ios.yml", "tools/ci_scope.py")
-# The launcher job's inputs: the iOS adapter and the shared core it compiles (not core's tests, so
-# of the port's files only the differences it includes), the toolchain set-up, the iOS app's own
-# folder (its bridges, bundle tests and icon tool) and the icon it renders.
+# Files the iOS launcher job reads (core's tests are not built there).
 IOS_LAUNCHER = ("launcher/ios/", "launcher/core/", "launcher/Cargo.toml", "launcher/Cargo.lock",
                 "launcher/package.json", "launcher/src/lib/palettes.json",
                 "launcher/src-tauri/icons/icon.png", "port/ios/", "port/platform/ios.h",
@@ -159,7 +156,7 @@ IOS_LAUNCHER = ("launcher/ios/", "launcher/core/", "launcher/Cargo.toml", "launc
 
 
 def ios_port_reads(path, shared):
-    """Whether the iOS port job (the runtime and window built without a game) reads PATH."""
+    """True if the iOS port job reads PATH."""
     if path.startswith(PORT_READS) or re.fullmatch(r"games/[^/]+/game\.json", path):
         return True
     if not path.startswith("port/") or path.endswith(".md"):
@@ -173,7 +170,7 @@ def ios_port_reads(path, shared):
 
 
 def ios_plan(paths, shared=frozenset()):
-    """Which iOS jobs PATHS (None: everything) need, with SHARED from shared_game_dirs()."""
+    """Which iOS jobs PATHS need (None: both)."""
     if paths is None or any(path in IOS_EVERYTHING for path in paths):
         return {"ios_port": True, "ios_launcher": True}
     return {"ios_port": any(ios_port_reads(path, shared) for path in paths),
@@ -186,7 +183,7 @@ if __name__ == "__main__":
     pull = os.environ.get("GITHUB_EVENT_NAME") == "pull_request"
     paths = changed_paths(os.environ.get("PR_BASE", "")) if pull else None
     if sys.argv[1:] == ["ios"]:
-        # The iOS workflow also scopes a push (PUSH_BEFORE: the commit the branch was at).
+        # PUSH_BEFORE: the branch's commit before the push.
         if not pull and os.environ.get("PUSH_BEFORE"):
             paths = pushed_paths(os.environ["PUSH_BEFORE"])
         result = ios_plan(paths, shared_game_dirs())
