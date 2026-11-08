@@ -12,6 +12,7 @@
   "skip": [
     "src/libgcc",
     "src/libm",
+    "src/pal",
     "src/game/00496B68.c",
     "src/game/00496B88.c",
     "src/game/00496BD0.c",
