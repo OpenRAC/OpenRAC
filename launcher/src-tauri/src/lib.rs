@@ -1580,6 +1580,20 @@ async fn plugins_list(state: State<'_, AppState>, game: String, version: String)
     .await
 }
 
+/// Whether a mod that is on in one of `games` uses the Multiplayer name (Settings shows the
+/// field only then).
+#[tauri::command]
+async fn player_name_used(state: State<'_, AppState>, games: Vec<String>) -> Result<bool, String> {
+    let Some(install) = state.config.lock().unwrap().install_dir.clone() else {
+        return Ok(false);
+    };
+    tauri::async_runtime::spawn_blocking(move || {
+        games.iter().any(|g| plugins::uses_player_name(&plugins::dir(&install, g)))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// The launcher's Multiplayer name, for the mod settings that default to it (empty when invalid).
 fn player_name(state: &State<'_, AppState>) -> String {
     let name = state.config.lock().unwrap().multiplayer_name.clone();
@@ -2757,6 +2771,7 @@ pub fn run() {
             editor_state,
             reset_apply,
             plugins_list,
+            player_name_used,
             enhanced_view,
             enhanced_set_enabled,
             texture_packs_view,

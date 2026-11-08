@@ -186,6 +186,17 @@
   const changed = $derived(!!app.config && JSON.stringify(edited(draft)) !== JSON.stringify(edited(app.config)));
   /** What is wrong with the multiplayer name typed, if anything: nothing is saved until it is right. */
   const nameError = $derived(nameProblem(draft.multiplayerName));
+  /** The Multiplayer name shows only while a mod that uses it (the multiplayer mod) is on in one
+   *  of the games; hidden, it keeps its value. */
+  let nameUsed = $state(false);
+  $effect(() => {
+    const games = [...new Set(app.library?.games.flatMap((g) => g.versions.map((v) => v.game)) ?? [])];
+    if (setup || !games.length) return;
+    void api.playerNameUsed(games).then(
+      (used) => (nameUsed = used),
+      () => (nameUsed = false),
+    );
+  });
 
   /** Android saves a change by itself, a moment after it is made (a field being typed in is
    *  saved once the typing stops), with no bar to press: a switch flipped is a setting changed.
@@ -475,23 +486,25 @@
         </label>
       {/if}
       <!-- The name online mods show the other players; the game gets it as OPENRAC_PLAYER_NAME. -->
-      <div class="field">
-        <label for="multiplayer-name">Multiplayer name</label>
-        <input
-          id="multiplayer-name"
-          type="text"
-          class="mono"
-          autocomplete="off"
-          spellcheck="false"
-          maxlength="16"
-          aria-invalid={!!nameError}
-          aria-describedby="multiplayer-name-note"
-          bind:value={draft.multiplayerName}
-        />
-        <p id="multiplayer-name-note" class="dim note">
-          {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
-        </p>
-      </div>
+      {#if nameUsed}
+        <div class="field">
+          <label for="multiplayer-name">Multiplayer name</label>
+          <input
+            id="multiplayer-name"
+            type="text"
+            class="mono"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="16"
+            aria-invalid={!!nameError}
+            aria-describedby="multiplayer-name-note"
+            bind:value={draft.multiplayerName}
+          />
+          <p id="multiplayer-name-note" class="dim note">
+            {nameError ?? "What other players see in online mods. 3 to 16 letters, digits and underscores."}
+          </p>
+        </div>
+      {/if}
     </section>
 
     <section class="panel">
