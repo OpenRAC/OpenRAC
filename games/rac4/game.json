@@ -11,9 +11,9 @@
     "repo": "https://github.com/OpenRAC/rac4-decomp",
     "branch": "main",
     "license": "MIT (GPL libgcc, newlib libm)",
-    "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
-    "date": "2026-10-05",
-    "imported": "2026-10-04"
+    "commit": "4a7372f50e345023672172c7e08a8cfba0f3170c",
+    "date": "2026-11-08",
+    "imported": "2026-11-08"
   },
   "versions": {
     "ntsc": {
@@ -58,9 +58,9 @@
         "repo": "https://github.com/OpenRAC/rac4-decomp",
         "branch": "main",
         "license": "MIT (GPL libgcc, newlib libm)",
-        "commit": "dedfcd416a1b8e195978df6b038e0d4cd927f4b7",
-        "date": "2026-10-05",
-        "imported": "2026-10-04"
+        "commit": "4a7372f50e345023672172c7e08a8cfba0f3170c",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS or Linux through Docker (rac1/pal's linux/386 image with Wine); SN ProDG toolchain you supply",
