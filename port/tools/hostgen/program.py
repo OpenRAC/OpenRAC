@@ -134,6 +134,11 @@ class Program:
     # callers form that one, and it pairs with the copies. symbol -> entry; and symbol -> (size, places),
     # for its calls of the level hooks.
     executable_entries: dict[str, int] = field(default_factory=dict)
+    # The executable catalogue's entry corrections: a name's address -> the function's entry there.
+    executable_entry_at: dict[int, int] = field(default_factory=dict)
+    # Where the decompilation's own build linked each function name its C uses (hostgen.json
+    # "derived", derived.py): name -> address, read where it is not the address the name states.
+    derived_code: dict[str, int] = field(default_factory=dict)
     level_twins: dict[str, tuple[int, list[tuple[int, int]]]] = field(default_factory=dict)
     groups: list = field(default_factory=list)  # [{"path", "suffix", "overlay"}]: separate programs
     expanded_target_table_addresses: set = field(default_factory=set)  # globals redirected only in expanded RAM
@@ -188,8 +193,18 @@ class Program:
         if named and named[0][0] < 0 and symbol in self.executable_entries:
             # Named after the address of the leftovers in front of it: entered at the catalogue's.
             named = [(-1, self.executable_entries[symbol])]
+        elif (named and named[0][0] < 0 and named[0][1] in self.executable_entry_at
+              and re.search(r"[0-9A-Fa-f]{8}$", symbol)):
+            # The catalogue's name of a function entered after a fill word: entered at its entry.
+            named = [(-1, self.executable_entry_at[named[0][1]])]
         if not named and symbol in self.symbols:
             named = [(-1, self.symbols[symbol])]
+        elif named and named[0][0] < 0 and self.derived_code.get(symbol, named[0][1]) != named[0][1]:
+            # Where the build linked the name, not the address it states: a family-qualified name
+            # states the primary release's (USA v2.00's F081de6c9_FUN_00335FC8 is its 0x00336DD0),
+            # and a catalogue name of a function entered after a fill word its row's start (PAL's
+            # func_00128A48 is scePad2Read's entry, 0x00128A50).
+            named = [(-1, self.derived_code[symbol])]
         if symbol not in self.places and named:
             # Another spelling of the same function (func_L00_00256F14 for the catalogue's
             # FUN_L00_00256f14) has the catalogue's places in the other levels.
