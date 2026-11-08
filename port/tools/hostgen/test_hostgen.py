@@ -173,6 +173,32 @@ class Translate(unittest.TestCase):
                 self.assertEqual(out, ["200000", "4040c8", "4040c8", "305419896",
                                        "200000", "292424", "292424", "305419896"])
 
+    def test_a_caller_of_another_units_record_by_value_function_is_left_to_its_assembly(self):
+        # The shared prototypes have no form for a record by value, so a.c's generated C would call
+        # func_00100000 and func_00100040 undeclared (rac4's net/01EB8488.c, core/00120378.c): its two
+        # callers are left to their assembly (stubs, with no assembly here), and so is the caller of
+        # the one that takes a record itself. b.c's own call to its function stays C.
+        out = self.run_program({"a.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p);
+            Pair func_00100040(int x);
+            int func_00100100(int x) { Pair p; p.a = x; p.b = 1; return func_00100000(p); }
+            int func_00100140(int x) { return func_00100040(x).a; }
+            int func_00100180(Pair p) { return func_00100000(p) + 1; }
+            int func_001001C0(Pair p) { return func_00100180(p); }
+            int test_main(void) { test_print(func_00100240(4)); return 0; }
+        """, "b.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p) { return p.a + p.b; }
+            Pair func_00100040(int x) { Pair p; p.a = x; p.b = x; return p; }
+            int func_00100240(int x) { Pair p; p.a = x; p.b = 2; return func_00100000(p); }
+        """})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["unprototyped_callers"],
+                         ["func_00100100", "func_00100140", "func_00100180", "func_001001C0"])
+        self.assertNotIn("int func_00100100(", self.last_generated)
+        self.assertIn("int func_00100240(", self.last_generated)
+
     def test_globals_structs_and_pointer_arithmetic(self):
         out = self.run_program({"a.c": """
             typedef struct Node { struct Node *next; short id; char pad; float f; s64 big; int arr[3]; } Node;

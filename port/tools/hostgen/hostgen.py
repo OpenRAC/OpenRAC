@@ -47,7 +47,7 @@ import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -1257,6 +1257,9 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
             sig = Signature.of(ctype.parse(text))
             f = program.functions.get(sym)
             program.functions[sym] = Function(sym, sig, None, asm=f.asm if f else False)
+    # A definition that calls another unit's function with no shared prototype (a record by value) is
+    # left to its assembly (program.py callers_of_unprototyped): its unit could not declare the callee.
+    program.unprototyped_callers = callers_of_unprototyped(program)
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
     program.widened = widen_forwarded(program)
@@ -1322,6 +1325,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["results_inherited"] = sorted(inherited)
     extra["params_widened"] = sorted(getattr(program, "widened", []))
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
+    extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     write_game_info(program, out, cfg)
     extra["hooks"] = sorted(program.hook.values())

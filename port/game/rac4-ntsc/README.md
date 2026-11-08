@@ -80,11 +80,6 @@ not establish that the front end has started correctly.
 `skip` also leaves out `src/pal`: rac4-decomp's PAL C (since 4a7372f5), under PAL's names and
 addresses, which is not this disc's code.
 
-`src/core/00120378.c` is skipped too: its C calls `func_001263F0` as `void (s32, s32)`, the
-call as the binary makes it (the struct result's hidden pointer, then the argument), while the
-definition returns the struct (`MI func_001263F0(s32)`); the port takes the caller from the
-retail assembly.
-
 The 35 game files listed in `skip` have matching C definitions that omit
 incoming registers or results used by the retail callers. They are translated
 from their instructions for the host; the matching source stays unchanged.
