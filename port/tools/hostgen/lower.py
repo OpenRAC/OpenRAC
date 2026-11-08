@@ -1980,6 +1980,12 @@ class Unit:
         # A level function's datum by its name, where the build's derived table holds the address of
         # the executable's copy (D_L00_001B043C as 0x001B00FC): the name's own place in that level.
         named = re.fullmatch(r"D_L(\d\d)_([0-9A-Fa-f]{8})(?:_\d+)?", symbol or "")
+        formed_level = getattr(self.program, "formed_as", {}).get(symbol or "") if named and not code else None
+        if formed_level is not None:
+            # A level's datum the code only forms with something added (hostgen.json "formed_as",
+            # func_L00_002D5E30's D_L00_00262260, formed as the table + 2): the sum, as that level
+            # has it, less what was added.
+            return f"(OPENRAC_LDATA({int(named.group(1))}, {hexaddr(formed_level)}) - {hexaddr(formed_level - address)})"
         if (named and not code and int(named.group(2), 16) != address
                 and (self._shared_level() is not None or UNIT_LEVEL.search(self.unit))):
             return f"OPENRAC_LDATA({int(named.group(1))}, {hexaddr(int(named.group(2), 16))})"
