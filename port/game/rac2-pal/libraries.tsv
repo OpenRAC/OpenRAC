@@ -258,3 +258,11 @@ func_0033E460	menu	CameraPageUpdate	wrap	the pause menu's Camera page: its 16:9 
 func_0033E608	menu	CameraPageDraw	wrap	the pause menu's Camera page: its three camera rows, or the Video rows drawn in the panel for the Options list's Video row (host/options.c)
 func_0029BB00	card	RestoreBlocks	wrap	a save's blocks into their places (rac1's memcard_restore_data): the language and the Sound page stay the player's (host/options.c)
 func_L16_00435550	game	func_L16_0042FB10	host	a place the catalogue folds into func_L00_00424BB8 although its code stores to other fields (split_places.tsv, host/variants.c)	void (float, float)
+# Hook points for mods (docs/port/MODS.md, section 4; sdk/bindings/rac2.json gives each its id).
+func_L00_002A4D58	player	Hero_TakeDamage	hook	Takes a hit's points from the hero's health (the hero at 0x189E20 on NTSC-U, health at +0x24CC), after the armour's scale; the hero's state machine calls it for each hit. A hook point for mods; the game's C with none.
+func_002AA0A8	combat	Moby_GetHitMessage	hook	The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads. A hook point for mods; the game's C with none.
+func_L00_002D4458	weapon	Weapon_TakeAmmo	hook	Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo. A hook point for mods; the game's C with none.
+func_002A7650	moby	Moby_RecordDeath	hook	A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too. A hook point for mods; the game's C with none.
+func_L00_00305570	level	Level_Load	hook	Loads a level (new, or resumed after a death); it calls the gameplay file's loader. A hook point for mods; the game's C with none.
+func_L00_002B40E0	player	Hero_ApproachSpeed	hook	Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick; rac1's approach_speed. A hook point for mods; the game's C with none.
+func_L00_002D6380	player	Hero_NanotechSteps	hook	Adds the nanotech levels' steps of health to *total; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring total). A hook point for mods; the game's C with none.

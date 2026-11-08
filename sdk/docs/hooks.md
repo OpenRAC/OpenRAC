@@ -67,6 +67,14 @@ decompilation) stay as **aliases**: a mod written with one keeps loading.
 The [reference](reference/hooks-rac1.md) lists every hook point with its
 signature and parameters, generated from OpenRAC's table.
 
+Ratchet & Clank: Going Commando has hook points of its own, `rac2.<area>.<name>`
+on its three discs (NTSC-U v1.01 `ntsc`, PAL `pal` and NTSC-U v2.00 `ntsc2`),
+in `openrac/games/rac2.h` (`OPENRAC_RAC2_HOOK_<name>`) and
+[its reference](reference/hooks-rac2.md). Where one does a rac1 hook point's
+job it has the same `<area>.<name>` (`rac2.player.take_damage`), so a mod for
+both games ([several games](manifest.md#a-mod-for-several-games)) reads alike in
+each. Its signatures are rac2's own.
+
 ## Moby updates (experimental)
 
 The behaviour catalogue lists the game's moby classes (crates, enemies, ...),

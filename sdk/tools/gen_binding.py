@@ -5,7 +5,7 @@
 
     python3 sdk/tools/gen_binding.py [GAME ...] [--check]
 
-reads sdk/bindings/<game>.json (rac1 when no game is named), with the behaviour catalogue its
+reads sdk/bindings/<game>.json (every game's when none is named), with the behaviour catalogue its
 "catalogue" names, and writes:
 
   port/game/<game>/script_binding.c       the port's side: for each hook point the C functions that
@@ -503,6 +503,13 @@ def c_binding(b: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def example_id(b: dict) -> str:
+    """A hook point's id the comments show: the player's turn to his heading where the game has it."""
+    ids = [h["id"] for h in b["hooks"] if h["origin"] == "table"]
+    want = f"{b['game']}.player.turn_to_heading"
+    return want if want in ids else (ids[0] if ids else want)
+
+
 def cpp_header(b: dict) -> str:
     g = b["game"]
     out = [f"// Generated from sdk/bindings/{g}.json by sdk/tools/gen_binding.py. Do not edit.",
@@ -511,7 +518,7 @@ def cpp_header(b: dict) -> str:
            f"// {g}'s hook points as C++ types, for the SDK's C++ layer (openrac/mod.hpp, docs/port/MODS.md):",
            "// each one's permanent id, its name and signature as openrac_api.hook takes them, and the type of a",
            "// function of it. mod.hook<...>() asks for a hook point by its id. The same types by id are in",
-           f"// openrac::{g}::hooks (rac1.player.turn_to_heading: hooks::player::turn_to_heading).",
+           f"// openrac::{g}::hooks ({example_id(b)}: hooks::{'::'.join(example_id(b).split('.')[1:])}).",
            "#pragma once",
            "",
            "#include <cstdint>",
@@ -572,10 +579,11 @@ def luau_types(b: dict) -> str:
            "--",
            f"-- The `openrac` global as a script mod for {g} sees it (docs/port/MODS.md, section 11): put this",
            "-- file where your editor's Luau language server reads definitions (luau-lsp: --definitions).",
-           "-- A hook point is named by its permanent id (rac1.player.turn_to_heading) or one of its aliases.",
-           "-- EXPERIMENTAL: the rac1.moby.* hook points and openrac.pvars come from the behaviour catalogue,",
-           "-- whose names may still change; their ids do not.",
-           ""]
+           f"-- A hook point is named by its permanent id ({example_id(b)}) or one of its aliases."]
+    if any(h["origin"] == "catalogue" for h in b["hooks"]):
+        out += [f"-- EXPERIMENTAL: the {g}.moby.* hook points and openrac.pvars come from the behaviour catalogue,",
+                "-- whose names may still change; their ids do not."]
+    out.append("")
     hooks = b["hooks"]
     if hooks:
         names = [h["id"] for h in hooks] + sorted({h["name"] for h in hooks})
@@ -742,7 +750,7 @@ def check_rows(b: dict, texts: dict[Path, str] | None = None) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("games", nargs="*", default=["rac1"])
+    ap.add_argument("games", nargs="*", help="the tables to generate from (default: every sdk/bindings/<game>.json)")
     ap.add_argument("--check", action="store_true", help="write nothing; fail when anything differs")
     ap.add_argument("--table", type=Path, help="another table (a test's): only its C binding, to --c")
     ap.add_argument("--c", type=Path, help="with --table: where its C binding goes")
@@ -765,7 +773,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     failed = False
     loaded = []
-    for game in args.games:
+    every = sorted(p.stem for p in (ROOT / "sdk" / "bindings").glob("*.json"))
+    for game in args.games or every:
         try:
             b = load(game)
         except (BindingError, KeyError, ValueError) as e:
@@ -793,15 +802,24 @@ def main(argv: list[str] | None = None) -> int:
             print(f"gen_binding: {p}", file=sys.stderr)
             failed = True
     ids = ROOT / "launcher" / "core" / "src" / "hook_ids.json"
-    if args.games == ["rac1"] or set(args.games) >= {"rac1"}:
-        text = launcher_ids(loaded)
-        if args.check:
-            if not ids.is_file() or ids.read_text() != text:
-                print("gen_binding: launcher/core/src/hook_ids.json is not what the tables give", file=sys.stderr)
-                failed = True
-        elif not ids.is_file() or ids.read_text() != text:
-            ids.write_text(text)
-            print(ids.relative_to(ROOT))
+    # The launcher's table names every game's hook points, whichever tables this run wrote.
+    have = {b["game"] for b in loaded}
+    for game in every:
+        if game not in have:
+            try:
+                loaded.append(load(game))
+            except (BindingError, KeyError, ValueError) as e:
+                print(f"gen_binding: {game}: {e}", file=sys.stderr)
+                return 1
+    loaded.sort(key=lambda b: b["game"])
+    text = launcher_ids(loaded)
+    if args.check:
+        if not ids.is_file() or ids.read_text() != text:
+            print("gen_binding: launcher/core/src/hook_ids.json is not what the tables give", file=sys.stderr)
+            failed = True
+    elif not ids.is_file() or ids.read_text() != text:
+        ids.write_text(text)
+        print(ids.relative_to(ROOT))
     return 1 if failed else 0
 
 

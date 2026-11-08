@@ -1,0 +1,119 @@
+{
+  "format": 1,
+  "about": "Ratchet & Clank: Going Commando's binding for mods (docs/port/MODS.md, sections 4 and 11): its hook points. sdk/tools/gen_binding.py writes port/game/rac2/script_binding.c, sdk/include/openrac/games/rac2.hpp and sdk/types/rac2.d.luau from it, with every hook point's permanent id and aliases (rac2.ids.lock); --check holds the hook points to the hook rows of port/game/rac2-<disc>/libraries.tsv. Symbols are each disc's (the NTSC-U v1.01 disc first, where the ids are anchored; PAL and NTSC-U v2.00 as port/tools/hostgen/release_carry.py pairs them). An id reuses rac1's <area>.<name> for the same job (openrac-mods docs/MULTI_GAME.md).",
+  "game": "rac2",
+  "discs": [
+    "ntsc",
+    "pal",
+    "ntsc2"
+  ],
+  "hooks": [
+    {
+      "id": "rac2.player.take_damage",
+      "name": "Hero_TakeDamage",
+      "signature": "void(i32)",
+      "params": [
+        "amount"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_002A4EF8",
+        "pal": "func_L00_002A4D58",
+        "ntsc2": "func_L00_002A4EF8"
+      },
+      "about": "Takes a hit's points from the hero's health (the hero at 0x189E20 on NTSC-U, health at +0x24CC), after the armour's scale; the hero's state machine calls it for each hit."
+    },
+    {
+      "id": "rac2.combat.get_hit",
+      "name": "Moby_GetHitMessage",
+      "signature": "u32(u32,u32,i32)",
+      "params": [
+        "moby",
+        "mask",
+        "keep"
+      ],
+      "symbols": {
+        "ntsc": "func_002A9640",
+        "pal": "func_002AA0A8",
+        "ntsc2": "func_002AA4A8"
+      },
+      "about": "The pending hit for a moby from the hit ring (the damage, f32 at +0x2C; its source at +0x38), or 0: what an enemy's damage path reads."
+    },
+    {
+      "id": "rac2.weapon.take_ammo",
+      "name": "Weapon_TakeAmmo",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "item",
+        "amount"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_002D3F30",
+        "pal": "func_L00_002D4458",
+        "ntsc2": "func_L00_002D42D0"
+      },
+      "about": "Takes rounds of a weapon's ammo (item -1: the one in hand); a weapon with no capacity has endless ammo. Rac1's TakeAmmo."
+    },
+    {
+      "id": "rac2.moby.record_death",
+      "name": "Moby_RecordDeath",
+      "signature": "void(u32,i32,i32)",
+      "params": [
+        "moby",
+        "flags",
+        "arg"
+      ],
+      "symbols": {
+        "ntsc": "func_002A6C58",
+        "pal": "func_002A7650",
+        "ntsc2": "func_002A7AA8"
+      },
+      "about": "A moby's death recorded: its experience, the bestiary and its bolt drop (the moby's s16 at +0xB4); crates call it too."
+    },
+    {
+      "id": "rac2.level.load",
+      "name": "Level_Load",
+      "signature": "i32(i32,i32)",
+      "params": [
+        "load",
+        "resume"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_00303990",
+        "pal": "func_L00_00305570",
+        "ntsc2": "func_L00_00304660"
+      },
+      "about": "Loads a level (new, or resumed after a death); it calls the gameplay file's loader."
+    },
+    {
+      "id": "rac2.player.approach_speed",
+      "name": "Hero_ApproachSpeed",
+      "signature": "void(f32,f32)",
+      "params": [
+        "up",
+        "down"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_002B41B8",
+        "pal": "func_L00_002B40E0",
+        "ntsc2": "func_L00_002B42C0"
+      },
+      "about": "Eases the hero's speed (+0x1B4) toward his target speed (+0x1B0) each tick, at up when speeding up and down when slowing; rac1's approach_speed."
+    },
+    {
+      "id": "rac2.player.nanotech_steps",
+      "name": "Hero_NanotechSteps",
+      "signature": "i32(u32,u32,u32)",
+      "params": [
+        "a0",
+        "a1",
+        "count"
+      ],
+      "symbols": {
+        "ntsc": "func_L00_002D5E30",
+        "pal": "func_L00_002D6380",
+        "ntsc2": "func_L00_002D61D0"
+      },
+      "about": "Adds the nanotech levels' steps of health to *count; the recount of the most health each tick adds the boosts after it (the HUD's experience bar calls it too, ignoring count)."
+    }
+  ]
+}
