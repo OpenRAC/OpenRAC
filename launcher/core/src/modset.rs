@@ -1300,7 +1300,6 @@ mod tests {
         drop(held);
         assert!(ChangeLock::take(dir.path()).is_ok());
     }
-    use sha2::{Digest, Sha256};
     use std::cell::RefCell;
     use std::collections::HashMap;
 
@@ -1360,7 +1359,7 @@ mod tests {
     }
 
     fn sha(bytes: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     /// Publishes mod `id` in OpenRAC/rac1-mods under its own tag, as the repository's workflow does,

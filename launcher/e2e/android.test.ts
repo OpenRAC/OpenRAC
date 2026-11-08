@@ -67,12 +67,18 @@ describe("Android launcher", () => {
   });
 
   it("opens every page at one width", async () => {
+    // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
     for (const query of ["page=library", "version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
-      const box = await page.locator(".page").first().boundingBox();
-      expect(box, query).not.toBeNull();
-      lefts.push(Math.round(box?.x ?? -1));
+      await page.locator(".page").first().waitFor({ state: "visible" });
+      lefts.push(
+        await page
+          .locator(".page")
+          .first()
+          .evaluate((el) => Math.round(el.getBoundingClientRect().left)),
+      );
     }
     expect(new Set(lefts).size).toBe(1);
   });
@@ -199,16 +205,17 @@ describe("Android launcher", () => {
     expect(await offer.count()).toBe(0);
   });
 
-  it("puts a theme on without the game's accent", async () => {
+  it("puts a theme on, with the launcher's gold and the game's light", async () => {
     await open("theme=oled&version=rac3/ntsc");
-    // The accent eases from one game's to the next (app.css).
+    // The light eases from one game's to the next (app.css).
     await page.waitForTimeout(700);
-    const [ink, amber] = await page.evaluate(() => {
+    const [ink, amber, glow] = await page.evaluate(() => {
       const s = getComputedStyle(document.documentElement);
-      return [s.getPropertyValue("--ink").trim(), s.getPropertyValue("--amber").trim()];
+      return ["--ink", "--amber", "--glow"].map((name) => s.getPropertyValue(name).trim());
     });
     expect(ink).toBe("#000000");
-    expect(amber).toBe("rgb(255, 210, 63)");
+    expect(amber).toBe("#f5c040");
+    expect(glow).toBe("rgb(255, 210, 63)");
   });
 });
 

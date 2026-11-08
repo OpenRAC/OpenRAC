@@ -318,8 +318,7 @@ mod tests {
     }
 
     fn sha(bytes: &[u8]) -> String {
-        use sha2::Digest;
-        format!("{:x}", sha2::Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     fn manifest(id: &str, version: &str, requires: &[&str]) -> String {

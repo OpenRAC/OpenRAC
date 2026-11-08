@@ -4,6 +4,9 @@
 #include "platform/pump.h"
 
 #include <SDL3/SDL.h>
+#if defined(OPENRAC_IOS)
+#include <atomic>
+#endif
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -116,12 +119,52 @@ bool poll_event(SDL_Event& event) {
 
 #else
 
+#if defined(OPENRAC_IOS)
+namespace {
+std::atomic_bool backgrounded = false;
+void (*background_handler)() = nullptr;
+
+bool SDLCALL lifecycle(void*, SDL_Event* event) {
+    if (event->type == SDL_EVENT_WILL_ENTER_BACKGROUND && !backgrounded.exchange(true)) {
+        if (background_handler != nullptr) {
+            background_handler();
+        }
+        log::info("iOS: rendering suspended");
+    } else if (event->type == SDL_EVENT_DID_ENTER_FOREGROUND && backgrounded.exchange(false)) {
+        log::info("iOS: rendering resumed");
+    }
+    return true;
+}
+}  // namespace
+
+void set_background_handler(void (*handler)()) {
+    SDL_RemoveEventWatch(lifecycle, nullptr);
+    background_handler = handler;
+    backgrounded = false;
+    if (handler != nullptr) {
+        SDL_AddEventWatch(lifecycle, nullptr);
+    }
+}
+#endif
+
 int run_pumped(int (*program)(void*), void* argument) {
     return program(argument);
 }
 
 bool poll_event(SDL_Event& event) {
+#if defined(OPENRAC_IOS)
+    const bool found = SDL_PollEvent(&event);
+    while (backgrounded) {
+        SDL_Event pending;
+        if (SDL_WaitEventTimeout(&pending, 100) && pending.type == SDL_EVENT_QUIT) {
+            event = pending;
+            return true;
+        }
+    }
+    return found;
+#else
     return SDL_PollEvent(&event);
+#endif
 }
 
 #endif

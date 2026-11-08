@@ -1853,8 +1853,13 @@ void DirectRenderer::use_program(bool masked) {
 
 void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
     // Off-screen targets have one sample a pixel; the frame has several when it has a resolve
-    // target. The program first: every uniform below is set for this draw.
+    // target. The program first: every uniform below is set for this draw. Apple's OpenGL on AMD
+    // GPUs ignores gl_SampleMask, so there, where Metal shares its pictures, a pixel is discarded.
+#if defined(__APPLE__)
+    const bool masked = false;
+#else
     const bool masked = s.target == 0 && render_state.target.resolve_framebuffer != 0;
+#endif
     if (masked != m_masked) {
         use_program(masked);
     }

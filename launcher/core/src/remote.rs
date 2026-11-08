@@ -15,7 +15,6 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::plugins::{self, Installed, Manifest, MANIFEST};
 
@@ -527,7 +526,7 @@ pub fn verify(bytes: &[u8], name: &str, digest: Option<&str>, sums: Option<&str>
             }
         });
     }
-    let got = format!("{:x}", Sha256::digest(bytes));
+    let got = crate::sha256_hex(bytes);
     if [digest, listed.as_deref()].into_iter().flatten().any(|want| want != got) {
         return Err(format!(
             "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
@@ -542,7 +541,7 @@ fn manifest_in_zip(bytes: &[u8]) -> Result<Value, String> {
         zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("the download is not a .zip ({e})"))?;
     let mut best: Option<String> = None;
     for i in 0..archive.len() {
-        let name = archive.by_index(i).map_err(|e| e.to_string())?.name().to_string();
+        let name = archive.by_index(i).map_err(|e| e.to_string())?.name().map_err(|e| e.to_string())?.to_string();
         let depth = name.split('/').count();
         if name.ends_with(MANIFEST)
             && (name == MANIFEST || depth == 2)
@@ -1075,7 +1074,7 @@ fn check_expected(bytes: &[u8], name: &str, expected: Option<&crate::index::Asse
     if want.asset != name {
         return Err(format!("{name} is not the archive the mod list names ({}): it is not installed.", want.asset));
     }
-    if format!("{:x}", Sha256::digest(bytes)) != want.sha256.to_ascii_lowercase() {
+    if crate::sha256_hex(bytes) != want.sha256.to_ascii_lowercase() {
         return Err(format!(
             "{name} is not the file the mod list lists (its SHA-256 differs): it was changed after it was listed, and is not installed."
         ));
@@ -1432,7 +1431,7 @@ pub fn read_pinned(ctx: &Context, pin: &Pin) -> Result<Pinned, PinError> {
         published = release.published_at.clone();
         let sums_asset = release.asset(SUMS).ok_or(PinError::Changed)?;
         let text = ctx.fetch.get(&sums_asset.browser_download_url, false).map_err(pin_fetch_error)?;
-        if pin.sums.as_deref() != Some(format!("{:x}", Sha256::digest(&text)).as_str()) {
+        if pin.sums.as_deref() != Some(crate::sha256_hex(&text).as_str()) {
             return Err(PinError::Changed);
         }
         let listed = parse_sums(&String::from_utf8_lossy(&text));
@@ -1485,7 +1484,7 @@ pub fn sums_hash(ctx: &Context, url: &str, tag: &str) -> Result<String, String> 
     let (owner, repo) = github_parts(url)?;
     let release = release_by_tag(ctx, &owner, &repo, tag)?;
     let asset = release.asset(SUMS).ok_or_else(|| format!("{tag} has no {SUMS}"))?;
-    Ok(format!("{:x}", Sha256::digest(ctx.fetch.get(&asset.browser_download_url, false)?)))
+    Ok(crate::sha256_hex(&ctx.fetch.get(&asset.browser_download_url, false)?))
 }
 
 /// `<plugins>/.cache/<sha256>.zip`: an archive a code fetched, kept under its own hash. A file
@@ -1496,7 +1495,7 @@ fn cache_file(dir: &Path, hash: &str) -> std::path::PathBuf {
 
 fn from_cache(dir: &Path, hash: &str) -> Option<Vec<u8>> {
     let bytes = std::fs::read(cache_file(dir, hash)).ok()?;
-    (format!("{:x}", Sha256::digest(&bytes)) == hash).then_some(bytes)
+    (crate::sha256_hex(&bytes) == hash).then_some(bytes)
 }
 
 /// Keeps an archive by its hash, then takes the least recently written ones away past the limit.
@@ -1538,7 +1537,7 @@ pub fn stage_pinned(ctx: &Context, pinned: &Pinned) -> Result<Staged, String> {
             Some(bytes) => bytes,
             None => {
                 let bytes = ctx.fetch.get(url, false)?;
-                if format!("{:x}", Sha256::digest(&bytes)) != *hash {
+                if crate::sha256_hex(&bytes) != *hash {
                     return Err(format!(
                         "{name} is not the file the release lists (its SHA-256 differs): it was damaged or changed, and is not installed."
                     ));
@@ -1694,7 +1693,7 @@ mod tests {
     }
 
     fn sha(bytes: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(bytes))
+        crate::sha256_hex(bytes)
     }
 
     /// A repository o/r with the given files at commit c1, releases as given.

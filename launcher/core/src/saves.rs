@@ -141,7 +141,7 @@ pub fn data_home() -> PathBuf {
     if let Some(home) = TEST_DATA_HOME.with(|cell| cell.borrow().clone()) {
         return home;
     }
-    if cfg!(target_os = "macos") {
+    if cfg!(any(target_os = "macos", target_os = "ios")) {
         return dirs_home().join("Library/Application Support/OpenRAC");
     }
     // Windows: %LOCALAPPDATA%\openrac, whatever folder the game was started in (at its start,

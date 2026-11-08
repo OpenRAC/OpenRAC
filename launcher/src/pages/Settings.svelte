@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { supports } from "$lib/capabilities";
   import { SETTINGS_TEXT } from "$lib/modsText";
   // Three groups: where things are (folders), the programs the launcher uses,
   // and how the launcher itself behaves. Edits stay local until saved; the bar
@@ -463,26 +464,47 @@
 
     <section class="panel">
       <h2>Updates</h2>
+      {#if !supports(app.info, "updates")}<p class="muted">
+          This build receives updates through its distribution channel, such as the App Store.
+        </p>{/if}
       <label class="setting">
         <span class="text">
           <strong>Look for updates at start</strong>
           <small>Nothing is installed without your click.</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkUpdates} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.checkUpdates}
+        />
       </label>
       <label class="setting">
         <span class="text">
           <strong>Look for mod updates at start</strong>
           <small>Once a day, for the mods you added from a link. The Mods tab still looks when you ask.</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.checkModUpdates} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.checkModUpdates}
+        />
       </label>
       <label class="setting">
         <span class="text">
           <strong>{SETTINGS_TEXT.autoUpdate}</strong>
           <small>{SETTINGS_TEXT.autoUpdateLine}</small>
         </span>
-        <input type="checkbox" role="switch" class="switch" bind:checked={draft.autoUpdateMods} />
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          disabled={!supports(app.info, "updates")}
+          bind:checked={draft.autoUpdateMods}
+        />
       </label>
       <label class="setting">
         <span class="text">
@@ -491,7 +513,7 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.cleanupUnusedDeps} />
       </label>
-      {#if app.info?.updateChannels}
+      {#if app.info?.updateChannels && supports(app.info, "updates")}
         <div class="setting">
           <span class="text">
             <strong>Channel</strong>
@@ -538,14 +560,18 @@
         {/if}
       {/if}
       <p class="dim note status">
-        <button class="link" disabled={looked === "looking"} onclick={() => void checkNow()}>Check now</button>
+        <button
+          class="link"
+          disabled={looked === "looking" || !supports(app.info, "updates")}
+          onclick={() => void checkNow()}>Check now</button
+        >
         {#if looked === "looking"}· Looking…{:else if app.update?.switchTo}· {channelName(app.update.switchTo)}
           {app.update.version} can replace this build.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Switch</button
           >{:else if looked === "found" || app.update}· {app.update?.name ?? "A new version"} is out.
           <button class="link" onclick={() => (app.showUpdateModal = true)}>Update</button>{:else if looked === "none"}·
           You have the latest ({app.info?.version ?? ""}).{:else if looked === "failed"}· Could not check: {lookError}.{/if}
-        {#if source}
+        {#if source && supports(app.info, "updates")}
           · <button class="link" onclick={() => void api.openUrl(source.page)}>Releases</button>
           {#if draft.developer}
             · <span class="mono">github.com/{source.repository} · {source.channel ?? "latest release"}</span>
@@ -759,11 +785,10 @@
     gap: 20px;
     align-items: center;
     padding: 24px;
-    border-radius: 30px;
+    border-radius: var(--radius);
     background:
       radial-gradient(80% 90% at 80% 0, color-mix(in srgb, var(--brand) 28%, transparent), transparent 70%),
       var(--panel);
-    border: 1px solid var(--line);
   }
 
   /* The logo's mark in the accent, beside the welcome that names it. */
@@ -811,21 +836,19 @@
     align-items: center;
     gap: 8px;
     padding: 6px 12px 6px 6px;
-    border-radius: 999px;
-    border: 1px solid var(--line-strong);
-    background: var(--panel);
+    border-radius: var(--radius-sm);
+    background: var(--control);
     color: var(--soft);
     font-size: 0.8125rem;
     font-weight: 600;
     transition:
-      border-color var(--fast) var(--ease),
+      background var(--fast) var(--ease),
       color var(--fast) var(--ease);
   }
 
   .themes button.on {
-    border-color: var(--amber);
-    color: var(--text);
-    box-shadow: 0 0 0 1px var(--amber);
+    background: var(--on-fill);
+    color: var(--amber);
   }
 
   .swatch {
@@ -903,7 +926,9 @@
   .link {
     border: 0;
     background: none;
+    box-shadow: none;
     padding: 0;
+    min-height: 0;
     color: var(--amber);
     font-size: 0.8125rem;
   }
@@ -944,9 +969,10 @@
     align-items: center;
     gap: 10px;
     padding: 12px 14px 12px 20px;
-    background: var(--panel-hi);
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
+    border-radius: var(--radius-sm);
     box-shadow: var(--shadow);
     font-size: 0.875rem;
     animation: bar-in var(--medium) var(--ease) both;

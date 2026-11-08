@@ -118,8 +118,9 @@
     z-index: 1;
     width: 100%;
     max-width: 480px;
-    background: var(--panel);
-    border: 1px solid var(--line-strong);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -137,7 +138,9 @@
     justify-content: space-between;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .title-row {
@@ -174,7 +177,6 @@
     padding: 12px 14px;
     list-style: none;
     background: var(--ink-deep);
-    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     display: flex;
     flex-direction: column;
@@ -197,7 +199,6 @@
     margin: 0;
     padding: 10px 14px;
     background: color-mix(in srgb, var(--err) 12%, transparent);
-    border: 1px solid var(--err);
     border-radius: var(--radius-sm);
     color: var(--err);
     font-size: 0.8125rem;
@@ -210,7 +211,9 @@
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .grow {

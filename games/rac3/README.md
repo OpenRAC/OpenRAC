@@ -15,7 +15,6 @@ primary target, and NTSC-U (`SCUS-973.53`) is built from the same C
 | `rac3/pal` | PAL (Europe), disc v1.00 | `SCES_524.56` | [decomp/](decomp/README.md) ([rac3-decomp](https://github.com/OpenRAC/rac3-decomp)) | [`port/game/rac3-pal/`](../../port/game/rac3-pal/) |
 <!-- versions:end -->
 
-
 ## In this folder
 
 | | |
