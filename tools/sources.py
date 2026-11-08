@@ -338,7 +338,8 @@ def pins_at(rev: str, game: str) -> set[str]:
 def do_check(since: str | None) -> None:
     """The index's pins and game.json agree; and, given REV, a decomp whose pin moved since REV
     comes with its port tables (port/game/<game>*) changed in the same range, since hostgen's tables,
-    release names and asm interfaces are made from one commit of the decomp."""
+    release names and asm interfaces are made from one commit of the decomp (a game the port does
+    not build yet, with no port/game/<game>*/hostgen.json, has none)."""
     problems = []
     for key, tree in trees().items():
         pinned, recorded = tree.pinned(), tree.source["commit"]
@@ -354,6 +355,8 @@ def do_check(since: str | None) -> None:
         for key, tree in trees().items():
             if tree.rel not in changed or tree.pinned() in pins_at(since, tree.game["id"]):
                 continue
+            if not any((ROOT / "port/game").glob(f"{tree.game['id']}*/hostgen.json")):
+                continue  # the port does not build this game yet: it has no tables to keep in step
             ported = [p for p in changed if p.startswith(f"port/game/{tree.game['id']}")]
             if not ported:
                 problems.append(f"{key}: the submodule moved since {since} but nothing under "
