@@ -24,7 +24,10 @@ PAL, `SCES-524.56`, is in the decomp but not yet a version of OpenRAC: the port 
 | [decomp/](decomp/README.md) | [rac3-decomp](https://github.com/OpenRAC/rac3-decomp), our decomp (git submodule, branch `master`): PAL and NTSC-U |
 | `decomp-patches/` | OpenRAC-only changes to `decomp/`, each with its reason (none yet) |
 
-The port's code for NTSC-U is in [port/game/rac3-ntsc/](../../port/game/rac3-ntsc/). How to check
+The port's code for NTSC-U is in [port/game/rac3-ntsc/](../../port/game/rac3-ntsc/). It reads
+the decomp's C, written with PAL's addresses, in NTSC-U's: `release_names.json` there renames
+every name, written by [release_rac3.py](../../port/tools/hostgen/release_rac3.py) from the
+decomp's `config/us/map.tsv` and `config/us/names.tsv` (run it again when the pin moves). How to check
 the decomp out, change a patch or move its pin: [docs/SOURCES.md](../../docs/SOURCES.md).
 
 ## About the decomp
