@@ -56,6 +56,33 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual(self.r.text(text, "src/game/other.c"),
                          "func_2F5D68(x); func_00283F58(y); func_00283698(z);")
 
+    def test_a_level_files_names_of_its_level(self):
+        # In an Oozla file func_00312B68 is level 1's copy of func_002A9640 (the primary's level
+        # catalogue), not the executable's address it states: it is that function in the release.
+        r = release.Release({"names": {"func_002A9640": "func_002AA0A8", "func_00312B68": "func_00313FD8",
+                                       "func_L01_003BD178": "func_L01_003BF000"}})
+        r.level_local = {(1, 0x00312B68): "func_002A9640", (1, 0x003BD178): "func_L01_003BD178"}
+        r.release_places = {"func_002A9640": {0: 0x0031EA18, 1: 0x00314908}}
+        r.exe_starts = {0x002A9640}
+        r.level_base = 0x001A7C80
+        text = "func_00312B68(e0); func_002A9640(e1);"
+        # Its place in the release's level 1, spelled with the level, as hostgen reads the primary's.
+        self.assertEqual(r.text(text, "src/levels/01_oozla/L01_003CC930.c"),
+                         "func_L01_00314908_local(e0); func_002AA0A8(e1);")
+        # A function of the level the release names on its own: its place there.
+        self.assertEqual(r.text("func_003BD178();", "src/levels/01_oozla/L01_a.c"), "func_L01_003BF000_local();")
+        # Elsewhere (another level, the executable's files) the name is what it states.
+        self.assertEqual(r.text(text, "src/levels/02_x/L02_a.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
+        self.assertEqual(r.text(text, "src/game/other.c"), "func_00313FD8(e0); func_002AA0A8(e1);")
+
+    def test_six_digits_in_a_file_of_the_executable(self):
+        # func_2802E0 in src/game/ is the executable's func_002802E0 (as hostgen reads it): renamed
+        # as that name; in a level's file six digits are that level's, renamed by the file's table.
+        r = release.Release({"names": {"func_002802E0": "func_00280C98"}})
+        self.assertEqual(r.text("func_2802E0(m);", "src/game/00288D88-g8.c"), "func_00280C98(m);")
+        self.assertEqual(r.text("func_2802E0(m);", "src/levels/01_oozla/L01_a.c"), "func_2802E0(m);")
+        self.assertEqual(r.text("func_2E5E58(m);", "src/game/00288D88-g8.c"), "func_2E5E58(m);")
+
     def test_the_tag_is_not_a_level(self):
         m = release.NAME.fullmatch("func_L00_002A3B80")
         self.assertEqual((m.group(2), m.group(3)), (None, "00"))
