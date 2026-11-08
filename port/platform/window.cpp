@@ -235,7 +235,7 @@ std::vector<DisplayInfo> displays() {
     return list;
 }
 
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(OPENRAC_IOS)
 void macos_set_app_name(const char* name);  // macos_app.mm
 #else
 void install_app_menus(bool) {}
@@ -249,7 +249,7 @@ void set_app_metadata(const char* name, const char* id) {
     if (name != nullptr) {
         SDL_SetHint(SDL_HINT_APP_NAME, name);
     }
-#if defined(__APPLE__)
+#if defined(__APPLE__) && !defined(OPENRAC_IOS)
     // Outside its bundle the menu bar would show the program file's name (openrac-rac1-pal).
     macos_set_app_name("OpenRAC");
 #endif
@@ -259,6 +259,9 @@ Platform::Platform(unsigned subsystems) {
     SDL_InitFlags flags = 0;
     if ((subsystems & kVideo) != 0) {
         flags |= SDL_INIT_VIDEO;
+#if defined(OPENRAC_IOS)
+        SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#endif
 #if defined(__linux__) || defined(__FreeBSD__)
         // On Wayland, allow tearing / immediate presentation when vsync is disabled.
         SDL_SetHint("SDL_VIDEO_WAYLAND_ALLOW_TEARING", "1");
@@ -273,7 +276,10 @@ Platform::Platform(unsigned subsystems) {
         // ...and the controller still plays it. The keyboard counts only while the window has the
         // focus (Input::update), so typing elsewhere never moves Ratchet.
         SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
-#if !defined(__ANDROID__)
+#if defined(OPENRAC_IOS)
+        // UIKit's GameController backend handles paired controllers without scanning Bluetooth.
+        SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
+#elif !defined(__ANDROID__)
         // A Steam Controller (2015 or 2026) is read by SDL's own driver, so it plays a game started
         // outside Steam as a gamepad. An SDL_JOYSTICK_HIDAPI_STEAM=0 in the environment still wins.
         SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAM, "1");
@@ -329,7 +335,9 @@ GlApi default_gl_api() {
         }
         log::warn("OPENRAC_GL_API={}: not es, desktop or vulkan, ignored", value);
     }
-#if defined(__ANDROID__)
+#if defined(OPENRAC_IOS)
+    return GlApi::Vulkan;
+#elif defined(__ANDROID__)
     return GlApi::ES;
 #else
     return GlApi::Desktop;
@@ -367,7 +375,12 @@ bool load_vulkan_library(bool validation, std::string& error) {
     if (!library.empty()) {
         paths.emplace_back(library);
     }
+#if defined(OPENRAC_IOS)
+    const std::string bundled =
+        (program_folder() / "Frameworks/MoltenVK.framework/MoltenVK").string();
+#else
     const std::string bundled = (program_folder().parent_path() / "Frameworks" / "libMoltenVK.dylib").string();
+#endif
     std::vector<std::string> folders;
     const std::string sdk = env::system_variable("VULKAN_SDK").value_or("");
     if (!sdk.empty()) {
@@ -505,6 +518,10 @@ std::unique_ptr<Window> Window::open(const WindowConfig& asked, std::string& err
         if (window->open_vulkan(config, why)) {
             return window;
         }
+#if defined(OPENRAC_IOS)
+        error = std::format("Metal renderer could not start: {}", why);
+        return nullptr;
+#endif
         // Drawn with OpenGL instead: the game still runs.
         log::warn("graphics: Vulkan could not be used ({}); drawing with OpenGL", why);
 #if defined(__ANDROID__)

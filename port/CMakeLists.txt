@@ -10,6 +10,10 @@
 # that open a window need SDL3, found on the system or fetched by CMake.
 cmake_minimum_required(VERSION 3.24)
 project(openrac_port LANGUAGES C CXX)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  set(OPENRAC_IOS ON)
+  add_compile_definitions(OPENRAC_IOS=1)
+endif()
 # macOS: the menu bar's code is Objective-C++ (platform/macos_app.mm), and an SDL3 that is built
 # here (Dependencies.cmake) is Objective-C. Enabled here, for every directory below.
 if(APPLE)
@@ -213,6 +217,11 @@ openrac_warnings(openrac_runtime)
 
 openrac_add_test(runtime SOURCES tests/runtime_test.cpp tests/guest_c.c LIBS openrac_runtime)
 openrac_add_test(expanded_memory SOURCES tests/expanded_memory_test.cpp LIBS openrac_runtime)
+if(APPLE AND NOT OPENRAC_IOS)
+  # Run the existing guest contract checks against iOS's Mach aliases as well as POSIX shared memory.
+  openrac_add_test(ios_memory SOURCES tests/runtime_test.cpp tests/guest_c.c runtime/memory.cpp
+    DEFINITIONS OPENRAC_IOS=1 LIBS openrac_runtime)
+endif()
 # The C entry point to the OPENRAC_* table (openrac/host_env.h), from C.
 openrac_add_c_test(host_env LIBS openrac_runtime)
 
