@@ -324,6 +324,13 @@ def changed_since(rev: str) -> list[str]:
     return proc.git(ROOT, "diff", "--name-only", rev, "HEAD").splitlines()
 
 
+def pins_at(rev: str, game: str) -> set[str]:
+    """The commits REV pins under games/<game>/: a project that only moved to another folder (as
+    games/<game>/<version> became games/<game>/decomp) is still at one of them."""
+    listing = proc.git(ROOT, "ls-tree", "-r", rev, "--", f"games/{game}/", check=False)
+    return {cols[2] for cols in (line.split() for line in listing.splitlines()) if cols and cols[0] == "160000"}
+
+
 def do_check(since: str | None) -> None:
     """The index's pins and game.json agree; and, given REV, a project whose pin moved since REV
     comes with its port tables (port/game/<game>*) changed in the same range, since hostgen's tables,
@@ -341,7 +348,7 @@ def do_check(since: str | None) -> None:
     if since:
         changed = changed_since(since)
         for key, tree in trees().items():
-            if tree.rel not in changed:
+            if tree.rel not in changed or tree.pinned() in pins_at(since, tree.game["id"]):
                 continue
             ported = [p for p in changed if p.startswith(f"port/game/{tree.game['id']}")]
             if not ported:
