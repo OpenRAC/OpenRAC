@@ -10,8 +10,6 @@
 #define RAC2_LADDR(n, a) a
 /* A constant of the game's code, v1.01's as the shared C writes it (`where` it is read). */
 #define RAC2_K(name, value, where) (value)
-/* The release the shared C is written for: it may read any v1.01 address (RAC2_ADDR). */
-#define RAC2_PRIMARY 1
 
 #define RAC2_LEVEL_BASE 0x001A7C80u /* a level's program replaces the executable's memory from here */
 #define RAC2_GP 0x001AEFF0u         /* the executable's $gp */

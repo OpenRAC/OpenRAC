@@ -25,17 +25,11 @@
 /* The hero's vehicle byte (as rac1's hero +0x20A4): 2 is Giant Clank. */
 #define HERO_VEHICLE_MODE (RAC2_g_heroState + 0x20u)
 
-/* Words a release has once release_carry.py has carried them (RAC2_ADDR_...; PAL has them, USA
- * v2.00 not yet): without them it shows the pause and dialog sets, and no prompts. */
-#if defined(RAC2_PRIMARY) || defined(RAC2_ADDR_0x001AA0F8u)
 #define STATE_ARG OPENRAC_DATA(RAC2_ADDR(0x001AA0F8u)) /* g_gameStatePendingArgA */
-#endif
-#if defined(RAC2_PRIMARY) || defined(RAC2_ADDR_0x001A8C64u)
 /* The HUD prompt (func_002B0C28): its owner, frames left and text. */
 #define PROMPT_OWNER OPENRAC_DATA(RAC2_ADDR(0x001A8C64u)) /* g_noticeOwner */
 #define PROMPT_TIMER OPENRAC_DATA(RAC2_ADDR(0x001A8C60u))
 #define PROMPT_TEXT OPENRAC_DATA(RAC2_ADDR(0x001B1D48u))
-#endif
 /* Under state 3 the Galactic Map, under 4 quick select (hold triangle). */
 #define ARG_MAP 2
 #define ARG_QUICK 7
@@ -73,7 +67,6 @@ static const char* play_context(int level) {
  * 7 the ship, or "Return to ship" ("board"), 5 a help popup and 6 a hidden prompt (none), the rest
  * an elevator, a race, a translocator and the like ("use"). */
 static const char* prompt(void) {
-#ifdef PROMPT_OWNER
     const int owner = GREF(int32_t, PROMPT_OWNER);
     const int text = GREF(int32_t, PROMPT_TEXT);
     if (owner == 0 || owner == 5 || owner == 6 || text <= 0 || GREF(int32_t, PROMPT_TIMER) <= 0) {
@@ -86,17 +79,10 @@ static const char* prompt(void) {
         return "board";
     }
     return "use";
-#else
-    return NULL;
-#endif
 }
 
 static int state_arg(void) {
-#ifdef STATE_ARG
     return GREF(int32_t, STATE_ARG);
-#else
-    return 0;
-#endif
 }
 
 int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX]) {
@@ -108,7 +94,8 @@ int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
     switch (GREF(int32_t, OPENRAC_DATA(RAC2_g_nGameState))) {
         case 0:
             *context = play_context(level);
-            hints[0] = (*context)[0] == 'f' ? prompt() : NULL; /* "foot": the sets with the prompts */
+            hints[0] =
+                (*context)[0] == 'f' ? prompt() : NULL; /* "foot": the sets with the prompts */
             return hints[0] != NULL ? 1 : 0;
         case 3:
             *context = state_arg() == ARG_MAP ? "map" : "menu";
