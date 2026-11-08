@@ -37,7 +37,7 @@ first, or never touches it), so its callers looked one argument short to hostgen
  8 files changed, 16 insertions(+), 20 deletions(-)
 
 diff --git a/src/audio/streaming/request_audio_stream_break.c b/src/audio/streaming/request_audio_stream_break.c
-index 34f885f..ea4f8ef 100644
+index 28a609c6..cf951212 100644
 --- a/src/audio/streaming/request_audio_stream_break.c
 +++ b/src/audio/streaming/request_audio_stream_break.c
 @@ -4,9 +4,9 @@
@@ -49,11 +49,11 @@ index 34f885f..ea4f8ef 100644
  
 -void request_audio_stream_break(s32 unused_parameter) {
 +void request_audio_stream_break(void) {
-     if (music_stream_state.read_state != 0) {
-         snd_stream_safe_cd_break();
-         music_stream_state.break_requested = 1;
+     enum {
+         MUSIC_STREAM_READ_INACTIVE = 0
+     };
 diff --git a/src/game/transitions/transition_default_draw.c b/src/game/transitions/transition_default_draw.c
-index 0e20f78..3485a52 100644
+index 13cadaf5..e179ce5f 100644
 --- a/src/game/transitions/transition_default_draw.c
 +++ b/src/game/transitions/transition_default_draw.c
 @@ -51,9 +51,9 @@ extern s32                      light_tfrags() __asm__("func_00234F98");
@@ -65,11 +65,11 @@ index 0e20f78..3485a52 100644
  
 -void transition_default_draw(s32 *unused_parameter) {
 +void transition_default_draw(void) {
-     s32 language_overlay_index;
- 
-     if (level_sky_effect_data == 0 || level_sky_effect_data->unk4 != 0) {
+     enum {
+         GAME_MODE_DIALOG = 4
+     };
 diff --git a/src/overlays/l09/mobys/turret_base.c b/src/overlays/l09/mobys/turret_base.c
-index a36e19e..658810b 100644
+index a95abb87..505a8a3e 100644
 --- a/src/overlays/l09/mobys/turret_base.c
 +++ b/src/overlays/l09/mobys/turret_base.c
 @@ -11,9 +11,9 @@
@@ -85,7 +85,7 @@ index a36e19e..658810b 100644
      void      *copy = &position_copy;
      char      *moby;
 diff --git a/src/overlays/shared/camera/follow_camera_set_distance.c b/src/overlays/shared/camera/follow_camera_set_distance.c
-index 1358182..2188802 100644
+index a712a583..825b621c 100644
 --- a/src/overlays/shared/camera/follow_camera_set_distance.c
 +++ b/src/overlays/shared/camera/follow_camera_set_distance.c
 @@ -75,9 +75,9 @@ s32 clear_follow_camera_volume_if_current(s32 id) {
@@ -101,10 +101,10 @@ index 1358182..2188802 100644
      C842e83c0 *camera_state;
      u8         x;
 diff --git a/src/overlays/shared/enemies/armed_transport_rocket.c b/src/overlays/shared/enemies/armed_transport_rocket.c
-index 538e972..19c6e8c 100644
+index 2a27f34b..fe1bbb57 100644
 --- a/src/overlays/shared/enemies/armed_transport_rocket.c
 +++ b/src/overlays/shared/enemies/armed_transport_rocket.c
-@@ -123,16 +123,13 @@ char *spawn_armed_transport_rocket(char *owner,
+@@ -128,16 +128,13 @@ char *spawn_armed_transport_rocket(char *owner,
                                     char *initial_movement_vector,
                                     void *pos,
                                     void *vel,
@@ -124,7 +124,7 @@ index 538e972..19c6e8c 100644
      char *moby_data;
      float initial_movement_length, x, random_angle_radians, y;
 diff --git a/src/ui/map/slots/pick_map_slot_to_evict.c b/src/ui/map/slots/pick_map_slot_to_evict.c
-index 6da9d60..84241c0 100644
+index 6da9d609..84241c02 100644
 --- a/src/ui/map/slots/pick_map_slot_to_evict.c
 +++ b/src/ui/map/slots/pick_map_slot_to_evict.c
 @@ -5,9 +5,9 @@
@@ -140,11 +140,11 @@ index 6da9d60..84241c0 100644
      s32 selected_level_lookup_result;
      s64 delta;
 diff --git a/src/world/loaders/relocate_asset_entry_pointers.c b/src/world/loaders/relocate_asset_entry_pointers.c
-index 30d15c7..47bc88e 100644
+index 98427f47..419983af 100644
 --- a/src/world/loaders/relocate_asset_entry_pointers.c
 +++ b/src/world/loaders/relocate_asset_entry_pointers.c
-@@ -1,10 +1,9 @@
- #include "types.h"
+@@ -13,10 +13,9 @@ struct LoadedAnimSeq {
+ };
  
  void relocate_asset_entry_pointers(u8 *table_container,
 -                                   s32 animation_index,
@@ -153,11 +153,11 @@ index 30d15c7..47bc88e 100644
  
 -void relocate_asset_entry_pointers(u8 *table_container, s32 animation_index, s32 on) {
 +void relocate_asset_entry_pointers(u8 *table_container, s32 animation_index) {
-     u8 *animation_table_lookup_base = table_container;
-     u8 *selected_table_base;
-     u32 optional_data_offset;
+     struct LoadedAnimSeq *seq;
+     u32                   optional_data_offset;
+ 
 diff --git a/src/world/update_world_object_animation.c b/src/world/update_world_object_animation.c
-index 31d7b86..11f5f6a 100644
+index ff04364e..ae2bd0f1 100644
 --- a/src/world/update_world_object_animation.c
 +++ b/src/world/update_world_object_animation.c
 @@ -78,11 +78,11 @@ struct TransferState {

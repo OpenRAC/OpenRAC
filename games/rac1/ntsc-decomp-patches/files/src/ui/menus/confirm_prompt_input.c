@@ -13,7 +13,7 @@ s32 update_menu_confirm_page(void) __asm__("FUN_00221af0");
 s32 confirm_prompt_input(void) __asm__("FUN_00221ab8");
 
 s32 confirm_prompt_input(void) {
-    if (mode_freeze_state != 0x10 && mode_freeze_state != 1) {
+    if (mode_freeze_flags != 0x10 && mode_freeze_flags != 1) {
         menu_system.next = menu_system.current->back;
         return 0;
     }

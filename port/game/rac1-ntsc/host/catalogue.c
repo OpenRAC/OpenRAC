@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later
  * Copyright (c) 2026 the OpenRAC contributors
  *
- * Ratchet & Clank (NTSC-U): functions the NTSC decomp's catalogue (config/overlays/us/functions.tsv)
+ * Ratchet & Clank (NTSC-U): functions the NTSC decomp's catalogue (config/us/levels/functions.tsv)
  * lists apart where games/rac1's folds them into one, so the shared host C (port/game/rac1/host)
  * answers only the one games/rac1 names. Each answers as the function it is a copy of. Written in
  * this version's own names.
