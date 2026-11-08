@@ -576,7 +576,8 @@ void party() {
 // A mod for several games (openrac-mods docs/MULTI_GAME.md): it loads in each game it names, and a
 // setting for some of them is its default in the others, whatever the list says.
 void several_games() {
-    const std::string text = R"({"format": 2, "id": "both", "name": "Both", "version": "1.0.0", "api": "1.0",
+    const std::string text =
+        R"({"format": 2, "id": "both", "name": "Both", "version": "1.0.0", "api": "1.0",
         "games": {"rac1": ["pal", "ntsc"], "rac2": ["ntsc", "pal", "ntsc2"]},
         "plugin": {"macos-arm64": "lib/a.dylib", "macos-x86_64": "lib/a.dylib", "linux-x86_64": "lib/a.so",
                    "linux-aarch64": "lib/a.so", "windows-x86_64": "lib/a.dll", "windows-arm64": "lib/a.dll"},
@@ -597,8 +598,11 @@ void several_games() {
     rac2.version = "jp";
     CHECK(!plan_all({candidate(text)}, rac2).at(0).load);
     std::vector<ListEntry> list;
-    CHECK(parse_list(R"({"format": 1, "mods": [{"id": "both", "settings": {"count": 2.0, "damage": 2.0}}]})",
-                     list, error));
+    CHECK(parse_list(
+        R"({"format": 1, "mods": [{"id": "both", "settings": {"count": 2.0, "damage": 2.0}}]})",
+        list,
+        error
+    ));
     std::vector<std::string> notes;
     auto values = resolve_settings(m, list[0].settings, notes, "rac2");
     CHECK(values.at("count").f == 1.0 && values.at("damage").f == 2.0 && notes.empty());

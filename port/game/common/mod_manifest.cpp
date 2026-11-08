@@ -158,7 +158,9 @@ bool parse_setting(const json::Value& v, Setting& s, std::string& error) {
     }
     if (const json::Value& games = v["games"]; !games.is_null()) {
         if (!id_list(games, "games", s.games, error) || s.games.empty()) {
-            error = std::format("setting \"{}\": \"games\" must list one or more of the mod's games", s.key);
+            error = std::format(
+                "setting \"{}\": \"games\" must list one or more of the mod's games", s.key
+            );
             return false;
         }
     }
@@ -619,7 +621,11 @@ bool parse_manifest(std::string_view source, Manifest& m, std::string& error) {
             }
             for (const std::string& game : s.games) {
                 if (!m.games.contains(game)) {
-                    error = std::format("setting \"{}\": \"games\" names {}, which \"games\" of the mod does not", s.key, game);
+                    error = std::format(
+                        "setting \"{}\": \"games\" names {}, which \"games\" of the mod does not",
+                        s.key,
+                        game
+                    );
                     return false;
                 }
             }
@@ -709,13 +715,16 @@ bool parse_list(std::string_view source, std::vector<ListEntry>& out, std::strin
 }
 
 bool setting_for_game(const Setting& s, std::string_view game) {
-    return s.games.empty() || game.empty() || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
+    return s.games.empty() || game.empty()
+           || std::find(s.games.begin(), s.games.end(), game) != s.games.end();
 }
 
-std::map<std::string, SettingValue> resolve_settings(const Manifest& manifest,
-                                                     const std::map<std::string, json::Value>& written,
-                                                     std::vector<std::string>& notes,
-                                                     std::string_view game) {
+std::map<std::string, SettingValue> resolve_settings(
+    const Manifest& manifest,
+    const std::map<std::string, json::Value>& written,
+    std::vector<std::string>& notes,
+    std::string_view game
+) {
     std::map<std::string, SettingValue> out;
     for (const Setting& s : manifest.settings) {
         SettingValue value = s.fallback;
