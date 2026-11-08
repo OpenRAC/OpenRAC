@@ -53,6 +53,14 @@
   --control-hi: #2e2c28;
   --control-card: #2e2c28;
   --control-card-hi: #363430;
+  /* A game's own coal, worn with Game colours on (the rule under @property --gold): the launcher's
+     own until a game's accent sets it (palettes.json game_colors). */
+  --tint-panel: #24221e;
+  --tint-panel-hi: #2c2a26;
+  --tint-control: #24221e;
+  --tint-control-hi: #2e2c28;
+  --tint-control-card: #2e2c28;
+  --tint-control-card-hi: #363430;
   /* The light under the bar (the rule on body::after): the picked game's colour (palettes.json
      accents), the gold for Ratchet & Clank. Every game wears the launcher's own colours. */
   --glow: #f5c040;
@@ -98,16 +106,71 @@
   color-scheme: dark;
 }
 
-/* The picked game's colour as a colour, so that the light under the bar eases from one game's to
-   the next (App.svelte) rather than jumps. */
+/* The picked game's colours as colours, so that they ease from one game's to the next (App.svelte)
+   rather than jump: its light, and with Game colours on its bar and gold. */
 @property --glow {
   syntax: "<color>";
   inherits: true;
   initial-value: #f5c040;
 }
 
+@property --bar-top {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e5a013;
+}
+
+@property --bar-bottom {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #cd8300;
+}
+
+@property --bar-stripe {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c99222;
+}
+
+@property --bar-stripe-alt {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #bd8619;
+}
+
+@property --amber {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f5c040;
+}
+
+@property --gold {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffe08f;
+}
+
 html {
-  transition: --glow var(--slow) var(--ease);
+  transition:
+    --glow var(--slow) var(--ease),
+    --bar-top var(--slow) var(--ease),
+    --bar-bottom var(--slow) var(--ease),
+    --bar-stripe var(--slow) var(--ease),
+    --bar-stripe-alt var(--slow) var(--ease),
+    --amber var(--slow) var(--ease),
+    --gold var(--slow) var(--ease);
+}
+
+/* Game colours on (Settings, General): the launcher's own theme wears the picked game's coal too
+   (--tint-*, themes.ts); another theme keeps its own surfaces. */
+html[data-game-colors]:not([data-theme]),
+html[data-game-colors][data-theme="openrac"] {
+  --panel: var(--tint-panel);
+  --panel-hi: var(--tint-panel-hi);
+  --control: var(--tint-control);
+  --control-hi: var(--tint-control-hi);
+  --control-card: var(--tint-control-card);
+  --control-card-hi: var(--tint-control-card-hi);
 }
 
 /* The light under the bar: the picked game's colour, soft, over the whole window (screen blend, so

@@ -26,6 +26,7 @@
   import { DISCORD_URL, PYTHON_URL, REPO_URL, SITE_URL } from "$lib/links";
   import { nameProblem } from "$lib/multiplayerName";
   import { applyPalette, PALETTES } from "$lib/palettes";
+  import { applyAccent } from "$lib/themes";
   import { channelName, devBranches } from "$lib/updates";
   import { tablist } from "$lib/tabs";
 
@@ -48,6 +49,7 @@
     "installDir",
     "layout",
     "theme",
+    "gameColors",
     "discordRpc",
     "checkUpdates",
     "updateChannel",
@@ -169,6 +171,15 @@
     applyPalette(draft.theme);
     return () => {
       applyPalette(app.config?.theme);
+    };
+  });
+
+  // Game colours too, on the game picked.
+  $effect(() => {
+    const game = app.version?.split("/")[0] ?? null;
+    applyAccent(game, draft.gameColors);
+    return () => {
+      applyAccent(game, app.config?.gameColors ?? false);
     };
   });
 
@@ -431,6 +442,13 @@
           {/each}
         </div>
       </div>
+      <label class="setting">
+        <span class="text">
+          <strong>Game colours</strong>
+          <small>The bar, buttons and panels in the picked game's own colour, not the gold.</small>
+        </span>
+        <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
+      </label>
       <!-- Android has neither: its games are tiles, and no Discord app on the device reads a
            desktop's rich presence. -->
       {#if !onAndroid}

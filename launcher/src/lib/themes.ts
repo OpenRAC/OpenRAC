@@ -89,29 +89,52 @@ export function themeStyle(game: string): string {
  *  launcher's own (app.css). */
 export const ACCENTS: Record<string, Record<string, string>> = palettes.accents;
 
-/** The custom properties a game's accent sets on the page; none for the launcher's own (rac1, or
- *  no game). */
-export function accentProperties(game: string | null): [string, string][] {
+/** A game's own colours, worn instead of the launcher's when Settings → General → Game colours is on:
+ *  its bar, its gold and, on the launcher's own theme, its coal (the --tint-* tokens, app.css). */
+export const GAME_COLORS: Record<string, Record<string, string>> = palettes.game_colors;
+
+/** The custom properties a game's accent sets on the page, with `colors` its own colours too; none
+ *  for the launcher's own (rac1, or no game). */
+export function accentProperties(game: string | null, colors = false): [string, string][] {
   const a = game ? ACCENTS[game] : undefined;
-  return a ? Object.entries(a) : [];
+  const c = game && colors ? GAME_COLORS[game] : undefined;
+  return [...Object.entries(a ?? {}), ...Object.entries(c ?? {})];
 }
 
 /** The custom properties accentProperties may set, to take them all off again. */
-export const ACCENT_PROPERTIES = [...new Set(Object.values(ACCENTS).flatMap((a) => Object.keys(a)))];
+export const ACCENT_PROPERTIES = [
+  ...new Set([...Object.values(ACCENTS), ...Object.values(GAME_COLORS)].flatMap((a) => Object.keys(a))),
+];
 
-/** Where the accent's game is kept for the first paint, before the settings have loaded. */
+/** Where the accent's game, and whether it wears its own colours, are kept for the first paint,
+ *  before the settings have loaded. */
 const STORED_ACCENT = "openrac-accent";
+const STORED_COLORS = "openrac-game-colors";
 
-/** Puts game `game`'s accent on the page and keeps it for the next start, so the launcher opens in
- *  it rather than easing into it from the launcher's own (app.css). */
-export function applyAccent(game: string | null, root: HTMLElement = document.documentElement) {
+/** Puts game `game`'s accent on the page (with `colors` its own colours too) and keeps it for the
+ *  next start, so the launcher opens in it rather than easing into it from the launcher's own
+ *  (app.css). */
+export function applyAccent(game: string | null, colors = false, root: HTMLElement = document.documentElement) {
   for (const name of ACCENT_PROPERTIES) root.style.removeProperty(name);
-  for (const [name, value] of accentProperties(game)) root.style.setProperty(name, value);
+  for (const [name, value] of accentProperties(game, colors)) root.style.setProperty(name, value);
+  if (colors) root.dataset.gameColors = "";
+  else delete root.dataset.gameColors;
   try {
     if (game) localStorage.setItem(STORED_ACCENT, game);
     else localStorage.removeItem(STORED_ACCENT);
+    if (colors) localStorage.setItem(STORED_COLORS, "1");
+    else localStorage.removeItem(STORED_COLORS);
   } catch {
     // Storage refused (a private window): the accent then comes with the settings.
+  }
+}
+
+/** Whether the last start wore the game's own colours. */
+export function storedGameColors(): boolean {
+  try {
+    return localStorage.getItem(STORED_COLORS) === "1";
+  } catch {
+    return false;
   }
 }
 

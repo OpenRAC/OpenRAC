@@ -214,7 +214,7 @@ describe("Android launcher", () => {
       return ["--ink", "--amber", "--glow"].map((name) => s.getPropertyValue(name).trim());
     });
     expect(ink).toBe("#000000");
-    expect(amber).toBe("#f5c040");
+    expect(amber).toBe("rgb(245, 192, 64)");
     expect(glow).toBe("rgb(255, 210, 63)");
   });
 });

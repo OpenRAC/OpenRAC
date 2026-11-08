@@ -6,8 +6,10 @@ import {
   THEMES,
   accentProperties,
   applyAccent,
+  GAME_COLORS,
   storedAccent,
   theme,
+  storedGameColors,
   themeStyle,
 } from "./themes";
 
@@ -36,13 +38,22 @@ describe("themes", () => {
     expect(accentProperties(null)).toEqual([]);
     for (const id of Object.keys(THEMES).filter((id) => id !== "rac1")) {
       expect(ACCENTS[id], `no accent for ${id}`).toBeDefined();
-      const names = accentProperties(id).map(([name]) => name);
-      expect(names.sort()).toEqual([...ACCENT_PROPERTIES].sort());
+      expect(accentProperties(id).map(([name]) => name)).toEqual(["--glow"]);
+      expect(GAME_COLORS[id], `no game colours for ${id}`).toBeDefined();
     }
   });
 
   it("gives an accent only the light under the bar, so every game wears the launcher's gold", () => {
-    expect(ACCENT_PROPERTIES).toEqual(["--glow"]);
+    for (const a of Object.values(ACCENTS)) expect(Object.keys(a)).toEqual(["--glow"]);
+  });
+
+  it("adds a game's own bar, gold and coal with Game colours on", () => {
+    const names = accentProperties("rac2", true).map(([name]) => name);
+    expect(names).toContain("--glow");
+    expect(names).toContain("--amber");
+    expect(names).toContain("--bar-stripe");
+    expect(names).toContain("--tint-panel");
+    expect(accentProperties("rac1", true)).toEqual([]);
   });
 
   it("keeps the accent's game for the next start's first paint", () => {
@@ -54,17 +65,23 @@ describe("themes", () => {
     } as Storage;
     const props = new Map<string, string>();
     const root = {
+      dataset: {} as DOMStringMap,
       style: {
         setProperty: (k: string, v: string) => props.set(k, v),
         removeProperty: (k: string) => props.delete(k),
       },
     } as unknown as HTMLElement;
 
-    applyAccent("rac2", root);
+    applyAccent("rac2", false, root);
     expect(storedAccent()).toBe("rac2");
+    expect([...props.keys()]).toEqual(["--glow"]);
+
+    applyAccent("rac2", true, root);
+    expect(storedGameColors()).toBe(true);
     expect([...props.keys()].sort()).toEqual([...ACCENT_PROPERTIES].sort());
 
-    applyAccent(null, root);
+    applyAccent(null, false, root);
+    expect(storedGameColors()).toBe(false);
     expect(storedAccent()).toBeNull();
     expect(props.size).toBe(0);
   });
