@@ -173,14 +173,15 @@ html[data-game-colors][data-theme="openrac"] {
   --control-card-hi: var(--tint-control-card-hi);
 }
 
-/* The light under the bar: the picked game's colour, soft, over the whole window (screen blend, so
-   it only lightens). The page starts lit and darkens downwards, as under a lamp; on every theme,
-   OLED too. */
+/* The light under the bar: the picked game's colour, soft, on the window's background (screen
+   blend, so it only lightens). The page starts lit and darkens downwards, as under a lamp; on every
+   theme, OLED too. It lies under the page, not over its buttons, so a page sliding in (motion.ts)
+   is lit the same during the slide as after it. */
 body::after {
   content: "";
   position: fixed;
   inset: var(--nav-top) 0 0 var(--nav-left);
-  z-index: 15;
+  z-index: -1;
   pointer-events: none;
   mix-blend-mode: screen;
   background:
@@ -236,7 +237,6 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: var(--ink);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -244,8 +244,10 @@ body {
 
 /* Avoid root rem units: WebKit shrinks them while inherited colours animate between games.
    Percentages keep the system's text size as the reference. */
+/* Only the root has the background: one on body would cover the light under the bar (body::after). */
 html {
   font: 93.75%/1.55 var(--font-sans);
+  background: var(--ink);
 }
 
 body {
