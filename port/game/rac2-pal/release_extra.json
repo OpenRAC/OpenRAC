@@ -3,8 +3,7 @@
   "from_assembly": {
     "func_0034A870": "src/pal/game/0034A870-cc.c declares its last callee, func_PAL_0034ABB0, void where its definition returns int: the inherited result does not compile",
     "func_002CBD80": "src/pal/game/002CBD80-g8.c declares func_PAL_0034ABB0 void too (as above)",
-    "func_L00_0037BEC8": "src/pal/levels/shared/L00_0037BEC8-g8.c dispatches through a computed goto (goto *D_0026DBE0[...]), which hostgen does not translate",
-    "func_002F5FB8": "rac2-decomp fd4ca62 matched it in src/game/002F5220.c with ref_L00_002F5FB8_* externs, references into level 0's memory that hostgen does not place; the port takes it from the retail assembly (without this it has neither, and the menu loop calls a stub)"
+    "func_L00_0037BEC8": "src/pal/levels/shared/L00_0037BEC8-g8.c dispatches through a computed goto (goto *D_0026DBE0[...]), which hostgen does not translate"
   },
   "unit_aliases": {
     "src/levels/shared/L00_002B5A88-qcopy.c": {
