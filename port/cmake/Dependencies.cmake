@@ -227,7 +227,7 @@ if(OPENRAC_VULKAN AND NOT TARGET openrac_vulkan)
   )
   FetchContent_Declare(vma
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-    GIT_TAG v3.3.0
+    GIT_TAG v3.5.0
     GIT_SHALLOW TRUE
     SOURCE_SUBDIR openrac-download-only
   )

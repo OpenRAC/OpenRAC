@@ -548,8 +548,13 @@ bool show_picture(const std::uint8_t* rgba, int width, int height, float black) 
     const std::uint64_t index = g->index++;
     if (shots().due(index)) {
         const std::string path = shots().prefix + std::to_string(index) + ".png";
-        scene::write_png(path, width, height, pixels);
-        log::info("frame {} written to {}", index, path);
+        scene::write_png_later(
+            path,
+            width,
+            height,
+            std::move(pixels),
+            std::format("frame {} written to {}", index, path)
+        );
     }
     // The picture fills the frame the game's own frames fill; its first row is the top.
     present(g->picture.id(), width, height, window_width, window_height, true);

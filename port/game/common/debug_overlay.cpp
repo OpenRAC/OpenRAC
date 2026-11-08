@@ -592,13 +592,9 @@ std::string shot_name(std::uint64_t tick, bool enhanced) {
     return name;
 }
 
-// The window as it is now, overlay included, to a PNG (the back buffer, before the swap). False
-// when it could not be written.
-bool write_window(const std::string& path, int width, int height) {
+// The window as it is now, overlay included (the back buffer, before the swap), top row first.
+std::vector<std::uint8_t> read_window(int width, int height) {
     using namespace openrac::gl;
-    if (width <= 0 || height <= 0) {
-        return false;
-    }
     std::vector<std::uint8_t> pixels(static_cast<std::size_t>(width) * height * 4);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
@@ -613,7 +609,15 @@ bool write_window(const std::string& path, int width, int height) {
     for (std::size_t i = 3; i < flipped.size(); i += 4) {
         flipped[i] = 0xFF;
     }
-    if (scene::write_png(path, width, height, flipped)) {
+    return flipped;
+}
+
+// The window to a PNG. False when it could not be written.
+bool write_window(const std::string& path, int width, int height) {
+    if (width <= 0 || height <= 0) {
+        return false;
+    }
+    if (scene::write_png(path, width, height, read_window(width, height))) {
         s.message = "window written to " + path;
         log::info("{}", s.message);
         return true;
@@ -1078,7 +1082,14 @@ void draw(const Shown& shown) {
     renderer::gl_stats::reset_binds();
 
     if (!scripted_shot.empty()) {
-        write_window(scripted_shot, shown.window_width, shown.window_height);
+        s.message = "window written to " + scripted_shot;
+        scene::write_png_later(
+            scripted_shot,
+            shown.window_width,
+            shown.window_height,
+            read_window(shown.window_width, shown.window_height),
+            s.message
+        );
     }
     if (s.shot_tick) {
         const std::string path = shot_name(*s.shot_tick, shown.enhanced_graphics);

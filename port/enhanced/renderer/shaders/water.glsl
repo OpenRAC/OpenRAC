@@ -210,7 +210,9 @@ vec3 effect_material(vec3 painted) {
         }
 #endif
     }
-    if (chosen<0) return painted;
+    // Pixels off every body stay in the quad: dFdx below is undefined once a neighbour has returned.
+    const bool outside=chosen<0;
+    if(outside) chosen=0;
     vec4 origin=texelFetch(water_bodies,chosen*5);
     vec4 u=texelFetch(water_bodies,chosen*5+1),v=texelFetch(water_bodies,chosen*5+2);
     vec4 plane=texelFetch(water_bodies,chosen*5+3);
@@ -430,5 +432,9 @@ vec3 effect_material(vec3 painted) {
     lit=mix(lit,vec3(.65,.8,.85)*illumination,foam_weight);
     water_background_weight*=1.-foam_weight;
     water_radiance=max(lit,vec3(0));
+    if(outside) {
+        water_composite_active=false;
+        return painted;
+    }
     return probe_display(water_radiance);
 }

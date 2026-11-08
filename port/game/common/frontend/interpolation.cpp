@@ -326,8 +326,13 @@ void capture_frame(const FramePresentation& output) {
         for (std::size_t i = 3; i < pixels.size(); i += 4) {
             pixels[i] = 0xFF;
         }
-        scene::write_png(path, width, height, pixels);
-        log::info("frame {} written to {}", output.tick, path);
+        scene::write_png_later(
+            path,
+            width,
+            height,
+            std::move(pixels),
+            std::format("frame {} written to {}", output.tick, path)
+        );
         shot_time += std::chrono::steady_clock::now() - writing;
     }
 }

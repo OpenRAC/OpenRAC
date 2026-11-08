@@ -1338,7 +1338,7 @@ fn unzip_capped(zip_path: &Path, into: &Path, max_bytes: u64, max_files: usize) 
     let mut written: u64 = 0;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-        let name = entry.name().to_string();
+        let name = entry.name().map_err(|e| e.to_string())?.to_string();
         let Some(relative) = entry.enclosed_name().filter(|p| safe_relative(&p.to_string_lossy().replace('\\', "/")))
         else {
             return Err(format!("the .zip names a file outside its folder ({name})"));

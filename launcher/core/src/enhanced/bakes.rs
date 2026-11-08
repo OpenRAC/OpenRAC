@@ -5,7 +5,6 @@
 use super::{BAKE_ACTION, NO_BAKER_HERE, SHIPS_BAKER};
 use serde::Serialize;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 const STAMP: &str = "openrac-bake.json";
@@ -29,7 +28,7 @@ pub struct BakeStatus {
 
 fn sha256(path: &Path) -> Option<String> {
     let bytes = std::fs::read(path).ok()?;
-    Some(format!("{:x}", Sha256::digest(&bytes)))
+    Some(crate::sha256_hex(&bytes))
 }
 
 /// What `baker` makes of `level` (`--print-profile`):
@@ -69,7 +68,7 @@ fn baker_profile(baker: &Path, level: &Path) -> Option<String> {
 
 /// Current native bake stamps must match the resolved transport profile exactly.
 fn made_by(stamp: &Value, profile: &str) -> bool {
-    let digest = format!("{:x}", Sha256::digest(profile.as_bytes()));
+    let digest = crate::sha256_hex(profile.as_bytes());
     stamp["version"] == 5 && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
@@ -456,7 +455,7 @@ mod tests {
         let profile = "current profile";
         for version in [1, 2, 3, 4] {
             let stamp = serde_json::json!({"version":version,
-                "baker_profile_sha256":format!("{:x}",Sha256::digest(profile.as_bytes()))});
+                "baker_profile_sha256":crate::sha256_hex(profile.as_bytes())});
             assert!(!made_by(&stamp, profile));
         }
     }
@@ -544,7 +543,7 @@ mod tests {
         std::fs::write(baked.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
         let stamp = serde_json::json!({"version":5,
             "manifest_sha256": sha256(&level.join("manifest.json")), "profile_sha256":null,
-            "baker_profile_sha256":format!("{:x}",Sha256::digest(b"profile"))});
+            "baker_profile_sha256":crate::sha256_hex(b"profile")});
         std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         let status = || bake_status_on(&levels, &probes, &baker, true, &|_, _| Some("profile".to_owned()));
         assert_eq!(status().ready, 1);
@@ -611,8 +610,8 @@ mod tests {
             std::fs::write(dir.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
             let text = serde_json::json!({
                 "version": 5,
-                "manifest_sha256": format!("{:x}", Sha256::digest(manifest.as_bytes())),
-                "baker_profile_sha256": format!("{:x}", Sha256::digest(b"baker")),
+                "manifest_sha256": crate::sha256_hex(manifest.as_bytes()),
+                "baker_profile_sha256": crate::sha256_hex(b"baker"),
             });
             std::fs::write(dir.join(STAMP), text.to_string()).unwrap();
         };
