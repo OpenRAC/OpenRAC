@@ -61,12 +61,12 @@ index 9cd9482..0fe5839 100755
  #   bash tools/docker/run.sh bash tools/build_sn.sh
  set -euo pipefail
  repo=$(cd "$(dirname "$0")/../.." && pwd)
-+# Inside OpenRAC (games/rac4/ntsc), mount the whole repository instead, so
++# Inside OpenRAC (games/rac4/decomp), mount the whole repository instead, so
 +# the shared toolchains/ and baserom/ at its top level are visible in the
 +# container at the same paths (toolchain/ is a link to ../../../toolchains).
 +mount=$repo
 +top=$(cd "$repo/../../.." && pwd)
-+if [ -f "$top/games/rac4/game.json" ] && [ "$top/games/rac4/ntsc" = "$repo" ]; then
++if [ -f "$top/games/rac4/game.json" ] && [ "$top/games/rac4/decomp" = "$repo" ]; then
 +  mount=$top
 +fi
  CONTAINER_CLI="${CONTAINER_CLI:-}"

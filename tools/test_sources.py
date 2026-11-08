@@ -104,6 +104,45 @@ class PatchFolderTests(unittest.TestCase):
         self.assertEqual(game["versions"]["w"]["source"]["commit"], self.base)
 
 
+class DecompTreeTests(unittest.TestCase):
+    """A game's decompilation (game.json "decomp"), the one tree every version is built from."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / "games/g").mkdir(parents=True)
+        source = {"name": "g-decomp", "repo": "https://example.invalid/g", "branch": "main",
+                  "commit": "a" * 40, "date": "2026-01-01"}
+        game = {"id": "g", "decomp": {"dir": "games/g/decomp", **source}, "versions": {
+            "pal": {"dir": "games/g/decomp", "source": {"shared": "decomp", **source}},
+            "ntsc": {"dir": "games/g/decomp", "source": {"shared": "decomp", **source}},
+            "jp": {"source": {**source, "name": "other", "commit": "b" * 40}}}}
+        (self.root / "games/g/game.json").write_text(json.dumps(game))
+        patcher = mock.patch.object(sources, "ROOT", self.root)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_the_tree_is_the_games_and_its_patches_beside_it(self):
+        found = sources.trees(self.root)
+        self.assertEqual(list(found), ["g/decomp", "g/jp"])
+        tree = found["g/decomp"]
+        self.assertEqual((tree.rel, tree.patches), ("games/g/decomp", self.root / "games/g/decomp-patches"))
+        self.assertEqual(len(tree.sharing()), 2)
+
+    def test_a_version_names_its_tree(self):
+        self.assertEqual([t.key for t in sources.chosen(["g/pal", "g/decomp", "g/ntsc"])], ["g/decomp"])
+
+    def test_record_brings_every_version_along(self):
+        tree = sources.trees(self.root)["g/decomp"]
+        with mock.patch.object(sources.Tree, "git", return_value="2026-02-02"):
+            sources.record(tree, "c" * 40)
+        game = json.loads((self.root / "games/g/game.json").read_text())
+        self.assertEqual([game["decomp"]["commit"], game["versions"]["pal"]["source"]["commit"],
+                          game["versions"]["ntsc"]["source"]["commit"], game["versions"]["jp"]["source"]["commit"]],
+                         ["c" * 40, "c" * 40, "c" * 40, "b" * 40])
+
+
 class PinTests(unittest.TestCase):
     def test_each_submodule_is_pinned_where_game_json_says(self):
         for key, tree in sources.trees().items():

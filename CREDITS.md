@@ -5,7 +5,7 @@ together. The original repositories keep the full history of who wrote what
 ([docs/SOURCES.md](docs/SOURCES.md)). Names below are as they appear in each
 project's commits up to the sync of 2026-10-07, most commits first.
 
-## Ratchet & Clank, PAL: rac1-decomp (`games/rac1/pal`)
+## Ratchet & Clank, PAL: rac1-decomp (`games/rac1/decomp`)
 
 - Kryštof "Lynder063" Malinda: creator and maintainer (commits as Lynder063,
   lynderjekokot and Kryštof Malinda)
@@ -20,7 +20,7 @@ project's commits up to the sync of 2026-10-07, most commits first.
 - Purab
 - mechaivan
 
-## Ratchet & Clank: Going Commando: rac2-decomp (`games/rac2/ntsc`)
+## Ratchet & Clank: Going Commando: rac2-decomp (`games/rac2/decomp`)
 
 - Louis-Philippe Le Sieur (llesieur99): creator and maintainer
 - platypet2217-star: author of RAC2Decomp, the functional PAL port in
@@ -32,7 +32,7 @@ project's commits up to the sync of 2026-10-07, most commits first.
 - vetusmagnus: creator and maintainer
 - Louis-Philippe Le Sieur
 
-## Ratchet: Deadlocked: rac-deadlocked-decomp (`games/rac4/ntsc`)
+## Ratchet: Deadlocked: rac-deadlocked-decomp (`games/rac4/decomp`)
 
 - Kryštof "Lynder063" Malinda: creator and maintainer
 

@@ -1,8 +1,8 @@
 # The decompilation projects OpenRAC builds on, each at the commit games/<game>/game.json records.
-# OpenRAC's own changes to them live beside each one, in <version>-patches/, and
+# OpenRAC's own changes to them live beside each one, in decomp-patches/ (or <version>-patches/), and
 # `python3 tools/sources.py apply` puts them in place (docs/SOURCES.md).
-[submodule "games/rac1/pal"]
-	path = games/rac1/pal
+[submodule "games/rac1/decomp"]
+	path = games/rac1/decomp
 	url = https://github.com/OpenRAC/rac1-decomp.git
 	branch = main
 	shallow = true
@@ -13,8 +13,8 @@
 	branch = main
 	shallow = true
 	ignore = dirty
-[submodule "games/rac2/ntsc"]
-	path = games/rac2/ntsc
+[submodule "games/rac2/decomp"]
+	path = games/rac2/decomp
 	url = https://github.com/OpenRAC/rac2-decomp.git
 	branch = master
 	shallow = true
@@ -25,20 +25,20 @@
 	branch = main
 	shallow = true
 	ignore = dirty
-[submodule "games/rac4/ntsc"]
-	path = games/rac4/ntsc
+[submodule "games/rac4/decomp"]
+	path = games/rac4/decomp
 	url = https://github.com/OpenRAC/rac4-decomp.git
 	branch = main
 	shallow = true
 	ignore = dirty
-[submodule "games/rac5/ntsc"]
-	path = games/rac5/ntsc
+[submodule "games/rac5/decomp"]
+	path = games/rac5/decomp
 	url = https://github.com/OpenRAC/rac5-sm-decomp.git
 	branch = master
 	shallow = true
 	ignore = dirty
-[submodule "games/rac6/ntsc"]
-	path = games/rac6/ntsc
+[submodule "games/rac6/decomp"]
+	path = games/rac6/decomp
 	url = https://github.com/OpenRAC/rac-sac-decomp.git
 	branch = main
 	shallow = true

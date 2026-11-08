@@ -4,7 +4,7 @@ Released in Europe as *Ratchet: Gladiator*.
 
 | Version | Directory | Came from | Builds on |
 |---|---|---|---|
-| NTSC-U, `SCUS_974.65` (disc v1.00) | [ntsc/](ntsc/README.md) | [rac-deadlocked-decomp](https://github.com/OpenRAC/rac-deadlocked-decomp) | macOS and Linux through Docker (rac1/pal's image) |
+| NTSC-U, `SCUS_974.65` (disc v1.00) | [decomp/](decomp/README.md) | [rac-deadlocked-decomp](https://github.com/OpenRAC/rac-deadlocked-decomp) | macOS and Linux through Docker (rac1/pal's image) |
 
 The project began on 2026-10-04 and is early. The boot executable is a small
 loader around one compressed game image; the project unpacks that image into
@@ -12,8 +12,8 @@ its 17 sections, disassembles the core, network and level code (8,027
 functions), and does the same for the 47 level overlays on the disc (24
 campaign, 23 multiplayer). The runtime libraries are rebuilt from their open
 sources: libgcc from GCC, libm from newlib
-([ntsc/docs/RESEARCH.md](ntsc/docs/RESEARCH.md),
-[ntsc/docs/OVERLAYS.md](ntsc/docs/OVERLAYS.md)).
+([decomp/docs/RESEARCH.md](decomp/docs/RESEARCH.md),
+[decomp/docs/OVERLAYS.md](decomp/docs/OVERLAYS.md)).
 
 It is built like rac1/pal, by the same author, and compiles like rac3: SN GCC
 2.95.3 v1.36 with `-O2 -G8 -fopt-stack -mno-check-zero-division`
@@ -33,7 +33,7 @@ struct offset or a wrong small constant can therefore still count. The other
 games prove more: a byte-identical build, or a strict per-function check at
 link addresses. Read this game's percentage with that in mind until it has a
 link-time comparison (the first of its own
-[open questions](ntsc/docs/RESEARCH.md#open-questions)).
+[open questions](decomp/docs/RESEARCH.md#open-questions)).
 
 ## What it shares with the other games
 
@@ -50,7 +50,7 @@ From the top of OpenRAC, with the two toolchain mirrors in `toolchains/`
 
 ```sh
 python3 tools/openrac.py setup rac4/ntsc      # the boot executable from your disc, and the toolchain link
-cd games/rac4/ntsc
+cd games/rac4/decomp
 bash tools/setup_asm.sh                       # unpack the image, split it, disassemble into asm/
 bash tools/docker/run.sh bash tools/build.sh  # compile every src/**/*.c
 bash tools/docker/run.sh bash tools/build_libgcc.sh
@@ -64,12 +64,12 @@ The level overlays come from a Wrench unpack of your disc
 on a Mac, run Wrench's Linux build in an amd64 container as
 [rac3's page](../rac3/README.md#getting-started) shows). Pass the folder as
 `OVERLAYS=DIR` to `setup_asm.sh` and `audit_matches.py`
-([ntsc/docs/OVERLAYS.md](ntsc/docs/OVERLAYS.md)).
+([decomp/docs/OVERLAYS.md](decomp/docs/OVERLAYS.md)).
 
-Then follow [ntsc/CONTRIBUTING.md](ntsc/CONTRIBUTING.md). Its naming rule is
+Then follow [ntsc/CONTRIBUTING.md](decomp/CONTRIBUTING.md). Its naming rule is
 strict, and stricter than any other game's: every name comes from your own
 work on the retail binary, `func_<address>` and generated `TypeN` and `fNN`
 until the code is understood, and nothing is copied from another source
-([ntsc/LEGAL.md](ntsc/LEGAL.md)). For this game that rule matters most:
+([ntsc/LEGAL.md](decomp/LEGAL.md)). For this game that rule matters most:
 nothing taken from leaked material is used, whatever circulates about it
 ([sourcing policy](../../docs/policy/SOURCING.md)).

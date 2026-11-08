@@ -2,20 +2,22 @@
 """
 The decompilation projects under games/ and OpenRAC's changes to them (docs/SOURCES.md).
 
-Each project is a git submodule at games/<game>/<version>, pinned to the commit its game.json
-"source" records. Nothing is committed inside it: OpenRAC's changes live beside it, in
-games/<game>/<version>-patches/:
+Each project is a git submodule, pinned to the commit its game.json records: a game's own
+decompilation, which holds every version of it, at games/<game>/decomp (game.json "decomp"; each
+version built from it says "shared": "decomp"), and a version's project of its own (rac1's NTSC
+decomp) at games/<game>/<version> (that version's "source"). Nothing is committed inside it:
+OpenRAC's changes live beside it, in games/<game>/decomp-patches/ (or <version>-patches/):
 
   NNNN-<subject>.patch   one change each, with its reason (git format-patch), applied in order
   files/<path>           OpenRAC's own files, copied to <path> in the project
   README.md              what the folder holds; its list of patches is written by `save`
 
   python3 tools/sources.py init                       check out every project at its pin and apply (after a clone or a pull)
-  python3 tools/sources.py apply [GAME/VERSION...]    put the changes in place
-  python3 tools/sources.py unapply [GAME/VERSION...]  take them out: the project as it is upstream
-  python3 tools/sources.py edit GAME/VERSION          turn the patches into commits in the submodule
-  python3 tools/sources.py save GAME/VERSION          write those commits back as the patches
-  python3 tools/sources.py update GAME/VERSION [REV]  move to REV (default: its branch's tip), patches rebased
+  python3 tools/sources.py apply [GAME/TREE...]       put the changes in place (TREE: decomp, or a version)
+  python3 tools/sources.py unapply [GAME/TREE...]     take them out: the project as it is upstream
+  python3 tools/sources.py edit GAME/TREE             turn the patches into commits in the submodule
+  python3 tools/sources.py save GAME/TREE             write those commits back as the patches
+  python3 tools/sources.py update GAME/TREE [REV]     move to REV (default: its branch's tip), patches rebased
   python3 tools/sources.py status                     where each project is, and its patches
   python3 tools/sources.py check [--since REV]        every pin matches game.json; a pin moved since REV
                                                       came with the port's tables regenerated (CI)
@@ -44,15 +46,25 @@ BEGIN, END = "<!-- patches:begin -->", "<!-- patches:end -->"
 
 
 class Tree:
-    """One project: its version key, game manifest, submodule folder and patches folder."""
+    """One project: its key (game/decomp, or game/version for a version's own project), game
+    manifest, submodule folder and patches folder."""
 
     def __init__(self, root: Path, game: dict, version: str):
         self.root, self.game, self.version = root, game, version
         self.key = f"{game['id']}/{version}"
-        self.rel = games.version_dir(game, version)
+        if version == games.DECOMP:
+            self.rel = games.decomp_dir(game)
+            self.source = game[games.DECOMP]
+        else:
+            self.rel = games.version_dir(game, version)
+            self.source = game["versions"][version]["source"]
         self.dir = root / self.rel
         self.patches = root / f"{self.rel}-patches"
-        self.source = game["versions"][version]["source"]
+
+    def sharing(self) -> list[dict]:
+        """The "source" of every version built from this tree (game.json "shared": its name)."""
+        return [v["source"] for v in self.game["versions"].values()
+                if (v.get("source") or {}).get("shared") == self.version]
 
     def git(self, *args, check: bool = True):
         return proc.git(self.dir, *args, check=check)
@@ -91,11 +103,19 @@ class Tree:
         return sorted(p.relative_to(top).as_posix() for p in top.rglob("*") if p.is_file()) if top.is_dir() else []
 
 
-def trees(root: Path = ROOT) -> dict[str, Tree]:
-    """'game/version' -> Tree for every version with its own source (not one "shared" with another
-    version's tree, such as rac2's PAL and v2.00, built from rac2/ntsc)."""
-    return {f"{g['id']}/{v}": Tree(root, g, v) for g, v, info in games.versions(root)
-            if info.get("source") and not info["source"].get("shared")}
+def trees(root: Path | None = None) -> dict[str, Tree]:
+    """'game/decomp' -> Tree for every game's decompilation, and 'game/version' -> Tree for every
+    version with a source project of its own (not one "shared" with a tree: every version of rac2,
+    built from rac2/decomp)."""
+    root = root or ROOT
+    out = {}
+    for game in games.load_all(root):
+        if game.get(games.DECOMP):
+            out[f"{game['id']}/{games.DECOMP}"] = Tree(root, game, games.DECOMP)
+        for v, info in game["versions"].items():
+            if info.get("source") and not info["source"].get("shared"):
+                out[f"{game['id']}/{v}"] = Tree(root, game, v)
+    return out
 
 
 def need(tree: Tree) -> None:
@@ -239,15 +259,13 @@ def do_save(tree: Tree) -> None:
 
 
 def record(tree: Tree, commit: str) -> None:
-    """Write COMMIT into game.json for the tree's version and for the versions sharing its tree."""
+    """Write COMMIT into game.json for the tree and for the versions built from it."""
     source = tree.source
     source["commit"] = commit
     source["date"] = tree.git("log", "-1", "--format=%cs", commit)
     source["imported"] = time.strftime("%Y-%m-%d")
-    for other in tree.game["versions"].values():
-        shared = other.get("source") or {}
-        if shared.get("shared") == tree.version:
-            shared.update({k: source[k] for k in ("commit", "date", "imported")})
+    for shared in tree.sharing():
+        shared.update({k: source[k] for k in ("commit", "date", "imported")})
     path = games.manifest_path(tree.game["id"], tree.root)
     path.write_text(json.dumps(tree.game, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -316,6 +334,10 @@ def do_check(since: str | None) -> None:
         if pinned != recorded:
             problems.append(f"{key}: game.json records {recorded[:10]} but the submodule is pinned to "
                             f"{pinned[:10] if pinned else 'nothing'} (tools/sources.py update {key})")
+        for shared in tree.sharing():
+            if shared.get("commit") != recorded:
+                problems.append(f"{key}: a version built from it records {str(shared.get('commit'))[:10]}, "
+                                f"not the tree's {recorded[:10]} (game.json)")
     if since:
         changed = changed_since(since)
         for key, tree in trees().items():
@@ -333,10 +355,16 @@ def do_check(since: str | None) -> None:
 
 def chosen(keys: list[str]) -> list[Tree]:
     known = trees()
+    # A version built from its game's decompilation names that tree (rac1/pal is rac1/decomp).
+    for game in games.load_all(ROOT):
+        for v, info in game["versions"].items():
+            if (info.get("source") or {}).get("shared") == games.DECOMP and f"{game['id']}/{v}" not in known:
+                known[f"{game['id']}/{v}"] = known[f"{game['id']}/{games.DECOMP}"]
     for key in keys:
         if key not in known:
-            sys.exit(f"unknown version {key}: one of {', '.join(known)}")
-    return [known[k] for k in keys] if keys else list(known.values())
+            sys.exit(f"unknown project {key}: one of {', '.join(known)}")
+    picked = [known[k] for k in keys] if keys else list(trees().values())
+    return list({id(t): t for t in picked}.values())
 
 
 def main() -> None:

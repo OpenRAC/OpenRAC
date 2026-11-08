@@ -142,7 +142,7 @@ class Committed(unittest.TestCase):
             cfg = json.loads(config.read_text())
             source = REPO / cfg["source"]
             if not (source / "src").is_dir():
-                self.skipTest("no games/rac2/ntsc")
+                self.skipTest("no games/rac2/decomp")
             table = json.loads((config.parent / cfg["derived"]["table"]).read_text())
             with self.subTest(game=game):
                 self.assertEqual(derived.uncovered(source, cfg, table), [])

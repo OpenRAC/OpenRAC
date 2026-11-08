@@ -495,7 +495,7 @@ class Rac2(unittest.TestCase):
     REPO = Path(__file__).resolve().parents[3]
 
     def symbols(self) -> dict[str, int]:
-        table = self.REPO / "games/rac2/ntsc/symbol_addrs/usa/symbol_addrs.txt"
+        table = self.REPO / "games/rac2/decomp/symbol_addrs/usa/symbol_addrs.txt"
         found = re.findall(r"^(\w+) = 0x([0-9A-Fa-f]+);", table.read_text(), re.M)
         return {name: int(value, 16) for name, value in found}
 

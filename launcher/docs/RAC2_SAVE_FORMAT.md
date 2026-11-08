@@ -222,7 +222,7 @@ level's object data and are not named. Siberius has no constant use of chunk 5 i
 `rac2_flags/planets_b.rs`. Found by reading every access to chunk 5 (0x1395B8) and chunk 43
 (0x139768) in the levels' own code: in the split assembly (`rac2-decomp/build/<level>/asm`) the
 accesses are `lui 0x14` plus a negative offset or a register based on `%lo(D_1395B8)`, so each
-byte's index is exact; the C in `games/rac2/ntsc/src/levels/<level>` then says what the code
+byte's index is exact; the C in `games/rac2/decomp/src/levels/<level>` then says what the code
 does with it.
 
 **Load proofs** (box1, hidden, scratch settings and cards, port binary of L-2's round, format 20

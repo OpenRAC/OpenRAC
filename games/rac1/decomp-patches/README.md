@@ -1,6 +1,6 @@
 # OpenRAC's changes to rac1-decomp
 
-Applied to [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (`games/rac1/pal`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
+Applied to [rac1-decomp](https://github.com/OpenRAC/rac1-decomp) (`games/rac1/decomp`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
 
 The files are OpenRAC's own:
 

@@ -175,11 +175,11 @@ jobs:
         run: python tools/shared.py check
 
       - name: rac1/pal progress report is current with its source
-        working-directory: games/rac1/pal
+        working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac4 progress report is current with its source
-        working-directory: games/rac4/ntsc
+        working-directory: games/rac4/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac1/ntsc tools
@@ -192,7 +192,7 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
-        working-directory: games/rac2/ntsc
+        working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
           python -m pip install "$(grep '^rabbitizer==' requirements.txt)"
@@ -201,13 +201,13 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
-        working-directory: games/rac5/ntsc
+        working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
-        working-directory: games/rac6/ntsc
+        working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py

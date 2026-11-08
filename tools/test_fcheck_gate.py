@@ -197,7 +197,7 @@ class DecompRootTests(unittest.TestCase):
         with mock.patch.dict(os.environ):
             os.environ.pop("OPENRAC_DECOMP", None)
             os.environ.pop("OPENRAC_SOURCE_RAC1_PAL", None)
-            self.assertEqual(g.decomp_root(), Path(g.ROOT) / "games/rac1/pal")
+            self.assertEqual(g.decomp_root(), Path(g.ROOT) / "games/rac1/decomp")
 
 if __name__ == "__main__":
     unittest.main()

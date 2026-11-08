@@ -34,7 +34,7 @@ namespace openrac::program {
 namespace {
 
 #ifdef OPENRAC_HAS_DISC
-// Going Commando's programs (games/rac2/ntsc/docs/LEVELS.md): G/LEVELn.WAD, which holds level n but
+// Going Commando's programs (games/rac2/decomp/docs/LEVELS.md): G/LEVELn.WAD, which holds level n but
 // for the museum, level 30, in G/LEVEL21.WAD. Its word pair at +0x10 gives the level data's sector,
 // which opens with the (offset, size) of the program. The image is opened once.
 bool rac2_level_program(int level, std::vector<std::uint8_t>* bytes) {

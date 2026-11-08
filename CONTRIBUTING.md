@@ -110,5 +110,5 @@ The rules above apply the same way. On top of them, an assistant:
   open windows on your screen and take long to review;
 - reports what it checked as it is, failures included;
 - follows a game's own agent docs where there are some (rac1/pal's
-  [docs/AGENT_WORKFLOW.md](games/rac1/pal/docs/AGENT_WORKFLOW.md), run from
-  `games/rac1/pal`; the `AGENTS.md` of rac2, rac5 and rac6).
+  [docs/AGENT_WORKFLOW.md](games/rac1/decomp/docs/AGENT_WORKFLOW.md), run from
+  `games/rac1/decomp`; the `AGENTS.md` of rac2, rac5 and rac6).

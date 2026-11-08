@@ -8,11 +8,11 @@ docs it names.
 
 | Directory | License today |
 |---|---|
-| `games/rac1/pal` | GNU GPL v3 ([LICENSE](../../games/rac1/pal/LICENSE)), chosen by the project on 2026-10-07 (MIT before); libgcc sources under the GPL with the runtime exception |
+| `games/rac1/decomp` | GNU GPL v3 ([LICENSE](../../games/rac1/decomp/LICENSE)), chosen by the project on 2026-10-07 (MIT before); libgcc sources under the GPL with the runtime exception |
 | `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
-| `games/rac2/ntsc` | MIT, llesieur99 ([LICENSE](../../games/rac2/ntsc/LICENSE)) |
+| `games/rac2/decomp` | MIT, llesieur99 ([LICENSE](../../games/rac2/decomp/LICENSE)) |
 | `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
-| `games/rac4/ntsc` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/ntsc/LICENSE)); GPL libgcc and newlib libm sources |
+| `games/rac4/decomp` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/decomp/LICENSE)); GPL libgcc and newlib libm sources |
 | `editor/` | MIT ([editor/LICENSE](../../editor/LICENSE)), moved here from rac1-decomp while that was MIT |
 | rest of the top level (`tools/`, `docs/`, the launcher, the native port and its renderer) | GNU GPL v3 or later ([COPYING](../../COPYING)), chosen on 2026-10-08 |
 
@@ -44,7 +44,7 @@ repository, written into [CONTRIBUTING.md](../../CONTRIBUTING.md).
 Some committed names and layouts come from demo, preview or prototype discs
 rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
 
-- rac1/pal [include/structs.h](../../games/rac1/pal/include/structs.h): the
+- rac1/pal [include/structs.h](../../games/rac1/decomp/include/structs.h): the
   IOP stash structures are attributed to debug symbols in a June 2002
   prototype, and are used by `src/game/stash.c` and
   `src/overlays/shared/stash_00295010.c`. The `BSphere`, `vec4` and
@@ -53,18 +53,18 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   the same as the one left out of rac2 ([SOURCES.md](../SOURCES.md)),
   whose copy said it came from a leaked build. It also disagrees with
   matched retail code: `InitMobyInstance` (`func_0020D440`,
-  [src/game/mobyfunc.c](../../games/rac1/pal/src/game/mobyfunc.c)) stores a
+  [src/game/mobyfunc.c](../../games/rac1/decomp/src/game/mobyfunc.c)) stores a
   float at +0x2C and a short at +0xA6, where the header has bytes, so it may
   describe another build of the engine.
 - rac1/ntsc [docs/engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md):
   original source file names and structures from 2002 development and demo builds.
-- rac2 [include/flags.h](../../games/rac2/ntsc/include/flags.h) and
-  [include/gadgets.h](../../games/rac2/ntsc/include/gadgets.h) (prototype strings),
-  and the class names in [docs/moby-dispatch.tsv](../../games/rac2/ntsc/docs/moby-dispatch.tsv)
+- rac2 [include/flags.h](../../games/rac2/decomp/include/flags.h) and
+  [include/gadgets.h](../../games/rac2/decomp/include/gadgets.h) (prototype strings),
+  and the class names in [docs/moby-dispatch.tsv](../../games/rac2/decomp/docs/moby-dispatch.tsv)
   (a prototype's extracted tables). No C file includes rac2's headers.
 
 - rac4 forbids any name not derived from the retail binary by the contributor
-  ([LEGAL.md](../../games/rac4/ntsc/LEGAL.md)). One of its files carried four of
+  ([LEGAL.md](../../games/rac4/decomp/LEGAL.md)). One of its files carried four of
   the `MobyInstance` member names above; they are named by offset here
   ([SOURCES.md](../SOURCES.md)).
 
@@ -75,8 +75,8 @@ answer already in the repository.
 ## 4. One Ratchet & Clank tree for both regions
 
 rac1/pal and rac1/ntsc decompile the same game, and have long shared and
-ported functions ([games/rac1/pal/docs/SIBLING_DECOMPS.md](../../games/rac1/pal/docs/SIBLING_DECOMPS.md),
-[config/overlays/us_map.tsv](../../games/rac1/pal/config/overlays/us_map.tsv)
+ported functions ([games/rac1/decomp/docs/SIBLING_DECOMPS.md](../../games/rac1/decomp/docs/SIBLING_DECOMPS.md),
+[config/overlays/us_map.tsv](../../games/rac1/decomp/config/overlays/us_map.tsv)
 maps 99.7% of the US code to PAL). Merging them into one tree that builds
 both regions needs one answer first: which compiler built the game code. The
 PAL project matches it with SN GCC 2.95.3; the US project with a patched GNU
@@ -106,7 +106,7 @@ Also to decide, before code is ported into Deadlocked by machine: how names
 travel. [tools/port.py](../../tools/port.py) renames every symbol to the
 target's own address-based name, but the C it carries keeps the source
 project's local, type and member names. rac4's rule
-([LEGAL.md](../../games/rac4/ntsc/LEGAL.md), "Naming") allows code from other
+([LEGAL.md](../../games/rac4/decomp/LEGAL.md), "Naming") allows code from other
 public decompilations and forbids identifiers copied from any other source, so
 a port into rac4 needs either its author's word that names from rac1/pal (his
 own project) may come along, or a pass that regenerates them (`Type1`, `f20`).

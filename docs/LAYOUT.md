@@ -4,18 +4,18 @@
 OpenRAC/
 ├── README.md, CONTRIBUTING.md
 ├── LICENSE.md, THIRD_PARTY_NOTICES.md, CREDITS.md
-├── games/                  one directory per game, one per version inside it
+├── games/                  one directory per game: its decompilation, which holds every version
 │   ├── rac1/               Ratchet & Clank (2002)
 │   │   ├── game.json       discs, checksums, what is decompiled, where it came from
-│   │   ├── pal/            SCES_509.16, submodule of rac1-decomp
-│   │   ├── pal-patches/    OpenRAC's changes to pal/
-│   │   ├── ntsc/           SCUS_971.99, submodule of Lombyte
+│   │   ├── decomp/         PAL v2.00, PAL v1.00 and NTSC-J, submodule of rac1-decomp
+│   │   ├── decomp-patches/ OpenRAC's changes to decomp/
+│   │   ├── ntsc/           SCUS_971.99, submodule of Lombyte (a project of one version)
 │   │   └── ntsc-patches/   OpenRAC's changes to ntsc/
-│   ├── rac2/ntsc/          Going Commando, SCUS_972.68 v1.01, from rac2-decomp
+│   ├── rac2/decomp/        Going Commando (USA v1.01 and v2.00, PAL), from rac2-decomp
 │   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
-│   ├── rac4/ntsc/          Deadlocked, SCUS_974.65, from rac-deadlocked-decomp
-│   ├── rac5/ntsc/          Size Matters, SCUS_976.15, from rac5-sm-decomp
-│   └── rac6/ntsc/          Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
+│   ├── rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
+│   ├── rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
+│   └── rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
 ├── editor/                 Godot level editor and extractor (shared)
 ├── launcher/               desktop app to set up, build and play every game (Tauri)
 ├── port/                   the native PC port: runtime, hostgen, materials, renderer, platform, the games' programs
@@ -43,7 +43,7 @@ patches beside it ([SOURCES.md](SOURCES.md)). It has
 its own README, license, build, tools and docs. Work from inside that
 directory: its paths are relative to it, and its build never reaches into
 another game. Its own docs decide how a match is proven there. rac1's two
-versions are becoming one tree at `games/rac1/pal/` (the PAL tree), with NTSC-U
+versions are becoming one tree at `games/rac1/decomp/` (the PAL tree), with NTSC-U
 built from it ([games/rac1/VERSIONS.md](../games/rac1/VERSIONS.md)).
 
 **Only shared things live at the top level**: things that serve more than one
@@ -77,7 +77,7 @@ what readers see.
 | Knowledge that holds across games (a format, a subsystem) | `docs/engine/`, linking the per-game evidence |
 | Matching or compiler knowledge across games | `docs/decomp/` |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
-| A new game version | a submodule at `games/<game>/<version>/` (`git submodule add`), plus its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version) |
+| A new game version | its game's decompilation, a submodule at `games/<game>/decomp/` (`git submodule add`, once per game), plus its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version) |
 
 ## Names
 
@@ -98,7 +98,7 @@ The arrangement follows OpenGOAL's (`jak-project`):
 
 | OpenGOAL | OpenRAC | |
 |---|---|---|
-| `goal_src/<game>` | `games/<game>/<version>` | the decompiled game code |
+| `goal_src/<game>` | `games/<game>/decomp` | the decompiled game code |
 | `game/` (kernel, graphics, sound, overlord) | `port/` (runtime, renderer, audio, platform) | the PC runtime that hosts it |
 | `goalc/` | `port/tools/hostgen` | what makes the game code a PC program |
 | `out/<game>/` | `assets/port/<game>/<version>`, `build/` | what is built from your disc |
@@ -119,7 +119,7 @@ Where it goes from here:
     register, a call through an address) goes into `games/` as C that builds
     the same PS2 bytes, and is offered to the project that tree follows.
     Until the project takes it, it is a patch in
-    `games/<game>/<version>-patches/` ([SOURCES.md](SOURCES.md)).
+    `games/<game>/decomp-patches/` ([SOURCES.md](SOURCES.md)).
   - Code that can only be PC code goes into `games/` under
     `#ifdef OPENRAC_PC` once that project accepts it. Until then it stays in
     `port/game/`.

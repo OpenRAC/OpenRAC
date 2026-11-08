@@ -94,7 +94,7 @@ Players describe what they see, not what broke. Before reproducing, know:
 ## 3. Reproducing it by script
 
 Follow [RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md). The short version, from
-`games/rac1/pal`:
+`games/rac1/decomp`:
 
 ```sh
 D="$HOME/Library/Application Support/dev.openrac.launcher/active/rac1/data"

@@ -1,6 +1,6 @@
 # OpenRAC's changes to rac2-decomp
 
-Applied to [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (`games/rac2/ntsc`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
+Applied to [rac2-decomp](https://github.com/OpenRAC/rac2-decomp) (`games/rac2/decomp`) by `python3 tools/sources.py apply`; how to change them: [docs/SOURCES.md](../../../docs/SOURCES.md).
 
 <!-- patches:begin -->
 <!-- Written by tools/sources.py save; do not edit. -->

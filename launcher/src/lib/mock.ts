@@ -2011,7 +2011,7 @@ function start(scope: Scope, id: string, args: Record<string, unknown> = {}): St
       lines.splice(
         2 + n,
         0,
-        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/pal/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
+        `[${n}/${total}] Building C object CMakeFiles/openrac-rac1-pal.dir/__w/OpenRAC/OpenRAC/games/rac1/decomp/src/level_${n}/func_001E99D8_generated_long_name.c.o`,
       );
     }
   }

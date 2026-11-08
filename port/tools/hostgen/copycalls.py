@@ -16,7 +16,7 @@ home, canon: a level holding the caller and that call, and the caller's place th
 caller's, in bytes. own: the callee's place in home. exe: the jal's target in the executable's copy
 of the caller, or 0.
 
-    python3 port/tools/hostgen/copycalls.py --source games/rac2/ntsc \\
+    python3 port/tools/hostgen/copycalls.py --source games/rac2/decomp \\
         --out port/game/rac2-ntsc/call_copies.tsv
 """
 from __future__ import annotations

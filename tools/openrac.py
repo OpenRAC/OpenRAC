@@ -320,10 +320,13 @@ def game_table() -> str:
 
 def source_table() -> str:
     out = ["| Directory | Project | Repository | Branch | Commit | Its date | License |", "|---|---|---|---|---|---|---|"]
-    for game, name, v in games.versions():
-        s = v.get("source")
-        if s and not s.get("shared"):
-            out.append(f"| [`{games.version_dir(game, name)}`]({games.version_dir(game, name)}) | {s['name']} | {s['repo']} | "
+    for game in games.load_all():
+        # The game's decompilation (every version of it), then the versions with a project of their own.
+        rows = [(games.decomp_dir(game), game[games.DECOMP])] if game.get(games.DECOMP) else []
+        rows += [(games.version_dir(game, name), v["source"]) for name, v in game["versions"].items()
+                 if v.get("source") and not v["source"].get("shared")]
+        for where, s in rows:
+            out.append(f"| [`{where}`]({where}) | {s['name']} | {s['repo']} | "
                        f"{s['branch']} | `{s['commit'][:12]}` | {s['date']} | {s['license']} |")
     return "\n".join(out) + "\n"
 

@@ -1,6 +1,6 @@
 # NTSC-U's boot executable (SCUS_971.99) split by splat, for the merged tree's NTSC-U build
 # (tools/versions.py; games/rac1/VERSIONS.md): PAL's config/splat.yaml with NTSC-U's section
-# offsets and addresses. Run from games/rac1/pal: python -m splat split versions/ntsc/splat.yaml
+# offsets and addresses. Run from games/rac1/decomp: python -m splat split versions/ntsc/splat.yaml
 # (tools/versions.py asm does it). Output: versions/ntsc/asm/, ignored like PAL's asm/.
 name: rac1-ntsc
 sha1: 72fd1de379dafd8f243dceeb3be50980f3fd3cd5

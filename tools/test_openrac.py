@@ -155,7 +155,7 @@ class ProgressTests(unittest.TestCase):
 
     def test_progress_table_uses_bytematch_badges(self):
         game = {"id": "rac1", "title": "Ratchet & Clank",
-                "versions": {"pal": {"dir": "games/rac1/pal"}}}
+                "versions": {"pal": {"dir": "games/rac1/decomp"}}}
         version = {"serial": "SCES_509.16", "bytematch": "OpenRAC/rac1-decomp", "source": {}}
         measured = {"percent": 25.0, "matched_code": 250, "total_code": 1000,
                     "matched_functions": 3, "total_functions": 10,

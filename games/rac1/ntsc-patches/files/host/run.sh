@@ -18,7 +18,7 @@ docker image inspect "$IMAGE" >/dev/null 2>&1 || {
     echo "no $IMAGE image: ./setup.sh --shell builds it (leave the shell it opens)" >&2; exit 1; }
 if ! docker volume inspect "$VOLUME" >/dev/null 2>&1; then
     docker image inspect "$WINE_IMAGE" >/dev/null 2>&1 || {
-        echo "no $WINE_IMAGE image: games/rac1/pal/tools/docker/run.sh builds it" >&2; exit 1; }
+        echo "no $WINE_IMAGE image: games/rac1/decomp/tools/docker/run.sh builds it" >&2; exit 1; }
     echo "copying $WINE_IMAGE's file system into the volume $VOLUME (once)" >&2
     docker run --rm --platform linux/386 -v "$VOLUME:/dst" "$WINE_IMAGE" \
         sh -c 'tar --one-file-system -cf - / 2>/dev/null | tar -xf - -C /dst 2>/dev/null; test -e /dst/opt/wineprefix'
