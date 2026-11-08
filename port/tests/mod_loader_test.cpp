@@ -1527,6 +1527,16 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
         g_motion.push_back("hero sound " + std::to_string(sound) + " " + std::to_string(loop));
         return loop != 0 ? 5 : 3;
     };
+    play.hero_moby = [] {
+        return std::uint32_t{0x1000};
+    };
+    h.joint_offsets = [](std::uint32_t moby, const openrac_joint_offset* joints, int count) {
+        std::string line = "joints " + std::to_string(moby) + " " + std::to_string(count);
+        for (int i = 0; i < count; ++i) {
+            line += " " + std::to_string(joints[i].joint);
+        }
+        g_motion.push_back(line);
+    };
     play.hero_sound_stop = [](int voice) {
         g_motion.push_back("hero stop " + std::to_string(voice));
     };
@@ -1581,8 +1591,11 @@ void motion_reaches_the_game(const fs::path& plugins, const fs::path& dir) {
     play.hero_update_hook = "Test_Other";
     g_loads = 2;
     g_records.clear();
+    g_motion.clear();
     mods::frame();
-    CHECK((g_records == std::vector<int>{9501, 9551}));
+    // The pose needs the hook; the joints do not (two, too many, none).
+    CHECK((g_records == std::vector<int>{9501, 9551, 9640, 9641, 9650}));
+    CHECK((g_motion == std::vector<std::string>{"joints 4096 2 1 2", "joints 4096 0"}));
     CHECK(mods::props_drawn().empty());
     CHECK(mods::haze_drawn().empty());
     CHECK(mods::hud_texts().empty());

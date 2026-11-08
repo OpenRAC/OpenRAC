@@ -244,7 +244,7 @@ One of the mod's pages of the game's own menus (Mod::ui_page): set what it shows
 | `std::uint32_t sound_play(int sound, float volume = 1.0f, float pitch = 1.0f, bool loop = false) const` | Since 1.12: plays sound `sound` at the game's sound volume: its voice, 0 for none. |
 | `bool sound_set(std::uint32_t voice, float volume, float pitch) const` | Since 1.12: a voice's volume and pitch (false once it has ended); stops a voice. |
 | `void sound_stop(std::uint32_t voice) const` |  |
-| `bool hero_set_joints(const std::vector<openrac_joint_offset>& joints) const` | Since 1.12: turns and moves the hero's joints on top of his animation (openrac_joint_offset) until the next call; an empty list takes them off. False outside a level, for a mod without the hero's update hook, or on a port without the call. |
+| `bool hero_set_joints(const std::vector<openrac_joint_offset>& joints) const` | Since 1.12: turns and moves the hero's joints on top of his animation (openrac_joint_offset) until the next call, composed with other mods' offsets; an empty list takes them off. False outside a level, on a port without the call, or (ports to SDK 1.14.0) for a mod without the hero's update hook. |
 | `bool has_camera() const` | Since 1.12: whether the port offers camera_view(), camera_set() and haze_set(). |
 | `bool camera_view(openrac_camera& out) const` | Since 1.12: the camera the game made itself for its last view in the level. False outside a level or on a port without the call. |
 | `bool camera_set(const openrac_camera& camera) const` | Since 1.12: the game's camera put where `camera` says until camera_release() or the level goes. False outside a level, while another mod holds the camera, or on a port without it. |

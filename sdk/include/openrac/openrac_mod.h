@@ -1792,11 +1792,13 @@ typedef struct openrac_api {
     /* Stops a voice of the mod's (one that has ended, or another mod's: nothing). Since 1.12. */
     void (*sound_stop)(openrac_mod* mod, uint32_t voice);
 
-    /* Turns and moves joints of the hero on top of his animation (openrac_joint_offset), from the
-     * holder of the hero's update hook (as hero_set_pose): the `count` offsets replace the last ones
-     * and stay until the next call; 0 (or `joints` null) takes them off. His drawing, shadow and
-     * what he carries follow. OPENRAC_HOOK_UNKNOWN outside a level, for a mod without the hook, or
-     * past OPENRAC_JOINT_OFFSETS_MAX. Since 1.12. */
+    /* Turns and moves joints of the hero on top of his animation (openrac_joint_offset): the
+     * `count` offsets replace the mod's last ones and stay until the next call; 0 (or `joints`
+     * null) takes them off. Every mod's offsets apply together, each mod's composed after those of
+     * the mods that set theirs before it. His drawing, shadow and what he carries follow.
+     * OPENRAC_HOOK_UNKNOWN outside a level, or past OPENRAC_JOINT_OFFSETS_MAX (for one call, or for
+     * all mods together). Since 1.12; the first ports with it (to SDK 1.14.0) take them only from
+     * the holder of the hero's update hook (as hero_set_pose), OPENRAC_HOOK_UNKNOWN for another. */
     int (*hero_set_joints)(openrac_mod* mod, const openrac_joint_offset* joints, int count);
 
     /* Fills `out` (its size set by the mod) with the camera the game made itself for the last
