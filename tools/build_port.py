@@ -36,7 +36,8 @@ launcher runs on the player's own extracted levels. It needs Embree 4
 (Apache-2.0): a pinned release's source is downloaded once, checked against
 its SHA-256 and built as a static library in port/build/embree/, so the
 baker is one program with nothing beside it. A baker that cannot be built
-is said and left out; the game is built all the same. The build folder
+is said and left out; the game is built all the same. --require-baker (CI)
+builds it too but stops the build when it cannot be built. The build folder
 keeps the choice. Intel Macs ship without the baker (Embree's static
 library cannot be built there): the option says so, and their enhanced
 graphics keep the original lighting.
@@ -135,6 +136,10 @@ EMBREE_X86_ISAS = {
     "EMBREE_ISA_AVX512": "OFF",
 }
 EMBREE_DIR = PORT / "build" / "embree"
+# Tries at Embree's download, and the wait before the second (doubled each time): GitHub's archives
+# sometimes answer a request with a 5xx.
+EMBREE_TRIES = 4
+EMBREE_RETRY_WAIT = 5.0
 BAKER = "openrac-enhanced-baker"
 # Intel Macs ship without the baker (the maintainers' decision): AppleClang builds Embree's static
 # library for one ISA only, and x86-64 needs several (EMBREE_X86_ISAS), so it cannot be built there.
@@ -229,8 +234,18 @@ def fetch_embree(dest: Path) -> Path:
         say(f"downloading Embree {EMBREE_VERSION} ({EMBREE_URL})")
         dest.mkdir(parents=True, exist_ok=True)
         part = archive.with_suffix(".part")
-        with urllib.request.urlopen(EMBREE_URL, timeout=120) as response, part.open("wb") as out:
-            shutil.copyfileobj(response, out)
+        wait = EMBREE_RETRY_WAIT
+        for attempt in range(1, EMBREE_TRIES + 1):
+            try:
+                with urllib.request.urlopen(EMBREE_URL, timeout=120) as response, part.open("wb") as out:
+                    shutil.copyfileobj(response, out)
+                break
+            except OSError as e:
+                if attempt == EMBREE_TRIES:
+                    raise BuildError(f"Embree's source did not download ({e})") from e
+                say(f"Embree's download failed ({e}); trying again in {wait:g} s")
+                time.sleep(wait)
+                wait *= 2
         got = digest.sha256(part)
         if got != EMBREE_SHA256:
             part.unlink()
@@ -305,10 +320,11 @@ def copy_licenses(build: Path) -> None:
 
 
 def probe_baker(cmake: str, env: dict[str, str], compilers: tuple[str, str, str] | None,
-                cache: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+                cache: dict[str, str], required: bool = False) -> tuple[dict[str, str], list[str]]:
     """What --probe-baker adds to the build: its CMake defines and its targets. The baker with
     its Embree built (build_embree); on an Intel Mac, NO_BAKER_HERE said and no baker; where
-    Embree fails, a warning and no baker. The game is built in every case."""
+    Embree fails, a warning and no baker, so the game is built in every case. REQUIRED
+    (--require-baker): an Embree that fails raises BuildError instead."""
     if not ships_baker():
         say(NO_BAKER_HERE)
         return {"OPENRAC_PROBE_BAKER": "OFF"}, []
@@ -316,6 +332,8 @@ def probe_baker(cmake: str, env: dict[str, str], compilers: tuple[str, str, str]
         embree = build_embree(cmake, env, compilers, cache)
         return {"OPENRAC_PROBE_BAKER": "ON", "embree_DIR": embree.as_posix()}, [BAKER]
     except (BuildError, OSError) as e:
+        if required:
+            raise BuildError(f"the probe baker cannot be built: {e}") from e
         print(f"warning: the probe baker is left out: {e}", file=sys.stderr, flush=True)
         return {"OPENRAC_PROBE_BAKER": "OFF"}, []
 
@@ -638,6 +656,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--probe-baker", action="store_true",
                         help="also build openrac-enhanced-baker, the enhanced lighting's baker, with a pinned Embree "
                              "built from source (kept for later builds; left out with a warning if it fails)")
+    parser.add_argument("--require-baker", action="store_true",
+                        help="--probe-baker, but a baker that cannot be built stops the build (CI)")
     parser.add_argument("--tracy", action="store_true", help="build optional Tracy CPU and Vulkan GPU profiling")
     parser.add_argument("--tracy-system", action="store_true", help="enable Tracy system tracing (implies --tracy)")
     parser.add_argument("--tracy-sampling", action="store_true", help="enable Tracy sampling (implies system tracing)")
@@ -687,8 +707,13 @@ def main(argv: list[str] | None = None) -> int:
     python = plain_path(sys.executable).as_posix()
     more = list(args.target)
     defines: dict[str, str] = {}
-    if args.probe_baker or cache.get("OPENRAC_PROBE_BAKER") == "ON" or kept.get("OPENRAC_PROBE_BAKER") == "ON":
-        defines, baker = probe_baker(str(cmake), env, compilers, cache)
+    if (args.probe_baker or args.require_baker or cache.get("OPENRAC_PROBE_BAKER") == "ON"
+            or kept.get("OPENRAC_PROBE_BAKER") == "ON"):
+        try:
+            defines, baker = probe_baker(str(cmake), env, compilers, cache, required=args.require_baker)
+        except BuildError as e:
+            print(f"error: {e}", file=sys.stderr, flush=True)
+            return 1
         more += baker
         kept.pop("OPENRAC_PROBE_BAKER", None)
     defines.update({

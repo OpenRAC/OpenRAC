@@ -6,6 +6,7 @@ import os
 import io
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
@@ -270,6 +271,45 @@ class ProbeBaker(unittest.TestCase):
     def test_an_embree_that_fails_leaves_the_baker_out(self):
         (defines, more), _, _ = self.baker_on("Linux", "x86_64", embree=build_port.BuildError("no network"))
         self.assertEqual((defines, more), ({"OPENRAC_PROBE_BAKER": "OFF"}, []))
+
+    def test_a_required_baker_whose_embree_fails_stops_with_the_reason(self):
+        build = mock.Mock(side_effect=build_port.BuildError("no network"))
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "build_embree", build), \
+                self.assertRaisesRegex(build_port.BuildError, "no network"):
+            build_port.probe_baker("cmake", {}, None, {}, required=True)
+
+    def test_require_baker_fails_the_build_before_compiling(self):
+        run = mock.Mock(return_value=mock.Mock(returncode=0))
+        err = io.StringIO()
+        with mock.patch.object(build_port.platform, "system", return_value="Linux"), \
+                mock.patch.object(build_port.platform, "machine", return_value="aarch64"), \
+                mock.patch.object(build_port, "read_cache", return_value={}), \
+                mock.patch.object(build_port, "prepare", return_value=({}, Path("cmake"), None)), \
+                mock.patch.object(build_port, "build_embree", side_effect=build_port.BuildError("no network")), \
+                mock.patch.object(build_port.subprocess, "run", run), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+            status = build_port.main(["rac1-pal", "--require-baker"])
+        self.assertEqual(status, 1)
+        run.assert_not_called()
+        self.assertIn("the probe baker cannot be built: no network", err.getvalue())
+
+    def test_embree_download_is_tried_again_after_a_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = []
+
+            def urlopen(url, timeout):
+                calls.append(url)
+                raise urllib.error.HTTPError(url, 504, "Gateway Timeout", {}, None)
+
+            with mock.patch.object(build_port.urllib.request, "urlopen", urlopen), \
+                    mock.patch.object(build_port.time, "sleep") as sleep, \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    self.assertRaisesRegex(build_port.BuildError, "did not download"):
+                build_port.fetch_embree(Path(tmp))
+        self.assertEqual(len(calls), build_port.EMBREE_TRIES)
+        self.assertEqual(sleep.call_count, build_port.EMBREE_TRIES - 1)
 
     def test_an_intel_mac_builds_the_rest_and_succeeds(self):
         # The whole command line, its tools mocked: the game and the extractor are configured and
