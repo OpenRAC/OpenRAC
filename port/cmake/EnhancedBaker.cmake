@@ -25,6 +25,7 @@ if(OPENRAC_PROBE_BAKER)
     # Sources.
     enhanced/tools/baker/sources/emission_audit.cpp
     enhanced/tools/baker/sources/emission_catalog.cpp
+    enhanced/tools/baker/sources/emission_migration.cpp
     enhanced/tools/baker/sources/emission_prepare.cpp
     enhanced/tools/baker/sources/emission_review.cpp
     enhanced/tools/baker/sources/emission_textures.cpp

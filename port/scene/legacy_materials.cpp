@@ -39,7 +39,8 @@ materials::Properties authored_properties(
             key == "diffuse_scale" ? "surface.diffuse_scale" : "emission." + key;
         if (std::find(std::begin(kNumbers), std::end(kNumbers), key) != std::end(kNumbers)) {
             result[path] = value.number(-1);
-        } else if (key == "vertex_colour" || key == "use_base_texture") {
+        } else if (key == "vertex_colour" || key == "use_base_texture"
+                   || key == "average_for_bake") {
             result[path] = value.boolean();
         } else if (key == "texture") {
             result[path] = value.string();

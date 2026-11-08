@@ -312,7 +312,8 @@ void ceiling_enclosure() {
         return source;
     };
     const std::vector<EnvironmentFloorSample> floors{{{0, 0, 0}, 0, 0, false, {}}};
-    Scene interior(scene(true)), overhang(scene(false));
+    const auto interior_source = scene(true), overhang_source = scene(false);
+    Scene interior(interior_source), overhang(overhang_source);
     CHECK(std::abs(room_layout(interior, floors, {}).ceilings[0] - 8) < .001f);
     CHECK(!std::isfinite(room_layout(overhang, floors, {}).ceilings[0]));
     auto bounded = floors;

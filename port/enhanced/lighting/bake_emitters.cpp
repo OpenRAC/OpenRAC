@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Finite emitter sampling and complementary emission hits for probe transport.
+#include <map>
 #include <stdexcept>
 
 #include "enhanced/lighting/bake_material.h"
@@ -10,6 +11,34 @@
 
 namespace openrac::lighting::bake_detail {
 namespace {
+constexpr float kEmitterCellSize = 16;
+constexpr double kNearbyFraction = .75;
+
+std::array<int, 3> emitter_cell(Float3 position) {
+    std::array<int, 3> key{};
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        key[axis] = static_cast<int>(
+            std::clamp(std::floor(double(position[axis]) / kEmitterCellSize), -1e9, 1e9)
+        );
+    }
+    return key;
+}
+
+double emitter_weight(const Scene& scene, std::size_t index) {
+    const double previous = index == 0 ? 0 : scene.emitters[index - 1].cumulative;
+    return scene.emitters[index].cumulative - previous;
+}
+
+std::size_t pick_global(const Scene& scene, double choice) {
+    const auto end = scene.emitters.end();
+    const auto found = std::upper_bound(
+        scene.emitters.begin(), end, choice, [](double value, const Scene::Emitter& emitter) {
+            return value < emitter.cumulative;
+        }
+    );
+    return static_cast<std::size_t>((found == end ? end - 1 : found) - scene.emitters.begin());
+}
+
 // One transparent emitter crossing, accumulated in source order after traversal.
 struct RectangleCrossing {
     unsigned source;  // Stable rectangle index in the immutable scene.
@@ -114,9 +143,11 @@ EmissionSample sample_area_emitter(
     const float squared = dot(delta, delta);
     const float distance = std::sqrt(squared);
 
-    // Reject near-coincident or transparent emitter samples.
-    if (distance <= 4 * bias
-        || material_opacity(scene.input, triangle, u, v) < triangle.alpha_cutoff) {
+    if (distance <= 4 * bias) {
+        return {};
+    }
+    const bool covered = material_opacity(scene.input, triangle, u, v) >= triangle.alpha_cutoff;
+    if (triangle.emission_uses_cutout && !covered) {
         return {};
     }
 
@@ -130,11 +161,14 @@ EmissionSample sample_area_emitter(
 
     return {
         direction,
-        mul(bake_emission(scene.input, triangle, u, v),
+        mul(selected.emitter.average_emission ? *selected.emitter.average_emission
+                                              : bake_emission(scene.input, triangle, u, v),
             static_cast<float>(
                 static_cast<double>(cosine) / (static_cast<double>(squared) * pdf_area)
             )),
-        static_cast<double>(squared) * pdf_area / cosine
+        static_cast<double>(squared) * pdf_area / cosine,
+        // Visibility rays pass through texture holes, so only explicit sampling reaches them.
+        !covered && triangle.texture >= 0
     };
 }
 
@@ -181,7 +215,11 @@ double area_pdf(const Scene& scene, const Scene::Emitter& emitter) {
 
 // Evaluates a visible mesh hit with the complementary directional sampling weight.
 Float3 mesh_emission(
-    const Scene& scene, const BakeSettings& settings, const RTCRayHit& hit, double direction_pdf
+    const Scene& scene,
+    const BakeSettings& settings,
+    const RTCRayHit& hit,
+    double direction_pdf,
+    const ProbeLightDistribution* distribution
 ) {
     // Escaping rays have no material emission.
     if (hit.hit.geomID == RTC_INVALID_GEOMETRY_ID) {
@@ -216,11 +254,19 @@ Float3 mesh_emission(
         return {};
     }
 
-    const double pdf =
-        area_pdf(scene, *emitter) * static_cast<double>(hit.ray.tfar) * hit.ray.tfar / cosine;
+    const double density =
+        distribution
+            ? distribution->probability(static_cast<std::size_t>(emitter - scene.emitters.begin()))
+                  / emitter->area
+            : area_pdf(scene, *emitter);
+    const double pdf = density * static_cast<double>(hit.ray.tfar) * hit.ray.tfar / cosine;
     const float weight =
         emission_mis_weight(direction_pdf, pdf) * surface_emission_scale(triangle, settings);
-    return mul(bake_emission(scene.input, triangle, hit.hit.u, hit.hit.v), weight);
+    return mul(
+        emitter->average_emission ? *emitter->average_emission
+                                  : bake_emission(scene.input, triangle, hit.hit.u, hit.hit.v),
+        weight
+    );
 }
 
 // Intersects a transparent one-sided rectangle within the already traced visibility segment.
@@ -323,11 +369,135 @@ Float3 rectangle_segment_emission(const Scene& scene, const RTCRay& ray, double 
 
 }  // namespace
 
+void Scene::prepare_emitter_cells() {
+    std::map<std::array<int, 3>, std::vector<EmitterCell::Entry>> cells;
+    for (std::size_t index = 0; index < emitters.size(); ++index) {
+        const auto& emitter = emitters[index];
+        if (emitter.triangle >= input.triangles.size()) {
+            break;
+        }
+        const auto& [a, b, c] = input.triangles[emitter.triangle].vertices;
+        const auto center = add(add(mul(a, 1.f / 3), mul(b, 1.f / 3)), mul(c, 1.f / 3));
+        auto& entries = cells[emitter_cell(center)];
+        const double previous = entries.empty() ? 0 : entries.back().cumulative;
+        entries.push_back({index, previous + emitter_weight(*this, index)});
+        mesh_emission_weight = emitter.cumulative;
+        cell_by_mesh_emitter.push_back(0);
+    }
+    for (auto& [key, entries] : cells) {
+        for (const auto& entry : entries) {
+            cell_by_mesh_emitter[entry.emitter] = emitter_cells.size();
+        }
+        Float3 center;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            center[axis] = (static_cast<float>(key[axis]) + .5f) * kEmitterCellSize;
+        }
+        emitter_cells.push_back({key, center, std::move(entries)});
+    }
+}
+
+ProbeLightDistribution::ProbeLightDistribution(const Scene& scene, Float3 origin) : m_scene(scene) {
+    if (scene.emitter_cells.empty()) {
+        return;
+    }
+    const auto home = emitter_cell(origin);
+    double cumulative = 0;
+    // Lexicographic search order also keeps the local cell indices sorted for PDF lookup.
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            for (int z = -1; z <= 1; ++z) {
+                const std::array key{home[0] + x, home[1] + y, home[2] + z};
+                const auto cell = std::lower_bound(
+                    scene.emitter_cells.begin(),
+                    scene.emitter_cells.end(),
+                    key,
+                    [](const Scene::EmitterCell& candidate, const auto& value) {
+                        return candidate.key < value;
+                    }
+                );
+                if (cell == scene.emitter_cells.end() || cell->key != key
+                    || cell->entries.back().cumulative <= 0) {
+                    continue;
+                }
+                const auto delta = add(cell->center, mul(origin, -1));
+                // Half a cell of softening avoids an abrupt preference at the cell center.
+                const double distance_squared = double(delta[0]) * delta[0]
+                                                + double(delta[1]) * delta[1]
+                                                + double(delta[2]) * delta[2];
+                const double scale =
+                    1 / (distance_squared + kEmitterCellSize * kEmitterCellSize / 4);
+                cumulative += cell->entries.back().cumulative * scale;
+                m_cells[m_size++] = {
+                    static_cast<std::size_t>(cell - scene.emitter_cells.begin()), scale, cumulative
+                };
+            }
+        }
+    }
+}
+
+std::size_t ProbeLightDistribution::pick(double choice) const {
+    const double mesh = m_scene.mesh_emission_weight;
+    if (!local() || choice >= mesh) {
+        return pick_global(m_scene, choice);
+    }
+    const double local_weight = kNearbyFraction * mesh;
+    if (choice >= local_weight) {
+        return pick_global(m_scene, (choice - local_weight) / (1 - kNearbyFraction));
+    }
+    const auto cells = std::span(m_cells).first(m_size);
+    const double local_choice = choice / local_weight * cells.back().cumulative;
+    auto cell = std::upper_bound(
+        cells.begin(), cells.end(), local_choice, [](double value, const Cell& candidate) {
+            return value < candidate.cumulative;
+        }
+    );
+    if (cell == cells.end()) {
+        --cell;
+    }
+    const double previous = cell == cells.begin() ? 0 : (cell - 1)->cumulative;
+    const double within = (local_choice - previous) / cell->scale;
+    const auto& entries = m_scene.emitter_cells[cell->index].entries;
+    const auto found = std::upper_bound(
+        entries.begin(),
+        entries.end(),
+        within,
+        [](double value, const Scene::EmitterCell::Entry& entry) {
+            return value < entry.cumulative;
+        }
+    );
+    return (found == entries.end() ? entries.back() : *found).emitter;
+}
+
+double ProbeLightDistribution::probability(std::size_t emitter) const {
+    const double power = emitter_weight(m_scene, emitter);
+    const double global = power / m_scene.emission_weight;
+    if (!local() || emitter >= m_scene.cell_by_mesh_emitter.size()) {
+        return global;
+    }
+    const auto cells = std::span(m_cells).first(m_size);
+    const auto index = m_scene.cell_by_mesh_emitter[emitter];
+    const auto cell = std::lower_bound(
+        cells.begin(), cells.end(), index, [](const Cell& candidate, std::size_t value) {
+            return candidate.index < value;
+        }
+    );
+    const double local_pdf = cell != cells.end() && cell->index == index
+                                 ? power * cell->scale / cells.back().cumulative
+                                 : 0;
+    return (1 - kNearbyFraction) * global
+           + kNearbyFraction * (m_scene.mesh_emission_weight / m_scene.emission_weight) * local_pdf;
+}
+
 // Area/power selection and uniform triangle barycentrics. The returned value
 // is Le / pdf(solid angle); multiply by the receiving cosine and average.
 // Two-sided emission deliberately does not depend on authored normals/winding.
 EmissionSample sample_emitter(
-    const Scene& scene, Float3 origin, float bias, Random& random, const BakeSettings& settings
+    const Scene& scene,
+    Float3 origin,
+    float bias,
+    Random& random,
+    const BakeSettings& settings,
+    const ProbeLightDistribution* distribution
 ) {
     // A scene without emitters consumes no emitter random samples.
     if (scene.emitters.empty()) {
@@ -335,20 +505,11 @@ EmissionSample sample_emitter(
     }
 
     const double choice = random.next() * scene.emission_weight;
-    auto it = std::upper_bound(
-        scene.emitters.begin(),
-        scene.emitters.end(),
-        choice,
-        [](double value, const Scene::Emitter& emitter) { return value < emitter.cumulative; }
-    );
-
-    // Rounding at the cumulative upper bound selects the final emitter.
-    if (it == scene.emitters.end()) {
-        it = scene.emitters.end() - 1;
-    }
-
-    const double previous = it == scene.emitters.begin() ? 0 : (it - 1)->cumulative;
-    const SelectedEmitter selected{*it, (it->cumulative - previous) / scene.emission_weight};
+    const auto index = distribution ? distribution->pick(choice) : pick_global(scene, choice);
+    const auto* it = &scene.emitters[index];
+    const double probability = distribution ? distribution->probability(index)
+                                            : emitter_weight(scene, index) / scene.emission_weight;
+    const SelectedEmitter selected{*it, probability};
 
     // Non-geometric rectangles occupy indices after the original surface and point sources.
     if (it->triangle >= scene.input.triangles.size() + scene.input.point_emitters.size()) {
@@ -501,7 +662,7 @@ float emission_mis_weight(double sampled_pdf, double competing_pdf) {
 }
 
 void weight_emitter(EmissionSample& sample, double direction_pdf) {
-    // Delta sources cannot be reached by a continuous direction sampler.
+    // Point lights and light emitted in cutout holes have no competing direction sample.
     if (!sample.delta) {
         sample.radiance_weight =
             mul(sample.radiance_weight, emission_mis_weight(sample.pdf, direction_pdf));
@@ -509,9 +670,13 @@ void weight_emitter(EmissionSample& sample, double direction_pdf) {
 }
 
 Float3 segment_emission(
-    const Scene& scene, const BakeSettings& settings, const RTCRayHit& hit, double direction_pdf
+    const Scene& scene,
+    const BakeSettings& settings,
+    const RTCRayHit& hit,
+    double direction_pdf,
+    const ProbeLightDistribution* distribution
 ) {
-    const auto mesh = mesh_emission(scene, settings, hit, direction_pdf);
+    const auto mesh = mesh_emission(scene, settings, hit, direction_pdf, distribution);
     return add(mesh, rectangle_segment_emission(scene, hit.ray, direction_pdf));
 }
 

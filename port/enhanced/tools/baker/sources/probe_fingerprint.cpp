@@ -179,6 +179,15 @@ void triangle_hash(Hash& hash, const BakeTriangle& triangle) {
     }
 
     hash.u32(static_cast<std::uint32_t>(triangle.emission_texture));
+    if (!triangle.average_emission_for_bake) {
+        hash.u32(0x454d5054u);  // EMPT retains point-sampled baked emission.
+    }
+    if (triangle.mesh_emission) {
+        hash.u32(0x4d455348u);
+    }
+    if (!triangle.emission_uses_cutout) {
+        hash.u32(0x454d4e43u);
+    }
     if (triangle.emission_contrast != 1) {
         hash.u32(0x45434f4e);  // Emission contrast changes transport.
         hash.f32(triangle.emission_contrast);
@@ -339,7 +348,9 @@ std::uint64_t probe_scene_hash(
     return hash.value;
 }
 
-std::uint64_t probe_bake_settings_hash(const ProbeGrid& grid, const BakeSettings& settings) {
+std::uint64_t probe_bake_settings_hash(
+    const ProbeGrid& grid, const BakeSettings& settings, const LegacyProbeSampling* legacy
+) {
     Hash hash;
     hash.u32(
         0x42414B0C
@@ -390,8 +401,21 @@ std::uint64_t probe_bake_settings_hash(const ProbeGrid& grid, const BakeSettings
     hash.u32(grid.map_resolution);
     hash.f32(grid.max_distance);
     hash.u32(settings.rays_per_probe);
+    if (settings.adaptive_rays) {
+        hash.u32(0x41445031u);  // ADP1 identifies the adaptive schedule and convergence rule.
+        if (!legacy || legacy->split_visibility) {
+            hash.u32(0x56495331u);  // VIS1 separates visibility-only continuation.
+        }
+        if (!legacy || legacy->sobol) {
+            hash.u32(0x534f4231u);  // SOB1 identifies the progressive Sobol sequence.
+        }
+    }
+    if (legacy ? legacy->nearby_lights : settings.adaptive_rays) {
+        hash.u32(0x4e4d4c31u);  // NML1 identifies the probe-local mesh emitter mixture.
+    }
     hash.u32(settings.bounces);
     hash.u32(settings.seed);
+    hash.u32(0x454d4131u);  // EMA1 identifies per-triangle baked emission.
     hash.f32(settings.ray_bias);
     hash.f32(settings.distance_exponent);
     hash.f32(settings.min_inside_fraction);

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-shrub_6.glb-0",
+      "match": {
+        "model": "shrub_6.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0011.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.327133596,
+            0.178790018,
+            0.196879148
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

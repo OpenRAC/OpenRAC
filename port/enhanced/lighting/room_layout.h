@@ -71,10 +71,7 @@ void connect_room_links(
 );
 
 RoomLayout prepare_room_layout(
-    const BakeScene& scene,
-    std::vector<EnvironmentFloorSample>& floors,
-    const BakeSettings& settings,
-    unsigned threads = 0
+    const Scene& scene, std::vector<EnvironmentFloorSample>& floors, const BakeSettings& settings
 );
 
 ProbeGrid fit_room_grid(

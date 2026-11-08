@@ -401,11 +401,22 @@ int main() {
     CHECK(BakeSettings{}.terrain_vertex_albedo);
     CHECK(load_level_bake_profile(root).activation.bake.terrain_vertex_albedo);
     CHECK(load_level_bake_profile(root).activation.bake.sky_intensity == 1.0f);
+    const auto defaults = load_level_bake_profile(root);
+    CHECK(defaults.activation.bake.adaptive_rays);
+    CHECK(!defaults.explicit_ray_policy);
     const auto profile_path = root / "probe-bake.json";
     auto profile_source = [&](const char* text) {
         std::ofstream output(profile_path);
         output << text;
     };
+    profile_source(
+        R"({"version":1,"rays":128,"adaptive_rays":true,"adaptive_split_visibility":false})"
+    );
+    const auto adaptive = load_level_bake_profile(root);
+    CHECK(adaptive.explicit_ray_policy);
+    CHECK(adaptive.activation.bake.adaptive_rays);
+    CHECK(!adaptive.legacy_sampling.split_visibility);
+    CHECK(adaptive.legacy_sampling.sobol);
     profile_source(R"({"version":1})");
     CHECK((load_level_bake_profile(root).sparse_spacing == Float3{256, 256, 256}));
     CHECK(load_level_bake_profile(root).activation.bake.sky_weight == 0.7f);
@@ -465,6 +476,7 @@ int main() {
         == profile.activation.bake.sunlight_direction
     );
     CHECK(profile.activation.bake.rays_per_probe == 32);
+    CHECK(!profile.activation.bake.adaptive_rays);
     CHECK(profile.activation.bake.bounces == 2);
     CHECK(profile.activation.light_set == 2);
     CHECK(profile.activation.environment[1] == 0.2f);
@@ -577,6 +589,37 @@ int main() {
         CHECK(denied);
     };
     CHECK(load_level_probes(asset, level, expected).grid.scene_hash == volume.grid.scene_hash);
+    auto adaptive_default = expected;
+    adaptive_default.bake.adaptive_rays = true;
+    refuses(adaptive_default);
+    ProbeAssetLoader previous_default_session(level, adaptive_default);
+    CHECK(
+        previous_default_session.load_with_previous_defaults(asset, {}).grid.settings_hash
+        == volume.grid.settings_hash
+    );
+    CHECK(previous_default_session.load(asset).grid.settings_hash == volume.grid.settings_hash);
+    {
+        auto old_adaptive = volume;
+        auto settings = adaptive_default.bake;
+        const LegacyProbeSampling legacy{.split_visibility = false};
+        old_adaptive.grid.settings_hash =
+            probe_bake_settings_hash(old_adaptive.grid, settings, &legacy);
+        const auto old_bytes = encode_probes(old_adaptive);
+        {
+            std::ofstream output(asset, std::ios::binary);
+            output.write(reinterpret_cast<const char*>(old_bytes.data()), old_bytes.size());
+        }
+        ProbeAssetLoader session(level, adaptive_default);
+        LevelBakeProfile profile;
+        profile.legacy_sampling = legacy;
+        CHECK(
+            session.load_with_previous_defaults(asset, profile).grid.settings_hash
+            == old_adaptive.grid.settings_hash
+        );
+        CHECK(session.load(asset).grid.settings_hash == old_adaptive.grid.settings_hash);
+        std::ofstream output(asset, std::ios::binary);
+        output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    }
     {
         const ProbeAssetLoader session(level, expected);
         CHECK(session.load(asset).grid.scene_hash == volume.grid.scene_hash);
