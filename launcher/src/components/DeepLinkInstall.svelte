@@ -263,8 +263,9 @@
     width: 100%;
     max-width: 560px;
     max-height: 100%;
-    background: var(--panel);
-    border: 1px solid var(--line-strong);
+    background: var(--card);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     display: flex;
@@ -283,7 +284,9 @@
     gap: 12px;
     padding: 18px 24px;
     border-bottom: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .title-row {
@@ -377,13 +380,12 @@
   }
 
   .warn {
-    border: 1px solid var(--amber);
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
     color: var(--amber);
   }
 
   .error,
   .block {
-    border: 1px solid var(--err);
     background: color-mix(in srgb, var(--err) 12%, transparent);
     color: var(--err);
   }
@@ -433,7 +435,9 @@
     gap: 12px;
     padding: 16px 24px;
     border-top: 1px solid var(--line);
-    background: var(--panel-hi);
+    background: var(--card-hi);
+    --control: var(--control-card);
+    --control-hi: var(--control-card-hi);
   }
 
   .grow {

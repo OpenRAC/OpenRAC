@@ -1,7 +1,0 @@
-# Original bytes of PAL v1.00 with no C of their own (tools/version_check.py).
-# Handwritten assembly in PAL too, with different bytes here.
-func_00118A40
-func_0011D700
-# Assembly tails after a function, INCLUDE_ASM in the shared file.
-func_L05_0023BAA0
-func_L00_00205778

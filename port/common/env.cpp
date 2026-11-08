@@ -148,7 +148,7 @@ constexpr std::array<Variable, kVariableCount> kVariables = {{
      "WHAT[@FRAME],...: gives the hero all, weapons, gadgets, bolts:N or an item, FRAME frames after control"},
     {Var::GlApi, "OPENRAC_GL_API",
      Kind::Text, Truth::NotAFlag, "desktop (es on Android)",
-     "the graphics API: es, desktop or vulkan"},
+     "the graphics API: es, desktop, vulkan or metal"},
     {Var::GlHideExtensions, "OPENRAC_GL_HIDE_EXTENSIONS",
      Kind::Text, Truth::NotAFlag, "none",
      "NAME,...: the renderer acts as if the driver lacked these GL extensions"},

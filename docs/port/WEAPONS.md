@@ -19,11 +19,11 @@ each level and is reached through `OPENRAC_LDATA`, not a raw address
 
 ## 1. The weapons
 
-Item ids are the game's own (`games/rac1/include/names.h`,
-`games/rac1/docs/kb/datamining.md`). Every weapon is an *item*; the game
+Item ids are the game's own (`games/rac1/decomp/include/names.h`,
+`games/rac1/decomp/docs/kb/datamining.md`). Every weapon is an *item*; the game
 distinguishes weapons (they go into the quick select) from gadgets by
 `D_L00_00179BC0[id].t` at +0x08 — `0` is a weapon
-(`games/rac1/src/overlays/shared/mobyutil_00258BC8.c:2935`).
+(`games/rac1/decomp/src/overlays/shared/mobyutil_00258BC8.c:2935`).
 
 | id | item | fires on | how | ammo |
 |---|---|---|---|---|
@@ -49,14 +49,14 @@ distinguishes weapons (they go into the quick select) from gadgets by
 The **eleven items with an ammo limit** are exactly 0x0a, 0x0b, 0x0d, 0x0f,
 0x10, 0x11, 0x13, 0x14, 0x17, 0x18 and 0x19: the table `D_L00_001C43B0` is
 nonzero for those and zero for the rest
-([datamining.md](../../games/rac1/docs/kb/datamining.md) §1.3). A zero limit
+([datamining.md](../../games/rac1/decomp/docs/kb/datamining.md) §1.3). A zero limit
 is unlimited — `TakeAmmo` returns 1 without subtracting
-(`games/rac1/src/overlays/shared/help_00232560.c:1080-1085`).
+(`games/rac1/decomp/src/overlays/shared/help_00232560.c:1080-1085`).
 
 The button is not hard-coded in the hero: each weapon's own moby carries its
-button mask in `hero.items[0].button_mask` (`games/rac1/include/hero.h:88`,
+button mask in `hero.items[0].button_mask` (`games/rac1/decomp/include/hero.h:88`,
 `HeroItemSlot.button_mask` at slot +0x10), and its update tests
-`held & button_mask` (`games/rac1/src/overlays/shared/vendor_002B33E8.c:156`).
+`held & button_mask` (`games/rac1/decomp/src/overlays/shared/vendor_002B33E8.c:156`).
 **Verified in the port**: with the wrench out the mask reads `0x80` (Square),
 with the Blaster out `0x20` (Circle); see §4.
 
@@ -64,10 +64,10 @@ with the Blaster out `0x20` (Circle); see §4.
 
 Everything the game does when a weapon is awarded is in one function:
 
-`GiveItem(id, flag)` — `games/rac1/src/overlays/shared/mobyutil_00258BC8.c:2884`
+`GiveItem(id, flag)` — `games/rac1/decomp/src/overlays/shared/mobyutil_00258BC8.c:2884`
 
 1. `D_0013D5F0[id] = 1` — **obtained** (`:2895`; the second flag, read by
-   the mission predicates, `games/rac1/src/game/missionfunc.c:203`).
+   the mission predicates, `games/rac1/decomp/src/game/missionfunc.c:203`).
 2. The banner (`:2896-2898`) — shown even for an item already owned.
 3. If `D_0013D5C8[id]` is not yet set (`:2899`):
    - `D_0013D5C8[id] = 1` — **owned** (`:2901`; the flag the pause menu's
@@ -88,7 +88,7 @@ takes the grant away for the rest of the session: a later `GiveItem` shows
 the banner and nothing else (§3.4).
 
 The vendor is the one in-game path that calls it with the flag:
-`GiveItem(sel, 1)` at `games/rac1/src/overlays/shared/vendor_002A5218.c:1470`.
+`GiveItem(sel, 1)` at `games/rac1/decomp/src/overlays/shared/vendor_002A5218.c:1470`.
 
 ## 3. Getting a weapon into your hands
 
@@ -98,7 +98,7 @@ A vendor sells the stock its own slot list holds (`VendorA.slots`), and
 buying calls `GiveItem(sel, 1)`.
 Prices and the ammo limits are in the executable's table `D_001E02B0`, 0x18
 bytes a record: price at +0x08, the alternate price at +0x0A, the ammo limit
-at +0x0E (`games/rac1/src/game/vendor.c:610-620`). Bolts are `gBolts` =
+at +0x0E (`games/rac1/decomp/src/game/vendor.c:610-620`). Bolts are `gBolts` =
 `0x0015EE98` (`include/names.h:902`).
 
 For a test that needs the whole award path (banner, sound, ammo, quick
@@ -146,7 +146,7 @@ Triangle  OPENRAC_PRESS mask 0x1000    (the game's pad bit 0x0010)
 Circle    OPENRAC_PRESS mask 0x2000    (the game's pad bit 0x0020)
 ```
 
-The switch is `games/rac1/src/overlays/l01_novalis/help_00243078.c:164-181`:
+The switch is `games/rac1/decomp/src/overlays/l01_novalis/help_00243078.c:164-181`:
 on Triangle's release, `next = D_0015EE8C` (the item in use), or
 `D_00141760` when the item out is the wrench; it writes
 `pending_item[0] = next`. Setting `D_00141760` is therefore how a script
@@ -170,33 +170,33 @@ For the Blaster that gives `w=01000000`, `owned=13D5D4`, `ammo=13D56C`.
 ### 3.3 The pause menu lists, and does not equip
 
 The pause menu's Weapons page draws each owned item with its ammo
-(`Pause_DrawItemCount`, `games/rac1/src/game/pause.c:4890-4935`: it reads
+(`Pause_DrawItemCount`, `games/rac1/decomp/src/game/pause.c:4890-4935`: it reads
 `D_0013D5C8[id]` and `D_0013D530[id]`). It is a *list*: it does not set
 `pending_item`, so it cannot put a weapon in Ratchet's hands. Equipping is
 the in-game quick select (Triangle held / Select) or the Triangle switch
 above. The quick select's eight entries are `D_00141FA0`, loaded and saved by
 `Pause_LoadQuickSelect` / `Pause_SaveQuickSelect`
-(`games/rac1/src/game/pause.c:3028-3060`); its **in-game wheel** is drawn
+(`games/rac1/decomp/src/game/pause.c:3028-3060`); its **in-game wheel** is drawn
 from the level's own table `D_L00_0015FB78`, which is why a level can show a
 different wheel from the pause page's list
-(`games/rac1/src/overlays/shared/hud_00235960.c:1100-1160`).
+(`games/rac1/decomp/src/overlays/shared/hud_00235960.c:1100-1160`).
 
 ### 3.4 The cheat codes — and why not to use them for weapons
 
 The game has a hidden button-code system: hold **R2 + L1** in the pause menu
 and press 20 buttons; codes `0x00`–`0x24` set an item's flags, `0x25`–`0x36`
 unlock planets, `0x3d`–`0x5a` set skill points
-([games/rac1/docs/kb/datamining.md](../../games/rac1/docs/kb/datamining.md)
+([games/rac1/decomp/docs/kb/datamining.md](../../games/rac1/decomp/docs/kb/datamining.md)
 §1, with all 91 sequences in §1.4; the table there is a static derivation
 and **has not been played**). The matcher walks a 256-byte table,
 `D_L00_001B9F20`, once the 20th symbol is in
-(`games/rac1/src/overlays/shared/pause_00277208.c:1186`).
+(`games/rac1/decomp/src/overlays/shared/pause_00277208.c:1186`).
 
 For weapons they are the wrong tool, twice over:
 
 - they set **`D_0013D5C8[c]` and `D_0013D5F0[c]` only** — no ammo, no
   quick-select entry, no equip
-  (`games/rac1/docs/kb/datamining.md` §1.3);
+  (`games/rac1/decomp/docs/kb/datamining.md` §1.3);
 - and because they set the owned flag, a later `GiveItem` (the vendor, a
   mission reward) takes the `if (D_0013D5C8[id] == 0)` branch and grants the
   ammo and the quick-select entry **never**. The item stays at 0 ammo for
@@ -207,8 +207,8 @@ Use them to test the codes themselves, not to arm a weapon test.
 ### 3.5 The I-5 debug menu — ammo and bolts, not weapons
 
 The game's debug menu, `game mode -1`, is a real menu with an **AMMO** page
-(`games/rac1/docs/kb/datamining.md` §2; the update is
-`games/rac1/src/overlays/shared/draw_001F3A78.c:488`, the page is `case 3`
+(`games/rac1/decomp/docs/kb/datamining.md` §2; the update is
+`games/rac1/decomp/src/overlays/shared/draw_001F3A78.c:488`, the page is `case 3`
 at `:646-679`). Each row writes **one thing**: the weapon's ammo
 `D_0013D530[id]` (the row's id comes from the level's table
 `D_L00_0015F0D0`), or `gBolts` for the last row. It does **not** call
@@ -216,7 +216,7 @@ at `:646-679`). Each row writes **one thing**: the weapon's ammo
 It is not reachable with buttons: the only way in is writing the game mode
 (`gGameMode`, level data `D_L00_0015F6A8`) to `0xFFFFFFFF`. The mode's
 `case -1` is present in the port
-(`games/rac1/src/overlays/shared/map_002465F8.c:204-208`). **Untested in the
+(`games/rac1/decomp/src/overlays/shared/map_002465F8.c:204-208`). **Untested in the
 port**: no button path exists, and writing a level's data from outside needs
 `OPENRAC_LDATA`'s level, not a raw address
 ([RAC1_PAL_TESTING.md](RAC1_PAL_TESTING.md) §5).
@@ -341,7 +341,7 @@ The same recipe with the **Walloper** (`id=0x12`, owned word
 ```
 
 That is the Walloper's own firing state
-(`games/rac1/src/overlays/shared/help_00221A98.c:3267`): it raises no fire
+(`games/rac1/decomp/src/overlays/shared/help_00221A98.c:3267`): it raises no fire
 flag, which is why a test of it watches the hero state, not `unk20A8`.
 
 ### The traps this recipe had to get past
@@ -373,7 +373,7 @@ flag, which is why a test of it watches the hero state, not `unk20A8`.
 
 For guns the fire flag is `hero.unk20A8` (`0x001414F8` PAL, low byte of the
 watched word). The Walloper has no flag — it fires from its own hero state
-`0x20` (`games/rac1/src/overlays/shared/help_00221A98.c:3267`). The
+`0x20` (`games/rac1/decomp/src/overlays/shared/help_00221A98.c:3267`). The
 Visibomb Gun and the Taunter read the pad themselves. For the ones that fire
 on a counter, `hero.items[0].moby` (`0x1404E0`), then `+0x78` (the moby's
 pvars) and `+0x00` is the shot's cooldown; the R.Y.N.O.'s `+0x04` counts
@@ -384,7 +384,7 @@ its missiles (`openrac-mods/dualsense/src/weapons.cpp`, `weapon_moment`).
 Verified in the port, 2026-10-22 (PAL, `--level 1`, the run in §6):
 
 - the item ids and names (§1), from the decompilation and
-  `games/rac1/docs/kb/datamining.md`;
+  `games/rac1/decomp/docs/kb/datamining.md`;
 - the owned word, the ammo word and `D_00141760`, and the Triangle switch
   putting the Blaster and the Walloper out (§3.2, §6);
 - `items[0].button_mask` being `0x80` for the wrench and `0x20` for the
@@ -393,7 +393,7 @@ Verified in the port, 2026-10-22 (PAL, `--level 1`, the run in §6):
 
 Not verified:
 
-- the **cheat codes**: `games/rac1/docs/kb/datamining.md` §1.4 is a static
+- the **cheat codes**: `games/rac1/decomp/docs/kb/datamining.md` §1.4 is a static
   derivation and says so. §3.4's warning about the owned flag follows from
   the code (`mobyutil_00258BC8.c:2899`), not from a played run;
 - the **I-5 debug menu** in the port (§3.5);
@@ -412,15 +412,15 @@ Not verified:
 
 | What | Where |
 |---|---|
-| `GiveItem` | `games/rac1/src/overlays/shared/mobyutil_00258BC8.c:2884` |
-| the vendor's buy | `games/rac1/src/overlays/shared/vendor_002A5218.c:1458-1471` |
-| the vendor's prices | `games/rac1/src/game/vendor.c:610-700` |
-| the hero's item slots | `games/rac1/include/hero.h:88-110`, `:637`, `:752` |
-| creating the item moby | `games/rac1/src/overlays/shared/help_0020CDF0.c:898-940` |
-| the Triangle switch | `games/rac1/src/overlays/l01_novalis/help_00243078.c:164-181` |
-| the quick select, pause page | `games/rac1/src/game/pause.c:3028-3060` |
-| the quick select, in-game wheel | `games/rac1/src/overlays/shared/hud_00235960.c:1100-1160` |
-| ammo take/add/get | `games/rac1/src/overlays/shared/help_00232560.c:1072-1111` |
-| the I-5 menu's AMMO page | `games/rac1/src/overlays/shared/draw_001F3A78.c:646-679` |
-| the button-code system | `games/rac1/docs/kb/datamining.md` §1; the matcher, `games/rac1/src/overlays/shared/pause_00277208.c:1186` |
+| `GiveItem` | `games/rac1/decomp/src/overlays/shared/mobyutil_00258BC8.c:2884` |
+| the vendor's buy | `games/rac1/decomp/src/overlays/shared/vendor_002A5218.c:1458-1471` |
+| the vendor's prices | `games/rac1/decomp/src/game/vendor.c:610-700` |
+| the hero's item slots | `games/rac1/decomp/include/hero.h:88-110`, `:637`, `:752` |
+| creating the item moby | `games/rac1/decomp/src/overlays/shared/help_0020CDF0.c:898-940` |
+| the Triangle switch | `games/rac1/decomp/src/overlays/l01_novalis/help_00243078.c:164-181` |
+| the quick select, pause page | `games/rac1/decomp/src/game/pause.c:3028-3060` |
+| the quick select, in-game wheel | `games/rac1/decomp/src/overlays/shared/hud_00235960.c:1100-1160` |
+| ammo take/add/get | `games/rac1/decomp/src/overlays/shared/help_00232560.c:1072-1111` |
+| the I-5 menu's AMMO page | `games/rac1/decomp/src/overlays/shared/draw_001F3A78.c:646-679` |
+| the button-code system | `games/rac1/decomp/docs/kb/datamining.md` §1; the matcher, `games/rac1/decomp/src/overlays/shared/pause_00277208.c:1186` |
 | `OPENRAC_PRESS`, `OPENRAC_WRITE` | `port/game/common/frontend.cpp:3082`, `port/game/common/main.cpp:613` |

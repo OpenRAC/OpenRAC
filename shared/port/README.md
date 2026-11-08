@@ -13,7 +13,7 @@ machine"). These lists say what it must leave alone.
 
 Held back on 2026-10-02 because they are library code, where the sourcing
 policy asks for a second look. Each was read in Lombyte's tree
-(`games/rac1/ntsc/src`) for what the policy names: C that arrives complete
+(`games/rac1/ntsc-decomp/src`) for what the policy names: C that arrives complete
 with SDK-style names, types or macros.
 
 | rac1/pal | Lombyte's unit | What it is | Finding |

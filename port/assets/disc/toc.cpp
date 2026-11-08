@@ -89,9 +89,9 @@ constexpr DiscLayout kRac1 = {
     "NTSC-U: ReRAC's docs/formats/disc_layout.md; PAL: OpenRAC's editor/disc.py",
 };
 
-// No table of contents is read for these yet. games/rac4/ntsc/docs/RESEARCH.md
+// No table of contents is read for these yet. games/rac4/decomp/docs/RESEARCH.md
 // places RAC4's at sector 1001 but does not describe its layout;
-// games/rac2/ntsc/docs/LEVEL-ARCHIVE-FORMAT.md describes a prototype's
+// games/rac2/decomp/docs/LEVEL-ARCHIVE-FORMAT.md describes a prototype's
 // RC2.HDR, not the retail disc.
 constexpr DiscLayout kUnknown[] = {
     {Game::Rac2, false, 0, 0, 0, 0, 0, {}, "RAC2's table of contents is not known yet"},

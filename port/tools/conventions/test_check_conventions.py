@@ -34,7 +34,7 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(cc.in_scope("port/game/rac1-pal/hand/functional/x.c"))
         self.assertFalse(cc.in_scope("port/build/release/gen/a.c"))
         self.assertFalse(cc.in_scope("port/README.md"))
-        self.assertFalse(cc.in_scope("games/rac1/src/main.c"))
+        self.assertFalse(cc.in_scope("games/rac1/decomp/src/main.c"))
 
     def test_generated_files_say_so_in_their_first_lines(self):
         self.assertTrue(cc.is_generated("/* Generated from x by y. Do not edit. */\n"))

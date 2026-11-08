@@ -1,6 +1,0 @@
-# Original bytes of NTSC-J with no C of their own (tools/version_check.py).
-# Dead-strip remnants: tails of stripped functions.
-func_J_00202C6C
-func_J_00205EE0
-# Dead-strip remnant: PAL lists func_001F6CE0 as one too; here its bytes differ with no C to write.
-func_001F6CE0

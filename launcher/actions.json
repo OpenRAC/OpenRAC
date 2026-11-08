@@ -93,7 +93,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/README.md"
+        "docs": "games/rac1/decomp/README.md"
       },
       {
         "id": "build",
@@ -109,8 +109,8 @@
           "inputs",
           "toolchains"
         ],
-        "artifact": "games/rac1/build-sn/rac1.elf",
-        "docs": "games/rac1/README.md"
+        "artifact": "games/rac1/decomp/build-sn/rac1.elf",
+        "docs": "games/rac1/decomp/README.md"
       },
       {
         "id": "editor-preview",
@@ -149,7 +149,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac1/docs/WORKFLOW.md"
+        "docs": "games/rac1/decomp/docs/WORKFLOW.md"
       },
       {
         "id": "editor-extract",
@@ -807,7 +807,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Run once on Linux. On Windows it runs in WSL: decide how the launcher starts WSL (wsl.exe --cd ...)."
       },
       {
@@ -830,7 +830,7 @@
           "inputs",
           "docker"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Run once on macOS."
       },
       {
@@ -849,13 +849,13 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md",
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md",
         "todo": "Find the executable make elf writes (config/us/build/SCUS_971.99 per docs/building.md) and add it as the artifact; macOS runs make through host/run.sh."
       },
       {
         "id": "build-merged",
         "label": "Build from the merged tree",
-        "description": "Links NTSC-U's boot executable and 19 level programs from the merged games/rac1 tree's compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
+        "description": "Links NTSC-U's boot executable and 19 level programs from the PAL tree's (games/rac1/decomp) compiled functions, placed at NTSC-U's addresses, and compares each with your disc. Build the PAL tree and run tools/xmap.py scan rac1/pal rac1/ntsc first.",
         "kind": "build",
         "state": "unverified",
         "program": "{python}",
@@ -889,7 +889,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac1/ntsc/docs/build/building.md"
+        "docs": "games/rac1/ntsc-decomp/docs/build/building.md"
       },
       {
         "id": "editor-extract",
@@ -2586,7 +2586,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac2/ntsc/CONTRIBUTING.md"
+        "docs": "games/rac2/decomp/CONTRIBUTING.md"
       },
       {
         "id": "setup",
@@ -2603,7 +2603,7 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
       },
       {
@@ -2622,7 +2622,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
       },
       {
@@ -3081,7 +3081,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac2/ntsc/docs/VERSIONS.md"
+        "docs": "games/rac2/decomp/docs/VERSIONS.md"
       },
       {
         "id": "setup",
@@ -3100,7 +3100,7 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
       },
       {
@@ -3121,7 +3121,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
+        "docs": "games/rac2/decomp/docs/VERSIONS.md",
         "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
       },
       {
@@ -3580,7 +3580,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac2/ntsc/docs/VERSIONS.md"
+        "docs": "games/rac2/decomp/docs/VERSIONS.md"
       },
       {
         "id": "setup",
@@ -3599,7 +3599,7 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac2/ntsc/docs/BUILDING.md",
+        "docs": "games/rac2/decomp/docs/BUILDING.md",
         "todo": "The compilers come next: tools/compiler/build.sh and tools/compiler/sdk/build.py (Linux, or tools/docker/run.sh)."
       },
       {
@@ -3620,7 +3620,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac2/ntsc/docs/VERSIONS.md",
+        "docs": "games/rac2/decomp/docs/VERSIONS.md",
         "todo": "Needs the compilers built and SN ProDG 2.0's assembler and linker in toolchain/; on macOS run it through tools/docker/run.sh."
       },
       {
@@ -4086,7 +4086,7 @@
         "description": "rac3's pre-PR check (prints OK).",
         "kind": "check",
         "state": "planned",
-        "docs": "games/rac3/ntsc/CONTRIBUTING.md",
+        "docs": "games/rac3/decomp/CONTRIBUTING.md",
         "todo": "tools/pr_check.py --target all with the venv's Python, once Set up works."
       },
       {
@@ -4393,7 +4393,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Run once; check whether it needs the project's venv first."
       },
       {
@@ -4414,7 +4414,7 @@
           "inputs",
           "toolchains"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Nothing is linked yet in rac4: the build writes objects to build/obj, so there is no executable to play."
       },
       {
@@ -4434,7 +4434,7 @@
         "requires": [
           "inputs"
         ],
-        "docs": "games/rac4/ntsc/README.md",
+        "docs": "games/rac4/decomp/README.md",
         "todo": "Uses the project's own venv (venv/): add an action that creates it, or run with {python} once the requirements are known."
       },
       {
@@ -4451,7 +4451,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac4/ntsc/README.md"
+        "docs": "games/rac4/decomp/README.md"
       },
       {
         "id": "editor-extract",
@@ -4756,8 +4756,8 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac5/ntsc/README.md",
-        "todo": "Runs from games/rac5/ntsc with the image placed in its baserom/ (python3 tools/openrac.py setup rac5/ntsc)."
+        "docs": "games/rac5/decomp/README.md",
+        "todo": "Runs from games/rac5/decomp with the image placed in its baserom/ (python3 tools/openrac.py setup rac5/ntsc)."
       },
       {
         "id": "tests",
@@ -4776,7 +4776,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac5/ntsc/README.md"
+        "docs": "games/rac5/decomp/README.md"
       },
       {
         "id": "repo-check",
@@ -4791,7 +4791,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac5/ntsc/LEGAL.md"
+        "docs": "games/rac5/decomp/LEGAL.md"
       },
       {
         "id": "editor-extract",
@@ -4801,7 +4801,7 @@
         "area": "editor",
         "state": "planned",
         "docs": "editor/README.md",
-        "todo": "Size Matters keeps its levels in SNR2 .REL modules (games/rac5/ntsc/docs/REL-FORMAT.md); the editor reads none of them yet."
+        "todo": "Size Matters keeps its levels in SNR2 .REL modules (games/rac5/decomp/docs/REL-FORMAT.md); the editor reads none of them yet."
       },
       {
         "id": "play",
@@ -4831,8 +4831,8 @@
           "python",
           "inputs"
         ],
-        "docs": "games/rac6/ntsc/README.md",
-        "todo": "Runs from games/rac6/ntsc with the image placed in its baserom/ (python3 tools/openrac.py setup rac6/ntsc)."
+        "docs": "games/rac6/decomp/README.md",
+        "todo": "Runs from games/rac6/decomp with the image placed in its baserom/ (python3 tools/openrac.py setup rac6/ntsc)."
       },
       {
         "id": "tests",
@@ -4851,7 +4851,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac6/ntsc/README.md"
+        "docs": "games/rac6/decomp/README.md"
       },
       {
         "id": "repo-check",
@@ -4866,7 +4866,7 @@
         "requires": [
           "python"
         ],
-        "docs": "games/rac6/ntsc/LEGAL.md"
+        "docs": "games/rac6/decomp/LEGAL.md"
       },
       {
         "id": "editor-extract",

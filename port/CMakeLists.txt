@@ -9,6 +9,11 @@
 # tools/hostgen; they need Clang (to read that C) and Python 3. The programs
 # that open a window need SDL3, found on the system or fetched by CMake.
 cmake_minimum_required(VERSION 3.24)
+# macOS 12 is the oldest system the port runs on. Set before project(), which reads it; a toolchain
+# file (Android's NDK) or a choice made with -D stays.
+if(CMAKE_HOST_APPLE AND NOT CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 12.0 CACHE STRING "Oldest macOS the programs run on")
+endif()
 project(openrac_port LANGUAGES C CXX)
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
   set(OPENRAC_IOS ON)
@@ -37,6 +42,13 @@ endif()
 if(MSVC AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
   message(FATAL_ERROR "Build the port with Clang (clang-cl on Windows): the guest contract "
                       "needs __int128 and GNU C extensions that MSVC's C compiler lacks.")
+endif()
+
+# macOS: Apple's libc++ before macOS 13.3 has no floating-point std::to_chars, which std::format
+# needs. Its availability markup is off and common/apple_to_chars.cpp supplies them, with the rest
+# of what that turns on and macOS 12 lacks.
+if(APPLE)
+  add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
 endif()
 
 # Experimental lighting (port/enhanced) is compiled in and chosen when the game starts: the
@@ -107,6 +119,9 @@ add_library(openrac_common STATIC
   "${OPENRAC_BUILD_INFO}"
 )
 add_dependencies(openrac_common openrac_build_info)
+if(APPLE)
+  target_sources(openrac_common PRIVATE common/apple_to_chars.cpp)
+endif()
 target_include_directories(openrac_common PUBLIC .)
 include(Tracy)
 if(OPENRAC_GPU_MARKERS)

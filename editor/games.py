@@ -142,7 +142,7 @@ class Format:
     sky_short_shells: bool = False      # a sky shell's cluster count and flags are s16 (Up Your Arsenal, Deadlocked)
     # What only Ratchet & Clank has so far: its levels lit as the game lights them at load
     # (lighting.py needs the executable's normal table, disc.Version.normal_table), its moby
-    # class names (moby_classes.tsv) and update functions (games/rac1), and the level packer.
+    # class names (moby_classes.tsv) and update functions (games/rac1/decomp), and the level packer.
     lighting: bool = False
     # The terrain and the shrubs lit as the game lights them at level load, the ties left to a
     # reader of their own (Going Commando: its PatchTfragVertexLighting, 0x2F0468, is

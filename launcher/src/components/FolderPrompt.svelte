@@ -63,7 +63,6 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    border-color: color-mix(in srgb, var(--amber) 45%, transparent);
   }
 
   .folder h2 {

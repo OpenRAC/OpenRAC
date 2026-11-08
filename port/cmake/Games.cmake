@@ -466,6 +466,7 @@ function(openrac_menu_fonts out)
   set(dir "${OPENRAC_GAME_DIR}/common/fonts")
   set(content "/* Generated from ${dir} by cmake/Games.cmake. */\n")
   foreach(pair IN ITEMS "inter:Inter-Regular.ttf" "inter_semibold:Inter-SemiBold.ttf"
+                        "inter_medium:Inter-Medium.ttf"
                         "orbitron:Orbitron.ttf")
     string(REPLACE ":" ";" pair "${pair}")
     list(GET pair 0 name)

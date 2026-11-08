@@ -17,7 +17,7 @@ is the moby.** Everything else is in its state:
 
 | Part | Where | Example |
 |---|---|---|
-| header: position, rotation, scale, state byte (0x20), flags, class, animation (seq, frame) | `struct Moby`, [moby.h](../games/rac1/include/moby.h) | `moby->state = 1` |
+| header: position, rotation, scale, state byte (0x20), flags, class, animation (seq, frame) | `struct Moby`, [moby.h](../games/rac1/decomp/include/moby.h) | `moby->state = 1` |
 | private variables (pvars) | `moby->pvars` (+0x78), a per-class struct from the level's gameplay file | `pv->rider`, `data->velocity` |
 | mode / state bits | `moby->state` is the class's own state machine (a `switch` on it); `flags` has engine bits | `moby->flags \|= 0x41` |
 | animation | `moby->seq`, `set_animation(moby, seq, frame, blend)` | `func_00213DE0` |

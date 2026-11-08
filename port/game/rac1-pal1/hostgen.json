@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank (PAL v1.00)",
   "game": "rac1",
   "serial": "SCES_509.16",
-  "source": "games/rac1",
+  "source": "games/rac1/decomp",
   "frame_rate": 50,
   "entry": "func_0012D9D8",
   "sources": [
@@ -33,7 +33,7 @@
   "places": "config/versions/pal_v1/functions.tsv",
   "split_places": "split_places.tsv",
   "symbols": [
-    "../../port/game/rac1-pal1/port_symbols.txt"
+    "../../../port/game/rac1-pal1/port_symbols.txt"
   ],
   "libraries": "libraries.tsv",
   "host_shared": [

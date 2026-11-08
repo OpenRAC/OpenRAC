@@ -41,6 +41,7 @@ module	assets/	assets
 module	audio/	audio
 module	media/	media
 module	renderer/vulkan/	renderer/vulkan
+module	renderer/metal/	renderer/metal
 module	renderer/world/	renderer/world
 module	renderer/	renderer
 module	materials/	materials
@@ -62,7 +63,7 @@ module	tests/	tests
 layer	0	sdk common
 layer	1	runtime
 layer	2	platform assets audio media
-layer	3	renderer renderer/vulkan renderer/world materials
+layer	3	renderer renderer/vulkan renderer/metal renderer/world materials
 layer	4	scene
 layer	5	enhanced
 layer	6	game/common
@@ -77,6 +78,7 @@ allow	audio	assets
 allow	media	assets
 allow	renderer/world	renderer
 allow	renderer/vulkan	renderer renderer/world
+allow	renderer/metal	renderer renderer/vulkan renderer/world
 allow	tests	viewer extract ios
 
 # Known violations (docs/restructure/PROGRESS.md names the packages).

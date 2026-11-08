@@ -19,6 +19,28 @@
       "cacheVariables": {"CMAKE_BUILD_TYPE": "RelWithDebInfo"}
     },
     {
+      "name": "release-x86_64",
+      "inherits": "release",
+      "displayName": "Release for Intel Macs (a Mac with Apple silicon cross-builds it)",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"},
+      "cacheVariables": {"CMAKE_OSX_ARCHITECTURES": "x86_64", "OPENRAC_STATIC_SDL": "ON"}
+    },
+    {
+      "name": "release-universal",
+      "inherits": "release",
+      "displayName": "Release for Apple silicon and Intel Macs in one binary (arm64 and x86_64)",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"},
+      "cacheVariables": {"CMAKE_OSX_ARCHITECTURES": "arm64;x86_64", "OPENRAC_STATIC_SDL": "ON"}
+    },
+    {
+      "name": "xcode",
+      "inherits": "base",
+      "displayName": "An Xcode project, for those who work in Xcode (optional: the other presets need only the Command Line Tools)",
+      "generator": "Xcode",
+      "condition": {"type": "equals", "lhs": "${hostSystemName}", "rhs": "Darwin"},
+      "cacheVariables": {"OPENRAC_STATIC_SDL": "ON"}
+    },
+    {
       "name": "enhanced",
       "inherits": "release",
       "displayName": "Release with experimental Vulkan enhanced rendering",
@@ -63,6 +85,9 @@
   ],
   "buildPresets": [
     {"name": "release", "configurePreset": "release"},
+    {"name": "release-x86_64", "configurePreset": "release-x86_64"},
+    {"name": "release-universal", "configurePreset": "release-universal"},
+    {"name": "xcode", "configurePreset": "xcode", "configuration": "RelWithDebInfo"},
     {"name": "enhanced", "configurePreset": "enhanced"},
     {"name": "standalone", "configurePreset": "standalone"},
     {"name": "debug", "configurePreset": "debug"},

@@ -22,11 +22,11 @@ OPENRAC_HIDDEN=1 OPENRAC_PRESS=300:4000:10,500:8:10,700:4000:10,900:8:10,1300:40
 
 ## Building and running
 
-The default build reads OpenRAC's own `games/rac2/ntsc` (synced at
+The default build reads OpenRAC's own `games/rac2/decomp` (synced at
 2e09b830, 2026-11-01). It needs the boot executable, which
 `python3 tools/build_port.py rac2-ntsc --disc <your disc image>` has hostgen read
 straight from the image (`OPENRAC_RAC2_NTSC_RETAIL_IMAGE`; no copy is made).
-Without `--disc` the build falls back to `games/rac2/ntsc/baserom/SCUS_972.68`
+Without `--disc` the build falls back to `games/rac2/decomp/baserom/SCUS_972.68`
 (for developers: `python3 tools/levels.py dump` writes it from
 `baserom/SCUS_972.68.iso`, or copy it from your rac2-decomp's `baserom/`); with
 neither, the functions with no C (the boot code, `main` included) are stubs and the
@@ -99,7 +99,7 @@ What the translation reads (`hostgen.json`):
   when the checkout has been built, else `derived_names.json` here, the same
   table kept with the port (names and addresses only). Without either,
   hostgen stops: the functions that use those names would be stubs and the
-  menu's set-up crashes. After syncing `games/rac2/ntsc`, build its boot
+  menu's set-up crashes. After syncing `games/rac2/decomp`, build its boot
   program and write the copy again (hostgen warns, and `test_derived` fails,
   when the C uses a name the copy does not know):
 

@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Another release of a game whose decompilation names everything by one release's addresses.
 
-Going Commando's decompilation builds three releases from one C (games/rac2/ntsc/docs/VERSIONS.md):
+Going Commando's decompilation builds three releases from one C (games/rac2/decomp/docs/VERSIONS.md):
 USA v1.01, whose addresses every name states (`func_0027F538`, `D_001A7A18`, `func_L05_0041DF58`),
 and PAL and USA v2.00, whose programs hold the same code elsewhere. Its build reads each name's
 value in another release from that release's bytes, and the release's own functions are named
@@ -119,6 +119,9 @@ class Release:
         self.names: dict[str, str] = table.get("names", {})
         self.units: dict[str, dict[str, str]] = table.get("units", {})
         self.gone: list[str] = table.get("gone", [])
+        # Where a name is gone, when only in some of the tree (rac3: one PAL name can be a function
+        # of the executable and of the front end, gone in one only): name -> directory prefixes.
+        self.gone_in: dict[str, list[str]] = table.get("gone_in", {})
 
     @classmethod
     def load(cls, path: Path) -> "Release":
@@ -148,6 +151,8 @@ class Release:
         spans, tail = [], []
         for name in self.gone:
             # A definition of PAL v2.00's the release has no function for: left out (its lines stay).
+            if name in self.gone_in and not unit.startswith(tuple(self.gone_in[name])):
+                continue
             spellings = [name] + (readable or {}).get(name, [])
             for spelling in spellings + [f"{x}_r" for x in spellings]:
                 span = prep._definition(text, spelling) if spelling in text else None
@@ -417,7 +422,7 @@ def build(source: Path, version: str, versionmap: Path | None, uses: Counter) ->
 
 # ---------------------------------------------------------------- Ratchet & Clank's releases
 
-# rac1-decomp (games/rac1/docs/VERSIONS.md) builds PAL v1.00 and NTSC-J from PAL v2.00's C. Each
+# rac1-decomp (games/rac1/decomp/docs/VERSIONS.md) builds PAL v1.00 and NTSC-J from PAL v2.00's C. Each
 # release's catalogue (config/versions/<key>/functions.tsv) names every function by its PAL v2.00
 # counterpart, or func_<tag>_... for code only it has, with its places; its own definitions
 # (src/versions/<key>/) stand in for the shared ones where its code differs; and its check

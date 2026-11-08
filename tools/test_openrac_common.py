@@ -294,12 +294,12 @@ class BootstrapTests(TempDir):
 # ---- games ----
 
 RAC8 = {"id": "rac8", "title": "Eight", "versions": {
-    "pal": {"serial": "SCES_888.88", "region": "PAL", "dir": "games/rac8", "source": {"checkout": "~/x"},
+    "pal": {"serial": "SCES_888.88", "region": "PAL", "dir": "games/rac8", "source": {"name": "x"},
             "xmap": {"code": []}},
     "ntsc": {"serial": "SCUS_888.88", "region": "NTSC-U"},
 }}
 RAC9 = {"id": "rac9", "title": "Nine", "versions": {
-    "ntsc": {"serial": "SCUS_999.99", "region": "NTSC-U", "source": {"checkout": "~/y"}},
+    "ntsc": {"serial": "SCUS_999.99", "region": "NTSC-U", "source": {"name": "y"}},
 }}
 
 
@@ -328,39 +328,23 @@ class GamesTests(TempDir):
     def test_source_variable_is_the_game_and_version_in_capitals(self):
         self.assertEqual(games.source_variable("rac1", "pal"), "OPENRAC_SOURCE_RAC1_PAL")
 
-    def test_source_checkout_is_the_variable_else_game_json(self):
+    def test_source_checkout_is_the_variable_else_the_submodule(self):
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": "/elsewhere"}):
             self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path("/elsewhere"))
-        # Not set, and set but empty, both fall back to game.json's path with ~ expanded.
+        # Not set, and set but empty, both give the version's own directory (its submodule).
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": ""}):
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path(os.path.expanduser("~/x")))
+            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), self.dir / "games/rac8")
             del os.environ["OPENRAC_SOURCE_RAC8_PAL"]
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), Path(os.path.expanduser("~/x")))
-
-    def test_a_relative_checkout_is_written_from_the_top_of_openrac(self):
-        manifest = self.dir / "games/rac8/game.json"
-        data = json.loads(manifest.read_text())
-        data["versions"]["pal"]["source"]["checkout"] = "../rac8-decomp"
-        manifest.write_text(json.dumps(data))
-        with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC8_PAL": ""}):
-            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), (self.dir / "../rac8-decomp").resolve())
-            # The same from any working directory: the path is the manifest's, not the caller's.
-            here = os.getcwd()
-            try:
-                os.chdir(self.dir / "games")
-                self.assertEqual(
-                    games.source_checkout("rac8", "pal", self.dir), (self.dir / "../rac8-decomp").resolve()
-                )
-            finally:
-                os.chdir(here)
+            self.assertEqual(games.source_checkout("rac8", "pal", self.dir), self.dir / "games/rac8")
+        self.assertIsNone(games.source_checkout("rac8", "ntsc", self.dir))
 
     def test_a_shared_source_is_the_checkout_of_the_version_it_shares(self):
         manifest = self.dir / "games/rac9/game.json"
         data = json.loads(manifest.read_text())
-        data["versions"]["pal"] = {"serial": "SCES_999.99", "source": {"shared": "ntsc", "checkout": "~/other"}}
+        data["versions"]["pal"] = {"serial": "SCES_999.99", "source": {"shared": "ntsc"}}
         manifest.write_text(json.dumps(data))
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "", "OPENRAC_SOURCE_RAC9_PAL": "/ignored"}):
-            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), Path(os.path.expanduser("~/y")))
+            self.assertEqual(games.source_checkout("rac9", "pal", self.dir), self.dir / "games/rac9/ntsc")
         with mock.patch.dict(os.environ, {"OPENRAC_SOURCE_RAC9_NTSC": "/mine"}):
             self.assertEqual(games.source_checkout("rac9", "pal", self.dir), Path("/mine"))
 

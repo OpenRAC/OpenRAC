@@ -1,5 +1,0 @@
-# Jump tables the address translation misses (tools/version_check.py): the primary table, its address here.
-jtbl_001E7CC0	001E78A0
-jtbl_001E7CF0	001E78C0
-jtbl_001E7C30	001E7820
-jtbl_001E7C60	001E7840

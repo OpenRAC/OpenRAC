@@ -3,7 +3,7 @@
   "title": "Ratchet & Clank (NTSC-J)",
   "game": "rac1",
   "serial": "SCPS_150.37",
-  "source": "games/rac1",
+  "source": "games/rac1/decomp",
   "frame_rate": 60,
   "entry": "func_0012DB18",
   "sources": [
@@ -33,7 +33,7 @@
   "places": "config/versions/jp/functions.tsv",
   "split_places": "split_places.tsv",
   "symbols": [
-    "../../port/game/rac1-jp/port_symbols.txt"
+    "../../../port/game/rac1-jp/port_symbols.txt"
   ],
   "libraries": "libraries.tsv",
   "host_shared": [

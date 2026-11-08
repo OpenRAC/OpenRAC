@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """The values a rac1-decomp release's check proved, as release.py reads a build's (placed.json).
 
-rac1-decomp builds every release of Ratchet & Clank from one C (games/rac1/docs/VERSIONS.md): its
+rac1-decomp builds every release of Ratchet & Clank from one C (games/rac1/decomp/docs/VERSIONS.md): its
 names state PAL v2.00's addresses, and `tools/version_check.py --version K` places each C function
 where release K has its counterpart, resolves every relocation in it (a call, a %hi/%lo pair, a
 $gp offset) to the primary's address, translates that to K's and compares the result with K's

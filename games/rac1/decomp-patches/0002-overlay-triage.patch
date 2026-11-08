@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Louis-Philippe Le Sieur <llesieur99@hotmail.com>
+Date: Tue, 27 Oct 2026 11:38:42 +0000
+Subject: overlay triage
+
+Triage overlay assembly from its own directory.
+
+tools/triage.py looked for a level function's assembly in the boot executable's folder.
+---
+ tools/triage.py | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/tools/triage.py b/tools/triage.py
+index 9e0174e..fee9497 100644
+--- a/tools/triage.py
++++ b/tools/triage.py
+@@ -117,8 +117,10 @@ def triage() -> list[dict]:
+         if f["status"] == "near-miss":
+             f.update(route="opus", reason=f"near-miss, {f['match_percent']}%")
+         else:
+-            seg = "text" if f["unit"].startswith("game/") else "core_text"
+-            asm = ROOT / "asm/nonmatchings" / seg / f"{f['name']}.s"
++            is_overlay = bool(rank_candidates.OVERLAY_NAME.match(f["name"]))
++            seg = "text" if is_overlay or f["unit"].startswith("game/") else "core_text"
++            directory = rank_candidates.OVERLAY_ASM if is_overlay else Path("asm/nonmatchings") / seg
++            asm = ROOT / directory / f"{f['name']}.s"
+             if not asm.exists():
+                 f.update(route="blocked", reason="no asm (run tools/setup_asm.sh)")
+                 rows.append(f)

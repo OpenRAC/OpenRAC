@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Flavius <Flavius256@icloud.com>
+Date: Sat, 7 Nov 2026 15:50:04 +0000
+Subject: glider matrix
+
+Give the glider's matrix inverse a whole 4x4 local.
+
+The glider's update (func_L08_003CDF98, functional C shared by Tabora,
+Dobbo and Grelbin) inverts its moby's matrix in state 0 with
+func_00283698, which writes all 64 bytes of a 4x4 matrix. The functional
+C passed the 16-byte local v30, so the inverse ran 48 bytes past it, the
+last 16 beyond the function's frame. Retail passes a 64-byte stack area.
+The matrix now goes into a local of its own.
+---
+ nonmatching/functional/func_L08_003CDF98.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/nonmatching/functional/func_L08_003CDF98.c b/nonmatching/functional/func_L08_003CDF98.c
+index a7bc4db..5950419 100644
+--- a/nonmatching/functional/func_L08_003CDF98.c
++++ b/nonmatching/functional/func_L08_003CDF98.c
+@@ -1,4 +1,4 @@
+-/* functional: medium. From the near-miss draft; its level data was named D_XXXXXXXX (boot) for addresses at or above 0x1A7C80 and is now D_L08_ (lesson 12). Gated SAME on 4 calls, which ran only 181 of 1684 retail instructions; every unrun block was then read against retail (2026-11-02) and six slips fixed: state 6's exit to state 1 has no func_002A7470 call; the func_002ABBB8 stack arguments are 1, -1, 0 (not 1, 0, -1); state 10's limit is min(dist, d+0x94), not the B0138 tuning value; the state >= 7 particle size is 0.07, not 0.0425; the particle field at +8 is a byte; the 0x70 and 0xA0 id lists are words; two constants now carry retail's exact bits (0.060000002f = 0x3D75C290, 1.01f = 0x3F8147AE). Locals and the shared tails differ from retail's layout only. */
++/* functional: medium. From the near-miss draft; its level data was named D_XXXXXXXX (boot) for addresses at or above 0x1A7C80 and is now D_L08_ (lesson 12). Gated SAME on 4 calls, which ran only 181 of 1684 retail instructions; every unrun block was then read against retail (2026-11-02) and six slips fixed: state 6's exit to state 1 has no func_002A7470 call; the func_002ABBB8 stack arguments are 1, -1, 0 (not 1, 0, -1); state 10's limit is min(dist, d+0x94), not the B0138 tuning value; the state >= 7 particle size is 0.07, not 0.0425; the particle field at +8 is a byte; the 0x70 and 0xA0 id lists are words; two constants now carry retail's exact bits (0.060000002f = 0x3D75C290, 1.01f = 0x3F8147AE). Locals and the shared tails differ from retail's layout only. State 0's inverse (func_00283698, a whole 4x4 matrix) goes into a 64-byte local, as retail's 64-byte stack area: into the 16-byte v30 it wrote 48 bytes past it, the last 16 beyond the frame. */
+ /* Hero-NPC state machine shared by Tabora, Dobbo and Grelbin. Retained
+  * reconstruction, not functional-gated. USA v1.01: 6,632/6,736 bytes, 0/3 places
+  * (2026-11-01); the earlier source emitted 6,624 bytes.
+@@ -143,6 +143,7 @@ extern int func_L08_003CDB78(void *, void *);
+ void func_L08_003CDF98(u8 *obj)
+ {
+     Vec saved, v30, v40, v50;
++    Vec inverse[4]; /* func_00283698 writes a whole 4x4 matrix */
+     u8 *d, *p, *a70, *a98, *aA0, *aB0;
+     int i, n, id;
+     float f, t;
+@@ -165,8 +166,8 @@ void func_L08_003CDF98(u8 *obj)
+         DF(8) = DF(8) + D_L08_001AFFD0;
+         func_0029FCC0(obj, 8, d + 0x30);
+         func_00282CF0(d + 0x30, obj + 0x10, d + 0x30);
+-        func_00283698(&v30, obj + 0xC0);
+-        func_002830C0(d + 0x30, d + 0x30, &v30);
++        func_00283698(inverse, obj + 0xC0);
++        func_002830C0(d + 0x30, d + 0x30, inverse);
+         DF(0x3C) = 1.0f;
+         if (OB(0x43) != 0)
+             func_002A7470(obj, 0, 0, 0xA);
