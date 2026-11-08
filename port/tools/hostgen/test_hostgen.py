@@ -4061,6 +4061,10 @@ class StaleExports(unittest.TestCase):
         self.assertEqual(asmext.stale_exports(stale, ["func_00100000"], program), [
             "openrac_asmx_func_00100010: no such slot in the program",
             "func_L09_003FB780: no such function in the program"])
+        # A FUN_ name's C (game_FUN_...) that the program no longer has: the Windows link stops.
+        gone = fits + "  game_FUN_L01_003EE580\n"
+        self.assertEqual(asmext.stale_exports(gone, ["func_00100000"], program),
+                         ["game_FUN_L01_003EE580: no such function in the program"])
         # A function the part fills now that the list leaves out: the part's own link stops.
         self.assertEqual(asmext.stale_exports(fits, ["func_00100000", "func_00100010"], program),
                          ["openrac_asmx_func_00100010: the part fills it, the list leaves it out"])

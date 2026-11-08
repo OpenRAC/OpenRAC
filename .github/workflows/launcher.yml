@@ -105,6 +105,11 @@ jobs:
       # Every thread of the runner compiles (tools/build_port.py build_jobs): on a desktop the
       # build leaves a few free: two of a runner's 4, and two of macOS's 3.
       OPENRAC_BUILD_JOBS: all
+      # Short build logs: a progress line each tenth of the compiles instead of one per file, no
+      # CMake status (tools/openrac_common/proc.py brief_lines); warnings and errors stay. Cargo
+      # without its "Compiling ..." lines (its warnings and errors stay too).
+      OPENRAC_BUILD_LOG: brief
+      CARGO_TERM_QUIET: "true"
       # Where the copy goes: the installer's resources, or on Android its project.
       COPY: launcher/src-tauri/resources/openrac
     strategy:
@@ -195,7 +200,7 @@ jobs:
       - name: Compilers, tools and Tauri's system libraries (Fedora)
         if: matrix.name == 'fedora'
         run: |
-          dnf install -y --setopt=install_weak_deps=False git curl tar xz gcc gcc-c++ make file rpm-build \
+          dnf install -y -q --setopt=install_weak_deps=False git curl tar xz gcc gcc-c++ make file rpm-build \
             clang llvm cmake ninja-build ccache python3 python-unversioned-command binutils \
             webkit2gtk4.1-devel gtk3-devel librsvg2-devel libsoup3-devel openssl-devel \
             mesa-libGL-devel mesa-libEGL-devel libX11-devel libXext-devel libXrandr-devel libXcursor-devel \
@@ -269,11 +274,11 @@ jobs:
             || { echo "apt.llvm.org's key is not the one expected"; exit 1; }
           sudo install -m 644 "$RUNNER_TEMP/llvm.gpg" /usr/share/keyrings/llvm.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] https://apt.llvm.org/$codename/ llvm-toolchain-$codename-19 main" \
-            | sudo tee /etc/apt/sources.list.d/llvm.list
+            | sudo tee /etc/apt/sources.list.d/llvm.list > /dev/null
           # Packages kept in ~/apt-archives (above); a stalled download is dropped and tried again
           # rather than waited on.
           mkdir -p ~/apt-archives/partial
-          apt=(sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
+          apt=(sudo apt-get -qq -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30
             -o Dir::Cache::Archives="$HOME/apt-archives")
           packages=(clang-19 lld-19 llvm-19 libc++-19-dev libc++abi-19-dev
             ninja-build pkg-config
@@ -310,7 +315,7 @@ jobs:
       # (port/cmake/MacApp.cmake).
       - name: Ninja and MoltenVK (macOS)
         if: matrix.name == 'macos'
-        run: brew install ninja molten-vk
+        run: brew install -q ninja molten-vk
 
       - name: Clang (Windows)
         if: matrix.name == 'windows'
@@ -324,7 +329,7 @@ jobs:
           echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
           grep Revision "$ANDROID_NDK_LATEST_HOME/source.properties"
           clang --version
-          pip install ninja==1.13.0
+          pip install -q ninja==1.13.0
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         if: matrix.name == 'android'
         with:
@@ -448,7 +453,7 @@ jobs:
           # On Linux: what the game asks of the system, libc and libm but not libstdc++, and on
           # x86_64 (Ubuntu 22.04) glibc 2.35 at most.
           case "$NAME" in linux*)
-            readelf -d "$game" | grep NEEDED
+            echo "::group::What the game needs"; readelf -d "$game" | grep NEEDED; echo "::endgroup::"
             need=$(objdump -T "$game" | grep -oE 'GLIBC_2\.[0-9]+' | sort -t. -k2 -n | tail -1)
             echo "needs $need"
             if readelf -d "$game" | grep -q 'libstdc++'; then echo "the game needs the system's libstdc++"; exit 1; fi
@@ -476,6 +481,7 @@ jobs:
             python tools/build_android.py --no-apk
           }
           llvm=$(ls -d "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin | head -1)
+          echo "::group::What each library needs"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
                      libopenrac-rac1-ntsc-cli.so libopenrac-rac1-pal1.so libopenrac-rac1-pal1-cli.so \
                      libopenrac-rac1-jp.so libopenrac-rac1-jp-cli.so libopenrac-rac2-ntsc.so libopenrac-rac2-ntsc-cli.so \
@@ -484,6 +490,7 @@ jobs:
                      libopenrac-python.so; do
             echo "$lib:"; "$llvm/llvm-readelf" -d "launcher/src-tauri/gen/android/app/src/main/jniLibs/arm64-v8a/$lib" | grep NEEDED
           done
+          echo "::endgroup::"
 
       # The cache keeps target/, and with it the installers of the last version: without this a
       # release carried 0.2.0's files beside 0.3.0's.
@@ -619,7 +626,9 @@ jobs:
           built=$(ls src-tauri/gen/android/app/build/outputs/apk/*/debug/*.apk | head -1)
           apk="$(dirname "$built")/${APK_NAME}_${LAUNCHER_VERSION}_android-arm64-debug.apk"
           mv "$built" "$apk"
+          echo "::group::What the APK carries"
           unzip -l "$apk" | grep -E "lib/arm64-v8a/|assets/openrac.zip|classes" | sort -k4
+          echo "::endgroup::"
           unzip -p "$apk" 'classes*.dex' | grep -ac "dev/openrac/game/GameActivity"
           unzip -p "$apk" 'classes*.dex' | grep -ac "org/libsdl/app/SDLActivity"
           for lib in libopenrac-rac1-pal.so libopenrac-rac1-pal-cli.so libopenrac-rac1-ntsc.so \
@@ -641,7 +650,9 @@ jobs:
               echo "$(basename "$lib") carries debug information"; exit 1
             fi
           done
+          echo "::group::The libraries' sizes"
           du -sh "$libs"/lib/arm64-v8a/*.so | sort -h
+          echo "::endgroup::"
           # Android installs an update only over an APK of the same key: the key's fingerprint is in
           # the run's summary, and a run without the launcher's own key says it will not update.
           signer=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
@@ -709,7 +720,7 @@ jobs:
             --version "$version" --notes "Built from $GITHUB_REF_NAME at $GITHUB_SHA." --output installers/latest.json
           # The installers' names have spaces in them: an array, not a word list.
           mapfile -d '' files < <(find installers -type f -print0 | sort -z)
-          printf '%s\n' "${files[@]}"
+          echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
           title="v$version ($GITHUB_REF_NAME)"
           notes="The launchers built from $GITHUB_REF_NAME at $GITHUB_SHA; launchers built from this branch update from here."
           if ! gh release view "$channel" > /dev/null 2>&1; then
@@ -771,7 +782,7 @@ jobs:
         run: |
           # The installers' names have spaces in them: an array, not a word list.
           mapfile -d '' files < <(find installers -type f -print0 | sort -z)
-          printf '%s\n' "${files[@]}"
+          echo "::group::${#files[@]} files"; printf '%s\n' "${files[@]}"; echo "::endgroup::"
           # The release's text is its notes (launcher/release-notes/X.Y.Z.md), which the launcher's
           # update prompt shows, then the commit the installers were built from.
           notes="$RUNNER_TEMP/notes.md"

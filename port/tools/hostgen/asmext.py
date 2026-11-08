@@ -135,8 +135,9 @@ def stale_exports(text: str, external: list[str], program: Program) -> list[str]
     functions = {cname(s) for s in program.functions}
     out = [f"{e}: the part fills it, the list leaves it out" for e in sorted(slots - listed)]
     out += [f"{e}: no such slot in the program" for e in sorted(listed - slots)]
+    # A game function by its C name: func_..., or game_... for the others (cname).
     out += [f"{e}: no such function in the program" for e in sorted(entries)
-            if e.startswith("func_") and e not in functions]
+            if e.startswith(("func_", "game_")) and e not in functions]
     return out
 
 
