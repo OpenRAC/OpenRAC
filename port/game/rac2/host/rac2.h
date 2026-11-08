@@ -24,4 +24,21 @@
 #define RAC2_NAME_(f) #f
 #define RAC2_NAME(f) RAC2_NAME_(f)
 
+#include <stdint.h>
+
+/* The levels, by the game's own numbers (tools.c's names; NULL for a number with no program). */
+#define RAC2_LEVELS 31
+extern const char* const rac2_level_names[RAC2_LEVELS];
+/* A level started as the developer tools start one (tools.c): from the title a new game's save
+ * first when `new_game`, the level held as the destination until its program is in; from a level,
+ * RequestLevelExit to it. */
+void rac2_start_level(int level, int new_game);
+/* The programs loaded since the start: each level's and the title's (level.c, ParseBin). */
+uint32_t rac2_program_loads(void);
+/* Once a frame, before the mods' tick (tools.c's on_frame): what the play calls follow over time
+ * (play.c). */
+void rac2_play_frame(void);
+/* The play calls' table installed (play.c, from rac2_install_tools). */
+void rac2_install_play(void);
+
 #endif /* OPENRAC_RAC2_H */
