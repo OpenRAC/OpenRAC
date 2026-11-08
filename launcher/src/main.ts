@@ -11,7 +11,7 @@ import { onIOS } from "./lib/ios";
 import { startPad } from "./lib/pad";
 import { applyPalette, storedPalette } from "./lib/palettes";
 import { padRipple, startRipples } from "./lib/ripple";
-import { applyAccent, storedAccent } from "./lib/themes";
+import { applyAccent, storedAccent, storedGameColors } from "./lib/themes";
 
 const target = document.getElementById("app");
 if (!target) throw new Error("index.html has no #app element");
@@ -30,7 +30,7 @@ applyPalette(storedPalette());
 // And the accent of the game it showed, put on at once (app.css) until the settings name the game
 // (App.svelte), so it does not ease in from Ratchet & Clank's.
 document.documentElement.dataset.starting = "";
-applyAccent(storedAccent());
+applyAccent(storedAccent(), storedGameColors());
 
 // A controller drives the whole launcher; B and Back return to the games from any other page. On
 // Android its A sends the same ripple as a finger.

@@ -3,7 +3,8 @@
     "The launcher's colours, read by the launcher (palettes.ts, themes.ts) and by its core, which",
     "hands them to the game for its drawer (core/src/theme.rs, OPENRAC_UI_COLORS). base: app.css's own",
     "(:root, a test keeps them equal); palettes: the themes of Settings, General; accents: a game's own",
-    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's)."
+    "accent, which the launcher wears while the game is picked (Ratchet & Clank keeps base's). game_colors: a game's",
+    "bar, gold and coal (--tint-*), worn instead of the launcher's when Settings, General, Game colours is on."
   ],
   "base": {
     "--ink": "#1c1a16",
@@ -30,7 +31,13 @@
     "--control-hi": "#2e2c28",
     "--control-card": "#2e2c28",
     "--control-card-hi": "#363430",
-    "--glow": "#f5c040"
+    "--glow": "#f5c040",
+    "--tint-panel": "#24221e",
+    "--tint-panel-hi": "#2c2a26",
+    "--tint-control": "#24221e",
+    "--tint-control-hi": "#2e2c28",
+    "--tint-control-card": "#2e2c28",
+    "--tint-control-card-hi": "#363430"
   },
   "palettes": [
     {
@@ -159,6 +166,93 @@
     },
     "rac6": {
       "--glow": "#5cc8fa"
+    }
+  },
+  "game_colors": {
+    "rac2": {
+      "--bar-top": "#1799ca",
+      "--bar-bottom": "#1487b3",
+      "--bar-stripe": "#1692c0",
+      "--bar-stripe-alt": "#1487b3",
+      "--bar-ink": "#06233a",
+      "--bar-ink-deep": "#03141f",
+      "--amber": "#31b6e8",
+      "--gold": "#a3def5",
+      "--brand": "#0e5e7c",
+      "--tint-panel": "#1d2327",
+      "--tint-panel-hi": "#242b30",
+      "--tint-control": "#1d2327",
+      "--tint-control-hi": "#262d32",
+      "--tint-control-card": "#262d32",
+      "--tint-control-card-hi": "#2e353a"
+    },
+    "rac3": {
+      "--bar-top": "#ffd84a",
+      "--bar-bottom": "#e9b30c",
+      "--bar-stripe": "#efcc4d",
+      "--bar-stripe-alt": "#d7ac27",
+      "--bar-ink": "#2a2000",
+      "--bar-ink-deep": "#1c1500",
+      "--amber": "#ffd23f",
+      "--gold": "#ffe9a3",
+      "--brand": "#e9b30c",
+      "--tint-panel": "#24221c",
+      "--tint-panel-hi": "#2c2a24",
+      "--tint-control": "#24221c",
+      "--tint-control-hi": "#2e2c26",
+      "--tint-control-card": "#2e2c26",
+      "--tint-control-card-hi": "#36342d"
+    },
+    "rac4": {
+      "--bar-top": "#f25a5a",
+      "--bar-bottom": "#e23c3c",
+      "--bar-stripe": "#e45b5b",
+      "--bar-stripe-alt": "#d15757",
+      "--bar-ink": "#2a0606",
+      "--bar-ink-deep": "#1f0303",
+      "--amber": "#ff6b61",
+      "--gold": "#ffb8b2",
+      "--brand": "#e23c3c",
+      "--tint-panel": "#28201f",
+      "--tint-panel-hi": "#302827",
+      "--tint-control": "#28201f",
+      "--tint-control-hi": "#322a29",
+      "--tint-control-card": "#322a29",
+      "--tint-control-card-hi": "#3a3231"
+    },
+    "rac5": {
+      "--bar-top": "#6aa0ff",
+      "--bar-bottom": "#3f78f0",
+      "--bar-stripe": "#6a9bf2",
+      "--bar-stripe-alt": "#5b85dd",
+      "--bar-ink": "#06173a",
+      "--bar-ink-deep": "#020c24",
+      "--amber": "#7aa8ff",
+      "--gold": "#c2d6ff",
+      "--brand": "#3f78f0",
+      "--tint-panel": "#1f2229",
+      "--tint-panel-hi": "#272a31",
+      "--tint-control": "#1f2229",
+      "--tint-control-hi": "#292c32",
+      "--tint-control-card": "#292c32",
+      "--tint-control-card-hi": "#31343a"
+    },
+    "rac6": {
+      "--bar-top": "#38bdf8",
+      "--bar-bottom": "#0ea5e9",
+      "--bar-stripe": "#3cb3e7",
+      "--bar-stripe-alt": "#2aa1d6",
+      "--bar-ink": "#032233",
+      "--bar-ink-deep": "#01131f",
+      "--amber": "#5cc8fa",
+      "--gold": "#bae6fd",
+      "--brand": "#0ea5e9",
+      "--tint-panel": "#1d2327",
+      "--tint-panel-hi": "#242b30",
+      "--tint-control": "#1d2327",
+      "--tint-control-hi": "#262d32",
+      "--tint-control-card": "#262d32",
+      "--tint-control-card-hi": "#2e353a"
     }
   }
 }
