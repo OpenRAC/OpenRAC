@@ -47,9 +47,9 @@ work, every game's document list) is in [decomp/](decomp/README.md).
 | Game | Start with |
 |---|---|
 | Ratchet & Clank, PAL | [games/rac1/decomp](../games/rac1/decomp/README.md) |
-| Ratchet & Clank, NTSC-U | [games/rac1/ntsc](../games/rac1/ntsc/README.md) |
+| Ratchet & Clank, NTSC-U | [games/rac1/ntsc-decomp](../games/rac1/ntsc-decomp/README.md) |
 | Going Commando | [games/rac2/decomp](../games/rac2/decomp/README.md) |
-| Up Your Arsenal | [games/rac3/ntsc](../games/rac3/ntsc/README.md) |
+| Up Your Arsenal | [games/rac3/decomp](../games/rac3/decomp/README.md) |
 | Deadlocked | [games/rac4/decomp](../games/rac4/decomp/README.md) |
 | Size Matters | [games/rac5/decomp](../games/rac5/decomp/README.md) |
 | Secret Agent Clank | [games/rac6/decomp](../games/rac6/decomp/README.md) |

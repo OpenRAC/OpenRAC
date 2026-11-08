@@ -9,9 +9,9 @@ docs it names.
 | Directory | License today |
 |---|---|
 | `games/rac1/decomp` | GNU GPL v3 ([LICENSE](../../games/rac1/decomp/LICENSE)), chosen by the project on 2026-10-07 (MIT before); libgcc sources under the GPL with the runtime exception |
-| `games/rac1/ntsc` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc/licenses)) |
+| `games/rac1/ntsc-decomp` | MIT, Mateusz Kłysz ([LICENSE](../../games/rac1/ntsc-decomp/LICENSE)); GPL-2.0 libgcc and EE-GCC patches, newlib's license ([licenses/](../../games/rac1/ntsc-decomp/licenses)) |
 | `games/rac2/decomp` | MIT, llesieur99 ([LICENSE](../../games/rac2/decomp/LICENSE)) |
-| `games/rac3/ntsc` | GNU GPL v3 ([LICENSE](../../games/rac3/ntsc/LICENSE)), chosen by the project on 2026-10-04 |
+| `games/rac3/decomp` | GNU GPL v3 ([LICENSE](../../games/rac3/decomp/LICENSE)), chosen by the project on 2026-10-04 |
 | `games/rac4/decomp` | MIT, Kryštof "Lynder063" Malinda ([LICENSE](../../games/rac4/decomp/LICENSE)); GPL libgcc and newlib libm sources |
 | `editor/` | MIT ([editor/LICENSE](../../editor/LICENSE)), moved here from rac1-decomp while that was MIT |
 | rest of the top level (`tools/`, `docs/`, the launcher, the native port and its renderer) | GNU GPL v3 or later ([COPYING](../../COPYING)), chosen on 2026-10-08 |
@@ -22,7 +22,7 @@ v3 and the others MIT, so their code cannot be copied into an MIT directory with
 authors' permission, while MIT code can go the other way. For
 [tools/port.py](../../tools/port.py) that means Lombyte to rac1/pal is fine
 and rac1/pal to Lombyte is not, for code written after rac1-decomp's move
-to the GPL; Lombyte's [THIRD_PARTY_NOTICES.md](../../games/rac1/ntsc/THIRD_PARTY_NOTICES.md)
+to the GPL; Lombyte's [THIRD_PARTY_NOTICES.md](../../games/rac1/ntsc-decomp/THIRD_PARTY_NOTICES.md)
 credits what it took from rac1-decomp while that was MIT. That bears on
 shared code (question 6).
 
@@ -31,9 +31,9 @@ shared code (question 6).
 The projects disagree:
 
 - rac1/pal keeps `Co-Authored-By:` trailers for AI assistants.
-- rac1/ntsc's optional commit hook ([scripts/commit-msg.py](../../games/rac1/ntsc/scripts/commit-msg.py))
+- rac1/ntsc's optional commit hook ([scripts/commit-msg.py](../../games/rac1/ntsc-decomp/scripts/commit-msg.py))
   strips co-author and session trailers.
-- rac3's pull-request rules ([docs/wiki/Pull-Requests.md](../../games/rac3/ntsc/docs/wiki/Pull-Requests.md))
+- rac3's pull-request rules ([docs/wiki/Pull-Requests.md](../../games/rac3/decomp/docs/wiki/Pull-Requests.md))
   ask contributors to strip AI co-author lines.
 
 OpenRAC's own commits so far keep the trailer. To decide: one rule for the
@@ -56,7 +56,7 @@ rather than retail ([SOURCING.md](SOURCING.md#prerelease-builds)):
   [src/game/mobyfunc.c](../../games/rac1/decomp/src/game/mobyfunc.c)) stores a
   float at +0x2C and a short at +0xA6, where the header has bytes, so it may
   describe another build of the engine.
-- rac1/ntsc [docs/engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md):
+- rac1/ntsc [docs/engine-source-layout.md](../../games/rac1/ntsc-decomp/docs/game/engine-source-layout.md):
   original source file names and structures from 2002 development and demo builds.
 - rac2 [include/flags.h](../../games/rac2/decomp/include/flags.h) and
   [include/gadgets.h](../../games/rac2/decomp/include/gadgets.h) (prototype strings),
@@ -123,7 +123,7 @@ and wait on this.
   under Rosetta and under QEMU). With the 32-bit Wine 8 of rac1/pal's image
   in its place, both of the project's gates pass on an Apple Silicon Mac with
   Rosetta on: the boot ELF byte for byte, and all 1,540 overlay functions
-  (2026-10-04; [games/rac1/ntsc/host](../../games/rac1/ntsc/host/README.md)).
+  (2026-10-04; [games/rac1/ntsc-decomp/host](../../games/rac1/ntsc-decomp/host/README.md)).
 - rac4 builds like rac1/pal, in the same container image.
 - rac2 builds on Windows with WSL only (`scripts/wsl_chain.py` has
   machine-specific defaults).

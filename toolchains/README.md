@@ -37,12 +37,12 @@ all of OpenRAC, so the link resolves inside it. Details:
 [games/rac1/decomp/README.md](../games/rac1/decomp/README.md) and
 [docs/TOOLCHAIN.md](../games/rac1/decomp/docs/TOOLCHAIN.md).
 
-## Ratchet & Clank, NTSC-U (`games/rac1/ntsc`)
+## Ratchet & Clank, NTSC-U (`games/rac1/ntsc-decomp`)
 
 Nothing to put here: `./setup.sh` downloads its pinned toolchains (every
-download checked by SHA-256) into `games/rac1/ntsc/tools/`, and builds the
+download checked by SHA-256) into `games/rac1/ntsc-decomp/tools/`, and builds the
 game compiler from the public GNU EE source archive with the project's
-patches. See [docs/building.md](../games/rac1/ntsc/docs/build/building.md).
+patches. See [docs/building.md](../games/rac1/ntsc-decomp/docs/build/building.md).
 
 ## Ratchet & Clank: Going Commando (`games/rac2/decomp`)
 
@@ -54,12 +54,12 @@ WSL, which `scripts/wsl_chain.py` runs; see
 project's README still names SN ProDG 3.01 for the C
 ([docs/decomp/TOOLCHAINS.md](../docs/decomp/TOOLCHAINS.md#4-open-questions-and-contradictions)).
 
-## Ratchet & Clank: Up Your Arsenal (`games/rac3/ntsc`)
+## Ratchet & Clank: Up Your Arsenal (`games/rac3/decomp`)
 
 SN Systems ee-gcc 2.95.3 v1.36 is the `usr/local/sce/ee/gcc` tree of the
 `sn-prodg-3.01` mirror above: its `cc1` reports "2.95.3 SN BUILD 1.36", and the
 tree already has the layout the project's
-[Setup page](../games/rac3/ntsc/docs/wiki/Setup.md) shows (`bin/ee-gcc2953.exe`,
+[Setup page](../games/rac3/decomp/docs/wiki/Setup.md) shows (`bin/ee-gcc2953.exe`,
 `bin/ee-as.exe`, `ee/bin/as.exe`, `ee/bin/Ps2EeAs.exe`, ...). `python3
 tools/openrac.py setup rac3/ntsc` links `toolchains/eegcc_2.95.3_sn_v1.36` to
 it; point `UYA_TOOLCHAIN` (or `--toolchain`) there. (`sn-prodg-24`'s 2.95.3 is

@@ -162,7 +162,7 @@ answer:
    it. Look there before reverse-engineering anything again; adapt its code
    with its notice where it helps.
 7. **The decompilations.** PAL's names are in rac1-decomp's
-   `include/names.h`; Lombyte's in `games/rac1/ntsc/config`. A level function
+   `include/names.h`; Lombyte's in `games/rac1/ntsc-decomp/config`. A level function
    has a copy in every level: `config/overlays/functions.tsv` lists where.
 8. **The other version.** `port/tools/versionmap` pairs PAL and NTSC-U
    functions (`same`, `near`) and data; when one version works, watch the

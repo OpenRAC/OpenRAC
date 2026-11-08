@@ -69,7 +69,7 @@ globals by offset, and offset-based access is in essentially every file.
 - **`long` is 64 bits** on the console (`typedef long s64`), used 1,687
   times in 186 files, mostly for GS register values; 214 `L` constants.
   Fine on LP64 Linux and macOS, wrong on Windows (LLP64): use fixed-width
-  types, as the NTSC tree does (`games/rac1/ntsc/include/types.h`).
+  types, as the NTSC tree does (`games/rac1/ntsc-decomp/include/types.h`).
 - **128-bit values**: `__attribute__((mode(TI)))` at 206 sites in 106
   files. A PC build should use a 16-byte aligned struct; `__int128` does
   not exist in MSVC.

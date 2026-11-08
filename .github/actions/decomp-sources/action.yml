@@ -1,12 +1,12 @@
-# The decompilations under games/ are git submodules with OpenRAC's patches beside them
-# (docs/SOURCES.md). This checks out each at the commit OpenRAC pins, with LF line endings on
-# every system (the patches are LF), and applies the patches.
-name: Decompilation sources
-description: Check out the games' submodules and apply OpenRAC's patches to them
+# The decomps under games/ are git submodules with OpenRAC's patches beside them
+# (docs/SOURCES.md). This checks out each at its pin, with LF line endings on every system (the
+# patches are LF), and applies the patches: what `python3 tools/sources.py init` does.
+name: Decomps
+description: Check out each game's decomp at its pin and apply OpenRAC's patches
 runs:
   using: composite
   steps:
-    - name: Submodules and patches
+    - name: Check out the decomps and apply their patches
       shell: bash
       run: |
         # Jobs in a container run as another user than the one owning the checkout.

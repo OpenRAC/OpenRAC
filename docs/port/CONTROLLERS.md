@@ -151,7 +151,7 @@ and the shared copy `overlays/shared/help_002180F8.c`).
 
 The state this is in is the underwater one: the block is `case 0x33/0x34/0x35`,
 and `0x33` is `HERO_STATE_ENTER_UNDERWATER`
-(`games/rac1/ntsc/src/overlays/l01/gameplay/hero/hero_set_state.c:82`). The
+(`games/rac1/ntsc-decomp/src/overlays/l01/gameplay/hero/hero_set_state.c:82`). The
 same block raises `HeroKickUpDust` and `RippleDisturb` — water, not dust.
 
 **Mechanically:** holding Square or Cross turns the hero while swimming; how
@@ -213,7 +213,7 @@ deliver twelve pressure bytes — but the values it delivers are binary.
 **Ratchet & Clank 1 has no rumble — not on the console either.**
 
 The retail executable's linked SDK functions in the pad and vibration area are
-exactly these (`games/rac1/ntsc/config/us/rnc1.us.yaml:558-574`):
+exactly these (`games/rac1/ntsc-decomp/config/us/rnc1.us.yaml:558-574`):
 
 ```
 sdk/input/sce_pad2_init
@@ -564,7 +564,7 @@ See [speedrun/PRACTICE.md](speedrun/PRACTICE.md) and
   `games/rac1/decomp/src/core/00125218.c`, `games/rac1/decomp/include/pad.h`,
   `games/rac1/decomp/docs/kb/data-structures.md`
 - `games/rac1/decomp/src/overlays/*/help_*.c` (the swimming code and its copies)
-- `games/rac1/ntsc/config/us/rnc1.us.yaml` (the retail binary's linked SDK)
+- `games/rac1/ntsc-decomp/config/us/rnc1.us.yaml` (the retail binary's linked SDK)
 
 **SDL3**
 

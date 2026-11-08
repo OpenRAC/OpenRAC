@@ -11,7 +11,7 @@ project's commits up to the sync of 2026-10-07, most commits first.
   lynderjekokot and Kryštof Malinda)
 - Flavius (Veradictus)
 
-## Ratchet & Clank, NTSC-U: Lombyte (`games/rac1/ntsc`)
+## Ratchet & Clank, NTSC-U: Lombyte (`games/rac1/ntsc-decomp`)
 
 - Mateusz Kłysz: creator and maintainer
 - Louis-Philippe Le Sieur
@@ -27,12 +27,12 @@ project's commits up to the sync of 2026-10-07, most commits first.
   `ports/pal-functional/`
 - Kryštof "Lynder063" Malinda
 
-## Ratchet & Clank: Up Your Arsenal: rac3-uya-decomp (`games/rac3/ntsc`)
+## Ratchet & Clank: Up Your Arsenal: rac3-decomp (`games/rac3/decomp`)
 
 - vetusmagnus: creator and maintainer
 - Louis-Philippe Le Sieur
 
-## Ratchet: Deadlocked: rac-deadlocked-decomp (`games/rac4/decomp`)
+## Ratchet: Deadlocked: rac4-decomp (`games/rac4/decomp`)
 
 - Kryštof "Lynder063" Malinda: creator and maintainer
 

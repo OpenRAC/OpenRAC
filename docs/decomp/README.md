@@ -15,7 +15,7 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 - **Work inside one game version.** Run its commands from its directory
   (the `dir` in its `game.json`: `games/<game>/decomp/`, the game's
-  decompilation, for every version built from it; rac1/ntsc's is `games/rac1/ntsc/`). A game's build never reaches into another game's directory.
+  decompilation, for every version built from it; rac1/ntsc's is `games/rac1/ntsc-decomp/`). A game's build never reaches into another game's directory.
 - **Each game proves a match its own way**: a byte-identical rebuild, a strict
   per-function check, or both. Its docs and checks have the last word.
 - **Matches are plain C.** In rac1/pal: no register pins, no inline assembly
@@ -48,18 +48,18 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | [notes/](../../games/rac1/decomp/notes) | Dated investigation logs and per-function write-ups (60 files) |
 | [nonmatching/README.md](../../games/rac1/decomp/nonmatching/README.md) | Index of staged near misses (generated) |
 
-### Ratchet & Clank, NTSC-U ([games/rac1/ntsc](../../games/rac1/ntsc))
+### Ratchet & Clank, NTSC-U ([games/rac1/ntsc-decomp](../../games/rac1/ntsc-decomp))
 
 | Document | For |
 |---|---|
-| [README.md](../../games/rac1/ntsc/README.md), [CONTRIBUTING.md](../../games/rac1/ntsc/CONTRIBUTING.md) | The project, its seven-step contribution loop |
-| [docs/build/building.md](../../games/rac1/ntsc/docs/build/building.md) | Automatic and manual builds, environment variables, targets |
-| [docs/contributing/decompilation-tips.md](../../games/rac1/ntsc/docs/contributing/decompilation-tips.md), [docs/build/progress.md](../../games/rac1/ntsc/docs/build/progress.md) | Acceptance discipline and matching tips; what C_EXACT and C_FUZZY measure |
-| [patches/README.md](../../games/rac1/ntsc/patches/README.md) | The patched EE-GCC: lineage, rules, hashes |
-| [docs/build/overlays.md](../../games/rac1/ntsc/docs/build/overlays.md) | Level programs in the US build |
-| [docs/game/engine-source-layout.md](../../games/rac1/ntsc/docs/game/engine-source-layout.md), [docs/game/moby-selector-scratch-path.md](../../games/rac1/ntsc/docs/game/moby-selector-scratch-path.md), [docs/README.md](../../games/rac1/ntsc/docs/README.md) | Engine source layout (from prerelease builds), a moby data path, the names catalog |
-| [docs/contributing/commit-messages.md](../../games/rac1/ntsc/docs/contributing/commit-messages.md) | What a good commit summary and body say (OpenRAC's convention applies) |
-| [config/README.md](../../games/rac1/ntsc/config/README.md), [src/README.md](../../games/rac1/ntsc/src/README.md) | Directory notes |
+| [README.md](../../games/rac1/ntsc-decomp/README.md), [CONTRIBUTING.md](../../games/rac1/ntsc-decomp/CONTRIBUTING.md) | The project, its seven-step contribution loop |
+| [docs/build/building.md](../../games/rac1/ntsc-decomp/docs/build/building.md) | Automatic and manual builds, environment variables, targets |
+| [docs/contributing/decompilation-tips.md](../../games/rac1/ntsc-decomp/docs/contributing/decompilation-tips.md), [docs/build/progress.md](../../games/rac1/ntsc-decomp/docs/build/progress.md) | Acceptance discipline and matching tips; what C_EXACT and C_FUZZY measure |
+| [patches/README.md](../../games/rac1/ntsc-decomp/patches/README.md) | The patched EE-GCC: lineage, rules, hashes |
+| [docs/build/overlays.md](../../games/rac1/ntsc-decomp/docs/build/overlays.md) | Level programs in the US build |
+| [docs/game/engine-source-layout.md](../../games/rac1/ntsc-decomp/docs/game/engine-source-layout.md), [docs/game/moby-selector-scratch-path.md](../../games/rac1/ntsc-decomp/docs/game/moby-selector-scratch-path.md), [docs/README.md](../../games/rac1/ntsc-decomp/docs/README.md) | Engine source layout (from prerelease builds), a moby data path, the names catalog |
+| [docs/contributing/commit-messages.md](../../games/rac1/ntsc-decomp/docs/contributing/commit-messages.md) | What a good commit summary and body say (OpenRAC's convention applies) |
+| [config/README.md](../../games/rac1/ntsc-decomp/config/README.md), [src/README.md](../../games/rac1/ntsc-decomp/src/README.md) | Directory notes |
 
 ### Ratchet & Clank: Going Commando ([games/rac2/decomp](../../games/rac2/decomp))
 
@@ -74,16 +74,16 @@ These come on top of [CONTRIBUTING.md](../../CONTRIBUTING.md).
 | [docs/RAC1-TO-RAC2.md](../../games/rac2/decomp/docs/RAC1-TO-RAC2.md) | What carries over from RAC1 |
 | [docs/PROTOTYPE-BUILDS.md](../../games/rac2/decomp/docs/PROTOTYPE-BUILDS.md), [docs/AUG6-RETAIL-ANCHORS.md](../../games/rac2/decomp/docs/AUG6-RETAIL-ANCHORS.md), [docs/ENGINE-SYMBOL-NAMES.md](../../games/rac2/decomp/docs/ENGINE-SYMBOL-NAMES.md), [docs/ASSERT-MESSAGE-NAMES.md](../../games/rac2/decomp/docs/ASSERT-MESSAGE-NAMES.md) | Prerelease builds and the names drawn from them; names from retail assert messages |
 
-### Ratchet & Clank: Up Your Arsenal ([games/rac3/ntsc](../../games/rac3/ntsc))
+### Ratchet & Clank: Up Your Arsenal ([games/rac3/decomp](../../games/rac3/decomp))
 
 | Document | For |
 |---|---|
-| [README.md](../../games/rac3/ntsc/README.md), [CONTRIBUTING.md](../../games/rac3/ntsc/CONTRIBUTING.md) | The project, contribution rules |
-| [docs/wiki/Home.md](../../games/rac3/ntsc/docs/wiki/Home.md) | The wiki's index: [Setup](../../games/rac3/ntsc/docs/wiki/Setup.md), [Toolchain and build](../../games/rac3/ntsc/docs/wiki/Toolchain-and-Build.md), [Workflow](../../games/rac3/ntsc/docs/wiki/Workflow.md), [Matching patterns](../../games/rac3/ntsc/docs/wiki/Matching-Patterns.md), [Pull requests](../../games/rac3/ntsc/docs/wiki/Pull-Requests.md), [Tools](../../games/rac3/ntsc/docs/wiki/Tools.md), [Cross-repository resources](../../games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md) |
-| [docs/compiler_matrix_findings.md](../../games/rac3/ntsc/docs/compiler_matrix_findings.md) | 15 compilers against 8 flag sets: what built the game |
-| [docs/source_files.md](../../games/rac3/ntsc/docs/source_files.md), [docs/trailing_padding.md](../../games/rac3/ntsc/docs/trailing_padding.md) | How the source files are laid out; trailing padding |
-| [docs/common_level_c.md](../../games/rac3/ntsc/docs/common_level_c.md), [docs/shared_code_findings.md](../../games/rac3/ntsc/docs/shared_code_findings.md) | C for code common to the levels; code shared between levels |
-| [docs/full_match_roadmap.md](../../games/rac3/ntsc/docs/full_match_roadmap.md), [docs/permuter.md](../../games/rac3/ntsc/docs/permuter.md), [docs/permuter_todo.md](../../games/rac3/ntsc/docs/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
+| [README.md](../../games/rac3/decomp/README.md), [CONTRIBUTING.md](../../games/rac3/decomp/CONTRIBUTING.md) | The project, contribution rules |
+| [docs/wiki/Home.md](../../games/rac3/decomp/docs/wiki/Home.md) | The wiki's index: [Setup](../../games/rac3/decomp/docs/wiki/Setup.md), [Toolchain and build](../../games/rac3/decomp/docs/wiki/Toolchain-and-Build.md), [Workflow](../../games/rac3/decomp/docs/wiki/Workflow.md), [Matching patterns](../../games/rac3/decomp/docs/wiki/Matching-Patterns.md), [Pull requests](../../games/rac3/decomp/docs/wiki/Pull-Requests.md), [Tools](../../games/rac3/decomp/docs/wiki/Tools.md), [Cross-repository resources](../../games/rac3/decomp/docs/wiki/Cross-Repository-Resources.md) |
+| [docs/us/compiler_matrix_findings.md](../../games/rac3/decomp/docs/us/compiler_matrix_findings.md) | 15 compilers against 8 flag sets: what built the game |
+| [docs/us/source_files.md](../../games/rac3/decomp/docs/us/source_files.md), [docs/trailing_padding.md](../../games/rac3/decomp/docs/trailing_padding.md) | How the source files are laid out; trailing padding |
+| [docs/versions.md](../../games/rac3/decomp/docs/versions.md), [docs/levels.md](../../games/rac3/decomp/docs/levels.md), [docs/us/shared_code_findings.md](../../games/rac3/decomp/docs/us/shared_code_findings.md) | PAL and NTSC-U from one tree; the level programs; code shared between levels |
+| [docs/us/full_match_roadmap.md](../../games/rac3/decomp/docs/us/full_match_roadmap.md), [docs/permuter.md](../../games/rac3/decomp/docs/permuter.md), [docs/us/permuter_todo.md](../../games/rac3/decomp/docs/us/permuter_todo.md) | The plan to 100%; decomp-permuter and its worklist |
 
 ### Ratchet: Deadlocked ([games/rac4/decomp](../../games/rac4/decomp))
 

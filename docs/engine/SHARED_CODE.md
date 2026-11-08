@@ -193,9 +193,9 @@ label, small data marked `__attribute__((sda))`), checked by Lombyte's own
 
 With the 14 applied, Lombyte's `make overlays` reports all 1,554 overlay
 functions matching (1,540 before). They are not applied here, since
-`games/rac1/ntsc` is a copy that follows Lombyte's repository; `--check`
+`games/rac1/ntsc-decomp` is a copy that follows Lombyte's repository; `--check`
 leaves them as a patch beside its results
-(`games/rac1/ntsc/build/port/rac1-pal--rac1-ntsc/exact.patch`). Since
+(`games/rac1/ntsc-decomp/build/port/rac1-pal--rac1-ntsc/exact.patch`). Since
 rac1-decomp moved to the GPL on 2026-10-07, C written there after that date
 can go to Lombyte (GPL-3.0) only with its authors' agreement.
 
@@ -226,7 +226,7 @@ depend least on the compiler question.
 | Version | What it reads | Produced by |
 |---|---|---|
 | rac1/pal | `games/rac1/decomp/baserom/SCES_509.16`, `baserom/overlays/level_*` | `openrac.py setup rac1/pal`, then `python3 tools/overlays.py dump` there |
-| rac1/ntsc | `games/rac1/ntsc/config/us/SCUS_971.99`, `config/us/overlays/level_*` | `openrac.py setup rac1/ntsc`, then its `setup.sh` |
+| rac1/ntsc | `games/rac1/ntsc-decomp/config/us/SCUS_971.99`, `config/us/overlays/level_*` | `openrac.py setup rac1/ntsc`, then its `setup.sh` |
 | rac2/ntsc | `games/rac2/decomp/baserom/SCUS_972.68`, `baserom/levels/*_*` | `python3 tools/levels.py dump` there |
 | rac3/ntsc | `build/rac3/wrench_out/uya_scus_973_53/` | the Wrench unpack on [rac3's page](../../games/rac3/README.md#getting-started) |
 | rac4/ntsc | `games/rac4/decomp/baserom/SCUS_974.65.elf`, `build/rac4/wrench_out/levels/` | `bash tools/setup_asm.sh` there, and `wrenchbuild unpack ... -o build/rac4/wrench_out -g dl -r us` |

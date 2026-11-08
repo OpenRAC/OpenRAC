@@ -4,15 +4,16 @@
 OpenRAC/
 ├── README.md, CONTRIBUTING.md
 ├── LICENSE.md, THIRD_PARTY_NOTICES.md, CREDITS.md
-├── games/                  one directory per game: its decompilation, which holds every version
+├── games/                  one folder per game (games/README.md)
 │   ├── rac1/               Ratchet & Clank (2002)
-│   │   ├── game.json       discs, checksums, what is decompiled, where it came from
-│   │   ├── decomp/         PAL v2.00, PAL v1.00 and NTSC-J, submodule of rac1-decomp
-│   │   ├── decomp-patches/ OpenRAC's changes to decomp/
-│   │   ├── ntsc/           SCUS_971.99, submodule of Lombyte (a project of one version)
-│   │   └── ntsc-patches/   OpenRAC's changes to ntsc/
+│   │   ├── README.md       the game, its versions, where each comes from, where the port's code is
+│   │   ├── game.json       discs, checksums, which decomp each version is built from, its pin
+│   │   ├── decomp/         our decomp, rac1-decomp (submodule): PAL v2.00, PAL v1.00, NTSC-J
+│   │   ├── decomp-patches/ OpenRAC-only changes to decomp/: NNNN-<what>.patch, files/, README.md
+│   │   ├── ntsc-decomp/    the third-party NTSC decomp, Lombyte (submodule): NTSC-U
+│   │   └── ntsc-decomp-patches/  OpenRAC-only changes to ntsc-decomp/
 │   ├── rac2/decomp/        Going Commando (USA v1.01 and v2.00, PAL), from rac2-decomp
-│   ├── rac3/ntsc/          Up Your Arsenal, SCUS_973.53, from rac3-uya-decomp
+│   ├── rac3/decomp/        Up Your Arsenal (PAL, NTSC-U), from rac3-decomp
 │   ├── rac4/decomp/        Deadlocked, SCUS_974.65, from rac4-decomp
 │   ├── rac5/decomp/        Size Matters, SCUS_976.15, from rac5-sm-decomp
 │   └── rac6/decomp/        Secret Agent Clank, SCUS_976.23, from rac-sac-decomp
@@ -38,13 +39,12 @@ OpenRAC/
 
 ## The rules that keep it organised
 
-**Each game version is its own project**, a git submodule with OpenRAC's
-patches beside it ([SOURCES.md](SOURCES.md)). It has
-its own README, license, build, tools and docs. Work from inside that
-directory: its paths are relative to it, and its build never reaches into
-another game. Its own docs decide how a match is proven there. rac1's two
-versions are becoming one tree at `games/rac1/decomp/` (the PAL tree), with NTSC-U
-built from it ([games/rac1/VERSIONS.md](../games/rac1/VERSIONS.md)).
+**Each game's decomp is its own project**, a git submodule at `games/<game>/decomp/` that holds
+every version of the game, with OpenRAC's patches beside it in `decomp-patches/`
+([SOURCES.md](SOURCES.md)). A third-party decomp of one version keeps a folder of its own whose
+name says so (`games/rac1/ntsc-decomp/`). Each has its own README, license, build, tools and docs.
+Work from inside that folder: its paths are relative to it, and its build never reaches into
+another game. Its own docs decide how a match is proven there.
 
 **Only shared things live at the top level**: things that serve more than one
 game, or the repository itself. That is the editor, the launcher,
@@ -77,7 +77,7 @@ what readers see.
 | Knowledge that holds across games (a format, a subsystem) | `docs/engine/`, linking the per-game evidence |
 | Matching or compiler knowledge across games | `docs/decomp/` |
 | A file a second game needs unchanged (a library source, a build helper) | a copy in that game, listed with the original in `shared/files.json` ([shared/](../shared/README.md)) |
-| A new game version | its game's decompilation, a submodule at `games/<game>/decomp/` (`git submodule add`, once per game), plus its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version) |
+| A new game version | its entry in `games/<game>/game.json` (the editor reads a disc's identity from it: boot executable, size, SHA-1, region, disc version), built from the game's decomp at `games/<game>/decomp/` ([games/README.md](../games/README.md#adding-a-version)) |
 
 ## Names
 

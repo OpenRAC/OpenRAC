@@ -7,7 +7,7 @@ are comparable within a game, not between games.
 | Game | Version | Code matched | Functions | Fuzzy | Report date |
 |---|---|---:|---:|---:|---|
 | Ratchet & Clank | SCES_509.16 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,713,584 / 3,713,584 bytes) | 5,118 / 5,118 | 100.00% | 2026-11-05 |
-| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc`](../games/rac1/ntsc)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
+| Ratchet & Clank | SCUS_971.99 ([`games/rac1/ntsc-decomp`](../games/rac1/ntsc-decomp)) | 100.00% (3,547,932 / 3,547,932 bytes) | 4,244 / 4,244 | 100.00% | 2026-10-31 |
 | Ratchet & Clank | SCES_509.16_v1 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,693,664 / 3,693,664 bytes) | 5,082 / 5,082 | 100.00% | 2026-11-05 |
 | Ratchet & Clank | SCPS_150.37 ([`games/rac1/decomp`](../games/rac1/decomp)) | 100.00% (3,706,260 / 3,706,260 bytes) | 5,101 / 5,101 | 100.00% | 2026-11-05 |
 | Ratchet & Clank: Going Commando | SCUS_972.68 ([`games/rac2/decomp`](../games/rac2/decomp)) | 94.20% (5,203,520 / 5,524,060 bytes) | 8,355 / 8,527 | 94.20% | 2026-11-06 |
