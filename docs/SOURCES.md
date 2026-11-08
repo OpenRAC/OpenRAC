@@ -69,6 +69,20 @@ there, bump the pin here (next section) to bring it into OpenRAC.
 Only a change OpenRAC needs and the decomp does not (C that only the port relies on, a path for
 OpenRAC's layout) is a patch here (below).
 
+## Working in a decomp
+
+A decomp with no patches is checked out on its main branch (game.json `"branch"`), at the pin:
+`init` and `update` put it there. To change it:
+
+1. In `games/<game>/decomp`, branch off its main branch, commit, push and open a pull request to
+   the decomp's own repository.
+2. Once it is merged there, switch the submodule back to its main branch and pull.
+3. In OpenRAC, `python3 tools/sources.py update <game>/decomp` and open a pull request with the
+   new pin and the port's regenerated tables (next section).
+
+A decomp with patches stays detached at the pin, since its patches are changes in its worktree,
+not commits on its branch.
+
 ## Bumping a pin
 
 ```sh
