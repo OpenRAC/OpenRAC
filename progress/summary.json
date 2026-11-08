@@ -64,13 +64,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 5203520,
+      "matched_code": 5283220,
       "total_code": 5524060,
-      "matched_functions": 8355,
+      "matched_functions": 8410,
       "total_functions": 8527,
-      "fuzzy_percent": 94.2,
-      "date": "2026-11-06",
-      "percent": 94.2
+      "fuzzy_percent": 95.64,
+      "date": "2026-11-07",
+      "percent": 95.64
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },
@@ -79,13 +79,13 @@
     "region": "PAL (Europe)",
     "serial": "SCES_516.07",
     "progress": {
-      "matched_code": 5237972,
-      "total_code": 5697856,
-      "matched_functions": 8340,
-      "total_functions": 8620,
-      "fuzzy_percent": 91.93,
-      "date": "2026-11-06",
-      "percent": 91.93
+      "matched_code": 5423520,
+      "total_code": 5697584,
+      "matched_functions": 8470,
+      "total_functions": 8611,
+      "fuzzy_percent": 95.19,
+      "date": "2026-11-07",
+      "percent": 95.19
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },
@@ -94,13 +94,13 @@
     "region": "NTSC-U (North America)",
     "serial": "SCUS_972.68",
     "progress": {
-      "matched_code": 5168092,
-      "total_code": 5578636,
-      "matched_functions": 8354,
-      "total_functions": 8586,
-      "fuzzy_percent": 92.64,
-      "date": "2026-11-06",
-      "percent": 92.64
+      "matched_code": 5324696,
+      "total_code": 5578452,
+      "matched_functions": 8446,
+      "total_functions": 8581,
+      "fuzzy_percent": 95.45,
+      "date": "2026-11-07",
+      "percent": 95.45
     },
     "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
   },
@@ -114,10 +114,25 @@
       "matched_functions": 6401,
       "total_functions": 16222,
       "fuzzy_percent": 10.73,
-      "date": "2026-11-06",
+      "date": "2026-11-07",
       "percent": 10.01
     },
     "note": "rac3-decomp's NTSC-U report (SCUS_973.53_report): a C function counts as final only when every NTSC-U program that has it builds it from C (docs/versions.md, The counts)."
+  },
+  "rac3/pal": {
+    "title": "Ratchet & Clank: Up Your Arsenal",
+    "region": "PAL (Europe)",
+    "serial": "SCES_524.56",
+    "progress": {
+      "matched_code": 786100,
+      "total_code": 7546948,
+      "matched_functions": 6499,
+      "total_functions": 16164,
+      "fuzzy_percent": 10.42,
+      "date": "2026-11-07",
+      "percent": 10.42
+    },
+    "note": "rac3-decomp's PAL report: the three core programs and the 49 level programs; a function counts as matched when its C builds into a program that equals retail."
   },
   "rac4/ntsc": {
     "title": "Ratchet: Deadlocked",
