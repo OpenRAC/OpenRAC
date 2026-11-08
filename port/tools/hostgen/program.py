@@ -933,12 +933,20 @@ def read_call_copies(path: Path, program: Program) -> int:
         row = (int(home), int(canon, 16), int(size), int(own, 16), int(exe, 16))
         program.call_copies[(caller, callee)] = row
         program.call_copies[(caller, row[0], row[3])] = row
+        if row[4]:
+            # The executable's copy's own target, which an assembly translation of the executable's
+            # copy calls (call_copy's exe_target).
+            program.call_copies.setdefault((caller, "exe", row[4]), row)
     return len(program.call_copies)
 
 
-def call_copy(program: Program, caller: str | None, callee: str):
+def call_copy(program: Program, caller: str | None, callee: str, exe_target: int | None = None):
     """call_copies.tsv's row for this call, by the callee's name or, when the C calls it by another
-    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place."""
+    (ref_L00_00428EB0_01 is func_L00_00428CE0), by its place. exe_target: the jal's target in the
+    executable's copy, for an assembly translation of it, which reaches the row by that too: USA
+    v2.00's func_002B5B38 calls its own func_US2_002E8010 there, while every level's copy calls
+    v1.01's func_002E71B8 (the level start's cutscene); called as the executable's, a level ran code
+    no level's program holds."""
     rows = getattr(program, "call_copies", None)
     if not rows or caller is None:
         return None
@@ -948,6 +956,8 @@ def call_copy(program: Program, caller: str | None, callee: str):
             row = rows.get((caller, overlay, address))
             if row is not None:
                 break
+    if row is None and exe_target is not None:
+        row = rows.get((caller, "exe", exe_target))
     return row
 
 
