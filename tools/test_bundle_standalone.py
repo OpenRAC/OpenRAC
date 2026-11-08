@@ -294,7 +294,7 @@ class Bundle(unittest.TestCase):
                 self.assertFalse((out / "port/enhanced/tools/baker" / name).exists())
             self.assertFalse((out / "port/enhanced/tools/water").exists())
             self.assertFalse((out / "port/enhanced/tools/baker").exists())
-            self.assertFalse((out / "games/rac1/include/moby_pvars.h").exists())
+            self.assertFalse((out / "games/rac1/decomp/include/moby_pvars.h").exists())
             layouts = json.loads((out / "editor/pvar_layouts.json").read_text())
             self.assertIn(["moveSpeed", 0xB0, "f32", 0], layouts["classes"]["726"])
             # Resolve layouts from the installed copy, in a process that cannot accidentally

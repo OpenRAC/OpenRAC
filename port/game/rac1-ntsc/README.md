@@ -1,7 +1,7 @@
 # openrac-rac1-ntsc: Ratchet & Clank (NTSC-U), native
 
 The native program of Ratchet & Clank (NTSC-U, SCUS-97199), built from the
-NTSC decomp in [games/rac1/ntsc](../../../games/rac1/ntsc) by
+NTSC decomp in [games/rac1/ntsc-decomp](../../../games/rac1/ntsc-decomp) by
 [hostgen](../../tools/hostgen/README.md). It was started from
 [rac1-pal](../rac1-pal/README.md), the version that plays: what PAL's port
 knows by address was carried to this version's addresses, not found again.
@@ -80,7 +80,7 @@ python3 port/tools/versionmap/xcheck.py report port/game/rac1-ntsc --gen ... -v 
 ```
 
 In a worktree, `--asm-source` (or `OPENRAC_RAC1_NTSC_ASM_SOURCE`, as for
-the build) names the checkout whose `games/rac1/ntsc` holds
+the build) names the checkout whose `games/rac1/ntsc-decomp` holds
 `config/us/SCUS_971.99` and `config/us/overlays`. Rows the NTSC decomp now
 has its own C for are not read by hostgen; the check lists them (they can
 go) and does not compare them. The data side is coarse where the C or the
@@ -115,8 +115,9 @@ otherwise.
    not tried. hostgen's report lists 97 calls short of an argument
    (filled with 0): each is a call in the NTSC decomp's C that relies on
    a register the C does not set; fix them in its C as
-   [OPENRAC_PATCHES.md](../../../games/rac1/ntsc/OPENRAC_PATCHES.md)
-   records, worst first.
+   the patches in
+   [games/rac1/ntsc-decomp-patches](../../../games/rac1/ntsc-decomp-patches/README.md)
+   do, worst first.
 3. **The shared code's PAL addresses.** The viewer's address tables and two
    words in the front end have NTSC-U values now; `debug_menu.cpp` and
    `options_menu.cpp` are still PAL's and only act for `rac1-pal`. The

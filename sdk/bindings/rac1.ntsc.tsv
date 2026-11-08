@@ -1,6 +1,6 @@
 # rac1/ntsc's symbol of each update function of the behaviour catalogue (rac1/pal's symbol, NTSC-U's, how the
-# two were paired): python3 port/tools/versionmap/carry.py names <map> <rac1-ntsc gen> --source games/rac1/ntsc/src
-#   --places games/rac1/ntsc/config/overlays/us/functions.tsv --splits port/game/rac1-ntsc/split_places.tsv <symbols>
+# two were paired): python3 port/tools/versionmap/carry.py names <map> <rac1-ntsc gen> --source games/rac1/ntsc-decomp/src
+#   --places games/rac1/ntsc-decomp/config/overlays/us/functions.tsv --splits port/game/rac1-ntsc/split_places.tsv <symbols>
 # with the map of port/tools/versionmap/README.md (same: the same instructions; near: the same place, changed).
 # Read by sdk/tools/gen_binding.py (sdk/bindings/rac1.json, "catalogue_symbols"). Addresses and names only.
 func_001E9768	func_001E93E8	same

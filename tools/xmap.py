@@ -90,7 +90,7 @@ def load(path: str, fmt: str) -> dict[str, tuple[int, bytes]]:
     p = Path(path)
     if fmt == "elf":
         return {n: (a, d) for n, (a, d, _f) in mips.elf_sections(p).items() if n in CODE_SECTIONS}
-    if fmt == "rac1-level":             # games/rac1/*/…/level_NN: text.bin and manifest.json
+    if fmt == "rac1-level":             # games/rac1/decomp/*/…/level_NN: text.bin and manifest.json
         text = next(r for r in json.loads((p / "manifest.json").read_text())["records"] if r["name"] == "text")
         return {".text": (text["address"], (p / "text.bin").read_bytes())}
     if fmt == "rac2-level":             # games/rac2/*/baserom/levels/NN_name (tools/levels.py dump)

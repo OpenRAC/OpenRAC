@@ -25,7 +25,7 @@ matters for two reasons:
 
 1. **The game logic itself runs differently.** The PAL game reads its own tick
    length from `D_0015EE7C` and its tick scale from `D_0015EE60`; about five
-   hundred places in the game's code read those (`games/rac1/src/game/mobyutil.c:1115-1136`,
+   hundred places in the game's code read those (`games/rac1/decomp/src/game/mobyutil.c:1115-1136`,
    the `SetVideoModeTiming` function the decompilation names). On a PAL disc at
    50 Hz the tick length is 0.02 s and the scale is 1.2; at 60 Hz they are
    0.0166… s and 1.0. The port keeps the PAL game in its own 60 Hz mode

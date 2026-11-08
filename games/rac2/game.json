@@ -5,8 +5,19 @@
   "titles": {
     "pal": "Ratchet & Clank 2: Locked and Loaded"
   },
+  "decomp": {
+    "dir": "games/rac2/decomp",
+    "name": "rac2-decomp",
+    "repo": "https://github.com/OpenRAC/rac2-decomp",
+    "branch": "master",
+    "license": "GPL-3.0",
+    "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
+    "date": "2026-11-07",
+    "imported": "2026-11-07"
+  },
   "versions": {
     "ntsc": {
+      "dir": "games/rac2/decomp",
       "region": "NTSC-U (North America)",
       "serial": "SCUS_972.68",
       "bytematch": "OpenRAC/rac2-decomp",
@@ -31,74 +42,48 @@
       },
       "target": "The boot executable SCUS_972.68 and its 27 level programs: every program rebuilds byte for byte from splat's assembly, with the C in src/ linked in place of its functions (one definition per function, at every place it has).",
       "source": {
+        "shared": "decomp",
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
-        "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
-        "exclude": [
-          "toolchain"
-        ],
-        "mirror": true,
-        "rewrites": [
-          [
-            "Lombyte (MIT)",
-            "Lombyte (GPL-3.0)"
-          ],
-          [
-            "    STATE->channel[1].slot = func_002E5A50(object);\n",
-            "    STATE->channel[1].slot = func_002E5A50(object);\n    if (STATE->channel[1].slot >= 52) /* no free slot: retail would write past the 52 rows */\n        STATE->channel[1].slot = -1;\n"
-          ],
-          [
-            " unsigned int color1, color2;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n",
-            " unsigned int color1, color2;\n /* OpenRAC: the new record's colour and alpha now (+0x30, +0x38) are never set here: it is drawn once\n    with what the stack held, before func_002ED368 sets them. Retail's stack held 0x001A0000 and 0x001C0000\n    there at every spawn of a New Game flight, an alpha byte of 0, so that draw changes no pixel; the host's\n    held float bits, a puff of alpha up to 0xFD at the engine every tick. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
-          ],
-          [
-            " unsigned int color;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n",
-            " unsigned int color;\n /* OpenRAC: as in func_002E76C0, the new records' colour and alpha now (+0x30, +0x38) are drawn once as\n    the stack left them; retail's alpha byte 0 there, so that first draw changes no pixel. */\n effect.unknown = 0x001A0000;\n effect.unknown2 = 0x001C0000;\n spark.unknown = 0x001A0000;\n spark.unknown2 = 0x001C0000;\n next = *(unsigned long long *)(*(char **)(o + 0x5c) + 0x10);\n"
-          ],
-          [
-            "extern void func_003182C0(void);\n\n/* Calls the measured no-argument callee. */\nvoid func_L00_003BAAD0(void)\n{\n    func_003182C0();\n}\n",
-            "extern void func_003182C0(char *);\n\n/* Calls the measured callee with the object it was given. OpenRAC: the decompilation's\n   (void) left a0 unset; the console's a0 still held the moby, the host's held anything. */\nvoid func_L00_003BAAD0(char *self)\n{\n    func_003182C0(self);\n}\n"
-          ]
-        ],
         "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
         "date": "2026-11-07",
         "imported": "2026-11-07"
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
-        "readme": "games/rac2/ntsc/docs/BUILDING.md"
+        "readme": "games/rac2/decomp/docs/BUILDING.md"
       },
       "progress": {
-        "report": "games/rac2/ntsc/progress/report.json",
+        "report": "games/rac2/decomp/progress/report.json",
         "format": "objdiff",
         "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
       },
       "inputs": [],
-      "setup": "in games/rac2/ntsc: python3 tools/levels.py dump (baserom/SCUS_972.68.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all (docs/BUILDING.md; bash tools/docker/run.sh <command> on hosts without the tools)",
+      "setup": "in games/rac2/decomp: python3 tools/levels.py dump (baserom/SCUS_972.68.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all (docs/BUILDING.md; bash tools/docker/run.sh <command> on hosts without the tools)",
       "xmap": {
         "code": [
           {
             "program": "boot",
-            "path": "games/rac2/ntsc/baserom/SCUS_972.68",
+            "path": "games/rac2/decomp/baserom/SCUS_972.68",
             "format": "elf"
           },
           {
             "program": "level",
-            "glob": "games/rac2/ntsc/baserom/levels/*_*",
+            "glob": "games/rac2/decomp/baserom/levels/*_*",
             "format": "rac2-level"
           }
         ],
         "matched": {
           "kind": "objdiff",
-          "report": "games/rac2/ntsc/progress/report.json"
+          "report": "games/rac2/decomp/progress/report.json"
         },
-        "setup": "python3 tools/levels.py dump in games/rac2/ntsc"
+        "setup": "python3 tools/levels.py dump in games/rac2/decomp"
       }
     },
     "pal": {
-      "dir": "games/rac2/ntsc",
+      "dir": "games/rac2/decomp",
       "region": "PAL (Europe)",
       "serial": "SCES_516.07",
       "bytematch": "OpenRAC/rac2-decomp",
@@ -127,11 +112,10 @@
       },
       "target": "The PAL release's boot executable SCES_516.07 and its 27 level programs, built from the same tree as v1.01 (tools/build.py --version pal): every program rebuilds byte for byte, with the C of src/ and src/pal/ linked in place of its functions.",
       "source": {
-        "shared": "ntsc",
+        "shared": "decomp",
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
-        "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
         "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
         "date": "2026-11-07",
@@ -139,38 +123,38 @@
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
-        "readme": "games/rac2/ntsc/docs/VERSIONS.md"
+        "readme": "games/rac2/decomp/docs/VERSIONS.md"
       },
       "progress": {
-        "report": "games/rac2/ntsc/progress/pal/report.json",
+        "report": "games/rac2/decomp/progress/pal/report.json",
         "format": "objdiff",
         "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
       },
       "inputs": [],
-      "setup": "in games/rac2/ntsc: python3 tools/levels.py dump --version pal (baserom/SCES_516.07.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all --version pal (docs/VERSIONS.md; bash tools/docker/run.sh <command> on hosts without the tools)",
+      "setup": "in games/rac2/decomp: python3 tools/levels.py dump --version pal (baserom/SCES_516.07.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all --version pal (docs/VERSIONS.md; bash tools/docker/run.sh <command> on hosts without the tools)",
       "xmap": {
         "code": [
           {
             "program": "boot",
-            "path": "games/rac2/ntsc/baserom/pal/SCES_516.07",
+            "path": "games/rac2/decomp/baserom/pal/SCES_516.07",
             "format": "elf"
           },
           {
             "program": "level",
-            "glob": "games/rac2/ntsc/baserom/pal/levels/*_*",
+            "glob": "games/rac2/decomp/baserom/pal/levels/*_*",
             "format": "rac2-level"
           }
         ],
         "matched": {
           "kind": "objdiff",
-          "report": "games/rac2/ntsc/progress/pal/report.json",
+          "report": "games/rac2/decomp/progress/pal/report.json",
           "addresses": "virtual"
         },
-        "setup": "python3 tools/levels.py dump --version pal in games/rac2/ntsc"
+        "setup": "python3 tools/levels.py dump --version pal in games/rac2/decomp"
       }
     },
     "ntsc2": {
-      "dir": "games/rac2/ntsc",
+      "dir": "games/rac2/decomp",
       "region": "NTSC-U (North America)",
       "serial": "SCUS_972.68",
       "bytematch": "OpenRAC/rac2-decomp",
@@ -199,11 +183,10 @@
       },
       "target": "The Greatest Hits release (v2.00) of SCUS_972.68 and its 27 level programs, built from the same tree as v1.01 (tools/build.py --version us2): every program rebuilds byte for byte, with the C of src/ and src/us2/ linked in place of its functions.",
       "source": {
-        "shared": "ntsc",
+        "shared": "decomp",
         "name": "rac2-decomp",
         "repo": "https://github.com/OpenRAC/rac2-decomp",
         "branch": "master",
-        "checkout": "../rac2-decomp",
         "license": "GPL-3.0",
         "commit": "11876eec6de67d8e5d2b5cf0a354283d5774ff05",
         "date": "2026-11-07",
@@ -211,34 +194,34 @@
       },
       "build": {
         "host": "macOS, Linux or Windows through Docker (linux/386 image with Wine and the build tools); SN ProDG 2.0's assembler and linker you supply",
-        "readme": "games/rac2/ntsc/docs/VERSIONS.md"
+        "readme": "games/rac2/decomp/docs/VERSIONS.md"
       },
       "progress": {
-        "report": "games/rac2/ntsc/progress/us2/report.json",
+        "report": "games/rac2/decomp/progress/us2/report.json",
         "format": "objdiff",
         "note": "Every distinct function of the boot executable and the 27 level programs counted once (a function many levels share is one function); matched when its C links into a program that equals retail."
       },
       "inputs": [],
-      "setup": "in games/rac2/ntsc: python3 tools/levels.py dump --version us2 (baserom/SCUS_972.68_v2.00.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all --version us2 (docs/VERSIONS.md; bash tools/docker/run.sh <command> on hosts without the tools)",
+      "setup": "in games/rac2/decomp: python3 tools/levels.py dump --version us2 (baserom/SCUS_972.68_v2.00.iso), tools/compiler/build.sh, python3 tools/compiler/sdk/build.py, then python3 tools/build.py all --version us2 (docs/VERSIONS.md; bash tools/docker/run.sh <command> on hosts without the tools)",
       "xmap": {
         "code": [
           {
             "program": "boot",
-            "path": "games/rac2/ntsc/baserom/us2/SCUS_972.68",
+            "path": "games/rac2/decomp/baserom/us2/SCUS_972.68",
             "format": "elf"
           },
           {
             "program": "level",
-            "glob": "games/rac2/ntsc/baserom/us2/levels/*_*",
+            "glob": "games/rac2/decomp/baserom/us2/levels/*_*",
             "format": "rac2-level"
           }
         ],
         "matched": {
           "kind": "objdiff",
-          "report": "games/rac2/ntsc/progress/us2/report.json",
+          "report": "games/rac2/decomp/progress/us2/report.json",
           "addresses": "virtual"
         },
-        "setup": "python3 tools/levels.py dump --version us2 in games/rac2/ntsc"
+        "setup": "python3 tools/levels.py dump --version us2 in games/rac2/decomp"
       }
     }
   }

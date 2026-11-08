@@ -8,7 +8,11 @@ How to work on OpenRAC from a checkout. To play, use the launcher from the
 
 ```sh
 git clone https://github.com/OpenRAC/OpenRAC.git && cd OpenRAC
+python3 tools/sources.py init      # each game's decomp at its pinned commit, with OpenRAC's patches
 ```
+
+Run `python3 tools/sources.py init` again after every pull. The decomps are git submodules under
+`games/`; what they are, how to change one and how to move a pin: [SOURCES.md](SOURCES.md).
 
 Put images of your own discs in `baserom/` ([baserom/README.md](../baserom/README.md)
 lists the supported ones), then:
@@ -99,7 +103,7 @@ for matching work.
 A few tools work across them:
 
 ```sh
-python3 tools/sources.py status|sync GAME/VER   # follow the original repositories
+python3 tools/sources.py status|update DECOMP # where each decomp is; move its pin (SOURCES.md)
 python3 tools/xmap.py scan|report|ports FROM TO # the function map across the games
 python3 tools/port.py FROM TO [--check]         # functions FROM matched that TO has unchanged
 python3 tools/permuter run|base|queue PROFILE FUNC   # decomp-permuter for any game

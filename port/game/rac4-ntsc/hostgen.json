@@ -3,7 +3,7 @@
   "title": "Ratchet: Deadlocked (NTSC-U)",
   "game": "rac4",
   "serial": "SCUS_974.65",
-  "source": "games/rac4/ntsc",
+  "source": "games/rac4/decomp",
   "frame_rate": 60,
   "entry": "func_001574E8",
   "sources": [

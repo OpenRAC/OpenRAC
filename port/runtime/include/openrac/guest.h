@@ -518,7 +518,7 @@ void openrac_host_caller(int depth, char* text, size_t size);
 /* ---- What the game's own inline assembly did ----
  *
  * The decompilation keeps three quadword helpers as inline assembly
- * (games/rac1/include/common.h): qcopy, qcopy_nc and qzero. Their lq and sq
+ * (games/rac1/decomp/include/common.h): qcopy, qcopy_nc and qzero. Their lq and sq
  * ignore the low four bits of the address, as every quadword load and store
  * of the EE does: matched C that copies from `&moby->pos.z` (an lq at +0x18,
  * Moby1259Update) gets the quadword at +0x10, the whole position. That holds

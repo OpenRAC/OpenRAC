@@ -178,7 +178,7 @@ it is documented in [CONTROLLERS.md](../CONTROLLERS.md):
 - **The game has no rumble at all** — the retail executable links no motor
   command, so there is nothing to restore.
 - The **stick dead zone is the game's own** (a `0x30` threshold with a
-  `/0x4C` scale, `games/rac1/src/game/pad.c:346-362`); SDL3 applies none.
+  `/0x4C` scale, `games/rac1/decomp/src/game/pad.c:346-362`); SDL3 applies none.
 - The **touchpad click** and the **DualSense Edge's paddles** are two spare
   buttons the PlayStation 2 never had — useful for weapon switching once the
   port has its rebinding page.

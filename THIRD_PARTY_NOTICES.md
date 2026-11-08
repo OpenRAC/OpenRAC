@@ -3,14 +3,14 @@
 Third-party code and data used by OpenRAC's shared components. Each game
 directory lists its own in its `THIRD_PARTY_NOTICES.md` and source comments:
 
-- [games/rac1/THIRD_PARTY_NOTICES.md](games/rac1/THIRD_PARTY_NOTICES.md):
+- [games/rac1/decomp/THIRD_PARTY_NOTICES.md](games/rac1/decomp/THIRD_PARTY_NOTICES.md):
   functions adapted from Lombyte, ReRAC's notes in `config/overlays/rerac_notes.tsv`.
-- [games/rac1/ntsc/THIRD_PARTY_NOTICES.md](games/rac1/ntsc/THIRD_PARTY_NOTICES.md):
+- [games/rac1/ntsc-decomp/THIRD_PARTY_NOTICES.md](games/rac1/ntsc-decomp/THIRD_PARTY_NOTICES.md):
   libgcc and soft-float, newlib, David Gay's dtoa, code ported from rac1-decomp,
   the patched EE-GCC.
 - rac2 and rac3 credit their sources in their docs
-  ([games/rac2/ntsc/docs/COMPILER-NOTES.md](games/rac2/ntsc/docs/COMPILER-NOTES.md),
-  [games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md](games/rac3/ntsc/docs/wiki/Cross-Repository-Resources.md)).
+  ([games/rac2/decomp/docs/COMPILER-NOTES.md](games/rac2/decomp/docs/COMPILER-NOTES.md),
+  [games/rac3/decomp/docs/wiki/Cross-Repository-Resources.md](games/rac3/decomp/docs/wiki/Cross-Repository-Resources.md)).
 
 `port/audio/sound_player.h` follows the behaviour of OpenGOAL's 989snd
 (`game/sound/989snd`; ISC License, Copyright (c) 2020-2026 OpenGOAL Team),
@@ -65,7 +65,7 @@ two patches, `tools/permuter/patches/*.patch`, change decomp-permuter's own file
 MIT license; they are rac3-decomp's `tools/decomp-permuter-asm-passes.patch` and
 `tools/decomp-permuter-aligned-scorer.patch`, rebased on the pin. `tools/permuter/engine.py` and
 `tools/permuter/score.py` are adapted from rac3-decomp's `tools/permuter_engine.py` and
-`tools/permuter_scorer.py` (GPL-3.0, like `games/rac3/ntsc`).
+`tools/permuter_scorer.py` (GPL-3.0, like `games/rac3/decomp`).
 
 ## ReRAC
 
@@ -75,18 +75,18 @@ and notes:
 
 - `editor/mobys.py`: the moby instance record and what the level loader does
   with each field, from `crates/rc-formats/src/gameplay.rs` and
-  `docs/plan/moby_render_notes.md`; described in [ASSETS.md](games/rac1/docs/ASSETS.md) ("Mobys").
+  `docs/plan/moby_render_notes.md`; described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Mobys").
 - `editor/moby_class.py`: the moby class header and model format (packets,
   vertex cache, skinning slots, normals, untextured faces), from
   `docs/formats/moby_rac1.md` §1-§2 and `crates/rc-formats/src/moby.rs`;
-  described in [ASSETS.md](games/rac1/docs/ASSETS.md) ("Moby classes").
+  described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Moby classes").
 - `editor/moby_anim.py`: moby skeletons and animation sequences, from
   `docs/formats/moby_rac1.md` §3-§4, `docs/plan/moby_animation.md` and
   `crates/rc-formats/src/moby_anim.rs`.
 - `editor/collision.py`: the collision block (cell tree, packed vertices,
   faces and surface bytes), from `docs/formats/collision_rac1.md`,
   `docs/plan/collision_queries.md` and `crates/rc-formats/src/collision.rs`;
-  described in [ASSETS.md](games/rac1/docs/ASSETS.md) ("Collision").
+  described in [ASSETS.md](games/rac1/decomp/docs/ASSETS.md) ("Collision").
 - `editor/lighting.py`: the terrain and tie lighting passes (`LightTfrags`,
   `LightTies`) and the PS2 float arithmetic they run on, from
   `crates/rc-formats/src/tfrag_light.rs` and `tie_light.rs`; their checks from
@@ -137,7 +137,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ## Lombyte
 
 [Lombyte](https://github.com/lombyte-project/Lombyte), the US decompilation, now
-`games/rac1/ntsc`:
+`games/rac1/ntsc-decomp`:
 
 - `editor/moby_classes.tsv`: the moby class names the editor shows, from its
   `config/overlays/us/names/level-NN.json` ("moby-class-record" evidence),

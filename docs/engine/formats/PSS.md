@@ -8,7 +8,7 @@ NTSC-U disc (98,629 pictures, 3,587 seconds) and decodes all of them with a
 decoder of its own, checked against an independent MPEG-2 decoder.
 
 The movie player in the executable is to be decompiled from the retail
-assembly alone; [MOVIE.md](../../../games/rac1/docs/MOVIE.md) gives the
+assembly alone; [MOVIE.md](../../../games/rac1/decomp/docs/MOVIE.md) gives the
 rules. This page describes the files, not the player's code.
 
 **Games.** RAC1 (NTSC-U surveyed; the PAL disc's copies are among them).

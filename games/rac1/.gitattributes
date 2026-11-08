@@ -1,6 +1,0 @@
-# Generated: collapsed in PR diffs, and left out of the language stats.
-include/names.h linguist-generated
-include/names/*.h linguist-generated
-progress/**/*.json linguist-generated
-# Tools no longer in use.
-tools/old/** linguist-vendored

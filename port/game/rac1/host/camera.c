@@ -8,7 +8,7 @@
 #include "rac1.h"
 
 #if !RAC1_OMIT(func_001EC210)
-/* func_001EC210 (Camera_handleCollWithHero, games/rac1/src/game/camera.c). The executable's copy
+/* func_001EC210 (Camera_handleCollWithHero, games/rac1/decomp/src/game/camera.c). The executable's copy
  * calls the empty stub func_001E97C8; each level's copy calls the level's create_camera_collision_moby
  * (func_L00_002A6070: a camera_object, class 1007, at the eye), which the hero meets when he faces the
  * camera (the runners' camera proxy). The C's call went to a return-0 place of the stub, so the moby

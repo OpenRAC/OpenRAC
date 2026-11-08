@@ -73,7 +73,7 @@ Its sources, shaders, tools and tests are in [`enhanced/`](enhanced/README.md).
 ## How a game is built
 
 ```
-games/rac1 (the decompilation, read only)
+games/rac1/decomp (the decompilation, read only)
    │  hostgen: Clang reads each file as the console's C,
    │  hostgen writes it again for game memory
    ▼

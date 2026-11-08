@@ -3,7 +3,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """A Ratchet & Clank release's port, carried from PAL v2.00's (port/game/rac1-pal).
 
-rac1-decomp builds PAL v1.00 and NTSC-J from PAL v2.00's C (games/rac1/docs/VERSIONS.md), so a
+rac1-decomp builds PAL v1.00 and NTSC-J from PAL v2.00's C (games/rac1/decomp/docs/VERSIONS.md), so a
 release's port is rac1-pal's read through the release view (release.py, its "release" table):
 every address name of the decompilation renamed to the release's address, the release's own
 definitions spliced into their shared files. What the port itself knows by PAL v2.00's names and
@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import sys
@@ -424,7 +425,7 @@ def main(argv: list[str] | None = None) -> int:
             out_lines.append(f"{new} = 0x{n.group(4).upper()};{m.group(2)}")
         name = Path(table_name).name
         (game / name).write_text("\n".join(out_lines) + "\n")
-        symbols.append(f"../../port/game/{game.name}/{name}")
+        symbols.append(os.path.relpath(game.resolve() / name, source))  # read relative to the source
     new_cfg["symbols"] = symbols
     (game / "hostgen.json").write_text(json.dumps(new_cfg, indent=2) + "\n")
     # libraries.tsv, split_places.tsv

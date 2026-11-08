@@ -252,7 +252,7 @@ mod tests {
         commit("docs/notes.md", "notes");
         commit("games/rac2/src/a.c", "int a;");
         assert!(!outdated(root, "rac1-pal"), "docs and another game");
-        commit("games/rac1/src/a.c", "int a;");
+        commit("games/rac1/decomp/src/a.c", "int a;");
         assert!(outdated(root, "rac1-pal"), "the game's own decompilation");
         stamp(root, "0.8.0", Some(&commit("port/runtime/b.c", "int b;")), &["rac1-pal"]);
         assert!(!outdated(root, "rac1-pal"));

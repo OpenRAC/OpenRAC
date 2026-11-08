@@ -81,9 +81,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+
+      # Each decomp's pin matches its game.json, and a pull request that moves one also changes
+      # the port's tables made from it (tools/sources.py check).
+      - name: Decomp pins
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            git fetch -q --depth=1 origin "$BASE"
+            python tools/sources.py check --since "$BASE"
+          else
+            python tools/sources.py check
+          fi
 
       # The workflows themselves: actionlint at a fixed version, checked against its SHA-256.
       - name: Workflows
@@ -161,15 +175,15 @@ jobs:
         run: python tools/shared.py check
 
       - name: rac1/pal progress report is current with its source
-        working-directory: games/rac1
+        working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac4 progress report is current with its source
-        working-directory: games/rac4/ntsc
+        working-directory: games/rac4/decomp
         run: python tools/gen_progress_report.py --check
 
       - name: rac1/ntsc tools
-        working-directory: games/rac1/ntsc
+        working-directory: games/rac1/ntsc-decomp
         run: |
           # scripts/data-refs.py and its tests read the executable with these
           # (the versions requirements.txt pins).
@@ -178,7 +192,7 @@ jobs:
           python -m py_compile scripts/*.py
 
       - name: rac2 tools, layout and progress report
-        working-directory: games/rac2/ntsc
+        working-directory: games/rac2/decomp
         run: |
           # tools/check.py disassembles with it, at the version the decomp pins.
           python -m pip install "$(grep '^rabbitizer==' requirements.txt)"
@@ -187,13 +201,13 @@ jobs:
           python tools/progress.py --check
 
       - name: rac5 tools and layout
-        working-directory: games/rac5/ntsc
+        working-directory: games/rac5/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
 
       - name: rac6 tools and layout
-        working-directory: games/rac6/ntsc
+        working-directory: games/rac6/decomp
         run: |
           python -m unittest discover -s tests -v
           python tools/check_repository.py
@@ -221,6 +235,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/launcher-toolchain
         with:
           cache-key: checks-launcher-${{ matrix.os }}
@@ -278,6 +293,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
@@ -321,6 +337,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
@@ -430,6 +447,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/compiler-cache
         with:
           key: checks-port-enhanced
@@ -509,6 +527,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: ./.github/actions/mesa-cache
         if: matrix.group == 'vulkan' || matrix.group == 'equivalence'
         with:
@@ -582,6 +601,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
 
       - uses: ./.github/actions/compiler-cache
         with:
@@ -637,6 +657,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/decomp-sources
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"

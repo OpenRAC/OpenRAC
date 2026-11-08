@@ -67,8 +67,8 @@ How much of each game's code is decompiled so far. More on [openrac.dev](https:/
   <tr><td>Going Commando (NTSC v1.01)</td><td><a href="https://github.com/OpenRAC/rac2-decomp">rac2-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac2-decomp/SCUS_972.68"><img src="https://bytematch.dev/OpenRAC/rac2-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_972.68&amp;color=ffb443&amp;style=flat-square" alt="Going Commando (NTSC v1.01): code decompiled"></a></td></tr>
   <tr><td>Going Commando (PAL)</td><td><a href="https://github.com/OpenRAC/rac2-decomp">rac2-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac2-decomp/SCES_516.07"><img src="https://bytematch.dev/OpenRAC/rac2-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCES_516.07&amp;color=ffb443&amp;style=flat-square" alt="Going Commando (PAL): code decompiled"></a></td></tr>
   <tr><td>Going Commando (NTSC v2.00)</td><td><a href="https://github.com/OpenRAC/rac2-decomp">rac2-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac2-decomp/SCUS_972.68_v2"><img src="https://bytematch.dev/OpenRAC/rac2-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_972.68_v2&amp;color=ffb443&amp;style=flat-square" alt="Going Commando (NTSC v2.00): code decompiled"></a></td></tr>
-  <tr><td>Up Your Arsenal</td><td><a href="https://github.com/OpenRAC/rac3-uya-decomp">rac3-uya-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac3-decomp/SCUS_973.53"><img src="https://bytematch.dev/OpenRAC/rac3-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_973.53&amp;color=ffb443&amp;style=flat-square" alt="Up Your Arsenal: code decompiled"></a></td></tr>
-  <tr><td>Deadlocked</td><td><a href="https://github.com/OpenRAC/rac-deadlocked-decomp">rac-deadlocked-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac4-decomp/SCUS_974.65"><img src="https://bytematch.dev/OpenRAC/rac4-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_974.65&amp;color=ffb443&amp;style=flat-square" alt="Deadlocked: code decompiled"></a></td></tr>
+  <tr><td>Up Your Arsenal</td><td><a href="https://github.com/OpenRAC/rac3-decomp">rac3-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac3-decomp/SCUS_973.53"><img src="https://bytematch.dev/OpenRAC/rac3-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_973.53&amp;color=ffb443&amp;style=flat-square" alt="Up Your Arsenal: code decompiled"></a></td></tr>
+  <tr><td>Deadlocked</td><td><a href="https://github.com/OpenRAC/rac4-decomp">rac4-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac4-decomp/SCUS_974.65"><img src="https://bytematch.dev/OpenRAC/rac4-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_974.65&amp;color=ffb443&amp;style=flat-square" alt="Deadlocked: code decompiled"></a></td></tr>
   <tr><td>Size Matters</td><td><a href="https://github.com/OpenRAC/rac5-sm-decomp">rac5-sm-decomp</a></td><td align="right"><a href="https://bytematch.dev/OpenRAC/rac5-sm-decomp/SCUS_976.15"><img src="https://bytematch.dev/OpenRAC/rac5-sm-decomp.svg?mode=shield&amp;label=&amp;measure=matched_code_percent&amp;version=SCUS_976.15&amp;color=ffb443&amp;style=flat-square" alt="Size Matters: code decompiled"></a></td></tr>
 </table>
 <!-- badges:end -->
@@ -86,6 +86,15 @@ The launcher's **Mods** tab adds mods and opens your levels in [Godot 4](https:/
 ## Help out
 
 Test and report bugs, decompile functions, or work on the launcher, the port or the editor.
+To work from a checkout:
+
+```sh
+git clone https://github.com/OpenRAC/OpenRAC.git && cd OpenRAC
+python3 tools/sources.py init      # each game's decomp at its pinned commit, with OpenRAC's patches
+```
+
+Run `python3 tools/sources.py init` again after every pull. What the decomps are and how to change
+them: [docs/SOURCES.md](docs/SOURCES.md).
 
 **Start here:** [Developer guide](docs/DEVELOPING.md) · [Contributing](CONTRIBUTING.md) · [Sourcing policy](docs/policy/SOURCING.md) · [All docs](docs/README.md)
 

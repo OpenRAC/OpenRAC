@@ -160,6 +160,12 @@ def setup(only: list[str]) -> None:
         if not inputs:
             print(f"{key}: nothing to place ({version.get('setup', 'no build yet')})")
             continue
+        tree = ROOT / games.version_dir(game, name)
+        if not (tree / ".git").exists():
+            # Placing files in an empty submodule directory would stop git from checking it out.
+            print(f"{key}: skipped, {tree.relative_to(ROOT).as_posix()} is not checked out "
+                  "(git submodule update --init --depth 1, then python3 tools/sources.py apply)")
+            continue
         for item in inputs:
             dest = ROOT / item["path"]
             if item["from"] == "toolchains":
@@ -312,13 +318,48 @@ def game_table() -> str:
     return "\n".join(out) + "\n"
 
 
+def region(version: dict) -> str:
+    """A version's region without its gloss: "NTSC-U" for "NTSC-U (North America)"."""
+    return version["region"].split(" (")[0]
+
+
+def decomp_rows(game: dict) -> list[tuple[str, dict, list[str]]]:
+    """(folder, source, version names) for each decomp of GAME: its own decomp (every version
+    built from it), then each version with a decomp of its own (rac1's NTSC decomp)."""
+    rows = []
+    if game.get(games.DECOMP):
+        shared = [n for n, v in game["versions"].items() if (v.get("source") or {}).get("shared") == games.DECOMP]
+        rows.append((games.decomp_dir(game), game[games.DECOMP], shared))
+    rows += [(games.version_dir(game, n), v["source"], [n]) for n, v in game["versions"].items()
+             if v.get("source") and not v["source"].get("shared")]
+    return rows
+
+
 def source_table() -> str:
-    out = ["| Directory | Project | Repository | Branch | Commit | Its date | License |", "|---|---|---|---|---|---|---|"]
-    for game, name, v in games.versions():
-        s = v.get("source")
-        if s and not s.get("shared"):
-            out.append(f"| [`{games.version_dir(game, name)}`]({games.version_dir(game, name)}) | {s['name']} | {s['repo']} | "
-                       f"{s['branch']} | `{s['commit'][:12]}` | {s['date']} | {s['license']} |")
+    out = ["| Game | Decomp (repository) | Versions it holds | Folder | Pinned at |", "|---|---|---|---|---|"]
+    for game in games.load_all():
+        for where, s, names in decomp_rows(game):
+            held = ", ".join(f"{region(game['versions'][n])} `{game['versions'][n]['serial']}`" for n in names)
+            out.append(f"| {game['title']} | [{s['name']}]({s['repo']}) ({s['branch']}) | {held} | "
+                       f"[`{where}`]({where}) | `{s['commit'][:12]}` ({s['date']}) |")
+    return "\n".join(out) + "\n"
+
+
+def versions_table(game: dict) -> str:
+    """games/<game>/README.md's table: each version, its disc, the decomp it is built from (a folder
+    beside the README) and the port's program for it (port/game/<game>-<version>/)."""
+    out = ["| Version | Disc | Serial | Decomp | Port |", "|---|---|---|---|---|"]
+    for name, v in game["versions"].items():
+        source = v.get("source") or {}
+        rel = games.decomp_dir(game) if source.get("shared") == games.DECOMP else games.version_dir(game, name)
+        named = game[games.DECOMP] if source.get("shared") == games.DECOMP else source
+        folder = Path(rel).name
+        decomp = f"[{folder}/]({folder}/README.md) ([{named['name']}]({named['repo']}))" if source else "–"
+        port = f"{game['id']}-{name}"
+        built = (f"[`port/game/{port}/`](../../port/game/{port}/)" if (ROOT / "port/game" / port).is_dir()
+                 else "not built yet")
+        disc = f"{v['region']}, disc v{v['disc']['version']}" if v.get("disc", {}).get("version") else v["region"]
+        out.append(f"| `{game['id']}/{name}` | {disc} | `{v['serial']}` | {decomp} | {built} |")
     return "\n".join(out) + "\n"
 
 
@@ -383,15 +424,18 @@ def tables() -> None:
     made = {"games": game_table(), "discs": disc_table(), "boot": boot_table(), "sources": source_table(),
             "badges": progress_box(games.versions()),
             "progress": render(rows, dates=False, badges=True) if summary.exists() else None}
-    for doc in (ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md", ROOT / "docs/SOURCES.md"):
+    docs = [ROOT / "README.md", BASEROM / "README.md", GAMES / "README.md", ROOT / "docs/SOURCES.md"]
+    docs += [GAMES / game["id"] / "README.md" for game in games.load_all()]
+    for doc in docs:
         if not doc.exists():
             continue
         text, depth = doc.read_text(encoding="utf-8"), len(doc.relative_to(ROOT).parts) - 1
-        for name, table in made.items():
+        own = {"versions": versions_table(games.load(doc.parent.name))} if doc.parent.parent == GAMES else {}
+        for name, table in {**made, **own}.items():
             begin, end = f"<!-- {name}:begin -->", f"<!-- {name}:end -->"
             if table is None or begin not in text or end not in text:
                 continue
-            if depth:
+            if depth and name != "versions":
                 table = table.replace("](games/", "](" + "../" * depth + "games/")
             head, rest = text.split(begin, 1)
             text = head + begin + "\n" + GENERATED + table + end + rest.split(end, 1)[1]

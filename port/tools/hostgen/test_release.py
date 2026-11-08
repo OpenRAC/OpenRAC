@@ -63,6 +63,17 @@ class ReleaseNames(unittest.TestCase):
         self.assertEqual((m.group(2), m.group(3)), ("PAL", "01"))
 
 
+class GoneIn(unittest.TestCase):
+    """A definition left out in part of the tree only (rac3: one PAL name, two programs)."""
+
+    def test_only_where_it_is_gone(self):
+        r = release.Release({"names": {}, "gone": ["func_00382498"],
+                             "gone_in": {"func_00382498": ["src/boot_elf/"]}})
+        text = "int func_00382498(int a) {\n    return a;\n}\n"
+        self.assertNotIn("return a", r.splice(text, "src/boot_elf/text/382380.c"))
+        self.assertEqual(r.splice(text, "src/frontbin/382380.c"), text)
+
+
 class Building(unittest.TestCase):
     """A small decompilation: two programs of each release, catalogues and placed values."""
 

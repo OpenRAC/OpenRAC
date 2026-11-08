@@ -1,8 +1,0 @@
-# Code from Sony's prebuilt libgcc.a, kept as generated assembly and not built from source.
-# Its objects match retail byte for byte; libgcc2.c compiles to the same instructions apart
-# from the stack frame, because Sony's Linux cc1 differs from the compiler in the mirrors
-# (comments in src/libgcc/nonmatching_0011EF28.c). Entries are segment/function names, as in
-# config/handwritten_asm.txt; tools/organize_asm.py moves the local .s files.
-core_text/func_0011E860
-core_text/func_0011EF28
-core_text/func_0011F4F8
