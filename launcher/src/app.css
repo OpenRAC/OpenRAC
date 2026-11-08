@@ -179,9 +179,18 @@ body {
   height: 100%;
   background: var(--ink);
   color: var(--text);
-  font: 0.9375rem/1.55 var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* Avoid root rem units: WebKit shrinks them while inherited colours animate between games.
+   Percentages keep the system's text size as the reference. */
+html {
+  font: 93.75%/1.55 var(--font-sans);
+}
+
+body {
+  font: 0.9375rem/1.55 var(--font-sans);
 }
 
 #app {
@@ -915,7 +924,6 @@ html[data-nav="up"] {
   to {
     opacity: 0;
     translate: var(--page-out, 0);
-    scale: 0.98;
   }
 }
 
