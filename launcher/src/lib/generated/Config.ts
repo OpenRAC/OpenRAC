@@ -80,7 +80,7 @@ discordClientId: string | null,
  */
 layout: "compact" | "classic", 
 /**
- * The launcher's theme (src/lib/palettes.json): "openrac" (default), "gruvbox", "oled", "nord"
+ * The launcher's theme (src/lib/palettes.json): "openrac" (default), "oled", "nord"
  * or "mocha". The accent is not a theme's: it is the picked game's.
  */
 theme: string, 

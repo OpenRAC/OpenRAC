@@ -4,7 +4,7 @@
 
 import data from "./palettes.json";
 
-export type PaletteId = "openrac" | "gruvbox" | "oled" | "nord" | "mocha";
+export type PaletteId = "openrac" | "oled" | "nord" | "mocha";
 
 export interface Palette {
   id: PaletteId;

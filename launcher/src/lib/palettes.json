@@ -47,33 +47,6 @@
       "swatch": ["#1c1a16", "#2c2a26", "#e6e6eb"]
     },
     {
-      "id": "gruvbox",
-      "name": "Gruvbox",
-      "colors": {
-        "--ink": "#282828",
-        "--ink-deep": "#1d2021",
-        "--rail": "#1d2021",
-        "--panel": "#32302f",
-        "--panel-hi": "#3c3836",
-        "--text": "#fbf1c7",
-        "--body": "#ebdbb2",
-        "--lav": "#83a598",
-        "--soft": "#d5c4a1",
-        "--dim": "#a89984",
-        "--line": "rgb(168 153 132 / 0.22)",
-        "--line-strong": "rgb(168 153 132 / 0.36)",
-        "--line-field": "rgb(168 153 132 / 0.6)",
-        "--ok": "#b8bb26",
-        "--warn": "#fabd2f",
-        "--err": "#fb4934",
-        "--control": "#1d2021",
-        "--control-hi": "#32302f",
-        "--control-card": "#3c3836",
-        "--control-card-hi": "#504945"
-      },
-      "swatch": ["#282828", "#3c3836", "#ebdbb2"]
-    },
-    {
       "id": "oled",
       "name": "OLED black",
       "colors": {
