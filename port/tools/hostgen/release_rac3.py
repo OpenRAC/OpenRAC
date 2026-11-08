@@ -21,8 +21,9 @@ From them this writes port/game/rac3-ntsc/release_names.json, the release table 
 - every PAL function name renamed to its NTSC-U name; one NTSC-U does not have gets the `PAL`
   mark (`func_PAL_00123C20`: no address, so nothing reaches it); src/us/'s `func_U_`/`D_U_`
   names lose their mark;
-- a PAL definition whose code is not NTSC-U's (status other than `match`) left out ("gone"):
-  NTSC-U's own C (src/us/) or its assembly takes its place;
+- a PAL definition whose code is not NTSC-U's (status other than `match`) left out ("gone"),
+  in its own program's files only ("gone_in": one PAL name can be a function of the executable
+  and of the front end): NTSC-U's own C (src/us/) or its assembly takes its place;
 - every plain global renamed to its NTSC-U address; the front end (frontbin, its own program
   over part of the executable) gets its own names per unit where its value differs from the
   executable's ("units");
@@ -99,6 +100,12 @@ def build(source: Path, cfg: dict) -> dict:
     names: dict[str, str] = {}
     front: dict[str, str] = {}  # frontbin's own, where they differ from the executable's
     gone: list[str] = []
+    gone_in: dict[str, list[str]] = {}
+
+    def leave_out(pal: str, program: str) -> None:
+        if pal not in gone:
+            gone.append(pal)
+        gone_in.setdefault(pal, []).extend(f"{root}/{program}/" for root in ("src", "src/us", "nonmatching"))
     rows = read_map(source)
     for pal, program, us, _place, _size, state, status, *_ in rows:
         k = key(pal)
@@ -112,12 +119,12 @@ def build(source: Path, cfg: dict) -> dict:
             if table[k] != new:
                 evidence["function: a second row of one name (the first kept)"] += 1
             if state == "C" and status != "match":
-                gone.append(pal)
+                leave_out(pal, program)
             continue
         table[k] = new
         evidence[f"function: {status}"] += 1
         if state == "C" and status != "match":
-            gone.append(pal)
+            leave_out(pal, program)
     values: dict[str, dict[str, int]] = read_names(source)
 
     def plain_value(program: str, name: str) -> int | None:
@@ -164,7 +171,7 @@ def build(source: Path, cfg: dict) -> dict:
         roots += ["nonmatching/boot_elf", "nonmatching/frontbin"]  # the candidates' files
     units = units_of(source, roots, cfg.get("skip", []))
     used: dict[str, set[str]] = {"boot_elf": set(), "frontbin": set()}
-    gone_set = set(gone)
+    gone_set = set(gone)  # (a name gone in one program only is still placed in the other)
     for rel, program in units.items():
         if not rel.endswith(".c"):
             continue  # a header's declarations are read only where a C file uses them
@@ -214,7 +221,8 @@ def build(source: Path, cfg: dict) -> dict:
                     continue
             derived[renamed] = text
             evidence["value: a name with no address of its own"] += 1
-    return {"names": names, "units": unit_names, "gone": sorted(gone), "values": derived,
+    return {"names": names, "units": unit_names, "gone": sorted(gone),
+            "gone_in": {k: sorted(set(v)) for k, v in sorted(gone_in.items())}, "values": derived,
             "evidence": dict(sorted(evidence.items()))}
 
 
@@ -237,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
                  "their own. Written by port/tools/hostgen/release_rac3.py from config/us/map.tsv and "
                  "config/us/names.tsv; do not edit.",
         "source": {"commit": commit, "version": "us", "table": "config/us/map.tsv, config/us/names.tsv"},
-        **{k: parts[k] for k in ("evidence", "names", "units", "gone", "values")},
+        **{k: parts[k] for k in ("evidence", "names", "units", "gone", "gone_in", "values")},
     }
     path = args.game.parent / cfg["release"]["table"]
     path.write_text(json.dumps(out, indent=1, sort_keys=False) + "\n")

@@ -11733,6 +11733,358 @@
   "func_008010A8",
   "func_00802640"
  ],
+ "gone_in": {
+  "func_00123C20": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_001249F0": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00126020": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012BE28": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012BEE8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012DA60": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012F608": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012F728": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0012FF40": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_001315D8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0013D1E8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003820B8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00382498": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003938F8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00393BE8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00393CD8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00393FC8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00394F48": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00395328": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00396390": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003963D0": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00396770": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003967B0": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00397B10": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00397DD0": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00397DF8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00397FC8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_00398470": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_0039B1B8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_0039C078": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003A1158": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003A12D0": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003A2CD8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003A5598": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003A5998": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003B4720": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003B4AD8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003B6200": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003BD160": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003BDBF8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003BDFB0": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003BE3B8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003BE770": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003BE7A8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003BE800": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003BF600": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003BF9B8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003C0118": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003C08A8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003C0A68": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003C0C60": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003C0E20": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003C1158": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003C1510": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003C6680": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003E3CB0": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003E4940": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003E55B8": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003E5970": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003EFF10": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003F02C8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003F0700": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003F0AB8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003F0B20": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003F0B48": [
+   "nonmatching/frontbin/",
+   "src/frontbin/",
+   "src/us/frontbin/"
+  ],
+  "func_003F0ED8": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_003F0F00": [
+   "nonmatching/boot_elf/",
+   "src/boot_elf/",
+   "src/us/boot_elf/"
+  ],
+  "func_00800158": [
+   "nonmatching/i5bootn/",
+   "src/i5bootn/",
+   "src/us/i5bootn/"
+  ],
+  "func_008010A8": [
+   "nonmatching/i5bootn/",
+   "src/i5bootn/",
+   "src/us/i5bootn/"
+  ],
+  "func_00802640": [
+   "nonmatching/i5bootn/",
+   "src/i5bootn/",
+   "src/us/i5bootn/"
+  ]
+ },
  "values": {
   "D_0013DBE8_0011F2A0": "0x0013DBE8",
   "D_0013DC90_00122A68": "0x0013DC90",

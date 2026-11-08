@@ -119,6 +119,9 @@ class Release:
         self.names: dict[str, str] = table.get("names", {})
         self.units: dict[str, dict[str, str]] = table.get("units", {})
         self.gone: list[str] = table.get("gone", [])
+        # Where a name is gone, when only in some of the tree (rac3: one PAL name can be a function
+        # of the executable and of the front end, gone in one only): name -> directory prefixes.
+        self.gone_in: dict[str, list[str]] = table.get("gone_in", {})
 
     @classmethod
     def load(cls, path: Path) -> "Release":
@@ -148,6 +151,8 @@ class Release:
         spans, tail = [], []
         for name in self.gone:
             # A definition of PAL v2.00's the release has no function for: left out (its lines stay).
+            if name in self.gone_in and not unit.startswith(tuple(self.gone_in[name])):
+                continue
             spellings = [name] + (readable or {}).get(name, [])
             for spelling in spellings + [f"{x}_r" for x in spellings]:
                 span = prep._definition(text, spelling) if spelling in text else None
