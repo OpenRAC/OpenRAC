@@ -507,14 +507,17 @@ byte for byte, and the first write keeps `shortcuts.vdf.openrac-bak`. Flathub's
 Steam is refused: its sandbox has no way to start a program outside it.
 
 **One game from a shortcut.** `openrac-launcher --play <id>` (`rac1-pal`, or the
-key `rac1/pal`) starts a game as its Play button does, with no window:
+key `rac1/pal`), or `openrac-launcher --rac1` (a game by its name alone, for
+launch options a player types: the version the game's page plays, that is the
+developer's disc choice, else the disc set up, else the game's first;
+`disc_choice::played_version`), starts a game as its Play button does, with no window:
 `library::direct_play` plans the game's first `play` action (data folder, mods,
 build checks), and a play that asks for confirmation is not started unseen. If
 it cannot start, the window opens on that game. An open launcher gets the
 argument through single instance and starts the game itself; otherwise the
 launcher hides its window and ends with the game. A game's page offers Add to
 Steam (its own entry: the launcher's stable path, `--play <id>`, the game's
-title and icon, found again by name and launch options, never mistaken for the
+title, icon and library pictures, found again by name and launch options, never mistaken for the
 launcher's) and, on Linux, Create shortcut (a `.desktop` on the Desktop). Both
 are hidden on Android and macOS, and the shortcut on Windows.
 

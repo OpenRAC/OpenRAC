@@ -24,16 +24,32 @@ pub fn game_id(key: &str) -> String {
     key.replace('/', "-")
 }
 
-/// The game a start asks for: the value after `--play`, if it is one.
+/// The game a start asks for: the value after `--play`, if it is one, or a game by its name alone
+/// (`--rac1`, `--rac2`: the launch options a player types in Steam or a shortcut themselves).
 pub fn play_arg<S: AsRef<str>>(args: &[S]) -> Option<String> {
-    let at = args.iter().skip(1).position(|a| a.as_ref() == FLAG)? + 1;
-    let value = args.get(at + 1)?.as_ref();
-    (!value.is_empty() && !value.starts_with('-')).then(|| value.to_string())
+    if let Some(at) = args.iter().skip(1).position(|a| a.as_ref() == FLAG) {
+        let value = args.get(at + 2)?.as_ref();
+        return (!value.is_empty() && !value.starts_with('-')).then(|| value.to_string());
+    }
+    args.iter().skip(1).find_map(|a| game_flag(a.as_ref()))
+}
+
+/// `--rac<n>`: the game `rac<n>`.
+fn game_flag(arg: &str) -> Option<String> {
+    let game = arg.strip_prefix("--")?;
+    let number = game.strip_prefix("rac")?;
+    (!number.is_empty() && number.bytes().all(|b| b.is_ascii_digit())).then(|| game.to_string())
 }
 
 /// The version key `arg` names (an id or a key), if the catalogue has it.
 pub fn version_for_arg(catalog: &Catalog, arg: &str) -> Option<String> {
     catalog.version_keys().into_iter().find(|key| key == arg || game_id(key) == arg)
+}
+
+/// The version a start's `arg` plays: the version it names, or for a game's name (`rac1`) the one
+/// the launcher plays of it (disc_choice.rs `played_version`).
+pub fn version_to_play(config: &crate::config::Config, catalog: &Catalog, arg: &str) -> Option<String> {
+    version_for_arg(catalog, arg).or_else(|| crate::disc_choice::played_version(config, catalog, arg))
 }
 
 /// A shortcut's `.desktop` file: `title`, the icon `icon`, starting `program --play <id>`.
@@ -107,6 +123,42 @@ mod tests {
         assert_eq!(play_arg(&args(&["x", "--play", "--other"])), None);
         assert_eq!(play_arg(&args(&["--play", "rac1-pal"])), None, "the program's own name is not an option");
         assert_eq!(play_arg(&args(&["x", "--", "openrac://install/a"])), None);
+    }
+
+    #[test]
+    fn a_game_is_named_alone_by_its_flag() {
+        assert_eq!(play_arg(&args(&["x", "--rac1"])), Some("rac1".into()));
+        assert_eq!(play_arg(&args(&["x", "--window", "--rac12"])), Some("rac12".into()));
+        assert_eq!(play_arg(&args(&["x", "--rac2", "--play", "rac1-pal"])), Some("rac1-pal".into()), "--play first");
+        for not in ["--rac", "--racx", "--rac1-pal", "-rac1", "rac1", "--rac1 "] {
+            assert_eq!(play_arg(&args(&["x", not])), None, "{not}");
+        }
+        assert_eq!(play_arg(&args(&["--rac1"])), None, "the program's own name is not an option");
+    }
+
+    #[test]
+    fn a_games_name_plays_the_version_set_up_or_its_first() {
+        let catalog = crate::catalog::load(&crate::testing::checkout()).unwrap();
+        let game = &catalog.games.iter().find(|g| g.versions.len() > 1).expect("a game with two versions");
+        let (first, second) = (game.versions[0].key.clone(), game.versions[1].key.clone());
+        let config = crate::config::Config::default();
+        assert_eq!(version_to_play(&config, &catalog, &game.id), Some(first.clone()));
+        assert_eq!(version_to_play(&config, &catalog, &game_id(&second)), Some(second.clone()), "a version, as named");
+        assert_eq!(version_to_play(&config, &catalog, "rac99"), None);
+        // The disc set up from the player's own.
+        let install = tempfile::tempdir().unwrap();
+        let info = crate::install::data_dir(install.path(), &game.id).join("iso_data").join(&game.id);
+        std::fs::create_dir_all(&info).unwrap();
+        let text = format!(r#"[{{"serial": "S", "version": "{second}", "elf_sha1": "0", "files": 1, "image": "i"}}]"#);
+        std::fs::write(info.join("buildinfo.json"), text).unwrap();
+        let set_up = crate::config::Config { install_dir: Some(install.path().into()), ..config.clone() };
+        assert_eq!(version_to_play(&set_up, &catalog, &game.id), Some(second.clone()));
+        // A developer's choice of disc is the one played.
+        let mut chose = config.clone();
+        chose.disc_choice.insert(game.id.clone(), second.clone());
+        assert_eq!(version_to_play(&chose, &catalog, &game.id), Some(first), "only with developer tools on");
+        chose.developer = true;
+        assert_eq!(version_to_play(&chose, &catalog, &game.id), Some(second));
     }
 
     #[test]

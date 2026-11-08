@@ -45,6 +45,15 @@ fn set_up_version(config: &Config, game: &str) -> Option<String> {
     install::state(dir, game).extracted.map(|b| b.version)
 }
 
+/// The version of `game` the launcher plays (a start by the game's name, `--rac1`): the
+/// developer's choice of disc, else the one set up, else the game's first. None: no such game.
+pub fn played_version(config: &Config, catalog: &Catalog, game: &str) -> Option<String> {
+    let versions = &catalog.games.iter().find(|g| g.id == game)?.versions;
+    let known = |key: Option<String>| key.filter(|k| versions.iter().any(|v| &v.key == k));
+    let chosen = config.developer.then(|| config.disc_choice.get(game).cloned()).flatten();
+    known(chosen).or_else(|| known(set_up_version(config, game))).or_else(|| versions.first().map(|v| v.key.clone()))
+}
+
 /// The games a developer can switch discs for: developer tools on, and at least two versions of
 /// the game among the discs found. The choice remembered in the settings when it is still found,
 /// else the disc set up, else the first found: what the launcher plays without a choice.

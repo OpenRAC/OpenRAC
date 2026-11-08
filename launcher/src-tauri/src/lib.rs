@@ -2070,7 +2070,7 @@ fn play_from_shortcut<R: tauri::Runtime>(
     let config = state.config.lock().unwrap().clone();
     let root = config.root().map_err(|e| (None, e))?.to_path_buf();
     let catalog = catalog::load(&root).map_err(|e| (None, e))?;
-    let key = shortcut::version_for_arg(&catalog, arg).ok_or_else(|| (None, format!("no game {arg}")))?;
+    let key = shortcut::version_to_play(&config, &catalog, arg).ok_or_else(|| (None, format!("no game {arg}")))?;
     let shown = |e: String| (Some(key.clone()), e);
     let plan = library::direct_play(&config, &key).map_err(shown)?;
     launcher_log::line(&format!("play: {}", jobs::command_line(&plan)));
