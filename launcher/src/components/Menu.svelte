@@ -167,6 +167,8 @@
     color: inherit;
     flex-direction: column;
     padding: 6px;
+    /* No frame (STYLE.md): the browser draws a popover with a border of the text's colour. */
+    border: 0;
     background: var(--card-hi);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
