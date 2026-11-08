@@ -25,8 +25,8 @@
 /* The hero's vehicle byte (as rac1's hero +0x20A4): 2 is Giant Clank. */
 #define HERO_VEHICLE_MODE (RAC2_g_heroState + 0x20u)
 
-/* Words the other releases have only once release_carry.py has carried them (RAC2_ADDR_...);
- * until then they show the pause and dialog sets there, and no prompts. */
+/* Words a release has once release_carry.py has carried them (RAC2_ADDR_...; PAL has them, USA
+ * v2.00 not yet): without them it shows the pause and dialog sets, and no prompts. */
 #if defined(RAC2_PRIMARY) || defined(RAC2_ADDR_0x001AA0F8u)
 #define STATE_ARG OPENRAC_DATA(RAC2_ADDR(0x001AA0F8u)) /* g_gameStatePendingArgA */
 #endif
