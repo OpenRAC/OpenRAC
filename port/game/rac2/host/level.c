@@ -32,6 +32,11 @@
 gaddr func_00131CB8__game(void);
 
 static int loaded_level = OPENRAC_OVERLAY_EXE;
+static uint32_t program_loads;
+
+uint32_t rac2_program_loads(void) {
+    return program_loads;
+}
 
 /* ParseBin: copies the next program in. From then on a code address in the range means the loaded
  * level's function (the overlay the runtime looks in). */
@@ -45,6 +50,8 @@ gaddr func_00131CB8(void) {
         openrac_guest_set_level_range(RELOCATE_LOW, RELOCATE_HIGH);
     }
     const gaddr entry = func_00131CB8__game();
+    /* A new program: the last one's mobys are gone (play.c's loads). */
+    ++program_loads;
     const int level = GREF(int, PLAYER_PROGRESS);
     if (entry == TITLE_LOOP || level < 0 || level >= LEVELS) {
         /* Back to the title: the port runs the executable's C, so its own program is what has to be

@@ -23,8 +23,8 @@ int rac2_touch(const char** context, const char* hints[OPENRAC_TOUCH_HINTS_MAX])
 
 /* The levels, by the game's own numbers (games/rac2/decomp/docs/LEVELS.md): 21 and 27 to 29 have no
  * program on the disc. */
-#define LEVELS 31
-static const char* const level_names[LEVELS] = {
+#define LEVELS RAC2_LEVELS
+const char* const rac2_level_names[RAC2_LEVELS] = {
     "Aranos (tutorial)",
     "Oozla",
     "Maktar Nebula",
@@ -101,9 +101,9 @@ static int exit_scene(void) {
  * only; from inside a level RequestLevelExit's argument does it. */
 static int held_level = -1;
 
-/* --level N with OPENRAC_DIRECT, and the developer menu. */
-static void start_level(int level) {
-    if (level < 0 || level >= LEVELS || level_names[level] == NULL) {
+/* --level N with OPENRAC_DIRECT, the developer menu, and the play calls (play.c). */
+void rac2_start_level(int level, int new_game) {
+    if (level < 0 || level >= LEVELS || rac2_level_names[level] == NULL) {
         return;
     }
     if (level == 30) {
@@ -111,7 +111,9 @@ static void start_level(int level) {
             21; /* The museum: 30 is its archive's number, 21 the game's and its disc table's. */
     }
     if (!in_level()) {
-        func_00298E08();
+        if (new_game) {
+            func_00298E08();
+        }
         held_level = level;
         GREF(int32_t, RAC2_g_nLevelExitDestination) = level;
     }
@@ -148,7 +150,7 @@ static void direct_start(void) {
         return;
     }
     done = 1;
-    start_level(openrac_game_start_level);
+    rac2_start_level(openrac_game_start_level, 1);
 }
 
 void rac2_options_frame(void);
@@ -162,10 +164,11 @@ static void on_frame(unsigned frame) {
     /* The developer mode's Planets page (options.c): the level chosen there. */
     const int planet = rac2_planets_take();
     if (planet >= 0) {
-        start_level(planet);
+        rac2_start_level(planet, 1);
     }
     hold_destination();
     flight_skip();
+    rac2_play_frame();
 }
 
 static int bolts(void) {
@@ -268,7 +271,8 @@ static int skip_buttons(void) {
 #define FLIGHT_TICK (FLIGHT_SCENE + 0x34u)
 #define FLIGHT_LAST (FLIGHT_SCENE + 0x40u)
 #define FLIGHT_FIRST_TICKS 2
-#define FLIGHT_LAP RAC2_ADDR(0x00152C64u) /* the lap playing: 0 to 3 the laps through space, 4 the approach */
+#define FLIGHT_LAP                                                                                 \
+    RAC2_ADDR(0x00152C64u) /* the lap playing: 0 to 3 the laps through space, 4 the approach */
 #define FLIGHT_PHASE RAC2_ADDR(0x00152C68u) /* laps begun since the archives were read */
 #define FLIGHT_APPROACH 4
 #define PHASE_LAST_LAP 1
@@ -411,8 +415,9 @@ static int teleport(const float xyz[3]) {
  * reads with the press, once the scene takes a press: from its 13th tick, faded in (D_001B15A0 0),
  * and before its last 30.
  */
-#define SCENE_SKIP RAC2_ADDR(0x00152C26u)               /* a short: the scene ends at the next tick */
-#define SCENE_FADE OPENRAC_DATA(RAC2_ADDR(0x001B15A0u)) /* a float: the fade, 0 when the picture is in */
+#define SCENE_SKIP RAC2_ADDR(0x00152C26u) /* a short: the scene ends at the next tick */
+#define SCENE_FADE                                                                                 \
+    OPENRAC_DATA(RAC2_ADDR(0x001B15A0u)) /* a float: the fade, 0 when the picture is in */
 #define SCENE_FIRST_TICKS 13
 #define SCENE_LAST_TICKS 30
 
@@ -467,10 +472,14 @@ static const openrac_game_tools tools = {
     .state_json = state_json,
 };
 
+static void front_end_start_level(int level) {
+    rac2_start_level(level, 1);
+}
+
 static const openrac_front_end front_end = {
     .levels = LEVELS,
-    .level_names = level_names,
-    .start_level = start_level,
+    .level_names = rac2_level_names,
+    .start_level = front_end_start_level,
     .pad = RAC2_ADDR(0x00138180u),
     /* D_001C2740: the 16 directional light sets MobyProc lights each moby with, filled from the
      * gameplay file and changed at run time (set 13 is the bolts' gold, 1.0 0.8 0.0). */
@@ -500,4 +509,5 @@ void rac2_install_tools(void) {
     openrac_game_touch = rac2_touch;
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
+    rac2_install_play();
 }

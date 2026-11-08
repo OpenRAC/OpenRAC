@@ -130,6 +130,8 @@ enum class Var : std::uint16_t {
     Pacing,
     PauseAt,
     PerfCapture,
+    PlayTrace,
+    PlayTraceSave,
     Press,
     ProbeBacklight,
     ProbeComputeOff,

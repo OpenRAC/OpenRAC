@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Copyright (c) 2026 the OpenRAC contributors */
-/* What a posed moby's animation does at a pose (play.c's rac1_pose_moby): the decision alone, on
+/* What a posed moby's animation does at a pose (rac1/host/play.c's rac1_pose_moby, rac2/host/play.c's pose_moby): the decision alone, on
  * plain numbers, so a test can run it without the game.
  *
  * A pose comes some ticks behind its sender and a little ahead or behind of the moby's own clock.
@@ -11,8 +11,8 @@
  * instead, as it was, the moby ran ahead on its clock while the poses held (a stall of the
  * sender's), and was snapped back again and again; and it ran off the end of a seq that plays
  * once (a stop) into its start again before the pose's next seq came. */
-#ifndef RAC1_POSE_ANIM_H
-#define RAC1_POSE_ANIM_H
+#ifndef OPENRAC_POSE_ANIM_H
+#define OPENRAC_POSE_ANIM_H
 
 /* How far, in keys, the moby's place may be from the pose's before it is put there; how much
  * faster or slower it runs for each key it is behind or ahead; its fastest, in times the pose's
@@ -89,4 +89,4 @@ static inline int pose_anim_step(const pose_anim_in* in, float* speed) {
     return POSE_ANIM_RUN;
 }
 
-#endif /* RAC1_POSE_ANIM_H */
+#endif /* OPENRAC_POSE_ANIM_H */

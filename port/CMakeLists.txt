@@ -407,7 +407,7 @@ openrac_add_c_test(scene_actors NO_STRICT_ALIASING WRAPV
   INCLUDES tests/rac1_host game/common/include runtime/include game/rac1-pal/host)
 
 # The shared rac1 host C's posed mobys' animation (a co-op figure, a moby the host drives).
-openrac_add_c_test(pose_anim MATH)
+openrac_add_c_test(pose_anim MATH INCLUDES game/common/include)
 
 # The shared rac1 host C's level digest, what two games sharing a level must agree on.
 openrac_add_c_test(sim_digest)
@@ -449,6 +449,9 @@ openrac_add_c_test(particle53 NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(planar_limit NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(checkpoint_restore NO_STRICT_ALIASING NO_FP_CONTRACT MATH)
 openrac_add_c_test(save_parts INCLUDES "${PROJECT_SOURCE_DIR}/../sdk/include")
+# Going Commando's saves as the play calls read them, on a save the game wrote.
+openrac_add_c_test(rac2_save INCLUDES game/rac2/host
+  DEFINITIONS "RAC2_SAVE_FIXTURE=\"${PROJECT_SOURCE_DIR}/../launcher/core/tests/fixtures/rac2/save-oozla.bin\"")
 # The card filter against the game's calls on a real folder: a party never writes a player's saves.
 openrac_add_c_test(mc_filter SOURCES tests/mc_filter_test.c game/common/lib/mc.c
                    INCLUDES game/common/include runtime/include)
