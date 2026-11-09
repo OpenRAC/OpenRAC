@@ -10,7 +10,7 @@
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
   import { grouped, pct } from "$lib/format";
   import { titleLines } from "$lib/labels";
-  import { bannerFrame, gameArt, hideMissing } from "$lib/media";
+  import { gameArt, hideMissing } from "$lib/media";
   import { modUpdates } from "$lib/modUpdates.svelte";
   import { news, type NewsItem } from "$lib/news";
   import { hasPort, offersStep, playerAct, playerState, playerVersion, playWarning } from "$lib/player.svelte";
@@ -142,13 +142,7 @@
   <div class="home" bind:this={root} onfocusin={focusMoved} style={`--hero-glow: ${glow}`}>
     <section class="hero" aria-label={game.title} style={themeStyle(game.id)}>
       {#key game.id}
-        {#if art}<img
-            class={`pic ${bannerFrame(game.id)}`}
-            src={art}
-            alt=""
-            decoding="async"
-            onerror={hideMissing}
-          />{/if}
+        {#if art}<img class="pic" src={art} alt="" decoding="async" onerror={hideMissing} />{/if}
       {/key}
       <div class="veil"></div>
       <div class="body">
@@ -288,16 +282,6 @@
     object-fit: cover;
     object-position: 50% 25%;
     animation: fade var(--medium) var(--ease) both;
-  }
-
-  /* A taller picture keeps its whole height and stands at the right, fading in from the left. */
-  .pic.right {
-    left: auto;
-    right: 0;
-    width: auto;
-    max-width: none;
-    object-position: 100% 50%;
-    mask-image: linear-gradient(90deg, transparent, black 30%);
   }
 
   @keyframes fade {

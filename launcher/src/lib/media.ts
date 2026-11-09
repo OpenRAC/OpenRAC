@@ -37,13 +37,6 @@ export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
-/** How Android's Games banner frames a game's picture: `cover` fills the banner (a wide picture),
- *  `right` keeps the whole height and stands at the right, its left edge fading into the page (a
- *  taller picture, which cover would zoom into). */
-export function bannerFrame(game: string): "cover" | "right" {
-  return game === "rac2" ? "right" : "cover";
-}
-
 /** A game's picture as Android's Games tab shows it: framed for a tile, 1280 wide
  *  (scripts/game_art.py), where the picture itself can be wider and take a moment to decode. */
 export function gameTileArt(game: string): string | null {

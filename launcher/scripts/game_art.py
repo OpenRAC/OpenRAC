@@ -38,12 +38,10 @@ PALETTES = HERE.parent / "src" / "lib" / "palettes.json"
 CDN = "https://cdn2.steamgriddb.com"
 
 # game: (site name, hero, tile frame's left edge in the 1920 x 620 hero). The frame keeps the faces
-# in sight. A hero under art/ is a picture made by hand and used as it is, without the grade below:
-# Going Commando's is a frame of the game's opening, its logo painted out and upscaled 4x
-# (Real-ESRGAN x4plus) (user decision).
+# in sight.
 GAMES = {
     "rac1": ("rac1", "hero/8bed36d1d9aac31ed938f56a5671a420.jpg", 230),
-    "rac2": ("gc", "art/gc.jpg", 0),
+    "rac2": ("gc", "hero/95e1533eb1b20a97777749fb94fdb944.jpg", 330),
     "rac3": ("uya", "hero/3bd318565e4adbe5f4b6abf2ffebf3a0.png", 400),
     "rac4": ("deadlocked", "hero/d22bb534b7964c0cafab6aab1995f000.jpg", 300),
     "rac5": ("size-matters", "hero/0102d6b30badc91266a51a24e8203c7d.png", 100),
@@ -145,9 +143,6 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
 def tile(picture: Image.Image, left: int) -> Image.Image:
     """The tile: a 2.25 : 1 frame of the picture from LEFT."""
     w = round(picture.height * TILE[0] / TILE[1])
-    if w > picture.width:  # a taller picture: its top band, full width
-        h = round(picture.width * TILE[1] / TILE[0])
-        return picture.crop((0, 0, picture.width, h)).resize(TILE, Image.LANCZOS)
     left = min(left, picture.width - w)
     return picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS)
 
@@ -189,10 +184,7 @@ def main(argv: list[str]) -> int:
     for game in games:
         name, hero, left = GAMES[game]
         c = colours(game)
-        if hero.startswith("art/"):
-            picture = Image.open(HERE / hero).convert("RGB")
-        else:
-            picture = grade(Image.open(fetch(a.cache, hero)), c)
+        picture = grade(Image.open(fetch(a.cache, hero)), c)
         picture.save(a.out / f"{name}-bg.webp", quality=88, method=6)
         tile(picture, left).save(a.out / f"{name}-tile.webp", quality=88, method=6)
         thumb(picture).save(a.out / f"{name}-thumb.webp", quality=80, method=6)
