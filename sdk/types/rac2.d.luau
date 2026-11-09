@@ -27,6 +27,7 @@ type HookPoint =
     | "rac2.moby.race_controller.update"
     | "rac2.moby.mapper_return.update"
     | "rac2.moby.hypnomatic_maker.update"
+    | "rac2.moby.nanotech_ball.update"
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
@@ -40,6 +41,7 @@ type HookPoint =
     | "Moby_HypnomaticMaker_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
+    | "Moby_NanotechBall_Update"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
     | "Moby_SwingshotArea_Update"
@@ -95,6 +97,8 @@ type Moby_RaceController_UpdateFn = (moby: number) -> ()
 type Moby_MapperReturn_UpdateFn = (moby: number) -> ()
 -- rac2.moby.hypnomatic_maker.update (Moby_HypnomaticMaker_Update) void(u32): Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte.
 type Moby_HypnomaticMaker_UpdateFn = (moby: number) -> ()
+-- rac2.moby.nanotech_ball.update (Moby_NanotechBall_Update) void(u32): The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update.
+type Moby_NanotechBall_UpdateFn = (moby: number) -> ()
 
 declare openrac: {
     game: string,

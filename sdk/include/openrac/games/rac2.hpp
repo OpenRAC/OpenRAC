@@ -179,6 +179,14 @@ struct Moby_HypnomaticMaker_Update {
     using fn = void (*)(uint32_t);
 };
 
+// The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update.
+struct Moby_NanotechBall_Update {
+    static constexpr const char* id = "rac2.moby.nanotech_ball.update";
+    static constexpr const char* name = "Moby_NanotechBall_Update";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace combat {
         using get_hit = rac2::Moby_GetHitMessage;
@@ -211,6 +219,9 @@ namespace hooks {
         namespace mapper_return {
             using update = rac2::Moby_MapperReturn_Update;
         }  // namespace mapper_return
+        namespace nanotech_ball {
+            using update = rac2::Moby_NanotechBall_Update;
+        }  // namespace nanotech_ball
         namespace race_controller {
             using update = rac2::Moby_RaceController_Update;
         }  // namespace race_controller
