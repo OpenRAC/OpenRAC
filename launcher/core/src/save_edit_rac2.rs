@@ -60,8 +60,10 @@
 //!
 //! So the game reaches V3 and V4, and the two-row weapons' second row, only in challenge mode, but
 //! a save loads with any of them in any mode (outside it the game only gates earning them, so a V3
-//! there never steps to V4 by experience), and the editor offers them on every save. The version of the weapon in Ratchet's hand is not changed
-//! (a save with its record moved crashed the port at the level start, in the held weapon's
+//! there still earns experience but never steps to V4: `func_L00_002D5EB8` skips a row whose
+//! vendor state is set while `func_00288D58` is 0, and a hidden run of the port with V3 at exactly
+//! V4's step and no challenge mode left it V3 800 frames later; V4 has no step), and the editor offers them on every
+//! save. The version of the weapon in Ratchet's hand is not changed (a save with its record moved crashed the port at the level start, in the held weapon's
 //! update: launcher/docs/RAC2_SAVE_FORMAT.md).
 
 use crate::rac2_flags::{self, Confidence, Place};

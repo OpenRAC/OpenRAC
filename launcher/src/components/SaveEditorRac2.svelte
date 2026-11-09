@@ -394,8 +394,8 @@
             >
           </h3>
           <p class="note">
-            Outside challenge mode, V3 won't level to V4 on its own.
-            A new version comes with full ammo, and with the experience the game's own upgrade leaves.
+            Outside challenge mode a V3 still earns experience but never upgrades to V4: pick V4 here instead. A new
+            version comes with full ammo, and with the experience the game's own upgrade leaves.
           </p>
           <ul class="rows weapons">
             {#each weapons as w (w.id)}
@@ -437,7 +437,9 @@
                       }}
                     >
                       {#each w.versions as option, k (k)}
-                        <option value={k}>{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option>
+                        <option value={k}
+                          >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option
+                        >
                       {/each}
                     </select>
                   {:else}
