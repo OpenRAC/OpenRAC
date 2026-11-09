@@ -18,6 +18,7 @@
     travelAt,
     turnsAt,
   } from "$lib/insertion";
+  import { discPrint } from "$lib/discArt";
   import { ACCENTS } from "$lib/themes";
   import Disc from "./Disc.svelte";
 
@@ -67,11 +68,30 @@
     return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px; transform: translate(-50%, -50%) translateZ(${z}px) rotateX(${tip}deg) scale(${1 + lift}) rotate(${spinAt(t)}deg)`;
   });
 
-  /** How far the print turns in one frame (60 a second), in degrees: the copies of the print spread
-   *  over that arc, each fainter, blur it as a fast disc blurs to the eye. Without them a disc at
-   *  15 turns a second jumps a quarter turn a frame and seems to shake. */
-  const smear = $derived(Math.min(150, (turnsAt(t) * 360) / 60));
-  const COPIES = [0, 1, 2, 3, 4, 5, 6];
+  // A disc at 15 turns a second jumps a quarter turn a frame and seems to shake; the eye sees it
+  // smeared. Two pictures of the print, smeared once as the disc comes (a short arc, and all the way
+  // round into rings), come over it as it speeds up: two layers a frame, not a copy per step.
+  const print = $derived(discPrint(game, version));
+  let arc = $state<HTMLCanvasElement | null>(null);
+  let ring = $state<HTMLCanvasElement | null>(null);
+  /** How much the short smear shows, then the rings, 0 to 1. */
+  const arcIn = $derived(Math.min(1, (turnsAt(t) / 15) * 4));
+  const ringIn = $derived(Math.min(1, Math.max(0, (turnsAt(t) / 15 - 0.25) / 0.45)));
+
+  /** Draws the print `steps` times over `degrees`, each fainter, so all weigh the same. */
+  function smearInto(canvas: HTMLCanvasElement, img: HTMLImageElement, degrees: number, steps: number) {
+    const g = canvas.getContext("2d");
+    if (!g) return;
+    const s = canvas.width;
+    for (let k = 0; k < steps; k++) {
+      g.save();
+      g.globalAlpha = 1 / (k + 1);
+      g.translate(s / 2, s / 2);
+      g.rotate(((k / (steps - 1) - 0.5) * degrees * Math.PI) / 180);
+      g.drawImage(img, -s / 2, -s / 2, s, s);
+      g.restore();
+    }
+  }
 
   /** Its shadow on the drive: it shows as the disc comes down, and spreads as it is lifted. */
   const shade = $derived.by(() => {
@@ -94,6 +114,14 @@
     if (el) document.body.appendChild(el);
     screen = { w: innerWidth, h: innerHeight };
     el?.focus();
+    if (print) {
+      const img = new Image();
+      img.onload = () => {
+        if (arc) smearInto(arc, img, 40, 12);
+        if (ring) smearInto(ring, img, 360, 48);
+      };
+      img.src = print;
+    }
     const begun = performance.now();
     let frame = 0;
     const tick = (now: number) => {
@@ -153,14 +181,12 @@
     <div class="shade" style={`left: ${SX}px; top: ${SY}px; width: ${SIZE}px; height: ${SIZE}px; ${shade}`}></div>
     <div class="disc" style={disc}>
       <Disc {game} {version} {title} />
-      {#if smear > 1}
-        {#each COPIES as k (k)}
-          <span class="copy" style={`rotate: ${(-smear * (k + 1)) / COPIES.length}deg; opacity: ${1 / (k + 2)}`}>
-            <Disc {game} {version} {title} />
-          </span>
-        {/each}
+      {#if print}
+        <canvas class="smear" width="640" height="640" bind:this={arc} style={`opacity: ${arcIn}`}></canvas>
+        <canvas class="smear" width="640" height="640" bind:this={ring} style={`opacity: ${ringIn}`}></canvas>
+      {:else}
+        <span class="blur" style={`opacity: ${speedAt(t) * 0.6}`}></span>
       {/if}
-      <span class="blur" style={`opacity: ${speedAt(t) * 0.4}`}></span>
     </div>
     <div
       class="lid"
@@ -282,9 +308,12 @@
     position: absolute;
   }
 
-  .copy {
+  .smear {
     position: absolute;
     inset: 0;
+    width: 100%;
+    height: 100%;
+    mask: radial-gradient(circle closest-side, transparent 0 12.6%, black 13% 99.2%, transparent 100%);
   }
 
   .shade {

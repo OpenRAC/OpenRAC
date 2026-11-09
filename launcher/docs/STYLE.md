@@ -248,7 +248,9 @@ The rail stays on the left, the theme is the launcher's own.
   tap on a neighbour turns the wheel with a soft spring that starts slowly (a
   sampled damped spring, `linear()`). No glow on the disc; behind it a soft
   light in the game's colour (`--glow`, palettes.json accents) that changes
-  colour as the wheel turns;
+  colour as the wheel turns. Further back, the game's picture (`-bg`) at 20 %,
+  drifting slowly and fading out towards the wheel, and a few motes of light
+  rising through it (none with reduced motion);
 - beside it, on the right: year and region, the name in the game's title font,
   its newest save or how far its code is rebuilt, notes (crash, mods), then its
   step on the one gold button (A), Game page (Y) and Mods (X). These come in one

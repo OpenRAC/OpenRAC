@@ -4,7 +4,7 @@
   // its name, where its last save is, and its buttons. Up and down (or a drag) turn the wheel, A plays:
   // the disc goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its
   // page. The rail stays on the left (Header.svelte).
-  import { fly } from "svelte/transition";
+  import { fade, fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
@@ -18,6 +18,7 @@
   import { backgroundStatus } from "$lib/progress";
   import { when } from "$lib/reports";
   import { newestSave, savedSeconds } from "$lib/saves";
+  import { gameArt } from "$lib/media";
   import { ACCENTS, themeStyle } from "$lib/themes";
   import Disc from "./Disc.svelte";
   import DiscLaunch from "./DiscLaunch.svelte";
@@ -62,6 +63,15 @@
   /** The light behind the wheel, in the game's colour (palettes.json accents); the launcher's gold
    *  for a game without one. It changes colour slowly as the wheel turns (--glow is registered). */
   const glow = $derived(game ? ACCENTS[game.id]?.["--glow"] : undefined);
+
+  /** Motes of light that rise slowly behind the wheel: where each starts, how big, how slow. */
+  const MOTES = Array.from({ length: 14 }, (_, i) => ({
+    x: (i * 37 + 11) % 100,
+    size: 3 + ((i * 7) % 5),
+    seconds: 16 + ((i * 11) % 13),
+    delay: -((i * 5.3) % 24),
+    drift: ((i % 3) - 1) * 24,
+  }));
 
   // ---- the last save: where the player left off ----
 
@@ -252,6 +262,30 @@
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
     <div class="stage">
+      <div class="backdrop" aria-hidden="true">
+        {#key game.id}
+          {@const art = gameArt(game.id)}
+          {#if art}
+            <img
+              class="scene"
+              src={art}
+              alt=""
+              decoding="async"
+              in:fade={{ duration: reduced ? 0 : 900 }}
+              out:fade={{ duration: reduced ? 0 : 900 }}
+            />
+          {/if}
+        {/key}
+        <span class="light"></span>
+        {#if !reduced}
+          {#each MOTES as m, i (i)}
+            <span
+              class="mote"
+              style={`left: ${m.x}%; width: ${m.size}px; height: ${m.size}px; animation-duration: ${m.seconds}s; animation-delay: ${m.delay}s; --drift: ${m.drift}px`}
+            ></span>
+          {/each}
+        {/if}
+      </div>
       <div
         class="wheel"
         class:dragging
@@ -453,13 +487,70 @@
     overflow: clip;
   }
 
-  /* The light behind the wheel: a soft round glow in the game's colour behind the disc, a fainter
-     one under the words; it breathes slowly. Never on the disc itself. */
-  .stage::before {
-    content: "";
+  /* Behind everything: the game's picture, faint, drifting slowly, fading into the page towards the
+     wheel; the light in the game's colour; motes rising through it. Never on the disc itself. */
+  .backdrop {
     position: absolute;
     inset: 0;
+    overflow: hidden;
     pointer-events: none;
+  }
+
+  .scene {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 78%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.2;
+    filter: saturate(0.85);
+    mask-image:
+      linear-gradient(to right, transparent, black 45%),
+      linear-gradient(to bottom, transparent, black 20%, black 70%, transparent);
+    mask-composite: intersect;
+    animation: drift 46s ease-in-out infinite alternate;
+  }
+
+  @keyframes drift {
+    from {
+      transform: scale(1.04) translate(0, 0);
+    }
+    to {
+      transform: scale(1.12) translate(-2.5%, 1.5%);
+    }
+  }
+
+  .mote {
+    position: absolute;
+    bottom: -12px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--glow) 70%, white);
+    filter: blur(1px);
+    opacity: 0;
+    animation: rise linear infinite;
+  }
+
+  @keyframes rise {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0);
+    }
+    15% {
+      opacity: 0.35;
+    }
+    80% {
+      opacity: 0.2;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(var(--drift), -78vh);
+    }
+  }
+
+  .light {
+    position: absolute;
+    inset: 0;
     background:
       radial-gradient(34% 58% at 25% 50%, color-mix(in srgb, var(--glow) 22%, transparent), transparent 70%),
       radial-gradient(32% 42% at 68% 48%, color-mix(in srgb, var(--glow) 8%, transparent), transparent 75%);
@@ -840,7 +931,8 @@
   @media (prefers-reduced-motion: reduce) {
     .slot,
     .roll,
-    .stage::before {
+    .light,
+    .scene {
       transition: none;
       animation: none;
     }
