@@ -9800,25 +9800,6 @@
     "v": false
    }
   },
-  "func_L00_003ABEC0": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L00_003ACCF8": {
    "asm": true,
    "inherits": false,
@@ -9831,10 +9812,7 @@
     "pr": true,
     "ps": [
      {
-      "p": {
-       "b": "void",
-       "q": []
-      },
+      "b": "int",
       "q": []
      }
     ],

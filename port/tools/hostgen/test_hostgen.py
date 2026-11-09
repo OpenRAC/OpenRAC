@@ -199,6 +199,53 @@ class Translate(unittest.TestCase):
         self.assertNotIn("int func_00100100(", self.last_generated)
         self.assertIn("int func_00100240(", self.last_generated)
 
+    def test_a_user_of_a_derived_name_with_no_address_is_left_to_its_assembly(self):
+        # rac2-decomp matched func_L00_003ABEC0 after the port's derived_names.json was written: its
+        # call of ref_L00_003ABEC0_00 reached a stub that does nothing, and the Todano robot never
+        # finished his walk. A definition that calls, takes or reads a derived name the table has no
+        # address for (through a static helper too) runs its assembly instead (stubs, with no
+        # assembly here), and the report and one warning name each. A name the table values stays C.
+        import contextlib
+        import io
+        files = {"a.c": """
+            extern void ref_00100100_00(int);
+            extern void ref_00100140_00(int);
+            extern int ref_00100180_00;
+            static int helper(void) { return ref_00100180_00; }
+            void func_00100100(int x) { ref_00100100_00(x + 1); }
+            void func_00100140(int x) { ref_00100140_00(x); }
+            int func_00100180(void) { return helper() + 1; }
+            int func_001001C0(void) { void (*f)(int) = ref_00100140_00; return f != 0; }
+            void func_00100200(int x) { ref_00100180_00 = x; }
+            void func_V1_00100300(int x) { ref_00100140_00(x); }
+            int test_main(void) { func_00100100(4); return 0; }
+        """, "b.c": """
+            void func_00100240(int x) { test_print(x); }
+        """}
+        table = {"values": {"ref_00100100_00": "0x00100240"}, "levels": {}, "unresolved": ["ref_00100180_00"]}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            # The static helper is a stub no translated function calls (its one caller runs the assembly).
+            out = self.run_program(files, config={"derived": {"table": "derived_names.json"}},
+                                   extra_files={"derived_names.json": json.dumps(table)}, stubs=1)
+        self.assertEqual(out, ["5"])
+        self.assertEqual(list(self.last_report["stubbed"]), ["helper"])
+        self.assertEqual(self.last_report["unresolved_derived"], {
+            "func_00100140": ["ref_00100140_00"], "func_00100180": ["ref_00100180_00"],
+            "func_001001C0": ["ref_00100140_00"], "func_00100200": ["ref_00100180_00"]})
+        for sym in ("func_00100140", "func_00100180", "func_001001C0", "func_00100200"):
+            self.assertNotRegex(self.last_generated, rf"\b{sym}\([^;{{]*\)\s*\{{")  # no definition
+        self.assertIn("void func_00100100(", self.last_generated)
+        # A function the program has no place for (another release's func_V1_ names) runs nowhere: left alone.
+        self.assertIn("void func_V1_00100300(", self.last_generated)
+        warning = err.getvalue()
+        self.assertIn("derived_names.json is behind the decomp; regenerate it", warning)
+        self.assertIn("func_00100140: ref_00100140_00", warning)
+        self.assertIn("func_001001C0: ref_00100140_00", warning)
+        # The names the table lists as unresolved (its build had no value for them) are said apart.
+        self.assertIn("2 functions use names derived_names.json lists as unresolved", warning)
+        self.assertIn("func_00100200: ref_00100180_00", warning)
+
     def test_globals_structs_and_pointer_arithmetic(self):
         out = self.run_program({"a.c": """
             typedef struct Node { struct Node *next; short id; char pad; float f; s64 big; int arr[3]; } Node;

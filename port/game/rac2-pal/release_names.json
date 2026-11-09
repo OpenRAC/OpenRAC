@@ -1,7 +1,7 @@
 {
  "about": "The release view of the decompilation: each v1.01 address name and the release's name for it, and the values the release's build derived, in those names. Written by port/tools/hostgen/release.py build; do not edit.",
  "source": {
-  "commit": "d29456d68f7a1390be34fb4798149954cf05100d",
+  "commit": "a29cca2b47916353c29ea4b97f517a54045f3fd2",
   "version": "pal",
   "table": "build/pal/*/placed.json"
  },
@@ -154566,6 +154566,7 @@
   "ref_L00_00389E18_00",
   "ref_L00_00395428_00",
   "ref_L00_00396288_00",
+  "ref_L00_003ABEC0_00",
   "ref_L00_003C3D90_00",
   "ref_L00_003D4A20_00",
   "ref_L00_003D4A20_10",
@@ -154732,8 +154733,7 @@
   "func_L15_0042EFE0": "not in this release",
   "func_L17_003E8A58": "not in this release",
   "func_L22_0039D708": "not in this release",
-  "func_L22_003A5018": "names what this release does not have (D_V1_0018B694, D_V1_L22_001AF404, D_V1_L22_001AF408)",
-  "func_L23_004177F8": "not in this release"
+  "func_L22_003A5018": "names what this release does not have (D_V1_0018B694, D_V1_L22_001AF404, D_V1_L22_001AF408)"
  },
  "marked_in_use": [
   "D_V1_001331D4",

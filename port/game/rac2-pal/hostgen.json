@@ -202,8 +202,7 @@
     "func_L15_0042EFE0": "not in this release",
     "func_L17_003E8A58": "not in this release",
     "func_L22_0039D708": "not in this release",
-    "func_L22_003A5018": "names what this release does not have (D_V1_0018B694, D_V1_L22_001AF404, D_V1_L22_001AF408)",
-    "func_L23_004177F8": "not in this release"
+    "func_L22_003A5018": "names what this release does not have (D_V1_0018B694, D_V1_L22_001AF404, D_V1_L22_001AF408)"
   },
   "derived": {
     "table": "release_names.json"
