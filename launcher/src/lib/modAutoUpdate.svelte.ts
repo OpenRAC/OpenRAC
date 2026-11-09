@@ -6,7 +6,7 @@
 import { api, type UpdateItem, type UpdatePlan, type VersionView } from "./api";
 import { app, jobs, toast } from "./app.svelte";
 import { playerVersion } from "./player.svelte";
-import { updatedMods } from "./modsText";
+import { type IndexFound, updatedMods } from "./modsText";
 
 export const SIX_HOURS = 6 * 60 * 60 * 1000;
 /** How long Play waits for updates before it starts anyway. */
@@ -53,6 +53,24 @@ export async function updateVersion(v: VersionView, ids: string[] | null = null)
     };
   }
   return run.updated;
+}
+
+/**
+ * The Mods tab's "Check for updates" for the mods the index lists: the index is fetched again
+ * now, not read from the copy this session already has, so a version published since shows at
+ * once. With updates on by themselves and no game running, the silent ones go in as at start;
+ * otherwise nothing is installed and the plan only says what waits. What it found goes in
+ * `autoUpdates`, which ModUpdatesPanel shows.
+ */
+export async function checkIndex(v: VersionView): Promise<IndexFound> {
+  let updated: UpdateItem[] = [];
+  if (app.config?.autoUpdateMods && !gameRunning()) {
+    updated = await updateVersion(v);
+  } else {
+    autoUpdates.plans[v.game] = await api.modsUpdates(v.game, v.name, true);
+  }
+  const plan = autoUpdates.plans[v.game];
+  return { updated: updated.length, waiting: plan?.waiting.length ?? 0, held: plan?.held.length ?? 0 };
 }
 
 /** Every playable game's mods, when the setting is on and no game runs. Errors are quiet. */

@@ -389,11 +389,30 @@ export const START_UPDATES = {
   neverHint: "The Mods tab's \u201cCheck now\u201d still looks whenever you ask.",
 };
 
-/** The update check's answer. */
-export function updatesFound(count: number, errors: string[]): string {
-  const found =
-    count === 0 ? "Every mod from a link is up to date." : `${count} update${count === 1 ? "" : "s"} found.`;
-  return found + (errors.length ? ` Not checked: ${errors.join("; ")}` : "");
+/** What the index's look found for the mods it lists (lib/modAutoUpdate's checkIndex). */
+export interface IndexFound {
+  /** Went in by themselves. */
+  updated: number;
+  /** Wait for a click under "Update available". */
+  waiting: number;
+  /** Cannot go in now (a newer launcher, another mod): under "Waiting". */
+  held: number;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * The update check's answer: the updates of the mods from a link (`count`, with the sources it
+ * could not read) and, when the index was looked at too, what it found for the mods it lists.
+ */
+export function updatesFound(count: number, errors: string[], index: IndexFound | null = null): string {
+  const said: string[] = [];
+  if (index?.updated) said.push(`Updated ${plural(index.updated, "mod", "mods")}; their settings are kept.`);
+  if (index?.waiting) said.push(`${plural(index.waiting, "update is", "updates are")} available below.`);
+  if (index?.held) said.push(`${plural(index.held, "update waits", "updates wait")}: see below for why.`);
+  if (count > 0) said.push(`${plural(count, "update", "updates")} found.`);
+  if (said.length === 0) said.push(index ? "Every mod is up to date." : "Every mod from a link is up to date.");
+  return said.join(" ") + (errors.length ? ` Not checked: ${errors.join("; ")}` : "");
 }
 
 export function updatedAll(done: number, failed: number): string {
