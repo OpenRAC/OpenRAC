@@ -9,7 +9,7 @@ project's commits up to the sync of 2026-10-07, most commits first.
 
 - Kryštof "Lynder063" Malinda: creator and maintainer (commits as Lynder063,
   lynderjekokot and Kryštof Malinda)
-- Flavius (Veradictus)
+- Keros (Veradictus)
 
 ## Ratchet & Clank, NTSC-U: Lombyte (`games/rac1/ntsc-decomp`)
 
@@ -39,7 +39,7 @@ project's commits up to the sync of 2026-10-07, most commits first.
 ## The top level
 
 The consolidation into OpenRAC (the editor's move, `tools/`, `docs/`):
-Flavius (Veradictus), with the level editor written in rac1-decomp.
+Keros (Veradictus), with the level editor written in rac1-decomp.
 
 Several projects work with AI assistants under human direction; their
 commits say so where a project records it. A few rac1-decomp commits carry
