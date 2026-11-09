@@ -10,7 +10,6 @@ import {
   platinumCount,
   setOwned,
   setVersion,
-  versionAllowed,
   versionHow,
   versionLabel,
   versionName,
@@ -230,16 +229,14 @@ describe("the Going Commando save editor's page checks", () => {
     expect(changed(v, f)).toBe(true);
   });
 
-  it("offers the Mega versions only in challenge mode", () => {
+  it("accepts the Mega versions with no challenge mode, and still refuses a weapon not owned", () => {
     const v = view();
+    expect(v.challengeMode).toBe(0);
     const f = structuredClone(v.fields);
-    const glove = v.items[3]?.versions ?? [];
-    expect(glove.map((x) => versionAllowed(v, x))).toEqual([true, false]);
     at(f, 12).version = 1;
-    expect(fieldErrors(v, f)["version-12"]).toContain("challenge mode");
-    v.challengeMode = 2;
-    expect(glove.map((x) => versionAllowed(v, x))).toEqual([true, true]);
     expect(fieldErrors(v, f)).toEqual({});
+    at(f, 12).owned = false;
+    expect(fieldErrors(v, f)["version-12"]).toContain("Give");
   });
 
   it("keeps experience in the chosen version's range and the held weapon's version", () => {

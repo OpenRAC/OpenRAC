@@ -74,20 +74,11 @@ export function fieldErrors(view: Rac2SaveView, f: Rac2SaveFields): Record<strin
       if (!whole(item.xp, maxXp) || (item.xp ?? 0) < minXp) errors[`xp-${key}`] = `From ${num(minXp)} to ${num(maxXp)}`;
     }
     if (versionChanged && info) {
-      const v = selectedVersion(view, f, item.id);
       if (info.worn) errors[`version-${key}`] = "In Ratchet's hand: switch weapons in the game and save first";
       else if (!item.owned) errors[`version-${key}`] = "Give the weapon to change its version";
-      else if (v?.challengeOnly && view.challengeMode === 0) {
-        errors[`version-${key}`] = `${versionLabel(v)} exists only in challenge mode, which this save has not started`;
-      }
     }
   }
   return errors;
-}
-
-/** Whether `v` can be chosen for this save: Mega versions need challenge mode. */
-export function versionAllowed(view: Rac2SaveView, v: Rac2VersionInfo): boolean {
-  return !v.challengeOnly || view.challengeMode > 0;
 }
 
 /**
