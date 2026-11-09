@@ -184,9 +184,14 @@ const std::string& menu_graphics_line() {
 void drawer(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
     // Out in the launcher's --medium, back in a little quicker, as its pages come and go.
+    const bool was_out = s.menu_at > 0.0f;
     s.menu_at = slide(s.menu_at, s.menu_open);
     if (s.menu_at <= 0.0f) {
-        menu_closed();
+        // Once, as it shuts. The overlay also draws while the menu is shut (a notification is up),
+        // and holding back every frame then ate the game's presses.
+        if (was_out) {
+            menu_closed();
+        }
         return;
     }
     s.menu_row_height = 48.0f;

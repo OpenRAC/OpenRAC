@@ -479,9 +479,14 @@ void hints(const ImGuiViewport* viewport, float shown) {
 
 void menu_window(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
+    const bool was_out = s.menu_at > 0.0f;
     s.menu_at = slide(s.menu_at, s.menu_open);
     if (s.menu_at <= 0.0f) {
-        menu_closed();
+        // Once, as it shuts. The overlay also draws while the menu is shut (a notification is up),
+        // and holding back every frame then ate the game's presses.
+        if (was_out) {
+            menu_closed();
+        }
         return;
     }
     (void)shown;
