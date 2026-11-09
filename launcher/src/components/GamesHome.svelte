@@ -297,7 +297,7 @@
     width: auto;
     max-width: none;
     object-position: 100% 50%;
-    mask-image: linear-gradient(90deg, transparent, #000 30%);
+    mask-image: linear-gradient(90deg, transparent, black 30%);
   }
 
   @keyframes fade {
