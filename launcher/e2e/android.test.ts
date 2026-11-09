@@ -206,7 +206,8 @@ describe("Android launcher", () => {
   });
 
   it("puts a theme on, with the launcher's gold and the game's light", async () => {
-    await open("theme=oled&version=rac3/ntsc");
+    await open("theme=oled&gold&version=rac3/ntsc");
+    // ?gold: Game colours off (on by default), so the bar keeps the launcher's gold.
     // The light eases from one game's to the next (app.css).
     await page.waitForTimeout(700);
     const [ink, amber, glow] = await page.evaluate(() => {
