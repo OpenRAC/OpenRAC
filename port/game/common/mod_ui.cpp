@@ -1711,9 +1711,223 @@ void update(const openrac_front_end& fe) {
 
 }  // namespace pause
 
+/*
+ * The mods' pages in a game whose host C draws them (game_host.h, openrac_mod_pages_host; rac2's
+ * host/mod_pages.c): the game puts the items in its menus and says which item's page is on the
+ * screen; here is what the page shows, its cursor, a question, the events and what the mods ask.
+ * As in Ratchet & Clank, an item's page is the first level and a page it opens the second, which
+ * ui_open replaces or goes back from; the pad is the port's while a page is shown (filter_pad).
+ */
+namespace hosted {
+
+struct State {
+    int item = -1;    // the host's item on the screen (its shown()), -1 none
+    int first = -1;   // that item's page
+    int second = -1;  // a page opened from it, -1 none
+    bool asking = false;
+    std::uint32_t tag = 0;
+    std::string question;
+};
+
+State h;
+
+int item_page(int item) {
+    if (item >= OPENRAC_MOD_PAGES_PAUSE) {
+        const mods::UiPauseItem* p = mods::ui_pause_item(item - OPENRAC_MOD_PAGES_PAUSE);
+        return p != nullptr ? p->page : -1;
+    }
+    const mods::UiMainItem* m = mods::ui_main_item(item);
+    return m != nullptr ? m->page : -1;
+}
+
+int shown_page() {
+    return h.second >= 0 ? h.second : h.first;
+}
+
+void tell(std::uint32_t kind, int item = -1, int value = 0, std::uint32_t tag = 0) {
+    send(shown_page(), kind, item, value, tag);
+}
+
+void cue(const openrac_mod_pages_host& host, int sound) {
+    if (host.sound != nullptr) {
+        host.sound(sound);
+    }
+}
+
+// The question closed with `yes` or no, the page told.
+void answer(bool yes) {
+    if (h.asking) {
+        h.asking = false;
+        tell(OPENRAC_UI_ANSWER, -1, yes ? 1 : 0, h.tag);
+    }
+}
+
+// The page on the screen changes to `page` (-1 none): the last told it left, the new that it came.
+void change(int page) {
+    if (shown_page() >= 0) {
+        answer(false);
+        tell(OPENRAC_UI_HIDE);
+        s.swallow = s.held;
+    }
+    s.pressed = 0;
+    s.held_for.fill(0);
+    s.shown = page;
+    if (page >= 0) {
+        mods::ui_set_shown(page, false);
+        send(page, OPENRAC_UI_SHOW);
+    }
+}
+
+// Back a level: from the second level to its first, from the first to the game's page.
+void go_back(const openrac_mod_pages_host& host) {
+    if (h.second >= 0) {
+        const int first = h.first;
+        change(-1);
+        h.second = -1;
+        change(first);
+        cue(host, OPENRAC_UI_SOUND_PAGE);
+        return;
+    }
+    if (host.go_back != nullptr) {
+        host.go_back();
+    }
+}
+
+void open(const openrac_mod_pages_host& host, int page) {
+    if (page == OPENRAC_UI_GO_BACK) {
+        go_back(host);
+        return;
+    }
+    if (page == shown_page()) {
+        return;
+    }
+    change(-1);
+    h.second = page == h.first ? -1 : page;
+    change(shown_page());
+    cue(host, OPENRAC_UI_SOUND_PAGE);
+}
+
+void step_choice(const openrac_mod_pages_host& host, const mods::UiItem& item, int index, int by) {
+    if ((item.flags & OPENRAC_UI_DISABLED) != 0 || item.choices.empty()) {
+        cue(host, OPENRAC_UI_SOUND_DENIED);
+        return;
+    }
+    const int n = static_cast<int>(item.choices.size());
+    const int value = ((static_cast<int>(item.choice) + by) % n + n) % n;
+    mods::ui_set_choice(shown_page(), index, static_cast<std::uint32_t>(value));
+    cue(host, OPENRAC_UI_SOUND_SELECT);
+    tell(OPENRAC_UI_CHANGE, index, value);
+}
+
+// The tick's buttons: the question's answer, or the cursor, a choice, Cross on an item, Triangle.
+void input(const openrac_mod_pages_host& host) {
+    const std::uint16_t pressed = take_pressed();
+    if (h.asking) {
+        if ((pressed & (kCross | kTriangle)) != 0) {
+            const bool yes = (pressed & kCross) != 0;
+            cue(host, yes ? OPENRAC_UI_SOUND_SELECT : OPENRAC_UI_SOUND_PAGE);
+            answer(yes);
+        }
+        return;
+    }
+    const int page = shown_page();
+    const mods::UiPage* p = mods::ui_page(page);
+    if (p == nullptr) {
+        return;
+    }
+    if ((pressed & (kUp | kDown)) != 0 && !p->items.empty()) {
+        const int to = step_cursor(*p, (pressed & kUp) != 0 ? -1 : 1);
+        if (to != p->cursor) {
+            mods::ui_set_cursor(page, to);
+            cue(host, OPENRAC_UI_SOUND_CURSOR);
+        }
+    }
+    const int at = p->cursor;
+    const mods::UiItem* item =
+        at >= 0 && at < static_cast<int>(p->items.size()) ? &p->items[static_cast<std::size_t>(at)] : nullptr;
+    if (item != nullptr && item->kind == OPENRAC_UI_CHOICE && (pressed & (kLeft | kRight | kCross)) != 0) {
+        step_choice(host, *item, at, (pressed & kLeft) != 0 ? -1 : 1);
+    } else if (item != nullptr && item->kind == OPENRAC_UI_BUTTON && (pressed & kCross) != 0) {
+        const bool disabled = (item->flags & OPENRAC_UI_DISABLED) != 0;
+        cue(host, disabled ? OPENRAC_UI_SOUND_DENIED : OPENRAC_UI_SOUND_SELECT);
+        if (!disabled) {
+            tell(OPENRAC_UI_CHOOSE, at);
+        }
+    }
+    if ((pressed & kTriangle) != 0) {
+        if ((p->flags & OPENRAC_UI_OWN_BACK) != 0) {
+            tell(OPENRAC_UI_BACK);
+        } else {
+            cue(host, OPENRAC_UI_SOUND_PAGE);
+            go_back(host);
+        }
+    }
+}
+
+void apply(const openrac_mod_pages_host& host) {
+    const mods::UiRequests r = mods::take_ui_requests();
+    for (const int sound : r.sounds) {
+        cue(host, sound);
+    }
+    if (r.confirm && r.confirm_page == shown_page() && !h.asking) {
+        h.asking = true;
+        h.tag = r.tag;
+        h.question = r.question;
+        cue(host, OPENRAC_UI_SOUND_OPEN);
+    }
+    if (r.open) {
+        open(host, r.page);
+    }
+}
+
+void update(const openrac_mod_pages_host& host) {
+    const int item = host.shown != nullptr ? host.shown() : -1;
+    if (item != h.item) {
+        change(-1);
+        h.item = item;
+        h.first = item >= 0 ? item_page(item) : -1;
+        h.second = -1;
+        change(shown_page());
+    }
+    if (shown_page() >= 0) {
+        mods::ui_set_shown(shown_page(), h.asking);
+        mods::ui_set_main_menu(false);
+        input(host);
+        tell(OPENRAC_UI_FRAME);
+        apply(host);
+        mods::ui_set_shown(shown_page(), h.asking);
+        return;
+    }
+    mods::ui_set_shown(-1, false);
+    const bool main_menu = host.main_menu != nullptr && host.main_menu() != 0;
+    const mods::UiRequests r = mods::take_ui_requests();
+    if (main_menu && r.open && host.open_main != nullptr) {
+        for (int i = 0; i < mods::ui_main_item_count(); ++i) {
+            if (mods::ui_main_item(i)->page == r.page) {
+                host.open_main(i);
+                break;
+            }
+        }
+    }
+    mods::ui_set_main_menu(main_menu);
+}
+
+void put(char* out, std::size_t size, const std::string& utf8) {
+    std::snprintf(out, size, "%s", game_line(utf8).c_str());
+}
+
+}  // namespace hosted
+
 }  // namespace
 
 void update(int loaded_overlay) {
+    // A game whose host C draws the mods' pages (rac2): it says which is on the screen.
+    if (const openrac_mod_pages_host* host = openrac_game_mod_pages; host != nullptr) {
+        (void)loaded_overlay;
+        hosted::update(*host);
+        return;
+    }
+
     const openrac_front_end* fe = front_end();
 
     // Only the boot program's menus while the title stays (a game a mod's page started leaves it:
@@ -1857,3 +2071,90 @@ std::uint32_t text(int id) {
 }
 
 }  // namespace openrac::frontend::mod_ui
+
+namespace mod_ui = openrac::frontend::mod_ui;
+namespace mods = openrac::mods;
+
+const openrac_mod_pages_host* openrac_game_mod_pages = nullptr;
+
+int openrac_mod_pages_items(int pause) {
+    return pause != 0 ? mods::ui_pause_item_count() : mods::ui_main_item_count();
+}
+
+int openrac_mod_pages_label(int pause, int index, char* out, int size) {
+    if (out == nullptr || size <= 0) {
+        return 0;
+    }
+    out[0] = 0;
+    std::string label;
+    if (pause != 0) {
+        const mods::UiPauseItem* p = mods::ui_pause_item(index);
+        if (p == nullptr) {
+            return 0;
+        }
+        label = p->label;
+    } else {
+        const mods::UiMainItem* m = mods::ui_main_item(index);
+        if (m == nullptr) {
+            return 0;
+        }
+        label = m->label;
+    }
+    mod_ui::hosted::put(out, static_cast<std::size_t>(size), label);
+    return 1;
+}
+
+int openrac_mod_pages_after(int index) {
+    const mods::UiMainItem* m = mods::ui_main_item(index);
+    if (m == nullptr) {
+        return 2;
+    }
+    for (int i = 0; i < mod_ui::kGameRows; ++i) {
+        if (m->after == mod_ui::kGameItems[static_cast<std::size_t>(i)]) {
+            return i;
+        }
+    }
+    return 2;
+}
+
+int openrac_mod_pages_view_of(openrac_mod_pages_view* out) {
+    using mod_ui::hosted::h;
+    using mod_ui::hosted::put;
+    const mods::UiPage* p = mods::ui_page(mod_ui::hosted::shown_page());
+    if (out == nullptr || p == nullptr) {
+        return 0;
+    }
+    std::memset(out, 0, sizeof *out);
+    put(out->title, sizeof out->title, p->title);
+    const int rows = std::min<int>(static_cast<int>(p->items.size()), OPENRAC_MOD_PAGES_ROWS);
+    out->rows = rows;
+    out->cursor = p->cursor;
+    for (int i = 0; i < rows; ++i) {
+        const mods::UiItem& item = p->items[static_cast<std::size_t>(i)];
+        openrac_mod_pages_row& row = out->row[i];
+        put(row.label, sizeof row.label, item.label);
+        if (item.kind == OPENRAC_UI_CHOICE && !item.choices.empty()) {
+            put(row.value, sizeof row.value,
+                item.choices[std::min<std::size_t>(item.choice, item.choices.size() - 1)]);
+            row.flags |= OPENRAC_MOD_PAGES_ROW_CHOICE;
+        }
+        if (item.kind == OPENRAC_UI_TEXT) {
+            row.flags |= OPENRAC_MOD_PAGES_ROW_TEXT;
+        }
+        if ((item.flags & OPENRAC_UI_DISABLED) != 0) {
+            row.flags |= OPENRAC_MOD_PAGES_ROW_DISABLED;
+        }
+    }
+    const int footer = std::min<int>(static_cast<int>(p->footer.size()), OPENRAC_MOD_PAGES_FOOTER);
+    out->footer_lines = footer;
+    for (int i = 0; i < footer; ++i) {
+        put(out->footer[i], sizeof out->footer[i], p->footer[static_cast<std::size_t>(i)]);
+    }
+    if (h.asking) {
+        out->asking = 1;
+        std::string text = openrac::frontend::options_menu::game_text(h.question);
+        std::replace(text.begin(), text.end(), '\n', ' ');
+        std::snprintf(out->question, sizeof out->question, "%s", text.c_str());
+    }
+    return 1;
+}
