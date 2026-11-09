@@ -4,7 +4,7 @@
   // its name, where its last save is, and its buttons. Up and down (or a drag) turn the wheel, A plays:
   // the disc goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its
   // page. The rail stays on the left (Header.svelte).
-  import { fade, fly } from "svelte/transition";
+  import { fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
@@ -18,7 +18,6 @@
   import { backgroundStatus } from "$lib/progress";
   import { when } from "$lib/reports";
   import { newestSave, savedSeconds } from "$lib/saves";
-  import { gameArt } from "$lib/media";
   import { ACCENTS, themeStyle } from "$lib/themes";
   import Disc from "./Disc.svelte";
   import DiscLaunch from "./DiscLaunch.svelte";
@@ -60,8 +59,8 @@
     pickVersion(gv.key);
   }
 
-  /** The light behind the wheel, in the game's colour (palettes.json accents); the launcher's gold
-   *  for a game without one. It changes colour slowly as the wheel turns (--glow is registered). */
+  /** The game's colour (palettes.json accents) for the motes behind the wheel; the launcher's gold
+   *  for a game without one. It changes slowly as the wheel turns (--glow is registered). */
   const glow = $derived(game ? ACCENTS[game.id]?.["--glow"] : undefined);
 
   /** Motes of light that rise slowly behind the wheel: where each starts, how big, how slow. */
@@ -141,16 +140,61 @@
   });
   const step = $derived(size * 0.98);
 
-  /** Where disc `i` stands: its offset from the one picked, and how it shows there. */
+  // Where the wheel stands, in discs (0 = the first game in the middle). It follows the game picked
+  // on a spring moved frame by frame: a new turn asked mid-way keeps the wheel's speed and bends
+  // its path, never a jump back to where a CSS transition would restart. 4 % past the mark.
+  const STIFF = 77,
+    DAMP = 12.7;
+  let pos = $state(0);
+  let speed = 0;
+  let placed = false;
+  let frame = 0;
+  let then = 0;
+  const goal = () => at - drag / step;
+
+  function settle(now: number) {
+    const dt = Math.min(1 / 30, (now - then) / 1000);
+    then = now;
+    const to = goal();
+    speed += (-STIFF * (pos - to) - DAMP * speed) * dt;
+    pos += speed * dt;
+    if (Math.abs(pos - to) < 0.0008 && Math.abs(speed) < 0.002) {
+      pos = to;
+      speed = 0;
+      frame = 0;
+      return;
+    }
+    frame = requestAnimationFrame(settle);
+  }
+
+  $effect(() => {
+    const to = goal();
+    if (dragging || reduced || !placed) {
+      // A finger moves the wheel itself; the first look has it in place.
+      cancelAnimationFrame(frame);
+      frame = 0;
+      pos = to;
+      speed = 0;
+      placed = true;
+      return;
+    }
+    if (!frame) {
+      then = performance.now();
+      frame = requestAnimationFrame(settle);
+    }
+  });
+  $effect(() => () => {
+    cancelAnimationFrame(frame);
+  });
+
+  /** Where disc `i` stands: its offset from the middle of the wheel, and how it shows there. */
   function place(i: number) {
-    const d = i - at + drag / step;
+    const d = i - pos;
     const far = Math.abs(d);
     const y = Math.sign(d) * (far <= 1 ? far * step : step + (far - 1) * step * 0.9);
     const scale = far <= 1 ? 1 - 0.23 * far : 0.77 - 0.1 * (far - 1);
     const opacity = far <= 1 ? 1 - 0.65 * far : Math.max(0, 0.35 - 0.35 * (far - 1));
-    // The neighbours follow the disc picked a moment later, so the wheel seems to pull them.
-    const lag = i === at ? 0 : 50;
-    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; opacity: ${opacity}; transition-delay: ${lag}ms`;
+    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; opacity: ${opacity}`;
   }
 
   let start: { y: number; moved: boolean } | null = null;
@@ -256,27 +300,13 @@
     delay: reduced ? 0 : 70 + 45 * i,
     easing: cubicOut,
   });
-  const leave = () => ({ y: -14 * dir, duration: reduced ? 0 : 200, easing: cubicIn });
+  const leave = () => ({ y: -14 * dir, duration: reduced ? 0 : 150, easing: cubicIn });
 </script>
 
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
     <div class="stage">
       <div class="backdrop" aria-hidden="true">
-        {#key game.id}
-          {@const art = gameArt(game.id)}
-          {#if art}
-            <img
-              class="scene"
-              src={art}
-              alt=""
-              decoding="async"
-              in:fade={{ duration: reduced ? 0 : 900 }}
-              out:fade={{ duration: reduced ? 0 : 900 }}
-            />
-          {/if}
-        {/key}
-        <span class="light"></span>
         {#if !reduced}
           {#each MOTES as m, i (i)}
             <span
@@ -315,13 +345,7 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <Disc
-                game={g.id}
-                version={gv?.name ?? "ntsc"}
-                title={g.title}
-                idle={i === at && !dragging && !launching}
-                dim={i !== at}
-              />
+              <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle dim={i !== at} />
             </span>
           </button>
         {/each}
@@ -428,51 +452,6 @@
   .shelf {
     --spring: cubic-bezier(0.34, 1.45, 0.64, 1);
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-    /* A damped spring (4 % past the mark, then settles), sampled: it starts slow, unlike a bezier
-       that overshoots, so the wheel never jerks into motion. */
-    --wheel: linear(
-      0,
-      0.0162,
-      0.0591,
-      0.121,
-      0.1954,
-      0.2771,
-      0.3618,
-      0.4462,
-      0.5277,
-      0.6045,
-      0.6753,
-      0.7393,
-      0.7962,
-      0.8459,
-      0.8886,
-      0.9246,
-      0.9543,
-      0.9785,
-      0.9975,
-      1.0121,
-      1.0228,
-      1.0303,
-      1.0351,
-      1.0376,
-      1.0384,
-      1.0378,
-      1.0362,
-      1.0338,
-      1.031,
-      1.0278,
-      1.0246,
-      1.0213,
-      1.0182,
-      1.0152,
-      1.0125,
-      1.0101,
-      1.0079,
-      1.0059,
-      1.0043,
-      1.0029,
-      1
-    );
     position: relative;
     transition: --glow 900ms var(--ease-out);
     min-height: 100%;
@@ -487,38 +466,12 @@
     overflow: clip;
   }
 
-  /* Behind everything: the game's picture, faint, drifting slowly, fading into the page towards the
-     wheel; the light in the game's colour; motes rising through it. Never on the disc itself. */
+  /* Behind everything: motes of light in the game's colour rising slowly; no picture, no glow. */
   .backdrop {
     position: absolute;
     inset: 0;
     overflow: hidden;
     pointer-events: none;
-  }
-
-  .scene {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 78%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.2;
-    filter: saturate(0.85);
-    mask-image:
-      linear-gradient(to right, transparent, black 45%),
-      linear-gradient(to bottom, transparent, black 20%, black 70%, transparent);
-    mask-composite: intersect;
-    animation: drift 46s ease-in-out infinite alternate;
-  }
-
-  @keyframes drift {
-    from {
-      transform: scale(1.04) translate(0, 0);
-    }
-    to {
-      transform: scale(1.12) translate(-2.5%, 1.5%);
-    }
   }
 
   .mote {
@@ -548,24 +501,6 @@
     }
   }
 
-  .light {
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(34% 58% at 25% 50%, color-mix(in srgb, var(--glow) 22%, transparent), transparent 70%),
-      radial-gradient(32% 42% at 68% 48%, color-mix(in srgb, var(--glow) 8%, transparent), transparent 75%);
-    animation: glow 7s ease-in-out infinite alternate;
-  }
-
-  @keyframes glow {
-    from {
-      opacity: 0.8;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */
 
   .wheel {
@@ -583,7 +518,7 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: min(440px, 62vh);
+    width: min(390px, 55vh);
     aspect-ratio: 1;
     margin: 0;
     padding: 0;
@@ -593,10 +528,7 @@
     box-shadow: none;
     min-height: 0;
     transform: translate(-50%, -50%) translateY(var(--y)) scale(var(--k)) rotate(var(--r));
-    transition:
-      transform 800ms var(--wheel),
-      opacity 500ms var(--ease-out);
-    will-change: transform;
+    will-change: transform, opacity;
   }
 
   /* Taken into the console: the shelf keeps no copy of it. */
@@ -930,9 +862,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .slot,
-    .roll,
-    .light,
-    .scene {
+    .roll {
       transition: none;
       animation: none;
     }
