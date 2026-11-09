@@ -254,10 +254,12 @@ look, the same for all: shadows pulled toward the page's coal in the game's
 hue, the light under the bar (a glow from the top in the game's accent, as
 `body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
 little without going grey. The characters are not retouched. The logo is
-redrawn as a sketch in the launcher's gold (`--amber`): its letters' outlines,
-the plate's outline fainter and a light wash inside the letters, no fills; its
-shapes stay the logo's own (user decision: logos in each game's colours were too
-loud, grey ones looked like a filter, flat filled ones too heavy). The
+recoloured in the launcher's gold (`--amber`) on ink (`--ink-deep`): its own
+light and shade, flattened, map to ink where it is dark (outlines, plate) and
+gold where it is light or coloured (letters). Nothing is cut out, so the gear,
+the marks and the subtitles all stay (user decision: logos in each game's
+colours were too loud, grey ones looked like a filter, flat filled ones too
+heavy, thin gold outlines lost half the logo and did not read). The
 tile's frame is chosen per game so the logo sits on background and the faces
 stay whole, as Steam asks of its own heroes (key art in the middle, a logo
 never over a face).
