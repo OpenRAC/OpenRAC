@@ -779,6 +779,7 @@ void copy_world_camera(host::GameState& state) {
         // A level's world under a menu's moby context: its mobys, not the menu's in the globals.
         if (g->world_under_menu) {
             state.mobys = g->world_camera->mobys;
+            state.nanotech_orbs = g->world_camera->nanotech_orbs;
         }
     }
 }

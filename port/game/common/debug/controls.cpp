@@ -616,6 +616,20 @@ void enhanced_settings_window() {
             );
             ImGui::TreePop();
         }
+        if (ImGui::TreeNode("Nanotech orb lights (Ratchet & Clank 1)")) {
+            auto& light = graphics.nanotech_light;
+            changed |= checkbox("Nanotech orb lights", &light.enabled);
+            ImGui::BeginDisabled(!light.enabled);
+            changed |= colour_edit("Colour (linear RGB)", light.colour.data());
+            changed |= slider_float(
+                "Brightness", &light.brightness, 0.0f, 8.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Range", &light.range, 0.1f, 12.0f, "%.2f units", ImGuiSliderFlags_AlwaysClamp
+            );
+            ImGui::EndDisabled();
+            ImGui::TreePop();
+        }
         if (ImGui::Button("Reset lighting and shadows")) {
             const settings::Settings defaults;
             graphics.enhanced_shadows = defaults.enhanced_shadows;
@@ -623,6 +637,7 @@ void enhanced_settings_window() {
             graphics.gtao = defaults.gtao;
             graphics.gtao_settings = defaults.gtao_settings;
             graphics.probe_gi_multiplier = defaults.probe_gi_multiplier;
+            graphics.nanotech_light = defaults.nanotech_light;
             graphics.rim_light = defaults.rim_light;
             graphics.rim_light_strength = defaults.rim_light_strength;
             graphics.rim_light_falloff = defaults.rim_light_falloff;

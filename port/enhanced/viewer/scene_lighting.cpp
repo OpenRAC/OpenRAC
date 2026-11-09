@@ -132,7 +132,12 @@ void SceneLighting::prepare_deformation(
 #endif
 
     // Native lights also shade material fallbacks when probe GI is unavailable.
-    m_local_lights.prepare(input.frame, scene.point_lights(), gl::enhanced_rendering_available());
+    m_local_lights.prepare(
+        input.frame,
+        scene.point_lights(),
+        gl::enhanced_rendering_available(),
+        scene.point_emitters()
+    );
     m_water_float.prepare(input, &scene);
 }
 
