@@ -1023,6 +1023,9 @@ def warn_of_unresolved_derived(derived_table: Path | None, source: Path, cfg: di
     behind = {sym: names for sym, names in moved.items() if any(n not in known_unresolved for n in names)}
     if derived_table is None:
         name, how = "the derived names", "give hostgen.json a \"derived\" table"
+    elif cfg.get("release"):
+        name, how = derived_table.name, (f"build the decompilation for this release, then write the release's "
+                                         f"tables again (port/game/{cfg.get('game', '<game>')}/README.md)")
     elif derived_table.is_relative_to(source):
         name, how = derived_table.name, f"build the decompilation again ({source})"
     else:

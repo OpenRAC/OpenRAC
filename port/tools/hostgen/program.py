@@ -772,11 +772,15 @@ def users_of_unresolved_derived(program: Program) -> dict[str, list[str]]:
     of the name would reach a stub that does nothing (func_L00_003ABEC0's ref_L00_003ABEC0_00, the Todano robot's
     script call, with the port's derived_names.json written before rac2-decomp matched it), a global of it has no
     address to read. Such a definition is translated from the retail assembly instead, as a "from_assembly" row
-    would leave it (settle_signatures). The port's own host and wrapped functions keep their C. Returns each
-    function moved and the names it lacks."""
+    would leave it (settle_signatures). The port's own host and wrapped functions keep their C, and so do the
+    functions with no place in the program. Returns each function moved and the names it lacks."""
     moved: dict[str, list[str]] = {}
     for sym, f in sorted(program.functions.items()):
         if f.unit is None or f.static or not f.derived or sym in program.host or sym in program.wrap:
+            continue
+        if not program.code_places(sym):
+            # A function this program does not have (another release's view marks v1.01's functions it has no
+            # place for, func_V1_...): nothing runs it, and it has no assembly to run instead.
             continue
         missing = [name for name in f.derived if not derived_resolves(program, name, f.unit)]
         if missing:

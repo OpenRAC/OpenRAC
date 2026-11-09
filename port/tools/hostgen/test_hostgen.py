@@ -217,6 +217,7 @@ class Translate(unittest.TestCase):
             int func_00100180(void) { return helper() + 1; }
             int func_001001C0(void) { void (*f)(int) = ref_00100140_00; return f != 0; }
             void func_00100200(int x) { ref_00100180_00 = x; }
+            void func_V1_00100300(int x) { ref_00100140_00(x); }
             int test_main(void) { func_00100100(4); return 0; }
         """, "b.c": """
             void func_00100240(int x) { test_print(x); }
@@ -235,6 +236,8 @@ class Translate(unittest.TestCase):
         for sym in ("func_00100140", "func_00100180", "func_001001C0", "func_00100200"):
             self.assertNotRegex(self.last_generated, rf"\b{sym}\([^;{{]*\)\s*\{{")  # no definition
         self.assertIn("void func_00100100(", self.last_generated)
+        # A function the program has no place for (another release's func_V1_ names) runs nowhere: left alone.
+        self.assertIn("void func_V1_00100300(", self.last_generated)
         warning = err.getvalue()
         self.assertIn("derived_names.json is behind the decomp; regenerate it", warning)
         self.assertIn("func_00100140: ref_00100140_00", warning)
