@@ -14,8 +14,8 @@ sac):
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
 on the bright parts; dark pictures are lifted a little without going grey. The characters are not
-retouched. The logo is redrawn flat: letters in the launcher's gold with an
-ink outline, on a dark bronze plate, its shapes kept as they are (gold_logo).
+retouched. The logo keeps its own pixels, recoloured in three flat colours:
+gold letters, a dark bronze plate, ink outlines (gold_logo).
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
 needs no network. Needs Pillow, numpy and opencv-python-headless.
@@ -50,16 +50,6 @@ GAMES = {
 GOLD = np.array([0xF5, 0xC0, 0x40], np.float32) / 255  # --amber
 INK = np.array([0x14, 0x12, 0x0E], np.float32) / 255  # --ink-deep
 PLATE = INK * 0.55 + GOLD * 0.25  # the logo's plate, a dark bronze
-
-# How each logo's letters are told from its plate (gold_logo): part_colour, the colour a letter part
-# has at least; silver, the lightness that makes a grey part a letter; speck, the smallest letter part
-# as a share of the logo.
-LOGO_TUNE = {
-    "rac1": {"silver": 0.55},
-    "rac3": {"part_colour": 0.38},
-    "rac5": {"part_colour": 0.38, "speck": 0.002},
-    "rac6": {"silver": 0.50},
-}
 
 TILE = (1280, 569)  # 2.25 : 1, a tile on a tablet held sideways; GameTile anchors it top left
 THUMB = (192, 132)  # the game list shows 64 x 44
@@ -115,95 +105,38 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
-def flatten(mask: np.ndarray, sigma: float) -> np.ndarray:
-    """A hard mask with smooth, rounded edges (0..1)."""
-    m = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), sigma)
-    return np.clip((m - 0.5) * 4 + 0.5, 0, 1)
+def step(x: np.ndarray, at: float) -> np.ndarray:
+    return 1 / (1 + np.exp(-30 * (x - at)))
 
 
-def parts(mask: np.ndarray, connectivity: int = 8) -> tuple[np.ndarray, np.ndarray]:
-    """Each pixel's part number and each part's size."""
-    _, label, stats, _ = cv2.connectedComponentsWithStats(mask.astype(np.uint8), connectivity=connectivity)
-    return label, stats[:, cv2.CC_STAT_AREA]
-
-
-def gold_logo(logo: Image.Image, tune: dict, height: int = 440) -> Image.Image:
-    """The logo redrawn flat in three colours, no gradients: its letters filled with the launcher's
-    gold (--amber), each with an even ink (--ink-deep) outline, on its plate in a dark bronze. The
-    shapes are the logo's own. Its light and shade are flattened (mean shift), then split along its
-    dark outlines and sharp edges into parts: a coloured or bright part is a letter, a grey one is
-    plate. TUNE adjusts that per logo. Drawn at twice the size and scaled down."""
-    big = height * 2
+def gold_logo(logo: Image.Image, height: int = 440) -> Image.Image:
+    """The logo's own pixels in three flat colours, nothing redrawn: dark (outlines) ink
+    (--ink-deep), mid (the plate) a dark bronze, light or coloured (the letters) the launcher's gold
+    (--amber). Each pixel only changes colour, so every shape stays as it is; a light smoothing
+    first evens out the metal's shading inside the letters."""
     logo = logo.convert("RGBA").crop(logo.getbbox())
-    im = logo.resize((round(logo.width * big / logo.height), big), Image.LANCZOS)
-    inside = np.asarray(im.getchannel("A")) > 127
+    im = logo.resize((round(logo.width * height / logo.height), height), Image.LANCZOS)
     alpha = np.asarray(im.getchannel("A"), np.float32) / 255
-    raw = np.ascontiguousarray(np.asarray(im.convert("RGB")))
-    lab = cv2.cvtColor(cv2.bilateralFilter(cv2.pyrMeanShiftFiltering(raw, 8, 32), 9, 30, 9), cv2.COLOR_RGB2LAB)
-    lab = lab.astype(np.float32)
+    rgb = cv2.bilateralFilter(np.ascontiguousarray(np.asarray(im.convert("RGB"))), 5, 40, 5)
+    lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
     lum, chroma = lab[..., 0] / 255, np.hypot(lab[..., 1] - 128, lab[..., 2] - 128) / 100
-    light = np.maximum(lum, np.clip(chroma * 1.4, 0, 1) * 0.75 + lum * 0.3)  # red letters count as light
-    lo, hi = np.quantile(light[inside], 0.12), np.quantile(light[inside], 0.97)
-    dark = ((light - lo) / (hi - lo) < 0.15) | ~inside
-    total = inside.sum()
-
-    # Parts between the dark outlines and the sharp edges; a coloured or a bright one is a letter.
-    sharp = cv2.cvtColor(cv2.bilateralFilter(raw, 9, 40, 7), cv2.COLOR_RGB2LAB).astype(np.float32)
-    grad = np.sqrt((cv2.Sobel(sharp, cv2.CV_32F, 1, 0) ** 2 + cv2.Sobel(sharp, cv2.CV_32F, 0, 1) ** 2).sum(-1))
-    label, size = parts(~(dark | (grad > np.quantile(grad[inside], 0.88))), 4)
-    size = np.maximum(size, 1)
-    mean_chroma = np.bincount(label.ravel(), chroma.ravel(), len(size)) / size
-    mean_lum = np.bincount(label.ravel(), lum.ravel(), len(size)) / size
-    letter = (mean_chroma > tune.get("part_colour", 0.30)) | (mean_lum > tune.get("silver", 0.62))
-    letter[0] = False
-    kind = np.where(letter[label], 1, np.where(label > 0, 2, 0)).astype(np.uint8)
-    # The sharp edges inside a part (a bevel's line) take the kind of the nearest part.
-    _, nearest = cv2.distanceTransformWithLabels((kind == 0).astype(np.uint8), cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
-    seed_kind = np.zeros(nearest.max() + 1, np.uint8)
-    seed_kind[nearest[kind > 0]] = kind[kind > 0]
-    kind = np.where(dark, 0, np.where(kind == 0, seed_kind[nearest], kind))
-    gold = ((chroma > 0.22) & inside) | (kind == 1)  # small coloured letters (subtitles) by colour alone
-
-    # One flat fill: close the bevel lines, fill small holes, drop specks.
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    gold = cv2.morphologyEx(gold.astype(np.uint8), cv2.MORPH_CLOSE, k)
-    label, size = parts(1 - gold, 4)
-    hole = size < 0.0015 * total
-    hole[label[0, 0]] = False
-    gold = np.where(hole[label] & inside, 1, gold)
-    label, size = parts(gold)
-    keep = size >= tune.get("speck", 0.0004) * total
-    keep[0] = False
-    gold = keep[label] & inside
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * (big // 200) + 1,) * 2)
-    gold = cv2.morphologyEx(gold.astype(np.uint8), cv2.MORPH_OPEN, k).astype(bool)
-
-    # An even ink outline round the letters and the logo's edge; the logo's big dark shapes (the
-    # outlines of its plates and boxes) stay ink, its small dark specks (rivets, shading) go.
-    r = round(big / 140)
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1))
-    ring = cv2.dilate(gold.astype(np.uint8), k).astype(bool) & ~gold
-    edge = ~cv2.erode(inside.astype(np.uint8), k).astype(bool)
-    ink = cv2.morphologyEx(((kind == 0) & inside & ~gold).astype(np.uint8), cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
-    label, size = parts(ink)
-    shape = size >= 0.002 * total
-    shape[0] = False
-    plate = inside & ~gold & ~ring & ~edge & ~shape[label]
-
-    g, p = flatten(gold, big / 350)[..., None], flatten(plate, big / 350)[..., None]
-    out = np.zeros(gold.shape + (4,), np.float32)
-    out[..., :3] = INK * np.clip(1 - g - p, 0, 1) + PLATE * p + GOLD * g
-    out[..., 3] = alpha * (0.92 + 0.08 * g[..., 0])
-    img = Image.fromarray((out * 255).clip(0, 255).astype(np.uint8), "RGBA")
-    return img.resize((img.width // 2, height), Image.LANCZOS)
+    light = np.maximum(lum, np.clip(chroma * 1.6, 0, 1) * 0.8 + lum * 0.2)  # copper and red letters count as light
+    inside = alpha > 0.5
+    lo, hi = np.quantile(light[inside], 0.05), np.quantile(light[inside], 0.95)
+    t = np.clip((light - lo) / (hi - lo), 0, 1)
+    plate, gold = step(t, 0.2)[..., None], step(t, 0.65)[..., None]
+    out = np.zeros(t.shape + (4,), np.float32)
+    out[..., :3] = INK * (1 - plate) + PLATE * (plate - gold) + GOLD * gold
+    out[..., 3] = alpha
+    return Image.fromarray((out * 255).clip(0, 255).astype(np.uint8), "RGBA")
 
 
-def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float, tune: dict) -> Image.Image:
+def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float) -> Image.Image:
     """The tile: a 2.25 : 1 frame of the picture from LEFT, the logo top left on it."""
     w = round(picture.height * TILE[0] / TILE[1])
     left = min(left, picture.width - w)
     tile = picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS).convert("RGBA")
-    logo = gold_logo(logo, tune)
+    logo = gold_logo(logo)
     lh = round(TILE[1] * share)
     lw = round(logo.width * lh / logo.height)
     if lw > TILE[0] * 0.36:
@@ -254,7 +187,7 @@ def main(argv: list[str]) -> int:
         c = colours(game)
         picture = grade(Image.open(fetch(a.cache, hero)), c)
         picture.save(a.out / f"{name}-bg.webp", quality=88, method=6)
-        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share, LOGO_TUNE.get(game, {})).save(
+        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share).save(
             a.out / f"{name}-tile.webp", quality=88, method=6
         )
         thumb(picture).save(a.out / f"{name}-thumb.webp", quality=80, method=6)
