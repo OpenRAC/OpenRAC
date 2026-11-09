@@ -14,11 +14,11 @@ sac):
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
 on the bright parts; dark pictures are lifted a little without going grey. The characters are not
-retouched. The logo keeps its own shading in neutral greys, up to the launcher's off-white text, with no
-colour of its own.
+retouched. The logo is redrawn flat, as OpenRAC's own: its letters in the launcher's gold, the plate they
+sit on in the darkest coal, its shapes kept as they are.
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
-needs no network. Needs Pillow and numpy.
+needs no network. Needs Pillow, numpy, scipy and opencv-python-headless.
 """
 
 import argparse
@@ -27,8 +27,10 @@ import sys
 import urllib.request
 from pathlib import Path
 
+import cv2
 import numpy as np
 from PIL import Image, ImageFilter
+from scipy import ndimage as ndi
 
 HERE = Path(__file__).resolve().parent
 IMG = HERE.parent / "public" / "img"
@@ -45,6 +47,18 @@ GAMES = {
     "rac5": ("size-matters", "hero/0102d6b30badc91266a51a24e8203c7d.png", "logo/876e8108f87eb61877c6263228b67256.png", 100, 0.44),
     "rac6": ("sac", "hero/7e96c0d5321335207e7ae3aee2e3c0c2.png", "logo/09779bb7930c8a0a44360e12b538ae3c.png", 270, 0.34),
 }  # fmt: skip
+
+# How each logo's letters are told from its plate (flat_logo): tc, the colour a letter has at
+# least; tl, the lightness that makes any part a letter; lmin, the lightness a coloured letter has
+# at least; open, the clean-up's radius; min, the smallest letter as a share of the logo.
+LOGO_TUNE = {
+    "rac3": {"tc": 0.25},
+    "rac4": {"tc": 0.11, "lmin": 0.10},
+    "rac5": {"tc": 0.25, "min": 0.0006, "open": 1},
+    "rac6": {"tc": 0.30, "tl": 0.62},
+}
+GOLD = np.array([0xF5, 0xC0, 0x40], np.float32) / 255  # --amber
+PLATE = np.array([0x14, 0x12, 0x0E], np.float32) / 255  # --ink-deep
 
 TILE = (1280, 569)  # 2.25 : 1, a tile on a tablet held sideways; GameTile anchors it top left
 THUMB = (192, 132)  # the game list shows 64 x 44
@@ -100,25 +114,56 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
-def tint_logo(logo: Image.Image) -> Image.Image:
-    """The logo in neutral greys: its own shading kept, mapped from the page's coal up to the
-    launcher's off-white text (never pure white), with no colour of its own."""
-    a = np.asarray(logo.convert("RGBA"), np.float32)
-    lum, alpha = (a[..., :3] / 255) @ Y, a[..., 3:]
-    lo, hi = np.percentile(lum[alpha[..., 0] > 128], [2, 98])
-    t = np.clip((lum - lo) / max(hi - lo, 1e-3), 0, 1)
-    stops = [(0.0, rgb("#14120e")), (0.35, rgb("#5c5b5f")), (0.7, rgb("#b4b4bf")), (1.0, rgb("#f0f0f3"))]
-    xs = [s for s, _ in stops]
-    grey = np.stack([np.interp(t, xs, [col[i] for _, col in stops]) for i in range(3)], -1)
-    return Image.fromarray(np.concatenate([grey * 255, alpha], -1).clip(0, 255).astype(np.uint8), "RGBA")
+def flat_logo(logo: Image.Image, tune: dict, height: int = 440) -> Image.Image:
+    """The logo redrawn flat, as OpenRAC's own: its letters in the launcher's gold (--amber), the
+    plate they sit on in the page's darkest coal, nothing else. The shapes are the logo's own: the
+    letters are told from the plate by their colour (copper, red, orange, gold) or, for the silver
+    ones, as the bright, grey parts the plate's dark outlines close in. TUNE adjusts that per logo."""
+    tc, tl, lmin = tune.get("tc", 0.22), tune.get("tl", 0.75), tune.get("lmin", 0.0)
+    radius, min_part = tune.get("open", 2), tune.get("min", 0.002)
+    logo = logo.convert("RGBA").crop(logo.getbbox())
+    im = logo.resize((round(logo.width * height / logo.height), height), Image.LANCZOS)
+    alpha = np.asarray(im.getchannel("A"), np.float32) / 255
+    inside = alpha > 0.5
+    smooth = np.ascontiguousarray(np.asarray(im.convert("RGB")))
+    for _ in range(2):
+        smooth = cv2.bilateralFilter(smooth, 9, 50, 9)
+    lab = cv2.cvtColor(smooth, cv2.COLOR_RGB2LAB).astype(np.float32)
+    lum, chroma = lab[..., 0] / 255, np.hypot(lab[..., 1] - 128, lab[..., 2] - 128) / 100
+    letters = (((chroma > tc) & (lum > lmin)) | (lum > tl)) & inside
+    # Silver letters: the parts between the outlines (the darkest pixels and the sharpest edges)
+    # that are bright and grey.
+    # (A lighter smoothing here, so the outlines stay closed.)
+    lab1 = cv2.cvtColor(cv2.bilateralFilter(np.ascontiguousarray(np.asarray(im.convert("RGB"))), 9, 40, 7), cv2.COLOR_RGB2LAB).astype(np.float32)
+    lum1, chroma1 = lab1[..., 0] / 255, np.hypot(lab1[..., 1] - 128, lab1[..., 2] - 128) / 128
+    grad = np.sqrt((cv2.Sobel(lab1, cv2.CV_32F, 1, 0) ** 2 + cv2.Sobel(lab1, cv2.CV_32F, 0, 1) ** 2).sum(-1))
+    bounds = (lum1 < np.quantile(lum1[inside], 0.18)) | (grad > np.quantile(grad[inside], 0.88)) | ~inside
+    parts, count = ndi.label(~bounds)
+    total = inside.sum()
+    for i in range(1, count + 1):
+        part = parts == i
+        size = part.sum()
+        if 0.0004 * total <= size < 0.05 * total and lum1[part].mean() > 0.6 and chroma1[part].mean() < 0.1:
+            letters |= part
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1))
+    letters = cv2.morphologyEx(letters.astype(np.uint8), cv2.MORPH_CLOSE, k)
+    letters = cv2.morphologyEx(letters, cv2.MORPH_OPEN, k)
+    parts, count = ndi.label(letters)
+    sizes = ndi.sum(letters, parts, range(1, count + 1))
+    letters = np.isin(parts, 1 + np.where(sizes >= min_part * total)[0])
+    face = cv2.GaussianBlur((cv2.GaussianBlur(letters.astype(np.float32), (0, 0), height / 220) > 0.5).astype(np.float32), (0, 0), 0.8)
+    out = np.zeros(face.shape + (4,), np.float32)
+    out[..., :3] = GOLD * face[..., None] + PLATE * (1 - face[..., None])
+    out[..., 3] = np.clip(alpha * (0.92 * (1 - face) + face), 0, 1)
+    return Image.fromarray((out * 255).clip(0, 255).astype(np.uint8), "RGBA")
 
 
-def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float) -> Image.Image:
+def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float, tune: dict) -> Image.Image:
     """The tile: a 2.25 : 1 frame of the picture from LEFT, the logo top left on it."""
     w = round(picture.height * TILE[0] / TILE[1])
     left = min(left, picture.width - w)
     tile = picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS).convert("RGBA")
-    logo = tint_logo(logo.crop(logo.getbbox()))
+    logo = flat_logo(logo, tune)
     lh = round(TILE[1] * share)
     lw = round(logo.width * lh / logo.height)
     if lw > TILE[0] * 0.36:
@@ -166,10 +211,11 @@ def main(argv: list[str]) -> int:
     games = a.only.split(",") if a.only else list(GAMES)
     for game in games:
         name, hero, logo, left, share = GAMES[game]
+        tune = LOGO_TUNE.get(game, {})
         c = colours(game)
         picture = grade(Image.open(fetch(a.cache, hero)), c)
         picture.save(a.out / f"{name}-bg.webp", quality=88, method=6)
-        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share).save(
+        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share, tune).save(
             a.out / f"{name}-tile.webp", quality=88, method=6
         )
         thumb(picture).save(a.out / f"{name}-thumb.webp", quality=80, method=6)
