@@ -706,7 +706,7 @@
     color: var(--lav);
   }
 
-  /* ---- Android: the band as Games' banner (GamesHome.svelte) ----
+  /* ---- Android: the band in the look of the Games tab ----
      The picture whole and bright, sinking into the page on the left and at its foot; the name
      written on it in two lines, no box; the buttons rounded as Games' are. */
   :global(html[data-platform="android"]) .hero {

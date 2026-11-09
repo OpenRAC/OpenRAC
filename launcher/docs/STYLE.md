@@ -237,21 +237,28 @@ without it. Off, every game wears the gold.
 
 ## Android's Games tab
 
-A console's home screen (`GamesHome.svelte`, user decision, after SteamOS), held
-sideways only (the launcher's activity is `sensorLandscape`). The rail stays on
-the left. From the top:
+A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
+cartouche), held sideways only (the launcher's activity is `sensorLandscape`).
+The rail stays on the left, the theme is the launcher's own.
 
-- the banner: the game picked, its picture (`-bg`) sinking into the page on the
-  left and at its foot, the light in its accent; its name in two lines, where
-  its newest save is (planet, slot, bolts, when), its step (Continue, Set up) on
-  the one gold button, then Game page (Y) and Mods (X);
-- the shelf: every game as a tile turned 10° to the right; the game picked is
-  larger and ringed in its accent. A tap, or the controller's focus, picks a
-  game; a tap or A on the game picked opens its page. A game that cannot be
-  played yet shows how far its code is rebuilt;
-- What's new: a launcher update, mods to update, a crash; hidden when empty;
-- the foot: the job running, and the controller's buttons, each letter centred
-  on its round face by the grid.
+- the wheel, on the left half: every game a disc (`Disc.svelte`) with its real
+  print, downloaded on the device (`src/lib/discArt.ts`, never shipped); without
+  one, the game's picture as a label. The disc picked floats and sways a little;
+  the others sit above and below it, smaller and turned. Up and down, a drag or a
+  tap on a neighbour turns the wheel with a soft spring. No glow on the disc;
+- beside it, on the right: year and region, the name in the game's title font,
+  its newest save or how far its code is rebuilt, notes (crash, mods), then its
+  step on the one gold button (A), Game page (Y) and Mods (X). These come in one
+  after another when the disc changes;
+- What's new: small chips at the top right; hidden when empty;
+- the foot: the job running, and the controller's buttons.
+
+Play puts the disc into a console (`DiscLaunch.svelte`, our own drawing, no
+maker's marks; timings in `src/lib/insertion.ts`, after cartouche's
+`insertion.gd`): the lid opens, the disc is pushed onto the spindle, spins up,
+the lid shuts, the light comes on and the screen goes black from the disc's
+centre. B before the click puts the disc back. With reduced motion there is no
+movement and Play starts the game at once.
 
 ## A game's picture
 

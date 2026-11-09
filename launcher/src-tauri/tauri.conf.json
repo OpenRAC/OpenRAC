@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; frame-src openrac-mod: http://openrac-mod.localhost https://openrac-mod.localhost; img-src 'self' asset: data: https://github.com https://objects.githubusercontent.com https://release-assets.githubusercontent.com https://i.ytimg.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://openrac.dev https://bytematch.dev https://api.github.com https://github.com https://objects.githubusercontent.com"
+      "csp": "default-src 'self'; frame-src openrac-mod: http://openrac-mod.localhost https://openrac-mod.localhost; img-src 'self' asset: data: https://github.com https://objects.githubusercontent.com https://release-assets.githubusercontent.com https://i.ytimg.com https://images.launchbox-app.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src ipc: http://ipc.localhost https://openrac.dev https://bytematch.dev https://api.github.com https://github.com https://objects.githubusercontent.com"
     }
   },
   "bundle": {
