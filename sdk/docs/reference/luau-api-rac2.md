@@ -121,6 +121,14 @@ rac2.item.give (Item_Give) void(i32): Gives the player item id (GiveInventoryIte
 type Item_GiveFn = (id: number) -> ()
 ```
 
+### `Item_EquipFn`
+
+rac2.item.equip (Item_Equip) i32(i32): Puts item id in the hero's hand, or on him for the boots, helmets and packs (by the state of its record in the item table): a request his update carries out; 1 when one was made. Most givers call it right after Item_Give with the same id (Todano's Sheepinator, the Tractor Beam, the Thermanator, the Swingshot, the Mapper, ...), the vendor after a purchase; a mod that gives another item in a giver's place hands it this one's too.
+
+```lua
+type Item_EquipFn = (id: number) -> number
+```
+
 ### `Planet_UnlockFn`
 
 rac2.planet.unlock (Planet_Unlock) void(i32): Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.

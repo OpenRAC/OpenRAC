@@ -80,6 +80,14 @@ typedef int32_t (*openrac_rac2_Hero_NanotechSteps)(uint32_t a0, uint32_t a1, uin
 #define OPENRAC_RAC2_SIG_Item_Give "void(i32)"
 typedef void (*openrac_rac2_Item_Give)(int32_t id);
 
+/* Item_Equip (func_002AD860, rac2.item.equip): Puts item id in the hero's hand, or on him for the
+ * boots, helmets and packs (by the state of its item record): a request his update carries out; 1
+ * when one was made. Most givers call it right after Item_Give with the same id, the vendor after a
+ * purchase; a mod that gives another item in a giver's place hands it this one's too. */
+#define OPENRAC_RAC2_HOOK_Item_Equip "Item_Equip"
+#define OPENRAC_RAC2_SIG_Item_Equip "i32(i32)"
+typedef int32_t (*openrac_rac2_Item_Equip)(int32_t id);
+
 /* Planet_Unlock (func_002AD7B8, rac2.planet.unlock): Puts a level on the ship's map
  * (MarkLevelAvailable); every level load calls it for the level loaded too. Rac1's UnlockPlanet. */
 #define OPENRAC_RAC2_HOOK_Planet_Unlock "Planet_Unlock"
