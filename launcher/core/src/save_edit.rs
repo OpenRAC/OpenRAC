@@ -929,6 +929,29 @@ fn clock_text(clock: &[u8]) -> Option<String> {
     Some(format!("{:04}-{mo:02}-{d:02} {h:02}:{m:02}:{s:02}", 2000 + y))
 }
 
+/// Puts `bytes` in place of the save at `path` in one rename. They are written first to a hidden
+/// file beside the save's folder, never in it: the games count the files of their folder, and
+/// Going Commando takes a folder with anything more than its own for no save at all and offers
+/// to make a new one. The file is read back before the rename and removed on any failure, so
+/// nothing of the editor's is left in or beside the folder.
+pub fn replace_save(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let folder = path.parent().ok_or("the save has no folder")?;
+    let beside = folder.parent().ok_or("the save's folder has no card around it")?;
+    let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let tmp = beside.join(format!(".editing_{}_{}", name(folder), name(path)));
+    let done = fs::write(&tmp, bytes)
+        .map_err(|e| format!("could not write the save: {e}"))
+        .and_then(|()| match fs::read(&tmp) {
+            Ok(back) if back == bytes => Ok(()),
+            _ => Err("the save did not write back as it should; it was not replaced".to_string()),
+        })
+        .and_then(|()| fs::rename(&tmp, path).map_err(|e| format!("could not replace the save: {e}")));
+    if done.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    done
+}
+
 /// FNV-1a 64 of the bytes, as hex: enough to notice that the file changed under the page.
 pub fn fingerprint(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -1136,13 +1159,7 @@ pub fn write_save(
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
-    let tmp = path.with_file_name(format!(".save{slot}.bin.editing"));
-    fs::write(&tmp, &out).map_err(|e| format!("could not write the save: {e}"))?;
-    if fs::read(&tmp).ok().as_deref() != Some(&out[..]) {
-        let _ = fs::remove_file(&tmp);
-        return Err("the save did not write back as it should; it was not replaced".into());
-    }
-    fs::rename(&tmp, &path).map_err(|e| format!("could not replace the save: {e}"))?;
+    replace_save(&path, &out)?;
     Ok(WriteResult { backup, view: view(serial, slot, &out, &check) })
 }
 
@@ -1639,7 +1656,12 @@ mod tests {
         assert_ne!(r2.backup.name, r.backup.name);
         let kept = fs::read(Path::new(&r.backup.path).join("BESCES-50916RATCHET/save1.bin")).unwrap();
         assert_eq!(SaveFile::parse(&kept).unwrap().fields().bolts, 0);
-        assert!(!card.path().join("BESCES-50916RATCHET/.save1.bin.editing").exists());
+        let left: Vec<_> = fs::read_dir(card.path().join("BESCES-50916RATCHET")).unwrap().flatten().collect();
+        assert!(left.iter().all(|e| !e.file_name().to_string_lossy().starts_with('.')), "nothing of the editor's");
+        assert!(fs::read_dir(card.path())
+            .unwrap()
+            .flatten()
+            .all(|e| !e.file_name().to_string_lossy().starts_with(".editing")));
     }
 
     #[test]
