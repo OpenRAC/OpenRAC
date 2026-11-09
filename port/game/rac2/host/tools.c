@@ -510,4 +510,5 @@ void rac2_install_tools(void) {
     openrac_game_front_end = &front_end;
     openrac_game_tools_host = &tools;
     rac2_install_play();
+    rac2_install_mod_pages();
 }

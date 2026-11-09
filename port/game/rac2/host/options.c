@@ -34,6 +34,7 @@
 #include "openrac/game_host.h"
 #include "openrac/guest.h"
 #include "openrac/host_env.h"
+#include "openrac/openrac_mod.h"
 #include "rac2.h"
 
 #define WIDESCREEN RAC2_ADDR(0x001A7BB1u)
@@ -113,13 +114,14 @@ void func_002E48E8(void) {
 
 static int page_cursor;
 static int page_top;
-/* The page's name, one row's line, the Planets item's name and the Video row's description, in game memory for the game's
- * print. */
+/* The page's name, one row's line, the Planets item's name, the Video row's description and an
+ * empty line (a mod's page's hints: it draws its own footer), in game memory for the game's print. */
 static gaddr page_text;
 
 static gaddr page_buffers(void) {
     if (page_text == 0) {
-        page_text = openrac_guest_static(4 * TEXT_BYTES);
+        page_text = openrac_guest_static(5 * TEXT_BYTES);
+        memset(G(page_text), 0, 5 * TEXT_BYTES);
     }
     return page_text;
 }
@@ -131,7 +133,13 @@ static gaddr page_buffers(void) {
 static int video_text(int id);
 
 int func_00288FB8(int id) {
+    /* The pause list's descriptions move with its extra rows (video_text): the mods' rows' are
+     * mod_pages.c's texts, as their labels are. */
     id = video_text(id);
+    const uint32_t label = rac2_mod_pages_text(id);
+    if (label != 0) {
+        return (int)label;
+    }
     if (id == TEXT_VIDEO_HELP) {
         const gaddr help = page_buffers() + 3 * TEXT_BYTES;
         snprintf((char*)G(help), TEXT_BYTES, "Display, picture and frame rate settings.");
@@ -366,6 +374,11 @@ static void planets_draw(void) {
 
 int func_0033C2D8(gaddr object, int buttons) {
     const unsigned pressed = (unsigned)buttons;
+    /* A mod's page (mod_pages.c): the panel's move only, the pad is the port's. */
+    if (rac2_mod_pages_tick()) {
+        func_0033C2D8__game(object, 0);
+        return 0;
+    }
     if (planets_shown()) {
         planets_update(pressed, GREF(int, object + CAMERA_CURSOR) == 0);
         func_0033C2D8__game(object, (int)(pressed & ~MENU_CROSS));
@@ -377,11 +390,37 @@ int func_0033C2D8(gaddr object, int buttons) {
     return (int)((pressed >> 6) & 1u);
 }
 
+/* The panels' hint lines, Cross and Triangle (the title's 16:9 page and the Camera page set them). */
+#define TEXT_PAGE_TOGGLE RAC2_K(TEXT_PAGE_TOGGLE, 0x2D4E, func_0033C468)
+#define TEXT_PAGE_EXIT RAC2_K(TEXT_PAGE_EXIT, 0x2D4F, func_0033C468)
+
+/* The title's 16:9 page object's hint lines (Toggle, Exit): none while a mod's page is drawn in it,
+ * whose footer is drawn in their place (mod_pages.c), the game's again after. */
+static gaddr hints_cleared;
+
+static void title_hints(gaddr object, int mod_page) {
+    if (mod_page == (hints_cleared == object)) {
+        return;
+    }
+    hints_cleared = mod_page ? object : 0;
+    const int empty = (int)(page_buffers() + 4 * TEXT_BYTES);
+    func_0033B050(
+        object + 8,
+        (int)page_buffers(),
+        mod_page ? empty : func_00288FB8(TEXT_PAGE_TOGGLE),
+        mod_page ? empty : func_00288FB8(TEXT_PAGE_EXIT)
+    );
+}
+
 void func_0033C378(gaddr object) {
     func_0033AF48(object + 8);
     /* The page's title prints the name the text lookup gave it when the page opened, which is in
      * page_buffers(): the Planets page is a copy of this one, so the name is put there each frame. */
     const gaddr name = page_buffers();
+    title_hints(object, rac2_mod_pages_tick());
+    if (rac2_mod_pages_draw((char*)G(name), TEXT_BYTES)) {
+        return;
+    }
     if (planets_shown()) {
         snprintf((char*)G(name), TEXT_BYTES, "Planets");
         planets_draw();
@@ -416,8 +455,20 @@ void func_0033C378(gaddr object) {
 #define LIST_ICON_STEP OPENRAC_DATA(RAC2_ADDR(0x001AE128u))
 
 static gaddr video_page, video_items, video_icons;
+static gaddr mod_pages[OPENRAC_UI_PAUSE_ITEMS_MAX];
 static float list_steps[3];
-static const float list_tighter = (float)PAUSE_OPTIONS_ROWS / (PAUSE_OPTIONS_ROWS + 1);
+/* The mods' rows after Video (openrac_api.ui_pause_item, mod_pages.c), each opening a copy of the
+ * Camera page's description that shows the mod's page; how many the list has, once it has them. */
+static int mod_rows = -1;
+
+static int extra_rows(void) {
+    return 1 + (mod_rows > 0 ? mod_rows : 0);
+}
+
+/* The rows closer, so that the extra rows fit in the panel made for PAUSE_OPTIONS_ROWS. */
+static float list_tighter(void) {
+    return (float)PAUSE_OPTIONS_ROWS / (float)(PAUSE_OPTIONS_ROWS + extra_rows());
+}
 
 #define PAUSE_LIST_OFFSET RAC2_K(PAUSE_LIST_OFFSET, 0x3BE08u, func_0029C4C0)
 #define PAUSE_LIST_WHICH RAC2_K(PAUSE_LIST_WHICH, 0x2FCu, func_00341610)
@@ -429,6 +480,12 @@ static const int options_help[9] = /* PAUSE_OPTIONS_ROWS + 1 of them read */
      RAC2_K(HELP_4, 0x2DAA, D_002652B0), RAC2_K(HELP_5, 0x2DAB, D_002652B0),
      RAC2_K(HELP_6, 0x2DAC, D_002652B0), RAC2_K(HELP_7, 0x2DAE, D_002652B0),
      RAC2_K(HELP_8, 0x2E1C, D_002652B0)};
+/* That table, for the rows past it (the game reads its next words for them). */
+#define HELP_TABLE OPENRAC_DATA(RAC2_ADDR(0x002652B0u))
+
+static int help_id(int row) {
+    return row < 9 ? options_help[row] : GREF(int32_t, HELP_TABLE + 4u * (unsigned)row);
+}
 
 static int video_shown(void) {
     return video_page != 0
@@ -442,15 +499,34 @@ static int video_text(int id) {
         return id;
     }
     const gaddr list = gui + PAUSE_LIST_OFFSET;
+    const int extra = extra_rows();
     if (GREF(int, list + PAUSE_LIST_WHICH) != PAUSE_OPTIONS_LIST
-        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + 1) {
+        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + extra) {
         return id;
     }
     const int row = GREF(int, list + PAUSE_LIST_CURSORS + 4u * PAUSE_OPTIONS_LIST);
-    if (row <= VIDEO_ROW_AFTER || row > PAUSE_OPTIONS_ROWS || id != options_help[row]) {
+    if (row <= VIDEO_ROW_AFTER || row >= PAUSE_OPTIONS_ROWS + extra || id != help_id(row)) {
         return id;
     }
-    return row == VIDEO_ROW_AFTER + 1 ? TEXT_VIDEO_HELP : options_help[row - 1];
+    if (row == VIDEO_ROW_AFTER + 1) {
+        return TEXT_VIDEO_HELP;
+    }
+    if (row <= VIDEO_ROW_AFTER + extra) {
+        return rac2_mod_pause_help_text(row - VIDEO_ROW_AFTER - 2);
+    }
+    return help_id(row - extra);
+}
+
+/* The mods' page the pause menu shows now (one of mod_pages[]), or -1. */
+static int mod_page_shown(void) {
+    for (int i = 0; i < mod_rows; ++i) {
+        if (mod_pages[i] != 0
+            && (GREF(gaddr, MENU_SCREEN + 0x14u) == mod_pages[i]
+                || GREF(gaddr, MENU_SCREEN + 0x18u) == mod_pages[i])) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /* The Options items with Video after Camera, or the game's where they are not what is expected. */
@@ -460,17 +536,31 @@ static gaddr video_items_of(gaddr items) {
         return items;
     }
     if (video_items == 0) {
+        mod_rows = rac2_mod_pause_items();
         video_page = openrac_guest_static(PAGE_BYTES);
-        video_items = openrac_guest_static(ITEM_BYTES * (PAUSE_OPTIONS_ROWS + 2));
+        video_items = openrac_guest_static(ITEM_BYTES * (PAUSE_OPTIONS_ROWS + 1 + extra_rows()));
+        for (int i = 0; i < mod_rows; ++i) {
+            mod_pages[i] = openrac_guest_static(PAGE_BYTES);
+            rac2_mod_pause_page(i, mod_pages[i]);
+        }
     }
     const gaddr camera = items + ITEM_BYTES * VIDEO_ROW_AFTER;
-    memcpy(G(video_page), G(GREF(gaddr, camera + ITEM_ARGUMENT)), PAGE_BYTES);
+    const gaddr camera_page = GREF(gaddr, camera + ITEM_ARGUMENT);
+    memcpy(G(video_page), G(camera_page), PAGE_BYTES);
     const unsigned before = VIDEO_ROW_AFTER + 1;
     memcpy(G(video_items), G(items), ITEM_BYTES * before);
-    const gaddr row = video_items + ITEM_BYTES * before;
+    gaddr row = video_items + ITEM_BYTES * before;
     memcpy(G(row), G(camera), ITEM_BYTES);
     GREF(int32_t, row + ITEM_TEXT) = TEXT_VIDEO;
     GREF(gaddr, row + ITEM_ARGUMENT) = video_page;
+    /* The mods' rows: each a copy of this level's Camera page. */
+    for (int i = 0; i < mod_rows; ++i) {
+        row += ITEM_BYTES;
+        memcpy(G(mod_pages[i]), G(camera_page), PAGE_BYTES);
+        memcpy(G(row), G(camera), ITEM_BYTES);
+        GREF(int32_t, row + ITEM_TEXT) = rac2_mod_pause_label_text(i);
+        GREF(gaddr, row + ITEM_ARGUMENT) = mod_pages[i];
+    }
     /* The rest and the zero item that ends the table. */
     memcpy(
         G(row + ITEM_BYTES), G(camera + ITEM_BYTES), ITEM_BYTES * (PAUSE_OPTIONS_ROWS - before + 1)
@@ -489,34 +579,38 @@ void func_00341610(gaddr list, int which) {
         if (list_steps[i] == 0.0f) {
             list_steps[i] = GREF(float, steps[i]);
         }
-        GREF(float, steps[i]) = video ? list_steps[i] * list_tighter : list_steps[i];
+        GREF(float, steps[i]) = video ? list_steps[i] * list_tighter() : list_steps[i];
     }
     func_00341610__game(list, which);
     if (!video) {
         return;
     }
+    const unsigned extra = (unsigned)extra_rows();
     if (video_icons == 0) {
-        video_icons = openrac_guest_static(4u * (PAUSE_OPTIONS_ROWS + 1));
+        video_icons = openrac_guest_static(4u * (PAUSE_OPTIONS_ROWS + extra));
     }
     const gaddr icons = GREF(gaddr, list + PAUSE_LIST_ICONS);
     const unsigned before = VIDEO_ROW_AFTER + 1;
     memcpy(G(video_icons), G(icons), 4u * before);
-    /* The title list's first icon, its Video row's (list_icons draws it from that list's sheet). */
-    GREF(int32_t, video_icons + 4u * before) = GREF(int32_t, TITLE_ICONS);
+    /* The title list's first icon, the Video row's and the mods' rows' (list_icons draws it from
+     * that list's sheet). */
+    for (unsigned i = 0; i < extra; ++i) {
+        GREF(int32_t, video_icons + 4u * (before + i)) = GREF(int32_t, TITLE_ICONS);
+    }
     memcpy(
-        G(video_icons + 4u * (before + 1)),
+        G(video_icons + 4u * (before + extra)),
         G(icons + 4u * before),
         4u * (PAUSE_OPTIONS_ROWS - before)
     );
     GREF(gaddr, list + PAUSE_LIST_ICONS) = video_icons;
-    GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + 1;
+    GREF(int, list + PAUSE_LIST_COUNT) = PAUSE_OPTIONS_ROWS + (int)extra;
 }
 
 /*
  * The panel's art has its rows baked in, one frame for each list, and none for nine. With Video
- * shown it is squeezed to the rows' spacing and drawn twice: down to the gap above the last two rows,
- * where its sides are straight, then one row lower from there, which gives the ninth row and the
- * panel's bottom edge.
+ * shown it is squeezed to the rows' spacing and drawn in parts: down to the gap above the last two
+ * rows, where its sides are straight, then a row lower for each extra row (Video and the mods'
+ * rows), the last part from there to the bottom, which gives the panel's bottom edge.
  */
 #define PANEL_SPRITE_ROWS 3
 #define LIST_ON RAC2_K(LIST_ON, 0x220u, func_00341C20)
@@ -552,8 +646,8 @@ static void panel_sprite(gaddr sprite, float first_row, float below) {
     const gaddr scale = GREF(gaddr, sprite + SPRITE_SCALE);
     const float y = GREF(float, position + 4u);
     const float height = GREF(float, scale + 4u);
-    GREF(float, position + 4u) = y + (1.0f - list_tighter) * (first_row - y) + below;
-    GREF(float, scale + 4u) = height * list_tighter;
+    GREF(float, position + 4u) = y + (1.0f - list_tighter()) * (first_row - y) + below;
+    GREF(float, scale + 4u) = height * list_tighter();
     func_00336320(sprite);
     GREF(float, position + 4u) = y;
     GREF(float, scale + 4u) = height;
@@ -574,7 +668,9 @@ static void list_icons(gaddr list) {
         func_00335E38(icon, x, row_y, 0.0f, 0.0f);
         func_00336920(
             icon,
-            i == VIDEO_ROW_AFTER + 1 ? TITLE_ICON_SHEET : GREF(int, list + LIST_ICON_SHEET),
+            i > VIDEO_ROW_AFTER && i <= VIDEO_ROW_AFTER + extra_rows()
+                ? TITLE_ICON_SHEET
+                : GREF(int, list + LIST_ICON_SHEET),
             GREF(int, icons + 4u * (gaddr)i)
         );
         GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
@@ -584,7 +680,7 @@ static void list_icons(gaddr list) {
 
 void func_00341C20(gaddr list) {
     if (GREF(int, list + PAUSE_LIST_WHICH) != PAUSE_OPTIONS_LIST
-        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + 1) {
+        || GREF(int, list + PAUSE_LIST_COUNT) != PAUSE_OPTIONS_ROWS + extra_rows()) {
         func_00341C20__game(list);
         return;
     }
@@ -603,21 +699,25 @@ void func_00341C20(gaddr list) {
     for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
         panel_sprite(list + sprites[i], first_row, 0.0f);
     }
-    panel_clip(split, GS_LAST_LINE);
-    for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
-        panel_sprite(list + sprites[i], first_row, step + PANEL_LOWER_DROP);
+    const int extra = extra_rows();
+    for (int k = 1; k <= extra; ++k) {
+        const int from = split + (int)(step * (float)(k - 1));
+        panel_clip(from, k == extra ? GS_LAST_LINE : split + (int)(step * (float)k) - 1);
+        for (int i = 0; i < PANEL_SPRITE_ROWS; ++i) {
+            panel_sprite(list + sprites[i], first_row, step * (float)k + PANEL_LOWER_DROP);
+        }
     }
     panel_clip(0, GS_LAST_LINE);
 
     /* The bar around the page's name is in the art: the name goes with it. */
     const gaddr title = GREF(gaddr, list + LIST_TITLE_TEXT + SPRITE_POSITION);
     const float title_y = GREF(float, title + 4u);
-    GREF(float, title + 4u) = title_y + (1.0f - list_tighter) * (first_row - title_y);
+    GREF(float, title + 4u) = title_y + (1.0f - list_tighter()) * (first_row - title_y);
     func_00336A78(list + LIST_TITLE_TEXT);
     GREF(float, title + 4u) = title_y;
     const gaddr cursor_scale = GREF(gaddr, list + LIST_CURSOR + SPRITE_SCALE);
     const float cursor_height = GREF(float, cursor_scale + 4u);
-    GREF(float, cursor_scale + 4u) = cursor_height * list_tighter;
+    GREF(float, cursor_scale + 4u) = cursor_height * list_tighter();
     func_00341A48(list);
     GREF(float, cursor_scale + 4u) = cursor_height;
     func_00341A68(list);
@@ -640,6 +740,11 @@ void func_00341C20(gaddr list) {
 
 int func_0033C590(gaddr object, int buttons) {
     unsigned pressed = (unsigned)buttons;
+    /* A mod's page (mod_pages.c): the panel's move only, the pad is the port's. */
+    if (mod_page_shown() >= 0) {
+        func_0033C590__game(object, 0);
+        return 0;
+    }
     if (video_shown()) {
         video_rows_update(pressed, 1);
         /* The panel's move only: the camera's cursor and options stay. */
@@ -672,29 +777,36 @@ static void camera_line(gaddr object, int row, gaddr name, gaddr value) {
 }
 
 /* The page's title, which the game sets once when it builds the page (func_0033C468), follows what
- * it shows: Camera or Video. */
+ * it shows: Camera, Video or a mod's page (its title drawn from mod_pages.c's text, which it puts
+ * each frame). */
 #define TEXT_CAMERA_TITLE RAC2_K(TEXT_CAMERA_TITLE, 0x2D98, func_0033C468)
-#define TEXT_PAGE_TOGGLE RAC2_K(TEXT_PAGE_TOGGLE, 0x2D4E, func_0033C468)
-#define TEXT_PAGE_EXIT RAC2_K(TEXT_PAGE_EXIT, 0x2D4F, func_0033C468)
 
-static gaddr titled_video;
+static gaddr titled_object;
+static int titled_as; /* 1 Video, 2 a mod's page; the Camera page's own title otherwise */
 
 static void camera_title(gaddr object) {
-    const int shown = video_shown();
-    if (shown == (titled_video == object)) {
+    const int as = mod_page_shown() >= 0 ? 2 : video_shown() ? 1 : 0;
+    if (as == (titled_object == object ? titled_as : 0)) {
         return;
     }
-    titled_video = shown ? object : 0;
+    titled_object = as != 0 ? object : 0;
+    titled_as = as;
     func_0033B050(
         object + 8,
-        func_00288FB8(shown ? TEXT_VIDEO : TEXT_CAMERA_TITLE),
-        func_00288FB8(TEXT_PAGE_TOGGLE),
-        func_00288FB8(TEXT_PAGE_EXIT)
+        as == 2 ? (int)rac2_mod_pause_title()
+                : func_00288FB8(as == 1 ? TEXT_VIDEO : TEXT_CAMERA_TITLE),
+        as == 2 ? (int)(page_buffers() + 4 * TEXT_BYTES) : func_00288FB8(TEXT_PAGE_TOGGLE),
+        as == 2 ? (int)(page_buffers() + 4 * TEXT_BYTES) : func_00288FB8(TEXT_PAGE_EXIT)
     );
 }
 
 void func_0033C738(gaddr object) {
     camera_title(object);
+    if (mod_page_shown() >= 0) {
+        func_0033AF48(object + 8);
+        rac2_mod_pages_draw((char*)G(rac2_mod_pause_title()), 48u);
+        return;
+    }
     if (video_shown()) {
         func_0033AF48(object + 8);
         video_rows_draw();

@@ -248,6 +248,7 @@ func_00288FB8	text	TextById	wrap	the text of an id: the title's 16:9 page is the
 func_0033C2D8	menu	WidescreenPageUpdate	wrap	the title's 16:9 options page: the port's Video rows, moved with the menus' buttons (host/options.c)
 func_0033C378	menu	WidescreenPageDraw	wrap	the title's 16:9 options page: its panel, with the port's Video rows in it (host/options.c)
 func_002D58A0	menu	OptionsPageEnter	wrap	the title's Options page as it opens (its list given its items): in the developer mode the list also has Planets, which opens the port's level select in the 16:9 page's panel (host/options.c)
+func_002D5748	menu	MainMenuEnter	wrap	the title's main menu as it opens (its list given its items): the mods' items (openrac_api.ui_main_item) go in after the ones they name, each opening a page of its own drawn in the 16:9 page's panel (host/mod_pages.c)
 func_00341540	menu	PauseListItems	wrap	the pause menu's lists' items: the Options list's are a copy with a Video row after Camera (host/options.c)	void (unsigned int, int, int, int)
 func_00341610	menu	PauseListShow	wrap	shows one of the pause menu's lists: the Options list has a ninth row, with the rows closer (host/options.c)	void (unsigned int, int)
 func_00341C20	options	OptionsListDraw	wrap	the pause list's panel, whose art has no ninth row: drawn in two clipped parts for it
