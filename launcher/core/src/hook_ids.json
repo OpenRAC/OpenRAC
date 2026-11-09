@@ -697,6 +697,7 @@
    "Hero_ApproachSpeed": "rac2.player.approach_speed",
    "Hero_NanotechSteps": "rac2.player.nanotech_steps",
    "Hero_TakeDamage": "rac2.player.take_damage",
+   "Item_Equip": "rac2.item.equip",
    "Item_Give": "rac2.item.give",
    "Level_Load": "rac2.level.load",
    "Moby_BoxBreakerPickup_Update": "rac2.moby.box_breaker_pickup.update",
