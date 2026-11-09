@@ -244,9 +244,9 @@ Each game has three pictures in `public/img/`, under the site's names (`rac1`,
   open, and faintly behind the page;
 - `<name>-tile.webp`, 1280 × 569, the same picture framed for a tile: Android's
   Games tab. The tile writes the game's name at its foot in the game's title
-  font, in two parts ("Ratchet & Clank:", "Going Commando"); the second moves
-  to a line of its own when both do not fit, never split across lines (user
-  decision: no logos on the tiles);
+  font, the game's own name always on the line under the series ("Ratchet &
+  Clank:" / "Going Commando"; "Ratchet: Deadlocked" is one name, one line)
+  (user decision: no logos on the tiles);
 - `<name>-thumb.webp`, 192 × 132: the game list, which shows it 64 × 44.
 
 `python3 scripts/game_art.py` makes all three from the game's SteamGridDB hero

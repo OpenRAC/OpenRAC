@@ -18,10 +18,10 @@
 
   // The game's still picture (media.ts); without one, the tile shows the game's colours.
   const art = $derived(gameTileArt(game.id));
-  /** The name in two parts, the series and the game ("Ratchet & Clank:", "Going Commando"): the
-   *  second goes to a line of its own when the two do not fit on one, never split across them. */
+  /** The name in two lines, the series and the game ("Ratchet & Clank:", "Going Commando").
+   *  "Ratchet: Deadlocked" is one name and keeps one line. */
   const name = $derived.by(() => {
-    const at = game.title.indexOf(": ");
+    const at = game.title.startsWith("Ratchet & Clank: ") ? game.title.indexOf(": ") : -1;
     return at < 0
       ? { series: game.title, game: "" }
       : { series: game.title.slice(0, at + 1), game: game.title.slice(at + 2) };
@@ -295,11 +295,9 @@
     font-size: 1.375rem;
     line-height: 1.2;
     color: var(--on-game);
-    /* Each part wraps as a whole: the game's own name moves to the next line rather than
-       breaking, unless it is too long for a line by itself. */
+    /* The game's own name always on the line under the series. */
     display: flex;
-    flex-wrap: wrap;
-    column-gap: 0.3em;
+    flex-direction: column;
   }
 
   .status {
