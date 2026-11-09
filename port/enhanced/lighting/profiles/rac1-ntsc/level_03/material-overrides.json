@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-moby_1827.glb-2",
+      "match": {
+        "model": "moby_1827.glb",
+        "material_slot": 2,
+        "texture_path": "textures/moby_0178.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            3.96440887,
+            3.46088433,
+            1.9759078
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

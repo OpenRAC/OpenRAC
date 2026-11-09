@@ -5,7 +5,11 @@
 #include "enhanced/lighting/bake_workers.h"
 
 #include <algorithm>
+#include <atomic>
+#include <cfenv>
 #include <exception>
+#include <memory>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 
@@ -165,6 +169,52 @@ Result<void> BakeThreadPool::run(
         return unexpected(Error{error.what()});
     } catch (...) {
         return unexpected(Error{"unknown bake worker failure"});
+    }
+}
+
+void parallel_bake_indices(
+    std::size_t count, const BakeExecution& execution, const std::function<void(std::size_t)>& task
+) {
+    auto* pool = execution.pool;
+    const auto budget = pool ? pool->size() : std::max(1u, std::thread::hardware_concurrency());
+    const auto threads = static_cast<unsigned>(std::min<std::size_t>(
+        count, execution.threads ? std::min(execution.threads, budget) : budget
+    ));
+    if (threads <= 1 && !pool) {
+        for (std::size_t i = 0; i < count; ++i) {
+            task(i);
+        }
+        return;
+    }
+    if (threads == 0) {
+        return;
+    }
+
+    std::unique_ptr<BakeThreadPool> local_pool;
+    if (!pool) {
+        local_pool = std::make_unique<BakeThreadPool>(threads);
+        pool = local_pool.get();
+    }
+    std::fenv_t environment;
+    if (std::fegetenv(&environment) != 0) {
+        throw std::runtime_error("could not read bake floating-point environment");
+    }
+    std::atomic<std::size_t> next{0};
+    const auto result = pool->run(threads, [&] {
+        try {
+            if (std::fesetenv(&environment) != 0) {
+                throw std::runtime_error("could not set bake floating-point environment");
+            }
+            for (auto i = next.fetch_add(1); i < count; i = next.fetch_add(1)) {
+                task(i);
+            }
+        } catch (...) {
+            next.store(count);
+            throw;
+        }
+    });
+    if (!result) {
+        throw std::runtime_error(result.error().message);
     }
 }
 }  // namespace openrac::lighting

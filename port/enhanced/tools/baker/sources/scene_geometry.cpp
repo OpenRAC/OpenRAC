@@ -26,9 +26,14 @@ Float3 as_float3(const float* v) {
 class GeometryExporter {
 public:
     // Keeps first-use texture order stable across all layers and instances.
-    GeometryExporter(const scene::LevelData& level, BakeSceneExport& out)
+    GeometryExporter(
+        const scene::LevelData& level,
+        BakeSceneExport& out,
+        std::vector<TriangleMaterial>* triangle_materials
+    )
         : m_level(level),
           m_out(out),
+          m_triangle_materials(triangle_materials),
           m_texture_indices(level.images.size(), -1) {}
 
     // Visits terrain, ties, shrubs, static mobys and authored bake surfaces in source order.
@@ -190,6 +195,9 @@ private:
         if (material.bake_intensity) {
             emission.fill(*material.bake_intensity);
         }
+        if (material.bake_mesh_rgb) {
+            emission = *material.bake_mesh_rgb;
+        }
 
         const bool emits = *std::max_element(emission.begin(), emission.end()) > 0;
 
@@ -206,9 +214,13 @@ private:
             triangle.texture = texture;
             triangle.emission = emission;
             triangle.visible_emission = material.emission;
-            triangle.fixed_emission = material.bake_intensity.has_value();
+            triangle.fixed_emission =
+                material.bake_intensity.has_value() || material.bake_mesh_rgb.has_value();
+            triangle.mesh_emission = material.bake_mesh_rgb.has_value();
+            triangle.emission_uses_cutout = material.bake_use_cutout;
             triangle.emission_texture = texture_index(material.emission_image);
             triangle.emission_vertex_colour = material.emission_vertex_colour;
+            triangle.average_emission_for_bake = material.average_emission_for_bake;
             triangle.emission_contrast = material.emission_contrast;
             triangle.diffuse = as_float3(material.colour.data());
             triangle.diffuse_scale = material.diffuse_scale;
@@ -227,7 +239,11 @@ private:
                 }
             }
 
+            const auto before = m_out.scene.triangles.size();
             append_triangle(triangle, glow, emits);
+            if (m_triangle_materials && m_out.scene.triangles.size() != before) {
+                m_triangle_materials->emplace_back(instance.model, primitive.material);
+            }
         }
     }
 
@@ -256,19 +272,24 @@ private:
         }
     }
 
-    const scene::LevelData& m_level;     // Input assets outlive this conversion.
-    BakeSceneExport& m_out;              // Caller-owned transport and statistics.
+    const scene::LevelData& m_level;  // Input assets outlive this conversion.
+    BakeSceneExport& m_out;           // Caller-owned transport and statistics.
+    std::vector<TriangleMaterial>* m_triangle_materials;
     std::vector<int> m_texture_indices;  // First-use image-to-transport remapping.
 };
 
 }  // namespace
 
-void append_probe_geometry(const scene::LevelData& level, BakeSceneExport& out) {
+void append_probe_geometry(
+    const scene::LevelData& level,
+    BakeSceneExport& out,
+    std::vector<TriangleMaterial>* triangle_materials
+) {
     // Invalid authoring must never silently bake original materials instead of the requested overrides.
     if (!level.material_error.empty()) {
         throw std::runtime_error(level.material_error);
     }
-    GeometryExporter(level, out).run();
+    GeometryExporter(level, out, triangle_materials).run();
 }
 
 }  // namespace openrac::lighting

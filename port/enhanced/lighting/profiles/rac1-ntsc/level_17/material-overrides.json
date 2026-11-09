@@ -13,7 +13,13 @@
           "texture": "materials/level/textures/deck-light-emission.png",
           "runtime_intensity": 2.65,
           "bake_intensity": 16.25,
-          "vertex_colour": true
+          "vertex_colour": true,
+          "bake_mesh_rgb": [
+            15.9024439,
+            15.9135361,
+            0.0
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -28,7 +34,13 @@
         "emission": {
           "texture": "materials/level/textures/red-orange-panel-emission.png",
           "runtime_intensity": 2.65,
-          "bake_intensity": 1.625
+          "bake_intensity": 1.625,
+          "bake_mesh_rgb": [
+            1.33678842,
+            0.119570658,
+            0.00976033695
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -43,7 +55,13 @@
         "emission": {
           "texture": "materials/level/textures/green-floor-panel-emission.png",
           "runtime_intensity": 1,
-          "bake_intensity": 5
+          "bake_intensity": 5,
+          "bake_mesh_rgb": [
+            0.42556566,
+            2.28210497,
+            0.391533494
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -58,7 +76,13 @@
         "emission": {
           "texture": "materials/level/textures/cyan-ceiling-emission.png",
           "runtime_intensity": 1,
-          "bake_intensity": 5
+          "bake_intensity": 5,
+          "bake_mesh_rgb": [
+            2.06135225,
+            2.7866981,
+            3.19526601
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -73,7 +97,70 @@
         "emission": {
           "runtime_intensity": 1.05,
           "bake_intensity": 0.4,
-          "vertex_colour": true
+          "vertex_colour": true,
+          "bake_mesh_rgb": [
+            0.400000006,
+            0.112084545,
+            0.0210276097
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-0",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0000.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            1.0,
+            0.319718808,
+            0.0825158656
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-1",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0001.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.989198864,
+            0.0838325396,
+            0.0229742993
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-64",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 64,
+        "texture_path": "textures/terrain_0049.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.894695461,
+            0.900974929,
+            0.841855705
+          ],
+          "bake_mode": "mesh"
         }
       }
     }

@@ -84,9 +84,12 @@ struct Material {
     bool authored_emission = false;
     // Optional absolute texture multiplier for baking; absent uses runtime emission.
     std::optional<float> bake_intensity;
+    std::optional<Vec3> bake_mesh_rgb;
+    bool bake_use_cutout = true;
     std::optional<int> source_slot;  // Original glTF slot, or -1 for its implicit material.
     int emission_image = -1;
     bool emission_vertex_colour = false;
+    bool average_emission_for_bake = true;
     float emission_contrast = 1;  // Luminance power curve around linear middle grey (0.18).
     float diffuse_scale = 1;
     std::string name;  // Authored material identity, including distinct chrome and glass maps.
@@ -125,7 +128,7 @@ struct Model {
     Vec3 min{};
     Vec3 max{};
     std::vector<ModelJoint> bones;  // Indexed by the same joint number as skin weights.
-    int joints = 0;  // a skinned mesh: one past the highest joint its vertices use
+    int joints = 0;                 // a skinned mesh: one past the highest joint its vertices use
 };
 
 struct Instance {

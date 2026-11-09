@@ -294,6 +294,9 @@ std::array<float, 4> bake_material(
 }
 
 Float3 bake_emission(const BakeScene& scene, const BakeTriangle& triangle, float u, float v) {
+    if (triangle.mesh_emission) {
+        return triangle.emission;
+    }
     BakeTriangle emission_material{};
     emission_material.diffuse = {1, 1, 1};
     emission_material.texture = triangle.emission_texture;
@@ -324,5 +327,104 @@ Float3 bake_emission(const BakeScene& scene, const BakeTriangle& triangle, float
         triangle.emission[2] * radiance[2]
     };
 }
+
+namespace bake_detail {
+EmissionIntegral integrate_bake_emission(
+    const BakeScene& scene, const BakeTriangle& triangle, bool known_opaque
+) {
+    const bool masked =
+        triangle.emission_uses_cutout && !known_opaque && triangle.alpha_cutoff > 0
+        && (triangle.texture >= 0
+            || std::any_of(
+                triangle.multipliers.begin(), triangle.multipliers.end(), [&](const auto& tint) {
+                    return tint[3] < triangle.alpha_cutoff;
+                }
+            ));
+    const bool constant = triangle.mesh_emission
+                          || (triangle.emission_texture < 0 && !triangle.emission_vertex_colour);
+    const auto constant_rgb = constant ? bake_emission(scene, triangle, 0, 0) : Float3{};
+    if (constant && !masked) {
+        return {constant_rgb, 1};
+    }
+
+    float footprint = 0;
+    for (const int index : {triangle.emission_texture, masked ? triangle.texture : -1}) {
+        if (index < 0) {
+            continue;
+        }
+        const auto& texture = scene.textures.at(static_cast<std::size_t>(index));
+        for (unsigned edge = 0; edge < 3; ++edge) {
+            const auto& a = triangle.uv[edge];
+            const auto& b = triangle.uv[(edge + 1) % 3];
+            footprint = std::max(
+                {footprint,
+                 std::abs(a[0] - b[0]) * static_cast<float>(texture.width),
+                 std::abs(a[1] - b[1]) * static_cast<float>(texture.height)}
+            );
+        }
+    }
+
+    // Equal-area subtriangles with degree-two quadrature integrate a bilinear patch exactly.
+    // Texture seams, alpha and nonlinear colour use the same bounded numerical rule.
+    const auto divisions = static_cast<unsigned>(std::clamp(std::ceil(2 * footprint), 4.f, 64.f));
+    const auto scale = 1.f / static_cast<float>(divisions);
+    constexpr Float2 offsets[] = {{1.f / 6, 1.f / 6}, {2.f / 3, 1.f / 6}, {1.f / 6, 2.f / 3}};
+    std::array<double, 3> sum{};
+    unsigned accepted = 0;
+    const auto sample = [&](float u, float v) {
+        if (masked && material_opacity(scene, triangle, u, v) < triangle.alpha_cutoff) {
+            return;
+        }
+        const auto value = constant ? constant_rgb : bake_emission(scene, triangle, u, v);
+        for (std::size_t c = 0; c < sum.size(); ++c) {
+            sum[c] += value[c];
+        }
+        ++accepted;
+    };
+    for (unsigned y = 0; y < divisions; ++y) {
+        for (unsigned x = 0; x < divisions - y; ++x) {
+            const auto u = static_cast<float>(x), v = static_cast<float>(y);
+            for (const auto offset : offsets) {
+                sample((u + offset[0]) * scale, (v + offset[1]) * scale);
+                if (x + y + 1 < divisions) {
+                    sample((u + 1 - offset[0]) * scale, (v + 1 - offset[1]) * scale);
+                }
+            }
+        }
+    }
+    if (accepted == 0) {
+        return {};
+    }
+    return {
+        {static_cast<float>(sum[0] / accepted),
+         static_cast<float>(sum[1] / accepted),
+         static_cast<float>(sum[2] / accepted)},
+        double(accepted) / (3 * divisions * divisions)
+    };
+}
+
+std::optional<Float3> average_bake_emission(
+    const BakeScene& scene, const BakeTriangle& triangle, bool known_opaque
+) {
+    if (!triangle.average_emission_for_bake) {
+        return std::nullopt;
+    }
+    if (triangle.emission_texture < 0 && !triangle.emission_vertex_colour) {
+        return bake_emission(scene, triangle, 0, 0);
+    }
+    if (triangle.emission_uses_cutout && triangle.texture < 0 && triangle.alpha_cutoff > 0) {
+        const auto accepted = [&](const auto& tint) {
+            return tint[3] >= triangle.alpha_cutoff;
+        };
+        // Untextured ray hits retain their original coverage. Keep point sampling at a partial mask.
+        if (std::any_of(triangle.multipliers.begin(), triangle.multipliers.end(), accepted)
+            && !std::all_of(triangle.multipliers.begin(), triangle.multipliers.end(), accepted)) {
+            return std::nullopt;
+        }
+    }
+    const auto integrated = integrate_bake_emission(scene, triangle, known_opaque);
+    return integrated.coverage > 0 ? std::optional(integrated.average) : std::nullopt;
+}
+}  // namespace bake_detail
 
 }  // namespace openrac::lighting

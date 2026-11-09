@@ -70,4 +70,9 @@ struct BakeExecution {
     BakeThreadPool* pool = nullptr;  // Optional shared workers, used only by the calling stage.
     bake_detail::GpuTransport* gpu = nullptr;  // Optional ray-query device for placement rays.
 };
+
+// Runs disjoint indexed work with the caller's floating-point environment.
+void parallel_bake_indices(
+    std::size_t count, const BakeExecution& execution, const std::function<void(std::size_t)>& task
+);
 }  // namespace openrac::lighting

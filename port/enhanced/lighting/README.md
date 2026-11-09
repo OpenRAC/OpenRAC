@@ -110,6 +110,12 @@ and untracked; PAL and NTSC need their own exports.
 ## Level settings
 
 `probe-bake.json` overrides defaults; only `"version": 1` and changed values are needed.
+The CPU baker defaults to adaptive sampling with 64 to 512 primary rays, split visibility,
+progressive Sobol directions and nearby mesh-light sampling. It checks convergence after
+64, 128 and 256 rays. Once lighting converges, the remaining rays trace first hits for
+visibility. Set `rays` in the profile or pass `--rays` for a fixed budget with global
+light sampling. GPU probe baking requires a fixed budget. At runtime, `OPENRAC_PROBE_RAYS`
+selects the fixed budget to verify.
 The [example](../tools/baker/probe-bake.example.json) lists defaults. Delete it and any mod profile
 to reset. CLI/runtime overrides win; `--print-profile` shows resolved settings. Baking never edits
 the profile: retain it as an input record and rebake sparse/dense together after input changes.
@@ -316,15 +322,21 @@ Optional `bake_intensity` overrides transport only, defaults to runtime intensit
 automatic interior boosts. Novalis mushrooms use runtime intensity 1 and bake intensity 4:
 the rigid underside emits into the bake; the animated cap retains runtime emission.
 
+Material catalogs also support constant mesh emission. A model and material slot can use a
+measured linear RGB value for the bake, while the game still draws the original emissive
+texture. See the [material configuration](../../materials/README.md#configuration) for the
+texture and mesh modes, their cutout defaults, and the migration command.
+
 Per-material `contrast` in `probe-emission.json` ranges from 1 to 4 (default 1). After linear
 filtering/optional vertex tint, emission RGB gains `(luminance / 0.18)^(contrast - 1)` before
 intensity. Higher values darken below-middle-grey emission and brighten highlights, preserving
 hue, black, alpha and diffuse colour. Runtime/bake use the same curve; Novalis mushrooms use 1.5,
 others 1. Rebake/reload after changes, e.g. `{"runtime_intensity": 1, "bake_intensity": 4, "contrast": 1.5}`.
 
-The version's `emission-materials.json` catalog identifies reviewed PNG content by SHA-256,
-independent of level/texture numbering. Export/preparation resolves it into `probe-emission.json`;
-runtime needs no catalog/checkout. Per-level values, including explicit zero, override defaults.
+The version's `material-overrides.json` catalog can identify reviewed PNG content by SHA-256,
+independent of level and texture numbering. Export and bake preparation publish the material
+catalog alongside a compatibility `probe-emission.json` sidecar. Per-level values, including
+explicit zero, override defaults.
 `_catalog_defaults` lets existing exports refresh tracked defaults while retaining local authoring.
 Changed texture content needs a reviewed identity; brightness never implies emission.
 

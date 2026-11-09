@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-shrub_569.glb-0",
+      "match": {
+        "model": "shrub_569.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0031.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.678843439,
+            1.0,
+            1.0
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_569.glb-1",
+      "match": {
+        "model": "shrub_569.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0033.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.354458958,
+            1.0,
+            1.0
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_569.glb-2",
+      "match": {
+        "model": "shrub_569.glb",
+        "material_slot": 2,
+        "texture_path": "textures/shrub_0032.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.191502899,
+            0.991292894,
+            0.993415773
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_571.glb-0",
+      "match": {
+        "model": "shrub_571.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0034.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            1.0,
+            0.318325758,
+            0.318325758
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_571.glb-1",
+      "match": {
+        "model": "shrub_571.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0035.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.989264965,
+            0.0856517404,
+            0.0856517404
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_585.glb-0",
+      "match": {
+        "model": "shrub_585.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0036.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.990841031,
+            0.0527975149,
+            0.0527975149
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-102",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 102,
+        "texture_path": "textures/terrain_0109.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.323582739,
+            0.124788329,
+            0.00540805748
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-104",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 104,
+        "texture_path": "textures/terrain_0108.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.536780894,
+            0.0295604393,
+            0.0153024923
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-105",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 105,
+        "texture_path": "textures/terrain_0107.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.154600084,
+            0.00616704626,
+            0.00441936171
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-terrain.glb-122",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 122,
+        "texture_path": "textures/terrain_0110.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0162808429,
+            0.0136062512,
+            0.00153976248
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

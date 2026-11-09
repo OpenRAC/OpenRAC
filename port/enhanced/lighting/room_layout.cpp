@@ -28,14 +28,9 @@ bool connected(std::span<const EnvironmentFloorSample> floors, unsigned a, unsig
 }  // namespace
 
 RoomLayout prepare_room_layout(
-    const BakeScene& source,
-    std::vector<EnvironmentFloorSample>& floors,
-    const BakeSettings& settings,
-    unsigned threads
+    const Scene& scene, std::vector<EnvironmentFloorSample>& floors, const BakeSettings& settings
 ) {
     const profiling::Zone timing("Prepare room layout");
-
-    Scene scene(source, settings.sunlight_direction, threads);
     floors = connected_room_floors(scene, floors, settings);
     return room_layout(scene, floors, settings);
 }

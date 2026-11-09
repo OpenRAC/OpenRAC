@@ -3,11 +3,13 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 
 #include "enhanced/lighting/environment.h"
 #include "enhanced/tools/baker/sources/level_scene.h"
+#include "enhanced/tools/baker/sources/probe_fingerprint.h"
 
 namespace openrac::lighting {
 // Whether exports of `game` (a manifest's "game", "rac1") and `version` ("pal") can be baked and
@@ -41,7 +43,14 @@ enum class BakeStrategy {
 struct LevelBakeProfile {
     BakeStrategy strategy = BakeStrategy::Gameplay;  // Gameplay analysis is the normal level path.
     EnvironmentBakeSettings environment;
-    ProbeActivation activation;
+    ProbeActivation activation = [] {
+        ProbeActivation result;
+        result.bake.adaptive_rays = true;
+        return result;
+    }();
+    bool explicit_ray_policy = false;
+    LegacyProbeSampling legacy_sampling;
+    std::optional<bool> legacy_nearby_lights;
     std::vector<ProbeLookRegion> look_regions;
     std::vector<BakeAreaEmitter> area_lights;
     Float3 sparse_spacing{256, 256, 256};
@@ -59,11 +68,21 @@ class ProbeAssetLoader {
 public:
     ProbeAssetLoader(const scene::LevelData& level, const ProbeActivation& expected);
     ProbeVolume load(const std::filesystem::path& path, bool expand_linear_maps = false) const;
+    // Accept a bake made before the implicit defaults changed, then require its policy for regions.
+    ProbeVolume load_with_previous_defaults(
+        const std::filesystem::path& path,
+        const LevelBakeProfile& profile,
+        bool expand_linear_maps = false
+    );
 
 private:
+    ProbeVolume read(const std::filesystem::path& path, bool expand_linear_maps) const;
+    void validate_settings(const ProbeVolume& volume) const;
+
     std::string m_version;
     int m_level;
     BakeSettings m_bake;
+    std::optional<LegacyProbeSampling> m_legacy_sampling;
     std::uint64_t m_scene_hash;
 };
 

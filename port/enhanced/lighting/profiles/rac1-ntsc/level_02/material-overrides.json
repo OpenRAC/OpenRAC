@@ -12,7 +12,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0947129875,
+            0.784537315,
+            0.247318104
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -27,7 +33,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.144957602,
+            4.15643406,
+            0.555377781
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -42,7 +54,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0955752581,
+            0.32679221,
+            0.398014814
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -58,7 +76,13 @@
           "texture": "materials/level/textures/yellow-light-emission.png",
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 140
+          "bake_intensity": 140,
+          "bake_mesh_rgb": [
+            20.1528358,
+            7.19730759,
+            67.7957611
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -74,7 +98,13 @@
           "texture": "materials/level/textures/yellow-light-emission.png",
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 140
+          "bake_intensity": 140,
+          "bake_mesh_rgb": [
+            2.59182286,
+            3.83085465,
+            3.74750972
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -88,7 +118,13 @@
       "set": {
         "emission": {
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            2.49159932,
+            7.64600134,
+            7.81914711
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -102,7 +138,13 @@
       "set": {
         "emission": {
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            1.90348685,
+            3.98555851,
+            4.90695429
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -116,7 +158,13 @@
       "set": {
         "emission": {
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            2.57976007,
+            7.70119619,
+            7.87193537
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -131,7 +179,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 2.25,
-          "bake_intensity": 15
+          "bake_intensity": 15,
+          "bake_mesh_rgb": [
+            0.364500999,
+            7.01109123,
+            1.59290397
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -146,7 +200,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 2.25,
-          "bake_intensity": 15
+          "bake_intensity": 15,
+          "bake_mesh_rgb": [
+            0.65205735,
+            12.524024,
+            3.09996462
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -162,7 +222,13 @@
           "texture": "materials/level/textures/yellow-light-emission.png",
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.339224398,
+            0.386782974,
+            0.349513322
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -177,7 +243,13 @@
         "emission": {
           "vertex_colour": true,
           "runtime_intensity": 1.5,
-          "bake_intensity": 10
+          "bake_intensity": 10,
+          "bake_mesh_rgb": [
+            0.0978967249,
+            0.645263553,
+            0.742421925
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -192,7 +264,13 @@
         "emission": {
           "texture": "materials/level/textures/red-ring-emission.png",
           "runtime_intensity": 1,
-          "bake_intensity": 30
+          "bake_intensity": 30,
+          "bake_mesh_rgb": [
+            1.6738013,
+            0.00306719961,
+            0.00188238255
+          ],
+          "bake_mode": "mesh"
         }
       }
     },
@@ -207,7 +285,51 @@
         "emission": {
           "texture": "materials/level/textures/red-ring-emission.png",
           "runtime_intensity": 1,
-          "bake_intensity": 30
+          "bake_intensity": 30,
+          "bake_mesh_rgb": [
+            1.69042075,
+            0.00309799658,
+            0.00190150097
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-0",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 0,
+        "texture_path": "textures/shrub_0045.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.338977724,
+            0.00960938167,
+            0.00018581537
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-shrub_231.glb-1",
+      "match": {
+        "model": "shrub_231.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0046.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.195653021,
+            0.00407415628,
+            0.000100937592
+          ],
+          "bake_mode": "mesh"
         }
       }
     }

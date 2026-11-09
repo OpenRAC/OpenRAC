@@ -163,7 +163,8 @@ std::vector<BatchJob> batch_jobs(
     const ProbeGrid& sparse,
     const ProbeBatchOptions& options,
     std::vector<EnvironmentFloorSample>& floors,
-    bake_detail::RoomLayout& layout
+    bake_detail::RoomLayout& layout,
+    const bake_detail::Scene& prepared_scene
 ) {
     const profiling::Zone timing("Prepare batch grids");
 
@@ -186,9 +187,7 @@ std::vector<BatchJob> batch_jobs(
         floors = read_environment_floors(
             options.output_directory, options.level_directory, options.settings.traversal
         );
-        layout = bake_detail::prepare_room_layout(
-            exported.scene, floors, options.settings, options.threads
-        );
+        layout = bake_detail::prepare_room_layout(prepared_scene, floors, options.settings);
     }
 
     if (!floors.empty()) {
@@ -277,13 +276,27 @@ void run_probe_batch(
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,
     const ProbeBatchOptions& options,
+    bake_detail::EmissionAverageCache& emission_cache,
     std::ostream& output
 ) {
     const profiling::Zone trace("Bake level batch");
 
+    std::unique_ptr<BakeThreadPool> local_workers;
+
+    // Coordinated levels borrow one process-wide budget instead of creating competing pools.
+    if (!options.pool) {
+        local_workers = std::make_unique<BakeThreadPool>(options.threads);
+    }
+
+    auto& workers = options.pool ? *options.pool : *local_workers;
+    // Both stages read the same immutable export after interior sources have been prepared.
+    auto baker = std::make_unique<ProbeBaker>(
+        exported.scene, options.settings, options.threads, &workers, &emission_cache
+    );
     std::vector<EnvironmentFloorSample> floors;
     bake_detail::RoomLayout layout;
-    const auto jobs = batch_jobs(exported, sparse_grid, options, floors, layout);
+    const auto jobs =
+        batch_jobs(exported, sparse_grid, options, floors, layout, baker->traversal_scene());
     auto density = density_settings(options.plan);
     density.texture_format = options.settings.texture_format;
     const auto receivers =
@@ -297,16 +310,6 @@ void run_probe_batch(
         throw std::runtime_error("source level changed during planning; no batch started");
     }
 
-    std::unique_ptr<BakeThreadPool> local_workers;
-
-    // Coordinated levels borrow one process-wide budget instead of creating competing pools.
-    if (!options.pool) {
-        local_workers = std::make_unique<BakeThreadPool>(options.threads);
-    }
-
-    auto& workers = options.pool ? *options.pool : *local_workers;
-    auto baker =
-        std::make_unique<ProbeBaker>(exported.scene, options.settings, options.threads, &workers);
     const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
     BakeOutputQueue outputs(output);

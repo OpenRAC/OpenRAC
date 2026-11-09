@@ -14,6 +14,7 @@
 
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/tools/baker/batch.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
@@ -165,6 +166,9 @@ void integer_overrides(LevelBakeProfile& profile, const Request& request) {
             *target = integer(request.values.at(key));
         }
     }
+    if (request.values.contains("--rays")) {
+        settings.adaptive_rays = false;
+    }
 }
 
 // Resolves the same scalar environment and grid overrides used by single-level command lines.
@@ -210,10 +214,12 @@ void prepare_sources(
     const scene::LevelData& level,
     BakeSceneExport& exported,
     const ProbeBatchOptions& options,
+    bake_detail::EmissionAverageCache& emission_cache,
     std::ostream& output
 ) {
     const profiling::Zone zone("Prepare interior sources");
-    const auto report = apply_interior_sources(level, exported.scene);
+    const auto report =
+        apply_interior_sources(level, exported.scene, &emission_cache, options.pool);
 
     if (!report) {
         throw std::runtime_error(report.error().message);
@@ -397,7 +403,8 @@ void execute(
     prepare_batch_inputs(request, options, output, sources);
     auto level = load_level(options.level_directory, options.output_directory, output);
     auto exported = export_probe_scene(level, options.light_set, profile.activation.environment);
-    prepare_sources(level, exported, options, output);
+    bake_detail::EmissionAverageCache emission_cache(exported.scene);
+    prepare_sources(level, exported, options, emission_cache, output);
     auto grid = sparse_probe_grid(exported, profile.sparse_spacing, profile.map_resolution);
     grid.game_version = identity;
     grid.level = static_cast<std::uint32_t>(level.level);
@@ -427,7 +434,7 @@ void execute(
         std::filesystem::remove(options.output_directory / "probe-density-report.json");
     }
 
-    run_probe_batch(level, exported, grid, options, output);
+    run_probe_batch(level, exported, grid, options, emission_cache, output);
 
     complete_batch(options, sources);
     output << "Probe batch complete\n" << std::flush;

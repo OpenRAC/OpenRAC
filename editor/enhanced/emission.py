@@ -30,9 +30,9 @@ def resolve_materials(directory, catalog_path):
         if not isinstance(emission, dict) or not isinstance(material.get('name'), str):
             raise ValueError('emission material requires a name and emission object')
         for key, value in emission.items():
-            if key == 'vertex_colour':
+            if key in ('vertex_colour', 'average_for_bake'):
                 if not isinstance(value, bool):
-                    raise ValueError('emission vertex_colour requires a boolean')
+                    raise ValueError(f'emission {key} requires a boolean')
             elif key == 'contrast':
                 if (isinstance(value, bool) or not isinstance(value, (int, float))
                         or not math.isfinite(value) or not 1 <= value <= 4):
@@ -99,6 +99,8 @@ def projected_settings(rule, catalog):
         setting[group] = ({**setting.get(group, {}), **values}
                           if isinstance(values, dict) else values)
     emission = dict(setting.get('emission', {}))
+    for key in ('bake_mode', 'bake_mesh_rgb', 'bake_use_cutout'):
+        emission.pop(key, None)
     if 'diffuse_scale' in setting.get('surface', {}):
         emission['diffuse_scale'] = setting['surface']['diffuse_scale']
     return emission
