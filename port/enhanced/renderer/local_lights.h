@@ -36,7 +36,12 @@ public:
     // Per-instance object attachments are additive to the existing authored snapshot.
     Result<void> set_attached_lights(std::span<const LocalLight> lights);
     // Captures pending edits and original lights once per game frame; called on the render thread.
-    void prepare(std::uint64_t frame, const std::array<float, 64>& game, bool enabled);
+    void prepare(
+        std::uint64_t frame,
+        const std::array<float, 64>& game,
+        bool enabled,
+        std::span<const renderer::PointEmitter> emitters = {}
+    );
     // Generates opaque-depth and depth-independent tile masks for this view.
     bool dispatch(
         unsigned depth,
@@ -59,6 +64,12 @@ private:
     using Record = std::array<std::array<float, 4>, 4>;
     // Copy pending authored/attached snapshots at a captured frame boundary.
     bool capture_edits(bool new_frame, std::vector<LocalLight>& pending);
+    void upload_records(
+        const std::array<float, 64>& game,
+        std::span<const LocalLight> authored,
+        bool authored_changed,
+        bool emitters_changed
+    );
     // Packs a validated authoring record into the four-vec4 GPU interface.
     static Record pack_light(const LocalLight& light);
     // Builds the optional culler and sizes masks, preserving the all-light fallback on failure.
@@ -68,6 +79,8 @@ private:
     mutable std::mutex m_mutex;  // Protects authoring edits, never held while issuing GPU commands.
     std::vector<LocalLight> m_pending, m_attached;
     std::vector<Record> m_records;
+    std::vector<renderer::PointEmitter> m_emitters;
+    std::size_t m_authored_count = 0;
     std::array<float, 64> m_game{};  // Detects explicit game-bank updates within a captured tick.
     std::uint64_t m_revision = 0, m_uploaded_revision = ~std::uint64_t{0};
     std::uint64_t m_frame = ~std::uint64_t{0};

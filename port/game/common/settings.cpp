@@ -24,6 +24,7 @@ void Settings::reset_enhanced() {
     shadow_quality = defaults.shadow_quality;
     volumetric_quality = defaults.volumetric_quality;
     rim_light = defaults.rim_light;
+    nanotech_light = defaults.nanotech_light;
     rim_shadow_lift = defaults.rim_shadow_lift;
     rim_lift_exponent = defaults.rim_lift_exponent;
     rim_lift_max_gain = defaults.rim_lift_max_gain;
@@ -332,6 +333,18 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_view_bias);
+        } else if (key == "nanotech_light") {
+            known = parse_bool(value, s.nanotech_light.enabled);
+        } else if (key == "nanotech_light_red") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[0]);
+        } else if (key == "nanotech_light_green") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[1]);
+        } else if (key == "nanotech_light_blue") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[2]);
+        } else if (key == "nanotech_light_brightness") {
+            known = parse_float(value, 0.0f, 8.0f, s.nanotech_light.brightness);
+        } else if (key == "nanotech_light_range") {
+            known = parse_float(value, 0.1f, 12.0f, s.nanotech_light.range);
         } else if (key == "probe_gi_multiplier") {
             known = parse_float(value, 0.0f, 5.0f, s.probe_gi_multiplier);
         } else if (key == "sun_direction_override") {
@@ -590,6 +603,12 @@ void save() {
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
         << "environment_probe_debug = " << (s.environment_probe_debug ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
+        << "nanotech_light = " << (s.nanotech_light.enabled ? 1 : 0) << "\n"
+        << "nanotech_light_red = " << s.nanotech_light.colour[0] << "\n"
+        << "nanotech_light_green = " << s.nanotech_light.colour[1] << "\n"
+        << "nanotech_light_blue = " << s.nanotech_light.colour[2] << "\n"
+        << "nanotech_light_brightness = " << s.nanotech_light.brightness << "\n"
+        << "nanotech_light_range = " << s.nanotech_light.range << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
         << "sun_direction_override = " << (s.sun_direction_override ? 1 : 0) << "\n"

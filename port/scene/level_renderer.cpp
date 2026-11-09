@@ -631,6 +631,7 @@ void LevelScene::draw_mobys(
 }
 
 void LevelScene::release() {
+    m_point_emitters.clear();
     m_culling_lines.reset();
     m_culling_lines_failed = false;
 #if defined(OPENRAC_VULKAN)

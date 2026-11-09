@@ -60,6 +60,7 @@ struct GameState {
 
     // The live mobys, in the order the game's table holds them.
     std::vector<LiveMoby> mobys;
+    std::vector<renderer::Vec3> nanotech_orbs;  // The bobbing centres of R&C1's nanotech clusters.
 
     // What the game's moby renderer tests each moby's distance against, bit for bit as it loads
     // them: the third column of the view matrix (the depth of a point is its dot with it), the

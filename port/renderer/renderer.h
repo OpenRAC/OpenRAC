@@ -57,6 +57,14 @@ inline constexpr std::size_t kBucketCount = static_cast<std::size_t>(Bucket::Cou
 
 const char* bucket_name(Bucket bucket);
 
+// A world-space effect light. Radiance is linear RGB and range is in game units.
+struct PointEmitter {
+    Vec3 position;
+    Vec3 radiance;
+    float range;
+    bool operator==(const PointEmitter&) const = default;
+};
+
 struct Camera {
     Mat4 view = identity();        // world (game axes) to view
     Mat4 projection = identity();  // view to clip, reversed depth (math.h)

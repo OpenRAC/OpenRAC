@@ -71,6 +71,9 @@ The legacy `probe_lighting` key is accepted but ignored and is omitted when savi
 | Rim strength | `rim_light_strength` | `0.0` to `1.0` (default `0.30`) | Strength of the edge light |
 | Rim falloff | `rim_light_falloff` | `1.0` to `8.0` (default `6.46`) | Higher values narrow the edge |
 | Probe GI multiplier | `probe_gi_multiplier` | `0.0` to `5.0` (default `1.0`) | Scales baked indirect irradiance only; direct lights are unchanged |
+| Nanotech orb lights | `nanotech_light` | `1` (default), `0` | Adds one point light that bobs with each nanotech cluster in Ratchet & Clank 1's Enhanced graphics |
+| Orb light colour | `nanotech_light_red`, `nanotech_light_green`, `nanotech_light_blue` | Linear RGB, `0.0` to `1.0` per channel | Sets the light cast by the orbs |
+| Orb light brightness and range | `nanotech_light_brightness`, `nanotech_light_range` | Brightness `0.0` to `8.0` (default `1.20`), range `0.1` to `12.0` game units (default `2.22`) | Adjust in Enhanced Settings → Lighting & shadows |
 | Ambient occlusion | `gtao` | `0` (off), `1` (GTAO, default with enhanced rendering) | In Graphics > Enhanced Settings alongside GTAO settings. Adds optional contact shading from the visible world depth. Half-resolution analytic horizons by default, with edge-aware filtering; fixed samples, no temporal jitter or FSR dependency. Runs before particles and the HUD |
 | GTAO quality | `gtao_quality` | `performance` (default), `quality` | Performance uses three silhouette-refinement steps; Quality uses seven for more accurate contacts and silhouettes. Older settings files default to Performance |
 | GTAO directions | `gtao_slices` | `1` to `12` (default `4`) | Number of horizon-search directions; adjustable in ImGui's GTAO settings |
