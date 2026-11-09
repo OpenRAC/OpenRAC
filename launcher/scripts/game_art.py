@@ -39,11 +39,11 @@ CDN = "https://cdn2.steamgriddb.com"
 
 # game: (site name, hero, tile frame's left edge in the 1920 x 620 hero). The frame keeps the faces
 # in sight. A hero under art/ is a picture made by hand and used as it is, without the grade below:
-# Going Commando's is the characters from SteamGridDB's hero set on a scene of Oozla from the game
-# (user decision).
+# Going Commando's is a frame of the game's opening, its logo painted out and upscaled 4x
+# (Real-ESRGAN x4plus) (user decision).
 GAMES = {
     "rac1": ("rac1", "hero/8bed36d1d9aac31ed938f56a5671a420.jpg", 230),
-    "rac2": ("gc", "art/gc.jpg", 525),
+    "rac2": ("gc", "art/gc.jpg", 0),
     "rac3": ("uya", "hero/3bd318565e4adbe5f4b6abf2ffebf3a0.png", 400),
     "rac4": ("deadlocked", "hero/d22bb534b7964c0cafab6aab1995f000.jpg", 300),
     "rac5": ("size-matters", "hero/0102d6b30badc91266a51a24e8203c7d.png", 100),
@@ -145,6 +145,9 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
 def tile(picture: Image.Image, left: int) -> Image.Image:
     """The tile: a 2.25 : 1 frame of the picture from LEFT."""
     w = round(picture.height * TILE[0] / TILE[1])
+    if w > picture.width:  # a taller picture: its top band, full width
+        h = round(picture.width * TILE[1] / TILE[0])
+        return picture.crop((0, 0, picture.width, h)).resize(TILE, Image.LANCZOS)
     left = min(left, picture.width - w)
     return picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS)
 
