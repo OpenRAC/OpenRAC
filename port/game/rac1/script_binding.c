@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[689];
+static const openrac_script_point k_points[690];
 
 /* Shape S0: void(u32,u32,i32) (pad, report, size). */
 typedef void (*S0_fn)(uint32_t, uint32_t, int32_t);
@@ -1424,8 +1424,9 @@ S37_POINT(Moby_DeplanetizerGun1568_Update, 685) /* rac1.moby.moby1568.update */
 S37_POINT(Moby_Class1584_Update, 686) /* rac1.moby.moby1584.update */
 S37_POINT(Moby_Class1799_Update, 687) /* rac1.moby.moby1799.update */
 S37_POINT(Moby_Gadgebot1906_Update, 688) /* rac1.moby.moby1906.update */
+S37_POINT(Vendor_OpenMenu, 689) /* rac1.vendor.open_menu */
 
-static const openrac_script_point k_points[689] = {
+static const openrac_script_point k_points[690] = {
     {"rac1.pad.process_report", "void(u32,u32,i32)", 3, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Pad_ProcessReport_links, k_Pad_ProcessReport_thunks, S0_call},
     {"rac1.player.update_motion_input", "void()", 0, k_S1_kinds, k_S1_names, OPENRAC_SV_VOID, k_Hero_UpdateMotionInput_links, k_Hero_UpdateMotionInput_thunks, S1_call},
     {"rac1.player.turn_to_heading", "void(i32,f32,f32,f32)", 4, k_S2_kinds, k_S2_names, OPENRAC_SV_VOID, k_Hero_TurnToHeading_links, k_Hero_TurnToHeading_thunks, S2_call},
@@ -2115,9 +2116,10 @@ static const openrac_script_point k_points[689] = {
     {"rac1.moby.moby1584.update", "void(u32)", 1, k_S37_kinds, k_S37_names, OPENRAC_SV_VOID, k_Moby_Class1584_Update_links, k_Moby_Class1584_Update_thunks, S37_call},
     {"rac1.moby.moby1799.update", "void(u32)", 1, k_S37_kinds, k_S37_names, OPENRAC_SV_VOID, k_Moby_Class1799_Update_links, k_Moby_Class1799_Update_thunks, S37_call},
     {"rac1.moby.moby1906.update", "void(u32)", 1, k_S37_kinds, k_S37_names, OPENRAC_SV_VOID, k_Moby_Gadgebot1906_Update_links, k_Moby_Gadgebot1906_Update_thunks, S37_call},
+    {"rac1.vendor.open_menu", "void(u32)", 1, k_S37_kinds, k_S37_names, OPENRAC_SV_VOID, k_Vendor_OpenMenu_links, k_Vendor_OpenMenu_thunks, S37_call},
 };
 
-static const openrac_script_alias k_aliases[2071] = {
+static const openrac_script_alias k_aliases[2074] = {
     {"Ammo_ChooseDrop", "rac1.ammo.choose_drop"},
     {"Ammo_SpawnDrop", "rac1.ammo.spawn_drop"},
     {"FUN_001fdd10", "rac1.text.msg_string"},
@@ -2171,6 +2173,7 @@ static const openrac_script_alias k_aliases[2071] = {
     {"FUN_L00_0028e9c8", "rac1.ship.init_transition"},
     {"FUN_L00_0028ed58", "rac1.ship.travel_to"},
     {"FUN_L00_0029a400", "rac1.vendor.build_item_list"},
+    {"FUN_L00_0029a6b0", "rac1.vendor.open_menu"},
     {"FUN_L00_0029b680", "rac1.vendor.initialize_selected"},
     {"FUN_L00_0029ba78", "rac1.vendor.menu_update"},
     {"FUN_L00_002a4cd8", "rac1.moby.texture_scroll.update"},
@@ -3496,6 +3499,7 @@ static const openrac_script_alias k_aliases[2071] = {
     {"Vendor_InitLevelStock", "rac1.vendor.init_level_stock"},
     {"Vendor_InitializeSelected", "rac1.vendor.initialize_selected"},
     {"Vendor_MenuUpdate", "rac1.vendor.menu_update"},
+    {"Vendor_OpenMenu", "rac1.vendor.open_menu"},
     {"Weapon_TakeAmmo", "rac1.weapon.take_ammo"},
     {"func_001FE540", "rac1.text.msg_string"},
     {"func_00209CE8", "rac1.save.restore"},
@@ -3547,6 +3551,7 @@ static const openrac_script_alias k_aliases[2071] = {
     {"func_L00_0028FCA0", "rac1.ship.init_transition"},
     {"func_L00_00290030", "rac1.ship.travel_to"},
     {"func_L00_0029B770", "rac1.vendor.build_item_list"},
+    {"func_L00_0029BA20", "rac1.vendor.open_menu"},
     {"func_L00_0029C9E8", "rac1.vendor.initialize_selected"},
     {"func_L00_0029CDE0", "rac1.vendor.menu_update"},
     {"func_L00_002A5F68", "rac1.moby.texture_scroll.update"},
@@ -8251,8 +8256,8 @@ static const openrac_script_class k_classes[224] = {
 };
 static const openrac_script_moby k_moby = {0xA6u, OPENRAC_SV_I16, 0x78u, 224, k_classes};
 static const openrac_script_binding k_binding = {
-    "rac1", 2, k_discs, 689, k_points, 7, k_fields, &k_moby,
-    2071, k_aliases,
+    "rac1", 2, k_discs, 690, k_points, 7, k_fields, &k_moby,
+    2074, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {

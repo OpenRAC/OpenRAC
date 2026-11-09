@@ -697,6 +697,7 @@ type HookPoint =
     | "rac1.moby.moby1584.update"
     | "rac1.moby.moby1799.update"
     | "rac1.moby.moby1906.update"
+    | "rac1.vendor.open_menu"
     | "Ammo_ChooseDrop"
     | "Ammo_SpawnDrop"
     | "FollowCamera_ApplyOverrides"
@@ -1384,6 +1385,7 @@ type HookPoint =
     | "Vendor_InitLevelStock"
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
+    | "Vendor_OpenMenu"
     | "Weapon_TakeAmmo"
     | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
@@ -1506,6 +1508,8 @@ type Save_SerializeFn = (out: number) -> ()
 type Save_UpdateStateFn = () -> ()
 -- rac1.text.msg_string (msg_string) i32(i32): Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn.
 type msg_stringFn = (id: number) -> number
+-- rac1.vendor.open_menu (Vendor_OpenMenu) void(u32): Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+type Vendor_OpenMenuFn = (moby: number) -> ()
 -- rac1.moby.<class>.update (experimental): (moby: number) -> (), or () -> () where it gets no moby.
 type MobyUpdateFn = (moby: number) -> ()
 
