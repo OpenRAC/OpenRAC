@@ -254,7 +254,10 @@ Each game has three pictures in `public/img/`, under the site's names (`rac1`,
 same for all: shadows pulled toward the page's coal in the game's hue, the
 light under the bar (a glow from the top in the game's accent, as
 `body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
-little without going grey. The characters are not retouched. The tile's frame
+little without going grey. On top sits a stage light in the game's colour (user
+decision): the accent shines in from the top right, and the foot and the deep
+shadows sink into the bar's dark ink (`--bar-ink`), so each picture matches its
+game's accent. The characters are not retouched. The tile's frame
 is chosen per game so the faces stay whole and clear of the name, as Steam
 asks of its own heroes (key art in the middle).
 

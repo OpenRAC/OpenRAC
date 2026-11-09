@@ -13,7 +13,9 @@ sac):
 
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
-on the bright parts; dark pictures are lifted a little without going grey. The characters are not
+on the bright parts; dark pictures are lifted a little without going grey. On top, a stage light in
+the game's colour: its accent shines in from the top right and the foot and deep shadows sink into
+the bar's dark ink, so each picture sits in its game's accent. The characters are not
 retouched. The heroes carry no logo: the tile writes the game's name itself.
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
@@ -119,6 +121,22 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
     edge = np.sqrt(((xx / w - 0.5) / 0.62) ** 2 + ((yy / h - 0.45) / 0.85) ** 2)
     v = (0.30 * np.clip((edge - 0.55) / 0.6, 0, 1))[..., None]
     a = a * (1 - v) + coal * v
+    # Stage light in the game's colour: its accent shines in from the top right, the foot fades
+    # into the bar's dark ink and the deep shadows take that ink too.
+    deep = c["bar-ink"]
+    light = (
+        np.clip(
+            1 - np.sqrt(((xx / w - 0.85) / 0.7) ** 2 + ((yy / h + 0.1) / 0.9) ** 2),
+            0,
+            1,
+        )
+        ** 1.3
+    )
+    a = screen(a * 0.85, acc * light[..., None] * 0.75)
+    foot = (np.clip((yy / h - 0.45) / 0.55, 0, 1) ** 1.5)[..., None] * 0.7
+    a = a * (1 - foot) + deep * foot
+    dark = 0.35 * np.clip(1 - (a @ Y) / 0.4, 0, 1)[..., None]
+    a = a * (1 - dark) + deep * dark
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
