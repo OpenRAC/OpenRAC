@@ -36,6 +36,7 @@
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
+  import { checkIndex } from "$lib/modAutoUpdate.svelte";
   import { modCode } from "$lib/modCodes.svelte";
   import ModSetSaved from "./ModSetSaved.svelte";
   import ModSetShare from "./ModSetShare.svelte";
@@ -180,13 +181,27 @@
 
   async function checkUpdates(quiet = false) {
     checking = true;
+    // Asked for: the mods the index lists are looked at too, from a fresh fetch of it (the
+    // per-repository look below leaves them out). First, so that look knows which they are.
+    let index: T.IndexFound | null = null;
+    const errors: string[] = [];
+    if (!quiet) {
+      try {
+        index = await checkIndex(v);
+        if (index.updated > 0) await load();
+      } catch (e) {
+        errors.push(message(e));
+      }
+    }
     try {
       const found = await api.pluginsCheckUpdates(v.game, v.name);
       updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
       markChecked(v.game);
       if (!quiet) {
         const n = found.updates.length;
-        said = { text: T.updatesFound(n, found.errors), failed: found.errors.length > 0 && n === 0 };
+        errors.push(...found.errors);
+        const any = n > 0 || (index !== null && index.updated + index.waiting + index.held > 0);
+        said = { text: T.updatesFound(n, errors, index), failed: errors.length > 0 && !any };
       }
     } catch (e) {
       if (!quiet) said = { text: message(e), failed: true };
