@@ -114,7 +114,7 @@ the SDK's `data_dir`), disc images, GPU drivers and screenshots.
 
 - The Files app shows them in its sidebar as OpenRAC, with the free space, as
   Dolphin and Eden do (`FilesProvider.kt`, authority `<package>.files`).
-  Settings has an Open Files button. Mods data is one of its folders, so the
+  Settings has an Open Files button. Mod files is one of its folders, so the
   files every mod keeps through `data_dir` show there.
 - `hasFragileUserData` makes uninstalling ask whether to keep the data; it
   comes back when the same app, signed with the same key, is reinstalled.
