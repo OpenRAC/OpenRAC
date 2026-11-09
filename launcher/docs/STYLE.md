@@ -254,8 +254,8 @@ look, the same for all: shadows pulled toward the page's coal in the game's
 hue, the light under the bar (a glow from the top in the game's accent, as
 `body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
 little without going grey. The characters are not retouched. The logo keeps
-its own shading, mapped onto the game's colours from `palettes.json` (the bar's
-dark ink up to its light accent), with a glow in the accent behind it. The
+its own shading in neutral greys, up to the launcher's off-white text, with no
+colour of its own (user decision: the coloured logos were too loud). The
 tile's frame is chosen per game so the logo sits on background and the faces
 stay whole, as Steam asks of its own heroes (key art in the middle, a logo
 never over a face).

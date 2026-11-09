@@ -14,8 +14,8 @@ sac):
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
 on the bright parts; dark pictures are lifted a little without going grey. The characters are not
-retouched. The logo keeps its own shading, mapped onto the game's colours from palettes.json (the
-bar's dark ink up to its light accent), with a glow in the accent behind it.
+retouched. The logo keeps its own shading in neutral greys, up to the launcher's off-white text, with no
+colour of its own.
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
 needs no network. Needs Pillow and numpy.
@@ -100,28 +100,25 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
-def tint_logo(logo: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
-    """The logo's shading mapped onto the game's colours, dark ink to light gold; a little of its
-    own colour stays."""
+def tint_logo(logo: Image.Image) -> Image.Image:
+    """The logo in neutral greys: its own shading kept, mapped from the page's coal up to the
+    launcher's off-white text (never pure white), with no colour of its own."""
     a = np.asarray(logo.convert("RGBA"), np.float32)
-    own, alpha = a[..., :3] / 255, a[..., 3:]
-    lum = own @ Y
+    lum, alpha = (a[..., :3] / 255) @ Y, a[..., 3:]
     lo, hi = np.percentile(lum[alpha[..., 0] > 128], [2, 98])
     t = np.clip((lum - lo) / max(hi - lo, 1e-3), 0, 1)
-    stops = [(0.0, c["bar-ink"] * 0.6), (0.30, c["bar-ink"] * 0.4 + c["brand"] * 0.6), (0.55, c["brand"]),
-             (0.78, c["amber"]), (1.0, c["gold"] * 0.6 + 0.4)]  # fmt: skip
+    stops = [(0.0, rgb("#14120e")), (0.35, rgb("#5c5b5f")), (0.7, rgb("#b4b4bf")), (1.0, rgb("#f0f0f3"))]
     xs = [s for s, _ in stops]
-    mapped = np.stack([np.interp(t, xs, [col[i] for _, col in stops]) for i in range(3)], -1)
-    out = mapped * 0.88 + own * 0.12
-    return Image.fromarray(np.concatenate([out * 255, alpha], -1).clip(0, 255).astype(np.uint8), "RGBA")
+    grey = np.stack([np.interp(t, xs, [col[i] for _, col in stops]) for i in range(3)], -1)
+    return Image.fromarray(np.concatenate([grey * 255, alpha], -1).clip(0, 255).astype(np.uint8), "RGBA")
 
 
-def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float, c: dict) -> Image.Image:
+def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float) -> Image.Image:
     """The tile: a 2.25 : 1 frame of the picture from LEFT, the logo top left on it."""
     w = round(picture.height * TILE[0] / TILE[1])
     left = min(left, picture.width - w)
     tile = picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS).convert("RGBA")
-    logo = tint_logo(logo.crop(logo.getbbox()), c)
+    logo = tint_logo(logo.crop(logo.getbbox()))
     lh = round(TILE[1] * share)
     lw = round(logo.width * lh / logo.height)
     if lw > TILE[0] * 0.36:
@@ -139,7 +136,6 @@ def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float, 
         return layer.filter(ImageFilter.GaussianBlur(radius))
 
     tile = Image.alpha_composite(tile, blurred((10, 8, 6), 0.55, lh * 0.06, round(lh * 0.03)))  # reads on any picture
-    tile = Image.alpha_composite(tile, blurred(tuple(int(v * 255) for v in c["glow"]), 0.7, lh * 0.16))  # its glow
     tile.alpha_composite(logo, at)
     return tile.convert("RGB")
 
@@ -173,7 +169,7 @@ def main(argv: list[str]) -> int:
         c = colours(game)
         picture = grade(Image.open(fetch(a.cache, hero)), c)
         picture.save(a.out / f"{name}-bg.webp", quality=88, method=6)
-        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share, c).save(
+        with_logo(picture, Image.open(fetch(a.cache, logo)), left, share).save(
             a.out / f"{name}-tile.webp", quality=88, method=6
         )
         thumb(picture).save(a.out / f"{name}-thumb.webp", quality=80, method=6)
