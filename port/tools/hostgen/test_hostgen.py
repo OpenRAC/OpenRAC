@@ -1128,16 +1128,53 @@ class Translate(unittest.TestCase):
     def test_asm_spelled_through_a_macro_is_read_and_reported(self):
         # The NTSC decomp's MOBY_CALL_UPDATE (include/moby_update.h) writes the moby update loops'
         # call as a jalr in a macro: Clang's JSON has no text for it, and it became a barrier
-        # unreported, so no moby's update ran. Now its instructions are read where the macro spells
-        # them, and what the host does not run is listed.
+        # unreported, so no moby's update ran. Its instructions are read where the macro spells
+        # them; what the host does not run is listed.
+        out = self.run_program({"a.c": """
+            #define SPIN(x) __asm__ __volatile__("vnop\\n\\tvnop" : : "r"(x))
+            int loop(int seen) { SPIN(seen); return seen; }
+            int test_main(void) { test_print(loop(3)); return 0; }
+        """})
+        self.assertEqual(out, ["3"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "vnop"})
+
+    def test_a_hook_call_in_asm_through_a_macro_runs(self):
+        # MOBY_CALL_UPDATE's call (beqz, move $4, jalr, spelled in a macro) calls the hook with a0.
         out = self.run_program({"a.c": """
             #define CALL_IF(f, x) __asm__ __volatile__("beqz %0, 1f\\n\\tmove $4, %1\\n\\tjalr %0\\n1:" : : "r"(f), "r"(x) : "$4", "$31", "memory")
             void func_00100100(int *seen) { *seen += 2; }
-            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); }
+            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); CALL_IF((void (*)(int *))0, seen); }
             int test_main(void) { int seen = 0; loop(func_00100100, &seen); test_print(seen); return 0; }
         """})
-        self.assertEqual(out, ["0"])
-        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "beqz, move, jalr, 1:"})
+        self.assertEqual(out, ["2"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+
+    def test_call_hook_runs_the_hook(self):
+        # rac2-decomp's call_hook (include/common.h), with which its moby update loops (func_002B6658,
+        # func_L00_0032CF60) call each object's update hook: as a barrier no hook ran, and Hrugis
+        # Cloud's ship never flew. An output the asm never writes, a0 named $4, the call a jal $31.
+        out = self.run_program({"a.c": """
+            static __inline__ void call_hook(void *fn, void *arg) {
+                int r;
+                __asm__ volatile("beq %1,$0,1f\\n\\tmove $4,%2\\n\\tjal $31,%1\\n1:"
+                                 : "=r"(r)
+                                 : "r"(fn), "r"(arg)
+                                 : "$4", "$31", "memory");
+            }
+            struct Node { int seen; void (*update)(struct Node *); struct Node *next; };
+            void func_00100100(struct Node *n) { n->seen += 5; }
+            void loop(struct Node *t) { for (; t != 0; t = t->next) call_hook(t->update, t); }
+            int test_main(void) {
+                struct Node b = {1, 0, 0};
+                struct Node a = {0, func_00100100, &b};
+                loop(&a);
+                test_print(a.seen);
+                test_print(b.seen);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["5", "1"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
 
     def test_a_macro_given_as_c_in_the_defines_replaces_its_asm(self):
         # hostgen.json "defines": the macro's header guard and the macro as C (rac1-ntsc's
