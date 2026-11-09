@@ -51,6 +51,42 @@ void prepare_bindings(scene::LevelData& level) {
     level.material_bindings = *bindings;
 }
 
+scene::LevelData load_emission_level(const std::filesystem::path& level_dir) {
+    scene::LevelData level;
+    std::string error;
+    if (!scene::load_level(level_dir, level, error)) {
+        throw std::runtime_error(error);
+    }
+    if (!level.material_error.empty()) {
+        throw std::runtime_error(level.material_error);
+    }
+    prepare_bindings(level);
+    return level;
+}
+
+void remove_mesh_emission(materials::Properties& properties) {
+    if (materials::text_value(properties, "emission.bake_mode") == "mesh") {
+        properties.erase("emission.bake_mode");
+    }
+    properties.erase("emission.bake_mesh_rgb");
+}
+
+// Resolve the source emission again without using the previously calculated values.
+void restore_source_emission(scene::LevelData& level) {
+    auto catalog = level.material_bindings->catalog;
+    for (auto& [id, properties] : catalog.presets) {
+        remove_mesh_emission(properties);
+    }
+    for (auto& [id, rule] : catalog.rules) {
+        remove_mesh_emission(rule.properties);
+    }
+    const auto bindings = scene::resolve_materials(level.material_bindings->assets, catalog);
+    if (!bindings) {
+        throw std::runtime_error(bindings.error().message);
+    }
+    level.material_bindings = *bindings;
+}
+
 // Measure original light over the full and visible areas of each material.
 MeshEnergies measure_emission(const scene::LevelData& level) {
     const auto& bindings = *level.material_bindings;
@@ -157,18 +193,22 @@ std::pair<std::size_t, std::size_t> add_mesh_rules(
 }
 }  // namespace
 
+std::string calculate_mesh_emission(const std::filesystem::path& level_dir) {
+    auto level = load_emission_level(level_dir);
+    restore_source_emission(level);
+    materials::Catalog output;
+    add_mesh_rules(*level.material_bindings, measure_emission(level), output);
+    auto text = materials::catalog_text(output);
+    if (!text) {
+        throw std::runtime_error(text.error().message);
+    }
+    return std::move(*text);
+}
+
 void migrate_mesh_emission(
     const std::filesystem::path& level_dir, const std::filesystem::path& catalog_path
 ) {
-    scene::LevelData level;
-    std::string error;
-    if (!scene::load_level(level_dir, level, error)) {
-        throw std::runtime_error(error);
-    }
-    if (!level.material_error.empty()) {
-        throw std::runtime_error(level.material_error);
-    }
-    prepare_bindings(level);
+    const auto level = load_emission_level(level_dir);
     const auto sums = measure_emission(level);
     auto output = materials::read_catalog(catalog_path);
     if (!output) {

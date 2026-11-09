@@ -53,6 +53,15 @@ integrates the old linear RGB over the original emitting area and divides by the
 or, when explicitly retaining cutouts, the covered area. Runtime emission stays in the existing
 catalog. Use the level's root `material-overrides.json` to apply the migrated settings to that export.
 
+To reproduce the area-weighted `bake_mesh_rgb` values in a separate JSON catalog, run:
+
+```sh
+openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR > mesh-emission.generated.json
+```
+
+The calculator ignores stored mesh RGB values. Migrated exports must still have the original
+geometry, textures and source emission settings.
+
 Tracked profiles live in `enhanced/lighting/profiles/<game[-version]>/[level_NN/]material-overrides.json`.
 Export/bake preparation writes separate `materials/shared`, `materials/version` and `materials/level`
 catalogs inside each level. User edits save to the highest-priority mod/override/level root catalog;

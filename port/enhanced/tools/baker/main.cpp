@@ -77,6 +77,7 @@ void usage() {
     std::cout
         << "Offline enhanced lighting bake (no game window)\n"
         << "openrac-enhanced-baker --inspect-emissive-task LEVELS_DIR REVIEW_JSON TASK_ID\n"
+        << "openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR\n"
         << "openrac-enhanced-baker --migrate-mesh-emission LEVEL_DIR MATERIAL_OVERRIDES.json\n"
         << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
         << "  --jobs N --memory-mib N\n"
@@ -223,6 +224,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         profiling::thread_name("Enhanced bake");
+
+        if (argc == 3 && std::string_view(argv[1]) == "--calculate-mesh-emission") {
+            std::cout << calculate_mesh_emission(argv[2]);
+            return 0;
+        }
 
         if (argc == 4 && std::string_view(argv[1]) == "--migrate-mesh-emission") {
             migrate_mesh_emission(argv[2], argv[3]);
