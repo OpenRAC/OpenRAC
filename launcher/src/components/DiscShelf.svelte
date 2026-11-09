@@ -211,9 +211,11 @@
     if (!start.moved) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     start.moved = true;
     dragging = true;
-    // Past the first and the last disc the wheel gives, but less and less.
-    const ahead = at - dy / step;
-    drag = ahead < 0 || ahead > games.length - 1 ? dy * 0.35 : dy;
+    // Past the first and the last disc the wheel gives, but less: only the part beyond the end is
+    // damped, so the wheel never jumps as the finger crosses it.
+    const most = at * step,
+      least = (at - (games.length - 1)) * step;
+    drag = dy > most ? most + (dy - most) * 0.35 : dy < least ? least + (dy - least) * 0.35 : dy;
   }
 
   function up() {
@@ -257,10 +259,14 @@
   }
 
   /** The screen is black: the game starts; the console steps aside once the game has covered it. */
+  let aside = 0;
   function launched() {
     if (v && next) void playerAct(v, next);
-    setTimeout(() => (launching = null), 1200);
+    aside = window.setTimeout(() => (launching = null), 1200);
   }
+  $effect(() => () => {
+    clearTimeout(aside);
+  });
 
   function openMods() {
     if (!v || !playable || launching || document.querySelector('[role="dialog"], [role="menu"]')) return;
@@ -318,7 +324,6 @@
       </div>
       <div
         class="wheel"
-        class:dragging
         bind:this={wheel}
         onpointerdown={down}
         onpointermove={move}
@@ -345,7 +350,13 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle dim={i !== at} />
+              <Disc
+                game={g.id}
+                version={gv?.name ?? "ntsc"}
+                title={g.title}
+                idle={Math.abs(i - at) <= 2}
+                dim={i !== at}
+              />
             </span>
           </button>
         {/each}
@@ -534,15 +545,10 @@
   /* Taken into the console: the shelf keeps no copy of it. */
   .slot.away {
     opacity: 0 !important;
-    transition: none;
   }
 
   .slot.on {
     z-index: 1;
-  }
-
-  .dragging .slot {
-    transition: none;
   }
 
   .slot:focus-visible,

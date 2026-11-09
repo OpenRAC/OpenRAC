@@ -97,6 +97,12 @@ theme: string,
  */
 gameColors: boolean, 
 /**
+ * How Android's Games tab shows the games: "tiles" (default), a banner of the game picked over
+ * a shelf of its pictures, or "discs", every game a disc on a wheel that goes into a console
+ * on Play. Desktop's Games tab is the same either way.
+ */
+gamesLook: "tiles" | "discs", 
+/**
  * The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
  * what the port is missing. Off by default, so a log stays small.
  */

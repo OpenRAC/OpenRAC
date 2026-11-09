@@ -73,6 +73,8 @@
   // round into rings), come over it as it speeds up: two layers a frame, not a copy per step.
   const print = $derived(discPrint(game, version));
   let arc = $state<HTMLCanvasElement | null>(null);
+  /** The smeared pictures are drawn: until then (or without the print) a soft ring blurs it. */
+  let smeared = $state(false);
   let ring = $state<HTMLCanvasElement | null>(null);
   /** How much the short smear shows, then the rings, 0 to 1. */
   const arcIn = $derived(Math.min(1, (turnsAt(t) / 15) * 4));
@@ -117,8 +119,10 @@
     if (print) {
       const img = new Image();
       img.onload = () => {
-        if (arc) smearInto(arc, img, 40, 12);
-        if (ring) smearInto(ring, img, 360, 48);
+        if (!arc || !ring) return;
+        smearInto(arc, img, 40, 12);
+        smearInto(ring, img, 360, 48);
+        smeared = true;
       };
       img.src = print;
     }
@@ -182,9 +186,12 @@
     <div class="disc" style={disc}>
       <Disc {game} {version} {title} />
       {#if print}
-        <canvas class="smear" width="640" height="640" bind:this={arc} style={`opacity: ${arcIn}`}></canvas>
-        <canvas class="smear" width="640" height="640" bind:this={ring} style={`opacity: ${ringIn}`}></canvas>
-      {:else}
+        <canvas class="smear" width="640" height="640" bind:this={arc} style={`opacity: ${smeared ? arcIn : 0}`}
+        ></canvas>
+        <canvas class="smear" width="640" height="640" bind:this={ring} style={`opacity: ${smeared ? ringIn : 0}`}
+        ></canvas>
+      {/if}
+      {#if !smeared}
         <span class="blur" style={`opacity: ${speedAt(t) * 0.6}`}></span>
       {/if}
     </div>

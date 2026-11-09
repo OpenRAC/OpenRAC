@@ -263,6 +263,10 @@ let config: Config = {
   discordClientId: null,
   // ?gold: Game colours off, every game in the launcher's gold.
   gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gold"),
+  gamesLook:
+    new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("look") === "discs"
+      ? "discs"
+      : "tiles",
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")

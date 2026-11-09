@@ -194,12 +194,12 @@ The fonts are bundled from npm (`@fontsource/audiowide`,
 
 ## Pieces taken from the site
 
-| Site                                                                                                                                                                                                                                         | Launcher                                                                                               |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `Header.tsx`: the sticky gold bar, the logo, the tabs in one darker capsule (selected: a dark chip with gold text), the site and Discord links                                                                                               | `src/components/Header.svelte`                                                                         |
-| `Progress.tsx`: a game's card, a gradient from its `from` to its `to` colour, boxes with a thick border in its `border` colour, the "Progress / 59,32 %" pair, the bar with a light sweeping across it, the "… of … code bytes matched" line | the band in `src/pages/GamePlayer.svelte`, `src/components/ProgressBar.svelte` and `.bar` in `app.css` |
-| `globals.css`: section numbers that count up (`01`, `02`, …), the `rise` and `sweep` animations, reduced motion                                                                                                                              | `.sec-num`, `.sections`, `.rise`, `.bar` in `app.css`                                                  |
-| Numbers: two decimals with a decimal comma (`59,32 %`), bytes grouped with narrow spaces                                                                                                                                                     | `src/lib/format.ts`                                                                                    |
+| Site                                                                                                                                                                                                                                         | Launcher                                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Header.tsx`: the sticky gold bar, the logo, the tabs in one darker capsule (selected: a dark chip with gold text), the site and Discord links                                                                                               | `src/components/Header.svelte`                                                                                                                     |
+| `Progress.tsx`: a game's card, a gradient from its `from` to its `to` colour, boxes with a thick border in its `border` colour, the "Progress / 59,32 %" pair, the bar with a light sweeping across it, the "… of … code bytes matched" line | `src/components/GameTile.svelte` (smaller), the band in `src/pages/GamePlayer.svelte`, `src/components/ProgressBar.svelte` and `.bar` in `app.css` |
+| `globals.css`: section numbers that count up (`01`, `02`, …), the `rise` and `sweep` animations, reduced motion                                                                                                                              | `.sec-num`, `.sections`, `.rise`, `.bar` in `app.css`                                                                                              |
+| Numbers: two decimals with a decimal comma (`59,32 %`), bytes grouped with narrow spaces                                                                                                                                                     | `src/lib/format.ts`                                                                                                                                |
 
 The launcher's own additions keep to the same palette: pills (a dot and a
 word on a tint of their state's colour, 4 px corners), buttons with 6 px
@@ -236,6 +236,28 @@ with `data-game-colors` on the page, and the core hands them to the game's menu
 without it. Off, every game wears the gold.
 
 ## Android's Games tab
+
+Two looks, picked in Settings (General, Games as discs; config `gamesLook`).
+
+### Tiles (the default)
+
+A console's home screen (`GamesHome.svelte`, user decision, after SteamOS), held
+sideways only (the launcher's activity is `sensorLandscape`). The rail stays on
+the left. From the top:
+
+- the banner: the game picked, its picture (`-bg`) sinking into the page on the
+  left and at its foot, the light in its accent; its name in two lines, where
+  its newest save is (planet, slot, bolts, when), its step (Continue, Set up) on
+  the one gold button, then Game page (Y) and Mods (X);
+- the shelf: every game as a tile turned 10° to the right; the game picked is
+  larger and ringed in its accent. A tap, or the controller's focus, picks a
+  game; a tap or A on the game picked opens its page. A game that cannot be
+  played yet shows how far its code is rebuilt;
+- What's new: a launcher update, mods to update, a crash; hidden when empty;
+- the foot: the job running, and the controller's buttons, each letter centred
+  on its round face by the grid.
+
+### Discs
 
 A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
 cartouche), held sideways only (the launcher's activity is `sensorLandscape`).

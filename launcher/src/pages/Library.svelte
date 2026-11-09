@@ -3,11 +3,13 @@
   // player used last (config.lastVersion) or else the first, with the game list beside it to
   // switch. Without a library (no OpenRAC folder, a broken game.json) it says why, with the way
   // to Settings.
-  // On Android it is a shelf of discs instead (DiscShelf): every game a disc on a wheel, the one
-  // picked beside its name, last save and buttons; Play puts the disc into the console. The
-  // navigation rail is already on the left there. A game's page opens from it.
+  // On Android it is a console's home screen instead, in the look picked in Settings: GamesHome (the
+  // game picked in a banner over a shelf of every game's picture, the default) or DiscShelf (every
+  // game a disc on a wheel; Play puts the disc into the console). The navigation rail is already on
+  // the left there. A game's page opens from either.
   import FolderPrompt from "$components/FolderPrompt.svelte";
   import DiscShelf from "$components/DiscShelf.svelte";
+  import GamesHome from "$components/GamesHome.svelte";
   import Icon from "$components/Icon.svelte";
   import { onAndroid } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
@@ -39,7 +41,11 @@
     </div>
   {/if}
   <div class="prompt"><FolderPrompt /></div>
-  <DiscShelf games={lib.games} />
+  {#if app.config?.gamesLook === "discs"}
+    <DiscShelf games={lib.games} />
+  {:else}
+    <GamesHome games={lib.games} />
+  {/if}
 {:else}
   <div class="page">
     {#if app.libraryError}
