@@ -596,8 +596,13 @@ export async function saveConfig(config: Config): Promise<boolean> {
 // ---- navigation ---------------------------------------------------------------------------
 
 export function openVersion(key: string) {
-  app.version = key;
+  pickVersion(key);
   app.page = "game";
+}
+
+/** Makes `key` the version picked, the one Games shows and Mods works on, without leaving the page. */
+export function pickVersion(key: string) {
+  app.version = key;
   if (app.config && app.config.lastVersion !== key) {
     void guard(api.saveConfig({ ...app.config, lastVersion: key })).then((saved) => {
       if (saved) app.config = saved;

@@ -33,6 +33,13 @@ export function shortTitle(title: string): string {
   return title.replace(/^Ratchet( & Clank)?: /, "");
 }
 
+/** A game's name in two lines, the series and the game ("Ratchet & Clank:", "Going Commando");
+ *  "Ratchet: Deadlocked" is one name and keeps one line (`game` empty). */
+export function titleLines(title: string): { series: string; game: string } {
+  const at = title.startsWith("Ratchet & Clank: ") ? title.indexOf(": ") : -1;
+  return at < 0 ? { series: title, game: "" } : { series: title.slice(0, at + 1), game: title.slice(at + 2) };
+}
+
 /** `pal` -> "PAL", `ntsc` -> "NTSC-U", `ntsc-j` -> "NTSC-J". */
 export function regionLabel(name: string): string {
   if (name === "ntsc") return "NTSC-U";

@@ -3,11 +3,11 @@
   // player used last (config.lastVersion) or else the first, with the game list beside it to
   // switch. Without a library (no OpenRAC folder, a broken game.json) it says why, with the way
   // to Settings.
-  // On Android it is the games as tiles instead, two to a row (GameTile), as the launcher had them
-  // before the list: the navigation rail is already on the left there, and a list beside it left
-  // the page too narrow. A tile opens its game's page, and the Games tab comes back here.
+  // On Android it is a console's home screen instead (GamesHome): the game picked in a banner, a
+  // shelf of every game, what changed and the controller's buttons. The navigation rail is already
+  // on the left there. A game's page opens from it, and the Games tab comes back here.
   import FolderPrompt from "$components/FolderPrompt.svelte";
-  import GameTile from "$components/GameTile.svelte";
+  import GamesHome from "$components/GamesHome.svelte";
   import Icon from "$components/Icon.svelte";
   import { onAndroid } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
@@ -28,37 +28,37 @@
   });
 </script>
 
-<div class="page">
-  {#if app.libraryError}
-    <div class="panel notice">
-      <Icon name="warn" />
-      <p class="grow">{app.libraryError}</p>
-      <button class="primary" onclick={() => (app.page = "settings")}>Settings</button>
-    </div>
-  {:else if lib && !lib.games.length}
-    <div class="panel notice">
-      <Icon name="warn" />
-      <p class="grow">This OpenRAC folder lists no games (games/*/game.json).</p>
-      <button class="primary" onclick={() => (app.page = "settings")}>Settings</button>
-    </div>
-  {:else if onAndroid && lib}
-    <h1 class="sr">Games</h1>
-    <FolderPrompt />
-    {#if lib.actionsError}
+{#if onAndroid && lib?.games.length && !app.libraryError}
+  <h1 class="sr">Games</h1>
+  {#if lib.actionsError}
+    <div class="page">
       <div class="panel notice">
         <Icon name="warn" />
         <p class="grow">The games show, but no actions: {lib.actionsError}</p>
       </div>
-    {/if}
-    <div class="tiles">
-      {#each lib.games as game, i (game.id)}
-        <GameTile {game} delay={i * 60} selected={app.version?.split("/")[0] === game.id} />
-      {/each}
     </div>
-  {:else}
-    <p class="muted row"><span class="spinner"></span>Reading your games…</p>
   {/if}
-</div>
+  <div class="prompt"><FolderPrompt /></div>
+  <GamesHome games={lib.games} />
+{:else}
+  <div class="page">
+    {#if app.libraryError}
+      <div class="panel notice">
+        <Icon name="warn" />
+        <p class="grow">{app.libraryError}</p>
+        <button class="primary" onclick={() => (app.page = "settings")}>Settings</button>
+      </div>
+    {:else if lib && !lib.games.length}
+      <div class="panel notice">
+        <Icon name="warn" />
+        <p class="grow">This OpenRAC folder lists no games (games/*/game.json).</p>
+        <button class="primary" onclick={() => (app.page = "settings")}>Settings</button>
+      </div>
+    {:else}
+      <p class="muted row"><span class="spinner"></span>Reading your games…</p>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .page {
@@ -91,19 +91,12 @@
     clip-path: inset(50%);
   }
 
-  .tiles {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
+  /* The first-run question above the home screen, at the page's margins; nothing when not asked. */
+  .prompt {
+    padding: var(--page-top) var(--page-x) 0;
   }
 
-  :global(html[data-platform="android"]) .tiles {
-    gap: 14px;
-  }
-
-  @media (max-width: 640px) {
-    .tiles {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .prompt:empty {
+    display: none;
   }
 </style>

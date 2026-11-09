@@ -70,7 +70,8 @@ describe("Android launcher", () => {
     // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
     await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
-    for (const query of ["page=library", "version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
+    // Games is a home screen across the whole window (GamesHome), not a page with margins.
+    for (const query of ["version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
       await page.locator(".page").first().waitFor({ state: "visible" });
       lefts.push(
@@ -241,63 +242,49 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("opens a game's page from its tile by A or a tap, and leaves the tile's button to a finger", async () => {
+  it("starts on the banner's step, picks a game as the focus lands on it, and opens it by A or a tap", async () => {
     await open("built");
-    // The tile's own Play is there for a finger, but the controller never lands on it.
-    const play = page.locator(".tile .act").first();
-    await expect(play.textContent()).resolves.toContain("Play");
+    // The first press lands on the banner's own step, for the game shown.
+    await press("down");
+    expect(await focused()).toMatch(/Continue|Play/);
+    // Down to the shelf, then right: the next game is picked, and the banner shows it.
     await press("down");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // Right goes to the next game, not to the tile's own button.
     await press("right");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
-    await press("left", "accept");
-    await page.waitForTimeout(500);
-    // A opens the game's page, with the focus on its first control, and starts nothing.
-    expect(await page.evaluate(() => document.activeElement?.closest(".page") !== null)).toBe(true);
+    await expect(page.locator(".hero h1").textContent()).resolves.toContain("Going Commando");
+    // A on the game picked opens its page, and starts nothing.
+    await press("accept");
+    await page.locator(".go .big").waitFor();
     expect(await page.locator(".tile").count()).toBe(0);
-    await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
     await press("back");
     await page.waitForTimeout(500);
-    expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    // A tap on the tile opens the page too.
+    // A tap picks a game; a tap on the game picked opens its page.
+    await page.locator(".tile .open").first().click();
+    await expect(page.locator(".hero h1").textContent()).resolves.not.toContain("Going Commando");
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
     await page.locator(".tile .open").first().click();
     await page.locator(".go .big").waitFor();
     expect(await page.locator(".tile").count()).toBe(0);
   });
 
-  it("starts a game's next step from its tile's button by a tap", async () => {
+  it("starts a game's next step from the banner by a tap", async () => {
     await open("");
-    await page.locator(".tile .act").first().click();
+    await page.locator(".hero .go").click();
     await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
     expect(await page.locator(".tile").count()).toBeGreaterThan(0);
   });
 
-  it("rings the game picked last, and only the focus once the controller moves", async () => {
+  it("rings the game shown, and moves the ring with the controller's focus", async () => {
     await open("version=rac1/pal&page=library");
-    const tile = page.locator(".tile").first();
-    await tile.waitFor();
-    await page.waitForTimeout(600);
-    // The picked game is ringed, and its picture does not zoom under the pointer.
-    const ring = () => tile.evaluate((e) => getComputedStyle(e, "::after").opacity);
-    expect(await ring()).toBe("1");
-    await tile.hover();
-    await page.waitForTimeout(600);
-    expect(
-      await page
-        .locator(".tile .art")
-        .first()
-        .evaluate((e) => getComputedStyle(e).transform),
-    ).toBe("none");
-    // With the controller on the next game, only that one is ringed.
-    await press("down", "right");
+    await page.locator(".tile").first().waitFor();
+    const ringed = () => page.locator(".tile.selected").count();
+    expect(await ringed()).toBe(1);
+    await expect(page.locator(".tile").first().getAttribute("class")).resolves.toContain("selected");
+    await press("down", "down", "right");
     await page.waitForTimeout(400);
-    expect(await ring()).toBe("0");
-    const outlines = await page
-      .locator(".tile")
-      .evaluateAll((tiles) => tiles.map((t) => getComputedStyle(t).outlineStyle !== "none"));
-    expect(outlines.filter(Boolean).length).toBe(1);
-    expect(outlines[0]).toBe(false);
+    expect(await ringed()).toBe(1);
+    await expect(page.locator(".tile").nth(1).getAttribute("class")).resolves.toContain("selected");
   });
 
   it("goes into the rail only sideways", async () => {
@@ -406,10 +393,10 @@ describe("A controller", () => {
   it("moves a mod by dragging its grip, and not while sorted by name", async () => {
     await open("page=mods&version=rac1/pal&manymods");
     const names = () => page.locator(".plugins ul:not(.built-in) .name").allTextContents();
-    const before = await names();
     // The page's slide in ends first: the rows are where they show.
     await page.locator(".plugins ul:not(.built-in) li").first().waitFor();
     await page.waitForTimeout(1500);
+    const before = await names();
     await page
       .locator(".plugins ul:not(.built-in) li")
       .first()

@@ -235,6 +235,24 @@ with `data-game-colors` on the page, and the core hands them to the game's menu
 (`ui_colors(theme, game, game_colors)`). The light under the bar stays as
 without it. Off, every game wears the gold.
 
+## Android's Games tab
+
+A console's home screen (`GamesHome.svelte`, user decision, after SteamOS), held
+sideways only (the launcher's activity is `sensorLandscape`). The rail stays on
+the left. From the top:
+
+- the banner: the game picked, its picture (`-bg`) sinking into the page on the
+  left and at its foot, the light in its accent; its name in two lines, where
+  its newest save is (planet, slot, bolts, when), its step (Continue, Set up) on
+  the one gold button, then Game page (Y) and Mods (X);
+- the shelf: every game as a tile turned 10° to the right; the game picked is
+  larger and ringed in its accent. A tap, or the controller's focus, picks a
+  game; a tap or A on the game picked opens its page. A game that cannot be
+  played yet shows how far its code is rebuilt;
+- What's new: a launcher update, mods to update, a crash; hidden when empty;
+- the foot: the job running, and the controller's buttons, each letter centred
+  on its round face by the grid.
+
 ## A game's picture
 
 Each game has three pictures in `public/img/`, under the site's names (`rac1`,
@@ -269,9 +287,7 @@ The band shows the picture at 60 % (over the card gradient, which muddied it at 
 the band is wider than the picture, and the faces are in its upper part).
 Behind the page it is a screen blend at 20 %, faded at its edges by a mask, so
 it only adds light and the light under the bar still shows through it. Text on
-a tile sits on a shade from the tile's foot (`--ink-deep` 94 % to 70 % at 40 %),
-which keeps its status line at about 4.5 : 1 against the brightest of these
-pictures.
+a tile sits on a shade from the tile's foot (`--ink-deep` 92 % to none at 64 %).
 
 `python3 scripts/media.py thumbs` makes the thumbnails again from the
 pictures; `python3 scripts/media.py still RECORDING GAME --at S` writes a

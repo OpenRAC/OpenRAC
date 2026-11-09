@@ -1,15 +1,16 @@
 // The launcher with a controller, without a mouse or a touch screen: the d-pad or the left stick
 // moves the focus to the nearest control in that direction, A presses it, B goes back (closes a
 // menu or a dialog, then returns to the games), LB and RB change tabs, Y opens what a control has
-// besides (a game's page from its tile). On Android the activity hands the controller's buttons
-// to `window.__openracPad` (MainActivity.kt); on a desktop they are read with the Gamepad API.
+// besides (a game's page), X is the page's own shortcut (a game's mods). On Android the activity
+// hands the controller's buttons to `window.__openracPad` (MainActivity.kt); on a desktop they are
+// read with the Gamepad API.
 // Nothing here knows a page but the tabs' bar: it reads the document as it is.
 
-export type PadButton = "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next" | "more";
+export type PadButton = "up" | "down" | "left" | "right" | "accept" | "back" | "prev" | "next" | "more" | "extra";
 type Direction = "up" | "down" | "left" | "right";
 
 const DIRECTIONS: readonly string[] = ["up", "down", "left", "right"];
-const BUTTONS: readonly string[] = [...DIRECTIONS, "accept", "back", "prev", "next", "more"];
+const BUTTONS: readonly string[] = [...DIRECTIONS, "accept", "back", "prev", "next", "more", "extra"];
 
 /** A held direction moves again after REPEAT_DELAY_MS, then every REPEAT_MS. */
 const REPEAT_DELAY_MS = 350;
@@ -404,10 +405,16 @@ function accept() {
   if (el.getAttribute("role") === "menuitem") restoreOpener();
 }
 
-/** Y: what the focused control offers besides A, as `padmore`. */
+/** Y: what the focused control offers besides A, as `padmore`; it bubbles, so a page can answer
+ *  for all its controls. */
 function more() {
   const el = current(focusables(scope()));
-  el?.dispatchEvent(new CustomEvent("padmore"));
+  el?.dispatchEvent(new CustomEvent("padmore", { bubbles: true }));
+}
+
+/** X: the page's own shortcut, as `padextra` on the document (Android's Games: the game's mods). */
+function extra() {
+  document.dispatchEvent(new CustomEvent("padextra"));
 }
 
 function restoreOpener() {
@@ -537,6 +544,9 @@ function act(button: PadButton) {
     case "more":
       more();
       break;
+    case "extra":
+      extra();
+      break;
   }
 }
 
@@ -627,6 +637,7 @@ const STANDARD: [number, PadButton][] = [
   [4, "prev"],
   [5, "next"],
   [3, "more"],
+  [2, "extra"],
   [9, "accept"],
   [12, "up"],
   [13, "down"],
