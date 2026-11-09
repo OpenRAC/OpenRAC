@@ -65,3 +65,10 @@ A native mod keeps its own files (a seed, a list of games played) in the folder
 beside the memory cards (`~/.local/share/openrac`, `~/Library/Application
 Support/OpenRAC`, `%LOCALAPPDATA%\openrac`). The game makes it on the first ask
 and never removes it; updating or removing the mod leaves it in place.
+
+Ask `data_dir` for this folder; do not work out a path of your own from `HOME`
+or `XDG_DATA_HOME`. On Android only `data_dir` is a folder the player can
+reach: the Files app shows it as **OpenRAC > Mod files > `<id>`**
+(`files/share/openrac/mod-data/<id>` in the app's storage), where a log or a
+spoiler file can be opened, copied or shared. A folder the mod makes anywhere
+else in the app's storage is hidden from the player.
