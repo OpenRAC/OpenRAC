@@ -6,9 +6,9 @@
   import type { GameView } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
   import { pct } from "$lib/format";
-  import { titleLines } from "$lib/labels";
+  import { regionLabel, titleLines } from "$lib/labels";
   import { gameTileArt, hideMissing } from "$lib/media";
-  import { playerState, playerVersion } from "$lib/player.svelte";
+  import { hasPort, playerState, playerVersion } from "$lib/player.svelte";
   import { ACCENTS, themeStyle } from "$lib/themes";
 
   /** `selected`: the game the banner shows. `onpick`: makes this game the one shown. */
@@ -25,8 +25,13 @@
   const next = $derived(v ? playerState(game, v) : null);
   const crashed = $derived((app.crashes[game.id]?.recent ?? 0) > 0);
   /** A game that cannot be played yet says how far its code is rebuilt instead. */
-  const playable = $derived(v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false);
-  const rebuilt = $derived(!playable && v?.progress ? v.progress.percent : null);
+  const rebuilt = $derived(!hasPort(v) && v?.progress ? v.progress.percent : null);
+  /** With developer tools on: how far each version's decompilation is. */
+  const matched = $derived(
+    app.config?.developer
+      ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
+      : "",
+  );
   const glow = $derived(ACCENTS[game.id]?.["--glow"] ?? "var(--amber)");
 
   function press() {
@@ -68,6 +73,7 @@
       {:else}
         <p class={`status ${next.tone}`}>{next.status}</p>
       {/if}
+      {#if matched}<p class="matched">{matched} matched</p>{/if}
     </div>
   </article>
 {/if}
@@ -76,25 +82,28 @@
   .tile {
     position: relative;
     flex: none;
-    width: 210px;
+    width: var(--tile-w, 210px);
     aspect-ratio: 16 / 9;
     border-radius: var(--radius);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from), var(--to));
     box-shadow: var(--shadow-sm);
     isolation: isolate;
-    /* Turned a little to the right, each tile on its own (user decision: 10 degrees). */
+    /* Turned a little to the right, each tile on its own (user decision: 10 degrees). The one
+       picked grows by scale, which the compositor does alone (a width would lay the shelf out
+       again at every step). */
     --tilt: perspective(1100px) rotateY(10deg);
-    transform: var(--tilt);
+    --grow: 1;
+    transform: var(--tilt) scale(var(--grow));
     transition:
       transform var(--medium) var(--ease),
-      box-shadow var(--medium),
-      width var(--medium) var(--ease);
+      box-shadow var(--medium);
   }
 
   /* The game the banner shows: larger, ringed in its own colour. */
   .tile.selected {
-    width: 250px;
+    --grow: 1.12;
+    z-index: 1;
     box-shadow:
       0 0 0 3px var(--tile-glow),
       0 0 24px color-mix(in srgb, var(--tile-glow) 40%, transparent),
@@ -102,7 +111,7 @@
   }
 
   .tile:has(.open:active) {
-    transform: var(--tilt) scale(0.97);
+    transform: var(--tilt) scale(calc(var(--grow) * 0.97));
     transition-duration: var(--fast);
   }
 
@@ -167,7 +176,7 @@
   }
 
   :global(html[data-input="pad"]) .tile:has(.open:focus) {
-    transform: var(--tilt) translateY(-3px);
+    transform: var(--tilt) translateY(-3px) scale(var(--grow));
   }
 
   .foot {
@@ -209,7 +218,7 @@
     margin-top: 6px;
     height: 3px;
     border-radius: 2px;
-    background: rgb(255 255 255 / 0.15);
+    background: color-mix(in srgb, var(--text) 15%, transparent);
   }
 
   .bar i {
@@ -217,6 +226,13 @@
     height: 100%;
     border-radius: inherit;
     background: var(--tile-glow);
+  }
+
+  .matched {
+    margin: 2px 0 0;
+    font-size: 0.65rem;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
   }
 
   .dot-crash {
@@ -228,6 +244,6 @@
     height: 9px;
     border-radius: 50%;
     background: var(--err);
-    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.4);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ink-deep) 45%, transparent);
   }
 </style>

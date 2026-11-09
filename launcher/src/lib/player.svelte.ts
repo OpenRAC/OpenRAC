@@ -598,3 +598,19 @@ async function play(v: VersionView): Promise<void> {
   }
   await run({ kind: "version", key: v.key }, start);
 }
+
+/** Whether a version has a port to play (its Play is not only planned). */
+export function hasPort(v: VersionView | null): boolean {
+  return v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false;
+}
+
+/** What Play warns of before it starts (actions.json `warning`), on this platform; null for none. */
+export function playWarning(v: VersionView | null): string | null {
+  return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
+}
+
+/** Whether the next step can be taken from a tile or a banner, as from the game's page: one to
+ *  take, or a job to stop. */
+export function offersStep(next: PlayerState | null): boolean {
+  return !!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job);
+}

@@ -206,6 +206,25 @@ describe("Android launcher", () => {
     expect(await offer.count()).toBe(0);
   });
 
+  it("shows the shelf whole on a phone's low screen, and what changed under it", async () => {
+    await page.setViewportSize({ width: 915, height: 412 });
+    await open("built&crash&version=rac1/pal&page=library");
+    await page.locator(".tile").first().waitFor();
+    await page.waitForTimeout(600);
+    const box = await page.locator(".tiles").boundingBox();
+    expect(box && box.y + box.height).toBeLessThanOrEqual(412 - 30);
+    await page.getByRole("region", { name: "What's new" }).waitFor();
+  });
+
+  it("keeps the launcher gold on Games while the banner takes the game's colour", async () => {
+    await open("version=rac2/ntsc&page=library");
+    await page.locator(".tile").first().waitFor();
+    await page.waitForTimeout(400);
+    // No game's accent on the page itself: the launcher's own gold.
+    expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
+    await expect(page.locator(".hero").getAttribute("style")).resolves.toContain("--");
+  });
+
   it("puts a theme on, with the launcher's gold and the game's light", async () => {
     await open("theme=oled&version=rac3/ntsc");
     // The light eases from one game's to the next (app.css).
@@ -285,6 +304,54 @@ describe("A controller", () => {
     await page.waitForTimeout(400);
     expect(await ringed()).toBe(1);
     await expect(page.locator(".tile").nth(1).getAttribute("class")).resolves.toContain("selected");
+  });
+
+  it("opens the game's mods by X and its page by Y", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".tile").first().waitFor();
+    await press("extra");
+    await page.waitForFunction(() => !document.querySelector(".tile"));
+    expect(await page.locator(".hero").count()).toBe(0);
+    await press("back");
+    await page.locator(".tile").first().waitFor();
+    await press("more");
+    await page.locator(".go .big").waitFor();
+  });
+
+  it("does nothing on X while a dialog is open over the tab", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".tile").first().waitFor();
+    await page.evaluate(() => {
+      const d = document.createElement("div");
+      d.setAttribute("role", "dialog");
+      document.body.append(d);
+    });
+    await press("extra");
+    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+  });
+
+  it("keeps only the game the focus stops on, once", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".tile").first().waitFor();
+    await press("down", "down");
+    for (const b of ["right", "right", "right", "left"]) {
+      await page.evaluate((name) => {
+        const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
+        pad(`down:${name}`);
+        pad(`up:${name}`);
+      }, b);
+      await page.waitForTimeout(60);
+    }
+    await page.waitForTimeout(1200);
+    const writes = await page.evaluate(
+      () =>
+        (window as unknown as { __openracConfigWrites?: { count: number; last: { lastVersion: string } } })
+          .__openracConfigWrites,
+    );
+    const shown = await page.locator(".hero").getAttribute("aria-label");
+    expect(writes?.count).toBe(1);
+    expect(writes?.last.lastVersion.split("/")[0]).toBe("rac3");
+    expect(shown).toContain("Up Your Arsenal");
   });
 
   it("goes into the rail only sideways", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { levelName, levelsOf, regionLabel, shortTitle } from "./labels";
+import { levelName, levelsOf, regionLabel, shortTitle, titleLines } from "./labels";
 
 describe("labels", () => {
   it("shortens a game's name for a narrow list", () => {
@@ -24,5 +24,16 @@ describe("labels", () => {
   it("names regions", () => {
     expect(regionLabel("ntsc")).toBe("NTSC-U");
     expect(regionLabel("pal")).toBe("PAL");
+  });
+});
+
+describe("titleLines", () => {
+  it("puts the game's own name on a second line", () => {
+    expect(titleLines("Ratchet & Clank")).toEqual({ series: "Ratchet & Clank", game: "" });
+    expect(titleLines("Ratchet & Clank: Going Commando")).toEqual({
+      series: "Ratchet & Clank:",
+      game: "Going Commando",
+    });
+    expect(titleLines("Ratchet: Deadlocked")).toEqual({ series: "Ratchet: Deadlocked", game: "" });
   });
 });

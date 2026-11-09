@@ -37,20 +37,27 @@ export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
+/** How Android's Games banner frames a game's picture: `cover` fills the banner (a wide picture),
+ *  `right` keeps the whole height and stands at the right, its left edge fading into the page (a
+ *  taller picture, which cover would zoom into). */
+export function bannerFrame(game: string): "cover" | "right" {
+  return game === "rac2" ? "right" : "cover";
+}
+
 /** A game's picture as Android's Games tab shows it: framed for a tile, 1280 wide
  *  (scripts/game_art.py), where the picture itself can be wider and take a moment to decode. */
 export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
-// The tiles' pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds
+// The tiles' and the banner's pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds
 // its picture ready, rather than showing its colours for a frame first.
 const kept: HTMLImageElement[] = [];
 
-/** Decodes every game's tile picture ahead of its first showing; once. */
+/** Decodes every game's tile and banner picture ahead of its first showing; once. */
 export function preloadArt(): void {
   if (kept.length || typeof Image === "undefined") return;
-  for (const src of Object.keys(GAME_ART).map(gameTileArt)) {
+  for (const src of Object.keys(GAME_ART).flatMap((g) => [gameTileArt(g), gameArt(g)])) {
     if (!src) continue;
     const img = new Image();
     img.src = src;

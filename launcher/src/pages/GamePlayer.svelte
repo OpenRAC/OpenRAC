@@ -38,6 +38,7 @@
   import { pct } from "$lib/format";
   import { SITE_URL } from "$lib/links";
   import { WITH_MODS } from "$lib/modsText";
+  import { titleLines } from "$lib/labels";
   import { gameArt, hideMissing } from "$lib/media";
   import { arrive } from "$lib/motion";
   import { tick } from "svelte";
@@ -309,7 +310,13 @@
             </div>
           {/if}
           <div class="title box">
-            {v.title}
+            {#if onAndroid}
+              <!-- As on Games' banner: the series, then the game's own name on its own line. -->
+              {@const name = titleLines(v.title)}
+              <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
+            {:else}
+              {v.title}
+            {/if}
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
@@ -697,6 +704,71 @@
 
   .last {
     color: var(--lav);
+  }
+
+  /* ---- Android: the band as Games' banner (GamesHome.svelte) ----
+     The picture whole and bright, sinking into the page on the left and at its foot; the name
+     written on it in two lines, no box; the buttons rounded as Games' are. */
+  :global(html[data-platform="android"]) .hero {
+    min-height: 236px;
+    align-items: end;
+    padding: 26px 30px;
+    border-radius: var(--radius);
+    background: var(--ink);
+  }
+
+  :global(html[data-platform="android"]) .hero-bg {
+    opacity: 1;
+  }
+
+  :global(html[data-platform="android"]) .hero-overlay {
+    background:
+      linear-gradient(90deg, var(--ink) 0%, color-mix(in srgb, var(--ink) 80%, transparent) 26%, transparent 60%),
+      linear-gradient(0deg, color-mix(in srgb, var(--ink) 92%, transparent) 0%, transparent 55%),
+      linear-gradient(
+        270deg,
+        color-mix(in srgb, var(--ink) 88%, transparent) 0%,
+        color-mix(in srgb, var(--ink) 60%, transparent) 30%,
+        transparent 50%
+      );
+  }
+
+  :global(html[data-platform="android"]) .hero > .title.box {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    text-align: left;
+    font-size: 2rem;
+    line-height: 1.1;
+    color: var(--on-game);
+    text-shadow: 0 2px 18px rgb(0 0 0 / 0.45);
+  }
+
+  :global(html[data-platform="android"]) .hero > .title small {
+    order: -1;
+    margin: 0 0 6px;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--glow);
+    text-shadow: none;
+  }
+
+  :global(html[data-platform="android"]) .hero .line {
+    text-shadow: 0 1px 8px var(--ink);
+  }
+
+  :global(html[data-platform="android"]) .hero .big {
+    border-radius: var(--radius);
+  }
+
+  :global(html[data-platform="android"]) .with-mods {
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--ink-deep) 70%, transparent);
   }
 
   .notice {

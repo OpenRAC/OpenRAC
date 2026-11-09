@@ -7,15 +7,16 @@
   // game picked, or a tap on it, opens its page. X opens its mods, Y its page.
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
-  import { app, jobs, openVersion, pickVersion } from "$lib/app.svelte";
+  import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
   import { grouped, pct } from "$lib/format";
   import { titleLines } from "$lib/labels";
-  import { gameArt, hideMissing } from "$lib/media";
+  import { bannerFrame, gameArt, hideMissing } from "$lib/media";
   import { modUpdates } from "$lib/modUpdates.svelte";
-  import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
+  import { news, type NewsItem } from "$lib/news";
+  import { hasPort, offersStep, playerAct, playerState, playerVersion, playWarning } from "$lib/player.svelte";
   import { backgroundStatus } from "$lib/progress";
-  import { stampSeconds } from "$lib/saves";
   import { when } from "$lib/reports";
+  import { newestSave, savedSeconds } from "$lib/saves";
   import { ACCENTS, themeStyle } from "$lib/themes";
   import GameTile from "./GameTile.svelte";
   import Icon from "./Icon.svelte";
@@ -30,14 +31,17 @@
   const art = $derived(game ? gameArt(game.id) : null);
   const glow = $derived((game && ACCENTS[game.id]?.["--glow"]) ?? "var(--amber)");
   /** The banner offers the next step itself only when there is one to take (as the game's page). */
-  const offers = $derived(!!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job));
-  const playable = $derived(v?.actions.some((a) => a.id === "play" && a.state !== "planned") ?? false);
-  const warning = $derived(v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null);
+  const offers = $derived(offersStep(next));
+  const playable = $derived(hasPort(v));
+  const warning = $derived(playWarning(v));
   const crashed = $derived(game ? (app.crashes[game.id]?.recent ?? 0) > 0 : false);
+  /** How far the game's code is rebuilt: for a game not done yet, or for a developer. */
+  const rebuilt = $derived(v?.progress && (v.progress.percent < 100 || app.config?.developer) ? v.progress : null);
 
   // ---- the last save: where the player left off ----
 
-  /** The newest save of each version read, by serial: read once, again when the saves change. */
+  /** The newest save of each version read, by serial: read once, again when the saves change. A
+   *  read that failed is not kept, so the next look tries again. */
   const saves = $state<Record<string, SaveSlotInfo | null>>({});
   const set = $derived(!!next && !["set-up", "installing", "other-disc"].includes(next.kind));
   $effect(() => {
@@ -45,77 +49,49 @@
     // Read again whenever the card changed elsewhere (an import, the game ending).
     const changed = app.savesChanged;
     if (!serial || !set || !playable || changed < 0) return;
-    void api
+    api
       .inspectSaves(serial)
       .then((status) => {
-        const used = status.slots.filter((s) => s.exists && !s.isEmpty);
-        const newest = (s: SaveSlotInfo) => s.modifiedMillis ?? (stampSeconds(s.timestamp) ?? 0) * 1000;
-        saves[serial] = used.sort((a, b) => newest(b) - newest(a))[0] ?? null;
+        saves[serial] = newestSave(status.slots);
       })
-      .catch(() => {
-        saves[serial] = null;
-      });
+      .catch(() => undefined);
   });
   const last = $derived(v ? (saves[v.serial] ?? null) : null);
+  /** When it was saved, by the game's own clock, as the game's page says it. */
   const lastWhen = $derived.by(() => {
-    if (!last) return null;
-    const seconds = last.modifiedMillis ? last.modifiedMillis / 1000 : stampSeconds(last.timestamp);
+    const seconds = last ? savedSeconds(last) : null;
     return seconds ? when(seconds) : null;
   });
+  /** Continue: the game is ready to play and has a save to go on from. */
+  const continues = $derived(next?.kind === "play" && !!last);
 
   // ---- what changed ----
 
-  interface News {
-    key: string;
-    icon: "download" | "refresh" | "warn";
-    tone: string;
-    title: string;
-    text: string;
-    go: () => void;
+  const NEWS_LOOK: Record<NewsItem["kind"], { icon: "download" | "refresh" | "warn"; tone: string }> = {
+    update: { icon: "download", tone: "var(--amber)" },
+    mods: { icon: "refresh", tone: "var(--ok)" },
+    crash: { icon: "warn", tone: "var(--err)" },
+  };
+  const changes = $derived(
+    news({
+      update: app.update,
+      mods: Object.values(modUpdates.found),
+      games: games.map((g) => ({
+        id: g.id,
+        title: g.title,
+        version: playerVersion(g)?.key ?? null,
+        crashes: app.crashes[g.id]?.recent ?? 0,
+      })),
+    }),
+  );
+
+  function follow(n: NewsItem) {
+    if (n.kind === "update") app.showUpdateModal = true;
+    else if (n.kind === "mods" && n.version) {
+      pickVersion(n.version);
+      app.page = "mods";
+    } else if (n.version) openVersion(n.version);
   }
-  const news = $derived.by(() => {
-    const list: News[] = [];
-    if (app.update) {
-      list.push({
-        key: "update",
-        icon: "download",
-        tone: "var(--amber)",
-        title: `OpenRAC ${app.update.version} is ready`,
-        text: "Update the launcher",
-        go: () => (app.showUpdateModal = true),
-      });
-    }
-    for (const offer of Object.values(modUpdates.found)) {
-      const n = offer.updates.length;
-      if (n === 0) continue;
-      list.push({
-        key: `mods-${offer.game}`,
-        icon: "refresh",
-        tone: "var(--ok)",
-        title: `${n} mod update${n === 1 ? "" : "s"}`,
-        text: offer.title,
-        go: () => {
-          pickVersion(`${offer.game}/${offer.version}`);
-          app.page = "mods";
-        },
-      });
-    }
-    for (const g of games) {
-      const gv = playerVersion(g);
-      if (!gv || (app.crashes[g.id]?.recent ?? 0) === 0) continue;
-      list.push({
-        key: `crash-${g.id}`,
-        icon: "warn",
-        tone: "var(--err)",
-        title: `${g.title} crashed`,
-        text: "A report is on its page",
-        go: () => {
-          openVersion(gv.key);
-        },
-      });
-    }
-    return list;
-  });
 
   // ---- the foot: the job running, and the controller's buttons ----
 
@@ -126,18 +102,21 @@
       null,
     ),
   );
-  /** What A does where the focus is: the banner's step, a tile's game, or a plain press. */
-  let aSays = $state("Select");
+  /** Where the focus is: the banner's step, a tile, or anything else. */
+  let focusOn = $state<"go" | "tile" | "other">("other");
+  /** What A does there, kept up to date as the step changes (a setup ending, a save found). */
+  const aSays = $derived(
+    focusOn === "go" ? (continues ? "Continue" : (next?.label ?? "Select")) : focusOn === "tile" ? "Open" : "Select",
+  );
 
   function focusMoved(e: FocusEvent) {
     const el = e.target as HTMLElement;
-    if (el.closest(".go")) aSays = next?.label ?? "Select";
-    else if (el.closest(".tile")) aSays = "Open";
-    else aSays = "Select";
+    focusOn = el.closest(".go") ? "go" : el.closest(".tile") ? "tile" : "other";
   }
 
+  /** X: the game's mods, for a game with a port; not while a dialog or a menu is open over the tab. */
   function openMods() {
-    if (!v) return;
+    if (!v || !playable || document.querySelector('[role="dialog"], [role="menu"]')) return;
     pickVersion(v.key);
     app.page = "mods";
   }
@@ -163,11 +142,17 @@
   <div class="home" bind:this={root} onfocusin={focusMoved} style={`--hero-glow: ${glow}`}>
     <section class="hero" aria-label={game.title} style={themeStyle(game.id)}>
       {#key game.id}
-        {#if art}<img class="pic" src={art} alt="" onerror={hideMissing} />{/if}
+        {#if art}<img
+            class={`pic ${bannerFrame(game.id)}`}
+            src={art}
+            alt=""
+            decoding="async"
+            onerror={hideMissing}
+          />{/if}
       {/key}
       <div class="veil"></div>
       <div class="body">
-        {#if last}<p class="kicker">Continue where you left off</p>{/if}
+        {#if continues}<p class="kicker">Continue where you left off</p>{/if}
         <h1>
           <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
         </h1>
@@ -193,7 +178,7 @@
         <div class="acts">
           {#if offers}
             <button class="go" class:primary={next.primary} onclick={() => void playerAct(v, next)}>
-              <span class="glyph a" aria-hidden="true">A</span>{next.kind === "play" && last ? "Continue" : next.label}
+              <span class="glyph a" aria-hidden="true">A</span>{continues ? "Continue" : next.label}
             </button>
           {/if}
           <button class="sec" onclick={openPage}><span class="glyph" aria-hidden="true">Y</span>Game page</button>
@@ -202,10 +187,10 @@
           {/if}
         </div>
       </div>
-      {#if v.progress}
+      {#if rebuilt}
         <div class="card">
           <p class="label">This game</p>
-          <p class="row"><span>Code rebuilt</span><b>{pct(v.progress.percent)}</b></p>
+          <p class="row"><span>Code rebuilt</span><b>{pct(rebuilt.percent)}</b></p>
         </div>
       {/if}
     </section>
@@ -227,15 +212,29 @@
       </div>
     </section>
 
-    {#if news.length}
+    {#if changes.length}
       <section class="shelf" aria-label="What's new">
         <h2>What's new</h2>
         <div class="news">
-          {#each news as n (n.key)}
-            <button class="nw" style={`--c: ${n.tone}`} onclick={n.go}>
-              <span class="ic"><Icon name={n.icon} size={18} /></span>
-              <span class="txt"><b>{n.title}</b><span>{n.text}</span></span>
-            </button>
+          {#each changes as n (n.key)}
+            {@const look = NEWS_LOOK[n.kind]}
+            <div class="nw" style={`--c: ${look.tone}`}>
+              <button
+                class="main"
+                onclick={() => {
+                  follow(n);
+                }}
+              >
+                <span class="ic"><Icon name={look.icon} size={18} /></span>
+                <span class="txt"><b>{n.title}</b><span>{n.text}</span></span>
+              </button>
+              {#if n.kind === "crash" && n.game}
+                {@const crashedGame = n.game}
+                <button class="x" aria-label="Dismiss" onclick={() => void dismissCrashes(crashedGame)}>
+                  <Icon name="x" size={14} />
+                </button>
+              {/if}
+            </div>
           {/each}
         </div>
       </section>
@@ -254,7 +253,7 @@
       </div>
       <div class="hints" aria-hidden="true">
         <span><span class="glyph a">A</span>{aSays}</span>
-        <span><span class="glyph">X</span>Mods</span>
+        {#if playable}<span><span class="glyph">X</span>Mods</span>{/if}
         <span><span class="glyph">Y</span>Game page</span>
         <span><span class="glyph wide">LB</span><span class="glyph wide">RB</span>Tabs</span>
       </div>
@@ -272,10 +271,12 @@
 
   /* ---- the banner ---- */
 
+  /* Its height follows the screen's, so that the shelf shows under it on a phone held sideways. */
   .hero {
+    --hero-h: clamp(220px, 54vh, 460px);
     position: relative;
-    flex: 1 0 300px;
-    min-height: 300px;
+    flex: 1 0 var(--hero-h);
+    min-height: var(--hero-h);
     overflow: hidden;
   }
 
@@ -287,6 +288,16 @@
     object-fit: cover;
     object-position: 50% 25%;
     animation: fade var(--medium) var(--ease) both;
+  }
+
+  /* A taller picture keeps its whole height and stands at the right, fading in from the left. */
+  .pic.right {
+    left: auto;
+    right: 0;
+    width: auto;
+    max-width: none;
+    object-position: 100% 50%;
+    mask-image: linear-gradient(90deg, transparent, #000 30%);
   }
 
   @keyframes fade {
@@ -372,7 +383,7 @@
     gap: 6px;
     padding: 3px 10px;
     border-radius: 99px;
-    background: rgb(0 0 0 / 0.38);
+    background: color-mix(in srgb, var(--ink-deep) 45%, transparent);
     font-size: 0.78rem;
   }
 
@@ -401,8 +412,10 @@
     font-weight: 600;
   }
 
-  .go {
-    background: rgb(30 28 24 / 0.82);
+  .go,
+  .sec {
+    background: color-mix(in srgb, var(--panel) 85%, transparent);
+    color: var(--text);
   }
 
   .go.primary {
@@ -413,11 +426,6 @@
     font-weight: 700;
   }
 
-  .sec {
-    background: rgb(30 28 24 / 0.82);
-    color: var(--text);
-  }
-
   .card {
     position: absolute;
     top: 18px;
@@ -425,7 +433,7 @@
     min-width: 190px;
     padding: 10px 14px;
     border-radius: var(--radius);
-    background: rgb(28 26 22 / 0.84);
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
     font-size: 0.8125rem;
     color: var(--soft);
   }
@@ -471,12 +479,13 @@
     color: var(--soft);
   }
 
+  /* Room between the tiles for the one picked, which grows over its neighbours' gap. */
   .tiles {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 26px;
     min-height: 152px;
-    padding: 4px var(--page-x) 10px 4px;
+    padding: 4px var(--page-x) 10px 16px;
     overflow: auto hidden;
     scrollbar-width: none;
   }
@@ -491,15 +500,39 @@
 
   .nw {
     flex: none;
-    width: 250px;
+    width: 270px;
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius);
+    background: var(--panel);
+  }
+
+  .nw .main {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
-    border-radius: var(--radius);
-    background: var(--panel);
+    border-radius: inherit;
+    background: none;
     text-align: left;
     box-shadow: none;
+  }
+
+  .nw .x {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    min-height: 0;
+    margin-right: 6px;
+    padding: 0;
+    border-radius: 50%;
+    background: none;
+    box-shadow: none;
+    color: var(--soft);
   }
 
   .nw .ic {
@@ -573,7 +606,7 @@
     width: 110px;
     height: 5px;
     border-radius: 3px;
-    background: rgb(255 255 255 / 0.12);
+    background: color-mix(in srgb, var(--text) 12%, transparent);
   }
 
   .pb i {
@@ -592,6 +625,12 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    transition: opacity var(--medium);
+  }
+
+  /* The controller's buttons, faint while a finger is in use. */
+  :global(html:not([data-input="pad"])) .hints {
+    opacity: 0.45;
   }
 
   .hints > span {
@@ -609,7 +648,7 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: rgb(255 255 255 / 0.14);
+    background: color-mix(in srgb, var(--text) 14%, transparent);
     color: var(--text);
     font-family: var(--font-sans);
     font-size: 0.6875rem;
@@ -632,5 +671,43 @@
   .go.primary .glyph.a {
     background: var(--bar-ink-deep);
     color: var(--amber);
+  }
+
+  /* A low screen (a phone held sideways): a lower banner and smaller tiles, the shelf in sight. */
+  @media (max-height: 500px) {
+    .hero {
+      --hero-h: 196px;
+    }
+
+    .body {
+      bottom: 12px;
+      gap: 5px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+    }
+
+    .acts button {
+      height: 38px;
+    }
+
+    .card {
+      top: 12px;
+    }
+
+    .shelf h2 {
+      margin: 2px 0 4px;
+    }
+
+    .tiles {
+      --tile-w: 164px;
+      min-height: 112px;
+      padding-bottom: 6px;
+    }
+
+    .foot {
+      height: 38px;
+    }
   }
 </style>

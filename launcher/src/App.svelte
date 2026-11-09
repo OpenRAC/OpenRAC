@@ -72,7 +72,10 @@
     // The launcher's accent is the picked game's own (themes.ts), the colour easing from one to the
     // next (app.css). main.ts put the last one on; it stays until the settings say which game shows,
     // and that first one goes on at once too (a first start, or another game than the kept one).
-    const game = app.version?.split("/")[0] ?? null;
+    // Android's Games tab stays in the launcher's own gold: its banner and the tile picked carry the
+    // game's colour, and picking along the shelf does not repaint the whole launcher.
+    const shelf = onAndroid && app.page === "library";
+    const game = shelf ? null : (app.version?.split("/")[0] ?? null);
     if (!app.config && !game) return;
     applyAccent(game, app.config?.gameColors ?? true);
     const root = document.documentElement;
