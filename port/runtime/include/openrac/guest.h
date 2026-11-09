@@ -299,6 +299,16 @@ void openrac_guest_register_thunks(const openrac_thunk_entry* entries, size_t co
 uint64_t openrac_guest_call_regs(gaddr address, const uint64_t* ints, const float* floats, float* result,
                                  int float_result);
 
+/* A call through a code address with a0 set, which matched C writes as inline assembly
+ * (`move $4, %A; jal $31, %F`: rac2-decomp's call_hook, each object's update hook; hostgen's
+ * lower.py). The other argument registers are 0, the result is dropped. */
+static inline void openrac_guest_call_a0(gaddr address, gaddr a0) {
+    const uint64_t ints[8] = {a0, 0, 0, 0, 0, 0, 0, 0};
+    const float floats[8] = {0};
+    float result;
+    (void)openrac_guest_call_regs(address, ints, floats, &result, 0);
+}
+
 /* Which overlay is loaded, asked at each call through a code address when
  * set: the game knows (rac1 keeps its current level in a global). */
 void openrac_guest_set_overlay_source(int (*current)(void));

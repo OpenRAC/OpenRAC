@@ -44,6 +44,7 @@ for Jak's pointers. hostgen writes the C against it:
 | a call through a pointer | `GFN`: the table of functions by code address, per level program |
 | a function's address | its code address, as a number |
 | `qcopy`, `qcopy_nc`, `qzero` (the decompilation's inline assembly) | the runtime's host versions |
+| an asm statement that calls through a register with a0 set (`beq %1,$0,1f; move $4,%2; jal $31,%1`: rac2-decomp's `call_hook`, rac1's moby update loop, the NTSC decomp's `MOBY_CALL_UPDATE`) | the call, through the code address (`openrac_guest_call_a0`), skipped when the address is 0 |
 | a float `/`, a float converted to an integer | the EE's divide and conversion (`openrac_fdiv`, `openrac_f2i`, [guest.h](../../runtime/include/openrac/guest.h)): no infinity, saturating. The other float arithmetic is the host's, with the game's thread rounding toward zero and denormals as zero (`openrac_ee_float_mode`) |
 | float `+ - * /`, comparisons, `!f`, `(float)i`, `(int)f` in a function `ps2_float` names | the EE FPU's arithmetic in software ([ps2float.h](../../runtime/include/openrac/ps2float.h)): results cut to 24 bits, the adder's dropped bits, no infinities, NaNs or denormals, comparisons by sign and magnitude |
 
