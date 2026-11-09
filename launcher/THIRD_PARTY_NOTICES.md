@@ -8,9 +8,9 @@ and `Cargo.lock`.
 ## The games' pictures
 
 Each game's pictures in `public/img/` (`*-bg`, `*-tile`, `*-thumb`) are made by
-`scripts/game_art.py` from that game's hero and logo on
+`scripts/game_art.py` from that game's hero on
 [SteamGridDB](https://www.steamgriddb.com), uploaded there by its users; the
-script lists each file's link. The art and the logos are Sony Interactive
+script lists each file's link. The art is Sony Interactive
 Entertainment's and Insomniac Games' (High Impact Games' for Size Matters and
 Secret Agent Clank), shown to name the game the player owns.
 

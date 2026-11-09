@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
-"""Each game's pictures in public/img, made from its SteamGridDB hero and logo.
+"""Each game's pictures in public/img, made from its SteamGridDB hero.
 
     python3 scripts/game_art.py [--cache DIR] [--only rac1,rac3]
 
 For every game it writes three files (the site's names: rac1, gc, uya, deadlocked, size-matters,
 sac):
 
-- <name>-bg.webp: the hero without a logo, behind the game's band once its page is open;
-- <name>-tile.webp: the same picture framed for a tile, with the game's logo top left (Android's
+- <name>-bg.webp: the hero, behind the game's band once its page is open;
+- <name>-tile.webp: the same picture framed for a tile, the game's name written below it (Android's
   Games tab);
 - <name>-thumb.webp: the small one for the game list.
 
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
 on the bright parts; dark pictures are lifted a little without going grey. The characters are not
-retouched. The logo is redrawn flat from its own shapes, one game at a time
-(game_logo.py): gold letters, a dark bronze plate, ink outlines, no gradients.
+retouched. The heroes carry no logo: the tile writes the game's name itself.
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
 needs no network. Needs Pillow, numpy and opencv-python-headless.
@@ -30,22 +29,21 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
-from game_logo import flat_logo
 
 HERE = Path(__file__).resolve().parent
 IMG = HERE.parent / "public" / "img"
 PALETTES = HERE.parent / "src" / "lib" / "palettes.json"
 CDN = "https://cdn2.steamgriddb.com"
 
-# game: (site name, hero, logo, tile frame's left edge in the 1920 x 620 hero, logo height in the
-# tile). The frame is chosen so the logo sits on background and the faces stay in sight.
+# game: (site name, hero, tile frame's left edge in the 1920 x 620 hero). The frame keeps the faces
+# in sight.
 GAMES = {
-    "rac1": ("rac1", "hero/8bed36d1d9aac31ed938f56a5671a420.jpg", "logo/8b2a9c176d358811a479f771a5874c1b.png", 230, 0.42),
-    "rac2": ("gc", "hero/95e1533eb1b20a97777749fb94fdb944.jpg", "logo/2e9777b99786a3ef6e5d786e2bc2e16f.png", 330, 0.46),
-    "rac3": ("uya", "hero/3bd318565e4adbe5f4b6abf2ffebf3a0.png", "logo/bd73768ac25cd57aae7b69c63c8adf99.png", 400, 0.44),
-    "rac4": ("deadlocked", "hero/d22bb534b7964c0cafab6aab1995f000.jpg", "logo/481263854facf41a2f8a64a21956d87b.png", 300, 0.42),
-    "rac5": ("size-matters", "hero/0102d6b30badc91266a51a24e8203c7d.png", "logo/876e8108f87eb61877c6263228b67256.png", 100, 0.44),
-    "rac6": ("sac", "hero/7e96c0d5321335207e7ae3aee2e3c0c2.png", "logo/09779bb7930c8a0a44360e12b538ae3c.png", 270, 0.34),
+    "rac1": ("rac1", "hero/8bed36d1d9aac31ed938f56a5671a420.jpg", 230),
+    "rac2": ("gc", "hero/95e1533eb1b20a97777749fb94fdb944.jpg", 330),
+    "rac3": ("uya", "hero/3bd318565e4adbe5f4b6abf2ffebf3a0.png", 400),
+    "rac4": ("deadlocked", "hero/d22bb534b7964c0cafab6aab1995f000.jpg", 300),
+    "rac5": ("size-matters", "hero/0102d6b30badc91266a51a24e8203c7d.png", 100),
+    "rac6": ("sac", "hero/7e96c0d5321335207e7ae3aee2e3c0c2.png", 270),
 }  # fmt: skip
 
 
@@ -124,40 +122,11 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
     return Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8))
 
 
-def with_logo(
-    picture: Image.Image, logo: Image.Image, left: int, share: float
-) -> Image.Image:
-    """The tile: a 2.25 : 1 frame of the picture from LEFT, the logo top left on it."""
+def tile(picture: Image.Image, left: int) -> Image.Image:
+    """The tile: a 2.25 : 1 frame of the picture from LEFT."""
     w = round(picture.height * TILE[0] / TILE[1])
     left = min(left, picture.width - w)
-    tile = (
-        picture.crop((left, 0, left + w, picture.height))
-        .resize(TILE, Image.LANCZOS)
-        .convert("RGBA")
-    )
-    lh = round(TILE[1] * share)
-    lw = round(logo.width * lh / logo.height)
-    if lw > TILE[0] * 0.36:
-        lw = round(TILE[0] * 0.36)
-        lh = round(logo.height * lw / logo.width)
-    logo = logo.resize((lw, lh), Image.LANCZOS)
-    pad = round(TILE[1] * 0.07)
-    at = (round(pad * 1.15), pad)
-
-    def blurred(
-        colour: tuple, strength: float, radius: float, dy: int = 0
-    ) -> Image.Image:
-        layer = Image.new("RGBA", TILE, (0, 0, 0, 0))
-        fill = Image.new("RGBA", logo.size, colour + (255,))
-        fill.putalpha(logo.getchannel("A").point(lambda v: int(v * strength)))
-        layer.paste(fill, (at[0], at[1] + dy), fill)
-        return layer.filter(ImageFilter.GaussianBlur(radius))
-
-    tile = Image.alpha_composite(
-        tile, blurred((10, 8, 6), 0.9, lh * 0.035, round(lh * 0.015))
-    )  # reads on any picture
-    tile.alpha_composite(logo, at)
-    return tile.convert("RGB")
+    return picture.crop((left, 0, left + w, picture.height)).resize(TILE, Image.LANCZOS)
 
 
 def thumb(picture: Image.Image) -> Image.Image:
@@ -194,15 +163,12 @@ def main(argv: list[str]) -> int:
     p.add_argument("--only", help="comma-separated game ids (default all)")
     a = p.parse_args(argv)
     games = a.only.split(",") if a.only else list(GAMES)
-    logos = {game: Image.open(fetch(a.cache, GAMES[game][2])) for game in GAMES}
     for game in games:
-        name, hero, _, left, share = GAMES[game]
+        name, hero, left = GAMES[game]
         c = colours(game)
         picture = grade(Image.open(fetch(a.cache, hero)), c)
         picture.save(a.out / f"{name}-bg.webp", quality=88, method=6)
-        with_logo(picture, flat_logo(game, logos), left, share).save(
-            a.out / f"{name}-tile.webp", quality=88, method=6
-        )
+        tile(picture, left).save(a.out / f"{name}-tile.webp", quality=88, method=6)
         thumb(picture).save(a.out / f"{name}-thumb.webp", quality=80, method=6)
         print(f"{game}: {name}-bg, -tile, -thumb")
     return 0

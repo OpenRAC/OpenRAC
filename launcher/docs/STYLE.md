@@ -242,29 +242,21 @@ Each game has three pictures in `public/img/`, under the site's names (`rac1`,
 
 - `<name>-bg.webp`, 1920 × 620, no logo: under the game's band once its page is
   open, and faintly behind the page;
-- `<name>-tile.webp`, 1280 × 569, the same picture framed for a tile with the
-  game's logo top left: Android's Games tab. The tile keeps that corner
-  (`object-position: left top`) and does not write the game's name over its
-  logo; the name is still read out, and shows again if the picture fails;
+- `<name>-tile.webp`, 1280 × 569, the same picture framed for a tile: Android's
+  Games tab. The tile writes the game's name at its foot in the game's title
+  font, in two parts ("Ratchet & Clank:", "Going Commando"); the second moves
+  to a line of its own when both do not fit, never split across lines (user
+  decision: no logos on the tiles);
 - `<name>-thumb.webp`, 192 × 132: the game list, which shows it 64 × 44.
 
 `python3 scripts/game_art.py` makes all three from the game's SteamGridDB hero
-and logo (the links are in the script). It gives every game the launcher's
-look, the same for all: shadows pulled toward the page's coal in the game's
-hue, the light under the bar (a glow from the top in the game's accent, as
+(the links are in the script). It gives every game the launcher's look, the
+same for all: shadows pulled toward the page's coal in the game's hue, the
+light under the bar (a glow from the top in the game's accent, as
 `body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
-little without going grey. The characters are not retouched. The logo is
-redrawn flat, one game at a time (`scripts/game_logo.py`, rules per game in
-`game_logos.json`): letters in the launcher's gold (`--amber`), the plate in a
-dark bronze, outlines and the plate's dark inside in ink (`--ink-deep`); no
-gradients, edges smoothed and straightened, chips cleaned, rivets and the
-letters' metal rim kept as flat detail, the TM/R marks left out. The later
-logos take their Ratchet & Clank mark from the first, sharper one, so it looks
-the same on every tile (user decision: per-game colours too loud, greys a
-filter, outline sketches lost half the logo, a recolour kept the gradients). The
-tile's frame is chosen per game so the logo sits on background and the faces
-stay whole, as Steam asks of its own heroes (key art in the middle, a logo
-never over a face).
+little without going grey. The characters are not retouched. The tile's frame
+is chosen per game so the faces stay whole and clear of the name, as Steam
+asks of its own heroes (key art in the middle).
 
 The band shows the picture at 60 % (over the card gradient, which muddied it at less), above its middle (`object-position: 50% 25%`:
 the band is wider than the picture, and the faces are in its upper part).

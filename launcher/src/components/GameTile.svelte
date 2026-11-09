@@ -6,7 +6,7 @@
   import { app, dismissCrashes, openVersion } from "$lib/app.svelte";
   import { pct } from "$lib/format";
   import { regionLabel } from "$lib/labels";
-  import { gameTileArt, hideMissing, tileHasLogo } from "$lib/media";
+  import { gameTileArt, hideMissing } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
@@ -18,10 +18,14 @@
 
   // The game's still picture (media.ts); without one, the tile shows the game's colours.
   const art = $derived(gameTileArt(game.id));
-  /** The picture shows the game's logo: the name is then read out but not written over it. A
-   *  picture that fails to load takes its logo along, and the name shows again. */
-  let artFailed = $state(false);
-  const logo = $derived(!!art && !artFailed && tileHasLogo(game.id));
+  /** The name in two parts, the series and the game ("Ratchet & Clank:", "Going Commando"): the
+   *  second goes to a line of its own when the two do not fit on one, never split across them. */
+  const name = $derived.by(() => {
+    const at = game.title.indexOf(": ");
+    return at < 0
+      ? { series: game.title, game: "" }
+      : { series: game.title.slice(0, at + 1), game: game.title.slice(at + 2) };
+  });
   const v = $derived(playerVersion(game));
   const next = $derived(v ? playerState(game, v) : null);
   /** The tile offers the next step itself only when there is one to take. */
@@ -39,17 +43,7 @@
 {#if v && next}
   <article class="tile rise" class:selected style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
     {#if art}
-      <img
-        class="art"
-        class:logo
-        src={art}
-        alt=""
-        decoding="sync"
-        onerror={(e) => {
-          hideMissing(e);
-          artFailed = true;
-        }}
-      />
+      <img class="art" src={art} alt="" decoding="sync" onerror={hideMissing} />
     {/if}
     <div class="shade"></div>
 
@@ -64,7 +58,9 @@
 
     <div class="foot">
       <div class="name">
-        <h2 class:sr-only={logo}>{game.title}</h2>
+        <h2 aria-label={game.title}>
+          <span>{name.series}</span>{#if name.game}<span>{name.game}</span>{/if}
+        </h2>
         <p class={`status ${next.tone}`}>
           {#if next.job}<span class="spinner"></span>{:else}<span class="dot"></span>{/if}{next.status}
         </p>
@@ -215,11 +211,6 @@
     object-fit: cover;
   }
 
-  /* A picture with the logo top left keeps that corner, whatever the tile's shape. */
-  .art.logo {
-    object-position: left top;
-  }
-
   .crashed {
     display: flex;
     align-items: center;
@@ -304,7 +295,11 @@
     font-size: 1.375rem;
     line-height: 1.2;
     color: var(--on-game);
-    text-wrap: balance;
+    /* Each part wraps as a whole: the game's own name moves to the next line rather than
+       breaking, unless it is too long for a line by itself. */
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.3em;
   }
 
   .status {
