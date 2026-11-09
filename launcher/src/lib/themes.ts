@@ -85,12 +85,13 @@ export function themeStyle(game: string): string {
 
 /** The picked game's accent, from palettes.json: only the light under the bar (--glow) in that game's
  *  colour, Going Commando's teal, Up Your Arsenal's yellow, Deadlocked's red, Size Matters' blue.
- *  Every game wears the launcher's own gold and coal (user decision); Ratchet & Clank's light is the
- *  launcher's own (app.css). */
+ *  With Game colours off every game wears the launcher's own gold and coal; Ratchet & Clank's light
+ *  is the launcher's own (app.css). */
 export const ACCENTS: Record<string, Record<string, string>> = palettes.accents;
 
-/** A game's own colours, worn instead of the launcher's when Settings → General → Game colours is on:
- *  its bar, its gold and, on the launcher's own theme, its coal (the --tint-* tokens, app.css). */
+/** A game's own colours, worn instead of the launcher's while Settings → General → Game colours is on
+ *  (the default): its bar, its gold and, on the launcher's own theme, its coal (the --tint-* tokens,
+ *  app.css). */
 export const GAME_COLORS: Record<string, Record<string, string>> = palettes.game_colors;
 
 /** The custom properties a game's accent sets on the page, with `colors` its own colours too; none
@@ -122,19 +123,18 @@ export function applyAccent(game: string | null, colors = false, root: HTMLEleme
   try {
     if (game) localStorage.setItem(STORED_ACCENT, game);
     else localStorage.removeItem(STORED_ACCENT);
-    if (colors) localStorage.setItem(STORED_COLORS, "1");
-    else localStorage.removeItem(STORED_COLORS);
+    localStorage.setItem(STORED_COLORS, colors ? "1" : "0");
   } catch {
     // Storage refused (a private window): the accent then comes with the settings.
   }
 }
 
-/** Whether the last start wore the game's own colours. */
+/** Whether the last start wore the game's own colours: yes unless it had them off (the default). */
 export function storedGameColors(): boolean {
   try {
-    return localStorage.getItem(STORED_COLORS) === "1";
+    return localStorage.getItem(STORED_COLORS) !== "0";
   } catch {
-    return false;
+    return true;
   }
 }
 

@@ -93,7 +93,7 @@ layout: "compact" | "classic",
 theme: string, 
 /**
  * The picked game's own bar, gold and coal (palettes.json game_colors) instead of the
- * launcher's, in the launcher and the game's menu. Off by default: every game wears the gold.
+ * launcher's, in the launcher and the game's menu. On by default; off, every game wears the gold.
  */
 gameColors: boolean, 
 /**
