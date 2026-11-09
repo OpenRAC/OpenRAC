@@ -23,7 +23,45 @@
 //! is `{address, size, id}`, and a chunk is a copy of `size` bytes at `address` (a level's copy at
 //! `address + level * size`). On load (`SaveUnpack` 0x00298D28, `RestoreBlocks` 0x0029B168) the
 //! two sizes must match the tables and each section's checksum (`SaveChecksum` 0x0029AEB0) must be
-//! non-zero and equal; [`crc16`] is that checksum.
+//! non-zero and equal; [`crc16`] is that checksum. That is all the load checks: it copies the
+//! chunks back as they are, weapon versions included, so the editor's own checks
+//! ([`validate`], [`SaveFile::apply`]) are what keep a save to states the game can reach.
+//!
+//! # Weapon versions
+//!
+//! Read from the NTSC-U v1.01 executable and level 0's program (addresses are the executable's;
+//! every level runs its own copy at the place `config/levels/functions.tsv` of the decomp lists).
+//!
+//! - **Where.** A weapon's version is its record: chunk 30 (`D_00139568`, u8 by item) holds the
+//!   number of its row in the record table (`D_00239BA0`, 0xE0 bytes a row). The first version is
+//!   the item's own number; the others are later rows, linked by +0x4A (next) and +0x4C
+//!   (previous). +0x04 is the row's version (0 for V1 to 3 for V4), +0x6C the experience step to
+//!   the next one (compared with `experience >> 5`, 0 for none), +0x8E the full ammo, +0x80 the
+//!   price. Experience is chunk 40 (`D_00139868`, s32 by item); ammo chunk 9 (`D_00139688`).
+//! - **The four versions.** The sixteen weapons that upgrade by experience have four rows, for
+//!   example the Lancer 30, 60, 79, 80 (V1 Lancer, V2 Heavy Lancer, then V3 and V4, which keep
+//!   the Heavy Lancer's model). V1 becomes V2 at its step (`func_L00_002D5EB8` each tick, through
+//!   `func_00287EB0`: the record moves on, experience is raised to the step if under it, and ammo
+//!   is set to the new row's full ammo). V2 has no step. V3 is the challenge-mode upgrade (the
+//!   one players call Mega): the vendor's list (`func_002F6608`) offers it for an owned weapon
+//!   whose row is V1 or V2 with no step left, only while `func_00288D58` (the challenge mode
+//!   counter, progress +0x12, non-zero) holds; the purchase (0x002F8F78 in the vendor's update)
+//!   gives the V3 row's full ammo, then `func_002887B0` moves the record two rows down the chain
+//!   (`func_00287FF8`) and sets experience to 0. V3 becomes V4 by experience at its own step,
+//!   as V1 does (the tick moves a row past V1 only in challenge mode).
+//! - **Two-row weapons.** The Bomb Glove, Visibomb Gun, Decoy Glove, Tesla Claw and Walloper
+//!   (12, 14, 17, 18, 53: the case list in `func_002887B0` and the vendor's) have no experience
+//!   step: their second row is the challenge-mode purchase (one row down). The Clank Zapper's
+//!   second row comes by experience, in either mode.
+//! - **The Sheepinator** is left out of the vendor's upgrade (the list skips item 16); its V3
+//!   comes when challenge mode starts (`func_002DE990`: V1 becomes V3, V2 becomes V4) or when it
+//!   is given in challenge mode (`func_00288308`: V3, experience 0).
+//! - **Ammo** is the row's +0x8E ([`ItemDef::ammo`]): every version holds its own maximum.
+//!
+//! So V3 and V4, and the two-row weapons' second row, exist only in challenge mode, and the
+//! editor offers them only then. The version of the weapon in Ratchet's hand is not changed
+//! (a save with its record moved crashed the port at the level start, in the held weapon's
+//! update: launcher/docs/RAC2_SAVE_FORMAT.md).
 
 use crate::rac2_flags::{self, Confidence, Place};
 use crate::saves::{self, SaveBackupInfo, RAC2_PLANETS};
@@ -303,6 +341,8 @@ mod id {
 const P_BOLTS: usize = 0x00;
 const P_RARITANIUM: usize = 0x04;
 const P_MAX_HEALTH: usize = 0x08;
+/// Times challenge mode was started, u8 (`func_002DE990` adds 1; `func_00288D58` tests it).
+const P_CHALLENGE: usize = 0x12;
 const P_NANOTECH_XP: usize = 0x14;
 const P_ARMOR: usize = 0x20;
 const P_BOOSTS: usize = 0x30;
@@ -440,6 +480,33 @@ const LATER_STEPS: &[(u8, u32)] = &[
     (109, 5000),
 ];
 
+/// The Sheepinator, which the vendor never upgrades (its V3 comes when challenge mode starts).
+const SHEEPINATOR: usize = 16;
+
+/// How the game gets a weapon to one of its versions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub enum Rac2VersionHow {
+    /// The version an item is given in.
+    First,
+    /// The previous version upgrades itself at an amount of experience.
+    Experience,
+    /// Bought from a vendor in challenge mode (the Mega upgrade); experience starts again at 0.
+    Bought,
+    /// Given when challenge mode starts (the Sheepinator).
+    ChallengeStart,
+}
+
+/// What the game requires of a weapon in one of its versions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct VersionRule {
+    how: Rac2VersionHow,
+    /// Only reached in challenge mode.
+    challenge: bool,
+    /// The experience the game can leave it with, `(least, most)`, for a weapon that counts it.
+    xp: Option<(u32, u32)>,
+}
+
 impl ItemDef {
     /// The experience at which the game moves the weapon from the version in `record` to the next,
     /// at its next tick in a level; `None` when nothing follows by experience.
@@ -450,12 +517,60 @@ impl ItemDef {
         }
     }
 
+    /// The versions the game can leave this item in, V1 first (empty for an item with one), with
+    /// what each requires: see the module's "Weapon versions".
+    fn versions(&self) -> Vec<VersionRule> {
+        let n = self.chain.len();
+        if n < 2 {
+            return Vec::new();
+        }
+        let has_xp = self.upgrade.is_some();
+        let xp = |min: u32, max: u32| has_xp.then_some((min, max));
+        let mut out = Vec::with_capacity(n);
+        for depth in 0..n {
+            let step_in = match depth {
+                0 => None,
+                _ => self.next_step(self.chain[depth - 1]),
+            };
+            let max = self.next_step(self.chain[depth]).map_or(MAX_XP, |s| s - 1);
+            let rule = match (depth, step_in) {
+                (0, _) => VersionRule { how: Rac2VersionHow::First, challenge: false, xp: xp(0, max) },
+                // Raised by experience: the game leaves at least the step (func_00287EB0).
+                (1, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: false, xp: xp(step, max) },
+                (_, Some(step)) => VersionRule { how: Rac2VersionHow::Experience, challenge: true, xp: xp(step, max) },
+                // Bought (experience 0, then counting up to the next step) or, for the
+                // Sheepinator, given when challenge mode starts.
+                (_, None) => {
+                    let how =
+                        if self.id == SHEEPINATOR { Rac2VersionHow::ChallengeStart } else { Rac2VersionHow::Bought };
+                    VersionRule { how, challenge: true, xp: xp(0, max) }
+                }
+            };
+            out.push(rule);
+        }
+        out
+    }
+
     fn has_ammo(&self) -> bool {
         self.ammo.iter().any(|&a| a > 0)
     }
     /// Where a record is in the chain, if it is in it.
     fn depth(&self, record: u8) -> Option<usize> {
         self.chain.iter().position(|&r| r == record)
+    }
+}
+
+/// "V1" to "V4".
+fn version_label(depth: usize) -> String {
+    format!("V{}", depth + 1)
+}
+
+/// A weapon's name in a version: the upgraded name from V2 on, for one that upgrades by
+/// experience (V3 and V4 keep the V2's model and name); its own name otherwise.
+fn version_name(d: &ItemDef, depth: usize) -> String {
+    match d.upgrade {
+        Some(u) if depth > 0 => u.name.to_string(),
+        _ => d.name.to_string(),
     }
 }
 
@@ -474,6 +589,9 @@ pub struct Rac2ItemState {
     /// Experience, for a weapon that upgrades by it: in a level, the game upgrades the weapon
     /// itself once this reaches the upgrade's threshold.
     pub xp: Option<u32>,
+    /// The version, 0 for V1 to 3 for V4 (an index into the item's `versions`), for an item with
+    /// more than one: the record chunk 30 holds.
+    pub version: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
@@ -543,11 +661,32 @@ pub struct Rac2ItemInfo {
     /// The most experience the editor takes for the version in the save: one under the game's next
     /// upgrade step, or the editor's limit when nothing follows by experience.
     pub max_xp: Option<u32>,
-    /// The version in the save (read only): 0 the first, 1 upgraded, 2 and 3 the later versions;
-    /// `None` for an item with one version.
-    pub version: Option<u32>,
-    /// Worn by the hero (taking it away is refused).
+    /// The item's versions, V1 first; empty for an item with one. The version in the save is
+    /// the item's `version` in the fields.
+    pub versions: Vec<Rac2VersionInfo>,
+    /// Worn by the hero (taking it away, or changing its version, is refused).
     pub worn: bool,
+}
+
+/// One version of a weapon, with what the game requires of it.
+#[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
+#[serde(rename_all = "camelCase")]
+pub struct Rac2VersionInfo {
+    /// "V1" to "V4".
+    pub label: String,
+    /// The weapon's name in this version: the first version's, or the upgraded one's after it.
+    pub name: String,
+    pub how: Rac2VersionHow,
+    /// The experience the previous version upgrades at, for [`Rac2VersionHow::Experience`].
+    pub step_xp: Option<u32>,
+    /// The game reaches it only in challenge mode (New Game+).
+    pub challenge_only: bool,
+    /// The most ammo it holds; `None` for a weapon with no ammo.
+    pub max_ammo: Option<u32>,
+    /// The experience the game can leave it with, for a weapon that counts it: at least the step
+    /// it was reached at, and under the step to the next version.
+    pub min_xp: Option<u32>,
+    pub max_xp: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, ts_rs::TS)]
@@ -577,6 +716,9 @@ pub struct Rac2SaveView {
     pub planets: Vec<Rac2PlanetInfo>,
     pub max_bolts: u32,
     pub max_xp: u32,
+    /// Times challenge mode (New Game+) was started (read only): 0 for a first playthrough, where
+    /// the game gives no weapon a version past V2.
+    pub challenge_mode: u32,
     /// The Advanced view's progress flags, in the order of `fields.flags`.
     pub flags: Vec<Rac2FlagInfo>,
 }
@@ -635,6 +777,7 @@ impl SaveFile {
                 owned: owned[d.id] != 0,
                 ammo: d.has_ammo().then(|| i32_at(ammo, d.id).max(0) as u32),
                 xp: d.upgrade.map(|_| i32_at(xp, d.id).max(0) as u32),
+                version: (d.chain.len() > 1).then(|| self.depth(d) as u32),
             })
             .collect();
         let available = g.get(id::AVAILABLE);
@@ -713,11 +856,20 @@ impl SaveFile {
         }
     }
 
-    /// The most ammo `d` holds in the version this save has (its base version when the record is
-    /// not one of its chain).
+    /// Where `d`'s record is in its chain: its version (the first when the record is not one of
+    /// its chain).
+    fn depth(&self, d: &ItemDef) -> usize {
+        d.depth(self.global.get(id::RECORD)[d.id]).unwrap_or(0)
+    }
+
+    /// The most ammo `d` holds in the version this save has.
     fn max_ammo(&self, d: &ItemDef) -> u32 {
-        let depth = d.depth(self.global.get(id::RECORD)[d.id]).unwrap_or(0);
-        d.ammo.get(depth).copied().unwrap_or(0)
+        d.ammo.get(self.depth(d)).copied().unwrap_or(0)
+    }
+
+    /// Times challenge mode was started (progress +0x12).
+    pub fn challenge_mode(&self) -> u32 {
+        self.global.get(id::PROGRESS)[P_CHALLENGE] as u32
     }
 
     /// Applies `want` after checking it, changing only what differs from the save and keeping the
@@ -726,22 +878,50 @@ impl SaveFile {
     pub fn apply(&mut self, want: &Rac2SaveFields) -> Result<(), String> {
         let have = self.fields();
         validate(want)?;
+        let challenge = self.challenge_mode();
         for (d, (w, h)) in ITEMS.iter().zip(want.items.iter().zip(&have.items)) {
             if !w.owned && h.owned && self.worn(d.id) {
                 return Err(format!("Ratchet has the {} in hand or on: change it in the game first", d.name));
             }
+            let versions = d.versions();
+            let depth = w.version.map_or(0, |v| v as usize);
+            let rule = versions.get(depth).copied();
+            let name = version_name(d, depth);
+            if w.version != h.version {
+                if self.worn(d.id) {
+                    return Err(format!(
+                        "Ratchet has the {} in hand: switch to another weapon in the game and save, then change its version",
+                        d.name
+                    ));
+                }
+                if !w.owned {
+                    return Err(format!("the {} is not owned: give it to change its version", d.name));
+                }
+                if rule.is_some_and(|r| r.challenge) && challenge == 0 {
+                    return Err(format!(
+                        "the {name} ({}) exists only in challenge mode: this save has not started it",
+                        version_label(depth)
+                    ));
+                }
+            }
             // The game never saves experience past the next step: it upgrades the weapon at the
             // next tick. A save loaded that way leaves the hero stuck at the level start (a hidden
-            // run of the port, format document), so the editor keeps it under the step.
-            if let (Some(x), Some(step)) = (w.xp, d.next_step(self.global.get(id::RECORD)[d.id])) {
-                if x >= step && Some(x) != h.xp {
-                    return Err(format!("{} upgrades at {step} experience: keep it under that", d.name));
+            // run of the port, format document), so the editor keeps it under the step; and a
+            // version reached by experience keeps at least its step (func_00287EB0).
+            if let (Some(x), Some((min, max))) = (w.xp, rule.and_then(|r| r.xp)) {
+                if (w.xp, w.version) != (h.xp, h.version) {
+                    if x > max {
+                        return Err(format!("the {name} upgrades at {} experience: keep it under that", max + 1));
+                    }
+                    if x < min {
+                        return Err(format!("the {name} has at least {min} experience: the game upgrades at that"));
+                    }
                 }
             }
             if let Some(a) = w.ammo {
-                let max = self.max_ammo(d);
-                if a > max && Some(a) != h.ammo {
-                    return Err(format!("{} holds at most {max} ammo", d.name));
+                let max = d.ammo.get(depth).copied().unwrap_or(0);
+                if a > max && (w.ammo, w.version) != (h.ammo, h.version) {
+                    return Err(format!("the {name} holds at most {max} ammo"));
                 }
             }
         }
@@ -776,6 +956,11 @@ impl SaveFile {
                     self.give(d);
                 } else {
                     self.take(d.id);
+                }
+            }
+            if let Some(v) = w.version {
+                if w.version != h.version {
+                    self.global.get_mut(id::RECORD)[d.id] = d.chain[v as usize];
                 }
             }
             if let (Some(x), Some(old)) = (w.xp, h.xp) {
@@ -915,6 +1100,13 @@ pub fn validate(f: &Rac2SaveFields) -> Result<(), String> {
         if s.xp.is_some_and(|x| x > MAX_XP) {
             return Err(format!("experience goes up to {MAX_XP}"));
         }
+        let n = d.chain.len();
+        match s.version {
+            None if n > 1 => return Err(format!("{}'s version is missing", d.name)),
+            Some(_) if n < 2 => return Err(format!("{} has one version", d.name)),
+            Some(v) if v as usize >= n => return Err(format!("{} has {n} versions", d.name)),
+            _ => {}
+        }
     }
     let levels: Vec<usize> = listed_levels().map(|(l, _)| l).collect();
     if f.planets.len() != levels.len() || f.planets.iter().zip(&levels).any(|(s, &l)| s.id != l) {
@@ -962,24 +1154,38 @@ pub fn view(serial: &str, slot: usize, bytes: &[u8], file: &SaveFile) -> Rac2Sav
         fields: file.fields(),
         items: ITEMS
             .iter()
-            .map(|d| {
-                let depth = d.depth(record[d.id]);
-                Rac2ItemInfo {
-                    id: d.id,
-                    name: d.name.to_string(),
-                    kind: d.kind,
-                    max_ammo: d.has_ammo().then(|| file.max_ammo(d)),
-                    upgrade_name: d.upgrade.map(|u| u.name.to_string()),
-                    upgrade_xp: d.upgrade.map(|u| u.xp),
-                    max_xp: d.upgrade.map(|_| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
-                    version: (d.chain.len() > 1).then(|| depth.unwrap_or(0) as u32),
-                    worn: file.worn(d.id),
-                }
+            .map(|d| Rac2ItemInfo {
+                id: d.id,
+                name: d.name.to_string(),
+                kind: d.kind,
+                max_ammo: d.has_ammo().then(|| file.max_ammo(d)),
+                upgrade_name: d.upgrade.map(|u| u.name.to_string()),
+                upgrade_xp: d.upgrade.map(|u| u.xp),
+                max_xp: d.upgrade.map(|_| d.next_step(record[d.id]).map_or(MAX_XP, |s| s - 1)),
+                versions: d
+                    .versions()
+                    .iter()
+                    .enumerate()
+                    .map(|(k, r)| Rac2VersionInfo {
+                        label: version_label(k),
+                        name: version_name(d, k),
+                        how: r.how,
+                        step_xp: (k > 0 && r.how == Rac2VersionHow::Experience)
+                            .then(|| d.next_step(d.chain[k - 1]))
+                            .flatten(),
+                        challenge_only: r.challenge,
+                        max_ammo: d.has_ammo().then(|| d.ammo[k]),
+                        min_xp: r.xp.map(|x| x.0),
+                        max_xp: r.xp.map(|x| x.1),
+                    })
+                    .collect(),
+                worn: file.worn(d.id),
             })
             .collect(),
         planets: listed_levels().map(|(id, name)| Rac2PlanetInfo { id, name: name.to_string() }).collect(),
         max_bolts: MAX_BOLTS,
         max_xp: MAX_XP,
+        challenge_mode: file.challenge_mode(),
         flags: rac2_flags::all()
             .map(|f| Rac2FlagInfo {
                 id: f.id.to_string(),
@@ -1050,13 +1256,7 @@ pub fn write_save(
         return Err("the edited save did not read back as asked; nothing was written".into());
     }
     let backup = saves::backup_card(card_dir, Some(&format!("before_edit_slot{}", slot + 1)))?;
-    let tmp = path.with_file_name(format!(".save{slot}.bin.editing"));
-    fs::write(&tmp, &out).map_err(|e| format!("could not write the save: {e}"))?;
-    if fs::read(&tmp).ok().as_deref() != Some(&out[..]) {
-        let _ = fs::remove_file(&tmp);
-        return Err("the save did not write back as it should; it was not replaced".into());
-    }
-    fs::rename(&tmp, &path).map_err(|e| format!("could not replace the save: {e}"))?;
+    crate::save_edit::replace_save(&path, &out)?;
     Ok(Rac2WriteResult { backup, view: view(serial, slot, &out, &check) })
 }
 
@@ -1238,6 +1438,9 @@ mod tests {
         let mut want = f.fields();
         item_mut(&mut want, 30).xp = Some(280 * 32);
         assert!(f.clone().apply(&want).unwrap_err().contains("8960"), "the Lancer's step");
+        item_mut(&mut want, 30).version = Some(1);
+        assert!(f.clone().apply(&want).unwrap_err().contains("in hand"), "the Lancer is held");
+        item_mut(&mut want, 30).version = Some(0);
         item_mut(&mut want, 30).xp = Some(280 * 32 - 1);
         f.apply(&want).unwrap();
         assert_eq!(i32_at(f.global.get(id::XP), 30), 8959);
@@ -1251,7 +1454,8 @@ mod tests {
         f.global.get_mut(id::RECORD)[30] = 60;
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
         let lancer = v.items.iter().find(|i| i.id == 30).unwrap();
-        assert_eq!((lancer.version, lancer.max_ammo, lancer.max_xp), (Some(1), Some(300), Some(MAX_XP)));
+        assert_eq!((item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp), (Some(1), Some(300), Some(MAX_XP)));
+        let mut over = f.fields();
         item_mut(&mut over, 30).ammo = Some(300);
         item_mut(&mut over, 30).xp = Some(100_000);
         f.apply(&over).unwrap();
@@ -1259,7 +1463,136 @@ mod tests {
         f.global.get_mut(id::RECORD)[30] = 79;
         let v = view("SCUS_972.68", 0, &f.to_bytes(), &f);
         let lancer = v.items.iter().find(|i| i.id == 30).unwrap();
-        assert_eq!((lancer.version, lancer.max_ammo, lancer.max_xp), (Some(2), Some(400), Some(8000 * 32 - 1)));
+        assert_eq!(
+            (item(&v.fields, 30).version, lancer.max_ammo, lancer.max_xp),
+            (Some(2), Some(400), Some(8000 * 32 - 1))
+        );
+    }
+
+    /// The fixture as the same save would be once challenge mode was started.
+    fn in_challenge_mode() -> SaveFile {
+        let mut f = oozla();
+        assert_eq!(f.challenge_mode(), 0, "the fixture is a first playthrough");
+        f.global.get_mut(id::PROGRESS)[P_CHALLENGE] = 1;
+        f
+    }
+
+    fn rule(d: usize, depth: usize) -> VersionRule {
+        ITEMS.iter().find(|i| i.id == d).unwrap().versions()[depth]
+    }
+
+    #[test]
+    fn weapon_versions_are_the_games() {
+        use Rac2VersionHow::*;
+        // The Lancer (records 30, 60, 79, 80): V2 at 280 << 5, V3 bought, V4 at 8000 << 5.
+        let lancer: Vec<_> = (0..4).map(|k| rule(30, k)).collect();
+        assert_eq!(lancer[0], VersionRule { how: First, challenge: false, xp: Some((0, 8959)) });
+        assert_eq!(lancer[1], VersionRule { how: Experience, challenge: false, xp: Some((8960, MAX_XP)) });
+        assert_eq!(lancer[2], VersionRule { how: Bought, challenge: true, xp: Some((0, 255_999)) });
+        assert_eq!(lancer[3], VersionRule { how: Experience, challenge: true, xp: Some((256_000, MAX_XP)) });
+        // Two-row weapons with no step: the second row is the challenge-mode purchase.
+        for id in [12, 14, 17, 18, 53] {
+            let d = ITEMS.iter().find(|i| i.id == id).unwrap();
+            assert_eq!(d.versions().len(), 2);
+            assert_eq!(rule(id, 1), VersionRule { how: Bought, challenge: true, xp: None }, "{}", d.name);
+        }
+        // The Clank Zapper's second row comes by experience, in either mode.
+        assert_eq!(rule(9, 1), VersionRule { how: Experience, challenge: false, xp: Some((2500 * 32, MAX_XP)) });
+        // The Sheepinator's V3 comes when challenge mode starts.
+        assert_eq!(rule(16, 2).how, ChallengeStart);
+        // Every four-row weapon has a step from V3 to V4; one-row items have no versions.
+        for d in ITEMS.iter().filter(|d| d.chain.len() == 4) {
+            assert!(d.next_step(d.chain[2]).is_some(), "{}", d.name);
+            assert_eq!(d.ammo.len(), 4, "{}", d.name);
+        }
+        assert!(ITEMS.iter().filter(|d| d.chain.len() == 1).all(|d| d.versions().is_empty()));
+        let v = view("SCUS_972.68", 0, OOZLA, &oozla());
+        let seeker = v.items.iter().find(|i| i.id == 24).unwrap();
+        let labels: Vec<_> = seeker.versions.iter().map(|x| (x.label.as_str(), x.name.as_str(), x.max_ammo)).collect();
+        assert_eq!(
+            labels,
+            [
+                ("V1", "Seeker Gun", Some(25)),
+                ("V2", "HK-22", Some(20)),
+                ("V3", "HK-22", Some(40)),
+                ("V4", "HK-22", Some(50))
+            ]
+        );
+        assert_eq!(seeker.versions[1].step_xp, Some(1050 * 32));
+        assert_eq!(seeker.versions[3].step_xp, Some(10600 * 32));
+        assert_eq!(v.challenge_mode, 0);
+    }
+
+    #[test]
+    fn a_version_round_trips_as_the_game_leaves_it() {
+        // The Seeker Gun (24, owned, not in hand) through its four versions in challenge mode,
+        // with the experience and ammo the game's own upgrade and purchase leave.
+        let mut f = in_challenge_mode();
+        for (version, xp, ammo, record) in
+            [(1, 1050 * 32, 20, 67), (2, 0, 40, 85), (3, 10600 * 32, 50, 86), (0, 100, 25, 24)]
+        {
+            let before = f.clone();
+            let mut want = f.fields();
+            let s = item_mut(&mut want, 24);
+            (s.version, s.xp, s.ammo) = (Some(version), Some(xp), Some(ammo));
+            f.apply(&want).unwrap();
+            assert_eq!(f.global.get(id::RECORD)[24], record);
+            let mut c = changed(&before, &f);
+            c.retain(|&(_, chunk, _)| chunk != id::XP && chunk != id::AMMO);
+            assert_eq!(c, [(None, id::RECORD, 24)], "only the record, experience and ammo change");
+            let back = SaveFile::parse(&f.to_bytes()).unwrap();
+            assert_eq!(back.fields(), want);
+            let v = view("SCUS_972.68", 0, &f.to_bytes(), &back);
+            assert_eq!(v.items.iter().find(|i| i.id == 24).unwrap().max_ammo, Some(ammo));
+        }
+    }
+
+    #[test]
+    fn experience_stays_in_the_versions_range() {
+        let f = in_challenge_mode();
+        let try_ = |version: u32, xp: u32, ammo: u32| {
+            let mut want = f.fields();
+            let s = item_mut(&mut want, 24);
+            (s.version, s.xp, s.ammo) = (Some(version), Some(xp), Some(ammo));
+            f.clone().apply(&want)
+        };
+        assert!(try_(1, 1050 * 32 - 1, 20).unwrap_err().contains("at least 33600"), "V2 keeps its step");
+        assert!(try_(1, 1050 * 32, 21).unwrap_err().contains("at most 20"), "V2's ammo");
+        assert!(try_(2, 10600 * 32, 40).unwrap_err().contains("339200"), "V3 is under its step");
+        assert!(try_(3, 10600 * 32 - 1, 50).unwrap_err().contains("at least"), "V4 keeps its step");
+        assert!(try_(2, 10600 * 32 - 1, 40).is_ok());
+        assert!(try_(3, MAX_XP, 50).is_ok());
+    }
+
+    #[test]
+    fn mega_versions_need_challenge_mode() {
+        // A first playthrough: V2 comes by experience, V3, V4 and the two-row purchases do not.
+        let f = oozla();
+        let mut want = f.fields();
+        let s = item_mut(&mut want, 24);
+        (s.version, s.xp, s.ammo) = (Some(2), Some(0), Some(40));
+        assert!(f.clone().apply(&want).unwrap_err().contains("challenge mode"));
+        let s = item_mut(&mut want, 24);
+        (s.version, s.xp, s.ammo) = (Some(1), Some(1050 * 32), Some(20));
+        f.clone().apply(&want).unwrap();
+        let mut glove = f.fields();
+        let s = item_mut(&mut glove, 12);
+        (s.owned, s.version) = (true, Some(1));
+        assert!(f.clone().apply(&glove).unwrap_err().contains("challenge mode"));
+        let mut c = in_challenge_mode();
+        c.apply(&glove).unwrap();
+        assert_eq!(c.global.get(id::RECORD)[12], 115);
+        // Only an owned weapon changes version.
+        let mut lost = c.fields();
+        let s = item_mut(&mut lost, 14);
+        (s.owned, s.version) = (false, Some(1));
+        assert!(c.clone().apply(&lost).unwrap_err().contains("not owned"));
+        // A save already past V2 keeps loading and editing as it is.
+        let mut past = oozla();
+        past.global.get_mut(id::RECORD)[24] = 85;
+        let mut want = past.fields();
+        want.bolts = 5;
+        past.apply(&want).unwrap();
     }
 
     #[test]
@@ -1406,6 +1739,10 @@ mod tests {
         assert!(bad(&|w| w.planets[0].platinum.push(true)));
         assert!(bad(&|w| item_mut(w, 2).ammo = Some(1)));
         assert!(bad(&|w| item_mut(w, 12).xp = Some(1)), "upgrades by other means");
+        assert!(bad(&|w| item_mut(w, 24).version = None), "a weapon with versions");
+        assert!(bad(&|w| item_mut(w, 24).version = Some(4)), "four versions");
+        assert!(bad(&|w| item_mut(w, 43).version = Some(0)), "the Zodiac has one");
+        assert!(bad(&|w| item_mut(w, 12).version = Some(2)), "the Bomb Glove has two");
         assert!(!bad(&|w| w.bolts = MAX_BOLTS));
     }
 
@@ -1432,7 +1769,71 @@ mod tests {
         let kept = fs::read(Path::new(&r.backup.path).join("BASCUS-97268RATCHET/save1.bin")).unwrap();
         assert_eq!(kept, OOZLA, "the backup is the save before the edit");
         assert_eq!(read_save(card.path(), "SCUS_972.68", 1).unwrap().fields.raritanium, 4321);
-        assert!(!card.path().join("BASCUS-97268RATCHET/.save1.bin.editing").exists());
+        assert_eq!(names(&card.path().join("BASCUS-97268RATCHET")), ["save1.bin", "save2.bin"]);
+    }
+
+    /// What a folder holds, by name.
+    fn names(dir: &Path) -> Vec<String> {
+        let mut v: Vec<String> =
+            fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn the_save_folder_holds_only_the_games_files() {
+        // The game takes a folder with anything more than its own files for no save at all, so
+        // the editor writes nothing there but the save it replaces: its backups and its
+        // temporary file go beside the folder, and the temporary file never stays.
+        let card = card();
+        let game = card.path().join("BASCUS-97268RATCHET");
+        for extra in ["icon.sys", "save0.bin", "save3.bin"] {
+            fs::write(game.join(extra), b"the game's").unwrap();
+        }
+        let before = names(&game);
+        let v = read_save(card.path(), "SCUS_972.68", 1).unwrap();
+        let mut want = v.fields.clone();
+        let s = item_mut(&mut want, 24);
+        (s.version, s.xp, s.ammo) = (Some(1), Some(1050 * 32), Some(20));
+        let refused = write_save(
+            card.path(),
+            "SCUS_972.68",
+            1,
+            &v.fingerprint,
+            &{
+                let mut w = want.clone();
+                item_mut(&mut w, 24).xp = Some(1);
+                w
+            },
+            || Ok(None),
+        );
+        assert!(refused.is_err());
+        let r = write_save(card.path(), "SCUS_972.68", 1, &v.fingerprint, &want, || Ok(None)).unwrap();
+        assert_eq!(item(&r.view.fields, 24).version, Some(1));
+        let extra = crate::save_edit_rac2_extra::read_save(card.path(), "SCUS_972.68", 1).unwrap();
+        crate::save_edit_rac2_extra::write_save(
+            card.path(),
+            "SCUS_972.68",
+            1,
+            &extra.fingerprint,
+            &extra.fields,
+            || Ok(None),
+        )
+        .unwrap();
+        assert_eq!(names(&game), before, "only the game's files in its folder");
+        let root = names(card.path());
+        assert!(root.iter().all(|n| n == "BASCUS-97268RATCHET" || n.starts_with(".backup_")), "{root:?}");
+        assert_eq!(root.len(), 3, "the folder and one backup per write");
+        for b in root.iter().filter(|n| n.starts_with(".backup_")) {
+            assert_eq!(names(&card.path().join(b).join("BASCUS-97268RATCHET")), before, "a backup is the folder");
+        }
+        // A write that cannot be put in place leaves nothing behind either.
+        let blocked = game.join("save9.bin");
+        fs::create_dir_all(blocked.join("x")).unwrap();
+        assert!(crate::save_edit::replace_save(&blocked, b"new").is_err());
+        fs::remove_dir_all(&blocked).unwrap();
+        assert_eq!(names(&game), before);
+        assert_eq!(names(card.path()), root);
     }
 
     #[test]

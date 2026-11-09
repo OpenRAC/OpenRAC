@@ -101,6 +101,28 @@ record number. Gadget and item ids are the same table's.
 When `experience >> 5` reaches the step, `func_L00_002D5EB8` upgrades the weapon itself
 (`func_00287EB0`, `func_00288508`) at its next tick in a level.
 
+### The four versions
+
++0x04 of a record is its version, 0 to 3. The sixteen weapons that upgrade by experience have
+four records (the Lancer 30, 60, 79, 80):
+
+| version | how the game gets there                                                                                        | experience after        | ammo             |
+| ------- | -------------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------- |
+| V1      | given                                                                                                          | under the V1 step       | V1's full        |
+| V2      | V1's step reached (`func_00287EB0`)                                                                            | at least the step       | set to V2's full |
+| V3      | bought in challenge mode, the Mega upgrade (vendor list `func_002F6608`, purchase 0x002F8F78, `func_002887B0`) | 0, then under V3's step | set to V3's full |
+| V4      | V3's step reached, in challenge mode                                                                           | at least the step       | set to V4's full |
+
+Challenge mode is progress +0x12 (`func_00288D58` tests it non-zero; `func_002DE990`, which
+starts it, adds 1). The vendor offers the V3 only while it is set, for an owned weapon on a record
+with no experience step left (V2). The Bomb Glove, Visibomb Gun, Decoy Glove, Tesla Claw and
+Walloper have two records and no step: their second is the challenge-mode purchase. The Clank
+Zapper's second comes by experience. The Sheepinator is left out of the vendor's upgrade; its V3
+comes when challenge mode starts (V1 to V3, V2 to V4) or when it is given in challenge mode. The
+load (`SaveUnpack`) checks only the sizes and checksums, so the editor offers V3 and V4 (and the
+two-record purchases) only in a save with challenge mode started, and keeps experience in each
+version's range: `core/src/save_edit_rac2.rs`, "Weapon versions".
+
 ## How each field was proven
 
 Hidden runs of the port (NTSC-U, `--cards` a scratch copy of a card, scratch `--settings`):
@@ -129,9 +151,10 @@ Oozla, and the RAM 900 frames later holds every value, with the game's reactions
 
 ## What the editor leaves out, and why
 
-- **Choosing a weapon's version.** Setting a weapon's record to its upgraded one (Lancer to
-  Heavy Lancer) crashed the port at the level start in the held Lancer's update
-  (`func_L00_003A6C30`, moby class 1490). The version is shown, not edited.
+- **The version of the weapon in hand.** Setting the held weapon's record to its upgraded one
+  (Lancer to Heavy Lancer) crashed the port at the level start in the held Lancer's update
+  (`func_L00_003A6C30`, moby class 1490). The editor changes the version of the other weapons
+  only (below), with the experience and ammo the game's own upgrade leaves.
 - **Experience at or past the next step.** A save with the held Lancer at 9,000 (step 8,960)
   stopped at the level start in hero state 98 and never gave control. The game never saves that
   state, so the editor keeps experience under the step of the version in the save.

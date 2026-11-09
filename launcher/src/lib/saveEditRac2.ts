@@ -2,6 +2,8 @@
 // core/src/save_edit_rac2.rs enforces, so a field shows its problem before Save is pressed. The
 // Rust side checks again before it writes.
 import type { Rac2SaveFields, Rac2SaveView } from "./api";
+import type { Rac2ItemState } from "./generated/Rac2ItemState";
+import type { Rac2VersionInfo } from "./generated/Rac2VersionInfo";
 
 /** The editor's sections, in page order. */
 export type Rac2Section = "ratchet" | "weapons" | "gadgets" | "planets" | "skills" | "advanced";
@@ -14,7 +16,46 @@ export const ARMOR_LEVELS = 5;
 const whole = (n: number | null, max: number) => n !== null && Number.isInteger(n) && n >= 0 && n <= max;
 const num = (n: number) => n.toLocaleString("en-US");
 
-/** A problem with what was typed, by field ("bolts", "ammo-30", "xp-30"), in a player's words. */
+/** The version an item is in, in `f` (the selected one), or `null` for an item with one version. */
+export function selectedVersion(view: Rac2SaveView, f: Rac2SaveFields, id: number): Rac2VersionInfo | null {
+  const item = f.items.find((i) => i.id === id);
+  const info = view.items.find((i) => i.id === id);
+  if (item?.version == null || !info) return null;
+  return info.versions[item.version] ?? null;
+}
+
+/** A version as the selector shows it: "V2", or "V3 Mega" for one only challenge mode reaches. */
+export function versionLabel(v: Rac2VersionInfo): string {
+  return v.challengeOnly ? `${v.label} Mega` : v.label;
+}
+
+/** How the game reaches a version, in a player's words. */
+export function versionHow(v: Rac2VersionInfo): string {
+  switch (v.how) {
+    case "first":
+      return "The version the weapon comes in";
+    case "experience":
+      return `Upgrades itself at ${num(v.stepXp ?? 0)} experience${v.challengeOnly ? ", in challenge mode" : ""}`;
+    case "bought":
+      return "Bought from a vendor in challenge mode; experience starts again at 0";
+    case "challengeStart":
+      return "Given when challenge mode starts";
+  }
+}
+
+/** The most ammo and the experience range an item takes in the version chosen in `f`. */
+function limits(view: Rac2SaveView, f: Rac2SaveFields, id: number) {
+  const info = view.items.find((i) => i.id === id);
+  const v = selectedVersion(view, f, id);
+  return {
+    maxAmmo: v ? v.maxAmmo : (info?.maxAmmo ?? null),
+    minXp: v ? (v.minXp ?? 0) : 0,
+    maxXp: v ? v.maxXp : (info?.maxXp ?? null),
+  };
+}
+
+/** A problem with what was typed, by field ("bolts", "ammo-30", "xp-30", "version-30"), in a
+ *  player's words. */
 export function fieldErrors(view: Rac2SaveView, f: Rac2SaveFields): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!whole(f.bolts, view.maxBolts)) errors.bolts = `From 0 to ${num(view.maxBolts)}`;
@@ -23,14 +64,58 @@ export function fieldErrors(view: Rac2SaveView, f: Rac2SaveFields): Record<strin
   for (const item of f.items) {
     const info = view.items.find((i) => i.id === item.id);
     const was = view.fields.items.find((i) => i.id === item.id);
-    if (info?.maxAmmo != null && item.ammo !== was?.ammo && !whole(item.ammo, info.maxAmmo)) {
-      errors[`ammo-${String(item.id)}`] = `From 0 to ${num(info.maxAmmo)}`;
+    const key = String(item.id);
+    const versionChanged = item.version !== was?.version;
+    const { maxAmmo, minXp, maxXp } = limits(view, f, item.id);
+    if (maxAmmo !== null && (item.ammo !== was?.ammo || versionChanged) && !whole(item.ammo, maxAmmo)) {
+      errors[`ammo-${key}`] = `From 0 to ${num(maxAmmo)}`;
     }
-    if (info?.maxXp != null && item.xp !== was?.xp && !whole(item.xp, info.maxXp)) {
-      errors[`xp-${String(item.id)}`] = `From 0 to ${num(info.maxXp)}`;
+    if (maxXp !== null && (item.xp !== was?.xp || versionChanged)) {
+      if (!whole(item.xp, maxXp) || (item.xp ?? 0) < minXp) errors[`xp-${key}`] = `From ${num(minXp)} to ${num(maxXp)}`;
+    }
+    if (versionChanged && info) {
+      const v = selectedVersion(view, f, item.id);
+      if (info.worn) errors[`version-${key}`] = "In Ratchet's hand: switch weapons in the game and save first";
+      else if (!item.owned) errors[`version-${key}`] = "Give the weapon to change its version";
+      else if (v?.challengeOnly && view.challengeMode === 0) {
+        errors[`version-${key}`] = `${versionLabel(v)} exists only in challenge mode, which this save has not started`;
+      }
     }
   }
   return errors;
+}
+
+/** Whether `v` can be chosen for this save: Mega versions need challenge mode. */
+export function versionAllowed(view: Rac2SaveView, v: Rac2VersionInfo): boolean {
+  return !v.challengeOnly || view.challengeMode > 0;
+}
+
+/**
+ * Moves an item to version `to`, with the experience and ammo the game would leave: an upgrade by
+ * experience keeps at least its step, the challenge-mode purchase starts again at 0, and a version
+ * reached by moving up comes with full ammo (as the game's upgrade and purchase give it). Moving
+ * down keeps what fits.
+ */
+export function setVersion(view: Rac2SaveView, f: Rac2SaveFields, id: number, to: number): void {
+  const item: Rac2ItemState | undefined = f.items.find((i) => i.id === id);
+  const info = view.items.find((i) => i.id === id);
+  const v = info?.versions[to];
+  if (item?.version == null || !info || !v) return;
+  const from = item.version;
+  if (from === to) return;
+  item.version = to;
+  if (item.xp !== null && v.minXp !== null && v.maxXp !== null) {
+    const up = to > from;
+    const bought = up && info.versions.slice(from + 1, to + 1).some((x) => x.how !== "experience");
+    // Back to the experience the save had when the version is the one it holds.
+    const was = view.fields.items.find((i) => i.id === id);
+    if (was?.version === to && was.xp !== null) item.xp = was.xp;
+    else if (bought && v.how !== "experience") item.xp = v.minXp;
+    else item.xp = Math.min(Math.max(item.xp, v.minXp), v.maxXp);
+  }
+  if (item.ammo !== null && v.maxAmmo !== null) {
+    item.ammo = to > from ? v.maxAmmo : Math.min(item.ammo, v.maxAmmo);
+  }
 }
 
 /** Whether `f` differs from what the save holds. */
@@ -45,7 +130,8 @@ export function setOwned(view: Rac2SaveView, f: Rac2SaveFields, id: number, owne
   if (!item || !info) return;
   if (!owned && info.worn) return;
   item.owned = owned;
-  if (owned && info.maxAmmo !== null && item.ammo === 0) item.ammo = info.maxAmmo;
+  const { maxAmmo } = limits(view, f, id);
+  if (owned && maxAmmo !== null && item.ammo === 0) item.ammo = maxAmmo;
 }
 
 /** Items of a kind owned, of how many. */
@@ -60,12 +146,9 @@ export function platinumCount(f: Rac2SaveFields): number {
   return f.planets.flatMap((p) => p.platinum).filter(Boolean).length;
 }
 
-/** The name of the version of a weapon in the save. */
-export function versionName(view: Rac2SaveView, id: number): string | null {
-  const info = view.items.find((i) => i.id === id);
-  if (!info?.version) return null;
-  if (info.version === 1) return info.upgradeName ?? "Upgraded";
-  return `${info.upgradeName ?? info.name} (later version ${String(info.version)})`;
+/** The weapon's name in the version chosen in `f` (the Heavy Lancer from V2 on). */
+export function versionName(view: Rac2SaveView, f: Rac2SaveFields, id: number): string | null {
+  return selectedVersion(view, f, id)?.name ?? null;
 }
 
 /** One line of what the edits change, in a player's words, and the section it belongs to. */
@@ -120,6 +203,17 @@ export function editList(view: Rac2SaveView, f: Rac2SaveFields): Rac2Edit[] {
       section,
       "Ammo",
       pairs.filter(([a, b]) => a?.ammo !== b?.ammo).map(([, b]) => `${name(b?.id ?? 0)} ${String(b?.ammo)}`),
+    );
+    const version = (id: number, s: Rac2ItemState | undefined) => {
+      const v = s?.version == null ? undefined : view.items.find((i) => i.id === id)?.versions[s.version];
+      return v ? `${v.name} ${versionLabel(v)}` : "?";
+    };
+    add(
+      section,
+      "Version",
+      pairs
+        .filter(([a, b]) => a && b && a.version !== b.version)
+        .map(([a, b]) => `${version(a?.id ?? 0, a)} → ${version(b?.id ?? 0, b)}`),
     );
     add(
       section,

@@ -20,8 +20,13 @@
     ownedCount,
     platinumCount,
     setOwned,
+    setVersion,
     SHIP_PAINTS,
     flagGroups,
+    selectedVersion,
+    versionAllowed,
+    versionHow,
+    versionLabel,
     versionName,
     type Rac2Section,
   } from "$lib/saveEditRac2";
@@ -136,7 +141,7 @@
   function itemEdited(id: number): boolean {
     const a = view?.fields.items.find((i) => i.id === id);
     const b = item(id);
-    return !!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp);
+    return !!a && !!b && (a.owned !== b.owned || a.ammo !== b.ammo || a.xp !== b.xp || a.version !== b.version);
   }
 
   function planetEdited(id: number): boolean {
@@ -389,7 +394,19 @@
               >{ownedCount(view, fields, "weapon")[0]} of {ownedCount(view, fields, "weapon")[1]}</span
             >
           </h3>
-          <ul class="rows">
+          <p class="note">
+            {#if view.challengeMode > 0}
+              Challenge mode is on in this save (started {view.challengeMode}
+              {view.challengeMode === 1 ? "time" : "times"}), so every version can be chosen, the Mega V3 and V4
+              included.
+            {:else}
+              This save has not started challenge mode, so weapons go up to V2 here: the Mega versions (V3 and V4, and
+              the second version of the Bomb Glove, Visibomb Gun, Decoy Glove, Tesla Claw and Walloper) exist only in
+              challenge mode. Finish the game and start it to choose them.
+            {/if}
+            A new version comes with full ammo, and with the experience the game's own upgrade leaves.
+          </p>
+          <ul class="rows weapons">
             {#each weapons as w (w.id)}
               {@const s = item(w.id)}
               {#if s}
@@ -403,25 +420,59 @@
                         if (view && fields) setOwned(view, fields, w.id, e.currentTarget.checked);
                       }}
                     />
-                    {versionName(view, w.id) ?? w.name}{#if itemEdited(w.id)}<span
+                    {versionName(view, fields, w.id) ?? w.name}{#if itemEdited(w.id)}<span
                         class="mark"
                         role="img"
                         aria-label="changed"
                       ></span>{/if}
                   </label>
-                  {#if w.maxAmmo !== null && s.ammo !== null}
+                  {#if w.versions.length > 1 && s.version !== null}
+                    {@const v = selectedVersion(view, fields, w.id)}
+                    <select
+                      class="version"
+                      class:mega={v?.challengeOnly}
+                      class:off={!s.owned}
+                      aria-label={`${w.name} version`}
+                      title={w.worn
+                        ? "In Ratchet's hand: switch weapons in the game and save to change its version"
+                        : v
+                          ? versionHow(v)
+                          : undefined}
+                      value={s.version}
+                      disabled={!s.owned || w.worn}
+                      aria-invalid={!!errors[`version-${String(w.id)}`]}
+                      onchange={(e) => {
+                        if (view && fields) setVersion(view, fields, w.id, Number(e.currentTarget.value));
+                      }}
+                    >
+                      {#each w.versions as option, k (k)}
+                        <option value={k} disabled={!versionAllowed(view, option) && k !== s.version}
+                          >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}{versionAllowed(
+                            view,
+                            option,
+                          )
+                            ? ""
+                            : " (challenge mode)"}</option
+                        >
+                      {/each}
+                    </select>
+                  {:else}
+                    <span></span>
+                  {/if}
+                  {#if (selectedVersion(view, fields, w.id)?.maxAmmo ?? w.maxAmmo) !== null && s.ammo !== null}
+                    {@const maxAmmo = selectedVersion(view, fields, w.id)?.maxAmmo ?? w.maxAmmo ?? 0}
                     <span class="ammo" class:off={!s.owned}>
                       <input
                         type="number"
                         min="0"
-                        max={w.maxAmmo}
+                        max={maxAmmo}
                         step="1"
                         aria-label={`${w.name} ammo`}
                         bind:value={s.ammo}
                         aria-invalid={!!errors[`ammo-${String(w.id)}`]}
                       />
-                      <span class="dim">/ {w.maxAmmo}</span>
-                      <button class="ghost small" onclick={() => (s.ammo = w.maxAmmo)} disabled={s.ammo === w.maxAmmo}
+                      <span class="dim">/ {maxAmmo}</span>
+                      <button class="ghost small" onclick={() => (s.ammo = maxAmmo)} disabled={s.ammo === maxAmmo}
                         >Fill</button
                       >
                     </span>
@@ -429,17 +480,19 @@
                     <span class="dim no-ammo">No ammo</span>
                   {/if}
                   {#if w.maxXp !== null && s.xp !== null}
+                    {@const v = selectedVersion(view, fields, w.id)}
+                    {@const next = v ? w.versions[(s.version ?? 0) + 1] : undefined}
                     <span
                       class="ammo xp"
                       class:off={!s.owned}
-                      title={w.version === 0 && w.upgradeName
-                        ? `Becomes the ${w.upgradeName} at ${(w.upgradeXp ?? 0).toLocaleString("en-US")}`
+                      title={next?.how === "experience"
+                        ? `Becomes ${next.name} ${versionLabel(next)} at ${(next.stepXp ?? 0).toLocaleString("en-US")}`
                         : undefined}
                     >
                       <input
                         type="number"
-                        min="0"
-                        max={w.maxXp}
+                        min={v?.minXp ?? 0}
+                        max={v?.maxXp ?? w.maxXp}
                         step="1"
                         aria-label={`${w.name} experience`}
                         bind:value={s.xp}
@@ -454,10 +507,15 @@
               {/if}
             {/each}
           </ul>
+          {#each Object.entries(errors).filter(([k]) => k.startsWith("version-")) as [k, message] (k)}
+            <p class="err-text">
+              {view.items.find((i) => `version-${String(i.id)}` === k)?.name}: {message}.
+            </p>
+          {/each}
           {#if Object.keys(errors).some((k) => k.startsWith("ammo-") || k.startsWith("xp-"))}
             <p class="err-text">
-              Ammo goes up to what the weapon holds; experience stays under the next upgrade, which the game makes
-              itself.
+              Ammo goes up to what the version holds; experience stays under the next upgrade, which the game makes
+              itself, and at least at the step a version upgraded at.
             </p>
           {/if}
         </section>
@@ -1103,6 +1161,25 @@
 
   .rows.flags {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+
+  /* Weapons: name, version, ammo, experience. */
+  .rows.weapons {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+
+  .version {
+    font-size: 0.8125rem;
+    padding: 5px 8px;
+  }
+
+  .version.mega {
+    color: var(--gold);
+    background: var(--on-fill);
+  }
+
+  .version.off {
+    opacity: 0.55;
   }
 
   .unverified {
