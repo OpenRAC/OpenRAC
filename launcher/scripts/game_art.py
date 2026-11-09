@@ -14,8 +14,8 @@ sac):
 The look is the launcher's, the same for every game: shadows pulled toward the page's warm coal in
 the game's hue, the light under the bar (a glow from the top in the game's accent) and a soft bloom
 on the bright parts; dark pictures are lifted a little without going grey. The characters are not
-retouched. The logo is redrawn flat, as OpenRAC's own: its letters in the launcher's gold, the plate they
-sit on in the darkest coal, its shapes kept as they are.
+retouched. The logo is redrawn as a gold sketch: its letters' outlines, the plate's outline fainter, its
+shapes kept as they are.
 
 The downloads are kept in --cache (default ~/.cache/openrac-game-art), so a run after the first
 needs no network. Needs Pillow, numpy, scipy and opencv-python-headless.
@@ -58,7 +58,6 @@ LOGO_TUNE = {
     "rac6": {"tc": 0.30, "tl": 0.62},
 }
 GOLD = np.array([0xF5, 0xC0, 0x40], np.float32) / 255  # --amber
-PLATE = np.array([0x14, 0x12, 0x0E], np.float32) / 255  # --ink-deep
 
 TILE = (1280, 569)  # 2.25 : 1, a tile on a tablet held sideways; GameTile anchors it top left
 THUMB = (192, 132)  # the game list shows 64 x 44
@@ -115,8 +114,8 @@ def grade(img: Image.Image, c: dict[str, np.ndarray]) -> Image.Image:
 
 
 def flat_logo(logo: Image.Image, tune: dict, height: int = 440) -> Image.Image:
-    """The logo redrawn flat, as OpenRAC's own: its letters in the launcher's gold (--amber), the
-    plate they sit on in the page's darkest coal, nothing else. The shapes are the logo's own: the
+    """The logo redrawn as a sketch in the launcher's gold (--amber): its letters' outlines, the
+    plate's outline fainter, a light wash inside the letters. The shapes are the logo's own: the
     letters are told from the plate by their colour (copper, red, orange, gold) or, for the silver
     ones, as the bright, grey parts the plate's dark outlines close in. TUNE adjusts that per logo."""
     tc, tl, lmin = tune.get("tc", 0.22), tune.get("tl", 0.75), tune.get("lmin", 0.0)
@@ -151,10 +150,21 @@ def flat_logo(logo: Image.Image, tune: dict, height: int = 440) -> Image.Image:
     parts, count = ndi.label(letters)
     sizes = ndi.sum(letters, parts, range(1, count + 1))
     letters = np.isin(parts, 1 + np.where(sizes >= min_part * total)[0])
-    face = cv2.GaussianBlur((cv2.GaussianBlur(letters.astype(np.float32), (0, 0), height / 220) > 0.5).astype(np.float32), (0, 0), 0.8)
-    out = np.zeros(face.shape + (4,), np.float32)
-    out[..., :3] = GOLD * face[..., None] + PLATE * (1 - face[..., None])
-    out[..., 3] = np.clip(alpha * (0.92 * (1 - face) + face), 0, 1)
+    # A sketch: the letters' outlines in gold, the plate's outline fainter, a light wash of gold
+    # inside the letters; no fills.
+    letters = cv2.GaussianBlur(letters.astype(np.float32), (0, 0), height / 140) > 0.5
+    plate = cv2.GaussianBlur(inside.astype(np.float32), (0, 0), height / 160) > 0.5
+
+    def outline(mask: np.ndarray, width: float) -> np.ndarray:
+        k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * round(width) + 1, 2 * round(width) + 1))
+        ring = mask.astype(np.uint8) - cv2.erode(mask.astype(np.uint8), k)
+        return cv2.GaussianBlur(ring.astype(np.float32), (0, 0), 0.7)
+
+    line = np.maximum(outline(letters, height / 48), outline(plate, height / 110) * 0.55)
+    wash = cv2.GaussianBlur(letters.astype(np.float32), (0, 0), 0.7) * 0.22
+    out = np.zeros(line.shape + (4,), np.float32)
+    out[..., :3] = GOLD
+    out[..., 3] = np.clip(np.maximum(line, wash), 0, 1)
     return Image.fromarray((out * 255).clip(0, 255).astype(np.uint8), "RGBA")
 
 
@@ -180,7 +190,7 @@ def with_logo(picture: Image.Image, logo: Image.Image, left: int, share: float, 
         layer.paste(fill, (at[0], at[1] + dy), fill)
         return layer.filter(ImageFilter.GaussianBlur(radius))
 
-    tile = Image.alpha_composite(tile, blurred((10, 8, 6), 0.55, lh * 0.06, round(lh * 0.03)))  # reads on any picture
+    tile = Image.alpha_composite(tile, blurred((10, 8, 6), 0.9, lh * 0.035, round(lh * 0.015)))  # reads on any picture
     tile.alpha_composite(logo, at)
     return tile.convert("RGB")
 
