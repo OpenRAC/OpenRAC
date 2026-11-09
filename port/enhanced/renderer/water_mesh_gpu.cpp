@@ -106,16 +106,11 @@ void WaterMesh::draw(const renderer::Shader& shader, const renderer::EffectMesh&
     }
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, plan.buffer);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), nullptr);
+    // Separate fetches could mix weights and triangle indices on Radeon Vulkan.
+    static_assert(offsetof(Vertex, triangle) == 2 * sizeof(std::uint32_t));
+    static_assert(sizeof(Vertex) == 3 * sizeof(std::uint32_t));
     glEnableVertexAttribArray(3);
-    glVertexAttribIPointer(
-        3,
-        1,
-        GL_UNSIGNED_INT,
-        sizeof(Vertex),
-        reinterpret_cast<const void*>(offsetof(Vertex, triangle))
-    );
+    glVertexAttribIPointer(3, 3, GL_UNSIGNED_INT, sizeof(Vertex), nullptr);
     glUniform1i(shader.uniform("water_mesh"), 1);
     glUniform1i(shader.uniform("water_first_triangle"), plan.first_triangle);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(plan.vertices.size()));
