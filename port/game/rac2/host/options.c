@@ -668,8 +668,9 @@ static void list_icons(gaddr list) {
         func_00335E38(icon, x, row_y, 0.0f, 0.0f);
         func_00336920(
             icon,
-            i > VIDEO_ROW_AFTER && i <= VIDEO_ROW_AFTER + extra_rows() ? TITLE_ICON_SHEET
-                                                                    : GREF(int, list + LIST_ICON_SHEET),
+            i > VIDEO_ROW_AFTER && i <= VIDEO_ROW_AFTER + extra_rows()
+                ? TITLE_ICON_SHEET
+                : GREF(int, list + LIST_ICON_SHEET),
             GREF(int, icons + 4u * (gaddr)i)
         );
         GREF(unsigned int, func_00335E20(icon)) = i == chosen ? 0x70FFFEEDu : 0x60F0F0B0u;
@@ -792,7 +793,8 @@ static void camera_title(gaddr object) {
     titled_as = as;
     func_0033B050(
         object + 8,
-        as == 2 ? (int)rac2_mod_pause_title() : func_00288FB8(as == 1 ? TEXT_VIDEO : TEXT_CAMERA_TITLE),
+        as == 2 ? (int)rac2_mod_pause_title()
+                : func_00288FB8(as == 1 ? TEXT_VIDEO : TEXT_CAMERA_TITLE),
         as == 2 ? (int)(page_buffers() + 4 * TEXT_BYTES) : func_00288FB8(TEXT_PAGE_TOGGLE),
         as == 2 ? (int)(page_buffers() + 4 * TEXT_BYTES) : func_00288FB8(TEXT_PAGE_EXIT)
     );

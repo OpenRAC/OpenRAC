@@ -1843,9 +1843,11 @@ void input(const openrac_mod_pages_host& host) {
         }
     }
     const int at = p->cursor;
-    const mods::UiItem* item =
-        at >= 0 && at < static_cast<int>(p->items.size()) ? &p->items[static_cast<std::size_t>(at)] : nullptr;
-    if (item != nullptr && item->kind == OPENRAC_UI_CHOICE && (pressed & (kLeft | kRight | kCross)) != 0) {
+    const mods::UiItem* item = at >= 0 && at < static_cast<int>(p->items.size())
+                                   ? &p->items[static_cast<std::size_t>(at)]
+                                   : nullptr;
+    if (item != nullptr && item->kind == OPENRAC_UI_CHOICE
+        && (pressed & (kLeft | kRight | kCross)) != 0) {
         step_choice(host, *item, at, (pressed & kLeft) != 0 ? -1 : 1);
     } else if (item != nullptr && item->kind == OPENRAC_UI_BUTTON && (pressed & kCross) != 0) {
         const bool disabled = (item->flags & OPENRAC_UI_DISABLED) != 0;
@@ -2134,7 +2136,8 @@ int openrac_mod_pages_view_of(openrac_mod_pages_view* out) {
         openrac_mod_pages_row& row = out->row[i];
         put(row.label, sizeof row.label, item.label);
         if (item.kind == OPENRAC_UI_CHOICE && !item.choices.empty()) {
-            put(row.value, sizeof row.value,
+            put(row.value,
+                sizeof row.value,
                 item.choices[std::min<std::size_t>(item.choice, item.choices.size() - 1)]);
             row.flags |= OPENRAC_MOD_PAGES_ROW_CHOICE;
         }

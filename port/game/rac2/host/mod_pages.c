@@ -77,12 +77,12 @@
 #define ROW_TEXT 0x70B0B0A0ull
 #define LINE_BYTES 160u
 
-static gaddr main_items;     /* the game's items and the mods', ended by a zero item */
+static gaddr main_items; /* the game's items and the mods', ended by a zero item */
 static gaddr pages[OPENRAC_UI_MAIN_ITEMS_MAX];
 static gaddr pause_pages[OPENRAC_UI_PAUSE_ITEMS_MAX];
-static gaddr labels;         /* each mod item's label, LABEL_BYTES apiece */
-static gaddr pause_texts;    /* the pause items' labels, their descriptions, a page's title */
-static gaddr line;           /* a line being printed */
+static gaddr labels;      /* each mod item's label, LABEL_BYTES apiece */
+static gaddr pause_texts; /* the pause items' labels, their descriptions, a page's title */
+static gaddr line;        /* a line being printed */
 static int mod_items;
 
 static int title_up(void) {
@@ -284,8 +284,8 @@ static void go_back(void) {
 static void sound(int cue) {
     func_002E5E58(
         cue == OPENRAC_UI_SOUND_CURSOR || cue == OPENRAC_UI_SOUND_PAGE ? SOUND_MOVE
-        : cue == OPENRAC_UI_SOUND_DENIED                             ? SOUND_DENIED
-                                                                     : SOUND_CHOOSE,
+        : cue == OPENRAC_UI_SOUND_DENIED                               ? SOUND_DENIED
+                                                                       : SOUND_CHOOSE,
         0,
         0
     );
