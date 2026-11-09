@@ -27,6 +27,7 @@ import java.io.FileNotFoundException
  * deletes them through here. These folders, and not the tools the APK unpacks (OpenracSetup.kt):
  *
  *   Saves and settings  files/share/openrac  the memory cards and each game's settings
+ *   Mods data           files/share/openrac/mod-data  each mod's own files (the SDK's data_dir)
  *   Games               files/games          each game's set-up from its disc, its mods
  *   Disc images         files/discs          the images picked in the launcher
  *   GPU drivers         files/gpu_drivers    the driver packages (OpenracPlugin.kt)
@@ -42,6 +43,7 @@ class FilesProvider : DocumentsProvider() {
     private const val ROOT = "root"
     private val PLACES = listOf(
       Place("saves", "Saves and settings", "share/openrac"),
+      Place("mod-data", "Mods data", "share/openrac/mod-data"),
       Place("games", "Games", "games"),
       Place("discs", "Disc images", "discs"),
       Place("drivers", "GPU drivers", "gpu_drivers"),
@@ -62,10 +64,11 @@ class FilesProvider : DocumentsProvider() {
     /** The folder of the app's files a place is. */
     private fun folder(context: Context, place: Place): File = File(context.filesDir, place.path)
 
-    /** The document a file of the app's is, or null when it is in none of its folders. */
+    /** The document a file of the app's is, or null when it is in none of its folders. A file in
+     *  Mods data is also in Saves and settings: the deepest folder names it. */
     fun documentId(context: Context, file: File): String? {
       val path = file.absoluteFile.normalize()
-      for (place in PLACES) {
+      for (place in PLACES.sortedByDescending { it.path.length }) {
         val base = folder(context, place).absoluteFile.normalize()
         if (path == base) return place.key
         if (path.startsWith(base)) return "${place.key}/${path.toRelativeString(base)}"

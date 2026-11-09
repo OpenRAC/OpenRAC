@@ -109,11 +109,13 @@ The on-screen pad (`platform/touch_pad.h`, drawn by one shader in
 
 The app keeps everything in its own storage (`files/`): the games
 (`files/games`, the install folder), saves and settings
-(`files/share/openrac`), disc images, GPU drivers and screenshots.
+(`files/share/openrac`), each mod's own files (`files/share/openrac/mod-data`,
+the SDK's `data_dir`), disc images, GPU drivers and screenshots.
 
 - The Files app shows them in its sidebar as OpenRAC, with the free space, as
   Dolphin and Eden do (`FilesProvider.kt`, authority `<package>.files`).
-  Settings has an Open Files button.
+  Settings has an Open Files button. Mods data is one of its folders, so the
+  files every mod keeps through `data_dir` show there.
 - `hasFragileUserData` makes uninstalling ask whether to keep the data; it
   comes back when the same app, signed with the same key, is reinstalled.
 - An older install in the app's data folder is moved into `files/games` at the
