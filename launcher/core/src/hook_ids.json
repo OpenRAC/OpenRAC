@@ -708,6 +708,7 @@
    "Moby_HypnomaticMaker_Update": "rac2.moby.hypnomatic_maker.update",
    "Moby_LevitatorSeller_Update": "rac2.moby.levitator_seller.update",
    "Moby_MapperReturn_Update": "rac2.moby.mapper_return.update",
+   "Moby_NanotechBall_Update": "rac2.moby.nanotech_ball.update",
    "Moby_RaceController_Update": "rac2.moby.race_controller.update",
    "Moby_RecordDeath": "rac2.moby.record_death",
    "Moby_SwingshotArea_Update": "rac2.moby.swingshot_area.update",

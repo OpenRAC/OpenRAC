@@ -232,3 +232,11 @@ rac2.moby.hypnomatic_maker.update (Moby_HypnomaticMaker_Update) void(u32): Damos
 ```lua
 type Moby_HypnomaticMaker_UpdateFn = (moby: number) -> ()
 ```
+
+### `Moby_NanotechBall_UpdateFn`
+
+rac2.moby.nanotech_ball.update (Moby_NanotechBall_Update) void(u32): The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update.
+
+```lua
+type Moby_NanotechBall_UpdateFn = (moby: number) -> ()
+```

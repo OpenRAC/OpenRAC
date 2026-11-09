@@ -324,6 +324,20 @@
         "ntsc2": "func_L18_00441C08"
       },
       "about": "Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte."
+    },
+    {
+      "id": "rac2.moby.nanotech_ball.update",
+      "name": "Moby_NanotechBall_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_003136D0",
+        "pal": "func_00314B5C",
+        "ntsc2": "func_003144C8"
+      },
+      "about": "The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update."
     }
   ]
 }

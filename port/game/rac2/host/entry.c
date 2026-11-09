@@ -46,6 +46,16 @@ static const openrac_fn_entry entries[] = {
     {RAC2_ADDR(0x002DC908u), (openrac_host_fn)func_002DC900, "func_002DC900"},
 };
 
+/* The tools and the mods' play calls (tools.c, play.c) are the port's before the game runs: the
+ * mods load before crt0 (main.cpp, load_mods) and keep the play table they find then, so one
+ * installed only here left Going Commando's mods with none (play_status failed: the item
+ * randomizer's ticks did nothing, the multiplayer mod refused to load). A constructor in this file,
+ * which the link keeps (the entry point is named), as Ratchet & Clank installs its own (rac1
+ * boot.c); crt0 installs them again, the same. */
+__attribute__((constructor)) static void install_tools_early(void) {
+    rac2_install_tools();
+}
+
 int func_00131AE8(void) {
     openrac_guest_register(OPENRAC_OVERLAY_EXE, entries, sizeof entries / sizeof entries[0]);
     /* The game reports what it draws (host/render.c), so the window draws no world until a pass
