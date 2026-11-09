@@ -70,7 +70,7 @@ describe("Android launcher", () => {
     // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
     await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
-    // Games is a home screen across the whole window (GamesHome), not a page with margins.
+    // Games is a shelf of discs across the whole window (DiscShelf), not a page with margins.
     for (const query of ["version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
       await page.locator(".page").first().waitFor({ state: "visible" });
