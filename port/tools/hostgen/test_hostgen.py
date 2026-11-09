@@ -224,9 +224,11 @@ class Translate(unittest.TestCase):
         table = {"values": {"ref_00100100_00": "0x00100240"}, "levels": {}, "unresolved": ["ref_00100180_00"]}
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
+            # The static helper is a stub no translated function calls (its one caller runs the assembly).
             out = self.run_program(files, config={"derived": {"table": "derived_names.json"}},
-                                   extra_files={"derived_names.json": json.dumps(table)})
+                                   extra_files={"derived_names.json": json.dumps(table)}, stubs=1)
         self.assertEqual(out, ["5"])
+        self.assertEqual(list(self.last_report["stubbed"]), ["helper"])
         self.assertEqual(self.last_report["unresolved_derived"], {
             "func_00100140": ["ref_00100140_00"], "func_00100180": ["ref_00100180_00"],
             "func_001001C0": ["ref_00100140_00"], "func_00100200": ["ref_00100180_00"]})
