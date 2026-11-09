@@ -17,6 +17,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import ctype
+from derived import DERIVED_NAME
 
 # How a game's decompilation names code and data by address, as regular
 # expressions with an `addr` group (hexadecimal) and, for code in a level's
@@ -95,6 +96,9 @@ class Function:
     # the EE's save area of argument doublewords, which its callers fill on the host (lower.py)
     arg_area: bool = False
     calls: tuple = ()           # the functions its definition calls by name (direct_calls)
+    # the names its definition uses that only the decompilation's build values (derived.DERIVED_NAME: a matched
+    # function's `ref_L00_003ABEC0_00`), called, taken or read, its unit's static helpers' included (derived_uses)
+    derived: tuple = ()
 
 
 @dataclass
@@ -726,6 +730,62 @@ def direct_calls(decl: dict, by_id: dict) -> tuple:
     return tuple(out)
 
 
+def derived_uses(decl: dict, statics: dict) -> tuple:
+    """The derived names (derived.DERIVED_NAME) a definition uses: functions it calls or takes the address of, globals it
+    reads or writes, its static locals' initializers among them, and so on through the static functions of its unit
+    (STATICS: name -> definition) it calls, which are translated as part of it. A `__gp` view of a global
+    (`ref_L00_00424F98_03__gp`) is the global's name."""
+    out: list[str] = []
+    seen: set[int] = set()
+    stack = [decl]
+    while stack:
+        n = stack.pop()
+        if n.get("kind") == "DeclRefExpr":
+            ref = n.get("referencedDecl") or {}
+            name = ref.get("name", "")
+            m = DERIVED_NAME.match(name)
+            if m is not None and m.group(0) not in out and ref.get("kind") in ("FunctionDecl", "VarDecl"):
+                out.append(m.group(0))
+            helper = statics.get(name) if ref.get("kind") == "FunctionDecl" else None
+            if helper is not None and id(helper) not in seen:
+                seen.add(id(helper))
+                stack.append(helper)
+        stack.extend(reversed(n.get("inner", ())))
+    return tuple(out)
+
+
+def derived_resolves(program: Program, name: str, unit: str | None = None) -> bool:
+    """Whether the program knows where a derived name is: its build's table values it (the executable's symbols, a
+    level's names), its spelling places it, the unit names another function by it (hostgen.json "unit_aliases"), or
+    it is a function with C or the port's own. Without that, a call of it reached a stub that does nothing and a
+    global of it had no address."""
+    if name in program.symbols or name in program.level_names or (unit, name) in program.aliases:
+        return True
+    f = program.functions.get(name)
+    if f is not None and (f.unit is not None or name in program.host):
+        return True
+    return bool(program.data_address(name) is not None or program.code_places(name))
+
+
+def users_of_unresolved_derived(program: Program) -> dict[str, list[str]]:
+    """A definition that uses a derived name (derived_uses) the program has no address for cannot run its C: a call
+    of the name would reach a stub that does nothing (func_L00_003ABEC0's ref_L00_003ABEC0_00, the Todano robot's
+    script call, with the port's derived_names.json written before rac2-decomp matched it), a global of it has no
+    address to read. Such a definition is translated from the retail assembly instead, as a "from_assembly" row
+    would leave it (settle_signatures). The port's own host and wrapped functions keep their C. Returns each
+    function moved and the names it lacks."""
+    moved: dict[str, list[str]] = {}
+    for sym, f in sorted(program.functions.items()):
+        if f.unit is None or f.static or not f.derived or sym in program.host or sym in program.wrap:
+            continue
+        missing = [name for name in f.derived if not derived_resolves(program, name, f.unit)]
+        if missing:
+            program.functions[sym] = Function(sym, f.sig, None, asm=True, declared=f.declared)
+            program.from_assembly.add(sym)
+            moved[sym] = sorted(missing)
+    return moved
+
+
 def callers_of_unprototyped(program: Program) -> list[str]:
     """A definition that calls, by name, a function of another unit (or of none) whose signature has no form in
     the shared prototypes (prototype(): a record by value, as a parameter or the result) cannot be translated: its
@@ -848,6 +908,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
         except ctype.TypeError_:
             return t
 
+    # The unit's static definitions by name: a definition's derived names include theirs (derived_uses).
+    statics = {d.get("name", ""): d for d in by_id.values() if d.get("storageClass") == "static" and has_body(d)}
     for decl in ast.get("inner", ()):
         kind = decl.get("kind")
         if kind == "TypedefDecl":
@@ -908,7 +970,8 @@ def index_unit(program: Program, unit: str, ast: dict) -> list[str]:
                                               forwards=forwarded_params(decl, by_id),
                                               returns=returned_calls(decl, by_id),
                                               arg_area=sig.variadic and uses_arg_area(decl),
-                                              calls=direct_calls(decl, by_id))
+                                              calls=direct_calls(decl, by_id),
+                                              derived=derived_uses(decl, statics))
         else:
             f = program.functions.get(sym)
             if f is None:
@@ -1075,7 +1138,7 @@ def merge(into: Program, part: Program) -> list[str]:
             declared = have.declared + f.declared
             into.functions[sym] = Function(sym, f.sig, f.unit, asm=have.asm, declared=declared, tail=f.tail,
                                            forwards=f.forwards, returns=f.returns, arg_area=f.arg_area,
-                                           calls=f.calls)
+                                           calls=f.calls, derived=f.derived)
         else:
             have.declared.extend(f.declared)
             if have.unit is None and have.declared:

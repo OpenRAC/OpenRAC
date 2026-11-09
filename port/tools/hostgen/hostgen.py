@@ -47,7 +47,7 @@ import release  # noqa: E402
 import ctype  # noqa: E402
 import prep  # noqa: E402
 from lower import Unit, UnitReport  # noqa: E402
-from program import Function, Program, Signature, callers_of_unprototyped, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
+from program import Function, Program, Signature, callers_of_unprototyped, users_of_unresolved_derived, canon, cname, index_unit, prototype, inherit_results, merge, read_call_copies, read_level_twins, read_places, read_split_places, read_symbols, read_catalogue, widen_forwarded, widen_returns  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PROGRAM_FILES = ["stubs.c", "functions.c", "hooks.c", "libraries.c", "game_info.c", "game_protos.h"]
@@ -1008,18 +1008,45 @@ def is_up_to_date(out: Path, digest: str, source: Path, cfg: dict) -> bool:
     return stamp.is_file() and stamp.read_text().strip() == digest and all((out / f).is_file() for f in expected)
 
 
-def warn_of_uncovered_names(derived_table: Path | None, source: Path, cfg: dict, args: argparse.Namespace) -> None:
-    """The port's copy of the derived names was written from a build of an earlier commit of the
-    decompilation: the names the C has started to use since have no value, and their functions
-    become stubs. Said, with the way to refresh the copy."""
-    if derived_table is None or derived_table.is_relative_to(source):
+def warn_of_unresolved_derived(derived_table: Path | None, source: Path, cfg: dict, args: argparse.Namespace,
+                               program: Program) -> None:
+    """The functions whose C uses a derived name the table has no address for (program.py
+    users_of_unresolved_derived) run their retail assembly instead: one warning names each, and how to bring
+    the table up to the decompilation. A table written before the C started to use a name (the port's copy,
+    derived_names.json, after a sync or with a decompilation ahead of its pin) is behind; a name the table
+    lists as unresolved is one its build had no value for (its function was assembly there), said apart.
+    Names the C uses that the table does not know but no function translated from C uses are said once,
+    without the functions."""
+    moved = getattr(program, "unresolved_derived", {})
+    table = json.loads(derived_table.read_text()) if derived_table is not None and derived_table.suffix == ".json" else {}
+    known_unresolved = set(table.get("unresolved", []))
+    behind = {sym: names for sym, names in moved.items() if any(n not in known_unresolved for n in names)}
+    if derived_table is None:
+        name, how = "the derived names", "give hostgen.json a \"derived\" table"
+    elif derived_table.is_relative_to(source):
+        name, how = derived_table.name, f"build the decompilation again ({source})"
+    else:
+        name, how = derived_table.name, (f"build the decompilation, then run port/tools/hostgen/derived.py "
+                                         f"--game {args.game} --source <it>")
+    if behind:
+        lines = "".join(f"\n  {sym}: {', '.join(names)}" for sym, names in sorted(behind.items()))
+        print(f"hostgen: warning: {name} is behind the decomp; regenerate it. {len(behind)} functions use names "
+              f"it has no address for, and run their retail assembly instead of their C:{lines}\n"
+              f"  To regenerate: {how}.", file=sys.stderr)
+    rest = sorted(set(moved) - set(behind))
+    if rest:
+        lines = "".join(f"\n  {sym}: {', '.join(moved[sym])}" for sym in rest)
+        print(f"hostgen: warning: {len(rest)} functions use names {name} lists as unresolved (the decomp's build "
+              f"gave them no value when it was written: their functions were assembly there) and run their retail "
+              f"assembly instead of their C:{lines}\n  If the decomp has matched them since, {name} is behind the "
+              f"decomp; regenerate it: {how}.", file=sys.stderr)
+    if derived_table is None or derived_table.is_relative_to(source) or behind:
         return
-    missing = derived.uncovered(source, cfg, json.loads(derived_table.read_text()))
+    missing = derived.uncovered(source, cfg, table)
     if missing:
         print(f"hostgen: warning: {derived_table} has no value for {len(missing)} names the C uses "
-              f"({', '.join(missing[:8])}{', ...' if len(missing) > 8 else ''}); the functions that use "
-              f"them are stubs. Build the decompilation, then run port/tools/hostgen/derived.py "
-              f"--game {args.game} --source <it>.", file=sys.stderr)
+              f"({', '.join(missing[:8])}{', ...' if len(missing) > 8 else ''}), in no function this program "
+              f"translates from C; {name} is behind the decomp; regenerate it: {how}.", file=sys.stderr)
 
 
 # Another release's view of the decompilation (hostgen.json "release", release.py): its names
@@ -1260,6 +1287,9 @@ def settle_signatures(program: Program, cfg: dict, source: Path, host_sigs: dict
     # A definition that calls another unit's function with no shared prototype (a record by value) is
     # left to its assembly (program.py callers_of_unprototyped): its unit could not declare the callee.
     program.unprototyped_callers = callers_of_unprototyped(program)
+    # A definition that uses a derived name with no address (a ref_ name a stale table does not value) is left to
+    # its assembly too (program.py users_of_unresolved_derived): its call would reach a stub that does nothing.
+    program.unresolved_derived = users_of_unresolved_derived(program)
     # A parameter the C only passes on to 64-bit parameters is 64-bit itself (program.py widen_forwarded): the EE's
     # register carries all its bits through (FontPrintCenter's colour to FontPrint's u64).
     program.widened = widen_forwarded(program)
@@ -1326,6 +1356,7 @@ def write_outputs(out: Path, args: argparse.Namespace, cfg: dict, program: Progr
     extra["params_widened"] = sorted(getattr(program, "widened", []))
     extra["results_widened"] = sorted(getattr(program, "results_widened", []))
     extra["unprototyped_callers"] = sorted(getattr(program, "unprototyped_callers", []))
+    extra["unresolved_derived"] = dict(sorted(getattr(program, "unresolved_derived", {}).items()))
     extra["bound_libraries"] = write_libraries(program, out, host_rows, library_api(args.game.parent, cfg))
     write_game_info(program, out, cfg)
     extra["hooks"] = sorted(program.hook.values())
@@ -1422,7 +1453,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     stamp = out / "inputs.sha256"
     stamp.unlink(missing_ok=True)
-    warn_of_uncovered_names(derived_table, source, cfg, args)
     root = out / "prep"
     # The lock the units take to rewrite a prepared header (clangast.drop_superseded_declarations),
     # left behind by a translation that was stopped.
@@ -1447,6 +1477,7 @@ def main(argv: list[str] | None = None) -> int:
     problems += index_units(program, state, units, args.jobs)
     host_sigs = {sym: sig for sym, (_name, sig) in host_rows.items()}
     problems += settle_signatures(program, cfg, source, host_sigs)
+    warn_of_unresolved_derived(derived_table, source, cfg, args, program)
     if args.program_out:
         with open(args.program_out, "wb") as f:
             SortedPickler(f, protocol=4).dump({"format": asmext.FORMAT, "program": program,
