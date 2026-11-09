@@ -24,7 +24,6 @@
     SHIP_PAINTS,
     flagGroups,
     selectedVersion,
-    versionAllowed,
     versionHow,
     versionLabel,
     versionName,
@@ -395,15 +394,7 @@
             >
           </h3>
           <p class="note">
-            {#if view.challengeMode > 0}
-              Challenge mode is on in this save (started {view.challengeMode}
-              {view.challengeMode === 1 ? "time" : "times"}), so every version can be chosen, the Mega V3 and V4
-              included.
-            {:else}
-              This save has not started challenge mode, so weapons go up to V2 here: the Mega versions (V3 and V4, and
-              the second version of the Bomb Glove, Visibomb Gun, Decoy Glove, Tesla Claw and Walloper) exist only in
-              challenge mode. Finish the game and start it to choose them.
-            {/if}
+            Outside challenge mode, V3 won't level to V4 on its own.
             A new version comes with full ammo, and with the experience the game's own upgrade leaves.
           </p>
           <ul class="rows weapons">
@@ -446,14 +437,7 @@
                       }}
                     >
                       {#each w.versions as option, k (k)}
-                        <option value={k} disabled={!versionAllowed(view, option) && k !== s.version}
-                          >{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}{versionAllowed(
-                            view,
-                            option,
-                          )
-                            ? ""
-                            : " (challenge mode)"}</option
-                        >
+                        <option value={k}>{versionLabel(option)}{option.name !== w.name ? ` ${option.name}` : ""}</option>
                       {/each}
                     </select>
                   {:else}

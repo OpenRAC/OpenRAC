@@ -58,8 +58,9 @@
 //!   is given in challenge mode (`func_00288308`: V3, experience 0).
 //! - **Ammo** is the row's +0x8E ([`ItemDef::ammo`]): every version holds its own maximum.
 //!
-//! So V3 and V4, and the two-row weapons' second row, exist only in challenge mode, and the
-//! editor offers them only then. The version of the weapon in Ratchet's hand is not changed
+//! So the game reaches V3 and V4, and the two-row weapons' second row, only in challenge mode, but
+//! a save loads with any of them in any mode (outside it the game only gates earning them, so a V3
+//! there never steps to V4 by experience), and the editor offers them on every save. The version of the weapon in Ratchet's hand is not changed
 //! (a save with its record moved crashed the port at the level start, in the held weapon's
 //! update: launcher/docs/RAC2_SAVE_FORMAT.md).
 
@@ -878,7 +879,6 @@ impl SaveFile {
     pub fn apply(&mut self, want: &Rac2SaveFields) -> Result<(), String> {
         let have = self.fields();
         validate(want)?;
-        let challenge = self.challenge_mode();
         for (d, (w, h)) in ITEMS.iter().zip(want.items.iter().zip(&have.items)) {
             if !w.owned && h.owned && self.worn(d.id) {
                 return Err(format!("Ratchet has the {} in hand or on: change it in the game first", d.name));
@@ -896,12 +896,6 @@ impl SaveFile {
                 }
                 if !w.owned {
                     return Err(format!("the {} is not owned: give it to change its version", d.name));
-                }
-                if rule.is_some_and(|r| r.challenge) && challenge == 0 {
-                    return Err(format!(
-                        "the {name} ({}) exists only in challenge mode: this save has not started it",
-                        version_label(depth)
-                    ));
                 }
             }
             // The game never saves experience past the next step: it upgrades the weapon at the
@@ -1565,21 +1559,32 @@ mod tests {
     }
 
     #[test]
-    fn mega_versions_need_challenge_mode() {
-        // A first playthrough: V2 comes by experience, V3, V4 and the two-row purchases do not.
+    fn mega_versions_need_no_challenge_mode() {
+        // A first playthrough: V3, V4 and the two-row purchases load like any other version.
         let f = oozla();
+        assert_eq!(f.challenge_mode(), 0);
         let mut want = f.fields();
         let s = item_mut(&mut want, 24);
         (s.version, s.xp, s.ammo) = (Some(2), Some(0), Some(40));
-        assert!(f.clone().apply(&want).unwrap_err().contains("challenge mode"));
+        let mut a = f.clone();
+        a.apply(&want).unwrap();
+        assert_eq!(a.global.get(id::RECORD)[24], 85);
         let s = item_mut(&mut want, 24);
-        (s.version, s.xp, s.ammo) = (Some(1), Some(1050 * 32), Some(20));
-        f.clone().apply(&want).unwrap();
+        (s.version, s.xp, s.ammo) = (Some(3), Some(10600 * 32), Some(50));
+        let mut b = f.clone();
+        b.apply(&want).unwrap();
+        assert_eq!(b.global.get(id::RECORD)[24], 86);
+        // The ranges still hold.
+        let s = item_mut(&mut want, 24);
+        (s.version, s.xp, s.ammo) = (Some(2), Some(10600 * 32), Some(40));
+        assert!(f.clone().apply(&want).unwrap_err().contains("339200"));
+        let s = item_mut(&mut want, 24);
+        (s.version, s.xp, s.ammo) = (Some(2), Some(0), Some(41));
+        assert!(f.clone().apply(&want).unwrap_err().contains("at most 40"));
         let mut glove = f.fields();
         let s = item_mut(&mut glove, 12);
         (s.owned, s.version) = (true, Some(1));
-        assert!(f.clone().apply(&glove).unwrap_err().contains("challenge mode"));
-        let mut c = in_challenge_mode();
+        let mut c = f.clone();
         c.apply(&glove).unwrap();
         assert_eq!(c.global.get(id::RECORD)[12], 115);
         // Only an owned weapon changes version.

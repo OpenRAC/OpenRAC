@@ -120,7 +120,8 @@ Walloper have two records and no step: their second is the challenge-mode purcha
 Zapper's second comes by experience. The Sheepinator is left out of the vendor's upgrade; its V3
 comes when challenge mode starts (V1 to V3, V2 to V4) or when it is given in challenge mode. The
 load (`SaveUnpack`) checks only the sizes and checksums, so the editor offers V3 and V4 (and the
-two-record purchases) only in a save with challenge mode started, and keeps experience in each
+two-record purchases) on every save (outside challenge mode a V3 never steps to V4 by
+experience), and keeps experience in each
 version's range: `core/src/save_edit_rac2.rs`, "Weapon versions".
 
 ## How each field was proven
