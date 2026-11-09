@@ -237,37 +237,54 @@ without it. Off, every game wears the gold.
 
 ## A game's picture
 
-Each game has a picture (`public/img/<name>-bg.webp`, the site's backdrop
-under the site's name: `rac1`, `gc`, `uya`, `deadlocked`, `size-matters`, `sac`),
-listed in `src/lib/media.ts`. It shows in the game list, under the game's
-band and faintly behind its page. A file that is not there is left out: the
-game's colours show, as on the site.
+Each game has three pictures in `public/img/`, under the site's names (`rac1`,
+`gc`, `uya`, `deadlocked`, `size-matters`, `sac`), listed in `src/lib/media.ts`:
 
-The site serves its backdrops from its server, not its repository, so a new
-one is copied from there, and scaled to 1920 wide when it is wider: the band
-is never wider than that on screen, and a 3840 picture took long enough to
-decode that the page slid in without it and showed it a moment later.
-The game list shows each picture 64 × 44 from a thumbnail,
-`<name>-thumb.webp` (192 × 132, a few KB), so that it does not decode every
-game's full picture; Android's game tiles show `<name>-tile.webp`, the picture
-1280 wide, for the same reason. `python3 scripts/media.py thumbs` makes both
-again after a picture is added or replaced. `python3 scripts/media.py still RECORDING GAME
---at S` writes a picture and its thumbnail from a frame of a recording of
-your own play. `node scripts/steam_art.mjs` makes Steam's pictures of the launcher
-(`src-tauri/steam/`) again after `rac1-bg.webp` or the logo changes;
-`bash scripts/steam_game_art.sh` (ffmpeg) makes each game's own, for its entry
-from the game's page (`src-tauri/steam/games/<game>/`), from its picture and its
-name in Orbitron, after a game's picture changes.
+- `<name>-bg.webp`, 1920 × 620, no logo: under the game's band once its page is
+  open, and faintly behind the page;
+- `<name>-tile.webp`, 1280 × 569, the same picture framed for a tile with the
+  game's logo top left: Android's Games tab. The tile keeps that corner
+  (`object-position: left top`) and does not write the game's name over its
+  logo; the name is still read out, and shows again if the picture fails;
+- `<name>-thumb.webp`, 192 × 132: the game list, which shows it 64 × 44.
+
+`python3 scripts/game_art.py` makes all three from the game's SteamGridDB hero
+and logo (the links are in the script). It gives every game the launcher's
+look, the same for all: shadows pulled toward the page's coal in the game's
+hue, the light under the bar (a glow from the top in the game's accent, as
+`body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
+little without going grey. The characters are not retouched. The logo keeps
+its own shading, mapped onto the game's colours from `palettes.json` (the bar's
+dark ink up to its light accent), with a glow in the accent behind it. The
+tile's frame is chosen per game so the logo sits on background and the faces
+stay whole, as Steam asks of its own heroes (key art in the middle, a logo
+never over a face).
+
+The band shows the picture at 60 % (over the card gradient, which muddied it at less), above its middle (`object-position: 50% 25%`:
+the band is wider than the picture, and the faces are in its upper part).
+Behind the page it is a screen blend at 20 %, faded at its edges by a mask, so
+it only adds light and the light under the bar still shows through it. Text on
+a tile sits on a shade from the tile's foot (`--ink-deep` 94 % to 70 % at 40 %),
+which keeps its status line at about 4.5 : 1 against the brightest of these
+pictures.
+
+`python3 scripts/media.py thumbs` makes the thumbnails again from the
+pictures; `python3 scripts/media.py still RECORDING GAME --at S` writes a
+picture, its tile (without a logo) and its thumbnail from a frame of a
+recording of your own play. `node scripts/steam_art.mjs` makes Steam's pictures
+of the launcher (`src-tauri/steam/`) again after `rac1-bg.webp` or the logo
+changes; `bash scripts/steam_game_art.sh` (ffmpeg) makes each game's own, for
+its entry from the game's page (`src-tauri/steam/games/<game>/`), from its
+picture and its name in Orbitron, after a game's picture changes.
 
 The band shows no moving clip: one was planned (an animated WebP under the
 picture), and taken out on 2026-10-20 with the old `*-gameplay.gif` files,
 which nothing showed. A still picture does the band's work without the
 download, and a page with a Play button in it needs nothing moving behind it.
 
-Where each picture comes from (who made it, from which disc, under what
-terms) is not recorded yet for the backdrops here since 2026-10-09. It
-belongs in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) before a
-release, and a new file adds its line there when it is added.
+Where each picture comes from is in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md); a new file adds its line
+there when it is added.
 
 ## Structure
 

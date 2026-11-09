@@ -5,14 +5,22 @@ depends on (Tauri, Svelte, serde and the rest) keep their own licenses in
 `node_modules/` and Cargo's registry; they are listed in `package-lock.json`
 and `Cargo.lock`.
 
+## The games' pictures
+
+Each game's pictures in `public/img/` (`*-bg`, `*-tile`, `*-thumb`) are made by
+`scripts/game_art.py` from that game's hero and logo on
+[SteamGridDB](https://www.steamgriddb.com), uploaded there by its users; the
+script lists each file's link. The art and the logos are Sony Interactive
+Entertainment's and Insomniac Games' (High Impact Games' for Size Matters and
+Secret Agent Clank), shown to name the game the player owns.
+
 ## The OpenRAC website
 
 The colours, type, header bar, game cards and progress bar follow
 [OpenRAC/openrac-site](https://github.com/OpenRAC/openrac-site) (`src/app/globals.css`,
 `src/components/Header.tsx`, `src/components/Progress.tsx`, `src/lib/projects.ts`).
 Steam's pictures (`src-tauri/steam/`, `scripts/steam_art.mjs`) are cut from
-`public/img/rac1-bg.webp`, with OpenRAC's logo. That picture's source is not recorded
-yet (docs/STYLE.md, "A game's picture"). Each game's own (`src-tauri/steam/games/`,
+`public/img/rac1-bg.webp`, with OpenRAC's logo. Each game's own (`src-tauri/steam/games/`,
 `scripts/steam_game_art.sh`) is cut from that game's picture in `public/img/`, with its
 name set in Orbitron (SIL Open Font License, `port/game/common/fonts/OFL-Orbitron.txt`).
 The app icons are

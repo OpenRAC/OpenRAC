@@ -493,16 +493,12 @@
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
-    opacity: 0.18;
-  }
-
-  .page-ambient-bg::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(ellipse 70% 60% at 50% 20%, transparent 20%, var(--ink) 80%),
-      linear-gradient(to bottom, transparent 60%, var(--ink) 100%);
+    opacity: 0.2;
+    /* Screen: the picture only adds light, so the light under the bar (app.css body::after) still
+       shows through it. It fades out at its edges rather than under a coat of the page's colour,
+       which covered that light. */
+    mix-blend-mode: screen;
+    mask-image: radial-gradient(ellipse 70% 75% at 50% 20%, black 25%, transparent 85%);
   }
 
   .page-ambient-bg img {
@@ -544,7 +540,9 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0.38;
+    /* Above the middle: the band is wider than the picture, and the faces are in its upper part. */
+    object-position: 50% 25%;
+    opacity: 0.6;
     /* The game's picture settles into the band as the page opens. */
     animation: settle 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     will-change: transform, opacity;

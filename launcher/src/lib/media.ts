@@ -37,10 +37,16 @@ export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
-/** A game's picture as Android's Games tab shows it: 1280 wide (scripts/media.py thumbs), where
- *  the picture itself can be 3840 and take a moment to decode each time the tab opens. */
+/** A game's picture as Android's Games tab shows it: framed for a tile, 1280 wide, with the game's
+ *  logo top left (scripts/game_art.py). */
 export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
+}
+
+/** Whether the game's tile picture carries its logo, so the tile need not write its name over it.
+ *  The store bundles' illustrations carry none. */
+export function tileHasLogo(game: string): boolean {
+  return !storeArt(game) && Object.hasOwn(GAME_ART, game);
 }
 
 // The tiles' pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds

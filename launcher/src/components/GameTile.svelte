@@ -6,7 +6,7 @@
   import { app, dismissCrashes, openVersion } from "$lib/app.svelte";
   import { pct } from "$lib/format";
   import { regionLabel } from "$lib/labels";
-  import { gameTileArt, hideMissing } from "$lib/media";
+  import { gameTileArt, hideMissing, tileHasLogo } from "$lib/media";
   import { playerAct, playerState, playerVersion } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
   import Icon from "./Icon.svelte";
@@ -18,6 +18,10 @@
 
   // The game's still picture (media.ts); without one, the tile shows the game's colours.
   const art = $derived(gameTileArt(game.id));
+  /** The picture shows the game's logo: the name is then read out but not written over it. A
+   *  picture that fails to load takes its logo along, and the name shows again. */
+  let artFailed = $state(false);
+  const logo = $derived(!!art && !artFailed && tileHasLogo(game.id));
   const v = $derived(playerVersion(game));
   const next = $derived(v ? playerState(game, v) : null);
   /** The tile offers the next step itself only when there is one to take. */
@@ -35,7 +39,17 @@
 {#if v && next}
   <article class="tile rise" class:selected style={`${themeStyle(game.id)}; animation-delay: ${delay}ms`}>
     {#if art}
-      <img class="art" src={art} alt="" decoding="sync" onerror={hideMissing} />
+      <img
+        class="art"
+        class:logo
+        src={art}
+        alt=""
+        decoding="sync"
+        onerror={(e) => {
+          hideMissing(e);
+          artFailed = true;
+        }}
+      />
     {/if}
     <div class="shade"></div>
 
@@ -50,7 +64,7 @@
 
     <div class="foot">
       <div class="name">
-        <h2>{game.title}</h2>
+        <h2 class:sr-only={logo}>{game.title}</h2>
         <p class={`status ${next.tone}`}>
           {#if next.job}<span class="spinner"></span>{:else}<span class="dot"></span>{/if}{next.status}
         </p>
@@ -112,6 +126,12 @@
     :global(html:where(:not([data-input="pad"]))) .tile:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow);
+    }
+
+    /* app.css fills every button under the pointer; this one lies over the whole tile, and that
+       fill hid the picture while the pointer rested on it. */
+    :global(html:where(:not([data-input="pad"]))) .open:hover {
+      background: none;
     }
 
     :global(html:where(:not([data-input="pad"]))) .crashed .x:hover {
@@ -195,6 +215,11 @@
     object-fit: cover;
   }
 
+  /* A picture with the logo top left keeps that corner, whatever the tile's shape. */
+  .art.logo {
+    object-position: left top;
+  }
+
   .crashed {
     display: flex;
     align-items: center;
@@ -210,7 +235,7 @@
     background: linear-gradient(
       to top,
       color-mix(in srgb, var(--ink-deep) 94%, transparent) 0%,
-      color-mix(in srgb, var(--ink-deep) 55%, transparent) 38%,
+      color-mix(in srgb, var(--ink-deep) 70%, transparent) 40%,
       color-mix(in srgb, var(--ink-deep) 5%, transparent) 72%
     );
   }
