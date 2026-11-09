@@ -96,11 +96,12 @@ int func_00283DB8(gaddr sphere, float far) {
 
 /* The nanotech cluster's update (the orb on a nanotech crate; Ratchet & Clank's
  * NanotechBallUpdate, paired at 0.47 and read in the functional C): it sends its draw callback only
- * while its sphere test finds it in view, so it is run against the picture's sides. */
+ * while its sphere test finds it in view, so it is run against the picture's sides. A mod's
+ * replacement (rac2.moby.nanotech_ball.update) runs under the fix, as func_003136D0__hooked. */
 void func_003136D0(gaddr moby) {
     if (g_effects++ == 0) {
         g_effect_wider = wide_wider_for(&g_fix_orbs, "fix_wide_nanotech_orbs", &g_effect_taller);
     }
-    func_003136D0__game(moby);
+    func_003136D0__hooked(moby);
     g_effects--;
 }

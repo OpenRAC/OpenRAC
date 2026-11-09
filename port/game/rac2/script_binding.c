@@ -8,7 +8,7 @@
 
 #include "openrac/script_binding.h"
 
-static const openrac_script_point k_points[21];
+static const openrac_script_point k_points[22];
 
 /* Shape S0: void(i32) (amount). */
 typedef void (*S0_fn)(int32_t);
@@ -226,8 +226,9 @@ S9_POINT(Moby_ChargeBootsRider_Update, 17) /* rac2.moby.charge_boots_rider.updat
 S9_POINT(Moby_RaceController_Update, 18) /* rac2.moby.race_controller.update */
 S9_POINT(Moby_MapperReturn_Update, 19) /* rac2.moby.mapper_return.update */
 S9_POINT(Moby_HypnomaticMaker_Update, 20) /* rac2.moby.hypnomatic_maker.update */
+S9_POINT(Moby_NanotechBall_Update, 21) /* rac2.moby.nanotech_ball.update */
 
-static const openrac_script_point k_points[21] = {
+static const openrac_script_point k_points[22] = {
     {"rac2.player.take_damage", "void(i32)", 1, k_S0_kinds, k_S0_names, OPENRAC_SV_VOID, k_Hero_TakeDamage_links, k_Hero_TakeDamage_thunks, S0_call},
     {"rac2.combat.get_hit", "u32(u32,u32,i32)", 3, k_S1_kinds, k_S1_names, OPENRAC_SV_U32, k_Moby_GetHitMessage_links, k_Moby_GetHitMessage_thunks, S1_call},
     {"rac2.weapon.take_ammo", "i32(i32,i32)", 2, k_S2_kinds, k_S2_names, OPENRAC_SV_I32, k_Weapon_TakeAmmo_links, k_Weapon_TakeAmmo_thunks, S2_call},
@@ -249,9 +250,10 @@ static const openrac_script_point k_points[21] = {
     {"rac2.moby.race_controller.update", "void(u32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Moby_RaceController_Update_links, k_Moby_RaceController_Update_thunks, S9_call},
     {"rac2.moby.mapper_return.update", "void(u32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Moby_MapperReturn_Update_links, k_Moby_MapperReturn_Update_thunks, S9_call},
     {"rac2.moby.hypnomatic_maker.update", "void(u32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Moby_HypnomaticMaker_Update_links, k_Moby_HypnomaticMaker_Update_thunks, S9_call},
+    {"rac2.moby.nanotech_ball.update", "void(u32)", 1, k_S9_kinds, k_S9_names, OPENRAC_SV_VOID, k_Moby_NanotechBall_Update_links, k_Moby_NanotechBall_Update_thunks, S9_call},
 };
 
-static const openrac_script_alias k_aliases[83] = {
+static const openrac_script_alias k_aliases[87] = {
     {"Hero_ApproachSpeed", "rac2.player.approach_speed"},
     {"Hero_NanotechSteps", "rac2.player.nanotech_steps"},
     {"Hero_TakeDamage", "rac2.player.take_damage"},
@@ -265,6 +267,7 @@ static const openrac_script_alias k_aliases[83] = {
     {"Moby_HypnomaticMaker_Update", "rac2.moby.hypnomatic_maker.update"},
     {"Moby_LevitatorSeller_Update", "rac2.moby.levitator_seller.update"},
     {"Moby_MapperReturn_Update", "rac2.moby.mapper_return.update"},
+    {"Moby_NanotechBall_Update", "rac2.moby.nanotech_ball.update"},
     {"Moby_RaceController_Update", "rac2.moby.race_controller.update"},
     {"Moby_RecordDeath", "rac2.moby.record_death"},
     {"Moby_SwingshotArea_Update", "rac2.moby.swingshot_area.update"},
@@ -285,6 +288,9 @@ static const openrac_script_alias k_aliases[83] = {
     {"func_002AD7B8", "rac2.planet.unlock"},
     {"func_002AE318", "rac2.planet.unlock"},
     {"func_002AE620", "rac2.planet.unlock"},
+    {"func_003136D0", "rac2.moby.nanotech_ball.update"},
+    {"func_003144C8", "rac2.moby.nanotech_ball.update"},
+    {"func_00314B5C", "rac2.moby.nanotech_ball.update"},
     {"func_L00_002A4D58", "rac2.player.take_damage"},
     {"func_L00_002A4EF8", "rac2.player.take_damage"},
     {"func_L00_002B40E0", "rac2.player.approach_speed"},
@@ -343,8 +349,8 @@ static const openrac_script_field k_fields[1] = {
 };
 
 static const openrac_script_binding k_binding = {
-    "rac2", 3, k_discs, 21, k_points, 0, k_fields, NULL,
-    83, k_aliases,
+    "rac2", 3, k_discs, 22, k_points, 0, k_fields, NULL,
+    87, k_aliases,
 };
 
 const openrac_script_binding* openrac_game_script_binding(void) {
