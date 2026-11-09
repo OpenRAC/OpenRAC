@@ -40,5 +40,21 @@ uint32_t rac2_program_loads(void);
 void rac2_play_frame(void);
 /* The play calls' table installed (play.c, from rac2_install_tools). */
 void rac2_install_play(void);
+/* The mods' pages in the title's main menu (mod_pages.c): the table installed (from
+ * rac2_install_tools); the label of a text id of theirs, or 0; whether one of them is drawn by the
+ * 16:9 page's object now (its update then only moves the panel), and its draw, the page's title put
+ * in `title` (options.c's wraps). */
+void rac2_install_mod_pages(void);
+uint32_t rac2_mod_pages_text(int id);
+int rac2_mod_pages_tick(void);
+int rac2_mod_pages_draw(char* title, unsigned title_bytes);
+/* The pause menu's (options.c's Options list, after Video): the mods' items shown (at most
+ * OPENRAC_UI_PAUSE_ITEMS_MAX), item `index`'s label's and description's text ids, its page (a copy
+ * of the Camera page's description) made known, and the text a pause page's title is drawn from. */
+int rac2_mod_pause_items(void);
+int rac2_mod_pause_label_text(int index);
+int rac2_mod_pause_help_text(int index);
+void rac2_mod_pause_page(int index, uint32_t page);
+uint32_t rac2_mod_pause_title(void);
 
 #endif /* OPENRAC_RAC2_H */

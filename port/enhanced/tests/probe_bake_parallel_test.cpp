@@ -140,6 +140,13 @@ int main(int argc, char** argv) {
         std::cout << "serial_seconds " << serial_seconds << " encoded_hash " << hash << '\n';
     } else {
         test_direction_cache();
+        // A worker's schedule must not change a probe's convergence decision or encoded maps.
+        auto adaptive = settings;
+        adaptive.adaptive_rays = true;
+        CHECK(
+            encode_probes(bake_probes(grid, scene, adaptive, {}, 4))
+            == encode_probes(bake_probes(grid, scene, adaptive, {}, 1))
+        );
         // A prepared level must produce the same grids and recover after callback cancellation.
         BakeThreadPool pool(4);
         ProbeBaker prepared(scene, settings, 4, &pool);

@@ -76,6 +76,32 @@ renderer::Vec3 vec3(std::span<const std::uint8_t> ram, std::uint32_t address) {
     return {at<float>(ram, address), at<float>(ram, address + 4), at<float>(ram, address + 8)};
 }
 
+// The cluster has zero mesh scale. Its glow callback raises the centre by half a unit
+// plus the current bob, stored in the first float of its variables.
+std::optional<renderer::Vec3> nanotech_centre(
+    std::span<const std::uint8_t> ram, std::uint32_t moby, std::uint8_t state
+) {
+    if ((state != 1 && state != 2) || at<std::uint16_t>(ram, moby + 0xA6) != 806) {
+        return std::nullopt;
+    }
+
+    const auto vars = openrac_guest_ram_address_for_size(
+        at<std::uint32_t>(ram, moby + 0x78), static_cast<std::uint32_t>(ram.size())
+    );
+    if (vars == 0 || vars + sizeof(float) > ram.size()) {
+        return std::nullopt;
+    }
+
+    auto centre = vec3(ram, moby + 0x10);
+    centre[2] += 0.5f + at<float>(ram, vars);
+    for (const float axis : centre) {
+        if (!std::isfinite(axis)) {
+            return std::nullopt;
+        }
+    }
+    return centre;
+}
+
 // Column-major rotations about X, Y and Z.
 renderer::Mat4 rotation_x(float a) {
     const float c = std::cos(a), s = std::sin(a);
@@ -248,8 +274,12 @@ host::GameState read_game_state(std::span<const std::uint8_t> ram, const GameAdd
         // (its slot is never used again, and it keeps its last position: a bolt picked up), 0xFE a
         // deleted spawned one, 0xFF the end of the used part. The game's own loops skip them by the
         // sign (the update's activity gate, MobyBuildMatrix, the groups' counts).
-        if (at<std::uint8_t>(ram, m + 0x20) >= 0x80) {
+        const auto state = at<std::uint8_t>(ram, m + 0x20);
+        if (state >= 0x80) {
             continue;
+        }
+        if (const auto centre = nanotech_centre(ram, m, state)) {
+            s.nanotech_orbs.push_back(*centre);
         }
         if (const auto live = read_live_moby(ram, m)) {
             s.mobys.push_back(*live);

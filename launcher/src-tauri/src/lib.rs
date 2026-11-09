@@ -2372,15 +2372,18 @@ fn here_for<'a>(game: &'a str, version: &'a str, prerelease: bool) -> openrac_la
     }
 }
 
-/// The updates the index offers for a game's mods: in by themselves, waiting, held back.
+/// The updates the index offers for a game's mods: in by themselves, waiting, held back. With
+/// `fresh` (the Mods tab's "Check for updates") the index is fetched again rather than the copy
+/// this session already read, so versions published since show at once.
 #[tauri::command]
 async fn mods_updates(
     app: AppHandle,
     state: State<'_, AppState>,
     game: String,
     version: String,
+    fresh: Option<bool>,
 ) -> Result<openrac_launcher_core::mod_updates::UpdatePlan, ModError> {
-    let index = index_now(&app, &state, false).await?;
+    let index = index_now(&app, &state, fresh.unwrap_or(false)).await?;
     let prerelease = allow_prerelease(&app, &state);
     let dir = plugins_dir(&state, &game).map_err(hub_error)?;
     tauri::async_runtime::spawn_blocking(move || {

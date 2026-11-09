@@ -130,6 +130,20 @@
       "about": "Gives the player item id (GiveInventoryItem): nothing when it is owned already; else sets its owned and new bytes, its starting ammo, adds it to the vendor's list and the quick select. The NPCs, pickups, arena prizes, the vendor's purchases and the start's items go through it; a few places set the owned bytes themselves (Endako's packs and Grindboots, Aranos Prison's Qwark Statuette). Rac1's GiveItem."
     },
     {
+      "id": "rac2.item.equip",
+      "name": "Item_Equip",
+      "signature": "i32(i32)",
+      "params": [
+        "id"
+      ],
+      "symbols": {
+        "ntsc": "func_002AD860",
+        "pal": "func_002AE3C0",
+        "ntsc2": "func_002AE6C8"
+      },
+      "about": "Puts item id in the hero's hand, or on him for the boots, helmets and packs (by the state of its record in the item table): a request his update carries out; 1 when one was made. Most givers call it right after Item_Give with the same id (Todano's Sheepinator, the Tractor Beam, the Thermanator, the Swingshot, the Mapper, ...), the vendor after a purchase; a mod that gives another item in a giver's place hands it this one's too."
+    },
+    {
       "id": "rac2.planet.unlock",
       "name": "Planet_Unlock",
       "signature": "void(i32)",
@@ -310,6 +324,20 @@
         "ntsc2": "func_L18_00441C08"
       },
       "about": "Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte."
+    },
+    {
+      "id": "rac2.moby.nanotech_ball.update",
+      "name": "Moby_NanotechBall_Update",
+      "signature": "void(u32)",
+      "params": [
+        "moby"
+      ],
+      "symbols": {
+        "ntsc": "func_003136D0",
+        "pal": "func_00314B5C",
+        "ntsc2": "func_003144C8"
+      },
+      "about": "The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update."
     }
   ]
 }

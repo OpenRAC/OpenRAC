@@ -292,6 +292,69 @@ typedef struct openrac_game_tools {
 
 extern const openrac_game_tools* openrac_game_tools_host;
 
+/* The mods' pages (openrac_api.ui_page, ui_main_item, ui_pause_item) for a game whose host C draws
+ * them itself, in a page of its own menus, when a game installs it (rac2: port/game/rac2/host/
+ * mod_pages.c). The port keeps what a page shows, its cursor, its questions and its events
+ * (game/common/mod_ui.cpp) and has the pad while one is on the screen; the game puts the items in
+ * its menus, says which of them is on the screen, draws openrac_mod_pages_view() and plays the
+ * sounds. Every call on the game's thread. A game without it (and without the front end's widgets,
+ * openrac_front_end) shows no page of a mod's. */
+typedef struct openrac_mod_pages_host {
+    /* The item whose page is on the screen now, its switch over: a main-menu item's index (0 to
+     * openrac_mod_pages_items(0) - 1), OPENRAC_MOD_PAGES_PAUSE plus a pause item's index, or -1. */
+    int (*shown)(void);
+    /* Whether the title's main menu itself is on the screen, settled. */
+    int (*main_menu)(void);
+    /* From the main menu: main-menu item `index`'s page opened (a mod's ui_open). */
+    void (*open_main)(int index);
+    /* Back to the game's page the item's page was opened from. */
+    void (*go_back)(void);
+    /* One of the menus' sounds (OPENRAC_UI_SOUND_*). */
+    void (*sound)(int cue);
+} openrac_mod_pages_host;
+
+#define OPENRAC_MOD_PAGES_PAUSE 0x100
+
+extern const openrac_mod_pages_host* openrac_game_mod_pages;
+
+/* The mods' items: of the title's main menu (`pause` 0) or of the pause menu (1). Their count, and
+ * item `index`'s label in the game's letters (at most `size` bytes with the end), and for a
+ * main-menu item the game's item it goes after (0 New Game, 1 Load Game, 2 Options). */
+int openrac_mod_pages_items(int pause);
+int openrac_mod_pages_label(int pause, int index, char* out, int size);
+int openrac_mod_pages_after(int index);
+
+#define OPENRAC_MOD_PAGES_TEXT 64
+#define OPENRAC_MOD_PAGES_ROWS 12
+#define OPENRAC_MOD_PAGES_FOOTER 3
+
+/* What the page on the screen shows, in the game's letters: its title, its rows (a label, a
+ * choice's value, the row's flags) with the cursor's, its footer; while a question is open, the
+ * question in `question` and its answers are Cross and Triangle. */
+typedef struct openrac_mod_pages_row {
+    char label[OPENRAC_MOD_PAGES_TEXT];
+    char value[OPENRAC_MOD_PAGES_TEXT];
+    uint32_t flags; /* OPENRAC_MOD_PAGES_ROW_* */
+} openrac_mod_pages_row;
+
+#define OPENRAC_MOD_PAGES_ROW_TEXT 0x1u     /* a line of text: the cursor does not stop there */
+#define OPENRAC_MOD_PAGES_ROW_DISABLED 0x2u /* drawn dim */
+#define OPENRAC_MOD_PAGES_ROW_CHOICE 0x4u   /* Left and Right step its value */
+
+typedef struct openrac_mod_pages_view {
+    char title[OPENRAC_MOD_PAGES_TEXT];
+    int rows;
+    int cursor;
+    openrac_mod_pages_row row[OPENRAC_MOD_PAGES_ROWS];
+    int footer_lines;
+    char footer[OPENRAC_MOD_PAGES_FOOTER][OPENRAC_MOD_PAGES_TEXT];
+    int asking;
+    char question[4 * OPENRAC_MOD_PAGES_TEXT];
+} openrac_mod_pages_view;
+
+/* Fills `out` with the page on the screen; 0 when none of a mod's is. */
+int openrac_mod_pages_view_of(openrac_mod_pages_view* out);
+
 /* What the mods' play calls need of a game (sdk/include/openrac/openrac_mod.h, interface 1.8:
  * multiplayer), when a game installs it (rac1: port/game/rac1/host/play.c, with each disc's
  * addresses). NULL: the calls answer that the game has none. Everything on the game's thread. */

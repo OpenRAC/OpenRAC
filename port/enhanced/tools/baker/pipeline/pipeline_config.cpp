@@ -292,6 +292,7 @@ LevelBakeProfile profile(const std::filesystem::path& level, const Options& opti
     // An explicit ray override must affect both transport and its semantic identity.
     if (options.rays) {
         result.activation.bake.rays_per_probe = options.rays;
+        result.activation.bake.adaptive_rays = false;
     }
 
     // Direct-only transport uses zero bounces, so absence has a separate sentinel.

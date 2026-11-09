@@ -200,6 +200,13 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
                 if re.search(r"__asm__\s*\(", decl):
                     # Already labelled with its symbol: the label stays the alias's.
                     n = 1
+                elif re.search(rf"\b{alias}\s*(?:\[[^\]]*\]\s*)*=", decl):
+                    # A local with an initializer that repeats a parameter's name (GCC 2.95 only
+                    # warned: rac4's func_L01_003CA498 reads `u8 *object = *(u8 **)(object + 0xAC)`).
+                    # Its initializer reads the parameter, so the local takes the alias and no
+                    # label: an automatic variable has no symbol.
+                    n = 1
+                    what = "a local that repeats a parameter's name"
                 else:
                     decl, n = re.subn(r"\)\s*;", f') __asm__("{name}");', decl, count=1)
                 if n == 0 and note["msg"].startswith("previous declaration is here"):
@@ -283,6 +290,20 @@ def fix_from_diagnostics(text: str, stderr: str, rel: str) -> tuple[str, list[st
             replaced = _replace_asm(lines, line, col)
             if replaced:
                 fixes.append(f"line {line + 1}: inline assembly Clang cannot read, made a stub")
+            continue
+        m = re.search(r"array has incomplete element type '[^']*'(?: \(aka '(?:struct|union) (\w+)'\))?", msg)
+        if m:
+            # `typedef struct L05Glyph L05Glyph; extern L05Glyph D_L05_002A2DB0[];` (rac2-decomp's
+            # L05_003008C0.c): GCC 2.95 took an array of a record it never completes, which the
+            # unit only passes by address. Clang wants the record complete: it gets a body of its
+            # own on that line. Nothing in the unit can index it or take its size, or GCC would
+            # have refused too, so the body changes no code.
+            tag = m.group(1) or re.match(r"array has incomplete element type '(?:struct|union) (\w+)'", msg)
+            tag = tag if isinstance(tag, str) else (tag.group(1) if tag else None)
+            if tag and f"openrac_incomplete_{tag}" not in lines[line]:
+                kind = "union" if f"'union {tag}'" in msg else "struct"
+                lines[line] = f"{kind} {tag} {{ char openrac_incomplete_{tag}; }}; " + lines[line]
+                fixes.append(f"line {line + 1}: an array of {kind} {tag}, never completed, given a body")
             continue
         m = re.match(r"too few arguments to function call, expected (\d+), have (\d+)", msg)
         if m:

@@ -179,7 +179,12 @@ pub fn plan(index: &ModIndex, installed: &[InstalledMod], sources: &Sources, her
         };
         let old_hooks: BTreeSet<&String> =
             m.version(&have.version).map(|o| o.hooks.iter().collect()).unwrap_or_default();
-        let new_hooks: Vec<String> = v.hooks.iter().filter(|h| !old_hooks.contains(h)).cloned().collect();
+        // Only this games hooks count: a version that adds another game brings that games
+        // hooks, which change nothing here (`rac2.*` for a Ratchet & Clank install).
+        let for_here =
+            |h: &str| !matches!(h.split_once('.'), Some((g, _)) if g != here.game && v.games.contains_key(g));
+        let new_hooks: Vec<String> =
+            v.hooks.iter().filter(|h| !old_hooks.contains(h) && for_here(h)).cloned().collect();
         if major(&v.version) != major(&have.version) {
             out.waiting.push(item(v, Some(Hold::Major)));
         } else if m.kind == "native" && m.version(&have.version).is_some() && !new_hooks.is_empty() {
@@ -460,6 +465,7 @@ mod tests {
     use super::*;
     use crate::index::tests::fixture;
     use crate::index::{IndexMod, Require, Version};
+    use std::collections::BTreeMap;
 
     const HERE: Here =
         Here { game: "rac1", disc: "pal", platform: Some("linux-x86_64"), api: (1, 10), prerelease: false };
@@ -512,6 +518,50 @@ mod tests {
         assert!(plan.silent.is_empty());
         assert_eq!(plan.waiting[0].hold, Some(Hold::Major));
         assert_eq!(plan.waiting[0].changelog, "notes 2.0.0");
+    }
+
+    #[test]
+    fn another_games_new_hooks_do_not_hold_an_update() {
+        // Difficulty 1.3.0 ran on rac1; 1.5.0 adds rac2 with its hooks. On rac1 it is a minor
+        // update with the same hooks, so it goes in by itself; on rac2 the new rac2 hook waits.
+        let platforms: BTreeMap<String, crate::index::Asset> =
+            [("linux-x86_64".to_string(), crate::index::Asset::default())].into();
+        let both: BTreeMap<String, Vec<String>> =
+            [("rac1".to_string(), vec!["pal".to_string()]), ("rac2".to_string(), vec!["ntsc".to_string()])].into();
+        let version = |v: &str, games: BTreeMap<String, Vec<String>>, hooks: &[&str]| Version {
+            version: v.into(),
+            api: Some("1.1".into()),
+            games,
+            hooks: hooks.iter().map(|h| h.to_string()).collect(),
+            platforms: platforms.clone(),
+            tag: format!("difficulty-v{v}"),
+            ..Default::default()
+        };
+        let mut index = ModIndex { format: 1, ..Default::default() };
+        index.mods.push(IndexMod {
+            id: "difficulty".into(),
+            name: "Difficulty".into(),
+            kind: "native".into(),
+            versions: vec![
+                version(
+                    "1.5.0",
+                    both.clone(),
+                    &["rac1.player.take_damage", "rac2.player.take_damage", "rac2.moby.nanotech_ball.update"],
+                ),
+                version("1.4.0", both, &["rac1.player.take_damage", "rac2.player.take_damage"]),
+                version("1.3.0", [("rac1".to_string(), vec!["pal".to_string()])].into(), &["rac1.player.take_damage"]),
+            ],
+            ..Default::default()
+        });
+        let plan = super::plan(&index, &[have("difficulty", "1.3.0")], &Sources::default(), &HERE);
+        assert_eq!(ids(&plan.silent), [("difficulty", "1.5.0")]);
+        assert!(plan.waiting.is_empty());
+
+        let rac2 = Here { game: "rac2", disc: "ntsc", ..HERE };
+        let plan = super::plan(&index, &[have("difficulty", "1.4.0")], &Sources::default(), &rac2);
+        assert!(plan.silent.is_empty());
+        let wait = plan.waiting.iter().find(|w| w.id == "difficulty").expect("waits");
+        assert_eq!(wait.hold, Some(Hold::NewHooks { hooks: vec!["rac2.moby.nanotech_ball.update".into()] }));
     }
 
     #[test]

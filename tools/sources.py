@@ -18,7 +18,8 @@ Nothing is committed inside a decomp. OpenRAC's changes to it sit beside it, in 
 A decomp is named by its folder under games/ (rac1/decomp, rac1/ntsc-decomp) or by any version
 built from it (rac1/pal is rac1/decomp, rac1/ntsc is rac1/ntsc-decomp):
 
-  python3 tools/sources.py init                  check out every decomp at its pin and apply its patches (after a clone or a pull)
+  python3 tools/sources.py init                  check out every decomp at its pin and apply its patches (after a clone or a pull);
+                                                 one with no patches goes on its branch, the pin being its tip
   python3 tools/sources.py apply [DECOMP...]     apply the patches
   python3 tools/sources.py unapply [DECOMP...]   take them out again: the decomp as its repository has it
   python3 tools/sources.py edit DECOMP           turn the patches into commits in the submodule
@@ -213,8 +214,14 @@ def short_name(patch: Path) -> str:
 
 
 def write_readme(tree: Tree) -> None:
-    """Rewrite the list of patches and files between the markers of the folder's README.md."""
+    """Rewrite the list of patches and files between the markers of the folder's README.md. A decomp
+    with neither has no patches folder: its README goes, and the folder if nothing else is left."""
     rows = [f"| [{p.name}]({p.name}) | {summary(p)} |" for p in tree.patch_list()]
+    if not rows and not tree.file_list():
+        (tree.patches / "README.md").unlink(missing_ok=True)
+        if tree.patches.is_dir() and not any(tree.patches.rglob("*")):
+            shutil.rmtree(tree.patches)
+        return
     block = [BEGIN, "<!-- Written by tools/sources.py save; do not edit. -->", "| Patch | What |", "|---|---|", *rows]
     if tree.file_list():
         block += ["", "Files under [files/](files) (copied as they are):", ""]
@@ -290,8 +297,43 @@ def do_update(tree: Tree, rev: str | None) -> None:
         sys.exit(f"{tree.key}: a patch conflicts with {new[:10]}:\n{done.stdout}{done.stderr}\n"
                  f"Resolve it in {tree.rel} and `git rebase --continue`, then `tools/sources.py save {tree.key}`.")
     do_save(tree)
+    to_branch(tree)
     print(f"{tree.key}: {old[:10]}..{new[:10]}; check files/ against the decomp's changes, then commit "
           f"{tree.rel}, {tree.rel}-patches/ and games/{tree.game['id']}/game.json as chore(import)")
+
+
+def on_branch(tree: Tree) -> str | None:
+    """The branch checked out in the submodule, or None when its HEAD is detached."""
+    found = tree.run("symbolic-ref", "-q", "--short", "HEAD")
+    return found.stdout.strip() or None
+
+
+def to_branch(tree: Tree) -> None:
+    """Put a decomp with no patches on its branch (game.json "branch") at the commit checked out,
+    the pin, so work in it starts from there (docs/SOURCES.md, "Working in a decomp"). The branch is
+    made there if there is none, and moved there when that is a fast-forward; a branch with commits
+    of its own is left alone, the decomp staying at the pin, detached. A decomp with patches stays
+    detached: its patches are changes in its worktree, not commits on its branch."""
+    branch = tree.source.get("branch")
+    if not branch or tree.patch_list() or tree.file_list() or in_edit(tree) or on_branch(tree) == branch:
+        return
+    head = tree.git("rev-parse", "HEAD")
+    tip = tree.run("rev-parse", "-q", "--verify", f"refs/heads/{branch}").stdout.strip()
+    if tip and tip != head and tree.run("merge-base", "--is-ancestor", tip, head).returncode:
+        print(f"{tree.key}: its branch {branch} is at {tip[:10]}, not at the pin {head[:10]}: "
+              f"left at the pin (detached); `git -C {tree.rel} switch {branch}` to go back to it")
+        return
+    tree.git("switch", "-q", "-C", branch, head)
+    tree.git("config", f"branch.{branch}.remote", "origin")
+    tree.git("config", f"branch.{branch}.merge", f"refs/heads/{branch}")
+
+
+def ahead_of_pin(tree: Tree) -> bool:
+    """On its branch with the pin in its history: work in progress that init leaves as it is."""
+    pinned = tree.pinned()
+    return bool(pinned and tree.checked_out() and on_branch(tree) == tree.source.get("branch")
+                and not tree.patch_list() and not tree.file_list()
+                and tree.run("merge-base", "--is-ancestor", pinned, "HEAD").returncode == 0)
 
 
 def do_status() -> None:
@@ -309,19 +351,33 @@ def do_status() -> None:
             line += f"; being edited on {BRANCH} (base {state['edit'][:10]})"
         elif head != pinned:
             line += f"; checked out at {head[:10]}"
+        branch = on_branch(tree)
+        if branch and not state.get("edit"):
+            line += f"; on {branch}"
         line += (f"; {len(tree.patch_list())} patches, {len(tree.file_list())} files, "
                  f"{'applied' if state.get('files') is not None else 'not applied'}")
         print(line)
 
 
 def do_init() -> None:
-    """Check out every submodule at its pin (LF endings, shallow), then apply every decomp's patches."""
+    """Check out every submodule at its pin (LF endings, shallow), then apply every decomp's patches,
+    and put each decomp with none on its branch (to_branch). A decomp already on its branch with the
+    pin in its history (work going on in it) is left as it is."""
+    kept = [tree for tree in trees().values() if ahead_of_pin(tree)]
     for tree in trees().values():
-        if tree.checked_out():
+        if tree.checked_out() and tree.rel not in {k.rel for k in kept}:
             do_unapply(tree)
-    proc.git(ROOT, "-c", "core.autocrlf=false", "submodule", "update", "--init", "--depth", "1", "--jobs", "8")
+    rest = [tree.rel for tree in trees().values() if tree.rel not in {k.rel for k in kept}]
+    if rest:
+        proc.git(ROOT, "-c", "core.autocrlf=false", "submodule", "update", "--init", "--depth", "1", "--jobs", "8",
+                 "--", *rest)
     for tree in trees().values():
+        if tree.rel in {k.rel for k in kept}:
+            print(f"{tree.key}: on {on_branch(tree)} at {tree.git('rev-parse', '--short', 'HEAD')}, "
+                  f"which has the pin in its history: left as it is")
+            continue
         do_apply(tree)
+        to_branch(tree)
 
 
 def changed_since(rev: str) -> list[str]:

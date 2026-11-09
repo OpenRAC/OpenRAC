@@ -169,7 +169,12 @@ std::string describe(const InteriorLightReport& report) {
 }
 }  // namespace
 
-Result<std::string> apply_interior_sources(const scene::LevelData& level, BakeScene& scene) {
+Result<std::string> apply_interior_sources(
+    const scene::LevelData& level,
+    BakeScene& scene,
+    bake_detail::EmissionAverageCache* emission_cache,
+    BakeThreadPool* pool
+) {
     // Optional experiment inputs leave all ordinary levels on the existing bake path.
     try {
         const auto path = level.dir / "probe-interiors.json";
@@ -197,7 +202,9 @@ Result<std::string> apply_interior_sources(const scene::LevelData& level, BakeSc
             seeds.push_back(read_seed(sample, level));
         }
 
-        auto report = prepare_interior_lighting(scene, seeds, read_settings(data["settings"]));
+        auto report = prepare_interior_lighting(
+            scene, seeds, read_settings(data["settings"]), emission_cache, pool
+        );
 
         if (!report) {
             return unexpected(report.error());

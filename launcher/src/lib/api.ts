@@ -544,7 +544,8 @@ export const api = {
     shared = false,
   ) => call<ApplyResult>("index_apply", { game, version, wanted, turnOff, serial, shared }),
   /** The index's updates for a game's mods: silent, waiting for a click, held back (mod_updates.rs). */
-  modsUpdates: (game: string, version: string) => call<UpdatePlan>("mods_updates", { game, version }),
+  modsUpdates: (game: string, version: string, fresh = false) =>
+    call<UpdatePlan>("mods_updates", { game, version, fresh }),
   /** Updates from a fresh fetch: the silent ones, or `ids` the player clicked. Refused while it runs. */
   modsAutoUpdate: (game: string, version: string, ids: string[] | null, running: boolean) =>
     call<UpdateRun>("mods_auto_update", { game, version, ids, running }),

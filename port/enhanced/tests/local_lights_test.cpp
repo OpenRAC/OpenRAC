@@ -392,6 +392,20 @@ void test_native_lights_without_probes(Fixture& f, const renderer::Camera& camer
     provider.prepare_deformation(input, scene);
     f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
     CHECK(f.target.read_rgba() == expected);
+
+    // A newly collected or disabled emitter must disappear even if the frame is drawn again.
+    scene.set_point_emitters({{.position = {0, 0, -2}, .radiance = {1, 0, 0}, .range = 4}});
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() != expected);
+    scene.set_point_emitters({{.position = {0, 0, -20}, .radiance = {1, 0, 0}, .range = 4}});
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() == expected);
+    scene.set_point_emitters({});
+    provider.prepare_deformation(input, scene);
+    f.draw(camera, {3, 0, false, false}, {0, 0, f.width, f.height}, &provider);
+    CHECK(f.target.read_rgba() == expected);
 }
 
 // GPU section times are read only after completion, excluding swap/presentation from lighting cost.

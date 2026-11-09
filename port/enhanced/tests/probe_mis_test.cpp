@@ -2,6 +2,7 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // MIS energy conservation and transparent rectangle visibility against analytic fixtures.
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/bake_math.h"
 #include "enhanced/lighting/bake_transport.h"
 #include "enhanced/tests/probe_bake_fixtures.h"
@@ -10,6 +11,96 @@ using namespace openrac::lighting;
 using namespace openrac::lighting::bake_detail;
 
 namespace {
+void test_nearby_mesh_light_distribution() {
+    BakeScene input;
+    BakeTriangle triangle{};
+    triangle.vertices = {{{0, 0, 1}, {2, 0, 1}, {0, 2, 1}}};
+    triangle.emission = {2, 2, 2};
+    input.triangles.push_back(triangle);
+    for (auto& vertex : triangle.vertices) {
+        vertex[0] += 80;
+    }
+    input.triangles.push_back(triangle);
+    input.point_emitters.push_back({{1, 1, 2}, {2, 2, 2}});
+    const Scene scene(input, {}, {.prepare_nearby_mesh_lights = true});
+    const ProbeLightDistribution near(scene, {0, 0, 0});
+    const ProbeLightDistribution far(scene, {-100, 0, 0});
+    CHECK(near.local());
+    CHECK(!far.local());
+    CHECK(std::abs(near.probability(0) - .7) < 1e-12);
+    CHECK(std::abs(near.probability(1) - .1) < 1e-12);
+    CHECK(std::abs(near.probability(2) - far.probability(2)) < 1e-12);
+    CHECK(near.pick(6.5) == 0);
+    CHECK(near.pick(7.5) == 1);
+    CHECK(near.pick(8.5) == 2);
+    CHECK(far.pick(6.5) == 1);
+}
+
+// A bilinear RGB ramp has known area integrals, including over a cutout.
+void test_triangle_emission_average() {
+    BakeScene input;
+    input.textures.push_back(
+        {2, 2, {0, 0, 0, 0, 255, 0, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255}}
+    );
+    BakeTriangle triangle{};
+    triangle.vertices = {{{0, 0, 1}, {2, 0, 1}, {0, 2, 1}}};
+    triangle.uv = {{{.25f, .25f}, {.75f, .25f}, {.25f, .75f}}};
+    triangle.emission = {2, 3, 4};
+    triangle.emission_texture = 0;
+    const auto average = average_bake_emission(input, triangle).value();
+    CHECK(std::abs(average[0] - 2.f / 3) < .00001f);
+    CHECK(std::abs(average[1] - 1) < .00001f);
+    CHECK(std::abs(average[2] - 1.f / 3) < .00001f);
+
+    triangle.texture = 0;
+    const auto integrated = integrate_bake_emission(input, triangle);
+    CHECK(integrated.coverage == .25);
+    input.triangles.push_back(triangle);
+    // The surviving quarter of the triangle has u >= 1/2.
+    const auto cutout = Scene(input).emitters.front().average_emission.value();
+    CHECK(std::abs(cutout[0] - 4.f / 3) < .00001f);
+    CHECK(std::abs(cutout[1] - .5f) < .00001f);
+    CHECK(std::abs(cutout[2] - 5.f / 12) < .00001f);
+
+    input.triangles.front().average_emission_for_bake = false;
+    Scene point_sampled(input);
+    CHECK(!point_sampled.emitters.front().average_emission);
+    CHECK(bake_emission(input, input.triangles.front(), 0, 0) == Float3{});
+}
+
+void test_mesh_emission_cutouts() {
+    BakeScene input;
+    input.textures.push_back({1, 1, {0, 0, 0, 0}});
+    BakeTriangle triangle{};
+    triangle.vertices = {{{-1, -1, 1}, {1, -1, 1}, {0, 1, 1}}};
+    triangle.texture = 0;
+    triangle.emission_texture = 0;
+    triangle.emission = {2, 3, 4};
+    triangle.mesh_emission = true;
+    triangle.average_emission_for_bake = false;
+    triangle.emission_uses_cutout = false;
+    input.triangles.push_back(triangle);
+
+    BakeSettings settings;
+    Random random{7};
+    {
+        const Scene scene(input);
+        CHECK(bake_emission(input, triangle, .2f, .3f) == triangle.emission);
+        CHECK(
+            scene.trace({}, {0, 0, 1}, settings.ray_bias, INFINITY).hit.geomID
+            == RTC_INVALID_GEOMETRY_ID
+        );
+        const auto light = sample_emitter(scene, {}, settings.ray_bias, random, settings);
+        CHECK(light.radiance_weight[0] > 0);
+        CHECK(light.delta);
+    }
+    input.triangles.front().emission_uses_cutout = true;
+    const Scene masked(input);
+    CHECK(
+        sample_emitter(masked, {}, settings.ray_bias, random, settings).radiance_weight == Float3{}
+    );
+}
+
 // A large nearby ceiling approaches a constant-radiance hemisphere with irradiance pi times Le.
 void test_hemisphere_energy(bool mesh) {
     BakeScene input;
@@ -124,6 +215,9 @@ int main() {
     // Fixture setup failures must fail the test rather than escape its entry point.
     try {
         test_estimator_weights();
+        test_triangle_emission_average();
+        test_nearby_mesh_light_distribution();
+        test_mesh_emission_cutouts();
         test_transparent_rectangles();
         test_oversized_crossings();
         test_hemisphere_energy(false);

@@ -40,6 +40,7 @@ void run_probe_batch(
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,
     const ProbeBatchOptions& options,
+    bake_detail::EmissionAverageCache& emission_cache,
     std::ostream& output
 );
 

@@ -105,6 +105,13 @@ struct Settings {
     bool enhanced_shadows = true;   // cascades and Ratchet map; off restores original shadows
     renderer::ShadowQuality shadow_quality = renderer::ShadowQuality::High;
     renderer::VolumetricQuality volumetric_quality = renderer::VolumetricQuality::Off;
+
+    struct NanotechLight {
+        bool enabled = true;
+        std::array<float, 3> colour{0.15f, 0.55f, 1.0f};
+        float brightness = 1.20f;
+        float range = 2.22f;
+    } nanotech_light;
     bool rim_light = true;
     // A texture pack from <data>/texture_packs/<game id>/ (docs/port/TEXTURE_PACKS.md); takes
     // effect at the next start.

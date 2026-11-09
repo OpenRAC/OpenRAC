@@ -115,6 +115,25 @@ class Table(unittest.TestCase):
             (fx.source / "src" / "b.c").write_text("int g(void) { return r1_func_00120000(); }\n")
             self.assertEqual(derived.uncovered(fx.source, CFG, table), ["r1_func_00120000"])
 
+    def test_a_matched_functions_references_are_derived_names_too(self):
+        # rac2-decomp matched func_002F5FB8 with ref_L00_002F5FB8_* externs after the port's table
+        # was written: their function was a stub and nothing said so.
+        with tempfile.TemporaryDirectory() as d:
+            fx = Fixture(Path(d))
+            build = {"program": "boot", "values": {"r1_func_0011DB98": "0x0011f818"}}
+            table = derived.make_table(fx.source, CFG, build, "abc")
+            (fx.source / "src" / "c.c").write_text(
+                "extern int ref_L00_002F5FB8_04[];\n"
+                "extern int ref_002B6658_00;\n"
+                "extern float ref_L00_00424F98_03 SDATA(ref_L00_00424F98_03);\n"
+                "int h(void) { return ref_L00_002F5FB8_04[ref_002B6658_00]; }\n"
+                "int ref_count_00000000_xyz;\n")
+            self.assertEqual(derived.uncovered(fx.source, CFG, table),
+                             ["ref_002B6658_00", "ref_L00_002F5FB8_04", "ref_L00_00424F98_03"])
+            build["values"].update({"ref_L00_002F5FB8_04": "0x001ad4b8", "ref_002B6658_00": "0x001b0000",
+                                    "ref_L00_00424F98_03": "0x001b14c4"})
+            self.assertEqual(derived.uncovered(fx.source, CFG, derived.make_table(fx.source, CFG, build, "abc")), [])
+
     def test_write_and_check(self):
         with tempfile.TemporaryDirectory() as d:
             fx = Fixture(Path(d))

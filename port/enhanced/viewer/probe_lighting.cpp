@@ -583,6 +583,8 @@ ProbeBakeRead read_bake(
     read.look_regions = std::move(profile.look_regions);
     if (!environment(env::Var::ProbeRays).empty()) {
         expected.bake.rays_per_probe = rays_from_environment();
+        expected.bake.adaptive_rays = false;
+        profile.explicit_ray_policy = true;
     }
     const auto sky = environment(env::Var::ProbeSky);
     if (!sky.empty()) {
@@ -600,8 +602,8 @@ ProbeBakeRead read_bake(
             throw std::runtime_error("invalid OPENRAC_PROBE_SKY_INTENSITY");
         }
     }
-    const lighting::ProbeAssetLoader loader(level, expected);
-    read.volume = loader.load(path);
+    lighting::ProbeAssetLoader loader(level, expected);
+    read.volume = loader.load_with_previous_defaults(path, profile);
     const auto add_region = [&](const std::filesystem::path& file) {
         if (cancelled.load(std::memory_order_relaxed)) {
             return;

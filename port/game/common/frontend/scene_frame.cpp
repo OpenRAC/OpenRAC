@@ -187,6 +187,19 @@ void set_lighting(SceneFrame& frame) {
     }
 
     const bool enhanced = enhanced_graphics_available() && graphics.enhanced_graphics;
+    std::vector<renderer::PointEmitter> emitters;
+    const auto& orb_light = graphics.nanotech_light;
+    if (enhanced && orb_light.enabled && orb_light.brightness > 0.0f) {
+        auto radiance = orb_light.colour;
+        for (float& channel : radiance) {
+            channel *= orb_light.brightness;
+        }
+        emitters.reserve(scene.state.nanotech_orbs.size());
+        for (const auto& position : scene.state.nanotech_orbs) {
+            emitters.push_back({position, radiance, orb_light.range});
+        }
+    }
+    owner.scene.set_point_emitters(std::move(emitters));
     input.texture_filter = enhanced ? graphics.texture_filter : renderer::TextureFilter::Normal;
     if (auto* lighting = owner.scene.level_lighting()) {
         lighting->set_material_overrides(enhanced);

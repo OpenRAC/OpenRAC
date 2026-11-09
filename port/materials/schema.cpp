@@ -35,6 +35,15 @@ constexpr Field kFields[] = {
      true},
     {"emission.contrast", "Emission contrast", Kind::Number, 1, 4, true},
     {"emission.vertex_colour", "Vertex colour emission", Kind::Boolean, 0, 1, true},
+    {"emission.average_for_bake", "Average baked emission per triangle", Kind::Boolean, 0, 1, true},
+    {"emission.bake_mode", "Baked emission mode", Kind::Text, 0, 0, true},
+    {"emission.bake_mesh_rgb",
+     "Mesh emission (linear RGB)",
+     Kind::Colour,
+     0,
+     std::numeric_limits<float>::max(),
+     true},
+    {"emission.bake_use_cutout", "Mask baked emission with cutouts", Kind::Boolean, 0, 1, true},
     {"emission.use_base_texture", "Use colour texture", Kind::Boolean, 0, 1, true},
     {"emission.texture", "Emission texture", Kind::Text, 0, 0, true},
     {"foliage.transmission", "Transmission", Kind::Number, 0, 1, false},
@@ -66,6 +75,9 @@ bool valid_reference(std::string_view text) {
 
 // Text properties are deliberately bounded to supported shader families and local asset references.
 bool valid_text(std::string_view key, const std::string& value) {
+    if (key == "emission.bake_mode") {
+        return value == "texture" || value == "mesh";
+    }
     // Shader selection cannot enable arbitrary programs or alter original coverage flags.
     if (key == "shading") {
         constexpr std::string_view kNames[] =

@@ -11,6 +11,11 @@ namespace openrac::lighting {
 // Offline worker budget borrowed by prepared bakers.
 class BakeThreadPool;
 
+namespace bake_detail {
+class EmissionAverageCache;
+struct Scene;
+}  // namespace bake_detail
+
 // Regular subtexel integration footprint; part of the bake settings identity.
 inline constexpr unsigned kProbeTexelSamplesPerAxis = 2;
 
@@ -30,6 +35,9 @@ struct BakeTriangle {
     bool fixed_emission = false;
     int emission_texture = -1;  // sRGB emission texture, alpha comes from the diffuse material
     bool emission_vertex_colour = false;
+    bool average_emission_for_bake = true;
+    bool mesh_emission = false;
+    bool emission_uses_cutout = true;
     float emission_contrast = 1;
     std::array<Float3, 3> emission_colours{{{1, 1, 1}, {1, 1, 1}, {1, 1, 1}}};
     bool terrain_prelighting = false;
@@ -127,6 +135,7 @@ struct BakeSettings {
         kTerrainVertexAlbedoStrength;  // Fraction of authored terrain tint to retain.
     // Each probe pairs this many primary directions with independent emitter samples.
     std::uint32_t rays_per_probe = 128;  // 256 adds under 1% median probe difference
+    bool adaptive_rays = false;          // CPU convergence checks at 64, 128 and 256; cap at 512
     std::uint32_t bounces = 2;           // a third bounce changes probes by 0.4% median
     std::uint32_t seed = 1;
     float ray_bias = 0.002f;  // game world units
@@ -155,11 +164,15 @@ public:
         const BakeScene& scene,
         const BakeSettings& settings,
         std::uint32_t threads = 0,
-        BakeThreadPool* pool = nullptr
+        BakeThreadPool* pool = nullptr,
+        bake_detail::EmissionAverageCache* emission_cache = nullptr
     );
     ~ProbeBaker();
     ProbeBaker(const ProbeBaker&) = delete;
     ProbeBaker& operator=(const ProbeBaker&) = delete;
+
+    // Room planning can borrow the immutable traversal scene for this level.
+    const bake_detail::Scene& traversal_scene() const;
 
     // Bake one grid with the prepared settings; invalid grids and tracing failures throw.
     ProbeVolume bake(
