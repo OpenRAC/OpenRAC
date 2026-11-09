@@ -103,6 +103,9 @@
     border-radius: var(--radius);
     overflow: hidden;
     background: linear-gradient(160deg, var(--from), var(--to));
+    /* Turned a little to the right, each tile on its own (user decision: 10 degrees). */
+    --tilt: perspective(1100px) rotateY(10deg);
+    transform: var(--tilt);
     box-shadow: var(--shadow-sm);
     /* Its foot follows the tile's own width (below). */
     container-type: inline-size;
@@ -120,7 +123,7 @@
      presses it in while the finger is down, and leaves nothing behind. */
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .tile:hover {
-      transform: translateY(-3px);
+      transform: var(--tilt) translateY(-3px);
       box-shadow: var(--shadow);
     }
 
@@ -138,13 +141,13 @@
 
   .tile:has(:focus-visible),
   :global(html[data-input="pad"]) .tile:focus-within {
-    transform: translateY(-3px);
+    transform: var(--tilt) translateY(-3px);
     box-shadow: var(--shadow);
   }
 
   .tile:has(.open:active),
   .tile:has(:global(.open.pad-press)) {
-    transform: scale(0.98);
+    transform: var(--tilt) scale(0.98);
     transition-duration: var(--fast);
   }
 
@@ -218,6 +221,34 @@
     margin: 6px 0 0;
     font-size: 0.7812rem;
     color: var(--err);
+  }
+
+  /* app.css's rise moves `transform`, which would take the tilt away: the tile rises with
+     `translate` instead. */
+  .tile.rise {
+    animation-name: tile-rise;
+  }
+
+  @keyframes tile-rise {
+    from {
+      opacity: 0;
+      translate: 0 18px;
+    }
+    to {
+      opacity: 1;
+      translate: none;
+    }
+  }
+
+  /* The light catches the tile's near edge. */
+  .tile::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(100deg, color-mix(in srgb, var(--amber) 20%, transparent), transparent 32%);
+    pointer-events: none;
   }
 
   .shade {

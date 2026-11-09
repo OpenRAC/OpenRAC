@@ -257,7 +257,11 @@ light under the bar (a glow from the top in the game's accent, as
 little without going grey. On top sits a stage light in the game's colour (user
 decision): the accent shines in from the top right, and the foot and the deep
 shadows sink into the bar's dark ink (`--bar-ink`), so each picture matches its
-game's accent. The characters are not retouched. The tile's frame
+game's accent. The characters are not retouched. Going Commando's picture is made
+by hand (`scripts/art/gc.jpg`: the characters of its SteamGridDB hero on a scene
+of Oozla from the game) and used as it is, without that grade (user decision).
+The tiles are turned 10° to the right, each on its own perspective (user
+decision). The tile's frame
 is chosen per game so the faces stay whole and clear of the name, as Steam
 asks of its own heroes (key art in the middle).
 
