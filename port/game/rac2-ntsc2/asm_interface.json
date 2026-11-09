@@ -14205,25 +14205,6 @@
     "v": false
    }
   },
-  "func_L00_003AD308": {
-   "asm": true,
-   "inherits": false,
-   "new": false,
-   "sig": {
-    "f": {
-     "b": "int",
-     "q": []
-    },
-    "pr": true,
-    "ps": [
-     {
-      "b": "int",
-      "q": []
-     }
-    ],
-    "v": false
-   }
-  },
   "func_L00_003AE138": {
    "asm": true,
    "inherits": false,
@@ -14236,10 +14217,7 @@
     "pr": true,
     "ps": [
      {
-      "p": {
-       "b": "void",
-       "q": []
-      },
+      "b": "int",
       "q": []
      }
     ],
