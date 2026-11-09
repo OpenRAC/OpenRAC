@@ -385,11 +385,30 @@ struct Release {
     /// When it was published: what a mod code's review shows.
     #[serde(default)]
     published_at: Option<String>,
+    /// The date of the release's commit (GitHub's `created_at`).
+    #[serde(default)]
+    created_at: Option<String>,
 }
 
 impl Release {
     fn asset(&self, name: &str) -> Option<&Asset> {
         self.assets.iter().find(|a| a.name == name)
+    }
+
+    /// When it was made, for newest-first: its commit's date, else when it was published.
+    fn when(&self) -> Option<&str> {
+        self.created_at.as_deref().or(self.published_at.as_deref())
+    }
+
+    /// Whether it holds a build of mod `id` for `platform` (`<id>-<version>-<platform>.zip`).
+    fn builds(&self, id: &str, platform: &str) -> bool {
+        let (prefix, suffix) = (format!("{id}-"), format!("-{platform}.zip"));
+        self.assets.iter().any(|a| {
+            a.name
+                .strip_prefix(&prefix)
+                .and_then(|r| r.strip_suffix(&suffix))
+                .is_some_and(|v| plugins::parse_version(v).is_some())
+        })
     }
 
     /// Whether asset `name` can be checked: by GitHub's digest or the release's SHA256SUMS.
@@ -685,7 +704,7 @@ fn read_github(
         })?,
         "the repository's releases",
     )?;
-    let eligible: Vec<Release> = match tag {
+    let mut eligible: Vec<Release> = match tag {
         Some(t) => {
             let r = releases
                 .iter()
@@ -696,6 +715,12 @@ fn read_github(
         // The mod index's own release (openrac-mods' `index` tag) holds no mod: never a mod's release.
         None => releases.iter().filter(|r| !r.draft && !r.prerelease && r.tag_name != INDEX_TAG).cloned().collect(),
     };
+    // Newest first. GitHub's list is not in date order: a repository of many mods, each released
+    // on its own tag, can list an older mod's release first, and every other mod's manifest would
+    // then be read as it was back then (openrac-mods listed xbox-icons-v1.1.0 first, from before
+    // the other mods took Going Commando, so they could not be installed for it). The dates are
+    // GitHub's ISO 8601 in UTC, which sort as text; a release without one goes last.
+    eligible.sort_by(|a, b| b.when().cmp(&a.when()));
     // What the manifests are read at: the release named, a branch or commit named, the newest
     // release, or the default branch.
     // A link to a folder, /tree/<branch>/<folder>: the branch is the shortest start of the path the
@@ -755,6 +780,23 @@ fn read_github(
     for path in shown {
         let raw: Value = json(&fetch.get(&raw_at(&path), false)?, &path)?;
         let mut m = describe(&raw, &path, repo, game, version, platform, &installed)?;
+        // A mod whose version at `at` has no release yet (its bump came before another mod's
+        // release): its manifest at its own newest release, which is what would be installed.
+        if let (Some(p), None, None, "native") = (platform, tag, reference, m.kind.as_str()) {
+            let name = asset_name(&m.id, &m.version, p);
+            if !eligible.iter().any(|r| r.asset(&name).is_some()) {
+                if let Some(r) = eligible.iter().find(|r| r.tag_name != at && r.builds(&m.id, p)) {
+                    let url = format!("{}/{owner}/{repo}/{}/{path}", hosts.raw, r.tag_name);
+                    let own = fetch
+                        .get(&url, false)
+                        .and_then(|bytes| json::<Value>(&bytes, &path))
+                        .and_then(|raw| describe(&raw, &path, repo, game, version, platform, &installed));
+                    if let Some(own) = own.ok().filter(|o| o.id == m.id) {
+                        m = own;
+                    }
+                }
+            }
+        }
         if m.kind == "native" {
             match platform {
                 None if m.compatible => {
@@ -2490,5 +2532,77 @@ mod tests {
             Ok(p) => assert!(p.mods.iter().any(|m| m.id == "lock-strafe"), "{p:#?}"),
             Err(e) => eprintln!("OpenRAC/openrac-mods: {e}"),
         }
+    }
+
+    /// Two mods in folders a/ and b/, each released on its own tag: `releases` as listed, and the
+    /// manifests at each commit.
+    fn two_mods(fx: &mut Fixture, releases: Value, at: &[(&str, &str, [String; 2])]) {
+        fx.put(&format!("{API}/repos/o/r/releases?per_page=100"), releases.to_string());
+        let tree = serde_json::json!({"tree": [
+            {"path": "a/openrac-mod.json", "type": "blob"}, {"path": "b/openrac-mod.json", "type": "blob"}]});
+        for (tag, commit, [a, b]) in at {
+            fx.put(&format!("{API}/repos/o/r/commits/{tag}"), serde_json::json!({"sha": commit}).to_string());
+            fx.put(&format!("{API}/repos/o/r/git/trees/{commit}?recursive=1"), tree.to_string());
+            for (at, (folder, text)) in [(*commit, ("a", a)), (*commit, ("b", b)), (*tag, ("a", a)), (*tag, ("b", b))] {
+                fx.put(&format!("{RAW}/o/r/{at}/{folder}/openrac-mod.json"), text.clone());
+            }
+        }
+    }
+
+    fn dated(mut release: Value, created: &str) -> Value {
+        release["created_at"] = created.into();
+        release["published_at"] = created.into();
+        release
+    }
+
+    #[test]
+    fn manifests_are_read_at_the_newest_release_whatever_githubs_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // b took PAL after a-v1.0.0 was made; GitHub lists the older release first.
+        let old = dated(release(&mut fx, "a-v1.0.0", "a", "1.0.0", Some(String::new()), false), "2026-11-08T04:52:00Z");
+        let new = dated(release(&mut fx, "b-v1.1.0", "b", "1.1.0", Some(String::new()), false), "2026-11-08T07:37:49Z");
+        let ntsc_only = manifest("b", "1.0.0").replace(r#""pal", "#, "");
+        two_mods(
+            &mut fx,
+            serde_json::json!([old, new]),
+            &[
+                ("a-v1.0.0", "c0", [manifest("a", "1.0.0"), ntsc_only]),
+                ("b-v1.1.0", "c1", [manifest("a", "1.0.0"), manifest("b", "1.1.0")]),
+            ],
+        );
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "b-v1.1.0");
+        let b = p.mods.iter().find(|m| m.id == "b").unwrap();
+        assert!(b.compatible, "{b:?}");
+        assert_eq!((b.version.as_str(), b.tag.as_deref()), ("1.1.0", Some("b-v1.1.0")));
+        let a = p.mods.iter().find(|m| m.id == "a").unwrap();
+        assert_eq!((a.compatible, a.tag.as_deref()), (true, Some("a-v1.0.0")));
+    }
+
+    #[test]
+    fn a_mod_bumped_but_not_released_yet_offers_its_own_newest_release() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut fx = Fixture::default();
+        // a-v2.0.0, the newest, has b at 1.2.0, whose release is not out: b's own b-v1.1.0 is.
+        let b_rel =
+            dated(release(&mut fx, "b-v1.1.0", "b", "1.1.0", Some(String::new()), false), "2026-11-08T05:00:00Z");
+        let a_rel =
+            dated(release(&mut fx, "a-v2.0.0", "a", "2.0.0", Some(String::new()), false), "2026-11-08T06:00:00Z");
+        two_mods(
+            &mut fx,
+            serde_json::json!([b_rel, a_rel]),
+            &[
+                ("b-v1.1.0", "c1", [manifest("a", "1.0.0"), manifest("b", "1.1.0")]),
+                ("a-v2.0.0", "c2", [manifest("a", "2.0.0"), manifest("b", "1.2.0")]),
+            ],
+        );
+        let p = preview(&ctx(dir.path(), &fx), "https://github.com/o/r").unwrap();
+        assert_eq!(p.reference, "a-v2.0.0");
+        let b = p.mods.iter().find(|m| m.id == "b").unwrap();
+        assert!(b.compatible, "{b:?}");
+        assert_eq!((b.version.as_str(), b.tag.as_deref()), ("1.1.0", Some("b-v1.1.0")));
+        let got = install(&ctx(dir.path(), &fx), "https://github.com/o/r", "b").unwrap();
+        assert!(matches!(got, RemoteInstalled::Plugin { ref version, .. } if version == "1.1.0"), "{got:?}");
     }
 }
