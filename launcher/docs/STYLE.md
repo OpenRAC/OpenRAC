@@ -226,14 +226,14 @@ border and 12 px corners.
 game's colours. A game without a theme gets `FALLBACK` (the launcher's own
 gold); the tests fail until every game in `games/` has one.
 
-**Game colours** (Settings, General, a switch under the themes, off by
-default) puts each game's own colours back on: its bar, buttons and gold
+**Game colours** (Settings, General, a switch under the themes, on by
+default) puts each game's own colours on: its bar, buttons and gold
 (`--bar-*`, `--amber`, `--gold`, `--brand`) and, on the OpenRAC theme only,
 its coal (`--tint-*`, the launcher's ladder at the same OKLCH lightness in the
 game's hue). They live in palettes.json `game_colors`; `applyAccent` sets them
 with `data-game-colors` on the page, and the core hands them to the game's menu
 (`ui_colors(theme, game, game_colors)`). The light under the bar stays as
-without it. Off, every game wears the gold (user decision).
+without it. Off, every game wears the gold.
 
 ## A game's picture
 

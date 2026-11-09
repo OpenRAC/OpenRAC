@@ -261,7 +261,8 @@ let config: Config = {
   layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
-  gameColors: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gameColors"),
+  // ?gold: Game colours off, every game in the launcher's gold.
+  gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gold"),
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")

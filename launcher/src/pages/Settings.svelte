@@ -180,7 +180,7 @@
     const game = app.version?.split("/")[0] ?? null;
     applyAccent(game, draft.gameColors);
     return () => {
-      applyAccent(game, app.config?.gameColors ?? false);
+      applyAccent(game, app.config?.gameColors ?? true);
     };
   });
 
