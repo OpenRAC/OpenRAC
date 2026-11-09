@@ -59,13 +59,13 @@ def exported_room(root):
     return level, path, output
 
 
-def emission_mesh(level, authored=False):
+def emission_mesh(level, authored=False, pixel=b'\xff\xff\xff\xff'):
     """Two synthetic bright triangles with valid and invalid static light slots, plus one PNG."""
     (level/'textures').mkdir(exist_ok=True)
     def chunk(kind, data):
         return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data))
     png = b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>2I5B',1,1,8,6,0,0,0))
-    png += chunk(b'IDAT',zlib.compress(b'\0\xff\xff\xff\xff'))+chunk(b'IEND',b'')
+    png += chunk(b'IDAT',zlib.compress(b'\0'+pixel))+chunk(b'IEND',b'')
     (level/'textures/panel.png').write_bytes(png)
     positions = [(-2,-2,0),(2,-2,0),(2,2,0),(-2,-2,0),(2,2,0),(-2,2,0)]
     data = b''.join(struct.pack('<3f',*v) for v in positions)
@@ -194,6 +194,33 @@ class BakerCli(unittest.TestCase):
                 self.assertEqual(path.read_text(),'{"points":[]}')
                 self.assertEqual(stale.read_text(),'interrupted')
                 self.assertFalse(list(level.glob('.bake-stage-*')))
+
+    def test_calculate_mesh_emission_reproduces_stored_values_from_textures(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            level, _, _ = exported_room(Path(temporary))
+            emission_mesh(level, pixel=b'\xff\x00\xff\xff')
+            manifest_path = level / 'manifest.json'
+            manifest = json.loads(manifest_path.read_text())
+            manifest['terrain'] = 'panel.glb'
+            manifest_path.write_text(json.dumps(manifest))
+            profile = level / 'probe-emission.json'
+            profile.write_text('{"textures/panel.png":{"bake_intensity":2}}')
+
+            result = self.run_baker('--calculate-mesh-emission', level)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalog = json.loads(result.stdout)
+            rule, = catalog['overrides']
+            self.assertEqual(rule['set']['emission']['bake_mesh_rgb'], [2, 0, 2])
+
+            # A different stored constant must have no effect on the calculation.
+            rule['set']['emission']['bake_mesh_rgb'] = [0, 1, 0]
+            overrides = level / 'material-overrides.json'
+            authored = json.dumps(catalog)
+            overrides.write_text(authored)
+            recalculated = self.run_baker('--calculate-mesh-emission', level)
+            self.assertEqual(recalculated.returncode, 0, recalculated.stderr)
+            self.assertEqual(recalculated.stdout, result.stdout)
+            self.assertEqual(overrides.read_text(), authored)
 
     def test_native_emission_audit_matches_reference_static_layers(self):
         """Resident mesh auditing retains terrain clamps, per-instance light slots and explicit definitions."""
