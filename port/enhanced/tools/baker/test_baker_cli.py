@@ -196,6 +196,7 @@ class BakerCli(unittest.TestCase):
                 self.assertFalse(list(level.glob('.bake-stage-*')))
 
     def test_calculate_mesh_emission_reproduces_stored_values_from_textures(self):
+        """Recalculate textured emission even when the export already has a mesh override."""
         with tempfile.TemporaryDirectory() as temporary:
             level, _, _ = exported_room(Path(temporary))
             emission_mesh(level, pixel=b'\xff\x00\xff\xff')
