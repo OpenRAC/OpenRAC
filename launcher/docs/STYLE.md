@@ -245,13 +245,17 @@ The rail stays on the left, the theme is the launcher's own.
   print, downloaded on the device (`src/lib/discArt.ts`, never shipped); without
   one, the game's picture as a label. The disc picked floats and sways a little;
   the others sit above and below it, smaller and turned. Up and down, a drag or a
-  tap on a neighbour turns the wheel with a soft spring. No glow on the disc;
+  tap on a neighbour turns the wheel with a soft spring that starts slowly (a
+  sampled damped spring, `linear()`). No glow on the disc; behind it a soft
+  light in the game's colour (`--glow`, palettes.json accents) that changes
+  colour as the wheel turns;
 - beside it, on the right: year and region, the name in the game's title font,
   its newest save or how far its code is rebuilt, notes (crash, mods), then its
   step on the one gold button (A), Game page (Y) and Mods (X). These come in one
   after another when the disc changes;
 - What's new: small chips at the top right; hidden when empty;
-- the foot: the job running, and the controller's buttons.
+- the foot: the job running, ↕ Games and LB RB Tabs (the buttons beside the
+  disc already show A, X and Y).
 
 Play puts the disc into a console (`DiscLaunch.svelte`, our own drawing, no
 maker's marks; timings in `src/lib/insertion.ts`, after cartouche's

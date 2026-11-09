@@ -10,10 +10,10 @@ export const INSERTION = {
   /** The shelf leaves and the console comes in (ours). */
   intro_s: 0.35,
   face_s: 0.25,
-  grab_s: 0.3,
+  grab_s: 0.24,
   /** How far the disc comes forward, as a share of its size. */
   grab_lift: 0.12,
-  seat_s: 0.28,
+  seat_s: 0.22,
   bounce: 0.03,
   bounce_s: 0.08,
   spin_up_s: 0.7,
@@ -71,6 +71,11 @@ export function spinAt(t: number): number {
 /** How fast the disc turns, 0 (still) to 1 (full speed): for the blur of its print. */
 export function speedAt(t: number): number {
   return progress(t, seatedAt(), I.spin_up_s);
+}
+
+/** How fast the disc turns, in turns a second: how far its print smears in one frame. */
+export function turnsAt(t: number): number {
+  return I.turns_per_s * speedAt(t);
 }
 
 /** How shut the lid is, 0 (open) to 1 (shut), easing in and out. */

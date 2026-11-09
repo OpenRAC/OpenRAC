@@ -5,7 +5,7 @@
   // the disc goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its
   // page. The rail stays on the left (Header.svelte).
   import { fly } from "svelte/transition";
-  import { backOut, cubicOut } from "svelte/easing";
+  import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
@@ -18,7 +18,7 @@
   import { backgroundStatus } from "$lib/progress";
   import { when } from "$lib/reports";
   import { newestSave, savedSeconds } from "$lib/saves";
-  import { themeStyle } from "$lib/themes";
+  import { ACCENTS, themeStyle } from "$lib/themes";
   import Disc from "./Disc.svelte";
   import DiscLaunch from "./DiscLaunch.svelte";
   import Icon from "./Icon.svelte";
@@ -48,11 +48,20 @@
       : "",
   );
 
+  /** Which way the wheel last turned: 1 down the list, -1 up; the words beside it follow. */
+  let dir = $state(1);
+
   function pick(i: number) {
     const g = games.at(Math.min(games.length - 1, Math.max(0, i)));
     const gv = g ? playerVersion(g) : null;
-    if (gv && g?.id !== game?.id) pickVersion(gv.key);
+    if (!gv || g?.id === game?.id) return;
+    dir = i < at ? -1 : 1;
+    pickVersion(gv.key);
   }
+
+  /** The light behind the wheel, in the game's colour (palettes.json accents); the launcher's gold
+   *  for a game without one. It changes colour slowly as the wheel turns (--glow is registered). */
+  const glow = $derived(game ? ACCENTS[game.id]?.["--glow"] : undefined);
 
   // ---- the last save: where the player left off ----
 
@@ -129,7 +138,9 @@
     const y = Math.sign(d) * (far <= 1 ? far * step : step + (far - 1) * step * 0.9);
     const scale = far <= 1 ? 1 - 0.23 * far : 0.77 - 0.1 * (far - 1);
     const opacity = far <= 1 ? 1 - 0.65 * far : Math.max(0, 0.35 - 0.35 * (far - 1));
-    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; opacity: ${opacity}`;
+    // The neighbours follow the disc picked a moment later, so the wheel seems to pull them.
+    const lag = i === at ? 0 : 50;
+    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; opacity: ${opacity}; transition-delay: ${lag}ms`;
   }
 
   let start: { y: number; moved: boolean } | null = null;
@@ -227,12 +238,19 @@
     };
   });
 
-  /** The words beside the disc come in one after another. */
-  const enter = (i: number) => ({ x: 16, duration: reduced ? 0 : 380, delay: reduced ? 0 : 40 * i, easing: cubicOut });
+  /** The words beside the disc come in one after another, from the side the wheel turns from, while
+   *  the last game's leave the other way: the two cross, so the place is never empty. */
+  const enter = (i: number) => ({
+    y: 18 * dir,
+    duration: reduced ? 0 : 460,
+    delay: reduced ? 0 : 70 + 45 * i,
+    easing: cubicOut,
+  });
+  const leave = () => ({ y: -14 * dir, duration: reduced ? 0 : 200, easing: cubicIn });
 </script>
 
 {#if game && v && next}
-  <div class="shelf" bind:this={root}>
+  <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
     <div class="stage">
       <div
         class="wheel"
@@ -251,6 +269,7 @@
           <button
             class="slot"
             class:on={i === at}
+            class:away={i === at && !!launching}
             style={place(i)}
             inert={!near}
             aria-label={i === at ? `${g.title}: ${next.status}` : g.title}
@@ -275,7 +294,7 @@
       </div>
 
       {#key game.id}
-        <div class="info" style={themeStyle(game.id)}>
+        <div class="info" style={themeStyle(game.id)} out:fly={leave()}>
           <p class="over" in:fly={enter(0)}>
             {game.year ? `${game.year} · ` : ""}{regionLabel(v.name)}
           </p>
@@ -354,9 +373,6 @@
       </div>
       <div class="hints" aria-hidden="true">
         <span><span class="glyph">↕</span>Games</span>
-        <span><span class="glyph a">A</span>{offers ? (continues ? "Continue" : next.label) : "Game page"}</span>
-        {#if playable}<span><span class="glyph">X</span>Mods</span>{/if}
-        <span><span class="glyph">Y</span>Game page</span>
         <span><span class="glyph wide">LB</span><span class="glyph wide">RB</span>Tabs</span>
       </div>
     </footer>
@@ -378,7 +394,53 @@
   .shelf {
     --spring: cubic-bezier(0.34, 1.45, 0.64, 1);
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    /* A damped spring (4 % past the mark, then settles), sampled: it starts slow, unlike a bezier
+       that overshoots, so the wheel never jerks into motion. */
+    --wheel: linear(
+      0,
+      0.0162,
+      0.0591,
+      0.121,
+      0.1954,
+      0.2771,
+      0.3618,
+      0.4462,
+      0.5277,
+      0.6045,
+      0.6753,
+      0.7393,
+      0.7962,
+      0.8459,
+      0.8886,
+      0.9246,
+      0.9543,
+      0.9785,
+      0.9975,
+      1.0121,
+      1.0228,
+      1.0303,
+      1.0351,
+      1.0376,
+      1.0384,
+      1.0378,
+      1.0362,
+      1.0338,
+      1.031,
+      1.0278,
+      1.0246,
+      1.0213,
+      1.0182,
+      1.0152,
+      1.0125,
+      1.0101,
+      1.0079,
+      1.0059,
+      1.0043,
+      1.0029,
+      1
+    );
     position: relative;
+    transition: --glow 900ms var(--ease-out);
     min-height: 100%;
     display: flex;
     flex-direction: column;
@@ -391,6 +453,28 @@
     overflow: clip;
   }
 
+  /* The light behind the wheel: a soft round glow in the game's colour behind the disc, a fainter
+     one under the words; it breathes slowly. Never on the disc itself. */
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(34% 58% at 25% 50%, color-mix(in srgb, var(--glow) 22%, transparent), transparent 70%),
+      radial-gradient(32% 42% at 68% 48%, color-mix(in srgb, var(--glow) 8%, transparent), transparent 75%);
+    animation: glow 7s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      opacity: 0.8;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */
 
   .wheel {
@@ -400,6 +484,8 @@
     bottom: 0;
     width: 50%;
     touch-action: none;
+    /* The discs above and below fade out at the edges instead of being cut. */
+    mask-image: linear-gradient(to bottom, transparent 0, black 16%, black 84%, transparent 100%);
   }
 
   .slot {
@@ -417,9 +503,15 @@
     min-height: 0;
     transform: translate(-50%, -50%) translateY(var(--y)) scale(var(--k)) rotate(var(--r));
     transition:
-      transform 560ms var(--spring),
-      opacity 420ms var(--ease-out);
+      transform 800ms var(--wheel),
+      opacity 500ms var(--ease-out);
     will-change: transform;
+  }
+
+  /* Taken into the console: the shelf keeps no copy of it. */
+  .slot.away {
+    opacity: 0 !important;
+    transition: none;
   }
 
   .slot.on {
@@ -462,7 +554,7 @@
 
   .info {
     position: absolute;
-    left: 50%;
+    left: 47%;
     right: var(--page-x);
     top: 50%;
     translate: 0 -50%;
@@ -470,10 +562,11 @@
   }
 
   .over {
-    margin: 0 0 10px;
+    margin: 0 0 12px;
     font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: var(--dim);
-    letter-spacing: 0.02em;
   }
 
   h1 {
@@ -482,8 +575,8 @@
     flex-direction: column;
     font-family: var(--title-font);
     font-weight: var(--title-weight);
-    font-size: 2.1rem;
-    line-height: 1.12;
+    font-size: 2.6rem;
+    line-height: 1.1;
     color: var(--on-game);
   }
 
@@ -496,7 +589,7 @@
   }
 
   .save {
-    font-size: 0.9375rem;
+    font-size: 1.0625rem;
     color: var(--soft);
   }
 
@@ -639,8 +732,6 @@
     justify-content: space-between;
     gap: 16px;
     padding: 0 var(--page-x);
-    background: var(--rail);
-    border-top: 1px solid var(--line);
     font-size: 0.8125rem;
     color: var(--soft);
   }
@@ -730,7 +821,7 @@
   /* A phone held sideways: a smaller title, the buttons closer. */
   @media (max-height: 500px) {
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.85rem;
     }
 
     .acts {
@@ -748,7 +839,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .slot,
-    .roll {
+    .roll,
+    .stage::before {
       transition: none;
       animation: none;
     }

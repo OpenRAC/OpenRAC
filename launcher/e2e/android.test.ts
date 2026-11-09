@@ -254,6 +254,12 @@ describe("A controller", () => {
     }
   }
 
+  /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
+  async function shownName() {
+    await page.waitForFunction(() => document.querySelectorAll(".info").length === 1);
+    return page.locator(".info h1").textContent();
+  }
+
   /** What has the focus: its name as a screen reader says it, or its text. */
   const focused = () =>
     page.evaluate(() => {
@@ -269,10 +275,10 @@ describe("A controller", () => {
     await page.locator(".slot.on").focus();
     await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
     await press("down");
-    await expect(page.locator(".info h1").textContent()).resolves.toContain("Going Commando");
+    expect(await shownName()).toContain("Going Commando");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
     await press("up");
-    await expect(page.locator(".info h1").textContent()).resolves.not.toContain("Going Commando");
+    expect(await shownName()).not.toContain("Going Commando");
     // Y opens its page.
     await press("more");
     await page.locator(".go .big").waitFor();
@@ -283,7 +289,7 @@ describe("A controller", () => {
       .locator(".slot")
       .nth(1)
       .click({ position: { x: 150, y: 40 } });
-    await expect(page.locator(".info h1").textContent()).resolves.toContain("Going Commando");
+    expect(await shownName()).toContain("Going Commando");
   });
 
   it("starts a game's next step from beside its disc by a tap", async () => {
@@ -351,7 +357,7 @@ describe("A controller", () => {
         (window as unknown as { __openracConfigWrites?: { count: number; last: { lastVersion: string } } })
           .__openracConfigWrites,
     );
-    const shown = await page.locator(".info h1").textContent();
+    const shown = await shownName();
     expect(writes?.count).toBe(1);
     expect(writes?.last.lastVersion.split("/")[0]).toBe("rac3");
     expect(shown).toContain("Up Your Arsenal");

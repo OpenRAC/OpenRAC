@@ -16,7 +16,9 @@
     speedAt,
     spinAt,
     travelAt,
+    turnsAt,
   } from "$lib/insertion";
+  import { ACCENTS } from "$lib/themes";
   import Disc from "./Disc.svelte";
 
   let {
@@ -60,8 +62,27 @@
     const y = fromY + (SY - fromY) * go;
     const size = fromSize + (SIZE - fromSize) * go;
     const z = 2 + lift * 600 + (1 - go) * 160;
-    return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px; transform: translate(-50%, -50%) translateZ(${z}px) scale(${1 + lift}) rotate(${spinAt(t)}deg)`;
+    // Taken in hand it tips towards the player a little.
+    const tip = lift * -60;
+    return `left: ${x}px; top: ${y}px; width: ${size}px; height: ${size}px; transform: translate(-50%, -50%) translateZ(${z}px) rotateX(${tip}deg) scale(${1 + lift}) rotate(${spinAt(t)}deg)`;
   });
+
+  /** How far the print turns in one frame (60 a second), in degrees: the copies of the print spread
+   *  over that arc, each fainter, blur it as a fast disc blurs to the eye. Without them a disc at
+   *  15 turns a second jumps a quarter turn a frame and seems to shake. */
+  const smear = $derived(Math.min(150, (turnsAt(t) * 360) / 60));
+  const COPIES = [0, 1, 2, 3, 4, 5, 6];
+
+  /** Its shadow on the drive: it shows as the disc comes down, and spreads as it is lifted. */
+  const shade = $derived.by(() => {
+    const lift = liftAt(t);
+    const near = travelAt(t) ** 3;
+    return `opacity: ${near * Math.max(0, 0.75 - lift * 3)}; transform: translate(-50%, -50%) scale(${1 + lift * 1.6})`;
+  });
+
+  /** The console gives a little as the lid shuts. */
+  const knock = $derived(Math.sin(Math.PI * Math.min(1, Math.max(0, (t - shutAt() + 0.04) / 0.2))) * 4);
+  const glow = $derived(ACCENTS[game]?.["--glow"]);
   const black = $derived(blackAt(t));
   const hole = $derived({ x: left + SX * fit, y: top + SY * fit, r: black * Math.hypot(screen.w, screen.h) });
 
@@ -111,7 +132,7 @@
   aria-label={`Starting ${title}`}
   tabindex="-1"
   bind:this={el}
-  style={`--in: ${consoleAt(t)}`}
+  style={`--in: ${consoleAt(t)}${glow ? `; --glow: ${glow}` : ""}`}
   onclick={stop}
   onkeydown={(e) => {
     if (e.key === "Escape") stop();
@@ -119,7 +140,7 @@
 >
   <div
     class="console"
-    style={`left: ${left}px; top: ${top}px; transform: perspective(1600px) rotateX(14deg) translateY(${(1 - consoleAt(t)) * 60}px) scale(${fit})`}
+    style={`left: ${left}px; top: ${top}px; transform: perspective(1600px) rotateX(14deg) translateY(${(1 - consoleAt(t)) * 60 + knock}px) scale(${fit})`}
   >
     <div class="body"></div>
     <div class="strip"></div>
@@ -129,20 +150,28 @@
         <div class="spindle"></div>
       </div>
     </div>
+    <div class="shade" style={`left: ${SX}px; top: ${SY}px; width: ${SIZE}px; height: ${SIZE}px; ${shade}`}></div>
     <div class="disc" style={disc}>
       <Disc {game} {version} {title} />
-      <span class="blur" style={`opacity: ${speedAt(t) * 0.85}`}></span>
+      {#if smear > 1}
+        {#each COPIES as k (k)}
+          <span class="copy" style={`rotate: ${(-smear * (k + 1)) / COPIES.length}deg; opacity: ${1 / (k + 2)}`}>
+            <Disc {game} {version} {title} />
+          </span>
+        {/each}
+      {/if}
+      <span class="blur" style={`opacity: ${speedAt(t) * 0.4}`}></span>
     </div>
     <div
       class="lid"
-      style={`transform: translateZ(8px) rotateX(${118 * (1 - lidAt(t))}deg); filter: brightness(${0.75 + 0.25 * lidAt(t)})`}
+      style={`transform: translateZ(8px) rotateX(${104 * (1 - lidAt(t))}deg); filter: brightness(${1.35 - 0.35 * lidAt(t)})`}
     ></div>
     <div class="led" class:on={t >= shutAt()}></div>
   </div>
   {#if black > 0}
     <div
       class="black"
-      style={`left: ${hole.x}px; top: ${hole.y}px; width: ${hole.r * 2}px; height: ${hole.r * 2}px`}
+      style={`left: ${hole.x}px; top: ${hole.y}px; width: ${hole.r * 2.6}px; height: ${hole.r * 2.6}px`}
     ></div>
   {/if}
 </div>
@@ -152,7 +181,13 @@
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: color-mix(in srgb, var(--ink) calc(var(--in) * 100%), transparent);
+    background:
+      radial-gradient(
+        50% 60% at 50% 54%,
+        color-mix(in srgb, var(--glow) calc(var(--in) * 14%), transparent),
+        transparent 75%
+      ),
+      color-mix(in srgb, var(--ink) calc(var(--in) * 100%), transparent);
     outline: none;
     overflow: hidden;
   }
@@ -170,8 +205,11 @@
     position: absolute;
     inset: 0;
     border-radius: 14px;
-    background: linear-gradient(180deg, rgb(43 43 48), rgb(26 26 30) 60%, rgb(20 20 23));
-    box-shadow: 0 30px 60px rgb(0 0 0 / 0.55);
+    background: linear-gradient(180deg, rgb(46 46 51), rgb(27 27 31) 60%, rgb(20 20 23));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.09),
+      inset 0 -2px 0 rgb(0 0 0 / 0.4),
+      0 30px 60px rgb(0 0 0 / 0.55);
   }
 
   /* The ribbed strip along its left side, where the slim keeps its buttons. */
@@ -244,6 +282,18 @@
     position: absolute;
   }
 
+  .copy {
+    position: absolute;
+    inset: 0;
+  }
+
+  .shade {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle closest-side, rgb(0 0 0 / 0.7) 60%, transparent);
+    filter: blur(10px);
+  }
+
   /* The print smears as the drive turns it: a ring of soft light over it, not a blur of each frame. */
   .blur {
     position: absolute;
@@ -268,7 +318,12 @@
     height: 516px;
     transform-origin: 50% 0;
     border-radius: 8px;
-    background: repeating-radial-gradient(circle at 50% 50%, rgb(38 38 43) 0 2px, rgb(32 32 36) 2px 22px);
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent 30%),
+      repeating-radial-gradient(circle at 50% 50%, rgb(40 40 45) 0 2px, rgb(33 33 37) 2px 22px);
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.06),
+      0 10px 24px rgb(0 0 0 / 0.45);
   }
 
   .led {
@@ -289,7 +344,7 @@
   .black {
     position: fixed;
     border-radius: 50%;
-    background: rgb(0 0 0);
+    background: radial-gradient(circle closest-side, rgb(0 0 0) 72%, transparent);
     transform: translate(-50%, -50%);
   }
 </style>

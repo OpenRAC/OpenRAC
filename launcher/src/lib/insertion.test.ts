@@ -3,9 +3,9 @@ import { blackAt, duration, lidAt, liftAt, seatedAt, shutAt, spinAt, speedAt, tr
 
 describe("insertion", () => {
   it("lasts a little over two seconds, each step after the last", () => {
-    expect(seatedAt()).toBeCloseTo(1.18);
+    expect(seatedAt()).toBeCloseTo(1.06);
     expect(shutAt()).toBeGreaterThan(seatedAt());
-    expect(duration()).toBeCloseTo(2.25);
+    expect(duration()).toBeCloseTo(2.13);
   });
 
   it("brings the disc over, forward, then down onto the spindle with a small rebound", () => {
