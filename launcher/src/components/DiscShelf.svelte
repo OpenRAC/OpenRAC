@@ -644,11 +644,17 @@
     top: 50%;
     translate: 0 -50%;
     max-width: 560px;
+    /* One scale for the words and buttons beside the disc, from the screen's height: a phone held
+       sideways (about 410 px) gets the small end, a tablet or a desktop window the large one. */
+    --ctl: clamp(42px, 7vh, 52px);
+    --ctl-font: clamp(0.9375rem, 2.3vh, 1.0625rem);
+    /* The secondary buttons: a light veil, so they show on the page's dark ground. */
+    --veil: color-mix(in srgb, var(--text) 9%, transparent);
   }
 
   .over {
-    margin: 0 0 12px;
-    font-size: 0.8125rem;
+    margin: 0 0 clamp(4px, 1.4vh, 10px);
+    font-size: clamp(0.75rem, 1.8vh, 0.8125rem);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: var(--dim);
@@ -660,13 +666,13 @@
     flex-direction: column;
     font-family: var(--title-font);
     font-weight: var(--title-weight);
-    font-size: 2.6rem;
-    line-height: 1.1;
+    font-size: clamp(1.875rem, 5.6vh, 2.875rem);
+    line-height: 1.08;
     color: var(--on-game);
   }
 
   .facts {
-    margin-top: 16px;
+    margin-top: clamp(8px, 2vh, 14px);
   }
 
   .facts p {
@@ -674,7 +680,7 @@
   }
 
   .save {
-    font-size: 1.0625rem;
+    font-size: clamp(0.9375rem, 2.5vh, 1.125rem);
     color: var(--soft);
   }
 
@@ -692,8 +698,8 @@
   }
 
   .note {
-    margin-top: 6px !important;
-    font-size: 0.8125rem;
+    margin-top: 4px !important;
+    font-size: clamp(0.8125rem, 1.9vh, 0.875rem);
     color: var(--dim);
   }
 
@@ -713,18 +719,19 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 24px;
+    margin-top: clamp(16px, 4vh, 28px);
   }
 
   .acts button {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    height: 46px;
+    height: var(--ctl);
     padding: 0 18px 0 12px;
     border-radius: var(--radius);
-    background: var(--panel);
+    background: var(--veil);
     color: var(--text);
+    font-size: var(--ctl-font);
     font-weight: 600;
     box-shadow: none;
     transition:
@@ -751,10 +758,10 @@
 
   /* The "..." menu's button, as tall and round as the buttons beside it. */
   .acts :global(.trigger) {
-    width: 46px;
-    height: 46px;
+    width: var(--ctl);
+    height: var(--ctl);
     border-radius: var(--radius);
-    background: var(--panel);
+    background: var(--veil);
     box-shadow: none;
   }
 
@@ -763,18 +770,17 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    margin-top: 14px;
+    margin-top: clamp(8px, 1.8vh, 12px);
   }
 
-  /* Mods under Play: a quiet pill, its switch, then the count or "original game". */
+  /* Mods under Play: a quiet line, not a button: its switch, then the count or "original game".
+     It starts where the buttons start, and is smaller than they are. */
   .with-mods {
     display: inline-flex;
     align-items: center;
-    gap: 12px;
-    padding: 6px 8px 6px 16px;
-    border-radius: 99px;
-    background: color-mix(in srgb, var(--ink-deep) 70%, transparent);
-    font-size: 0.875rem;
+    gap: 10px;
+    padding-left: 4px;
+    font-size: clamp(0.8125rem, 2vh, 0.9375rem);
     color: var(--soft);
   }
 
@@ -792,7 +798,7 @@
     align-items: center;
     gap: 6px;
     min-height: 32px;
-    padding: 0 10px 0 4px;
+    padding: 0 10px 0 6px;
     border-radius: 99px;
     background: none;
     box-shadow: none;
@@ -963,20 +969,8 @@
     color: var(--amber);
   }
 
-  /* A phone held sideways: a smaller title, the buttons closer. */
+  /* A phone held sideways: a lower foot (the words and buttons follow the height: .info). */
   @media (max-height: 500px) {
-    h1 {
-      font-size: 1.85rem;
-    }
-
-    .acts {
-      margin-top: 14px;
-    }
-
-    .acts button {
-      height: 38px;
-    }
-
     .foot {
       height: 38px;
     }
