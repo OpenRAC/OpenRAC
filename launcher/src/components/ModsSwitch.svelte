@@ -1,7 +1,8 @@
 <script lang="ts">
   // Whether Play brings the mods (config.playWithMods): a switch, and beside it what it means, the
   // number of mods on or "original game", which leads to the Mods tab. Under Play on the desktop's
-  // game page (a pill) and beside the disc on Android's Games (`quiet`: a line, with X's glyph).
+  // game page (a pill) and beside the disc on Android's Games (`quiet`: a line, the switch with X's
+  // glyph: X turns it on Games).
   import type { VersionView } from "$lib/api";
   import { app } from "$lib/app.svelte";
   import { supports } from "$lib/capabilities";
@@ -36,7 +37,7 @@
 
 <div class="with-mods" class:quiet>
   <label title={WITH_MODS.hint}
-    >{WITH_MODS.label}<input
+    >{#if quiet}<span class="glyph" aria-hidden="true">X</span>{/if}{WITH_MODS.label}<input
       type="checkbox"
       role="switch"
       class="switch"
@@ -47,7 +48,7 @@
   >
   {#if quiet}
     <button class="link" class:dim={!on} onclick={onopen}
-      ><span class="glyph" aria-hidden="true">X</span>{on ? WITH_MODS.count(count) : WITH_MODS.original}</button
+      >{on ? WITH_MODS.count(count) : WITH_MODS.original}<Icon name="next" size={12} /></button
     >
   {:else if on}
     <button class="link" onclick={onopen}>{WITH_MODS.count(count)}<Icon name="next" size={12} /></button>
@@ -97,9 +98,9 @@
   }
 
   .quiet .link {
-    gap: 6px;
+    gap: 4px;
     min-height: 32px;
-    padding: 0 10px 0 6px;
+    padding: 0 10px;
     border-radius: 99px;
     background: none;
     box-shadow: none;
@@ -110,15 +111,19 @@
     color: var(--dim);
   }
 
+  /* As the shelf's A and Y: the letter in the middle of its circle, whatever the font around it. */
   .glyph {
+    flex: none;
     display: inline-grid;
     place-items: center;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
+    margin-right: -2px;
     border-radius: 50%;
     background: color-mix(in srgb, var(--text) 14%, transparent);
     color: var(--text);
-    font-size: 0.625rem;
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
     font-weight: 800;
     line-height: 1;
   }

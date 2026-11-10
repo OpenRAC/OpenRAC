@@ -2,7 +2,7 @@
   // Play on Android's Games tab: the console comes in, its lid open; the disc leaves the shelf, turns,
   // is taken in hand and pushed onto the spindle with a click, spins up; the lid shuts, the light
   // comes on, and the screen goes black from the disc's centre (insertion.ts says where everything is
-  // at each moment). Then `ondone` starts the game. B, Back or a tap before the click puts the disc
+  // at each moment), with the click and the drive's sound (driveSounds.ts). Then `ondone` starts the game. B, Back or a tap before the click puts the disc
   // back (`oncancel`). The console is the launcher's own drawing, with no maker's marks.
   import { onMount } from "svelte";
   import {
@@ -19,6 +19,7 @@
     turnsAt,
   } from "$lib/insertion";
   import { discPrint } from "$lib/discArt";
+  import { driveSounds, type DriveSounds } from "$lib/driveSounds";
   import { ACCENTS } from "$lib/themes";
   import Disc from "./Disc.svelte";
 
@@ -103,12 +104,13 @@
   });
 
   /** The console gives a little as the lid shuts. */
-  const knock = $derived(Math.sin(Math.PI * Math.min(1, Math.max(0, (t - shutAt() + 0.04) / 0.2))) * 4);
+  const knock = $derived(Math.sin(Math.PI * Math.min(1, Math.max(0, (t - shutAt() + 0.04) / 0.2))) * 1.5);
   const glow = $derived(ACCENTS[game]?.["--glow"]);
   const black = $derived(blackAt(t));
   const hole = $derived({ x: left + SX * fit, y: top + SY * fit, r: black * Math.hypot(screen.w, screen.h) });
 
   let done = false;
+  let sounds: DriveSounds | null = null;
   let el = $state<HTMLElement | null>(null);
 
   onMount(() => {
@@ -126,6 +128,8 @@
       };
       img.src = print;
     }
+    // The press has just happened: the page may play sound now.
+    sounds = driveSounds(seatedAt(), duration() - seatedAt());
     const begun = performance.now();
     let frame = 0;
     const tick = (now: number) => {
@@ -142,6 +146,7 @@
     frame = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(frame);
+      sounds?.stop(0.3);
       // Svelte no longer finds it once moved to <body>, so it goes from there by hand.
       // eslint-disable-next-line svelte/no-dom-manipulating
       el?.remove();
@@ -152,6 +157,7 @@
   function stop() {
     if (t < seatedAt() && !done) {
       done = true;
+      sounds?.stop(0.05);
       oncancel();
     }
   }

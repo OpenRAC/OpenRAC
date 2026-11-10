@@ -215,7 +215,7 @@
           {#if onAndroid}
             <!-- Android: Play, the Mods switch and the menu are beside the disc on Games; the band only
                  leads back there, and says what stopped. -->
-            <button class="back" onclick={() => (app.page = "library")}><Icon name="arrow" size={18} />Games</button>
+            <button class="back" onclick={() => (app.page = "library")}><Icon name="arrow" size={16} />Games</button>
             {#if stopped}
               <p class="stopped">
                 <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(stopped.lines).title.toLowerCase()}.
@@ -396,15 +396,16 @@
        shows through it. It fades out at its edges rather than under a coat of the page's colour,
        which covered that light. */
     mix-blend-mode: screen;
-    /* Gone before the sides: the game list beside it has no panel of its own, so an edge left
-       here showed as a cut line along the list. */
-    mask-image: radial-gradient(ellipse 50% 80% at 50% 20%, black 20%, transparent 98%);
   }
 
+  /* Gone before the sides: the game list beside it has no panel of its own, so an edge left here
+     shows as a cut line along the list. The mask is on the picture, not on the screened box:
+     WebKit (Safari, the Linux app) left a box with both its edge. */
   .page-ambient-bg img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    mask-image: radial-gradient(ellipse 50% 80% at 50% 20%, black 20%, transparent 98%);
   }
 
   /* Over the game's picture the menu's button is a dark shade, so it shows on any picture. */
@@ -422,7 +423,9 @@
     border-radius: var(--radius);
     background:
       radial-gradient(90% 70% at 70% 0, var(--from), transparent 70%), linear-gradient(160deg, var(--from), var(--to));
-    box-shadow: var(--shadow);
+    /* Down more than out: the column beside the game list cuts what passes its edge, and the usual
+       shadow's sides showed there as a dark band along the list. This one ends inside the margin. */
+    box-shadow: 0 22px 36px -20px rgb(0 0 0 / 0.6);
     overflow: hidden;
   }
 
@@ -578,9 +581,10 @@
      written on it in two lines, no box. Play and its menu are beside the disc on Games; the band
      only leads back there. */
   :global(html[data-platform="android"]) .hero {
-    min-height: 236px;
-    align-items: end;
-    padding: 26px 30px;
+    min-height: 168px;
+    /* The name at the band's foot, level with the Games button (the band is a grid: compact.css). */
+    align-content: end;
+    padding: 20px 28px;
     border-radius: var(--radius);
     background: var(--ink);
   }
@@ -626,22 +630,12 @@
     text-shadow: none;
   }
 
-  /* Back to the shelf of discs, in the band's top left corner. */
+  /* Back to the shelf of discs: a plain button in the band's bottom right corner. */
   .hero > .back {
     position: absolute;
-    top: 16px;
-    left: 18px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 40px;
-    padding: 0 16px 0 10px;
-    border-radius: 99px;
-    background: rgb(0 0 0 / 0.45);
-    color: var(--text);
-    font-weight: 600;
-    box-shadow: none;
-    transition: transform 300ms cubic-bezier(0.34, 1.45, 0.64, 1);
+    right: 24px;
+    bottom: 20px;
+    padding-left: 10px;
   }
 
   .notice {

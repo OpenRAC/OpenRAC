@@ -2,14 +2,15 @@
   // Android's Games tab: a wheel of discs on the left (user decision, after Cartouche) and, beside
   // the one picked, its name, last save, Play, the "..." menu and the Mods switch (gameMenu.svelte.ts).
   // Up/down or a drag turns the wheel; A puts the disc into the console (DiscLaunch.svelte) and
-  // plays; X opens its mods, Y its page.
+  // plays; X turns the Mods switch, Y opens its page.
   import { fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
   import { choiceFor } from "$lib/discChoice";
-  import { gameMenu, startsPlay } from "$lib/gameMenu.svelte";
+  import { supports } from "$lib/capabilities";
+  import { gameMenu, setWithMods, startsPlay } from "$lib/gameMenu.svelte";
   import { grouped, pct } from "$lib/format";
   import { regionLabel, titleLines } from "$lib/labels";
   import { reduced } from "$lib/motion";
@@ -211,20 +212,88 @@
     return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}`;
   }
 
-  let start: { y: number; moved: boolean } | null = null;
+  // A finger anywhere on the stage turns the wheel (the rail beside it is not the stage). Let go, it
+  // keeps the finger's speed: the wheel runs on and the spring stops it on the disc it reaches.
+  // Held still on the disc picked, the finger takes the disc instead and turns it round; let go, it
+  // turns on to its own place, label up.
+
+  /** The finger down: where it started, the last places it moved through, and what it holds. */
+  let touch: {
+    id: number;
+    y: number;
+    moved: boolean;
+    trail: { y: number; t: number }[];
+    hold: number;
+    spin: { cx: number; cy: number; last: number } | null;
+    x: number;
+    at: number;
+  } | null = null;
+  /** How far the finger has turned the disc picked, in degrees. */
+  let twist = $state(0);
+  let twisting = $state(false);
+  /** The click after a drag or a turn is not a press. */
+  let swallow = false;
+  let stage = $state<HTMLElement | null>(null);
+
+  /** How long a still finger waits before it takes the disc, in ms. */
+  const HOLD = 260;
+  /** How long the wheel runs on after a fling, in s: the distance is the speed times this. */
+  const GLIDE = 0.32;
+
+  const angle = (x: number, y: number, cx: number, cy: number) => (Math.atan2(y - cy, x - cx) * 180) / Math.PI;
 
   function down(e: PointerEvent) {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    start = { y: e.clientY, moved: false };
+    if ((e.pointerType === "mouse" && e.button !== 0) || touch || launching || covered()) return;
+    swallow = false;
+    touch = {
+      id: e.pointerId,
+      y: e.clientY,
+      moved: false,
+      trail: [{ y: e.clientY, t: e.timeStamp }],
+      hold: 0,
+      spin: null,
+      x: e.clientX,
+      at: e.clientY,
+    };
+    const roll = (e.target as Element).closest<HTMLElement>(".slot.on .roll");
+    if (roll && !reduced)
+      touch.hold = window.setTimeout(() => {
+        grab(roll);
+      }, HOLD);
+  }
+
+  /** The finger has stayed on the disc: it holds it now. */
+  function grab(roll: HTMLElement) {
+    if (!touch || touch.moved) return;
+    const r = roll.getBoundingClientRect();
+    const cx = r.left + r.width / 2,
+      cy = r.top + r.height / 2;
+    touch.spin = { cx, cy, last: angle(touch.x, touch.at, cx, cy) };
+    twisting = true;
+    stage?.setPointerCapture(touch.id);
   }
 
   function move(e: PointerEvent) {
-    if (!start) return;
-    const dy = e.clientY - start.y;
-    if (!start.moved && Math.abs(dy) < 8) return;
-    if (!start.moved) (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    start.moved = true;
+    if (touch?.id !== e.pointerId) return;
+    touch.x = e.clientX;
+    touch.at = e.clientY;
+    const spin = touch.spin;
+    if (spin) {
+      const a = angle(e.clientX, e.clientY, spin.cx, spin.cy);
+      twist += ((a - spin.last + 540) % 360) - 180;
+      spin.last = a;
+      return;
+    }
+    const dy = e.clientY - touch.y;
+    if (!touch.moved && Math.abs(dy) < 8) return;
+    if (!touch.moved) {
+      clearTimeout(touch.hold);
+      stage?.setPointerCapture(e.pointerId);
+    }
+    touch.moved = true;
     dragging = true;
+    touch.trail.push({ y: e.clientY, t: e.timeStamp });
+    if (touch.trail.length > 6) touch.trail.shift();
     // Past the first and the last disc the wheel gives, but less: only the part beyond the end is
     // damped, so the wheel never jumps as the finger crosses it.
     const most = at * step,
@@ -232,15 +301,41 @@
     drag = dy > most ? most + (dy - most) * 0.35 : dy < least ? least + (dy - least) * 0.35 : dy;
   }
 
-  function up() {
-    if (!start) return;
-    const moved = start.moved;
-    start = null;
+  function up(e: PointerEvent) {
+    if (touch?.id !== e.pointerId) return;
+    const { moved, spin, trail, hold } = touch;
+    touch = null;
+    clearTimeout(hold);
+    if (spin) {
+      // Let go: the disc turns on to the nearest whole turn, its label up again.
+      twist = Math.round(twist / 360) * 360;
+      twisting = false;
+      swallow = true;
+      return;
+    }
     dragging = false;
     if (!moved) return;
-    const target = Math.round(at - drag / step);
+    swallow = true;
+    // The finger's speed over its last moves (the newest within 100 ms), in discs a second.
+    const end = trail.at(-1) ?? { y: 0, t: 0 };
+    const first = trail.find((p) => end.t - p.t <= 100) ?? end;
+    const ms = end.t - first.t;
+    const fling =
+      e.type === "pointerup" && ms > 0 ? Math.max(-24, Math.min(24, ((first.y - end.y) / ms) * (1000 / step))) : 0;
+    const now = at - drag / step;
+    const target = Math.max(0, Math.min(games.length - 1, Math.round(now + fling * GLIDE)));
     drag = 0;
     pick(target);
+    // The spring starts at the finger's speed: no stop between the finger and the wheel.
+    speed = fling;
+  }
+
+  /** After a drag or a turn, the click it ends in presses nothing. */
+  function click(e: MouseEvent) {
+    if (!swallow) return;
+    swallow = false;
+    e.stopPropagation();
+    e.preventDefault();
   }
 
   /** A disc pressed: the one picked plays (or does its step); another is picked. */
@@ -286,9 +381,15 @@
   const covered = () => !!document.querySelector('[role="dialog"], [role="menu"]');
 
   function openMods() {
-    if (!v || !playable || launching || covered()) return;
+    if (!v || !playable || launching) return;
     pickVersion(v.key);
     app.page = "mods";
+  }
+
+  /** X: the Mods switch, while it shows and nothing covers the shelf. */
+  function toggleMods() {
+    if (!startsGame || !playable || launching || covered() || !app.config || !supports(app.info, "mods")) return;
+    void setWithMods(!app.config.playWithMods);
   }
 
   function openPage() {
@@ -313,10 +414,10 @@
     const el = root;
     if (!el) return;
     el.addEventListener("padmore", padPage);
-    document.addEventListener("padextra", openMods);
+    document.addEventListener("padextra", toggleMods);
     return () => {
       el.removeEventListener("padmore", padPage);
-      document.removeEventListener("padextra", openMods);
+      document.removeEventListener("padextra", toggleMods);
     };
   });
 
@@ -333,7 +434,20 @@
 
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
-    <div class="stage">
+    <div
+      class="stage"
+      class:twisting
+      bind:this={stage}
+      onpointerdown={down}
+      onpointermove={move}
+      onpointerup={up}
+      onpointercancel={up}
+      onclickcapture={click}
+      oncontextmenu={(e) => {
+        e.preventDefault();
+      }}
+      role="presentation"
+    >
       <div class="backdrop" aria-hidden="true">
         {#if !reduced}
           {#each MOTES as m, i (i)}
@@ -344,17 +458,7 @@
           {/each}
         {/if}
       </div>
-      <div
-        class="wheel"
-        data-pad-right=".info .acts button"
-        bind:this={wheel}
-        onpointerdown={down}
-        onpointermove={move}
-        onpointerup={up}
-        onpointercancel={up}
-        aria-label="Your games"
-        role="group"
-      >
+      <div class="wheel" data-pad-right=".info .acts button" bind:this={wheel} aria-label="Your games" role="group">
         {#each games as g, i (g.id)}
           {@const gv = playerVersion(g)}
           {@const near = Math.abs(i - at) <= 1}
@@ -373,7 +477,9 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle={Math.abs(i - at) <= 2} />
+              <span class="twist" style={i === at && twist ? `rotate: ${twist}deg` : undefined}>
+                <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle={Math.abs(i - at) <= 2} />
+              </span>
             </span>
           </button>
         {/each}
@@ -425,7 +531,9 @@
             {#if menu.length}<Menu items={menu} />{/if}
           </div>
           {#if (startsGame && playable) || choice}
-            <div class="extra" in:fly={enter(4)}>
+            <!-- |global: a local intro in an {#if} plays only when the {#if} changes, not with the
+                 words around it on a new disc. -->
+            <div class="extra" in:fly|global={enter(4)}>
               {#if startsGame && playable}
                 <ModsSwitch version={v} setUp={!!game.install?.extracted} onopen={openMods} quiet />
               {/if}
@@ -473,7 +581,14 @@
         {/if}
       </div>
       <div class="hints" aria-hidden="true">
-        <span><span class="glyph">↕</span>Games</span>
+        <!-- Up and down on the pad: two solid arrows, plainer than a ↕ in the font. -->
+        <span
+          ><span class="glyph"
+            ><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"
+              ><path d="M12 2.5l5.5 6.5h-11zM12 21.5l5.5-6.5h-11z" /></svg
+            ></span
+          >Games</span
+        >
         <span><span class="glyph wide">LB</span><span class="glyph wide">RB</span>Tabs</span>
       </div>
     </footer>
@@ -507,6 +622,11 @@
     position: relative;
     flex: 1 0 360px;
     overflow: clip;
+    /* The finger turns the wheel here: no scrolling, no text picked, no long-press menu. */
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
 
   /* Behind everything: motes of light in the game's colour rising slowly; no picture, no glow. */
@@ -552,7 +672,6 @@
     top: 0;
     bottom: 0;
     width: 50%;
-    touch-action: none;
     /* The discs above and below fade out at the edges instead of being cut. */
     mask-image: linear-gradient(to bottom, transparent 0, black 16%, black 84%, transparent 100%);
   }
@@ -588,10 +707,27 @@
     outline: none;
   }
 
-  /* A pressed disc gives a little, and comes back with a bounce. */
+  /* A pressed disc gives a little, and comes back with a bounce; held, it comes up to the finger. */
   .slot:active .roll {
     scale: 0.97;
     transition-duration: 90ms;
+  }
+
+  .twisting .slot.on .roll {
+    scale: 1.03;
+    transition-duration: 200ms;
+  }
+
+  /* Let go, the disc turns on to its place and settles there. */
+  .twist {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: rotate 900ms cubic-bezier(0.2, 1.15, 0.35, 1);
+  }
+
+  .twisting .twist {
+    transition: none;
   }
 
   .roll {

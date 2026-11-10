@@ -3,7 +3,7 @@
 // as pure functions of the time since the press. Adapted from Cartouche's insertion.gd
 // (github.com/Hakimba/cartouche, GPL-3.0-or-later) and its DVD timings (appearance.json): the disc
 // comes to the console and turns to face the player, comes forward as if taken in hand, goes back
-// onto the spindle with a small rebound, and spins up; then the lid closes, the light comes on and
+// down onto the spindle, and spins up; then the lid closes, the light comes on and
 // the screen goes black from the disc's centre. Times in seconds.
 
 const INSERTION = {
@@ -13,9 +13,10 @@ const INSERTION = {
   grab_s: 0.24,
   /** How far the disc comes forward, as a share of its size. */
   grab_lift: 0.12,
+  /** The disc starts coming forward this long before it reaches the console (ours): one movement,
+   *  not a stop and a start. */
+  grab_early_s: 0.14,
   seat_s: 0.22,
-  bounce: 0.03,
-  bounce_s: 0.08,
   spin_up_s: 0.7,
   turns_per_s: 15,
   /** The lid (ours): it starts closing while the disc spins up. */
@@ -50,13 +51,13 @@ export function travelAt(t: number): number {
 }
 
 /** How far the disc stands out of the console, as a share of its size: forward as it is taken in
- *  hand, back past where it was onto the spindle, then a small rebound. */
+ *  hand, then back down onto the spindle. Each way starts and ends at rest, and the first begins
+ *  while the disc still travels: no rebound, no kink where one step hands over to the next (ours;
+ *  Cartouche's rebound read as a hop). */
 export function liftAt(t: number): number {
-  const grabbed = progress(t, faceAt() + I.face_s, I.grab_s);
+  const grabbed = progress(t, faceAt() + I.face_s - I.grab_early_s, I.grab_s + I.grab_early_s);
   const pushed = progress(t, faceAt() + I.face_s + I.grab_s, I.seat_s);
-  const rebound = progress(t, seatedAt(), I.bounce_s);
-  const lift = I.grab_lift * (1 - (1 - grabbed) ** 2);
-  return lift * (1 - pushed * pushed) + I.bounce * Math.sin(Math.PI * rebound);
+  return I.grab_lift * smooth(grabbed) * (1 - smooth(pushed));
 }
 
 /** How far the drive has turned the disc, in degrees: speeding up evenly from the click, then

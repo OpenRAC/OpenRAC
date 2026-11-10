@@ -449,7 +449,7 @@ function more() {
   el?.dispatchEvent(new CustomEvent("padmore", { bubbles: true }));
 }
 
-/** X: the page's own shortcut, as `padextra` on the document (Android's Games: the game's mods). */
+/** X: the page's own shortcut, as `padextra` on the document (Android's Games: the Mods switch). */
 function extra() {
   document.dispatchEvent(new CustomEvent("padextra"));
 }

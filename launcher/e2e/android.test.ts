@@ -304,13 +304,16 @@ describe("A controller", () => {
     expect(await page.locator(".slot.on").count()).toBe(1);
   });
 
-  it("opens the game's mods by X and its page by Y", async () => {
+  it("turns the Mods switch by X and opens the game's page by Y", async () => {
     await open("built&version=rac1/pal&page=library");
-    await page.locator(".slot.on").waitFor();
+    const sw = page.locator(".extra [role=switch]");
+    await sw.waitFor();
+    expect(await sw.isChecked()).toBe(false);
     await press("extra");
-    await page.waitForFunction(() => !document.querySelector(".slot"));
-    await press("back");
-    await page.locator(".slot.on").waitFor();
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
+    await press("extra");
+    await page.waitForFunction(() => !document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
+    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
     await press("more");
     await page.locator(".hero .back").waitFor();
   });
@@ -324,7 +327,8 @@ describe("A controller", () => {
       document.body.append(d);
     });
     await press("extra");
-    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
+    await page.waitForTimeout(200);
+    expect(await page.locator(".extra [role=switch]").isChecked()).toBe(false);
   });
 
   it("keeps the controller in the words beside the disc, and goes left to the disc and the tab open", async () => {
