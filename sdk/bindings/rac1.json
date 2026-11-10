@@ -713,7 +713,6 @@
     {
       "id": "rac1.vendor.open_menu",
       "name": "Vendor_OpenMenu",
-      "after_catalogue": true,
       "signature": "void(u32)",
       "params": ["moby"],
       "symbols": {
