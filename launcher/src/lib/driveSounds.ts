@@ -8,7 +8,7 @@
 //     up (its commutation whine, a few harmonics, rising with the speed) under the rush of air of
 //     the spinning disc and the disc's slight wobble; the laser sled buzzes out along its gear and
 //     stops with a tick; the lens chatters as it reads. All of it through the console's plastic case
-//     (a few resonances), with nothing sharp above 6 kHz.
+//     (a few resonances), with nothing sharp above 3 kHz.
 // The same seed every time: the same sound every time.
 
 /** The sounds of one Play, from the moment it is pressed. `stop` ends them (a fade, not a cut). */
@@ -153,9 +153,9 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
   const air2 = bandpass(rate, 3);
   const sledGear = bandpass(rate, 6);
   const tick = body(rate, [
-    [1250, 0.012, 1],
-    [2450, 0.008, 0.6],
-    [4100, 0.005, 0.3],
+    [700, 0.014, 1],
+    [1350, 0.009, 0.5],
+    [2300, 0.006, 0.2],
   ]);
   const focus = body(rate, [
     [260, 0.03, 1],
@@ -167,8 +167,8 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     [640, 0.06, 0.3],
     [980, 0.05, 0.2],
   ]);
-  const top = lowpass(rate, 5000);
-  const top2 = lowpass(rate, 7000);
+  const top = lowpass(rate, 2200);
+  const top2 = lowpass(rate, 3500);
   const rumbleLp = lowpass(rate, 140);
 
   // The focus coil's two jumps, the sled's two runs, then the lens reading.
@@ -198,8 +198,8 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     const fr = 38 * (1 - Math.exp(-Math.max(0, t - 0.06) / 0.38));
     const speed = fr / 38;
     turn += (TAU * fr) / rate;
-    // The motor's whine: 24 steps a turn, and its harmonics, louder as it pulls harder.
-    phase += (TAU * 24 * fr) / rate;
+    // The motor's hum: 6 steps a turn, and its harmonics, louder as it pulls harder.
+    phase += (TAU * 6 * fr) / rate;
     const pull = 0.4 + 0.6 * Math.exp(-t / 0.5);
     let whine = 0;
     for (const [k, a] of [
@@ -216,16 +216,16 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     const rumble = rumbleLp(Math.sin(turn) + 0.4 * Math.sin(2 * turn + 1)) * 0.03 * speed;
     // The air: rising in pitch and loudness with the speed, with a narrower whistle in it.
     const noise = rnd();
-    const rush = air(noise, 200 + 22 * fr) * 0.4 * speed ** 1.5 + air2(noise, 700 + 40 * fr) * 0.05 * speed ** 2;
+    const rush = air(noise, 120 + 9 * fr) * 0.5 * speed ** 1.5 + air2(noise, 380 + 14 * fr) * 0.04 * speed ** 2;
     // The sled: a small motor buzzing through its gear while it runs.
     let buzz = 0;
     for (const [from, to] of sled) {
       if (t >= from && t < to) {
         const u = (t - from) / (to - from);
-        sledPhase += (TAU * (150 + 40 * u)) / rate;
+        sledPhase += (TAU * (90 + 25 * u)) / rate;
         const env = Math.min(1, u * 12, (1 - u) * 12);
         const saw = (sledPhase / TAU) % 1;
-        buzz = (sledGear(saw * 2 - 1 + noise * 0.4, 1500) * 0.9 + (saw - 0.5) * 0.25) * env;
+        buzz = (sledGear(saw * 2 - 1 + noise * 0.4, 650) * 0.9 + (saw - 0.5) * 0.25) * env;
       }
     }
     const s = strikes.get(i);
