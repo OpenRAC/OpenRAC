@@ -1,33 +1,21 @@
-#version 430 core
+#version 410 core
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
 // Five-by-five Gaussian reduction with a soft bright pass on the first level.
-layout(local_size_x = 8, local_size_y = 8) in;
-layout(std430, binding = 0) writeonly buffer BloomOutput { uint pixels[]; };
+layout(location = 0) out vec4 result;
 uniform sampler2D tex_T0;
-uniform vec2 source_size;
 uniform int first_pass;
 uniform float threshold;
 uniform float knee;
 
-ivec2 source_dims() {
-    return ivec2(source_size);
-}
-
 vec3 tap(ivec2 p) {
-    ivec2 size = source_dims();
+    ivec2 size = textureSize(tex_T0, 0);
     return texelFetch(tex_T0, clamp(p, ivec2(0), size - 1), 0).rgb;
 }
 
 void main() {
-    ivec2 p = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size = (source_dims() + 1) / 2;
-    if (any(greaterThanEqual(p, size))) {
-        return;
-    }
-
     const float weights[5] = float[5](1.0, 4.0, 6.0, 4.0, 1.0);
-    ivec2 centre = p * 2;
+    ivec2 centre = ivec2(gl_FragCoord.xy) * 2;
     vec3 colour = vec3(0.0);
     for (int y = 0; y < 5; ++y) {
         for (int x = 0; x < 5; ++x) {
@@ -44,5 +32,5 @@ void main() {
         colour *= max(contribution, 0.0);
     }
 
-    pixels[p.y * size.x + p.x] = packUnorm4x8(vec4(clamp(colour, 0.0, 1.0), 1.0));
+    result = vec4(colour, 1.0);
 }

@@ -6,7 +6,7 @@
 namespace openrac::renderer {
 
 struct BloomSettings {
-    bool enabled = true;
+    bool enabled = false;
     float strength = 0.780f;
     float threshold = 0.78f;
     float knee = 0.27f;

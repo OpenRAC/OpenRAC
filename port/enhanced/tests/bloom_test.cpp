@@ -3,6 +3,7 @@
 //
 // Bloom stays off in compatibility rendering, preserves alpha and spreads bright colour on Vulkan.
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -32,7 +33,7 @@ std::uint64_t rgb_total(const std::vector<std::uint8_t>& pixels) {
     return total;
 }
 
-int draw_patch(openrac::renderer::FrameBuffer& target) {
+std::array<int, 2> draw_patch(openrac::renderer::FrameBuffer& target) {
     using namespace openrac::gl;
     glBindFramebuffer(GL_FRAMEBUFFER, target.id());
     glViewport(0, 0, target.width(), target.height());
@@ -45,13 +46,13 @@ int draw_patch(openrac::renderer::FrameBuffer& target) {
 
     const int side = std::min({8, target.width() - 2, target.height() - 2});
     const int left = (target.width() - side) / 2;
-    const int bottom = (target.height() - side) / 2;
+    const int bottom = (target.height() - side) / 4;
     glEnable(GL_SCISSOR_TEST);
     glScissor(left, bottom, side, side);
     glClearColor(1.f, 0.85f, 0.35f, 77.f / 255.f);
     glClear(GL_COLOR_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
-    return std::min(target.width() - 1, left + side);
+    return {left + side, target.height() - 1 - (bottom + side / 2)};
 }
 
 void check_frame(openrac::enhanced::Bloom& bloom, int width, int height) {
@@ -62,16 +63,14 @@ void check_frame(openrac::enhanced::Bloom& bloom, int width, int height) {
     std::string error;
     CHECK(target.create(width, height, error, 1));
 
-    const int near_x = draw_patch(target);
-    const int cy = target.height() / 2;
+    const auto [near_x, cy] = draw_patch(target);
     const auto before = target.read_rgba();
-    renderer::BloomSettings settings;
-    settings.strength = 1.0f;
-    settings.enabled = false;
-    bloom.apply(target, settings);
+    bloom.apply(target);
     CHECK(target.read_rgba() == before);
-    settings.enabled = true;
-    bloom.apply(target, settings);
+    const renderer::BloomSettings enabled{.enabled = true};
+    auto strong_settings = enabled;
+    strong_settings.strength = 1.0f;
+    bloom.apply(target, strong_settings);
     const auto strong = target.read_rgba();
 
     if (enhanced_rendering_available()) {
@@ -95,7 +94,7 @@ void check_frame(openrac::enhanced::Bloom& bloom, int width, int height) {
         // The game invokes bloom while collecting the world colour passes.
         CHECK(renderer::run_surface_chain([&] {
             CHECK(renderer::collecting_surface_chain());
-            bloom.apply(target);
+            bloom.apply(target, enabled);
         }));
         const auto subtle = target.read_rgba();
         CHECK(rgb_total(subtle) > rgb_total(before));
