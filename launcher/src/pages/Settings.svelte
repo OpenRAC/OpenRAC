@@ -51,7 +51,6 @@
     "layout",
     "theme",
     "gameColors",
-    "gamesLook",
     "discordRpc",
     "checkUpdates",
     "updateChannel",
@@ -477,24 +476,7 @@
         </span>
         <input type="checkbox" role="switch" class="switch" bind:checked={draft.gameColors} />
       </label>
-      {#if onAndroid}
-        <label class="setting">
-          <span class="text">
-            <strong>Games as discs</strong>
-            <small
-              >Every game a disc on a wheel, put into a console when you play. Off: a banner over the games' pictures.</small
-            >
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            checked={draft.gamesLook === "discs"}
-            onchange={(e) => (draft.gamesLook = e.currentTarget.checked ? "discs" : "tiles")}
-          />
-        </label>
-      {/if}
-      <!-- Android has neither: its Games tab has its own looks (above), and no Discord app on the
+      <!-- Android has neither: its Games tab is a shelf of discs, and no Discord app on the
            device reads a desktop's rich presence. -->
       {#if !onAndroid}
         <AddToSteam />

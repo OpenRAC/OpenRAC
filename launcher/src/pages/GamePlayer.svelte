@@ -17,24 +17,13 @@
   import { toolFailure } from "$lib/toolErrors";
   import JobProgress from "$components/JobProgress.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
-  import Menu, { type MenuItem } from "$components/Menu.svelte";
+  import Menu from "$components/Menu.svelte";
   import ReportsBlock from "$components/ReportsBlock.svelte";
   import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
-  import { api, ask, onAndroid, pickMemoryCard, type ActionView, type ReportEntry } from "$lib/api";
-  import {
-    app,
-    clock,
-    currentVersion,
-    gameWindow,
-    guard,
-    jobs,
-    openDevelop,
-    run,
-    saveConfig,
-    toast,
-    uninstallGame,
-  } from "$lib/app.svelte";
+  import { api, onAndroid, type ActionView, type ReportEntry } from "$lib/api";
+  import { app, clock, currentVersion, guard, jobs, openDevelop, run } from "$lib/app.svelte";
   import { choiceFor, programOf } from "$lib/discChoice";
+  import { gameMenu, modsOnCount, pageAsks, setWithMods } from "$lib/gameMenu.svelte";
   import { pct } from "$lib/format";
   import { SITE_URL } from "$lib/links";
   import { WITH_MODS } from "$lib/modsText";
@@ -44,14 +33,7 @@
   import { tick } from "svelte";
   import { fly } from "svelte/transition";
   import { place, when } from "$lib/reports";
-  import {
-    isBuilt,
-    playerAct,
-    playerState,
-    playerVersion,
-    rebuild as rebuildGame,
-    rebuildSteps,
-  } from "$lib/player.svelte";
+  import { isBuilt, playerAct, playerState, playerVersion } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
 
   // One game, whatever the region: the page plays the version your disc is (playerVersion),
@@ -70,8 +52,6 @@
   const levelsCheck = $derived(action("port-levels-check"));
   /** The levels were read from the disc and, where the version has the check, the game read them all. */
   const levelsReady = $derived(levelsCheck ? levelsCheck.done : !!levels?.done);
-  const playGodot = $derived(action("editor-preview"));
-  const extract = $derived(action("editor-extract"));
 
   // Each game's still picture, under its band and behind the page.
   const art = $derived(v ? gameArt(v.game) : null);
@@ -88,15 +68,6 @@
   const built = $derived(!!v && !!game && isBuilt(game, v));
   /** The steps are shown while there is one left that the player can take. */
   const showSteps = $derived(!!next && next.kind !== "play" && next.kind !== "playing" && next.kind !== "return");
-
-  async function removeSetUp() {
-    if (!v) return;
-    const sure = await ask(
-      `Remove what was set up from your ${v.title} disc? Your disc image and your saves are kept; set it up again any time.`,
-      "Remove",
-    );
-    if (sure) await uninstallGame(v.game);
-  }
 
   /** The last step towards playing that stopped with an error (set-up, build, levels), while nothing
    *  runs: the page says so under the main button, with the way to what it printed. */
@@ -153,101 +124,36 @@
     logs?.focus({ preventScroll: true });
   }
 
+  // Opened from Games' "..." menu on its logs.
+  $effect(() => {
+    if (pageAsks.logs && setUp) {
+      pageAsks.logs = false;
+      void showLogs();
+    }
+  });
+
   /** The Mods switch under Play, kept in the settings (config.playWithMods): off, Play starts the game
    *  without mods; on, with what the Mods tab switched on (player.svelte.ts, play). */
   const withMods = $derived(app.config?.playWithMods ?? false);
   const startsGame = $derived(next?.kind === "play" || next?.kind === "build" || next?.kind === "levels");
 
-  async function setWithMods(on: boolean) {
-    if (app.config) await saveConfig({ ...app.config, playWithMods: on });
-  }
-
-  /** How many mods the Mods tab has switched on for this game: its gameplay mods, its packs and
-   *  Enhanced graphics (which the switch turns off as well).
-   *  Read again when the game shown changes; null until read (or where they cannot be). */
+  /** How many mods the Mods tab has switched on for this game; null until read (or where they cannot be). */
   let modsOn = $state<number | null>(null);
   $effect(() => {
     const shown = v;
     modsOn = null;
     if (!shown || !setUp) return;
     let current = true;
-    void Promise.all([
-      api.pluginsList(shown.game, shown.name).catch(() => []),
-      api.overridesList(shown.game).catch(() => []),
-      api.enhancedView(shown.game, shown.name).catch(() => null),
-    ]).then(([mods, packs, enhanced]) => {
-      if (current)
-        modsOn =
-          mods.filter((m) => m.enabled).length +
-          packs.filter((p) => p.enabled).length +
-          (enhanced?.mod.enabled ? 1 : 0);
+    void modsOnCount(shown).then((n) => {
+      if (current) modsOn = n;
     });
     return () => {
       current = false;
     };
   });
 
-  /** The game's saves from a PCSX2 memory card onto OpenRAC's card, after a backup of it. */
-  async function importPcsx2(serial: string) {
-    const dir = await api.pcsx2MemcardsDir().catch(() => null);
-    const source = await pickMemoryCard("Choose a PCSX2 memory card", dir);
-    if (!source) return;
-    const yes = await ask(
-      "Copy this game's saves from the PCSX2 memory card? The saves on OpenRAC's card are backed up first, then replaced.",
-      "Import saves",
-    );
-    if (!yes) return;
-    try {
-      const done = await api.importPcsx2Saves(serial, source);
-      app.savesChanged++; // the saves list reads the card again
-      const kept = done.backup ? " The saves that were there are in Backups." : "";
-      toast(`Imported the saves from PCSX2.${kept}`, "info");
-    } catch (e) {
-      toast(`Import failed: ${String(e)}`, "error");
-    }
-  }
-
   /** What is done less often than playing, in the menu beside the main button. */
-  const menu = $derived.by<MenuItem[]>(() => {
-    if (!v) return [];
-    const dir = v.dir;
-    const items: MenuItem[] = [];
-    if (next?.kind === "return") {
-      items.push({ label: "Stop the game", icon: "x", danger: true, run: () => void gameWindow(true) });
-    }
-    // From scratch: everything built before is deleted first (tools/build_port.py --clean); on
-    // Android, the levels are read from the disc again (rebuildSteps).
-    if (built && (next?.kind === "play" || next?.kind === "levels") && rebuildSteps(v)) {
-      items.push({ label: "Rebuild the game", icon: "build", run: () => void rebuildGame(v) });
-    }
-    if (playGodot?.runnable) {
-      items.push({ label: "Preview a level in Godot", icon: "play", run: () => void run(scope, playGodot) });
-    }
-    if (extract && extract.state !== "planned" && !onAndroid && supports(app.info, "mods")) {
-      // Android has no Godot: its Mods tab has the mods and packs, not the level editor.
-      items.push({ label: "Edit its levels (Mods)", icon: "edit", run: () => (app.page = "mods") });
-    }
-    if (setUp) {
-      items.push({
-        label: "Logs and crash reports",
-        icon: "book",
-        run: () => void showLogs(),
-      });
-    }
-    // Android: the game's files are in the Files app (Settings, Your files), and the activity log
-    // is the rail's running job.
-    // Not on Android: its file picker hands over no path to read the card from.
-    const serial = v.serial;
-    if (setUp && serial && !onAndroid) {
-      items.push({ label: "Import saves from PCSX2", icon: "save", run: () => void importPcsx2(serial) });
-    }
-    if (!onAndroid) {
-      items.push({ label: "Open the game's folder", icon: "folder", run: () => void guard(api.openPath(dir)) });
-      items.push({ label: "Activity log", icon: "terminal", run: () => (app.page = "tasks") });
-    }
-    if (setUp) items.push({ label: "Remove the set-up", icon: "trash", danger: true, run: () => void removeSetUp() });
-    return items;
-  });
+  const menu = $derived(game && v ? gameMenu(game, v, next, () => void showLogs()) : []);
 </script>
 
 <GamesFrame>
@@ -320,51 +226,65 @@
             {#if game.year}<small>{game.year}</small>{/if}
           </div>
 
-          <div class="go">
-            <div class="go-row">
-              <button
-                class="big"
-                class:primary={next.primary}
-                disabled={next.disabled}
-                onclick={() => void playerAct(v, next)}
-              >
-                {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
-              </button>
-              <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
-              {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
-            </div>
-            {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
-            {#if startsGame && !next.job}
-              <!-- Whether Play brings the mods: a switch, and what it means, the count a way to them. -->
-              <div class="with-mods">
-                <label title={WITH_MODS.hint}
-                  >{WITH_MODS.label}<input
-                    type="checkbox"
-                    role="switch"
-                    class="switch"
-                    checked={withMods}
-                    disabled={!supports(app.info, "mods")}
-                    onchange={(e) => void setWithMods(e.currentTarget.checked)}
-                  /></label
-                >
-                {#if withMods}
-                  <button class="link" onclick={() => (app.page = "mods")}
-                    >{WITH_MODS.count(modsOn)}<Icon name="next" size={12} /></button
-                  >
-                {:else}
-                  <span class="dim">{WITH_MODS.original}</span>
-                {/if}
-              </div>
-            {/if}
-            {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
-            {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
+          {#if onAndroid}
+            <!-- Android: Play, the Mods switch and the menu are beside the disc on Games; the band only
+                 leads back there, and says what stopped. -->
+            <button class="back" onclick={() => (app.page = "library")}><Icon name="arrow" size={18} />Games</button>
             {#if stopped}
               <p class="stopped">
                 <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(stopped.lines).title.toLowerCase()}.
                 <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
               </p>
             {/if}
-          </div>
+          {:else}
+            <div class="go">
+              <div class="go-row">
+                <button
+                  class="big"
+                  class:primary={next.primary}
+                  disabled={next.disabled}
+                  onclick={() => void playerAct(v, next)}
+                >
+                  {#if next.job}<span class="spinner"></span>{:else}<Icon name={next.icon} size={22} />{/if}{next.label}
+                </button>
+                <!-- An empty menu is not shown, but keeps its place: the button does not move when it fills. -->
+                {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
+              </div>
+              {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
+              {#if startsGame && !next.job}
+                <!-- Whether Play brings the mods: a switch, and what it means, the count a way to them. -->
+                <div class="with-mods">
+                  <label title={WITH_MODS.hint}
+                    >{WITH_MODS.label}<input
+                      type="checkbox"
+                      role="switch"
+                      class="switch"
+                      checked={withMods}
+                      disabled={!supports(app.info, "mods")}
+                      onchange={(e) => void setWithMods(e.currentTarget.checked)}
+                    /></label
+                  >
+                  {#if withMods}
+                    <button class="link" onclick={() => (app.page = "mods")}
+                      >{WITH_MODS.count(modsOn)}<Icon name="next" size={12} /></button
+                    >
+                  {:else}
+                    <span class="dim">{WITH_MODS.original}</span>
+                  {/if}
+                </div>
+              {/if}
+              {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
+              {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
+              {#if stopped}
+                <p class="stopped">
+                  <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(
+                    stopped.lines,
+                  ).title.toLowerCase()}.
+                  <button class="link" onclick={() => (app.page = "tasks")}>See what it printed</button>
+                </p>
+              {/if}
+            </div>
+          {/if}
 
           {#if next.job}<JobProgress job={next.job} now={clock.now} />{/if}
 
@@ -760,6 +680,29 @@
 
   :global(html[data-platform="android"]) .hero .line {
     text-shadow: 0 1px 8px var(--ink);
+  }
+
+  /* Back to the shelf of discs, in the band's top left corner. */
+  .hero > .back {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 40px;
+    padding: 0 16px 0 10px;
+    border-radius: 99px;
+    background: rgb(0 0 0 / 0.45);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: none;
+    transition: transform 300ms cubic-bezier(0.34, 1.45, 0.64, 1);
+  }
+
+  .hero > .back:active {
+    transform: scale(0.95);
+    transition-duration: 90ms;
   }
 
   :global(html[data-platform="android"]) .hero .big {

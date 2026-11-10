@@ -66,11 +66,6 @@ pub struct Config {
     /// The picked game's own bar, gold and coal (palettes.json game_colors) instead of the
     /// launcher's, in the launcher and the game's menu. On by default; off, every game wears the gold.
     pub game_colors: bool,
-    /// How Android's Games tab shows the games: "tiles" (default), a banner of the game picked over
-    /// a shelf of its pictures, or "discs", every game a disc on a wheel that goes into a console
-    /// on Play. Desktop's Games tab is the same either way.
-    #[ts(type = "\"tiles\" | \"discs\"")]
-    pub games_look: String,
     /// The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
     /// what the port is missing. Off by default, so a log stays small.
     pub detailed_game_log: bool,
@@ -160,7 +155,6 @@ impl Default for Config {
             layout: "compact".into(),
             theme: "openrac".into(),
             game_colors: true,
-            games_look: "tiles".into(),
             detailed_game_log: false,
             renderer: "vulkan".into(),
             hdr: "off".into(),
@@ -279,9 +273,6 @@ mod tests {
         assert!(load(&path).game_colors);
         save(&path, &Config { game_colors: false, ..Config::default() }).unwrap();
         assert!(!load(&path).game_colors);
-        assert_eq!(load(&path).games_look, "tiles");
-        save(&path, &Config { games_look: "discs".into(), ..Config::default() }).unwrap();
-        assert_eq!(load(&path).games_look, "discs");
     }
 
     /// A settings file from before the mod check offers mod updates; turning it off is kept.

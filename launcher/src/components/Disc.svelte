@@ -2,7 +2,8 @@
   // One game's disc on Android's Games tab (DiscShelf.svelte): the print of the real disc
   // (discArt.ts), its hole cut out, or, until the print is there or without a connection, the
   // launcher's own label (the game's picture and its name). It sways a little and floats while it is
-  // the one picked (`idle`); `still` stops that (the console's spindle, a page sliding).
+  // the one picked (`idle`). Its shadow is as deep as --shade (0 to 1, set by the wheel as a disc
+  // comes to the middle), so it grows and fades with the turn instead of popping in.
   import { discPrint } from "$lib/discArt";
   import { titleLines } from "$lib/labels";
   import { gameTileArt } from "$lib/media";
@@ -13,8 +14,7 @@
     version,
     title,
     idle = false,
-    dim = false,
-  }: { game: string; version: string; title: string; idle?: boolean; dim?: boolean } = $props();
+  }: { game: string; version: string; title: string; idle?: boolean } = $props();
 
   const print = $derived(discPrint(game, version));
   /** The print could not be loaded: the label shows instead. */
@@ -23,7 +23,7 @@
   const art = $derived(gameTileArt(game));
 </script>
 
-<div class="disc" class:idle class:dim style={themeStyle(game)}>
+<div class="disc" class:idle style={themeStyle(game)}>
   <div class="face">
     {#if print && !failed}
       <img
@@ -55,7 +55,7 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.5));
+    filter: drop-shadow(0 14px 22px rgb(0 0 0 / calc(0.5 * var(--shade, 1))));
   }
 
   /* The one picked sways left and right and floats, the two never in step. */
@@ -83,10 +83,6 @@
     to {
       rotate: 4deg;
     }
-  }
-
-  .disc.dim {
-    filter: none;
   }
 
   /* The disc itself: a circle, its hole (15 mm of 120) cut out. */

@@ -1,5 +1,5 @@
-// What a player can do with a game right now: one answer, used by the library's
-// tile and the game's page, so the main button says and does the same thing in both.
+// What a player can do with a game right now: one answer, used by Android's disc
+// shelf and the game's page, so the main button says and does the same thing in both.
 import type { ActionView, GameView, VersionView } from "./api";
 import type { IconName } from "$components/Icon.svelte";
 import { onAndroid, pickFolder, pickIso } from "./api";
@@ -609,7 +609,7 @@ export function playWarning(v: VersionView | null): string | null {
   return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
 }
 
-/** Whether the next step can be taken from a tile or a banner, as from the game's page: one to
+/** Whether the next step can be taken from beside a disc, as from the game's page: one to
  *  take, or a job to stop. */
 export function offersStep(next: PlayerState | null): boolean {
   return !!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job);

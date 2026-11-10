@@ -1,14 +1,19 @@
 <script lang="ts">
   // Android's Games tab as a shelf of discs (user decision, after Cartouche): every game a disc on a
   // wheel at the left, the one picked large and swaying, its neighbours above and below; beside it
-  // its name, where its last save is, and its buttons. Up and down (or a drag) turn the wheel, A plays:
-  // the disc goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its
-  // page. The rail stays on the left (Header.svelte).
+  // its name, where its last save is, and what its page used to have at the top: Play, the "..." menu
+  // and the Mods switch (gameMenu.svelte.ts). Up and down (or a drag) turn the wheel, A plays: the disc
+  // goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its page. The
+  // rail stays on the left (Header.svelte).
   import { fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
+  import { supports } from "$lib/capabilities";
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
+  import { choiceFor } from "$lib/discChoice";
+  import { gameMenu, modsOnCount, setWithMods } from "$lib/gameMenu.svelte";
+  import { WITH_MODS } from "$lib/modsText";
   import { grouped, pct } from "$lib/format";
   import { regionLabel, titleLines } from "$lib/labels";
   import { reduced } from "$lib/motion";
@@ -21,7 +26,9 @@
   import { ACCENTS, themeStyle } from "$lib/themes";
   import Disc from "./Disc.svelte";
   import DiscLaunch from "./DiscLaunch.svelte";
+  import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
+  import Menu from "./Menu.svelte";
 
   let { games }: { games: GameView[] } = $props();
 
@@ -47,6 +54,32 @@
       ? game.versions.map((o) => `${regionLabel(o.name)} ${o.progress ? pct(o.progress.percent) : "–"}`).join(" · ")
       : "",
   );
+
+  /** The game's "..." menu, as on its page. */
+  const menu = $derived(game && v ? gameMenu(game, v, next) : []);
+  /** Developer tools on and two of the game's discs found: which one Play plays. */
+  const choice = $derived(app.config?.developer && game ? choiceFor(app.discChoices, game.id) : null);
+
+  /** The Mods switch (config.playWithMods), shown while Play would start the game. */
+  const withMods = $derived(app.config?.playWithMods ?? false);
+  const startsGame = $derived(
+    !!next && !next.job && (next.kind === "play" || next.kind === "build" || next.kind === "levels"),
+  );
+  /** How many mods are on for the game picked; null until read. */
+  let modsOn = $state<number | null>(null);
+  $effect(() => {
+    const shown = v;
+    const setUp = !!game?.install?.extracted;
+    modsOn = null;
+    if (!shown || !setUp) return;
+    let current = true;
+    void modsOnCount(shown).then((n) => {
+      if (current) modsOn = n;
+    });
+    return () => {
+      current = false;
+    };
+  });
 
   /** Which way the wheel last turned: 1 down the list, -1 up; the words beside it follow. */
   let dir = $state(1);
@@ -194,7 +227,9 @@
     const y = Math.sign(d) * (far <= 1 ? far * step : step + (far - 1) * step * 0.9);
     const scale = far <= 1 ? 1 - 0.23 * far : 0.77 - 0.1 * (far - 1);
     const opacity = far <= 1 ? 1 - 0.65 * far : Math.max(0, 0.35 - 0.35 * (far - 1));
-    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; opacity: ${opacity}`;
+    // The shadow follows the wheel too: full in the middle, gone one disc away.
+    const shade = Math.max(0, 1 - far);
+    return `--y: ${y}px; --k: ${scale}; --r: ${d * 30}deg; --shade: ${shade.toFixed(3)}; opacity: ${opacity}`;
   }
 
   let start: { y: number; moved: boolean } | null = null;
@@ -350,13 +385,7 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <Disc
-                game={g.id}
-                version={gv?.name ?? "ntsc"}
-                title={g.title}
-                idle={Math.abs(i - at) <= 2}
-                dim={i !== at}
-              />
+              <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle={Math.abs(i - at) <= 2} />
             </span>
           </button>
         {/each}
@@ -396,10 +425,37 @@
               </button>
             {/if}
             <button onclick={openPage}><span class="glyph" aria-hidden="true">Y</span>Game page</button>
-            {#if playable}
-              <button onclick={openMods}><span class="glyph" aria-hidden="true">X</span>Mods</button>
-            {/if}
+            {#if menu.length}<Menu items={menu} />{/if}
           </div>
+          {#if (startsGame && playable) || choice}
+            <div class="extra" in:fly={enter(4)}>
+              {#if startsGame && playable}
+                <!-- Whether Play brings the mods: a switch, and what it means; the count leads to them. -->
+                <div class="with-mods">
+                  <label title={WITH_MODS.hint}
+                    >{WITH_MODS.label}<input
+                      type="checkbox"
+                      role="switch"
+                      class="switch"
+                      checked={withMods}
+                      disabled={!supports(app.info, "mods")}
+                      onchange={(e) => void setWithMods(e.currentTarget.checked)}
+                    /></label
+                  >
+                  {#if withMods}
+                    <button class="link" onclick={openMods}
+                      ><span class="glyph small" aria-hidden="true">X</span>{WITH_MODS.count(modsOn)}</button
+                    >
+                  {:else}
+                    <button class="link quiet" onclick={openMods}
+                      ><span class="glyph small" aria-hidden="true">X</span>{WITH_MODS.original}</button
+                    >
+                  {/if}
+                </div>
+              {/if}
+              {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
+            </div>
+          {/if}
         </div>
       {/key}
 
@@ -691,6 +747,66 @@
     to {
       transform: scale(1.03);
     }
+  }
+
+  /* The "..." menu's button, as tall and round as the buttons beside it. */
+  .acts :global(.trigger) {
+    width: 46px;
+    height: 46px;
+    border-radius: var(--radius);
+    background: var(--panel);
+    box-shadow: none;
+  }
+
+  .extra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  /* Mods under Play: a quiet pill, its switch, then the count or "original game". */
+  .with-mods {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 8px 6px 16px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--ink-deep) 70%, transparent);
+    font-size: 0.875rem;
+    color: var(--soft);
+  }
+
+  .with-mods label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .with-mods .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px 0 4px;
+    border-radius: 99px;
+    background: none;
+    box-shadow: none;
+    color: var(--text);
+  }
+
+  .with-mods .link.quiet {
+    color: var(--dim);
+  }
+
+  .glyph.small {
+    width: 20px;
+    height: 20px;
+    font-size: 0.625rem;
   }
 
   .go.primary {

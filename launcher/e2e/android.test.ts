@@ -70,7 +70,7 @@ describe("Android launcher", () => {
     // Measure the pages themselves, without Svelte entrance transitions replacing their nodes.
     await page.emulateMedia({ reducedMotion: "reduce" });
     const lefts: number[] = [];
-    // Games is a home screen across the whole window (GamesHome), not a page with margins.
+    // Games is a shelf of discs across the whole window (DiscShelf), not a page with margins.
     for (const query of ["version=rac1/pal", "page=mods", "page=tasks", "page=settings"]) {
       await open(`version=rac1/pal&${query}`);
       await page.locator(".page").first().waitFor({ state: "visible" });
@@ -114,68 +114,55 @@ describe("Android launcher", () => {
     expect(await page.locator(".hero-bg").evaluate((e) => getComputedStyle(e).animationName)).toBe("none");
   });
 
-  it("offers to prepare missing levels and keeps Rebuild in the ready game's menu", async () => {
-    await open("version=rac1/pal");
-    await expect(page.locator(".go .big").textContent()).resolves.toContain("Get levels and play");
-    await open("built&version=rac1/pal");
-    await expect(page.locator(".go .big").textContent()).resolves.toContain("Play");
-    const more = page.locator(".go-row").getByRole("button", { name: "More actions" });
-    await more.scrollIntoViewIfNeeded();
-    // The click may scroll its target into view. Measure when the menu is opened,
-    // after that legitimate movement and before its focus effect runs.
-    await more.evaluate((button) => {
-      button.addEventListener(
-        "click",
-        () => {
-          button.setAttribute("data-scroll-at-click", String(document.querySelector("main")?.scrollTop));
-        },
-        { capture: true, once: true },
-      );
-    });
-    await more.click();
-    const scrollTop = Number(await more.getAttribute("data-scroll-at-click"));
+  it("offers to prepare missing levels beside the disc, and keeps Rebuild in its menu", async () => {
+    await open("version=rac1/pal&page=library");
+    await expect(page.locator(".acts .go").textContent()).resolves.toContain("Get levels and play");
+    await open("built&version=rac1/pal&page=library");
+    await expect(page.locator(".acts .go").textContent()).resolves.toMatch(/Play|Continue/);
+    await page.locator(".acts").getByRole("button", { name: "More actions" }).click();
     const rebuild = page.getByRole("menuitem", { name: "Rebuild the game" });
     await rebuild.waitFor({ state: "visible" });
-    // Allow focus-triggered scrolling to arrive before checking that the menu stays open.
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-              resolve();
-            }),
-          ),
-        ),
-    );
-    await expect(rebuild.count()).resolves.toBe(1);
-    await expect(page.locator("main").evaluate((e) => e.scrollTop)).resolves.toBe(scrollTop);
     await expect(rebuild.evaluate((e) => document.activeElement === e)).resolves.toBe(true);
-    await page.locator("main").evaluate((e) => {
-      e.scrollTop = e.scrollTop > 0 ? 0 : e.scrollHeight;
-    });
-    await rebuild.waitFor({ state: "detached" });
+  });
+
+  it("turns the Mods switch beside the disc, as Play's own", async () => {
+    await open("built&version=rac1/pal&page=library");
+    const mods = page.locator(".with-mods").getByRole("switch");
+    await mods.waitFor();
+    const before = await mods.isChecked();
+    await mods.click();
+    await expect(mods.isChecked()).resolves.toBe(!before);
+  });
+
+  it("opens the game's logs from the menu beside the disc", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".acts").getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menuitem", { name: "Logs and crash reports" }).click();
+    await page.locator("#logs").waitFor({ state: "visible" });
+  });
+
+  it("keeps Play off the game's page, its band leading back to Games", async () => {
+    await open("built&version=rac1/pal");
+    await page.locator(".hero .back").waitFor();
+    expect(await page.locator(".hero .big").count()).toBe(0);
+    expect(await page.getByRole("button", { name: "More actions" }).count()).toBe(0);
+    await page.locator(".hero .back").click();
+    await page.locator(".slot.on").waitFor();
   });
 
   it("draws a running step's strip over the band's picture, not under its shade", async () => {
-    await open("version=rac1/pal");
-    await page.locator(".go .big").click();
+    await open("version=rac1/pal&page=library");
+    await page.locator(".acts .go").click();
+    await page.locator(".acts").getByRole("button", { name: "Game page" }).click();
     const strip = page.locator(".hero > .job");
     await strip.waitFor();
     expect(await strip.evaluate((e) => getComputedStyle(e).zIndex)).toBe("1");
   });
 
-  it("shows no empty menu beside Set up, and keeps the main button in its place after it", async () => {
-    const centre = async () => {
-      const box = await page.locator(".go .big").boundingBox();
-      return Math.round((box?.x ?? 0) + (box?.width ?? 0) / 2);
-    };
-    await open("fresh&version=rac1/pal");
-    await page.locator(".go .big").waitFor();
-    expect(await page.locator(".go-row").getByRole("button", { name: "More actions" }).count()).toBe(0);
-    const setUp = await centre();
-    await open("built&version=rac1/pal");
-    await page.locator(".go .big").waitFor();
-    expect(Math.abs((await centre()) - setUp)).toBeLessThanOrEqual(1);
+  it("shows no empty menu beside Set up", async () => {
+    await open("fresh&version=rac1/pal&page=library");
+    await page.locator(".acts .go").waitFor();
+    expect(await page.locator(".acts").getByRole("button", { name: "More actions" }).count()).toBe(0);
   });
 
   it("spins the disc while a game starts", async () => {
@@ -185,7 +172,7 @@ describe("Android launcher", () => {
   });
 
   it("covers the launcher while the game runs, and steps aside when asked", async () => {
-    await open("playing&built&version=rac1/pal");
+    await open("playing&built&version=rac1/pal&page=library");
     const running = page.getByRole("dialog", { name: "Ratchet & Clank" });
     await running.waitFor();
     await expect(running.getByRole("button", { name: /Return to game/ }).count()).resolves.toBe(1);
@@ -206,23 +193,24 @@ describe("Android launcher", () => {
     expect(await offer.count()).toBe(0);
   });
 
-  it("shows the shelf whole on a phone's low screen, and what changed under it", async () => {
+  it("shows the disc and its buttons whole on a phone's low screen, and what changed", async () => {
     await page.setViewportSize({ width: 915, height: 412 });
     await open("built&crash&version=rac1/pal&page=library");
-    await page.locator(".tile").first().waitFor();
-    await page.waitForTimeout(600);
-    const box = await page.locator(".tiles").boundingBox();
-    expect(box && box.y + box.height).toBeLessThanOrEqual(412 - 30);
-    await page.getByRole("region", { name: "What's new" }).waitFor();
+    await page.locator(".slot.on").waitFor();
+    await page.waitForTimeout(900);
+    const disc = await page.locator(".slot.on").boundingBox();
+    const play = await page.locator(".acts .go").boundingBox();
+    expect(disc && disc.y >= 0 && disc.y + disc.height <= 412).toBe(true);
+    expect(play && play.y + play.height).toBeLessThanOrEqual(412 - 30);
+    await page.getByRole("group", { name: "What's new" }).waitFor();
   });
 
-  it("keeps the launcher gold on Games while the banner takes the game's colour", async () => {
+  it("keeps the launcher gold on Games", async () => {
     await open("version=rac2/ntsc&page=library");
-    await page.locator(".tile").first().waitFor();
+    await page.locator(".slot.on").waitFor();
     await page.waitForTimeout(400);
     // No game's accent on the page itself: the launcher's own gold.
     expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
-    await expect(page.locator(".hero").getAttribute("style")).resolves.toContain("--");
   });
 
   it("puts a theme on, with the launcher's gold and the game's light", async () => {
@@ -254,6 +242,12 @@ describe("A controller", () => {
     }
   }
 
+  /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
+  async function shownName() {
+    await page.waitForFunction(() => document.querySelectorAll(".info").length === 1);
+    return page.locator(".info h1").textContent();
+  }
+
   /** What has the focus: its name as a screen reader says it, or its text. */
   const focused = () =>
     page.evaluate(() => {
@@ -262,80 +256,82 @@ describe("A controller", () => {
       return (el.getAttribute("aria-label") ?? el.textContent).trim();
     });
 
-  it("starts on the banner's step, picks a game as the focus lands on it, and opens it by A or a tap", async () => {
-    await open("built");
-    // The first press lands on the banner's own step, for the game shown.
+  it("turns the wheel with the controller, and opens the game picked by Y or a tap", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".slot.on").waitFor();
+    // The first press lands on a control; up and down on the wheel pick the disc it lands on.
+    await page.locator(".slot.on").focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
     await press("down");
-    expect(await focused()).toMatch(/Continue|Play/);
-    // Down to the shelf, then right: the next game is picked, and the banner shows it.
-    await press("down");
-    expect(await focused()).toMatch(/^Ratchet & Clank:/);
-    await press("right");
+    expect(await shownName()).toContain("Going Commando");
     expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
-    await expect(page.locator(".hero h1").textContent()).resolves.toContain("Going Commando");
-    // A on the game picked opens its page, and starts nothing.
-    await press("accept");
-    await page.locator(".go .big").waitFor();
-    expect(await page.locator(".tile").count()).toBe(0);
+    await press("up");
+    expect(await shownName()).not.toContain("Going Commando");
+    // Y opens its page.
+    await press("more");
+    await page.locator(".hero .back").waitFor();
     await press("back");
     await page.waitForTimeout(500);
-    // A tap picks a game; a tap on the game picked opens its page.
-    await page.locator(".tile .open").first().click();
-    await expect(page.locator(".hero h1").textContent()).resolves.not.toContain("Going Commando");
-    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
-    await page.locator(".tile .open").first().click();
-    await page.locator(".go .big").waitFor();
-    expect(await page.locator(".tile").count()).toBe(0);
+    // A tap on another disc picks it.
+    await page
+      .locator(".slot")
+      .nth(1)
+      .click({ position: { x: 150, y: 40 } });
+    expect(await shownName()).toContain("Going Commando");
   });
 
-  it("starts a game's next step from the banner by a tap", async () => {
+  it("starts a game's next step from beside its disc by a tap", async () => {
     await open("");
-    await page.locator(".hero .go").click();
+    await page.locator(".acts .go").click();
     await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
-    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
   });
 
-  it("rings the game shown, and moves the ring with the controller's focus", async () => {
-    await open("version=rac1/pal&page=library");
-    await page.locator(".tile").first().waitFor();
-    const ringed = () => page.locator(".tile.selected").count();
-    expect(await ringed()).toBe(1);
-    await expect(page.locator(".tile").first().getAttribute("class")).resolves.toContain("selected");
-    await press("down", "down", "right");
-    await page.waitForTimeout(400);
-    expect(await ringed()).toBe(1);
-    await expect(page.locator(".tile").nth(1).getAttribute("class")).resolves.toContain("selected");
+  it("puts the disc into the console on Play, then starts the game", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".acts .go").click();
+    await page.getByRole("dialog", { name: /^Starting Ratchet & Clank/ }).waitFor();
+    await page.locator(".launch .led.on").waitFor({ timeout: 4000 });
+    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached", timeout: 6000 });
+  });
+
+  it("puts the disc back when B comes before the click", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".acts .go").click();
+    await page.getByRole("dialog", { name: /^Starting/ }).waitFor();
+    await press("back");
+    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached" });
+    expect(await page.locator(".slot.on").count()).toBe(1);
   });
 
   it("opens the game's mods by X and its page by Y", async () => {
     await open("built&version=rac1/pal&page=library");
-    await page.locator(".tile").first().waitFor();
+    await page.locator(".slot.on").waitFor();
     await press("extra");
-    await page.waitForFunction(() => !document.querySelector(".tile"));
-    expect(await page.locator(".hero").count()).toBe(0);
+    await page.waitForFunction(() => !document.querySelector(".slot"));
     await press("back");
-    await page.locator(".tile").first().waitFor();
+    await page.locator(".slot.on").waitFor();
     await press("more");
-    await page.locator(".go .big").waitFor();
+    await page.locator(".hero .back").waitFor();
   });
 
   it("does nothing on X while a dialog is open over the tab", async () => {
     await open("built&version=rac1/pal&page=library");
-    await page.locator(".tile").first().waitFor();
+    await page.locator(".slot.on").waitFor();
     await page.evaluate(() => {
       const d = document.createElement("div");
       d.setAttribute("role", "dialog");
       document.body.append(d);
     });
     await press("extra");
-    expect(await page.locator(".tile").count()).toBeGreaterThan(0);
+    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
   });
 
   it("keeps only the game the focus stops on, once", async () => {
     await open("built&version=rac1/pal&page=library");
-    await page.locator(".tile").first().waitFor();
-    await press("down", "down");
-    for (const b of ["right", "right", "right", "left"]) {
+    await page.locator(".slot.on").focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+    for (const b of ["down", "down", "down", "up"]) {
       await page.evaluate((name) => {
         const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
         pad(`down:${name}`);
@@ -349,7 +345,7 @@ describe("A controller", () => {
         (window as unknown as { __openracConfigWrites?: { count: number; last: { lastVersion: string } } })
           .__openracConfigWrites,
     );
-    const shown = await page.locator(".hero").getAttribute("aria-label");
+    const shown = await shownName();
     expect(writes?.count).toBe(1);
     expect(writes?.last.lastVersion.split("/")[0]).toBe("rac3");
     expect(shown).toContain("Up Your Arsenal");
@@ -375,8 +371,8 @@ describe("A controller", () => {
   });
 
   it("moves through a menu's items", async () => {
-    await open("version=rac1/pal");
-    await page.getByRole("button", { name: "More actions" }).focus();
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".acts").getByRole("button", { name: "More actions" }).focus();
     await press("accept");
     const first = await focused();
     await press("down");
@@ -500,149 +496,5 @@ describe("A controller", () => {
     await press("up");
     // Moved on to a control that shows, rather than staying put on a hidden one.
     expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("SUMMARY");
-  });
-});
-
-describe("Games as discs (Settings, Games look)", () => {
-  it("shows the disc and its buttons whole on a phone's low screen, and what changed", async () => {
-    await page.setViewportSize({ width: 915, height: 412 });
-    await open("look=discs&built&crash&version=rac1/pal&page=library");
-    await page.locator(".slot.on").waitFor();
-    await page.waitForTimeout(900);
-    const disc = await page.locator(".slot.on").boundingBox();
-    const play = await page.locator(".acts .go").boundingBox();
-    expect(disc && disc.y >= 0 && disc.y + disc.height <= 412).toBe(true);
-    expect(play && play.y + play.height).toBeLessThanOrEqual(412 - 30);
-    await page.getByRole("group", { name: "What's new" }).waitFor();
-  });
-
-  it("keeps the launcher gold on Games", async () => {
-    await open("look=discs&version=rac2/ntsc&page=library");
-    await page.locator(".slot.on").waitFor();
-    await page.waitForTimeout(400);
-    // No game's accent on the page itself: the launcher's own gold.
-    expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
-  });
-
-  /** Presses BUTTONS on the controller as Android's activity hands them over (pad.ts), letting the
-   *  page settle after each. */
-  async function press(...buttons: string[]) {
-    for (const b of buttons) {
-      await page.evaluate((name) => {
-        const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
-        pad(`down:${name}`);
-        pad(`up:${name}`);
-      }, b);
-      await page.waitForTimeout(300);
-    }
-  }
-
-  /** The name beside the disc, once the last game's has gone (the two cross for a moment). */
-  async function shownName() {
-    await page.waitForFunction(() => document.querySelectorAll(".info").length === 1);
-    return page.locator(".info h1").textContent();
-  }
-
-  /** What has the focus: its name as a screen reader says it, or its text. */
-  const focused = () =>
-    page.evaluate(() => {
-      const el = document.activeElement;
-      if (!el || el === document.body) return "";
-      return (el.getAttribute("aria-label") ?? el.textContent).trim();
-    });
-
-  it("turns the wheel with the controller, and opens the game picked by Y or a tap", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".slot.on").waitFor();
-    // The first press lands on a control; up and down on the wheel pick the disc it lands on.
-    await page.locator(".slot.on").focus();
-    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
-    await press("down");
-    expect(await shownName()).toContain("Going Commando");
-    expect(await focused()).toMatch(/^Ratchet & Clank: Going Commando:/);
-    await press("up");
-    expect(await shownName()).not.toContain("Going Commando");
-    // Y opens its page.
-    await press("more");
-    await page.locator(".go .big").waitFor();
-    await press("back");
-    await page.waitForTimeout(500);
-    // A tap on another disc picks it.
-    await page
-      .locator(".slot")
-      .nth(1)
-      .click({ position: { x: 150, y: 40 } });
-    expect(await shownName()).toContain("Going Commando");
-  });
-
-  it("starts a game's next step from beside its disc by a tap", async () => {
-    await open("look=discs");
-    await page.locator(".acts .go").click();
-    await page.getByRole("button", { name: /^Ratchet & Clank: Getting ready/ }).waitFor();
-    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
-  });
-
-  it("puts the disc into the console on Play, then starts the game", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".acts .go").click();
-    await page.getByRole("dialog", { name: /^Starting Ratchet & Clank/ }).waitFor();
-    await page.locator(".launch .led.on").waitFor({ timeout: 4000 });
-    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached", timeout: 6000 });
-  });
-
-  it("puts the disc back when B comes before the click", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".acts .go").click();
-    await page.getByRole("dialog", { name: /^Starting/ }).waitFor();
-    await press("back");
-    await page.getByRole("dialog", { name: /^Starting/ }).waitFor({ state: "detached" });
-    expect(await page.locator(".slot.on").count()).toBe(1);
-  });
-
-  it("opens the game's mods by X and its page by Y", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".slot.on").waitFor();
-    await press("extra");
-    await page.waitForFunction(() => !document.querySelector(".slot"));
-    await press("back");
-    await page.locator(".slot.on").waitFor();
-    await press("more");
-    await page.locator(".go .big").waitFor();
-  });
-
-  it("does nothing on X while a dialog is open over the tab", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".slot.on").waitFor();
-    await page.evaluate(() => {
-      const d = document.createElement("div");
-      d.setAttribute("role", "dialog");
-      document.body.append(d);
-    });
-    await press("extra");
-    expect(await page.locator(".slot").count()).toBeGreaterThan(0);
-  });
-
-  it("keeps only the game the focus stops on, once", async () => {
-    await open("look=discs&built&version=rac1/pal&page=library");
-    await page.locator(".slot.on").focus();
-    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
-    for (const b of ["down", "down", "down", "up"]) {
-      await page.evaluate((name) => {
-        const pad = (window as unknown as { __openracPad: (e: string) => void }).__openracPad;
-        pad(`down:${name}`);
-        pad(`up:${name}`);
-      }, b);
-      await page.waitForTimeout(60);
-    }
-    await page.waitForTimeout(1200);
-    const writes = await page.evaluate(
-      () =>
-        (window as unknown as { __openracConfigWrites?: { count: number; last: { lastVersion: string } } })
-          .__openracConfigWrites,
-    );
-    const shown = await shownName();
-    expect(writes?.count).toBe(1);
-    expect(writes?.last.lastVersion.split("/")[0]).toBe("rac3");
-    expect(shown).toContain("Up Your Arsenal");
   });
 });
