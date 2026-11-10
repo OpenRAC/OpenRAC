@@ -107,8 +107,9 @@
           <!-- The game's own name goes to a line of its own when the whole does not fit on one. -->
           {@const lines = titleLines(e.name)}
           <span class="name"
-            ><span class="part">{lines.series}</span>{#if lines.game}
-              <span class="part">{lines.game}</span>{/if}</span
+            ><!-- The space stays in the name a screen reader says; the gap is the margin. --><span class="part"
+              >{lines.game ? `${lines.series} ` : lines.series}</span
+            >{#if lines.game}<span class="part">{lines.game}</span>{/if}</span
           >
         {/if}
         {#if e.mark}<span class="sr-only">, crashed recently</span>{/if}
@@ -348,6 +349,10 @@
 
   .part {
     display: inline-block;
+  }
+
+  .part + .part {
+    margin-left: 0.28em;
   }
 
   .mark {

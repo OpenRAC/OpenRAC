@@ -3,13 +3,21 @@
   // page beside it, scrolling on its own. On Android the list is a row above the page instead: the
   // navigation rail is already on the left, and two columns there leave the page too narrow.
   import type { Snippet } from "svelte";
+  import { onAndroid } from "$lib/api";
 
   let { list, children }: { list: Snippet; children: Snippet } = $props();
 </script>
 
+<!-- A controller's moves between the two columns (pad.ts, steer): right from the list goes to the
+     page's main button, left from the page to the entry open; up and down stay in their column. -->
 <div class="frame">
-  <aside>{@render list()}</aside>
-  <div class="content">{@render children()}</div>
+  {#if onAndroid}
+    <aside>{@render list()}</aside>
+    <div class="content">{@render children()}</div>
+  {:else}
+    <aside data-pad-right=".content .go .big" data-pad-down="none">{@render list()}</aside>
+    <div class="content" data-pad-left="aside [aria-current]" data-pad-down="none">{@render children()}</div>
+  {/if}
 </div>
 
 <style>

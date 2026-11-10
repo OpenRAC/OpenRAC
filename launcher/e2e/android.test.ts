@@ -327,6 +327,30 @@ describe("A controller", () => {
     expect(await page.locator(".slot").count()).toBeGreaterThan(0);
   });
 
+  it("keeps the controller in the words beside the disc, and goes left to the disc and the tab open", async () => {
+    await open("built&crash&version=rac1/pal&page=library");
+    await page.locator(".slot.on").focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+    await press("right");
+    expect(await focused()).toMatch(/Continue|Play/);
+    // Down at the foot of the words stays there: it never turns the wheel to another game.
+    await press("down", "down", "down");
+    expect(await shownName()).toBe("Ratchet & Clank");
+    expect(await page.evaluate(() => !!document.activeElement?.closest(".info"))).toBe(true);
+    // Right at the end of the buttons stays too; up goes to what changed, down back to the buttons.
+    await press("up", "right", "right", "right");
+    expect(await page.evaluate(() => !!document.activeElement?.closest(".info"))).toBe(true);
+    await press("up");
+    expect(await page.evaluate(() => !!document.activeElement?.closest(".news"))).toBe(true);
+    await press("down");
+    expect(await page.evaluate(() => !!document.activeElement?.closest(".info .acts"))).toBe(true);
+    // Left: the disc picked, then the Games tab, not the tab nearest to it.
+    await press("left");
+    expect(await focused()).toMatch(/^Ratchet & Clank:/);
+    await press("left");
+    expect(await focused()).toBe("Games");
+  });
+
   it("keeps only the game the focus stops on, once", async () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").focus();

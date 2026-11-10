@@ -291,9 +291,13 @@ function move(dir: Direction) {
   const aside = (el: HTMLElement) => el.closest("[data-pad-aside]") !== null;
   const inAside = aside(from);
   const reachable = items.filter((el) => crosses(from, el, dir));
-  const next =
+  const next = steer(
+    from,
     nearest(box, candidates(reachable.filter((el) => inAside || !aside(el))), dir) ??
-    (inAside ? null : nearest(box, candidates(reachable.filter(aside)), dir));
+      (inAside ? null : nearest(box, candidates(reachable.filter(aside)), dir)),
+    dir,
+    items,
+  );
   if (!next && from !== document.activeElement && usable(from) && !textEntry(from)) {
     show(from);
     return;
@@ -307,6 +311,28 @@ function move(dir: Direction) {
     const area = scrollable(from);
     area?.scrollBy({ top: (dir === "down" ? 1 : -1) * area.clientHeight * 0.4, behavior: "smooth" });
   }
+}
+
+/**
+ * Where a move that leaves a part of the page lands, when that part says so: `data-pad-<dir>` on
+ * it holds a selector (the first control it matches takes the focus) or "none" (the focus stays).
+ * A move inside the part is left as it is, and a selector that matches nothing leaves the move
+ * to the nearest control. Without it, the nearest control across the page could be anything: down
+ * at the foot of the game's page went into the game list beside it. Into the tabs' bar the move
+ * lands on the tab open.
+ */
+function steer(from: HTMLElement, next: HTMLElement | null, dir: Direction, items: HTMLElement[]): HTMLElement | null {
+  // Into the tabs' bar from the page: the tab open, not whichever is nearest (the logo, Settings).
+  const bar = document.querySelector<HTMLElement>(BAR);
+  if (next && bar?.contains(next) && !bar.contains(from)) {
+    const open = items.find((el) => bar.contains(el) && el.matches("[aria-current]") && visible(el));
+    if (open) return open;
+  }
+  const part = from.closest<HTMLElement>(`[data-pad-${dir}]`);
+  if (!part || (next && part.contains(next))) return next;
+  const rule = part.getAttribute(`data-pad-${dir}`) ?? "";
+  if (rule === "none") return null;
+  return items.find((el) => el !== from && el.matches(rule) && visible(el)) ?? next;
 }
 
 function escape(target: Element) {

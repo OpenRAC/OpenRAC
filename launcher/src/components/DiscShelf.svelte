@@ -359,6 +359,7 @@
       </div>
       <div
         class="wheel"
+        data-pad-right=".info .acts button"
         bind:this={wheel}
         onpointerdown={down}
         onpointermove={move}
@@ -392,7 +393,16 @@
       </div>
 
       {#key game.id}
-        <div class="info" style={themeStyle(game.id)} out:fly={leave()}>
+        <!-- A controller leaves the words only left, to the disc, or up, to what changed. -->
+        <div
+          class="info"
+          style={themeStyle(game.id)}
+          data-pad-left=".slot.on"
+          data-pad-up={changes.length ? ".news button" : "none"}
+          data-pad-right="none"
+          data-pad-down="none"
+          out:fly={leave()}
+        >
           <p class="over" in:fly={enter(0)}>
             {game.year ? `${game.year} · ` : ""}{regionLabel(v.name)}
           </p>
@@ -460,7 +470,7 @@
       {/key}
 
       {#if changes.length}
-        <div class="news" role="group" aria-label="What's new">
+        <div class="news" role="group" aria-label="What's new" data-pad-down=".info .acts button" data-pad-left="none">
           {#each changes as n, i (n.key)}
             <span
               class="chip"
