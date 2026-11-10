@@ -282,14 +282,22 @@
     clearTimeout(aside);
   });
 
+  /** A dialog or the "..." menu is open over the shelf: X and Y wait for it. */
+  const covered = () => !!document.querySelector('[role="dialog"], [role="menu"]');
+
   function openMods() {
-    if (!v || !playable || launching || document.querySelector('[role="dialog"], [role="menu"]')) return;
+    if (!v || !playable || launching || covered()) return;
     pickVersion(v.key);
     app.page = "mods";
   }
 
   function openPage() {
     if (v && !launching) openVersion(v.key);
+  }
+
+  /** Y: the game's page, unless a menu or dialog has the pad. */
+  function padPage() {
+    if (!covered()) openPage();
   }
 
   const job = $derived(
@@ -304,10 +312,10 @@
   $effect(() => {
     const el = root;
     if (!el) return;
-    el.addEventListener("padmore", openPage);
+    el.addEventListener("padmore", padPage);
     document.addEventListener("padextra", openMods);
     return () => {
-      el.removeEventListener("padmore", openPage);
+      el.removeEventListener("padmore", padPage);
       document.removeEventListener("padextra", openMods);
     };
   });

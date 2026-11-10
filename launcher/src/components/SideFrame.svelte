@@ -16,7 +16,14 @@
     <div class="content">{@render children()}</div>
   {:else}
     <aside data-pad-right=".content .go .big" data-pad-down="none">{@render list()}</aside>
-    <div class="content" data-pad-left="aside [aria-current]" data-pad-down="none">{@render children()}</div>
+    <div
+      class="content"
+      data-pad-left="aside [aria-current]"
+      data-pad-up="header.site-header [aria-current]"
+      data-pad-down="none"
+    >
+      {@render children()}
+    </div>
   {/if}
 </div>
 

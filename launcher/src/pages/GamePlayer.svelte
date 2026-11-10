@@ -123,12 +123,12 @@
     logs?.focus({ preventScroll: true });
   }
 
-  // Opened from Games' "..." menu on its logs.
+  // Opened from Games' "..." menu on its logs. The ask is used once, so it never opens another
+  // game's logs later.
   $effect(() => {
-    if (pageAsks.logs && setUp) {
-      pageAsks.logs = false;
-      void showLogs();
-    }
+    if (!pageAsks.logs) return;
+    pageAsks.logs = false;
+    if (setUp) void showLogs();
   });
 
   /** The Mods switch under Play while Play would start the game (ModsSwitch). */

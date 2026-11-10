@@ -351,6 +351,17 @@ describe("A controller", () => {
     expect(await focused()).toBe("Games");
   });
 
+  it("keeps Y and X in the open menu beside the disc", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".slot.on").focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+    await page.getByRole("button", { name: "More actions" }).click();
+    await page.getByRole("menu").waitFor();
+    await press("more", "extra");
+    expect(await page.locator(".shelf").count()).toBe(1);
+    expect(await page.getByRole("menu").count()).toBe(1);
+  });
+
   it("keeps only the game the focus stops on, once", async () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").focus();

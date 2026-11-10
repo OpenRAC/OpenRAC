@@ -75,18 +75,19 @@ interface Box {
   bottom: number;
 }
 
-/** Whether `to` is that way from `from`: past its edge, or at least with its centre beyond it. */
+/** Whether `to` is that way from `from`: past its edge, or at least with its centre beyond it by
+ *  more than a pixel (a button centred in the same row, a fraction higher, is not above it). */
 function ahead(from: Box, to: Box, dir: Direction): boolean {
   const centre = (a: number, b: number) => (a + b) / 2;
   switch (dir) {
     case "down":
-      return centre(to.top, to.bottom) > centre(from.top, from.bottom) && to.top >= from.top + 1;
+      return centre(to.top, to.bottom) > centre(from.top, from.bottom) + 1 && to.top >= from.top + 1;
     case "up":
-      return centre(to.top, to.bottom) < centre(from.top, from.bottom) && to.bottom <= from.bottom - 1;
+      return centre(to.top, to.bottom) < centre(from.top, from.bottom) - 1 && to.bottom <= from.bottom - 1;
     case "right":
-      return centre(to.left, to.right) > centre(from.left, from.right) && to.left >= from.left + 1;
+      return centre(to.left, to.right) > centre(from.left, from.right) + 1 && to.left >= from.left + 1;
     case "left":
-      return centre(to.left, to.right) < centre(from.left, from.right) && to.right <= from.right - 1;
+      return centre(to.left, to.right) < centre(from.left, from.right) - 1 && to.right <= from.right - 1;
   }
 }
 
@@ -297,6 +298,7 @@ function move(dir: Direction) {
       (inAside ? null : nearest(box, candidates(reachable.filter(aside)), dir)),
     dir,
     items,
+    (part) => nearest(box, candidates(reachable.filter((el) => part.contains(el))), dir),
   );
   if (!next && from !== document.activeElement && usable(from) && !textEntry(from)) {
     show(from);
@@ -316,12 +318,18 @@ function move(dir: Direction) {
 /**
  * Where a move that leaves a part of the page lands, when that part says so: `data-pad-<dir>` on
  * it holds a selector (the first control it matches takes the focus) or "none" (the focus stays).
- * A move inside the part is left as it is, and a selector that matches nothing leaves the move
- * to the nearest control. Without it, the nearest control across the page could be anything: down
+ * A move inside the part is left as it is (a control of the part that way wins over a nearer one
+ * outside it), and a selector that matches nothing leaves the move to the nearest control. Without it, the nearest control across the page could be anything: down
  * at the foot of the game's page went into the game list beside it. Into the tabs' bar the move
  * lands on the tab open.
  */
-function steer(from: HTMLElement, next: HTMLElement | null, dir: Direction, items: HTMLElement[]): HTMLElement | null {
+function steer(
+  from: HTMLElement,
+  next: HTMLElement | null,
+  dir: Direction,
+  items: HTMLElement[],
+  within: (part: HTMLElement) => HTMLElement | null,
+): HTMLElement | null {
   // Into the tabs' bar from the page: the tab open, not whichever is nearest (the logo, Settings).
   const bar = document.querySelector<HTMLElement>(BAR);
   if (next && bar?.contains(next) && !bar.contains(from)) {
@@ -330,6 +338,9 @@ function steer(from: HTMLElement, next: HTMLElement | null, dir: Direction, item
   }
   const part = from.closest<HTMLElement>(`[data-pad-${dir}]`);
   if (!part || (next && part.contains(next))) return next;
+  // A control of the part that way, even far to the side, comes before leaving it.
+  const inside = within(part);
+  if (inside) return inside;
   const rule = part.getAttribute(`data-pad-${dir}`) ?? "";
   if (rule === "none") return null;
   return items.find((el) => el !== from && el.matches(rule) && visible(el)) ?? next;

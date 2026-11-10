@@ -107,7 +107,7 @@
           <!-- The game's own name goes to a line of its own when the whole does not fit on one. -->
           {@const lines = titleLines(e.name)}
           <span class="name"
-            ><!-- The space stays in the name a screen reader says; the gap is the margin. --><span class="part"
+            ><!-- The space stays in the name a screen reader says; the gap is padding. --><span class="part"
               >{lines.game ? `${lines.series} ` : lines.series}</span
             >{#if lines.game}<span class="part">{lines.game}</span>{/if}</span
           >
@@ -351,8 +351,9 @@
     display: inline-block;
   }
 
-  .part + .part {
-    margin-left: 0.28em;
+  /* The gap trails the series, so a game name that wraps starts flush on its own line. */
+  .part:has(+ .part) {
+    padding-right: 0.28em;
   }
 
   .mark {
