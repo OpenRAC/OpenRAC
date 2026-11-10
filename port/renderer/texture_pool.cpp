@@ -1040,6 +1040,31 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         y = std::clamp(y, 0, src.height - 1);
         return local[static_cast<std::size_t>(y * src.width + x)];
     };
+    // The glyphs' shape is read through a cubic B-spline of the alpha, not the bilinear filter: a
+    // bilinear edge bends at every source texel, so a 16-pixel glyph drawn large got lumpy curves
+    // (issue #380, the save list's planet names). The spline's curves are smooth across texels.
+    auto smooth_alpha = [&](int x0, int y0, float fx, float fy) {
+        const auto weights = [](float t, float* out) {
+            const float s = 1.0f - t;
+            out[0] = s * s * s / 6.0f;
+            out[1] = (3.0f * t * t * t - 6.0f * t * t + 4.0f) / 6.0f;
+            out[2] = (-3.0f * t * t * t + 3.0f * t * t + 3.0f * t + 1.0f) / 6.0f;
+            out[3] = t * t * t / 6.0f;
+        };
+        float wx[4];
+        float wy[4];
+        weights(fx, wx);
+        weights(fy, wy);
+        float sum = 0.0f;
+        for (int j = 0; j < 4; ++j) {
+            float row = 0.0f;
+            for (int i = 0; i < 4; ++i) {
+                row += wx[i] * texel(x0 - 1 + i, y0 - 1 + j, 3);
+            }
+            sum += wy[j] * row;
+        }
+        return sum;
+    };
     Rgba8Image out(w, h);
     std::vector<std::uint8_t> inside(static_cast<std::size_t>(w * h)), outside(static_cast<std::size_t>(w * h));
     // Each field column's two source columns and its weight, the same in every row.
@@ -1061,8 +1086,7 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
                 // Only the alpha is filtered: the field is made from it alone.
                 const float a00 = texel(x0, y0, 3), a10 = texel(x0 + 1, y0, 3);
                 const float a01 = texel(x0, y0 + 1, 3), a11 = texel(x0 + 1, y0 + 1, 3);
-                const float alpha = (a00 * (1.0f - fx) + a10 * fx) * (1.0f - fy)
-                                    + (a01 * (1.0f - fx) + a11 * fx) * fy;
+                const float alpha = smooth_alpha(x0, y0, fx, fy);
                 const std::size_t i = static_cast<std::size_t>(y * w + x);
                 // R: the glyph's own opacity here, from the nearest opaque-enough texel of the four (so
                 // it holds up to the edge instead of fading with the filter), 0..1 as 0..255.
