@@ -1040,16 +1040,18 @@ TextureHandle TexturePool::distance_field(TextureHandle source) {
         y = std::clamp(y, 0, src.height - 1);
         return local[static_cast<std::size_t>(y * src.width + x)];
     };
-    // The glyphs' shape is read through a cubic B-spline of the alpha, not the bilinear filter: a
-    // bilinear edge bends at every source texel, so a 16-pixel glyph drawn large got lumpy curves
-    // (issue #380, the save list's planet names). The spline's curves are smooth across texels.
+    // The glyphs' shape is read through a Catmull-Rom cubic of the alpha, not the bilinear filter:
+    // a bilinear edge bends at every source texel, so a 16-pixel glyph drawn large got lumpy curves
+    // (issue #380, the save list's planet names). The cubic's curves are smooth across texels, and
+    // it passes through every texel, so thin strokes, accents and the TM sign keep their weight.
     auto smooth_alpha = [&](int x0, int y0, float fx, float fy) {
         const auto weights = [](float t, float* out) {
-            const float s = 1.0f - t;
-            out[0] = s * s * s / 6.0f;
-            out[1] = (3.0f * t * t * t - 6.0f * t * t + 4.0f) / 6.0f;
-            out[2] = (-3.0f * t * t * t + 3.0f * t * t + 3.0f * t + 1.0f) / 6.0f;
-            out[3] = t * t * t / 6.0f;
+            const float t2 = t * t;
+            const float t3 = t2 * t;
+            out[0] = (-t3 + 2.0f * t2 - t) * 0.5f;
+            out[1] = (3.0f * t3 - 5.0f * t2 + 2.0f) * 0.5f;
+            out[2] = (-3.0f * t3 + 4.0f * t2 + t) * 0.5f;
+            out[3] = (t3 - t2) * 0.5f;
         };
         float wx[4];
         float wy[4];
