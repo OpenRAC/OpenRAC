@@ -14,7 +14,8 @@ namespace openrac::lighting {
 std::vector<EnvironmentFloorSample> read_environment_floors(
     const std::filesystem::path& output,
     const std::filesystem::path& level = {},
-    const BakeTraversalSettings& traversal = {}
+    const BakeTraversalSettings& traversal = {},
+    bool require_anchors = true
 );
 // Reuse prepared collision input; no dependency on the water renderer or its optional bake.
 void append_exported_water(
@@ -35,9 +36,8 @@ struct EnvironmentStageInput {
         verified_field{};  // Optional completed density field, borrowed until return.
 };
 
-// Reads environment_probes from the exported probe-bake.json; disabled when absent.
-// Empty prepared floors retain standalone loading and its existing missing-input diagnostics.
-void bake_level_environment(
+// Returns true when automatic placement completed without a safe capture.
+bool bake_level_environment(
     const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
 );
 }  // namespace openrac::lighting

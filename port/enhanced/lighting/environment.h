@@ -14,9 +14,10 @@ inline constexpr unsigned kEnvironmentBrdfSize = 64;
 // Omit the sharpest capture level while retaining its source resolution for GGX filtering.
 inline constexpr unsigned kEnvironmentFirstMip = 1;
 
-// Per-level capture safety limit, not a placement target; disabled until a level opts in.
+// Per-level capture safety limit, not a placement target.
 struct EnvironmentBakeSettings {
     bool enabled = false;
+    bool require_full_coverage = true;
     unsigned resolution = 64, maximum_probes = kEnvironmentProbeLimit, filter_samples = 64;
     float spacing = 24, box_distance = 64, normal_bias = .5f, view_bias = .5f;
     float minimum_capture_spacing = 6;

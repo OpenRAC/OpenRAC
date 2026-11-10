@@ -35,7 +35,7 @@ struct ProbeBatchOptions {
 // Throws on malformed plans, tracing/verification errors, or existing output files (unless
 // resuming). Prints "Probe batch probes N" first, then "Probes DONE/N" as the probes are baked
 // (each half per cent at most), for the planner's progress.
-void run_probe_batch(
+bool run_probe_batch(
     const scene::LevelData& level,
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,

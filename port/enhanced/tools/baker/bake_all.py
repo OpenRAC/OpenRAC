@@ -94,7 +94,7 @@ def baker_profile(baker: Path, level: Path, options) -> str:
                                 '--print-profile']).strip()
 
 
-def level_stamp(level: Path, baker_hash: str, options) -> dict:
+def level_stamp(level: Path, baker_hash: str, options, profile=None) -> dict:
     """What a level's bake is made from: its export's manifest (which carries the levels
     format), the native baker's profile (BAKER_HASH, the digest of baker_profile), planner,
     per-level settings and options that change the result."""
@@ -104,7 +104,9 @@ def level_stamp(level: Path, baker_hash: str, options) -> dict:
     except (ValueError, AttributeError):
         levels_format = None
     config = json.loads((level/'probe-bake.json').read_text()) if (level/'probe-bake.json').exists() else {}
-    reflections = config.get('environment_probes', {}).get('enabled', False)
+    resolved = profile or {}
+    explicit_reflections = config.get('environment_probes', {}).get('enabled', False)
+    reflections = resolved.get('reflections', explicit_reflections and resolved.get('strategy') != 'scene')
     return {'version': STAMP_VERSION, 'planner_sha256': planner_hash(),
             'region_settings_sha256': digest.sha256(level/'probe-regions.json') if (level/'probe-regions.json').exists() else None,
             'profile_sha256': digest.sha256(level/'probe-bake.json') if (level/'probe-bake.json').exists() else None,
@@ -139,7 +141,9 @@ def up_to_date(output: Path, stamp: dict, profile: dict | None = None) -> bool:
                 return False
     except (OSError, ValueError, TypeError):
         return False
-    if stamp.get('environment_probes') and not (output/'environment.orpe').is_file():
+    if (stamp.get('environment_probes') and not result.get('empty')
+        and result.get('environment_unavailable') is not True
+        and not (output/'environment.orpe').is_file()):
         return False
     if old == stamp:
         return True
@@ -335,7 +339,7 @@ def bake_all(levels_dir: Path, output_dir: Path, baker: Path, *, disc=None,
         if update:
             text = diagnostics.stage('Read baker profile', baker_profile, baker, level, options)
             profile = diagnostics.parse_profile(text)
-            stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options)
+            stamp = level_stamp(level, hashlib.sha256(text.encode()).hexdigest(), options, profile)
         if update and up_to_date(final, stamp, profile):
             if json.loads((final/STAMP).read_text()) != stamp:
                 (final/STAMP).write_text(json.dumps(stamp, indent=2)+'\n', encoding='utf-8')

@@ -26,6 +26,7 @@
 #include "enhanced/tools/baker/output/probe_output.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/probe_rounding.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/tools/baker/sources/probe_grid.h"
 
@@ -184,10 +185,16 @@ std::vector<BatchJob> batch_jobs(
     if (!plan["regions"].items().empty()
         && fs::exists(options.output_directory / "interior-inference.json")
         && fs::exists(options.output_directory / "seed-plan.json")) {
+        const auto environment = load_level_bake_profile(options.level_directory).environment;
         floors = read_environment_floors(
-            options.output_directory, options.level_directory, options.settings.traversal
+            options.output_directory,
+            options.level_directory,
+            options.settings.traversal,
+            environment.require_full_coverage
         );
-        layout = bake_detail::prepare_room_layout(prepared_scene, floors, options.settings);
+        if (!floors.empty()) {
+            layout = bake_detail::prepare_room_layout(prepared_scene, floors, options.settings);
+        }
     }
 
     if (!floors.empty()) {
@@ -271,7 +278,7 @@ ProbeVolume verify_batch_file(const BatchJob& job, const std::vector<std::uint8_
 }
 }  // namespace
 
-void run_probe_batch(
+bool run_probe_batch(
     const scene::LevelData& level,
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,
@@ -472,7 +479,7 @@ void run_probe_batch(
         std::filesystem::remove(options.output_directory / "environment.orpe.tmp");
     }
 
-    bake_level_environment(
+    const bool environment_unavailable = bake_level_environment(
         {level.dir,
          options.output_directory,
          exported.scene,
@@ -488,6 +495,7 @@ void run_probe_batch(
             "source level changed during the bake; no manifest was registered"
         );
     }
+    return environment_unavailable;
 }
 
 }  // namespace openrac::lighting

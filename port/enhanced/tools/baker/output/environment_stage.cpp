@@ -77,7 +77,8 @@ std::vector<ProbeVolume> read_environment_field(const std::filesystem::path& out
 std::vector<EnvironmentFloorSample> read_environment_floors(
     const std::filesystem::path& output,
     const std::filesystem::path& level,
-    const BakeTraversalSettings& traversal
+    const BakeTraversalSettings& traversal,
+    bool require_anchors
 ) {
     const profiling::Zone timing("Read playable floors");
 
@@ -184,6 +185,10 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
         throw std::runtime_error("environment placement needs gameplay floor anchors: " + error);
     }
 
+    if (!require_anchors && seeds["floor_anchors"].is_null() && seeds["moby_seeds"].is_null()) {
+        return {};
+    }
+
     const auto matched = match_floor_evidence(result, seeds);
 
     // Invalid matching inputs cannot authorize gameplay-reachable floors.
@@ -203,6 +208,9 @@ std::vector<EnvironmentFloorSample> read_environment_floors(
     }
 
     if (pending.empty()) {
+        if (!require_anchors) {
+            return {};
+        }
         throw std::runtime_error("medial planning requires gameplay floor anchors");
     }
 
@@ -403,7 +411,7 @@ void placement_report(
 
 }  // namespace
 
-void bake_level_environment(
+bool bake_level_environment(
     const EnvironmentStageInput& input, const BakeExecution& execution, std::ostream& log
 ) {
     const auto& level = input.level;
@@ -415,7 +423,7 @@ void bake_level_environment(
     const auto config = load_level_bake_profile(level).environment;
 
     if (!config.enabled) {
-        return;
+        return false;
     }
 
     const auto start = std::chrono::steady_clock::now();
@@ -443,7 +451,14 @@ void bake_level_environment(
 
         // Normal batches reuse the immutable GI floor graph; standalone callers still load their own.
         if (floors.empty()) {
-            loaded_floors = read_environment_floors(output, level, settings.traversal);
+            if (!config.require_full_coverage
+                && !std::filesystem::is_regular_file(output / "interior-inference.json")) {
+                log << "No playable floors available for reflection probes\n";
+                return true;
+            }
+            loaded_floors = read_environment_floors(
+                output, level, settings.traversal, config.require_full_coverage
+            );
             floors = loaded_floors;
         }
 
@@ -467,6 +482,11 @@ void bake_level_environment(
         << placement.tolerated_misses.size() << " tolerated floor misses, "
         << placement.receiver_only_floors << " receiver-only floors, "
         << placement.unsupported_floors << " samples without playable render-floor support\n";
+    if (asset.probes.empty()) {
+        placement_report(output, placement);
+        log << "No safe reflection captures; using local GI\n";
+        return true;
+    }
     asset.gi_hash = environment_gi_hash(output);
     const auto bytes = encode_baked_environment(asset, settings.texture_format, execution);
     const auto path = output / "environment.orpe";
@@ -510,5 +530,6 @@ void bake_level_environment(
         << std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count()
         << " seconds\n"
         << std::flush;
+    return false;
 }
 }  // namespace openrac::lighting
