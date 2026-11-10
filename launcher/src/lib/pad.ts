@@ -47,9 +47,18 @@ function rovingItem(el: HTMLElement): boolean {
   return el.matches(ROVING);
 }
 
+/** The launcher's tabs: Android's rail on the left (its bar at the bottom on a narrow window), the
+ *  desktop's bar at the top. */
+const BAR = "header.site-header";
+
+/** Android: the tabs' rail is LB and RB's only; the controller never focuses it, and stays on the
+ *  page. */
+let shouldersOnly = false;
+
 function usable(el: HTMLElement): boolean {
   return (
     !(el as HTMLButtonElement).disabled &&
+    !(shouldersOnly && el.closest(BAR)) &&
     (el.tabIndex !== -1 || rovingItem(el)) &&
     !el.closest("[inert], [aria-hidden=true], [data-pad-skip]") &&
     visible(el)
@@ -350,10 +359,6 @@ function escape(target: Element) {
   target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
 }
 
-/** The launcher's tabs: Android's rail on the left (its bar at the bottom on a narrow window), the
- *  desktop's bar at the top. */
-const BAR = "header.site-header";
-
 /**
  * Whether the focus may go from `from` to `to` going `dir`, as far as the tabs' bar goes: into it
  * and out of it only across it (left and right for Android's rail, up and down for a bar along
@@ -445,8 +450,9 @@ function accept() {
 /** Y: what the focused control offers besides A, as `padmore`; it bubbles, so a page can answer
  *  for all its controls. */
 function more() {
-  const el = current(focusables(scope()));
-  el?.dispatchEvent(new CustomEvent("padmore", { bubbles: true }));
+  // Nothing focused (the focus left on the rail by a finger, or put away), the page answers still.
+  const el = current(focusables(scope())) ?? scope();
+  el.dispatchEvent(new CustomEvent("padmore", { bubbles: true }));
 }
 
 /** X: the page's own shortcut, as `padextra` on the document (Android's Games: the Mods switch). */
@@ -717,8 +723,15 @@ export function pollGamepads(
  */
 export function startPad(
   home: () => boolean,
-  options: { readGamepads: boolean; nativePicker?: boolean; arrowKeys?: boolean; press?: (el: HTMLElement) => void },
+  options: {
+    readGamepads: boolean;
+    nativePicker?: boolean;
+    arrowKeys?: boolean;
+    shouldersOnly?: boolean;
+    press?: (el: HTMLElement) => void;
+  },
 ) {
+  shouldersOnly = options.shouldersOnly ?? false;
   const { readGamepads, press } = options;
   backHome = home;
   nativePicker = options.nativePicker ?? false;

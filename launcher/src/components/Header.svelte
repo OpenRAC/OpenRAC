@@ -617,9 +617,10 @@
     height: auto;
     min-height: 0;
     padding: 16px 0 12px;
-    background: var(--rail);
+    /* No ground of its own: the rail and the page are one, over the same wave (App.svelte). */
+    background: none;
     border-bottom: 0;
-    border-right: 1px solid var(--line);
+    border-right: 0;
     box-shadow: none;
     color: var(--text);
     /* It scrolls only up and down (no bar on Android: app.css): a tab one pixel wider than the

@@ -340,7 +340,7 @@ describe("A controller", () => {
     expect(await page.locator(".extra [role=switch]").isChecked()).toBe(false);
   });
 
-  it("keeps the controller in the words beside the disc, and goes left to the disc and the tab open", async () => {
+  it("keeps the controller in the words beside the disc, and goes left to the disc, never the rail", async () => {
     await open("built&crash&version=rac1/pal&page=library");
     await page.locator(".slot.on").focus();
     await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
@@ -357,11 +357,11 @@ describe("A controller", () => {
     expect(await page.evaluate(() => !!document.activeElement?.closest(".news"))).toBe(true);
     await press("down");
     expect(await page.evaluate(() => !!document.activeElement?.closest(".info .acts"))).toBe(true);
-    // Left: the disc picked, then the Games tab, not the tab nearest to it.
+    // Left: the disc picked, and no further: the rail is LB and RB's.
     await press("left");
     expect(await focused()).toMatch(/^Ratchet & Clank:/);
     await press("left");
-    expect(await focused()).toBe("Games");
+    expect(await focused()).toMatch(/^Ratchet & Clank:/);
   });
 
   it("offers to set up a game not playable yet beside its disc", async () => {
@@ -405,14 +405,20 @@ describe("A controller", () => {
     expect(shown).toContain("Up Your Arsenal");
   });
 
-  it("goes into the rail only sideways", async () => {
+  it("never takes the controller into the rail", async () => {
     await open("page=settings");
-    for (let i = 0; i < 12; i++) {
-      await press("up");
+    for (const b of [...Array<string>(12).fill("up"), "left", "left", "down", "left"]) {
+      await press(b);
       expect(await page.evaluate(() => document.activeElement?.closest("header") === null)).toBe(true);
     }
-    await press("left");
-    expect(await page.evaluate(() => document.activeElement?.closest("header") !== null)).toBe(true);
+  });
+
+  it("opens the game's page by Y with the focus left on the rail by a finger", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator("header .tab").first().focus();
+    await page.evaluate(() => (document.documentElement.dataset.input = "pad"));
+    await press("more");
+    await page.locator(".shelf").waitFor({ state: "detached" });
   });
 
   it("reaches every theme, not only the one on", async () => {

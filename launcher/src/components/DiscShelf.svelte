@@ -25,7 +25,7 @@
   import DiscLaunch from "./DiscLaunch.svelte";
   import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
-  import WaveBackdrop from "./WaveBackdrop.svelte";
+  import { wave } from "$lib/wave.svelte";
   import Menu from "./Menu.svelte";
   import ModsSwitch from "./ModsSwitch.svelte";
 
@@ -192,6 +192,13 @@
     cancelAnimationFrame(frame);
   });
 
+  /** Where the wave behind the page (App.svelte) follows the wheel: where it is headed, inside its ends, so the spring's
+   *  overshoot and the pull past the first or last disc never move the wave. */
+  const calm = $derived(Math.max(0, Math.min(games.length - 1, at - drag / step)));
+  $effect(() => {
+    wave.shift = calm;
+  });
+
   /** Where disc `i` stands: its offset from the middle of the wheel, and how it shows there. */
   function place(i: number) {
     const d = i - pos;
@@ -223,6 +230,11 @@
   /** How far the finger has turned the disc picked, in degrees. */
   let twist = $state(0);
   let twisting = $state(false);
+  /** The game whose disc was turned: the turn stays on that disc, never on the next one picked. */
+  let twisted = $state<string | null>(null);
+  let unwind = 0;
+  /** The turn put back to 0 without a transition (it is a whole number of turns). */
+  let snap = $state(false);
   /** The click after a drag or a turn is not a press. */
   let swallow = false;
   let stage = $state<HTMLElement | null>(null);
@@ -261,6 +273,9 @@
     const cx = r.left + r.width / 2,
       cy = r.top + r.height / 2;
     touch.spin = { cx, cy, last: angle(touch.x, touch.at, cx, cy) };
+    clearTimeout(unwind);
+    if (twisted !== game?.id) twist = 0;
+    twisted = game?.id ?? null;
     twisting = true;
     stage?.setPointerCapture(touch.id);
   }
@@ -303,6 +318,13 @@
       twist = Math.round(twist / 360) * 360;
       twisting = false;
       swallow = true;
+      // Once it has settled, whole turns are no turn: back to 0 at once, nothing left to unwind.
+      unwind = window.setTimeout(() => {
+        snap = true;
+        twisted = null;
+        twist = 0;
+        requestAnimationFrame(() => requestAnimationFrame(() => (snap = false)));
+      }, 950);
       return;
     }
     dragging = false;
@@ -366,6 +388,9 @@
     aside = window.setTimeout(() => (launching = null), 1200);
   }
   $effect(() => () => {
+    clearTimeout(unwind);
+  });
+  $effect(() => () => {
     clearTimeout(aside);
   });
 
@@ -405,10 +430,11 @@
   $effect(() => {
     const el = root;
     if (!el) return;
-    el.addEventListener("padmore", padPage);
+    // On the document: Y reaches the shelf wherever the focus is (or with none).
+    document.addEventListener("padmore", padPage);
     document.addEventListener("padextra", toggleMods);
     return () => {
-      el.removeEventListener("padmore", padPage);
+      document.removeEventListener("padmore", padPage);
       document.removeEventListener("padextra", toggleMods);
     };
   });
@@ -429,6 +455,7 @@
     <div
       class="stage"
       class:twisting
+      class:snap
       bind:this={stage}
       onpointerdown={down}
       onpointermove={move}
@@ -440,9 +467,6 @@
       }}
       role="presentation"
     >
-      <div class="backdrop" aria-hidden="true">
-        <WaveBackdrop shift={pos} still={reduced} />
-      </div>
       <div class="wheel" data-pad-right=".info .acts button" bind:this={wheel} aria-label="Your games" role="group">
         {#each games as g, i (g.id)}
           {@const gv = playerVersion(g)}
@@ -462,7 +486,7 @@
             }}
           >
             <span class="roll" style={`animation-delay: ${Math.abs(i - at) * 90}ms`}>
-              <span class="twist" style={i === at && twist ? `rotate: ${twist}deg` : undefined}>
+              <span class="twist" style={g.id === twisted && twist ? `rotate: ${twist}deg` : undefined}>
                 <Disc game={g.id} version={gv?.name ?? "ntsc"} title={g.title} idle={Math.abs(i - at) <= 2} />
               </span>
             </span>
@@ -614,14 +638,6 @@
     -webkit-touch-callout: none;
   }
 
-  /* Behind everything: a band of fine lines in the game's colour (WaveBackdrop); no picture. */
-  .backdrop {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */
 
   .wheel {
@@ -684,7 +700,8 @@
     transition: rotate 900ms cubic-bezier(0.2, 1.15, 0.35, 1);
   }
 
-  .twisting .twist {
+  .twisting .twist,
+  .snap .twist {
     transition: none;
   }
 
