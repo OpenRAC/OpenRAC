@@ -541,7 +541,7 @@
                  words around it on a new disc. -->
             <div class="extra" in:fly|global={enter(4)}>
               {#if startsGame && playable}
-                <ModsSwitch version={v} setUp={!!game.install?.extracted} onopen={openMods} quiet />
+                <ModsSwitch version={v} setUp={!!game.install?.extracted} onopen={openMods} />
               {/if}
               {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
             </div>
@@ -873,6 +873,17 @@
     align-items: center;
     gap: 10px;
     margin-top: clamp(8px, 1.8vh, 12px);
+  }
+
+  /* The Mods pill as on the desktop's game page (its link 40 px there too), its gap above set
+     by the row. */
+  .extra :global(.with-mods) {
+    margin-top: 0;
+  }
+
+  .extra :global(.with-mods .link) {
+    min-height: 40px;
+    background: var(--control-card);
   }
 
   .go.primary {

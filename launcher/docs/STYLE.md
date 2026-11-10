@@ -263,7 +263,7 @@ shows through it soft, as through frosted glass.
   turns it. The discs below fade out down to the screen's edge, under the foot.
 - Right: year and region, the name in the game's title font, its newest save
   or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
-  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them (X turns it).
+  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them, the same pill as on the desktop's game page (X turns it).
   The buttons and the pad's glyphs are filled (`--control-card`), never see-through.
   With game colours on, the disc picked brings its game's colours. Sizes scale with the window height (`clamp()`).
 - Top right: What's new chips, hidden when empty. Foot: the running job and
