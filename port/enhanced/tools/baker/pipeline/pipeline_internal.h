@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <span>
@@ -23,6 +24,7 @@ namespace pipeline {
 // All paths are resolved before any destructive cache operation or controller admission.
 struct Options {
     std::filesystem::path levels;  // Immutable export root.
+    std::filesystem::path mods;    // Assembled renderer overrides, if enabled.
     std::filesystem::path output;  // Cache root outside exports.
     std::filesystem::path profiles =
         "port/enhanced/lighting/profiles";  // Reviewed shared authoring.
@@ -42,6 +44,9 @@ struct Level {
     std::filesystem::path path;  // Canonical source directory.
     std::uint64_t bytes = 0;     // Export bytes, used for progress and largest-first scheduling.
     std::uint64_t memory = 0;    // At least one GiB, or four times export bytes.
+    std::filesystem::path mount;
+    std::string label;
+    std::shared_ptr<std::mutex> source_lock = std::make_shared<std::mutex>();
 };
 
 // OS-held cache lock; closing it releases ownership even after an interrupted bake.
@@ -112,7 +117,10 @@ Options arguments(std::span<const std::string> arguments);
 // Discovers and validates all exported levels in numeric order before admission.
 std::vector<Level> discover(const Options& options);
 // Resolves and validates region defaults from the same tracked per-level profile.
-json::Value region_settings(const std::filesystem::path& level);
+std::filesystem::path level_overrides(const Options& options, const std::filesystem::path& level);
+json::Value region_settings(
+    const std::filesystem::path& level, const std::filesystem::path& overrides = {}
+);
 // Resolves the profile and the two transport overrides accepted by automatic baking.
 LevelBakeProfile profile(const std::filesystem::path& level, const Options& options);
 // Resolves background defaults and lowers native worker priority without graphics initialization.

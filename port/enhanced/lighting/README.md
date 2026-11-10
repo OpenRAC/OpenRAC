@@ -358,7 +358,7 @@ For emission generated from game textures, put an authored 8-bit grayscale PNG i
 
 The native baker reads `source` from the local export. It must match the mask size.
 `source` keeps the texture's RGB detail. `tint` multiplies it by an RGB `colour` in
-0–255, and `solid` uses that colour without a source texture. The mask scales the
+0â€“255, and `solid` uses that colour without a source texture. The mask scales the
 encoded RGB channels from black to full colour. Optional `gain` scales those channels
 before they are clamped. The output is opaque.
 
@@ -626,3 +626,11 @@ recover HDR detail.
 AgX matrices are adapted from Google Filament's `ToneMapper.cpp` at
 `be858f42ab95cf0ba6e224ac2dc3950bdb172080` (Apache-2.0); see
 [the retained licence](../renderer/agx-LICENSE.txt) and the third-party notices.
+
+## Lighting for edited levels
+
+In the launcher, turn on Mods for Play, then prepare lighting under Enhanced
+Graphics. Preparation uses the same packed levels and enabled override packs as
+Play, including each enabled ship destination. Repacking or changing the
+enabled overrides makes the affected lighting due for preparation. Original
+levels and previously baked edits keep separate cache entries.

@@ -79,7 +79,8 @@ void usage() {
         << "openrac-enhanced-baker --inspect-emissive-task LEVELS_DIR REVIEW_JSON TASK_ID\n"
         << "openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR\n"
         << "openrac-enhanced-baker --migrate-mesh-emission LEVEL_DIR MATERIAL_OVERRIDES.json\n"
-        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
+        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--mods-dir DIR] "
+           "[--update]\n"
         << "  --jobs N --memory-mib N\n"
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
@@ -223,6 +224,14 @@ int main(int argc, char** argv) {
             std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--print-mod-key") {
+            std::cout << probe_variant_key(argv[2]) << '\n';
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--print-modded-source") {
+            std::cout << probe_input_hash(argv[2], argv[3]) << '\n';
+            return 0;
+        }
         profiling::thread_name("Enhanced bake");
 
         if (argc == 3 && std::string_view(argv[1]) == "--calculate-mesh-emission") {
@@ -353,13 +362,15 @@ int main(int argc, char** argv) {
 
         // ---- Single-grid inspection, verification and baking ----
 
-        fs::path directory, output, verify, compare_coarse;
+        fs::path directory, overrides, output, verify, compare_coarse;
         bool inspect = false, game_rounding = false, print_profile = false;
 
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
+            } else if (std::string_view(argv[i]) == "--level-overrides") {
+                overrides = argv[++i];
             } else if (std::string_view(argv[i]) == "--tracy-wait") {
                 const float seconds = real(argv[++i]);
 
@@ -379,7 +390,8 @@ int main(int argc, char** argv) {
 
         const profiling::Zone trace("Probe baker");
 
-        auto profile = directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory);
+        auto profile =
+            directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory, overrides);
         Float3 spacing = profile.sparse_spacing;
         Float3 environment = profile.activation.environment;
         unsigned resolution = profile.map_resolution, light_set = profile.activation.light_set;
@@ -422,10 +434,9 @@ int main(int argc, char** argv) {
 
             if (argument == "--compression") {
                 settings.texture_format = parse_probe_texture_format(value);
-            } else if (argument == "--level-dir") {
-                directory = value;
-            } else if (argument == "--tracy-wait") {
-                // The first pass waits before any asset loading.
+            } else if (argument == "--level-dir" || argument == "--level-overrides"
+                       || argument == "--tracy-wait") {
+                // The first pass resolves level paths and waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
             } else if (argument == "--verify") {
@@ -555,7 +566,8 @@ int main(int argc, char** argv) {
 
         std::cout << "Loading extracted level " << directory.string() << std::endl;
 
-        if (!scene::load_level(directory, level, error)) {
+        const auto edited = overrides.empty() ? fs::path{} : overrides / "placements.json";
+        if (!scene::load_level(directory, level, error, edited)) {
             throw std::runtime_error(error);
         }
 

@@ -85,7 +85,7 @@ struct State {
 /// What every job gets in its environment: unbuffered, UTF-8 Python output, no `__pycache__`
 /// (an installed launcher's copy is inside its own bundle: the macOS app in /Applications, the
 /// AppImage, /usr/lib for a package), and the checkout, for tools that want it.
-fn environment(cmd: &mut Command, root: Option<&std::path::Path>) {
+pub(crate) fn environment(cmd: &mut Command, root: Option<&std::path::Path>) {
     // An AppImage's own environment (the AppRun's PYTHONHOME, its paths, its
     // libraries) would follow the job: a Python told that its home is the
     // AppImage's cannot start, and the game would find the AppImage's

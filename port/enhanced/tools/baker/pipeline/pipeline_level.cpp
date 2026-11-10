@@ -11,13 +11,16 @@
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
+#include "enhanced/tools/baker/sources/interior_inputs.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 
 namespace openrac::lighting::pipeline {
 namespace {
 // Discards only mismatched cache-owned partials; matching completed grids retain native verification.
 void prepare_work(
-    const Options& options, const std::filesystem::path& work, const json::Value& identity
+    const std::filesystem::path& cache,
+    const std::filesystem::path& work,
+    const json::Value& identity
 ) {
     bool same = false;
 
@@ -32,7 +35,7 @@ void prepare_work(
 
     // Only mismatched partial work is removed; verified matching grids are retained.
     if (std::filesystem::exists(work) && !same) {
-        remove_cache_child(work, options.output);
+        remove_cache_child(work, cache);
     }
 
     std::filesystem::create_directories(work);
@@ -79,9 +82,12 @@ int bake(
         arguments.insert(arguments.end(), {"--bounces", std::to_string(options.bounces)});
     }
 
-    const auto gameplay = level / "bake-inputs/gameplay.bin";
-
-    const auto settings = region_settings(level);
+    const auto overrides = level_overrides(options, level);
+    const auto gameplay = bake_input(level / "bake-inputs/gameplay.bin", overrides);
+    if (!overrides.empty()) {
+        arguments.insert(arguments.end(), {"--level-overrides", overrides.string()});
+    }
+    const auto settings = region_settings(level, overrides);
     const bool analyse = settings["interior_lighting"].boolean() || settings["enabled"].boolean()
                          || profile(level, options).environment.enabled;
 
@@ -146,14 +152,37 @@ void run_level(
 ) {
     const profiling::Zone timing("Automatic level pipeline");
     const auto name = level.path.filename().string();
-    const auto final = options.output / name;
+    auto cache = options.output;
 
     // A level failure must preserve installed lighting and release admission for other levels.
     try {
+        const auto overrides = level_overrides(options, level.path);
+        if (!overrides.empty()) {
+            // A raw stack must be decoded by the editor before using its gameplay or geometry.
+            for (const auto& file : std::filesystem::directory_iterator(overrides)) {
+                const auto filename = file.path().filename().string();
+                if (filename.starts_with("gameplay_") && file.path().extension() == ".wad"
+                    && !std::filesystem::is_regular_file(overrides / "bake-inputs/gameplay.bin")) {
+                    throw std::runtime_error("packed gameplay has no prepared lighting inputs");
+                }
+                if ((filename.starts_with("core_") || filename.starts_with("data_")
+                     || filename.starts_with("index_"))
+                    && file.path().extension() == ".bin"
+                    && !std::filesystem::is_regular_file(overrides / "bake-inputs/collision.glb")) {
+                    throw std::runtime_error("packed collision has no prepared lighting inputs");
+                }
+            }
+            cache /= std::filesystem::path("variants") / probe_variant_key(overrides);
+            if (std::filesystem::weakly_canonical(cache) != cache) {
+                throw std::runtime_error("lighting variant cache redirects outside its own path");
+            }
+            std::filesystem::create_directories(cache);
+        }
+        const auto final = cache / name;
         events.line(id, "Bake stage: Prepare sources");
         prepare_sources(options, level.path, pool);
         recover(final);
-        ProbeSourceHashes sources{probe_input_hash(level.path), {}};
+        ProbeSourceHashes sources{probe_input_hash(level.path, overrides), {}};
         const auto identity = stamp(options, level.path, sources.initial);
 
         // Only a complete matching cache can bypass native transport verification.
@@ -161,14 +190,15 @@ void run_level(
             events.finish(
                 id,
                 parsed(
-                    "{\"level\":" + coordinator_string(name) + ",\"verified\":true,\"kept\":true}"
+                    "{\"level\":" + coordinator_string(level.label)
+                    + ",\"verified\":true,\"kept\":true}"
                 )
             );
             return;
         }
 
-        const auto work = options.output / ('.' + name + ".partial");
-        prepare_work(options, work, identity);
+        const auto work = cache / ('.' + name + ".partial");
+        prepare_work(cache, work, identity);
         int status = 1;
         // Close all per-level streams before Windows directory publication.
         {
@@ -192,15 +222,21 @@ void run_level(
         }
 
         // Generated interiors may refresh source identity; commit only the final prepared snapshot.
+        if (!overrides.empty() && cache.filename() != probe_variant_key(overrides)) {
+            throw std::runtime_error("mod inputs changed during lighting preparation");
+        }
         save(work / "openrac-bake.json", stamp(options, level.path, sources.verified));
         publish(work, final);
         std::filesystem::remove(final / "openrac-bake.partial.json");
         events.finish(
             id,
-            parsed("{\"level\":" + coordinator_string(name) + ",\"verified\":true,\"kept\":false}")
+            parsed(
+                "{\"level\":" + coordinator_string(level.label)
+                + ",\"verified\":true,\"kept\":false}"
+            )
         );
     } catch (const std::exception& error) {
-        report_failure(events, id, name, error, options.output / "probe-bake.log");
+        report_failure(events, id, level.label, error, options.output / "probe-bake.log");
     }
 }
 }  // namespace openrac::lighting::pipeline

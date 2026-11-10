@@ -34,6 +34,7 @@ struct EnvironmentStageInput {
     std::span<const EnvironmentFloorSample> floors;  // Prepared playable floors, without copying.
     std::span<const ProbeVolume>
         verified_field{};  // Optional completed density field, borrowed until return.
+    std::filesystem::path overrides;
 };
 
 // Returns true when automatic placement completed without a safe capture.

@@ -313,7 +313,7 @@ bool run_probe_batch(
               )
             : std::vector<bake_detail::ProbeDensityReceiver>{};
 
-    if (probe_input_hash(level.dir) != options.source_snapshot) {
+    if (probe_input_hash(level.dir, level.overrides) != options.source_snapshot) {
         throw std::runtime_error("source level changed during planning; no batch started");
     }
 
@@ -485,12 +485,13 @@ bool run_probe_batch(
          exported.scene,
          options.settings,
          floors,
-         verified_field},
+         verified_field,
+         level.overrides},
         {options.threads, &workers},
         output
     );
 
-    if (probe_input_hash(level.dir) != options.source_snapshot) {
+    if (probe_input_hash(level.dir, level.overrides) != options.source_snapshot) {
         throw std::runtime_error(
             "source level changed during the bake; no manifest was registered"
         );

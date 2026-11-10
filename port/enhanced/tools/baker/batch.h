@@ -18,6 +18,7 @@ struct ProbeBatchOptions {
     std::filesystem::path output_directory;
     std::filesystem::path
         level_directory;  // Optional authored water coastline input for gameplay planning.
+    std::filesystem::path level_overrides;
     BakeSettings settings;
     unsigned light_set = 0, threads = 0;
     std::uint64_t source_snapshot = 0;

@@ -92,6 +92,116 @@ class NativePipeline(unittest.TestCase):
         self.assertNotEqual(before[0],paths[0].stat().st_mtime_ns)
         self.assertEqual(before[1],paths[1].stat().st_mtime_ns)
 
+    def test_modded_placement_bake_matches_runtime_and_invalidates_on_edit(self):
+        level = self.levels[0]
+        manifest = json.loads((level/'manifest.json').read_text())
+        manifest['classes']['tie']['1'] = {'mesh': 'collision.glb'}
+        (level/'manifest.json').write_text(json.dumps(manifest))
+        mods = self.root/'mods'
+        override = mods/'level_00'
+        packed = self.root/'packed'
+        packed_level = packed/'level_00'
+        packed_level.mkdir(parents=True)
+        (packed/'packed.json').write_text('{"version":"ntsc"}')
+        matrix = [0.1,0,0,0, 0,0.1,0,0, 0,0,0.1,0, 1,0,1,1]
+        placements = {'ties': [{'class': 1, 'matrix': matrix, 'colours': [0x80808080]*64}]}
+
+        def save_edit():
+            (packed_level/'placements.json').write_text(json.dumps(placements))
+            stacked = subprocess.run(
+                [sys.executable, str(ROOT/'editor/overrides.py'), 'stack', '--into', str(self.root/'packs'),
+                 '--levels', str(self.exports), '--packed', str(packed), '--out', str(mods)],
+                capture_output=True, text=True, timeout=20)
+            self.assertEqual(stacked.returncode, 0, stacked.stdout + stacked.stderr)
+
+        original = self.cache/'level_00'/'sparse.orpg'
+
+        def check(asset, *args):
+            return subprocess.run(
+                [str(BAKER), '--level-dir', str(level), '--verify', str(asset),
+                 '--game-rounding', '--rays', '16', '--bounces', '0', '--compression', 'none',
+                 *map(str, args)], capture_output=True, text=True, timeout=20)
+
+        def variant(path):
+            key = subprocess.check_output([str(BAKER), '--print-mod-key', str(path)], text=True).strip()
+            return self.cache/'variants'/key/'level_00'
+
+        self.run_bake('--compression', 'none')
+        self.assertEqual(check(original).returncode, 0)
+        untouched = original.read_bytes()
+        save_edit()
+        self.assertIn('stale probe scene', check(original, '--level-overrides', override).stderr)
+        result = self.run_bake('--mods-dir', mods, '--compression', 'none')
+        self.assertIn('level_00: baked', result.stdout)
+        self.assertIn('level_01: up to date', result.stdout)
+        baked = variant(override)
+        edited_asset = baked/'sparse.orpg'
+        edited = check(edited_asset, '--level-overrides', override)
+        self.assertEqual(edited.returncode, 0, edited.stdout + edited.stderr)
+        self.assertEqual(original.read_bytes(), untouched)
+        self.assertIn('stale probe scene', check(edited_asset).stderr)
+        stamp = json.loads((baked/'openrac-bake.json').read_text())
+        self.assertTrue(stamp['modded'])
+        source = [str(BAKER), '--print-modded-source', str(level), str(override)]
+        self.assertEqual(subprocess.check_output(source, text=True).strip(), stamp['source'])
+        self.assertEqual(self.run_bake('--mods-dir', mods, '--compression', 'none')
+                         .stdout.count('up to date'), 2)
+        matrix[12] = 2
+        save_edit()
+        self.assertNotEqual(subprocess.check_output(source, text=True).strip(), stamp['source'])
+        self.assertIn('stale probe scene', check(edited_asset, '--level-overrides', override).stderr)
+        self.assertNotEqual(variant(override), baked)
+        self.assertEqual(self.run_bake('--compression', 'none').stdout.count('up to date'), 2)
+
+        destination = mods/'destinations'/'test-ship'/'level_00'
+        shutil.copytree(override, destination)
+        (mods/'destinations.json').write_text(json.dumps({'destinations': [{'id': 'test-ship', 'level': 0}]}))
+        result = self.run_bake('--mods-dir', mods, '--compression', 'none')
+        self.assertIn('test-ship/level_00: baked', result.stdout)
+        asset = variant(destination)/'sparse.orpg'
+        self.assertNotEqual(asset, variant(override)/'sparse.orpg')
+        verified = check(asset, '--level-overrides', destination)
+        self.assertEqual(verified.returncode, 0, verified.stdout + verified.stderr)
+        self.assertEqual(self.run_bake('--mods-dir', mods, '--compression', 'none')
+                         .stdout.count('up to date'), 3)
+
+    def test_packed_gameplay_changes_lighting_variant(self):
+        level = self.levels[0]
+        override = self.root/'mods'/'level_00'
+        override.mkdir(parents=True)
+        wad = override/'gameplay_ntsc.wad'
+        wad.write_bytes(b'first gameplay')
+        source = [str(BAKER), '--print-modded-source', str(level), str(override)]
+        key = [str(BAKER), '--print-mod-key', str(override)]
+        before = [subprocess.check_output(command) for command in (source, key)]
+        wad.write_bytes(b'edited gameplay')
+        self.assertTrue(all(subprocess.check_output(command) != value
+                            for command, value in zip((source, key), before)))
+
+    def test_bake_uses_prepared_gameplay_and_collision(self):
+        level = self.levels[0]
+        (level/'probe-bake.json').write_text(json.dumps({
+            'version': 1, 'regions': {'enabled': False, 'interior_lighting': True},
+        }))
+        mods = self.root/'mods'
+        override = mods/'level_00'
+        inputs = override/'bake-inputs'
+        inputs.mkdir(parents=True)
+        gameplay = (level/'bake-inputs/gameplay.bin').read_bytes() + bytes(16)
+        collision = bytearray((level/'collision.glb').read_bytes())
+        json_length, = struct.unpack_from('<I', collision, 12)
+        struct.pack_into('<f', collision, 28 + json_length, -7.5)
+        (override/'gameplay_ntsc.wad').write_bytes(b'packed gameplay')
+        (override/'data_ntsc.bin').write_bytes(b'packed collision')
+        (inputs/'gameplay.bin').write_bytes(gameplay)
+        (inputs/'collision.glb').write_bytes(collision)
+
+        self.run_bake('--mods-dir', mods, '--compression', 'none')
+        key = subprocess.check_output([str(BAKER), '--print-mod-key', str(override)], text=True).strip()
+        report = self.cache/'variants'/key/'level_00'/'interior-input.json'
+        self.assertEqual(json.loads(report.read_text())['source_sha256'],
+                         hashlib.sha256(gameplay + collision).hexdigest())
+
     def test_refreshes_shipped_lighting_profiles_without_replacing_local_edits(self):
         profiles = self.root/'profiles'
         tracked = profiles/'rac1-ntsc/level_08'

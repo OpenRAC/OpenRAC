@@ -76,7 +76,12 @@ int run_bake_pipeline(std::span<const std::string> arguments, std::ostream& outp
         const auto result = schedule_native_levels(
             schedule(options, levels),
             [&options, &levels, &events](unsigned id, BakeThreadPool& pool) {
-                pipeline::run_level(options, levels.at(id), id, events, pool);
+                const auto& level = levels.at(id);
+                // Campaign and destination tasks can prepare files in the same disc export.
+                const std::lock_guard lock(*level.source_lock);
+                auto mounted = options;
+                mounted.mods = level.mount;
+                pipeline::run_level(mounted, level, id, events, pool);
             }
         );
 

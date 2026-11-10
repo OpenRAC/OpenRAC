@@ -425,7 +425,7 @@ bool bake_level_environment(
     const auto& settings = input.settings;
     const profiling::Zone timing("Prepare and bake reflections");
 
-    const auto config = load_level_bake_profile(level).environment;
+    const auto config = load_level_bake_profile(level, input.overrides).environment;
 
     if (!config.enabled) {
         return false;
