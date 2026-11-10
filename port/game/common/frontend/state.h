@@ -315,9 +315,17 @@ struct State {
     };
 
     std::vector<EffectTextureId> effect_texture_ids;
-    // This frame's sources hashed so far: pixels, CLUT, width << 16 | height -> their hashes.
-    std::vector<std::pair<std::array<std::uint32_t, 3>, std::pair<std::uint64_t, std::uint64_t>>>
-        effect_hashed;
+
+    // This frame's sources hashed so far: pixels, CLUT, width << 16 | height -> their hashes, and
+    // the uploads (EffectQuad::uploads) of the last quad that copied them, which later quads of the
+    // same source share (effect_quad).
+    struct EffectHashed {
+        std::array<std::uint32_t, 3> source;
+        std::uint64_t pixels, clut;
+        int uploads;
+    };
+
+    std::vector<EffectHashed> effect_hashed;
     // Since the last frame, for the capture's gauges (effect_textures): the effect quads by where
     // their texture's source was found (none, the paging records, remembered).
     std::array<int, 3> effect_sources{};
