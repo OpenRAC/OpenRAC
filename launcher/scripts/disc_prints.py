@@ -7,17 +7,13 @@ For each game it writes <game>-ntsc.webp (the North American disc) and <game>-pa
 European one): the scan cut to the disc, at most 768 px square. The scans are the ones Cartouche
 uses (github.com/Hakimba/cartouche, app/data/art/ps2.tsv). Needs Pillow, NumPy and curl.
 
-A scan too small for the disc's size on Android (Secret Agent Clank's PAL one: 226 px) is first
-made four times bigger by Real-ESRGAN's general model, run here in NumPy, half its denoising one
-(as its denoise strength 0.5), with a fifth of a plain resize and a light grain mixed back in so
-it looks like the other scans, not painted.
+Secret Agent Clank's PAL disc is not a scan: its only scan with a print is 226 px, so it is a
+photo of the disc, straightened, white-balanced on its white and black and given the hub of Up
+Your Arsenal's PAL disc. The script leaves that file as it is (KEEP).
 """
 
-import hashlib
 import io
-import pickle
 import subprocess
-import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -27,8 +23,8 @@ LAUNCHBOX = "https://images.launchbox-app.com/"
 OUT = Path(__file__).resolve().parent.parent / "public" / "img" / "discs"
 SIZE = 768
 
-# The scan of each game's disc, by region. Going Commando and Secret Agent Clank use the Australian
-# PAL disc: the European scans are a Platinum disc and a plain silver one, with no picture.
+# The scan of each game's disc, by region. Going Commando uses the Australian PAL disc: the European
+# scan is a Platinum disc.
 PRINTS = {
     "rac1": {"ntsc": "03c0c663-f1f1-4fbb-adb1-91a44d755eff", "pal": "c1b455c3-82e0-4b55-8e3e-56cc508c6f78"},
     "rac2": {"ntsc": "2b79e872-135c-47a4-a5fa-191483b7a1cf", "pal": "5d66507e-ae5e-406e-b980-3d6c21709fb9"},
@@ -43,81 +39,13 @@ PRINTS = {
 HUB_FROM = {("rac6", "ntsc"): ("rac4", "ntsc")}
 HUB = 0.2
 
-# The scans made bigger first (the module's notes), and Real-ESRGAN's weights (BSD-3-Clause).
-UPSCALE = {("rac6", "pal")}
-REAL_ESRGAN = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/"
-WEIGHTS = {
-    "realesr-general-x4v3.pth": "8dc7edb9ac80ccdc30c3a5dca6616509367f05fbc184ad95b731f05bece96292",
-    "realesr-general-wdn-x4v3.pth": "1641f8c4464b9f097c9fdda5589273713f67cf59f3d909e0bd688f0cee269dca",
-}
+# Made otherwise (the module's notes): the script does not write these.
+KEEP = {("rac6", "pal")}
 
 
 def fetch(url: str) -> bytes:
     # Fetched with curl: the image server refuses Python's urllib.
     return subprocess.run(["curl", "-sSfL", url], check=True, capture_output=True).stdout
-
-
-def weights(name: str) -> dict[str, np.ndarray]:
-    """A .pth's tensors, read without PyTorch."""
-    data = fetch(REAL_ESRGAN + name)
-    if hashlib.sha256(data).hexdigest() != WEIGHTS[name]:
-        raise SystemExit(f"{name}: not the expected file")
-    z = zipfile.ZipFile(io.BytesIO(data))
-    prefix = z.namelist()[0].split("/")[0]
-
-    def rebuild(key, offset, size, *_):
-        flat = np.frombuffer(z.read(f"{prefix}/data/{key}"), dtype="<f4")
-        return flat[offset : offset + int(np.prod(size))].reshape(size)
-
-    class Unpickler(pickle.Unpickler):
-        def find_class(self, module, name):
-            if name == "_rebuild_tensor_v2":
-                return rebuild
-            if module == "collections" and name == "OrderedDict":
-                import collections
-
-                return collections.OrderedDict
-            if name == "FloatStorage":
-                return "float"
-            raise pickle.UnpicklingError(f"{module}.{name} is not expected in weights")
-
-        def persistent_load(self, pid):
-            return pid[2]
-
-    state = Unpickler(z.open(f"{prefix}/data.pkl")).load()
-    return state.get("params_ema") or state.get("params", state)
-
-
-def upscale(data: bytes) -> bytes:
-    """The scan four times bigger (Real-ESRGAN's compact network: 3x3 convolutions and PReLUs, then
-    a pixel shuffle over the plain enlargement)."""
-    a, b = weights("realesr-general-x4v3.pth"), weights("realesr-general-wdn-x4v3.pth")
-    w = {k: 0.5 * a[k] + 0.5 * b[k] for k in a}
-    im = Image.open(io.BytesIO(data)).convert("RGBA")
-    rgb = np.asarray(im, np.float32)[..., :3].transpose(2, 0, 1) / 255
-    x = rgb
-    for i in sorted({int(k.split(".")[1]) for k in w}):
-        k = w[f"body.{i}.weight"]
-        if k.ndim == 4:
-            c, h, wd = x.shape
-            p = np.pad(x, ((0, 0), (1, 1), (1, 1)), mode="edge")
-            cols = np.stack([p[:, r : r + h, q : q + wd] for r in range(3) for q in range(3)], 1)
-            x = (k.reshape(k.shape[0], -1) @ cols.reshape(c * 9, h * wd)).reshape(k.shape[0], h, wd)
-            x += w[f"body.{i}.bias"][:, None, None]
-        else:
-            x = np.where(x > 0, x, x * k[:, None, None])
-    _, h, wd = x.shape
-    x = x.reshape(3, 4, 4, h, wd).transpose(0, 3, 1, 4, 2).reshape(3, h * 4, wd * 4)
-    x += rgb.repeat(4, 1).repeat(4, 2)
-    big = (wd * 4, h * 4)
-    plain = np.asarray(im.convert("RGB").resize(big, Image.LANCZOS), np.float32)
-    mixed = 0.8 * x.transpose(1, 2, 0) * 255 + 0.2 * plain
-    mixed += np.random.default_rng(6).normal(0, 2.2, mixed.shape)
-    out = Image.fromarray(np.clip(mixed + 0.5, 0, 255).astype(np.uint8)).convert("RGBA")
-    out.putalpha(im.getchannel("A").resize(big, Image.LANCZOS))
-    buf = io.BytesIO()
-    out.save(buf, "PNG")
-    return buf.getvalue()
 
 
 def with_hub(im: Image.Image, donor: Image.Image) -> Image.Image:
@@ -186,9 +114,9 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for game, regions in PRINTS.items():
         for region, image_id in regions.items():
+            if (game, region) in KEEP:
+                continue
             data = fetch(f"{LAUNCHBOX}{image_id}.png")
-            if (game, region) in UPSCALE:
-                data = upscale(data)
             path = OUT / f"{game}-{region}.webp"
             im = disc(data)
             if (game, region) in HUB_FROM:
