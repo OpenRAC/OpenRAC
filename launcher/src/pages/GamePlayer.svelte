@@ -565,7 +565,8 @@
 
   /* ---- Android: the band in the look of the Games tab ----
      The picture whole and bright, sinking into the page on the left and at its foot; the name
-     written on it in two lines, no box; the buttons rounded as Games' are. */
+     written on it in two lines, no box. Play and its menu are beside the disc on Games; the band
+     only leads back there. */
   :global(html[data-platform="android"]) .hero {
     min-height: 236px;
     align-items: end;
@@ -615,10 +616,6 @@
     text-shadow: none;
   }
 
-  :global(html[data-platform="android"]) .hero .line {
-    text-shadow: 0 1px 8px var(--ink);
-  }
-
   /* Back to the shelf of discs, in the band's top left corner. */
   .hero > .back {
     position: absolute;
@@ -640,10 +637,6 @@
   .hero > .back:active {
     transform: scale(0.95);
     transition-duration: 90ms;
-  }
-
-  :global(html[data-platform="android"]) .hero .big {
-    border-radius: var(--radius);
   }
 
   .notice {

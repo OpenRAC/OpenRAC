@@ -603,7 +603,7 @@ export function openVersion(key: string) {
 
 /** How long the last game picked waits before it is written to the settings: the controller's
  *  focus picks a game at each step along Games' shelf, and only where it stops is kept. */
-export const KEEP_PICK_MS = 500;
+const KEEP_PICK_MS = 500;
 let keepTimer: ReturnType<typeof setTimeout> | undefined;
 /** The writes of lastVersion, one at a time, so that an older pick never lands after a newer one. */
 let keeping: Promise<unknown> = Promise.resolve();

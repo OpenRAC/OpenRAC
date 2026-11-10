@@ -6,7 +6,7 @@
 // onto the spindle with a small rebound, and spins up; then the lid closes, the light comes on and
 // the screen goes black from the disc's centre. Times in seconds.
 
-export const INSERTION = {
+const INSERTION = {
   /** The shelf leaves and the console comes in (ours). */
   intro_s: 0.35,
   face_s: 0.25,
@@ -28,7 +28,7 @@ export const INSERTION = {
 const I = INSERTION;
 
 /** How far `t` is through the step from `from` lasting `length`, from 0 to 1. */
-export function progress(t: number, from: number, length: number): number {
+function progress(t: number, from: number, length: number): number {
   if (length <= 0) return t >= from ? 1 : 0;
   return Math.min(1, Math.max(0, (t - from) / length));
 }
@@ -36,7 +36,7 @@ export function progress(t: number, from: number, length: number): number {
 const smooth = (x: number) => x * x * (3 - 2 * x);
 
 /** When the disc reaches the console and starts to turn towards the player. */
-export const faceAt = () => I.intro_s;
+const faceAt = () => I.intro_s;
 /** When the disc touches the spindle: the click, and the drive starts. */
 export const seatedAt = () => I.intro_s + I.face_s + I.grab_s + I.seat_s;
 /** When the light comes on: the lid is shut. */
