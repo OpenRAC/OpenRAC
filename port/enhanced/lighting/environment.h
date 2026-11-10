@@ -4,6 +4,7 @@
 // GPU-ready reflection faces, GGX levels and their spatial influence boxes.
 #pragma once
 #include <filesystem>
+#include <map>
 
 #include "enhanced/lighting/probes.h"
 
@@ -98,7 +99,10 @@ float environment_probe_coverage(const EnvironmentProbe& probe, Float3 point);
 std::uint32_t pack_environment_colour(Float3 colour);
 Float3 unpack_environment_colour(std::uint32_t colour);
 // Includes every GI payload so replacing a bake invalidates its reflection captures.
-std::uint64_t environment_gi_hash(const std::filesystem::path& directory);
+using EnvironmentGiPayloads = std::map<std::filesystem::path, std::span<const std::uint8_t>>;
+std::uint64_t environment_gi_hash(
+    const std::filesystem::path& directory, const EnvironmentGiPayloads& loaded = {}
+);
 // Portable versioned files; malformed or stale data is never uploaded.
 std::vector<std::uint8_t> encode_environment(const EnvironmentAsset& asset);
 EnvironmentAsset decode_environment(std::span<const std::uint8_t> bytes);

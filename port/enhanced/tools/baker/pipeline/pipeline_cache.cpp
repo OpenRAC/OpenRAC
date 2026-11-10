@@ -80,7 +80,8 @@ json::Value stamp(
         + ",\"moby_whitelist_sha256\":" + moby_hash + ",\"profile\":" + description
         + ",\"regions\":" + bake_json::json_text(settings)
         + ",\"interior\":" + interior_stage_profile()
-        + ",\"reflections\":" + (resolved.environment.enabled ? "true" : "false") + '}'
+        + ",\"reflections\":" + (resolved.environment.enabled ? "true" : "false")
+        + (options.lz4_assets ? ",\"asset_storage\":\"lz4-v1\"" : "") + '}'
     );
 }
 

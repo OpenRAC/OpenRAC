@@ -2,15 +2,49 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // Reflection face orientation, filtering energy, portable files and geometric parallax.
+#include <chrono>
 #include <cmath>
+#include <fstream>
 #include <stdexcept>
 
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/lighting/environment_filter.h"
 #include "tests/check.h"
 
 using namespace openrac::lighting;
 
 namespace {
+void gi_hash_reuses_loaded_payload() {
+    namespace fs = std::filesystem;
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto directory = fs::temp_directory_path() / ("openrac-gi-hash-" + std::to_string(stamp));
+    CHECK(fs::create_directory(directory));
+    const auto sparse = directory / "sparse.orpg";
+    const auto region = directory / "region-000.orpg";
+    const std::vector<std::uint8_t> raw(4096, 'x');
+    const auto write = [&](const auto& bytes) {
+        std::ofstream(sparse, std::ios::binary)
+            .write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    };
+    write(raw);
+    std::ofstream(region, std::ios::binary) << "region";
+    const auto expected = environment_gi_hash(directory);
+    if (bake_lz4_available()) {
+        const auto frame = compress_bake_asset(raw);
+        CHECK(is_lz4_bake_asset(frame));
+        write(frame);
+        CHECK(environment_gi_hash(directory) == expected);
+    }
+    std::ofstream(sparse, std::ios::binary) << "replacement";
+    CHECK(environment_gi_hash(directory) != expected);
+    CHECK(
+        environment_gi_hash(directory, {{fs::absolute(sparse).lexically_normal(), raw}}) == expected
+    );
+    CHECK(fs::remove(region));
+    CHECK(fs::remove(sparse));
+    CHECK(fs::remove(directory));
+}
+
 // Constant radiance must survive every GGX level and cube seam without changing its energy.
 void constant_filter() {
     EnvironmentAsset asset;
@@ -47,6 +81,20 @@ void constant_filter() {
 
     const auto bytes = encode_environment(asset);
     CHECK(encode_environment(decode_environment(bytes)) == bytes);
+    if (bake_lz4_available()) {
+        auto frame = compress_bake_asset(bytes);
+        CHECK(is_lz4_bake_asset(frame));
+        CHECK(encode_environment(decode_environment(frame)) == bytes);
+        CHECK(encode_environment(decode_gpu_environment(frame)) == bytes);
+        frame.at(frame.size() - 1) ^= 1;  // Corrupt the content checksum.
+        bool rejected_frame = false;
+        try {
+            decode_gpu_environment(frame);
+        } catch (const std::runtime_error&) {
+            rejected_frame = true;
+        }
+        CHECK(rejected_frame);
+    }
     bool rejected = false;
 
     try {
@@ -187,6 +235,7 @@ void projection() {
 }  // namespace
 
 int main() {
+    gi_hash_reuses_loaded_payload();
     test_omitted_sharpest_mip();
     constant_filter();
     directional_filter();

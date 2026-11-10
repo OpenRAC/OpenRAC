@@ -6,16 +6,63 @@
 #include <stdexcept>
 
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_lz4.h"
+#include "enhanced/lighting/bake_workers.h"
 #include "enhanced/tools/baker/batch_command.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
+#include "enhanced/tools/baker/pipeline/stage_file.h"
 #include "enhanced/tools/baker/sources/interior_inputs.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 
 namespace openrac::lighting::pipeline {
 namespace {
+void pack_asset(const std::filesystem::path& path, std::size_t limit) {
+    const auto bytes = read_bake_asset(path, limit);
+    // A failed publication can leave already wrapped assets in the resumable work folder.
+    if (is_lz4_bake_asset(bytes)) {
+        return;
+    }
+    const auto frame = compress_bake_asset(bytes);
+    if (frame.empty()) {
+        return;
+    }
+    // The native batch already verified the payload. Atomic publication checks the write and
+    // close, and the LZ4 frame checksum protects the payload when it is read.
+    const auto written =
+        write_stage_file(path, {reinterpret_cast<const char*>(frame.data()), frame.size()});
+    if (!written) {
+        throw std::runtime_error(written.error().message);
+    }
+}
+
+void pack_level_assets(const std::filesystem::path& work, BakeThreadPool& pool) {
+    const auto result = bake_json::document(work / "bake-result.json");
+    std::vector<std::filesystem::path> small_grids;
+    const auto pack_grid = [&](const std::filesystem::path& path) {
+        // Large assets keep a single source and frame allocation per level controller.
+        constexpr std::size_t kParallelAssetLimit = 8 * 1024 * 1024;
+        if (std::filesystem::file_size(path) > kParallelAssetLimit) {
+            pack_asset(path, kMaxProbeAssetBytes);
+        } else {
+            small_grids.push_back(path);
+        }
+    };
+    pack_grid(work / "sparse.orpg");
+    for (const auto& region : result["regions"].items()) {
+        pack_grid(work / region.string());
+    }
+    // Leave workers available for other levels' transport and bound simultaneous file buffers.
+    parallel_bake_indices(small_grids.size(), {4, &pool}, [&](std::size_t index) {
+        pack_asset(small_grids[index], kMaxProbeAssetBytes);
+    });
+    if (!result["environment"].is_null()) {
+        pack_asset(work / "environment.orpe", kMaxEnvironmentAssetBytes);
+    }
+}
+
 // Discards only mismatched cache-owned partials; matching completed grids retain native verification.
 void prepare_work(
     const std::filesystem::path& cache,
@@ -219,6 +266,9 @@ void run_level(
         // Sky-only levels still need a verified empty result for cache reuse.
         if (status == 3) {
             empty_result(options, level.path, work);
+        } else if (options.lz4_assets) {
+            events.line(id, "Bake stage: Compress exported assets");
+            pack_level_assets(work, pool);
         }
 
         // Generated interiors may refresh source identity; commit only the final prepared snapshot.

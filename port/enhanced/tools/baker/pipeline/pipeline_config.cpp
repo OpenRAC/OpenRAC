@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <thread>
 
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/tools/baker/pipeline/bake_json.h"
 #include "enhanced/tools/baker/pipeline/coordinator_protocol.h"
 #include "enhanced/tools/baker/pipeline/pipeline_internal.h"
@@ -190,6 +191,14 @@ Options arguments(std::span<const std::string> values) {
         // Dry-run must leave exports and caches untouched.
         if (key == "--dry-run") {
             options.dry_run = true;
+            continue;
+        }
+
+        if (key == "--lz4-assets") {
+            if (!bake_lz4_available()) {
+                throw std::runtime_error("--lz4-assets requires a build with OPENRAC_BAKE_LZ4");
+            }
+            options.lz4_assets = true;
             continue;
         }
 
