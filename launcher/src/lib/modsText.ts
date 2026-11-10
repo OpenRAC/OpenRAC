@@ -321,6 +321,10 @@ export const WITH_MODS = {
     n === null ? "On: with mods" : n === 0 ? "On: no mods picked yet" : `On: ${n} ${n === 1 ? "mod" : "mods"}`,
   /** Beside the switch when it is off. */
   original: "Off: the original game",
+  /** Android's two ways beside the disc: the game as it shipped, or with the mods on. */
+  wayOriginal: "Original",
+  wayMods: (n: number | null) => (n === null ? "Mods" : `Mods · ${n}`),
+  ways: "Play the original game or with mods",
   offNotice: "Play starts the game without mods. Turn on Mods under Play to use them.",
   turnOn: "Turn on",
 } as const;
