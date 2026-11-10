@@ -488,6 +488,7 @@ jobs:
         run: |
           # Keep the preset's compiler flags so PRs can reuse develop's cached objects.
           cmake --preset enhanced -DOPENRAC_PORT_GAMES=OFF -DOPENRAC_PROBE_BAKER=ON \
+            -DOPENRAC_BAKE_LZ4=ON \
             -DOPENRAC_LIGHT_AUTHORING=ON -DOPENRAC_RENDER_EQUIVALENCE_FOUR_SHARDS=ON \
             -DOPENRAC_VULKAN_TEST_SEED_CACHE=ON
           cmake --build --preset enhanced

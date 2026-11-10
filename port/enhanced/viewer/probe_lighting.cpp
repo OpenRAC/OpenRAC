@@ -614,6 +614,14 @@ ProbeBakeRead read_bake(
     }
     lighting::ProbeAssetLoader loader(level, expected);
     read.volume = loader.load_with_previous_defaults(path, profile);
+    const auto directory = std::filesystem::path(path).parent_path();
+    std::error_code environment_error;
+    const bool has_environment =
+        std::filesystem::is_regular_file(directory / "environment.orpe", environment_error);
+    lighting::EnvironmentGiPayloads loaded;
+    if (has_environment) {
+        loaded.emplace(std::filesystem::absolute(path).lexically_normal(), read.volume.gpu_bytes);
+    }
     const auto add_region = [&](const std::filesystem::path& file) {
         if (cancelled.load(std::memory_order_relaxed)) {
             return;
@@ -622,6 +630,12 @@ ProbeBakeRead read_bake(
             auto region = loader.load(file);
             lighting::validate_probe_pair(read.volume, region);
             read.regions.push_back(std::move(region));
+            if (has_environment) {
+                loaded.emplace(
+                    std::filesystem::absolute(file).lexically_normal(),
+                    read.regions.back().gpu_bytes
+                );
+            }
         } catch (const std::exception& why) {
             log::warn("local probe region {} inactive: {}", file.string(), why.what());
         }
@@ -652,6 +666,13 @@ ProbeBakeRead read_bake(
                 }
                 add_region(std::filesystem::path(manifest_path).parent_path() / entry.string());
             }
+        }
+    }
+    if (has_environment && !cancelled.load(std::memory_order_relaxed)) {
+        try {
+            read.environment_gi_hash = lighting::environment_gi_hash(directory, loaded);
+        } catch (const std::exception& why) {
+            log::warn("environment GI hash unavailable: {}", why.what());
         }
     }
     read.seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
@@ -781,7 +802,13 @@ void ProbeLighting::finish_load(ProbeBakeRead read) {
                 throw std::runtime_error(error);
             }
         }
-        m_environment.load(std::filesystem::path(path).parent_path(), volume.grid);
+        if (read.environment_gi_hash) {
+            m_environment.load(
+                std::filesystem::path(path).parent_path(), volume.grid, read.environment_gi_hash
+            );
+        } else {
+            m_environment.release();
+        }
 #if defined(OPENRAC_VULKAN)
         staging.finish();
 #endif

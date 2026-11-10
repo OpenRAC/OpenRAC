@@ -46,6 +46,7 @@ struct ProbeBakeRead {
     std::vector<ProbeLookRegion> look_regions;
     lighting::ProbeVolume volume;
     std::vector<lighting::ProbeVolume> regions;
+    std::optional<std::uint64_t> environment_gi_hash;
     double seconds = 0;  // How long the read took.
     std::string error;   // Why the bake was refused; nothing else is set then.
 };

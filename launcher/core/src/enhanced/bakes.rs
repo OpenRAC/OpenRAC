@@ -74,7 +74,10 @@ fn printed(mut command: std::process::Command) -> Option<String> {
 /// Current native bake stamps must match the resolved transport profile exactly.
 fn made_by(stamp: &Value, profile: &str) -> bool {
     let digest = crate::sha256_hex(profile.as_bytes());
-    stamp["version"] == 5 && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
+    // The launcher manages plain caches. Experimental wrapped bakes belong in a separate output.
+    stamp["version"] == 5
+        && stamp.get("asset_storage").is_none()
+        && stamp["baker_profile_sha256"].as_str() == Some(digest.as_str())
 }
 
 fn verified_bake(baked: &Path, reflections: bool) -> bool {
@@ -660,6 +663,11 @@ mod tests {
         std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         let status = || bake_status_on(&levels, &probes, &baker, true, &|_, _| Some("profile".to_owned()));
         assert_eq!(status().ready, 1);
+        let mut wrapped_stamp = stamp.clone();
+        wrapped_stamp["asset_storage"] = serde_json::json!("lz4-v1");
+        std::fs::write(baked.join(STAMP), wrapped_stamp.to_string()).unwrap();
+        assert_eq!(status().ready, 0);
+        std::fs::write(baked.join(STAMP), stamp.to_string()).unwrap();
         let authoring = level.join("lighting-environments.json");
         std::fs::write(&authoring, "{}").unwrap();
         assert_eq!(status().ready, 0);

@@ -14,6 +14,13 @@ and replaces stale data only after a successful bake. `--dry-run` lists validate
 override transport or encoding. Source inputs are retained by level export. Missing inputs or a
 required water profile need a fresh export.
 
+To try lossless storage compression, configure both the baker and the game with
+`-DOPENRAC_BAKE_LZ4=ON` and add `--lz4-assets` to `--bake-all`. The baker uses a
+checksummed LZ4 frame for each published `.orpg` or `.orpe` file it can shrink.
+Filenames and the GPU payload stay the same. LZ4-enabled builds read both plain and
+wrapped assets. Use a separate output directory for manual LZ4 bakes. The launcher manages
+plain assets in its own cache.
+
 For emissive review, look up a saved task against the level exports:
 
 ```sh

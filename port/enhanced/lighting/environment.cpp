@@ -12,6 +12,7 @@
 #include <stdexcept>
 
 #include "common/float_encoding.h"
+#include "enhanced/lighting/bake_lz4.h"
 
 namespace openrac::lighting {
 namespace {
@@ -280,10 +281,13 @@ Float3 unpack_environment_colour(std::uint32_t c) {
     return {channel(c, 6), channel(c >> 11, 6), channel(c >> 22, 5)};
 }
 
-std::uint64_t environment_gi_hash(const std::filesystem::path& directory) {
+std::uint64_t environment_gi_hash(
+    const std::filesystem::path& directory, const EnvironmentGiPayloads& loaded
+) {
     std::vector<std::filesystem::path> files;
+    const auto root = std::filesystem::absolute(directory).lexically_normal();
 
-    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+    for (const auto& entry : std::filesystem::directory_iterator(root)) {
         const auto name = entry.path().filename().string();
 
         if (name == "sparse.orpg"
@@ -299,16 +303,34 @@ std::uint64_t environment_gi_hash(const std::filesystem::path& directory) {
     }
 
     std::uint64_t hash = 14695981039346656037ull;
+    const auto append = [&](std::span<const std::uint8_t> bytes) {
+        for (const auto byte : bytes) {
+            hash = (hash ^ byte) * 1099511628211ull;
+        }
+    };
 
     for (const auto& path : files) {
+        const auto found = loaded.find(path);
+        if (found != loaded.end()) {
+            append(found->second);
+            continue;
+        }
         std::ifstream file(path, std::ios::binary);
-        std::array<char, 8192> buffer{};
+        std::array<std::uint8_t, 4> prefix{};
+        if (file.read(reinterpret_cast<char*>(prefix.data()), prefix.size())
+            && is_lz4_bake_asset(prefix)) {
+            file.close();
+            // Reflections identify the GI payload independently of its storage encoding.
+            const auto frame = read_bake_asset(path, kMaxProbeAssetBytes);
+            append(decompress_bake_asset(frame, kMaxProbeAssetBytes));
+            continue;
+        }
+        file.clear();
+        file.seekg(0);
+        std::array<std::uint8_t, 8192> buffer{};
 
-        while (file.read(buffer.data(), buffer.size()) || file.gcount()) {
-            for (std::streamsize i = 0; i < file.gcount(); ++i) {
-                hash =
-                    (hash ^ static_cast<unsigned char>(buffer[std::size_t(i)])) * 1099511628211ull;
-            }
+        while (file.read(reinterpret_cast<char*>(buffer.data()), buffer.size()) || file.gcount()) {
+            append(std::span(buffer).first(static_cast<std::size_t>(file.gcount())));
         }
 
         if (!file.eof()) {
@@ -455,6 +477,11 @@ void expand_environment(EnvironmentAsset& asset) {
 
 // Reads the current two-plane layout and rejects old versions or malformed payloads.
 EnvironmentAsset read_environment(std::span<const std::uint8_t> bytes, bool expand) {
+    std::vector<std::uint8_t> unpacked;
+    if (is_lz4_bake_asset(bytes)) {
+        unpacked = decompress_bake_asset(bytes, kMaxEnvironmentAssetBytes);
+        bytes = unpacked;
+    }
     std::size_t at = 0;
     auto asset = read_environment_header(bytes, at);
     const auto radiance_bytes =

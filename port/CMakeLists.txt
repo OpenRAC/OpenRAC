@@ -360,8 +360,14 @@ endif()
 
 # Probe assets and CPU sampling need neither a graphics context nor Embree.
 add_library(openrac_lighting STATIC enhanced/lighting/probes.cpp enhanced/lighting/probe_texture.cpp enhanced/lighting/probe_depth.cpp enhanced/lighting/probe_atlas.cpp enhanced/lighting/probe_regions.cpp
-  enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp)
+  enhanced/lighting/environment.cpp enhanced/lighting/environment_filter.cpp enhanced/lighting/bake_lz4.cpp)
 target_include_directories(openrac_lighting PUBLIC .)
+option(OPENRAC_BAKE_LZ4 "Enable experimental LZ4 bake asset storage" OFF)
+if(OPENRAC_BAKE_LZ4)
+  include(BakeLz4)
+  target_link_libraries(openrac_lighting PRIVATE openrac_bake_lz4)
+  target_compile_definitions(openrac_lighting PRIVATE OPENRAC_BAKE_LZ4=1)
+endif()
 if(TARGET openrac_astc_decode)
   target_link_libraries(openrac_lighting PRIVATE openrac_astc_decode openrac_bc6)
   target_compile_definitions(openrac_lighting PRIVATE OPENRAC_PROBE_COMPRESSION=1)

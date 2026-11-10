@@ -82,6 +82,7 @@ void usage() {
         << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--mods-dir DIR] "
            "[--update]\n"
         << "  --jobs N --memory-mib N\n"
+        << "  --lz4-assets (experimental lossless file compression; requires OPENRAC_BAKE_LZ4)\n"
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
         << "openrac-enhanced-baker --level-dir DIR [--inspect | --output FILE | --verify FILE]\n"

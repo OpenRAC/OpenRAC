@@ -334,3 +334,17 @@ See [Arm's license](port/enhanced/lighting/astc-LICENSE.txt) and
 
 The Compressonator build copy retains the high blue-Y endpoint bit when decoding BC6H mode 5.
 The upstream source and licence remain intact; a Vulkan comparison covers the corrected mode.
+
+## LZ4 bake asset compression
+
+Optional lossless compression of baked GI and reflection assets uses LZ4 1.10.0,
+including its bundled xxHash implementation, under the BSD-2-Clause license.
+LZ4 is copyright (c) 2011-2020 Yann Collet; the bundled xxHash source is copyright
+(C) 2012-2016 Yann Collet.
+
+`port/cmake/BakeLz4.cmake` fetches the checksum-verified upstream archive and builds
+the library sources when `OPENRAC_BAKE_LZ4` is enabled. It copies the library license
+to `<build>/licenses/lz4/LICENSE.txt` for distribution with the binaries.
+The source files retain their copyright and license notices.
+See the [LZ4 library license](https://github.com/lz4/lz4/blob/v1.10.0/lib/LICENSE)
+and the [bundled xxHash notice](https://github.com/lz4/lz4/blob/v1.10.0/lib/xxhash.c).

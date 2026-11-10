@@ -467,10 +467,9 @@ LevelBakeProfile load_level_bake_profile(
     if (std::filesystem::is_regular_file(directory / "bake-inputs/gameplay.bin")) {
         json::Value manifest;
         std::string error;
-        if (json::parse_file((directory / "manifest.json").string(), manifest, error)
-            && !manifest["collision"].is_null()) {
-            has_placement_inputs = true;
-        }
+        has_placement_inputs =
+            json::parse_file((directory / "manifest.json").string(), manifest, error)
+            && !manifest["collision"].is_null();
     }
     if (has_placement_inputs) {
         profile.environment.enabled = true;

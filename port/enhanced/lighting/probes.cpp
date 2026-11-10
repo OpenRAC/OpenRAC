@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_lz4.h"
 #include "enhanced/lighting/probe_atlas.h"
 
 namespace openrac::lighting {
@@ -739,6 +740,9 @@ std::vector<std::uint8_t> encode_probes(const ProbeVolume& v) {
 
 ProbeVolume decode_gpu_probes(std::vector<std::uint8_t> bytes) {
     const profiling::Zone timing("Decode GPU probe asset");
+    if (is_lz4_bake_asset(bytes)) {
+        bytes = decompress_bake_asset(bytes, kMaxProbeAssetBytes);
+    }
     auto volume = read_probe_header(std::move(bytes));
     read_probe_planes(volume, false);
     volume.validate();
@@ -748,7 +752,10 @@ ProbeVolume decode_gpu_probes(std::vector<std::uint8_t> bytes) {
 
 ProbeVolume decode_probes(std::span<const std::uint8_t> bytes) {
     const profiling::Zone timing("Expand CPU probe asset");
-    auto volume = read_probe_header({bytes.begin(), bytes.end()});
+    auto volume = read_probe_header(
+        is_lz4_bake_asset(bytes) ? decompress_bake_asset(bytes, kMaxProbeAssetBytes)
+                                 : std::vector<std::uint8_t>(bytes.begin(), bytes.end())
+    );
 
     // Expansion validates the same packed channels without an earlier duplicate plane scan.
     read_probe_planes(volume, true);
