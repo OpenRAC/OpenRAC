@@ -2735,6 +2735,33 @@ class Places(unittest.TestCase):
             for addr in ("0x00354DF8u", "0x003564D0u", "0x00352E28u"):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_00354DF8", text)
 
+    def test_a_release_catalogues_boot_place_answers_calls_in_the_executable(self):
+        # NTSC-J's card menu calls 0x0020A448, a copy of func_L00_0024BAE8. Copies that use level
+        # data or differ are skipped.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern int D_0015EFB0;\nextern int D_L00_001B9E70;\n"
+                "void func_L00_0024BAE8(void) { D_0015EFB0 = 3; }\n"
+                "void func_L00_00280708(void) { D_L00_001B9E70 = 0; }\n"
+                "void func_L00_00280740(void) { D_0015EFB0 = 4; }\n",
+                "# name\tkind\tsize\tfingerprint\tcounterpart\tmethod\tsimilarity\tsame\tplaces\n"
+                "func_L00_0024BAE8\texe\t116\tf1\tfunc_L00_0024BAE8\tfingerprint\t1.00\tyes\t"
+                "boot:0020A448,00:0024BAE8,01:00260A10\n"
+                "func_L00_00280708\texe\t56\tf2\tfunc_L00_00280708\tfingerprint\t1.00\tyes\t"
+                "boot:002238F0,00:00280708,01:00297248\n"
+                "func_L00_00280740\texe\t92\tf3\tfunc_L00_00280740\taligned\t0.96\tno\t"
+                "boot:00223928,00:00280740,01:00297280\n",
+                {"relocate": [0x15F000, 0x250000]})
+            text = (out / "functions.c").read_text()
+            exe = text.split("static const openrac_fn_entry k_exe[] = {", 1)[1].split("};", 1)[0]
+            self.assertIn("{0x0020A448u, (openrac_host_fn)func_L00_0024BAE8", exe)
+            self.assertNotIn("0x002238F0u", exe)  # reaches level 0's data
+            self.assertNotIn("0x00223928u", exe)  # its bytes differ there
+            for addr in ("0x0024BAE8u", "0x00260A10u"):
+                self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_0024BAE8", text)
+            report = json.loads((out / "report.json").read_text())
+            self.assertEqual(report["boot_places_left_out"], ["func_L00_00280708 boot:002238F0"])
+
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_copys_call_keeps_a_returns_64_result_whole(self):
         # rac1's EnvMapA_Draw (Kalebo, two copies) passes GetEffectTex's 64-bit TEX0 to
