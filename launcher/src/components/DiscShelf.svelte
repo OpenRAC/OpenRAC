@@ -25,9 +25,9 @@
   import DiscLaunch from "./DiscLaunch.svelte";
   import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
-  import { wave } from "$lib/wave.svelte";
   import Menu from "./Menu.svelte";
   import ModsSwitch from "./ModsSwitch.svelte";
+  import WaveBackdrop from "./WaveBackdrop.svelte";
 
   let { games }: { games: GameView[] } = $props();
 
@@ -73,8 +73,8 @@
     pickVersion(gv.key);
   }
 
-  /** The game's colour (palettes.json accents) for the wave behind the wheel; the launcher's gold
-   *  for a game without one. It changes slowly as the wheel turns (--glow is registered). */
+  /** The game's colour (palettes.json accents) for the shelf and its wave; the launcher's gold for
+   *  a game without one. It changes slowly as the wheel turns (--glow is registered). */
   const glow = $derived(game ? ACCENTS[game.id]?.["--glow"] : undefined);
 
   // ---- the last save: where the player left off ----
@@ -192,12 +192,9 @@
     cancelAnimationFrame(frame);
   });
 
-  /** Where the wave behind the page (App.svelte) follows the wheel: where it is headed, inside its ends, so the spring's
+  /** Where the wave behind follows the wheel: where it is headed, inside its ends, so the spring's
    *  overshoot and the pull past the first or last disc never move the wave. */
   const calm = $derived(Math.max(0, Math.min(games.length - 1, at - drag / step)));
-  $effect(() => {
-    wave.shift = calm;
-  });
 
   /** Where disc `i` stands: its offset from the middle of the wheel, and how it shows there. */
   function place(i: number) {
@@ -388,10 +385,8 @@
     aside = window.setTimeout(() => (launching = null), 1200);
   }
   $effect(() => () => {
-    clearTimeout(unwind);
-  });
-  $effect(() => () => {
     clearTimeout(aside);
+    clearTimeout(unwind);
   });
 
   /** A dialog or the "..." menu is open over the shelf: X and Y wait for it. */
@@ -452,6 +447,8 @@
 
 {#if game && v && next}
   <div class="shelf" bind:this={root} style={glow ? `--glow: ${glow}` : undefined}>
+    <!-- Behind the whole shelf, its foot too. -->
+    <div class="backdrop" aria-hidden="true"><WaveBackdrop shift={calm} still={reduced} /></div>
     <div
       class="stage"
       class:twisting
@@ -636,6 +633,14 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+  }
+
+  /* Behind everything: the wave in the game's colour (WaveBackdrop.svelte). */
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
   }
 
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */

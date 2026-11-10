@@ -252,12 +252,16 @@ cartouche), landscape only. The rail stays on the left.
 - Left: the wheel. Each game is a disc with its real print, shipped in
   `public/img/discs/` (`scripts/disc_prints.py`, user decision), or the game's
   picture as a label if it fails to load. Up, down, a drag or a tap on a neighbour turns it on a spring. The
-  disc's shadow follows the turn (`--shade`), so it never pops in. Only a few
-  slow motes in the game's colour sit behind it (none with reduced motion).
+  disc's shadow follows the turn (`--shade`), so it never pops in. Behind it a
+  soft wave of light in the game's colour, with specks about it
+  (`WaveBackdrop.svelte`, after the PSP and PS3 menus; still with reduced
+  motion). It follows the wheel, not its bounce. A finger held on the disc
+  turns it.
 - Right: year and region, the name in the game's title font, its newest save
   or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
-  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them (X opens
-  Mods). Sizes scale with the window height (`clamp()`).
+  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them (X turns it).
+  The buttons and the pad's glyphs are filled (`--control-card`), never see-through.
+  With game colours on, the disc picked brings its game's colours. Sizes scale with the window height (`clamp()`).
 - Top right: What's new chips, hidden when empty. Foot: the running job and
   the pad hints.
 
@@ -383,7 +387,8 @@ there when it is added.
   style outside `@media (hover: hover)` or without the controller's guard. It
   names the file and line of what breaks one.
 - Android follows Android's own patterns, not the desktop's: a navigation rail
-  on the left (a bar at the bottom below 600 px wide) in place of the gold
+  on the left (a bar at the bottom below 600 px wide, no line beside it; the
+  controller never focuses it, LB and RB change tabs) in place of the gold
   bar, Material's 24/16 px margins, a ripple under the finger
   (`src/lib/ripple.ts`), snackbar-style toasts and no text selection on
   controls. The `--nav-*` tokens say what the navigation takes of the window.

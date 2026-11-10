@@ -3,7 +3,6 @@
   import Header from "$components/Header.svelte";
   import LaunchScreen from "$components/LaunchScreen.svelte";
   import Toasts from "$components/Toasts.svelte";
-  import WaveBackdrop from "$components/WaveBackdrop.svelte";
   import ModSetReview from "$components/ModSetReview.svelte";
   import ModUpdateModal from "$components/ModUpdateModal.svelte";
   import DeepLinkInstall from "$components/DeepLinkInstall.svelte";
@@ -25,8 +24,7 @@
   import { followCodeLinks } from "$lib/modCodes.svelte";
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
-  import { reduced, slide, slides } from "$lib/motion";
-  import { wave } from "$lib/wave.svelte";
+  import { slide, slides } from "$lib/motion";
   import { applyPalette } from "$lib/palettes";
   import { applyAccent } from "$lib/themes";
   import Game from "./pages/Game.svelte";
@@ -192,10 +190,6 @@
     {/if}
   </div>
 {:else}
-  {#if onAndroid && page === "library"}
-    <!-- Behind Android's Games only: the wave in the game's colour. -->
-    <div class="wave" aria-hidden="true"><WaveBackdrop shift={wave.shift} still={reduced} /></div>
-  {/if}
   <div class="shell">
     <!-- The first run has the bar with only the name (Android's rail is only its tabs). -->
     {#if app.config.setupComplete}<Header shown={page} />{:else if !onAndroid}<Header setup />{/if}
@@ -234,13 +228,6 @@
   .loading p {
     margin: 0;
     color: var(--dim);
-  }
-
-  .wave {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
   }
 
   .shell {
