@@ -70,6 +70,7 @@ struct Release {
 };
 
 // USA v1.01's, as the decompilation names them.
+// clang-format off
 constexpr Release kNtsc{
     {0x001B5570, 0x001B9040, 0x001B1B60, 0x001B1B64},
     {
@@ -105,7 +106,7 @@ constexpr Release kNtsc{
     {},                                                // 29: no level
     {0x001B9FF0, 0x001BE2C0, 0x001B2D20, 0x001B2D24},  // 30
     },
-    0x001A7A18,
+    0x001A7290,
     {{{0x001A7A49, 6}, {0x001A7A42, 8}, {0x001A7A4B, 7}, {0x001A7A4A, 5}}},
     0x001A72C0,
     0x00152C18,
@@ -114,6 +115,7 @@ constexpr Release kNtsc{
     0x001B1B90u,
     0x00189E20u,
 };
+// clang-format on
 
 }  // namespace
 }  // namespace openrac::game::rac2
@@ -146,6 +148,9 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
 // has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
+// The pack he wears is the one loaded last (0x001A7290, an int; func_002923C0 keeps it), not the
+// armour he owns (0x001A7A18): the vendor loads each armour the cursor is on, and puts the owned
+// one back when it closes.
 constexpr std::int32_t kHeroLookClasses = 6000;
 
 // The wrench is loaded the same way, by the form the game has (func_00292408).
@@ -199,7 +204,7 @@ void add_drawn_parts(
 }
 
 std::int32_t hero_class(std::span<const std::uint8_t> ram, const Release& r) {
-    std::int32_t look = at<std::int16_t>(ram, r.armour);
+    std::int32_t look = at<std::int32_t>(ram, r.armour);
     for (const auto& [flag, pack] : r.look_flags) {
         if (at<std::uint8_t>(ram, flag) != 0) {
             look = pack;

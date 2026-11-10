@@ -43,7 +43,7 @@ constexpr Release kPal{
     {},                                                // 29: no level
     {0x001B9FF0, 0x001BE2C0, 0x001B2D20, 0x001B2D24},  // 30 (versionmap: exact)
     },
-    0x001A7AA0,  // the release's build
+    0x001A7310,  // the release's build
     {{{0x001A7AD1, 6}, {0x001A7ACA, 8}, {0x001A7AD3, 7}, {0x001A7AD2, 5}}},  // versionmap: exact
     0x001A7340,  // the release's build
     0x00152C98,  // versionmap: between
