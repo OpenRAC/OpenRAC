@@ -315,16 +315,10 @@ export const TEXTURES = {
 export const WITH_MODS = {
   label: "Mods",
   hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
-  /** Beside the switch when it is on: what Play starts now, how many mods, a way to the Mods tab.
-   *  It says the state first, so it never reads as what the switch would turn to. */
-  count: (n: number | null) =>
-    n === null ? "On: with mods" : n === 0 ? "On: no mods picked yet" : `On: ${n} ${n === 1 ? "mod" : "mods"}`,
+  /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
+  count: (n: number | null) => (n === null || n === 0 ? "enabled" : `enabled: ${n}`),
   /** Beside the switch when it is off. */
-  original: "Off: the original game",
-  /** Android's two ways beside the disc: the game as it shipped, or with the mods on. */
-  wayOriginal: "Original",
-  wayMods: (n: number | null) => (n === null ? "Mods" : `Mods · ${n}`),
-  ways: "Play the original game or with mods",
+  original: "disabled",
   offNotice: "Play starts the game without mods. Turn on Mods under Play to use them.",
   turnOn: "Turn on",
 } as const;

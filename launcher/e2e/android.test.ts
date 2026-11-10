@@ -125,17 +125,13 @@ describe("Android launcher", () => {
     await expect(rebuild.evaluate((e) => document.activeElement === e)).resolves.toBe(true);
   });
 
-  it("picks Original or Mods beside the disc, the one that plays checked", async () => {
+  it("turns the Mods switch beside the disc, as Play's own", async () => {
     await open("built&version=rac1/pal&page=library");
-    const original = page.locator(".ways").getByRole("radio", { name: "Original" });
-    const mods = page.locator(".ways").getByRole("radio", { name: /^Mods/ });
+    const mods = page.locator(".with-mods").getByRole("switch");
     await mods.waitFor();
-    expect(await original.getAttribute("aria-checked")).toBe("true");
+    const before = await mods.isChecked();
     await mods.click();
-    await expect.poll(() => mods.getAttribute("aria-checked")).toBe("true");
-    expect(await original.getAttribute("aria-checked")).toBe("false");
-    await original.click();
-    await expect.poll(() => original.getAttribute("aria-checked")).toBe("true");
+    await expect(mods.isChecked()).resolves.toBe(!before);
   });
 
   it("opens the game's logs from the menu beside the disc", async () => {
@@ -313,15 +309,15 @@ describe("A controller", () => {
     expect(await page.locator(".slot.on").count()).toBe(1);
   });
 
-  it("swaps Original and Mods by X and opens the game's page by Y", async () => {
+  it("turns the Mods switch by X and opens the game's page by Y", async () => {
     await open("built&version=rac1/pal&page=library");
-    const mods = ".extra [role=radio]:last-child";
-    await page.locator(mods).waitFor();
-    expect(await page.locator(mods).getAttribute("aria-checked")).toBe("false");
+    const sw = page.locator(".extra [role=switch]");
+    await sw.waitFor();
+    expect(await sw.isChecked()).toBe(false);
     await press("extra");
-    await page.waitForFunction((s) => document.querySelector(s)?.getAttribute("aria-checked") === "true", mods);
+    await page.waitForFunction(() => document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
     await press("extra");
-    await page.waitForFunction((s) => document.querySelector(s)?.getAttribute("aria-checked") === "false", mods);
+    await page.waitForFunction(() => !document.querySelector<HTMLInputElement>(".extra [role=switch]")?.checked);
     expect(await page.locator(".slot").count()).toBeGreaterThan(0);
     await press("more");
     await page.locator(".hero .back").waitFor();
@@ -346,7 +342,7 @@ describe("A controller", () => {
     });
     await press("extra");
     await page.waitForTimeout(200);
-    expect(await page.locator(".extra [role=radio]:last-child").getAttribute("aria-checked")).toBe("false");
+    expect(await page.locator(".extra [role=switch]").isChecked()).toBe(false);
   });
 
   it("keeps the controller in the words beside the disc, and goes left to the disc, never the rail", async () => {
