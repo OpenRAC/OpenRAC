@@ -47,6 +47,7 @@ retail (tests/asmc_console.h).
 
 from __future__ import annotations
 
+import sys
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -1790,8 +1791,14 @@ def apply_signatures(program: Program, a: dict, discovered: bool) -> None:
         f = program.functions.get(sym)
         if f is None and not discovered:
             continue
-        if f is None or f.unit is not None or sym in program.host:
+        if f is None or sym in program.host:
             raise ValueError(f"assembly signature for {sym}: expected an assembly-only function")
+        if f.unit is not None:
+            # The decomp matched it since the signature was written: its C gives the prototype, so
+            # the entry is stale rather than wrong. Say so, and leave the function to its C.
+            print(f"hostgen: warning: {sym} has C now; its \"asm\" \"signatures\" entry is not used "
+                  f"and can be removed from hostgen.json", file=sys.stderr)
+            continue
         f.sig = Signature.of(ctype.parse(text))
 
 
