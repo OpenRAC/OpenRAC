@@ -96,7 +96,9 @@ void main() {
   float H = uRes.y;
   float u = x / uRes.x + uAlong;
   // Under the rail: through frosted glass, its edges wide and faint, the whole dimmer.
-  float frost = 1.0 - smoothstep(uFrost - 16.0 * uDpr, uFrost + 16.0 * uDpr, x);
+  // Full under the rail, then easing out over about a hundred pixels past its edge (smootherstep).
+  float e = clamp((x - uFrost + 24.0 * uDpr) / (110.0 * uDpr), 0.0, 1.0);
+  float frost = 1.0 - e * e * e * (e * (e * 6.0 - 15.0) + 10.0);
   float soft = frost * 16.0 * uDpr;
   float light = sheet(u, y, H, 0.63, 0.09, 0.10, uA0, soft)
               + sheet(u, y, H, 0.66, 0.07, 0.07, uA1, soft) * 0.7
@@ -256,7 +258,8 @@ void main() {
         const u = (sp.u + t * sp.pace) % 1;
         const [mid, half] = sheet(main, u + along, a0);
         const x = u * w;
-        const fr = x < frost * dpr ? 1 : 0;
+        const e = Math.min(1, Math.max(0, (x / dpr - frost + 24) / 110));
+        const fr = 1 - e * e * e * (e * (e * 6 - 15) + 10);
         speckData[i * 4] = x;
         speckData[i * 4 + 1] = (mid + sp.off * (half + 0.05)) * h;
         speckData[i * 4 + 2] = sp.size * dpr * (1 + fr);
