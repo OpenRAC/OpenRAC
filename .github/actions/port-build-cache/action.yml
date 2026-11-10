@@ -33,7 +33,7 @@ runs:
         path: |
           port/build/${{ inputs.preset }}/_deps/*-src
           !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
-        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
+        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/BakeLz4.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
     - name: Restore pinned dependency sources for a pull request
       id: sources-read
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -42,7 +42,7 @@ runs:
         path: |
           port/build/${{ inputs.preset }}/_deps/*-src
           !port/build/${{ inputs.preset }}/_deps/openrac_compressonator-src
-        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
+        key: port-sources-v1-${{ inputs.variant }}-${{ inputs.preset }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('port/cmake/Android.cmake', 'port/cmake/ArmAsr.cmake', 'port/cmake/BakeLz4.cmake', 'port/cmake/Compressonator.cmake', 'port/cmake/Dependencies.cmake', 'port/cmake/Fsr3.cmake', 'port/cmake/Luau.cmake', 'port/cmake/ProbeCompression.cmake', 'port/cmake/Tracy.cmake') }}
     - name: Use restored dependency sources
       if: steps.sources-write.outputs.cache-hit == 'true' || steps.sources-read.outputs.cache-hit == 'true'
       shell: bash
