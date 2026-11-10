@@ -14,6 +14,7 @@
   import { shortTitle, type SideEntry } from "$lib/labels";
   import { hideMissing } from "$lib/media";
   import { untrack } from "svelte";
+  import Disc from "./Disc.svelte";
   import Icon from "./Icon.svelte";
 
   let {
@@ -54,7 +55,15 @@
   });
 </script>
 
-<nav class="list" aria-label={label} bind:this={list}>
+<!-- A disc that grows as its game is picked changes its entry's height: the highlight follows. -->
+<nav
+  class="list"
+  aria-label={label}
+  bind:this={list}
+  ontransitionend={(e) => {
+    if ((e.target as HTMLElement).classList.contains("disc")) place(selected);
+  }}
+>
   <span
     class="marker"
     class:shown={marker.shown}
@@ -76,13 +85,20 @@
         onpick(e.key);
       }}
     >
-      <span class="thumb" class:icon={!e.art}>
-        {#if e.art}<img src={e.art} alt="" decoding="async" onerror={hideMissing} />{:else if e.icon}<Icon
-            name={e.icon}
-            size={20}
-          />{/if}
-        {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
-      </span>
+      {#if e.disc}
+        <span class="disc">
+          <Disc game={e.disc.game} version={e.disc.version} title={e.disc.title} idle={selected === e.key} small />
+          {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
+        </span>
+      {:else}
+        <span class="thumb" class:icon={!e.art}>
+          {#if e.art}<img src={e.art} alt="" decoding="async" onerror={hideMissing} />{:else if e.icon}<Icon
+              name={e.icon}
+              size={20}
+            />{/if}
+          {#if e.mark}<span class="mark" aria-hidden="true"></span>{/if}
+        </span>
+      {/if}
       <span class="text">
         <span class="name">{onAndroid ? shortTitle(e.name) : e.name}</span>
         {#if e.mark}<span class="sr-only">, crashed recently</span>{/if}
@@ -235,6 +251,56 @@
     filter: none;
   }
 
+  /* A game's disc in place of its picture (the desktop's game list): the open one larger and
+     turned, a disc under the pointer rolling a little to the right. */
+  .disc {
+    position: relative;
+    flex: none;
+    width: 58px;
+    height: 58px;
+    margin: -2px 0;
+    transition:
+      width var(--medium) var(--ease),
+      height var(--medium) var(--ease),
+      margin var(--medium) var(--ease),
+      translate 0.35s cubic-bezier(0.34, 1.45, 0.64, 1),
+      rotate 0.5s cubic-bezier(0.34, 1.45, 0.64, 1);
+  }
+
+  .entry.on .disc {
+    width: 76px;
+    height: 76px;
+    margin: -6px -2px -6px -6px;
+    rotate: -12deg;
+  }
+
+  .entry:not(.on) .disc :global(.disc) {
+    opacity: 0.85;
+    transition: opacity 0.2s ease;
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .entry:hover:not(.on) .disc {
+      translate: 5px 0;
+      rotate: 24deg;
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .entry:hover .disc :global(.disc) {
+      opacity: 1;
+    }
+  }
+
+  /* The controller's focus on a disc rolls it as the pointer does. */
+  :global(html[data-input="pad"]) .entry:focus:not(.on) .disc {
+    translate: 5px 0;
+    rotate: 24deg;
+  }
+
+  .disc .mark {
+    top: 2px;
+    right: 2px;
+  }
+
   .mark {
     position: absolute;
     top: 4px;
@@ -316,6 +382,13 @@
     .thumb {
       width: 52px;
       height: 40px;
+    }
+
+    .disc,
+    .entry.on .disc {
+      width: 48px;
+      height: 48px;
+      margin: -2px 0;
     }
   }
 

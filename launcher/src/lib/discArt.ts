@@ -1,4 +1,5 @@
-// The print of each game's real disc, for Android's Games tab (DiscShelf.svelte): a scan from the
+// The print of each game's real disc, for Android's Games tab (DiscShelf.svelte) and the desktop's
+// game list (SideList.svelte): a scan from the
 // LaunchBox Games Database, as Cartouche finds it (github.com/Hakimba/cartouche, app/data/art/ps2.tsv).
 // The scans are their owners': the launcher never carries them, the device downloads one when it is
 // first shown and its webview keeps it. Without a connection the disc wears the launcher's own label.

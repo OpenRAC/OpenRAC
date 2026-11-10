@@ -1,6 +1,7 @@
 <script lang="ts">
   // The games in the list beside the Games and Mods tabs (SideList): one entry each, all the same
-  // size, as OpenGOAL's launcher lists its games, the open one marked; it is the only way to
+  // size, as OpenGOAL's launcher lists its games, the open one marked; on the desktop each is its
+  // disc, the open one larger and turning; it is the only way to
   // switch games. By default it is the Games tab's: each game's state for playing, a click opens
   // the game's page. Another page passes its own SELECTED game, ONSELECT and STATE (Mods: what can
   // be modded).
@@ -44,6 +45,8 @@
       name: game.title,
       state: stateOf(game),
       art: gameThumb(game.id),
+      // On the desktop each game is its disc (user decision), as on Android's Games tab.
+      disc: onAndroid ? undefined : { game: game.id, version: playerVersion(game)?.name ?? "ntsc", title: game.title },
       style: themeStyle(game.id),
       mark: !state && (app.crashes[game.id]?.recent ?? 0) > 0,
     })),

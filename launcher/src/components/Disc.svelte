@@ -14,7 +14,8 @@
     version,
     title,
     idle = false,
-  }: { game: string; version: string; title: string; idle?: boolean } = $props();
+    small = false,
+  }: { game: string; version: string; title: string; idle?: boolean; small?: boolean } = $props();
 
   const print = $derived(discPrint(game, version));
   /** The print could not be loaded: the label shows instead. */
@@ -23,7 +24,7 @@
   const art = $derived(gameTileArt(game));
 </script>
 
-<div class="disc" class:idle style={themeStyle(game)}>
+<div class="disc" class:idle class:small style={themeStyle(game)}>
   <div class="face">
     {#if print && !failed}
       <img
@@ -83,6 +84,15 @@
     to {
       rotate: 4deg;
     }
+  }
+
+  /* A list's disc (SideList): a lighter shadow; its label has no room for the name. */
+  .disc.small {
+    filter: drop-shadow(0 4px 7px rgb(0 0 0 / 0.5));
+  }
+
+  .small .band {
+    display: none;
   }
 
   /* The disc itself: a circle, its hole (15 mm of 120) cut out. */

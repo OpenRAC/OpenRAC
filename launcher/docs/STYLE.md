@@ -235,6 +235,13 @@ with `data-game-colors` on the page, and the core hands them to the game's menu
 (`ui_colors(theme, game, game_colors)`). The light under the bar stays as
 without it. Off, every game wears the gold.
 
+## The desktop's game list
+
+Each game in the list beside Games and Mods is its disc (`SideList.svelte`, `Disc.svelte`,
+user decision): the print as on Android, or the game's picture as a label. The open game's disc
+is larger, turned and swaying; a disc under the pointer or the controller's focus rolls a little
+to the right. A narrow window shows the discs alone.
+
 ## Android's Games tab
 
 A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's

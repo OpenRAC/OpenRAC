@@ -17,6 +17,8 @@ export interface SideEntry {
   state?: EntryState | null;
   /** A picture, shown cropped. */
   art?: string | null;
+  /** A game's disc in place of the picture (the desktop's game list): its print, or its label. */
+  disc?: { game: string; version: string; title: string };
   /** Without a picture: an icon. */
   icon?: IconName;
   /** The game's colours (themeStyle) for the picture's frame. */
