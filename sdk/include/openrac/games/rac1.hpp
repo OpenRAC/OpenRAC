@@ -5523,6 +5523,14 @@ struct Moby_Gadgebot1906_Update {
     using fn = void (*)(uint32_t);
 };
 
+// Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+struct Vendor_OpenMenu {
+    static constexpr const char* id = "rac1.vendor.open_menu";
+    static constexpr const char* name = "Vendor_OpenMenu";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 namespace hooks {
     namespace ammo {
         using choose_drop = rac1::Ammo_ChooseDrop;
@@ -7537,6 +7545,7 @@ namespace hooks {
         using init_level_stock = rac1::Vendor_InitLevelStock;
         using initialize_selected = rac1::Vendor_InitializeSelected;
         using menu_update = rac1::Vendor_MenuUpdate;
+        using open_menu = rac1::Vendor_OpenMenu;
     }  // namespace vendor
     namespace weapon {
         using take_ammo = rac1::Weapon_TakeAmmo;

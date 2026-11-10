@@ -709,6 +709,18 @@
         "ntsc": "FUN_001fdd10"
       },
       "about": "Resolves a game message id to its text. A mod may substitute the randomized reward name while the game's reward banner is drawn."
+    },
+    {
+      "id": "rac1.vendor.open_menu",
+      "name": "Vendor_OpenMenu",
+      "after_catalogue": true,
+      "signature": "void(u32)",
+      "params": ["moby"],
+      "symbols": {
+        "pal": "func_L00_0029BA20",
+        "ntsc": "FUN_L00_0029a6b0"
+      },
+      "about": "Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero."
     }
   ],
   "bases": {
