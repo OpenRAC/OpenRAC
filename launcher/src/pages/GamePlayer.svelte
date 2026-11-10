@@ -396,7 +396,9 @@
        shows through it. It fades out at its edges rather than under a coat of the page's colour,
        which covered that light. */
     mix-blend-mode: screen;
-    mask-image: radial-gradient(ellipse 70% 75% at 50% 20%, black 25%, transparent 85%);
+    /* Gone before the sides: the game list beside it has no panel of its own, so an edge left
+       here showed as a cut line along the list. */
+    mask-image: radial-gradient(ellipse 50% 80% at 50% 20%, black 20%, transparent 98%);
   }
 
   .page-ambient-bg img {

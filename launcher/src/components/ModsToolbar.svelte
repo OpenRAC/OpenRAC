@@ -135,9 +135,27 @@
     color: var(--soft);
   }
 
+  /* The whole bar is the field: the ring and the hover take all of it, icon too, not only the
+     input inside. */
   .find:focus-within {
     background: var(--on-fill);
     color: var(--amber);
+    box-shadow: inset 0 0 0 2px var(--amber);
+  }
+
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) .find:hover:not(:focus-within) {
+      background: var(--control-hi);
+    }
+
+    :global(html:where(:not([data-input="pad"]))) .find input:hover:not(:disabled) {
+      background: none;
+    }
+  }
+
+  .find input:focus,
+  .find input:focus-visible {
+    box-shadow: none;
   }
 
   .find input {

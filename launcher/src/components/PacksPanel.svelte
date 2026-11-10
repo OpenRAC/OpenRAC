@@ -188,7 +188,7 @@
           <div class="dim small-text">{packSummary(pack)}</div>
         </div>
         {#if onmake}
-          <button class="small ghost" onclick={onmake}><Icon name="edit" size={14} />{TEXTURES.make}</button>
+          <button class="small" onclick={onmake}><Icon name="edit" size={14} />{TEXTURES.make}</button>
         {/if}
         <Menu
           label={`More for ${TEXTURES.name}`}

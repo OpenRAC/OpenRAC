@@ -405,7 +405,9 @@ button[data-on] {
 
 /* Under the pointer a button gets a little lighter; the main one lifts 2 px. */
 @media (hover: hover) {
-  html:where(:not([data-input="pad"])) button:hover:not(:disabled),
+  /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer
+     (:where keeps the weight as it was). */
+  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop)),
   html:where(:not([data-input="pad"])) .button:hover {
     background-color: var(--control-hi);
   }
@@ -476,7 +478,7 @@ html[data-platform="ios"][data-input="pad"] [data-pad-focus] {
 
 /* A press dims the button (a controller's A too, pad.ts), and never shrinks it (user decision); on
    a touch screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
-button:active:not(:disabled),
+button:active:not(:disabled):where(:not(.backdrop)),
 .button:active,
 button.pad-press:not(:disabled),
 .button.pad-press {
