@@ -186,6 +186,12 @@
     padding: 24px;
   }
 
+  @media (max-height: 500px) {
+    .overlay {
+      padding: 12px 24px;
+    }
+  }
+
   .backdrop {
     position: absolute;
     inset: 0;
@@ -211,6 +217,9 @@
     z-index: 1;
     width: 100%;
     max-width: 560px;
+    /* Never taller than the window (a phone held sideways): the body scrolls, the title and
+       the buttons stay. */
+    max-height: 100%;
     background: var(--card);
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
@@ -222,6 +231,7 @@
   }
 
   .header {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -274,6 +284,7 @@
     flex-direction: column;
     gap: 16px;
     max-height: 400px;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -412,6 +423,7 @@
   }
 
   .actions {
+    flex: none;
     display: flex;
     align-items: center;
     justify-content: flex-end;

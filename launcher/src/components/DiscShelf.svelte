@@ -1054,6 +1054,18 @@
     color: var(--amber);
   }
 
+  /* A small phone held sideways (about 740 to 820 px across): the wheel narrower and the words
+     further left, so the buttons stay on one line and the facts on theirs. */
+  @media (max-width: 820px) {
+    .wheel {
+      width: 42%;
+    }
+
+    .info {
+      left: 40%;
+    }
+  }
+
   /* A phone held sideways: a lower foot (the words and buttons follow the height: .info). */
   @media (max-height: 500px) {
     .shelf {
