@@ -617,8 +617,8 @@
     height: auto;
     min-height: 0;
     padding: 16px 0 12px;
-    /* No ground of its own: the rail and the page are one, over the same wave (App.svelte). */
-    background: none;
+    /* Its own ground, with no line between it and the page. */
+    background: var(--rail);
     border-bottom: 0;
     border-right: 0;
     box-shadow: none;

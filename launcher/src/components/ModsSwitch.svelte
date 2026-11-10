@@ -120,7 +120,7 @@
     height: 22px;
     margin-right: -2px;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--text) 14%, transparent);
+    background: var(--control-card);
     color: var(--text);
     font-family: var(--font-sans);
     font-size: 0.6875rem;

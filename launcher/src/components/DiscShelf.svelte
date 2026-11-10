@@ -816,7 +816,8 @@
     height: var(--ctl);
     padding: 0 18px 0 12px;
     border-radius: var(--radius);
-    background: var(--veil);
+    /* Filled, as the buttons on Mods' cards: the wave behind never shows through. */
+    background: var(--control-card);
     color: var(--text);
     font-size: var(--ctl-font);
     font-weight: 600;
@@ -843,7 +844,7 @@
     width: var(--ctl);
     height: var(--ctl);
     border-radius: var(--radius);
-    background: var(--veil);
+    background: var(--control-card);
     box-shadow: none;
   }
 
@@ -964,7 +965,12 @@
   }
 
   :global(html:not([data-input="pad"])) .hints {
-    opacity: 0.45;
+    color: var(--dim);
+  }
+
+  /* The pad's buttons along the foot, filled as the buttons above. */
+  .hints .glyph {
+    background: var(--control-card);
   }
 
   .hints > span {

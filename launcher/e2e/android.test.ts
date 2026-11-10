@@ -205,11 +205,16 @@ describe("Android launcher", () => {
     await page.getByRole("group", { name: "What's new" }).waitFor();
   });
 
-  it("keeps the launcher gold on Games", async () => {
+  it("wears the picked disc's colours on Games only with game colours on", async () => {
     await open("version=rac2/ntsc&page=library");
     await page.locator(".slot.on").waitFor();
     await page.waitForTimeout(400);
-    // No game's accent on the page itself: the launcher's own gold.
+    expect(await page.evaluate(() => "gameColors" in document.documentElement.dataset)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.style.length)).toBeGreaterThan(0);
+    // Game colours off: no game's accent on the page itself, the launcher's own gold.
+    await open("gold&version=rac2/ntsc&page=library");
+    await page.locator(".slot.on").waitFor();
+    await page.waitForTimeout(400);
     expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
   });
 
