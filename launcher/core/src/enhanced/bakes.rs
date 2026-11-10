@@ -249,13 +249,15 @@ fn bake_status_on(
     bake_status_selected(levels, probes, baker, ships_baker, None, &|level, _, stamp| profile(level, stamp))
 }
 
+type ReadBakeProfile<'a> = dyn Fn(&Path, Option<&Path>, &Value) -> Option<String> + 'a;
+
 fn bake_status_selected(
     levels: &Path,
     probes: &Path,
     baker: &Path,
     ships_baker: bool,
     mods: Option<&Path>,
-    profile: &dyn Fn(&Path, Option<&Path>, &Value) -> Option<String>,
+    profile: &ReadBakeProfile<'_>,
 ) -> BakeStatus {
     let mut out = BakeStatus::default();
     let has_baker = baker.is_file();
