@@ -135,7 +135,14 @@ void main() {
   }
 
   function setUp(c: HTMLCanvasElement): Gl | null {
-    const gl = c.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
+    const gl = c.getContext("webgl", {
+      alpha: true,
+      premultipliedAlpha: true,
+      antialias: false,
+      depth: false,
+      // A backdrop: the battery's GPU where there are two.
+      powerPreference: "low-power",
+    });
     if (!gl) return null;
     const cloth = program(gl, QUAD_VS, CLOTH_FS);
     const quad = gl.createBuffer();
@@ -168,10 +175,14 @@ void main() {
       colour = rgb(c),
       frost = frostOf(c),
       read = 0,
-      slide = untrack(() => shift);
+      slide = untrack(() => shift),
+      // A slow GPU: drawn at the CSS pixels instead (see `pace`), for good.
+      cap = 2,
+      drawn = 0,
+      since = 0;
     const size = () => {
       // Sharp at the screen's own pixels, up to twice the CSS ones (a 3x phone looks the same).
-      dpr = Math.min(devicePixelRatio || 1, 2);
+      dpr = Math.min(devicePixelRatio || 1, cap);
       c.width = Math.max(1, Math.round(c.clientWidth * dpr));
       c.height = Math.max(1, Math.round(c.clientHeight * dpr));
       frost = frostOf(c);
@@ -215,6 +226,24 @@ void main() {
       }
       slide += (shift - slide) * 0.08;
       draw(10 + (now - start) / 1000);
+      pace(now);
+    };
+    // Every 90 frames drawn: if they came under 36 a second (a weak GPU, the shader at twice the
+    // pixels too much for it), the cloth is drawn at the CSS pixels from then on, a quarter of the
+    // work. Once only; a hidden page does not count.
+    const pace = (now: number) => {
+      if (cap === 1) return;
+      if (drawn === 0) since = now;
+      if (++drawn < 90) return;
+      const slow = (now - since) / (drawn - 1) > 28;
+      drawn = 0;
+      if (slow && dpr > 1) {
+        cap = 1;
+        size();
+      }
+    };
+    const shown = () => {
+      drawn = 0;
     };
     const run = () => {
       if (still) draw(10);
@@ -236,6 +265,7 @@ void main() {
     };
     c.addEventListener("webglcontextlost", lost);
     c.addEventListener("webglcontextrestored", restored);
+    document.addEventListener("visibilitychange", shown);
     observer.observe(c);
     size();
     run();
@@ -244,6 +274,13 @@ void main() {
       observer.disconnect();
       c.removeEventListener("webglcontextlost", lost);
       c.removeEventListener("webglcontextrestored", restored);
+      document.removeEventListener("visibilitychange", shown);
+      // The canvas keeps its context for the next run (reduced motion turned on or off): its
+      // program and buffer go now, not with the page.
+      if (g) {
+        g.gl.deleteProgram(g.cloth);
+        g.gl.deleteBuffer(g.quad);
+      }
     };
   });
 </script>

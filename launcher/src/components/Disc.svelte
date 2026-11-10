@@ -56,7 +56,9 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    filter: drop-shadow(0 14px 22px rgb(0 0 0 / calc(0.5 * var(--shade, 1))));
+    /* A box shadow, not a drop-shadow filter: the disc is round, and a filter on a layer that
+       floats would be blurred again by the GPU every frame. */
+    box-shadow: 0 14px 22px rgb(0 0 0 / calc(0.5 * var(--shade, 1)));
   }
 
   /* The one picked sways left and right and floats, the two never in step. */
@@ -88,7 +90,7 @@
 
   /* A list's disc (SideList): a lighter shadow; its label has no room for the name. */
   .disc.small {
-    filter: drop-shadow(0 4px 7px rgb(0 0 0 / 0.5));
+    box-shadow: 0 4px 7px rgb(0 0 0 / 0.5);
   }
 
   .small .band {
