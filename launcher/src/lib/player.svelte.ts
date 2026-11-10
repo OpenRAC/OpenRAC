@@ -609,8 +609,8 @@ export function playWarning(v: VersionView | null): string | null {
   return v?.actions.find((a) => a.id === "play" && a.thisPlatform)?.warning ?? null;
 }
 
-/** Whether the next step can be taken from beside a disc, as from the game's page: one to
- *  take, or a job to stop. */
+/** Whether the next step can be taken from beside a disc: on Android the game's page has no
+ *  button for it, so every step shows there, a game not playable yet's set-up too. */
 export function offersStep(next: PlayerState | null): boolean {
-  return !!next && !next.disabled && next.kind !== "installing" && (next.primary || !!next.job);
+  return !!next && !next.disabled && next.kind !== "installing";
 }

@@ -351,6 +351,11 @@ describe("A controller", () => {
     expect(await focused()).toBe("Games");
   });
 
+  it("offers to set up a game not playable yet beside its disc", async () => {
+    await open("built&version=rac3/ntsc&page=library");
+    expect(await page.locator(".info .go").textContent()).toContain("Set up from your disc");
+  });
+
   it("keeps Y and X in the open menu beside the disc", async () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").focus();
