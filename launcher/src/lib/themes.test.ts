@@ -72,6 +72,9 @@ describe("themes", () => {
       },
     } as unknown as HTMLElement;
 
+    // Nothing kept yet: the first start wears the game's colours, the default.
+    expect(storedGameColors()).toBe(true);
+
     applyAccent("rac2", false, root);
     expect(storedAccent()).toBe("rac2");
     expect([...props.keys()]).toEqual(["--glow"]);

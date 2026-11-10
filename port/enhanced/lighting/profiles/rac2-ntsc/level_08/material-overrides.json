@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-terrain.glb-4",
+      "match": {
+        "model": "terrain.glb",
+        "material_slot": 4,
+        "texture_path": "textures/terrain_0013.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            1.0,
+            0.48909086,
+            0.0824471861
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

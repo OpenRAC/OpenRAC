@@ -14,6 +14,7 @@ type HookPoint =
     | "rac2.player.approach_speed"
     | "rac2.player.nanotech_steps"
     | "rac2.item.give"
+    | "rac2.item.equip"
     | "rac2.planet.unlock"
     | "rac2.moby.dynamo_pickup.update"
     | "rac2.moby.tractor_beam_seller.update"
@@ -27,9 +28,11 @@ type HookPoint =
     | "rac2.moby.race_controller.update"
     | "rac2.moby.mapper_return.update"
     | "rac2.moby.hypnomatic_maker.update"
+    | "rac2.moby.nanotech_ball.update"
     | "Hero_ApproachSpeed"
     | "Hero_NanotechSteps"
     | "Hero_TakeDamage"
+    | "Item_Equip"
     | "Item_Give"
     | "Level_Load"
     | "Moby_BoxBreakerPickup_Update"
@@ -40,6 +43,7 @@ type HookPoint =
     | "Moby_HypnomaticMaker_Update"
     | "Moby_LevitatorSeller_Update"
     | "Moby_MapperReturn_Update"
+    | "Moby_NanotechBall_Update"
     | "Moby_RaceController_Update"
     | "Moby_RecordDeath"
     | "Moby_SwingshotArea_Update"
@@ -69,6 +73,8 @@ type Hero_ApproachSpeedFn = (up: number, down: number) -> ()
 type Hero_NanotechStepsFn = (a0: number, a1: number, count: number) -> number
 -- rac2.item.give (Item_Give) void(i32): Gives the player item id (GiveInventoryItem): nothing when it is owned already; else sets its owned and new bytes, its starting ammo, adds it to the vendor's list and the quick select. The NPCs, pickups, arena prizes, the vendor's purchases and the start's items go through it; a few places set the owned bytes themselves (Endako's packs and Grindboots, Aranos Prison's Qwark Statuette). Rac1's GiveItem.
 type Item_GiveFn = (id: number) -> ()
+-- rac2.item.equip (Item_Equip) i32(i32): Puts item id in the hero's hand, or on him for the boots, helmets and packs (by the state of its record in the item table): a request his update carries out; 1 when one was made. Most givers call it right after Item_Give with the same id (Todano's Sheepinator, the Tractor Beam, the Thermanator, the Swingshot, the Mapper, ...), the vendor after a purchase; a mod that gives another item in a giver's place hands it this one's too.
+type Item_EquipFn = (id: number) -> number
 -- rac2.planet.unlock (Planet_Unlock) void(i32): Puts a level on the ship's map (MarkLevelAvailable): its byte at 0x1A7BC8 and its place in the map's order (0x139948, on NTSC-U v1.01). Coordinate sellers, story scenes and ship challenges call it, and every level load calls it for the level loaded. Rac1's UnlockPlanet.
 type Planet_UnlockFn = (level: number) -> ()
 -- rac2.moby.dynamo_pickup.update (Moby_DynamoPickup_Update) void(u32): Oozla's Dynamo pickup outside the Megacorp store (class 2709): plays its scene and gives item 36; tests item 36's owned byte.
@@ -95,6 +101,8 @@ type Moby_RaceController_UpdateFn = (moby: number) -> ()
 type Moby_MapperReturn_UpdateFn = (moby: number) -> ()
 -- rac2.moby.hypnomatic_maker.update (Moby_HypnomaticMaker_Update) void(u32): Damosel's Hypnomatic maker (class 4754): with the three parts sells the Hypnomatic (item 55); tests item 55's owned byte.
 type Moby_HypnomaticMaker_UpdateFn = (moby: number) -> ()
+-- rac2.moby.nanotech_ball.update (Moby_NanotechBall_Update) void(u32): The nanotech orb's update (class 0x326, the orb in a nanotech crate): flies its pieces to the hero, who gains health as each lands (+0x24CC of the hero, at most his max health), 1 a piece or 4 for the special orb. Rac1's nanotech_ball update.
+type Moby_NanotechBall_UpdateFn = (moby: number) -> ()
 
 declare openrac: {
     game: string,

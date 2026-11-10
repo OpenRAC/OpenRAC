@@ -475,13 +475,24 @@ def unalias(text: str, aliases: dict[str, str]) -> str:
     """TEXT with each readable name of ALIASES written as its address name (see the top)."""
     if not aliases:
         return text
+    undone = {name for name in re.findall(r"^[ \t]*#[ \t]*undef[ \t]+(\w+)", text, re.M) if name in aliases}
 
     def one(m: re.Match) -> str:
         word = m.group(0)
         if word.lstrip().startswith("#"):
             # A carried name keeps its meaning inside a macro's body too (a `#define SIFCMD`
             # over `r1_D_00158300`); readable names stay as they are there.
-            return _CARRIED.sub(lambda c: aliases.get(c.group(0), c.group(0)), word)
+            word = _CARRIED.sub(lambda c: aliases.get(c.group(0), c.group(0)), word)
+            # A readable name the file defines again as an expression (rac1's loaders.c,
+            # `#undef compressed_class_resources` then `#define compressed_class_resources
+            # ((int *)((char *)class_resource_ids + 0x60))`) is defined under its address name,
+            # as its #undef and its uses are written. Only after an #undef: a readable name the
+            # file defines over its own address (`#define is_point_inside_clip_volume ((int
+            # (*)(void *, int))func_00215570)`, a cast for the calls) stays a macro of that name.
+            own = re.match(r"([ \t]*#[ \t]*define[ \t]+)([A-Za-z_]\w*)(?=[ \t(])(.*)", word, re.S)
+            if own and own.group(2) in undone:
+                word = own.group(1) + aliases[own.group(2)] + own.group(3)
+            return word
         return aliases.get(word, word)
     return _ALIAS_TOKEN.sub(one, text)
 

@@ -64,7 +64,7 @@ pub struct Config {
     /// or "mocha". The accent is not a theme's: it is the picked game's.
     pub theme: String,
     /// The picked game's own bar, gold and coal (palettes.json game_colors) instead of the
-    /// launcher's, in the launcher and the game's menu. Off by default: every game wears the gold.
+    /// launcher's, in the launcher and the game's menu. On by default; off, every game wears the gold.
     pub game_colors: bool,
     /// The game writes a detailed log (OPENRAC_LOG=verbose): level loads, controller changes,
     /// what the port is missing. Off by default, so a log stays small.
@@ -154,7 +154,7 @@ impl Default for Config {
             discord_client_id: None,
             layout: "compact".into(),
             theme: "openrac".into(),
-            game_colors: false,
+            game_colors: true,
             detailed_game_log: false,
             renderer: "vulkan".into(),
             hdr: "off".into(),
@@ -262,6 +262,17 @@ mod tests {
         save(&path, &Config { check_updates: false, ..Config::default() }).unwrap();
         assert!(!load(&path).check_updates);
         assert!(std::fs::read_to_string(&path).unwrap().contains("\"checkUpdates\": false"));
+    }
+
+    /// A settings file without the option wears the game's colours; turning them off is kept.
+    #[test]
+    fn wears_game_colours_unless_turned_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("launcher.json");
+        std::fs::write(&path, r#"{"setupComplete": true}"#).unwrap();
+        assert!(load(&path).game_colors);
+        save(&path, &Config { game_colors: false, ..Config::default() }).unwrap();
+        assert!(!load(&path).game_colors);
     }
 
     /// A settings file from before the mod check offers mod updates; turning it off is kept.

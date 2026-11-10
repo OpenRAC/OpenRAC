@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "id": "mesh-emission-shrub_1348.glb-1",
+      "match": {
+        "model": "shrub_1348.glb",
+        "material_slot": 1,
+        "texture_path": "textures/shrub_0006.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0146855973,
+            0.0977639481,
+            0.0677734464
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    },
+    {
+      "id": "mesh-emission-tie_4211.glb-3",
+      "match": {
+        "model": "tie_4211.glb",
+        "material_slot": 3,
+        "texture_path": "textures/tie_0064.png",
+        "pass": "colour"
+      },
+      "set": {
+        "emission": {
+          "bake_mesh_rgb": [
+            0.0702482685,
+            0.543403089,
+            0.318184674
+          ],
+          "bake_mode": "mesh"
+        }
+      }
+    }
+  ]
+}

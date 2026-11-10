@@ -345,7 +345,7 @@ async fn library(state: State<'_, AppState>) -> Result<Library, String> {
 /// Runs action `id` of `scope`: a job whose output streams as `job-output`
 /// and `job-exit` events, or a detached launch (id 0).
 #[tauri::command]
-fn run_action(
+async fn run_action(
     app: AppHandle,
     state: State<'_, AppState>,
     scope: Scope,
@@ -356,7 +356,20 @@ fn run_action(
 ) -> Result<Started, String> {
     let config = state.config.lock().unwrap().clone();
     let inputs = openrac_launcher_core::actions::Inputs { level, path, option };
-    let plan = library::plan(&config, &scope, &id, &inputs)?;
+    let mut plan = library::plan(&config, &scope, &id, &inputs)?;
+    let mut bake_mods = None;
+    if let (openrac_launcher_core::enhanced::BAKE_ACTION, Scope::Version(key)) = (id.as_str(), &scope) {
+        let config = config.clone();
+        let key = key.clone();
+        bake_mods = tauri::async_runtime::spawn_blocking(move || {
+            openrac_launcher_core::enhanced::assemble_bake_mods(&config, &key, true)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        if let Some(snapshot) = &bake_mods {
+            plan.args.extend(["--mods-dir".into(), snapshot.path().to_string_lossy().into_owned()]);
+        }
+    }
     let is_play = library::is_play(&config, &scope, &id);
 
     // The play job's Discord presence (core discord.rs): its status now, its game for its log.
@@ -385,6 +398,8 @@ fn run_action(
     let title = plan.title.clone();
     launcher_log::line(&format!("run: {}", openrac_launcher_core::jobs::command_line(&plan)));
     let started = state.jobs.start(&plan, config.root.as_deref(), move |event| {
+        // Keep the assembled files alive through native baking, including cancellation.
+        let _snapshot = &bake_mods;
         let _ = match &event {
             Event::Output { line, .. } => {
                 // The planet and bolts the game logs.
@@ -2372,15 +2387,18 @@ fn here_for<'a>(game: &'a str, version: &'a str, prerelease: bool) -> openrac_la
     }
 }
 
-/// The updates the index offers for a game's mods: in by themselves, waiting, held back.
+/// The updates the index offers for a game's mods: in by themselves, waiting, held back. With
+/// `fresh` (the Mods tab's "Check for updates") the index is fetched again rather than the copy
+/// this session already read, so versions published since show at once.
 #[tauri::command]
 async fn mods_updates(
     app: AppHandle,
     state: State<'_, AppState>,
     game: String,
     version: String,
+    fresh: Option<bool>,
 ) -> Result<openrac_launcher_core::mod_updates::UpdatePlan, ModError> {
-    let index = index_now(&app, &state, false).await?;
+    let index = index_now(&app, &state, fresh.unwrap_or(false)).await?;
     let prerelease = allow_prerelease(&app, &state);
     let dir = plugins_dir(&state, &game).map_err(hub_error)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -3058,7 +3076,7 @@ fn listen_for_links(app: &tauri::App, pending: &Arc<Mutex<Option<String>>>) {
     });
 }
 
-/// A link after `--` in a start's arguments (`Exec=… -- %u`), handed to the deep-link plugin as
+/// A link after `--` in a start's arguments (`Exec=â€¦ -- %u`), handed to the deep-link plugin as
 /// it takes one: the program, then the link alone. Only the one argument after `--` that starts
 /// with openrac:// is taken (deeplink::link_from_args); any other argument means no link. A lone
 /// link is the plugin's own to read, by the same rule, so it is not handed on twice.
@@ -3094,7 +3112,7 @@ fn set_up_deep_links(app: &tauri::App) {
         #[cfg(target_os = "linux")]
         openrac_launcher_core::desktop::claim_scheme();
     }
-    // The plugin registers `"…" "%1"`; the launcher's own form puts the link after `--`.
+    // The plugin registers `"â€¦" "%1"`; the launcher's own form puts the link after `--`.
     #[cfg(windows)]
     {
         let fix = || -> Result<(), String> {

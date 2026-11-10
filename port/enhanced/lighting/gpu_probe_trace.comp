@@ -24,7 +24,7 @@ struct Terrain {
 struct Emission {
     vec4 emission;      // linear radiance, contrast
     vec4 colour[3];     // emission vertex colours
-    ivec4 flags;        // emission texture, vertex colour (0/1), -, -
+    ivec4 flags;        // emission texture, vertex colour, constant RGB, use cutout
     vec4 scale;         // surface emission scale, -, -, -
 };
 
@@ -221,6 +221,9 @@ vec4 material(Material m, int terrain, float u, float v, vec3 tint, bool use_ter
 vec3 bake_emission(uint source, float u, float v) {
     const Material base = materials[source];
     const Emission e = emissions[base.extra.y];
+    if (e.flags.z != 0) {
+        return e.emission.rgb;
+    }
     Material m;
     m.diffuse = vec4(1.0, 1.0, 1.0, 1.0);
     m.uv01 = base.uv01;
@@ -409,7 +412,13 @@ LightSample sample_light(vec3 origin, float bias, inout uint state) {
     const vec3 delta = position - origin;
     const float squared = dot(delta, delta);
     const float distance = sqrt(squared);
-    if (distance <= 4.0 * bias || opacity(source, u, v) < materials[source].uv2.w) {
+    if (distance <= 4.0 * bias) {
+        return s;
+    }
+    const Material material = materials[source];
+    const Emission emission = emissions[material.extra.y];
+    const bool covered = opacity(source, u, v) >= material.uv2.w;
+    if (emission.flags.w != 0 && !covered) {
         return s;
     }
     const vec3 direction = delta / distance;
@@ -419,8 +428,9 @@ LightSample sample_light(vec3 origin, float bias, inout uint state) {
     }
     s.direction = direction;
     s.radiance = bake_emission(source, u, v) * (cosine / (squared * pdf_area))
-                 * emissions[materials[source].extra.y].scale.x;
+                 * emission.scale.x;
     s.pdf = squared * pdf_area / cosine;
+    s.delta = !covered && floatBitsToInt(material.uv2.z) >= 0;
     return s;
 }
 

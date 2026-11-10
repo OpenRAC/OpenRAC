@@ -8,22 +8,18 @@ The pass runs after completed world colour and before the native HUD:
 
 1. half-resolution soft bright pass;
 2. a five-level Gaussian reduction pyramid;
-3. compute reconstruction from the smallest level;
+3. additive reconstruction from the smallest level;
 4. one additive fullscreen composite.
 
-The reduction and reconstruction stages are compute shaders. The reduction kernel performs the
-Gaussian filtering while it downsamples, avoiding separate horizontal/vertical blur passes. The
-final composite is a single raster draw so it never samples and stores the world framebuffer through
-the same image.
+Each reduction pass renders directly into its pyramid texture. Reconstruction samples only the
+smaller level and adds it to the larger level using attachment blending. The final composite uses
+the same approach to add the half-resolution result to the world colour.
 
-The pyramid is RGBA8 rather than RGBA32F. Bloom is a bounded, subtle secondary signal, so this keeps
-the 4K working set small while the source frame can remain HDR. At 3840x2160 the five pyramid
-textures plus the largest compute buffer are about 19 MiB instead of well over 100 MiB for the first
-prototype.
+The five RGBA8 pyramid textures take about 10.5 MiB at 3840×2160. The world colour can remain HDR.
 
-Defaults are deliberately restrained: the soft threshold starts around 0.82, its knee is 0.18 and
-the final bloom strength is 0.055. These are implementation defaults rather than user-facing
-settings.
+Bloom is off by default. In Enhanced Settings, open Post processing to enable it or adjust its
+strength, brightness threshold, soft knee and spread live. The slider defaults are 0.780 strength,
+0.78 threshold, 0.27 knee and 0.90 spread. Reset bloom restores those values and turns bloom off.
 
 ## Lifetime and fallback
 
@@ -31,8 +27,13 @@ Bloom is created only when enhanced rendering is available, which currently mean
 enhanced renderer. Compatibility rendering is unchanged. Resources are released explicitly before
 the graphics context closes and when the frontend resets a world.
 
-If shader preparation or a compute output copy fails, bloom disables itself for the current graphics
+If resource preparation or graph recording fails, bloom disables itself for the current graphics
 lifetime and leaves subsequent world colour unchanged rather than repeatedly failing every frame.
+
+## Follow-up
+
+Reduce the Gaussian reduction from 25 texel fetches to nine bilinear samples by pairing adjacent
+taps on both axes. Preserve the current weights and compare clamped edges and odd-sized targets.
 
 ## Test scene
 

@@ -44,7 +44,8 @@ json::Value stamp(
     const auto resolved = profile(level, options);
     const auto manifest = bake_json::document(level / "manifest.json");
     const auto whitelist = options.profiles / manifest["game"].string() / "moby-seeds.json";
-    const auto settings = region_settings(level);
+    const auto overrides = level_overrides(options, level);
+    const auto settings = region_settings(level, overrides);
     const auto moby_hash = (settings["enabled"].boolean() || resolved.environment.enabled)
                                    && std::filesystem::is_regular_file(whitelist)
                                ? coordinator_string(bake_json::file_hash(whitelist))
@@ -61,8 +62,8 @@ json::Value stamp(
     const auto emission = emission_texture_fingerprint(level, options.profiles);
     return parsed(
         "{\"version\":5,\"pipeline\":1,\"planner\":1,\"environment_algorithm\":20,\"source\":"
-        + coordinator_string(std::to_string(source ? *source : probe_input_hash(level)))
-        + ",\"manifest_sha256\":"
+        + coordinator_string(std::to_string(source ? *source : probe_input_hash(level, overrides)))
+        + (overrides.empty() ? "" : ",\"modded\":true") + ",\"manifest_sha256\":"
         + coordinator_string(bake_json::file_hash(level / "manifest.json"))
         + ",\"baker_profile_sha256\":"
         + coordinator_string(assets::disc::to_hex(profile_digest.finish())) + ",\"profile_sha256\":"
@@ -139,7 +140,7 @@ bool current(const std::filesystem::path& output, const json::Value& identity) {
         }
 
         // Enabled reflections require their captured environment asset too.
-        if (identity["reflections"].boolean()) {
+        if (identity["reflections"].boolean() && !result["environment_unavailable"].boolean()) {
             assets.push_back("environment.orpe");
         }
 

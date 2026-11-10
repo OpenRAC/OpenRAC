@@ -39,8 +39,28 @@ The enhanced module documents material consumers and its authoring UI.
 The scene owns immutable original materials and resolved model/slot bindings. Enhanced colour draws
 use cached surface records and typed optical controls. Classic rendering, alpha, depth passes and
 simulation state retain their original inputs. Baking reads the same resolved surface records.
-Runtime-only fields are excluded from bake fingerprints; effective static emission or diffuse changes
-require a rebake. Visible emission can change independently when `emission.bake_intensity` is explicit.
+Runtime-only fields are excluded from bake fingerprints. Effective static emission or diffuse changes
+require a rebake. Materials can set `emission.bake_mode` to `"texture"` to sample their emission
+texture and vertex colours, or to `"mesh"` to use a constant linear HDR `emission.bake_mesh_rgb`
+on the selected model and material slot. Texture emission uses the cutout mask by default. Mesh
+emission spreads across the full triangle by default. Set `emission.bake_use_cutout` to explicitly
+choose either behavior for emission. Visibility and runtime coverage still use the original cutouts.
+Older materials with no explicit mode retain their previous `emission.average_for_bake` behavior.
+
+Run `openrac-enhanced-baker --migrate-mesh-emission LEVEL_DIR MATERIAL_OVERRIDES.json` on a prepared
+export to write a mesh-emission override for each emitting static model and material slot. It
+integrates the old linear RGB over the original emitting area and divides by the full mesh area
+or, when explicitly retaining cutouts, the covered area. Runtime emission stays in the existing
+catalog. Use the level's root `material-overrides.json` to apply the migrated settings to that export.
+
+To reproduce the area-weighted `bake_mesh_rgb` values in a separate JSON catalog, run:
+
+```sh
+openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR > mesh-emission.generated.json
+```
+
+The calculator ignores stored mesh RGB values. Migrated exports must still have the original
+geometry, textures and source emission settings.
 
 Tracked profiles live in `enhanced/lighting/profiles/<game[-version]>/[level_NN/]material-overrides.json`.
 Export/bake preparation writes separate `materials/shared`, `materials/version` and `materials/level`

@@ -36,6 +36,7 @@
   import Reason from "./Reason.svelte";
   import { hidePaths } from "$lib/paths";
   import { checkDue, markChecked, modUpdates } from "$lib/modUpdates.svelte";
+  import { checkIndex } from "$lib/modAutoUpdate.svelte";
   import { modCode } from "$lib/modCodes.svelte";
   import ModSetSaved from "./ModSetSaved.svelte";
   import ModSetShare from "./ModSetShare.svelte";
@@ -97,13 +98,17 @@
   );
   const bakeAction = $derived(v.actions.find((a) => a.id === "probe-bake" && a.thisPlatform) ?? null);
 
+  let enhancedRequest = 0;
   async function loadEnhanced() {
-    try {
-      enhanced = await api.enhancedView(v.game, v.name);
-    } catch {
-      enhanced = null;
-    }
+    const request = ++enhancedRequest;
+    const view = await api.enhancedView(v.game, v.name).catch(() => null);
+    if (request === enhancedRequest) enhanced = view;
   }
+
+  const lightingContext = $derived(`${v.key}:${reload}:${purist}:${isEnhanced(modNav.mod)}`);
+  $effect(() => {
+    if (lightingContext) void loadEnhanced();
+  });
 
   function bake() {
     if (bakeAction && !bakeJob) void run({ kind: "version", key: v.key }, bakeAction);
@@ -115,7 +120,9 @@
     if (!b || bakeJob) return;
     if (!(await ask(T.ENHANCED.removeAsk(b.ready + b.partial + b.failed), T.ENHANCED.removeYes))) return;
     try {
-      enhanced = await api.enhancedDeleteBakes(v.game, v.name);
+      const request = ++enhancedRequest;
+      const view = await api.enhancedDeleteBakes(v.game, v.name);
+      if (request === enhancedRequest) enhanced = view;
       said = { text: T.ENHANCED.removed, failed: false };
     } catch (e) {
       said = { text: message(e), failed: true };
@@ -124,7 +131,9 @@
 
   async function setEnhanced(on: boolean) {
     try {
-      enhanced = await api.enhancedSetEnabled(v.game, v.name, on);
+      const request = ++enhancedRequest;
+      const view = await api.enhancedSetEnabled(v.game, v.name, on);
+      if (request === enhancedRequest) enhanced = view;
       said = null;
     } catch (e) {
       said = { text: message(e), failed: true };
@@ -163,7 +172,6 @@
   const message = (e: unknown) => (typeof e === "string" ? e : String(e));
 
   async function load() {
-    void loadEnhanced();
     try {
       mods = await api.pluginsList(v.game, v.name);
       listError = null;
@@ -180,13 +188,27 @@
 
   async function checkUpdates(quiet = false) {
     checking = true;
+    // Asked for: the mods the index lists are looked at too, from a fresh fetch of it (the
+    // per-repository look below leaves them out). First, so that look knows which they are.
+    let index: T.IndexFound | null = null;
+    const errors: string[] = [];
+    if (!quiet) {
+      try {
+        index = await checkIndex(v);
+        if (index.updated > 0) await load();
+      } catch (e) {
+        errors.push(message(e));
+      }
+    }
     try {
       const found = await api.pluginsCheckUpdates(v.game, v.name);
       updates = Object.fromEntries(found.updates.map((u) => [u.id, u]));
       markChecked(v.game);
       if (!quiet) {
         const n = found.updates.length;
-        said = { text: T.updatesFound(n, found.errors), failed: found.errors.length > 0 && n === 0 };
+        errors.push(...found.errors);
+        const any = n > 0 || (index !== null && index.updated + index.waiting + index.held > 0);
+        said = { text: T.updatesFound(n, errors, index), failed: errors.length > 0 && !any };
       }
     } catch (e) {
       if (!quiet) said = { text: message(e), failed: true };

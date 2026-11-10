@@ -9,4 +9,9 @@ ammo: number | null,
  * Experience, for a weapon that upgrades by it: in a level, the game upgrades the weapon
  * itself once this reaches the upgrade's threshold.
  */
-xp: number | null, };
+xp: number | null, 
+/**
+ * The version, 0 for V1 to 3 for V4 (an index into the item's `versions`), for an item with
+ * more than one: the record chunk 30 holds.
+ */
+version: number | null, };

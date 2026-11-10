@@ -171,14 +171,21 @@ bool LocalLights::capture_edits(bool new_frame, std::vector<LocalLight>& pending
 }
 
 // Apply the captured lights and the current native bank once per frame.
-void LocalLights::prepare(std::uint64_t frame, const std::array<float, 64>& game, bool enabled) {
+void LocalLights::prepare(
+    std::uint64_t frame,
+    const std::array<float, 64>& game,
+    bool enabled,
+    std::span<const renderer::PointEmitter> emitters
+) {
     if (!is_vulkan() || !enhanced_rendering_available()) {
         return;
     }
 
     const bool new_frame = frame != m_frame || m_enabled != enabled;
 
-    if (!new_frame && game == m_game) {
+    const bool emitters_changed =
+        !std::equal(emitters.begin(), emitters.end(), m_emitters.begin(), m_emitters.end());
+    if (!new_frame && game == m_game && !emitters_changed) {
         return;
     }
 
@@ -195,6 +202,20 @@ void LocalLights::prepare(std::uint64_t frame, const std::array<float, 64>& game
 
     std::vector<LocalLight> pending;
     const bool edited = capture_edits(new_frame, pending);
+    if (emitters_changed) {
+        m_emitters.assign(emitters.begin(), emitters.end());
+    }
+    upload_records(game, pending, edited, emitters_changed);
+    m_count = unsigned(m_records.size());
+    stats::gauge("local lights", double(m_count));
+}
+
+void LocalLights::upload_records(
+    const std::array<float, 64>& game,
+    std::span<const LocalLight> authored,
+    bool authored_changed,
+    bool emitters_changed
+) {
     std::array<Record, 8> original{};
 
     for (std::size_t i = 0; i < 8; ++i) {
@@ -204,28 +225,54 @@ void LocalLights::prepare(std::uint64_t frame, const std::array<float, 64>& game
 
     glBindBuffer(wgl::GL_TEXTURE_BUFFER, m_buffers[0]);
 
-    if (edited || m_records.empty()) {
-        m_records.resize(8 + pending.size());
+    if (authored_changed) {
+        m_authored_count = authored.size();
+    }
+
+    const auto emitter_count = std::min(m_emitters.size(), kAuthorLimit - m_authored_count);
+    const auto emitter_offset = original.size() + m_authored_count;
+    const auto count = emitter_offset + emitter_count;
+    const bool replace = authored_changed || count != m_records.size();
+    const bool game_changed =
+        replace || !std::equal(original.begin(), original.end(), m_records.begin());
+    m_records.resize(count);
+    if (game_changed) {
         std::copy(original.begin(), original.end(), m_records.begin());
+    }
 
-        for (std::size_t i = 0; i < pending.size(); ++i) {
-            m_records[i + 8] = pack_light(pending[i]);
+    for (std::size_t i = 0; i < authored.size(); ++i) {
+        m_records[original.size() + i] = pack_light(authored[i]);
+    }
+    if (replace || emitters_changed) {
+        for (std::size_t i = 0; i < emitter_count; ++i) {
+            const auto& emitter = m_emitters[i];
+            m_records[emitter_offset + i] = pack_light(
+                {.position = emitter.position, .colour = emitter.radiance, .range = emitter.range}
+            );
         }
-
+    }
+    if (replace) {
         glBufferData(
             wgl::GL_TEXTURE_BUFFER,
             GLsizeiptr(m_records.size() * sizeof(Record)),
             m_records.data(),
             GL_DYNAMIC_DRAW
         );
-    } else if (!std::equal(original.begin(), original.end(), m_records.begin())) {
-        // A moving game light changes only its eight-slot prefix, not the static authored table.
-        std::copy(original.begin(), original.end(), m_records.begin());
-        glBufferSubData(wgl::GL_TEXTURE_BUFFER, 0, sizeof(original), original.data());
+        return;
     }
 
-    m_count = unsigned(m_records.size());
-    stats::gauge("local lights", double(m_count));
+    // Moving lights update their own records and leave the authored lights resident.
+    if (game_changed) {
+        glBufferSubData(wgl::GL_TEXTURE_BUFFER, 0, sizeof(original), original.data());
+    }
+    if (emitters_changed && emitter_count != 0) {
+        glBufferSubData(
+            wgl::GL_TEXTURE_BUFFER,
+            GLintptr(emitter_offset * sizeof(Record)),
+            GLsizeiptr(emitter_count * sizeof(Record)),
+            m_records.data() + emitter_offset
+        );
+    }
 }
 
 // Device limits and shader failures leave the complete all-light table usable.
@@ -350,6 +397,8 @@ void LocalLights::bind(
 }
 
 void LocalLights::release() {
+    m_emitters.clear();
+    m_authored_count = 0;
     m_cull.release();
     glDeleteBuffers(2, m_buffers.data());
     glDeleteTextures(2, m_textures.data());

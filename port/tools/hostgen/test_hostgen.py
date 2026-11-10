@@ -173,6 +173,79 @@ class Translate(unittest.TestCase):
                 self.assertEqual(out, ["200000", "4040c8", "4040c8", "305419896",
                                        "200000", "292424", "292424", "305419896"])
 
+    def test_a_caller_of_another_units_record_by_value_function_is_left_to_its_assembly(self):
+        # The shared prototypes have no form for a record by value, so a.c's generated C would call
+        # func_00100000 and func_00100040 undeclared (rac4's net/01EB8488.c, core/00120378.c): its two
+        # callers are left to their assembly (stubs, with no assembly here), and so is the caller of
+        # the one that takes a record itself. b.c's own call to its function stays C.
+        out = self.run_program({"a.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p);
+            Pair func_00100040(int x);
+            int func_00100100(int x) { Pair p; p.a = x; p.b = 1; return func_00100000(p); }
+            int func_00100140(int x) { return func_00100040(x).a; }
+            int func_00100180(Pair p) { return func_00100000(p) + 1; }
+            int func_001001C0(Pair p) { return func_00100180(p); }
+            int test_main(void) { test_print(func_00100240(4)); return 0; }
+        """, "b.c": """
+            typedef struct { int a; int b; } Pair;
+            int func_00100000(Pair p) { return p.a + p.b; }
+            Pair func_00100040(int x) { Pair p; p.a = x; p.b = x; return p; }
+            int func_00100240(int x) { Pair p; p.a = x; p.b = 2; return func_00100000(p); }
+        """})
+        self.assertEqual(out, ["6"])
+        self.assertEqual(self.last_report["unprototyped_callers"],
+                         ["func_00100100", "func_00100140", "func_00100180", "func_001001C0"])
+        self.assertNotIn("int func_00100100(", self.last_generated)
+        self.assertIn("int func_00100240(", self.last_generated)
+
+    def test_a_user_of_a_derived_name_with_no_address_is_left_to_its_assembly(self):
+        # rac2-decomp matched func_L00_003ABEC0 after the port's derived_names.json was written: its
+        # call of ref_L00_003ABEC0_00 reached a stub that does nothing, and the Todano robot never
+        # finished his walk. A definition that calls, takes or reads a derived name the table has no
+        # address for (through a static helper too) runs its assembly instead (stubs, with no
+        # assembly here), and the report and one warning name each. A name the table values stays C.
+        import contextlib
+        import io
+        files = {"a.c": """
+            extern void ref_00100100_00(int);
+            extern void ref_00100140_00(int);
+            extern int ref_00100180_00;
+            static int helper(void) { return ref_00100180_00; }
+            void func_00100100(int x) { ref_00100100_00(x + 1); }
+            void func_00100140(int x) { ref_00100140_00(x); }
+            int func_00100180(void) { return helper() + 1; }
+            int func_001001C0(void) { void (*f)(int) = ref_00100140_00; return f != 0; }
+            void func_00100200(int x) { ref_00100180_00 = x; }
+            void func_V1_00100300(int x) { ref_00100140_00(x); }
+            int test_main(void) { func_00100100(4); return 0; }
+        """, "b.c": """
+            void func_00100240(int x) { test_print(x); }
+        """}
+        table = {"values": {"ref_00100100_00": "0x00100240"}, "levels": {}, "unresolved": ["ref_00100180_00"]}
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            # The static helper is a stub no translated function calls (its one caller runs the assembly).
+            out = self.run_program(files, config={"derived": {"table": "derived_names.json"}},
+                                   extra_files={"derived_names.json": json.dumps(table)}, stubs=1)
+        self.assertEqual(out, ["5"])
+        self.assertEqual(list(self.last_report["stubbed"]), ["helper"])
+        self.assertEqual(self.last_report["unresolved_derived"], {
+            "func_00100140": ["ref_00100140_00"], "func_00100180": ["ref_00100180_00"],
+            "func_001001C0": ["ref_00100140_00"], "func_00100200": ["ref_00100180_00"]})
+        for sym in ("func_00100140", "func_00100180", "func_001001C0", "func_00100200"):
+            self.assertNotRegex(self.last_generated, rf"\b{sym}\([^;{{]*\)\s*\{{")  # no definition
+        self.assertIn("void func_00100100(", self.last_generated)
+        # A function the program has no place for (another release's func_V1_ names) runs nowhere: left alone.
+        self.assertIn("void func_V1_00100300(", self.last_generated)
+        warning = err.getvalue()
+        self.assertIn("derived_names.json is behind the decomp; regenerate it", warning)
+        self.assertIn("func_00100140: ref_00100140_00", warning)
+        self.assertIn("func_001001C0: ref_00100140_00", warning)
+        # The names the table lists as unresolved (its build had no value for them) are said apart.
+        self.assertIn("2 functions use names derived_names.json lists as unresolved", warning)
+        self.assertIn("func_00100200: ref_00100180_00", warning)
+
     def test_globals_structs_and_pointer_arithmetic(self):
         out = self.run_program({"a.c": """
             typedef struct Node { struct Node *next; short id; char pad; float f; s64 big; int arr[3]; } Node;
@@ -1102,16 +1175,53 @@ class Translate(unittest.TestCase):
     def test_asm_spelled_through_a_macro_is_read_and_reported(self):
         # The NTSC decomp's MOBY_CALL_UPDATE (include/moby_update.h) writes the moby update loops'
         # call as a jalr in a macro: Clang's JSON has no text for it, and it became a barrier
-        # unreported, so no moby's update ran. Now its instructions are read where the macro spells
-        # them, and what the host does not run is listed.
+        # unreported, so no moby's update ran. Its instructions are read where the macro spells
+        # them; what the host does not run is listed.
+        out = self.run_program({"a.c": """
+            #define SPIN(x) __asm__ __volatile__("vnop\\n\\tvnop" : : "r"(x))
+            int loop(int seen) { SPIN(seen); return seen; }
+            int test_main(void) { test_print(loop(3)); return 0; }
+        """})
+        self.assertEqual(out, ["3"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "vnop"})
+
+    def test_a_hook_call_in_asm_through_a_macro_runs(self):
+        # MOBY_CALL_UPDATE's call (beqz, move $4, jalr, spelled in a macro) calls the hook with a0.
         out = self.run_program({"a.c": """
             #define CALL_IF(f, x) __asm__ __volatile__("beqz %0, 1f\\n\\tmove $4, %1\\n\\tjalr %0\\n1:" : : "r"(f), "r"(x) : "$4", "$31", "memory")
             void func_00100100(int *seen) { *seen += 2; }
-            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); }
+            void loop(void (*f)(int *), int *seen) { CALL_IF(f, seen); CALL_IF((void (*)(int *))0, seen); }
             int test_main(void) { int seen = 0; loop(func_00100100, &seen); test_print(seen); return 0; }
         """})
-        self.assertEqual(out, ["0"])
-        self.assertEqual(self.last_report["inline_assembly_skipped"], {"loop": "beqz, move, jalr, 1:"})
+        self.assertEqual(out, ["2"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
+
+    def test_call_hook_runs_the_hook(self):
+        # rac2-decomp's call_hook (include/common.h), with which its moby update loops (func_002B6658,
+        # func_L00_0032CF60) call each object's update hook: as a barrier no hook ran, and Hrugis
+        # Cloud's ship never flew. An output the asm never writes, a0 named $4, the call a jal $31.
+        out = self.run_program({"a.c": """
+            static __inline__ void call_hook(void *fn, void *arg) {
+                int r;
+                __asm__ volatile("beq %1,$0,1f\\n\\tmove $4,%2\\n\\tjal $31,%1\\n1:"
+                                 : "=r"(r)
+                                 : "r"(fn), "r"(arg)
+                                 : "$4", "$31", "memory");
+            }
+            struct Node { int seen; void (*update)(struct Node *); struct Node *next; };
+            void func_00100100(struct Node *n) { n->seen += 5; }
+            void loop(struct Node *t) { for (; t != 0; t = t->next) call_hook(t->update, t); }
+            int test_main(void) {
+                struct Node b = {1, 0, 0};
+                struct Node a = {0, func_00100100, &b};
+                loop(&a);
+                test_print(a.seen);
+                test_print(b.seen);
+                return 0;
+            }
+        """})
+        self.assertEqual(out, ["5", "1"])
+        self.assertEqual(self.last_report["inline_assembly_skipped"], {})
 
     def test_a_macro_given_as_c_in_the_defines_replaces_its_asm(self):
         # hostgen.json "defines": the macro's header guard and the macro as C (rac1-ntsc's
@@ -2739,6 +2849,25 @@ class Preparation(unittest.TestCase):
         both = 'void func_0022F4C0(void) {}\nvoid func_0022F4C8(char *m) {}\n'
         text = prep.use_candidates(out, {"func_0022F4C0": both}, set())
         self.assertEqual(text.count("void func_0022F4C8(char *m)"), 1)
+
+    def test_a_readable_name_defined_again_takes_its_address_name(self):
+        # rac1-decomp's loaders.c (f911d6e4): under OPENRAC_HOSTGEN it #undefs a readable name and
+        # defines it again from the block's first base; its uses become the address name, so the
+        # new definition has to be that name too.
+        # A readable name defined over its own address with no #undef (a cast for its calls)
+        # stays a macro of that name.
+        aliases = {"class_resource_ids": "D_001CBE40", "compressed_class_resources": "D_001CBEA0",
+                   "is_point_inside_clip_volume": "func_00215570"}
+        src = ('extern int class_resource_ids[];\n'
+               '#undef compressed_class_resources\n'
+               '#define compressed_class_resources ((int *)((char *)class_resource_ids + 0x60))\n'
+               'int f(int i) { return compressed_class_resources[i]; }\n'
+               '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n')
+        out = prep.unalias(src, aliases)
+        self.assertIn('#undef D_001CBEA0\n'
+                      '#define D_001CBEA0 ((int *)((char *)class_resource_ids + 0x60))\n'
+                      'int f(int i) { return D_001CBEA0[i]; }\n'
+                      '#define is_point_inside_clip_volume ((int (*)(void *, int))func_00215570)\n', out)
 
     def test_carried_names_become_the_address_names_of_their_values(self):
         # Going Commando keeps rac1-decomp's names (rac1's addresses) for what it has not named;

@@ -24,6 +24,7 @@ void Settings::reset_enhanced() {
     shadow_quality = defaults.shadow_quality;
     volumetric_quality = defaults.volumetric_quality;
     rim_light = defaults.rim_light;
+    nanotech_light = defaults.nanotech_light;
     rim_shadow_lift = defaults.rim_shadow_lift;
     rim_lift_exponent = defaults.rim_lift_exponent;
     rim_lift_max_gain = defaults.rim_lift_max_gain;
@@ -40,6 +41,7 @@ void Settings::reset_enhanced() {
     gtao = defaults.gtao;
     gtao_settings = defaults.gtao_settings;
     temporal_quality = defaults.temporal_quality;
+    bloom = defaults.bloom;
     agx_preview = defaults.agx_preview;
     agx_exposure = defaults.agx_exposure;
     agx_brightness = defaults.agx_brightness;
@@ -332,6 +334,18 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 2.0f, s.probe_normal_bias);
         } else if (key == "probe_view_bias") {
             known = parse_float(value, 0.0f, 2.0f, s.probe_view_bias);
+        } else if (key == "nanotech_light") {
+            known = parse_bool(value, s.nanotech_light.enabled);
+        } else if (key == "nanotech_light_red") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[0]);
+        } else if (key == "nanotech_light_green") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[1]);
+        } else if (key == "nanotech_light_blue") {
+            known = parse_float(value, 0.0f, 1.0f, s.nanotech_light.colour[2]);
+        } else if (key == "nanotech_light_brightness") {
+            known = parse_float(value, 0.0f, 8.0f, s.nanotech_light.brightness);
+        } else if (key == "nanotech_light_range") {
+            known = parse_float(value, 0.1f, 12.0f, s.nanotech_light.range);
         } else if (key == "probe_gi_multiplier") {
             known = parse_float(value, 0.0f, 5.0f, s.probe_gi_multiplier);
         } else if (key == "sun_direction_override") {
@@ -358,6 +372,16 @@ void load(const std::filesystem::path& file) {
             known = parse_float(value, 0.0f, 3.0f, s.gtao_settings.strength);
         } else if (key == "temporal_quality") {
             known = parse(value, renderer::kTemporalKeys, s.temporal_quality);
+        } else if (key == "bloom_enabled") {
+            known = parse_bool(value, s.bloom.enabled);
+        } else if (key == "bloom_strength") {
+            known = parse_float(value, 0.0f, 1.0f, s.bloom.strength);
+        } else if (key == "bloom_threshold") {
+            known = parse_float(value, 0.0f, 4.0f, s.bloom.threshold);
+        } else if (key == "bloom_knee") {
+            known = parse_float(value, 0.0f, 1.0f, s.bloom.knee);
+        } else if (key == "bloom_scatter") {
+            known = parse_float(value, 0.0f, 1.0f, s.bloom.scatter);
         } else if (key == "agx_preview") {
             known = parse_bool(value, s.agx_preview);
         } else if (key == "agx_exposure") {
@@ -590,6 +614,12 @@ void save() {
         << "ceiling_area_lights = " << (s.ceiling_area_lights ? 1 : 0) << "\n"
         << "environment_probe_debug = " << (s.environment_probe_debug ? 1 : 0) << "\n"
         << "probe_gi_multiplier = " << s.probe_gi_multiplier << "\n"
+        << "nanotech_light = " << (s.nanotech_light.enabled ? 1 : 0) << "\n"
+        << "nanotech_light_red = " << s.nanotech_light.colour[0] << "\n"
+        << "nanotech_light_green = " << s.nanotech_light.colour[1] << "\n"
+        << "nanotech_light_blue = " << s.nanotech_light.colour[2] << "\n"
+        << "nanotech_light_brightness = " << s.nanotech_light.brightness << "\n"
+        << "nanotech_light_range = " << s.nanotech_light.range << "\n"
         << "probe_normal_bias = " << s.probe_normal_bias << "\n"
         << "probe_view_bias = " << s.probe_view_bias << "\n"
         << "sun_direction_override = " << (s.sun_direction_override ? 1 : 0) << "\n"
@@ -606,6 +636,11 @@ void save() {
         << "texture_filter = " << kTextureFilter[static_cast<int>(s.texture_filter)] << "\n"
         << "temporal_quality = " << renderer::kTemporalKeys[static_cast<int>(s.temporal_quality)]
         << "\n"
+        << "bloom_enabled = " << (s.bloom.enabled ? 1 : 0) << "\n"
+        << "bloom_strength = " << s.bloom.strength << "\n"
+        << "bloom_threshold = " << s.bloom.threshold << "\n"
+        << "bloom_knee = " << s.bloom.knee << "\n"
+        << "bloom_scatter = " << s.bloom.scatter << "\n"
         << "agx_preview = " << (s.agx_preview ? 1 : 0) << "\n"
         << "agx_exposure = " << s.agx_exposure << "\n"
         << "agx_brightness = " << s.agx_brightness << "\n"

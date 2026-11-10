@@ -4,7 +4,9 @@
 // Cached directions, probe integration and worker lifetime for offline level baking.
 #include "enhanced/lighting/bake.h"
 
+#include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cfenv>
 #include <condition_variable>
 #include <exception>
@@ -35,7 +37,49 @@ using bake_detail::Scene;
 
 // Tracing and explicit emission feed the same portable integration records.
 using bake_detail::EmissionSample;
+using bake_detail::ProbeLightDistribution;
 using bake_detail::RaySample;
+
+constexpr unsigned kMinAdaptiveRays = 64;
+constexpr unsigned kMaxAdaptiveRays = 512;
+
+// Sobol dimensions 1 and 2. Every aligned power-of-two block is stratified;
+// a per-probe digital shift avoids using the same directions in nearby probes.
+constexpr auto kAdaptiveSobol = [] {
+    std::array<std::array<std::uint32_t, 2>, kMaxAdaptiveRays> points{};
+    std::array<std::uint32_t, std::bit_width(kMaxAdaptiveRays - 1)> second{};
+    second[0] = 0x80000000u;
+    for (std::size_t i = 1; i < second.size(); ++i) {
+        second[i] = second[i - 1] ^ (second[i - 1] >> 1);
+    }
+    for (unsigned i = 1; i < points.size(); ++i) {
+        const auto bit = std::countr_zero(i);
+        points[i] = {points[i - 1][0] ^ (0x80000000u >> bit), points[i - 1][1] ^ second[bit]};
+    }
+    return points;
+}();
+
+// Apply the probe's digital shift before mapping the Sobol point to a direction.
+Float3 adaptive_direction(unsigned index, const std::array<std::uint32_t, 2>& shift) {
+    const auto& point = kAdaptiveSobol[index];
+    constexpr float kScale = 1.0f / 16777216.0f;
+    const float u = static_cast<float>((point[0] ^ shift[0]) >> 8) * kScale;
+    const float angle = static_cast<float>((point[1] ^ shift[1]) >> 8) * kScale * 2 * kPi;
+    const auto z = 1 - 2 * u;
+    const auto radius = std::sqrt(std::max(0.0f, 1 - z * z));
+    return {radius * std::cos(angle), radius * std::sin(angle), z};
+}
+
+// A floor keeps near-black noise from consuming the whole lighting budget.
+bool accumulate_lighting_error(Float3 a, Float3 b, float& sum) {
+    bool converged = true;
+    for (std::size_t c = 0; c < a.size(); ++c) {
+        const auto error = std::abs(a[c] - b[c]) / (0.01f + 0.12f * std::max(a[c], b[c]));
+        converged &= error <= 3;
+        sum += error * error;
+    }
+    return converged;
+}
 
 // ---- Direction tables ----
 
@@ -173,8 +217,9 @@ struct ProbeWork {
     ) const {
         const profiling::Zone trace("Trace probe lighting");
 
-        const auto& grid = out.grid;
         const auto origin = out.position(probe);
+        const ProbeLightDistribution nearby(scene, origin);
+        const auto* distribution = nearby.local() ? &nearby : nullptr;
         Random random{settings.seed ^ (static_cast<std::uint32_t>(probe) * 747796405u)};
         const float rotation = random.next() * 2 * kPi;
         // Separate sequence: adding emitters cannot perturb first-hit moment rays.
@@ -182,11 +227,7 @@ struct ProbeWork {
             settings.seed ^ (static_cast<std::uint32_t>(probe) * 747796405u) ^ 0x9e3779b9u
         };
 
-        // Explicit emitters use a separate sequence from primary rays and their moments.
-        for (auto& light : emission) {
-            light = sample_emitter(scene, origin, settings.ray_bias, emission_random, settings);
-            weight_emitter(light, 1 / (4.0 * kPi));
-        }
+        sample_emitters(origin, emission, emission_random, distribution);
 
         // Preserve primary order so transport random consumption stays independent of worker scheduling.
         for (std::uint32_t i = 0; i < settings.rays_per_probe; ++i) {
@@ -195,18 +236,162 @@ struct ProbeWork {
             const Float3 direction{
                 base.radius * std::cos(angle), base.radius * std::sin(angle), base.z
             };
-            auto hit = scene.trace(
-                origin, direction, settings.ray_bias, std::numeric_limits<float>::infinity()
+            rays[i] = trace_primary(origin, direction, random, distribution);
+        }
+    }
+
+    void sample_emitters(
+        Float3 origin,
+        std::span<EmissionSample> emission,
+        Random& random,
+        const ProbeLightDistribution* distribution
+    ) const {
+        for (auto& light : emission) {
+            light =
+                sample_emitter(scene, origin, settings.ray_bias, random, settings, distribution);
+            weight_emitter(light, 1 / (4.0 * kPi));
+        }
+    }
+
+    RaySample trace_primary(
+        Float3 origin, Float3 direction, Random& random, const ProbeLightDistribution* distribution
+    ) const {
+        auto hit = scene.trace(
+            origin, direction, settings.ray_bias, std::numeric_limits<float>::infinity()
+        );
+        // Distant geometry still blocks GI; only the stored visibility distance is capped.
+        const float distance = std::min(hit.ray.tfar, out.grid.max_distance);
+        return {direction, radiance(scene, settings, hit, random, distribution), distance};
+    }
+
+    // Compare independent halves of the sample budget, including the directional visibility map.
+    struct Convergence {
+        bool lighting = true;
+        bool visibility = true;
+    };
+
+    Convergence convergence(
+        std::span<const RaySample> rays,
+        std::span<const EmissionSample> emission,
+        bool check_lighting
+    ) const {
+        const auto half = rays.size() / 2;
+        const auto emitter_half = emission.size() / 2;
+        const auto range = out.grid.max_distance;
+        const auto resolution = out.grid.map_resolution;
+        const auto texel_count = std::size_t{resolution} * resolution;
+        constexpr auto kLanes = bake_detail::kIntegrationLanes;
+        float light_error = 0, depth_error = 0, spread_error = 0;
+        Convergence result;
+        const auto spread = [](Float2 moments) {
+            return std::sqrt(std::max(0.0f, moments[1] - moments[0] * moments[0]));
+        };
+
+        for (std::size_t block = 0; block < directions.texels.size(); ++block) {
+            const auto& texels = directions.texels[block];
+            const auto a = bake_detail::integrate_probe_block(
+                texels,
+                rays.first(half),
+                emission.first(emitter_half),
+                settings.distance_exponent,
+                range
             );
-            // Distant geometry still blocks GI; only the stored visibility distance is capped.
-            const float distance = std::min(hit.ray.tfar, grid.max_distance);
-            rays[i] = {direction, radiance(scene, settings, hit, random), distance};
+            const auto b = bake_detail::integrate_probe_block(
+                texels,
+                rays.last(half),
+                emission.last(emitter_half),
+                settings.distance_exponent,
+                range
+            );
+            for (std::size_t lane = 0; lane < std::min(kLanes, texel_count - block * kLanes);
+                 ++lane) {
+                if (check_lighting && result.lighting) {
+                    result.lighting = accumulate_lighting_error(
+                        a[lane].irradiance, b[lane].irradiance, light_error
+                    );
+                }
+                const auto& x = a[lane].moments;
+                const auto& y = b[lane].moments;
+                const auto depth_delta = std::abs(x[0] - y[0]) / (0.06f * range);
+                const auto spread_delta = std::abs(spread(x) - spread(y)) / (0.08f * range);
+                result.visibility &= depth_delta <= 3 && spread_delta <= 3;
+                depth_error += depth_delta * depth_delta;
+                spread_error += spread_delta * spread_delta;
+                if (!result.visibility && (!result.lighting || !check_lighting)) {
+                    return {false, false};
+                }
+            }
+        }
+        // Test the whole map while bounding individual directions above.
+        const auto texels = static_cast<float>(texel_count);
+        result.lighting &= light_error <= 3 * texels;
+        result.visibility &= depth_error <= texels && spread_error <= texels;
+        return result;
+    }
+
+    std::pair<unsigned, unsigned> bake_adaptive(
+        std::size_t probe, std::span<RaySample> rays, std::span<EmissionSample> emission
+    ) const {
+        const auto origin = out.position(probe);
+        const ProbeLightDistribution nearby(scene, origin);
+        const auto* distribution = nearby.local() ? &nearby : nullptr;
+        const auto seed = settings.seed ^ (static_cast<std::uint32_t>(probe) * 747796405u);
+        Random transport{seed};
+        Random emitter{seed ^ 0x9e3779b9u};
+        Random orientation{seed ^ 0x85ebca6bu};
+        std::array<std::uint32_t, 2> shift{};
+        for (auto& axis : shift) {
+            orientation.next();
+            axis = orientation.state;
+        }
+        unsigned lighting_count = 0;
+        unsigned count = 0;
+        for (unsigned target = kMinAdaptiveRays;; target *= 2) {
+            const auto first = count;
+            for (; count < target; ++count) {
+                const auto direction = adaptive_direction(count, shift);
+                // Once lighting converges, only the first hit contributes.
+                if (lighting_count) {
+                    const auto hit =
+                        scene.trace(origin, direction, settings.ray_bias, out.grid.max_distance);
+                    rays[count] = {direction, {}, hit.ray.tfar};
+                } else {
+                    rays[count] = trace_primary(origin, direction, transport, distribution);
+                }
+            }
+            // The emitter sequence is independent of the transport sequence.
+            if (!emission.empty() && !lighting_count) {
+                sample_emitters(
+                    origin, emission.subspan(first, count - first), emitter, distribution
+                );
+            }
+
+            const auto primary = rays.first(count);
+            const auto radiance_count = lighting_count ? lighting_count : count;
+            const auto lights = emission.first(emission.empty() ? 0 : radiance_count);
+            const auto result = count == kMaxAdaptiveRays
+                                    ? Convergence{}
+                                    : convergence(
+                                          primary,
+                                          lighting_count ? std::span<EmissionSample>{} : lights,
+                                          !lighting_count
+                                      );
+            if (result.visibility && (lighting_count || result.lighting)) {
+                integrate(probe, primary, lights, lighting_count);
+                return {count, radiance_count};
+            }
+            if (result.lighting && !lighting_count) {
+                lighting_count = count;
+            }
         }
     }
 
     // Writes integrated texels while leaving odd-resolution tail lanes outside the gutters.
     void integrate(
-        std::size_t probe, std::span<const RaySample> rays, std::span<const EmissionSample> emission
+        std::size_t probe,
+        std::span<const RaySample> rays,
+        std::span<const EmissionSample> emission,
+        std::size_t lighting_ray_count = 0
     ) const {
         const profiling::Zone trace("Integrate probe maps");
 
@@ -221,7 +406,8 @@ struct ProbeWork {
                 rays,
                 emission,
                 settings.distance_exponent,
-                grid.max_distance
+                grid.max_distance,
+                lighting_ray_count
             );
 
             // Store active texels into the bordered probe map.
@@ -242,12 +428,16 @@ struct ProbeWork {
     }
 
     // Completes one probe using buffers private to its worker.
-    void bake(
+    std::pair<unsigned, unsigned> bake(
         std::size_t probe, std::vector<RaySample>& rays, std::vector<EmissionSample>& emission
     ) const {
         relocate(probe);
+        if (settings.adaptive_rays) {
+            return bake_adaptive(probe, rays, emission);
+        }
         sample(probe, rays, emission);
         integrate(probe, rays, emission);
+        return {settings.rays_per_probe, settings.rays_per_probe};
     }
 };
 
@@ -295,6 +485,16 @@ public:
         if (m_failure) {
             std::rethrow_exception(m_failure);
         }
+        if (m_work.settings.adaptive_rays) {
+            log::info(
+                "adaptive probe rays: 64={} 128={} 256={} 512={}",
+                m_ray_counts[0].load(),
+                m_ray_counts[1].load(),
+                m_ray_counts[2].load(),
+                m_ray_counts[3].load()
+            );
+            log::info("adaptive visibility-only rays: {}", m_visibility_only.load());
+        }
     }
 
 private:
@@ -308,10 +508,12 @@ private:
     std::fenv_t m_environment;           // Caller arithmetic environment copied to worker threads.
     std::atomic<std::size_t> m_next{0};  // Atomic probe claim shared by workers.
     std::atomic<bool> m_stopped{false};  // Atomic cancellation flag shared by caller and workers.
-    std::mutex m_mutex;                  // Guards completion count and the first worker failure.
-    std::condition_variable m_changed;   // Wakes the caller on completion or failure.
-    std::size_t m_completed = 0;         // Guarded by m_mutex.
-    std::exception_ptr m_failure;        // Guarded by m_mutex until all workers join.
+    std::array<std::atomic<std::size_t>, 4> m_ray_counts{};
+    std::atomic<std::size_t> m_visibility_only{0};
+    std::mutex m_mutex;                 // Guards completion count and the first worker failure.
+    std::condition_variable m_changed;  // Wakes the caller on completion or failure.
+    std::size_t m_completed = 0;        // Guarded by m_mutex.
+    std::exception_ptr m_failure;       // Guarded by m_mutex until all workers join.
 
     // Reports directly on the serial path or wakes the caller after publishing completion.
     void complete(std::size_t probe) {
@@ -346,6 +548,15 @@ private:
         m_changed.notify_one();
     }
 
+    // Record the stopping checkpoint and the samples spent on visibility alone.
+    void record_adaptive_counts(unsigned count, unsigned lighting) {
+        const auto bucket = std::bit_width(count / kMinAdaptiveRays) - 1;
+        m_ray_counts[bucket].fetch_add(1, std::memory_order_relaxed);
+        if (count != lighting) {
+            m_visibility_only.fetch_add(count - lighting, std::memory_order_relaxed);
+        }
+    }
+
     // Claims probes until exhausted or cancelled, with private reusable ray buffers.
     void worker() {
         const profiling::Zone trace("Bake worker");
@@ -357,11 +568,10 @@ private:
                 throw std::runtime_error("could not set bake floating-point environment");
             }
 
-            std::vector<RaySample> rays(m_work.settings.rays_per_probe);
-            std::vector<EmissionSample> emission(
-                m_work.scene.emitters.empty() ? 0 : m_work.settings.rays_per_probe
-            );
-
+            const auto budget =
+                m_work.settings.adaptive_rays ? kMaxAdaptiveRays : m_work.settings.rays_per_probe;
+            std::vector<RaySample> rays(budget);
+            std::vector<EmissionSample> emission(m_work.scene.emitters.empty() ? 0 : budget);
             // Cancellation stops new claims; already claimed probes may finish their disjoint writes.
             while (!m_stopped.load(std::memory_order_relaxed)) {
                 const auto probe = m_next.fetch_add(1, std::memory_order_relaxed);
@@ -371,7 +581,10 @@ private:
                     break;
                 }
 
-                m_work.bake(probe, rays, emission);
+                const auto [count, lighting] = m_work.bake(probe, rays, emission);
+                if (m_work.settings.adaptive_rays) {
+                    record_adaptive_counts(count, lighting);
+                }
                 complete(probe);
             }
 
@@ -437,44 +650,6 @@ private:
         }
     }
 };
-
-// Runs task(i) for i in [0, count) on the bake's workers; the first failure is rethrown.
-void parallel_for(
-    std::size_t count, const BakeExecution& execution, const std::function<void(std::size_t)>& task
-) {
-    if (!execution.pool || execution.threads <= 1) {
-        for (std::size_t i = 0; i < count; ++i) {
-            task(i);
-        }
-        return;
-    }
-
-    std::fenv_t environment;
-    std::fegetenv(&environment);
-    std::atomic<std::size_t> next{0};
-    std::mutex mutex;
-    std::exception_ptr failure;
-    const auto result = execution.pool->run(execution.threads, [&] {
-        try {
-            std::fesetenv(&environment);
-            for (auto i = next.fetch_add(1); i < count && !failure; i = next.fetch_add(1)) {
-                task(i);
-            }
-        } catch (...) {
-            const std::lock_guard lock(mutex);
-            if (!failure) {
-                failure = std::current_exception();
-            }
-        }
-    });
-
-    if (!result) {
-        throw std::runtime_error(result.error().message);
-    }
-    if (failure) {
-        std::rethrow_exception(failure);
-    }
-}
 
 #if OPENRAC_GPU_BAKE
 // relocate() for every probe, with each classification round as one ray-query batch.
@@ -599,7 +774,7 @@ void check_gpu(
         }
     }
 
-    parallel_for(picked.size(), execution, [&](std::size_t k) {
+    parallel_bake_indices(picked.size(), execution, [&](std::size_t k) {
         const auto i = picked[k];
         std::vector<RaySample> cpu(per_probe);
         std::vector<EmissionSample> cpu_emission(emission.empty() ? 0 : per_probe);
@@ -685,13 +860,22 @@ struct ProbeBaker::Impl {
         const BakeScene& input,
         const BakeSettings& options,
         std::uint32_t threads,
-        BakeThreadPool* workers
+        BakeThreadPool* workers,
+        bake_detail::EmissionAverageCache* emission_cache
     )
         : settings(options),
-          scene(input, options.sunlight_direction, threads),
+          scene(
+              input,
+              options.sunlight_direction,
+              {.threads = threads,
+               .pool = workers,
+               .emission_cache = emission_cache,
+               .prepare_nearby_mesh_lights = options.adaptive_rays,
+               .high_build_quality = true}
+          ),
           pool(workers) {
 #if OPENRAC_GPU_BAKE
-        if (env::flag(env::Var::GpuBake)) {
+        if (!settings.adaptive_rays && env::flag(env::Var::GpuBake)) {
             gpu = bake_detail::GpuTransport::create(scene, settings);
         }
 #endif
@@ -714,15 +898,20 @@ ProbeBaker::ProbeBaker(
     const BakeScene& input,
     const BakeSettings& settings,
     std::uint32_t threads,
-    BakeThreadPool* pool
+    BakeThreadPool* pool,
+    bake_detail::EmissionAverageCache* emission_cache
 ) {
     const profiling::Zone trace("Prepare probe scene");
 
     bake_detail::validate_bake_scene(input, settings);
-    m_impl = std::make_unique<Impl>(input, settings, threads, pool);
+    m_impl = std::make_unique<Impl>(input, settings, threads, pool, emission_cache);
 }
 
 ProbeBaker::~ProbeBaker() = default;
+
+const Scene& ProbeBaker::traversal_scene() const {
+    return m_impl->scene;
+}
 
 // ---- Probe workers ----
 
@@ -813,7 +1002,7 @@ ProbeVolume ProbeBaker::bake(
                 check_gpu(work, start, batch, rays, emission, execution);
             }
 
-            parallel_for(batch, execution, [&](std::size_t i) {
+            parallel_bake_indices(batch, execution, [&](std::size_t i) {
                 const auto at = i * rays_per_probe;
                 work.integrate(
                     start + i,

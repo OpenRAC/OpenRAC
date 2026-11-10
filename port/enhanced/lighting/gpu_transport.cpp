@@ -614,13 +614,20 @@ struct GpuTransport::Impl {
             }
 
             if (t.emission != Float3{}) {
+                const auto index = emitter_of[i];
+                const auto average =
+                    index < 0 ? std::optional<Float3>{}
+                              : scene.emitters[static_cast<std::size_t>(index)].average_emission;
                 m.extra[1] = static_cast<std::int32_t>(emissions.size());
                 emissions.push_back(
-                    {v4(t.emission, t.emission_contrast),
+                    {v4(average.value_or(t.emission), t.emission_contrast),
                      {v4(t.emission_colours[0]),
                       v4(t.emission_colours[1]),
                       v4(t.emission_colours[2])},
-                     {t.emission_texture, t.emission_vertex_colour ? 1 : 0, 0, 0},
+                     {t.emission_texture,
+                      t.emission_vertex_colour ? 1 : 0,
+                      (average || t.mesh_emission) ? 1 : 0,
+                      t.emission_uses_cutout ? 1 : 0},
                      {emission_scale(t, settings), 0, 0, 0}}
                 );
             }

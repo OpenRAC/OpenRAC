@@ -1265,6 +1265,13 @@ bool load_level(
         }
         material.emission_vertex_colour =
             edit["vertex_colour"].boolean(material.emission_vertex_colour);
+        if (const auto& average = edit["average_for_bake"]; !average.is_null()) {
+            if (average.type() != json::Value::Type::Bool) {
+                error = "average_for_bake requires a boolean in probe-emission.json";
+                return false;
+            }
+            material.average_emission_for_bake = average.boolean();
+        }
         material.diffuse_scale =
             static_cast<float>(edit["diffuse_scale"].number(material.diffuse_scale));
         if (!std::isfinite(material.diffuse_scale) || material.diffuse_scale < 0

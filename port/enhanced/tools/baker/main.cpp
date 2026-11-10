@@ -18,6 +18,7 @@
 
 #include "common/json.h"
 #include "common/profiler.h"
+#include "enhanced/lighting/bake_material.h"
 #include "enhanced/lighting/probe_texture_encode.h"
 #include "enhanced/tools/baker/batch.h"
 #include "enhanced/tools/baker/batch_command.h"
@@ -27,6 +28,7 @@
 #include "enhanced/tools/baker/pipeline/pipeline.h"
 #include "enhanced/tools/baker/probe_device.h"
 #include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/emission_migration.h"
 #include "enhanced/tools/baker/sources/emission_prepare.h"
 #include "enhanced/tools/baker/sources/emission_review.h"
 #include "enhanced/tools/baker/sources/emission_textures.h"
@@ -75,7 +77,10 @@ void usage() {
     std::cout
         << "Offline enhanced lighting bake (no game window)\n"
         << "openrac-enhanced-baker --inspect-emissive-task LEVELS_DIR REVIEW_JSON TASK_ID\n"
-        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--update]\n"
+        << "openrac-enhanced-baker --calculate-mesh-emission LEVEL_DIR\n"
+        << "openrac-enhanced-baker --migrate-mesh-emission LEVEL_DIR MATERIAL_OVERRIDES.json\n"
+        << "openrac-enhanced-baker --bake-all --levels-dir DIR --output-dir DIR [--mods-dir DIR] "
+           "[--update]\n"
         << "  --jobs N --memory-mib N\n"
         << "  --compression auto|none|bc6h|astc (colour: default auto; ASTC colour requires HDR "
            "support)\n"
@@ -219,7 +224,25 @@ int main(int argc, char** argv) {
             std::cout << emission_texture_fingerprint(argv[2], argv[3]) << '\n';
             return 0;
         }
+        if (argc == 3 && std::string_view(argv[1]) == "--print-mod-key") {
+            std::cout << probe_variant_key(argv[2]) << '\n';
+            return 0;
+        }
+        if (argc == 4 && std::string_view(argv[1]) == "--print-modded-source") {
+            std::cout << probe_input_hash(argv[2], argv[3]) << '\n';
+            return 0;
+        }
         profiling::thread_name("Enhanced bake");
+
+        if (argc == 3 && std::string_view(argv[1]) == "--calculate-mesh-emission") {
+            std::cout << calculate_mesh_emission(argv[2]);
+            return 0;
+        }
+
+        if (argc == 4 && std::string_view(argv[1]) == "--migrate-mesh-emission") {
+            migrate_mesh_emission(argv[2], argv[3]);
+            return 0;
+        }
 
         if (argc > 1 && std::string_view(argv[1]) == "--inspect-emissive-task") {
             if (argc != 5) {
@@ -339,13 +362,15 @@ int main(int argc, char** argv) {
 
         // ---- Single-grid inspection, verification and baking ----
 
-        fs::path directory, output, verify, compare_coarse;
+        fs::path directory, overrides, output, verify, compare_coarse;
         bool inspect = false, game_rounding = false, print_profile = false;
 
         // Resolve the directory first: explicit CLI overrides win in any order.
         for (int i = 1; i + 1 < argc; ++i) {
             if (std::string_view(argv[i]) == "--level-dir") {
                 directory = argv[++i];
+            } else if (std::string_view(argv[i]) == "--level-overrides") {
+                overrides = argv[++i];
             } else if (std::string_view(argv[i]) == "--tracy-wait") {
                 const float seconds = real(argv[++i]);
 
@@ -365,8 +390,8 @@ int main(int argc, char** argv) {
 
         const profiling::Zone trace("Probe baker");
 
-        const auto profile =
-            directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory);
+        auto profile =
+            directory.empty() ? LevelBakeProfile{} : load_level_bake_profile(directory, overrides);
         Float3 spacing = profile.sparse_spacing;
         Float3 environment = profile.activation.environment;
         unsigned resolution = profile.map_resolution, light_set = profile.activation.light_set;
@@ -409,10 +434,9 @@ int main(int argc, char** argv) {
 
             if (argument == "--compression") {
                 settings.texture_format = parse_probe_texture_format(value);
-            } else if (argument == "--level-dir") {
-                directory = value;
-            } else if (argument == "--tracy-wait") {
-                // The first pass waits before any asset loading.
+            } else if (argument == "--level-dir" || argument == "--level-overrides"
+                       || argument == "--tracy-wait") {
+                // The first pass resolves level paths and waits before any asset loading.
             } else if (argument == "--output") {
                 output = value;
             } else if (argument == "--verify") {
@@ -479,6 +503,8 @@ int main(int argc, char** argv) {
                 light_set = integer(value);
             } else if (argument == "--rays") {
                 settings.rays_per_probe = integer(value);
+                settings.adaptive_rays = false;
+                profile.explicit_ray_policy = true;
             } else if (argument == "--bounces") {
                 settings.bounces = integer(value);
             } else if (argument == "--threads") {
@@ -540,7 +566,8 @@ int main(int argc, char** argv) {
 
         std::cout << "Loading extracted level " << directory.string() << std::endl;
 
-        if (!scene::load_level(directory, level, error)) {
+        const auto edited = overrides.empty() ? fs::path{} : overrides / "placements.json";
+        if (!scene::load_level(directory, level, error, edited)) {
             throw std::runtime_error(error);
         }
 
@@ -553,7 +580,8 @@ int main(int argc, char** argv) {
             expected.bake = settings;
             expected.light_set = light_set;
             expected.environment = environment;
-            const auto volume = load_level_probes(verify, level, expected, true);
+            ProbeAssetLoader loader(level, expected);
+            const auto volume = loader.load_with_previous_defaults(verify, profile, true);
             std::cout << "Probe asset verified: " << volume.grid.game_version << " level "
                       << volume.grid.level << ", " << volume.probes.size()
                       << " probes; scene and settings match\n";
@@ -561,7 +589,7 @@ int main(int argc, char** argv) {
             if (compare_coarse.empty()) {
                 report_terrain_coverage(level, volume, nullptr, std::cout);
             } else {
-                const auto coarse = load_level_probes(compare_coarse, level, expected, true);
+                const auto coarse = loader.load(compare_coarse, true);
                 validate_probe_pair(coarse, volume);
                 report_terrain_coverage(level, volume, &coarse, std::cout);
             }
@@ -571,8 +599,9 @@ int main(int argc, char** argv) {
 
         const auto start = std::chrono::steady_clock::now();
         auto exported = export_probe_scene(level, light_set, environment);
+        bake_detail::EmissionAverageCache emission_cache(exported.scene);
         // The source sidecar is already part of the canonical scene fingerprint used at runtime.
-        auto interior_report = apply_interior_sources(level, exported.scene);
+        auto interior_report = apply_interior_sources(level, exported.scene, &emission_cache);
 
         if (!interior_report) {
             throw std::runtime_error(interior_report.error().message);
@@ -619,7 +648,7 @@ int main(int argc, char** argv) {
         level = scene::LevelData{};
         auto last = start;
         const auto volume =
-            ProbeBaker(exported.scene, settings)
+            ProbeBaker(exported.scene, settings, 0, nullptr, &emission_cache)
                 .bake(
                     grid,
                     [&](std::size_t done, std::size_t total) {

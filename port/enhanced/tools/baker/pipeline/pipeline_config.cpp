@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cmath>
+#include <format>
 #include <map>
 #include <regex>
 #include <stdexcept>
@@ -42,6 +43,7 @@ bool within(const std::filesystem::path& path, const std::filesystem::path& root
 bool path_option(Options& options, const std::string& key, const std::string& value) {
     const std::map<std::string, std::filesystem::path*> paths{
         {"--levels-dir", &options.levels},
+        {"--mods-dir", &options.mods},
         {"--output-dir", &options.output},
         {"--profiles-dir", &options.profiles}
     };
@@ -139,6 +141,13 @@ void resolve_paths(Options& options) {
     options.levels = std::filesystem::canonical(options.levels);
     options.output = std::filesystem::weakly_canonical(std::filesystem::absolute(options.output));
     options.profiles = std::filesystem::absolute(options.profiles);
+    if (!options.mods.empty()) {
+        options.mods = std::filesystem::canonical(options.mods);
+        if (!std::filesystem::is_directory(options.mods) || within(options.output, options.mods)
+            || within(options.mods, options.output)) {
+            throw std::runtime_error("expected a mods directory separate from the bake cache");
+        }
+    }
 
     // Outputs may not recursively include exports or be nested inside them.
     if (within(options.output, options.levels) || within(options.levels, options.output)) {
@@ -198,14 +207,28 @@ Options arguments(std::span<const std::string> values) {
 
 // ---- Export configuration ----
 
+// Source sizes approximate both the resident scene and progress weight.
+static std::uint64_t source_bytes(const std::filesystem::path& root) {
+    std::uint64_t bytes = 0;
+    if (!root.empty()) {
+        for (const auto& file : std::filesystem::recursive_directory_iterator(root)) {
+            if (file.is_regular_file()) {
+                bytes += file.file_size();
+            }
+        }
+    }
+    return bytes;
+}
+
 std::vector<Level> discover(const Options& options) {
     std::vector<Level> levels;
-    const std::regex name("level_[0-9]+");
+    const std::regex numbered("level_[0-9]+");
 
     // Validate every matching export before scheduling the first expensive scene load.
     for (const auto& entry : std::filesystem::directory_iterator(options.levels)) {
         // Only numbered exported level directories participate in automatic baking.
-        if (!entry.is_directory() || !std::regex_match(entry.path().filename().string(), name)) {
+        if (!entry.is_directory()
+            || !std::regex_match(entry.path().filename().string(), numbered)) {
             continue;
         }
 
@@ -217,16 +240,9 @@ std::vector<Level> discover(const Options& options) {
             throw std::runtime_error("missing manifest or symlinked level outside export root");
         }
 
-        Level level{path};
+        Level level{path, 0, 0, options.mods, path.filename().string()};
 
-        // Export byte sizes approximate both scene footprint and level progress weight.
-        for (const auto& file : std::filesystem::recursive_directory_iterator(path)) {
-            // Only actual files contribute to scene memory reservations.
-            if (file.is_regular_file()) {
-                level.bytes += file.file_size();
-            }
-        }
-
+        level.bytes = source_bytes(path) + source_bytes(level_overrides(options, path));
         level.memory = std::max(std::uint64_t{1} << 30, level.bytes * 4);
         levels.push_back(level);
     }
@@ -244,10 +260,50 @@ std::vector<Level> discover(const Options& options) {
         throw std::runtime_error("no exported levels or level count exceeds 256");
     }
 
+    const auto registry = options.mods / "destinations.json";
+    if (!options.mods.empty() && std::filesystem::is_regular_file(registry)) {
+        const auto destinations = bake_json::document(registry);
+        for (const auto& destination : destinations["destinations"].items()) {
+            const auto id = destination["id"].string();
+            if (id.empty()
+                || id.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-")
+                       != std::string::npos) {
+                throw std::runtime_error("invalid lighting destination ID");
+            }
+            const auto name =
+                std::format("level_{:02}", static_cast<int>(destination["level"].number(-1)));
+            const auto original =
+                std::find_if(levels.begin(), levels.end(), [&](const Level& item) {
+                    return item.path.filename() == name;
+                });
+            if (original == levels.end()) {
+                throw std::runtime_error("missing export for destination " + id);
+            }
+            auto item = *original;
+            item.mount = options.mods / "destinations" / id;
+            if (!std::filesystem::is_directory(item.mount / name)) {
+                throw std::runtime_error("missing level override for destination " + id);
+            }
+            item.label = id + "/" + name;
+            item.bytes = source_bytes(item.path) + source_bytes(item.mount / name);
+            item.memory = std::max(std::uint64_t{1} << 30, item.bytes * 4);
+            levels.push_back(std::move(item));
+        }
+    }
     return levels;
 }
 
-json::Value region_settings(const std::filesystem::path& level) {
+std::filesystem::path level_overrides(const Options& options, const std::filesystem::path& level) {
+    if (options.mods.empty()) {
+        return {};
+    }
+    const auto path = options.mods / level.filename();
+    return std::filesystem::is_directory(path) ? path : std::filesystem::path{};
+}
+
+json::Value region_settings(
+    const std::filesystem::path& level, const std::filesystem::path& overrides
+) {
     const auto defaults = parsed(
         R"({"enabled":true,"interior_lighting":true,"coarse_bounds":"local_regions","coarse_padding":128,"padding":8,"vertical_padding":4,"max_probes":4096,"max_regions":1024,"no_geometry_coverage":false,"geometry_max_rise":32,"geometry_padding":3,"no_moby_seeds":false,"adaptive_density":false,"adaptive_relative_error":0.1,"adaptive_absolute_error":0.02})"
     );
@@ -276,7 +332,7 @@ json::Value region_settings(const std::filesystem::path& level) {
     validate_regions(result, defaults);
 
     // Scene placement uses complete geometry bounds without floor-seeded allocations or ceiling sources.
-    if (load_level_bake_profile(level).strategy == BakeStrategy::Scene) {
+    if (load_level_bake_profile(level, overrides).strategy == BakeStrategy::Scene) {
         settings["enabled"] = parsed("false");
         settings["interior_lighting"] = parsed("false");
         settings["coarse_bounds"] = parsed("\"scene\"");
@@ -286,12 +342,13 @@ json::Value region_settings(const std::filesystem::path& level) {
 }
 
 LevelBakeProfile profile(const std::filesystem::path& level, const Options& options) {
-    auto result = load_level_bake_profile(level);
+    auto result = load_level_bake_profile(level, level_overrides(options, level));
     result.activation.bake.texture_format = options.texture_format;
 
     // An explicit ray override must affect both transport and its semantic identity.
     if (options.rays) {
         result.activation.bake.rays_per_probe = options.rays;
+        result.activation.bake.adaptive_rays = false;
     }
 
     // Direct-only transport uses zero bounces, so absence has a separate sentinel.

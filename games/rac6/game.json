@@ -8,9 +8,9 @@
     "repo": "https://github.com/OpenRAC/rac-sac-decomp",
     "branch": "main",
     "license": "GPL-3.0",
-    "commit": "4e38d3d88f62f0366274e83643866d232a91f378",
-    "date": "2026-10-21",
-    "imported": "2026-10-24"
+    "commit": "1718c0c0715853ceb5bd92eb36d088e6175a14e2",
+    "date": "2026-11-08",
+    "imported": "2026-11-08"
   },
   "versions": {
     "ntsc": {
@@ -45,9 +45,9 @@
         "repo": "https://github.com/OpenRAC/rac-sac-decomp",
         "branch": "main",
         "license": "GPL-3.0",
-        "commit": "4e38d3d88f62f0366274e83643866d232a91f378",
-        "date": "2026-10-21",
-        "imported": "2026-10-24"
+        "commit": "1718c0c0715853ceb5bd92eb36d088e6175a14e2",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "Python 3.12 for the tools, on any system; no qualified compiler yet",

@@ -328,6 +328,12 @@ public:
     // Immutable frame light bank for registered lighting providers.
     const std::array<float, 64>& point_lights() const { return m_point_lights; }
 
+    void set_point_emitters(std::vector<renderer::PointEmitter> lights) {
+        m_point_emitters = std::move(lights);
+    }
+
+    std::span<const renderer::PointEmitter> point_emitters() const { return m_point_emitters; }
+
     // Each point-lit moby's third light for the original lighting (colour, then world direction),
     // indexed by moby_light.x / 256 - 1 (mesh.vert); empty for a game whose moby program has none.
     void set_moby_point_lights(std::vector<std::array<float, 8>> lights) {
@@ -748,6 +754,7 @@ private:
     unsigned m_lights = 0;            // RGBA8 texture, the ties' lit colours
     std::vector<float> m_light_sets;  // the level's 16 directional light sets (LevelData)
     std::array<float, 64> m_point_lights{};
+    std::vector<renderer::PointEmitter> m_point_emitters;
     std::vector<std::array<float, 8>> m_moby_point_lights;
     bool m_terrain_point_lights = false;
     bool m_sweep_translucent_off = false;

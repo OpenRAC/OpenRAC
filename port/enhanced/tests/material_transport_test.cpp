@@ -49,6 +49,9 @@ void test_preparation_identity(const std::filesystem::path& directory) {
     const auto baked = catalog(R"({"emission":{"bake_intensity":8}})");
     CHECK(materials::write_catalog(directory / "material-overrides.json", baked));
     CHECK(lighting::probe_input_hash(directory) != baseline);
+    const auto sparse_rgb = catalog(R"({"emission":{"bake_mesh_rgb":[2,4,8]}})");
+    CHECK(materials::write_catalog(directory / "material-overrides.json", sparse_rgb));
+    CHECK(lighting::probe_input_hash(directory) != baseline);
     std::error_code error;
     std::filesystem::remove(directory / "material-overrides.json", error);
     CHECK(!error);
@@ -72,6 +75,35 @@ void test_activation_identity(const std::filesystem::path& directory) {
     const auto baked = catalog(R"({"emission":{"bake_intensity":8}})");
     level.material_bindings = scene::resolve_materials(source, baked).value();
     CHECK(lighting::probe_scene_hash(level, scene, 0, false) != baseline);
+    const auto averaged = catalog(R"({"emission":{"average_for_bake":true}})");
+    level.material_bindings = scene::resolve_materials(source, averaged).value();
+    CHECK(lighting::probe_scene_hash(level, scene, 0, false) == baseline);
+    const auto point_sampled = catalog(R"({"emission":{"average_for_bake":false}})");
+    level.material_bindings = scene::resolve_materials(source, point_sampled).value();
+    CHECK(lighting::probe_scene_hash(level, scene, 0, false) != baseline);
+
+    const auto texture = catalog(R"({"emission":{"bake_mode":"texture","average_for_bake":true}})");
+    const auto texture_surface =
+        scene::resolve_materials(source, texture).value()->bindings[0].surface;
+    CHECK(!texture_surface.bake_mesh_rgb);
+    CHECK(texture_surface.bake_use_cutout);
+    CHECK(!texture_surface.average_emission_for_bake);
+
+    const auto mesh = catalog(R"({"emission":{"bake_mode":"mesh","bake_mesh_rgb":[2,4,8]}})");
+    level.material_bindings = scene::resolve_materials(source, mesh).value();
+    const auto& mesh_surface = level.material_bindings->bindings[0].surface;
+    CHECK(mesh_surface.bake_mesh_rgb.value() == (scene::Vec3{2, 4, 8}));
+    CHECK(!mesh_surface.bake_use_cutout);
+    const auto mesh_hash = lighting::probe_scene_hash(level, scene, 0, false);
+    CHECK(mesh_hash != baseline);
+    const auto masked = catalog(
+        R"({"emission":{"bake_mode":"mesh","bake_mesh_rgb":[2,4,8],"bake_use_cutout":true}})"
+    );
+    level.material_bindings = scene::resolve_materials(source, masked).value();
+    CHECK(level.material_bindings->bindings[0].surface.bake_use_cutout);
+    CHECK(lighting::probe_scene_hash(level, scene, 0, false) != mesh_hash);
+    const auto incomplete = catalog(R"({"emission":{"bake_mode":"mesh"}})");
+    CHECK(!scene::resolve_materials(source, incomplete));
 }
 }  // namespace
 

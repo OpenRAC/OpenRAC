@@ -340,7 +340,7 @@ InteriorLightReport generate_lights(
     std::span<const InteriorLightSeed> seeds,
     const InteriorLightSettings& settings
 ) {
-    bake_detail::Scene acceleration(scene);
+    bake_detail::Scene acceleration(scene, {}, {.prepare_emission_averages = false});
     InteriorLightReport report;
     std::map<unsigned, unsigned> counts;
     std::vector<InteriorLightSeed> accepted;
@@ -382,9 +382,18 @@ InteriorLightReport generate_lights(
 
 // Estimates visible existing sources after their boosts, then adds only the remaining approximate fill.
 void reduce_existing_contribution(
-    const BakeScene& scene, const InteriorLightSettings& settings, InteriorLightReport& report
+    const BakeScene& scene,
+    const InteriorLightSettings& settings,
+    InteriorLightReport& report,
+    bake_detail::EmissionAverageCache* emission_cache,
+    BakeThreadPool* pool
 ) {
-    const bake_detail::Scene acceleration(scene);
+    if (report.lights.empty()) {
+        return;
+    }
+    const bake_detail::Scene acceleration(
+        scene, {}, {.pool = pool, .emission_cache = emission_cache}
+    );
 
     // A scalar residual retains the authored reference hue rather than forcing an RGB match.
     for (std::size_t n = 0; n < report.lights.size(); ++n) {
@@ -429,14 +438,16 @@ void reduce_existing_contribution(
 Result<InteriorLightReport> prepare_interior_lighting(
     BakeScene& scene,
     std::span<const InteriorLightSeed> seeds,
-    const InteriorLightSettings& settings
+    const InteriorLightSettings& settings,
+    bake_detail::EmissionAverageCache* emission_cache,
+    BakeThreadPool* pool
 ) {
     // Validation errors cross the module boundary as a result, rather than an exception.
     try {
         validate_inputs(seeds, settings);
         bake_detail::validate_bake_scene(scene, BakeSettings{});
         auto report = generate_lights(scene, seeds, settings);
-        reduce_existing_contribution(scene, settings, report);
+        reduce_existing_contribution(scene, settings, report, emission_cache, pool);
         scene.area_emitters
             .insert(scene.area_emitters.end(), report.lights.begin(), report.lights.end());
         return report;

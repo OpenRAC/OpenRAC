@@ -2,7 +2,7 @@
 // The strip mesh carries barycentric weights and a local coarse triangle index.
 uniform usamplerBuffer water_coarse;
 uniform int water_mesh;
-layout(location = 3) in uint water_triangle;
+layout(location = 3) in uvec3 water_vertex;
 // Vulkan may carry this draw integer separately; OpenGL keeps the ordinary uniform.
 #define OPENRAC_DRAW_INT water_first_triangle
 uniform int water_first_triangle;
@@ -13,8 +13,9 @@ flat out vec2 v_water_art_axis;
 void water_mesh_vertex(inout vec3 p, inout vec2 uv, inout vec4 rgba) {
     v_water_art_axis=vec2(0);
     if (water_mesh != 0) {
-        int at = (water_first_triangle + int(water_triangle)) * 7;
-        vec3 weights = vec3(1.0 - uv.x - uv.y, uv.x, uv.y);
+        int at = (water_first_triangle + int(water_vertex.z)) * 7;
+        vec2 barycentric = uintBitsToFloat(water_vertex.xy);
+        vec3 weights = vec3(1.0 - barycentric.x - barycentric.y, barycentric);
         p = vec3(0);
         uv = vec2(0);
         rgba = vec4(0);

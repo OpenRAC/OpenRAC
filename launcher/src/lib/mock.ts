@@ -261,7 +261,8 @@ let config: Config = {
   layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
-  gameColors: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gameColors"),
+  // ?gold: Game colours off, every game in the launcher's gold.
+  gameColors: !new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("gold"),
   detailedGameLog: false,
   // ?vulkan: the desktop's Vulkan renderer is chosen (Settings, Advanced).
   renderer: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("vulkan")
@@ -2291,6 +2292,34 @@ const RAC2_FLAGS: [string, number | null, string, string, "proven" | "fromCode"]
 ];
 const savedRac2: Record<string, Rac2SaveFields> = {};
 
+/** A weapon's versions in the preview: the core's shape, with made-up later steps and ammo. */
+function mockRac2Versions(
+  id: number,
+  name: string,
+  ammo: number | null,
+  up: string | null,
+  xp: number | null,
+): Rac2SaveView["items"][number]["versions"] {
+  const v = (k: number, how: "first" | "experience" | "bought", min: number | null, max: number | null) => ({
+    label: `V${String(k + 1)}`,
+    name: k > 0 && up ? up : name,
+    how,
+    stepXp: how === "experience" ? min : null,
+    challengeOnly: k >= 2 || (how === "bought" && xp === null),
+    maxAmmo: ammo === null ? null : Math.round(ammo * (1 + k / 2)),
+    minXp: min,
+    maxXp: max,
+  });
+  if (xp === null) return [v(0, "first", null, null), v(1, "bought", null, null)];
+  if (id === 9) return [v(0, "first", 0, xp - 1), v(1, "experience", xp, 9_999_999)];
+  return [
+    v(0, "first", 0, xp - 1),
+    v(1, "experience", xp, 9_999_999),
+    v(2, "bought", 0, xp * 10 - 1),
+    v(3, "experience", xp * 10, 9_999_999),
+  ];
+}
+
 /** A Going Commando slot: early in the game, on Oozla, with the Lancer in hand. */
 function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
   const owned = new Set([24, 30, 42]);
@@ -2306,6 +2335,7 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       owned: owned.has(id),
       ammo: ammo === null ? null : owned.has(id) ? ammo : 0,
       xp: up === null ? null : id === 30 ? 1968 : 0,
+      version: RAC2_ITEMS.find((i) => i[0] === id)?.[6] ? 0 : null,
     })),
     planets: RAC2_LEVELS.map(([id]) => ({
       id,
@@ -2332,12 +2362,13 @@ function mockSaveRac2(serial: string, slot: number): Rac2SaveView {
       upgradeName: up,
       upgradeXp: xp,
       maxXp: xp === null ? null : xp - 1,
-      version: versions ? 0 : null,
+      versions: versions ? mockRac2Versions(id, name, ammo, up, xp) : [],
       worn: id === 30,
     })),
     planets: RAC2_LEVELS.map(([id, name]) => ({ id, name })),
     maxBolts: 9_999_999,
     maxXp: 9_999_999,
+    challengeMode: 1,
     flags: RAC2_FLAGS.map(([id, level, name, description, confidence]) => ({
       id,
       level,

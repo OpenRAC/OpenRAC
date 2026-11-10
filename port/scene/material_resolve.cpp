@@ -54,6 +54,21 @@ Result<Material> surface(
         }
     }
     boolean(properties, "emission.vertex_colour", result.emission_vertex_colour);
+    boolean(properties, "emission.average_for_bake", result.average_emission_for_bake);
+    const auto bake_mode = materials::text_value(properties, "emission.bake_mode");
+    if (!bake_mode.empty()) {
+        result.average_emission_for_bake = false;
+        result.bake_use_cutout = bake_mode == "texture";
+        result.bake_mesh_rgb.reset();
+        if (bake_mode == "mesh") {
+            if (!properties.contains("emission.bake_mesh_rgb")) {
+                return unexpected(Error{"mesh emission requires emission.bake_mesh_rgb"});
+            }
+            result.bake_mesh_rgb =
+                materials::colour_value(properties, "emission.bake_mesh_rgb", {});
+        }
+    }
+    boolean(properties, "emission.bake_use_cutout", result.bake_use_cutout);
     scalar(properties, "emission.contrast", result.emission_contrast);
     const auto base = properties.find("emission.use_base_texture");
     if (base != properties.end()) {
@@ -77,6 +92,9 @@ Result<Material> surface(
 
 // Compares effective bake energy rather than visible emission when a fixed bake intensity is present.
 std::array<float, 3> baked_emission(const Material& material) {
+    if (material.bake_mesh_rgb) {
+        return *material.bake_mesh_rgb;
+    }
     auto value = material.emission;
     if (material.bake_intensity) {
         value.fill(*material.bake_intensity);
@@ -97,9 +115,15 @@ bool transport_changed(const Material& original, const Material& current) {
     }
     const auto emission = baked_emission(current);
     const bool emits = *std::max_element(emission.begin(), emission.end()) > 0;
-    return emits
+    if (emits
+        && (original.bake_mesh_rgb.has_value() != current.bake_mesh_rgb.has_value()
+            || original.bake_use_cutout != current.bake_use_cutout)) {
+        return true;
+    }
+    return emits && !current.bake_mesh_rgb
            && (original.emission_image != current.emission_image
                || original.emission_contrast != current.emission_contrast
+               || original.average_emission_for_bake != current.average_emission_for_bake
                || original.emission_vertex_colour != current.emission_vertex_colour);
 }
 
@@ -116,9 +140,26 @@ Result<std::string> transport_stamp(
     }
     materials::Catalog projected;
     auto properties = materials::transport_properties(binding.values.properties);
-    // A bake override inherited from a legacy profile also decouples visible emission changes.
-    if (binding.surface.bake_intensity) {
-        properties.erase("emission.runtime_intensity");
+    if (binding.surface.bake_mesh_rgb) {
+        for (const auto* key :
+             {"emission.runtime_intensity",
+              "emission.bake_intensity",
+              "emission.texture",
+              "emission.use_base_texture",
+              "emission.contrast",
+              "emission.vertex_colour",
+              "emission.average_for_bake"}) {
+            properties.erase(key);
+        }
+    } else {
+        properties.erase("emission.bake_mesh_rgb");
+        if (materials::text_value(properties, "emission.bake_mode") == "texture") {
+            properties.erase("emission.average_for_bake");
+        }
+        // A bake override inherited from a legacy profile also decouples visible emission changes.
+        if (binding.surface.bake_intensity) {
+            properties.erase("emission.runtime_intensity");
+        }
     }
     projected.presets.emplace("transport", std::move(properties));
     const auto text = materials::catalog_text(projected);
@@ -127,7 +168,7 @@ Result<std::string> transport_stamp(
     }
     std::string stamp = source.model_name + ":" + std::to_string(source.material) + ":" + *text;
     // A referenced mod texture can change transport without changing its authored filename.
-    if (binding.values.properties.contains("emission.texture")) {
+    if (!binding.surface.bake_mesh_rgb && binding.values.properties.contains("emission.texture")) {
         const auto image = assets.image_hashes.find(binding.surface.emission_image);
         if (image != assets.image_hashes.end()) {
             stamp += image->second;

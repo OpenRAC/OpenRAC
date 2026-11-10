@@ -616,6 +616,20 @@ void enhanced_settings_window() {
             );
             ImGui::TreePop();
         }
+        if (ImGui::TreeNode("Nanotech orb lights (Ratchet & Clank 1)")) {
+            auto& light = graphics.nanotech_light;
+            changed |= checkbox("Nanotech orb lights", &light.enabled);
+            ImGui::BeginDisabled(!light.enabled);
+            changed |= colour_edit("Colour (linear RGB)", light.colour.data());
+            changed |= slider_float(
+                "Brightness", &light.brightness, 0.0f, 8.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp
+            );
+            changed |= slider_float(
+                "Range", &light.range, 0.1f, 12.0f, "%.2f units", ImGuiSliderFlags_AlwaysClamp
+            );
+            ImGui::EndDisabled();
+            ImGui::TreePop();
+        }
         if (ImGui::Button("Reset lighting and shadows")) {
             const settings::Settings defaults;
             graphics.enhanced_shadows = defaults.enhanced_shadows;
@@ -623,6 +637,7 @@ void enhanced_settings_window() {
             graphics.gtao = defaults.gtao;
             graphics.gtao_settings = defaults.gtao_settings;
             graphics.probe_gi_multiplier = defaults.probe_gi_multiplier;
+            graphics.nanotech_light = defaults.nanotech_light;
             graphics.rim_light = defaults.rim_light;
             graphics.rim_light_strength = defaults.rim_light_strength;
             graphics.rim_light_falloff = defaults.rim_light_falloff;
@@ -636,6 +651,29 @@ void enhanced_settings_window() {
         }
     }
     if (ImGui::CollapsingHeader("Post processing")) {
+        ImGui::SeparatorText("Bloom");
+        auto& bloom = graphics.bloom;
+        changed |= checkbox("Bloom", &bloom.enabled);
+        ImGui::BeginDisabled(!bloom.enabled);
+        changed |= slider_float(
+            "Bloom strength", &bloom.strength, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= slider_float(
+            "Bloom threshold", &bloom.threshold, 0, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Brightness needed for a surface to contribute to the glow.");
+        changed |= slider_float(
+            "Bloom soft knee", &bloom.knee, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Softens the transition around the brightness threshold.");
+        changed |= slider_float(
+            "Bloom spread", &bloom.scatter, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        if (ImGui::Button("Reset bloom")) {
+            bloom = {};
+            changed = true;
+        }
         ImGui::SeparatorText("AgX");
         changed |= checkbox("AgX", &graphics.agx_preview);
         control_tip(

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (c) 2026 the OpenRAC contributors
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <optional>
 #include <random>
+#include <vector>
 
 #include "game/common/profile.h"
 #include "game/rac1/game_state.h"
@@ -177,10 +179,45 @@ void the_last_16_units() {
     CHECK(!asmc_moby_proc(moby, state.camera_position, *state.moby_view));
     CHECK(!game::rac1::moby_distance_fade(moby, state));
 }
+
+// Captures exactly one bobbing emitter for the glow-only pickup while it is active.
+void test_nanotech_orb_without_mesh(const game::rac1::GameAddresses& addresses) {
+    std::vector<std::uint8_t> ram(0x200000);
+    const auto write = [&](std::uint32_t address, auto value) {
+        std::memcpy(ram.data() + address, &value, sizeof(value));
+    };
+    constexpr std::uint32_t orb = 0x1000;
+    constexpr std::uint32_t vars = 0x1100;
+    write(addresses.moby_first, orb);
+    write(addresses.moby_end, orb + 0x100);
+    write(orb + 0x10, renderer::Vec3{10.0f, 20.0f, 30.0f});
+    write(orb + 0x78, vars);
+    write(orb + 0xA6, std::uint16_t{806});
+    write(vars, 0.25f);
+
+    for (const auto state : std::array<std::uint8_t, 5>{0, 1, 2, 3, 0xFE}) {
+        write(orb + 0x20, state);
+        const auto captured = game::rac1::read_game_state(ram, addresses);
+        CHECK(captured.mobys.empty());
+        if (state == 1 || state == 2) {
+            CHECK(captured.nanotech_orbs == (std::vector<renderer::Vec3>{{10, 20, 30.75f}}));
+        } else {
+            CHECK(captured.nanotech_orbs.empty());
+        }
+    }
+    write(orb + 0x20, std::uint8_t{1});
+    write(vars, -0.25f);
+    CHECK(
+        game::rac1::read_game_state(ram, addresses).nanotech_orbs
+        == (std::vector<renderer::Vec3>{{10, 20, 30.25f}})
+    );
+}
 }  // namespace
 
 int main() {
     matches_the_asm();
     the_last_16_units();
+    test_nanotech_orb_without_mesh(game::rac1::kRac1PalLevels[0]);
+    test_nanotech_orb_without_mesh(game::rac1::kRac1NtscLevels[0]);
     return openrac::test::result();
 }

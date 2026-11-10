@@ -60,7 +60,9 @@ struct InteriorLightReport {
 [[nodiscard]] Result<InteriorLightReport> prepare_interior_lighting(
     BakeScene& scene,
     std::span<const InteriorLightSeed> seeds,
-    const InteriorLightSettings& settings = {}
+    const InteriorLightSettings& settings = {},
+    bake_detail::EmissionAverageCache* emission_cache = nullptr,
+    BakeThreadPool* pool = nullptr
 );
 
 }  // namespace openrac::lighting

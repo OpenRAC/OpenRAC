@@ -21,6 +21,7 @@
 #include "enhanced/lighting/probe_depth.h"
 #include "enhanced/renderer/local_lights.h"
 #include "enhanced/tools/baker/sources/activation.h"
+#include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/viewer/early_lighting.h"
 #include "enhanced/viewer/probe_texture_upload.h"
 #include "enhanced_viewer_shaders.h"
@@ -511,8 +512,7 @@ bool& probe_background_load() {
 }
 
 // The level's bake under the probe root: <root>/level_NN/sparse.orpg, NN its folder's name.
-std::string level_bake(const scene::LevelData& level) {
-    const auto& root = probe_root();
+std::string level_bake(const scene::LevelData& level, const std::filesystem::path& root) {
     if (root.empty()) {
         return {};
     }
@@ -523,7 +523,17 @@ std::string level_bake(const scene::LevelData& level) {
     if (name.empty() && level.level >= 0) {
         name = std::format("level_{:02}", level.level);
     }
-    const auto sparse = root / name / "sparse.orpg";
+    auto cache = root;
+    if (!level.overrides.empty()) {
+        try {
+            cache /=
+                std::filesystem::path("variants") / lighting::probe_variant_key(level.overrides);
+        } catch (const std::exception& why) {
+            log::warn("cannot identify lighting variant for {}: {}", name.string(), why.what());
+            return {};
+        }
+    }
+    const auto sparse = cache / name / "sparse.orpg";
     std::error_code error;
     if (name.empty() || !std::filesystem::is_regular_file(sparse, error)) {
         log::info("probe GI: no bake for {} yet; original lighting", name.string());
@@ -583,6 +593,8 @@ ProbeBakeRead read_bake(
     read.look_regions = std::move(profile.look_regions);
     if (!environment(env::Var::ProbeRays).empty()) {
         expected.bake.rays_per_probe = rays_from_environment();
+        expected.bake.adaptive_rays = false;
+        profile.explicit_ray_policy = true;
     }
     const auto sky = environment(env::Var::ProbeSky);
     if (!sky.empty()) {
@@ -600,8 +612,8 @@ ProbeBakeRead read_bake(
             throw std::runtime_error("invalid OPENRAC_PROBE_SKY_INTENSITY");
         }
     }
-    const lighting::ProbeAssetLoader loader(level, expected);
-    read.volume = loader.load(path);
+    lighting::ProbeAssetLoader loader(level, expected);
+    read.volume = loader.load_with_previous_defaults(path, profile);
     const auto add_region = [&](const std::filesystem::path& file) {
         if (cancelled.load(std::memory_order_relaxed)) {
             return;
@@ -657,14 +669,18 @@ void ProbeLighting::load(const scene::LevelData& level) {
     if (path == "0") {
         return;
     }
-    if (path.empty()) {
-        path = level_bake(level);
-    }
-    if (path.empty()) {
-        return;
+    const bool background = probe_background_load();
+    const auto root = probe_root();
+    const bool locate_in_background =
+        path.empty() && background && !level.overrides.empty() && !root.empty();
+    if (path.empty() && !locate_in_background) {
+        path = level_bake(level, root);
+        if (path.empty()) {
+            return;
+        }
     }
     m_pending_level = level.level;
-    if (!probe_background_load()) {
+    if (!background) {
         try {
             const std::atomic<bool> never{false};
             finish_load(read_bake(level, path, never));
@@ -682,9 +698,12 @@ void ProbeLighting::load(const scene::LevelData& level) {
     // update_regions, on the rendering thread, uploads it once it is ready.
     m_cancel_read = std::make_shared<std::atomic<bool>>(false);
     m_pending_read = std::async(
-        std::launch::async, [inputs = fingerprint_inputs(level), path, cancelled = m_cancel_read] {
+        std::launch::async,
+        [inputs = fingerprint_inputs(level), path, root, cancelled = m_cancel_read] {
             try {
-                return read_bake(*inputs, path, *cancelled);
+                const auto selected = path.empty() ? level_bake(*inputs, root) : path;
+                return selected.empty() ? ProbeBakeRead{}
+                                        : read_bake(*inputs, selected, *cancelled);
             } catch (const std::exception& why) {
                 ProbeBakeRead failed;
                 failed.error = why.what();
@@ -708,6 +727,9 @@ void ProbeLighting::poll_load() {
         fail_load(read.error);
         return;
     }
+    if (read.path.empty()) {
+        return;
+    }
     try {
         finish_load(std::move(read));
 #if defined(OPENRAC_VULKAN)
@@ -723,7 +745,7 @@ void ProbeLighting::cancel_load() {
     if (m_cancel_read) {
         m_cancel_read->store(true, std::memory_order_relaxed);
     }
-    // The read holds its own copies, so it is only waited for (a region file at most) to end.
+    // The read owns its inputs, so wait for it to finish before discarding the result.
     if (m_pending_read.valid()) {
         m_pending_read.wait();
         m_pending_read = {};

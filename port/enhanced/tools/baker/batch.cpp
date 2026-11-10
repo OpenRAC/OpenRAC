@@ -26,6 +26,7 @@
 #include "enhanced/tools/baker/output/probe_output.h"
 #include "enhanced/tools/baker/output/report.h"
 #include "enhanced/tools/baker/probe_rounding.h"
+#include "enhanced/tools/baker/sources/activation.h"
 #include "enhanced/tools/baker/sources/probe_fingerprint.h"
 #include "enhanced/tools/baker/sources/probe_grid.h"
 
@@ -163,7 +164,8 @@ std::vector<BatchJob> batch_jobs(
     const ProbeGrid& sparse,
     const ProbeBatchOptions& options,
     std::vector<EnvironmentFloorSample>& floors,
-    bake_detail::RoomLayout& layout
+    bake_detail::RoomLayout& layout,
+    const bake_detail::Scene& prepared_scene
 ) {
     const profiling::Zone timing("Prepare batch grids");
 
@@ -183,12 +185,16 @@ std::vector<BatchJob> batch_jobs(
     if (!plan["regions"].items().empty()
         && fs::exists(options.output_directory / "interior-inference.json")
         && fs::exists(options.output_directory / "seed-plan.json")) {
+        const auto environment = load_level_bake_profile(options.level_directory).environment;
         floors = read_environment_floors(
-            options.output_directory, options.level_directory, options.settings.traversal
+            options.output_directory,
+            options.level_directory,
+            options.settings.traversal,
+            environment.require_full_coverage
         );
-        layout = bake_detail::prepare_room_layout(
-            exported.scene, floors, options.settings, options.threads
-        );
+        if (!floors.empty()) {
+            layout = bake_detail::prepare_room_layout(prepared_scene, floors, options.settings);
+        }
     }
 
     if (!floors.empty()) {
@@ -272,30 +278,15 @@ ProbeVolume verify_batch_file(const BatchJob& job, const std::vector<std::uint8_
 }
 }  // namespace
 
-void run_probe_batch(
+bool run_probe_batch(
     const scene::LevelData& level,
     const BakeSceneExport& exported,
     const ProbeGrid& sparse_grid,
     const ProbeBatchOptions& options,
+    bake_detail::EmissionAverageCache& emission_cache,
     std::ostream& output
 ) {
     const profiling::Zone trace("Bake level batch");
-
-    std::vector<EnvironmentFloorSample> floors;
-    bake_detail::RoomLayout layout;
-    const auto jobs = batch_jobs(exported, sparse_grid, options, floors, layout);
-    auto density = density_settings(options.plan);
-    density.texture_format = options.settings.texture_format;
-    const auto receivers =
-        density.enabled && !floors.empty()
-            ? bake_detail::probe_density_receivers(
-                  exported.scene, floors, layout, options.settings, options.threads
-              )
-            : std::vector<bake_detail::ProbeDensityReceiver>{};
-
-    if (probe_input_hash(level.dir) != options.source_snapshot) {
-        throw std::runtime_error("source level changed during planning; no batch started");
-    }
 
     std::unique_ptr<BakeThreadPool> local_workers;
 
@@ -305,8 +296,27 @@ void run_probe_batch(
     }
 
     auto& workers = options.pool ? *options.pool : *local_workers;
-    auto baker =
-        std::make_unique<ProbeBaker>(exported.scene, options.settings, options.threads, &workers);
+    // Both stages read the same immutable export after interior sources have been prepared.
+    auto baker = std::make_unique<ProbeBaker>(
+        exported.scene, options.settings, options.threads, &workers, &emission_cache
+    );
+    std::vector<EnvironmentFloorSample> floors;
+    bake_detail::RoomLayout layout;
+    const auto jobs =
+        batch_jobs(exported, sparse_grid, options, floors, layout, baker->traversal_scene());
+    auto density = density_settings(options.plan);
+    density.texture_format = options.settings.texture_format;
+    const auto receivers =
+        density.enabled && !floors.empty()
+            ? bake_detail::probe_density_receivers(
+                  exported.scene, floors, layout, options.settings, options.threads
+              )
+            : std::vector<bake_detail::ProbeDensityReceiver>{};
+
+    if (probe_input_hash(level.dir, level.overrides) != options.source_snapshot) {
+        throw std::runtime_error("source level changed during planning; no batch started");
+    }
+
     const ProbeBakeReport descriptions(level, exported, options.settings, options.light_set);
     std::optional<ProbeVolume> coarse;
     BakeOutputQueue outputs(output);
@@ -469,22 +479,24 @@ void run_probe_batch(
         std::filesystem::remove(options.output_directory / "environment.orpe.tmp");
     }
 
-    bake_level_environment(
+    const bool environment_unavailable = bake_level_environment(
         {level.dir,
          options.output_directory,
          exported.scene,
          options.settings,
          floors,
-         verified_field},
+         verified_field,
+         level.overrides},
         {options.threads, &workers},
         output
     );
 
-    if (probe_input_hash(level.dir) != options.source_snapshot) {
+    if (probe_input_hash(level.dir, level.overrides) != options.source_snapshot) {
         throw std::runtime_error(
             "source level changed during the bake; no manifest was registered"
         );
     }
+    return environment_unavailable;
 }
 
 }  // namespace openrac::lighting

@@ -178,9 +178,13 @@ jobs:
         working-directory: games/rac1/decomp
         run: python tools/gen_progress_report.py --check
 
-      - name: rac4 progress report is current with its source
+      - name: rac4 progress reports are current with their source
         working-directory: games/rac4/decomp
-        run: python tools/gen_progress_report.py --check
+        # rac4-decomp's reports (progress/report.json, progress/pal/), as its own CI checks them;
+        # gen_progress_report.py's legacy report is a build output now (build/legacy_report.json).
+        run: |
+          python tools/progress.py --version us --check
+          python tools/progress.py --version pal --check
 
       - name: rac1/ntsc tools
         working-directory: games/rac1/ntsc-decomp

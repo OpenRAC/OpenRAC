@@ -59,6 +59,15 @@ UNIT_LEVEL = re.compile(r"(?:^|/)(?:L|levels/)(\d\d)_")
 # A datum's name with a word after its number (D_001A7390_sda): the same datum; a number after it
 # (D_L00_001B1B00_1) is one of the build's own, a datum of its own.
 GLOBAL_VIEW = re.compile(r"^(D_(?:L\d\d_)?[0-9A-Fa-f]{8})_[A-Za-z_]\w*$")
+# An asm statement that calls through a register with a0 set, skipping the call when the target is
+# null (Unit._asm_call): `beq %1,$0,1f; move $4,%2; jal $31,%1; 1:`, or `beqz`, `jalr`, `$a0`, `$ra`.
+_ASM_SEP = r"\s*(?:\n|;)\s*"
+_ASM_CALL = re.compile(
+    r"\s*(?:beqz\s+%(?P<guard>\d+)\s*,\s*1f" + _ASM_SEP
+    + r"|beq\s+%(?P<guard2>\d+)\s*,\s*\$(?:0|zero)\s*,\s*1f" + _ASM_SEP + r")?"
+    + r"move\s+\$(?:4|a0)\s*,\s*%(?P<arg>\d+)" + _ASM_SEP
+    + r"jalr?\s+(?:\$(?:31|ra)\s*,\s*)?%(?P<target>\d+)\s*"
+    + r"(?:(?:\n|;)\s*1:\s*)?")
 
 
 # Type names the host's standard headers (included by guest.h) define.
@@ -1067,6 +1076,9 @@ class Unit:
                     and cons["in"][src - len(outs)].strip() == "r"):
                 stored = f"({self.lv(outs[dst]).text} = {self.convert(ins[src - len(outs)], self.ty(outs[dst]))});"
                 return " ".join(["GBARRIER();", stored, *self._asm_tied(cons, outs, ins, skip=dst)])
+        call = self._asm_call(text, cons, _inner(n))
+        if call is not None:
+            return call
         if not ops and cons.get("out"):
             # No instructions, only operands: each output gets the input tied to it ("0" for output 0), the
             # value the register holds (kputchar's pointer to the SIO's transmit register, hidden this way from
@@ -1077,6 +1089,37 @@ class Unit:
         if not all(op in ("sync", "sync.l", "sync.p", "nop") for op in ops):
             self._asm_skipped(ops)
         return "GBARRIER();"
+
+    def _asm_call(self, text: str, cons: dict, kids: list) -> str | None:
+        """A call through a register written as inline assembly: `move $4, %A` then `jal $31, %F` (or
+        `jalr %F`), after a `beq %F, $0, 1f` (or `beqz %F, 1f`) that skips it when F is null.
+        rac2-decomp's call_hook (include/common.h), which its moby update loops (func_002B6658,
+        func_L00_0032CF60) call each object's update hook with, as RAC1's
+        update_visible_resident_objects does; the NTSC decomp's MOBY_CALL_UPDATE is the same. As a
+        barrier the hook never ran: no moby updated, Hrugis Cloud's ship and HUD among them. Now the
+        call goes through the code address with a0 set (guest.h, openrac_guest_call_a0), as the
+        translation of a jalr from assembly does. None when the text is not such a call."""
+        m = _ASM_CALL.fullmatch(text)
+        if m is None:
+            return None
+        guard = m.group("guard") or m.group("guard2")
+        guard, arg, target = (int(guard) if guard is not None else None), int(m.group("arg")), int(m.group("target"))
+        if guard is not None and guard != target:
+            return None
+        outs = len(cons.get("out") or ())
+        ins = cons.get("in") or []
+        operands = {}
+        for k in (arg, target):
+            i = k - outs
+            if not 0 <= i < len(ins) or ins[i].strip() != "r" or outs + i >= len(kids):
+                return None
+            operands[k] = f"(gaddr)({self.rv(kids[outs + i])})"
+        # The operands once each, the target before the argument (the asm's inputs are read before it runs).
+        call = "openrac_guest_call_a0(openrac_asm_fn_, openrac_asm_a0_);"
+        if guard is not None:
+            call = f"if (openrac_asm_fn_ != 0u) {call}"
+        return (f"GBARRIER(); {{ const gaddr openrac_asm_fn_ = {operands[target]}; "
+                f"const gaddr openrac_asm_a0_ = {operands[arg]}; {call} }} GBARRIER();")
 
     def _asm_tied(self, cons: dict, outs: list, ins: list, skip: int = -1) -> list[str]:
         """Each register output of an asm statement (but SKIP) takes the input tied to it; one tied to

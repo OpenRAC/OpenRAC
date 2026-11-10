@@ -11,9 +11,9 @@
     "repo": "https://github.com/OpenRAC/rac1-decomp",
     "branch": "main",
     "license": "GPL-3.0 (third-party parts keep theirs)",
-    "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
-    "date": "2026-11-05",
-    "imported": "2026-11-06"
+    "commit": "f911d6e4b9711071f0daaad95b4a04c2c8aa3c61",
+    "date": "2026-11-08",
+    "imported": "2026-11-08"
   },
   "versions": {
     "pal": {
@@ -47,9 +47,9 @@
         "repo": "https://github.com/OpenRAC/rac1-decomp",
         "branch": "main",
         "license": "GPL-3.0 (third-party parts keep theirs)",
-        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
-        "date": "2026-11-05",
-        "imported": "2026-11-06"
+        "commit": "f911d6e4b9711071f0daaad95b4a04c2c8aa3c61",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS or Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
@@ -326,9 +326,9 @@
         "repo": "https://github.com/OpenRAC/rac1-decomp",
         "branch": "main",
         "license": "GPL-3.0 (third-party parts keep theirs)",
-        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
-        "date": "2026-11-05",
-        "imported": "2026-11-06"
+        "commit": "f911d6e4b9711071f0daaad95b4a04c2c8aa3c61",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",
@@ -397,9 +397,9 @@
         "repo": "https://github.com/OpenRAC/rac1-decomp",
         "branch": "main",
         "license": "GPL-3.0 (third-party parts keep theirs)",
-        "commit": "b4a462a5325759dd466bebe8cc06747e00d665d2",
-        "date": "2026-11-05",
-        "imported": "2026-11-06"
+        "commit": "f911d6e4b9711071f0daaad95b4a04c2c8aa3c61",
+        "date": "2026-11-08",
+        "imported": "2026-11-08"
       },
       "build": {
         "host": "macOS and Linux through Docker (linux/386 image with Wine); SN ProDG toolchain you supply",

@@ -19,11 +19,10 @@ namespace openrac::lighting {
 namespace {
 // Rejects malformed catalog controls before any generated profile can be replaced.
 void validate_setting(const std::string& key, const json::Value& value) {
-    // Vertex modulation is the catalog's only boolean material control.
-    if (key == "vertex_colour") {
+    if (key == "vertex_colour" || key == "average_for_bake") {
         // Numeric booleans would change the original profile's meaning.
         if (value.type() != json::Value::Type::Bool) {
-            throw std::runtime_error("emission vertex_colour requires a boolean");
+            throw std::runtime_error("emission " + key + " requires a boolean");
         }
 
         return;
@@ -105,6 +104,9 @@ json::Value emission_projection(const materials::Properties& properties) {
         throw std::runtime_error(error);
     }
     auto result = document["presets"]["value"]["emission"].members();
+    for (const auto* key : {"bake_mode", "bake_mesh_rgb", "bake_use_cutout"}) {
+        result.erase(key);
+    }
     const auto& diffuse = document["presets"]["value"]["surface"]["diffuse_scale"];
     if (!diffuse.is_null()) {
         result["diffuse_scale"] = diffuse;
