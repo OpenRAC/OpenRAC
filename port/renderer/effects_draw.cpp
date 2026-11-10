@@ -8,6 +8,8 @@
 #include <optional>
 #include <source_location>
 #include <stdexcept>
+#include <unordered_set>
+#include <vector>
 
 #include "common/stats.h"
 #include "renderer/effects.h"
@@ -355,12 +357,27 @@ void EffectRenderer::draw_prepared(
     // quads are drawn back to front: one drawn before that quad sampled what the key held last frame,
     // another texture, and the nanotech crates' orbs came out as opaque white quads.
     // Refactor note: the uploads could travel as a list of their own instead of riding on quads.
+    // Only the last upload at each block is sent: all of them go in before any quad is drawn, so
+    // an earlier one at the same block is replaced before anything samples it, and the last ones
+    // keep their order. A field of quads paging two textures through one block in turn sent
+    // (copied and hashed) one texture a quad, a thousand a frame.
+    std::vector<std::size_t> quad_uploads;
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
         // A complete texture/palette pair must exist before either is uploaded.
         if (q.uploads >= 0
             && static_cast<std::size_t>(q.uploads) + 1 < input.effect_uploads.size()) {
-            upload(input.effect_uploads[static_cast<std::size_t>(q.uploads)]);
-            upload(input.effect_uploads[static_cast<std::size_t>(q.uploads) + 1]);
+            quad_uploads.push_back(static_cast<std::size_t>(q.uploads));
+            quad_uploads.push_back(static_cast<std::size_t>(q.uploads) + 1);
+        }
+    }
+    std::vector<bool> superseded(quad_uploads.size());
+    std::unordered_set<std::uint32_t> later_blocks;
+    for (std::size_t i = quad_uploads.size(); i-- > 0;) {
+        superseded[i] = !later_blocks.insert(input.effect_uploads[quad_uploads[i]].dbp).second;
+    }
+    for (std::size_t i = 0; i < quad_uploads.size(); ++i) {
+        if (!superseded[i]) {
+            upload(input.effect_uploads[quad_uploads[i]]);
         }
     }
 
