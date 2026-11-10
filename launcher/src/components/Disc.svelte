@@ -1,9 +1,7 @@
 <script lang="ts">
-  // One game's disc on Android's Games tab (DiscShelf.svelte): the print of the real disc
-  // (discArt.ts), its hole cut out, or, until the print is there or without a connection, the
-  // launcher's own label (the game's picture and its name). It sways a little and floats while it is
-  // the one picked (`idle`). Its shadow is as deep as --shade (0 to 1, set by the wheel as a disc
-  // comes to the middle), so it grows and fades with the turn instead of popping in.
+  // One game's disc (Android's shelf, the desktop's game list): the real print (discArt.ts), or
+  // the launcher's own label until it loads or when offline. `idle` makes it float and sway;
+  // `small` is the list's (a lighter shadow). The shadow's depth is --shade (0 to 1).
   import { discPrint } from "$lib/discArt";
   import { titleLines } from "$lib/labels";
   import { gameTileArt } from "$lib/media";

@@ -32,18 +32,17 @@ export function gameThumb(game: string): string | null {
   return storeArt(game) ?? GAME_THUMB[game] ?? null;
 }
 
-/** A game's picture, or null for a game without one (its tile then shows its colours). */
+/** A game's picture, or null for a game without one (its colours show instead). */
 export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
-/** A game's picture framed for a tile, 1280 wide (scripts/game_art.py): a disc's label until its
- *  print is there. The picture itself can be wider and take a moment to decode. */
+/** A game's picture 1280 wide (scripts/game_art.py): a disc's label until its print is there. */
 export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
-// The tile pictures, decoded once and kept: a disc's label that mounts again finds its picture
+// The label pictures, decoded once and kept: a disc's label that mounts again finds its picture
 // ready, rather than showing its colours for a frame first.
 const kept: HTMLImageElement[] = [];
 

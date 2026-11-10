@@ -1,10 +1,8 @@
 <script lang="ts">
-  // Android's Games tab as a shelf of discs (user decision, after Cartouche): every game a disc on a
-  // wheel at the left, the one picked large and swaying, its neighbours above and below; beside it
-  // its name, where its last save is, and what its page used to have at the top: Play, the "..." menu
-  // and the Mods switch (gameMenu.svelte.ts). Up and down (or a drag) turn the wheel, A plays: the disc
-  // goes into the console (DiscLaunch.svelte) and the game starts. X opens its mods, Y its page. The
-  // rail stays on the left (Header.svelte).
+  // Android's Games tab: a wheel of discs on the left (user decision, after Cartouche) and, beside
+  // the one picked, its name, last save, Play, the "..." menu and the Mods switch (gameMenu.svelte.ts).
+  // Up/down or a drag turns the wheel; A puts the disc into the console (DiscLaunch.svelte) and
+  // plays; X opens its mods, Y its page.
   import { fly } from "svelte/transition";
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";

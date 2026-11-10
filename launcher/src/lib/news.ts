@@ -1,5 +1,5 @@
-// What changed, as Android's Games tab lists it under the shelf: an update of the launcher, mods
-// with updates, a game that crashed. No Svelte or Tauri here, so it can be tested.
+// What's new on Android's Games tab (the chips at the top right): a launcher update, mod
+// updates, a game that crashed. No Svelte or Tauri here, so it can be tested.
 
 export interface NewsItem {
   key: string;

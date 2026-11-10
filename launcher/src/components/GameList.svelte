@@ -1,10 +1,7 @@
 <script lang="ts">
-  // The games in the list beside the Games and Mods tabs (SideList): one entry each, all the same
-  // size, as OpenGOAL's launcher lists its games, the open one marked; on the desktop each is its
-  // disc, the open one larger and turning; it is the only way to
-  // switch games. By default it is the Games tab's: each game's state for playing, a click opens
-  // the game's page. Another page passes its own SELECTED game, ONSELECT and STATE (Mods: what can
-  // be modded).
+  // The list of games beside the Games and Mods tabs (SideList), the open one marked; on the
+  // desktop each game is its disc. By default it is the Games tab's: a click opens the game's page.
+  // Another page passes its own SELECTED, ONSELECT and STATE (Mods: what can be modded).
   import { onAndroid, type GameView } from "$lib/api";
   import { app, openVersion } from "$lib/app.svelte";
   import { gameThumb } from "$lib/media";

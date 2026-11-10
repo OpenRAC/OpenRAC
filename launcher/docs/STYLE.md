@@ -237,46 +237,36 @@ without it. Off, every game wears the gold.
 
 ## The desktop's game list
 
-Each game in the list beside Games and Mods is its disc (`SideList.svelte`, `Disc.svelte`,
-user decision): the print as on Android, or the game's picture as a label. The list sits on
-the page's own ground, with no darker panel or edge (user decision). The open game's disc
-is a little larger and turned, inside its row; a disc under the pointer or the controller's focus
-rolls a little to the right. None sways. A crash shows as a red dot at the disc's foot, and the
-game's own name ("Going Commando") goes to its own line when the whole name does not fit on one. A narrow window shows the discs alone.
+Each game in the list is its disc (`SideList.svelte`, `Disc.svelte`, user
+decision): its print, or the game's picture as a label. The list has no panel
+of its own, it sits on the page (user decision). The open game's disc is a bit
+larger and turned; the disc under the mouse or the pad's focus turns a little.
+A crash is a red dot at the disc's foot. A long name breaks before the game's
+own name ("Going Commando"). A narrow window shows the discs only.
 
 ## Android's Games tab
 
 A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
-cartouche), held sideways only (the launcher's activity is `sensorLandscape`).
-The rail stays on the left, the theme is the launcher's own.
+cartouche), landscape only. The rail stays on the left.
 
-- the wheel, on the left half: every game a disc (`Disc.svelte`) with its real
-  print, downloaded on the device (`src/lib/discArt.ts`, never shipped); without
-  one, the game's picture as a label. The discs float and sway a little (always, so
-  a disc never snaps still when picked); the others sit above and below it, smaller and turned. Up and down, a drag or a
-  tap on a neighbour turns the wheel on a spring moved frame by frame (4 % past
-  the mark): a turn asked while the wheel still moves keeps its speed, never a
-  jump. No glow on the disc and no picture or glow behind it: only a few motes
-  of light in the game's colour rising slowly (none with reduced motion);
-- beside it, on the right: year and region, the name in the game's title font,
-  its newest save or how far its code is rebuilt, notes (crash, mods), then its
-  step on the one gold button (A), Game page (Y) and the "..." menu, and under
-  them the Mods switch (its count or "original game" opens Mods, X). These come
-  in one after another when the disc changes. The disc's shadow grows and fades
-  with the wheel's turn (`--shade`), never popping in;
-- What's new: small chips at the top right; hidden when empty;
-- the foot: the job running, ↕ Games and LB RB Tabs (the buttons beside the
-  disc already show A, X and Y).
+- Left: the wheel. Each game is a disc with its real print, downloaded on the
+  device (`src/lib/discArt.ts`, never shipped), or the game's picture as a
+  label. Up, down, a drag or a tap on a neighbour turns it on a spring. The
+  disc's shadow follows the turn (`--shade`), so it never pops in. Only a few
+  slow motes in the game's colour sit behind it (none with reduced motion).
+- Right: year and region, the name in the game's title font, its newest save
+  or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
+  (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them (X opens
+  Mods). Sizes scale with the window height (`clamp()`).
+- Top right: What's new chips, hidden when empty. Foot: the running job and
+  the pad hints.
 
 Play puts the disc into a console (`DiscLaunch.svelte`, our own drawing, no
-maker's marks; timings in `src/lib/insertion.ts`, after cartouche's
-`insertion.gd`): the lid opens, the disc is pushed onto the spindle, spins up,
-the lid shuts, the light comes on and the screen goes black from the disc's
-centre. B before the click puts the disc back. With reduced motion there is no
-movement and Play starts the game at once.
+maker's marks; timings in `src/lib/insertion.ts`, after cartouche). B before
+the click puts it back. With reduced motion the game starts at once.
 
-A game's page on Android has no Play, Mods switch or menu (they are beside the
-disc, `src/lib/gameMenu.svelte.ts`): its band leads back to Games.
+On Android a game's page has no Play, Mods switch or menu (they are beside the
+disc); its band has a "‹ Games" button.
 
 ## A game's picture
 
@@ -285,32 +275,21 @@ Each game has three pictures in `public/img/`, under the site's names (`rac1`,
 
 - `<name>-bg.webp`, 1920 × 620, no logo: under the game's band once its page is
   open, and faintly behind the page;
-- `<name>-tile.webp`, 1280 × 569, the same picture framed for a tile: on
-  Android, a disc's label until its print is there. The tile writes the game's name at its foot in the game's title
-  font, the game's own name always on the line under the series ("Ratchet &
-  Clank:" / "Going Commando"; "Ratchet: Deadlocked" is one name, one line)
-  (user decision: no logos on the tiles);
-- `<name>-thumb.webp`, 192 × 132: the game list, which shows it 64 × 44.
+- `<name>-tile.webp`, 1280 × 569: a disc's label until its print is
+  downloaded, with the game's name at its foot in its title font, the game's
+  own name on the line under the series (user decision: no logos);
+- `<name>-thumb.webp`, 192 × 132: lists without discs, shown 64 × 44.
 
 `python3 scripts/game_art.py` makes all three from the game's SteamGridDB hero
-(the links are in the script). It gives every game the launcher's look, the
-same for all: shadows pulled toward the page's coal in the game's hue, the
-light under the bar (a glow from the top in the game's accent, as
-`body::after`) and a soft bloom on the bright parts; a dark picture is lifted a
-little without going grey. On top sits a stage light in the game's colour (user
-decision): the accent shines in from the top right, and the foot and the deep
-shadows sink into the bar's dark ink (`--bar-ink`), so each picture matches its
-game's accent. The characters are not retouched.
-The tiles are turned 10° to the right, each on its own perspective (user
-decision). The tile's frame
-is chosen per game so the faces stay whole and clear of the name, as Steam
-asks of its own heroes (key art in the middle).
+(links in the script), with one look for every game: shadows pulled toward the
+page's coal, a light from the top right in the game's accent, the foot sinking
+into the bar's ink (`--bar-ink`), a soft bloom on bright parts (user decision).
+The characters are not retouched. Each frame keeps the faces whole and clear of
+the name.
 
-The band shows the picture at 60 % (over the card gradient, which muddied it at less), above its middle (`object-position: 50% 25%`:
-the band is wider than the picture, and the faces are in its upper part).
-Behind the page it is a screen blend at 20 %, faded at its edges by a mask, so
-it only adds light and the light under the bar still shows through it. Text on
-a tile sits on a shade from the tile's foot (`--ink-deep` 92 % to none at 64 %).
+The band shows the picture at 60 %, from its upper part
+(`object-position: 50% 25%`). Behind the page it is a screen blend at 20 % with
+faded edges, so it only adds light.
 
 `python3 scripts/media.py thumbs` makes the thumbnails again from the
 pictures; `python3 scripts/media.py still RECORDING GAME --at S` writes a
@@ -396,7 +375,9 @@ there when it is added.
   control the pad must reach that is out of Tab's order (a roving tab, radio
   or menu item) uses its role inside `tablist`, `radiogroup` or `menu`. What
   floats over the page and should be reached only past its end (the toasts)
-  carries `data-pad-aside`.
+  carries `data-pad-aside`. A container can steer the pad out of it with
+  `data-pad-up`/`-down`/`-left`/`-right`: a selector to land on, or `none` to
+  stay (`steer` in `pad.ts`). Going up into the bar lands on the open tab.
 - `src/lib/stylesheets.test.ts` holds `app.css` and every component's
   `<style>` to three of these rules: no hex colour outside `:root`, no hover
   style outside `@media (hover: hover)` or without the controller's guard. It
