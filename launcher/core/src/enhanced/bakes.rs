@@ -45,10 +45,11 @@ fn baker_profile(baker: &Path, level: &Path) -> Option<String> {
         baker.to_path_buf(),
         level.to_path_buf(),
         format!(
-            "{:?} {:?} {:?}",
+            "{:?} {:?} {:?} {}",
             file(baker),
             file(&level.join("probe-bake.json")),
-            file(&level.join("manifest.json"))
+            file(&level.join("manifest.json")),
+            level.join("bake-inputs/gameplay.bin").is_file()
         ),
     );
     if let Some(known) = CACHE.lock().unwrap().get_or_insert_with(HashMap::new).get(&key) {
