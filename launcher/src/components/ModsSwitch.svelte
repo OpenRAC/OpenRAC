@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Whether Play brings the mods (config.playWithMods): a switch, and beside it what it means, the
-  // number of mods on or "original game", which leads to the Mods tab. Under Play on the desktop's
+  // Whether Play brings the mods (config.playWithMods): a switch, and beside it the state now ("On:
+  // 3 mods" or "Off: the original game"), which leads to the Mods tab. Under Play on the desktop's
   // game page (a pill) and beside the disc on Android's Games (`quiet`: a line, the switch with X's
   // glyph: X turns it on Games).
   import type { VersionView } from "$lib/api";
@@ -58,7 +58,7 @@
 </div>
 
 <style>
-  /* A quiet pill: its switch, then the count or "original game". */
+  /* A quiet pill: its switch, then the state ("On: 3 mods", "Off: the original game"). */
   .with-mods {
     display: inline-flex;
     align-items: center;

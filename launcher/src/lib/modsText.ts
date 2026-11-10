@@ -315,10 +315,12 @@ export const TEXTURES = {
 export const WITH_MODS = {
   label: "Mods",
   hint: "Play with your gameplay mods, packs, packed levels and Enhanced graphics from the Mods tab.",
-  /** Beside the switch when it is on: how many are switched on, a way to the Mods tab. */
-  count: (n: number | null) => (n === null ? "Mods tab" : n === 0 ? "none on yet" : `${n} on`),
+  /** Beside the switch when it is on: what Play starts now, how many mods, a way to the Mods tab.
+   *  It says the state first, so it never reads as what the switch would turn to. */
+  count: (n: number | null) =>
+    n === null ? "On: with mods" : n === 0 ? "On: no mods picked yet" : `On: ${n} ${n === 1 ? "mod" : "mods"}`,
   /** Beside the switch when it is off. */
-  original: "original game",
+  original: "Off: the original game",
   offNotice: "Play starts the game without mods. Turn on Mods under Play to use them.",
   turnOn: "Turn on",
 } as const;
