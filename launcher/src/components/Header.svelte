@@ -694,8 +694,13 @@
     height: auto;
     min-height: 0;
     padding: 16px 0 12px;
-    /* Its own ground, with no line between it and the page. */
-    background: var(--rail);
+    /* No ground of its own: over the page's left edge (App.svelte), the page's ground under it,
+       Games' wave seen through it as through frosted glass (WaveBackdrop.svelte). */
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: none;
     border-bottom: 0;
     border-right: 0;
     box-shadow: none;
@@ -895,6 +900,9 @@
       width: 100%;
       height: var(--nav-bottom);
       padding: 12px 0 16px;
+      /* In the window's foot, below the page, on its own ground. */
+      position: static;
+      background: var(--rail);
       border-right: 0;
       border-top: 1px solid var(--line);
       overflow: visible;

@@ -639,6 +639,9 @@
   .backdrop {
     position: absolute;
     inset: 0;
+    /* On under the rail, frosted there (WaveBackdrop.svelte). */
+    left: calc(-1 * var(--nav-left));
+    --frost: var(--nav-left);
     overflow: hidden;
     pointer-events: none;
   }

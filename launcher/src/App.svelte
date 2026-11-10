@@ -270,6 +270,14 @@
     }
   }
 
+  /* The rail lies over the page's left edge (Header.svelte): the page's ground and Games' wave run
+     under it, its first column kept beside it. */
+  @media (min-width: 600px) {
+    :global(html[data-platform="android"]) main {
+      padding-left: var(--nav-left);
+    }
+  }
+
   /* A page scrolls down, never sideways: what is wider than the window is the page's to fit. */
   main {
     flex: 1;

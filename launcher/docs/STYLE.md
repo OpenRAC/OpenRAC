@@ -20,8 +20,9 @@ follows the same rules.
   navy and never pure black: text on a black page glares and blurs for many
   eyes (halation; user decision), so the launcher sits at a dimmed dark
   theme's lightness, a little warmer than grey so it goes with the gold
-  (OKLCH chroma 0.008, the gold's hue). The game list beside it and Android's
-  rail are darker than the page: `--rail` `#161410`. Pure black is the OLED
+  (OKLCH chroma 0.008, the gold's hue). The game list beside it (and Android's
+  bar at the foot of a narrow window) is darker than the page: `--rail` `#161410`.
+  Android's rail on the left has no ground of its own: the page's runs under it. Pure black is the OLED
   theme's alone.
 - The light under the bar: a soft glow of `--glow` (the picked game's colour,
   gold for Ratchet & Clank) laid over the window from the bar down
@@ -248,7 +249,8 @@ own name ("Going Commando"). A narrow window shows the discs only.
 ## Android's Games tab
 
 A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
-cartouche), landscape only. The rail stays on the left.
+cartouche), landscape only. The rail stays on the left, over the wave, which
+shows through it soft, as through frosted glass.
 
 - Left: the wheel. Each game is a disc with its real print, shipped in
   `public/img/discs/` (`scripts/disc_prints.py`, user decision), or the game's
@@ -256,7 +258,9 @@ cartouche), landscape only. The rail stays on the left.
   disc's shadow follows the turn (`--shade`), so it never pops in. Behind it a
   soft wave of light in the game's colour, with specks about it
   (`WaveBackdrop.svelte`, after the PSP and PS3 menus; still with reduced
-  motion). It follows the wheel, not its bounce. A finger held on the disc
+  motion). The GPU draws it (WebGL) at the screen's own pixels, every thread
+  with a smoothed edge, only in the band it can reach, at most 60 frames a
+  second. It follows the wheel, not its bounce. A finger held on the disc
   turns it.
 - Right: year and region, the name in the game's title font, its newest save
   or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
