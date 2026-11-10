@@ -25,6 +25,7 @@
   import DiscLaunch from "./DiscLaunch.svelte";
   import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
+  import WaveBackdrop from "./WaveBackdrop.svelte";
   import Menu from "./Menu.svelte";
   import ModsSwitch from "./ModsSwitch.svelte";
 
@@ -72,18 +73,9 @@
     pickVersion(gv.key);
   }
 
-  /** The game's colour (palettes.json accents) for the motes behind the wheel; the launcher's gold
+  /** The game's colour (palettes.json accents) for the wave behind the wheel; the launcher's gold
    *  for a game without one. It changes slowly as the wheel turns (--glow is registered). */
   const glow = $derived(game ? ACCENTS[game.id]?.["--glow"] : undefined);
-
-  /** Motes of light that rise slowly behind the wheel: where each starts, how big, how slow. */
-  const MOTES = Array.from({ length: 14 }, (_, i) => ({
-    x: (i * 37 + 11) % 100,
-    size: 3 + ((i * 7) % 5),
-    seconds: 16 + ((i * 11) % 13),
-    delay: -((i * 5.3) % 24),
-    drift: ((i % 3) - 1) * 24,
-  }));
 
   // ---- the last save: where the player left off ----
 
@@ -449,14 +441,7 @@
       role="presentation"
     >
       <div class="backdrop" aria-hidden="true">
-        {#if !reduced}
-          {#each MOTES as m, i (i)}
-            <span
-              class="mote"
-              style={`left: ${m.x}%; width: ${m.size}px; height: ${m.size}px; animation-duration: ${m.seconds}s; animation-delay: ${m.delay}s; --drift: ${m.drift}px`}
-            ></span>
-          {/each}
-        {/if}
+        <WaveBackdrop shift={pos} still={reduced} />
       </div>
       <div class="wheel" data-pad-right=".info .acts button" bind:this={wheel} aria-label="Your games" role="group">
         {#each games as g, i (g.id)}
@@ -629,39 +614,12 @@
     -webkit-touch-callout: none;
   }
 
-  /* Behind everything: motes of light in the game's colour rising slowly; no picture, no glow. */
+  /* Behind everything: a band of fine lines in the game's colour (WaveBackdrop); no picture. */
   .backdrop {
     position: absolute;
     inset: 0;
     overflow: hidden;
     pointer-events: none;
-  }
-
-  .mote {
-    position: absolute;
-    bottom: -12px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--glow) 70%, white);
-    filter: blur(1px);
-    opacity: 0;
-    animation: rise linear infinite;
-  }
-
-  @keyframes rise {
-    0% {
-      opacity: 0;
-      transform: translate(0, 0);
-    }
-    15% {
-      opacity: 0.35;
-    }
-    80% {
-      opacity: 0.2;
-    }
-    100% {
-      opacity: 0;
-      transform: translate(var(--drift), -78vh);
-    }
   }
 
   /* ---- the wheel: the discs stand one above the other, the one picked in the middle ---- */
