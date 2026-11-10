@@ -16,13 +16,13 @@ Secret Agent Clank), shown to name the game the player owns.
 
 ## Cartouche
 
-The discs of Android's Games tab follow
-[Hakimba/cartouche](https://github.com/Hakimba/cartouche) (GPL-3.0-or-later, as
-the launcher): `src/lib/insertion.ts` takes its timings from cartouche's
-`insertion.gd`, and the disc prints come from the same place as cartouche's, the
-LaunchBox games database (`images.launchbox-app.com`). The prints are
-downloaded on the player's device and never shipped with the launcher; the art
-is Sony Interactive Entertainment's and Insomniac Games'.
+The discs follow [Hakimba/cartouche](https://github.com/Hakimba/cartouche)
+(GPL-3.0-or-later, as the launcher): `src/lib/insertion.ts` takes its timings
+from cartouche's `insertion.gd`. The disc prints in `public/img/discs/` are
+scans from the LaunchBox games database (`images.launchbox-app.com`), the same
+ones cartouche uses; `scripts/disc_prints.py` lists each one's link. The art is
+Sony Interactive Entertainment's and Insomniac Games' (High Impact Games' for
+Size Matters and Secret Agent Clank), shown to name the game the player owns.
 
 ## The OpenRAC website
 

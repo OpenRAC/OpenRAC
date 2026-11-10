@@ -249,9 +249,9 @@ own name ("Going Commando"). A narrow window shows the discs only.
 A shelf of discs (`DiscShelf.svelte`, user decision, after Hakimba's
 cartouche), landscape only. The rail stays on the left.
 
-- Left: the wheel. Each game is a disc with its real print, downloaded on the
-  device (`src/lib/discArt.ts`, never shipped), or the game's picture as a
-  label. Up, down, a drag or a tap on a neighbour turns it on a spring. The
+- Left: the wheel. Each game is a disc with its real print, shipped in
+  `public/img/discs/` (`scripts/disc_prints.py`, user decision), or the game's
+  picture as a label if it fails to load. Up, down, a drag or a tap on a neighbour turns it on a spring. The
   disc's shadow follows the turn (`--shade`), so it never pops in. Only a few
   slow motes in the game's colour sit behind it (none with reduced motion).
 - Right: year and region, the name in the game's title font, its newest save

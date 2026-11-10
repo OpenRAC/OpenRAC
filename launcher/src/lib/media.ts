@@ -22,9 +22,14 @@ const GAME_THUMB: Record<string, string> = {
 };
 
 /** Store bundles use original OpenRAC illustrations; desktop/dev keeps its existing artwork. */
-function storeArt(game: string): string | null {
+/** Whether the build shows the store's own drawings in place of the games' art. */
+export function storeArtwork(): boolean {
   const host = typeof window === "undefined" ? null : (window as Window & { __OPENRAC_STORE_ARTWORK__?: boolean });
-  return host?.__OPENRAC_STORE_ARTWORK__ && Object.hasOwn(GAME_ART, game) ? `/img/store/${game}.svg` : null;
+  return !!host?.__OPENRAC_STORE_ARTWORK__;
+}
+
+function storeArt(game: string): string | null {
+  return storeArtwork() && Object.hasOwn(GAME_ART, game) ? `/img/store/${game}.svg` : null;
 }
 
 /** A game's thumbnail, or null. */

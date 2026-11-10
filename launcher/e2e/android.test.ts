@@ -353,7 +353,8 @@ describe("A controller", () => {
 
   it("offers to set up a game not playable yet beside its disc", async () => {
     await open("built&version=rac3/ntsc&page=library");
-    expect(await page.locator(".info .go").textContent()).toContain("Set up from your disc");
+    // Waits for the words of that game: the shelf may first show the game picked before.
+    await page.locator(".info .go", { hasText: "Set up from your disc" }).waitFor();
   });
 
   it("keeps Y and X in the open menu beside the disc", async () => {
