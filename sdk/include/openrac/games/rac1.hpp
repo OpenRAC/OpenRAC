@@ -427,6 +427,14 @@ struct msg_string {
     using fn = int32_t (*)(int32_t);
 };
 
+// Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
+struct Vendor_OpenMenu {
+    static constexpr const char* id = "rac1.vendor.open_menu";
+    static constexpr const char* name = "Vendor_OpenMenu";
+    static constexpr const char* signature = "void(u32)";
+    using fn = void (*)(uint32_t);
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5519,14 +5527,6 @@ struct Moby_Class1799_Update {
 struct Moby_Gadgebot1906_Update {
     static constexpr const char* id = "rac1.moby.moby1906.update";
     static constexpr const char* name = "Moby_Gadgebot1906_Update";
-    static constexpr const char* signature = "void(u32)";
-    using fn = void (*)(uint32_t);
-};
-
-// Opens the vendor purchase menu, including the Gadgetron PDA remote vendor when moby is zero.
-struct Vendor_OpenMenu {
-    static constexpr const char* id = "rac1.vendor.open_menu";
-    static constexpr const char* name = "Vendor_OpenMenu";
     static constexpr const char* signature = "void(u32)";
     using fn = void (*)(uint32_t);
 };

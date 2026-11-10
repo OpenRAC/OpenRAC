@@ -306,7 +306,6 @@ def load(game: str, catalogue: Path | None = None, table_path: Path | None = Non
         symbols = {d: read_symbols(ROOT / p) for d, p in table.get("catalogue_symbols", {}).items()}
         more, classes, left = catalogue_hooks(cat, discs, symbols, table.get("catalogue_exclude", {}))
         hooks += more
-        hooks = [h for h in hooks if not h.get("after_catalogue")] + [h for h in hooks if h.get("after_catalogue")]
     names = set()
     for h in hooks:
         if not NAME.match(h["name"]) or h["name"] in names:
