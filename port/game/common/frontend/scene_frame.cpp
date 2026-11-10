@@ -435,9 +435,9 @@ bool draw_world(SceneFrame& frame) {
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
-        const bool enhanced_world_colour = graphics.enhanced_graphics && enhanced_graphics_available()
-                                           && scene.has_camera && !input.keep_colour
-                                           && (scene.draws & 0x1Fu) != 0;
+        const bool enhanced_world_colour = graphics.enhanced_graphics
+                                           && enhanced_graphics_available() && scene.has_camera
+                                           && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
         const bool bloom_colour =
             enhanced_world_colour && graphics.bloom.enabled && graphics.bloom.strength > 0.0f;
         const bool grade_colour = enhanced_world_colour && graphics.agx_preview;
@@ -445,7 +445,10 @@ bool draw_world(SceneFrame& frame) {
         std::function<void()> finish_colour;
         // Bloom and optional tone mapping are colour-only and run before late world/HUD work.
         if (finish_world_colour) {
-            finish_colour = [&owner, bloom_colour, bloom = graphics.bloom, grade_colour,
+            finish_colour = [&owner,
+                             bloom_colour,
+                             bloom = graphics.bloom,
+                             grade_colour,
                              exposure = graphics.adjusted_agx_exposure()] {
                 if (bloom_colour) {
                     crash::breadcrumb("bloom");
