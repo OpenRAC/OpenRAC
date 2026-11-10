@@ -97,6 +97,11 @@ class MainActivity : TauriActivity() {
 
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
+    // The page takes the window's focus at once: until a first touch gave it, the page could not
+    // focus a control (the d-pad then did nothing, or scrolled the page).
+    webView.isFocusable = true
+    webView.isFocusableInTouchMode = true
+    webView.post { webView.requestFocus() }
   }
 
   override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -155,6 +160,7 @@ class MainActivity : TauriActivity() {
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
     val name = if (fromController(event)) button(event.keyCode) else null
     if (name == null || webView == null) return super.dispatchKeyEvent(event)
+    if (webView?.hasFocus() == false) webView?.requestFocus()
     // Held buttons repeat in the page, at its own pace.
     when (event.action) {
       KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) send("down:$name")

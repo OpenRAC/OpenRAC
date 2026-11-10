@@ -717,7 +717,7 @@ export function pollGamepads(
  */
 export function startPad(
   home: () => boolean,
-  options: { readGamepads: boolean; nativePicker?: boolean; press?: (el: HTMLElement) => void },
+  options: { readGamepads: boolean; nativePicker?: boolean; arrowKeys?: boolean; press?: (el: HTMLElement) => void },
 ) {
   const { readGamepads, press } = options;
   backHome = home;
@@ -732,6 +732,34 @@ export function startPad(
   w.__openracPadRelease = releasePad;
   w.__openracBack = back;
   window.addEventListener("blur", releasePad);
+  // Arrow keys that reach the page as keys (a d-pad Android does not report as a controller's, a
+  // keyboard's) move the focus too, unless a text field or a list has them; else they scrolled the
+  // page.
+  if (options.arrowKeys) {
+    const ARROWS: Record<string, PadButton> = {
+      ArrowUp: "up",
+      ArrowDown: "down",
+      ArrowLeft: "left",
+      ArrowRight: "right",
+    };
+    const arrow = (e: KeyboardEvent) => {
+      const button = ARROWS[e.key];
+      if (!button || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return null;
+      const at = document.activeElement;
+      if (textEntry(at) || at instanceof HTMLSelectElement) return null;
+      return button;
+    };
+    document.addEventListener("keydown", (e) => {
+      const button = arrow(e);
+      if (!button) return;
+      e.preventDefault();
+      if (!e.repeat) padEvent(`down:${button}`);
+    });
+    document.addEventListener("keyup", (e) => {
+      const button = arrow(e);
+      if (button) padEvent(`up:${button}`);
+    });
+  }
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) releasePad();
   });

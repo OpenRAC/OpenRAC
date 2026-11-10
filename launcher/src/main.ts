@@ -43,6 +43,7 @@ startPad(
   {
     readGamepads: !onAndroid && !onIOS,
     nativePicker: onAndroid,
+    arrowKeys: onAndroid,
     press: onAndroid ? padRipple : undefined,
   },
 );

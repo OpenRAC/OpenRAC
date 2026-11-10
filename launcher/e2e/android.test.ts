@@ -318,6 +318,15 @@ describe("A controller", () => {
     await page.locator(".hero .back").waitFor();
   });
 
+  it("moves the focus by arrow keys that reach the page as keys, before any touch", async () => {
+    await open("built&version=rac1/pal&page=library");
+    await page.locator(".slot.on").waitFor();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    expect(await page.evaluate(() => !!document.querySelector(".info [data-pad-focus]"))).toBe(true);
+    expect(await page.evaluate(() => document.scrollingElement?.scrollTop ?? 0)).toBe(0);
+  });
+
   it("does nothing on X while a dialog is open over the tab", async () => {
     await open("built&version=rac1/pal&page=library");
     await page.locator(".slot.on").waitFor();
