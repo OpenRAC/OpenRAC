@@ -194,13 +194,16 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
   let hit: [number, number] = [0, 0];
   for (let i = 0; i < n; i++) {
     const t = i / rate;
-    // Turns a second: up towards 38 (a little over 2,000 rpm), quickly at first.
-    const fr = 38 * (1 - Math.exp(-Math.max(0, t - 0.06) / 0.38));
+    // Turns a second: one rise from still to 38 (a little over 2,000 rpm) over the whole sound,
+    // easing in and never levelling off midway, so the motor is heard as one winding up.
+    const rise = Math.min(1, Math.max(0, t - 0.04) / (seconds - 0.04));
+    const fr = 38 * rise ** 0.7;
     const speed = fr / 38;
     turn += (TAU * fr) / rate;
     // The motor's hum: 6 steps a turn, and its harmonics, louder as it pulls harder.
     phase += (TAU * 6 * fr) / rate;
-    const pull = 0.4 + 0.6 * Math.exp(-t / 0.5);
+    // As loud all the way once it has started: no strong pull at first and a quieter hum after.
+    const pull = 0.6;
     let whine = 0;
     for (const [k, a] of [
       [1, 1],
@@ -210,7 +213,7 @@ export function spinSamples(rate: number, seconds: number): Float32Array {
     ] as const) {
       whine += Math.sin(phase * k) * a;
     }
-    whine *= 0.09 * pull * Math.min(1, speed * 3);
+    whine *= 0.09 * pull * Math.min(1, t / 0.12);
     // The disc's wobble: a low hum at its turning, and everything swells a little once a turn.
     const wobble = 1 + 0.18 * Math.sin(turn) * speed;
     const rumble = rumbleLp(Math.sin(turn) + 0.4 * Math.sin(2 * turn + 1)) * 0.03 * speed;
