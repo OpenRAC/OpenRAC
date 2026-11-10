@@ -651,6 +651,29 @@ void enhanced_settings_window() {
         }
     }
     if (ImGui::CollapsingHeader("Post processing")) {
+        ImGui::SeparatorText("Bloom");
+        auto& bloom = graphics.bloom;
+        changed |= checkbox("Bloom", &bloom.enabled);
+        ImGui::BeginDisabled(!bloom.enabled);
+        changed |= slider_float(
+            "Bloom strength", &bloom.strength, 0, 1, "%.3f", ImGuiSliderFlags_AlwaysClamp
+        );
+        changed |= slider_float(
+            "Bloom threshold", &bloom.threshold, 0, 4, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Brightness needed for a surface to contribute to the glow.");
+        changed |= slider_float(
+            "Bloom soft knee", &bloom.knee, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        control_tip("Softens the transition around the brightness threshold.");
+        changed |= slider_float(
+            "Bloom spread", &bloom.scatter, 0, 1, "%.2f", ImGuiSliderFlags_AlwaysClamp
+        );
+        ImGui::EndDisabled();
+        if (ImGui::Button("Reset bloom")) {
+            bloom = {};
+            changed = true;
+        }
         ImGui::SeparatorText("AgX");
         changed |= checkbox("AgX", &graphics.agx_preview);
         control_tip(

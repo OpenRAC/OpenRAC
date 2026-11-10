@@ -1,0 +1,36 @@
+#version 410 core
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) 2026 the OpenRAC contributors
+// Five-by-five Gaussian reduction with a soft bright pass on the first level.
+layout(location = 0) out vec4 result;
+uniform sampler2D tex_T0;
+uniform int first_pass;
+uniform float threshold;
+uniform float knee;
+
+vec3 tap(ivec2 p) {
+    ivec2 size = textureSize(tex_T0, 0);
+    return texelFetch(tex_T0, clamp(p, ivec2(0), size - 1), 0).rgb;
+}
+
+void main() {
+    const float weights[5] = float[5](1.0, 4.0, 6.0, 4.0, 1.0);
+    ivec2 centre = ivec2(gl_FragCoord.xy) * 2;
+    vec3 colour = vec3(0.0);
+    for (int y = 0; y < 5; ++y) {
+        for (int x = 0; x < 5; ++x) {
+            colour += tap(centre + ivec2(x - 2, y - 2)) * weights[x] * weights[y];
+        }
+    }
+    colour *= 1.0 / 256.0;
+
+    if (first_pass != 0) {
+        float brightness = max(colour.r, max(colour.g, colour.b));
+        float soft = clamp(brightness - threshold + knee, 0.0, 2.0 * knee);
+        soft = soft * soft / max(4.0 * knee, 1e-5);
+        float contribution = max(brightness - threshold, soft) / max(brightness, 1e-5);
+        colour *= max(contribution, 0.0);
+    }
+
+    result = vec4(colour, 1.0);
+}

@@ -27,6 +27,7 @@
 #include "enhanced/fsr3/fsr3.h"
 #include "enhanced/game/scripted_moby_colour.h"
 #include "enhanced/renderer/agx.h"
+#include "enhanced/renderer/bloom.h"
 #include "game/common/controls_store.h"
 #include "game/common/debug_camera.h"
 #include "game/common/frontend/geometry.h"
@@ -231,6 +232,7 @@ struct State {
         nullptr;  // Owned by renderer; consumes uploads on skipped ticks.
     std::unique_ptr<enhanced::Fsr3>
         temporal;  // Optional enhanced upscaler, released before the window.
+    enhanced::Bloom bloom;
     enhanced::AgxPreview agx;
     renderer::Haze haze;  // the mods' heat haze (interface 1.12)
     renderer::FrameBuffer frame;

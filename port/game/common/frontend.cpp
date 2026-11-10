@@ -619,6 +619,7 @@ void close() {
         release_views(*g);
         // Temporal histories reference the target and scene, so retire them before either owner.
         g->temporal.reset();
+        g->bloom.release();
         g->agx.release();
         g->haze.release();
         g->frame.release();

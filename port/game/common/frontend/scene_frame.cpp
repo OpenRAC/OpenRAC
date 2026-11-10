@@ -435,18 +435,32 @@ bool draw_world(SceneFrame& frame) {
         target.resolves_itself = owner.frame.resolves_itself();
         target.wide_2d = picture_scale < 1.0f && graphics.hud == settings::Hud::Edges;
 
-        const bool grade_colour = graphics.agx_preview && graphics.enhanced_graphics
-                                  && enhanced_graphics_available() && scene.has_camera
-                                  && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool enhanced_world_colour = graphics.enhanced_graphics
+                                           && enhanced_graphics_available() && scene.has_camera
+                                           && !input.keep_colour && (scene.draws & 0x1Fu) != 0;
+        const bool bloom_colour =
+            enhanced_world_colour && graphics.bloom.enabled && graphics.bloom.strength > 0.0f;
+        const bool grade_colour = enhanced_world_colour && graphics.agx_preview;
+        const bool finish_world_colour = bloom_colour || grade_colour;
         std::function<void()> finish_colour;
-        // Temporal resolve can compose this known colour-only operation before late world and HUD work.
-        if (grade_colour) {
-            finish_colour = [&owner, exposure = graphics.adjusted_agx_exposure()] {
-                crash::breadcrumb("tone mapping");
-                owner.agx.apply(owner.frame, exposure);
+        // Bloom and optional tone mapping are colour-only and run before late world/HUD work.
+        if (finish_world_colour) {
+            finish_colour = [&owner,
+                             bloom_colour,
+                             bloom = graphics.bloom,
+                             grade_colour,
+                             exposure = graphics.adjusted_agx_exposure()] {
+                if (bloom_colour) {
+                    crash::breadcrumb("bloom");
+                    owner.bloom.apply(owner.frame, bloom);
+                }
+                if (grade_colour) {
+                    crash::breadcrumb("tone mapping");
+                    owner.agx.apply(owner.frame, exposure);
+                }
             };
         }
-        bool graded_by_temporal = false;
+        bool colour_finished_by_temporal = false;
 
         // Loading/menu snapshots bypass history; active world frames resolve before the final HUD bucket.
         if (temporal_wanted && !input.keep_colour) {
@@ -467,7 +481,7 @@ bool draw_world(SceneFrame& frame) {
             const bool active = owner.temporal->begin(
                 temporal, graphics.temporal_quality, graphics.temporal_sharpness, temporal_error
             );
-            graded_by_temporal = active && grade_colour;
+            colour_finished_by_temporal = active && finish_world_colour;
 
             // The temporal module reports recoverable setup failures without throwing.
             if (!active && !temporal_error.empty()) {
@@ -495,7 +509,7 @@ bool draw_world(SceneFrame& frame) {
                 }
             };
         }
-        if (grade_colour && !graded_by_temporal) {
+        if (finish_world_colour && !colour_finished_by_temporal) {
             auto before_hud = std::move(input.before_hud);
             input.before_hud = [finish_colour = std::move(finish_colour),
                                 before_hud = std::move(before_hud)] {
