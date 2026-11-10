@@ -242,8 +242,8 @@
   }
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
      ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
-     theme's. Once the page scrolls under it, a haze fades in behind it: blurred and darkened at
-     the top, fading out below, so nothing runs into the buttons and no edge shows. */
+     theme's. Once the page scrolls under it, a haze fades in behind it: blurred, barely darkened,
+     fading out below, so nothing runs into the buttons and neither an edge nor a shadow shows. */
   :global(html:not([data-platform="android"])) .site-header {
     position: absolute;
     top: 0;
@@ -260,22 +260,23 @@
   :global(html:not([data-platform="android"])) .site-header::before {
     content: "";
     position: absolute;
-    inset: 0 0 -36px;
+    inset: 0 0 -20px;
     z-index: -1;
     pointer-events: none;
-    background: linear-gradient(
-      color-mix(in srgb, var(--ink) 78%, transparent) 30%,
-      color-mix(in srgb, var(--ink) 0%, transparent)
-    );
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    mask-image: linear-gradient(black 45%, transparent);
-    -webkit-mask-image: linear-gradient(black 45%, transparent);
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
+    backdrop-filter: blur(18px);
+    mask-image: linear-gradient(black 65%, transparent);
+    -webkit-mask-image: linear-gradient(black 65%, transparent);
+    /* Hidden, not only clear, at a page's top: WebKit can still draw a clear backdrop's filter. */
+    visibility: hidden;
     opacity: 0;
-    transition: opacity var(--medium) var(--ease);
+    transition:
+      opacity var(--medium) var(--ease),
+      visibility var(--medium);
   }
 
   :global(html:not([data-platform="android"])) .site-header.under::before {
+    visibility: visible;
     opacity: 1;
   }
 
