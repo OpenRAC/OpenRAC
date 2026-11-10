@@ -258,8 +258,7 @@ shows through it soft, as through frosted glass.
   disc's shadow follows the turn (`--shade`), so it never pops in. Behind it a
   soft wave of light in the game's colour, with specks about it
   (`WaveBackdrop.svelte`, after the PSP and PS3 menus; still with reduced
-  motion). The GPU draws it (WebGL) at the screen's own pixels, every thread
-  with a smoothed edge, only in the band it can reach, at most 60 frames a
+  motion). The GPU draws it (WebGL) at the screen's own pixels, each sheet one smooth band with soft edges (no threads), only in the band it can reach, at most 60 frames a
   second. It follows the wheel, not its bounce. A finger held on the disc
   turns it.
 - Right: year and region, the name in the game's title font, its newest save

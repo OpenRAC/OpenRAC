@@ -4,8 +4,8 @@
   // Behind Android's Games: a ribbon of light in the game's colour, like silk or a wave of water,
   // folding and drifting slowly across the screen, with specks of light about it. It slides along
   // as the wheel of discs turns (`shift`, in discs). One still frame when motion is reduced.
-  // Drawn by the GPU at the screen's own pixels (WebGL): every thread of the cloth is worked out
-  // per pixel with its edge smoothed, so it stays sharp and free of jagged steps on any screen,
+  // Drawn by the GPU at the screen's own pixels (WebGL): each sheet of the cloth is worked out per
+  // pixel with its edges smoothed, so it stays sharp and free of jagged steps on any screen,
   // and it costs the processor next to nothing. Where the rail lies over it (`--frost` from the
   // left, CSS), the cloth is drawn soft, as through frosted glass.
   let { shift = 0, still = false }: { shift?: number; still?: boolean } = $props();
@@ -51,9 +51,7 @@
 attribute vec2 p;
 void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 
-  // The cloth: for each sheet, the pixel's place across it gives the nearest of its threads; a
-  // thread is a line about a CSS pixel wide with a smoothed edge, and where the threads crowd
-  // closer than a pixel or two (a fold) they merge into their average light instead of shimmering.
+  // The cloth: each sheet a smooth band of light, no threads, its edges soft lines.
   const CLOTH_FS = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
@@ -68,30 +66,28 @@ uniform vec3 uCol;
 uniform vec3 uA0;
 uniform vec3 uA1;
 uniform vec3 uA2;
-const float N = 26.0;
 
 float sheet(float u, float y, float H, float m, float rise, float wide, vec3 a, float soft) {
   float mid = m + sin(u * 2.3 + a.x) * rise + sin(u * 4.1 + a.y) * rise * 0.45;
   float halfW = wide * (0.08 + 0.92 * abs(cos(u * 1.9 + a.z)));
   float span = max(2.0 * halfW * H, 0.001);
   float v = (y - mid * H) / span;
-  float spacing = span / (N - 1.0);
-  float k = (v + 0.5) * (N - 1.0);
-  float kc = clamp(floor(k + 0.5), 0.0, N - 1.0);
-  float d = abs(k - kc) * spacing;
-  // Its upper edge catches the light; its middle is thinnest.
-  float w = kc < 0.5 ? 2.2 : (kc > N - 1.5 ? 1.2 : 0.55 + 0.45 * abs(2.0 * kc / (N - 1.0) - 1.0));
-  float lw = 0.55 * uDpr + soft;
-  float line = 1.0 - smoothstep(lw - 0.6, lw + 0.6, d);
-  // Lines closer than the eye can part: their average, so a fold glows evenly.
-  float mean = min(1.0, 2.0 * lw / spacing) * step(abs(v), 0.5 + 0.5 / (N - 1.0));
-  line = mix(mean, line, smoothstep(1.5 * uDpr, 4.0 * uDpr, spacing));
-  // A soft sheen over the whole sheet, brighter where it folds (its threads crowd there), and a
-  // glow about it: the threads only add a fine grain to a smooth cloth.
-  float edge = max(abs(v) - 0.5, 0.0) * span;
-  float sheen = (1.0 - smoothstep(0.5, 0.5 + 2.0 * uDpr / span, abs(v))) * clamp(4.0 * uDpr / spacing, 0.35, 5.0);
-  float glow = exp(-edge / (14.0 * uDpr)) * 0.35;
-  return line * w * 0.075 * (uDpr + 0.5 * soft) / (uDpr + soft) + sheen * 0.06 + glow * 0.04;
+  // Brighter where it folds (narrow), as a cloth turned edge-on.
+  float crowd = clamp(0.03 / halfW, 0.3, 6.0);
+  // The sheet: one smooth fill, its edge smoothed over a pixel (wider through frosted glass),
+  // brighter towards its edges than in its middle.
+  float aa = (uDpr + soft) / span;
+  float inside = 1.0 - smoothstep(0.5 - aa, 0.5 + aa, abs(v));
+  float body = inside * (0.55 + 0.45 * abs(2.0 * v)) * crowd * 0.13;
+  // Its upper edge catches the light, its lower one a little: soft lines, never a hard step.
+  float lw = 1.2 * uDpr + soft;
+  float keep = 1.2 * uDpr / lw;
+  float upper = exp(-pow((v + 0.5) * span / lw, 2.0)) * 0.16 * keep;
+  float lower = exp(-pow((v - 0.5) * span / lw, 2.0)) * 0.08 * keep;
+  // And a glow about it.
+  float out_ = max(abs(v) - 0.5, 0.0) * span;
+  float glow = exp(-out_ / (22.0 * uDpr + soft)) * 0.025 * crowd;
+  return body + (upper + lower) * min(crowd, 2.5) + glow;
 }
 
 void main() {
@@ -99,13 +95,13 @@ void main() {
   float y = uRes.y - gl_FragCoord.y;
   float H = uRes.y;
   float u = x / uRes.x + uAlong;
-  // Under the rail: through frosted glass, the threads wide, faint and dimmer.
+  // Under the rail: through frosted glass, its edges wide and faint, the whole dimmer.
   float frost = 1.0 - smoothstep(uFrost - 16.0 * uDpr, uFrost + 16.0 * uDpr, x);
-  float soft = frost * 5.0 * uDpr;
+  float soft = frost * 16.0 * uDpr;
   float light = sheet(u, y, H, 0.63, 0.09, 0.10, uA0, soft)
               + sheet(u, y, H, 0.66, 0.07, 0.07, uA1, soft) * 0.7
               + sheet(u, y, H, 0.60, 0.06, 0.05, uA2, soft) * 0.55;
-  light *= 1.0 - 0.35 * frost;
+  light *= 1.0 - 0.5 * frost;
   vec3 cloth = (uCol + (1.0 - uCol) * 0.55) * light;
   gl_FragColor = vec4(cloth, clamp(max(cloth.r, max(cloth.g, cloth.b)), 0.0, 1.0));
 }`;
