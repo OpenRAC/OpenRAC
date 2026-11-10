@@ -121,6 +121,9 @@ class FnReport:
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
+    # Whether its text reaches a level's own copy of an address (OPENRAC_LDATA, OPENRAC_LCODE): its
+    # translation is right only where a level's program is loaded, not at a place in the executable.
+    level_relative: bool = False
 
 
 @dataclass
@@ -702,6 +705,7 @@ class Unit:
                 # (a cast to an unnamed struct): its layout is not known here.
                 raise Unsupported("an unnamed struct defined inside an expression")
             out = f"{hoisted_text}{frame}{proto}\n{text}"
+            report.level_relative = "OPENRAC_LDATA(" in out or "OPENRAC_LCODE(" in out
         except Unsupported as e:
             report.status = "stub"
             report.reason = str(e)

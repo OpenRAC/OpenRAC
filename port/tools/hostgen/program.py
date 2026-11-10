@@ -107,6 +107,13 @@ class Program:
     statics: dict[tuple[str, str], Function] = field(default_factory=dict)
     places: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # symbol -> (overlay, addr)
     sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
+    # A release catalogue's places in the executable (boot:address) of a function named after
+    # another place (a level's copy the executable carries too): symbol -> [address], when its row
+    # says the code is the same ("same" yes). write_program_files registers them (code_tables).
+    boot_places: dict[str, list[int]] = field(default_factory=dict)
+    # Translated functions whose text reaches a level's own addresses (FnReport.level_relative):
+    # they are not registered at such a place in the executable.
+    level_relative: set = field(default_factory=set)
     splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
     split_parent: dict[str, str] = field(default_factory=dict)  # a variant -> the symbol it was split from
     split_twin: dict[str, str] = field(default_factory=dict)  # an executable function -> the variant at its level copies
@@ -342,6 +349,18 @@ class Program:
                 offset = getattr(self, "entries", {}).get(sym)
                 if offset:
                     tables[overlay].append((addr + offset, sym))
+        # A level function's copy in the executable (read_places), called through its address there
+        # where nothing else answers it: the same translation, unless that reaches a level's own
+        # addresses (FnReport.level_relative), which are not the executable's.
+        taken = {addr for addr, _ in tables.get(-1, [])}
+        for sym, addrs in sorted(self.boot_places.items()):
+            f = self.functions.get(sym)
+            if f is None or f.unit is None or sym in self.level_relative or prototype(f, self.typedefs) is None:
+                continue
+            for addr in addrs:
+                if addr not in taken:
+                    tables.setdefault(-1, []).append((addr, sym))
+                    taken.add(addr)
         for entries in tables.values():
             entries.sort()
         self._code_tables = tables
@@ -1012,10 +1031,18 @@ def read_places(path: Path, program: Program) -> int:
             continue
         column = 8 if len(cols) >= 9 and ":" in cols[8] else 5
         places = []
+        boot = []
         for item in cols[column].split(","):
             level, _, addr = item.partition(":")
             if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
+            elif level == "boot" and addr and column == 8 and cols[7] == "yes":
+                boot.append(int(addr, 16))
+        if boot and places:
+            # Executable places are the name's own, but for a level function the executable carries
+            # too: NTSC-J's title runs its memory card menu's state 0xB from 0x0020A448, a copy of
+            # func_L00_0024BAE8 (MarkSelectedCardSlot), through a table of code addresses.
+            program.boot_places[cols[0]] = boot
         if places:
             program.places[cols[0]] = places
             if cols[2].isdigit():
