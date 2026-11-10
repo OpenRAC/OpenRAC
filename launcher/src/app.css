@@ -189,6 +189,11 @@ body::after {
     radial-gradient(60% 380px at 50% 0, color-mix(in srgb, var(--glow) 7%, transparent), transparent 70%);
 }
 
+/* Android: the rail has no ground of its own (Header.svelte), so the light lies under it too. */
+html[data-platform="android"] body::after {
+  left: 0;
+}
+
 /* While the launcher starts (main.ts, App.svelte), its accent goes on at once, not eased in. */
 html[data-starting] {
   transition: none;
