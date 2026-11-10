@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
 
   // Behind Android's Games: a ribbon of light in the game's colour, like silk or a wave of water,
-  // folding and drifting slowly across the screen, with specks of light about it. It slides along
+  // folding and drifting slowly across the screen. It slides along
   // as the wheel of discs turns (`shift`, in discs). One still frame when motion is reduced.
   // Drawn by the GPU at the screen's own pixels (WebGL): each sheet of the cloth is worked out per
   // pixel with its edges smoothed, so it stays sharp and free of jagged steps on any screen,
@@ -32,20 +32,6 @@
       wrap(-q * 0.11 + s.phase * 0.6, Math.PI),
     ];
   }
-
-  /** The middle and half-width of sheet `s` at `u` across (0 to 1), in shares of the height: the
-   *  shader's own sum, for the specks that ride the first sheet. */
-  function sheet(s: (typeof SHEETS)[number], u: number, a: [number, number, number]): [number, number] {
-    const mid = s.mid + Math.sin(u * 2.3 + a[0]) * s.rise + Math.sin(u * 4.1 + a[1]) * s.rise * 0.45;
-    const half = s.wide * (0.08 + 0.92 * Math.abs(Math.cos(u * 1.9 + a[2])));
-    return [mid, half];
-  }
-
-  /** Specks of light about the ribbon: where along it, how far off it, size, pace, twinkle. */
-  const SPECKS = Array.from({ length: 70 }, (_, i) => {
-    const r = (n: number) => (((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1) + 1) % 1;
-    return { u: r(1), off: (r(2) - 0.5) * 2, size: 0.5 + r(3) ** 3 * 2, pace: 0.004 + r(4) * 0.012, tw: r(5) * 6.28 };
-  });
 
   const QUAD_VS = `
 attribute vec2 p;
@@ -108,29 +94,6 @@ void main() {
   gl_FragColor = vec4(cloth, clamp(max(cloth.r, max(cloth.g, cloth.b)), 0.0, 1.0));
 }`;
 
-  const SPECK_VS = `
-attribute vec4 s;
-uniform vec2 uRes;
-varying float vA;
-varying float vR;
-void main() {
-  gl_Position = vec4(s.x / uRes.x * 2.0 - 1.0, 1.0 - s.y / uRes.y * 2.0, 0.0, 1.0);
-  vR = s.z;
-  vA = s.w;
-  gl_PointSize = s.z * 2.0 + 3.0;
-}`;
-
-  const SPECK_FS = `
-precision mediump float;
-uniform vec3 uCol;
-varying float vA;
-varying float vR;
-void main() {
-  float d = length(gl_PointCoord - 0.5) * (vR * 2.0 + 3.0);
-  float a = vA * (1.0 - smoothstep(vR - 0.6, vR + 0.6, d));
-  gl_FragColor = vec4((uCol + (1.0 - uCol) * 0.85) * a, a);
-}`;
-
   /** The colour as numbers: --glow is a registered colour, so it reads back as rgb(). */
   function rgb(el: Element): [number, number, number] {
     const [r, g, b] = (
@@ -149,13 +112,10 @@ void main() {
   interface Gl {
     gl: WebGLRenderingContext;
     cloth: WebGLProgram;
-    specks: WebGLProgram;
     quad: WebGLBuffer;
-    points: WebGLBuffer;
-    /** Where each program's inputs are, looked up once. */
+    /** Where the program's inputs are, looked up once. */
     at: Record<string, WebGLUniformLocation | null>;
     p: number;
-    s: number;
   }
 
   function program(gl: WebGLRenderingContext, vs: string, fs: string): WebGLProgram | null {
@@ -178,10 +138,8 @@ void main() {
     const gl = c.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false });
     if (!gl) return null;
     const cloth = program(gl, QUAD_VS, CLOTH_FS);
-    const specks = program(gl, SPECK_VS, SPECK_FS);
     const quad = gl.createBuffer();
-    const points = gl.createBuffer();
-    if (!cloth || !specks) return null;
+    if (!cloth) return null;
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     // Only the band the cloth can reach (36% to 92% of the height, glow included): the rest of
     // the screen is never shaded.
@@ -191,17 +149,12 @@ void main() {
     const at: Gl["at"] = {};
     for (const name of ["uRes", "uDpr", "uAlong", "uFrost", "uCol", "uA0", "uA1", "uA2"])
       at[name] = gl.getUniformLocation(cloth, name);
-    at.sRes = gl.getUniformLocation(specks, "uRes");
-    at.sCol = gl.getUniformLocation(specks, "uCol");
     return {
       gl,
       cloth,
-      specks,
       quad,
-      points,
       at,
       p: gl.getAttribLocation(cloth, "p"),
-      s: gl.getAttribLocation(specks, "s"),
     };
   }
 
@@ -216,7 +169,6 @@ void main() {
       frost = frostOf(c),
       read = 0,
       slide = untrack(() => shift);
-    const speckData = new Float32Array(SPECKS.length * 4);
     const size = () => {
       // Sharp at the screen's own pixels, up to twice the CSS ones (a 3x phone looks the same).
       dpr = Math.min(devicePixelRatio || 1, 2);
@@ -226,7 +178,7 @@ void main() {
     };
     const draw = (t: number) => {
       if (!g) return;
-      const { gl, cloth, specks, quad, points, at, p, s: sAt } = g;
+      const { gl, cloth, quad, at, p } = g;
       const w = c.width,
         h = c.height;
       const col = colour.map((v) => v / 255) as [number, number, number];
@@ -234,7 +186,6 @@ void main() {
       gl.viewport(0, 0, w, h);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.disable(gl.BLEND);
       gl.useProgram(cloth);
       gl.bindBuffer(gl.ARRAY_BUFFER, quad);
       gl.enableVertexAttribArray(p);
@@ -250,32 +201,6 @@ void main() {
       });
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(p);
-      // The specks, near the ribbon, drifting along it and twinkling; softer under the rail.
-      const main = SHEETS[0],
-        a0 = a[0];
-      if (!a0) return;
-      SPECKS.forEach((sp, i) => {
-        const u = (sp.u + t * sp.pace) % 1;
-        const [mid, half] = sheet(main, u + along, a0);
-        const x = u * w;
-        const e = Math.min(1, Math.max(0, (x / dpr - frost + 24) / 110));
-        const fr = 1 - e * e * e * (e * (e * 6 - 15) + 10);
-        speckData[i * 4] = x;
-        speckData[i * 4 + 1] = (mid + sp.off * (half + 0.05)) * h;
-        speckData[i * 4 + 2] = sp.size * dpr * (1 + fr);
-        speckData[i * 4 + 3] = (0.2 + 0.6 * Math.sin(t * 1.3 + sp.tw) ** 4) * (1 - 0.6 * fr);
-      });
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE);
-      gl.useProgram(specks);
-      gl.bindBuffer(gl.ARRAY_BUFFER, points);
-      gl.bufferData(gl.ARRAY_BUFFER, speckData, gl.DYNAMIC_DRAW);
-      gl.enableVertexAttribArray(sAt);
-      gl.vertexAttribPointer(sAt, 4, gl.FLOAT, false, 0, 0);
-      gl.uniform2f(at.sRes ?? null, w, h);
-      gl.uniform3f(at.sCol ?? null, col[0], col[1], col[2]);
-      gl.drawArrays(gl.POINTS, 0, SPECKS.length);
-      gl.disableVertexAttribArray(sAt);
     };
     const start = performance.now();
     const tick = (now: number) => {

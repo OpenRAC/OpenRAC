@@ -256,11 +256,11 @@ shows through it soft, as through frosted glass.
   `public/img/discs/` (`scripts/disc_prints.py`, user decision), or the game's
   picture as a label if it fails to load. Up, down, a drag or a tap on a neighbour turns it on a spring. The
   disc's shadow follows the turn (`--shade`), so it never pops in. Behind it a
-  soft wave of light in the game's colour, with specks about it
+  soft wave of light in the game's colour, no specks (user decision)
   (`WaveBackdrop.svelte`, after the PSP and PS3 menus; still with reduced
   motion). The GPU draws it (WebGL) at the screen's own pixels, each sheet one smooth band with soft edges (no threads), only in the band it can reach, at most 60 frames a
   second. It follows the wheel, not its bounce. A finger held on the disc
-  turns it.
+  turns it. The discs below fade out down to the screen's edge, under the foot.
 - Right: year and region, the name in the game's title font, its newest save
   or progress, notes (crash, mods), then Play (A), Game page (Y) and "..."
   (`src/lib/gameMenu.svelte.ts`), and the Mods switch under them (X turns it).

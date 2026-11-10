@@ -621,12 +621,15 @@
     min-height: 100%;
     display: flex;
     flex-direction: column;
+    --foot-h: 44px;
   }
 
   /* clip, not hidden: a disc taking the focus must not scroll the stage under the wheel. */
   .stage {
     position: relative;
     flex: 1 0 360px;
+    /* On under the foot, so the discs below fade out at the screen's edge, not at the foot. */
+    margin-bottom: calc(-1 * var(--foot-h));
     overflow: clip;
     /* The finger turns the wheel here: no scrolling, no text picked, no long-press menu. */
     touch-action: none;
@@ -654,14 +657,22 @@
     top: 0;
     bottom: 0;
     width: 50%;
-    /* The discs above and below fade out at the edges instead of being cut. */
-    mask-image: linear-gradient(to bottom, transparent 0, black 16%, black 84%, transparent 100%);
+    /* The discs above and below fade out at the edges instead of being cut; below, from just
+       under the picked disc to the screen's edge. */
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      black 16%,
+      black calc(100% - var(--foot-h) - 60px),
+      transparent 100%
+    );
   }
 
   .slot {
     position: absolute;
     left: 50%;
-    top: 50%;
+    /* The middle above the foot. */
+    top: calc(50% - var(--foot-h) / 2);
     width: min(390px, 55vh);
     aspect-ratio: 1;
     margin: 0;
@@ -736,7 +747,7 @@
     position: absolute;
     left: 47%;
     right: var(--page-x);
-    top: 50%;
+    top: calc(50% - var(--foot-h) / 2);
     translate: 0 -50%;
     max-width: 560px;
     /* One scale for the words and buttons beside the disc, from the screen's height: a phone held
@@ -921,7 +932,7 @@
     bottom: 0;
     z-index: 3;
     flex: none;
-    height: 44px;
+    height: var(--foot-h);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1020,8 +1031,8 @@
 
   /* A phone held sideways: a lower foot (the words and buttons follow the height: .info). */
   @media (max-height: 500px) {
-    .foot {
-      height: 38px;
+    .shelf {
+      --foot-h: 38px;
     }
   }
 
