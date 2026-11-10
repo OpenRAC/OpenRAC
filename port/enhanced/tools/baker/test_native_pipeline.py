@@ -348,15 +348,17 @@ class NativePipeline(unittest.TestCase):
         self.assertIn('Kept sparse.orpg',result.stdout)
 
     def test_reflections_do_not_require_local_gi_or_generated_interior_lights(self):
+        """Default captures use their own floor anchors even when local GI seeds are disabled."""
         level = self.levels[0]
         matrix = [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]
         (level/'placements.json').write_text(json.dumps(dict(ties=[],shrubs=[],mobys=[
             dict(index=0,**{'class':0},matrix=matrix)])))
         settings = dict(version=1,regions=dict(enabled=False,interior_lighting=False),
-            environment_probes=dict(enabled=True,resolution=4,filter_samples=1,maximum_probes=16))
+            environment_probes=dict(resolution=4,filter_samples=1,maximum_probes=16))
         (level/'probe-bake.json').write_text(json.dumps(settings))
-        for local_regions in (False, True):
-            with self.subTest(local_regions=local_regions):
+        for strategy, local_regions in (('gameplay', False), ('gameplay', True), ('scene', False)):
+            with self.subTest(strategy=strategy, local_regions=local_regions):
+                settings['strategy'] = strategy
                 settings['regions'].update(enabled=local_regions,no_moby_seeds=True)
                 settings['dense_spacing'] = [4,4,4] if local_regions else [256,256,256]
                 (level/'probe-bake.json').write_text(json.dumps(settings))
@@ -367,6 +369,16 @@ class NativePipeline(unittest.TestCase):
                 self.assertEqual(bool(json.loads((output/'regions.json').read_text())['regions']),local_regions)
                 evidence = json.loads((output/'seed-plan.json').read_text())
                 self.assertTrue(evidence.get('floor_anchors',evidence['moby_seeds']))
+        self.assertIn('up to date', self.run_bake().stdout)
+        (output/'environment.orpe').unlink()
+        self.assertIn(f'{level.name}: baked', self.run_bake().stdout)
+        self.assertTrue((output/'environment.orpe').is_file())
+
+        settings['environment_probes']['enabled'] = False
+        settings['regions']['enabled'] = False
+        (level/'probe-bake.json').write_text(json.dumps(settings))
+        self.run_bake()
+        self.assertFalse((output/'environment.orpe').exists())
 
     def test_background_scene_without_collision_skips_gameplay_floor_analysis(self):
         level = self.levels[0]

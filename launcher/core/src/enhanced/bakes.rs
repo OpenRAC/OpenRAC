@@ -45,10 +45,11 @@ fn baker_profile(baker: &Path, level: &Path) -> Option<String> {
         baker.to_path_buf(),
         level.to_path_buf(),
         format!(
-            "{:?} {:?} {:?}",
+            "{:?} {:?} {:?} {}",
             file(baker),
             file(&level.join("probe-bake.json")),
-            file(&level.join("manifest.json"))
+            file(&level.join("manifest.json")),
+            level.join("bake-inputs/gameplay.bin").is_file()
         ),
     );
     if let Some(known) = CACHE.lock().unwrap().get_or_insert_with(HashMap::new).get(&key) {
@@ -90,7 +91,8 @@ fn verified_bake(baked: &Path, reflections: bool) -> bool {
             && name.ends_with(".orpg")
             && std::fs::metadata(baked.join(name)).is_ok_and(|m| m.is_file() && m.len() > 0)
     };
-    let environment_ready = !reflections && result.get("environment").is_none()
+    let environment_ready = result.get("environment").is_none()
+        && (!reflections || result["environment_unavailable"] == Value::Bool(true))
         || result["environment"].as_str() == Some("environment.orpe")
             && std::fs::metadata(baked.join("environment.orpe")).is_ok_and(|m| m.is_file() && m.len() > 0);
     environment_ready
@@ -406,6 +408,12 @@ mod tests {
         std::fs::write(root.join("bake-result.json"), r#"{"verified":true,"regions":[]}"#).unwrap();
         assert!(verified_bake(root, false));
         assert!(!verified_bake(root, true));
+        std::fs::write(
+            root.join("bake-result.json"),
+            r#"{"verified":true,"regions":[],"environment_unavailable":true}"#,
+        )
+        .unwrap();
+        assert!(verified_bake(root, true));
         std::fs::write(
             root.join("bake-result.json"),
             r#"{"verified":true,"regions":[],"environment":"environment.orpe"}"#,

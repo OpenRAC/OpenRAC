@@ -516,9 +516,11 @@ independently of lighting selection. It uses the CPU diagnostic filter; normal l
 
 ## Environment reflections
 
-Enable `environment_probes.enabled` in a level's `probe-bake.json`. After all GI grids verify,
-the baker captures static HDR surroundings using the runtime GI reference, shadowed sun,
-visible emission and the skybox. Bake-only emission gains affect transport, not visible surfaces.
+Reflection probes default on for gameplay levels with exported collision and gameplay data.
+Set `environment_probes.enabled` to `false` in a level's `probe-bake.json` to opt out.
+After all GI grids verify, the baker captures static HDR surroundings using the runtime GI
+reference, shadowed sun, visible emission and the skybox. Bake-only emission gains affect
+transport, not visible surfaces.
 Water and authored chrome/glass packets use these captures in enhanced mode.
 
 Captures sit near floor-space centres, normally 3 units above their actual supporting floor.
@@ -532,7 +534,9 @@ must merge or relocate until at least `minimum_capture_spacing` (6 units) apart.
 storeys and water media exempt pairs. Other merges require 85% shared receiver area and similar
 GI signatures: Rec.709 luminance within 2:1 plus 0.02, and Oklab distance at most 0.06 at a common
 18% luminance. These are placement heuristics, not comparisons of finished cubemaps.
-Every accepted replacement preserves every receiver; unresolved coverage or spacing fails baking.
+Every accepted merge preserves coverage within the placement tolerances. Automatic placement drops
+unsafe captures and leaves uncovered areas to local GI. Setting `environment_probes.enabled` to
+`true` explicitly requires complete coverage and fails the bake if conflicts remain.
 
 `maximum_probes` defaults to 512 as a safety limit. Captures use 128x128 source faces and 128 GGX
 samples. `environment.orpe` version 6 stores a GPU-ready compressed HDR atlas, oriented influence and

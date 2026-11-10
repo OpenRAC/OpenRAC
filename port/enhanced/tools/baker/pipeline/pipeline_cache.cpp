@@ -139,7 +139,7 @@ bool current(const std::filesystem::path& output, const json::Value& identity) {
         }
 
         // Enabled reflections require their captured environment asset too.
-        if (identity["reflections"].boolean()) {
+        if (identity["reflections"].boolean() && !result["environment_unavailable"].boolean()) {
             assets.push_back("environment.orpe");
         }
 

@@ -324,10 +324,13 @@ def bake_level(level_dir: Path, output_dir: Path, baker: Path, *, disc=None, opt
     manifest = diagnostics.stage('Read level manifest', diagnostics.read_json, level_dir/'manifest.json')
     diagnostics.stage('Prepare water', prepare_water.prepare, level_dir, manifest, disc, baker=baker)
     settings = diagnostics.stage('Read lighting settings', RegionSettings.load, level_dir)
-    gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc) \
-        if settings.enabled or settings.interior_lighting else None
     common = [str(baker), '--level-dir', str(level_dir), *options]
     profile = diagnostics.stage('Read baker profile', lambda: diagnostics.parse_profile(diagnostics.capture(common+['--print-profile'])))
+    gameplay = None
+    if settings.enabled or settings.interior_lighting:
+        gameplay = diagnostics.stage('Read gameplay seeds', seeds.read_gameplay, level_dir, manifest, disc)
+    elif profile.get('reflections') and (level_dir/'bake-inputs/gameplay.bin').is_file():
+        gameplay = (level_dir/'bake-inputs/gameplay.bin').read_bytes()
     output_dir.mkdir(parents=True, exist_ok=resume)
 
     # Resolve reviewed shared materials before the native scene snapshot, including older exports.
