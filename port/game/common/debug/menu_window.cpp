@@ -2,8 +2,8 @@
 // Copyright (c) 2026 the OpenRAC contributors
 //
 // The menu on a desktop (debug/overlay.h): the menu key (` by default, the controller's R4) slides
-// a bar of tabs down from the window's top, in the launcher's header's look (its striped gold, the
-// logo, round tabs), and under it a window with the open tab's entries (menu_catalog.h) on cards,
+// a bar of tabs down from the window's top, in the launcher's desktop header's look (no bar of its
+// own: the logo and round tabs over the dimmed game), and under it a window with the open tab's entries (menu_catalog.h) on cards,
 // drawn by debug/menu_ui.h as the touch screen's drawer draws them, and beside them what the entry
 // under the pointer or the focus does. The game waits while it is open.
 
@@ -59,82 +59,18 @@ std::vector<BarTab> bar_tabs() {
     return tabs;
 }
 
-// Where the bar's stripes start this frame (a band of the first gold): its buttons' stripes, in
-// coal, line up with them, as the launcher's are laid on the window.
-ImVec2 bar_origin(0.0f, 0.0f);
-
-// The bar's buttons: the bar's stripes continued in coal (the launcher's --coal-stripes), lighter
-// under the pointer and for the open tab (--coal-stripes-hi).
-constexpr ImU32 kCoal = IM_COL32(0x18, 0x18, 0x18, 255);
-constexpr ImU32 kCoalAlt = IM_COL32(0x12, 0x12, 0x12, 255);
-constexpr ImU32 kCoalHi = IM_COL32(0x25, 0x25, 0x25, 255);
-constexpr ImU32 kCoalHiAlt = IM_COL32(0x1f, 0x1f, 0x1f, 255);
-
-// The bar's stripes, as the launcher's header has them: wide bands of two close golds at 35
-// degrees, the picked game's own when it has an accent (the launcher's palettes.json).
-void stripes(ImDrawList* list, ImVec2 a, ImVec2 b) {
-    const ImU32 one = ui().bar_stripe;
-    const ImU32 two = ui().bar_stripe_alt;
-    list->AddRectFilled(a, b, one);
-    const float band = dp(20.0f);
-    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
-    list->PushClipRect(a, b, true);
-    // They drift slowly right without end: one band pair every few seconds, wrapping round.
-    const float period = band * 2.0f;
-    const float drift = std::fmod(static_cast<float>(ImGui::GetTime()) * dp(8.0f), period);
-    bar_origin = ImVec2(a.x + drift, a.y);
-    for (float x = a.x - lean - period + drift; x < b.x + lean; x += period) {
-        list->AddQuadFilled(
-            ImVec2(x + band, a.y),
-            ImVec2(x + band * 2.0f, a.y),
-            ImVec2(x + band * 2.0f - lean, b.y),
-            ImVec2(x + band - lean, b.y),
-            two
-        );
-    }
-    list->PopClipRect();
-    // Its light top edge and dark bottom one, and a shadow over the game below.
-    list->AddLine(ImVec2(a.x, a.y + 0.5f), ImVec2(b.x, a.y + 0.5f), IM_COL32(255, 255, 255, 90));
-    list->AddLine(ImVec2(a.x, b.y - 0.5f), ImVec2(b.x, b.y - 0.5f), IM_COL32(0, 0, 0, 76));
-    const ImU32 dark = IM_COL32(0, 0, 0, 110);
-    const ImU32 none = IM_COL32(0, 0, 0, 0);
-    list->AddRectFilledMultiColor(
-        ImVec2(a.x, b.y), ImVec2(b.x, b.y + dp(18.0f)), dark, dark, none, none
-    );
+// Under the bar's tabs, as the launcher's header lies over its page: no bar, only the dimmed game
+// a little darker at the window's top, fading out below, with no edge.
+void bar_ground(ImDrawList* list, ImVec2 a, ImVec2 b) {
+    const ImU32 dark = ui_colors::fade(ui().ink_deep, 0.55f);
+    const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
+    const ImVec2 foot(b.x, b.y + dp(28.0f));
+    list->AddRectFilledMultiColor(a, foot, dark, dark, none, none);
 }
 
-// Bands of `ink` at the bar's lean over [a, b], `strength` at its top left corner and fading out
-// to none down and to the right: the bar's stripes, barely there, in the corner of the window's
-// side.
-void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength) {
-    const float band = dp(20.0f);
-    const float lean = (b.y - a.y) * std::tan(35.0f * 3.14159265f / 180.0f);
-    const ImU32 top = ui_colors::fade(ink, strength);
-    const ImU32 bottom = ui_colors::fade(ink, 0.0f);
-    list->PushClipRect(a, b, true);
-    for (float x = a.x - lean; x < b.x + lean; x += band * 2.0f) {
-        const int first = list->VtxBuffer.Size;
-        list->AddQuadFilled(
-            ImVec2(x + band, a.y),
-            ImVec2(x + band * 2.0f, a.y),
-            ImVec2(x + band * 2.0f - lean, b.y),
-            ImVec2(x + band - lean, b.y),
-            IM_COL32_WHITE
-        );
-        // Each corner's colour by its height: the top's, fading to none at the bottom.
-        for (int v = first; v < list->VtxBuffer.Size; ++v) {
-            ImDrawVert& vert = list->VtxBuffer[v];
-            const float down = std::clamp((vert.pos.y - a.y) / (b.y - a.y), 0.0f, 1.0f);
-            const float across = std::clamp((vert.pos.x - a.x) / (b.x - a.x), 0.0f, 1.0f);
-            vert.col = ui_colors::mix(top, bottom, std::min(1.0f, down + across));
-        }
-    }
-    list->PopClipRect();
-}
-
-// A tab on the bar, a button of its own: coal stripes continuing the bar's, gold text, lighter
-// under the pointer, no edge; the open one is the lighter chip under it (drawn by the bar, sliding
-// from tab to tab), its name in light gold. True when clicked.
+// A tab on the bar, a button of its own: the launcher's control fill, the accent's text, lighter
+// under the pointer, no edge; the open one is the accent's pill under it (drawn by the bar,
+// sliding from tab to tab), its name in the bar's dark ink. True when clicked.
 bool bar_tab(const char* name, bool open, float height) {
     ImFont* font = menu_fonts.bar;
     ImGui::PushFont(font);
@@ -148,20 +84,24 @@ bool bar_tab(const char* name, bool open, float height) {
     const float on = tween(item_part("on"), open ? 1.0f : 0.0f, kMedium);
     if (on < 1.0f) {
         const ImVec2 b(a.x + size.x, a.y + size.y);
-        striped_rect(list, a, b, dp(6.0f), kCoal, kCoalAlt, bar_origin, 1.0f - on);
-        striped_rect(list, a, b, dp(6.0f), kCoalHi, kCoalHiAlt, bar_origin, hover * (1.0f - on));
+        list->AddRectFilled(
+            a,
+            b,
+            ui_colors::fade(ui_colors::mix(ui().panel, ui().control_card, hover), 1.0f - on),
+            dp(6.0f)
+        );
     }
     list->AddText(
         centred_text(font, font->FontSize, name, ImVec2(a.x + size.x * 0.5f, a.y + size.y * 0.5f)),
-        ui_colors::mix(ui().amber, ui().gold, on),
+        ui_colors::mix(ui().amber, ui().bar_ink, on),
         name
     );
     ImGui::PopFont();
     return pressed;
 }
 
-// A chip on the bar's right: a bar button (coal stripes), no border, 6 px corners, its text; true
-// when clicked.
+// A chip on the bar's right: a bar button (the launcher's control fill), no border, 6 px corners,
+// its text; true when clicked.
 bool bar_chip(
     const char* label, ImU32 ink, bool light, float height, float held = 0.0f, bool picked = false
 ) {
@@ -177,9 +117,8 @@ bool bar_chip(
     if (light) {
         list->AddRectFilled(a, b, ui_colors::mix(IM_COL32_WHITE, ui().gold, 0.25f * hover), round);
     } else {
-        // A bar button: coal stripes continuing the bar's, no edge.
-        striped_rect(list, a, b, round, kCoal, kCoalAlt, bar_origin);
-        striped_rect(list, a, b, round, kCoalHi, kCoalHiAlt, bar_origin, hover);
+        // A bar button: the control fill, lighter under the pointer, no edge.
+        list->AddRectFilled(a, b, ui_colors::mix(ui().panel, ui().control_card, hover), round);
     }
     if (held > 0.0f) {
         // Held on the controller: filling up to the moment it acts.
@@ -187,14 +126,14 @@ bool bar_chip(
         list->AddRectFilled(a, b, ui_colors::fade(ink, 0.35f), round);
         list->PopClipRect();
     }
-    // Reached with L1/R1: a ring around it, as the open tab has its pill.
+    // Reached with L1/R1: a ring of the accent around it, as the open tab has its pill.
     const float ring = tween(item_part("picked"), picked ? 1.0f : 0.0f, kFast);
     if (ring > 0.0f) {
         const float out = dp(3.0f);
         list->AddRect(
             ImVec2(a.x - out, a.y - out),
             ImVec2(b.x + out, b.y + out),
-            ui_colors::fade(ui().ink_deep, ring),
+            ui_colors::fade(ui().amber, ring),
             round + out,
             ImDrawFlags_None,
             dp(2.0f)
@@ -236,19 +175,12 @@ void kicker(ImDrawList* list, ImVec2 at, ImU32 ink, const std::string& text) {
 }
 
 // The right side of the window: what the entry under the pointer or the focus is and does, on a
-// darker ground with the bar's stripes, barely there, in its top left corner.
+// darker ground.
 void help_pane(ImVec2 a, ImVec2 b, bool mod_tab, int chip) {
     ImDrawList* list = ImGui::GetWindowDrawList();
     const float round = dp(12.0f);
     list->AddRectFilled(
         a, b, ui_colors::fade(ui().ink_deep, 0.55f), round, ImDrawFlags_RoundCornersRight
-    );
-    faint_stripes(
-        list,
-        ImVec2(a.x, a.y + 1.0f),
-        ImVec2(std::min(b.x - 1.0f, a.x + dp(300.0f)), a.y + dp(170.0f)),
-        ui().amber,
-        0.05f
     );
     list->AddLine(ImVec2(a.x, a.y), ImVec2(a.x, b.y), ui().line);
     const float pad = dp(30.0f);
@@ -576,12 +508,11 @@ void menu_window(const Shown& shown) {
         )) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         list->PushClipRectFullScreen();
-        stripes(list, bar_a, ImVec2(bar_a.x + viewport->Size.x, bar_a.y + bar));
+        bar_ground(list, bar_a, ImVec2(bar_a.x + viewport->Size.x, bar_a.y + bar));
         list->PopClipRect();
-        // The logo in the bar's ink, as on the launcher's desktop header.
-        draw_logo(
-            list, ImVec2(bar_a.x + dp(18.0f), bar_a.y + bar * 0.5f), ui().ink_deep, ui().ink_deep
-        );
+        // The logo as on the launcher's desktop header: its mark in the accent, its name in the
+        // text's colour.
+        draw_logo(list, ImVec2(bar_a.x + dp(18.0f), bar_a.y + bar * 0.5f), ui().amber, ui().text);
         const float logo_w = s.logo_rect >= 0
                                  ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
                                  : dp(120.0f);
@@ -589,7 +520,7 @@ void menu_window(const Shown& shown) {
         ImGui::SetCursorScreenPos(
             ImVec2(bar_a.x + dp(18.0f) + logo_w + dp(22.0f), bar_a.y + (bar - tab_h) * 0.5f)
         );
-        // The open tab's lighter pill (coal-stripes-hi), sliding from tab to tab.
+        // The open tab's pill in the accent, sliding from tab to tab.
         const ImVec2 pill_at = ImGui::GetCursorScreenPos();
         list->ChannelsSplit(2);
         list->ChannelsSetCurrent(1);
@@ -618,15 +549,11 @@ void menu_window(const Shown& shown) {
         const float pw = tween(ImGui::GetID("pill w"), pill_w, kMedium);
         const float pill_alpha =
             tween(ImGui::GetID("pill alpha"), s.menu_tab < tab_count ? 1.0f : 0.0f, kFast);
-        striped_rect(
-            list,
+        list->AddRectFilled(
             ImVec2(px, pill_at.y),
             ImVec2(px + pw, pill_at.y + tab_h),
-            dp(6.0f),
-            kCoalHi,
-            kCoalHiAlt,
-            bar_origin,
-            pill_alpha
+            ui_colors::fade(ui().amber, pill_alpha),
+            dp(6.0f)
         );
         list->ChannelsMerge();
 

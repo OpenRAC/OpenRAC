@@ -32,20 +32,6 @@ ImU32 pressed_fill();
 // A plain button's fill in place of a border: the launcher's --control-card, as the menu's
 // controls sit on a panel.
 ImU32 control_fill();
-// The rounded rectangle [a, b] in the launcher's stripes: bands of `one` and `two`, 20 px each at
-// 35 degrees, a band of `one` starting at `origin` (the screen's corner for a card; the bar's own
-// for its buttons, so their stripes continue the bar's).
-void striped_rect(
-    ImDrawList* list,
-    ImVec2 a,
-    ImVec2 b,
-    float round,
-    ImU32 one,
-    ImU32 two,
-    ImVec2 origin,
-    float alpha = 1.0f
-);
-
 // The launcher's transitions: what changes eases to its new state over `seconds`; `id` is ImGui's.
 float tween(ImGuiID id, float target, float seconds);
 
@@ -86,7 +72,7 @@ void draw_logo(ImDrawList* list, ImVec2 left_middle, ImU32 mark, ImU32 name);
 // The focus ring a gamepad or the keyboard moves, around the item just drawn.
 void focus_ring(ImDrawList* list, ImVec2 a, ImVec2 b, float round);
 
-// The main button's fill: the bar's gold stripes; darker as `held`.
+// The main button's fill: the accent, flat; darker as `held`.
 void primary_fill(ImDrawList* list, ImVec2 a, ImVec2 b, float round, float held);
 // A panel's ground: a rounded rectangle from `top` at its top to `bottom` at its foot, with a glow
 // of `glow` along its top `glow_depth` pixels, rounded at `corners`.

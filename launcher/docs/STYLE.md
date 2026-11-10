@@ -35,7 +35,7 @@ follows the same rules.
 - Cards and panels have no border and no stripes: a flat `#24221e`
   (`--panel`, `--card`), `#2c2a26` when hovered or open (`--panel-hi`,
   `--card-hi`). Unlike the site, stripes on a big surface tire the eyes (user
-  decision): only the bar's buttons wear stripes.
+  decision). Nothing in the launcher or the game's menu wears stripes now.
 - Controls (buttons, fields, chips, segmented choices, the search box) are
   filled with `--control` and have no edge or border (user decision: gold
   edges looked bad). The fill alone sets a control apart.
@@ -76,11 +76,10 @@ follows the same rules.
   `--amber`, its words in `--ink-deep`, and its chip slides from tab to tab.
   Once the page scrolls under the header, a haze fades in behind it: blurred,
   darkened at the top and fading out below, with no edge (never shown at a
-  page's top). The game's menu bar keeps the gold stripes and coal buttons
-  (`--coal-stripes`), without icons.
-- A big main button over the game (the drawer's Resume) wears the bar's own
-  gold stripes at half strength (`--bar-stripe`, then halfway to
-  `--bar-stripe-alt`), a shade deeper than `--amber`, so it does not glare.
+  page's top). The game's menu bar on the desktop looks the same (see below),
+  without icons.
+- A main button (Play, the drawer's Resume over the game) is a flat
+  `--amber` fill with dark text, no stripes, no edge.
 - A game's title box on its page is the launcher's own: `--panel` at 92 % over
   the picture, the title in `--gold`, the year and the notes in `--amber`, and
   the shade over the picture is `--ink` (`themeStyle` in `src/lib/themes.ts`).
@@ -160,14 +159,19 @@ window are coal sheets (`--panel`), its cards a flat `--panel-hi`, and the
 controls on them are `--control-card`, with no edge. A row under the
 pointer or the focus lifts to `--control-card-hi` with a short gold bar at its
 left (no gold tint, which reads brown on dark). Key hints and the "Paused while
-open" badge sit on `--ink-deep`. The bar's tabs and its Quit and Resume buttons are bar buttons:
-coal stripes continuing the bar's (which drift slowly), gold text, no edge.
+open" badge sit on `--ink-deep`. The desktop's menu bar is the launcher's
+desktop header over the dimmed game: no bar of its own (only the game a
+little darker at the top, fading out with no edge), the logo's name in
+`--text` and its mark in `--amber`, the tabs and the Quit and Resume buttons
+filled with `--panel` (`--control-card` under the pointer), `--amber` text, no
+edge. The open tab's pill is `--amber`, its words in `--bar-ink-deep`, and it
+slides from tab to tab.
 
 The game's window ground is the theme's coal with a glow of the game's colour
 along its top: `--panel-hi` mixed 8 % with `--glow`, more of which looks odd
 on the coal. Android's drawer and its controller settings panel have the same
-light along their top, under the header too. The window's right side has the bar's stripes, barely visible,
-in its top left corner only, fading out down and to the right.
+light along their top, under the header too. The window's right side is a
+darker plain ground, with no stripes.
 
 ## Logo
 
