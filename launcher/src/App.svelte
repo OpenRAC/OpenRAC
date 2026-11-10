@@ -250,14 +250,10 @@
   }
 
   /* A desktop's header lies over the page (Header.svelte): the page starts at the window's top and
-     scrolls under it, its first line kept below it. A tab with a list keeps it in its two columns
-     (SideFrame.svelte). */
+     scrolls under it, its first line kept below it. A tab with a list takes the room back for its
+     two columns (SideFrame.svelte). */
   :global(html:not([data-platform="android"])) main {
     padding-top: var(--nav-top);
-  }
-
-  :global(html:not([data-platform="android"])) main:has(> :global(.frame)) {
-    padding-top: 0;
   }
 
   /* Android: the navigation rail beside the page, or its bar under it on a narrow window

@@ -73,14 +73,14 @@
     };
   });
 
-  /** Whether the page has scrolled under a desktop's header (its haze, below): any scroller that
-   *  reaches the window's top (the page, a game list beside it) and is not at its own top. */
+  /** Whether the page has scrolled under a desktop's header (its haze, below): the page, or a
+   *  column of a tab with a list (SideFrame.svelte), is not at its top. */
   let under = $state(false);
+  const scrolled = () => [...document.querySelectorAll("main, main > .frame > *")].some((e) => e.scrollTop > 1);
   $effect(() => {
     if (onAndroid) return;
-    const look = (e: Event) => {
-      const t = e.target;
-      if (t instanceof Element && t.closest("main") && t.getBoundingClientRect().top <= 0) under = t.scrollTop > 1;
+    const look = () => {
+      under = scrolled();
     };
     document.addEventListener("scroll", look, { capture: true, passive: true });
     return () => {
@@ -214,13 +214,6 @@
 </header>
 
 <style>
-  /* On a desktop the bar writes in the theme's page colour, so the logo and the dark chips match
-     the window under them; Android keeps the picked game's own ink. */
-  :global(html:not([data-platform="android"])) .site-header {
-    --bar-ink-deep: var(--ink-deep);
-    --bar-name: var(--ink-deep);
-  }
-
   .site-header {
     position: relative;
     z-index: 20;
@@ -240,6 +233,7 @@
       inset 0 1px 0 rgb(255 255 255 / 0.35),
       0 1px 6px rgb(0 0 0 / 0.18);
   }
+
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
      ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
      theme's. Once the page scrolls under it, a haze fades in behind it: blurred, barely darkened,
@@ -252,6 +246,8 @@
     background: none;
     border-bottom: 0;
     box-shadow: none;
+    /* Android keeps the picked game's own ink. */
+    --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
     --coal-stripes: var(--control);
     --coal-stripes-hi: var(--control-hi);
@@ -317,7 +313,7 @@
     min-height: 0;
   }
 
-  /* The logo in the bar's ink: the accent is the bar itself. */
+  /* The logo in the header's ink (a desktop's first letter: above). */
   .brand {
     display: inline-flex;
     align-items: center;

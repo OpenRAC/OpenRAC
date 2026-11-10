@@ -43,7 +43,13 @@
     overflow-y: auto;
   }
 
-  /* Each column starts at the window's top, under a desktop's header (App.svelte). */
+  /* Each column starts at the window's top, under a desktop's header: up over <main>'s room for it
+     (App.svelte), its first line below the header. */
+  :global(html:not([data-platform="android"])) .frame {
+    height: calc(100% + var(--nav-top));
+    margin-top: calc(-1 * var(--nav-top));
+  }
+
   :global(html:not([data-platform="android"])) aside,
   :global(html:not([data-platform="android"])) .content {
     padding-top: var(--nav-top);
