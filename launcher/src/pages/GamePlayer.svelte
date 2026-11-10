@@ -382,12 +382,13 @@
     gap: var(--page-gap, 20px);
   }
 
+  /* Up past the window's top, under a desktop's header (no bar there: its edge would show). */
   .page-ambient-bg {
     position: absolute;
-    top: -20px;
+    top: calc(-20px - var(--nav-top));
     left: 0;
     width: 100%;
-    height: 480px;
+    height: calc(480px + var(--nav-top));
     pointer-events: none;
     z-index: 0;
     overflow: hidden;

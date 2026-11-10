@@ -29,8 +29,6 @@ follows the same rules.
   blend, so it only lightens), fading out by about two thirds down. It eases
   from game to game, on every theme (OLED too, user decision). The game's menu window has the
   same light along its top (8 %, see below).
-- The bar's shadow is light (1 px down, 6 px blur, 18 %): a deeper one reads as
-  a black band under the bar.
 - Text is an off white (`--text` `#e6e6eb`, about 15:1 on the page), not a
   near white: more contrast than that only tires the eyes.
 - Cards and panels have no border and no stripes: a flat `#24221e`
@@ -66,16 +64,19 @@ follows the same rules.
   (`button.primary`), lifting 2 px under the pointer.
 - Anything you can tap is at least 40 px tall (44 px on Android); fields on
   Android use 16 px text.
-- The header bar: gold stripes (35°, 20 px, `#c99222` then `#bd8619`), the
-  logo and the version badge dark, for every game. Its buttons (the tabs
+- The header on a desktop has no bar of its own (user decision): it lies over
+  the page, which starts at the window's top (the light under it too), so the
+  ground is one from top to bottom. The logo's name is in `--text`, its first
+  letter (the mark) in `--amber`, as on Android's rail. Its buttons (the tabs
   Games, Mods, Develop, Settings; the site and Discord icons at the right; a
-  job; an update) continue the bar's stripes in coal (`--coal-stripes`:
-  `#181818` on `#121212`, laid on the window so they line up with the bar's),
-  32 px tall, gold text in Inter Medium (500, as thin as the logo beside them),
-  no edge. Under the pointer and for the open tab, the
-  lighter `--coal-stripes-hi` (`#252525` on `#1f1f1f`); the open tab's text is
-  light gold, and its chip slides from tab to tab. The game's menu bar does the
-  same, without icons.
+  job; an update; the version badge) are the theme's buttons (`--control`,
+  `--control-hi` under the pointer), 32 px tall, gold text in Inter Medium
+  (500, as thin as the logo beside them), no edge. The open tab is filled with
+  `--amber`, its words in `--ink-deep`, and its chip slides from tab to tab.
+  Once the page scrolls under the header, a haze fades in behind it: blurred,
+  darkened at the top and fading out below, with no edge (never shown at a
+  page's top). The game's menu bar keeps the gold stripes and coal buttons
+  (`--coal-stripes`), without icons.
 - A big main button over the game (the drawer's Resume) wears the bar's own
   gold stripes at half strength (`--bar-stripe`, then halfway to
   `--bar-stripe-alt`), a shade deeper than `--amber`, so it does not glare.
@@ -175,7 +176,7 @@ alone (the "O" with the lombax's head) where the name does not fit. Its box is
 centred on the capitals of "RAC", so it lines up with text beside it; the
 ears stick out above.
 
-- Header bar: the whole logo in `--bar-name`, the version beside it.
+- Header: the logo's name in `--text`, its mark in `--amber`, the version beside it.
 - Header bar under 560 px: the mark.
 - Android's rail and the first run's welcome: the mark in `--amber`.
 

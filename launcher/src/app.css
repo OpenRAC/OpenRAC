@@ -180,7 +180,8 @@ html[data-game-colors][data-theme="openrac"] {
 body::after {
   content: "";
   position: fixed;
-  inset: var(--nav-top) 0 0 var(--nav-left);
+  /* From the window's top: a desktop's header has no bar of its own (Header.svelte). */
+  inset: 0 0 0 var(--nav-left);
   z-index: -1;
   pointer-events: none;
   mix-blend-mode: screen;

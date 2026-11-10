@@ -43,6 +43,12 @@
     overflow-y: auto;
   }
 
+  /* Each column starts at the window's top, under a desktop's header (App.svelte). */
+  :global(html:not([data-platform="android"])) aside,
+  :global(html:not([data-platform="android"])) .content {
+    padding-top: var(--nav-top);
+  }
+
   .content {
     min-width: 0;
     overflow: hidden auto;

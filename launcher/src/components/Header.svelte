@@ -1,7 +1,7 @@
 <script lang="ts">
   import { supports } from "$lib/capabilities";
-  // The website's sticky orange bar (openrac-site src/components/Header.tsx):
-  // the OpenRAC logo in the bar's ink, and round pills in a shade of it: the tabs, the site, Discord.
+  // A desktop's header: no bar of its own, over the page, the logo with its first letter in the
+  // game's colour and the theme's buttons: the tabs, the site, Discord.
   // On Android the same places are a navigation rail on the left, or a bar at the bottom when
   // the window is narrow, as Android's own apps have them (Material's navigation rail and bar).
   import { api, inTauri, onAndroid } from "$lib/api";
@@ -72,9 +72,31 @@
       resized.disconnect();
     };
   });
+
+  /** Whether the page has scrolled under a desktop's header (its haze, below): any scroller that
+   *  reaches the window's top (the page, a game list beside it) and is not at its own top. */
+  let under = $state(false);
+  $effect(() => {
+    if (onAndroid) return;
+    const look = (e: Event) => {
+      const t = e.target;
+      if (t instanceof Element && t.closest("main") && t.getBoundingClientRect().top <= 0) under = t.scrollTop > 1;
+    };
+    document.addEventListener("scroll", look, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("scroll", look, { capture: true });
+    };
+  });
+  // Another page starts at its top.
+  let seen: Page | null = null;
+  $effect(() => {
+    if (current === seen) return;
+    seen = current;
+    under = false;
+  });
 </script>
 
-<header class="site-header">
+<header class="site-header" class:under>
   <!-- The first run: the name, not yet a way back to the games. -->
   {#if setup}
     <div class="brand" title={app.info?.version ? `OpenRAC Launcher ${app.info.version}` : undefined}>
@@ -218,6 +240,72 @@
       inset 0 1px 0 rgb(255 255 255 / 0.35),
       0 1px 6px rgb(0 0 0 / 0.18);
   }
+  /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
+     ground, the logo's first letter in the game's colour as Android's rail has it, its buttons the
+     theme's. Once the page scrolls under it, a haze fades in behind it: blurred and darkened at
+     the top, fading out below, so nothing runs into the buttons and no edge shows. */
+  :global(html:not([data-platform="android"])) .site-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: none;
+    border-bottom: 0;
+    box-shadow: none;
+    --bar-name: var(--text);
+    --coal-stripes: var(--control);
+    --coal-stripes-hi: var(--control-hi);
+  }
+
+  :global(html:not([data-platform="android"])) .site-header::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 -36px;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      color-mix(in srgb, var(--ink) 78%, transparent) 30%,
+      color-mix(in srgb, var(--ink) 0%, transparent)
+    );
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    mask-image: linear-gradient(black 45%, transparent);
+    -webkit-mask-image: linear-gradient(black 45%, transparent);
+    opacity: 0;
+    transition: opacity var(--medium) var(--ease);
+  }
+
+  :global(html:not([data-platform="android"])) .site-header.under::before {
+    opacity: 1;
+  }
+
+  :global(html:not([data-platform="android"])) .brand :global(.logo .first) {
+    fill: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .brand .ver {
+    background: var(--control);
+    color: var(--amber);
+  }
+
+  /* The open tab in the game's colour, its words in the page's dark ink. */
+  :global(html:not([data-platform="android"])) .slider {
+    background: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .tab.on {
+    color: var(--bar-ink-deep);
+  }
+
+  :global(html:not([data-platform="android"])) .tab.on .count {
+    background: var(--bar-ink-deep);
+    color: var(--amber);
+  }
+
+  :global(html:not([data-platform="android"])) .preview {
+    background: var(--control);
+    color: var(--soft);
+  }
 
   button {
     border: 0;
@@ -226,14 +314,6 @@
     color: inherit;
     padding: 0;
     min-height: 0;
-  }
-
-  /* Amber on the orange bar would not show: the ring is the bar's ink there (not on Android's
-     dark rail, which keeps the amber). */
-  :global(html:not([data-platform="android"])) .site-header button:focus-visible,
-  :global(html[data-input="pad"]:not([data-platform="android"])) .site-header button:focus {
-    outline: 2px solid var(--bar-ink-deep);
-    outline-offset: 2px;
   }
 
   /* The logo in the bar's ink: the accent is the bar itself. */
