@@ -251,6 +251,10 @@ namespace {
 void placement_report(
     const std::filesystem::path& output, const EnvironmentPlacementReport& report
 ) {
+    const auto samples = report.validation_samples;
+    const auto covered_fraction =
+        samples ? std::to_string(1.0 - static_cast<double>(report.uncovered.size()) / samples)
+                : "null";
     std::ofstream out(output / "environment-placement-report.json");
     out << "{\n  \"version\": 1,\n  \"input_floors\": " << report.input_floors
         << ",\n  \"playable_floors\": " << report.playable_floors
@@ -267,7 +271,8 @@ void placement_report(
         << ",\n  \"unpruned_probes\": " << report.unpruned_probes
         << ",\n  \"pruned_probes\": " << report.pruned_probes
         << ",\n  \"ownership_conflicts\": " << report.ownership_conflicts
-        << ",\n  \"covered_fraction\": " << report.covered_fraction
+        << ",\n  \"covered_fraction\": " << covered_fraction
+        << ",\n  \"merge_covered_fraction\": " << report.covered_fraction
         << ",\n  \"merge_pair_attempts\": " << report.merge_pair_attempts
         << ",\n  \"merge_position_trials\": " << report.merge_position_trials
         << ",\n  \"minimum_coverage\": " << report.minimum_coverage << ",\n  \"owners\": [";
@@ -474,7 +479,7 @@ bool bake_level_environment(
     log << "Environment pruning: " << placement.unpruned_probes << " -> " << asset.probes.size()
         << " captures (" << placement.pruned_probes << " removed)\n";
     log << "Environment capture merges: " << placement.probe_merges.size() << " replacements, "
-        << placement.merge_position_trials << " positions tested; coverage "
+        << placement.merge_position_trials << " positions tested; merge coverage "
         << placement.covered_fraction << "\n";
     log << "Environment coverage: " << placement.playable_floors << " playable floors, "
         << placement.lighting_spaces << " lighting spaces, " << placement.validation_samples
