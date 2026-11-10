@@ -107,7 +107,6 @@ follows the same rules.
 | `--control`, `--control-hi`              | `#24221e`, `#2e2c28`                 | plain controls on the page                            |
 | `--control-card`, `--control-card-hi`    | `#2e2c28`, `#363430`                 | plain controls on a card                              |
 | `--on-fill`, `--on-fill-hi`              | the accent at 22 % / 28 % on ink     | a control that is on or picked                        |
-| `--coal-stripes`, `--coal-stripes-hi`    | see the header bar above             | the bar's buttons                                     |
 | `--radius`, `--radius-sm`, `--radius-xs` | 12, 6, 4 px                          | cards; controls; badges                               |
 | `--bar-stripe`, `--bar-stripe-alt`       | `#c99222`, `#bd8619`                 | the header bar's stripes                              |
 | `--bar-ink`, `--bar-ink-deep`            | `#2a1800`, `#1b1206`                 | text on gold (desktop: `--ink-deep`)                  |

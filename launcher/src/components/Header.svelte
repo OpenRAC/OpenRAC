@@ -38,9 +38,8 @@
     return page === "game" ? "library" : page;
   });
 
-  // The open tab's highlight: one layer of stripes over the whole row of tabs, clipped to the
-  // open tab. A move animates only the clip, so the stripes stay still and nothing is laid out
-  // again each frame. The first place is set without a transition.
+  // The open tab's highlight: one layer over the whole row of tabs, clipped to the open tab. A
+  // move animates only the clip, so nothing is laid out again each frame. The first place is set without a transition.
   let nav = $state<HTMLElement | null>(null);
   let slider = $state({ left: 0, right: 0, shown: false, moving: false });
   /** Whether the highlight has a place yet: not state, as place() is run by an effect. */
@@ -224,14 +223,9 @@
     height: var(--nav-top);
     width: 100%;
     padding: 0 18px;
-    /* Wide stripes of two close golds: the bar's colour, quieter than one bright yellow. */
-    background: repeating-linear-gradient(35deg, var(--bar-stripe) 0 20px, var(--bar-stripe-alt) 20px 40px);
-    border-bottom: 1px solid rgb(0 0 0 / 0.3);
+    /* No bar of its own anywhere (see below): it lies over the page. */
+    background: none;
     color: var(--bar-name);
-    /* A light shadow: a deep one read as a black band under the bar on the page. */
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.35),
-      0 1px 6px rgb(0 0 0 / 0.18);
   }
 
   /* A desktop has no bar of its own: the header lies over the page (App.svelte), on the page's own
@@ -243,14 +237,9 @@
     top: 0;
     left: 0;
     right: 0;
-    background: none;
-    border-bottom: 0;
-    box-shadow: none;
     /* Android keeps the picked game's own ink. */
     --bar-ink-deep: var(--ink-deep);
     --bar-name: var(--text);
-    --coal-stripes: var(--control);
-    --coal-stripes-hi: var(--control-hi);
   }
 
   :global(html:not([data-platform="android"])) .site-header::before {
@@ -380,12 +369,12 @@
     gap: 6px;
   }
 
-  /* The open tab's dark pill: the row's stripes, clipped to the open tab, the clip gliding from
+  /* The open tab's pill: one layer over the row, clipped to the open tab, the clip gliding from
      tab to tab. */
   .slider {
     position: absolute;
     inset: 0;
-    background: var(--coal-stripes-hi);
+    background: var(--control-hi);
     clip-path: inset(0 var(--r) 0 var(--l) round var(--radius-sm));
     opacity: 0;
     /* Over every tab's fill (theirs is at -2), under their words. */
@@ -414,8 +403,7 @@
     font-size: 0.9375rem;
     /* Medium, not bold: close to the logo's thin strokes beside it (user decision). */
     font-weight: 500;
-    /* A button of its own on the gold, as the site's bar has them: the bar's stripes continued in
-       coal, gold text, no edge (the gold bar is its edge). */
+    /* A button of its own: the theme's control fill (under it, ::before), gold text, no edge. */
     background: none;
     box-shadow: none;
     color: var(--amber);
@@ -430,7 +418,7 @@
     inset: 0;
     z-index: -2;
     border-radius: inherit;
-    background: var(--coal-stripes);
+    background: var(--control);
     transition: background var(--fast) var(--ease);
   }
 
@@ -441,11 +429,11 @@
     }
 
     :global(html:where(:not([data-input="pad"]))) .tab:hover:not(.on)::before {
-      background: var(--coal-stripes-hi);
+      background: var(--control-hi);
     }
   }
 
-  /* The open one: the lighter stripes (the slider), light gold text. */
+  /* The open one: the slider under it, its words lighter. */
   .tab.on {
     color: var(--gold);
   }
@@ -474,7 +462,7 @@
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--amber);
-    background: var(--coal-stripes);
+    background: var(--control);
     border-radius: var(--radius-sm);
     height: 32px;
     padding: 0 12px;
@@ -515,7 +503,7 @@
     width: 32px;
     height: 32px;
     border-radius: var(--radius-sm);
-    background: var(--coal-stripes);
+    background: var(--control);
     color: var(--amber);
     transition:
       background var(--fast) var(--ease),
@@ -529,7 +517,7 @@
   @media (hover: hover) {
     :global(html:where(:not([data-input="pad"]))) .site:hover,
     :global(html:where(:not([data-input="pad"]))) .discord:hover {
-      background: var(--coal-stripes-hi);
+      background: var(--control-hi);
       color: var(--gold);
     }
 
@@ -540,11 +528,11 @@
 
   .site:active,
   .discord:active {
-    background: var(--coal-stripes-hi);
+    background: var(--control-hi);
     color: var(--gold);
   }
 
-  /* An update: a bar button (coal stripes, gold text), with a dot that pulses. */
+  /* An update: a bar button (the control fill, gold text), with a dot that pulses. */
   .update {
     display: inline-flex;
     align-items: center;
@@ -552,7 +540,7 @@
     height: 32px;
     font-size: 0.8125rem;
     font-weight: 500;
-    background: var(--coal-stripes);
+    background: var(--control);
     color: var(--gold);
     border-radius: var(--radius-sm);
     padding: 4px 14px 4px 11px;
@@ -700,10 +688,6 @@
     top: 0;
     bottom: 0;
     left: 0;
-    background: none;
-    border-bottom: 0;
-    border-right: 0;
-    box-shadow: none;
     color: var(--text);
     /* It scrolls only up and down (no bar on Android: app.css): a tab one pixel wider than the
        rail inside its border made a sideways scroll bar along its foot. */

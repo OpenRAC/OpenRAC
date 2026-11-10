@@ -67,9 +67,6 @@
   /* On or picked: a gold tint on the page's black, with gold text. */
   --on-fill: color-mix(in srgb, var(--amber) 22%, var(--ink));
   --on-fill-hi: color-mix(in srgb, var(--amber) 28%, var(--ink));
-  /* The bar's buttons: the bar's stripes continued in coal, laid on the window so they line up. */
-  --coal-stripes: repeating-linear-gradient(35deg, #181818 0 20px, #121212 20px 40px) fixed;
-  --coal-stripes-hi: repeating-linear-gradient(35deg, #252525 0 20px, #1f1f1f 20px 40px) fixed;
   /* States. The site has none; these sit with its palette. */
   --ok: #8fd694;
   /* Its own amber, not var(--amber), which a theme could one day change. */
