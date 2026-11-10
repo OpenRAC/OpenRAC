@@ -875,15 +875,29 @@
     margin-top: clamp(8px, 1.8vh, 12px);
   }
 
-  /* The Mods pill as on the desktop's game page (its link 40 px there too), its gap above set
-     by the row. */
+  /* The Mods pill as on the desktop's game page, at the scale of the buttons above: as tall,
+     as round and filled as they are, its link a button inside it. */
   .extra :global(.with-mods) {
+    height: var(--ctl);
     margin-top: 0;
+    padding: 0 6px 0 16px;
+    gap: 12px;
+    border-radius: var(--radius);
+    background: var(--control-card);
+    font-size: var(--ctl-font);
+  }
+
+  .extra :global(.with-mods > .dim) {
+    padding-right: 10px;
   }
 
   .extra :global(.with-mods .link) {
-    min-height: 40px;
-    background: var(--control-card);
+    height: calc(var(--ctl) - 12px);
+    min-height: 0;
+    padding: 0 12px 0 14px;
+    border-radius: calc(var(--radius) - 3px);
+    background: var(--control-card-hi);
+    font-size: var(--ctl-font);
   }
 
   .go.primary {
