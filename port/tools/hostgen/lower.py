@@ -121,8 +121,7 @@ class FnReport:
     # Instructions of its asm statements that the host does not run (asm_stmt): what they compute is
     # missing from the translation.
     asm_skipped: list = field(default_factory=list)
-    # Whether its text reaches a level's own copy of an address (OPENRAC_LDATA, OPENRAC_LCODE): its
-    # translation is right only where a level's program is loaded, not at a place in the executable.
+    # Uses level data (OPENRAC_LDATA, OPENRAC_LCODE), so it is wrong in the executable.
     level_relative: bool = False
 
 

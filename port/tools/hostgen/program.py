@@ -107,12 +107,9 @@ class Program:
     statics: dict[tuple[str, str], Function] = field(default_factory=dict)
     places: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # symbol -> (overlay, addr)
     sizes: dict[str, int] = field(default_factory=dict)  # catalogued symbol -> bytes
-    # A release catalogue's places in the executable (boot:address) of a function named after
-    # another place (a level's copy the executable carries too): symbol -> [address], when its row
-    # says the code is the same ("same" yes). write_program_files registers them (code_tables).
+    # Executable copies of level functions (release catalogue boot: places): symbol -> [address].
     boot_places: dict[str, list[int]] = field(default_factory=dict)
-    # Translated functions whose text reaches a level's own addresses (FnReport.level_relative):
-    # they are not registered at such a place in the executable.
+    # Functions whose code uses level data; their boot places are skipped.
     level_relative: set = field(default_factory=set)
     splits: dict[str, list] = field(default_factory=dict)  # symbol -> places split off to variants
     split_parent: dict[str, str] = field(default_factory=dict)  # a variant -> the symbol it was split from
@@ -349,9 +346,7 @@ class Program:
                 offset = getattr(self, "entries", {}).get(sym)
                 if offset:
                     tables[overlay].append((addr + offset, sym))
-        # A level function's copy in the executable (read_places), called through its address there
-        # where nothing else answers it: the same translation, unless that reaches a level's own
-        # addresses (FnReport.level_relative), which are not the executable's.
+        # Executable copies of level functions, if the address is free and the code uses no level data.
         taken = {addr for addr, _ in tables.get(-1, [])}
         for sym, addrs in sorted(self.boot_places.items()):
             f = self.functions.get(sym)
@@ -1039,9 +1034,7 @@ def read_places(path: Path, program: Program) -> int:
             elif level == "boot" and addr and column == 8 and cols[7] == "yes":
                 boot.append(int(addr, 16))
         if boot and places:
-            # Executable places are the name's own, but for a level function the executable carries
-            # too: NTSC-J's title runs its memory card menu's state 0xB from 0x0020A448, a copy of
-            # func_L00_0024BAE8 (MarkSelectedCardSlot), through a table of code addresses.
+            # A level function's copy in the executable (NTSC-J's card menu calls 0x0020A448).
             program.boot_places[cols[0]] = boot
         if places:
             program.places[cols[0]] = places

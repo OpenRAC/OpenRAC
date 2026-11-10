@@ -2736,9 +2736,8 @@ class Places(unittest.TestCase):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_00354DF8", text)
 
     def test_a_release_catalogues_boot_place_answers_calls_in_the_executable(self):
-        # rac1 NTSC-J's title calls its memory card menu's state 0xB through 0x0020A448, a copy of
-        # func_L00_0024BAE8 its catalogue lists as boot:0020A448. A copy whose C reaches a level's own
-        # addresses (OPENRAC_LDATA) stays out: those are not the executable's.
+        # NTSC-J's card menu calls 0x0020A448, a copy of func_L00_0024BAE8. Copies that use level
+        # data or differ are skipped.
         with tempfile.TemporaryDirectory() as tmp:
             out = self.generate(Path(tmp),
                 "extern int D_0015EFB0;\nextern int D_L00_001B9E70;\n"
