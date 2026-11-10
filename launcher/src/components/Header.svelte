@@ -38,17 +38,24 @@
     return page === "game" ? "library" : page;
   });
 
-  // The bar's tabs share one highlight that slides to the tab opened. Placed without a
-  // transition the first time, so that it does not fly in from the left edge.
+  // The open tab's highlight: one layer of stripes over the whole row of tabs, clipped to the
+  // open tab. A move animates only the clip, so the stripes stay still and nothing is laid out
+  // again each frame. The first place is set without a transition.
   let nav = $state<HTMLElement | null>(null);
-  let slider = $state({ left: 0, width: 0, shown: false, moving: false });
+  let slider = $state({ left: 0, right: 0, shown: false, moving: false });
   /** Whether the highlight has a place yet: not state, as place() is run by an effect. */
   let placed = false;
   function place(page: Page) {
     const on = nav?.querySelector<HTMLElement>(`.tab[data-page="${page}"]`);
-    slider = on
-      ? { left: on.offsetLeft, width: on.offsetWidth, shown: true, moving: placed }
-      : { left: 0, width: 0, shown: false, moving: false };
+    slider =
+      on && nav
+        ? {
+            left: on.offsetLeft,
+            right: nav.clientWidth - on.offsetLeft - on.offsetWidth,
+            shown: true,
+            moving: placed,
+          }
+        : { left: 0, right: 0, shown: false, moving: false };
     placed = !!on;
   }
   $effect(() => {
@@ -96,7 +103,7 @@
         class="slider"
         class:shown={slider.shown}
         class:moving={slider.moving}
-        style={`transform: translateX(${slider.left}px); width: ${slider.width}px`}
+        style={`--l: ${slider.left}px; --r: ${slider.right}px`}
         aria-hidden="true"
       ></span>
       {#each tabs as tab (tab.page)}
@@ -285,14 +292,13 @@
     gap: 6px;
   }
 
-  /* The open tab's dark pill, sliding from tab to tab. */
+  /* The open tab's dark pill: the row's stripes, clipped to the open tab, the clip gliding from
+     tab to tab. */
   .slider {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    border-radius: var(--radius-sm);
+    inset: 0;
     background: var(--coal-stripes-hi);
+    clip-path: inset(0 var(--r) 0 var(--l) round var(--radius-sm));
     opacity: 0;
     /* Over every tab's fill (theirs is at -2), under their words. */
     z-index: -1;
@@ -303,9 +309,7 @@
   }
 
   .slider.moving {
-    transition:
-      transform var(--medium) var(--ease),
-      width var(--medium) var(--ease);
+    transition: clip-path 0.34s cubic-bezier(0.25, 1, 0.5, 1);
   }
 
   /* The open tab is a dark chip with gold text (the slider above, moving from tab to tab); the

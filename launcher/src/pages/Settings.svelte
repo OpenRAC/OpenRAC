@@ -482,19 +482,6 @@
         <AddToSteam />
         <label class="setting">
           <span class="text">
-            <strong>Compact layout</strong>
-            <small>A game's name and its Play button side by side.</small>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            class="switch"
-            checked={draft.layout !== "classic"}
-            onchange={(e) => (draft.layout = e.currentTarget.checked ? "compact" : "classic")}
-          />
-        </label>
-        <label class="setting">
-          <span class="text">
             <strong>Show in Discord</strong>
             <small>Your status says when you are playing.</small>
           </span>

@@ -950,7 +950,15 @@ main {
   animation: none;
 }
 
+/* The browser lays the old picture under the new one and adds them up (plus-lighter): with no
+   fade, both showed at once. The old bar and game list hide; the new ones are live. */
+::view-transition-old(root),
+::view-transition-old(side) {
+  opacity: 0;
+}
+
 ::view-transition-old(side):only-child {
+  opacity: 1;
   animation: page-fade 0.2s ease-in both;
 }
 

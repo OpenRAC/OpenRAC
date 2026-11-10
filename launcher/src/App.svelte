@@ -66,7 +66,7 @@
   });
 
   // Android: the Games tab's pictures ready before it is first shown (media.ts).
-  if (onAndroid) preloadArt();
+  preloadArt();
 
   $effect(() => {
     // The launcher's accent is the picked game's own (themes.ts), the colour easing from one to the
@@ -86,11 +86,6 @@
   $effect(() => {
     // The theme (Settings → General); main.ts put the last one on before the settings loaded.
     if (app.config) applyPalette(app.config.theme);
-  });
-
-  $effect(() => {
-    // The layout (Settings → Appearance): src/layouts/compact.css applies only to "compact".
-    document.documentElement.dataset.layout = app.config?.layout ?? "compact";
   });
 
   // The page shown. One page gives way to the next in a slide (motion.ts, app.css): the one leaving

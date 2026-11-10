@@ -42,20 +42,22 @@ export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
-// The label pictures, decoded once and kept: a disc's label that mounts again finds its picture
-// ready, rather than showing its colours for a frame first.
-const kept: HTMLImageElement[] = [];
+// Disc pictures (labels and prints), decoded once and kept: a disc that mounts again (a tab
+// changed, the wheel turned) draws at once rather than blank for a frame.
+const kept = new Map<string, HTMLImageElement>();
 
-/** Decodes every game's tile picture ahead of its first showing; once. */
+/** Decodes `src` and keeps it decoded; once per picture. */
+export function keepDecoded(src: string): void {
+  if (kept.has(src) || typeof Image === "undefined") return;
+  const img = new Image();
+  img.src = src;
+  img.decode().catch(() => undefined); // a picture that is not there stays out
+  kept.set(src, img);
+}
+
+/** Decodes every game's label picture ahead of its first showing. */
 export function preloadArt(): void {
-  if (kept.length || typeof Image === "undefined") return;
-  for (const src of Object.keys(GAME_ART).map(gameTileArt)) {
-    if (!src) continue;
-    const img = new Image();
-    img.src = src;
-    img.decode().catch(() => undefined); // a picture that is not there stays out
-    kept.push(img);
-  }
+  for (const src of Object.keys(GAME_ART).map(gameTileArt)) if (src) keepDecoded(src);
 }
 
 /** For an <img onerror>: a picture that could not be loaded is hidden, so the colours show. */

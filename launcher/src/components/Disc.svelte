@@ -4,7 +4,7 @@
   // `small` is the list's (a lighter shadow). The shadow's depth is --shade (0 to 1).
   import { discPrint } from "$lib/discArt";
   import { titleLines } from "$lib/labels";
-  import { gameTileArt } from "$lib/media";
+  import { gameTileArt, keepDecoded } from "$lib/media";
   import { themeStyle } from "$lib/themes";
 
   let {
@@ -20,6 +20,9 @@
   let failed = $state(false);
   const name = $derived(titleLines(title));
   const art = $derived(gameTileArt(game));
+  $effect(() => {
+    if (print) keepDecoded(print);
+  });
 </script>
 
 <div class="disc" class:idle class:small style={themeStyle(game)}>
@@ -29,7 +32,6 @@
         class="print"
         src={print}
         alt=""
-        decoding="async"
         draggable="false"
         onerror={() => {
           failed = true;
@@ -37,7 +39,7 @@
       />
     {:else}
       <div class="label">
-        {#if art}<img class="art" src={art} alt="" decoding="async" draggable="false" />{/if}
+        {#if art}<img class="art" src={art} alt="" draggable="false" />{/if}
         <span class="band"
           ><b>{name.series}</b>{#if name.game}<small>{name.game}</small>{/if}</span
         >

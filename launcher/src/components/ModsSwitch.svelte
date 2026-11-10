@@ -65,7 +65,7 @@
     margin-top: 12px;
     padding: 6px 14px;
     border-radius: var(--radius-sm);
-    background: var(--ink-deep);
+    background: var(--control);
     font-size: 0.875rem;
     color: var(--soft);
   }

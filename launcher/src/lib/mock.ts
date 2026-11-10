@@ -258,7 +258,6 @@ let config: Config = {
   checkModUpdates: new URLSearchParams(typeof location === "undefined" ? "" : location.search).has("modupdates"),
   updateChannel: null,
   updateBranch: null,
-  layout: "compact",
   theme: new URLSearchParams(typeof location === "undefined" ? "" : location.search).get("theme") ?? "openrac",
   discordClientId: null,
   // ?gold: Game colours off, every game in the launcher's gold.

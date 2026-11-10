@@ -57,9 +57,6 @@ pub struct Config {
     pub update_branch: Option<String>,
     /// Custom Discord application ID (optional).
     pub discord_client_id: Option<String>,
-    /// The page layout: "compact" (default) or "classic", the original design (src/layouts/).
-    #[ts(type = "\"compact\" | \"classic\"")]
-    pub layout: String,
     /// The launcher's theme (src/lib/palettes.json): "openrac" (default), "oled", "nord"
     /// or "mocha". The accent is not a theme's: it is the picked game's.
     pub theme: String,
@@ -152,7 +149,6 @@ impl Default for Config {
             update_channel: None,
             update_branch: None,
             discord_client_id: None,
-            layout: "compact".into(),
             theme: "openrac".into(),
             game_colors: true,
             detailed_game_log: false,
