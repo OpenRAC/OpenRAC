@@ -166,11 +166,14 @@
     });
   });
 
+  /** Android saves by itself, so a change still waiting when the page is left is saved then. */
+  const kept = () => onAndroid && !setup && (saving || (changed && !nameError));
+
   // A theme picked shows at once; left unsaved, the saved one comes back with the page's end.
   $effect(() => {
     applyPalette(draft.theme);
     return () => {
-      applyPalette(app.config?.theme);
+      if (!kept()) applyPalette(app.config?.theme);
     };
   });
 
@@ -179,7 +182,7 @@
     const game = app.version?.split("/")[0] ?? null;
     applyAccent(game, draft.gameColors);
     return () => {
-      applyAccent(game, app.config?.gameColors ?? true);
+      if (!kept()) applyAccent(game, app.config?.gameColors ?? true);
     };
   });
 
@@ -215,6 +218,10 @@
     return () => {
       clearTimeout(timer);
     };
+  });
+  // Left before the moment passed (a theme picked, then another tab at once): saved now.
+  $effect(() => () => {
+    if (kept() && !saving) void save(false);
   });
   const tool = (t: "python" | "godot" | "docker") => (path: string) => api.checkTool(t, path);
   const root = (path: string): Promise<Check> => api.checkRoot(path);

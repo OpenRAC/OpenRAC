@@ -24,6 +24,7 @@
   import { followCodeLinks } from "$lib/modCodes.svelte";
   import { lookForModUpdates } from "$lib/modUpdates.svelte";
   import { preloadArt } from "$lib/media";
+  import { modNav } from "$lib/modNav.svelte";
   import { slide, slides } from "$lib/motion";
   import { applyPalette } from "$lib/palettes";
   import { applyAccent } from "$lib/themes";
@@ -113,13 +114,24 @@
     if (slides) document.documentElement.dataset.motion = "slides";
   });
 
-  // Another page starts at its top, as it arrives (app.css: its sections rise in turn).
+  // Another page starts at its top, as it arrives (app.css: its sections rise in turn), and so does
+  // a page inside it: a mod's own page (Enhanced graphics' Settings), Develop's tabs. Back from a
+  // mod's page, the list is where it was left.
   let view = $state<HTMLElement | null>(null);
-  let shown: Page | null = null;
+  const place = $derived(
+    page === "mods" ? `mods:${modNav.mod ?? ""}` : page === "develop" ? `develop:${app.develop}` : page,
+  );
+  let shown: string | null = null;
+  let listAt = 0;
+  $effect.pre(() => {
+    // Before the new page replaces the list: where the list stood.
+    if (place !== shown && shown === "mods:") listAt = view?.scrollTop ?? 0;
+  });
   $effect(() => {
-    if (page === shown) return;
-    shown = page;
-    view?.scrollTo({ top: 0 });
+    if (place === shown) return;
+    const back = place === "mods:" && !!shown?.startsWith("mods:");
+    shown = place;
+    view?.scrollTo({ top: back ? listAt : 0 });
   });
 
   $effect(() => {
