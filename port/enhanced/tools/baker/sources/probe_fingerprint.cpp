@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "common/json.h"
 #include "common/profiler.h"
 #include "enhanced/tools/baker/sources/level_scene.h"
 #include "scene/level.h"
@@ -48,7 +49,9 @@ struct Hash {
 };
 
 // Lists transport inputs in canonical relative-path order.
-std::vector<std::filesystem::path> source_paths(const std::filesystem::path& root) {
+std::vector<std::filesystem::path> source_paths(
+    const std::filesystem::path& root, bool overlay, bool variant
+) {
     namespace fs = std::filesystem;
     std::vector<fs::path> files;
 
@@ -62,18 +65,27 @@ std::vector<std::filesystem::path> source_paths(const std::filesystem::path& roo
         // Their sidecars must not invalidate otherwise identical probe bakes.
         const auto name = entry.path().lexically_relative(root).generic_string();
 
-        if (name == "pvs.json" || name == "sunlight-calibration.json"
-            || name == "foliage-materials.json" || name == "ocean-profile.json"
-            || name == "ocean.wave" || name == "ocean-bake.json"
+        if ((overlay && name.starts_with("bake-inputs/")) || name == "pvs.json"
+            || name == "sunlight-calibration.json" || name == "foliage-materials.json"
+            || name == "ocean-profile.json" || name == "ocean.wave" || name == "ocean-bake.json"
             || entry.path().filename() == "material-overrides.json"
             || name.starts_with(".water-native-")) {
             continue;
         }
 
+        if (variant && name == "probe-interiors.json") {
+            json::Value report;
+            std::string error;
+            if (json::parse_file(entry.path().string(), report, error)
+                && report["generator"].string() == "openrac-interiors-v1") {
+                continue;
+            }
+        }
         const auto extension = entry.path().extension().string();
 
         // Raw bake sections and exported meshes, images and sidecars affect transport.
-        if (extension == ".glb" || extension == ".png" || extension == ".json"
+        const bool packed = overlay && (extension == ".wad" || extension == ".bin");
+        if (packed || extension == ".glb" || extension == ".png" || extension == ".json"
             || (extension == ".bin"
                 && entry.path().lexically_relative(root).generic_string().starts_with(
                     "bake-inputs/"
@@ -131,19 +143,47 @@ void source_file(Hash& hash, const std::filesystem::path& root, const std::files
     }
 }
 
+// Include the sector bindings for this level without invalidating neighbours in the same stack.
+void packed_mappings(Hash& hash, const std::filesystem::path& level) {
+    const auto prefix = level.filename().string() + '/';
+    for (const auto* name : {"patches.tsv", "virtual.tsv"}) {
+        std::ifstream rows(level.parent_path() / name);
+        std::string row;
+        while (std::getline(rows, row)) {
+            const auto first = row.find('\t');
+            const auto second = first == std::string::npos ? first : row.find('\t', first + 1);
+            if (second == std::string::npos
+                || !std::string_view(row).substr(second + 1).starts_with(prefix)) {
+                continue;
+            }
+            for (const auto character : row) {
+                if (character != '\r') {
+                    hash.byte(static_cast<std::uint8_t>(character));
+                }
+            }
+            hash.byte(0);
+        }
+    }
+}
+
 // Adds a named source tree without hashing derived transforms or unrelated sidecars.
-void source_files(Hash& hash, const std::filesystem::path& root, const char* label) {
+void source_files(
+    Hash& hash, const std::filesystem::path& root, const char* label, bool variant = false
+) {
     // Separate base and override roots even when their relative paths coincide.
     for (const char* p = label; *p; ++p) {
         hash.byte(static_cast<std::uint8_t>(*p));
     }
 
     hash.byte(0);
-    const auto files = source_paths(root);
+    const auto files = source_paths(root, std::string_view(label) == "override", variant);
     hash.u32(static_cast<std::uint32_t>(files.size()));
 
     for (const auto& file : files) {
         source_file(hash, root, file);
+    }
+    if (std::string_view(label) == "override") {
+        packed_mappings(hash, root);
     }
 }
 
@@ -261,17 +301,43 @@ void point_emitters_hash(Hash& hash, const scene::LevelData& level, const BakeSc
 
 }  // namespace
 
-std::uint64_t probe_input_hash(const std::filesystem::path& directory) {
+std::string probe_variant_key(const std::filesystem::path& overrides) {
+    if (overrides.empty()) {
+        return {};
+    }
+    Hash hash;
+    const auto mount = overrides.parent_path();
+    if (mount.parent_path().filename() == "destinations") {
+        for (const auto character : mount.filename().string()) {
+            hash.byte(static_cast<std::uint8_t>(character));
+        }
+        hash.byte(0);
+    }
+    source_files(hash, overrides, "override");
+    const auto catalog = overrides / "material-overrides.json";
+    if (std::filesystem::is_regular_file(catalog)) {
+        source_file(hash, overrides, catalog);
+    }
+    return std::to_string(hash.value);
+}
+
+std::uint64_t probe_input_hash(
+    const std::filesystem::path& directory, const std::filesystem::path& overrides
+) {
     const profiling::Zone timing("Fingerprint bake inputs");
 
     Hash hash;
-    source_files(hash, directory, "base");
+    source_files(hash, directory, "base", !overrides.empty());
     // Coastlines affect placement, while the transport scene hash deliberately retains otherwise valid GI.
     if (std::filesystem::exists(directory / "water.bin")) {
         source_file(hash, directory, directory / "water.bin");
     }
+    if (!overrides.empty()) {
+        source_files(hash, overrides, "override");
+    }
     scene::LevelData source;
     source.dir = directory;
+    source.overrides = overrides;
     const auto catalog = scene::load_material_catalog(source);
     if (!catalog) {
         throw std::runtime_error(catalog.error().message);
@@ -326,7 +392,7 @@ std::uint64_t probe_scene_hash(
     // Fingerprint canonical source bytes rather than rounded transform
     // products. File identity is stable across baker and game FP modes.
     if (!level.dir.empty()) {
-        source_files(hash, level.dir, "base");
+        source_files(hash, level.dir, "base", !level.overrides.empty());
 
         if (!level.overrides.empty() && level.overrides != level.dir) {
             source_files(hash, level.overrides, "override");

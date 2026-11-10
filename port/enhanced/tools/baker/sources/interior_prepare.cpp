@@ -320,11 +320,12 @@ Result<bool> prepare_level_interiors(
     const std::filesystem::path& level,
     const std::filesystem::path& gameplay,
     const std::filesystem::path& output,
-    bool generate_sources
+    bool generate_sources,
+    const std::filesystem::path& overrides
 ) {
     try {
         profiling::Zone zone("Prepare level interiors");
-        const auto source = interior_source_identity(level, gameplay);
+        const auto source = interior_source_identity(level, gameplay, overrides);
 
         if (!source) {
             return unexpected(source.error());
@@ -332,10 +333,14 @@ Result<bool> prepare_level_interiors(
 
         const auto authoring = level / "lighting-environments.json";
         const auto generation = generation_identity(*source, authoring);
-        const auto sidecar = level / "probe-interiors.json";
+        const auto original = level / "probe-interiors.json";
+        const auto sidecar = (overrides.empty() ? level : output) / "probe-interiors.json";
         const auto previous = read_json(sidecar);
+        const auto authored = read_json(original);
+        const bool explicit_sources =
+            !authored.is_null() && authored["generator"].string() != "openrac-interiors-v1";
         const bool owned =
-            generate_sources
+            generate_sources && !explicit_sources
             && (previous.is_null() || previous["generator"].string() == "openrac-interiors-v1");
 
         // Explicit overrides remain authoritative; report reuse still requires current geometry.
@@ -344,7 +349,7 @@ Result<bool> prepare_level_interiors(
             return false;
         }
 
-        auto input = load_interior_input(level, gameplay);
+        auto input = load_interior_input(level, gameplay, overrides);
 
         if (!input) {
             return unexpected(input.error());

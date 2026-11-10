@@ -31,6 +31,7 @@ inline constexpr unsigned kInteriorLightSetCount = 16;
     const scene::LevelData& level,
     BakeScene& scene,
     bake_detail::EmissionAverageCache* emission_cache = nullptr,
-    BakeThreadPool* pool = nullptr
+    BakeThreadPool* pool = nullptr,
+    const std::filesystem::path& prepared = {}
 );
 }  // namespace openrac::lighting

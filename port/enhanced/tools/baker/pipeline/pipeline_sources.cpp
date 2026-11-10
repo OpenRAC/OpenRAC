@@ -229,9 +229,10 @@ void prepare_sources(
         throw std::runtime_error("missing water_sources in probe-bake.json; re-export the level");
     }
 
-    const auto settings = region_settings(level);
+    const auto overrides = level_overrides(options, level);
+    const auto settings = region_settings(level, overrides);
     const bool gameplay = settings["enabled"].boolean() || settings["interior_lighting"].boolean()
-                          || load_level_bake_profile(level).environment.enabled;
+                          || load_level_bake_profile(level, overrides).environment.enabled;
 
     // Current exports retain gameplay inputs; older exports must be regenerated.
     if (gameplay && !manifest["collision"].is_null()
@@ -270,7 +271,7 @@ void prepare_sources(
     }
 
     // Explicit opt-outs remove only generated interiors, preserving independent authored sources.
-    if (!region_settings(level)["interior_lighting"].boolean()
+    if (overrides.empty() && !settings["interior_lighting"].boolean()
         && std::filesystem::exists(level / "probe-interiors.json")
         && bake_json::document(level / "probe-interiors.json")["generator"].string()
                == "openrac-interiors-v1") {
