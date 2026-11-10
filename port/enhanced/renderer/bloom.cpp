@@ -7,12 +7,16 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <stdexcept>
+#include <utility>
 
 #include "common/log.h"
 #include "common/stats.h"
 #include "renderer/gl.h"
 #if defined(OPENRAC_VULKAN)
-#include "renderer/vulkan/vkgl.h"
+#include "renderer/surface_chain.h"
+#include "renderer/vulkan/graph_execution.h"
+#include "renderer/vulkan/temporal_graph.h"
 #endif
 #include "renderer_shaders.h"
 
@@ -20,9 +24,6 @@ namespace openrac::enhanced {
 using namespace openrac::gl;
 
 namespace {
-constexpr float kThreshold = 0.82f;
-constexpr float kKnee = 0.18f;
-constexpr float kScatter = 0.62f;
 constexpr int kWorkgroup = 8;
 
 std::size_t output_bytes(int width, int height) {
@@ -93,26 +94,8 @@ bool Bloom::ensure_buffer(std::size_t bytes) {
         );
         m_buffer_capacity = bytes;
     }
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffer);
-    return m_buffer != 0;
-}
-
-bool Bloom::copy_output(unsigned texture, int width, int height, std::string& error) {
-#if defined(OPENRAC_VULKAN)
-    if (vkgl::copy_buffer_to_texture(m_buffer, texture, width, height, true)) {
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-        return true;
-    }
-#else
-    (void)texture;
-    (void)width;
-    (void)height;
-#endif
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-    error = "bloom compute output copy failed";
-    return false;
+    return m_buffer != 0;
 }
 
 bool Bloom::prepare(int width, int height, std::string& error) {
@@ -174,65 +157,129 @@ bool Bloom::prepare(int width, int height, std::string& error) {
 #endif
 }
 
-bool Bloom::downsample(
-    unsigned source,
-    int source_width,
-    int source_height,
-    Level& destination,
+void Bloom::downsample(
+    const Level& source,
+    const Level& destination,
     bool first,
-    std::string& error
+    const renderer::BloomSettings& settings
 ) {
-    if (!ensure_buffer(output_bytes(destination.width, destination.height))) {
-        error = "bloom compute buffer allocation failed";
-        return false;
-    }
-
     m_downsample.use();
-    texture_input(0, source);
+    texture_input(0, source.colour);
     glUniform1i(m_downsample.uniform("tex_T0"), 0);
     glUniform2f(
         m_downsample.uniform("source_size"),
-        static_cast<float>(source_width),
-        static_cast<float>(source_height)
+        static_cast<float>(source.width),
+        static_cast<float>(source.height)
     );
     glUniform1i(m_downsample.uniform("first_pass"), first ? 1 : 0);
-    glUniform1f(m_downsample.uniform("threshold"), kThreshold);
-    glUniform1f(m_downsample.uniform("knee"), kKnee);
+    glUniform1f(m_downsample.uniform("threshold"), settings.threshold);
+    glUniform1f(m_downsample.uniform("knee"), settings.knee);
     glDispatchCompute(
         static_cast<unsigned>((destination.width + kWorkgroup - 1) / kWorkgroup),
         static_cast<unsigned>((destination.height + kWorkgroup - 1) / kWorkgroup),
         1
     );
-    return copy_output(destination.colour, destination.width, destination.height, error);
 }
 
-bool Bloom::upsample(
-    unsigned high, unsigned low, unsigned destination, int width, int height, std::string& error
-) {
-    if (!ensure_buffer(output_bytes(width, height))) {
-        error = "bloom compute buffer allocation failed";
-        return false;
-    }
-
+void Bloom::upsample(const Level& high, const Level& low, float scatter) {
     m_upsample.use();
-    texture_input(0, high);
-    texture_input(1, low);
+    texture_input(0, high.colour);
+    texture_input(1, low.colour);
     glUniform1i(m_upsample.uniform("tex_T0"), 0);
     glUniform1i(m_upsample.uniform("tex_T1"), 1);
-    glUniform2f(
-        m_upsample.uniform("output_size"), static_cast<float>(width), static_cast<float>(height)
-    );
-    glUniform1f(m_upsample.uniform("scatter"), kScatter);
+    glUniform2f(m_upsample.uniform("output_size"), float(high.width), float(high.height));
+    glUniform1f(m_upsample.uniform("scatter"), scatter);
     glDispatchCompute(
-        static_cast<unsigned>((width + kWorkgroup - 1) / kWorkgroup),
-        static_cast<unsigned>((height + kWorkgroup - 1) / kWorkgroup),
+        static_cast<unsigned>((high.width + kWorkgroup - 1) / kWorkgroup),
+        static_cast<unsigned>((high.height + kWorkgroup - 1) / kWorkgroup),
         1
     );
     glActiveTexture(GL_TEXTURE0);
-    return copy_output(destination, width, height, error);
 }
 
-void Bloom::composite(renderer::FrameBuffer& output, float strength) {
+#if defined(OPENRAC_VULKAN)
+Result<void> Bloom::build_pyramid(const Level& source, const renderer::BloomSettings& settings) {
+    namespace graph = renderer::graph;
+    vkgl::GraphExecution execution;
+    const auto world = execution.import_image("bloom world colour", source.colour);
+    if (!world) {
+        return unexpected(world.error());
+    }
+
+    // Mark the buffer as storage before importing its stable Vulkan allocation.
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_buffer);
+    const auto scratch =
+        execution.import_buffer("bloom scratch", m_buffer, vkgl::InitialContents::Discard);
+    if (!scratch) {
+        return unexpected(scratch.error());
+    }
+
+    std::array<graph::ImageHandle, kMaxLevels> levels;
+    std::array<graph::BufferUse, kMaxLevels> copies;
+    for (int i = 0; i < m_count; ++i) {
+        const auto image = execution.import_image(
+            "bloom pyramid level", m_levels[i].colour, vkgl::InitialContents::Discard
+        );
+        if (!image) {
+            return unexpected(image.error());
+        }
+        levels[i] = *image;
+        copies[i] =
+            {*scratch,
+             {0, output_bytes(m_levels[i].width, m_levels[i].height)},
+             {graph::Stage::Transfer, graph::Access::Read, graph::Layout::Buffer}};
+    }
+
+    const auto sampled = [](graph::ImageHandle image) -> graph::ImageUse {
+        return {
+            image, {}, {graph::Stage::ComputeShader, graph::Access::Read, graph::Layout::Sampled}
+        };
+    };
+    const auto add_step = [&](graph::Pass pass, int level) {
+        const auto& copy = copies[level];
+        pass.buffers.push_back(
+            {*scratch,
+             copy.range,
+             {graph::Stage::ComputeShader, graph::Access::Write, graph::Layout::Buffer}}
+        );
+        execution.add_pass(std::move(pass));
+        execution.add_pass(
+            {"bloom copy",
+             {{levels[level],
+               {},
+               {graph::Stage::Transfer, graph::Access::Write, graph::Layout::TransferDestination}}},
+             {copy}}
+        );
+    };
+
+    for (int i = 0; i < m_count; ++i) {
+        add_step({"bloom downsample", {sampled(i == 0 ? *world : levels[i - 1])}}, i);
+    }
+    for (int i = m_count - 2; i >= 0; --i) {
+        add_step({"bloom upsample", {sampled(levels[i]), sampled(levels[i + 1])}}, i);
+    }
+
+    // Each step dispatches first, then copies the scratch output before another dispatch reuses it.
+    return execution.run([&](unsigned pass) {
+        const auto step = static_cast<int>(pass / 2);
+        const bool reduce = step < m_count;
+        const int level = reduce ? step : 2 * m_count - 2 - step;
+        if (pass % 2 != 0) {
+            const auto copied = execution.copy_buffer_to_image(copies[level], levels[level]);
+            if (!copied) {
+                throw std::runtime_error(copied.error().message);
+            }
+        } else if (reduce) {
+            downsample(
+                level == 0 ? source : m_levels[level - 1], m_levels[level], level == 0, settings
+            );
+        } else {
+            upsample(m_levels[level], m_levels[level + 1], settings.scatter);
+        }
+    });
+}
+
+Result<void> Bloom::composite(renderer::FrameBuffer& output, float strength) {
     glBindFramebuffer(GL_FRAMEBUFFER, output.id());
     glViewport(0, 0, output.width(), output.height());
     glDisable(GL_DEPTH_TEST);
@@ -255,68 +302,67 @@ void Bloom::composite(renderer::FrameBuffer& output, float strength) {
     texture_input(0, m_levels[0].colour);
     glUniform1i(m_composite.uniform("tex_T0"), 0);
     glBindVertexArray(m_vao);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    const std::array inputs{m_levels[0].colour};
+    const vkgl::TemporalTarget target{
+        output.id(),
+        vkgl::TemporalContents::Preserve,
+        renderer::graph::Aspect::Colour,
+        false,
+        vkgl::TemporalConsumer::Attachment
+    };
+    const auto result = vkgl::temporal_raster("bloom composite", target, inputs, [] {
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+    });
 
     glBindVertexArray(0);
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
     glActiveTexture(GL_TEXTURE0);
+    return result;
 }
+#endif
 
-void Bloom::apply(renderer::FrameBuffer& output, float strength) {
-    if (m_failed || strength <= 0.0f || output.width() <= 1 || output.height() <= 1
-        || !enhanced_rendering_available()) {
+void Bloom::apply(renderer::FrameBuffer& output, const renderer::BloomSettings& settings) {
+    if (m_failed || !settings.enabled || settings.strength <= 0.0f || output.width() <= 1
+        || output.height() <= 1 || !enhanced_rendering_available()) {
         return;
     }
 #if !defined(OPENRAC_VULKAN)
     (void)output;
-    (void)strength;
     return;
 #else
     if (!is_vulkan()) {
         return;
     }
 
-    const stats::Scope timing("Bloom", stats::kGpu);
-    strength = std::clamp(strength, 0.0f, 1.0f);
+    // Complete the world producers before running the graph's synchronous buffer-to-image copies.
+    Result<void> rendered;
+    const auto setup = renderer::run_surface_setup([&] {
+        const stats::Scope timing("Bloom", stats::kGpu);
+        std::string error;
+        if (!prepare(output.width(), output.height(), error)) {
+            rendered = unexpected(Error{std::move(error)});
+            return;
+        }
+        if (!ensure_buffer(output_bytes(m_levels[0].width, m_levels[0].height))) {
+            rendered = unexpected(Error{"bloom compute buffer allocation failed"});
+            return;
+        }
 
-    std::string error;
-    if (!prepare(output.width(), output.height(), error)) {
-        log::error("Bloom disabled: {}", error);
+        output.resolved();
+        rendered =
+            build_pyramid({output.colour_texture(), output.width(), output.height()}, settings);
+        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
+        if (rendered) {
+            rendered = composite(output, settings.strength);
+        }
+    });
+    if (!setup || !rendered) {
+        log::error("Bloom disabled: {}", setup ? rendered.error().message : setup.error().message);
         m_failed = true;
         return;
     }
-
-    // Resolve multisampling once before the compute chain samples the completed world colour.
-    output.resolved();
-    unsigned source = output.colour_texture();
-    int source_width = output.width();
-    int source_height = output.height();
-
-    for (int i = 0; i < m_count; ++i) {
-        auto& level = m_levels[i];
-        if (!downsample(source, source_width, source_height, level, i == 0, error)) {
-            log::error("Bloom disabled: {}", error);
-            m_failed = true;
-            return;
-        }
-        source = level.colour;
-        source_width = level.width;
-        source_height = level.height;
-    }
-
-    for (int i = m_count - 2; i >= 0; --i) {
-        auto& high = m_levels[i];
-        const auto& low = m_levels[i + 1];
-        if (!upsample(high.colour, low.colour, high.colour, high.width, high.height, error)) {
-            log::error("Bloom disabled: {}", error);
-            m_failed = true;
-            return;
-        }
-    }
-
-    composite(output, strength);
 
     std::size_t texture_bytes = 0;
     for (int i = 0; i < m_count; ++i) {

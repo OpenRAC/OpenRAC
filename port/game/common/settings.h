@@ -19,6 +19,7 @@
 #include <string_view>
 
 #include "common/hdr.h"
+#include "renderer/bloom_settings.h"
 #include "renderer/gtao_settings.h"
 #include "renderer/motion_blur_settings.h"
 #include "renderer/shadow_settings.h"
@@ -142,6 +143,7 @@ struct Settings {
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
+    renderer::BloomSettings bloom;
     bool agx_preview = true;                 // SDR-only AgX colour treatment experiment.
     float agx_exposure = 0.25f;              // Base exposure in stops, before AgX.
     float agx_brightness = 0.5f;             // 0..1 adds -0.8..+0.8 EV; midpoint is neutral.

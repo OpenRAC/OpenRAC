@@ -21,9 +21,9 @@ the 4K working set small while the source frame can remain HDR. At 3840x2160 the
 textures plus the largest compute buffer are about 19 MiB instead of well over 100 MiB for the first
 prototype.
 
-Defaults are deliberately restrained: the soft threshold starts around 0.82, its knee is 0.18 and
-the final bloom strength is 0.055. These are implementation defaults rather than user-facing
-settings.
+In Enhanced Settings, open Post processing to toggle bloom or adjust its strength, brightness
+threshold, soft knee and spread live. The defaults are 0.780 strength, 0.78 threshold, 0.27 knee
+and 0.90 spread. Reset bloom restores them.
 
 ## Lifetime and fallback
 

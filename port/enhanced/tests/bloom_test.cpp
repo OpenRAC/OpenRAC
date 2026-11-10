@@ -11,8 +11,12 @@
 
 #include "enhanced/renderer/bloom.h"
 #include "renderer/gl.h"
+#include "renderer/surface_chain.h"
 #include "tests/check.h"
 #include "tests/renderer_gl_context.h"
+#if defined(OPENRAC_VULKAN)
+#include "renderer/vulkan/vkgl.h"
+#endif
 
 namespace {
 int rgb_sum(const std::vector<std::uint8_t>& pixels, int width, int x, int y) {
@@ -61,7 +65,13 @@ void check_frame(openrac::enhanced::Bloom& bloom, int width, int height) {
     const int near_x = draw_patch(target);
     const int cy = target.height() / 2;
     const auto before = target.read_rgba();
-    bloom.apply(target, 1.0f);
+    renderer::BloomSettings settings;
+    settings.strength = 1.0f;
+    settings.enabled = false;
+    bloom.apply(target, settings);
+    CHECK(target.read_rgba() == before);
+    settings.enabled = true;
+    bloom.apply(target, settings);
     const auto strong = target.read_rgba();
 
     if (enhanced_rendering_available()) {
@@ -82,7 +92,11 @@ void check_frame(openrac::enhanced::Bloom& bloom, int width, int height) {
         }
 
         draw_patch(target);
-        bloom.apply(target);
+        // The game invokes bloom while collecting the world colour passes.
+        CHECK(renderer::run_surface_chain([&] {
+            CHECK(renderer::collecting_surface_chain());
+            bloom.apply(target);
+        }));
         const auto subtle = target.read_rgba();
         CHECK(rgb_total(subtle) > rgb_total(before));
         CHECK(rgb_total(subtle) < rgb_total(strong));
@@ -117,5 +131,10 @@ int main(int argc, char**) {
     bloom.release();
 
     CHECK(glGetError() == GL_NO_ERROR);
+#if defined(OPENRAC_VULKAN)
+    if (is_vulkan()) {
+        CHECK(vkgl::submission_counters().validation_errors == 0);
+    }
+#endif
     std::puts("Bloom compatibility, resize, alpha and Gaussian spread checks passed");
 }

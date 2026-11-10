@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <string>
 
+#include "common/result.h"
+#include "renderer/bloom_settings.h"
 #include "renderer/framebuffer.h"
 #include "renderer/shader.h"
 
@@ -17,8 +19,8 @@ class Bloom {
 public:
     ~Bloom();
 
-    // Applies a small additive bloom to completed world colour. The default is deliberately subtle.
-    void apply(renderer::FrameBuffer& output, float strength = 0.055f);
+    // Applies additive bloom to completed world colour.
+    void apply(renderer::FrameBuffer& output, const renderer::BloomSettings& settings = {});
 
     // Releases graphics resources on their owning context.
     void release();
@@ -36,20 +38,18 @@ private:
     void release_level(Level& level);
     void allocate_texture(Level& level, int width, int height);
     [[nodiscard]] bool ensure_buffer(std::size_t bytes);
-    [[nodiscard]] bool copy_output(unsigned texture, int width, int height, std::string& error);
 
-    [[nodiscard]] bool downsample(
-        unsigned source,
-        int source_width,
-        int source_height,
-        Level& destination,
+    void downsample(
+        const Level& source,
+        const Level& destination,
         bool first,
-        std::string& error
+        const renderer::BloomSettings& settings
     );
-    [[nodiscard]] bool upsample(
-        unsigned high, unsigned low, unsigned destination, int width, int height, std::string& error
+    void upsample(const Level& high, const Level& low, float scatter);
+    [[nodiscard]] Result<void> build_pyramid(
+        const Level& source, const renderer::BloomSettings& settings
     );
-    void composite(renderer::FrameBuffer& output, float strength);
+    [[nodiscard]] Result<void> composite(renderer::FrameBuffer& output, float strength);
 
     std::array<Level, kMaxLevels> m_levels{};
     int m_count = 0;
