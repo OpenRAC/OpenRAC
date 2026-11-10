@@ -238,7 +238,8 @@ without it. Off, every game wears the gold.
 ## The desktop's game list
 
 Each game in the list beside Games and Mods is its disc (`SideList.svelte`, `Disc.svelte`,
-user decision): the print as on Android, or the game's picture as a label. The open game's disc
+user decision): the print as on Android, or the game's picture as a label. The list sits on
+the page's own ground, with no darker panel or edge (user decision). The open game's disc
 is a little larger and turned, inside its row; a disc under the pointer or the controller's focus
 rolls a little to the right. None sways. A crash shows as a red dot at the disc's foot, and the
 game's own name ("Going Commando") goes to its own line when the whole name does not fit on one. A narrow window shows the discs alone.

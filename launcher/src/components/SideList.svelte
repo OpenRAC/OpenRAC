@@ -58,6 +58,7 @@
 <!-- A disc that grows as its game is picked changes its entry's height: the highlight follows. -->
 <nav
   class="list"
+  class:discs={entries.some((e) => e.disc)}
   aria-label={label}
   bind:this={list}
   ontransitionend={(e) => {
@@ -134,6 +135,17 @@
     --control: var(--control-card);
     --control-hi: var(--control-card-hi);
     min-height: 100%;
+  }
+
+  /* A list of discs sits on the page's own ground, no darker panel or edge (user decision). */
+  .list.discs {
+    background: none;
+    border-right: none;
+    --control: color-mix(in srgb, var(--text) 6%, transparent);
+  }
+
+  .list.discs .marker {
+    background: color-mix(in srgb, var(--amber) 10%, transparent);
   }
 
   .group {
