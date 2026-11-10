@@ -9,11 +9,9 @@
   import { backOut, cubicIn, cubicOut } from "svelte/easing";
   import type { GameView, SaveSlotInfo } from "$lib/api";
   import { api } from "$lib/api";
-  import { supports } from "$lib/capabilities";
   import { app, dismissCrashes, jobs, openVersion, pickVersion } from "$lib/app.svelte";
   import { choiceFor } from "$lib/discChoice";
-  import { gameMenu, modsOnCount, setWithMods } from "$lib/gameMenu.svelte";
-  import { WITH_MODS } from "$lib/modsText";
+  import { gameMenu, startsPlay } from "$lib/gameMenu.svelte";
   import { grouped, pct } from "$lib/format";
   import { regionLabel, titleLines } from "$lib/labels";
   import { reduced } from "$lib/motion";
@@ -29,6 +27,7 @@
   import DiscSwitch from "./DiscSwitch.svelte";
   import Icon from "./Icon.svelte";
   import Menu from "./Menu.svelte";
+  import ModsSwitch from "./ModsSwitch.svelte";
 
   let { games }: { games: GameView[] } = $props();
 
@@ -60,26 +59,8 @@
   /** Developer tools on and two of the game's discs found: which one Play plays. */
   const choice = $derived(app.config?.developer && game ? choiceFor(app.discChoices, game.id) : null);
 
-  /** The Mods switch (config.playWithMods), shown while Play would start the game. */
-  const withMods = $derived(app.config?.playWithMods ?? false);
-  const startsGame = $derived(
-    !!next && !next.job && (next.kind === "play" || next.kind === "build" || next.kind === "levels"),
-  );
-  /** How many mods are on for the game picked; null until read. */
-  let modsOn = $state<number | null>(null);
-  $effect(() => {
-    const shown = v;
-    const setUp = !!game?.install?.extracted;
-    modsOn = null;
-    if (!shown || !setUp) return;
-    let current = true;
-    void modsOnCount(shown).then((n) => {
-      if (current) modsOn = n;
-    });
-    return () => {
-      current = false;
-    };
-  });
+  /** The Mods switch (ModsSwitch), shown while Play would start the game. */
+  const startsGame = $derived(startsPlay(next));
 
   /** Which way the wheel last turned: 1 down the list, -1 up; the words beside it follow. */
   let dir = $state(1);
@@ -440,28 +421,7 @@
           {#if (startsGame && playable) || choice}
             <div class="extra" in:fly={enter(4)}>
               {#if startsGame && playable}
-                <!-- Whether Play brings the mods: a switch, and what it means; the count leads to them. -->
-                <div class="with-mods">
-                  <label title={WITH_MODS.hint}
-                    >{WITH_MODS.label}<input
-                      type="checkbox"
-                      role="switch"
-                      class="switch"
-                      checked={withMods}
-                      disabled={!supports(app.info, "mods")}
-                      onchange={(e) => void setWithMods(e.currentTarget.checked)}
-                    /></label
-                  >
-                  {#if withMods}
-                    <button class="link" onclick={openMods}
-                      ><span class="glyph small" aria-hidden="true">X</span>{WITH_MODS.count(modsOn)}</button
-                    >
-                  {:else}
-                    <button class="link quiet" onclick={openMods}
-                      ><span class="glyph small" aria-hidden="true">X</span>{WITH_MODS.original}</button
-                    >
-                  {/if}
-                </div>
+                <ModsSwitch version={v} setUp={!!game.install?.extracted} onopen={openMods} quiet />
               {/if}
               {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
             </div>
@@ -781,48 +741,6 @@
     align-items: center;
     gap: 10px;
     margin-top: clamp(8px, 1.8vh, 12px);
-  }
-
-  /* Mods under Play: a quiet line, not a button: its switch, then the count or "original game".
-     It starts where the buttons start, and is smaller than they are. */
-  .with-mods {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding-left: 4px;
-    font-size: clamp(0.8125rem, 2vh, 0.9375rem);
-    color: var(--soft);
-  }
-
-  .with-mods label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    color: var(--text);
-    cursor: pointer;
-  }
-
-  .with-mods .link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 32px;
-    padding: 0 10px 0 6px;
-    border-radius: 99px;
-    background: none;
-    box-shadow: none;
-    color: var(--text);
-  }
-
-  .with-mods .link.quiet {
-    color: var(--dim);
-  }
-
-  .glyph.small {
-    width: 20px;
-    height: 20px;
-    font-size: 0.625rem;
   }
 
   .go.primary {

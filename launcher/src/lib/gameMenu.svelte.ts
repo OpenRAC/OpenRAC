@@ -85,6 +85,12 @@ export function gameMenu(
   return items;
 }
 
+/** Whether Play would start the game now (play, or build or get levels and play): the Mods
+ *  switch shows then. */
+export function startsPlay(next: PlayerState | null): boolean {
+  return !!next && !next.job && (next.kind === "play" || next.kind === "build" || next.kind === "levels");
+}
+
 /** Turns the Mods switch: off, Play starts the game without mods; on, with what the Mods tab switched on. */
 export async function setWithMods(on: boolean) {
   if (app.config) await saveConfig({ ...app.config, playWithMods: on });

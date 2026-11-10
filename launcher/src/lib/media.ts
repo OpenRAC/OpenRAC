@@ -37,20 +37,20 @@ export function gameArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game] ?? null;
 }
 
-/** A game's picture as Android's Games tab shows it: framed for a tile, 1280 wide
- *  (scripts/game_art.py), where the picture itself can be wider and take a moment to decode. */
+/** A game's picture framed for a tile, 1280 wide (scripts/game_art.py): a disc's label until its
+ *  print is there. The picture itself can be wider and take a moment to decode. */
 export function gameTileArt(game: string): string | null {
   return storeArt(game) ?? GAME_ART[game]?.replace(/-bg\.webp$/, "-tile.webp") ?? null;
 }
 
-// The tiles' and the banner's pictures, decoded once and kept (Android's Games tab): a tile that mounts again finds
-// its picture ready, rather than showing its colours for a frame first.
+// The tile pictures, decoded once and kept: a disc's label that mounts again finds its picture
+// ready, rather than showing its colours for a frame first.
 const kept: HTMLImageElement[] = [];
 
-/** Decodes every game's tile and banner picture ahead of its first showing; once. */
+/** Decodes every game's tile picture ahead of its first showing; once. */
 export function preloadArt(): void {
   if (kept.length || typeof Image === "undefined") return;
-  for (const src of Object.keys(GAME_ART).flatMap((g) => [gameTileArt(g), gameArt(g)])) {
+  for (const src of Object.keys(GAME_ART).map(gameTileArt)) {
     if (!src) continue;
     const img = new Image();
     img.src = src;

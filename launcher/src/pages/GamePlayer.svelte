@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { supports } from "$lib/capabilities";
   // A game's page. One main button, always in the same place,
   // says the next thing to do (set up from your disc, build, play); what is done
   // less often is in the menu beside it. Below: the saves and, beside them, Help
@@ -18,15 +17,15 @@
   import JobProgress from "$components/JobProgress.svelte";
   import ProgressBar from "$components/ProgressBar.svelte";
   import Menu from "$components/Menu.svelte";
+  import ModsSwitch from "$components/ModsSwitch.svelte";
   import ReportsBlock from "$components/ReportsBlock.svelte";
   import SaveManagerBlock from "$components/SaveManagerBlock.svelte";
   import { api, onAndroid, type ActionView, type ReportEntry } from "$lib/api";
   import { app, clock, currentVersion, guard, jobs, openDevelop, run } from "$lib/app.svelte";
   import { choiceFor, programOf } from "$lib/discChoice";
-  import { gameMenu, modsOnCount, pageAsks, setWithMods } from "$lib/gameMenu.svelte";
+  import { gameMenu, pageAsks, startsPlay } from "$lib/gameMenu.svelte";
   import { pct } from "$lib/format";
   import { SITE_URL } from "$lib/links";
-  import { WITH_MODS } from "$lib/modsText";
   import { titleLines } from "$lib/labels";
   import { gameArt, hideMissing } from "$lib/media";
   import { arrive } from "$lib/motion";
@@ -132,25 +131,8 @@
     }
   });
 
-  /** The Mods switch under Play, kept in the settings (config.playWithMods): off, Play starts the game
-   *  without mods; on, with what the Mods tab switched on (player.svelte.ts, play). */
-  const withMods = $derived(app.config?.playWithMods ?? false);
-  const startsGame = $derived(next?.kind === "play" || next?.kind === "build" || next?.kind === "levels");
-
-  /** How many mods the Mods tab has switched on for this game; null until read (or where they cannot be). */
-  let modsOn = $state<number | null>(null);
-  $effect(() => {
-    const shown = v;
-    modsOn = null;
-    if (!shown || !setUp) return;
-    let current = true;
-    void modsOnCount(shown).then((n) => {
-      if (current) modsOn = n;
-    });
-    return () => {
-      current = false;
-    };
-  });
+  /** The Mods switch under Play while Play would start the game (ModsSwitch). */
+  const startsGame = $derived(startsPlay(next));
 
   /** What is done less often than playing, in the menu beside the main button. */
   const menu = $derived(game && v ? gameMenu(game, v, next, () => void showLogs()) : []);
@@ -251,27 +233,8 @@
                 {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
               </div>
               {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
-              {#if startsGame && !next.job}
-                <!-- Whether Play brings the mods: a switch, and what it means, the count a way to them. -->
-                <div class="with-mods">
-                  <label title={WITH_MODS.hint}
-                    >{WITH_MODS.label}<input
-                      type="checkbox"
-                      role="switch"
-                      class="switch"
-                      checked={withMods}
-                      disabled={!supports(app.info, "mods")}
-                      onchange={(e) => void setWithMods(e.currentTarget.checked)}
-                    /></label
-                  >
-                  {#if withMods}
-                    <button class="link" onclick={() => (app.page = "mods")}
-                      >{WITH_MODS.count(modsOn)}<Icon name="next" size={12} /></button
-                    >
-                  {:else}
-                    <span class="dim">{WITH_MODS.original}</span>
-                  {/if}
-                </div>
+              {#if startsGame}
+                <ModsSwitch version={v} setUp={!!setUp} onopen={() => (app.page = "mods")} />
               {/if}
               {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
               {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
@@ -567,32 +530,6 @@
     height: 44px;
   }
 
-  /* Mods under Play: a quiet pill, its switch, then the count or "original game". */
-  .with-mods {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-    padding: 6px 14px;
-    border-radius: var(--radius-sm);
-    background: var(--ink-deep);
-    font-size: 0.875rem;
-    color: var(--soft);
-  }
-
-  .with-mods label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-  }
-
-  .with-mods .link {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-  }
-
   .big {
     /* Play, Rebuild and Stop are one width: the button keeps its place from one to the next. */
     min-width: 13.5rem;
@@ -707,11 +644,6 @@
 
   :global(html[data-platform="android"]) .hero .big {
     border-radius: var(--radius);
-  }
-
-  :global(html[data-platform="android"]) .with-mods {
-    border-radius: 99px;
-    background: color-mix(in srgb, var(--ink-deep) 70%, transparent);
   }
 
   .notice {
