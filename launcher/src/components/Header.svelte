@@ -245,6 +245,17 @@
     color: var(--bar-name);
   }
 
+  /* The logo is not a button to look at: no fill under the pointer and no dimming on a press. */
+  @media (hover: hover) {
+    :global(html:where(:not([data-input="pad"]))) button.brand:hover {
+      background-color: transparent;
+    }
+  }
+
+  button.brand:active {
+    filter: none;
+  }
+
   /* Its mark alone, for a window too narrow for the name (below). */
   .brand .brand-mark {
     display: none;

@@ -716,11 +716,6 @@
   }
 
   /* Pressed: down at once, back with a bounce. */
-  .acts button:active {
-    transform: scale(0.95);
-    transition-duration: 90ms;
-  }
-
   /* Where the controller's focus is, the button breathes. */
   :global(html[data-input="pad"]) .acts button:focus {
     animation: breathe 1.6s ease-in-out infinite alternate;
@@ -785,11 +780,6 @@
     font-size: 0.8125rem;
     color: var(--text);
     transition: transform 300ms var(--spring);
-  }
-
-  .chip button:active {
-    transform: scale(0.94);
-    transition-duration: 90ms;
   }
 
   .chip i {

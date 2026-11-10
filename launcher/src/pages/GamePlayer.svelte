@@ -28,9 +28,10 @@
   import { SITE_URL } from "$lib/links";
   import { titleLines } from "$lib/labels";
   import { gameArt, hideMissing } from "$lib/media";
-  import { arrive } from "$lib/motion";
+  import { arrive, reduced } from "$lib/motion";
+  import { cubicOut } from "svelte/easing";
   import { tick } from "svelte";
-  import { fly } from "svelte/transition";
+  import { fly, slide } from "svelte/transition";
   import { place, when } from "$lib/reports";
   import { isBuilt, playerAct, playerState, playerVersion } from "$lib/player.svelte";
   import { themeStyle } from "$lib/themes";
@@ -130,6 +131,9 @@
     pageAsks.logs = false;
     if (setUp) void showLogs();
   });
+
+  /** How the lines under the main button open and close. */
+  const GROW = { duration: reduced ? 0 : 260, easing: cubicOut };
 
   /** The Mods switch under Play while Play would start the game (ModsSwitch). */
   const startsGame = $derived(startsPlay(next));
@@ -233,13 +237,17 @@
                 {#if menu.length}<Menu items={menu} />{:else}<span class="menu-slot" aria-hidden="true"></span>{/if}
               </div>
               {#if choice}<DiscSwitch {game} {choice} busy={!!next.job} />{/if}
+              <!-- What comes and goes under the button (a read that arrives late, a job's end)
+                   opens out, so the band grows smoothly rather than jumping. -->
               {#if startsGame}
-                <ModsSwitch version={v} setUp={!!setUp} onopen={() => (app.page = "mods")} />
+                <div transition:slide={GROW}>
+                  <ModsSwitch version={v} setUp={!!setUp} onopen={() => (app.page = "mods")} />
+                </div>
               {/if}
-              {#if next.hint && !next.job}<p class="line">{next.hint}</p>{/if}
-              {#if lastPlayed && next.kind === "play"}<p class="line last">{lastPlayed}</p>{/if}
+              {#if next.hint && !next.job}<p class="line" transition:slide={GROW}>{next.hint}</p>{/if}
+              {#if lastPlayed && next.kind === "play"}<p class="line last" transition:slide={GROW}>{lastPlayed}</p>{/if}
               {#if stopped}
-                <p class="stopped">
+                <p class="stopped" transition:slide={GROW}>
                   <Icon name="warn" size={14} />{stopped.title} stopped: {toolFailure(
                     stopped.lines,
                   ).title.toLowerCase()}.
@@ -555,7 +563,7 @@
   }
 
   .big:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
+    transform: none;
     box-shadow: none;
   }
 
@@ -632,11 +640,6 @@
     font-weight: 600;
     box-shadow: none;
     transition: transform 300ms cubic-bezier(0.34, 1.45, 0.64, 1);
-  }
-
-  .hero > .back:active {
-    transform: scale(0.95);
-    transition-duration: 90ms;
   }
 
   .notice {

@@ -48,7 +48,6 @@
     "discsDir",
     "installDir",
     "saveDir",
-    "layout",
     "theme",
     "gameColors",
     "discordRpc",

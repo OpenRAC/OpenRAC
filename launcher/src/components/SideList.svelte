@@ -223,10 +223,6 @@
     }
   }
 
-  .entry:active {
-    transform: scale(0.98);
-  }
-
   .entry.on .name {
     color: var(--amber);
   }

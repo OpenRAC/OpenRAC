@@ -474,14 +474,13 @@ html[data-platform="ios"][data-input="pad"] [data-pad-focus] {
   scroll-margin-bottom: calc(20px + var(--pad-aside, 0px));
 }
 
-/* A press dims the button and pushes it in a little (a controller's A too, pad.ts); on a touch
-   screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
+/* A press dims the button (a controller's A too, pad.ts), and never shrinks it (user decision); on
+   a touch screen that is all it shows, as hover styles apply only where there is a pointer that hovers. */
 button:active:not(:disabled),
 .button:active,
 button.pad-press:not(:disabled),
 .button.pad-press {
   filter: brightness(0.88);
-  transform: scale(0.97);
 }
 
 /* The one main action of a page: a flat fill in the accent, dark text. */
