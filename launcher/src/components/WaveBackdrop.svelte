@@ -1,6 +1,6 @@
 <script lang="ts">
-  // Behind Android's pages: a ribbon of light in the game's colour, like silk or a wave of water,
-  // folding and drifting slowly across the screen, with specks of light about it. It slides along
+  // Behind Android's Games: a ribbon of light in the game's colour, like silk or a wave of water,
+  // folding and drifting slowly across the screen, with tiny bolts about it. It slides along
   // as the wheel of discs turns (`shift`, in discs). One still frame when motion is reduced.
   let { shift = 0, still = false }: { shift?: number; still?: boolean } = $props();
 
@@ -28,8 +28,8 @@
     return [mid, half];
   }
 
-  /** Specks of light about the ribbon: where along it, how far off it, size, pace, twinkle. */
-  const SPECKS = Array.from({ length: 70 }, (_, i) => {
+  /** Tiny bolts about the ribbon: where along it, how far off it, size, pace, twinkle. */
+  const BOLTS = Array.from({ length: 40 }, (_, i) => {
     const r = (n: number) => (((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1) + 1) % 1;
     return { u: r(1), off: (r(2) - 0.5) * 2, size: 0.5 + r(3) ** 3 * 2, pace: 0.004 + r(4) * 0.012, tw: r(5) * 6.28 };
   });
@@ -119,19 +119,32 @@
         x.drawImage(cloth, 0, 0, w, h);
         x.restore();
       }
-      // The specks, near the ribbon, drifting along it and twinkling.
+      // Tiny bolts near the ribbon, drifting along it, turning and glinting: a nut's six sides
+      // round a hole, a few pixels across.
       x.globalCompositeOperation = "lighter";
       const main = SHEETS[0];
       if (main)
-        for (const p of SPECKS) {
+        for (const p of BOLTS) {
           const u = (p.u + t * p.pace) % 1;
           const [mid, half] = sheet(main, u + along, t);
-          const y = (mid + p.off * (half + 0.05)) * h;
-          const a = 0.2 + 0.6 * Math.sin(t * 1.3 + p.tw) ** 4;
-          x.fillStyle = tint(0.85, a);
+          const bx = u * w,
+            by = (mid + p.off * (half + 0.05)) * h;
+          const a = 0.25 + 0.6 * Math.sin(t * 1.3 + p.tw) ** 4;
+          const size = 1.4 + p.size * 0.7;
+          const turn = p.tw + t * (0.4 + p.pace * 30);
           x.beginPath();
-          x.arc(u * w, y, p.size, 0, Math.PI * 2);
-          x.fill();
+          for (let k = 0; k < 6; k++) {
+            const ang = turn + (k * Math.PI) / 3;
+            const px = bx + Math.cos(ang) * size,
+              py = by + Math.sin(ang) * size * 0.8;
+            if (k) x.lineTo(px, py);
+            else x.moveTo(px, py);
+          }
+          x.closePath();
+          x.moveTo(bx + size * 0.42, by);
+          x.arc(bx, by, size * 0.42, 0, Math.PI * 2, true);
+          x.fillStyle = tint(0.8, a);
+          x.fill("evenodd");
         }
       x.globalCompositeOperation = "source-over";
     };

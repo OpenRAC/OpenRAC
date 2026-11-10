@@ -192,8 +192,8 @@
     {/if}
   </div>
 {:else}
-  {#if onAndroid}
-    <!-- Behind every page and the rail: the wave of fine lines in the game's colour. -->
+  {#if onAndroid && page === "library"}
+    <!-- Behind Android's Games only: the wave in the game's colour. -->
     <div class="wave" aria-hidden="true"><WaveBackdrop shift={wave.shift} still={reduced} /></div>
   {/if}
   <div class="shell">
