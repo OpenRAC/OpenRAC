@@ -1,71 +1,251 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// The two sounds of Play's disc animation (DiscLaunch.svelte), made on the spot with Web Audio: no
-// files. First the disc clicking onto the spindle (a soft knock, then the clamp's snap); then the
-// drive: its motor winding up under the rush of air of a spinning disc, and the lens's little
-// ticks as it looks for the track. Quiet, and cut above 3 kHz, so it never sounds harsh.
+// The two sounds of Play's disc animation (DiscLaunch.svelte), worked out sample by sample here (no
+// files), after what a disc drive does:
+//  1. The disc onto the spindle: its hub slides down the spindle, knocks on the turntable (the disc
+//     and the tray ring at their own pitches), the clamp snaps shut with a little metal ring, and
+//     the disc rattles once or twice as it settles.
+//  2. The drive: the focus coil jumps twice as the lens looks for the disc; the spindle motor winds
+//     up (its commutation whine, a few harmonics, rising with the speed) under the rush of air of
+//     the spinning disc and the disc's slight wobble; the laser sled buzzes out along its gear and
+//     stops with a tick; the lens chatters as it reads. All of it through the console's plastic case
+//     (a few resonances), with nothing sharp above 6 kHz.
+// The same seed every time: the same sound every time.
 
 /** The sounds of one Play, from the moment it is pressed. `stop` ends them (a fade, not a cut). */
 export interface DriveSounds {
   stop: (fade?: number) => void;
 }
 
-/** One short burst of white noise, shared by every sound below. */
-function noise(ctx: BaseAudioContext, seconds: number): AudioBuffer {
-  const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * seconds), ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  // A fixed seed: the same sound every time.
-  let seed = 22222;
-  for (let i = 0; i < data.length; i++) {
-    seed = (seed * 16807) % 2147483647;
-    data[i] = (seed / 2147483647) * 2 - 1;
+const TAU = Math.PI * 2;
+
+/** A seeded random source, -1 to 1. */
+function random(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s / 2147483647) * 2 - 1;
+  };
+}
+
+/** A two-pole resonator: rings at `hz`, its ringing down to 1/1000 in `decay` seconds. */
+function resonator(rate: number, hz: number, decay: number) {
+  const r = Math.exp(-6.9 / (decay * rate));
+  const a1 = 2 * r * Math.cos((TAU * hz) / rate);
+  const a2 = -r * r;
+  const g = 1 - r;
+  let y1 = 0,
+    y2 = 0;
+  return (x: number) => {
+    const y = g * x + a1 * y1 + a2 * y2;
+    y2 = y1;
+    y1 = y;
+    return y;
+  };
+}
+
+/** A band-pass filter (constant peak gain), its centre settable per sample. */
+function bandpass(rate: number, q: number) {
+  let x1 = 0,
+    x2 = 0,
+    y1 = 0,
+    y2 = 0;
+  return (x: number, hz: number) => {
+    const w = (TAU * Math.min(hz, rate * 0.45)) / rate;
+    const alpha = Math.sin(w) / (2 * q);
+    const a0 = 1 + alpha;
+    const y = (alpha * x - alpha * x2 - -2 * Math.cos(w) * y1 - (1 - alpha) * y2) / a0;
+    x2 = x1;
+    x1 = x;
+    y2 = y1;
+    y1 = y;
+    return y;
+  };
+}
+
+/** A one-pole low-pass. */
+function lowpass(rate: number, hz: number) {
+  const a = Math.exp((-TAU * hz) / rate);
+  let y = 0;
+  return (x: number) => (y = (1 - a) * x + a * y);
+}
+
+/** A bank of resonators struck together: a piece of plastic, or of metal, ringing. */
+function body(rate: number, modes: [number, number, number][]) {
+  const rs = modes.map(([hz, decay]) => resonator(rate, hz, decay));
+  return (x: number) => {
+    let y = 0;
+    for (let i = 0; i < rs.length; i++) y += (rs[i]?.(x) ?? 0) * (modes[i]?.[2] ?? 0);
+    return y;
+  };
+}
+
+/** Peak to `peak`, so each sound has its own loudness whatever its parts add up to. */
+function normalise(data: Float32Array, peak: number) {
+  let most = 0;
+  for (const v of data) most = Math.max(most, Math.abs(v));
+  if (most > 0) for (let i = 0; i < data.length; i++) data[i] = ((data[i] ?? 0) * peak) / most;
+}
+
+/** 1. The disc onto the spindle; its contact with the turntable `lead` seconds into it. */
+export function seatSamples(rate: number, lead = 0.05): Float32Array {
+  const out = new Float32Array(Math.ceil(rate * (lead + 0.4)));
+  const rnd = random(31337);
+  const disc = body(rate, [
+    [410, 0.07, 1],
+    [1120, 0.045, 0.7],
+    [2350, 0.025, 0.45],
+    [3700, 0.016, 0.25],
+    [5300, 0.01, 0.12],
+  ]);
+  const tray = body(rate, [
+    [180, 0.09, 1.2],
+    [520, 0.05, 0.6],
+    [1650, 0.03, 0.3],
+  ]);
+  const clamp = body(rate, [
+    [1900, 0.02, 0.6],
+    [3150, 0.09, 0.35],
+    [4400, 0.03, 0.3],
+    [6200, 0.012, 0.15],
+  ]);
+  const slide = bandpass(rate, 3);
+  const at = (s: number) => Math.round((lead + s) * rate);
+  // What strikes what, and how hard: the knock, the clamp, the disc settling.
+  const strikes = new Map<number, [number, number, number]>([
+    [at(0), [1, 0.9, 0]],
+    [at(0.004), [0.35, 0.2, 0]],
+    [at(0.036), [0.15, 0.1, 1]],
+    [at(0.058), [0.12, 0.05, 0.25]],
+    [at(0.071), [0.06, 0.03, 0.1]],
+  ]);
+  let hit: [number, number, number] = [0, 0, 0];
+  let left = 0;
+  for (let i = 0; i < out.length; i++) {
+    const t = i / rate - lead;
+    const s = strikes.get(i);
+    if (s) {
+      hit = s;
+      left = Math.round(rate * 0.0012);
+    }
+    // A strike: a burst of noise a little over a millisecond long.
+    const n = rnd();
+    const e = left-- > 0 ? n : 0;
+    // The hub sliding down the spindle just before it lands: a short rising whisper.
+    const sliding = t < 0 && t > -lead ? (1 + t / lead) ** 2 * 0.05 : 0;
+    const thump = t >= 0 ? Math.sin(TAU * 95 * t) * Math.exp(-t / 0.025) * 0.5 : 0;
+    out[i] =
+      disc(e * hit[0]) * 2.2 +
+      tray(e * hit[1]) * 2.6 +
+      clamp(e * hit[2]) * 2 +
+      slide(n * sliding, 2600 + 3000 * (1 + t / lead)) +
+      thump;
   }
-  return buffer;
+  normalise(out, 0.6);
+  return out;
 }
 
-/** A click: noise through a band around `hz`, gone in `decay` seconds. */
-function click(
-  ctx: BaseAudioContext,
-  out: AudioNode,
-  buf: AudioBuffer,
-  at: number,
-  hz: number,
-  level: number,
-  decay: number,
-) {
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const band = ctx.createBiquadFilter();
-  band.type = "bandpass";
-  band.frequency.value = hz;
-  band.Q.value = 1.4;
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0, at);
-  env.gain.linearRampToValueAtTime(level, at + 0.002);
-  env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
-  src.connect(band).connect(env).connect(out);
-  src.start(at, Math.random() * 0.5, decay + 0.02);
-}
+/** 2. The drive, `seconds` long, fading out over its last 0.35 s. */
+export function spinSamples(rate: number, seconds: number): Float32Array {
+  const n = Math.ceil(rate * seconds);
+  const out = new Float32Array(n);
+  const rnd = random(4242);
+  const air = bandpass(rate, 1.6);
+  const air2 = bandpass(rate, 3);
+  const sledGear = bandpass(rate, 6);
+  const tick = body(rate, [
+    [1250, 0.012, 1],
+    [2450, 0.008, 0.6],
+    [4100, 0.005, 0.3],
+  ]);
+  const focus = body(rate, [
+    [260, 0.03, 1],
+    [610, 0.02, 0.5],
+  ]);
+  const caseBody = body(rate, [
+    [170, 0.12, 0.5],
+    [330, 0.08, 0.4],
+    [640, 0.06, 0.3],
+    [980, 0.05, 0.2],
+  ]);
+  const top = lowpass(rate, 5000);
+  const top2 = lowpass(rate, 7000);
+  const rumbleLp = lowpass(rate, 140);
 
-/** A low knock: a sine falling from `from` to `to` Hz. */
-function knock(
-  ctx: BaseAudioContext,
-  out: AudioNode,
-  at: number,
-  from: number,
-  to: number,
-  level: number,
-  decay: number,
-) {
-  const osc = ctx.createOscillator();
-  osc.frequency.setValueAtTime(from, at);
-  osc.frequency.exponentialRampToValueAtTime(to, at + decay);
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0, at);
-  env.gain.linearRampToValueAtTime(level, at + 0.004);
-  env.gain.exponentialRampToValueAtTime(0.0001, at + decay);
-  osc.connect(env).connect(out);
-  osc.start(at);
-  osc.stop(at + decay + 0.02);
+  // The focus coil's two jumps, the sled's two runs, then the lens reading.
+  const jumps = [0.04, 0.11];
+  const sled: [number, number][] = [
+    [0.16, 0.3],
+    [0.52, 0.58],
+  ];
+  const reads: number[] = [];
+  for (let t = 0.34, k = 0; t < seconds - 0.4; k++) {
+    reads.push(t);
+    t += 0.035 + ((((Math.sin(k * 12.9898) * 43758.5453) % 1) + 1) % 1) * 0.07;
+  }
+  const strikes = new Map<number, [number, number]>();
+  jumps.forEach((t, k) => strikes.set(Math.round(t * rate), [0, k ? 0.7 : 1]));
+  sled.forEach(([, stop]) => strikes.set(Math.round(stop * rate), [0.8, 0]));
+  reads.forEach((t, k) => strikes.set(Math.round(t * rate), [0.12 + 0.08 * ((k * 7) % 3), 0]));
+
+  let phase = 0,
+    turn = 0,
+    sledPhase = 0,
+    left = 0;
+  let hit: [number, number] = [0, 0];
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    // Turns a second: up towards 38 (a little over 2,000 rpm), quickly at first.
+    const fr = 38 * (1 - Math.exp(-Math.max(0, t - 0.06) / 0.38));
+    const speed = fr / 38;
+    turn += (TAU * fr) / rate;
+    // The motor's whine: 24 steps a turn, and its harmonics, louder as it pulls harder.
+    phase += (TAU * 24 * fr) / rate;
+    const pull = 0.4 + 0.6 * Math.exp(-t / 0.5);
+    let whine = 0;
+    for (const [k, a] of [
+      [1, 1],
+      [2, 0.45],
+      [3, 0.22],
+      [5, 0.08],
+    ] as const) {
+      whine += Math.sin(phase * k) * a;
+    }
+    whine *= 0.09 * pull * Math.min(1, speed * 3);
+    // The disc's wobble: a low hum at its turning, and everything swells a little once a turn.
+    const wobble = 1 + 0.18 * Math.sin(turn) * speed;
+    const rumble = rumbleLp(Math.sin(turn) + 0.4 * Math.sin(2 * turn + 1)) * 0.03 * speed;
+    // The air: rising in pitch and loudness with the speed, with a narrower whistle in it.
+    const noise = rnd();
+    const rush = air(noise, 200 + 22 * fr) * 0.4 * speed ** 1.5 + air2(noise, 700 + 40 * fr) * 0.05 * speed ** 2;
+    // The sled: a small motor buzzing through its gear while it runs.
+    let buzz = 0;
+    for (const [from, to] of sled) {
+      if (t >= from && t < to) {
+        const u = (t - from) / (to - from);
+        sledPhase += (TAU * (150 + 40 * u)) / rate;
+        const env = Math.min(1, u * 12, (1 - u) * 12);
+        const saw = (sledPhase / TAU) % 1;
+        buzz = (sledGear(saw * 2 - 1 + noise * 0.4, 1500) * 0.9 + (saw - 0.5) * 0.25) * env;
+      }
+    }
+    const s = strikes.get(i);
+    if (s) {
+      hit = s;
+      left = Math.round(rate * 0.0009);
+    }
+    const e = left-- > 0 ? rnd() : 0;
+    const ticks = tick(e * hit[0]) * 3 + focus(e * hit[1]) * 1.4;
+    const dry = (whine + rush) * wobble + rumble + buzz * 0.5 + ticks;
+    out[i] = top2(top(dry + caseBody(dry) * 0.6));
+  }
+  // Out over the last 0.35 s, in over the first 20 ms.
+  for (let i = 0; i < n; i++) {
+    const t = i / rate;
+    const g = Math.min(1, t / 0.02, Math.max(0, (seconds - t) / 0.35));
+    out[i] = (out[i] ?? 0) * g;
+  }
+  normalise(out, 0.45);
+  return out;
 }
 
 /** The disc onto the spindle at `seat` seconds from now, then the drive spinning it up for `spin`
@@ -97,84 +277,20 @@ export function driveSounds(seat: number, spin: number): DriveSounds | null {
 
 /** Both sounds into `ctx` (a live one, or an offline one to hear them in a file); its volume. */
 export function playInto(ctx: BaseAudioContext, seat: number, spin: number): GainNode {
-  const buf = noise(ctx, 2);
-
-  // Everything through one soft top cut and one volume.
   const master = ctx.createGain();
-  master.gain.value = 0.8;
-  const soft = ctx.createBiquadFilter();
-  soft.type = "lowpass";
-  soft.frequency.value = 3200;
-  soft.connect(master).connect(ctx.destination);
-
+  master.gain.value = 0.9;
+  master.connect(ctx.destination);
+  const lead = 0.05;
+  const play = (data: Float32Array, at: number) => {
+    const buffer = ctx.createBuffer(1, data.length, ctx.sampleRate);
+    buffer.copyToChannel(data as Float32Array<ArrayBuffer>, 0);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(master);
+    src.start(Math.max(ctx.currentTime, at));
+  };
   const t0 = ctx.currentTime + seat;
-
-  // ---- 1. The disc goes onto the spindle: a soft knock of plastic, then the clamp snaps. ----
-  knock(ctx, soft, t0, 170, 70, 0.32, 0.09);
-  click(ctx, soft, buf, t0, 1900, 0.35, 0.03);
-  click(ctx, soft, buf, t0 + 0.05, 2600, 0.22, 0.025);
-  knock(ctx, soft, t0 + 0.05, 240, 120, 0.12, 0.05);
-
-  // ---- 2. The drive: the motor winds up, the air rushes, the lens ticks as it finds the track. ----
-  const start = t0 + 0.09;
-  const end = start + spin;
-
-  const motor = ctx.createOscillator();
-  motor.type = "triangle";
-  motor.frequency.setValueAtTime(38, start);
-  motor.frequency.exponentialRampToValueAtTime(190, start + 0.9);
-  const hum = ctx.createBiquadFilter();
-  hum.type = "lowpass";
-  hum.frequency.value = 700;
-  const motorGain = ctx.createGain();
-  motorGain.gain.setValueAtTime(0, start);
-  motorGain.gain.linearRampToValueAtTime(0.16, start + 0.25);
-  motor.connect(hum).connect(motorGain).connect(soft);
-  motor.start(start);
-  motor.stop(end + 1);
-
-  // An octave over the motor, quieter: the whine a drive makes as it reaches speed.
-  const whine = ctx.createOscillator();
-  whine.type = "sine";
-  whine.frequency.setValueAtTime(90, start);
-  whine.frequency.exponentialRampToValueAtTime(760, start + 1);
-  const whineGain = ctx.createGain();
-  whineGain.gain.setValueAtTime(0, start);
-  whineGain.gain.linearRampToValueAtTime(0.025, start + 0.6);
-  whine.connect(whineGain).connect(soft);
-  whine.start(start);
-  whine.stop(end + 1);
-
-  const air = ctx.createBufferSource();
-  air.buffer = buf;
-  air.loop = true;
-  const rush = ctx.createBiquadFilter();
-  rush.type = "bandpass";
-  rush.Q.value = 0.9;
-  rush.frequency.setValueAtTime(260, start);
-  rush.frequency.exponentialRampToValueAtTime(1300, start + 0.9);
-  const airGain = ctx.createGain();
-  airGain.gain.setValueAtTime(0, start);
-  airGain.gain.linearRampToValueAtTime(0.11, start + 0.5);
-  air.connect(rush).connect(airGain).connect(soft);
-  air.start(start);
-  air.stop(end + 1);
-
-  const ticks: [number, number][] = [
-    [0.22, 0.1],
-    [0.29, 0.07],
-    [0.38, 0.09],
-    [0.62, 0.05],
-  ];
-  for (const [after, level] of ticks) {
-    click(ctx, soft, buf, start + after, 2300, level, 0.012);
-  }
-
-  // The drive dies away as the screen goes black.
-  for (const g of [motorGain, whineGain, airGain]) {
-    g.gain.setValueAtTime(g === motorGain ? 0.16 : g === whineGain ? 0.025 : 0.11, end - 0.35);
-    g.gain.linearRampToValueAtTime(0, end);
-  }
-
+  play(seatSamples(ctx.sampleRate, lead), t0 - lead);
+  play(spinSamples(ctx.sampleRate, spin), t0 + 0.07);
   return master;
 }
