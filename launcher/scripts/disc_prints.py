@@ -38,6 +38,11 @@ PRINTS = {
     "rac6": {"ntsc": "e596a445-b75c-4b48-acd6-3097eafff420", "pal": "728530ca-db61-4653-ad5b-3a850638c96f"},
 }
 
+# Scans without the clear hub round the hole (Secret Agent Clank's NTSC one is cut at its print, black
+# to the hole): it is taken from another disc of the same region, cut the same way.
+HUB_FROM = {("rac6", "ntsc"): ("rac4", "ntsc")}
+HUB = 0.2
+
 # The scans made bigger first (the module's notes), and Real-ESRGAN's weights (BSD-3-Clause).
 UPSCALE = {("rac6", "pal")}
 REAL_ESRGAN = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/"
@@ -115,6 +120,18 @@ def upscale(data: bytes) -> bytes:
     return buf.getvalue()
 
 
+def with_hub(im: Image.Image, donor: Image.Image) -> Image.Image:
+    """`im` with `donor`'s middle, to HUB of the radius, blended over a pixel or two."""
+    a = np.asarray(im.convert("RGBA"), np.float32)
+    b = np.asarray(donor.convert("RGBA").resize(im.size, Image.LANCZOS), np.float32)
+    s = a.shape[0]
+    c = (s - 1) / 2
+    y, x = np.mgrid[:s, :s]
+    r = np.hypot(x - c, y - c) / c
+    k = np.clip((HUB - r) * c / 2, 0, 1)[..., None]
+    return Image.fromarray((a * (1 - k) + b * k + 0.5).astype(np.uint8), "RGBA")
+
+
 def disc(data: bytes) -> Image.Image:
     """The scan centred on its disc, square, at most SIZE wide. Some scans cut the disc's edge off
     at a side: the circle is fitted to the edge where it is whole, and the cut part stays empty."""
@@ -173,7 +190,10 @@ def main() -> None:
             if (game, region) in UPSCALE:
                 data = upscale(data)
             path = OUT / f"{game}-{region}.webp"
-            disc(data).save(path, "WEBP", quality=85, method=6)
+            im = disc(data)
+            if (game, region) in HUB_FROM:
+                im = with_hub(im, Image.open(OUT / "{}-{}.webp".format(*HUB_FROM[game, region])))
+            im.save(path, "WEBP", quality=85, method=6)
             print(path.name, path.stat().st_size // 1024, "KB")
 
 
