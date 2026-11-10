@@ -81,18 +81,9 @@ void func_002E3940(int shell) {
 }
 
 /*
- * What MobyProc decides for each moby before drawing it, which the game reads back: +0x31, drawn this
- * frame. As Ratchet & Clank's (render_native.c, mark_drawn_mobys), which func_002A4E68 repeats: the
- * group mask at +0x36 against the table indexed by +0x37, the hidden bits of the mode at +0x34, the
- * alpha at +0x23 (below 8 not drawn: slti 8 at 0x2A52C4), the bounding sphere against the draw
- * distance (+0x32, at most the global one) and the view.
- *
- * The flag is game logic, not only drawing: the active list (func_002A08A0) updates every moby with
- * it set, however far it is. So it keeps the game's own distances whatever the Draw distance setting
- * says (the window draws farther on its own, game/rac2/profile.cpp). Opened to the setting (400% by
- * default), the mobys seen past the console's distance ran their logic where retail's stood still:
- * 20 seconds of Boldan after control, untouched, left 131 mobys in another state or place than at
- * Original.
+ * MobyProc's drawn flag (+0x31), as the console sets it: group mask, mode bits 0x81, alpha below 8,
+ * draw distance (+0x32, capped) and the view. The game updates every moby with this flag set
+ * (func_002A08A0), so it always uses the game's own distances, never the Draw distance setting.
  */
 static void mark_drawn_mobys(gaddr first, int count) {
     float eye[3], block[12], rows[12], tx, ty;

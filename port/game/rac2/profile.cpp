@@ -148,9 +148,8 @@ constexpr std::uint32_t kMobyClass = 0xAA;
 // Ratchet's class holds only his skeleton: the game loads his packets and textures over it from a
 // pack of the disc, the armour's unless one of four flags names another (func_00292078). The export
 // has each pack past the first as a class of its own (editor/moby_class.py, HERO_LOOK_CLASSES).
-// The pack he wears is the one loaded last (0x001A7290, an int; func_002923C0 keeps it), not the
-// armour he owns (0x001A7A18): the vendor loads each armour the cursor is on, and puts the owned
-// one back when it closes.
+// He wears the last loaded armour (0x001A7290), not the owned one (0x001A7A18): the vendor
+// loads the armour under the cursor.
 constexpr std::int32_t kHeroLookClasses = 6000;
 
 // The wrench is loaded the same way, by the form the game has (func_00292408).
