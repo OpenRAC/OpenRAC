@@ -20,7 +20,10 @@ The discs follow [Hakimba/cartouche](https://github.com/Hakimba/cartouche)
 (GPL-3.0-or-later, as the launcher): `src/lib/insertion.ts` takes its timings
 from cartouche's `insertion.gd`. The disc prints in `public/img/discs/` are
 scans from the LaunchBox games database (`images.launchbox-app.com`), the same
-ones cartouche uses; `scripts/disc_prints.py` lists each one's link. The art is
+ones cartouche uses; `scripts/disc_prints.py` lists each one's link. Secret
+Agent Clank's PAL scan is enlarged there by
+[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)'s general model
+(BSD-3-Clause), whose weights are fetched, not kept. The art is
 Sony Interactive Entertainment's and Insomniac Games' (High Impact Games' for
 Size Matters and Secret Agent Clank), shown to name the game the player owns.
 
