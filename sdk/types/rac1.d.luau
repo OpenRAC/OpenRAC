@@ -25,6 +25,10 @@ type HookPoint =
     | "rac1.player.take_damage"
     | "rac1.combat.get_hit"
     | "rac1.weapon.take_ammo"
+    | "rac1.weapon.blaster.pick_target"
+    | "rac1.weapon.ryno.pick_target"
+    | "rac1.weapon.gold_devastator.pick_target"
+    | "rac1.weapon.drone.pick_target"
     | "rac1.moby.record_death"
     | "rac1.level.load_gameplay"
     | "rac1.player.approach_speed"
@@ -1386,6 +1390,10 @@ type HookPoint =
     | "Vendor_InitializeSelected"
     | "Vendor_MenuUpdate"
     | "Vendor_OpenMenu"
+    | "Weapon_Blaster_PickTarget"
+    | "Weapon_Drone_PickTarget"
+    | "Weapon_GoldDevastator_PickTarget"
+    | "Weapon_Ryno_PickTarget"
     | "Weapon_TakeAmmo"
     | "msg_string"
 type MemoryType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32"
@@ -1438,6 +1446,14 @@ type Hero_TakeDamageFn = (amount: number) -> ()
 type Moby_GetHitMessageFn = (moby: number, mask: number, keep: number) -> number
 -- rac1.weapon.take_ammo (Weapon_TakeAmmo) i32(i32,i32): Takes amount of ammo from item for a shot (TakeAmmo; -1 is the item in hand): 1 when taken, 0 when there is too little. An item with no ammo limit takes none and gives 1.
 type Weapon_TakeAmmoFn = (item: number, amount: number) -> number
+-- rac1.weapon.blaster.pick_target (Weapon_Blaster_PickTarget) u32(i32,u32,u32,u32): Chooses the Blaster's auto-aim target for a shot from from (select_blaster_auto_aim_target; from a Vec4, yaw and pitch f32s, all addresses): the nearest targetable creature (Moby flags 0x1000) within 20 units whose aim point is within about 9 degrees of the heading yaw/pitch and in sight from the camera and from from (ignore: the moby the sight test passes over). Writes the pitch toward it, and the yaw when within 10 degrees, and returns it; 0 for none.
+type Weapon_Blaster_PickTargetFn = (ignore: number, from: number, yaw: number, pitch: number) -> number
+-- rac1.weapon.ryno.pick_target (Weapon_Ryno_PickTarget) u32(u32,u32,u32,f32,f32,f32): Chooses a R.Y.N.O. missile's target (select_ryno_target): the creature with a target record, of class type 5, within max_distance across of pos (a Vec4 address) and max_yaw / max_pitch of the aim angles (aim, f32s at +4 pitch and +8 yaw), the best by angle and distance, in sight; skip is the seven mobys the salvo has already (0: only the ones drawn last frame). Returns the moby, 0 for none.
+type Weapon_Ryno_PickTargetFn = (pos: number, aim: number, skip: number, max_yaw: number, max_pitch: number, max_distance: number) -> number
+-- rac1.weapon.gold_devastator.pick_target (Weapon_GoldDevastator_PickTarget) void(u32,u32,u32): Chooses the gold Devastator missile's target (select_gold_devastator_missile_target): the creature within 40 units of the missile nearest its heading, in a cone that widens with the weapon's level, in sight, not skip; writes it into the missile's data (data, its pvars).
+type Weapon_GoldDevastator_PickTargetFn = (missile: number, data: number, skip: number) -> ()
+-- rac1.weapon.drone.pick_target (Weapon_Drone_PickTarget) u32(u32,u32): Chooses a drone's target (select_nearest_drone_target): the nearest moby of class type 5, 7 or 8 to from (a Vec4 address), within 4, 5.3 or 6 units by type, not one of the nine in skip, not held by the Suck Cannon. Returns the moby, 0 for none.
+type Weapon_Drone_PickTargetFn = (from: number, skip: number) -> number
 -- rac1.moby.record_death (Moby_RecordDeath) void(u32,i32,i32): Records a placed moby's death or a crate's break (SetDeathBits): its save id's killed bits (none for a save id below 0), its mission, then drops its bolts: about the s16 at +0xB4 (or what a tallied source has left of +0xB6), which it then clears.
 type Moby_RecordDeathFn = (moby: number, flags: number, index: number) -> ()
 -- rac1.level.load_gameplay (Level_LoadGameplay) u32(i32): Loads a level's gameplay file into the level heap (LoadLevelGameplay), once per level start: the settings, the placed mobys and their pvars, the spare moby pool, the paths and the rest; returns the heap cursor. After it, every placed moby exists and none has run.
