@@ -298,6 +298,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/direct.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect.vert"
+  "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/effect_depth.frag"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow_composite.vert"
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/shadow.frag"

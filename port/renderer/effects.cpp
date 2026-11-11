@@ -80,9 +80,60 @@ bool liquid_pass_strip(const EffectStrip& strip) {
     return strip.before_mobys || liquid_strip(strip.alpha, strip.test);
 }
 
-bool EffectRenderer::draws(const EffectStrip& strip) const {
+namespace {
+
+// A draw can establish early depth only if every covered sample writes both colour and depth.
+bool opaque_effect(std::uint64_t alpha, std::uint64_t test, bool full_vertex_alpha) {
+    const auto t = gs::Test::decode(test);
+    if (!t.zte || t.ztst != gs::DepthTest::Gequal || t.date
+        || (t.ate && t.atst != gs::AlphaTest::Always
+            && !(full_vertex_alpha && t.atst == gs::AlphaTest::Gequal && t.aref <= 0x80))) {
+        return false;
+    }
+    const auto b = gs::Alpha::decode(alpha);
+    return (b.a == b.b && b.d == 0)
+           || (b.a == 0 && b.b == 1 && b.d == 1
+               && ((b.c == 2 && b.fix == 0x80) || (b.c == 0 && full_vertex_alpha)));
+}
+
+}  // namespace
+
+bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices) {
+    if (strip.surface != 0 || strip.z_masked || strip.count < 3 || strip.first > vertices.size()
+        || strip.count > vertices.size() - strip.first
+        || (!strip.z_written && !liquid_strip(strip.alpha, strip.test))) {
+        return false;
+    }
+    const auto alpha = strip.blend_disabled ? 0 : strip.alpha;
+    if (opaque_effect(alpha, strip.test, false)) {
+        return true;
+    }
+    const bool full_vertex_alpha = !gs::Tex0::decode(strip.tex0).tcc
+                                   && std::ranges::all_of(
+                                       vertices.subspan(strip.first, strip.count),
+                                       [](const EffectVertex& v) { return (v.rgba >> 24) == 0x80; }
+                                   );
+    return full_vertex_alpha && opaque_effect(alpha, strip.test, true);
+}
+
+bool opaque_effect_quad(const EffectQuad& quad) {
+    const bool full_vertex_alpha = !gs::Tex0::decode(quad.tex0).tcc
+                                   && std::ranges::all_of(quad.rgba, [](std::uint32_t colour) {
+                                          return (colour >> 24) == 0x80;
+                                      });
+    return quad.registers && !gs::Zbuf::decode(quad.zbuf).zmsk
+           && opaque_effect(quad.alpha, quad.test, full_vertex_alpha);
+}
+
+bool EffectRenderer::draws(const EffectStrip& strip, const FrameInput& input) const {
+    if (input.opaque_effects && (m_split_opaque || m_part == EffectPart::Opaque)
+        && opaque_effect_strip(strip, input.strip_vertices)) {
+        return m_part == EffectPart::Opaque;
+    }
     const bool liquid = liquid_pass_strip(strip);
     switch (m_part) {
+        case EffectPart::Opaque:
+            return false;
         case EffectPart::Liquids:
             return liquid;
         case EffectPart::Rest:
@@ -93,10 +144,45 @@ bool EffectRenderer::draws(const EffectStrip& strip) const {
     return true;
 }
 
+bool EffectRenderer::draws(const EffectQuad& quad, const FrameInput& input) const {
+    if (input.opaque_effects && (m_split_opaque || m_part == EffectPart::Opaque)
+        && opaque_effect_quad(quad) && offscreen_texture(quad.tex0, quad.tbp) == 0) {
+        // Content keys are placed before rendering. Raw GS addresses must stay with the original
+        // upload sequence if this frame can replace their texture or palette.
+        const auto tex = gs::Tex0::decode(quad.tex0);
+        const auto pixels = quad.tbp != 0 ? quad.tbp : tex.tbp0;
+        const auto palette = quad.tbp != 0 ? quad.cbp : tex.cbp;
+        if (pixels > 0x3FFF
+            || (quad.uploads < 0
+                && std::ranges::none_of(
+                    input.effect_uploads,
+                    [&](const ImageUpload& upload) {
+                        return upload.dbp == pixels || upload.dbp == palette;
+                    }
+                ))) {
+            return m_part == EffectPart::Opaque;
+        }
+    }
+    return m_part == EffectPart::All || m_part == EffectPart::Rest;
+}
+
+bool EffectRenderer::keeps_strip_upload(const EffectStrip& strip, const FrameInput& input) const {
+    return m_split_opaque && input.opaque_effects && strip.uploads >= 0 && strip.upload_count > 0
+           && (m_part == EffectPart::Liquids) == liquid_pass_strip(strip)
+           && opaque_effect_strip(strip, input.strip_vertices);
+}
+
 bool EffectRenderer::init(RenderState& state, std::string& error) {
     (void)state;
     m_quad_shader.release();
     m_test_shader.release();
+    m_depth_shader.release();
+    if (m_part == EffectPart::Opaque
+        && !m_depth_shader.build(
+            "opaque effects depth", shaders::effect_vert, shaders::effect_depth_frag, error
+        )) {
+        return false;
+    }
     m_test_plain = false;
     m_active_shader = nullptr;
     std::string fragment(shaders::direct_frag);
@@ -296,10 +382,14 @@ void EffectRenderer::prepare_colour_reads() {
 
 // Collect material meshes before drawing effects so providers can snapshot the untouched scene.
 void EffectRenderer::render(const FrameInput& input, RenderState& state) {
-    const bool quads = m_part != EffectPart::Liquids && !input.effects.empty();
+    const bool quads = m_part == EffectPart::Opaque
+                           ? std::ranges::any_of(
+                                 input.effects, [&](const EffectQuad& q) { return draws(q, input); }
+                             )
+                           : m_part != EffectPart::Liquids && !input.effects.empty();
     bool any = quads;
     for (const EffectStrip& strip : input.strips) {
-        any = any || draws(strip);
+        any = any || draws(strip, input) || keeps_strip_upload(strip, input);
     }
     if (m_material) {
         const profiling::Zone prepare("Effects material prepare");
@@ -325,7 +415,6 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     glDisable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_GEQUAL);  // reversed depth
-    glDepthMask(m_part == EffectPart::Liquids ? GL_TRUE : GL_FALSE);
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glActiveTexture(GL_TEXTURE0);
@@ -355,7 +444,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     for (const EffectStrip& strip : input.strips) {
         if (strip.count < 3
             || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
-            || !draws(strip)) {
+            || !draws(strip, input)) {
             continue;
         }
         const auto start = m_vertices.size();
@@ -392,6 +481,9 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     const std::span<const int> order =
         m_quad_indices ? std::span<const int>(indexed_corners) : std::span<const int>(corners);
     for (const EffectQuad& q : quads ? input.effects : std::span<const EffectQuad>{}) {
+        if (!draws(q, input)) {
+            continue;
+        }
         // A quad that samples an off-screen target the 2D path drew (g_offscreen_textures): its
         // coordinates over the TEX0's size become the target texture's, which spans
         // kOffscreenPixels chip pixels with its first row on top.
@@ -433,9 +525,87 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
     geometry.reset();
 
     auto prepared = std::make_shared<const PreparedEffects>(
-        PreparedEffects{std::move(strip_counts), std::move(material_meshes), quads_from}
+        PreparedEffects{std::move(strip_counts), std::move(material_meshes), quads_from, quads}
     );
     record_colour(input, state, prepared);
+}
+
+void EffectRenderer::render_depth(const FrameInput& input, RenderState& state) {
+    if (m_part != EffectPart::Opaque || !input.opaque_effects) {
+        return;
+    }
+    m_vertices.clear();
+    for (const EffectStrip& strip : input.strips) {
+        if (!draws(strip, input)) {
+            continue;
+        }
+        for (std::uint32_t k = 0; k + 2 < strip.count; ++k) {
+            for (const auto& v : input.strip_vertices.subspan(strip.first + k, 3)) {
+                m_vertices.push_back({v.x, v.y, v.z, 0, 0, 0, 0, 0, 0});
+            }
+        }
+    }
+    const auto quad_start = static_cast<GLint>(m_vertices.size());
+    for (const EffectQuad& q : input.effects) {
+        if (!draws(q, input)) {
+            continue;
+        }
+        auto tex = gs::Tex0::decode(q.tex0);
+        if (q.tbp != 0) {
+            tex.tbp0 = q.tbp;
+            tex.cbp = q.cbp;
+        }
+        // Colour skips unresolved quads. A page transferred during colour is only safe to
+        // prepass once the texture is resident.
+        if (state.textures.resolve(tex, {0, false, 0x80}) == state.textures.placeholder()) {
+            continue;
+        }
+        for (int corner : {0, 1, 2, 1, 2, 3}) {
+            const auto& v = q.corner[corner];
+            m_vertices.push_back({v[0], v[1], v[2], 0, 0, 0, 0, 0, 0});
+        }
+    }
+    if (m_vertices.empty()) {
+        return;
+    }
+    const Mat4 view_projection = multiply(input.camera.projection, input.camera.view);
+    m_depth_shader.use();
+    glUniformMatrix4fv(
+        m_depth_shader.uniform("view_projection"), 1, GL_FALSE, view_projection.data()
+    );
+    glUniformMatrix4fv(m_depth_shader.uniform("view"), 1, GL_FALSE, input.camera.view.data());
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_GEQUAL);
+    glDepthMask(GL_TRUE);
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        static_cast<GLsizeiptr>(m_vertices.size() * sizeof(Vertex)),
+        m_vertices.data(),
+        GL_STREAM_DRAW
+    );
+    const auto draw = [&](GLint first, GLsizei count) {
+        glDrawArrays(GL_TRIANGLES, first, count);
+        ++state.stats.draw_calls;
+        state.stats.triangles += count / 3;
+    };
+    if (quad_start != 0) {
+        draw(0, quad_start);
+    }
+    if (quad_start < static_cast<GLint>(m_vertices.size())) {
+        const bool clamp = !input.depth_clamp && gl::depth_clamp_available();
+        if (clamp) {
+            glEnable(GL_DEPTH_CLAMP);
+        }
+        draw(quad_start, static_cast<GLsizei>(m_vertices.size()) - quad_start);
+        if (clamp) {
+            glDisable(GL_DEPTH_CLAMP);
+        }
+    }
+    glBindVertexArray(0);
 }
 
 bool EffectRenderer::apply(
@@ -555,7 +725,11 @@ void EffectRenderer::apply_colour_state(
         glUniform1i(
             m_active_shader->uniform("atmosphere_inscatter"), (alpha_bits & 0xCFu) == 0x44u ? 1 : 0
         );
-        glEnable(GL_BLEND);
+        if (m_part == EffectPart::Opaque) {
+            glDisable(GL_BLEND);
+        } else {
+            glEnable(GL_BLEND);
+        }
         glBlendEquation(b.equation);
         glBlendFuncSeparate(b.src, b.dst, GL_ONE, GL_ZERO);
         glBlendColor(0.0f, 0.0f, 0.0f, b.constant);
@@ -570,6 +744,7 @@ void EffectRenderer::release() {
         m_material->release();
     }
     m_shader.release();
+    m_depth_shader.release();
     m_quad_shader.release();
     m_active_shader = nullptr;
     if (m_quad_indices) {

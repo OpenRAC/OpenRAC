@@ -32,6 +32,7 @@ uniform int glow_pass;  // mobys: 0 the solid faces, 1 the glow faces (blended)
 // The glow pass in two draws, as the GS's TEST 0x5360b splits it (alpha GEQUAL 0x60: Z written, else
 // colour only): 1 the texels at or above the reference, with depth; 2 the others, without; 0 all.
 uniform int glow_split;
+uniform int opacity_split;
 const float kWorldAlphaReference = 96.0 / 128.0;
 // Cutout materials in two passes, as the GS draws them (alpha test GEQUAL 0x80, failing pixels
 // written as colour only): 0 the opaque texels, with depth; 1 the translucent ones, blended.
@@ -516,6 +517,9 @@ void main() {
     // FP32 inputs and only two multiplies: narrowing adds packing cost on the measured GPU.
     vec4 c = texel * v_colour * material_colour;
 #ifndef OPENRAC_COLOUR_SPECIALISED
+    if (opacity_split != 0 && (c.a >= 1.0) != (opacity_split > 0)) {
+        discard;
+    }
     if (effect_pass != 0) {
         if (glow_split != 0 && (c.a >= effect_reference) != (glow_split == 1)) {
             discard;

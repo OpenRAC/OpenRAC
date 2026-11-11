@@ -124,6 +124,70 @@ void draw_joined_effects(
 }
 }  // namespace
 
+// An opaque callback writes the prepass normal and rejects a farther blended callback.
+void check_opaque_effects() {
+    renderer::FrameBuffer target;
+    renderer::TexturePool textures;
+    renderer::EffectRenderer opaque("opaque effects", renderer::EffectPart::Opaque);
+    renderer::EffectRenderer rest(
+        "effects", renderer::EffectPart::Rest, renderer::Bucket::Particles, nullptr, true
+    );
+    std::string error;
+    CHECK(target.create(16, 16, error));
+    renderer::RenderState state{textures, {target.id(), 16, 16}, {}};
+    CHECK(opaque.init(state, error));
+    CHECK(rest.init(state, error));
+    constexpr std::uint32_t block = 0x100;
+    renderer::Rgba8Image white(1, 1);
+    white.set_texel(0, 0, 0x80808080);
+    textures.place(
+        block, textures.add(std::move(white), renderer::AlphaScale::Gs, "opaque effect test")
+    );
+    std::array<renderer::EffectQuad, 2> quads{};
+    for (auto& quad : quads) {
+        quad.tex0 = block;
+        for (int k = 0; k < 4; ++k) {
+            quad.corner[k][0] = (k & 1) ? 1.f : -1.f;
+            quad.corner[k][1] = (k & 2) ? 1.f : -1.f;
+        }
+    }
+    quads[0].alpha = 0x8000000064ull;
+    quads[0].test = 0x50000;
+    quads[0].registers = true;
+    for (int k = 0; k < 4; ++k) {
+        quads[0].corner[k][2] = .5f;
+        quads[0].rgba[k] = 0x800000FF;
+        quads[1].rgba[k] = 0x4000FF00;
+    }
+    quads[1].alpha = 0x44;
+    renderer::FrameInput input;
+    input.opaque_effects = true;
+    input.effects = quads;
+    glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+    glViewport(0, 0, 16, 16);
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthMask(GL_TRUE);
+    glClearColor(0, 0, 0, 0);
+    glClearDepth(0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    const auto clear = target.read_rgba();
+    opaque.render_depth(input, state);
+    const auto normals = target.read_rgba();
+    CHECK(normals != clear);
+    glClear(GL_COLOR_BUFFER_BIT);
+    rest.render(input, state);
+    CHECK(target.read_rgba() == clear);
+    opaque.render(input, state);
+    const auto coloured = target.read_rgba();
+    CHECK(coloured != clear);
+    rest.render(input, state);
+    CHECK(target.read_rgba() == coloured);
+    opaque.release();
+    rest.release();
+    target.release();
+}
+
 // Compare the separable FFT against direct synthesis at an off-axis grid point.
 void check_ocean_fft(bool fine) {
     using namespace enhanced::water_detail;
@@ -285,6 +349,13 @@ int main(int argc, char** argv) {
         return test::kSkip;
     }
     const std::string_view mode = argc == 2 ? argv[1] : "";
+    if (mode == "--opaque-effects") {
+        check_opaque_effects();
+        return test::result();
+    }
+    if (mode.empty()) {
+        check_opaque_effects();
+    }
     if (mode == "--ocean-only" || mode == "--ocean-spectrum") {
         if (mode == "--ocean-spectrum") {
             check_ocean_fft(false);

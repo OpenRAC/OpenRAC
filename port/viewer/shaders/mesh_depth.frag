@@ -9,6 +9,9 @@ flat in int v_glow;
 uniform sampler2D tex_T0;
 uniform vec4 material_colour;
 uniform int cutout;
+uniform int glow_pass;
+uniform int effect_pass;
+uniform int opacity_split;
 #endif
 #ifdef OPENRAC_DEPTH_NORMALS
 in vec3 v_surface_normal;
@@ -21,11 +24,14 @@ void main() {
     vec3 geometric = cross(dFdx(v_surface_position), dFdy(v_surface_position));
 #endif
 #ifndef OPENRAC_DEPTH_SOLID
-    if (v_glow != 0) {
+    if (effect_pass == 0 && v_glow != glow_pass) {
         discard;
     }
-    if (cutout != 0 && texture(tex_T0, v_uv).a * v_alpha * material_colour.a < 0.99) {
-        discard;
+    if (opacity_split > 0 || cutout != 0) {
+        float alpha = texture(tex_T0, v_uv).a * v_alpha * material_colour.a;
+        if (alpha < (opacity_split > 0 ? 1.0 : 0.99)) {
+            discard;
+        }
     }
 #endif
 #ifdef OPENRAC_DEPTH_NORMALS

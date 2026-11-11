@@ -34,6 +34,8 @@ struct MobyPassStep {
     // the reference, 2 the rest; 0 all.
     int glow_split = 0;
     bool depth_write = false;
+    // 1 keeps only fully opaque fragments. -1 leaves those fragments to the opaque pass.
+    int opacity_split = 0;
 };
 
 // The draws in order.
@@ -41,6 +43,18 @@ inline constexpr std::array<MobyPassStep, 7> kMobyPassSteps{{
     {kMobySolid, 0, true},
     {kMobyGlow, 1, true},
     {kMobyEffects, 1, true},
+    {kMobyGlow, 2, false},
+    {kMobyTranslucent, 0, false},
+    {kMobyEffects, 2, false},
+    {kMobyMetal, 0, false},
+}};
+
+inline constexpr std::array<MobyPassStep, 9> kMobyOpaqueSplitSteps{{
+    {kMobySolid, 0, true},
+    {kMobyGlow, 1, true, 1},
+    {kMobyEffects, 1, true, 1},
+    {kMobyGlow, 1, true, -1},
+    {kMobyEffects, 1, true, -1},
     {kMobyGlow, 2, false},
     {kMobyTranslucent, 0, false},
     {kMobyEffects, 2, false},

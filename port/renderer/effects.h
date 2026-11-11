@@ -34,6 +34,7 @@ namespace openrac::renderer {
 // Which of the frame's strips and quads a pass draws.
 enum class EffectPart : std::uint8_t {
     All,      // every strip, then every quad
+    Opaque,   // depth-writing draws that replace the destination colour
     Liquids,  // only the solid strips (liquid_strip), with depth written
     Rest,     // the strips that are not, then every quad
 };
@@ -55,6 +56,9 @@ bool before_mobys_writes_z(const EffectStrip& strip);
 // A strip the liquids' pass draws: a solid one (liquid_strip), or one the game sent before the
 // world's mobys (EffectStrip::before_mobys), drawn where the game drew it.
 bool liquid_pass_strip(const EffectStrip& strip);
+
+bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices);
+bool opaque_effect_quad(const EffectQuad& quad);
 
 // A material-owned mesh for one strip; counts let core keep its existing rendering statistics.
 struct EffectMesh {
@@ -122,14 +126,17 @@ public:
         std::string name = "effects",
         EffectPart part = EffectPart::All,
         Bucket bucket = Bucket::Particles,
-        std::unique_ptr<EffectMaterial> material = {}
+        std::unique_ptr<EffectMaterial> material = {},
+        bool split_opaque = false
     )
         : BucketRenderer(std::move(name), bucket),
           m_part(part),
-          m_material(std::move(material)) {}
+          m_material(std::move(material)),
+          m_split_opaque(split_opaque) {}
 
     bool init(RenderState& state, std::string& error) override;
     void render(const FrameInput& input, RenderState& state) override;
+    void render_depth(const FrameInput& input, RenderState& state) override;
 
     bool prepares_colour_chain() const override {
         return !m_material || m_material->prepares_colour_chain();
@@ -145,6 +152,7 @@ private:
         std::vector<int> strip_counts;  // Expanded stream counts, in accepted strip order.
         std::vector<std::optional<EffectMesh>> meshes;  // Matching resident-material mesh handles.
         std::size_t quads_from = 0;                     // First quad vertex after expanded strips.
+        bool quads = false;
     };
 
     // Queues scene snapshots and their colour consumers, or retains immediate unknown materials.
@@ -187,7 +195,9 @@ private:
     };
 
     // Whether this pass draws `strip` (m_part).
-    bool draws(const EffectStrip& strip) const;
+    bool draws(const EffectStrip& strip, const FrameInput& input) const;
+    bool draws(const EffectQuad& quad, const FrameInput& input) const;
+    bool keeps_strip_upload(const EffectStrip& strip, const FrameInput& input) const;
 
     struct AppliedState {
         TextureHandle texture{};
@@ -205,6 +215,7 @@ private:
 
     EffectPart m_part = EffectPart::All;
     Shader m_shader;
+    Shader m_depth_shader;
     Shader m_quad_shader;
     // The quads drawn with the list's TEST (EffectQuad::registers) that test alpha: the quads'
     // shader with the alpha test kept (the others compile it out, EffectStaticControls).
@@ -214,6 +225,7 @@ private:
     Shader* m_active_shader = nullptr;
     bool m_colour_reads_ready = false;  // Reset whenever the effect pass changes its shader.
     std::unique_ptr<EffectMaterial> m_material;
+    bool m_split_opaque = false;
     TextureFilter m_texture_filter = TextureFilter::Normal;
     int m_view_projection = -1;
     int m_textured = -1, m_tcc = -1, m_tfx = -1, m_tex_alpha_scale = -1;
