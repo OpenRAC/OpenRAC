@@ -329,6 +329,7 @@ class Program:
         if tables is not None:
             return tables
         tables = {}
+        spare = []
         for sym, f in sorted(self.functions.items()):
             if prototype(f, self.typedefs) is None:
                 continue
@@ -336,6 +337,9 @@ class Program:
             # call through the address too, not whichever sorts first.
             own = self.canonical(sym)
             if own != sym and own in self.functions and prototype(self.functions[own], self.typedefs) is not None:
+                # Its other places are still its own (PAL v1's catalogue gives func_001F91A8 the
+                # place of level 0's func_L00_001FEEC0 among its own): added below where free.
+                spare.append(sym)
                 continue
             for overlay, addr in self.code_places(sym):
                 tables.setdefault(overlay, []).append((addr, sym))
@@ -344,21 +348,42 @@ class Program:
                 offset = getattr(self, "entries", {}).get(sym)
                 if offset:
                     tables[overlay].append((addr + offset, sym))
-        # Executable copies of level functions, if the address is free. Their level data is paired
-        # with the executable's at run time (openrac_relocate_level_data).
-        taken = {addr for addr, _ in tables.get(-1, [])}
-        for sym, addrs in sorted(self.boot_places.items()):
+        # Executable copies of level functions (their level data is paired with the executable's at
+        # run time, openrac_relocate_level_data) and those other places, where no function is.
+        taken = {(overlay, addr) for overlay, entries in tables.items() for addr, _ in entries}
+        more = [(sym, (-1, addr)) for sym, addrs in sorted(self.boot_places.items()) for addr in addrs]
+        more += [(sym, place) for sym in spare for place in self.code_places(sym)]
+        for sym, place in more:
             f = self.functions.get(sym)
-            if f is None or f.unit is None or prototype(f, self.typedefs) is None:
+            if f is None or f.unit is None or prototype(f, self.typedefs) is None or place in taken:
                 continue
-            for addr in addrs:
-                if addr not in taken:
-                    tables.setdefault(-1, []).append((addr, sym))
-                    taken.add(addr)
+            tables.setdefault(place[0], []).append((place[1], sym))
+            taken.add(place)
         for entries in tables.values():
             entries.sort()
         self._code_tables = tables
         return tables
+
+    def places_without_function(self) -> list[str]:
+        """The catalogue's places of functions with C that no table entry answers: a call through
+        such an address finds nothing ("call to code address X, which no function of the port
+        has"). Each as "symbol NN:ADDR" (boot:ADDR for the executable). Left out: functions still
+        in assembly, those with no signature a guest call can take (the report's unprototyped),
+        and 8-byte leaves the runtime answers itself (jr ra: returns_nothing)."""
+        tables = self.code_tables()
+        have = {(overlay, addr) for overlay, entries in tables.items() for addr, _ in entries}
+        out = set()
+        rows = list(self.places.items())
+        rows += [(sym, [(-1, addr) for addr in addrs]) for sym, addrs in self.boot_places.items()]
+        for sym, places in rows:
+            f = self.functions.get(sym)
+            if (f is None or f.unit is None or f.asm or prototype(f, self.typedefs) is None
+                    or self.sizes.get(sym, 16) <= 8):
+                continue
+            for overlay, addr in places:
+                if (overlay, addr) not in have:
+                    out.add(f"{sym} {'boot' if overlay < 0 else f'{overlay:02d}'}:{addr:08X}")
+        return sorted(out)
 
     def function_at(self, overlay: int, address: int) -> str | None:
         """The function a call through address finds with overlay loaded: the first functions.c
@@ -1017,6 +1042,15 @@ def read_places(path: Path, program: Program) -> int:
     if not path.exists():
         return 0
     count = 0
+    # A release's map.tsv (next to its catalogue): the places where the C builds to the release's
+    # bytes (status match), even where they differ from the primary's (same = no: the release's
+    # own C, src/versions/<key>/).
+    matched = set()
+    if (path.parent / "map.tsv").exists():
+        for line in (path.parent / "map.tsv").read_text().splitlines():
+            cols = line.split("\t")
+            if not line.startswith("#") and len(cols) >= 4 and cols[2] == "match":
+                matched.add((cols[0], cols[3]))
     for line in path.read_text().splitlines():
         if line.startswith("#") or not line.strip():
             continue
@@ -1030,7 +1064,7 @@ def read_places(path: Path, program: Program) -> int:
             level, _, addr = item.partition(":")
             if level and addr and level != "boot":
                 places.append((int(level), int(addr, 16)))
-            elif level == "boot" and addr and column == 8 and cols[7] == "yes":
+            elif level == "boot" and addr and column == 8 and (cols[7] == "yes" or (cols[0], item) in matched):
                 boot.append(int(addr, 16))
         if boot and places:
             # A level function's copy in the executable (NTSC-J's card menu calls 0x0020A448).

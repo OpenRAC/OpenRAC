@@ -2486,11 +2486,14 @@ class Places(unittest.TestCase):
             self.assertIn("(openrac_self_ != 0 ? openrac_self_ : OPENRAC_LCODE(0, 0x00300000u)), 104u, 0)", text)
             self.assertIn("openrac_guest_entry((openrac_host_fn)func_L00_00300000)", text)
 
-    def generate(self, root: Path, source: str, places: str, cfg: dict | None = None) -> Path:
+    def generate(self, root: Path, source: str, places: str, cfg: dict | None = None,
+                 version_map: str = "") -> Path:
         src = root / "game"
         (src / "src").mkdir(parents=True)
         (src / "src" / "a.c").write_text(source)
         (src / "functions.tsv").write_text(places)
+        if version_map:
+            (src / "map.tsv").write_text(version_map)
         (root / "hostgen.json").write_text(json.dumps({
             "sources": ["src"], "includes": [], "places": "functions.tsv", **(cfg or {})}))
         out = root / "gen"
@@ -2737,29 +2740,52 @@ class Places(unittest.TestCase):
 
     def test_a_release_catalogues_boot_place_answers_calls_in_the_executable(self):
         # NTSC-J's card menu calls 0x0020A448, a copy of func_L00_0024BAE8. A copy that uses level
-        # data is kept too (the runtime pairs its data); one whose bytes differ is skipped.
+        # data is kept too (the runtime pairs its data). One whose bytes differ from the primary's
+        # is kept where the release's map.tsv says its C matches there, else skipped.
         with tempfile.TemporaryDirectory() as tmp:
             out = self.generate(Path(tmp),
                 "extern int D_0015EFB0;\nextern int D_L00_001B9E70;\n"
                 "void func_L00_0024BAE8(void) { D_0015EFB0 = 3; }\n"
                 "void func_L00_00280708(void) { D_L00_001B9E70 = 0; }\n"
-                "void func_L00_00280740(void) { D_0015EFB0 = 4; }\n",
+                "void func_L00_00280740(void) { D_0015EFB0 = 4; }\n"
+                "void func_L00_002807A0(void) { D_0015EFB0 = 5; }\n",
                 "# name\tkind\tsize\tfingerprint\tcounterpart\tmethod\tsimilarity\tsame\tplaces\n"
                 "func_L00_0024BAE8\texe\t116\tf1\tfunc_L00_0024BAE8\tfingerprint\t1.00\tyes\t"
                 "boot:0020A448,00:0024BAE8,01:00260A10\n"
                 "func_L00_00280708\texe\t56\tf2\tfunc_L00_00280708\tfingerprint\t1.00\tyes\t"
                 "boot:002238F0,00:00280708,01:00297248\n"
                 "func_L00_00280740\texe\t92\tf3\tfunc_L00_00280740\taligned\t0.96\tno\t"
-                "boot:00223928,00:00280740,01:00297280\n",
-                {"relocate": [0x15F000, 0x250000]})
+                "boot:00223928,00:00280740,01:00297280\n"
+                "func_L00_002807A0\texe\t40\tf4\tfunc_L00_002807A0\taligned\t0.90\tno\t"
+                "boot:00223988,00:002807A0,01:002972E0\n",
+                {"relocate": [0x15F000, 0x250000]},
+                "func_L00_002807A0\tsrc/versions/jp/a.c\tmatch\tboot:00223988\t40\t100.00\n")
             text = (out / "functions.c").read_text()
             exe = text.split("static const openrac_fn_entry k_exe[] = {", 1)[1].split("};", 1)[0]
             self.assertIn("{0x0020A448u, (openrac_host_fn)func_L00_0024BAE8", exe)
             self.assertIn("{0x002238F0u, (openrac_host_fn)func_L00_00280708", exe)
             self.assertIn("OPENRAC_LDATA(0, ", "".join(f.read_text() for f in out.glob("*.c")))
             self.assertNotIn("0x00223928u", exe)  # its bytes differ there
+            self.assertIn("{0x00223988u, (openrac_host_fn)func_L00_002807A0", exe)
             for addr in ("0x0024BAE8u", "0x00260A10u"):
                 self.assertIn(f"{{{addr}, (openrac_host_fn)func_L00_0024BAE8", text)
+            report = json.loads((out / "report.json").read_text())
+            self.assertEqual(report["places_without_function"], [])
+
+    def test_a_second_spelling_keeps_its_places_the_other_does_not_have(self):
+        # PAL v1's catalogue gives func_001F91A8 (fastfunc) the place of the port's own level 0
+        # function among its own: it still answers calls at its other places.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self.generate(Path(tmp),
+                "extern int D_0015ED60;\n"
+                "int func_00301000(void) { return D_0015ED60; }\n"
+                "int func_L00_00301100(void) { return 1; }\n",
+                "func_00301000\texe\t16\tfp\t1\t00:00301100,00:00301200\n",
+                {"host_functions": ["func_L00_00301100"]})
+            text = (out / "functions.c").read_text()
+            self.assertIn("{0x00301200u, (openrac_host_fn)func_00301000", text)
+            self.assertIn("{0x00301100u, (openrac_host_fn)func_L00_00301100", text)
+            self.assertNotIn("{0x00301100u, (openrac_host_fn)func_00301000", text)
 
     @unittest.skipUnless(have_compiler(), "needs Clang on a POSIX host")
     def test_a_copys_call_keeps_a_returns_64_result_whole(self):
