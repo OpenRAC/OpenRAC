@@ -119,6 +119,22 @@ void test_reset_enhanced() {
     CHECK(s.lily_momentum == .25f);
 }
 
+// The handheld preset lowers costs only: every effect the player had stays on, other settings alone.
+void test_handheld_enhanced() {
+    using namespace openrac;
+    settings::Settings s;
+    s.render_scale = 75;
+    s.motion_blur = true;
+    s.gtao_settings.half_resolution = false;
+    s.volumetric_quality = renderer::VolumetricQuality::High;
+    s.apply_handheld_enhanced();
+    CHECK(s.temporal_quality == renderer::TemporalQuality::Balanced);
+    CHECK(s.shadow_quality == renderer::ShadowQuality::Low);
+    CHECK(s.gtao_settings.half_resolution && !s.gtao_settings.hi_z);
+    CHECK(s.volumetric_quality == renderer::VolumetricQuality::Off);
+    CHECK(s.render_scale == 75 && s.motion_blur && s.gtao && s.enhanced_shadows && s.agx_preview);
+}
+
 void test_agx_preview(const std::filesystem::path& file) {
     using namespace openrac;
     CHECK(settings::Settings{}.agx_preview);
@@ -448,6 +464,7 @@ int main() {
     test_lily_momentum(file);
     test_hdr_settings(file);
     test_reset_enhanced();
+    test_handheld_enhanced();
     test_agx_preview(file);
     test_motion_blur_tuning(file);
     test_shadow_quality(file);

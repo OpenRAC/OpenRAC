@@ -204,6 +204,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::GlStateWarmup, "gl-state-warmup",
      "each OpenGL state a program was drawn in is drawn once into a private target at a level's load",
      true, Tolerance{}},
+    {Opt::OpaqueDepthGequal, "opaque-depth-gequal",
+     "opaque colour over the reused prepass depth tests GEQUAL, which keeps Adreno's low-resolution Z on",
+     true, Tolerance{}},
 }};
 // clang-format on
 

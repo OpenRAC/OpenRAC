@@ -1347,7 +1347,14 @@ void LevelScene::draw_layer(
         // pulled a little toward the camera (MobyProc adds 1000 to their GS Z; mesh.vert).
         const bool metal = mobys && pass == 4;
         const bool translucent = pass == 2;
-        glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+        // Over the reused prepass depth, GEQUAL passes exactly the fragments EQUAL does: every
+        // surface drawn here is in the prepass, so none is nearer than the depth it left. Adreno
+        // turns its low-resolution Z (LRZ) off for EQUAL, and keeps it for GEQUAL without writes.
+        const GLenum reused_func =
+            renderer::render_opt::enabled(renderer::render_opt::Opt::OpaqueDepthGequal)
+                ? GL_GEQUAL
+                : GL_EQUAL;
+        glDepthFunc(reused ? reused_func : GL_GEQUAL);
         glDepthMask(reused ? GL_FALSE : GL_TRUE);
         glUniform1i(program->uniform("metal_pass"), metal ? 1 : 0);
         glUniform1i(program->uniform("glow_pass"), mobys && pass == 1 ? 1 : 0);
@@ -1553,7 +1560,7 @@ void LevelScene::draw_layer(
                                                  * static_cast<std::uint64_t>(instances);
                     }
                     m_lighting->bind_surface_layer(*program, 0);
-                    glDepthFunc(reused ? GL_EQUAL : GL_GEQUAL);
+                    glDepthFunc(reused ? reused_func : GL_GEQUAL);
                     glDepthMask(reused ? GL_FALSE : GL_TRUE);
                 }
                 run_count = 0;

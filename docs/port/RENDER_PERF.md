@@ -93,6 +93,7 @@ before and after, and how its frames are shown to be the same.
 | `moby-glow-skip` | on | none (exact) | The mobys' two glow draws leave out the triangles with no glow packet vertex, whose every fragment they would discard ([moby-glow-skip](#moby-glow-skip-glow-draws-without-the-faces-they-discard)). |
 | `vk-pipeline-library` | on | none (exact) | A new pipeline is linked at once from parts built ahead; a worker builds the optimised one and swaps it in. Desktop only ([vk-pipeline-library](#vk-pipeline-library-pipelines-linked-from-parts)). |
 | `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
+| `opaque-depth-gequal` | on | none (exact) | Opaque colour over the reused prepass depth tests GEQUAL instead of EQUAL. Every surface it draws is in the prepass, so the same fragments pass; Adreno keeps its low-resolution Z (LRZ) on for GEQUAL without depth writes and turns it off for EQUAL ([opaque-depth-gequal](#opaque-depth-gequal-lrz-over-the-reused-depth)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -2056,3 +2057,19 @@ The graph changes dependency planning, not shader algorithms or render resolutio
 Shader specialisation is unconditional: the former `shader-variants` registry switch and
 generic shader reference paths have been retired. Other optimisation switches retain their
 independent on/off comparisons.
+
+## opaque-depth-gequal: LRZ over the reused depth
+
+With a depth prepass, the opaque colour passes draw over its depth with writes off. They tested
+EQUAL. Qualcomm's driver turns Adreno's low-resolution Z (LRZ, the coarse early depth test before
+the fragment shader) off for EQUAL; Mesa's Turnip does the same, matching it
+([Turnip LRZ](https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/16014)). GEQUAL
+(reversed depth: nearer or equal) keeps LRZ valid when depth writes are off.
+
+The picture is the same: every surface the reused passes draw is in the prepass with the same
+positions, so no fragment is nearer than the depth there, and GEQUAL passes exactly the ones EQUAL
+does. Should a prepass vertex shader round a depth a little farther than the colour one, GEQUAL
+still draws that fragment where EQUAL would leave a hole. The passes that write depth (surface
+layers, blended passes) are unchanged. The Graphics sweep measures it on a device (its step with
+the entry off); the equivalence test compares frames with it on and off.
+

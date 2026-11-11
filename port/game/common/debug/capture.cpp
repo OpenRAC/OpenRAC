@@ -41,6 +41,7 @@
 #include "program/options.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/render_opt.h"
 #include "scene/stb_extra.h"
 #include "settings.h"
 #if defined(OPENRAC_VULKAN)
@@ -88,6 +89,9 @@ Capture c;
 struct SweepStep {
     const char* name;
     void (*apply)(settings::Settings&);
+    // A drawing optimisation (renderer/render_opt.h) switched off for the step alone, to measure
+    // what it saves; registry-selftest, which draws nothing, when the step switches none.
+    renderer::render_opt::Opt opt_off = renderer::render_opt::Opt::RegistrySelftest;
 };
 
 void effects_off(settings::Settings& g) {
@@ -101,62 +105,45 @@ void effects_off(settings::Settings& g) {
     g.texture_filter = renderer::TextureFilter::Normal;
 }
 
+// The steps measure Enhanced graphics as the player set it, one part at a time. The pairs at full
+// and half render scale tell a cost that follows the pixels (shading, bandwidth) from one that does
+// not (vertices, binning, fixed passes): on the Odin 3 most of the probe lighting's cost did not.
 constexpr SweepStep kSweep[] = {
     {"as set", [](settings::Settings&) {}},
     {"enhanced graphics off", [](settings::Settings& g) { g.enhanced_graphics = false; }},
-    {"enhanced, every effect off", effects_off},
-    {"enhanced, every effect off, probe lighting off",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_probe_lighting_off = true;
-     }},
-    {"enhanced, every effect off, probe lighting off, scale 50%",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_probe_lighting_off = true;
-         g.render_scale = 50;
-     }},
-    {"enhanced, every effect off, render scale 50%",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.render_scale = 50;
-     }},
-    {"enhanced, every effect off, blended passes left out",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_off = true;
-     }},
-    {"enhanced, every effect off, blended passes without probes",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_unlit = true;
-     }},
-    {"enhanced, every effect off, blended passes with full probe light",
-     [](settings::Settings& g) {
-         effects_off(g);
-         g.sweep_translucent_full = true;
-     }},
-    {"enhanced off, blended passes left out",
-     [](settings::Settings& g) {
-         g.enhanced_graphics = false;
-         g.sweep_translucent_off = true;
-     }},
     {"enhanced off, render scale 50%",
      [](settings::Settings& g) {
          g.enhanced_graphics = false;
          g.render_scale = 50;
      }},
+    {"as set, render scale 50%", [](settings::Settings& g) { g.render_scale = 50; }},
+    {"as set, probe lighting off",
+     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"as set, probe lighting off, render scale 50%",
+     [](settings::Settings& g) {
+         g.sweep_probe_lighting_off = true;
+         g.render_scale = 50;
+     }},
+    {"as set, blended passes left out",
+     [](settings::Settings& g) { g.sweep_translucent_off = true; }},
+    {"as set, blended passes without probes",
+     [](settings::Settings& g) { g.sweep_translucent_unlit = true; }},
+    {"as set, scenery detail original (fewer far triangles)",
+     [](settings::Settings& g) { g.original_lod = true; }},
+    {"as set, opaque depth EQUAL (opaque-depth-gequal off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::OpaqueDepthGequal},
     {"as set, temporal off (native)",
      [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Off; }},
+    {"as set, temporal performance (2x)",
+     [](settings::Settings& g) { g.temporal_quality = renderer::TemporalQuality::Performance; }},
     {"as set, motion blur off", [](settings::Settings& g) { g.motion_blur = false; }},
     {"as set, GTAO off", [](settings::Settings& g) { g.gtao = false; }},
     {"as set, modern shadows off", [](settings::Settings& g) { g.enhanced_shadows = false; }},
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
-    {"as set, edge-aware textures off",
-     [](settings::Settings& g) { g.texture_filter = renderer::TextureFilter::Normal; }},
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
-    {"as set, probe lighting off",
-     [](settings::Settings& g) { g.sweep_probe_lighting_off = true; }},
+    {"enhanced, every effect off", effects_off},
+    {"handheld preset", [](settings::Settings& g) { g.apply_handheld_enhanced(); }},
     {"as set (again)", [](settings::Settings&) {}},
 };
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));
@@ -180,9 +167,21 @@ struct Sweep {
     // runs without drawing is a frame of its own in stats' history, and not counted.
     std::vector<std::vector<double>> picture_s, gpu_ms;
     std::vector<std::string> results;  // the report's lines, once it ended
+    // The optimisation the step switched off, and whether it was on before.
+    renderer::render_opt::Opt opt_off = renderer::render_opt::Opt::RegistrySelftest;
+    bool opt_was_on = false;
 };
 
 Sweep sweep;
+
+// Gives back the optimisation the last step switched off. The switch is an atomic the render
+// thread reads per draw, so a frame may straddle the change; the step's settle time leaves it out.
+void sweep_restore_opt() {
+    if (sweep.opt_off != renderer::render_opt::Opt::RegistrySelftest) {
+        renderer::render_opt::set(sweep.opt_off, sweep.opt_was_on);
+        sweep.opt_off = renderer::render_opt::Opt::RegistrySelftest;
+    }
+}
 
 void sweep_apply(int step) {
     settings::Settings next = sweep.saved;
@@ -190,6 +189,13 @@ void sweep_apply(int step) {
     next.frame_rate = settings::FrameRate::Unlimited;
     kSweep[step].apply(next);
     settings::get() = next;
+    sweep_restore_opt();
+    const renderer::render_opt::Opt off = kSweep[step].opt_off;
+    if (off != renderer::render_opt::Opt::RegistrySelftest) {
+        sweep.opt_was_on = renderer::render_opt::enabled(off);
+        sweep.opt_off = off;
+        renderer::render_opt::set(off, false);
+    }
     s.settings_changed = true;
     sweep.step = step;
     const stats::Frame* last = stats::history(0);
@@ -241,6 +247,7 @@ void sweep_end() {
     }
     sweep.running = false;
     settings::get() = sweep.saved;
+    sweep_restore_opt();
     s.settings_changed = true;
     sweep.results.clear();
     for (int i = 0; i < static_cast<int>(sweep.starts.size()); ++i) {

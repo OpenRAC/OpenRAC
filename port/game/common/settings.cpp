@@ -53,6 +53,15 @@ void Settings::reset_enhanced() {
     texture_filter = defaults.texture_filter;
 }
 
+void Settings::apply_handheld_enhanced() {
+    temporal_quality = renderer::TemporalQuality::Balanced;
+    shadow_quality = renderer::ShadowQuality::Low;
+    gtao_settings.quality = renderer::GtaoQuality::Performance;
+    gtao_settings.half_resolution = true;
+    gtao_settings.hi_z = false;
+    volumetric_quality = renderer::VolumetricQuality::Off;
+}
+
 std::optional<std::array<float, 3>> Settings::sunlight_direction() const {
     if (!sun_direction_override) {
         return std::nullopt;

@@ -140,6 +140,10 @@ struct Settings {
     std::optional<std::array<float, 3>> sunlight_direction() const;
     // Restore this window's preferences without changing general graphics/audio or startup enablement.
     void reset_enhanced();
+    // The handheld preset of Enhanced graphics (phones, Android handhelds): the same effects at a
+    // lower cost. Fewer rendered pixels for the upscaler to rebuild (Balanced), the sun's maps at
+    // Low and ambient occlusion at half size; nothing is switched off. Leaves the rest alone.
+    void apply_handheld_enhanced();
     bool gtao = true;  // ground-truth ambient occlusion when enhanced rendering is enabled
     renderer::TemporalQuality temporal_quality =
         renderer::TemporalQuality::Quality;  // Enhanced Vulkan only.
