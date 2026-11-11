@@ -275,6 +275,11 @@ void pad_hints(const ImGuiViewport* viewport, const SDL_Rect& safe, float ease) 
 
 float s_jump_marks[4] = {};
 float s_jump_to = -1.0f;
+// The section a jump goes to, and how long after it lands the view stays on its heading: the
+// rows above can still change height then (a fold opening, rows laid out for the first time), and
+// a target taken once at the tap then landed a little above the heading.
+int s_jump_section = -1;
+float s_jump_hold = 0.0f;
 // The section LB or RB jumped to: the pad's focus goes to its first row as it is drawn.
 int s_jump_focus = -1;
 
@@ -335,12 +340,22 @@ void drawer(const Shown& shown) {
                                    | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
     if (ImGui::Begin("OpenRAC options", nullptr, flags)) {
         drag_scroll(s.menu_scroll);
-        if (s_jump_to >= 0.0f) {
-            // A jump glides there in a few frames; a finger on the rows stops it.
+        if (s_jump_section >= 0) {
+            // A jump glides there in a few frames, to where the section's heading is now (the
+            // last frame's layout), and stays on it a moment after; a finger on the rows stops it.
+            const int i = s_jump_section;
+            s_jump_to = i == 0
+                            ? 0.0f
+                            : std::min(s_jump_marks[i] - header - dp(4.0f), ImGui::GetScrollMaxY());
             const float now = ImGui::GetScrollY();
             const float next = now + (s_jump_to - now) * std::min(1.0f, io.DeltaTime * 14.0f);
-            ImGui::SetScrollY(std::abs(s_jump_to - next) < 1.0f ? s_jump_to : next);
-            if (std::abs(s_jump_to - next) < 1.0f || ImGui::IsMouseDown(0)) {
+            const bool there = std::abs(s_jump_to - next) < 1.0f;
+            ImGui::SetScrollY(there ? s_jump_to : next);
+            if (there) {
+                s_jump_hold -= io.DeltaTime;
+            }
+            if ((there && s_jump_hold <= 0.0f) || ImGui::IsMouseDown(0)) {
+                s_jump_section = -1;
                 s_jump_to = -1.0f;
             }
         }
@@ -476,7 +491,8 @@ void drawer(const Shown& shown) {
                     && at.x >= ca.x && at.x < cb.x && at.y >= top.y + head && at.y <= top.y + header
                     && s_jump_marks[i] > 0.0f) {
                     menu_sound(MenuSound::Page);
-                    s_jump_to = i == 0 ? 0.0f : s_jump_marks[i] - header - dp(4.0f);
+                    s_jump_section = i;
+                    s_jump_hold = 0.3f;
                     s.menu_scroll.velocity = 0.0f;
                 }
             }
@@ -488,7 +504,8 @@ void drawer(const Shown& shown) {
                 const int to = std::clamp(in_view + step, 0, 3);
                 if (to != in_view && s_jump_marks[to] > 0.0f) {
                     menu_sound(MenuSound::Page);
-                    s_jump_to = to == 0 ? 0.0f : s_jump_marks[to] - header - dp(4.0f);
+                    s_jump_section = to;
+                    s_jump_hold = 0.3f;
                     s_jump_focus = to;
                     s.menu_scroll.velocity = 0.0f;
                 }

@@ -452,7 +452,7 @@ void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease
     const ImVec2 b(a.x + viewport->Size.x, a.y + viewport->Size.y);
     const float scale = static_cast<float>(shown.window_height) / viewport->Size.y;
     const renderer::ui::backdrop_blur::Picture picture = renderer::ui::backdrop_blur::blur(
-        shown.window_width, shown.window_height, shown.window_height, dp(18.0f) * scale
+        shown.window_width, shown.window_height, shown.window_height, dp(9.0f) * scale
     );
     if (picture.texture != 0) {
         // The texture's first row is its bottom.
