@@ -197,7 +197,11 @@ float window_ui_scale(SDL_Window* window) {
     constexpr bool desktop = false;
 #endif
     return ui_scale(
-        SDL_GetWindowDisplayScale(window), SDL_GetWindowPixelDensity(window), height, desktop
+        SDL_GetWindowDisplayScale(window),
+        SDL_GetWindowPixelDensity(window),
+        height,
+        desktop,
+        settings::get().menu_size
     );
 }
 

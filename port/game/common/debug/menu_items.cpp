@@ -121,6 +121,12 @@ int peak_index() {
     return step_index(kPeaks, settings::get().hdr_peak);
 }
 
+constexpr auto kSizes = std::to_array(settings::kMenuSizes);
+
+int size_index() {
+    return step_index(kSizes, settings::get().menu_size);
+}
+
 // An options row (options_menu.h) as a choice.
 Item row_choice(int row) {
     Item item;
@@ -166,6 +172,14 @@ Item item(Id id, std::uint8_t where) {
             return row_choice(kDisplayMode);
         case Id::Monitor:
             return row_choice(kMonitor);
+        case Id::MenuSize: {
+            const int at = size_index();
+            it.value =
+                set.menu_size == 100 ? std::string("Auto") : std::format("{}%", set.menu_size);
+            it.can_lower = at > 0;
+            it.can_raise = at < static_cast<int>(kSizes.size()) - 1;
+            return it;
+        }
         case Id::Picture:
             it = row_choice(kAspect);
             if (where == menu::kTouch && set.aspect == settings::Aspect::Window) {
@@ -519,6 +533,12 @@ bool act(Id id, int by) {
             return false;
         case Id::DisplayMode:
             change_setting(kDisplayMode, by);
+            return false;
+        case Id::MenuSize:
+            set.menu_size = kSizes[static_cast<std::size_t>(
+                std::clamp(size_index() + by, 0, static_cast<int>(kSizes.size()) - 1)
+            )];
+            changed();
             return false;
         case Id::Monitor:
             change_setting(kMonitor, by);
