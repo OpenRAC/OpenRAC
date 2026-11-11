@@ -302,11 +302,8 @@ void drawer(const Shown& shown) {
     }
     const float width = std::min(viewport->Size.x * 0.6f, dp(360.0f)) + inset;
     const float x = viewport->Pos.x - width * (1.0f - ease);
-    ImGui::GetBackgroundDrawList()->AddRectFilled(
-        viewport->Pos,
-        ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y),
-        ui_colors::fade(ui().ink_deep, 0.6f * ease)
-    );
+    // The game blurred and dimmed under it, as under the desktop's menu.
+    game_backdrop(viewport, shown, ease);
     // A tap right of the drawer or B closes it. With the controller panel open, B closes the panel
     // first and taps go to the panel.
     if (s.menu_open && ImGui::IsMouseReleased(0) && !s.menu_scroll.dragged

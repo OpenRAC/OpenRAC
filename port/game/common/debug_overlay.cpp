@@ -39,6 +39,7 @@
 #include "openrac/game_host.h"
 #include "renderer/gl.h"
 #include "renderer/gl_stats.h"
+#include "renderer/ui/backdrop_blur.h"
 #include "renderer/ui/imgui_gl.h"
 #include "renderer/ui/logo.h"
 #include "scene/screenshot.h"
@@ -1141,6 +1142,7 @@ bool take_settings_changed() {
 
 void release() {
     release_object_viewer();
+    renderer::ui::backdrop_blur::release();
     if (s.initialised) {
         if (s.gl_subset) {
             renderer::ui::imgui_gl::shutdown();

@@ -22,6 +22,7 @@
 #include "common/build_info.h"
 #include "debug/menu_ui.h"
 #include "openrac/game_host.h"
+#include "renderer/ui/backdrop_blur.h"
 
 namespace openrac::frontend::debug_overlay {
 
@@ -57,41 +58,6 @@ std::vector<BarTab> bar_tabs() {
         tabs.push_back({mod_menu_title(i), -1, i});
     }
     return tabs;
-}
-
-// Under the bar's tabs, as the launcher's header lies over its page: no bar, only the dimmed game
-// darker at the window's top (a scrim), held over the tabs and easing out below with no edge, and
-// a little more under the logo, the one thing drawn straight on the game.
-void bar_ground(ImDrawList* list, ImVec2 a, ImVec2 b, float logo_w) {
-    const float top = 0.66f;
-    const float hold = (b.y - a.y) * 0.5f;
-    const float fall = (b.y - a.y) * 0.5f + dp(44.0f);
-    list->AddRectFilled(a, ImVec2(b.x, a.y + hold), ui_colors::fade(ui().ink_deep, top));
-    // Eased out (cosine) in steps, so the end of the fade shows no line.
-    constexpr int kSteps = 12;
-    for (int i = 0; i < kSteps; ++i) {
-        const float t0 = static_cast<float>(i) / kSteps;
-        const float t1 = static_cast<float>(i + 1) / kSteps;
-        const auto at = [&](float t) {
-            return ui_colors::fade(ui().ink_deep, top * 0.5f * (1.0f + std::cos(t * 3.14159265f)));
-        };
-        const float y0 = a.y + hold + fall * t0;
-        const float y1 = a.y + hold + fall * t1;
-        list->AddRectFilledMultiColor(
-            ImVec2(a.x, y0), ImVec2(b.x, y1), at(t0), at(t0), at(t1), at(t1)
-        );
-    }
-    // A soft dark patch under the logo: rings, each a little fainter, adding up to about 30 %.
-    const ImVec2 logo(a.x + dp(18.0f) + logo_w * 0.5f, a.y + (b.y - a.y) * 0.5f);
-    constexpr int kRings = 10;
-    for (int i = 0; i < kRings; ++i) {
-        const float k = 1.0f - static_cast<float>(i) / kRings;
-        list->AddEllipseFilled(
-            logo,
-            ImVec2(logo_w * 0.8f * k + dp(8.0f), (b.y - a.y) * 0.75f * k + dp(4.0f)),
-            ui_colors::fade(ui().ink_deep, 0.035f)
-        );
-    }
 }
 
 // Bands of `ink` at 35 degrees over [a, b], `strength` at its top left corner and fading out to
@@ -475,6 +441,40 @@ void hints(const ImGuiViewport* viewport, float shown) {
 
 }  // namespace
 
+// The game under the menu blurred (as the launcher's header blurs its page) and dimmed, more at
+// the foot and the sides, so the menu stands out of it: the desktop window's and the drawer's.
+void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease) {
+    if (viewport->Size.y <= 0.0f || ease <= 0.0f) {
+        return;
+    }
+    ImDrawList* back = ImGui::GetBackgroundDrawList();
+    const ImVec2 a = viewport->Pos;
+    const ImVec2 b(a.x + viewport->Size.x, a.y + viewport->Size.y);
+    const float scale = static_cast<float>(shown.window_height) / viewport->Size.y;
+    const renderer::ui::backdrop_blur::Picture picture = renderer::ui::backdrop_blur::blur(
+        shown.window_width, shown.window_height, shown.window_height, dp(18.0f) * scale
+    );
+    if (picture.texture != 0) {
+        // The texture's first row is its bottom.
+        back->AddImage(
+            static_cast<ImTextureID>(picture.texture),
+            a,
+            b,
+            ImVec2(0.0f, 1.0f),
+            ImVec2(1.0f, 0.0f),
+            ui_colors::fade(IM_COL32_WHITE, ease)
+        );
+    }
+    const ImU32 light = ui_colors::fade(ui().ink_deep, 0.45f * ease);
+    const ImU32 heavy = ui_colors::fade(ui().ink_deep, 0.82f * ease);
+    back->AddRectFilledMultiColor(a, b, light, light, heavy, heavy);
+    const float side = viewport->Size.x * 0.22f;
+    const ImU32 edge = ui_colors::fade(ui().ink_deep, 0.5f * ease);
+    const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
+    back->AddRectFilledMultiColor(a, ImVec2(a.x + side, b.y), edge, none, none, edge);
+    back->AddRectFilledMultiColor(ImVec2(b.x - side, a.y), b, none, edge, edge, none);
+}
+
 void menu_window(const Shown& shown) {
     const ImGuiIO& io = ImGui::GetIO();
     const bool was_out = s.menu_at > 0.0f;
@@ -490,20 +490,7 @@ void menu_window(const Shown& shown) {
     s.menu_row_height = 42.0f;
     const float ease = ease_out(s.menu_at);
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    {
-        // The game under it dimmed, more at the foot and the sides, so the window stands out of it.
-        ImDrawList* back = ImGui::GetBackgroundDrawList();
-        const ImVec2 a = viewport->Pos;
-        const ImVec2 b(a.x + viewport->Size.x, a.y + viewport->Size.y);
-        const ImU32 light = ui_colors::fade(ui().ink_deep, 0.45f * ease);
-        const ImU32 heavy = ui_colors::fade(ui().ink_deep, 0.82f * ease);
-        back->AddRectFilledMultiColor(a, b, light, light, heavy, heavy);
-        const float side = viewport->Size.x * 0.22f;
-        const ImU32 edge = ui_colors::fade(ui().ink_deep, 0.5f * ease);
-        const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
-        back->AddRectFilledMultiColor(a, ImVec2(a.x + side, b.y), edge, none, none, edge);
-        back->AddRectFilledMultiColor(ImVec2(b.x - side, a.y), b, none, edge, edge, none);
-    }
+    game_backdrop(viewport, shown, ease);
     version_corner(viewport, ease);
     hints(viewport, ease);
 
@@ -576,7 +563,6 @@ void menu_window(const Shown& shown) {
                                  ? ImGui::GetIO().Fonts->GetCustomRectByIndex(s.logo_rect)->Width
                                  : dp(120.0f);
         list->PushClipRectFullScreen();
-        bar_ground(list, bar_a, ImVec2(bar_a.x + viewport->Size.x, bar_a.y + bar), logo_w);
         list->PopClipRect();
         // The logo as on the launcher's desktop header: its mark in the accent, its name in the
         // text's colour.
@@ -699,12 +685,7 @@ void menu_window(const Shown& shown) {
         )) {
         ImDrawList* list = ImGui::GetWindowDrawList();
         const ImVec2 b(at.x + width, at.y + height);
-        // The launcher's panel: a shadow and its fill, no border.
-        // (Outside the window's own rectangle, so not clipped to its square corners.)
-        list->PushClipRectFullScreen();
-        // Many thin faint layers add up to a smooth edge.
-        soft_shadow(list, at, b, dp(12.0f), dp(24.0f), dp(8.0f), 24, 3.0f / 255.0f * ease);
-        list->PopClipRect();
+        // The launcher's panel, no border and no shadow (a shadow ringed it over the blur).
         // The launcher's panel, lit a little from above: the theme's coal with a glow of the
         // game's colour along its top (--glow), as the launcher's page under its bar.
         panel_fill(

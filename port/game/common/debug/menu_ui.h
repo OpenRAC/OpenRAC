@@ -120,6 +120,10 @@ float key_cap_height();
 // draws them only when `list` is set.
 float key_caps(ImDrawList* list, float x, float middle, std::string_view keys, float alpha);
 
+// The game under the menu blurred and dimmed (menu_window.cpp): the desktop window's and the
+// Android drawer's ground.
+void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease);
+
 // The make of the first controller connected, and a button's name as that make prints it
 // (A, Cross, LB, R1 ...).
 SDL_GamepadType pad_type();
