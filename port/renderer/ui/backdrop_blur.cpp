@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <memory>
 #include <string>
 
 #include "common/log.h"
@@ -64,7 +65,7 @@ struct State {
     bool failed = false;
 };
 
-State* s = nullptr;
+std::unique_ptr<State> s;
 
 bool fit(Target& t, int width, int height) {
     if (t.texture != 0 && t.width == width && t.height == height) {
@@ -116,7 +117,7 @@ Picture blur(int width, int height, int rows, float sigma) {
         return {};
     }
     if (s == nullptr) {
-        s = new State;
+        s = std::make_unique<State>();
         std::string error;
         if (!s->shader.build("Backdrop blur", kVertex, kFragment, error)) {
             log::error("The menu's blur is off: {}", error);
@@ -189,8 +190,7 @@ void release() {
         free_target(t);
     }
     free_target(s->across);
-    delete s;
-    s = nullptr;
+    s.reset();
 }
 
 }  // namespace openrac::renderer::ui::backdrop_blur
