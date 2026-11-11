@@ -49,5 +49,3 @@ runs:
         max-size: ${{ inputs.max-size }}
         restore: "false"
         save: "false"
-        # The runner's apt index can be stale: installing ccache then failed every Linux job.
-        update-package-index: "true"
