@@ -164,6 +164,16 @@ bool TexturePool::repeat_upload(const ImageUpload& upload) {
     return true;
 }
 
+// Match the page coverage used when resolving an address inside an uploaded rectangle.
+std::uint32_t ImageUpload::end_block() const {
+    const int bits = std::max(gs::bits_per_pixel(dpsm), 4);
+    const std::uint64_t line =
+        static_cast<std::uint64_t>(std::max<std::uint32_t>(dbw, 1)) * 64 * bits / 8;
+    const std::uint64_t bytes =
+        (static_cast<std::uint64_t>(y) + std::max<std::uint32_t>(height, 1)) * line;
+    return dbp + static_cast<std::uint32_t>((bytes + 8191) / 8192 * 32);
+}
+
 void TexturePool::upload(ImageUpload upload) {
     // The same transfer again (the 2D layer sends its pages every frame): only its order changes,
     // without hashing the bytes again.
@@ -177,10 +187,7 @@ void TexturePool::upload(ImageUpload upload) {
     stored.sequence = ++m_sequence;
     // The pages the rectangle's last row reaches, in its format's page size (a page is 32 blocks
     // whatever the format: 64 x 32 pixels of 32 bits, 64 x 64 of 16, 128 x 64 of 8, 128 x 128 of 4).
-    const int bits = std::max(gs::bits_per_pixel(upload.dpsm), 4);
-    const std::uint64_t line = static_cast<std::uint64_t>(std::max<std::uint32_t>(upload.dbw, 1)) * 64 * bits / 8;
-    const std::uint64_t bytes = (static_cast<std::uint64_t>(upload.y) + std::max<std::uint32_t>(upload.height, 1)) * line;
-    stored.end = upload.dbp + static_cast<std::uint32_t>((bytes + 8191) / 8192 * 32);
+    stored.end = upload.end_block();
     stored.upload = std::move(upload);
     const std::uint32_t dbp = stored.upload.dbp;
     m_uploads[dbp] = std::move(stored);

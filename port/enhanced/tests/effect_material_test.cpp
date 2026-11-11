@@ -188,6 +188,117 @@ void check_opaque_effects() {
     target.release();
 }
 
+// Moving opaque draws must preserve texture and palette transfers in the original sequence.
+void check_opaque_upload_order() {
+    struct UploadCase {
+        bool palette;
+        unsigned offset;
+        bool upload_on_opaque;
+    };
+
+    const std::array<UploadCase, 4> cases{
+        {{false, 0, false}, {false, 1, false}, {true, 0, false}, {false, 0, true}}
+    };
+    for (const auto& sample : cases) {
+        const auto draw = [&](bool split) {
+            renderer::FrameBuffer target;
+            renderer::TexturePool textures;
+            std::string error;
+            CHECK(target.create(16, 16, error));
+            renderer::RenderState state{textures, {target.id(), 16, 16}, {}};
+            renderer::EffectRenderer opaque("upload order opaque", renderer::EffectPart::Opaque);
+            renderer::EffectRenderer rest(
+                "upload order rest",
+                renderer::EffectPart::Rest,
+                renderer::Bucket::Particles,
+                nullptr,
+                split
+            );
+            CHECK(opaque.init(state, error));
+            CHECK(rest.init(state, error));
+            constexpr unsigned block = 0x100, palette = 0x180, independent = 0x400;
+            renderer::ImageUpload transfer{
+                sample.palette ? palette : block, 1, renderer::gs::kPsmct32, 0, 0, 64, 32, {}
+            };
+            transfer.data.resize(64 * 32 * 4);
+            for (std::size_t i = 0; i < transfer.data.size(); i += 4) {
+                transfer.data[i + 2] = 128;
+                transfer.data[i + 3] = 128;
+            }
+            textures.upload(transfer);
+            for (std::size_t i = 0; i < transfer.data.size(); i += 4) {
+                transfer.data[i] = 128;
+                transfer.data[i + 2] = 0;
+            }
+            if (sample.palette) {
+                textures.upload({block, 2, renderer::gs::kPsmt8, 0, 0, 1, 1, {0}});
+            }
+            textures.upload(
+                {independent, 1, renderer::gs::kPsmct32, 0, 0, 1, 1, {128, 128, 128, 128}}
+            );
+            std::uint64_t tex0 = block + sample.offset;
+            tex0 |= 1ull << 34;  // Include the texture's alpha.
+            if (sample.palette) {
+                tex0 |= std::uint64_t(renderer::gs::kPsmt8) << 20;
+                tex0 |= std::uint64_t(palette) << 37;
+            }
+            std::array<renderer::EffectVertex, 6> vertices{
+                {{4, 4, .5f, 0, 0, 0x40808080},
+                 {5, 4, .5f, 0, 0, 0x40808080},
+                 {4, 5, .5f, 0, 0, 0x40808080},
+                 {-1, -1, .5f, 0, 0, 0x80808080},
+                 {1, -1, .5f, 0, 0, 0x80808080},
+                 {-1, 1, .5f, 0, 0, 0x80808080}}
+            };
+            std::array<renderer::EffectStrip, 2> strips{};
+            strips[0].count = 3;
+            strips[0].tex0 = tex0;
+            strips[0].z_masked = true;
+            strips[1].first = 3;
+            strips[1].count = 3;
+            strips[1].tex0 = tex0;
+            strips[1].alpha = 0;  // Equal blend operands select source colour without blending.
+            strips[1].test = 0x50000;
+            strips[1].z_written = true;
+            if (sample.upload_on_opaque) {
+                // The upload changes an earlier consumer, even when its own draw samples elsewhere.
+                strips[1].tex0 = independent | (1ull << 34);
+                std::swap_ranges(vertices.begin(), vertices.begin() + 3, vertices.begin() + 3);
+            }
+            auto& uploader = strips[sample.upload_on_opaque ? 1 : 0];
+            uploader.uploads = 0;
+            uploader.upload_count = 1;
+            CHECK(renderer::opaque_effect_strip(strips[1], vertices));
+            const std::array uploads{transfer};
+            renderer::FrameInput input;
+            input.strip_vertices = vertices;
+            input.strips = strips;
+            input.effect_uploads = uploads;
+            input.opaque_effects = split;
+            glBindFramebuffer(GL_FRAMEBUFFER, target.id());
+            glViewport(0, 0, 16, 16);
+            glDisable(GL_SCISSOR_TEST);
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(GL_TRUE);
+            glClearColor(0, 0, 0, 0);
+            glClearDepth(0);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            if (split) {
+                opaque.render(input, state);
+            }
+            rest.render(input, state);
+            auto pixels = target.read_rgba();
+            CHECK(std::ranges::any_of(pixels, [](auto byte) { return byte != 0; }));
+            opaque.release();
+            rest.release();
+            target.release();
+            return pixels;
+        };
+        const auto reference = draw(false);
+        CHECK(draw(true) == reference);
+    }
+}
+
 // Compare the separable FFT against direct synthesis at an off-axis grid point.
 void check_ocean_fft(bool fine) {
     using namespace enhanced::water_detail;
@@ -351,10 +462,12 @@ int main(int argc, char** argv) {
     const std::string_view mode = argc == 2 ? argv[1] : "";
     if (mode == "--opaque-effects") {
         check_opaque_effects();
+        check_opaque_upload_order();
         return test::result();
     }
     if (mode.empty()) {
         check_opaque_effects();
+        check_opaque_upload_order();
     }
     if (mode == "--ocean-only" || mode == "--ocean-spectrum") {
         if (mode == "--ocean-spectrum") {

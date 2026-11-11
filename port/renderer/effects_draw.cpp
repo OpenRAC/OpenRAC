@@ -252,10 +252,9 @@ void EffectRenderer::draw_prepared(
     // Accepted strips retain authored draw and texture-upload order.
     for (const EffectStrip& strip : input.strips) {
         const bool draw_strip = draws(strip, input);
-        // A moved strip still updates the original page for later draws using that page.
         if (strip.count < 3
             || static_cast<std::size_t>(strip.first) + strip.count > input.strip_vertices.size()
-            || (!draw_strip && !keeps_strip_upload(strip, input))) {
+            || !draw_strip) {
             continue;
         }
 
@@ -276,9 +275,6 @@ void EffectRenderer::draw_prepared(
             }
         }
 
-        if (!draw_strip) {
-            continue;
-        }
         const auto mesh = material_meshes[strip_index];
         const auto count = strip_counts[strip_index++];
         const bool plain_strip = !mesh && strip.surface == 0 && !strip.uv_motion.enabled

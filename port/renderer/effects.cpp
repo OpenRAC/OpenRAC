@@ -96,6 +96,21 @@ bool opaque_effect(std::uint64_t alpha, std::uint64_t test, bool full_vertex_alp
                && ((b.c == 2 && b.fix == 0x80) || (b.c == 0 && full_vertex_alpha)));
 }
 
+// A draw can move earlier only when frame transfers leave its sampled pages unchanged.
+bool uses_frame_uploads(const gs::Tex0& texture, const FrameInput& input) {
+    // Content keys refer to RGBA textures placed before rendering, outside GS memory.
+    if (texture.tbp0 > 0x3FFF) {
+        return false;
+    }
+    return std::ranges::any_of(input.effect_uploads, [&](const ImageUpload& upload) {
+        const auto end = upload.end_block();
+        const auto covers = [&](std::uint32_t block) {
+            return upload.dbp <= block && block < end;
+        };
+        return covers(texture.tbp0) || (palette_entries(texture.psm) != 0 && covers(texture.cbp));
+    });
+}
+
 }  // namespace
 
 bool opaque_effect_strip(const EffectStrip& strip, std::span<const EffectVertex> vertices) {
@@ -126,8 +141,12 @@ bool opaque_effect_quad(const EffectQuad& quad) {
 }
 
 bool EffectRenderer::draws(const EffectStrip& strip, const FrameInput& input) const {
+    const bool uploads = strip.uploads >= 0 && strip.upload_count > 0;
     if (input.opaque_effects && (m_split_opaque || m_part == EffectPart::Opaque)
-        && opaque_effect_strip(strip, input.strip_vertices)) {
+        && opaque_effect_strip(strip, input.strip_vertices) && !uploads
+        && !uses_frame_uploads(gs::Tex0::decode(strip.tex0), input)) {
+        // Moving an upload changes earlier consumers too. Keep all transfers and their
+        // dependent draws in the original sequence, including interior blocks and palettes.
         return m_part == EffectPart::Opaque;
     }
     const bool liquid = liquid_pass_strip(strip);
@@ -149,27 +168,17 @@ bool EffectRenderer::draws(const EffectQuad& quad, const FrameInput& input) cons
         && opaque_effect_quad(quad) && offscreen_texture(quad.tex0, quad.tbp) == 0) {
         // Content keys are placed before rendering. Raw GS addresses must stay with the original
         // upload sequence if this frame can replace their texture or palette.
-        const auto tex = gs::Tex0::decode(quad.tex0);
+        auto tex = gs::Tex0::decode(quad.tex0);
         const auto pixels = quad.tbp != 0 ? quad.tbp : tex.tbp0;
-        const auto palette = quad.tbp != 0 ? quad.cbp : tex.cbp;
-        if (pixels > 0x3FFF
-            || (quad.uploads < 0
-                && std::ranges::none_of(
-                    input.effect_uploads,
-                    [&](const ImageUpload& upload) {
-                        return upload.dbp == pixels || upload.dbp == palette;
-                    }
-                ))) {
+        if (quad.tbp != 0) {
+            tex.tbp0 = quad.tbp;
+            tex.cbp = quad.cbp;
+        }
+        if (pixels > 0x3FFF || (quad.uploads < 0 && !uses_frame_uploads(tex, input))) {
             return m_part == EffectPart::Opaque;
         }
     }
     return m_part == EffectPart::All || m_part == EffectPart::Rest;
-}
-
-bool EffectRenderer::keeps_strip_upload(const EffectStrip& strip, const FrameInput& input) const {
-    return m_split_opaque && input.opaque_effects && strip.uploads >= 0 && strip.upload_count > 0
-           && (m_part == EffectPart::Liquids) == liquid_pass_strip(strip)
-           && opaque_effect_strip(strip, input.strip_vertices);
 }
 
 bool EffectRenderer::init(RenderState& state, std::string& error) {
@@ -389,7 +398,7 @@ void EffectRenderer::render(const FrameInput& input, RenderState& state) {
                            : m_part != EffectPart::Liquids && !input.effects.empty();
     bool any = quads;
     for (const EffectStrip& strip : input.strips) {
-        any = any || draws(strip, input) || keeps_strip_upload(strip, input);
+        any = any || draws(strip, input);
     }
     if (m_material) {
         const profiling::Zone prepare("Effects material prepare");

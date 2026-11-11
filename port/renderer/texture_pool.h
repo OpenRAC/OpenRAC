@@ -51,6 +51,9 @@ struct ImageUpload {
     std::uint32_t width = 0;
     std::uint32_t height = 0;
     std::vector<std::uint8_t> data;  // raster order, in dpsm
+
+    // Past the pages this transfer can replace, as TexturePool::upload_at resolves them.
+    std::uint32_t end_block() const;
 };
 
 // A converted texture, valid for the life of the pool (or until end_frame()

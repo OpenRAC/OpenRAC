@@ -197,7 +197,6 @@ private:
     // Whether this pass draws `strip` (m_part).
     bool draws(const EffectStrip& strip, const FrameInput& input) const;
     bool draws(const EffectQuad& quad, const FrameInput& input) const;
-    bool keeps_strip_upload(const EffectStrip& strip, const FrameInput& input) const;
 
     struct AppliedState {
         TextureHandle texture{};
