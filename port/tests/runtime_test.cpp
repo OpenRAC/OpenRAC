@@ -345,8 +345,9 @@ void level_data_in_the_executable() {
     static const openrac_fn_entry level_fns[] = {{0x001E0000u, fn, "prompt"}};
     openrac_guest_register(OPENRAC_OVERLAY_EXE, exe_fns, 1);
     openrac_guest_register(0, level_fns, 1);
-    openrac_guest_add_level_program(0, 0x001E0000u, reinterpret_cast<const std::uint8_t*>(level0),
-                                    sizeof level0);
+    openrac_guest_add_level_program(
+        0, 0x001E0000u, reinterpret_cast<const std::uint8_t*>(level0), sizeof level0
+    );
     openrac_guest_set_overlay(OPENRAC_OVERLAY_EXE);
     CHECK(OPENRAC_LDATA(0, 0x001B9E70u) == 0x001D5D70u);
     CHECK(OPENRAC_LDATA(0, 0x001B9F44u) == 0x001D5E44u);  // a field of it
