@@ -490,6 +490,12 @@ private:
     void record_shadow_atlas(
         unsigned scrolling, bool cache, bool discard, renderer::RenderState& state
     );
+    // Clears and draws only the atlas views of `views` (one bit each, the hero's after the sun's):
+    // one pass of a frame that keeps other cascades (shadow-far-alternate).
+    void record_shadow_atlas_views(unsigned views, bool discard, renderer::RenderState& state);
+    // Keeps the far cascades the last frame drew in place of this frame's while this frame's
+    // receivers fit inside them (shadow-far-alternate); sets m_kept_cascades.
+    void keep_far_cascades(bool level_bounds);
     // Restores the world target and releases attachment contents no lighting pass samples.
     void finish_shadow_atlas(bool discard, const renderer::RenderState& state);
     // Finishes unused attachment cleanup and publishes counters after every deferred shadow producer.
@@ -836,6 +842,19 @@ private:
     std::optional<bool> m_hero_logged_airborne;
     std::array<std::unique_ptr<renderer::FrameBuffer>, kSunCascades> m_sun_maps;
     SunCascades m_sun_cascades;
+
+    // shadow-far-alternate: the far cascades as the atlas last drew them, and what they were drawn
+    // for. A frame after one that drew a cascade keeps it while its receivers fit inside it.
+    struct DrawnCascades {
+        SunCascades cascades;
+        unsigned fresh = 0;  // the cascades the last frame drew, one bit each
+        bool separate_hero = false;
+        std::uint64_t generation = 0;
+        int atlas_size = 0;
+    };
+
+    DrawnCascades m_drawn_cascades;
+    unsigned m_kept_cascades = 0;  // the cascades this frame keeps from the last, one bit each
     renderer::Camera m_sun_camera;        // View whose splits produced the current shadow maps.
     bool m_culling_lines_failed = false;  // Retry failed diagnostic shaders after scene release.
     std::unique_ptr<renderer::DebugLines>

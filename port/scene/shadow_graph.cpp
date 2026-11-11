@@ -104,7 +104,9 @@ Result<void> shadow_depth_pass(
             return unexpected(depth.error());
         }
 
-        execution.add_pass(depth_write(std::string(name), *depth, clear));
+        auto write = depth_write(std::string(name), *depth, clear);
+        write.separate = contents == ShadowDepthContents::PreserveSeparate;
+        execution.add_pass(std::move(write));
         execution.add_pass(
             {std::string(name) + " consumers",
              {{*depth, {graph::Aspect::Depth}, consumer_state(consumer)}},

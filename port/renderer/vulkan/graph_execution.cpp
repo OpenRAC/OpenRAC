@@ -328,7 +328,8 @@ void GraphExecution::Recording::enter(const graph::PlannedPass& pass) {
                && (image.get() == g->rendering_target.colour
                    || image.get() == g->rendering_target.depth);
     };
-    if (std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
+    // A separate pass starts a render pass of its own: its area is only what it touches.
+    if (!pass.separate && std::all_of(pass.barriers.begin(), pass.barriers.end(), continues)) {
         return;
     }
     end_rendering();

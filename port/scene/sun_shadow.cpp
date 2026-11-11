@@ -123,9 +123,36 @@ SunCascades::CasterVolume caster_volume(
         plane[3] = -(x * a[0] + y * a[1]) / length + margin;
     }
     result.plane_count = count;
+    result.margin = margin;
     return result;
 }
 }  // namespace
+
+bool receivers_inside(
+    const std::array<renderer::Vec3, 8>& corners,
+    const SunCascades::CasterVolume& volume,
+    const renderer::Mat4& matrix
+) {
+    if (volume.plane_count == 0) {
+        return false;
+    }
+    // The margin in the map's units: its x row's length is one over its radius.
+    const float scale = std::hypot(matrix[0], matrix[4], matrix[8]);
+    const float edge = 1 - volume.margin * scale;
+    for (const auto& p : corners) {
+        const auto ndc = renderer::transform_point(matrix, p);
+        if (!(std::abs(ndc[0]) <= edge && std::abs(ndc[1]) <= edge)) {
+            return false;
+        }
+        for (unsigned i = 0; i < volume.plane_count; ++i) {
+            const auto& plane = volume.planes[i];
+            if (plane[0] * p[0] + plane[1] * p[1] + plane[2] * p[2] + plane[3] < volume.margin) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 
 SunCascades sun_cascades(
     const renderer::Camera& camera,
@@ -133,7 +160,8 @@ SunCascades sun_cascades(
     renderer::Vec3 low,
     renderer::Vec3 high,
     float distance,
-    renderer::ShadowQuality quality
+    renderer::ShadowQuality quality,
+    float far_slack
 ) {
     using namespace renderer;
     if (!std::isfinite(distance) || distance <= 1 || !std::isfinite(dot(direction, direction))
@@ -195,7 +223,11 @@ SunCascades sun_cascades(
         const float texel = 2 * radius / resolution;
         // PCF reaches two texels on each axis, or sqrt(8) diagonally. The normal
         // offset adds up to one more texel (at least 0.025 world units).
-        result.casters[i] = caster_volume(corners, basis, 4 * texel + 0.05f);
+        const float margin = 4 * texel + 0.05f;
+        result.casters[i] =
+            caster_volume(corners, basis, margin + (i >= 1 ? far_slack * radius : 0.f));
+        result.casters[i].margin = margin;
+        result.corners[i] = corners;
         for (int k = 0; k < 2; ++k) {
             light_centre[k] = std::round(light_centre[k] / texel) * texel;
         }

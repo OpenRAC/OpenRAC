@@ -95,6 +95,7 @@ before and after, and how its frames are shown to be the same.
 | `gl-state-warmup` | on | none (exact) | OpenGL: saves each draw state per driver and draws it once into a private target at level load, so driver recompiles happen there ([OpenGL's states behind the loading screen](#opengls-states-behind-the-loading-screen)). |
 | `opaque-depth-gequal` | on | none (exact) | Opaque colour over the reused prepass depth tests GEQUAL instead of EQUAL. Every surface it draws is in the prepass, so the same fragments pass; Adreno keeps its low-resolution Z (LRZ) on for GEQUAL without depth writes and turns it off for EQUAL ([opaque-depth-gequal](#opaque-depth-gequal-lrz-over-the-reused-depth)). |
 | `vertex-position-stream` | on | none (exact) | A level's vertex positions sit in a tight buffer of their own, 12 bytes a vertex instead of 72. Shadow, depth and velocity passes, and a tile GPU's binning, read positions only ([vertex-position-stream](#vertex-position-stream-a-tight-buffer-for-positions)). |
+| `shadow-far-alternate` | on | 25% of pixels, any value (measured: see the section) | The sun's cascades 1 to 3 are drawn every other frame, 1 in turn with 2 and 3, while this frame's receivers fit the cascade as it was drawn. A kept cascade is sampled with the matrix it was drawn with ([shadow-far-alternate](#shadow-far-alternate-far-cascades-every-other-frame)). |
 
 Its tests are `render_opt` (the table, and the parsing of the variable: a name, a list, `all`, an
 unknown name kept apart; it runs in the headless preset too) and `render_opt_environment` (the
@@ -2087,3 +2088,33 @@ With the entry on, the level upload writes the positions a second time into a ti
 attribute 0 reads from it. The other attributes stay where they were. The values are the same
 floats, so the picture is the same; the cost is 12 bytes of memory a vertex. The Graphics sweep has
 a step with the entry off.
+
+## shadow-far-alternate: far cascades every other frame
+
+The sun has four cascades. The nearest and Ratchet's map are drawn every frame. Cascades 1 to 3
+cover far ground where a shadow moves little between two frames, yet they are most of the atlas's
+vertex work. With the entry on, a frame keeps cascades 2 and 3 as the last frame drew them, and the
+next frame keeps cascade 1, so each frame draws about half of the far work. Insomniac's own engine,
+Cyberpunk 2077 and Unreal update far cascades at a lower rate for the same reason.
+
+A cascade is kept only when it is safe:
+
+- The last frame drew it into the atlas (never kept two frames running).
+- Every corner of this frame's slice lies inside the cascade as drawn, by the filter's margin. The
+  far cascades' caster volumes reach 1/16 of their radius further (`kFarCascadeSlack`) so that a
+  walking or turning camera still fits; a fast turn does not, and then the cascade is drawn.
+- The static layers, the hero's map and the atlas are what they were.
+- The static shadow cache and the scrolling caches are off (they fill the atlas their own way).
+
+A kept cascade is sampled with the matrix it was drawn with, so its shadows stay where they were
+drawn. What changes: a moving object's shadow in cascades 1 to 3 is one frame late.
+
+The atlas holds the nearest cascade and the hero's map at the top and cascades 1 to 3 in a row
+below. A frame that keeps some draws two passes, each cleared with a scissor first and covering only
+its own rectangles: on a tile GPU the kept rectangles are neither loaded nor stored. The
+`shadow_far_kept` gauge counts the kept cascades; the Graphics sweep has a step with the entry off.
+
+Measured on Novalis in the cloud container (software Vulkan, 480x270), walking: 4.3 million shadow
+triangles a frame with the entry off, 3.6 and 2.5 million in turn with it on; 47 MB of attachments
+stored a frame against 37 MB on average. The picture differs on 2 to 3% of the pixels, by at most
+12 of 255.

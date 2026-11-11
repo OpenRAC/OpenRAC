@@ -221,7 +221,7 @@ Result<Plan> Graph::compile(DeclarationRetention retention) const {
         }
 
         exporting = pass.kind == PassKind::Export;
-        plan.passes.push_back({pass.name, pass.kind, {}});
+        plan.passes.push_back({pass.name, pass.kind, {}, pass.separate});
 
         // Lifetimes include exports, since external consumers require the allocation to survive.
         for (const auto& use : (*uses)[index]) {

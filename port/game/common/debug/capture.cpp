@@ -147,6 +147,9 @@ constexpr SweepStep kSweep[] = {
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
     {"enhanced, every effect off", effects_off},
     {"handheld preset", [](settings::Settings& g) { g.apply_handheld_enhanced(); }},
+    {"as set, far sun cascades every frame (shadow-far-alternate off)",
+     [](settings::Settings&) {},
+     renderer::render_opt::Opt::ShadowFarAlternate},
     {"as set (again)", [](settings::Settings&) {}},
 };
 constexpr int kSweepSteps = static_cast<int>(std::size(kSweep));

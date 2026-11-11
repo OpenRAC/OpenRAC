@@ -649,6 +649,8 @@ void LevelScene::release() {
         release_target(map);
     }
     m_sun_enabled = m_sun_ready = false;
+    m_drawn_cascades = {};
+    m_kept_cascades = 0;
     glDeleteVertexArrays(1, &m_shadow_compact.vao);
     glDeleteBuffers(1, &m_shadow_compact.instances);
     m_shadow_compact = {};

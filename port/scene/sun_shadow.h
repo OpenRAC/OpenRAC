@@ -25,23 +25,43 @@ struct SunCascades {
         // Empty: a degenerate/unusual projection; retain square-map culling.
         std::array<std::array<float, 4>, 6> planes{};
         unsigned plane_count = 0;
+        float margin = 0;  // How far outside the receiver footprint its casters are needed.
     };
 
     std::array<renderer::Mat4, kSunCascades> matrices{};
     std::array<CasterVolume, kSunCascades> casters{};
+    // The world corners of each cascade's receiver slice, which its caster volume encloses.
+    std::array<std::array<renderer::Vec3, 8>, kSunCascades> corners{};
     std::array<float, kSunCascades> ends{};
     float near_distance = 0.1f;
 };
 
+// The share of a cascade's radius (cascades 1 to 3) by which its caster volume reaches past
+// the margin its receivers need, when the far cascades may be kept for a frame
+// (shadow-far-alternate): the next frame's receivers may move that far and still find their
+// casters.
+inline constexpr float kFarCascadeSlack = 0.0625f;
+
 // Rigid camera view, arbitrary invertible perspective/orthographic projection.
-// Caster bounds extend depth independently of the camera frustum.
+// Caster bounds extend depth independently of the camera frustum. `far_slack` widens the caster
+// volumes of cascades 1 to 3 by that share of their radius.
 SunCascades sun_cascades(
     const renderer::Camera& camera,
     renderer::Vec3 direction,
     renderer::Vec3 caster_low,
     renderer::Vec3 caster_high,
     float distance = 256,
-    renderer::ShadowQuality quality = renderer::ShadowQuality::High
+    renderer::ShadowQuality quality = renderer::ShadowQuality::High,
+    float far_slack = 0
+);
+
+// Returns whether every point of `corners` has the casters it needs in a cascade drawn with
+// `matrix` for `volume`: inside the volume by its margin, and that far inside the map's square.
+// An empty volume holds nothing.
+bool receivers_inside(
+    const std::array<renderer::Vec3, 8>& corners,
+    const SunCascades::CasterVolume& volume,
+    const renderer::Mat4& matrix
 );
 
 // What a sun cascade's static casters (terrain, ties, shrubs) in the static shadow cache were

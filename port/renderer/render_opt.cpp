@@ -210,6 +210,9 @@ constexpr std::array<Entry, kOptCount> kEntries = {{
     {Opt::VertexPositionStream, "vertex-position-stream",
      "a level's vertex positions are read from a tight buffer of their own, 12 bytes a vertex instead of 72",
      true, Tolerance{}},
+    {Opt::ShadowFarAlternate, "shadow-far-alternate",
+     "the sun's cascades 1 to 3 are drawn every other frame, 1 and the far two in turn, while their receivers fit",
+     true, Tolerance{0.25, 255}},
 }};
 // clang-format on
 

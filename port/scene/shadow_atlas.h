@@ -11,13 +11,16 @@
 
 namespace openrac::scene {
 inline constexpr int kShadowAtlasSize = 3072;
-// x, y, width, height; four sun cascades followed by the hero view.
+// x, y, width, height; four sun cascades followed by the hero view. The nearest cascade and the
+// hero's map, drawn every frame, share the top; cascades 1 to 3 sit in a row below, so that a frame
+// that keeps some of them (shadow-far-alternate) draws the others in a pass that covers only their
+// own rectangles and neither loads nor stores the kept ones.
 inline constexpr std::array<std::array<int, 4>, 5> kShadowAtlasRects{
     {{0, 0, 2048, 2048},
-     {2048, 0, 1024, 1024},
-     {2048, 1024, 1024, 1024},
      {0, 2048, 1024, 1024},
-     {1024, 2048, 512, 512}}
+     {1024, 2048, 1024, 1024},
+     {2048, 2048, 1024, 1024},
+     {2048, 0, 512, 512}}
 };
 
 struct ShadowAtlasLayout {
