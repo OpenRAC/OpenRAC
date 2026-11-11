@@ -97,6 +97,7 @@ void GifInterpreter::clear() {
     m_hud_side = 0;
     m_hud_stretch = false;
     m_whole = false;
+    m_picture = false;
     m_error.clear();
 }
 
@@ -349,6 +350,9 @@ void GifInterpreter::write_register(std::uint8_t address, std::uint64_t value) {
                 hud_side(static_cast<std::int32_t>(value & 0xFFFFFFFFu), (value & kHudStretch) != 0);
             } else if ((value >> 48) == kWholeMarker) {
                 m_whole = (value & 1u) != 0;
+                m_state_dirty = true;
+            } else if ((value >> 48) == kPictureMarker) {
+                m_picture = (value & 1u) != 0;
                 m_state_dirty = true;
             } else if ((value >> 48) == kMobyMarker && offscreen_target() != 0) {
                 DirectDraw d;
@@ -1222,6 +1226,7 @@ void GifInterpreter::ensure_draw() {
         DirectState s;
         s.textured = p.tme;
         s.whole = m_whole;
+        s.picture = m_picture;
         int frame_x = 0;
         int frame_y = 0;
         s.target = offscreen_target();
@@ -1364,8 +1369,9 @@ bool GifInterpreter::covers_no_pixel(std::initializer_list<const GsVertex*> corn
     // frontend::hud_side): an element the game slides off its edge goes past that edge as it went
     // past the television's, and the part of a pixel the target has beyond it shows no more of it.
     const std::int64_t width = 2 * (2048 - ofx / 16);
-    if (m_wide_2d && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f && offscreen_target() == 0
-        && width >= 64 && width <= 1024 && sx0 <= 0 && sx1 + 1 >= width) {
+    if (m_wide_2d && !m_picture && m_picture_scale_x > 0.0f && m_picture_scale_x < 1.0f
+        && offscreen_target() == 0 && width >= 64 && width <= 1024 && sx0 <= 0
+        && sx1 + 1 >= width) {
         const auto extra = static_cast<std::int64_t>(
             (1.0f / m_picture_scale_x - 1.0f) * 0.5f * static_cast<float>(width));
         sx0 -= extra;
@@ -2010,7 +2016,7 @@ void DirectRenderer::apply(const DirectState& s, RenderState& render_state) {
         x1 = static_cast<GLint>(std::ceil(middle + (static_cast<float>(s.scissor.x1 + 1) * sx - middle) * k));
         // The HUD at the target's sides (RenderTarget::wide_2d): the television's whole width is
         // the target's whole width.
-        if (render_state.target.wide_2d && s.scissor.x0 <= 0
+        if (render_state.target.wide_2d && !s.picture && s.scissor.x0 <= 0
             && s.scissor.x1 + 1 >= static_cast<int>(m_config.screen_width)) {
             x0 = 0;
             x1 = target_width;
