@@ -505,9 +505,6 @@ void step_value(int row, int by) {
 namespace page {
 
 constexpr gaddr kRowBytes = 0x14;
-// The pad's buttons as the game's menus test them (the pad's two bytes the other way round).
-constexpr std::uint32_t kPadLeft = 0x8000;
-constexpr std::uint32_t kPadRight = 0x2000;
 
 // The port's text ids: past the game's last (its table's ids are under 0x7000).
 constexpr int kTextFirst = 0x7E00;
@@ -613,9 +610,10 @@ bool update(const openrac_front_end& fe) {
     const gaddr page = GREF(std::uint32_t, fe.page_menu + 4);
     if (page == fe.video_page && GREF(std::uint32_t, page + 0x40) == fe.video_list
         && GREF(std::int32_t, fe.video_list + 0x3C) == 0) {
-        const std::uint32_t pad = GREF(std::uint32_t, fe.pad + 0x1C4);
-        if ((pad & (kPadLeft | kPadRight)) != 0) {
-            step_value(n.top + cursor, (pad & kPadRight) != 0 ? 1 : -1);
+        // Not the stick pushed up or down onto a row, which the game also makes Left or Right.
+        const RowPress press = row_press(fe.pad);
+        if (press == RowPress::Left || press == RowPress::Right) {
+            step_value(n.top + cursor, press == RowPress::Right ? 1 : -1);
             changed = true;
         }
     }
@@ -956,20 +954,29 @@ bool update(gaddr page_menu, gaddr pad) {
     // The port's Video page.
     page::build();
     bool changed = false;
+    // The widget steps its int on Cross and on the game's Left and Right, the stick's too: only
+    // what the player pressed counts, not the stick pushed up or down onto a row (row_press).
+    const RowPress press = row_press(pad);
+    bool stepped = false;
     for (int i = 0; i < kShownHere; ++i) {
         std::int32_t& v = GREF(std::int32_t, m.values + 4 * static_cast<gaddr>(i));
         if (v != 1) {
-            step_value(m.top + i, v > 1 ? 1 : -1);
+            if (press != RowPress::None) {
+                const int by = press == RowPress::Left    ? -1
+                               : press == RowPress::Right ? 1
+                                                          : (v > 1 ? 1 : -1);
+                step_value(m.top + i, by);
+                changed = true;
+                stepped = true;
+            }
             v = 1;
-            changed = true;
         }
     }
     std::int32_t& cursor = GREF(std::int32_t, m.list + 0x38);
     cursor = std::clamp(cursor, 0, kShownHere - 1);
-    // Left and Right step the setting too (the widget itself steps on Cross).
-    const std::uint32_t pressed = GREF(std::uint32_t, pad + 0x1C4);
-    if ((pressed & (page::kPadLeft | page::kPadRight)) != 0) {
-        step_value(m.top + cursor, (pressed & page::kPadRight) != 0 ? 1 : -1);
+    // Left and Right step the setting too, when the widget did not.
+    if (!stepped && (press == RowPress::Left || press == RowPress::Right)) {
+        step_value(m.top + cursor, press == RowPress::Right ? 1 : -1);
         changed = true;
     }
     if (cursor == kShownHere - 1 && m.top + kShownHere < row_count()) {
@@ -1059,6 +1066,15 @@ bool update(int loaded_overlay) {
 
 std::uint32_t text(int id) {
     return front_end() != nullptr ? page::text(id) : 0;
+}
+
+RowPress row_press(std::uint32_t pad) {
+    return row_press(
+        GREF(std::uint32_t, pad + 0x1B4),
+        GREF(std::uint32_t, pad + 0x1C4),
+        GREF(float, pad + 0x108),
+        GREF(float, pad + 0x10C)
+    );
 }
 
 PauseRows pause_rows(int index) {

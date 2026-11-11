@@ -1457,10 +1457,6 @@ static_assert(kTextFirst + kTexts <= kItemText && kItemText + kAllTexts <= 0x7D8
 constexpr gaddr kCursorAt = 0x38;
 constexpr gaddr kRowBytes = 0x18;
 constexpr std::int32_t kAtRest = 1;
-// The pad's pressed buttons as the game's menus test them (its +0x1C4, the two bytes swapped).
-constexpr gaddr kPadPressed = 0x1C4;
-constexpr std::uint32_t kPadLeft = 0x8000;
-constexpr std::uint32_t kPadRight = 0x2000;
 
 struct State {
     gaddr texts = 0;
@@ -1594,8 +1590,13 @@ void input(const openrac_front_end& fe, const options_menu::PauseRows& rows) {
     const int count = p.asking ? 2 : static_cast<int>(page->items.size());
     std::int32_t& cursor = GREF(std::int32_t, rows.list + kCursorAt);
     cursor = std::clamp(cursor, 0, std::max(std::min(count - p.top, kRows) - 1, 0));
+    // What the player pressed: the widget also steps a row on the stick pushed up or down onto it,
+    // which the game makes Left or Right too (options_menu::row_press). Only Cross answers a
+    // question or chooses a button; Left steps a choice back.
+    using options_menu::RowPress;
+    const RowPress press = options_menu::row_press(fe.pad);
     if (p.asking) {
-        if (crossed >= 0 || (taken & kTriangle) != 0) {
+        if ((crossed >= 0 && press == RowPress::Cross) || (taken & kTriangle) != 0) {
             answer(crossed == 0 && (taken & kTriangle) == 0);
             p.top = 0;
             cursor = 0;
@@ -1603,16 +1604,16 @@ void input(const openrac_front_end& fe, const options_menu::PauseRows& rows) {
         return;
     }
     const int at = p.top + cursor;
-    const std::uint32_t pressed = GREF(std::uint32_t, fe.pad + kPadPressed);
-    if (crossed >= 0 && crossed < count) {
+    const int by = press == RowPress::Left ? -1 : 1;
+    if (crossed >= 0 && crossed < count && press != RowPress::None) {
         const mods::UiItem& item = page->items[static_cast<std::size_t>(crossed)];
-        if (item.kind == OPENRAC_UI_BUTTON && (item.flags & OPENRAC_UI_DISABLED) == 0) {
+        if (item.kind != OPENRAC_UI_BUTTON) {
+            step(*page, crossed, by);
+        } else if (press == RowPress::Cross && (item.flags & OPENRAC_UI_DISABLED) == 0) {
             tell(OPENRAC_UI_CHOOSE, crossed);
-        } else {
-            step(*page, crossed, 1);
         }
-    } else if ((pressed & (kPadLeft | kPadRight)) != 0 && at < count) {
-        step(*page, at, (pressed & kPadRight) != 0 ? 1 : -1);
+    } else if (crossed < 0 && (press == RowPress::Left || press == RowPress::Right) && at < count) {
+        step(*page, at, by);
     }
     if ((taken & kTriangle) != 0) {
         tell(OPENRAC_UI_BACK);

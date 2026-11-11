@@ -7,6 +7,7 @@
 // program describes its front end (game_host.h, openrac_front_end): Ratchet & Clank, every disc.
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 
@@ -66,6 +67,33 @@ struct PauseRows {
 
 constexpr int kPauseRowsShown = 5;
 PauseRows pause_rows(int index);
+
+// What a row of the options pages is pressed with this tick: Cross, Left or Right, or nothing.
+// The game's pad reading makes the left stick a direction as soon as it leans a third of the way,
+// sideways or not (games/rac1 src/game/system/pad.c), so the stick pushed down onto a row a little
+// off straight is Left or Right as well: a direction counts from the d-pad, and from the stick only
+// while it leans more sideways than up or down.
+enum class RowPress { None, Cross, Left, Right };
+
+// The pad's words and stick as the game keeps them (PadState): `raw` the buttons newly down
+// without the stick's directions (+0x1B4), `all` with them (+0x1C4), `x` and `y` the left stick
+// (+0x108, +0x10C).
+inline RowPress row_press(std::uint32_t raw, std::uint32_t all, float x, float y) {
+    constexpr std::uint32_t kCross = 0x0040, kRight = 0x2000, kLeft = 0x8000;
+    if (((raw | all) & kCross) != 0) {
+        return RowPress::Cross;
+    }
+    if ((raw & (kLeft | kRight)) != 0) {
+        return (raw & kRight) != 0 ? RowPress::Right : RowPress::Left;
+    }
+    if ((all & (kLeft | kRight)) != 0 && std::fabs(x) > std::fabs(y)) {
+        return (all & kRight) != 0 ? RowPress::Right : RowPress::Left;
+    }
+    return RowPress::None;
+}
+
+// The same for the first pad, its PadState at `pad` (openrac_front_end.pad).
+RowPress row_press(std::uint32_t pad);
 // Drops guest-memory addresses cached by the port's Video pages. A restored snapshot can replace
 // the guest allocations and level program those addresses referred to.
 void savestate_restored();
