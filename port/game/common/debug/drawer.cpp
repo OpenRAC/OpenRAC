@@ -7,6 +7,7 @@
 // pad's layout is edited.
 
 #include <algorithm>
+#include <cfloat>
 #include <cmath>
 #include <format>
 #include <imgui.h>
@@ -208,7 +209,8 @@ void drawer(const Shown& shown) {
     ImGui::GetBackgroundDrawList()->AddRectFilled(
         viewport->Pos,
         ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y),
-        ui_colors::fade(ui().ink_deep, 0.6f * ease)
+        // Light, as a side sheet's scrim: the game stays clear enough to judge a setting by.
+        ui_colors::fade(ui().ink_deep, 0.35f * ease)
     );
     // A tap right of the drawer or B closes it. With the controller panel open, B closes the panel
     // first and taps go to the panel.
@@ -285,17 +287,54 @@ void drawer(const Shown& shown) {
                 ui().amber,
                 ui().text
             );
-            const char* state = s.keep_paused ? "Paused" : "Paused while open";
-            const ImVec2 state_size = ImGui::CalcTextSize(state);
-            const ImVec2 pill_b(
-                bottom.x - dp(16.0f), top.y + header * 0.5f + state_size.y * 0.5f + dp(4.0f)
-            );
-            const ImVec2 pill_a(
-                pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
-            );
-            // A badge, as the launcher's: on the darkest black, soft text, 6 px corners, no edge.
-            front->AddRectFilled(pill_a, pill_b, ui().ink_deep, dp(6.0f));
-            front->AddText(ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)), ui().soft, state);
+            // Once Resume has scrolled away, the badge becomes it: the way back to the game
+            // stays one tap away however far down the rows are.
+            const float resume =
+                std::clamp((ImGui::GetScrollY() - dp(30.0f)) / dp(24.0f), 0.0f, 1.0f);
+            if (resume < 1.0f) {
+                const char* state = s.keep_paused ? "Paused" : "Paused while open";
+                const ImVec2 state_size = ImGui::CalcTextSize(state);
+                const ImVec2 pill_b(
+                    bottom.x - dp(16.0f), top.y + header * 0.5f + state_size.y * 0.5f + dp(4.0f)
+                );
+                const ImVec2 pill_a(
+                    pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
+                );
+                // A badge, as the launcher's: on the darkest black, soft text, 6 px corners.
+                const float shown_badge = 1.0f - resume;
+                front->AddRectFilled(
+                    pill_a, pill_b, ui_colors::fade(ui().ink_deep, shown_badge), dp(6.0f)
+                );
+                front->AddText(
+                    ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)),
+                    ui_colors::fade(ui().soft, shown_badge),
+                    state
+                );
+            }
+            if (resume > 0.0f) {
+                ImFont* font = menu_fonts.strong;
+                const char* label = "Resume";
+                const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
+                const ImVec2 pill_b(bottom.x - dp(12.0f), top.y + header * 0.5f + dp(18.0f));
+                const ImVec2 pill_a(pill_b.x - size.x - dp(36.0f), pill_b.y - dp(36.0f));
+                front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
+                front->AddText(
+                    font,
+                    font->FontSize,
+                    ImVec2(pill_a.x + dp(18.0f), (pill_a.y + pill_b.y - size.y) * 0.5f),
+                    ui_colors::fade(ui().bar_ink, resume),
+                    label
+                );
+                // A tap on it (not the end of a drag) resumes; the pill is 36 dp tall, its tap
+                // area the header's full height.
+                const ImVec2 at = io.MouseClickedPos[0];
+                if (resume >= 1.0f && s.menu_open && ImGui::IsMouseReleased(0)
+                    && !s.menu_scroll.dragged && at.x >= pill_a.x - dp(6.0f) && at.x <= bottom.x
+                    && at.y >= top.y && at.y <= bottom.y) {
+                    menu_sound(MenuSound::Confirm);
+                    set_menu(false);
+                }
+            }
         }
 
         if (menu_button("Resume")) {
