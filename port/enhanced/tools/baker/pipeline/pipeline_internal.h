@@ -35,7 +35,7 @@ struct Options {
         ProbeTextureFormat::Automatic;  // Resolved once per process.
     unsigned rays = 0;                  // Zero retains the tracked profile's transport setting.
     int bounces = -1;      // Negative retains the profile; zero is a valid direct-only bake.
-    bool lz4_assets = false;  // Lossless file storage for published GI and reflections.
+    bool lz4_assets = false;  // Resolved from codec availability by arguments().
     bool update = false;   // Existing output roots require explicit cache mode.
     bool dry_run = false;  // Validate and list without creating or changing files.
 };
