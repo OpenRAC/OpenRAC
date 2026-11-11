@@ -61,7 +61,7 @@ graphics is on, because the sweep measures its parts.
 - It runs 108 seconds and changes one setting every 4 seconds. Stand still the whole time.
 - VSync is off, so each step shows the device's real time, not a step of the display's rate.
 - Steps: Enhanced off; render scale 50%; probe lighting off; the blended passes left out or
-  without probe light; scenery detail Original; each `render_opt` speed-up switched off on its
+  without probe light; draw distance Original; each `render_opt` speed-up switched off on its
   own; temporal off and Performance; each effect off; every effect off; the cheap steps (shadow
   filtering Fast, occlusion Low); the presets High, Medium and Low.
 - The report gives each step's time a picture and GPU time. The first 1.5 s of a step are left
