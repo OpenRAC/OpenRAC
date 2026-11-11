@@ -435,6 +435,14 @@ struct Vendor_OpenMenu {
     using fn = void (*)(uint32_t);
 };
 
+// Unspent gold bolts available for purchases; retail subtracts four per purchased gold weapon. Mods may separate purchases from gold weapon ownership.
+struct GoldBolts_CountUnspent {
+    static constexpr const char* id = "rac1.gold_bolt.count_unspent";
+    static constexpr const char* name = "GoldBolts_CountUnspent";
+    static constexpr const char* signature = "i32()";
+    using fn = int32_t (*)();
+};
+
 // The update of class 1750, each tick; it gets no moby. Experimental: from the behaviour catalogue.
 struct Moby_Class1750_Update {
     static constexpr const char* id = "rac1.moby.class_1750.update";
@@ -5546,6 +5554,7 @@ namespace hooks {
     }  // namespace combat
     namespace gold_bolt {
         using count_collected = rac1::GoldBolts_CountCollected;
+        using count_unspent = rac1::GoldBolts_CountUnspent;
     }  // namespace gold_bolt
     namespace help {
         using request = rac1::Help_Request;
