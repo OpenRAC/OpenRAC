@@ -67,8 +67,7 @@ std::string Water::fragment_source() const {
     if (m_ocean_spectra[0]) {
         source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n#define OPENRAC_OCEAN_FINE 1\n");
     }
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
         source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
         return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
     }
@@ -88,8 +87,7 @@ std::string Water::vertex_source() const {
     if (m_ocean_spectra[0]) {
         source.insert(0, "#define OPENRAC_OCEAN_SPECTRUM 1\n");
     }
-    if (renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-        && renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
+    if (renderer::render_opt::enabled(renderer::render_opt::Opt::WaterLocalShader)) {
         source.insert(0, "#define OPENRAC_WATER_LOCAL 1\n");
         return renderer::shader_constants(std::move(source), {{"water_sim_local", 1}});
     }

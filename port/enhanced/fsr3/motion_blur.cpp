@@ -115,9 +115,7 @@ void MotionBlur::extract_velocity(const Passes& passes) {
     const auto intensity = passes.intensity, milliseconds = frame.milliseconds;
 
     const stats::Scope extract_scope("Motion blur velocity", stats::kGpu);
-    const auto& extract = renderer::render_opt::enabled(renderer::render_opt::Opt::ShaderVariants)
-                              ? m_extract_variants[camera_relative ? 1 : 0]
-                              : m_extract;
+    const auto& extract = m_extract_variants[camera_relative ? 1 : 0];
     extract.use();
     bind(0, motion);
     bind(1, depth);

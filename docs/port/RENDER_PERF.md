@@ -59,7 +59,6 @@ before and after, and how its frames are shown to be the same.
 | `static-buffers-force-staging` | off | none (exact) | With the entry above, fills that memory by a staging copy even where device memory is mappable, so the tests take that path on every machine ([R-05](#r-05-static-buffers-in-device-memory)). |
 | `texture-prepare` | on | none (exact) | A level's textures are created, uploaded and mipped at its load (`LevelScene::upload`), not by the first draw that uses them ([R-13](#r-13-a-levels-textures-made-at-its-load)). |
 | `vk-draw-cache` | on | none (exact) | The Vulkan draw finds its pipeline by a hashed fixed key and its descriptor set through arrays kept for their capacity, with no heap allocation ([R-04](#r-04-an-allocation-free-draw)). |
-| `attachment-discard` | on | none (exact) | A Vulkan pass neither stores an attachment `glInvalidateFramebuffer` let go nor has the next pass load it ([R-06](#r-06-attachments-a-pass-does-not-keep)). |
 | `gpu-resident-instances` | on | none (exact) | Static instances are registered in device memory at the level's upload; a view's GPU-driven batch of them sends only its planes, PVS and a group record ([R-15](#r-15-static-instances-resident-on-the-gpu)). |
 | `camera-visibility-reuse` | on | two pixels per 1280x720, maximum channel delta 41 | Depth and colour share GPU visibility while the view, instances and recording remain unchanged. |
 | `shadow-static-cache` | off | none (exact) | A sun cascade's static casters are kept in a cache target and copied into the shadow atlas while the cascade's key is unchanged; only the mobys are drawn over them. Off: the copy costs more GPU time than it saves on both measured machines ([R-18](#r-18-a-static-shadow-cache-shipped-off)). |
@@ -1079,7 +1078,7 @@ On real levels the maintainers' commands are
 object (colour 0, depth, stencil, depth-stencil) and for the default framebuffer (`GL_COLOR`,
 `GL_DEPTH`, `GL_STENCIL`); before, it was not in the backend's table and the optional function was
 null there. Dynamic rendering fixes a pass's store operations when the pass begins, before the
-renderer says what it no longer needs, so under `attachment-discard` a pass's draws are recorded
+renderer says what it no longer needs, so a pass's draws are recorded
 into a secondary command buffer (`main` points at it while the pass is open) and the pass is begun
 in the frame's command buffer when it ends, with its operations chosen then
 (`vkgl_commands.cpp`, `begin_deferred` and `end_deferred`):
@@ -1144,13 +1143,11 @@ off / on: Mac 0.87 (0.82 to 0.89) / 0.84 (0.82 to 0.87), Enhanced 2.01 / 2.13; b
 1.27) / 1.12 (1.11 to 1.16), Enhanced 3.16 / 3.16. No change beyond the noise from recording each
 pass into a secondary buffer.
 
-**Equivalence, and the stronger proof.** `render_equivalence_vulkan` draws `attachment-discard`
-on and off in every scenario, Enhanced off and on, and then draws every scenario once more with
-`vkgl::test_poison_discards(true)`: each attachment let go is cleared to garbage (colour 1.0 in
-every channel, depth 0, stencil 0xA5) as soon as it is let go, and a pass that would load it clears
-it to the same. Those frames are compared with `attachment-discard` off: a pass that read discarded
-data would draw other pixels. All twenty comparisons are identical on the Mac and on box1, under
-the validation layer. The Vulkan image tests (`renderer_*_vulkan`, `gtao_vulkan`,
+**Discard validation.** Attachment discard is unconditional. The baseline fixture renders
+every scenario in compatibility and enhanced modes, verifies deterministic pixels, and compares
+those pixels against fresh runs with `vkgl::test_poison_discards(true)`. Poisoning replaces
+discarded contents with garbage so later reads change the output and fail the comparison.
+The Vulkan image tests (`renderer_*_vulkan`, `gtao_vulkan`,
 `early_lighting_vulkan`, `enhanced_rendering_vulkan`, `sun_shadow_*`, `probe_gpu_vulkan`,
 `viewer_vulkan`) pass with the entry on and with `OPENRAC_RENDER_OPT_OFF=all`. On box1 the OpenGL
 tests ran too; R-06's one change in shared code (`renderer/gl.cpp`) loads nothing new on an OpenGL
@@ -1161,8 +1158,6 @@ Commands:
 ```sh
 cd port && cmake --preset release && cmake --build --preset release
 ctest --preset release -R "vulkan|viewer|renderer|gtao|early_lighting|enhanced_rendering|shadow|render_" --output-on-failure
-python3 tools/perf/render_bench.py --synthetic --compare-opt attachment-discard
-./build/release/openrac_render_bench --warmup 3 --frames 10 --enhanced on --msaa 4 --opt-off attachment-discard
 ```
 
 **On a tiled GPU (the maintainers').** The gain is bandwidth on Apple GPUs and Adreno, which the
@@ -1318,13 +1313,37 @@ whole release preset pass on both machines (on box1 one GLES test, `renderer_sha
 in a full run and passed alone twice, beside NVIDIA Xid faults; see R-05's note), the headless preset
 on the Mac.
 
-Measured with (the entry's default switched to on in `render_opt.cpp` for the "on" rows):
+The benchmark now accepts `--opt-on shadow-static-cache` as well as
+`--opt-off shadow-static-cache`, without changing the renderer's default.
+
+Static shadow caching remains disabled by default. On Radeon 780M (AMD driver 26.5.2),
+a synthetic 1920x1080 Vulkan run with Enhanced enabled gave these shadow-stage GPU medians:
+
+| Camera | Cache off | Cache on | Cascades rebuilt with cache on |
+|---|---:|---:|---:|
+| Static, moving mobys | 1.176 ms | 1.523 ms | 0 of 4 |
+| Walk | 1.469 ms | 2.569 ms | 4 of 4 |
+| Creep | 0.857 ms | 1.890 ms | 4 of 4 |
+
+Three runs per setting, 10 warm-up and 60 measured frames, alternating on/off order.
+Times sum cache updates, depth copy, dynamic atlas and completion; the parent timer was
+unavailable. Static-camera draws fell from 934 to 184, but composition outweighed that
+saving. These synthetic results do not establish performance on other scenes or devices.
+Empty animated-layer submissions preserve cache keys; real caster removal still invalidates them.
 
 ```sh
-OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario static-mobys --frames 60 --warmup 10
-OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario walk --frames 60 --warmup 10
-# the "off" rows: the same with --opt-off shadow-static-cache
+OPENRAC_GL_API=vulkan port/build/release/openrac_render_bench --enhanced on --scenario static-mobys --frames 60 --warmup 10 --opt-on shadow-static-cache
+# Repeat with --opt-off shadow-static-cache and with walk / creep.
 ```
+
+**Profiling reminder.** Whenever static shadow caching is enabled, check how often it is
+invalidated alongside GPU timings. Inspect `shadow_static_rerenders` (0 means all four
+cascades were reused; 4 means all were rebuilt), and the `shadow static matrix changes`,
+`shadow static volume changes`, `shadow static generation changes`, and
+`shadow static fresh target` gauges to identify why it misses. Report hit/miss behaviour
+with the camera movement and scene changes: a cache enabled for every frame may still
+save no rendering work if it is repeatedly invalidated.
+
 ## Prepared static shadow draws
 
 `shadow-draw-cache` prepares static shadow ranges at level upload, merging adjacent opaque ranges
@@ -2006,8 +2025,8 @@ run the same paths. The capture report's `gpu passes` line records it.
   the best volume alone, without each probe's depth test, and filter shadows with four taps.
   Not byte-identical (Enhanced may be lossy here): in the equivalence test at most 0.28% of a
   frame's pixels differ, by up to 26 of 255. The cheaper light exists only in the static
-  blended shader variant, which these passes use whenever the entry is on, so `shader-variants`
-  on against off stays byte-identical. `OPENRAC_PROBE_FAST_OFF` turns it off too.
+  blended shader variant, which these passes use whenever the entry is on.
+  `OPENRAC_PROBE_FAST_OFF` turns it off too.
 
 The registry entries above, except `motion-blur-adaptive-samples` and `probe-fast-blended`, are
 lossless:
@@ -2033,3 +2052,7 @@ explicit boundaries and existing queue submissions.
 check output, ordering, partial preservation and rejection before GPU execution.
 `vkgl::submission_counters().surface_chains` counts completed shared sections.
 The graph changes dependency planning, not shader algorithms or render resolution.
+
+Shader specialisation is unconditional: the former `shader-variants` registry switch and
+generic shader reference paths have been retired. Other optimisation switches retain their
+independent on/off comparisons.

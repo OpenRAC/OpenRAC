@@ -29,6 +29,11 @@ public:
             error = "invalid render snapshot atlas extent";
             return false;
         }
+        // read() completes the preceding captures. Every slot is overwritten by
+        // the next scenario, so identical extents can keep their GPU storage.
+        if (m_atlas.id() && width == m_width && height == m_height && count == m_count) {
+            return true;
+        }
         m_width = width;
         m_height = height;
         m_count = count;

@@ -453,6 +453,13 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source)
 #else
     const auto& instances = source;
 #endif
+    // The animated-scenery pass submits an empty layer even in levels without
+    // animated scenery. No casters changed when that layer was already empty.
+    // Removing a nonempty layer must still rebuild it and invalidate cached depth.
+    if (layer != Layer::Mobys && instances.empty()
+        && m_groups[static_cast<std::size_t>(layer)].empty()) {
+        return;
+    }
     // The CPU time of handing the scene a layer's instances (the moby layer's, every frame).
     const stats::Scope pass(layer == Layer::Mobys ? "moby instances" : "layer instances");
     m_camera_visibility[static_cast<std::size_t>(layer)].recording = 0;

@@ -16,7 +16,7 @@ bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& err
     if (!prepare_colour(width, height, error)) {
         return false;
     }
-    if (!m_extract.id()) {
+    if (!m_extract_variants.back().id()) {
         std::string copy_resolve(shaders::blur_resolve_frag);
         copy_resolve.insert(copy_resolve.find('\n') + 1, "#define COPY_UNCHANGED 1\n");
         std::string fast_jump(shaders::blur_jump_frag);
@@ -30,12 +30,6 @@ bool MotionBlur::prepare(int width, int height, int rw, int rh, std::string& err
         if (!m_fast_first_jump
                  .build("blur fast initial flood", shaders::fullscreen_vert, fast_first, error)
             || !m_fast_jump.build("blur fast flood", shaders::fullscreen_vert, fast_jump, error)
-            || !m_extract.build(
-                "relative blur velocity",
-                shaders::fullscreen_vert,
-                shaders::blur_velocity_frag,
-                error
-            )
             || !m_first_jump
                     .build("blur initial jump flood", shaders::fullscreen_vert, first_jump, error)
             || !m_jump.build(
@@ -157,7 +151,6 @@ void MotionBlur::release() {
         seeds.release();
     }
     m_colour.release();
-    m_extract.release();
     for (auto& shader : m_extract_variants) {
         shader.release();
     }

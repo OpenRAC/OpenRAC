@@ -161,23 +161,8 @@ void main(){
     CHECK(sample(37.f, 2)[0] != .2f);
     input.volumetric_quality = renderer::VolumetricQuality::Medium;
     atmosphere.prepare(scene, input, target, colour, fog, true);
-    // The variants and the shared program agree to rounding, not bit for bit: the device's
-    // compiler orders the folded and unfolded arithmetic its own way (NVIDIA: up to 10 ulps).
-    const auto same = [](const std::array<float, 4>& a, const std::array<float, 4>& b) {
-        bool close = true;
-        for (std::size_t c = 0; c < a.size(); ++c) {
-            close = close && std::abs(a[c] - b[c]) <= 1e-6f;
-        }
-        return close;
-    };
     for (float depth : {0.f, .01f, 3.3f, 37.f, 80.f}) {
         const auto actual = sample(depth, false);
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, false);
-        atmosphere.prepare(scene, input, target, colour, fog, true);
-        CHECK(same(sample(depth, false), actual));
-        renderer::render_opt::set(renderer::render_opt::Opt::ShaderVariants, true);
-        atmosphere.prepare(scene, input, target, colour, fog, true);
-        CHECK(same(sample(depth, false), actual));
         const float expected = 1 - depth / 100;
         CHECK(std::abs(actual[3] - expected) < .012f);
         for (int c = 0; c < 3; ++c) {

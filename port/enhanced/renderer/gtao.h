@@ -48,7 +48,7 @@ public:
 
 private:
     // Four scale/normal specialisations and one uniform-controlled reference.
-    static constexpr unsigned kProgramVariants = 5;
+    static constexpr unsigned kProgramVariants = 4;
     // Records the depth hierarchy, horizon evaluation and optional filter with either synchronisation path.
     bool execute(const FrameInput&, const RenderTarget&, bool apply_to_colour, bool evaluate_only);
     // Declares Vulkan consumers after the copied or resolved depth producer.
@@ -74,7 +74,7 @@ private:
     // Each quality has separate Hi-Z/no-Hi-Z variants; both share the full-resolution filter.
     std::array<Shader, kProgramVariants * 2> m_evaluate, m_evaluate_performance;
     std::array<Shader, kProgramVariants> m_composite;
-    unsigned m_program = 4;
+    unsigned m_program = 0;
     unsigned m_vao = 0;
     bool m_failed = false;
 };

@@ -199,8 +199,7 @@ bool EffectRenderer::init(RenderState& state, std::string& error) {
     const std::string tested_fragment = fragment;  // the alpha test kept (m_test_shader)
     // Effect packets skip HUD distance fields and alpha tests; authored strip fog remains dynamic.
     // Keep texture functions/tcc dynamic: they can differ between effect strips.
-    if (render_opt::enabled(render_opt::Opt::ShaderVariants)
-        && render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
+    if (render_opt::enabled(render_opt::Opt::EffectStaticControls)) {
         fragment.insert(fragment.find('\n') + 1, "#define OPENRAC_EFFECT_FIXED 1\n");
         fragment = shader_constants(
             std::move(fragment), {{"textured", 1}, {"distance_field", 0}, {"alpha_test", 0}}
