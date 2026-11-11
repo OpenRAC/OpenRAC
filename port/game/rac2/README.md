@@ -111,3 +111,28 @@ Measured from the programs, not assumed (release_carry.json has each):
   call_copies.tsv's row by the executable's own target, a hook call in its C through a row
   copycalls.py writes under the hook's name, and its globals are where each level's build put them
   (`level_data`), not the executable's addresses its C says.
+
+## The end credits
+
+The credits are game state 9 in a level's program, the same code on the three discs: entered by
+`func_00278EB0`, updated by `func_00278FC0` (it lists the names, text ids `0x33C0` on in v1.01, and
+reads one of 20 pictures a page, by the table at `0x0014B540` + `0x21A0`, into two buffers in turn),
+drawn by `func_L00_002E2958`'s copies (`levels/shared/L00_002D7940-wipe.c`), left by
+`func_00278F80`. They are asked for with `func_002B49E0(9, 1, ...)`, the credits word
+(`0x001B1580` in the executable) saying which part plays: `func_002D01D0`'s menu entry puts 2.
+
+- **The picture.** Each frame the draw writes the page's 512 x 416 picture straight to the frame
+  buffer (`func_002FCB00`), then draws the names over it. These frames have no frame set-up and
+  nothing else clears the frame buffer: on the console the picture is what wipes the last frame's
+  names. The port drew the picture only after a frame set-up (`func_0027B858`, the splash's and the
+  title's), so in the credits it never showed, and the names piled up over the last frame
+  (host/picture.c). In a level's program the picture is now drawn where the transfer is, after the
+  world's marker (a level's tick without a world goes over the picture shown last, and only what
+  follows the marker is drawn over it), with the depth test set to pass (the last tick leaves it at
+  GREATER). A wider picture gets the blurred sides the title has. The names' short streaks while
+  they slide in are the game's own (`func_L00_002E2C30` draws each moving name several times).
+- **Skipping, a PC addition.** On the console the update ends the credits on R2 pressed (the pad
+  block's +0x1A4 & 2): the credits word goes to 1 if it was 0, as the ending's last page leaves it,
+  then `PopGameState` (`func_002B4B70`) goes back to the state they were asked from. With Skip
+  cutscenes on (the default), Start presses R2 there (host/tools.c, `skip_buttons`), so the game
+  takes them down itself, the same way it does when they finish.
