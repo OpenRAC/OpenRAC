@@ -404,9 +404,10 @@ button[data-on] {
 
 /* Under the pointer a button gets a little lighter; the main one lifts 2 px. */
 @media (hover: hover) {
-  /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer
-     (:where keeps the weight as it was). */
-  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop)),
+  /* Not a dialog's backdrop, a button over the whole window that went grey under the pointer,
+     nor a link-like button (.link), which a touch screen left lit after a tap (:where keeps the
+     weight as it was). */
+  html:where(:not([data-input="pad"])) button:hover:not(:disabled):where(:not(.backdrop):not(.link)),
   html:where(:not([data-input="pad"])) .button:hover {
     background-color: var(--control-hi);
   }
