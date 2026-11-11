@@ -212,7 +212,7 @@ void write_level(const fs::path& dir) {
 })");
 }
 
-// The ties' and shrubs' draw distances "Scenery detail: Original" keeps to, as the game's loader
+// The ties' and shrubs' draw distances "Draw distance: Original" keeps to, as the game's loader
 // and renderer leave them.
 void draw_distances(const fs::path& dir) {
     const fs::path ties = dir / "tie-distances";
@@ -936,22 +936,26 @@ int draw(scene::LevelData& level) {
         CHECK(triangles[1] == triangles[0] + 2);
     }
 
-    // Scenery detail: Original leaves out the tie (draw distance 100) for an eye 300 units away,
-    // and the setting off brings it back.
+    // Draw distance: Original leaves out the tie (draw distance 100) for an eye 300 units away,
+    // 400% keeps it, and Unlimited brings it back.
     {
         scene.release();
         CHECK(scene.upload(level, renderer.textures(), error));
         scene.lighting = false;
         renderer.render(input, {frame.id(), 128, 128});
         const auto all = renderer.last_stats().draw_calls;
-        scene.choose_scenery(true, {0.0f, 0.0f, 300.0f}, input.camera.projection);
+        scene.choose_scenery(1.0f, {0.0f, 0.0f, 300.0f}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all - 1);
-        scene.choose_scenery(true, {0.0f, 0.0f, 30.0f}, input.camera.projection);
+        scene.choose_scenery(1.0f, {0.0f, 0.0f, 30.0f}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all);
-        scene.choose_scenery(true, {0.0f, 0.0f, 300.0f}, input.camera.projection);
-        scene.choose_scenery(false, {}, input.camera.projection);
+        scene.choose_scenery(1.0f, {0.0f, 0.0f, 300.0f}, input.camera.projection);
+        scene.choose_scenery(4.0f, {0.0f, 0.0f, 300.0f}, input.camera.projection);
+        renderer.render(input, {frame.id(), 128, 128});
+        CHECK(renderer.last_stats().draw_calls == all);
+        scene.choose_scenery(1.0f, {0.0f, 0.0f, 300.0f}, input.camera.projection);
+        scene.choose_scenery(0.0f, {}, input.camera.projection);
         renderer.render(input, {frame.id(), 128, 128});
         CHECK(renderer.last_stats().draw_calls == all);
     }

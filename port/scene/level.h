@@ -240,8 +240,8 @@ struct LevelData {
     // instances; game units of camera depth): a tie's own, capped at 720 (TieProc; 0 is never
     // drawn), a shrub's raised to 16 and, for a class with a billboard, to its fade distance + 24,
     // capped at 500 (ShrubProc; shrub_sky.md section 4). Empty for a layer whose export does not
-    // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Drawn by only
-    // "Scenery detail: Original" (LevelScene::choose_scenery).
+    // carry them (shrubs before "billboard_fade") or a game whose caps are not known. Used by
+    // "Draw distance" (LevelScene::choose_scenery).
     std::array<std::vector<float>, kLayerCount> draw_distances;
     // Each shrub's class's billboard sprite (the model of the quad ShrubProc draws in place of a
     // far one; -1 none), parallel to the shrubs; empty when the shrubs are not the level's own

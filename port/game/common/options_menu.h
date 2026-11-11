@@ -22,7 +22,6 @@ enum Row {
     kRenderScale,
     kMsaa,
     kAnisotropy,
-    kSceneryDetail,
     kDrawDistance,
     kVSync,
     kHdr,

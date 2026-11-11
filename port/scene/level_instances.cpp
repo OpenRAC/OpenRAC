@@ -518,7 +518,7 @@ void LevelScene::set_instances(Layer layer, const std::vector<Instance>& source)
 }
 
 void LevelScene::choose_scenery(
-    bool original, const renderer::Vec3& eye, const renderer::Mat4& projection
+    float scale, const renderer::Vec3& eye, const renderer::Mat4& projection
 ) {
     // How much farther than its depth a point in the view can be: 1 / the cosine of the view's
     // corner, from the projection's tangents. Within it, a straight-line distance below this times
@@ -534,8 +534,8 @@ void LevelScene::choose_scenery(
         if (scenery.source.empty() || scenery.distances.empty()) {
             continue;
         }
-        // Off again after being on: the instances as loaded, once.
-        if (!original) {
+        // Unlimited again after a distance: the instances as loaded, once.
+        if (!(scale > 0.0f)) {
             if (!scenery.drawn.empty()) {
                 scenery.drawn.clear();
                 set_instances(layer, resident_scenery(k));
@@ -558,7 +558,7 @@ void LevelScene::choose_scenery(
             const Vec3 to{centre[0] - eye[0], centre[1] - eye[1], centre[2] - eye[2]};
             const bool was = !first && scenery.drawn[i] != 0;
             // Squared, so that the test needs no root: limit and limit + margin, both positive.
-            const float limit = scenery.distances[i] * reach;
+            const float limit = scenery.distances[i] * scale * reach;
             const float reach_to = was ? limit + kLeaveMargin : limit;
             const float away = to[0] * to[0] + to[1] * to[1] + to[2] * to[2];
             const bool shown =

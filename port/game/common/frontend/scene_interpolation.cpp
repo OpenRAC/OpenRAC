@@ -184,10 +184,11 @@ void upload_instances(SceneFrame& frame) {
         frame.owner.temporal->set_scene(live, palette);
     }
 
-    // "Scenery detail: Original": the shrubs ShrubProc fades or draws as billboards, with the
+    // "Draw distance: Original": the shrubs ShrubProc fades or draws as billboards, with the
     // mobys; the ones it draws whole stay in their layer (choose_scenery).
     frame.owner.scene.set_shrub_draws(
-        frame.graphics.original_lod ? frame.scene.shrubs : std::vector<scene::ShrubDraw>{}
+        frame.graphics.original_draw_distance() ? frame.scene.shrubs
+                                                : std::vector<scene::ShrubDraw>{}
     );
     // The ties and shrubs the game moved this tick (a moby's group) or removed, with the mobys:
     // only those of a pass the game ran this tick. The vendor's menu draws no tie or shrub pass
@@ -201,7 +202,7 @@ void upload_instances(SceneFrame& frame) {
     const std::array<bool, 2> scenery_ran{
         ran(renderer::Bucket::Ties), ran(renderer::Bucket::Shrubs)
     };
-    const bool shrub_effects = frame.graphics.original_lod && scenery_ran[1];
+    const bool shrub_effects = frame.graphics.original_draw_distance() && scenery_ran[1];
     const bool more = shrub_effects || frame.owner.scene.has_moved_scenery();
     std::vector<scene::Instance> with_shrubs;
     if (more) {
