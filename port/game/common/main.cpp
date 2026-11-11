@@ -78,6 +78,7 @@
 #include "platform/pump.h"
 #include "platform/window.h"
 #include "renderer/gl.h"
+#include "renderer/pcsx2_pack.h"
 #include "renderer/texture_pack.h"
 #include "scene/moby_pose.h"
 #include "settings.h"
@@ -98,6 +99,7 @@
 
 namespace {
 // A texture pack's PNGs (renderer/texture_pack.h), read and written with stb.
+template <bool GsAlpha>
 std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesystem::path& file) {
     int w = 0;
     int h = 0;
@@ -109,6 +111,13 @@ std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesy
     openrac::renderer::Rgba8Image image(w, h);
     std::copy(pixels, pixels + static_cast<std::ptrdiff_t>(w) * h * 4, image.pixels.begin());
     stbi_image_free(pixels);
+    if constexpr (GsAlpha) {
+        if (channels == 1 || channels == 3) {
+            for (std::size_t a = 3; a < image.pixels.size(); a += 4) {
+                image.pixels[a] = 0x80;
+            }
+        }
+    }
     return image;
 }
 
@@ -722,12 +731,16 @@ int main(int argc, char** argv) {
         // under the names a pack uses.
         {
             const auto dump = env::value(env::Var::DumpTextures);
+            const bool use_packs = settings::get().texture_pack && !g_options.no_mods;
+            const auto pcsx2 = env::value(env::Var::Pcsx2TexturePack);
+            renderer::pcsx2_pack::configure(
+                use_packs && pcsx2 ? fs::path(std::string(*pcsx2)) : fs::path{},
+                texture_pack_load<true>
+            );
             renderer::texture_pack::configure(
-                settings::get().texture_pack && !g_options.no_mods
-                    ? g_options.data / "texture_packs" / openrac_game.id
-                    : fs::path{},
+                use_packs ? g_options.data / "texture_packs" / openrac_game.id : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
-                {texture_pack_load, texture_pack_save, texture_pack_load_gif},
+                {texture_pack_load<false>, texture_pack_save, texture_pack_load_gif},
                 texture_pack_level_name
             );
         }

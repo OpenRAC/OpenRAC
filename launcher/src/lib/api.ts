@@ -436,12 +436,13 @@ export const api = {
   /** A version's texture pack and the textures the game saved (core texture_packs.rs). */
   texturePacks: (game: string, version: string) => call<TexturePackView>("texture_packs_view", { game, version }),
   /** Switches the pack on or off, or saving the textures at the next Play. */
-  texturePacksSet: (game: string, version: string, change: { enabled?: boolean; dumping?: boolean }) =>
+  texturePacksSet: (game: string, version: string, change: { enabled?: boolean; dumping?: boolean; pcsx2?: string }) =>
     call<TexturePackView>("texture_packs_set", {
       game,
       version,
       enabled: change.enabled ?? null,
       dumping: change.dumping ?? null,
+      pcsx2: change.pcsx2 ?? null,
     }),
   /** Opens a folder of the pack, or of the saved textures (`dump`); `folder` "" is the whole one. */
   texturePacksOpen: (game: string, version: string, dump: boolean, folder = "") =>

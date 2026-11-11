@@ -202,6 +202,10 @@ class Texture:
 
     def png(self) -> bytes:
         """An indexed PNG with straight alpha in tRNS."""
+        # Keep the original GS alpha when scaling clips it. PCSX2 hashes the raw palette.
+        raw_alpha = bytes(self.palette[((i & ~0x18) | ((i & 8) << 1) | ((i & 0x10) >> 1)) * 4 + 3]
+                          for i in range(256))
+        raw = (png_chunk(b"orAC", raw_alpha),) if max(raw_alpha) > 0x80 else ()
         return png(self.width, self.height, 3, self.pixels,
                    png_chunk(b"PLTE", b"".join(bytes(c[:3]) for c in self.colours)),
-                   png_chunk(b"tRNS", bytes(c[3] for c in self.colours)))
+                   png_chunk(b"tRNS", bytes(c[3] for c in self.colours)), *raw)

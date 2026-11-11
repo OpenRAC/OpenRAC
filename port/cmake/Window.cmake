@@ -14,6 +14,11 @@
 include_guard(GLOBAL)
 include(Dependencies)
 
+# PCSX2 names its texture replacements with XXH3. Only the portable header is needed.
+FetchContent_Declare(openrac_xxhash
+  URL https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.2.tar.gz)
+FetchContent_MakeAvailable(openrac_xxhash)
+
 if(NOT OPENRAC_IOS AND NOT WIN32)
   openrac_add_test(mobile_lifecycle SOURCES tests/mobile_lifecycle_test.cpp platform/pump.cpp
     INCLUDES . DEFINITIONS OPENRAC_IOS=1 LIBS openrac_common openrac_sdl3)
@@ -271,6 +276,8 @@ add_library(openrac_renderer STATIC
   renderer/subsystems.cpp
   renderer/texture.cpp
   renderer/texture_pack.cpp
+  renderer/pcsx2_pack.cpp
+  renderer/pcsx2_dds.cpp
   renderer/texture_pool.cpp
 )
 openrac_embed_shaders(openrac_renderer renderer openrac::renderer
@@ -298,6 +305,7 @@ openrac_embed_shaders(openrac_renderer renderer openrac::renderer
   "${CMAKE_CURRENT_SOURCE_DIR}/renderer/shaders/haze.frag"
 )
 target_link_libraries(openrac_renderer PUBLIC openrac_common)
+target_include_directories(openrac_renderer SYSTEM PRIVATE "${openrac_xxhash_SOURCE_DIR}")
 if(OPENRAC_VULKAN)
   target_link_libraries(openrac_renderer PRIVATE openrac_renderer_vulkan)
   target_compile_definitions(openrac_renderer PRIVATE OPENRAC_VULKAN=1)

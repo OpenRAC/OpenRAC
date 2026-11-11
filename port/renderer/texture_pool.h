@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -161,6 +162,8 @@ public:
     static constexpr std::size_t kRestingFields = 4;
 
     const Rgba8Image& image(TextureHandle texture) const;
+    bool has_cropped_replacement(TextureHandle texture) const;
+    std::array<float, 2> uv_scale(TextureHandle texture) const;
 
     // Whether `texture` has an animated replacement's frames (animate()).
     bool animated(TextureHandle texture) const {
@@ -218,7 +221,7 @@ private:
         std::uint32_t tbp, tbw, tw, th, cbp;
         std::uint8_t psm, cpsm;
         gs::Texa texa;
-        std::uint64_t pixels_hash, clut_hash;
+        std::uint64_t pixels_hash, clut_hash, crop_border_hash;
 
         bool operator==(const Key&) const = default;
     };
@@ -233,6 +236,14 @@ private:
         std::uint64_t sequence = 0;  // uploads in order: the later of two over one block is there
         std::uint32_t end = 0;       // past the last block its pages reach
     };
+
+    struct CropBlock {
+        int x, y;
+        std::uint32_t offset;
+        const Stored* upload;
+    };
+
+    std::vector<CropBlock> crop_border(const gs::Tex0& tex0, std::array<int, 2> extent) const;
 
     // A CLUT as loaded into the chip's buffer: its rectangle in its format.
     struct Clut {
@@ -261,6 +272,8 @@ private:
         bool linear = false;
         std::uint8_t wrap = 0;  // the GL texture's clamp: bit 0 across, bit 1 down (0: repeats)
         Rgba8Image image;
+        bool cropped_replacement = false;
+        std::array<float, 2> uv_scale{1.0f, 1.0f};
         AlphaScale scale = AlphaScale::Gs;
         std::string name;
         unsigned gl = 0;
@@ -291,7 +304,9 @@ private:
     void see_cycle(std::uint64_t slot, std::uint64_t hash, const std::string& where);
     void set_wrap(Entry& e, bool repeat_s, bool repeat_t);
     TextureHandle convert_upload(const gs::Tex0& tex0, const gs::Texa& texa);
-    std::vector<std::uint8_t> texture_raster(const Stored& stored, const gs::Tex0& tex0) const;
+    std::vector<std::uint8_t> texture_raster(
+        const Stored& stored, const gs::Tex0& tex0, int width, int height
+    ) const;
     // The CLUT an indexed texture reads: the one loaded from its block, else memory's (into `now`).
     // Null when there is none (drawn transparent).
     const Clut* palette_clut(const gs::Tex0& tex0, Clut& now);

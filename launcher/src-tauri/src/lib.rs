@@ -522,9 +522,25 @@ async fn texture_packs_set(
     version: String,
     enabled: Option<bool>,
     dumping: Option<bool>,
+    pcsx2: Option<String>,
 ) -> Result<openrac_launcher_core::texture_packs::View, String> {
     use openrac_launcher_core::texture_packs;
     let home = openrac_launcher_core::saves::data_home();
+    if let Some(source) = pcsx2 {
+        let serial = {
+            let config = state.config.lock().unwrap();
+            let catalog = openrac_launcher_core::catalog::load(config.root()?)?;
+            catalog.version(&format!("{game}/{version}")).ok_or("Unknown game version")?.serial.clone()
+        };
+        let selected_game = game.clone();
+        let selected_version = version.clone();
+        let selected_home = home.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            texture_packs::pcsx2::select(&selected_home, &selected_game, &selected_version, &serial, &source)
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+    }
     if let Some(on) = enabled {
         texture_packs::set_enabled(&home, &game, &version, on)?;
         launcher_log::line(&format!("{game}/{version}: texture pack {}", if on { "on" } else { "off" }));

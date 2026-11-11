@@ -195,6 +195,7 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [SDL](https://github.com/libsdl-org/SDL) | 3.4.18 (Android: 3.2.24) | zlib | the platform layer: window, OpenGL context, input, audio |
 | [cgltf](https://github.com/jkuhlmann/cgltf) | 1.15 | MIT | the level viewer: reading the editor's glTF meshes |
 | [stb_image](https://github.com/nothings/stb) | commit 2c980bb | MIT or public domain | the level viewer: reading textures (PNG) |
+| [xxHash](https://github.com/Cyan4973/xxHash) | 0.8.2 | BSD-2-Clause | PCSX2 texture replacement keys |
 | [Dear ImGui](https://github.com/ocornut/imgui) | 1.91.9b | MIT | the games' debug overlay ([docs/port/DEBUGGING.md](docs/port/DEBUGGING.md)) |
 | [nanosvg](https://github.com/memononen/nanosvg) | commit 239e102 | zlib | the on-screen pad's action icons: reading and drawing their SVGs ([port/renderer/ui/touch_icons.h](port/renderer/ui/touch_icons.h)) |
 | [Luau](https://github.com/luau-lang/luau) | 0.741 (commit 2d88f9b) | MIT | script mods: its virtual machine and compiler ([docs/port/MODS.md](docs/port/MODS.md), section 11; [port/cmake/Luau.cmake](port/cmake/Luau.cmake)) |
@@ -205,6 +206,35 @@ each at a pinned version ([port/cmake/Dependencies.cmake](port/cmake/Dependencie
 | [AMD FidelityFX SDK](https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/tree/c6efa6bf7f2027b3ec94f28578bb5965eabb9e55) | 1.1.4, FSR 3.1.4 | MIT | enhanced Vulkan temporal upscaling; original GLSL, upscaler host code and Vulkan backend, prepared by `port/enhanced/fsr3/prepare_sdk.py` |
 | [Arm Accuracy Super Resolution](https://github.com/arm/accuracy-super-resolution-generic-library/tree/0501f490bd9946a2e1806b5363d7ab8a9a6a5e0a) | 25.06 | MIT | enhanced Vulkan temporal upscaling on tile-based GPUs; its host code, Vulkan backend and prebuilt SPIR-V shaders, built by `port/cmake/ArmAsr.cmake` (off with `OPENRAC_ARM_ASR=OFF`) |
 | [MoltenVK](https://github.com/KhronosGroup/MoltenVK) | 1.4.2 (Homebrew's `molten-vk`, or the Vulkan SDK's) | Apache-2.0 | the Vulkan renderer on macOS: Vulkan on Metal. Not fetched: its library is taken from the build machine and carried in each game's application bundle (`Contents/Frameworks/libMoltenVK.dylib`, its license in `Contents/Resources/MoltenVK-LICENSE.txt`; [port/cmake/MacApp.cmake](port/cmake/MacApp.cmake)) |
+
+### xxHash license
+
+Copyright (C) 2012-2021 Yann Collet
+
+BSD 2-Clause License (https://www.opensource.org/licenses/bsd-license.php)
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above
+     copyright notice, this list of conditions and the following disclaimer
+     in the documentation and/or other materials provided with the
+     distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### AMD FidelityFX SDK licence
 
