@@ -727,32 +727,55 @@ void menu_note(const char* line, ImU32 ink) {
 
 void menu_key_rows(const std::vector<KeyRow>& rows) {
     const float gap = dp(4.0f);
-    float caps = 0.0f;
-    for (const KeyRow& row : rows) {
+    ImFont* body = menu_fonts.body;
+    const auto caps_of = [&](const KeyRow& row) {
         float w = 0.0f;
         for (const std::string& key : row.keys) {
             w += key_cap_width(key) + gap;
         }
-        caps = std::max(caps, w);
+        return w;
+    };
+    const auto words_of = [&](const KeyRow& row) {
+        return body->CalcTextSizeA(body->FontSize, FLT_MAX, 0.0f, row.does.c_str()).x;
+    };
+    // Two columns, filled row by row, when they fit side by side; each lines its words up after
+    // its own widest caps.
+    const float inner = ImGui::GetContentRegionAvail().x - dp(32.0f);
+    float caps[2] = {};
+    float words[2] = {};
+    for (std::size_t i = 0; i < rows.size(); ++i) {
+        caps[i % 2] = std::max(caps[i % 2], caps_of(rows[i]));
+        words[i % 2] = std::max(words[i % 2], words_of(rows[i]));
     }
+    const float between = dp(32.0f);
+    const bool two =
+        rows.size() > 1 && caps[0] + words[0] + caps[1] + words[1] + dp(16.0f) + between <= inner;
+    if (!two) {
+        caps[0] = std::max(caps[0], caps[1]);
+    }
+    const int columns = two ? 2 : 1;
+    const float second = std::max(inner * 0.5f, caps[0] + dp(8.0f) + words[0] + between);
     ImDrawList* list = ImGui::GetWindowDrawList();
-    ImFont* body = menu_fonts.body;
     const float line = dp(32.0f);
     ImGui::Dummy(ImVec2(0.0f, dp(s.card.rows == 0 ? 8.0f : 4.0f)));
-    for (const KeyRow& row : rows) {
+    for (std::size_t i = 0; i < rows.size(); i += static_cast<std::size_t>(columns)) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
         const float middle = at.y + line * 0.5f;
-        float x = at.x + dp(16.0f);
-        for (const std::string& key : row.keys) {
-            x += key_cap(list, x, middle, key, 1.0f) + gap;
+        for (int c = 0; c < columns && i + static_cast<std::size_t>(c) < rows.size(); ++c) {
+            const KeyRow& row = rows[i + static_cast<std::size_t>(c)];
+            const float left = at.x + dp(16.0f) + (c == 0 ? 0.0f : second);
+            float x = left;
+            for (const std::string& key : row.keys) {
+                x += key_cap(list, x, middle, key, 1.0f) + gap;
+            }
+            list->AddText(
+                body,
+                body->FontSize,
+                ImVec2(std::round(left + caps[c] + dp(4.0f)), beside_caps(body, middle)),
+                ui().text,
+                row.does.c_str()
+            );
         }
-        list->AddText(
-            body,
-            body->FontSize,
-            ImVec2(std::round(at.x + dp(16.0f) + caps + dp(8.0f)), beside_caps(body, middle)),
-            ui().text,
-            row.does.c_str()
-        );
         ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, line));
     }
     ImGui::Dummy(ImVec2(0.0f, dp(6.0f)));

@@ -398,39 +398,39 @@ void drawer(const Shown& shown) {
             if (resume < 1.0f) {
                 const char* state = s.keep_paused ? "Paused" : "Paused while open";
                 const ImVec2 state_size = ImGui::CalcTextSize(state);
-                const ImVec2 pill_b(
-                    bottom.x - dp(16.0f), top.y + head * 0.5f + state_size.y * 0.5f + dp(4.0f)
-                );
-                const ImVec2 pill_a(
-                    pill_b.x - state_size.x - dp(20.0f), pill_b.y - state_size.y - dp(8.0f)
-                );
+                // As tall as the sections' bar under it, its right edge on the bar's.
+                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_a(pill_b.x - state_size.x - dp(20.0f), pill_b.y - dp(30.0f));
                 // A badge, as the launcher's: on the darkest black, soft text, 6 px corners.
                 const float shown_badge = 1.0f - resume;
                 front->AddRectFilled(
                     pill_a, pill_b, ui_colors::fade(ui().ink_deep, shown_badge), dp(6.0f)
                 );
                 front->AddText(
-                    ImVec2(pill_a.x + dp(10.0f), pill_a.y + dp(4.0f)),
+                    ImVec2(
+                        pill_a.x + dp(10.0f),
+                        std::round((pill_a.y + pill_b.y - state_size.y) * 0.5f)
+                    ),
                     ui_colors::fade(ui().soft, shown_badge),
                     state
                 );
             }
             if (resume > 0.0f) {
-                ImFont* font = menu_fonts.strong;
+                ImFont* font = menu_fonts.bar;
                 const char* label = "Resume";
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, label);
-                // Its right edge lines up with the badge and the lit section under it.
-                const ImVec2 pill_b(bottom.x - dp(16.0f), top.y + head * 0.5f + dp(18.0f));
-                const ImVec2 pill_a(pill_b.x - size.x - dp(36.0f), pill_b.y - dp(36.0f));
+                // The badge's place and height, the sections' bar's under it.
+                const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
+                const ImVec2 pill_a(pill_b.x - size.x - dp(32.0f), pill_b.y - dp(30.0f));
                 front->AddRectFilled(pill_a, pill_b, ui_colors::fade(ui().amber, resume), dp(6.0f));
                 front->AddText(
                     font,
                     font->FontSize,
-                    ImVec2(pill_a.x + dp(18.0f), (pill_a.y + pill_b.y - size.y) * 0.5f),
+                    ImVec2(pill_a.x + dp(16.0f), std::round((pill_a.y + pill_b.y - size.y) * 0.5f)),
                     ui_colors::fade(ui().bar_ink, resume),
                     label
                 );
-                // A tap on it (not the end of a drag) resumes; the pill is 36 dp tall, its tap
+                // A tap on it (not the end of a drag) resumes; the pill is 30 dp tall, its tap
                 // area the header's full height.
                 const ImVec2 at = io.MouseClickedPos[0];
                 if (resume >= 1.0f && s.menu_open && ImGui::IsMouseReleased(0)
@@ -462,12 +462,8 @@ void drawer(const Shown& shown) {
                 const ImVec2 cb(left + span * (i + 1), y1);
                 const float on = tween(ImGui::GetID(kJumps[i]), i == in_view ? 1.0f : 0.0f, kFast);
                 if (on > 0.0f) {
-                    front->AddRectFilled(
-                        ImVec2(ca.x + dp(2.0f), ca.y + dp(2.0f)),
-                        ImVec2(cb.x - dp(2.0f), cb.y - dp(2.0f)),
-                        ui_colors::fade(ui().amber, on),
-                        dp(5.0f)
-                    );
+                    // The whole cell, as tall as Resume above it.
+                    front->AddRectFilled(ca, cb, ui_colors::fade(ui().amber, on), dp(6.0f));
                 }
                 ImFont* font = menu_fonts.bar;
                 const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, kJumps[i]);

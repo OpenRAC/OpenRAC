@@ -937,7 +937,7 @@ void freecam_help(std::uint8_t where) {
     } else {
         menu_key_rows({
             {{"W", "A", "S", "D"}, "Move"},
-            {{"Alt"}, "Hold to look (or the right mouse button)"},
+            {{"Alt"}, "Hold to look (or RMB)"},
             {{"E", "Q"}, "Up, down"},
             {{"Shift", "Ctrl"}, "Faster, slower"},
         });
