@@ -90,6 +90,8 @@ void panel_fill(
     float round,
     ImDrawFlags corners = ImDrawFlags_None
 );
+// Bands of `ink` at 35 degrees over [a, b], `strength` at its top left, fading out down and right.
+void faint_stripes(ImDrawList* list, ImVec2 a, ImVec2 b, ImU32 ink, float strength);
 // The light along a panel's top: its card coal with 8 % of the game's colour (--glow), as the
 // launcher's page under its bar; more looks odd on the coal.
 ImU32 panel_glow();

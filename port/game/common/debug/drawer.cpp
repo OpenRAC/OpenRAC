@@ -27,6 +27,17 @@ namespace openrac::frontend::debug_overlay {
 
 namespace {
 
+// The drawer's ground, as the desktop help pane's (user): the panel under the deep ink at 55 %.
+void drawer_ground(ImDrawList* list, ImVec2 a, ImVec2 b, ImDrawFlags corners) {
+    list->AddRectFilled(a, b, ui().panel, dp(12.0f), corners);
+    list->AddRectFilled(a, b, ui_colors::fade(ui().ink_deep, 0.55f), dp(12.0f), corners);
+}
+
+// Where the drawer's faint stripes end: as the desktop help pane's, 300 by 170 dp at most.
+ImVec2 stripes_end(ImVec2 top, float width) {
+    return ImVec2(top.x + std::min(width - 1.0f, dp(300.0f)), top.y + dp(170.0f));
+}
+
 // What the picture is drawn with: the launcher's renderer choice takes effect only when the game
 // starts, and here the player sees which one this run has.
 const std::string& graphics_line() {
@@ -364,18 +375,9 @@ void drawer(const Shown& shown) {
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + viewport->Size.y);
             back->PushClipRect(top, bottom, false);
-            // The panel lit from above in the game's colour, as the window on a desktop.
-            panel_fill(
-                back,
-                top,
-                bottom,
-                ui().panel,
-                ui().panel,
-                panel_glow(),
-                dp(160.0f),
-                dp(12.0f),
-                ImDrawFlags_RoundCornersRight
-            );
+            // The desktop help pane's ground: the panel darkened, no light from above.
+            drawer_ground(back, top, bottom, ImDrawFlags_RoundCornersRight);
+            faint_stripes(back, top, stripes_end(top, width), ui().amber, 0.05f);
             back->PopClipRect();
         }
         {
@@ -383,18 +385,13 @@ void drawer(const Shown& shown) {
             ImDrawList* front = ImGui::GetForegroundDrawList();
             const ImVec2 top(x, viewport->Pos.y);
             const ImVec2 bottom(x + width, viewport->Pos.y + header);
-            // The same light as the panel under it, so the header does not cut it off.
-            panel_fill(
-                front,
-                top,
-                bottom,
-                ui().panel,
-                ui().panel,
-                panel_glow(),
-                dp(160.0f),
-                dp(12.0f),
-                ImDrawFlags_RoundCornersTopRight
-            );
+            // The same ground as the panel under it, so the header does not cut it off.
+            drawer_ground(front, top, bottom, ImDrawFlags_RoundCornersTopRight);
+            // The desktop help pane's faint stripes, in the drawer's top left; the header's part
+            // of them over it, so they run on unbroken into the panel below.
+            front->PushClipRect(top, bottom, true);
+            faint_stripes(front, top, stripes_end(top, width), ui().amber, 0.05f);
+            front->PopClipRect();
             // A hairline under it once rows have scrolled beneath, fading in as they do.
             const float under = std::min(ImGui::GetScrollY() / dp(24.0f), 1.0f);
             if (under > 0.0f) {
