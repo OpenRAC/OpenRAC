@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -245,6 +246,10 @@ struct Variable {
 // Returns the value `var` was set to, or nothing when it is unset. The view stays valid for the
 // life of the program, and its data() ends in a NUL, so it can be handed to C as a string.
 [[nodiscard]] std::optional<std::string_view> value(Var var);
+
+// A Kind::Path in the filesystem's native encoding, from the same startup snapshot as value().
+// Windows paths retain characters outside the process's narrow code page.
+[[nodiscard]] std::optional<std::filesystem::path> path(Var var);
 
 // Returns whether the flag `var` is on, by its row's Truth. `var` is a Kind::Flag.
 [[nodiscard]] bool flag(Var var);

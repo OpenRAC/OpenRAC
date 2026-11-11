@@ -90,6 +90,13 @@ void test_the_values_are_read_once_at_the_first_read() {
     put_variable("OPENRAC_GL_API", "vulkan");
     put_variable("OPENRAC_TRACE_MISSING", nullptr);
     put_variable("OPENRAC_SHOT_FROM", nullptr);
+    const std::filesystem::path pack(u8"packs/\u4e2d\u6587/replacements");
+#if defined(_WIN32)
+    CHECK(_wputenv_s(L"OPENRAC_PCSX2_TEXTURE_PACK", pack.c_str()) == 0);
+#else
+    put_variable("OPENRAC_PCSX2_TEXTURE_PACK", pack.c_str());
+#endif
+    put_variable("OPENRAC_DUMP_TEXTURES", nullptr);
     CHECK(env::flag(Var::Strict));
     CHECK(env::integer(Var::DumpTexture, -1) == 0x1A);
     CHECK(env::number(Var::ScriptBudgetMs, kNumberFallback) == 2.5);
@@ -98,12 +105,16 @@ void test_the_values_are_read_once_at_the_first_read() {
     CHECK(!env::flag(Var::TraceMissing));
     CHECK(!env::value(Var::TraceMissing).has_value());
     CHECK(env::integer(Var::ShotFrom, kIntegerFallback) == kIntegerFallback);
+    CHECK(env::path(Var::Pcsx2TexturePack) == pack);
+    CHECK(!env::path(Var::DumpTextures));
 
     // Changed after the first read: the program goes on with what it found.
     put_variable("OPENRAC_TRACE_MISSING", "1");
     put_variable("OPENRAC_GL_API", "es");
+    put_variable("OPENRAC_PCSX2_TEXTURE_PACK", "changed");
     CHECK(!env::flag(Var::TraceMissing));
     CHECK(env::value(Var::GlApi) == "vulkan");
+    CHECK(env::path(Var::Pcsx2TexturePack) == pack);
 }
 
 // Tests that a variable the port does not own is read again at each call.

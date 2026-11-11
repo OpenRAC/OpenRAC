@@ -28,7 +28,7 @@ constexpr gs::Texa kTexa{0x10, false, 0x70};
 
 void pcsx2_texture_pack() {
     namespace fs = std::filesystem;
-    const auto root = fs::temp_directory_path() / "openrac_pcsx2_texture_test";
+    const auto root = fs::temp_directory_path() / u8"openrac_pcsx2_texture_test_\u4e2d\u6587";
     const auto folder = root / "SCUS-97199" / "replacements";
     fs::create_directories(folder);
 

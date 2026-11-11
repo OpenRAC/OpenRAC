@@ -554,7 +554,12 @@ constexpr bool rows_in_order() {
 static_assert(rows_in_order(), "each row of kVariables is at the place of its Var");
 
 // The value of each variable as the program found it, in the table's order; nothing when unset.
-using Snapshot = std::array<std::optional<std::string>, kVariableCount>;
+struct StoredValue {
+    std::optional<std::string> text;
+    std::optional<std::filesystem::path> path;
+};
+
+using Snapshot = std::array<StoredValue, kVariableCount>;
 
 // Reads every variable of the table from the environment.
 Snapshot read_environment() {
@@ -563,10 +568,23 @@ Snapshot read_environment() {
         // std::getenv wants the name ending in a NUL, which a view need not have.
         const std::string name(row.name);
         const char* found = std::getenv(name.c_str());
+        auto& stored = values[index(row.var)];
 
         // An unset variable stays nothing; one set to the empty string is kept as set.
         if (found != nullptr) {
-            values[index(row.var)] = std::string(found);
+            stored.text = std::string(found);
+        }
+        if (row.kind == Kind::Path) {
+#if defined(_WIN32)
+            const std::wstring wide_name(name.begin(), name.end());
+            if (const wchar_t* wide = _wgetenv(wide_name.c_str())) {
+                stored.path = std::filesystem::path(wide);
+            }
+#else
+            if (found != nullptr) {
+                stored.path = std::filesystem::path(found);
+            }
+#endif
         }
     }
     return values;
@@ -603,7 +621,7 @@ std::optional<Var> find(std::string_view name) {
 }
 
 std::optional<std::string_view> value(Var var) {
-    const std::optional<std::string>& found = snapshot()[index(var)];
+    const std::optional<std::string>& found = snapshot()[index(var)].text;
 
     // An unset variable has no value, which differs from the empty string.
     if (!found) {
@@ -612,6 +630,12 @@ std::optional<std::string_view> value(Var var) {
 
     // A view of the kept std::string, so its data() ends in a NUL (env.h promises it to C).
     return std::string_view(*found);
+}
+
+// Preserve the filesystem's encoding while retaining the common startup snapshot.
+std::optional<std::filesystem::path> path(Var var) {
+    assert(variable(var).kind == Kind::Path);
+    return snapshot()[index(var)].path;
 }
 
 bool flag(Var var) {

@@ -33,6 +33,12 @@ struct Crop {
 std::unordered_map<std::string, std::vector<Crop>> crops;
 std::unordered_set<std::uint32_t> crop_formats;
 
+// Pack names and diagnostics use UTF-8 without passing through the Windows ANSI code page.
+std::string path_text(const fs::path& path) {
+    const auto utf8 = path.u8string();
+    return {utf8.begin(), utf8.end()};
+}
+
 std::string lowercase(std::string value) {
     for (char& c : value) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -140,7 +146,7 @@ std::uint64_t texture_hash(std::span<const std::uint8_t> raster, const gs::Tex0&
 }
 
 std::optional<Rgba8Image> load(const fs::path& path) {
-    if (lowercase(path.extension().string()) == ".dds") {
+    if (lowercase(path_text(path.extension())) == ".dds") {
         return load_dds(path);
     }
     return read_png ? read_png(path) : std::nullopt;
@@ -172,11 +178,11 @@ void configure(const fs::path& replacements, LoadPng load_png) {
          it != end;
          it.increment(error)) {
         const auto& path = it->path();
-        const auto ext = lowercase(path.extension().string());
+        const auto ext = lowercase(path_text(path.extension()));
         if ((ext != ".dds" && ext != ".png") || !it->is_regular_file(error)) {
             continue;
         }
-        if (auto name = parse_key(path.stem().string(), path)) {
+        if (auto name = parse_key(path_text(path.stem()), path)) {
             auto [found, inserted] = files.try_emplace(*name, path);
             if (!inserted && path < found->second) {
                 found->second = path;
@@ -194,7 +200,7 @@ void configure(const fs::path& replacements, LoadPng load_png) {
     if (!files.empty() || crop_count) {
         log::info(
             "PCSX2 texture pack {}: {} indexed replacements, {} cropped",
-            replacements.string(),
+            path_text(replacements),
             files.size(),
             crop_count
         );
@@ -329,7 +335,7 @@ bool replace_crops(
                 );
             }
         }
-        log::verbose("PCSX2 cropped texture: {}", crop.file.filename().string());
+        log::verbose("PCSX2 cropped texture: {}", path_text(crop.file.filename()));
     }
     if (atlas.pixels.empty()) {
         return false;

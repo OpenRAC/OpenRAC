@@ -104,7 +104,17 @@ std::optional<openrac::renderer::Rgba8Image> texture_pack_load(const std::filesy
     int w = 0;
     int h = 0;
     int channels = 0;
-    unsigned char* pixels = stbi_load(file.string().c_str(), &w, &h, &channels, 4);
+#if defined(_WIN32)
+    std::FILE* input = nullptr;
+    _wfopen_s(&input, file.c_str(), L"rb");
+#else
+    std::FILE* input = std::fopen(file.c_str(), "rb");
+#endif
+    if (input == nullptr) {
+        return std::nullopt;
+    }
+    unsigned char* pixels = stbi_load_from_file(input, &w, &h, &channels, 4);
+    std::fclose(input);
     if (pixels == nullptr) {
         return std::nullopt;
     }
@@ -732,11 +742,9 @@ int main(int argc, char** argv) {
         {
             const auto dump = env::value(env::Var::DumpTextures);
             const bool use_packs = settings::get().texture_pack && !g_options.no_mods;
-            const auto pcsx2 = env::value(env::Var::Pcsx2TexturePack);
-            renderer::pcsx2_pack::configure(
-                use_packs && pcsx2 ? fs::path(std::string(*pcsx2)) : fs::path{},
-                texture_pack_load<true>
-            );
+            const auto pcsx2 = env::path(env::Var::Pcsx2TexturePack);
+            renderer::pcsx2_pack::
+                configure(use_packs && pcsx2 ? *pcsx2 : fs::path{}, texture_pack_load<true>);
             renderer::texture_pack::configure(
                 use_packs ? g_options.data / "texture_packs" / openrac_game.id : fs::path{},
                 dump ? fs::path(std::string(*dump)) : fs::path{},
