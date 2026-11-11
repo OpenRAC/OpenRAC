@@ -401,10 +401,10 @@ void drawer(const Shown& shown) {
                 // As tall as the sections' bar under it, its right edge on the bar's.
                 const ImVec2 pill_b(bottom.x - dp(14.0f), top.y + head * 0.5f + dp(15.0f));
                 const ImVec2 pill_a(pill_b.x - state_size.x - dp(20.0f), pill_b.y - dp(30.0f));
-                // A badge, as the launcher's: on the darkest black, soft text, 6 px corners.
+                // A badge on the launcher's control fill (as the sections under it), soft text.
                 const float shown_badge = 1.0f - resume;
                 front->AddRectFilled(
-                    pill_a, pill_b, ui_colors::fade(ui().ink_deep, shown_badge), dp(6.0f)
+                    pill_a, pill_b, ui_colors::fade(ui().control_card, shown_badge), dp(6.0f)
                 );
                 front->AddText(
                     ImVec2(
