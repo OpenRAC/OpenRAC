@@ -65,6 +65,7 @@ const char* const rac2_level_names[RAC2_LEVELS] = {
 #define STATE_PLAY 0
 #define STATE_SCENE 2
 #define STATE_LOADING 6
+#define STATE_CREDITS 9
 
 /* An item's record, of the loaded program. */
 #define ITEM(id)                                                                                   \
@@ -235,10 +236,19 @@ static int hero(float position[3], float rotation[3], int32_t* state) {
  * Ratchet & Clank. The ship leaving a planet (func_002E9268's mode 1) fades out and ends on
  * Triangle or Cross pressed once its first 120 ticks have played; Start alone does nothing there,
  * so Start presses Cross, as rac1's take-off does. The flight itself has no skip on the console:
- * skip() below. */
+ * skip() below.
+ *
+ * The end credits are game state 9 (entered by func_00278EB0, updated by func_00278FC0, drawn by
+ * func_L00_002E2958's copies, left by func_00278F80). The update ends them on R2 pressed (the pad
+ * block's +0x1A4 & 2) the way they end on their own: the credits word (0x1B1580) at 1 if it was 0,
+ * as the last page leaves it after the ending, then PopGameState (func_002B4B70) back to the state
+ * they were asked from. Start presses R2 there, so the game itself takes them down. */
 static int skip_buttons(void) {
     if (in_level() && game_state() == STATE_SCENE) {
         return 0x0F00;
+    }
+    if (in_level() && game_state() == STATE_CREDITS) {
+        return 0x0200;
     }
     if (exit_scene() == EXIT_SCENE_TAKE_OFF) {
         return 0x4000;
