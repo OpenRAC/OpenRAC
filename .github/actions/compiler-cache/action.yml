@@ -30,9 +30,21 @@ runs:
         restore-keys: |
           ccache-${{ inputs.key }}-success-
           ccache-${{ inputs.key }}-
+    # ccache from its own GitHub release, never apt: a mirror or DNS failure must not fail the
+    # job. If even that fails, a pass-through stand-in is used and the build is just slower.
+    - name: Install ccache
+      shell: bash
+      run: |
+        if command -v ccache >/dev/null; then ccache --version | head -n 1; exit 0; fi
+        python=python3; [ "$RUNNER_OS" = Windows ] && python=python
+        "$python" "$GITHUB_ACTION_PATH/install_ccache.py" "$RUNNER_TEMP/ccache-bin" ||
+          echo "::warning title=ccache::No ccache; this job may not build."
     # Configure after restoring so old cache settings cannot override this job's limits.
+    # It only sets ccache up now (install: no), so its failure must not fail the job either.
     - uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      continue-on-error: true
       with:
+        install: "no"
         key: ${{ inputs.key }}
         max-size: ${{ inputs.max-size }}
         restore: "false"

@@ -206,6 +206,7 @@ class CachePolicy(unittest.TestCase):
 
 @unittest.skipUnless(shutil.which("ccache") and shutil.which("clang"), "ccache and Clang required")
 @unittest.skipIf(os.name == "nt", "The compiler timestamp fixture uses a POSIX executable")
+@unittest.skipIf(os.environ.get("OPENRAC_CCACHE_SHIM"), "CI could not install ccache; a stand-in is on PATH")
 class CompilerRestore(unittest.TestCase):
     def test_compiler_reinstallation_reuses_objects_but_replacement_does_not(self):
         """Content identity hits across mtime changes and misses when compiler bytes change."""
