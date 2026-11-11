@@ -714,6 +714,10 @@ bool parse_list(std::string_view source, std::vector<ListEntry>& out, std::strin
     return true;
 }
 
+bool setting_value(const Setting& s, const json::Value& v, SettingValue& out) {
+    return value_of(s, v, out);
+}
+
 bool setting_for_game(const Setting& s, std::string_view game) {
     return s.games.empty() || game.empty()
            || std::find(s.games.begin(), s.games.end(), game) != s.games.end();

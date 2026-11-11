@@ -134,4 +134,7 @@ declare openrac: {
     touch_icon: (name: string, svg: string) -> boolean,
     touch_push: (context: string?) -> (),
     touch_hint: (hint: string, on: boolean) -> (),
+    -- interface 1.15: the mod's own settings set (for the run and in the launcher's list), and its changes heard
+    set_setting: (key: string, value: any) -> boolean,
+    on_settings: (fn: () -> ()) -> (),
 }

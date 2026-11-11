@@ -34,6 +34,14 @@ struct Services {
     const openrac_input* (*input)(void) = nullptr;
     int (*take_input)(openrac_mod* mod, uint32_t devices) = nullptr;
     void (*capture_mouse)(openrac_mod* mod, int capture) = nullptr;
+    // Interface 1.15: the mod's settings set from the script (openrac_api's setting_set_*), told
+    // changed by the launcher (on_settings), and read again after either.
+    int (*setting_set_bool)(openrac_mod* mod, const char* key, int value) = nullptr;
+    int (*setting_set_int)(openrac_mod* mod, const char* key, int64_t value) = nullptr;
+    int (*setting_set_float)(openrac_mod* mod, const char* key, double value) = nullptr;
+    int (*setting_set_string)(openrac_mod* mod, const char* key, const char* value) = nullptr;
+    int (*on_settings)(openrac_mod* mod, openrac_frame_fn fn, void* user) = nullptr;
+    const std::map<std::string, SettingValue>* (*settings_of)(openrac_mod* mod) = nullptr;
 };
 
 struct Mod {
