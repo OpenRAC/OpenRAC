@@ -28,6 +28,8 @@ on:
       - ".github/actions/yarn-cache/**"
       - ".github/workflows/ios.yml"
   pull_request:
+    # A draft runs neither job (scope below); ready_for_review runs them.
+    types: [opened, synchronize, reopened, ready_for_review]
     paths: *paths
   workflow_dispatch:
 
@@ -45,8 +47,8 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
-      port: ${{ steps.scope.outputs.ios_port }}
-      launcher: ${{ steps.scope.outputs.ios_launcher }}
+      port: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_port }}
+      launcher: ${{ github.event.pull_request.draft && 'false' || steps.scope.outputs.ios_launcher }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

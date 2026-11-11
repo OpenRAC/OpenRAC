@@ -57,6 +57,19 @@ class PlanTest(unittest.TestCase):
         self.check(["docs/SOURCES.md"], docs_only=True, launcher=False, port=False, port_parts=[])
         self.check(["README.md"], docs_only=False, launcher=False, port=False, port_parts=[])
 
+    def test_markdown_anywhere_runs_no_build(self):
+        for path in ("port/docs/CODING_CONVENTIONS.md", "port/enhanced/lighting/README.md",
+                     "sdk/docs/hooks.md", "launcher/release-notes/1.0.0.md", "editor/MODDING.md"):
+            self.check([path], launcher=False, pages=False, port=False, enhanced=False,
+                       port_parts=[])
+
+    def test_a_removed_page_checks_as_before(self):
+        # The launcher's test wants every page actions.json links to exist.
+        result = plan(["editor/MODDING.md"], PROGRAMS, removed={"editor/MODDING.md"})
+        self.assertTrue(result["launcher"])
+        result = plan(["port/renderer/README.md"], PROGRAMS, removed={"port/renderer/README.md"})
+        self.assertEqual(result["port_parts"], SHARED)
+
     def test_the_launcher_alone_skips_the_port(self):
         self.check(["launcher/src/App.svelte"], launcher=True, pages=True, port=False,
                    enhanced=False, port_parts=[])
