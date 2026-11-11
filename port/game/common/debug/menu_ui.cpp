@@ -725,6 +725,40 @@ void menu_note(const char* line, ImU32 ink) {
     ++s.card.rows;
 }
 
+void menu_key_rows(const std::vector<KeyRow>& rows) {
+    const float gap = dp(4.0f);
+    float caps = 0.0f;
+    for (const KeyRow& row : rows) {
+        float w = 0.0f;
+        for (const std::string& key : row.keys) {
+            w += key_cap_width(key) + gap;
+        }
+        caps = std::max(caps, w);
+    }
+    ImDrawList* list = ImGui::GetWindowDrawList();
+    ImFont* body = menu_fonts.body;
+    const float line = dp(32.0f);
+    ImGui::Dummy(ImVec2(0.0f, dp(s.card.rows == 0 ? 8.0f : 4.0f)));
+    for (const KeyRow& row : rows) {
+        const ImVec2 at = ImGui::GetCursorScreenPos();
+        const float middle = at.y + line * 0.5f;
+        float x = at.x + dp(16.0f);
+        for (const std::string& key : row.keys) {
+            x += key_cap(list, x, middle, key, 1.0f) + gap;
+        }
+        list->AddText(
+            body,
+            body->FontSize,
+            ImVec2(std::round(at.x + dp(16.0f) + caps + dp(8.0f)), beside_caps(body, middle)),
+            ui().text,
+            row.does.c_str()
+        );
+        ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, line));
+    }
+    ImGui::Dummy(ImVec2(0.0f, dp(6.0f)));
+    ++s.card.rows;
+}
+
 // Opening pauses the game, as an emulator's menu does; closing leaves it as Keep paused says
 // (paused as before it opened, unless changed there).
 void set_menu(bool open) {

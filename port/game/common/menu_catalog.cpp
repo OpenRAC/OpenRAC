@@ -257,9 +257,7 @@ constexpr Entry kEntries[] = {
     {Id::FreecamExit, Tab::Developer, "Freecam", kAction, A, "Exit freecam",
      "Gives the view back to the game and puts the freecam's settings back as they came."},
     {Id::FreecamHelp, Tab::Developer, "Freecam", kNote, A, "Freecam controls",
-     "W/S follow the view, A/D strafe, E up, Q down, Shift faster, Ctrl slower. Hold Alt or "
-     "right-click to look. Gamepad: left stick moves, right stick looks, R2 up, L2 down, R1 "
-     "faster, L1 slower; L3+R3 turns freecam off (and on, in developer mode)."},
+     "How to move the freecam, with the keyboard or the controller, whichever was used last."},
 
     // ---- Program ----
     {Id::Quit, Tab::Program, "", kAction, A, "Quit game",
