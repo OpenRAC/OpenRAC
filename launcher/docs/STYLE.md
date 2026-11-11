@@ -16,12 +16,12 @@ follows the same rules.
 - No grey, no brown and no white mix as a fill (`rgb(255 255 255 / …)`). The
   only neutrals are the blacks and coals below; a thin `--line` only splits
   things (rows of a list, a bar from the page).
-- The page is a warm coal (`--ink` `#1c1a16`, `--ink-deep` `#14120e`), never
-  navy and never pure black: text on a black page glares and blurs for many
-  eyes (halation; user decision), so the launcher sits at a dimmed dark
-  theme's lightness, a little warmer than grey so it goes with the gold
-  (OKLCH chroma 0.008, the gold's hue). The game list beside it (and Android's
-  bar at the foot of a narrow window) is darker than the page: `--rail` `#161410`.
+- The page is a neutral dark grey (`--ink` `#191919`, `--ink-deep` `#121212`;
+  user decision), never navy and never pure black: text on a black page glares
+  and blurs for many eyes (halation; user decision), so the launcher sits at a
+  dimmed dark theme's lightness. Panels and controls on it keep their warm coal
+  (below), which goes with the gold. The game list beside it (and Android's
+  bar at the foot of a narrow window) is darker than the page: `--rail` `#131313`.
   Android's rail on the left has no ground of its own: the page's runs under it. Pure black is the OLED
   theme's alone.
 - The light under the bar: a soft glow of `--glow` (the picked game's colour,
@@ -94,9 +94,9 @@ follows the same rules.
 
 | Token                                    | Value                                | Use                                                   |
 | ---------------------------------------- | ------------------------------------ | ----------------------------------------------------- |
-| `--ink`                                  | `#1c1a16`                            | the page                                              |
-| `--ink-deep`                             | `#14120e`                            | badges, tracks, job output, the darkest parts         |
-| `--rail`                                 | `#161410`                            | the game list beside the page, Android's rail         |
+| `--ink`                                  | `#191919`                            | the page                                              |
+| `--ink-deep`                             | `#121212`                            | badges, tracks, job output, the darkest parts         |
+| `--rail`                                 | `#131313`                            | the game list beside the page, Android's rail         |
 | `--panel`                                | `#24221e`                            | cards and panels (`--card`)                           |
 | `--panel-hi`                             | `#2c2a26`                            | a card under the pointer or open (`--card-hi`)        |
 | `--glow`                                 | `#f5c040` (a game's own: its accent) | the light under the bar and along the game menu's top |
@@ -141,7 +141,7 @@ navy (user decision), no brown, no mid grey.
 
 | Surface                         | Fill      | Control on it        |
 | ------------------------------- | --------- | -------------------- |
-| page (`--ink`)                  | `#1c1a16` | `#24221e`, `#2e2c28` |
+| page (`--ink`)                  | `#191919` | `#24221e`, `#2e2c28` |
 | card, panel, drawer (`--panel`) | `#24221e` | `#2e2c28`, `#363430` |
 | card in the game (`--panel-hi`) | `#2c2a26` | `#2e2c28`, `#363430` |
 

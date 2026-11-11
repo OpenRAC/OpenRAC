@@ -8,14 +8,14 @@
 
 :root {
   /* The site's @theme colours. */
-  --ink: #1c1a16;
-  --ink-deep: #14120e;
+  --ink: #191919;
+  --ink-deep: #121212;
   /* Cards and panels: a flat --panel (hover or open: --panel-hi), no border. */
   --panel: #24221e;
   --panel-hi: #2c2a26;
   /* The game list beside the page and Android's rail: darker than the page, but not black; a
      theme with a black of its own (OLED) sets its own. */
-  --rail: #161410;
+  --rail: #131313;
   /* Big surfaces are flat (stripes there tire the eyes; user decision): only the bar's buttons
      wear stripes. */
   --card: var(--panel);
@@ -47,7 +47,7 @@
   /* Kept for the themes (palettes.json); fields have no edge now, a fill sets them apart. */
   --line-field: rgb(255 255 255 / 0.3);
   /* Control fills (STYLE.md, "Control fills"): one step lighter than what is behind them, no navy and no edge.
-     On the page (#1c1a16) a control is #24221e; on a card (#24221e) it is #2e2c28. A card sets
+     On the page (#191919) a control is #24221e; on a card (#24221e) it is #2e2c28. A card sets
      --control from the card pair; a theme (palettes.json) sets both pairs. */
   --control: #24221e;
   --control-hi: #2e2c28;

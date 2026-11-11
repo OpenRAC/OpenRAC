@@ -7,11 +7,11 @@
     "bar, gold and coal (--tint-*), worn instead of the launcher's when Settings, General, Game colours is on."
   ],
   "base": {
-    "--ink": "#1c1a16",
-    "--ink-deep": "#14120e",
+    "--ink": "#191919",
+    "--ink-deep": "#121212",
     "--panel": "#24221e",
     "--panel-hi": "#2c2a26",
-    "--rail": "#161410",
+    "--rail": "#131313",
     "--brand": "#d6a020",
     "--amber": "#f5c040",
     "--gold": "#ffe08f",
@@ -44,7 +44,7 @@
       "id": "openrac",
       "name": "OpenRAC",
       "colors": {},
-      "swatch": ["#1c1a16", "#2c2a26", "#e6e6eb"]
+      "swatch": ["#191919", "#2c2a26", "#e6e6eb"]
     },
     {
       "id": "oled",
