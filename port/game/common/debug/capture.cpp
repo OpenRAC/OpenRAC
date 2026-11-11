@@ -128,6 +128,8 @@ constexpr SweepStep kSweep[] = {
      [](settings::Settings& g) { g.sweep_translucent_off = true; }},
     {"as set, blended passes without probes",
      [](settings::Settings& g) { g.sweep_translucent_unlit = true; }},
+    {"as set, mobys' glow, blended and metal passes left out",
+     [](settings::Settings& g) { g.sweep_moby_blended_off = true; }},
     {"as set, draw distance original (fewer far triangles)",
      [](settings::Settings& g) { g.draw_distance = 100; }},
     {"as set, opaque depth EQUAL (opaque-depth-gequal off)",
@@ -146,6 +148,15 @@ constexpr SweepStep kSweep[] = {
     {"as set, AgX off", [](settings::Settings& g) { g.agx_preview = false; }},
     {"as set, rim light off", [](settings::Settings& g) { g.rim_light = false; }},
     {"enhanced, every effect off", effects_off},
+    // The same with the player's upscaler kept: at the render size of "as set", so the two differ
+    // by the effects alone.
+    {"enhanced, every effect off, upscaler as set",
+     [](settings::Settings& g) {
+         const renderer::TemporalQuality kept = g.temporal_quality;
+         effects_off(g);
+         g.temporal_quality = kept;
+     }},
+    {"as set, anisotropic filtering off", [](settings::Settings& g) { g.anisotropy = 1; }},
     {"as set, shadow filtering fast",
      [](settings::Settings& g) { g.shadow_filter = renderer::ShadowFilter::Fast; }},
     {"as set, occlusion quality low",

@@ -1264,6 +1264,11 @@ void LevelScene::draw_layer(
         if (sweep_translucent && m_sweep_translucent_off) {
             continue;
         }
+        // The sweep's other experiment: the mobys' late glow, blended and metal draws.
+        if (m_sweep_moby_blended_off && mobys && !state.depth_prepass && !opaque
+            && pass != kMobyTranslucent) {
+            continue;
+        }
         const bool reused =
             state.reuse_prepass_depth && !state.depth_prepass && (mobys ? pass == 0 : pass <= 1);
         std::optional<stats::Scope> layer_pass;

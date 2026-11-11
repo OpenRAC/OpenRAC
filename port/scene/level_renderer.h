@@ -247,6 +247,10 @@ public:
         m_sweep_translucent_full = full;
     }
 
+    // Another of the sweep's experiments: the mobys' glow, blended and metal passes left out (the
+    // late passes other than their translucent one), to time them on a device.
+    void set_sweep_moby_blended_off(bool off) { m_sweep_moby_blended_off = off; }
+
     // Controls the GI-coloured edge light on essential gameplay objects.
     void set_gameplay_rim(bool enabled, float strength, float falloff) {
         m_gameplay_rim = {enabled ? strength : 0.0f, falloff};
@@ -770,6 +774,7 @@ private:
     bool m_sweep_translucent_off = false;
     bool m_sweep_translucent_unlit = false;
     bool m_sweep_translucent_full = false;
+    bool m_sweep_moby_blended_off = false;
     std::array<float, 2> m_gameplay_rim{0.30f, 6.46f};
     std::array<float, 2> m_gameplay_rim_lift{0.09f, 7.1f};
     std::unique_ptr<LevelLighting> m_lighting;  // The probe and early lighting; null: none.

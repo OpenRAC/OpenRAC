@@ -212,6 +212,7 @@ void set_lighting(SceneFrame& frame) {
         graphics.sweep_translucent_unlit,
         graphics.sweep_translucent_full
     );
+    owner.scene.set_sweep_moby_blended_off(graphics.sweep_moby_blended_off);
     owner.scene.set_gameplay_rim(
         enhanced && graphics.rim_light, graphics.rim_light_strength, graphics.rim_light_falloff
     );
