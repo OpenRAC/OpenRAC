@@ -14,11 +14,6 @@
 include_guard(GLOBAL)
 include(Dependencies)
 
-# PCSX2 names its texture replacements with XXH3. Only the portable header is needed.
-FetchContent_Declare(openrac_xxhash
-  URL https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.2.tar.gz)
-FetchContent_MakeAvailable(openrac_xxhash)
-
 if(NOT OPENRAC_IOS AND NOT WIN32)
   openrac_add_test(mobile_lifecycle SOURCES tests/mobile_lifecycle_test.cpp platform/pump.cpp
     INCLUDES . DEFINITIONS OPENRAC_IOS=1 LIBS openrac_common openrac_sdl3)
