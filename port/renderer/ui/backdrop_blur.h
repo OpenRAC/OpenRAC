@@ -18,9 +18,19 @@ struct Picture {
     int rows = 0;              // the window's rows it shows, from its top
 };
 
+// A darkening laid over the blur as it is enlarged, with the same noise against banding: an
+// overlay drawn as a gradient on top banded in eight bits (stripes down the dark edges).
+struct Shade {
+    float r = 0.0f, g = 0.0f, b = 0.0f;  // the colour it darkens toward
+    float top = 0.0f;                    // how far at the top, then down to
+    float bottom = 0.0f;                 // how far at the foot
+    float side = 0.0f;                   // how far more at the left and right edges
+    float side_width = 0.0f;             // over this share of the width, fading inward
+};
+
 // Blurs the window's top `rows` (framebuffer pixels) of the default framebuffer, `width` x
 // `height`, with a Gaussian of `sigma` pixels. The picture stays good until the next call.
-Picture blur(int width, int height, int rows, float sigma);
+Picture blur(int width, int height, int rows, float sigma, const Shade& shade = {});
 
 void release();
 

@@ -451,8 +451,19 @@ void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease
     const ImVec2 a = viewport->Pos;
     const ImVec2 b(a.x + viewport->Size.x, a.y + viewport->Size.y);
     const float scale = static_cast<float>(shown.window_height) / viewport->Size.y;
+    // Darker at the foot and the sides, so the menu stands out of it. Laid over in the blur's
+    // own pass, with its noise: drawn here as gradients, they banded in stripes.
+    const ImU32 ink = ui().ink_deep;
+    renderer::ui::backdrop_blur::Shade shade;
+    shade.r = static_cast<float>((ink >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f;
+    shade.g = static_cast<float>((ink >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f;
+    shade.b = static_cast<float>((ink >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f;
+    shade.top = 0.45f;
+    shade.bottom = 0.82f;
+    shade.side = 0.5f;
+    shade.side_width = 0.22f;
     const renderer::ui::backdrop_blur::Picture picture = renderer::ui::backdrop_blur::blur(
-        shown.window_width, shown.window_height, shown.window_height, dp(9.0f) * scale
+        shown.window_width, shown.window_height, shown.window_height, dp(9.0f) * scale, shade
     );
     if (picture.texture != 0) {
         // The texture's first row is its bottom.
@@ -464,13 +475,15 @@ void game_backdrop(const ImGuiViewport* viewport, const Shown& shown, float ease
             ImVec2(1.0f, 0.0f),
             ui_colors::fade(IM_COL32_WHITE, ease)
         );
+        return;
     }
-    const ImU32 light = ui_colors::fade(ui().ink_deep, 0.45f * ease);
-    const ImU32 heavy = ui_colors::fade(ui().ink_deep, 0.82f * ease);
+    // No blur: the same darkening, drawn.
+    const ImU32 light = ui_colors::fade(ink, shade.top * ease);
+    const ImU32 heavy = ui_colors::fade(ink, shade.bottom * ease);
     back->AddRectFilledMultiColor(a, b, light, light, heavy, heavy);
-    const float side = viewport->Size.x * 0.22f;
-    const ImU32 edge = ui_colors::fade(ui().ink_deep, 0.5f * ease);
-    const ImU32 none = ui_colors::fade(ui().ink_deep, 0.0f);
+    const float side = viewport->Size.x * shade.side_width;
+    const ImU32 edge = ui_colors::fade(ink, shade.side * ease);
+    const ImU32 none = ui_colors::fade(ink, 0.0f);
     back->AddRectFilledMultiColor(a, ImVec2(a.x + side, b.y), edge, none, none, edge);
     back->AddRectFilledMultiColor(ImVec2(b.x - side, a.y), b, none, edge, edge, none);
 }

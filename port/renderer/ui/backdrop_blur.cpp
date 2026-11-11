@@ -36,6 +36,8 @@ uniform vec2 step;
 uniform float sigma;
 uniform float calm;
 uniform float upscale;
+uniform vec3 shade_colour;
+uniform vec4 shade;  // top, bottom, side, side width (shares of the picture)
 out vec4 out_colour;
 vec4 bspline(float v) {
     vec4 n = vec4(1.0, 2.0, 3.0, 4.0) - v;
@@ -69,7 +71,14 @@ void main() {
     if (upscale > 0.5) {
         // A little noise, under one step of eight bits, so dark gradients do not band.
         float noise = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
-        out_colour = vec4(smooth_sample(v_uv).rgb + noise / 255.0, 1.0);
+        vec3 c = smooth_sample(v_uv).rgb;
+        // The first row is the bottom.
+        c = mix(c, shade_colour, mix(shade.x, shade.y, 1.0 - v_uv.y));
+        if (shade.w > 0.0) {
+            float edge = min(v_uv.x, 1.0 - v_uv.x) / shade.w;
+            c = mix(c, shade_colour, shade.z * clamp(1.0 - edge, 0.0, 1.0));
+        }
+        out_colour = vec4(c + noise * 1.5 / 255.0, 1.0);
         return;
     }
     int radius = int(ceil(sigma * 2.5));
@@ -165,7 +174,7 @@ void pass(
 
 }  // namespace
 
-Picture blur(int width, int height, int rows, float sigma) {
+Picture blur(int width, int height, int rows, float sigma, const Shade& shade) {
     rows = std::min(rows, height);
     if (width <= 0 || rows <= 0 || !(sigma > 0.0f)) {
         return {};
@@ -248,6 +257,8 @@ Picture blur(int width, int height, int rows, float sigma) {
         glBlendEquation(GL_FUNC_ADD);
         glBlendColor(0.0f, 0.0f, 0.0f, 1.0f - std::exp(-since / 0.1f));
     }
+    glUniform3f(s->shader.uniform("shade_colour"), shade.r, shade.g, shade.b);
+    glUniform4f(s->shader.uniform("shade"), shade.top, shade.bottom, shade.side, shade.side_width);
     pass(out, s->shown, 0.0f, 0.0f, 0.0f, 0.0f, true);
     glDisable(GL_BLEND);
     glBindTexture(GL_TEXTURE_2D, 0);
